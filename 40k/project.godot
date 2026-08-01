@@ -16,7 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="40k"
 run/main_scene="res://scenes/MainMenu.tscn"
-config/features=PackedStringArray("4.6", "GL Compatibility")
+config/features=PackedStringArray("4.4", "GL Compatibility")
 config/icon="res://icon.svg"
 
 [autoload]
@@ -77,6 +77,8 @@ ScenarioRunner="*res://autoloads/ScenarioRunner.gd"
 AIBenchmarkRunner="*res://autoloads/AIBenchmarkRunner.gd"
 TutorialOverlay="*res://scripts/tutorial/TutorialOverlay.gd"
 TutorialManager="*res://autoloads/TutorialManager.gd"
+HandoffManager="*res://autoloads/HandoffManager.gd"
+MusicManager="*res://autoloads/MusicManager.gd"
 
 [display]
 
@@ -456,6 +458,7 @@ global_script_class_52={
 
 [gui]
 
+theme/custom="res://themes/main_theme.tres"
 theme/custom_font="res://fonts/Rajdhani-SemiBold.ttf"
 
 [input]

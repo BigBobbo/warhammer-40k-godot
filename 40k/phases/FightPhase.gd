@@ -1119,10 +1119,13 @@ func _process_roll_dice(action: Dictionary) -> Dictionary:
 
 	# STAGED FIGHT: in non-networked play a HUMAN attacker resolves weapon by
 	# weapon with pauses after the hit roll and the wound roll (Command Re-roll
-	# windows) — mirrors ShootingPhase's sequential_staged mode. AI attackers,
-	# networked games and explicit fast_roll keep the one-shot paths below.
+	# windows) — mirrors ShootingPhase's sequential_staged mode. An AI attacker
+	# stages too when the HUMAN is the defender (see _should_stage_fight):
+	# the enemy's swing back is rolled out in the same dock instead of landing
+	# as a finished "N wounds to save" prompt. Networked games and explicit
+	# fast_roll keep the one-shot paths below.
 	var interactive_saves = defender_is_human and not _auto_alloc_11e
-	if _should_stage_fight(action):
+	if _should_stage_fight(action, interactive_saves):
 		return _staged_fight_begin(interactive_saves)
 
 	if interactive_saves:
@@ -1318,21 +1321,58 @@ func create_result(success: bool, changes: Array = [], error: String = "", addit
 		result["error"] = error
 	return result
 
-func _should_stage_fight(action: Dictionary) -> bool:
+func _should_stage_fight(action: Dictionary, interactive_saves: bool = true) -> bool:
 	if action.get("payload", {}).get("fast_roll", false):
 		return false
 	if NetworkManager.is_networked():
 		return false
-	# Only stage for human attackers — AI activations must not pause.
+	if not _fight_attacker_is_ai():
+		return true
+	# ENEMY SWING BACK: an AI attacker stages ONLY when the human defender is
+	# about to roll their own saves anyway (interactive_saves). Reported: the
+	# enemy's melee landed as a finished "20 wound(s) to save" prompt with the
+	# hit and wound rolls dumped into the log all at once — the player never saw
+	# them roll. Staging routes them through the same dock the player's own
+	# attacks use (hit pause → wound pause → saves), and the HUMAN advances it.
+	#
+	# The interactive_saves gate is what makes that safe: it is only true when a
+	# real defender UI is present (SettingsService loaded, auto-allocate off,
+	# human-owned target). Stripped headless harnesses have no SettingsService,
+	# so they keep the one-shot resolution and nothing waits for a click that
+	# will never come. AIPlayer._human_defender_window_pending() reports the
+	# pause so the AI idles instead of racing the player's dock.
+	return interactive_saves
+
+## True when THIS activation's attacks will be resolved through the staged dock
+## (hit pause → wound pause → saves) rather than in one shot. FightController
+## asks before it activates the resolution dock, so it never puts a dock up that
+## would get no pause events. Mirrors _process_roll_dice's own gate, and is safe
+## to call from `fighting_begun` (confirmed_attacks is already populated).
+func fight_activation_will_stage() -> bool:
+	var ss = get_node_or_null("/root/SettingsService")
+	var auto_alloc: bool = ss == null or ss.get_auto_allocate_wounds()
+	if NetworkManager.is_networked():
+		auto_alloc = false
+	return _should_stage_fight({}, _is_defender_human_player() and not auto_alloc)
+
+# True while the unit currently making attacks belongs to an AI player.
+func _fight_attacker_is_ai() -> bool:
 	var fighter_owner = get_unit(active_fighter_id).get("owner", get_current_player())
 	var ai_player = get_node_or_null("/root/AIPlayer")
-	if ai_player and ai_player.get("enabled") and ai_player.has_method("is_ai_player") and ai_player.is_ai_player(fighter_owner):
+	if ai_player == null or not ai_player.get("enabled"):
 		return false
-	return true
+	if not ai_player.has_method("is_ai_player"):
+		return false
+	return ai_player.is_ai_player(fighter_owner)
 
 func _fight_reroll_available() -> bool:
 	# A staged hit/wound Command Re-roll is offered when the ATTACKING player has
 	# not already used Command Re-roll this phase and can pay the CP.
+	# Never on an AI attacker's dice: the human is only stepping the reveal of
+	# the enemy's swing back, and those are not their dice to re-roll (their own
+	# Command Re-roll comes later, on their saves, in the allocation overlay).
+	if _fight_attacker_is_ai():
+		return false
 	var sm = get_node_or_null("/root/StratagemManager")
 	if sm == null or not sm.has_method("is_command_reroll_available"):
 		return false

@@ -43,7 +43,7 @@
       "prompt": {
         "bark": "MUSTER UP!",
         "kbm": "Before deployin', dis panel locks in yer [b]Battle Formations[/b]. First: under [b]LEADER ATTACHMENTS[/b], set da 'Warboss →' dropdown to [b]Boyz[/b] — now he fights wiv his mob.",
-        "pad": "Dis panel locks in yer [b]Battle Formations[/b]. Glide {ls} onto da 'Warboss →' dropdown, {a}, an' pick [b]Boyz[/b]."
+        "pad": "Dis panel locks in yer [b]Battle Formations[/b]. Da pad starts on [b]Confirm Formations[/b] — {dpad} ▲ walks up to da 'Warboss →' dropdown, {a} opens it, ▼ onto [b]Boyz[/b], {a} again."
       },
       "anchor": { "node": "/root/Main/FormationsDialog" },
       "spotlight": "none",
@@ -84,7 +84,7 @@
       "prompt": {
         "bark": "ROLL DA BONES!",
         "kbm": "Deployment roll-off: click [b]⚄ Roll the dice[/b] in da dialog (roll again on a tie), den [b]Continue[/b] — da winner picks who deploys first.",
-        "pad": "Press {a} on da dialog's Roll button. Re-roll ties, den Continue."
+        "pad": "Da dialog's Roll button takes da pad focus — just press {a}. Re-roll ties, den {a} on Continue."
       },
       "spotlight": "none",
       "allow": ["ROLL_OFF_DEPLOYMENT", "CHOOSE_DEPLOYMENT"],
@@ -97,7 +97,7 @@
       "prompt": {
         "bark": "POINT IT DA RIGHT WAY!",
         "kbm": "Click [b]Battlewagon[/b] in da list — a ghost follows yer mouse. It's a long ol' fing, so aim it BEFORE ya drop it: {key:rotate_left}/{key:rotate_right} (or roll da mouse wheel) turn it 15° a tap. Give it a few taps.",
-        "pad": "Pick da [b]Battlewagon[/b] row — a ghost follows {ls}. It's a long ol' fing, so aim it BEFORE ya drop it: hold {r3} an' tap {lb}/{rb} to turn it 15° a tap. Give it a few taps."
+        "pad": "Tap {rb} till da [b]Battlewagon[/b] row is picked — a ghost follows {ls}. It's a long ol' fing, so aim it BEFORE ya drop it: hold {r3} an' tap {lb}/{rb} to turn it 15° a tap. Give it a few taps."
       },
       "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel" },
       "spotlight": "soft",
@@ -113,7 +113,7 @@
       "prompt": {
         "bark": "PARK DA WAGON!",
         "kbm": "Wagon's aimed — now click inside yer glowin' deployment zone to drop it. Nuffin' in yer hand? Click da [b]Battlewagon[/b] row first.",
-        "pad": "Pick da [b]Battlewagon[/b] row, glide {ls} into yer zone an' {a} to place it."
+        "pad": "Tap {rb} till da [b]Battlewagon[/b] row is picked. Droppin' it is board work, so glide {ls} into yer zone an' {a} to place it."
       },
       "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel" },
       "spotlight": "soft",
@@ -163,7 +163,7 @@
       "prompt": {
         "bark": "LOCK IT IN!",
         "kbm": "Happy wiv where it sits? Hit [b]Confirm[/b] on da unit card to lock da wagon in.",
-        "pad": "Happy wiv where it sits? Glide onto [b]Confirm[/b] an' press {a} — or just press {menu}."
+        "pad": "Happy wiv where it sits? Press {menu} — dat IS [b]Confirm[/b] on da pad. Or {dpad} ▼ hops into da unit card an' ▼ again lands on [b]Confirm[/b], den {a}."
       },
       "anchor": { "button_text": "Confirm" },
       "spotlight": "soft",
@@ -176,7 +176,7 @@
       "prompt": {
         "bark": "GROTS IN A MOB!",
         "kbm": "Da enemy deploys between yer units — dat's da alternation. Now: click [b]Gretchin[/b], pick da [b]Tight[/b] formation, click open ground in yer zone to lay da whole squad out, den [b]Confirm[/b].",
-        "pad": "Pick da [b]Gretchin[/b] row. {dpad} ▲ slides da ▶ marker onto [b]Deploy Formation[/b], den {dpad} ▶ twice steps Single, Spread, [b]Tight[/b]. Place 'em wiv {a}, den {menu} to Confirm."
+        "pad": "Tap {rb} (or {lb}) till da [b]Gretchin[/b] row is picked. {dpad} ▲ slides da ▶ marker onto [b]Deploy Formation[/b], den {dpad} ▶ twice steps Single, Spread, [b]Tight[/b]. Place 'em wiv {a}, den {menu} to Confirm."
       },
       "anchor": { "button_text": "Tight" },
       "spotlight": "soft",
@@ -189,7 +189,7 @@
       "prompt": {
         "bark": "WHO GOES FIRST?",
         "kbm": "Yer Boyz are already in da wagon, so muster's done. One last roll-off decides who takes da first turn — [b]Roll[/b] in da dialog (again on a tie), den [b]Continue[/b].",
-        "pad": "Press {a} on da dialog's Roll button — again on a tie — den Continue."
+        "pad": "Da Roll button takes da pad focus — press {a}, again on a tie, den {a} on Continue."
       },
       "spotlight": "none",
       "allow": ["ROLL_OFF_FIRST_TURN", "CONFIRM_FIRST_TURN", "END_DEPLOYMENT"],

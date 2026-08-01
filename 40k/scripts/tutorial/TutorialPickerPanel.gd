@@ -47,14 +47,14 @@ func _build_ui() -> void:
 	var title := Label.new()
 	title.name = "PickerTitle"
 	title.text = "Basic Trainin'"
-	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_font_size_override("font_size", 26)
 	title.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "You know da rules — learn da controls. Short lessons, replay any time."
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	subtitle.add_theme_font_size_override("font_size", 13)
+	subtitle.add_theme_font_size_override("font_size", 17)
 	subtitle.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	vbox.add_child(subtitle)
 
@@ -147,7 +147,7 @@ func _make_row(id: String, title: String, subtitle: String, minutes: int,
 	var check := Label.new()
 	check.text = "✓" if completed else "—"
 	check.custom_minimum_size = Vector2(24, 0)
-	check.add_theme_font_size_override("font_size", 16)
+	check.add_theme_font_size_override("font_size", 20)
 	check.add_theme_color_override("font_color",
 		WhiteDwarfThemeData.WH_GOLD if completed else Color(WhiteDwarfThemeData.WH_PARCHMENT, 0.35))
 	row.add_child(check)
@@ -156,20 +156,20 @@ func _make_row(id: String, title: String, subtitle: String, minutes: int,
 	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var title_label := Label.new()
 	title_label.text = title
-	title_label.add_theme_font_size_override("font_size", 15)
+	title_label.add_theme_font_size_override("font_size", 19)
 	title_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	text_box.add_child(title_label)
 	if subtitle != "":
 		var sub_label := Label.new()
 		sub_label.text = subtitle
-		sub_label.add_theme_font_size_override("font_size", 12)
+		sub_label.add_theme_font_size_override("font_size", 16)
 		sub_label.add_theme_color_override("font_color", Color(WhiteDwarfThemeData.WH_PARCHMENT, 0.6))
 		text_box.add_child(sub_label)
 	row.add_child(text_box)
 
 	var est := Label.new()
 	est.text = "≈%d min" % minutes
-	est.add_theme_font_size_override("font_size", 12)
+	est.add_theme_font_size_override("font_size", 16)
 	est.add_theme_color_override("font_color", Color(WhiteDwarfThemeData.WH_PARCHMENT, 0.6))
 	row.add_child(est)
 

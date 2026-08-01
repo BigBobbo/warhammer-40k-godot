@@ -197,6 +197,13 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 
 		current_phase_instance.enter_phase(snapshot)
 
+		# MP: push the host's authoritative post-enter state to clients now.
+		# _on_phase_enter side effects (Command-phase CP, RNG secondary draws,
+		# objective snapshots) run on both peers and diverge; without this the
+		# client sees stale CP / a wrong secondary hand for the whole phase.
+		if NetworkManager.is_networked() and NetworkManager.is_host():
+			NetworkManager.broadcast_phase_enter_sync()
+
 		# ISS-038: a player turn begins with its Command phase (07.02).
 		if new_phase == GameStateData.Phase.COMMAND:
 			var round_now = GameState.get_battle_round()

@@ -26,24 +26,15 @@ var extra_attacks_target_list: ItemList = null  # T3-3: Target selector for Extr
 var all_to_target_button: Button = null  # T5-UX5: "All to Target" shortcut button
 var _pad_hint_label: Label = null  # Controller hint row (shown only when a pad is active)
 
-# MA-LOADOUT: the unit's melee reality, one entry per weapon that at least one
-# ELIGIBLE model actually carries:
-#   {weapon_id, name, weapon (datasheet dict), models: [model index], roles: [String]}
-#
-# This used to be `meta.weapons` — the datasheet's whole option MENU — which made
-# the dialog claim every Ork Boy carried a Choppa AND a Close combat weapon AND
-# (via the Boss Nob's row) a Big choppa AND a Power klaw, and offered "max ≈30
-# attacks" for each of them. Those are mutually-exclusive wargear options: the
-# mob is 9 Boyz with choppas and 1 Boss Nob with a big choppa.
-#
-# 11e Fight — Select Weapons: "For each model in the attacking unit, select which
-# weapons that model will make attacks with … you must select one melee weapon
-# THAT MODEL HAS." Per MODEL, not per unit — so the Boss Nob can swing his big
-# choppa in the same activation the Boyz swing choppas. Each group therefore
-# carries its own model list and gets its own assignment.
-var melee_groups: Array = []
-var extra_attacks_groups: Array = []
-var clear_button: Button = null
+# MA-LOADOUT (melee): who can swing what. `_eligible_indices` is every model
+# that may fight this activation; `_weapon_carriers` maps a weapon id to the
+# subset of those models actually equipped with it (RulesEngine applies the same
+# filter when the attacks resolve). Before this the dialog offered the unit's
+# whole datasheet menu to every model, so picking the Boss Nob's Power klaw gave
+# all ten Boyz one.
+var _eligible_indices: Array = []
+var _weapon_carriers: Dictionary = {}   # weapon_id -> Array[int] model indices
+var _weapon_by_id: Dictionary = {}      # weapon_id -> weapon profile dictionary
 
 func setup(fighter_id: String, targets: Dictionary, phase) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
@@ -84,31 +75,56 @@ func _build_ui() -> void:
 	else:
 		instruction.text = "All %d models in engagement range" % alive_count
 	container.add_child(instruction)
+	var weapons_data = unit.get("meta", {}).get("weapons", [])
+	print("[AttackAssignmentDialog] Found %d total weapons" % weapons_data.size())
 
-	# MA-LOADOUT: what the models ACTUALLY carry, not the datasheet's option menu.
-	_build_melee_groups(unit, eligible_indices)
-	# Kept in sync for the _on_confirmed guards, which only need the profiles.
+	# T3-3: Separate melee weapons into regular and Extra Attacks
+	var regular_melee_weapons = []
 	extra_attacks_weapons = []
-	for g in extra_attacks_groups:
-		extra_attacks_weapons.append(g.weapon)
+	for weapon in weapons_data:
+		if weapon.get("type", "").to_lower() == "melee":
+			if RulesEngine.weapon_data_has_extra_attacks(weapon):
+				extra_attacks_weapons.append(weapon)
+				print("[AttackAssignmentDialog] Extra Attacks weapon: ", weapon.get("name", "Unknown"))
+			else:
+				regular_melee_weapons.append(weapon)
+				print("[AttackAssignmentDialog] Regular melee weapon: ", weapon.get("name", "Unknown"))
 
-	print("[AttackAssignmentDialog] Regular melee weapons: %d, Extra Attacks weapons: %d" % [melee_groups.size(), extra_attacks_weapons.size()])
+	print("[AttackAssignmentDialog] Regular melee weapons: %d, Extra Attacks weapons: %d" % [regular_melee_weapons.size(), extra_attacks_weapons.size()])
+
+	# MA-LOADOUT (melee): work out who carries what before listing anything, and
+	# drop weapons no eligible model is equipped with — the menu used to be the
+	# unit's whole datasheet, so a mob was offered its Boss Nob's Power klaw as
+	# though every model had one.
+	_eligible_indices = eligible_indices
+	_weapon_carriers = {}
+	_weapon_by_id = {}
+	var carried_melee_weapons: Array = []
+	for weapon in regular_melee_weapons:
+		var wid = RulesEngine.generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
+		var carriers = RulesEngine.get_melee_weapon_swingers(unit, wid, eligible_indices, [])
+		# The engine falls back to "everyone" for a weapon it cannot attribute;
+		# that is the unresolvable case, and listing it is still correct.
+		if carriers.is_empty():
+			print("[AttackAssignmentDialog] '%s' has no eligible carrier — omitted" % weapon.get("name", "?"))
+			continue
+		_weapon_carriers[wid] = carriers
+		_weapon_by_id[wid] = weapon
+		carried_melee_weapons.append(weapon)
+	regular_melee_weapons = carried_melee_weapons
 
 	# T3-3: Show Extra Attacks weapons info if any exist
-	if not extra_attacks_groups.is_empty():
+	if not extra_attacks_weapons.is_empty():
 		var ea_label = Label.new()
 		ea_label.text = "Extra Attacks (auto-included with any weapon choice):"
 		container.add_child(ea_label)
 
 		var ea_display = RichTextLabel.new()
-		ea_display.custom_minimum_size = Vector2(480, 30 + extra_attacks_groups.size() * 20)
+		ea_display.custom_minimum_size = Vector2(480, 30 + extra_attacks_weapons.size() * 20)
 		ea_display.bbcode_enabled = true
-		for g in extra_attacks_groups:
-			var weapon = g.weapon
-			ea_display.append_text("[b]+ %s[/b] ×%d %s (A:%s S:%s AP:%s D:%s) [i][Extra Attacks][/i]\n" % [
+		for weapon in extra_attacks_weapons:
+			ea_display.append_text("[b]+ %s[/b] (A:%s S:%s AP:%s D:%s) [i][Extra Attacks][/i]\n" % [
 				weapon.get("name", "Unknown"),
-				g.models.size(),
-				_role_summary(g),
 				weapon.get("attacks", "1"),
 				weapon.get("strength", "User"),
 				weapon.get("ap", "0"),
@@ -138,59 +154,59 @@ func _build_ui() -> void:
 		container.add_child(separator)
 
 	# Weapon selector (regular weapons only)
-	# 11e core rules (Fight — Select Weapons): each MODEL makes its attacks with
-	# one melee weapon THAT MODEL HAS. Different models may pick different
-	# weapons, so each row below is a weapon plus the models carrying it, and a
-	# row can be assigned without cancelling the others.
+	# 11e core rules (Fight — Select Melee Weapon): each model makes its attacks
+	# with ONE selected melee weapon — the choice below is exclusive.
 	var weapon_label = Label.new()
-	if melee_groups.size() > 1:
-		weapon_label.text = "Weapons carried (each model swings ONE — different models may swing different weapons):"
-	else:
-		weapon_label.text = "Weapon carried (each model fights with one melee weapon):"
-	weapon_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	weapon_label.custom_minimum_size = Vector2(480, 0)
+	weapon_label.text = "Select ONE Weapon (a model only fights with one melee weapon):"
 	container.add_child(weapon_label)
 
 	weapon_list = ItemList.new()
 	weapon_list.name = "WeaponList"
 	weapon_list.custom_minimum_size = Vector2(480, 100)
 
-	for g in melee_groups:
-		var weapon = g.weapon
-		var weapon_name = str(g.name)
-		var weapon_max_attacks: float = _group_max_attacks(g)
+	# T-093: Compute max-cap. One-weapon rule: only ONE regular melee weapon
+	# swings per activation, so the cap is the best single choice — not the sum.
+	# MA-LOADOUT: "attacks with this weapon" is now the CARRIERS' attacks, and a
+	# choice also sweeps every other eligible model into the weapon it does
+	# carry (see _set_single_weapon_assignment), so the cap is the best whole
+	# plan rather than one weapon times the whole unit.
+	var unit_max_attacks_best: float = 0.0
+	for i in range(regular_melee_weapons.size()):
+		var weapon = regular_melee_weapons[i]
+		var weapon_name = weapon.get("name", "Unknown")
+		# Generate weapon ID from name using RulesEngine to prevent collisions
+		var weapon_id = RulesEngine.generate_weapon_id(weapon_name, weapon.get("type", ""))
 
-		weapon_list.add_item("%s — %d× %s (A:%s S:%s AP:%s D:%s, max ≈%s)" % [
+		var carriers: Array = _weapon_carriers.get(weapon_id, [])
+		var avg_attacks: float = _average_dice_notation(str(weapon.get("attacks", "1")))
+		var weapon_max_attacks: float = avg_attacks * float(carriers.size())
+		unit_max_attacks_best = maxf(unit_max_attacks_best, _plan_total_attacks(weapon_id))
+
+		weapon_list.add_item("%s (A:%s S:%s AP:%s D:%s — %s, ≈%s attacks)" % [
 			weapon_name,
-			g.models.size(),
-			_role_summary(g),
 			weapon.get("attacks", "1"),
 			weapon.get("strength", "User"),
 			weapon.get("ap", "0"),
 			weapon.get("damage", "1"),
-			_fmt_num(weapon_max_attacks)
+			"%d model%s" % [carriers.size(), "" if carriers.size() == 1 else "s"],
+			"%.1f" % weapon_max_attacks if weapon_max_attacks != floor(weapon_max_attacks) else "%d" % int(weapon_max_attacks)
 		])
 		# Store the weapon ID as metadata for creating the attack action
-		weapon_list.set_item_metadata(weapon_list.item_count - 1, str(g.weapon_id))
-		print("[AttackAssignmentDialog] Weapon '%s' → ID '%s' carried by %d eligible model(s) %s (max attacks ≈%.1f)" % [
-			weapon_name, str(g.weapon_id), g.models.size(), str(g.models), weapon_max_attacks])
+		weapon_list.set_item_metadata(weapon_list.item_count - 1, weapon_id)
+		print("[AttackAssignmentDialog] Weapon '%s' → ID '%s' (%d carrier(s), ≈%.1f attacks)" % [
+			weapon_name, weapon_id, carriers.size(), weapon_max_attacks])
 
 	# Pre-select the first weapon so a default choice is always visible
 	if weapon_list.item_count > 0:
 		weapon_list.select(0)
 
-	# T-093: max-cap label. Every eligible model swings its OWN weapon, so the
-	# cap is the sum over models of their best carried weapon — not one weapon
-	# times the whole unit (which is what the datasheet-menu version reported).
+	# T-093: max-cap label (best whole plan — one melee weapon per model)
 	var max_cap_label = Label.new()
-	max_cap_label.name = "MaxCapLabel"
-	max_cap_label.text = "Max total attacks (cap): ≈%s across %d eligible models, each swinging the weapon it carries" % [
-		_fmt_num(_unit_max_attacks(eligible_indices)),
+	max_cap_label.text = "Max total attacks (cap): ≈%s across %d eligible models, each swinging a weapon it carries" % [
+		"%.1f" % unit_max_attacks_best if unit_max_attacks_best != floor(unit_max_attacks_best) else "%d" % int(unit_max_attacks_best),
 		eligible_indices.size()
 	]
-	max_cap_label.add_theme_font_size_override("font_size", 12)
-	max_cap_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	max_cap_label.custom_minimum_size = Vector2(480, 0)
+	max_cap_label.add_theme_font_size_override("font_size", 16)
 	container.add_child(max_cap_label)
 
 	container.add_child(weapon_list)
@@ -216,33 +232,22 @@ func _build_ui() -> void:
 	var button_container = HBoxContainer.new()
 	button_container.name = "ButtonContainer"
 
-	# Assign button — the SELECTED weapon, swung by the models that carry it.
+	# Assign button
 	var assign_button = Button.new()
 	assign_button.name = "AssignButton"
 	assign_button.text = "Add Assignment"
-	assign_button.tooltip_text = "Send the selected weapon's models at the selected target. Other weapons keep their own assignments — different models may swing different weapons."
 	assign_button.pressed.connect(_on_assign_pressed)
 	button_container.add_child(assign_button)
 
-	# T5-UX5 (reworked for per-model loadouts): one-click shortcut that sends
-	# EVERY carried weapon at the selected target — the Boss Nob's big choppa and
-	# the Boyz' choppas in the same activation, each swung only by its own models.
-	# Node name is kept as AllToTargetButton — windowed scenarios click it by path.
+	# T5-UX5 (reworked for the 11e one-weapon rule): one-click shortcut that
+	# assigns the selected weapon to the selected target. Node name is kept as
+	# AllToTargetButton — windowed scenarios click it by path.
 	all_to_target_button = Button.new()
 	all_to_target_button.name = "AllToTargetButton"
-	all_to_target_button.text = "Weapon to Target" if melee_groups.size() <= 1 else "All Weapons to Target"
-	all_to_target_button.tooltip_text = "Assign every weapon the unit carries to the selected target — each weapon swung only by the models that have it"
+	all_to_target_button.text = "Weapon to Target"
+	all_to_target_button.tooltip_text = "Assign the selected melee weapon to the selected target (each model fights with one melee weapon)"
 	all_to_target_button.pressed.connect(_on_all_to_target_pressed)
 	button_container.add_child(all_to_target_button)
-
-	# Undo: with several weapon groups a mis-click would otherwise lock a model
-	# into the wrong weapon for the whole activation.
-	clear_button = Button.new()
-	clear_button.name = "ClearAssignmentsButton"
-	clear_button.text = "Clear"
-	clear_button.tooltip_text = "Clear all weapon assignments and start again"
-	clear_button.pressed.connect(_on_clear_assignments_pressed)
-	button_container.add_child(clear_button)
 
 	# Explicit confirm button with a stable path (the built-in AcceptDialog
 	# OK button lives under auto-named internal containers)
@@ -296,8 +301,8 @@ func _build_ui() -> void:
 	# device; a mouse player never sees it. See _pad_handle_input.
 	_pad_hint_label = Label.new()
 	_pad_hint_label.name = "PadHintLabel"
-	_pad_hint_label.text = "▲▼ Weapon   ·   ◀▶ Target   ·   Ⓐ Assign   ·   Ⓨ All weapons   ·   ☰ Fight!   ·   Ⓑ Skip"
-	_pad_hint_label.add_theme_font_size_override("font_size", 12)
+	_pad_hint_label.text = "▲▼ Weapon   ·   ◀▶ Target   ·   Ⓐ Assign   ·   ☰ Fight!   ·   Ⓑ Skip"
+	_pad_hint_label.add_theme_font_size_override("font_size", 16)
 	_pad_hint_label.modulate = Color(1, 1, 1, 0.75)
 	_pad_hint_label.visible = InputDeviceManager.is_pad_active()
 	container.add_child(_pad_hint_label)
@@ -346,10 +351,9 @@ func _pad_current_target_id() -> String:
 # Pad navigation for the whole attack dialog, handled on the dialog's own
 # window_input so it never fights PadRouter (an exclusive AcceptDialog is its
 # own viewport). Mirrors the shooting phase's controller mapping exactly:
-#   ▲ ▼   step the weapon list   (each row = a weapon + the models carrying it)
+#   ▲ ▼   step the weapon list   (one melee weapon per model — 11e)
 #   ◀ ▶   step the target list   (updates the board reticle via the signal)
 #   Ⓐ     Add Assignment          (assign the selected weapon → target)
-#   Ⓨ     All Weapons to Target   (every carried weapon → the selected target)
 #   ☰      Fight!                  (confirm + resolve — the phase-action button)
 #   Ⓑ     Skip / cancel           (ends the activation when a Skip button exists)
 func _pad_handle_input(event: InputEvent) -> void:
@@ -374,15 +378,6 @@ func _pad_handle_input(event: InputEvent) -> void:
 			set_input_as_handled()
 		JOY_BUTTON_A:
 			_pad_assign()
-			set_input_as_handled()
-		JOY_BUTTON_Y:
-			# Ⓨ = All Weapons to Target — the whole unit at the highlighted enemy,
-			# each weapon swung only by the models that carry it. Saves a pad
-			# player stepping every weapon row of a mixed mob.
-			_on_all_to_target_pressed()
-			var toast_all := get_node_or_null("/root/ToastManager")
-			if toast_all != null:
-				toast_all.show_toast("✓ All weapons assigned — ☰ to Fight!")
 			set_input_as_handled()
 		JOY_BUTTON_START:
 			_on_confirmed()
@@ -440,166 +435,6 @@ func _find_child_button(node_name: String) -> Button:
 			q.append(c)
 	return null
 
-# =============================================================================
-# MA-LOADOUT: per-model melee groups
-# =============================================================================
-
-# Build `melee_groups` / `extra_attacks_groups` from what each model ACTUALLY
-# carries. RulesEngine.get_unit_melee_weapons resolves the per-model loadout —
-# from the roster's wargear where it says something, otherwise from the
-# datasheet's default kit per model role — and returns {model key: [weapon name]}.
-# Only ELIGIBLE models (in engagement range) can swing, so only they are counted.
-func _build_melee_groups(unit: Dictionary, eligible_indices: Array) -> void:
-	melee_groups.clear()
-	extra_attacks_groups.clear()
-
-	var board = phase_reference.game_state_snapshot if phase_reference != null else {}
-	var per_model = RulesEngine.get_unit_melee_weapons(unit_id, board)
-	print("[AttackAssignmentDialog] Per-model melee loadouts for %s: %s" % [unit_id, str(per_model)])
-
-	var weapons_by_name := {}
-	for w in unit.get("meta", {}).get("weapons", []):
-		if str(w.get("type", "")).to_lower() == "melee":
-			weapons_by_name[str(w.get("name", ""))] = w
-
-	var order: Array = []
-	var carriers := {}
-	var roles := {}
-	var models = unit.get("models", [])
-	var model_profiles = unit.get("meta", {}).get("model_profiles", {})
-	for model_key in per_model:
-		var idx := _model_key_to_index(str(model_key))
-		if idx < 0 or not idx in eligible_indices:
-			continue
-		var role := ""
-		if idx < models.size():
-			var mt = str(models[idx].get("model_type", ""))
-			if mt != "" and model_profiles.has(mt):
-				role = str(model_profiles[mt].get("label", mt))
-			elif mt != "":
-				role = mt
-		for wname in per_model[model_key]:
-			var n := str(wname)
-			if not carriers.has(n):
-				carriers[n] = []
-				roles[n] = []
-				order.append(n)
-			carriers[n].append(idx)
-			if role != "" and role not in roles[n]:
-				roles[n].append(role)
-
-	for n in order:
-		var weapon = weapons_by_name.get(n, {})
-		if weapon.is_empty():
-			print("[AttackAssignmentDialog] WARNING: model carries '%s' but the datasheet has no such melee profile — skipped" % n)
-			continue
-		var group := {
-			"weapon_id": RulesEngine.generate_weapon_id(n, "Melee"),
-			"name": n,
-			"weapon": weapon,
-			"models": carriers[n],
-			"roles": roles[n],
-		}
-		if RulesEngine.weapon_data_has_extra_attacks(weapon):
-			extra_attacks_groups.append(group)
-		else:
-			melee_groups.append(group)
-
-	# Safety net: never leave a unit unable to fight because the per-model lookup
-	# came back empty (an unusual roster, a unit with no model entries). Fall back
-	# to the datasheet menu with every eligible model, i.e. the old behaviour.
-	if melee_groups.is_empty() and extra_attacks_groups.is_empty():
-		print("[AttackAssignmentDialog] No per-model melee data for %s — falling back to the datasheet weapon list" % unit_id)
-		for wname in weapons_by_name:
-			var weapon = weapons_by_name[wname]
-			var group := {
-				"weapon_id": RulesEngine.generate_weapon_id(str(wname), "Melee"),
-				"name": str(wname),
-				"weapon": weapon,
-				"models": eligible_indices.duplicate(),
-				"roles": [],
-			}
-			if RulesEngine.weapon_data_has_extra_attacks(weapon):
-				extra_attacks_groups.append(group)
-			else:
-				melee_groups.append(group)
-
-
-# RulesEngine.get_unit_melee_weapons keys models as "m<index>"; tolerate a bare
-# index too. -1 when the key is neither.
-func _model_key_to_index(key: String) -> int:
-	if key.begins_with("m") and key.substr(1).is_valid_int():
-		return key.substr(1).to_int()
-	if key.is_valid_int():
-		return key.to_int()
-	return -1
-
-
-func _group_for_weapon(weapon_id: String) -> Dictionary:
-	for g in melee_groups:
-		if str(g.weapon_id) == weapon_id:
-			return g
-	for g in extra_attacks_groups:
-		if str(g.weapon_id) == weapon_id:
-			return g
-	return {}
-
-
-# Model indices already committed to a regular melee weapon this activation.
-func _committed_model_indices() -> Dictionary:
-	var out := {}
-	for assignment in assignments:
-		for ref in assignment.get("models", []):
-			out[int(str(ref))] = true
-	return out
-
-
-# Model refs in the form the fight engine matches: index strings.
-func _model_refs(indices: Array) -> Array:
-	var out: Array = []
-	for idx in indices:
-		out.append(str(idx))
-	return out
-
-
-# "Boss Nob" / "Boy" / "models" — who is holding this weapon.
-func _role_summary(group: Dictionary) -> String:
-	var roles = group.get("roles", [])
-	if roles.is_empty():
-		return "model" if group.get("models", []).size() == 1 else "models"
-	return ", ".join(PackedStringArray(roles))
-
-
-func _group_max_attacks(group: Dictionary) -> float:
-	var avg: float = _average_dice_notation(str(group.weapon.get("attacks", "1")))
-	return avg * float(group.get("models", []).size())
-
-
-# The unit's attack ceiling: every eligible model swings the best weapon IT
-# carries (plus any Extra Attacks weapon, which is used in addition). Summing
-# per model is the whole point — one weapon's A × the whole unit was the old,
-# wrong figure.
-func _unit_max_attacks(eligible_indices: Array) -> float:
-	var best_per_model := {}
-	for idx in eligible_indices:
-		best_per_model[idx] = 0.0
-	for g in melee_groups:
-		var avg: float = _average_dice_notation(str(g.weapon.get("attacks", "1")))
-		for idx in g.models:
-			if best_per_model.has(idx):
-				best_per_model[idx] = maxf(float(best_per_model[idx]), avg)
-	var total: float = 0.0
-	for idx in best_per_model:
-		total += float(best_per_model[idx])
-	for g in extra_attacks_groups:
-		total += _group_max_attacks(g)
-	return total
-
-
-func _fmt_num(v: float) -> String:
-	return "%.1f" % v if v != floor(v) else "%d" % int(v)
-
-
 func _on_assign_pressed() -> void:
 	print("[AttackAssignmentDialog] Assign button pressed")
 
@@ -617,96 +452,112 @@ func _on_assign_pressed() -> void:
 		push_warning("Select both weapon and target")
 		return
 
-	var weapon_id = str(weapon_list.get_item_metadata(weapon_idx[0]))
-	var target_id = str(target_list.get_item_metadata(target_idx[0]))
+	var weapon_id = weapon_list.get_item_metadata(weapon_idx[0])
+	var target_id = target_list.get_item_metadata(target_idx[0])
 
-	_assign_weapon_to_target(weapon_id, target_id)
+	_set_single_weapon_assignment(weapon_id, target_id)
 
-# 11e Fight — Select Weapons: the choice is per MODEL, so an assignment covers a
-# weapon and the models that carry it. Re-assigning a weapon already in the list
-# just re-targets it; a DIFFERENT weapon claims the carriers that have not
-# committed to one yet, so the Boss Nob's big choppa and the Boyz' choppas both
-# swing (a model still fights with exactly ONE melee weapon).
+# 11e one-weapon rule: every model fights with ONE melee weapon, and it has to
+# be one that model is equipped with. Picking a weapon therefore sets the whole
+# unit's plan, not one assignment: its CARRIERS swing it, and every other
+# eligible model swings the best weapon it does carry, at the same target. A new
+# pick replaces the whole plan.
 #
-# `allow_switch` covers the other case: when every carrier is ALREADY swinging
-# something else, an explicit "assign THIS weapon" is a change of mind (a lone
-# Warboss picking his power klaw over his big choppa), so those models are taken
-# off their current weapon. The bulk "All Weapons to Target" path passes false —
-# it fills the gaps and must never cannibalise the groups it just assigned.
-# Returns true when something was assigned/re-targeted.
-func _assign_weapon_to_target(weapon_id: String, target_id: String, allow_switch: bool = true) -> bool:
-	var group = _group_for_weapon(weapon_id)
-	if group.is_empty():
-		push_warning("No models carry %s" % weapon_id)
-		print("[AttackAssignmentDialog] No eligible model carries '%s' — nothing to assign" % weapon_id)
-		return false
+# Previously this appended a single weapon assignment with no model list, which
+# the engine then applied to every eligible model — the Boss Nob's Power klaw in
+# all ten Boyz' hands. Model lists are index strings, which is what
+# RulesEngine's `attacking_models` and FightPhase's one-weapon-rule validator
+# both expect (disjoint lists per weapon, so they never conflict).
+func _set_single_weapon_assignment(weapon_id: String, target_id: String) -> void:
+	if not assignments.is_empty():
+		var previous = assignments[0]
+		print("[AttackAssignmentDialog] One-weapon rule: replacing plan %s → %s with %s → %s" % [
+			previous.get("weapon", "?"), previous.get("target", "?"), weapon_id, target_id])
+	assignments.clear()
 
-	for assignment in assignments:
-		if str(assignment.get("weapon", "")) == weapon_id:
-			print("[AttackAssignmentDialog] Re-targeting %s: %s → %s" % [
-				weapon_id, str(assignment.get("target", "?")), target_id])
-			assignment["target"] = target_id
-			_update_assignments_display()
-			return true
+	for entry in _build_weapon_plan(weapon_id):
+		assignments.append({
+			"attacker": unit_id,
+			"weapon": entry.weapon,
+			"target": target_id,
+			"models": entry.models
+		})
+		print("[AttackAssignmentDialog] Assignment: %s → %s (%d model(s): %s)" % [
+			entry.weapon, target_id, entry.models.size(), str(entry.models)])
 
-	var committed = _committed_model_indices()
-	var claimed: Array = []
-	for idx in group.models:
-		if not committed.has(idx):
-			claimed.append(idx)
-
-	if claimed.is_empty():
-		if not allow_switch:
-			print("[AttackAssignmentDialog] '%s' skipped — all %d carrier(s) already assigned another melee weapon" % [
-				str(group.name), group.models.size()])
-			return false
-		# Switch: take the carriers off whatever they were swinging.
-		claimed = group.models.duplicate()
-		_release_models(claimed)
-		print("[AttackAssignmentDialog] One weapon per model: %d model(s) switched to '%s'" % [
-			claimed.size(), str(group.name)])
-
-	assignments.append({
-		"attacker": unit_id,
-		"weapon": weapon_id,
-		"target": target_id,
-		# Model INDEX strings — the form RulesEngine._resolve_melee_assignment_hits
-		# matches (`str(model_index) in attacking_models`), so only these models
-		# swing this weapon instead of the whole unit.
-		"models": _model_refs(claimed)
-	})
-	print("[AttackAssignmentDialog] Assignment: %s → %s (%d model(s) %s)" % [
-		weapon_id, target_id, claimed.size(), str(claimed)])
 	print("[AttackAssignmentDialog] Total assignments: ", assignments.size())
 	_update_assignments_display()
-	return true
 
 
-# Drop `indices` from every existing assignment, discarding assignments left with
-# no models (that weapon is no longer being swung by anyone).
-func _release_models(indices: Array) -> void:
-	var drop := {}
-	for idx in indices:
-		drop[str(idx)] = true
-	var kept: Array = []
-	for assignment in assignments:
-		var remaining: Array = []
-		for ref in assignment.get("models", []):
-			if not drop.has(str(ref)):
-				remaining.append(ref)
-		if remaining.is_empty():
-			print("[AttackAssignmentDialog] Dropped assignment %s → %s (no models left on it)" % [
-				str(assignment.get("weapon", "?")), str(assignment.get("target", "?"))])
+# The per-weapon groups a choice of `weapon_id` produces:
+# [{weapon: String, models: Array[String]}], chosen weapon first. Every eligible
+# model appears exactly once — carriers of the pick get it, the rest get their
+# own best melee weapon (an unarmed model simply drops out).
+func _build_weapon_plan(weapon_id: String) -> Array:
+	var chosen_carriers: Array = _weapon_carriers.get(weapon_id, [])
+	var plan: Array = []
+	var covered: Dictionary = {}
+	if not chosen_carriers.is_empty():
+		var chosen_models: Array = []
+		for idx in chosen_carriers:
+			chosen_models.append(str(idx))
+			covered[idx] = true
+		plan.append({"weapon": weapon_id, "models": chosen_models})
+
+	# Everyone else swings what they have. Group by weapon so the batch stays
+	# one ASSIGN_ATTACKS per weapon rather than one per model.
+	var leftovers: Dictionary = {}  # weapon_id -> Array[String] model indices
+	for idx in _eligible_indices:
+		if covered.has(idx):
 			continue
-		assignment["models"] = remaining
-		kept.append(assignment)
-	assignments = kept
+		var best := _best_weapon_for_model(idx, weapon_id)
+		if best == "":
+			continue
+		if not leftovers.has(best):
+			leftovers[best] = []
+		leftovers[best].append(str(idx))
+	for wid in leftovers:
+		plan.append({"weapon": wid, "models": leftovers[wid]})
+	return plan
 
-# T5-UX5 (reworked for per-model loadouts): send EVERY weapon the unit carries at
-# the selected target in one click. Previously this assigned a single weapon to
-# the whole unit, which made a 9-choppa mob swing 10 power klaws.
+
+# Total attacks a choice of `weapon_id` would produce across the whole unit —
+# the chosen weapon's carriers plus everyone else on their own weapon. Drives
+# the "Max total attacks (cap)" line so it reflects the real plan.
+func _plan_total_attacks(weapon_id: String) -> float:
+	var total: float = 0.0
+	for entry in _build_weapon_plan(weapon_id):
+		var w: Dictionary = _weapon_by_id.get(entry.weapon, {})
+		total += _average_dice_notation(str(w.get("attacks", "1"))) * float(entry.models.size())
+	return total
+
+
+# The melee weapon a model should swing when the player's pick is not one it
+# carries: the highest average attacks x damage it has, strength breaking ties.
+# Deterministic, so the same mob always resolves the same way.
+func _best_weapon_for_model(model_index: int, exclude_weapon_id: String) -> String:
+	var best_id := ""
+	var best_score := -1.0
+	for wid in _weapon_carriers:
+		if wid == exclude_weapon_id:
+			continue
+		if not model_index in _weapon_carriers[wid]:
+			continue
+		var w: Dictionary = _weapon_by_id.get(wid, {})
+		var score: float = _average_dice_notation(str(w.get("attacks", "1"))) \
+			* _average_dice_notation(str(w.get("damage", "1"))) * 100.0 \
+			+ float(_parse_stat_int(str(w.get("strength", "0"))))
+		if score > best_score:
+			best_score = score
+			best_id = wid
+	return best_id
+
+# T5-UX5 (reworked for the 11e one-weapon rule): assign the selected weapon —
+# defaulting to the first — to the selected target in a single click.
+# Previously this assigned ALL unassigned weapons, which let one model fight
+# with every weapon it carries; that is illegal (Fight — Select Melee Weapon).
 func _on_all_to_target_pressed() -> void:
-	print("[AttackAssignmentDialog] T5-UX5: 'All Weapons to Target' button pressed")
+	print("[AttackAssignmentDialog] T5-UX5: 'Weapon to Target' button pressed")
 
 	if not weapon_list or not target_list:
 		push_error("Weapon or target list not initialized")
@@ -722,31 +573,13 @@ func _on_all_to_target_pressed() -> void:
 		push_warning("No melee weapons available")
 		return
 
-	var target_id = str(target_list.get_item_metadata(target_idx[0]))
-
-	# Selected weapon first so its models are claimed before any overlapping
-	# group takes them — a player who picked a row expects that row to be used.
-	var order: Array = []
 	var weapon_idx = weapon_list.get_selected_items()
-	if not weapon_idx.is_empty():
-		order.append(str(weapon_list.get_item_metadata(weapon_idx[0])))
-	for g in melee_groups:
-		if str(g.weapon_id) not in order:
-			order.append(str(g.weapon_id))
+	var weapon_item: int = weapon_idx[0] if not weapon_idx.is_empty() else 0
+	var weapon_id = weapon_list.get_item_metadata(weapon_item)
+	var target_id = target_list.get_item_metadata(target_idx[0])
 
-	var assigned := 0
-	for wid in order:
-		# allow_switch = false: filling every group must not steal models back off
-		# a group assigned a moment earlier in this same loop.
-		if _assign_weapon_to_target(wid, target_id, false):
-			assigned += 1
-	print("[AttackAssignmentDialog] T5-UX5: %d of %d weapon group(s) assigned → '%s'" % [
-		assigned, melee_groups.size(), target_id])
-
-func _on_clear_assignments_pressed() -> void:
-	print("[AttackAssignmentDialog] Clearing %d assignment(s)" % assignments.size())
-	assignments.clear()
-	_update_assignments_display()
+	print("[AttackAssignmentDialog] T5-UX5: Assigning weapon '%s' → '%s' (one weapon per model)" % [weapon_id, target_id])
+	_set_single_weapon_assignment(weapon_id, target_id)
 
 func _update_assignments_display() -> void:
 	if not assignments_display:
@@ -754,51 +587,37 @@ func _update_assignments_display() -> void:
 
 	assignments_display.clear()
 	var total_expected_damage: float = 0.0
-	var assigned_models := {}
 	for assignment in assignments:
-		var wid := str(assignment.get("weapon", ""))
-		var n_models: int = assignment.get("models", []).size()
-		for ref in assignment.get("models", []):
-			assigned_models[str(ref)] = true
-		var g = _group_for_weapon(wid)
-		var wname := str(g.get("name", wid)) if not g.is_empty() else wid
-		var ed: float = _estimate_expected_damage(wid, str(assignment.get("target", "")), n_models)
+		# MA-LOADOUT: each line is one weapon and the models that actually carry
+		# it, so name the count — "Power klaw (1 model)" next to "Choppa
+		# (9 models)" is the whole point of the plan.
+		var swinging: int = (assignment.get("models", []) as Array).size()
+		var ed: float = _estimate_expected_damage(assignment.weapon, assignment.target, swinging)
 		total_expected_damage += ed
 		# T-093: include expected damage estimate per assignment
-		assignments_display.append_text("- %s ×%d → %s [E[D]≈%.1f]\n" % [
-			wname, n_models, str(assignment.get("target", "")), ed])
+		assignments_display.append_text("- %s → %s (%d model%s) [E[D]≈%.1f]\n" % [
+			assignment.weapon, assignment.target, swinging, "" if swinging == 1 else "s", ed])
 
 	# T3-3: Show Extra Attacks auto-assignments preview
-	if not extra_attacks_groups.is_empty():
+	if not extra_attacks_weapons.is_empty():
 		var ea_target_id = _get_extra_attacks_target_id()
-		for g in extra_attacks_groups:
-			var ed: float = _estimate_expected_damage(str(g.weapon_id), ea_target_id, g.models.size())
+		for weapon in extra_attacks_weapons:
+			var weapon_name = weapon.get("name", "Unknown")
+			var weapon_id = RulesEngine.generate_weapon_id(weapon_name, weapon.get("type", ""))
+			var ea_carriers: Array = RulesEngine.get_melee_weapon_swingers(
+				phase_reference.get_unit(unit_id), weapon_id, _eligible_indices, [])
+			var ed: float = _estimate_expected_damage(weapon_id, ea_target_id, ea_carriers.size())
 			total_expected_damage += ed
-			assignments_display.append_text("- %s ×%d → %s [Extra Attacks, E[D]≈%.1f]\n" % [
-				str(g.name), g.models.size(), ea_target_id, ed])
+			assignments_display.append_text("- %s → %s (%d model%s) [Extra Attacks, E[D]≈%.1f]\n" % [
+				weapon_name, ea_target_id, ea_carriers.size(), "" if ea_carriers.size() == 1 else "s", ed])
 	if total_expected_damage > 0.0:
 		assignments_display.append_text("[b]Total expected damage: %.1f[/b]\n" % total_expected_damage)
-
-	# Nudge when models are still standing around with nothing to swing at — with
-	# per-model weapons an unassigned model simply does not attack.
-	var carriers := {}
-	for g in melee_groups:
-		for idx in g.models:
-			carriers[str(idx)] = true
-	var idle := 0
-	for ref in carriers:
-		if not assigned_models.has(ref):
-			idle += 1
-	if idle > 0 and not assignments.is_empty():
-		assignments_display.append_text("[i]%d model(s) still unassigned — they will not attack.[/i]\n" % idle)
 
 
 # T-093: analytic expected-damage estimator for AttackAssignmentDialog preview.
 # Uses standard Warhammer 10e math: E[D] = A * Phit * Pwound * Punsaved * D
 # where probability functions parse weapon profile + defender stats.
-# `model_count` is how many models actually swing this weapon (-1 = every alive
-# model, the pre-per-model-loadout behaviour kept for any other caller).
-func _estimate_expected_damage(weapon_id: String, target_id: String, model_count: int = -1) -> float:
+func _estimate_expected_damage(weapon_id: String, target_id: String, swinging_models: int = -1) -> float:
 	if phase_reference == null or unit_id == "" or target_id == "":
 		return 0.0
 	var attacker_unit = phase_reference.get_unit(unit_id)
@@ -822,17 +641,15 @@ func _estimate_expected_damage(weapon_id: String, target_id: String, model_count
 	var damage_str: String = str(weapon.get("damage", "1"))
 	var attacks_avg: float = _average_dice_notation(attacks_str)
 	var damage_avg: float = _average_dice_notation(damage_str)
-	# Total attacks = per-weapon-attacks × the models that ACTUALLY carry this
-	# weapon (MA-LOADOUT). It used to be every alive model for every weapon, so a
-	# 9-choppa mob's power-klaw row previewed 10 klaw attacks.
-	var swinging_count: int = model_count
-	if swinging_count < 0:
-		swinging_count = 0
-		for m in attacker_unit.get("models", []):
-			if m.get("alive", true):
-				swinging_count += 1
-	# Treat per-model A as a single shooter; UI is a preview not a simulation
-	var total_attacks: float = attacks_avg * float(max(1, swinging_count))
+	# Total attacks = per-weapon attacks x the models actually swinging it.
+	# MA-LOADOUT: the caller passes that count (the assignment's model list), so
+	# the preview no longer multiplies a one-model Power klaw by the whole mob.
+	# Fall back to the eligible-and-equipped count when it is not supplied.
+	var swinging: int = swinging_models
+	if swinging < 0:
+		swinging = RulesEngine.get_melee_weapon_swingers(
+			attacker_unit, weapon_id, _eligible_indices, []).size()
+	var total_attacks: float = attacks_avg * float(max(1, swinging))
 	# Hit probability from WS/BS (weapon's accuracy attribute)
 	var skill_int: int = _parse_stat_int(str(weapon.get("skill", weapon.get("ws", weapon.get("bs", "4")))))
 	var p_hit: float = clampf(float(7 - skill_int) / 6.0, 1.0/6.0, 5.0/6.0)
@@ -928,19 +745,18 @@ func _on_confirmed() -> void:
 			show()
 		return
 
-	# T3-3: Auto-include Extra Attacks weapons in assignments — restricted to the
-	# models that carry them, like every other weapon (MA-LOADOUT).
-	if not extra_attacks_groups.is_empty():
+	# T3-3: Auto-include Extra Attacks weapons in assignments
+	if not extra_attacks_weapons.is_empty():
 		var ea_target_id = _get_extra_attacks_target_id()
-		for g in extra_attacks_groups:
+		for weapon in extra_attacks_weapons:
+			var weapon_name = weapon.get("name", "Unknown")
+			var weapon_id = RulesEngine.generate_weapon_id(weapon_name, weapon.get("type", ""))
 			assignments.append({
 				"attacker": unit_id,
-				"weapon": str(g.weapon_id),
-				"target": ea_target_id,
-				"models": _model_refs(g.models)
+				"weapon": weapon_id,
+				"target": ea_target_id
 			})
-			print("[AttackAssignmentDialog] T3-3: Auto-added Extra Attacks weapon '%s' → '%s' (%d model(s) %s)" % [
-				str(g.name), ea_target_id, g.models.size(), str(g.models)])
+			print("[AttackAssignmentDialog] T3-3: Auto-added Extra Attacks weapon '%s' → '%s'" % [weapon_name, ea_target_id])
 
 	print("[AttackAssignmentDialog] Emitting attacks_confirmed with ", assignments.size(), " assignments (including Extra Attacks)")
 	hide()

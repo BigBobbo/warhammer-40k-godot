@@ -118,7 +118,7 @@ func _ready() -> void:
 	header_label.name = "DockHeader"
 	header_label.text = "RESOLUTION"
 	header_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	header_label.add_theme_font_size_override("font_size", 13)
+	header_label.add_theme_font_size_override("font_size", 17)
 	header_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	add_child(header_label)
 
@@ -131,14 +131,14 @@ func _ready() -> void:
 	status_label.name = "DockStatus"
 	status_label.text = ""
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status_label.add_theme_font_size_override("font_size", 11)
+	status_label.add_theme_font_size_override("font_size", 16)
 	status_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.8))
 	add_child(status_label)
 
 	# Command Re-roll chips (one button per die at a staged pause)
 	reroll_label = Label.new()
 	reroll_label.name = "DockRerollLabel"
-	reroll_label.add_theme_font_size_override("font_size", 11)
+	reroll_label.add_theme_font_size_override("font_size", 16)
 	reroll_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	reroll_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	reroll_label.visible = false
@@ -175,7 +175,7 @@ func _ready() -> void:
 	policy_row.name = "DockPolicyRow"
 	var policy_label := Label.new()
 	policy_label.text = "Pauses:"
-	policy_label.add_theme_font_size_override("font_size", 11)
+	policy_label.add_theme_font_size_override("font_size", 16)
 	policy_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65))
 	policy_row.add_child(policy_label)
 	pause_policy_option = OptionButton.new()
@@ -239,7 +239,7 @@ func _rebuild_queue() -> void:
 		var glyph := Label.new()
 		glyph.name = "Glyph"
 		glyph.custom_minimum_size = Vector2(20, 0)
-		glyph.add_theme_font_size_override("font_size", 12)
+		glyph.add_theme_font_size_override("font_size", 16)
 		var note: String = str(a.get("_result_note", ""))
 		if a.get("_done", false):
 			glyph.text = "✔"
@@ -255,7 +255,7 @@ func _rebuild_queue() -> void:
 		var text := Label.new()
 		text.name = "RowText"
 		text.text = _assignment_label(a) + (("  " + note) if note != "" else "")
-		text.add_theme_font_size_override("font_size", 12)
+		text.add_theme_font_size_override("font_size", 16)
 		text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var col := _row_color(a)
@@ -301,6 +301,12 @@ func _on_policy_selected(index: int) -> void:
 	var ss = get_node_or_null("/root/SettingsService")
 	if ss and ss.has_method("set_shooting_pause_policy"):
 		ss.set_shooting_pause_policy(policy)
+
+# Label for the primary button at a staged pause. Overridden when the dock is
+# revealing an opponent's dice (the enemy's melee swing back) — "Roll to Wound"
+# would claim the player is the one rolling.
+func _stage_primary_text(stage: String) -> String:
+	return "Roll to Wound ▶" if stage == "hits" else "Continue to Saving Throws ▶"
 
 # Should this staged pause actually stop, per the policy? "decisions" pauses
 # only when a Command Re-roll is genuinely usable (available AND at least one
@@ -355,11 +361,11 @@ func _on_stage_paused(stage: String, info: Dictionary) -> void:
 		return
 	if stage == "hits":
 		state = "staged_hits"
-		primary_button.text = "Roll to Wound ▶"
+		primary_button.text = _stage_primary_text("hits")
 		status_label.text = "%s hit roll: %d hit(s)." % [str(info.get("weapon_name", "Weapon")), int(info.get("hits", 0))]
 	else:
 		state = "staged_wounds"
-		primary_button.text = "Continue to Saving Throws ▶"
+		primary_button.text = _stage_primary_text("wounds")
 		status_label.text = "%d wound(s) caused — %s will make saves." % [int(info.get("wounds", 0)), str(info.get("target_name", "the target"))]
 	primary_button.disabled = false
 	fast_button.visible = true

@@ -36,6 +36,16 @@ var _terrain_scatter_checkbox: CheckBox
 var _terrain_cover_checkbox: CheckBox
 
 var _auto_allocate_checkbox: CheckBox
+var _hotseat_handoff_checkbox: CheckBox
+var _window_mode_dropdown: OptionButton
+var _resolution_dropdown: OptionButton
+var _vsync_checkbox: CheckBox
+
+const WINDOW_MODES := ["fullscreen", "exclusive", "windowed"]
+const WINDOW_RESOLUTIONS: Array[Vector2i] = [
+	Vector2i(1280, 720), Vector2i(1366, 768), Vector2i(1600, 900),
+	Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3840, 2160),
+]
 var _autosave_phase_start_checkbox: CheckBox
 var _controller_text_boost_checkbox: CheckBox
 var _input_mode_dropdown: OptionButton
@@ -153,7 +163,7 @@ func _build_ui() -> void:
 	var title = Label.new()
 	title.text = "SETTINGS"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_font_size_override("font_size", 26)
 	title.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(title)
 
@@ -209,6 +219,11 @@ func _build_ui() -> void:
 	_tab_containers.append(visual_scroll)
 
 	var visual_content = visual_scroll.get_child(0) as VBoxContainer
+	if not OS.has_feature("web"):
+		_add_section_header(visual_content, "Display")
+		_window_mode_dropdown = _add_dropdown_row(visual_content, "Window Mode:", ["Fullscreen", "Exclusive Fullscreen", "Windowed"], "_on_window_mode_changed")
+		_resolution_dropdown = _add_dropdown_row(visual_content, "Window Size:", WINDOW_RESOLUTIONS.map(func(r): return "%d x %d" % [r.x, r.y]), "_on_window_resolution_changed")
+		_vsync_checkbox = _add_checkbox_row(visual_content, "V-Sync", "_on_vsync_toggled")
 	_add_section_header(visual_content, "Visual")
 	_board_style_dropdown = _add_dropdown_row(visual_content, "Board Texture:", ["Grass", "Mud", "Desert", "Stone", "Felt", "Tilepack", "None (Solid)"], "_on_board_style_changed")
 	_ruins_style_dropdown = _add_dropdown_row(visual_content, "Ruins Texture:", ["Concrete", "Marble", "Brick", "Weathered Stone", "None (Solid)"], "_on_ruins_style_changed")
@@ -236,9 +251,19 @@ func _build_ui() -> void:
 	auto_alloc_help.text = "When enabled, the computer chooses which wounded models are removed instead of asking you to click each one. The defending player normally makes this choice."
 	auto_alloc_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	auto_alloc_help.custom_minimum_size = Vector2(620, 0)
-	auto_alloc_help.add_theme_font_size_override("font_size", 12)
+	auto_alloc_help.add_theme_font_size_override("font_size", 16)
 	auto_alloc_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	gameplay_content.add_child(auto_alloc_help)
+
+	_add_section_header(gameplay_content, "Play and Pass (local 2-player)")
+	_hotseat_handoff_checkbox = _add_checkbox_row(gameplay_content, "Show \"Pass the device\" screen between player turns", "_on_hotseat_handoff_toggled")
+	var handoff_help = Label.new()
+	handoff_help.text = "On by default. In local Human-vs-Human games, hides the board and asks the next player to take the controls at each turn change (and before secret battle-formation picks). Has no effect in online or vs-AI games."
+	handoff_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	handoff_help.custom_minimum_size = Vector2(620, 0)
+	handoff_help.add_theme_font_size_override("font_size", 16)
+	handoff_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	gameplay_content.add_child(handoff_help)
 
 	_add_section_header(gameplay_content, "Auto-Save")
 	_autosave_phase_start_checkbox = _add_checkbox_row(gameplay_content, "Auto-save at the start of each phase", "_on_autosave_phase_start_toggled")
@@ -246,7 +271,7 @@ func _build_ui() -> void:
 	autosave_help.text = "On by default. Saves the game automatically at the start of every phase, named after the two armies and the phase that is starting (e.g. \"Space Marines vs Orks - Movement\"). Works in the browser build on itch.io too."
 	autosave_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	autosave_help.custom_minimum_size = Vector2(620, 0)
-	autosave_help.add_theme_font_size_override("font_size", 12)
+	autosave_help.add_theme_font_size_override("font_size", 16)
 	autosave_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	gameplay_content.add_child(autosave_help)
 
@@ -304,6 +329,17 @@ func _build_ui() -> void:
 	WhiteDwarfThemeData.apply_to_button(_close_button)
 	_close_button.pressed.connect(_on_close_pressed)
 	btn_row.add_child(_close_button)
+
+	# Quit to Desktop — always available; without it an in-game player has to
+	# go back to the main menu and scroll below the fold to find Quit. Not on
+	# web (browsers own the tab lifecycle; Godot quit is a no-op there).
+	if not OS.has_feature("web"):
+		var quit_button = Button.new()
+		quit_button.text = "Quit to Desktop"
+		quit_button.custom_minimum_size = Vector2(170, 40)
+		WhiteDwarfThemeData.apply_to_button(quit_button)
+		quit_button.pressed.connect(_on_quit_to_desktop_pressed)
+		btn_row.add_child(quit_button)
 
 func _create_tab_scroll() -> ScrollContainer:
 	var scroll = ScrollContainer.new()
@@ -369,7 +405,7 @@ func _build_controls_tab(parent: VBoxContainer) -> void:
 	scroll_help.text = "Speed of mouse-wheel / trackpad scrolling in menus, lists and panels (100% = default). Does not affect board zoom."
 	scroll_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	scroll_help.custom_minimum_size = Vector2(620, 0)
-	scroll_help.add_theme_font_size_override("font_size", 12)
+	scroll_help.add_theme_font_size_override("font_size", 16)
 	scroll_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	parent.add_child(scroll_help)
 
@@ -515,7 +551,7 @@ func _build_input_mode_section(parent: VBoxContainer) -> void:
 	help.text = "The game no longer switches between the controller and mouse/keyboard layouts while you play — pick one here and it sticks. Auto-detect chooses the controller layout on a Steam Deck and the mouse & keyboard layout on a PC or in the browser (itch.io)."
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help.custom_minimum_size = Vector2(620, 0)
-	help.add_theme_font_size_override("font_size", 12)
+	help.add_theme_font_size_override("font_size", 16)
 	help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	parent.add_child(help)
 
@@ -525,7 +561,7 @@ func _build_input_mode_section(parent: VBoxContainer) -> void:
 	_input_mode_status_label.name = "InputModeStatusLabel"
 	_input_mode_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_input_mode_status_label.custom_minimum_size = Vector2(620, 0)
-	_input_mode_status_label.add_theme_font_size_override("font_size", 12)
+	_input_mode_status_label.add_theme_font_size_override("font_size", 16)
 	_input_mode_status_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	parent.add_child(_input_mode_status_label)
 	_update_input_mode_status()
@@ -560,7 +596,7 @@ func _build_controller_tab(parent: VBoxContainer) -> void:
 	rebind_help.text = "Click a control, then press the controller button you want for it. If another control already uses that button, the two swap places. The D-pad, sticks, triggers and Steam Deck back paddles keep their jobs and cannot be reassigned."
 	rebind_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rebind_help.custom_minimum_size = Vector2(620, 0)
-	rebind_help.add_theme_font_size_override("font_size", 12)
+	rebind_help.add_theme_font_size_override("font_size", 16)
 	rebind_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	parent.add_child(rebind_help)
 
@@ -596,7 +632,7 @@ func _build_controller_tab(parent: VBoxContainer) -> void:
 	boost_help.text = "Boosts on-screen text and buttons while a controller is in use so they stay readable on the Steam Deck's screen. Mouse & keyboard are unaffected."
 	boost_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	boost_help.custom_minimum_size = Vector2(620, 0)
-	boost_help.add_theme_font_size_override("font_size", 12)
+	boost_help.add_theme_font_size_override("font_size", 16)
 	boost_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	parent.add_child(boost_help)
 
@@ -757,7 +793,7 @@ func _get_last_value_label() -> Label:
 func _add_section_header(parent: VBoxContainer, text: String) -> void:
 	var header = Label.new()
 	header.text = text
-	header.add_theme_font_size_override("font_size", 16)
+	header.add_theme_font_size_override("font_size", 20)
 	header.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	parent.add_child(header)
 
@@ -876,6 +912,17 @@ func _load_current_settings() -> void:
 	# Gameplay
 	if _auto_allocate_checkbox:
 		_auto_allocate_checkbox.button_pressed = SettingsService.auto_allocate_wounds
+	if _hotseat_handoff_checkbox:
+		_hotseat_handoff_checkbox.button_pressed = SettingsService.hotseat_handoff_enabled
+
+	# Display
+	if _window_mode_dropdown:
+		_window_mode_dropdown.selected = maxi(0, WINDOW_MODES.find(SettingsService.window_mode))
+	if _resolution_dropdown:
+		var res_idx := WINDOW_RESOLUTIONS.find(SettingsService.window_resolution)
+		_resolution_dropdown.selected = res_idx if res_idx >= 0 else WINDOW_RESOLUTIONS.find(Vector2i(1920, 1080))
+	if _vsync_checkbox:
+		_vsync_checkbox.button_pressed = SettingsService.vsync_enabled
 	if _autosave_phase_start_checkbox:
 		_autosave_phase_start_checkbox.button_pressed = SettingsService.autosave_on_phase_start
 
@@ -1059,6 +1106,22 @@ func _on_terrain_cover_labels_toggled(pressed: bool) -> void:
 func _on_auto_allocate_wounds_toggled(pressed: bool) -> void:
 	SettingsService.set_auto_allocate_wounds(pressed)
 
+func _on_hotseat_handoff_toggled(pressed: bool) -> void:
+	SettingsService.set_hotseat_handoff_enabled(pressed)
+
+# ============================================================================
+# Display Callbacks
+# ============================================================================
+
+func _on_window_mode_changed(index: int) -> void:
+	SettingsService.set_window_mode(WINDOW_MODES[clampi(index, 0, WINDOW_MODES.size() - 1)])
+
+func _on_window_resolution_changed(index: int) -> void:
+	SettingsService.set_window_resolution(WINDOW_RESOLUTIONS[clampi(index, 0, WINDOW_RESOLUTIONS.size() - 1)])
+
+func _on_vsync_toggled(pressed: bool) -> void:
+	SettingsService.set_vsync_enabled(pressed)
+
 func _on_autosave_phase_start_toggled(pressed: bool) -> void:
 	SettingsService.set_autosave_on_phase_start(pressed)
 
@@ -1085,6 +1148,10 @@ func _on_save_load_pressed() -> void:
 	save_load_requested.emit()
 	settings_closed.emit()
 	queue_free()
+
+func _on_quit_to_desktop_pressed() -> void:
+	print("[SettingsMenu] Quit to Desktop")
+	get_tree().quit()
 
 func _on_return_to_menu_pressed() -> void:
 	print("[SettingsMenu] Returning to main menu")

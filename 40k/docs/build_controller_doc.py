@@ -58,8 +58,8 @@ PHYSICAL = [
     ("r3",  "R3 (hold RS)",      "Precision modifier — hold to slow the cursor for fine placement; while deploying, hold it and LB/RB rotate the ghost instead of switching units"),
     ("lt",  "Left trigger",      "Zoom out"),
     ("rt",  "Right trigger",     "Zoom in"),
-    ("lb",  "Left bumper",       "Previous unit (cycle the acting unit) · rotate ⟲ while carrying a model, or while deploying with R3 held"),
-    ("rb",  "Right bumper",      "Next unit (cycle the acting unit) · rotate ⟳ while carrying a model, or while deploying with R3 held"),
+    ("lb",  "Left bumper",       "Previous unit (cycle the acting unit) · rotate ⟲ while carrying a model, anywhere a Movement move is already under way, or while deploying with R3 held"),
+    ("rb",  "Right bumper",      "Next unit (cycle the acting unit) · rotate ⟳ while carrying a model, anywhere a Movement move is already under way, or while deploying with R3 held"),
     ("a",   "A",                 "Context confirm — select / assign / place / pick-up / drop / press"),
     ("b",   "B",                 "Back — deselect / cancel / undo / release panel focus"),
     ("x",   "X",                 "Context action — skip unit / undo model / finish model / snap to contact"),
@@ -266,7 +266,8 @@ SECTIONS = [
                 "hint_set": "HINTS_MOVE_STAGED",
                 "rp": RP_NO_STANDDOWN,
                 "notes": ["A re-picks the dropped model, X finishes it, D-pad ◀▶ switch model / ▲ lifts the rest as a group, B undoes the last stage.",
-                          "L3 keeps its single label 'Next Model' — the model-switcher never jumps onto X."],
+                          "L3 keeps its single label 'Next Model' — the model-switcher never jumps onto X.",
+                          "LB/RB cannot switch units mid-move, so they turn the focused model instead (15° a tap) — the same rotation they do while it is in hand."],
             },
             {
                 "name": "Move locked — all models placed",
@@ -274,7 +275,7 @@ SECTIONS = [
                 "hint_set": "HINTS_MOVE_LOCKED",
                 "rp": RP_NO_STANDDOWN,
                 "notes": ["Start confirms the whole move; A picks a model back up to adjust; D-pad ◀▶ / L3 cycle models and ▲ re-grabs them all; B undoes the last stage.",
-                          "Bumpers stay locked to this unit until the move is confirmed or fully undone."],
+                          "Bumpers stay locked to this unit until the move is confirmed or fully undone — and since they cannot switch units here, they rotate the focused model instead (15° a tap; round bases have no facing, so there they just say why the switch was refused)."],
             },
         ],
     },
@@ -753,7 +754,7 @@ footer code{{font-family:var(--mono);background:var(--panel-2);padding:1px 6px;b
       <p class="sub">The controls are contextual: the same button means different things in different states.</p>
       <ul class="notes" style="font-size:14px">
         <li><strong>The pad only drives the game while the controller layout is the active one — and that is now chosen once, at launch.</strong> Auto-detect picks the controller layout on a Steam Deck and mouse &amp; keyboard on a PC or in the browser, then <em>sticks</em>: a mouse move, a key press or a joypad press no longer swaps the layout mid-game (on a Deck the trackpads/paddles register as mouse/keyboard input, which used to flip the UI — and the controller text boost's canvas scale — back and forth). Change it in <em>Settings &rsaquo; Controller &rsaquo; Input Mode</em>: Auto-detect, Controller / Steam Deck, Mouse &amp; Keyboard, or "Follow last input used" for the old behaviour.</li>
-        <li><strong>LB / RB are the only unit-switcher.</strong> They cycle the acting unit in every phase. Unit lists on the right are deliberately NOT walkable with the D-pad or stick — cycling is the bumpers' job alone.</li>
+        <li><strong>LB / RB are the only unit-switcher.</strong> They cycle the acting unit in every phase. Unit lists on the right are deliberately NOT walkable with the D-pad or stick — cycling is the bumpers' job alone. Where switching is <em>refused</em> they do the other job the state needs: once a unit's Movement move is under way they turn the focused model 15&deg; a tap (in hand or parked after a drop), and while deploying they lock to the unit until every placed model is undone.</li>
         <li><strong>The D-pad is context-dependent.</strong> With nothing selected it enters panel focus; with a phase sub-menu open (targets, weapons, move mode, deploy rows) it drives that instead; and while you are moving a unit it switches models (◀▶), grabs all (▲), or drops back to one (▼).</li>
         <li><strong>Each state below lists its buttons, whether the right-hand panel can be driven on the pad, and any gaps.</strong> The "Right panel on pad?" badge is the answer to "can I control the menu on the right here?"</li>
       </ul>

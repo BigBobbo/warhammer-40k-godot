@@ -593,7 +593,7 @@ func _show_thievin_scavengers_notification(text: String, success: bool) -> void:
 	var label = Label.new()
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_font_size_override("font_size", 20)
 	label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.75))
 	panel.add_child(label)
 
@@ -1220,8 +1220,13 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 		if _position_intersects_terrain(dest_vec, model):
 			return {"valid": false, "errors": ["Position intersects impassable terrain"]}
 
-	# Check model overlap
-	if _position_overlaps_other_models(unit_id, model_id, dest_vec, model):
+	# Check model overlap. Pass model_actual_unit_id, NOT unit_id: the overlap
+	# scan skips the moving model by (unit_id, model_id), and an attached
+	# character shares the bodyguard's model ids. Keyed on the bodyguard the
+	# character was never skipped, so he "overlapped" HIMSELF at his old spot and
+	# no move of his could ever stage — every group move left him behind, and the
+	# squadmates whose destinations he was still standing in were blocked too.
+	if _position_overlaps_other_models(model_actual_unit_id, model_id, dest_vec, model):
 		return {"valid": false, "errors": ["Cannot end move on top of another model"]}
 
 	# Check wall overlap — no model may end its move overlapping a wall
@@ -7089,16 +7094,26 @@ func _position_overlaps_other_models(unit_id: String, model_id: String, position
 			if not other_model.get("alive", true):
 				continue
 
-			# Get the current position of the other model
-			# Check if it has a staged position in active moves
+			# Get the current position of the other model — its staged destination
+			# if it already has one this move, else its board position.
+			# An attached character's staged moves live in the BODYGUARD unit's
+			# move data (active_moves is keyed by the unit making the move), so
+			# active_moves[check_unit_id] finds nothing for the character's own
+			# unit id and every other model was checked against the spot he had
+			# already VACATED. Scan all live moves and match on
+			# model_source_unit_id, which also keeps a character's "m1" from being
+			# read as the bodyguard's "m1".
 			var other_position = null
-			if active_moves.has(check_unit_id):
-				var move_data = active_moves[check_unit_id]
-				# Check if this model has a staged position
-				for staged_move in move_data.get("staged_moves", []):
-					if staged_move.get("model_id") == other_model_id:
-						other_position = staged_move.get("dest")
-						break
+			for owner_unit_id in active_moves:
+				for staged_move in active_moves[owner_unit_id].get("staged_moves", []):
+					if str(staged_move.get("model_id", "")) != str(other_model_id):
+						continue
+					if str(staged_move.get("model_source_unit_id", owner_unit_id)) != str(check_unit_id):
+						continue
+					other_position = staged_move.get("dest")
+					break
+				if other_position != null:
+					break
 
 			# If no staged position, use actual position
 			if other_position == null:

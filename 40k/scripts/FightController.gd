@@ -303,7 +303,7 @@ func _setup_right_panel() -> void:
 	# Title
 	var title = Label.new()
 	title.text = "FIGHT CONTROLS"
-	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_font_size_override("font_size", 19)
 	title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -339,7 +339,7 @@ func _setup_right_panel() -> void:
 	# Fight sequence display
 	var sequence_label = Label.new()
 	sequence_label.text = "FIGHT SEQUENCE"
-	sequence_label.add_theme_font_size_override("font_size", 13)
+	sequence_label.add_theme_font_size_override("font_size", 17)
 	sequence_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		sequence_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -373,7 +373,7 @@ func _setup_right_panel() -> void:
 	_phase_wounds_label = Label.new()
 	_phase_wounds_label.name = "PhaseWoundsTally"
 	_phase_wounds_label.text = "PHASE DAMAGE — P1: 0 | P2: 0"
-	_phase_wounds_label.add_theme_font_size_override("font_size", 13)
+	_phase_wounds_label.add_theme_font_size_override("font_size", 17)
 	_phase_wounds_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		_phase_wounds_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -404,7 +404,7 @@ func _setup_right_panel() -> void:
 	# Fight status display
 	var status_section_label = Label.new()
 	status_section_label.text = "FIGHT STATUS"
-	status_section_label.add_theme_font_size_override("font_size", 13)
+	status_section_label.add_theme_font_size_override("font_size", 17)
 	status_section_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		status_section_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -446,7 +446,7 @@ func _build_step_panel(panel_name: String, end_button_name: String, end_handler:
 
 	var step_title = Label.new()
 	step_title.name = "StepTitle"
-	step_title.add_theme_font_size_override("font_size", 13)
+	step_title.add_theme_font_size_override("font_size", 17)
 	step_title.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
 	if FactionPalettes:
 		step_title.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -457,7 +457,7 @@ func _build_step_panel(panel_name: String, end_button_name: String, end_handler:
 	instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# Bound the width so the autowrap label reports a sane minimum height
 	instructions.custom_minimum_size = Vector2(230, 0)
-	instructions.add_theme_font_size_override("font_size", 12)
+	instructions.add_theme_font_size_override("font_size", 16)
 	panel.add_child(instructions)
 
 	var unit_list = VBoxContainer.new()
@@ -490,7 +490,7 @@ func _build_fight_selection_panel() -> VBoxContainer:
 	turn_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	turn_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	turn_label.add_theme_font_size_override("font_size", 14)
+	turn_label.add_theme_font_size_override("font_size", 18)
 	turn_label.add_theme_color_override("font_color", Color.WHITE)
 	if FactionPalettes:
 		turn_label.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
@@ -499,7 +499,7 @@ func _build_fight_selection_panel() -> VBoxContainer:
 
 	var subphase_label = Label.new()
 	subphase_label.name = "SubphaseLabel"
-	subphase_label.add_theme_font_size_override("font_size", 13)
+	subphase_label.add_theme_font_size_override("font_size", 17)
 	panel.add_child(subphase_label)
 
 	var unit_list = VBoxContainer.new()
@@ -511,7 +511,7 @@ func _build_fight_selection_panel() -> VBoxContainer:
 	instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# Bound the width so the autowrap label reports a sane minimum height
 	instructions.custom_minimum_size = Vector2(230, 0)
-	instructions.add_theme_font_size_override("font_size", 12)
+	instructions.add_theme_font_size_override("font_size", 16)
 	instructions.add_theme_color_override("font_color", Color.YELLOW)
 	panel.add_child(instructions)
 
@@ -1695,7 +1695,7 @@ func _populate_fight_selection_panel(data: Dictionary) -> void:
 func _add_selection_subphase_units(container: VBoxContainer, data: Dictionary, subphase_name: String, units_by_player: Dictionary) -> void:
 	var subphase_header = Label.new()
 	subphase_header.text = "=== %s ===" % subphase_name
-	subphase_header.add_theme_font_size_override("font_size", 13)
+	subphase_header.add_theme_font_size_override("font_size", 17)
 
 	# Highlight if this is current subphase
 	var is_current = subphase_name == data.get("current_subphase", "")
@@ -2383,30 +2383,39 @@ func _on_attacks_confirmed(assignments: Array) -> void:
 # =============================================================================
 
 func _on_fighting_begun_staged(unit_id: String) -> void:
-	# The staged sequence only runs in non-networked play for human attackers —
-	# mirror FightPhase._should_stage_fight so we never activate a dock that
-	# will get no pause events.
+	# Only put the dock up when this activation will actually stage — the phase
+	# owns that decision (FightPhase.fight_activation_will_stage), so a dock is
+	# never activated that would get no pause events.
 	if NetworkManager.is_networked():
 		return
-	var fighter_owner = GameState.get_unit(unit_id).get("owner", -1)
-	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.get("enabled") and ai_player_node.is_ai_player(fighter_owner):
+	if current_phase == null:
+		return
+	if current_phase.has_method("fight_activation_will_stage") \
+			and not current_phase.fight_activation_will_stage():
 		return
 	if fight_resolution_dock == null:
 		push_error("FightController: fight_resolution_dock missing — right panel not built")
 		return
+
+	# ENEMY SWING BACK: an AI attacker stages against a human defender, so the
+	# dock doubles as the reveal of the enemy's rolls — same rhythm, but the
+	# player is watching someone else's dice, not rolling their own.
+	var fighter_owner = GameState.get_unit(unit_id).get("owner", -1)
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	var spectating: bool = ai_player_node != null and ai_player_node.get("enabled") \
+			and ai_player_node.is_ai_player(fighter_owner)
 
 	# fighting_begun fires during CONFIRM processing, before ROLL_DICE runs in
 	# the same batch — activating here means the dock catches every
 	# fight_stage_paused emission. confirmed_attacks holds this activation's
 	# ordered weapon assignments.
 	var assignments: Array = []
-	if current_phase != null:
-		var ca = current_phase.get("confirmed_attacks")
-		if ca is Array:
-			assignments = ca
-	fight_resolution_dock.activate(assignments, current_phase, self, unit_id)
-	print("[FightController] FightResolutionDock activated for %s (%d assignment(s))" % [unit_id, assignments.size()])
+	var ca = current_phase.get("confirmed_attacks")
+	if ca is Array:
+		assignments = ca
+	fight_resolution_dock.activate(assignments, current_phase, self, unit_id, spectating)
+	print("[FightController] FightResolutionDock activated for %s (%d assignment(s), spectating=%s)" % [
+		unit_id, assignments.size(), str(spectating)])
 
 func _on_fight_dock_action_requested(action: Dictionary) -> void:
 	# Dock emits complete action dicts (CONTINUE_TO_WOUNDS / CONTINUE_TO_SAVES /
@@ -3065,7 +3074,7 @@ func _create_locked_model_indicator(center: Vector2) -> Node2D:
 	# Add a "LOCKED" label
 	var label = Label.new()
 	label.text = "B2B"
-	label.add_theme_font_size_override("font_size", 10)
+	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3, 0.9))
 	label.position = center + Vector2(-12, cross_size + 2)
 	indicator.add_child(label)

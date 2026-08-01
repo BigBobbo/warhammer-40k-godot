@@ -121,7 +121,7 @@ func _make_icon(terrain_id: String, world_pos: Vector2, label_text: String) -> N
 	label.name = "Label"
 	label.text = label_text
 	label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
-	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_font_size_override("font_size", 18)
 	# Center the label on the icon. Labels are Controls; position is top-left.
 	label.position = Vector2(-half + 4, -half * 0.55)
 	label.size = Vector2(ICON_SIZE - 8, ICON_SIZE)

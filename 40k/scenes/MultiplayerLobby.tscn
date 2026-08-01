@@ -25,10 +25,9 @@ theme_override_constants/separation = 20
 
 [node name="TitleLabel" type="Label" parent="LobbyContainer"]
 layout_mode = 2
-text = "Multiplayer Lobby"
+text = "Multiplayer Lobby (Beta)"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 32
-
 [node name="HSeparator" type="HSeparator" parent="LobbyContainer"]
 layout_mode = 2
 
@@ -39,7 +38,7 @@ theme_override_constants/separation = 15
 [node name="ModeLabel" type="Label" parent="LobbyContainer/ModeSelection"]
 layout_mode = 2
 text = "Select Connection Mode"
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 26
 horizontal_alignment = 1
 
 [node name="ButtonsContainer" type="HBoxContainer" parent="LobbyContainer/ModeSelection"]
@@ -51,20 +50,17 @@ theme_override_constants/separation = 20
 layout_mode = 2
 custom_minimum_size = Vector2(150, 60)
 text = "Host (LAN)"
-theme_override_font_sizes/font_size = 20
-
+theme_override_font_sizes/font_size = 23
 [node name="JoinButton" type="Button" parent="LobbyContainer/ModeSelection/ButtonsContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(150, 60)
 text = "Join (LAN)"
-theme_override_font_sizes/font_size = 20
-
+theme_override_font_sizes/font_size = 23
 [node name="OnlineButton" type="Button" parent="LobbyContainer/ModeSelection/ButtonsContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(150, 60)
 text = "Online Play"
-theme_override_font_sizes/font_size = 20
-
+theme_override_font_sizes/font_size = 23
 [node name="HSeparator2" type="HSeparator" parent="LobbyContainer"]
 layout_mode = 2
 
@@ -75,7 +71,7 @@ theme_override_constants/separation = 15
 [node name="SettingsLabel" type="Label" parent="LobbyContainer/ConnectionSettings"]
 layout_mode = 2
 text = "Connection Settings"
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 23
 horizontal_alignment = 1
 
 [node name="PortContainer" type="HBoxContainer" parent="LobbyContainer/ConnectionSettings"]
@@ -86,8 +82,7 @@ alignment = 1
 layout_mode = 2
 custom_minimum_size = Vector2(100, 0)
 text = "Port:"
-theme_override_font_sizes/font_size = 16
-
+theme_override_font_sizes/font_size = 20
 [node name="PortInput" type="LineEdit" parent="LobbyContainer/ConnectionSettings/PortContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(150, 0)
@@ -103,8 +98,7 @@ alignment = 1
 layout_mode = 2
 custom_minimum_size = Vector2(100, 0)
 text = "IP Address:"
-theme_override_font_sizes/font_size = 16
-
+theme_override_font_sizes/font_size = 20
 [node name="IPInput" type="LineEdit" parent="LobbyContainer/ConnectionSettings/IPContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(200, 0)
@@ -122,7 +116,7 @@ theme_override_constants/separation = 15
 [node name="ArmyLabel" type="Label" parent="LobbyContainer/ArmySelection"]
 layout_mode = 2
 text = "Mission, Army & Deployment Selection"
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 23
 horizontal_alignment = 1
 
 [node name="MissionContainer" type="HBoxContainer" parent="LobbyContainer/ArmySelection"]
@@ -133,8 +127,7 @@ alignment = 1
 layout_mode = 2
 custom_minimum_size = Vector2(150, 0)
 text = "Primary Mission:"
-theme_override_font_sizes/font_size = 16
-
+theme_override_font_sizes/font_size = 20
 [node name="MissionDropdown" type="OptionButton" parent="LobbyContainer/ArmySelection/MissionContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(250, 40)
@@ -147,8 +140,7 @@ alignment = 1
 layout_mode = 2
 custom_minimum_size = Vector2(150, 0)
 text = "Deployment Zone:"
-theme_override_font_sizes/font_size = 16
-
+theme_override_font_sizes/font_size = 20
 [node name="DeploymentDropdown" type="OptionButton" parent="LobbyContainer/ArmySelection/DeploymentContainer"]
 layout_mode = 2
 custom_minimum_size = Vector2(250, 40)
@@ -161,8 +153,7 @@ alignment = 1
 layout_mode = 2
 custom_minimum_size = Vector2(150, 0)
 text = "Player 1 Army:"
-theme_override_font_sizes/font_size = 16
-
+theme_override_font_sizes/font_size = 20
 [node name="Player1Dropdown" type="OptionButton" parent="LobbyContainer/ArmySelection/Player1Container"]
 layout_mode = 2
 custom_minimum_size = Vector2(250, 40)
@@ -175,8 +166,7 @@ alignment = 1
 layout_mode = 2
 custom_minimum_size = Vector2(150, 0)
 text = "Player 2 Army:"
-theme_override_font_sizes/font_size = 16
-
+theme_override_font_sizes/font_size = 20
 [node name="Player2Dropdown" type="OptionButton" parent="LobbyContainer/ArmySelection/Player2Container"]
 layout_mode = 2
 custom_minimum_size = Vector2(250, 40)
@@ -191,20 +181,20 @@ theme_override_constants/separation = 10
 [node name="StatusLabel" type="Label" parent="LobbyContainer/StatusSection"]
 layout_mode = 2
 text = "Status: Not Connected"
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 21
 horizontal_alignment = 1
 
 [node name="InfoLabel" type="Label" parent="LobbyContainer/StatusSection"]
 layout_mode = 2
 text = "Select Host or Join to begin"
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 18
 horizontal_alignment = 1
 autowrap_mode = 3
 
 [node name="PlayerListLabel" type="Label" parent="LobbyContainer/StatusSection"]
 layout_mode = 2
 text = "Connected Players: 0/2"
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 18
 horizontal_alignment = 1
 
 [node name="HSeparator5" type="HSeparator" parent="LobbyContainer"]
@@ -220,24 +210,21 @@ layout_mode = 2
 custom_minimum_size = Vector2(200, 50)
 disabled = true
 text = "Start Game"
-theme_override_font_sizes/font_size = 18
-
+theme_override_font_sizes/font_size = 21
 [node name="ResumeGameButton" type="Button" parent="LobbyContainer/ActionButtons"]
 layout_mode = 2
 custom_minimum_size = Vector2(200, 50)
 disabled = true
 text = "Resume Game"
-theme_override_font_sizes/font_size = 18
-
+theme_override_font_sizes/font_size = 21
 [node name="DisconnectButton" type="Button" parent="LobbyContainer/ActionButtons"]
 layout_mode = 2
 custom_minimum_size = Vector2(200, 50)
 disabled = true
 text = "Disconnect"
-theme_override_font_sizes/font_size = 18
-
+theme_override_font_sizes/font_size = 21
 [node name="BackButton" type="Button" parent="LobbyContainer/ActionButtons"]
 layout_mode = 2
 custom_minimum_size = Vector2(200, 50)
 text = "Back to Menu"
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 21

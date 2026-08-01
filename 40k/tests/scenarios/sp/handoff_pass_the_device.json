@@ -1,0 +1,21 @@
+{
+  "id": "handoff_pass_the_device",
+  "covers": ["hotseat.handoff.turn_boundary", "autoloads.HandoffManager"],
+  "fixture": "audit_377_defender_first",
+  "description": "Play-and-pass: in a local Human-vs-Human game the 'Pass the device' privacy screen appears when a player turn starts (Command phase entry), blocks the board, and clears when the incoming player acknowledges. The scenario harness normally suppresses the ceremony; force_enabled_for_test opts this test in.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "HandoffManager.force_enabled_for_test = true\nreturn HandoffManager.handoff_enabled()", "multiline": true, "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)\nreturn true", "multiline": true, "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "HandoffManager._visible", "equals": true },
+    { "act": "expect_node_visible", "node": "/root/HandoffManager/HandoffScreen/HandoffBlocker/HandoffCenter/HandoffBox/HandoffBtnWrap/HandoffReadyButton", "timeout_s": 2.0 },
+    { "act": "execute_script", "script": "var b = tree.root.get_node(\"HandoffManager\")._seat_label\nreturn b.text.begins_with(\"Player \")", "multiline": true, "equals": true },
+    { "act": "screenshot", "label": "01_pass_the_device_screen" },
+    { "act": "click_node", "node": "/root/HandoffManager/HandoffScreen/HandoffBlocker/HandoffCenter/HandoffBox/HandoffBtnWrap/HandoffReadyButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "HandoffManager._visible", "equals": false },
+    { "act": "execute_script", "script": "HandoffManager._layer.visible", "equals": false },
+    { "act": "screenshot", "label": "02_board_after_acknowledge" }
+  ]
+}

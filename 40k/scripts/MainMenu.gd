@@ -106,10 +106,31 @@ var last_army_builder_url: String = ""
 var _waiting_for_cloud_armies: bool = false
 var _cloud_army_fetch_pending: bool = false
 var _pending_game_config: Dictionary = {}
+var _p1_name_edit: LineEdit
+var _p2_name_edit: LineEdit
+
+func _create_seat_name_edit(row: Node, placeholder: String) -> LineEdit:
+	var name_label := Label.new()
+	name_label.text = "  Name:"
+	row.add_child(name_label)
+	var edit := LineEdit.new()
+	edit.name = placeholder.replace(" ", "") + "NameEdit"
+	edit.placeholder_text = placeholder
+	edit.max_length = 20
+	edit.custom_minimum_size = Vector2(140, 0)
+	row.add_child(edit)
+	return edit
 var _cloud_fetch_count: int = 0  # How many cloud armies still need fetching
 
 func _ready() -> void:
 	print("MainMenu: Initializing main menu")
+
+	# Start the menu music bed. Called explicitly here rather than relying on
+	# MusicManager's scene-add heuristic, which races the autoload/scene boot
+	# order (current_scene is null when autoloads run _ready).
+	var _mm := get_node_or_null("/root/MusicManager")
+	if _mm:
+		_mm.play_menu_music()
 
 	# Ensure network state is clean when returning to menu (e.g. after leaving a multiplayer game)
 	if NetworkManager.is_networked():
@@ -159,6 +180,7 @@ func _ready() -> void:
 	_create_version_display()
 	_create_controller_status()
 	_create_tutorial_ui()
+	_promote_buttons_above_fold()
 
 	# M0 controller foundations: the menu must be drivable without a mouse —
 	# something has to own focus for D-pad/stick navigation to work at all,
@@ -182,11 +204,11 @@ func _apply_theme() -> void:
 
 	# Section headers
 	var mission_label = $ScrollContainer/MenuContainer/MissionSection/MissionLabel as Label
-	mission_label.add_theme_font_size_override("font_size", 16)
+	mission_label.add_theme_font_size_override("font_size", 20)
 	mission_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 
 	var army_label = $ScrollContainer/MenuContainer/ArmySection/ArmyLabel as Label
-	army_label.add_theme_font_size_override("font_size", 16)
+	army_label.add_theme_font_size_override("font_size", 20)
 	army_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 
 	# Separators: gold
@@ -228,15 +250,34 @@ func _create_data_attribution_credit() -> void:
 	credit.underline = LinkButton.UNDERLINE_MODE_ON_HOVER
 	credit.tooltip_text = "Dataset: @alpaca-software/40kdc-data (CC BY 4.0)"
 	credit.focus_mode = Control.FOCUS_NONE
-	credit.add_theme_font_size_override("font_size", 11)
+	credit.add_theme_font_size_override("font_size", 16)
 	credit.add_theme_color_override("font_color", Color(WhiteDwarfThemeData.WH_PARCHMENT, 0.55))
 	credit.add_theme_color_override("font_hover_color", WhiteDwarfThemeData.WH_GOLD)
 	credit.add_theme_color_override("font_pressed_color", WhiteDwarfThemeData.WH_GOLD)
-	# Bottom-center of the screen, 6 px above the edge
-	credit.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 6)
+	# Bottom-center of the screen. While the pad is the active device the
+	# PadHintBar glyph strip owns the bottom edge (Steam Deck) — sit above it
+	# so the license-required credit stays visible. Re-checked on device flip.
+	_position_attribution_credit(credit)
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	if idm != null and idm.has_signal("device_changed"):
+		idm.device_changed.connect(func(_mode): _position_attribution_credit(credit))
 	credit.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(credit)
+	# Reserve the credit's strip: without this the ScrollContainer's last row
+	# (Secondary Missions dropdown / Load Game before the button move) rendered
+	# underneath the credit — two interactive controls in the same pixels.
+	var scroll = get_node_or_null("ScrollContainer")
+	if scroll != null:
+		scroll.offset_bottom = -36
 	print("MainMenu: 40kdc data attribution credit added")
+
+func _position_attribution_credit(credit: Control) -> void:
+	if credit == null or not is_instance_valid(credit):
+		return
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	var pad_active: bool = idm != null and idm.has_method("is_pad_active") and idm.is_pad_active()
+	var inset := 52 if pad_active else 6
+	credit.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, inset)
 
 func _create_version_display() -> void:
 	"""Show the game version + a summary of the most recent changes at the bottom
@@ -251,7 +292,7 @@ func _create_version_display() -> void:
 	badge.name = "VersionBadge"
 	badge.text = VersionInfo.get_version_badge()
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	badge.add_theme_font_size_override("font_size", 13)
+	badge.add_theme_font_size_override("font_size", 17)
 	badge.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	# add_child appends to the end of the VBox. Since _create_version_display()
 	# is the last step of _ready(), the version info lands below the
@@ -282,7 +323,7 @@ func _create_version_display() -> void:
 	var header := Label.new()
 	header.name = "WhatsNewHeader"
 	header.text = "What's New — v%s (%s)" % [VersionInfo.get_version(), VersionInfo.get_version_date()]
-	header.add_theme_font_size_override("font_size", 14)
+	header.add_theme_font_size_override("font_size", 18)
 	header.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
 	vbox.add_child(header)
 
@@ -292,7 +333,7 @@ func _create_version_display() -> void:
 		summary_label.text = summary
 		summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		summary_label.custom_minimum_size = Vector2(560, 0)
-		summary_label.add_theme_font_size_override("font_size", 12)
+		summary_label.add_theme_font_size_override("font_size", 16)
 		summary_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 		vbox.add_child(summary_label)
 
@@ -301,7 +342,7 @@ func _create_version_display() -> void:
 		change_label.text = "•  %s" % str(change)
 		change_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		change_label.custom_minimum_size = Vector2(560, 0)
-		change_label.add_theme_font_size_override("font_size", 12)
+		change_label.add_theme_font_size_override("font_size", 16)
 		change_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 		vbox.add_child(change_label)
 
@@ -354,6 +395,39 @@ func _on_tutorial_button_pressed() -> void:
 	if _tutorial_picker:
 		_tutorial_picker.open()
 
+func _promote_buttons_above_fold() -> void:
+	"""Move the action buttons to directly under the title. They used to sit
+	BELOW the whole 14-dropdown config form: at 1080p 'Load Game' was clipped
+	by the screen edge and Tutorial/Replays/Settings/Quit were entirely below
+	the fold inside the ScrollContainer. Start Game stays a full-width primary
+	button; the six secondary actions become a 3-column grid so the config
+	form is still visible without scrolling."""
+	var menu = $ScrollContainer/MenuContainer
+	var buttons = $ScrollContainer/MenuContainer/ButtonSection
+	if menu == null or buttons == null:
+		return
+	# Index 0 = TitleLabel, 1 = HSeparator — buttons land at 2.
+	menu.move_child(buttons, 2)
+
+	var grid := GridContainer.new()
+	grid.name = "SecondaryButtonGrid"
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 8)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for btn_name in ["TutorialButton", "MultiplayerButton", "LoadButton", "ReplayButton", "SettingsButton", "QuitButton"]:
+		var b = buttons.get_node_or_null(NodePath(btn_name))
+		if b != null:
+			buttons.remove_child(b)
+			b.custom_minimum_size = Vector2(185, 38)
+			grid.add_child(b)
+	buttons.add_child(grid)
+
+	var fold_sep := HSeparator.new()
+	fold_sep.name = "ButtonsFoldSeparator"
+	buttons.add_child(fold_sep)
+	print("MainMenu: action buttons promoted above the fold")
+
 func _create_controller_status() -> void:
 	"""Top-right always-visible controller diagnostic (M4). Steam Deck field
 	reports came down to 'is the game even receiving gamepad input?' — with a
@@ -368,7 +442,7 @@ func _create_controller_status() -> void:
 	var label := Label.new()
 	label.name = "ControllerStatus"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_font_size_override("font_size", 17)
 	label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	label.offset_right = -14
 	label.offset_top = 10
@@ -383,7 +457,7 @@ func _create_controller_status() -> void:
 	var mode_label := Label.new()
 	mode_label.name = "InputModeStatus"
 	mode_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	mode_label.add_theme_font_size_override("font_size", 11)
+	mode_label.add_theme_font_size_override("font_size", 16)
 	mode_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	mode_label.offset_right = -14
 	mode_label.offset_top = 56
@@ -471,6 +545,12 @@ func _setup_dropdowns() -> void:
 	player2_type_dropdown.add_item("Human")
 	player2_type_dropdown.add_item("AI")
 	player2_type_dropdown.selected = 1  # Default: AI (most common single-player setup)
+
+	# Play-and-pass seat names: optional per-player name fields on the type
+	# rows. Surfaced by the handoff screen, reactive-decision overlay and
+	# anywhere else that would otherwise say "Player 1/2".
+	_p1_name_edit = _create_seat_name_edit(player1_type_dropdown.get_parent(), "Player 1")
+	_p2_name_edit = _create_seat_name_edit(player2_type_dropdown.get_parent(), "Player 2")
 
 	# T7-40: Create AI difficulty dropdowns
 	_create_difficulty_dropdowns()
@@ -1282,6 +1362,13 @@ func _connect_signals() -> void:
 	settings_button.pressed.connect(_on_settings_button_pressed)
 	quit_button.pressed.connect(_on_quit_button_pressed)
 
+	# UI sound cues on the menu buttons (routed to the SFX bus).
+	var mm = get_node_or_null("/root/MusicManager")
+	if mm:
+		for b in [start_button, multiplayer_button, load_button, replay_button, settings_button, quit_button]:
+			b.pressed.connect(func(): mm.play_sfx("click"))
+			b.mouse_entered.connect(func(): mm.play_sfx("hover"))
+
 	# Hide quit button on web platform (not applicable)
 	if OS.has_feature("web"):
 		quit_button.visible = false
@@ -1351,6 +1438,8 @@ func _on_start_button_pressed() -> void:
 		"player2_fixed_missions": _p2_fixed_mission_ids.duplicate() if p2_secondary_mode == "fixed" else [],
 		"player1_disposition": _get_selected_disposition(p1_disposition_dropdown),
 		"player2_disposition": _get_selected_disposition(p2_disposition_dropdown),
+		"player1_name": _p1_name_edit.text.strip_edges() if _p1_name_edit else "",
+		"player2_name": _p2_name_edit.text.strip_edges() if _p2_name_edit else "",
 	}
 
 	print("MainMenu: Starting game with config: ", config)
@@ -1595,7 +1684,7 @@ func _show_menu_progress(operation: String) -> void:
 	_save_load_progress_label.text = operation + "..."
 	_save_load_progress_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_save_load_progress_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
-	_save_load_progress_label.add_theme_font_size_override("font_size", 18)
+	_save_load_progress_label.add_theme_font_size_override("font_size", 21)
 	_save_load_progress_overlay.add_child(_save_load_progress_label)
 
 	add_child(_save_load_progress_overlay)
@@ -1720,7 +1809,7 @@ func _show_replay_browser() -> void:
 			var p2_faction = meta.get("player2_faction", "Player 2")
 			var title_label = Label.new()
 			title_label.text = "%s vs %s" % [p1_faction, p2_faction]
-			title_label.add_theme_font_size_override("font_size", 16)
+			title_label.add_theme_font_size_override("font_size", 20)
 			info_vbox.add_child(title_label)
 
 			# Subtitle: date, rounds, score
@@ -1740,7 +1829,7 @@ func _show_replay_browser() -> void:
 			var subtitle = Label.new()
 			subtitle.text = "%s %s | %s vs %s | Round %s | Score: %d-%d | %d events" % [
 				status_label, date_str, p1_type, p2_type, str(final_round), p1_vp, p2_vp, total_events]
-			subtitle.add_theme_font_size_override("font_size", 12)
+			subtitle.add_theme_font_size_override("font_size", 16)
 			var subtitle_color = Color(0.6, 0.6, 0.6) if replay_status == "complete" else Color(0.8, 0.7, 0.3)
 			subtitle.add_theme_color_override("font_color", subtitle_color)
 			info_vbox.add_child(subtitle)

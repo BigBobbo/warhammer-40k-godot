@@ -164,6 +164,11 @@ The wire protocol is one JSON object per line:
   reachable by name; bare expressions auto-returned; pass `expect` for
   equality or rely on truthiness). Returns `passed: false` if any required
   check fails. Use it as the final gate after driving a feature live.
+  Each assertion is `{"expr": "<gdscript>", "description": "<label>"}` with
+  optional `"expect": <value>` and `"node_path"` — note `expr`/`description`,
+  NOT `script`/`name`; an assertion with no `expr` can never pass.
+  `expected_phase` accepts either the enum name (`"MOVEMENT"`) or the numeric
+  phase id (`7`).
 
 ## Security model
 

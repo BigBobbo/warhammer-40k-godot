@@ -6,7 +6,7 @@
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T1 driven entirely with a gamepad: LB claims pad mode on the main menu, D-pad+A opens the Tutorial picker and starts the lesson, then every step is completed with pad input only - RS camera pan, RB unit cycling, Y datasheet toggle, virtual-cursor clicks on the Dice Log tab and instructor-card buttons, the pad-only hint-bar step (skipped on kbm), the controls-reference step reached with the View button (pause menu -> Controller tab) instead of the keyboard-only Shift+/ chord, and a full carry-mode grot move (A select, A menu, A pick Normal, glide, X drop) before confirming via the End This Unit's Move button. Verifies the pad-only step appears, kbm-only steps are skipped, and completion persists.",
+  "description": "Tutorial lesson T1 driven entirely with a gamepad: LB claims pad mode on the main menu, D-pad+A opens the Tutorial picker and starts the lesson, then every step is completed with pad input only - RS camera pan, RB unit cycling, Y datasheet toggle, virtual-cursor clicks on the instructor-card buttons, the pad-only hint-bar step (skipped on kbm), the controls-reference step reached with the View button (pause menu -> Controller tab) instead of the keyboard-only Shift+/ chord, and a full carry-mode grot move (A select, A menu, A pick Normal, glide, X drop) before confirming via the End This Unit's Move button. Verifies the pad-only step appears, kbm-only steps are skipped, and completion persists.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -263,15 +263,20 @@
     {
       "act": "execute_script",
       "script": "TutorialManager.current_step_id()",
-      "equals": "dice_log"
+      "equals": "log_panel",
+      "comment": "was a 'dice_log' step that made the pad player glide onto the Dice Log tab before anything had been rolled — a blank panel. The interactive version moved to T4 (tut_t4_dakka_pad.json), after the shooting rolls; this one just points at the panel and takes Ⓐ."
     },
     {
-      "act": "pad_cursor_glide",
-      "button_text": "Dice Log"
+      "act": "execute_script",
+      "script": "return tree.current_scene.game_log_panel.get_dice_log_display().get_total_character_count()",
+      "multiline": true,
+      "equals": 0,
+      "comment": "why it moved: nothing has been rolled yet, so the dice log has nothing in it"
     },
     {
       "act": "simulate_joy_button",
-      "button_index": 0
+      "button_index": 0,
+      "comment": "closed ack step: Ⓐ is rerouted to the card's Continue, so no cursor glide is needed to leave it"
     },
     {
       "act": "wait_frames",

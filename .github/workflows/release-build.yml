@@ -61,7 +61,8 @@ jobs:
     strategy:
       matrix:
         platform:
-          - { name: "Linux", template: "Linux/X11", file: "40k-game.x86_64" }
+          # template values must match preset names in 40k/export_presets.cfg
+          - { name: "Linux", template: "Linux", file: "40k-game.x86_64" }
           - { name: "Windows", template: "Windows Desktop", file: "40k-game.exe" }
           - { name: "macOS", template: "macOS", file: "40k-game.app" }
 
@@ -80,12 +81,15 @@ jobs:
       with:
         version: ${{ env.GODOT_VERSION }}
         use-dotnet: false
-    
+        # Export templates are required for --export-release; without them
+        # every build step fails after a successful import.
+        include-templates: true
+
     - name: Import project
       run: |
         cd 40k
         godot --headless --import
-    
+
     - name: Build ${{ matrix.platform.name }}
       run: |
         cd 40k

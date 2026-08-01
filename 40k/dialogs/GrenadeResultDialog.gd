@@ -33,7 +33,7 @@ func setup(result: Dictionary) -> void:
 	# Header
 	var header = Label.new()
 	header.text = "GRENADE"
-	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.ORANGE)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main.add_child(header)
@@ -41,7 +41,7 @@ func setup(result: Dictionary) -> void:
 	# Unit info
 	var info = Label.new()
 	info.text = "%s threw a grenade at %s" % [grenade_name, target_name]
-	info.add_theme_font_size_override("font_size", 13)
+	info.add_theme_font_size_override("font_size", 17)
 	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main.add_child(info)
 
@@ -50,7 +50,7 @@ func setup(result: Dictionary) -> void:
 	# Dice display
 	var dice_label = Label.new()
 	dice_label.text = "Roll 6D6 (4+ = mortal wound):"
-	dice_label.add_theme_font_size_override("font_size", 13)
+	dice_label.add_theme_font_size_override("font_size", 17)
 	main.add_child(dice_label)
 
 	# Dice icons row
@@ -83,14 +83,14 @@ func setup(result: Dictionary) -> void:
 	else:
 		results_label.text = "No mortal wounds dealt."
 		results_label.add_theme_color_override("font_color", Color.GRAY)
-	results_label.add_theme_font_size_override("font_size", 16)
+	results_label.add_theme_font_size_override("font_size", 20)
 	results_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main.add_child(results_label)
 
 	if casualties > 0:
 		var cas_label = Label.new()
 		cas_label.text = "%d model%s destroyed" % [casualties, "s" if casualties != 1 else ""]
-		cas_label.add_theme_font_size_override("font_size", 14)
+		cas_label.add_theme_font_size_override("font_size", 18)
 		cas_label.add_theme_color_override("font_color", Color.ORANGE_RED)
 		cas_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		main.add_child(cas_label)

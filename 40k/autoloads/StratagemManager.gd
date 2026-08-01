@@ -785,10 +785,12 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	if GameConstants.edition >= 11 and target_unit_id != "":
 		var current_turn_11e = GameState.get_battle_round()
 		var current_phase_11e = GameState.get_current_phase()
+		var current_active_11e = GameState.get_active_player()
 		for usage in _usage_history.get(str(player), []):
 			if usage.get("target_unit_id", "") == target_unit_id \
 					and usage.get("turn", -1) == current_turn_11e \
-					and usage.get("phase", -1) == current_phase_11e:
+					and usage.get("phase", -1) == current_phase_11e \
+					and int(usage.get("active_player", current_active_11e)) == current_active_11e:
 				return {"can_use": false, "reason": "That unit has already been targeted by a stratagem this phase (11e core rules 15.01)"}
 
 	# P1-59: Out-of-phase rules restriction
@@ -918,12 +920,25 @@ func _check_usage_restriction(player: int, stratagem_id: String, strat: Dictiona
 
 	var restriction = strat.get("restrictions", {}).get("once_per", null)
 	if restriction == null:
-		return {"can_use": true, "reason": ""}
+		# 11e 15.01: a player cannot use the same Stratagem more than once
+		# in the same phase. Definitions that declare no explicit cap
+		# (EPIC CHALLENGE, CRUSHING IMPACT, SMOKESCREEN, HEROIC
+		# INTERVENTION, COUNTEROFFENSIVE, RAPID INGRESS, faction CSV rows)
+		# get the blanket rule instead of unlimited use.
+		if GameConstants.edition >= 11:
+			restriction = "phase"
+		else:
+			return {"can_use": true, "reason": ""}
 
 	var player_history = _usage_history.get(str(player), [])
 	var current_turn = GameState.get_battle_round()
 	var current_phase = GameState.get_current_phase()
+	var current_active = GameState.get_active_player()
 
+	# A phase INSTANCE is (battle_round, whose player-turn, phase): P1's
+	# Shooting phase and P2's Shooting phase in the same round are different
+	# phases (and different turns). Records from saves made before
+	# active_player was stamped fall back to "same turn" (conservative).
 	match restriction:
 		"battle":
 			# Check if this stratagem was ever used this battle
@@ -931,14 +946,15 @@ func _check_usage_restriction(player: int, stratagem_id: String, strat: Dictiona
 				if usage.stratagem_id == stratagem_id:
 					return {"can_use": false, "reason": "%s can only be used once per battle" % strat.name}
 		"turn":
-			# Check if used this turn
 			for usage in player_history:
-				if usage.stratagem_id == stratagem_id and usage.turn == current_turn:
+				if usage.stratagem_id == stratagem_id and usage.turn == current_turn \
+						and int(usage.get("active_player", current_active)) == current_active:
 					return {"can_use": false, "reason": "%s can only be used once per turn" % strat.name}
 		"phase":
-			# Check if used this phase (same turn + same phase)
 			for usage in player_history:
-				if usage.stratagem_id == stratagem_id and usage.turn == current_turn and usage.phase == current_phase:
+				if usage.stratagem_id == stratagem_id and usage.turn == current_turn \
+						and usage.phase == current_phase \
+						and int(usage.get("active_player", current_active)) == current_active:
 					return {"can_use": false, "reason": "%s can only be used once per phase" % strat.name}
 
 	return {"can_use": true, "reason": ""}
@@ -1016,6 +1032,7 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		"target_unit_id": target_unit_id,
 		"turn": GameState.get_battle_round(),
 		"phase": GameState.get_current_phase(),
+		"active_player": GameState.get_active_player(),
 		"timestamp": Time.get_unix_time_from_system()
 	}
 	_usage_history[str(player)].append(usage_record)
@@ -2879,6 +2896,7 @@ func execute_grenade(player: int, grenade_unit_id: String, target_unit_id: Strin
 		"target_unit_id": grenade_unit_id,
 		"turn": GameState.get_battle_round(),
 		"phase": GameState.get_current_phase(),
+		"active_player": GameState.get_active_player(),
 		"timestamp": Time.get_unix_time_from_system()
 	}
 	_usage_history[str(player)].append(usage_record)
@@ -3242,6 +3260,7 @@ func execute_tank_shock(player: int, vehicle_unit_id: String, target_unit_id: St
 		"target_unit_id": vehicle_unit_id,
 		"turn": GameState.get_battle_round(),
 		"phase": GameState.get_current_phase(),
+		"active_player": GameState.get_active_player(),
 		"timestamp": Time.get_unix_time_from_system()
 	}
 	_usage_history[str(player)].append(usage_record)

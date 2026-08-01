@@ -73,7 +73,7 @@ func _build_ui() -> void:
 	var instructions = Label.new()
 	instructions.text = "Declare your battle formations before deployment begins.\nThese choices are locked in before either player deploys."
 	instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	instructions.add_theme_font_size_override("font_size", 13)
+	instructions.add_theme_font_size_override("font_size", 17)
 	instructions.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		instructions.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
@@ -147,13 +147,13 @@ func _build_leader_section() -> void:
 
 	var section_label = Label.new()
 	section_label.text = "LEADER ATTACHMENTS"
-	section_label.add_theme_font_size_override("font_size", 14)
+	section_label.add_theme_font_size_override("font_size", 18)
 	section_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	content_vbox.add_child(section_label)
 
 	var desc_label = Label.new()
 	desc_label.text = "Assign CHARACTER leaders to bodyguard units:"
-	desc_label.add_theme_font_size_override("font_size", 12)
+	desc_label.add_theme_font_size_override("font_size", 16)
 	desc_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
 	content_vbox.add_child(desc_label)
 
@@ -173,7 +173,7 @@ func _build_leader_section() -> void:
 		var char_label = Label.new()
 		char_label.text = "%s →" % char_name
 		char_label.custom_minimum_size = Vector2(200, 0)
-		char_label.add_theme_font_size_override("font_size", 13)
+		char_label.add_theme_font_size_override("font_size", 17)
 		row.add_child(char_label)
 
 		var option_button = OptionButton.new()
@@ -213,13 +213,13 @@ func _build_warlord_section() -> void:
 
 	var section_label = Label.new()
 	section_label.text = "WARLORD DESIGNATION"
-	section_label.add_theme_font_size_override("font_size", 14)
+	section_label.add_theme_font_size_override("font_size", 18)
 	section_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	content_vbox.add_child(section_label)
 
 	var desc_label = Label.new()
 	desc_label.text = "Choose your Warlord (one CHARACTER):"
-	desc_label.add_theme_font_size_override("font_size", 12)
+	desc_label.add_theme_font_size_override("font_size", 16)
 	desc_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
 	content_vbox.add_child(desc_label)
 
@@ -230,7 +230,7 @@ func _build_warlord_section() -> void:
 	var warlord_label = Label.new()
 	warlord_label.text = "Warlord:"
 	warlord_label.custom_minimum_size = Vector2(200, 0)
-	warlord_label.add_theme_font_size_override("font_size", 13)
+	warlord_label.add_theme_font_size_override("font_size", 17)
 	row.add_child(warlord_label)
 
 	var option_button = OptionButton.new()
@@ -268,13 +268,13 @@ func _build_transport_section() -> void:
 
 	var section_label = Label.new()
 	section_label.text = "TRANSPORT EMBARKATION"
-	section_label.add_theme_font_size_override("font_size", 14)
+	section_label.add_theme_font_size_override("font_size", 18)
 	section_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	content_vbox.add_child(section_label)
 
 	var desc_label = Label.new()
 	desc_label.text = "Select units to start embarked in transports:"
-	desc_label.add_theme_font_size_override("font_size", 12)
+	desc_label.add_theme_font_size_override("font_size", 16)
 	desc_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
 	content_vbox.add_child(desc_label)
 
@@ -289,7 +289,7 @@ func _build_transport_section() -> void:
 			transport_name, capacity,
 			" — %s only" % "/".join(capacity_keywords) if capacity_keywords.size() > 0 else ""
 		]
-		transport_label.add_theme_font_size_override("font_size", 13)
+		transport_label.add_theme_font_size_override("font_size", 17)
 		transport_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_PARCHMENT)
 		content_vbox.add_child(transport_label)
 
@@ -327,7 +327,7 @@ func _build_reserves_section() -> void:
 
 	var section_label = Label.new()
 	section_label.text = "STRATEGIC RESERVES / DEEP STRIKE"
-	section_label.add_theme_font_size_override("font_size", 14)
+	section_label.add_theme_font_size_override("font_size", 18)
 	section_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	section_label.set_meta("reserves_section", true)
 	content_vbox.add_child(section_label)
@@ -337,7 +337,7 @@ func _build_reserves_section() -> void:
 
 	var desc_label = Label.new()
 	desc_label.text = "Place units in reserves (max 50%% of army points = %d pts):" % max_reserves
-	desc_label.add_theme_font_size_override("font_size", 12)
+	desc_label.add_theme_font_size_override("font_size", 16)
 	desc_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
 	desc_label.set_meta("reserves_section", true)
 	content_vbox.add_child(desc_label)

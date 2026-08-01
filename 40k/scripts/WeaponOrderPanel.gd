@@ -43,7 +43,7 @@ func _ready() -> void:
 	var title := Label.new()
 	title.name = "Title"
 	title.text = "Weapon Order"
-	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_font_size_override("font_size", 21)
 	_vbox.add_child(title)
 
 	_list_vbox = VBoxContainer.new()

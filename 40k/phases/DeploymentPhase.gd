@@ -132,6 +132,18 @@ func _validate_deploy_unit_action(action: Dictionary) -> Dictionary:
 		errors.append("model_positions must be an Array of position objects, got %s" % typeof(model_positions))
 		return {"valid": false, "errors": errors}
 
+	# MP ROBUSTNESS: normalize every position to Vector2 IN PLACE. Deploy
+	# actions arrive as Vector2 from the local UI and over ENet RPC (Variant
+	# survives), but the web-relay path JSON-encodes them, so a client's
+	# placement reaches the host as {"x":,"y":} dicts. The validators are typed
+	# `position: Vector2` and threw "Cannot convert Dictionary to Vector2",
+	# which returned an empty {} that NetworkManager read as a blanket reject —
+	# no client could ever deploy in a relay game. Coercing here fixes both the
+	# validate loop and _process_deploy_unit (which reads pos.x/pos.y).
+	for i in range(model_positions.size()):
+		if model_positions[i] != null and not (model_positions[i] is Vector2):
+			model_positions[i] = _coerce_deploy_pos(model_positions[i])
+
 	var unit_owner = unit.get("owner", 0)
 	var is_infiltrators = GameState.unit_has_infiltrators(unit_id)
 	var deployment_zone = get_deployment_zone_for_player(unit_owner)
@@ -263,6 +275,17 @@ func _validate_composite_deploy_action(action: Dictionary) -> Dictionary:
 	# and the characters are part of the combined deployment
 
 	return {"valid": errors.size() == 0, "errors": errors}
+
+func _coerce_deploy_pos(p) -> Vector2:
+	# Position payloads arrive as Vector2 (local UI / ENet RPC), {"x":,"y":}
+	# (web-relay JSON round-trip), or [x, y] depending on the transport.
+	if p is Vector2:
+		return p
+	if p is Dictionary:
+		return Vector2(p.get("x", 0.0), p.get("y", 0.0))
+	if p is Array and p.size() >= 2:
+		return Vector2(p[0], p[1])
+	return Vector2.ZERO
 
 func _validate_model_position(position: Vector2, unit: Dictionary, model_index: int, zone: Dictionary, rotation: float = 0.0) -> Dictionary:
 	var errors = []

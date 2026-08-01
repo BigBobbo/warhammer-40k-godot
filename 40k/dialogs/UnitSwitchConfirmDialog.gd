@@ -45,7 +45,7 @@ func _build_ui(current_unit_name: String, target_unit_name: String, consequence_
 	# Header
 	var header = Label.new()
 	header.text = "SWITCH UNIT?"
-	header.add_theme_font_size_override("font_size", 22)
+	header.add_theme_font_size_override("font_size", 24)
 	header.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	main_container.add_child(header)
@@ -56,7 +56,7 @@ func _build_ui(current_unit_name: String, target_unit_name: String, consequence_
 	var question_label = Label.new()
 	question_label.name = "QuestionLabel"
 	question_label.text = "Do you want to switch to %s?" % target_unit_name
-	question_label.add_theme_font_size_override("font_size", 15)
+	question_label.add_theme_font_size_override("font_size", 19)
 	question_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	question_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	question_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -67,7 +67,7 @@ func _build_ui(current_unit_name: String, target_unit_name: String, consequence_
 		var consequence_label = Label.new()
 		consequence_label.name = "ConsequenceLabel"
 		consequence_label.text = consequence_text
-		consequence_label.add_theme_font_size_override("font_size", 12)
+		consequence_label.add_theme_font_size_override("font_size", 16)
 		consequence_label.add_theme_color_override("font_color", Color(0.8, 0.65, 0.4))
 		consequence_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		consequence_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
