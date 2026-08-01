@@ -3804,6 +3804,26 @@
       "fidelity": "DECLARED"
     },
     {
+      "id": "charge.base_contact.snap_lane_clearance",
+      "description": "Snap to Contact only offers a placement the model could actually walk to: a candidate whose straight hop passes through another unit's bases is skipped. Regression net for the '±180 degree sweep parks the attached Warboss on the far side of the Custodian Guard' bug. Declared by: tut_t5_ere_we_go.",
+      "scenarios": [
+        "tut_t5_ere_we_go"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "charge.base_contact.snap_places_attached_character",
+      "description": "Snap to Contact stages the charging unit's attached CHARACTER alongside its bodyguard models, not just the squad. Declared by: tut_t5_ere_we_go.",
+      "scenarios": [
+        "tut_t5_ere_we_go"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
       "id": "charge.base_contact.closest_fallback",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: snap_to_contact_out_of_reach.",
       "scenarios": [

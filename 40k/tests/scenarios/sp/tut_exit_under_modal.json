@@ -10,7 +10,7 @@
   "description": "Exit Tutorial has to work at ANY point of a lesson, including while a gameplay dialog owns the screen. Reproduces the reported T2 softlock — parked on 'GROTS IN A MOB!' (deploy_grots) with the FIRST_TURN_ROLLOFF dialog open, so the step's allow-list rejects the roll — and proves the escape hatch: the card's own Exit Tutorial greys out (it is unreachable under an exclusive embedded Window, which blocks every input to the parent viewport), an Exit Tutorial button is offered inside the dialog itself, it opens a confirm, and confirming lands the player back on the main menu with no tutorial state left behind. The hatch is ARMED, not always-on: it appears only once the lesson gate has actually refused something while this dialog was up, because offering it on every dialog cost pad players control of the dialog itself (tut_rolloff_pad_no_exit_hatch owns that half). So this scenario presses the blocked Roll button first — which is exactly what the stranded player did.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.5 },
-    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton" },
+    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton" },
     { "act": "expect_node_visible", "node": "/root/MainMenu/TutorialPicker", "timeout_s": 3.0 },
     { "act": "click_node", "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t2_musterin/Play_t2_musterin" },
     { "act": "wait_seconds", "seconds": 10.0 },

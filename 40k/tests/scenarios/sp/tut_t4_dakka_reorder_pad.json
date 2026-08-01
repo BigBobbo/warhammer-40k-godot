@@ -14,7 +14,7 @@
     },
     {
       "act": "click_node",
-      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton",
       "comment": "the lesson is opened with the mouse on purpose - pad entry from the main menu is tut_t4_dakka_pad's job, this scenario is about the dock"
     },
     {
