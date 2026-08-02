@@ -62,3 +62,7 @@ ai_loop_log.txt
 ai_loop_status.txt
 ai_loop_tracker.json
 ai_loop_tracker.json.games
+
+# Python bytecode from the asset-generation tools (40k/tools/*.py)
+__pycache__/
+*.pyc
