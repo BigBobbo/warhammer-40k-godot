@@ -5,6 +5,15 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 # Handles shooting mechanics, dice rolling, damage application following 10e rules
 # This is an autoload singleton, accessed globally as RulesEngine
 
+# MA-LOADOUT: bump whenever _ensure_loadout_resolved learns to resolve something
+# it previously left as the datasheet menu. Units stamped by an older resolver
+# (saved games, the tutorial fixtures) carry a lower version and are re-resolved
+# on load, so an improvement reaches existing saves instead of only new ones.
+#   1 — ranged from wargear (Phase 1) + melee from wargear (Phase 1b)
+#   2 — melee/ranged fall back to the datasheet's DEFAULT per-model kit when the
+#       roster's wargear says nothing about that weapon type (CASE D)
+const LOADOUT_RESOLVER_VERSION := 2
+
 # Weapon profile structure (will be expanded later)
 const WEAPON_PROFILES = {
 	"bolt_rifle": {
@@ -6398,10 +6407,16 @@ static func _get_model_weapon_ids(unit: Dictionary, model: Dictionary, weapon_ty
 # every assignment is cross-checked against model_profiles, so it never hands a
 # model a weapon its type can't take and never changes an already-correct unit.
 # Anything it can't pin cleanly is left exactly as-is (the safe fallback) and
-# logged. See _resolve_type_loadout for the cases handled (A/B/C).
+# logged. See _resolve_type_loadout for the cases handled (A/B/C/D).
 static func _ensure_loadout_resolved(unit: Dictionary) -> void:
-	if unit.get("_loadout_checked", false):
+	# Version the "already done" stamp instead of a bare bool: saves (and the
+	# tutorial fixtures) written by an OLDER resolver carry _loadout_checked =
+	# true with only the ranged half resolved, and a bare bool would lock them
+	# out of every later improvement forever. Re-running is safe — each type is
+	# skipped when it no longer over-reports, so an existing stamp survives.
+	if int(unit.get("_loadout_version", 0)) >= LOADOUT_RESOLVER_VERSION:
 		return
+	unit["_loadout_version"] = LOADOUT_RESOLVER_VERSION
 	unit["_loadout_checked"] = true
 
 	# A single-model unit (VEHICLE / MONSTER / character) DOES fire all of the
@@ -6496,6 +6511,9 @@ static func _model_allows_weapon(unit: Dictionary, model: Dictionary, weapon_nam
 #      wargear (a 2-model unit carrying 10-model counts fails this cleanly).
 #   C) incomplete-but-consistent: fewer counts than models but all the SAME gun
 #      (a 20-Boy mob recorded with only "10x Slugga") -> that gun on every model.
+#   D) wargear silent about this type entirely (the norm for MELEE) -> fall back
+#      to the datasheet's default kit per model role, e.g. Boyz -> Boss Nob with
+#      a Big choppa, Boyz with Choppas. See _resolve_type_from_datasheet_defaults.
 static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, loadout_key: String) -> void:
 	var meta = unit.get("meta", {})
 	var models = unit.get("models", [])
@@ -6545,7 +6563,18 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 	var uname = str(meta.get("name", ""))
 	var tlow = weapon_type_filter.to_lower()
 	if counts.is_empty():
-		print("[MA-LOADOUT] %s (%s): left unresolved — no parseable %s wargear counts" % [uname, weapon_type_filter, tlow])
+		# CASE D — the roster's wargear says NOTHING about this weapon type, which
+		# is the norm for melee (a Boyz mob records "9x Slugga, 1x Slugga" and not
+		# one word about choppas). Falling through here left every model reporting
+		# the whole datasheet MENU, so a Boy claimed a Choppa AND a Close combat
+		# weapon and the Boss Nob claimed a Big choppa, a Choppa AND a Power klaw —
+		# those are mutually-exclusive wargear OPTIONS, not a shared arsenal.
+		# The datasheet states what each role is equipped with by default
+		# ("The Boss Nob is equipped with: slugga; big choppa. Every Boy is
+		# equipped with: slugga; choppa."), so use that.
+		if _resolve_type_from_datasheet_defaults(unit, weapon_type_filter, loadout_key):
+			return
+		print("[MA-LOADOUT] %s (%s): left unresolved — no parseable %s wargear counts and no usable datasheet default kit" % [uname, weapon_type_filter, tlow])
 		return
 
 	var distinct = counts.keys()
@@ -6570,7 +6599,12 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 						placed = true
 						break
 				if not placed:
-					print("[MA-LOADOUT] %s (%s): left unresolved — could not place '%s' within model_profiles" % [uname, weapon_type_filter, name])
+					# The counts are real but the roster's own model_profiles will
+					# not take this gun. The datasheet knows the per-role split —
+					# try it before giving up (CASE D).
+					print("[MA-LOADOUT] %s (%s): could not place '%s' within model_profiles — trying the datasheet kit" % [uname, weapon_type_filter, name])
+					if not _resolve_type_from_datasheet_defaults(unit, weapon_type_filter, loadout_key):
+						print("[MA-LOADOUT] %s (%s): left unresolved — could not place '%s'" % [uname, weapon_type_filter, name])
 					return
 		for mi in range(model_count):
 			models[mi][loadout_key] = [assigned[mi]]
@@ -6598,15 +6632,366 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 	# CASE C — incomplete-but-consistent: fewer counts than models, all one gun.
 	if distinct.size() == 1 and total < model_count:
 		var name = str(distinct[0])
+		var all_allowed := true
 		for model in models:
 			if not _model_allows_weapon(unit, model, name):
-				print("[MA-LOADOUT] %s (%s): left unresolved — consistent gun '%s' not allowed for model_type '%s'" % [uname, weapon_type_filter, name, str(model.get("model_type", ""))])
-				return
-		for model in models:
-			model[loadout_key] = [name]
+				# Handing the gun to EVERY model is wrong here — some role can't
+				# take it, which means the roster's short count is a per-role
+				# figure ("9x Close combat weapon" for 9 Boyz + a Boss Nob with a
+				# big choppa). The datasheet's per-role kit knows the split.
+				print("[MA-LOADOUT] %s (%s): consistent gun '%s' not allowed for model_type '%s' — trying the datasheet kit" % [uname, weapon_type_filter, name, str(model.get("model_type", ""))])
+				all_allowed = false
+				break
+		if all_allowed:
+			for model in models:
+				model[loadout_key] = [name]
+			return
+		if _resolve_type_from_datasheet_defaults(unit, weapon_type_filter, loadout_key):
+			return
+		print("[MA-LOADOUT] %s (%s): left unresolved — consistent gun '%s' fits no per-role kit" % [uname, weapon_type_filter, name])
 		return
 
+	# Counts we cannot read as one-gun-per-model. The datasheet's per-role kit,
+	# adjusted by the options the roster took, is the last and best-informed
+	# chance to pin this (a roster listing per-role sub-totals lands here).
+	if _resolve_type_from_datasheet_defaults(unit, weapon_type_filter, loadout_key):
+		return
 	print("[MA-LOADOUT] %s (%s): left unresolved — counts inconclusive (total=%d models=%d distinct=%d)" % [uname, weapon_type_filter, total, model_count, distinct.size()])
+
+
+# MA-LOADOUT CASE D: resolve one weapon type from the datasheet's kit — the
+# default "equipped with" line, adjusted by whichever "•" options the roster
+# took — when the roster's wargear is silent about that type.
+#
+# `meta.weapons` is the datasheet's whole option MENU and `model_profiles[t].weapons`
+# is the menu that role may pick FROM — neither says what the model ended up
+# holding. The 40kdc data does: `unitCompositions` gives each role its
+# `default_weapon_ids` (Boss Nob -> big-choppa + slugga, Boy -> slugga + choppa)
+# and `wargearOptions` gives the swaps on top. Wargear-derived resolution
+# (cases A/B/C) always wins; this only fills the silence.
+#
+# Safety: every pick is intersected with the datasheet's weapons of this type AND
+# with _model_allows_weapon, so the result is always a SUBSET of what the model
+# already reported — resolution can only ever reduce, never invent. Any model we
+# cannot pin (unknown datasheet, unmatched role, no kit of this type) aborts the
+# whole unit and leaves it exactly as it was. Returns true when it stamped.
+static func _resolve_type_from_datasheet_defaults(unit: Dictionary, weapon_type_filter: String, loadout_key: String) -> bool:
+	var meta = unit.get("meta", {})
+	var models = unit.get("models", [])
+	var uname = str(meta.get("name", ""))
+	var tlow = weapon_type_filter.to_lower()
+
+	# Datasheet weapon names of this type, in datasheet order.
+	var type_weapon_names: Array = []
+	for w in meta.get("weapons", []):
+		if typeof(w) != TYPE_DICTIONARY:
+			continue
+		if str(w.get("type", "")).to_lower() == tlow:
+			var n = str(w.get("name", ""))
+			if n != "" and n not in type_weapon_names:
+				type_weapon_names.append(n)
+	if type_weapon_names.is_empty():
+		return false
+
+	# What each model carries, as weapon-id slugs. [] when the roster can't be
+	# read confidently — see _datasheet_model_kits.
+	var kits = _datasheet_model_kits(unit)
+	if kits.is_empty():
+		return false
+
+	var picks: Array = []  # parallel to models
+	for i in range(models.size()):
+		var model = models[i]
+		var allowed: Array = []
+		for wname in type_weapon_names:
+			# Match the full name AND the base name so a kit slug of
+			# "guardian-spear" picks up "Guardian spear – Melee".
+			var s_full = UnitLoadoutResolver.slugify(wname)
+			var s_base = UnitLoadoutResolver.slugify(UnitLoadoutResolver.base_weapon_name(wname))
+			if not (kits[i].has(s_full) or kits[i].has(s_base)):
+				continue
+			if _model_allows_weapon(unit, model, wname):
+				allowed.append(wname)
+		if allowed.is_empty():
+			print("[MA-LOADOUT] %s (%s): model %d's datasheet kit has no %s weapon — left unresolved" % [
+				uname, weapon_type_filter, i, tlow])
+			return false
+		picks.append(allowed)
+
+	# Only stamp when this actually narrows something. A unit already reporting
+	# exactly its default kit gains nothing from the stamp, and skipping it keeps
+	# "resolution never changes an already-correct unit" true.
+	var narrowed := false
+	for i in range(models.size()):
+		if picks[i].size() < _get_model_weapon_ids(unit, models[i], weapon_type_filter).size():
+			narrowed = true
+			break
+	if not narrowed:
+		return false
+
+	for i in range(models.size()):
+		models[i][loadout_key] = picks[i]
+	print("[MA-LOADOUT] %s (%s): resolved from datasheet default kit — %s" % [
+		uname, weapon_type_filter, str(_summarise_loadout_picks(models, loadout_key))])
+	return true
+
+
+# MA-LOADOUT: what each model of this unit carries, as weapon-id slugs, built
+# from the datasheet rather than from the model's option menu. Returns [] — the
+# "cannot tell" answer — rather than a guess.
+#
+# Each model starts on its ROLE's default kit (the datasheet's "equipped with"
+# line: Boss Nob = big choppa + slugga, Boy = slugga + choppa). Then the "•"
+# options the roster actually took are applied, as whole BUNDLES:
+#
+#   "Any number of Boyz can each have their slugga AND choppa replaced with
+#    1 shoota AND 1 close combat weapon"
+#
+# so a roster recording "10x Shoota" tells us those ten Boyz hold a CLOSE COMBAT
+# WEAPON, not the choppa they started with. That pairing is the whole reason this
+# reads wargearOptions instead of just the default kit — the melee half of a swap
+# is almost never written into the roster's wargear string.
+#
+# Bails (returns []) whenever the roster can't be read without guessing:
+#   * a role that can't be matched to the datasheet's composition
+#   * the roster NAMES an option's weapon but gives no count for it, and the
+#     option's own constraint doesn't pin one ("any number of Custodian Guard
+#     can replace their guardian spear with a sentinel blade" + a wargear line
+#     that just says "Sentinel blade" = an unknown number of blades)
+#   * a swap that wants more models than the role has
+#   * a weapon the roster names that no model ends up holding — proof we did
+#     not understand this roster
+static func _datasheet_model_kits(unit: Dictionary) -> Array:
+	var meta = unit.get("meta", {})
+	var models = unit.get("models", [])
+	var uname = str(meta.get("name", ""))
+	if models.is_empty() or uname == "":
+		return []
+
+	# Slugs that name one of THIS datasheet's weapons (full and base forms), so
+	# roster lines naming a role ("9x Boy") or an upgrade ("1x 'Ard Case") are
+	# ignored rather than mistaken for wargear.
+	var datasheet_slugs := {}
+	for w in meta.get("weapons", []):
+		if typeof(w) != TYPE_DICTIONARY:
+			continue
+		var n = str(w.get("name", ""))
+		if n == "":
+			continue
+		datasheet_slugs[UnitLoadoutResolver.slugify(n)] = true
+		datasheet_slugs[UnitLoadoutResolver.slugify(UnitLoadoutResolver.base_weapon_name(n))] = true
+
+	# Role per model, then its default kit.
+	var model_profiles = meta.get("model_profiles", {})
+	var positional = _positional_roles(uname, models.size())
+	var role_of: Array = []
+	var kits: Array = []
+	for i in range(models.size()):
+		var model_type = str(models[i].get("model_type", ""))
+		var role_names: Array = []
+		if model_type != "":
+			role_names.append(model_type)
+			if model_profiles.has(model_type):
+				var label = str(model_profiles[model_type].get("label", ""))
+				if label != "":
+					role_names.append(label)
+		if i < positional.size():
+			role_names.append(str(positional[i]))  # last resort, least specific
+		var role = UnitLoadoutResolver.match_model_role(uname, role_names)
+		if role == "":
+			print("[MA-LOADOUT] %s: model %d's role could not be matched to the datasheet composition — left unresolved" % [uname, i])
+			return []
+		var kit = UnitLoadoutResolver.get_role_default_weapon_slugs(uname, role)
+		if kit.is_empty():
+			print("[MA-LOADOUT] %s: no default kit for role '%s' — left unresolved" % [uname, role])
+			return []
+		role_of.append(role)
+		kits.append(kit.duplicate())
+
+	# Roster wargear as {weapon slug: count}, where -1 means "named without a
+	# count" — enough to know a swap happened, not enough to know how often.
+	var wargear_counts := {}
+	for entry in meta.get("wargear", []):
+		for part in str(entry).split(","):
+			var txt = str(part).strip_edges()
+			if txt == "":
+				continue
+			var count := -1
+			var space = txt.find(" ")
+			if space > 0:
+				var head = txt.substr(0, space)
+				if head.ends_with("x") and head.substr(0, head.length() - 1).is_valid_int():
+					count = int(head.substr(0, head.length() - 1))
+					txt = txt.substr(space + 1).strip_edges()
+			var paren = txt.find("(")
+			if paren > 0:
+				txt = txt.substr(0, paren).strip_edges()
+			var s = UnitLoadoutResolver.slugify(txt)
+			if s == "" or not datasheet_slugs.has(s):
+				continue
+			if count < 0 or int(wargear_counts.get(s, 0)) < 0:
+				wargear_counts[s] = -1  # any count-less mention poisons the tally
+			else:
+				wargear_counts[s] = int(wargear_counts.get(s, 0)) + count
+
+	# A weapon granted by more than one swap on this datasheet cannot attribute a
+	# count to any single one of them: a Boy's shoota swap, his big-shoota swap
+	# AND the Boss Nob's kombi swap all hand out a close combat weapon, so a
+	# roster line of "9x Close combat weapon" says nothing about which was taken.
+	# Only a weapon unique to ONE swap is evidence.
+	var options = UnitLoadoutResolver.get_wargear_options(uname)
+	var grant_counts := {}
+	for option in options:
+		for bundle in option.get("bundles", []):
+			for s in bundle:
+				grant_counts[s] = int(grant_counts.get(s, 0)) + 1
+
+	# Apply the swaps the roster took.
+	var swapped := {}  # model index -> true, so two options never claim one model
+	for option in options:
+		var role_filter = str(option.get("role", ""))
+		var candidates: Array = []
+		for i in range(models.size()):
+			if swapped.has(i):
+				continue
+			if role_filter != "" and str(role_of[i]) != role_filter:
+				continue
+			candidates.append(i)
+		if candidates.is_empty():
+			continue
+
+		for bundle in option.get("bundles", []):
+			# A bundle was taken if the roster names a weapon it grants that the
+			# candidates did not already have as standard.
+			var evidence: Array = []
+			for s in bundle:
+				if not wargear_counts.has(s):
+					continue
+				if s in kits[candidates[0]]:
+					continue  # already standard for this role — no evidence of a swap
+				if int(grant_counts.get(s, 0)) > 1:
+					continue  # granted by more than one swap — proves nothing
+				evidence.append(s)
+			if evidence.is_empty():
+				continue
+
+			var n := -1
+			for s in evidence:
+				var c = int(wargear_counts[s])
+				if c < 0:
+					print("[MA-LOADOUT] %s: roster names '%s' with no count and the datasheet allows any number — left unresolved" % [uname, s])
+					return []
+				n = maxi(n, c)
+			if n <= 0:
+				continue
+
+			var cap = int(option.get("max_count", -1))
+			var per_n = int(option.get("per_n_models", -1))
+			if per_n > 0:
+				cap = int(floor(float(models.size()) / float(per_n)))
+			if cap >= 0 and n > cap:
+				print("[MA-LOADOUT] %s: roster wants %d of a swap the datasheet caps at %d — left unresolved" % [uname, n, cap])
+				return []
+			if n > candidates.size():
+				print("[MA-LOADOUT] %s: roster wants %d of a swap but only %d model(s) can take it — left unresolved" % [uname, n, candidates.size()])
+				return []
+
+			for k in range(n):
+				var idx = int(candidates[k])
+				var kit: Array = kits[idx]
+				for gone in option.get("replaces", []):
+					kit.erase(gone)
+				for gained in bundle:
+					if gained not in kit:
+						kit.append(gained)
+				kits[idx] = kit
+				swapped[idx] = true
+			# Consume the models this bundle used so a sibling bundle of the same
+			# option (shoota boyz AND rokkit boyz) takes different ones.
+			candidates = candidates.slice(n)
+			if candidates.is_empty():
+				break
+
+	# Final proof of understanding: every weapon the roster names must be on some
+	# model. If one is missing we misread the roster — say so instead of shipping
+	# a loadout that quietly drops a weapon the player paid for.
+	for s in wargear_counts:
+		var found := false
+		for kit in kits:
+			if kit.has(s):
+				found = true
+				break
+		if not found:
+			print("[MA-LOADOUT] %s: roster names '%s' but no model ends up with it — left unresolved" % [uname, s])
+			return []
+
+	return kits
+
+
+# MA-LOADOUT: the composition role each model index plays, worked out from the
+# datasheet's unit composition alone ("1 Boss Nob" then "9-19 Boy" -> index 0 is
+# the Boss Nob, 1..9 are Boyz). For units that carry no model_profiles this is
+# the only thing that can tell a Boss Nob from a Boy.
+#
+# Deliberately narrow — it bails (returns []) unless the split is FORCED:
+#   * at most ONE role may be open-ended (max > min); two open-ended roles (a
+#     Lootas mob of 1-2 Spanners + 4-8 Lootas) can be filled several ways
+#   * the fixed roles' counts plus the open-ended role's allowed range must add
+#     up to exactly this unit's model count
+# Anything else is ambiguous and the caller falls back to the datasheet menu.
+static func _positional_roles(unit_name: String, model_count: int) -> Array:
+	var roles = UnitLoadoutResolver.get_model_roles(unit_name)
+	if roles.is_empty() or model_count <= 0:
+		return []
+
+	var flexible := -1
+	var fixed_total := 0
+	var counts: Array = []
+	for i in range(roles.size()):
+		var mn := int(roles[i].get("min", 0))
+		var mx := int(roles[i].get("max", mn))
+		counts.append(mn)
+		if mx > mn:
+			if flexible >= 0:
+				return []  # more than one open-ended role — undecidable
+			flexible = i
+		else:
+			fixed_total += mn
+
+	if flexible < 0:
+		if fixed_total != model_count:
+			return []
+	else:
+		var remainder := model_count - fixed_total
+		var fmin := int(roles[flexible].get("min", 0))
+		var fmax := int(roles[flexible].get("max", fmin))
+		if remainder < fmin or remainder > fmax:
+			return []
+		counts[flexible] = remainder
+
+	var out: Array = []
+	for i in range(roles.size()):
+		for _j in range(int(counts[i])):
+			out.append(str(roles[i].get("name", "")))
+	if out.size() != model_count:
+		return []
+	return out
+
+
+# "9x Choppa, 1x Big choppa" style summary of a just-stamped loadout, for the log.
+static func _summarise_loadout_picks(models: Array, loadout_key: String) -> Array:
+	var tally := {}
+	var order: Array = []
+	for m in models:
+		var key = ", ".join(PackedStringArray(m.get(loadout_key, [])))
+		if not tally.has(key):
+			tally[key] = 0
+			order.append(key)
+		tally[key] += 1
+	var out: Array = []
+	for key in order:
+		out.append("%dx %s" % [int(tally[key]), key])
+	return out
 
 # MA-LOADOUT Phase 3 (Task B): the model IDs in this unit that carry a
 # NON-majority ranged loadout — i.e. the special/heavy-weapon models that should
@@ -11402,6 +11787,13 @@ static func _build_melee_stop_before_saves(result: Dictionary, hit_context: Dict
 # profile lists, e.g. an unequipped datasheet option), keep the old selection
 # rather than silently deleting the unit's attacks.
 static func _melee_weapon_swingers(unit: Dictionary, weapon_id: String, eligible_indices: Array, attacking_models: Array, unit_name: String = "", weapon_name: String = "") -> Array:
+	# Resolve the per-model loadout first. _get_model_weapon_ids below answers
+	# with the datasheet's option MENU until it does — every Boy "carrying" a
+	# choppa AND a close combat weapon — so without this the narrowing keys off
+	# what a model COULD take rather than what the roster bought it. Idempotent
+	# and version-stamped, so this is a no-op after the first call per unit.
+	_ensure_loadout_resolved(unit)
+
 	var selected: Array = []
 	for idx in eligible_indices:
 		if attacking_models.is_empty() or str(idx) in attacking_models:
@@ -11429,6 +11821,28 @@ static func _melee_weapon_swingers(unit: Dictionary, weapon_id: String, eligible
 			unit_name if unit_name != "" else unit.get("meta", {}).get("name", "unit"),
 			weapon_name if weapon_name != "" else weapon_id])
 	return carriers
+
+
+## Does ANY alive model of this unit hold this melee weapon?
+##
+## The companion to get_melee_weapon_swingers, which deliberately falls back to
+## "every eligible model" when it cannot attribute a weapon — that keeps a unit
+## swinging rather than silently zeroing its attacks, but it also means an empty
+## carrier list never tells the UI that a weapon simply is not owned.
+##
+## This answers that question honestly at both ends. Before a unit's loadout
+## resolves, models report the datasheet's option MENU, so this returns true and
+## nothing is hidden. Once it resolves, a weapon the roster never bought is on no
+## model and this returns false — which is what lets the attack panel stop
+## offering an Ork mob the Power klaw it does not have.
+static func unit_has_melee_weapon(unit: Dictionary, weapon_id: String) -> bool:
+	_ensure_loadout_resolved(unit)
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		if weapon_id in _get_model_weapon_ids(unit, model, "Melee"):
+			return true
+	return false
 
 
 ## Public wrapper for the melee carrier lookup (ISS-020 lint: no leading
@@ -11524,7 +11938,8 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 
 	# Compute per-model fight eligibility based on engagement range
 	var eligible_model_indices = get_eligible_melee_model_indices(attacker_unit, board)
-	# MA-LOADOUT (melee): and of those, the ones that actually CARRY this weapon.
+	# MA-LOADOUT (melee): and of those, the ones that actually CARRY this weapon
+	# (it resolves the per-model loadout on the way in).
 	var swinging_model_indices = _melee_weapon_swingers(
 		attacker_unit, weapon_id, eligible_model_indices, attacking_models, attacker_name, weapon_name)
 	var total_alive_models = 0
