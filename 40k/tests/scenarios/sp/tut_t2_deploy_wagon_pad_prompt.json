@@ -1,0 +1,294 @@
+{
+  "id": "tut_t2_deploy_wagon_pad_prompt",
+  "covers": [
+    "tutorial.t2.deployment",
+    "tutorial.prompts.no_repeat_pick",
+    "tutorial.t2.deploy_wagon",
+    "PadRouter",
+    "Main"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Tutorial lesson T2 (Musterin' da Boyz) step 6 of 11, 'PARK DA WAGON!' (deploy_wagon), on a GAMEPAD. Reported: the step re-opened with 'Tap RB till da Battlewagon row is picked' even though step 5 (rotate_wagon) can only tick once the player has ALREADY picked the wagon up and turned its ghost - so the pad player was told to redo the thing they were mid-way through, which reads as 'you did it wrong'. This scenario boots T2, drives it mouse+keyboard as far as the rotate, then flips the card to its PAD body at deploy_wagon while the ghost is genuinely still in hand, and asserts the rendered prompt: no bumper chips at all, and the A + left-stick chips plus a drop verb are present. It then finishes the step on pad input only (A warps the cursor, glide, A drops) to prove the prompt the player is reading is a complete instruction on its own.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t2_musterin/Play_t2_musterin"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "attach_warboss"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ids = []\nfor s in TutorialManager._steps:\n\tids.append(str(s.get(\"id\", \"\")))\nreturn ids.find(\"deploy_wagon\") + 1",
+      "equals": 6,
+      "comment": "the reported step number: TutorialManager renders 'Step %d / %d' off current_step_index + 1, so deploy_wagon really is the player-visible step 6"
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is OptionButton and nd.item_count > 0 and nd.get_item_text(0) == \"(Unattached)\":\n\t\tnd.select(1)\n\t\tnd.item_selected.emit(1)\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "OptionButton popup menus are native windows - select+emit is the dropdown escape hatch"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "embark_boyz"
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is CheckBox and str(nd.text).begins_with(\"Boyz\") and not (\"Reserves\" in str(nd.text)):\n\t\tnd.button_pressed = true\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the Formations panel is a modal embedded Window - synthetic root-viewport clicks cannot reach its controls; setting button_pressed emits toggled exactly like a click"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_formations"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll_off"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nvar q = [tree.root]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and nd.is_visible_in_tree() and \"Re-roll\" in str(nd.text):\n\t\tnd.pressed.emit()\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "tie tolerance: press the roll button if still up, else the A DEAD HEAT re-roll button; no-op when neither exists"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/ContinueButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "rotate_wagon"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+      "index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "hover_board_at",
+      "x": 640.0,
+      "y": 320.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "E",
+      "comment": "rotate_right = +15 degrees a tap, so six taps is a quarter turn - this is what ticks rotate_wagon"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "deploy_wagon",
+      "comment": "step 6 is open"
+    },
+    {
+      "act": "execute_script",
+      "script": "var dc = tree.root.get_node(\"Main\").deployment_controller\nreturn str(dc.unit_id) == \"U_BATTLEWAGON_T\" and dc.get_placed_count() == 0 and dc.ghost_sprite != null",
+      "multiline": true,
+      "equals": true,
+      "comment": "THE PREMISE OF THE FIX: reaching step 6 means the wagon is already picked and its ghost is in hand, un-dropped. A prompt that opens by telling the player to pick it is describing work they have already done."
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nreturn \"Battlewagon\" in str(b.text)",
+      "multiline": true,
+      "equals": false,
+      "comment": "the mouse+keyboard body no longer re-names the Battlewagon row either - it just says where to click"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_step6_kbm_prompt_no_repeat"
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.claim_pad()\nreturn InputDeviceManager.is_pad_active()",
+      "multiline": true,
+      "equals": true,
+      "comment": "flip the card to its PAD body in exactly the state the reported player was in: step 6 open, wagon in hand. Uses the claim_pad() seam rather than a stick nudge because a real axis event drags the virtual cursor and edge-pushes the camera."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var GDB = load(\"res://scripts/input/GlyphDB.gd\")\nvar b = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nvar t = str(b.text)\nreturn (\"[%s]\" % GDB.glyph_text(\"rb\") in t) or (\"[%s]\" % GDB.glyph_text(\"lb\") in t)",
+      "multiline": true,
+      "equals": false,
+      "comment": "THE FIX (reported: 'step 6 repeats the instruction to press RB or LB until the battlewagon is picked'): NEITHER bumper chip appears in the step 6 pad body any more. Reads the chips off GlyphDB rather than hardcoding 'RB'/'LB' so a controller remap keeps the assertion honest."
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nreturn \"Battlewagon\" in str(b.text)",
+      "multiline": true,
+      "equals": false,
+      "comment": "and the row it told the player to go re-pick is not named either - no 'till da Battlewagon row is picked' tail survives in any wording"
+    },
+    {
+      "act": "execute_script",
+      "script": "var GDB = load(\"res://scripts/input/GlyphDB.gd\")\nvar b = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nvar t = str(b.text)\nreturn (\"[%s]\" % GDB.glyph_text(\"a\") in t) and (\"[%s]\" % GDB.glyph_text(\"ls\") in t) and (\"drop\" in t.to_lower())",
+      "multiline": true,
+      "equals": true,
+      "comment": "what is LEFT is a complete instruction: glide the left stick into the zone and press A to drop it"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_step6_pad_prompt_place_only"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A warps the virtual cursor over the board - the first half of what the prompt now says"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "VirtualCursor.is_cursor_active()",
+      "equals": true
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 640.0,
+      "y": 320.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A drops it - the second half. No bumper was pressed anywhere in this block."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.get_placed_count()",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "nudge_wagon",
+      "comment": "step 6 completes on pad input only, following the trimmed prompt literally"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_step6_complete_on_pad"
+    }
+  ]
+}

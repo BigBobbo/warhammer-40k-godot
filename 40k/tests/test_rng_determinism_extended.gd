@@ -130,18 +130,55 @@ func _run_tests() -> void:
 		ms.find("rng.randi_range") != -1)
 
 	# ----------------------------------------------------------------
-	# 5. FightPhase Mathhammer prediction honors test_mode_seed
+	# 5. FightPhase pre-roll prediction is deterministic
+	#
+	# This used to assert the Monte-Carlo prediction was seeded through
+	# RulesEngine.make_rng() so test_mode_seed made it reproducible. As of
+	# 2026-08-01 the prediction is not simulated at all — it is a closed-form
+	# estimate (Mathhammer.analytic_forecast), which removed a 3.6 s stall on
+	# the confirm-attacks path AND is deterministic by construction, with no
+	# seed to plumb. Assert that, and that the simulation has not crept back.
 	# ----------------------------------------------------------------
-	print("\n-- FightPhase Mathhammer seed plumbing --")
+	print("\n-- FightPhase prediction determinism --")
 
 	var fp_path = "res://phases/FightPhase.gd"
 	var fp := FileAccess.get_file_as_string(fp_path)
-	_check("FightPhase.gd Mathhammer uses _mh_rng = RulesEngine.make_rng()",
-		fp.find("_mh_rng = RulesEngine.make_rng()") != -1)
-	_check("FightPhase.gd Mathhammer seed uses _mh_rng.randi()",
-		fp.find("_mh_rng.randi()") != -1)
+	_check("FightPhase.gd prediction uses Mathhammer.analytic_forecast()",
+		fp.find("Mathhammer.analytic_forecast(") != -1)
+	_check("FightPhase.gd prediction does NOT run Mathhammer.simulate_combat()",
+		fp.find("Mathhammer.simulate_combat(") == -1)
 	_check("FightPhase.gd no longer has bare '\"seed\": randi()'",
 		fp.find("\"seed\": randi()") == -1)
+
+	# The closed-form forecast must return the same numbers every call.
+	var mh_target := {
+		"meta": {"stats": {"toughness": 5, "save": 5}},
+		"models": [
+			{"alive": true, "wounds": 1}, {"alive": true, "wounds": 1},
+			{"alive": true, "wounds": 1}, {"alive": true, "wounds": 1}
+		]
+	}
+	var mh_attacker := {
+		"meta": {"weapons": [{
+			"name": "Test klaw", "type": "Melee", "attacks": "4",
+			"weapon_skill": "3", "strength": "10", "ap": "-2", "damage": "2"
+		}]}
+	}
+	var mh_specs := [{"weapon_id": "test_klaw_melee", "model_count": 1}]
+	# Load rather than reference the global class: this SceneTree script is
+	# compiled before the autoloads exist, and Mathhammer.gd statically names
+	# RulesEngine — a compile-time reference emits a spurious SCRIPT ERROR.
+	var mh = load("res://scripts/Mathhammer.gd")
+	var mh_a = mh.analytic_forecast(mh_specs, mh_target, {}, true, mh_attacker)
+	var mh_b = mh.analytic_forecast(mh_specs, mh_target, {}, true, mh_attacker)
+	_check("analytic_forecast is deterministic across calls",
+		is_equal_approx(mh_a.expected_damage, mh_b.expected_damage)
+			and is_equal_approx(mh_a.kill_probability, mh_b.kill_probability))
+	# 4 attacks, WS3+ (2/3) x S10 vs T5 => 2+ (5/6) x save 5+ AP-2 => 7+, so
+	# every unsaved wound lands; D2 capped to the models' 1W each.
+	_check("analytic_forecast matches the hand-computed expectation (2.222)",
+		abs(mh_a.expected_damage - (4.0 * (2.0 / 3.0) * (5.0 / 6.0) * 1.0)) < 0.001,
+		"got %f" % mh_a.expected_damage)
 
 	# Reset for downstream tests in the suite
 	rules.set_test_seed(-1)
