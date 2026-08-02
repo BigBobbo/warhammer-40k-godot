@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.12.13",
+      "date": "2026-08-02",
+      "summary": "Charge phase: 'Snap to Contact' no longer walks your models straight through the enemy unit and parks them on the far side — most visibly the attached character, like a Warboss leading a mob of Boyz.",
+      "changes": [
+        "Fixed: 'Snap to Contact' could place a charging model on the OTHER side of the unit it was charging, with its charge path cutting clean through the enemy bases. It hit the attached CHARACTER hardest, because the leader is placed last — by then the near side of the enemy was full of its own squad, so the placement sweep wrapped all the way around the back.",
+        "Snap to Contact now only offers a spot the model could actually walk to in a straight line: candidate positions whose path passes through another unit's bases are skipped, and the model closes as far as it legally can instead.",
+        "Fixed: when 'Snap to Contact' had to fall back to 'move as close as possible', an attached character was measured against its bodyguard squadmate's charge budget and starting position (their model IDs collide), so the leader could be offered a spot it had no business reaching."
+      ]
+    },
+    {
       "version": "1.12.12",
       "date": "2026-08-02",
       "summary": "The end-of-shooting summary is now a readable battle-report table instead of a wall of text.",
