@@ -2,8 +2,8 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.12.1",
-      "date": "2026-08-01",
+      "version": "1.12.6",
+      "date": "2026-08-02",
       "summary": "Steam Deck / controller fix: the shooting panel is fully reachable on the pad — no more cut-off CURRENT TARGETS lines or invisible weapon selection in the Dakka Time tutorial.",
       "changes": [
         "CURRENT TARGETS now grows to show every assigned weapon line instead of cutting the third one off behind a scrollbar the pad couldn't move.",
@@ -11,6 +11,56 @@
         "D-pad focus navigation auto-scrolls the shooting panel to the highlighted control, so the focus ring can no longer wander off screen.",
         "New: while panel focus is active, the right stick scrolls the panel itself (the controller hint bar now shows 'RS Scroll Panel').",
         "Pressing B on the board with guns already aimed no longer silently throws the aiming away: the first press warns, and only a second press within a few seconds discards the assignments and deselects the shooter."
+      ]
+    },
+    {
+      "version": "1.12.5",
+      "date": "2026-08-02",
+      "summary": "Tutorial 2 now says WHY you're touching that first dropdown: you're attaching the Warboss to the 10 Boyz.",
+      "changes": [
+        "Musterin' da Boyz, step 1: the card used to explain how to reach the 'Warboss →' dropdown without ever saying what the choice does. It now leads with the goal — attach the Warboss to the Boyz so the Leader and the mob fight as one unit — before the click instructions, on both mouse+keyboard and controller.",
+        "The step's hint and its shout (\"BOSS JOINS DA BOYZ!\") name the same goal, and the dropdown option is spelled out as 'Boyz (10 models)' so it matches what's on screen."
+      ]
+    },
+    {
+      "version": "1.12.4",
+      "date": "2026-08-01",
+      "summary": "Tutorial tidy-up: step 6 of Musterin' da Boyz no longer tells you to pick the Battlewagon you are already holding.",
+      "changes": [
+        "\"PARK DA WAGON!\" (step 6 of Musterin' da Boyz) used to open by telling you to tap the bumper until the Battlewagon row was picked — but you can only reach that step by having already picked it up and turned it, so the instruction read as \"you did it wrong, start again\". It now just tells you to drop it: glide the left stick into your zone and press A (or click your deployment zone on mouse and keyboard).",
+        "If you do somehow end up with nothing in hand, the step's hint (the one that appears when you have been stuck a while) explains how to pick the wagon back up."
+      ]
+    },
+    {
+      "version": "1.12.3",
+      "date": "2026-08-01",
+      "summary": "The Command phase panel no longer fills up with empty orange dividing lines.",
+      "changes": [
+        "In the Command phase, the right-hand panel showed a growing stack of orange divider lines under VICTORY POINTS with nothing between them — a dozen of them by the time you had drawn your secondaries and called a Waaagh!, pushing the sections you actually wanted further down the scroll.",
+        "The panel rebuilds its Battle-shock, army rules and Secondary Missions sections every time something changes (a mission drawn or discarded, a CP spent, a battle-shock resolved). Each rebuild was abandoning the divider that introduced the section instead of removing it, so the leftovers piled up all phase. Dividers are now removed with their section, and any that end up introducing nothing are swept away.",
+        "Nothing else in the panel moved — the same sections, in the same order, just without the blank band."
+      ]
+    },
+    {
+      "version": "1.12.2",
+      "date": "2026-08-01",
+      "summary": "Controller fix: reordering your allocation groups on the Allocate Attacks step no longer strands the D-pad — Confirm Order & Roll Saves stays reachable.",
+      "changes": [
+        "Moving a group up or down with the D-pad (say, dropping your 1 model W2 Sv5+ nob into second place) used to leave nothing highlighted at all: the highlight vanished and no amount of D-pad pressing could reach Confirm Order & Roll Saves, so the attack could not be resolved. The highlight now lands back on the arrow of the group you just moved, at its new position, so you can keep reordering and then walk down to Confirm.",
+        "The greyed-out arrows (▲ on the first row, ▼ on the last) no longer take the highlight — pressing A on them did nothing, which felt like the pad had died. The D-pad now skips straight past them.",
+        "Added a safety net: if the highlight is ever lost while this window is open, the next D-pad press puts it back on the current step's main button instead of doing nothing."
+      ]
+    },
+    {
+      "version": "1.12.1",
+      "date": "2026-07-31",
+      "summary": "A unit is now offered only the weapons its army list actually bought — no more Power klaw on a mob that never took one — and a weapon swap carries its whole bundle.",
+      "changes": [
+        "Melee already stopped a whole mob swinging one model's weapon. This goes further: the attack panel no longer lists weapons the unit does not own at all. A Boyz mob is 9 choppas and a Boss Nob's big choppa, so those are the only two lines — the Power klaw and Close combat weapon it never bought are gone.",
+        "Army lists rarely record melee. Where the list is silent, the game now reads the datasheet's own \"equipped with\" line per model role instead of falling back to every option on the sheet.",
+        "A swap usually trades two weapons for two: \"any number of Boyz can each have their slugga AND choppa replaced with 1 shoota AND 1 close combat weapon\". Lists record the gun and not the blade, so shoota Boyz were being handed the choppa they traded away — they now get the close combat weapon they actually hold. Partial swaps work too: 3 shootas gives 3 close combat weapons and 6 choppas.",
+        "When a list names a weapon but not how many — \"Guardian Spear, Sentinel blade, Praesidium Shield\" with no numbers — the game says so in the log and leaves the unit alone, rather than picking one and silently dropping the sentinel blade.",
+        "Saved games pick all of this up on load rather than keeping whatever an older version worked out."
       ]
     },
     {
