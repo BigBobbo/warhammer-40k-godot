@@ -1,0 +1,81 @@
+{
+  "id": "charge_click_board_target",
+  "covers": [
+    "charge.ux.click_board_token_to_pick_target",
+    "scripts.ChargeController.select_target_by_id",
+    "scripts.ChargeController._try_click_select_target",
+    "scripts.ChargeController._get_enemy_unit_at_board_position",
+    "autoloads.RulesEngine.charge_target_ineligibility_reason",
+    "ChargeController"
+  ],
+  "fixture": "audit_372_charge_modifier",
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Charge phase click-to-target: with a charging unit armed, a REAL left-click on an enemy unit's TOKEN ON THE BOARD picks that unit as the charge target — the second route into the same declaration the ELIGIBLE TARGETS list drives, which keeps working. A plain board click single-selects (replacing the previous pick), Ctrl+Click on a board token adds/removes a unit for a multi-charge, and clicking an enemy that is NOT chargeable (Witchseekers ~45\" away) leaves the selection untouched and explains why in the dice log instead of dying silently. Finally the real Declare Charge button is clicked to prove the board-picked targets flow into the actual DECLARE_CHARGE action. Battlewagon is parked with the Blade Champion ~2.5\" away and the Shield-Captain ~9\" away so exactly two targets are eligible; CP is zeroed for both players so a stray Command Re-roll dialog cannot appear.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script", "script": "GameState.state.units[\"U_BATTLEWAGON_G\"].models[0].merge({\"position\": {\"x\": 700.0, \"y\": 2150.0}, \"rotation\": 0.0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].merge({\"position\": {\"x\": 973.0, \"y\": 2150.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0].merge({\"position\": {\"x\": 1240.0, \"y\": 2150.0}}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "main.update_unit_visuals(\"U_BATTLEWAGON_G\")" },
+    { "act": "execute_script", "script": "main.update_unit_visuals(\"U_BLADE_CHAMPION_A\")" },
+    { "act": "execute_script", "script": "main.update_unit_visuals(\"U_SHIELD_CAPTAIN_A\")" },
+    { "act": "execute_script", "script": "main.charge_controller._refresh_ui()" },
+    { "act": "wait_seconds", "seconds": 0.8, "comment": "update_unit_visuals TWEENS the tokens to their new spots (Main._tween_token_to, up to 0.6s) — click_unit aims at where the token IS, so let it land first or the click misses" },
+    { "act": "wait_for_tweens", "timeout_s": 5.0 },
+
+    { "act": "execute_script", "multiline": true, "script": "var cc = tree.current_scene.charge_controller\nfor i in range(cc.unit_selector.item_count):\n\tif str(cc.unit_selector.get_item_metadata(i)) == \"U_BATTLEWAGON_G\":\n\t\tcc.unit_selector.select(i)\n\t\tcc.unit_selector.item_selected.emit(i)\n\t\tbreak\nreturn str(cc.active_unit_id)", "equals": "U_BATTLEWAGON_G", "comment": "arming the CHARGER is not what this scenario tests — the board click on the TARGET below is" },
+    { "act": "execute_script", "script": "main.charge_controller.eligible_targets.size()", "equals": 2 },
+    { "act": "execute_script", "script": "main.charge_controller.selected_targets.size()", "equals": 0 },
+    { "act": "screenshot", "label": "01_charger_armed_no_target_yet" },
+
+    { "act": "click_unit", "unit_id": "U_BLADE_CHAMPION_A", "comment": "THE FEATURE: a real left-click on the enemy TOKEN, not on its row in the right-hand panel" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.charge_controller.selected_targets.size()", "equals": 1 },
+    { "act": "execute_script", "script": "str(main.charge_controller.selected_targets[0])", "equals": "U_BLADE_CHAMPION_A" },
+    { "act": "execute_script", "script": "main.charge_controller.target_list.get_selected_items().size()", "equals": 1, "comment": "the ELIGIBLE TARGETS row highlights too — the list stays the single source of truth" },
+    { "act": "execute_script", "script": "main.charge_controller.declare_button.disabled", "equals": false },
+    { "act": "screenshot", "label": "02_board_click_selected_blade_champion" },
+
+    { "act": "click_unit", "unit_id": "U_SHIELD_CAPTAIN_A", "comment": "plain board click REPLACES the previous pick, exactly like a plain row click" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.charge_controller.selected_targets.size()", "equals": 1 },
+    { "act": "execute_script", "script": "str(main.charge_controller.selected_targets[0])", "equals": "U_SHIELD_CAPTAIN_A" },
+
+    { "act": "click_unit", "unit_id": "U_BLADE_CHAMPION_A", "ctrl": true, "comment": "Ctrl+Click on a board token ADDS a second target (multi-charge)" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.charge_controller.selected_targets.size()", "equals": 2 },
+    { "act": "execute_script", "script": "main.charge_controller.selected_targets.has(\"U_BLADE_CHAMPION_A\") and main.charge_controller.selected_targets.has(\"U_SHIELD_CAPTAIN_A\")", "equals": true },
+    { "act": "execute_script", "script": "main.charge_controller.declare_button.text.find(\"2 targets\") != -1", "equals": true },
+    { "act": "screenshot", "label": "03_ctrl_click_board_multi_charge" },
+
+    { "act": "click_unit", "unit_id": "U_BLADE_CHAMPION_A", "ctrl": true, "comment": "Ctrl+Click again REMOVES it — same toggle the list row has" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.charge_controller.selected_targets.size()", "equals": 1 },
+    { "act": "execute_script", "script": "str(main.charge_controller.selected_targets[0])", "equals": "U_SHIELD_CAPTAIN_A" },
+
+    { "act": "click_unit", "unit_id": "U_WITCHSEEKERS_C", "comment": "an enemy that CANNOT be charged (~45\" away, no row in ELIGIBLE TARGETS)" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main.charge_controller.selected_targets.size()", "equals": 1, "comment": "selection untouched" },
+    { "act": "execute_script", "script": "str(main.charge_controller.selected_targets[0])", "equals": "U_SHIELD_CAPTAIN_A" },
+    { "act": "execute_script", "script": "str(main.charge_controller.dice_log_display.get_parsed_text()).find(\"within 12\") != -1", "equals": true, "comment": "and the player is TOLD why instead of getting a dead click" },
+    { "act": "screenshot", "label": "04_ineligible_board_click_explained" },
+
+    { "act": "click_board_at", "x": 300.0, "y": 2600.0, "comment": "empty board — must be a no-op, not a selection reset or an error" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "script": "main.charge_controller.selected_targets.size()", "equals": 1 },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton", "comment": "the board-picked target must flow into the REAL DECLARE_CHARGE action" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "main.charge_controller.awaiting_roll", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().pending_charges.has(\"U_BATTLEWAGON_G\")", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var t = PhaseManager.get_current_phase_instance().pending_charges[\"U_BATTLEWAGON_G\"][\"targets\"]\nreturn t.size() == 1 and str(t[0]) == \"U_SHIELD_CAPTAIN_A\"", "equals": true },
+    { "act": "screenshot", "label": "05_declared_charge_from_board_pick" }
+  ]
+}

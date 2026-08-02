@@ -37,7 +37,7 @@
       "id": "declare",
       "prompt": {
         "bark": "PICK YER SCRAP!",
-        "kbm": "Click da [b]Boyz[/b] in da unit list, tick [b]Custodian Guard[/b] in da target list, den hit [b]Declare Charge[/b].",
+        "kbm": "Click da [b]Boyz[/b] in da unit list, den pick da [b]Custodian Guard[/b] — click 'em in da target list [i]or[/i] just click da gits on da board. Den hit [b]Declare Charge[/b].",
         "pad": "Tap {rb} till da [b]Boyz[/b] are picked. {dpad} ◀▶ walks da target ring — put it on da [b]Custodian Guard[/b] an' press {a} to toggle 'em in. Den {menu} to [b]Declare Charge[/b]."
       },
       "anchor": {
