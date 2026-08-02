@@ -1550,7 +1550,12 @@ func pad_sync_target_cursor() -> void:
 		pad_target_cursor = 0
 	_update_pad_target_cursor_visual()
 
-func pad_step_target(dir: int) -> bool:
+# Step the ELIGIBLE TARGETS rows. `allow_escape` is set by the ▲ ▼ path only:
+# there the rows are level 1 of PadRouter's nested-panel model, so stepping past
+# either end returns false and hands the press one level up to the charge panel
+# (which scrolls / walks its buttons). ◀ ▶ passes false and keeps wrapping —
+# there is no "one level up" on the horizontal axis.
+func pad_step_target(dir: int, allow_escape: bool = false) -> bool:
 	if active_unit_id == "" or awaiting_roll or awaiting_movement:
 		return false
 	if not is_instance_valid(target_list) or target_list.get_item_count() == 0:
@@ -1559,7 +1564,33 @@ func pad_step_target(dir: int) -> bool:
 	if pad_target_cursor < 0 or pad_target_cursor >= n:
 		pad_target_cursor = 0 if dir > 0 else n - 1
 	else:
-		pad_target_cursor = wrapi(pad_target_cursor + dir, 0, n)
+		var next := pad_target_cursor + dir
+		if next < 0 or next >= n:
+			if allow_escape:
+				return false
+			next = wrapi(pad_target_cursor + dir, 0, n)
+		pad_target_cursor = next
+	_update_pad_target_cursor_visual()
+	return true
+
+# --- PadRouter nested-panel sub-list protocol -------------------------------
+# See ShootingController for the shape. The ELIGIBLE TARGETS list is this
+# phase's level-1 sub-list, so PadRouter can walk back into it from the panel.
+
+func pad_list_control() -> Control:
+	if active_unit_id == "" or awaiting_roll or awaiting_movement:
+		return null
+	if not is_instance_valid(target_list) or target_list.get_item_count() == 0:
+		return null
+	if not target_list.is_visible_in_tree():
+		return null
+	return target_list
+
+# Re-enter from the panel: the first row coming down, the last coming up.
+func pad_list_enter(dir: int) -> bool:
+	if pad_list_control() == null:
+		return false
+	pad_target_cursor = 0 if dir > 0 else target_list.get_item_count() - 1
 	_update_pad_target_cursor_visual()
 	return true
 

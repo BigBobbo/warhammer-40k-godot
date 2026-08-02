@@ -2,11 +2,13 @@
   "id": "tut_t6_boss_row_dpad",
   "covers": [
     "tutorial.t6.boss_swings.dpad",
-    "tutorial.pad_prompts.dpad_first"
+    "tutorial.pad_prompts.dpad_first",
+    "padrouter.panel_nav.row_walk",
+    "padrouter.panel_nav.skips_disabled"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Reported by a Steam Deck player: T6 Krumpin' step 6 of 8 (boss_swings) told them to 'Glide {ls} onto da Warboss row' even though the row is plain D-pad work. This scenario proves it: it drives the lesson on the pad to boss_swings, asserts the rendered prompt names the D-pad glyph and no longer names LS, then picks the Warboss row with REAL D-pad presses (the focus sits on the dice dock when the step opens, so the route up is dpad UP: DockPausePolicy -> DockPrimaryButton -> Fight_U_CUSTODIAN_GUARD_T -> Fight_U_WARBOSS_T) and confirms A on that row really opens the Epic Challenge offer. Step 7 (enemy_swings) is covered by the sibling assertion that the save card grabs pad focus onto its own Roll Saves button, which is why that prompt no longer tells the player to glide the stick either.",
+  "description": "Reported by a Steam Deck player: T6 Krumpin' step 6 of 8 (boss_swings) told them to 'Glide {ls} onto da Warboss row' even though the row is plain D-pad work. This scenario proves it: it drives the lesson on the pad to boss_swings, asserts the rendered prompt names the D-pad glyph and no longer names LS, then picks the Warboss row with REAL D-pad presses (the focus sits on the dice dock when the step opens, so the route up is one dpad UP: DockPrimaryButton -> Fight_U_WARBOSS_T. It used to take two, because Godot's geometric ui_up parked the first press on Fight_U_CUSTODIAN_GUARD_T - a DISABLED button that A could not press. PadRouter's nested-panel walker skips disabled stops, so the pad never lands on a dead row) and confirms A on that row really opens the Epic Challenge offer. Step 7 (enemy_swings) is covered by the sibling assertion that the save card grabs pad focus onto its own Roll Saves button, which is why that prompt no longer tells the player to glide the stick either.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -206,15 +208,8 @@
     },
     {
       "act": "simulate_joy_button",
-      "button_index": 11
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.5
-    },
-    {
-      "act": "simulate_joy_button",
-      "button_index": 11
+      "button_index": 11,
+      "comment": "one D-pad UP walks the panel a ROW at a time and skips the disabled Custodian Guard row"
     },
     {
       "act": "wait_seconds",
@@ -225,7 +220,7 @@
       "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nreturn \"none\" if f == null else str(f.name)",
       "multiline": true,
       "equals": "Fight_U_WARBOSS_T",
-      "comment": "two D-pad UP presses land on the Warboss row — no left stick, no virtual cursor"
+      "comment": "one D-pad UP press lands on the Warboss row — no left stick, no virtual cursor"
     },
     {
       "act": "screenshot",

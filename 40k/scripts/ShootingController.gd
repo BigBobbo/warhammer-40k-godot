@@ -4063,23 +4063,15 @@ func _on_weapon_tree_item_selected() -> void:
 # is armed, so a multi-weapon unit can aim each gun at a different target
 # without the mouse (LB/RB cycles the target highlight, A assigns it to the
 # stepped weapon). Runs the same selection handler a mouse row-click fires.
+#
+# The walk CLAMPS — it does not wrap. Stepping past the last row (or before the
+# first) returns false, which is how PadRouter's nested-panel model hands the
+# press one level up to the containing panel. Reported from the Deck at T4 step
+# 5: with three guns the old wrap (Slugga → Kombi → Twin sluggas → Slugga …)
+# meant the D-pad could never leave the tree, so CURRENT TARGETS, "Use GRENADE"
+# and "Shoot All Remaining" — all clipped below the fold — were unreachable.
 func pad_step_weapon(dir: int) -> bool:
-	if str(active_shooter_id) == "":
-		return false
-	if weapon_tree == null or not is_instance_valid(weapon_tree) or not weapon_tree.is_visible_in_tree():
-		return false
-	var root: TreeItem = weapon_tree.get_root()
-	if root == null:
-		return false
-	var rows: Array = []
-	var child: TreeItem = root.get_first_child()
-	while child != null:
-		# Disabled weapon rows (engaged non-pistols, 11e shooting-type gate…)
-		# are unselectable — TreeItem.select() on one silently no-ops, which
-		# made ▲ ▼ look dead whenever the step landed on such a row. Skip them.
-		if child.is_selectable(0):
-			rows.append(child)
-		child = child.get_next()
+	var rows := _pad_weapon_rows()
 	if rows.is_empty():
 		return false
 	var sel: TreeItem = weapon_tree.get_selected()
@@ -4087,8 +4079,32 @@ func pad_step_weapon(dir: int) -> bool:
 	if idx == -1:
 		idx = 0 if dir > 0 else rows.size() - 1
 	else:
-		idx = wrapi(idx + dir, 0, rows.size())
-	var row: TreeItem = rows[idx]
+		var next := idx + dir
+		if next < 0 or next >= rows.size():
+			return false  # exit to the containing panel — see the note above
+		idx = next
+	return _pad_apply_weapon_row(rows[idx])
+
+# The selectable weapon rows, top to bottom. Disabled rows (engaged non-pistols,
+# the 11e shooting-type gate…) are unselectable — TreeItem.select() on one
+# silently no-ops, which made ▲ ▼ look dead whenever a step landed on one.
+func _pad_weapon_rows() -> Array:
+	if str(active_shooter_id) == "":
+		return []
+	if weapon_tree == null or not is_instance_valid(weapon_tree) or not weapon_tree.is_visible_in_tree():
+		return []
+	var root: TreeItem = weapon_tree.get_root()
+	if root == null:
+		return []
+	var rows: Array = []
+	var child: TreeItem = root.get_first_child()
+	while child != null:
+		if child.is_selectable(0):
+			rows.append(child)
+		child = child.get_next()
+	return rows
+
+func _pad_apply_weapon_row(row: TreeItem) -> bool:
 	row.select(0)
 	weapon_tree.scroll_to_item(row)
 	_ensure_weapon_tree_in_panel_view()
@@ -4102,6 +4118,27 @@ func pad_step_weapon(dir: int) -> bool:
 	if PadRouter.target_highlight_id != "" and eligible_targets.has(PadRouter.target_highlight_id):
 		_update_damage_preview(str(row.get_metadata(0)), str(PadRouter.target_highlight_id))
 	return true
+
+# --- PadRouter nested-panel sub-list protocol -------------------------------
+# The weapon tree is level 1 of the D-pad model: ▲ ▼ steps its rows, and past
+# either end the press escapes to the panel around it. These two let PadRouter
+# find the widget (for the geometry that decides when a panel-level step walks
+# back over it) and re-enter it from the panel side, so the exit is reversible.
+
+# The weapon tree while it is a live pad sub-list, else null.
+func pad_list_control() -> Control:
+	if _pad_weapon_rows().is_empty():
+		return null
+	return weapon_tree
+
+# Re-enter from the containing panel: coming DOWN into the tree (dir > 0) takes
+# its first row, coming UP takes its last — the row nearest where the player
+# walked in from.
+func pad_list_enter(dir: int) -> bool:
+	var rows := _pad_weapon_rows()
+	if rows.is_empty():
+		return false
+	return _pad_apply_weapon_row(rows[0] if dir > 0 else rows[rows.size() - 1])
 
 # Pad (controller) support: mark `target_id` as THE unit the next A press
 # assigns to — gold reticle brackets on every alive model plus a
