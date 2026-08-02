@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.12.14",
+      "date": "2026-08-02",
+      "summary": "'Snap to Contact' now puts your attached character into base contact FIRST, so a Warboss leading a mob of Boyz ends up swinging at the enemy instead of standing behind his own lads.",
+      "changes": [
+        "Fixed: the attached CHARACTER was the LAST model 'Snap to Contact' placed, so by its turn its own squad had taken every spot along the enemy's near edge and the leader stopped short — close, but not in contact, and often not even in engagement range. Characters are now placed before the squad and get the pick of the base contacts.",
+        "In the tutorial's 'Ere We Go' charge this is the difference between the Warboss touching the Custodian Guard and hanging back about an inch behind his Boyz."
+      ]
+    },
+    {
       "version": "1.12.13",
       "date": "2026-08-02",
       "summary": "Charge phase: 'Snap to Contact' no longer walks your models straight through the enemy unit and parks them on the far side — most visibly the attached character, like a Warboss leading a mob of Boyz.",

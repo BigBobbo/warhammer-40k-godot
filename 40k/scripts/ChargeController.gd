@@ -5052,7 +5052,15 @@ func _on_auto_path_charge() -> void:
 	# Models for which NO contact spot is reachable at all (charge roll too
 	# short) are then moved AS CLOSE AS POSSIBLE to the nearest target instead
 	# of being silently left in place — see _find_closest_charge_position.
-	var to_move_copy = models_to_move.duplicate()
+	# Attached CHARACTERS are placed FIRST. _enable_charge_movement appends the
+	# leader's models after the whole bodyguard squad, so snapping in list order
+	# left the character until every near-side contact spot was already taken by
+	# its own Boyz — the leader then fell through to the "as close as possible"
+	# fallback and stopped short of the enemy ("the warboss never reaches them").
+	# The leader is the model the player most wants in base contact (it is what
+	# swings the fight), and it is a single model, so giving it first pick costs
+	# the squad at most one contact spot.
+	var to_move_copy: Array = _snap_placement_order(models_to_move)
 	var unplaced: Array = []
 	var contact_placed: int = 0
 	var closest_placed: int = 0
@@ -5201,6 +5209,22 @@ func _position_within_enemy_er(model: Dictionary, pos: Vector2, enemy_models: Ar
 		if Measurement.is_in_engagement_range_shape_aware(test_model, em, GameConstants.engagement_range_inches()):
 			return true
 	return false
+
+# Order Snap to Contact works through the charging group: attached CHARACTER
+# models first (they carry a "<char_unit>:<model>" key), then the bodyguard's
+# own models in their existing order. Placement is greedy and first-come wins
+# the spot, so whoever is placed first gets the pick of the base contacts.
+func _snap_placement_order(keys: Array) -> Array:
+	var characters: Array = []
+	var squad: Array = []
+	for key in keys:
+		if _charge_key_parts(key).unit_id != active_unit_id:
+			characters.append(key)
+		else:
+			squad.append(key)
+	var out: Array = characters
+	out.append_array(squad)
+	return out
 
 # ── Snap-to-Contact lane clearance ──────────────────────────────────
 # Every model a charging model may NOT walk through on its way to a snapped

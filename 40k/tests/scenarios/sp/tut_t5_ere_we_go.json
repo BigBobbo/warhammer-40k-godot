@@ -4,7 +4,8 @@
     "tutorial.t5.charge",
     "tutorial.engine.fixture_boot",
     "charge.base_contact.snap_lane_clearance",
-    "charge.base_contact.snap_places_attached_character"
+    "charge.base_contact.snap_places_attached_character",
+    "charge.base_contact.snap_character_first"
   ],
   "rng_seed": 99,
   "edition": 11,
@@ -158,6 +159,13 @@
       "multiline": true,
       "equals": true,
       "comment": "Snap to Contact must place the attached CHARACTER too, not just the mob"
+    },
+    {
+      "act": "execute_script",
+      "script": "var wb = GameState.get_unit(\"U_WARBOSS_T\").get(\"models\", [])[0]\nvar best = 999.0\nfor c in GameState.get_unit(\"U_CUSTODIAN_GUARD_T\").get(\"models\", []):\n\tif c.get(\"alive\", true):\n\t\tbest = min(best, Measurement.model_to_model_distance_inches(wb, c))\nreturn best",
+      "multiline": true,
+      "expect_max": 0.05,
+      "comment": "The attached CHARACTER is snapped FIRST, so it gets the pick of the base contacts and ends touching the enemy. Placed last (list order) every near-side spot was already taken by its own Boyz and the leader fell through to the 'as close as possible' fallback, stopping ~1.2 inches short — reported as 'the warboss still isn't reaching the enemy'."
     },
     {
       "act": "execute_script",

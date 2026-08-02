@@ -3843,6 +3843,16 @@
       "fidelity": "DECLARED"
     },
     {
+      "id": "charge.base_contact.snap_character_first",
+      "description": "Snap to Contact places attached CHARACTER models before the bodyguard's own, so the leader gets the pick of the base contacts instead of being left the scraps after its squad has filled the near side. Declared by: tut_t5_ere_we_go.",
+      "scenarios": [
+        "tut_t5_ere_we_go"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
       "id": "charge.base_contact.closest_fallback",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: snap_to_contact_out_of_reach.",
       "scenarios": [
