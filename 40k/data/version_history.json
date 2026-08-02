@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.13.2",
+      "date": "2026-08-02",
+      "summary": "Melee: a Leader attached to a squad can no longer be singled out in combat — the enemy has to hack through his bodyguard first.",
+      "changes": [
+        "Fixed (reported in the Krumpin' tutorial): the Custodian Guard swung back at the Warboss even though he was attached to the Boyz, wiped him in one activation, and left all ten Boyz untouched. No Precision stratagem was involved — the leader was simply offered as a target in his own right.",
+        "An attached Character is now hidden behind his unit everywhere in the Fight phase: he is gone from the target list, from the engine's target check and from the AI's fight plan, and picking him is rejected outright.",
+        "Wounds against the combined unit are grouped by the rules again — the bodyguard models take them first and the Character group comes last, so the Boss only starts losing wounds once his Boyz are gone.",
+        "A squad you can only reach through its attached leader's model is still a legal target — engagement range is measured against the whole unit, leader included.",
+        "Once a bodyguard squad is wiped out the leader becomes a unit of his own again and can be attacked normally.",
+        "Ranged attacks already worked this way; melee now matches."
+      ]
+    },
+    {
       "version": "1.13.1",
       "date": "2026-08-02",
       "summary": "Controller: the D-pad no longer gets stuck looping round a list inside a panel — walk off the end of one and it steps out to the panel around it, scrolling to whatever was hidden below the fold.",

@@ -683,8 +683,12 @@ func _restore_state_after_load() -> void:
 	if fight_state.current_fighter_id != "":
 		current_fighter_id = fight_state.current_fighter_id
 		
-		# Query targets for the active fighter
-		eligible_targets = RulesEngine.get_eligible_melee_targets(current_fighter_id, current_phase.game_state_snapshot)
+		# Query targets for the active fighter. RulesEngine has no
+		# get_eligible_melee_targets() — this call raised "Nonexistent
+		# function" and left the restored fighter with an empty target list.
+		# The phase owns melee target eligibility (and, since 19.02, is what
+		# hides attached CHARACTERs behind their bodyguard), so ask it.
+		eligible_targets = current_phase._get_eligible_melee_targets(current_fighter_id)
 		
 		# Restore UI elements
 		_refresh_attack_tree()

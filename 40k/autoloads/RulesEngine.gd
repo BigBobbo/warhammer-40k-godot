@@ -3441,12 +3441,94 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 	return out
 
 
+# ============================================================================
+# 19.02/19.03: THE ATTACHED UNIT IS ONE TARGET
+# ============================================================================
+# While a CHARACTER is attached to a bodyguard unit the two are ONE Attached
+# unit for all rules purposes, so the CHARACTER is NEVER selectable as a
+# target in its own right — attacks are made against the Attached unit and the
+# allocation rules (05.03 grouping / 05.04 CHARACTER groups last) are what
+# reach the leader, once every bodyguard model is dead (or via [PRECISION]).
+# The ranged path has enforced this for a while (get_eligible_targets skips
+# attached_to units, validate_shoot rejects them); these helpers exist so the
+# MELEE path can enforce the same rule from one implementation.
+
+# The id of the unit that IS the Attached unit for targeting purposes: the
+# bodyguard for an attached character, otherwise unit_id itself.
+# BOTH sides of the linkage are checked — the character's `attached_to`
+# back-pointer AND every bodyguard's attachment_data.attached_characters
+# forward list — because saves and tutorial fixtures exist where only one side
+# was written (FightPhase._fight_is_attached_character does the same).
+# A bodyguard with no models left is NOT returned: 19.05 makes the Leader its
+# own unit again once its Bodyguard unit is destroyed (CharacterAttachmentManager
+# .check_bodyguard_destroyed writes that back), and redirecting to a wiped unit
+# would make the surviving character untargetable.
+static func attached_unit_target_id(unit_id: String, board: Dictionary) -> String:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return unit_id
+	var back_ptr = unit.get("attached_to", null)
+	if back_ptr != null and str(back_ptr) != "" and _unit_has_alive_model(units.get(str(back_ptr), {})):
+		return str(back_ptr)
+	for other_id in units:
+		if other_id == unit_id:
+			continue
+		if unit_id in units[other_id].get("attachment_data", {}).get("attached_characters", []):
+			if _unit_has_alive_model(units[other_id]):
+				return str(other_id)
+	return unit_id
+
+# True when unit_id is a CHARACTER attached to a (still-standing) bodyguard,
+# i.e. a component of an Attached unit that cannot be targeted on its own.
+static func is_attached_character(unit_id: String, board: Dictionary) -> bool:
+	return attached_unit_target_id(unit_id, board) != unit_id
+
+# Every model of the whole Attached unit headed by unit_id: its own models
+# plus its attached characters'. Engagement range / visibility for TARGETING
+# is measured against all of them — the leader's model is part of the unit, so
+# a bodyguard whose only model within Engagement Range is its attached
+# CHARACTER is still a legal melee target.
+# Mirrors attached_unit_target_id's 19.05 guard: a bodyguard with no models
+# left no longer heads an Attached unit (its leaders are units of their own
+# again), so its characters are NOT folded in — otherwise the wiped squad
+# would keep showing up as a target on the strength of the leader's model,
+# alongside the leader's own entry. NOTE this is deliberately NOT the rule
+# _build_attached_allocation_unit_11e uses: mid-batch, wounds that finish off
+# the last bodyguard model must still spill onto the CHARACTER group.
+static func attached_unit_models(unit_id: String, board: Dictionary) -> Array:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	var out: Array = []
+	out.append_array(unit.get("models", []))
+	if not _unit_has_alive_model(unit):
+		return out
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		var char_unit = units.get(str(char_id), {})
+		if char_unit.is_empty():
+			continue
+		out.append_array(char_unit.get("models", []))
+	return out
+
+static func _unit_has_alive_model(unit: Dictionary) -> bool:
+	for m in unit.get("models", []):
+		if m.get("alive", true):
+			return true
+	return false
+
+
 # Fold a bodyguard unit and its attached character units (linked via
 # attachment_data.attached_characters) into ONE virtual unit for the 11e
 # allocation rules. Returns {unit, sources} where sources[i] maps virtual
 # model index i back to {unit_id, model_index}.
+# An attached CHARACTER passed in as the target is resolved back to its
+# bodyguard first (19.02): the caller is asking for "the Attached unit that
+# contains this unit", and building the fold from the character alone would
+# hand back a lone CHARACTER group and let every wound land on the leader
+# while its bodyguard models stood untouched.
 static func _build_attached_allocation_unit_11e(target_unit_id: String, board: Dictionary) -> Dictionary:
 	var units = board.get("units", {})
+	target_unit_id = attached_unit_target_id(target_unit_id, board)
 	var base_unit = units.get(target_unit_id, {})
 	var combined = base_unit.duplicate(true)
 	var sources: Array = []
@@ -11128,6 +11210,13 @@ static func fight_targets_in_engagement(unit_id: String, board: Dictionary) -> D
 		if target_unit.get("owner", 0) == unit_owner:
 			continue
 
+		# 19.02: an attached CHARACTER is part of ONE Attached unit and is
+		# never a target on its own — its bodyguard is the entry that stands
+		# for the whole Attached unit (and is reached below with the leader's
+		# models folded in, so leader-only engagement still offers it).
+		if is_attached_character(target_id, board):
+			continue
+
 		var target_keywords = target_unit.get("meta", {}).get("keywords", [])
 
 		# T4-4: Aircraft can only fight against units that can Fly
@@ -11137,9 +11226,13 @@ static func fight_targets_in_engagement(unit_id: String, board: Dictionary) -> D
 		if "AIRCRAFT" in target_keywords and not unit_has_fly:
 			continue
 
-		# Check alive models
+		# Alive-model and engagement checks run over the WHOLE Attached unit
+		# (bodyguard + attached characters), not just the bodyguard's own
+		# models — 19.03, the leader's model belongs to this unit.
+		var target_group = {"models": attached_unit_models(target_id, board)}
+
 		var target_alive = false
-		for tm in target_unit.get("models", []):
+		for tm in target_group.models:
 			if tm.get("alive", true):
 				target_alive = true
 				break
@@ -11147,7 +11240,7 @@ static func fight_targets_in_engagement(unit_id: String, board: Dictionary) -> D
 			continue
 
 		# Check engagement range
-		if _are_units_in_engagement_range_rules(unit, target_unit, board):
+		if _are_units_in_engagement_range_rules(unit, target_group, board):
 			eligible[target_id] = {
 				"name": target_unit.get("meta", {}).get("name", target_id),
 			}

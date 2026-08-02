@@ -14806,10 +14806,21 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		return {}
 
 	# T7-29: Filter to enemies within engagement range first (fight phase rules)
+	# 19.02: an engaged attached CHARACTER resolves to its BODYGUARD — the
+	# Attached unit is one unit and the leader is never a melee target of its
+	# own. Mapping here (rather than filtering all_enemies up front) keeps the
+	# leader's model as a way of DISCOVERING engagement: a bodyguard reachable
+	# only through its attached leader is still a legal target.
+	# _score_fight_target hands CHARACTER units a +2 bonus, so before this the
+	# AI actively PREFERRED the attached leader — and since the allocation fold
+	# is built from the target unit, every wound landed on him while the
+	# bodyguard models stood untouched. FightPhase._validate_assign_attacks now
+	# rejects such a pick outright, which would waste the whole activation.
 	var engaged_entries = _get_engaging_enemy_units(unit, unit_id, all_enemies)
 	var enemies = {}
 	for entry in engaged_entries:
-		enemies[entry.enemy_id] = entry.enemy_unit
+		var engaged_target_id = _attached_unit_target_id(str(entry.enemy_id), snapshot)
+		enemies[engaged_target_id] = snapshot.get("units", {}).get(engaged_target_id, entry.enemy_unit)
 
 	# If no enemies in engagement range, skip attacks. At 10e that means
 	# consolidating (ends the activation); at 11e consolidation is the
@@ -18139,6 +18150,32 @@ static func _get_shootable_enemy_units(snapshot: Dictionary, player: int) -> Dic
 			continue
 		shootable[unit_id] = all_enemies[unit_id]
 	return shootable
+
+# 19.02: the id of the unit that IS the Attached unit for targeting purposes —
+# the bodyguard for an attached CHARACTER, otherwise unit_id itself. Mirrors
+# RulesEngine.attached_unit_target_id; kept local because a naked autoload
+# reference in this file fails to compile in `--script` (headless) mode, and
+# the melee planner needs the mapping on every fight decision.
+# Both sides of the linkage are checked (the character's attached_to
+# back-pointer and each bodyguard's attached_characters list) — fixtures and
+# saves exist where only one side was written. A wiped bodyguard is not
+# returned: 19.05 makes the Leader a unit of its own again once its Bodyguard
+# unit is destroyed, and it must stay attackable.
+static func _attached_unit_target_id(unit_id: String, snapshot: Dictionary) -> String:
+	var units = snapshot.get("units", {})
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return unit_id
+	var back_ptr = unit.get("attached_to", null)
+	if back_ptr != null and str(back_ptr) != "" and not _get_alive_models(units.get(str(back_ptr), {})).is_empty():
+		return str(back_ptr)
+	for other_id in units:
+		if other_id == unit_id:
+			continue
+		if unit_id in units[other_id].get("attachment_data", {}).get("attached_characters", []):
+			if not _get_alive_models(units[other_id]).is_empty():
+				return str(other_id)
+	return unit_id
 
 static func _get_deployment_zone_bounds(snapshot: Dictionary, player: int) -> Dictionary:
 	var zones = snapshot.get("board", {}).get("deployment_zones", [])

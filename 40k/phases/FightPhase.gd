@@ -698,11 +698,25 @@ func _validate_assign_attacks(action: Dictionary) -> Dictionary:
 	# Check units are enemies
 	if unit.get("owner", 0) == target_unit.get("owner", 0):
 		errors.append("Cannot fight units from the same army")
-	
-	# Check units are within engagement range
-	if not _units_in_engagement_range(unit, target_unit):
+
+	# 19.02: an attached CHARACTER is part of ONE Attached unit and can never
+	# be picked as a melee target on its own. _get_eligible_melee_targets
+	# already hides these from the UI; this is the authoritative engine gate
+	# for callers that bypass it (the AI's fight plan used to select attached
+	# leaders directly, and the defender then had no bodyguard models to
+	# allocate wounds to — every wound went straight onto the leader).
+	if RulesEngine.is_attached_character(target_id, game_state_snapshot):
+		var bodyguard_id = RulesEngine.attached_unit_target_id(target_id, game_state_snapshot)
+		var attached_name = target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_id))
+		var bodyguard_name = get_unit(bodyguard_id).get("meta", {}).get("name", bodyguard_id)
+		errors.append("Cannot target '%s' — attached character; fight '%s' (the Attached unit) instead" % [attached_name, bodyguard_name])
+
+	# Check units are within engagement range. Measured against the whole
+	# Attached unit (19.03) so a target engaged only via its attached leader's
+	# model is still reachable.
+	if not _units_in_engagement_range(unit, {"models": RulesEngine.attached_unit_models(target_id, game_state_snapshot)}):
 		errors.append("Units are not within engagement range")
-	
+
 	# Check weapon exists and is melee
 	var weapon = RulesEngine.get_weapon_profile(weapon_id)
 	if weapon.is_empty():
@@ -2855,8 +2869,25 @@ func _get_eligible_melee_targets(unit_id: String) -> Dictionary:
 	for other_unit_id in all_units:
 		var other_unit = all_units[other_unit_id]
 		var other_owner = other_unit.get("owner", 0)
+		if other_owner == unit_owner:
+			continue
 
-		if other_owner != unit_owner and _units_in_engagement_range(unit, other_unit):
+		# 19.02/19.03: while a CHARACTER is attached to a bodyguard the two are
+		# ONE Attached unit, so the leader is NOT a target of its own — the
+		# bodyguard entry stands for the whole Attached unit and the allocation
+		# rules (05.04) are what reach the leader. Without this the AI happily
+		# picked the attached Warboss and every wound landed on him while his
+		# Boyz stood untouched.
+		if RulesEngine.is_attached_character(other_unit_id, game_state_snapshot):
+			log_phase_message("[19.02] Target %s excluded: attached CHARACTER — fight %s (the Attached unit) instead" % [
+				other_unit_id, RulesEngine.attached_unit_target_id(other_unit_id, game_state_snapshot)])
+			continue
+
+		# Engagement range is measured against the WHOLE Attached unit
+		# (bodyguard + attached characters' models): a unit engaged only with
+		# the attached leader's model is still engaged with the unit.
+		var other_group = {"models": RulesEngine.attached_unit_models(other_unit_id, game_state_snapshot)}
+		if _units_in_engagement_range(unit, other_group):
 			# T4-4: Aircraft can only fight against units that can Fly
 			var other_is_aircraft = _unit_has_keyword(other_unit, "AIRCRAFT")
 			if unit_is_aircraft and not _unit_has_keyword(other_unit, "FLY"):

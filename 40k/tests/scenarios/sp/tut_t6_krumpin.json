@@ -2,11 +2,14 @@
   "id": "tut_t6_krumpin",
   "covers": [
     "tutorial.t6.fight",
-    "tutorial.engine.fixture_boot"
+    "tutorial.engine.fixture_boot",
+    "fightphase.attached_unit_targeting",
+    "rulesengine.attached_unit_targeting",
+    "aidecisionmaker.fight_attached_target"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T6 (Krumpin'), mouse player path: boot from the tutorial_t6_fight fixture -> End Pile In -> Boyz fight the Custodian Guard (pick a melee weapon + target, Weapon to Target, Fight!, Fast Roll, Done) -> the WARBOSS takes his Fights First swing before the enemy gets one (Decline Epic Challenge, assign, Fight!) -> the Custodian Guard swings back and its hit/wound rolls are revealed step by step in the resolution dock (spectating: 'Show Wound Roll' / 'Show Saving Throws', no Command Re-roll on the enemy's dice) before the player rolls their own saves -> end the phase. The attack dialog and allocation overlay are embedded modal Windows, so their controls are driven via the emit escape hatch.",
+  "description": "Tutorial lesson T6 (Krumpin'), mouse player path: boot from the tutorial_t6_fight fixture -> End Pile In -> Boyz fight the Custodian Guard (pick a melee weapon + target, Weapon to Target, Fight!, Fast Roll, Done) -> the WARBOSS takes his Fights First swing before the enemy gets one (Decline Epic Challenge, assign, Fight!) -> the Custodian Guard swings back at the ATTACHED unit (19.02: the Warboss leads the Boyz, so he is not a target of his own and the wounds go on the Boyz first) and its hit/wound rolls are revealed step by step in the resolution dock (spectating: 'Show Wound Roll' / 'Show Saving Throws', no Command Re-roll on the enemy's dice) before the player rolls their own saves -> end the phase. The attack dialog and allocation overlay are embedded modal Windows, so their controls are driven via the emit escape hatch.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -322,6 +325,13 @@
       "equals": "enemy_swings"
     },
     {
+      "act": "execute_script",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph == null or not ph.has_method(\"_get_eligible_melee_targets\"):\n\treturn \"no fight phase\"\nvar snap = GameState.create_snapshot()\nvar ui = ph._get_eligible_melee_targets(\"U_CUSTODIAN_GUARD_T\").keys()\nvar engine = RulesEngine.fight_targets_in_engagement(\"U_CUSTODIAN_GUARD_T\", snap).keys()\nvar ai = load(\"res://scripts/AIDecisionMaker.gd\")._assign_fight_attacks(snap, \"U_CUSTODIAN_GUARD_T\", 2)\nreturn \"%s|%s|%s|%s|%s\" % [\"U_BOYZ_T\" in ui, \"U_WARBOSS_T\" in ui, \"U_WARBOSS_T\" in engine, str(snap.units.U_WARBOSS_T.get(\"attached_to\", \"\")), str(ai.get(\"target_id\", \"\"))]",
+      "multiline": true,
+      "equals": "true|false|false|U_BOYZ_T|U_BOYZ_T",
+      "comment": "THE REPORTED BUG: the Warboss leads the Boyz, but he was offered as a melee target in his own right — and because the wound-allocation fold is built from the TARGET unit, picking him produced a single 'CHARACTER — 1 model' allocation group, so all 15 Guardian spear wounds landed on the Boss while the 10 Boyz stood untouched. 19.02: the Attached unit is ONE unit, so the leader is hidden behind his bodyguard in the UI list, in the engine list AND in the AI's fight plan."
+    },
+    {
       "act": "wait_seconds",
       "seconds": 9.0,
       "comment": "the AI now takes its alternating activation (select the Custodian Guard, assign, roll to hit) and then PARKS at the staged hit pause — nothing may press for it, or the reveal the player is meant to watch is gone"
@@ -374,6 +384,17 @@
     },
     {
       "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/Main/AllocationGroupOverlay\")\nif ov == null:\n\treturn \"no overlay\"\nvar by_id = {}\nvar nc = 0\nvar ch = 0\nfor g in ov.groups:\n\tby_id[str(g.get(\"id\", \"\"))] = g\n\tif g.get(\"character\", false):\n\t\tch += 1\n\telse:\n\t\tnc += 1\nvar first_is_bodyguard = not ov.order.is_empty() and not by_id.get(str(ov.order[0]), {}).get(\"character\", false)\nreturn \"%s|%d|%d|%s\" % [str(ov.save_data.get(\"target_unit_id\", \"\")), nc, ch, first_is_bodyguard]",
+      "multiline": true,
+      "equals": "U_BOYZ_T|2|1|true",
+      "comment": "the save card the player is handed is for the ATTACHED unit: 2 bodyguard groups (Boss Nob W2 + 9 Boyz W1) and the Warboss as ONE character group, with a bodyguard group first in the allocation order (05.04 — no CHARACTER group before a non-CHARACTER one). Before the fix this card read 'Allocate Attacks — Warboss' with a single 'CHARACTER — 1 model(s)' row."
+    },
+    {
+      "act": "screenshot",
+      "label": "07b_allocation_vs_attached_unit"
+    },
+    {
+      "act": "execute_script",
       "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ConfirmButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ResultPanel/DoneButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar pick = tree.root.get_node_or_null(\"/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton\")\nif pick != null and pick.is_visible_in_tree():\n\tpick.pressed.emit()\n\treturn true\nvar prim = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton\")\nif prim != null and prim.is_visible_in_tree() and not prim.disabled:\n\tprim.pressed.emit()\nreturn true",
       "multiline": true,
       "equals": true,
@@ -420,6 +441,13 @@
       "path": "units.U_CUSTODIAN_GUARD_T.flags.has_fought",
       "equals": true,
       "comment": "the enemy really did swing back — and it still had models to do it with (10 Boyz swinging the Boss Nob's Power klaw used to wipe the squad 38% of the time)"
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.state.get(\"units\", {})\nvar boyz_alive = 0\nfor m in u.get(\"U_BOYZ_T\", {}).get(\"models\", []):\n\tif m.get(\"alive\", true):\n\t\tboyz_alive += 1\nvar wbu = u.get(\"U_WARBOSS_T\", {})\nvar wb_max = int(wbu.get(\"meta\", {}).get(\"stats\", {}).get(\"wounds\", 6))\nvar wb_hurt = false\nfor m in wbu.get(\"models\", []):\n\tvar mw = int(m.get(\"wounds\", wb_max))\n\tif not m.get(\"alive\", true) or int(m.get(\"current_wounds\", mw)) < mw:\n\t\twb_hurt = true\nreturn (not wb_hurt) or boyz_alive == 0",
+      "multiline": true,
+      "equals": true,
+      "comment": "THE LEADER RULE, stated as an invariant so it holds whatever the dice do: the attached Warboss may only have lost wounds once every Boy is dead. The reported bug wiped the Boss outright (6 W gone to 15 Guardian spear wounds) with all 10 Boyz still standing."
     },
     {
       "act": "screenshot",
