@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.13.2",
+      "version": "1.13.3",
       "date": "2026-08-02",
       "summary": "Steam Deck: the D-pad now walks the whole Declare Battle Formations list instead of jumping out of it — every Strategic Reserves and Deep Strike option is reachable again.",
       "changes": [
@@ -10,6 +10,16 @@
         "The panel scrolls to follow the D-pad, so the row you are on is always the row you can see.",
         "Up from the Skip / Confirm buttons steps back into the bottom of the list, and left / right move between Skip and Confirm instead of throwing focus somewhere else on the screen.",
         "Changing a leader attachment rebuilds the reserves list — the controller route through it is rebuilt with it, so the walk doesn't dead-end afterwards."
+      ]
+    },
+    {
+      "version": "1.13.2",
+      "date": "2026-08-02",
+      "summary": "Shooting panel fix: the right-hand panel no longer has its left-hand edge cut off — weapon names, section headings and unit rows are all readable again.",
+      "changes": [
+        "Fixed: once you aimed your first gun, the whole right-hand panel shifted left and lost its first ~84 pixels behind the panel edge — \"SHOOTING CONTROLS\" read as \"CONTROLS\", \"Slugga x10\" read as \"x10\", and every weapon name was cut off. Most visible in the Dakka Time tutorial, but it affected any shooting unit.",
+        "Cause: the \"Same target for all: Apply to N Remaining Weapons\" row and the Clear All / Undo Last / Confirm row were together wider than the panel, which made it scroll sideways — and something then scrolled it fully right.",
+        "Those two rows now wrap onto a second line instead of forcing the panel wider than it can be, and the shooting panel can no longer scroll sideways at all, so its left edge always stays put."
       ]
     },
     {
