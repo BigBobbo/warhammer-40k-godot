@@ -2,13 +2,25 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.12.1",
-      "date": "2026-08-01",
+      "version": "1.12.2",
+      "date": "2026-08-02",
       "summary": "Tutorial fixes for smaller screens: the yellow highlight box stays inside the panel it is pointing at, and the instructor card no longer covers the side panels.",
       "changes": [
         "The yellow highlight box now stays inside the panel it highlights. On 'Dakka Time' step 4 ('NOW DA REST!') it used to be drawn around the outside of the weapon list, which fills the whole right-hand panel — so its left edge landed on the battlefield and its right edge ran off the screen entirely. Affected every step that highlights something filling a side panel.",
         "The instructor card no longer slides over the game log or the right-hand panel. It is a fixed width and was centred on the screen, so once the UI got large relative to the screen — which is what the Steam Deck's controller text boost and the UI Scale slider both do — it covered the left-hand edge of the right-hand panel, hiding weapon names and unit rows. It now narrows and sits between the two panels instead.",
         "The step counter and the Skip Step / Exit Tutorial buttons are kept intact when the card narrows."
+      ]
+    },
+    {
+      "version": "1.12.1",
+      "date": "2026-07-31",
+      "summary": "A unit is now offered only the weapons its army list actually bought — no more Power klaw on a mob that never took one — and a weapon swap carries its whole bundle.",
+      "changes": [
+        "Melee already stopped a whole mob swinging one model's weapon. This goes further: the attack panel no longer lists weapons the unit does not own at all. A Boyz mob is 9 choppas and a Boss Nob's big choppa, so those are the only two lines — the Power klaw and Close combat weapon it never bought are gone.",
+        "Army lists rarely record melee. Where the list is silent, the game now reads the datasheet's own \"equipped with\" line per model role instead of falling back to every option on the sheet.",
+        "A swap usually trades two weapons for two: \"any number of Boyz can each have their slugga AND choppa replaced with 1 shoota AND 1 close combat weapon\". Lists record the gun and not the blade, so shoota Boyz were being handed the choppa they traded away — they now get the close combat weapon they actually hold. Partial swaps work too: 3 shootas gives 3 close combat weapons and 6 choppas.",
+        "When a list names a weapon but not how many — \"Guardian Spear, Sentinel blade, Praesidium Shield\" with no numbers — the game says so in the log and leaves the unit alone, rather than picking one and silently dropping the sentinel blade.",
+        "Saved games pick all of this up on load rather than keeping whatever an older version worked out."
       ]
     },
     {
