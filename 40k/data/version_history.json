@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.12.3",
+      "version": "1.12.5",
       "date": "2026-08-01",
       "summary": "Controller: the model stats card no longer covers the spot you are dragging a model to. It is off by default on a controller — hold R4 or L4 to peek at it.",
       "changes": [
@@ -11,6 +11,25 @@
         "The hint bar advertises 'R4 Hold: Model Stats' while you are placing charge or movement models.",
         "New option in Settings > Controller > Controller Options: 'Always show model stats card on hover' brings back the old always-on behaviour (and hands R4 / L4 back to model switching).",
         "Mouse & keyboard play is unchanged — the card still shows on hover."
+      ]
+    },
+    {
+      "version": "1.12.4",
+      "date": "2026-08-01",
+      "summary": "Tutorial tidy-up: step 6 of Musterin' da Boyz no longer tells you to pick the Battlewagon you are already holding.",
+      "changes": [
+        "\"PARK DA WAGON!\" (step 6 of Musterin' da Boyz) used to open by telling you to tap the bumper until the Battlewagon row was picked — but you can only reach that step by having already picked it up and turned it, so the instruction read as \"you did it wrong, start again\". It now just tells you to drop it: glide the left stick into your zone and press A (or click your deployment zone on mouse and keyboard).",
+        "If you do somehow end up with nothing in hand, the step's hint (the one that appears when you have been stuck a while) explains how to pick the wagon back up."
+      ]
+    },
+    {
+      "version": "1.12.3",
+      "date": "2026-08-01",
+      "summary": "The Command phase panel no longer fills up with empty orange dividing lines.",
+      "changes": [
+        "In the Command phase, the right-hand panel showed a growing stack of orange divider lines under VICTORY POINTS with nothing between them — a dozen of them by the time you had drawn your secondaries and called a Waaagh!, pushing the sections you actually wanted further down the scroll.",
+        "The panel rebuilds its Battle-shock, army rules and Secondary Missions sections every time something changes (a mission drawn or discarded, a CP spent, a battle-shock resolved). Each rebuild was abandoning the divider that introduced the section instead of removing it, so the leftovers piled up all phase. Dividers are now removed with their section, and any that end up introducing nothing are swept away.",
+        "Nothing else in the panel moved — the same sections, in the same order, just without the blank band."
       ]
     },
     {
