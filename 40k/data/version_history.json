@@ -2,12 +2,22 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.12.2",
+      "version": "1.12.3",
       "date": "2026-08-01",
       "summary": "Krumpin' step 6 no longer tells Steam Deck players to glide the left stick at a row the D-pad reaches perfectly well.",
       "changes": [
         "The Fight lesson's \"Da boss ain't swung yet!\" step told pad players to glide the left stick onto the Warboss row. The fight panel's unit rows are ordinary D-pad navigation — the very next step up from where the D-pad is already parked on the dice dock — so the prompt now says to tap ▲ till it lands on the Warboss row, matching how the same lesson already describes picking the Boyz.",
         "The step after it said to glide the stick onto Roll Saves. The save card grabs the pad's focus onto that button by itself, so the prompt now just says to press A."
+      ]
+    },
+    {
+      "version": "1.12.2",
+      "date": "2026-08-01",
+      "summary": "Controller fix: reordering your allocation groups on the Allocate Attacks step no longer strands the D-pad — Confirm Order & Roll Saves stays reachable.",
+      "changes": [
+        "Moving a group up or down with the D-pad (say, dropping your 1 model W2 Sv5+ nob into second place) used to leave nothing highlighted at all: the highlight vanished and no amount of D-pad pressing could reach Confirm Order & Roll Saves, so the attack could not be resolved. The highlight now lands back on the arrow of the group you just moved, at its new position, so you can keep reordering and then walk down to Confirm.",
+        "The greyed-out arrows (▲ on the first row, ▼ on the last) no longer take the highlight — pressing A on them did nothing, which felt like the pad had died. The D-pad now skips straight past them.",
+        "Added a safety net: if the highlight is ever lost while this window is open, the next D-pad press puts it back on the current step's main button instead of doing nothing."
       ]
     },
     {
