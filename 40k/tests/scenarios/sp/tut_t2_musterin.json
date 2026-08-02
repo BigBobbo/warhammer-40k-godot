@@ -18,7 +18,7 @@
     },
     {
       "act": "click_node",
-      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton"
     },
     {
       "act": "expect_node_visible",

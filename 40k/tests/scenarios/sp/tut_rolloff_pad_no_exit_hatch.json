@@ -17,7 +17,7 @@
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "execute_script", "script": "InputDeviceManager.is_pad_active()", "equals": true },
 
-    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton", "emit_pressed": true, "comment": "emit_pressed, not a real click: a real mouse event would hand the device back to KBM and the bug under test is pad-only" },
+    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton", "emit_pressed": true, "comment": "emit_pressed, not a real click: a real mouse event would hand the device back to KBM and the bug under test is pad-only" },
     { "act": "expect_node_visible", "node": "/root/MainMenu/TutorialPicker", "timeout_s": 3.0 },
     { "act": "click_node", "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t2_musterin/Play_t2_musterin", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 10.0 },
