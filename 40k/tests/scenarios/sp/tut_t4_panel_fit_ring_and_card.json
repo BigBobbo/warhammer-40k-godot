@@ -45,27 +45,26 @@
       "seconds": 1.5
     },
     {
-      "act": "dispatch_action",
-      "action": {
-        "type": "SELECT_SHOOTER",
-        "actor_unit_id": "U_BOYZ_T"
-      },
-      "comment": "navigation only — the player path for picking a shooter is covered by tut_t4_dakka; what this scenario asserts is the layout of the step that follows"
+      "act": "click_unit",
+      "unit_id": "U_BOYZ_T",
+      "comment": "REAL click path, not dispatch_action. This matters: dispatch_action(ASSIGN_TARGET) skips _select_target_for_current_weapon, which is what reveals the 'Same target for all: Apply to N Remaining Weapons' row — and that row is part of what overflows the panel. An earlier pass at this bug used dispatch_action to navigate here and never saw the clipping the player reported."
     },
     {
       "act": "wait_seconds",
       "seconds": 2.0
     },
     {
-      "act": "dispatch_action",
-      "action": {
-        "type": "ASSIGN_TARGET",
-        "actor_unit_id": "U_BOYZ_T",
-        "payload": {
-          "weapon_id": "slugga_ranged",
-          "target_unit_id": "U_WITCHSEEKERS_T"
-        }
-      }
+      "act": "click_tree_item",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/WeaponTree",
+      "metadata": "slugga_ranged"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_WITCHSEEKERS_T"
     },
     {
       "act": "wait_seconds",
@@ -85,17 +84,26 @@
       "comment": "the step really is spotlighting a control that spans HUD_Right's inner width — otherwise there is nothing for the clamp to do"
     },
     {
+      "act": "execute_script",
+      "script": "var atc = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/AutoTargetContainer\")\nif atc == null or not atc.visible:\n\treturn \"the 'Same target for all' row is not showing — this scenario would not be exercising the widest state of the panel\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "guard: the clipping only appears once this row is up, so prove it IS up before asserting the panel fits"
+    },
+    {
       "act": "screenshot",
       "label": "01_step4_default_canvas"
     },
-
     {
       "act": "execute_script",
       "script": "tree.root.content_scale_factor = 1.0\nreturn \"set\"",
       "multiline": true,
       "equals": "set"
     },
-    { "act": "wait_frames", "frames": 10 },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
     {
       "act": "execute_script",
       "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.check_panel_fit()",
@@ -103,14 +111,23 @@
       "equals": "ok",
       "comment": "csf 1.0 — desktop. Before the fix the ring's right edge already fell past the viewport here."
     },
-
+    {
+      "act": "execute_script",
+      "script": "var sc = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer\")\nif sc == null:\n\treturn \"no ShootingScrollContainer\"\nvar p = sc.get_node_or_null(\"ShootingPanel\")\nif p == null:\n\treturn \"no ShootingPanel\"\nvar bad: Array = []\n# The panel's content must start at the scroll viewport's left edge. Any\n# horizontal scroll offset clips the FIRST n px off every row — weapon names,\n# section headers, unit rows — which is exactly the reported symptom.\nif absf(p.get_global_rect().position.x - sc.get_global_rect().position.x) > 1.0:\n\tbad.append(\"panel starts at %.0f but the viewport starts at %.0f (%.0fpx clipped off the left)\" % [p.get_global_rect().position.x, sc.get_global_rect().position.x, sc.get_global_rect().position.x - p.get_global_rect().position.x])\nif sc.scroll_horizontal != 0:\n\tbad.append(\"scroll_horizontal is %d, not 0\" % sc.scroll_horizontal)\nif sc.get_h_scroll_bar().visible:\n\tbad.append(\"a horizontal scrollbar appeared — the panel content is wider than HUD_Right\")\nif p.get_combined_minimum_size().x > sc.get_global_rect().size.x + 0.5:\n\tbad.append(\"panel needs %.0fpx but the viewport is %.0fpx\" % [p.get_combined_minimum_size().x, sc.get_global_rect().size.x])\nreturn \"ok\" if bad.is_empty() else \"; \".join(bad)",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "shooting panel must fit HUD_Right with no horizontal scroll at this scale"
+    },
     {
       "act": "execute_script",
       "script": "tree.root.content_scale_factor = 1.2\nreturn \"set\"",
       "multiline": true,
       "equals": "set"
     },
-    { "act": "wait_frames", "frames": 10 },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
     {
       "act": "execute_script",
       "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.check_panel_fit()",
@@ -119,17 +136,26 @@
       "comment": "csf 1.2 — the Steam Deck default (SettingsService.PAD_UI_SCALE_BOOST while a pad is the active device)"
     },
     {
+      "act": "execute_script",
+      "script": "var sc = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer\")\nif sc == null:\n\treturn \"no ShootingScrollContainer\"\nvar p = sc.get_node_or_null(\"ShootingPanel\")\nif p == null:\n\treturn \"no ShootingPanel\"\nvar bad: Array = []\n# The panel's content must start at the scroll viewport's left edge. Any\n# horizontal scroll offset clips the FIRST n px off every row — weapon names,\n# section headers, unit rows — which is exactly the reported symptom.\nif absf(p.get_global_rect().position.x - sc.get_global_rect().position.x) > 1.0:\n\tbad.append(\"panel starts at %.0f but the viewport starts at %.0f (%.0fpx clipped off the left)\" % [p.get_global_rect().position.x, sc.get_global_rect().position.x, sc.get_global_rect().position.x - p.get_global_rect().position.x])\nif sc.scroll_horizontal != 0:\n\tbad.append(\"scroll_horizontal is %d, not 0\" % sc.scroll_horizontal)\nif sc.get_h_scroll_bar().visible:\n\tbad.append(\"a horizontal scrollbar appeared — the panel content is wider than HUD_Right\")\nif p.get_combined_minimum_size().x > sc.get_global_rect().size.x + 0.5:\n\tbad.append(\"panel needs %.0fpx but the viewport is %.0fpx\" % [p.get_combined_minimum_size().x, sc.get_global_rect().size.x])\nreturn \"ok\" if bad.is_empty() else \"; \".join(bad)",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "shooting panel must fit HUD_Right with no horizontal scroll at this scale"
+    },
+    {
       "act": "screenshot",
       "label": "02_step4_deck_canvas"
     },
-
     {
       "act": "execute_script",
       "script": "tree.root.content_scale_factor = 1.44\nreturn \"set\"",
       "multiline": true,
       "equals": "set"
     },
-    { "act": "wait_frames", "frames": 10 },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
     {
       "act": "execute_script",
       "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.check_panel_fit()",
@@ -137,14 +163,23 @@
       "equals": "ok",
       "comment": "csf 1.44 — Deck boost x UI Scale 1.2"
     },
-
+    {
+      "act": "execute_script",
+      "script": "var sc = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer\")\nif sc == null:\n\treturn \"no ShootingScrollContainer\"\nvar p = sc.get_node_or_null(\"ShootingPanel\")\nif p == null:\n\treturn \"no ShootingPanel\"\nvar bad: Array = []\n# The panel's content must start at the scroll viewport's left edge. Any\n# horizontal scroll offset clips the FIRST n px off every row — weapon names,\n# section headers, unit rows — which is exactly the reported symptom.\nif absf(p.get_global_rect().position.x - sc.get_global_rect().position.x) > 1.0:\n\tbad.append(\"panel starts at %.0f but the viewport starts at %.0f (%.0fpx clipped off the left)\" % [p.get_global_rect().position.x, sc.get_global_rect().position.x, sc.get_global_rect().position.x - p.get_global_rect().position.x])\nif sc.scroll_horizontal != 0:\n\tbad.append(\"scroll_horizontal is %d, not 0\" % sc.scroll_horizontal)\nif sc.get_h_scroll_bar().visible:\n\tbad.append(\"a horizontal scrollbar appeared — the panel content is wider than HUD_Right\")\nif p.get_combined_minimum_size().x > sc.get_global_rect().size.x + 0.5:\n\tbad.append(\"panel needs %.0fpx but the viewport is %.0fpx\" % [p.get_combined_minimum_size().x, sc.get_global_rect().size.x])\nreturn \"ok\" if bad.is_empty() else \"; \".join(bad)",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "shooting panel must fit HUD_Right with no horizontal scroll at this scale"
+    },
     {
       "act": "execute_script",
       "script": "tree.root.content_scale_factor = 1.8\nreturn \"set\"",
       "multiline": true,
       "equals": "set"
     },
-    { "act": "wait_frames", "frames": 12 },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
     {
       "act": "execute_script",
       "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.check_panel_fit()",
@@ -153,16 +188,25 @@
       "comment": "csf 1.8 — Deck boost x UI Scale 1.5. Before the fix the card buried 161px of HUD_Right here."
     },
     {
+      "act": "execute_script",
+      "script": "var sc = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer\")\nif sc == null:\n\treturn \"no ShootingScrollContainer\"\nvar p = sc.get_node_or_null(\"ShootingPanel\")\nif p == null:\n\treturn \"no ShootingPanel\"\nvar bad: Array = []\n# The panel's content must start at the scroll viewport's left edge. Any\n# horizontal scroll offset clips the FIRST n px off every row — weapon names,\n# section headers, unit rows — which is exactly the reported symptom.\nif absf(p.get_global_rect().position.x - sc.get_global_rect().position.x) > 1.0:\n\tbad.append(\"panel starts at %.0f but the viewport starts at %.0f (%.0fpx clipped off the left)\" % [p.get_global_rect().position.x, sc.get_global_rect().position.x, sc.get_global_rect().position.x - p.get_global_rect().position.x])\nif sc.scroll_horizontal != 0:\n\tbad.append(\"scroll_horizontal is %d, not 0\" % sc.scroll_horizontal)\nif sc.get_h_scroll_bar().visible:\n\tbad.append(\"a horizontal scrollbar appeared — the panel content is wider than HUD_Right\")\nif p.get_combined_minimum_size().x > sc.get_global_rect().size.x + 0.5:\n\tbad.append(\"panel needs %.0fpx but the viewport is %.0fpx\" % [p.get_combined_minimum_size().x, sc.get_global_rect().size.x])\nreturn \"ok\" if bad.is_empty() else \"; \".join(bad)",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "shooting panel must fit HUD_Right with no horizontal scroll at this scale"
+    },
+    {
       "act": "screenshot",
       "label": "03_step4_ui_scale_1_5"
     },
-
     {
       "act": "execute_script",
       "script": "tree.root.content_scale_factor = 1.0\nreturn \"restored\"",
       "multiline": true,
       "equals": "restored"
     },
-    { "act": "wait_frames", "frames": 10 }
+    {
+      "act": "wait_frames",
+      "frames": 10
+    }
   ]
 }

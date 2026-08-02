@@ -110,7 +110,11 @@ var clear_button: Button
 var undo_button: Button  # T5-UX4: Undo last weapon assignment
 var dice_log_display: RichTextLabel
 var dice_roll_visual: DiceRollVisual  # T5-V1: Animated dice roll visualization
-var auto_target_button_container: HBoxContainer  # Reference to auto-target UI
+# HFlowContainer, not HBox: "Same target for all:" + "Apply to N Remaining
+# Weapons" needs 365px on one line and the panel only has ~388, so an HBox left
+# no headroom for a longer count or a bigger font. Flowing wraps the button
+# under the label instead of forcing the panel wider than HUD_Right.
+var auto_target_button_container: HFlowContainer  # Reference to auto-target UI
 var last_assigned_target_id: String = ""  # Track last assigned target for "Apply to All"
 var quick_assign_container: VBoxContainer  # P3-113: Quick-assign all weapons to target buttons
 var grenade_button: Button  # GRENADE stratagem button
@@ -463,6 +467,16 @@ func _setup_right_panel() -> void:
 		scroll_container.name = "ShootingScrollContainer"
 		scroll_container.custom_minimum_size = Vector2(250, 400)  # Increased from 300 to 400
 		scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL  # Take available space
+		# HUD_Right is a fixed 400px and clips, so this panel can only ever
+		# scroll vertically. Leaving horizontal scrolling on meant any row that
+		# overflowed (the Confirm row grows with its weapon count) made the whole
+		# panel horizontally scrollable — and anything that calls
+		# ensure_control_visible on a full-width child, e.g. the tutorial
+		# spotlight scrolling its anchor into view, then pinned it hard right and
+		# clipped the FIRST 84px off every line: weapon names, section headers,
+		# unit rows. Reported on Dakka Time step 4. Disabled, the content is laid
+		# out at the viewport's left edge and stays there.
+		scroll_container.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		container.add_child(scroll_container)
 		
 		shooting_panel = VBoxContainer.new()
@@ -582,7 +596,7 @@ func _setup_right_panel() -> void:
 	declaration_box.add_child(weapon_label)
 
 	# Create "Apply to All" button container (initially hidden)
-	auto_target_button_container = HBoxContainer.new()
+	auto_target_button_container = HFlowContainer.new()
 	auto_target_button_container.name = "AutoTargetContainer"
 	auto_target_button_container.visible = false  # Hidden until first weapon assigned
 
@@ -729,7 +743,14 @@ func _setup_right_panel() -> void:
 	# Action buttons — stable names: the tutorial overlay and windowed
 	# scenarios anchor these by path (the confirm label's weapon count is
 	# assignment-dependent, so text lookup is not reliable).
-	var button_container = HBoxContainer.new()
+	# HFlowContainer, not HBox: Clear All + Undo Last + Confirm needs 472px on one
+	# row — more than the ~388px HUD_Right leaves — and Confirm grows further as
+	# it picks up its weapon count ("Confirm (3 weapons)"). An HBox made the whole
+	# declaration panel 472 wide and horizontally scrollable, which is what let
+	# the left-hand 84px of every row get clipped. Flowing wraps Confirm onto its
+	# own line instead. Name is stable: the tutorial and windowed scenarios
+	# anchor ConfirmTargetsButton through this node.
+	var button_container = HFlowContainer.new()
 	button_container.name = "TargetButtonRow"
 
 	clear_button = Button.new()
