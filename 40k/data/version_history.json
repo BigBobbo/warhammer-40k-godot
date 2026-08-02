@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.13.2",
+      "date": "2026-08-02",
+      "summary": "Shooting panel fix: the right-hand panel no longer has its left-hand edge cut off — weapon names, section headings and unit rows are all readable again.",
+      "changes": [
+        "Fixed: once you aimed your first gun, the whole right-hand panel shifted left and lost its first ~84 pixels behind the panel edge — \"SHOOTING CONTROLS\" read as \"CONTROLS\", \"Slugga x10\" read as \"x10\", and every weapon name was cut off. Most visible in the Dakka Time tutorial, but it affected any shooting unit.",
+        "Cause: the \"Same target for all: Apply to N Remaining Weapons\" row and the Clear All / Undo Last / Confirm row were together wider than the panel, which made it scroll sideways — and something then scrolled it fully right.",
+        "Those two rows now wrap onto a second line instead of forcing the panel wider than it can be, and the shooting panel can no longer scroll sideways at all, so its left edge always stays put."
+      ]
+    },
+    {
       "version": "1.13.1",
       "date": "2026-08-02",
       "summary": "Controller: the D-pad no longer gets stuck looping round a list inside a panel — walk off the end of one and it steps out to the panel around it, scrolling to whatever was hidden below the fold.",
