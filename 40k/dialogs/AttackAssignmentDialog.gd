@@ -18,12 +18,17 @@ var unit_id: String = ""
 var eligible_targets: Dictionary = {}
 var phase_reference = null
 var assignments: Array = []
+# COMPAT: `weapon_list` is the FOCUSED loadout group's weapon ItemList. Before
+# the group rework there was exactly one list for the whole unit; single-model
+# units (the common scenario fixture) still produce exactly one group, so
+# `weapon_list.item_count` / `.select(i)` keep meaning what they always did.
 var weapon_list: ItemList = null
 var target_list: ItemList = null
 var assignments_display: RichTextLabel = null
 var extra_attacks_weapons: Array = []  # T3-3: Track Extra Attacks weapons for auto-inclusion
 var extra_attacks_target_list: ItemList = null  # T3-3: Target selector for Extra Attacks weapons
 var all_to_target_button: Button = null  # T5-UX5: "All to Target" shortcut button
+var best_krump_button: Button = null  # Auto-assign the best weapon per group
 var _pad_hint_label: Label = null  # Controller hint row (shown only when a pad is active)
 
 # MA-LOADOUT (melee): who can swing what. `_eligible_indices` is every model
@@ -35,6 +40,29 @@ var _pad_hint_label: Label = null  # Controller hint row (shown only when a pad 
 var _eligible_indices: Array = []
 var _weapon_carriers: Dictionary = {}   # weapon_id -> Array[int] model indices
 var _weapon_by_id: Dictionary = {}      # weapon_id -> weapon profile dictionary
+
+# ── LOADOUT GROUPS (Option B) ───────────────────────────────────────────────
+# The unit is partitioned into groups of models that carry the SAME set of melee
+# weapons — a Boyz mob becomes "Boy x9" (Choppa / Close combat weapon) and
+# "Boss Nob x1" (Big choppa / Choppa / Power klaw). Each group picks its own
+# weapon and its own target, which is what makes "nine Boyz on choppas, the Nob
+# on his Power klaw" expressible at all.
+#
+# Before this, ONE weapon pick drove the whole unit: its carriers swung it and
+# every other model was silently auto-assigned a statically-scored "best"
+# weapon. That reached only 4 of the 6 whole-group combinations for a Boyz mob,
+# never split a group, and never sent two groups at different targets — and it
+# never told the player any of that was happening.
+#
+# Each group carries a `lines` plan: [{weapon, count, target}]. Un-split groups
+# hold exactly one line covering every model in the group; "Split" mode expands
+# that to one line per weapon the group carries, with per-line model counts that
+# always sum to the group size (models inside a group are interchangeable — same
+# profile, same weapons — so only the COUNT is a real decision, never *which*).
+var _groups: Array = []
+var _focused_group: int = 0
+var _groups_box: VBoxContainer = null
+var _updating_spins: bool = false  # re-entrancy guard for split SpinBox rebalancing
 
 func setup(fighter_id: String, targets: Dictionary, phase) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
@@ -54,10 +82,10 @@ func setup(fighter_id: String, targets: Dictionary, phase) -> void:
 	print("[AttackAssignmentDialog] UI built successfully")
 
 func _build_ui() -> void:
-	min_size = DialogConstants.MEDIUM
+	min_size = DialogConstants.LARGE
 	var container = VBoxContainer.new()
 	container.name = "Content"
-	container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
+	container.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 20, 0)
 
 	# Get unit's melee weapons from meta
 	var unit = phase_reference.get_unit(unit_id)
@@ -113,6 +141,10 @@ func _build_ui() -> void:
 		carried_melee_weapons.append(weapon)
 	regular_melee_weapons = carried_melee_weapons
 
+	# Partition the eligible models into same-loadout groups before any UI is
+	# built — the group list IS the shape of the rest of the dialog.
+	_build_groups(unit)
+
 	# T3-3: Show Extra Attacks weapons info if any exist
 	if not extra_attacks_weapons.is_empty():
 		var ea_label = Label.new()
@@ -153,72 +185,44 @@ func _build_ui() -> void:
 		var separator = HSeparator.new()
 		container.add_child(separator)
 
-	# Weapon selector (regular weapons only)
 	# 11e core rules (Fight — Select Melee Weapon): each model makes its attacks
-	# with ONE selected melee weapon — the choice below is exclusive.
+	# with ONE selected melee weapon — the choice below is exclusive PER GROUP.
 	var weapon_label = Label.new()
-	weapon_label.text = "Select ONE Weapon (a model only fights with one melee weapon):"
+	weapon_label.name = "GroupsHeader"
+	if _groups.size() > 1:
+		weapon_label.text = "Each section picks ONE melee weapon (a model only fights with one):"
+	else:
+		weapon_label.text = "Select ONE Weapon (a model only fights with one melee weapon):"
 	container.add_child(weapon_label)
 
-	weapon_list = ItemList.new()
-	weapon_list.name = "WeaponList"
-	weapon_list.custom_minimum_size = Vector2(480, 100)
+	# Group sections live in a scroll box so a mob with several loadouts (or a
+	# split group) cannot push the buttons off the bottom of the dialog.
+	var groups_scroll = ScrollContainer.new()
+	groups_scroll.name = "GroupsScroll"
+	groups_scroll.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 260)
+	groups_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_groups_box = VBoxContainer.new()
+	_groups_box.name = "GroupsBox"
+	_groups_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	groups_scroll.add_child(_groups_box)
+	container.add_child(groups_scroll)
 
-	# T-093: Compute max-cap. One-weapon rule: only ONE regular melee weapon
-	# swings per activation, so the cap is the best single choice — not the sum.
-	# MA-LOADOUT: "attacks with this weapon" is now the CARRIERS' attacks, and a
-	# choice also sweeps every other eligible model into the weapon it does
-	# carry (see _set_single_weapon_assignment), so the cap is the best whole
-	# plan rather than one weapon times the whole unit.
-	var unit_max_attacks_best: float = 0.0
-	for i in range(regular_melee_weapons.size()):
-		var weapon = regular_melee_weapons[i]
-		var weapon_name = weapon.get("name", "Unknown")
-		# Generate weapon ID from name using RulesEngine to prevent collisions
-		var weapon_id = RulesEngine.generate_weapon_id(weapon_name, weapon.get("type", ""))
+	for gi in range(_groups.size()):
+		_groups_box.add_child(_build_group_section(gi))
 
-		var carriers: Array = _weapon_carriers.get(weapon_id, [])
-		var avg_attacks: float = _average_dice_notation(str(weapon.get("attacks", "1")))
-		var weapon_max_attacks: float = avg_attacks * float(carriers.size())
-		unit_max_attacks_best = maxf(unit_max_attacks_best, _plan_total_attacks(weapon_id))
+	# COMPAT: the focused group's list doubles as the historic `weapon_list`.
+	_set_focused_group(0)
 
-		weapon_list.add_item("%s (A:%s S:%s AP:%s D:%s — %s, ≈%s attacks)" % [
-			weapon_name,
-			weapon.get("attacks", "1"),
-			weapon.get("strength", "User"),
-			weapon.get("ap", "0"),
-			weapon.get("damage", "1"),
-			"%d model%s" % [carriers.size(), "" if carriers.size() == 1 else "s"],
-			"%.1f" % weapon_max_attacks if weapon_max_attacks != floor(weapon_max_attacks) else "%d" % int(weapon_max_attacks)
-		])
-		# Store the weapon ID as metadata for creating the attack action
-		weapon_list.set_item_metadata(weapon_list.item_count - 1, weapon_id)
-		print("[AttackAssignmentDialog] Weapon '%s' → ID '%s' (%d carrier(s), ≈%.1f attacks)" % [
-			weapon_name, weapon_id, carriers.size(), weapon_max_attacks])
-
-	# Pre-select the first weapon so a default choice is always visible
-	if weapon_list.item_count > 0:
-		weapon_list.select(0)
-
-	# T-093: max-cap label (best whole plan — one melee weapon per model)
-	var max_cap_label = Label.new()
-	max_cap_label.text = "Max total attacks (cap): ≈%s across %d eligible models, each swinging a weapon it carries" % [
-		"%.1f" % unit_max_attacks_best if unit_max_attacks_best != floor(unit_max_attacks_best) else "%d" % int(unit_max_attacks_best),
-		eligible_indices.size()
-	]
-	max_cap_label.add_theme_font_size_override("font_size", 16)
-	container.add_child(max_cap_label)
-
-	container.add_child(weapon_list)
-
-	# Target selector
+	# Target selector — the SHARED "currently selected target". Group rows point
+	# at their own target; this list is what Assign / All to Target / the pad's
+	# ◀ ▶ (and the board reticle) act on.
 	var target_label = Label.new()
 	target_label.text = "Target:"
 	container.add_child(target_label)
 
 	target_list = ItemList.new()
 	target_list.name = "TargetList"
-	target_list.custom_minimum_size = Vector2(480, 100)
+	target_list.custom_minimum_size = Vector2(480, 70)
 	for target_id in eligible_targets:
 		var target_data = eligible_targets[target_id]
 		target_list.add_item("%s (in engagement range)" % target_data.get("name", target_id))
@@ -232,20 +236,32 @@ func _build_ui() -> void:
 	var button_container = HBoxContainer.new()
 	button_container.name = "ButtonContainer"
 
+	# Auto-assign: give every group the weapon with the best expected damage
+	# against the selected target. This is the "don't drown me in options" path —
+	# the dialog already opens on this plan, and the button restores it after any
+	# manual fiddling.
+	best_krump_button = Button.new()
+	best_krump_button.name = "BestKrumpButton"
+	best_krump_button.text = "Best Krump ✨"
+	best_krump_button.tooltip_text = "Auto-pick the best melee weapon for each group against the selected target"
+	best_krump_button.pressed.connect(_on_best_krump_pressed)
+	button_container.add_child(best_krump_button)
+
 	# Assign button
 	var assign_button = Button.new()
 	assign_button.name = "AssignButton"
 	assign_button.text = "Add Assignment"
+	assign_button.tooltip_text = "Point the highlighted section's selected weapon at the selected target"
 	assign_button.pressed.connect(_on_assign_pressed)
 	button_container.add_child(assign_button)
 
-	# T5-UX5 (reworked for the 11e one-weapon rule): one-click shortcut that
-	# assigns the selected weapon to the selected target. Node name is kept as
-	# AllToTargetButton — windowed scenarios click it by path.
+	# T5-UX5 (reworked again for loadout groups): one-click shortcut that points
+	# EVERY group at the selected target, each keeping the weapon it has chosen.
+	# Node name is kept as AllToTargetButton — windowed scenarios click it by path.
 	all_to_target_button = Button.new()
 	all_to_target_button.name = "AllToTargetButton"
-	all_to_target_button.text = "Weapon to Target"
-	all_to_target_button.tooltip_text = "Assign the selected melee weapon to the selected target (each model fights with one melee weapon)"
+	all_to_target_button.text = "All to Target"
+	all_to_target_button.tooltip_text = "Send every section at the selected target (each keeps its own weapon)"
 	all_to_target_button.pressed.connect(_on_all_to_target_pressed)
 	button_container.add_child(all_to_target_button)
 
@@ -262,12 +278,13 @@ func _build_ui() -> void:
 	# confirm was rejected for having no assignments.
 	get_ok_button().visible = false
 
-	# No eligible targets: nothing can ever be assigned, so the three buttons
-	# above are dead ends — offer the one legal move (ending the fight)
-	# instead of soft-locking the player in an un-completable dialog.
+	# No eligible targets: nothing can ever be assigned, so the buttons above are
+	# dead ends — offer the one legal move (ending the fight) instead of
+	# soft-locking the player in an un-completable dialog.
 	if eligible_targets.is_empty():
 		assign_button.disabled = true
 		all_to_target_button.disabled = true
+		best_krump_button.disabled = true
 		confirm_attacks_button.disabled = true
 
 		var no_targets_label = Label.new()
@@ -292,8 +309,9 @@ func _build_ui() -> void:
 	container.add_child(assignments_label)
 
 	assignments_display = RichTextLabel.new()
-	assignments_display.custom_minimum_size = Vector2(480, 60)
+	assignments_display.custom_minimum_size = Vector2(480, 70)
 	assignments_display.name = "AssignmentsDisplay"
+	assignments_display.bbcode_enabled = true
 	container.add_child(assignments_display)
 
 	# Pad (controller) hint row — the melee twin of the shooting phase's target
@@ -301,7 +319,10 @@ func _build_ui() -> void:
 	# device; a mouse player never sees it. See _pad_handle_input.
 	_pad_hint_label = Label.new()
 	_pad_hint_label.name = "PadHintLabel"
-	_pad_hint_label.text = "▲▼ Weapon   ·   ◀▶ Target   ·   Ⓐ Assign   ·   ☰ Fight!   ·   Ⓑ Skip"
+	if _groups.size() > 1:
+		_pad_hint_label.text = "▲▼ Weapon   ·   ◀▶ Target   ·   LB/RB Section   ·   Ⓐ Assign   ·   ☰ Fight!   ·   Ⓑ Skip"
+	else:
+		_pad_hint_label.text = "▲▼ Weapon   ·   ◀▶ Target   ·   Ⓐ Assign   ·   ☰ Fight!   ·   Ⓑ Skip"
 	_pad_hint_label.add_theme_font_size_override("font_size", 16)
 	_pad_hint_label.modulate = Color(1, 1, 1, 0.75)
 	_pad_hint_label.visible = InputDeviceManager.is_pad_active()
@@ -309,18 +330,545 @@ func _build_ui() -> void:
 
 	add_child(container)
 
+	# Open on the auto-assigned plan so "open → Fight!" is a legal, sensible
+	# activation with no clicks in between (the old dialog opened with NOTHING
+	# assigned and rejected the confirm until the player clicked a weapon).
+	if not eligible_targets.is_empty():
+		_apply_best_plan(_selected_target_id())
+
 	confirmed.connect(_on_confirmed)
 
 	# Pad: the ItemLists are driven by the D-pad through window_input (below), so
 	# demote them out of the focus chain — otherwise the dialog watcher / native
 	# ui_up-down would fight our stepping. Buttons keep focus for A-fallthrough.
-	for lst in [weapon_list, target_list, extra_attacks_target_list]:
+	var lists: Array = [target_list, extra_attacks_target_list]
+	for g in _groups:
+		lists.append(g.get("list", null))
+	for lst in lists:
 		if lst != null:
 			lst.focus_mode = Control.FOCUS_CLICK
 	window_input.connect(_pad_handle_input)
 	# Auto-arm the board reticle on the first shown frame when a pad is active,
 	# so ◀ ▶ / A have a visible target from the very first press.
 	about_to_popup.connect(_pad_arm_on_popup)
+
+
+# ── loadout grouping ────────────────────────────────────────────────────────
+
+# Partition `_eligible_indices` by the SET of regular melee weapons each model
+# carries. Membership is read back out of `_weapon_carriers`, which is built from
+# RulesEngine.get_melee_weapon_swingers — so the dialog's idea of "who carries
+# what" is by construction the same one the engine applies when the attacks
+# resolve, including its conservative "cannot attribute → everyone" fallback.
+func _build_groups(unit: Dictionary) -> void:
+	_groups = []
+	var models: Array = unit.get("models", [])
+	var by_signature: Dictionary = {}
+
+	for idx in _eligible_indices:
+		var carried: Array = []
+		for wid in _weapon_carriers:
+			if idx in _weapon_carriers[wid]:
+				carried.append(wid)
+		if carried.is_empty():
+			# An eligible model with no melee weapon we can attribute simply has
+			# nothing to swing — it drops out rather than being given someone
+			# else's weapon.
+			print("[AttackAssignmentDialog] Model %d carries no listed melee weapon — not grouped" % idx)
+			continue
+		carried.sort()
+		var signature: String = "|".join(carried)
+		if not by_signature.has(signature):
+			by_signature[signature] = {
+				"key": signature,
+				"weapons": carried,
+				"models": [],
+				"labels": [],
+			}
+		by_signature[signature].models.append(idx)
+		# Label from the datasheet's model_profiles when it names this model type
+		# ("Boss Nob" / "Boy"); several types with an identical weapon set share
+		# one section and the label lists them.
+		var label := _model_type_label(unit, models[idx] if idx < models.size() else {})
+		if label != "" and not label in by_signature[signature].labels:
+			by_signature[signature].labels.append(label)
+
+	# Biggest section first — a mob reads as "9 Boyz, then the Nob", and it makes
+	# group 0 (the pad's initial focus, and the compat `weapon_list`) the one a
+	# player most likely wants.
+	var sigs: Array = by_signature.keys()
+	sigs.sort_custom(func(a, b):
+		var ga = by_signature[a]
+		var gb = by_signature[b]
+		if ga.models.size() != gb.models.size():
+			return ga.models.size() > gb.models.size()
+		return str(ga.key) < str(gb.key))
+
+	for sig in sigs:
+		var g: Dictionary = by_signature[sig]
+		g["label"] = " / ".join(g.labels) if not g.labels.is_empty() else "Models"
+		g["split"] = false
+		g["lines"] = []          # [{weapon, count, target}] — the group's plan
+		g["list"] = null
+		g["target_button"] = null
+		g["split_button"] = null
+		g["summary"] = null
+		g["split_box"] = null
+		g["spins"] = {}
+		g["line_target_buttons"] = {}
+		_groups.append(g)
+		print("[AttackAssignmentDialog] Group '%s' x%d — weapons: %s" % [
+			g.label, g.models.size(), str(g.weapons)])
+
+
+func _model_type_label(unit: Dictionary, model: Dictionary) -> String:
+	var model_type := str(model.get("model_type", ""))
+	if model_type == "":
+		return ""
+	var profiles: Dictionary = unit.get("meta", {}).get("model_profiles", {})
+	if profiles.has(model_type):
+		return str(profiles[model_type].get("label", model_type.capitalize()))
+	return model_type.capitalize()
+
+
+# ── group UI ────────────────────────────────────────────────────────────────
+
+func _build_group_section(gi: int) -> Control:
+	var g: Dictionary = _groups[gi]
+	var panel := PanelContainer.new()
+	panel.name = "Group%d" % gi
+	var box := VBoxContainer.new()
+	box.name = "Body"
+	panel.add_child(box)
+
+	# Header: "Boy ×9" plus the per-group controls (target cycle, split toggle).
+	var header := HBoxContainer.new()
+	header.name = "Header"
+	var title_label := Label.new()
+	title_label.name = "GroupLabel"
+	title_label.text = "%s ×%d" % [g.label, g.models.size()]
+	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title_label)
+
+	# Per-group target. A cycle BUTTON rather than a dropdown on purpose: the
+	# windowed-scenario harness cannot click inside popup windows, and a pad has
+	# no pointer — a button is drivable by both.
+	var tgt_button := Button.new()
+	tgt_button.name = "GroupTargetButton"
+	tgt_button.tooltip_text = "Click to send this section at a different target"
+	tgt_button.pressed.connect(_on_group_target_cycle.bind(gi))
+	tgt_button.disabled = eligible_targets.size() < 2
+	header.add_child(tgt_button)
+	g["target_button"] = tgt_button
+
+	# Split is only meaningful when there are several models AND several weapons
+	# to divide them between.
+	if g.models.size() > 1 and g.weapons.size() > 1:
+		var split_button := Button.new()
+		split_button.name = "SplitButton"
+		split_button.text = "Split…"
+		split_button.tooltip_text = "Divide this section between several weapons"
+		split_button.pressed.connect(_on_split_toggled.bind(gi))
+		header.add_child(split_button)
+		g["split_button"] = split_button
+
+	box.add_child(header)
+
+	# Un-split mode: one weapon list for the whole group.
+	var list := ItemList.new()
+	list.name = "WeaponList"
+	list.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 90, 26 * min(4, max(1, g.weapons.size())) + 8)
+	for wid in g.weapons:
+		var w: Dictionary = _weapon_by_id.get(wid, {})
+		list.add_item("%s (A:%s S:%s AP:%s D:%s)" % [
+			w.get("name", wid),
+			w.get("attacks", "1"),
+			w.get("strength", "User"),
+			w.get("ap", "0"),
+			w.get("damage", "1")
+		])
+		list.set_item_metadata(list.item_count - 1, wid)
+	list.item_selected.connect(_on_group_weapon_selected.bind(gi))
+	box.add_child(list)
+	g["list"] = list
+
+	# Split mode: one count row per weapon. Built now, hidden until toggled.
+	var split_box := VBoxContainer.new()
+	split_box.name = "SplitBox"
+	split_box.visible = false
+	for wid in g.weapons:
+		var w: Dictionary = _weapon_by_id.get(wid, {})
+		var row := HBoxContainer.new()
+		row.name = "SplitRow_%s" % wid
+		var name_label := Label.new()
+		name_label.text = str(w.get("name", wid))
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(name_label)
+
+		var spin := SpinBox.new()
+		spin.name = "Count_%s" % wid
+		spin.min_value = 0
+		spin.max_value = g.models.size()
+		spin.step = 1
+		spin.value = 0
+		spin.value_changed.connect(_on_split_count_changed.bind(gi, wid))
+		row.add_child(spin)
+		g.spins[wid] = spin
+
+		var line_tgt := Button.new()
+		line_tgt.name = "LineTarget_%s" % wid
+		line_tgt.tooltip_text = "Click to send this weapon's models at a different target"
+		line_tgt.pressed.connect(_on_line_target_cycle.bind(gi, wid))
+		line_tgt.disabled = eligible_targets.size() < 2
+		row.add_child(line_tgt)
+		g.line_target_buttons[wid] = line_tgt
+
+		split_box.add_child(row)
+	box.add_child(split_box)
+	g["split_box"] = split_box
+
+	# Per-group summary (attack count + expected damage).
+	var summary := Label.new()
+	summary.name = "GroupSummary"
+	summary.add_theme_font_size_override("font_size", 15)
+	summary.modulate = Color(1, 1, 1, 0.8)
+	box.add_child(summary)
+	g["summary"] = summary
+
+	return panel
+
+
+# ── plan helpers ────────────────────────────────────────────────────────────
+
+func _selected_target_id() -> String:
+	if target_list != null and target_list.item_count > 0:
+		var sel := target_list.get_selected_items()
+		var idx: int = sel[0] if not sel.is_empty() else 0
+		return str(target_list.get_item_metadata(idx))
+	if not eligible_targets.is_empty():
+		return str(eligible_targets.keys()[0])
+	return ""
+
+
+# Give every group the weapon with the highest expected damage against
+# `target_id`, un-split, all pointed at that target.
+func _apply_best_plan(target_id: String) -> void:
+	if target_id == "":
+		return
+	for gi in range(_groups.size()):
+		var g: Dictionary = _groups[gi]
+		g.split = false
+		var best := _best_weapon_for_group(gi, target_id)
+		if best == "":
+			continue
+		g.lines = [{"weapon": best, "count": g.models.size(), "target": target_id}]
+	_sync_group_widgets()
+	_rebuild_assignments()
+
+
+# The weapon a group should swing against `target_id`: the highest expected
+# damage across the whole group. Target-aware on purpose — a Power klaw is the
+# right answer against Custodes and the wrong one against Gretchin, which a
+# fixed attacks x damage score could never tell apart.
+func _best_weapon_for_group(gi: int, target_id: String) -> String:
+	var g: Dictionary = _groups[gi]
+	var best_id := ""
+	var best_score := -1.0
+	for wid in g.weapons:
+		var score := _estimate_expected_damage(wid, target_id, g.models.size())
+		if score > best_score:
+			best_score = score
+			best_id = wid
+	return best_id
+
+
+# Rebuild `assignments` from the group plans. Every model appears at most once
+# (lines inside a group take disjoint slices of the group's model list, and
+# groups are disjoint by construction), which is exactly what FightPhase's
+# one-weapon-per-model validator checks.
+func _rebuild_assignments() -> void:
+	assignments = []
+	var merged: Dictionary = {}  # "weapon|target" -> assignment dict
+	for g in _groups:
+		var cursor := 0
+		for line in g.lines:
+			var count: int = int(line.get("count", 0))
+			if count <= 0:
+				continue
+			var wid := str(line.get("weapon", ""))
+			var tid := str(line.get("target", ""))
+			if wid == "" or tid == "":
+				continue
+			var picked: Array = []
+			for i in range(count):
+				if cursor >= g.models.size():
+					break
+				picked.append(str(g.models[cursor]))
+				cursor += 1
+			if picked.is_empty():
+				continue
+			# Two groups can legitimately land on the same weapon and target
+			# (a Nob and his Boyz both on Choppas); merge so the batch stays one
+			# ASSIGN_ATTACKS per weapon/target pair rather than one per group.
+			var key := "%s|%s" % [wid, tid]
+			if merged.has(key):
+				merged[key].models.append_array(picked)
+			else:
+				var entry := {
+					"attacker": unit_id,
+					"weapon": wid,
+					"target": tid,
+					"models": picked
+				}
+				merged[key] = entry
+				assignments.append(entry)
+
+	for a in assignments:
+		print("[AttackAssignmentDialog] Assignment: %s → %s (%d model(s): %s)" % [
+			a.weapon, a.target, a.models.size(), str(a.models)])
+	print("[AttackAssignmentDialog] Total assignments: ", assignments.size())
+	_update_assignments_display()
+
+
+# Push the group plans back onto their widgets (list selection, spin counts,
+# target button captions, summary line). Guarded so the SpinBox writes do not
+# re-enter the rebalancer.
+func _sync_group_widgets() -> void:
+	_updating_spins = true
+	for gi in range(_groups.size()):
+		var g: Dictionary = _groups[gi]
+		var lst: ItemList = g.get("list", null)
+		var split_box: VBoxContainer = g.get("split_box", null)
+		if lst != null:
+			lst.visible = not g.split
+		if split_box != null:
+			split_box.visible = g.split
+		if g.get("split_button", null) != null:
+			g.split_button.text = "Merge" if g.split else "Split…"
+
+		if not g.split:
+			# One line: reflect its weapon as the list selection.
+			var wid := str(g.lines[0].get("weapon", "")) if not g.lines.is_empty() else ""
+			if lst != null:
+				for i in range(lst.item_count):
+					if str(lst.get_item_metadata(i)) == wid:
+						lst.select(i)
+						# Scroll the chosen weapon into view — a Boss Nob's list
+						# is taller than its box, and an off-screen selection
+						# reads as "it picked the top one".
+						lst.ensure_current_is_visible()
+						break
+		else:
+			for wid in g.weapons:
+				var spin: SpinBox = g.spins.get(wid, null)
+				if spin != null:
+					spin.value = _line_count(g, wid)
+				var btn: Button = g.line_target_buttons.get(wid, null)
+				if btn != null:
+					btn.text = "→ %s" % _target_name(_line_target(g, wid))
+
+		# Group target caption: one target for the whole group, or "(mixed)".
+		var tb: Button = g.get("target_button", null)
+		if tb != null:
+			var tids: Array = []
+			for line in g.lines:
+				if int(line.get("count", 0)) > 0 and not str(line.get("target", "")) in tids:
+					tids.append(str(line.get("target", "")))
+			if tids.size() == 1:
+				tb.text = "→ %s" % _target_name(tids[0])
+			elif tids.is_empty():
+				tb.text = "→ —"
+			else:
+				tb.text = "→ (mixed)"
+
+		# Highlight the focused section so ▲▼ / Add Assignment have a visible subject.
+		var panel := _groups_box.get_child(gi) if _groups_box != null and gi < _groups_box.get_child_count() else null
+		if panel != null:
+			panel.modulate = Color(1, 1, 1, 1.0) if gi == _focused_group else Color(1, 1, 1, 0.75)
+
+		# Summary: attacks + expected damage for this group's lines.
+		var summary: Label = g.get("summary", null)
+		if summary != null:
+			var atks := 0.0
+			var ed := 0.0
+			for line in g.lines:
+				var count: int = int(line.get("count", 0))
+				if count <= 0:
+					continue
+				var w: Dictionary = _weapon_by_id.get(str(line.get("weapon", "")), {})
+				atks += _average_dice_notation(str(w.get("attacks", "1"))) * float(count)
+				ed += _estimate_expected_damage(str(line.get("weapon", "")), str(line.get("target", "")), count)
+			summary.text = "≈%s attacks · E[D]≈%.1f" % [
+				("%.1f" % atks) if atks != floor(atks) else ("%d" % int(atks)), ed]
+	_updating_spins = false
+
+
+func _line_count(g: Dictionary, weapon_id: String) -> int:
+	for line in g.lines:
+		if str(line.get("weapon", "")) == weapon_id:
+			return int(line.get("count", 0))
+	return 0
+
+
+func _line_target(g: Dictionary, weapon_id: String) -> String:
+	for line in g.lines:
+		if str(line.get("weapon", "")) == weapon_id:
+			return str(line.get("target", ""))
+	return _selected_target_id()
+
+
+func _target_name(target_id: String) -> String:
+	if target_id == "" or not eligible_targets.has(target_id):
+		return "—"
+	return str(eligible_targets[target_id].get("name", target_id))
+
+
+func _set_focused_group(gi: int) -> void:
+	if _groups.is_empty():
+		weapon_list = null
+		return
+	_focused_group = clampi(gi, 0, _groups.size() - 1)
+	# COMPAT: `weapon_list` always points at the focused group's list.
+	weapon_list = _groups[_focused_group].get("list", null)
+
+
+# ── group interactions ──────────────────────────────────────────────────────
+
+# Selecting a weapon row IS the assignment — no "Add" click required. The old
+# dialog made the player select-then-Add for a choice that can only ever be one
+# weapon per group, so the extra click bought nothing.
+func _on_group_weapon_selected(index: int, gi: int) -> void:
+	var g: Dictionary = _groups[gi]
+	var lst: ItemList = g.get("list", null)
+	if lst == null or index < 0 or index >= lst.item_count:
+		return
+	_set_focused_group(gi)
+	var wid := str(lst.get_item_metadata(index))
+	var tid := _line_target(g, wid)
+	if tid == "":
+		tid = _selected_target_id()
+	g.split = false
+	g.lines = [{"weapon": wid, "count": g.models.size(), "target": tid}]
+	print("[AttackAssignmentDialog] Group '%s' → %s (%d model(s))" % [g.label, wid, g.models.size()])
+	_sync_group_widgets()
+	_rebuild_assignments()
+
+
+func _on_group_target_cycle(gi: int) -> void:
+	var g: Dictionary = _groups[gi]
+	var keys: Array = eligible_targets.keys()
+	if keys.size() < 2:
+		return
+	var current := ""
+	for line in g.lines:
+		if int(line.get("count", 0)) > 0:
+			current = str(line.get("target", ""))
+			break
+	var next_idx := (keys.find(current) + 1) % keys.size()
+	var next_id := str(keys[next_idx])
+	for line in g.lines:
+		line["target"] = next_id
+	print("[AttackAssignmentDialog] Group '%s' now targets %s" % [g.label, next_id])
+	_sync_group_widgets()
+	_rebuild_assignments()
+
+
+func _on_line_target_cycle(gi: int, weapon_id: String) -> void:
+	var g: Dictionary = _groups[gi]
+	var keys: Array = eligible_targets.keys()
+	if keys.size() < 2:
+		return
+	for line in g.lines:
+		if str(line.get("weapon", "")) == weapon_id:
+			var next_idx := (keys.find(str(line.get("target", ""))) + 1) % keys.size()
+			line["target"] = str(keys[next_idx])
+			print("[AttackAssignmentDialog] Group '%s' / %s now targets %s" % [g.label, weapon_id, line.target])
+			break
+	_sync_group_widgets()
+	_rebuild_assignments()
+
+
+# Split mode seeds every weapon with a line so the SpinBoxes have something to
+# hold, keeping the group's current weapon as the one that starts with all the
+# models (so toggling Split and toggling it straight back is a no-op plan).
+func _on_split_toggled(gi: int) -> void:
+	var g: Dictionary = _groups[gi]
+	_set_focused_group(gi)
+	if g.split:
+		# Merge back: the weapon holding the most models wins the whole group.
+		var best_wid := ""
+		var best_count := -1
+		for line in g.lines:
+			if int(line.get("count", 0)) > best_count:
+				best_count = int(line.get("count", 0))
+				best_wid = str(line.get("weapon", ""))
+		var tid := _line_target(g, best_wid)
+		g.split = false
+		g.lines = [{"weapon": best_wid, "count": g.models.size(), "target": tid}]
+		print("[AttackAssignmentDialog] Group '%s' merged onto %s" % [g.label, best_wid])
+	else:
+		var current_wid := str(g.lines[0].get("weapon", "")) if not g.lines.is_empty() else str(g.weapons[0])
+		var tid := _line_target(g, current_wid)
+		var new_lines: Array = []
+		for wid in g.weapons:
+			new_lines.append({
+				"weapon": wid,
+				"count": g.models.size() if wid == current_wid else 0,
+				"target": tid
+			})
+		g.split = true
+		g.lines = new_lines
+		print("[AttackAssignmentDialog] Group '%s' split across %d weapon(s)" % [g.label, g.weapons.size()])
+	_sync_group_widgets()
+	_rebuild_assignments()
+
+
+# Counts always sum to the group size, so the player can never build an illegal
+# or half-assigned plan: raising one weapon takes models from the others (from
+# the bottom up), lowering it hands the remainder back to the first other line.
+func _on_split_count_changed(value: float, gi: int, weapon_id: String) -> void:
+	if _updating_spins:
+		return
+	var g: Dictionary = _groups[gi]
+	var size: int = g.models.size()
+	for line in g.lines:
+		if str(line.get("weapon", "")) == weapon_id:
+			line["count"] = clampi(int(value), 0, size)
+			break
+
+	var total := 0
+	for line in g.lines:
+		total += int(line.get("count", 0))
+
+	if total > size:
+		var excess := total - size
+		for i in range(g.lines.size() - 1, -1, -1):
+			if excess <= 0:
+				break
+			var line = g.lines[i]
+			if str(line.get("weapon", "")) == weapon_id:
+				continue
+			var take: int = min(excess, int(line.get("count", 0)))
+			line["count"] = int(line.get("count", 0)) - take
+			excess -= take
+	elif total < size:
+		var remainder := size - total
+		var placed := false
+		for line in g.lines:
+			if str(line.get("weapon", "")) == weapon_id:
+				continue
+			line["count"] = int(line.get("count", 0)) + remainder
+			placed = true
+			break
+		if not placed:
+			for line in g.lines:
+				if str(line.get("weapon", "")) == weapon_id:
+					line["count"] = int(line.get("count", 0)) + remainder
+					break
+
+	_set_focused_group(gi)
+	_sync_group_widgets()
+	_rebuild_assignments()
 
 
 # Pad: arm the reticle for the initially-selected target (index 0) when the
@@ -351,8 +899,9 @@ func _pad_current_target_id() -> String:
 # Pad navigation for the whole attack dialog, handled on the dialog's own
 # window_input so it never fights PadRouter (an exclusive AcceptDialog is its
 # own viewport). Mirrors the shooting phase's controller mapping exactly:
-#   ▲ ▼   step the weapon list   (one melee weapon per model — 11e)
+#   ▲ ▼   step the FOCUSED section's weapon list   (one melee weapon per model — 11e)
 #   ◀ ▶   step the target list   (updates the board reticle via the signal)
+#   LB RB  move between loadout sections (Boyz ↔ Boss Nob) — multi-group units only
 #   Ⓐ     Add Assignment          (assign the selected weapon → target)
 #   ☰      Fight!                  (confirm + resolve — the phase-action button)
 #   Ⓑ     Skip / cancel           (ends the activation when a Skip button exists)
@@ -376,6 +925,12 @@ func _pad_handle_input(event: InputEvent) -> void:
 			if _pad_step_list(target_list, 1):
 				_pad_emit_current_target()
 			set_input_as_handled()
+		JOY_BUTTON_LEFT_SHOULDER:
+			_pad_step_group(-1)
+			set_input_as_handled()
+		JOY_BUTTON_RIGHT_SHOULDER:
+			_pad_step_group(1)
+			set_input_as_handled()
 		JOY_BUTTON_A:
 			_pad_assign()
 			set_input_as_handled()
@@ -391,6 +946,19 @@ func _pad_handle_input(event: InputEvent) -> void:
 				set_input_as_handled()
 
 
+# Pad LB/RB: move the focus between loadout sections, with a toast naming the
+# one now under ▲▼ (a controller player has no pointer to show them).
+func _pad_step_group(dir: int) -> void:
+	if _groups.size() < 2:
+		return
+	_set_focused_group(wrapi(_focused_group + dir, 0, _groups.size()))
+	_sync_group_widgets()
+	var toast := get_node_or_null("/root/ToastManager")
+	if toast != null:
+		var g: Dictionary = _groups[_focused_group]
+		toast.show_toast("◆ %s ×%d — ▲▼ picks its weapon" % [g.label, g.models.size()])
+
+
 # Step an ItemList's single selection with wrap; returns true when it moved.
 func _pad_step_list(lst: ItemList, dir: int) -> bool:
 	if lst == null or lst.item_count == 0:
@@ -402,6 +970,10 @@ func _pad_step_list(lst: ItemList, dir: int) -> bool:
 		return false
 	lst.select(nxt)
 	lst.ensure_current_is_visible()
+	# ItemList.select() does NOT emit item_selected, so mirror the click path —
+	# otherwise the pad would move the highlight without changing the plan.
+	if lst == weapon_list:
+		_on_group_weapon_selected(nxt, _focused_group)
 	return true
 
 
@@ -435,6 +1007,9 @@ func _find_child_button(node_name: String) -> Button:
 			q.append(c)
 	return null
 
+# "Add Assignment": point the FOCUSED section's selected weapon at the selected
+# target. Other sections keep their own plan — that is the whole point of the
+# group rework, and why this no longer clears `assignments` first.
 func _on_assign_pressed() -> void:
 	print("[AttackAssignmentDialog] Assign button pressed")
 
@@ -452,134 +1027,60 @@ func _on_assign_pressed() -> void:
 		push_warning("Select both weapon and target")
 		return
 
-	var weapon_id = weapon_list.get_item_metadata(weapon_idx[0])
-	var target_id = target_list.get_item_metadata(target_idx[0])
+	var weapon_id = str(weapon_list.get_item_metadata(weapon_idx[0]))
+	var target_id = str(target_list.get_item_metadata(target_idx[0]))
 
-	_set_single_weapon_assignment(weapon_id, target_id)
-
-# 11e one-weapon rule: every model fights with ONE melee weapon, and it has to
-# be one that model is equipped with. Picking a weapon therefore sets the whole
-# unit's plan, not one assignment: its CARRIERS swing it, and every other
-# eligible model swings the best weapon it does carry, at the same target. A new
-# pick replaces the whole plan.
-#
-# Previously this appended a single weapon assignment with no model list, which
-# the engine then applied to every eligible model — the Boss Nob's Power klaw in
-# all ten Boyz' hands. Model lists are index strings, which is what
-# RulesEngine's `attacking_models` and FightPhase's one-weapon-rule validator
-# both expect (disjoint lists per weapon, so they never conflict).
-func _set_single_weapon_assignment(weapon_id: String, target_id: String) -> void:
-	if not assignments.is_empty():
-		var previous = assignments[0]
-		print("[AttackAssignmentDialog] One-weapon rule: replacing plan %s → %s with %s → %s" % [
-			previous.get("weapon", "?"), previous.get("target", "?"), weapon_id, target_id])
-	assignments.clear()
-
-	for entry in _build_weapon_plan(weapon_id):
-		assignments.append({
-			"attacker": unit_id,
-			"weapon": entry.weapon,
-			"target": target_id,
-			"models": entry.models
-		})
-		print("[AttackAssignmentDialog] Assignment: %s → %s (%d model(s): %s)" % [
-			entry.weapon, target_id, entry.models.size(), str(entry.models)])
-
-	print("[AttackAssignmentDialog] Total assignments: ", assignments.size())
-	_update_assignments_display()
+	var g: Dictionary = _groups[_focused_group]
+	g.split = false
+	g.lines = [{"weapon": weapon_id, "count": g.models.size(), "target": target_id}]
+	print("[AttackAssignmentDialog] Group '%s' assigned %s → %s (%d model(s))" % [
+		g.label, weapon_id, target_id, g.models.size()])
+	_sync_group_widgets()
+	_rebuild_assignments()
 
 
-# The per-weapon groups a choice of `weapon_id` produces:
-# [{weapon: String, models: Array[String]}], chosen weapon first. Every eligible
-# model appears exactly once — carriers of the pick get it, the rest get their
-# own best melee weapon (an unarmed model simply drops out).
-func _build_weapon_plan(weapon_id: String) -> Array:
-	var chosen_carriers: Array = _weapon_carriers.get(weapon_id, [])
-	var plan: Array = []
-	var covered: Dictionary = {}
-	if not chosen_carriers.is_empty():
-		var chosen_models: Array = []
-		for idx in chosen_carriers:
-			chosen_models.append(str(idx))
-			covered[idx] = true
-		plan.append({"weapon": weapon_id, "models": chosen_models})
-
-	# Everyone else swings what they have. Group by weapon so the batch stays
-	# one ASSIGN_ATTACKS per weapon rather than one per model.
-	var leftovers: Dictionary = {}  # weapon_id -> Array[String] model indices
-	for idx in _eligible_indices:
-		if covered.has(idx):
-			continue
-		var best := _best_weapon_for_model(idx, weapon_id)
-		if best == "":
-			continue
-		if not leftovers.has(best):
-			leftovers[best] = []
-		leftovers[best].append(str(idx))
-	for wid in leftovers:
-		plan.append({"weapon": wid, "models": leftovers[wid]})
-	return plan
-
-
-# Total attacks a choice of `weapon_id` would produce across the whole unit —
-# the chosen weapon's carriers plus everyone else on their own weapon. Drives
-# the "Max total attacks (cap)" line so it reflects the real plan.
-func _plan_total_attacks(weapon_id: String) -> float:
-	var total: float = 0.0
-	for entry in _build_weapon_plan(weapon_id):
-		var w: Dictionary = _weapon_by_id.get(entry.weapon, {})
-		total += _average_dice_notation(str(w.get("attacks", "1"))) * float(entry.models.size())
-	return total
-
-
-# The melee weapon a model should swing when the player's pick is not one it
-# carries: the highest average attacks x damage it has, strength breaking ties.
-# Deterministic, so the same mob always resolves the same way.
-func _best_weapon_for_model(model_index: int, exclude_weapon_id: String) -> String:
-	var best_id := ""
-	var best_score := -1.0
-	for wid in _weapon_carriers:
-		if wid == exclude_weapon_id:
-			continue
-		if not model_index in _weapon_carriers[wid]:
-			continue
-		var w: Dictionary = _weapon_by_id.get(wid, {})
-		var score: float = _average_dice_notation(str(w.get("attacks", "1"))) \
-			* _average_dice_notation(str(w.get("damage", "1"))) * 100.0 \
-			+ float(_parse_stat_int(str(w.get("strength", "0"))))
-		if score > best_score:
-			best_score = score
-			best_id = wid
-	return best_id
-
-# T5-UX5 (reworked for the 11e one-weapon rule): assign the selected weapon —
-# defaulting to the first — to the selected target in a single click.
-# Previously this assigned ALL unassigned weapons, which let one model fight
-# with every weapon it carries; that is illegal (Fight — Select Melee Weapon).
+# "All to Target": send EVERY section at the selected target, each keeping the
+# weapon it already has. Previously this assigned one weapon for the whole unit;
+# with per-group weapons the useful bulk action is the target, not the weapon.
 func _on_all_to_target_pressed() -> void:
-	print("[AttackAssignmentDialog] T5-UX5: 'Weapon to Target' button pressed")
+	print("[AttackAssignmentDialog] 'All to Target' button pressed")
 
-	if not weapon_list or not target_list:
-		push_error("Weapon or target list not initialized")
+	if not target_list:
+		push_error("Target list not initialized")
 		return
 
 	var target_idx = target_list.get_selected_items()
 	if target_idx.is_empty():
 		push_warning("Select a target first")
-		print("[AttackAssignmentDialog] T5-UX5: No target selected")
+		print("[AttackAssignmentDialog] No target selected")
 		return
 
-	if weapon_list.item_count == 0:
-		push_warning("No melee weapons available")
-		return
+	var target_id = str(target_list.get_item_metadata(target_idx[0]))
+	for gi in range(_groups.size()):
+		var g: Dictionary = _groups[gi]
+		if g.lines.is_empty():
+			var best := _best_weapon_for_group(gi, target_id)
+			if best != "":
+				g.lines = [{"weapon": best, "count": g.models.size(), "target": target_id}]
+			continue
+		for line in g.lines:
+			line["target"] = target_id
+	print("[AttackAssignmentDialog] All %d section(s) → %s" % [_groups.size(), target_id])
+	_sync_group_widgets()
+	_rebuild_assignments()
 
-	var weapon_idx = weapon_list.get_selected_items()
-	var weapon_item: int = weapon_idx[0] if not weapon_idx.is_empty() else 0
-	var weapon_id = weapon_list.get_item_metadata(weapon_item)
-	var target_id = target_list.get_item_metadata(target_idx[0])
 
-	print("[AttackAssignmentDialog] T5-UX5: Assigning weapon '%s' → '%s' (one weapon per model)" % [weapon_id, target_id])
-	_set_single_weapon_assignment(weapon_id, target_id)
+# "Best Krump": re-derive the whole plan — best weapon per section against the
+# selected target, splits merged. The one-click way back to a sane default after
+# manual fiddling, and the plan the dialog already opens on.
+func _on_best_krump_pressed() -> void:
+	var target_id := _selected_target_id()
+	print("[AttackAssignmentDialog] Best Krump: auto-assigning %d section(s) vs %s" % [_groups.size(), target_id])
+	_apply_best_plan(target_id)
+	var toast := get_node_or_null("/root/ToastManager")
+	if toast != null:
+		toast.show_toast("✨ Best weapon picked for each section")
+
 
 func _update_assignments_display() -> void:
 	if not assignments_display:
@@ -588,15 +1089,16 @@ func _update_assignments_display() -> void:
 	assignments_display.clear()
 	var total_expected_damage: float = 0.0
 	for assignment in assignments:
-		# MA-LOADOUT: each line is one weapon and the models that actually carry
-		# it, so name the count — "Power klaw (1 model)" next to "Choppa
-		# (9 models)" is the whole point of the plan.
+		# Each line is one weapon and the models that actually swing it, so name
+		# the count — "Power klaw (1 model)" next to "Choppa (9 models)" is the
+		# whole point of the plan.
 		var swinging: int = (assignment.get("models", []) as Array).size()
 		var ed: float = _estimate_expected_damage(assignment.weapon, assignment.target, swinging)
 		total_expected_damage += ed
-		# T-093: include expected damage estimate per assignment
+		var w: Dictionary = _weapon_by_id.get(str(assignment.weapon), {})
 		assignments_display.append_text("- %s → %s (%d model%s) [E[D]≈%.1f]\n" % [
-			assignment.weapon, assignment.target, swinging, "" if swinging == 1 else "s", ed])
+			w.get("name", assignment.weapon), _target_name(str(assignment.target)),
+			swinging, "" if swinging == 1 else "s", ed])
 
 	# T3-3: Show Extra Attacks auto-assignments preview
 	if not extra_attacks_weapons.is_empty():
@@ -609,7 +1111,8 @@ func _update_assignments_display() -> void:
 			var ed: float = _estimate_expected_damage(weapon_id, ea_target_id, ea_carriers.size())
 			total_expected_damage += ed
 			assignments_display.append_text("- %s → %s (%d model%s) [Extra Attacks, E[D]≈%.1f]\n" % [
-				weapon_name, ea_target_id, ea_carriers.size(), "" if ea_carriers.size() == 1 else "s", ed])
+				weapon_name, _target_name(str(ea_target_id)), ea_carriers.size(),
+				"" if ea_carriers.size() == 1 else "s", ed])
 	if total_expected_damage > 0.0:
 		assignments_display.append_text("[b]Total expected damage: %.1f[/b]\n" % total_expected_damage)
 
@@ -650,8 +1153,12 @@ func _estimate_expected_damage(weapon_id: String, target_id: String, swinging_mo
 		swinging = RulesEngine.get_melee_weapon_swingers(
 			attacker_unit, weapon_id, _eligible_indices, []).size()
 	var total_attacks: float = attacks_avg * float(max(1, swinging))
-	# Hit probability from WS/BS (weapon's accuracy attribute)
-	var skill_int: int = _parse_stat_int(str(weapon.get("skill", weapon.get("ws", weapon.get("bs", "4")))))
+	# Hit probability from WS/BS (weapon's accuracy attribute). `weapon_skill` is
+	# the key the army JSONs actually use — without it every melee weapon scored
+	# as WS4+, which made the auto-pick blind to a Nob's WS3 Choppa vs his WS4
+	# Power klaw.
+	var skill_int: int = _parse_stat_int(str(weapon.get("skill",
+		weapon.get("weapon_skill", weapon.get("ws", weapon.get("bs", "4"))))))
 	var p_hit: float = clampf(float(7 - skill_int) / 6.0, 1.0/6.0, 5.0/6.0)
 	# Wound probability vs target T
 	var target_T: int = _parse_stat_int(str(target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)))
@@ -659,7 +1166,14 @@ func _estimate_expected_damage(weapon_id: String, target_id: String, swinging_mo
 	# Unsaved probability: target save - AP, capped invuln
 	var target_save: int = _parse_stat_int(str(target_unit.get("meta", {}).get("stats", {}).get("save", 5)))
 	var target_invuln: int = _parse_stat_int(str(target_unit.get("meta", {}).get("stats", {}).get("invuln", 7)))
-	var modified_save: int = max(2, target_save - max(0, ap_int))  # unmodified save min 2+
+	# AP WORSENS a save, and the army JSONs store it negative ("-2"). The old
+	# `target_save - max(0, ap_int)` clamped every negative AP to 0, so AP was
+	# silently ignored — which made the preview flatter than reality and, now
+	# that the auto-pick is driven by this number, would have handed a Boss Nob
+	# his Big choppa over the AP-2 Power klaw against 2+ armour. Take the
+	# magnitude and add it; 7+ means no save at all.
+	var ap_penalty: int = abs(ap_int)
+	var modified_save: int = min(7, target_save + ap_penalty)
 	var effective_save: int = min(modified_save, target_invuln)
 	var p_unsaved: float = clampf(float(effective_save - 1) / 6.0, 0.0, 1.0)
 	# FNP not factored (would need to read defender flags); coarse preview.
@@ -678,6 +1192,14 @@ func _parse_stat_int(s: String) -> int:
 		s = s.substr(0, s.length() - 1)
 	if s.is_valid_int():
 		return int(s)
+	# GameState stores defender stats as JSON numbers, which come back as FLOATS
+	# — so str(toughness) is "6.0", not "6". is_valid_int() rejects that, and the
+	# whole estimator silently fell back to the default 4: every expected-damage
+	# preview was computed against T4 / Sv4+ no matter who the defender actually
+	# was. That also made the auto-pick target-blind (it handed a Boss Nob his
+	# Big choppa against 2+ armour the Power klaw is for).
+	if s.is_valid_float():
+		return int(round(s.to_float()))
 	return 4
 
 

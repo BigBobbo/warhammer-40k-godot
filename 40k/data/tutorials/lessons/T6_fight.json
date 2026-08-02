@@ -91,8 +91,8 @@
       "id": "assign_attacks",
       "prompt": {
         "bark": "PICK YER CHOPPA!",
-        "kbm": "Each model fights wiv [b]one[/b] melee weapon. Pick a weapon in da list, click da [b]Custodian Guard[/b] target, hit [b]Weapon to Target[/b], den [b]Fight![/b]",
-        "pad": "Da attack panel takes its own controls: {dpad} ▲▼ picks da weapon, ◀▶ picks da target, {a} assigns 'em, den {menu} for [b]Fight![/b]"
+        "kbm": "Da mob's split into sections by what dey carry: [b]Boy ×9[/b] an' [b]Boss Nob ×1[/b]. Each section picks [b]one[/b] melee weapon. It already picked da best for ya — just hit [b]Fight![/b], or click a weapon in a section to change it first.",
+        "pad": "Da attack panel takes its own controls: {dpad} ▲▼ picks da weapon in da lit-up section, ◀▶ picks da target, LB/RB hops between da [b]Boy[/b] an' [b]Boss Nob[/b] sections, den {menu} for [b]Fight![/b]"
       },
       "anchor": {
         "node": "/root/AttackAssignmentDialog"
@@ -109,7 +109,7 @@
         }
       },
       "hint": {
-        "text": "Each weapon says how many of yer boyz actually carry it. Only da Nob's got a Power klaw, so pickin' it swings his klaw an' da rest of da mob's choppas — da panel lists both lines."
+        "text": "Only da Nob's got a Power klaw, so he gets 'is own section — da other nine Boyz swing choppas. Want it finer? Hit [b]Split…[/b] on a section an' set how many boyz take each weapon."
       }
     },
     {

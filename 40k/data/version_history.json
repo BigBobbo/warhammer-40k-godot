@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.13.0",
+      "date": "2026-08-02",
+      "summary": "Melee attack allocation is now split into loadout sections, so a mob can finally send its Boyz and its Boss Nob at the enemy with different weapons — or divide one squad between two.",
+      "changes": [
+        "The Assign Attacks panel now groups a unit by what its models actually carry: a Boyz mob shows a 'Boy x9' section and a 'Boss Nob x1' section, each picking its own melee weapon. Nine choppas plus the Nob's Power klaw is now something you choose, not something the game guessed for you.",
+        "New Split button on any section with several models and several weapons: set how many models take each weapon (five choppas, four close combat weapons). The counts always add up to the section size, so you can't build an illegal plan.",
+        "Each section can attack a different target when more than one enemy is in engagement range — click the target button on a section to cycle it.",
+        "The panel now opens with the best weapon already picked for every section, so a straightforward activation is just 'Fight!'. New 'Best Krump' button re-applies that auto-pick after you've been experimenting.",
+        "The auto-pick and the expected-damage numbers are now target-aware: a Power klaw is chosen against heavy armour and volume weapons against light. Previously these figures were calculated against a fixed dummy defender, so they were wrong for most targets.",
+        "Controller: LB/RB moves between sections, D-pad still picks the weapon and target."
+      ]
+    },
+    {
       "version": "1.12.0",
       "date": "2026-07-31",
       "summary": "The game has sound now — an atmospheric music bed on the menu and in battle, plus UI click cues. The Music and SFX volume sliders finally do something.",
