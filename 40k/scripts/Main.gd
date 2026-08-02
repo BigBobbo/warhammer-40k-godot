@@ -6626,6 +6626,14 @@ func _process(delta: float) -> void:
 	# there IS typing.
 	if InputMap.has_action("pad_camera_left"):
 		var pad_pan = Input.get_vector("pad_camera_left", "pad_camera_right", "pad_camera_up", "pad_camera_down")
+		# Panel focus owns the right stick: while pad focus sits inside a HUD
+		# scroll panel (e.g. the shooting panel once every gun is assigned and
+		# it overflows), the stick scrolls THAT panel instead of panning the
+		# camera behind it — the pad had no way to reach the panel's clipped
+		# rows (Steam Deck T4 report). Checked before the Y-invert: camera
+		# inversion is a camera preference, panel scroll follows the stick.
+		if pad_pan != Vector2.ZERO and PadRouter.try_scroll_focused_panel(pad_pan.y * 900.0 * delta):
+			pad_pan = Vector2.ZERO
 		# P1 controller options: optional Y invert + camera sensitivity (Settings › Controls).
 		if SettingsService.pad_invert_camera_y:
 			pad_pan.y = -pad_pan.y
@@ -7897,6 +7905,11 @@ func _setup_token_hover_tooltip() -> void:
 	_token_hover_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_token_hover_tooltip.add_child(_token_hover_label)
 	add_child(_token_hover_tooltip)
+	# R4 / L4 peek (controller): show/hide the card the moment the paddle moves.
+	var pr = get_node_or_null("/root/PadRouter")
+	if pr != null and pr.has_signal("stats_peek_changed") \
+			and not pr.stats_peek_changed.is_connected(_on_pad_stats_peek_changed):
+		pr.stats_peek_changed.connect(_on_pad_stats_peek_changed)
 
 func _resolve_token_meta_node(token: Node) -> Node2D:
 	# Board tokens come in two shapes: FLAT (TokenVisual directly in
@@ -7917,6 +7930,12 @@ func _resolve_token_meta_node(token: Node) -> Node2D:
 
 func _check_token_hover(mouse_pos: Vector2) -> void:
 	if not token_layer or not is_instance_valid(token_layer):
+		return
+	# Controller: the card is suppressed by default (it covers the very spot the
+	# virtual cursor is placing a model on) — hold R4 / L4 to peek. See
+	# _token_hover_allowed / PadRouter.stats_peek_active.
+	if not _token_hover_allowed():
+		_hide_token_hover()
 		return
 	# The datasheet card is a read-the-rules overlay covering the middle of the
 	# screen; a board tooltip peeking out from behind it is pure noise.
@@ -7975,6 +7994,36 @@ func _check_token_hover(mouse_pos: Vector2) -> void:
 			_position_token_hover(mouse_pos)
 	elif _token_hover_unit_id != "":
 		_hide_token_hover()
+
+## Whether the board hover stats card may show right now.
+## Mouse & keyboard: always (the pointer is beside the model, never on top of the
+## drop spot). Controller / Steam Deck: only when the player has turned the card
+## on in Settings › Controller › Controller Options, or is holding the R4 / L4
+## peek paddle — on the pad the virtual cursor IS the model being dragged, so a
+## card anchored to it hides the position the player is charging into.
+func _token_hover_allowed() -> bool:
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	if idm == null or not idm.is_pad_active():
+		return true
+	var ss = get_node_or_null("/root/SettingsService")
+	if ss != null and bool(ss.pad_hover_stats_card):
+		return true
+	var pr = get_node_or_null("/root/PadRouter")
+	return pr != null and bool(pr.stats_peek_active)
+
+
+## R4 / L4 peek pressed or released — re-run the hit test (or drop the card) at
+## once, instead of waiting for the next cursor motion.
+func _on_pad_stats_peek_changed(active: bool) -> void:
+	if not active:
+		_hide_token_hover()
+		return
+	_token_hover_unit_id = ""
+	_token_hover_model_id = ""
+	var vp := get_viewport()
+	if vp != null:
+		_check_token_hover(vp.get_mouse_position())
+
 
 func _show_token_hover(unit_id: String, screen_pos: Vector2, model_id: String = "") -> void:
 	if not _token_hover_tooltip:

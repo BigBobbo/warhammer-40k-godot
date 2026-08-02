@@ -2038,44 +2038,115 @@ func _restore_beacon_visuals() -> void:
 # ============================================================================
 
 ## Auto-assign one distinct friendly unit per objective as its guard (backstop
-## pick, revisable by a human owner). A unit qualifies for an objective while
-## it has a model within objective-control range of the marker.
+## pick, revisable by a human owner).
+##
+## Every objective that has ANY friendly unit available gets a suggestion, so
+## "Keep Auto Picks" is always a meaningful answer. Previously only units already
+## within objective-control range of a marker were considered, which meant that
+## early in the game — nobody standing on an objective yet, e.g. the very first
+## Command phase the tutorial walks through — the map came back EMPTY: every
+## dropdown read "— No guard —" and "Keep Auto Picks" assigned nothing at all.
+##
+## Two passes:
+##   1. An objective a friendly unit is already standing on keeps the highest-OC
+##      in-range unit — it can score straight away (distance breaks OC ties).
+##   2. Every remaining objective takes the CLOSEST unassigned friendly unit,
+##      matched globally-greedily (shortest pairings first) so a far objective
+##      cannot steal a unit that is much closer to another one.
+## Each unit still guards at most one objective.
 func _auto_assign_guards(player: int, mission: Dictionary) -> void:
 	var guards: Dictionary = {}
 	var used_units: Dictionary = {}
 	var control_radius = Measurement.inches_to_px(3.0) + Measurement.base_radius_px(40)
-	var objectives = GameState.state.get("board", {}).get("objectives", [])
 	var units = GameState.state.get("units", {})
 
-	for obj in objectives:
+	# Candidates are exactly the units the revision dialog offers, so an auto
+	# pick can never be a unit the player cannot find in the dropdown.
+	var candidates: Array = _get_guard_eligible_units(player)
+
+	# Resolve each marker position once.
+	var markers: Array = []  # [{objective_id, position}]
+	for obj in GameState.state.get("board", {}).get("objectives", []):
 		var obj_id = str(obj.get("id", ""))
 		var obj_pos = obj.get("position", null)
 		if obj_id == "" or obj_pos == null:
 			continue
 		if obj_pos is Dictionary:
 			obj_pos = Vector2(obj_pos.get("x", 0), obj_pos.get("y", 0))
-		# Prefer the highest-OC unassigned friendly unit within range.
-		var best_unit = ""
-		var best_oc = -1
-		for unit_id in units:
-			var unit = units[unit_id]
-			if unit.get("owner", 0) != player or used_units.has(unit_id):
+		markers.append({"objective_id": obj_id, "position": obj_pos})
+
+	# Pass 1 — units already in range (they score immediately), highest OC first.
+	for marker in markers:
+		var best_unit := ""
+		var best_oc := -1
+		var best_dist := INF
+		for cand in candidates:
+			var cand_id: String = str(cand.get("unit_id", ""))
+			# Embarked units are never "within range" of a marker while mounted.
+			if used_units.has(cand_id) or cand.get("embarked", false):
 				continue
-			if _is_unit_excluded(unit, []):
+			var dist = _unit_edge_distance_to(units.get(cand_id, {}), marker["position"])
+			if dist > control_radius:
 				continue
-			if not _has_model_within_range(unit, obj_pos, control_radius):
-				continue
-			var oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
-			if oc > best_oc:
+			var oc = int(units.get(cand_id, {}).get("meta", {}).get("stats", {}).get("objective_control", 0))
+			if oc > best_oc or (oc == best_oc and dist < best_dist):
 				best_oc = oc
-				best_unit = unit_id
+				best_dist = dist
+				best_unit = cand_id
 		if best_unit != "":
-			guards[obj_id] = best_unit
+			guards[marker["objective_id"]] = best_unit
 			used_units[best_unit] = true
+
+	# Pass 2 — closest unassigned friendly unit for every objective still bare.
+	var pairs: Array = []
+	for marker in markers:
+		if guards.has(marker["objective_id"]):
+			continue
+		for cand in candidates:
+			var cand_id: String = str(cand.get("unit_id", ""))
+			if used_units.has(cand_id):
+				continue
+			var dist = _unit_edge_distance_to(units.get(cand_id, {}), marker["position"])
+			if dist == INF:
+				continue  # no alive, positioned model — nothing to measure from
+			pairs.append({
+				"objective_id": marker["objective_id"],
+				"unit_id": cand_id,
+				# Embarked units can't score until they disembark, so they are
+				# only suggested when nothing on foot is left over.
+				"embarked": bool(cand.get("embarked", false)),
+				"distance": dist,
+			})
+	pairs.sort_custom(func(a, b):
+		if a["embarked"] != b["embarked"]:
+			return not a["embarked"]
+		return a["distance"] < b["distance"])
+	for pair in pairs:
+		if guards.has(pair["objective_id"]) or used_units.has(pair["unit_id"]):
+			continue
+		guards[pair["objective_id"]] = pair["unit_id"]
+		used_units[pair["unit_id"]] = true
 
 	mission["mission_data"]["guards"] = guards
 	mission["mission_data"]["guards_prompt_pending"] = true
-	print("SecondaryMissionManager: Burden of Trust auto-guards for Player %d: %s" % [player, str(guards)])
+	print("SecondaryMissionManager: Burden of Trust auto-guards for Player %d: %s (%d objectives, %d candidate units)" % [player, str(guards), markers.size(), candidates.size()])
+
+## Shortest distance from any alive model's BASE EDGE to a point, measured the
+## same way _has_model_within_range() gates range. INF when the unit has no
+## alive model with a position (e.g. embarked models with no board position).
+func _unit_edge_distance_to(unit: Dictionary, point: Vector2) -> float:
+	var best := INF
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var pos = model.get("position")
+		if pos == null:
+			continue
+		if pos is Dictionary:
+			pos = Vector2(pos.x, pos.y)
+		var base_radius = Measurement.base_radius_px(model.get("base_mm", 32))
+		best = min(best, max(0.0, pos.distance_to(point) - base_radius))
+	return best
 
 ## The pending guard-revision window for the Command-phase prompt. Returns {}
 ## when no Burden of Trust card is waiting on the player.

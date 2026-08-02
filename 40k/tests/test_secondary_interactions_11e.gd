@@ -236,6 +236,88 @@ func _run_tests():
 	_check("guard prompt closed after resolution",
 		bot_mission.get("mission_data", {}).get("guards_prompt_pending", true) == false)
 
+	# --- Auto picks must never come back EMPTY -------------------------------
+	# Before, only units already within objective-control range were considered,
+	# so on turn 1 (nobody on a marker yet — the state the tutorial walks the
+	# player through) every dropdown read "— No guard —" and "Keep Auto Picks"
+	# assigned nothing. Now every objective is pre-filled with the closest
+	# unassigned friendly unit.
+	print("\n-- Burden of Trust: auto picks fall back to the CLOSEST units --")
+	var units_before = gs.state["units"]
+	var board_objectives = gs.state.get("board", {}).get("objectives", [])
+	_check("board exposes objectives to guard", board_objectives.size() >= 3, str(board_objectives.size()))
+	# Three units parked on the back edge, clear of every marker, so no unit is
+	# in objective-control range of anything — the old code assigned zero guards.
+	# Derive the back-edge row from the board so the fixture survives a change of
+	# deployment map / objective layout.
+	var min_obj_y := INF
+	for bo0 in board_objectives:
+		var p0 = bo0.get("position", Vector2.ZERO)
+		if p0 is Dictionary:
+			p0 = Vector2(p0.get("x", 0), p0.get("y", 0))
+		min_obj_y = min(min_obj_y, p0.y)
+	var back_y: float = max(_px(0.5), min_obj_y - _px(6.0))
+	gs.state["units"] = {}
+	_mk_unit(gs, "U_FAR_A", 1, Vector2(_px(4), back_y))
+	_mk_unit(gs, "U_FAR_B", 1, Vector2(_px(20), back_y))
+	_mk_unit(gs, "U_FAR_C", 1, Vector2(_px(38), back_y))
+	_mk_unit(gs, "U_ENEMY", 2, Vector2(_px(20), _px(58)))  # opponent: never picked
+	var any_in_range := false
+	for bo in board_objectives:
+		var bpos = bo.get("position", Vector2.ZERO)
+		if bpos is Dictionary:
+			bpos = Vector2(bpos.get("x", 0), bpos.get("y", 0))
+		for uid in ["U_FAR_A", "U_FAR_B", "U_FAR_C"]:
+			if mgr._has_model_within_range(gs.state["units"][uid], bpos, _px(3.0) + _px(0.787)):
+				any_in_range = true
+	_check("test setup: no unit is within control range of any objective", not any_in_range)
+	mgr._auto_assign_guards(1, bot_mission)
+	var far_guards = bot_mission.get("mission_data", {}).get("guards", {})
+	_check("out-of-range auto picks are no longer empty (Keep Auto Picks does something)",
+		far_guards.size() == 3, str(far_guards))
+	var far_used := {}
+	for og in far_guards.values():
+		far_used[str(og)] = true
+	_check("each auto pick is a distinct friendly unit", far_used.size() == 3, str(far_guards))
+	_check("only the player's own units are auto-picked", not far_used.has("U_ENEMY"), str(far_guards))
+	# Each pick must be the closest unit to its marker among the units that
+	# ended up assigned (greedy shortest-pairing-first matching).
+	var closest_ok := true
+	var closest_detail := ""
+	for obj_id_key in far_guards:
+		var marker_pos = null
+		for bo2 in board_objectives:
+			if str(bo2.get("id", "")) == str(obj_id_key):
+				marker_pos = bo2.get("position", null)
+		if marker_pos == null:
+			continue
+		if marker_pos is Dictionary:
+			marker_pos = Vector2(marker_pos.get("x", 0), marker_pos.get("y", 0))
+		var picked_dist = mgr._unit_edge_distance_to(gs.state["units"][str(far_guards[obj_id_key])], marker_pos)
+		for other_id in ["U_FAR_A", "U_FAR_B", "U_FAR_C"]:
+			# Only compare against units NOT guarding another objective; a closer
+			# unit may legitimately have been claimed by a tighter pairing.
+			if far_used.has(other_id) and other_id != str(far_guards[obj_id_key]):
+				continue
+			var other_dist = mgr._unit_edge_distance_to(gs.state["units"][other_id], marker_pos)
+			if other_dist < picked_dist - 0.01:
+				closest_ok = false
+				closest_detail = "%s picked %s but %s is closer" % [str(obj_id_key), str(far_guards[obj_id_key]), other_id]
+	_check("every auto pick is the closest available unit to its objective", closest_ok, closest_detail)
+	# Units standing on a marker still win that marker (they score immediately).
+	var first_obj_pos = board_objectives[0].get("position", Vector2.ZERO)
+	if first_obj_pos is Dictionary:
+		first_obj_pos = Vector2(first_obj_pos.get("x", 0), first_obj_pos.get("y", 0))
+	gs.state["units"]["U_FAR_A"]["models"][0]["position"] = {"x": first_obj_pos.x, "y": first_obj_pos.y}
+	mgr._auto_assign_guards(1, bot_mission)
+	var mixed_guards = bot_mission.get("mission_data", {}).get("guards", {})
+	_check("a unit standing on a marker guards that marker",
+		str(mixed_guards.get(str(board_objectives[0].get("id", "")), "")) == "U_FAR_A", str(mixed_guards))
+	# Restore the fixture the later scoring checks rely on.
+	gs.state["units"] = units_before
+	bot_mission["mission_data"]["guards"] = {"obj_nml_1": "U_G1", "obj_nml_2": "U_G2"}
+	bot_mission["mission_data"]["guards_prompt_pending"] = false
+
 	print("\n-- Final-round clause: active player scores opp-turn cards at game end --")
 	gs.state["meta"]["active_player"] = 1
 	gs.state["meta"]["battle_round"] = 5

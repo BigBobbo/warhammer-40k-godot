@@ -63,6 +63,7 @@ var _ack_done: bool = false
 var _action_hits: Dictionary = {}   # done-tree path ("0.1") -> true once seen
 var _checklist: Array = []          # device-resolved checklist items for the step
 var _checklist_done: Dictionary = {}  # checklist item id -> true once ticked
+var _anchor_when_index: int = -1    # live `anchor_when` entry (-1 = step's own anchor)
 var _step_script: GDScript = null   # compiled per-step script predicate cache
 var _script_cache: Dictionary = {}  # code -> GDScript for capture snippets
 var _bypass_gate: bool = false
@@ -255,6 +256,7 @@ func _teardown(emit_exit: bool) -> void:
 	_step_script = null
 	_checklist = []
 	_checklist_done = {}
+	_anchor_when_index = -1
 	if GameState.state.has("meta"):
 		GameState.state.meta.erase("tutorial")
 		GameState.state.meta.erase("tutorial_lesson")
@@ -474,6 +476,7 @@ func _enter_step(index: int) -> void:
 	_action_hits = {}
 	_step_script = null
 	_captured = {}
+	_anchor_when_index = -1
 	var capture: Dictionary = step.get("capture", {})
 	for key in capture:
 		var spec = capture[key]
@@ -508,13 +511,17 @@ func _show_current_step() -> void:
 	var step: Dictionary = _steps[current_step_index]
 	var pad := InputDeviceManager.is_pad_active()
 	var body: String = TutorialScriptLib.render_text(TutorialScriptLib.body_for_device(step, pad), pad)
+	# A device swap re-shows the step, so the anchor it ships with has to be the
+	# one currently live — otherwise an `anchor_when` swap (e.g. the ring already
+	# moved onto End This Unit's Move) silently snaps back to the step's default.
+	var live_anchor: Dictionary = _live_anchor(step)
 	overlay.show_step({
 		"bark": str(step.get("prompt", {}).get("bark", "")),
 		"body": body,
 		"progress": "Step %d / %d — %s" % [current_step_index + 1, _steps.size(), str(current_lesson.get("title", ""))],
 		"ack": _is_ack_step(step),
-		"anchor": step.get("anchor", {}),
-		"spotlight": str(step.get("spotlight", "soft" if step.has("anchor") else "none")),
+		"anchor": live_anchor.anchor,
+		"spotlight": live_anchor.spotlight,
 		"checklist_label": str(step.get("checklist", {}).get("label", "")),
 		"checklist": _checklist_view(),
 	})
@@ -662,6 +669,62 @@ func checklist_state() -> Dictionary:
 	return _checklist_done.duplicate()
 
 
+# ------------------------------------------------------------ anchor_when ---
+
+# A step can teach a two-beat action — "shift da mob, THEN lock it in" — and a
+# single fixed anchor can only point at the first beat. `anchor_when` is an
+# ordered list of {script, anchor, spotlight}: the first entry whose predicate
+# is true owns the spotlight, and the step's own `anchor` is the fallback when
+# none are. Polled with the checklist, so the ring lands on the confirm button
+# the moment the models are down, without re-showing (and thus resetting) the
+# card. Steps that declare no `anchor_when` cost nothing here.
+func _live_anchor(step: Dictionary) -> Dictionary:
+	var fallback := {
+		"anchor": step.get("anchor", {}),
+		"spotlight": str(step.get("spotlight", "soft" if step.has("anchor") else "none")),
+	}
+	var specs = step.get("anchor_when", [])
+	if typeof(specs) != TYPE_ARRAY or _anchor_when_index < 0 or _anchor_when_index >= (specs as Array).size():
+		return fallback
+	var entry = specs[_anchor_when_index]
+	if typeof(entry) != TYPE_DICTIONARY:
+		return fallback
+	return {
+		"anchor": entry.get("anchor", fallback.anchor),
+		"spotlight": str(entry.get("spotlight", fallback.spotlight)),
+	}
+
+
+# Re-evaluate which anchor_when entry is live. Returns true when it changed.
+func _poll_anchor_when(step: Dictionary) -> bool:
+	var specs = step.get("anchor_when", [])
+	if typeof(specs) != TYPE_ARRAY or (specs as Array).is_empty():
+		return false
+	var want := -1
+	for i in range((specs as Array).size()):
+		var entry = specs[i]
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var code := str(entry.get("script", ""))
+		if code == "":
+			continue
+		var s := _compile_snippet(code)
+		if s == null:
+			continue
+		if bool(_call_snippet(s)):
+			want = i
+			break
+	if want == _anchor_when_index:
+		return false
+	_anchor_when_index = want
+	var overlay := get_node_or_null("/root/TutorialOverlay")
+	if overlay != null and overlay.has_method("update_anchor"):
+		var live: Dictionary = _live_anchor(step)
+		overlay.update_anchor(live.anchor, str(live.spotlight))
+	print("TutorialManager: anchor_when -> entry %d for step '%s'" % [want, str(step.get("id", ""))])
+	return true
+
+
 func ack() -> void:
 	if not active:
 		return
@@ -765,6 +828,7 @@ func _check_done() -> void:
 		var overlay := get_node_or_null("/root/TutorialOverlay")
 		if overlay:
 			overlay.update_checklist(_checklist_view())
+	_poll_anchor_when(_steps[current_step_index])
 	var done: Dictionary = _steps[current_step_index].get("done", {})
 	if _eval_condition(done, "0"):
 		_complete_step()

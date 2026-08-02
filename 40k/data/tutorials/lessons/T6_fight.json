@@ -148,7 +148,7 @@
       "prompt": {
         "bark": "DA BOSS AIN'T SWUNG YET!",
         "kbm": "Da Warboss charged an' all, so he's [b]Fights First[/b] too — da Custodes wait till he's swung. Click [b]Warboss[/b], [b]Decline[/b] da Epic Challenge offer, assign his weapon an' [b]Fight![/b]",
-        "pad": "Da Warboss charged an' all, so he's [b]Fights First[/b] too. Glide {ls} onto da [b]Warboss[/b] row, {a}, [b]Decline[/b] da Epic Challenge, assign his weapon, den {menu} for [b]Fight![/b]"
+        "pad": "Da Warboss charged an' all, so he's [b]Fights First[/b] too. Da {dpad} is parked down on da dice dock — tap ▲ till it lands on da [b]Warboss[/b] row, den {a}. [b]Decline[/b] da Epic Challenge, assign his weapon, den {menu} for [b]Fight![/b]"
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList"
@@ -192,7 +192,7 @@
       "prompt": {
         "bark": "NOW DEY KRUMP BACK!",
         "kbm": "Both yer mobs have swung, so it's da Custodes' turn — dat's alternatin' activation. Da dock rolls [b]deir[/b] hits an' wounds; step frough it, den [b]Roll Saves[/b] on da card an' spend a [b]Command Re-roll[/b] if a save lets ya down.",
-        "pad": "Da Custodes swing back now. Step frough deir rolls on da dock wiv {a}, den glide {ls} onto [b]Roll Saves[/b] on da card an' press {a}."
+        "pad": "Da Custodes swing back now. Step frough deir rolls on da dock wiv {a}. Da save card takes da {dpad} on its own an' already sits on [b]Roll Saves[/b] — just press {a}."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock"
