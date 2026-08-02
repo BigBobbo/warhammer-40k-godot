@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.12.2",
+      "version": "1.12.3",
       "date": "2026-08-01",
       "summary": "Burden of Trust's \"Keep Auto Picks\" now actually picks something — every objective is pre-filled with your closest unit instead of a row of blanks.",
       "changes": [
@@ -10,6 +10,16 @@
         "Now every objective is pre-filled: a unit already holding a marker guards it (the highest Objective Control one, ties broken by distance), and every other objective takes your closest unit that isn't already guarding something else.",
         "Auto picks no longer suggest a unit sitting inside a transport for an objective someone is actually standing on — an embarked unit can never be within range to score, so it is only suggested when nothing on foot is left.",
         "The window explains this, and the Keep Auto Picks button has a tooltip saying what it will keep."
+      ]
+    },
+    {
+      "version": "1.12.2",
+      "date": "2026-08-01",
+      "summary": "Controller fix: reordering your allocation groups on the Allocate Attacks step no longer strands the D-pad — Confirm Order & Roll Saves stays reachable.",
+      "changes": [
+        "Moving a group up or down with the D-pad (say, dropping your 1 model W2 Sv5+ nob into second place) used to leave nothing highlighted at all: the highlight vanished and no amount of D-pad pressing could reach Confirm Order & Roll Saves, so the attack could not be resolved. The highlight now lands back on the arrow of the group you just moved, at its new position, so you can keep reordering and then walk down to Confirm.",
+        "The greyed-out arrows (▲ on the first row, ▼ on the last) no longer take the highlight — pressing A on them did nothing, which felt like the pad had died. The D-pad now skips straight past them.",
+        "Added a safety net: if the highlight is ever lost while this window is open, the next D-pad press puts it back on the current step's main button instead of doing nothing."
       ]
     },
     {
