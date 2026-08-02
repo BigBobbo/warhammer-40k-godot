@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.12.8",
+      "date": "2026-08-02",
+      "summary": "Krumpin' step 6 no longer tells Steam Deck players to glide the left stick at a row the D-pad reaches perfectly well.",
+      "changes": [
+        "The Fight lesson's \"Da boss ain't swung yet!\" step told pad players to glide the left stick onto the Warboss row. The fight panel's unit rows are ordinary D-pad navigation — the very next step up from where the D-pad is already parked on the dice dock — so the prompt now says to tap ▲ till it lands on the Warboss row, matching how the same lesson already describes picking the Boyz.",
+        "The step after it said to glide the stick onto Roll Saves. The save card grabs the pad's focus onto that button by itself, so the prompt now just says to press A."
+      ]
+    },
+    {
       "version": "1.12.7",
       "date": "2026-08-02",
       "summary": "The fight phase no longer freezes for several seconds between confirming your attacks and rolling the dice.",
