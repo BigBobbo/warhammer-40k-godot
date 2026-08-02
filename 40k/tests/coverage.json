@@ -8815,6 +8815,24 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "tutorial.overlay.spotlight_bounds",
+      "description": "The spotlight ring stays inside the panel it is pointing at, and inside the viewport. The ring is drawn OUTSIDE the anchor (grow(6..11)), which is right for a board token but wrong for a control that already fills a side panel: T4 step 4 anchors the weapon tree, which spans HUD_Right's whole inner width, and HUD_Right clips its contents and sits flush with the right screen edge — so the grown ring put its left edge on the map and its right edge past the viewport. The ring is now clamped to the viewport and to the anchor's nearest clipping ancestor (the walk starts at the parent, since Tree/ItemList/ScrollContainer clip themselves and clamping to the anchor would draw the ring inside the widget). Swept across content_scale_factor 1.0-1.8, the range the Steam Deck's pad UI-scale boost and the UI Scale slider produce.",
+      "scenarios": [
+        "tut_t4_panel_fit_ring_and_card"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.overlay.card_side_panel_band",
+      "description": "The instructor card keeps clear of the side HUD panels, not just of dialogs. GameLogPanel and HUD_Right are opaque Controls pinned to the screen edges, so _dodge_dialog — which only looks at Windows — never saw them; the fixed 588px centred card slid over HUD_Right once the logical viewport fell below ~1416px, hiding the unit list and the weapon rows' left-hand column. _side_panel_band seats the card between them and narrows its text column to fit, keeping the footer buttons on one row, and logs (throttled) when the viewport is genuinely too narrow for both.",
+      "scenarios": [
+        "tut_t4_panel_fit_ring_and_card"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
