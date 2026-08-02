@@ -2,23 +2,42 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.12.3",
+      "version": "1.12.5",
       "date": "2026-08-02",
       "summary": "The fight phase no longer freezes for several seconds between confirming your attacks and rolling the dice.",
       "changes": [
-        "Hitting \"Fight!\" locked the game up for roughly three and a half seconds before the first dice appeared \u2014 worst on Steam Deck, and it got longer the more targets you split your attacks across. The pause was the \"expected wounds / % kill\" line: the game was secretly playing out the whole combat a thousand times per target to work it out.",
+        "Hitting \"Fight!\" locked the game up for roughly three and a half seconds before the first dice appeared — worst on Steam Deck, and it got longer the more targets you split your attacks across. The pause was the \"expected wounds / % kill\" line: the game was secretly playing out the whole combat a thousand times per target to work it out.",
         "That estimate is now calculated directly instead of simulated, so it takes under a millisecond. Confirming attacks is instant and the dice come straight up.",
-        "The estimate is also more accurate. It was reading whichever unit on the board happened to own a weapon of that name first, so a Warboss's Power klaw was being costed as somebody else's weaker one \u2014 it now always reads the attacking unit's own datasheet.",
+        "The estimate is also more accurate. It was reading whichever unit on the board happened to own a weapon of that name first, so a Warboss's Power klaw was being costed as somebody else's weaker one — it now always reads the attacking unit's own datasheet.",
         "Weapon lookups across the whole game are faster too, which takes the edge off other small pauses (selecting a unit to shoot with, opening the attack panel)."
+      ]
+    },
+    {
+      "version": "1.12.4",
+      "date": "2026-08-01",
+      "summary": "Tutorial tidy-up: step 6 of Musterin' da Boyz no longer tells you to pick the Battlewagon you are already holding.",
+      "changes": [
+        "\"PARK DA WAGON!\" (step 6 of Musterin' da Boyz) used to open by telling you to tap the bumper until the Battlewagon row was picked — but you can only reach that step by having already picked it up and turned it, so the instruction read as \"you did it wrong, start again\". It now just tells you to drop it: glide the left stick into your zone and press A (or click your deployment zone on mouse and keyboard).",
+        "If you do somehow end up with nothing in hand, the step's hint (the one that appears when you have been stuck a while) explains how to pick the wagon back up."
+      ]
+    },
+    {
+      "version": "1.12.3",
+      "date": "2026-08-01",
+      "summary": "The Command phase panel no longer fills up with empty orange dividing lines.",
+      "changes": [
+        "In the Command phase, the right-hand panel showed a growing stack of orange divider lines under VICTORY POINTS with nothing between them — a dozen of them by the time you had drawn your secondaries and called a Waaagh!, pushing the sections you actually wanted further down the scroll.",
+        "The panel rebuilds its Battle-shock, army rules and Secondary Missions sections every time something changes (a mission drawn or discarded, a CP spent, a battle-shock resolved). Each rebuild was abandoning the divider that introduced the section instead of removing it, so the leftovers piled up all phase. Dividers are now removed with their section, and any that end up introducing nothing are swept away.",
+        "Nothing else in the panel moved — the same sections, in the same order, just without the blank band."
       ]
     },
     {
       "version": "1.12.2",
       "date": "2026-08-01",
-      "summary": "Controller fix: reordering your allocation groups on the Allocate Attacks step no longer strands the D-pad \u2014 Confirm Order & Roll Saves stays reachable.",
+      "summary": "Controller fix: reordering your allocation groups on the Allocate Attacks step no longer strands the D-pad — Confirm Order & Roll Saves stays reachable.",
       "changes": [
         "Moving a group up or down with the D-pad (say, dropping your 1 model W2 Sv5+ nob into second place) used to leave nothing highlighted at all: the highlight vanished and no amount of D-pad pressing could reach Confirm Order & Roll Saves, so the attack could not be resolved. The highlight now lands back on the arrow of the group you just moved, at its new position, so you can keep reordering and then walk down to Confirm.",
-        "The greyed-out arrows (\u25b2 on the first row, \u25bc on the last) no longer take the highlight \u2014 pressing A on them did nothing, which felt like the pad had died. The D-pad now skips straight past them.",
+        "The greyed-out arrows (▲ on the first row, ▼ on the last) no longer take the highlight — pressing A on them did nothing, which felt like the pad had died. The D-pad now skips straight past them.",
         "Added a safety net: if the highlight is ever lost while this window is open, the next D-pad press puts it back on the current step's main button instead of doing nothing."
       ]
     },
