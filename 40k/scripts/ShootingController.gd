@@ -3192,7 +3192,14 @@ func _on_weapon_order_required(assignments: Array) -> void:
 	# board stays visible, the queue shows every weapon → target, and one
 	# fixed-position button drives every step. Networked play keeps the dialogs.
 	if not NetworkManager.is_networked():
+		# Building the dock rows runs the per-assignment expected-damage
+		# forecast, so it scales with the number of weapon → target slices.
+		# Measured at ~16 ms for two; log it if it ever grows teeth.
+		var _perf_t0 := Time.get_ticks_usec()
 		_activate_resolution_dock(assignments)
+		var _perf_dock_ms := (Time.get_ticks_usec() - _perf_t0) / 1000.0
+		if _perf_dock_ms >= 50.0:
+			DebugLogger.info("[PERF] ShootingController._activate_resolution_dock took %.1fms (%d assignments)" % [_perf_dock_ms, assignments.size()])
 		print("ShootingController: B2 resolution dock activated (%d assignments)" % assignments.size())
 		print("========================================")
 		return
