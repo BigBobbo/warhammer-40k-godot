@@ -42,6 +42,14 @@ var music_volume: float = 0.7    # 0.0 to 1.0
 var sfx_volume: float = 1.0      # 0.0 to 1.0
 var audio_muted: bool = false
 
+# Tutorial voiceover (the Ork narrator, see autoloads/TutorialVoice.gd). Its own
+# bus and toggle rather than a slice of SFX: a player who wants the UI cues but
+# reads faster than the narrator talks needs to silence the voice ALONE, and a
+# player using the voice as an accessibility aid needs it audible with the beds
+# turned down.
+var voice_volume: float = 1.0            # 0.0 to 1.0
+var tutorial_voice_enabled: bool = true
+
 # P3-111: Visual settings
 var ui_scale: float = 1.0        # 0.5 to 2.0
 var animation_speed: float = 1.0 # 0.25 to 3.0
@@ -320,10 +328,19 @@ func _setup_audio_buses() -> void:
 		AudioServer.set_bus_send(AudioServer.bus_count - 1, "Master")
 		print("[SettingsService] Created SFX audio bus")
 
+	# Tutorial voiceover (TutorialVoice.gd) — separate from SFX so the narrator
+	# can be turned down without silencing the UI cues, and vice versa.
+	if AudioServer.get_bus_index("Voice") == -1:
+		AudioServer.add_bus()
+		AudioServer.set_bus_name(AudioServer.bus_count - 1, "Voice")
+		AudioServer.set_bus_send(AudioServer.bus_count - 1, "Master")
+		print("[SettingsService] Created Voice audio bus")
+
 func _apply_audio_settings() -> void:
 	var master_idx = AudioServer.get_bus_index("Master")
 	var music_idx = AudioServer.get_bus_index("Music")
 	var sfx_idx = AudioServer.get_bus_index("SFX")
+	var voice_idx = AudioServer.get_bus_index("Voice")
 
 	if master_idx >= 0:
 		AudioServer.set_bus_volume_db(master_idx, linear_to_db(master_volume))
@@ -332,6 +349,8 @@ func _apply_audio_settings() -> void:
 		AudioServer.set_bus_volume_db(music_idx, linear_to_db(music_volume))
 	if sfx_idx >= 0:
 		AudioServer.set_bus_volume_db(sfx_idx, linear_to_db(sfx_volume))
+	if voice_idx >= 0:
+		AudioServer.set_bus_volume_db(voice_idx, linear_to_db(voice_volume))
 
 func set_master_volume(value: float) -> void:
 	master_volume = clampf(value, 0.0, 1.0)
@@ -354,6 +373,25 @@ func set_sfx_volume(value: float) -> void:
 	var idx = AudioServer.get_bus_index("SFX")
 	if idx >= 0:
 		AudioServer.set_bus_volume_db(idx, linear_to_db(sfx_volume))
+	audio_settings_changed.emit()
+	_save_settings()
+
+func set_voice_volume(value: float) -> void:
+	voice_volume = clampf(value, 0.0, 1.0)
+	var idx = AudioServer.get_bus_index("Voice")
+	if idx >= 0:
+		AudioServer.set_bus_volume_db(idx, linear_to_db(voice_volume))
+	audio_settings_changed.emit()
+	_save_settings()
+
+func set_tutorial_voice_enabled(enabled: bool) -> void:
+	tutorial_voice_enabled = enabled
+	# Cut the line already in flight — a player who reaches for this switch is
+	# reacting to the voice talking right now, so waiting for the clip to finish
+	# reads as the toggle being broken.
+	var voice = get_node_or_null("/root/TutorialVoice")
+	if voice and voice.has_method("set_enabled"):
+		voice.set_enabled(enabled)
 	audio_settings_changed.emit()
 	_save_settings()
 
@@ -683,6 +721,8 @@ func _save_settings() -> void:
 	config.set_value("audio", "master_volume", master_volume)
 	config.set_value("audio", "music_volume", music_volume)
 	config.set_value("audio", "sfx_volume", sfx_volume)
+	config.set_value("audio", "voice_volume", voice_volume)
+	config.set_value("audio", "tutorial_voice_enabled", tutorial_voice_enabled)
 	config.set_value("audio", "muted", audio_muted)
 
 	# Visual
@@ -747,6 +787,8 @@ func _load_settings() -> void:
 	master_volume = config.get_value("audio", "master_volume", 1.0)
 	music_volume = config.get_value("audio", "music_volume", 0.7)
 	sfx_volume = config.get_value("audio", "sfx_volume", 1.0)
+	voice_volume = config.get_value("audio", "voice_volume", 1.0)
+	tutorial_voice_enabled = config.get_value("audio", "tutorial_voice_enabled", true)
 	audio_muted = config.get_value("audio", "muted", false)
 
 	# Visual

@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.13.0",
+      "date": "2026-08-02",
+      "summary": "Da tutorial talks now: every tutorial card is read aloud by an Ork narrator, with its own volume slider and an off switch.",
+      "changes": [
+        "New: the tutorial is voiced. Every instruction card in all seven lessons is spoken aloud by an Ork, so you can watch the board while you are being told what to do instead of reading and clicking at the same time.",
+        "New: a 'Again' button on the tutorial card replays the current line — handy if you missed an instruction, and no need to restart the lesson.",
+        "The narrator knows what you are playing on: the keyboard cards say 'press I', the controller cards say 'press the Y button', and swapping between a pad and a keyboard mid-lesson switches the spoken line too.",
+        "New: Settings -> Audio -> Voice Volume, on its own channel so you can turn the narrator down without silencing the music or the UI clicks.",
+        "New: Settings -> Audio -> Tutorial Voiceover turns the narrator off entirely. Flicking it off stops the line that is playing right then; flicking it back on picks the current card straight back up."
+      ]
+    },
+    {
       "version": "1.12.13",
       "date": "2026-08-02",
       "summary": "Charge phase: 'Snap to Contact' no longer walks your models straight through the enemy unit and parks them on the far side — most visibly the attached character, like a Warboss leading a mob of Boyz.",

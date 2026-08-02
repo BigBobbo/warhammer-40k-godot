@@ -263,6 +263,13 @@ func _teardown(emit_exit: bool) -> void:
 	var overlay := get_node_or_null("/root/TutorialOverlay")
 	if overlay:
 		overlay.hide_all()
+	# The narrator has to stop with the card, and forget it: leaving a line
+	# running would have an Ork explaining the charge phase over the main menu,
+	# and leaving it ARMED would let the next lesson's first card replay the
+	# previous lesson's line.
+	var voice := get_node_or_null("/root/TutorialVoice")
+	if voice:
+		voice.clear()
 	if emit_exit:
 		emit_signal("tutorial_exited")
 
@@ -515,6 +522,19 @@ func _show_current_step() -> void:
 	# one currently live — otherwise an `anchor_when` swap (e.g. the ring already
 	# moved onto End This Unit's Move) silently snaps back to the step's default.
 	var live_anchor: Dictionary = _live_anchor(step)
+	# Read the card aloud (autoloads/TutorialVoice.gd) BEFORE handing it to the
+	# overlay: the card's "Say it again" button decides whether to show itself by
+	# asking the voice what it is currently speaking, so the line has to be armed
+	# first or the button is missing for the whole of every step.
+	#
+	# Driven from here rather than off step_changed because a mid-lesson device
+	# swap re-renders through refresh_prompt() without changing the step index —
+	# and that swap is exactly when the spoken line has to change from "press I"
+	# to "press the Y button". TutorialVoice no-ops when the clip is already the
+	# one playing, so the repeat calls this function makes never stutter the line.
+	var voice := get_node_or_null("/root/TutorialVoice")
+	if voice:
+		voice.speak_step(str(current_lesson.get("id", "")), str(step.get("id", "")), pad)
 	overlay.show_step({
 		"bark": str(step.get("prompt", {}).get("bark", "")),
 		"body": body,
@@ -774,6 +794,9 @@ func _complete_lesson() -> void:
 	var body := ""
 	for b in bullets:
 		body += "•  %s\n" % str(b)
+	var voice := get_node_or_null("/root/TutorialVoice")
+	if voice:
+		voice.speak_summary(lesson_id)   # before show_summary, see _show_current_step
 	var overlay := get_node_or_null("/root/TutorialOverlay")
 	if overlay:
 		overlay.show_summary({

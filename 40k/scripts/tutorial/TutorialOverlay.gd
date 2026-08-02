@@ -87,6 +87,7 @@ var _deep_scan_accum: float = DEEP_SCAN_INTERVAL_S
 # Kept so _min_content_width() can ask them how much room they need.
 var _header: HBoxContainer = null
 var _footer: HBoxContainer = null
+var _replay_button: Button = null
 var _modal_exit_window: Window = null   # floating hatch, for non-AcceptDialog modals
 var _modal_exit_host: Window = null     # the dialog we added an Exit button INTO
 # The in-dialog hatch is ARMED, not always-on — see "modal escape hatch" below.
@@ -302,6 +303,26 @@ func _build() -> void:
 		var m := _mgr()
 		if m: m.exit_tutorial())
 	footer.add_child(_menu_button)
+
+	# "Say it again" — replays the Ork narrator's line for THIS card
+	# (autoloads/TutorialVoice.gd). Without it a player who missed a spoken
+	# instruction has no way back to it short of restarting the lesson, and the
+	# voiceover is otherwise invisible: nothing on screen says the card is
+	# narrated at all. Hidden outright when no clips are installed, so a build
+	# generated without the voiceover assets shows no dead control.
+	_replay_button = Button.new()
+	_replay_button.name = "ReplayVoiceButton"
+	# Icon AND word: the speaker alone was unreadable at footer size and could be
+	# mistaken for "repeat the step" next to Skip Step. If a platform's font has
+	# no emoji the label still says what it does.
+	_replay_button.text = "🔊 Again"
+	_replay_button.tooltip_text = "Say it again — replay da narrator for dis step."
+	WhiteDwarfThemeData.apply_secondary_button(_replay_button)
+	_replay_button.focus_mode = Control.FOCUS_NONE
+	_replay_button.pressed.connect(func():
+		var v := get_node_or_null("/root/TutorialVoice")
+		if v: v.replay())
+	footer.add_child(_replay_button)
 
 	_skip_button = Button.new()
 	_skip_button.name = "SkipStepButton"
@@ -971,6 +992,7 @@ func show_step(view: Dictionary) -> void:
 	_menu_button.visible = false
 	_skip_button.visible = true
 	_exit_button.visible = true
+	_sync_replay_button()
 	_anchor_spec = view.get("anchor", {})
 	_spotlight_mode = str(view.get("spotlight", "none"))
 	_anchor_node = null
@@ -986,6 +1008,17 @@ func show_step(view: Dictionary) -> void:
 	_update_card_mode()
 	_apply_pad_affordances(true)
 	_spotlight.queue_redraw()
+
+
+# The replay control only earns its footer space when there is something to
+# replay: no manifest (a build made without running tools/generate_tutorial_vo.py)
+# or no clip for this particular card means no button. Checked per card rather
+# than once at build time because coverage is per step, not all-or-nothing.
+func _sync_replay_button() -> void:
+	if _replay_button == null:
+		return
+	var v := get_node_or_null("/root/TutorialVoice")
+	_replay_button.visible = v != null and v.is_available() and v.current_clip_id() != ""
 
 
 func show_hint(text: String) -> void:
@@ -1045,6 +1078,7 @@ func show_summary(view: Dictionary) -> void:
 	_exit_button.visible = false
 	_next_button.visible = bool(view.get("has_next", false))
 	_menu_button.visible = true
+	_sync_replay_button()
 	_anchor_spec = {}
 	_anchor_node = null
 	_anchor_ok = false

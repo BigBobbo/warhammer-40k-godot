@@ -19,6 +19,9 @@ var _mute_checkbox: CheckBox
 var _master_volume_label: Label
 var _music_volume_label: Label
 var _sfx_volume_label: Label
+var _voice_volume_slider: HSlider
+var _voice_volume_label: Label
+var _tutorial_voice_checkbox: CheckBox
 
 var _visual_style_dropdown: OptionButton
 var _unit_color_display_dropdown: OptionButton
@@ -211,6 +214,9 @@ func _build_ui() -> void:
 	_music_volume_label = _get_last_value_label()
 	_sfx_volume_slider = _add_slider_row(audio_content, "SFX Volume:", 0.0, 1.0, 0.05, "_on_sfx_volume_changed")
 	_sfx_volume_label = _get_last_value_label()
+	_voice_volume_slider = _add_slider_row(audio_content, "Voice Volume:", 0.0, 1.0, 0.05, "_on_voice_volume_changed")
+	_voice_volume_label = _get_last_value_label()
+	_tutorial_voice_checkbox = _add_checkbox_row(audio_content, "Tutorial Voiceover (da Ork narrator)", "_on_tutorial_voice_toggled")
 	_mute_checkbox = _add_checkbox_row(audio_content, "Mute All Audio", "_on_mute_toggled")
 
 	# ── Visual Tab ──
@@ -888,10 +894,13 @@ func _load_current_settings() -> void:
 	_master_volume_slider.value = SettingsService.master_volume
 	_music_volume_slider.value = SettingsService.music_volume
 	_sfx_volume_slider.value = SettingsService.sfx_volume
+	_voice_volume_slider.value = SettingsService.voice_volume
+	_tutorial_voice_checkbox.button_pressed = SettingsService.tutorial_voice_enabled
 	_mute_checkbox.button_pressed = SettingsService.audio_muted
 	_update_volume_label(_master_volume_label, SettingsService.master_volume)
 	_update_volume_label(_music_volume_label, SettingsService.music_volume)
 	_update_volume_label(_sfx_volume_label, SettingsService.sfx_volume)
+	_update_volume_label(_voice_volume_label, SettingsService.voice_volume)
 
 	# Visual
 	var board_style_index = ["grass", "mud", "desert", "stone", "felt", "tilepack", "none"].find(SettingsService.board_style)
@@ -1012,6 +1021,13 @@ func _on_music_volume_changed(value: float) -> void:
 func _on_sfx_volume_changed(value: float) -> void:
 	SettingsService.set_sfx_volume(value)
 	_update_volume_label(_sfx_volume_label, value)
+
+func _on_voice_volume_changed(value: float) -> void:
+	SettingsService.set_voice_volume(value)
+	_update_volume_label(_voice_volume_label, value)
+
+func _on_tutorial_voice_toggled(pressed: bool) -> void:
+	SettingsService.set_tutorial_voice_enabled(pressed)
 
 func _on_mute_toggled(pressed: bool) -> void:
 	SettingsService.set_audio_muted(pressed)

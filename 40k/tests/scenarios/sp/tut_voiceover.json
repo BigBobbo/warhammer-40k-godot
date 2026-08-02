@@ -1,0 +1,173 @@
+{
+  "id": "tut_voiceover",
+  "covers": [
+    "tutorial.voice.speaks_on_step",
+    "tutorial.voice.clip_matches_step",
+    "tutorial.voice.device_variant",
+    "tutorial.voice.replay_button",
+    "tutorial.voice.settings_toggle",
+    "tutorial.voice.stops_on_exit"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "The Ork tutorial voiceover (autoloads/TutorialVoice.gd + tools/generate_tutorial_vo.py). Boots T1 from the real menu path and pins the player-facing behaviour: the narrator starts speaking the moment the first card appears and the clip it picks is the one belonging to THAT step; the card grows a 'Say It Again' button whose press restarts the same line; advancing a step swaps the clip; forcing controller mode re-renders the card through refresh_prompt() WITHOUT a step change and the spoken line must follow it from the kbm variant to the pad variant (this is the case the wiring exists for - a keyboard clip telling a Deck player to 'press I' is the bug); Settings > Audio > Tutorial Voiceover off cuts the line already in flight rather than letting it finish; and leaving the tutorial stops the narrator so an Ork is not explaining the charge phase over the main menu. Audio is silent under the harness (Dummy driver), so every assertion reads playback STATE (is_speaking / current_clip_id) rather than sound - the clips' audio content is validated offline by tools/generate_tutorial_vo.py.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var tv = tree.root.get_node_or_null(\"TutorialVoice\")\nif tv == null:\n\treturn \"TutorialVoice autoload missing\"\nif not tv.is_available():\n\treturn \"voice unavailable - run tools/generate_tutorial_vo.py to build the clips\"\nif tv.clip_count() < 100:\n\treturn \"manifest too small: \" + str(tv.clip_count())\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "the manifest loaded and carries the full lesson set"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t1_basics/Play_t1_basics"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var tv = tree.root.get_node_or_null(\"TutorialVoice\")\nif not tv.is_speaking():\n\treturn \"narrator silent on the opening card\"\nvar want = \"t1_basics__welcome__kbm\"\nif tv.current_clip_id() != want:\n\treturn \"wrong clip: \" + str(tv.current_clip_id()) + \" expected \" + want\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "step 'welcome' on mouse+keyboard speaks the kbm variant of that step, not a stale or default clip"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ReplayVoiceButton\")\nif b == null:\n\treturn \"no replay button on the card\"\nif not b.visible:\n\treturn \"replay button hidden while a clip is loaded\"\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "the voiceover's only on-screen affordance - without it nothing tells the player the card is narrated"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_card_narrated"
+    },
+    {
+      "act": "execute_script",
+      "script": "var tv = tree.root.get_node_or_null(\"TutorialVoice\")\ntv.stop()\nif tv.is_speaking():\n\treturn \"stop() did not stop playback\"\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ReplayVoiceButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "var tv = tree.root.get_node_or_null(\"TutorialVoice\")\nif not tv.is_speaking():\n\treturn \"Say It Again did not restart the line\"\nif tv.current_clip_id() != \"t1_basics__welcome__kbm\":\n\treturn \"replay played the wrong clip: \" + str(tv.current_clip_id())\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "a real click on the real button - replay after an explicit stop is the missed-the-instruction path"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.ack()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "var tv = tree.root.get_node_or_null(\"TutorialVoice\")\nif TutorialManager.current_step_id() != \"camera\":\n\treturn \"step did not advance: \" + str(TutorialManager.current_step_id())\nif tv.current_clip_id() != \"t1_basics__camera__kbm\":\n\treturn \"clip did not follow the step: \" + str(tv.current_clip_id())\nif not tv.is_speaking():\n\treturn \"narrator silent on the new step\"\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "advancing a step swaps the line"
+    },
+    {
+      "act": "execute_script",
+      "script": "var idm = tree.root.get_node_or_null(\"InputDeviceManager\")\nidm._force_mode(idm.InputMode.PAD)\nTutorialManager.refresh_prompt()\nreturn idm.is_pad_active()",
+      "multiline": true,
+      "equals": true,
+      "comment": "the desktop policy LOCKS the mode, so a device claim is ignored by design - _force_mode is the policy's own entry point and is what a policy switch calls"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "var tv = tree.root.get_node_or_null(\"TutorialVoice\")\nif TutorialManager.current_step_id() != \"camera\":\n\treturn \"step index moved - this must be a re-render, not an advance\"\nif tv.current_clip_id() != \"t1_basics__camera__pad\":\n\treturn \"pad swap did not change the spoken line: \" + str(tv.current_clip_id())\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "THE case this wiring exists for: same step, different device, different words. A kbm clip here would tell a Deck player to press keys they do not have."
+    },
+    {
+      "act": "screenshot",
+      "label": "02_pad_variant"
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set_tutorial_voice_enabled(false)\nvar tv = tree.root.get_node_or_null(\"TutorialVoice\")\nif tv.is_speaking():\n\treturn \"toggling the setting off left the line playing\"\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "a player reaching for this switch is reacting to the voice talking RIGHT NOW - waiting for the clip to end reads as a broken toggle"
+    },
+    {
+      "act": "execute_script",
+      "script": "var tv = tree.root.get_node_or_null(\"TutorialVoice\")\nTutorialManager.refresh_prompt()\nif tv.is_speaking():\n\treturn \"a new card spoke while the setting was off\"\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set_tutorial_voice_enabled(true)\nTutorialManager.refresh_prompt()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "var tv = tree.root.get_node_or_null(\"TutorialVoice\")\nif not tv.is_speaking():\n\treturn \"turning the setting back on did not restore the narrator\"\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.exit_tutorial()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "var tv = tree.root.get_node_or_null(\"TutorialVoice\")\nif tv.is_speaking():\n\treturn \"narrator kept talking after the tutorial was exited\"\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "leaving the tutorial has to take the voice with it"
+    }
+  ]
+}
