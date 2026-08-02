@@ -5,13 +5,14 @@
     "controller.charge.start_declare_roll",
     "controller.charge.x_skip",
     "PadRouter",
-    "ChargeController"
+    "ChargeController",
+    "chargecontroller.pad_step_target.clamped"
   ],
   "fixture": "audit_372_charge_modifier",
   "rng_seed": 42,
   "transition_to_phase": 9,
   "disable_ai": true,
-  "description": "Pad charge flow: RB cycles the UNITS THAT CAN CHARGE list; arming a unit with the pad AUTO-BRACKETS the first ELIGIBLE TARGETS row (gold row tint + the shared on-board PadTargetReticle with its TARGET n/m banner — same visual language as the shooting phase's D-pad target ring). D-pad ▲ ▼ walks the rows (reticle follows), A toggles the walked row in and out of the declaration (pad Click / Ctrl+Click — builds and trims a multi-charge), Start declares (reticle clears — rows lock) then rolls, and X skips another unit's charge. Battlewagon is parked near two Custodes units (one ~2.5\" away, one ~9\") and Boyz Alpha near the close one, so two units are chargeable. CP is zeroed for both players so a failed roll cannot pop the Command Re-roll dialog mid-scenario.",
+  "description": "Pad charge flow: RB cycles the UNITS THAT CAN CHARGE list; arming a unit with the pad AUTO-BRACKETS the first ELIGIBLE TARGETS row (gold row tint + the shared on-board PadTargetReticle with its TARGET n/m banner — same visual language as the shooting phase's D-pad target ring). D-pad ▲ ▼ walks the rows (reticle follows) and CLAMPS at both ends — past the last row the press exits into the containing panel rather than looping round, A toggles the walked row in and out of the declaration (pad Click / Ctrl+Click — builds and trims a multi-charge), Start declares (reticle clears — rows lock) then rolls, and X skips another unit's charge. Battlewagon is parked near two Custodes units (one ~2.5\" away, one ~9\") and Boyz Alpha near the close one, so two units are chargeable. CP is zeroed for both players so a failed roll cannot pop the Command Re-roll dialog mid-scenario.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 9 },
@@ -44,11 +45,21 @@
     { "act": "execute_script", "script": "main.charge_controller.pad_target_cursor", "equals": 1 },
     { "act": "execute_script", "script": "str(main.charge_controller.pad_target_reticle.banner_text).find(\"TARGET 2/2\") != -1", "equals": true },
     { "act": "execute_script", "script": "main.charge_controller.selected_targets.size()", "equals": 0 },
+
+    { "act": "simulate_joy_button", "button_index": 12, "comment": "the cursor is on the LAST row — D-pad ▼ must not loop back round to the first" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main.charge_controller.pad_target_cursor", "equals": 1, "comment": "NO WRAP: the ELIGIBLE TARGETS walk clamps like every other nested sub-list" },
+    { "act": "execute_script", "multiline": true, "script": "var f = tree.root.gui_get_focus_owner()\nreturn f != null", "equals": true, "comment": "the press exits ONE LEVEL UP into the charge panel instead, where the D-pad walks and scrolls it" },
+    { "act": "simulate_joy_button", "button_index": 1, "comment": "B drops panel focus back to the board so the row walk owns the D-pad again" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "script": "var f = tree.root.gui_get_focus_owner()\nreturn f == null", "equals": true },
+    { "act": "execute_script", "script": "main.charge_controller.pad_target_cursor", "equals": 1, "comment": "the bracketed row survived the trip out and back" },
+
     { "act": "simulate_joy_button", "button_index": 0 },
     { "act": "wait_seconds", "seconds": 0.3 },
     { "act": "execute_script", "script": "main.charge_controller.selected_targets.size()", "equals": 1 },
 
-    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 11, "comment": "▲ steps back up to the first row (▼ no longer wraps there — it exits the list)" },
     { "act": "wait_seconds", "seconds": 0.3 },
     { "act": "execute_script", "script": "main.charge_controller.pad_target_cursor", "equals": 0 },
     { "act": "execute_script", "script": "str(main.charge_controller.pad_target_reticle.banner_text).find(\"TARGET 1/2\") != -1", "equals": true },

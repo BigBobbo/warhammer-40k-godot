@@ -2,6 +2,20 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.13.1",
+      "date": "2026-08-02",
+      "summary": "Controller: the D-pad no longer gets stuck looping round a list inside a panel — walk off the end of one and it steps out to the panel around it, scrolling to whatever was hidden below the fold.",
+      "changes": [
+        "Fixed (reported on Steam Deck, tutorial 'Dakka Time' step 5): the D-pad looped round the weapon rows for ever — Slugga, Kombi-weapon, Twin sluggas, Slugga… — and no press moved the right-hand panel itself. CURRENT TARGETS, 'Use GRENADE', 'Shoot All Remaining' and 'Start Action' were clipped below the fold with no way to reach them on a controller.",
+        "Lists inside a panel now CLAMP instead of looping: press ▼ past the last weapon (or ▲ before the first) and you step out into the panel around it, landing on the next control that way.",
+        "In the panel, ▲ ▼ moves a row at a time and scrolls the panel so the row you are on is on screen; when the controls run out, ▲ ▼ keeps scrolling so the rows in between — CURRENT TARGETS, the forecasts — can actually be read.",
+        "◀ ▶ picks between buttons sharing a row (Clear All ◀▶ Undo Last ◀▶ Confirm).",
+        "Walking back the other way steps straight back into the list you came out of, at the row nearest where you re-entered.",
+        "Nothing wraps around any more, in either direction — B still hands the controller back to the board.",
+        "The same rule now covers the charge phase's ELIGIBLE TARGETS rows, and the D-pad skips greyed-out buttons instead of parking on one that cannot be pressed."
+      ]
+    },
+    {
       "version": "1.13.0",
       "date": "2026-08-02",
       "summary": "The Dice Log is readable at a glance: every attack now renders as a structured sequence — headers, numbered colour-coded step chips (HIT / WOUND / SAVE / DAMAGE / FNP) with the dice beside them, and clear ✔/✘ outcome lines.",
