@@ -2,12 +2,21 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.12.4",
+      "version": "1.12.5",
       "date": "2026-08-02",
       "summary": "Tutorial 2 now says WHY you're touching that first dropdown: you're attaching the Warboss to the 10 Boyz.",
       "changes": [
         "Musterin' da Boyz, step 1: the card used to explain how to reach the 'Warboss →' dropdown without ever saying what the choice does. It now leads with the goal — attach the Warboss to the Boyz so the Leader and the mob fight as one unit — before the click instructions, on both mouse+keyboard and controller.",
         "The step's hint and its shout (\"BOSS JOINS DA BOYZ!\") name the same goal, and the dropdown option is spelled out as 'Boyz (10 models)' so it matches what's on screen."
+      ]
+    },
+    {
+      "version": "1.12.4",
+      "date": "2026-08-01",
+      "summary": "Tutorial tidy-up: step 6 of Musterin' da Boyz no longer tells you to pick the Battlewagon you are already holding.",
+      "changes": [
+        "\"PARK DA WAGON!\" (step 6 of Musterin' da Boyz) used to open by telling you to tap the bumper until the Battlewagon row was picked — but you can only reach that step by having already picked it up and turned it, so the instruction read as \"you did it wrong, start again\". It now just tells you to drop it: glide the left stick into your zone and press A (or click your deployment zone on mouse and keyboard).",
+        "If you do somehow end up with nothing in hand, the step's hint (the one that appears when you have been stuck a while) explains how to pick the wagon back up."
       ]
     },
     {
