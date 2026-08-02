@@ -2,12 +2,40 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.12.3",
-      "date": "2026-08-01",
+      "version": "1.12.6",
+      "date": "2026-08-02",
       "summary": "Krumpin' step 6 no longer tells Steam Deck players to glide the left stick at a row the D-pad reaches perfectly well.",
       "changes": [
         "The Fight lesson's \"Da boss ain't swung yet!\" step told pad players to glide the left stick onto the Warboss row. The fight panel's unit rows are ordinary D-pad navigation — the very next step up from where the D-pad is already parked on the dice dock — so the prompt now says to tap ▲ till it lands on the Warboss row, matching how the same lesson already describes picking the Boyz.",
         "The step after it said to glide the stick onto Roll Saves. The save card grabs the pad's focus onto that button by itself, so the prompt now just says to press A."
+      ]
+    },
+    {
+      "version": "1.12.5",
+      "date": "2026-08-02",
+      "summary": "Tutorial 2 now says WHY you're touching that first dropdown: you're attaching the Warboss to the 10 Boyz.",
+      "changes": [
+        "Musterin' da Boyz, step 1: the card used to explain how to reach the 'Warboss →' dropdown without ever saying what the choice does. It now leads with the goal — attach the Warboss to the Boyz so the Leader and the mob fight as one unit — before the click instructions, on both mouse+keyboard and controller.",
+        "The step's hint and its shout (\"BOSS JOINS DA BOYZ!\") name the same goal, and the dropdown option is spelled out as 'Boyz (10 models)' so it matches what's on screen."
+      ]
+    },
+    {
+      "version": "1.12.4",
+      "date": "2026-08-01",
+      "summary": "Tutorial tidy-up: step 6 of Musterin' da Boyz no longer tells you to pick the Battlewagon you are already holding.",
+      "changes": [
+        "\"PARK DA WAGON!\" (step 6 of Musterin' da Boyz) used to open by telling you to tap the bumper until the Battlewagon row was picked — but you can only reach that step by having already picked it up and turned it, so the instruction read as \"you did it wrong, start again\". It now just tells you to drop it: glide the left stick into your zone and press A (or click your deployment zone on mouse and keyboard).",
+        "If you do somehow end up with nothing in hand, the step's hint (the one that appears when you have been stuck a while) explains how to pick the wagon back up."
+      ]
+    },
+    {
+      "version": "1.12.3",
+      "date": "2026-08-01",
+      "summary": "The Command phase panel no longer fills up with empty orange dividing lines.",
+      "changes": [
+        "In the Command phase, the right-hand panel showed a growing stack of orange divider lines under VICTORY POINTS with nothing between them — a dozen of them by the time you had drawn your secondaries and called a Waaagh!, pushing the sections you actually wanted further down the scroll.",
+        "The panel rebuilds its Battle-shock, army rules and Secondary Missions sections every time something changes (a mission drawn or discarded, a CP spent, a battle-shock resolved). Each rebuild was abandoning the divider that introduced the section instead of removing it, so the leftovers piled up all phase. Dividers are now removed with their section, and any that end up introducing nothing are swept away.",
+        "Nothing else in the panel moved — the same sections, in the same order, just without the blank band."
       ]
     },
     {

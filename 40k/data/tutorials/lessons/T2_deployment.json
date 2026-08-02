@@ -41,9 +41,9 @@
     {
       "id": "attach_warboss",
       "prompt": {
-        "bark": "MUSTER UP!",
-        "kbm": "Before deployin', dis panel locks in yer [b]Battle Formations[/b]. First: under [b]LEADER ATTACHMENTS[/b], set da 'Warboss →' dropdown to [b]Boyz[/b] — now he fights wiv his mob.",
-        "pad": "Dis panel locks in yer [b]Battle Formations[/b]. Da pad starts on [b]Confirm Formations[/b] — {dpad} ▲ walks up to da 'Warboss →' dropdown, {a} opens it, ▼ onto [b]Boyz[/b], {a} again."
+        "bark": "BOSS JOINS DA BOYZ!",
+        "kbm": "Job one: [b]attach da Warboss to da Boyz[/b] — a Leader joins a mob so dey fight as one unit, wiv da Boss 'idin' among 'em. Under [b]LEADER ATTACHMENTS[/b], set da 'Warboss →' dropdown to [b]Boyz (10 models)[/b].",
+        "pad": "Job one: [b]attach da Warboss to da Boyz[/b] — a Leader joins a mob an' dey fight as one. Da pad starts on [b]Confirm Formations[/b] — {dpad} ▲ up to da 'Warboss →' dropdown, {a} opens it, ▼ onto [b]Boyz[/b], {a} again."
       },
       "anchor": { "node": "/root/Main/FormationsDialog" },
       "spotlight": "none",
@@ -51,7 +51,7 @@
       "done": {
         "script": "var fd = tree.root.get_node_or_null(\"/root/Main/FormationsDialog\")\nif fd == null:\n\treturn false\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is OptionButton and nd.item_count > 0 and nd.get_item_text(0) == \"(Unattached)\":\n\t\treturn nd.selected == 1\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false"
       },
-      "hint": { "text": "Top section of da panel — da dropdown next to 'Warboss →'." }
+      "hint": { "text": "Top section of da panel — da dropdown next to 'Warboss →'. Pick 'Boyz (10 models)': dat's da Boss attached to da mob." }
     },
     {
       "id": "embark_boyz",
@@ -110,10 +110,11 @@
     },
     {
       "id": "deploy_wagon",
+      "_comment": "The wagon is ALREADY in the player's hand when this step opens — rotate_wagon can only tick once the ghost has been picked up and turned. Reported on the pad: this step used to re-open with 'Tap RB till da Battlewagon row is picked', which reads as 'you did it wrong, start again' to a player who is stood there holding the ghost. Both prompts now only teach the drop; the pick-it-back-up recovery lives in the hint, where it fires only if the player is actually stuck.",
       "prompt": {
         "bark": "PARK DA WAGON!",
-        "kbm": "Wagon's aimed — now click inside yer glowin' deployment zone to drop it. Nuffin' in yer hand? Click da [b]Battlewagon[/b] row first.",
-        "pad": "Tap {rb} till da [b]Battlewagon[/b] row is picked. Droppin' it is board work, so glide {ls} into yer zone an' {a} to place it."
+        "kbm": "Wagon's aimed — now click inside yer glowin' deployment zone to drop it.",
+        "pad": "Wagon's aimed an' still in yer hand — droppin' it is board work, so glide {ls} into yer glowin' zone an' press {a} to drop it."
       },
       "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel" },
       "spotlight": "soft",
@@ -122,8 +123,8 @@
         "script": "var dc = main.get(\"deployment_controller\") if main != null else null\nif dc == null:\n\treturn false\nif int(GameState.state.units.U_BATTLEWAGON_T.get(\"status\", 0)) == 2:\n\treturn true\nreturn str(dc.unit_id) == \"U_BATTLEWAGON_T\" and dc.get_placed_count() >= 1"
       },
       "hint": {
-        "kbm": "Yer zone is da highlighted band at da top of da board. Don't fret about gettin' it spot on — next step shows yer how to shove it about.",
-        "pad": "Yer zone is da highlighted band at da top of da board. Don't fret about gettin' it spot on — next step shows yer how to shove it about."
+        "kbm": "Yer zone is da highlighted band at da top of da board. Don't fret about gettin' it spot on — next step shows yer how to shove it about. Nuffin' followin' yer mouse? Click da Battlewagon row an' it's back in yer hand.",
+        "pad": "Yer zone is da highlighted band at da top of da board. Don't fret about gettin' it spot on — next step shows yer how to shove it about. Nuffin' followin' da cursor? Tap da right bumper back onto da Battlewagon row an' it's in yer hand again."
       }
     },
     {
