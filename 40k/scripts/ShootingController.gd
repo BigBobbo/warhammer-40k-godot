@@ -2624,272 +2624,9 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if dice_roll_visual:
 		dice_roll_visual.show_dice_roll(dice_data)
 
-	# T5-MP5: Handle resolution_start context — show header message in dice log
-	var context = dice_data.get("context", "Roll")
-	if context == "resolution_start":
-		var message = dice_data.get("message", "Beginning attack resolution...")
-		dice_log_display.append_text("[b][color=white]--- %s ---[/color][/b]\n" % message)
-		return
-
-	# Check if this is a weapon progress message (sequential resolution)
-	if context == "weapon_progress":
-		var message = dice_data.get("message", "")
-		var current_index = dice_data.get("current_index", 0)
-		var total_weapons = dice_data.get("total_weapons", 0)
-		dice_log_display.append_text("[b][color=yellow]>>> %s <<<[/color][/b]\n" % message)
-		return
-
-	# Command Re-roll note ("Command Re-roll (1 CP): hit die 2 → 5") — render
-	# the message itself instead of falling through to the generic roll
-	# formatter, which printed a meaningless "Reroll Note (need ): Rolls: —".
-	if context == "reroll_note":
-		dice_log_display.append_text("[b][color=orange]↻ %s[/color][/b]\n" % dice_data.get("message", "Re-roll"))
-		return
-
-	# FEEL NO PAIN: Handle feel_no_pain dice block
-	if context == "feel_no_pain":
-		var fnp_val = dice_data.get("fnp_value", 0)
-		var prevented = dice_data.get("wounds_prevented", 0)
-		var remaining = dice_data.get("wounds_remaining", 0)
-		var total = dice_data.get("total_wounds", 0)
-		var fnp_rolls = dice_data.get("rolls_raw", [])
-		var target_name = dice_data.get("target_unit_name", "")
-
-		var log_text = "[b][color=cyan]Feel No Pain %d+[/color][/b]" % fnp_val
-		if not target_name.is_empty():
-			log_text += " (%s)" % target_name
-		log_text += "\n  Rolls: "
-
-		# Flush header, then render FNP dice as inline icons.
-		dice_log_display.append_text(log_text)
-		_append_dice_icons(fnp_rolls, fnp_val, "feel_no_pain", 7)
-		dice_log_display.append_text("\n")
-		log_text = ""
-
-		# Show summary
-		if prevented > 0:
-			log_text += "  [color=green]%d/%d wound%s prevented[/color]" % [prevented, total, "" if total == 1 else "s"]
-		else:
-			log_text += "  [color=red]No wounds prevented[/color]"
-		if remaining > 0:
-			var w_label = "wound gets" if remaining == 1 else "wounds get"
-			log_text += ", [color=red]%d %s through[/color]" % [remaining, w_label]
-		log_text += "\n"
-
-		dice_log_display.append_text(log_text)
-		return
-
-	# Variable damage display
-	if context == "variable_damage":
-		var notation = dice_data.get("notation", "")
-		var total_dmg = dice_data.get("total_damage", 0)
-		var dmg_rolls = dice_data.get("rolls", [])
-		var log_text = "[b][color=yellow]Variable Damage (%s)[/color][/b]\n  Rolled: " % notation
-		dice_log_display.append_text(log_text)
-		var dmg_values := []
-		for r in dmg_rolls:
-			dmg_values.append(int(r.get("value", 0)))
-		_append_dice_icons(dmg_values, 0, "damage", 7)
-		dice_log_display.append_text(" = %d total damage\n" % total_dmg)
-		return
-
-	# TORRENT (PRP-014): Handle auto_hit context for Torrent weapons
-	if context == "auto_hit":
-		var total_attacks = dice_data.get("total_attacks", 0)
-		var hits = dice_data.get("successes", 0)
-		var message = dice_data.get("message", "Torrent: automatic hits")
-		var log_text = "[b][color=lime]TORRENT - Automatic Hits[/color][/b]\n"
-
-		# Show variable attacks if rolled
-		var torrent_var_attacks = dice_data.get("variable_attacks", false)
-		if torrent_var_attacks:
-			var attacks_notation = dice_data.get("attacks_notation", "")
-			var attacks_rolls = dice_data.get("attacks_rolls", [])
-			var base_atk = dice_data.get("base_attacks", 0)
-			var roll_values = []
-			for r in attacks_rolls:
-				roll_values.append(str(r.get("value", 0)))
-			log_text += "  [color=yellow][VARIABLE ATTACKS] %s per model → rolled [%s] = %d attacks[/color]\n" % [attacks_notation, ", ".join(roll_values), base_atk]
-
-		log_text += "  [color=lime]%s[/color]\n" % message
-
-		# Show Blast bonus if this is a Torrent + Blast weapon
-		var blast_weapon = dice_data.get("blast_weapon", false)
-		if blast_weapon:
-			var target_model_count = dice_data.get("target_model_count", 0)
-			var blast_bonus_attacks = dice_data.get("blast_bonus_attacks", 0)
-			if blast_bonus_attacks > 0:
-				log_text += "  [color=lime][BLAST] +%d bonus attacks (%d models)[/color]\n" % [blast_bonus_attacks, target_model_count]
-
-		# Note if weapon has Lethal Hits or Sustained Hits (they won't trigger)
-		var lethal_hits_weapon = dice_data.get("lethal_hits_weapon", false)
-		var sustained_hits_weapon = dice_data.get("sustained_hits_weapon", false)
-		if lethal_hits_weapon or sustained_hits_weapon:
-			log_text += "  [color=gray]Note: Lethal/Sustained Hits don't trigger (no hit roll)[/color]\n"
-
-		log_text += "  [b][color=green]→ %d hits proceeding to wound roll[/color][/b]\n" % hits
-		dice_log_display.append_text(log_text)
-		return
-
-	# Get data from the dice roll
-	var rolls_raw = dice_data.get("rolls_raw", [])
-	var rolls_modified = dice_data.get("rolls_modified", [])
-	var rerolls = dice_data.get("rerolls", [])
-	if rerolls.is_empty() and context == "to_wound":
-		rerolls = dice_data.get("wound_rerolls", [])
-	var successes = dice_data.get("successes", -1)
-	var threshold = dice_data.get("threshold", "")
-
-	# Format the display text with modifier effects
-	var display_context = context.capitalize().replace("_", " ")
-	var save_weapon_name = dice_data.get("weapon_name", "")
-	var save_target_name = dice_data.get("target_unit_name", "")
-	if context == "save_roll" and save_target_name != "":
-		display_context = "Save" if save_weapon_name == "" else "%s saves" % save_target_name
-	var log_text = "[b]%s[/b] (need %s):\n" % [display_context, threshold]
-
-	# Show Heavy bonus if applied
-	var heavy_bonus_applied = dice_data.get("heavy_bonus_applied", false)
-	if heavy_bonus_applied:
-		log_text += "  [color=cyan][HEAVY] +1 to hit (unit stationary)[/color]\n"
-
-	# Show variable attacks if rolled
-	var variable_attacks = dice_data.get("variable_attacks", false)
-	if variable_attacks:
-		var attacks_notation = dice_data.get("attacks_notation", "")
-		var attacks_rolls = dice_data.get("attacks_rolls", [])
-		var base_attacks = dice_data.get("base_attacks", 0)
-		# Flush text so far, then render the attack dice as inline icons.
-		log_text += "  [color=yellow][VARIABLE ATTACKS] %s per model → rolled [/color]" % attacks_notation
-		dice_log_display.append_text(log_text)
-		log_text = ""
-		var attack_values := []
-		for r in attacks_rolls:
-			attack_values.append(int(r.get("value", 0)))
-		_append_dice_icons(attack_values, 0, "attacks", 7)
-		dice_log_display.append_text("[color=yellow] = %d attacks[/color]\n" % base_attacks)
-
-	# Show Rapid Fire bonus if applied
-	var rapid_fire_bonus = dice_data.get("rapid_fire_bonus", 0)
-	if rapid_fire_bonus > 0:
-		var rf_value = dice_data.get("rapid_fire_value", 1)
-		var models_in_half = dice_data.get("models_in_half_range", 0)
-		var base_atk = dice_data.get("base_attacks", 0)
-		log_text += "  [color=orange][RAPID FIRE %d] +%d attacks (%d models in half range, %d base attacks)[/color]\n" % [rf_value, rapid_fire_bonus, models_in_half, base_atk]
-
-	# BLAST (PRP-013): Show Blast bonus if applied
-	var blast_weapon = dice_data.get("blast_weapon", false)
-	if blast_weapon and context == "to_hit":
-		var target_model_count = dice_data.get("target_model_count", 0)
-		var blast_bonus_attacks = dice_data.get("blast_bonus_attacks", 0)
-
-		if blast_bonus_attacks > 0:
-			log_text += "  [color=lime][BLAST] +%d attacks (%d models in target)[/color]\n" % [blast_bonus_attacks, target_model_count]
-		elif blast_bonus_attacks == 0:
-			log_text += "  [color=gray][BLAST] No bonus (%d models in target < 5)[/color]\n" % target_model_count
-
-	# LETHAL HITS (PRP-010): Show Lethal Hits indicator and auto-wounds
-	var lethal_hits_weapon = dice_data.get("lethal_hits_weapon", false)
-	if lethal_hits_weapon and context == "to_hit":
-		log_text += "  [color=magenta][LETHAL HITS] Critical hits (6s) auto-wound![/color]\n"
-
-	# SUSTAINED HITS (PRP-011): Show Sustained Hits indicator
-	var sustained_hits_weapon = dice_data.get("sustained_hits_weapon", false)
-	if sustained_hits_weapon and context == "to_hit":
-		var sh_value = dice_data.get("sustained_hits_value", 0)
-		var sh_is_dice = dice_data.get("sustained_hits_is_dice", false)
-		var sh_display = "D%d" % sh_value if sh_is_dice else str(sh_value)
-		log_text += "  [color=cyan][SUSTAINED HITS %s] Critical hits (6s) generate +%s extra hits![/color]\n" % [sh_display, sh_display]
-
-	# Show wound modifier summary for to_wound rolls
-	if context == "to_wound":
-		var wm_net = dice_data.get("wound_modifier_net", 0)
-		if wm_net != 0:
-			var sign_str = "+%d" % wm_net if wm_net > 0 else "%d" % wm_net
-			log_text += "  [color=cyan]Wound modifier: %s[/color]\n" % sign_str
-
-	# Show hit modifier summary for to_hit rolls (modifiers_applied is a bitmask)
-	if context == "to_hit":
-		var hm_bitmask = dice_data.get("modifiers_applied", 0)
-		if hm_bitmask != 0:
-			var hm_parts: Array = []
-			if hm_bitmask & 2:  # PLUS_ONE
-				hm_parts.append("+1 to hit")
-			if hm_bitmask & 4:  # MINUS_ONE
-				hm_parts.append("-1 to hit")
-			if hm_bitmask & 1:  # REROLL_ONES
-				hm_parts.append("re-roll 1s")
-			if hm_bitmask & 8:  # REROLL_FAILED
-				hm_parts.append("re-roll failed")
-			if not hm_parts.is_empty():
-				log_text += "  [color=cyan]%s[/color]\n" % ", ".join(hm_parts)
-
-	# Show re-rolls if any occurred
-	if not rerolls.is_empty():
-		log_text += "  [color=yellow]Re-rolled:[/color] "
-		for reroll in rerolls:
-			log_text += "[s]%d[/s]→%d " % [reroll.original, reroll.rerolled_to]
-		log_text += "\n"
-
-	# Show rolls with per-die pass/fail coloring
-	# Always display raw d6 values; color based on modified pass/fail
-	var check_rolls = rolls_modified if not rolls_modified.is_empty() else rolls_raw
-	var show_rolls = rolls_raw if not rolls_raw.is_empty() else check_rolls
-	var threshold_num = threshold.replace("+", "").to_int() if threshold != "" else 0
-	var critical_hit_threshold = dice_data.get("critical_hit_threshold", 6)
-
-	if threshold_num > 0 and not show_rolls.is_empty():
-		# Flush text accumulated so far, then render the dice as inline icons.
-		log_text += "  Rolls: "
-		dice_log_display.append_text(log_text)
-		log_text = ""
-		_append_dice_icons(show_rolls, threshold_num, context, critical_hit_threshold, check_rolls)
-	else:
-		log_text += "  Rolls: "
-		dice_log_display.append_text(log_text)
-		log_text = ""
-		_append_dice_icons(show_rolls, 0, context, critical_hit_threshold)
-
-	# CRITICAL HIT TRACKING (PRP-031): Show critical hits for to_hit rolls
-	var critical_hits = dice_data.get("critical_hits", 0)
-	if context == "to_hit" and critical_hits > 0:
-		log_text += " [color=magenta](%d critical)[/color]" % critical_hits
-
-	# Show success count
-	if successes >= 0:
-		log_text += " → [b][color=green]%d successes[/color][/b]" % successes
-
-	# SUSTAINED HITS (PRP-011): Show bonus hits generated for to_hit rolls
-	var sustained_bonus_hits = dice_data.get("sustained_bonus_hits", 0)
-	if context == "to_hit" and sustained_bonus_hits > 0:
-		var total_for_wounds = dice_data.get("total_hits_for_wounds", 0)
-		log_text += "\n  [color=cyan][SUSTAINED HITS] +%d bonus hits → %d total hits for wound roll[/color]" % [sustained_bonus_hits, total_for_wounds]
-
-	# LETHAL HITS (PRP-010): Show auto-wounds for wound rolls
-	var lethal_auto_wounds = dice_data.get("lethal_hits_auto_wounds", 0)
-	if context == "to_wound" and lethal_auto_wounds > 0:
-		var wounds_from_rolls = dice_data.get("wounds_from_rolls", 0)
-		log_text += "\n  [color=magenta][LETHAL HITS] %d auto-wounds + %d from rolls[/color]" % [lethal_auto_wounds, wounds_from_rolls]
-
-	# Save roll: show failed saves (which cause wounds)
-	if context == "save_roll":
-		var failed = dice_data.get("failed", 0)
-		if failed > 0:
-			log_text += ", [color=red]%d failed (wounds)[/color]" % failed
-		else:
-			log_text += " [color=green](all saved!)[/color]"
-		var using_invuln_save = dice_data.get("using_invuln", false)
-		if using_invuln_save:
-			log_text += "\n  [color=cyan](Using Invulnerable Save)[/color]"
-		else:
-			var original_save = dice_data.get("original_save", 0)
-			var save_ap = dice_data.get("ap", 0)
-			if original_save > 0 and save_ap != 0:
-				log_text += "\n  [color=#888888](%d+ base, AP-%d)[/color]" % [original_save, abs(save_ap)]
-
-	log_text += "\n"
-
-	dice_log_display.append_text(log_text)
+	# Structured step-based rendering (headers / numbered step chips / notes)
+	# shared with the fight phase — see DiceLogFormatter.
+	DiceLogFormatter.format_roll_block(dice_log_display, dice_data)
 
 func _on_saves_required(save_data_list: Array) -> void:
 	"""Show WoundAllocationOverlay when defender needs to make saves"""
@@ -3100,7 +2837,8 @@ func _on_saves_required(save_data_list: Array) -> void:
 		print("║ Action built: ", apply_saves_action)
 		print("║ Emitting shoot_action_requested signal...")
 
-		# Log save summary to dice log
+		# Log save summary to dice log (structured: SAVE step already showed the
+		# dice; this is the block's outcome band).
 		if dice_log_display:
 			var s_passed = summary.get("saves_passed", 0)
 			var s_failed = summary.get("saves_failed", 0)
@@ -3109,18 +2847,17 @@ func _on_saves_required(save_data_list: Array) -> void:
 			var s_total = summary.get("total_wounds", 0)
 			var save_summary = ""
 			if s_passed + s_failed > 0:
-				save_summary = "  Saves: [color=green]%d passed[/color], [color=red]%d failed[/color]" % [s_passed, s_failed]
+				save_summary = "Saves: %d passed, %d failed" % [s_passed, s_failed]
 			elif s_total > 0:
-				save_summary = "  Saves: %d wound(s) allocated" % s_total
+				save_summary = "Saves: %d wound(s) allocated" % s_total
 			else:
-				save_summary = "  Saves: none required"
+				save_summary = "Saves: none required"
 			if s_dmg > 0:
-				save_summary += " → [color=red]%d damage[/color]" % s_dmg
+				save_summary += " → %d damage" % s_dmg
 			if s_killed > 0:
-				save_summary += ", [color=red][b]%d killed[/b][/color]" % s_killed
-			elif s_failed == 0 and s_passed > 0:
-				save_summary += " [color=green](all saved!)[/color]"
-			dice_log_display.append_text(save_summary + "\n")
+				save_summary += ", %d killed" % s_killed
+			var save_kind = "bad" if (s_dmg > 0 or s_killed > 0) else "good"
+			DiceLogFormatter.outcome(dice_log_display, save_summary, save_kind)
 
 		# Submit action through Main (which routes through NetworkManager)
 		emit_signal("shoot_action_requested", apply_saves_action)
@@ -3232,9 +2969,9 @@ func _on_weapon_order_required(assignments: Array) -> void:
 		for assignment in assignments:
 			unique_weapon_ids[str(assignment.get("weapon_id", ""))] = true
 		if unique_weapon_ids.size() >= 2:
-			dice_log_display.append_text("[b][color=cyan]Multiple weapon types detected - choose firing order...[/color][/b]\n")
+			DiceLogFormatter.info(dice_log_display, "Multiple weapon types detected - choose firing order...")
 		else:
-			dice_log_display.append_text("[b][color=cyan]Single weapon - rolling step by step...[/color][/b]\n")
+			DiceLogFormatter.info(dice_log_display, "Single weapon - rolling step by step...")
 
 	# Close any existing AcceptDialog instances
 	print("ShootingController: Checking for existing dialogs...")
@@ -3346,9 +3083,9 @@ func _on_weapon_order_confirmed(weapon_order: Array, fast_roll: bool) -> void:
 	# Show feedback in dice log
 	if dice_log_display:
 		if fast_roll:
-			dice_log_display.append_text("[color=cyan]Fast rolling all weapons at once...[/color]\n")
+			DiceLogFormatter.info(dice_log_display, "Fast rolling all weapons at once...")
 		else:
-			dice_log_display.append_text("[color=cyan]Starting sequential weapon resolution...[/color]\n")
+			DiceLogFormatter.info(dice_log_display, "Starting sequential weapon resolution...")
 
 	# Build the action
 	var action = {
@@ -3436,8 +3173,8 @@ func _on_next_weapon_confirmation_required(remaining_weapons: Array, current_ind
 		var weapon_name = last_weapon_result.get("weapon_name", "Unknown")
 		var casualties = last_weapon_result.get("casualties", 0)
 		var cas_label = "casualty" if casualties == 1 else "casualties"
-		dice_log_display.append_text("[b][color=yellow]>>> %s complete: %d %s <<<[/color][/b]\n" %
-			[weapon_name, casualties, cas_label])
+		DiceLogFormatter.outcome(dice_log_display, "%s complete — %d %s" % [weapon_name, casualties, cas_label],
+			"bad" if casualties > 0 else "neutral")
 
 	# Close any existing dialogs
 	var root_children = get_tree().root.get_children()
@@ -3633,7 +3370,7 @@ func _on_next_weapon_order_confirmed(weapon_order: Array, fast_roll: bool) -> vo
 
 	# Show feedback in dice log
 	if dice_log_display:
-		dice_log_display.append_text("[color=cyan]Continuing to next weapon...[/color]\n")
+		DiceLogFormatter.info(dice_log_display, "Continuing to next weapon...")
 
 	# If fast_roll is true in mid-sequence, just resolve all remaining weapons at once
 	if fast_roll:
@@ -3693,7 +3430,7 @@ func _on_shooting_complete() -> void:
 
 	# Show feedback in dice log
 	if dice_log_display:
-		dice_log_display.append_text("[b][color=green]✓ Shooting complete for unit[/color][/b]\n")
+		DiceLogFormatter.outcome(dice_log_display, "Shooting complete for unit", "good")
 
 # ============================================================================
 # P1-10: SENTINEL STORM — SHOOT AGAIN PROMPT
@@ -4084,23 +3821,15 @@ func _on_weapon_tree_item_selected() -> void:
 # is armed, so a multi-weapon unit can aim each gun at a different target
 # without the mouse (LB/RB cycles the target highlight, A assigns it to the
 # stepped weapon). Runs the same selection handler a mouse row-click fires.
+#
+# The walk CLAMPS — it does not wrap. Stepping past the last row (or before the
+# first) returns false, which is how PadRouter's nested-panel model hands the
+# press one level up to the containing panel. Reported from the Deck at T4 step
+# 5: with three guns the old wrap (Slugga → Kombi → Twin sluggas → Slugga …)
+# meant the D-pad could never leave the tree, so CURRENT TARGETS, "Use GRENADE"
+# and "Shoot All Remaining" — all clipped below the fold — were unreachable.
 func pad_step_weapon(dir: int) -> bool:
-	if str(active_shooter_id) == "":
-		return false
-	if weapon_tree == null or not is_instance_valid(weapon_tree) or not weapon_tree.is_visible_in_tree():
-		return false
-	var root: TreeItem = weapon_tree.get_root()
-	if root == null:
-		return false
-	var rows: Array = []
-	var child: TreeItem = root.get_first_child()
-	while child != null:
-		# Disabled weapon rows (engaged non-pistols, 11e shooting-type gate…)
-		# are unselectable — TreeItem.select() on one silently no-ops, which
-		# made ▲ ▼ look dead whenever the step landed on such a row. Skip them.
-		if child.is_selectable(0):
-			rows.append(child)
-		child = child.get_next()
+	var rows := _pad_weapon_rows()
 	if rows.is_empty():
 		return false
 	var sel: TreeItem = weapon_tree.get_selected()
@@ -4108,8 +3837,32 @@ func pad_step_weapon(dir: int) -> bool:
 	if idx == -1:
 		idx = 0 if dir > 0 else rows.size() - 1
 	else:
-		idx = wrapi(idx + dir, 0, rows.size())
-	var row: TreeItem = rows[idx]
+		var next := idx + dir
+		if next < 0 or next >= rows.size():
+			return false  # exit to the containing panel — see the note above
+		idx = next
+	return _pad_apply_weapon_row(rows[idx])
+
+# The selectable weapon rows, top to bottom. Disabled rows (engaged non-pistols,
+# the 11e shooting-type gate…) are unselectable — TreeItem.select() on one
+# silently no-ops, which made ▲ ▼ look dead whenever a step landed on one.
+func _pad_weapon_rows() -> Array:
+	if str(active_shooter_id) == "":
+		return []
+	if weapon_tree == null or not is_instance_valid(weapon_tree) or not weapon_tree.is_visible_in_tree():
+		return []
+	var root: TreeItem = weapon_tree.get_root()
+	if root == null:
+		return []
+	var rows: Array = []
+	var child: TreeItem = root.get_first_child()
+	while child != null:
+		if child.is_selectable(0):
+			rows.append(child)
+		child = child.get_next()
+	return rows
+
+func _pad_apply_weapon_row(row: TreeItem) -> bool:
 	row.select(0)
 	weapon_tree.scroll_to_item(row)
 	_ensure_weapon_tree_in_panel_view()
@@ -4123,6 +3876,27 @@ func pad_step_weapon(dir: int) -> bool:
 	if PadRouter.target_highlight_id != "" and eligible_targets.has(PadRouter.target_highlight_id):
 		_update_damage_preview(str(row.get_metadata(0)), str(PadRouter.target_highlight_id))
 	return true
+
+# --- PadRouter nested-panel sub-list protocol -------------------------------
+# The weapon tree is level 1 of the D-pad model: ▲ ▼ steps its rows, and past
+# either end the press escapes to the panel around it. These two let PadRouter
+# find the widget (for the geometry that decides when a panel-level step walks
+# back over it) and re-enter it from the panel side, so the exit is reversible.
+
+# The weapon tree while it is a live pad sub-list, else null.
+func pad_list_control() -> Control:
+	if _pad_weapon_rows().is_empty():
+		return null
+	return weapon_tree
+
+# Re-enter from the containing panel: coming DOWN into the tree (dir > 0) takes
+# its first row, coming UP takes its last — the row nearest where the player
+# walked in from.
+func pad_list_enter(dir: int) -> bool:
+	var rows := _pad_weapon_rows()
+	if rows.is_empty():
+		return false
+	return _pad_apply_weapon_row(rows[0] if dir > 0 else rows[rows.size() - 1])
 
 # Pad (controller) support: mark `target_id` as THE unit the next A press
 # assigns to — gold reticle brackets on every alive model plus a
@@ -4320,7 +4094,7 @@ func _on_undo_last_pressed() -> void:
 func _on_confirm_pressed() -> void:
 	# Show visual feedback that shooting is resolving
 	if dice_log_display:
-		dice_log_display.append_text("[color=yellow]Rolling dice...[/color]\n")
+		DiceLogFormatter.info(dice_log_display, "Rolling dice...", "#E8D070")
 	
 	emit_signal("shoot_action_requested", {
 		"type": "CONFIRM_TARGETS"

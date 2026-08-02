@@ -1,0 +1,617 @@
+{
+  "id": "pad_nested_panel_walk",
+  "covers": [
+    "padrouter.panel_nav.row_walk",
+    "padrouter.panel_nav.no_wrap",
+    "padrouter.panel_nav.scroll_at_ends",
+    "padrouter.panel_nav.sub_list_exit_and_reentry",
+    "shootingcontroller.pad_step_weapon.clamped",
+    "shootingcontroller.pad_list_control",
+    "tutorial.t4.shooting.pad"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Steam Deck player report (T4 'Dakka Time' step 5, 1280x800): with every gun assigned, the D-pad just looped round the weapon rows - Slugga -> Kombi-weapon -> Twin sluggas -> Slugga - and there was no press that moved the right panel itself, so CURRENT TARGETS, 'Use GRENADE', 'Shoot All Remaining' and 'Start Action' stayed clipped below the fold and unreachable. This scenario drives the nested-panel D-pad model on the pad at the Deck's resolution and asserts every rule of it: (1) LEVEL 1 - the weapon walk CLAMPS, so DOWN off the last row does not wrap, it exits to the containing panel; (2) LEVEL 2 - the panel walks a ROW at a time (Clear All / Undo Last / Confirm count as one) and scrolls itself so the row being focused is on screen, which is how the clipped rows become reachable at all; (3) the ends CLAMP - extra presses at the bottom leave focus put instead of looping back to the top; (4) LEFT/RIGHT picks within the focused row and clamps at its edges; (5) the exit is REVERSIBLE - walking back up re-enters the weapon tree at its last row, and off its first row exits upward onto the control above; (6) none of it disturbs the three staged assignments, and Start still confirms into roll_da_dice. Menu navigation runs at the default window size (runner clicks/glides are logical-space); the window drops to 1280x800 once the lesson is loaded, before any assertion.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/MainMenu/TutorialNudge/Margin/VBox/Footer/DismissNudgeButton",
+      "comment": "fresh container / fresh user:// = the first-launch nudge is up and swallows the pad menu navigation below. Dismiss it if present."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode so the tutorial renders pad copy and the virtual cursor arms"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Tutorial"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t4_dakka/Play_t4_dakka"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "intro"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Continue"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pick_da_boyz"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.mode = Window.MODE_WINDOWED\ntree.root.size = Vector2i(1280, 800)\nreturn \"resized\"",
+      "multiline": true,
+      "equals": "resized",
+      "comment": "STEAM DECK EMULATION: 1280x800 physical -> the canvas_items/expand stretch yields a 1920x1200 logical canvas at 0.667 scale, exactly what the Deck renders. Done AFTER the glide/click menu steps (runner clicks are logical-space and would land wrong under a non-1.0 scale); everything from here is joy buttons + scripts only."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.root.get_visible_rect().size)",
+      "multiline": true,
+      "equals": "(1920.0, 1200.0)"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 10,
+      "comment": "RB cycles the acting unit to the Boyz"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nreturn str(pi.active_shooter_id)",
+      "multiline": true,
+      "equals": "U_BOYZ_T"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "aim_first_gun"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 14,
+      "comment": "D-pad parks the virtual cursor (the picker glides left it live; A would be a click, not Assign). Only one target is eligible, so the ring does not move."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return VirtualCursor.is_cursor_active()",
+      "multiline": true,
+      "equals": false
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "down onto the Slugga row"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "slugga_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "aim the Sluggas at the Witchseekers"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "aim_da_rest"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "kombi_weapon_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"/root/AbilityChoiceDialog\")\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the kombi-weapon has DEVASTATING WOUNDS, so assigning it can open the attacker-choices dialog - confirm it to commit the assignment (tolerant: no-op if it did not appear)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "twin_sluggas_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var n := 0\nfor a in PhaseManager.current_phase_instance.pending_assignments:\n\tn += 1\nreturn n",
+      "multiline": true,
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_dakka"
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "twin_sluggas_ranged",
+      "comment": "the LAST weapon row is selected - the exact spot the player reported the D-pad looping from"
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nreturn \"none\" if f == null else str(f.name)",
+      "multiline": true,
+      "equals": "none",
+      "comment": "level 1: the weapon walk owns the D-pad, no panel control has focus yet"
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.current_scene.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\").get_v_scroll_bar().visible",
+      "multiline": true,
+      "equals": true,
+      "comment": "precondition: at 1280x800 the right panel really does overflow its viewport, so rows are clipped"
+    },
+    {
+      "act": "execute_script",
+      "script": "var scr = tree.current_scene.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\")\nreturn int(scr.get_v_scroll_bar().max_value - scr.get_v_scroll_bar().page) > 0",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var scr = tree.current_scene.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\")\nvar b = tree.current_scene.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\").get_node(\"ShootingPanel/DeclarationBox\").get_node_or_null(\"StartActionButton\")\nif b == null:\n\treturn \"StartActionButton missing\"\nvar br = b.get_global_rect()\nvar sr = scr.get_global_rect()\nreturn br.position.y >= sr.position.y - 1.0 and br.end.y <= sr.end.y + 1.0",
+      "multiline": true,
+      "equals": false,
+      "comment": "THE BUG: the bottom of the panel (Start Action) is clipped out of the viewport and the pad could not reach it"
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.current_scene\nm.set_meta(\"nested_scroll_before\", tree.current_scene.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\").scroll_vertical)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_weapon_row_last_panel_clipped"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "D-pad DOWN off the LAST weapon row"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "twin_sluggas_ranged",
+      "comment": "NO WRAP: the walk did not loop back round to the Slugga row (the reported bug)"
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"none\"\nreturn str(f.text) if (\"text\" in f) else str(f.name)",
+      "multiline": true,
+      "equals": "Use GRENADE (1 CP) — 2 units",
+      "comment": "EXIT one level up: focus lands on the first panel control below the weapon tree"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "the panel walks a ROW at a time from here"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"none\"\nreturn str(f.text) if (\"text\" in f) else str(f.name)",
+      "multiline": true,
+      "equals": "Confirm (3 weapons)",
+      "comment": "Clear All / Undo Last / Confirm are ONE row - the D-pad steps onto it once"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"none\"\nreturn str(f.text) if (\"text\" in f) else str(f.name)",
+      "multiline": true,
+      "equals": "Shoot All Remaining"
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.current_scene\nreturn tree.current_scene.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\").scroll_vertical > int(m.get_meta(\"nested_scroll_before\", 0))",
+      "multiline": true,
+      "equals": true,
+      "comment": "the containing panel SCROLLED to bring the previously-clipped row on screen"
+    },
+    {
+      "act": "execute_script",
+      "script": "var scr = tree.current_scene.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\")\nvar b = tree.current_scene.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\").get_node(\"ShootingPanel/DeclarationBox\").get_node_or_null(\"ShootAllRemainingButton\")\nif b == null:\n\treturn \"ShootAllRemainingButton missing\"\nvar br = b.get_global_rect()\nvar sr = scr.get_global_rect()\nreturn br.position.y >= sr.position.y - 1.0 and br.end.y <= sr.end.y + 1.0",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"none\"\nreturn str(f.text) if (\"text\" in f) else str(f.name)",
+      "multiline": true,
+      "equals": "Start Action: Hold Position"
+    },
+    {
+      "act": "execute_script",
+      "script": "var scr = tree.current_scene.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\")\nvar b = tree.current_scene.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\").get_node(\"ShootingPanel/DeclarationBox\").get_node_or_null(\"StartActionButton\")\nif b == null:\n\treturn \"StartActionButton missing\"\nvar br = b.get_global_rect()\nvar sr = scr.get_global_rect()\nreturn br.position.y >= sr.position.y - 1.0 and br.end.y <= sr.end.y + 1.0",
+      "multiline": true,
+      "equals": true,
+      "comment": "the row that was clipped at the start of this scenario is now fully on screen and focused"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_panel_bottom_reached_by_dpad"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "pressing DOWN at the bottom must NOT wrap round to the top"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"none\"\nreturn str(f.text) if (\"text\" in f) else str(f.name)",
+      "multiline": true,
+      "equals": "Start Action: Hold Position",
+      "comment": "clamped: extra presses at the end of the chain leave focus where it is"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "back up to the Clear All / Undo Last / Confirm row"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"none\"\nreturn str(f.text) if (\"text\" in f) else str(f.name)",
+      "multiline": true,
+      "equals": "Confirm (3 weapons)"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 13,
+      "comment": "D-pad LEFT picks WITHIN the focused row"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"none\"\nreturn str(f.text) if (\"text\" in f) else str(f.name)",
+      "multiline": true,
+      "equals": "Undo Last"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 13
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"none\"\nreturn str(f.text) if (\"text\" in f) else str(f.name)",
+      "multiline": true,
+      "equals": "Clear All"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 13,
+      "comment": "and clamps at the row's edge instead of wrapping"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"none\"\nreturn str(f.text) if (\"text\" in f) else str(f.name)",
+      "multiline": true,
+      "equals": "Clear All"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 14
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"none\"\nreturn str(f.text) if (\"text\" in f) else str(f.name)",
+      "multiline": true,
+      "equals": "Undo Last"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "UP out of the button row"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"none\"\nreturn str(f.text) if (\"text\" in f) else str(f.name)",
+      "multiline": true,
+      "equals": "Use GRENADE (1 CP) — 2 units"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "UP again walks back INTO the weapon tree"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nreturn \"none\" if f == null else str(f.name)",
+      "multiline": true,
+      "equals": "none",
+      "comment": "panel focus released - level 1 owns the D-pad again"
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "twin_sluggas_ranged",
+      "comment": "re-entered at the tree's LAST row, the one nearest where the player walked in from"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "kombi_weapon_ranged",
+      "comment": "and the weapon walk resumes normally"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "slugga_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "UP off the FIRST weapon row exits upward"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "slugga_ranged",
+      "comment": "NO WRAP at the top end either"
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nif f == null:\n\treturn \"none\"\nreturn str(f.text) if (\"text\" in f) else str(f.name)",
+      "multiline": true,
+      "equals": "Apply to 1 Remaining Weapons",
+      "comment": "exits onto the first panel control ABOVE the tree"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_walked_back_up_through_the_tree"
+    },
+    {
+      "act": "execute_script",
+      "script": "var n := 0\nfor a in PhaseManager.current_phase_instance.pending_assignments:\n\tn += 1\nreturn n",
+      "multiline": true,
+      "equals": 3,
+      "comment": "the whole walk is navigation only - the three staged assignments are untouched"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1,
+      "comment": "B releases panel focus back to the board"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.gui_get_focus_owner()\nreturn \"none\" if f == null else str(f.name)",
+      "multiline": true,
+      "equals": "none"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "Start still confirms the targets - the lesson's happy path is intact"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(TutorialManager.current_step_id())",
+      "multiline": true,
+      "equals": "roll_da_dice"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_confirmed_after_walk"
+    }
+  ]
+}

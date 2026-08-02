@@ -176,7 +176,7 @@
     },
     {
       "act": "execute_script",
-      "script": "main.get_node(\"ShootingController\").dice_log_display.get_parsed_text().contains(\"need 3+ (cover)\")",
+      "script": "main.get_node(\"ShootingController\").dice_log_display.get_parsed_text().contains(\"3+ (cover)\")",
       "equals": true
     },
     {

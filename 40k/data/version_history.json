@@ -2,13 +2,39 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.12.15",
+      "version": "1.13.2",
       "date": "2026-08-02",
       "summary": "Shooting panel fix: the right-hand panel no longer has its left-hand edge cut off — weapon names, section headings and unit rows are all readable again.",
       "changes": [
         "Fixed: once you aimed your first gun, the whole right-hand panel shifted left and lost its first ~84 pixels behind the panel edge — \"SHOOTING CONTROLS\" read as \"CONTROLS\", \"Slugga x10\" read as \"x10\", and every weapon name was cut off. Most visible in the Dakka Time tutorial, but it affected any shooting unit.",
         "Cause: the \"Same target for all: Apply to N Remaining Weapons\" row and the Clear All / Undo Last / Confirm row were together wider than the panel, which made it scroll sideways — and something then scrolled it fully right.",
         "Those two rows now wrap onto a second line instead of forcing the panel wider than it can be, and the shooting panel can no longer scroll sideways at all, so its left edge always stays put."
+      ]
+    },
+    {
+      "version": "1.13.1",
+      "date": "2026-08-02",
+      "summary": "Controller: the D-pad no longer gets stuck looping round a list inside a panel — walk off the end of one and it steps out to the panel around it, scrolling to whatever was hidden below the fold.",
+      "changes": [
+        "Fixed (reported on Steam Deck, tutorial 'Dakka Time' step 5): the D-pad looped round the weapon rows for ever — Slugga, Kombi-weapon, Twin sluggas, Slugga… — and no press moved the right-hand panel itself. CURRENT TARGETS, 'Use GRENADE', 'Shoot All Remaining' and 'Start Action' were clipped below the fold with no way to reach them on a controller.",
+        "Lists inside a panel now CLAMP instead of looping: press ▼ past the last weapon (or ▲ before the first) and you step out into the panel around it, landing on the next control that way.",
+        "In the panel, ▲ ▼ moves a row at a time and scrolls the panel so the row you are on is on screen; when the controls run out, ▲ ▼ keeps scrolling so the rows in between — CURRENT TARGETS, the forecasts — can actually be read.",
+        "◀ ▶ picks between buttons sharing a row (Clear All ◀▶ Undo Last ◀▶ Confirm).",
+        "Walking back the other way steps straight back into the list you came out of, at the row nearest where you re-entered.",
+        "Nothing wraps around any more, in either direction — B still hands the controller back to the board.",
+        "The same rule now covers the charge phase's ELIGIBLE TARGETS rows, and the D-pad skips greyed-out buttons instead of parking on one that cannot be pressed."
+      ]
+    },
+    {
+      "version": "1.13.0",
+      "date": "2026-08-02",
+      "summary": "The Dice Log is readable at a glance: every attack now renders as a structured sequence — headers, numbered colour-coded step chips (HIT / WOUND / SAVE / DAMAGE / FNP) with the dice beside them, and clear ✔/✘ outcome lines.",
+      "changes": [
+        "Each attack opens with a gold header naming the weapon and target, and each weapon in a volley gets its own sub-header — no more hunting through free text to see where one attack ends and the next begins.",
+        "Every roll is a numbered step chip in a fixed left column (1· HIT 3+, 2· WOUND 4+, 3· SAVE 5+…) with its dice icons and a bold result (\"7/10 hit\", \"2 failed\") on the right, so the attack sequence reads top-to-bottom like the rulebook.",
+        "Modifiers and keywords (Heavy, Blast, Sustained/Lethal Hits, re-rolls, AP breakdown) now appear as small dim notes under their step instead of shouting in the main flow.",
+        "Charge and Advance rolls use the same structure — a CHARGE/ADVANCE chip with the dice and total, plus a clear ✔ success / ✘ failure line.",
+        "Shooting, Fight, Charge and Movement phases all share one formatter, so dice output finally looks the same everywhere."
       ]
     },
     {
