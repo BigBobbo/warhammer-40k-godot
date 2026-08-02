@@ -87,6 +87,7 @@ static func validate(lesson: Dictionary) -> Array:
 		if typeof(allow) != TYPE_ARRAY and str(allow) != "*":
 			errors.append("%s (%s): 'allow' must be an array or \"*\"" % [tag, sid])
 		errors.append_array(_validate_checklist(step, tag, sid))
+		errors.append_array(_validate_anchor_when(step, tag, sid))
 		# Soft guidance: keep instructions short (warning only, never fatal).
 		var prompt = step.get("prompt", {})
 		if typeof(prompt) == TYPE_DICTIONARY:
@@ -136,6 +137,35 @@ static func _validate_checklist(step: Dictionary, tag: String, sid: String) -> A
 		var idev := str(item.get("device", "any"))
 		if not idev in VALID_DEVICE:
 			errors.append("%s (%s): checklist item '%s' bad device '%s'" % [tag, sid, iid, idev])
+	return errors
+
+
+# Conditional spotlight targets: `anchor_when` is an ordered list of
+# {script, anchor, spotlight} and the first entry whose predicate is true owns
+# the ring (TutorialManager._poll_anchor_when). An entry with no predicate would
+# win forever and an entry with no anchor would blank the spotlight, so both are
+# hard errors — a mis-authored entry silently strands the ring on the wrong
+# control, which is exactly the confusion the feature exists to remove.
+static func _validate_anchor_when(step: Dictionary, tag: String, sid: String) -> Array:
+	var errors: Array = []
+	if not step.has("anchor_when"):
+		return errors
+	var specs = step.get("anchor_when")
+	if typeof(specs) != TYPE_ARRAY or (specs as Array).is_empty():
+		errors.append("%s (%s): 'anchor_when' must be a non-empty array" % [tag, sid])
+		return errors
+	for j in range((specs as Array).size()):
+		var entry = specs[j]
+		if typeof(entry) != TYPE_DICTIONARY:
+			errors.append("%s (%s): anchor_when %d is not an object" % [tag, sid, j])
+			continue
+		if str(entry.get("script", "")) == "":
+			errors.append("%s (%s): anchor_when %d missing 'script'" % [tag, sid, j])
+		if typeof(entry.get("anchor", null)) != TYPE_DICTIONARY or (entry.get("anchor") as Dictionary).is_empty():
+			errors.append("%s (%s): anchor_when %d missing 'anchor' object" % [tag, sid, j])
+		var spot := str(entry.get("spotlight", "soft"))
+		if not spot in VALID_SPOTLIGHT:
+			errors.append("%s (%s): anchor_when %d bad spotlight '%s'" % [tag, sid, j, spot])
 	return errors
 
 

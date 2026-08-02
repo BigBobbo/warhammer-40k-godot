@@ -29,8 +29,9 @@
       "equals": true
     },
     {
-      "act": "simulate_joy_button",
-      "button_index": 12
+      "act": "pad_cursor_glide",
+      "button_text": "Tutorial",
+      "comment": "virtual cursor onto the menu's Tutorial button. Was a blind D-pad-down + A, which assumed the button sat one focus-step below the menu's initial focus; the above-the-fold rework put the six secondary actions in a 3-column grid, so down from Start Game now lands on Multiplayer and the picker never opened. Same repair tut_t1_basics_pad.json already carries."
     },
     {
       "act": "wait_seconds",
@@ -390,6 +391,34 @@
       "script": "TutorialManager.current_step_id()",
       "equals": "boyz_move_after_disembark",
       "comment": "staging a model must NOT advance the step - it waits for the move to be locked in"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"End This Unit's Move\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "REPORTED: the step never told the player the move has to be locked in. The pad body was the worse half - it stopped at '{a} drops da lot' and never mentioned the button OR the Start-button shortcut, so a pad player had nothing to go on."
+    },
+    {
+      "act": "execute_script",
+      "script": "var cl = TutorialManager.checklist_state()\nif not bool(cl.get(\"mob_shifted\", false)):\n\treturn \"mob_shifted did not tick after the drop\"\nif bool(cl.get(\"move_locked\", false)):\n\treturn \"move_locked ticked before the confirm\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "box one ticks off the drop, box two stays OPEN - the outstanding confirm is on the card, not just in a sentence"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = o.current_checklist_text()\nif not t.contains(\"Lock it in\"):\n\treturn \"checklist row missing the lock-it-in box: %s\" % t\nif not t.contains(\"[\\u2630]\"):\n\treturn \"pad box does not carry the Start glyph: %s\" % t\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the pad_label variant is the one rendered: it pairs the button name with the {menu} chip, so the pad player reads the shortcut they actually have. The chip renders through GlyphDB, so an unresolved token would read '{menu}' and fail this."
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_anchor_name()",
+      "multiline": true,
+      "equals": "ConfirmMoveButton",
+      "comment": "anchor_when: with the mob down, the spotlight has walked off the Boyz and onto the button - the glide below goes to the control the ring is already on"
     },
     {
       "act": "screenshot",

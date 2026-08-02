@@ -8,7 +8,7 @@
   "edition": 11,
   "rng_seed": 42,
   "disable_ai": true,
-  "description": "11e Burden of Trust guard selection UX: with the Warboss teleported onto the centre objective, a human P2 draws Burden of Trust — guards auto-assign (Warboss guards obj_center) and, after the drawn-missions review closes, the GuardSelectionDialog offers the per-objective pickers. The dialog must fit fully within the viewport so the Confirm / Keep action buttons are reachable (regression guard: the AcceptDialog previously blew up to thousands of pixels tall from the autowrap description Label's minimum size, pushing the buttons off-screen so selections could not be confirmed). 'Keep Auto Picks' closes the revision window while keeping the guard map, and guarded scoring counts obj_center while controlled.",
+  "description": "11e Burden of Trust guard selection UX: with the Warboss teleported onto the centre objective, a human P2 draws Burden of Trust — guards auto-assign (Warboss guards obj_center) and, after the drawn-missions review closes, the GuardSelectionDialog offers the per-objective pickers. The dialog must fit fully within the viewport so the Confirm / Keep action buttons are reachable (regression guard: the AcceptDialog previously blew up to thousands of pixels tall from the autowrap description Label's minimum size, pushing the buttons off-screen so selections could not be confirmed). 'Keep Auto Picks' closes the revision window while keeping the guard map, and guarded scoring counts the objectives whose auto-picked guard is in range and controlled.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
@@ -61,7 +61,8 @@
     { "act": "execute_script", "script": "MissionManager.check_all_objectives()" },
     { "act": "execute_script",
       "script": "SecondaryMissionManager._count_guarded_objectives(2, {}, SecondaryMissionManager._player_state[\"2\"][\"active\"][0])",
-      "equals": 1 },
+      "equals": 2,
+      "comment": "obj_home_2 (Boyz in range) plus obj_nml_2 (Warboss C in range). Was 1 while the auto-assign could hand obj_nml_2 to an EMBARKED unit, which can never be within range of a marker and so never scored; the auto picks now skip embarked units for a marker someone is standing on." },
     { "act": "screenshot", "label": "02_guards_kept_and_counting" }
   ]
 }
