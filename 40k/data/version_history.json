@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.13.3",
+      "date": "2026-08-02",
+      "summary": "Steam Deck: the D-pad now walks the whole Declare Battle Formations list instead of jumping out of it — every Strategic Reserves and Deep Strike option is reachable again.",
+      "changes": [
+        "On a controller, pressing down on the last visible row of the formations panel used to skip straight to the Skip / Confirm Formations buttons. Every unit below the fold — usually the entire Strategic Reserves and Deep Strike section — could not be reached without a mouse. Down now moves to the next row in the list, and only the very last row hands off to the buttons.",
+        "The panel scrolls to follow the D-pad, so the row you are on is always the row you can see.",
+        "Up from the Skip / Confirm buttons steps back into the bottom of the list, and left / right move between Skip and Confirm instead of throwing focus somewhere else on the screen.",
+        "Changing a leader attachment rebuilds the reserves list — the controller route through it is rebuilt with it, so the walk doesn't dead-end afterwards."
+      ]
+    },
+    {
       "version": "1.13.2",
       "date": "2026-08-02",
       "summary": "Shooting panel fix: the right-hand panel no longer has its left-hand edge cut off — weapon names, section headings and unit rows are all readable again.",
