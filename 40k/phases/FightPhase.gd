@@ -1042,6 +1042,7 @@ func _process_assign_attacks(action: Dictionary) -> Dictionary:
 	return create_result(true, [])
 
 func _process_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
+	var _perf_t0 := Time.get_ticks_usec()
 	# Move pending attacks to confirmed attacks (but don't resolve yet)
 	confirmed_attacks = pending_attacks.duplicate(true)
 	pending_attacks.clear()
@@ -1054,10 +1055,25 @@ func _process_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
 	# leaves out — see _auto_assign_unassigned_models.
 	_auto_assign_unassigned_models()
 
+	var _perf_t1 := Time.get_ticks_usec()
 	emit_signal("fighting_begun", active_fighter_id)
+	var _perf_t2 := Time.get_ticks_usec()
 
 	# Show mathhammer predictions before rolling
 	_show_mathhammer_predictions()
+	var _perf_t3 := Time.get_ticks_usec()
+
+	# Only when it actually costs something — this confirm is the action that
+	# used to stall for 3.6 s (see _show_mathhammer_predictions), so leave the
+	# breakdown in as a tripwire rather than re-deriving it next time.
+	var _perf_total_ms := (_perf_t3 - _perf_t0) / 1000.0
+	if _perf_total_ms >= 5.0:
+		DebugLogger.info("[PERF] FightPhase.CONFIRM_AND_RESOLVE_ATTACKS: inject=%.1fms fighting_begun=%.1fms mathhammer=%.1fms TOTAL=%.1fms" % [
+			(_perf_t1 - _perf_t0) / 1000.0,
+			(_perf_t2 - _perf_t1) / 1000.0,
+			(_perf_t3 - _perf_t2) / 1000.0,
+			_perf_total_ms
+		])
 
 	log_phase_message("Attack assignments confirmed for %s - ready to roll dice!" % active_fighter_id)
 	return create_result(true, [])
@@ -2258,10 +2274,24 @@ func _auto_assign_unassigned_models() -> void:
 
 
 func _show_mathhammer_predictions() -> void:
-	# Use mathhammer to calculate expected results before rolling
+	# Pre-roll "what should I expect" line, shown in the combat log the moment
+	# attacks are confirmed.
+	#
+	# PERF (2026-08-01): this used to call Mathhammer's Monte-Carlo simulator
+	# with 1000 trials PER TARGET. Each trial replays the full
+	# RulesEngine (~1.9 ms on a 26-unit board), and the whole thing runs
+	# synchronously inside the BATCH_FIGHT_ACTIONS that then rolls the dice —
+	# so the game froze for the duration. Measured on this exact path:
+	# CONFIRM_AND_RESOLVE_ATTACKS = 3605 ms total, of which 3583 ms was this
+	# function. That is the "several second hang after confirming weapons"
+	# reported from the Steam Deck; splitting attacks across two targets
+	# doubled it. Mathhammer.analytic_forecast() computes the same two numbers
+	# in closed form in well under a millisecond — see the assumptions
+	# documented on it (abilities/FNP/modifiers are not modelled, hence "~").
 	if confirmed_attacks.is_empty():
 		return
 
+	var _perf_t0 := Time.get_ticks_usec()
 	var attacker_unit = get_unit(active_fighter_id)
 	var attacker_name = attacker_unit.get("meta", {}).get("name", active_fighter_id)
 	var attacker_models = attacker_unit.get("models", [])
@@ -2283,71 +2313,34 @@ func _show_mathhammer_predictions() -> void:
 		var target_unit = get_unit(target_id)
 		var target_name = target_unit.get("meta", {}).get("name", target_id)
 
-		# Build attacker weapon configs from confirmed attacks for this target
-		var weapons = []
+		# Build the weapon slices for this target. The model list on the
+		# assignment is what actually swings — a one-model Power klaw must not
+		# be multiplied by the whole mob (MA-LOADOUT).
+		var weapon_specs = []
+		var weapon_texts = []
 		for attack in target_attacks:
 			var weapon_id = attack.get("weapon", "")
 			var attacking_models = attack.get("models", [])
 
-			# Build model_ids list from attacking models
-			var model_ids = []
-			if not attacking_models.is_empty():
-				model_ids = attacking_models
-			else:
+			var model_count = attacking_models.size()
+			if model_count <= 0:
 				# Default to all alive models
+				model_count = 0
 				for i in range(attacker_models.size()):
 					if attacker_models[i].get("alive", true):
-						model_ids.append(str(i))
+						model_count += 1
 
-			# Get weapon profile to determine attack count
-			var weapon_profile = RulesEngine.get_weapon_profile(weapon_id, game_state_snapshot)
-			var base_attacks = weapon_profile.get("attacks", 1)
-
-			weapons.append({
+			weapon_specs.append({
 				"weapon_id": weapon_id,
-				"model_ids": model_ids,
-				"attacks": base_attacks
+				"model_count": model_count
 			})
 
-		var attacker_config = {
-			"unit_id": active_fighter_id,
-			"weapons": weapons
-		}
+			var w_profile = Mathhammer.resolve_weapon_profile(weapon_id, attacker_unit, game_state_snapshot)
+			weapon_texts.append(w_profile.get("name", weapon_id))
 
-		# Check if attacker has charged this turn (for Lance bonus)
-		var rule_toggles = {}
-		var flags = attacker_unit.get("flags", {})
-		if flags.get("charged_this_turn", false):
-			rule_toggles["lance_charged"] = true
-
-		# Build mathhammer simulation config
-		# Issue #329: route through RNGService so RNGService.test_mode_seed applies for deterministic UI snapshots
-		var _mh_rng = RulesEngine.make_rng()
-		# MEM-12: fewer trials on web — this runs per declared attack, and the
-		# per-trial allocations ratchet the WASM heap. 200 trials keeps the
-		# one-line "~X wounds, Y% kill" estimate stable enough for the UI.
-		var _mh_trials = 200 if OS.has_feature("web") else 1000
-		var config = {
-			"trials": _mh_trials,  # Reduced for real-time predictions
-			"attackers": [attacker_config],
-			"defender": {"unit_id": target_id},
-			"rule_toggles": rule_toggles,
-			"phase": "fight",
-			"seed": _mh_rng.randi()
-		}
-
-		# Run simulation
-		var result = Mathhammer.simulate_combat(config)
-		var avg_damage = result.get_average_damage()
-		var kill_prob = result.kill_probability * 100.0
-
-		# Build weapon breakdown text
-		var weapon_texts = []
-		for attack in target_attacks:
-			var w_id = attack.get("weapon", "")
-			var w_profile = RulesEngine.get_weapon_profile(w_id, game_state_snapshot)
-			var w_name = w_profile.get("name", w_id)
-			weapon_texts.append(w_name)
+		var forecast = Mathhammer.analytic_forecast(weapon_specs, target_unit, game_state_snapshot, true, attacker_unit)
+		var avg_damage = forecast.get("expected_damage", 0.0)
+		var kill_prob = forecast.get("kill_probability", 0.0) * 100.0
 
 		prediction_lines.append(
 			"%s (%s) -> %s: ~%.1f wounds, %.0f%% kill" % [
@@ -2360,7 +2353,7 @@ func _show_mathhammer_predictions() -> void:
 		)
 
 	var prediction_text = "\n".join(prediction_lines)
-	DebugLogger.info(str("[FightPhase] Mathhammer prediction: %s" % prediction_text))
+	DebugLogger.info(str("[FightPhase] Mathhammer prediction (analytic, %.2fms): %s" % [(Time.get_ticks_usec() - _perf_t0) / 1000.0, prediction_text]))
 
 	# Display predictions via dice_rolled signal (like shooting phase)
 	emit_signal("dice_rolled", {
