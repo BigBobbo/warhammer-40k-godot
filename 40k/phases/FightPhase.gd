@@ -1050,6 +1050,10 @@ func _process_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
 	# This is a safety net for AI/auto-resolve paths that bypass the dialog
 	_auto_inject_extra_attacks_weapons()
 
+	# MA-LOADOUT: same safety net for the models the AI's single weapon pick
+	# leaves out — see _auto_assign_unassigned_models.
+	_auto_assign_unassigned_models()
+
 	emit_signal("fighting_begun", active_fighter_id)
 
 	# Show mathhammer predictions before rolling
@@ -2158,6 +2162,100 @@ func _auto_inject_extra_attacks_weapons() -> void:
 		DebugLogger.info(str("[FightPhase] T3-3: Auto-injected Extra Attacks weapon '%s' → '%s'" % [weapon_name, default_target]))
 
 	log_phase_message("T3-3: Extra Attacks weapons auto-included for %s" % active_fighter_id)
+
+# MA-LOADOUT: give the models a whole-unit assignment missed a weapon of their own.
+#
+# An ASSIGN_ATTACKS with no model list means "the whole unit", and the engine now
+# narrows that to the models which actually CARRY the named weapon (a mob told to
+# swing a Power klaw no longer swings ten of them). The AI submits exactly one
+# such assignment per activation, so on a mixed mob — 9 Boyz with choppas, 1 Boss
+# Nob with a big choppa — the odd model out would simply not attack.
+#
+# 11e Fight — Select Weapons is per model: that Boss Nob picks his own weapon and
+# swings alongside them. So every eligible model still left out is assigned the
+# one melee weapon it carries, against the target the unit is already fighting.
+#
+# Only ever fills gaps left by a whole-unit assignment: if ANY pending assignment
+# names its models explicitly, a per-model path (the AttackAssignmentDialog) chose
+# them and a model left out was left out ON PURPOSE — nothing is added.
+func _auto_assign_unassigned_models() -> void:
+	if active_fighter_id.is_empty():
+		return
+	var unit = get_unit(active_fighter_id)
+	if unit.is_empty():
+		return
+
+	var regular: Array = []
+	for attack in confirmed_attacks:
+		if str(attack.get("attacker", active_fighter_id)) != active_fighter_id:
+			continue
+		if RulesEngine.has_extra_attacks(str(attack.get("weapon", "")), game_state_snapshot):
+			continue  # used IN ADDITION — never consumes a model's weapon choice
+		if not attack.get("models", []).is_empty():
+			return  # a per-model path drove this activation; respect its choices
+		regular.append(attack)
+	if regular.is_empty():
+		return
+
+	var default_target = str(regular[0].get("target", ""))
+	if default_target == "":
+		return
+
+	var eligible = RulesEngine.get_eligible_melee_model_indices(unit, game_state_snapshot)
+	if eligible.is_empty():
+		return
+
+	# {model index -> [melee weapon name]} for this unit, as actually carried.
+	var per_model = RulesEngine.get_unit_melee_weapons(active_fighter_id, game_state_snapshot)
+	var by_index := {}
+	for key in per_model:
+		var k = str(key)
+		var idx := -1
+		if k.begins_with("m") and k.substr(1).is_valid_int():
+			idx = k.substr(1).to_int()
+		elif k.is_valid_int():
+			idx = k.to_int()
+		if idx >= 0:
+			by_index[idx] = per_model[key]
+
+	# Which models the existing whole-unit assignments already cover.
+	var covered := {}
+	for attack in regular:
+		var wid = str(attack.get("weapon", ""))
+		for idx in by_index:
+			for wname in by_index[idx]:
+				if RulesEngine.generate_weapon_id(str(wname), "Melee") == wid:
+					covered[idx] = true
+					break
+
+	# Gap-fill, but only where the model's weapon is unambiguous — a model still
+	# reporting a MENU of options is a choice we must not make for the player.
+	var extra := {}
+	for idx in eligible:
+		if covered.has(idx) or not by_index.has(idx):
+			continue
+		var names = by_index[idx]
+		if names.size() != 1:
+			continue
+		var wid = RulesEngine.generate_weapon_id(str(names[0]), "Melee")
+		if RulesEngine.has_extra_attacks(wid, game_state_snapshot):
+			continue
+		if not extra.has(wid):
+			extra[wid] = []
+		extra[wid].append(str(idx))
+
+	for wid in extra:
+		confirmed_attacks.append({
+			"attacker": active_fighter_id,
+			"weapon": wid,
+			"target": default_target,
+			"models": extra[wid]
+		})
+		log_phase_message("Auto-assigned %s for %d model(s) the unit's weapon pick left out → %s" % [
+			wid, extra[wid].size(), default_target])
+		DebugLogger.info(str("[FightPhase] MA-LOADOUT: gap-filled '%s' for models %s of %s → %s" % [
+			wid, str(extra[wid]), active_fighter_id, default_target]))
+
 
 func _show_mathhammer_predictions() -> void:
 	# Use mathhammer to calculate expected results before rolling
