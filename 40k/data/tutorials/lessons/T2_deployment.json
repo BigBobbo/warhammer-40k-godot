@@ -41,9 +41,9 @@
     {
       "id": "attach_warboss",
       "prompt": {
-        "bark": "MUSTER UP!",
-        "kbm": "Before deployin', dis panel locks in yer [b]Battle Formations[/b]. First: under [b]LEADER ATTACHMENTS[/b], set da 'Warboss →' dropdown to [b]Boyz[/b] — now he fights wiv his mob.",
-        "pad": "Dis panel locks in yer [b]Battle Formations[/b]. Da pad starts on [b]Confirm Formations[/b] — {dpad} ▲ walks up to da 'Warboss →' dropdown, {a} opens it, ▼ onto [b]Boyz[/b], {a} again."
+        "bark": "BOSS JOINS DA BOYZ!",
+        "kbm": "Job one: [b]attach da Warboss to da Boyz[/b] — a Leader joins a mob so dey fight as one unit, wiv da Boss 'idin' among 'em. Under [b]LEADER ATTACHMENTS[/b], set da 'Warboss →' dropdown to [b]Boyz (10 models)[/b].",
+        "pad": "Job one: [b]attach da Warboss to da Boyz[/b] — a Leader joins a mob an' dey fight as one. Da pad starts on [b]Confirm Formations[/b] — {dpad} ▲ up to da 'Warboss →' dropdown, {a} opens it, ▼ onto [b]Boyz[/b], {a} again."
       },
       "anchor": { "node": "/root/Main/FormationsDialog" },
       "spotlight": "none",
@@ -51,7 +51,7 @@
       "done": {
         "script": "var fd = tree.root.get_node_or_null(\"/root/Main/FormationsDialog\")\nif fd == null:\n\treturn false\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is OptionButton and nd.item_count > 0 and nd.get_item_text(0) == \"(Unattached)\":\n\t\treturn nd.selected == 1\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false"
       },
-      "hint": { "text": "Top section of da panel — da dropdown next to 'Warboss →'." }
+      "hint": { "text": "Top section of da panel — da dropdown next to 'Warboss →'. Pick 'Boyz (10 models)': dat's da Boss attached to da mob." }
     },
     {
       "id": "embark_boyz",
