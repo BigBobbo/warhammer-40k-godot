@@ -2,14 +2,24 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.12.2",
-      "date": "2026-08-01",
+      "version": "1.12.3",
+      "date": "2026-08-02",
       "summary": "The fight phase no longer freezes for several seconds between confirming your attacks and rolling the dice.",
       "changes": [
-        "Hitting \"Fight!\" locked the game up for roughly three and a half seconds before the first dice appeared — worst on Steam Deck, and it got longer the more targets you split your attacks across. The pause was the \"expected wounds / % kill\" line: the game was secretly playing out the whole combat a thousand times per target to work it out.",
+        "Hitting \"Fight!\" locked the game up for roughly three and a half seconds before the first dice appeared \u2014 worst on Steam Deck, and it got longer the more targets you split your attacks across. The pause was the \"expected wounds / % kill\" line: the game was secretly playing out the whole combat a thousand times per target to work it out.",
         "That estimate is now calculated directly instead of simulated, so it takes under a millisecond. Confirming attacks is instant and the dice come straight up.",
-        "The estimate is also more accurate. It was reading whichever unit on the board happened to own a weapon of that name first, so a Warboss's Power klaw was being costed as somebody else's weaker one — it now always reads the attacking unit's own datasheet.",
+        "The estimate is also more accurate. It was reading whichever unit on the board happened to own a weapon of that name first, so a Warboss's Power klaw was being costed as somebody else's weaker one \u2014 it now always reads the attacking unit's own datasheet.",
         "Weapon lookups across the whole game are faster too, which takes the edge off other small pauses (selecting a unit to shoot with, opening the attack panel)."
+      ]
+    },
+    {
+      "version": "1.12.2",
+      "date": "2026-08-01",
+      "summary": "Controller fix: reordering your allocation groups on the Allocate Attacks step no longer strands the D-pad \u2014 Confirm Order & Roll Saves stays reachable.",
+      "changes": [
+        "Moving a group up or down with the D-pad (say, dropping your 1 model W2 Sv5+ nob into second place) used to leave nothing highlighted at all: the highlight vanished and no amount of D-pad pressing could reach Confirm Order & Roll Saves, so the attack could not be resolved. The highlight now lands back on the arrow of the group you just moved, at its new position, so you can keep reordering and then walk down to Confirm.",
+        "The greyed-out arrows (\u25b2 on the first row, \u25bc on the last) no longer take the highlight \u2014 pressing A on them did nothing, which felt like the pad had died. The D-pad now skips straight past them.",
+        "Added a safety net: if the highlight is ever lost while this window is open, the next D-pad press puts it back on the current step's main button instead of doing nothing."
       ]
     },
     {
