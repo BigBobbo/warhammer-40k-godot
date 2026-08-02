@@ -81,6 +81,10 @@ Two things in that chain are load-bearing and were found the hard way:
 * **The gain trims are headroom**, not level tweaks. Without them the EQ boosts,
   the compander and the reverb tail each clip, which sounds like crackle rather
   than grit.
+* **`pad 0 0.5` runs before the reverb.** `reverb` does not lengthen the file —
+  it rings into whatever is already there — and Piper ends a line ~0.15s after
+  the last phoneme, so without the pad the final word's decay is chopped at the
+  file edge and every clip sounds like it ends mid-word.
 
 ## Speakable text
 
@@ -92,9 +96,28 @@ BBCode while keeping bracketed on-screen words, turns `3"` into "3 inches" and
 phonemizer gets wrong. Barks are folded from `SHOUTING` to sentence case, but
 in-body acronyms stay capitalised so `+1 CP` is read "plus one C P".
 
-`ORK_PRONUNCIATION` is a *pronunciation* map, not a translation — the Ork keeps
-his accent, he just stops mispronouncing himself. Only add an entry when the
-default reading is genuinely wrong; check with `--say` before and after.
+### Respellings: three rules, all learned the hard way
+
+The respelling maps are deliberately tiny, and `--self-test` enforces two of
+these mechanically by asking espeak what each entry actually sounds like.
+
+1. **Never invent a grapheme.** `dh` was used to force a voiced TH. espeak reads
+   it as *"dee-h"*, so `dat's` → `dhats` came out **"DEE-h-ats"** — every one of
+   those entries made the audio worse than leaving the word alone.
+2. **Never translate.** `wiv` → `with`, `everyfing` → `everything`,
+   `nuffin` → `nothing` swapped the accent for standard English, and the
+   originals already phonemized correctly (`wiv` is /wˈɪv/). Th-fronting and
+   dropped H *are* the accent; spelling them away defeats the point.
+3. **Only add an entry when the default reading is genuinely wrong**, and prove
+   it both ways first:
+
+   ```bash
+   espeak-ng -v en-gb-x-rp --ipa -q "dat's"   # dˈats  — already correct
+   espeak-ng -v en-gb-x-rp --ipa -q "dhats"   # dˈiːhˈats — "DEE-h-ats"
+   ```
+
+Ork vocabulary proper (`dakka`, `krump`, `boyz`, `grot`, `git`, `choppa`,
+`squig`, `waaagh`) is left alone — espeak reads all of it correctly.
 
 ### Known limitation
 

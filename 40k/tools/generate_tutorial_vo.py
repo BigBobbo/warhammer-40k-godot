@@ -60,11 +60,15 @@ PIPER_NOISE_SCALE = 0.60
 PIPER_NOISE_W = 0.85
 SENTENCE_SILENCE = 0.35
 
+# The espeak voice the Piper model phonemizes with (from its .onnx.json), so the
+# respelling checker hears exactly what the synth hears.
+ESPEAK_VOICE = "en-gb-x-rp"
+
 # Silence appended before the reverb so the tail is not clipped (see ork_chain).
 TAIL_PAD_S = 0.5
 
 # Bump when the pipeline changes in a way that should invalidate every clip.
-PIPELINE_VERSION = 2
+PIPELINE_VERSION = 3
 
 
 # --------------------------------------------------------------------------
@@ -110,45 +114,43 @@ SYMBOL_SPEECH = {
     "&": " and ", "%": " percent ", "…": ", ", "+": " plus ",
 }
 
-# Apostrophe forms, mapped BEFORE the bare apostrophes are stripped — "an'"
-# has to become "and" without the article "an" being caught by the same rule,
-# and a dropped leading H ("'appens") is unreadable once the mark is gone.
+# Respellings, applied whole-word and case-insensitively.
+#
+# These maps are DELIBERATELY tiny. An earlier version was ten times this size
+# and most of it was actively harmful, which `--self-test` now catches
+# mechanically (see check_respellings). Three rules, all learned the hard way:
+#
+#   1. Never invent a grapheme. "dh" was used to force a voiced TH — espeak
+#      reads it as "dee-h", so "dat's" -> "dhats" came out "DEE-h-ats". Every
+#      one of those entries made the line WORSE than leaving it alone.
+#   2. Never translate. "wiv" -> "with", "everyfing" -> "everything",
+#      "nuffin" -> "nothing" replaced the accent with standard English —
+#      and the originals already phonemized correctly ("wiv" is /wˈɪv/).
+#      Th-fronting IS the accent; spelling it away defeats the point.
+#   3. Only add an entry when the DEFAULT reading is genuinely wrong, and
+#      verify with espeak before and after:
+#          espeak-ng -v en-gb-x-rp --ipa -q "<word>"
+#
+# Everything below is here because the source spelling demonstrably mis-reads.
+# Ork vocabulary proper (dakka, krump, boyz, grot, git, choppa, squig, waaagh)
+# is left alone — espeak already reads all of it correctly.
+
+# Applied BEFORE bare apostrophes are stripped, so "'ead" is still
+# distinguishable from "ead". Only the h-dropped forms whose bare spelling
+# lands on the wrong vowel are listed; "'ard" /ˈɑːd/, "'em" /ˈɛm/, "an'" /ˈæn/
+# and friends are already right and keep their dropped H.
 ORK_APOSTROPHE = {
-    "an'": "and", "'em": "them", "'ere": "here", "'ard": "hard", "'eads": "heads",
-    "'ead": "head", "'appens": "happens", "'appen": "happen", "'avin": "having",
-    "'ave": "have", "'as": "has", "'im": "him", "'is": "his", "'ole": "hole",
-    "'ammer": "hammer", "'and": "hand", "'igh": "high", "'urt": "hurt",
-    "you's": "youse", "dat's": "dhats", "it's": "its", "nothing's": "nothings",
+    "'ere": "eer",     # "ere" reads /ˈeə/ ("air"), not /ˈiə/
+    "'eads": "edz",    # "eads" reads /ˈiːdz/ ("eeds"), not /ˈɛdz/
+    "'ead": "ed",      # "ead" reads /ˈiːd/ ("eed"), not /ˈɛd/
+    "'ave": "av",      # "ave" reads /ˈɑːveɪ/ ("ah-vay"), not /ˈæv/
+    "'igh": "eye",     # "igh" reads /ˈɪɡ/ ("ig"), not /ˈaɪ/
 }
 
-# Ork dialect the phonemizer gets wrong, respelled so it comes out right. This
-# is a PRONUNCIATION map, not a translation — the Ork voice keeps its accent,
-# it just stops mispronouncing itself. Applied whole-word, case-insensitive.
-# Entries are only worth adding when the default reading is actually wrong;
-# `--say` plus the ASR check in tests/test_tutorial_vo.py is how that is judged.
-ORK_PRONUNCIATION = {
-    "da": "duh",          # otherwise leans toward "dar", then "dark" before a K
-    "dat": "dhat",
-    "dats": "dhats",
-    "dem": "dhem",
-    "den": "dhen",
-    "dey": "dhey",
-    "dis": "dhis",
-    "wiv": "with",        # "wiv" phonemizes as "wive"
-    "yer": "yur",
-    "ya": "yah",
-    "sez": "says",
-    "trukk": "truck",
-    "fings": "things",
-    "fing": "thing",
-    "everyfing": "everything",
-    "somefing": "something",
-    "nuffin": "nothing",
-    "wot": "what",
-    "propa": "propper",
-    "proppa": "propper",
-    "togevver": "togever",
-}
+# Nothing here at present: every candidate that was tested either read
+# correctly already or was made worse by respelling. Kept as the documented
+# place to add one, subject to rule 3 above.
+ORK_PRONUNCIATION = {}
 
 DICE_RE = re.compile(r"\b(\d*)[Dd](\d+)\b")
 INCHES_RE = re.compile(r'(\d+(?:\.\d+)?)\s*["″]')
@@ -441,6 +443,44 @@ def require_tools(voice: str) -> None:
                  % (voice, os.path.dirname(voice) or "."))
 
 
+def check_respellings() -> list:
+    """Ask espeak what each respelling actually sounds like, and fail the bad ones.
+
+    This exists because a whole map of respellings shipped that made the audio
+    WORSE, and nothing caught it until someone listened: "dat's" was respelled
+    "dhats", which espeak reads /dˈiːhˈats/ — "DEE-h-ats". Two mechanical rules
+    catch that entire class:
+
+      * a respelling that introduces the "dee-h" artifact is always wrong;
+      * a respelling that phonemizes IDENTICALLY to the source does nothing and
+        is dead weight pretending to be a fix.
+
+    Skipped with a note when espeak-ng is not installed — it is a checker, not
+    a build dependency (Piper carries its own phonemizer).
+    """
+    if shutil.which("espeak-ng") is None:
+        print("note: espeak-ng not installed — skipping the respelling check "
+              "(apt-get install -y espeak-ng)")
+        return []
+
+    def ipa(word: str) -> str:
+        return subprocess.run(["espeak-ng", "-v", ESPEAK_VOICE, "--ipa", "-q", word],
+                              capture_output=True, text=True).stdout.strip()
+
+    problems = []
+    for mapping, label in ((ORK_APOSTROPHE, "ORK_APOSTROPHE"),
+                           (ORK_PRONUNCIATION, "ORK_PRONUNCIATION")):
+        for src, rep in mapping.items():
+            src_ipa, rep_ipa = ipa(src), ipa(rep)
+            if "iːh" in rep_ipa:
+                problems.append("%s[%r] -> %r reads %s — the 'dh' spelling trap "
+                                "(espeak says \"dee-h\")" % (label, src, rep, rep_ipa))
+            elif src_ipa == rep_ipa:
+                problems.append("%s[%r] -> %r is a no-op (both %s) — delete it"
+                                % (label, src, rep, rep_ipa))
+    return problems
+
+
 def self_test() -> int:
     """Pin the text normalisation. Every case here is a bug that shipped once."""
     tokens = load_tokens()
@@ -468,13 +508,18 @@ def self_test() -> int:
         # Dropped H and the an'/an collision: "an'" becomes "and", the ARTICLE
         # "an" must not. An ORDINARY contraction ("here's") keeps its apostrophe —
         # espeak reads those correctly and stripping it makes "heres".
-        ("'Ere's an 'ard git an' 'is mates.",
-         ["here's", "an hard", "and his"], [" 'ard", "an' ", " 'is"]),
+        # Dialect is PRESERVED, not translated: th-fronting and dropped H are
+        # the accent. Only 'ere is respelled, because "ere" reads as "air".
+        ("'Ere's an 'ard git an' 'is mates.", ["eer", "ard", "is"], ["hard", "his"]),
+        ("Dat's da wagon, dis is da mob, an' dey know it.",
+         ["Dat's", "da", "dis", "dey"], ["dhat", "dhis", "dhey", "duh"]),
+        ("Everyfing wiv nuffin left.", ["Everyfing", "wiv", "nuffin"],
+         ["Everything", "with", "nothing"]),
         # A shouted bark is folded to sentence case by _join, not by to_speech —
         # so an in-body acronym next to it survives.
         (None, None, None),
     ]
-    failures = []
+    failures = list(check_respellings())
     for text, wants, nots in cases:
         if text is None:
             continue
