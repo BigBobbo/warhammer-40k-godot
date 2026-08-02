@@ -364,6 +364,14 @@ const BOX_SELECT_HINT := "Hold {a}: Box Select"
 # (empty when none). Windowed scenarios assert this.
 var target_highlight_id: String = ""
 
+# B-discard confirm window (shooting): a board-context B on an armed shooter
+# with staged weapon assignments no longer discards them silently — the first
+# press warns and arms this window, a second B inside it discards for real.
+# Keyed to the shooter so cycling units disarms it implicitly.
+const B_DISCARD_CONFIRM_MS := 4000
+var _b_discard_shooter_id: String = ""
+var _b_discard_armed_ms: int = -100000
+
 # What the pad's ☰ (Start) button means in the CURRENT board state, read straight
 # off the ☰ chip of the hint set the bar is showing — so the chip, the tutorial
 # prompts and the top-right phase-action button all quote one authority and can
@@ -1354,6 +1362,23 @@ func _handle_back() -> bool:
 		return true
 	var sc = _shooting_controller_in_shooting_phase()
 	if sc != null and str(sc.active_shooter_id) != "":
+		# Deselecting an armed shooter DISCARDS its staged weapon assignments
+		# (_keyboard_deselect_shooter clears them first) — and a board-context B
+		# used to do that silently, wiping a fully-aimed unit one press before
+		# Confirm (Steam Deck T4 report follow-up). With anything staged, the
+		# first B only warns and arms a short confirm window; B again inside it
+		# discards for real. A clean shooter (nothing staged) deselects at once,
+		# and B from panel focus never reaches this branch (focus release above).
+		var staged: int = sc.weapon_assignments.size()
+		var now := Time.get_ticks_msec()
+		var armed: bool = _b_discard_shooter_id == str(sc.active_shooter_id) \
+			and (now - _b_discard_armed_ms) <= B_DISCARD_CONFIRM_MS
+		if staged > 0 and not armed:
+			_b_discard_shooter_id = str(sc.active_shooter_id)
+			_b_discard_armed_ms = now
+			ToastManager.show_warning("%d gun%s aimed — B again discards the aiming and deselects" % [staged, "" if staged == 1 else "s"])
+			return true
+		_b_discard_shooter_id = ""
 		sc._keyboard_deselect_shooter()
 		target_highlight_id = ""
 		return true

@@ -9,7 +9,8 @@
         "CURRENT TARGETS now grows to show every assigned weapon line instead of cutting the third one off behind a scrollbar the pad couldn't move.",
         "Walking your guns with D-pad ▲▼ keeps the highlighted weapon row on screen — it could end up hidden above the fold after the tutorial scrolled the panel down to the Confirm button.",
         "D-pad focus navigation auto-scrolls the shooting panel to the highlighted control, so the focus ring can no longer wander off screen.",
-        "New: while panel focus is active, the right stick scrolls the panel itself (the controller hint bar now shows 'RS Scroll Panel')."
+        "New: while panel focus is active, the right stick scrolls the panel itself (the controller hint bar now shows 'RS Scroll Panel').",
+        "Pressing B on the board with guns already aimed no longer silently throws the aiming away: the first press warns, and only a second press within a few seconds discards the assignments and deselects the shooter."
       ]
     },
     {
