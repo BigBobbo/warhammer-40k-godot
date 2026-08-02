@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.12.3",
+      "date": "2026-08-01",
+      "summary": "The Command phase panel no longer fills up with empty orange dividing lines.",
+      "changes": [
+        "In the Command phase, the right-hand panel showed a growing stack of orange divider lines under VICTORY POINTS with nothing between them — a dozen of them by the time you had drawn your secondaries and called a Waaagh!, pushing the sections you actually wanted further down the scroll.",
+        "The panel rebuilds its Battle-shock, army rules and Secondary Missions sections every time something changes (a mission drawn or discarded, a CP spent, a battle-shock resolved). Each rebuild was abandoning the divider that introduced the section instead of removing it, so the leftovers piled up all phase. Dividers are now removed with their section, and any that end up introducing nothing are swept away.",
+        "Nothing else in the panel moved — the same sections, in the same order, just without the blank band."
+      ]
+    },
+    {
       "version": "1.12.2",
       "date": "2026-08-01",
       "summary": "Controller fix: reordering your allocation groups on the Allocate Attacks step no longer strands the D-pad — Confirm Order & Roll Saves stays reachable.",
