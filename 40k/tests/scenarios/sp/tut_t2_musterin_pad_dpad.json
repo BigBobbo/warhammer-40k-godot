@@ -58,6 +58,13 @@
     },
     {
       "act": "execute_script",
+      "script": "var body = tree.root.get_node_or_null(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nif body == null:\n\treturn \"no card\"\nvar t = str(body.text).to_lower().replace(\"[b]\", \"\").replace(\"[/b]\", \"\")\nif not \"attach da warboss to da boyz\" in t:\n\treturn \"pad card never names the goal: \" + str(body.text)\nif not \"fight as one\" in t:\n\treturn \"pad card never says why: \" + str(body.text)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "same goal-before-mechanics check as the kbm scenario, against the pad prompt string - the pad body used to be pure D-pad navigation with no statement of what the dropdown declares"
+    },
+    {
+      "act": "execute_script",
       "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = str(o.current_body_text())\nreturn t.contains(\"[✚]\") and not t.to_lower().contains(\"glide\")",
       "multiline": true,
       "equals": true,

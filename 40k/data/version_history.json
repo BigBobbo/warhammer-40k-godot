@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.12.5",
+      "version": "1.12.6",
       "date": "2026-08-02",
       "summary": "The fight phase no longer freezes for several seconds between confirming your attacks and rolling the dice.",
       "changes": [
@@ -10,6 +10,15 @@
         "That estimate is now calculated directly instead of simulated, so it takes under a millisecond. Confirming attacks is instant and the dice come straight up.",
         "The estimate is also more accurate. It was reading whichever unit on the board happened to own a weapon of that name first, so a Warboss's Power klaw was being costed as somebody else's weaker one — it now always reads the attacking unit's own datasheet.",
         "Weapon lookups across the whole game are faster too, which takes the edge off other small pauses (selecting a unit to shoot with, opening the attack panel)."
+      ]
+    },
+    {
+      "version": "1.12.5",
+      "date": "2026-08-02",
+      "summary": "Tutorial 2 now says WHY you're touching that first dropdown: you're attaching the Warboss to the 10 Boyz.",
+      "changes": [
+        "Musterin' da Boyz, step 1: the card used to explain how to reach the 'Warboss →' dropdown without ever saying what the choice does. It now leads with the goal — attach the Warboss to the Boyz so the Leader and the mob fight as one unit — before the click instructions, on both mouse+keyboard and controller.",
+        "The step's hint and its shout (\"BOSS JOINS DA BOYZ!\") name the same goal, and the dropdown option is spelled out as 'Boyz (10 models)' so it matches what's on screen."
       ]
     },
     {
