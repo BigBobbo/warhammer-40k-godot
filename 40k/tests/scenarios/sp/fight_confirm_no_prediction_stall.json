@@ -1,0 +1,46 @@
+{
+  "id": "fight_confirm_no_prediction_stall",
+  "covers": [
+    "phases.FightPhase.show_mathhammer_predictions",
+    "scripts.Mathhammer.analytic_forecast",
+    "ui.fight.confirm_responsiveness"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "PERF regression net for the 'game freezes for several seconds after confirming weapons' report (Steam Deck). Clicking 'Fight!' dispatches BATCH_FIGHT_ACTIONS = ASSIGN_ATTACKS + CONFIRM_AND_RESOLVE_ATTACKS + ROLL_DICE in one synchronous call, and CONFIRM_AND_RESOLVE_ATTACKS used to run Mathhammer.simulate_combat() with 1000 Monte-Carlo trials PER TARGET inside it — each trial replaying the full RulesEngine. Measured on this exact path: 3583 ms of a 3605 ms action. The pre-roll estimate is now computed in closed form by Mathhammer.analytic_forecast(). This scenario drives the real player path (pile in, pick the Warboss, assign all weapons, click 'Fight!') and asserts (a) the wall-clock cost of the confirm click stays under 750 ms — it was ~3.6 s before, so the bound cannot be met by accident — and (b) the prediction line still renders in the Dice Log with a non-zero wounds estimate, i.e. the feature was made fast, not deleted. Setup-only privileges: CP zeroed to suppress stratagem prompts not under test.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "SettingsService.set(\"auto_allocate_wounds\", true)" },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_B", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 2 },
+
+    { "act": "execute_script", "multiline": true, "script": "Engine.set_meta(\"perf_confirm_t0\", Time.get_ticks_msec())\nreturn true", "equals": true },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
+    { "act": "execute_script", "multiline": true, "script": "return Time.get_ticks_msec() - int(Engine.get_meta(\"perf_confirm_t0\", 0))", "expect_max": 750 },
+
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "multiline": true, "script": "var log_text = node.get_node(\"Main\").fight_controller.dice_log_display.get_parsed_text()\nreturn log_text.contains(\"Mathhammer Melee Predictions\")", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var log_text = node.get_node(\"Main\").fight_controller.dice_log_display.get_parsed_text()\nfor line in log_text.split(\"\\n\"):\n\tif line.contains(\"wounds,\") and line.contains(\"% kill\"):\n\t\tvar wounds = line.split(\"~\")[1].split(\" wounds\")[0]\n\t\treturn float(wounds)\nreturn -1.0", "expect_min": 0.1 },
+    { "act": "click_node", "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "screenshot", "label": "01_prediction_in_dice_log_no_stall" }
+  ]
+}
