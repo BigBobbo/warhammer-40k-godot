@@ -606,12 +606,18 @@ func _rebuild_group_list() -> void:
 		up.name = "Up%d" % i
 		up.text = "▲"
 		up.disabled = i == 0
+		# CONTROLLER: a DISABLED button still accepts focus in Godot, so the
+		# D-pad used to park on the dead ▲ of the first row (and ▼ of the last)
+		# where A does nothing — indistinguishable from "the pad is broken".
+		# Take the edge arrows out of the focus chain so ui_* skips them.
+		up.focus_mode = Control.FOCUS_NONE if up.disabled else Control.FOCUS_ALL
 		up.pressed.connect(_on_move.bind(i, -1))
 		row.add_child(up)
 		var down = Button.new()
 		down.name = "Down%d" % i
 		down.text = "▼"
 		down.disabled = i == order.size() - 1
+		down.focus_mode = Control.FOCUS_NONE if down.disabled else Control.FOCUS_ALL
 		down.pressed.connect(_on_move.bind(i, 1))
 		row.add_child(down)
 		group_list.add_child(row)
@@ -625,7 +631,52 @@ func _on_move(index: int, delta: int) -> void:
 	var tmp = order[index]
 	order[index] = order[j]
 	order[j] = tmp
+	# CONTROLLER FIX: _rebuild_group_list() FREES every row — including the ▲/▼
+	# button that owns focus (the one the player just pressed). Godot clears the
+	# viewport's focus owner when a focused Control leaves the tree, and PadRouter
+	# deliberately stays out of this overlay (pad_native_nav_modal), so after a
+	# reorder the D-pad had NOTHING to navigate from: no highlight anywhere and
+	# "Confirm Order & Roll Saves" unreachable. Remember whether focus lived in
+	# the list, rebuild, then land focus on the moved group's arrow at its NEW
+	# index so the pad chain survives the reorder.
+	var had_list_focus := _focus_in_group_list()
 	_rebuild_group_list()
+	if had_list_focus or _pad_active():
+		_focus_reorder_button(j, delta)
+
+
+# True when the viewport's focus owner is one of the reorder rows — i.e. a
+# rebuild is about to destroy it and focus must be repaired afterwards.
+func _focus_in_group_list() -> bool:
+	if not is_inside_tree() or group_list == null:
+		return false
+	var owner := get_viewport().gui_get_focus_owner()
+	return owner != null and group_list.is_ancestor_of(owner)
+
+
+# Put focus back on the arrow of the group that just moved to `new_index`,
+# preferring the SAME direction the player pressed so repeated presses keep
+# walking that group along. That arrow is disabled at the list edge (▲ on the
+# first row, ▼ on the last), so fall back to the row's other arrow, then to the
+# step's primary button — focus is never left dangling.
+func _focus_reorder_button(new_index: int, delta: int) -> void:
+	if not is_inside_tree():
+		return
+	var candidates: Array = []
+	if group_list != null:
+		var row = group_list.get_node_or_null("Row%d" % new_index)
+		if row != null:
+			var same: String = "Down%d" if delta > 0 else "Up%d"
+			var other: String = "Up%d" if delta > 0 else "Down%d"
+			candidates.append(row.get_node_or_null(same % new_index))
+			candidates.append(row.get_node_or_null(other % new_index))
+	candidates.append(_current_primary_button())
+	for c in candidates:
+		if c is Button and c.is_visible_in_tree() and not c.disabled:
+			c.grab_focus()
+			print("AllocationGroupOverlay: reorder focus → %s" % c.name)
+			return
+	print("AllocationGroupOverlay: WARNING — no focusable control after reorder")
 
 
 func _validate_order() -> void:
@@ -1253,6 +1304,45 @@ func _refresh_pad_focus_now() -> void:
 	if btn != null and btn.is_visible_in_tree() and not btn.disabled:
 		btn.grab_focus()
 		print("AllocationGroupOverlay: pad focus → %s" % btn.name)
+
+
+# Focus safety net. While this overlay is up PadRouter hands the pad to Godot's
+# native ui_* navigation — which does NOTHING when there is no focus owner, so
+# ANY control freed while focused (a reorder rebuild, a re-rolled dice chip)
+# would strand the player with an un-highlighted, un-clickable window. A ui_*
+# press only reaches _unhandled_input when the GUI did not consume it, i.e.
+# exactly when focus is dangling: re-seed it on the live step's primary button
+# (or the first focusable control we own) and swallow that press.
+func _unhandled_input(event: InputEvent) -> void:
+	if not is_visible_in_tree() or not _pad_active():
+		return
+	var directional := (event.is_action_pressed("ui_up") or event.is_action_pressed("ui_down")
+		or event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right")
+		or event.is_action_pressed("ui_accept"))
+	if not directional:
+		return
+	if get_viewport().gui_get_focus_owner() != null:
+		return  # native focus navigation is driving — stay out of its way
+	var btn := _current_primary_button()
+	var target: Control = btn if btn != null else _first_focusable_control(self)
+	if target == null:
+		return
+	target.grab_focus()
+	get_viewport().set_input_as_handled()
+	print("AllocationGroupOverlay: focus was dangling — pad focus re-seeded on %s" % target.name)
+
+
+# First focusable, visible, enabled Control in `root`'s subtree (depth-first) —
+# the last-resort target for the focus safety net above.
+func _first_focusable_control(root: Node) -> Control:
+	for child in root.get_children():
+		if child is Control and child.focus_mode == Control.FOCUS_ALL and child.is_visible_in_tree():
+			if not (child is BaseButton and child.disabled):
+				return child
+		var found := _first_focusable_control(child)
+		if found != null:
+			return found
+	return null
 
 
 # Trap directional focus inside this overlay: demote every focusable Control

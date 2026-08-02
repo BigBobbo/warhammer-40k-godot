@@ -1062,6 +1062,20 @@ func show_hint(text: String) -> void:
 	_hint_label.visible = true
 
 
+# Re-point the spotlight WITHOUT re-showing the step (TutorialManager's
+# `anchor_when`). A step that teaches "do the thing, THEN lock it in" has two
+# targets in sequence — the models on the board, then the confirm button — and
+# re-calling show_step() to move the ring would wipe the hint the player may
+# already be reading and replay the card entrance. Only the anchor moves here.
+func update_anchor(spec, spotlight_mode: String) -> void:
+	_anchor_spec = spec if typeof(spec) == TYPE_DICTIONARY else {}
+	_spotlight_mode = spotlight_mode
+	_anchor_node = null
+	_anchor_ok = false
+	_reresolve_accum = ANCHOR_RERESOLVE_S  # resolve on the next _process tick
+	_spotlight.queue_redraw()
+
+
 # Repaint the multi-input tick list. `items` is [{id, label (BBCode), done}];
 # an empty array hides the row. Ticked entries go green, outstanding ones stay
 # dim — the whole point of the row is that the player can see, at a glance,
@@ -1150,6 +1164,15 @@ func current_progress_text() -> String:
 
 func current_checklist_text() -> String:
 	return _checklist_text.text if _checklist_text.visible else ""
+
+
+# Which node the spotlight currently sits on ("" when nothing is resolved) —
+# lets a windowed scenario assert that an `anchor_when` swap actually moved the
+# ring onto the button the card is now telling the player to press.
+func current_anchor_name() -> String:
+	if not _anchor_ok or _anchor_node == null or not is_instance_valid(_anchor_node):
+		return ""
+	return str(_anchor_node.name)
 
 
 # --------------------------------------------------------------- process ----

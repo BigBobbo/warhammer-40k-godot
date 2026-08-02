@@ -2,7 +2,9 @@
   "id": "tut_t5_ere_we_go",
   "covers": [
     "tutorial.t5.charge",
-    "tutorial.engine.fixture_boot"
+    "tutorial.engine.fixture_boot",
+    "charge.base_contact.snap_lane_clearance",
+    "charge.base_contact.snap_places_attached_character"
   ],
   "rng_seed": 99,
   "edition": 11,
@@ -149,6 +151,20 @@
     {
       "act": "screenshot",
       "label": "04_snapped"
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.root.get_node_or_null(\"/root/Main/ChargeController\")\nif cc == null:\n\treturn \"no ChargeController\"\nreturn \"U_WARBOSS_T:m1\" in cc.moved_models",
+      "multiline": true,
+      "equals": true,
+      "comment": "Snap to Contact must place the attached CHARACTER too, not just the mob"
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.root.get_node_or_null(\"/root/Main/ChargeController\")\nif cc == null:\n\treturn \"no ChargeController\"\nvar cust = GameState.get_unit(\"U_CUSTODIAN_GUARD_T\").get(\"models\", [])\nvar offenders = []\nfor key in cc.moved_models:\n\tvar m = cc._get_charge_group_model(key)\n\tvar origin = cc._model_origin_positions.get(key, null)\n\tif m.is_empty() or origin == null:\n\t\tcontinue\n\tvar dest = cc.moved_models[key][\"position\"]\n\tvar test = m.duplicate()\n\tvar hit = false\n\tfor i in range(1, 40):\n\t\ttest[\"position\"] = origin.lerp(dest, float(i) / 40.0)\n\t\tfor c in cust:\n\t\t\tif c.get(\"alive\", true) and Measurement.models_overlap(test, c):\n\t\t\t\thit = true\n\t\t\t\tbreak\n\t\tif hit:\n\t\t\tbreak\n\tif hit:\n\t\toffenders.append(key)\nreturn \", \".join(offenders)",
+      "multiline": true,
+      "equals": "",
+      "comment": "No snapped model may reach its spot by walking THROUGH a Custodian base. Before the fix the ±180 degree sweep parked the last-placed model — the attached Warboss — on the far side of the Custodian Guard, its charge path cutting straight through the enemy line ('the warboss jumps to the other side of the custode models')."
     },
     {
       "act": "execute_script",

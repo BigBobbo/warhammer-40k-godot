@@ -62,6 +62,10 @@ const SNAP_ANGLE_SWEEP_DEG: Array = [
 	90.0, -90.0, 105.0, -105.0, 120.0, -120.0, 135.0, -135.0, 150.0, -150.0,
 	165.0, -165.0, 180.0,
 ]
+# Upper bound on how many points a snap hop is sampled at when testing whether
+# the model could actually WALK that straight line (see
+# _charge_hop_path_is_clear). Keeps the sweep cheap on long charge rolls.
+const SNAP_PATH_MAX_SAMPLES: int = 40
 var dragging_model = null  # Currently dragging model
 # Unit the dragging model belongs to: the charging unit itself, or one of its
 # attached character units. Kept OUTSIDE dragging_model — that dict is a live
@@ -5056,6 +5060,11 @@ func _on_auto_path_charge() -> void:
 	# A charge move may not END within engagement range of any of them (the
 	# phase rejects the confirm), so both placement stages must avoid them.
 	var non_target_enemies: Array = _collect_non_target_enemy_models(charge_targets)
+	# Built once: everything a charging model may not walk THROUGH on its way to
+	# a snapped spot (see _charge_hop_path_is_clear). Without this the ±180°
+	# sweep parks models on the far side of the target unit, teleporting them
+	# through the enemy bases.
+	var lane_blockers: Array = _collect_charge_lane_blockers()
 	for charge_key in to_move_copy:
 		# Keys may name attached character models ("<char_unit>:<model>") — the
 		# leader snaps into contact right alongside its squad.
@@ -5082,6 +5091,10 @@ func _on_auto_path_charge() -> void:
 						continue
 					if _position_within_enemy_er(model, candidate, non_target_enemies):
 						continue
+					# The staged hop is a straight line origin -> candidate, so it
+					# only counts as a placement the model could actually make.
+					if not _charge_hop_path_is_clear(model, origin, candidate, lane_blockers):
+						continue
 					_stage_auto_path_placement(charge_key, model, origin, candidate)
 					print("[T-092 auto-path] Placed %s at %s (gap=%.2f\", angle=%+.0f deg, target dist=%.1f\")" % [charge_key, str(candidate), gap_inches, angle_deg, Measurement.px_to_inches(candidate.distance_to(tp_data["pos"]))])
 					placed = true
@@ -5097,7 +5110,7 @@ func _on_auto_path_charge() -> void:
 		# spot blocked). Best-effort: close the gap as far as the remaining
 		# charge distance legally allows — 11e only requires the model to end
 		# closer + in coherency, so an out-of-engagement approach is legal.
-		var fallback: Dictionary = _find_closest_charge_position(model, origin, targets_sorted, non_target_enemies, charge_key)
+		var fallback: Dictionary = _find_closest_charge_position(model, origin, targets_sorted, non_target_enemies, charge_key, lane_blockers)
 		if fallback.get("found", false):
 			var fb_pos: Vector2 = fallback["position"]
 			_stage_auto_path_placement(charge_key, model, origin, fb_pos)
@@ -5189,6 +5202,56 @@ func _position_within_enemy_er(model: Dictionary, pos: Vector2, enemy_models: Ar
 			return true
 	return false
 
+# ── Snap-to-Contact lane clearance ──────────────────────────────────
+# Every model a charging model may NOT walk through on its way to a snapped
+# position: every alive model on the board except the charging group's own
+# (the bodyguard's models plus its attached characters), which are all mid-
+# charge themselves and are kept apart by the endpoint overlap check.
+func _collect_charge_lane_blockers() -> Array:
+	var group_ids: Array = [active_unit_id]
+	group_ids.append_array(_get_attached_character_ids())
+	var out: Array = []
+	var units = GameState.state.get("units", {})
+	for uid in units:
+		if uid in group_ids:
+			continue
+		for m in units[uid].get("models", []):
+			if m.get("alive", true) and m.get("position") != null:
+				out.append(m)
+	return out
+
+# True when the model could actually WALK the straight hop from_pos -> to_pos
+# without its base passing through one of `blockers`.
+#
+# Snap to Contact used to accept any candidate whose ENDPOINT passed the
+# distance/overlap/ends-closer checks, and nothing looked at the line taken to
+# get there. Because the ±180° sweep tries spots all the way around the target
+# base, once the near side of the enemy unit filled up with squadmates the snap
+# would park the next model — most visibly the attached CHARACTER, which is
+# placed last of all — on the FAR side of the enemy unit, with its recorded
+# charge path cutting straight through the enemy bases. Reported as "the
+# warboss jumps to the other side of the custode models".
+#
+# Only the interior of the hop is sampled: the endpoint is already covered by
+# _check_position_would_overlap, and the start is where the model is standing.
+func _charge_hop_path_is_clear(model: Dictionary, from_pos: Vector2, to_pos: Vector2, blockers: Array) -> bool:
+	if blockers.is_empty():
+		return true
+	var travel: float = from_pos.distance_to(to_pos)
+	if travel <= 1.0:
+		return true
+	var own_radius: float = Measurement.base_radius_px(model.get("base_mm", 32))
+	var step: float = max(6.0, own_radius * 0.5)
+	var samples: int = int(ceil(travel / step))
+	samples = clamp(samples, 2, SNAP_PATH_MAX_SAMPLES)
+	var test_model: Dictionary = model.duplicate()
+	for i in range(1, samples):
+		test_model["position"] = from_pos.lerp(to_pos, float(i) / float(samples))
+		for other in blockers:
+			if Measurement.models_overlap(test_model, other):
+				return false
+	return true
+
 # Fallback for "Snap to Contact" when no base-contact spot is reachable within
 # the charge roll: find a position that brings the model AS CLOSE AS POSSIBLE
 # to a declared target while staying legal (within remaining charge distance
@@ -5205,7 +5268,7 @@ func _position_within_enemy_er(model: Dictionary, pos: Vector2, enemy_models: Ar
 # Pass B only runs when every straight lane is blocked (squadmate, wall,
 # terrain budget): it sweeps small approach-angle offsets and shorter travels
 # and takes the first legal candidate.
-func _find_closest_charge_position(model: Dictionary, origin: Vector2, targets_sorted: Array, non_target_enemies: Array, charge_key: String = "") -> Dictionary:
+func _find_closest_charge_position(model: Dictionary, origin: Vector2, targets_sorted: Array, non_target_enemies: Array, charge_key: String = "", lane_blockers: Array = []) -> Dictionary:
 	# charge_key keys the accumulated-distance lookup; falls back to the bare
 	# model id (the key for the charging unit's own models).
 	if charge_key == "":
@@ -5227,9 +5290,14 @@ func _find_closest_charge_position(model: Dictionary, origin: Vector2, targets_s
 			continue
 		dir_vec = dir_vec.normalized()
 		var candidate: Vector2 = origin + dir_vec * Measurement.inches_to_px(travel)
-		if not _validate_charge_position(model, candidate):
+		# charge_key (not the bare model id) — an attached CHARACTER's model id
+		# collides with a bodyguard model's, so without it this read the SQUAD
+		# member's accumulated distance and pre-charge origin.
+		if not _validate_charge_position(model, candidate, charge_key):
 			continue
 		if _position_within_enemy_er(model, candidate, non_target_enemies):
+			continue
+		if not _charge_hop_path_is_clear(model, origin, candidate, lane_blockers):
 			continue
 		var gap_after: float = _edge_gap_to_target(model, candidate, tp_data)
 		if gap_after >= edge0 - 0.05:
@@ -5260,9 +5328,11 @@ func _find_closest_charge_position(model: Dictionary, origin: Vector2, targets_s
 				var gap_after: float = _edge_gap_to_target(model, candidate, tp_data)
 				if gap_after >= edge0 - 0.05:
 					continue
-				if not _validate_charge_position(model, candidate):
+				if not _validate_charge_position(model, candidate, charge_key):
 					continue
 				if _position_within_enemy_er(model, candidate, non_target_enemies):
+					continue
+				if not _charge_hop_path_is_clear(model, origin, candidate, lane_blockers):
 					continue
 				return {"found": true, "position": candidate, "gap": gap_after}
 	return {"found": false}
