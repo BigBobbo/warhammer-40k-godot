@@ -1334,77 +1334,10 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if dice_roll_visual:
 		dice_roll_visual.show_dice_roll(dice_data)
 
-	var context = dice_data.get("context", "")
-	var rolls_raw = dice_data.get("rolls_raw", [])
-	var successes = dice_data.get("successes", 0)
-	var threshold = dice_data.get("threshold", "")
-	var weapon = dice_data.get("weapon", "")
-
-	# Command Re-roll note ("Command Re-roll (1 CP): hit die 2 → 5") — render
-	# the message itself instead of falling through to the generic roll
-	# formatter, which printed a meaningless "Reroll Note: Rolls: —".
-	if context == "reroll_note":
-		dice_log_display.append_text("[b][color=orange]↻ %s[/color][/b]\n" % dice_data.get("message", "Re-roll"))
-		return
-
-	# Message-only blocks (no rolls) — render their message like the shooting
-	# DICE LOG does instead of a noise line ("Weapon Progress: Rolls: — → 0
-	# successes") from the generic formatter below.
-	if context == "resolution_start":
-		dice_log_display.append_text("[b][color=white]--- %s ---[/color][/b]\n" % dice_data.get("message", "Beginning melee resolution..."))
-		return
-	if context == "weapon_progress":
-		dice_log_display.append_text("[b][color=yellow]>>> %s <<<[/color][/b]\n" % dice_data.get("message", ""))
-		return
-	if context == "mathhammer_prediction":
-		dice_log_display.append_text("[color=cyan]%s[/color]\n" % dice_data.get("message", ""))
-		return
-
-	# Format context name
-	var context_name = context.capitalize().replace("_", " ")
-
-	# Build display text
-	var log_text = "[b]%s[/b]" % context_name
-
-	# Add weapon info if present
-	if weapon != "":
-		var weapon_profile = RulesEngine.get_weapon_profile(weapon)
-		if weapon_profile:
-			log_text += " (%s)" % weapon_profile.get("name", weapon)
-
-	# Add threshold
-	if threshold != "":
-		log_text += " (need %s)" % threshold
-
-	log_text += ":\n"
-
-	# Flush the header, then render the dice as inline d6 face icons (rounded
-	# square + pips) via the shared DiceFaceIcons textures — the same faces used
-	# by the shooting resolution log, the resolution dock's re-roll chips and
-	# the animated dice roller — instead of a [n, n, n] number list, so dice
-	# look consistent across the whole game.
-	dice_log_display.append_text(log_text)
-	dice_log_display.append_text("  Rolls: ")
-	if not rolls_raw.is_empty():
-		var target_num = int(threshold.replace("+", "")) if threshold != "" else 0
-		_append_dice_icons(dice_log_display, rolls_raw, target_num, context)
-	else:
-		dice_log_display.append_text("[color=gray]—[/color]")
-
-	# Add success count
-	var suffix = " → [b][color=green]%d successes[/color][/b]" % successes
-
-	# Save roll: show failed saves (which cause wounds)
-	if context == "save_roll":
-		var failed = dice_data.get("failed", 0)
-		if failed > 0:
-			suffix += ", [color=red]%d failed (wounds)[/color]" % failed
-		else:
-			suffix += " [color=green](all saved!)[/color]"
-
-	suffix += "\n"
-
-	dice_log_display.append_text(suffix)
+	# Structured step-based rendering shared with the shooting phase — headers,
+	# numbered step chips (HIT/WOUND/SAVE/FNP), inline d6 face icons via the
+	# shared DiceFaceIcons textures, and dim notes. See DiceLogFormatter.
+	DiceLogFormatter.format_roll_block(dice_log_display, dice_data)
 
 func _append_dice_icons(target_label: RichTextLabel, rolls: Array, threshold_num: int, context: String) -> void:
 	# Render `rolls` as inline d6 face icons using the shared DiceFaceIcons
@@ -1432,7 +1365,7 @@ func _on_clear_pressed() -> void:
 func _on_confirm_pressed() -> void:
 	# Show visual feedback that fighting is resolving
 	if dice_log_display:
-		dice_log_display.append_text("[color=yellow]Rolling melee combat...[/color]\n")
+		DiceLogFormatter.info(dice_log_display, "Rolling melee combat...", "#E8D070")
 
 	emit_signal("fight_action_requested", {
 		"type": "CONFIRM_ATTACKS"
@@ -2783,8 +2716,8 @@ func _on_subphase_transition(from_subphase: String, to_subphase: String) -> void
 	# emissions, which follow the transition signal.
 	_hide_step_panels()
 	if dice_log_display:
-		dice_log_display.append_text("\n[color=yellow]=== %s Complete ===[/color]\n" % from_subphase)
-		dice_log_display.append_text("[color=yellow]Starting %s...[/color]\n\n" % to_subphase)
+		DiceLogFormatter.outcome(dice_log_display, "%s complete" % from_subphase, "neutral")
+		DiceLogFormatter.info(dice_log_display, "Starting %s..." % to_subphase)
 
 	# T5-V10: Animate subphase transition on the state banner
 	if fight_state_banner and is_instance_valid(fight_state_banner):

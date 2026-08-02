@@ -3617,12 +3617,10 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 	# Mark that we've processed this charge roll (prevents duplicate processing from dice_rolled signal)
 	last_processed_charge_roll = {"unit_id": unit_id, "distance": distance}
 
-	# Update dice log
-	var dice_text = "[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
-		unit_id, distance, dice[0], dice[1]
-	]
+	# Update dice log — structured charge block (gold header + CHARGE step chip
+	# with both dice as icons). See DiceLogFormatter.
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text(dice_text)
+		DiceLogFormatter.charge_roll(dice_log_display, _charge_unit_display_name(unit_id), dice, distance)
 
 	# Server-side failure detection: if the phase already determined the roll was
 	# insufficient, it will have cleaned up pending_charges and emitted charge_resolved.
@@ -3640,7 +3638,7 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 	if is_instance_valid(charge_info_label):
 		charge_info_label.text = "Success! Rolled %d\" - Drag models toward targets (Shift+drag box selects several to move together, max %d\" each)" % [distance, distance]
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
+		DiceLogFormatter.outcome(dice_log_display, "Charge successful! Move models into engagement range.", "good")
 	# T7-58: Update arrows with success result (roll sufficient)
 	_update_charge_arrow_roll_results(distance, true)
 
@@ -3651,6 +3649,11 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 	_show_charge_distance_display(distance)
 
 	_update_button_states()
+
+func _charge_unit_display_name(unit_id: String) -> String:
+	"""Player-facing unit name for the structured dice log (falls back to the id)."""
+	var unit = GameState.get_unit(unit_id) if GameState else {}
+	return unit.get("meta", {}).get("name", unit_id)
 
 func _on_dice_rolled(dice_data: Dictionary) -> void:
 	"""Handle dice_rolled signal from ChargePhase - critical for multiplayer sync.
@@ -3709,12 +3712,9 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		print("ChargeController: Skipping duplicate charge roll processing (already handled by charge_roll_made)")
 		return
 
-	# Update dice log display
-	var dice_text = "[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
-		unit_name, total, rolls[0], rolls[1]
-	]
-	dice_log_display.append_text(dice_text)
-	print("ChargeController: Added dice roll to display: ", dice_text.strip_edges())
+	# Update dice log display — structured charge block.
+	DiceLogFormatter.charge_roll(dice_log_display, unit_name, rolls, total)
+	print("ChargeController: Added charge roll to display: %s = %d" % [str(rolls), total])
 
 	charge_distance = total
 	awaiting_roll = false
@@ -3731,7 +3731,7 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		if is_instance_valid(charge_info_label):
 			charge_info_label.text = "Failed! Rolled %d\" but needed ~%.1f\" to reach engagement range" % [total, needed]
 		if is_instance_valid(dice_log_display):
-			dice_log_display.append_text("[color=red][INSUFFICIENT_ROLL] Charge failed![/color] Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach %.0f\" engagement range).\n" % [total, min_distance, needed, er_inches])
+			DiceLogFormatter.outcome(dice_log_display, "Charge failed! Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach %.0f\" engagement range)." % [total, min_distance, needed, er_inches], "bad")
 
 		# T7-58: Update arrows with failure result
 		_update_charge_arrow_roll_results(total, false)
@@ -3753,7 +3753,7 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		if is_instance_valid(charge_info_label):
 			charge_info_label.text = "Success! Rolled %d\" - Drag models toward targets (Shift+drag box selects several to move together, max %d\" each)" % [total, total]
 		if is_instance_valid(dice_log_display):
-			dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
+			DiceLogFormatter.outcome(dice_log_display, "Charge successful! Move models into engagement range.", "good")
 
 		# T7-58: Update arrows with success result
 		_update_charge_arrow_roll_results(total, true)
@@ -3777,32 +3777,21 @@ func _on_charge_resolved(unit_id: String, success: bool, result: Dictionary) -> 
 		_log_unit_positions(target_id, "TARGET UNIT")
 	print("=== End Position Logging ===")
 
-	var result_text = ""
-	if success:
-		result_text = "[color=green]Successful charge![/color] %s moved into engagement range\n" % unit_id
-	else:
-		# Use structured failure data if available
-		var failure_record = result.get("failure_record", {})
-		var categorized = failure_record.get("categorized_errors", [])
-
-		if categorized.size() > 0:
-			# Build rich failure text with category tags
-			var primary_cat = failure_record.get("primary_category", "UNKNOWN")
-			var cat_color = _get_category_color(primary_cat)
-			result_text = "[color=%s][%s][/color] [color=red]Charge failed:[/color] %s\n" % [cat_color, primary_cat, unit_id]
-
-			for cat_error in categorized:
-				var cat = cat_error.get("category", "")
-				var detail = cat_error.get("detail", "")
-				var c = _get_category_color(cat)
-				result_text += "  [color=%s]•[/color] %s\n" % [c, detail]
-		else:
-			# Fallback to plain reason string
-			var reason = result.get("reason", "Failed")
-			result_text = "[color=red]Charge failed:[/color] %s - %s\n" % [unit_id, reason]
-
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text(result_text)
+		if success:
+			DiceLogFormatter.outcome(dice_log_display, "Successful charge! %s moved into engagement range" % _charge_unit_display_name(unit_id), "good")
+		else:
+			# Use structured failure data if available
+			var failure_record = result.get("failure_record", {})
+			var categorized = failure_record.get("categorized_errors", [])
+			if categorized.size() > 0:
+				var primary_cat = failure_record.get("primary_category", "UNKNOWN")
+				DiceLogFormatter.outcome(dice_log_display, "[%s] Charge failed: %s" % [primary_cat, _charge_unit_display_name(unit_id)], "bad")
+				for cat_error in categorized:
+					DiceLogFormatter.note(dice_log_display, str(cat_error.get("detail", "")))
+			else:
+				var reason = result.get("reason", "Failed")
+				DiceLogFormatter.outcome(dice_log_display, "Charge failed: %s - %s" % [_charge_unit_display_name(unit_id), reason], "bad")
 
 	# A Heroic Intervention resolution never completes a charger's activation
 	if result.get("heroic_intervention", false):
@@ -4129,10 +4118,8 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	var total = roll_context.get("total", 0)
 	var unit_name = roll_context.get("unit_name", unit_id)
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
-			unit_name, total, rolls[0] if rolls.size() > 0 else 0, rolls[1] if rolls.size() > 1 else 0
-		])
-		dice_log_display.append_text("[color=cyan]%s: Free re-roll available![/color]\n" % ability_name)
+		DiceLogFormatter.charge_roll(dice_log_display, unit_name, rolls, total)
+		DiceLogFormatter.note(dice_log_display, "%s: Free re-roll available!" % ability_name, "#7FC8E8")
 
 	# Skip UI dialog for AI players — AIPlayer autoload handles the decision
 	var ai_player = get_node_or_null("/root/AIPlayer")
@@ -4174,7 +4161,7 @@ func _on_ability_reroll_used(unit_id: String, player: int) -> void:
 	print("ChargeController: Ability reroll USED for %s" % unit_id)
 	var used_name = pending_ability_reroll_name if pending_ability_reroll_name != "" else "Ability"
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=cyan]%s used! Re-rolling charge (free)...[/color]\n" % used_name.to_upper())
+		DiceLogFormatter.note(dice_log_display, "↻ %s used! Re-rolling charge (free)..." % used_name.to_upper(), "#7FC8E8")
 	emit_signal("charge_action_requested", {
 		"type": "USE_ABILITY_REROLL",
 		"actor_unit_id": unit_id,
@@ -4184,7 +4171,7 @@ func _on_ability_reroll_declined(unit_id: String, player: int) -> void:
 	"""Handle player declining ability reroll."""
 	print("ChargeController: Ability reroll DECLINED for %s" % unit_id)
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=gray]Declined free re-roll.[/color]\n")
+		DiceLogFormatter.note(dice_log_display, "Declined free re-roll.")
 	emit_signal("charge_action_requested", {
 		"type": "DECLINE_ABILITY_REROLL",
 		"actor_unit_id": unit_id,
@@ -4208,10 +4195,8 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	var total = roll_context.get("total", 0)
 	var unit_name = roll_context.get("unit_name", unit_id)
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
-			unit_name, total, rolls[0] if rolls.size() > 0 else 0, rolls[1] if rolls.size() > 1 else 0
-		])
-		dice_log_display.append_text("[color=gold]Command Re-roll available! (1 CP)[/color]\n")
+		DiceLogFormatter.charge_roll(dice_log_display, unit_name, rolls, total)
+		DiceLogFormatter.note(dice_log_display, "Command Re-roll available! (1 CP)", "#E8C477")
 
 	# Skip dialog for AI players — AIPlayer handles the decision via signal
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
@@ -4253,7 +4238,7 @@ func _on_command_reroll_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Command Re-roll."""
 	print("ChargeController: Command Re-roll USED for %s" % unit_id)
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=gold]COMMAND RE-ROLL used! Re-rolling charge...[/color]\n")
+		DiceLogFormatter.note(dice_log_display, "↻ COMMAND RE-ROLL used! Re-rolling charge...", "#E8C477")
 	emit_signal("charge_action_requested", {
 		"type": "USE_COMMAND_REROLL",
 		"actor_unit_id": unit_id,
@@ -4263,7 +4248,7 @@ func _on_command_reroll_declined(unit_id: String, player: int) -> void:
 	"""Handle player declining Command Re-roll."""
 	print("ChargeController: Command Re-roll DECLINED for %s" % unit_id)
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=gray]Kept original roll.[/color]\n")
+		DiceLogFormatter.note(dice_log_display, "Kept original roll.")
 	emit_signal("charge_action_requested", {
 		"type": "DECLINE_COMMAND_REROLL",
 		"actor_unit_id": unit_id,
