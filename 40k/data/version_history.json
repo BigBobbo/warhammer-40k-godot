@@ -2,13 +2,35 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.12.1",
+      "version": "1.12.3",
       "date": "2026-08-01",
       "summary": "Charge phase: 'Snap to Contact' no longer walks your models straight through the enemy unit and parks them on the far side — most visibly the attached character, like a Warboss leading a mob of Boyz.",
       "changes": [
         "Fixed: 'Snap to Contact' could place a charging model on the OTHER side of the unit it was charging, with its charge path cutting clean through the enemy bases. It hit the attached CHARACTER hardest, because the leader is placed last — by then the near side of the enemy was full of its own squad, so the placement sweep wrapped all the way around the back.",
         "Snap to Contact now only offers a spot the model could actually walk to in a straight line: candidate positions whose path passes through another unit's bases are skipped, and the model closes as far as it legally can instead.",
         "Fixed: when 'Snap to Contact' had to fall back to 'move as close as possible', an attached character was measured against its bodyguard squadmate's charge budget and starting position (their model IDs collide), so the leader could be offered a spot it had no business reaching."
+      ]
+    },
+    {
+      "version": "1.12.2",
+      "date": "2026-08-01",
+      "summary": "Controller fix: reordering your allocation groups on the Allocate Attacks step no longer strands the D-pad — Confirm Order & Roll Saves stays reachable.",
+      "changes": [
+        "Moving a group up or down with the D-pad (say, dropping your 1 model W2 Sv5+ nob into second place) used to leave nothing highlighted at all: the highlight vanished and no amount of D-pad pressing could reach Confirm Order & Roll Saves, so the attack could not be resolved. The highlight now lands back on the arrow of the group you just moved, at its new position, so you can keep reordering and then walk down to Confirm.",
+        "The greyed-out arrows (▲ on the first row, ▼ on the last) no longer take the highlight — pressing A on them did nothing, which felt like the pad had died. The D-pad now skips straight past them.",
+        "Added a safety net: if the highlight is ever lost while this window is open, the next D-pad press puts it back on the current step's main button instead of doing nothing."
+      ]
+    },
+    {
+      "version": "1.12.1",
+      "date": "2026-07-31",
+      "summary": "A unit is now offered only the weapons its army list actually bought — no more Power klaw on a mob that never took one — and a weapon swap carries its whole bundle.",
+      "changes": [
+        "Melee already stopped a whole mob swinging one model's weapon. This goes further: the attack panel no longer lists weapons the unit does not own at all. A Boyz mob is 9 choppas and a Boss Nob's big choppa, so those are the only two lines — the Power klaw and Close combat weapon it never bought are gone.",
+        "Army lists rarely record melee. Where the list is silent, the game now reads the datasheet's own \"equipped with\" line per model role instead of falling back to every option on the sheet.",
+        "A swap usually trades two weapons for two: \"any number of Boyz can each have their slugga AND choppa replaced with 1 shoota AND 1 close combat weapon\". Lists record the gun and not the blade, so shoota Boyz were being handed the choppa they traded away — they now get the close combat weapon they actually hold. Partial swaps work too: 3 shootas gives 3 close combat weapons and 6 choppas.",
+        "When a list names a weapon but not how many — \"Guardian Spear, Sentinel blade, Praesidium Shield\" with no numbers — the game says so in the log and leaves the unit alone, rather than picking one and silently dropping the sentinel blade.",
+        "Saved games pick all of this up on load rather than keeping whatever an older version worked out."
       ]
     },
     {

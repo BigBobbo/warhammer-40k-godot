@@ -8807,6 +8807,34 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "DECLARED"
+    },
+    {
+      "id": "tutorial.overlay.dialog_dodge",
+      "description": "With a gameplay dialog open the instructor card keeps clear of it, at any UI Scale. Embedded Windows composite above every CanvasLayer, so anything the dialog covers is simply lost. _dodge_dialog measures both gutters, takes the roomier one and shrinks the text column to what fits; a dialog that never reaches the card's default top placement (bottom-docked gameplay popups) is not dodged at all. Covered against the full-height Formations panel (tut_t2_card_clears_formations_dialog) and the bottom-docked deployment roll-off (tut_t2_card_width_tracks_each_dialog).",
+      "scenarios": [
+        "tut_t2_card_clears_formations_dialog",
+        "tut_t2_card_width_tracks_each_dialog"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.overlay.width_tracks_blocker",
+      "description": "The dodged card's text column is a live per-frame measurement of the open dialog, not a constant tuned to one panel. Asserted two ways: the squeeze survives a step change (show_step resets to full width then re-dodges in the same call, so attach_warboss -> embark_boyz under the same dialog never parks a full-width card underneath it), and the column genuinely moves between dialogs (388px beside the 600px Formations panel, back to the full 560px for the bottom-docked 550px roll-off).",
+      "scenarios": [
+        "tut_t2_card_width_tracks_each_dialog"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.overlay.width_restored",
+      "description": "Narrowing the card is not a one-way latch: once every gameplay dialog closes the card returns to the full CARD_CONTENT_WIDTH at the default top placement, so the remainder of a lesson is not read through the cramped column some earlier dialog forced.",
+      "scenarios": [
+        "tut_t2_card_width_tracks_each_dialog"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
