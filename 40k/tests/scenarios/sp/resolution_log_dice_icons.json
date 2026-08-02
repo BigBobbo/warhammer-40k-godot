@@ -42,7 +42,15 @@
       "equals": false },
 
     { "act": "execute_script",
-      "script": "main.shooting_controller.dice_log_display.get_parsed_text().contains('successes')",
+      "script": "main.shooting_controller.dice_log_display.get_parsed_text().contains('4/4 hit')",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller.dice_log_display.get_parsed_text().contains('HIT 2+')",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller.dice_log_display.get_parsed_text().contains('FNP 5+')",
       "equals": true },
 
     { "act": "execute_script",

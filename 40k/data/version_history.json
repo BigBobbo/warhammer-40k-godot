@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.13.0",
+      "version": "1.13.1",
       "date": "2026-08-02",
       "summary": "Controller: the D-pad no longer gets stuck looping round a list inside a panel — walk off the end of one and it steps out to the panel around it, scrolling to whatever was hidden below the fold.",
       "changes": [
@@ -13,6 +13,28 @@
         "Walking back the other way steps straight back into the list you came out of, at the row nearest where you re-entered.",
         "Nothing wraps around any more, in either direction — B still hands the controller back to the board.",
         "The same rule now covers the charge phase's ELIGIBLE TARGETS rows, and the D-pad skips greyed-out buttons instead of parking on one that cannot be pressed."
+      ]
+    },
+    {
+      "version": "1.13.0",
+      "date": "2026-08-02",
+      "summary": "The Dice Log is readable at a glance: every attack now renders as a structured sequence — headers, numbered colour-coded step chips (HIT / WOUND / SAVE / DAMAGE / FNP) with the dice beside them, and clear ✔/✘ outcome lines.",
+      "changes": [
+        "Each attack opens with a gold header naming the weapon and target, and each weapon in a volley gets its own sub-header — no more hunting through free text to see where one attack ends and the next begins.",
+        "Every roll is a numbered step chip in a fixed left column (1· HIT 3+, 2· WOUND 4+, 3· SAVE 5+…) with its dice icons and a bold result (\"7/10 hit\", \"2 failed\") on the right, so the attack sequence reads top-to-bottom like the rulebook.",
+        "Modifiers and keywords (Heavy, Blast, Sustained/Lethal Hits, re-rolls, AP breakdown) now appear as small dim notes under their step instead of shouting in the main flow.",
+        "Charge and Advance rolls use the same structure — a CHARGE/ADVANCE chip with the dice and total, plus a clear ✔ success / ✘ failure line.",
+        "Shooting, Fight, Charge and Movement phases all share one formatter, so dice output finally looks the same everywhere."
+      ]
+    },
+    {
+      "version": "1.12.14",
+      "date": "2026-08-02",
+      "summary": "Tutorial fixes for smaller screens: the yellow highlight box stays inside the panel it is pointing at, and the instructor card no longer covers the side panels.",
+      "changes": [
+        "The yellow highlight box now stays inside the panel it highlights. On 'Dakka Time' step 4 ('NOW DA REST!') it used to be drawn around the outside of the weapon list, which fills the whole right-hand panel — so its left edge landed on the battlefield and its right edge ran off the screen entirely. Affected every step that highlights something filling a side panel.",
+        "The instructor card no longer slides over the game log or the right-hand panel. It is a fixed width and was centred on the screen, so once the UI got large relative to the screen — which is what the Steam Deck's controller text boost and the UI Scale slider both do — it covered the left-hand edge of the right-hand panel, hiding weapon names and unit rows. It now narrows and sits between the two panels instead.",
+        "The step counter and the Skip Step / Exit Tutorial buttons are kept intact when the card narrows."
       ]
     },
     {

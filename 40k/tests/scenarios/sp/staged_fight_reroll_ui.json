@@ -83,7 +83,7 @@
     },
     {
       "act": "execute_script",
-      "script": "main.get_node(\"FightController\").dice_log_display.get_parsed_text().contains(\"Hit Roll Melee\")",
+      "script": "main.get_node(\"FightController\").dice_log_display.get_parsed_text().contains(\"HIT\")",
       "equals": true
     },
     { "act": "screenshot", "label": "02_hits_pause_with_reroll_chips_in_dock" },
@@ -112,7 +112,7 @@
     { "act": "wait_frames", "frames": 6 },
     {
       "act": "execute_script",
-      "script": "main.get_node(\"FightController\").dice_log_display.get_parsed_text().contains(\"Wound Roll Melee\") or main.get_node(\"FightController\").fight_resolution_dock.state != \"staged_hits\"",
+      "script": "main.get_node(\"FightController\").dice_log_display.get_parsed_text().contains(\"WOUND\") or main.get_node(\"FightController\").fight_resolution_dock.state != \"staged_hits\"",
       "equals": true
     },
     { "act": "screenshot", "label": "04_after_continue_to_wounds" },
