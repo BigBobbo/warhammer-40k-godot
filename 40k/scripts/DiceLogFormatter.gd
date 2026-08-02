@@ -23,6 +23,10 @@ class_name DiceLogFormatter
 ## changing how they resolve `dice_log_display`.
 
 const CHIP_WIDTH := 100.0
+# Inner content width of every chip (text + invisible spacer). The table
+# ignores cell min/max size overrides in practice, so uniform chip width is
+# enforced by padding the cell content itself to this exact width.
+const CHIP_INNER_WIDTH := 92.0
 const CHIP_FONT_SIZE := 12
 const DIE_PX := 18
 const NOTE_FONT_SIZE := 12
@@ -95,12 +99,24 @@ static func step(rtl: RichTextLabel, kind: String, threshold_text: String, rolls
 	rtl.set_table_column_expand(0, false)
 	rtl.set_table_column_expand(1, true)
 
-	# Chip cell — solid step color, fixed min width so chips line up.
+	# Chip cell — solid step color. Every step renders as its own single-row
+	# table, and RichTextLabel sizes each table's chip column to its content
+	# (cell size overrides are not honored), so chips would come out ragged.
+	# Uniform width is therefore enforced on the CONTENT: the first line of
+	# every chip cell is an invisible 1px-tall spacer image stretched to
+	# CHIP_INNER_WIDTH, so every cell's widest line — and therefore every
+	# chip — is exactly the same width and all right edges align. Labels
+	# wider than the spacer simply wrap inside the chip.
 	rtl.push_cell()
-	rtl.set_cell_size_override(Vector2(CHIP_WIDTH, 0), Vector2(0, 0))
 	var bg: Color = style["bg"]
 	rtl.set_cell_row_background_color(bg, bg)
 	rtl.set_cell_padding(Rect2(6, 2, 6, 2))
+	# The spacer line rendered at font size 1 so it adds ~1px of height, not a
+	# full empty text line above the label.
+	rtl.push_font_size(1)
+	rtl.add_image(_spacer_texture(), int(CHIP_INNER_WIDTH), 1, Color.WHITE, INLINE_ALIGNMENT_CENTER)
+	rtl.add_text("\n")
+	rtl.pop()
 	rtl.push_font_size(CHIP_FONT_SIZE)
 	rtl.push_bold()
 	rtl.push_color(Color(1, 1, 1, 0.95))
@@ -433,6 +449,23 @@ static func advance_roll(rtl: RichTextLabel, unit_name: String, roll: int) -> vo
 		return
 	weapon_header(rtl, "Advance — %s" % unit_name)
 	step(rtl, "advance", "D6", [roll], 0, 7, "[b]= +%d\" move[/b]" % roll, [], false)
+
+
+# ==========================================================================
+# Chip width enforcement
+# ==========================================================================
+
+static var _spacer_tex: ImageTexture = null
+
+
+## 1x1 transparent texture, stretched via add_image to pad chip cells to a
+## uniform width (images contribute exact width and are never trimmed).
+static func _spacer_texture() -> ImageTexture:
+	if _spacer_tex == null:
+		var img := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0, 0, 0, 0))
+		_spacer_tex = ImageTexture.create_from_image(img)
+	return _spacer_tex
 
 
 # ==========================================================================
