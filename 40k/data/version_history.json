@@ -14,6 +14,16 @@
       ]
     },
     {
+      "version": "1.12.14",
+      "date": "2026-08-02",
+      "summary": "Tutorial fixes for smaller screens: the yellow highlight box stays inside the panel it is pointing at, and the instructor card no longer covers the side panels.",
+      "changes": [
+        "The yellow highlight box now stays inside the panel it highlights. On 'Dakka Time' step 4 ('NOW DA REST!') it used to be drawn around the outside of the weapon list, which fills the whole right-hand panel — so its left edge landed on the battlefield and its right edge ran off the screen entirely. Affected every step that highlights something filling a side panel.",
+        "The instructor card no longer slides over the game log or the right-hand panel. It is a fixed width and was centred on the screen, so once the UI got large relative to the screen — which is what the Steam Deck's controller text boost and the UI Scale slider both do — it covered the left-hand edge of the right-hand panel, hiding weapon names and unit rows. It now narrows and sits between the two panels instead.",
+        "The step counter and the Skip Step / Exit Tutorial buttons are kept intact when the card narrows."
+      ]
+    },
+    {
       "version": "1.12.13",
       "date": "2026-08-02",
       "summary": "Charge phase: 'Snap to Contact' no longer walks your models straight through the enemy unit and parks them on the far side — most visibly the attached character, like a Warboss leading a mob of Boyz.",

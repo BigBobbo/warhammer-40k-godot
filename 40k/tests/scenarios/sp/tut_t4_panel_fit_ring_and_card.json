@@ -1,0 +1,168 @@
+{
+  "id": "tut_t4_panel_fit_ring_and_card",
+  "covers": [
+    "tutorial.overlay.spotlight_bounds",
+    "tutorial.overlay.card_side_panel_band",
+    "tutorial.t4.shooting"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "T4 (Dakka Time) step 4 'aim_da_rest' spotlights the weapon tree, which spans HUD_Right's whole inner width. Before the fix the ring was drawn at anchor.grow(6..11) with no clamp, so its left edge landed on the board (map showing through beside weapon rows that stop short of it) and its right edge fell past the viewport — HUD_Right is flush with the right screen edge. The instructor card had the matching problem: fixed 588px wide and centred on the viewport, it slid over HUD_Right once the logical viewport shrank below ~1416px, which is what the Steam Deck's pad UI-scale boost (and the UI Scale slider) does. This drives the lesson to step 4 and asserts, at the default canvas AND at Deck-class shrunken canvases, that the ring stays inside HUD_Right and on-screen and that the card never overlaps the side HUD panels. content_scale_factor is set directly because the scenario runner deliberately suppresses the pad text boost (SettingsService._pad_text_boost_active).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton",
+      "comment": "current home of the Tutorial button — the older tutorial scenarios still click ButtonSection/TutorialButton, which the menu reorganisation moved"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t4_dakka/Play_t4_dakka"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 9.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "intro"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ContinueButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_BOYZ_T"
+      },
+      "comment": "navigation only — the player path for picking a shooter is covered by tut_t4_dakka; what this scenario asserts is the layout of the step that follows"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_BOYZ_T",
+        "payload": {
+          "weapon_id": "slugga_ranged",
+          "target_unit_id": "U_WITCHSEEKERS_T"
+        }
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "aim_da_rest",
+      "comment": "step 4 of 8 — the one the report is about"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nvar wt = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/WeaponTree\")\nif wt == null:\n\treturn \"no weapon tree\"\nif not ov._anchor_ok:\n\treturn \"anchor never resolved\"\nif not ov._anchor_rect.is_equal_approx(wt.get_global_rect()):\n\treturn \"spotlight is not on the weapon tree: %s vs %s\" % [str(ov._anchor_rect), str(wt.get_global_rect())]\nvar panel: Rect2 = tree.root.get_node(\"/root/Main/HUD_Right\").get_global_rect()\nif ov._anchor_rect.size.x < panel.size.x - 20.0:\n\treturn \"weapon tree no longer fills the panel (%s in %s) — the clamp assertions below would prove nothing\" % [str(ov._anchor_rect), str(panel)]\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the step really is spotlighting a control that spans HUD_Right's inner width — otherwise there is nothing for the clamp to do"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_step4_default_canvas"
+    },
+
+    {
+      "act": "execute_script",
+      "script": "tree.root.content_scale_factor = 1.0\nreturn \"set\"",
+      "multiline": true,
+      "equals": "set"
+    },
+    { "act": "wait_frames", "frames": 10 },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.check_panel_fit()",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "csf 1.0 — desktop. Before the fix the ring's right edge already fell past the viewport here."
+    },
+
+    {
+      "act": "execute_script",
+      "script": "tree.root.content_scale_factor = 1.2\nreturn \"set\"",
+      "multiline": true,
+      "equals": "set"
+    },
+    { "act": "wait_frames", "frames": 10 },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.check_panel_fit()",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "csf 1.2 — the Steam Deck default (SettingsService.PAD_UI_SCALE_BOOST while a pad is the active device)"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_step4_deck_canvas"
+    },
+
+    {
+      "act": "execute_script",
+      "script": "tree.root.content_scale_factor = 1.44\nreturn \"set\"",
+      "multiline": true,
+      "equals": "set"
+    },
+    { "act": "wait_frames", "frames": 10 },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.check_panel_fit()",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "csf 1.44 — Deck boost x UI Scale 1.2"
+    },
+
+    {
+      "act": "execute_script",
+      "script": "tree.root.content_scale_factor = 1.8\nreturn \"set\"",
+      "multiline": true,
+      "equals": "set"
+    },
+    { "act": "wait_frames", "frames": 12 },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.check_panel_fit()",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "csf 1.8 — Deck boost x UI Scale 1.5. Before the fix the card buried 161px of HUD_Right here."
+    },
+    {
+      "act": "screenshot",
+      "label": "03_step4_ui_scale_1_5"
+    },
+
+    {
+      "act": "execute_script",
+      "script": "tree.root.content_scale_factor = 1.0\nreturn \"restored\"",
+      "multiline": true,
+      "equals": "restored"
+    },
+    { "act": "wait_frames", "frames": 10 }
+  ]
+}
