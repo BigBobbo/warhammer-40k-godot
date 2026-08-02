@@ -195,6 +195,7 @@ const HINTS_DEPLOY_REPOSITION := [
 const HINTS_FOCUS := [
 	["dpad", "Navigate"],
 	["a", "Press"],
+	["rs", "Scroll Panel"],
 	["b", "Back To Board"],
 ]
 # The tutorial's instructor card is waiting on a button press — a "Continue"
@@ -363,6 +364,14 @@ const BOX_SELECT_HINT := "Hold {a}: Box Select"
 # (empty when none). Windowed scenarios assert this.
 var target_highlight_id: String = ""
 
+# B-discard confirm window (shooting): a board-context B on an armed shooter
+# with staged weapon assignments no longer discards them silently — the first
+# press warns and arms this window, a second B inside it discards for real.
+# Keyed to the shooter so cycling units disarms it implicitly.
+const B_DISCARD_CONFIRM_MS := 4000
+var _b_discard_shooter_id: String = ""
+var _b_discard_armed_ms: int = -100000
+
 # What the pad's ☰ (Start) button means in the CURRENT board state, read straight
 # off the ☰ chip of the hint set the bar is showing — so the chip, the tutorial
 # prompts and the top-right phase-action button all quote one authority and can
@@ -464,6 +473,17 @@ func is_charge_x_action_active() -> bool:
 
 func _ready() -> void:
 	InputDeviceManager.device_changed.connect(_on_device_changed)
+	# Settings › Controller toggle: the paddles swap between "peek at the stats
+	# card" (card suppressed) and their model-hop meaning (card always on), so the
+	# hint bar has to be recomputed when the player flips it.
+	var ss := get_node_or_null("/root/SettingsService")
+	if ss != null and ss.has_signal("pad_hover_stats_card_changed"):
+		ss.pad_hover_stats_card_changed.connect(_on_pad_hover_stats_card_changed)
+
+
+func _on_pad_hover_stats_card_changed(_enabled: bool) -> void:
+	_cancel_stats_peek()
+	_update_hints()
 
 
 func _on_device_changed(mode: int) -> void:
@@ -471,6 +491,10 @@ func _on_device_changed(mode: int) -> void:
 	# chain (and give up any focus they already hold); on KBM they restore.
 	var pad := mode == InputDeviceManager.InputMode.PAD
 	_apply_list_focus_policy(pad)
+	# A paddle held while the player drops the pad and grabs the mouse would leave
+	# the peek latched on (its release never arrives as a routed press).
+	if not pad:
+		_cancel_stats_peek()
 	# Focus a mouse click left behind on a panel button must not hijack the
 	# pad: with any focus owner alive every router affordance stands down (the
 	# focus guards) and the first D-pad presses silently walk the OLD focus
@@ -494,8 +518,119 @@ func _on_device_changed(mode: int) -> void:
 	_update_hints()
 
 
+# ── R4 / L4 stats-card peek ────────────────────────────────────────────────
+# The board hover card (Main._show_token_hover) pops up wherever the cursor
+# rests on a model. On the pad the cursor IS the model being dragged, so during
+# a charge/move placement the card sits on top of the exact spot the player is
+# aiming at. SettingsService.pad_hover_stats_card therefore defaults OFF for the
+# pad, and these two back paddles are the peek: HOLD R4 (PADDLE1) or L4
+# (PADDLE2) to show the hovered model's card, release to hide it again.
+#
+# R4 / L4 keep their old model-hop meaning on a TAP — the paddles were never
+# free, so stealing them outright would cost a Deck player whose Steam Input
+# only forwards the upper pair their model switch. Only the HOLD is new:
+#
+#   tap  R4 / L4  → next / previous model (unchanged, see _hop_model)
+#   hold R4 / L4  → the hovered model's stats card, until release
+#
+# Two more "only if it isn't already used" rules: a Settings › Controller ROLE
+# moved onto a paddle always wins, and with the card turned permanently back on
+# there is nothing to peek, so the paddle presses route straight to the hop
+# exactly as before.
+signal stats_peek_changed(active: bool)
+
+const STATS_PEEK_BUTTONS := [JOY_BUTTON_PADDLE1, JOY_BUTTON_PADDLE2]
+# How long the paddle must be down before it counts as a peek rather than a hop.
+const STATS_PEEK_HOLD_S := 0.25
+
+var stats_peek_active: bool = false
+# The paddle currently down and still undecided (tap or hold?), plus a
+# generation counter so a released paddle's timer can never fire late.
+var _peek_pending_button: int = JOY_BUTTON_INVALID
+var _peek_pending_id: int = 0
+
+
+## True when the paddles are currently acting as the stats peek: the pad hover
+## card is suppressed, so there is something for the peek to reveal.
+func stats_peek_available() -> bool:
+	var ss := get_node_or_null("/root/SettingsService")
+	if ss == null:
+		return false
+	return not bool(ss.pad_hover_stats_card)
+
+
+func _handle_stats_peek(event: InputEventJoypadButton) -> bool:
+	if not (event.button_index in STATS_PEEK_BUTTONS):
+		return false
+	# A rebound role owning this paddle keeps it (canonical() reports the role's
+	# default button instead of the identity) — never steal a bound button.
+	if PadBindings.canonical(event.button_index) != event.button_index:
+		return false
+	# Card already always-on: nothing to peek, so let the paddle fall through to
+	# its model-hop meaning below.
+	if not stats_peek_available():
+		return false
+	if event.pressed:
+		# A menu-level modal owns the pad entirely (same rule as the main router).
+		if _native_nav_modal_open():
+			return false
+		InputDeviceManager.claim_pad()
+		_peek_pending_button = event.button_index
+		_peek_pending_id += 1
+		var pending_id: int = _peek_pending_id
+		var timer := get_tree().create_timer(STATS_PEEK_HOLD_S)
+		timer.timeout.connect(_on_peek_hold_elapsed.bind(pending_id))
+	else:
+		# Only ever finish a press this handler claimed — otherwise a paddle whose
+		# press went elsewhere (modal open, layout changed mid-press) would hop.
+		if _peek_pending_button != event.button_index:
+			return false
+		var was_hold: bool = stats_peek_active
+		_cancel_stats_peek()
+		if not was_hold:
+			# Short tap: the paddle's original job. R4/R5 = next model, L4/L5 = prev.
+			_hop_model(1 if event.button_index == JOY_BUTTON_PADDLE1 else -1)
+			_update_hints()
+	get_viewport().set_input_as_handled()
+	return true
+
+
+## Drop any held/pending peek — on release, and whenever the pad stops driving
+## (a paddle still down when the player picks up the mouse never sends us its
+## release, so the card would stay latched on screen).
+func _cancel_stats_peek() -> void:
+	_peek_pending_button = JOY_BUTTON_INVALID
+	_peek_pending_id += 1
+	set_stats_peek(false)
+
+
+func _on_peek_hold_elapsed(pending_id: int) -> void:
+	# Still the same uninterrupted hold? Then it is a peek, not a model hop.
+	if _peek_pending_id != pending_id or _peek_pending_button == JOY_BUTTON_INVALID:
+		return
+	set_stats_peek(true)
+
+
+## Show / hide the hovered model's stats card. Main listens on stats_peek_changed
+## and re-runs its hit test, so the card appears the instant the paddle goes down
+## rather than on the next stick motion.
+func set_stats_peek(active: bool) -> void:
+	if stats_peek_active == active:
+		return
+	stats_peek_active = active
+	DebugLogger.debug("PadRouter: stats-card peek %s" % ("HELD" if active else "released"))
+	stats_peek_changed.emit(active)
+	_update_hints()
+
+
 func _input(event: InputEvent) -> void:
-	if not (event is InputEventJoypadButton) or not event.pressed:
+	if not (event is InputEventJoypadButton):
+		return
+	# R4 / L4 stats peek — handled BEFORE the pressed-only gate below because the
+	# peek needs the RELEASE too (hold to show, let go to hide).
+	if _handle_stats_peek(event):
+		return
+	if not event.pressed:
 		return
 	# A joypad event IS pad input — claim inline so the session's very first
 	# press acts instead of being dropped (the _process poll runs after us).
@@ -604,7 +739,9 @@ func _input(event: InputEvent) -> void:
 			# menu (decision still open) opens first, exactly as ▼ ◀ ▶ do, so no
 			# D-pad direction can dump the player into right-panel focus while the
 			# hint bar promises "Move Menu".
-			if _pad_deploy_row_cycle(-1) or _pad_step_secondary(-1) or _charge_dpad_consume() or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus():
+			# _pad_panel_nav leads: it only bites once panel focus is live (level 2
+			# of the nested-panel model), so it can never shadow a board press.
+			if _pad_panel_nav(-1) or _pad_deploy_row_cycle(-1) or _pad_step_secondary(-1) or _charge_dpad_consume() or _try_open_move_menu() or _try_grab_all_remaining() or _enter_panel_focus(-1):
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_DOWN:
 			# Movement, mid-move: ▼ = "move just one model" — the counterpart to ▲.
@@ -612,7 +749,7 @@ func _input(event: InputEvent) -> void:
 			# model (_try_shrink_to_single); otherwise it is a satisfied no-op that
 			# still keeps the press on the board flow. The move-mode menu opens first
 			# while the decision is still open.
-			if _pad_deploy_row_cycle(1) or _pad_step_secondary(1) or _charge_dpad_consume() or _try_open_move_menu() or _try_shrink_to_single() or _enter_panel_focus():
+			if _pad_panel_nav(1) or _pad_deploy_row_cycle(1) or _pad_step_secondary(1) or _charge_dpad_consume() or _try_open_move_menu() or _try_shrink_to_single() or _enter_panel_focus(1):
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_LEFT:
 			# Movement, mid-move: ◀ ▶ = "switch which model you're moving" (prev /
@@ -624,14 +761,16 @@ func _input(event: InputEvent) -> void:
 			# can never dump the player into right-panel focus while the hint bar
 			# says "Move Menu". Other phases keep ◀ ▶: deployment option-cycle,
 			# shooting's target ring, charge's ELIGIBLE TARGETS rows (all handled
-			# before the movement hop below).
-			if _pad_step_shoot_target(-1) or _pad_step_charge_target(-1) or _charge_dpad_consume() or _pad_deploy_option_cycle(-1) or _try_open_move_menu() or _try_move_hop_model(-1) or _enter_panel_focus():
+			# before the movement hop below). With PANEL focus live, ◀ ▶ picks
+			# within the focused row (Clear All ◀▶ Undo Last ◀▶ Confirm) — the
+			# partner of ▲ ▼'s row-at-a-time walk.
+			if _pad_panel_nav_h(-1) or _pad_step_shoot_target(-1) or _pad_step_charge_target(-1) or _charge_dpad_consume() or _pad_deploy_option_cycle(-1) or _try_open_move_menu() or _try_move_hop_model(-1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		JOY_BUTTON_DPAD_RIGHT:
 			# ▶ mirrors ◀ (see above): mid-move it switches to the NEXT model; with an
 			# open move-mode decision it opens the same on-screen menu the hint bar
 			# advertises for "dpad"; other phases keep their ◀ ▶ meanings first.
-			if _pad_step_shoot_target(1) or _pad_step_charge_target(1) or _charge_dpad_consume() or _pad_deploy_option_cycle(1) or _try_open_move_menu() or _try_move_hop_model(1) or _enter_panel_focus():
+			if _pad_panel_nav_h(1) or _pad_step_shoot_target(1) or _pad_step_charge_target(1) or _charge_dpad_consume() or _pad_deploy_option_cycle(1) or _try_open_move_menu() or _try_move_hop_model(1) or _enter_panel_focus():
 				get_viewport().set_input_as_handled()
 		# Steam Deck back paddles hop between the selected unit's models (Movement
 		# / Charge) — the job D-pad ◀ ▶ used to do. Works at every stage of the
@@ -640,6 +779,10 @@ func _input(event: InputEvent) -> void:
 		# one (staged drops keep their spot). Both back pairs are bound so
 		# whichever the player's config exposes works: right paddles (commonly
 		# R4/R5 → PADDLE1/3) = next model, left paddles (L4/L5 → PADDLE2/4) = prev.
+		# R4/L4 reach here only when the stats-card peek is NOT armed (card turned
+		# permanently on, or a role rebound onto the paddle) — with it armed their
+		# TAP is hopped from _handle_stats_peek instead, and their HOLD peeks at
+		# the hovered model's card. R5/L5 always hop straight from here.
 		JOY_BUTTON_PADDLE1, JOY_BUTTON_PADDLE3:
 			if _hop_model(1):
 				get_viewport().set_input_as_handled()
@@ -1006,6 +1149,12 @@ func _pad_deploy_option_cycle(dir: int) -> bool:
 # selector rows (Deploy Formation / Select Model Type). Returns false when the
 # unit has no picker so the press falls through to panel-focus entry exactly
 # as before.
+#
+# Deliberately EXEMPT from the nested-panel clamp the other sub-lists follow:
+# this is a two-row selector inside a modal placement session, not a list in a
+# scrollable panel. Clamping it would spit the player out into the mouse panels
+# every second press, mid-placement — the exact strand the placement stand-down
+# in _enter_panel_focus exists to prevent. Wrapping two rows costs nothing.
 func _pad_deploy_row_cycle(dir: int) -> bool:
 	if get_viewport().gui_get_focus_owner() != null:
 		return false
@@ -1021,6 +1170,12 @@ func _pad_deploy_row_cycle(dir: int) -> bool:
 # TARGETS rows in charge, the weapon rows in shooting — before the press
 # falls back to generic panel-focus entry. Each hook lives on its phase
 # controller so stepping drives the exact state a mouse interaction would.
+#
+# LEVEL 1 of the nested-panel model (see the panel-navigation section): these
+# steppers CLAMP on ▲ ▼ rather than wrap, and returning false at either end is
+# how the press escapes to the containing panel below. ◀ ▶ keeps wrapping —
+# there is no "one level up" on the horizontal axis, so a wrap there is the
+# only sane end-stop.
 func _pad_step_secondary(dir: int) -> bool:
 	if get_viewport().gui_get_focus_owner() != null:
 		return false
@@ -1031,7 +1186,7 @@ func _pad_step_secondary(dir: int) -> bool:
 		GameStateData.Phase.CHARGE:
 			var cc = m.charge_controller if ("charge_controller" in m) else null
 			if cc != null and is_instance_valid(cc) and cc.has_method("pad_step_target"):
-				if cc.pad_step_target(dir):
+				if cc.pad_step_target(dir, true):
 					# Camera-follow the stepped row's unit, mirroring the
 					# shooting phase's ◀ ▶ target walk — a charge target can
 					# sit off-screen and an invisible bracket teaches nothing.
@@ -1353,6 +1508,23 @@ func _handle_back() -> bool:
 		return true
 	var sc = _shooting_controller_in_shooting_phase()
 	if sc != null and str(sc.active_shooter_id) != "":
+		# Deselecting an armed shooter DISCARDS its staged weapon assignments
+		# (_keyboard_deselect_shooter clears them first) — and a board-context B
+		# used to do that silently, wiping a fully-aimed unit one press before
+		# Confirm (Steam Deck T4 report follow-up). With anything staged, the
+		# first B only warns and arms a short confirm window; B again inside it
+		# discards for real. A clean shooter (nothing staged) deselects at once,
+		# and B from panel focus never reaches this branch (focus release above).
+		var staged: int = sc.weapon_assignments.size()
+		var now := Time.get_ticks_msec()
+		var armed: bool = _b_discard_shooter_id == str(sc.active_shooter_id) \
+			and (now - _b_discard_armed_ms) <= B_DISCARD_CONFIRM_MS
+		if staged > 0 and not armed:
+			_b_discard_shooter_id = str(sc.active_shooter_id)
+			_b_discard_armed_ms = now
+			ToastManager.show_warning("%d gun%s aimed — B again discards the aiming and deselects" % [staged, "" if staged == 1 else "s"])
+			return true
+		_b_discard_shooter_id = ""
 		sc._keyboard_deselect_shooter()
 		target_highlight_id = ""
 		return true
@@ -2286,7 +2458,7 @@ func _native_nav_modal_open() -> bool:
 	return false
 
 
-func _enter_panel_focus() -> bool:
+func _enter_panel_focus(dir: int = 0) -> bool:
 	if get_viewport().gui_get_focus_owner() != null:
 		return false  # already navigating — let ui_* handle the press
 	# Mid-move the pad lives on the board: while a model is in hand (movement /
@@ -2302,6 +2474,25 @@ func _enter_panel_focus() -> bool:
 	var m := get_tree().current_scene
 	if m == null:
 		return false
+	# EXIT from the phase's sub-list (▲ off its first row / ▼ off its last —
+	# see the nested-panel section below). Land on the panel control just past
+	# the sub-list in the direction of travel rather than at the panel's top, so
+	# the exit reads as "one step further down the panel", not a teleport.
+	if dir != 0:
+		var sub := _pad_sub_list()
+		if not sub.is_empty():
+			var sub_ctl: Control = sub["control"]
+			if _panel_root_of(sub_ctl) != null:
+				var adjacent := _stop_past(_panel_stops(), sub_ctl, dir)
+				if adjacent != null:
+					adjacent.grab_focus()
+					_reveal_in_panel(adjacent)
+					return true
+				# Nothing focusable past the sub-list in that direction — scroll
+				# the panel instead so the rows it clips (CURRENT TARGETS, the
+				# forecasts) still come into view.
+				if _scroll_panel_step(sub_ctl, dir):
+					return true
 	for root_path in ["HUD_Right", "HUD_Bottom"]:
 		var root := m.get_node_or_null(root_path)
 		if root == null:
@@ -2309,6 +2500,7 @@ func _enter_panel_focus() -> bool:
 		var c := _find_first_focusable(root)
 		if c != null:
 			c.grab_focus()
+			_reveal_in_panel(c)
 			return true
 	return false
 
@@ -2332,6 +2524,393 @@ func _release_panel_focus() -> bool:
 	return false
 
 
+# Right stick while panel focus is live: scroll the focused control's own
+# ScrollContainer (right panel / bottom bar) instead of panning the camera.
+# The Steam Deck report behind this: with every gun assigned, T4's shooting
+# panel outgrows its scroll viewport and the clipped rows (CURRENT TARGETS,
+# the weapon tree's top) were unreachable on the pad — mouse users wheel-
+# scroll, the pad had nothing. Main._process calls this with the stick's
+# vertical delta before treating it as camera pan; consuming the whole stick
+# while a scrollable panel holds focus keeps the two jobs from fighting
+# (B releases focus and hands the stick back to the camera). Returns true
+# when the stick was consumed.
+func try_scroll_focused_panel(amount_px: float) -> bool:
+	if not InputDeviceManager.is_pad_active():
+		return false
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused == null:
+		return false
+	var m := get_tree().current_scene
+	if m == null:
+		return false
+	var in_hud := false
+	for root_path in ["HUD_Right", "HUD_Bottom"]:
+		var root := m.get_node_or_null(root_path)
+		if root != null and (root == focused or root.is_ancestor_of(focused)):
+			in_hud = true
+			break
+	if not in_hud:
+		return false
+	var n: Node = focused
+	while n != null and not (n is ScrollContainer):
+		n = n.get_parent()
+	if n == null:
+		return false
+	var sc := n as ScrollContainer
+	var bar := sc.get_v_scroll_bar()
+	if bar == null or not bar.visible:
+		# Nothing to scroll — the camera keeps the stick.
+		return false
+	sc.scroll_vertical = int(clampf(float(sc.scroll_vertical) + amount_px, 0.0, float(bar.max_value - bar.page)))
+	return true
+
+
+# ============================================================================
+# Nested panel navigation (D-pad ▲ ▼ inside a HUD panel)
+# ============================================================================
+#
+# Steam Deck report (T4 "Dakka Time" step 5): the D-pad walked the weapon rows
+# for ever — Slugga → Kombi-weapon → Twin sluggas → Slugga … — because the
+# phase's sub-list stepper wrapped. At the Deck's 1280x800 the right panel
+# overflows its scroll viewport, so CURRENT TARGETS, "Use GRENADE" and
+# "Shoot All Remaining" all sat below the fold with no D-pad press able to
+# reach any of them: the innermost list had swallowed the whole D-pad.
+#
+# One model now applies to every panel-inside-a-panel:
+#
+#   level 1 — the phase's sub-list (shooting's weapon tree, charge's ELIGIBLE
+#             TARGETS rows). ▲ ▼ steps it, CLAMPED. Stepping past the last row
+#             (or before the first) does NOT wrap — it exits one level up.
+#   level 2 — the containing panel. ▲ ▼ walks it a ROW at a time (a row being
+#             every control whose vertical band overlaps — Clear All / Undo
+#             Last / Confirm are one) and scrolls the panel to keep that row on
+#             screen; ◀ ▶ pick between the controls of the focused row. A step
+#             that would cross back over the sub-list's band re-enters it (its
+#             last row coming up, its first coming down), so the exit is always
+#             reversible.
+#   the ends — with no row left in that direction, ▲ ▼ scrolls the panel's
+#             ScrollContainer. That is what makes the rows BETWEEN controls
+#             (CURRENT TARGETS, the forecasts) readable on a pad at all. Then
+#             the press is CONSUMED: nothing here wraps round, in either axis.
+#
+# B still drops the whole thing and hands the pad back to the board, and the
+# right stick keeps its free-scroll (try_scroll_focused_panel).
+#
+# The chain spans HUD_Bottom (the top button strip) and HUD_Right as ONE list
+# ordered by layout position, so walking off the top of the right panel reaches
+# Game Log / Dice / Missions / Roster instead of dead-ending. Disabled buttons
+# are not stops — Godot's own geometric ui_up/ui_down happily parked focus on
+# one (the Fight phase's greyed-out unit rows), costing a press on a control
+# that could not be pressed.
+
+# Fraction of a scroll viewport one ▲ ▼ press travels once the focus chain has
+# run out. Deliberately short of a full page: the player needs the row they
+# were reading to stay on screen as an anchor.
+const PANEL_SCROLL_STEP_FRACTION := 0.45
+
+# The HUD panel subtree that currently owns GUI focus, or null when focus is
+# elsewhere (a dialog, a popup) or nowhere. Dialog focus is never touched — the
+# InputDeviceManager dialog watcher depends on it for A-to-confirm.
+func _focused_panel_root() -> Control:
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused == null:
+		return null
+	return _panel_root_of(focused)
+
+
+# The HUD_Right / HUD_Bottom root that contains `c`, or null.
+func _panel_root_of(c: Node) -> Control:
+	if c == null:
+		return null
+	var m := get_tree().current_scene
+	if m == null:
+		return null
+	for root_path in ["HUD_Right", "HUD_Bottom"]:
+		var root := m.get_node_or_null(root_path)
+		if root is Control and (root == c or root.is_ancestor_of(c)):
+			return root
+	return null
+
+
+# Every control the pad may land on across the HUD panels, in layout order
+# (top to bottom, then left to right) — ONE chain spanning HUD_Bottom (the top
+# button strip: Game Log, Dice, Missions, Roster) and HUD_Right, so walking off
+# the top of the right panel continues into the strip instead of dead-ending.
+# Same exclusions as _find_first_focusable: lists, trees and text fields are
+# driven by their own affordances, never by focus walking.
+func _panel_stops() -> Array:
+	var m := get_tree().current_scene
+	if m == null:
+		return []
+	var out: Array = []
+	for root_path in ["HUD_Right", "HUD_Bottom"]:
+		var root := m.get_node_or_null(root_path)
+		if root == null:
+			continue
+		var queue: Array = [root]
+		while not queue.is_empty():
+			var n: Node = queue.pop_front()
+			if n is Control and not (n is ItemList) and not (n is LineEdit) and not (n is TextEdit) \
+					and not (n is Tree) \
+					and n.focus_mode == Control.FOCUS_ALL \
+					and n.is_visible_in_tree() and not (n is BaseButton and n.disabled):
+				out.append(n)
+			for child in n.get_children(true):
+				queue.append(child)
+	out.sort_custom(_stop_sort)
+	return out
+
+
+func _stop_sort(a: Control, b: Control) -> bool:
+	var ay := _layout_y(a)
+	var by := _layout_y(b)
+	if absf(ay - by) > 1.0:
+		return ay < by
+	return a.global_position.x < b.global_position.x
+
+
+# A control's vertical position with the scroll offsets of its ScrollContainer
+# ancestors ADDED BACK — i.e. where it sits in the panel's layout, not where it
+# currently happens to be drawn. Raw global_position is unusable for ordering:
+# scroll a panel down and its clipped top rows acquire NEGATIVE global y, which
+# sorted them above the button strip and made the walk skip and stutter.
+func _layout_y(c: Control) -> float:
+	var y := c.global_position.y
+	var n: Node = c
+	while n != null:
+		if n is ScrollContainer:
+			y += float((n as ScrollContainer).scroll_vertical)
+		n = n.get_parent()
+	return y
+
+
+func _mid_y(c: Control) -> float:
+	return _layout_y(c) + c.size.y * 0.5
+
+
+# First stop strictly past `c` in direction `dir` (down when dir > 0).
+func _stop_past(stops: Array, c: Control, dir: int) -> Control:
+	var pivot := _mid_y(c)
+	if dir > 0:
+		for s in stops:
+			if _mid_y(s) > pivot:
+				return s
+	else:
+		for i in range(stops.size() - 1, -1, -1):
+			if _mid_y(stops[i]) < pivot:
+				return stops[i]
+	return null
+
+
+# The stops grouped into ROWS — controls whose vertical bands overlap are one
+# row (Clear All / Undo Last / Confirm; Suggest / AI speed; the top strip).
+# ▲ ▼ travels a row at a time and ◀ ▶ picks within the row, which is both what
+# a player expects and what Godot's own ui_up/ui_down did before this walker
+# replaced it. Rows are ordered top to bottom, stops within a row left to right.
+func _panel_rows() -> Array:
+	var rows: Array = []
+	var current: Array = []
+	var band_bottom := 0.0
+	for s in _panel_stops():
+		var top := _layout_y(s)
+		if current.is_empty() or top < band_bottom - 2.0:
+			if current.is_empty():
+				current = [s]
+				band_bottom = top + s.size.y
+			else:
+				current.append(s)
+				band_bottom = maxf(band_bottom, top + s.size.y)
+		else:
+			rows.append(current)
+			current = [s]
+			band_bottom = top + s.size.y
+	if not current.is_empty():
+		rows.append(current)
+	return rows
+
+
+func _row_index_of(rows: Array, c: Control) -> int:
+	for i in rows.size():
+		if (rows[i] as Array).has(c):
+			return i
+	return -1
+
+
+# The member of `row` nearest `c` horizontally — so stepping onto a multi-button
+# row lands under where the player already was, not always on its first button.
+func _nearest_in_row(row: Array, c: Control) -> Control:
+	var best: Control = row[0]
+	if c == null:
+		return best
+	var want := c.global_position.x + c.size.x * 0.5
+	var best_d := INF
+	for s in row:
+		var d: float = absf(s.global_position.x + s.size.x * 0.5 - want)
+		if d < best_d:
+			best_d = d
+			best = s
+	return best
+
+
+# The phase's pad-driven sub-list while one is live: {"control", "controller"}.
+# Controllers opt in by exposing the small protocol
+#   pad_list_control() -> Control        the widget itself, null when not live
+#   pad_list_enter(dir) -> bool          take its first (dir > 0) / last row
+# alongside their existing stepper. Panels without a sub-list navigate at
+# level 2 only, which is exactly the old behaviour.
+func _pad_sub_list() -> Dictionary:
+	var m := get_tree().current_scene
+	if m == null or not ("current_phase" in m):
+		return {}
+	var ctl: Node = null
+	match m.current_phase:
+		GameStateData.Phase.SHOOTING:
+			ctl = _shooting_controller_in_shooting_phase()
+		GameStateData.Phase.CHARGE:
+			ctl = _charge_controller_any()
+	if ctl == null or not is_instance_valid(ctl):
+		return {}
+	if not ctl.has_method("pad_list_control") or not ctl.has_method("pad_list_enter"):
+		return {}
+	var c = ctl.pad_list_control()
+	if c == null or not is_instance_valid(c) or not (c is Control) or not c.is_visible_in_tree():
+		return {}
+	return {"control": c, "controller": ctl}
+
+
+# LEVEL 2. Runs before the phase steppers on ▲ ▼ and only bites while panel
+# focus is live, so it can never shadow a board-context press. Returns true
+# when the press was consumed.
+func _pad_panel_nav(dir: int) -> bool:
+	if _focused_panel_root() == null:
+		return false
+	var focused := get_viewport().gui_get_focus_owner()
+	var rows := _panel_rows()
+	if rows.is_empty():
+		_scroll_panel_step(focused, dir)
+		return true
+	var idx := _row_index_of(rows, focused)
+	if idx == -1:
+		# Focus sits on something the pad does not walk (a list a mouse click
+		# focused, say). Rejoin the chain at the nearest stop ahead of it.
+		var rejoin := _stop_past(_panel_stops(), focused, dir)
+		if rejoin == null:
+			_scroll_panel_step(focused, dir)
+			return true
+		rejoin.grab_focus()
+		_reveal_in_panel(rejoin)
+		return true
+	var next_idx := idx + dir
+	var next_stop: Control = null
+	if next_idx >= 0 and next_idx < rows.size():
+		next_stop = _nearest_in_row(rows[next_idx], focused)
+	# Re-enter the sub-list when this step would walk over it.
+	var sub := _pad_sub_list()
+	if not sub.is_empty():
+		var sub_ctl: Control = sub["control"]
+		if _panel_root_of(sub_ctl) != null and _crosses(sub_ctl, focused, next_stop, dir):
+			focused.release_focus()
+			if sub["controller"].pad_list_enter(dir):
+				_reveal_in_panel(sub_ctl)
+				return true
+			# Re-entry refused (empty list) — carry on down the chain.
+			if next_stop != null:
+				next_stop.grab_focus()
+				_reveal_in_panel(next_stop)
+				return true
+			_scroll_panel_step(sub_ctl, dir)
+			return true
+	if next_stop != null:
+		next_stop.grab_focus()
+		_reveal_in_panel(next_stop)
+		return true
+	# Off the end of the chain: scroll, so the clipped rows that carry no focus
+	# of their own can still be read. Then STOP — the press is consumed either
+	# way. Falling through here would hand the event to Godot's geometric ui_up /
+	# ui_down, which wraps round to the far end of the panel: precisely the
+	# "it just loops" behaviour this model exists to remove. B is the documented
+	# way out (and the hint bar says so).
+	_scroll_panel_step(focused, dir)
+	return true
+
+
+# ◀ ▶ counterpart: step WITHIN the focused row (Clear All ◀▶ Undo Last ◀▶
+# Confirm). Clamped like everything else here — a press at either end of the
+# row is consumed rather than wrapping round or leaking into Godot's geometric
+# nav, which used to jump focus to an unrelated control in another row.
+# Returns false with no panel focus, so the board meanings of ◀ ▶ (the shooting
+# target ring, deployment's option cycle, the movement model hop) are untouched.
+func _pad_panel_nav_h(dir: int) -> bool:
+	if _focused_panel_root() == null:
+		return false
+	var focused := get_viewport().gui_get_focus_owner()
+	var rows := _panel_rows()
+	var idx := _row_index_of(rows, focused)
+	if idx == -1:
+		return true  # focus is in a panel but off the chain — swallow, don't jump
+	var row: Array = rows[idx]
+	var at := row.find(focused)
+	var next := at + dir
+	if next < 0 or next >= row.size():
+		return true
+	var target: Control = row[next]
+	target.grab_focus()
+	_reveal_in_panel(target)
+	return true
+
+
+# True when `sub` sits between `cur` and `next` in the direction of travel —
+# i.e. the step from cur to next would skip straight over the sub-list. A null
+# `next` means "nothing left in the chain", so anything past `cur` counts.
+func _crosses(sub: Control, cur: Control, next, dir: int) -> bool:
+	var sub_y := _mid_y(sub)
+	var cur_y := _mid_y(cur)
+	if dir > 0:
+		if sub_y <= cur_y:
+			return false
+		return next == null or sub_y < _mid_y(next)
+	if sub_y >= cur_y:
+		return false
+	return next == null or sub_y > _mid_y(next)
+
+
+# Scroll the ScrollContainer wrapping `from` by one D-pad step. Returns true
+# only when it actually moved, so a press at a hard end falls through to
+# whatever the router would otherwise do with it.
+func _scroll_panel_step(from: Node, dir: int) -> bool:
+	var sc := _scroll_container_of(from)
+	if sc == null:
+		return false
+	var bar := sc.get_v_scroll_bar()
+	if bar == null or not bar.visible:
+		return false
+	var limit := float(bar.max_value - bar.page)
+	if limit <= 0.0:
+		return false
+	var before := sc.scroll_vertical
+	var step := maxf(60.0, float(bar.page) * PANEL_SCROLL_STEP_FRACTION)
+	sc.scroll_vertical = int(clampf(float(before) + step * float(dir), 0.0, limit))
+	return sc.scroll_vertical != before
+
+
+func _scroll_container_of(from: Node) -> ScrollContainer:
+	var n: Node = from
+	while n != null and not (n is ScrollContainer):
+		n = n.get_parent()
+	return n as ScrollContainer
+
+
+# Keep whatever the D-pad just landed on inside the scroll viewport. Panels
+# that set follow_focus already do this for focus moves; doing it here covers
+# the ones that don't, and the sub-list re-entry (which owns no focus).
+func _reveal_in_panel(c: Control) -> void:
+	if c == null or not is_instance_valid(c) or not c.is_inside_tree():
+		return
+	var sc := _scroll_container_of(c)
+	if sc != null:
+		sc.ensure_control_visible(c)
+
+
 func _find_first_focusable(root: Node) -> Control:
 	var queue: Array = [root]
 	while not queue.is_empty():
@@ -2344,7 +2923,12 @@ func _find_first_focusable(root: Node) -> Control:
 		# and a focused text field silently disabled keyboard camera keys — the
 		# "loaded a save, pressed D-pad, now nothing zooms" trap. The Deck's own
 		# on-screen keyboard flow still works via cursor-click on the field.
+		# Trees are out for the same reason plus a worse one: a focused Tree
+		# swallows ui_up/ui_down for its own row walk and accepts the event
+		# either way, so focus could never leave it again — the shooting weapon
+		# tree is stepped through the sub-list protocol instead.
 		if n is Control and not (n is ItemList) and not (n is LineEdit) and not (n is TextEdit) \
+				and not (n is Tree) \
 				and n.focus_mode == Control.FOCUS_ALL \
 				and n.is_visible_in_tree() and not (n is BaseButton and n.disabled):
 			return n
@@ -2376,7 +2960,11 @@ func _apply_list_focus_policy(pad: bool) -> void:
 			# "loaded a save, pressed D-pad, now nothing zooms" trap). FOCUS_CLICK
 			# keeps mouse / virtual-cursor click focus working for KBM and for
 			# deliberate pad clicks (Deck OSK flow).
-			if n is ItemList or n is LineEdit or n is TextEdit:
+			# Trees join them: a focused Tree accepts ui_up/ui_down for its own
+			# row walk, so panel focus could never get back out of one. The
+			# shooting weapon tree is driven by the sub-list protocol instead
+			# (pad_list_control / pad_list_enter / pad_step_weapon).
+			if n is ItemList or n is LineEdit or n is TextEdit or n is Tree:
 				if pad:
 					if n.focus_mode == Control.FOCUS_ALL:
 						n.set_meta("pad_saved_focus_mode", n.focus_mode)
@@ -2671,12 +3259,46 @@ func _update_hints() -> void:
 						hints = HINTS_FIGHT_CONSOLIDATE
 					_:
 						hints = HINTS_FIGHT
-	PadHintBar.set_hints(_with_box_select_hint(hints))
+	PadHintBar.set_hints(_with_stats_peek_hint(_with_box_select_hint(hints)))
 	# Publish what ☰ means in this state so the top-right phase-action button can
 	# drop its "[☰] " prefix while a context action (Confirm Move, Confirm
 	# Targets, …) owns Start. Done from the same `hints` the bar just rendered, so
 	# chip and button are the same statement by construction.
 	_set_start_action(_start_chip_label(hints))
+
+
+# A copy of `hints` with the R4 "Peek Stats" chip appended, for the placement
+# states where the hover card was suppressed (charge / movement model placement —
+# exactly where the card used to cover the spot being aimed at). Advertised only
+# there so the chip doesn't ride along on every board state; the peek itself works
+# wherever a model can be hovered.
+func _with_stats_peek_hint(hints: Array) -> Array:
+	if not stats_peek_available():
+		return hints
+	if PadActionBar.is_open() or get_viewport().gui_get_focus_owner() != null:
+		return hints
+	if not (carry_active or _charge_placement_active() or _movement_session_locked() \
+			or _deployment_controller_placing() != null):
+		return hints
+	# Name a paddle the peek actually still owns: a role rebound onto R4 leaves L4
+	# doing the job, and a role on both leaves nothing to promise.
+	var glyph := ""
+	for b in STATS_PEEK_BUTTONS:
+		if PadBindings.canonical(b) == b:
+			glyph = "r4" if b == JOY_BUTTON_PADDLE1 else "l4"
+			break
+	if glyph == "":
+		return hints
+	var out: Array = hints.duplicate()
+	out.append([glyph, "Hold: Model Stats"])
+	return out
+
+
+# Charge phase with the roll made and models being placed — the state the hover
+# card was reported to obstruct.
+func _charge_placement_active() -> bool:
+	var cc := _charge_controller_any()
+	return cc != null and ("awaiting_movement" in cc) and bool(cc.awaiting_movement)
 
 
 # A copy of `hints` with the LB/RB rotate chips added, for the parked mid-move

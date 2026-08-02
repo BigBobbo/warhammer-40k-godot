@@ -3107,6 +3107,24 @@
       "status": "covered"
     },
     {
+      "id": "tutorial.t6.boss_swings.dpad",
+      "description": "T6 (Krumpin') step 6 of 8 teaches the Warboss pick as D-pad work, not a stick glide. The fight panel's UNITS THAT CAN FIGHT rows are a VBox of Buttons (not an ItemList), so they sit on PadRouter's HUD_Right focus chain; when the step opens the D-pad is parked on the dice dock's primary button, so two ▲ presses land on the Warboss row and A activates him (Epic Challenge offer follows). The prompt names the ✚ glyph and no longer names LS.",
+      "scenarios": [
+        "tut_t6_boss_row_dpad"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.pad_prompts.dpad_first",
+      "description": "Pad prompts must name the D-pad wherever the D-pad reaches the target — a Steam Deck player reported T6 step 6 telling them to glide the left stick at a row the D-pad walks onto. T6 step 7 is the same fix from the other direction: AllocationGroupOverlay confines pad focus to itself and grabs its own Roll Saves button, so the prompt says 'press A' rather than 'glide LS'. The remaining {ls} prompts are genuinely off the route: HUD_Left (T4's Dice Log tab) is never visited by PadRouter._enter_panel_focus, T7's bottom-bar Stratagems button cannot be reached from the command-phase focus chain, and the rest are board work (placing models, aiming at tokens).",
+      "scenarios": [
+        "tut_t6_boss_row_dpad"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "controller.end_phase.discoverability",
       "description": "A controller player can discover how to end a phase without the touchscreen: the button they reach for names the Menu (☰) button bound to pad_phase_action, matching the '☰ End Phase' hint-bar chip, and pressing Menu (Start) pops the confirm dialog whose OK ends the phase.",
       "scenarios": [
@@ -3651,8 +3669,9 @@
     },
     {
       "id": "autoloads.SecondaryMissionManager.guards",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: iss065d_guard_prompt_11e, iss_trust_dropdown_all_units_11e.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: guard_autopicks_closest_units, iss065d_guard_prompt_11e, iss_trust_dropdown_all_units_11e.",
       "scenarios": [
+        "guard_autopicks_closest_units",
         "iss065d_guard_prompt_11e",
         "iss_trust_dropdown_all_units_11e"
       ],
@@ -3798,6 +3817,26 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: snap_to_contact_button.",
       "scenarios": [
         "snap_to_contact_button"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "charge.base_contact.snap_lane_clearance",
+      "description": "Snap to Contact only offers a placement the model could actually walk to: a candidate whose straight hop passes through another unit's bases is skipped. Regression net for the '±180 degree sweep parks the attached Warboss on the far side of the Custodian Guard' bug. Declared by: tut_t5_ere_we_go.",
+      "scenarios": [
+        "tut_t5_ere_we_go"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "charge.base_contact.snap_places_attached_character",
+      "description": "Snap to Contact stages the charging unit's attached CHARACTER alongside its bodyguard models, not just the squad. Declared by: tut_t5_ere_we_go.",
+      "scenarios": [
+        "tut_t5_ere_we_go"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -6582,8 +6621,9 @@
     },
     {
       "id": "rules.secondaries.burden_of_trust.guard_prompt",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: iss065d_guard_prompt_11e, iss_trust_dropdown_all_units_11e, iss_trust_guard_board_pick_11e.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: guard_autopicks_closest_units, iss065d_guard_prompt_11e, iss_trust_dropdown_all_units_11e, iss_trust_guard_board_pick_11e.",
       "scenarios": [
+        "guard_autopicks_closest_units",
         "iss065d_guard_prompt_11e",
         "iss_trust_dropdown_all_units_11e",
         "iss_trust_guard_board_pick_11e"
@@ -8812,6 +8852,24 @@
       "description": "Narrowing the card is not a one-way latch: once every gameplay dialog closes the card returns to the full CARD_CONTENT_WIDTH at the default top placement, so the remainder of a lesson is not read through the cramped column some earlier dialog forced.",
       "scenarios": [
         "tut_t2_card_width_tracks_each_dialog"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.overlay.spotlight_bounds",
+      "description": "The spotlight ring stays inside the panel it is pointing at, and inside the viewport. The ring is drawn OUTSIDE the anchor (grow(6..11)), which is right for a board token but wrong for a control that already fills a side panel: T4 step 4 anchors the weapon tree, which spans HUD_Right's whole inner width, and HUD_Right clips its contents and sits flush with the right screen edge — so the grown ring put its left edge on the map and its right edge past the viewport. The ring is now clamped to the viewport and to the anchor's nearest clipping ancestor (the walk starts at the parent, since Tree/ItemList/ScrollContainer clip themselves and clamping to the anchor would draw the ring inside the widget). Swept across content_scale_factor 1.0-1.8, the range the Steam Deck's pad UI-scale boost and the UI Scale slider produce.",
+      "scenarios": [
+        "tut_t4_panel_fit_ring_and_card"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.overlay.card_side_panel_band",
+      "description": "The instructor card keeps clear of the side HUD panels, not just of dialogs. GameLogPanel and HUD_Right are opaque Controls pinned to the screen edges, so _dodge_dialog — which only looks at Windows — never saw them; the fixed 588px centred card slid over HUD_Right once the logical viewport fell below ~1416px, hiding the unit list and the weapon rows' left-hand column. _side_panel_band seats the card between them and narrows its text column to fit, keeping the footer buttons on one row, and logs (throttled) when the viewport is genuinely too narrow for both.",
+      "scenarios": [
+        "tut_t4_panel_fit_ring_and_card"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"

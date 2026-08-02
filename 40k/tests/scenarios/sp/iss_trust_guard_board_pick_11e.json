@@ -73,8 +73,10 @@
       "script": "get_tree().root.get_node_or_null(\"BoardPickBanner\") == null",
       "equals": true },
     { "act": "execute_script",
-      "script": "str(get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_nml_1/Guard_obj_nml_1\").get_item_metadata(get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_nml_1/Guard_obj_nml_1\").selected))",
-      "equals": "" },
+      "multiline": true,
+      "script": "var p = tree.root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_nml_1/Guard_obj_nml_1\")\nvar sel = str(p.get_item_metadata(p.selected))\nvar auto_guard = str(SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"mission_data\"].get(\"guards\", {}).get(\"obj_nml_1\", \"\"))\nreturn sel != \"\" and sel == auto_guard",
+      "equals": true,
+      "comment": "cancelling a board pick leaves the row on its auto pick (every row is now pre-filled with the closest friendly unit, so a blank row would itself be the bug)" },
     { "act": "execute_script",
       "script": "str(get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\").get_item_metadata(get_tree().root.get_node(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows/Row_obj_center/Guard_obj_center\").selected))",
       "equals": "U_STRIKE_FORCE_A" }

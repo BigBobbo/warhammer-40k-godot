@@ -1,0 +1,363 @@
+{
+  "id": "tut_t4_dakka_deck_squish_pad",
+  "covers": [
+    "tutorial.t4.shooting.pad",
+    "shootingcontroller.pad.panel_scroll_follow",
+    "shootingcontroller.target_basket.auto_height",
+    "padrouter.focus_scroll.right_stick"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Steam Deck squish repro (player report, T4 step 5 'confirm_dakka'): at the Deck's 1280x800 (logical canvas 1920x1200) with every Boyz gun assigned, the right panel overflows its scroll viewport - the tutorial's anchor-scroll to the Confirm button clipped the weapon tree above the fold so the D-pad up/down walk moved an INVISIBLE selection, the CURRENT TARGETS basket cut its third line ('1x Twin sluggas...') behind an internal scrollbar the pad cannot drive, and no pad control could scroll any of it. Fixes under test: (1) target_basket.auto_height - every assignment line visible, no internal scrollbar; (2) pad_step_weapon/pad_select_weapon re-scroll the outer ShootingScrollContainer so the stepped row is on screen; (3) follow_focus on ShootingScrollContainer keeps D-pad focus walking visible; (4) the right stick scrolls the focused HUD panel (PadRouter.try_scroll_focused_panel, routed from Main._process before camera pan) and HINTS_FOCUS advertises it as 'RS Scroll Panel'. Menu navigation runs at the default window size (runner clicks/glides are logical-space); the window drops to 1280x800 only once the lesson is loaded, before any assertion.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/MainMenu/TutorialNudge/Margin/VBox/Footer/DismissNudgeButton",
+      "comment": "fresh container / fresh user:// = the first-launch nudge is up and swallows the pad menu navigation below. Dismiss it if present."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode so the tutorial renders pad copy and the virtual cursor arms"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Tutorial"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t4_dakka/Play_t4_dakka"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "intro"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Continue"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pick_da_boyz"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.mode = Window.MODE_WINDOWED\ntree.root.size = Vector2i(1280, 800)\nreturn \"resized\"",
+      "multiline": true,
+      "equals": "resized",
+      "comment": "STEAM DECK EMULATION: 1280x800 physical -> the canvas_items/expand stretch yields a 1920x1200 logical canvas at 0.667 scale, exactly what the Deck renders. Done AFTER the glide/click menu steps (runner clicks are logical-space and would land wrong under a non-1.0 scale); everything from here is joy buttons + scripts only."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.root.get_visible_rect().size)",
+      "multiline": true,
+      "equals": "(1920.0, 1200.0)"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 10,
+      "comment": "RB cycles the acting unit to the Boyz"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nreturn str(pi.active_shooter_id)",
+      "multiline": true,
+      "equals": "U_BOYZ_T"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "aim_first_gun"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 14,
+      "comment": "D-pad parks the virtual cursor (the picker glides left it live; A would be a click, not Assign). Only one target is eligible, so the ring does not move."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return VirtualCursor.is_cursor_active()",
+      "multiline": true,
+      "equals": false
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "down onto the Slugga row"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "slugga_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "aim the Sluggas at the Witchseekers"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "aim_da_rest"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "kombi_weapon_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"/root/AbilityChoiceDialog\")\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the kombi-weapon has DEVASTATING WOUNDS, so assigning it can open the attacker-choices dialog - confirm it to commit the assignment (tolerant: no-op if it did not appear)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.shooting_controller.selected_weapon_id)",
+      "multiline": true,
+      "equals": "twin_sluggas_ranged"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var n := 0\nfor a in PhaseManager.current_phase_instance.pending_assignments:\n\tn += 1\nreturn n",
+      "multiline": true,
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "confirm_dakka"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.current_scene.shooting_controller.target_basket\nreturn {\"three_items\": b.item_count == 3, \"internal_scrollbar\": b.get_v_scroll_bar().visible, \"tall_enough\": b.size.y >= 90.0}",
+      "multiline": true,
+      "equals": {
+        "three_items": true,
+        "internal_scrollbar": false,
+        "tall_enough": true
+      },
+      "comment": "THE SQUISH FIX: CURRENT TARGETS auto-grows past its old fixed 80px so all three assignment lines render - before, the third ('1x Twin sluggas...') was half cut behind an internal scrollbar the pad cannot drive"
+    },
+    {
+      "act": "execute_script",
+      "script": "var scr = tree.current_scene.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\")\nreturn scr.follow_focus and scr.scroll_vertical > 100",
+      "multiline": true,
+      "equals": true,
+      "comment": "precondition for the walk-visibility check below: the confirm step's anchor-scroll has dragged the panel down toward the Confirm button (this is what used to clip the weapon tree), and follow_focus is armed for D-pad focus walking"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "the re-aim walk the tutorial card advertises: D-pad down steps the weapon rows"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.current_scene\nvar sc = m.shooting_controller\nvar scr = m.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\")\nvar tr = sc.weapon_tree.get_global_rect()\nvar sr = scr.get_global_rect()\nvar visible = tr.position.y >= sr.position.y - 1.0 and tr.end.y <= sr.end.y + 1.0\nreturn {\"weapon_selected\": sc.weapon_tree.get_selected() != null, \"tree_fully_visible\": visible}",
+      "multiline": true,
+      "equals": {
+        "weapon_selected": true,
+        "tree_fully_visible": true
+      },
+      "comment": "THE INVISIBLE-WALK FIX: stepping a gun scrolls the outer panel back up so the weapon tree (and the row highlight) is on screen - before, the selection moved above the fold and up/down looked dead"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_deck_walk_visible"
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.current_scene\nvar btn = m.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton\")\nbtn.grab_focus()\nvar scr = m.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\")\nm.set_meta(\"deck_scroll_before\", scr.scroll_vertical)\nm.set_meta(\"deck_view_before\", m.view_offset)\nreturn scr.scroll_vertical > 100",
+      "multiline": true,
+      "equals": true,
+      "comment": "stand-in for D-pad panel-focus entry (the walk itself is covered above): focus the Confirm button - follow_focus scrolls the panel down to it, and the stick test below scrolls back up from there"
+    },
+    {
+      "act": "simulate_joy_axis",
+      "axis": 3,
+      "value": -1.0,
+      "hold_s": 0.5,
+      "comment": "right stick up while panel focus is live = scroll the panel up (the new PadRouter.try_scroll_focused_panel seam routed from Main._process)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.current_scene\nvar scr = m.get_node(\"HUD_Right/VBoxContainer/ShootingScrollContainer\")\nvar before = int(m.get_meta(\"deck_scroll_before\", -1))\nreturn {\"scrolled_up\": scr.scroll_vertical < before, \"camera_untouched\": m.view_offset == m.get_meta(\"deck_view_before\", Vector2.INF)}",
+      "multiline": true,
+      "equals": {
+        "scrolled_up": true,
+        "camera_untouched": true
+      },
+      "comment": "THE NO-PAD-SCROLL FIX: the stick moved the panel, not the camera - before, the stick panned the board behind the panel and the clipped rows were unreachable"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 11,
+      "comment": "a real D-pad press with focus held refreshes the hint bar into the FOCUS set"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "var labels: Array = []\nvar q: Array = [tree.root.get_node(\"/root/PadHintBar\")]\nwhile not q.is_empty():\n\tvar n = q.pop_front()\n\tif n is Label:\n\t\tlabels.append(str(n.text))\n\tfor c in n.get_children():\n\t\tq.append(c)\nreturn labels.has(\"Scroll Panel\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "discoverability: the FOCUS hint set advertises the new stick scroll ('RS Scroll Panel') - an unadvertised combo is an unusable one"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_deck_focus_stick_scroll"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1,
+      "comment": "B releases panel focus back to the board WITHOUT touching the staged assignments"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var n := 0\nfor a in PhaseManager.current_phase_instance.pending_assignments:\n\tn += 1\nreturn n",
+      "multiline": true,
+      "equals": 3,
+      "comment": "releasing focus must not clear the three staged assignments (B from BOARD context deselects the shooter and clears - B from panel focus only releases focus)"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "Start = Confirm Targets, the step's advertised exit"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll_da_dice",
+      "comment": "the confirm gate still advances - the layout/nav fixes did not break the tutorial's happy path"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_deck_confirmed"
+    }
+  ]
+}

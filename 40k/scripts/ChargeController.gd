@@ -62,6 +62,10 @@ const SNAP_ANGLE_SWEEP_DEG: Array = [
 	90.0, -90.0, 105.0, -105.0, 120.0, -120.0, 135.0, -135.0, 150.0, -150.0,
 	165.0, -165.0, 180.0,
 ]
+# Upper bound on how many points a snap hop is sampled at when testing whether
+# the model could actually WALK that straight line (see
+# _charge_hop_path_is_clear). Keeps the sweep cheap on long charge rolls.
+const SNAP_PATH_MAX_SAMPLES: int = 40
 var dragging_model = null  # Currently dragging model
 # Unit the dragging model belongs to: the charging unit itself, or one of its
 # attached character units. Kept OUTSIDE dragging_model — that dict is a live
@@ -1546,7 +1550,12 @@ func pad_sync_target_cursor() -> void:
 		pad_target_cursor = 0
 	_update_pad_target_cursor_visual()
 
-func pad_step_target(dir: int) -> bool:
+# Step the ELIGIBLE TARGETS rows. `allow_escape` is set by the ▲ ▼ path only:
+# there the rows are level 1 of PadRouter's nested-panel model, so stepping past
+# either end returns false and hands the press one level up to the charge panel
+# (which scrolls / walks its buttons). ◀ ▶ passes false and keeps wrapping —
+# there is no "one level up" on the horizontal axis.
+func pad_step_target(dir: int, allow_escape: bool = false) -> bool:
 	if active_unit_id == "" or awaiting_roll or awaiting_movement:
 		return false
 	if not is_instance_valid(target_list) or target_list.get_item_count() == 0:
@@ -1555,7 +1564,33 @@ func pad_step_target(dir: int) -> bool:
 	if pad_target_cursor < 0 or pad_target_cursor >= n:
 		pad_target_cursor = 0 if dir > 0 else n - 1
 	else:
-		pad_target_cursor = wrapi(pad_target_cursor + dir, 0, n)
+		var next := pad_target_cursor + dir
+		if next < 0 or next >= n:
+			if allow_escape:
+				return false
+			next = wrapi(pad_target_cursor + dir, 0, n)
+		pad_target_cursor = next
+	_update_pad_target_cursor_visual()
+	return true
+
+# --- PadRouter nested-panel sub-list protocol -------------------------------
+# See ShootingController for the shape. The ELIGIBLE TARGETS list is this
+# phase's level-1 sub-list, so PadRouter can walk back into it from the panel.
+
+func pad_list_control() -> Control:
+	if active_unit_id == "" or awaiting_roll or awaiting_movement:
+		return null
+	if not is_instance_valid(target_list) or target_list.get_item_count() == 0:
+		return null
+	if not target_list.is_visible_in_tree():
+		return null
+	return target_list
+
+# Re-enter from the panel: the first row coming down, the last coming up.
+func pad_list_enter(dir: int) -> bool:
+	if pad_list_control() == null:
+		return false
+	pad_target_cursor = 0 if dir > 0 else target_list.get_item_count() - 1
 	_update_pad_target_cursor_visual()
 	return true
 
@@ -3613,12 +3648,10 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 	# Mark that we've processed this charge roll (prevents duplicate processing from dice_rolled signal)
 	last_processed_charge_roll = {"unit_id": unit_id, "distance": distance}
 
-	# Update dice log
-	var dice_text = "[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
-		unit_id, distance, dice[0], dice[1]
-	]
+	# Update dice log — structured charge block (gold header + CHARGE step chip
+	# with both dice as icons). See DiceLogFormatter.
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text(dice_text)
+		DiceLogFormatter.charge_roll(dice_log_display, _charge_unit_display_name(unit_id), dice, distance)
 
 	# Server-side failure detection: if the phase already determined the roll was
 	# insufficient, it will have cleaned up pending_charges and emitted charge_resolved.
@@ -3636,7 +3669,7 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 	if is_instance_valid(charge_info_label):
 		charge_info_label.text = "Success! Rolled %d\" - Drag models toward targets (Shift+drag box selects several to move together, max %d\" each)" % [distance, distance]
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
+		DiceLogFormatter.outcome(dice_log_display, "Charge successful! Move models into engagement range.", "good")
 	# T7-58: Update arrows with success result (roll sufficient)
 	_update_charge_arrow_roll_results(distance, true)
 
@@ -3647,6 +3680,11 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 	_show_charge_distance_display(distance)
 
 	_update_button_states()
+
+func _charge_unit_display_name(unit_id: String) -> String:
+	"""Player-facing unit name for the structured dice log (falls back to the id)."""
+	var unit = GameState.get_unit(unit_id) if GameState else {}
+	return unit.get("meta", {}).get("name", unit_id)
 
 func _on_dice_rolled(dice_data: Dictionary) -> void:
 	"""Handle dice_rolled signal from ChargePhase - critical for multiplayer sync.
@@ -3705,12 +3743,9 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		print("ChargeController: Skipping duplicate charge roll processing (already handled by charge_roll_made)")
 		return
 
-	# Update dice log display
-	var dice_text = "[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
-		unit_name, total, rolls[0], rolls[1]
-	]
-	dice_log_display.append_text(dice_text)
-	print("ChargeController: Added dice roll to display: ", dice_text.strip_edges())
+	# Update dice log display — structured charge block.
+	DiceLogFormatter.charge_roll(dice_log_display, unit_name, rolls, total)
+	print("ChargeController: Added charge roll to display: %s = %d" % [str(rolls), total])
 
 	charge_distance = total
 	awaiting_roll = false
@@ -3727,7 +3762,7 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		if is_instance_valid(charge_info_label):
 			charge_info_label.text = "Failed! Rolled %d\" but needed ~%.1f\" to reach engagement range" % [total, needed]
 		if is_instance_valid(dice_log_display):
-			dice_log_display.append_text("[color=red][INSUFFICIENT_ROLL] Charge failed![/color] Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach %.0f\" engagement range).\n" % [total, min_distance, needed, er_inches])
+			DiceLogFormatter.outcome(dice_log_display, "Charge failed! Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach %.0f\" engagement range)." % [total, min_distance, needed, er_inches], "bad")
 
 		# T7-58: Update arrows with failure result
 		_update_charge_arrow_roll_results(total, false)
@@ -3749,7 +3784,7 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		if is_instance_valid(charge_info_label):
 			charge_info_label.text = "Success! Rolled %d\" - Drag models toward targets (Shift+drag box selects several to move together, max %d\" each)" % [total, total]
 		if is_instance_valid(dice_log_display):
-			dice_log_display.append_text("[color=green]Charge successful! Move models into engagement range.[/color]\n")
+			DiceLogFormatter.outcome(dice_log_display, "Charge successful! Move models into engagement range.", "good")
 
 		# T7-58: Update arrows with success result
 		_update_charge_arrow_roll_results(total, true)
@@ -3773,32 +3808,21 @@ func _on_charge_resolved(unit_id: String, success: bool, result: Dictionary) -> 
 		_log_unit_positions(target_id, "TARGET UNIT")
 	print("=== End Position Logging ===")
 
-	var result_text = ""
-	if success:
-		result_text = "[color=green]Successful charge![/color] %s moved into engagement range\n" % unit_id
-	else:
-		# Use structured failure data if available
-		var failure_record = result.get("failure_record", {})
-		var categorized = failure_record.get("categorized_errors", [])
-
-		if categorized.size() > 0:
-			# Build rich failure text with category tags
-			var primary_cat = failure_record.get("primary_category", "UNKNOWN")
-			var cat_color = _get_category_color(primary_cat)
-			result_text = "[color=%s][%s][/color] [color=red]Charge failed:[/color] %s\n" % [cat_color, primary_cat, unit_id]
-
-			for cat_error in categorized:
-				var cat = cat_error.get("category", "")
-				var detail = cat_error.get("detail", "")
-				var c = _get_category_color(cat)
-				result_text += "  [color=%s]•[/color] %s\n" % [c, detail]
-		else:
-			# Fallback to plain reason string
-			var reason = result.get("reason", "Failed")
-			result_text = "[color=red]Charge failed:[/color] %s - %s\n" % [unit_id, reason]
-
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text(result_text)
+		if success:
+			DiceLogFormatter.outcome(dice_log_display, "Successful charge! %s moved into engagement range" % _charge_unit_display_name(unit_id), "good")
+		else:
+			# Use structured failure data if available
+			var failure_record = result.get("failure_record", {})
+			var categorized = failure_record.get("categorized_errors", [])
+			if categorized.size() > 0:
+				var primary_cat = failure_record.get("primary_category", "UNKNOWN")
+				DiceLogFormatter.outcome(dice_log_display, "[%s] Charge failed: %s" % [primary_cat, _charge_unit_display_name(unit_id)], "bad")
+				for cat_error in categorized:
+					DiceLogFormatter.note(dice_log_display, str(cat_error.get("detail", "")))
+			else:
+				var reason = result.get("reason", "Failed")
+				DiceLogFormatter.outcome(dice_log_display, "Charge failed: %s - %s" % [_charge_unit_display_name(unit_id), reason], "bad")
 
 	# A Heroic Intervention resolution never completes a charger's activation
 	if result.get("heroic_intervention", false):
@@ -4125,10 +4149,8 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	var total = roll_context.get("total", 0)
 	var unit_name = roll_context.get("unit_name", unit_id)
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
-			unit_name, total, rolls[0] if rolls.size() > 0 else 0, rolls[1] if rolls.size() > 1 else 0
-		])
-		dice_log_display.append_text("[color=cyan]%s: Free re-roll available![/color]\n" % ability_name)
+		DiceLogFormatter.charge_roll(dice_log_display, unit_name, rolls, total)
+		DiceLogFormatter.note(dice_log_display, "%s: Free re-roll available!" % ability_name, "#7FC8E8")
 
 	# Skip UI dialog for AI players — AIPlayer autoload handles the decision
 	var ai_player = get_node_or_null("/root/AIPlayer")
@@ -4170,7 +4192,7 @@ func _on_ability_reroll_used(unit_id: String, player: int) -> void:
 	print("ChargeController: Ability reroll USED for %s" % unit_id)
 	var used_name = pending_ability_reroll_name if pending_ability_reroll_name != "" else "Ability"
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=cyan]%s used! Re-rolling charge (free)...[/color]\n" % used_name.to_upper())
+		DiceLogFormatter.note(dice_log_display, "↻ %s used! Re-rolling charge (free)..." % used_name.to_upper(), "#7FC8E8")
 	emit_signal("charge_action_requested", {
 		"type": "USE_ABILITY_REROLL",
 		"actor_unit_id": unit_id,
@@ -4180,7 +4202,7 @@ func _on_ability_reroll_declined(unit_id: String, player: int) -> void:
 	"""Handle player declining ability reroll."""
 	print("ChargeController: Ability reroll DECLINED for %s" % unit_id)
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=gray]Declined free re-roll.[/color]\n")
+		DiceLogFormatter.note(dice_log_display, "Declined free re-roll.")
 	emit_signal("charge_action_requested", {
 		"type": "DECLINE_ABILITY_REROLL",
 		"actor_unit_id": unit_id,
@@ -4204,10 +4226,8 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	var total = roll_context.get("total", 0)
 	var unit_name = roll_context.get("unit_name", unit_id)
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=orange]Charge Roll:[/color] %s rolled 2D6 = %d (%d + %d)\n" % [
-			unit_name, total, rolls[0] if rolls.size() > 0 else 0, rolls[1] if rolls.size() > 1 else 0
-		])
-		dice_log_display.append_text("[color=gold]Command Re-roll available! (1 CP)[/color]\n")
+		DiceLogFormatter.charge_roll(dice_log_display, unit_name, rolls, total)
+		DiceLogFormatter.note(dice_log_display, "Command Re-roll available! (1 CP)", "#E8C477")
 
 	# Skip dialog for AI players — AIPlayer handles the decision via signal
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
@@ -4249,7 +4269,7 @@ func _on_command_reroll_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Command Re-roll."""
 	print("ChargeController: Command Re-roll USED for %s" % unit_id)
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=gold]COMMAND RE-ROLL used! Re-rolling charge...[/color]\n")
+		DiceLogFormatter.note(dice_log_display, "↻ COMMAND RE-ROLL used! Re-rolling charge...", "#E8C477")
 	emit_signal("charge_action_requested", {
 		"type": "USE_COMMAND_REROLL",
 		"actor_unit_id": unit_id,
@@ -4259,7 +4279,7 @@ func _on_command_reroll_declined(unit_id: String, player: int) -> void:
 	"""Handle player declining Command Re-roll."""
 	print("ChargeController: Command Re-roll DECLINED for %s" % unit_id)
 	if is_instance_valid(dice_log_display):
-		dice_log_display.append_text("[color=gray]Kept original roll.[/color]\n")
+		DiceLogFormatter.note(dice_log_display, "Kept original roll.")
 	emit_signal("charge_action_requested", {
 		"type": "DECLINE_COMMAND_REROLL",
 		"actor_unit_id": unit_id,
@@ -5056,6 +5076,11 @@ func _on_auto_path_charge() -> void:
 	# A charge move may not END within engagement range of any of them (the
 	# phase rejects the confirm), so both placement stages must avoid them.
 	var non_target_enemies: Array = _collect_non_target_enemy_models(charge_targets)
+	# Built once: everything a charging model may not walk THROUGH on its way to
+	# a snapped spot (see _charge_hop_path_is_clear). Without this the ±180°
+	# sweep parks models on the far side of the target unit, teleporting them
+	# through the enemy bases.
+	var lane_blockers: Array = _collect_charge_lane_blockers()
 	for charge_key in to_move_copy:
 		# Keys may name attached character models ("<char_unit>:<model>") — the
 		# leader snaps into contact right alongside its squad.
@@ -5082,6 +5107,10 @@ func _on_auto_path_charge() -> void:
 						continue
 					if _position_within_enemy_er(model, candidate, non_target_enemies):
 						continue
+					# The staged hop is a straight line origin -> candidate, so it
+					# only counts as a placement the model could actually make.
+					if not _charge_hop_path_is_clear(model, origin, candidate, lane_blockers):
+						continue
 					_stage_auto_path_placement(charge_key, model, origin, candidate)
 					print("[T-092 auto-path] Placed %s at %s (gap=%.2f\", angle=%+.0f deg, target dist=%.1f\")" % [charge_key, str(candidate), gap_inches, angle_deg, Measurement.px_to_inches(candidate.distance_to(tp_data["pos"]))])
 					placed = true
@@ -5097,7 +5126,7 @@ func _on_auto_path_charge() -> void:
 		# spot blocked). Best-effort: close the gap as far as the remaining
 		# charge distance legally allows — 11e only requires the model to end
 		# closer + in coherency, so an out-of-engagement approach is legal.
-		var fallback: Dictionary = _find_closest_charge_position(model, origin, targets_sorted, non_target_enemies, charge_key)
+		var fallback: Dictionary = _find_closest_charge_position(model, origin, targets_sorted, non_target_enemies, charge_key, lane_blockers)
 		if fallback.get("found", false):
 			var fb_pos: Vector2 = fallback["position"]
 			_stage_auto_path_placement(charge_key, model, origin, fb_pos)
@@ -5189,6 +5218,56 @@ func _position_within_enemy_er(model: Dictionary, pos: Vector2, enemy_models: Ar
 			return true
 	return false
 
+# ── Snap-to-Contact lane clearance ──────────────────────────────────
+# Every model a charging model may NOT walk through on its way to a snapped
+# position: every alive model on the board except the charging group's own
+# (the bodyguard's models plus its attached characters), which are all mid-
+# charge themselves and are kept apart by the endpoint overlap check.
+func _collect_charge_lane_blockers() -> Array:
+	var group_ids: Array = [active_unit_id]
+	group_ids.append_array(_get_attached_character_ids())
+	var out: Array = []
+	var units = GameState.state.get("units", {})
+	for uid in units:
+		if uid in group_ids:
+			continue
+		for m in units[uid].get("models", []):
+			if m.get("alive", true) and m.get("position") != null:
+				out.append(m)
+	return out
+
+# True when the model could actually WALK the straight hop from_pos -> to_pos
+# without its base passing through one of `blockers`.
+#
+# Snap to Contact used to accept any candidate whose ENDPOINT passed the
+# distance/overlap/ends-closer checks, and nothing looked at the line taken to
+# get there. Because the ±180° sweep tries spots all the way around the target
+# base, once the near side of the enemy unit filled up with squadmates the snap
+# would park the next model — most visibly the attached CHARACTER, which is
+# placed last of all — on the FAR side of the enemy unit, with its recorded
+# charge path cutting straight through the enemy bases. Reported as "the
+# warboss jumps to the other side of the custode models".
+#
+# Only the interior of the hop is sampled: the endpoint is already covered by
+# _check_position_would_overlap, and the start is where the model is standing.
+func _charge_hop_path_is_clear(model: Dictionary, from_pos: Vector2, to_pos: Vector2, blockers: Array) -> bool:
+	if blockers.is_empty():
+		return true
+	var travel: float = from_pos.distance_to(to_pos)
+	if travel <= 1.0:
+		return true
+	var own_radius: float = Measurement.base_radius_px(model.get("base_mm", 32))
+	var step: float = max(6.0, own_radius * 0.5)
+	var samples: int = int(ceil(travel / step))
+	samples = clamp(samples, 2, SNAP_PATH_MAX_SAMPLES)
+	var test_model: Dictionary = model.duplicate()
+	for i in range(1, samples):
+		test_model["position"] = from_pos.lerp(to_pos, float(i) / float(samples))
+		for other in blockers:
+			if Measurement.models_overlap(test_model, other):
+				return false
+	return true
+
 # Fallback for "Snap to Contact" when no base-contact spot is reachable within
 # the charge roll: find a position that brings the model AS CLOSE AS POSSIBLE
 # to a declared target while staying legal (within remaining charge distance
@@ -5205,7 +5284,7 @@ func _position_within_enemy_er(model: Dictionary, pos: Vector2, enemy_models: Ar
 # Pass B only runs when every straight lane is blocked (squadmate, wall,
 # terrain budget): it sweeps small approach-angle offsets and shorter travels
 # and takes the first legal candidate.
-func _find_closest_charge_position(model: Dictionary, origin: Vector2, targets_sorted: Array, non_target_enemies: Array, charge_key: String = "") -> Dictionary:
+func _find_closest_charge_position(model: Dictionary, origin: Vector2, targets_sorted: Array, non_target_enemies: Array, charge_key: String = "", lane_blockers: Array = []) -> Dictionary:
 	# charge_key keys the accumulated-distance lookup; falls back to the bare
 	# model id (the key for the charging unit's own models).
 	if charge_key == "":
@@ -5227,9 +5306,14 @@ func _find_closest_charge_position(model: Dictionary, origin: Vector2, targets_s
 			continue
 		dir_vec = dir_vec.normalized()
 		var candidate: Vector2 = origin + dir_vec * Measurement.inches_to_px(travel)
-		if not _validate_charge_position(model, candidate):
+		# charge_key (not the bare model id) — an attached CHARACTER's model id
+		# collides with a bodyguard model's, so without it this read the SQUAD
+		# member's accumulated distance and pre-charge origin.
+		if not _validate_charge_position(model, candidate, charge_key):
 			continue
 		if _position_within_enemy_er(model, candidate, non_target_enemies):
+			continue
+		if not _charge_hop_path_is_clear(model, origin, candidate, lane_blockers):
 			continue
 		var gap_after: float = _edge_gap_to_target(model, candidate, tp_data)
 		if gap_after >= edge0 - 0.05:
@@ -5260,9 +5344,11 @@ func _find_closest_charge_position(model: Dictionary, origin: Vector2, targets_s
 				var gap_after: float = _edge_gap_to_target(model, candidate, tp_data)
 				if gap_after >= edge0 - 0.05:
 					continue
-				if not _validate_charge_position(model, candidate):
+				if not _validate_charge_position(model, candidate, charge_key):
 					continue
 				if _position_within_enemy_er(model, candidate, non_target_enemies):
+					continue
+				if not _charge_hop_path_is_clear(model, origin, candidate, lane_blockers):
 					continue
 				return {"found": true, "position": candidate, "gap": gap_after}
 	return {"found": false}

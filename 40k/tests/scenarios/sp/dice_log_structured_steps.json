@@ -1,0 +1,66 @@
+{
+  "id": "dice_log_structured_steps",
+  "covers": ["ui.log.dice_log_structured_steps", "ui.shooting.resolution_log_dice_icons"],
+  "fixture": "audit_370_bgnt_shoot",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "The Dice Log tab renders attack resolution as a structured, step-based sequence instead of free text: a gold ⚔ attack header naming weapon → target, a ▸ weapon sub-header, numbered color-coded step chips (1· HIT 3+, 2· WOUND 4+, 3· SAVE 5+, 4· DAMAGE, 5· FNP) in a fixed-width aligned column with grouped dice icons and bold results beside them, dim indented notes for modifiers/keywords, and ✔/✘ outcome bands. Drives ShootingController._on_dice_rolled with a realistic full weapon sequence plus a DiceLogFormatter charge block, asserts every structural element in the parsed text, and screenshots the Dice Log tab.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller != null and main.shooting_controller.dice_log_display != null",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller.dice_log_display.clear()" },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller._on_dice_rolled({'context': 'resolution_start', 'message': 'Bolt rifle → Termagants'})" },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller._on_dice_rolled({'context': 'weapon_progress', 'message': 'Weapon 1 of 2 — Bolt rifle → Termagants', 'current_index': 0, 'total_weapons': 2})" },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller._on_dice_rolled({'context': 'to_hit', 'rolls_raw': [1, 2, 3, 3, 4, 5, 6, 6, 6], 'rolls_modified': [1, 2, 3, 3, 4, 5, 6, 6, 6], 'threshold': '3+', 'successes': 7, 'critical_hits': 3, 'critical_hit_threshold': 6, 'modifiers_applied': 2})" },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller._on_dice_rolled({'context': 'to_wound', 'rolls_raw': [1, 2, 4, 4, 5, 6, 6], 'rolls_modified': [1, 2, 4, 4, 5, 6, 6], 'threshold': '4+', 'successes': 5, 'wound_modifier_net': 1})" },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller._on_dice_rolled({'context': 'save_roll', 'rolls_raw': [1, 2, 3, 5, 6], 'rolls_modified': [1, 2, 3, 5, 6], 'threshold': '5+', 'successes': 2, 'failed': 3, 'target_unit_name': 'Termagants', 'original_save': 4, 'ap': -1, 'using_invuln': false})" },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller._on_dice_rolled({'context': 'variable_damage', 'notation': 'D6', 'rolls': [{'value': 4}, {'value': 2}], 'total_damage': 6})" },
+
+    { "act": "execute_script",
+      "script": "main.shooting_controller._on_dice_rolled({'context': 'feel_no_pain', 'fnp_value': 5, 'rolls_raw': [5, 2, 6, 1], 'wounds_prevented': 2, 'wounds_remaining': 2, 'total_wounds': 4, 'target_unit_name': 'Termagants'})" },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "var log = tree.current_scene.shooting_controller.dice_log_display\nDiceLogFormatter.outcome(log, 'Bolt rifle complete — 2 casualties', 'bad')\nDiceLogFormatter.charge_roll(log, 'Boyz', [5, 4], 9)\nDiceLogFormatter.outcome(log, 'Charge successful! Move models into engagement range.', 'good')\nreturn true",
+      "equals": true },
+
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "var t = tree.current_scene.shooting_controller.dice_log_display.get_parsed_text()\nvar wanted = ['⚔ Bolt rifle → Termagants', '▸ Weapon 1 of 2', '1· HIT 3+', '2· WOUND 4+', '3· SAVE 5+', '4· DAMAGE D6', '5· FNP 5+', '7/9 hit', '(3 crit)', '+1 to hit', '5/7 wound', 'Wound modifier: +1', '2 saved', '3 failed', '4+ base save, AP-1', '= 6 damage', '2/4 prevented', 'CHARGE 2D6', '= 9\"', 'Charge successful']\nfor w in wanted:\n\tif not t.contains(w):\n\t\treturn 'MISSING: %s' % w\nreturn 'ALL_PRESENT'",
+      "equals": "ALL_PRESENT" },
+
+    { "act": "execute_script",
+      "script": "'[1, 2, 3, 3, 4, 5, 6, 6, 6]' in main.shooting_controller.dice_log_display.get_parsed_text()",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "main.game_log_panel.show_dice_tab()" },
+
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/GameLogPanel/VBox/DiceLogDisplay", "timeout_s": 2.0 },
+
+    { "act": "screenshot", "label": "structured_dice_log_full_sequence", "region": [0, 100, 360, 880] },
+
+    { "act": "screenshot", "label": "structured_dice_log_full_frame" }
+  ]
+}

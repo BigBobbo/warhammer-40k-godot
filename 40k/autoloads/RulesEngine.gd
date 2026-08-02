@@ -7119,7 +7119,26 @@ static func get_unit_weapons(unit_id: String, board: Dictionary = {}) -> Diction
 # Helper function to generate consistent weapon IDs from names
 # Includes weapon_type to avoid collisions between ranged/melee variants with the same name
 # (e.g., "Guardian spear" exists as both Ranged and Melee on Custodes units)
+# PERF (2026-08-01): get_weapon_profile() resolves an id by scanning EVERY unit
+# on the board × EVERY weapon on it, regenerating BOTH id forms for each one —
+# ~200 _generate_weapon_id() calls per lookup on a 26-unit board. The function
+# is pure (name + type in, id out), so memoise it. This is the hot inner loop
+# of every profile lookup, and profile lookups happen dozens of times per attack
+# sequence (and thousands of times per Mathhammer simulation).
+static var _weapon_id_cache: Dictionary = {}
+
 static func _generate_weapon_id(weapon_name: String, weapon_type: String = "") -> String:
+	# The \u0001 separator can never appear in a datasheet weapon name, so the
+	# two halves of the key can never alias each other.
+	var cache_key := weapon_name + "\u0001" + weapon_type
+	var cached = _weapon_id_cache.get(cache_key)
+	if cached != null:
+		return cached
+	var generated := _generate_weapon_id_uncached(weapon_name, weapon_type)
+	_weapon_id_cache[cache_key] = generated
+	return generated
+
+static func _generate_weapon_id_uncached(weapon_name: String, weapon_type: String = "") -> String:
 	# Convert weapon name to consistent ID format
 	var weapon_id = weapon_name.to_lower()
 	weapon_id = weapon_id.replace(" ", "_")
