@@ -448,17 +448,82 @@ func _spot_check_melee():
 			var mmh2 = _melee_hist("U_BURNA_BOYZ_A", b)
 			_check("Burna melee -> 4 Cuttin' flames", mmh2.get("Cuttin' flames", 0) == 4, str(mmh2))
 			_check("Burna melee -> 1 Close combat weapon", mmh2.get("Close combat weapon", 0) == 1, str(mmh2))
-	# A melee menu that can't be pinned falls back (keeps the menu) — Boyz have no
-	# melee wargear, so melee stays unresolved (no melee_loadout), NOT collapsed.
+	# CASE D — Boyz record no melee at all in wargear ("9x Slugga, 1x Slugga"), so
+	# wargear-based resolution has nothing to go on. It used to fall back to the
+	# datasheet MENU, which claimed every Boy carried a Choppa AND a Close combat
+	# weapon and the Boss Nob a Big choppa AND a Choppa AND a Power klaw — those
+	# are mutually-exclusive OPTIONS. The datasheet's default kit ("The Boss Nob
+	# is equipped with: slugga; big choppa. Every Boy is equipped with: slugga;
+	# choppa.") pins it: 9 Choppa + 1 Big choppa, no Close combat weapon, no
+	# Power klaw (an option the roster did not take).
 	var ork = _load_json("res://armies/orks.json")
 	if typeof(ork) == TYPE_DICTIONARY:
 		var bk = ork["units"].get("U_BOYZ_K", {})
 		if not bk.is_empty():
-			var board = {"units": {"U_BOYZ_K": bk}}
-			RE.get_unit_melee_weapons("U_BOYZ_K", board)  # trigger resolution attempt
-			var any_melee_lo := false
+			var mmh3 = _melee_hist("U_BOYZ_K", bk)
+			_check("Boyz K melee -> 9 Choppa (datasheet default)", mmh3.get("Choppa", 0) == 9, str(mmh3))
+			_check("Boyz K melee -> 1 Big choppa (Boss Nob default)", mmh3.get("Big choppa", 0) == 1, str(mmh3))
+			_check("Boyz K melee -> no Close combat weapon ghost", not mmh3.has("Close combat weapon"), str(mmh3))
+			_check("Boyz K melee -> no Power klaw ghost", not mmh3.has("Power klaw"), str(mmh3))
+			var per_model_one := true
 			for m in bk.get("models", []):
-				if m.has("melee_loadout"):
-					any_melee_lo = true
+				if m.get("melee_loadout", []).size() != 1:
+					per_model_one = false
 					break
-			_check("Boyz K melee unresolved (no wargear) -> fallback", not any_melee_lo, "")
+			_check("Boyz K melee -> exactly one melee weapon per model", per_model_one, "")
+		_spot_check_positional_roles(ork)
+
+
+# CASE D fallback: units imported before model_profiles existed (and older saves)
+# carry no model_type at all, so the role has to come from the model's POSITION
+# in the datasheet's unit composition ("1 Boss Nob", then "9-19 Boy"). Verified
+# on a real Boyz mob with model_profiles stripped.
+func _spot_check_positional_roles(ork) -> void:
+	if typeof(ork) != TYPE_DICTIONARY:
+		return
+	var src = ork["units"].get("U_BOYZ_K", {})
+	if src.is_empty():
+		return
+
+	var unit = src.duplicate(true)
+	unit["id"] = "U_BOYZ_NOPROFILES"
+	unit["meta"]["model_profiles"] = {}
+	unit.erase("_loadout_checked")
+	unit.erase("_loadout_version")
+	for m in unit.get("models", []):
+		m.erase("model_type")
+		m.erase("ranged_loadout")
+		m.erase("melee_loadout")
+
+	var mm = RE.get_unit_melee_weapons("U_BOYZ_NOPROFILES", {"units": {"U_BOYZ_NOPROFILES": unit}})
+	var hist := {}
+	for mid in mm:
+		for wn in mm[mid]:
+			hist[str(wn)] = int(hist.get(str(wn), 0)) + 1
+	_check("no-model_profiles Boyz -> 9 Choppa via composition order", hist.get("Choppa", 0) == 9, str(hist))
+	_check("no-model_profiles Boyz -> 1 Big choppa (model 0 is the Boss Nob)", hist.get("Big choppa", 0) == 1, str(hist))
+	_check("no-model_profiles Boyz -> no Power klaw ghost", not hist.has("Power klaw"), str(hist))
+	var m0_melee = unit["models"][0].get("melee_loadout", [])
+	_check("no-model_profiles Boyz -> model 0 is the Boss Nob", m0_melee == ["Big choppa"], str(m0_melee))
+
+	# Ambiguity guard: two open-ended composition roles (Lootas are 1-2 Spanners
+	# + 4-8 Lootas) cannot be split by position, so nothing is stamped.
+	var lootas = ork["units"].get("U_LOOTAS_A", {})
+	if not lootas.is_empty():
+		var la = lootas.duplicate(true)
+		la["id"] = "U_LOOTAS_NOPROFILES"
+		la["meta"]["model_profiles"] = {}
+		la["meta"]["wargear"] = []
+		la.erase("_loadout_checked")
+		la.erase("_loadout_version")
+		for m in la.get("models", []):
+			m.erase("model_type")
+			m.erase("ranged_loadout")
+			m.erase("melee_loadout")
+		RE.get_unit_melee_weapons("U_LOOTAS_NOPROFILES", {"units": {"U_LOOTAS_NOPROFILES": la}})
+		var any_stamp := false
+		for m in la.get("models", []):
+			if m.has("melee_loadout"):
+				any_stamp = true
+				break
+		_check("two open-ended composition roles -> left unresolved (never guess)", not any_stamp, "")
