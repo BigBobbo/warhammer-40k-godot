@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.12.12",
+      "date": "2026-08-02",
+      "summary": "The end-of-shooting summary is now a readable battle-report table instead of a wall of text.",
+      "changes": [
+        "The Shooting Phase Summary opens with a plain-English verdict — 'X models slain across Y enemy units' — and a row of big Shots / Hits / Wounds / Slain totals, so you can see how the phase went at a glance.",
+        "Per-target results are a proper table with aligned Shots, Hits, Wounds, Failed saves and Slain columns and a TOTAL row, instead of a sentence per target. Units that lost models are tinted red and sorted to the top, and the weapon and shooter that did the damage are named under each target.",
+        "The panel now uses the game's black-and-gold chrome rather than a plain grey box, and it sizes itself to the number of targets instead of always opening half-empty."
+      ]
+    },
+    {
       "version": "1.12.11",
       "date": "2026-08-02",
       "summary": "Burden of Trust's \"Keep Auto Picks\" now actually picks something — every objective is pre-filled with your closest unit instead of a row of blanks.",
