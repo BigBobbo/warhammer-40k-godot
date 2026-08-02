@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.12.9",
+      "date": "2026-08-02",
+      "summary": "Steam Deck / controller fix: the shooting panel is fully reachable on the pad — no more cut-off CURRENT TARGETS lines or invisible weapon selection in the Dakka Time tutorial.",
+      "changes": [
+        "CURRENT TARGETS now grows to show every assigned weapon line instead of cutting the third one off behind a scrollbar the pad couldn't move.",
+        "Walking your guns with D-pad ▲▼ keeps the highlighted weapon row on screen — it could end up hidden above the fold after the tutorial scrolled the panel down to the Confirm button.",
+        "D-pad focus navigation auto-scrolls the shooting panel to the highlighted control, so the focus ring can no longer wander off screen.",
+        "New: while panel focus is active, the right stick scrolls the panel itself (the controller hint bar now shows 'RS Scroll Panel').",
+        "Pressing B on the board with guns already aimed no longer silently throws the aiming away: the first press warns, and only a second press within a few seconds discards the assignments and deselects the shooter."
+      ]
+    },
+    {
       "version": "1.12.8",
       "date": "2026-08-02",
       "summary": "Krumpin' step 6 no longer tells Steam Deck players to glide the left stick at a row the D-pad reaches perfectly well.",

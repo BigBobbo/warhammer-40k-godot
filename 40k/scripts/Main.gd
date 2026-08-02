@@ -6626,6 +6626,14 @@ func _process(delta: float) -> void:
 	# there IS typing.
 	if InputMap.has_action("pad_camera_left"):
 		var pad_pan = Input.get_vector("pad_camera_left", "pad_camera_right", "pad_camera_up", "pad_camera_down")
+		# Panel focus owns the right stick: while pad focus sits inside a HUD
+		# scroll panel (e.g. the shooting panel once every gun is assigned and
+		# it overflows), the stick scrolls THAT panel instead of panning the
+		# camera behind it — the pad had no way to reach the panel's clipped
+		# rows (Steam Deck T4 report). Checked before the Y-invert: camera
+		# inversion is a camera preference, panel scroll follows the stick.
+		if pad_pan != Vector2.ZERO and PadRouter.try_scroll_focused_panel(pad_pan.y * 900.0 * delta):
+			pad_pan = Vector2.ZERO
 		# P1 controller options: optional Y invert + camera sensitivity (Settings › Controls).
 		if SettingsService.pad_invert_camera_y:
 			pad_pan.y = -pad_pan.y
