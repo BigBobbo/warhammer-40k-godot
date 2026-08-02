@@ -1,0 +1,115 @@
+{
+  "id": "tut_t7_command_panel_no_orphan_rules",
+  "covers": [
+    "tutorial.t7.command",
+    "ui.command_panel.separators"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Player report (T7 'Runnin' da Show', step 4 — after CALL DA WAAAGH!): the right-hand command panel showed a band of ten-plus orange rules under VICTORY POINTS with nothing between them, eating vertical space. CommandController._refresh_ui() rebuilds BattleShockSection / FactionAbilitiesSection / SecondaryMissionsSection on every state change, but the faction and secondary teardowns matched only 'prev is HSeparator' while _add_command_gold_separator() makes a tagged ColorRect — so each refresh freed the section and orphaned its 2px gold rule, and the rebuilt section re-appended at the end of the panel, collecting the abandoned rules into one empty band. Refresh fires on every mission draw/discard, CP change and battle-shock result, so the band grew all phase. This scenario walks the real player path to step 4 and asserts that no gold rule is left introducing nothing.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t7_runnin_da_show/Play_t7_runnin_da_show"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "review_missions"
+    },
+    {
+      "act": "execute_script",
+      "script": "var cp = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel\")\nif cp == null:\n\treturn \"no command panel\"\nvar kids = cp.get_children()\nvar is_rule = []\nfor c in kids:\n\tis_rule.append(c is ColorRect and (c.has_meta(\"command_gold_separator\") or int(c.custom_minimum_size.y) == 2))\nvar orphans = []\nfor i in range(kids.size()):\n\tif not is_rule[i]:\n\t\tcontinue\n\tvar next_i = -1\n\tfor j in range(i + 1, kids.size()):\n\t\tif kids[j] is Control and not kids[j].visible:\n\t\t\tcontinue\n\t\tnext_i = j\n\t\tbreak\n\tif next_i == -1 or is_rule[next_i]:\n\t\torphans.append(i)\nif orphans.size() > 0:\n\treturn \"orphan gold rules at child indexes %s of %d\" % [str(orphans), kids.size()]\nreturn \"clean\"",
+      "multiline": true,
+      "equals": "clean",
+      "comment": "the panel is already refreshed once by the time the first step arms — the faction + secondary rules leaked from the very first rebuild"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "the mission review is an embedded modal AcceptDialog on /root - emit its Continue"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node_or_null(\"/root/GuardSelectionDialog/Content/Actions/KeepAutoGuards\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "Burden of Trust asks for guards when drawn - Keep Auto Picks takes the suggested assignment. Each of these choices drives another _refresh_ui()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "waaagh"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/CallWaaaghButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "stratagems",
+      "comment": "this is the step the player reported the empty band on"
+    },
+    {
+      "act": "execute_script",
+      "script": "var cp = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel\")\nif cp == null:\n\treturn \"no command panel\"\nvar kids = cp.get_children()\nvar is_rule = []\nfor c in kids:\n\tis_rule.append(c is ColorRect and (c.has_meta(\"command_gold_separator\") or int(c.custom_minimum_size.y) == 2))\nvar orphans = []\nfor i in range(kids.size()):\n\tif not is_rule[i]:\n\t\tcontinue\n\tvar next_i = -1\n\tfor j in range(i + 1, kids.size()):\n\t\tif kids[j] is Control and not kids[j].visible:\n\t\t\tcontinue\n\t\tnext_i = j\n\t\tbreak\n\tif next_i == -1 or is_rule[next_i]:\n\t\torphans.append(i)\nif orphans.size() > 0:\n\treturn \"orphan gold rules at child indexes %s of %d\" % [str(orphans), kids.size()]\nreturn \"clean\"",
+      "multiline": true,
+      "equals": "clean",
+      "comment": "THE regression: pre-fix this step of this lesson left 6 abandoned rules stacked under VICTORY POINTS"
+    },
+    {
+      "act": "execute_script",
+      "script": "var cp = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel\")\nvar n = 0\nfor c in cp.get_children():\n\tif c is ColorRect and (c.has_meta(\"command_gold_separator\") or int(c.custom_minimum_size.y) == 2):\n\t\tn += 1\nreturn n",
+      "multiline": true,
+      "expect_max": 8,
+      "comment": "the panel's own section rules: end-phase, round, CP, objectives, VP, faction, secondary. Pre-fix this read 12 and climbed with every refresh, so a ceiling catches a re-leak even if the orphan shape changes"
+    },
+    {
+      "act": "execute_script",
+      "script": "var cp = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel\")\nvar sc = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer\")\nvar vp = cp.get_node_or_null(\"VPSection\")\nif vp == null:\n\treturn \"no VPSection\"\nsc.scroll_vertical = int(vp.position.y) - 60\nreturn \"scrolled\"",
+      "multiline": true,
+      "equals": "scrolled",
+      "comment": "park the viewport on the reported area so the screenshot below shows VICTORY POINTS straight into WAAAGH!"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "01_no_empty_rule_band_under_victory_points"
+    }
+  ]
+}

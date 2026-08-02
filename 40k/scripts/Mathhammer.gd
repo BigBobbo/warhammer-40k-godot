@@ -10,6 +10,12 @@ const DEFAULT_TRIALS = 10000
 const MIN_TRIALS = 100
 const MAX_TRIALS = 100000
 
+# Bounds for analytic_forecast()'s damage-distribution convolution, so a
+# pathological roster (a 30-model horde, or a weapon with a silly attack count)
+# can never turn a "free" forecast into another main-thread stall.
+const ANALYTIC_MAX_WOUNDS = 400
+const ANALYTIC_MAX_ATTACKS = 300
+
 # Statistical result structure
 class SimulationResult:
 	var trials_run: int = 0
@@ -910,3 +916,288 @@ static func validate_simulation_config(config: Dictionary) -> Dictionary:
 		"valid": errors.is_empty(),
 		"errors": errors
 	}
+
+
+# =============================================================================
+# Analytic (closed-form) forecast — no simulation
+# =============================================================================
+#
+# PERF (2026-08-01): simulate_combat() replays the FULL RulesEngine once per
+# trial. Measured on a 26-unit board that is ~1.9 ms per trial, so the fight
+# phase's pre-roll preview (1000 trials PER TARGET, run synchronously inside
+# the same batched action that then rolls the dice) froze the game for 3.58 s
+# of a 3.60 s CONFIRM_AND_RESOLVE_ATTACKS. Reported from the Steam Deck as
+# "the game hangs for a few seconds after I confirm weapons".
+#
+# A pre-roll estimate does not need Monte Carlo: the hit → wound → save chain
+# is a product of independent probabilities, and the damage distribution is a
+# convolution of binomials. This computes the same two numbers exactly (under
+# the assumptions below) in well under a millisecond.
+#
+# Modelling assumptions — these ARE approximations, which is why the caller
+# labels the output "~". simulate_combat() remains the full-fidelity path used
+# by the Mathhammer screen, where the player is waiting on a result anyway:
+#   * every unsaved wound deals min(D, wounds-per-model) damage, so overkill on
+#     a single model is discarded (per 10e/11e) but the remainder is pooled
+#     across the unit instead of being tracked model by model;
+#   * defender models are treated as uniform (wounds/save/invuln from the unit
+#     stats, best invuln found on any model);
+#   * sequence-altering abilities — Sustained/Lethal Hits, Devastating Wounds,
+#     re-rolls, Feel No Pain, cover, hit/wound modifiers — are NOT factored in.
+#
+# weapon_specs: [{ "weapon_id": String, "model_count": int }, ...]
+# attacker_unit: resolves the weapon against the attacker's OWN datasheet — see
+#   resolve_weapon_profile(). Pass {} to fall back to the global lookup.
+# Returns { expected_damage: float, kill_probability: float,
+#           expected_models_slain: float, total_attacks: float }
+static func analytic_forecast(weapon_specs: Array, target_unit: Dictionary, board: Dictionary = {}, is_melee: bool = true, attacker_unit: Dictionary = {}) -> Dictionary:
+	var empty_result := {
+		"expected_damage": 0.0,
+		"kill_probability": 0.0,
+		"expected_models_slain": 0.0,
+		"total_attacks": 0.0
+	}
+	if weapon_specs.is_empty() or target_unit.is_empty():
+		return empty_result
+
+	var stats: Dictionary = target_unit.get("meta", {}).get("stats", {})
+	var t_toughness: int = max(1, int(stats.get("toughness", 4)))
+	var t_save: int = int(stats.get("save", 7))
+	if t_save <= 0:
+		t_save = 7
+	var t_invuln: int = int(stats.get("invuln", 0))
+	if t_invuln <= 0:
+		t_invuln = 7
+
+	# Alive models + wounds per model. Models carry their own invuln in this
+	# schema (RulesEngine reads model.invuln), so take the best one present.
+	var alive_models: int = 0
+	var wounds_per_model: int = 1
+	for m in target_unit.get("models", []):
+		if not m.get("alive", true):
+			continue
+		alive_models += 1
+		wounds_per_model = max(wounds_per_model, int(m.get("wounds", 1)))
+		var m_invuln: int = int(m.get("invuln", 0))
+		if m_invuln > 0 and m_invuln < t_invuln:
+			t_invuln = m_invuln
+	if alive_models <= 0:
+		return empty_result
+
+	# Damage cap: the most the unit can actually lose. The distribution's top
+	# bucket is absorbing ("this much or more"), which is also what the Monte
+	# Carlo reported — it measured wounds actually removed, not raw damage.
+	var total_wounds: int = clampi(alive_models * wounds_per_model, 1, ANALYTIC_MAX_WOUNDS)
+
+	# dist[d] = P(exactly d damage), dist[total_wounds] = P(unit wiped)
+	var dist: Array = []
+	dist.resize(total_wounds + 1)
+	for i in range(total_wounds + 1):
+		dist[i] = 0.0
+	dist[0] = 1.0
+
+	var total_attacks_all: float = 0.0
+
+	for spec in weapon_specs:
+		var weapon_id: String = str(spec.get("weapon_id", ""))
+		if weapon_id == "":
+			continue
+		var model_count: int = max(1, int(spec.get("model_count", 1)))
+		var profile: Dictionary = resolve_weapon_profile(weapon_id, attacker_unit, board)
+		if profile.is_empty():
+			continue
+
+		var attacks_avg: float = _avg_dice_notation(str(profile.get("attacks_raw", profile.get("attacks", 1))))
+		var damage_avg: float = _avg_dice_notation(str(profile.get("damage_raw", profile.get("damage", 1))))
+
+		var attacks: int = clampi(int(round(attacks_avg * float(model_count))), 0, ANALYTIC_MAX_ATTACKS)
+		if attacks <= 0:
+			continue
+		total_attacks_all += float(attacks)
+
+		# Hit: melee reads WS, shooting reads BS. 1s always miss, 6s always hit.
+		var skill: int = int(profile.get("ws", 4)) if is_melee else int(profile.get("bs", 4))
+		if skill <= 0:
+			skill = 4
+		var p_hit: float = clampf(float(7 - skill) / 6.0, 1.0 / 6.0, 5.0 / 6.0)
+
+		var strength: int = max(1, int(profile.get("strength", 4)))
+		var p_wound: float = _wound_probability(strength, t_toughness)
+
+		# Profiles store AP as a NEGATIVE number (-1 = AP1), so subtracting it
+		# worsens the armour save. NOTE: AttackAssignmentDialog's own
+		# `_estimate_expected_damage` preview does `max(0, ap_int)` here, which
+		# with a negative AP is always 0 — that preview silently never applies
+		# AP. Not fixed here to keep this change to the stall it is about, but
+		# the two estimates will disagree on any AP weapon until it is.
+		var ap: int = int(profile.get("ap", 0))
+		var modified_save: int = t_save - ap
+		var effective_save: int = min(modified_save, t_invuln)
+		var p_save: float = clampf(float(7 - effective_save) / 6.0, 0.0, 5.0 / 6.0)
+		var p_unsaved_roll: float = 1.0 - p_save
+
+		var p_per_attack: float = clampf(p_hit * p_wound * p_unsaved_roll, 0.0, 1.0)
+		if p_per_attack <= 0.0:
+			continue
+
+		# Damage each unsaved wound actually removes, with per-model overkill
+		# discarded (a D6 hit on a 1W model still only kills the one model).
+		var per_wound_damage: int = clampi(int(round(min(damage_avg, float(wounds_per_model)))), 1, total_wounds)
+
+		var pmf: Array = _binomial_pmf(attacks, p_per_attack)
+		var next_dist: Array = []
+		next_dist.resize(total_wounds + 1)
+		for i in range(total_wounds + 1):
+			next_dist[i] = 0.0
+		for d in range(total_wounds + 1):
+			var pd: float = dist[d]
+			if pd <= 1e-12:
+				continue
+			if d == total_wounds:
+				# Absorbing state — already wiped out.
+				next_dist[total_wounds] += pd
+				continue
+			for k in range(pmf.size()):
+				var pk: float = pmf[k]
+				if pk <= 1e-12:
+					continue
+				next_dist[mini(total_wounds, d + k * per_wound_damage)] += pd * pk
+		dist = next_dist
+
+	var expected_damage: float = 0.0
+	for d in range(total_wounds + 1):
+		expected_damage += float(d) * dist[d]
+
+	return {
+		"expected_damage": expected_damage,
+		"kill_probability": dist[total_wounds],
+		"expected_models_slain": expected_damage / float(max(1, wounds_per_model)),
+		"total_attacks": total_attacks_all
+	}
+
+# Exact binomial PMF, computed from the mode outward with the ratio recurrence
+# and normalised at the end. Starting from q^n (the textbook form) underflows to
+# zero for the attack counts a 20-model mob generates, which would silently
+# produce an all-zero distribution.
+static func _binomial_pmf(n: int, p: float) -> Array:
+	var out: Array = []
+	out.resize(n + 1)
+	for i in range(n + 1):
+		out[i] = 0.0
+	if n <= 0:
+		out[0] = 1.0
+		return out
+	p = clampf(p, 0.0, 1.0)
+	if p <= 0.0:
+		out[0] = 1.0
+		return out
+	if p >= 1.0:
+		out[n] = 1.0
+		return out
+
+	var q: float = 1.0 - p
+	var mode: int = clampi(int(floor(float(n + 1) * p)), 0, n)
+	out[mode] = 1.0
+	var v: float = 1.0
+	for k in range(mode + 1, n + 1):
+		v *= (float(n - k + 1) / float(k)) * (p / q)
+		out[k] = v
+	v = 1.0
+	for k in range(mode - 1, -1, -1):
+		v *= (float(k + 1) / float(n - k)) * (q / p)
+		out[k] = v
+
+	var total: float = 0.0
+	for k in range(n + 1):
+		total += out[k]
+	if total > 0.0:
+		for k in range(n + 1):
+			out[k] = out[k] / total
+	return out
+
+# 10e/11e wound table.
+static func _wound_probability(strength: int, toughness: int) -> float:
+	var need: int = 4
+	if strength >= toughness * 2:
+		need = 2
+	elif strength > toughness:
+		need = 3
+	elif strength == toughness:
+		need = 4
+	elif strength * 2 <= toughness:
+		need = 6
+	else:
+		need = 5
+	return float(7 - need) / 6.0
+
+# Average of a stat that may be written as dice notation: "3", "D6", "2D3",
+# "D6+1", "2D6+2". Unparseable input falls back to 1.0.
+static func _avg_dice_notation(raw: String) -> float:
+	var s: String = raw.strip_edges().to_upper().replace(" ", "")
+	if s.is_empty():
+		return 1.0
+	if s.is_valid_int():
+		return float(int(s))
+	var d_index: int = s.find("D")
+	if d_index < 0:
+		return 1.0
+	var count_str: String = s.substr(0, d_index)
+	var dice_count: int = int(count_str) if count_str.is_valid_int() else 1
+	var rest: String = s.substr(d_index + 1)
+	var bonus: int = 0
+	var plus_index: int = rest.find("+")
+	if plus_index >= 0:
+		var bonus_str: String = rest.substr(plus_index + 1)
+		bonus = int(bonus_str) if bonus_str.is_valid_int() else 0
+		rest = rest.substr(0, plus_index)
+	var sides: int = int(rest) if rest.is_valid_int() else 6
+	if sides <= 0:
+		sides = 6
+	return float(dice_count) * (float(sides) + 1.0) / 2.0 + float(bonus)
+
+# Resolve a weapon id against the ATTACKER'S OWN datasheet first.
+#
+# RulesEngine.get_weapon_profile() resolves an id by scanning every unit on the
+# board and returning the first weapon whose generated id matches — so a name
+# shared across datasheets resolves to whichever unit happens to come first.
+# On the co_pretrigger fixture, "power_klaw_melee" resolves to a 3A/S9/WS4+
+# Power klaw while the Warboss actually swings a 4A/S10/WS3+ one, and a forecast
+# built on the global lookup is wrong by ~40%. Look on the attacker first and
+# only fall back to the board-wide scan.
+static func resolve_weapon_profile(weapon_id: String, attacker_unit: Dictionary, board: Dictionary) -> Dictionary:
+	if not attacker_unit.is_empty():
+		for w in attacker_unit.get("meta", {}).get("weapons", []):
+			if typeof(w) != TYPE_DICTIONARY:
+				continue
+			var w_name: String = str(w.get("name", ""))
+			if w_name.is_empty():
+				continue
+			var w_type: String = str(w.get("type", ""))
+			if w_name == weapon_id \
+					or RulesEngine.generate_weapon_id(w_name, w_type) == weapon_id \
+					or RulesEngine.generate_weapon_id(w_name) == weapon_id:
+				return _profile_from_datasheet_weapon(w)
+	return RulesEngine.get_weapon_profile(weapon_id, board)
+
+# Normalise a raw datasheet weapon entry into the subset of the profile shape
+# analytic_forecast() reads (get_weapon_profile()'s output for the same weapon).
+static func _profile_from_datasheet_weapon(w: Dictionary) -> Dictionary:
+	return {
+		"name": str(w.get("name", "")),
+		"attacks_raw": str(w.get("attacks", "1")),
+		"damage_raw": str(w.get("damage", "1")),
+		"ws": _stat_int(str(w.get("weapon_skill", "4")), 4),
+		"bs": _stat_int(str(w.get("ballistic_skill", "4")), 4),
+		"strength": _stat_int(str(w.get("strength", "4")), 4),
+		"ap": _stat_int(str(w.get("ap", "0")), 0)
+	}
+
+# Datasheet stats arrive as strings and may carry a trailing "+" ("3+") or be
+# non-numeric ("N/A", "User"); fall back rather than silently reading 0.
+static func _stat_int(raw: String, fallback: int) -> int:
+	var s: String = raw.strip_edges()
+	if s.ends_with("+"):
+		s = s.substr(0, s.length() - 1)
+	if s.is_valid_int():
+		return int(s)
+	return fallback
