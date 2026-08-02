@@ -60,8 +60,11 @@ PIPER_NOISE_SCALE = 0.60
 PIPER_NOISE_W = 0.85
 SENTENCE_SILENCE = 0.35
 
+# Silence appended before the reverb so the tail is not clipped (see ork_chain).
+TAIL_PAD_S = 0.5
+
 # Bump when the pipeline changes in a way that should invalidate every clip.
-PIPELINE_VERSION = 1
+PIPELINE_VERSION = 2
 
 
 # --------------------------------------------------------------------------
@@ -360,6 +363,11 @@ def ork_chain(intensity: float) -> list:
         # Even out the shout-to-mutter range so no line needs a volume nudge.
         "compand", "0.02,0.20", "-50,-45,-20,-14,0,-8", "-3", "-90", "0.1",
         "gain", "-6",
+        # Room for the tail. `reverb` does NOT lengthen the file — it rings into
+        # whatever is already there — and Piper ends a line ~0.15s after the last
+        # phoneme, so without this pad the final word's decay is chopped at the
+        # file edge and the end of every clip sounds swallowed.
+        "pad", "0", str(TAIL_PAD_S),
         "reverb", "%d" % room, "50", "40", "100", "10", "-3",
         "gain", "-n", "-1.5",
     ]
@@ -394,8 +402,10 @@ def synth(text: str, out_ogg: str, voice: str, intensity: float, quality: int) -
         if sox.returncode != 0 or "FAIL" in stderr:
             raise RuntimeError("sox failed: %s" % (stderr.strip()[:400] or "rc=%d" % sox.returncode))
         out_seconds = _duration(orked)
-        if abs(out_seconds - raw_seconds) > 0.5:
-            raise RuntimeError("sox truncated %.2fs to %.2fs (chain aborted?)"
+        # The chain appends TAIL_PAD_S on purpose; anything else is an aborted
+        # chain, which SoX reports by exiting 0 with a truncated stub.
+        if abs(out_seconds - (raw_seconds + TAIL_PAD_S)) > 0.5:
+            raise RuntimeError("sox turned %.2fs into %.2fs (chain aborted?)"
                                % (raw_seconds, out_seconds))
         if "clipped" in stderr:
             print("  WARN clipping in %s: %s"
