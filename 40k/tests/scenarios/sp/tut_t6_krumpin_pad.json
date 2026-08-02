@@ -27,8 +27,9 @@
       "equals": true
     },
     {
-      "act": "simulate_joy_button",
-      "button_index": 12
+      "act": "pad_cursor_glide",
+      "button_text": "Tutorial",
+      "comment": "Was a blind D-pad-down + A, which assumed Tutorial sat one focus-step below the menu's initial focus; the above-the-fold rework put the six secondary actions in a 3-column grid, so ▼ from Start Game now lands on Multiplayer and the picker never opened — every step after this one failed. Same repair tut_t1_basics_pad / tut_t3_get_movin_pad already carry."
     },
     {
       "act": "wait_seconds",
