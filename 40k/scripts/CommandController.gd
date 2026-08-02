@@ -11,6 +11,10 @@ const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 signal command_action_requested(action: Dictionary)
 signal ui_update_requested()
 
+# Marks the gold rules created by _add_command_gold_separator() so a section
+# teardown can take its own separator with it (see _remove_section_with_separator).
+const COMMAND_SEPARATOR_META := "command_gold_separator"
+
 # Command state
 var current_phase = null  # Can be CommandPhase or null
 
@@ -856,10 +860,69 @@ func _on_insane_bravery_pressed(unit_id: String) -> void:
 
 func _add_command_gold_separator(parent: Control) -> void:
 	var sep = ColorRect.new()
+	# Tagged so _refresh_ui() can recognise it as "the rule that belongs to the
+	# section after me" and tear the pair down together. Matching on type alone
+	# is not enough — the panel holds other ColorRects.
+	sep.set_meta(COMMAND_SEPARATOR_META, true)
 	sep.custom_minimum_size = Vector2(0, 2)
 	sep.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
 	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	parent.add_child(sep)
+
+func _is_command_separator(node: Node) -> bool:
+	"""True for either separator flavour used in the command panel."""
+	if node is HSeparator:
+		return true
+	return node is ColorRect and node.has_meta(COMMAND_SEPARATOR_META)
+
+func _remove_section_with_separator(command_panel: VBoxContainer, section_name: String) -> void:
+	"""Drop a rebuildable section together with the gold rule that introduces it.
+
+	Player report (T7 "Runnin' da Show", step 4): a dozen orange rules stacked up
+	under VICTORY POINTS with nothing between them. Cause: _refresh_ui() rebuilds
+	BattleShockSection / FactionAbilitiesSection / SecondaryMissionsSection on
+	every state change, and the faction + secondary teardowns only matched
+	`prev is HSeparator` — but _add_command_gold_separator() makes a ColorRect.
+	So each refresh freed the section and orphaned its 2px rule, and the rebuilt
+	section re-appended at the end of the panel, leaving the abandoned rules
+	collected into one empty band. Refresh fires on every mission draw/discard,
+	CP change and battle-shock result, so the band grew all phase.
+	"""
+	var section = command_panel.get_node_or_null(section_name)
+	if not section:
+		return
+	var idx = section.get_index()
+	if idx > 0:
+		var prev = command_panel.get_child(idx - 1)
+		if _is_command_separator(prev):
+			command_panel.remove_child(prev)
+			prev.queue_free()
+	command_panel.remove_child(section)
+	section.queue_free()
+
+func _prune_orphan_separators(command_panel: VBoxContainer) -> void:
+	"""Belt-and-braces: drop any gold rule that introduces nothing.
+
+	A separator is an orphan when the next visible sibling is another separator,
+	or when it is the last child of the panel. Keeps the panel tidy even if a
+	future section teardown forgets to take its rule with it.
+	"""
+	var children = command_panel.get_children()
+	for i in range(children.size()):
+		var node = children[i]
+		if not _is_command_separator(node):
+			continue
+		var next_content: Node = null
+		for j in range(i + 1, children.size()):
+			var candidate = children[j]
+			# Zero-height helpers (the hidden DiceRollVisual) are not content.
+			if candidate is Control and not candidate.visible:
+				continue
+			next_content = candidate
+			break
+		if next_content == null or _is_command_separator(next_content):
+			command_panel.remove_child(node)
+			node.queue_free()
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
@@ -959,47 +1022,21 @@ func _refresh_ui() -> void:
 		# section appear once the phase is attached, and refresh as tests resolve.
 		# Placed before the faction rebuild so the sequential appends land in the
 		# intended order (objectives → battle-shock → faction → secondary).
-		var old_shock_section = command_panel.get_node_or_null("BattleShockSection")
-		if old_shock_section:
-			var bs_idx = old_shock_section.get_index()
-			if bs_idx > 0:
-				var bs_prev = command_panel.get_child(bs_idx - 1)
-				# The separator before the section is a gold ColorRect (see
-				# _add_command_gold_separator), not an HSeparator — check both so it
-				# doesn't leak a 2px line on every refresh.
-				if bs_prev is HSeparator or bs_prev is ColorRect:
-					command_panel.remove_child(bs_prev)
-					bs_prev.queue_free()
-			command_panel.remove_child(old_shock_section)
-			old_shock_section.queue_free()
+		# Each teardown takes its own gold rule with it — see
+		# _remove_section_with_separator() for the empty-orange-band bug this fixes.
+		_remove_section_with_separator(command_panel, "BattleShockSection")
 		_setup_battle_shock_section(command_panel)
 
 		# Rebuild the faction abilities section to reflect Oath of Moment / Waaagh! changes
-		var old_faction_section = command_panel.get_node_or_null("FactionAbilitiesSection")
-		if old_faction_section:
-			var fa_idx = old_faction_section.get_index()
-			if fa_idx > 0:
-				var fa_prev = command_panel.get_child(fa_idx - 1)
-				if fa_prev is HSeparator:
-					command_panel.remove_child(fa_prev)
-					fa_prev.queue_free()
-			command_panel.remove_child(old_faction_section)
-			old_faction_section.queue_free()
+		_remove_section_with_separator(command_panel, "FactionAbilitiesSection")
 		_setup_faction_abilities_section(command_panel)
 
 		# Rebuild the secondary missions section to reflect changes
-		var old_section = command_panel.get_node_or_null("SecondaryMissionsSection")
-		if old_section:
-			# Find the separator before it and remove both
-			var idx = old_section.get_index()
-			if idx > 0:
-				var prev = command_panel.get_child(idx - 1)
-				if prev is HSeparator:
-					command_panel.remove_child(prev)
-					prev.queue_free()
-			command_panel.remove_child(old_section)
-			old_section.queue_free()
+		_remove_section_with_separator(command_panel, "SecondaryMissionsSection")
 		_setup_secondary_missions_section(command_panel)
+
+		# Sweep up any rule that ended up introducing nothing.
+		_prune_orphan_separators(command_panel)
 
 func _on_end_command_pressed() -> void:
 	print("CommandController: End Command Phase button pressed")

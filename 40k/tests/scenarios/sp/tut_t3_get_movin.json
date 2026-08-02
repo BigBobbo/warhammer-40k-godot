@@ -398,6 +398,34 @@
       "comment": "'one drag shifts da whole mob' proven end to end: ONE drag off ONE selected model staged real distance for EVERY alive Boy and the attached Warboss. This is also the regression pin for the group-drag key collision - group_drag_start_positions used to be keyed by bare model_id, so the Warboss ('m1') inherited the first Boy's start position, was sent to the BOY's destination, and the phase rejected it as 'Distance 7.5\" exceeds cap 6.0\"'. He never moved, and the two Boyz whose destinations he was still standing in were blocked behind him - 8 of 11 placed instead of 11."
     },
     {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"End This Unit's Move\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "REPORTED: the step never told the player the move has to be locked in - they dropped the mob and waited. The card must NAME the button (the done-gate has always been CONFIRM_UNIT_MOVE, so a body that stops at 'drops da lot' is a dead end)."
+    },
+    {
+      "act": "execute_script",
+      "script": "var cl = TutorialManager.checklist_state()\nif not bool(cl.get(\"mob_shifted\", false)):\n\treturn \"mob_shifted did not tick after the drag\"\nif bool(cl.get(\"move_locked\", false)):\n\treturn \"move_locked ticked before the confirm\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the standing reminder: box one ticks off the drag, box two stays OPEN so the outstanding confirm is visible on the card rather than only in a sentence the player already scrolled past"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = o.current_checklist_text()\nif not t.contains(\"Lock it in\"):\n\treturn \"checklist row missing the lock-it-in box: %s\" % t\nif not t.contains(\"End This Unit's Move\"):\n\treturn \"checklist row does not name the button: %s\" % t\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "and it is actually RENDERED - current_checklist_text() is empty when the row is hidden"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_anchor_name()",
+      "multiline": true,
+      "equals": "ConfirmMoveButton",
+      "comment": "anchor_when: with the models down, the spotlight has walked off the mob (anchor {unit: U_BOYZ_T}) and onto the button the card is now telling the player to press. Before the fix the ring stayed on the Boyz - pointing at the thing they had already done."
+    },
+    {
       "act": "screenshot",
       "label": "03b_boyz_moving_after_disembark"
     },

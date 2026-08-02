@@ -195,6 +195,7 @@ const HINTS_DEPLOY_REPOSITION := [
 const HINTS_FOCUS := [
 	["dpad", "Navigate"],
 	["a", "Press"],
+	["rs", "Scroll Panel"],
 	["b", "Back To Board"],
 ]
 # The tutorial's instructor card is waiting on a button press — a "Continue"
@@ -363,6 +364,14 @@ const BOX_SELECT_HINT := "Hold {a}: Box Select"
 # (empty when none). Windowed scenarios assert this.
 var target_highlight_id: String = ""
 
+# B-discard confirm window (shooting): a board-context B on an armed shooter
+# with staged weapon assignments no longer discards them silently — the first
+# press warns and arms this window, a second B inside it discards for real.
+# Keyed to the shooter so cycling units disarms it implicitly.
+const B_DISCARD_CONFIRM_MS := 4000
+var _b_discard_shooter_id: String = ""
+var _b_discard_armed_ms: int = -100000
+
 # What the pad's ☰ (Start) button means in the CURRENT board state, read straight
 # off the ☰ chip of the hint set the bar is showing — so the chip, the tutorial
 # prompts and the top-right phase-action button all quote one authority and can
@@ -464,6 +473,17 @@ func is_charge_x_action_active() -> bool:
 
 func _ready() -> void:
 	InputDeviceManager.device_changed.connect(_on_device_changed)
+	# Settings › Controller toggle: the paddles swap between "peek at the stats
+	# card" (card suppressed) and their model-hop meaning (card always on), so the
+	# hint bar has to be recomputed when the player flips it.
+	var ss := get_node_or_null("/root/SettingsService")
+	if ss != null and ss.has_signal("pad_hover_stats_card_changed"):
+		ss.pad_hover_stats_card_changed.connect(_on_pad_hover_stats_card_changed)
+
+
+func _on_pad_hover_stats_card_changed(_enabled: bool) -> void:
+	_cancel_stats_peek()
+	_update_hints()
 
 
 func _on_device_changed(mode: int) -> void:
@@ -471,6 +491,10 @@ func _on_device_changed(mode: int) -> void:
 	# chain (and give up any focus they already hold); on KBM they restore.
 	var pad := mode == InputDeviceManager.InputMode.PAD
 	_apply_list_focus_policy(pad)
+	# A paddle held while the player drops the pad and grabs the mouse would leave
+	# the peek latched on (its release never arrives as a routed press).
+	if not pad:
+		_cancel_stats_peek()
 	# Focus a mouse click left behind on a panel button must not hijack the
 	# pad: with any focus owner alive every router affordance stands down (the
 	# focus guards) and the first D-pad presses silently walk the OLD focus
@@ -494,8 +518,119 @@ func _on_device_changed(mode: int) -> void:
 	_update_hints()
 
 
+# ── R4 / L4 stats-card peek ────────────────────────────────────────────────
+# The board hover card (Main._show_token_hover) pops up wherever the cursor
+# rests on a model. On the pad the cursor IS the model being dragged, so during
+# a charge/move placement the card sits on top of the exact spot the player is
+# aiming at. SettingsService.pad_hover_stats_card therefore defaults OFF for the
+# pad, and these two back paddles are the peek: HOLD R4 (PADDLE1) or L4
+# (PADDLE2) to show the hovered model's card, release to hide it again.
+#
+# R4 / L4 keep their old model-hop meaning on a TAP — the paddles were never
+# free, so stealing them outright would cost a Deck player whose Steam Input
+# only forwards the upper pair their model switch. Only the HOLD is new:
+#
+#   tap  R4 / L4  → next / previous model (unchanged, see _hop_model)
+#   hold R4 / L4  → the hovered model's stats card, until release
+#
+# Two more "only if it isn't already used" rules: a Settings › Controller ROLE
+# moved onto a paddle always wins, and with the card turned permanently back on
+# there is nothing to peek, so the paddle presses route straight to the hop
+# exactly as before.
+signal stats_peek_changed(active: bool)
+
+const STATS_PEEK_BUTTONS := [JOY_BUTTON_PADDLE1, JOY_BUTTON_PADDLE2]
+# How long the paddle must be down before it counts as a peek rather than a hop.
+const STATS_PEEK_HOLD_S := 0.25
+
+var stats_peek_active: bool = false
+# The paddle currently down and still undecided (tap or hold?), plus a
+# generation counter so a released paddle's timer can never fire late.
+var _peek_pending_button: int = JOY_BUTTON_INVALID
+var _peek_pending_id: int = 0
+
+
+## True when the paddles are currently acting as the stats peek: the pad hover
+## card is suppressed, so there is something for the peek to reveal.
+func stats_peek_available() -> bool:
+	var ss := get_node_or_null("/root/SettingsService")
+	if ss == null:
+		return false
+	return not bool(ss.pad_hover_stats_card)
+
+
+func _handle_stats_peek(event: InputEventJoypadButton) -> bool:
+	if not (event.button_index in STATS_PEEK_BUTTONS):
+		return false
+	# A rebound role owning this paddle keeps it (canonical() reports the role's
+	# default button instead of the identity) — never steal a bound button.
+	if PadBindings.canonical(event.button_index) != event.button_index:
+		return false
+	# Card already always-on: nothing to peek, so let the paddle fall through to
+	# its model-hop meaning below.
+	if not stats_peek_available():
+		return false
+	if event.pressed:
+		# A menu-level modal owns the pad entirely (same rule as the main router).
+		if _native_nav_modal_open():
+			return false
+		InputDeviceManager.claim_pad()
+		_peek_pending_button = event.button_index
+		_peek_pending_id += 1
+		var pending_id: int = _peek_pending_id
+		var timer := get_tree().create_timer(STATS_PEEK_HOLD_S)
+		timer.timeout.connect(_on_peek_hold_elapsed.bind(pending_id))
+	else:
+		# Only ever finish a press this handler claimed — otherwise a paddle whose
+		# press went elsewhere (modal open, layout changed mid-press) would hop.
+		if _peek_pending_button != event.button_index:
+			return false
+		var was_hold: bool = stats_peek_active
+		_cancel_stats_peek()
+		if not was_hold:
+			# Short tap: the paddle's original job. R4/R5 = next model, L4/L5 = prev.
+			_hop_model(1 if event.button_index == JOY_BUTTON_PADDLE1 else -1)
+			_update_hints()
+	get_viewport().set_input_as_handled()
+	return true
+
+
+## Drop any held/pending peek — on release, and whenever the pad stops driving
+## (a paddle still down when the player picks up the mouse never sends us its
+## release, so the card would stay latched on screen).
+func _cancel_stats_peek() -> void:
+	_peek_pending_button = JOY_BUTTON_INVALID
+	_peek_pending_id += 1
+	set_stats_peek(false)
+
+
+func _on_peek_hold_elapsed(pending_id: int) -> void:
+	# Still the same uninterrupted hold? Then it is a peek, not a model hop.
+	if _peek_pending_id != pending_id or _peek_pending_button == JOY_BUTTON_INVALID:
+		return
+	set_stats_peek(true)
+
+
+## Show / hide the hovered model's stats card. Main listens on stats_peek_changed
+## and re-runs its hit test, so the card appears the instant the paddle goes down
+## rather than on the next stick motion.
+func set_stats_peek(active: bool) -> void:
+	if stats_peek_active == active:
+		return
+	stats_peek_active = active
+	DebugLogger.debug("PadRouter: stats-card peek %s" % ("HELD" if active else "released"))
+	stats_peek_changed.emit(active)
+	_update_hints()
+
+
 func _input(event: InputEvent) -> void:
-	if not (event is InputEventJoypadButton) or not event.pressed:
+	if not (event is InputEventJoypadButton):
+		return
+	# R4 / L4 stats peek — handled BEFORE the pressed-only gate below because the
+	# peek needs the RELEASE too (hold to show, let go to hide).
+	if _handle_stats_peek(event):
+		return
+	if not event.pressed:
 		return
 	# A joypad event IS pad input — claim inline so the session's very first
 	# press acts instead of being dropped (the _process poll runs after us).
@@ -640,6 +775,10 @@ func _input(event: InputEvent) -> void:
 		# one (staged drops keep their spot). Both back pairs are bound so
 		# whichever the player's config exposes works: right paddles (commonly
 		# R4/R5 → PADDLE1/3) = next model, left paddles (L4/L5 → PADDLE2/4) = prev.
+		# R4/L4 reach here only when the stats-card peek is NOT armed (card turned
+		# permanently on, or a role rebound onto the paddle) — with it armed their
+		# TAP is hopped from _handle_stats_peek instead, and their HOLD peeks at
+		# the hovered model's card. R5/L5 always hop straight from here.
 		JOY_BUTTON_PADDLE1, JOY_BUTTON_PADDLE3:
 			if _hop_model(1):
 				get_viewport().set_input_as_handled()
@@ -1353,6 +1492,23 @@ func _handle_back() -> bool:
 		return true
 	var sc = _shooting_controller_in_shooting_phase()
 	if sc != null and str(sc.active_shooter_id) != "":
+		# Deselecting an armed shooter DISCARDS its staged weapon assignments
+		# (_keyboard_deselect_shooter clears them first) — and a board-context B
+		# used to do that silently, wiping a fully-aimed unit one press before
+		# Confirm (Steam Deck T4 report follow-up). With anything staged, the
+		# first B only warns and arms a short confirm window; B again inside it
+		# discards for real. A clean shooter (nothing staged) deselects at once,
+		# and B from panel focus never reaches this branch (focus release above).
+		var staged: int = sc.weapon_assignments.size()
+		var now := Time.get_ticks_msec()
+		var armed: bool = _b_discard_shooter_id == str(sc.active_shooter_id) \
+			and (now - _b_discard_armed_ms) <= B_DISCARD_CONFIRM_MS
+		if staged > 0 and not armed:
+			_b_discard_shooter_id = str(sc.active_shooter_id)
+			_b_discard_armed_ms = now
+			ToastManager.show_warning("%d gun%s aimed — B again discards the aiming and deselects" % [staged, "" if staged == 1 else "s"])
+			return true
+		_b_discard_shooter_id = ""
 		sc._keyboard_deselect_shooter()
 		target_highlight_id = ""
 		return true
@@ -2332,6 +2488,47 @@ func _release_panel_focus() -> bool:
 	return false
 
 
+# Right stick while panel focus is live: scroll the focused control's own
+# ScrollContainer (right panel / bottom bar) instead of panning the camera.
+# The Steam Deck report behind this: with every gun assigned, T4's shooting
+# panel outgrows its scroll viewport and the clipped rows (CURRENT TARGETS,
+# the weapon tree's top) were unreachable on the pad — mouse users wheel-
+# scroll, the pad had nothing. Main._process calls this with the stick's
+# vertical delta before treating it as camera pan; consuming the whole stick
+# while a scrollable panel holds focus keeps the two jobs from fighting
+# (B releases focus and hands the stick back to the camera). Returns true
+# when the stick was consumed.
+func try_scroll_focused_panel(amount_px: float) -> bool:
+	if not InputDeviceManager.is_pad_active():
+		return false
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused == null:
+		return false
+	var m := get_tree().current_scene
+	if m == null:
+		return false
+	var in_hud := false
+	for root_path in ["HUD_Right", "HUD_Bottom"]:
+		var root := m.get_node_or_null(root_path)
+		if root != null and (root == focused or root.is_ancestor_of(focused)):
+			in_hud = true
+			break
+	if not in_hud:
+		return false
+	var n: Node = focused
+	while n != null and not (n is ScrollContainer):
+		n = n.get_parent()
+	if n == null:
+		return false
+	var sc := n as ScrollContainer
+	var bar := sc.get_v_scroll_bar()
+	if bar == null or not bar.visible:
+		# Nothing to scroll — the camera keeps the stick.
+		return false
+	sc.scroll_vertical = int(clampf(float(sc.scroll_vertical) + amount_px, 0.0, float(bar.max_value - bar.page)))
+	return true
+
+
 func _find_first_focusable(root: Node) -> Control:
 	var queue: Array = [root]
 	while not queue.is_empty():
@@ -2671,12 +2868,46 @@ func _update_hints() -> void:
 						hints = HINTS_FIGHT_CONSOLIDATE
 					_:
 						hints = HINTS_FIGHT
-	PadHintBar.set_hints(_with_box_select_hint(hints))
+	PadHintBar.set_hints(_with_stats_peek_hint(_with_box_select_hint(hints)))
 	# Publish what ☰ means in this state so the top-right phase-action button can
 	# drop its "[☰] " prefix while a context action (Confirm Move, Confirm
 	# Targets, …) owns Start. Done from the same `hints` the bar just rendered, so
 	# chip and button are the same statement by construction.
 	_set_start_action(_start_chip_label(hints))
+
+
+# A copy of `hints` with the R4 "Peek Stats" chip appended, for the placement
+# states where the hover card was suppressed (charge / movement model placement —
+# exactly where the card used to cover the spot being aimed at). Advertised only
+# there so the chip doesn't ride along on every board state; the peek itself works
+# wherever a model can be hovered.
+func _with_stats_peek_hint(hints: Array) -> Array:
+	if not stats_peek_available():
+		return hints
+	if PadActionBar.is_open() or get_viewport().gui_get_focus_owner() != null:
+		return hints
+	if not (carry_active or _charge_placement_active() or _movement_session_locked() \
+			or _deployment_controller_placing() != null):
+		return hints
+	# Name a paddle the peek actually still owns: a role rebound onto R4 leaves L4
+	# doing the job, and a role on both leaves nothing to promise.
+	var glyph := ""
+	for b in STATS_PEEK_BUTTONS:
+		if PadBindings.canonical(b) == b:
+			glyph = "r4" if b == JOY_BUTTON_PADDLE1 else "l4"
+			break
+	if glyph == "":
+		return hints
+	var out: Array = hints.duplicate()
+	out.append([glyph, "Hold: Model Stats"])
+	return out
+
+
+# Charge phase with the roll made and models being placed — the state the hover
+# card was reported to obstruct.
+func _charge_placement_active() -> bool:
+	var cc := _charge_controller_any()
+	return cc != null and ("awaiting_movement" in cc) and bool(cc.awaiting_movement)
 
 
 # A copy of `hints` with the LB/RB rotate chips added, for the parked mid-move
