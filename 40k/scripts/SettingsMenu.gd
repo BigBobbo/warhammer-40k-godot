@@ -56,6 +56,7 @@ const INPUT_MODE_POLICIES: Array[String] = ["auto", "pad", "kbm", "dynamic"]
 var _pad_invert_y_checkbox: CheckBox
 var _pad_swap_sticks_checkbox: CheckBox
 var _pad_magnetism_checkbox: CheckBox
+var _pad_hover_card_checkbox: CheckBox
 var _pad_camera_sens_slider: HSlider
 var _pad_camera_sens_label: Label
 var _pad_cursor_sens_slider: HSlider
@@ -640,6 +641,17 @@ func _build_controller_tab(parent: VBoxContainer) -> void:
 	_pad_invert_y_checkbox = _add_checkbox_row(parent, "Invert camera Y (right stick up / down)", "_on_pad_invert_y_toggled")
 	_pad_swap_sticks_checkbox = _add_checkbox_row(parent, "Swap sticks (cursor on right stick, camera on left)", "_on_pad_swap_sticks_toggled")
 	_pad_magnetism_checkbox = _add_checkbox_row(parent, "Cursor magnetism (cursor eases onto nearby models)", "_on_pad_magnetism_toggled")
+	# The board hover card is OFF on the pad by default: the virtual cursor sits on
+	# the model being placed, so the card covers the spot the player is aiming at
+	# (reported during charge moves). R4 / L4 peek at it on demand instead.
+	_pad_hover_card_checkbox = _add_checkbox_row(parent, "Always show model stats card on hover", "_on_pad_hover_stats_card_toggled")
+	var hover_help = Label.new()
+	hover_help.text = "Off by default on controller: hold R4 or L4 to peek at the hovered model's stats card, so it never covers the spot you are moving or charging to. Turn on to keep the card up whenever the cursor rests on a model. Mouse & keyboard always show it."
+	hover_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hover_help.custom_minimum_size = Vector2(620, 0)
+	hover_help.add_theme_font_size_override("font_size", 16)
+	hover_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	parent.add_child(hover_help)
 	_pad_camera_sens_slider = _add_slider_row(parent, "Camera Sensitivity:", 0.3, 2.0, 0.1, "_on_pad_camera_sens_changed")
 	_pad_camera_sens_label = _get_last_value_label()
 	_pad_cursor_sens_slider = _add_slider_row(parent, "Cursor Sensitivity:", 0.3, 2.0, 0.1, "_on_pad_cursor_sens_changed")
@@ -948,6 +960,8 @@ func _load_current_settings() -> void:
 		_pad_swap_sticks_checkbox.button_pressed = SettingsService.pad_swap_sticks
 	if _pad_magnetism_checkbox:
 		_pad_magnetism_checkbox.button_pressed = SettingsService.pad_cursor_magnetism
+	if _pad_hover_card_checkbox:
+		_pad_hover_card_checkbox.button_pressed = SettingsService.pad_hover_stats_card
 	if _pad_camera_sens_slider:
 		_pad_camera_sens_slider.value = SettingsService.pad_camera_sensitivity
 		if _pad_camera_sens_label:
@@ -1050,6 +1064,17 @@ func _on_pad_swap_sticks_toggled(pressed: bool) -> void:
 func _on_pad_magnetism_toggled(pressed: bool) -> void:
 	SettingsService.set_pad_cursor_magnetism(pressed)
 
+func _on_pad_hover_stats_card_toggled(pressed: bool) -> void:
+	# PadRouter listens on pad_hover_stats_card_changed: turning the card ON hands
+	# R4 / L4 back to their model-hop meaning (and vice versa), and the hint bar
+	# refreshes with it.
+	SettingsService.set_pad_hover_stats_card(pressed)
+	# The Controller Reference names R4 / L4's live meaning — redraw it.
+	if _pad_reference_box != null and is_instance_valid(_pad_reference_box):
+		for child in _pad_reference_box.get_children():
+			child.queue_free()
+		_add_controller_reference(_pad_reference_box)
+
 func _on_pad_camera_sens_changed(value: float) -> void:
 	SettingsService.set_pad_camera_sensitivity(value)
 	if _pad_camera_sens_label:
@@ -1074,13 +1099,23 @@ func _add_controller_reference(parent: VBoxContainer) -> void:
 		["x", "Skip  ·  undo the last model"],
 		["y", "Show the unit's datasheet"],
 		["dpad", "Menus, movement options & weapon / target rows"],
-		["l4", "Previous model in the unit while moving (Steam Deck back paddle)"],
-		["r4", "Next model in the unit while moving (Steam Deck back paddle)"],
+	]
+	# R4 / L4 gain their hold-to-peek meaning only while the hover card is
+	# suppressed (see PadRouter._handle_stats_peek), so say which is live.
+	if SettingsService.pad_hover_stats_card:
+		rows.append(["l4", "Previous model in the unit while moving (Steam Deck back paddle)"])
+		rows.append(["r4", "Next model in the unit while moving (Steam Deck back paddle)"])
+	else:
+		rows.append(["l4", "Tap: previous model  ·  Hold: the hovered model's stats card"])
+		rows.append(["r4", "Tap: next model  ·  Hold: the hovered model's stats card"])
+	rows.append_array([
+		["l5", "Previous model in the unit while moving (Steam Deck back paddle)"],
+		["r5", "Next model in the unit while moving (Steam Deck back paddle)"],
 		["lt", "Zoom out"],
 		["rt", "Zoom in"],
 		["menu", "End phase / confirm  (Start)"],
 		["view", "Pause menu  (View / Select)"],
-	]
+	])
 	for r in rows:
 		var chip: Control = GlyphDB.make_chip(str(r[0]), str(r[1]))
 		parent.add_child(chip)
