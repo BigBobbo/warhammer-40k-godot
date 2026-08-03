@@ -1,0 +1,361 @@
+{
+  "id": "tut_t6_wrong_fighter_backout",
+  "covers": [
+    "tutorial.t6.assign_attacks.backout",
+    "tutorial.rewind_when",
+    "fightphase.cancel_fighter_selection",
+    "fightcontroller.fight_sequence_active_tag"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "REPORTED SOFT-LOCK (T6 'Krumpin'', step 4 'PICK YER CHOPPA!'): the player activated the Warboss, realised the lesson wanted the Boyz, and pressed B to back out. The AttackAssignmentDialog is an AcceptDialog, so B (PadBindingManager points ui_cancel at the pad's Back button) just HID it — FightPhase.active_fighter_id stayed set to the Warboss, the fighter-selection panel had already been retired when the unit button was clicked, and nothing re-opened either. The whole right panel was left with just Suggest + the AI-speed dropdown for the D-pad to cycle, RB cycled nothing, and the only live action was End Fight Phase (forfeiting every unswung unit). This scenario drives that exact path on the pad, then again with the mouse (Escape and the on-screen button), and asserts the player lands back on a working fighter picker with both mobs selectable, the lesson rewound to step 3, and the activation completable afterwards.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton",
+      "comment": "Glide onto the menu's Tutorial button rather than a blind D-pad-down + A: the first D-pad press on the main menu lands on Multiplayer (Beta), not Tutorial, so the picker never opens. Same node-path idiom tut_t6_krumpin_pad now carries."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t6_krumpin/Play_t6_krumpin"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "pad_cursor_glide",
+      "button_text": "Continue"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_BOYZ_T",
+      "comment": "T6 now opens with a REAL pile-in (#839): End Pile In is not an allowed action at this step because five Boyz are still out of engagement range. Click the row to open the PileInDialog, same as tut_t6_krumpin_pad."
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/PileInDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/AutoButton",
+      "emit_pressed": true,
+      "comment": "the PileInDialog is an embedded modal Window — driven with the same emit escape hatch as the attack dialog"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pick_fighter"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_T",
+      "comment": "THE MISTAKE: the lesson says Boyz, the player picks the Warboss. Both are Fights First (both charged), so the pick is legal — it is just not what the card asked for."
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "for c in tree.root.get_children():\n\tif c is AcceptDialog and c.visible:\n\t\tvar stack = [c]\n\t\twhile not stack.is_empty():\n\t\t\tvar n = stack.pop_back()\n\t\t\tfor ch in n.get_children():\n\t\t\t\tstack.append(ch)\n\t\t\t\tif ch is Button and str(ch.text) == \"Decline\":\n\t\t\t\t\tch.pressed.emit()\n\t\t\t\t\treturn true\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "the Warboss is a CHARACTER, so selecting him offers Epic Challenge first — decline it"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "assign_attacks",
+      "comment": "the wrong pick still advanced the lesson to step 4 — that is what put the player in front of a panel the card describes"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nreturn str(d.unit_id)",
+      "multiline": true,
+      "equals": "U_WARBOSS_T"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar b = d.get_node_or_null(\"Content/ButtonContainer/BackToSelectionButton\")\nif b == null:\n\treturn \"no back button\"\nreturn \"%s|%s\" % [str(b.text), str(b.visible)]",
+      "multiline": true,
+      "equals": "◀ Pick Anuvver Unit|true",
+      "comment": "the way out is VISIBLE on the dialog, not just a hidden key — a mouse player has to be able to see it"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nreturn str(d.get_node(\"Content/PadHintLabel\").text).contains(\"Ⓑ Back\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the pad hint row advertises B as Back (it used to promise 'Ⓑ Skip', which only existed on the no-targets variant)"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_attack_dialog_has_a_way_back"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 1,
+      "comment": "B — THE REPORTED PRESS. Previously AcceptDialog's ui_cancel default hid the dialog and stranded the phase."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node_or_null(\"/root/AttackAssignmentDialog\") == null",
+      "multiline": true,
+      "equals": true,
+      "comment": "freed, not merely hidden — a hidden-but-alive dialog is what made the state unreadable"
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "active_fighter_id",
+      "equals": "",
+      "comment": "the activation was un-picked: nothing is mid-fight, so no swing is owed to a unit the player cannot control"
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel\").visible",
+      "multiline": true,
+      "equals": true,
+      "comment": "THE FIX: the picker is back. Without it the right panel had only Suggest + the AI dropdown for the D-pad."
+    },
+    {
+      "act": "execute_script",
+      "script": "var base = \"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/\"\nvar out = []\nfor uid in [\"Fight_U_BOYZ_T\", \"Fight_U_WARBOSS_T\"]:\n\tvar b = tree.root.get_node_or_null(base + uid)\n\tif b == null:\n\t\tout.append(uid + \":missing\")\n\telse:\n\t\tout.append(uid + (\":enabled\" if not b.disabled else \":disabled\"))\nreturn \", \".join(out)",
+      "multiline": true,
+      "equals": "Fight_U_BOYZ_T:enabled, Fight_U_WARBOSS_T:enabled",
+      "comment": "the Warboss is eligible AGAIN — cancelling un-stamped him in the FightSequencer, so backing out costs the player nothing"
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.current_scene.fight_controller._pad_fight_action_buttons().size() >= 2",
+      "multiline": true,
+      "equals": true,
+      "comment": "the D-pad / bumpers have real fight rows to cycle again (this returned 0 while soft-locked, which is why the D-pad only walked Suggest <-> AI speed)"
+    },
+    {
+      "act": "execute_script",
+      "script": "var sel = tree.current_scene.fight_controller.unit_selector\nvar out = []\nfor i in range(sel.item_count):\n\tout.append(str(sel.get_item_text(i)))\nreturn \" / \".join(out)",
+      "multiline": true,
+      "equals": "Boyz [CAN PICK] / Custodian Guard / Warboss [CAN PICK]",
+      "comment": "REPORTED: 'it says Boyz are active, but it selected the Warboss'. [ACTIVE] used to be pure list arithmetic (index == units_that_fought.size()), so row 0 always read [ACTIVE]. It now tracks the real active_fighter_id."
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pick_fighter",
+      "comment": "rewind_when walked the lesson back to step 3 — the card no longer explains an attack panel that is closed"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_back_on_the_fighter_picker"
+    },
+    {
+      "act": "pad_cursor_glide",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_T",
+      "comment": "now do what the lesson asked"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nreturn str(d.unit_id)",
+      "multiline": true,
+      "equals": "U_BOYZ_T"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "assign_attacks"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_boyz_armed_after_the_backout"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/BackToSelectionButton",
+      "emit_pressed": true,
+      "comment": "MOUSE ROUTE: the same escape hatch as a real left-click on the button (a mouse player hits the identical trap via the window ✕ or Escape)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "active_fighter_id",
+      "equals": "",
+      "comment": "the button route un-picks the fighter exactly like pad B does"
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel\").visible",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pick_fighter"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_T",
+      "comment": "Re-pick with a REAL mouse click (not a pad glide): opening the previous dialog parked the virtual cursor, and a glide back to coordinates it already sits on early-outs without re-activating it, so A would land on nothing. The pad re-pick is already proven above; this half is the mouse route end to end."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "D-pad down steps the weapon list"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A assigns the weapon to the current target"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nreturn d.assignments.size() > 0",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "Start = Fight!"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.5
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll_it_out",
+      "comment": "the whole activation still completes after two back-outs — the escape hatch does not cost the unit its swing"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_boyz_fighting_after_two_backouts"
+    }
+  ]
+}

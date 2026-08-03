@@ -25,7 +25,7 @@
 		  "script": "main.token_layer.find_child('Token_U_BLADE_CHAMPION_A_0', false, false) == null",
 		  "equals": true },
 		{ "act": "hover_unit", "unit_id": "U_BLADE_CHAMPION_A" },
-		{ "act": "wait_frames", "frames": 3 },
+		{ "act": "wait_seconds", "seconds": 0.9, "comment": "Main.HOVER_DWELL_SEC — the card waits out a parked cursor before popping" },
 		{ "act": "execute_script", "script": "main._token_hover_tooltip.visible", "equals": true },
 		{ "act": "execute_script", "script": "main._token_hover_unit_id", "equals": "U_BLADE_CHAMPION_A" },
 		{ "act": "execute_script", "script": "main._token_hover_label.get_parsed_text().contains('Blade Champion')", "equals": true },

@@ -8,6 +8,12 @@ signal attacks_confirmed(assignments: Array)
 # requested, so this only fires on unforeseen paths — but without it the
 # dialog is un-completable (nothing to assign) and the game self-locks.
 signal skip_fight_requested(unit_id: String)
+# The player backed out of this activation before assigning anything — the
+# controller submits CANCEL_FIGHTER_SELECTION, which un-picks the unit and puts
+# the fighter-selection panel back. Emitted by the "◀ Pick Anuvver Unit" button
+# AND by every native dismissal (Escape, the window ✕, pad Ⓑ), which previously
+# just hid the dialog and stranded the phase with no way to fight or re-pick.
+signal selection_cancelled(unit_id: String)
 # Pad (controller): emitted with the unit_id of the target_list row the D-pad
 # ◀ ▶ cursor now sits on, so the FightController can bracket it on the board
 # with the shared gold reticle. Also fires once on open (auto-arm) when the pad
@@ -309,6 +315,20 @@ func _build_ui() -> void:
 		skip_button.pressed.connect(_on_skip_fight_pressed)
 		button_container.add_child(skip_button)
 
+	# THE WAY BACK. Selecting a fighter retires the right-hand fighter-selection
+	# panel, so before this button the only exits from here were "Fight!" and a
+	# silent dismissal (Escape / ✕ / pad Ⓑ) that hid the dialog and stranded the
+	# whole phase — the activation stayed open with no UI to finish or change it,
+	# and END_FIGHT (forfeiting every remaining swing) was all that was left.
+	# Backing out un-picks the unit and puts the picker back, so a mis-clicked
+	# activation costs nothing.
+	var back_button = Button.new()
+	back_button.name = "BackToSelectionButton"
+	back_button.text = "◀ Pick Anuvver Unit"
+	back_button.tooltip_text = "Un-pick this unit and choose a different one to fight (nothing is assigned yet)"
+	back_button.pressed.connect(_on_back_to_selection_pressed)
+	button_container.add_child(back_button)
+
 	container.add_child(button_container)
 
 	# Current assignments display
@@ -329,9 +349,9 @@ func _build_ui() -> void:
 	_pad_hint_label = Label.new()
 	_pad_hint_label.name = "PadHintLabel"
 	if _groups.size() > 1:
-		_pad_hint_label.text = "▲▼ Weapon   ·   ◀▶ Target   ·   LB/RB Section   ·   Ⓐ Assign   ·   ☰ Fight!   ·   Ⓑ Skip"
+		_pad_hint_label.text = "▲▼ Weapon   ·   ◀▶ Target   ·   LB/RB Section   ·   Ⓐ Assign   ·   ☰ Fight!   ·   Ⓑ Back"
 	else:
-		_pad_hint_label.text = "▲▼ Weapon   ·   ◀▶ Target   ·   Ⓐ Assign   ·   ☰ Fight!   ·   Ⓑ Skip"
+		_pad_hint_label.text = "▲▼ Weapon   ·   ◀▶ Target   ·   Ⓐ Assign   ·   ☰ Fight!   ·   Ⓑ Back"
 	_pad_hint_label.add_theme_font_size_override("font_size", 16)
 	_pad_hint_label.modulate = Color(1, 1, 1, 0.75)
 	_pad_hint_label.visible = InputDeviceManager.is_pad_active()
@@ -346,6 +366,13 @@ func _build_ui() -> void:
 		_apply_best_plan(_selected_target_id())
 
 	confirmed.connect(_on_confirmed)
+	# EVERY dismissal route is the back-out action, never a silent hide.
+	# AcceptDialog emits `canceled` for Escape, the window ✕ and pad Ⓑ (
+	# PadBindingManager points ui_cancel at the pad's Back button), and its
+	# default handling only calls hide() — which left the activation open with
+	# no UI at all. See _on_back_to_selection_pressed.
+	canceled.connect(_on_back_to_selection_pressed)
+	close_requested.connect(_on_back_to_selection_pressed)
 
 	# Pad: the ItemLists are driven by the D-pad through window_input (below), so
 	# demote them out of the focus chain — otherwise the dialog watcher / native
@@ -953,11 +980,15 @@ func _pad_handle_input(event: InputEvent) -> void:
 			set_input_as_handled()
 		JOY_BUTTON_B:
 			# End the fight when the dialog offers it (no-targets escape hatch);
-			# otherwise leave B for the dialog's own cancel/close.
+			# otherwise Ⓑ is "back to fighter selection". It used to fall through
+			# to AcceptDialog's ui_cancel default, which merely HID the dialog and
+			# left the activation open with no UI — the reported T6 soft-lock.
 			var skip_btn := _find_child_button("SkipFightButton")
 			if skip_btn != null and skip_btn.visible and not skip_btn.disabled:
 				_on_skip_fight_pressed()
-				set_input_as_handled()
+			else:
+				_on_back_to_selection_pressed()
+			set_input_as_handled()
 
 
 # Pad LB/RB: move the focus between loadout sections, with a toast naming the
@@ -1259,6 +1290,21 @@ func _on_skip_fight_pressed() -> void:
 	print("[AttackAssignmentDialog] Skip fight pressed (no eligible targets) for unit: ", unit_id)
 	hide()
 	emit_signal("skip_fight_requested", unit_id)
+	queue_free()
+
+# Back out of the activation entirely: nothing has been assigned, so the unit is
+# un-picked and the fighter-selection panel comes back. Guarded against
+# re-entry — `canceled`, `close_requested` and the button can all fire for one
+# dismissal, and hide() below can itself re-emit close_requested.
+var _cancelling: bool = false
+
+func _on_back_to_selection_pressed() -> void:
+	if _cancelling:
+		return
+	_cancelling = true
+	print("[AttackAssignmentDialog] Back to fighter selection requested for unit: ", unit_id)
+	hide()
+	emit_signal("selection_cancelled", unit_id)
 	queue_free()
 
 func _on_confirmed() -> void:

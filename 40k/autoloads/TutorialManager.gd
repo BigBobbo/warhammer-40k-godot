@@ -44,9 +44,13 @@ const LESSONS_DIR := "res://data/tutorials/lessons/"
 const FIXTURES_DIR := "res://data/tutorials/fixtures/"
 const PROGRESS_PATH := "user://tutorial_progress.cfg"
 
-# Always-allowed action prefixes while gating — reactive declines must never
-# soft-lock a lesson (PRP §4.3 failure-tolerance rules).
-const IMPLICIT_SAFE_PREFIXES := ["DECLINE_"]
+# Always-allowed action prefixes while gating — reactive declines and back-outs
+# must never soft-lock a lesson (PRP §4.3 failure-tolerance rules). CANCEL_ is
+# here for the same reason DECLINE_ is: these actions only ever UNDO something
+# the player just did, so gating one can strand them in a state the lesson's
+# allow-list has no way out of (the reported T6 case — a player who activated
+# the wrong unit could not un-pick it).
+const IMPLICIT_SAFE_PREFIXES := ["DECLINE_", "CANCEL_"]
 const TUTORIAL_PLAYER := 1
 const BLOCK_TOAST_COOLDOWN_MS := 1500
 const POLL_INTERVAL_S := 0.1
@@ -830,8 +834,46 @@ func _check_done() -> void:
 			overlay.update_checklist(_checklist_view())
 	_poll_anchor_when(_steps[current_step_index])
 	var done: Dictionary = _steps[current_step_index].get("done", {})
+	# Finishing always beats rewinding, so a step can never bounce backwards on
+	# the same tick it was satisfied.
 	if _eval_condition(done, "0"):
 		_complete_step()
+		return
+	# A step whose premise the player has undone steps BACK — otherwise the card
+	# keeps instructing them about a panel that is no longer on screen. See
+	# _poll_rewind_when.
+	_poll_rewind_when(_steps[current_step_index])
+
+
+# `rewind_when: {"step": "<earlier step id>", <condition>}` — when the condition
+# holds, the lesson returns to the named step. For steps that only make sense
+# after the player committed to something they can still back out of: T6's
+# "PICK YER CHOPPA!" talks about the attack panel, so a player who cancels that
+# activation (to pick a different unit, the reported case) belongs back on
+# "pick a fighter", not stranded reading instructions for a closed dialog.
+# The condition uses the same leaves as `done` (script / state / node_visible /
+# phase / …). Only ever moves BACKWARDS, so it cannot skip a lesson forward.
+func _poll_rewind_when(step: Dictionary) -> bool:
+	var spec = step.get("rewind_when", {})
+	if typeof(spec) != TYPE_DICTIONARY or (spec as Dictionary).is_empty():
+		return false
+	var target_id := str(spec.get("step", ""))
+	if target_id == "":
+		return false
+	var target_index := -1
+	for i in range(_steps.size()):
+		if str(_steps[i].get("id", "")) == target_id:
+			target_index = i
+			break
+	if target_index < 0 or target_index >= current_step_index:
+		return false
+	if not _eval_condition(spec, "rewind"):
+		return false
+	print("TutorialManager: rewind_when — step '%s' -> '%s'" % [str(step.get("id", "")), target_id])
+	_poll_timer.stop()
+	_hint_timer.stop()
+	_enter_step(target_index)
+	return true
 
 
 func _eval_condition(cond: Dictionary, path: String) -> bool:

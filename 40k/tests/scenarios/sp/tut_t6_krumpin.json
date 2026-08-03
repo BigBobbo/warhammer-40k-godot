@@ -2,11 +2,16 @@
   "id": "tut_t6_krumpin",
   "covers": [
     "tutorial.t6.fight",
-    "tutorial.engine.fixture_boot"
+    "tutorial.engine.fixture_boot",
+    "tutorial.t6.pile_in_step",
+    "phases.FightPhase.pile_in_11e",
+    "scripts.FightController.auto_pile_in_movements",
+    "dialogs.PileInDialog.AutoButton",
+    "data.tutorials.fixtures.tutorial_t6_fight"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T6 (Krumpin'), mouse player path: boot from the tutorial_t6_fight fixture -> End Pile In -> Boyz fight the Custodian Guard (pick a melee weapon + target, Weapon to Target, Fight!, Fast Roll, Done) -> the WARBOSS takes his Fights First swing before the enemy gets one (Decline Epic Challenge, assign, Fight!) -> the Custodian Guard swings back and its hit/wound rolls are revealed step by step in the resolution dock (spectating: 'Show Wound Roll' / 'Show Saving Throws', no Command Re-roll on the enemy's dice) before the player rolls their own saves -> end the phase. The attack dialog and allocation overlay are embedded modal Windows, so their controls are driven via the emit escape hatch.",
+  "description": "Tutorial lesson T6 (Krumpin'), mouse player path: boot from the tutorial_t6_fight fixture -> the Pile In step is now a REAL move (the Boyz' back rank starts outside 2\" engagement range, so only 5 of 10 can swing; End Pile In is refused by the tutorial gate, the player opens the Boyz + Warboss row, Auto Pile In / drags the five back-rank models and Confirms — all 10 can now fight) -> Boyz fight the Custodian Guard (pick a melee weapon + target, Weapon to Target, Fight!, Fast Roll, Done) -> the WARBOSS takes his Fights First swing before the enemy gets one (Decline Epic Challenge, assign, Fight!) -> the Custodian Guard swings back and its hit/wound rolls are revealed step by step in the resolution dock (spectating: 'Show Wound Roll' / 'Show Saving Throws', no Command Re-roll on the enemy's dice) before the player rolls their own saves -> end the phase. The attack dialog, the pile-in dialog and the allocation overlay are embedded modal Windows, so their controls are driven via the emit escape hatch.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -60,7 +65,7 @@
       "script": "var b = GameState.create_snapshot()\nvar all = []\nfor uid in b.units:\n\tfor m in b.units[uid].get(\"models\", []):\n\t\tif m.get(\"alive\", true) and m.get(\"position\") != null:\n\t\t\tall.append(m)\nfor i in range(all.size()):\n\tfor j in range(i + 1, all.size()):\n\t\tif Measurement.models_overlap(all[i], all[j]):\n\t\t\treturn false\nreturn true",
       "multiline": true,
       "equals": true,
-      "comment": "the SHUFFLE UP! step claims the Boyz are already in contact - no model base anywhere on the board may overlap another (the Custodian Guard used to sit on a 60px pitch, 3px inside each other's 40mm bases)"
+      "comment": "no model base anywhere on the board may overlap another (the Custodian Guard used to sit on a 60px pitch, 3px inside each other's 40mm bases)"
     },
     {
       "act": "execute_script",
@@ -73,8 +78,8 @@
       "act": "execute_script",
       "script": "var b = GameState.create_snapshot()\nvar alive = 0\nfor m in b.units[\"U_BOYZ_T\"].models:\n\tif m.get(\"alive\", true):\n\t\talive += 1\nreturn str(RulesEngine.get_eligible_melee_model_indices(b.units[\"U_BOYZ_T\"], b).size()) + \"/\" + str(alive)",
       "multiline": true,
-      "equals": "10/10",
-      "comment": "every Boy can actually swing - two used to sit >2\" from the Custodes and could not fight at all. The full mob fights: melee now honours per-model loadouts, so the Boss Nob's Power klaw is 3 attacks rather than 30"
+      "equals": "5/10",
+      "comment": "THE PREMISE OF THE STEP: only the five front-rank Boyz are within 2\" of the Custodes. The back rank starts 2.3-2.8\" off and cannot swing at all until the player pile-ins them in — the fixture used to park them in base contact with the front rank, so the whole mob was already fighting and the Pile In step had nothing to teach."
     },
     {
       "act": "execute_script",
@@ -91,16 +96,137 @@
       "comment": "the Warboss token is actually drawn - the fixture used to leave the attached character at UNDEPLOYED, so Main._recreate_unit_visuals() skipped it and da boss was invisible on the board"
     },
     {
+      "act": "execute_script",
+      "script": "var b = GameState.create_snapshot()\nvar cust = b.units[\"U_CUSTODIAN_GUARD_T\"].models\nvar out_of_er = 0\nvar reachable = 0\nfor id in [\"m6\", \"m7\", \"m8\", \"m9\", \"m10\"]:\n\tfor m in b.units[\"U_BOYZ_T\"].models:\n\t\tif str(m.id) != id:\n\t\t\tcontinue\n\t\tvar best = 999.0\n\t\tfor c in cust:\n\t\t\tbest = min(best, Measurement.model_to_model_distance_inches(m, c))\n\t\tif best > GameConstants.engagement_range_inches():\n\t\t\tout_of_er += 1\n\t\tif best <= 3.0:\n\t\t\treachable += 1\nreturn str(out_of_er) + \" out of ER, \" + str(reachable) + \" within 3in\"",
+      "multiline": true,
+      "equals": "5 out of ER, 5 within 3in",
+      "comment": "every back-rank Boy is outside engagement range (so cannot fight) but inside 3\" of a Custodian (so ONE legal pile-in move fixes it) — the gap the lesson is built around"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_BOYZ_T",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_BOYZ_T",
+      "property": "text",
+      "equals": "Boyz + Warboss  [Engaged]",
+      "comment": "19.03: bodyguard + attached character pile in as one entry, and the lesson's prompt names that row"
+    },
+    {
       "act": "screenshot",
-      "label": "01b_pile_in_contact"
+      "label": "01b_back_rank_out_of_range"
     },
     {
       "act": "click_node",
-      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton"
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "comment": "the step no longer allows END_PILE_IN — skipping the pile-in would leave half the mob unable to swing, so the tutorial gate refuses it and toasts the blocked_hint"
     },
     {
       "act": "wait_seconds",
-      "seconds": 2.5
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nreturn str(TutorialManager.current_step_id()) + \"|\" + str(ph.pile_in_step_11e) + \"|\" + str(ph.units_that_piled_in.size())",
+      "multiline": true,
+      "equals": "pile_in|1|0",
+      "comment": "End Pile In was refused: still on the pile_in step, the Pile In step is still ACTIVE and nobody has piled in"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_BOYZ_T",
+      "comment": "the row the step DOES want — opens the PileInDialog and the interactive board move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/PileInDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(TutorialManager.current_step_id()) + \"|\" + str(tree.root.get_node(\"/root/Main/FightController\").pile_in_active) + \"|\" + str(tree.root.get_node(\"/root/Main/FightController\").pile_in_unit_id)",
+      "multiline": true,
+      "equals": "pile_in_move|true|U_BOYZ_T",
+      "comment": "the lesson advances to the move step and the board is in pile-in drag mode"
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(TutorialOverlay.current_anchor_name())",
+      "multiline": true,
+      "equals": "AutoButton",
+      "comment": "the spotlight ring lands on Auto Pile In while nothing has been moved yet"
+    },
+    {
+      "act": "screenshot",
+      "label": "01c_pile_in_dialog_open"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/AutoButton",
+      "emit_pressed": true,
+      "comment": "the PileInDialog is an embedded modal Window — same emit escape hatch the attack dialog uses. A player can also drag each model by hand; either way this is a real 3\" move."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "var mv = tree.root.get_node(\"/root/Main/FightController\").get_pile_in_movements()\nvar ids = mv.keys()\nids.sort()\nreturn \",\".join(ids)",
+      "multiline": true,
+      "equals": "m10,m6,m7,m8,m9",
+      "comment": "exactly the five back-rank Boyz are staged to move — the front rank is locked in base contact (12.03) and must not budge"
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(TutorialOverlay.current_anchor_name())",
+      "multiline": true,
+      "equals": "ConfirmButton",
+      "comment": "anchor_when moves the ring onto Confirm Move as soon as the player has staged a move"
+    },
+    {
+      "act": "screenshot",
+      "label": "01d_pile_in_staged"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nreturn str(ph.units_that_piled_in.get(\"U_BOYZ_T\", false)) + \"|\" + str(ph.pile_in_step_11e)",
+      "multiline": true,
+      "equals": "true|2",
+      "comment": "the PILE_IN landed and, with P1 out of eligible units and the AI's half auto-resolved, the whole 12.02 step is DONE"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = GameState.create_snapshot()\nvar alive = 0\nfor m in b.units[\"U_BOYZ_T\"].models:\n\tif m.get(\"alive\", true):\n\t\talive += 1\nreturn str(RulesEngine.get_eligible_melee_model_indices(b.units[\"U_BOYZ_T\"], b).size()) + \"/\" + str(alive)",
+      "multiline": true,
+      "equals": "10/10",
+      "comment": "THE PAYOFF: the pile-in the player just made brought the back rank into engagement range, so the whole mob swings. Everything downstream (the Power klaw / choppa split, the Custodes surviving to swing back) depends on this."
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(AttackSequence.check_unit_coherency(GameState.get_unit(\"U_BOYZ_T\")).coherent)",
+      "multiline": true,
+      "equals": "true",
+      "comment": "03.01: the move the player was walked through leaves the mob in coherency"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
     },
     {
       "act": "execute_script",
@@ -138,7 +264,7 @@
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/GroupsScroll/GroupsBox/Group0/Body/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn \"empty lists\"\nvar want = -1\nfor i in range(wl.item_count):\n\tif str(wl.get_item_text(i)).begins_with(\"Big choppa\"):\n\t\twant = i\nif want < 0:\n\treturn \"no Big choppa offered\"\nwl.select(want)\nwl.item_selected.emit(want)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn str(wl.get_item_text(want))",
       "multiline": true,
       "equals": "Big choppa (A:3 S:7 AP:-1 D:2)",
-      "comment": "Loadout groups: the mob splits into a 'Boy x9' section and a 'Boss Nob x1' section, so the Nob's own weapons are offered in HIS section (Group1). The roster buys this mob choppas only, so the Nob's alternative is his Big choppa — the datasheet's Power klaw is an option the unit never took and is correctly not offered."
+      "comment": "Loadout groups: the mob splits into a 'Boy x9' section and a 'Boss Nob x1' section, so the Nob's own weapons are offered in HIS section (Group0 — sections follow model order, and the datasheet lists the Boss Nob first). The roster buys this mob choppas only, so the Nob's alternative is his Big choppa — the datasheet's Power klaw is an option the unit never took and is correctly not offered."
     },
     {
       "act": "wait_frames",
@@ -164,7 +290,7 @@
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nreturn \",\".join(out)",
       "multiline": true,
       "equals": "big_choppa_melee:1,choppa_melee:9",
-      "comment": "each loadout section swings what it actually carries: nine Boyz on choppas plus da Nob on his Big choppa. Sections are listed biggest-first."
+      "comment": "each loadout section swings what it actually carries: nine Boyz on choppas plus da Nob on his Big choppa. Sections follow model order, matching the datasheet's unit composition (Boss Nob, then Boyz)."
     },
     {
       "act": "click_node",

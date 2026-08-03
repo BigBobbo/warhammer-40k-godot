@@ -3108,9 +3108,37 @@
     },
     {
       "id": "tutorial.t6.boss_swings.dpad",
-      "description": "T6 (Krumpin') step 6 of 8 teaches the Warboss pick as D-pad work, not a stick glide. The fight panel's UNITS THAT CAN FIGHT rows are a VBox of Buttons (not an ItemList), so they sit on PadRouter's HUD_Right focus chain; when the step opens the D-pad is parked on the dice dock's primary button, so two ▲ presses land on the Warboss row and A activates him (Epic Challenge offer follows). The prompt names the ✚ glyph and no longer names LS.",
+      "description": "T6 (Krumpin') boss_swings (step 7 of 9) teaches the Warboss pick as D-pad work, not a stick glide. The fight panel's UNITS THAT CAN FIGHT rows are a VBox of Buttons (not an ItemList), so they sit on PadRouter's HUD_Right focus chain; when the step opens the D-pad is parked on the dice dock's primary button, so two ▲ presses land on the Warboss row and A activates him (Epic Challenge offer follows). The prompt names the ✚ glyph and no longer names LS.",
       "scenarios": [
         "tut_t6_boss_row_dpad"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.t6.pile_in_step",
+      "description": "T6 (Krumpin') opens on a Pile In step the player actually has to play. The fixture starts the Boyz' back rank outside 2\" engagement range, so only 5 of 10 can swing; END_PILE_IN is not in the step's allow-list (the gate refuses it and toasts the blocked_hint), the player opens the 'Boyz + Warboss' row, drags the five back-rank models or presses Auto Pile In, and Confirms. All 10 can then fight, in coherency, and the 12.02 step completes (P1 has no eligible units left, the AI's half auto-resolves). The spotlight ring follows: Auto Pile In until a move is staged, then Confirm Move via anchor_when.",
+      "scenarios": [
+        "tut_t6_krumpin"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "tutorial.t6.pile_in_step.pad",
+      "description": "The same T6 Pile In move on a controller: the cursor (or D-pad) lands on the 'Boyz + Warboss' row, A opens the PileInDialog, and Auto Pile In / Confirm Move shuffle the back rank into engagement range before the fight starts.",
+      "scenarios": [
+        "tut_t6_krumpin_pad",
+        "tut_t6_boss_row_dpad"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "data.tutorials.fixtures.tutorial_t6_fight",
+      "description": "The T6 checkpoint's melee geometry: 5 front-rank Boyz + the Warboss in real base-to-base contact with the Custodian Guard line, the back rank held 2.3-2.8\" off (outside engagement range, inside a single 3\" pile-in), no overlapping bases, every unit in coherency, and the attached Warboss DEPLOYED so its token renders. Regenerate with tools/fix_tutorial_fight_fixtures.py; the headless half is tests/unit/test_tutorial_fixture_geometry.gd.",
+      "scenarios": [
+        "tut_t6_krumpin"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"

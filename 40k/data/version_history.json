@@ -2,6 +2,55 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.16.2",
+      "date": "2026-08-03",
+      "summary": "Fight phase: picking the wrong unit to fight no longer locks up the game — the attack panel now has a way back to the unit list, and it works on the controller's B button too.",
+      "changes": [
+        "Fixed (reported in tutorial 'Krumpin'', step 4 'PICK YER CHOPPA!'): activating one unit and then backing out of the attack panel — with B, Escape, or the window's ✕ — left the game with no way to fight. The unit list was gone, the attack panel was gone, the D-pad only cycled between Suggest and the AI-speed dropdown, and the only button that still did anything was End Phase, which throws away every unit that had not swung yet.",
+        "The attack panel now carries a [b]◀ Pick Anuvver Unit[/b] button, and B / Escape / ✕ all do the same thing: the unit is un-picked and the UNITS THAT CAN FIGHT list comes straight back, with that unit selectable again.",
+        "Backing out costs nothing — no swing is forfeited and nothing is spent, as long as you have not assigned attacks yet. Once the dice are rolling, the attack panel's normal buttons take over as before.",
+        "The controller hint row on the attack panel now reads 'Ⓑ Back' (it used to promise 'Ⓑ Skip', which only existed when a unit had no targets at all).",
+        "The FIGHT SEQUENCE list told the truth about who is fighting: it used to tag the first unit [ACTIVE] no matter which one you had picked — hence 'it says Boyz are active, but it selected the Warboss'. It now tags the unit actually activated, and marks the ones you may pick with [CAN PICK].",
+        "The tutorial follows you back: cancel the attack panel and the lesson returns to 'BOYZ FIRST!' instead of leaving the card explaining a panel that is no longer on screen."
+      ]
+    },
+    {
+      "version": "1.16.1",
+      "date": "2026-08-03",
+      "summary": "The model stats card no longer jumps out at every model your mouse crosses — park the pointer on a model for half a second to read it, and it stays out of the way while you drag.",
+      "changes": [
+        "Fixed (reported in the charge phase): the stats card popped up the instant the pointer touched a base, so sweeping the mouse across your mob to pick a model up buried the board under a card — exactly where you were trying to drag the model to.",
+        "The card now waits until you have held the pointer still on a model for about half a second. Moving on costs nothing; stopping still gets you the full stats.",
+        "The card is hidden outright while a mouse button is down, so dragging a model (or the selection box, or the camera) never brings it up.",
+        "Once shown it still follows the pointer and still updates per model, so reading a Boss Nob next to a Boy works exactly as before.",
+        "Unchanged on a controller: the card stays off unless you hold R4 / L4 to peek, and the paddle shows it instantly — no waiting."
+      ]
+    },
+    {
+      "version": "1.16.0",
+      "date": "2026-08-02",
+      "summary": "Tutorial 6 (Krumpin') now teaches Pile In properly: five of your Boyz start too far back to swing, and you have to shuffle them into the fight yourself.",
+      "changes": [
+        "The Pile In step used to say 'yer Boyz are already in contact, just hit End Pile In' — there was nothing to do, and it was not even true: the back rank was never touching the enemy.",
+        "The lesson's starting position now puts the Boyz' back rank outside the 2\" engagement range, so only 5 of the 10 Boyz can swing. The step asks you to open the 'Boyz + Warboss' row and make a real 3\" pile-in; End Pile In is refused until you have.",
+        "You can drag each model by hand or press 'Auto Pile In' to move the lot, then Confirm Move. The five Boyz already in base contact show a red B2B marker — they are locked where they stand and cannot move, which is the actual rule.",
+        "Once the move lands, all ten Boyz are in the fight and the lesson carries on as before. The yellow highlight follows you: it sits on Auto Pile In until you have staged a move, then jumps to Confirm Move.",
+        "Fixed the attack-panel tip in the same lesson, which named a Power klaw the Boyz mob does not carry — the Boss Nob's weapon is a Big choppa (the Warboss has the klaw)."
+      ]
+    },
+    {
+      "version": "1.15.0",
+      "date": "2026-08-02",
+      "summary": "Charge phase: pick your charge target by clicking the enemy unit on the board, not just its name in the right-hand list.",
+      "changes": [
+        "With a charging unit selected, click an enemy unit's models on the battlefield to declare a charge against them — the matching ELIGIBLE TARGETS row highlights and Declare Charge lights up, exactly as if you had clicked the row.",
+        "Ctrl+Click (or Cmd/Shift+Click) an enemy on the board adds or removes it, so a multi-unit charge can be built straight off the board; a plain click still replaces the current pick.",
+        "Clicking the list of names still works exactly as before — this is an extra way in, not a replacement.",
+        "Click an enemy you cannot charge and the game now tells you why (\"Witchseekers is 45.3\\\" away — charge targets must be within 12\\\"\") instead of silently doing nothing.",
+        "Fixed: the green highlight squares drawn over eligible charge targets were swallowing mouse clicks on those very models."
+      ]
+    },
+    {
       "version": "1.14.0",
       "date": "2026-08-02",
       "version": "1.15.0",
