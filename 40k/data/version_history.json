@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.17.2",
+      "version": "1.17.3",
       "date": "2026-08-03",
       "summary": "AI speed 'Step-by-step' now actually gives you the step: a Continue button appears on the AI banner instead of the game sitting on 'AI is thinking…' forever.",
       "changes": [
@@ -11,6 +11,18 @@
         "The banner stops pulsing and stops animating its dots while it is waiting for you, so 'paused' no longer looks like 'still thinking'.",
         "Switching the AI speed away from Step-by-step clears the prompt instead of leaving it stranded on screen.",
         "Confirming your battle formations from the top bar now closes the declaration dialog, so it can't be left floating over the AI's turn."
+      ]
+    },
+    {
+      "version": "1.17.2",
+      "date": "2026-08-03",
+      "summary": "The green dashed move-range ring now shows how far the MODEL can reach, not how far its centre can reach — so a wide base no longer sticks out past the ring.",
+      "changes": [
+        "Fixed (player report): dragging a model to the edge of the green dashed ring left part of its base poking outside the dashes, because the ring marked where the model's centre could stop. On a 100mm dreadnought base that was a 2\" overhang — confusing on every wide-based model.",
+        "The ring is now drawn one base-radius further out, so the outer edge of the base lands exactly on the dashes when the model is at maximum move. The distance label still reads the move distance (e.g. 8\"), not the drawn radius.",
+        "Oval and rectangular bases are handled too — the ring uses the furthest point of the base (the end of the major axis, or the corner), so it never under-draws and does not wobble as a model pivots.",
+        "In a group drag each model gets a ring sized for its own base, so a squad with an attached Character on a bigger base draws correctly for both.",
+        "The same fix applies to the green per-model charge-move rings shown after the 2D6 charge roll."
       ]
     },
     {
