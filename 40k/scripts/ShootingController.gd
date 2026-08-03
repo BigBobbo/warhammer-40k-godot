@@ -583,6 +583,9 @@ func _setup_right_panel() -> void:
 		SettingsService.shooting_show_all_units_changed.connect(_on_shooting_show_all_units_setting_changed)
 
 	unit_selector = ItemList.new()
+	# Named so windowed scenarios can address the row a player clicks; an
+	# unnamed ItemList gets an "@ItemList@1990"-style path that changes run to run.
+	unit_selector.name = "ShooterUnitList"
 	unit_selector.custom_minimum_size = Vector2(230, 80)
 	unit_selector.item_selected.connect(_on_unit_selected)
 	_WhiteDwarfTheme.apply_to_item_list(unit_selector)
@@ -2157,7 +2160,10 @@ func refresh_los_debug_visuals() -> void:
 		print("[ShootingController] No eligible targets - visualizing LoS to ALL enemy units for debugging")
 		if current_phase:
 			var current_player = current_phase.get_current_player()
-			var enemy_player = 1 if current_player == 0 else 0
+			# Players are 1 and 2 in this project — the old `1 if p == 0 else 0`
+			# always produced player 0, which owns no units, so the enemy sweep
+			# found nothing and fell through to the crashing fallback below.
+			var enemy_player = 2 if current_player == 1 else 1
 
 			print("[ShootingController] Current player: %d, Enemy player: %d" % [current_player, enemy_player])
 
@@ -4765,6 +4771,14 @@ func _input(event: InputEvent) -> void:
 		var focused = get_viewport().gui_get_focus_owner()
 		if focused is LineEdit or focused is TextEdit:
 			return
+		# The datasheet card is a top overlay the player opened to READ. This
+		# runs in _input, which fires before Main's — so without this guard ESC
+		# hit "deselect shooter" and the card stayed open, making the "ESC to
+		# close" hint the card itself prints a lie for the whole shooting phase.
+		# Skipping the whole shortcut set (not just ESC) is deliberate: Tab /
+		# N / E driving the phase from behind a modal is never what was meant.
+		if _datasheet_modal_open():
+			return
 		if _handle_shooting_keyboard_shortcut(event):
 			get_viewport().set_input_as_handled()
 			return
@@ -4815,6 +4829,16 @@ func _input(event: InputEvent) -> void:
 		else:
 			var mouse_pos = get_global_mouse_position()
 			_handle_board_hover(mouse_pos)
+
+# True while the read-only datasheet card (DatasheetModal, the I / pad-Y
+# overlay) is on screen. Phase shortcuts stand down while it is up.
+func _datasheet_modal_open() -> bool:
+	var m = SceneRefs.main()
+	if m == null:
+		return false
+	var ds = m.get_node_or_null("DatasheetModal")
+	return ds != null and ds.visible
+
 
 # T5-UX12: Handle keyboard shortcuts for shooting phase actions
 # Returns true if a shortcut was handled, false otherwise
