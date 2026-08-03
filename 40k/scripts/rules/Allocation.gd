@@ -223,6 +223,19 @@ static func apply_save_rolls(unit: Dictionary, groups: Array, order: Array, save
 		var insv: int = group.insv
 		if effect_invuln > 0 and (insv == 0 or effect_invuln < insv):
 			insv = effect_invuln
+		# The raw d6 this die actually had to beat, recorded on every event so
+		# the game log can label the save row ("Save (3+)") and colour the dice
+		# by the threshold the DEFENDER was rolling against. Saves resolve per
+		# group, so this is per-die rather than one number for the batch. An
+		# unmodified 1 always fails (floor 2); 7 means "no save possible".
+		var armour_needed: int = clampi(group.sv - ap - save_modifier, 2, 7)
+		var save_needed: int = armour_needed
+		var save_is_invuln := false
+		if insv > 0:
+			var invuln_needed: int = clampi(insv - save_modifier, 2, 7)
+			if invuln_needed < save_needed:
+				save_needed = invuln_needed
+				save_is_invuln = true
 		var inflicts := false
 		if roll == 1:
 			inflicts = true
@@ -241,7 +254,7 @@ static func apply_save_rolls(unit: Dictionary, groups: Array, order: Array, save
 				attack_damage = int(damage_provider.call(roll, target_i))
 			if attack_damage <= 0:
 				events.append({"roll": roll, "result": "prevented", "model_index": target_i,
-					"group": group.id})
+					"group": group.id, "needed": save_needed, "using_invuln": save_is_invuln})
 				continue
 			var dealt = min(attack_damage, remaining[target_i])
 			remaining[target_i] -= attack_damage
@@ -250,9 +263,11 @@ static func apply_save_rolls(unit: Dictionary, groups: Array, order: Array, save
 				remaining[target_i] = 0
 				destroyed.append(target_i)
 			events.append({"roll": roll, "result": "damage", "model_index": target_i,
-				"damage": dealt, "destroyed": remaining[target_i] == 0})
+				"damage": dealt, "destroyed": remaining[target_i] == 0,
+				"needed": save_needed, "using_invuln": save_is_invuln})
 		else:
-			events.append({"roll": roll, "result": "saved", "model_index": target_i, "group": group.id})
+			events.append({"roll": roll, "result": "saved", "model_index": target_i,
+				"group": group.id, "needed": save_needed, "using_invuln": save_is_invuln})
 
 	return {
 		"events": events,

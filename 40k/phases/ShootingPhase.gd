@@ -3121,8 +3121,14 @@ func _process_apply_saves_ai_atomic(action: Dictionary) -> Dictionary:
 	if this_casualties > 0 and target_unit_id != "":
 		CharacterAttachmentManager.check_bodyguard_destroyed(target_unit_id)
 
-	# Record the defender's save/FNP dice in the dice history
-	for dice_block in summary.get("dice", []):
+	# Record the defender's save/FNP dice in the dice history. Normalized first
+	# so an AI attack's saves render as a "Save (N+)" row on the combat card
+	# like a human attack's do — the raw batch blocks use the engine-internal
+	# "save" context that the log renderers do not match.
+	for dice_block in RulesEngine.normalize_allocation_11e_dice(summary, {
+		"target_unit_name": save_data.get("target_unit_name", target_unit_id),
+		"weapon_name": save_data.get("weapon_name", ""),
+	}):
 		dice_log.append(dice_block)
 		emit_signal("dice_rolled", dice_block)
 
@@ -6888,6 +6894,21 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			var alloc_target_id = save_data.get("target_unit_id", save_result_summary.get("target_unit_id", ""))
 			if alloc_casualties > 0 and str(alloc_target_id) != "":
 				CharacterAttachmentManager.check_bodyguard_destroyed(alloc_target_id)
+			# ARMOUR SAVES IN THE GAME LOG: the 11e flow resolves the whole save
+			# batch inside AllocationGroupOverlay, so — unlike the 10e path below
+			# — nothing here ever emitted a save dice block. The combat card
+			# showed the hit and wound rolls and then jumped to "No models
+			# destroyed" with no armour saves explaining why. Replay the batch's
+			# saves (and any Feel No Pain) through the normal dice_rolled channel
+			# so they land on the combat card, in its details, in the dice log and
+			# on the remote peer like every other roll.
+			for alloc_block in RulesEngine.normalize_allocation_11e_dice(save_result_summary, {
+				"target_unit_name": save_data.get("target_unit_name", alloc_target_id),
+				"weapon_name": save_data.get("weapon_name", ""),
+			}):
+				save_dice_blocks.append(alloc_block)
+				dice_log.append(alloc_block)
+				emit_signal("dice_rolled", alloc_block)
 			log_phase_message("%s: %d saves passed, %d failed → %d casualties (11e allocation)" % [
 				save_data.get("target_unit_name", alloc_target_id),
 				save_result_summary.get("saves_passed", 0),
@@ -7664,21 +7685,31 @@ func _emit_verbose_combat_log(shooter_id: String, dice_data: Array, save_dice_bl
 		elif context == "to_wound" or context == "wound_roll":
 			_emit_wound_detail_log(dice_block, player)
 
-	# Save dice blocks
+	# Save dice blocks ("save" is the engine-internal 11e context; the
+	# normalized blocks use "save_roll")
+	var saves_passed := 0
+	var saves_rolled := 0
 	for save_block in save_dice_blocks:
 		var scontext = save_block.get("context", "")
-		if scontext == "save_roll":
+		if scontext == "save_roll" or scontext == "save":
 			_emit_save_detail_log(save_block)
+			saves_passed += int(save_block.get("successes", 0))
+			saves_rolled += int(save_block.get("successes", 0)) + int(save_block.get("failed", save_block.get("fails", 0)))
 		elif scontext == "feel_no_pain":
 			_emit_fnp_detail_log(save_block)
 
 	# Final result line — only show after saves are resolved (not for hit/wound-only phases)
 	if phase_type == "shooting_saves":
+		# Carry the save tally into the result so "No models destroyed" says WHY
+		# nothing died instead of leaving the player to guess.
+		var save_tally = ""
+		if saves_rolled > 0:
+			save_tally = " (%d/%d saves passed)" % [saves_passed, saves_rolled]
 		if casualties > 0:
 			var _cas_label2 = "model" if casualties == 1 else "models"
-			GameEventLog.add_combat_result("  Result: %d %s destroyed" % [casualties, _cas_label2])
+			GameEventLog.add_combat_result("  Result: %d %s destroyed%s" % [casualties, _cas_label2, save_tally])
 		else:
-			GameEventLog.add_combat_result("  Result: No models destroyed")
+			GameEventLog.add_combat_result("  Result: No models destroyed%s" % save_tally)
 
 func _emit_hit_detail_log(shooter_name: String, dice_block: Dictionary, player: int) -> void:
 	"""Emit detailed hit roll log from a to_hit dice block."""
@@ -7813,7 +7844,11 @@ func _emit_save_detail_log(save_block: Dictionary) -> void:
 	if using_invuln:
 		save_type = "Invulnerable Save %s" % threshold
 	else:
-		save_type = "Armour Save %s (AP -%d)" % [threshold, ap]
+		# `ap` is stored negative (AP-1 == -1), so "(AP -%d)" printed "AP --1"
+		# once the 11e path started reaching this line. Normalise to one "-N"
+		# reading regardless of the caller's sign convention.
+		var ap_mag = absi(int(ap))
+		save_type = "Armour Save %s (AP %s)" % [threshold, ("0" if ap_mag == 0 else "-%d" % ap_mag)]
 
 	var rolls_str = GameEventLog._format_dice_rolls(rolls_raw)
 	var save_line = "  %s Saves vs %s: %s — rolled %s — %d passed, %d failed" % [

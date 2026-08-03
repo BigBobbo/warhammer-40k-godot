@@ -139,10 +139,26 @@ var damage_preview_label: RichTextLabel
 var _hovered_weapon_id: String = ""  # Track which weapon is being hovered
 var _last_preview_weapon_id: String = ""  # Cache to avoid redundant recalculation
 var _last_preview_target_id: String = ""  # Cache target for recalculation check
+# LOS-VISIBILITY (2026-08): the bearer count the cached forecast was built from.
+# Without it the (weapon, target) cache key held a stale "all bearers" forecast
+# after the declared slice shrank to the models that can actually see.
+var _last_preview_slice: int = -1
 
 # P3-114: Aggregate damage preview across all weapon assignments
 var aggregate_preview_panel: PanelContainer
 var aggregate_preview_label: RichTextLabel
+
+# LOS-VISIBILITY (2026-08): "N of M bearers can't shoot" notice. Only bearers
+# with range AND line of sight to the target actually fire — the engine drops
+# the rest at resolve time (RulesEngine._filter_eligible_model_ids). Before this
+# panel existed nothing said so BEFORE Confirm, so a 5-model unit with one
+# clear firing lane still read "5→ Target" in the weapon row, "5× weapon" in
+# CURRENT TARGETS and a 5-bearer FORECAST — and then only one model shot.
+var blocked_bearers_panel: PanelContainer
+var blocked_bearers_label: RichTextLabel
+# Memo for _blocked_bearer_summary — see that function for the cache key.
+var _blocked_summary_cache: Dictionary = {}
+var _blocked_summary_stamp: String = ""
 
 # Shooter status info (model count, abilities, stationary)
 var shooter_status_label: RichTextLabel
@@ -567,6 +583,9 @@ func _setup_right_panel() -> void:
 		SettingsService.shooting_show_all_units_changed.connect(_on_shooting_show_all_units_setting_changed)
 
 	unit_selector = ItemList.new()
+	# Named so windowed scenarios can address the row a player clicks; an
+	# unnamed ItemList gets an "@ItemList@1990"-style path that changes run to run.
+	unit_selector.name = "ShooterUnitList"
 	unit_selector.custom_minimum_size = Vector2(230, 80)
 	unit_selector.item_selected.connect(_on_unit_selected)
 	_WhiteDwarfTheme.apply_to_item_list(unit_selector)
@@ -650,6 +669,30 @@ func _setup_right_panel() -> void:
 	if FactionPalettes.FONT_RAJDHANI_SEMIBOLD:
 		weapon_tree.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_SEMIBOLD)
 	declaration_box.add_child(weapon_tree)
+
+	# LOS-VISIBILITY (2026-08): blocked-bearer notice, directly under the weapon
+	# rows so the count the player reads there is never the whole story on its
+	# own. Hidden whenever every living bearer can reach its target.
+	blocked_bearers_panel = PanelContainer.new()
+	blocked_bearers_panel.name = "BlockedBearersPanel"
+	blocked_bearers_panel.custom_minimum_size = Vector2(230, 0)
+	blocked_bearers_panel.visible = false
+	var blocked_style = StyleBoxFlat.new()
+	blocked_style.bg_color = Color(0.22, 0.12, 0.10, 0.95)
+	blocked_style.border_color = Color(0.85, 0.45, 0.35, 0.8)
+	blocked_style.set_border_width_all(1)
+	blocked_style.set_content_margin_all(6)
+	blocked_style.set_corner_radius_all(3)
+	blocked_bearers_panel.add_theme_stylebox_override("panel", blocked_style)
+	blocked_bearers_label = RichTextLabel.new()
+	blocked_bearers_label.name = "BlockedBearersLabel"
+	blocked_bearers_label.bbcode_enabled = true
+	blocked_bearers_label.fit_content = true
+	blocked_bearers_label.scroll_active = false
+	blocked_bearers_label.custom_minimum_size = Vector2(218, 0)
+	blocked_bearers_label.add_theme_font_size_override("normal_font_size", 15)
+	blocked_bearers_panel.add_child(blocked_bearers_label)
+	declaration_box.add_child(blocked_bearers_panel)
 
 	# T5-UX1: Expected damage preview panel (shown on weapon hover/select)
 	damage_preview_panel = PanelContainer.new()
@@ -2117,7 +2160,10 @@ func refresh_los_debug_visuals() -> void:
 		print("[ShootingController] No eligible targets - visualizing LoS to ALL enemy units for debugging")
 		if current_phase:
 			var current_player = current_phase.get_current_player()
-			var enemy_player = 1 if current_player == 0 else 0
+			# Players are 1 and 2 in this project — the old `1 if p == 0 else 0`
+			# always produced player 0, which owns no units, so the enemy sweep
+			# found nothing and fell through to the crashing fallback below.
+			var enemy_player = 2 if current_player == 1 else 1
 
 			print("[ShootingController] Current player: %d, Enemy player: %d" % [current_player, enemy_player])
 
@@ -4679,6 +4725,10 @@ func _update_ui_state() -> void:
 				_refresh_weapon_row_split_text(str(chip_row_wid))
 			chip_row = chip_row.get_next()
 
+	# LOS-VISIBILITY (2026-08): rows are current — now say which bearers of them
+	# are NOT going to fire, before the player commits.
+	_refresh_blocked_bearers_notice()
+
 	# Update target basket — one row per pending (weapon, target) slice, colored
 	# by the target's chip. Falls back to the legacy weapon_assignments map when
 	# no phase is attached.
@@ -5897,6 +5947,173 @@ func _refresh_weapon_row_split_text(weapon_id: String) -> void:
 			return
 		child = child.get_next()
 
+# LOS-VISIBILITY (2026-08): how many living bearers of `weapon_id` are sitting
+# out of the declared shot, and why. A bearer is "blocked" when it carries the
+# weapon, is alive, is in NO pending assignment for that weapon, and cannot
+# legally fire at ANY target the weapon is aimed at (or, when nothing is
+# declared for it yet, at any currently eligible target) — out of range, or no
+# line of sight. That is exactly the population the engine would drop at
+# resolve time, so the notice built from it can never contradict the dice.
+#
+# Returns { "total": int, "firing": int, "blocked": int,
+#           "no_los": int, "out_of_range": int, "target_names": Array,
+#           "declared": bool }
+#
+# Cached per (shooter, pending-assignment shape, eligible-target set) in
+# _blocked_summary_cache: the callers below run on every _update_ui_state and
+# each miss costs a per-model LoS sweep per candidate target.
+func _blocked_summary_state_stamp() -> String:
+	var parts: Array = [active_shooter_id, str(eligible_targets.keys())]
+	if current_phase and "pending_assignments" in current_phase:
+		for a in current_phase.pending_assignments:
+			parts.append("%s|%s|%s" % [a.get("weapon_id", ""), a.get("target_unit_id", ""), str(a.get("model_ids", []))])
+	return "#".join(PackedStringArray(parts))
+
+func _blocked_bearer_summary(weapon_id: String) -> Dictionary:
+	var stamp := _blocked_summary_state_stamp()
+	if stamp != _blocked_summary_stamp:
+		_blocked_summary_stamp = stamp
+		_blocked_summary_cache.clear()
+	if _blocked_summary_cache.has(weapon_id):
+		return _blocked_summary_cache[weapon_id]
+	var computed := _compute_blocked_bearer_summary(weapon_id)
+	_blocked_summary_cache[weapon_id] = computed
+	return computed
+
+func _compute_blocked_bearer_summary(weapon_id: String) -> Dictionary:
+	var summary := {"total": 0, "firing": 0, "blocked": 0, "no_los": 0, "out_of_range": 0, "target_names": [], "declared": false}
+	if active_shooter_id == "" or current_phase == null:
+		return summary
+	if not ("pending_assignments" in current_phase):
+		return summary
+
+	var board: Dictionary = current_phase.game_state_snapshot
+	var shooter_unit = GameState.get_unit(active_shooter_id)
+	var unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+
+	# Living bearers of this weapon (resolve_bearer_model: attached characters
+	# carry "<char_unit_id>:<model_id>" ids that are not in shooter_unit.models).
+	var bearers: Array = []
+	for model_id in unit_weapons:
+		if not (weapon_id in unit_weapons[model_id]):
+			continue
+		var m = RulesEngine.resolve_bearer_model(shooter_unit, model_id, board)
+		if m.is_empty() or not m.get("alive", true):
+			continue
+		bearers.append(model_id)
+	summary.total = bearers.size()
+	if bearers.is_empty():
+		return summary
+
+	# Committed bearers + the targets this weapon is aimed at.
+	var committed := {}
+	var target_ids: Array = []
+	for a in current_phase.pending_assignments:
+		if a.get("weapon_id", "") != weapon_id:
+			continue
+		var tid: String = a.get("target_unit_id", "")
+		if tid != "" and tid not in target_ids:
+			target_ids.append(tid)
+		for mid in a.get("model_ids", []):
+			committed[mid] = true
+	summary.firing = committed.size()
+	summary.declared = not target_ids.is_empty()
+	if target_ids.is_empty():
+		# Nothing declared for this weapon yet. It can still be a weapon the
+		# player will never be able to aim — the single-eligible-target auto-assign
+		# skips a weapon no bearer can reach — so measure against every target
+		# that is currently eligible for the unit and report "0 of N will shoot"
+		# rather than leaving it silently in the "unassigned" tally.
+		for tid in eligible_targets.keys():
+			target_ids.append(tid)
+		if target_ids.is_empty():
+			return summary
+
+	for tid in target_ids:
+		summary.target_names.append(eligible_targets.get(tid, {}).get("unit_name", tid))
+
+	# Eligibility per declared target, merged: a bearer that can reach ANY of
+	# them is not blocked — the player can still send it with another click.
+	var eligible_anywhere := {}
+	var reason_for := {}
+	for tid in target_ids:
+		var elig = RulesEngine.get_eligible_shooter_models(active_shooter_id, weapon_id, tid, board)
+		for mid in elig.get("eligible", []):
+			eligible_anywhere[mid] = true
+		for mid in elig.get("reasons", {}):
+			# Prefer "no_los" in the message: a blind bearer stays blind wherever
+			# it stands, while "out of range" reads as the player's own spacing.
+			if reason_for.get(mid, "") != "no_los":
+				reason_for[mid] = str(elig["reasons"][mid])
+
+	for mid in bearers:
+		if committed.has(mid):
+			continue
+		if eligible_anywhere.has(mid):
+			continue
+		var reason: String = str(reason_for.get(mid, ""))
+		if reason == "dead":
+			continue
+		summary.blocked += 1
+		if reason == "out_of_range":
+			summary.out_of_range += 1
+		else:
+			summary.no_los += 1
+
+	return summary
+
+# LOS-VISIBILITY (2026-08): render the blocked-bearer notice under the weapon
+# rows and stamp the same fact on each row's tooltip. Answers "why is only one
+# of my five models going to shoot?" BEFORE Confirm rather than after the dice.
+func _refresh_blocked_bearers_notice() -> void:
+	if not blocked_bearers_panel or not blocked_bearers_label:
+		return
+	if not weapon_tree or not weapon_tree.get_root():
+		blocked_bearers_panel.visible = false
+		return
+
+	var lines: Array = []
+	var child = weapon_tree.get_root().get_first_child()
+	while child:
+		var weapon_id = child.get_metadata(0)
+		if not weapon_id:
+			child = child.get_next()
+			continue
+		var summary = _blocked_bearer_summary(str(weapon_id))
+		if summary.blocked <= 0:
+			child.set_tooltip_text(1, "")
+			child = child.get_next()
+			continue
+
+		var weapon_name = RulesEngine.get_weapon_profile(str(weapon_id)).get("name", weapon_id)
+		# A declared weapon names the target it under-delivers against; an
+		# undeclared one is measured against every eligible target, so listing
+		# them all would be noise — say "any eligible target" instead.
+		var target_text: String = " / ".join(summary.target_names) if summary.declared else "any eligible target"
+		var why_parts: Array = []
+		if summary.no_los > 0:
+			why_parts.append("%d no line of sight" % summary.no_los)
+		if summary.out_of_range > 0:
+			why_parts.append("%d out of range" % summary.out_of_range)
+		var why: String = ", ".join(why_parts)
+
+		lines.append("[color=#FFB347]▸ %s — only %d of %d will shoot[/color]\n[color=#CCA090]   %s (%s)[/color]" % [
+			weapon_name, summary.firing, summary.total, why, target_text
+		])
+		child.set_tooltip_text(1, "%d of %d %s bearers cannot shoot %s (%s). Only %d will fire." % [
+			summary.blocked, summary.total, weapon_name, target_text, why, summary.firing
+		])
+		child = child.get_next()
+
+	if lines.is_empty():
+		blocked_bearers_panel.visible = false
+		blocked_bearers_label.text = ""
+		return
+
+	blocked_bearers_label.text = ""
+	blocked_bearers_label.append_text("[color=#FF8866][b]⚠ NOT EVERY MODEL CAN SHOOT[/b][/color]\n" + "\n".join(lines))
+	blocked_bearers_panel.visible = true
+
 func _flush_pending_auto_assigns() -> void:
 	"""Deferred worker for the auto-assigns queued during _refresh_weapon_tree.
 	Runs on idle with the render loop long finished — each ASSIGN_TARGET gets a
@@ -5907,6 +6124,29 @@ func _flush_pending_auto_assigns() -> void:
 		if e.size() < 3 or str(e[2]) != active_shooter_id:
 			continue  # Shooter changed since the refresh that queued this
 		_auto_assign_target(str(e[0]), str(e[1]))
+
+# LOS-VISIBILITY (2026-08): the subset of `model_ids` that can legally fire
+# `weapon_id` at `target_id` right now — in range AND with line of sight.
+#
+# The board-click path has always filtered (via _compute_split_fire_options);
+# the automatic and bulk paths (single-eligible-target auto-assign, Apply to
+# All, quick-assign) did not, and handed the phase EVERY bearer of the weapon.
+# The weapon row then read "5→ Target", CURRENT TARGETS read "5× weapon" and
+# the FORECAST costed five bearers' worth of attacks — while
+# _filter_eligible_model_ids silently dropped the blind ones at resolve time
+# and a single model actually shot. Routing every path through the SAME engine
+# filter the resolver uses means a declared count can never over-promise.
+func _eligible_bearer_slice(weapon_id: String, target_id: String, model_ids: Array, source: String) -> Array:
+	if model_ids.is_empty():
+		return []
+	var board: Dictionary = current_phase.game_state_snapshot if current_phase else GameState.create_snapshot(false)
+	var filtered = RulesEngine._filter_eligible_model_ids(model_ids, active_shooter_id, weapon_id, target_id, board)
+	var kept: Array = filtered.get("kept", model_ids)
+	var dropped: Array = filtered.get("dropped", [])
+	if not dropped.is_empty():
+		print("ShootingController: [%s] %s → %s — %d of %d bearers cannot fire (range/LoS): %s" % [
+			source, weapon_id, target_id, dropped.size(), model_ids.size(), str(filtered.get("reasons", {}))])
+	return kept
 
 # F4 (audit 2026-07): automatic/bulk assignment paths must never dispatch an
 # ASSIGN_TARGET the phase will reject — the rejection surfaces as a red error
@@ -5938,10 +6178,17 @@ func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 		if weapon_id in unit_weapons[model_id]:
 			model_ids.append(model_id)
 
+	var eligible_ids: Array = _eligible_bearer_slice(weapon_id, target_id, model_ids, "auto-assign")
+	if eligible_ids.is_empty():
+		# Nothing this weapon can legally shoot at the sole eligible target. Leave
+		# the row unassigned rather than declaring a batch the engine will empty.
+		print("ShootingController: auto-assign skipped — no %s bearer can reach %s" % [weapon_id, target_id])
+		return
+
 	var payload = {
 		"weapon_id": weapon_id,
 		"target_unit_id": target_id,
-		"model_ids": model_ids
+		"model_ids": eligible_ids
 	}
 
 	# F4: skip quietly if the engine would reject this (previously the tree was
@@ -6020,7 +6267,13 @@ func _count_unassigned_weapons() -> int:
 					continue
 				living += 1
 			var allocated = allocated_per_weapon.get(weapon_id, {}).size()
-			if living > allocated:
+			# LOS-VISIBILITY (2026-08): bearers that CANNOT reach any target are
+			# not a to-do item. Counting them made Confirm read
+			# "Confirm (1 weapons, 2 unassigned)" for a unit whose remaining guns
+			# were physically blind, sending the player hunting for an assignment
+			# that cannot exist. The blocked-bearer notice explains those instead.
+			var blocked_here: int = int(_blocked_bearer_summary(str(weapon_id)).get("blocked", 0))
+			if living > allocated + blocked_here:
 				unassigned += 1
 		child = child.get_next()
 
@@ -6055,11 +6308,18 @@ func _on_apply_to_all_pressed() -> void:
 				if weapon_id in unit_weapons[model_id]:
 					model_ids.append(model_id)
 
+			# LOS-VISIBILITY (2026-08): declare only the bearers that can actually
+			# reach the target — see _eligible_bearer_slice.
+			var firing_ids: Array = _eligible_bearer_slice(weapon_id, last_assigned_target_id, model_ids, "apply-to-all")
+			if firing_ids.is_empty():
+				child = child.get_next()
+				continue
+
 			# Build payload for network sync
 			var payload = {
 				"weapon_id": weapon_id,
 				"target_unit_id": last_assigned_target_id,
-				"model_ids": model_ids
+				"model_ids": firing_ids
 			}
 
 			# F4: skip weapons the engine would reject instead of dispatching
@@ -6255,6 +6515,16 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 				child = child.get_next()
 				continue
 
+			# LOS-VISIBILITY (2026-08): declare only the bearers that can actually
+			# reach the target — see _eligible_bearer_slice.
+			var firing_ids: Array = _eligible_bearer_slice(weapon_id, target_id, model_ids, "quick-assign")
+			if firing_ids.is_empty():
+				var wp_blind = RulesEngine.get_weapon_profile(weapon_id)
+				skipped_pistol_names.append(wp_blind.get("name", weapon_id))
+				print("ShootingController: quick-assign skipped — no %s bearer can reach %s" % [weapon_id, target_id])
+				child = child.get_next()
+				continue
+
 			# Assign target
 			weapon_assignments[weapon_id] = target_id
 			_manual_assignment_made = true  # quick-assign is an explicit player action
@@ -6278,7 +6548,7 @@ func _on_quick_assign_all_to_target(target_id: String) -> void:
 			var payload = {
 				"weapon_id": weapon_id,
 				"target_unit_id": target_id,
-				"model_ids": model_ids
+				"model_ids": firing_ids
 			}
 
 			# Queue — emitted after the walk (see pending_emits above).
@@ -6660,15 +6930,23 @@ func _update_damage_preview(weapon_id: String, override_target_id: String = "") 
 		_hide_damage_preview()
 		return
 
-	# Skip recalculation if same weapon + target combo
-	if weapon_id == _last_preview_weapon_id and target_id == _last_preview_target_id:
+	# LOS-VISIBILITY (2026-08): forecast the bearers that are actually declared
+	# against this target, not every model carrying the weapon. A 5-model unit
+	# with one clear firing lane previously advertised 5 bearers' worth of
+	# attacks here and then rolled one bearer's worth.
+	var slice_count: int = _assigned_bearer_count(weapon_id, target_id)
+
+	# Skip recalculation if same weapon + target + declared slice
+	if weapon_id == _last_preview_weapon_id and target_id == _last_preview_target_id \
+			and slice_count == _last_preview_slice:
 		damage_preview_panel.visible = true
 		return
 
 	_last_preview_weapon_id = weapon_id
 	_last_preview_target_id = target_id
+	_last_preview_slice = slice_count
 
-	var result = _calc_weapon_expected_damage(weapon_id, target_id)
+	var result = _calc_weapon_expected_damage(weapon_id, target_id, slice_count if slice_count > 0 else -1)
 	if result.is_empty():
 		_hide_damage_preview()
 		return
@@ -6718,6 +6996,21 @@ func _update_damage_preview(weapon_id: String, override_target_id: String = "") 
 
 	# P3-114: Update aggregate preview whenever a single weapon preview updates
 	_update_aggregate_damage_preview()
+
+# LOS-VISIBILITY (2026-08): how many bearers of `weapon_id` are pending against
+# `target_id` right now. 0 when nothing is declared yet, in which case callers
+# fall back to "every bearer" — the pre-assignment browsing forecast.
+func _assigned_bearer_count(weapon_id: String, target_id: String) -> int:
+	if current_phase == null or not ("pending_assignments" in current_phase):
+		return 0
+	var count := 0
+	for a in current_phase.pending_assignments:
+		if a.get("weapon_id", "") != weapon_id:
+			continue
+		if a.get("target_unit_id", "") != target_id:
+			continue
+		count += (a.get("model_ids", []) as Array).size()
+	return count
 
 func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_count_override: int = -1) -> Dictionary:
 	"""P3-114: Calculate expected damage for a single weapon vs target, accounting for all modifiers.
@@ -7142,7 +7435,10 @@ func _update_aggregate_damage_preview() -> void:
 	var target_data: Dictionary = {}  # target_id -> {name, weapons: [{name, dmg, kills}], total_dmg, ...}
 	for weapon_id in weapon_assignments:
 		var target_id = weapon_assignments[weapon_id]
-		var result = _calc_weapon_expected_damage(weapon_id, target_id)
+		# LOS-VISIBILITY (2026-08): same correction as the single-weapon card —
+		# aggregate only the bearers actually declared against this target.
+		var agg_slice: int = _assigned_bearer_count(weapon_id, target_id)
+		var result = _calc_weapon_expected_damage(weapon_id, target_id, agg_slice if agg_slice > 0 else -1)
 		if result.is_empty():
 			continue
 
