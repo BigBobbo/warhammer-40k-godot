@@ -24,6 +24,13 @@ var current_fight_index: int = -1
 # Pile-in/Consolidate/Sweeping Advance interactive mode
 var pile_in_active: bool = false
 var consolidate_active: bool = false
+# 11e 12.08 BEFORE MOVING for the unit currently consolidating: the mandatory
+# mode ("ongoing" / "engaging" / "objective" / "" when none applies) plus its
+# selected enemy targets or objective, resolved ONCE when the move opens by
+# FightPhase.get_consolidation_context_11e(). The drag validation, the movement
+# arrows and ConsolidateDialog's rules text all read it, so the board can never
+# refuse a move the phase would accept (or vice versa).
+var consolidate_context_11e: Dictionary = {}
 var sweeping_advance_active: bool = false
 var acrobatic_escape_active: bool = false
 var pile_in_unit_id: String = ""
@@ -2428,6 +2435,14 @@ func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 	# — otherwise the player can't see the models they're being asked to move.
 	_dismiss_blocking_fight_dialogs()
 
+	# 12.08 BEFORE MOVING: resolve the mandatory mode (and its targets/objective)
+	# once, up front, from the phase — the dialog's rules text and every drag
+	# verdict below read this instead of guessing at the mode locally.
+	consolidate_context_11e = {}
+	if current_phase and current_phase.has_method("get_consolidation_context_11e"):
+		consolidate_context_11e = current_phase.get_consolidation_context_11e(unit_id)
+	print("[FightController] Consolidate context for %s: %s" % [unit_id, str(consolidate_context_11e)])
+
 	# Skip dialog for AI players - they submit CONSOLIDATE actions directly
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(current_fighter_owner):
@@ -2951,6 +2966,7 @@ func _disable_pile_in_mode() -> void:
 
 	pile_in_active = false
 	consolidate_active = false
+	consolidate_context_11e = {}
 	pile_in_unit_id = ""
 	pile_in_dialog_ref = null
 	original_model_positions.clear()
@@ -3107,20 +3123,15 @@ func _update_pile_in_visuals() -> void:
 			var current_pos = current_model_positions[model_id]
 			var original_pos = original_model_positions.get(model_id, current_pos)
 
-			# Find closest enemy position
-			var closest_enemy = _find_closest_enemy_pos(current_pos)
+			# The point the direction arrow aims at: the selected objective while
+			# consolidating in Objective mode (12.08), otherwise the closest enemy.
+			var aim_point = _fight_move_aim_point(current_pos)
 
 			# Calculate validity
 			var move_distance = Measurement.distance_inches(original_pos, current_pos)
-			var is_valid = false
-			if closest_enemy != Vector2.ZERO:
-				var original_dist = original_pos.distance_to(closest_enemy)
-				var current_dist = current_pos.distance_to(closest_enemy)
-				var is_closer = current_dist <= original_dist
-				var distance_ok = move_distance <= 3.0
-				is_valid = is_closer and distance_ok
+			var is_valid = _fight_move_drop_is_valid(model_id, original_pos, current_pos, aim_point, move_distance)
 
-			pile_in_movement_visual.update_model(model_id, original_pos, current_pos, closest_enemy, is_valid, move_distance)
+			pile_in_movement_visual.update_model(model_id, original_pos, current_pos, aim_point, is_valid, move_distance)
 
 	# Also update old direction_lines if any still exist (backward compatibility)
 	for model_id in current_model_positions:
@@ -3131,26 +3142,18 @@ func _update_pile_in_visuals() -> void:
 		var current_pos = current_model_positions[model_id]
 		var original_pos = original_model_positions.get(model_id, current_pos)
 
-		# Find closest enemy position
-		var closest_enemy = _find_closest_enemy_pos(current_pos)
+		# Same aim point as the enhanced visual above (objective in 12.08
+		# Objective mode, closest enemy otherwise)
+		var aim_point = _fight_move_aim_point(current_pos)
 
-		# Draw line from current position to closest enemy
+		# Draw line from current position toward the aim point
 		line.clear_points()
-		if closest_enemy != Vector2.ZERO:
+		if aim_point != Vector2.ZERO:
 			line.add_point(current_pos)
-			line.add_point(closest_enemy)
+			line.add_point(aim_point)
 
-			# Color based on whether movement is valid (closer to enemy)
-			var original_dist = original_pos.distance_to(closest_enemy)
-			var current_dist = current_pos.distance_to(closest_enemy)
-			var is_closer = current_dist <= original_dist
-
-			# Validate distance limit
 			var move_distance = Measurement.distance_inches(original_pos, current_pos)
-			var distance_ok = move_distance <= 3.0
-
-			# Set color based on validation
-			if is_closer and distance_ok:
+			if _fight_move_drop_is_valid(model_id, original_pos, current_pos, aim_point, move_distance):
 				line.default_color = Color.GREEN
 			else:
 				line.default_color = Color.RED
@@ -3186,6 +3189,38 @@ func _update_coherency_visuals() -> void:
 				pile_in_visuals.add_child(line)
 				coherency_lines.append(line)
 
+func _fight_move_aim_point(from_pos: Vector2) -> Vector2:
+	"""The point the pile-in / consolidate direction arrow points at.
+
+	12.08 Objective Consolidation moves toward the SELECTED objective, not the
+	nearest enemy — pointing every arrow at an enemy the unit is not allowed to
+	move toward is what made the reverted drags look arbitrary. Pile-in (12.03)
+	and the enemy consolidation modes keep aiming at the closest enemy model."""
+	if consolidate_active and str(consolidate_context_11e.get("mode", "")) == "objective":
+		var obj_pos = consolidate_context_11e.get("objective_position", Vector2.ZERO)
+		if obj_pos is Vector2 and obj_pos != Vector2.ZERO:
+			return obj_pos
+	return _find_closest_enemy_pos(from_pos)
+
+func _fight_move_drop_is_valid(model_key: String, original_pos: Vector2, current_pos: Vector2, aim_point: Vector2, move_distance_inches: float) -> bool:
+	"""Green/red verdict for a model's current preview position.
+
+	While consolidating this asks the phase (and so the ConsolidationMove
+	template) so the arrow colour matches the mandatory 12.08 mode — including
+	Objective mode, where 'valid' means ending in range of the objective or at
+	least closer to it. Pile-in keeps the simple 'closer to the closest enemy
+	within 3"' check."""
+	if move_distance_inches > 3.0 + Measurement.DISTANCE_TOLERANCE_INCHES:
+		return false
+	if consolidate_active and current_phase and current_phase.has_method("check_consolidation_model_move_11e"):
+		if original_pos.distance_to(current_pos) <= 0.01:
+			return true  # Unmoved models are trivially legal
+		return current_phase.check_consolidation_model_move_11e(
+			pile_in_unit_id, model_key, current_pos, consolidate_context_11e).get("allowed", false)
+	if aim_point == Vector2.ZERO:
+		return false
+	return current_pos.distance_to(aim_point) <= original_pos.distance_to(aim_point)
+
 func _find_closest_enemy_pos(from_pos: Vector2) -> Vector2:
 	"""Find the closest enemy model position"""
 	if not current_phase or pile_in_unit_id == "":
@@ -3219,22 +3254,13 @@ func _find_closest_enemy_pos(from_pos: Vector2) -> Vector2:
 
 	return closest_pos
 
-func _find_closest_objective_pos(from_pos: Vector2, objectives: Array) -> Vector2:
-	"""Find the closest objective marker position"""
-	var closest_pos = Vector2.ZERO
-	var closest_distance = INF
-
-	for objective in objectives:
-		var obj_pos = objective.get("position", Vector2.ZERO)
-		if obj_pos == Vector2.ZERO:
-			continue
-
-		var distance = from_pos.distance_to(obj_pos)
-		if distance < closest_distance:
-			closest_distance = distance
-			closest_pos = obj_pos
-
-	return closest_pos
+# _find_closest_objective_pos() lived here: "nearest objective marker centre to
+# this model". Its only caller was the consolidate drag's objective branch, and
+# it encoded the wrong rule twice over — the 12.08 target is the objective the
+# unit SELECTED (before_moving), not whichever marker happens to be nearest, and
+# a terrain-hosted objective (14.01) is its AREA, not its marker dot. The drag
+# now asks FightPhase.check_consolidation_model_move_11e(), and the arrows aim at
+# consolidate_context_11e.objective_position.
 
 func get_pile_in_movements() -> Dictionary:
 	"""Get current movements for submission"""
@@ -3607,47 +3633,33 @@ func _end_model_drag_pile_in() -> void:
 
 		# Check if model moved at all
 		if distance > 0.01:  # Threshold to detect actual movement
-			# For consolidate, check which mode applies
-			if consolidate_active and current_phase:
-				var unit = current_phase.get_unit(pile_in_unit_id)
-				var can_reach_engagement = current_phase._can_unit_reach_engagement_range(unit) if current_phase.has_method("_can_unit_reach_engagement_range") else true
-
-				if can_reach_engagement:
-					# ENGAGEMENT mode - must move toward enemy
-					var closest_enemy_pos = _find_closest_enemy_pos(original_pos)
-					if closest_enemy_pos != Vector2.ZERO:
-						var old_distance_to_enemy = original_pos.distance_to(closest_enemy_pos)
-						var new_distance_to_enemy = final_pos.distance_to(closest_enemy_pos)
-
-						if new_distance_to_enemy >= old_distance_to_enemy:
-							print("[FightController] Model not moving closer to enemy - reverting to original position")
-							print("  Old distance: %.2f\", New distance: %.2f\"" % [
-								Measurement.px_to_inches(old_distance_to_enemy),
-								Measurement.px_to_inches(new_distance_to_enemy)
-							])
-							current_model_positions[drag_model_id] = original_pos
-							if dragging_model:
-								dragging_model.position = original_pos
-							reverted = true
-				else:
-					# OBJECTIVE mode - must move toward objective
-					var objectives = GameState.state.board.get("objectives", [])
-					if not objectives.is_empty():
-						var closest_obj_pos = _find_closest_objective_pos(original_pos, objectives)
-						if closest_obj_pos != Vector2.ZERO:
-							var old_distance_to_obj = original_pos.distance_to(closest_obj_pos)
-							var new_distance_to_obj = final_pos.distance_to(closest_obj_pos)
-
-							if new_distance_to_obj >= old_distance_to_obj:
-								print("[FightController] Model not moving closer to objective - reverting to original position")
-								print("  Old distance: %.2f\", New distance: %.2f\"" % [
-									Measurement.px_to_inches(old_distance_to_obj),
-									Measurement.px_to_inches(new_distance_to_obj)
-								])
-								current_model_positions[drag_model_id] = original_pos
-								if dragging_model:
-									dragging_model.position = original_pos
-								reverted = true
+			# 12.08 WHILE MOVING — the ConsolidationMove template (via the phase)
+			# judges the drop against the unit's MANDATORY mode: Ongoing /
+			# Engaging move closer to the closest selected enemy, Objective moves
+			# into range of the selected objective (or at least closer to it).
+			#
+			# This used to re-derive the mode locally from
+			# _can_unit_reach_engagement_range() — "is any enemy within my 3" move
+			# + engagement range (5" at 11e)?" — which is NOT the 12.08 gate
+			# ("within 3\" of an enemy unit"). A unit 3-5" from a foe and within 3"
+			# of an objective is an Objective Consolidation, and the right-hand
+			# picker already labelled it "[Objective]", but this branch demanded a
+			# move toward the enemy and silently reverted every drag onto the
+			# objective. Reading the mode from the phase keeps the drag, the
+			# dialog and CONSOLIDATE validation on the same rule.
+			if consolidate_active and current_phase and current_phase.has_method("check_consolidation_model_move_11e"):
+				var move_check = current_phase.check_consolidation_model_move_11e(
+					pile_in_unit_id, drag_model_id, final_pos, consolidate_context_11e)
+				if not move_check.get("allowed", true):
+					print("[FightController] Consolidate (%s mode) rejects the drop — reverting: %s" % [
+						str(consolidate_context_11e.get("mode", "?")), str(move_check.get("reason", ""))
+					])
+					current_model_positions[drag_model_id] = original_pos
+					if dragging_model:
+						dragging_model.position = original_pos
+					reverted = true
+			elif consolidate_active:
+				print("[FightController] Consolidate drag: phase has no 12.08 move check — leaving the drop to CONSOLIDATE validation")
 			else:
 				# Pile-in mode - always check toward enemy
 				var closest_enemy_pos = _find_closest_enemy_pos(original_pos)

@@ -89,6 +89,12 @@ var group_drag_start_pos: Vector2 = Vector2.ZERO  # board-local point where the 
 var group_drag_start_positions: Dictionary = {}  # model_id -> Vector2 at drag start
 var group_ghost_container: Node2D = null  # ghost previews for the group drag
 var confirm_button: Button = null  # Button to confirm charge moves
+# Attention pulse on the confirm button while it is the pending step (see
+# _update_confirm_button_emphasis). Tracked so the loop is started/killed once
+# per state change instead of on every button-state refresh.
+const _CONFIRM_PULSE_BRIGHT := Color(1.35, 1.28, 1.08)
+var _confirm_pulse_tween: Tween = null
+var _confirm_pulse_active: bool = false
 var charge_direction_visual: Node2D = null  # P3-99: Live direction validation feedback
 
 # Base-to-base snap state
@@ -238,6 +244,24 @@ func _input(event: InputEvent) -> void:
 						if panel_button.get_global_rect().has_point(mouse_event.global_position):
 							print("DEBUG: Click is within a charge-panel button, not handling")
 							return  # Let the button handle this click
+				# EVERY other HUD control needs the same courtesy. The three
+				# whitelisted buttons above were the only escapes, so while a
+				# charge move was awaiting confirmation this handler ate the
+				# press for the whole rest of the interface — the top-right
+				# "End Charge Phase" button most visibly, but equally the unit
+				# list, the game log tabs, the Suggest button and the overwatch
+				# toggle. Nothing was disabled and hover tooltips still showed
+				# (motion is only consumed mid-drag), so the reported symptom
+				# was "I click End Charge Phase and nothing happens" — the game
+				# reading as broken when the click simply never arrived.
+				# gui_get_hovered_control() is null over the bare board and
+				# non-null over any Control, which is exactly the split we want;
+				# it is the same test Main._unhandled_input uses to scope wheel
+				# zoom to the board, and _try_click_select_target already uses it
+				# a few hundred lines below.
+				if get_viewport().gui_get_hovered_control() != null:
+					print("DEBUG: Click is over a HUD control, not handling")
+					return  # Let Godot's GUI pass deliver it
 
 			print("DEBUG: ChargeController _input - Left mouse button, pressed: ", mouse_event.pressed)
 			if mouse_event.pressed:
@@ -1402,6 +1426,7 @@ func _update_button_states() -> void:
 	if is_instance_valid(undo_charge_model_button):
 		undo_charge_model_button.visible = awaiting_movement
 		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+	_update_confirm_button_emphasis()
 
 	# Update charge status
 	_update_charge_status()
@@ -1417,6 +1442,9 @@ func _update_button_states() -> void:
 	# funnels through here, so re-render the hints from the new state.
 	if PadRouter and PadRouter.has_method("refresh_hints"):
 		PadRouter.refresh_hints()
+	# ...and for the same reason, re-render the top status bar, which now names
+	# the current charge step instead of a static "Phase: CHARGE".
+	emit_signal("ui_update_requested")
 
 	# Update info label with clear step-by-step instructions
 	if is_instance_valid(charge_info_label):
@@ -2343,6 +2371,7 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 	if confirm_button and is_instance_valid(confirm_button):
 		confirm_button.visible = true
 		confirm_button.disabled = true  # Enable when at least one model moved
+		_update_confirm_button_emphasis()
 		print("DEBUG: Confirm button made visible and disabled")
 		print("DEBUG: Confirm button position: ", confirm_button.position)
 		print("DEBUG: Confirm button size: ", confirm_button.size)
@@ -2460,7 +2489,11 @@ func _add_confirm_button() -> void:
 	confirm_button.name = "ConfirmChargeButton"
 	confirm_button.text = "Confirm Charge Moves"
 	confirm_button.visible = false
-	_WhiteDwarfTheme.apply_to_button(confirm_button)
+	# Primary styling, not the same flat gold as its two neighbours: this is the
+	# step that actually commits the charge, and dressing all three the same is
+	# why "Snap to Contact" read as the finish line. Snap/Undo stay secondary.
+	_WhiteDwarfTheme.apply_primary_button(confirm_button)
+	confirm_button.tooltip_text = "Lock in the charge move you have staged — nothing is committed until you do"
 	print("DEBUG: Connecting confirm button signal...")
 	confirm_button.pressed.connect(_on_confirm_charge_moves)
 	print("DEBUG: Signal connected, adding to right panel...")
@@ -2565,11 +2598,53 @@ func _refresh_confirm_row_button_states() -> void:
 	# Snap needs at least one model still waiting to be placed.
 	if is_instance_valid(auto_path_charge_button):
 		auto_path_charge_button.disabled = models_to_move.is_empty()
+	_update_confirm_button_emphasis()
 	# The pad hint bar mirrors these buttons ("[X] Snap to Contact",
 	# "[B] Undo Model") off their disabled flags, so re-render it here too —
 	# otherwise the bar keeps promising (or hiding) an action that just changed.
 	if PadRouter and PadRouter.has_method("refresh_hints"):
 		PadRouter.refresh_hints()
+	# The top status bar names the current charge step (Main.update_ui reads
+	# get_next_step_hint). This signal was declared and connected but never
+	# emitted, so that bar sat on a generic "Phase: CHARGE" for the whole flow —
+	# emit it from the one place every affordance change funnels through.
+	emit_signal("ui_update_requested")
+
+
+# Pulse the confirm button while it is the action the charge is waiting on, and
+# stop the moment it isn't. Purely an attention cue: a staged-but-unconfirmed
+# charge move looks finished on the board (the models are already sitting in
+# base contact after a Snap to Contact), so nothing on screen distinguished
+# "done" from "one click away from done" — the state a player was in when they
+# went looking for End Charge Phase instead.
+func _update_confirm_button_emphasis() -> void:
+	if not is_instance_valid(confirm_button):
+		return
+	var should_pulse: bool = confirm_button.visible and not confirm_button.disabled
+	if should_pulse == _confirm_pulse_active:
+		return
+	_confirm_pulse_active = should_pulse
+	if _confirm_pulse_tween and _confirm_pulse_tween.is_valid():
+		_confirm_pulse_tween.kill()
+	_confirm_pulse_tween = null
+	if not should_pulse:
+		confirm_button.modulate = Color.WHITE
+		return
+	# Respect the accessibility setting (SettingsService clamps it to 0.25–3.0);
+	# the defensive <= 0 arm just rests the button at its brightest rather than
+	# dividing by zero if that ever changes.
+	var speed: float = 1.0
+	if SettingsService:
+		speed = float(SettingsService.animation_speed)
+	if speed <= 0.0:
+		confirm_button.modulate = _CONFIRM_PULSE_BRIGHT
+		return
+	_confirm_pulse_tween = confirm_button.create_tween()
+	_confirm_pulse_tween.set_loops()
+	_confirm_pulse_tween.tween_property(confirm_button, "modulate",
+			_CONFIRM_PULSE_BRIGHT, 0.55 / speed)
+	_confirm_pulse_tween.tween_property(confirm_button, "modulate",
+			Color.WHITE, 0.55 / speed)
 
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")
@@ -3249,6 +3324,46 @@ func _remaining_models_message() -> String:
 		return "Squad moved! Drag the leader too, or confirm — unmoved leaders follow automatically"
 	return "Move remaining %d models into engagement range" % models_to_move.size()
 
+# ── "What am I meant to do next?" ───────────────────────────────────
+# A charge move is staged on screen (models already sitting at their new spots,
+# GameState written optimistically) but APPLY_CHARGE_MOVE has NOT been sent, so
+# nothing is committed and the phase must not end underneath it. Main asks this
+# before acting on "End Charge Phase" so the player is told to confirm instead
+# of the press appearing to do nothing (or, via Enter, silently binning the move).
+func has_unconfirmed_charge_move() -> bool:
+	return awaiting_movement and not moved_models.is_empty()
+
+# True from the moment the roll succeeds until the move is confirmed — including
+# the stretch before any model has been placed, where "End Charge Phase" would
+# throw away a successful charge roll.
+func is_charge_move_in_progress() -> bool:
+	return awaiting_movement
+
+# Display name of the unit whose charge move is mid-flight, for prompts and the
+# top-bar status line ("" when no charge is being moved).
+func get_charge_move_unit_name() -> String:
+	if active_unit_id == "":
+		return ""
+	var unit = GameState.get_unit(active_unit_id)
+	return unit.get("meta", {}).get("name", active_unit_id)
+
+# One line naming the single next step of the charge flow, for the top status
+# bar. The right-hand panel has carried this text all along (charge_info_label),
+# but a player watching the board and the top-right button never looks there —
+# which is how "Snap to Contact worked, now nothing does" happens.
+func get_next_step_hint() -> String:
+	if awaiting_movement:
+		if not moved_models.is_empty() and models_to_move.is_empty():
+			return "Charge move staged — click 'Confirm Charge Moves' to lock it in"
+		if not moved_models.is_empty():
+			return "Charge move in progress — place the rest, or click 'Confirm Charge Moves'"
+		return "Drag models into engagement range, or click 'Snap to Contact'"
+	if awaiting_roll:
+		return "Charge declared — click 'Roll 2D6' for the charge distance"
+	if active_unit_id != "":
+		return "Click a charge target, then 'Declare Charge'"
+	return "Select a unit to charge, or end the Charge phase"
+
 func _validate_charge_position(model: Dictionary, new_pos: Vector2, charge_key: String = "", group_overrides: Dictionary = {}) -> bool:
 	# group_overrides (model_id -> Vector2): prospective positions of squadmates
 	# moving in the same group drag — they occupy those spots, not their current ones.
@@ -3480,6 +3595,7 @@ func _on_confirm_charge_moves() -> void:
 	_clear_movement_visuals()
 	if is_instance_valid(confirm_button):
 		confirm_button.visible = false
+		_update_confirm_button_emphasis()  # stop the attention pulse with it
 	# T-092 fix: hide the Snap to Contact + Undo buttons together with confirm
 	# so they don't linger visible + clickable (and silently no-op) once this
 	# charge is done. _update_ui_for_next_charge() → _update_button_states()

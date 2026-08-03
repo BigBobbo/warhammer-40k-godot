@@ -182,6 +182,7 @@ func _set_state_queued() -> void:
 	fast_button.visible = true
 	fast_button.text = "Fast Roll All ⏩"
 	status_label.text = "Weapons fire in the order shown — reorder with ▲▼."
+	_clear_modifiers()
 	_clear_reroll_chips()
 	_rebuild_queue()
 
@@ -191,6 +192,7 @@ func on_next_weapon(remaining: Array, next_index: int, last_result: Dictionary) 
 	current_index = -1
 	_mark_done_below(next_index)
 	_stamp_result_note(next_index - 1, last_result)
+	_clear_modifiers()
 	_clear_reroll_chips()
 	primary_button.disabled = false
 	fast_button.visible = false

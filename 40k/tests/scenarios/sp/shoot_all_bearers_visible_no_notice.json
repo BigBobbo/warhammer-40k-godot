@@ -1,0 +1,81 @@
+{
+  "id": "shoot_all_bearers_visible_no_notice",
+  "covers": [
+    "shooting.blocked_bearers_notice",
+    "shooting.auto_assign_filters_los"
+  ],
+  "fixture": "shooting_phase",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Negative case for shoot_blocked_bearers_visible: when EVERY living bearer can reach the target, the 'NOT EVERY MODEL CAN SHOOT' notice must stay hidden and all 5 Rokkit launcha bearers must be declared. Guards against the notice becoming a permanent scold, and against the LoS filter on the auto-assign path over-dropping bearers that can legally fire. Same fixture and target as the blocked scenario, but the whole unit is parked clear of the tall area terrain, level with the target.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.state[\"units\"][\"U_TANKBUSTAS_A\"]\nvar xs = [440.0, 140.0, 200.0, 260.0, 320.0, 380.0]\nfor i in range(u[\"models\"].size()):\n\tu[\"models\"][i][\"position\"] = {\"x\": xs[i], \"y\": 2280.0}\n\tu[\"models\"][i][\"alive\"] = true\nu[\"flags\"] = {}\nvar tgt = GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"]\nvar tx = [640.0, 680.0, 720.0, 760.0]\nfor i in range(tgt[\"models\"].size()):\n\ttgt[\"models\"][i][\"position\"] = {\"x\": tx[i], \"y\": 2280.0}\n\ttgt[\"models\"][i][\"alive\"] = true\nGameState.state[\"units\"][\"U_BLADE_CHAMPION_A\"][\"models\"][0][\"position\"] = {\"x\": 300.0, \"y\": 200.0}\nGameState.state[\"units\"][\"U_CALADIUS_GRAV-TANK_E\"][\"models\"][0][\"position\"] = {\"x\": 1600.0, \"y\": 200.0}\nPhaseManager.transition_to_phase(8)\nreturn \"geometry set\"",
+      "equals": "geometry set"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_TANKBUSTAS_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nreturn sc.active_shooter_id",
+      "equals": "U_TANKBUSTAS_A"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"PulsaRokkitDialog\")\nif d == null:\n\treturn \"no dialog\"\nvar b = d.find_child(\"DeclineButton\", true, false)\nif b == null:\n\treturn \"no button\"\nb.emit_signal(\"pressed\")\nreturn \"declined\""
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nfor a in ph.pending_assignments:\n\tif a.get(\"weapon_id\", \"\") == \"rokkit_launcha_ranged\":\n\t\treturn (a.get(\"model_ids\", []) as Array).size()\nreturn -1",
+      "equals": 5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nvar root = sc.weapon_tree.get_root()\nvar c = root.get_first_child()\nwhile c:\n\tif str(c.get_metadata(0)) == \"rokkit_launcha_ranged\":\n\t\treturn c.get_text(1)\n\tc = c.get_next()\nreturn \"row not found\"",
+      "equals": "5→[A] Witchseekers"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nreturn sc.blocked_bearers_panel.visible",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_all_clear_no_notice"
+    }
+  ]
+}

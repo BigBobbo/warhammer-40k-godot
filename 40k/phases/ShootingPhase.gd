@@ -468,8 +468,33 @@ func _initialize_shooting() -> void:
 		log_phase_message("No units available for shooting, ready to end phase")
 		# Don't auto-complete - wait for END_SHOOTING action
 
+## Actions that would re-enter or abandon an attack that is already paused on
+## the defender's save allocation. Rejected outright while pending_save_data
+## holds an unresolved batch — see the DEFENDER CONTROL LOCK in
+## get_available_actions(). RESOLVE_SHOOTING was the dangerous one: it re-rolled
+## the whole attack while the defender's overlay was still showing the dice from
+## the first roll, and the second saves_required it emitted got deduped away.
+## END_SHOOTING is deliberately NOT locked: it is the player's manual escape
+## hatch (and it clears pending_save_data on the way out). It is still withheld
+## from get_available_actions() so the AI never silently abandons a defender's
+## window it is supposed to be waiting on.
+const _SAVE_LOCKED_ACTIONS := [
+	"SELECT_SHOOTER", "ASSIGN_TARGET", "CLEAR_ASSIGNMENT", "CLEAR_ALL_ASSIGNMENTS",
+	"CONFIRM_TARGETS", "RESOLVE_SHOOTING", "RESOLVE_WEAPON_SEQUENCE", "SKIP_UNIT",
+	"SHOOT", "CONTINUE_SEQUENCE", "COMPLETE_SHOOTING_FOR_UNIT",
+]
+
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
+
+	if not pending_save_data.is_empty() and action_type in _SAVE_LOCKED_ACTIONS:
+		var locked_target = str(pending_save_data[0].get("target_unit_name", pending_save_data[0].get("target_unit_id", "the target")))
+		DebugLogger.info("ShootingPhase: rejecting %s — %d save batch(es) still pending for %s" % [
+			action_type, pending_save_data.size(), locked_target])
+		return {
+			"valid": false,
+			"errors": ["Saves are still pending for %s — resolve them before %s" % [locked_target, action_type]]
+		}
 
 	match action_type:
 		"SELECT_SHOOTER":
@@ -3096,8 +3121,14 @@ func _process_apply_saves_ai_atomic(action: Dictionary) -> Dictionary:
 	if this_casualties > 0 and target_unit_id != "":
 		CharacterAttachmentManager.check_bodyguard_destroyed(target_unit_id)
 
-	# Record the defender's save/FNP dice in the dice history
-	for dice_block in summary.get("dice", []):
+	# Record the defender's save/FNP dice in the dice history. Normalized first
+	# so an AI attack's saves render as a "Save (N+)" row on the combat card
+	# like a human attack's do — the raw batch blocks use the engine-internal
+	# "save" context that the log renderers do not match.
+	for dice_block in RulesEngine.normalize_allocation_11e_dice(summary, {
+		"target_unit_name": save_data.get("target_unit_name", target_unit_id),
+		"weapon_name": save_data.get("weapon_name", ""),
+	}):
 		dice_log.append(dice_block)
 		emit_signal("dice_rolled", dice_block)
 
@@ -4066,7 +4097,11 @@ func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, curren
 		"reroll_available": can_reroll,
 		"hit_rolls": hc.get("hit_rolls", []),
 		"modified_rolls": hc.get("modified_rolls", []),
-		"hits": hc.get("hits", 0)
+		"hits": hc.get("hits", 0),
+		"threshold": str(hc.get("bs", 4)) + "+",
+		# Named provenance for every hit modifier that applied — the dock lists
+		# these so a shifted threshold is traceable to the rule behind it.
+		"modifier_ledger": hc.get("modifier_ledger", [])
 	})
 
 	log_phase_message("Weapon %d of %d hit roll complete — awaiting attacker to continue to wound roll" % [current_index + 1, weapon_order.size()])
@@ -4137,7 +4172,9 @@ func _staged_continue_to_wounds(pause: bool = true) -> Dictionary:
 		"reroll_available": can_reroll,
 		"wound_rolls": wc.get("wound_rolls", []),
 		"wounds": save_data_list[0].get("wounds_to_save", 0) if not save_data_list.is_empty() else 0,
-		"target_name": target_name
+		"target_name": target_name,
+		"threshold": str(wc.get("wound_threshold", 4)) + "+",
+		"modifier_ledger": wc.get("modifier_ledger", [])
 	})
 	log_phase_message("Weapon %d of %d wound roll complete — awaiting attacker to continue to saving throws" % [current_index + 1, weapon_order.size()])
 	return create_result(true, [], "Weapon %d wounds rolled — awaiting continue to saves" % (current_index + 1), {
@@ -4203,7 +4240,8 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 			"reroll_available": false,
 			"hit_rolls": uhc.get("hit_rolls", []),
 			"modified_rolls": uhc.get("modified_rolls", []),
-			"hits": uhc.get("hits", 0)
+			"hits": uhc.get("hits", 0),
+			"modifier_ledger": uhc.get("modifier_ledger", [])
 		})
 		return create_result(true, [], "Hit die re-rolled", {
 			"staged_pause": "hits", "reroll_used": true, "reroll_available": false,
@@ -4229,7 +4267,8 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 		emit_signal("shooting_stage_paused", "wounds", {
 			"reroll_available": false,
 			"wound_rolls": rr.get("wound_context", {}).get("wound_rolls", []),
-			"wounds": new_wounds
+			"wounds": new_wounds,
+			"modifier_ledger": rr.get("wound_context", {}).get("modifier_ledger", [])
 		})
 		return create_result(true, [], "Wound die re-rolled", {
 			"staged_pause": "wounds", "reroll_used": true, "reroll_available": false,
@@ -4993,7 +5032,28 @@ func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
 	var units = get_units_for_player(current_player)
-	
+
+	# DEFENDER CONTROL LOCK: an attack is already in flight and the defender
+	# owes saves for it. The ONLY legal next action is that batch's APPLY_SAVES.
+	# This used to also offer RESOLVE_SHOOTING / CONFIRM_TARGETS /
+	# SELECT_SHOOTER / SKIP_UNIT / END_SHOOTING, because active_shooter_id and
+	# confirmed_assignments are still populated while the activation is paused.
+	# Anything that took one of those re-entered the paused activation:
+	# RESOLVE_SHOOTING re-rolled the WHOLE attack behind the defender's back
+	# (their open overlay was still showing the discarded dice), emitted a
+	# second saves_required that ShootingController deduped, and left the
+	# controller's duplicate-signal guard latched — after which no save window
+	# ever opened again, pending_save_data never drained, and the AI attacker
+	# idled forever on _human_defender_window_pending() with its "thinking"
+	# indicator flashing every watchdog tick. Reported 2026-08-03: "the AI
+	# stalled after I took a while to roll my saves".
+	if not pending_save_data.is_empty():
+		actions.append({
+			"type": "APPLY_SAVES",
+			"description": "Apply pending saves"
+		})
+		return actions
+
 	# If we have an active shooter with pending assignments
 	if active_shooter_id != "" and not pending_assignments.is_empty():
 		actions.append({
@@ -5186,12 +5246,8 @@ func get_available_actions() -> Array:
 		})
 		return actions
 
-	# Pending saves need resolution (safety net for AI)
-	if not pending_save_data.is_empty():
-		actions.append({
-			"type": "APPLY_SAVES",
-			"description": "Apply pending saves"
-		})
+	# (Pending saves are handled by the DEFENDER CONTROL LOCK at the top of this
+	# function — reaching here means pending_save_data is empty.)
 
 	# Sequential mode: continue or complete (safety net for AI)
 	if resolution_state.get("mode", "") in ["sequential", "sequential_staged", "fast"]:
@@ -6846,6 +6902,21 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 			var alloc_target_id = save_data.get("target_unit_id", save_result_summary.get("target_unit_id", ""))
 			if alloc_casualties > 0 and str(alloc_target_id) != "":
 				CharacterAttachmentManager.check_bodyguard_destroyed(alloc_target_id)
+			# ARMOUR SAVES IN THE GAME LOG: the 11e flow resolves the whole save
+			# batch inside AllocationGroupOverlay, so — unlike the 10e path below
+			# — nothing here ever emitted a save dice block. The combat card
+			# showed the hit and wound rolls and then jumped to "No models
+			# destroyed" with no armour saves explaining why. Replay the batch's
+			# saves (and any Feel No Pain) through the normal dice_rolled channel
+			# so they land on the combat card, in its details, in the dice log and
+			# on the remote peer like every other roll.
+			for alloc_block in RulesEngine.normalize_allocation_11e_dice(save_result_summary, {
+				"target_unit_name": save_data.get("target_unit_name", alloc_target_id),
+				"weapon_name": save_data.get("weapon_name", ""),
+			}):
+				save_dice_blocks.append(alloc_block)
+				dice_log.append(alloc_block)
+				emit_signal("dice_rolled", alloc_block)
 			log_phase_message("%s: %d saves passed, %d failed → %d casualties (11e allocation)" % [
 				save_data.get("target_unit_name", alloc_target_id),
 				save_result_summary.get("saves_passed", 0),
@@ -7452,6 +7523,15 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 	else:
 		DebugLogger.info("║ ⚠️  WARNING: confirmed_assignments is EMPTY!")
 
+	# This batch is fully applied — drop it. The sequential branch above already
+	# does this; the single-weapon branch did not, so pending_save_data stayed
+	# populated after the defender had finished allocating. That entry is what
+	# AIPlayer._human_defender_window_pending() reads, so an AI attacker went on
+	# idling as though the human were still rolling saves and the phase never
+	# advanced. Cleared AFTER last_weapon_result / completed_weapons, both of
+	# which read pending_save_data[0] for the wound count.
+	pending_save_data.clear()
+
 	# Emit signal with EMPTY remaining_weapons (signals completion)
 	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
 	DebugLogger.info("║ 📡 EMITTING next_weapon_confirmation_required SIGNAL")
@@ -7613,21 +7693,31 @@ func _emit_verbose_combat_log(shooter_id: String, dice_data: Array, save_dice_bl
 		elif context == "to_wound" or context == "wound_roll":
 			_emit_wound_detail_log(dice_block, player)
 
-	# Save dice blocks
+	# Save dice blocks ("save" is the engine-internal 11e context; the
+	# normalized blocks use "save_roll")
+	var saves_passed := 0
+	var saves_rolled := 0
 	for save_block in save_dice_blocks:
 		var scontext = save_block.get("context", "")
-		if scontext == "save_roll":
+		if scontext == "save_roll" or scontext == "save":
 			_emit_save_detail_log(save_block)
+			saves_passed += int(save_block.get("successes", 0))
+			saves_rolled += int(save_block.get("successes", 0)) + int(save_block.get("failed", save_block.get("fails", 0)))
 		elif scontext == "feel_no_pain":
 			_emit_fnp_detail_log(save_block)
 
 	# Final result line — only show after saves are resolved (not for hit/wound-only phases)
 	if phase_type == "shooting_saves":
+		# Carry the save tally into the result so "No models destroyed" says WHY
+		# nothing died instead of leaving the player to guess.
+		var save_tally = ""
+		if saves_rolled > 0:
+			save_tally = " (%d/%d saves passed)" % [saves_passed, saves_rolled]
 		if casualties > 0:
 			var _cas_label2 = "model" if casualties == 1 else "models"
-			GameEventLog.add_combat_result("  Result: %d %s destroyed" % [casualties, _cas_label2])
+			GameEventLog.add_combat_result("  Result: %d %s destroyed%s" % [casualties, _cas_label2, save_tally])
 		else:
-			GameEventLog.add_combat_result("  Result: No models destroyed")
+			GameEventLog.add_combat_result("  Result: No models destroyed%s" % save_tally)
 
 func _emit_hit_detail_log(shooter_name: String, dice_block: Dictionary, player: int) -> void:
 	"""Emit detailed hit roll log from a to_hit dice block."""
@@ -7762,7 +7852,11 @@ func _emit_save_detail_log(save_block: Dictionary) -> void:
 	if using_invuln:
 		save_type = "Invulnerable Save %s" % threshold
 	else:
-		save_type = "Armour Save %s (AP -%d)" % [threshold, ap]
+		# `ap` is stored negative (AP-1 == -1), so "(AP -%d)" printed "AP --1"
+		# once the 11e path started reaching this line. Normalise to one "-N"
+		# reading regardless of the caller's sign convention.
+		var ap_mag = absi(int(ap))
+		save_type = "Armour Save %s (AP %s)" % [threshold, ("0" if ap_mag == 0 else "-%d" % ap_mag)]
 
 	var rolls_str = GameEventLog._format_dice_rolls(rolls_raw)
 	var save_line = "  %s Saves vs %s: %s — rolled %s — %d passed, %d failed" % [
