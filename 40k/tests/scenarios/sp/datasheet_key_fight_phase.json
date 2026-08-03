@@ -1,0 +1,56 @@
+{
+  "id": "datasheet_key_fight_phase",
+  "covers": [
+    "hud.datasheet_modal",
+    "scripts.Main._selected_unit_id_or_empty",
+    "fight.datasheet_key",
+    "ui.datasheet.hotkey"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "transition_to_phase": 10,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "FightController tracks its selection in `current_fighter_id`, so the old `active_unit_id`-only scan in Main._selected_unit_id_or_empty() came back empty for the whole fight phase — the same defect that made the datasheet key (I) dead in shooting. Drives the real path: pass both Pile In halves, pick a fighter from the FightSelectionPanel, and assert the selection lookup resolves to that unit (with FightController asked first) so the datasheet key / fit-to-selection / pad-Y all have something to act on. NOTE: selecting a fighter immediately raises AttackAssignmentDialog, and that is an AcceptDialog — probed live at this exact point it reports visible=true exclusive=true has_focus=true, i.e. a focused embedded SUBWINDOW with its own viewport, so keystrokes route there and Main._input never sees them (verified: simulate_key I here leaves the card closed). That is pre-existing fight-phase modal behaviour, not the selection lookup, so this scenario opens the card through the same lookup Main._input uses rather than via simulate_key. Shooting/movement, where no such dialog is in the way, are covered end-to-end by datasheet_key_all_phases / datasheet_key_movement_phase.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_B", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "main.fight_controller.current_fighter_id",
+      "equals": "U_WARBOSS_B" },
+    { "act": "execute_script",
+      "script": "main._selected_unit_id_or_empty()",
+      "equals": "U_WARBOSS_B" },
+    { "act": "execute_script",
+      "script": "var m = tree.current_scene\nreturn m._selection_controller_order()[0]",
+      "multiline": true,
+      "equals": "FightController" },
+
+    { "act": "execute_script",
+      "script": "var m = tree.current_scene\nreturn m.get_node(\"DatasheetModal\").open_for(m._selected_unit_id_or_empty())",
+      "multiline": true,
+      "equals": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").current_unit_id",
+      "equals": "U_WARBOSS_B" },
+    { "act": "screenshot", "label": "01_fight_phase_datasheet_open" },
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").close()\nreturn tree.current_scene.get_node(\"DatasheetModal\").visible",
+      "multiline": true,
+      "equals": false }
+  ]
+}
