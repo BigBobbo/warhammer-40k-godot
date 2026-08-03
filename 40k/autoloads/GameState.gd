@@ -264,6 +264,14 @@ func get_units_for_player(player: int, include_destroyed: bool = false) -> Dicti
 func get_unit(unit_id: String) -> Dictionary:
 	return state["units"].get(unit_id, {})
 
+# Every unit, keyed by unit_id. Three callers (the LoS debug overlay and
+# ShootingController.refresh_los_debug_visuals) had been calling this for a
+# while against a method that never existed — "Nonexistent function 'get_units'
+# in base 'Node (GameStateData)'" aborted the whole no-eligible-targets LoS
+# debug path, so holding L on a shooter that cannot see anything drew nothing.
+func get_units() -> Dictionary:
+	return state.get("units", {})
+
 # ISS-045/063: edition switch access for scenarios/tools (ScenarioRunner's
 # execute_script resolves autoloads but not class_name globals).
 func set_edition(edition: int) -> int:

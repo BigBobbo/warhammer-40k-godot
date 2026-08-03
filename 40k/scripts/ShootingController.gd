@@ -567,6 +567,9 @@ func _setup_right_panel() -> void:
 		SettingsService.shooting_show_all_units_changed.connect(_on_shooting_show_all_units_setting_changed)
 
 	unit_selector = ItemList.new()
+	# Named so windowed scenarios can address the row a player clicks; an
+	# unnamed ItemList gets an "@ItemList@1990"-style path that changes run to run.
+	unit_selector.name = "ShooterUnitList"
 	unit_selector.custom_minimum_size = Vector2(230, 80)
 	unit_selector.item_selected.connect(_on_unit_selected)
 	_WhiteDwarfTheme.apply_to_item_list(unit_selector)
@@ -2117,7 +2120,10 @@ func refresh_los_debug_visuals() -> void:
 		print("[ShootingController] No eligible targets - visualizing LoS to ALL enemy units for debugging")
 		if current_phase:
 			var current_player = current_phase.get_current_player()
-			var enemy_player = 1 if current_player == 0 else 0
+			# Players are 1 and 2 in this project — the old `1 if p == 0 else 0`
+			# always produced player 0, which owns no units, so the enemy sweep
+			# found nothing and fell through to the crashing fallback below.
+			var enemy_player = 2 if current_player == 1 else 1
 
 			print("[ShootingController] Current player: %d, Enemy player: %d" % [current_player, enemy_player])
 
