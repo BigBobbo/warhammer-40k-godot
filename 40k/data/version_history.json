@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.14.0",
+      "version": "1.15.0",
       "date": "2026-08-02",
       "summary": "Charge phase: pick your charge target by clicking the enemy unit on the board, not just its name in the right-hand list.",
       "changes": [
@@ -11,6 +11,28 @@
         "Clicking the list of names still works exactly as before — this is an extra way in, not a replacement.",
         "Click an enemy you cannot charge and the game now tells you why (\"Witchseekers is 45.3\\\" away — charge targets must be within 12\\\"\") instead of silently doing nothing.",
         "Fixed: the green highlight squares drawn over eligible charge targets were swallowing mouse clicks on those very models."
+      ]
+    },
+    {
+      "version": "1.14.0",
+      "date": "2026-08-02",
+      "summary": "The Keyboard Shortcuts card (Shift+/) is properly laid out like the unit datasheet card — and it finally lists every shortcut in the game, not the 15 it used to show.",
+      "changes": [
+        "The card is now built like the datasheet you get with I: gold-bordered panel, a title bar with the shortcut count, colour-coded section headers, alternating rows and keys drawn as keycaps. It used to be a plain grey box in the default font.",
+        "It lists ALL 71 bound keys plus the 8 mouse/Enter/Esc controls that aren't rebindable — camera panning, save and load slots, the shooting-phase keys, replay playback and the debug keys were all missing before.",
+        "Shortcuts are grouped into Universal & Mouse, Camera & View, Board & Measuring, Model & Deployment, Phase Actions, Panels & Overlays, AI, Replay Playback, Save & Load and Debug, spread over columns that fit on screen without scrolling at 1080p.",
+        "Keys are read live from your bindings, so anything you rebind in Settings › Controls shows the new key straight away; a shortcut you have deliberately left unassigned shows as 'Unbound'.",
+        "ESC now closes the card instead of opening the settings menu behind it. Shift+/ still toggles it, and the footer still points controller players at Settings › Controller."
+      ]
+    },
+    {
+      "version": "1.13.4",
+      "date": "2026-08-02",
+      "summary": "Charge phase: 'Snap to Contact' comes back after you undo a model's move — reverting a model no longer takes the snap option away for the rest of the charge.",
+      "changes": [
+        "Fixed (reported): after moving your chargers and then reverting one with B / 'Undo Last Model', 'Snap to Contact' stayed greyed out for the rest of that charge, so the model you just put back could only be dragged into contact by hand.",
+        "The button (and the controller's [X] Snap to Contact prompt) now light up again the moment any model returns to the still-to-move list — undo one model, undo all of them, snap again as often as you like.",
+        "'Snap to Contact' is no longer sliced in half by the edge of the right-hand panel: the Confirm / Undo / Snap row wraps onto a second line when it doesn't fit, so the whole button is visible and clickable."
       ]
     },
     {

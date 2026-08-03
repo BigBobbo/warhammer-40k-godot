@@ -760,11 +760,10 @@ func _end_group_drag(local_pos: Vector2) -> void:
 	# Worst-case accumulated distance across the group
 	_update_charge_distance_display_with_preview(max_total, true, 0.0)
 
-	# Same button/info bookkeeping as a single-model drop
-	if moved_models.size() > 0 and is_instance_valid(confirm_button):
-		confirm_button.disabled = false
-	if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
-		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+	# Same button/info bookkeeping as a single-model drop (Snap included: a group
+	# drop that placed the last models must grey it out, and an undo afterwards
+	# must bring it back).
+	_refresh_confirm_row_button_states()
 	if is_instance_valid(charge_info_label):
 		charge_info_label.text = _remaining_models_message()
 
@@ -2417,8 +2416,14 @@ func _add_confirm_button() -> void:
 	confirm_button.pressed.connect(_on_confirm_charge_moves)
 	print("DEBUG: Signal connected, adding to right panel...")
 
-	# Add confirm button as a separate row in action container
-	var confirm_row = HBoxContainer.new()
+	# Add confirm button as a separate row in action container.
+	# HFlowContainer, not HBoxContainer: the three buttons (Confirm Charge Moves /
+	# Undo Last Model / Snap to Contact) are wider than the right panel at 1080p,
+	# and an HBox just let the last one overflow — "Snap to Contact" was sliced in
+	# half by the screen edge, so the affordance the player is told to use was
+	# barely there. A flow container wraps the overflow onto a second line and
+	# behaves exactly like the HBox whenever the panel IS wide enough.
+	var confirm_row = HFlowContainer.new()
 	confirm_row.name = "ConfirmRow"
 	confirm_row.add_child(confirm_button)
 
@@ -2481,16 +2486,41 @@ func _on_undo_last_charge_model() -> void:
 		charge_left_label.modulate = Color.WHITE
 	if is_instance_valid(charge_terrain_label):
 		charge_terrain_label.visible = false
-	# Disable confirm if nothing has been moved
-	if confirm_button and is_instance_valid(confirm_button):
-		confirm_button.disabled = moved_models.is_empty()
-	# Disable undo button if no more moves to undo
-	if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
-		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+	# Confirm / Undo / Snap all track the lists this undo just changed — the model
+	# is back in models_to_move, so Snap to Contact has work to do again.
+	_refresh_confirm_row_button_states()
 	# Keep multi-select rings in sync — the undone model is back at its origin
 	if selected_models.size() > 0:
 		_update_charge_selection_visuals()
 	print("[T-092] Undid charge model %s, restored to %s" % [charge_key, str(origin_pos)])
+
+# Re-derive the enabled state of the three confirm-row buttons from the live
+# move lists. Same rules _update_button_states applies, without its tail (which
+# rewrites charge_info_label and would clobber the caller's own message).
+#
+# Reported bug this exists for: after a full "Snap to Contact" every model is in
+# moved_models, so the Snap button correctly greys itself out. Pressing B / Undo
+# Last Model then put a model BACK into models_to_move but only refreshed the
+# confirm and undo buttons — Snap stayed disabled with nothing to re-enable it,
+# so the reverted model could only be dragged by hand ("if I revert a model it
+# no longer gives me the option to snap to closest"). ChargeController.
+# pad_snap_available() reads the same disabled flag, so the pad's
+# "[X] Snap to Contact" chip went dead alongside the on-screen button.
+func _refresh_confirm_row_button_states() -> void:
+	# Confirm needs at least one staged model.
+	if is_instance_valid(confirm_button):
+		confirm_button.disabled = moved_models.is_empty()
+	# Undo needs something on the per-model undo stack.
+	if is_instance_valid(undo_charge_model_button):
+		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+	# Snap needs at least one model still waiting to be placed.
+	if is_instance_valid(auto_path_charge_button):
+		auto_path_charge_button.disabled = models_to_move.is_empty()
+	# The pad hint bar mirrors these buttons ("[X] Snap to Contact",
+	# "[B] Undo Model") off their disabled flags, so re-render it here too —
+	# otherwise the bar keeps promising (or hiding) an action that just changed.
+	if PadRouter and PadRouter.has_method("refresh_hints"):
+		PadRouter.refresh_hints()
 
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")
@@ -2759,9 +2789,6 @@ func _end_model_drag(world_pos: Vector2) -> void:
 		if charge_key in _moved_model_order:
 			_moved_model_order.erase(charge_key)
 		_moved_model_order.append(charge_key)
-		# Enable undo button now that at least one model has moved
-		if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
-			undo_charge_model_button.disabled = false
 
 		# IMPORTANT: Update GameState FIRST with position and rotation
 		# This ensures GameState has the correct data before we update visuals
@@ -2776,15 +2803,17 @@ func _end_model_drag(world_pos: Vector2) -> void:
 		# Remove from models to move
 		models_to_move.erase(charge_key)
 
-		# Update button state
-		if moved_models.size() > 0 and is_instance_valid(confirm_button):
-			confirm_button.disabled = false
-			print("DEBUG: Confirm button enabled - moved_models.size() = ", moved_models.size())
+		# Update button state — confirm/undo light up now that a model is staged,
+		# and Snap greys out once this drop was the LAST unplaced model (the
+		# mirror of the undo path re-enabling it).
+		_refresh_confirm_row_button_states()
+		if is_instance_valid(confirm_button):
+			print("DEBUG: Confirm button disabled=", confirm_button.disabled, " - moved_models.size() = ", moved_models.size())
 			print("DEBUG: Confirm button global position: ", confirm_button.global_position)
 			print("DEBUG: Confirm button global rect: ", confirm_button.get_global_rect())
 			print("DEBUG: Confirm button visible: ", confirm_button.visible)
 		else:
-			print("DEBUG: Confirm button not enabled - moved_models.size() = ", moved_models.size(), " confirm_button valid = ", is_instance_valid(confirm_button))
+			print("DEBUG: Confirm button not valid - moved_models.size() = ", moved_models.size())
 
 		# Update info
 		if is_instance_valid(charge_info_label):
@@ -5320,20 +5349,14 @@ func _on_auto_path_charge() -> void:
 		if not placed:
 			unplaced.append(charge_key)
 			print("[T-092 auto-path] No valid placement found for %s" % charge_key)
-	# Refresh button states
-	if confirm_button and is_instance_valid(confirm_button):
-		confirm_button.disabled = moved_models.is_empty()
-	if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
-		undo_charge_model_button.disabled = _moved_model_order.is_empty()
-	# ...including Snap itself: this hand-rolled refresh (deliberately not
+	# Refresh button states — including Snap itself (deliberately NOT
 	# _update_button_states, whose tail would clobber the auto-path message set
-	# below) used to skip the button it was fired from, so after a full snap the
-	# button stayed lit while a second press could only early-return — the exact
-	# "Snap to Contact doesn't do anything" reading the T-092 gating fixed
-	# everywhere else. Same rule as _update_button_states: snap-able only while
-	# models are still unplaced.
-	if auto_path_charge_button and is_instance_valid(auto_path_charge_button):
-		auto_path_charge_button.disabled = models_to_move.is_empty()
+	# below). This used to skip the button it was fired from, so after a full snap
+	# the button stayed lit while a second press could only early-return — the
+	# exact "Snap to Contact doesn't do anything" reading the T-092 gating fixed
+	# everywhere else. The helper also re-renders the pad hint bar, which mirrors
+	# these buttons ("[X] Snap to Contact") off their disabled flags.
+	_refresh_confirm_row_button_states()
 	# Refresh info
 	if is_instance_valid(charge_info_label):
 		if models_to_move.is_empty():
@@ -5347,12 +5370,6 @@ func _on_auto_path_charge() -> void:
 			charge_info_label.text = "Snap to Contact: %d model(s) have no legal move within %d\" — drag them manually" % [unplaced.size(), charge_distance]
 		else:
 			charge_info_label.text = _remaining_models_message()
-	# The pad hint bar mirrors these buttons ("[X] Snap to Contact"), and this
-	# handler bypasses _update_button_states' own refresh — re-render from the
-	# state the snap just produced so the bar can't keep promising a button that
-	# just greyed out.
-	if PadRouter and PadRouter.has_method("refresh_hints"):
-		PadRouter.refresh_hints()
 
 
 # Stage a suggested charge position exactly like a completed drag would
