@@ -3107,10 +3107,30 @@
       "status": "covered"
     },
     {
-      "id": "tutorial.t6.boss_swings.dpad",
-      "description": "T6 (Krumpin') boss_swings (step 7 of 9) teaches the Warboss pick as D-pad work, not a stick glide. The fight panel's UNITS THAT CAN FIGHT rows are a VBox of Buttons (not an ItemList), so they sit on PadRouter's HUD_Right focus chain; when the step opens the D-pad is parked on the dice dock's primary button, so two ▲ presses land on the Warboss row and A activates him (Epic Challenge offer follows). The prompt names the ✚ glyph and no longer names LS.",
+      "id": "tutorial.t6.fight_row.dpad",
+      "description": "T6 (Krumpin') teaches the fight-row pick as D-pad work, not a stick glide. The fight panel's UNITS THAT CAN FIGHT rows are a VBox of Buttons (not an ItemList), so they sit on PadRouter's HUD_Right focus chain; the D-pad walks a ROW at a time and SKIPS disabled stops (the enemy's row, which A could not press), and A on the focused row activates the unit — the Epic Challenge offer follows, because the row is the ATTACHED unit 'Boyz + Warboss' and contains a CHARACTER. The prompt names the ✚ glyph and no longer names LS. Was written against the separate boss_swings step (the Warboss's own row), which 19.03 removed: an attached Leader fights inside his squad's one activation, so there is no second Ork row to walk to.",
       "scenarios": [
-        "tut_t6_boss_row_dpad"
+        "tut_t6_fight_row_dpad"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.attached_unit.targeting",
+      "description": "19.02: a CHARACTER attached to a bodyguard is never a melee target of its own. FightPhase._get_eligible_melee_targets, RulesEngine.fight_targets_in_engagement, _validate_assign_attacks and the AI's fight plan all hide it behind the bodyguard, and the wound-allocation fold resolves a leader id back to its Attached unit so the bodyguard groups take the wounds first (05.04 puts the CHARACTER group last). Engagement range is measured against the whole Attached unit, so a squad reachable only via its leader's model stays targetable; once the bodyguard is wiped (19.05) the leader is attackable again.",
+      "scenarios": [
+        "tut_t6_krumpin"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "fight.attached_unit.one_activation",
+      "description": "19.03: an Attached unit fights as ONE unit in ONE activation. The fight list shows a single 'Boyz + Warboss' row; FightSequencer eligibility and Fights First are any-component; select_to_fight/mark_fought spend the whole group; has_fought is stamped on every component so the leader is never offered a second swing with the enemy alternating in between. One attack dialog carries both components' weapons (models keyed <unit_id>#<index>, assignments split back per component so each keeps its own profile), the one-weapon rule is scoped per component, [EXTRA ATTACKS] stays with the model that has it, and Epic Challenge is offered for the Attached unit.",
+      "scenarios": [
+        "tut_t6_krumpin",
+        "tut_t6_krumpin_pad",
+        "tut_t6_fight_row_dpad"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -3129,7 +3149,7 @@
       "description": "The same T6 Pile In move on a controller: the cursor (or D-pad) lands on the 'Boyz + Warboss' row, A opens the PileInDialog, and Auto Pile In / Confirm Move shuffle the back rank into engagement range before the fight starts.",
       "scenarios": [
         "tut_t6_krumpin_pad",
-        "tut_t6_boss_row_dpad"
+        "tut_t6_fight_row_dpad"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -3147,7 +3167,7 @@
       "id": "tutorial.pad_prompts.dpad_first",
       "description": "Pad prompts must name the D-pad wherever the D-pad reaches the target — a Steam Deck player reported T6 step 6 telling them to glide the left stick at a row the D-pad walks onto. T6 step 7 is the same fix from the other direction: AllocationGroupOverlay confines pad focus to itself and grabs its own Roll Saves button, so the prompt says 'press A' rather than 'glide LS'. The remaining {ls} prompts are genuinely off the route: HUD_Left (T4's Dice Log tab) is never visited by PadRouter._enter_panel_focus, T7's bottom-bar Stratagems button cannot be reached from the command-phase focus chain, and the rest are board work (placing models, aiming at tokens).",
       "scenarios": [
-        "tut_t6_boss_row_dpad"
+        "tut_t6_fight_row_dpad"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
