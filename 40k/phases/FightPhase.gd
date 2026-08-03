@@ -2038,7 +2038,14 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 			total_casualties += alloc_casualties
 			if alloc_casualties > 0 and str(target_unit_id) != "":
 				CharacterAttachmentManager.check_bodyguard_destroyed(target_unit_id)
-			for dice_block in save_result_summary.get("dice", []):
+			# ARMOUR SAVES IN THE GAME LOG: the batch's raw blocks use the
+			# engine-internal "save" context, which no log renderer matches —
+			# normalize them to "save_roll"/"feel_no_pain" first so melee saves
+			# show up on the combat card exactly like the shooting ones.
+			for dice_block in RulesEngine.normalize_allocation_11e_dice(save_result_summary, {
+				"target_unit_name": target_name,
+				"weapon_name": save_data.get("weapon_name", ""),
+			}):
 				save_dice_blocks.append(dice_block)
 				dice_log.append(dice_block)
 				emit_signal("dice_rolled", dice_block)
@@ -5630,7 +5637,11 @@ func _emit_melee_save_detail(save_block: Dictionary) -> void:
 	if using_invuln:
 		save_type = "Invulnerable Save %s" % threshold
 	else:
-		save_type = "Armour Save %s (AP -%d)" % [threshold, ap]
+		# `ap` is stored negative (AP-1 == -1), so "(AP -%d)" printed "AP --1"
+		# once the 11e path started reaching this line. Normalise to one "-N"
+		# reading regardless of the caller's sign convention.
+		var ap_mag = absi(int(ap))
+		save_type = "Armour Save %s (AP %s)" % [threshold, ("0" if ap_mag == 0 else "-%d" % ap_mag)]
 
 	var rolls_str = GameEventLog._format_dice_rolls(rolls_raw)
 	GameEventLog.add_combat_detail("  %s Saves vs %s: %s — rolled %s — %d passed, %d failed" % [

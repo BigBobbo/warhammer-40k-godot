@@ -1,0 +1,273 @@
+{
+  "id": "game_log_armour_saves_11e",
+  "edition": 11,
+  "covers": [
+    "ui.log.armour_saves_in_game_log",
+    "autoloads.RulesEngine.normalize_allocation_11e_dice",
+    "phases.ShootingPhase._process_apply_saves.allocation_11e",
+    "scripts.GameLogPanel._build_realtime_dice_row.save_roll",
+    "scripts.rules.Allocation.apply_save_rolls.needed"
+  ],
+  "fixture": "custodes_lions_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "ARMOUR SAVES IN THE GAME LOG. The 11e allocation-group flow resolves the whole save batch inside AllocationGroupOverlay, so nothing in ShootingPhase._process_apply_saves ever emitted a save dice block: the game log's combat card showed 'Hit (2+)' and 'Wound (5+)' and then jumped straight to 'No models destroyed', with the armour saves that were the REASON nothing died reaching only the Dice Log. This drives a real shot end to end through the player path — select shooter, assign the Guardian spear to the Boyz, confirm, decline the reactive stratagem, then press the resolution dock's real primary button three times (Roll to Hit -> Roll to Wound -> Continue to Saving Throws) — and then drives the defender's own AllocationGroupOverlay (Roll Saves, Keep Rolls / Auto-pick when those steps appear, Done). Asserts the finished combat card carries a third inline dice row labelled 'Save (N+)' alongside Hit and Wound, that its 'Show details' section holds the textual armour-save line naming the threshold and the AP, and that the closing result line reports the save tally so the casualty count explains itself. Also asserts the AP is printed once — this path newly exposed a '(AP --1)' double-minus in the save detail line.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_BOYZ_E\"][\"models\"][0].merge({\"position\": {\"x\": 900.0, \"y\": 500.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().enter_phase(GameState.create_snapshot())"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "(\"U_BOYZ_E\" in RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_A\", PhaseManager.get_current_phase_instance().game_state_snapshot))",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CUSTODIAN_GUARD_A"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "payload": {
+          "weapon_id": "guardian_spear___ranged_ranged",
+          "target_unit_id": "U_BOYZ_E",
+          "model_ids": [
+            "m1",
+            "m2",
+            "m3",
+            "m4",
+            "m5"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DECLINE_REACTIVE_STRATAGEM"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.is_active()",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.state",
+      "equals": "staged_hits"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.state",
+      "equals": "staged_wounds"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.game_log_panel.last_combat_card_dice_labels().size()",
+      "expect_min": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "01_card_before_saves_hit_and_wound_only"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var labels = tree.current_scene.game_log_panel.last_combat_card_dice_labels()\nfor l in labels:\n\tif l.begins_with(\"Save\") or l.begins_with(\"Inv Save\"):\n\t\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var kinds = []\nfor l in tree.current_scene.game_log_panel.last_combat_card_dice_labels():\n\tkinds.append(l.split(\" \")[0])\nreturn \"Hit\" in kinds and \"Wound\" in kinds and (\"Save\" in kinds or \"Inv\" in kinds)",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "for line in tree.current_scene.game_log_panel.last_combat_card_detail_lines():\n\tif \"Saves vs\" in line and (\"Armour Save\" in line or \"Invulnerable Save\" in line):\n\t\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var last = \"\"\nfor e in GameEventLog.get_all_entries():\n\tif e.get(\"type\", \"\") == \"combat_result\":\n\t\tlast = str(e.get(\"text\", \"\"))\nreturn \"saves passed\" in last",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var n = 0\nfor e in GameEventLog.get_all_entries():\n\tif e.get(\"type\", \"\") == \"combat_detail\" and \"Saves vs\" in str(e.get(\"text\", \"\")):\n\t\tn += 1\nreturn n",
+      "multiline": true,
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "for e in GameEventLog.get_all_entries():\n\tif e.get(\"type\", \"\") == \"combat_detail\" and \"AP --\" in str(e.get(\"text\", \"\")):\n\t\treturn false\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.game_log_panel.expand_last_combat_card()",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_card_with_save_row_and_result_tally",
+      "region": [
+        0,
+        60,
+        380,
+        800
+      ]
+    },
+    {
+      "act": "screenshot",
+      "label": "03_full_frame_game_log_with_saves"
+    }
+  ]
+}

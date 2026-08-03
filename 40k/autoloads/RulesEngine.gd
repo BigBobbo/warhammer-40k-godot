@@ -3130,14 +3130,34 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 		for ev in alloc.events:
 			if ev.get("result", "") != "saved":
 				fails += 1
+		# ARMOUR SAVES IN THE LOGS: carry the threshold the defender was
+		# actually rolling against (and whether it was an invulnerable save)
+		# plus the standard successes/failed counters, so every downstream
+		# renderer — dice log, game-log combat card — can label and colour the
+		# save row the same way it does hit and wound rolls. Allocation is
+		# per group, so this reports the group that took the first die; for a
+		# single-group unit (the common case) it covers the whole batch.
+		var save_needed_display := 0
+		var save_using_invuln := false
+		for ev in alloc.events:
+			if ev.has("needed"):
+				save_needed_display = int(ev.get("needed", 0))
+				save_using_invuln = bool(ev.get("using_invuln", false))
+				break
 		result.dice.append({
 			"context": "save",
-			"sv": str(base_save) + "+",
+			# int(): stats.save can be a float (5.0), and "5.0+" reads badly in
+			# the log if anything falls back to this as the displayed threshold.
+			"sv": "%d+" % int(base_save),
 			"ap": ap,
 			"cover": "n/a (11e: cover worsens BS, not saves)",
 			"save_modifier": save_modifier,
 			"rolls_raw": save_rolls,
 			"fails": fails,
+			"failed": fails,
+			"successes": save_rolls.size() - fails,
+			"threshold": ("%d+" % save_needed_display) if save_needed_display > 0 else "",
+			"using_invuln": save_using_invuln,
 			"allocation_11e": {"order": order, "events": alloc.events}
 		})
 		_materialize_allocation_11e(result, target_unit, target_unit_id, alloc.remaining, alloc.models_destroyed)
@@ -3514,6 +3534,53 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 			out.order_used = d.get("allocation_11e", {}).get("order", [])
 	if out.order_used.is_empty():
 		out.order_used = order
+	return out
+
+
+# ARMOUR SAVES IN THE GAME LOG: translate an 11e allocation batch's dice into
+# the canonical block shapes every log renderer already understands —
+# "save_roll" (GameLogPanel's visible Save row + ShootingPhase's save detail
+# line) and "feel_no_pain". The 11e batch is resolved wholesale inside
+# AllocationGroupOverlay and reported back as one summary, so its raw blocks
+# use the engine-internal "save" context with `fails`/`rolls` keys that no
+# renderer matches. Without this translation the game log jumped straight from
+# the wound roll to "No models destroyed" with nothing showing the saves that
+# were the reason nothing died.
+# `ctx`: {target_unit_name, weapon_name} — the attribution the 10e path puts on
+# its own save blocks. Unknown contexts pass through untouched.
+static func normalize_allocation_11e_dice(summary: Dictionary, ctx: Dictionary = {}) -> Array:
+	var target_name := str(ctx.get("target_unit_name", ""))
+	var weapon_name := str(ctx.get("weapon_name", ""))
+	var out: Array = []
+	for blk in summary.get("dice", []):
+		var context := str(blk.get("context", ""))
+		if context == "save":
+			var normalized: Dictionary = blk.duplicate(true)
+			var rolls: Array = blk.get("rolls_raw", [])
+			var failed := int(blk.get("failed", blk.get("fails", 0)))
+			normalized["context"] = "save_roll"
+			normalized["failed"] = failed
+			normalized["successes"] = int(blk.get("successes", rolls.size() - failed))
+			# `threshold` is the roll the defender needed; fall back to the raw
+			# armour save when the batch predates the enriched block.
+			var threshold := str(blk.get("threshold", ""))
+			normalized["threshold"] = threshold if threshold != "" else str(blk.get("sv", ""))
+			normalized["original_save"] = int(str(blk.get("sv", "7+")).replace("+", ""))
+			normalized["using_invuln"] = bool(blk.get("using_invuln", false))
+			normalized["weapon_name"] = weapon_name
+			normalized["target_unit_name"] = target_name
+			out.append(normalized)
+		elif context == "feel_no_pain":
+			var fnp: Dictionary = blk.duplicate(true)
+			# The batch path stores its dice under "rolls"; every renderer
+			# reads "rolls_raw".
+			if not fnp.has("rolls_raw"):
+				fnp["rolls_raw"] = blk.get("rolls", [])
+			fnp["threshold"] = "%d+" % int(blk.get("fnp_value", 0))
+			fnp["target_unit_name"] = target_name
+			out.append(fnp)
+		else:
+			out.append(blk)
 	return out
 
 
