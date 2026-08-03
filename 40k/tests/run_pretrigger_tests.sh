@@ -21,6 +21,9 @@
 #   - TestModeHandler shooting-phase action handler dispatch (multi-peer infra)
 #   - TestModeHandler command-file double-execution race fix (in-flight set)
 #   - TestModeHandler transition_to_phase action (multi-peer boot-phase advance)
+#   - MA-LOADOUT dual-profile wargear matching (a roster's "5x Castellan axe"
+#     counts towards the datasheet's "Castellan axe – Ranged", so a two-gun
+#     model keeps both ranged weapons)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -152,6 +155,7 @@ TESTS=(
     "tests/test_custodes_lions_silent_hunters.gd"
     "tests/test_ai_movement_coordination.gd"
     "tests/test_ai_battle_plan.gd"
+    "tests/test_dual_profile_wargear_loadout.gd"
 )
 
 FAILED=0
