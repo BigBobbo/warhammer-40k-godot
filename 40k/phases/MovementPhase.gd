@@ -6893,7 +6893,7 @@ func _unit_has_kustom_shokk_box(unit_id: String) -> bool:
 	return _unit_has_enhancement(unit_id, "Kustom Shokk Box")
 
 
-func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: String) -> float:
+func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: String, log_it: bool = true) -> float:
 	# Calculate terrain penalty for movement.
 	# - Difficult ground: flat 2" per piece crossed (TerrainManager).
 	# - Vertical climb (T-103): per-segment vertical inches added when the
@@ -6917,7 +6917,12 @@ func _get_movement_terrain_penalty(from_pos: Vector2, to_pos: Vector2, unit_id: 
 		penalty += float(terrain_manager.calculate_movement_terrain_penalty(from_pos, to_pos, false, _mv_keywords))
 	# T-103: multi-floor vertical climb cost.
 	penalty += _get_vertical_climb_cost(from_pos, to_pos, unit_id)
-	if penalty > 0.0:
+	# log_it=false is for the live drag preview (MovementController calls this
+	# once per mouse-motion event so its ghost, its over-range clamp and this
+	# validation all cost a move identically). Logging there would flood the
+	# phase log with a line per frame; the authoritative validation call still
+	# logs, so the drop that lands is still traceable.
+	if log_it and penalty > 0.0:
 		log_phase_message("  Terrain penalty: %.1f\" (incl vertical, FLY=false)" % penalty)
 	return penalty
 

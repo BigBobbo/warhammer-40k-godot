@@ -2,14 +2,40 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.22.0",
+      "date": "2026-08-03",
+      "summary": "Charge moves and pile-in / consolidate now hold a model at its maximum range while you drag, the same as the movement phase — and the controller is always clamped.",
+      "changes": [
+        "Charge moves: drag a charging model past its 2D6 roll and it now stops at the farthest point it can still reach, and drops there. Before, the drag ran on past the roll and the drop was thrown away — the worst place to lose half an inch.",
+        "Dragging a whole selected group in the charge phase stops at the tightest model's remaining roll.",
+        "Base-to-base snapping still works, and gives way when contact is beyond what the roll can pay for, instead of showing a locked-on placement the drop would refuse.",
+        "Pile in and Consolidate: the model is now held at its 3\" while you drag. It always landed on 3\" when you let go, but until now it followed the cursor out and jumped back — and if you dragged too far it lost the whole move instead.",
+        "Controller and Steam Deck drags are always clamped in every phase, whatever the setting says.",
+        "The Settings > Controls > 'Stop model drags at their maximum move range' toggle now covers movement, charge and pile-in / consolidate together."
+      ]
+    },
+    {
+      "version": "1.21.0",
+      "date": "2026-08-03",
+      "summary": "Dragging a model further than it can move now holds it at its maximum range instead of letting it run past — drag roughly the right way and the model takes the full move.",
+      "changes": [
+        "Fixed (reported with the mouse): the green circle showed how far a model could go, but nothing stopped you dragging past it — you had to land the cursor on the circle by hand or the drop was rejected and the model snapped back.",
+        "Drag a model past its range and it now stops ON its range circle, still showing a valid move. Let go anywhere past the circle and it stages the full distance.",
+        "Works the same when you drag a whole squad: the formation stops at the tightest model's limit.",
+        "Terrain is costed properly while you drag. A model that cannot afford to climb into a ruin now stops just short of it at a spot the game accepts, instead of previewing a move that was rejected on the drop.",
+        "New setting — Settings > Controls > 'Stop model drags at their maximum move range'. On by default; turn it off to go back to the old free drag with the red over-range preview.",
+        "Controller and Steam Deck carries already worked this way and are unchanged."
+      ]
+    },
+    {
       "version": "1.20.1",
       "date": "2026-08-03",
       "summary": "Paying 1 CP to swap a secondary away now clears its board marker, and the Missions panel says whose cards each block holds.",
       "changes": [
-        "Fixed (reported from the Missions tab): after spending 1 CP in the Command phase to replace A Tempting Target, the card left your hand but 'TEMPTING TARGET (P1)' stayed stuck on the objective for the rest of the game \u2014 so the board still looked like you were holding it.",
+        "Fixed (reported from the Missions tab): after spending 1 CP in the Command phase to replace A Tempting Target, the card left your hand but 'TEMPTING TARGET (P1)' stayed stuck on the objective for the rest of the game — so the board still looked like you were holding it.",
         "Every way a secondary leaves your hand now takes its board markers with it: the 1 CP replace and the New Orders stratagem were the two that did not (voluntary discard and scoring already did). Marked for Death target flags and the Beacon unit badge were left behind the same way and are now cleared too.",
-        "If both players hold A Tempting Target on the same objective, dropping one no longer wipes the other's marker \u2014 it re-labels to whoever still holds the card.",
-        "The Missions panel (M) now reads 'YOUR MISSIONS \u2014 Player 1 (Adeptus Custodes)' and 'OPPONENT'S MISSIONS \u2014 Player 2 (Orks)', with each side's faction named, so your opponent's hand can no longer be mistaken for your own."
+        "If both players hold A Tempting Target on the same objective, dropping one no longer wipes the other's marker — it re-labels to whoever still holds the card.",
+        "The Missions panel (M) now reads 'YOUR MISSIONS — Player 1 (Adeptus Custodes)' and 'OPPONENT'S MISSIONS — Player 2 (Orks)', with each side's faction named, so your opponent's hand can no longer be mistaken for your own."
       ]
     },
     {

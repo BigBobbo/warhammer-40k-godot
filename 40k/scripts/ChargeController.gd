@@ -726,9 +726,37 @@ func _clear_group_ghost_visuals() -> void:
 		group_ghost_container.queue_free()
 	group_ghost_container = null
 
+func _group_charge_cost_inches(probe_pos: Vector2) -> float:
+	"""Worst member's total charge spend if the whole selection translated by
+	(probe_pos - group_drag_start_pos). Every member moves by the same vector, so
+	the group is capped by whichever model is closest to spending its roll —
+	mirrors _validate_group_charge_move's max_total_inches."""
+	var vec: Vector2 = probe_pos - group_drag_start_pos
+	var worst := 0.0
+	for entry in selected_models:
+		var model_id: String = entry.get("model_id", "")
+		var model = _get_gamestate_model(model_id)
+		if model.is_empty():
+			continue
+		var old_pos: Vector2 = _get_model_position(model)
+		var new_pos: Vector2 = old_pos + vec
+		var hop := Measurement.px_to_inches(old_pos.distance_to(new_pos)) \
+			+ _calculate_terrain_penalty_for_path(old_pos, new_pos)
+		worst = max(worst, _get_model_charge_accumulated(model_id) + hop)
+	return worst
+
+func _clamp_group_charge_to_budget(local_pos: Vector2) -> Vector2:
+	"""Hold a group charge drag inside the tightest member's remaining roll. The
+	budget is the whole charge_distance because _group_charge_cost_inches already
+	counts each member's earlier hops."""
+	return clamp_drag_to_budget(
+		group_drag_start_pos, local_pos, float(charge_distance), _group_charge_cost_inches)
+
 func _update_group_drag(local_pos: Vector2) -> void:
 	if not group_dragging:
 		return
+	if drag_clamp_active():
+		local_pos = _clamp_group_charge_to_budget(local_pos)
 	var drag_vector = local_pos - group_drag_start_pos
 	var validation = _validate_group_charge_move(drag_vector)
 
@@ -747,6 +775,10 @@ func _end_group_drag(local_pos: Vector2) -> void:
 	if not group_dragging:
 		return
 	group_dragging = false
+	# Same clamp the live preview used, so the drop commits where the ghosts
+	# stopped instead of failing validation past the charge roll.
+	if drag_clamp_active():
+		local_pos = _clamp_group_charge_to_budget(local_pos)
 	var drag_vector = local_pos - group_drag_start_pos
 	var validation = _validate_group_charge_move(drag_vector)
 	_clear_group_ghost_visuals()
@@ -2757,12 +2789,52 @@ func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 
 		print("DEBUG: Created ghost visual and movement line for ", model_id)
 
+# ── Over-range drag clamp (charge move) ─────────────────────────────────────
+# Same restraint the movement phase and pile-in use, against the charge roll
+# instead of a Move stat: drag past what the 2D6 will carry you and the model
+# stops at the farthest point it can still legally reach. Squeezing the last
+# inch out of a charge roll is exactly where hand-aiming at the circle hurt
+# most. Gate + ray search live on PhaseControllerBase.
+
+func _charge_move_cost_inches(dest: Vector2) -> float:
+	"""Total inches THIS HOP spends: raw distance + terrain penalty, measured from
+	the model's current position, matching _validate_charge_position's Check 1."""
+	if not dragging_model:
+		return 0.0
+	var old_pos = _get_model_position(dragging_model)
+	if old_pos == null:
+		return 0.0
+	return Measurement.px_to_inches(old_pos.distance_to(dest)) \
+		+ _calculate_terrain_penalty_for_path(old_pos, dest)
+
+func _clamp_charge_to_budget(dest: Vector2, charge_key: String) -> Vector2:
+	"""Hold `dest` inside whatever the charge roll has left after earlier hops.
+	Distance + terrain only — the "must end in engagement range of a target"
+	rule stays with _validate_charge_position, because shortening the move must
+	not be mistaken for satisfying it."""
+	if not dragging_model:
+		return dest
+	var old_pos = _get_model_position(dragging_model)
+	if old_pos == null:
+		return dest
+	return clamp_drag_to_budget(
+		old_pos, dest,
+		float(charge_distance) - _get_model_charge_accumulated(charge_key),
+		_charge_move_cost_inches)
+
 func _update_model_drag(world_pos: Vector2) -> void:
 	if not dragging_model:
 		return
 
 	var model_id = dragging_model.get("id", "")
 	var charge_key = _charge_model_key(dragging_model_source_unit_id, model_id)
+
+	# Clamp BEFORE the snap logic so base-contact snapping is only offered where
+	# the model can actually reach — snapping to a target beyond the roll would
+	# just re-create the rejected-on-drop problem this fixes.
+	if drag_clamp_active():
+		world_pos = _clamp_charge_to_budget(world_pos, charge_key)
+
 	var effective_pos = world_pos  # Position that may be adjusted by snap
 
 	# Base-to-base snap: check if cursor is close enough to snap to a target
@@ -2785,6 +2857,20 @@ func _update_model_drag(world_pos: Vector2) -> void:
 			snap_target_model_id = snap_result.get("target_model_id", "")
 			effective_pos = snap_position
 			print("DEBUG: Snapped to base contact with target model ", snap_target_model_id)
+
+	# A snap engaged from an in-reach cursor can still land base contact just
+	# past the roll (the contact point sits further out than the cursor did).
+	# Clamp the snapped result too and drop the snap when that shortens it —
+	# otherwise the ghost reads cyan "locked to contact" for a placement the drop
+	# would reject, which is the exact failure the clamp exists to remove.
+	if drag_clamp_active():
+		var clamped_effective = _clamp_charge_to_budget(effective_pos, charge_key)
+		if not clamped_effective.is_equal_approx(effective_pos):
+			effective_pos = clamped_effective
+			if snap_active:
+				snap_active = false
+				snap_target_model_id = ""
+				print("DEBUG: Snap released — base contact is beyond the remaining charge distance")
 
 	# Update ghost visual position (uses snapped position when active)
 	if ghost_visual:
@@ -2843,6 +2929,13 @@ func _end_model_drag(world_pos: Vector2) -> void:
 	if snap_active:
 		final_pos = snap_position
 		print("DEBUG: Using snapped position for model ", charge_key, " at ", final_pos)
+
+	# Same clamp the live preview applied, so the drop lands where the ghost
+	# stopped instead of being rejected past the charge roll. The two MUST agree
+	# or the player drops on the ghost and the model goes somewhere else.
+	if drag_clamp_active():
+		final_pos = _clamp_charge_to_budget(final_pos, charge_key)
+		print("DEBUG: Charge drop clamped to remaining charge distance -> ", final_pos)
 
 	# Reset snap state
 	snap_active = false
