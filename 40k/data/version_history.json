@@ -4,14 +4,38 @@
     {
       "version": "1.14.0",
       "date": "2026-08-02",
+      "version": "1.15.0",
+      "date": "2026-08-03",
       "summary": "Melee attack allocation is now split into loadout sections, so a mob can finally send its Boyz and its Boss Nob at the enemy with different weapons — or divide one squad between two.",
       "changes": [
-        "The Assign Attacks panel now groups a unit by what its models actually carry: a Boyz mob shows a 'Boy x9' section and a 'Boss Nob x1' section, each picking its own melee weapon. Nine choppas plus the Nob's Power klaw is now something you choose, not something the game guessed for you.",
+        "The Assign Attacks panel now groups a unit by what its models actually carry: a Boyz mob shows a 'Boy x9' section and a 'Boss Nob x1' section, each picking its own melee weapon. Nine choppas plus the Nob's own Big choppa is now something you choose, not something the game guessed for you.",
         "New Split button on any section with several models and several weapons: set how many models take each weapon (five choppas, four close combat weapons). The counts always add up to the section size, so you can't build an illegal plan.",
         "Each section can attack a different target when more than one enemy is in engagement range — click the target button on a section to cycle it.",
         "The panel now opens with the best weapon already picked for every section, so a straightforward activation is just 'Fight!'. New 'Best Krump' button re-applies that auto-pick after you've been experimenting.",
-        "The auto-pick and the expected-damage numbers are now target-aware: a Power klaw is chosen against heavy armour and volume weapons against light. Previously these figures were calculated against a fixed dummy defender, so they were wrong for most targets.",
+        "The auto-pick and the expected-damage numbers are now target-aware: a heavy armour-piercing weapon is chosen against elite targets and volume weapons against light ones. Previously these figures were calculated against a fixed dummy defender, so they were wrong for most targets.",
         "Controller: LB/RB moves between sections, D-pad still picks the weapon and target."
+      ]
+    },
+    {
+      "version": "1.14.0",
+      "date": "2026-08-02",
+      "summary": "The Keyboard Shortcuts card (Shift+/) is properly laid out like the unit datasheet card — and it finally lists every shortcut in the game, not the 15 it used to show.",
+      "changes": [
+        "The card is now built like the datasheet you get with I: gold-bordered panel, a title bar with the shortcut count, colour-coded section headers, alternating rows and keys drawn as keycaps. It used to be a plain grey box in the default font.",
+        "It lists ALL 71 bound keys plus the 8 mouse/Enter/Esc controls that aren't rebindable — camera panning, save and load slots, the shooting-phase keys, replay playback and the debug keys were all missing before.",
+        "Shortcuts are grouped into Universal & Mouse, Camera & View, Board & Measuring, Model & Deployment, Phase Actions, Panels & Overlays, AI, Replay Playback, Save & Load and Debug, spread over columns that fit on screen without scrolling at 1080p.",
+        "Keys are read live from your bindings, so anything you rebind in Settings › Controls shows the new key straight away; a shortcut you have deliberately left unassigned shows as 'Unbound'.",
+        "ESC now closes the card instead of opening the settings menu behind it. Shift+/ still toggles it, and the footer still points controller players at Settings › Controller."
+      ]
+    },
+    {
+      "version": "1.13.4",
+      "date": "2026-08-02",
+      "summary": "Charge phase: 'Snap to Contact' comes back after you undo a model's move — reverting a model no longer takes the snap option away for the rest of the charge.",
+      "changes": [
+        "Fixed (reported): after moving your chargers and then reverting one with B / 'Undo Last Model', 'Snap to Contact' stayed greyed out for the rest of that charge, so the model you just put back could only be dragged into contact by hand.",
+        "The button (and the controller's [X] Snap to Contact prompt) now light up again the moment any model returns to the still-to-move list — undo one model, undo all of them, snap again as often as you like.",
+        "'Snap to Contact' is no longer sliced in half by the edge of the right-hand panel: the Confirm / Undo / Snap row wraps onto a second line when it doesn't fit, so the whole button is visible and clickable."
       ]
     },
     {
