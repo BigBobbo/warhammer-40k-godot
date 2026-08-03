@@ -39,6 +39,24 @@ const FIXTURES := [
 	"tutorial_t7_round2",
 ]
 
+# These fixtures are 11e geometry and the lessons that boot them force 11e
+# (TutorialManager._boot_and_arm). SettingsService pins the AUTOMATED HARNESS to
+# the legacy 10e baseline, so without this every distance assertion below would
+# be measured against 10e's 1" engagement range instead of 11e's 2" — which is
+# exactly how this file first shipped: CI reported the back rank stranded 1.56"
+# from the enemy AFTER the pile-in, because 1.56" is out of range at 10e and in
+# range at 11e. Pin it, and put back whatever the harness had.
+var _prev_edition: int = 11
+
+
+func before_each() -> void:
+	_prev_edition = GameConstants.edition
+	GameConstants.edition = 11
+
+
+func after_each() -> void:
+	GameConstants.edition = _prev_edition
+
 
 func _load_fixture(name: String) -> Dictionary:
 	var path := FIXTURES_DIR + name + ".w40ksave"
