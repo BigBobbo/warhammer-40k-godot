@@ -5962,6 +5962,118 @@ func _build_phase_end_confirm_content() -> void:
 
 	_phase_end_confirm.add_child(content)
 
+# ── "Confirm your charge move first" prompt ─────────────────────────
+# Raised instead of the End-Phase confirm whenever the player presses the
+# phase-action button (mouse or Enter) while a charge move is still open.
+#
+# The whole point is to answer "what am I meant to do next?" in place, so the
+# primary button IS the missing step — pressing it confirms the charge move
+# rather than sending the player back to hunt for a button in the right-hand
+# panel they had already scrolled past.
+var _charge_confirm_first_prompt: ConfirmationDialog = null
+var _charge_confirm_first_headline: Label = null
+var _charge_confirm_first_hint: Label = null
+
+func _show_charge_confirm_first_prompt() -> void:
+	if _charge_confirm_first_prompt == null or not is_instance_valid(_charge_confirm_first_prompt):
+		_charge_confirm_first_prompt = ConfirmationDialog.new()
+		_charge_confirm_first_prompt.name = "ChargeConfirmFirstDialog"
+		_charge_confirm_first_prompt.title = "Charge move not confirmed"
+		_charge_confirm_first_prompt.confirmed.connect(_on_charge_confirm_first_accepted)
+		add_child(_charge_confirm_first_prompt)
+		_build_charge_confirm_first_content()
+	elif _charge_confirm_first_prompt.visible:
+		return  # already asking — a second press must not stack a second prompt
+
+	var unit_name := ""
+	if charge_controller and charge_controller.has_method("get_charge_move_unit_name"):
+		unit_name = str(charge_controller.get_charge_move_unit_name())
+	var headline := "Confirm your charge move first"
+	var can_confirm := _charge_move_is_confirmable()
+	var hint := ""
+	if can_confirm:
+		hint = "%s has a charge move staged but not committed — on the board it already looks done, but nothing is locked in until you confirm it. Ending the Charge phase now would throw the charge away." % (unit_name if unit_name != "" else "This unit")
+	else:
+		# Nothing staged yet: the roll succeeded but no model has been placed,
+		# so there is nothing to confirm — tell them how to place models instead
+		# of offering a button that would fail.
+		headline = "Finish the charge move first"
+		hint = "%s passed its charge roll but no model has been moved yet. Drag its models into engagement range, or click 'Snap to Contact', then confirm. Ending the Charge phase now would throw the charge away." % (unit_name if unit_name != "" else "This unit")
+
+	_charge_confirm_first_prompt.dialog_text = headline
+	if _charge_confirm_first_headline:
+		_charge_confirm_first_headline.text = headline
+	if _charge_confirm_first_hint:
+		_charge_confirm_first_hint.text = hint
+	# The OK button names the action it performs — same reason the End-Phase
+	# confirm says "End Charge Phase" instead of a bare "OK".
+	_charge_confirm_first_prompt.ok_button_text = "Confirm Charge Moves"
+	_charge_confirm_first_prompt.get_ok_button().disabled = not can_confirm
+	_charge_confirm_first_prompt.cancel_button_text = "Go Back"
+	DialogUtils.popup_phase_end_prompt(_charge_confirm_first_prompt, DialogConstants.SMALL)
+
+func _build_charge_confirm_first_content() -> void:
+	_WhiteDwarfTheme.apply_to_dialog(_charge_confirm_first_prompt)
+	var panel_style := _WhiteDwarfTheme.create_panel_style()
+	panel_style.set_content_margin_all(18)
+	_charge_confirm_first_prompt.add_theme_stylebox_override("panel", panel_style)
+	# Hidden but still sizing the window, exactly as in _build_phase_end_confirm_content.
+	var builtin_label := _charge_confirm_first_prompt.get_label()
+	if builtin_label:
+		builtin_label.visible = false
+		builtin_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		builtin_label.custom_minimum_size = Vector2.ZERO
+
+	var content := VBoxContainer.new()
+	content.name = "Content"
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.add_theme_constant_override("separation", 10)
+
+	_charge_confirm_first_headline = Label.new()
+	_charge_confirm_first_headline.name = "Headline"
+	_charge_confirm_first_headline.add_theme_font_size_override("font_size", 26)
+	_charge_confirm_first_headline.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	_charge_confirm_first_headline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_charge_confirm_first_headline.autowrap_mode = TextServer.AUTOWRAP_OFF
+	content.add_child(_charge_confirm_first_headline)
+
+	_WhiteDwarfTheme.add_gold_separator(content)
+
+	_charge_confirm_first_hint = Label.new()
+	_charge_confirm_first_hint.name = "Hint"
+	_charge_confirm_first_hint.add_theme_font_size_override("font_size", 18)
+	_charge_confirm_first_hint.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	_charge_confirm_first_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_charge_confirm_first_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_charge_confirm_first_hint.custom_minimum_size = Vector2(DialogConstants.SMALL.x - 60, 0)
+	content.add_child(_charge_confirm_first_hint)
+
+	_charge_confirm_first_prompt.add_child(content)
+
+## True when at least one model is staged, i.e. the confirm button would do
+## something. Mirrors ChargeController's own confirm-button enable rule.
+func _charge_move_is_confirmable() -> bool:
+	return charge_controller and is_instance_valid(charge_controller) \
+			and charge_controller.has_method("has_unconfirmed_charge_move") \
+			and charge_controller.has_unconfirmed_charge_move()
+
+func _on_charge_confirm_first_accepted() -> void:
+	if not _charge_move_is_confirmable():
+		return
+	print("Main: charge-confirm-first prompt accepted — confirming staged charge move")
+	DebugLogger.info("Charge confirm-first prompt accepted", {
+		"unit": charge_controller.get_charge_move_unit_name()
+	})
+	charge_controller._on_confirm_charge_moves()
+	# One press, one action: the charge resolves and the player decides what to
+	# do with the result (another unit may still be able to charge). Say so, so
+	# the second press of End Charge Phase is an informed one rather than a
+	# "why didn't that end the phase?" repeat of the same confusion.
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_success(
+			"Charge move confirmed — press End Charge Phase again when you're done charging", 4.0)
+
 ## Plain-English "what am I giving up, and what comes next" line for the
 ## End-Phase confirm — the bit a player who doesn't know 40k needs. Returns ""
 ## for actions that are not a plain "end this phase" (roll-offs, "Continue",
@@ -7864,6 +7976,22 @@ func update_ui() -> void:
 					status_label.text = "Scout step: select a \"[Reserves -> DZ]\" unit (right panel) to set it up wholly within your deployment zone, or drag on-table scouts, then End Scout Moves."
 				else:
 					status_label.text = "Scout step: select a scout unit to move, or End Scout Moves."
+			phase_action_button.disabled = false
+
+		GameStateData.Phase.CHARGE:
+			# Name the current step of the charge flow, the way Movement and
+			# Scout already do. The charge panel has always carried this text,
+			# but it sits low in the right-hand panel — a player watching the
+			# board and the top-right button never sees it, which is how a
+			# staged-but-unconfirmed charge move reads as "the game is stuck".
+			var ai_charge = get_node_or_null("/root/AIPlayer")
+			if ai_charge and ai_charge.is_ai_player(active_player):
+				status_label.text = "AI Player %d is charging..." % active_player
+			elif charge_controller and is_instance_valid(charge_controller) \
+					and charge_controller.has_method("get_next_step_hint"):
+				status_label.text = str(charge_controller.get_next_step_hint())
+			else:
+				status_label.text = "Select a unit to charge, or end the Charge phase"
 			phase_action_button.disabled = false
 
 		_:
@@ -11266,6 +11394,30 @@ func _on_phase_action_pressed() -> void:
 			_show_toast("It's Player %d's turn" % GameState.get_active_player(), 2.0)
 			print("Main: Phase action button blocked — not local player's turn")
 			return
+
+	# Charge phase: a staged-but-unconfirmed charge move outranks the end-phase
+	# prompt. The models are already sitting at their destinations on the board
+	# (ChargeController writes them optimistically), so the charge LOOKS finished
+	# — the reported symptom was a player snapping to contact, reading that as
+	# done, and pressing this button. Ending here would bin a successful charge
+	# roll without a word. Say what the missing step is and offer to do it.
+	# Placed before the generic confirm so the player gets the specific
+	# instruction rather than "End Charge Phase? — any unit you haven't charged
+	# with won't get to charge", which describes a different situation entirely.
+	if current_phase == GameStateData.Phase.CHARGE \
+			and charge_controller and is_instance_valid(charge_controller) \
+			and charge_controller.has_method("is_charge_move_in_progress") \
+			and charge_controller.is_charge_move_in_progress() \
+			and not _is_active_player_ai():
+		# Returning here skips the confirm gate below, which is where the
+		# one-shot "the player already answered" flag is consumed. Clear it so a
+		# stale true can never survive to wave a LATER press past the End-Phase
+		# confirm. (The generic confirm is modal, so it cannot in practice still
+		# be open while a charge move starts — this just keeps the flag's
+		# single-use contract true on every path out of this function.)
+		_phase_end_confirm_answered = false
+		_show_charge_confirm_first_prompt()
+		return
 
 	# Confirm gate. A mouse click or Enter on this button used to end the phase
 	# outright — no way back from a misclick, and nothing telling a new player

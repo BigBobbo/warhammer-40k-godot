@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.19.2",
+      "version": "1.19.4",
       "date": "2026-08-03",
       "summary": "Consolidation: a unit offered an Objective Consolidation can finally make it — the board no longer snaps your models back for 'not moving closer to the enemy'.",
       "changes": [
@@ -11,6 +11,33 @@
         "Movement arrows point at the objective (and turn green for moves onto it) in Objective Consolidation, instead of pointing at an enemy you are not allowed to move toward.",
         "The board and the Confirm Move check now share one rules check, so a drag the board accepts is never rejected when you confirm it.",
         "Auto Consolidate no longer says 'no legal move' for a unit standing next to a large terrain objective (its area, not the marker dot, is the objective)."
+      ]
+    },
+    {
+      "version": "1.19.3",
+      "date": "2026-08-03",
+      "summary": "Charge phase: the End Charge Phase button works again while you are moving a charge, and the game now tells you that 'Confirm Charge Moves' is the step you are missing.",
+      "changes": [
+        "Fixed (reported): after declaring a charge, re-rolling with a CP and clicking Snap to Contact, the top-right 'End Charge Phase' button did nothing at all. While charge models were being moved, the charge controller was swallowing every mouse click that did not land on one of its own three buttons — so the End Phase button, the unit list, the game log tabs and the overwatch toggle were all silently dead, even though none of them looked disabled.",
+        "Clicking 'End Charge Phase' with a charge move still staged now raises a 'Confirm your charge move first' prompt that names the unit and explains that nothing is locked in yet — instead of quietly throwing away a successful charge roll.",
+        "That prompt's main button IS the missing step: press 'Confirm Charge Moves' and the charge is committed there and then. 'Go Back' returns you to adjusting the move.",
+        "'Confirm Charge Moves' is now styled as the main action of the charge panel and gently pulses while it is what the charge is waiting on, so it no longer looks like just another button next to 'Snap to Contact'.",
+        "The status line at the top of the screen now names the current charge step — 'Charge declared — click Roll 2D6', 'Charge move staged — click Confirm Charge Moves to lock it in' — rather than a generic 'Phase: CHARGE'."
+      ]
+    },
+    {
+      "version": "1.19.2",
+      "date": "2026-08-03",
+      "summary": "The attack panel can now show its working: a fold-out table breaks every expected-damage figure down into to-hit, to-wound and save — and tells you how many models it actually kills.",
+      "changes": [
+        "Requested from the Fight phase: the attack panel said 'E[D]≈8.3' for one Vaultswords profile and '≈3.1' for another, with nothing to explain either number. There is now a '▶ Show damage breakdown' toggle under Assignments.",
+        "Expanding it renders one table per assignment — Attacks → Hit → Wound → Save → Damage → Slain — with the roll each step needs, its chance, and what is left after it (e.g. 'S8 vs T6 → 3+ · 67% · 2.8 wounds').",
+        "The save row names the save the defender actually gets: AP worsening their armour, an invulnerable save ignoring that AP, or no save at all.",
+        "New 'Slain' row: expected damage is NOT dead models. A 3-damage weapon on 1-wound Stormboyz throws two thirds of every hit away, so 8.3 damage is only about 2.8 dead Orks — and a 9-attack, 1-damage profile that forecasts 3.1 damage kills more of them. The table now says so, with a warning line naming the damage lost to overkill.",
+        "Weapon abilities the forecast does not model (Sustained Hits, Devastating Wounds, Lethal Hits, Twin-linked, Lance, Anti-X) are listed under each table, so a coarse estimate is no longer presented as exact.",
+        "Feel No Pain is now factored into the forecast and shown as its own row — the estimate used to ignore it and over-promise against tough defenders.",
+        "The section is folded away by default and changes nothing about what a unit swings; it is a read-only view.",
+        "Forecasts for an attached Leader are now scored on HIS datasheet rather than his bodyguard's, so a Warboss's Power klaw is no longer estimated using the Boss Nob's weaker one."
       ]
     },
     {
