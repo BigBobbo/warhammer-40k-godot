@@ -174,8 +174,16 @@ func refresh() -> void:
 	if not content_container:
 		return
 
-	# Clear old content
+	# Clear old content. remove_child() FIRST, then queue_free(): queue_free()
+	# alone only schedules deletion for the end of the frame, so the old rows stay
+	# parented while the new ones are appended below them. refresh() is driven by
+	# four SecondaryMissionManager signals and a single scoring pass fires several
+	# in one frame (secondary_vp_scored + mission_achieved + mission_discarded) —
+	# which rendered two or three stacked copies of the panel, oldest on top. A
+	# player opening the panel in that frame saw the STALE copy and the live one
+	# pushed below the scroll fold.
 	for child in content_container.get_children():
+		content_container.remove_child(child)
 		child.queue_free()
 
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
@@ -195,8 +203,13 @@ func refresh() -> void:
 	# Summary bar
 	_build_summary(content_container, secondary_mgr, current_player)
 
-	# Active missions for current player
-	_add_label(content_container, "Player %d — Active Missions" % current_player, 12, _WhiteDwarfTheme.WH_GOLD)
+	# Active missions for the player at the controls. Reported bug: both blocks
+	# were titled "Player N", so the OPPONENT's hand listed below read as the
+	# player's own — a player who had just paid 1 CP to swap A Tempting Target
+	# away still saw it named in this panel and assumed the swap had not taken.
+	# Say plainly whose cards each block holds.
+	_add_label(content_container, "YOUR MISSIONS — Player %d (%s)" % [
+		current_player, GameState.get_faction_name(current_player)], 12, _WhiteDwarfTheme.WH_GOLD)
 	_build_player_missions(content_container, secondary_mgr, current_player)
 
 	# Opponent summary (collapsed)
@@ -207,8 +220,9 @@ func refresh() -> void:
 		_gsep1.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
 		_gsep1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		content_container.add_child(_gsep1)
-		_add_label(content_container, "Player %d — %d Secondary VP" % [
-			opponent, secondary_mgr.get_secondary_vp(opponent)], 16, Color(0.6, 0.6, 0.6))
+		_add_label(content_container, "OPPONENT'S MISSIONS — Player %d (%s) — %d Secondary VP" % [
+			opponent, GameState.get_faction_name(opponent),
+			secondary_mgr.get_secondary_vp(opponent)], 16, Color(0.6, 0.6, 0.6))
 		var opp_active = secondary_mgr.get_active_missions(opponent)
 		if opp_active.size() > 0:
 			for m in opp_active:

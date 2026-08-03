@@ -450,6 +450,10 @@ func use_new_orders(player: int, mission_index: int) -> Dictionary:
 	var discarded = state["active"][mission_index]
 	state["active"].remove_at(mission_index)
 	state["discard"].append(discarded["id"])
+	# The card is out of the hand — take its board markers down with it, or the
+	# board keeps claiming the player still holds it (see
+	# _clear_when_drawn_visuals).
+	_clear_when_drawn_visuals(discarded)
 	emit_signal("mission_discarded", player, discarded["id"], "new_orders")
 	print("SecondaryMissionManager: Player %d used New Orders to discard %s" % [player, discarded["name"]])
 
@@ -492,6 +496,12 @@ func replace_drawn_mission(player: int, mission_index: int) -> Dictionary:
 	var replaced = state["active"][mission_index]
 	state["active"].remove_at(mission_index)
 	var replaced_id = replaced["id"]
+
+	# Reported bug: paying 1 CP to swap A Tempting Target away left
+	# "TEMPTING TARGET (P1)" burned onto the objective for the rest of the game,
+	# so the board (and the player) still believed the card was in hand. Every
+	# path that takes a card out of a hand must drop its when-drawn markers.
+	_clear_when_drawn_visuals(replaced)
 
 	emit_signal("mission_discarded", player, replaced_id, "replaced_back_to_deck")
 	print("SecondaryMissionManager: Player %d put %s back into deck" % [player, replaced["name"]])
@@ -543,15 +553,7 @@ func voluntary_discard(player: int, mission_index: int) -> Dictionary:
 	state["discard"].append(discarded["id"])
 
 	# Clear visual indicators if this was A Tempting Target, Marked for Death or Beacon
-	if discarded["id"] == "a_tempting_target":
-		var target_id = discarded.get("mission_data", {}).get("tempting_target_id", "")
-		if target_id != "":
-			_clear_tempting_target_visual(target_id)
-	elif discarded["id"] == "marked_for_death":
-		var mfd_data = discarded.get("mission_data", {})
-		_clear_mfd_target_visuals(mfd_data.get("alpha_targets", []), mfd_data.get("gamma_target", ""))
-	elif discarded["id"] == "beacon":
-		_clear_beacon_visual(discarded.get("mission_data", {}).get("beacon_unit_id", ""))
+	_clear_when_drawn_visuals(discarded)
 
 	# Grant 1 CP if it's the player's turn (subject to bonus CP cap per battle round)
 	var cp_gained = 0
@@ -1440,25 +1442,24 @@ func _discard_achieved_missions(player: int) -> void:
 	var player_key = str(player)
 	var state = _player_state[player_key]
 	var remaining = []
+	var achieved = []
 
 	for mission in state["active"]:
 		if mission["achieved"]:
 			state["discard"].append(mission["id"])
-			# Clear visual indicators if this was A Tempting Target, Marked for Death or Beacon
-			if mission["id"] == "a_tempting_target":
-				var target_id = mission.get("mission_data", {}).get("tempting_target_id", "")
-				if target_id != "":
-					_clear_tempting_target_visual(target_id)
-			elif mission["id"] == "marked_for_death":
-				var mfd_data = mission.get("mission_data", {})
-				_clear_mfd_target_visuals(mfd_data.get("alpha_targets", []), mfd_data.get("gamma_target", ""))
-			elif mission["id"] == "beacon":
-				_clear_beacon_visual(mission.get("mission_data", {}).get("beacon_unit_id", ""))
+			achieved.append(mission)
 			print("SecondaryMissionManager: Player %d achieved and discarded %s" % [player, mission["name"]])
 		else:
 			remaining.append(mission)
 
 	state["active"] = remaining
+
+	# Clear visual indicators (A Tempting Target / Marked for Death / Beacon)
+	# only AFTER the hand is updated: _clear_tempting_target_visual re-points the
+	# marker at any player who still holds a card aimed at that objective, so a
+	# card cleared while it is still listed in `active` would just re-mark itself.
+	for mission in achieved:
+		_clear_when_drawn_visuals(mission)
 
 # ============================================================================
 # CONDITION CHECKERS — 11e (GDM 2026) deck
@@ -2304,10 +2305,45 @@ func _mark_tempting_target_visual(objective_id: String, player: int) -> void:
 		print("SecondaryMissionManager: Could not find ObjectiveVisual for %s to mark as Tempting Target" % objective_id)
 
 func _clear_tempting_target_visual(objective_id: String) -> void:
-	"""Remove the Tempting Target visual indicator from an objective."""
+	"""Remove the Tempting Target visual indicator from an objective.
+
+	An objective carries ONE marker label, but both players can hold A Tempting
+	Target aimed at the same objective. If the other player still holds a card
+	pointing here, re-point the marker at them instead of blanking a live card's
+	indicator."""
+	for player_key in _player_state:
+		for mission in _player_state[player_key].get("active", []):
+			if mission.get("id", "") != "a_tempting_target":
+				continue
+			if str(mission.get("mission_data", {}).get("tempting_target_id", "")) == objective_id:
+				_mark_tempting_target_visual(objective_id, int(player_key))
+				return
+
 	var obj_visual = MissionManager.objectives_visual_refs.get(objective_id, null)
 	if obj_visual and obj_visual is ObjectiveVisual:
 		obj_visual.set_tempting_target(false)
+
+## Take down the board markers a card put up when it was drawn (A Tempting
+## Target's objective label, Marked for Death's alpha/gamma unit flags, Beacon's
+## unit badge).
+##
+## EVERY path that removes a card from a player's hand must call this —
+## voluntary discard, scoring discard, New Orders, and the 1-CP replace. The
+## reported bug was the replace path skipping it: the player paid a CP to swap A
+## Tempting Target away, the card left their hand, but "TEMPTING TARGET (P1)"
+## stayed burned onto the objective, so the game still looked like it thought
+## they held the card.
+func _clear_when_drawn_visuals(mission: Dictionary) -> void:
+	match str(mission.get("id", "")):
+		"a_tempting_target":
+			var target_id = str(mission.get("mission_data", {}).get("tempting_target_id", ""))
+			if target_id != "":
+				_clear_tempting_target_visual(target_id)
+		"marked_for_death":
+			var mfd_data = mission.get("mission_data", {})
+			_clear_mfd_target_visuals(mfd_data.get("alpha_targets", []), mfd_data.get("gamma_target", ""))
+		"beacon":
+			_clear_beacon_visual(str(mission.get("mission_data", {}).get("beacon_unit_id", "")))
 
 func _mark_mfd_target_visuals(alpha_targets: Array, gamma_target: String, _player: int) -> void:
 	"""Set 'marked_for_death' flag on targeted units for visual indicators."""

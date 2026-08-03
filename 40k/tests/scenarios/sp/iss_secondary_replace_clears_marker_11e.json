@@ -1,0 +1,79 @@
+{
+  "id": "iss_secondary_replace_clears_marker_11e",
+  "covers": [
+    "rules.secondaries.a_tempting_target.replace_clears_marker",
+    "autoloads.SecondaryMissionManager.replace_drawn_mission",
+    "scripts.SecondaryMissionPanel.owner_labels"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "rng_seed": 4242,
+  "description": "THE reported bug: the player paid 1 CP in their Command phase to replace A Tempting Target. The card left their hand, but 'TEMPTING TARGET (P1)' stayed burned onto the objective for the rest of the game, so the board kept claiming they still held it. This drives the real player path — enter P1's Command phase with A Tempting Target stacked on top of the deck, let the opponent's pick resolve, then click the review dialog's 'Replace this mission (1 CP)' button — and asserts the objective label comes down with the card. Also asserts the Missions panel names whose hand each block is, so the opponent's cards can no longer read as your own.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+
+    { "act": "execute_script", "script": "SecondaryMissionManager.initialize_for_game()" },
+    { "act": "execute_script", "script": "SecondaryMissionManager.setup_tactical_deck(1)" },
+    { "act": "execute_script", "script": "SecondaryMissionManager.setup_tactical_deck(2)" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"1\"].merge({\"deck\": [\"a_tempting_target\", \"centre_ground\", \"outflank\", \"plunder\"], \"active\": []}, true)" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var cfg = GameState.state[\"meta\"].get(\"game_config\", {})\ncfg[\"player2_type\"] = \"AI\"\nGameState.state[\"meta\"][\"game_config\"] = cfg\nreturn str(cfg.get(\"player2_type\", \"\"))",
+      "equals": "AI" },
+    { "act": "execute_script", "script": "AIPlayer.ai_players.merge({2: true}, true)" },
+    { "act": "execute_script", "script": "AIPlayer.set(\"enabled\", true)" },
+    { "act": "execute_script", "script": "AIPlayer.is_ai_player(2)", "equals": true },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
+
+    { "act": "execute_script",
+      "script": "str(SecondaryMissionManager._player_state[\"1\"][\"active\"][0][\"id\"])",
+      "equals": "a_tempting_target" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"1\"][\"active\"][0][\"pending_interaction\"]",
+      "equals": false },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var oid = str(SecondaryMissionManager._player_state[\"1\"][\"active\"][0][\"mission_data\"].get(\"tempting_target_id\", \"\"))\nreturn oid != \"\"",
+      "equals": true },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var oid = str(SecondaryMissionManager._player_state[\"1\"][\"active\"][0][\"mission_data\"].get(\"tempting_target_id\", \"\"))\nvar vis = MissionManager.objectives_visual_refs.get(oid, null)\nif vis == null or vis.tempting_target_label == null:\n\treturn \"<no label>\"\nreturn \"%s|%s\" % [vis.tempting_target_label.text, str(vis.tempting_target_label.visible)]",
+      "equals": "TEMPTING TARGET (P1)|true" },
+
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 6.0 },
+    { "act": "screenshot", "label": "01_marker_up_card_in_hand" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var found = null\nvar stack = [tree.root.get_node(\"/root/SecondaryMissionReviewDialog\")]\nwhile stack.size() > 0:\n\tvar n = stack.pop_back()\n\tif n is Button and str(n.name) == \"ReplaceButton_0\":\n\t\tfound = n\n\tfor c in n.get_children():\n\t\tstack.append(c)\nif found == null:\n\treturn \"button-not-found\"\nfound.emit_signal(\"pressed\")\nreturn \"pressed\"",
+      "equals": "pressed" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var ids = []\nfor m in SecondaryMissionManager.get_active_missions(1):\n\tids.append(str(m.get(\"id\", \"?\")))\nreturn \"a_tempting_target\" in ids",
+      "equals": false },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var vis = null\nfor oid in MissionManager.objectives_visual_refs:\n\tvar v = MissionManager.objectives_visual_refs[oid]\n\tif v != null and v.tempting_target_label != null and v.tempting_target_label.visible:\n\t\tvis = oid\nreturn vis == null",
+      "equals": true },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var p = tree.root.get_node(\"/root/Main/SecondaryMissionPanel\")\np.visible = true\np.set_collapsed(false)\nreturn \"opened\"",
+      "equals": "opened" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var mc = tree.root.get_node(\"/root/Main/SecondaryMissionPanel/PanelVBox/MissionScroll/MissionContent\")\nvar hits = 0\nfor c in mc.get_children():\n\tif c is Label and (str(c.text).begins_with(\"YOUR MISSIONS\") or str(c.text).begins_with(\"OPPONENT'S MISSIONS\")):\n\t\thits += 1\nreturn hits",
+      "equals": 2 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var mc = tree.root.get_node(\"/root/Main/SecondaryMissionPanel/PanelVBox/MissionScroll/MissionContent\")\nvar txt = \"\"\nvar stack = []\nfor c in mc.get_children():\n\tstack.append(c)\nwhile stack.size() > 0:\n\tvar n = stack.pop_back()\n\tif n is Label:\n\t\ttxt += str(n.text) + \"\\n\"\n\tfor c in n.get_children():\n\t\tstack.append(c)\nreturn txt.findn(\"A Tempting Target\") != -1",
+      "equals": false },
+
+    { "act": "screenshot", "label": "02_marker_cleared_after_replace" }
+  ]
+}
