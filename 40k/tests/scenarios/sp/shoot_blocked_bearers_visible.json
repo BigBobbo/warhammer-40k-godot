@@ -1,0 +1,107 @@
+{
+  "id": "shoot_blocked_bearers_visible",
+  "covers": [
+    "shooting.blocked_bearers_notice",
+    "shooting.auto_assign_filters_los",
+    "shooting.forecast_uses_declared_slice"
+  ],
+  "fixture": "shooting_phase",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Only models with range AND line of sight to the target actually fire; the engine drops the rest at resolve time. The single-eligible-target auto-assign path used to declare EVERY bearer of a weapon regardless, so a 5-model unit with one clear firing lane read '5→ Target' in the weapon row, '5× weapon' in CURRENT TARGETS and a 5-bearer FORECAST, and then one model shot. This scenario parks 4 of 5 Rokkit launcha bearers behind tall area terrain (area-large-13) with the 5th clear of it, selects the unit through its board token, and asserts the declared count is 1, that the new 'NOT EVERY MODEL CAN SHOOT' notice names the 4 blind bearers BEFORE Confirm, and that the FORECAST costs one bearer's attacks rather than five.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var shooter := \"U_TANKBUSTAS_A\"\nvar blocked := [Vector2(620, 1620), Vector2(660, 1620), Vector2(700, 1620), Vector2(740, 1620)]\nvar u = GameState.state[\"units\"][shooter]\nu[\"models\"][0][\"position\"] = {\"x\": 560.0, \"y\": 1620.0}\nfor i in range(1, 5):\n\tu[\"models\"][i][\"position\"] = {\"x\": blocked[i - 1].x, \"y\": blocked[i - 1].y}\nu[\"models\"][5][\"position\"] = {\"x\": 300.0, \"y\": 2280.0}\nfor m in u[\"models\"]:\n\tm[\"alive\"] = true\nu[\"flags\"] = {}\nvar tgt = GameState.state[\"units\"][\"U_WITCHSEEKERS_C\"]\nvar tx = [640.0, 680.0, 720.0, 760.0]\nfor i in range(tgt[\"models\"].size()):\n\ttgt[\"models\"][i][\"position\"] = {\"x\": tx[i], \"y\": 2280.0}\n\ttgt[\"models\"][i][\"alive\"] = true\nGameState.state[\"units\"][\"U_BLADE_CHAMPION_A\"][\"models\"][0][\"position\"] = {\"x\": 300.0, \"y\": 200.0}\nGameState.state[\"units\"][\"U_CALADIUS_GRAV-TANK_E\"][\"models\"][0][\"position\"] = {\"x\": 1600.0, \"y\": 200.0}\nPhaseManager.transition_to_phase(8)\nreturn \"geometry set\"",
+      "equals": "geometry set"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var board = PhaseManager.get_current_phase_instance().game_state_snapshot\nvar e = RulesEngine.get_eligible_shooter_models(\"U_TANKBUSTAS_A\", \"rokkit_launcha_ranged\", \"U_WITCHSEEKERS_C\", board)\nreturn (e[\"eligible\"] as Array).size()",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "01_geometry_ready"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_TANKBUSTAS_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"PulsaRokkitDialog\")\nif d == null:\n\treturn \"no dialog\"\nvar b = d.find_child(\"DeclineButton\", true, false)\nif b == null:\n\treturn \"no button\"\nb.emit_signal(\"pressed\")\nreturn \"declined\""
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nfor a in ph.pending_assignments:\n\tif a.get(\"weapon_id\", \"\") == \"rokkit_launcha_ranged\":\n\t\treturn (a.get(\"model_ids\", []) as Array).size()\nreturn -1",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nvar root = sc.weapon_tree.get_root()\nvar c = root.get_first_child()\nwhile c:\n\tif str(c.get_metadata(0)) == \"rokkit_launcha_ranged\":\n\t\treturn c.get_text(1)\n\tc = c.get_next()\nreturn \"row not found\"",
+      "equals": "1→[A] Witchseekers"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/BlockedBearersPanel"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nvar txt = sc.blocked_bearers_label.get_parsed_text()\nif txt.find(\"Rokkit launcha \\u2014 only 1 of 5 will shoot\") == -1:\n\treturn \"missing headline: \" + txt\nif txt.find(\"4 no line of sight\") == -1:\n\treturn \"missing reason: \" + txt\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nfor i in range(sc.target_basket.item_count):\n\tvar t = sc.target_basket.get_item_text(i)\n\tif t.find(\"Rokkit launcha\") != -1:\n\t\treturn t.begins_with(\"1\\u00d7 \")\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "click_tree_item",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/WeaponTree",
+      "metadata": "rokkit_launcha_ranged"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nvar txt = sc.damage_preview_label.get_parsed_text()\nif txt.find(\"Atk   2.0\") == -1:\n\treturn \"forecast should cost ONE bearer (A:D3 avg 2.0), got: \" + txt\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_blocked_bearers_notice"
+    }
+  ]
+}

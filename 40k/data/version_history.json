@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.18.1",
+      "version": "1.19.2",
       "date": "2026-08-03",
       "summary": "Consolidation: a unit offered an Objective Consolidation can finally make it — the board no longer snaps your models back for 'not moving closer to the enemy'.",
       "changes": [
@@ -11,6 +11,41 @@
         "Movement arrows point at the objective (and turn green for moves onto it) in Objective Consolidation, instead of pointing at an enemy you are not allowed to move toward.",
         "The board and the Confirm Move check now share one rules check, so a drag the board accepts is never rejected when you confirm it.",
         "Auto Consolidate no longer says 'no legal move' for a unit standing next to a large terrain objective (its area, not the marker dot, is the objective)."
+      ]
+    },
+    {
+      "version": "1.19.1",
+      "date": "2026-08-03",
+      "summary": "The game log now shows the armour saves, so \"No models destroyed\" finally says why nothing died.",
+      "changes": [
+        "Fixed (reported from the Shooting phase): a combat card listed the hit roll and the wound roll and then jumped straight to \"No models destroyed\" — the defender's saving throws, the actual reason the wounds bounced, were nowhere in the Game Log.",
+        "Every shooting combat card now carries a third dice row — \"Save (5+)\" or \"Inv Save (4+)\" — right under Hit and Wound, with the dice coloured against the roll the defender actually needed and a \"— N failed\" tally.",
+        "\"Show details\" spells the same thing out in words: which unit saved against which weapon, the armour or invulnerable save with the weapon's AP applied, the dice rolled, and how many passed. Feel No Pain rolls appear there too.",
+        "The closing result line reads \"No models destroyed (2/2 saves passed)\" — or \"3 models destroyed (1/4 saves passed)\" — so the outcome explains itself at a glance.",
+        "Melee gets the same treatment: the Fight phase's saves were being logged in a shape the log could not read, so they never appeared as a save row either."
+      ]
+    },
+    {
+      "version": "1.19.0",
+      "date": "2026-08-03",
+      "summary": "Shooting now tells you BEFORE you confirm how many of your models can actually see the target — no more declaring five shots and rolling one.",
+      "changes": [
+        "Fixed (reported with the Custodian Guard vs Stormboyz): the panel showed all five Guardian spears aimed at the target, then only one model shot. Only models with range AND line of sight ever fire; the game was declaring every model in the unit and quietly dropping the blind ones when the dice came out.",
+        "A weapon is now only ever declared with the models that can genuinely shoot — so the weapon row, CURRENT TARGETS and the attack count all match what will happen.",
+        "New 'NOT EVERY MODEL CAN SHOOT' panel under the weapon list: 'Rokkit launcha — only 1 of 5 will shoot, 4 no line of sight (Witchseekers)'. Hovering a weapon row says the same thing.",
+        "The FORECAST and COMBINED FORECAST now cost the models that are actually firing, instead of the whole squad.",
+        "The Confirm button no longer nags about 'unassigned' weapons whose remaining models physically cannot reach anything — those are listed in the new panel instead.",
+        "Applies to every way of aiming: automatic single-target assignment, Apply to All, and Quick Assign."
+      ]
+    },
+    {
+      "version": "1.18.1",
+      "date": "2026-08-03",
+      "summary": "The melee attack panel now says what its buttons do in plain English — no more Ork slang on a Custodes screen.",
+      "changes": [
+        "Fixed (reported): the attack-assignment panel's back button read '◀ Pick Anuvver Unit'. It now reads '◀ Back — Pick Another Unit', which is what it actually does — un-pick this unit and choose a different one to fight.",
+        "The auto-assign button next to it read 'Best Krump ✨' and now reads 'Best Weapons ✨'.",
+        "Ork voice stays where it belongs: the tutorial's instructor cards still talk like an Ork. The buttons you click during a normal game are written for whichever army you brought."
       ]
     },
     {
