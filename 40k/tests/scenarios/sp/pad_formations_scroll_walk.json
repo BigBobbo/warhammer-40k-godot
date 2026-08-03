@@ -1,0 +1,180 @@
+{
+  "id": "pad_formations_scroll_walk",
+  "covers": [
+    "scripts.FormationsDeclarationDialog.pad_focus_chain",
+    "scripts.ScrollFocusChain.wire",
+    "controller.formations.scroll_navigation",
+    "InputDeviceManager"
+  ],
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "Steam Deck / controller: the Declare Battle Formations panel must be walkable end-to-end with the D-pad. Reported: 'if I scroll down to the bottom one that's visible and press down, it jumps out of the panel onto the Skip/Confirm buttons' — every STRATEGIC RESERVES row below the fold was unreachable by controller. Root cause: a ScrollContainer CLIPS its overflowing children instead of moving them, so their real global rects run off the bottom of the screen and Godot's GEOMETRIC ui_down search finds the Skip button (98px below the last visible row) before the next checkbox (135px below it). Boots the real MainMenu locked to the pad policy, starts a battle, and drives the dialog on D-pad presses only: ▲ from the button bar enters the panel at its last row, ▼ from the last row ABOVE the reserves section lands on the first reserves row (the exact press that used to escape), a long ▼ run walks every row with the panel scrolling to follow, and only the final row hands off to Skip. Finishes by pressing A on a reserves checkbox so the declaration a Deck player could not previously reach actually lands in the dialog's reserves array.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.apply_mode_policy(\"pad\")\nreturn InputDeviceManager.is_pad_active()",
+      "multiline": true,
+      "equals": true,
+      "comment": "lock the input mode the way --input-mode=pad / a Steam Deck does, BEFORE the dialog pops — InputDeviceManager only seeds dialog focus while the pad is the active device"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ScrollContainer\").ensure_control_visible(main.get_node(\"ScrollContainer/MenuContainer/ButtonSection/StartButton\"))"
+    },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton" },
+    { "act": "wait_seconds", "seconds": 6.0 },
+    { "act": "expect_phase", "equals": 0 },
+
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node_or_null(\"/root/Main/FormationsDialog\") != null",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar sb = fd.scroll_container.get_v_scroll_bar()\nreturn sb.max_value > sb.page",
+      "multiline": true,
+      "equals": true,
+      "comment": "GUARD: the whole test is vacuous if the form happens to fit. Assert the panel really does overflow before asserting anything about scrolling past the fold."
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nreturn fd.scroll_container.follow_focus",
+      "multiline": true,
+      "equals": true,
+      "comment": "without follow_focus the panel never scrolls, so focus would land on rows the player cannot see"
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar rows = ScrollFocusChain.collect_focusables(fd.scroll_container)\nvar escapes = 0\nfor i in range(rows.size() - 1):\n\tif rows[i].find_valid_focus_neighbor(SIDE_BOTTOM) != rows[i + 1]:\n\t\tescapes += 1\nreturn escapes",
+      "multiline": true,
+      "equals": 0,
+      "comment": "THE REGRESSION PIN: no row except the last may answer ▼ with anything other than the next row. Before the fix the last on-screen row answered with the Skip button."
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar rows = ScrollFocusChain.collect_focusables(fd.scroll_container)\nreturn str(rows[rows.size() - 1].find_valid_focus_neighbor(SIDE_BOTTOM).name)",
+      "multiline": true,
+      "equals": "SkipButton",
+      "comment": "…and the LAST row is the one and only exit to the button bar"
+    },
+    { "act": "screenshot", "label": "01_formations_dialog_open_on_pad" },
+
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar f = fd.gui_get_focus_owner()\nreturn str(f.text) if f != null else \"NULL\"",
+      "multiline": true,
+      "equals": "Confirm Formations",
+      "comment": "InputDeviceManager parks a pad player on the confirm button when the dialog pops"
+    },
+    { "act": "simulate_joy_button", "button_index": 11, "comment": "D-pad ▲ from the button bar re-enters the scroll panel" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar rows = ScrollFocusChain.collect_focusables(fd.scroll_container)\nreturn fd.gui_get_focus_owner() == rows[rows.size() - 1]",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nreturn fd.scroll_container.scroll_vertical > 0",
+      "multiline": true,
+      "equals": true,
+      "comment": "follow_focus dragged the panel to the bottom — the row is focused AND visible"
+    },
+    { "act": "screenshot", "label": "02_dpad_up_entered_the_panel" },
+
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar rows = ScrollFocusChain.collect_focusables(fd.scroll_container)\nvar first_res = -1\nfor i in range(rows.size()):\n\tif rows[i].has_meta(\"reserves_section\"):\n\t\tfirst_res = i\n\t\tbreak\nif first_res <= 0:\n\treturn false\nrows[first_res - 1].grab_focus()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "park on the LAST row above STRATEGIC RESERVES — the row the player described being stuck on"
+    },
+    { "act": "simulate_joy_button", "button_index": 12, "comment": "D-pad ▼ — the press that used to leap onto Skip" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar f = fd.gui_get_focus_owner()\nreturn f != null and f.has_meta(\"reserves_section\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "▼ now enters the STRATEGIC RESERVES list instead of escaping to the button bar"
+    },
+    { "act": "screenshot", "label": "03_dpad_down_reached_strategic_reserves" },
+
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar f = fd.gui_get_focus_owner()\nf.button_pressed = not f.button_pressed\nreturn fd.reserves.size()",
+      "multiline": true,
+      "expect_min": 1,
+      "comment": "the payoff: a unit the D-pad could not previously reach is now declared into Strategic Reserves"
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar rows = ScrollFocusChain.collect_focusables(fd.scroll_container)\nrows[0].grab_focus()\nreturn rows.size()",
+      "multiline": true,
+      "expect_min": 2,
+      "comment": "back to the top for the full-length walk"
+    },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "simulate_joy_button", "button_index": 12,
+      "comment": "30 ▼ presses is more than the row count — a walk that never escapes ends parked on Skip with the panel scrolled to the bottom" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar f = fd.gui_get_focus_owner()\nreturn str(f.name) if f != null else \"NULL\"",
+      "multiline": true,
+      "equals": "SkipButton"
+    },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar sc = fd.scroll_container\nreturn sc.scroll_vertical >= int(sc.get_v_scroll_bar().max_value - sc.get_v_scroll_bar().page) - 2",
+      "multiline": true,
+      "equals": true,
+      "comment": "the walk really traversed the whole panel — it is scrolled to the very bottom, not stopped at the fold"
+    },
+    { "act": "screenshot", "label": "04_walked_the_whole_panel_to_the_button_bar" },
+
+    { "act": "simulate_joy_button", "button_index": 14, "comment": "D-pad ▶ across the button bar: Skip -> Confirm" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    {
+      "act": "execute_script",
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar f = fd.gui_get_focus_owner()\nreturn str(f.name) if f != null else \"NULL\"",
+      "multiline": true,
+      "equals": "ConfirmButton"
+    }
+  ]
+}
