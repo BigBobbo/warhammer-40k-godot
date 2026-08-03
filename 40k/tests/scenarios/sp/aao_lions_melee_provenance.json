@@ -114,6 +114,28 @@
       "label": "01_sparkling_isolated_squad"
     },
     {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nvar focus := Vector2(372.0, 1215.0)\nvar z := 5.0\nvar vp: Vector2 = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(z, z)\nm.view_zoom = z\nm.view_offset = focus - vp / (2.0 * z)\nm.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "01b_sparkle_closeup"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_board()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
       "act": "hover_unit",
       "unit_id": "U_CUSTODIAN_GUARD_A"
     },
