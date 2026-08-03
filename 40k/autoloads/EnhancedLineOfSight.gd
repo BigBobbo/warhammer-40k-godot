@@ -20,7 +20,11 @@ func _ready() -> void:
 	print("[EnhancedLineOfSight] Initialized")
 
 # Main enhanced LoS checking function
-static func check_enhanced_visibility(shooter_model: Dictionary, target_model: Dictionary, board: Dictionary) -> Dictionary:
+# want_block_points (debug only): also record WHERE each blocked line first
+# hits terrain, as `block_at`/`blocked_by` on the `attempted_lines` rows. The
+# LoS debug overlay uses that to draw solid up to the blocker and ghost the
+# remainder; the eligibility hot path leaves it false so it costs nothing.
+static func check_enhanced_visibility(shooter_model: Dictionary, target_model: Dictionary, board: Dictionary, want_block_points: bool = false) -> Dictionary:
 	var shooter_pos = _get_model_position(shooter_model)
 	var target_pos = _get_model_position(target_model)
 
@@ -41,40 +45,17 @@ static func check_enhanced_visibility(shooter_model: Dictionary, target_model: D
 		target_shape, target_pos, target_rotation
 	)
 
-	# TER-2 (10e only): Pre-compute which ruins the shooter is wholly within
-	# Per 10e rules: "Models wholly within Ruins can see out normally"
-	# "Wholly within" means ALL sample points (entire base) must be inside the ruin
-	var shooter_wholly_within_ruins = []
-	# 11e visibility context (06.01 + 13.10/13.11): terrain-area groups and the
-	# per-pair exclusions ("areas one or both models are within", any part of
-	# base), computed ONCE per pair. When non-empty, the per-line check uses
-	# 11e semantics instead of the 10e ruins/height rules.
-	var e11 := {}
-	if GameConstants.edition >= 11:
-		var terrain_features_11e = board.get("terrain_features", [])
-		if terrain_features_11e.is_empty() and TerrainManager:
-			terrain_features_11e = TerrainManager.terrain_features
-		var group_map = TerrainManager.build_area_group_map(terrain_features_11e)
-		var ex = TerrainManager.visibility_exclusions_for(shooter_model, target_model, terrain_features_11e, group_map)
-		e11 = {
-			"group_map": group_map,
-			"exclude_groups": ex.groups,
-			"exclude_feature_ids": ex.feature_ids,
-			"ground_level": float(shooter_model.get("elevation_inches", 0.0)) < 3.0 \
-					and float(target_model.get("elevation_inches", 0.0)) < 3.0,
-		}
-	else:
-		shooter_wholly_within_ruins = _get_ruins_model_wholly_within(
-			sample_points.shooter, shooter_pos, shooter_model, board
-		)
+	var ctx = build_pair_context(shooter_model, target_model, board, sample_points.shooter, shooter_pos)
+	var shooter_wholly_within_ruins: Array = ctx.wholly_within_ruins
+	var e11: Dictionary = ctx.e11
 
 	var attempted_lines = []
 
 	# Phase 1: Center-to-center (fast path for 85% of cases)
 	# T3-19: Pass model data for height-based terrain blocking
 	# TER-2: Pass wholly-within ruins info for Ruins visibility rules
-	var center_check = _check_single_line_of_sight(shooter_pos, target_pos, board, shooter_model, target_model, shooter_wholly_within_ruins, e11)
-	attempted_lines.append({"from": shooter_pos, "to": target_pos, "blocked": not center_check.has_los})
+	var center_check = _check_single_line_of_sight(shooter_pos, target_pos, board, shooter_model, target_model, shooter_wholly_within_ruins, e11, want_block_points)
+	attempted_lines.append(_attempt_entry(shooter_pos, target_pos, center_check, want_block_points))
 
 	if center_check.has_los:
 		return {
@@ -89,8 +70,8 @@ static func check_enhanced_visibility(shooter_model: Dictionary, target_model: D
 	for shooter_point in sample_points.shooter:
 		for target_point in sample_points.target:
 			# T3-19: Pass model data for height-based terrain blocking
-			var los_check = _check_single_line_of_sight(shooter_point, target_point, board, shooter_model, target_model, shooter_wholly_within_ruins, e11)
-			attempted_lines.append({"from": shooter_point, "to": target_point, "blocked": not los_check.has_los})
+			var los_check = _check_single_line_of_sight(shooter_point, target_point, board, shooter_model, target_model, shooter_wholly_within_ruins, e11, want_block_points)
+			attempted_lines.append(_attempt_entry(shooter_point, target_point, los_check, want_block_points))
 
 			if los_check.has_los:
 				return {
@@ -111,6 +92,73 @@ static func check_enhanced_visibility(shooter_model: Dictionary, target_model: D
 		"attempted_lines": attempted_lines,
 		"blocking_terrain": blocking_terrain
 	}
+
+# Per-pair visibility context shared by every sampled line of that pair.
+# Extracted from check_enhanced_visibility so the LoS debug overlay can re-judge
+# a single line (block_point_for_line) without rebuilding the terrain-area group
+# map per line.
+#   ▪ 10e (TER-2): which ruins the shooter is WHOLLY within — per 10e rules
+#     "models wholly within Ruins can see out normally", i.e. ALL sample points
+#     (the entire base) must be inside the ruin.
+#   ▪ 11e (06.01 + 13.10/13.11): terrain-area groups plus the per-pair
+#     exclusions ("areas one or both models are within", any part of base).
+#     When e11 is non-empty the per-line check uses 11e semantics instead of
+#     the 10e ruins/height rules.
+static func build_pair_context(shooter_model: Dictionary, target_model: Dictionary, board: Dictionary, shooter_sample_points: Array, shooter_pos: Vector2) -> Dictionary:
+	if GameConstants.edition >= 11:
+		var terrain_features_11e = board.get("terrain_features", [])
+		if terrain_features_11e.is_empty() and TerrainManager:
+			terrain_features_11e = TerrainManager.terrain_features
+		var group_map = TerrainManager.build_area_group_map(terrain_features_11e)
+		var ex = TerrainManager.visibility_exclusions_for(shooter_model, target_model, terrain_features_11e, group_map)
+		return {
+			"wholly_within_ruins": [],
+			"e11": {
+				"group_map": group_map,
+				"exclude_groups": ex.groups,
+				"exclude_feature_ids": ex.feature_ids,
+				"ground_level": float(shooter_model.get("elevation_inches", 0.0)) < 3.0 \
+						and float(target_model.get("elevation_inches", 0.0)) < 3.0,
+			},
+		}
+
+	return {
+		"wholly_within_ruins": _get_ruins_model_wholly_within(
+			shooter_sample_points, shooter_pos, shooter_model, board
+		),
+		"e11": {},
+	}
+
+# One `attempted_lines` row. In debug mode it also carries WHERE the line first
+# hit terrain and which piece did it, so the overlay can split the drawn line.
+static func _attempt_entry(from: Vector2, to: Vector2, check: Dictionary, want_block_point: bool) -> Dictionary:
+	var entry := {"from": from, "to": to, "blocked": not check.has_los}
+	if want_block_point and check.has("block_point"):
+		entry["block_at"] = check.block_point
+		entry["blocked_by"] = check.get("block_id", "")
+	return entry
+
+# Debug helper: where does terrain first block this ONE line for this model
+# pair? Builds the pair context itself, so callers that only have a single
+# line (e.g. the L-overlay's nearest-model fallback) can use it directly.
+# Returns {} when the line is clear.
+static func block_point_for_line(from: Vector2, to: Vector2, board: Dictionary, shooter_model: Dictionary, target_model: Dictionary) -> Dictionary:
+	var shooter_pos = _get_model_position(shooter_model)
+	var target_pos = _get_model_position(target_model)
+	if shooter_pos == Vector2.ZERO or target_pos == Vector2.ZERO:
+		return {}
+
+	var sample_points = _generate_shape_aware_sample_points(
+		_get_model_shape(shooter_model), shooter_pos, shooter_model.get("rotation", 0.0),
+		_get_model_shape(target_model), target_pos, target_model.get("rotation", 0.0)
+	)
+	var ctx = build_pair_context(shooter_model, target_model, board, sample_points.shooter, shooter_pos)
+	var check = _check_single_line_of_sight(
+		from, to, board, shooter_model, target_model, ctx.wholly_within_ruins, ctx.e11, true
+	)
+	if check.has_los or not check.has("block_point"):
+		return {}
+	return {"point": check.block_point, "terrain_id": check.get("block_id", "")}
 
 # TER-2: Determine which ruins terrain pieces the shooter model is wholly within
 # A model is "wholly within" a ruin if ALL its sample points (center + edge) are inside the polygon.
@@ -324,13 +372,15 @@ static func _determine_sample_density(distance_inches: float, base_size_mm: int)
 # e11: 11e visibility context (see check_enhanced_visibility) — when non-empty
 # the line is judged by 11e semantics (13.10 obscuring areas with the
 # "within" exclusion + 13.11 Solid dense features) instead of the 10e rules.
-static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}, shooter_wholly_within_ruins: Array = [], e11: Dictionary = {}) -> Dictionary:
+# want_block_point (debug only): additionally resolve the first point along the
+# line where a blocking piece actually starts, returned as block_point/block_id.
+static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dictionary, shooter_model: Dictionary = {}, target_model: Dictionary = {}, shooter_wholly_within_ruins: Array = [], e11: Dictionary = {}, want_block_point: bool = false) -> Dictionary:
 	var terrain_features = board.get("terrain_features", [])
 	if terrain_features.is_empty() and TerrainManager:
 		terrain_features = TerrainManager.terrain_features
 
 	if not e11.is_empty():
-		return _check_single_line_of_sight_11e(from, to, terrain_features, e11)
+		return _check_single_line_of_sight_11e(from, to, terrain_features, e11, want_block_point)
 
 	var blocking_terrain = []
 
@@ -423,10 +473,13 @@ static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dicti
 			if not blocking_terrain.is_empty():
 				break
 
-	return {
+	var result := {
 		"has_los": blocking_terrain.is_empty(),
 		"blocking_terrain": blocking_terrain
 	}
+	if want_block_point and not blocking_terrain.is_empty():
+		_attach_block_point(result, from, to, terrain_features, blocking_terrain)
+	return result
 
 # 11e (06.01 + 13.10/13.11) judgement for a single sight line, 2D approximation:
 #   ▪ "area"-class pieces (authored terrain-area boundaries): light/dense
@@ -440,7 +493,7 @@ static func _check_single_line_of_sight(from: Vector2, to: Vector2, board: Dicti
 #   ▪ Legacy pieces with no piece_class are BOTH their own area (13.01) and,
 #     when dense, a Solid structure (13.11).
 #   ▪ Explicit wall segments (walls arrays) still block as physical walls.
-static func _check_single_line_of_sight_11e(from: Vector2, to: Vector2, terrain_features: Array, e11: Dictionary) -> Dictionary:
+static func _check_single_line_of_sight_11e(from: Vector2, to: Vector2, terrain_features: Array, e11: Dictionary, want_block_point: bool = false) -> Dictionary:
 	var group_map: Dictionary = e11.get("group_map", {})
 	var exclude_groups: Dictionary = e11.get("exclude_groups", {})
 	var exclude_feats: Dictionary = e11.get("exclude_feature_ids", {})
@@ -476,10 +529,90 @@ static func _check_single_line_of_sight_11e(from: Vector2, to: Vector2, terrain_
 			if not blocking_terrain.is_empty():
 				break
 
-	return {
+	var result := {
 		"has_los": blocking_terrain.is_empty(),
 		"blocking_terrain": blocking_terrain
 	}
+	if want_block_point and not blocking_terrain.is_empty():
+		_attach_block_point(result, from, to, terrain_features, blocking_terrain)
+	return result
+
+# Debug-only: resolve WHERE along `from`->`to` the already-identified blockers
+# first bite, and stamp it onto `result` as block_point/block_id. Runs a second
+# pass over terrain, but only intersects the handful of pieces that were just
+# judged blocking, and only for lines the caller asked about.
+static func _attach_block_point(result: Dictionary, from: Vector2, to: Vector2, terrain_features: Array, blocking_terrain: Array) -> void:
+	var hit = _resolve_block_point(from, to, terrain_features, blocking_terrain)
+	if hit.found:
+		result["block_point"] = hit.point
+		result["block_id"] = hit.terrain_id
+
+# Nearest point along `from`->`to` at which one of `blocking_ids` starts
+# blocking: the first polygon edge crossing, `from` itself when the line
+# already starts inside the blocker, or the wall-segment hit for the
+# "<id>_wall" ids the wall fall-back appends.
+static func _resolve_block_point(from: Vector2, to: Vector2, terrain_features: Array, blocking_ids: Array) -> Dictionary:
+	var wanted := {}
+	for bid in blocking_ids:
+		wanted[str(bid)] = true
+
+	var best_distance := INF
+	var best_point := Vector2.ZERO
+	var best_id := ""
+
+	for terrain_piece in terrain_features:
+		var pid := str(terrain_piece.get("id", "unknown"))
+
+		if wanted.has(pid):
+			var poly_hit = _nearest_polygon_entry(from, to, terrain_piece.get("polygon", PackedVector2Array()))
+			if poly_hit.found and poly_hit.distance < best_distance:
+				best_distance = poly_hit.distance
+				best_point = poly_hit.point
+				best_id = pid
+
+		if wanted.has(pid + "_wall"):
+			for wall in terrain_piece.get("walls", []):
+				if not wall.get("blocks_los", true):
+					continue
+				var intersection = Geometry2D.segment_intersects_segment(
+					from, to,
+					_wall_point_to_vec2(wall.get("start", Vector2.ZERO)),
+					_wall_point_to_vec2(wall.get("end", Vector2.ZERO))
+				)
+				if intersection == null:
+					continue
+				var wall_distance: float = from.distance_to(intersection)
+				if wall_distance < best_distance:
+					best_distance = wall_distance
+					best_point = intersection
+					best_id = pid + "_wall"
+
+	return {"found": best_distance < INF, "point": best_point, "terrain_id": best_id, "distance": best_distance}
+
+# First crossing of a polygon's outline along `from`->`to`. A line that starts
+# inside the polygon is blocked from its very first pixel, so it reports `from`.
+static func _nearest_polygon_entry(from: Vector2, to: Vector2, poly) -> Dictionary:
+	var polygon_packed := _to_packed_polygon(poly)
+	if polygon_packed.is_empty():
+		return {"found": false, "point": Vector2.ZERO, "distance": INF}
+
+	if Geometry2D.is_point_in_polygon(from, polygon_packed):
+		return {"found": true, "point": from, "distance": 0.0}
+
+	var best_distance := INF
+	var best_point := Vector2.ZERO
+	for i in range(polygon_packed.size()):
+		var intersection = Geometry2D.segment_intersects_segment(
+			from, to, polygon_packed[i], polygon_packed[(i + 1) % polygon_packed.size()]
+		)
+		if intersection == null:
+			continue
+		var distance: float = from.distance_to(intersection)
+		if distance < best_distance:
+			best_distance = distance
+			best_point = intersection
+
+	return {"found": best_distance < INF, "point": best_point, "distance": best_distance}
 
 # Get all terrain pieces that block any line in the sample set
 # T3-19: Added shooter_model/target_model for height-based terrain blocking
@@ -558,24 +691,27 @@ static func _get_model_position(model: Dictionary) -> Vector2:
 		return pos
 	return Vector2.ZERO
 
-# Polygon intersection checking (reused from RulesEngine)
-# P1-68: Also returns true if either endpoint is inside the polygon
-# (a segment fully inside a polygon doesn't cross edges but still "interacts" with it)
-static func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, poly) -> bool:
-	var polygon_packed: PackedVector2Array
-
+# Coerce a polygon to PackedVector2Array. Terrain polygons arrive as packed
+# arrays from TerrainManager but as Arrays of {"x","y"} dicts when they have
+# round-tripped through JSON (a loaded save or a networked game).
+static func _to_packed_polygon(poly) -> PackedVector2Array:
 	if poly is PackedVector2Array:
-		polygon_packed = poly
-	elif poly is Array:
-		# Convert Array to PackedVector2Array
-		polygon_packed = PackedVector2Array()
+		return poly
+
+	var polygon_packed := PackedVector2Array()
+	if poly is Array:
 		for vertex in poly:
 			if vertex is Dictionary:
 				polygon_packed.append(Vector2(vertex.get("x", 0), vertex.get("y", 0)))
 			elif vertex is Vector2:
 				polygon_packed.append(vertex)
-	else:
-		return false
+	return polygon_packed
+
+# Polygon intersection checking (reused from RulesEngine)
+# P1-68: Also returns true if either endpoint is inside the polygon
+# (a segment fully inside a polygon doesn't cross edges but still "interacts" with it)
+static func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, poly) -> bool:
+	var polygon_packed := _to_packed_polygon(poly)
 
 	if polygon_packed.is_empty():
 		return false
@@ -599,21 +735,10 @@ static func _segment_intersects_polygon(seg_start: Vector2, seg_end: Vector2, po
 
 # Point in polygon checking (reused from RulesEngine)
 static func _point_in_polygon(point: Vector2, poly) -> bool:
-	var polygon_packed: PackedVector2Array
-	
-	if poly is PackedVector2Array:
-		polygon_packed = poly
-	elif poly is Array:
-		# Convert Array to PackedVector2Array
-		polygon_packed = PackedVector2Array()
-		for vertex in poly:
-			if vertex is Dictionary:
-				polygon_packed.append(Vector2(vertex.get("x", 0), vertex.get("y", 0)))
-			elif vertex is Vector2:
-				polygon_packed.append(vertex)
-	else:
+	var polygon_packed := _to_packed_polygon(poly)
+	if polygon_packed.is_empty():
 		return false
-	
+
 	return Geometry2D.is_point_in_polygon(point, polygon_packed)
 
 # Coerce a wall endpoint to Vector2. Live terrain (TerrainManager._convert_json_walls)

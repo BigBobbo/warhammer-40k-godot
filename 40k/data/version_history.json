@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.18.0",
+      "version": "1.18.1",
       "date": "2026-08-03",
       "summary": "The attack panel can now show its working: a fold-out table breaks every expected-damage figure down into to-hit, to-wound and save — and tells you how many models it actually kills.",
       "changes": [
@@ -14,6 +14,18 @@
         "Feel No Pain is now factored into the forecast and shown as its own row — the estimate used to ignore it and over-promise against tough defenders.",
         "The section is folded away by default and changes nothing about what a unit swings; it is a read-only view.",
         "Forecasts for an attached Leader are now scored on HIS datasheet rather than his bodyguard's, so a Warboss's Power klaw is no longer estimated using the Boss Nob's weaker one."
+      ]
+    },
+    {
+      "version": "1.18.0",
+      "date": "2026-08-03",
+      "summary": "Line-of-sight debug (hold L) now shows you WHAT is blocking the shot: each line is solid up to the wall that stops it and fades out beyond.",
+      "changes": [
+        "Blocked sight lines used to be drawn at full strength all the way to the target, so a unit that could not see anything painted the whole board solid red and buried the terrain you were trying to read.",
+        "Each blocked line is now drawn solid only as far as the first piece of terrain that actually stops it, then continues as a faint, darker ghost to the target — so the real blocker is obvious at a glance.",
+        "A small amber marker sits on the exact point where each line dies. With a whole squad's worth of lines, those markers trace out the edge of the wall or ruin doing the blocking.",
+        "The same split applies to the phase-independent hold-L overview, so blocked unit-to-unit lines also fade at the terrain rather than running dashed red across the table.",
+        "Fixed: holding L on a unit that has no eligible targets — the exact moment you want this debug — used to draw nothing at all, because the code that gathers the enemy units crashed and looked for a player number that does not exist."
       ]
     },
     {
