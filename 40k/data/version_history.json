@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.19.2",
+      "version": "1.19.3",
       "date": "2026-08-03",
       "summary": "End of Turn no longer demands you delete models from squads that are in coherency — and when a model really is stranded, the board shows you which one and how far it has to come back.",
       "changes": [
@@ -12,6 +12,21 @@
         "Coherency now measures with the same 0.05\" slack the movement ghosts, deployment circles and pile-in helper already draw with — a model snapped to exactly 2\" can no longer read as 'in range' and then be destroyed for it.",
         "Offending models are now flagged ON THE BOARD: a flashing red boundary on the model plus its dashed 2\" coherency ring, so you can see exactly how far a squadmate has to move to fix it. The camera pans to the worst offender.",
         "The removal dialog leads with the most isolated model and says how far it is from its nearest squadmate, instead of a row of identical 'Remove mN' buttons; the rest carry their distance in a tooltip and wrap instead of running off the edge."
+      ]
+    },
+    {
+      "version": "1.19.2",
+      "date": "2026-08-03",
+      "summary": "The attack panel can now show its working: a fold-out table breaks every expected-damage figure down into to-hit, to-wound and save — and tells you how many models it actually kills.",
+      "changes": [
+        "Requested from the Fight phase: the attack panel said 'E[D]≈8.3' for one Vaultswords profile and '≈3.1' for another, with nothing to explain either number. There is now a '▶ Show damage breakdown' toggle under Assignments.",
+        "Expanding it renders one table per assignment — Attacks → Hit → Wound → Save → Damage → Slain — with the roll each step needs, its chance, and what is left after it (e.g. 'S8 vs T6 → 3+ · 67% · 2.8 wounds').",
+        "The save row names the save the defender actually gets: AP worsening their armour, an invulnerable save ignoring that AP, or no save at all.",
+        "New 'Slain' row: expected damage is NOT dead models. A 3-damage weapon on 1-wound Stormboyz throws two thirds of every hit away, so 8.3 damage is only about 2.8 dead Orks — and a 9-attack, 1-damage profile that forecasts 3.1 damage kills more of them. The table now says so, with a warning line naming the damage lost to overkill.",
+        "Weapon abilities the forecast does not model (Sustained Hits, Devastating Wounds, Lethal Hits, Twin-linked, Lance, Anti-X) are listed under each table, so a coarse estimate is no longer presented as exact.",
+        "Feel No Pain is now factored into the forecast and shown as its own row — the estimate used to ignore it and over-promise against tough defenders.",
+        "The section is folded away by default and changes nothing about what a unit swings; it is a read-only view.",
+        "Forecasts for an attached Leader are now scored on HIS datasheet rather than his bodyguard's, so a Warboss's Power klaw is no longer estimated using the Boss Nob's weaker one."
       ]
     },
     {
