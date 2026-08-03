@@ -12,7 +12,10 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 #   1 — ranged from wargear (Phase 1) + melee from wargear (Phase 1b)
 #   2 — melee/ranged fall back to the datasheet's DEFAULT per-model kit when the
 #       roster's wargear says nothing about that weapon type (CASE D)
-const LOADOUT_RESOLVER_VERSION := 2
+#   3 — wargear counts match a datasheet weapon by its BASE name, so a roster's
+#       "5x Guardian spear" counts towards "Guardian spear – Ranged" instead of
+#       being dropped (which cost dual-profile models their second gun)
+const LOADOUT_RESOLVER_VERSION := 3
 
 # Weapon profile structure (will be expanded later)
 const WEAPON_PROFILES = {
@@ -6512,10 +6515,21 @@ static func _ensure_loadout_resolved(unit: Dictionary) -> void:
 	# Version the "already done" stamp instead of a bare bool: saves (and the
 	# tutorial fixtures) written by an OLDER resolver carry _loadout_checked =
 	# true with only the ranged half resolved, and a bare bool would lock them
-	# out of every later improvement forever. Re-running is safe — each type is
-	# skipped when it no longer over-reports, so an existing stamp survives.
-	if int(unit.get("_loadout_version", 0)) >= LOADOUT_RESOLVER_VERSION:
+	# out of every later improvement forever.
+	var prior_version := int(unit.get("_loadout_version", 0))
+	if prior_version >= LOADOUT_RESOLVER_VERSION:
 		return
+	# Discard an OLDER resolver's stamps before re-running. Re-resolution reads
+	# the live per-model loadout to decide whether a type still over-reports, so a
+	# stale stamp that dropped a weapon (v2 lost the second profile of a
+	# dual-profile gun — see _resolve_type_loadout) would make the unit look
+	# already-resolved and lock the mistake in for the rest of that save. The
+	# resolver is deterministic and nothing else writes these keys, so clearing
+	# them costs nothing: a still-correct loadout is re-derived identically.
+	if prior_version > 0:
+		for m in unit.get("models", []):
+			m.erase("ranged_loadout")
+			m.erase("melee_loadout")
 	unit["_loadout_version"] = LOADOUT_RESOLVER_VERSION
 	unit["_loadout_checked"] = true
 
@@ -6636,6 +6650,37 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 	if not over_reports:
 		return
 
+	# A dual-profile weapon is listed on the datasheet with a profile SUFFIX
+	# ("Guardian spear – Ranged" / "Guardian spear – Melee", "Castellan axe –
+	# Ranged"), but a roster's wargear line only ever names the BASE weapon
+	# ("5x Guardian spear") — see UnitLoadoutResolver.PROFILE_SEPARATORS. Matching
+	# the two by exact string therefore silently dropped every suffixed weapon
+	# from the counts below, and an Allarus Custodian carrying a balistus grenade
+	# launcher AND a spear/axe looked like a one-gun model: CASE A stamped only
+	# the grenade launcher and the 24" profile vanished from the Shooting phase.
+	# Index each datasheet name under both its full and base slug so a wargear
+	# line resolves back to the CANONICAL datasheet name the rest of this
+	# function (and _model_allows_weapon / _get_model_weapon_ids) compares against.
+	# Slugs also absorb roster casing ("Castellan Axe" -> "castellan-axe").
+	var canonical_by_slug := {}
+	var ambiguous_slugs := {}
+	for full in type_names:
+		var full_s = UnitLoadoutResolver.slugify(str(full))
+		var base_s = UnitLoadoutResolver.slugify(UnitLoadoutResolver.base_weapon_name(str(full)))
+		for key in [full_s, base_s]:
+			if key == "":
+				continue
+			if canonical_by_slug.has(key) and canonical_by_slug[key] != full:
+				# Two profiles of ONE weapon share a base name ("Gork's Klaw –
+				# Strike" / "– Sweep"). A count against that base can't pick one
+				# profile, so leave it unreadable — the unit falls through to the
+				# datasheet kit exactly as it does today.
+				ambiguous_slugs[key] = true
+			else:
+				canonical_by_slug[key] = full
+	for key in ambiguous_slugs:
+		canonical_by_slug.erase(key)
+
 	# Parse wargear into {name: count} for this type, summing duplicate lines and
 	# ignoring entries that aren't this unit's weapons of this type (roles, the
 	# other weapon type, and count-less entries we can't size).
@@ -6654,9 +6699,12 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 			if not num_str.is_valid_int():
 				continue
 			var name = txt.substr(space + 1).strip_edges()
-			if type_names.has(name):
+			# Resolve the roster's base name to the datasheet's canonical name so
+			# "5x Guardian spear" counts towards "Guardian spear – Ranged".
+			var canonical = str(canonical_by_slug.get(UnitLoadoutResolver.slugify(name), ""))
+			if canonical != "":
 				var n = int(num_str)
-				counts[name] = int(counts.get(name, 0)) + n
+				counts[canonical] = int(counts.get(canonical, 0)) + n
 				total += n
 
 	var model_count = models.size()

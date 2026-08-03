@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.17.1",
+      "date": "2026-08-03",
+      "summary": "Shooting: models that carry two guns can fire both again — the Allarus Custodians' 24\" castellan axe / guardian spear no longer vanishes from WEAPON ASSIGNMENTS.",
+      "changes": [
+        "Fixed (reported in-game): a 5-model Allarus Custodians squad in range of a Stormboyz mob could only assign its 18\" balistus grenade launcher. Every Allarus carries a grenade launcher AND a castellan axe (or guardian spear), and the axe's 24\" ranged profile should have been offered too.",
+        "Cause: rosters list a weapon by its plain name ('5x Castellan axe') while the datasheet lists the two-profile version ('Castellan axe – Ranged'). The two were compared letter-for-letter, so the axe was never counted — the squad looked like a one-gun-per-model unit and the second weapon was dropped.",
+        "Weapon names are now matched on their base name and regardless of capitalisation, so any model carrying a split-profile weapon alongside another gun is offered both.",
+        "Saved games are repaired on load: a squad whose loadout was worked out by the older version is recalculated instead of keeping the missing weapon for the rest of the battle.",
+        "Weapons that genuinely have two ranged/melee profiles of the SAME gun (Ghazghkull's Gork's Klaw – Strike / – Sweep) are untouched — both profiles still show."
+      ]
+    },
+    {
       "version": "1.17.0",
       "date": "2026-08-03",
       "summary": "A Leader and the squad he joined now fight in ONE activation — one row, one attack panel, one swing. The enemy no longer gets a turn in between.",

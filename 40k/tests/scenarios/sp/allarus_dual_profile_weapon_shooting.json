@@ -1,0 +1,128 @@
+{
+  "id": "allarus_dual_profile_weapon_shooting",
+  "covers": [
+    "shooting.loadout_resolution.dual_profile_wargear",
+    "autoloads.RulesEngine._resolve_type_loadout",
+    "ui.shooting.weapon_tree_rows"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "transition_to_phase": 8,
+  "description": "MA-LOADOUT: a roster's wargear line names the BASE weapon ('5x Castellan axe') while the datasheet names the PROFILE ('Castellan axe – Ranged'), and the exact-string match between them used to drop the axe from the counts — so a 5-model Allarus Custodians squad in range of an enemy could only ever assign its 18\" balistus grenade launcher and the 24\" axe never appeared in WEAPON ASSIGNMENTS. Clicking the squad's token now lists BOTH weapons in the weapon tree, and the axe row can be assigned to the target and fired.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.set_edition(11)\nvar U = GameState.state[\"units\"]\nvar models = []\nfor i in range(5):\n\tmodels.append({\"id\": \"m%d\" % (i + 1), \"wounds\": 4, \"current_wounds\": 4, \"base_mm\": 40, \"position\": {\"x\": 800.0 + i * 45.0, \"y\": 200.0}, \"alive\": true, \"status_effects\": []})\nvar weapons = [\n\t{\"name\": \"Balistus grenade launcher\", \"type\": \"Ranged\", \"range\": \"18\", \"attacks\": \"D6\", \"ballistic_skill\": \"2\", \"strength\": \"4\", \"ap\": \"-1\", \"damage\": \"1\", \"special_rules\": \"blast\", \"abilities\": [{\"id\": \"blast\"}]},\n\t{\"name\": \"Castellan axe \\u2013 Ranged\", \"type\": \"Ranged\", \"range\": \"24\", \"attacks\": \"2\", \"ballistic_skill\": \"2\", \"strength\": \"4\", \"ap\": \"-1\", \"damage\": \"2\", \"special_rules\": \"assault\", \"abilities\": [{\"id\": \"assault\"}]},\n\t{\"name\": \"Castellan axe \\u2013 Melee\", \"type\": \"Melee\", \"range\": \"Melee\", \"attacks\": \"4\", \"weapon_skill\": \"2\", \"strength\": \"9\", \"ap\": \"-1\", \"damage\": \"3\"}\n]\nU.merge({\"U_ALLARUS_LD\": {\"id\": \"U_ALLARUS_LD\", \"squad_id\": \"U_ALLARUS_LD\", \"owner\": 1, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"Allarus Custodians\", \"keywords\": [\"ADEPTUS CUSTODES\", \"ALLARUS CUSTODIANS\", \"IMPERIUM\", \"INFANTRY\", \"TERMINATOR\"], \"stats\": {\"move\": 5, \"toughness\": 7, \"save\": 2, \"wounds\": 4, \"leadership\": 6, \"objective_control\": 2, \"invuln\": 4}, \"points\": 275, \"is_warlord\": false, \"enhancements\": [], \"wargear\": [\"5x Balistus grenade launcher\", \"5x Castellan axe\"], \"weapons\": weapons, \"abilities\": []}, \"models\": models}, \"U_LD_TARGET\": {\"id\": \"U_LD_TARGET\", \"squad_id\": \"U_LD_TARGET\", \"owner\": 2, \"status\": 2, \"flags\": {}, \"meta\": {\"name\": \"Stormboyz Target\", \"keywords\": [\"INFANTRY\", \"ORKS\"], \"stats\": {\"move\": 12, \"toughness\": 5, \"save\": 5, \"wounds\": 1, \"leadership\": 7, \"objective_control\": 1}, \"weapons\": [], \"abilities\": []}, \"models\": [{\"id\": \"e1\", \"alive\": true, \"position\": {\"x\": 800.0, \"y\": 760.0}, \"base_mm\": 32, \"wounds\": 1, \"current_wounds\": 1, \"status_effects\": []}, {\"id\": \"e2\", \"alive\": true, \"position\": {\"x\": 840.0, \"y\": 760.0}, \"base_mm\": 32, \"wounds\": 1, \"current_wounds\": 1, \"status_effects\": []}]}}, true)\nreturn U.has(\"U_ALLARUS_LD\") and U.has(\"U_LD_TARGET\")",
+      "equals": true
+    },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\np.game_state_snapshot[\"units\"][\"U_ALLARUS_LD\"] = GameState.state[\"units\"][\"U_ALLARUS_LD\"]\np.game_state_snapshot[\"units\"][\"U_LD_TARGET\"] = GameState.state[\"units\"][\"U_LD_TARGET\"]\nreturn p.game_state_snapshot[\"units\"].has(\"U_ALLARUS_LD\")",
+      "equals": true
+    },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node_or_null(\"Main\")\nm._recreate_unit_visuals()\nm.refresh_unit_list()\nreturn true",
+      "equals": true
+    },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var a = GameState.state[\"units\"][\"U_ALLARUS_LD\"][\"models\"][0][\"position\"]\nvar b = GameState.state[\"units\"][\"U_LD_TARGET\"][\"models\"][0][\"position\"]\nvar d = Vector2(a.x, a.y).distance_to(Vector2(b.x, b.y))\nvar edge = Measurement.px_to_inches(d - Measurement.mm_to_px(20.0) - Measurement.mm_to_px(16.0))\nreturn edge > 0.0 and edge < 18.0",
+      "equals": true
+    },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var mw = RulesEngine.get_unit_weapons(\"U_ALLARUS_LD\", GameState.state)\nvar t = 0\nfor mid in mw:\n\tt += mw[mid].size()\nreturn \"%d_models_%d_guns\" % [mw.size(), t]",
+      "equals": "5_models_10_guns"
+    },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return RulesEngine.get_target_ineligibility_reason(\"U_ALLARUS_LD\", \"U_LD_TARGET\", GameState.state)",
+      "equals": ""
+    },
+
+    { "act": "expect_token_visible", "unit_id": "U_ALLARUS_LD" },
+    { "act": "click_unit", "unit_id": "U_ALLARUS_LD" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller.active_shooter_id",
+      "equals": "U_ALLARUS_LD"
+    },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node_or_null(\"Main\").shooting_controller\nvar it = sc.weapon_tree.get_root().get_first_child()\nvar n = 0\nwhile it != null:\n\tn += 1\n\tit = it.get_next()\nreturn n",
+      "equals": 2
+    },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node_or_null(\"Main\").shooting_controller\nvar it = sc.weapon_tree.get_root().get_first_child()\nvar rows = []\nwhile it != null:\n\trows.append(str(it.get_metadata(0)))\n\tit = it.get_next()\nrows.sort()\nreturn \",\".join(rows)",
+      "equals": "balistus_grenade_launcher_ranged,castellan_axe___ranged_ranged"
+    },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node_or_null(\"Main\").shooting_controller\nvar it = sc.weapon_tree.get_root().get_first_child()\nvar labels = []\nwhile it != null:\n\tlabels.append(it.get_text(0))\n\tit = it.get_next()\nlabels.sort()\nreturn \" | \".join(labels)",
+      "equals": "Balistus grenade launcher  ×5 | Castellan axe – Ranged  ×5"
+    },
+
+    { "act": "screenshot", "label": "01_weapon_tree_lists_both_ranged_weapons" },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node_or_null(\"Main\").shooting_controller\nvar it = sc.weapon_tree.get_root().get_first_child()\nwhile it != null:\n\tif str(it.get_metadata(0)) == \"castellan_axe___ranged_ranged\":\n\t\tit.select(0)\n\t\treturn true\n\tit = it.get_next()\nreturn false",
+      "equals": true
+    },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "click_board_at", "x": 820.0, "y": 760.0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    {
+      "act": "execute_script",
+      "script": "str(main.shooting_controller.weapon_assignments.get(\"castellan_axe___ranged_ranged\", \"\"))",
+      "equals": "U_LD_TARGET"
+    },
+
+    { "act": "screenshot", "label": "02_castellan_axe_assigned_to_target" },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node_or_null(\"Main\").shooting_controller\nvar n = 0\nfor a in sc.current_phase.pending_assignments:\n\tif str(a.get(\"weapon_id\", \"\")) == \"castellan_axe___ranged_ranged\":\n\t\tn += a.get(\"model_ids\", []).size()\nreturn n",
+      "equals": 5
+    },
+
+    {
+      "act": "dispatch_action",
+      "action": { "type": "CONFIRM_TARGETS", "actor_unit_id": "U_ALLARUS_LD" }
+    },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "screenshot", "label": "03_after_confirming_axe_shots" }
+  ]
+}
