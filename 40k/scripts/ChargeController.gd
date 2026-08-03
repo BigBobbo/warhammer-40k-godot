@@ -197,9 +197,19 @@ func _exit_tree() -> void:
 # confirm button is hit-tested at input level so confirming works even while
 # overlays/dialogs hold GUI focus. Guarded by awaiting_movement.
 func _input(event: InputEvent) -> void:
+	# Click-to-target: BEFORE the awaiting_movement guard, because target
+	# declaration happens before any model is dragged. A left-click on an enemy
+	# unit's model on the board picks it as a charge target, exactly as clicking
+	# its ELIGIBLE TARGETS row does — the right-hand list stays fully functional,
+	# this is just the second way in.
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if _try_click_select_target(event as InputEventMouseButton):
+			get_viewport().set_input_as_handled()
+			return
+
 	if not awaiting_movement:
 		return
-	
+
 	if event is InputEventMouseButton:
 		var mouse_event = event as InputEventMouseButton
 		
@@ -1366,7 +1376,7 @@ func _update_button_states() -> void:
 		elif awaiting_roll:
 			charge_info_label.text = "Click 'Roll 2D6' for charge distance"
 		elif has_selected_unit and not has_selected_targets:
-			charge_info_label.text = "Step 2: Click a target below (Ctrl+Click adds more for a multi-charge)"
+			charge_info_label.text = "Step 2: Click a target — a row below or the enemy on the board (Ctrl+Click adds more for a multi-charge)"
 		elif has_selected_unit and has_selected_targets:
 			if selected_targets.size() > 1:
 				charge_info_label.text = "Step 3: Click 'Declare Charge' to charge ALL %d selected targets" % selected_targets.size()
@@ -1515,6 +1525,173 @@ func _sync_selected_targets_from_list() -> void:
 	print("ChargeController: selected_targets now ", selected_targets)
 	_update_button_states()
 	_update_visuals()
+
+# ============================================================================
+# Click-to-target: pick the charge target by clicking the ENEMY UNIT ON THE
+# BOARD, not only its row in ELIGIBLE TARGETS. Both routes end in the same
+# place — the ItemList's selection state stays the single source of truth for
+# selected_targets, so the clicked row highlights, Declare Charge enables and
+# the pre-roll reachability hint updates exactly as before.
+#   plain click             → charge ONLY that unit
+#   Ctrl / Cmd / Shift click → add or remove it (multi-charge), same as the list
+# ============================================================================
+
+# How far outside a model's base edge (board px) a click still counts as
+# hitting it. A small forgiveness ring so a click that grazes the rim of a
+# 25 mm base still lands, without letting a click on empty board 2" away grab
+# the nearest enemy (the shooting phase's 500 px "very large threshold" does
+# exactly that and mis-assigns targets the player never clicked on).
+const CLICK_TARGET_MARGIN_PX: float = 6.0
+
+func _try_click_select_target(mb: InputEventMouseButton) -> bool:
+	"""Left-click on an enemy model's base → select that unit as a charge target.
+	Returns true when the click was consumed (a target was picked, or the click
+	landed on an enemy that cannot be charged and we explained why). Returns
+	false for every click we do not own, so panning, the panel and the
+	charge-move drag path all behave exactly as before."""
+	# Only while a charger is armed and the declaration is still open. Once
+	# DECLARE_CHARGE lands (awaiting_roll) or models are being dragged
+	# (awaiting_movement) the rows are locked, so the board must be too.
+	if active_unit_id == "" or awaiting_roll or awaiting_movement:
+		return false
+	if current_phase == null or not (current_phase is ChargePhase):
+		return false
+	if not is_instance_valid(target_list) or target_list.get_item_count() == 0:
+		return false
+	# Multiplayer: the idle seat never declares targets.
+	if NetworkManager and NetworkManager.is_networked() and not NetworkManager.is_local_player_turn():
+		return false
+	# The measuring tape owns board clicks while it is armed (Main._input places
+	# its endpoints) — do not eat them out from under it.
+	if MeasuringTapeManager and MeasuringTapeManager.measure_mode_active:
+		return false
+	# A click headed for a HUD control (the unit list, the target list, the
+	# buttons, the game log) belongs to that control — _input runs BEFORE
+	# Godot's GUI pass, so without this guard we would eat panel clicks.
+	if get_viewport().gui_get_hovered_control() != null:
+		return false
+
+	var board_root = SceneRefs.board_root()
+	var board_pos: Vector2 = board_root.to_local(mb.global_position) if board_root else mb.global_position
+
+	var clicked_unit_id := _get_enemy_unit_at_board_position(board_pos)
+	print("DEBUG: click-to-target hit-test at screen ", mb.global_position, " -> board ", board_pos, " => '", clicked_unit_id, "'")
+	if clicked_unit_id == "":
+		return false  # empty board / a friendly model — not ours to handle
+
+	if not eligible_targets.has(clicked_unit_id):
+		# The player clicked a real enemy that this unit cannot charge. Say why
+		# rather than silently doing nothing — a dead click reads as a bug.
+		var reason := _charge_target_ineligibility_reason(clicked_unit_id)
+		print("ChargeController: click-to-target on ineligible %s: %s" % [clicked_unit_id, reason])
+		if is_instance_valid(dice_log_display):
+			dice_log_display.append_text("[color=red]%s[/color]\n" % reason)
+		ToastManager.show_warning(reason)
+		return true
+
+	var additive: bool = mb.ctrl_pressed or mb.meta_pressed or mb.shift_pressed \
+		or Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META) \
+		or Input.is_key_pressed(KEY_SHIFT)
+	print("ChargeController: click-to-target %s (additive=%s) from board token" % [clicked_unit_id, additive])
+	select_target_by_id(clicked_unit_id, additive)
+	return true
+
+func select_target_by_id(target_id: String, additive: bool = false) -> bool:
+	"""Apply a target pick to the ELIGIBLE TARGETS list — the same select /
+	deselect the list's own click handler performs, so board clicks and row
+	clicks cannot drift apart. Returns false when the unit has no row."""
+	if not is_instance_valid(target_list):
+		return false
+	var idx := _target_row_index(target_id)
+	if idx < 0:
+		return false
+	if additive:
+		if target_list.is_selected(idx):
+			target_list.deselect(idx)
+		else:
+			target_list.select(idx, false)  # false = keep existing selection
+	else:
+		target_list.select(idx, true)  # true = single-select (clears others)
+	# Steam Deck: the virtual cursor IS the pad, so a click there should carry the
+	# D-pad row cursor with it instead of leaving it parked on row 0. Guarded on
+	# the active device — the row tint and board reticle are pad affordances, and
+	# painting them during mouse play would differ from a plain row click, which
+	# is meant to behave identically to this.
+	if InputDeviceManager.is_pad_active():
+		pad_target_cursor = idx
+		_update_pad_target_cursor_visual()
+	_sync_selected_targets_from_list()
+	return true
+
+func _target_row_index(target_id: String) -> int:
+	"""Row index of `target_id` in the ELIGIBLE TARGETS list, or -1."""
+	if not is_instance_valid(target_list):
+		return -1
+	for i in range(target_list.get_item_count()):
+		if str(target_list.get_item_metadata(i)) == target_id:
+			return i
+	return -1
+
+func _get_enemy_unit_at_board_position(board_pos: Vector2) -> String:
+	"""Unit id of the enemy whose model base is under `board_pos`, or "".
+	Shape-aware (BaseShape.contains_point / closest edge) so oval and
+	rectangular bases — Battlewagons, Knights — hit-test against what is
+	actually drawn instead of a fat circle, and NEAREST-EDGE wins so tightly
+	packed formations resolve to the model the cursor is really on.
+	An attached character's model resolves to the unit it is attached to: the
+	bodyguard is what a charge is declared against."""
+	var charger = GameState.get_unit(active_unit_id)
+	if charger.is_empty():
+		return ""
+	var charger_owner = charger.get("owner", 0)
+	var all_units = GameState.state.get("units", {})
+
+	var best_unit_id := ""
+	var best_edge_dist := INF
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if unit.get("owner", 0) == charger_owner:
+			continue
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			if model.get("position") == null:
+				continue  # embarked or in reserves — no token on the board
+			var model_pos := _get_model_position(model)
+			var shape: BaseShape = Measurement.create_base_shape(model)
+			if shape == null:
+				continue
+			var rot: float = float(model.get("rotation", 0.0))
+			var edge_dist := 0.0
+			if not shape.contains_point(board_pos, model_pos, rot):
+				edge_dist = board_pos.distance_to(shape.get_closest_edge_point(board_pos, model_pos, rot))
+			if edge_dist <= CLICK_TARGET_MARGIN_PX and edge_dist < best_edge_dist:
+				best_edge_dist = edge_dist
+				best_unit_id = unit_id
+
+	if best_unit_id == "":
+		return ""
+	# Attached CHARACTER models sit on the board under their own unit id; the
+	# charge is declared against the bodyguard unit they lead.
+	var attached_to = all_units.get(best_unit_id, {}).get("attached_to", null)
+	if attached_to != null and str(attached_to) != "" and eligible_targets.has(str(attached_to)):
+		return str(attached_to)
+	return best_unit_id
+
+func _charge_target_ineligibility_reason(target_id: String) -> String:
+	"""Why the active charger cannot declare a charge against `target_id`.
+	Mirrors RulesEngine.charge_targets_within_12's filters, so the message
+	always matches the reason the row is absent from ELIGIBLE TARGETS."""
+	var board = GameState.create_snapshot(false)
+	var reason: String = RulesEngine.charge_target_ineligibility_reason(active_unit_id, target_id, board)
+	if reason == "":
+		# The rules say it IS chargeable but no row exists for it — e.g. an
+		# attached character, which is charged through its bodyguard unit. Give
+		# the player something honest rather than an empty toast.
+		var target_unit = GameState.get_unit(target_id)
+		var target_name = str(target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_id)))
+		reason = "%s is not in this unit's target list" % target_name
+	return reason
 
 # ============================================================================
 # Pad (controller) support: D-pad ▲ ▼ ◀ ▶ walks the ELIGIBLE TARGETS rows with
@@ -1756,7 +1933,7 @@ func _update_target_hint_label() -> void:
 	elif selected_targets.size() == 1:
 		body = "1 target selected.  To charge [b]more than one[/b] unit, hold %s another target." % ck
 	else:
-		body = "[b]Click[/b] a target to charge it.  To charge [b]several units[/b] at once, %s each one." % ck
+		body = "[b]Click[/b] a target to charge it — either a row here [b]or the enemy unit on the board[/b].  To charge [b]several units[/b] at once, %s each one." % ck
 	target_hint_label.text = body
 
 func _update_charge_requirement_hint() -> void:
@@ -1904,6 +2081,13 @@ func _highlight_unit(unit_id: String, color: Color) -> void:
 		highlight.position = Vector2(pos.get("x", 0), pos.get("y", 0)) - Vector2(16, 16)
 		highlight.size = Vector2(32, 32)
 		highlight.color = color
+		# Decoration only — never a mouse target. ColorRect is a Control and
+		# defaults to MOUSE_FILTER_STOP, so these squares sit ON TOP of exactly
+		# the enemy models the player wants to click and register as the hovered
+		# Control. That made every eligible target un-clickable on the board
+		# (click-to-target bailed on its "this click belongs to the HUD" guard)
+		# while INELIGIBLE enemies — which get no highlight — clicked fine.
+		highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		target_highlights.add_child(highlight)
 
 func _clear_highlights() -> void:

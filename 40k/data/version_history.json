@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.14.0",
+      "version": "1.16.0",
       "date": "2026-08-02",
       "summary": "Tutorial 6 (Krumpin') now teaches Pile In properly: five of your Boyz start too far back to swing, and you have to shuffle them into the fight yourself.",
       "changes": [
@@ -11,6 +11,30 @@
         "You can drag each model by hand or press 'Auto Pile In' to move the lot, then Confirm Move. The five Boyz already in base contact show a red B2B marker — they are locked where they stand and cannot move, which is the actual rule.",
         "Once the move lands, all ten Boyz are in the fight and the lesson carries on as before. The yellow highlight follows you: it sits on Auto Pile In until you have staged a move, then jumps to Confirm Move.",
         "Fixed the attack-panel tip in the same lesson, which named a Power klaw the Boyz mob does not carry — the Boss Nob's weapon is a Big choppa (the Warboss has the klaw)."
+      ]
+    },
+    {
+      "version": "1.15.0",
+      "date": "2026-08-02",
+      "summary": "Charge phase: pick your charge target by clicking the enemy unit on the board, not just its name in the right-hand list.",
+      "changes": [
+        "With a charging unit selected, click an enemy unit's models on the battlefield to declare a charge against them — the matching ELIGIBLE TARGETS row highlights and Declare Charge lights up, exactly as if you had clicked the row.",
+        "Ctrl+Click (or Cmd/Shift+Click) an enemy on the board adds or removes it, so a multi-unit charge can be built straight off the board; a plain click still replaces the current pick.",
+        "Clicking the list of names still works exactly as before — this is an extra way in, not a replacement.",
+        "Click an enemy you cannot charge and the game now tells you why (\"Witchseekers is 45.3\\\" away — charge targets must be within 12\\\"\") instead of silently doing nothing.",
+        "Fixed: the green highlight squares drawn over eligible charge targets were swallowing mouse clicks on those very models."
+      ]
+    },
+    {
+      "version": "1.14.0",
+      "date": "2026-08-02",
+      "summary": "The Keyboard Shortcuts card (Shift+/) is properly laid out like the unit datasheet card — and it finally lists every shortcut in the game, not the 15 it used to show.",
+      "changes": [
+        "The card is now built like the datasheet you get with I: gold-bordered panel, a title bar with the shortcut count, colour-coded section headers, alternating rows and keys drawn as keycaps. It used to be a plain grey box in the default font.",
+        "It lists ALL 71 bound keys plus the 8 mouse/Enter/Esc controls that aren't rebindable — camera panning, save and load slots, the shooting-phase keys, replay playback and the debug keys were all missing before.",
+        "Shortcuts are grouped into Universal & Mouse, Camera & View, Board & Measuring, Model & Deployment, Phase Actions, Panels & Overlays, AI, Replay Playback, Save & Load and Debug, spread over columns that fit on screen without scrolling at 1080p.",
+        "Keys are read live from your bindings, so anything you rebind in Settings › Controls shows the new key straight away; a shortcut you have deliberately left unassigned shows as 'Unbound'.",
+        "ESC now closes the card instead of opening the settings menu behind it. Shift+/ still toggles it, and the footer still points controller players at Settings › Controller."
       ]
     },
     {
