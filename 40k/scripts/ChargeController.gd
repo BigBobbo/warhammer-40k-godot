@@ -5101,6 +5101,12 @@ func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void
 	# individual model. Anchored on the origin (not the live position) so the ring
 	# stays put as a fixed reference while the model is dragged; the panel's
 	# Used/Left readout tracks the live remaining budget.
+	#
+	# Each ring is drawn at the rolled distance PLUS that model's base extent: the
+	# charge budget is measured centre-to-centre, so a ring at the raw distance
+	# marks where the model's centre may stop and a wide base overhangs it at max
+	# range. Inflating per model makes the ring mean "the furthest any part of this
+	# model can end up" (same convention as the Movement phase reach ring).
 	if not is_instance_valid(range_visual):
 		return
 	_clear_charge_range_circle()
@@ -5110,6 +5116,7 @@ func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void
 	if unit.is_empty():
 		return
 	var radius_px := Measurement.inches_to_px(max_distance)
+	var max_ring_radius := radius_px
 	var centers: Array = []
 	# Charging unit's own models, plus its attached CHARACTER models — they are
 	# draggable too (keyed "<char_unit>:<model>"), so show their reach as well.
@@ -5131,7 +5138,9 @@ func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void
 			if center == Vector2.ZERO:
 				continue
 			centers.append(center)
-			_draw_charge_dashed_circle(center, radius_px, CHARGE_MODEL_RANGE_COLOR, CHARGE_MODEL_RANGE_WIDTH)
+			var ring_radius: float = radius_px + Measurement.base_extent_px(model)
+			max_ring_radius = maxf(max_ring_radius, ring_radius)
+			_draw_charge_dashed_circle(center, ring_radius, CHARGE_MODEL_RANGE_COLOR, CHARGE_MODEL_RANGE_WIDTH)
 
 	# One summary label above the group — every model shares the same rolled reach,
 	# so a per-model number would just be the same value repeated N times.
@@ -5147,7 +5156,7 @@ func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void
 		range_label.text = "%d\" charge move (each model)" % int(round(max_distance))
 		range_label.add_theme_font_size_override("font_size", 32)
 		range_label.add_theme_color_override("font_color", CHARGE_MODEL_RANGE_LABEL_COLOR)
-		range_label.position = Vector2(group_center.x - 150, top_y - (radius_px + 40))
+		range_label.position = Vector2(group_center.x - 150, top_y - (max_ring_radius + 40))
 		range_label.z_index = 55
 		range_visual.add_child(range_label)
 
