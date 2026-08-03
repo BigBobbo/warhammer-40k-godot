@@ -244,6 +244,7 @@ If you write new actions with nested position fields, extend `_normalize_action_
 - **Using `await process_frame` inside `SceneTree._init`.** Control returns to the engine before your assertions run; output is out of order.
 - **Skipping the `from_save = true` flag.** `Main._ready()` will reinitialize a fresh game and your loaded state vanishes.
 - **Trusting that the Godot window is visible.** macOS may have suspended rendering. Always `osascript activate` before screenshot if visual verification matters.
+- **Letting a before/after pair overwrite itself.** Scenario screenshots land at `user://test_results/scenarios/<id>_<label>.png`, and **re-running the scenario overwrites them**. Reverting the fix to capture a "before" therefore replaces the "after" you already took, and both files end up showing the BROKEN state. Copy each capture out to a distinct `BEFORE_*.png` / `AFTER_*.png` path the moment you take it, make the LAST run the fixed one, and open both images and name the differing pixels before posting. See CLAUDE.md → "Anti-pattern: before/after screenshots get clobbered".
 
 ---
 

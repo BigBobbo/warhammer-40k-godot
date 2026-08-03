@@ -47,7 +47,10 @@ Rules:
    (e.g. "Screenshot: `…/charge_dialog_open.png` — the charge dialog now lists
    both eligible targets with 2D6 distances").
 4. **Before/after when the change alters existing visuals.** For layout, colour,
-   wording, or positioning fixes, capture both and say which is which.
+   wording, or positioning fixes, capture both and say which is which. See
+   "Before/after screenshots get clobbered" below — the capture ORDER and the
+   filenames matter, and getting them wrong silently shows the user two
+   identical broken screenshots.
 5. **When a screenshot does NOT apply**, say so explicitly in the bullet rather
    than dropping it — e.g. "Screenshot: n/a — pure RulesEngine math, verified by
    headless test output above". Docs/tooling/refactor-only changes are the
@@ -55,6 +58,43 @@ Rules:
 6. **If you tried and could not capture one, the bullet says exactly that** —
    what you ran, how it failed — and the work is reported as UNVERIFIED. Do not
    quietly omit the bullet.
+
+### Anti-pattern: before/after screenshots get clobbered (2026-08-03 lesson)
+
+**Reported by the user, and it has happened more than once: BOTH screenshots in
+a before/after pair showed the BROKEN state.** The cause is mechanical, not a
+judgement call, so the fix is mechanical too.
+
+Scenario screenshots are written to a path derived from the scenario id + label:
+`user://test_results/scenarios/<id>_<label>.png`. **Re-running the same scenario
+OVERWRITES them.** So the natural way to get a "before" — stash the fix, re-run
+the scenario, grab the PNG — silently replaces the "after" you captured earlier
+with the unfixed render. Both files then show the bug, and if you post them from
+the scenario output directory you are showing the user the same broken UI twice.
+
+**Do this, every time, in this order:**
+
+1. **Capture BEFORE first**, with the fix reverted (`git stash` / `git checkout`
+   the file), and **immediately copy the PNG out of the scenario output
+   directory** to a distinct, obviously-named path — e.g.
+   `<scratchpad>/BEFORE_<what_is_wrong>.png`. It is now immune to later runs.
+2. **Restore the fix and re-run**, so the LAST run that touched the scenario
+   output directory is the fixed one. Copy those out too:
+   `<scratchpad>/AFTER_<what_is_right>.png`.
+3. **`rm` the scenario's PNGs before the final run** if there is any doubt about
+   which run produced them. A missing file fails loudly; a stale file lies.
+4. **Open each image and READ it before posting.** Name, out loud, the pixels
+   that prove the claim ("two rows in WEAPON ASSIGNMENTS, the second is
+   `Castellan axe – Ranged 24"`"). If the "after" shows the broken state, it is
+   the wrong file — regenerate it. Do NOT post it with a caption asserting the
+   fix; the caption does not change what the user sees.
+5. **Never present a stale path as evidence.** If you noticed mid-task that a
+   screenshot was overwritten, regenerating it is not optional cleanup — the
+   TLDR's Screenshot bullet must point at a file you have looked at SINCE the
+   last run of the fixed code.
+
+The same trap applies to `capture_screenshot` over the MCP bridge when you reuse
+a label, and to any before/after pair where both runs write to one path.
 
 ## Version / changelog (update on EVERY player-facing change)
 
