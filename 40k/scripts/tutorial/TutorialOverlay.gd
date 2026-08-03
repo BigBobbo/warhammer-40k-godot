@@ -45,6 +45,13 @@ const CARD_PROGRESS_HIDE_W := 380.0
 # How much roomier the right gutter must be before the card crosses the screen.
 const CARD_SIDE_SWAP_BIAS := 64.0
 const CRAMPED_LOG_INTERVAL_MS := 5000
+# Side HUD panels the card must never cover. Unlike dialogs these are ordinary
+# Controls pinned to the screen edges, so _dodge_dialog never sees them — see
+# _side_panel_band().
+const CARD_SIDE_BLOCKERS := ["GameLogPanel", "HUD_Left", "HUD_Right"]
+# How far inside its clipping ancestor the spotlight ring is kept, so the whole
+# 3px stroke stays on the panel instead of straddling its edge.
+const RING_EDGE_INSET := 2.0
 
 # The two escape-hatch affordances (see "modal escape hatch" below). Both names
 # are excluded from _open_game_windows() so the tutorial's own windows never
@@ -80,7 +87,12 @@ var _reresolve_accum: float = 0.0
 # swallowed by the "nothing changed" guard.
 var _card_mode: String = ""
 var _card_content_w: float = -1.0
+# Horizontal nudge currently applied on top of the centred top/bottom placement
+# to keep the card out of the side HUD panels. Tracked so _apply_band_shift()
+# can be re-run every frame without compounding — see _side_panel_band().
+var _card_band_dx: float = 0.0
 var _last_cramped_log_ms: int = 0
+var _last_cramped_band_log_ms: int = 0
 var _dim_strips: Array = []
 var _deep_windows: Array = []   # dialogs parented below /root/Main, see _refresh_deep_windows
 var _deep_scan_accum: float = DEEP_SCAN_INTERVAL_S
@@ -480,6 +492,9 @@ func _place_card(mode: String, content_w: float = CARD_CONTENT_WIDTH) -> void:
 	if mode == _card_mode and is_equal_approx(content_w, _card_content_w):
 		return  # nothing to re-apply — leave shake()'s tween alone
 	_card_mode = mode
+	# Every branch below rewrites the horizontal offsets, so any band nudge
+	# already folded into them is gone; _apply_band_shift() must re-derive it.
+	_card_band_dx = 0.0
 	if not is_equal_approx(content_w, _card_content_w):
 		_card_content_w = content_w
 		for c in [_body_text, _checklist_text, _hint_label]:
@@ -549,6 +564,60 @@ func card_content_width() -> float:
 # rect when no dialog is open.
 func card_blocker_rect() -> Rect2:
 	return _dialog_bounds()
+
+
+# Exposed for windowed scenarios (tut_t4_panel_fit_ring_and_card): one call that
+# checks everything a spotlighted side-panel step has to get right at the
+# current canvas scale. Returns "ok" or a human-readable list of what escaped.
+#
+# Both halves regressed together on the Steam Deck's shrunken logical viewport:
+# the ring drawn outside the panel it points at, and the fixed-width card slid
+# over that same panel. Keeping the check in one place means a scenario can
+# sweep content_scale_factor without restating the geometry each time.
+func check_panel_fit() -> String:
+	var problems: Array = []
+	var vp := _spotlight.get_viewport_rect().size
+	var main := get_tree().root.get_node_or_null("Main")
+	if main == null:
+		return "no Main scene"
+	if _anchor_ok:
+		# The widest ring the pulse ever draws.
+		var ring := _ring_rect(11.0)
+		if ring.size.x <= 0.0 or ring.size.y <= 0.0:
+			problems.append("ring collapsed to nothing (anchor %s)" % str(_anchor_rect))
+		else:
+			if ring.position.x < -0.5 or ring.end.x > vp.x + 0.5 \
+					or ring.position.y < -0.5 or ring.end.y > vp.y + 0.5:
+				problems.append("ring %s off-screen in viewport %s" % [str(ring), str(vp)])
+			var host := _clipping_ancestor_rect()
+			if host.size.x > 0.0 and not host.grow(0.5).encloses(ring):
+				problems.append("ring %s escapes its panel %s" % [str(ring), str(host)])
+	var card := card_rect()
+	for panel_name in CARD_SIDE_BLOCKERS:
+		var p = main.get_node_or_null(NodePath(panel_name))
+		if p == null or not (p is Control) or not (p as Control).is_visible_in_tree():
+			continue
+		var r: Rect2 = (p as Control).get_global_rect()
+		if r.size.x > 0.0 and card.intersects(r):
+			problems.append("card %s covers %s %s" % [str(card), panel_name, str(r)])
+	if _footer != null and _footer.get_combined_minimum_size().x > card.size.x + 0.5:
+		problems.append("footer needs %.0fpx, card is only %.0fpx wide" % [
+			_footer.get_combined_minimum_size().x, card.size.x])
+	return "ok" if problems.is_empty() else "; ".join(problems)
+
+
+# The rect the ring is expected to stay inside: the nearest clipping ancestor of
+# the anchor, or a zero rect when there is none (board anchors).
+func _clipping_ancestor_rect() -> Rect2:
+	var ctrl := _anchor_node as Control if is_instance_valid(_anchor_node) else null
+	if ctrl == null or ctrl.get_window() != get_tree().root:
+		return Rect2()
+	var n: Node = ctrl.get_parent()
+	while n != null:
+		if n is Control and (n as Control).clip_contents:
+			return (n as Control).get_global_rect()
+		n = n.get_parent()
+	return Rect2()
 
 
 # Exposed for windowed scenarios: how far an open dialog eats into the card, in
@@ -993,6 +1062,20 @@ func show_hint(text: String) -> void:
 	_hint_label.visible = true
 
 
+# Re-point the spotlight WITHOUT re-showing the step (TutorialManager's
+# `anchor_when`). A step that teaches "do the thing, THEN lock it in" has two
+# targets in sequence — the models on the board, then the confirm button — and
+# re-calling show_step() to move the ring would wipe the hint the player may
+# already be reading and replay the card entrance. Only the anchor moves here.
+func update_anchor(spec, spotlight_mode: String) -> void:
+	_anchor_spec = spec if typeof(spec) == TYPE_DICTIONARY else {}
+	_spotlight_mode = spotlight_mode
+	_anchor_node = null
+	_anchor_ok = false
+	_reresolve_accum = ANCHOR_RERESOLVE_S  # resolve on the next _process tick
+	_spotlight.queue_redraw()
+
+
 # Repaint the multi-input tick list. `items` is [{id, label (BBCode), done}];
 # an empty array hides the row. Ticked entries go green, outstanding ones stay
 # dim — the whole point of the row is that the player can see, at a glance,
@@ -1083,6 +1166,15 @@ func current_checklist_text() -> String:
 	return _checklist_text.text if _checklist_text.visible else ""
 
 
+# Which node the spotlight currently sits on ("" when nothing is resolved) —
+# lets a windowed scenario assert that an `anchor_when` swap actually moved the
+# ring onto the button the card is now telling the player to press.
+func current_anchor_name() -> String:
+	if not _anchor_ok or _anchor_node == null or not is_instance_valid(_anchor_node):
+		return ""
+	return str(_anchor_node.name)
+
+
 # --------------------------------------------------------------- process ----
 
 func _process(delta: float) -> void:
@@ -1162,7 +1254,98 @@ func _update_card_mode() -> void:
 		else:
 			var top_rect := Rect2(cr.position.x, CARD_TOP_OFFSET, cr.size.x, cr.size.y)
 			wanted = "top" if not top_rect.grow(8).intersects(_anchor_rect) else "bottom"
-	_place_card(wanted)
+	_place_card(wanted, _content_width_for_band())
+	_apply_band_shift()
+
+
+# The band the centred card may occupy: between the side HUD panels, not the
+# whole viewport.
+#
+# The game-log strip (left) and the phase/unit panel (right) are opaque Controls
+# pinned to the screen edges, so _dodge_dialog — which only looks at Windows —
+# never sees them. At 1920 the 588px card clears both, but the logical viewport
+# shrinks as the UI Scale slider (and the pad text boost that multiplies it)
+# goes up, and below ~1416px wide the centred card starts covering HUD_Right:
+# exactly the weapon rows and unit list the lesson is telling the player to
+# click. Reported on T4 step 4 on a Steam Deck.
+#
+# Returns (left_limit, right_limit) in viewport coords.
+func _side_panel_band() -> Vector2:
+	var vp := _spotlight.get_viewport_rect().size
+	var band := Vector2(0.0, vp.x)
+	var main := get_tree().root.get_node_or_null("Main")
+	if main == null:
+		return band
+	var centre: float = vp.x * 0.5
+	for panel_name in CARD_SIDE_BLOCKERS:
+		var p = main.get_node_or_null(NodePath(panel_name))
+		if p == null or not (p is Control) or not (p as Control).is_visible_in_tree():
+			continue
+		var r: Rect2 = (p as Control).get_global_rect()
+		if r.size.x <= 0.0 or r.size.y <= 0.0:
+			continue
+		# Classify by the panel's own centre, so a panel wide enough to straddle
+		# the screen's centre line still pushes the limit it is nearest to
+		# instead of being skipped.
+		if r.get_center().x < centre:
+			band.x = maxf(band.x, minf(r.end.x, centre))
+		else:
+			band.y = minf(band.y, maxf(r.position.x, centre))
+	# Viewport genuinely too narrow to seat the card between the panels (e.g.
+	# UI Scale 2.0 on a Deck, where the two panels eat 740 of 799px). Fall back
+	# to plain centring — overlapping something is unavoidable — but say so,
+	# the same way _dodge_dialog does for its gutter.
+	if band.y - band.x < CARD_MIN_CONTENT_WIDTH + CARD_CHROME_W + 2.0 * CARD_EDGE_MARGIN:
+		_log_cramped_band(vp, band)
+		return Vector2(0.0, vp.x)
+	return band
+
+
+func _log_cramped_band(vp: Vector2, band: Vector2) -> void:
+	var now := Time.get_ticks_msec()
+	if now - _last_cramped_band_log_ms < CRAMPED_LOG_INTERVAL_MS:
+		return
+	_last_cramped_band_log_ms = now
+	var msg := "[TutorialOverlay] side-panel band too narrow: viewport=%s band=%s (%.0fpx) — card will overlap a HUD panel" % [
+		str(vp), str(band), band.y - band.x]
+	print(msg)
+	var dl := get_node_or_null("/root/DebugLogger")
+	if dl != null:
+		dl.warn(msg)
+
+
+# Text-column width that fits between the side panels, floored at what the
+# card's own buttons need (_min_content_width) so the footer never overflows.
+func _content_width_for_band() -> float:
+	var band := _side_panel_band()
+	var room: float = band.y - band.x - 2.0 * CARD_EDGE_MARGIN - CARD_CHROME_W
+	return clampf(room, _min_content_width(), CARD_CONTENT_WIDTH)
+
+
+# Slide the centred top/bottom card sideways until it sits inside the band.
+#
+# The card's anchors stay at 0.5 with GROW_DIRECTION_BOTH, so moving both
+# horizontal offsets by the same delta shifts it without disturbing the
+# minimum-size clamp Control re-applies each layout pass. The delta is stored
+# rather than accumulated: this runs every frame from _update_card_mode (the
+# band moves with the viewport, which _place_card's "nothing changed" guard
+# cannot see), so it must be idempotent.
+func _apply_band_shift() -> void:
+	var dx := 0.0
+	if _card_mode == "top" or _card_mode == "bottom":
+		var vp := _spotlight.get_viewport_rect().size
+		var band := _side_panel_band()
+		var half: float = (_card_content_w + CARD_CHROME_W) * 0.5
+		var centre: float = vp.x * 0.5
+		var lo: float = band.x + CARD_EDGE_MARGIN + half
+		var hi: float = band.y - CARD_EDGE_MARGIN - half
+		var wanted: float = clampf(centre, lo, hi) if hi >= lo else (band.x + band.y) * 0.5
+		dx = wanted - centre
+	if is_equal_approx(dx, _card_band_dx):
+		return
+	_card.offset_left += dx - _card_band_dx
+	_card.offset_right += dx - _card_band_dx
+	_card_band_dx = dx
 
 
 # Keep the card clear of an open embedded dialog.
@@ -1190,7 +1373,10 @@ func _dodge_dialog(dlg: Rect2) -> void:
 		Vector2(maxf((vp.x - full_w) * 0.5, 0.0), CARD_TOP_OFFSET),
 		Vector2(full_w, card_h))
 	if not top_rect.grow(CARD_DIALOG_GAP).intersects(dlg):
-		_place_card("top")
+		# The dialog is clear of the top placement, but the side HUD panels
+		# still are not — keep the same band clamp the no-dialog path uses.
+		_place_card("top", _content_width_for_band())
+		_apply_band_shift()
 		return
 	var left_room: float = dlg.position.x
 	var right_room: float = vp.x - dlg.end.x
@@ -1238,7 +1424,11 @@ func _update_dim_strips() -> void:
 	if not strict_on:
 		return
 	var vp := _spotlight.get_viewport_rect().size
-	var hole := _anchor_rect.grow(10.0)
+	# Same clamp as the ring: a hole punched outside the panel that owns the
+	# anchor would leave an undimmed strip of board beside it.
+	var hole := _ring_rect(10.0)
+	if hole.size.x <= 0.0 or hole.size.y <= 0.0:
+		hole = Rect2(_anchor_rect.get_center(), Vector2.ZERO)
 	# top / bottom / left / right frame around the hole
 	_dim_strips[0].position = Vector2.ZERO
 	_dim_strips[0].size = Vector2(vp.x, max(hole.position.y, 0.0))
@@ -1250,6 +1440,34 @@ func _update_dim_strips() -> void:
 	_dim_strips[3].size = Vector2(max(vp.x - hole.end.x, 0.0), hole.size.y)
 
 
+# The ring is drawn OUTSIDE the anchor, which is right for a board token but
+# wrong for a control that already fills a side panel. The T4 "NOW DA REST!"
+# step spotlights the weapon tree, which spans HUD_Right's whole inner width;
+# HUD_Right is flush with the right screen edge and clips its own contents, so
+# the grown ring put its left edge on the map (board showing through the
+# overhang, next to weapon rows that stop short of it) and its right edge past
+# the viewport entirely — a yellow box with no right-hand side. Reported on a
+# Steam Deck, where the pad UI-scale boost shrinks the logical viewport and
+# makes the overhang proportionally worse.
+#
+# So clamp the ring to the viewport AND to the nearest clipping ancestor: the
+# ring then lands just inside the panel, around the widget it is pointing at,
+# whatever the anchor's size relative to its container.
+func _ring_bounds() -> Rect2:
+	var bounds := _spotlight.get_viewport_rect()
+	var host := _clipping_ancestor_rect()
+	if host.size.x > 0.0:
+		bounds = bounds.intersection(host)
+	return bounds.grow(-RING_EDGE_INSET)
+
+
+# The rect the ring is actually stroked at, for a given pulse width. Shared with
+# check_panel_fit() so the windowed scenario measures what the renderer draws
+# rather than re-deriving it.
+func _ring_rect(grow: float) -> Rect2:
+	return _anchor_rect.grow(grow).intersection(_ring_bounds())
+
+
 func _draw_spotlight() -> void:
 	if not _anchor_ok or _spotlight_mode == "none":
 		return
@@ -1258,12 +1476,18 @@ func _draw_spotlight() -> void:
 	var t := Time.get_ticks_msec() / 1000.0
 	var pulse := 0.5 + 0.5 * sin(t * TAU / UIConstantsData.MOTION_PULSE_LOOP_S)
 	var grow := 6.0 + 5.0 * pulse
+	var outer := _ring_rect(grow)
+	var inner_rect := _ring_rect(2.0)
+	# Anchor scrolled out of its panel (or off-screen): nothing to ring.
+	if outer.size.x <= 0.0 or outer.size.y <= 0.0:
+		return
 	var color: Color = UIConstantsData.MARGINAL_YELLOW
 	color.a = 0.45 + 0.4 * pulse
-	_spotlight.draw_rect(_anchor_rect.grow(grow), color, false, 3.0)
+	_spotlight.draw_rect(outer, color, false, 3.0)
 	var inner: Color = UIConstantsData.MARGINAL_YELLOW
 	inner.a = 0.18
-	_spotlight.draw_rect(_anchor_rect.grow(2.0), inner, false, 1.5)
+	if inner_rect.size.x > 0.0 and inner_rect.size.y > 0.0:
+		_spotlight.draw_rect(inner_rect, inner, false, 1.5)
 
 
 func _on_continue_pressed() -> void:

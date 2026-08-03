@@ -1,0 +1,78 @@
+{
+  "id": "pad_allocate_attacks_reorder_focus",
+  "covers": [
+    "controller.allocate_attacks.reorder_focus",
+    "controller.allocate_attacks.confirm_reachable_after_reorder",
+    "controller.allocate_attacks.disabled_arrows_skipped",
+    "scripts.AllocationGroupOverlay.reorder_focus_repair"
+  ],
+  "fixture": "audit_386_deadly_demise",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "Steam Deck / controller regression: reordering the allocation groups must not strand the D-pad. _rebuild_group_list() frees the very row that owns focus, so pressing the focused up/down arrow cleared the viewport's focus owner outright — PadRouter defers to native ui_* nav for this modal, so nothing highlighted afterwards and 'Confirm Order & Roll Saves' was unreachable (the player could not advance the phase). Boyz F is given a W2 'nob' model so the overlay shows THREE groups (1 model W2 Sv5+, 19 models W1 Sv5+, the attached CHARACTER) with live reorder arrows. The pad walks off Confirm into the list — the disabled edge arrows must be skipped, not parked on — presses A on the nob group's down-arrow (the group really moves to second place, the exact move from the bug report), and focus must survive on that group's arrow at its NEW row. The pad then walks back down to Confirm Order & Roll Saves, presses A, and the flow advances to the casualty step.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "execute_script", "script": "GameState.set_edition(11)", "equals": 11 },
+    { "act": "execute_script", "script": "SettingsService.set_auto_allocate_wounds(false)" },
+
+    { "act": "execute_script", "multiline": true, "script": "var pl = GameState.state.get(\"players\", {})\nfor k in pl.keys():\n\tpl[k][\"cp\"] = 0\nreturn true", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "var u = GameState.state[\"units\"][\"U_BOYZ_F\"]\nu[\"models\"][0][\"wounds\"] = 2\nu[\"models\"][0][\"current_wounds\"] = 2\nreturn int(u[\"models\"][0][\"wounds\"])", "equals": 2 },
+
+    { "act": "execute_script", "multiline": true, "script": "InputDeviceManager.claim_pad()\nreturn InputDeviceManager.is_pad_active()", "equals": true },
+
+    { "act": "execute_script", "script": "main.get_node(\"ShootingController\")._on_saves_required([RulesEngine.prepare_save_resolution(3, \"U_BOYZ_F\", \"U_CUSTODIAN_GUARD_B\", {\"name\": \"Pad Reorder Cannon\", \"ap\": -3, \"damage\": 1, \"damage_raw\": \"1\", \"keywords\": [], \"special_rules\": \"\"}, GameState.state)])" },
+
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton", "timeout_s": 3.0 },
+
+    { "act": "execute_script", "multiline": true, "script": "var o = tree.root.get_node(\"Main/AllocationGroupOverlay\")\nreturn str(o.order)", "equals": "[\"grp_2_5_0\", \"grp_1_5_0\", \"char_20\"]" },
+
+    { "act": "execute_script", "multiline": true, "script": "var fo = tree.root.get_viewport().gui_get_focus_owner()\nif fo == null:\n\treturn \"<none>\"\nreturn str(fo.name)", "equals": "ConfirmButton" },
+
+    { "act": "screenshot", "label": "01_three_groups_confirm_focused" },
+
+    { "act": "simulate_joy_button", "button_index": 11 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "simulate_joy_button", "button_index": 14 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "simulate_joy_button", "button_index": 11 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script", "multiline": true, "script": "var o = tree.root.get_node(\"Main/AllocationGroupOverlay\")\nvar fo = tree.root.get_viewport().gui_get_focus_owner()\nif fo == null:\n\treturn \"<none>\"\nif not o.group_list.is_ancestor_of(fo):\n\treturn \"<outside list: %s>\" % str(fo.name)\nreturn str(fo.name)", "equals": "Down0" },
+
+    { "act": "screenshot", "label": "02_pad_on_nob_group_down_arrow" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "multiline": true, "script": "var o = tree.root.get_node(\"Main/AllocationGroupOverlay\")\nreturn str(o.order)", "equals": "[\"grp_1_5_0\", \"grp_2_5_0\", \"char_20\"]" },
+
+    { "act": "execute_script", "multiline": true, "script": "var o = tree.root.get_node(\"Main/AllocationGroupOverlay\")\nvar fo = tree.root.get_viewport().gui_get_focus_owner()\nif fo == null:\n\treturn \"<none>\"\nif not o.is_ancestor_of(fo):\n\treturn \"<outside overlay: %s>\" % str(fo.name)\nreturn str(fo.name)", "equals": "Down1" },
+
+    { "act": "screenshot", "label": "03_focus_survived_reorder" },
+
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script", "multiline": true, "script": "var fo = tree.root.get_viewport().gui_get_focus_owner()\nif fo == null:\n\treturn \"<none>\"\nreturn str(fo.name)", "equals": "ConfirmButton" },
+
+    { "act": "screenshot", "label": "04_confirm_reachable_after_reorder" },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/AllocationGroupOverlay/PickPanel", "timeout_s": 3.0 },
+
+    { "act": "execute_script", "multiline": true, "script": "var fo = tree.root.get_viewport().gui_get_focus_owner()\nif fo == null:\n\treturn \"<none>\"\nreturn str(fo.name)", "equals": "AutoPickButton" },
+
+    { "act": "screenshot", "label": "05_advanced_to_casualty_step" },
+
+    { "act": "execute_script", "script": "GameState.set_edition(10)", "equals": 10 }
+  ]
+}

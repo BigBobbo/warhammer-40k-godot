@@ -113,7 +113,11 @@ func execute_action(action: Dictionary) -> Dictionary:
 		var error_text: String = ", ".join(raw_errors) if (raw_errors is Array and not raw_errors.is_empty()) else "Action not allowed"
 		return {"success": false, "error": error_text, "errors": raw_errors}
 
+	var _perf_t0 := Time.get_ticks_usec()
 	var result = process_action(action)
+	var _perf_ms := (Time.get_ticks_usec() - _perf_t0) / 1000.0
+	if _perf_ms >= 16.0:
+		DebugLogger.info("[PERF] BasePhase.process_action(%s) took %.1fms" % [str(action.get("type", "UNKNOWN")), _perf_ms])
 	if result.success:
 		DebugLogger.info("[BasePhase] Action processed successfully")
 		# Apply the state changes if they exist

@@ -72,6 +72,15 @@ var pad_camera_sensitivity: float = 1.0    # 0.3 to 2.0 — right-stick camera p
 var pad_cursor_sensitivity: float = 1.0    # 0.3 to 2.0 — virtual-cursor speed
 var pad_cursor_magnetism: bool = true      # ease the cursor toward nearby tokens (P0 magnetism)
 
+# Board hover stats card on the controller. On mouse & keyboard the card sits
+# beside a pointer that is NOT the thing being placed, so it never gets in the
+# way. On the pad the virtual cursor IS the model being dragged (charge/move
+# placement), so the card covers the exact spot the player is aiming at — the
+# reported Steam Deck charge-phase complaint. Default OFF for the pad: hold the
+# R4 / L4 back paddle to peek at the hovered model (PadRouter.stats_peek_active).
+# Mouse & keyboard hovering is unaffected by this setting.
+var pad_hover_stats_card: bool = false
+
 # Menu / panel scroll speed — fraction of Godot's default mouse-wheel / trackpad
 # scroll distance applied to ScrollContainers and other scroll surfaces. 1.0 ==
 # stock engine speed; lower == slower. Consumed by ScrollSpeedController.
@@ -181,6 +190,7 @@ signal terrain_scatter_changed(enabled: bool)
 signal terrain_cover_labels_changed(enabled: bool)
 signal shooting_show_all_units_changed(show_all: bool)
 signal input_mode_policy_changed(policy: String)
+signal pad_hover_stats_card_changed(enabled: bool)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
@@ -432,6 +442,12 @@ func set_pad_cursor_sensitivity(value: float) -> void:
 func set_pad_cursor_magnetism(enabled: bool) -> void:
 	pad_cursor_magnetism = enabled
 	_save_settings()
+
+func set_pad_hover_stats_card(enabled: bool) -> void:
+	pad_hover_stats_card = enabled
+	pad_hover_stats_card_changed.emit(pad_hover_stats_card)
+	_save_settings()
+	print("[SettingsService] pad_hover_stats_card set to %s" % str(pad_hover_stats_card))
 
 func set_input_mode_policy(policy: String) -> void:
 	# "auto" | "pad" | "kbm" | "dynamic" — see input_mode_policy above.
@@ -712,6 +728,7 @@ func _save_settings() -> void:
 	config.set_value("controls", "pad_camera_sensitivity", pad_camera_sensitivity)
 	config.set_value("controls", "pad_cursor_sensitivity", pad_cursor_sensitivity)
 	config.set_value("controls", "pad_cursor_magnetism", pad_cursor_magnetism)
+	config.set_value("controls", "pad_hover_stats_card", pad_hover_stats_card)
 
 	var err = config.save(SETTINGS_FILE_PATH)
 	if err != OK:
@@ -791,5 +808,6 @@ func _load_settings() -> void:
 	pad_camera_sensitivity = clampf(config.get_value("controls", "pad_camera_sensitivity", 1.0), 0.3, 2.0)
 	pad_cursor_sensitivity = clampf(config.get_value("controls", "pad_cursor_sensitivity", 1.0), 0.3, 2.0)
 	pad_cursor_magnetism = bool(config.get_value("controls", "pad_cursor_magnetism", true))
+	pad_hover_stats_card = bool(config.get_value("controls", "pad_hover_stats_card", false))
 
 	print("[SettingsService] Settings loaded from %s" % SETTINGS_FILE_PATH)

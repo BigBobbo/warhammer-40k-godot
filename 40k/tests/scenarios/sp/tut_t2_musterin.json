@@ -18,7 +18,7 @@
     },
     {
       "act": "click_node",
-      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton"
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton"
     },
     {
       "act": "expect_node_visible",
@@ -46,6 +46,13 @@
     {
       "act": "expect_phase",
       "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "var body = tree.root.get_node_or_null(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nif body == null:\n\treturn \"no card\"\nvar t = str(body.text).to_lower().replace(\"[b]\", \"\").replace(\"[/b]\", \"\")\nif not \"attach da warboss to da boyz\" in t:\n\treturn \"card never names the goal: \" + str(body.text)\nif not \"fight as one\" in t:\n\treturn \"card never says why: \" + str(body.text)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "the card must name WHAT the dropdown does (attach da Warboss to da Boyz) and WHY (they fight as one unit), not only how to reach the control. The predicate is deliberately the goal PHRASE, not the word 'attach' - the old copy said 'under LEADER ATTACHMENTS, set da dropdown to Boyz', which contains 'attach' while never telling the player what they are declaring."
     },
     {
       "act": "screenshot",

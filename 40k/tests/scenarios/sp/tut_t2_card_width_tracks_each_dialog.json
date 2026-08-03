@@ -1,0 +1,180 @@
+{
+  "id": "tut_t2_card_width_tracks_each_dialog",
+  "covers": [
+    "tutorial.overlay.dialog_dodge",
+    "tutorial.overlay.width_tracks_blocker",
+    "tutorial.overlay.width_restored"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Follow-up coverage for the instructor card's dialog dodge. tut_t2_card_clears_formations_dialog proves the card clears the Declare Battle Formations panel at a shrunken viewport; it stops there, on step 1, against that one dialog. This picks up where it stops and pins the three properties that make the dodge a live per-frame measurement rather than a value tuned to that one panel. (1) SURVIVES A STEP CHANGE: show_step resets the card to full width and re-dodges within the same call, so advancing attach_warboss -> embark_boyz under the same dialog must not leave a full-width card parked under it — measured at content 388px on both sides of the step change, overlap 0. (2) A BOTTOM-DOCKED DIALOG IS NOT DODGED AT ALL: the deployment roll-off is both a different width (550 vs 600) and docked low enough that it never reaches the card's default top placement, so _dodge_dialog's early return must leave the card at top, full width — the column really moves 388 -> 560, which a latch or a constant could not do. Both facts are asserted from the live rects, not assumed. (3) RESTORES: once every dialog closes the card is back at the full CARD_CONTENT_WIDTH at the top placement, so the narrowing is not one-way and the rest of the lesson does not read in a cramped column. Runs at content_scale_factor 1.3 (what the UI Scale slider and the pad text boost do) because that is the regime where the gutter is actually tight; the factor is set on the root Window directly, NOT through SettingsService, so nothing is persisted to user://settings.cfg for the rest of the suite.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton",
+      "timeout_s": 15.0,
+      "comment": "the Tutorial button is built at runtime by _create_tutorial_ui; wait for it rather than assuming a fixed boot time (a cold import makes 1.5s too optimistic)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.root.content_scale_factor = 1.3\nreturn tree.root.get_visible_rect().size.x < 1600.0",
+      "equals": true,
+      "comment": "shrink the logical viewport so the centred dialog leaves a genuinely tight gutter"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton",
+      "emit_pressed": true,
+      "comment": "emit_pressed: synthetic mouse warps are computed in logical coords and no longer line up once content_scale_factor != 1"
+    },
+    { "act": "expect_node_visible", "node": "/root/MainMenu/TutorialPicker", "timeout_s": 3.0 },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t2_musterin/Play_t2_musterin",
+      "emit_pressed": true
+    },
+    { "act": "wait_seconds", "seconds": 12.0 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "attach_warboss" },
+    { "act": "expect_node_visible", "node": "/root/Main/FormationsDialog", "timeout_s": 3.0 },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nInputDeviceManager.set_meta(\"t2w_formations_w\", ov.card_blocker_rect().size.x)\nInputDeviceManager.set_meta(\"t2w_formations_content\", ov.card_content_width())\nprint(\"[T2W] formations blocker=\", ov.card_blocker_rect(), \" card=\", ov.card_rect(), \" content=\", ov.card_content_width(), \" placement=\", ov.card_placement())\nreturn ov.card_blocker_overlap()",
+      "expect_max": 0.0,
+      "comment": "baseline: card clear of the Formations panel, and remember that panel's width + the column it forced"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.card_content_width() < ov.CARD_CONTENT_WIDTH",
+      "equals": true,
+      "comment": "the column really was narrowed here — otherwise the later 'restored to full width' assert would pass trivially"
+    },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is OptionButton and nd.item_count > 0 and nd.get_item_text(0) == \"(Unattached)\":\n\t\tnd.select(1)\n\t\tnd.item_selected.emit(1)\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "equals": true,
+      "comment": "CASE 1 setup — advance the step while the SAME dialog stays open. OptionButton popups are native Windows, so select+emit is the dropdown escape hatch"
+    },
+    { "act": "wait_frames", "frames": 15 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "embark_boyz" },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nprint(\"[T2W] after step change: card=\", ov.card_rect(), \" content=\", ov.card_content_width(), \" overlap=\", ov.card_blocker_overlap())\nreturn ov.card_blocker_overlap()",
+      "expect_max": 0.0,
+      "comment": "CASE 1: a new step re-runs show_step, which resets the card to full width — it must re-dodge in the same call, not leave the card parked under the dialog"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.card_content_width() < ov.CARD_CONTENT_WIDTH",
+      "equals": true,
+      "comment": "CASE 1: and it is still narrowed, not merely off to one side"
+    },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var fd = tree.root.get_node(\"/root/Main/FormationsDialog\")\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is CheckBox and str(nd.text).begins_with(\"Boyz\") and not (\"Reserves\" in str(nd.text)):\n\t\tnd.button_pressed = true\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false",
+      "equals": true
+    },
+    { "act": "wait_frames", "frames": 15 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "confirm_formations" },
+    {
+      "act": "click_node",
+      "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton",
+      "emit_pressed": true
+    },
+    { "act": "wait_seconds", "seconds": 3.0 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "roll_off" },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nvar b = ov.card_blocker_rect()\nif b.size.x <= 0.0:\n\treturn \"no blocker\"\nprint(\"[T2W] rolloff blocker=\", b, \" card=\", ov.card_rect(), \" content=\", ov.card_content_width())\nvar was = float(InputDeviceManager.get_meta(\"t2w_formations_w\"))\nvar vp = tree.root.get_visible_rect().size\nvar full_w = ov.CARD_CONTENT_WIDTH + ov.CARD_CHROME_W\nvar top_band = Rect2(Vector2(maxf((vp.x - full_w) * 0.5, 0.0), ov.CARD_TOP_OFFSET), Vector2(full_w, ov.card_rect().size.y))\nif absf(b.size.x - was) <= 1.0:\n\treturn \"same width as formations (%.0f)\" % was\nreturn \"bottom-docked\" if not top_band.grow(ov.CARD_DIALOG_GAP).intersects(b) else \"reaches top band\"",
+      "equals": "bottom-docked",
+      "comment": "CASE 2 premise, measured rather than assumed: the roll-off is BOTH a different width from the Formations panel (550 vs 600) AND bottom-docked — it never reaches the card's default top placement. That is what makes the next two asserts meaningful."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.card_blocker_overlap()",
+      "expect_max": 0.0,
+      "comment": "CASE 2: still clear of it. The dodge reads whichever Window is up, not a rect tuned to the Formations panel."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nvar was = float(InputDeviceManager.get_meta(\"t2w_formations_content\"))\nvar now = ov.card_content_width()\nif absf(now - was) <= 1.0:\n\treturn \"latched at %.0f across two different dialogs\" % now\nreturn \"widened\" if now >= ov.CARD_CONTENT_WIDTH else \"narrowed to %.0f\" % now",
+      "equals": "widened",
+      "comment": "CASE 2, the sharp end: _dodge_dialog's early return. A bottom-docked popup does not reach the top placement, so the card must STAY there at full width rather than needlessly squeezing into a gutter — and the column really does move (388 -> 560), so it is a live measurement, not a latch."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"/root/TutorialOverlay\").card_placement()",
+      "equals": "top",
+      "comment": "CASE 2: and it stays at the default top placement, not pinned to a flank it has no reason to use"
+    },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "equals": true
+    },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/RollButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn true\nvar q = [tree.root]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is Button and nd.is_visible_in_tree() and \"Re-roll\" in str(nd.text):\n\t\tnd.pressed.emit()\n\t\treturn true\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn true",
+      "equals": true,
+      "comment": "tie tolerance: roll again if the button is still up, else press the A DEAD HEAT re-roll"
+    },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = tree.root.get_node_or_null(\"/root/Main/RollOffDialog/Content/ButtonBar/ContinueButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
+      "equals": true
+    },
+    { "act": "wait_seconds", "seconds": 3.0 },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nvar b = ov.card_blocker_rect()\nprint(\"[T2W] no dialog: blocker=\", b, \" card=\", ov.card_rect(), \" content=\", ov.card_content_width(), \" placement=\", ov.card_placement())\nreturn b.size == Vector2.ZERO",
+      "equals": true,
+      "comment": "CASE 3 premise: every gameplay dialog really is closed now"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ov = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn ov.card_content_width() >= ov.CARD_CONTENT_WIDTH",
+      "equals": true,
+      "comment": "CASE 3: the narrowing is not a one-way latch — the column springs back, so the rest of the lesson does not read in a cramped strip"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"/root/TutorialOverlay\").card_placement()",
+      "equals": "top",
+      "comment": "CASE 3: and the card returns to the default top placement rather than staying pinned to a gutter"
+    },
+    { "act": "screenshot", "label": "01_card_restored_after_dialogs" },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.root.content_scale_factor = 1.0\nreturn true",
+      "equals": true,
+      "comment": "hand the viewport back at the base scale (the runner keeps executing steps after a failure, so this always runs)"
+    }
+  ]
+}

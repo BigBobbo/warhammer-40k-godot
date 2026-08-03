@@ -130,6 +130,15 @@ func _build_ui() -> void:
 	var carried_melee_weapons: Array = []
 	for weapon in regular_melee_weapons:
 		var wid = RulesEngine.generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
+		# A weapon the roster never bought is on no model at all. The datasheet
+		# lists it because it is an OPTION — an Ork mob's Power klaw and Close
+		# combat weapon are alternatives to the choppas it actually took — and
+		# offering them let a player swing weapons the unit does not own.
+		# (Before a unit's loadout can be resolved every model reports the whole
+		# menu, so this hides nothing.)
+		if not RulesEngine.unit_has_melee_weapon(unit, wid):
+			print("[AttackAssignmentDialog] '%s' is a datasheet option this unit did not take — omitted" % weapon.get("name", "?"))
+			continue
 		var carriers = RulesEngine.get_melee_weapon_swingers(unit, wid, eligible_indices, [])
 		# The engine falls back to "everyone" for a weapon it cannot attribute;
 		# that is the unresolvable case, and listing it is still correct.

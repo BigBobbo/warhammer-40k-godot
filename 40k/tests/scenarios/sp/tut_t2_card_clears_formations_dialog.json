@@ -21,7 +21,7 @@
     },
     {
       "act": "click_node",
-      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton",
       "emit_pressed": true,
       "comment": "signal rather than a synthetic click: the injected pointer position is in physical window px and the rescale above has moved every node's logical rect out from under it. The real click path through these two menu buttons is covered by tut_t2_musterin at the default scale; what this scenario is about starts once the lesson is up."
     },
@@ -88,7 +88,7 @@
     },
     {
       "act": "execute_script",
-      "script": "var rt = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nreturn rt.get_parsed_text().contains(\"now he fights wiv his mob\")",
+      "script": "var rt = tree.root.get_node(\"/root/TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nreturn rt.get_parsed_text().contains(\"dropdown to Boyz (10 models)\")",
       "multiline": true,
       "equals": true,
       "comment": "the tail of the instruction - the part that used to be behind the dialog - is still on the card"

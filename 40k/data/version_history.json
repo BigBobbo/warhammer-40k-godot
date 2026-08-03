@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.13.0",
+      "version": "1.14.0",
       "date": "2026-08-02",
       "summary": "Melee attack allocation is now split into loadout sections, so a mob can finally send its Boyz and its Boss Nob at the enemy with different weapons — or divide one squad between two.",
       "changes": [
@@ -12,6 +12,199 @@
         "The panel now opens with the best weapon already picked for every section, so a straightforward activation is just 'Fight!'. New 'Best Krump' button re-applies that auto-pick after you've been experimenting.",
         "The auto-pick and the expected-damage numbers are now target-aware: a Power klaw is chosen against heavy armour and volume weapons against light. Previously these figures were calculated against a fixed dummy defender, so they were wrong for most targets.",
         "Controller: LB/RB moves between sections, D-pad still picks the weapon and target."
+      ]
+    },
+    {
+      "version": "1.13.3",
+      "date": "2026-08-02",
+      "summary": "Steam Deck: the D-pad now walks the whole Declare Battle Formations list instead of jumping out of it — every Strategic Reserves and Deep Strike option is reachable again.",
+      "changes": [
+        "On a controller, pressing down on the last visible row of the formations panel used to skip straight to the Skip / Confirm Formations buttons. Every unit below the fold — usually the entire Strategic Reserves and Deep Strike section — could not be reached without a mouse. Down now moves to the next row in the list, and only the very last row hands off to the buttons.",
+        "The panel scrolls to follow the D-pad, so the row you are on is always the row you can see.",
+        "Up from the Skip / Confirm buttons steps back into the bottom of the list, and left / right move between Skip and Confirm instead of throwing focus somewhere else on the screen.",
+        "Changing a leader attachment rebuilds the reserves list — the controller route through it is rebuilt with it, so the walk doesn't dead-end afterwards."
+      ]
+    },
+    {
+      "version": "1.13.2",
+      "date": "2026-08-02",
+      "summary": "Shooting panel fix: the right-hand panel no longer has its left-hand edge cut off — weapon names, section headings and unit rows are all readable again.",
+      "changes": [
+        "Fixed: once you aimed your first gun, the whole right-hand panel shifted left and lost its first ~84 pixels behind the panel edge — \"SHOOTING CONTROLS\" read as \"CONTROLS\", \"Slugga x10\" read as \"x10\", and every weapon name was cut off. Most visible in the Dakka Time tutorial, but it affected any shooting unit.",
+        "Cause: the \"Same target for all: Apply to N Remaining Weapons\" row and the Clear All / Undo Last / Confirm row were together wider than the panel, which made it scroll sideways — and something then scrolled it fully right.",
+        "Those two rows now wrap onto a second line instead of forcing the panel wider than it can be, and the shooting panel can no longer scroll sideways at all, so its left edge always stays put."
+      ]
+    },
+    {
+      "version": "1.13.1",
+      "date": "2026-08-02",
+      "summary": "Controller: the D-pad no longer gets stuck looping round a list inside a panel — walk off the end of one and it steps out to the panel around it, scrolling to whatever was hidden below the fold.",
+      "changes": [
+        "Fixed (reported on Steam Deck, tutorial 'Dakka Time' step 5): the D-pad looped round the weapon rows for ever — Slugga, Kombi-weapon, Twin sluggas, Slugga… — and no press moved the right-hand panel itself. CURRENT TARGETS, 'Use GRENADE', 'Shoot All Remaining' and 'Start Action' were clipped below the fold with no way to reach them on a controller.",
+        "Lists inside a panel now CLAMP instead of looping: press ▼ past the last weapon (or ▲ before the first) and you step out into the panel around it, landing on the next control that way.",
+        "In the panel, ▲ ▼ moves a row at a time and scrolls the panel so the row you are on is on screen; when the controls run out, ▲ ▼ keeps scrolling so the rows in between — CURRENT TARGETS, the forecasts — can actually be read.",
+        "◀ ▶ picks between buttons sharing a row (Clear All ◀▶ Undo Last ◀▶ Confirm).",
+        "Walking back the other way steps straight back into the list you came out of, at the row nearest where you re-entered.",
+        "Nothing wraps around any more, in either direction — B still hands the controller back to the board.",
+        "The same rule now covers the charge phase's ELIGIBLE TARGETS rows, and the D-pad skips greyed-out buttons instead of parking on one that cannot be pressed."
+      ]
+    },
+    {
+      "version": "1.13.0",
+      "date": "2026-08-02",
+      "summary": "The Dice Log is readable at a glance: every attack now renders as a structured sequence — headers, numbered colour-coded step chips (HIT / WOUND / SAVE / DAMAGE / FNP) with the dice beside them, and clear ✔/✘ outcome lines.",
+      "changes": [
+        "Each attack opens with a gold header naming the weapon and target, and each weapon in a volley gets its own sub-header — no more hunting through free text to see where one attack ends and the next begins.",
+        "Every roll is a numbered step chip in a fixed left column (1· HIT 3+, 2· WOUND 4+, 3· SAVE 5+…) with its dice icons and a bold result (\"7/10 hit\", \"2 failed\") on the right, so the attack sequence reads top-to-bottom like the rulebook.",
+        "Modifiers and keywords (Heavy, Blast, Sustained/Lethal Hits, re-rolls, AP breakdown) now appear as small dim notes under their step instead of shouting in the main flow.",
+        "Charge and Advance rolls use the same structure — a CHARGE/ADVANCE chip with the dice and total, plus a clear ✔ success / ✘ failure line.",
+        "Shooting, Fight, Charge and Movement phases all share one formatter, so dice output finally looks the same everywhere."
+      ]
+    },
+    {
+      "version": "1.12.14",
+      "date": "2026-08-02",
+      "summary": "Tutorial fixes for smaller screens: the yellow highlight box stays inside the panel it is pointing at, and the instructor card no longer covers the side panels.",
+      "changes": [
+        "The yellow highlight box now stays inside the panel it highlights. On 'Dakka Time' step 4 ('NOW DA REST!') it used to be drawn around the outside of the weapon list, which fills the whole right-hand panel — so its left edge landed on the battlefield and its right edge ran off the screen entirely. Affected every step that highlights something filling a side panel.",
+        "The instructor card no longer slides over the game log or the right-hand panel. It is a fixed width and was centred on the screen, so once the UI got large relative to the screen — which is what the Steam Deck's controller text boost and the UI Scale slider both do — it covered the left-hand edge of the right-hand panel, hiding weapon names and unit rows. It now narrows and sits between the two panels instead.",
+        "The step counter and the Skip Step / Exit Tutorial buttons are kept intact when the card narrows."
+      ]
+    },
+    {
+      "version": "1.12.13",
+      "date": "2026-08-02",
+      "summary": "Charge phase: 'Snap to Contact' no longer walks your models straight through the enemy unit and parks them on the far side — most visibly the attached character, like a Warboss leading a mob of Boyz.",
+      "changes": [
+        "Fixed: 'Snap to Contact' could place a charging model on the OTHER side of the unit it was charging, with its charge path cutting clean through the enemy bases. It hit the attached CHARACTER hardest, because the leader is placed last — by then the near side of the enemy was full of its own squad, so the placement sweep wrapped all the way around the back.",
+        "Snap to Contact now only offers a spot the model could actually walk to in a straight line: candidate positions whose path passes through another unit's bases are skipped, and the model closes as far as it legally can instead.",
+        "Fixed: when 'Snap to Contact' had to fall back to 'move as close as possible', an attached character was measured against its bodyguard squadmate's charge budget and starting position (their model IDs collide), so the leader could be offered a spot it had no business reaching."
+      ]
+    },
+    {
+      "version": "1.12.12",
+      "date": "2026-08-02",
+      "summary": "The end-of-shooting summary is now a readable battle-report table instead of a wall of text.",
+      "changes": [
+        "The Shooting Phase Summary opens with a plain-English verdict — 'X models slain across Y enemy units' — and a row of big Shots / Hits / Wounds / Slain totals, so you can see how the phase went at a glance.",
+        "Per-target results are a proper table with aligned Shots, Hits, Wounds, Failed saves and Slain columns and a TOTAL row, instead of a sentence per target. Units that lost models are tinted red and sorted to the top, and the weapon and shooter that did the damage are named under each target.",
+        "The panel now uses the game's black-and-gold chrome rather than a plain grey box, and it sizes itself to the number of targets instead of always opening half-empty."
+      ]
+    },
+    {
+      "version": "1.12.11",
+      "date": "2026-08-02",
+      "summary": "Burden of Trust's \"Keep Auto Picks\" now actually picks something — every objective is pre-filled with your closest unit instead of a row of blanks.",
+      "changes": [
+        "The Assign Guards window suggested a guard only for objectives you were already standing on. Draw the card on turn 1 — as the tutorial's \"Runnin' da Show\" step has you do — and every row read \"— No guard —\", so pressing Keep Auto Picks committed nothing at all.",
+        "Now every objective is pre-filled: a unit already holding a marker guards it (the highest Objective Control one, ties broken by distance), and every other objective takes your closest unit that isn't already guarding something else.",
+        "Auto picks no longer suggest a unit sitting inside a transport for an objective someone is actually standing on — an embarked unit can never be within range to score, so it is only suggested when nothing on foot is left.",
+        "The window explains this, and the Keep Auto Picks button has a tooltip saying what it will keep."
+      ]
+    },
+    {
+      "version": "1.12.10",
+      "date": "2026-08-02",
+      "summary": "Tutorial fix: step four of Get Movin' now tells you to confirm the Boyz' move instead of leaving you staring at a squad that looks finished.",
+      "changes": [
+        "Get Movin' step 4 (the disembarked Boyz' own move) now says out loud that dropping the models is not the end of it — you have to press End This Unit's Move to lock the move in. The controller version of the step never mentioned the button at all, and now names the Start-button shortcut too.",
+        "The step carries a live two-box checklist — 'Shift da mob' and 'Lock it in — End This Unit's Move' — so the outstanding half of the step is visible on the card instead of only in a sentence you have already read past.",
+        "Once the models are down, the tutorial's spotlight ring moves off the mob and onto the End This Unit's Move button, so the thing you have to press next is highlighted.",
+        "If you get stuck for 30 seconds, the step's hint now leads with the un-locked move rather than the select-all shortcut."
+      ]
+    },
+    {
+      "version": "1.12.9",
+      "date": "2026-08-02",
+      "summary": "Steam Deck / controller fix: the shooting panel is fully reachable on the pad — no more cut-off CURRENT TARGETS lines or invisible weapon selection in the Dakka Time tutorial.",
+      "changes": [
+        "CURRENT TARGETS now grows to show every assigned weapon line instead of cutting the third one off behind a scrollbar the pad couldn't move.",
+        "Walking your guns with D-pad ▲▼ keeps the highlighted weapon row on screen — it could end up hidden above the fold after the tutorial scrolled the panel down to the Confirm button.",
+        "D-pad focus navigation auto-scrolls the shooting panel to the highlighted control, so the focus ring can no longer wander off screen.",
+        "New: while panel focus is active, the right stick scrolls the panel itself (the controller hint bar now shows 'RS Scroll Panel').",
+        "Pressing B on the board with guns already aimed no longer silently throws the aiming away: the first press warns, and only a second press within a few seconds discards the assignments and deselects the shooter."
+      ]
+    },
+    {
+      "version": "1.12.8",
+      "date": "2026-08-02",
+      "summary": "Krumpin' step 6 no longer tells Steam Deck players to glide the left stick at a row the D-pad reaches perfectly well.",
+      "changes": [
+        "The Fight lesson's \"Da boss ain't swung yet!\" step told pad players to glide the left stick onto the Warboss row. The fight panel's unit rows are ordinary D-pad navigation — the very next step up from where the D-pad is already parked on the dice dock — so the prompt now says to tap ▲ till it lands on the Warboss row, matching how the same lesson already describes picking the Boyz.",
+        "The step after it said to glide the stick onto Roll Saves. The save card grabs the pad's focus onto that button by itself, so the prompt now just says to press A."
+      ]
+    },
+    {
+      "version": "1.12.7",
+      "date": "2026-08-02",
+      "summary": "The fight phase no longer freezes for several seconds between confirming your attacks and rolling the dice.",
+      "changes": [
+        "Hitting \"Fight!\" locked the game up for roughly three and a half seconds before the first dice appeared — worst on Steam Deck, and it got longer the more targets you split your attacks across. The pause was the \"expected wounds / % kill\" line: the game was secretly playing out the whole combat a thousand times per target to work it out.",
+        "That estimate is now calculated directly instead of simulated, so it takes under a millisecond. Confirming attacks is instant and the dice come straight up.",
+        "The estimate is also more accurate. It was reading whichever unit on the board happened to own a weapon of that name first, so a Warboss's Power klaw was being costed as somebody else's weaker one — it now always reads the attacking unit's own datasheet.",
+        "Weapon lookups across the whole game are faster too, which takes the edge off other small pauses (selecting a unit to shoot with, opening the attack panel)."
+      ]
+    },
+    {
+      "version": "1.12.6",
+      "date": "2026-08-01",
+      "summary": "Controller: the model stats card no longer covers the spot you are dragging a model to. It is off by default on a controller — hold R4 or L4 to peek at it.",
+      "changes": [
+        "On a controller / Steam Deck the pop-up model stats card no longer appears just because the cursor is resting on a model. It was landing right on top of the position you were charging or moving to, hiding your own destination.",
+        "Hold the R4 or L4 back paddle to bring the hovered model's card up for as long as you hold it; let go and it disappears. A quick TAP of R4 / L4 still switches to the next / previous model as before.",
+        "The hint bar advertises 'R4 Hold: Model Stats' while you are placing charge or movement models.",
+        "New option in Settings > Controller > Controller Options: 'Always show model stats card on hover' brings back the old always-on behaviour (and hands R4 / L4 back to model switching).",
+        "Mouse & keyboard play is unchanged — the card still shows on hover."
+      ]
+    },
+    {
+      "version": "1.12.5",
+      "date": "2026-08-02",
+      "summary": "Tutorial 2 now says WHY you're touching that first dropdown: you're attaching the Warboss to the 10 Boyz.",
+      "changes": [
+        "Musterin' da Boyz, step 1: the card used to explain how to reach the 'Warboss →' dropdown without ever saying what the choice does. It now leads with the goal — attach the Warboss to the Boyz so the Leader and the mob fight as one unit — before the click instructions, on both mouse+keyboard and controller.",
+        "The step's hint and its shout (\"BOSS JOINS DA BOYZ!\") name the same goal, and the dropdown option is spelled out as 'Boyz (10 models)' so it matches what's on screen."
+      ]
+    },
+    {
+      "version": "1.12.4",
+      "date": "2026-08-01",
+      "summary": "Tutorial tidy-up: step 6 of Musterin' da Boyz no longer tells you to pick the Battlewagon you are already holding.",
+      "changes": [
+        "\"PARK DA WAGON!\" (step 6 of Musterin' da Boyz) used to open by telling you to tap the bumper until the Battlewagon row was picked — but you can only reach that step by having already picked it up and turned it, so the instruction read as \"you did it wrong, start again\". It now just tells you to drop it: glide the left stick into your zone and press A (or click your deployment zone on mouse and keyboard).",
+        "If you do somehow end up with nothing in hand, the step's hint (the one that appears when you have been stuck a while) explains how to pick the wagon back up."
+      ]
+    },
+    {
+      "version": "1.12.3",
+      "date": "2026-08-01",
+      "summary": "The Command phase panel no longer fills up with empty orange dividing lines.",
+      "changes": [
+        "In the Command phase, the right-hand panel showed a growing stack of orange divider lines under VICTORY POINTS with nothing between them — a dozen of them by the time you had drawn your secondaries and called a Waaagh!, pushing the sections you actually wanted further down the scroll.",
+        "The panel rebuilds its Battle-shock, army rules and Secondary Missions sections every time something changes (a mission drawn or discarded, a CP spent, a battle-shock resolved). Each rebuild was abandoning the divider that introduced the section instead of removing it, so the leftovers piled up all phase. Dividers are now removed with their section, and any that end up introducing nothing are swept away.",
+        "Nothing else in the panel moved — the same sections, in the same order, just without the blank band."
+      ]
+    },
+    {
+      "version": "1.12.2",
+      "date": "2026-08-01",
+      "summary": "Controller fix: reordering your allocation groups on the Allocate Attacks step no longer strands the D-pad — Confirm Order & Roll Saves stays reachable.",
+      "changes": [
+        "Moving a group up or down with the D-pad (say, dropping your 1 model W2 Sv5+ nob into second place) used to leave nothing highlighted at all: the highlight vanished and no amount of D-pad pressing could reach Confirm Order & Roll Saves, so the attack could not be resolved. The highlight now lands back on the arrow of the group you just moved, at its new position, so you can keep reordering and then walk down to Confirm.",
+        "The greyed-out arrows (▲ on the first row, ▼ on the last) no longer take the highlight — pressing A on them did nothing, which felt like the pad had died. The D-pad now skips straight past them.",
+        "Added a safety net: if the highlight is ever lost while this window is open, the next D-pad press puts it back on the current step's main button instead of doing nothing."
+      ]
+    },
+    {
+      "version": "1.12.1",
+      "date": "2026-07-31",
+      "summary": "A unit is now offered only the weapons its army list actually bought — no more Power klaw on a mob that never took one — and a weapon swap carries its whole bundle.",
+      "changes": [
+        "Melee already stopped a whole mob swinging one model's weapon. This goes further: the attack panel no longer lists weapons the unit does not own at all. A Boyz mob is 9 choppas and a Boss Nob's big choppa, so those are the only two lines — the Power klaw and Close combat weapon it never bought are gone.",
+        "Army lists rarely record melee. Where the list is silent, the game now reads the datasheet's own \"equipped with\" line per model role instead of falling back to every option on the sheet.",
+        "A swap usually trades two weapons for two: \"any number of Boyz can each have their slugga AND choppa replaced with 1 shoota AND 1 close combat weapon\". Lists record the gun and not the blade, so shoota Boyz were being handed the choppa they traded away — they now get the close combat weapon they actually hold. Partial swaps work too: 3 shootas gives 3 close combat weapons and 6 choppas.",
+        "When a list names a weapon but not how many — \"Guardian Spear, Sentinel blade, Praesidium Shield\" with no numbers — the game says so in the log and leaves the unit alone, rather than picking one and silently dropping the sentinel blade.",
+        "Saved games pick all of this up on load rather than keeping whatever an older version worked out."
       ]
     },
     {

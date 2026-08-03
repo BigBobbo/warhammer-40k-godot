@@ -1,0 +1,70 @@
+{
+  "id": "guard_autopicks_closest_units",
+  "covers": [
+    "rules.secondaries.burden_of_trust.guard_prompt",
+    "autoloads.SecondaryMissionManager.guards"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "Burden of Trust auto picks must never come back blank. With NO unit teleported onto a marker (the normal turn-1 state the tutorial's 'Runnin' da Show' step walks through), the guard map used to be empty — every dropdown read '— No guard —' and 'Keep Auto Picks' assigned nothing at all. Now every objective is pre-filled with the closest friendly unit the player owns, so every GuardSelectionDialog picker shows a real unit and 'Keep Auto Picks' commits a full guard map.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    { "act": "execute_script", "script": "SecondaryMissionManager.initialize_for_game()" },
+    { "act": "execute_script", "script": "SecondaryMissionManager.setup_tactical_deck(2)" },
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"].merge({\"deck\": [\"burden_of_trust\"], \"active\": []}, true)" },
+
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 6 },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "var m = SecondaryMissionManager._player_state[\"2\"][\"active\"][0]\nreturn m[\"mission_data\"].get(\"guards\", {}).size() > 0",
+      "equals": true,
+      "comment": "the regression: with nobody standing on a marker the auto-assign used to produce {}" },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "var m = SecondaryMissionManager._player_state[\"2\"][\"active\"][0]\nvar guards = m[\"mission_data\"].get(\"guards\", {})\nvar units = GameState.state.get(\"units\", {})\nfor obj_id in guards:\n\tvar u = units.get(str(guards[obj_id]), {})\n\tif u.is_empty() or int(u.get(\"owner\", 0)) != 2:\n\t\treturn false\nreturn true",
+      "equals": true,
+      "comment": "every auto-picked guard is a real unit the drawing player owns" },
+
+    { "act": "expect_node_visible", "node": "/root/SecondaryMissionReviewDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/GuardSelectionDialog", "timeout_s": 5.0 },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "var rows = tree.root.get_node_or_null(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows\")\nif rows == null:\n\treturn -1\nvar blank := 0\nfor row in rows.get_children():\n\tfor child in row.get_children():\n\t\tif child is OptionButton:\n\t\t\tif child.selected <= 0:\n\t\t\t\tblank += 1\nreturn blank",
+      "equals": 0,
+      "comment": "index 0 is the '— No guard —' entry; every picker must land on a real unit" },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "var rows = tree.root.get_node_or_null(\"GuardSelectionDialog/Content/ObjectiveScroll/ObjectiveRows\")\nvar filled := 0\nfor row in rows.get_children():\n\tfor child in row.get_children():\n\t\tif child is OptionButton and child.selected > 0:\n\t\t\tfilled += 1\nreturn filled > 0",
+      "equals": true },
+
+    { "act": "screenshot", "label": "01_guard_dialog_prefilled_with_closest_units" },
+
+    { "act": "click_node", "node": "/root/GuardSelectionDialog/Content/Actions/KeepAutoGuards", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script",
+      "script": "SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"mission_data\"].get(\"guards_prompt_pending\", true)",
+      "equals": false },
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "return SecondaryMissionManager._player_state[\"2\"][\"active\"][0][\"mission_data\"].get(\"guards\", {}).size() > 0",
+      "equals": true,
+      "comment": "Keep Auto Picks now actually keeps something" },
+
+    { "act": "screenshot", "label": "02_keep_auto_picks_kept_a_real_guard_map" }
+  ]
+}

@@ -10,7 +10,7 @@
   "description": "The other two Exit Tutorial routes. (a) Nothing blocking: the card's own Exit Tutorial button asks first, Keep Playin' leaves the lesson untouched, Leg it! returns to the menu. (b) A blocking Window that is NOT an AcceptDialog (so no button bar to add to): the floating always-on-top hatch appears instead and exits the same way. The blocker in (b) is a bare exclusive Window created for the test — every gameplay dialog in the game today is an AcceptDialog, covered by tut_exit_under_modal — but the code path it drives is the shipped one.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.5 },
-    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/TutorialButton" },
+    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton" },
     { "act": "expect_node_visible", "node": "/root/MainMenu/TutorialPicker", "timeout_s": 3.0 },
     { "act": "click_node", "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t1_basics/Play_t1_basics" },
     { "act": "wait_seconds", "seconds": 10.0 },
