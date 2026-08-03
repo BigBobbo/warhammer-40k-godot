@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.17.1",
+      "date": "2026-08-03",
+      "summary": "Browser fix: the game log was quietly eating ~90 MB of memory, which is what got long Safari/itch.io sessions reloaded for 'using significant memory'.",
+      "changes": [
+        "Fixed (reported on Safari via itch.io): the tab would restart itself partway through a game, with the browser blaming excessive memory use. Every game-log card was built out of rich-text widgets that cost ~180 KB each in the engine, so a full log was holding around 90 MB on its own — the single biggest thing in memory in a running game.",
+        "Log lines that are just coloured text (nearly all of them) now use a plain text widget instead. They look exactly the same; the log's share of memory drops by about 60%. Lines with real inline formatting — dice badges, highlighted keywords — still render as before.",
+        "The browser build also keeps a shorter tail of log cards on screen (120 instead of 300), since a browser tab never gives memory back once it has taken it. Nothing is lost from the game's own event history.",
+        "Together this frees roughly 78 MB on the web build, which is the headroom that was pushing the tab over Safari's limit."
+      ]
+    },
+    {
       "version": "1.17.0",
       "date": "2026-08-03",
       "summary": "A Leader and the squad he joined now fight in ONE activation — one row, one attack panel, one swing. The enemy no longer gets a turn in between.",
