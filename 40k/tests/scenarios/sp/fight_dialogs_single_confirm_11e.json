@@ -4,7 +4,8 @@
     "dialogs.AttackAssignmentDialog.ok_button_hidden",
     "ui.fight.selection_panel.no_popup",
     "phases.FightPhase.attack_assignment",
-    "ui.fight.single_confirm_affordance"
+    "ui.fight.single_confirm_affordance",
+    "ui.fight.attack_dialog.plain_language_labels"
   ],
   "fixture": "co_pretrigger",
   "edition": 11,
@@ -41,6 +42,11 @@
     { "act": "execute_script", "script": "main.get_tree().root.get_node(\"AttackAssignmentDialog\").get_ok_button().visible", "equals": false },
     { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "timeout_s": 3.0 },
     { "act": "execute_script", "script": "main.get_tree().root.get_node(\"AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton\").text", "equals": "Fight!" },
+
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"AttackAssignmentDialog/Content/ButtonContainer/BackToSelectionButton\").text", "equals": "◀ Back — Pick Another Unit", "comment": "REPORTED: this read '◀ Pick Anuvver Unit'. The fixture here is Custodes vs Orks and the button is faction-agnostic chrome, so Ork slang was unreadable flavour on a panel that has to say what it does." },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"AttackAssignmentDialog/Content/ButtonContainer/BestKrumpButton\").text", "equals": "Best Weapons ✨", "comment": "same row, same problem: this read 'Best Krump ✨'. Node name keeps the old spelling on purpose — scenarios address it by path." },
+    { "act": "execute_script", "multiline": true, "script": "var box = tree.root.get_node(\"AttackAssignmentDialog/Content/ButtonContainer\")\nvar bad = []\nfor c in box.get_children():\n\tif c is Button:\n\t\tvar t = str(c.text).to_lower()\n\t\tfor slang in [\"krump\", \"anuvver\", \"dakka\", \"ladz\", \"choppa\", \"zog\", \"waaagh\"]:\n\t\t\tif slang in t:\n\t\t\t\tbad.append(str(c.text))\nreturn \", \".join(bad)", "equals": "", "comment": "no Ork slang survives anywhere in this dialog's action row — a regression net for the next label added here" },
+    { "act": "execute_script", "multiline": true, "script": "var box = tree.root.get_node(\"AttackAssignmentDialog/Content/ButtonContainer\")\nvar dlg = tree.root.get_node(\"AttackAssignmentDialog\")\nreturn box.size.x <= dlg.size.x", "equals": true, "comment": "the longer plain-English labels still fit inside the dialog — the row must not run off the edge" },
     { "act": "screenshot", "label": "02_attack_assignment_single_fight_button" },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
     { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
