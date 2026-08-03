@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.18.0",
+      "date": "2026-08-03",
+      "summary": "Shooting now tells you BEFORE you confirm how many of your models can actually see the target — no more declaring five shots and rolling one.",
+      "changes": [
+        "Fixed (reported with the Custodian Guard vs Stormboyz): the panel showed all five Guardian spears aimed at the target, then only one model shot. Only models with range AND line of sight ever fire; the game was declaring every model in the unit and quietly dropping the blind ones when the dice came out.",
+        "A weapon is now only ever declared with the models that can genuinely shoot — so the weapon row, CURRENT TARGETS and the attack count all match what will happen.",
+        "New 'NOT EVERY MODEL CAN SHOOT' panel under the weapon list: 'Rokkit launcha — only 1 of 5 will shoot, 4 no line of sight (Witchseekers)'. Hovering a weapon row says the same thing.",
+        "The FORECAST and COMBINED FORECAST now cost the models that are actually firing, instead of the whole squad.",
+        "The Confirm button no longer nags about 'unassigned' weapons whose remaining models physically cannot reach anything — those are listed in the new panel instead.",
+        "Applies to every way of aiming: automatic single-target assignment, Apply to All, and Quick Assign."
+      ]
+    },
+    {
       "version": "1.17.0",
       "date": "2026-08-03",
       "summary": "A Leader and the squad he joined now fight in ONE activation — one row, one attack panel, one swing. The enemy no longer gets a turn in between.",
