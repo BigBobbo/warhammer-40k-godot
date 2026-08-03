@@ -71,15 +71,59 @@ func eligible_to_fight(unit_id: String, board: Dictionary) -> bool:
 	return unit.get("flags", {}).get("charged_this_turn", false)
 
 
+## 19.03 — ATTACHED UNITS FIGHT AS ONE.
+##
+## A CHARACTER attached to a bodyguard is not a unit of its own: the pair get
+## ONE entry in the fight list, ONE activation, and the enemy never gets to
+## activate in between. The state model keeps them as separate unit dicts, so
+## everything below asks the same question of every component and folds the
+## answer onto the BODYGUARD, which is the id the phase activates.
+##
+## The component ids of the Attached unit headed by unit_id.
+func group_ids(unit_id: String, board: Dictionary) -> Array:
+	return _rules().attached_unit_component_ids(unit_id, board)
+
+
+## True when unit_id is an attached CHARACTER — it never appears in the fight
+## list in its own right, its bodyguard's entry stands for it.
+func is_attached_component(unit_id: String, board: Dictionary) -> bool:
+	return _rules().is_attached_character(unit_id, board)
+
+
+## The Attached unit is eligible when ANY of its components is — e.g. a
+## bodyguard standing off the enemy while only its Leader's model is engaged.
+func group_eligible_to_fight(unit_id: String, board: Dictionary) -> bool:
+	for member_id in group_ids(unit_id, board):
+		if eligible_to_fight(member_id, board):
+			return true
+	return false
+
+
+## Likewise Fights First: one unit, so a charge (or ability) on any component
+## gives the whole Attached unit the Fights First step.
+func group_is_fights_first(unit_id: String, board: Dictionary) -> bool:
+	for member_id in group_ids(unit_id, board):
+		var unit = board.get("units", {}).get(member_id, {})
+		if not unit.is_empty() and is_fights_first(unit):
+			return true
+	return false
+
+
 func eligible_units(board: Dictionary, player: int, only_fights_first: bool) -> Array:
 	var out: Array = []
 	for unit_id in board.get("units", {}):
 		var unit = board.units[unit_id]
 		if int(unit.get("owner", 0)) != player:
 			continue
-		if only_fights_first and not is_fights_first(unit):
+		# 19.03: an attached CHARACTER is offered through its bodyguard's entry,
+		# never as a candidate of its own — otherwise the Warboss leading a mob
+		# of Boyz took a SECOND activation after theirs, and the enemy got to
+		# swing in between.
+		if is_attached_component(unit_id, board):
 			continue
-		if eligible_to_fight(unit_id, board):
+		if only_fights_first and not group_is_fights_first(unit_id, board):
+			continue
+		if group_eligible_to_fight(unit_id, board):
 			out.append(unit_id)
 	return out
 
@@ -144,18 +188,30 @@ func peek_selection(board: Dictionary) -> Dictionary:
 ## types (12.05/12.06): {fight_types: Array, fight_type: String}.
 ## Alternation passes to the other player (12.04).
 func select_to_fight(unit_id: String, board: Dictionary) -> Dictionary:
-	fought[unit_id] = true
+	# 19.03: selecting the Attached unit spends the WHOLE unit's one fight —
+	# marking only the bodyguard left its Leader eligible, so he came back round
+	# for a second activation of his own.
+	for member_id in group_ids(unit_id, board):
+		fought[member_id] = true
 	var unit = board.get("units", {}).get(unit_id, {})
 	picker = _other(int(unit.get("owner", 0)))
 	var types: Array = []
-	var engaged: bool = _rules().is_unit_engaged(unit_id, board)
+	# Engagement is the Attached unit's: the Leader's model counts as this
+	# unit's, so a bodyguard engaged only through him fights normally.
+	var engaged: bool = false
+	var engaged_at_start: bool = false
+	for member_id in group_ids(unit_id, board):
+		if _rules().is_unit_engaged(member_id, board):
+			engaged = true
+		if engaged_at_step_start.get(member_id, false):
+			engaged_at_start = true
 	if engaged:
 		types.append("normal")
 	# 12.06: unengaged (e.g. its targets died), OR was unengaged at the
 	# start of the step but became engaged during the phase (such a unit
 	# may choose the overrun fight's extra pile-in instead of a normal
 	# fight).
-	if not engaged or not engaged_at_step_start.get(unit_id, false):
+	if not engaged or not engaged_at_start:
 		types.append("overrun")
 	return {"fight_types": types, "fight_type": types[0]}
 
@@ -181,7 +237,12 @@ func unselect_to_fight(unit_id: String, board: Dictionary) -> void:
 ## forced fights pending" apart from "consolidation may proceed".
 func has_eligible(board: Dictionary) -> bool:
 	for unit_id in board.get("units", {}):
-		if eligible_to_fight(unit_id, board):
+		# Mirror eligible_units: an attached CHARACTER is never a fight of its
+		# own, so a Leader left un-marked must not keep the Fight step open
+		# (which would stall the 12.07 Consolidate step forever).
+		if is_attached_component(unit_id, board):
+			continue
+		if group_eligible_to_fight(unit_id, board):
 			return true
 	return false
 
@@ -190,8 +251,15 @@ func has_eligible(board: Dictionary) -> bool:
 ## forfeits remaining fights (END_FIGHT escape hatch) or skips a unit, so
 ## the sequencer's candidate list stays consistent (a skipped unit must
 ## not be offered forever).
-func mark_fought(unit_id: String) -> void:
+## Pass `board` to spend the whole ATTACHED unit's fight (19.03) — without it
+## only the named unit is marked, which is right for callers that already walk
+## the components themselves.
+func mark_fought(unit_id: String, board: Dictionary = {}) -> void:
 	fought[unit_id] = true
+	if board.is_empty():
+		return
+	for member_id in group_ids(unit_id, board):
+		fought[member_id] = true
 
 
 ## Call after each fight resolved in the remaining-combats step: if

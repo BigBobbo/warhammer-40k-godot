@@ -643,6 +643,15 @@ func _validate_select_fighter(action: Dictionary) -> Dictionary:
 	if int(unit.owner) != int(sel_11e.player):
 		return {"valid": false, "errors": ["Not your selection (Player %d picks, 12.04 %s step)" % [sel_11e.player, sel_11e.step]]}
 	if not unit_id in sel_11e.candidates:
+		# 19.03: an attached CHARACTER has no activation of its own — it fights
+		# inside its bodyguard's. Say so rather than the generic "not eligible",
+		# which read as a bug when the Warboss was plainly in combat.
+		if RulesEngine.is_attached_character(unit_id, GameState.state):
+			var host_id = RulesEngine.attached_unit_target_id(unit_id, GameState.state)
+			return {"valid": false, "errors": [
+				"%s fights as part of %s — select the Attached unit, it swings as one (19.03)" % [
+					unit.get("meta", {}).get("name", unit_id),
+					_fight_attached_display_name(host_id)]]}
 		return {"valid": false, "errors": ["Unit not eligible to fight in the %s step (12.04)" % sel_11e.step]}
 	return {"valid": true}
 
@@ -655,9 +664,11 @@ func _validate_select_melee_weapon(action: Dictionary) -> Dictionary:
 		errors.append("Missing weapon_id")
 	if unit_id == "":
 		errors.append("Missing unit_id")
-	if unit_id != active_fighter_id:
+	# 19.03: any component of the activated Attached unit may pick a weapon —
+	# the leader's is part of the same swing.
+	if not _is_in_active_fight_group(unit_id):
 		errors.append("Can only select weapons for active fighter")
-	
+
 	# Validate weapon exists for this unit
 	var melee_weapons = RulesEngine.get_unit_melee_weapons(unit_id, game_state_snapshot)
 	if not melee_weapons.has(weapon_id):
@@ -677,11 +688,16 @@ func _validate_assign_attacks(action: Dictionary) -> Dictionary:
 	var weapon_id = action.get("weapon_id", "")
 	var errors = []
 
-	# Check unit is active fighter
-	if unit_id != active_fighter_id:
+	# Check the attacker belongs to the activation. 19.03: an Attached unit
+	# fights as ONE unit in ONE activation, so an assignment may name the
+	# bodyguard OR any attached character — the Warboss's power klaw is part of
+	# his Boyz' swing, not a second activation of his own. RulesEngine resolves
+	# each assignment against its own `attacker`, so both keep their own stats.
+	if not _is_in_active_fight_group(unit_id):
 		errors.append("Not the active fighter")
 		return {"valid": false, "errors": errors}
-	
+
+
 	# Check required fields
 	if target_id == "":
 		errors.append("Missing target_id")
@@ -706,11 +722,25 @@ func _validate_assign_attacks(action: Dictionary) -> Dictionary:
 	# Check units are enemies
 	if unit.get("owner", 0) == target_unit.get("owner", 0):
 		errors.append("Cannot fight units from the same army")
-	
-	# Check units are within engagement range
-	if not _units_in_engagement_range(unit, target_unit):
+
+	# 19.02: an attached CHARACTER is part of ONE Attached unit and can never
+	# be picked as a melee target on its own. _get_eligible_melee_targets
+	# already hides these from the UI; this is the authoritative engine gate
+	# for callers that bypass it (the AI's fight plan used to select attached
+	# leaders directly, and the defender then had no bodyguard models to
+	# allocate wounds to — every wound went straight onto the leader).
+	if RulesEngine.is_attached_character(target_id, game_state_snapshot):
+		var bodyguard_id = RulesEngine.attached_unit_target_id(target_id, game_state_snapshot)
+		var attached_name = target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_id))
+		var bodyguard_name = get_unit(bodyguard_id).get("meta", {}).get("name", bodyguard_id)
+		errors.append("Cannot target '%s' — attached character; fight '%s' (the Attached unit) instead" % [attached_name, bodyguard_name])
+
+	# Check units are within engagement range. Measured against the whole
+	# Attached unit (19.03) so a target engaged only via its attached leader's
+	# model is still reachable.
+	if not _units_in_engagement_range(unit, {"models": RulesEngine.attached_unit_models(target_id, game_state_snapshot)}):
 		errors.append("Units are not within engagement range")
-	
+
 	# Check weapon exists and is melee
 	var weapon = RulesEngine.get_weapon_profile(weapon_id)
 	if weapon.is_empty():
@@ -721,7 +751,7 @@ func _validate_assign_attacks(action: Dictionary) -> Dictionary:
 	# 11e core rules (Fight — Select Melee Weapon): "you must select one melee
 	# weapon that model has" — each model fights with ONE melee weapon per
 	# activation; [EXTRA ATTACKS] weapons are used IN ADDITION and are exempt.
-	var conflicting_weapon = _find_one_weapon_rule_conflict(weapon_id, action.get("attacking_models", []))
+	var conflicting_weapon = _find_one_weapon_rule_conflict(weapon_id, action.get("attacking_models", []), unit_id)
 	if conflicting_weapon != "":
 		errors.append("Each model fights with only ONE melee weapon per activation — '%s' is already assigned for these models ([EXTRA ATTACKS] weapons are the exception)" % conflicting_weapon)
 
@@ -1055,13 +1085,20 @@ func _request_attack_assignment(unit_id: String, result: Dictionary) -> Dictiona
 # are regular (non-Extra-Attacks) melee weapons and their model sets overlap —
 # an empty attacking_models list means "all eligible models" and overlaps
 # everything.
-func _find_one_weapon_rule_conflict(weapon_id: String, attacking_models: Array) -> String:
+# 19.03: model references are indices/ids WITHIN one component unit, so the
+# comparison is per attacker — the Warboss's only model is "0" just as the
+# first Boy is, and without this scoping his power klaw collided with their
+# choppas and was dropped from the Attached unit's swing.
+func _find_one_weapon_rule_conflict(weapon_id: String, attacking_models: Array, attacker_unit_id: String = "") -> String:
 	if RulesEngine.has_extra_attacks(weapon_id, game_state_snapshot):
 		return ""
+	var attacker_id = attacker_unit_id if attacker_unit_id != "" else active_fighter_id
 	var new_models = _normalize_model_refs(attacking_models)
 	for pending in pending_attacks:
 		var pending_weapon = str(pending.get("weapon", ""))
 		if pending_weapon == "":
+			continue
+		if str(pending.get("attacker", active_fighter_id)) != attacker_id:
 			continue
 		if RulesEngine.has_extra_attacks(pending_weapon, game_state_snapshot):
 			continue
@@ -1095,7 +1132,7 @@ func _process_assign_attacks(action: Dictionary) -> Dictionary:
 	# per-sub-action validation, so re-check here. Drop the extra weapon and
 	# keep the batch alive (the first assigned weapon wins) instead of failing
 	# the whole atomic batch mid-flight.
-	var conflicting_weapon = _find_one_weapon_rule_conflict(weapon_id, action.get("attacking_models", []))
+	var conflicting_weapon = _find_one_weapon_rule_conflict(weapon_id, action.get("attacking_models", []), unit_id)
 	if conflicting_weapon != "":
 		log_phase_message("REJECTED assignment %s → %s: each model fights with only ONE melee weapon per activation ('%s' already assigned)" % [weapon_id, target_id, conflicting_weapon])
 		DebugLogger.warn(str("[FightPhase] One-weapon rule: dropped %s for %s — '%s' already assigned" % [weapon_id, unit_id, conflicting_weapon]))
@@ -1519,10 +1556,16 @@ func _staged_fight_roll_hits(carry_changes: Array) -> Dictionary:
 	var target_id = assignment.get("target", "")
 	var weapon_name = RulesEngine.get_weapon_profile(weapon_id, game_state_snapshot).get("name", weapon_id)
 	var target_name = get_unit(target_id).get("meta", {}).get("name", target_id)
-	var fighter_name = get_unit(active_fighter_id).get("meta", {}).get("name", active_fighter_id)
+	# 19.03: an Attached unit's activation carries assignments from more than
+	# one component, so name the one actually swinging — "Warboss → … with
+	# Power klaw" rather than filing his klaw under his Boyz.
+	var swinger_id = str(assignment.get("attacker", active_fighter_id))
+	if get_unit(swinger_id).is_empty():
+		swinger_id = active_fighter_id
+	var fighter_name = get_unit(swinger_id).get("meta", {}).get("name", swinger_id)
 
 	GameEventLog.add_combat_header("P%d: %s → %s with %s (weapon %d/%d)" % [
-		get_unit(active_fighter_id).get("owner", get_current_player()), fighter_name, target_name, weapon_name,
+		get_unit(swinger_id).get("owner", get_current_player()), fighter_name, target_name, weapon_name,
 		idx + 1, assignments.size()])
 
 	var progress = {
@@ -2202,11 +2245,17 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 # T3-3: Auto-inject Extra Attacks weapons that aren't already in confirmed_attacks
 # Extra Attacks weapons must be used IN ADDITION to the selected weapon, not instead of it.
 # This ensures AI/auto-resolve paths also correctly include Extra Attacks.
+# 19.03: run for EVERY component of the Attached unit — the Warboss's attack
+# squig is [EXTRA ATTACKS] and swings alongside his Boyz' choppas in the one
+# activation, so his own unit needs the same injection the bodyguard gets.
 func _auto_inject_extra_attacks_weapons() -> void:
 	if active_fighter_id.is_empty():
 		return
+	for member_id in _fight_group_ids(active_fighter_id):
+		_auto_inject_extra_attacks_for_unit(member_id)
 
-	var unit = get_unit(active_fighter_id)
+func _auto_inject_extra_attacks_for_unit(fighter_id: String) -> void:
+	var unit = get_unit(fighter_id)
 	if unit.is_empty():
 		return
 
@@ -2222,9 +2271,12 @@ func _auto_inject_extra_attacks_weapons() -> void:
 	if ea_weapons.is_empty():
 		return
 
-	# Check which EA weapons are already assigned
+	# Check which EA weapons are already assigned — for THIS component (the same
+	# weapon name on two components is two different models' attacks).
 	var assigned_weapon_ids = {}
 	for attack in confirmed_attacks:
+		if str(attack.get("attacker", active_fighter_id)) != fighter_id:
+			continue
 		assigned_weapon_ids[attack.get("weapon", "")] = true
 
 	# Determine default target: use first confirmed attack's target, or first known target
@@ -2245,13 +2297,13 @@ func _auto_inject_extra_attacks_weapons() -> void:
 			continue
 
 		confirmed_attacks.append({
-			"attacker": active_fighter_id,
+			"attacker": fighter_id,
 			"weapon": weapon_id,
 			"target": default_target
 		})
 		DebugLogger.info(str("[FightPhase] T3-3: Auto-injected Extra Attacks weapon '%s' → '%s'" % [weapon_name, default_target]))
 
-	log_phase_message("T3-3: Extra Attacks weapons auto-included for %s" % active_fighter_id)
+	log_phase_message("T3-3: Extra Attacks weapons auto-included for %s" % fighter_id)
 
 # MA-LOADOUT: give the models a whole-unit assignment missed a weapon of their own.
 #
@@ -2268,27 +2320,52 @@ func _auto_inject_extra_attacks_weapons() -> void:
 # Only ever fills gaps left by a whole-unit assignment: if ANY pending assignment
 # names its models explicitly, a per-model path (the AttackAssignmentDialog) chose
 # them and a model left out was left out ON PURPOSE — nothing is added.
+# 19.03: runs for EVERY component of the Attached unit. A component with no
+# assignment of its own is the case that matters — the AI submits ONE
+# whole-unit assignment naming the bodyguard, so without this the attached
+# Warboss contributed nothing to the activation he is now part of (and, before
+# the Attached unit fought as one, took a second activation of his own to do
+# it). See _auto_assign_group_weapon_for_unit.
 func _auto_assign_unassigned_models() -> void:
 	if active_fighter_id.is_empty():
 		return
-	var unit = get_unit(active_fighter_id)
+	for member_id in _fight_group_ids(active_fighter_id):
+		_auto_assign_unassigned_models_for_unit(member_id)
+
+func _auto_assign_unassigned_models_for_unit(fighter_id: String) -> void:
+	var unit = get_unit(fighter_id)
 	if unit.is_empty():
 		return
 
 	var regular: Array = []
 	for attack in confirmed_attacks:
-		if str(attack.get("attacker", active_fighter_id)) != active_fighter_id:
+		if str(attack.get("attacker", active_fighter_id)) != fighter_id:
 			continue
 		if RulesEngine.has_extra_attacks(str(attack.get("weapon", "")), game_state_snapshot):
 			continue  # used IN ADDITION — never consumes a model's weapon choice
 		if not attack.get("models", []).is_empty():
 			return  # a per-model path drove this activation; respect its choices
 		regular.append(attack)
-	if regular.is_empty():
+
+	# The target the Attached unit is already fighting — read from the whole
+	# activation, since an attached component may have no assignment yet.
+	var default_target = ""
+	for attack in confirmed_attacks:
+		if str(attack.get("target", "")) != "":
+			default_target = str(attack.get("target", ""))
+			break
+	if default_target == "":
 		return
 
-	var default_target = str(regular[0].get("target", ""))
-	if default_target == "":
+	if regular.is_empty():
+		# Nothing assigned for this component at all. For the unit that was
+		# actually selected that means a per-model path drove it (or it has no
+		# attacks), and we must not invent any. For an ATTACHED component it
+		# means the caller only described the bodyguard's swing — but they are
+		# ONE unit fighting ONE activation, so its models still attack.
+		if fighter_id == active_fighter_id:
+			return
+		_auto_assign_group_weapon_for_unit(fighter_id, default_target)
 		return
 
 	var eligible = RulesEngine.get_eligible_melee_model_indices(unit, game_state_snapshot)
@@ -2296,17 +2373,8 @@ func _auto_assign_unassigned_models() -> void:
 		return
 
 	# {model index -> [melee weapon name]} for this unit, as actually carried.
-	var per_model = RulesEngine.get_unit_melee_weapons(active_fighter_id, game_state_snapshot)
-	var by_index := {}
-	for key in per_model:
-		var k = str(key)
-		var idx := -1
-		if k.begins_with("m") and k.substr(1).is_valid_int():
-			idx = k.substr(1).to_int()
-		elif k.is_valid_int():
-			idx = k.to_int()
-		if idx >= 0:
-			by_index[idx] = per_model[key]
+	var per_model = RulesEngine.get_unit_melee_weapons(fighter_id, game_state_snapshot)
+	var by_index := _melee_weapons_by_model_index(per_model)
 
 	# Which models the existing whole-unit assignments already cover.
 	var covered := {}
@@ -2336,7 +2404,7 @@ func _auto_assign_unassigned_models() -> void:
 
 	for wid in extra:
 		confirmed_attacks.append({
-			"attacker": active_fighter_id,
+			"attacker": fighter_id,
 			"weapon": wid,
 			"target": default_target,
 			"models": extra[wid]
@@ -2344,7 +2412,86 @@ func _auto_assign_unassigned_models() -> void:
 		log_phase_message("Auto-assigned %s for %d model(s) the unit's weapon pick left out → %s" % [
 			wid, extra[wid].size(), default_target])
 		DebugLogger.info(str("[FightPhase] MA-LOADOUT: gap-filled '%s' for models %s of %s → %s" % [
-			wid, str(extra[wid]), active_fighter_id, default_target]))
+			wid, str(extra[wid]), fighter_id, default_target]))
+
+# 19.03: an attached component nobody assigned anything for — every one of its
+# eligible models swings the best melee weapon it carries, at the target the
+# rest of the Attached unit is fighting. Unlike the gap-filler above this does
+# NOT require the model's weapon to be unambiguous: staying silent would mean
+# the Leader simply does not fight, which is the bug this exists to prevent.
+# The pick matches AttackAssignmentDialog._best_weapon_for_model, so the AI's
+# swing and a hand-driven one land on the same weapon.
+func _auto_assign_group_weapon_for_unit(fighter_id: String, target_id: String) -> void:
+	var unit = get_unit(fighter_id)
+	if unit.is_empty():
+		return
+	var eligible = RulesEngine.get_eligible_melee_model_indices(unit, game_state_snapshot)
+	if eligible.is_empty():
+		log_phase_message("[19.03] %s (part of the Attached unit) has no model eligible to fight — no attacks from it" % fighter_id)
+		return
+	var by_index := _melee_weapons_by_model_index(
+		RulesEngine.get_unit_melee_weapons(fighter_id, game_state_snapshot))
+
+	var by_weapon := {}
+	for idx in eligible:
+		if not by_index.has(idx):
+			continue
+		var wid = _best_melee_weapon_id(unit, by_index[idx])
+		if wid == "":
+			continue
+		if not by_weapon.has(wid):
+			by_weapon[wid] = []
+		by_weapon[wid].append(str(idx))
+
+	for wid in by_weapon:
+		confirmed_attacks.append({
+			"attacker": fighter_id,
+			"weapon": wid,
+			"target": target_id,
+			"models": by_weapon[wid]
+		})
+		log_phase_message("[19.03] %s fights with the Attached unit: %s for %d model(s) → %s" % [
+			get_unit(fighter_id).get("meta", {}).get("name", fighter_id),
+			wid, by_weapon[wid].size(), target_id])
+		DebugLogger.info(str("[FightPhase] 19.03: attached component '%s' auto-assigned '%s' for models %s → %s" % [
+			fighter_id, wid, str(by_weapon[wid]), target_id]))
+
+# get_unit_melee_weapons keys ("m3" or "3") -> int model index.
+func _melee_weapons_by_model_index(per_model: Dictionary) -> Dictionary:
+	var by_index := {}
+	for key in per_model:
+		var k = str(key)
+		var idx := -1
+		if k.begins_with("m") and k.substr(1).is_valid_int():
+			idx = k.substr(1).to_int()
+		elif k.is_valid_int():
+			idx = k.to_int()
+		if idx >= 0:
+			by_index[idx] = per_model[key]
+	return by_index
+
+# The melee weapon a model should swing when nobody chose for it: the highest
+# average attacks x damage it carries, strength breaking ties. [EXTRA ATTACKS]
+# weapons are skipped — they are used IN ADDITION and are injected separately.
+func _best_melee_weapon_id(unit: Dictionary, weapon_names: Array) -> String:
+	var best_id := ""
+	var best_score := -1.0
+	for wname in weapon_names:
+		var wid = RulesEngine.generate_weapon_id(str(wname), "Melee")
+		if RulesEngine.has_extra_attacks(wid, game_state_snapshot):
+			continue
+		var profile := {}
+		for w in unit.get("meta", {}).get("weapons", []):
+			if str(w.get("name", "")) == str(wname):
+				profile = w
+				break
+		var score: float = RulesEngine.average_dice_notation(str(profile.get("attacks", "1"))) \
+			* RulesEngine.average_dice_notation(str(profile.get("damage", "1"))) * 100.0 \
+			+ RulesEngine.average_dice_notation(str(profile.get("strength", "0")))
+		if score > best_score:
+			best_score = score
+			best_id = wid
+	return best_id
 
 
 func _show_mathhammer_predictions() -> void:
@@ -2486,13 +2633,22 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	if not changes.is_empty():
 		PhaseManager.apply_state_changes(changes)
 
-	changes.append({
-		"op": "set",
-		"path": "units.%s.flags.has_fought" % unit_id,
-		"value": true
-	})
+	# 19.03: the whole Attached unit has now had its one fight — stamp every
+	# component. Marking only the bodyguard left the Leader unfought, so he was
+	# offered a second activation and the enemy got to swing in between.
+	var group_ids = _fight_group_ids(unit_id)
+	for member_id in group_ids:
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.has_fought" % member_id,
+			"value": true
+		})
+		if not member_id in units_that_fought:
+			units_that_fought.append(member_id)
+	if sequencer_11e != null:
+		for member_id in group_ids:
+			sequencer_11e.mark_fought(member_id)
 	final_result["changes"] = changes
-	units_that_fought.append(unit_id)
 	active_fighter_id = ""
 	confirmed_attacks.clear()
 
@@ -2653,14 +2809,18 @@ func _process_consolidate_step_11e(action: Dictionary) -> Dictionary:
 	return _advance_consolidation_step_11e(result)
 
 func _process_skip_unit(action: Dictionary) -> Dictionary:
-	# Skip this unit and advance to next
-	units_that_fought.append(action.unit_id)
+	# Skip this unit and advance to next. 19.03: skipping an Attached unit
+	# forfeits the WHOLE unit's fight — leaving its Leader unmarked would offer
+	# him again as a fight of his own.
+	for member_id in _fight_group_ids(str(action.unit_id)):
+		if not member_id in units_that_fought:
+			units_that_fought.append(member_id)
 	active_fighter_id = ""
 
 	# 11e: keep the sequencer's candidate list consistent — a skipped unit
 	# forfeits its fight and must not be re-offered forever.
 	if sequencer_11e != null:
-		sequencer_11e.mark_fought(action.unit_id)
+		sequencer_11e.mark_fought(action.unit_id, GameState.state)
 		# A skipped activation also forfeits any 12.06 overrun grant
 		if overrun_pile_in_unit_11e == action.unit_id:
 			overrun_pile_in_unit_11e = ""
@@ -2777,11 +2937,13 @@ func _remaining_units_11e() -> Dictionary:
 	# sections partition cleanly.
 	var d = {"1": [], "2": []}
 	if sequencer_11e != null:
-		var units = GameState.state.get("units", {})
 		for player_key in ["1", "2"]:
 			var out: Array = []
 			for unit_id in sequencer_11e.eligible_units(GameState.state, int(player_key), false):
-				if not sequencer_11e.is_fights_first(units.get(unit_id, {})):
+				# 19.03: an Attached unit is Fights First when ANY component is,
+				# so partition with the same group predicate eligible_units used
+				# — otherwise the pair showed up in BOTH sections.
+				if not sequencer_11e.group_is_fights_first(unit_id, GameState.state):
 					out.append(unit_id)
 			d[player_key] = out
 	return d
@@ -2789,13 +2951,20 @@ func _remaining_units_11e() -> Dictionary:
 func _combatants_11e() -> Array:
 	# Units that are or were in the fight this phase, for UI display (fighter
 	# list + fight-order signals): still-eligible first, then already-fought.
+	# 19.03: ONE entry per Attached unit — an attached CHARACTER is folded into
+	# his bodyguard's row, so the FIGHT SEQUENCE panel no longer listed "Boyz"
+	# and "Warboss" as two separate combatants when they swing together.
 	var out: Array = []
 	if sequencer_11e == null:
 		return out
 	for unit_id in GameState.state.get("units", {}):
-		if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
+		if RulesEngine.is_attached_character(unit_id, GameState.state):
+			continue
+		if sequencer_11e.group_eligible_to_fight(unit_id, GameState.state):
 			out.append(unit_id)
 	for unit_id in units_that_fought:
+		if RulesEngine.is_attached_character(unit_id, GameState.state):
+			continue
 		if unit_id not in out:
 			out.append(unit_id)
 	return out
@@ -2899,12 +3068,28 @@ func _get_eligible_units_for_selection() -> Dictionary:
 	for unit_id in sequencer_11e.eligible_units(GameState.state, current_selecting_player, only_ff):
 		var unit = get_unit(unit_id)
 		if not unit.is_empty():
+			# 19.03: ONE row for the whole Attached unit — "Boyz + Warboss",
+			# offering both components' melee weapons, because selecting it
+			# activates them together.
 			eligible[unit_id] = {
-				"name": unit.get("meta", {}).get("name", unit_id),
-				"weapons": RulesEngine.get_unit_melee_weapons(unit_id, game_state_snapshot),
+				"name": _fight_attached_display_name(unit_id),
+				"weapons": _fight_group_melee_weapons(unit_id),
 				"targets": _get_eligible_melee_targets(unit_id)
 			}
 	return eligible
+
+# Melee weapons of the whole Attached unit, keyed so the caller can still tell
+# which component a model belongs to: the chosen unit's own entries keep their
+# plain "m<i>" keys, an attached character's are prefixed "<unit_id>:" (the same
+# composite-bearer convention RulesEngine.get_unit_weapons uses for shooting,
+# where the Attached unit has fired as one unit all along).
+func _fight_group_melee_weapons(unit_id: String) -> Dictionary:
+	var out = RulesEngine.get_unit_melee_weapons(unit_id, game_state_snapshot).duplicate(true)
+	for char_id in _fight_attached_char_ids(unit_id):
+		var char_weapons = RulesEngine.get_unit_melee_weapons(char_id, game_state_snapshot)
+		for key in char_weapons:
+			out["%s:%s" % [char_id, str(key)]] = char_weapons[key]
+	return out
 
 func _switch_selecting_player() -> void:
 	# 12.04: the sequencer decides who picks next (it skips a player with
@@ -2925,12 +3110,32 @@ func _get_eligible_melee_targets(unit_id: String) -> Dictionary:
 	var unit_owner = unit.get("owner", 0)
 	var unit_is_aircraft = _unit_has_keyword(unit, "AIRCRAFT")
 	var unit_has_fly = _unit_has_keyword(unit, "FLY")
+	# 19.03: the ATTACKER is the whole Attached unit too — an enemy reachable
+	# only by the attached leader's model is a target for this activation.
+	var actor_group = {"models": RulesEngine.attached_unit_models(unit_id, game_state_snapshot)}
 
 	for other_unit_id in all_units:
 		var other_unit = all_units[other_unit_id]
 		var other_owner = other_unit.get("owner", 0)
+		if other_owner == unit_owner:
+			continue
 
-		if other_owner != unit_owner and _units_in_engagement_range(unit, other_unit):
+		# 19.02/19.03: while a CHARACTER is attached to a bodyguard the two are
+		# ONE Attached unit, so the leader is NOT a target of its own — the
+		# bodyguard entry stands for the whole Attached unit and the allocation
+		# rules (05.04) are what reach the leader. Without this the AI happily
+		# picked the attached Warboss and every wound landed on him while his
+		# Boyz stood untouched.
+		if RulesEngine.is_attached_character(other_unit_id, game_state_snapshot):
+			log_phase_message("[19.02] Target %s excluded: attached CHARACTER — fight %s (the Attached unit) instead" % [
+				other_unit_id, RulesEngine.attached_unit_target_id(other_unit_id, game_state_snapshot)])
+			continue
+
+		# Engagement range is measured against the WHOLE Attached unit
+		# (bodyguard + attached characters' models): a unit engaged only with
+		# the attached leader's model is still engaged with the unit.
+		var other_group = {"models": RulesEngine.attached_unit_models(other_unit_id, game_state_snapshot)}
+		if _units_in_engagement_range(actor_group, other_group):
 			# T4-4: Aircraft can only fight against units that can Fly
 			var other_is_aircraft = _unit_has_keyword(other_unit, "AIRCRAFT")
 			if unit_is_aircraft and not _unit_has_keyword(other_unit, "FLY"):
@@ -3179,6 +3384,28 @@ func _fight_attached_char_ids(unit_id: String) -> Array:
 # the chosen unit plus its attached characters.
 func _fight_move_group_ids(unit_id: String) -> Array:
 	return [unit_id] + _fight_attached_char_ids(unit_id)
+
+# 19.03: the component units of the Attached unit that is fighting as ONE unit
+# in a single activation — the chosen unit plus its attached characters. Same
+# membership as _fight_move_group_ids (pile in / consolidate already move as
+# one); named separately because the ATTACK side reads it too and the two are
+# conceptually different rules (12.02/12.07 vs 12.05).
+#
+# The components stay separate unit dicts: each keeps its own stats, abilities,
+# weapons and model indices, and RulesEngine resolves every assignment against
+# `assignment.attacker` rather than the activation's actor. So one activation
+# simply carries assignments from more than one component — no virtual merged
+# unit, and no per-component activation for the enemy to interleave with.
+func _fight_group_ids(unit_id: String) -> Array:
+	if unit_id == "":
+		return []
+	return _fight_move_group_ids(unit_id)
+
+# True when unit_id is part of the Attached unit currently activated. Attack
+# assignments may name any component of it (the Boyz' choppas AND their
+# Warboss's power klaw land in the same activation's batch).
+func _is_in_active_fight_group(unit_id: String) -> bool:
+	return unit_id in _fight_group_ids(active_fighter_id)
 
 # True when unit_id is an attached CHARACTER (a component of some Attached
 # unit). Checks the character's own attached_to back-pointer AND every
@@ -4181,9 +4408,22 @@ func _process_use_epic_challenge(action: Dictionary) -> Dictionary:
 
 	# ISS-024: apply through the pipeline (the snapshot is a live view —
 	# direct writes would bypass replay/MP sync).
-	PhaseManager.apply_state_changes([{"op": "set",
-		"path": "units.%s.flags.%s" % [unit_id, EffectPrimitivesData.FLAG_PRECISION_MELEE],
-		"value": true}])
+	# 19.03: on an ATTACHED unit the stratagem is the CHARACTER's — [PRECISION]
+	# belongs on the components that actually have the keyword, so the leader's
+	# attacks can pick out an enemy CHARACTER while his bodyguard's cannot.
+	# (A lone CHARACTER unit is its own only component, so this is unchanged
+	# for every unattached leader.)
+	var precision_changes: Array = []
+	for component_id in _fight_group_ids(unit_id):
+		if _unit_has_keyword(get_unit(component_id), "CHARACTER"):
+			precision_changes.append({"op": "set",
+				"path": "units.%s.flags.%s" % [component_id, EffectPrimitivesData.FLAG_PRECISION_MELEE],
+				"value": true})
+	if precision_changes.is_empty():
+		precision_changes.append({"op": "set",
+			"path": "units.%s.flags.%s" % [unit_id, EffectPrimitivesData.FLAG_PRECISION_MELEE],
+			"value": true})
+	PhaseManager.apply_state_changes(precision_changes)
 
 	# Check for Martial Ka'tah before proceeding to pile-in
 	var katah_result = _check_katah_or_proceed_to_pile_in(unit_id)
@@ -4513,8 +4753,9 @@ func _process_use_counter_offensive(action: Dictionary) -> Dictionary:
 
 	# 11e: register the out-of-sequence selection with the sequencer, or it
 	# would keep offering this unit as an unfought candidate forever.
+	# 19.03: an Attached unit counter-offensives as one — mark every component.
 	if sequencer_11e != null:
-		sequencer_11e.mark_fought(unit_id)
+		sequencer_11e.mark_fought(unit_id, GameState.state)
 
 	log_phase_message("Player %d selects %s to fight (via COUNTER-OFFENSIVE)" % [player, unit_name])
 

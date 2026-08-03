@@ -2,6 +2,33 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.17.0",
+      "date": "2026-08-03",
+      "summary": "A Leader and the squad he joined now fight in ONE activation — one row, one attack panel, one swing. The enemy no longer gets a turn in between.",
+      "changes": [
+        "Fixed (reported in the Krumpin' tutorial): the Warboss was leading the Boyz, but they activated separately — the Boyz swung, then the Custodes swung, then the Warboss swung. An attached Leader is part of his squad and they fight together.",
+        "The fight list shows one row for the pair — 'Boyz + Warboss' — and picking it activates the whole unit. The Leader is no longer offered a second activation of his own.",
+        "The attack panel covers the whole unit: the Leader gets his own loadout section alongside the mob's, so he picks his weapon and target there like every other group.",
+        "Both parts of the unit are marked as having fought, so a Leader can no longer swing twice — and Extra Attacks weapons stay with the model that actually has them.",
+        "Epic Challenge is offered when you activate a squad with a Leader attached, and gives PRECISION to the Leader's attacks (it used to only appear on his separate activation).",
+        "The combat log names whoever is actually swinging, so the Warboss's Power klaw reads as his and not his Boyz'.",
+        "The Krumpin' tutorial drops its separate 'da boss ain't swung yet' step — he swings with his mob."
+      ]
+    },
+    {
+      "version": "1.16.5",
+      "date": "2026-08-03",
+      "summary": "Melee: a Leader attached to a squad can no longer be singled out in combat — the enemy has to hack through his bodyguard first.",
+      "changes": [
+        "Fixed (reported in the Krumpin' tutorial): the Custodian Guard swung back at the Warboss even though he was attached to the Boyz, wiped him in one activation, and left all ten Boyz untouched. No Precision stratagem was involved — the leader was simply offered as a target in his own right.",
+        "An attached Character is now hidden behind his unit everywhere in the Fight phase: he is gone from the target list, from the engine's target check and from the AI's fight plan, and picking him is rejected outright.",
+        "Wounds against the combined unit are grouped by the rules again — the bodyguard models take them first and the Character group comes last, so the Boss only starts losing wounds once his Boyz are gone.",
+        "A squad you can only reach through its attached leader's model is still a legal target — engagement range is measured against the whole unit, leader included.",
+        "Once a bodyguard squad is wiped out the leader becomes a unit of his own again and can be attacked normally.",
+        "Ranged attacks already worked this way; melee now matches."
+      ]
+    },
+    {
       "version": "1.16.3",
       "date": "2026-08-03",
       "summary": "Melee attack allocation is now split into loadout sections, so a mob can finally send its Boyz and its Boss Nob at the enemy with different weapons — or divide one squad between two.",

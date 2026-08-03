@@ -37,14 +37,36 @@ var all_to_target_button: Button = null  # T5-UX5: "All to Target" shortcut butt
 var best_krump_button: Button = null  # Auto-assign the best weapon per group
 var _pad_hint_label: Label = null  # Controller hint row (shown only when a pad is active)
 
-# MA-LOADOUT (melee): who can swing what. `_eligible_indices` is every model
+# MA-LOADOUT (melee): who can swing what. `_eligible_models` is every model
 # that may fight this activation; `_weapon_carriers` maps a weapon id to the
 # subset of those models actually equipped with it (RulesEngine applies the same
 # filter when the attacks resolve). Before this the dialog offered the unit's
 # whole datasheet menu to every model, so picking the Boss Nob's Power klaw gave
 # all ten Boyz one.
-var _eligible_indices: Array = []
-var _weapon_carriers: Dictionary = {}   # weapon_id -> Array[int] model indices
+# 19.03 — ONE dialog for the whole ATTACHED unit. A CHARACTER attached to a
+# bodyguard fights in the SAME activation, so the models here span more than one
+# unit dict. Each is addressed by a MODEL KEY "<unit_id>#<model index>"; the
+# index alone is ambiguous once two components are in play (the Warboss's only
+# model is index 0 just as the first Boy is). Assignments are split back out per
+# component in _rebuild_assignments, because RulesEngine resolves each against
+# its own `attacker` — that is what keeps the leader's stats, abilities and
+# weapon profile his own instead of his bodyguard's.
+var _eligible_models: Array = []        # Array[String] model keys
+var _weapon_carriers: Dictionary = {}   # weapon_id -> Array[String] model keys
+var _model_key_unit: Dictionary = {}    # model key -> owning component unit id
+var _group_unit_ids: Array = []         # component unit ids, bodyguard first
+
+# "<unit_id>#<index>" — see _eligible_models.
+static func _mk(owner_id: String, model_index: int) -> String:
+	return "%s#%d" % [owner_id, model_index]
+
+static func _mk_unit(model_key: String) -> String:
+	var sep := model_key.rfind("#")
+	return model_key.substr(0, sep) if sep > 0 else model_key
+
+static func _mk_index(model_key: String) -> String:
+	var sep := model_key.rfind("#")
+	return model_key.substr(sep + 1) if sep > 0 else model_key
 var _weapon_by_id: Dictionary = {}      # weapon_id -> weapon profile dictionary
 
 # ── LOADOUT GROUPS (Option B) ───────────────────────────────────────────────
@@ -81,7 +103,11 @@ func setup(fighter_id: String, targets: Dictionary, phase) -> void:
 
 	var unit = phase.get_unit(unit_id)
 	var _aad_meta = unit.get("meta", {})
-	title = "Assign Attacks: %s" % _aad_meta.get("display_name", _aad_meta.get("name", unit_id))
+	# 19.03: name the whole ATTACHED unit ("Boyz + Warboss") — this one dialog
+	# assigns the attacks of every component, so titling it with the bodyguard
+	# alone hid that the leader swings here too.
+	title = "Assign Attacks: %s" % (phase._fight_attached_display_name(unit_id) if phase.has_method("_fight_attached_display_name") \
+else str(_aad_meta.get("display_name", _aad_meta.get("name", unit_id))))
 
 	print("[AttackAssignmentDialog] Building UI...")
 	_build_ui()
@@ -93,30 +119,47 @@ func _build_ui() -> void:
 	container.name = "Content"
 	container.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 20, 0)
 
-	# Get unit's melee weapons from meta
+	# 19.03: the activation covers the whole ATTACHED unit — the bodyguard AND
+	# every CHARACTER attached to it. Everything below walks the components.
+	_group_unit_ids = RulesEngine.attached_unit_component_ids(unit_id, phase_reference.game_state_snapshot)
 	var unit = phase_reference.get_unit(unit_id)
 
-	# Show eligible model count (per 10e: only models in engagement range can fight)
-	var eligible_indices = RulesEngine.get_eligible_melee_model_indices(unit, phase_reference.game_state_snapshot)
+	# Show eligible model count (per 10e: only models in engagement range can
+	# fight) across the whole Attached unit.
+	_eligible_models = []
+	_model_key_unit = {}
 	var alive_count = 0
-	for model in unit.get("models", []):
-		if model.get("alive", true):
-			alive_count += 1
+	for member_id in _group_unit_ids:
+		var member = phase_reference.get_unit(member_id)
+		for idx in RulesEngine.get_eligible_melee_model_indices(member, phase_reference.game_state_snapshot):
+			var key := _mk(member_id, int(idx))
+			_eligible_models.append(key)
+			_model_key_unit[key] = member_id
+		for model in member.get("models", []):
+			if model.get("alive", true):
+				alive_count += 1
 
 	var instruction = Label.new()
-	if eligible_indices.size() < alive_count:
-		instruction.text = "Models in engagement range: %d/%d" % [eligible_indices.size(), alive_count]
+	if _eligible_models.size() < alive_count:
+		instruction.text = "Models in engagement range: %d/%d" % [_eligible_models.size(), alive_count]
 	else:
 		instruction.text = "All %d models in engagement range" % alive_count
 	container.add_child(instruction)
-	var weapons_data = unit.get("meta", {}).get("weapons", [])
-	print("[AttackAssignmentDialog] Found %d total weapons" % weapons_data.size())
 
-	# T3-3: Separate melee weapons into regular and Extra Attacks
+	# T3-3: Separate melee weapons into regular and Extra Attacks. Both lists
+	# span the Attached unit's components; a weapon named by two of them is ONE
+	# entry (its carriers are collected from both below).
 	var regular_melee_weapons = []
 	extra_attacks_weapons = []
-	for weapon in weapons_data:
-		if weapon.get("type", "").to_lower() == "melee":
+	var seen_weapon_ids := {}
+	for member_id in _group_unit_ids:
+		for weapon in phase_reference.get_unit(member_id).get("meta", {}).get("weapons", []):
+			if weapon.get("type", "").to_lower() != "melee":
+				continue
+			var seen_id = RulesEngine.generate_weapon_id(weapon.get("name", ""), weapon.get("type", ""))
+			if seen_weapon_ids.has(seen_id):
+				continue
+			seen_weapon_ids[seen_id] = true
 			if RulesEngine.weapon_data_has_extra_attacks(weapon):
 				extra_attacks_weapons.append(weapon)
 				print("[AttackAssignmentDialog] Extra Attacks weapon: ", weapon.get("name", "Unknown"))
@@ -130,7 +173,6 @@ func _build_ui() -> void:
 	# drop weapons no eligible model is equipped with — the menu used to be the
 	# unit's whole datasheet, so a mob was offered its Boss Nob's Power klaw as
 	# though every model had one.
-	_eligible_indices = eligible_indices
 	_weapon_carriers = {}
 	_weapon_by_id = {}
 	var carried_melee_weapons: Array = []
@@ -142,12 +184,22 @@ func _build_ui() -> void:
 		# offering them let a player swing weapons the unit does not own.
 		# (Before a unit's loadout can be resolved every model reports the whole
 		# menu, so this hides nothing.)
-		if not RulesEngine.unit_has_melee_weapon(unit, wid):
-			print("[AttackAssignmentDialog] '%s' is a datasheet option this unit did not take — omitted" % weapon.get("name", "?"))
-			continue
-		var carriers = RulesEngine.get_melee_weapon_swingers(unit, wid, eligible_indices, [])
-		# The engine falls back to "everyone" for a weapon it cannot attribute;
-		# that is the unresolvable case, and listing it is still correct.
+		# 19.03: asked of each component in turn, so the Warboss's Power klaw is
+		# listed as HIS even though his Boyz name it only as an option.
+		var carriers: Array = []
+		for member_id in _group_unit_ids:
+			var member = phase_reference.get_unit(member_id)
+			if not RulesEngine.unit_has_melee_weapon(member, wid):
+				continue
+			var member_eligible: Array = []
+			for key in _eligible_models:
+				if _model_key_unit.get(key, "") == member_id:
+					member_eligible.append(int(_mk_index(str(key))))
+			# The engine falls back to "everyone" for a weapon it cannot
+			# attribute; that is the unresolvable case, and listing it is still
+			# correct.
+			for idx in RulesEngine.get_melee_weapon_swingers(member, wid, member_eligible, []):
+				carriers.append(_mk(member_id, int(idx)))
 		if carriers.is_empty():
 			print("[AttackAssignmentDialog] '%s' has no eligible carrier — omitted" % weapon.get("name", "?"))
 			continue
@@ -391,41 +443,54 @@ func _build_ui() -> void:
 
 # ── loadout grouping ────────────────────────────────────────────────────────
 
-# Partition `_eligible_indices` by the SET of regular melee weapons each model
+# Partition `_eligible_models` by the SET of regular melee weapons each model
 # carries. Membership is read back out of `_weapon_carriers`, which is built from
 # RulesEngine.get_melee_weapon_swingers — so the dialog's idea of "who carries
 # what" is by construction the same one the engine applies when the attacks
 # resolve, including its conservative "cannot attribute → everyone" fallback.
-func _build_groups(unit: Dictionary) -> void:
+# 19.03: the partition is per COMPONENT as well as per loadout. Two components
+# can carry an identical weapon set (a Warboss and a Boss Nob both on Big
+# choppas) and must still be separate sections — their models are indices into
+# different unit dicts, and each resolves against its own profile.
+func _build_groups(_unit: Dictionary) -> void:
 	_groups = []
-	var models: Array = unit.get("models", [])
 	var by_signature: Dictionary = {}
 
-	for idx in _eligible_indices:
+	for key in _eligible_models:
+		var owner_id: String = _model_key_unit.get(key, unit_id)
+		var idx: int = int(_mk_index(str(key)))
 		var carried: Array = []
 		for wid in _weapon_carriers:
-			if idx in _weapon_carriers[wid]:
+			if key in _weapon_carriers[wid]:
 				carried.append(wid)
 		if carried.is_empty():
 			# An eligible model with no melee weapon we can attribute simply has
 			# nothing to swing — it drops out rather than being given someone
 			# else's weapon.
-			print("[AttackAssignmentDialog] Model %d carries no listed melee weapon — not grouped" % idx)
+			print("[AttackAssignmentDialog] Model %s carries no listed melee weapon — not grouped" % str(key))
 			continue
 		carried.sort()
-		var signature: String = "|".join(carried)
+		var signature: String = "%s|%s" % [owner_id, "|".join(carried)]
 		if not by_signature.has(signature):
 			by_signature[signature] = {
 				"key": signature,
+				"owner": owner_id,
 				"weapons": carried,
 				"models": [],
 				"labels": [],
 			}
-		by_signature[signature].models.append(idx)
+		by_signature[signature].models.append(str(key))
 		# Label from the datasheet's model_profiles when it names this model type
 		# ("Boss Nob" / "Boy"); several types with an identical weapon set share
 		# one section and the label lists them.
-		var label := _model_type_label(unit, models[idx] if idx < models.size() else {})
+		var owner_unit: Dictionary = phase_reference.get_unit(owner_id)
+		var owner_models: Array = owner_unit.get("models", [])
+		var label := _model_type_label(owner_unit, owner_models[idx] if idx < owner_models.size() else {})
+		if label == "" and _group_unit_ids.size() > 1:
+			# An attached leader usually has no model_profiles of his own —
+			# name the section after his unit so "Warboss ×1" reads plainly.
+			var om = owner_unit.get("meta", {})
+			label = str(om.get("display_name", om.get("name", owner_id)))
 		if label != "" and not label in by_signature[signature].labels:
 			by_signature[signature].labels.append(label)
 
@@ -435,12 +500,22 @@ func _build_groups(unit: Dictionary) -> void:
 	# submitted assignments, and because a fixed RNG seed consumes dice in
 	# assignment order that silently re-rolls every seeded fight: it wiped the
 	# Custodian Guard the T6 tutorial needs alive to demonstrate swinging back.
+	# 19.03: components first (bodyguard, then its attached characters in
+	# attachment order), then model order inside each — so a mob reads
+	# "Boss Nob, Boyz, then the Warboss who joined them".
+	var order_of := {}
+	for i in range(_group_unit_ids.size()):
+		order_of[str(_group_unit_ids[i])] = i
 	var sigs: Array = by_signature.keys()
 	sigs.sort_custom(func(a, b):
 		var ga = by_signature[a]
 		var gb = by_signature[b]
-		var fa: int = ga.models[0] if not ga.models.is_empty() else 1 << 30
-		var fb: int = gb.models[0] if not gb.models.is_empty() else 1 << 30
+		var ua: int = int(order_of.get(str(ga.owner), 1 << 30))
+		var ub: int = int(order_of.get(str(gb.owner), 1 << 30))
+		if ua != ub:
+			return ua < ub
+		var fa: int = int(_mk_index(str(ga.models[0]))) if not ga.models.is_empty() else 1 << 30
+		var fb: int = int(_mk_index(str(gb.models[0]))) if not gb.models.is_empty() else 1 << 30
 		if fa != fb:
 			return fa < fb
 		return str(ga.key) < str(gb.key))
@@ -579,6 +654,46 @@ func _build_group_section(gi: int) -> Control:
 	return panel
 
 
+# Model keys of every eligible model across the Attached unit that carries
+# weapon_id. Used for weapons that are not in `_weapon_carriers` (the
+# [EXTRA ATTACKS] previews), which is built from the regular list only.
+#
+# [EXTRA ATTACKS] needs the datasheet fallback below: loadout resolution keeps
+# only the ONE melee weapon a model fights with, so an extra-attacks weapon is
+# NOT in any model's resolved loadout and unit_has_melee_weapon reports false
+# for it. Attributing by datasheet instead keeps the Warboss's attack squig on
+# the Warboss.
+func _carriers_across_group(weapon_id: String) -> Array:
+	if _weapon_carriers.has(weapon_id):
+		return _weapon_carriers[weapon_id]
+	var out: Array = []
+	for member_id in _group_unit_ids:
+		var member = phase_reference.get_unit(member_id)
+		var member_eligible: Array = []
+		for key in _eligible_models:
+			if _model_key_unit.get(key, "") == member_id:
+				member_eligible.append(int(_mk_index(str(key))))
+		if member_eligible.is_empty():
+			continue
+		if RulesEngine.unit_has_melee_weapon(member, weapon_id):
+			for idx in RulesEngine.get_melee_weapon_swingers(member, weapon_id, member_eligible, []):
+				out.append(_mk(member_id, int(idx)))
+			continue
+		if not _unit_datasheet_lists_weapon(member, weapon_id):
+			continue
+		for idx in member_eligible:
+			out.append(_mk(member_id, int(idx)))
+	return out
+
+# True when this component's datasheet names weapon_id at all — see
+# _carriers_across_group for why the resolved loadout is not enough.
+func _unit_datasheet_lists_weapon(unit: Dictionary, weapon_id: String) -> bool:
+	for w in unit.get("meta", {}).get("weapons", []):
+		if RulesEngine.generate_weapon_id(w.get("name", ""), w.get("type", "")) == weapon_id:
+			return true
+	return false
+
+
 # ── plan helpers ────────────────────────────────────────────────────────────
 
 func _selected_target_id() -> String:
@@ -648,25 +763,38 @@ func _rebuild_assignments() -> void:
 				cursor += 1
 			if picked.is_empty():
 				continue
-			# Two groups can legitimately land on the same weapon and target
-			# (a Nob and his Boyz both on Choppas); merge so the batch stays one
-			# ASSIGN_ATTACKS per weapon/target pair rather than one per group.
-			var key := "%s|%s" % [wid, tid]
-			if merged.has(key):
-				merged[key].models.append_array(picked)
-			else:
-				var entry := {
-					"attacker": unit_id,
-					"weapon": wid,
-					"target": tid,
-					"models": picked
-				}
-				merged[key] = entry
-				assignments.append(entry)
+			# 19.03: split the picked MODEL KEYS back out per component and file
+			# each slice under the unit that owns it — RulesEngine resolves an
+			# assignment against its own `attacker`, so the Warboss's power klaw
+			# must not be filed under his Boyz (they would swing it, at his
+			# profile's expense).
+			var by_owner: Dictionary = {}
+			for mk in picked:
+				var owner_id: String = _mk_unit(str(mk))
+				if not by_owner.has(owner_id):
+					by_owner[owner_id] = []
+				by_owner[owner_id].append(_mk_index(str(mk)))
+			# Two groups of the SAME component can legitimately land on the same
+			# weapon and target (a Nob and his Boyz both on Choppas); merge so
+			# the batch stays one ASSIGN_ATTACKS per attacker/weapon/target
+			# rather than one per group.
+			for owner_id in by_owner:
+				var key := "%s|%s|%s" % [owner_id, wid, tid]
+				if merged.has(key):
+					merged[key].models.append_array(by_owner[owner_id])
+				else:
+					var entry := {
+						"attacker": owner_id,
+						"weapon": wid,
+						"target": tid,
+						"models": by_owner[owner_id]
+					}
+					merged[key] = entry
+					assignments.append(entry)
 
 	for a in assignments:
-		print("[AttackAssignmentDialog] Assignment: %s → %s (%d model(s): %s)" % [
-			a.weapon, a.target, a.models.size(), str(a.models)])
+		print("[AttackAssignmentDialog] Assignment: %s swings %s → %s (%d model(s): %s)" % [
+			a.attacker, a.weapon, a.target, a.models.size(), str(a.models)])
 	print("[AttackAssignmentDialog] Total assignments: ", assignments.size())
 	_update_assignments_display()
 
@@ -1151,8 +1279,9 @@ func _update_assignments_display() -> void:
 		for weapon in extra_attacks_weapons:
 			var weapon_name = weapon.get("name", "Unknown")
 			var weapon_id = RulesEngine.generate_weapon_id(weapon_name, weapon.get("type", ""))
-			var ea_carriers: Array = RulesEngine.get_melee_weapon_swingers(
-				phase_reference.get_unit(unit_id), weapon_id, _eligible_indices, [])
+			# 19.03: count carriers across every component of the Attached unit
+			# (the Warboss's attack squig swings with his Boyz).
+			var ea_carriers: Array = _carriers_across_group(weapon_id)
 			var ed: float = _estimate_expected_damage(weapon_id, ea_target_id, ea_carriers.size())
 			total_expected_damage += ed
 			assignments_display.append_text("- %s → %s (%d model%s) [Extra Attacks, E[D]≈%.1f]\n" % [
@@ -1172,13 +1301,19 @@ func _estimate_expected_damage(weapon_id: String, target_id: String, swinging_mo
 	var target_unit = phase_reference.get_unit(target_id)
 	if attacker_unit.is_empty() or target_unit.is_empty():
 		return 0.0
-	# Find weapon
+	# Find weapon. 19.03: search every component of the Attached unit — the
+	# attached leader's power klaw is not on his bodyguard's datasheet, and
+	# without this its forecast row silently read 0 (and the "best weapon"
+	# auto-plan would never pick it).
 	var weapon: Dictionary = {}
-	for w in attacker_unit.get("meta", {}).get("weapons", []):
-		var wname = w.get("name", "")
-		var wid = RulesEngine.generate_weapon_id(wname, w.get("type", ""))
-		if wid == weapon_id or wname == weapon_id:
-			weapon = w
+	for member_id in (_group_unit_ids if not _group_unit_ids.is_empty() else [unit_id]):
+		for w in phase_reference.get_unit(member_id).get("meta", {}).get("weapons", []):
+			var wname = w.get("name", "")
+			var wid = RulesEngine.generate_weapon_id(wname, w.get("type", ""))
+			if wid == weapon_id or wname == weapon_id:
+				weapon = w
+				break
+		if not weapon.is_empty():
 			break
 	if weapon.is_empty():
 		return 0.0
@@ -1195,8 +1330,7 @@ func _estimate_expected_damage(weapon_id: String, target_id: String, swinging_mo
 	# Fall back to the eligible-and-equipped count when it is not supplied.
 	var swinging: int = swinging_models
 	if swinging < 0:
-		swinging = RulesEngine.get_melee_weapon_swingers(
-			attacker_unit, weapon_id, _eligible_indices, []).size()
+		swinging = _carriers_across_group(weapon_id).size()
 	var total_attacks: float = attacks_avg * float(max(1, swinging))
 	# Hit probability from WS/BS (weapon's accuracy attribute). `weapon_skill` is
 	# the key the army JSONs actually use — without it every melee weapon scored
@@ -1328,17 +1462,40 @@ func _on_confirmed() -> void:
 		return
 
 	# T3-3: Auto-include Extra Attacks weapons in assignments
+	# 19.03: attribute each one to the component that actually CARRIES it. The
+	# Warboss's attack squig is not on his Boyz' datasheet, and filing it under
+	# the bodyguard handed the whole mob one — RulesEngine falls back to "every
+	# model" for a weapon it cannot attribute to the named unit.
 	if not extra_attacks_weapons.is_empty():
 		var ea_target_id = _get_extra_attacks_target_id()
 		for weapon in extra_attacks_weapons:
 			var weapon_name = weapon.get("name", "Unknown")
 			var weapon_id = RulesEngine.generate_weapon_id(weapon_name, weapon.get("type", ""))
-			assignments.append({
-				"attacker": unit_id,
-				"weapon": weapon_id,
-				"target": ea_target_id
-			})
-			print("[AttackAssignmentDialog] T3-3: Auto-added Extra Attacks weapon '%s' → '%s'" % [weapon_name, ea_target_id])
+			var ea_by_owner: Dictionary = {}
+			for mk in _carriers_across_group(weapon_id):
+				var owner_id: String = _mk_unit(str(mk))
+				if not ea_by_owner.has(owner_id):
+					ea_by_owner[owner_id] = []
+				ea_by_owner[owner_id].append(_mk_index(str(mk)))
+			if ea_by_owner.is_empty():
+				# Unattributable — keep the historical whole-unit form and let
+				# the engine narrow it.
+				assignments.append({
+					"attacker": unit_id,
+					"weapon": weapon_id,
+					"target": ea_target_id
+				})
+				print("[AttackAssignmentDialog] T3-3: Auto-added Extra Attacks weapon '%s' → '%s' (whole unit)" % [weapon_name, ea_target_id])
+				continue
+			for owner_id in ea_by_owner:
+				assignments.append({
+					"attacker": owner_id,
+					"weapon": weapon_id,
+					"target": ea_target_id,
+					"models": ea_by_owner[owner_id]
+				})
+				print("[AttackAssignmentDialog] T3-3: Auto-added Extra Attacks weapon '%s' for %s (%d model(s)) → '%s'" % [
+					weapon_name, owner_id, ea_by_owner[owner_id].size(), ea_target_id])
 
 	print("[AttackAssignmentDialog] Emitting attacks_confirmed with ", assignments.size(), " assignments (including Extra Attacks)")
 	hide()

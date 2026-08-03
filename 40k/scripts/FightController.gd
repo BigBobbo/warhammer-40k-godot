@@ -687,8 +687,12 @@ func _restore_state_after_load() -> void:
 	if fight_state.current_fighter_id != "":
 		current_fighter_id = fight_state.current_fighter_id
 		
-		# Query targets for the active fighter
-		eligible_targets = RulesEngine.get_eligible_melee_targets(current_fighter_id, current_phase.game_state_snapshot)
+		# Query targets for the active fighter. RulesEngine has no
+		# get_eligible_melee_targets() — this call raised "Nonexistent
+		# function" and left the restored fighter with an empty target list.
+		# The phase owns melee target eligibility (and, since 19.02, is what
+		# hides attached CHARACTERs behind their bodyguard), so ask it.
+		eligible_targets = current_phase._get_eligible_melee_targets(current_fighter_id)
 		
 		# Restore UI elements
 		_refresh_attack_tree()
@@ -1684,7 +1688,12 @@ func _add_selection_subphase_units(container: VBoxContainer, data: Dictionary, s
 			# labels used everywhere else. eligible_units only carries the
 			# SELECTING player's units, so its name lookup would leave every
 			# other unit rendering as a raw unit id.
-			var unit_name = GameState.get_unit_display_name(unit_id)
+			# 19.03: when the phase offers an ATTACHED unit it hands over the
+			# combined label ("Boyz + Warboss") — one row for one activation.
+			# Fall back to the plain display name for every other unit.
+			var unit_name = str(eligible_units.get(unit_id, {}).get("name", ""))
+			if unit_name == "":
+				unit_name = GameState.get_unit_display_name(unit_id)
 			unit_button.text = "%s%s" % [
 				unit_name,
 				" (Fought)" if has_fought else ""
