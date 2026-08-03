@@ -402,15 +402,20 @@ func _build_groups(unit: Dictionary) -> void:
 		if label != "" and not label in by_signature[signature].labels:
 			by_signature[signature].labels.append(label)
 
-	# Biggest section first — a mob reads as "9 Boyz, then the Nob", and it makes
-	# group 0 (the pad's initial focus, and the compat `weapon_list`) the one a
-	# player most likely wants.
+	# Sections follow MODEL ORDER — the order the datasheet and the roster list
+	# them, so a mob reads "Boss Nob, then the Boyz" exactly as its unit
+	# composition does. Ordering by size instead (biggest first) also reorders the
+	# submitted assignments, and because a fixed RNG seed consumes dice in
+	# assignment order that silently re-rolls every seeded fight: it wiped the
+	# Custodian Guard the T6 tutorial needs alive to demonstrate swinging back.
 	var sigs: Array = by_signature.keys()
 	sigs.sort_custom(func(a, b):
 		var ga = by_signature[a]
 		var gb = by_signature[b]
-		if ga.models.size() != gb.models.size():
-			return ga.models.size() > gb.models.size()
+		var fa: int = ga.models[0] if not ga.models.is_empty() else 1 << 30
+		var fb: int = gb.models[0] if not gb.models.is_empty() else 1 << 30
+		if fa != fb:
+			return fa < fb
 		return str(ga.key) < str(gb.key))
 
 	for sig in sigs:

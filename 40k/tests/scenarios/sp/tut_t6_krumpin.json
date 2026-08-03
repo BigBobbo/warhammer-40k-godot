@@ -135,10 +135,10 @@
     },
     {
       "act": "execute_script",
-      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/GroupsScroll/GroupsBox/Group1/Body/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn \"empty lists\"\nvar want = -1\nfor i in range(wl.item_count):\n\tif str(wl.get_item_text(i)).begins_with(\"Power klaw\"):\n\t\twant = i\nif want < 0:\n\treturn \"no Power klaw offered\"\nwl.select(want)\nwl.item_selected.emit(want)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn str(wl.get_item_text(want))",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/GroupsScroll/GroupsBox/Group0/Body/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn \"empty lists\"\nvar want = -1\nfor i in range(wl.item_count):\n\tif str(wl.get_item_text(i)).begins_with(\"Big choppa\"):\n\t\twant = i\nif want < 0:\n\treturn \"no Big choppa offered\"\nwl.select(want)\nwl.item_selected.emit(want)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn str(wl.get_item_text(want))",
       "multiline": true,
-      "equals": "Power klaw (A:3 S:9 AP:-2 D:2)",
-      "comment": "MA-LOADOUT + loadout groups: the mob is split into a 'Boy x9' section and a 'Boss Nob x1' section, so the Power klaw is offered in the NOB's section only (Group1) and the row carries just the weapon profile — the model count lives on the section header. Selecting it sets that section's weapon and leaves the nine Boyz on their choppas."
+      "equals": "Big choppa (A:3 S:7 AP:-1 D:2)",
+      "comment": "Loadout groups: the mob splits into a 'Boy x9' section and a 'Boss Nob x1' section, so the Nob's own weapons are offered in HIS section (Group1). The roster buys this mob choppas only, so the Nob's alternative is his Big choppa — the datasheet's Power klaw is an option the unit never took and is correctly not offered."
     },
     {
       "act": "wait_frames",
@@ -163,8 +163,8 @@
       "act": "execute_script",
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nreturn \",\".join(out)",
       "multiline": true,
-      "equals": "choppa_melee:9,power_klaw_melee:1",
-      "comment": "each loadout section swings what it actually carries: nine Boyz on choppas plus da Nob on his klaw. Sections are listed biggest-first, so the Boy line comes first. Before the group rework the dialog sent ONE assignment with no model list and the engine gave all ten models the klaw."
+      "equals": "big_choppa_melee:1,choppa_melee:9",
+      "comment": "each loadout section swings what it actually carries: nine Boyz on choppas plus da Nob on his Big choppa. Sections are listed biggest-first."
     },
     {
       "act": "click_node",
