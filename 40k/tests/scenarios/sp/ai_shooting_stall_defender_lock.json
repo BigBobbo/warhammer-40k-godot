@@ -1,0 +1,202 @@
+{
+  "id": "ai_shooting_stall_defender_lock",
+  "covers": [
+    "shooting.defender_control.lock",
+    "phases.ShootingPhase.get_available_actions",
+    "phases.ShootingPhase.validate_action",
+    "autoloads.AIPlayer.stall_breaker",
+    "scripts.ShootingController.save_guard_recovery"
+  ],
+  "fixture": "audit_386_deadly_demise",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "AI SHOOTING STALL (reported 2026-08-03): the AI's shooting phase froze mid-activation after the human defender took a while to roll saves \u2014 the 'AI is thinking' banner flashed on every watchdog tick and the phase never ended. While an attack is paused on the defender's save allocation the phase used to keep offering RESOLVE_SHOOTING / SELECT_SHOOTER / SKIP_UNIT / END_SHOOTING (active_shooter_id and confirmed_assignments are still populated), so a stray click or AI evaluation re-entered the paused activation: RESOLVE_SHOOTING re-rolled the WHOLE attack behind the defender's back while their overlay still showed the discarded dice, and the second saves_required was deduped away \u2014 after which no save window ever opened again and pending_save_data never drained. This scenario drives the atomic SHOOT that pauses on the defender, asserts the DEFENDER CONTROL LOCK (only APPLY_SAVES on offer, every re-entry action rejected, END_SHOOTING left unlocked as the player's manual escape hatch), then walks the real allocation overlay to Done and asserts the batch drained and the attacker's controls came back.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_BOYZ_F\").attachment_data.attached_characters.clear()"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.count_alive_models(GameState.get_unit(\"U_BOYZ_F\"))",
+      "equals": 20
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var guard = GameState.get_unit(\"U_CUSTODIAN_GUARD_B\")\nvar boyz = GameState.get_unit(\"U_BOYZ_F\")\nvar anchor = boyz.models[0].position\nvar i = 0\nfor m in guard.models:\n\tm.position = {\"x\": float(anchor.x) - 200.0 + float(i) * 60.0, \"y\": float(anchor.y) - 200.0}\n\ti += 1\nguard.flags[\"has_shot\"] = false\nreturn guard.models.size()",
+      "equals": 3
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SHOOT",
+        "actor_unit_id": "U_CUSTODIAN_GUARD_B",
+        "player": 1,
+        "payload": {
+          "rng_seed": 42,
+          "assignments": [
+            {
+              "weapon_id": "guardian_spear_ranged",
+              "target_unit_id": "U_BOYZ_F",
+              "model_ids": [
+                "m1",
+                "m2",
+                "m3"
+              ],
+              "attacks_override": 60
+            }
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.pending_save_data.size()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var types = []\nfor a in PhaseManager.get_available_actions():\n\tvar t = str(a.get(\"type\", \"\"))\n\tif not t in types:\n\t\ttypes.append(t)\nreturn \",\".join(types)",
+      "equals": "APPLY_SAVES"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.validate_action({\"type\": \"RESOLVE_SHOOTING\", \"player\": 1}).valid",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.validate_action({\"type\": \"SELECT_SHOOTER\", \"actor_unit_id\": \"U_SHIELD_CAPTAIN_A\", \"player\": 1}).valid",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.validate_action({\"type\": \"SKIP_UNIT\", \"actor_unit_id\": \"U_CUSTODIAN_GUARD_B\", \"player\": 1}).valid",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "\"END_SHOOTING\" in PhaseManager.current_phase_instance._SAVE_LOCKED_ACTIONS",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_defender_window_locks_the_attacker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/ConfirmRemovalButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_defender_resolved_the_batch"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.pending_save_data.size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node_or_null(\"AllocationGroupOverlay\") == null",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").processing_saves_signal",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var types = []\nfor a in PhaseManager.get_available_actions():\n\tvar t = str(a.get(\"type\", \"\"))\n\tif not t in types:\n\t\ttypes.append(t)\nreturn types.size() > 1 and \"END_SHOOTING\" in types",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(10)",
+      "equals": 10
+    },
+    {
+      "act": "screenshot",
+      "label": "03_attacker_controls_restored"
+    }
+  ]
+}

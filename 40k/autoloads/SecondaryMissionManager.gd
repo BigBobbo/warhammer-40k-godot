@@ -2276,6 +2276,31 @@ func dismiss_guard_prompt(player: int) -> void:
 ## All when-drawn interactions still waiting on a decision, with the player
 ## who must decide ("responder"). AIPlayer uses this to pause its turn while
 ## a HUMAN responder has a selection dialog open.
+func reemit_pending_interactions() -> int:
+	"""Re-fire when_drawn_requires_interaction for every still-pending card and
+	return how many were re-emitted.
+
+	`when_drawn_requires_interaction` is a one-shot signal fired at draw time.
+	If nothing was listening at that instant — a mid-game load, a controller
+	rebuilt by a phase change, a dialog dismissed without deciding — the card
+	stays `pending_interaction` forever with no UI and no handler to clear it,
+	and AIPlayer's interaction gate then blocks the AI for the rest of the game.
+	This lets the stall breaker put the decision back on screen instead of
+	freezing. Emitting again is safe: every handler is a no-op once the card's
+	`pending_interaction` has been cleared."""
+	var count := 0
+	for player_key in _player_state:
+		var player = int(player_key)
+		for mission in _player_state[player_key].get("active", []):
+			if not mission.get("pending_interaction", false):
+				continue
+			count += 1
+			print("SecondaryMissionManager: re-emitting pending interaction '%s' for player %d" % [
+				mission.get("id", ""), player])
+			emit_signal("when_drawn_requires_interaction", player, mission.get("id", ""),
+				mission.get("interaction_type", ""), mission.get("interaction_details", {}))
+	return count
+
 func get_pending_interactions() -> Array:
 	var pending = []
 	for player_key in _player_state:
