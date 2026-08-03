@@ -16,6 +16,83 @@
       ]
     },
     {
+      "version": "1.19.7",
+      "date": "2026-08-03",
+      "summary": "Consolidation: a unit offered an Objective Consolidation can finally make it — the board no longer snaps your models back for 'not moving closer to the enemy'.",
+      "changes": [
+        "Fixed (reported from the Fight phase): a unit more than 3\" from every enemy but within 3\" of an objective was correctly listed as '[Objective]' in the Consolidate step, yet every drag toward that objective sprang back to where it started. The move dialog and the board were still judging the move by the old 'is there an enemy within 5\"?' rule instead of the mandatory 12.08 mode.",
+        "The Consolidate dialog now states the rules for the mode you are actually in — Ongoing, Engaging or Objective — and names the objective you are consolidating onto.",
+        "Movement arrows point at the objective (and turn green for moves onto it) in Objective Consolidation, instead of pointing at an enemy you are not allowed to move toward.",
+        "The board and the Confirm Move check now share one rules check, so a drag the board accepts is never rejected when you confirm it.",
+        "Auto Consolidate no longer says 'no legal move' for a unit standing next to a large terrain objective (its area, not the marker dot, is the objective)."
+      ]
+    },
+    {
+      "version": "1.19.6",
+      "date": "2026-08-03",
+      "summary": "The floating chat/feed pop-up is gone. You can now type a note straight into the game log — and Escape always gets you out of a text box.",
+      "changes": [
+        "Removed the chat/feed pop-up that floated over the bottom-left of the board. It covered the game log, forgot everything typed into it the moment it closed, and grabbed the keyboard — which is how it could leave you stuck with Escape doing nothing.",
+        "Fixed that soft-lock at the root: Escape now always steps out of whatever text box has the caret first (the note box, the unit filter, a save name). Press it again and it does what it always did — cancel the shot, or open the menu.",
+        "New: a note box at the bottom of the Game Log. Click it, type, press Enter (or click Add) and your line is saved into the log as a proper entry.",
+        "Notes are shared: in a networked game both players see the same note, and notes are kept in the replay so they show up again during playback.",
+        "Notes have their own 'Notes' filter chip and a gold N badge, so you can hide or isolate them like any other event type.",
+        "The C key now jumps the caret into the note box (it used to open the chat pop-up); rebind it in Settings › Controls."
+      ]
+    },
+    {
+      "version": "1.19.5",
+      "date": "2026-08-03",
+      "summary": "End of Turn no longer demands you delete models from squads that are in coherency — and when a model really is stranded, the board shows you which one and how far it has to come back.",
+      "changes": [
+        "Fixed (reported after an auto-pilot / snap-to-base turn): 'Out of Coherency — Remove Models' popped up for a Custodian Guard squad that looked perfectly formed. The check measured the squad WITHOUT the Character leading it, so a model standing next to the Blade Champion — which is in coherency, they are one unit — looked stranded and you were told to destroy it.",
+        "The End of Turn check now reads the squad and its attached Leader as the single unit they are, and only counts a model as out of coherency when it is stranded under BOTH readings. It will not destroy a model your own move, pile-in or consolidate was allowed to place.",
+        "The opposite mistake is gone too: a Leader standing off one end of a long mob no longer drags the whole mob over the 9\" limit. On a real save that alone was condemning 43 models across three Boyz mobs.",
+        "Coherency now measures with the same 0.05\" slack the movement ghosts, deployment circles and pile-in helper already draw with — a model snapped to exactly 2\" can no longer read as 'in range' and then be destroyed for it.",
+        "Offending models are now flagged ON THE BOARD: a flashing red boundary on the model plus its dashed 2\" coherency ring, so you can see exactly how far a squadmate has to move to fix it. The camera pans to the worst offender.",
+        "The removal dialog leads with the most isolated model and says how far it is from its nearest squadmate, instead of a row of identical 'Remove mN' buttons; the rest carry their distance in a tooltip and wrap instead of running off the edge."
+      ]
+    },
+    {
+      "version": "1.19.4",
+      "date": "2026-08-03",
+      "summary": "Fixed the AI shooting phase freezing after you took your time rolling saves — the 'AI is thinking' banner would flash forever and the turn never moved on.",
+      "changes": [
+        "While the AI is waiting for you to allocate its attack, its own shooting controls are now locked to that decision. Previously the paused attack could be re-entered — it re-rolled the whole attack behind your back while your allocation window still showed the old dice, and the replacement window was then swallowed, leaving the AI waiting forever for saves you could no longer make.",
+        "'End Shooting Phase' still works while saves are pending, so you always have a way out by hand.",
+        "Finishing an allocation now always clears the pending attack, on every resolution path — the AI no longer thinks you are still rolling after you have finished.",
+        "If a decision window ever does go missing, the AI now says so in the log and puts the window back on screen instead of freezing the game. It leaves you alone while your dialog is genuinely open, however long you take.",
+        "Game log: AI attacks that used to read 'Unknown shooting resolved' / 'shot at Unknown' now name the unit and the target."
+      ]
+    },
+    {
+      "version": "1.19.3",
+      "date": "2026-08-03",
+      "summary": "Charge phase: the End Charge Phase button works again while you are moving a charge, and the game now tells you that 'Confirm Charge Moves' is the step you are missing.",
+      "changes": [
+        "Fixed (reported): after declaring a charge, re-rolling with a CP and clicking Snap to Contact, the top-right 'End Charge Phase' button did nothing at all. While charge models were being moved, the charge controller was swallowing every mouse click that did not land on one of its own three buttons — so the End Phase button, the unit list, the game log tabs and the overwatch toggle were all silently dead, even though none of them looked disabled.",
+        "Clicking 'End Charge Phase' with a charge move still staged now raises a 'Confirm your charge move first' prompt that names the unit and explains that nothing is locked in yet — instead of quietly throwing away a successful charge roll.",
+        "That prompt's main button IS the missing step: press 'Confirm Charge Moves' and the charge is committed there and then. 'Go Back' returns you to adjusting the move.",
+        "'Confirm Charge Moves' is now styled as the main action of the charge panel and gently pulses while it is what the charge is waiting on, so it no longer looks like just another button next to 'Snap to Contact'.",
+        "The status line at the top of the screen now names the current charge step — 'Charge declared — click Roll 2D6', 'Charge move staged — click Confirm Charge Moves to lock it in' — rather than a generic 'Phase: CHARGE'."
+      ]
+    },
+    {
+      "version": "1.19.2",
+      "date": "2026-08-03",
+      "summary": "The attack panel can now show its working: a fold-out table breaks every expected-damage figure down into to-hit, to-wound and save — and tells you how many models it actually kills.",
+      "changes": [
+        "Requested from the Fight phase: the attack panel said 'E[D]≈8.3' for one Vaultswords profile and '≈3.1' for another, with nothing to explain either number. There is now a '▶ Show damage breakdown' toggle under Assignments.",
+        "Expanding it renders one table per assignment — Attacks → Hit → Wound → Save → Damage → Slain — with the roll each step needs, its chance, and what is left after it (e.g. 'S8 vs T6 → 3+ · 67% · 2.8 wounds').",
+        "The save row names the save the defender actually gets: AP worsening their armour, an invulnerable save ignoring that AP, or no save at all.",
+        "New 'Slain' row: expected damage is NOT dead models. A 3-damage weapon on 1-wound Stormboyz throws two thirds of every hit away, so 8.3 damage is only about 2.8 dead Orks — and a 9-attack, 1-damage profile that forecasts 3.1 damage kills more of them. The table now says so, with a warning line naming the damage lost to overkill.",
+        "Weapon abilities the forecast does not model (Sustained Hits, Devastating Wounds, Lethal Hits, Twin-linked, Lance, Anti-X) are listed under each table, so a coarse estimate is no longer presented as exact.",
+        "Feel No Pain is now factored into the forecast and shown as its own row — the estimate used to ignore it and over-promise against tough defenders.",
+        "The section is folded away by default and changes nothing about what a unit swings; it is a read-only view.",
+        "Forecasts for an attached Leader are now scored on HIS datasheet rather than his bodyguard's, so a Warboss's Power klaw is no longer estimated using the Boss Nob's weaker one."
+      ]
+    },
+    {
       "version": "1.19.1",
       "date": "2026-08-03",
       "summary": "The game log now shows the armour saves, so \"No models destroyed\" finally says why nothing died.",

@@ -141,6 +141,13 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			if ai_desc != "":
 				return prefix + ai_desc
 			var target_name = _get_unit_name(action.get("target_unit_id", action.get("target_id", "")))
+			# The atomic SHOOT keeps its targets inside payload.assignments, so
+			# the top-level lookup above read "Unknown". Fall back to the first
+			# assignment before printing that.
+			if target_name == "Unknown":
+				var assignments = action.get("payload", {}).get("assignments", [])
+				if assignments is Array and not assignments.is_empty():
+					target_name = _get_unit_name(str(assignments[0].get("target_unit_id", "")))
 			return prefix + "%s shot at %s" % [unit_name, target_name]
 		"FIGHT", "ROLL_DICE":
 			var log_text = action.get("_log_text", "")
@@ -198,6 +205,15 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			var log_text = action.get("_log_text", "")
 			if log_text != "":
 				return prefix + log_text
+			if ai_desc != "":
+				return prefix + ai_desc
+			# The AI's RESOLVE_SHOOTING carries no unit_id, so this used to read
+			# "P2: Unknown shooting resolved" in the game log. Fall back to the
+			# phase's active shooter before giving up on a name.
+			if unit_name == "Unknown":
+				var shooter_name = _active_shooter_name()
+				if shooter_name != "":
+					return prefix + "%s shooting resolved" % shooter_name
 			return prefix + "%s shooting resolved" % unit_name
 		"APPLY_SAVES":
 			var log_text = action.get("_log_text", "")
@@ -335,6 +351,22 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			# Skip unknown actions without log text to avoid noise
 			return ""
 
+func _active_shooter_name() -> String:
+	"""Display name of the unit the Shooting phase currently has activated, or ""
+	when there is none. Used to name log lines for actions the AI submits
+	without an actor_unit_id (RESOLVE_SHOOTING)."""
+	var pm = get_node_or_null("/root/PhaseManager")
+	if not pm or not pm.current_phase_instance:
+		return ""
+	var phase = pm.current_phase_instance
+	if not "active_shooter_id" in phase:
+		return ""
+	var shooter_id = str(phase.active_shooter_id)
+	if shooter_id == "":
+		return ""
+	var name = _get_unit_name(shooter_id)
+	return "" if name == "Unknown" else name
+
 func _get_unit_name(unit_id: String) -> String:
 	if unit_id == "":
 		return "Unknown"
@@ -459,6 +491,41 @@ func add_player_entry(player: int, text: String) -> void:
 	var prefix = "P%d: " % player
 	var entry_type = "p1_action" if player == 1 else "p2_action"
 	_add_entry(prefix + text, entry_type)
+
+# ---------------------------------------------------------------------------
+# Player notes (free text typed into the box at the bottom of the Game Log)
+# ---------------------------------------------------------------------------
+# Replaces the old floating chat/feed pop-up (removed 2026-08-03), which was
+# transient, overlapped the log, and stole keyboard focus. A note is a
+# first-class log entry instead: it persists in the log, is broadcast to the
+# other player in multiplayer, and is recorded into the replay so it shows up in
+# playback.
+const NOTE_MAX_LENGTH := 240
+
+func sanitize_note(text: String) -> String:
+	"""Reduce a typed note to a single trimmed line, capped in length. Newlines
+	would break the one-entry-per-card layout, and the length cap stops a single
+	note from dominating the log."""
+	var clean := str(text).replace("\n", " ").replace("\r", " ").strip_edges()
+	if clean.length() > NOTE_MAX_LENGTH:
+		clean = clean.substr(0, NOTE_MAX_LENGTH).strip_edges()
+	return clean
+
+func format_player_note(player: int, text: String) -> String:
+	"""Single formatting point so the live log and replay playback render the
+	same line for the same note (ReplayManager stores this as the event
+	description; Main re-adds it verbatim during playback)."""
+	return "P%d note: %s" % [player, text]
+
+func add_player_note(player: int, text: String) -> void:
+	"""Add a free-text player note. Returns silently on empty/whitespace input.
+	Also records the note into the replay so it survives into playback."""
+	var clean := sanitize_note(text)
+	if clean == "":
+		return
+	_add_entry(format_player_note(player, clean), "player_note")
+	if ReplayManager and ReplayManager.has_method("record_player_note"):
+		ReplayManager.record_player_note(player, clean)
 
 func add_ability_entry(player: int, text: String) -> void:
 	"""Log a passive / always-on ability activation (e.g. 'Stand Vigil active').

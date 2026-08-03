@@ -468,8 +468,33 @@ func _initialize_shooting() -> void:
 		log_phase_message("No units available for shooting, ready to end phase")
 		# Don't auto-complete - wait for END_SHOOTING action
 
+## Actions that would re-enter or abandon an attack that is already paused on
+## the defender's save allocation. Rejected outright while pending_save_data
+## holds an unresolved batch — see the DEFENDER CONTROL LOCK in
+## get_available_actions(). RESOLVE_SHOOTING was the dangerous one: it re-rolled
+## the whole attack while the defender's overlay was still showing the dice from
+## the first roll, and the second saves_required it emitted got deduped away.
+## END_SHOOTING is deliberately NOT locked: it is the player's manual escape
+## hatch (and it clears pending_save_data on the way out). It is still withheld
+## from get_available_actions() so the AI never silently abandons a defender's
+## window it is supposed to be waiting on.
+const _SAVE_LOCKED_ACTIONS := [
+	"SELECT_SHOOTER", "ASSIGN_TARGET", "CLEAR_ASSIGNMENT", "CLEAR_ALL_ASSIGNMENTS",
+	"CONFIRM_TARGETS", "RESOLVE_SHOOTING", "RESOLVE_WEAPON_SEQUENCE", "SKIP_UNIT",
+	"SHOOT", "CONTINUE_SEQUENCE", "COMPLETE_SHOOTING_FOR_UNIT",
+]
+
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
+
+	if not pending_save_data.is_empty() and action_type in _SAVE_LOCKED_ACTIONS:
+		var locked_target = str(pending_save_data[0].get("target_unit_name", pending_save_data[0].get("target_unit_id", "the target")))
+		DebugLogger.info("ShootingPhase: rejecting %s — %d save batch(es) still pending for %s" % [
+			action_type, pending_save_data.size(), locked_target])
+		return {
+			"valid": false,
+			"errors": ["Saves are still pending for %s — resolve them before %s" % [locked_target, action_type]]
+		}
 
 	match action_type:
 		"SELECT_SHOOTER":
@@ -5007,7 +5032,28 @@ func get_available_actions() -> Array:
 	var actions = []
 	var current_player = get_current_player()
 	var units = get_units_for_player(current_player)
-	
+
+	# DEFENDER CONTROL LOCK: an attack is already in flight and the defender
+	# owes saves for it. The ONLY legal next action is that batch's APPLY_SAVES.
+	# This used to also offer RESOLVE_SHOOTING / CONFIRM_TARGETS /
+	# SELECT_SHOOTER / SKIP_UNIT / END_SHOOTING, because active_shooter_id and
+	# confirmed_assignments are still populated while the activation is paused.
+	# Anything that took one of those re-entered the paused activation:
+	# RESOLVE_SHOOTING re-rolled the WHOLE attack behind the defender's back
+	# (their open overlay was still showing the discarded dice), emitted a
+	# second saves_required that ShootingController deduped, and left the
+	# controller's duplicate-signal guard latched — after which no save window
+	# ever opened again, pending_save_data never drained, and the AI attacker
+	# idled forever on _human_defender_window_pending() with its "thinking"
+	# indicator flashing every watchdog tick. Reported 2026-08-03: "the AI
+	# stalled after I took a while to roll my saves".
+	if not pending_save_data.is_empty():
+		actions.append({
+			"type": "APPLY_SAVES",
+			"description": "Apply pending saves"
+		})
+		return actions
+
 	# If we have an active shooter with pending assignments
 	if active_shooter_id != "" and not pending_assignments.is_empty():
 		actions.append({
@@ -5200,12 +5246,8 @@ func get_available_actions() -> Array:
 		})
 		return actions
 
-	# Pending saves need resolution (safety net for AI)
-	if not pending_save_data.is_empty():
-		actions.append({
-			"type": "APPLY_SAVES",
-			"description": "Apply pending saves"
-		})
+	# (Pending saves are handled by the DEFENDER CONTROL LOCK at the top of this
+	# function — reaching here means pending_save_data is empty.)
 
 	# Sequential mode: continue or complete (safety net for AI)
 	if resolution_state.get("mode", "") in ["sequential", "sequential_staged", "fast"]:
@@ -7480,6 +7522,15 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 		})
 	else:
 		DebugLogger.info("║ ⚠️  WARNING: confirmed_assignments is EMPTY!")
+
+	# This batch is fully applied — drop it. The sequential branch above already
+	# does this; the single-weapon branch did not, so pending_save_data stayed
+	# populated after the defender had finished allocating. That entry is what
+	# AIPlayer._human_defender_window_pending() reads, so an AI attacker went on
+	# idling as though the human were still rolling saves and the phase never
+	# advanced. Cleared AFTER last_weapon_result / completed_weapons, both of
+	# which read pending_save_data[0] for the wound count.
+	pending_save_data.clear()
 
 	# Emit signal with EMPTY remaining_weapons (signals completion)
 	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")

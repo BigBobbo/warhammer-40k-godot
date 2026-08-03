@@ -109,6 +109,123 @@ func _run_tests():
 		if m.get("alive", true):
 			alive10 += 1
 	_check("10e: no end-of-turn removal", alive10 == 3)
+
+	print("\n-- 19.03 attached unit: coherency is judged on the WHOLE Attached unit --")
+	# User report 2026-08-03: a Custodian Guard squad led by a Blade Champion was
+	# flagged out of coherency at End of Turn even though nothing had been moved
+	# by hand. The straggler was within 2" of the CHARACTER, so the pile-in /
+	# consolidate validators (which merge the Attached unit per 19.03) approved
+	# the move — but the End of Turn hook measured the bodyguard ALONE and
+	# demanded a removal.
+	GameConstants.edition = 11
+	# 32mm bases => edge gap = centre gap - 1.26". Bodyguard m1..m4 form a block
+	# ending at 3.6"; m5 sits at 7.2", i.e. 2.34" edge from its nearest SQUADMATE
+	# (out of coherency measured alone) but 0.74" edge from the Blade Champion
+	# at 5.2", which is itself 0.34" edge from m4 — a legal 19.03 chain.
+	gs.state["units"] = {
+		"U_GUARD": {
+			"id": "U_GUARD", "owner": 1, "flags": {},
+			"meta": {"name": "Custodian Guard", "keywords": ["INFANTRY"], "stats": {}},
+			"attachment_data": {"attached_characters": ["U_CHAMPION"]},
+			"models": [_m("m1", 0.0), _m("m2", 1.2), _m("m3", 2.4), _m("m4", 3.6), _m("m5", 7.2)],
+		},
+		"U_CHAMPION": {
+			"id": "U_CHAMPION", "owner": 1, "flags": {}, "attached_to": "U_GUARD",
+			"meta": {"name": "Blade Champion", "keywords": ["INFANTRY", "CHARACTER"], "stats": {}},
+			"models": [_m("m1", 5.2)],
+		},
+	}
+	var bodyguard_alone = AttackSequence.check_unit_coherency(gs.state["units"]["U_GUARD"])
+	_check("regression pin: measured ALONE the bodyguard looks incoherent (the reported bug)",
+		not bodyguard_alone.coherent and "m5" in bodyguard_alone.offenders, str(bodyguard_alone))
+	var grp = AttackSequence.coherency_group_ids("U_GUARD", gs.state["units"])
+	_check("coherency_group_ids(bodyguard) = [bodyguard, character]",
+		grp == ["U_GUARD", "U_CHAMPION"], str(grp))
+	_check("coherency_group_ids(attached character) resolves to the same group",
+		AttackSequence.coherency_group_ids("U_CHAMPION", gs.state["units"]) == ["U_GUARD", "U_CHAMPION"])
+	var attached = AttackSequence.check_attached_unit_coherency("U_GUARD", gs.state["units"])
+	_check("19.03: the Attached unit IS coherent — the character bridges the gap",
+		attached.coherent, str(attached))
+	_check("the standalone reading still records m5 (the disagreement is logged, not acted on)",
+		"U_GUARD|m5" in attached.solo_offenders and not ("U_GUARD|m5" in attached.merged_offenders),
+		str(attached))
+	_check("attached check merges every component's models (5 + 1)",
+		int(attached.model_count) == 6, str(attached.model_count))
+	pm.run_turn_ending_hooks(1)
+	var guard_alive := 0
+	for m in gs.state["units"]["U_GUARD"].models:
+		if m.get("alive", true):
+			guard_alive += 1
+	_check("End of Turn destroys NOTHING for a coherent Attached unit", guard_alive == 5,
+		"alive=%d" % guard_alive)
+
+	# ...and it still catches a genuinely stranded model: push m5 out past the
+	# character's reach too.
+	gs.state["units"]["U_GUARD"]["models"][4] = _m("m5", 9.0)
+	var stranded = AttackSequence.check_attached_unit_coherency("U_GUARD", gs.state["units"])
+	_check("19.03: a model out of reach of the character too IS still an offender",
+		not stranded.coherent
+			and stranded.offenders.size() == 1
+			and stranded.offenders[0].unit_id == "U_GUARD"
+			and stranded.offenders[0].model_id == "m5",
+		str(stranded))
+	pm.run_turn_ending_hooks(1)
+	_check("End of Turn removes the genuinely stranded model (and only it)",
+		gs.state["units"]["U_GUARD"].models[4].get("alive", true) == false
+			and gs.state["units"]["U_GUARD"].models[0].get("alive", true) == true
+			and gs.state["units"]["U_CHAMPION"].models[0].get("alive", true) == true)
+
+	# The mirror-image false positive: a long mob whose leader stands off one
+	# end. The mob satisfies the 9" envelope on its own (MovementPhase validates
+	# it exactly that way and put the models there), but folding the leader in
+	# adds a model the far end is >9" from. Measured on the audit_374_kunnin
+	# save this condemned three whole Boyz mobs — 43 models the game had just
+	# approved. The merged reading alone must NOT destroy them.
+	var mob_models := []
+	for i in range(7):
+		mob_models.append(_m("b%d" % i, i * 1.6))  # ends 9.6" apart centres => 8.34" edge, inside the envelope
+	gs.state["units"] = {
+		"U_MOB": {
+			"id": "U_MOB", "owner": 1, "flags": {},
+			"meta": {"name": "Boyz", "keywords": ["INFANTRY"], "stats": {}},
+			"attachment_data": {"attached_characters": ["U_WARBOSS"]},
+			"models": mob_models,
+		},
+		"U_WARBOSS": {
+			"id": "U_WARBOSS", "owner": 1, "flags": {}, "attached_to": "U_MOB",
+			"meta": {"name": "Warboss", "keywords": ["INFANTRY", "CHARACTER"], "stats": {}},
+			"models": [_m("m1", -1.4)],  # off the near end: 11" centres from b6 => 9.74" edge, outside it
+		},
+	}
+	var mob = AttackSequence.check_attached_unit_coherency("U_MOB", gs.state["units"])
+	_check("the leader standing off one end breaks the merged 9\" envelope",
+		mob.merged_offenders.size() > 0, str(mob.merged_offenders))
+	_check("...but the mob is coherent on its own, so nothing is destroyed",
+		mob.coherent and mob.solo_offenders.is_empty(), str(mob))
+	pm.run_turn_ending_hooks(1)
+	var mob_alive := 0
+	for m in gs.state["units"]["U_MOB"].models:
+		if m.get("alive", true):
+			mob_alive += 1
+	_check("End of Turn leaves the whole mob alive", mob_alive == 7, "alive=%d" % mob_alive)
+
+	print("\n-- measurement tolerance parity with the UI helpers --")
+	# Every coherency affordance the player sees (movement ghost, deployment
+	# circle, pile-in helper) allows 2" + Measurement.DISTANCE_TOLERANCE_INCHES.
+	# The engine check used a bare 2", so a model auto-snapped to exactly 2.0"
+	# could render "in range" and still be destroyed at End of Turn.
+	# Autoloads are not compile-time identifiers in a bare `godot -s` run.
+	var meas = root.get_node("/root/Measurement")
+	var tol_gap: float = 2.0 + 1.26 + meas.DISTANCE_TOLERANCE_INCHES * 0.6  # centers: 2" edge gap + 32mm bases
+	var edge_pair = _unit([_m("t0", 0.0), _m("t1", tol_gap)])
+	_check("engine accepts what Measurement.is_within_coherency accepts",
+		AttackSequence.check_unit_coherency(edge_pair).coherent
+			== meas.is_within_coherency(edge_pair.models[0], edge_pair.models[1]),
+		"engine=%s ui=%s" % [str(AttackSequence.check_unit_coherency(edge_pair).coherent),
+			str(meas.is_within_coherency(edge_pair.models[0], edge_pair.models[1]))])
+	_check("a clearly-too-far pair is still incoherent",
+		not AttackSequence.check_unit_coherency(_unit([_m("f0", 0.0), _m("f1", 5.0)])).coherent)
+
 	gs.state = prev_state
 
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])

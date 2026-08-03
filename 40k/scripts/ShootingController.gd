@@ -2679,13 +2679,26 @@ func _on_saves_required(save_data_list: Array) -> void:
 
 	# CRITICAL: Prevent re-entrant calls (signal connected multiple times)
 	if processing_saves_signal:
-		print("╔═══════════════════════════════════════════════════════════════")
-		print("║ ❌ DUPLICATE SIGNAL BLOCKED")
-		print("║ Already processing saves_required signal")
-		print("║ Timestamp: ", Time.get_ticks_msec())
-		print("║ This is likely due to the signal being connected multiple times")
-		print("╚═══════════════════════════════════════════════════════════════")
-		return
+		# ...unless the guard is STALE. It is only meaningful while an overlay is
+		# being built or is on screen (active_allocation_overlay is assigned
+		# before this function's only await, so it is never legitimately null
+		# here). With no overlay behind it the flag can never be cleared — the
+		# callback that clears it belongs to an overlay that does not exist — so
+		# every later save window was silently dropped, pending_save_data never
+		# drained and an AI attacker idled forever waiting on a defender window
+		# nobody could see. Self-heal instead of swallowing the signal.
+		if active_allocation_overlay == null or not is_instance_valid(active_allocation_overlay):
+			push_warning("ShootingController: stale processing_saves_signal with no overlay — clearing and showing the save window")
+			print("║ ⚠ STALE SAVE GUARD — no overlay behind it, recovering")
+			processing_saves_signal = false
+		else:
+			print("╔═══════════════════════════════════════════════════════════════")
+			print("║ ❌ DUPLICATE SIGNAL BLOCKED")
+			print("║ Already processing saves_required signal")
+			print("║ Timestamp: ", Time.get_ticks_msec())
+			print("║ This is likely due to the signal being connected multiple times")
+			print("╚═══════════════════════════════════════════════════════════════")
+			return
 
 	# T5-MP4-RELIABILITY: idempotent dispatch by broadcast id.
 	# A retry (sent because the attacker didn't get an ack) re-emits this
@@ -2762,6 +2775,15 @@ func _on_saves_required(save_data_list: Array) -> void:
 			print("║   ❌ DUPLICATE DETECTED - IGNORING THIS CALL")
 			print("║   This is a duplicate signal emission for the same weapon/target")
 			print("╚═══════════════════════════════════════════════════════════════")
+			# Release the re-entrancy guard before bailing. Without this the flag
+			# stayed true forever (it is only cleared by the overlay's
+			# allocation_complete callback, which this overlay will fire for the
+			# FIRST emission, not this deduped one), so every LATER saves_required
+			# — a different weapon, a different unit, the next AI attack — was
+			# silently dropped at the top of this function. No overlay, no
+			# APPLY_SAVES, pending_save_data never drained, and the AI attacker
+			# idled forever waiting on a defender window that was never shown.
+			processing_saves_signal = false
 			return
 		else:
 			print("║   ")
