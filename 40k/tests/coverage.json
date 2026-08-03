@@ -8991,6 +8991,66 @@
       "status": "covered"
     },
     {
+      "id": "log.coverage.player_note",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: game_log_player_note.",
+      "scenarios": [
+        "game_log_player_note"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "replay.player_note_recorded",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: game_log_player_note.",
+      "scenarios": [
+        "game_log_player_note"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "ui.GameLogPanel.note_category_filter",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: game_log_player_note.",
+      "scenarios": [
+        "game_log_player_note"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "ui.GameLogPanel.note_input",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: game_log_player_note.",
+      "scenarios": [
+        "game_log_player_note"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "ui.chat_panel_removed",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: game_log_player_note.",
+      "scenarios": [
+        "game_log_player_note"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "ui.escape_releases_text_focus",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: game_log_player_note.",
+      "scenarios": [
+        "game_log_player_note"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
       "id": "phases.ScoutPhase.UI.skipped_step_is_announced",
       "description": "When no unit in either army is recognised as having the Scouts ability, ScoutPhase auto-completes on enter. It now says so in the player-visible Game Log ('No Scout moves are available — skipping the Scout step.' plus a per-player reason) and raises a toast, instead of vanishing silently and dropping the player onto the secondary-mission draw. Validated by 'scout_step_explains_itself'.",
       "scenarios": [

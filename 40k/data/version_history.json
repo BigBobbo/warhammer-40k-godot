@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.19.6",
+      "date": "2026-08-03",
+      "summary": "The floating chat/feed pop-up is gone. You can now type a note straight into the game log — and Escape always gets you out of a text box.",
+      "changes": [
+        "Removed the chat/feed pop-up that floated over the bottom-left of the board. It covered the game log, forgot everything typed into it the moment it closed, and grabbed the keyboard — which is how it could leave you stuck with Escape doing nothing.",
+        "Fixed that soft-lock at the root: Escape now always steps out of whatever text box has the caret first (the note box, the unit filter, a save name). Press it again and it does what it always did — cancel the shot, or open the menu.",
+        "New: a note box at the bottom of the Game Log. Click it, type, press Enter (or click Add) and your line is saved into the log as a proper entry.",
+        "Notes are shared: in a networked game both players see the same note, and notes are kept in the replay so they show up again during playback.",
+        "Notes have their own 'Notes' filter chip and a gold N badge, so you can hide or isolate them like any other event type.",
+        "The C key now jumps the caret into the note box (it used to open the chat pop-up); rebind it in Settings › Controls."
+      ]
+    },
+    {
       "version": "1.19.5",
       "date": "2026-08-03",
       "summary": "End of Turn no longer demands you delete models from squads that are in coherency — and when a model really is stranded, the board shows you which one and how far it has to come back.",
