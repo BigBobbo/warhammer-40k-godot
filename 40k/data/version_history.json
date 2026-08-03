@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.19.0",
+      "date": "2026-08-03",
+      "summary": "Charge moves and pile-in / consolidate now hold a model at its maximum range while you drag, the same as the movement phase — and the controller is always clamped.",
+      "changes": [
+        "Charge moves: drag a charging model past its 2D6 roll and it now stops at the farthest point it can still reach, and drops there. Before, the drag ran on past the roll and the drop was thrown away — the worst place to lose half an inch.",
+        "Dragging a whole selected group in the charge phase stops at the tightest model's remaining roll.",
+        "Base-to-base snapping still works, and gives way when contact is beyond what the roll can pay for, instead of showing a locked-on placement the drop would refuse.",
+        "Pile in and Consolidate: the model is now held at its 3\" while you drag. It always landed on 3\" when you let go, but until now it followed the cursor out and jumped back — and if you dragged too far it lost the whole move instead.",
+        "Controller and Steam Deck drags are always clamped in every phase, whatever the setting says.",
+        "The Settings > Controls > 'Stop model drags at their maximum move range' toggle now covers movement, charge and pile-in / consolidate together."
+      ]
+    },
+    {
       "version": "1.18.0",
       "date": "2026-08-03",
       "summary": "Dragging a model further than it can move now holds it at its maximum range instead of letting it run past — drag roughly the right way and the model takes the full move.",

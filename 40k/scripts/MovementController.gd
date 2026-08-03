@@ -2313,46 +2313,12 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 			and not PadRouter.is_carrying():
 		PadRouter.adopt_cursor_drag_as_carry(str(model.get("unit_id", active_unit_id)), str(model.get("model_id", model.get("id", ""))))
 
-# Is the over-range drag clamp in force right now?
-#
-# The pad carry is ALWAYS clamped (P0 Steam Deck smoothness — an over-range pad
-# drop that snaps back and strands the cursor is unusable, so that is not a
-# preference). On mouse & keyboard it follows Settings › Controls › "Stop model
-# drags at their maximum move range", ON by default: the player drags in roughly
-# the right direction and the model takes the maximum legal distance instead of
-# having to land the cursor on the reach circle by hand. Turning it off restores
-# the historical free drag with the red over-range preview.
-#
-# Read live on every motion event so a mid-game settings change takes effect on
-# the very next drag with no reload. Autoloads are fetched defensively because
-# bare headless harnesses instantiate this controller without them.
+# Over-range drag clamp — the gate and the ray search live on
+# PhaseControllerBase (drag_clamp_active / clamp_drag_to_budget) so the movement,
+# charge and pile-in drags all restrain identically. This wrapper supplies the
+# movement phase's own budget and cost accounting.
 func _drag_clamp_active() -> bool:
-	var idm = get_node_or_null("/root/InputDeviceManager")
-	if idm != null and idm.has_method("is_pad_active") and idm.is_pad_active():
-		return true
-	var settings = get_node_or_null("/root/SettingsService")
-	if settings == null:
-		return false
-	return bool(settings.get("drag_clamp_to_max_range"))
-
-# Over-range drag clamp: how finely the ray from the pickup point to the cursor
-# is searched for the farthest affordable stop — a coarse descending scan to
-# bracket the boundary, then bisections to sharpen it.
-#
-# A plain "budget minus endpoint penalty" formula is NOT enough, because the
-# terrain penalty is a step function of where you stop: dragging a Telemon at a
-# tall ruin costs +10" AT the ruin but 0" one inch short of it, and the naive
-# formula subtracts the ruin's cost from the budget everywhere along the ray and
-# pins the model at 0".
-#
-# 10 + 5 caps the worst case at 15 terrain queries per motion event while still
-# landing within ~budget/320 (≈0.025" on an 8" move, i.e. MOVEMENT_CAP_EPSILON)
-# of the true boundary — and the refinement always converges from the affordable
-# side, so the point returned is legal regardless of precision. Measured on this
-# machine: 2.1 ms per over-range motion event across terrain, vs 0.12 ms for the
-# single-query in-range case.
-const CLAMP_SCAN_SAMPLES: int = 10
-const CLAMP_REFINE_STEPS: int = 5
+	return drag_clamp_active()
 
 func _move_cost_inches(dest: Vector2) -> float:
 	"""Total inches this move spends: raw distance + terrain penalty, costed by
@@ -2363,58 +2329,14 @@ func _move_cost_inches(dest: Vector2) -> float:
 # P0 Steam Deck smoothness (now also the mouse default): clamp a tentative drag
 # position to the model's remaining movement budget, so an over-range carry
 # stops exactly where the model can still legally reach instead of being
-# rejected on drop (matching XCOM 2 / Into the Breach, where the unit stops at
-# the movement boundary). Distance + terrain only; an already-affordable move is
+# rejected on drop. Distance + terrain only; an already-affordable move is
 # returned unchanged. Overlap / board-edge legality is left to the caller:
 # shortening distance must not silently force an illegal overlap.
 func _clamp_move_to_budget(world_pos: Vector2) -> Vector2:
-	var seg: Vector2 = world_pos - drag_start_pos
-	var seg_len_px: float = seg.length()
-	if seg_len_px <= 0.0:
-		return world_pos
-	var budget_inches: float = max(0.0, _get_effective_move_cap() - _get_accumulated_distance())
-	if _move_cost_inches(world_pos) <= budget_inches + MOVEMENT_CAP_EPSILON:
-		return world_pos
-
-	var dir: Vector2 = seg / seg_len_px
-	var point_at := func(inches: float) -> Vector2:
-		return drag_start_pos + dir * Measurement.inches_to_px(inches)
-
-	# Fast path — no terrain anywhere on this ray, so the answer is closed-form.
-	# A shorter sub-segment can only cross a subset of what the full segment
-	# crosses, and any point on it lies on the full segment, so a zero penalty at
-	# the cursor means zero penalty the whole way in. This is the open-board case
-	# (the overwhelming majority of drags) and keeps the per-motion-event cost at
-	# one terrain query instead of 15 — the search below measured ~17x dearer,
-	# which matters on a Steam Deck mid-drag.
-	if _get_terrain_penalty_for_move(drag_start_pos, world_pos) <= 0.0:
-		return point_at.call(budget_inches)
-
-	var affordable := func(inches: float) -> bool:
-		return _move_cost_inches(point_at.call(inches)) <= budget_inches + MOVEMENT_CAP_EPSILON
-
-	# Terrain in the way: the cost is a step function of where you stop, so walk
-	# in from the cursor and take the FIRST affordable sample — the farthest one,
-	# which is what "drag roughly the right way and take the maximum" means.
-	# Never search past `budget_inches`: beyond that the raw distance alone
-	# already busts the cap, so those samples cannot pay off, and skipping them
-	# spends the whole sample budget on the stretch that can.
-	var step: float = min(Measurement.px_to_inches(seg_len_px), budget_inches) / float(CLAMP_SCAN_SAMPLES)
-	var lo: float = 0.0        # affordable (standing still always is)
-	var hi: float = step       # unaffordable — tightened if the scan finds better
-	for i in range(CLAMP_SCAN_SAMPLES, 0, -1):
-		var d: float = step * float(i)
-		if affordable.call(d):
-			lo = d
-			hi = d + step
-			break
-	for _i in range(CLAMP_REFINE_STEPS):
-		var mid: float = (lo + hi) * 0.5
-		if affordable.call(mid):
-			lo = mid
-		else:
-			hi = mid
-	return point_at.call(lo)
+	return clamp_drag_to_budget(
+		drag_start_pos, world_pos,
+		_get_effective_move_cap() - _get_accumulated_distance(),
+		_move_cost_inches)
 
 func _update_model_drag(mouse_pos: Vector2) -> void:
 	if not dragging_model:
