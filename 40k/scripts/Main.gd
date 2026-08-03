@@ -6,6 +6,7 @@ const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 const GameLogPanelScript = preload("res://scripts/GameLogPanel.gd")
 const GameLogEntryScript = preload("res://scripts/GameLogEntry.gd")
 const UnitStatsCardPopupScript = preload("res://scripts/UnitStatsCardPopup.gd")
+const HotkeyHelpOverlayScript = preload("res://scripts/HotkeyHelpOverlay.gd")
 # Controller glyphs for inline button labels (PRP §"inline button labels"): the
 # phase-action button advertises the keyboard [Enter] OR the pad Menu (☰) button
 # depending on the active device, so a Steam Deck player sees which controller
@@ -13904,87 +13905,24 @@ func _pause_button_glyph() -> String:
 
 
 func _toggle_hotkey_help_overlay() -> void:
+	# T-095/T-110: the "Keyboard Shortcuts" card (Shift+/ or ?).
+	# 2026-08-02: the card itself lives in scripts/HotkeyHelpOverlay.gd — it used
+	# to be built inline here with the stock Godot theme (no card chrome, no
+	# grouping) and listed 15 of the 71 registered bindings. The class renders it
+	# like the datasheet card and sources every row from KeybindingManager.
 	if _hotkey_help_overlay and is_instance_valid(_hotkey_help_overlay):
 		_hotkey_help_overlay.queue_free()
 		_hotkey_help_overlay = null
+		print("Main: Hotkey help overlay closed")
 		return
-	_hotkey_help_overlay = PanelContainer.new()
+	_hotkey_help_overlay = HotkeyHelpOverlayScript.new()
 	_hotkey_help_overlay.name = "HotkeyHelpOverlay"
-	_hotkey_help_overlay.anchor_left = 0.5
-	_hotkey_help_overlay.anchor_top = 0.5
-	_hotkey_help_overlay.anchor_right = 0.5
-	_hotkey_help_overlay.anchor_bottom = 0.5
-	_hotkey_help_overlay.offset_left = -260
-	_hotkey_help_overlay.offset_top = -220
-	_hotkey_help_overlay.offset_right = 260
-	_hotkey_help_overlay.offset_bottom = 220
-	var vbox := VBoxContainer.new()
-	_hotkey_help_overlay.add_child(vbox)
-	var title := Label.new()
-	title.text = "Keyboard Shortcuts"
-	title.add_theme_font_size_override("font_size", 21)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
-	var _gsep10 = ColorRect.new()
-	_gsep10.custom_minimum_size = Vector2(0, 2)
-	_gsep10.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
-	_gsep10.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_child(_gsep10)
-	# Key labels are pulled live from KeybindingManager so this reflects any
-	# mid-game rebinds the player made in Settings → Controls.
-	var _kbm = KeybindingManager
-	var entries := [
-		["Enter / Return", "Advance phase / confirm action"],
-		[_kbm.get_key_display_name("hotkey_help"), "Show / hide this help"],
-		["Esc", "Settings menu / close dialogs"],
-		[_kbm.get_key_display_name("toggle_army_panel"), "Toggle army panel"],
-		[_kbm.get_key_display_name("toggle_stratagem_panel"), "Toggle stratagems panel"],
-		[_kbm.get_key_display_name("toggle_missions_panel"), "Show secondary missions"],
-		["%s (hold)" % _kbm.get_key_display_name("los_debug"), "Show lines of sight (green clear / red blocked)"],
-		["%s (hold)" % _kbm.get_key_display_name("los_check"), "Show what can see the cursor position"],
-		[_kbm.get_key_display_name("toggle_roster_strip"), "Toggle left roster strip"],
-		["%s (toggle)" % _kbm.get_key_display_name("measuring_tape"), "Measuring tape — click start then end point"],
-		[_kbm.get_key_display_name("clear_measurements"), "Clear all measurements"],
-		[_kbm.get_key_display_name("toggle_take_to_skies"), "FLY unit: take to the skies (Movement phase)"],
-		[_kbm.get_key_display_name("toggle_grid_overlay"), "Toggle 1\" tactical grid overlay"],
-		[_kbm.get_key_display_name("toggle_visual_style"), "Toggle visual style (letter / enhanced)"],
-		[_kbm.get_key_display_name("toggle_debug_mode"), "Toggle debug mode"],
-	]
-	for entry in entries:
-		var row := HBoxContainer.new()
-		var key_label := Label.new()
-		key_label.text = entry[0]
-		key_label.custom_minimum_size = Vector2(160, 0)
-		key_label.add_theme_font_size_override("font_size", 18)
-		row.add_child(key_label)
-		var desc_label := Label.new()
-		desc_label.text = entry[1]
-		desc_label.add_theme_font_size_override("font_size", 18)
-		row.add_child(desc_label)
-		vbox.add_child(row)
-	var _gsep11 = ColorRect.new()
-	_gsep11.custom_minimum_size = Vector2(0, 2)
-	_gsep11.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
-	_gsep11.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_child(_gsep11)
-	var hint := Label.new()
-	hint.text = "Rebind any key in Settings (Esc) → Controls"
-	hint.add_theme_font_size_override("font_size", 16)
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(hint)
-	# Controller route to the same information. This help screen is keyboard-only
-	# by nature (and Shift+/ is unpressable on a Steam Deck in Game Mode), so
-	# always point pad players at the Controller tab, which lists every pad
-	# button and lets them remap it. Glyph comes from PadBindings so a remapped
-	# Pause Menu role shows the button it is actually on now.
-	var pad_hint := Label.new()
-	pad_hint.name = "PadRouteHint"
-	pad_hint.text = "On a controller: %s (Pause Menu) → Settings → Controller lists every pad button" % _pause_button_glyph()
-	pad_hint.add_theme_font_size_override("font_size", 16)
-	pad_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(pad_hint)
 	add_child(_hotkey_help_overlay)
-	_hotkey_help_overlay.z_index = UI_OVERLAY_Z
+	# UI_MODAL_Z, not UI_OVERLAY_Z: the card is a full modal reference the player
+	# just asked for, so it must draw above the board hover tooltip the same way
+	# DatasheetModal does. At UI_OVERLAY_Z it tied with the tooltip layer and the
+	# winner came down to tree order.
+	_hotkey_help_overlay.z_index = UI_MODAL_Z
 	print("Main: Hotkey help overlay opened")
 
 
@@ -15255,6 +15193,13 @@ func _run_pause_menu_cascade(is_keyboard_escape: bool) -> bool:
 	var datasheet_modal = get_node_or_null("DatasheetModal")
 	if datasheet_modal != null and datasheet_modal.visible:
 		datasheet_modal.close()
+		return true
+	# Keyboard shortcuts card: same deal as the datasheet — it is the top
+	# overlay, so ESC must dismiss it instead of stacking the settings menu
+	# behind it. Its own key (Shift+/) still toggles it too; the card's footer
+	# advertises both.
+	if _hotkey_help_overlay and is_instance_valid(_hotkey_help_overlay):
+		_toggle_hotkey_help_overlay()
 		return true
 	if is_keyboard_escape and shooting_controller and shooting_controller.active_shooter_id != "":
 		# Let ShootingController handle ESC for deselect/cancel.
