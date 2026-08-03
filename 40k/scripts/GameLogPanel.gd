@@ -572,6 +572,72 @@ func dice_row_has_visual(row_index: int) -> bool:
 			return true
 	return false
 
+func last_combat_card_dice_labels() -> Array:
+	# Test introspection helper: the prefix text of every inline dice row on the
+	# most recent combat card — e.g. ["Hit (2+):", "Wound (5+):", "Save (6+):"].
+	# Windowed scenarios use this to prove the armour-save row reached the card;
+	# the panel's _current_combat_dice_container reference is null by then
+	# (finalizing the card clears it), so the container is read back off the card.
+	var labels: Array = []
+	for i in range(_card_container.get_child_count() - 1, -1, -1):
+		var card = _card_container.get_child(i)
+		if not card.has_meta("combat_dice_container"):
+			continue
+		var container = card.get_meta("combat_dice_container")
+		if not is_instance_valid(container):
+			return labels
+		for row in container.get_children():
+			for c in row.get_children():
+				if c is RichTextLabel:
+					var t: String = c.get_parsed_text().strip_edges()
+					if t != "":
+						labels.append(t)
+					break
+		return labels
+	return labels
+
+func expand_last_combat_card() -> bool:
+	# Test introspection helper: drive the most recent combat card's
+	# "Show details" toggle the same way a click does, and report whether the
+	# details are now visible.
+	for i in range(_card_container.get_child_count() - 1, -1, -1):
+		var card = _card_container.get_child(i)
+		if not card.has_meta("combat_details_toggle"):
+			continue
+		var btn = card.get_meta("combat_details_toggle")
+		var container = card.get_meta("combat_details_container")
+		if not is_instance_valid(btn) or not is_instance_valid(container):
+			return false
+		if not container.visible:
+			btn.pressed.emit()
+		return container.visible
+	return false
+
+func last_combat_card_detail_lines() -> Array:
+	# Test introspection helper: the text of every line in the most recent combat
+	# card's collapsible "Show details" section.
+	var lines: Array = []
+	for i in range(_card_container.get_child_count() - 1, -1, -1):
+		var card = _card_container.get_child(i)
+		if not card.has_meta("combat_details_container"):
+			continue
+		var container = card.get_meta("combat_details_container")
+		if not is_instance_valid(container):
+			return lines
+		for row in container.get_children():
+			if row is RichTextLabel:
+				lines.append(row.get_parsed_text().strip_edges())
+			else:
+				var parts: Array = []
+				for c in row.get_children():
+					if c is Label:
+						parts.append(c.text)
+					elif c is RichTextLabel:
+						parts.append(c.get_parsed_text().strip_edges())
+				lines.append(" ".join(parts).strip_edges())
+		return lines
+	return lines
+
 func combat_detail_row_has_visual(row_index: int) -> bool:
 	# Test introspection helper: returns true if the collapsible details row at
 	# `row_index` contains a DiceRowVisual child (i.e. the dice array was rendered
@@ -678,14 +744,21 @@ func _build_realtime_dice_row(data: Dictionary, context: String) -> Control:
 				rolls_raw, threshold_int, true,
 				"[color=#EEAA77]— %d/%d[/color]" % [successes, total]
 			)
-		"save_roll":
-			var failed = data.get("failed", 0)
+		# "save" is the 11e allocation batch's engine-internal context; blocks
+		# normally arrive normalized to "save_roll", but accept both (and both
+		# spellings of the fail counter) so a save row never silently vanishes.
+		"save_roll", "save":
+			var failed = int(data.get("failed", data.get("fails", 0)))
 			var using_invuln = data.get("using_invuln", false)
 			var label = "Inv Save" if using_invuln else "Save"
 			var result_color = "#FF6B6B" if failed > 0 else "#77CC77"
+			var save_threshold_str = threshold_str if threshold_str != "" else str(data.get("sv", ""))
+			var save_threshold_int = threshold_int
+			if save_threshold_int == 0:
+				save_threshold_int = int(save_threshold_str.replace("+", "")) if save_threshold_str != "" else 0
 			return _make_dice_row(
-				"[color=#BB88FF][b]%s[/b] (%s):[/color]" % [label, threshold_str],
-				rolls_raw, threshold_int, true,
+				"[color=#BB88FF][b]%s[/b] (%s):[/color]" % [label, save_threshold_str],
+				rolls_raw, save_threshold_int, true,
 				"[color=%s]— %d failed[/color]" % [result_color, failed]
 			)
 		"feel_no_pain":
@@ -878,6 +951,13 @@ func _start_combat_card(header_text: String, animate: bool) -> void:
 	_current_combat_card = card
 	_current_combat_details_text = ""
 	_current_combat_details_visible = false
+	# The panel's _current_* references are cleared once the card is finalized,
+	# so keep the containers reachable from the card itself for the windowed
+	# scenarios that inspect a FINISHED card (e.g. "did the armour-save row
+	# actually land next to Hit and Wound?").
+	card.set_meta("combat_dice_container", _current_combat_dice_container)
+	card.set_meta("combat_details_container", _current_combat_details_container)
+	card.set_meta("combat_details_toggle", toggle_btn)
 
 	_card_container.add_child(card)
 	_card_count += 1
