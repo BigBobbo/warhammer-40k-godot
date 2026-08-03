@@ -7,6 +7,11 @@ class_name GameLogPanel
 ## actual board reconstruction / read-only history view.
 signal history_step_requested(history_index: int, description: String)
 
+## Emitted when the player types a free-text note into the box at the bottom of
+## the panel and presses Enter. Main turns it into a GameEventLog entry and, in a
+## networked game, broadcasts it so both players see the same log.
+signal note_submitted(text: String)
+
 const DiceRowVisualScript := preload("res://scripts/DiceRowVisual.gd")
 
 ## GameLogPanel — Self-contained card-based game event log UI.
@@ -38,6 +43,7 @@ enum EntryCategory {
 	SCORING,
 	COMBAT,
 	ABILITY,
+	NOTE,
 }
 
 # --- Color Palette ---
@@ -57,6 +63,7 @@ const BORDER_COLORS = {
 	EntryCategory.SCORING: Color(0.3, 0.8, 0.4),           # Green
 	EntryCategory.COMBAT: Color(0.91, 0.77, 0.47),         # Gold (combat header)
 	EntryCategory.ABILITY: Color(0.36, 0.75, 0.72),        # Teal (passive abilities)
+	EntryCategory.NOTE: Color(0.95, 0.85, 0.45),           # Pale gold (player-written notes)
 }
 
 # Icon characters for each category
@@ -72,6 +79,7 @@ const ICON_CHARS = {
 	EntryCategory.SCORING: "VP",
 	EntryCategory.COMBAT: "X",
 	EntryCategory.ABILITY: "A",
+	EntryCategory.NOTE: "N",
 }
 
 # --- Filters ---
@@ -88,6 +96,7 @@ const FILTER_ORDER = [
 	EntryCategory.SCORING,
 	EntryCategory.INFO,
 	EntryCategory.ABILITY,
+	EntryCategory.NOTE,
 	EntryCategory.AI_THINKING,
 ]
 # Categories hidden by default (off until the player turns them on). Passive
@@ -107,6 +116,7 @@ const FILTER_LABELS = {
 	EntryCategory.SCORING: "VP",
 	EntryCategory.INFO: "Info",
 	EntryCategory.ABILITY: "Abilities",
+	EntryCategory.NOTE: "Notes",
 	EntryCategory.AI_THINKING: "AI",
 }
 # Stable string keys for tests / external callers to name a category.
@@ -120,6 +130,7 @@ const FILTER_KEYS = {
 	EntryCategory.SCORING: "vp",
 	EntryCategory.INFO: "info",
 	EntryCategory.ABILITY: "ability",
+	EntryCategory.NOTE: "note",
 	EntryCategory.AI_THINKING: "ai",
 }
 
@@ -161,6 +172,15 @@ var _dice_log_display: RichTextLabel = null
 # tab, the Dice Log tab shows a dot instead of yanking them off the game log.
 var _dice_unread: bool = false
 var _last_dice_char_count: int = 0
+
+# --- Note input (free text → game log) ---
+# Sits at the bottom of the Game Log tab. Replaces the floating chat/feed pop-up
+# that used to cover this corner of the screen. Click it, type, press Enter and
+# the line becomes a real log entry (shared with the other player in multiplayer
+# and replayed in playback). It never grabs focus on its own — that is what made
+# the old pop-up swallow Escape and every other hotkey.
+var _note_row: HBoxContainer = null
+var _note_input: LineEdit = null
 
 # --- History browser (click a card to revert the board to that step) ---
 # Set immediately before each card is built so _register_card can stamp the card
@@ -229,6 +249,12 @@ func _show_tab(which: String) -> void:
 	# Dice Log content.
 	if _dice_log_display:
 		_dice_log_display.visible = not on_game
+	# The note box writes to the Game Log, so it only belongs on that tab. Leaving
+	# the dice tab with the caret still in it would keep swallowing hotkeys.
+	if _note_row:
+		_note_row.visible = on_game
+		if not on_game and is_instance_valid(_note_input) and _note_input.has_focus():
+			_note_input.release_focus()
 	# Viewing the dice tab clears the unread nudge.
 	if not on_game:
 		_dice_unread = false
@@ -259,6 +285,77 @@ func show_dice_tab() -> void:
 
 func show_game_tab() -> void:
 	_show_tab("game")
+
+# ==========================================================================
+# Note input — free text the player adds to the game log
+# ==========================================================================
+
+# Mirrors GameEventLog.NOTE_MAX_LENGTH (the autoload is the real enforcement
+# point; this just stops the field accepting more than it will keep). Not read
+# from the autoload directly because this script has a class_name and so cannot
+# reference autoload constants at parse time.
+const NOTE_MAX_LENGTH := 240
+
+func _build_note_row(parent: VBoxContainer) -> void:
+	"""The 'add a note' row pinned under the log. Deliberately outside the
+	ScrollContainer so it stays put however long the log grows."""
+	_note_row = HBoxContainer.new()
+	_note_row.name = "NoteRow"
+	_note_row.add_theme_constant_override("separation", 4)
+	parent.add_child(_note_row)
+
+	_note_input = LineEdit.new()
+	_note_input.name = "NoteInput"
+	_note_input.placeholder_text = "Add a note to the log…"
+	_note_input.tooltip_text = "Type a note and press Enter to add it to the game log. Both players see it in a networked game, and it is kept in the replay. Escape leaves the box."
+	_note_input.max_length = NOTE_MAX_LENGTH
+	_note_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_note_input.custom_minimum_size = Vector2(0, 26)
+	_note_input.add_theme_font_size_override("font_size", 16)
+	_note_input.text_submitted.connect(_on_note_text_submitted)
+	_note_row.add_child(_note_input)
+
+	var add_btn = Button.new()
+	add_btn.name = "NoteAddButton"
+	add_btn.text = "Add"
+	add_btn.tooltip_text = "Add the typed note to the game log"
+	add_btn.custom_minimum_size = Vector2(38, 26)
+	add_btn.add_theme_font_size_override("font_size", 16)
+	add_btn.pressed.connect(_on_note_add_pressed)
+	_note_row.add_child(add_btn)
+
+func _on_note_add_pressed() -> void:
+	if is_instance_valid(_note_input):
+		_on_note_text_submitted(_note_input.text)
+
+func _on_note_text_submitted(text: String) -> void:
+	# Clear first so the box is empty whether or not the note was worth emitting.
+	var clean := str(text).strip_edges()
+	if is_instance_valid(_note_input):
+		_note_input.clear()
+	if clean == "":
+		return
+	emit_signal("note_submitted", clean)
+
+func get_note_input() -> LineEdit:
+	"""The note LineEdit — windowed scenarios click/type into this directly."""
+	return _note_input
+
+func focus_note_input() -> bool:
+	"""Put the caret in the note box (keyboard accelerator). Returns false when
+	the box is not reachable — panel hidden or the Dice Log tab is showing."""
+	if not is_instance_valid(_note_input) or not _is_visible or _active_tab != "game":
+		return false
+	_note_input.grab_focus()
+	return true
+
+func submit_note_text(text: String) -> void:
+	"""Type `text` into the note box and submit it, exactly as pressing Enter
+	does. Used by windowed scenarios to drive the real player path."""
+	if not is_instance_valid(_note_input):
+		return
+	_note_input.text = text
+	_on_note_text_submitted(text)
 
 func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 105.0, offset_bottom: float = 0.0) -> void:
 	name = "GameLogPanel"
@@ -389,6 +486,9 @@ func setup(parent: Node, hud_bottom: HBoxContainer = null, offset_top: float = 1
 	_dice_log_display.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_dice_log_display.visible = false
 	vbox.add_child(_dice_log_display)
+
+	# --- Note input row (Game Log tab only) ---
+	_build_note_row(vbox)
 
 	# Set the initial tab (Game Log) — also styles the tab buttons.
 	_show_tab("game")
@@ -1083,6 +1183,9 @@ func _create_simple_card(text: String, entry_type: String, animate: bool) -> voi
 		"overwatch":
 			card = _make_simple_entry_card(text, entry_type, EntryCategory.OVERWATCH)
 			final_category = EntryCategory.OVERWATCH
+		"player_note":
+			card = _make_note_card(text)
+			final_category = EntryCategory.NOTE
 		"ai_thinking":
 			card = _make_simple_entry_card(text, entry_type, EntryCategory.AI_THINKING)
 			final_category = EntryCategory.AI_THINKING
@@ -1187,6 +1290,34 @@ func _get_player_color_from_text(text: String) -> Color:
 	elif "player 2" in lower or "p2" in lower:
 		return FactionPalettes.get_player_border_color(2)
 	return COLOR_GOLD
+
+func _make_note_card(text: String) -> PanelContainer:
+	"""Card for a free-text player note typed into the box at the bottom of the
+	panel. Deliberately NOT built on _make_simple_entry_card: that renders through
+	a bbcode-enabled RichTextLabel, and note text is player-authored (and, in
+	multiplayer, arrives from the remote peer), so markup in a note could restyle
+	or inject content into the log. A plain Label renders it literally."""
+	var accent: Color = BORDER_COLORS.get(EntryCategory.NOTE, Color.GRAY)
+	var card = PanelContainer.new()
+	card.name = "NoteCard"
+	card.add_theme_stylebox_override("panel", _make_card_style(Color(0.14, 0.12, 0.07, 0.95), accent, 4))
+	card.custom_minimum_size = Vector2(0, 24)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 6)
+	card.add_child(hbox)
+	hbox.add_child(_create_icon(EntryCategory.NOTE))
+
+	var label = Label.new()
+	label.name = "NoteText"
+	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_color_override("font_color", accent)
+	hbox.add_child(label)
+	return card
 
 func _make_simple_entry_card(text: String, entry_type: String, category: int) -> PanelContainer:
 	var accent = BORDER_COLORS.get(category, Color.GRAY)
@@ -1558,6 +1689,8 @@ func _categorize_entry_type(entry_type: String) -> int:
 			return EntryCategory.ABILITY
 		"combat_header", "combat_detail", "combat_result":
 			return EntryCategory.COMBAT
+		"player_note":
+			return EntryCategory.NOTE
 		"info":
 			return EntryCategory.INFO
 		_:

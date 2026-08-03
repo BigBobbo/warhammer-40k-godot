@@ -464,8 +464,10 @@ func _ready() -> void:
 	# Setup player scores and CP display in top bar
 	_setup_score_display()
 
-	# T-102: connect chat signal so messages accumulate even when the panel is closed.
-	_ensure_chat_signal_connected()
+	# Notes typed by the other player arrive as a NetworkManager signal and are
+	# appended to the shared game log. Connected here (not with the log panel) so a
+	# remote note is never dropped just because the panel was rebuilt or hidden.
+	_ensure_log_note_signal_connected()
 
 	# P3-109: Setup turn/round progress indicator
 	_setup_round_indicator()
@@ -6185,8 +6187,7 @@ func _input(event: InputEvent) -> void:
 		return
 
 	# Measuring tape: toggle click-to-measure mode (rebindable: measuring_tape,
-	# default T). Handled BEFORE the chat-panel toggle (also default T) so the
-	# tape wins the key rather than being shadowed by chat.
+	# default T).
 	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "measuring_tape"):
 		MeasuringTapeManager.toggle_measure_mode()
 		_update_measure_mode_hint()
@@ -6236,11 +6237,16 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	# T-102: Chat panel toggle (rebindable: toggle_chat_panel, default T). Only shows in networked games.
-	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "toggle_chat_panel"):
-		_toggle_chat_panel()
-		get_viewport().set_input_as_handled()
-		return
+	# Game-log note box (rebindable: focus_log_note, default C) — puts the caret in
+	# the note field at the bottom of the game log. Escape leaves the field again
+	# (see the top of _run_pause_menu_cascade). Falls through when the log panel is
+	# hidden or showing the Dice Log tab, so the key isn't silently eaten.
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "focus_log_note"):
+		if game_log_panel and is_instance_valid(game_log_panel) \
+				and game_log_panel.has_method("focus_note_input") \
+				and game_log_panel.focus_note_input():
+			get_viewport().set_input_as_handled()
+			return
 
 	# T-103: Weapon range comparison panel (rebindable: weapon_range_panel, default W)
 	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "weapon_range_panel"):
@@ -12473,6 +12479,9 @@ func _setup_game_log_panel() -> void:
 	# History browser: clicking a log card reverts the board to that step.
 	if game_log_panel.has_signal("history_step_requested"):
 		game_log_panel.history_step_requested.connect(_on_history_step_requested)
+	# Free-text note box at the bottom of the log.
+	if game_log_panel.has_signal("note_submitted"):
+		game_log_panel.note_submitted.connect(_on_log_note_submitted)
 	# The log panel is created after _fix_hud_layout, so re-apply the pad-mode
 	# bottom inset here or its newest entry hides behind the pad hint strip.
 	_connect_pad_bottom_inset()
@@ -13059,6 +13068,11 @@ func _on_replay_event_applied(event: Dictionary) -> void:
 		var entry_type = "info"
 		if event_type == "phase_change":
 			entry_type = "phase_header"
+		elif event_type == "player_note":
+			# A note the player typed during the recorded game — re-shown as the
+			# same note card it was live. add_entry (not add_player_note) so
+			# playback does not re-record it into the current recording.
+			entry_type = "player_note"
 		elif event.get("active_player", 0) == 1:
 			entry_type = "p1_action"
 		elif event.get("active_player", 0) == 2:
@@ -13540,106 +13554,47 @@ var _vp_timeline_history: Array = []
 var _vp_timeline_panel: PanelContainer = null
 var _vp_timeline_list: VBoxContainer = null
 
-# T-102: chat / feed panel for multiplayer games.
-var _chat_panel: PanelContainer = null
-var _chat_log_box: VBoxContainer = null
-var _chat_input: LineEdit = null
-var _chat_history: Array = []  # entries: { player: int, text: String }
-var _chat_signal_connected: bool = false
+# Free-text notes the player adds to the game log.
+#
+# This replaces the old T-102 chat / feed pop-up, which floated over the
+# bottom-left of the board (on top of the game log), grabbed keyboard focus the
+# moment it opened, and dropped everything typed into it the moment it closed.
+# Worse, it soft-locked the game: with its LineEdit focused, the phase
+# controllers skip their keyboard handling (they bail when a text input has
+# focus), so Escape — which Main defers to ShootingController while a shooter is
+# active — reached nobody, and the panel's own toggle key just typed a letter
+# into the box.
+#
+# Notes now go into the game log itself via the box at the bottom of the log
+# panel: they persist, they are filterable, they are recorded into the replay,
+# and in a networked game both players see the same line.
+var _log_note_signal_connected: bool = false
 
-func _ensure_chat_signal_connected() -> void:
-	if _chat_signal_connected:
+func _ensure_log_note_signal_connected() -> void:
+	if _log_note_signal_connected:
 		return
-	if NetworkManager and NetworkManager.has_signal("chat_message_received"):
-		if not NetworkManager.chat_message_received.is_connected(_on_chat_message_received):
-			NetworkManager.chat_message_received.connect(_on_chat_message_received)
-		_chat_signal_connected = true
+	if NetworkManager and NetworkManager.has_signal("log_note_received"):
+		if not NetworkManager.log_note_received.is_connected(_on_log_note_received):
+			NetworkManager.log_note_received.connect(_on_log_note_received)
+		_log_note_signal_connected = true
 
-func _on_chat_message_received(sender_player: int, text: String) -> void:
-	_chat_history.append({"player": sender_player, "text": text})
-	if _chat_history.size() > 100:
-		_chat_history = _chat_history.slice(-100)
-	if _chat_log_box and is_instance_valid(_chat_log_box):
-		_append_chat_row(sender_player, text)
-
-func _append_chat_row(sender_player: int, text: String) -> void:
-	var row := HBoxContainer.new()
-	var who := Label.new()
-	who.text = "P%d:" % sender_player
-	who.add_theme_font_size_override("font_size", 16)
-	if sender_player == 1:
-		who.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
-	else:
-		who.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
-	who.custom_minimum_size = Vector2(34, 0)
-	row.add_child(who)
-	var msg := Label.new()
-	msg.text = text
-	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	msg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	msg.add_theme_font_size_override("font_size", 16)
-	row.add_child(msg)
-	_chat_log_box.add_child(row)
-
-func _toggle_chat_panel() -> void:
-	if _chat_panel and is_instance_valid(_chat_panel):
-		_chat_panel.queue_free()
-		_chat_panel = null
-		_chat_log_box = null
-		_chat_input = null
-		print("Main: Chat panel closed")
-		return
-	_ensure_chat_signal_connected()
-	_chat_panel = PanelContainer.new()
-	_chat_panel.name = "ChatPanel"
-	_chat_panel.anchor_left = 0.0
-	_chat_panel.anchor_top = 1.0
-	_chat_panel.anchor_right = 0.0
-	_chat_panel.anchor_bottom = 1.0
-	_chat_panel.offset_left = 16
-	_chat_panel.offset_top = -260
-	_chat_panel.offset_right = 380
-	_chat_panel.offset_bottom = -16
-	var vbox := VBoxContainer.new()
-	_chat_panel.add_child(vbox)
-	var title := Label.new()
-	title.text = "Chat / Feed"
-	title.add_theme_font_size_override("font_size", 18)
-	vbox.add_child(title)
-	var _gsep6 = ColorRect.new()
-	_gsep6.custom_minimum_size = Vector2(0, 2)
-	_gsep6.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
-	_gsep6.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_child(_gsep6)
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_child(scroll)
-	_chat_log_box = VBoxContainer.new()
-	_chat_log_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_chat_log_box)
-	# Replay history
-	for entry in _chat_history:
-		_append_chat_row(int(entry.get("player", 0)), str(entry.get("text", "")))
-	_chat_input = LineEdit.new()
-	_chat_input.placeholder_text = "Type a message and press Enter…"
-	_chat_input.text_submitted.connect(_on_chat_input_submitted)
-	vbox.add_child(_chat_input)
-	add_child(_chat_panel)
-	_chat_panel.z_index = UI_OVERLAY_Z
-	_chat_input.grab_focus()
-	print("Main: Chat panel opened")
-
-func _on_chat_input_submitted(text: String) -> void:
+func _on_log_note_submitted(text: String) -> void:
+	"""The local player pressed Enter in the game log's note box."""
 	if text.strip_edges() == "":
 		return
-	if NetworkManager:
-		NetworkManager.send_chat_message(text)
+	if NetworkManager and NetworkManager.has_method("send_log_note"):
+		# Echoes locally and broadcasts; _on_log_note_received does the logging for
+		# both ends, so the note is written exactly once here.
+		_ensure_log_note_signal_connected()
+		NetworkManager.send_log_note(text)
 	else:
-		# Local fallback — echo as P1 so the panel still functions in solo testing.
-		_on_chat_message_received(1, text)
-	if _chat_input and is_instance_valid(_chat_input):
-		_chat_input.clear()
+		_on_log_note_received(1, text)
+
+func _on_log_note_received(sender_player: int, text: String) -> void:
+	"""A note from either player (local echo or remote peer) → the game log."""
+	if GameEventLog:
+		GameEventLog.add_player_note(sender_player, text)
+	print("Main: Game log note from P%d: %s" % [sender_player, text])
 
 
 # T-103: Weapon range comparison panel.
@@ -15171,6 +15126,19 @@ func _run_pause_menu_cascade(is_keyboard_escape: bool) -> bool:
 	# while a shooter is active, so we leave the event for it. The pad's View
 	# button has no such downstream handler, so it passes is_keyboard_escape =
 	# false and falls straight through to the settings toggle instead.
+
+	# Typing in a text field (the game log's note box, the unit-list filter, a save
+	# name…): Escape leaves the field first, before any overlay/pause handling.
+	# Without this a focused LineEdit is a keyboard trap — the phase controllers
+	# skip their own ESC handling while a text input has focus (MA-41), and Main
+	# defers ESC to ShootingController whenever a shooter is active, so the key
+	# reached nobody. That is exactly how the removed chat pop-up soft-locked the
+	# game, and any focused field could do it again.
+	var focused_control = get_viewport().gui_get_focus_owner()
+	if focused_control is LineEdit or focused_control is TextEdit:
+		focused_control.release_focus()
+		print("Main: Escape released focus from text input")
+		return true
 
 	# History browser: return to the live game before anything else.
 	if _history_view_active:

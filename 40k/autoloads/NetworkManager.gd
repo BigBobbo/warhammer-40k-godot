@@ -15,7 +15,7 @@ signal game_over(winner: int, reason: String)  # Emitted when game ends (timeout
 signal desync_detected(action_type: String)  # ISS-015
 signal peer_disconnect_grace_period(disconnected_player: int)  # P2-41: Emitted to trigger graceful disconnect dialog
 signal load_sync_confirmed(all_confirmed: bool)  # SAVE-2: Emitted when all clients confirm loaded state (or timeout)
-signal chat_message_received(sender_player: int, text: String)  # T-102: chat panel
+signal log_note_received(sender_player: int, text: String)  # Free-text note added to the shared game log
 
 # Network modes
 enum NetworkMode { OFFLINE, HOST, CLIENT, DEDICATED_SERVER }
@@ -620,11 +620,13 @@ func _on_web_relay_message(data: Dictionary) -> void:
 			# In web relay mode, we use peer_id 2 for the guest
 			_process_loaded_state_ack(2, ack_success)
 
-		"chat":
-			# T-102: chat message from peer
-			var chat_sender = int(data.get("sender_player", 0))
-			var chat_text = str(data.get("text", ""))
-			emit_signal("chat_message_received", chat_sender, chat_text)
+		"log_note", "chat":
+			# Free-text game-log note from the peer. "chat" is the legacy message
+			# type from the removed chat pop-up — still accepted so a peer on an
+			# older build can talk to this one.
+			var note_sender = int(data.get("sender_player", 0))
+			var note_text = str(data.get("text", ""))
+			emit_signal("log_note_received", note_sender, note_text)
 
 func _handle_relayed_action(action: Dictionary) -> void:
 	"""Handle an action received from the other player via relay."""
@@ -3181,25 +3183,28 @@ func _update_phase_snapshot() -> void:
 		current_phase.update_local_state(new_snapshot)
 		print("NetworkManager: Updated phase snapshot with ", new_snapshot.get("units", {}).size(), " units")
 
-# T-102: chat system — send a chat message from this peer to all peers, render locally too.
-func send_chat_message(text: String) -> void:
+# Game-log notes — send a free-text note from this peer to all peers, and echo it
+# locally so the sender sees their own line immediately. Both ends turn the
+# signal into a GameEventLog entry, so the note lands in the shared game log
+# rather than in a separate transient chat feed.
+func send_log_note(text: String) -> void:
 	if text.strip_edges() == "":
 		return
 	var sender_player := get_local_player()
-	# Local echo so the sender immediately sees their own message.
-	emit_signal("chat_message_received", sender_player, text)
+	# Local echo so the sender immediately sees their own note.
+	emit_signal("log_note_received", sender_player, text)
 	if not is_networked():
 		return
 	# Use the relay path for online games, RPC otherwise.
 	if transport_type == TransportType.WEB_RELAY:
 		_send_via_relay({
-			"msg_type": "chat",
+			"msg_type": "log_note",
 			"sender_player": sender_player,
 			"text": text,
 		})
 	else:
-		_rpc_chat_message.rpc(sender_player, text)
+		_rpc_log_note.rpc(sender_player, text)
 
 @rpc("any_peer", "call_remote", "reliable")
-func _rpc_chat_message(sender_player: int, text: String) -> void:
-	emit_signal("chat_message_received", sender_player, text)
+func _rpc_log_note(sender_player: int, text: String) -> void:
+	emit_signal("log_note_received", sender_player, text)
