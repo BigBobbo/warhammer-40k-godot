@@ -22,6 +22,15 @@ Three authoring bugs shipped in the fight-phase checkpoints:
    (``DeploymentPhase.gd:761`` — "auto-deploy attached characters ... so they
    appear on the board") sets DEPLOYED, so the fixtures were simply wrong.
 
+The T6 layout then changed shape on purpose (2026-08-02). It used to park the
+Boyz' rear rank in base contact with the front rank, so the whole mob was
+already fighting and the lesson's Pile In step had literally nothing to do —
+it told the player to press "End Pile In" and move on. The rear rank now
+starts ``REAR_RANK_GAP_PX`` further back, outside 11e's 2" engagement range,
+so five of the ten Boyz cannot swing until the player actually makes the 3"
+pile-in move the step exists to teach. The gap is sized so one legal pile-in
+closes it (see ``t6_ork_layout``).
+
 Rerun with ``python3 tools/fix_tutorial_fight_fixtures.py`` (idempotent — it
 writes absolute positions, not deltas).
 """
@@ -78,6 +87,22 @@ CUSTODES_X = [
 
 FLANK_DEG = 60.0  # angle off vertical for the models that wrap the line's ends
 
+# T6 only: how much daylight to leave BEHIND the rear rank, on top of the
+# base-to-base pitch it would otherwise sit at. This is the whole point of the
+# lesson's Pile In step — the rear rank has to start out of the fight.
+#
+#   engagement range (11e)          = 2.00" = 80px, edge to edge
+#   rear rank -> Custodian line     = 2.76" (m7-m10) / 2.26" (m6, on the flank)
+#   distance the pile-in has to close = 58px = 1.45"  (of the 3" allowed)
+#   rear -> front-rank coherency     = 1.47"          (2" limit, 03.03)
+#
+# So: every rear-rank Boy is outside engagement range and cannot fight, one
+# legal 3" pile-in puts all five back in base contact with the front rank
+# (1.33" from the Custodes — inside ER), and the mob is in coherency the whole
+# way. Widening this past ~100px would break coherency at boot; narrowing it
+# below ~24px would put the rear rank back inside ER and make the step a no-op.
+REAR_RANK_GAP_PX = 58.0
+
 
 def _flank(cx, cy, distance, degrees, to_the_right):
     rad = math.radians(degrees)
@@ -89,12 +114,13 @@ def _flank(cx, cy, distance, degrees, to_the_right):
 def t6_ork_layout():
     """Post-charge positions for the Boyz + Warboss in the T6 checkpoint.
 
-    Front rank hugs the Custodian line in base contact; the rear rank sits in
-    base contact with the front rank (so it is both inside 2" engagement range
-    and eligible via RulesEngine's base-contact chain rule).
+    Front rank hugs the Custodian line in base contact; the rear rank trails
+    ``REAR_RANK_GAP_PX`` behind it, OUTSIDE 2" engagement range, so those five
+    Boyz cannot fight until the player pile-ins them in (T6's step 2).
     """
     c1x, c2x, c3x, c4x = CUSTODES_X
     front_y = CUSTODES_Y - BOY_TO_CUSTODIAN
+    rear_pitch = BOY_TO_BOY + REAR_RANK_GAP_PX
 
     boyz = {
         # Front rank — every one of these touches a Custodian.
@@ -104,12 +130,13 @@ def t6_ork_layout():
         "m4": (c3x, front_y),
         "m5": (c4x, front_y),
     }
-    # Rear rank — directly behind its front-rank model, bases touching.
-    boyz["m6"] = (boyz["m1"][0], boyz["m1"][1] - BOY_TO_BOY)
-    boyz["m7"] = (boyz["m2"][0], boyz["m2"][1] - BOY_TO_BOY)
-    boyz["m8"] = (boyz["m3"][0], boyz["m3"][1] - BOY_TO_BOY)
-    boyz["m9"] = (boyz["m4"][0], boyz["m4"][1] - BOY_TO_BOY)
-    boyz["m10"] = (boyz["m5"][0], boyz["m5"][1] - BOY_TO_BOY)
+    # Rear rank — directly behind its front-rank model, but held back out of
+    # the fight. Piling in closes the gap and puts them into engagement range.
+    boyz["m6"] = (boyz["m1"][0], boyz["m1"][1] - rear_pitch)
+    boyz["m7"] = (boyz["m2"][0], boyz["m2"][1] - rear_pitch)
+    boyz["m8"] = (boyz["m3"][0], boyz["m3"][1] - rear_pitch)
+    boyz["m9"] = (boyz["m4"][0], boyz["m4"][1] - rear_pitch)
+    boyz["m10"] = (boyz["m5"][0], boyz["m5"][1] - rear_pitch)
 
     # Warboss wraps the right-hand end of the line, in base contact with C4.
     warboss = {"m1": _flank(c4x, CUSTODES_Y, WARBOSS_TO_CUSTODIAN, FLANK_DEG, True)}

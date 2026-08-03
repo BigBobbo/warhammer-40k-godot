@@ -2,10 +2,12 @@ extends GutTest
 
 # Guards the melee geometry baked into the tutorial checkpoint fixtures.
 #
-# The T6 lesson ("Krumpin'") opens on a Pile In step whose prompt says "Yer Boyz
-# are already in contact, so just hit End Pile In". For three releases that was
-# false, in three separate ways, and none of it was catchable by the lesson
-# scenario (which only drove buttons):
+# The T6 lesson ("Krumpin'") opens on a Pile In step. It used to say "Yer Boyz
+# are already in contact, so just hit End Pile In" — a step with nothing in it —
+# and it now asks the player to make a real 3" pile-in with the Boyz' back rank
+# (see test_t6_the_pile_in_step_has_something_to_do below). For three releases
+# the "already in contact" claim was false in three separate ways, and none of
+# it was catchable by the lesson scenario (which only drove buttons):
 #
 #   1. The Custodian Guard sat on a 60px pitch. A 40mm base is 62.99px across at
 #      40 px/inch, so every adjacent pair of Custodians overlapped by ~3px —
@@ -36,6 +38,24 @@ const FIXTURES := [
 	"tutorial_t6_fight",
 	"tutorial_t7_round2",
 ]
+
+# These fixtures are 11e geometry and the lessons that boot them force 11e
+# (TutorialManager._boot_and_arm). SettingsService pins the AUTOMATED HARNESS to
+# the legacy 10e baseline, so without this every distance assertion below would
+# be measured against 10e's 1" engagement range instead of 11e's 2" — which is
+# exactly how this file first shipped: CI reported the back rank stranded 1.56"
+# from the enemy AFTER the pile-in, because 1.56" is out of range at 10e and in
+# range at 11e. Pin it, and put back whatever the harness had.
+var _prev_edition: int = 11
+
+
+func before_each() -> void:
+	_prev_edition = GameConstants.edition
+	GameConstants.edition = 11
+
+
+func after_each() -> void:
+	GameConstants.edition = _prev_edition
 
 
 func _load_fixture(name: String) -> Dictionary:
@@ -122,24 +142,107 @@ func _alive_count(unit: Dictionary) -> int:
 	return n
 
 
-func test_t6_every_ork_model_can_fight() -> void:
+func _closest_enemy_inches(model: Dictionary, enemies: Array) -> float:
+	var best := INF
+	for enemy in enemies:
+		if not enemy.get("alive", true):
+			continue
+		best = minf(best, Measurement.model_to_model_distance_inches(model, enemy))
+	return best
+
+
+# The T6 fixture as the FIGHT sees it — i.e. after the lesson's Pile In step.
+# The board that actually swings is not the one on disk any more: the back rank
+# starts out of engagement range and the player moves it in, so anything about
+# attack volume has to be measured here, not at boot.
+func _load_t6_after_pile_in() -> Dictionary:
+	var state := _load_fixture("tutorial_t6_fight")
+	if state.is_empty():
+		return state
+	var boyz: Dictionary = state["units"]["U_BOYZ_T"]
+	var movements: Dictionary = AIDecisionMaker._compute_pile_in_movements(state, "U_BOYZ_T", boyz, 1)
+	for key in movements:
+		var to: Vector2 = movements[key]
+		boyz["models"][int(str(key))]["position"] = {"x": to.x, "y": to.y}
+	return state
+
+
+# The whole point of the step: the back rank must start OUTSIDE engagement
+# range (so those Boyz genuinely cannot fight and the player has a reason to
+# move them) and INSIDE 3" (so one legal pile-in move fixes it). Get either
+# bound wrong and the lesson either teaches nothing or cannot be completed.
+func test_t6_the_pile_in_step_has_something_to_do() -> void:
 	var state := _load_fixture("tutorial_t6_fight")
 	assert_false(state.is_empty(), "tutorial_t6_fight must deserialize")
 	if state.is_empty():
 		return
 
 	var boyz: Dictionary = state["units"]["U_BOYZ_T"]
-	var warboss: Dictionary = state["units"]["U_WARBOSS_T"]
+	var custodes: Array = state["units"]["U_CUSTODIAN_GUARD_T"].get("models", [])
+	var er := GameConstants.engagement_range_inches()
+	var pile_in_inches := 3.0
+
+	var stranded: Array = []
+	for model in boyz.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var d := _closest_enemy_inches(model, custodes)
+		if d <= er:
+			continue
+		stranded.append(str(model.get("id", "?")))
+		assert_lt(
+			d, pile_in_inches,
+			"Boy %s starts %.2f\" from the Custodian Guard — more than the 3\" a pile-in may cover, so the lesson's move step could never bring it into the fight" % [
+				str(model.get("id", "?")), d]
+		)
+
+	assert_gt(
+		stranded.size(), 0,
+		"no Boy is out of engagement range — the Pile In step would have nothing for the player to do (that is exactly the state this fixture used to ship in)"
+	)
+	assert_eq(
+		RulesEngine.get_eligible_melee_model_indices(boyz, state).size(),
+		_alive_count(boyz) - stranded.size(),
+		"the Boyz out of engagement range must be exactly the ones that cannot swing yet: %s" % str(stranded)
+	)
+	assert_eq(
+		RulesEngine.get_eligible_melee_model_indices(state["units"]["U_WARBOSS_T"], state).size(),
+		1,
+		"da boss must be in engagement range"
+	)
+
+
+# ...and the move the lesson walks the player through has to WORK: the same
+# solver behind the dialog's "Auto Pile In" button must bring every stranded
+# Boy back into engagement range, legally and in coherency. This is the assert
+# that would have caught a too-wide gap before it shipped.
+func test_t6_one_pile_in_brings_the_whole_mob_back_into_the_fight() -> void:
+	var state := _load_fixture("tutorial_t6_fight")
+	if state.is_empty():
+		return
+
+	var boyz: Dictionary = state["units"]["U_BOYZ_T"]
+	var movements: Dictionary = AIDecisionMaker._compute_pile_in_movements(state, "U_BOYZ_T", boyz, 1)
+	assert_gt(movements.size(), 0, "the pile-in solver must find a move for the stranded Boyz")
+
+	for key in movements:
+		var index := int(str(key))
+		var from: Dictionary = boyz["models"][index]["position"]
+		var to: Vector2 = movements[key]
+		assert_lte(
+			Measurement.distance_inches(Vector2(from.x, from.y), to), 3.0 + 0.001,
+			"model index %d is moved further than the 3\" a pile-in allows" % index
+		)
+		boyz["models"][index]["position"] = {"x": to.x, "y": to.y}
 
 	assert_eq(
 		RulesEngine.get_eligible_melee_model_indices(boyz, state).size(),
 		_alive_count(boyz),
-		"every surviving Boy must be able to make attacks — the lesson says the mob is already in contact"
+		"after ONE pile-in every surviving Boy must be able to swing — the lesson's payoff, and what the rest of T6 (the Power klaw / choppa split, the Custodes surviving to swing back) is balanced around"
 	)
-	assert_eq(
-		RulesEngine.get_eligible_melee_model_indices(warboss, state).size(),
-		1,
-		"da boss must be in engagement range"
+	assert_true(
+		AttackSequence.check_unit_coherency(boyz).coherent,
+		"the mob must still be in coherency after the pile-in the lesson asks for (03.01)"
 	)
 
 
@@ -164,46 +267,25 @@ func test_t6_front_rank_is_in_real_base_contact() -> void:
 	assert_eq(in_contact, 6, "expected 6 Ork models touching the Custodian Guard line")
 
 
-func test_t6_every_boy_is_locked_into_the_enemy_line() -> void:
-	# What makes "already in contact" true for the WHOLE unit, per RulesEngine's
-	# chain rule: every alive Boy is either in base contact with an enemy itself,
-	# or in base contact with a friendly model that is. The fixture used to lean
-	# on the second half of that (a rear rank touching the front); the survivors
-	# now sit in one rank, each on the Custodian Guard line directly. Either
-	# shape satisfies the prompt — this asserts the rule, not the formation.
+func test_t6_the_mob_boots_in_a_legal_formation() -> void:
+	# The back rank is deliberately held back, but the fixture still has to be a
+	# position the rules allow: PileInMove.after_moving_conditions re-checks
+	# coherency, so a mob that boots OUT of coherency can never confirm the
+	# pile-in the lesson asks for — the step would soft-lock.
 	var state := _load_fixture("tutorial_t6_fight")
 	if state.is_empty():
 		return
 
-	var custodes: Array = state["units"]["U_CUSTODIAN_GUARD_T"].get("models", [])
-	var boyz: Array = state["units"]["U_BOYZ_T"].get("models", [])
+	for unit_id in ["U_BOYZ_T", "U_WARBOSS_T", "U_CUSTODIAN_GUARD_T"]:
+		var coh := AttackSequence.check_unit_coherency(state["units"][unit_id])
+		assert_true(coh.coherent, "%s boots out of coherency: %s" % [unit_id, str(coh.offenders)])
 
-	var on_the_line := {}
-	for model in boyz:
-		if not model.get("alive", true):
-			continue
-		for enemy in custodes:
-			if Measurement.model_to_model_distance_inches(model, enemy) <= RulesEngine.BASE_CONTACT_TOLERANCE_INCHES:
-				on_the_line[model.get("id", "?")] = true
-				break
-
-	assert_gt(on_the_line.size(), 0, "at least one Boy has to be on the Custodian Guard line")
-
-	for model in boyz:
-		if not model.get("alive", true):
-			continue
-		var mid: String = str(model.get("id", "?"))
-		var reaches: bool = on_the_line.has(mid)
-		if not reaches:
-			for other in boyz:
-				if not other.get("alive", true) or other.get("id", "") == model.get("id", ""):
-					continue
-				if not on_the_line.has(str(other.get("id", "?"))):
-					continue
-				if Measurement.model_to_model_distance_inches(model, other) <= RulesEngine.BASE_CONTACT_TOLERANCE_INCHES:
-					reaches = true
-					break
-		assert_true(reaches, "Boy %s touches neither an enemy nor a Boy who does — it cannot fight" % mid)
+	# And the unit as a whole is still engaged (12.03 needs that to be true both
+	# before and after the pile-in, or the move is illegal).
+	assert_true(
+		RulesEngine.is_unit_engaged("U_BOYZ_T", state),
+		"the Boyz must be engaged — the pile-in is only offered to an engaged (or charging) unit, and 12.03 requires it to still be engaged afterwards"
+	)
 
 
 # ------------------------------------------------------------------------
@@ -222,12 +304,16 @@ func test_t6_every_boy_is_locked_into_the_enemy_line() -> void:
 # The fixture is the original full mob again; these tests pin the fix from the
 # lesson's side — the carrier split, and a seeded sweep of every weapon the
 # dialog offers that must always leave a Custodian standing.
+#
+# Both run on the board AFTER the lesson's pile-in (_load_t6_after_pile_in),
+# because that is the mob that actually swings: at boot only the front rank is
+# in engagement range.
 # ------------------------------------------------------------------------
 const T6_WIPE_TRIALS := 40
 
 
 func test_t6_only_the_boss_nob_swings_the_power_klaw() -> void:
-	var state := _load_fixture("tutorial_t6_fight")
+	var state := _load_t6_after_pile_in()
 	if state.is_empty():
 		return
 
@@ -235,32 +321,53 @@ func test_t6_only_the_boss_nob_swings_the_power_klaw() -> void:
 	assert_eq(_alive_count(boyz), 10, "the full mob fights — its damage is bounded by loadouts, not by casualties")
 	assert_eq(_alive_count(state["units"]["U_CUSTODIAN_GUARD_T"]), 4, "the Custodian Guard the mob has to leave standing")
 
+	# The mob's resolved kit is "1x Big choppa, 9x Choppa" (RulesEngine
+	# ._ensure_loadout_resolved reads the datasheet default), so the Boss Nob's
+	# weapon is swung by exactly one model and the rest swing choppas. Weapons
+	# the roster never bought — the Power klaw among them — are not offered by
+	# the attack dialog at all (unit_has_melee_weapon is false), which is why
+	# they are asserted separately below rather than through the carrier funnel
+	# (that deliberately falls back to "everyone" when it cannot attribute).
 	var eligible := RulesEngine.get_eligible_melee_model_indices(boyz, state)
-	var expected := {"Power klaw": 1, "Big choppa": 1, "Choppa": 10, "Close combat weapon": 9}
+	var expected := {"Big choppa": 1, "Choppa": 9}
 	for weapon_name in expected:
 		var weapon_id := RulesEngine.generate_weapon_id(weapon_name, "Melee")
 		var carriers := RulesEngine.get_melee_weapon_swingers(boyz, weapon_id, eligible, [])
 		assert_eq(
 			carriers.size(), int(expected[weapon_name]),
-			"%s: %d model(s) should swing it, got %d — the mob's datasheet gives the klaw and big choppa to the Boss Nob alone" % [
+			"%s: %d model(s) should swing it, got %d — the mob's datasheet kit gives the big choppa to the Boss Nob alone" % [
 				weapon_name, int(expected[weapon_name]), carriers.size()]
 		)
+	assert_false(
+		RulesEngine.unit_has_melee_weapon(boyz, RulesEngine.generate_weapon_id("Power klaw", "Melee")),
+		"the Boyz never bought a Power klaw — the attack panel must not offer them one (da boss carries it, and he activates separately)"
+	)
+	assert_true(
+		RulesEngine.unit_has_melee_weapon(state["units"]["U_WARBOSS_T"], RulesEngine.generate_weapon_id("Power klaw", "Melee")),
+		"da boss's Power klaw is the one in this fight"
+	)
 
 
 func test_t6_boyz_cannot_wipe_the_custodian_guard() -> void:
-	var state := _load_fixture("tutorial_t6_fight")
+	var state := _load_t6_after_pile_in()
 	if state.is_empty():
 		return
 
 	# Every weapon the attack dialog offers, resolved exactly the way it builds
 	# the plan: the pick goes to its carriers, everyone else swings a Choppa
 	# (or a Close combat weapon when Choppa IS the pick).
+	#
+	# "Offers" is the resolved kit, not the datasheet menu: the mob bought 1x Big
+	# choppa + 9x Choppa, and the panel omits the options it never took. Sweeping
+	# a Power klaw here would resolve through get_melee_weapon_swingers' "cannot
+	# attribute it, so everyone swings it" fallback — 30 S9 AP-2 D2 attacks the
+	# player has no way to ask for.
 	var boyz: Dictionary = state["units"]["U_BOYZ_T"]
 	var eligible := RulesEngine.get_eligible_melee_model_indices(boyz, state)
 	var choppa_id := RulesEngine.generate_weapon_id("Choppa", "Melee")
 	var ccw_id := RulesEngine.generate_weapon_id("Close combat weapon", "Melee")
 
-	for weapon_name in ["Power klaw", "Big choppa", "Choppa", "Close combat weapon"]:
+	for weapon_name in ["Big choppa", "Choppa"]:
 		var weapon_id := RulesEngine.generate_weapon_id(weapon_name, "Melee")
 		var carriers := RulesEngine.get_melee_weapon_swingers(boyz, weapon_id, eligible, [])
 		var carrier_refs: Array = []

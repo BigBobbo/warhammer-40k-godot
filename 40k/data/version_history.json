@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.16.0",
+      "date": "2026-08-02",
+      "summary": "Tutorial 6 (Krumpin') now teaches Pile In properly: five of your Boyz start too far back to swing, and you have to shuffle them into the fight yourself.",
+      "changes": [
+        "The Pile In step used to say 'yer Boyz are already in contact, just hit End Pile In' — there was nothing to do, and it was not even true: the back rank was never touching the enemy.",
+        "The lesson's starting position now puts the Boyz' back rank outside the 2\" engagement range, so only 5 of the 10 Boyz can swing. The step asks you to open the 'Boyz + Warboss' row and make a real 3\" pile-in; End Pile In is refused until you have.",
+        "You can drag each model by hand or press 'Auto Pile In' to move the lot, then Confirm Move. The five Boyz already in base contact show a red B2B marker — they are locked where they stand and cannot move, which is the actual rule.",
+        "Once the move lands, all ten Boyz are in the fight and the lesson carries on as before. The yellow highlight follows you: it sits on Auto Pile In until you have staged a move, then jumps to Confirm Move.",
+        "Fixed the attack-panel tip in the same lesson, which named a Power klaw the Boyz mob does not carry — the Boss Nob's weapon is a Big choppa (the Warboss has the klaw)."
+      ]
+    },
+    {
       "version": "1.15.0",
       "date": "2026-08-02",
       "summary": "Charge phase: pick your charge target by clicking the enemy unit on the board, not just its name in the right-hand list.",
