@@ -22,6 +22,9 @@ var warlord_id: String = ""
 var scroll_container: ScrollContainer
 var content_vbox: VBoxContainer
 var summary_label: RichTextLabel
+# The Skip / Confirm row below the scroll panel. Kept so the D-pad focus chain
+# can be re-wired after the reserves section is rebuilt (see _wire_pad_focus).
+var button_bar: HBoxContainer
 
 func _init():
 	title = "Declare Battle Formations"
@@ -119,7 +122,7 @@ func _build_ui() -> void:
 
 	# Custom confirm/skip buttons inside the layout (AcceptDialog's built-in buttons
 	# get clipped outside the visible area, so we manage our own)
-	var button_bar = HBoxContainer.new()
+	button_bar = HBoxContainer.new()
 	button_bar.name = "ButtonBar"
 	button_bar.add_theme_constant_override("separation", 12)
 	button_bar.alignment = BoxContainer.ALIGNMENT_END
@@ -138,6 +141,28 @@ func _build_ui() -> void:
 	confirm_button.pressed.connect(_on_confirmed)
 	WhiteDwarfTheme.apply_primary_button(confirm_button)
 	button_bar.add_child(confirm_button)
+
+	# Steam Deck / controller: the form is much taller than the scroll panel, so
+	# the D-pad has to be given an explicit route through it (see
+	# ScrollFocusChain for why geometric navigation escapes the panel).
+	_wire_pad_focus()
+
+# Give the D-pad a route through the whole declaration form: every row of the
+# scroll panel in order, then out to Skip / Confirm — and never out of the panel
+# early. Re-run whenever the scrolled contents change (rows are freed and
+# rebuilt, which invalidates the neighbour links stored on them).
+func _wire_pad_focus() -> void:
+	if scroll_container == null or button_bar == null:
+		return
+	var bar: Array = []
+	for child in button_bar.get_children():
+		if child is Button:
+			bar.append(child)
+	var rows := ScrollFocusChain.wire(scroll_container, bar)
+	DebugLogger.debug("FormationsDialog: wired pad focus chain", {
+		"rows": rows,
+		"buttons": bar.size()
+	})
 
 func _build_leader_section() -> void:
 	"""Build the leader attachment section."""
@@ -632,6 +657,10 @@ func _rebuild_reserves_section() -> void:
 				if entry.get("unit_id", "") == uid:
 					child.set_pressed_no_signal(true)
 					break
+
+	# The rows the D-pad chain pointed at were just freed — re-wire it, or the
+	# controller walk dead-ends where the old reserves section used to be.
+	_wire_pad_focus()
 
 func _get_embarked_model_count(transport_id: String) -> int:
 	var transport = GameState.get_unit(transport_id)
