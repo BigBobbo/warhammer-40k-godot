@@ -76,6 +76,13 @@ func _ready() -> void:
 	if pm != null and pm.has_signal("phase_changed"):
 		if not pm.is_connected("phase_changed", _t09_on_phase_changed):
 			pm.connect("phase_changed", _t09_on_phase_changed)
+	# Against All Odds: a unit that just LOST the bonus stops animating, so it
+	# would keep its last sparkle frame forever without an explicit repaint on
+	# the state flip. (Gaining it is covered by the redraw loop above.)
+	var fam = get_node_or_null("/root/FactionAbilityManager")
+	if fam != null and fam.has_signal("against_all_odds_changed"):
+		if not fam.is_connected("against_all_odds_changed", queue_redraw):
+			fam.connect("against_all_odds_changed", queue_redraw)
 	# Letter/classic styles only redraw on interaction, so without this hook a
 	# style change in settings leaves every idle token rendering the old style.
 	if SettingsService and SettingsService.has_signal("unit_style_changed"):
@@ -449,6 +456,9 @@ func _process(delta: float) -> void:
 	elif _has_performed_action_flag():
 		# Secondary action pulsing indicator
 		needs_redraw = true
+	elif _has_against_all_odds():
+		# Against All Odds sparkle
+		needs_redraw = true
 
 	if needs_redraw:
 		_pulse_time += delta
@@ -493,6 +503,7 @@ func _draw() -> void:
 		_draw_colorblind_shape_badge()  # T-097: colorblind-friendly shape badge
 		var lm_bounds = base_shape.get_bounds()
 		_draw_special_weapon_indicator(min(lm_bounds.size.x, lm_bounds.size.y) / 2.0)
+		_draw_against_all_odds_sparkle(min(lm_bounds.size.x, lm_bounds.size.y) / 2.0)
 		return
 
 	if use_retro and not debug_mode:
@@ -555,6 +566,13 @@ func _draw() -> void:
 		var dmg_bounds = base_shape.get_bounds()
 		var dmg_radius = min(dmg_bounds.size.x, dmg_bounds.size.y) / 2.0
 		_draw_damage_overlay(dmg_radius)
+
+	# AGAINST ALL ODDS (Lions of the Emperor): twinkle the models of a unit that
+	# is currently earning +1 Hit / +1 Wound. Drawn LAST so the glints sit on top
+	# of the model art.
+	if not debug_mode:
+		var aao_bounds = base_shape.get_bounds()
+		_draw_against_all_odds_sparkle(min(aao_bounds.size.x, aao_bounds.size.y) / 2.0)
 
 func _draw_enhanced(fill_color: Color, border_color: Color) -> void:
 	var bounds = base_shape.get_bounds()
@@ -1166,6 +1184,65 @@ func _draw_beacon_indicator(radius: float) -> void:
 		var label_pos = Vector2(indicator_radius * 0.6, -indicator_radius * 0.6)
 		draw_string(font, label_pos + Vector2(1, 1), "B", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.BLACK)
 		draw_string(font, label_pos, "B", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.4, 0.95, 1.0))
+
+# AGAINST ALL ODDS — Lions of the Emperor. Deliberately NOT a ring: an extra
+# circle around the base makes the model's actual base size ambiguous, which is
+# the one thing a wargame token must never be. Instead the model twinkles —
+# three small 4-point glints INSIDE the base rim, pulsing out of phase, so the
+# marker reads as "this model is special right now" without adding any geometry
+# that could be mistaken for its footprint.
+#
+# The 6" isolation test is far too costly per frame, so the live verdict is
+# polled and cached by FactionAbilityManager (see _refresh_against_all_odds);
+# this only reads the cache. Hovering the model explains it in words — see
+# Main._build_status_marker_hover_text.
+const AAO_SPARKLE_GOLD := Color(1.0, 0.87, 0.42)
+# Angle (radians) and relative size of each glint, spread around the base so the
+# twinkle reads from any zoom without crowding the model number.
+const AAO_SPARKLE_SPOTS := [
+	{"angle": -1.05, "radial": 0.62, "size": 0.36, "phase": 0.0, "speed": 3.4},
+	{"angle": 2.62, "radial": 0.56, "size": 0.26, "phase": 2.1, "speed": 4.1},
+	{"angle": 0.79, "radial": 0.70, "size": 0.20, "phase": 4.0, "speed": 5.0},
+]
+
+func _draw_against_all_odds_sparkle(radius: float) -> void:
+	if not _has_against_all_odds():
+		return
+	for spot in AAO_SPARKLE_SPOTS:
+		# Each glint twinkles on its own phase; clamp the low end so a sparkle is
+		# never fully invisible for long (the marker must not look like a glitch).
+		var t: float = sin(_pulse_time * float(spot["speed"]) + float(spot["phase"]))
+		var twinkle: float = 0.35 + 0.65 * ((t + 1.0) / 2.0)
+		var center := Vector2(cos(float(spot["angle"])), sin(float(spot["angle"]))) * radius * float(spot["radial"])
+		var size := radius * float(spot["size"]) * (0.7 + 0.3 * twinkle)
+		# Dark backing first: Custodes tokens are GOLD, so a gold glint on gold
+		# armour would be nearly invisible — exactly the army this marker exists
+		# for. The shadow makes it read on any faction colour.
+		draw_colored_polygon(_sparkle_star(center, size * 1.35), Color(0.05, 0.04, 0.02, 0.55 * twinkle))
+		# Soft halo, then the star, then a white core — reads as a glint rather
+		# than a flat polygon at any zoom.
+		draw_circle(center, size * 0.55, Color(AAO_SPARKLE_GOLD.r, AAO_SPARKLE_GOLD.g, AAO_SPARKLE_GOLD.b, 0.16 * twinkle))
+		draw_colored_polygon(_sparkle_star(center, size),
+			Color(AAO_SPARKLE_GOLD.r, AAO_SPARKLE_GOLD.g, AAO_SPARKLE_GOLD.b, 0.95 * twinkle))
+		draw_colored_polygon(_sparkle_star(center, size * 0.45), Color(1, 1, 1, 0.95 * twinkle))
+
+## Concave 4-point star (the classic "sparkle" glyph) centred on `center`.
+func _sparkle_star(center: Vector2, size: float) -> PackedVector2Array:
+	var waist := size * 0.26
+	return PackedVector2Array([
+		center + Vector2(0, -size), center + Vector2(waist, -waist),
+		center + Vector2(size, 0), center + Vector2(waist, waist),
+		center + Vector2(0, size), center + Vector2(-waist, waist),
+		center + Vector2(-size, 0), center + Vector2(-waist, -waist),
+	])
+
+func _has_against_all_odds() -> bool:
+	if not has_meta("unit_id"):
+		return false
+	var fam = Engine.get_main_loop().root.get_node_or_null("FactionAbilityManager") if Engine.get_main_loop() else null
+	if fam == null or not fam.has_method("is_against_all_odds_active"):
+		return false
+	return fam.is_against_all_odds_active(str(get_meta("unit_id")))
 
 func _has_beacon_flag() -> bool:
 	if not has_meta("unit_id"):

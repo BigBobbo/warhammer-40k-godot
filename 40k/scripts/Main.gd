@@ -8115,7 +8115,7 @@ func _show_token_hover(unit_id: String, screen_pos: Vector2, model_id: String = 
 	text += "[color=#AAAAAA]Models: %d/%d  Wounds: %d/%d[/color]" % [alive, total_models, total_w_current, total_w_max]
 	# Status-marker explanations (battle-shock ring, fought check, engaged badge,
 	# action tick, mission rings) so hovering a marked model answers WHY it is marked.
-	text += _build_status_marker_hover_text(unit)
+	text += _build_status_marker_hover_text(unit, unit_id)
 	if kw_short != "":
 		text += "\n[color=#888888][i]%s[/i][/color]" % kw_short
 	# Per-model profile block: when a squad has heterogeneous models (Boss Nob,
@@ -8221,7 +8221,7 @@ func _build_model_profile_hover_text(unit: Dictionary, model_id: String) -> Stri
 		block += "\n" + l
 	return block
 
-func _build_status_marker_hover_text(unit: Dictionary) -> String:
+func _build_status_marker_hover_text(unit: Dictionary, unit_id: String = "") -> String:
 	# Returns a BBCode block explaining every status marker currently drawn on
 	# this unit's tokens (see TokenVisual/TokenDrawUtils), or "" when unmarked.
 	# Each entry names the on-board visual so the player can map marker -> meaning.
@@ -8267,9 +8267,39 @@ func _build_status_marker_hover_text(unit: Dictionary) -> String:
 		lines.append("[color=%s][b]Marked for Death (%s)[/b][/color] [color=#AAAAAA]— the marking player scores VP if this unit is destroyed[/color]" % [mfd_color, mfd.capitalize()])
 	if flags.get("beacon", false):
 		lines.append("[color=#39D6FF][b]Beacon[/b][/color] [color=#AAAAAA]— designated unit for the Beacon secondary mission[/color]")
+	# AGAINST ALL ODDS (Lions of the Emperor): the sparkle on the token says the
+	# unit is earning +1 Hit / +1 Wound; this says so in words, and — when it is
+	# NOT earning it — names the friendly unit standing too close. Only units
+	# that could ever earn it get an entry (see evaluate_against_all_odds).
+	lines.append_array(_build_against_all_odds_hover_lines(unit, unit_id))
 	if lines.is_empty():
 		return ""
 	return "\n" + "\n".join(lines)
+
+func _build_against_all_odds_hover_lines(unit: Dictionary, unit_id: String = "") -> Array:
+	var fam = get_node_or_null("/root/FactionAbilityManager")
+	if fam == null or not fam.has_method("get_against_all_odds_status"):
+		return []
+	var uid := unit_id if unit_id != "" else str(unit.get("id", ""))
+	var status: Dictionary = fam.get_against_all_odds_status(uid)
+	if status.is_empty() or not status.get("applicable", false):
+		return []
+	var out: Array = []
+	var near_name = str(status.get("nearest_name", ""))
+	var near_in = float(status.get("nearest_inches", INF))
+	if status.get("active", false):
+		out.append("[color=#FFD86A][b]✦ Against All Odds[/b][/color] [color=#888888](sparkle)[/color] [color=#9FE09F]— +1 to Hit and +1 to Wound[/color]")
+		if near_name != "" and near_in < INF:
+			out.append("[color=#CCB877]No other friendly unit within 6\" — nearest is %s at %.1f\".[/color]" % [near_name, near_in])
+		else:
+			out.append("[color=#CCB877]No other friendly unit within 6\".[/color]")
+	else:
+		out.append("[color=#8A8A92][b]✦ Against All Odds — inactive[/b][/color] [color=#888888](no sparkle)[/color]")
+		if near_name != "" and near_in < INF:
+			out.append("[color=#8A8A92]%s is %.1f\" away; needs more than 6\" from every other friendly unit for +1 Hit / +1 Wound.[/color]" % [near_name, near_in])
+		else:
+			out.append("[color=#8A8A92]Needs more than 6\" from every other friendly unit for +1 Hit / +1 Wound.[/color]")
+	return out
 
 func _position_token_hover(screen_pos: Vector2) -> void:
 	if not _token_hover_tooltip:

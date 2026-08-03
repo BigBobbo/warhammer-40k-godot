@@ -4066,7 +4066,11 @@ func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, curren
 		"reroll_available": can_reroll,
 		"hit_rolls": hc.get("hit_rolls", []),
 		"modified_rolls": hc.get("modified_rolls", []),
-		"hits": hc.get("hits", 0)
+		"hits": hc.get("hits", 0),
+		"threshold": str(hc.get("bs", 4)) + "+",
+		# Named provenance for every hit modifier that applied — the dock lists
+		# these so a shifted threshold is traceable to the rule behind it.
+		"modifier_ledger": hc.get("modifier_ledger", [])
 	})
 
 	log_phase_message("Weapon %d of %d hit roll complete — awaiting attacker to continue to wound roll" % [current_index + 1, weapon_order.size()])
@@ -4137,7 +4141,9 @@ func _staged_continue_to_wounds(pause: bool = true) -> Dictionary:
 		"reroll_available": can_reroll,
 		"wound_rolls": wc.get("wound_rolls", []),
 		"wounds": save_data_list[0].get("wounds_to_save", 0) if not save_data_list.is_empty() else 0,
-		"target_name": target_name
+		"target_name": target_name,
+		"threshold": str(wc.get("wound_threshold", 4)) + "+",
+		"modifier_ledger": wc.get("modifier_ledger", [])
 	})
 	log_phase_message("Weapon %d of %d wound roll complete — awaiting attacker to continue to saving throws" % [current_index + 1, weapon_order.size()])
 	return create_result(true, [], "Weapon %d wounds rolled — awaiting continue to saves" % (current_index + 1), {
@@ -4203,7 +4209,8 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 			"reroll_available": false,
 			"hit_rolls": uhc.get("hit_rolls", []),
 			"modified_rolls": uhc.get("modified_rolls", []),
-			"hits": uhc.get("hits", 0)
+			"hits": uhc.get("hits", 0),
+			"modifier_ledger": uhc.get("modifier_ledger", [])
 		})
 		return create_result(true, [], "Hit die re-rolled", {
 			"staged_pause": "hits", "reroll_used": true, "reroll_available": false,
@@ -4229,7 +4236,8 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 		emit_signal("shooting_stage_paused", "wounds", {
 			"reroll_available": false,
 			"wound_rolls": rr.get("wound_context", {}).get("wound_rolls", []),
-			"wounds": new_wounds
+			"wounds": new_wounds,
+			"modifier_ledger": rr.get("wound_context", {}).get("modifier_ledger", [])
 		})
 		return create_result(true, [], "Wound die re-rolled", {
 			"staged_pause": "wounds", "reroll_used": true, "reroll_available": false,

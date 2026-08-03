@@ -343,11 +343,23 @@ static func _format_generic_roll(rtl: RichTextLabel, dice_data: Dictionary, cont
 		var sh_value := int(dice_data.get("sustained_hits_value", 0))
 		var sh_display := "D%d" % sh_value if dice_data.get("sustained_hits_is_dice", false) else str(sh_value)
 		note(rtl, "[SUSTAINED HITS %s] critical hits generate +%s hits" % [sh_display, sh_display], "#7FC8E8")
-	if kind == "wound":
+	# Modifier provenance. The engine now records WHERE each ±1 / re-roll came
+	# from (RulesEngine → ModifierLedger), so name the source instead of
+	# printing an anonymous "+1 to hit" that leaves the player guessing which
+	# rule fired. The bitmask/net fallbacks below still run for dice blocks
+	# produced before the ledger existed (old saves, replays) or by paths that
+	# don't collect one.
+	var ledger: Array = dice_data.get("modifier_ledger", [])
+	var named := false
+	if kind == "hit" or kind == "wound":
+		for entry in ModifierLedger.lines(ledger, kind):
+			note(rtl, str(entry.get("text", "")), str(entry.get("color", COLOR_NOTE)))
+			named = true
+	if kind == "wound" and not named:
 		var wm_net := int(dice_data.get("wound_modifier_net", 0))
 		if wm_net != 0:
 			note(rtl, "Wound modifier: %s" % ("+%d" % wm_net if wm_net > 0 else str(wm_net)), "#7FC8E8")
-	if kind == "hit":
+	if kind == "hit" and not named:
 		var hm_bitmask := int(dice_data.get("modifiers_applied", 0))
 		if hm_bitmask != 0:
 			var hm_parts: Array = []
