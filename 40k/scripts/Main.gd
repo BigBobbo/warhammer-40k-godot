@@ -7078,6 +7078,32 @@ func focus_on_deployment_zone(player: int, animate: bool = true) -> void:
 		view_offset = target_offset
 		update_view_transform()
 
+func focus_on_world_point(world_pos: Vector2, animate: bool = true) -> void:
+	"""Pan the camera so world_pos sits at the viewport centre AND STAY THERE.
+
+	The sibling focus_on_position_briefly() bounces back to the previous view
+	after a hold; this one is for callouts the player has to act on (11e 03.03
+	out-of-coherency markers), which must remain framed until they resolve.
+	Keeps the current zoom unless it is so far out the marker would be a speck."""
+	var viewport_size = get_viewport().get_visible_rect().size
+	var target_zoom = clamp(view_zoom, 0.75, 1.5)
+	var target_offset = world_pos - viewport_size / (2.0 * target_zoom)
+
+	if animate:
+		if _auto_zoom_tween and _auto_zoom_tween.is_valid():
+			_auto_zoom_tween.kill()
+		_auto_zoom_tween = create_tween()
+		_auto_zoom_tween.set_parallel(true)
+		_auto_zoom_tween.set_ease(Tween.EASE_OUT)
+		_auto_zoom_tween.set_trans(Tween.TRANS_CUBIC)
+		_auto_zoom_tween.tween_property(self, "view_zoom", target_zoom, 0.5)
+		_auto_zoom_tween.tween_property(self, "view_offset", target_offset, 0.5)
+		_auto_zoom_tween.tween_method(_tween_update_view, 0.0, 1.0, 0.5)
+	else:
+		view_zoom = target_zoom
+		view_offset = target_offset
+		update_view_transform()
+
 func _tween_update_view(_progress: float) -> void:
 	update_view_transform()
 
