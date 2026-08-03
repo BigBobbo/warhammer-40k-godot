@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.18.1",
+      "version": "1.18.2",
       "date": "2026-08-03",
       "summary": "The attack panel can now show its working: a fold-out table breaks every expected-damage figure down into to-hit, to-wound and save — and tells you how many models it actually kills.",
       "changes": [
@@ -14,6 +14,16 @@
         "Feel No Pain is now factored into the forecast and shown as its own row — the estimate used to ignore it and over-promise against tough defenders.",
         "The section is folded away by default and changes nothing about what a unit swings; it is a read-only view.",
         "Forecasts for an attached Leader are now scored on HIS datasheet rather than his bodyguard's, so a Warboss's Power klaw is no longer estimated using the Boss Nob's weaker one."
+      ]
+    },
+    {
+      "version": "1.18.1",
+      "date": "2026-08-03",
+      "summary": "The melee attack panel now says what its buttons do in plain English — no more Ork slang on a Custodes screen.",
+      "changes": [
+        "Fixed (reported): the attack-assignment panel's back button read '◀ Pick Anuvver Unit'. It now reads '◀ Back — Pick Another Unit', which is what it actually does — un-pick this unit and choose a different one to fight.",
+        "The auto-assign button next to it read 'Best Krump ✨' and now reads 'Best Weapons ✨'.",
+        "Ork voice stays where it belongs: the tutorial's instructor cards still talk like an Ork. The buttons you click during a normal game are written for whichever army you brought."
       ]
     },
     {

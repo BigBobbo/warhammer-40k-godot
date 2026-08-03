@@ -10,9 +10,10 @@ signal attacks_confirmed(assignments: Array)
 signal skip_fight_requested(unit_id: String)
 # The player backed out of this activation before assigning anything — the
 # controller submits CANCEL_FIGHTER_SELECTION, which un-picks the unit and puts
-# the fighter-selection panel back. Emitted by the "◀ Pick Anuvver Unit" button
-# AND by every native dismissal (Escape, the window ✕, pad Ⓑ), which previously
-# just hid the dialog and stranded the phase with no way to fight or re-pick.
+# the fighter-selection panel back. Emitted by the "◀ Back — Pick Another Unit"
+# button AND by every native dismissal (Escape, the window ✕, pad Ⓑ), which
+# previously just hid the dialog and stranded the phase with no way to fight or
+# re-pick.
 signal selection_cancelled(unit_id: String)
 # Pad (controller): emitted with the unit_id of the target_list row the D-pad
 # ◀ ▶ cursor now sits on, so the FightController can bracket it on the board
@@ -327,8 +328,11 @@ func _build_ui() -> void:
 	# manual fiddling.
 	best_krump_button = Button.new()
 	best_krump_button.name = "BestKrumpButton"
-	best_krump_button.text = "Best Krump ✨"
-	best_krump_button.tooltip_text = "Auto-pick the best melee weapon for each group against the selected target"
+	# Label is plain English for the same reason as the back button below — the
+	# node name / handler keep the "best_krump" spelling because windowed
+	# scenarios click this by path and coverage tags key off it.
+	best_krump_button.text = "Best Weapons ✨"
+	best_krump_button.tooltip_text = "Auto-pick the best melee weapon for each section against the selected target"
 	best_krump_button.pressed.connect(_on_best_krump_pressed)
 	button_container.add_child(best_krump_button)
 
@@ -394,7 +398,10 @@ func _build_ui() -> void:
 	# activation costs nothing.
 	var back_button = Button.new()
 	back_button.name = "BackToSelectionButton"
-	back_button.text = "◀ Pick Anuvver Unit"
+	# Plain English, not Ork slang: this dialog is faction-agnostic chrome — a
+	# Custodes player has no reason to read "Pick Anuvver Unit" (reported). The
+	# Ork voice belongs to the tutorial narrator cards, not to the buttons.
+	back_button.text = "◀ Back — Pick Another Unit"
 	back_button.tooltip_text = "Un-pick this unit and choose a different one to fight (nothing is assigned yet)"
 	back_button.pressed.connect(_on_back_to_selection_pressed)
 	button_container.add_child(back_button)
@@ -413,7 +420,7 @@ func _build_ui() -> void:
 	assignments_display.bbcode_enabled = true
 	container.add_child(assignments_display)
 
-	# The E[D] figures above are the whole basis for "Best Krump" and for any
+	# The E[D] figures above are the whole basis for "Best Weapons" and for any
 	# manual weapon comparison, but until now they arrived with no working shown.
 	# This folds the derivation away by default (it is a lot of rows for a mob
 	# with several sections) and expands it on demand.
@@ -1291,12 +1298,12 @@ func _on_all_to_target_pressed() -> void:
 	_rebuild_assignments()
 
 
-# "Best Krump": re-derive the whole plan — best weapon per section against the
+# "Best Weapons": re-derive the whole plan — best weapon per section against the
 # selected target, splits merged. The one-click way back to a sane default after
 # manual fiddling, and the plan the dialog already opens on.
 func _on_best_krump_pressed() -> void:
 	var target_id := _selected_target_id()
-	print("[AttackAssignmentDialog] Best Krump: auto-assigning %d section(s) vs %s" % [_groups.size(), target_id])
+	print("[AttackAssignmentDialog] Best Weapons: auto-assigning %d section(s) vs %s" % [_groups.size(), target_id])
 	_apply_best_plan(target_id)
 	var toast := get_node_or_null("/root/ToastManager")
 	if toast != null:
@@ -1573,7 +1580,7 @@ static func _bd_ap(ap: int) -> String:
 # where probability functions parse weapon profile + defender stats.
 #
 # This single float is what the group summaries, the assignment rows and the
-# "Best Krump" auto-pick all score on. `damage_breakdown()` below is the SAME
+# "Best Weapons" auto-pick all score on. `damage_breakdown()` below is the SAME
 # computation with every intermediate kept, so the collapsible table can show a
 # player where the number comes from and still add up to exactly this figure.
 func _estimate_expected_damage(weapon_id: String, target_id: String, swinging_models: int = -1, prefer_unit_id: String = "") -> float:
@@ -1712,7 +1719,7 @@ static func damage_breakdown(weapon: Dictionary, target_unit: Dictionary, swingi
 
 	# FEEL NO PAIN — rolled per point of damage, so it scales the whole total.
 	# It applies identically to every weapon against the same defender, so
-	# folding it in cannot re-order "Best Krump"; it just stops the forecast
+	# folding it in cannot re-order "Best Weapons"; it just stops the forecast
 	# over-promising against a 5+++ target.
 	var fnp: int = fnp_override if fnp_override >= 0 else _parse_stat_int(str(stats.get("fnp", 0)))
 	var p_damage_through: float = 1.0
