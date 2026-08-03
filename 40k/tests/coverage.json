@@ -8981,6 +8981,22 @@
       "status": "covered"
     },
     {
+      "id": "phases.ScoutPhase.UI.skipped_step_is_announced",
+      "description": "When no unit in either army is recognised as having the Scouts ability, ScoutPhase auto-completes on enter. It now says so in the player-visible Game Log ('No Scout moves are available — skipping the Scout step.' plus a per-player reason) and raises a toast, instead of vanishing silently and dropping the player onto the secondary-mission draw. Validated by 'scout_step_explains_itself'.",
+      "scenarios": [
+        "scout_step_explains_itself"
+      ],
+      "status": "covered"
+    },
+    {
+      "id": "phases.ScoutPhase.UI.eligible_units_are_named",
+      "description": "On entering the Scout step the Game Log names, per player, which units may make Scout moves, and names any unit that has Scouts but cannot act (in Reserves / embarked / leading another unit) together with the reason. Validated by 'scout_step_explains_itself'.",
+      "scenarios": [
+        "scout_step_explains_itself"
+      ],
+      "status": "covered"
+    },
+    {
       "id": "movetypes.ConsolidationMove.model_move_allowed",
       "description": "12.08 WHILE MOVING per model, by mode: Ongoing/Engaging must end closer to the closest selected enemy unit (base-contact models locked in Ongoing); Objective must end within range of the selected objective, or closer to it. The board drag path and CONSOLIDATE validation both route through this one verdict.",
       "scenarios": [

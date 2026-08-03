@@ -27,6 +27,34 @@ func px_to_mm(pixels: float) -> float:
 func base_radius_px(base_mm: int) -> float:
 	return mm_to_px(base_mm) / 2.0
 
+func base_extent_px(model: Dictionary) -> float:
+	# Greatest distance from a model's base CENTRE to any point on its base
+	# outline, in board px — the circumscribed radius of the base.
+	#
+	# Movement/charge budgets are measured centre-to-centre, so a reach ring drawn
+	# at "remaining inches" marks where the model's CENTRE may end up, not where
+	# its base may end up. A wide base then visibly pokes past the ring at max
+	# range, which reads as a bug. Inflating the ring by this value makes the ring
+	# mean "no part of this model's base can end up outside here", which is what
+	# players actually read off it.
+	#
+	# Deliberately rotation-invariant: using the extent along the direction of
+	# travel would make the ring breathe as an oval/rectangular model pivots. The
+	# circumscribed radius is slightly generous for a non-circular base moving
+	# across its narrow axis, but it is stable and never under-draws.
+	var shape = create_base_shape(model)
+	if shape == null:
+		return base_radius_px(int(model.get("base_mm", 32)))
+	# get_bounds() is the unrotated local AABB, centred on the model's origin.
+	var bounds: Rect2 = shape.get_bounds()
+	match shape.get_type():
+		"rectangular":
+			# Furthest point is a corner, i.e. half the diagonal.
+			return bounds.size.length() * 0.5
+		_:
+			# Circle: the radius. Oval: the end of the major axis.
+			return maxf(bounds.size.x, bounds.size.y) * 0.5
+
 func distance_inches(pos1: Vector2, pos2: Vector2) -> float:
 	var dist_px = pos1.distance_to(pos2)
 	return px_to_inches(dist_px)
