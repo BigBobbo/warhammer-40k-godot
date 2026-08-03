@@ -11330,7 +11330,14 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 
 	# Step 3: Resolve shooting if ready
 	if action_types.has("RESOLVE_SHOOTING"):
-		return {"type": "RESOLVE_SHOOTING", "_ai_description": "Resolve shooting"}
+		# Carry actor_unit_id through so the game log can name the shooter —
+		# without it the entry read "P2: Unknown shooting resolved".
+		var rs = action_types["RESOLVE_SHOOTING"][0]
+		return {
+			"type": "RESOLVE_SHOOTING",
+			"actor_unit_id": rs.get("actor_unit_id", ""),
+			"_ai_description": "Resolve shooting"
+		}
 
 	# Step 4: Confirm targets if pending
 	if action_types.has("CONFIRM_TARGETS"):

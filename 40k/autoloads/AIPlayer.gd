@@ -46,6 +46,20 @@ var _last_thinking_round: int = -1  # Track which round we last logged a "thinki
 var _watchdog_timer: float = 0.0  # Accumulates idle time when AI should be acting but isn't
 const WATCHDOG_TIMEOUT: float = 2.0  # After 2s of no evaluation while AI should act, force one
 
+# STALL BREAKER: every "wait for the human" gate in _evaluate_and_act returns
+# BEFORE _current_phase_actions is touched, so MAX_ACTIONS_PER_PHASE can never
+# fire on a gate — a gate stuck true froze the game permanently while the
+# watchdog re-armed every 2s (the reported symptom: the "AI is thinking"
+# indicator flashing at the top of the screen forever, phase never advancing).
+# These track how long one gate has held with zero forward progress so the AI
+# can say so out loud and put the missing decision window back on screen.
+var _gate_reason: String = ""          # which gate is currently holding the AI
+var _gate_since_msec: int = 0          # when it started holding
+var _gate_recoveries: int = 0          # recovery attempts for the current hold
+const GATE_WARN_SEC: float = 20.0      # log a warning after this long on one gate
+const GATE_RECOVER_SEC: float = 45.0   # try to reopen the blocking window after this long
+const GATE_MAX_RECOVERIES: int = 5     # stop retrying after this many attempts
+
 # T7-36: AI speed presets — configurable delay between AI actions
 enum AISpeedPreset { FAST, NORMAL, SLOW, STEP_BY_STEP }
 const MIN_ACTION_DELAY: float = 0.05  # Minimum delay between AI actions — ensures main loop (incl. MCP bridge) stays responsive
@@ -267,6 +281,9 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 	_needs_evaluation = false
 	_ai_thinking = false
 	_step_by_step_paused = false
+	_gate_reason = ""
+	_gate_since_msec = 0
+	_gate_recoveries = 0
 	# P2-92: Clear AIDecisionMaker static caches to prevent stale data
 	AIDecisionMaker.reset_caches()
 
@@ -600,6 +617,9 @@ func reset_runtime_state() -> void:
 	_needs_evaluation = false
 	_ai_thinking = false
 	_step_by_step_paused = false
+	_gate_reason = ""
+	_gate_since_msec = 0
+	_gate_recoveries = 0
 	_phase_action_counts.clear()
 	# Reset per-game performance tracking for AI players
 	_game_performance.clear()
@@ -1765,6 +1785,7 @@ func _evaluate_and_act() -> void:
 	var human_fight_player = _human_fight_turn_pending()
 	if human_fight_player > 0:
 		DebugLogger.info("AIPlayer._evaluate_and_act - fight-phase turn belongs to human, AI waits", {"human_fight_player": human_fight_player, "active_player": active_player})
+		_note_gate_block("human_fight_turn", "player %d owns the fight-phase step" % human_fight_player)
 		_end_ai_thinking()
 		return
 
@@ -1775,6 +1796,7 @@ func _evaluate_and_act() -> void:
 	var defender_window_player = _human_defender_window_pending()
 	if defender_window_player > 0:
 		DebugLogger.info("AIPlayer._evaluate_and_act - defender window belongs to human, AI waits", {"defender_window_player": defender_window_player, "active_player": active_player})
+		_note_gate_block("defender_window", "player %d owes saves / a reactive decision" % defender_window_player)
 		_end_ai_thinking()
 		return
 
@@ -1792,6 +1814,7 @@ func _evaluate_and_act() -> void:
 	if reactive_player > 0:
 		if not is_ai_player(reactive_player):
 			DebugLogger.info("AIPlayer._evaluate_and_act - reactive window belongs to human player, AI waits", {"reactive_player": reactive_player})
+			_note_gate_block("reactive_window", "player %d owes a reactive decision" % reactive_player)
 			_end_ai_thinking()
 			return
 		if reactive_player != acting_player:
@@ -1832,6 +1855,7 @@ func _evaluate_and_act() -> void:
 	# immediate resume when the human confirms their choice.
 	if _human_secondary_interaction_pending():
 		DebugLogger.info("AIPlayer._evaluate_and_act - waiting on human secondary-mission interaction", {})
+		_note_gate_block("secondary_interaction", "a when-drawn secondary mission is undecided")
 		_end_ai_thinking()
 		return
 
@@ -1867,6 +1891,7 @@ func _evaluate_and_act() -> void:
 		_end_ai_thinking()
 		return
 
+	_clear_gate_block()
 	DebugLogger.info("AIPlayer._evaluate_and_act - executing for player", {"player": acting_player, "phase": GameState.get_current_phase()})
 	_processing_turn = true
 	_execute_next_action(acting_player)
@@ -2844,6 +2869,114 @@ func _on_vp_scored(player: int, points: int, reason: String) -> void:
 	if not is_ai_player(player) or points <= 0:
 		return
 	record_ai_key_moment(player, "Scored %d VP (%s)" % [points, reason])
+
+func _clear_gate_block() -> void:
+	"""The AI is about to act — whatever was holding it has let go."""
+	if _gate_reason != "":
+		var held_sec := (Time.get_ticks_msec() - _gate_since_msec) / 1000.0
+		DebugLogger.info("AIPlayer: gate released", {"gate": _gate_reason, "held_sec": held_sec})
+		print("AIPlayer: gate '%s' released after %.1fs — resuming" % [_gate_reason, held_sec])
+	_gate_reason = ""
+	_gate_since_msec = 0
+	_gate_recoveries = 0
+
+func _note_gate_block(reason: String, detail: String) -> void:
+	"""Record that a human-decision gate is holding the AI, and escalate if it
+	holds for too long.
+
+	A gate is normally momentary (a human reading their save rolls). What we
+	must never do is hold one FOREVER: the early returns in _evaluate_and_act
+	skip _current_phase_actions, so MAX_ACTIONS_PER_PHASE cannot rescue the
+	game, and the only visible sign is the AI thinking indicator flashing on
+	every watchdog tick. So: warn once at GATE_WARN_SEC, then every
+	GATE_RECOVER_SEC try to put the missing decision window back on screen."""
+	var now := Time.get_ticks_msec()
+	if reason != _gate_reason:
+		_gate_reason = reason
+		_gate_since_msec = now
+		_gate_recoveries = 0
+		return
+	var held_sec := (now - _gate_since_msec) / 1000.0
+	if held_sec < GATE_WARN_SEC:
+		return
+	if _gate_recoveries == 0:
+		push_warning("AIPlayer: waiting %.0fs on '%s' (%s) — no AI action possible until it resolves" % [held_sec, reason, detail])
+		print("AIPlayer: ⚠ STALL WATCH — held %.0fs on gate '%s' (%s)" % [held_sec, reason, detail])
+		DebugLogger.info("AIPlayer: stall watch", {"gate": reason, "detail": detail, "held_sec": held_sec})
+		_gate_recoveries = 1
+		return
+	if held_sec < GATE_RECOVER_SEC * float(_gate_recoveries):
+		return
+	if _gate_recoveries > GATE_MAX_RECOVERIES:
+		return
+	_gate_recoveries += 1
+	push_error("AIPlayer: STALLED %.0fs on '%s' (%s) — attempt %d to reopen the decision window" % [
+		held_sec, reason, detail, _gate_recoveries - 1])
+	DebugLogger.info("AIPlayer: stall recovery attempt", {"gate": reason, "detail": detail, "held_sec": held_sec, "attempt": _gate_recoveries - 1})
+	_attempt_gate_recovery(reason)
+
+func _attempt_gate_recovery(reason: String) -> void:
+	"""Re-open the decision window a stuck gate is waiting on.
+
+	Both blocking windows are driven by ONE-SHOT signals (saves_required,
+	when_drawn_requires_interaction). If the listener missed the emission — a
+	dialog dismissed without deciding, a controller rebuilt by a phase change,
+	ShootingController's duplicate-signal guard latched — the flag stays set
+	with no UI behind it and nothing can ever clear it. Re-emitting is safe:
+	the handlers are idempotent and dedupe an already-shown window."""
+	match reason:
+		"defender_window":
+			var pm = get_node_or_null("/root/PhaseManager")
+			if not pm or not pm.current_phase_instance:
+				return
+			var phase = pm.current_phase_instance
+			if _defender_dialog_on_screen():
+				print("AIPlayer: stall recovery skipped — the defender's dialog IS on screen (human still deciding)")
+				return
+			if "pending_save_data" in phase and not phase.pending_save_data.is_empty() \
+					and phase.has_signal("saves_required"):
+				print("AIPlayer: stall recovery — re-emitting saves_required for %d pending batch(es)" % phase.pending_save_data.size())
+				phase.emit_signal("saves_required", [_recovery_batch(phase.pending_save_data[0])])
+			elif "awaiting_melee_saves" in phase and phase.awaiting_melee_saves \
+					and "pending_melee_save_data" in phase and not phase.pending_melee_save_data.is_empty() \
+					and phase.has_signal("melee_saves_required"):
+				print("AIPlayer: stall recovery — re-emitting melee_saves_required")
+				phase.emit_signal("melee_saves_required", [_recovery_batch(phase.pending_melee_save_data[0])])
+		"secondary_interaction":
+			var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+			if secondary_mgr and secondary_mgr.has_method("reemit_pending_interactions"):
+				var n = secondary_mgr.reemit_pending_interactions()
+				print("AIPlayer: stall recovery — re-emitted %d pending secondary interaction(s)" % n)
+		_:
+			# No safe automatic recovery for this gate — the loud log above is
+			# the deliverable so the stall is diagnosable instead of silent.
+			pass
+
+func _recovery_batch(save_data: Dictionary) -> Dictionary:
+	"""A copy of a pending save batch with the broadcast id stripped.
+
+	ShootingController/FightController skip a saves_required whose
+	save_broadcast_id they have already shown — correct for a networked retry,
+	wrong here: this re-emission exists precisely because the window that id
+	belongs to never made it (or was dismissed) and the defender needs it back."""
+	var copy := save_data.duplicate(true)
+	copy.erase("save_broadcast_id")
+	return copy
+
+func _defender_dialog_on_screen() -> bool:
+	"""True when a wound/casualty allocation overlay is actually mounted, i.e.
+	the human really is mid-decision and the gate is legitimate."""
+	var main = get_node_or_null("/root/Main")
+	if not main:
+		return false
+	for child in main.get_children():
+		var script = child.get_script()
+		if script == null:
+			continue
+		var file = str(script.resource_path).get_file()
+		if file in ["AllocationGroupOverlay.gd", "WoundAllocationOverlay.gd"]:
+			return true
+	return false
 
 func _human_secondary_interaction_pending() -> bool:
 	"""True while any when-drawn secondary interaction is waiting on a HUMAN

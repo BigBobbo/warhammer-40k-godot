@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.17.1",
+      "date": "2026-08-03",
+      "summary": "Fixed the AI shooting phase freezing after you took your time rolling saves — the 'AI is thinking' banner would flash forever and the turn never moved on.",
+      "changes": [
+        "While the AI is waiting for you to allocate its attack, its own shooting controls are now locked to that decision. Previously the paused attack could be re-entered — it re-rolled the whole attack behind your back while your allocation window still showed the old dice, and the replacement window was then swallowed, leaving the AI waiting forever for saves you could no longer make.",
+        "'End Shooting Phase' still works while saves are pending, so you always have a way out by hand.",
+        "Finishing an allocation now always clears the pending attack, on every resolution path — the AI no longer thinks you are still rolling after you have finished.",
+        "If a decision window ever does go missing, the AI now says so in the log and puts the window back on screen instead of freezing the game. It leaves you alone while your dialog is genuinely open, however long you take.",
+        "Game log: AI attacks that used to read 'Unknown shooting resolved' / 'shot at Unknown' now name the unit and the target."
+      ]
+    },
+    {
       "version": "1.17.0",
       "date": "2026-08-03",
       "summary": "A Leader and the squad he joined now fight in ONE activation — one row, one attack panel, one swing. The enemy no longer gets a turn in between.",
