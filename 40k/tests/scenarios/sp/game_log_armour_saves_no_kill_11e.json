@@ -1,0 +1,217 @@
+{
+  "id": "game_log_armour_saves_no_kill_11e",
+  "edition": 11,
+  "covers": [
+    "ui.log.armour_saves_in_game_log.no_casualties",
+    "phases.ShootingPhase._emit_verbose_combat_log.save_tally"
+  ],
+  "fixture": "custodes_lions_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "The exact reading that was reported: a shot lands wounds and NOTHING dies, and the log has to say why. Custodian Guard Alpha (Guardian spear, S4 AP-1 D2) fires into a Battlewagon moved into its range — a 16-wound vehicle whose Ramshackle worsens incoming AP, so wounds get through, saves get rolled and no model can be destroyed. Drives the whole player path (select, assign, confirm, decline the reactive stratagem, then the resolution dock's Roll to Hit -> Roll to Wound -> Continue to Saving Throws) and the defender's AllocationGroupOverlay. Asserts the combat card shows a Save row next to Hit and Wound and that the result line reads 'No models destroyed (N/M saves passed)' rather than the bare 'No models destroyed' that started this. (The reactive-stratagem decline is dispatched unconditionally and not asserted: a VEHICLE target opens no reactive window for the Orks, so it is a legal no-op on this path.)",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"units\"][\"U_BATTLEWAGON_G\"][\"models\"][0].merge({\"position\": {\"x\": 950.0, \"y\": 480.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().enter_phase(GameState.create_snapshot())"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "(\"U_BATTLEWAGON_G\" in RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_A\", PhaseManager.get_current_phase_instance().game_state_snapshot))",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_CUSTODIAN_GUARD_A"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "payload": {
+          "weapon_id": "guardian_spear___ranged_ranged",
+          "target_unit_id": "U_BATTLEWAGON_G",
+          "model_ids": [
+            "m1",
+            "m2",
+            "m3",
+            "m4",
+            "m5"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DECLINE_REACTIVE_STRATAGEM"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").resolution_dock.state",
+      "equals": "staged_hits"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var kinds = []\nfor l in tree.current_scene.game_log_panel.last_combat_card_dice_labels():\n\tkinds.append(l.split(\" \")[0])\nreturn \"Hit\" in kinds and \"Wound\" in kinds and (\"Save\" in kinds or \"Inv\" in kinds)",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var last = \"\"\nfor e in GameEventLog.get_all_entries():\n\tif e.get(\"type\", \"\") == \"combat_result\":\n\t\tlast = str(e.get(\"text\", \"\"))\nreturn last.begins_with(\"  Result: No models destroyed (\") and last.ends_with(\"saves passed)\")",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.game_log_panel.expand_last_combat_card()",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "01_no_models_destroyed_explains_the_saves",
+      "region": [
+        0,
+        100,
+        360,
+        700
+      ]
+    },
+    {
+      "act": "screenshot",
+      "label": "02_full_frame"
+    }
+  ]
+}
