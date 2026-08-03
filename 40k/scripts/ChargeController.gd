@@ -197,9 +197,19 @@ func _exit_tree() -> void:
 # confirm button is hit-tested at input level so confirming works even while
 # overlays/dialogs hold GUI focus. Guarded by awaiting_movement.
 func _input(event: InputEvent) -> void:
+	# Click-to-target: BEFORE the awaiting_movement guard, because target
+	# declaration happens before any model is dragged. A left-click on an enemy
+	# unit's model on the board picks it as a charge target, exactly as clicking
+	# its ELIGIBLE TARGETS row does — the right-hand list stays fully functional,
+	# this is just the second way in.
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if _try_click_select_target(event as InputEventMouseButton):
+			get_viewport().set_input_as_handled()
+			return
+
 	if not awaiting_movement:
 		return
-	
+
 	if event is InputEventMouseButton:
 		var mouse_event = event as InputEventMouseButton
 		
@@ -750,11 +760,10 @@ func _end_group_drag(local_pos: Vector2) -> void:
 	# Worst-case accumulated distance across the group
 	_update_charge_distance_display_with_preview(max_total, true, 0.0)
 
-	# Same button/info bookkeeping as a single-model drop
-	if moved_models.size() > 0 and is_instance_valid(confirm_button):
-		confirm_button.disabled = false
-	if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
-		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+	# Same button/info bookkeeping as a single-model drop (Snap included: a group
+	# drop that placed the last models must grey it out, and an undo afterwards
+	# must bring it back).
+	_refresh_confirm_row_button_states()
 	if is_instance_valid(charge_info_label):
 		charge_info_label.text = _remaining_models_message()
 
@@ -1367,7 +1376,7 @@ func _update_button_states() -> void:
 		elif awaiting_roll:
 			charge_info_label.text = "Click 'Roll 2D6' for charge distance"
 		elif has_selected_unit and not has_selected_targets:
-			charge_info_label.text = "Step 2: Click a target below (Ctrl+Click adds more for a multi-charge)"
+			charge_info_label.text = "Step 2: Click a target — a row below or the enemy on the board (Ctrl+Click adds more for a multi-charge)"
 		elif has_selected_unit and has_selected_targets:
 			if selected_targets.size() > 1:
 				charge_info_label.text = "Step 3: Click 'Declare Charge' to charge ALL %d selected targets" % selected_targets.size()
@@ -1516,6 +1525,173 @@ func _sync_selected_targets_from_list() -> void:
 	print("ChargeController: selected_targets now ", selected_targets)
 	_update_button_states()
 	_update_visuals()
+
+# ============================================================================
+# Click-to-target: pick the charge target by clicking the ENEMY UNIT ON THE
+# BOARD, not only its row in ELIGIBLE TARGETS. Both routes end in the same
+# place — the ItemList's selection state stays the single source of truth for
+# selected_targets, so the clicked row highlights, Declare Charge enables and
+# the pre-roll reachability hint updates exactly as before.
+#   plain click             → charge ONLY that unit
+#   Ctrl / Cmd / Shift click → add or remove it (multi-charge), same as the list
+# ============================================================================
+
+# How far outside a model's base edge (board px) a click still counts as
+# hitting it. A small forgiveness ring so a click that grazes the rim of a
+# 25 mm base still lands, without letting a click on empty board 2" away grab
+# the nearest enemy (the shooting phase's 500 px "very large threshold" does
+# exactly that and mis-assigns targets the player never clicked on).
+const CLICK_TARGET_MARGIN_PX: float = 6.0
+
+func _try_click_select_target(mb: InputEventMouseButton) -> bool:
+	"""Left-click on an enemy model's base → select that unit as a charge target.
+	Returns true when the click was consumed (a target was picked, or the click
+	landed on an enemy that cannot be charged and we explained why). Returns
+	false for every click we do not own, so panning, the panel and the
+	charge-move drag path all behave exactly as before."""
+	# Only while a charger is armed and the declaration is still open. Once
+	# DECLARE_CHARGE lands (awaiting_roll) or models are being dragged
+	# (awaiting_movement) the rows are locked, so the board must be too.
+	if active_unit_id == "" or awaiting_roll or awaiting_movement:
+		return false
+	if current_phase == null or not (current_phase is ChargePhase):
+		return false
+	if not is_instance_valid(target_list) or target_list.get_item_count() == 0:
+		return false
+	# Multiplayer: the idle seat never declares targets.
+	if NetworkManager and NetworkManager.is_networked() and not NetworkManager.is_local_player_turn():
+		return false
+	# The measuring tape owns board clicks while it is armed (Main._input places
+	# its endpoints) — do not eat them out from under it.
+	if MeasuringTapeManager and MeasuringTapeManager.measure_mode_active:
+		return false
+	# A click headed for a HUD control (the unit list, the target list, the
+	# buttons, the game log) belongs to that control — _input runs BEFORE
+	# Godot's GUI pass, so without this guard we would eat panel clicks.
+	if get_viewport().gui_get_hovered_control() != null:
+		return false
+
+	var board_root = SceneRefs.board_root()
+	var board_pos: Vector2 = board_root.to_local(mb.global_position) if board_root else mb.global_position
+
+	var clicked_unit_id := _get_enemy_unit_at_board_position(board_pos)
+	print("DEBUG: click-to-target hit-test at screen ", mb.global_position, " -> board ", board_pos, " => '", clicked_unit_id, "'")
+	if clicked_unit_id == "":
+		return false  # empty board / a friendly model — not ours to handle
+
+	if not eligible_targets.has(clicked_unit_id):
+		# The player clicked a real enemy that this unit cannot charge. Say why
+		# rather than silently doing nothing — a dead click reads as a bug.
+		var reason := _charge_target_ineligibility_reason(clicked_unit_id)
+		print("ChargeController: click-to-target on ineligible %s: %s" % [clicked_unit_id, reason])
+		if is_instance_valid(dice_log_display):
+			dice_log_display.append_text("[color=red]%s[/color]\n" % reason)
+		ToastManager.show_warning(reason)
+		return true
+
+	var additive: bool = mb.ctrl_pressed or mb.meta_pressed or mb.shift_pressed \
+		or Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META) \
+		or Input.is_key_pressed(KEY_SHIFT)
+	print("ChargeController: click-to-target %s (additive=%s) from board token" % [clicked_unit_id, additive])
+	select_target_by_id(clicked_unit_id, additive)
+	return true
+
+func select_target_by_id(target_id: String, additive: bool = false) -> bool:
+	"""Apply a target pick to the ELIGIBLE TARGETS list — the same select /
+	deselect the list's own click handler performs, so board clicks and row
+	clicks cannot drift apart. Returns false when the unit has no row."""
+	if not is_instance_valid(target_list):
+		return false
+	var idx := _target_row_index(target_id)
+	if idx < 0:
+		return false
+	if additive:
+		if target_list.is_selected(idx):
+			target_list.deselect(idx)
+		else:
+			target_list.select(idx, false)  # false = keep existing selection
+	else:
+		target_list.select(idx, true)  # true = single-select (clears others)
+	# Steam Deck: the virtual cursor IS the pad, so a click there should carry the
+	# D-pad row cursor with it instead of leaving it parked on row 0. Guarded on
+	# the active device — the row tint and board reticle are pad affordances, and
+	# painting them during mouse play would differ from a plain row click, which
+	# is meant to behave identically to this.
+	if InputDeviceManager.is_pad_active():
+		pad_target_cursor = idx
+		_update_pad_target_cursor_visual()
+	_sync_selected_targets_from_list()
+	return true
+
+func _target_row_index(target_id: String) -> int:
+	"""Row index of `target_id` in the ELIGIBLE TARGETS list, or -1."""
+	if not is_instance_valid(target_list):
+		return -1
+	for i in range(target_list.get_item_count()):
+		if str(target_list.get_item_metadata(i)) == target_id:
+			return i
+	return -1
+
+func _get_enemy_unit_at_board_position(board_pos: Vector2) -> String:
+	"""Unit id of the enemy whose model base is under `board_pos`, or "".
+	Shape-aware (BaseShape.contains_point / closest edge) so oval and
+	rectangular bases — Battlewagons, Knights — hit-test against what is
+	actually drawn instead of a fat circle, and NEAREST-EDGE wins so tightly
+	packed formations resolve to the model the cursor is really on.
+	An attached character's model resolves to the unit it is attached to: the
+	bodyguard is what a charge is declared against."""
+	var charger = GameState.get_unit(active_unit_id)
+	if charger.is_empty():
+		return ""
+	var charger_owner = charger.get("owner", 0)
+	var all_units = GameState.state.get("units", {})
+
+	var best_unit_id := ""
+	var best_edge_dist := INF
+	for unit_id in all_units:
+		var unit = all_units[unit_id]
+		if unit.get("owner", 0) == charger_owner:
+			continue
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			if model.get("position") == null:
+				continue  # embarked or in reserves — no token on the board
+			var model_pos := _get_model_position(model)
+			var shape: BaseShape = Measurement.create_base_shape(model)
+			if shape == null:
+				continue
+			var rot: float = float(model.get("rotation", 0.0))
+			var edge_dist := 0.0
+			if not shape.contains_point(board_pos, model_pos, rot):
+				edge_dist = board_pos.distance_to(shape.get_closest_edge_point(board_pos, model_pos, rot))
+			if edge_dist <= CLICK_TARGET_MARGIN_PX and edge_dist < best_edge_dist:
+				best_edge_dist = edge_dist
+				best_unit_id = unit_id
+
+	if best_unit_id == "":
+		return ""
+	# Attached CHARACTER models sit on the board under their own unit id; the
+	# charge is declared against the bodyguard unit they lead.
+	var attached_to = all_units.get(best_unit_id, {}).get("attached_to", null)
+	if attached_to != null and str(attached_to) != "" and eligible_targets.has(str(attached_to)):
+		return str(attached_to)
+	return best_unit_id
+
+func _charge_target_ineligibility_reason(target_id: String) -> String:
+	"""Why the active charger cannot declare a charge against `target_id`.
+	Mirrors RulesEngine.charge_targets_within_12's filters, so the message
+	always matches the reason the row is absent from ELIGIBLE TARGETS."""
+	var board = GameState.create_snapshot(false)
+	var reason: String = RulesEngine.charge_target_ineligibility_reason(active_unit_id, target_id, board)
+	if reason == "":
+		# The rules say it IS chargeable but no row exists for it — e.g. an
+		# attached character, which is charged through its bodyguard unit. Give
+		# the player something honest rather than an empty toast.
+		var target_unit = GameState.get_unit(target_id)
+		var target_name = str(target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_id)))
+		reason = "%s is not in this unit's target list" % target_name
+	return reason
 
 # ============================================================================
 # Pad (controller) support: D-pad ▲ ▼ ◀ ▶ walks the ELIGIBLE TARGETS rows with
@@ -1757,7 +1933,7 @@ func _update_target_hint_label() -> void:
 	elif selected_targets.size() == 1:
 		body = "1 target selected.  To charge [b]more than one[/b] unit, hold %s another target." % ck
 	else:
-		body = "[b]Click[/b] a target to charge it.  To charge [b]several units[/b] at once, %s each one." % ck
+		body = "[b]Click[/b] a target to charge it — either a row here [b]or the enemy unit on the board[/b].  To charge [b]several units[/b] at once, %s each one." % ck
 	target_hint_label.text = body
 
 func _update_charge_requirement_hint() -> void:
@@ -1905,6 +2081,13 @@ func _highlight_unit(unit_id: String, color: Color) -> void:
 		highlight.position = Vector2(pos.get("x", 0), pos.get("y", 0)) - Vector2(16, 16)
 		highlight.size = Vector2(32, 32)
 		highlight.color = color
+		# Decoration only — never a mouse target. ColorRect is a Control and
+		# defaults to MOUSE_FILTER_STOP, so these squares sit ON TOP of exactly
+		# the enemy models the player wants to click and register as the hovered
+		# Control. That made every eligible target un-clickable on the board
+		# (click-to-target bailed on its "this click belongs to the HUD" guard)
+		# while INELIGIBLE enemies — which get no highlight — clicked fine.
+		highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		target_highlights.add_child(highlight)
 
 func _clear_highlights() -> void:
@@ -2233,8 +2416,14 @@ func _add_confirm_button() -> void:
 	confirm_button.pressed.connect(_on_confirm_charge_moves)
 	print("DEBUG: Signal connected, adding to right panel...")
 
-	# Add confirm button as a separate row in action container
-	var confirm_row = HBoxContainer.new()
+	# Add confirm button as a separate row in action container.
+	# HFlowContainer, not HBoxContainer: the three buttons (Confirm Charge Moves /
+	# Undo Last Model / Snap to Contact) are wider than the right panel at 1080p,
+	# and an HBox just let the last one overflow — "Snap to Contact" was sliced in
+	# half by the screen edge, so the affordance the player is told to use was
+	# barely there. A flow container wraps the overflow onto a second line and
+	# behaves exactly like the HBox whenever the panel IS wide enough.
+	var confirm_row = HFlowContainer.new()
 	confirm_row.name = "ConfirmRow"
 	confirm_row.add_child(confirm_button)
 
@@ -2297,16 +2486,41 @@ func _on_undo_last_charge_model() -> void:
 		charge_left_label.modulate = Color.WHITE
 	if is_instance_valid(charge_terrain_label):
 		charge_terrain_label.visible = false
-	# Disable confirm if nothing has been moved
-	if confirm_button and is_instance_valid(confirm_button):
-		confirm_button.disabled = moved_models.is_empty()
-	# Disable undo button if no more moves to undo
-	if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
-		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+	# Confirm / Undo / Snap all track the lists this undo just changed — the model
+	# is back in models_to_move, so Snap to Contact has work to do again.
+	_refresh_confirm_row_button_states()
 	# Keep multi-select rings in sync — the undone model is back at its origin
 	if selected_models.size() > 0:
 		_update_charge_selection_visuals()
 	print("[T-092] Undid charge model %s, restored to %s" % [charge_key, str(origin_pos)])
+
+# Re-derive the enabled state of the three confirm-row buttons from the live
+# move lists. Same rules _update_button_states applies, without its tail (which
+# rewrites charge_info_label and would clobber the caller's own message).
+#
+# Reported bug this exists for: after a full "Snap to Contact" every model is in
+# moved_models, so the Snap button correctly greys itself out. Pressing B / Undo
+# Last Model then put a model BACK into models_to_move but only refreshed the
+# confirm and undo buttons — Snap stayed disabled with nothing to re-enable it,
+# so the reverted model could only be dragged by hand ("if I revert a model it
+# no longer gives me the option to snap to closest"). ChargeController.
+# pad_snap_available() reads the same disabled flag, so the pad's
+# "[X] Snap to Contact" chip went dead alongside the on-screen button.
+func _refresh_confirm_row_button_states() -> void:
+	# Confirm needs at least one staged model.
+	if is_instance_valid(confirm_button):
+		confirm_button.disabled = moved_models.is_empty()
+	# Undo needs something on the per-model undo stack.
+	if is_instance_valid(undo_charge_model_button):
+		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+	# Snap needs at least one model still waiting to be placed.
+	if is_instance_valid(auto_path_charge_button):
+		auto_path_charge_button.disabled = models_to_move.is_empty()
+	# The pad hint bar mirrors these buttons ("[X] Snap to Contact",
+	# "[B] Undo Model") off their disabled flags, so re-render it here too —
+	# otherwise the bar keeps promising (or hiding) an action that just changed.
+	if PadRouter and PadRouter.has_method("refresh_hints"):
+		PadRouter.refresh_hints()
 
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")
@@ -2575,9 +2789,6 @@ func _end_model_drag(world_pos: Vector2) -> void:
 		if charge_key in _moved_model_order:
 			_moved_model_order.erase(charge_key)
 		_moved_model_order.append(charge_key)
-		# Enable undo button now that at least one model has moved
-		if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
-			undo_charge_model_button.disabled = false
 
 		# IMPORTANT: Update GameState FIRST with position and rotation
 		# This ensures GameState has the correct data before we update visuals
@@ -2592,15 +2803,17 @@ func _end_model_drag(world_pos: Vector2) -> void:
 		# Remove from models to move
 		models_to_move.erase(charge_key)
 
-		# Update button state
-		if moved_models.size() > 0 and is_instance_valid(confirm_button):
-			confirm_button.disabled = false
-			print("DEBUG: Confirm button enabled - moved_models.size() = ", moved_models.size())
+		# Update button state — confirm/undo light up now that a model is staged,
+		# and Snap greys out once this drop was the LAST unplaced model (the
+		# mirror of the undo path re-enabling it).
+		_refresh_confirm_row_button_states()
+		if is_instance_valid(confirm_button):
+			print("DEBUG: Confirm button disabled=", confirm_button.disabled, " - moved_models.size() = ", moved_models.size())
 			print("DEBUG: Confirm button global position: ", confirm_button.global_position)
 			print("DEBUG: Confirm button global rect: ", confirm_button.get_global_rect())
 			print("DEBUG: Confirm button visible: ", confirm_button.visible)
 		else:
-			print("DEBUG: Confirm button not enabled - moved_models.size() = ", moved_models.size(), " confirm_button valid = ", is_instance_valid(confirm_button))
+			print("DEBUG: Confirm button not valid - moved_models.size() = ", moved_models.size())
 
 		# Update info
 		if is_instance_valid(charge_info_label):
@@ -5136,20 +5349,14 @@ func _on_auto_path_charge() -> void:
 		if not placed:
 			unplaced.append(charge_key)
 			print("[T-092 auto-path] No valid placement found for %s" % charge_key)
-	# Refresh button states
-	if confirm_button and is_instance_valid(confirm_button):
-		confirm_button.disabled = moved_models.is_empty()
-	if undo_charge_model_button and is_instance_valid(undo_charge_model_button):
-		undo_charge_model_button.disabled = _moved_model_order.is_empty()
-	# ...including Snap itself: this hand-rolled refresh (deliberately not
+	# Refresh button states — including Snap itself (deliberately NOT
 	# _update_button_states, whose tail would clobber the auto-path message set
-	# below) used to skip the button it was fired from, so after a full snap the
-	# button stayed lit while a second press could only early-return — the exact
-	# "Snap to Contact doesn't do anything" reading the T-092 gating fixed
-	# everywhere else. Same rule as _update_button_states: snap-able only while
-	# models are still unplaced.
-	if auto_path_charge_button and is_instance_valid(auto_path_charge_button):
-		auto_path_charge_button.disabled = models_to_move.is_empty()
+	# below). This used to skip the button it was fired from, so after a full snap
+	# the button stayed lit while a second press could only early-return — the
+	# exact "Snap to Contact doesn't do anything" reading the T-092 gating fixed
+	# everywhere else. The helper also re-renders the pad hint bar, which mirrors
+	# these buttons ("[X] Snap to Contact") off their disabled flags.
+	_refresh_confirm_row_button_states()
 	# Refresh info
 	if is_instance_valid(charge_info_label):
 		if models_to_move.is_empty():
@@ -5163,12 +5370,6 @@ func _on_auto_path_charge() -> void:
 			charge_info_label.text = "Snap to Contact: %d model(s) have no legal move within %d\" — drag them manually" % [unplaced.size(), charge_distance]
 		else:
 			charge_info_label.text = _remaining_models_message()
-	# The pad hint bar mirrors these buttons ("[X] Snap to Contact"), and this
-	# handler bypasses _update_button_states' own refresh — re-render from the
-	# state the snap just produced so the bar can't keep promising a button that
-	# just greyed out.
-	if PadRouter and PadRouter.has_method("refresh_hints"):
-		PadRouter.refresh_hints()
 
 
 # Stage a suggested charge position exactly like a completed drag would

@@ -10285,6 +10285,47 @@ static func charge_targets_within_12(unit_id: String, board: Dictionary) -> Dict
 	
 	return eligible
 
+# Why `target_unit_id` is NOT in charge_targets_within_12(unit_id)'s result — a
+# player-facing sentence for the click-to-target path, which lets the player
+# click any enemy on the board (not just the ones listed in ELIGIBLE TARGETS).
+# Deliberately mirrors charge_targets_within_12's filters in the same order, so
+# the explanation can never disagree with the list it explains. Returns "" when
+# the target IS chargeable.
+static func charge_target_ineligibility_reason(unit_id: String, target_unit_id: String, board: Dictionary) -> String:
+	var units = board.get("units", {})
+	var unit = units.get(unit_id, {})
+	var target_unit = units.get(target_unit_id, {})
+
+	if unit.is_empty():
+		return "No charging unit selected"
+	if target_unit.is_empty():
+		return "Invalid charge target"
+
+	var target_name = target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_unit_id))
+
+	if target_unit.get("owner", 0) == unit.get("owner", 0):
+		return "Cannot charge a friendly unit"
+
+	var has_alive_models = false
+	for model in target_unit.get("models", []):
+		if model.get("alive", true):
+			has_alive_models = true
+			break
+	if not has_alive_models:
+		return "%s is destroyed" % target_name
+
+	var charger_has_fly = "FLY" in unit.get("meta", {}).get("keywords", [])
+	if "AIRCRAFT" in target_unit.get("meta", {}).get("keywords", []) and not charger_has_fly:
+		return "%s is an AIRCRAFT — only units with FLY can charge it" % target_name
+
+	if not _is_target_within_charge_range_rules(unit_id, target_unit_id, board):
+		var dist = _get_min_distance_to_target_rules(unit_id, target_unit_id, board)
+		if dist == INF:
+			return "%s is not on the battlefield" % target_name
+		return "%s is %.1f\" away — charge targets must be within 12\"" % [target_name, dist]
+
+	return ""
+
 # Master validation function for charge paths
 static func validate_charge_paths(unit_id: String, targets: Array, roll: int, paths: Dictionary, board: Dictionary) -> Dictionary:
 	var errors = []

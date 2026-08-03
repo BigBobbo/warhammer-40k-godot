@@ -1,0 +1,70 @@
+{
+  "id": "hotkey_help_overlay",
+  "covers": [
+    "scripts/HotkeyHelpOverlay.gd",
+    "scripts/Main.gd",
+    "autoloads/KeybindingManager.gd",
+    "keybindings.help_card_complete",
+    "keybindings.help_card_format"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "description": "The Keyboard Shortcuts card (Shift+/) is formatted like the datasheet card AND lists every registered binding. Stage A: press the real Shift+/ chord and assert the card opened with the datasheet chrome -- gold-bordered panel, a Header bar with the title, a multi-column scrollable body, a Footer with the pad route. Stage B: completeness -- missing_action_ids() is empty and row_count == KeybindingManager.bindings.size() + the 8 hardcoded mouse/Enter/Esc rows, so a newly registered binding cannot go unlisted; spot-check that bindings the OLD card omitted (save slots, camera pan, replay playback, shooting) now have rows. Stage C: the key text is read live from KeybindingManager -- rebind toggle_army_panel to J mid-game and the card's row says J, then reset says U. Stage D: ESC closes the card without stacking the settings menu behind it, and Shift+/ toggles it back open then shut.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "execute_script", "script": "KeybindingManager.reset_binding(\"toggle_army_panel\")" },
+
+    { "act": "execute_script", "script": "main._hotkey_help_overlay == null", "equals": true },
+    { "act": "simulate_key", "keycode": "Slash", "shift": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay != null", "equals": true },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.visible", "equals": true },
+
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.get_theme_stylebox(\"panel\").border_color == main.get_node(\"DatasheetModal\").get_theme_stylebox(\"panel\").border_color", "equals": true, "comment": "same gold card border as the unit datasheet card (I) -- this is the format the card was asked to match" },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.get_theme_stylebox(\"panel\").border_width_top", "equals": 2 },
+    { "act": "execute_script", "script": "str(main._hotkey_help_overlay.get_node(\"Body/Header/Col/Row/Title\").text)", "equals": "KEYBOARD SHORTCUTS" },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.get_node(\"Body/Scroll\").get_class()", "equals": "ScrollContainer" },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.get_node(\"Body/Scroll/Columns\").get_child_count()", "expect_min": 3 },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.get_node(\"Body/Footer/Row/PadRouteHint\") != null", "equals": true },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.get_node(\"Body/Scroll/Columns/Col0/Section_UniversalMouse/Rows\").get_class()", "equals": "GridContainer" },
+
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.missing_action_ids().size()", "equals": 0 },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.row_count == KeybindingManager.bindings.size() + 8", "equals": true },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.row_count", "expect_min": 79 },
+
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.shortcuts_text.contains(\"Save Slot 5\")", "equals": true },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.shortcuts_text.contains(\"Load Slot 5\")", "equals": true },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.shortcuts_text.contains(\"Pan Left\")", "equals": true },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.shortcuts_text.contains(\"Jump to End\")", "equals": true },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.shortcuts_text.contains(\"Cycle Eligible Shooter\")", "equals": true },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.shortcuts_text.contains(\"Quick Save\")", "equals": true },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.shortcuts_text.contains(\"Toggle Dev Tools\")", "equals": true },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.shortcuts_text.contains(\"Unbound\")", "equals": true },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.shortcuts_text.contains(\"Advance phase / confirm action\")", "equals": true },
+    { "act": "screenshot", "label": "01_card_open_full_list" },
+
+    { "act": "simulate_key", "keycode": "Slash", "shift": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay == null", "equals": true },
+    { "act": "execute_script", "script": "KeybindingManager.set_binding(\"toggle_army_panel\", OS.find_keycode_from_string(\"J\"))" },
+    { "act": "simulate_key", "keycode": "Slash", "shift": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.shortcuts_text.contains(\"J — Toggle Army Panel\")", "equals": true, "comment": "the key text is read live from KeybindingManager, not hardcoded" },
+    { "act": "screenshot", "label": "02_card_reflects_rebind_J" },
+
+    { "act": "simulate_key", "keycode": "Slash", "shift": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "KeybindingManager.reset_binding(\"toggle_army_panel\")" },
+    { "act": "simulate_key", "keycode": "Slash", "shift": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay.shortcuts_text.contains(\"U — Toggle Army Panel\")", "equals": true },
+
+    { "act": "simulate_key", "keycode": "Escape" },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "main._hotkey_help_overlay == null", "equals": true, "comment": "ESC dismisses the card ..." },
+    { "act": "execute_script", "script": "main._settings_menu == null", "equals": true, "comment": "... without stacking the settings menu behind it" },
+    { "act": "screenshot", "label": "03_card_closed_by_escape" }
+  ]
+}

@@ -9,7 +9,7 @@
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Reported by a Steam Deck player: a T6 Krumpin' fight-row prompt told them to 'Glide {ls} onto da row' even though the row is plain D-pad work. This scenario proves it: it drives the lesson on the pad, asserts the rendered prompt names the D-pad glyph and no longer names LS, picks the fight row with REAL D-pad presses (PadRouter's nested-panel walker steps a row at a time and skips DISABLED stops, so the pad never lands on the enemy's dead row that A could not press), and confirms A on that row really activates the unit — it opens the Epic Challenge offer, because the row is the ATTACHED unit 'Boyz + Warboss' and contains a CHARACTER. Originally written against the separate 'boss_swings' step (step 6 of 8), which is gone now that 19.03 makes the Leader fight inside his squad's one activation; the same pad claims are made at the pick_fighter row instead. The enemy_swings half is unchanged: that prompt must not tell the player to glide the stick either, and the save card grabs pad focus onto its own Roll Saves button.",
+  "description": "Reported by a Steam Deck player: a T6 Krumpin' fight-row prompt told them to 'Glide {ls} onto da row' even though the row is plain D-pad work. This scenario proves it: it drives the lesson on the pad, asserts the rendered prompt names the D-pad glyph and no longer names LS, picks the fight row with REAL D-pad presses (PadRouter's nested-panel walker steps a row at a time and skips DISABLED stops, so the pad never lands on the enemy's dead row that A could not press), and confirms A on that row really activates the unit — it opens the Epic Challenge offer, because the row is the ATTACHED unit 'Boyz + Warboss' and contains a CHARACTER. Originally written against the separate 'boss_swings' step, which is gone now that 19.03 makes the Leader fight inside his squad's one activation; the same pad claims are made at the pick_fighter row instead. The enemy_swings half is unchanged: that prompt must not tell the player to glide the stick either, and the save card grabs pad focus onto its own Roll Saves button.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -70,13 +70,57 @@
       "equals": "pile_in"
     },
     {
-      "act": "simulate_joy_button",
-      "button_index": 6,
-      "comment": "Start = End Pile In"
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_BOYZ_T",
+      "emit_pressed": true,
+      "comment": "the pile-in row (the D-pad walk itself is covered by tut_t6_krumpin_pad; this scenario is about the boss row later on)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/PileInDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pile_in_move"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/AutoButton",
+      "emit_pressed": true,
+      "comment": "the PileInDialog is an embedded modal Window — driven with the same emit escape hatch as the attack dialog. On a pad the player glides the cursor onto it and presses A (the cursor synthesises real mouse events)."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"/root/Main/FightController\").get_pile_in_movements().size()",
+      "multiline": true,
+      "equals": 5,
+      "comment": "the five back-rank Boyz are staged; the front rank is locked in base contact"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/ConfirmButton",
+      "emit_pressed": true
     },
     {
       "act": "wait_seconds",
       "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = GameState.create_snapshot()\nreturn RulesEngine.get_eligible_melee_model_indices(b.units[\"U_BOYZ_T\"], b).size()",
+      "multiline": true,
+      "equals": 10,
+      "comment": "the pile-in put the whole mob back in the fight (5 before it)"
     },
     {
       "act": "execute_script",
@@ -190,7 +234,7 @@
       "script": "var fast = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockFastButton\")\nif fast != null and fast.is_visible_in_tree() and not fast.disabled:\n\tfast.pressed.emit()\n\treturn true\nreturn false",
       "multiline": true,
       "equals": true,
-      "comment": "Fast Roll the Boyz' whole activation — this scenario is about step 6, not the dock"
+      "comment": "Fast Roll the Boyz' whole activation — this scenario is about boss_swings, not the dock"
     },
     {
       "act": "wait_seconds",
@@ -206,7 +250,7 @@
       "script": "var u = GameState.state.get(\"units\", {})\nvar ph = PhaseManager.get_current_phase_instance()\nreturn \"%s|%s|%s\" % [\n\tu.get(\"U_BOYZ_T\", {}).get(\"flags\", {}).get(\"has_fought\", false),\n\tu.get(\"U_WARBOSS_T\", {}).get(\"flags\", {}).get(\"has_fought\", false),\n\tstr(ph.sequencer_11e.eligible_units(GameState.state, 1, false))]",
       "multiline": true,
       "equals": "true|true|[]",
-      "comment": "19.03: the row the D-pad picked was the whole ATTACHED unit, so ONE activation swung the Boyz AND their Warboss. There is no second Ork row to walk to — which is why the old 'step 6 of 8' boss_swings prompt this scenario was written against no longer exists."
+      "comment": "19.03: the row the D-pad picked was the whole ATTACHED unit, so ONE activation swung the Boyz AND their Warboss. There is no second Ork row to walk to — which is why the old boss_swings prompt this scenario was written against no longer exists."
     },
     {
       "act": "screenshot",

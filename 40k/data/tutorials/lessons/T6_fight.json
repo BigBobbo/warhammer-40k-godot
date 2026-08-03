@@ -12,7 +12,7 @@
   "summary": {
     "bark": "GET STUCK IN!",
     "bullets": [
-      "Da Fight phase opens wiv [b]Pile In[/b] — every engaged unit may shuffle 3\" closer. Skip it wiv [b]End Pile In[/b].",
+      "Da Fight phase opens wiv [b]Pile In[/b] — pick a unit, shuffle every model up to 3\" closer, den [b]Confirm Move[/b]. Only models wivin 2\" of da enemy get to swing, so dis is how ya get da back rank into da scrap. [b]End Pile In[/b] passes yer half.",
       "Click a unit in [b]UNITS THAT CAN FIGHT[/b] to activate it. Units dat charged swing first — [b]all[/b] of 'em, before da enemy gets a look in.",
       "A Warboss leadin' a mob is [b]part of dat mob[/b] — one row, [b]Boyz + Warboss[/b], an' dey krump in da [b]same[/b] activation. He don't get a swing of his own.",
       "In da attack panel: pick [b]one[/b] melee weapon, pick da target, [b]Weapon to Target[/b], den [b]Fight![/b] Every uvver model swings what it's got — da boss's Power klaw included.",
@@ -37,25 +37,82 @@
     {
       "id": "pile_in",
       "prompt": {
-        "bark": "SHUFFLE UP!",
-        "kbm": "Pile In lets every engaged unit move 3\" closer to da enemy. Yer Boyz are already in contact, so just hit [b]End Pile In[/b].",
-        "pad": "Yer Boyz are already in contact — just press {menu}, da bar calls it [b]End Pile In[/b]. Or {dpad} ▼ lands right on da button, den {a}."
+        "bark": "DA BACK RANK'S TOO FAR!",
+        "kbm": "Only models wivin 2\" of da enemy can swing — an' five of yer boyz are stuck at da back. Click da [b]Boyz + Warboss[/b] row to start deir 3\" pile in.",
+        "pad": "Only models wivin 2\" of da enemy can swing, an' five boyz are stuck at da back. {dpad} ▼ walks onto da [b]Boyz + Warboss[/b] row — den {a}."
       },
       "anchor": {
-        "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton"
+        "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList"
       },
+      "spotlight": "soft",
+      "allow": [
+        "PILE_IN"
+      ],
+      "blocked_hint": {
+        "kbm": "not yet — five of yer boyz can't reach da Custodes. Click da \"Boyz + Warboss\" row an' pile 'em in first.",
+        "pad": "not yet — five of yer boyz can't reach da Custodes. Put da {dpad} on da \"Boyz + Warboss\" row, press {a}, an' pile 'em in first."
+      },
+      "done": {
+        "any": [
+          {
+            "node_visible": "/root/PileInDialog"
+          },
+          {
+            "action": {
+              "type": "PILE_IN"
+            }
+          },
+          {
+            "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph == null or not \"pile_in_step_11e\" in ph:\n\treturn false\nreturn int(ph.pile_in_step_11e) == 2"
+          }
+        ]
+      },
+      "hint": {
+        "text": "Da row is in da PILE IN STEP panel on da right. End Pile In would pass yer half wivout movin' anyone — dat's da one we ain't usin' yet."
+      }
+    },
+    {
+      "id": "pile_in_move",
+      "prompt": {
+        "bark": "SHUFFLE 'EM UP!",
+        "kbm": "Drag each back-rank boy up to 3\" toward da Custodes — or hit [b]Auto Pile In[/b] an' let da computer do it. Den [b]Confirm Move[/b].",
+        "pad": "Point wiv {ls} an' hold {a} to drag a boy, or glide onto [b]Auto Pile In[/b] an' press {a} for da lot. Den [b]Confirm Move[/b]."
+      },
+      "anchor": {
+        "node": "/root/PileInDialog/Content/Buttons/AutoButton"
+      },
+      "anchor_when": [
+        {
+          "script": "var c = tree.root.get_node_or_null(\"/root/Main/FightController\")\nif c == null or not c.has_method(\"get_pile_in_movements\"):\n\treturn false\nreturn c.get_pile_in_movements().size() > 0",
+          "anchor": {
+            "node": "/root/PileInDialog/Content/Buttons/ConfirmButton"
+          },
+          "spotlight": "soft"
+        }
+      ],
       "spotlight": "soft",
       "allow": [
         "PILE_IN",
         "END_PILE_IN"
       ],
       "done": {
-        "action": {
-          "type": "END_PILE_IN"
-        }
+        "any": [
+          {
+            "action": {
+              "type": "PILE_IN"
+            }
+          },
+          {
+            "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph == null or not \"units_that_piled_in\" in ph:\n\treturn false\nreturn bool(ph.units_that_piled_in.get(\"U_BOYZ_T\", false))"
+          },
+          {
+            "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph == null or not \"pile_in_step_11e\" in ph:\n\treturn false\nreturn int(ph.pile_in_step_11e) == 2"
+          }
+        ]
       },
+      "hint_after_s": 30,
       "hint": {
-        "text": "Clickin' da unit row would let ya drag models 3\" first — not needed here."
+        "text": "Green arrow = legal, red = not closer or too far. Da five up front show a red B2B — dey're already touchin' an' can't budge. Only da back rank has anywhere to go."
       }
     },
     {
