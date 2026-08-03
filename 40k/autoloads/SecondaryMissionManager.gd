@@ -413,6 +413,12 @@ func _create_active_mission(mission_data: Dictionary) -> Dictionary:
 		"requires_action": mission_data["requires_action"],
 		"action": mission_data["action"],
 		"vp_scored": 0,  # VP scored from this specific card instance
+		# VP this card scored during the CURRENT turn. The end-of-turn sequence
+		# is "first discard the cards you scored VP from (they are achieved),
+		# THEN you may discard active cards for 1CP" — so a card with a non-zero
+		# tally here can never be the one you discard for CP. Reset for every
+		# card in on_turn_start().
+		"vp_scored_this_turn": 0,
 		"achieved": false,
 		"pending_interaction": false,
 		"interaction_type": "",
@@ -522,21 +528,58 @@ func replace_drawn_mission(player: int, mission_index: int) -> Dictionary:
 # VOLUNTARY DISCARD
 # ============================================================================
 
-func voluntary_discard(player: int, mission_index: int) -> Dictionary:
+func can_voluntarily_discard(player: int, mission_index: int) -> Dictionary:
 	"""
-	Voluntarily discard an active mission at end of turn.
-	If it's the player's turn, they gain 1 CP.
-	Not available in Fixed mission mode.
+	Single source of truth for "may this active card be discarded for 1CP?".
+	Returns {"allowed": bool, "reason": String} — reason is player-facing text
+	for a disabled button's tooltip.
+
+	Mission-pack sequence at the end of each player's turn (Tactical Missions):
+	  "First, if you scored 1 or more VP from a Secondary Mission card, discard
+	   that Secondary Mission card — it is achieved. THEN, you can discard one
+	   or more of your active Secondary Mission cards. If you do, and it is your
+	   turn, you gain 1CP."
+	A card you scored VP from this turn is therefore already gone as achieved —
+	it can never be the card you cash in for CP. Tactical cards are auto-binned
+	by _discard_achieved_missions(), but Fixed cards (and any future card that
+	scores and stays) keep sitting in the hand, so the rule is enforced here
+	rather than relying on the card having been removed.
+
+	Fixed Mission cards "cannot be discarded for any reason other than the Adapt
+	or Die Mission Rule card".
 	"""
 	var player_key = str(player)
 	var state = _player_state[player_key]
 
-	# Fixed missions cannot be voluntarily discarded
 	if state.get("mode", "tactical") == "fixed":
-		return {"success": false, "error": "Fixed missions cannot be discarded"}
+		return {"allowed": false, "reason": "Fixed Missions cannot be discarded"}
 
 	if mission_index < 0 or mission_index >= state["active"].size():
-		return {"success": false, "error": "Invalid mission index"}
+		return {"allowed": false, "reason": "Invalid mission index"}
+
+	var mission = state["active"][mission_index]
+	if int(mission.get("vp_scored_this_turn", 0)) > 0:
+		return {
+			"allowed": false,
+			"reason": "Already scored %d VP this turn — an achieved card cannot be discarded for CP" % int(mission.get("vp_scored_this_turn", 0)),
+		}
+
+	return {"allowed": true, "reason": ""}
+
+func voluntary_discard(player: int, mission_index: int) -> Dictionary:
+	"""
+	Voluntarily discard an active mission at end of turn.
+	If it's the player's turn, they gain 1 CP.
+	Not available in Fixed mission mode, nor for a card that scored VP this turn
+	(see can_voluntarily_discard).
+	"""
+	var player_key = str(player)
+	var state = _player_state[player_key]
+
+	var gate = can_voluntarily_discard(player, mission_index)
+	if not gate["allowed"]:
+		print("SecondaryMissionManager: Player %d discard refused — %s" % [player, gate["reason"]])
+		return {"success": false, "error": gate["reason"]}
 
 	var discarded = state["active"][mission_index]
 	state["active"].remove_at(mission_index)
@@ -652,6 +695,7 @@ func score_secondary_missions_for_player(player: int, final_turn: bool = false) 
 			var actual_vp = _award_secondary_vp(player, vp_earned, mission["id"])
 			if actual_vp > 0:
 				mission["vp_scored"] += actual_vp
+				mission["vp_scored_this_turn"] = int(mission.get("vp_scored_this_turn", 0)) + actual_vp
 				# In tactical mode, mark as achieved for discard; in fixed mode, keep active
 				if state.get("mode", "tactical") != "fixed":
 					mission["achieved"] = true
@@ -1728,6 +1772,10 @@ func on_turn_start(player: int) -> void:
 	# player can score at either turn's end).
 	for pk in _player_state:
 		_player_state[pk]["secondary_vp_this_turn"] = 0
+		# Per-card "scored this turn" tally that locks a card out of the
+		# discard-for-1CP step (see _create_active_mission) — new turn, new slate.
+		for mission in _player_state[pk].get("active", []):
+			mission["vp_scored_this_turn"] = 0
 	_while_active_vp_this_window.clear()
 	_objective_control_at_turn_start = MissionManager.objective_control_state.duplicate()
 	# Clear completed actions from previous turn
@@ -1800,6 +1848,7 @@ func _check_while_active_missions(player: int, destroyed_unit: Dictionary) -> vo
 					var actual = _award_secondary_vp(player, award, mission["id"])
 					if actual > 0:
 						mission["vp_scored"] += actual
+						mission["vp_scored_this_turn"] = int(mission.get("vp_scored_this_turn", 0)) + actual
 						_while_active_vp_this_window[window_key] = accumulated + actual
 						emit_signal("secondary_vp_scored", player, actual, mission["id"])
 						print("SecondaryMissionManager: Player %d scored %d VP (while active) from %s" % [player, actual, mission["name"]])

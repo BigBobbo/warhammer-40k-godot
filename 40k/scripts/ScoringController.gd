@@ -572,17 +572,36 @@ func _add_mission_card(parent: VBoxContainer, mission: Dictionary, index: int, p
 		pending_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.2))
 		card_vbox.add_child(pending_label)
 
-	# Discard button — styled with WhiteDwarf theme
+	# Discard button — styled with WhiteDwarf theme. Locked when the card may not
+	# be discarded at all: Fixed Missions never can, and a card that scored VP
+	# this turn is already achieved ("first ... discard that card — it is
+	# achieved. Then, you can discard one or more of your active cards"), so it
+	# cannot also be cashed in for 1 CP.
 	var discard_btn = Button.new()
-	var can_gain_cp = GameState.can_gain_bonus_cp(GameState.get_active_player())
+	var active_player = GameState.get_active_player()
+	var can_gain_cp = GameState.can_gain_bonus_cp(active_player)
 	var cp_label_text = "+1 CP" if can_gain_cp else "+0 CP (cap)"
 	discard_btn.text = "Discard (%s)" % cp_label_text
 	discard_btn.custom_minimum_size = Vector2(0, 26)
 	discard_btn.add_theme_font_size_override("font_size", 16)
 	WhiteDwarfTheme.apply_secondary_button(discard_btn)
 	var tooltip = "Voluntarily discard this mission and gain 1 CP." if can_gain_cp else "Voluntarily discard this mission (bonus CP cap reached this round — no CP gained)."
-	discard_btn.tooltip_text = tooltip
-	discard_btn.pressed.connect(_on_discard_pressed.bind(index))
+	var discard_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	var gate = {"allowed": true, "reason": ""}
+	if discard_mgr and discard_mgr.is_initialized(active_player):
+		gate = discard_mgr.can_voluntarily_discard(active_player, index)
+	if gate["allowed"]:
+		discard_btn.tooltip_text = tooltip
+		discard_btn.pressed.connect(_on_discard_pressed.bind(index))
+	else:
+		discard_btn.disabled = true
+		discard_btn.tooltip_text = gate["reason"]
+		var locked_label = Label.new()
+		locked_label.text = gate["reason"]
+		locked_label.add_theme_font_size_override("font_size", 15)
+		locked_label.add_theme_color_override("font_color", Color(0.9, 0.55, 0.3))
+		locked_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		card_vbox.add_child(locked_label)
 	card_vbox.add_child(discard_btn)
 
 func _get_timing_display(timing: String) -> String:

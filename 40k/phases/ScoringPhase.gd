@@ -228,13 +228,20 @@ func get_available_actions() -> Array:
 			})
 		return actions
 
-	# Offer voluntary discard of active secondary missions (tactical mode only — fixed missions cannot be discarded)
+	# Offer voluntary discard of active secondary missions. SecondaryMissionManager
+	# .can_voluntarily_discard is the gate: Fixed cards are never discardable, and
+	# a card you scored VP from THIS turn was already discarded as achieved
+	# ("first ... discard that Secondary Mission card — it is achieved. Then, you
+	# can discard one or more of your active Secondary Mission cards"), so it
+	# cannot also be cashed in for CP.
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
-	if secondary_mgr and secondary_mgr.is_initialized(current_player) and not secondary_mgr.is_fixed_mode(current_player):
+	if secondary_mgr and secondary_mgr.is_initialized(current_player):
 		var active_missions = secondary_mgr.get_active_missions(current_player)
 		var can_gain_cp = GameState.can_gain_bonus_cp(current_player)
 		for i in range(active_missions.size()):
 			var mission = active_missions[i]
+			if not secondary_mgr.can_voluntarily_discard(current_player, i)["allowed"]:
+				continue
 			var cp_text = "gain 1 CP" if can_gain_cp else "no CP — bonus cap reached"
 			actions.append({
 				"type": "DISCARD_SECONDARY",
