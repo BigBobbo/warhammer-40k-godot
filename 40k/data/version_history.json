@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.17.1",
+      "date": "2026-08-03",
+      "summary": "The datasheet key (I) works in every phase now — it was dead through the whole Shooting and Fight phases.",
+      "changes": [
+        "Fixed (reported): selecting a unit in the Shooting phase and pressing I did nothing. The game only looked for a selected unit the way the Movement and Charge phases store it, so in Shooting and Fight it decided nothing was selected and the datasheet never opened.",
+        "Pressing I again now closes the card, so the key toggles instead of only opening.",
+        "With nothing selected, I reads the datasheet of whatever unit the cursor is over — including enemy units, which you can never select.",
+        "ESC closes the datasheet in the Shooting phase again. It used to deselect your shooter and leave the card sitting there, even though the card's own footer says 'ESC to close'.",
+        "Same fixes apply to Shift+F (snap camera to the selected unit), the line-of-sight overview and the controller's Y button, which all read the same selection."
+      ]
+    },
+    {
       "version": "1.17.0",
       "date": "2026-08-03",
       "summary": "A Leader and the squad he joined now fight in ONE activation — one row, one attack panel, one swing. The enemy no longer gets a turn in between.",

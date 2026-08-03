@@ -4721,6 +4721,14 @@ func _input(event: InputEvent) -> void:
 		var focused = get_viewport().gui_get_focus_owner()
 		if focused is LineEdit or focused is TextEdit:
 			return
+		# The datasheet card is a top overlay the player opened to READ. This
+		# runs in _input, which fires before Main's — so without this guard ESC
+		# hit "deselect shooter" and the card stayed open, making the "ESC to
+		# close" hint the card itself prints a lie for the whole shooting phase.
+		# Skipping the whole shortcut set (not just ESC) is deliberate: Tab /
+		# N / E driving the phase from behind a modal is never what was meant.
+		if _datasheet_modal_open():
+			return
 		if _handle_shooting_keyboard_shortcut(event):
 			get_viewport().set_input_as_handled()
 			return
@@ -4771,6 +4779,16 @@ func _input(event: InputEvent) -> void:
 		else:
 			var mouse_pos = get_global_mouse_position()
 			_handle_board_hover(mouse_pos)
+
+# True while the read-only datasheet card (DatasheetModal, the I / pad-Y
+# overlay) is on screen. Phase shortcuts stand down while it is up.
+func _datasheet_modal_open() -> bool:
+	var m = SceneRefs.main()
+	if m == null:
+		return false
+	var ds = m.get_node_or_null("DatasheetModal")
+	return ds != null and ds.visible
+
 
 # T5-UX12: Handle keyboard shortcuts for shooting phase actions
 # Returns true if a shortcut was handled, false otherwise

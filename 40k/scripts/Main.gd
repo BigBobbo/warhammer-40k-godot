@@ -69,6 +69,29 @@ var fight_controller: Node
 var scoring_controller: Node
 var current_phase: GameStateData.Phase
 
+# ── Selection lookup (_selected_unit_id_or_empty) ────────────────────────────
+# Which member each phase controller stores "the unit the player has selected"
+# in. They do not agree on a name, so every consumer of the selection (the
+# datasheet key I, fit-to-selection Shift+F, LoS overview, pad-Y) has to go
+# through the table rather than probing a single field.
+const SELECTION_FIELDS_BY_CONTROLLER := {
+	"MovementController": ["active_unit_id"],
+	"ShootingController": ["active_shooter_id"],
+	"ChargeController": ["active_unit_id"],
+	"FightController": ["current_fighter_id", "pile_in_unit_id"],
+}
+const SELECTION_CONTROLLER_ORDER := [
+	"MovementController", "ShootingController", "ChargeController", "FightController",
+]
+# Controller that owns each phase — asked first so a leftover selection from the
+# previous phase never shadows the live one.
+const SELECTION_CONTROLLER_FOR_PHASE := {
+	GameStateData.Phase.MOVEMENT: "MovementController",
+	GameStateData.Phase.SHOOTING: "ShootingController",
+	GameStateData.Phase.CHARGE: "ChargeController",
+	GameStateData.Phase.FIGHT: "FightController",
+}
+
 # Scout phase state
 var _scout_active_unit_id: String = ""
 var _scout_dragging_model: bool = false
@@ -6213,15 +6236,28 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	# T39: datasheet modal (rebindable: datasheet_modal, default I) opens for selected unit
+	# T39: datasheet modal (rebindable: datasheet_modal, default I) opens for the
+	# selected unit — in EVERY phase, not just Movement/Charge (see
+	# _selected_unit_id_or_empty). Pressing it again while the card is up closes
+	# it, so the key is a toggle rather than a one-way door.
+	# Falls back to whatever token the cursor is over when nothing is selected,
+	# which is the only way to read an ENEMY datasheet (enemies are never
+	# "selected") and matches what players instinctively try: hover, press I.
 	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "datasheet_modal"):
 		var ds = get_node_or_null("DatasheetModal")
 		if ds != null:
+			if ds.visible:
+				ds.close()
+				get_viewport().set_input_as_handled()
+				return
 			var sel_id := _selected_unit_id_or_empty()
+			if sel_id == "":
+				sel_id = _hovered_unit_id_or_empty()
 			if sel_id != "":
 				ds.open_for(sel_id)
 				get_viewport().set_input_as_handled()
 				return
+			print("Main: datasheet key pressed with no unit selected or hovered — nothing to show")
 
 	# Shared ESC: dismiss ruler tool first, then close datasheet modal.
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
@@ -6906,15 +6942,53 @@ func _selected_unit_id_or_empty() -> String:
 	# Best-effort lookup of the currently-selected unit across the various
 	# controller autoloads / scene nodes that track selection. Returns "" if
 	# nothing is selected.
-	for path in ["MovementController", "ShootingController", "ChargeController", "FightController"]:
+	#
+	# The controllers do NOT agree on one field name for "the unit the player has
+	# selected" — Movement/Charge use active_unit_id, Shooting uses
+	# active_shooter_id, Fight uses current_fighter_id. The old blanket
+	# `"active_unit_id" in c` scan therefore found nothing at all in the shooting
+	# and fight phases, which silently no-oped every caller: the datasheet key
+	# (I), fit-to-selection (Shift+F), the LoS overview and pad-Y. Per-controller
+	# field names below (SELECTION_FIELDS_BY_CONTROLLER).
+	#
+	# The controller owning the CURRENT phase is asked first — the others keep
+	# their last selection after a phase change, so a stale MovementController id
+	# would otherwise beat the live shooter.
+	for path in _selection_controller_order():
 		var c = get_node_or_null(path)
-		if c != null and "active_unit_id" in c and str(c.get("active_unit_id")) != "":
-			return str(c.get("active_unit_id"))
+		if c == null:
+			continue
+		for field in SELECTION_FIELDS_BY_CONTROLLER.get(path, ["active_unit_id"]):
+			if field in c and str(c.get(field)) != "":
+				return str(c.get(field))
 	# DEPLOY-CYCLE: during deployment the unit being placed counts as selected
 	# (lets the pad Y datasheet toggle work while deploying).
 	if deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing():
 		return str(deployment_controller.get_current_unit())
 	return ""
+
+
+# Ask the current phase's controller first, then everyone else in the usual
+# order (a phase with no controller of its own just falls through to the scan).
+func _selection_controller_order() -> Array:
+	var order: Array = []
+	var owner_path: String = SELECTION_CONTROLLER_FOR_PHASE.get(current_phase, "")
+	if owner_path != "":
+		order.append(owner_path)
+	for path in SELECTION_CONTROLLER_ORDER:
+		if not order.has(path):
+			order.append(path)
+	return order
+
+
+# The unit the cursor is currently over, if any — "" when the pointer is not on
+# a model. _token_hover_unit_id is only set once the hover card has actually
+# popped; _token_hover_pending_unit_id is set the moment the cursor lands on a
+# token, so pressing a key mid-dwell still resolves to the right unit.
+func _hovered_unit_id_or_empty() -> String:
+	if _token_hover_unit_id != "":
+		return _token_hover_unit_id
+	return _token_hover_pending_unit_id
 
 
 # T13: fit the whole board into the viewport with 32px margin per edge. Sets

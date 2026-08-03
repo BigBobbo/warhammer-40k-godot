@@ -254,6 +254,12 @@ func _input(event: InputEvent) -> void:
 		var focused = get_viewport().gui_get_focus_owner()
 		if focused is LineEdit or focused is TextEdit:
 			return
+		# Same reasoning as ShootingController._datasheet_modal_open: this runs
+		# in _input, ahead of Main's ESC cascade, so an ESC here would clear the
+		# charge selection instead of closing the datasheet card the player is
+		# reading.
+		if _datasheet_modal_open():
+			return
 		# Keyboard rotation controls during charge movement
 		if event.pressed and dragging_model:
 			if KeybindingManager.matches_action(event, "rotate_left"):
@@ -270,6 +276,17 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_ESCAPE and selected_models.size() > 0:
 				_clear_charge_selection()
 				get_viewport().set_input_as_handled()
+
+
+# True while the read-only datasheet card (DatasheetModal, the I / pad-Y
+# overlay) is on screen. Phase shortcuts stand down while it is up.
+func _datasheet_modal_open() -> bool:
+	var m = SceneRefs.main()
+	if m == null:
+		return false
+	var ds = m.get_node_or_null("DatasheetModal")
+	return ds != null and ds.visible
+
 
 func _handle_mouse_down(global_pos: Vector2) -> void:
 	print("DEBUG: Mouse down at global pos: ", global_pos)
