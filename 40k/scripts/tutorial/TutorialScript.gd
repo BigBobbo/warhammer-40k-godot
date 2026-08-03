@@ -88,6 +88,7 @@ static func validate(lesson: Dictionary) -> Array:
 			errors.append("%s (%s): 'allow' must be an array or \"*\"" % [tag, sid])
 		errors.append_array(_validate_checklist(step, tag, sid))
 		errors.append_array(_validate_anchor_when(step, tag, sid))
+		errors.append_array(_validate_rewind_when(step, tag, sid, steps, i))
 		# Soft guidance: keep instructions short (warning only, never fatal).
 		var prompt = step.get("prompt", {})
 		if typeof(prompt) == TYPE_DICTIONARY:
@@ -137,6 +138,43 @@ static func _validate_checklist(step: Dictionary, tag: String, sid: String) -> A
 		var idev := str(item.get("device", "any"))
 		if not idev in VALID_DEVICE:
 			errors.append("%s (%s): checklist item '%s' bad device '%s'" % [tag, sid, iid, idev])
+	return errors
+
+
+# Step-back trigger: `rewind_when` is {step: <earlier step id>, <condition>} and
+# returns the lesson to that step when the player undoes what got them here (the
+# live case: backing out of the Fight phase's attack panel to pick a different
+# unit). The target must exist and must sit BEFORE this step — a forward or
+# self-referencing target would skip the lesson on or spin it in place — and the
+# entry needs a predicate, or the rewind would fire the instant the step opens.
+static func _validate_rewind_when(step: Dictionary, tag: String, sid: String, steps: Array, index: int) -> Array:
+	var errors: Array = []
+	if not step.has("rewind_when"):
+		return errors
+	var spec = step.get("rewind_when")
+	if typeof(spec) != TYPE_DICTIONARY or (spec as Dictionary).is_empty():
+		errors.append("%s (%s): 'rewind_when' must be a non-empty object" % [tag, sid])
+		return errors
+	var target := str((spec as Dictionary).get("step", ""))
+	if target == "":
+		errors.append("%s (%s): rewind_when missing 'step' (the id to return to)" % [tag, sid])
+	else:
+		var target_index := -1
+		for k in range(steps.size()):
+			if typeof(steps[k]) == TYPE_DICTIONARY and str(steps[k].get("id", "")) == target:
+				target_index = k
+				break
+		if target_index < 0:
+			errors.append("%s (%s): rewind_when target step '%s' does not exist" % [tag, sid, target])
+		elif target_index >= index:
+			errors.append("%s (%s): rewind_when target '%s' must come BEFORE this step" % [tag, sid, target])
+	var has_predicate := false
+	for key in ["script", "state", "node_visible", "node_hidden", "phase", "any", "all"]:
+		if (spec as Dictionary).has(key):
+			has_predicate = true
+			break
+	if not has_predicate:
+		errors.append("%s (%s): rewind_when needs a condition (script/state/node_visible/…)" % [tag, sid])
 	return errors
 
 

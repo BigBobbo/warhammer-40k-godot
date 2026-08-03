@@ -8,15 +8,15 @@
       "changes": [
         "Fixed (reported in the Krumpin' tutorial): the Warboss was leading the Boyz, but they activated separately — the Boyz swung, then the Custodes swung, then the Warboss swung. An attached Leader is part of his squad and they fight together.",
         "The fight list shows one row for the pair — 'Boyz + Warboss' — and picking it activates the whole unit. The Leader is no longer offered a second activation of his own.",
-        "The attack panel is the whole unit's: the mob's choppas AND the Leader's weapon, each row saying how many models carry it and whose it is. Pick one weapon and everyone else swings what they've got.",
+        "The attack panel covers the whole unit: the Leader gets his own loadout section alongside the mob's, so he picks his weapon and target there like every other group.",
         "Both parts of the unit are marked as having fought, so a Leader can no longer swing twice — and Extra Attacks weapons stay with the model that actually has them.",
         "Epic Challenge is offered when you activate a squad with a Leader attached, and gives PRECISION to the Leader's attacks (it used to only appear on his separate activation).",
         "The combat log names whoever is actually swinging, so the Warboss's Power klaw reads as his and not his Boyz'.",
-        "The Krumpin' tutorial is now 7 steps instead of 8 — the separate 'da boss ain't swung yet' step is gone, because he swings with his mob."
+        "The Krumpin' tutorial drops its separate 'da boss ain't swung yet' step — he swings with his mob."
       ]
     },
     {
-      "version": "1.16.2",
+      "version": "1.16.5",
       "date": "2026-08-03",
       "summary": "Melee: a Leader attached to a squad can no longer be singled out in combat — the enemy has to hack through his bodyguard first.",
       "changes": [
@@ -26,6 +26,32 @@
         "A squad you can only reach through its attached leader's model is still a legal target — engagement range is measured against the whole unit, leader included.",
         "Once a bodyguard squad is wiped out the leader becomes a unit of his own again and can be attacked normally.",
         "Ranged attacks already worked this way; melee now matches."
+      ]
+    },
+    {
+      "version": "1.16.3",
+      "date": "2026-08-03",
+      "summary": "Melee attack allocation is now split into loadout sections, so a mob can finally send its Boyz and its Boss Nob at the enemy with different weapons — or divide one squad between two.",
+      "changes": [
+        "The Assign Attacks panel now groups a unit by what its models actually carry: a Boyz mob shows a 'Boy x9' section and a 'Boss Nob x1' section, each picking its own melee weapon. Nine choppas plus the Nob's own Big choppa is now something you choose, not something the game guessed for you.",
+        "New Split button on any section with several models and several weapons: set how many models take each weapon (five choppas, four close combat weapons). The counts always add up to the section size, so you can't build an illegal plan.",
+        "Each section can attack a different target when more than one enemy is in engagement range — click the target button on a section to cycle it.",
+        "The panel now opens with the best weapon already picked for every section, so a straightforward activation is just 'Fight!'. New 'Best Krump' button re-applies that auto-pick after you've been experimenting.",
+        "The auto-pick and the expected-damage numbers are now target-aware: a heavy armour-piercing weapon is chosen against elite targets and volume weapons against light ones. Previously these figures were calculated against a fixed dummy defender, so they were wrong for most targets.",
+        "Controller: LB/RB moves between sections, D-pad still picks the weapon and target."
+      ]
+    },
+    {
+      "version": "1.16.2",
+      "date": "2026-08-03",
+      "summary": "Fight phase: picking the wrong unit to fight no longer locks up the game — the attack panel now has a way back to the unit list, and it works on the controller's B button too.",
+      "changes": [
+        "Fixed (reported in tutorial 'Krumpin'', step 4 'PICK YER CHOPPA!'): activating one unit and then backing out of the attack panel — with B, Escape, or the window's ✕ — left the game with no way to fight. The unit list was gone, the attack panel was gone, the D-pad only cycled between Suggest and the AI-speed dropdown, and the only button that still did anything was End Phase, which throws away every unit that had not swung yet.",
+        "The attack panel now carries a [b]◀ Pick Anuvver Unit[/b] button, and B / Escape / ✕ all do the same thing: the unit is un-picked and the UNITS THAT CAN FIGHT list comes straight back, with that unit selectable again.",
+        "Backing out costs nothing — no swing is forfeited and nothing is spent, as long as you have not assigned attacks yet. Once the dice are rolling, the attack panel's normal buttons take over as before.",
+        "The controller hint row on the attack panel now reads 'Ⓑ Back' (it used to promise 'Ⓑ Skip', which only existed when a unit had no targets at all).",
+        "The FIGHT SEQUENCE list told the truth about who is fighting: it used to tag the first unit [ACTIVE] no matter which one you had picked — hence 'it says Boyz are active, but it selected the Warboss'. It now tags the unit actually activated, and marks the ones you may pick with [CAN PICK].",
+        "The tutorial follows you back: cancel the attack panel and the lesson returns to 'BOYZ FIRST!' instead of leaving the card explaining a panel that is no longer on screen."
       ]
     },
     {

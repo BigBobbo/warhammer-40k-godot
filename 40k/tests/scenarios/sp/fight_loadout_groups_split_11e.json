@@ -1,0 +1,237 @@
+{
+  "id": "fight_loadout_groups_split_11e",
+  "covers": [
+    "dialogs.AttackAssignmentDialog.loadout_groups",
+    "dialogs.AttackAssignmentDialog.group_split",
+    "dialogs.AttackAssignmentDialog.best_krump_auto_assign",
+    "phases.FightPhase.one_weapon_per_model",
+    "rules.11e.fight.select_melee_weapon"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Melee attack allocation by LOADOUT GROUP (the Option B rework). The AttackAssignmentDialog used to offer one flat weapon menu for the whole unit: picking a weapon gave its carriers that weapon and silently auto-assigned every other model a statically-scored 'best' weapon. For a Boyz mob that reached only 4 of the 6 whole-group combinations, could never divide one group between two weapons, and never told the player any of it was happening. The dialog now partitions the mob into same-loadout sections — 'Boy x9' (Choppa / Close combat weapon) and 'Boss Nob x1' (Big choppa / Choppa) — each picking its own weapon and its own target. This scenario boots the T6 tutorial fixture (the reported case) and drives the real player path: (1) the dialog opens on the target-aware auto-assign — nine Choppas plus the Nob's Big choppa against 2+/4++ Custodian Guard — so 'open then Fight!' is one click; (2) switching the Boy section to Close combat weapon while the Nob keeps his Big choppa produces a combination that was NOT expressible before; (3) Split divides the Boy section five Choppas / four Close combat weapons, which was likewise impossible; (4) Fight! submits all three groups as disjoint per-weapon assignments and the engine's one-weapon-per-model validator accepts them. Weapon rows are driven via ItemList.select() + item_selected.emit() because synthetic clicks do not land inside popup windows; the Split and Fight! presses are real button presses.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.find_child(\"DismissNudgeButton\", true, false)\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\n\treturn \"dismissed\"\nreturn \"absent\"",
+      "multiline": true,
+      "comment": "the first-run 'First time 'ere?' nudge covers the menu on a fresh user-data dir; tolerant no-op once it has been seen"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton",
+      "timeout_s": 10.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t6_krumpin/Play_t6_krumpin"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.find_child(\"ContinueButton\", true, false)\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn str(TutorialManager.current_step_id())",
+      "multiline": true,
+      "comment": "acknowledge the lesson's intro instructor card so the Pile In step arms"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.state[\"units\"][\"U_BOYZ_T\"]\nvar n = 0\nfor m in u[\"models\"]:\n\tif str(m.get(\"model_type\", \"\")) == \"boy\":\n\t\tm[\"melee_loadout\"] = [\"Choppa\", \"Close combat weapon\"]\n\t\tn += 1\nu[\"_loadout_checked\"] = true\nreturn n",
+      "multiline": true,
+      "equals": 9,
+      "comment": "SETUP-ONLY PRIVILEGE: the tutorial roster buys the mob nothing but choppas, so its Boy section has a single melee weapon and the Split affordance (which needs 2+ models AND 2+ weapons) never appears. Stamp the nine Boyz with the two-weapon melee_loadout the engine itself writes during loadout resolution — same key, same shape — so the section is genuinely splittable. Everything downstream (grouping, the Split UI, the counts, the submitted assignments and the engine's validation) is the real path."
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_BOYZ_T",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_BOYZ_T",
+      "comment": "11e pile-in: five Boyz start outside engagement range, so the lesson requires a real pile-in before anyone can fight"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/PileInDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/AutoButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_T",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor g in d._groups:\n\tout.append(str(g.label) + \":\" + str((g.models as Array).size()))\nreturn \",\".join(out)",
+      "multiline": true,
+      "equals": "Boss Nob:1,Boy:9",
+      "comment": "the mob is partitioned by what its models actually carry, listed in model order (the datasheet's own composition order): the Boss Nob, then the nine Boyz"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nreturn \",\".join(out)",
+      "multiline": true,
+      "equals": "big_choppa_melee:1,choppa_melee:9",
+      "comment": "the dialog OPENS on the auto-assigned plan — target-aware expected damage picks the Boyz' Choppa and the Nob's Big choppa against 2+/4++ Custodes — so open-then-Fight! is a legal one-click activation. The old dialog opened with nothing assigned."
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog/Content/GroupsScroll/GroupsBox/Group1/Body/WeaponList",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_two_loadout_sections_auto_assigned"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/GroupsScroll/GroupsBox/Group1/Body/WeaponList\")\nvar want = -1\nfor i in range(wl.item_count):\n\tif str(wl.get_item_text(i)).begins_with(\"Close combat weapon\"):\n\t\twant = i\nif want < 0:\n\treturn \"no Close combat weapon offered\"\nwl.select(want)\nwl.item_selected.emit(want)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "switch ONLY the Boy section to its other weapon; the Boss Nob section is untouched"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nreturn \",\".join(out)",
+      "multiline": true,
+      "equals": "big_choppa_melee:1,close_combat_weapon_melee:9",
+      "comment": "NEW CAPABILITY: nine Boyz switched to Close combat weapons while the Boss Nob keeps his Big choppa. The old flat menu drove the whole unit from one pick, so the two sections could not be set independently."
+    },
+    {
+      "act": "screenshot",
+      "label": "02_boy_section_switched_nob_unchanged"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/GroupsScroll/GroupsBox/Group1/Body/Header/SplitButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nreturn d._groups[1].split",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar spin = d.get_node(\"Content/GroupsScroll/GroupsBox/Group1/Body/SplitBox/SplitRow_choppa_melee/Count_choppa_melee\")\nspin.value = 5\nreturn int(spin.value)",
+      "multiline": true,
+      "equals": 5,
+      "comment": "divide the Boy section: five Choppas. The remaining four models fall back onto the section's other weapon automatically, so the counts always sum to the section size."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nreturn \",\".join(out)",
+      "multiline": true,
+      "equals": "big_choppa_melee:1,choppa_melee:5,close_combat_weapon_melee:4",
+      "comment": "NEW CAPABILITY: an intra-section split. Five Boyz swing Choppas, four swing Close combat weapons, the Nob swings his Big choppa — three weapons in one activation, which the old one-weapon-for-the-whole-unit dialog could never produce."
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar seen = {}\nfor a in d.assignments:\n\tfor m in a.get(\"models\", []):\n\t\tif seen.has(str(m)):\n\t\t\treturn \"model \" + str(m) + \" assigned twice\"\n\t\tseen[str(m)] = true\nreturn str(seen.size())",
+      "multiline": true,
+      "equals": "10",
+      "comment": "11e one-weapon-per-model: every eligible model appears exactly once across the whole plan (disjoint model lists are what FightPhase's validator checks)"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_split_five_choppa_four_ccw_plus_big_choppa"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = PhaseManager.get_current_phase_instance()\nvar out = []\nfor a in p.staged_fight_state[\"assignments\"]:\n\tout.append(str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nreturn \",\".join(out)",
+      "multiline": true,
+      "equals": "big_choppa_melee:1,choppa_melee:5,close_combat_weapon_melee:4",
+      "comment": "NEW CAPABILITY: an intra-section split. Five Boyz swing Choppas, four swing Close combat weapons, the Nob swings his Big choppa — three weapons in one activation, which the old one-weapon-for-the-whole-unit dialog could never produce."
+    },
+    {
+      "act": "screenshot",
+      "label": "04_engine_staged_three_weapon_groups"
+    }
+  ]
+}

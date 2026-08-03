@@ -49,6 +49,10 @@ signal fighting_begun(unit_id: String)
 # "complete" fires when the whole staged sequence finishes. Mirrors
 # ShootingPhase.shooting_stage_paused.
 signal fight_stage_paused(stage: String, info: Dictionary)
+# CANCEL_FIGHTER_SELECTION: the player backed out of an activation before any
+# attacks were assigned. The controller tears down the attack dialog / melee
+# visuals on this; the picker is re-emitted separately.
+signal fighter_selection_cancelled(unit_id: String)
 
 # Fight state tracking
 var active_fighter_id: String = ""
@@ -471,6 +475,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 	match action_type:
 		"SELECT_FIGHTER":
 			return _validate_select_fighter(action)
+		"CANCEL_FIGHTER_SELECTION":
+			return _validate_cancel_fighter_selection(action)
 		"SELECT_MELEE_WEAPON":
 			return _validate_select_melee_weapon(action)
 		"PILE_IN":
@@ -544,6 +550,8 @@ func process_action(action: Dictionary) -> Dictionary:
 	match action_type:
 		"SELECT_FIGHTER":
 			return _process_select_fighter(action)
+		"CANCEL_FIGHTER_SELECTION":
+			return _process_cancel_fighter_selection(action)
 		"SELECT_MELEE_WEAPON":
 			return _process_select_melee_weapon(action)
 		"PILE_IN":
@@ -891,6 +899,64 @@ func _process_select_fighter(action: Dictionary) -> Dictionary:
 	# No Epic Challenge available - check for Martial Ka'tah before pile-in
 	return _check_katah_or_proceed_to_pile_in(active_fighter_id)
 
+# ============================================================================
+# CANCEL_FIGHTER_SELECTION — back out of an activation before any attack lands
+# ============================================================================
+#
+# The reported soft-lock: picking a unit to fight retires the fighter-selection
+# panel and opens the AttackAssignmentDialog. That dialog is an AcceptDialog, so
+# Escape / the window ✕ / pad Ⓑ (PadBindingManager points ui_cancel at it) just
+# HID it — leaving active_fighter_id set, no picker on screen and no dialog to
+# assign with. The phase's only reachable action was END_FIGHT, which throws
+# away every remaining swing. Reported from the T6 tutorial ("Krumpin'", step 4)
+# by a player who activated the Warboss, realised the lesson wanted the Boyz,
+# and pressed Ⓑ — but it strands any fight-phase activation, tutorial or not.
+#
+# Cancelling means the selection NEVER HAPPENED: the sequencer un-stamps the
+# unit and hands the pick back to its owner, so the same unit (or any other
+# candidate) can be selected again. Only legal while nothing has been committed
+# — no assigned attacks, no rolled dice, no pending saves; once the dice are
+# out, SKIP_UNIT / the resolution dock own the activation.
+func _validate_cancel_fighter_selection(action: Dictionary) -> Dictionary:
+	var unit_id = action.get("unit_id", active_fighter_id)
+	if active_fighter_id == "":
+		return {"valid": false, "errors": ["No fighter is selected"]}
+	if unit_id != active_fighter_id:
+		return {"valid": false, "errors": ["%s is not the active fighter (%s)" % [unit_id, active_fighter_id]]}
+	if not pending_attacks.is_empty() or not confirmed_attacks.is_empty():
+		return {"valid": false, "errors": ["Attacks are already assigned — resolve or skip the activation"]}
+	if not staged_fight_state.is_empty() or awaiting_melee_saves:
+		return {"valid": false, "errors": ["The fight is already being resolved"]}
+	if unit_id in units_that_fought:
+		return {"valid": false, "errors": ["%s has already fought" % unit_id]}
+	return {"valid": true, "errors": []}
+
+func _process_cancel_fighter_selection(action: Dictionary) -> Dictionary:
+	var unit_id = str(action.get("unit_id", active_fighter_id))
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	log_phase_message("[11e 12.04] Activation of %s cancelled before any attacks — back to fighter selection" % unit_name)
+
+	# Drop everything the (never-completed) activation staged.
+	active_fighter_id = ""
+	selected_weapon_id = ""
+	pending_attacks.clear()
+	confirmed_attacks.clear()
+	resolution_state = {}
+	if overrun_pile_in_unit_11e == unit_id:
+		overrun_pile_in_unit_11e = ""
+
+	# Un-commit the sequencer: the unit is eligible again and the pick returns
+	# to its owner, so re-selecting it (or a different unit) is the next step.
+	if sequencer_11e != null:
+		sequencer_11e.unselect_to_fight(unit_id, GameState.state)
+		current_selecting_player = int(get_unit(unit_id).get("owner", current_selecting_player))
+
+	emit_signal("fighter_selection_cancelled", unit_id)
+	# Put the picker back on screen — without this the cancel would strand the
+	# player exactly as the silent dialog-hide did.
+	_emit_fight_selection_required()
+	return create_result(true, [])
+
 func _process_select_melee_weapon(action: Dictionary) -> Dictionary:
 	var weapon_id = action.get("weapon_id", "")
 	var unit_id = action.get("unit_id", "")
@@ -967,6 +1033,14 @@ func _process_pile_in(action: Dictionary) -> Dictionary:
 	# used up; apply the move so attack targets reflect the new engagement.
 	if unit_id == overrun_pile_in_unit_11e:
 		overrun_pile_in_unit_11e = ""
+		# Spent for the whole phase, not just this activation: an activation the
+		# player CANCELS (CANCEL_FIGHTER_SELECTION) and re-makes must not hand
+		# out a second 3" overrun move.
+		var _op_gs_unit = GameState.get_unit(unit_id)
+		if not _op_gs_unit.is_empty():
+			if not _op_gs_unit.has("flags"):
+				_op_gs_unit["flags"] = {}
+			_op_gs_unit["flags"]["overrun_pile_in_made_this_phase"] = true
 		if not changes.is_empty():
 			PhaseManager.apply_state_changes(changes)
 		_stamp_fight_eligibility_11e()
@@ -3847,6 +3921,18 @@ func get_available_actions() -> Array:
 				"unit_id": active_fighter_id,
 				"description": "Assign attacks"
 			})
+
+			# The way BACK: nothing is committed yet, so the player may undo a
+			# mis-picked activation and choose a different unit. Listed here so
+			# the escape hatch is discoverable in get_legal_actions, not just as
+			# a button on the attack dialog.
+			if confirmed_attacks.is_empty() and staged_fight_state.is_empty() and not awaiting_melee_saves:
+				actions.append({
+					"type": "CANCEL_FIGHTER_SELECTION",
+					"unit_id": active_fighter_id,
+					"player": int(get_unit(active_fighter_id).get("owner", get_current_player())),
+					"description": "Pick a different unit to fight instead of %s" % active_fighter_id
+				})
 	
 	# If attacks are assigned, can confirm them
 	if not pending_attacks.is_empty():
@@ -4394,9 +4480,20 @@ func _resolve_dread_foe_then_pile_in(unit_id: String) -> Dictionary:
 	against one enemy within Engagement Range, then proceed to pile-in.
 	Dread Foe: Roll 1D6 (+2 if charged this turn). On 4-5, D3 MW. On 6+, 3 MW."""
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr and ability_mgr.has_dread_foe(unit_id):
+	# One trigger per phase: a unit is only ever "selected to fight" once, so a
+	# selection the player CANCELS and then re-makes must not deal the mortal
+	# wounds twice (same guard shape as Try Dat Button's try_dat_rolled_this_phase).
+	var _df_gs_unit = GameState.get_unit(unit_id)
+	var _df_already: bool = not _df_gs_unit.is_empty() and bool(_df_gs_unit.get("flags", {}).get("dread_foe_resolved_this_phase", false))
+	if _df_already:
+		log_phase_message("DREAD FOE: %s already resolved this phase — not re-triggering" % unit_id)
+	if ability_mgr and ability_mgr.has_dread_foe(unit_id) and not _df_already:
 		var unit = get_unit(unit_id)
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		if not _df_gs_unit.is_empty():
+			if not _df_gs_unit.has("flags"):
+				_df_gs_unit["flags"] = {}
+			_df_gs_unit["flags"]["dread_foe_resolved_this_phase"] = true
 
 		# Find enemy units within Engagement Range
 		var targets = _get_dread_foe_targets(unit_id)
@@ -4456,6 +4553,10 @@ func _proceed_to_fight_moves(unit_id: String) -> Dictionary:
 	if sequencer_11e != null:
 		var engaged_now = RulesEngine.is_unit_engaged(unit_id, GameState.state)
 		overrun_available = (not engaged_now) or not sequencer_11e.engaged_at_step_start.get(unit_id, false)
+	# 12.06 grants ONE additional pile-in per unit per phase — a cancelled and
+	# re-made selection re-enters here, so an already-spent move stays spent.
+	if GameState.get_unit(unit_id).get("flags", {}).get("overrun_pile_in_made_this_phase", false):
+		overrun_available = false
 	if overrun_available:
 		overrun_pile_in_unit_11e = unit_id
 		# The template's 12.03 eligibility reads this flag (a unit that

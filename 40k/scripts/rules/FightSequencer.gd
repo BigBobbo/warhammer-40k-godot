@@ -216,6 +216,20 @@ func select_to_fight(unit_id: String, board: Dictionary) -> Dictionary:
 	return {"fight_types": types, "fight_type": types[0]}
 
 
+## Exact inverse of select_to_fight — the unit was NEVER selected as far as
+## the sequencer is concerned: its fought stamp is cleared (so it is offered
+## again) and the pick is handed back to its owner (undoing the alternation
+## hand-over). Used by the phase's CANCEL_FIGHTER_SELECTION escape hatch,
+## which lets a player back out of an activation they mis-picked before any
+## attack is assigned. Safe to call for a unit that was never selected.
+func unselect_to_fight(unit_id: String, board: Dictionary) -> void:
+	fought.erase(unit_id)
+	var unit = board.get("units", {}).get(unit_id, {})
+	var owner := int(unit.get("owner", 0))
+	if owner > 0:
+		picker = owner
+
+
 ## Pure query — true while ANY unit (either player) is still eligible to
 ## fight. Unlike next_selection() this never mutates picker/step, so
 ## validators and get_available_actions can poll it safely. Used by the

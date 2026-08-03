@@ -15,7 +15,7 @@
       "Da Fight phase opens wiv [b]Pile In[/b] — pick a unit, shuffle every model up to 3\" closer, den [b]Confirm Move[/b]. Only models wivin 2\" of da enemy get to swing, so dis is how ya get da back rank into da scrap. [b]End Pile In[/b] passes yer half.",
       "Click a unit in [b]UNITS THAT CAN FIGHT[/b] to activate it. Units dat charged swing first — [b]all[/b] of 'em, before da enemy gets a look in.",
       "A Warboss leadin' a mob is [b]part of dat mob[/b] — one row, [b]Boyz + Warboss[/b], an' dey krump in da [b]same[/b] activation. He don't get a swing of his own.",
-      "In da attack panel: pick [b]one[/b] melee weapon, pick da target, [b]Weapon to Target[/b], den [b]Fight![/b] Every uvver model swings what it's got — da boss's Power klaw included.",
+      "In da attack panel each [b]group[/b] of models picks its own weapon an' target — da mob's choppas, da Nob's big choppa an' da [b]Warboss's Power klaw[/b], all in da one panel. Den [b]Fight![/b]",
       "Da dice dock rolls it out — [b]Fast Roll ⏩[/b] does da lot, [b]Done ✔[/b] finishes da activation.",
       "Den da enemy activates an' da dock rolls [b]deir[/b] hits an' wounds at ya — you roll da saves an' can spend a [b]Command Re-roll[/b].",
       "You an' da enemy alternate activations till everyone's swung. Last lesson: Runnin' da Show."
@@ -149,8 +149,8 @@
       "id": "assign_attacks",
       "prompt": {
         "bark": "PICK YER CHOPPA!",
-        "kbm": "Each model fights wiv [b]one[/b] melee weapon. Pick a weapon in da list, click da [b]Custodian Guard[/b] target, hit [b]Weapon to Target[/b], den [b]Fight![/b] Da rest of da unit swings what it carries — includin' da boss's klaw.",
-        "pad": "Da attack panel takes its own controls: {dpad} ▲▼ picks da weapon, ◀▶ picks da target, {a} assigns 'em, den {menu} for [b]Fight![/b]"
+        "kbm": "Each group of models fights wiv [b]one[/b] melee weapon. Pick a weapon for each group, pick da target, den [b]Fight![/b] Da boss has his own row — his Power klaw swings in dis same activation.",
+        "pad": "Da attack panel takes its own controls: {dpad} ▲▼ picks da weapon in da lit-up section, ◀▶ picks da target, LB/RB hops between da [b]Boss Nob[/b] an' [b]Boy[/b] sections, den {menu} for [b]Fight![/b] Picked da wrong mob? {b} backs out to da unit list."
       },
       "anchor": {
         "node": "/root/AttackAssignmentDialog"
@@ -160,16 +160,23 @@
         "BATCH_FIGHT_ACTIONS",
         "ASSIGN_ATTACKS",
         "SELECT_FIGHTER",
+        "CANCEL_FIGHTER_SELECTION",
         "USE_EPIC_CHALLENGE",
         "DECLINE_EPIC_CHALLENGE"
       ],
+      "rewind_when": {
+        "step": "pick_fighter",
+        "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph == null or not (\"active_fighter_id\" in ph):\n\treturn false\nif str(ph.active_fighter_id) != \"\":\n\treturn false\nif node.get_node_or_null(\"AttackAssignmentDialog\") != null:\n\treturn false\nvar p = node.get_node_or_null(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel\")\nreturn p != null and p.visible",
+        "equals": true,
+        "comment": "The player backed out of the attack panel (CANCEL_FIGHTER_SELECTION). No unit is activated, no dialog is up and the picker is back on screen — so this card's 'pick a weapon' instructions describe a panel that is gone. Walk the lesson back to the fighter pick instead of stranding them."
+      },
       "done": {
         "action": {
           "type": "BATCH_FIGHT_ACTIONS"
         }
       },
       "hint": {
-        "text": "Da weapon list is da [b]whole[/b] unit's — da mob's choppas, da Nob's big choppa an' da [b]Warboss's Power klaw[/b], each sayin' how many models carry it. Pick one an' everyone else swings what dey've got."
+        "text": "Da panel splits da unit by what it carries — [b]Boy[/b], [b]Boss Nob[/b] an' [b]Warboss[/b] each get deir own section, 'cos dey're all one unit now."
       }
     },
     {

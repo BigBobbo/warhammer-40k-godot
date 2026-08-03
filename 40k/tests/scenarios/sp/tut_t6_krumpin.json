@@ -17,7 +17,7 @@
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T6 (Krumpin'), mouse player path: boot from the tutorial_t6_fight fixture -> the Pile In step is now a REAL move (the Boyz' back rank starts outside 2\" engagement range, so only 5 of 10 can swing; End Pile In is refused by the tutorial gate, the player opens the Boyz + Warboss row, Auto Pile In / drags the five back-rank models and Confirms — all 10 can now fight) -> Boyz fight the Custodian Guard (pick a melee weapon + target, Weapon to Target, Fight!, Fast Roll, Done) -> the WARBOSS takes his Fights First swing before the enemy gets one (Decline Epic Challenge, assign, Fight!) -> the Custodian Guard swings back and its hit/wound rolls are revealed step by step in the resolution dock (spectating: 'Show Wound Roll' / 'Show Saving Throws', no Command Re-roll on the enemy's dice) before the player rolls their own saves -> end the phase. The attack dialog, the pile-in dialog and the allocation overlay are embedded modal Windows, so their controls are driven via the emit escape hatch. | 19.02/19.03: the Attached unit fights as ONE — a single 'Boyz + Warboss' row, one Epic Challenge offer, one attack dialog carrying the mob's choppas AND the leader's Power klaw, and one activation stamping has_fought on both, so the Warboss no longer takes a second swing with the enemy activating in between; and the Custodes' swing back can no longer single him out — the wounds group onto his Boyz first.",
+  "description": "Tutorial lesson T6 (Krumpin'), mouse player path: boot from the tutorial_t6_fight fixture -> the Pile In step is now a REAL move (the Boyz' back rank starts outside 2\" engagement range, so only 5 of 10 can swing; End Pile In is refused by the tutorial gate, the player opens the Boyz + Warboss row, Auto Pile In / drags the five back-rank models and Confirms — all 10 can now fight) -> Boyz fight the Custodian Guard (pick a melee weapon + target, Weapon to Target, Fight!, Fast Roll, Done) -> the WARBOSS takes his Fights First swing before the enemy gets one (Decline Epic Challenge, assign, Fight!) -> the Custodian Guard swings back and its hit/wound rolls are revealed step by step in the resolution dock (spectating: 'Show Wound Roll' / 'Show Saving Throws', no Command Re-roll on the enemy's dice) before the player rolls their own saves -> end the phase. The attack dialog, the pile-in dialog and the allocation overlay are embedded modal Windows, so their controls are driven via the emit escape hatch. | 19.02/19.03: the Attached unit fights as ONE — a single 'Boyz + Warboss' row, one Epic Challenge offer, one attack panel whose loadout sections include the leader's own, and one activation stamping has_fought on both, so the Warboss no longer takes a second swing with the enemy activating in between; and the Custodes' swing back can no longer single him out — the wounds group onto his Boyz first.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -285,10 +285,17 @@
     },
     {
       "act": "execute_script",
-      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn \"empty lists\"\nvar want = -1\nvar labels = []\nfor i in range(wl.item_count):\n\tlabels.append(str(wl.get_item_text(i)))\n\tif str(wl.get_item_text(i)).begins_with(\"Big choppa\"):\n\t\twant = i\nif want < 0:\n\treturn \"no Big choppa offered\"\nwl.select(want)\nwl.item_selected.emit(want)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn str(wl.get_item_text(want)) + \" | \" + str(labels)",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/GroupsScroll/GroupsBox/Group0/Body/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn \"empty lists\"\nvar want = -1\nfor i in range(wl.item_count):\n\tif str(wl.get_item_text(i)).begins_with(\"Big choppa\"):\n\t\twant = i\nif want < 0:\n\treturn \"no Big choppa offered\"\nwl.select(want)\nwl.item_selected.emit(want)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn str(wl.get_item_text(want))",
       "multiline": true,
-      "equals": "Big choppa (A:3 S:7 AP:-1 D:2 — 1 model, ≈3 attacks) | [\"Big choppa (A:3 S:7 AP:-1 D:2 — 1 model, ≈3 attacks)\", \"Choppa (A:3 S:4 AP:-1 D:1 — 9 models, ≈27 attacks)\", \"Power klaw (A:3 S:9 AP:-2 D:2 — 1 model, ≈3 attacks) [Warboss]\"]",
-      "comment": "19.03: ONE dialog for the whole Attached unit. The Boss Nob's weapon is a Big choppa; the Power klaw row is the WARBOSS's, tagged with whose it is, and it is only here because his activation is now this one."
+      "equals": "Big choppa (A:3 S:7 AP:-1 D:2)",
+      "comment": "Loadout groups: the mob splits into a 'Boy x9' section and a 'Boss Nob x1' section, so the Nob's own weapons are offered in HIS section (Group0 — sections follow model order, and the datasheet lists the Boss Nob first). The roster buys this mob choppas only, so the Nob's alternative is his Big choppa — the datasheet's Power klaw is an option the unit never took and is correctly not offered. | 19.03: the Attached unit adds a THIRD section for the Warboss (his Power klaw), asserted below — his activation is now this one."
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor g in d._groups:\n\tout.append(\"%s x%d @%s\" % [g.get(\"label\", \"?\"), (g.get(\"models\", []) as Array).size(), g.get(\"owner\", \"?\")])\nreturn \" | \".join(out)",
+      "multiline": true,
+      "equals": "Boss Nob x1 @U_BOYZ_T | Boy x9 @U_BOYZ_T | Warboss x1 @U_WARBOSS_T",
+      "comment": "19.03: the panel is the whole ATTACHED unit's. The leader gets his OWN loadout section — partitioned by component as well as by weapon set, because his models are indices into a different unit dict and resolve against his own profile."
     },
     {
       "act": "wait_frames",
@@ -314,7 +321,7 @@
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"attacker\", \"?\")) + \":\" + str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nout.sort()\nreturn \",\".join(out)",
       "multiline": true,
       "equals": "U_BOYZ_T:big_choppa_melee:1,U_BOYZ_T:choppa_melee:9,U_WARBOSS_T:power_klaw_melee:1",
-      "comment": "19.03: one plan, split per component — the engine resolves each assignment against its own `attacker`, so the Warboss keeps his own S9 AP-2 D2 klaw and WS instead of inheriting his bodyguard's profile. Picking the mob's weapon is what sweeps him in."
+      "comment": "each loadout section swings what it actually carries: nine Boyz on choppas, da Nob on his Big choppa — and 19.03 adds da Warboss on his Power klaw, in DIS activation. The plan is split per component because RulesEngine resolves every assignment against its own `attacker`, so the boss keeps his own S9 AP-2 D2 profile instead of inheriting his bodyguard's."
     },
     {
       "act": "click_node",
@@ -360,7 +367,7 @@
       "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar dock = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock\")\nif dock != null and dock.is_visible_in_tree() and not dock.spectating:\n\tvar prim = dock.get_node_or_null(\"DockPrimaryButton\")\n\tif prim != null and prim.is_visible_in_tree():\n\t\tprim.pressed.emit()\nreturn true",
       "multiline": true,
       "equals": true,
-      "comment": "clear whichever defender card or dock step is up (tolerant — the exact sequence depends on the dice) | NEVER presses a SPECTATING dock: with the Attached unit fighting in ONE activation the enemy's swing starts sooner, and an unguarded fallback press here stole the staged reveal the player is meant to watch below."
+      "comment": "clear whichever defender card or dock step is up | NEVER presses a SPECTATING dock: with the Attached unit fighting in ONE activation the enemy's swing starts sooner, and an unguarded fallback press here stole the staged reveal the player is meant to watch below."
     },
     {
       "act": "wait_seconds",
@@ -371,7 +378,7 @@
       "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar dock = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock\")\nif dock != null and dock.is_visible_in_tree() and not dock.spectating:\n\tvar prim = dock.get_node_or_null(\"DockPrimaryButton\")\n\tif prim != null and prim.is_visible_in_tree():\n\t\tprim.pressed.emit()\nreturn true",
       "multiline": true,
       "equals": true,
-      "comment": "clear whichever defender card or dock step is up (tolerant — the exact sequence depends on the dice) | NEVER presses a SPECTATING dock: with the Attached unit fighting in ONE activation the enemy's swing starts sooner, and an unguarded fallback press here stole the staged reveal the player is meant to watch below."
+      "comment": "clear whichever defender card or dock step is up | NEVER presses a SPECTATING dock: with the Attached unit fighting in ONE activation the enemy's swing starts sooner, and an unguarded fallback press here stole the staged reveal the player is meant to watch below."
     },
     {
       "act": "wait_seconds",
