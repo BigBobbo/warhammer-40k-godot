@@ -261,10 +261,10 @@
     },
     {
       "act": "execute_script",
-      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn \"empty lists\"\nvar want = -1\nvar labels = []\nfor i in range(wl.item_count):\n\tlabels.append(str(wl.get_item_text(i)))\n\tif str(wl.get_item_text(i)).begins_with(\"Big choppa\"):\n\t\twant = i\nif want < 0:\n\treturn \"no Big choppa offered\"\nwl.select(want)\nwl.item_selected.emit(want)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn str(wl.get_item_text(want))",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/GroupsScroll/GroupsBox/Group0/Body/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn \"empty lists\"\nvar want = -1\nfor i in range(wl.item_count):\n\tif str(wl.get_item_text(i)).begins_with(\"Big choppa\"):\n\t\twant = i\nif want < 0:\n\treturn \"no Big choppa offered\"\nwl.select(want)\nwl.item_selected.emit(want)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn str(wl.get_item_text(want))",
       "multiline": true,
-      "equals": "Big choppa (A:3 S:7 AP:-1 D:2 — 1 model, ≈3 attacks)",
-      "comment": "MA-LOADOUT: the weapon list names how many models actually carry each weapon, and only offers weapons the roster bought. The tutorial mob's datasheet kit is 1x Big choppa + 9x Choppa, so the Boss Nob's line reads '1 model, ≈3 attacks' — it used to offer the whole mob's 30 attacks with one weapon, and the Power klaw it never took."
+      "equals": "Big choppa (A:3 S:7 AP:-1 D:2)",
+      "comment": "Loadout groups: the mob splits into a 'Boy x9' section and a 'Boss Nob x1' section, so the Nob's own weapons are offered in HIS section (Group0 — sections follow model order, and the datasheet lists the Boss Nob first). The roster buys this mob choppas only, so the Nob's alternative is his Big choppa — the datasheet's Power klaw is an option the unit never took and is correctly not offered."
     },
     {
       "act": "wait_frames",
@@ -290,7 +290,7 @@
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nreturn \",\".join(out)",
       "multiline": true,
       "equals": "big_choppa_melee:1,choppa_melee:9",
-      "comment": "picking the Nob's weapon builds the whole mob's plan: da Nob swings his Big choppa, the other nine Boyz swing the choppas they actually carry. Before this the dialog sent ONE assignment with no model list and the engine gave all ten models the Nob's weapon."
+      "comment": "each loadout section swings what it actually carries: nine Boyz on choppas plus da Nob on his Big choppa. Sections follow model order, matching the datasheet's unit composition (Boss Nob, then Boyz)."
     },
     {
       "act": "click_node",
@@ -399,9 +399,10 @@
     },
     {
       "act": "execute_script",
-      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn false\nwl.select(0)\nwl.item_selected.emit(0)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn str(d.unit_id) == \"U_WARBOSS_T\"",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/GroupsScroll/GroupsBox/Group0/Body/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn false\nwl.select(0)\nwl.item_selected.emit(0)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn str(d.unit_id) == \"U_WARBOSS_T\"",
       "multiline": true,
-      "equals": true
+      "equals": true,
+      "comment": "the Warboss is a single model, so he is one loadout section (Group0) holding his Big choppa and Power klaw; his Attack squig is [EXTRA ATTACKS] and is auto-included."
     },
     {
       "act": "click_node",

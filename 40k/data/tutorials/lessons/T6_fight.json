@@ -148,8 +148,8 @@
       "id": "assign_attacks",
       "prompt": {
         "bark": "PICK YER CHOPPA!",
-        "kbm": "Each model fights wiv [b]one[/b] melee weapon. Pick a weapon in da list, click da [b]Custodian Guard[/b] target, hit [b]Weapon to Target[/b], den [b]Fight![/b] Picked da wrong mob? [b]◀ Pick Anuvver Unit[/b] backs right out.",
-        "pad": "Da attack panel takes its own controls: {dpad} ▲▼ picks da weapon, ◀▶ picks da target, {a} assigns 'em, den {menu} for [b]Fight![/b] Picked da wrong mob? {b} backs out to da unit list."
+        "kbm": "Da mob's split into sections by what dey carry: [b]Boy ×9[/b] an' [b]Boss Nob ×1[/b]. Each section picks [b]one[/b] melee weapon. It already picked da best for ya — just hit [b]Fight![/b], or click a weapon in a section to change it first. Picked da wrong mob? [b]◀ Pick Anuvver Unit[/b] backs right out.",
+        "pad": "Da attack panel takes its own controls: {dpad} ▲▼ picks da weapon in da lit-up section, ◀▶ picks da target, LB/RB hops between da [b]Boss Nob[/b] an' [b]Boy[/b] sections, den {menu} for [b]Fight![/b] Picked da wrong mob? {b} backs out to da unit list."
       },
       "anchor": {
         "node": "/root/AttackAssignmentDialog"
@@ -173,7 +173,7 @@
         }
       },
       "hint": {
-        "text": "Each weapon says how many of yer boyz actually carry it. Only da Nob's got a Big choppa, so pickin' it swings his choppa an' da rest of da mob's — da panel lists both lines."
+        "text": "Da Nob carries a Big choppa da other boyz ain't got, so he gets 'is own section — da other nine swing choppas. If a section's got more'n one weapon, [b]Split…[/b] lets ya set how many boyz take each."
       }
     },
     {
