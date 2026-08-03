@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.17.4",
+      "date": "2026-08-03",
+      "summary": "The datasheet key (I) works in every phase now \u2014 it was dead through the whole Shooting and Fight phases.",
+      "changes": [
+        "Fixed (reported): selecting a unit in the Shooting phase and pressing I did nothing. The game only looked for a selected unit the way the Movement and Charge phases store it, so in Shooting and Fight it decided nothing was selected and the datasheet never opened.",
+        "Pressing I again now closes the card, so the key toggles instead of only opening.",
+        "With nothing selected, I reads the datasheet of whatever unit the cursor is over \u2014 including enemy units, which you can never select.",
+        "ESC closes the datasheet in the Shooting phase again. It used to deselect your shooter and leave the card sitting there, even though the card\u0027s own footer says \u0027ESC to close\u0027.",
+        "Same fixes apply to Shift+F (snap camera to the selected unit), the line-of-sight overview and the controller\u0027s Y button, which all read the same selection."
+      ]
+    },
+    {
       "version": "1.17.3",
       "date": "2026-08-03",
       "summary": "AI speed 'Step-by-step' now actually gives you the step: a Continue button appears on the AI banner instead of the game sitting on 'AI is thinking…' forever.",
