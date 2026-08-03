@@ -492,6 +492,41 @@ func add_player_entry(player: int, text: String) -> void:
 	var entry_type = "p1_action" if player == 1 else "p2_action"
 	_add_entry(prefix + text, entry_type)
 
+# ---------------------------------------------------------------------------
+# Player notes (free text typed into the box at the bottom of the Game Log)
+# ---------------------------------------------------------------------------
+# Replaces the old floating chat/feed pop-up (removed 2026-08-03), which was
+# transient, overlapped the log, and stole keyboard focus. A note is a
+# first-class log entry instead: it persists in the log, is broadcast to the
+# other player in multiplayer, and is recorded into the replay so it shows up in
+# playback.
+const NOTE_MAX_LENGTH := 240
+
+func sanitize_note(text: String) -> String:
+	"""Reduce a typed note to a single trimmed line, capped in length. Newlines
+	would break the one-entry-per-card layout, and the length cap stops a single
+	note from dominating the log."""
+	var clean := str(text).replace("\n", " ").replace("\r", " ").strip_edges()
+	if clean.length() > NOTE_MAX_LENGTH:
+		clean = clean.substr(0, NOTE_MAX_LENGTH).strip_edges()
+	return clean
+
+func format_player_note(player: int, text: String) -> String:
+	"""Single formatting point so the live log and replay playback render the
+	same line for the same note (ReplayManager stores this as the event
+	description; Main re-adds it verbatim during playback)."""
+	return "P%d note: %s" % [player, text]
+
+func add_player_note(player: int, text: String) -> void:
+	"""Add a free-text player note. Returns silently on empty/whitespace input.
+	Also records the note into the replay so it survives into playback."""
+	var clean := sanitize_note(text)
+	if clean == "":
+		return
+	_add_entry(format_player_note(player, clean), "player_note")
+	if ReplayManager and ReplayManager.has_method("record_player_note"):
+		ReplayManager.record_player_note(player, clean)
+
 func add_ability_entry(player: int, text: String) -> void:
 	"""Log a passive / always-on ability activation (e.g. 'Stand Vigil active').
 	These re-fire at the start of every phase for every unit that has the ability,

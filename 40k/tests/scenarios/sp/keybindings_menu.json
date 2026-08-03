@@ -29,7 +29,7 @@
     { "act": "execute_script", "script": "KeybindingManager.bindings.has(\"toggle_vp_timeline\")", "equals": true },
     { "act": "execute_script", "script": "KeybindingManager.bindings.has(\"weapon_range_panel\")", "equals": true },
     { "act": "execute_script", "script": "KeybindingManager.bindings.has(\"datasheet_modal\")", "equals": true },
-    { "act": "execute_script", "script": "KeybindingManager.bindings.has(\"toggle_chat_panel\")", "equals": true },
+    { "act": "execute_script", "script": "KeybindingManager.bindings.has(\"focus_log_note\")", "equals": true },
     { "act": "execute_script", "script": "KeybindingManager.bindings.has(\"toggle_roster_strip\")", "equals": true },
     { "act": "execute_script", "script": "KeybindingManager.bindings.has(\"fit_view_board\")", "equals": true },
     { "act": "execute_script", "script": "KeybindingManager.bindings.has(\"fit_view_selection\")", "equals": true },
