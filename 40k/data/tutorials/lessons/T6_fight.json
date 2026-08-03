@@ -141,15 +141,15 @@
         ]
       },
       "hint": {
-        "text": "Da list only shows units in engagement range — dat's who can fight."
+        "text": "Da list only shows units in engagement range — dat's who can fight. Grabbed da wrong mob? Da attack panel's [b]◀ Pick Anuvver Unit[/b] puts 'em back."
       }
     },
     {
       "id": "assign_attacks",
       "prompt": {
         "bark": "PICK YER CHOPPA!",
-        "kbm": "Each model fights wiv [b]one[/b] melee weapon. Pick a weapon in da list, click da [b]Custodian Guard[/b] target, hit [b]Weapon to Target[/b], den [b]Fight![/b]",
-        "pad": "Da attack panel takes its own controls: {dpad} ▲▼ picks da weapon, ◀▶ picks da target, {a} assigns 'em, den {menu} for [b]Fight![/b]"
+        "kbm": "Each model fights wiv [b]one[/b] melee weapon. Pick a weapon in da list, click da [b]Custodian Guard[/b] target, hit [b]Weapon to Target[/b], den [b]Fight![/b] Picked da wrong mob? [b]◀ Pick Anuvver Unit[/b] backs right out.",
+        "pad": "Da attack panel takes its own controls: {dpad} ▲▼ picks da weapon, ◀▶ picks da target, {a} assigns 'em, den {menu} for [b]Fight![/b] Picked da wrong mob? {b} backs out to da unit list."
       },
       "anchor": {
         "node": "/root/AttackAssignmentDialog"
@@ -158,8 +158,15 @@
       "allow": [
         "BATCH_FIGHT_ACTIONS",
         "ASSIGN_ATTACKS",
-        "SELECT_FIGHTER"
+        "SELECT_FIGHTER",
+        "CANCEL_FIGHTER_SELECTION"
       ],
+      "rewind_when": {
+        "step": "pick_fighter",
+        "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph == null or not (\"active_fighter_id\" in ph):\n\treturn false\nif str(ph.active_fighter_id) != \"\":\n\treturn false\nif node.get_node_or_null(\"AttackAssignmentDialog\") != null:\n\treturn false\nvar p = node.get_node_or_null(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel\")\nreturn p != null and p.visible",
+        "equals": true,
+        "comment": "The player backed out of the attack panel (CANCEL_FIGHTER_SELECTION). No unit is activated, no dialog is up and the picker is back on screen — so this card's 'pick a weapon' instructions describe a panel that is gone. Walk the lesson back to the fighter pick instead of stranding them."
+      },
       "done": {
         "action": {
           "type": "BATCH_FIGHT_ACTIONS"

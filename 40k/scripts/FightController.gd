@@ -595,6 +595,10 @@ func set_phase(phase: BasePhase) -> void:
 			phase.pile_in_required.connect(_on_pile_in_required)
 		if phase.has_signal("attack_assignment_required") and not phase.attack_assignment_required.is_connected(_on_attack_assignment_required):
 			phase.attack_assignment_required.connect(_on_attack_assignment_required)
+		# The activation was backed out of — tear the melee UI down (including a
+		# dialog dismissed by any route) before the picker is re-emitted.
+		if phase.has_signal("fighter_selection_cancelled") and not phase.fighter_selection_cancelled.is_connected(_on_phase_fighter_selection_cancelled):
+			phase.fighter_selection_cancelled.connect(_on_phase_fighter_selection_cancelled)
 		if phase.has_signal("attack_assigned") and not phase.attack_assigned.is_connected(_on_attack_assigned):
 			phase.attack_assigned.connect(_on_attack_assigned)
 		if phase.has_signal("consolidate_required") and not phase.consolidate_required.is_connected(_on_consolidate_required):
@@ -960,27 +964,36 @@ func _refresh_fighter_list() -> void:
 		
 	var fight_state = current_phase.get_current_fight_state()
 	var fight_sequence = fight_state.get("fight_sequence", [])
-	var current_fight_index = fight_state.get("current_fight_index", 0)
+	var active_id = str(fight_state.get("current_fighter_id", ""))
 	var units_that_fought = fight_state.get("units_that_fought", [])
-	
+
+	# Who the sequencer would offer next (12.04) — the honest "up next" set.
+	var next_candidates: Array = []
+	if current_phase.get("sequencer_11e") != null and active_id == "":
+		next_candidates = current_phase.sequencer_11e.peek_selection(GameState.state).get("candidates", [])
+
 	print("DEBUG: Fight sequence: ", fight_sequence)
-	print("DEBUG: Current fight index: ", current_fight_index)
-	
+	print("DEBUG: Active fighter: '%s'" % active_id)
+
 	for i in range(fight_sequence.size()):
 		var unit_id = fight_sequence[i]
 		var unit = current_phase.get_unit(unit_id)
 		# display_name keeps duplicate squads (e.g. "... Alpha"/"... Beta") distinct.
 		var _uname_meta = unit.get("meta", {})
 		var unit_name = _uname_meta.get("display_name", _uname_meta.get("name", unit_id))
-		
-		# Add status indicators
+
+		# Status indicators. [ACTIVE] used to mean "index == units_that_fought
+		# .size()" — pure list arithmetic that had nothing to do with who was
+		# actually selected, so the first row read [ACTIVE] whatever the player
+		# had picked (reported: "it says Boyz are active, but it selected the
+		# Warboss"). Tag the unit the phase really has activated.
 		if unit_id in units_that_fought:
 			unit_name += " [FOUGHT]"
-		elif i == current_fight_index:
+		elif unit_id == active_id:
 			unit_name += " [ACTIVE]"
-		elif i < current_fight_index:
-			unit_name += " [NEXT]"
-			
+		elif unit_id in next_candidates:
+			unit_name += " [CAN PICK]"
+
 		unit_selector.add_item(unit_name)
 		unit_selector.set_item_metadata(unit_selector.get_item_count() - 1, unit_id)
 
@@ -2197,6 +2210,7 @@ func _on_attack_assignment_required(unit_id: String, targets: Dictionary) -> voi
 	dialog.setup(unit_id, targets, current_phase)
 	dialog.attacks_confirmed.connect(_on_attacks_confirmed)
 	dialog.skip_fight_requested.connect(_on_attack_dialog_skip_requested)
+	dialog.selection_cancelled.connect(_on_attack_dialog_selection_cancelled)
 	# Pad: the dialog drives the gold board reticle as ◀ ▶ steps its target
 	# list, and clears it when it closes — the melee twin of the shooting
 	# phase's target ring (so a controller player SEES which enemy the next
@@ -2265,6 +2279,47 @@ func _on_attack_dialog_skip_requested(unit_id: String) -> void:
 		"unit_id": unit_id,
 		"player": skip_player
 	})
+
+func _on_phase_fighter_selection_cancelled(unit_id: String) -> void:
+	"""Phase side of the back-out (also fires on the remote peer / after a
+	CANCEL_FIGHTER_SELECTION dispatched from anywhere but the dialog): drop any
+	still-parented attack dialog and re-read the fight lists so the FIGHT
+	SEQUENCE tags and the phase status stop advertising an activation that no
+	longer exists."""
+	print("[FightController] Phase reports selection cancelled for %s" % unit_id)
+	var stale = get_tree().root.get_node_or_null("AttackAssignmentDialog")
+	if stale != null and is_instance_valid(stale):
+		stale.name = "StaleAttackAssignmentDialog"
+		stale.queue_free()
+	current_fighter_id = ""
+	eligible_targets.clear()
+	pad_clear_target_reticle()
+	_refresh_fighter_list()
+	_update_ui_state()
+
+func _on_attack_dialog_selection_cancelled(unit_id: String) -> void:
+	"""The player backed out of the attack dialog before assigning anything
+	(button, Escape, the window ✕ or pad Ⓑ). Un-pick the fighter so the
+	right-panel selection section comes back and a different unit can be
+	activated — dismissing the dialog used to leave the activation open with
+	NO surface at all (no picker, no dialog), so the only remaining action was
+	ending the phase and forfeiting every unswung unit."""
+	print("[FightController] Fighter selection cancelled for %s — returning to the picker" % unit_id)
+	pad_clear_target_reticle()
+	_clear_visuals()
+	current_fighter_id = ""
+	eligible_targets.clear()
+
+	var cancel_player = current_fighter_owner
+	if cancel_player < 0:
+		cancel_player = int(GameState.get_unit(unit_id).get("owner", GameState.get_active_player()))
+	emit_signal("fight_action_requested", {
+		"type": "CANCEL_FIGHTER_SELECTION",
+		"unit_id": unit_id,
+		"player": cancel_player
+	})
+	if dice_log_display:
+		dice_log_display.append_text("[color=yellow]Activation cancelled — pick a unit to fight.[/color]\n")
 
 func _on_attacks_confirmed(assignments: Array) -> void:
 	"""Submit attack assignments and trigger resolution via a single batched action.

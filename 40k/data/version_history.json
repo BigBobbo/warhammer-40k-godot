@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.16.2",
+      "date": "2026-08-03",
+      "summary": "Fight phase: picking the wrong unit to fight no longer locks up the game — the attack panel now has a way back to the unit list, and it works on the controller's B button too.",
+      "changes": [
+        "Fixed (reported in tutorial 'Krumpin'', step 4 'PICK YER CHOPPA!'): activating one unit and then backing out of the attack panel — with B, Escape, or the window's ✕ — left the game with no way to fight. The unit list was gone, the attack panel was gone, the D-pad only cycled between Suggest and the AI-speed dropdown, and the only button that still did anything was End Phase, which throws away every unit that had not swung yet.",
+        "The attack panel now carries a [b]◀ Pick Anuvver Unit[/b] button, and B / Escape / ✕ all do the same thing: the unit is un-picked and the UNITS THAT CAN FIGHT list comes straight back, with that unit selectable again.",
+        "Backing out costs nothing — no swing is forfeited and nothing is spent, as long as you have not assigned attacks yet. Once the dice are rolling, the attack panel's normal buttons take over as before.",
+        "The controller hint row on the attack panel now reads 'Ⓑ Back' (it used to promise 'Ⓑ Skip', which only existed when a unit had no targets at all).",
+        "The FIGHT SEQUENCE list told the truth about who is fighting: it used to tag the first unit [ACTIVE] no matter which one you had picked — hence 'it says Boyz are active, but it selected the Warboss'. It now tags the unit actually activated, and marks the ones you may pick with [CAN PICK].",
+        "The tutorial follows you back: cancel the attack panel and the lesson returns to 'BOYZ FIRST!' instead of leaving the card explaining a panel that is no longer on screen."
+      ]
+    },
+    {
       "version": "1.16.1",
       "date": "2026-08-03",
       "summary": "The model stats card no longer jumps out at every model your mouse crosses — park the pointer on a model for half a second to read it, and it stays out of the way while you drag.",
