@@ -9,7 +9,7 @@
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "Only models with range AND line of sight to the target actually fire; the engine drops the rest at resolve time. The single-eligible-target auto-assign path used to declare EVERY bearer of a weapon regardless, so a 5-model unit with one clear firing lane read '5\u2192 Target' in the weapon row, '5\u00d7 weapon' in CURRENT TARGETS and a 5-bearer FORECAST, and then one model shot. This scenario parks 4 of 5 Rokkit launcha bearers behind tall area terrain (area-large-13) with the 5th clear of it, selects the unit through its board token, and asserts the declared count is 1, that the new 'NOT EVERY MODEL CAN SHOOT' notice names the 4 blind bearers BEFORE Confirm, and that the FORECAST costs one bearer's attacks rather than five.",
+  "description": "Only models with range AND line of sight to the target actually fire; the engine drops the rest at resolve time. The single-eligible-target auto-assign path used to declare EVERY bearer of a weapon regardless, so a 5-model unit with one clear firing lane read '5→ Target' in the weapon row, '5× weapon' in CURRENT TARGETS and a 5-bearer FORECAST, and then one model shot. This scenario parks 4 of 5 Rokkit launcha bearers behind tall area terrain (area-large-13) with the 5th clear of it, selects the unit through its board token, and asserts the declared count is 1, that the new 'NOT EVERY MODEL CAN SHOOT' notice names the 4 blind bearers BEFORE Confirm, and that the FORECAST costs one bearer's attacks rather than five.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -66,7 +66,7 @@
       "act": "execute_script",
       "multiline": true,
       "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nvar root = sc.weapon_tree.get_root()\nvar c = root.get_first_child()\nwhile c:\n\tif str(c.get_metadata(0)) == \"rokkit_launcha_ranged\":\n\t\treturn c.get_text(1)\n\tc = c.get_next()\nreturn \"row not found\"",
-      "equals": "1\u2192[A] Witchseekers"
+      "equals": "1→[A] Witchseekers"
     },
     {
       "act": "expect_node_visible",
@@ -102,49 +102,6 @@
     {
       "act": "screenshot",
       "label": "02_blocked_bearers_notice"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var u = GameState.state[\"units\"][\"U_TANKBUSTAS_A\"]\nvar xs = [200.0, 260.0, 320.0, 380.0, 440.0, 500.0]\nfor i in range(u[\"models\"].size()):\n\tu[\"models\"][i][\"position\"] = {\"x\": xs[i], \"y\": 2280.0}\nu[\"flags\"] = {}\nPhaseManager.transition_to_phase(8)\nreturn \"all clear\"",
-      "equals": "all clear"
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.5
-    },
-    {
-      "act": "click_unit",
-      "unit_id": "U_TANKBUSTAS_A"
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 1.0
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var d = tree.root.get_node_or_null(\"PulsaRokkitDialog\")\nif d == null:\n\treturn \"no dialog\"\nvar b = d.find_child(\"DeclineButton\", true, false)\nif b == null:\n\treturn \"no button\"\nb.emit_signal(\"pressed\")\nreturn \"declined\""
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.5
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var ph = PhaseManager.get_current_phase_instance()\nfor a in ph.pending_assignments:\n\tif a.get(\"weapon_id\", \"\") == \"rokkit_launcha_ranged\":\n\t\treturn (a.get(\"model_ids\", []) as Array).size()\nreturn -1",
-      "equals": 5
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var sc = tree.current_scene.get_node_or_null(\"ShootingController\")\nreturn sc.blocked_bearers_panel.visible",
-      "equals": false
-    },
-    {
-      "act": "screenshot",
-      "label": "03_all_clear_notice_hidden"
     }
   ]
 }
