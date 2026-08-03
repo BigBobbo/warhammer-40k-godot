@@ -1036,6 +1036,9 @@ static func reroll_hit_die(hit_context: Dictionary, die_index: int, rng_service:
 		"critical_hits": crits,
 		"sustained_bonus_hits": int(hit_context.get("sustained_bonus_hits", 0)),
 		"total_hits_for_wounds": hit_context["total_hits_for_wounds"],
+		# Carry the provenance through a Command Re-roll — the modifiers that
+		# produced this threshold have not changed just because one die did.
+		"modifier_ledger": hit_context.get("modifier_ledger", []),
 		"command_rerolled_index": die_index
 	}
 	return {
@@ -1128,6 +1131,9 @@ static func reroll_wound_die(wound_context: Dictionary, die_index: int, board: D
 		"successes": wounds_caused,
 		"critical_wounds": crit_wounds,
 		"regular_wounds": regular_wounds,
+		# Same as the hit path: a re-rolled die does not change WHY the
+		# threshold is what it is.
+		"modifier_ledger": wound_context.get("modifier_ledger", []),
 		"command_rerolled_index": die_index
 	}
 	return {
@@ -1975,7 +1981,11 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 	var hits = 0
 	var critical_hits = 0  # Unmodified rolls >= critical_hit_threshold (never for Torrent)
 	var regular_hits = 0   # Non-critical hits
+	# ISS-modifier-provenance: names WHERE each modifier below came from, so the
+	# Dice Log and the resolution docks can say "Against All Odds: +1 to hit"
+	# instead of an anonymous "+1". Purely additive — never read by the maths.
 	var hit_modifiers = HitModifier.NONE
+	var hit_mod_ledger: Array = []
 	var heavy_bonus_applied = false
 	var bgnt_penalty_applied = false
 	var indirect_fire_applied = false
@@ -2042,39 +2052,50 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			var hit_mods = assignment.modifiers.hit
 			if hit_mods.get("reroll_ones", false):
 				hit_modifiers |= HitModifier.REROLL_ONES
+				ModifierLedger.note(hit_mod_ledger, "Attack assignment", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES)
 			if hit_mods.get("reroll_failed", false):
 				hit_modifiers |= HitModifier.REROLL_FAILED
+				ModifierLedger.note(hit_mod_ledger, "Attack assignment", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED)
 			if hit_mods.get("plus_one", false):
 				hit_modifiers |= HitModifier.PLUS_ONE
+				ModifierLedger.note(hit_mod_ledger, "Attack assignment", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE)
 			if hit_mods.get("minus_one", false):
 				hit_modifiers |= HitModifier.MINUS_ONE
+				ModifierLedger.note(hit_mod_ledger, "Attack assignment", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE)
 
 		# OATH OF MOMENT (Codex): Re-roll all hit rolls when ADEPTUS ASTARTES attacks oath target
 		if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
 			hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(hit_mod_ledger, "Oath of Moment", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "target is the Oath of Moment target")
 			print("RulesEngine: OATH OF MOMENT — re-roll all failed hits against %s" % target_unit_id)
 
 		# EFFECT FLAGS: Check for ability/stratagem-granted hit modifiers on the attacker
 		if EffectPrimitivesData.has_effect_plus_one_hit(actor_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "granted by an ability or Stratagem")
 			print("RulesEngine: Effect +1 to hit applied for %s" % actor_unit_id)
 		if EffectPrimitivesData.has_effect_minus_one_hit(actor_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "imposed by an ability or Stratagem")
 			print("RulesEngine: Effect -1 to hit applied for %s" % actor_unit_id)
 		var reroll_hits_scope = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_HITS, "")
 		if reroll_hits_scope == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES, "granted by an ability or Stratagem")
 			print("RulesEngine: Effect re-roll 1s to hit applied for %s" % actor_unit_id)
 		elif reroll_hits_scope == "failed":
 			hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "granted by an ability or Stratagem")
 			print("RulesEngine: Effect re-roll failed hits applied for %s" % actor_unit_id)
 		elif reroll_hits_scope == "all":
 			hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "re-roll all hit rolls")
 			print("RulesEngine: Effect re-roll all hits applied for %s" % actor_unit_id)
 
 		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
 		if is_damaged_profile_active(actor_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Damaged profile", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "attacker is on its Damaged profile")
 			print("RulesEngine: Damaged profile -1 to hit applied for %s" % actor_unit_id)
 
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
@@ -2083,6 +2104,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			var remained_stationary = actor_unit.get("flags", {}).get("remained_stationary", false)
 			if remained_stationary:
 				hit_modifiers |= HitModifier.PLUS_ONE
+				ModifierLedger.note(hit_mod_ledger, "[HEAVY]", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "unit remained stationary")
 				heavy_bonus_applied = true
 
 		# BIG GUNS NEVER TIRE: Apply -1 to hit for non-Pistol weapons only when shooter
@@ -2094,6 +2116,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			# Only apply penalty if this is NOT a Pistol weapon
 			if not is_pistol_weapon(weapon_id, board):
 				hit_modifiers |= HitModifier.MINUS_ONE
+				ModifierLedger.note(hit_mod_ledger, "Big Guns Never Tire", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "shooting while engaged")
 				bgnt_penalty_applied = true
 				print("RulesEngine: BGNT -1 to hit applied for %s (weapon %s)" % [actor_unit_id, weapon_id])
 
@@ -2101,9 +2124,11 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		# Stealth imposes -1 to hit rolls against this unit for ranged attacks
 		if GameConstants.edition < 11 and EffectPrimitivesData.has_effect_stealth(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Stealth", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "target has Stealth (granted)")
 			print("RulesEngine: Stealth (effect-granted) applied -1 to hit against %s" % target_unit_id)
 		elif GameConstants.edition < 11 and has_stealth_ability(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Stealth", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "target has the Stealth ability")
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
 		# INDIRECT FIRE (T2-4): Apply -1 to hit modifier for Indirect Fire weapons
@@ -2114,6 +2139,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		# hit_fail_band below), not a -1 modifier — gate the 10e -1 off at e11.
 		if is_indirect_fire and not indirect_target_visible and GameConstants.edition < 11:
 			hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "[INDIRECT FIRE]", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "target is not visible")
 			indirect_fire_applied = true
 			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s' (target not visible)" % weapon_profile.get("name", weapon_id))
 		elif is_indirect_fire and indirect_target_visible:
@@ -2122,30 +2148,36 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		# TANK HUNTERS (OA-11): +1 to Hit when attacking MONSTER or VEHICLE targets
 		if has_tank_hunters_vs_target(actor_unit, target_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Tank Hunters", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "target is a MONSTER or VEHICLE")
 			print("RulesEngine: TANK HUNTERS — +1 to hit for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
 
 		# MEKANIAK (OA-34): +1 to Hit for vehicles buffed by Mek at end of Movement phase
 		if UnitAbilityManager.has_mekaniak_buff(actor_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Mekaniak", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "Mek-buffed vehicle")
 			print("RulesEngine: MEKANIAK — +1 to hit for %s (Mek-buffed vehicle)" % actor_unit_id)
 
 		# WALL OF DAKKA (OA-50): +1 to Hit on ranged attacks vs targets within half weapon range (Bonebreaka)
 		var wall_of_dakka_bonus = get_wall_of_dakka_hit_bonus(actor_unit, target_unit, weapon_profile)
 		if wall_of_dakka_bonus > 0:
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Wall of Dakka", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "target within half range")
 			print("RulesEngine: WALL OF DAKKA — +1 to hit for %s (target within half range)" % actor_unit_id)
 
 		# BIG AN' SHOOTY (OA-41): +1 to Hit for ranged attacks while Waaagh! active (Morkanaut)
 		if UnitAbilityManager.has_big_an_shooty(actor_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Big an' Shooty", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "Waaagh! active")
 		# TARGETIN' SQUIGS / HUGE SHOW-OFFS: effect-granted +1 to hit on ranged attacks
 		if actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_ONE_HIT_RANGED, false):
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "+1 to hit on ranged attacks (Targetin' Squigs / Huge Show-offs)")
 			print("RulesEngine: +1 to hit (ranged) — effect_plus_one_hit_ranged on %s" % actor_unit_id)
 			print("RulesEngine: BIG AN' SHOOTY — +1 to hit (ranged) for %s (Waaagh! active)" % actor_unit_id)
 		# ARMOURED DUELLISTS (Blitz Brigade): +1 to hit vs MONSTER/VEHICLE
 		if get_armoured_duellists_bonus(actor_unit, target_unit) > 0:
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Armoured Duellists", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "target is a MONSTER or VEHICLE")
 			print("RulesEngine: ARMOURED DUELLISTS — +1 to hit vs %s (MONSTER/VEHICLE)" % target_unit_id)
 
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
@@ -2153,15 +2185,18 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		var dats_our_loot_scope = get_dats_our_loot_reroll_scope(actor_unit, target_unit, board)
 		if dats_our_loot_scope == "failed":
 			hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(hit_mod_ledger, "Dat's Our Loot!", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "target within range of an objective marker")
 			print("RulesEngine: DAT'S OUR LOOT! — full hit re-roll for %s (target near objective)" % actor_unit_id)
 		elif dats_our_loot_scope == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
+			ModifierLedger.note(hit_mod_ledger, "Dat's Our Loot!", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES, "target within range of an objective marker")
 			print("RulesEngine: DAT'S OUR LOOT! — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
 		# MEK KAPTIN (Taktikal Brigade enhancement): full Hit re-roll on the
 		# bearer's unit's ranged attacks.
 		if unit_has_mek_kaptin_reroll(actor_unit, board):
 			hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(hit_mod_ledger, "Mek Kaptin", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED)
 			print("RulesEngine: MEK KAPTIN — re-roll Hit rolls (ranged) for %s" % actor_unit_id)
 
 		# SPLAT! (OA-38): Re-roll Hit rolls of 1 on ranged attacks when conditions met.
@@ -2169,27 +2204,33 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		var splat_scope = get_splat_reroll_scope(actor_unit, target_unit)
 		if splat_scope == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
+			ModifierLedger.note(hit_mod_ledger, "Splat!", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES)
 			print("RulesEngine: SPLAT! — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
 		# BLASTAJET ATTACK RUN (OA-40): Re-roll Hit rolls of 1 when targeting non-FLY units.
 		var blastajet_scope = get_blastajet_attack_run_reroll_scope(actor_unit, target_unit)
 		if blastajet_scope == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
+			ModifierLedger.note(hit_mod_ledger, "Blastajet Attack Run", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES)
 			print("RulesEngine: BLASTAJET ATTACK RUN — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
 		# XENOS HUNTER: +1 to Hit vs non-IMPERIUM/CHAOS targets (Inquisitor Draxus while leading)
 		if has_xenos_hunter_vs_target(actor_unit, target_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Xenos Hunter", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "target lacks IMPERIUM and CHAOS")
 			print("RulesEngine: XENOS HUNTER — +1 to hit for %s (target lacks IMPERIUM/CHAOS)" % actor_unit_id)
 
 		# AGAINST ALL ODDS: +1 to Hit when no friendly units within 6" (Lions of the Emperor)
 		if FactionAbilityManager.check_against_all_odds(actor_unit, board):
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Against All Odds", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
 			print("RulesEngine: AGAINST ALL ODDS — +1 to hit for %s (no friendlies within 6\")" % actor_unit_id)
 
 		# CAPTAIN-GENERAL: Ignore all numeric hit modifiers (Trajann while leading)
 		if has_captain_general(actor_unit):
 			hit_modifiers = hit_modifiers & ~(HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)
+			ModifierLedger.note(hit_mod_ledger, "Captain-General", ModifierLedger.KIND_HIT, ModifierLedger.IGNORED, "Trajann Valoris is leading this unit")
+			ModifierLedger.mark_ignored(hit_mod_ledger, ModifierLedger.KIND_HIT, [ModifierLedger.PLUS_ONE, ModifierLedger.MINUS_ONE])
 			print("RulesEngine: CAPTAIN-GENERAL — ignoring all hit roll modifiers for %s" % actor_unit_id)
 
 		# ── ISS-016/053 (11e): hit-side modifier stack — cover/STEALTH worsen
@@ -2223,6 +2264,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 				for ms_i in range(bs_per_attack.size()):
 					bs_per_attack[ms_i] += ms_bs_delta
 				print("RulesEngine: [11e MODIFIERS] BS %+d (%s)" % [ms_bs_delta, str(ms_stack.sources("bs"))])
+				ModifierLedger.note_stack(hit_mod_ledger, ms_stack.sources("bs"), ModifierLedger.KIND_HIT, ModifierLedger.WORSEN_BS if ms_bs_delta > 0 else ModifierLedger.IMPROVE_BS)
 			# Audit #7 (13.08 per attacking model): each attack takes the
 			# cover worsening based on ITS OWN firing model's view of the
 			# target. Attacks with no recorded firing model (overrides,
@@ -2253,11 +2295,13 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			var ms_hit_net = ms_hit_net_pre
 			if ms_hit_net > 0:
 				hit_modifiers |= HitModifier.PLUS_ONE
+				ModifierLedger.note_stack(hit_mod_ledger, ms_stack.sources("hit_roll"), ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE)
 				if "heavy" in ms_stack.sources("hit_roll"):
 					heavy_bonus_applied = true
 				print("RulesEngine: [11e MODIFIERS] +1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
 			elif ms_hit_net < 0:
 				hit_modifiers |= HitModifier.MINUS_ONE
+				ModifierLedger.note_stack(hit_mod_ledger, ms_stack.sources("hit_roll"), ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE)
 				print("RulesEngine: [11e MODIFIERS] -1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
 
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
@@ -2365,6 +2409,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			"rolls_modified": modified_rolls,
 			"rerolls": reroll_data,
 			"modifiers_applied": hit_modifiers,
+			"modifier_ledger": hit_mod_ledger,
 			"heavy_bonus_applied": heavy_bonus_applied,
 			"bgnt_penalty_applied": bgnt_penalty_applied,
 			"indirect_fire_applied": indirect_fire_applied,
@@ -2433,6 +2478,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		"models_in_half_range": models_in_half_range,
 		"rapid_fire_value": rapid_fire_value,
 		"hit_modifiers": hit_modifiers,
+		"modifier_ledger": hit_mod_ledger,
 		"critical_hit_threshold": critical_hit_threshold,
 		"hit_fail_band": hit_fail_band,
 		"sustained_data": sustained_data,
@@ -2563,52 +2609,70 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	var weapon_has_twin_linked = has_twin_linked(weapon_id, board, target_unit) or assignment.get("twin_linked", false)
 
 	# WOUND MODIFIERS (T1-3): Build wound modifier flags from assignment and game state
+	# ISS-modifier-provenance: names WHERE each modifier below came from, so the
+	# Dice Log and the resolution docks can say "Against All Odds: +1 to hit"
+	# instead of an anonymous "+1". Purely additive — never read by the maths.
 	var wound_modifiers = WoundModifier.NONE
+	var wound_mod_ledger: Array = []
 	if assignment.has("modifiers") and assignment.modifiers.has("wound"):
 		var wound_mods = assignment.modifiers.wound
 		if wound_mods.get("reroll_ones", false):
 			wound_modifiers |= WoundModifier.REROLL_ONES
+			ModifierLedger.note(wound_mod_ledger, "Attack assignment", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES)
 		if wound_mods.get("reroll_failed", false):
 			wound_modifiers |= WoundModifier.REROLL_FAILED
+			ModifierLedger.note(wound_mod_ledger, "Attack assignment", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED)
 		if wound_mods.get("plus_one", false):
 			wound_modifiers |= WoundModifier.PLUS_ONE
+			ModifierLedger.note(wound_mod_ledger, "Attack assignment", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE)
 		if wound_mods.get("minus_one", false):
 			wound_modifiers |= WoundModifier.MINUS_ONE
+			ModifierLedger.note(wound_mod_ledger, "Attack assignment", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE)
 	# Twin-linked handled via WoundModifier system for re-rolls
 	if weapon_has_twin_linked:
 		wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(wound_mod_ledger, "[TWIN-LINKED]", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED)
 
 	# OATH OF MOMENT (Codex): +1 to wound when ADEPTUS ASTARTES attacks oath target
 	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
 		wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(wound_mod_ledger, "Oath of Moment", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is the Oath of Moment target")
 		print("RulesEngine: OATH OF MOMENT — +1 to wound against %s" % target_unit_id)
 
 	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker
 	if EffectPrimitivesData.has_effect_plus_one_wound(actor_unit):
 		wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(wound_mod_ledger, "Ability effect", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "granted by an ability or Stratagem")
 		print("RulesEngine: Effect +1 to wound applied for %s" % actor_unit_id)
 	if EffectPrimitivesData.has_effect_minus_one_wound(actor_unit):
 		wound_modifiers |= WoundModifier.MINUS_ONE
+		ModifierLedger.note(wound_mod_ledger, "Ability effect", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "imposed by an ability or Stratagem")
 		print("RulesEngine: Effect -1 to wound applied for %s" % actor_unit_id)
 	# DEFENDER FLAG ('ARD AS NAILS): -1 to wound for attacks targeting the flagged unit
 	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
 		wound_modifiers |= WoundModifier.MINUS_ONE
+		ModifierLedger.note(wound_mod_ledger, "'Ard as Nails", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "defender's ability")
 		print("RulesEngine: Defender effect -1 to wound (attacks vs %s)" % target_unit_id)
 	# 'EADSTOMPA (Bully Boyz): wound re-rolls vs under-strength targets
 	var eadstompa_scope = get_eadstompa_reroll_scope(actor_unit, target_unit)
 	if eadstompa_scope == "failed":
 		wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(wound_mod_ledger, "'Eadstompa", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "target is below its Starting Strength")
 	elif eadstompa_scope == "ones":
 		wound_modifiers |= WoundModifier.REROLL_ONES
+		ModifierLedger.note(wound_mod_ledger, "'Eadstompa", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "target is below its Starting Strength")
 	var reroll_wounds_scope = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if reroll_wounds_scope == "ones":
 		wound_modifiers |= WoundModifier.REROLL_ONES
+		ModifierLedger.note(wound_mod_ledger, "Ability effect", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "granted by an ability or Stratagem")
 		print("RulesEngine: Effect re-roll 1s to wound applied for %s" % actor_unit_id)
 	elif reroll_wounds_scope == "failed":
 		wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(wound_mod_ledger, "Ability effect", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "granted by an ability or Stratagem")
 		print("RulesEngine: Effect re-roll failed wounds applied for %s" % actor_unit_id)
 	elif reroll_wounds_scope == "all":
 		wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(wound_mod_ledger, "Ability effect", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "re-roll all wound rolls")
 		print("RulesEngine: Effect re-roll all wounds applied for %s" % actor_unit_id)
 
 	# LANCE (T4-1): +1 to wound if unit charged this turn. Effect-granted Lance
@@ -2617,49 +2681,59 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		var unit_charged = actor_unit.get("flags", {}).get("charged_this_turn", false)
 		if unit_charged:
 			wound_modifiers |= WoundModifier.PLUS_ONE
+			ModifierLedger.note(wound_mod_ledger, "[LANCE]", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "unit charged this turn")
 			print("RulesEngine: LANCE — +1 to wound (unit charged this turn)")
 
 	# TANK HUNTERS (OA-11): +1 to Wound when attacking MONSTER or VEHICLE targets
 	if has_tank_hunters_vs_target(actor_unit, target_unit):
 		wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(wound_mod_ledger, "Tank Hunters", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is a MONSTER or VEHICLE")
 		print("RulesEngine: TANK HUNTERS — +1 to wound for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
 
 	# DA BOSS' LADZ (OA-15): -1 to incoming Wound rolls when S > T and Warboss leads target unit
 	var da_boss_ladz_mod = get_da_boss_ladz_wound_modifier(target_unit, board, strength, toughness)
 	if da_boss_ladz_mod != WoundModifier.NONE:
 		wound_modifiers |= da_boss_ladz_mod
+		ModifierLedger.note(wound_mod_ledger, "Da Boss' Ladz", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "S > T and a Warboss leads the target")
 		print("RulesEngine: DA BOSS' LADZ — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_unit_id, strength, toughness])
 	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
 	var sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
 	if sgt_mod != WoundModifier.NONE:
 		wound_modifiers |= sgt_mod
+		ModifierLedger.note(wound_mod_ledger, "Surly as a Squiggoth", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: S>T wound penalty — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
 	# BIGGER SHELLS FOR BIGGER GITZ (Dread Mob): +1 to wound vs MONSTER/VEHICLE
 	if get_bigger_shells_wound_bonus(actor_unit, target_unit) > 0:
 		wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(wound_mod_ledger, "Bigger Shells for Bigger Gitz", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE)
 		print("RulesEngine: BIGGER SHELLS — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
 	# ARMOURED DUELLISTS (Blitz Brigade): +1 to wound vs MONSTER/VEHICLE
 	if get_armoured_duellists_bonus(actor_unit, target_unit) > 0:
 		wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(wound_mod_ledger, "Armoured Duellists", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is a MONSTER or VEHICLE")
 		print("RulesEngine: ARMOURED DUELLISTS — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
 	# PYROMANIAKS (OA-14): Re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6"
 	# Full Wound re-roll if target is also within range of an objective marker.
 	var pyromaniaks_scope = get_pyromaniaks_reroll_scope(actor_unit, target_unit, weapon_id, board)
 	if pyromaniaks_scope == "failed":
 		wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(wound_mod_ledger, "Pyromaniaks", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "target within range of an objective marker")
 		print("RulesEngine: PYROMANIAKS — full wound re-roll for %s (Torrent weapon, target within 6\" AND near objective)" % actor_unit_id)
 	elif pyromaniaks_scope == "ones":
 		wound_modifiers |= WoundModifier.REROLL_ONES
+		ModifierLedger.note(wound_mod_ledger, "Pyromaniaks", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "target within range of an objective marker")
 		print("RulesEngine: PYROMANIAKS — re-roll wound rolls of 1 for %s (Torrent weapon, target within 6\")" % actor_unit_id)
 
 	# SLAYERS OF TYRANTS: Re-roll Wound rolls vs CHARACTER/MONSTER/VEHICLE
 	if has_slayers_of_tyrants_vs_target(actor_unit, target_unit):
 		wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(wound_mod_ledger, "Slayers of Tyrants", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "target is a CHARACTER, MONSTER or VEHICLE")
 		print("RulesEngine: SLAYERS OF TYRANTS — re-roll wound rolls for %s (target is CHARACTER/MONSTER/VEHICLE)" % actor_unit_id)
 
 	# AGAINST ALL ODDS: +1 to Wound when no friendly units within 6" (Lions of the Emperor)
 	if FactionAbilityManager.check_against_all_odds(actor_unit, board):
 		wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(wound_mod_ledger, "Against All Odds", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
 		print("RulesEngine: AGAINST ALL ODDS — +1 to wound for %s (no friendlies within 6\")" % actor_unit_id)
 
 	var wound_modifier_net = 0
@@ -2768,6 +2842,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		"wound_rerolls": wound_reroll_data,
 		# WOUND MODIFIER tracking (T1-3)
 		"wound_modifier_net": wound_modifier_net,
+		"modifier_ledger": wound_mod_ledger,
 		"wound_modifiers_applied": wound_modifiers
 	})
 
@@ -2853,6 +2928,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		"wound_evals": wound_evals,
 		"wound_threshold": wound_threshold,
 		"wound_modifiers": wound_modifiers,
+		"modifier_ledger": wound_mod_ledger,
 		"critical_wound_threshold": critical_wound_threshold,
 		"weapon_has_devastating_wounds": weapon_has_devastating_wounds,
 		"weapon_has_precision": weapon_has_precision,
@@ -3054,14 +3130,34 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 		for ev in alloc.events:
 			if ev.get("result", "") != "saved":
 				fails += 1
+		# ARMOUR SAVES IN THE LOGS: carry the threshold the defender was
+		# actually rolling against (and whether it was an invulnerable save)
+		# plus the standard successes/failed counters, so every downstream
+		# renderer — dice log, game-log combat card — can label and colour the
+		# save row the same way it does hit and wound rolls. Allocation is
+		# per group, so this reports the group that took the first die; for a
+		# single-group unit (the common case) it covers the whole batch.
+		var save_needed_display := 0
+		var save_using_invuln := false
+		for ev in alloc.events:
+			if ev.has("needed"):
+				save_needed_display = int(ev.get("needed", 0))
+				save_using_invuln = bool(ev.get("using_invuln", false))
+				break
 		result.dice.append({
 			"context": "save",
-			"sv": str(base_save) + "+",
+			# int(): stats.save can be a float (5.0), and "5.0+" reads badly in
+			# the log if anything falls back to this as the displayed threshold.
+			"sv": "%d+" % int(base_save),
 			"ap": ap,
 			"cover": "n/a (11e: cover worsens BS, not saves)",
 			"save_modifier": save_modifier,
 			"rolls_raw": save_rolls,
 			"fails": fails,
+			"failed": fails,
+			"successes": save_rolls.size() - fails,
+			"threshold": ("%d+" % save_needed_display) if save_needed_display > 0 else "",
+			"using_invuln": save_using_invuln,
 			"allocation_11e": {"order": order, "events": alloc.events}
 		})
 		_materialize_allocation_11e(result, target_unit, target_unit_id, alloc.remaining, alloc.models_destroyed)
@@ -3438,6 +3534,53 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 			out.order_used = d.get("allocation_11e", {}).get("order", [])
 	if out.order_used.is_empty():
 		out.order_used = order
+	return out
+
+
+# ARMOUR SAVES IN THE GAME LOG: translate an 11e allocation batch's dice into
+# the canonical block shapes every log renderer already understands —
+# "save_roll" (GameLogPanel's visible Save row + ShootingPhase's save detail
+# line) and "feel_no_pain". The 11e batch is resolved wholesale inside
+# AllocationGroupOverlay and reported back as one summary, so its raw blocks
+# use the engine-internal "save" context with `fails`/`rolls` keys that no
+# renderer matches. Without this translation the game log jumped straight from
+# the wound roll to "No models destroyed" with nothing showing the saves that
+# were the reason nothing died.
+# `ctx`: {target_unit_name, weapon_name} — the attribution the 10e path puts on
+# its own save blocks. Unknown contexts pass through untouched.
+static func normalize_allocation_11e_dice(summary: Dictionary, ctx: Dictionary = {}) -> Array:
+	var target_name := str(ctx.get("target_unit_name", ""))
+	var weapon_name := str(ctx.get("weapon_name", ""))
+	var out: Array = []
+	for blk in summary.get("dice", []):
+		var context := str(blk.get("context", ""))
+		if context == "save":
+			var normalized: Dictionary = blk.duplicate(true)
+			var rolls: Array = blk.get("rolls_raw", [])
+			var failed := int(blk.get("failed", blk.get("fails", 0)))
+			normalized["context"] = "save_roll"
+			normalized["failed"] = failed
+			normalized["successes"] = int(blk.get("successes", rolls.size() - failed))
+			# `threshold` is the roll the defender needed; fall back to the raw
+			# armour save when the batch predates the enriched block.
+			var threshold := str(blk.get("threshold", ""))
+			normalized["threshold"] = threshold if threshold != "" else str(blk.get("sv", ""))
+			normalized["original_save"] = int(str(blk.get("sv", "7+")).replace("+", ""))
+			normalized["using_invuln"] = bool(blk.get("using_invuln", false))
+			normalized["weapon_name"] = weapon_name
+			normalized["target_unit_name"] = target_name
+			out.append(normalized)
+		elif context == "feel_no_pain":
+			var fnp: Dictionary = blk.duplicate(true)
+			# The batch path stores its dice under "rolls"; every renderer
+			# reads "rolls_raw".
+			if not fnp.has("rolls_raw"):
+				fnp["rolls_raw"] = blk.get("rolls", [])
+			fnp["threshold"] = "%d+" % int(blk.get("fnp_value", 0))
+			fnp["target_unit_name"] = target_name
+			out.append(fnp)
+		else:
+			out.append(blk)
 	return out
 
 
@@ -3818,7 +3961,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var hits = 0
 	var critical_hits = 0  # Unmodified 6s that hit (never for Torrent)
 	var regular_hits = 0   # Non-critical hits
+	# ISS-modifier-provenance: names WHERE each modifier below came from, so the
+	# Dice Log and the resolution docks can say "Against All Odds: +1 to hit"
+	# instead of an anonymous "+1". Purely additive — never read by the maths.
 	var hit_modifiers = HitModifier.NONE
+	var hit_mod_ledger: Array = []
 	var heavy_bonus_applied = false
 	var bgnt_penalty_applied = false
 	var indirect_fire_applied = false
@@ -3881,36 +4028,46 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var hit_mods = assignment.modifiers.hit
 			if hit_mods.get("reroll_ones", false):
 				hit_modifiers |= HitModifier.REROLL_ONES
+				ModifierLedger.note(hit_mod_ledger, "Attack assignment", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES)
 			if hit_mods.get("reroll_failed", false):
 				hit_modifiers |= HitModifier.REROLL_FAILED
+				ModifierLedger.note(hit_mod_ledger, "Attack assignment", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED)
 			if hit_mods.get("plus_one", false):
 				hit_modifiers |= HitModifier.PLUS_ONE
+				ModifierLedger.note(hit_mod_ledger, "Attack assignment", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE)
 			if hit_mods.get("minus_one", false):
 				hit_modifiers |= HitModifier.MINUS_ONE
+				ModifierLedger.note(hit_mod_ledger, "Attack assignment", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE)
 
 		# OATH OF MOMENT (Codex): Re-roll all hit rolls when ADEPTUS ASTARTES attacks oath target
 		if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
 			hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(hit_mod_ledger, "Oath of Moment", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "target is the Oath of Moment target")
 			print("RulesEngine: OATH OF MOMENT (auto-resolve) — re-roll all failed hits against %s" % target_unit_id)
 
 		# EFFECT FLAGS: Check for ability/stratagem-granted hit modifiers on the attacker
 		if EffectPrimitivesData.has_effect_plus_one_hit(actor_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "granted by an ability or Stratagem")
 			print("RulesEngine: Effect +1 to hit (auto-resolve) applied for %s" % actor_unit_id)
 		if EffectPrimitivesData.has_effect_minus_one_hit(actor_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "imposed by an ability or Stratagem")
 			print("RulesEngine: Effect -1 to hit (auto-resolve) applied for %s" % actor_unit_id)
 		var reroll_hits_scope_ar = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_HITS, "")
 		if reroll_hits_scope_ar == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES, "granted by an ability or Stratagem")
 			print("RulesEngine: Effect re-roll 1s to hit (auto-resolve) applied for %s" % actor_unit_id)
 		elif reroll_hits_scope_ar == "failed" or reroll_hits_scope_ar == "all":
 			hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "granted by an ability or Stratagem")
 			print("RulesEngine: Effect re-roll hits (auto-resolve) applied for %s" % actor_unit_id)
 
 		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
 		if is_damaged_profile_active(actor_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Damaged profile", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "attacker is on its Damaged profile")
 			print("RulesEngine: Damaged profile -1 to hit (auto-resolve) applied for %s" % actor_unit_id)
 
 		# HEAVY KEYWORD: Check if weapon is Heavy and unit remained stationary
@@ -3919,6 +4076,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var remained_stationary = actor_unit.get("flags", {}).get("remained_stationary", false)
 			if remained_stationary:
 				hit_modifiers |= HitModifier.PLUS_ONE
+				ModifierLedger.note(hit_mod_ledger, "[HEAVY]", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "unit remained stationary")
 				heavy_bonus_applied = true
 
 		# BIG GUNS NEVER TIRE: Apply -1 to hit for non-Pistol weapons only when shooter
@@ -3929,6 +4087,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			# Only apply penalty if this is NOT a Pistol weapon
 			if not is_pistol_weapon(weapon_id, board):
 				hit_modifiers |= HitModifier.MINUS_ONE
+				ModifierLedger.note(hit_mod_ledger, "Big Guns Never Tire", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "shooting while engaged")
 				bgnt_penalty_applied = true
 				print("RulesEngine: BGNT -1 to hit (auto-resolve) applied for %s (weapon %s)" % [actor_unit_id, weapon_id])
 
@@ -3936,9 +4095,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# Stealth imposes -1 to hit rolls against this unit for ranged attacks
 		if GameConstants.edition < 11 and EffectPrimitivesData.has_effect_stealth(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Stealth", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "target has Stealth (granted)")
 			print("RulesEngine: Stealth (effect-granted) applied -1 to hit against %s" % target_unit_id)
 		elif GameConstants.edition < 11 and has_stealth_ability(target_unit):
 			hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Stealth", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "target has the Stealth ability")
 			print("RulesEngine: Stealth (ability) applied -1 to hit against %s" % target_unit_id)
 
 		# INDIRECT FIRE (T2-4): Apply -1 to hit modifier for Indirect Fire weapons
@@ -3949,6 +4110,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# hit_fail_band below), not a -1 modifier — gate the 10e -1 off at e11.
 		if is_indirect_fire and not indirect_target_visible and GameConstants.edition < 11:
 			hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "[INDIRECT FIRE]", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "target is not visible")
 			indirect_fire_applied = true
 			print("RulesEngine: [INDIRECT FIRE] Applied -1 to hit for weapon '%s' (target not visible)" % weapon_profile.get("name", weapon_id))
 		elif is_indirect_fire and indirect_target_visible:
@@ -3957,30 +4119,36 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# TANK HUNTERS (OA-11): +1 to Hit when attacking MONSTER or VEHICLE targets (auto-resolve)
 		if has_tank_hunters_vs_target(actor_unit, target_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Tank Hunters", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "target is a MONSTER or VEHICLE")
 			print("RulesEngine: TANK HUNTERS (auto-resolve) — +1 to hit for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
 
 		# MEKANIAK (OA-34): +1 to Hit for vehicles buffed by Mek at end of Movement phase (auto-resolve)
 		if UnitAbilityManager.has_mekaniak_buff(actor_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Mekaniak", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "Mek-buffed vehicle")
 			print("RulesEngine: MEKANIAK (auto-resolve) — +1 to hit for %s (Mek-buffed vehicle)" % actor_unit_id)
 
 		# WALL OF DAKKA (OA-50): +1 to Hit on ranged attacks vs targets within half weapon range (auto-resolve)
 		var wall_of_dakka_bonus_ar = get_wall_of_dakka_hit_bonus(actor_unit, target_unit, weapon_profile)
 		if wall_of_dakka_bonus_ar > 0:
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Wall of Dakka", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "target within half range")
 			print("RulesEngine: WALL OF DAKKA (auto-resolve) — +1 to hit for %s (target within half range)" % actor_unit_id)
 
 		# BIG AN' SHOOTY (OA-41): +1 to Hit for ranged attacks while Waaagh! active (Morkanaut, auto-resolve)
 		if UnitAbilityManager.has_big_an_shooty(actor_unit):
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Big an' Shooty", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "Waaagh! active")
 		# TARGETIN' SQUIGS / HUGE SHOW-OFFS: effect-granted +1 to hit on ranged attacks
 		if actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_ONE_HIT_RANGED, false):
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "+1 to hit on ranged attacks (Targetin' Squigs / Huge Show-offs)")
 			print("RulesEngine: +1 to hit (ranged) — effect_plus_one_hit_ranged on %s" % actor_unit_id)
 			print("RulesEngine: BIG AN' SHOOTY (auto-resolve) — +1 to hit (ranged) for %s (Waaagh! active)" % actor_unit_id)
 		# ARMOURED DUELLISTS (Blitz Brigade): +1 to hit vs MONSTER/VEHICLE
 		if get_armoured_duellists_bonus(actor_unit, target_unit) > 0:
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Armoured Duellists", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "target is a MONSTER or VEHICLE")
 			print("RulesEngine: ARMOURED DUELLISTS (auto-resolve) — +1 to hit vs %s (MONSTER/VEHICLE)" % target_unit_id)
 
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
@@ -3988,15 +4156,18 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var dats_our_loot_scope_ar = get_dats_our_loot_reroll_scope(actor_unit, target_unit, board)
 		if dats_our_loot_scope_ar == "failed":
 			hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(hit_mod_ledger, "Dat's Our Loot!", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "target within range of an objective marker")
 			print("RulesEngine: DAT'S OUR LOOT! (auto-resolve) — full hit re-roll for %s (target near objective)" % actor_unit_id)
 		elif dats_our_loot_scope_ar == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
+			ModifierLedger.note(hit_mod_ledger, "Dat's Our Loot!", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES, "target within range of an objective marker")
 			print("RulesEngine: DAT'S OUR LOOT! (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
 		# MEK KAPTIN (Taktikal Brigade enhancement): full Hit re-roll on the
 		# bearer's unit's ranged attacks (auto-resolve).
 		if unit_has_mek_kaptin_reroll(actor_unit, board):
 			hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(hit_mod_ledger, "Mek Kaptin", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED)
 			print("RulesEngine: MEK KAPTIN (auto-resolve) — re-roll Hit rolls (ranged) for %s" % actor_unit_id)
 
 		# SPLAT! (OA-38): Re-roll Hit rolls of 1 on ranged attacks when conditions met (auto-resolve).
@@ -4004,17 +4175,20 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var splat_scope_ar = get_splat_reroll_scope(actor_unit, target_unit)
 		if splat_scope_ar == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
+			ModifierLedger.note(hit_mod_ledger, "Splat!", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES)
 			print("RulesEngine: SPLAT! (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
 		# BLASTAJET ATTACK RUN (OA-40): Re-roll Hit rolls of 1 when targeting non-FLY units (auto-resolve).
 		var blastajet_scope_ar = get_blastajet_attack_run_reroll_scope(actor_unit, target_unit)
 		if blastajet_scope_ar == "ones":
 			hit_modifiers |= HitModifier.REROLL_ONES
+			ModifierLedger.note(hit_mod_ledger, "Blastajet Attack Run", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES)
 			print("RulesEngine: BLASTAJET ATTACK RUN (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
 
 		# AGAINST ALL ODDS: +1 to Hit when no friendly units within 6" (Lions of the Emperor, auto-resolve)
 		if FactionAbilityManager.check_against_all_odds(actor_unit, board):
 			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Against All Odds", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
 			print("RulesEngine: AGAINST ALL ODDS (auto-resolve) — +1 to hit for %s (no friendlies within 6\")" % actor_unit_id)
 
 		# ── ISS-016/053 (11e): hit-side modifier stack — cover/STEALTH worsen
@@ -4048,6 +4222,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				for ms_i in range(bs_per_attack.size()):
 					bs_per_attack[ms_i] += ms_bs_delta
 				print("RulesEngine: [11e MODIFIERS] BS %+d (%s)" % [ms_bs_delta, str(ms_stack.sources("bs"))])
+				ModifierLedger.note_stack(hit_mod_ledger, ms_stack.sources("bs"), ModifierLedger.KIND_HIT, ModifierLedger.WORSEN_BS if ms_bs_delta > 0 else ModifierLedger.IMPROVE_BS)
 			# Audit #7 (13.08 per attacking model): each attack takes the
 			# cover worsening based on ITS OWN firing model's view of the
 			# target. Attacks with no recorded firing model (overrides,
@@ -4078,11 +4253,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var ms_hit_net = ms_hit_net_pre
 			if ms_hit_net > 0:
 				hit_modifiers |= HitModifier.PLUS_ONE
+				ModifierLedger.note_stack(hit_mod_ledger, ms_stack.sources("hit_roll"), ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE)
 				if "heavy" in ms_stack.sources("hit_roll"):
 					heavy_bonus_applied = true
 				print("RulesEngine: [11e MODIFIERS] +1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
 			elif ms_hit_net < 0:
 				hit_modifiers |= HitModifier.MINUS_ONE
+				ModifierLedger.note_stack(hit_mod_ledger, ms_stack.sources("hit_roll"), ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE)
 				print("RulesEngine: [11e MODIFIERS] -1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
 
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
@@ -4189,6 +4366,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			"rolls_modified": modified_rolls,
 			"rerolls": reroll_data,
 			"modifiers_applied": hit_modifiers,
+			"modifier_ledger": hit_mod_ledger,
 			"heavy_bonus_applied": heavy_bonus_applied,
 			"bgnt_penalty_applied": bgnt_penalty_applied,
 			"indirect_fire_applied": indirect_fire_applied,
@@ -4303,49 +4481,66 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var ar_weapon_has_twin_linked = has_twin_linked(weapon_id, board, target_unit) or assignment.get("twin_linked", false)
 
 	# WOUND MODIFIERS (T1-3): Build wound modifier flags for auto-resolve path
+	# ISS-modifier-provenance: names WHERE each modifier below came from, so the
+	# Dice Log and the resolution docks can say "Against All Odds: +1 to hit"
+	# instead of an anonymous "+1". Purely additive — never read by the maths.
 	var ar_wound_modifiers = WoundModifier.NONE
+	var ar_wound_mod_ledger: Array = []
 	if assignment.has("modifiers") and assignment.modifiers.has("wound"):
 		var wound_mods = assignment.modifiers.wound
 		if wound_mods.get("reroll_ones", false):
 			ar_wound_modifiers |= WoundModifier.REROLL_ONES
+			ModifierLedger.note(ar_wound_mod_ledger, "Attack assignment", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES)
 		if wound_mods.get("reroll_failed", false):
 			ar_wound_modifiers |= WoundModifier.REROLL_FAILED
+			ModifierLedger.note(ar_wound_mod_ledger, "Attack assignment", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED)
 		if wound_mods.get("plus_one", false):
 			ar_wound_modifiers |= WoundModifier.PLUS_ONE
+			ModifierLedger.note(ar_wound_mod_ledger, "Attack assignment", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE)
 		if wound_mods.get("minus_one", false):
 			ar_wound_modifiers |= WoundModifier.MINUS_ONE
+			ModifierLedger.note(ar_wound_mod_ledger, "Attack assignment", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE)
 	# Twin-linked handled via WoundModifier system for re-rolls
 	if ar_weapon_has_twin_linked:
 		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(ar_wound_mod_ledger, "[TWIN-LINKED]", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED)
 
 	# OATH OF MOMENT (Codex): +1 to wound when ADEPTUS ASTARTES attacks oath target
 	if FactionAbilityManager.attacker_benefits_from_oath(actor_unit, target_unit):
 		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(ar_wound_mod_ledger, "Oath of Moment", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is the Oath of Moment target")
 		print("RulesEngine: OATH OF MOMENT (auto-resolve) — +1 to wound against %s" % target_unit_id)
 
 	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker
 	if EffectPrimitivesData.has_effect_plus_one_wound(actor_unit):
 		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(ar_wound_mod_ledger, "Ability effect", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "granted by an ability or Stratagem")
 		print("RulesEngine: Effect +1 to wound (auto-resolve) applied for %s" % actor_unit_id)
 	if EffectPrimitivesData.has_effect_minus_one_wound(actor_unit):
 		ar_wound_modifiers |= WoundModifier.MINUS_ONE
+		ModifierLedger.note(ar_wound_mod_ledger, "Ability effect", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "imposed by an ability or Stratagem")
 		print("RulesEngine: Effect -1 to wound (auto-resolve) applied for %s" % actor_unit_id)
 	# DEFENDER FLAG ('ARD AS NAILS): -1 to wound for attacks targeting the flagged unit
 	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
 		ar_wound_modifiers |= WoundModifier.MINUS_ONE
+		ModifierLedger.note(ar_wound_mod_ledger, "'Ard as Nails", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "defender's ability")
 		print("RulesEngine: Defender effect -1 to wound (auto-resolve, attacks vs %s)" % target_unit_id)
 	# 'EADSTOMPA (Bully Boyz): wound re-rolls vs under-strength targets
 	var eadstompa_scope_ar = get_eadstompa_reroll_scope(actor_unit, target_unit)
 	if eadstompa_scope_ar == "failed":
 		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(ar_wound_mod_ledger, "'Eadstompa", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "target is below its Starting Strength")
 	elif eadstompa_scope_ar == "ones":
 		ar_wound_modifiers |= WoundModifier.REROLL_ONES
+		ModifierLedger.note(ar_wound_mod_ledger, "'Eadstompa", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "target is below its Starting Strength")
 	var reroll_wounds_scope_ar = actor_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if reroll_wounds_scope_ar == "ones":
 		ar_wound_modifiers |= WoundModifier.REROLL_ONES
+		ModifierLedger.note(ar_wound_mod_ledger, "Ability effect", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "granted by an ability or Stratagem")
 		print("RulesEngine: Effect re-roll 1s to wound (auto-resolve) applied for %s" % actor_unit_id)
 	elif reroll_wounds_scope_ar == "failed" or reroll_wounds_scope_ar == "all":
 		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(ar_wound_mod_ledger, "Ability effect", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "granted by an ability or Stratagem")
 		print("RulesEngine: Effect re-roll wounds (auto-resolve) applied for %s" % actor_unit_id)
 
 	# LANCE (T4-1): +1 to wound if unit charged this turn. Effect-granted Lance
@@ -4354,44 +4549,53 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var unit_charged = actor_unit.get("flags", {}).get("charged_this_turn", false)
 		if unit_charged:
 			ar_wound_modifiers |= WoundModifier.PLUS_ONE
+			ModifierLedger.note(ar_wound_mod_ledger, "[LANCE]", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "unit charged this turn")
 			print("RulesEngine: LANCE (auto-resolve) — +1 to wound (unit charged this turn)")
 
 	# TANK HUNTERS (OA-11): +1 to Wound when attacking MONSTER or VEHICLE targets (auto-resolve)
 	if has_tank_hunters_vs_target(actor_unit, target_unit):
 		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(ar_wound_mod_ledger, "Tank Hunters", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is a MONSTER or VEHICLE")
 		print("RulesEngine: TANK HUNTERS (auto-resolve) — +1 to wound for %s (target is MONSTER/VEHICLE)" % actor_unit_id)
 
 	# DA BOSS' LADZ (OA-15): -1 to incoming Wound rolls when S > T and Warboss leads target unit (auto-resolve)
 	var ar_da_boss_ladz_mod = get_da_boss_ladz_wound_modifier(target_unit, board, strength, toughness)
 	if ar_da_boss_ladz_mod != WoundModifier.NONE:
 		ar_wound_modifiers |= ar_da_boss_ladz_mod
+		ModifierLedger.note(ar_wound_mod_ledger, "Da Boss' Ladz", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "S > T and a Warboss leads the target")
 		print("RulesEngine: DA BOSS' LADZ (auto-resolve) — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_unit_id, strength, toughness])
 	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
 	var ar_sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
 	if ar_sgt_mod != WoundModifier.NONE:
 		ar_wound_modifiers |= ar_sgt_mod
+		ModifierLedger.note(ar_wound_mod_ledger, "Surly as a Squiggoth", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: S>T wound penalty (auto-resolve) — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
 	# BIGGER SHELLS FOR BIGGER GITZ (Dread Mob): +1 to wound vs MONSTER/VEHICLE
 	if get_bigger_shells_wound_bonus(actor_unit, target_unit) > 0:
 		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(ar_wound_mod_ledger, "Bigger Shells for Bigger Gitz", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE)
 		print("RulesEngine: BIGGER SHELLS (auto-resolve) — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
 	# ARMOURED DUELLISTS (Blitz Brigade): +1 to wound vs MONSTER/VEHICLE
 	if get_armoured_duellists_bonus(actor_unit, target_unit) > 0:
 		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(ar_wound_mod_ledger, "Armoured Duellists", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is a MONSTER or VEHICLE")
 		print("RulesEngine: ARMOURED DUELLISTS (auto-resolve) — +1 to wound vs %s (MONSTER/VEHICLE)" % target_unit_id)
 	# PYROMANIAKS (OA-14): Re-roll Wound rolls of 1 with Torrent weapons vs enemies within 6" (auto-resolve)
 	# Full Wound re-roll if target is also within range of an objective marker.
 	var ar_pyromaniaks_scope = get_pyromaniaks_reroll_scope(actor_unit, target_unit, weapon_id, board)
 	if ar_pyromaniaks_scope == "failed":
 		ar_wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(ar_wound_mod_ledger, "Pyromaniaks", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "target within range of an objective marker")
 		print("RulesEngine: PYROMANIAKS (auto-resolve) — full wound re-roll for %s (Torrent weapon, target within 6\" AND near objective)" % actor_unit_id)
 	elif ar_pyromaniaks_scope == "ones":
 		ar_wound_modifiers |= WoundModifier.REROLL_ONES
+		ModifierLedger.note(ar_wound_mod_ledger, "Pyromaniaks", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "target within range of an objective marker")
 		print("RulesEngine: PYROMANIAKS (auto-resolve) — re-roll wound rolls of 1 for %s (Torrent weapon, target within 6\")" % actor_unit_id)
 
 	# AGAINST ALL ODDS: +1 to Wound when no friendly units within 6" (Lions of the Emperor, auto-resolve)
 	if FactionAbilityManager.check_against_all_odds(actor_unit, board):
 		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(ar_wound_mod_ledger, "Against All Odds", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
 		print("RulesEngine: AGAINST ALL ODDS (auto-resolve) — +1 to wound for %s (no friendlies within 6\")" % actor_unit_id)
 
 	var ar_wound_modifier_net = 0
@@ -4494,6 +4698,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		"wound_rerolls": ar_wound_reroll_data,
 		# WOUND MODIFIER tracking (T1-3)
 		"wound_modifier_net": ar_wound_modifier_net,
+		"modifier_ledger": ar_wound_mod_ledger,
 		"wound_modifiers_applied": ar_wound_modifiers
 	})
 
@@ -12449,7 +12654,11 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 	var modified_rolls = []
 	var melee_hit_reroll_data = []
 	var melee_crit_threshold = 6  # Default: only unmodified 6s are critical hits
+	# ISS-modifier-provenance: names WHERE each modifier below came from, so the
+	# Dice Log and the resolution docks can say "Against All Odds: +1 to hit"
+	# instead of an anonymous "+1". Purely additive — never read by the maths.
 	var melee_hit_modifiers = HitModifier.NONE
+	var melee_hit_mod_ledger: Array = []
 
 	if is_torrent:
 		# TORRENT: All attacks automatically hit - no roll needed
@@ -12493,73 +12702,91 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			var hit_mods = assignment.modifiers.hit
 			if hit_mods.get("reroll_ones", false):
 				melee_hit_modifiers |= HitModifier.REROLL_ONES
+				ModifierLedger.note(melee_hit_mod_ledger, "Attack assignment", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES)
 			if hit_mods.get("reroll_failed", false):
 				melee_hit_modifiers |= HitModifier.REROLL_FAILED
+				ModifierLedger.note(melee_hit_mod_ledger, "Attack assignment", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED)
 
 		# OATH OF MOMENT (Codex): Re-roll all hit rolls when ADEPTUS ASTARTES attacks oath target
 		var melee_oath_reroll_hits = FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit)
 		if melee_oath_reroll_hits:
 			melee_hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(melee_hit_mod_ledger, "Oath of Moment", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "target is the Oath of Moment target")
 			print("RulesEngine: OATH OF MOMENT (melee) — re-roll all failed hits against %s" % target_name)
 
 		# EFFECT FLAGS: Check for ability/stratagem-granted hit modifiers on the attacker (melee)
 		if EffectPrimitivesData.has_effect_plus_one_hit(attacker_unit):
 			melee_hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(melee_hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "granted by an ability or Stratagem")
 			print("RulesEngine: Effect +1 to hit (melee) applied for %s" % attacker_id)
 		if EffectPrimitivesData.has_effect_minus_one_hit(attacker_unit):
 			melee_hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(melee_hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "imposed by an ability or Stratagem")
 			print("RulesEngine: Effect -1 to hit (melee) applied for %s" % attacker_id)
 		# DEFENDER FLAG (UNWAVERING SENTINELS): -1 to hit for melee attacks targeting the flagged unit
 		if EffectPrimitivesData.has_effect_minus_one_hit_defense_melee(target_unit):
 			melee_hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(melee_hit_mod_ledger, "Unwavering Sentinels", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "defender's ability")
 			print("RulesEngine: Defender effect -1 to hit (melee attacks vs %s)" % target_unit.get("meta", {}).get("name", "?"))
 		var melee_reroll_hits_scope = attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_HITS, "")
 		if melee_reroll_hits_scope == "ones":
 			melee_hit_modifiers |= HitModifier.REROLL_ONES
+			ModifierLedger.note(melee_hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES, "granted by an ability or Stratagem")
 			print("RulesEngine: Effect re-roll 1s to hit (melee) applied for %s" % attacker_id)
 		elif melee_reroll_hits_scope == "failed" or melee_reroll_hits_scope == "all":
 			melee_hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(melee_hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "granted by an ability or Stratagem")
 			print("RulesEngine: Effect re-roll hits (melee) applied for %s" % attacker_id)
 
 		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
 		if is_damaged_profile_active(attacker_unit):
 			melee_hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(melee_hit_mod_ledger, "Damaged profile", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "attacker is on its Damaged profile")
 			print("RulesEngine: Damaged profile -1 to hit (melee) applied for %s" % attacker_id)
 
 		# MEKANIAK (OA-34): +1 to Hit for vehicles buffed by Mek at end of Movement phase (melee)
 		if UnitAbilityManager.has_mekaniak_buff(attacker_unit):
 			melee_hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(melee_hit_mod_ledger, "Mekaniak", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "Mek-buffed vehicle")
 			print("RulesEngine: MEKANIAK (melee) — +1 to hit for %s (Mek-buffed vehicle)" % attacker_id)
 
 		# MONSTER HUNTERS (OA-49): Re-roll Hit rolls when attacking MONSTER or VEHICLE (melee)
 		if has_monster_hunters_vs_target(attacker_unit, target_unit):
 			melee_hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(melee_hit_mod_ledger, "Monster Hunters", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "target is a MONSTER or VEHICLE")
 			print("RulesEngine: MONSTER HUNTERS (melee) — re-roll hit rolls for %s (target is MONSTER/VEHICLE)" % attacker_id)
 
 		# BIG AN' STOMPY (OA-41): +1 to Hit for melee attacks while Waaagh! active (Gorkanaut)
 		if UnitAbilityManager.has_big_an_stompy(attacker_unit):
 			melee_hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(melee_hit_mod_ledger, "Big an' Stompy", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "Waaagh! active")
 			print("RulesEngine: BIG AN' STOMPY — +1 to hit (melee) for %s (Waaagh! active)" % attacker_id)
 
 		# XENOS HUNTER: +1 to Hit vs non-IMPERIUM/CHAOS targets (melee)
 		if has_xenos_hunter_vs_target(attacker_unit, target_unit):
 			melee_hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(melee_hit_mod_ledger, "Xenos Hunter", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "target lacks IMPERIUM and CHAOS")
 			print("RulesEngine: XENOS HUNTER (melee) — +1 to hit for %s (target lacks IMPERIUM/CHAOS)" % attacker_id)
 
 		# AGAINST ALL ODDS: +1 to Hit when no friendly units within 6" (melee, Lions of the Emperor)
 		if FactionAbilityManager.check_against_all_odds(attacker_unit, board):
 			melee_hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(melee_hit_mod_ledger, "Against All Odds", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
 			print("RulesEngine: AGAINST ALL ODDS (melee) — +1 to hit for %s (no friendlies within 6\")" % attacker_id)
 
 		# CAPTAIN-GENERAL: Ignore all numeric hit modifiers (melee)
 		if has_captain_general(attacker_unit):
 			melee_hit_modifiers = melee_hit_modifiers & ~(HitModifier.PLUS_ONE | HitModifier.MINUS_ONE)
+			ModifierLedger.note(melee_hit_mod_ledger, "Captain-General", ModifierLedger.KIND_HIT, ModifierLedger.IGNORED, "Trajann Valoris is leading this unit")
+			ModifierLedger.mark_ignored(melee_hit_mod_ledger, ModifierLedger.KIND_HIT, [ModifierLedger.PLUS_ONE, ModifierLedger.MINUS_ONE])
 			print("RulesEngine: CAPTAIN-GENERAL (melee) — ignoring all hit roll modifiers for %s" % attacker_id)
 
 		# A10 (24.29): [PSYCHIC] melee weapons ignore modifiers to the hit roll —
 		# strip the harmful -1 (the shooting paths do the same). 11e only.
 		if GameConstants.edition >= 11 and is_psychic_weapon(weapon_id, board):
 			melee_hit_modifiers = melee_hit_modifiers & ~HitModifier.MINUS_ONE
+			ModifierLedger.note(melee_hit_mod_ledger, "[PSYCHIC]", ModifierLedger.KIND_HIT, ModifierLedger.IGNORED, "psychic weapons ignore hit-roll penalties")
+			ModifierLedger.mark_ignored(melee_hit_mod_ledger, ModifierLedger.KIND_HIT, [ModifierLedger.MINUS_ONE])
 			print("RulesEngine: [PSYCHIC] (melee) — ignoring hit-roll penalties for %s" % weapon_name)
 
 		# ISS-012: per-roll evaluation shared with the ranged paths
@@ -12616,7 +12843,9 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			"sustained_rolls": sustained_result.rolls,
 			"total_hits_for_wounds": total_hits_for_wounds,
 			# PRECISION tracking
-			"precision_weapon": weapon_has_precision
+			"precision_weapon": weapon_has_precision,
+			# Named provenance for every hit modifier applied above.
+			"modifier_ledger": melee_hit_mod_ledger
 		})
 
 	# Build the hit context up-front so it is available even on a full miss —
@@ -12668,6 +12897,7 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		"bs": ws,
 		"bs_per_attack": ws_per_attack,
 		"hit_modifiers": melee_hit_modifiers,
+		"modifier_ledger": melee_hit_mod_ledger,
 		"critical_hit_threshold": melee_crit_threshold,
 		"hit_fail_band": 1,
 	}
@@ -12730,55 +12960,73 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 	var melee_weapon_has_twin_linked = has_twin_linked(weapon_id, board, target_unit) or assignment.get("twin_linked", false)
 
 	# WOUND MODIFIERS (T1-3): Build wound modifier flags for melee path
+	# ISS-modifier-provenance: names WHERE each modifier below came from, so the
+	# Dice Log and the resolution docks can say "Against All Odds: +1 to hit"
+	# instead of an anonymous "+1". Purely additive — never read by the maths.
 	var melee_wound_modifiers = WoundModifier.NONE
+	var melee_wound_mod_ledger: Array = []
 	if assignment.has("modifiers") and assignment.modifiers.has("wound"):
 		var wound_mods = assignment.modifiers.wound
 		if wound_mods.get("reroll_ones", false):
 			melee_wound_modifiers |= WoundModifier.REROLL_ONES
+			ModifierLedger.note(melee_wound_mod_ledger, "Attack assignment", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES)
 		if wound_mods.get("reroll_failed", false):
 			melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+			ModifierLedger.note(melee_wound_mod_ledger, "Attack assignment", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED)
 		if wound_mods.get("plus_one", false):
 			melee_wound_modifiers |= WoundModifier.PLUS_ONE
+			ModifierLedger.note(melee_wound_mod_ledger, "Attack assignment", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE)
 		if wound_mods.get("minus_one", false):
 			melee_wound_modifiers |= WoundModifier.MINUS_ONE
+			ModifierLedger.note(melee_wound_mod_ledger, "Attack assignment", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE)
 	# Twin-linked handled via WoundModifier system for re-rolls
 	if melee_weapon_has_twin_linked:
 		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(melee_wound_mod_ledger, "[TWIN-LINKED]", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED)
 
 	# OATH OF MOMENT (Codex): +1 to wound when ADEPTUS ASTARTES attacks oath target
 	if FactionAbilityManager.attacker_benefits_from_oath(attacker_unit, target_unit):
 		melee_wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(melee_wound_mod_ledger, "Oath of Moment", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is the Oath of Moment target")
 		print("RulesEngine: OATH OF MOMENT (melee) — +1 to wound against %s" % target_name)
 
 	# EFFECT FLAGS: Check for ability/stratagem-granted wound modifiers on the attacker (melee)
 	if EffectPrimitivesData.has_effect_plus_one_wound(attacker_unit):
 		melee_wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(melee_wound_mod_ledger, "Ability effect", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "granted by an ability or Stratagem")
 		print("RulesEngine: Effect +1 to wound (melee) applied for %s" % attacker_id)
 	if EffectPrimitivesData.has_effect_minus_one_wound(attacker_unit):
 		melee_wound_modifiers |= WoundModifier.MINUS_ONE
+		ModifierLedger.note(melee_wound_mod_ledger, "Ability effect", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "imposed by an ability or Stratagem")
 		print("RulesEngine: Effect -1 to wound (melee) applied for %s" % attacker_id)
 	# DEFENDER FLAG ('ARD AS NAILS): -1 to wound for attacks targeting the flagged unit
 	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
 		melee_wound_modifiers |= WoundModifier.MINUS_ONE
+		ModifierLedger.note(melee_wound_mod_ledger, "'Ard as Nails", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "defender's ability")
 		print("RulesEngine: Defender effect -1 to wound (melee attacks vs %s)" % target_name)
 	# 'EADSTOMPA (Bully Boyz): wound re-rolls vs under-strength targets (melee)
 	var eadstompa_scope_m = get_eadstompa_reroll_scope(attacker_unit, target_unit)
 	if eadstompa_scope_m == "failed":
 		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(melee_wound_mod_ledger, "'Eadstompa", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "target is below its Starting Strength")
 	elif eadstompa_scope_m == "ones":
 		melee_wound_modifiers |= WoundModifier.REROLL_ONES
+		ModifierLedger.note(melee_wound_mod_ledger, "'Eadstompa", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "target is below its Starting Strength")
 	var melee_reroll_wounds_scope = attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_REROLL_WOUNDS, "")
 	if melee_reroll_wounds_scope == "ones":
 		melee_wound_modifiers |= WoundModifier.REROLL_ONES
+		ModifierLedger.note(melee_wound_mod_ledger, "Ability effect", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "granted by an ability or Stratagem")
 		print("RulesEngine: Effect re-roll 1s to wound (melee) applied for %s" % attacker_id)
 	elif melee_reroll_wounds_scope == "failed" or melee_reroll_wounds_scope == "all":
 		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(melee_wound_mod_ledger, "Ability effect", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "granted by an ability or Stratagem")
 		print("RulesEngine: Effect re-roll wounds (melee) applied for %s" % attacker_id)
 
 	# BASH AND GRAB (OA-3): Freebooter Krew — re-roll Wound rolls vs targets near loot objective
 	if attacker_unit.get("flags", {}).get("effect_bash_and_grab", false):
 		if FactionAbilityManager.check_bash_and_grab_reroll_wounds(attacker_unit, target_unit, board):
 			melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+			ModifierLedger.note(melee_wound_mod_ledger, "Bash and Grab", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "Freebooter Krew — target holds an objective")
 			print("RulesEngine: BASH AND GRAB (melee) — re-roll Wound rolls vs %s (near loot objective)" % target_name)
 		else:
 			print("RulesEngine: BASH AND GRAB active but target %s not within range of loot objective — no re-roll" % target_name)
@@ -12788,9 +13036,11 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 	if attacker_unit.get("flags", {}).get("effect_orks_is_still_orks", false):
 		if is_unit_near_any_objective(target_unit, board):
 			melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+			ModifierLedger.note(melee_wound_mod_ledger, "Orks is Still Orks", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "target within range of an objective marker")
 			print("RulesEngine: ORKS IS STILL ORKS (melee) — full wound re-roll vs %s (near objective)" % target_name)
 		else:
 			melee_wound_modifiers |= WoundModifier.REROLL_ONES
+			ModifierLedger.note(melee_wound_mod_ledger, "Orks is Still Orks", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "target within range of an objective marker")
 			print("RulesEngine: ORKS IS STILL ORKS (melee) — re-roll wound 1s vs %s" % target_name)
 
 	# LANCE (T4-1): +1 to wound if unit charged this turn (melee Lance weapons).
@@ -12803,32 +13053,38 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 		var unit_charged = attacker_unit.get("flags", {}).get("charged_this_turn", false)
 		if unit_charged:
 			melee_wound_modifiers |= WoundModifier.PLUS_ONE
+			ModifierLedger.note(melee_wound_mod_ledger, "[LANCE]", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "unit charged this turn")
 			print("RulesEngine: LANCE (melee) — +1 to wound (unit charged this turn)")
 
 	# FULL THROTTLE! (Kult of Speed): +1 to melee wound rolls until end of turn
 	if attacker_unit.get("flags", {}).get("effect_full_throttle", false):
 		melee_wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(melee_wound_mod_ledger, "Full Throttle!", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE)
 		print("RulesEngine: FULL THROTTLE! (melee) — +1 to wound for %s" % attacker_id)
 
 	# DA BOSS' LADZ (OA-15): -1 to incoming Wound rolls when S > T and Warboss leads target unit (melee)
 	var melee_da_boss_ladz_mod = get_da_boss_ladz_wound_modifier(target_unit, board, strength, toughness)
 	if melee_da_boss_ladz_mod != WoundModifier.NONE:
 		melee_wound_modifiers |= melee_da_boss_ladz_mod
+		ModifierLedger.note(melee_wound_mod_ledger, "Da Boss' Ladz", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "S > T and a Warboss leads the target")
 		print("RulesEngine: DA BOSS' LADZ (melee) — -1 to wound for attacks against %s (S %d > T %d, Warboss leading)" % [target_id, strength, toughness])
 	# SURLY AS A SQUIGGOTH / effect_minus_wound_s_gt_t: -1 to wound while S > T
 	var melee_sgt_mod = get_s_gt_t_wound_penalty(target_unit, board, strength, toughness)
 	if melee_sgt_mod != WoundModifier.NONE:
 		melee_wound_modifiers |= melee_sgt_mod
+		ModifierLedger.note(melee_wound_mod_ledger, "Surly as a Squiggoth", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: S>T wound penalty (melee) — -1 to wound for attacks against %s (S %d > T %d)" % [target_id, strength, toughness])
 
 	# SLAYERS OF TYRANTS: Re-roll Wound rolls vs CHARACTER/MONSTER/VEHICLE (melee)
 	if has_slayers_of_tyrants_vs_target(attacker_unit, target_unit):
 		melee_wound_modifiers |= WoundModifier.REROLL_FAILED
+		ModifierLedger.note(melee_wound_mod_ledger, "Slayers of Tyrants", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "target is a CHARACTER, MONSTER or VEHICLE")
 		print("RulesEngine: SLAYERS OF TYRANTS (melee) — re-roll wound rolls for %s (target is CHARACTER/MONSTER/VEHICLE)" % attacker_id)
 
 	# AGAINST ALL ODDS: +1 to Wound when no friendly units within 6" (melee, Lions of the Emperor)
 	if FactionAbilityManager.check_against_all_odds(attacker_unit, board):
 		melee_wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(melee_wound_mod_ledger, "Against All Odds", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
 		print("RulesEngine: AGAINST ALL ODDS (melee) — +1 to wound for %s (no friendlies within 6\")" % attacker_id)
 
 	var melee_wound_modifier_net = 0
@@ -12935,6 +13191,7 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 		"wound_rerolls": melee_wound_reroll_data,
 		# WOUND MODIFIER tracking (T1-3)
 		"wound_modifier_net": melee_wound_modifier_net,
+		"modifier_ledger": melee_wound_mod_ledger,
 		"wound_modifiers_applied": melee_wound_modifiers
 	})
 
@@ -12953,6 +13210,7 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 		"wound_evals": wound_evals,
 		"wound_rolls": wound_rolls,
 		"wound_modifiers": melee_wound_modifiers,
+		"modifier_ledger": melee_wound_mod_ledger,
 		"wound_threshold": wound_threshold,
 		"critical_wound_threshold": melee_critical_wound_threshold,
 		"weapon_has_devastating_wounds": weapon_has_devastating_wounds,

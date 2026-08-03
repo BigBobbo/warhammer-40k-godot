@@ -58,6 +58,13 @@
     { "act": "screenshot", "label": "02_consolidate_dialog_open_on_objective" },
 
     { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance()._validate_consolidate({\"unit_id\": \"U_SHIELD_CAPTAIN_A\", \"position\": {\"x\": 960.0, \"y\": 1380.0}}).errors)", "equals": "[]" },
-    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._validate_consolidate({\"unit_id\": \"U_SHIELD_CAPTAIN_A\", \"position\": {\"x\": 960.0, \"y\": 1380.0}}).valid", "equals": true }
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._validate_consolidate({\"unit_id\": \"U_SHIELD_CAPTAIN_A\", \"position\": {\"x\": 960.0, \"y\": 1380.0}}).valid", "equals": true },
+
+    { "act": "execute_script", "script": "\"objective\" in main.get_tree().root.get_node(\"ConsolidateDialog/Content/Instruction\").text.to_lower()", "equals": true },
+    { "act": "click_node", "node": "/root/ConsolidateDialog/Content/Buttons/AutoButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"ConsolidateDialog\")\nreturn d.model_movements.size()", "multiline": true, "expect_min": 1 },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"ConsolidateDialog\")\nreturn d.get_node(\"Content/Status\").text.begins_with(\"✓\")", "multiline": true, "equals": true },
+    { "act": "screenshot", "label": "03_auto_consolidate_onto_terrain_objective" }
   ]
 }

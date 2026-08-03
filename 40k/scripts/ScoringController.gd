@@ -26,6 +26,9 @@ func _ready() -> void:
 	print("ScoringController ready")
 
 func _exit_tree() -> void:
+	# 03.03 board markers live on the token layer, not under this node
+	_clear_coherency_markers()
+
 	# Clean up UI containers
 	var scoring_controls = SceneRefs.main_path("HUD_Bottom/HBoxContainer/ScoringControls")
 	if scoring_controls and is_instance_valid(scoring_controls):
@@ -719,7 +722,65 @@ func _on_coherency_removal_required(pending: Array, _player: int) -> void:
 	print("[ScoringController] 03.03 coherency removal required for %d unit(s)" % to_show.size())
 	_show_coherency_removal_dialog(to_show)
 
+# Board markers for the offending models, spawned alongside the dialog so the
+# player can SEE which model is out of coherency and how far a mate has to come
+# to fix it (previously the dialog named a model id and nothing else).
+var _coherency_markers: Array = []
+
+func _clear_coherency_markers() -> void:
+	for marker in _coherency_markers:
+		if is_instance_valid(marker):
+			marker.queue_free()
+	_coherency_markers.clear()
+
+func _spawn_coherency_markers(pending: Array) -> void:
+	"""Flashing red boundary + 2" coherency reach circle on every offender."""
+	_clear_coherency_markers()
+	var token_layer = SceneRefs.token_layer()
+	if token_layer == null:
+		return
+	var warning_script = load("res://scripts/CoherencyWarningVisual.gd")
+	var focus_point = Vector2.ZERO
+	var focus_count := 0
+	for entry in pending:
+		var unit = GameState.get_unit(str(entry.get("unit_id", "")))
+		if unit.is_empty():
+			continue
+		# offenders arrive most-isolated first (ScoringPhase._describe_coherency_
+		# offenders) — the first one is the model the player most likely wants
+		# gone, so it gets the loud marker and everything else a muted one.
+		var ordered: Array = entry.get("offenders", []).map(func(o): return str(o))
+		for model in unit.get("models", []):
+			var model_id := str(model.get("id", ""))
+			var rank := ordered.find(model_id)
+			if rank < 0:
+				continue
+			var pos = model.get("position", null)
+			if pos == null:
+				continue
+			if pos is Dictionary:
+				pos = Vector2(pos.get("x", 0.0), pos.get("y", 0.0))
+			var marker = warning_script.new()
+			marker.name = "CoherencyWarning_%s_%s" % [str(entry.get("unit_id", "")), model_id]
+			marker.position = pos
+			marker.setup(Measurement.base_radius_px(model.get("base_mm", 32)),
+				"OUT OF COHERENCY" if rank == 0 else "")
+			marker.set_primary(rank == 0)
+			token_layer.add_child(marker)
+			_coherency_markers.append(marker)
+			if rank == 0:
+				focus_point += pos
+				focus_count += 1
+	print("[ScoringController] 03.03: flagged %d out-of-coherency model(s) on the board" % _coherency_markers.size())
+
+	# Pan to the worst offender(s) — a flashing ring is no help if it is off-screen.
+	if focus_count > 0:
+		var main = SceneRefs.main()
+		if main and main.has_method("focus_on_world_point"):
+			main.focus_on_world_point(focus_point / float(focus_count))
+
 func _show_coherency_removal_dialog(pending: Array) -> void:
+	_spawn_coherency_markers(pending)
 	var dialog = AcceptDialog.new()
 	dialog.name = "CoherencyRemovalDialog"
 	dialog.title = "Out of Coherency — Remove Models (03.03)"
@@ -741,7 +802,7 @@ func _show_coherency_removal_dialog(pending: Array) -> void:
 	content.add_child(HSeparator.new())
 
 	var desc = Label.new()
-	desc.text = "These units end the turn out of unit coherency. Choose a model to remove (destroyed, no on-death rules) until each unit is coherent."
+	desc.text = "These units end the turn out of unit coherency. The offending models are flashing red on the board, ringed by their 2\" coherency reach. Choose a model to remove (destroyed, no on-death rules) until each unit is coherent."
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(desc)
 
@@ -751,16 +812,41 @@ func _show_coherency_removal_dialog(pending: Array) -> void:
 		unit_label.text = "%s (Player %d)" % [entry.unit_name, entry.player]
 		unit_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 		content.add_child(unit_label)
-		var row = HBoxContainer.new()
+		# Gap to the nearest mate, keyed by model id (ScoringPhase supplies it;
+		# absent on older payloads / network replays, in which case the button
+		# just keeps its bare "Remove mN" label).
+		var gaps: Dictionary = {}
+		for det in entry.get("offender_details", []):
+			gaps[str(det.get("model_id", ""))] = float(det.get("nearest_inches", -1.0))
+
+		# HFlow, not HBox: a 20-model mob that breaks the 9" envelope lists every
+		# model, which used to run off the edge of the dialog.
+		var row = HFlowContainer.new()
 		row.name = "Row_%s" % str(entry.unit_id)
-		row.add_theme_constant_override("separation", 6)
-		for model_id in entry.offenders:
+		row.add_theme_constant_override("h_separation", 6)
+		row.add_theme_constant_override("v_separation", 4)
+		for i in range(entry.offenders.size()):
+			var model_id = entry.offenders[i]
 			var btn = Button.new()
 			btn.name = "Remove_%s_%s" % [str(entry.unit_id), str(model_id)]
-			btn.text = "Remove %s" % str(model_id)
+			var gap: float = gaps.get(str(model_id), -1.0)
+			# The list is sorted most-isolated first, so index 0 is the model the
+			# board is shouting about. Spelling its gap out on the button beats N
+			# identical "Remove mN" buttons that leave the player guessing; the
+			# rest keep short labels and carry their gap in the tooltip.
+			if i == 0 and gap >= 0.0:
+				btn.text = "Remove %s — %.1f\" from nearest" % [str(model_id), gap]
+			else:
+				btn.text = "Remove %s" % str(model_id)
+			if i == 0:
+				btn.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+				btn.tooltip_text = "Most isolated model — highlighted on the board"
+			elif gap >= 0.0:
+				btn.tooltip_text = "%.1f\" from the nearest model in its unit" % gap
 			var uid: String = str(entry.unit_id)
 			var mid: String = str(model_id)
 			btn.pressed.connect(func():
+				_clear_coherency_markers()
 				emit_signal("scoring_action_requested", {
 					"type": "REMOVE_MODEL_FOR_COHERENCY",
 					"unit_id": uid,
@@ -793,6 +879,7 @@ func _recheck_coherency_removal() -> void:
 				return  # Remaining removals belong to the other seat
 		_show_coherency_removal_dialog(pending)
 	else:
+		_clear_coherency_markers()
 		# Only the ACTIVE player may re-dispatch END_TURN (turn-gated action).
 		if NetworkManager and NetworkManager.is_networked() and not NetworkManager.is_local_player_turn():
 			return

@@ -1,0 +1,102 @@
+{
+  "id": "game_log_player_note",
+  "covers": [
+    "ui.GameLogPanel.note_input",
+    "ui.GameLogPanel.note_category_filter",
+    "ui.chat_panel_removed",
+    "ui.escape_releases_text_focus",
+    "log.coverage.player_note",
+    "replay.player_note_recorded"
+  ],
+  "fixture": "audit_382_cp_grant",
+  "rng_seed": 7,
+  "description": "Free-text player notes in the game log, replacing the removed chat/feed pop-up. Part A drives the real player path: click the note box at the bottom of the left-hand Game Log, type with real key events, press Enter — and assert the line becomes a player_note log entry, renders as a note card, is filterable under the 'Notes' chip, and clears the box. Part B is the soft-lock regression guard, reproduced in the exact situation the player hit it: Shooting phase with an active shooter. The old chat pop-up grabbed keyboard focus on open, and because the phase controllers skip their own ESC handling while a text input is focused (MA-41) while Main defers ESC to ShootingController whenever a shooter is active, Escape reached nobody and the game was stuck. Asserts the chat panel is gone, that the note box never self-focuses, that Escape releases focus from a focused field, and that a second Escape then reaches the shooting deselect — i.e. the player is not trapped. Part C asserts a note is recorded as a replay event so it survives into playback.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script", "script": "GameState.set_active_player(1)" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(8)" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_phase", "equals": 8 },
+
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "execute_script", "script": "GameEventLog.add_player_entry(1, 'Rhino moved 6 inches up the flank')" },
+    { "act": "wait_frames", "frames": 5 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/GameLogPanel/VBox/NoteRow/NoteInput", "timeout_s": 2.0 },
+    { "act": "screenshot", "label": "01_note_box_empty", "region": [0, 100, 360, 980] },
+
+    { "act": "execute_script", "script": "tree.root.get_node_or_null(\"Main/ChatPanel\") == null", "equals": true },
+    { "act": "execute_script", "script": "main.game_log_panel.get_note_input().has_focus()", "equals": false },
+    { "act": "execute_script", "script": "GameEventLog.count_entries_of_type(\"player_note\")", "equals": 0 },
+
+    { "act": "click_node", "node": "/root/Main/GameLogPanel/VBox/NoteRow/NoteInput" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.game_log_panel.get_note_input().has_focus()", "equals": true },
+
+    { "act": "simulate_key", "keycode": "F", "unicode": "F" },
+    { "act": "simulate_key", "keycode": "L", "unicode": "L" },
+    { "act": "simulate_key", "keycode": "A", "unicode": "A" },
+    { "act": "simulate_key", "keycode": "N", "unicode": "N" },
+    { "act": "simulate_key", "keycode": "K", "unicode": "K" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.game_log_panel.get_note_input().text", "equals": "FLANK" },
+    { "act": "screenshot", "label": "02_note_typed", "region": [0, 100, 360, 980] },
+
+    { "act": "simulate_key", "keycode": "Enter" },
+    { "act": "wait_frames", "frames": 10 },
+
+    { "act": "execute_script", "script": "GameEventLog.count_entries_of_type(\"player_note\")", "equals": 1 },
+    { "act": "execute_script", "script": "str(GameEventLog.entries.back().get('text',''))", "equals": "P1 note: FLANK" },
+    { "act": "execute_script", "script": "main.game_log_panel.get_note_input().text", "equals": "" },
+    { "act": "execute_script", "script": "main.game_log_panel.count_cards_in_category('note')", "equals": 1 },
+    { "act": "execute_script", "script": "main.game_log_panel.count_visible_cards_in_category('note')", "equals": 1 },
+    { "act": "execute_script", "script": "main.game_log_panel.newest_card_is_below_earlier_cards()", "equals": true },
+    { "act": "screenshot", "label": "03_note_in_log", "region": [0, 100, 360, 980] },
+
+    { "act": "execute_script", "script": "main.game_log_panel.set_category_filter('note', false)" },
+    { "act": "execute_script", "script": "main.game_log_panel.count_visible_cards_in_category('note')", "equals": 0 },
+    { "act": "execute_script", "script": "main.game_log_panel.set_category_filter('note', true)" },
+    { "act": "execute_script", "script": "main.game_log_panel.count_visible_cards_in_category('note')", "equals": 1 },
+
+    { "act": "execute_script", "script": "main.game_log_panel.submit_note_text('   ')" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "GameEventLog.count_entries_of_type(\"player_note\")", "equals": 1 },
+
+    { "act": "click_unit", "unit_id": "U_CUSTODIAN_GUARD_B" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.shooting_controller.active_shooter_id", "equals": "U_CUSTODIAN_GUARD_B" },
+
+    { "act": "click_node", "node": "/root/Main/GameLogPanel/VBox/NoteRow/NoteInput" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.game_log_panel.get_note_input().has_focus()", "equals": true },
+    { "act": "screenshot", "label": "04_focused_with_active_shooter", "region": [0, 100, 360, 980] },
+
+    { "act": "simulate_key", "keycode": "Escape" },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "execute_script", "script": "main.game_log_panel.get_note_input().has_focus()", "equals": false },
+    { "act": "execute_script", "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nreturn f is LineEdit or f is TextEdit", "multiline": true, "equals": false },
+    { "act": "execute_script", "script": "main.shooting_controller.active_shooter_id", "equals": "U_CUSTODIAN_GUARD_B" },
+
+    { "act": "simulate_key", "keycode": "Escape" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main.shooting_controller.active_shooter_id", "equals": "" },
+    { "act": "screenshot", "label": "05_escape_reaches_shooting_again", "region": [0, 100, 360, 980] },
+
+    { "act": "execute_script", "script": "KeybindingManager.bindings.has(\"focus_log_note\")", "equals": true },
+    { "act": "execute_script", "script": "KeybindingManager.bindings.has(\"toggle_chat_panel\")", "equals": false },
+    { "act": "simulate_key", "keycode": "C" },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "execute_script", "script": "main.game_log_panel.get_note_input().has_focus()", "equals": true },
+    { "act": "simulate_key", "keycode": "Escape" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.game_log_panel.get_note_input().has_focus()", "equals": false },
+
+    { "act": "execute_script", "script": "ReplayManager.start_recording(false)" },
+    { "act": "execute_script", "script": "main.game_log_panel.submit_note_text('OBJECTIVE 3 IS MINE')" },
+    { "act": "wait_frames", "frames": 5 },
+    { "act": "execute_script", "script": "GameEventLog.count_entries_of_type(\"player_note\")", "equals": 2 },
+    { "act": "execute_script", "script": "var n = 0\nfor e in ReplayManager._recording_events:\n\tif str(e.get('type','')) == 'player_note' and 'OBJECTIVE 3 IS MINE' in str(e.get('description','')):\n\t\tn += 1\nreturn n", "multiline": true, "equals": 1 },
+    { "act": "screenshot", "label": "06_second_note_recorded", "region": [0, 100, 360, 980] }
+  ]
+}

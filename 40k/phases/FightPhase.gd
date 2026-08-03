@@ -1616,7 +1616,10 @@ func _staged_fight_roll_hits(carry_changes: Array) -> Dictionary:
 		"hit_rolls": hc.get("hit_rolls", []),
 		"modified_rolls": hc.get("modified_rolls", []),
 		"hits": hc.get("hits", 0),
-		"threshold": str(hc.get("ws", hc.get("bs", 4))) + "+"
+		"threshold": str(hc.get("ws", hc.get("bs", 4))) + "+",
+		# Named provenance for every hit modifier that applied — the dock lists
+		# these so "hitting on 2+" is traceable to the rule that caused it.
+		"modifier_ledger": hc.get("modifier_ledger", [])
 	}
 	emit_signal("fight_stage_paused", "hits", pause_info)
 	log_phase_message("Weapon %d of %d hit roll complete — awaiting attacker to continue to wound roll" % [idx + 1, assignments.size()])
@@ -1677,7 +1680,8 @@ func _staged_fight_continue_to_wounds() -> Dictionary:
 		"wound_rolls": wc.get("wound_rolls", []),
 		"wounds": wounds,
 		"target_name": get_unit(assignments[idx].get("target", "")).get("meta", {}).get("name", ""),
-		"threshold": str(wc.get("wound_threshold", 4)) + "+"
+		"threshold": str(wc.get("wound_threshold", 4)) + "+",
+		"modifier_ledger": wc.get("modifier_ledger", [])
 	}
 	emit_signal("fight_stage_paused", "wounds", pause_info)
 	log_phase_message("Weapon %d of %d wound roll complete — awaiting attacker to continue to saving throws" % [idx + 1, assignments.size()])
@@ -1834,7 +1838,8 @@ func _process_use_fight_reroll(action: Dictionary) -> Dictionary:
 			"reroll_available": false,
 			"hit_rolls": uhc.get("hit_rolls", []),
 			"modified_rolls": uhc.get("modified_rolls", []),
-			"hits": uhc.get("hits", 0)
+			"hits": uhc.get("hits", 0),
+			"modifier_ledger": uhc.get("modifier_ledger", [])
 		})
 		return create_result(true, [], "", {
 			"staged_pause": "hits", "reroll_used": true, "reroll_available": false,
@@ -1870,7 +1875,8 @@ func _process_use_fight_reroll(action: Dictionary) -> Dictionary:
 		emit_signal("fight_stage_paused", "wounds", {
 			"reroll_available": false,
 			"wound_rolls": rr.get("wound_context", {}).get("wound_rolls", []),
-			"wounds": new_wounds
+			"wounds": new_wounds,
+			"modifier_ledger": rr.get("wound_context", {}).get("modifier_ledger", [])
 		})
 		return create_result(true, [], "", {
 			"staged_pause": "wounds", "reroll_used": true, "reroll_available": false,
@@ -2032,7 +2038,14 @@ func _process_apply_melee_saves(action: Dictionary) -> Dictionary:
 			total_casualties += alloc_casualties
 			if alloc_casualties > 0 and str(target_unit_id) != "":
 				CharacterAttachmentManager.check_bodyguard_destroyed(target_unit_id)
-			for dice_block in save_result_summary.get("dice", []):
+			# ARMOUR SAVES IN THE GAME LOG: the batch's raw blocks use the
+			# engine-internal "save" context, which no log renderer matches —
+			# normalize them to "save_roll"/"feel_no_pain" first so melee saves
+			# show up on the combat card exactly like the shooting ones.
+			for dice_block in RulesEngine.normalize_allocation_11e_dice(save_result_summary, {
+				"target_unit_name": target_name,
+				"weapon_name": save_data.get("weapon_name", ""),
+			}):
 				save_dice_blocks.append(dice_block)
 				dice_log.append(dice_block)
 				emit_signal("dice_rolled", dice_block)
@@ -5624,7 +5637,11 @@ func _emit_melee_save_detail(save_block: Dictionary) -> void:
 	if using_invuln:
 		save_type = "Invulnerable Save %s" % threshold
 	else:
-		save_type = "Armour Save %s (AP -%d)" % [threshold, ap]
+		# `ap` is stored negative (AP-1 == -1), so "(AP -%d)" printed "AP --1"
+		# once the 11e path started reaching this line. Normalise to one "-N"
+		# reading regardless of the caller's sign convention.
+		var ap_mag = absi(int(ap))
+		save_type = "Armour Save %s (AP %s)" % [threshold, ("0" if ap_mag == 0 else "-%d" % ap_mag)]
 
 	var rolls_str = GameEventLog._format_dice_rolls(rolls_raw)
 	GameEventLog.add_combat_detail("  %s Saves vs %s: %s — rolled %s — %d passed, %d failed" % [
@@ -6004,3 +6021,77 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 	if not after.ok:
 		errors.append_array(after.violations)
 	return {"valid": errors.is_empty(), "errors": errors}
+
+# ============================================================================
+# 12.08 CONSOLIDATION MODE — the single source the UI reads
+# ============================================================================
+#
+# The Consolidate step's mode is MANDATORY and assessed in a fixed order:
+# Ongoing (engaged) -> Engaging (enemy unit within 3") -> Objective (objective
+# within 3"). _validate_consolidate_11e resolves it through the
+# ConsolidationMove template; the player-facing UI used to re-derive it from
+# _can_unit_reach_engagement_range() — a 10e-era "could this unit reach
+# engagement range with its 3\" move?" heuristic (3" move + 2" engagement range
+# = 5"). The two disagree for any unit 3-5" from an enemy: 12.08 says Objective,
+# the heuristic said engagement, so ConsolidateDialog printed the enemy rules and
+# FightController reverted every drag toward the objective the right-hand picker
+# had just offered ("[Objective]"). These helpers hand the UI the same context
+# and the same per-model verdict the validator uses, so the two cannot drift
+# apart again.
+
+# 12.08 BEFORE MOVING for `unit_id`, resolved on the folded (19.03) board so an
+# Attached unit is judged as the one unit it is. Returns
+# ConsolidationMove.before_moving()'s dict plus "mode" ("" when no mode applies)
+# and, in Objective mode, "objective_position" (board px) for the UI to draw its
+# arrows toward.
+func get_consolidation_context_11e(unit_id: String) -> Dictionary:
+	var empty := {"mode": "", "targets": [], "objective": ""}
+	var tmpl: ConsolidationMove = MoveTypes.get_type("consolidation")
+	if tmpl == null or get_unit(unit_id).is_empty():
+		return empty
+	var folded_board = _fight_folded_board(unit_id, GameState.state)
+	var mode = str(tmpl.select_mode(unit_id, folded_board).mode)
+	if mode == "":
+		return empty
+	var ctx = tmpl.before_moving(unit_id, folded_board, null, {"mode": mode})
+	ctx["mode"] = mode
+	if mode == "objective":
+		ctx["objective_position"] = consolidation_objective_position_11e(str(ctx.get("objective", "")))
+	log_phase_message("[11e 12.08] Consolidation mode for %s: %s%s" % [
+		unit_id, mode,
+		(" (objective %s)" % str(ctx.get("objective", ""))) if mode == "objective" else ""
+	])
+	return ctx
+
+# Board-px centre of objective marker `obj_id`, or Vector2.ZERO when unknown.
+# Objective positions round-trip through saves as {x, y} dicts, so accept both.
+func consolidation_objective_position_11e(obj_id: String) -> Vector2:
+	if obj_id == "":
+		return Vector2.ZERO
+	for obj in GameState.state.get("board", {}).get("objectives", []):
+		if str(obj.get("id", "")) != obj_id:
+			continue
+		var pos = obj.get("position", Vector2.ZERO)
+		if pos is Dictionary:
+			return Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+		if pos is Vector2:
+			return pos
+		return Vector2.ZERO
+	return Vector2.ZERO
+
+# 12.08 WHILE MOVING for ONE model — the same ConsolidationMove verdict
+# _validate_consolidate_11e applies per moved model, so a drag the board accepts
+# is a drag Confirm Move will accept. `key` is a fight-move key: a plain model
+# index/id, or "char_unit:key" for an attached character's model (19.03).
+# `ctx` comes from get_consolidation_context_11e().
+func check_consolidation_model_move_11e(unit_id: String, key, new_pos: Vector2, ctx: Dictionary) -> Dictionary:
+	var tmpl: ConsolidationMove = MoveTypes.get_type("consolidation")
+	if tmpl == null:
+		return {"allowed": true, "reason": ""}
+	if str(ctx.get("mode", "")) == "":
+		return {"allowed": false, "reason": "no consolidation mode applies — the unit cannot move (12.08)"}
+	var route = _fight_split_move_key(unit_id, key)
+	var model = _resolve_fight_model(route.unit_id, route.model_key)
+	if model.is_empty():
+		return {"allowed": true, "reason": ""}
+	return tmpl.model_move_allowed(unit_id, model, {"x": new_pos.x, "y": new_pos.y}, GameState.state, ctx)

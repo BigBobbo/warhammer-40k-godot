@@ -90,6 +90,7 @@ func activate(p_assignments: Array, p_phase, p_controller, fighter_id: String, p
 		status_label.text = "%s is attacking — step through their rolls." % fighter_name
 	else:
 		status_label.text = "Resolving melee attacks…"
+	_clear_modifiers()
 	_clear_reroll_chips()
 	_rebuild_queue()
 
@@ -184,6 +185,7 @@ func _handle_complete(info: Dictionary) -> void:
 		_stamp_result_note(i)
 		assignments[i]["_done"] = true
 	current_index = -1
+	_clear_modifiers()
 	_clear_reroll_chips()
 	var casualties = int(info.get("casualties", 0))
 	var cas_label = "model" if casualties == 1 else "models"

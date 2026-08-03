@@ -339,6 +339,38 @@ func _record_action_event(action_type: String, action_data: Dictionary, diffs: A
 	_recording_events.append(event)
 	_recording_event_index += 1
 
+func record_player_note(player: int, text: String) -> void:
+	"""Record a free-text player note (typed into the Game Log's note box) as a
+	replay event so it is visible during playback. The note changes no game
+	state, so the event carries no diffs — it exists purely to be re-shown in the
+	log at the point in the game where it was written.
+
+	No host/client guard: both peers see each note exactly once (the sender via
+	NetworkManager's local echo, the receiver via the RPC/relay), so whichever
+	peer is recording records it exactly once."""
+	if not is_recording:
+		return
+	var clean := str(text).strip_edges()
+	if clean == "":
+		return
+	var description := "P%d note: %s" % [player, clean]
+	if GameEventLog and GameEventLog.has_method("format_player_note"):
+		description = GameEventLog.format_player_note(player, clean)
+	_recording_events.append({
+		"index": _recording_event_index,
+		"type": "player_note",
+		"action_type": "PLAYER_NOTE",
+		"note_player": player,
+		"note_text": clean,
+		"diffs": [],
+		"timestamp": Time.get_unix_time_from_system(),
+		"phase": GameState.get_current_phase(),
+		"battle_round": GameState.get_battle_round(),
+		"active_player": GameState.get_active_player(),
+		"description": description,
+	})
+	_recording_event_index += 1
+
 func _on_phase_changed_for_recording(new_phase: GameStateData.Phase) -> void:
 	if not is_recording:
 		return
