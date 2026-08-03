@@ -185,6 +185,11 @@ Each step is a dict with an `act` field plus act-specific keys.
   ```json
   { "act": "hover_unit", "unit_id": "U_WARBOSS_B" }
   ```
+  **The board model-stats card does not appear on the hover itself.** It waits
+  out `Main.HOVER_DWELL_SEC` (~0.55 s) of a parked cursor so that sweeping the
+  mouse over models while dragging one never flashes the card. Assert it with
+  `expect_node_visible` (which polls up to `timeout_s`), or a `wait_seconds`
+  longer than the dwell — never `wait_frames`.
 
 - `hover_board_at`: like `hover_unit` but for an arbitrary **board/world**
   position (board px, projected like `click_board_at`). Use to hover empty

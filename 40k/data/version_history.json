@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.16.1",
+      "date": "2026-08-03",
+      "summary": "The model stats card no longer jumps out at every model your mouse crosses — park the pointer on a model for half a second to read it, and it stays out of the way while you drag.",
+      "changes": [
+        "Fixed (reported in the charge phase): the stats card popped up the instant the pointer touched a base, so sweeping the mouse across your mob to pick a model up buried the board under a card — exactly where you were trying to drag the model to.",
+        "The card now waits until you have held the pointer still on a model for about half a second. Moving on costs nothing; stopping still gets you the full stats.",
+        "The card is hidden outright while a mouse button is down, so dragging a model (or the selection box, or the camera) never brings it up.",
+        "Once shown it still follows the pointer and still updates per model, so reading a Boss Nob next to a Boy works exactly as before.",
+        "Unchanged on a controller: the card stays off unless you hold R4 / L4 to peek, and the paddle shows it instantly — no waiting."
+      ]
+    },
+    {
       "version": "1.16.0",
       "date": "2026-08-02",
       "summary": "Tutorial 6 (Krumpin') now teaches Pile In properly: five of your Boyz start too far back to swing, and you have to shuffle them into the fight yourself.",
