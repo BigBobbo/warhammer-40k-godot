@@ -424,6 +424,10 @@ func _do_dispatch_action(step: Dictionary) -> Dictionary:
 	return {"pass": true, "result_summary": _summarize_result(result)}
 
 
+# Real-mouse-click a unit's token on the board.
+#   { "act": "click_unit", "unit_id": "U_BOYZ_A" }
+#   { "act": "click_unit", "unit_id": "U_BOYZ_A", "ctrl": true }   # additive/multi-select idiom
+#   { "act": "click_unit", "unit_id": "U_BOYZ_A", "shift": true }
 func _do_click_unit(step: Dictionary) -> Dictionary:
 	var unit_id: String = str(step.get("unit_id", ""))
 	if unit_id == "":
@@ -434,7 +438,7 @@ func _do_click_unit(step: Dictionary) -> Dictionary:
 	var screen_pos := _node2d_to_screen(token)
 	if screen_pos == Vector2.INF:
 		return {"pass": false, "error": "could not project token to screen"}
-	await _send_click(screen_pos)
+	await _send_click(screen_pos, bool(step.get("ctrl", false)), bool(step.get("shift", false)))
 	return {"pass": true, "screen_position": [screen_pos.x, screen_pos.y]}
 
 

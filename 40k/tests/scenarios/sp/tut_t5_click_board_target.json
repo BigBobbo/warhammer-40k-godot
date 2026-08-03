@@ -1,0 +1,47 @@
+{
+  "id": "tut_t5_click_board_target",
+  "covers": [
+    "charge.ux.click_board_token_to_pick_target",
+    "tutorial.t5.charge.kbm",
+    "scripts.ChargeController._try_click_select_target",
+    "scripts.ChargeController.select_target_by_id"
+  ],
+  "rng_seed": 99,
+  "edition": 11,
+  "description": "The reported player path, driven through the real T5 'Ere We Go lesson exactly as it is played on itch.io: boot the charge tutorial, click the Boyz row in UNITS THAT CAN CHARGE, then pick the target by CLICKING THE CUSTODIAN GUARD SQUAD ON THE BOARD instead of its name in the right-hand panel. The board click must select the same target the row click would (row highlights, Declare Charge enables), Declare Charge then fires the real DECLARE_CHARGE against the board-picked unit, and the tutorial advances to its 'roll' step — proving the new affordance works under the tutorial's spotlight/allow-list gating too. Also asserts the ELIGIBLE TARGETS hint tells the player the board is clickable.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton" },
+    { "act": "expect_node_visible", "node": "/root/MainMenu/TutorialPicker", "timeout_s": 3.0 },
+    { "act": "click_node", "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t5_ere_we_go/Play_t5_ere_we_go" },
+    { "act": "wait_seconds", "seconds": 8.0 },
+    { "act": "execute_script", "script": "TutorialManager.active", "equals": true },
+    { "act": "expect_phase", "equals": 9 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "intro" },
+
+    { "act": "click_node", "button_text": "Continue" },
+    { "act": "wait_frames", "frames": 15 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "declare" },
+    { "act": "screenshot", "label": "01_declare_step_no_target_yet" },
+
+    { "act": "execute_script", "multiline": true, "script": "var cc = tree.root.get_node(\"/root/Main/ChargeController\")\nfor i in range(cc.unit_selector.item_count):\n\tif str(cc.unit_selector.get_item_metadata(i)) == \"U_BOYZ_T\":\n\t\tcc.unit_selector.select(i)\n\t\tcc.unit_selector.item_selected.emit(i)\n\t\tbreak\nreturn str(cc.active_unit_id)", "equals": "U_BOYZ_T", "comment": "arm the charger from the unit list (unchanged behaviour); the TARGET below is what this scenario tests" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "multiline": true, "script": "var cc = tree.root.get_node(\"/root/Main/ChargeController\")\nreturn cc.selected_targets.size()", "equals": 0 },
+    { "act": "execute_script", "multiline": true, "script": "var cc = tree.root.get_node(\"/root/Main/ChargeController\")\nreturn str(cc.target_hint_label.get_parsed_text()).find(\"on the board\") != -1", "equals": true, "comment": "the hint has to TELL the player the board is clickable, or the affordance is undiscoverable" },
+    { "act": "execute_script", "multiline": true, "script": "var cc = tree.root.get_node(\"/root/Main/ChargeController\")\nreturn cc.declare_button.disabled", "equals": true, "comment": "nothing declared yet" },
+
+    { "act": "click_unit", "unit_id": "U_CUSTODIAN_GUARD_T", "comment": "THE ASK: click the Custodian Guard squad ON THE BOARD instead of its row in the right-hand panel" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "multiline": true, "script": "var cc = tree.root.get_node(\"/root/Main/ChargeController\")\nreturn \"U_CUSTODIAN_GUARD_T\" in cc.selected_targets", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var cc = tree.root.get_node(\"/root/Main/ChargeController\")\nreturn cc.selected_targets.size()", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "script": "var cc = tree.root.get_node(\"/root/Main/ChargeController\")\nvar sel = cc.target_list.get_selected_items()\nif sel.size() != 1:\n\treturn \"rows=%d\" % sel.size()\nreturn str(cc.target_list.get_item_metadata(sel[0]))", "equals": "U_CUSTODIAN_GUARD_T", "comment": "the panel row highlights too — one selection model, two ways in" },
+    { "act": "execute_script", "multiline": true, "script": "var cc = tree.root.get_node(\"/root/Main/ChargeController\")\nreturn cc.declare_button.disabled", "equals": false },
+    { "act": "screenshot", "label": "02_target_picked_by_clicking_the_squad" },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton" },
+    { "act": "wait_seconds", "seconds": 2.0 },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "roll", "comment": "the real DECLARE_CHARGE went through the tutorial's allow-list gate" },
+    { "act": "execute_script", "multiline": true, "script": "var t = PhaseManager.get_current_phase_instance().pending_charges[\"U_BOYZ_T\"][\"targets\"]\nreturn t.size() == 1 and str(t[0]) == \"U_CUSTODIAN_GUARD_T\"", "equals": true },
+    { "act": "screenshot", "label": "03_declared_against_board_picked_squad" }
+  ]
+}

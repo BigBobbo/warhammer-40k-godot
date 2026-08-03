@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.15.0",
+      "date": "2026-08-02",
+      "summary": "Charge phase: pick your charge target by clicking the enemy unit on the board, not just its name in the right-hand list.",
+      "changes": [
+        "With a charging unit selected, click an enemy unit's models on the battlefield to declare a charge against them — the matching ELIGIBLE TARGETS row highlights and Declare Charge lights up, exactly as if you had clicked the row.",
+        "Ctrl+Click (or Cmd/Shift+Click) an enemy on the board adds or removes it, so a multi-unit charge can be built straight off the board; a plain click still replaces the current pick.",
+        "Clicking the list of names still works exactly as before — this is an extra way in, not a replacement.",
+        "Click an enemy you cannot charge and the game now tells you why (\"Witchseekers is 45.3\\\" away — charge targets must be within 12\\\"\") instead of silently doing nothing.",
+        "Fixed: the green highlight squares drawn over eligible charge targets were swallowing mouse clicks on those very models."
+      ]
+    },
+    {
       "version": "1.14.0",
       "date": "2026-08-02",
       "summary": "The Keyboard Shortcuts card (Shift+/) is properly laid out like the unit datasheet card — and it finally lists every shortcut in the game, not the 15 it used to show.",
