@@ -74,9 +74,37 @@
       "comment": "SETUP-ONLY PRIVILEGE: the tutorial roster buys the mob nothing but choppas, so its Boy section has a single melee weapon and the Split affordance (which needs 2+ models AND 2+ weapons) never appears. Stamp the nine Boyz with the two-weapon melee_loadout the engine itself writes during loadout resolution — same key, same shape — so the section is genuinely splittable. Everything downstream (grouping, the Split UI, the counts, the submitted assignments and the engine's validation) is the real path."
     },
     {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_BOYZ_T",
+      "timeout_s": 8.0
+    },
+    {
       "act": "click_node",
-      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_BOYZ_T",
+      "comment": "11e pile-in: five Boyz start outside engagement range, so the lesson requires a real pile-in before anyone can fight"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/PileInDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/AutoButton",
       "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
     },
     {
       "act": "wait_seconds",
