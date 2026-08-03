@@ -1,0 +1,101 @@
+{
+  "id": "datasheet_key_all_phases",
+  "covers": [
+    "hud.datasheet_modal",
+    "scripts.Main._selected_unit_id_or_empty",
+    "scripts.Main._hovered_unit_id_or_empty",
+    "shooting.datasheet_key",
+    "ui.datasheet.hotkey"
+  ],
+  "fixture": "fullauto_pretrigger",
+  "transition_to_phase": 8,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "The datasheet hotkey (I) must open the selected unit's datasheet in the SHOOTING phase, exactly as it does in Movement. It did not: Main._selected_unit_id_or_empty() probed only `active_unit_id`, which Movement/Charge use, while ShootingController tracks the selection in `active_shooter_id` (and FightController in `current_fighter_id`) — so the key silently no-oped for the whole shooting phase. Drives the real player path: click a friendly token to select the shooter, press I, assert the modal opened FOR THAT UNIT. Also asserts the key is a toggle (second press closes) and that with nothing selected it falls back to the token under the cursor, which is the only way to read an ENEMY datasheet.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 8 },
+    { "act": "expect_token_visible", "unit_id": "U_BATTLEWAGON_G" },
+
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").visible",
+      "equals": false },
+
+    { "act": "click_unit", "unit_id": "U_BATTLEWAGON_G" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script",
+      "script": "main.shooting_controller.active_shooter_id",
+      "equals": "U_BATTLEWAGON_G" },
+
+    { "act": "execute_script",
+      "script": "main._selected_unit_id_or_empty()",
+      "equals": "U_BATTLEWAGON_G" },
+
+    { "act": "screenshot", "label": "01_shooter_selected_no_datasheet" },
+
+    { "act": "simulate_key", "keycode": "I" },
+    { "act": "wait_frames", "frames": 6 },
+
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").current_unit_id",
+      "equals": "U_BATTLEWAGON_G" },
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").stats_text.contains(\"T \")",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").weapons_text.to_lower().contains(\"kannon\")",
+      "equals": true },
+
+    { "act": "screenshot", "label": "02_shooting_phase_datasheet_open" },
+
+    { "act": "simulate_key", "keycode": "I" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").visible",
+      "equals": false },
+
+    { "act": "simulate_key", "keycode": "I" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").visible",
+      "equals": true },
+    { "act": "simulate_key", "keycode": "Escape" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").visible",
+      "equals": false },
+
+    { "act": "execute_script",
+      "script": "var m = tree.current_scene\nm.shooting_controller.active_shooter_id = \"\"\nreturn m._selected_unit_id_or_empty()",
+      "multiline": true,
+      "equals": "" },
+
+    { "act": "hover_unit", "unit_id": "U_CUSTODIAN_GUARD_B" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "execute_script",
+      "script": "tree.current_scene._hovered_unit_id_or_empty()",
+      "equals": "U_CUSTODIAN_GUARD_B" },
+    { "act": "simulate_key", "keycode": "I" },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").current_unit_id",
+      "equals": "U_CUSTODIAN_GUARD_B" },
+    { "act": "screenshot", "label": "03_hovered_enemy_datasheet_open" },
+    { "act": "simulate_key", "keycode": "Escape" },
+    { "act": "wait_frames", "frames": 4 },
+
+    { "act": "execute_script",
+      "script": "var m = tree.current_scene\nvar order = m._selection_controller_order()\nreturn order[0]",
+      "multiline": true,
+      "equals": "ShootingController" },
+
+    { "act": "execute_script",
+      "script": "var m = tree.current_scene\nvar missing = []\nfor path in m.SELECTION_FIELDS_BY_CONTROLLER:\n\tvar c = m.get_node_or_null(path)\n\tif c == null:\n\t\tcontinue\n\tvar hit = false\n\tfor f in m.SELECTION_FIELDS_BY_CONTROLLER[path]:\n\t\tif f in c:\n\t\t\thit = true\n\tif not hit:\n\t\tmissing.append(path)\nreturn missing",
+      "multiline": true,
+      "equals": [] }
+  ]
+}
