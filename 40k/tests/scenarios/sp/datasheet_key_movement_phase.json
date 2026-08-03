@@ -1,0 +1,53 @@
+{
+  "id": "datasheet_key_movement_phase",
+  "covers": [
+    "hud.datasheet_modal",
+    "scripts.Main._selected_unit_id_or_empty",
+    "movement.datasheet_key",
+    "ui.datasheet.hotkey"
+  ],
+  "fixture": "fullauto_pretrigger",
+  "transition_to_phase": 7,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "Regression pin for the phase-aware selection lookup: the datasheet hotkey (I) must keep working in the MOVEMENT phase, where it already did, after _selected_unit_id_or_empty() was reworked to read each controller's own selection field. Selects a unit through the real movement UI, presses I, asserts the card opened for that unit and that ESC closes it.",
+
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "expect_token_visible", "unit_id": "U_BATTLEWAGON_G" },
+
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").visible",
+      "equals": false },
+
+    { "act": "click_unit", "unit_id": "U_BATTLEWAGON_G" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_BATTLEWAGON_G" },
+    { "act": "execute_script",
+      "script": "main._selected_unit_id_or_empty()",
+      "equals": "U_BATTLEWAGON_G" },
+    { "act": "execute_script",
+      "script": "var m = tree.current_scene\nreturn m._selection_controller_order()[0]",
+      "multiline": true,
+      "equals": "MovementController" },
+
+    { "act": "simulate_key", "keycode": "I" },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").visible",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").current_unit_id",
+      "equals": "U_BATTLEWAGON_G" },
+    { "act": "screenshot", "label": "01_movement_phase_datasheet_open" },
+
+    { "act": "simulate_key", "keycode": "Escape" },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script",
+      "script": "tree.current_scene.get_node(\"DatasheetModal\").visible",
+      "equals": false }
+  ]
+}

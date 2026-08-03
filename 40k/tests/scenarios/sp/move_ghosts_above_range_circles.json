@@ -5,12 +5,13 @@
     "movement.group_drag_ghost_readability",
     "movement.per_model_move_range_circle",
     "movement.pad_carry_reach_ring_under_ghost",
-    "phases.MovementPhase.UI.move_range_overlay"
+    "phases.MovementPhase.UI.move_range_overlay",
+    "movement.range_ring_includes_base_extent"
   ],
   "fixture": "audit_baseline_postdeploy",
   "transition_to_phase": 7,
   "disable_ai": true,
-  "description": "Group-dragging a squad must not bury the ghosts under the green reach circles. Part A drives the real mouse path \u2014 click the unit, SHIFT drag-box all four Witchseekers, then a drag that is PAUSED mid-flight (drag_board release:false) so the live drag frame can be inspected before mouse_up_board drops it. Part B repeats the check on the pad carry, the one path that deliberately LIFTS the reach ring (dash.z_index = 50) so the clamp boundary reads over board tokens \u2014 it must still pass under the ghost. Asserts over effective z-index (walking the z_as_relative parent chain, i.e. the key the renderer sorts on): (1) every ghost draws above every child of MoveRangeVisual, MovementERVisual and MovementCoherencyVisual; (2) the distance-moved readout parented to the ghosts clears them too; (3) the dashed reach circles are drawn thin (<= 6 board px) so N overlapping per-model circles stay legible. Screenshots capture the mid-drag frames a player actually sees.",
+  "description": "Group-dragging a squad must not bury the ghosts under the green reach circles. Part A drives the real mouse path \u2014 click the unit, SHIFT drag-box all four Witchseekers, then a drag that is PAUSED mid-flight (drag_board release:false) so the live drag frame can be inspected before mouse_up_board drops it. Part B repeats the check on the pad carry, the one path that deliberately LIFTS the reach ring (dash.z_index = 50) so the clamp boundary reads over board tokens \u2014 it must still pass under the ghost. Asserts over effective z-index (walking the z_as_relative parent chain, i.e. the key the renderer sorts on): (1) every ghost draws above every child of MoveRangeVisual, MovementERVisual and MovementCoherencyVisual; (2) the distance-moved readout parented to the ghosts clears them too; (3) the dashed reach circles are drawn thin (<= 6 board px) so N overlapping per-model circles stay legible. Screenshots capture the mid-drag frames a player actually sees. Also asserts each per-model reach ring is drawn at move-cap px PLUS that model's base extent, so the ring marks where the base EDGE can reach rather than where the centre can reach.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -119,6 +120,17 @@
       "multiline": true,
       "expect_max": 6.0,
       "script": "# Thin reach circles: with one circle per dragged model a heavy stroke floods\n# the drop zone. Report the widest dash actually drawn.\nvar m = tree.root.get_node(\"Main\")\nvar w := 0.0\nfor c in m.get_node(\"BoardRoot/MoveRangeVisual\").get_children():\n\tif c is Line2D:\n\t\tw = max(w, (c as Line2D).width)\nreturn w"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "expect_max": 1.5,
+      "script": "# Every per-model ring in a GROUP drag must be inflated by that model's own\n# base extent, not drawn at the raw move cap \u2014 the same fix as the single-model\n# reach ring (see move_range_ring_includes_base). Each dash's arc_idx-0 point is\n# centre + (radius, 0), so match each dash against the closest pickup origin and\n# report the worst deviation from cap_px + base extent.\nvar m = tree.root.get_node(\"Main\")\nvar mc = m.movement_controller\nvar want: float = Measurement.inches_to_px(mc.move_cap_inches) + Measurement.base_extent_px(mc.selected_models[0])\nvar worst := 0.0\nfor c in m.get_node(\"BoardRoot/MoveRangeVisual\").get_children():\n\tif not (c is Line2D):\n\t\tcontinue\n\tvar best := 1.0e9\n\tfor k in mc.group_drag_start_positions:\n\t\tvar sp = mc.group_drag_start_positions[k]\n\t\tbest = min(best, abs((c as Line2D).points[0].distance_to(sp) - want))\n\tworst = max(worst, best)\nm.set_meta(\"group_ring_probe\", \"want=%.1f worst_dev=%.2f\" % [want, worst])\nreturn worst"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"group_ring_probe\"))",
+      "exists": true
     },
     {
       "act": "screenshot",

@@ -6230,15 +6230,22 @@ const MOVE_RANGE_OVERLAY_WIDTH: float = 5.0
 func _draw_dashed_range_circle(center: Vector2, radius_px: float, label_text: String) -> void:
 	# Draws a dashed circle (with optional distance label) into move_range_visual.
 	# Shared by the per-model movement-reach overlays.
+	#
+	# radius_px is expected to already include the model's base extent (see
+	# _show_model_range_overlay): the ring marks where the model's BASE EDGE can
+	# reach, not where its centre can reach.
 	if not is_instance_valid(move_range_visual) or radius_px <= 0.0:
 		return
-	# P1 (Steam Deck): on the pad the carried model CLAMPS exactly onto this ring
-	# (MovementController._clamp_move_to_budget), so the boundary is a hard edge the
-	# player slides to — draw it brighter, thicker, and lifted above board tokens so
-	# it can't read as a faint suggestion or be occluded. Deliberately NOT extended
-	# to a clamped mouse drag: a group drag paints one circle per model, and the
-	# 1.4x stroke that reads well behind a single carried pad ghost turns four
-	# overlapping circles into a wall of green (asserted by the
+	# P1 (Steam Deck): on the pad the carried model's leading base edge CLAMPS
+	# exactly onto this ring (_clamp_move_to_budget clamps the centre to the
+	# budget, and the ring sits one base extent further out), so the boundary is a
+	# hard edge the player slides to — draw it brighter, thicker, and lifted above
+	# board tokens so it can't read as a faint suggestion or be occluded.
+	#
+	# A clamped MOUSE drag now hits that same hard edge, but the emphatic styling
+	# is deliberately NOT extended to it: a group drag paints one circle per
+	# model, and the 1.4x stroke that reads well behind a single carried pad ghost
+	# turns four overlapping circles into a wall of green (asserted by the
 	# move_ghosts_above_range_circles scenario's <= 6px width check).
 	var pad_carry := InputDeviceManager.is_pad_active()
 	var col: Color = MOVE_RANGE_OVERLAY_COLOR
@@ -6289,17 +6296,27 @@ func _show_model_range_overlay(model: Dictionary, center: Vector2) -> void:
 	# pickup position. Radius is the *remaining* distance this model may move, so
 	# it automatically reflects the Advance distance during an Advance, and shrinks
 	# to the leftover allowance when continuing a staged move.
+	#
+	# The drawn radius is the remaining move PLUS the model's base extent: the
+	# move budget is measured centre-to-centre, so a ring at the raw budget marks
+	# where the model's centre may stop and a wide base visibly overhangs it at
+	# max range. Inflating by the base extent makes the ring read as "the furthest
+	# any part of this model can end up", which is what players expect. The label
+	# still reports the movement distance, not the drawn radius.
 	if not is_instance_valid(move_range_visual) or model.is_empty():
 		return
 	_clear_move_range_overlay()
 	var remaining: float = _get_effective_move_cap() - _get_accumulated_distance_for_model(model)
 	if remaining <= 0.0:
 		return
-	_draw_dashed_range_circle(center, Measurement.inches_to_px(remaining), _format_range_label(remaining))
+	var radius_px: float = Measurement.inches_to_px(remaining) + Measurement.base_extent_px(model)
+	_draw_dashed_range_circle(center, radius_px, _format_range_label(remaining))
 
 func _show_group_range_overlay() -> void:
 	# Per-model reach circles for every model in a group drag (labels omitted to
-	# avoid clutter when several circles overlap).
+	# avoid clutter when several circles overlap). Each ring is inflated by ITS OWN
+	# model's base extent — a squad can mix base sizes (e.g. an attached CHARACTER
+	# on a bigger base), so one shared radius would misdraw at least one of them.
 	if not is_instance_valid(move_range_visual) or selected_models.is_empty():
 		return
 	_clear_move_range_overlay()
@@ -6311,7 +6328,8 @@ func _show_group_range_overlay() -> void:
 		var remaining: float = cap - _get_accumulated_distance_for_model(model_data)
 		if remaining <= 0.0:
 			continue
-		_draw_dashed_range_circle(start_pos, Measurement.inches_to_px(remaining), "")
+		var radius_px: float = Measurement.inches_to_px(remaining) + Measurement.base_extent_px(model_data)
+		_draw_dashed_range_circle(start_pos, radius_px, "")
 
 func _clear_move_range_overlay() -> void:
 	if not is_instance_valid(move_range_visual):
