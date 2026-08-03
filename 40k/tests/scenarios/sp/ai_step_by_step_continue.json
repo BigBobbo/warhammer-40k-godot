@@ -1,0 +1,63 @@
+{
+  "id": "ai_step_by_step_continue",
+  "covers": [
+    "ai.speed.step_by_step",
+    "ai.speed.step_continue_button",
+    "ui.HUD.ai_thinking_overlay"
+  ],
+  "fixture": "audit_378_formations",
+  "transition_to_phase": 0,
+  "rng_seed": 7,
+  "description": "AI 'Step-by-step' speed must expose a visible way to advance the AI. Regression: the only Continue button lived inside _ai_speed_panel, whose reveal ran in _initialize_ai_player() BEFORE _setup_ai_speed_hud() created the node — so the reveal no-opped, the panel stayed hidden forever, and a step-by-step game froze on 'AI is thinking..' in the Battle Formations phase with no control to press. This scenario makes P2 an AI, sets Step-by-step, hands the turn to it with CONFIRM_FORMATIONS, and asserts the AI thinking banner turns into an 'AI paused' prompt carrying a VISIBLE Continue button — then proves a real mouse click on that button, and the ai_step_continue hotkey, each advance the AI by exactly one action.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 0 },
+
+    { "act": "execute_script", "multiline": true, "script": "AIPlayer.configure({1: \"HUMAN\", 2: \"AI\"})\nAIPlayer.set_ai_speed_preset(3)\ntree.current_scene.refresh_ai_suggestion_button()\nreturn true", "equals": true },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "AIPlayer.is_ai_player(2)", "equals": true },
+    { "act": "execute_script", "script": "AIPlayer.get_ai_speed_name()", "equals": "Step-by-step" },
+
+    { "act": "execute_script", "script": "main._ai_step_continue_button != null", "equals": true },
+    { "act": "execute_script", "script": "str(main._ai_step_continue_button.get_path())", "equals": "/root/Main/AIThinkingOverlay/ThinkingVBox/AIStepContinueButton" },
+    { "act": "execute_script", "script": "main._ai_step_continue_button.is_visible_in_tree()", "equals": false },
+    { "act": "screenshot", "label": "01_step_by_step_selected" },
+
+    { "act": "expect_node_visible", "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton", "timeout_s": 3.0 },
+    { "act": "click_node", "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton" },
+    { "act": "wait_seconds", "seconds": 2.5 },
+    { "act": "execute_script", "multiline": true, "script": "return tree.current_scene.formations_dialog == null or not is_instance_valid(tree.current_scene.formations_dialog)", "equals": true },
+    { "act": "expect_state", "path": "meta.formations_p1_confirmed", "equals": true },
+
+    { "act": "execute_script", "script": "AIPlayer.is_step_by_step_paused()", "equals": true },
+    { "act": "expect_node_visible", "node": "/root/Main/AIThinkingOverlay/ThinkingVBox/AIStepContinueButton", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "main.ai_thinking_label.text", "equals": "AI paused — step-by-step" },
+    { "act": "execute_script", "script": "main._ai_step_continue_button.text.begins_with(\"Continue\")", "equals": true },
+    { "act": "execute_script", "script": "main._ai_step_prompt_active", "equals": true },
+    { "act": "screenshot", "label": "02_ai_paused_continue_visible" },
+
+    { "act": "execute_script", "multiline": true, "script": "tree.root.set_meta(\"sbs_actions_before\", AIPlayer._action_log.size())\nreturn AIPlayer._action_log.size() >= 0", "equals": true },
+    { "act": "wait_seconds", "seconds": 3.0 },
+    { "act": "execute_script", "multiline": true, "script": "return AIPlayer._action_log.size() - int(tree.root.get_meta(\"sbs_actions_before\"))", "equals": 0 },
+
+    { "act": "click_node", "node": "/root/Main/AIThinkingOverlay/ThinkingVBox/AIStepContinueButton" },
+    { "act": "wait_seconds", "seconds": 4.0 },
+    { "act": "execute_script", "multiline": true, "script": "return AIPlayer._action_log.size() - int(tree.root.get_meta(\"sbs_actions_before\")) >= 1", "equals": true },
+    { "act": "execute_script", "script": "AIPlayer.is_step_by_step_paused()", "equals": true },
+    { "act": "expect_node_visible", "node": "/root/Main/AIThinkingOverlay/ThinkingVBox/AIStepContinueButton", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "03_after_click_continue" },
+
+    { "act": "execute_script", "multiline": true, "script": "tree.root.set_meta(\"sbs_actions_before\", AIPlayer._action_log.size())\nreturn true", "equals": true },
+    { "act": "simulate_key", "keycode": "Space" },
+    { "act": "wait_seconds", "seconds": 4.0 },
+    { "act": "execute_script", "multiline": true, "script": "return AIPlayer._action_log.size() - int(tree.root.get_meta(\"sbs_actions_before\")) >= 1", "equals": true },
+
+    { "act": "execute_script", "script": "AIPlayer.set_ai_speed_preset(1)" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "AIPlayer.is_step_by_step_paused()", "equals": false },
+    { "act": "execute_script", "script": "main._ai_step_continue_button.is_visible_in_tree()", "equals": false },
+    { "act": "execute_script", "script": "main._ai_step_prompt_active", "equals": false },
+    { "act": "execute_script", "script": "main._ai_speed_label.text.contains(\"Normal\")", "equals": true },
+    { "act": "screenshot", "label": "04_prompt_cleared_on_speed_change" }
+  ]
+}
