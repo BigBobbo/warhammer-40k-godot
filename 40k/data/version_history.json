@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.17.1",
+      "date": "2026-08-03",
+      "summary": "Charge phase: the End Charge Phase button works again while you are moving a charge, and the game now tells you that 'Confirm Charge Moves' is the step you are missing.",
+      "changes": [
+        "Fixed (reported): after declaring a charge, re-rolling with a CP and clicking Snap to Contact, the top-right 'End Charge Phase' button did nothing at all. While charge models were being moved, the charge controller was swallowing every mouse click that did not land on one of its own three buttons — so the End Phase button, the unit list, the game log tabs and the overwatch toggle were all silently dead, even though none of them looked disabled.",
+        "Clicking 'End Charge Phase' with a charge move still staged now raises a 'Confirm your charge move first' prompt that names the unit and explains that nothing is locked in yet — instead of quietly throwing away a successful charge roll.",
+        "That prompt's main button IS the missing step: press 'Confirm Charge Moves' and the charge is committed there and then. 'Go Back' returns you to adjusting the move.",
+        "'Confirm Charge Moves' is now styled as the main action of the charge panel and gently pulses while it is what the charge is waiting on, so it no longer looks like just another button next to 'Snap to Contact'.",
+        "The status line at the top of the screen now names the current charge step — 'Charge declared — click Roll 2D6', 'Charge move staged — click Confirm Charge Moves to lock it in' — rather than a generic 'Phase: CHARGE'."
+      ]
+    },
+    {
       "version": "1.17.0",
       "date": "2026-08-03",
       "summary": "A Leader and the squad he joined now fight in ONE activation — one row, one attack panel, one swing. The enemy no longer gets a turn in between.",
