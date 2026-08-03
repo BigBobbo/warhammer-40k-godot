@@ -219,6 +219,13 @@ static func battleshock_outcome(roll_success: bool) -> bool:
 ##      within 9" (horizontal) of EVERY other model in the unit.
 ## Returns {coherent: bool, offenders: [model ids]}. Single-model units
 ## are always coherent.
+##
+## Both thresholds carry Measurement.DISTANCE_TOLERANCE_INCHES (0.05"), the
+## same slack the movement ghosts / deployment circles / pile-in helpers
+## already draw with. Without it the engine was measurably stricter than
+## every UI affordance that tells the player "this is in range", so a model
+## auto-snapped to exactly 2.0" could render green while the End of Turn
+## 03.03 check called it an offender and demanded a removal.
 static func check_unit_coherency(unit: Dictionary) -> Dictionary:
 	var models: Array = []
 	for m in unit.get("models", []):
@@ -227,13 +234,14 @@ static func check_unit_coherency(unit: Dictionary) -> Dictionary:
 	if models.size() <= 1:
 		return {"coherent": true, "offenders": []}
 
-	var coh_px = _measurement().inches_to_px(GameConstants.coherency_distance_inches())
+	var tol: float = _measurement().DISTANCE_TOLERANCE_INCHES
+	var coh_px = _measurement().inches_to_px(GameConstants.coherency_distance_inches() + tol)
 	var required_neighbors := 1
 	if GameConstants.edition < 11 and models.size() >= 7:
 		required_neighbors = 2
 	var envelope_px := 0.0
 	if GameConstants.edition >= 11:
-		envelope_px = _measurement().inches_to_px(GameConstants.coherency_envelope_inches())
+		envelope_px = _measurement().inches_to_px(GameConstants.coherency_envelope_inches() + tol)
 
 	var offenders: Array = []
 	for i in range(models.size()):
@@ -250,6 +258,108 @@ static func check_unit_coherency(unit: Dictionary) -> Dictionary:
 		if neighbors < required_neighbors or not envelope_ok:
 			offenders.append(str(models[i].get("id", i)))
 	return {"coherent": offenders.is_empty(), "offenders": offenders}
+
+
+# ── Attached-unit coherency (19.03 + 03.03) ─────────────────────────
+## 19.03: while a CHARACTER is attached to a bodyguard squad the two are a
+## single Attached unit, so coherency is judged over BOTH components'
+## models together — exactly what FightPhase._validate_unit_coherency does
+## when it validates a pile-in / consolidate move.
+##
+## Returns the component unit ids of the Attached unit `unit_id` belongs to,
+## bodyguard first. A unit with no attachment returns [unit_id].
+static func coherency_group_ids(unit_id: String, units: Dictionary) -> Array:
+	var unit: Dictionary = units.get(unit_id, {})
+	if unit.is_empty():
+		return [unit_id]
+	# An attached CHARACTER is judged as part of its bodyguard's group; resolve
+	# to the bodyguard first (single hop — bodyguards never attach onward).
+	var attached_to = unit.get("attached_to", null)
+	if attached_to != null and str(attached_to) != "" and str(attached_to) != unit_id \
+			and units.has(str(attached_to)):
+		unit_id = str(attached_to)
+		unit = units[unit_id]
+	var ids: Array = [unit_id]
+	for cid in unit.get("attachment_data", {}).get("attached_characters", []):
+		var c := str(cid)
+		if c != unit_id and units.has(c) and not ids.has(c):
+			ids.append(c)
+	return ids
+
+
+## End of Turn (03.03) coherency verdict for the Attached unit `unit_id` belongs
+## to. Returns {coherent, offenders: [{unit_id, model_id}], group_ids,
+## model_count, merged_offenders, solo_offenders}.
+##
+## A model is only an offender when BOTH readings of "its unit" condemn it:
+##
+##   * the ATTACHED-unit reading (19.03) — every component's models measured as
+##     the one unit they are, which FightPhase._validate_unit_coherency applies
+##     when it approves a pile-in / consolidate;
+##   * the STANDALONE reading — the component unit measured on its own, which
+##     MovementPhase._validate_unit_coherency_after_move applies when it
+##     approves a normal / advance / fall-back move.
+##
+## The two disagree in opposite directions, and taking either one alone
+## destroys models the game itself just said were legally placed:
+##
+##   * standalone alone raised the reported false positive — a squad model
+##     within 2" of nothing but the attached CHARACTER is in coherency by
+##     19.03, yet looks stranded once the bodyguard is measured without its
+##     leader, so the player was told to delete a legally-placed model;
+##   * merged alone is stricter on the 9" envelope, because the character adds
+##     a model everything else must be within 9" OF. Measured on a real save,
+##     that condemned three full Boyz mobs (12, 20 and 11 models) whose leader
+##     was simply standing off one end — every one of those positions was
+##     approved by the movement validator that put them there.
+##
+## Intersecting keeps the permissive half of each: neighbours are counted
+## across the whole Attached unit, the envelope is judged per component. 03.03
+## destroys models, so the benefit of the doubt belongs to the player.
+##
+## Note a single-model component (a lone attached CHARACTER) is always coherent
+## under the standalone reading and therefore never an offender — matching the
+## pre-existing behaviour, which skipped 1-model units outright.
+static func check_attached_unit_coherency(unit_id: String, units: Dictionary) -> Dictionary:
+	var group := coherency_group_ids(unit_id, units)
+
+	# 19.03 reading: one merged model set (ids namespaced — two components can
+	# both call a model "m1").
+	var merged: Array = []
+	var owner_by_key: Dictionary = {}
+	for gid in group:
+		for m in units.get(gid, {}).get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			var key := "%s|%s" % [gid, str(m.get("id", ""))]
+			var tagged: Dictionary = m.duplicate(true)
+			tagged["id"] = key
+			merged.append(tagged)
+			owner_by_key[key] = {"unit_id": gid, "model_id": str(m.get("id", ""))}
+	var merged_res := check_unit_coherency({"models": merged})
+	var merged_offenders: Dictionary = {}  # key -> true
+	for key in merged_res.get("offenders", []):
+		merged_offenders[str(key)] = true
+
+	# Standalone reading: each component unit measured on its own.
+	var solo_offenders: Dictionary = {}
+	for gid in group:
+		for mid in check_unit_coherency(units.get(gid, {})).get("offenders", []):
+			solo_offenders["%s|%s" % [gid, str(mid)]] = true
+
+	var offenders: Array = []
+	for key in merged_offenders:
+		if solo_offenders.has(key) and owner_by_key.has(key):
+			offenders.append(owner_by_key[key])
+
+	return {
+		"coherent": offenders.is_empty(),
+		"offenders": offenders,
+		"group_ids": group,
+		"model_count": merged.size(),
+		"merged_offenders": merged_offenders.keys(),
+		"solo_offenders": solo_offenders.keys(),
+	}
 
 
 # ── Identical-attack gathering (ISS-041 step 2; 11e 04.03) ──────────
