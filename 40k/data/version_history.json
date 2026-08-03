@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.17.1",
+      "version": "1.18.1",
       "date": "2026-08-03",
       "summary": "Charge phase: the End Charge Phase button works again while you are moving a charge, and the game now tells you that 'Confirm Charge Moves' is the step you are missing.",
       "changes": [
@@ -11,6 +11,66 @@
         "That prompt's main button IS the missing step: press 'Confirm Charge Moves' and the charge is committed there and then. 'Go Back' returns you to adjusting the move.",
         "'Confirm Charge Moves' is now styled as the main action of the charge panel and gently pulses while it is what the charge is waiting on, so it no longer looks like just another button next to 'Snap to Contact'.",
         "The status line at the top of the screen now names the current charge step — 'Charge declared — click Roll 2D6', 'Charge move staged — click Confirm Charge Moves to lock it in' — rather than a generic 'Phase: CHARGE'."
+      ]
+    },
+    {
+      "version": "1.18.0",
+      "date": "2026-08-03",
+      "summary": "Line-of-sight debug (hold L) now shows you WHAT is blocking the shot: each line is solid up to the wall that stops it and fades out beyond.",
+      "changes": [
+        "Blocked sight lines used to be drawn at full strength all the way to the target, so a unit that could not see anything painted the whole board solid red and buried the terrain you were trying to read.",
+        "Each blocked line is now drawn solid only as far as the first piece of terrain that actually stops it, then continues as a faint, darker ghost to the target — so the real blocker is obvious at a glance.",
+        "A small amber marker sits on the exact point where each line dies. With a whole squad's worth of lines, those markers trace out the edge of the wall or ruin doing the blocking.",
+        "The same split applies to the phase-independent hold-L overview, so blocked unit-to-unit lines also fade at the terrain rather than running dashed red across the table.",
+        "Fixed: holding L on a unit that has no eligible targets — the exact moment you want this debug — used to draw nothing at all, because the code that gathers the enemy units crashed and looked for a player number that does not exist."
+      ]
+    },
+    {
+      "version": "1.17.4",
+      "date": "2026-08-03",
+      "summary": "The datasheet key (I) works in every phase now \u2014 it was dead through the whole Shooting and Fight phases.",
+      "changes": [
+        "Fixed (reported): selecting a unit in the Shooting phase and pressing I did nothing. The game only looked for a selected unit the way the Movement and Charge phases store it, so in Shooting and Fight it decided nothing was selected and the datasheet never opened.",
+        "Pressing I again now closes the card, so the key toggles instead of only opening.",
+        "With nothing selected, I reads the datasheet of whatever unit the cursor is over \u2014 including enemy units, which you can never select.",
+        "ESC closes the datasheet in the Shooting phase again. It used to deselect your shooter and leave the card sitting there, even though the card\u0027s own footer says \u0027ESC to close\u0027.",
+        "Same fixes apply to Shift+F (snap camera to the selected unit), the line-of-sight overview and the controller\u0027s Y button, which all read the same selection."
+      ]
+    },
+    {
+      "version": "1.17.3",
+      "date": "2026-08-03",
+      "summary": "AI speed 'Step-by-step' now actually gives you the step: a Continue button appears on the AI banner instead of the game sitting on 'AI is thinking…' forever.",
+      "changes": [
+        "Fixed (reported in Declare Battle Formations): with AI speed set to Step-by-step the game froze on 'AI is thinking..' with nothing to press. The Continue button existed but was locked inside a panel that was never shown, so the only way out was to change the AI speed.",
+        "The AI banner now says 'AI paused — step-by-step' and carries a 'Continue ▶ (Space)' button. Click it — or press Space — to let the AI take exactly one more action.",
+        "The banner stops pulsing and stops animating its dots while it is waiting for you, so 'paused' no longer looks like 'still thinking'.",
+        "Switching the AI speed away from Step-by-step clears the prompt instead of leaving it stranded on screen.",
+        "Confirming your battle formations from the top bar now closes the declaration dialog, so it can't be left floating over the AI's turn."
+      ]
+    },
+    {
+      "version": "1.17.2",
+      "date": "2026-08-03",
+      "summary": "The green dashed move-range ring now shows how far the MODEL can reach, not how far its centre can reach — so a wide base no longer sticks out past the ring.",
+      "changes": [
+        "Fixed (player report): dragging a model to the edge of the green dashed ring left part of its base poking outside the dashes, because the ring marked where the model's centre could stop. On a 100mm dreadnought base that was a 2\" overhang — confusing on every wide-based model.",
+        "The ring is now drawn one base-radius further out, so the outer edge of the base lands exactly on the dashes when the model is at maximum move. The distance label still reads the move distance (e.g. 8\"), not the drawn radius.",
+        "Oval and rectangular bases are handled too — the ring uses the furthest point of the base (the end of the major axis, or the corner), so it never under-draws and does not wobble as a model pivots.",
+        "In a group drag each model gets a ring sized for its own base, so a squad with an attached Character on a bigger base draws correctly for both.",
+        "The same fix applies to the green per-model charge-move rings shown after the 2D6 charge roll."
+      ]
+    },
+    {
+      "version": "1.17.1",
+      "date": "2026-08-03",
+      "summary": "The Scout step no longer vanishes without a word — it now tells you who can Scout, or why nobody can.",
+      "changes": [
+        "Fixed (reported): a player deployed what they believed were Scout units and never got the Scout move prompt — the step ran and ended in a single frame, so the first thing they saw was their secondary-mission draw. The Scout step now always writes to the Game Log: who may make Scout moves, and when nobody can, that no unit in the army has the Scouts ability.",
+        "If a unit HAS Scouts but cannot act — it is in Reserves, embarked in a transport, or leading another unit — the log names the unit and the reason instead of silently leaving it out.",
+        "When the Scout step is skipped entirely, an on-screen notice now says so, so it is obvious the game made that call rather than the step being missed.",
+        "Fixed: units with Scouts 7”, 8” or 9” were only moving 6”. 11th-edition datasheets write the ability name in the plural (Scouts 9”) and the distance reader only understood the singular form, so every longer Scout move quietly fell back to the 6” default.",
+        "Fixed: a Scouts ability recorded under a generic name (with the real rule text in its description) is now recognised, instead of the unit being treated as having no Scouts at all."
       ]
     },
     {

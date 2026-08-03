@@ -69,6 +69,29 @@ var fight_controller: Node
 var scoring_controller: Node
 var current_phase: GameStateData.Phase
 
+# ── Selection lookup (_selected_unit_id_or_empty) ────────────────────────────
+# Which member each phase controller stores "the unit the player has selected"
+# in. They do not agree on a name, so every consumer of the selection (the
+# datasheet key I, fit-to-selection Shift+F, LoS overview, pad-Y) has to go
+# through the table rather than probing a single field.
+const SELECTION_FIELDS_BY_CONTROLLER := {
+	"MovementController": ["active_unit_id"],
+	"ShootingController": ["active_shooter_id"],
+	"ChargeController": ["active_unit_id"],
+	"FightController": ["current_fighter_id", "pile_in_unit_id"],
+}
+const SELECTION_CONTROLLER_ORDER := [
+	"MovementController", "ShootingController", "ChargeController", "FightController",
+]
+# Controller that owns each phase — asked first so a leftover selection from the
+# previous phase never shadows the live one.
+const SELECTION_CONTROLLER_FOR_PHASE := {
+	GameStateData.Phase.MOVEMENT: "MovementController",
+	GameStateData.Phase.SHOOTING: "ShootingController",
+	GameStateData.Phase.CHARGE: "ChargeController",
+	GameStateData.Phase.FIGHT: "FightController",
+}
+
 # Scout phase state
 var _scout_active_unit_id: String = ""
 var _scout_dragging_model: bool = false
@@ -179,7 +202,16 @@ var _is_spectator_mode: bool = false
 # T7-36: AI speed controls HUD (for human-vs-AI mode)
 var _ai_speed_panel: PanelContainer = null
 var _ai_speed_label: Label = null
+# The "Continue" affordance for step-by-step mode. It lives INSIDE the AI
+# thinking overlay (see _setup_ai_thinking_indicator) — that banner is what the
+# player is already watching while the AI acts, so the control to step the AI
+# forward has to be there. It used to live in the floating _ai_speed_panel,
+# which was never revealed (see _refresh_ai_speed_hud), leaving step-by-step
+# mode with no visible way to continue.
 var _ai_step_continue_button: Button = null
+# True while the thinking banner is showing the "AI paused — continue?" prompt
+# instead of the animated "AI is thinking…" text.
+var _ai_step_prompt_active: bool = false
 # Clickable AI speed selector in the top menu bar (next to the AI Suggestion
 # button) — same presets as the < > / hotkeys and the main-menu setup dropdown.
 var _ai_speed_dropdown: OptionButton = null
@@ -607,6 +639,10 @@ func _ready() -> void:
 	# On-demand AI suggestion button (revealed later for human-vs-AI games)
 	_setup_ai_suggestion_button()
 
+	# T7-36: _initialize_ai_player() ran above, before any of these HUD nodes
+	# existed, so its own reveal/sync no-opped. Do it now that they are built.
+	_refresh_ai_speed_hud()
+
 	# Apply White Dwarf gothic UI theme
 	_apply_white_dwarf_theme()
 
@@ -693,12 +729,11 @@ func _initialize_ai_player() -> void:
 	if not ai_player.step_by_step_waiting.is_connected(_on_step_by_step_waiting):
 		ai_player.step_by_step_waiting.connect(_on_step_by_step_waiting)
 
-	# T7-36: Show AI speed HUD for non-spectator AI games
-	_is_spectator_mode = ai_player.is_spectator_mode()
-	if not _is_spectator_mode and ai_player.enabled:
-		_update_ai_speed_label(ai_player.get_ai_speed_name())
-		if _ai_speed_panel:
-			_ai_speed_panel.visible = true
+	# T7-36: Sync the AI speed HUD. NOTE: in the _ready() path this runs before
+	# _setup_ai_speed_hud()/_setup_ai_thinking_indicator() have built the nodes,
+	# so it no-ops there — _ready() calls _refresh_ai_speed_hud() again after
+	# they exist. It still matters on the mid-game reconfigure paths.
+	_refresh_ai_speed_hud()
 
 	# Reveal the on-demand AI suggestion button for human-vs-AI games
 	refresh_ai_suggestion_button()
@@ -711,10 +746,6 @@ func _initialize_ai_player() -> void:
 			ai_player.spectator_speed_changed.connect(_on_spectator_speed_changed)
 		if not ai_player.spectator_phase_summary.is_connected(_on_spectator_phase_summary):
 			ai_player.spectator_phase_summary.connect(_on_spectator_phase_summary)
-		# Show the speed indicator HUD
-		_update_spectator_speed_label(ai_player.get_spectator_speed())
-		if _spectator_speed_panel:
-			_spectator_speed_panel.visible = true
 
 func _reinitialize_ai_after_load() -> void:
 	"""SAVE-1: Re-initialize AI player after loading a save file.
@@ -778,19 +809,12 @@ func _reinitialize_ai_after_load() -> void:
 		ai_player.step_by_step_waiting.connect(_on_step_by_step_waiting)
 
 	# Update spectator/speed UI
-	_is_spectator_mode = ai_player.is_spectator_mode()
-	if not _is_spectator_mode and ai_player.enabled:
-		_update_ai_speed_label(ai_player.get_ai_speed_name())
-		if _ai_speed_panel:
-			_ai_speed_panel.visible = true
+	_refresh_ai_speed_hud()
 	if _is_spectator_mode:
 		if not ai_player.spectator_speed_changed.is_connected(_on_spectator_speed_changed):
 			ai_player.spectator_speed_changed.connect(_on_spectator_speed_changed)
 		if not ai_player.spectator_phase_summary.is_connected(_on_spectator_phase_summary):
 			ai_player.spectator_phase_summary.connect(_on_spectator_phase_summary)
-		_update_spectator_speed_label(ai_player.get_spectator_speed())
-		if _spectator_speed_panel:
-			_spectator_speed_panel.visible = true
 
 	# Re-sync the top-menu AI controls (suggestion button + speed dropdown) with
 	# the loaded game's AI configuration.
@@ -1651,22 +1675,55 @@ func _setup_ai_thinking_indicator() -> void:
 	banner_style.set_content_margin_all(8)
 	ai_thinking_overlay.add_theme_stylebox_override("panel", banner_style)
 
+	# Column: the thinking text, plus the step-by-step Continue button below it.
+	# MOUSE_FILTER_IGNORE on the banner/column keeps the board clickable through
+	# them; the button itself sets STOP so it is still pickable (child controls
+	# are hit-tested independently of their parents' filter).
+	var vbox = VBoxContainer.new()
+	vbox.name = "ThinkingVBox"
+	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_theme_constant_override("separation", 6)
+	ai_thinking_overlay.add_child(vbox)
+
 	# Label with the thinking text
 	ai_thinking_label = Label.new()
 	ai_thinking_label.text = "AI is thinking..."
 	ai_thinking_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ai_thinking_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	ai_thinking_label.add_theme_font_size_override("font_size", 21)
-	ai_thinking_overlay.add_child(ai_thinking_label)
+	vbox.add_child(ai_thinking_label)
+
+	# T7-36: step-by-step Continue button. Hidden unless the AI is paused waiting
+	# for the player to step it forward — then it is the on-screen twin of the
+	# ai_step_continue hotkey, right under the "AI paused" text.
+	_ai_step_continue_button = Button.new()
+	_ai_step_continue_button.name = "AIStepContinueButton"
+	_ai_step_continue_button.text = "Continue ▶ (%s)" % _ai_step_continue_key_name()
+	_ai_step_continue_button.tooltip_text = "Let the AI take its next action. Step-by-step mode pauses before every AI action."
+	_ai_step_continue_button.custom_minimum_size = Vector2(0, 30)
+	_ai_step_continue_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	_ai_step_continue_button.visible = false
+	_ai_step_continue_button.pressed.connect(_on_step_continue_pressed)
+	_WhiteDwarfTheme.apply_to_button(_ai_step_continue_button)
+	vbox.add_child(_ai_step_continue_button)
 
 	add_child(ai_thinking_overlay)
 	print("Main: AI thinking indicator created (T7-20)")
+
+func _ai_step_continue_key_name() -> String:
+	"""Display name of the rebindable ai_step_continue hotkey (default Space)."""
+	if KeybindingManager:
+		return KeybindingManager.get_key_display_name("ai_step_continue")
+	return "Space"
 
 func _show_ai_thinking_indicator(player: int) -> void:
 	if not ai_thinking_overlay:
 		return
 	var phase_name = _get_phase_label_text(current_phase)
+	_ai_step_prompt_active = false
 	ai_thinking_label.text = "AI is thinking..."
+	if _ai_step_continue_button:
+		_ai_step_continue_button.visible = false
 	_ai_thinking_dots_count = 3
 	ai_thinking_overlay.visible = true
 	_start_ai_thinking_pulse()
@@ -1695,6 +1752,10 @@ func _stop_ai_thinking_pulse() -> void:
 func _update_ai_thinking_dots(delta: float) -> void:
 	# Animate the ellipsis dots: "AI is thinking.", "AI is thinking..", "AI is thinking..."
 	if not ai_thinking_overlay or not ai_thinking_overlay.visible:
+		return
+	# T7-36: while step-by-step is waiting on the player, the banner shows the
+	# "AI paused — press Continue" prompt; don't animate over it.
+	if _ai_step_prompt_active:
 		return
 	_ai_thinking_dots_timer += delta
 	if _ai_thinking_dots_timer >= 0.4:
@@ -1829,7 +1890,11 @@ func _format_phase_summary_stats(summary: Dictionary) -> Array:
 # =============================================================================
 
 func _setup_ai_speed_hud() -> void:
-	"""T7-36: Create a speed indicator panel for AI games (non-spectator mode)."""
+	"""T7-36: Create the AI speed read-out panel.
+
+	Kept hidden (see _refresh_ai_speed_hud): it sits under the top HUD bar and the
+	right-panel "AI: <speed>" dropdown is the player-facing control. _ai_speed_label
+	survives as the programmatic read-out that hotkeys/saves/scenarios assert on."""
 	_ai_speed_panel = PanelContainer.new()
 	_ai_speed_panel.name = "AISpeedPanel"
 	# Position at top-center, below the phase HUD
@@ -1865,17 +1930,32 @@ func _setup_ai_speed_hud() -> void:
 	_ai_speed_label.add_theme_font_size_override("font_size", 16)
 	vbox.add_child(_ai_speed_label)
 
-	# Step-by-step continue button (hidden unless step-by-step mode is paused)
-	_ai_step_continue_button = Button.new()
-	_ai_step_continue_button.text = "Continue (Space)"
-	_ai_step_continue_button.custom_minimum_size = Vector2(0, 24)
-	_ai_step_continue_button.visible = false
-	_ai_step_continue_button.pressed.connect(_on_step_continue_pressed)
-	_WhiteDwarfTheme.apply_to_button(_ai_step_continue_button)
-	vbox.add_child(_ai_step_continue_button)
-
 	add_child(_ai_speed_panel)
 	print("Main: T7-36 AI speed HUD created")
+
+func _refresh_ai_speed_hud() -> void:
+	"""T7-36: Sync the AI speed HUD with the live AIPlayer configuration.
+
+	Called from _ready() AFTER the HUD nodes exist, and again from the game-config
+	/ post-load paths. It has to be callable from all three: _initialize_ai_player()
+	runs BEFORE _setup_ai_speed_hud() in _ready(), so the reveal those paths do is a
+	no-op on the still-null nodes — which is exactly how step-by-step mode ended up
+	with no visible Continue control."""
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if not ai_player:
+		return
+	_is_spectator_mode = ai_player.is_spectator_mode()
+	_update_ai_speed_label(ai_player.get_ai_speed_name())
+	# The floating top-centre speed panel is deliberately NOT shown: it overlaps
+	# the top HUD bar (which occupies y 0-100 while the panel sits at y 72), and
+	# the right-panel "AI: <speed>" dropdown already states the current speed.
+	# The label is kept in sync because it remains the programmatic read-out.
+	if _ai_speed_panel:
+		_ai_speed_panel.visible = false
+	if _spectator_speed_panel:
+		_spectator_speed_panel.visible = _is_spectator_mode and ai_player.enabled
+	if _is_spectator_mode:
+		_update_spectator_speed_label(ai_player.get_spectator_speed())
 
 func _on_ai_speed_changed(preset: int, preset_name: String) -> void:
 	"""T7-36: Update the AI speed label when speed changes."""
@@ -1884,6 +1964,12 @@ func _on_ai_speed_changed(preset: int, preset_name: String) -> void:
 	# OptionButton.select() does not emit item_selected, so no feedback loop.
 	if _ai_speed_dropdown and preset >= 0 and preset < _ai_speed_dropdown.item_count:
 		_ai_speed_dropdown.select(preset)
+	# Leaving step-by-step clears AIPlayer's pause, so the prompt would otherwise
+	# be stranded on screen while the AI runs on. (This is the escape hatch
+	# players found when the Continue button was invisible.)
+	var ai_player = get_node_or_null("/root/AIPlayer")
+	if ai_player and preset != ai_player.AISpeedPreset.STEP_BY_STEP:
+		_hide_step_continue_button()
 
 func _update_ai_speed_label(speed_name: String) -> void:
 	"""T7-36: Update the AI speed indicator label text."""
@@ -1891,22 +1977,40 @@ func _update_ai_speed_label(speed_name: String) -> void:
 		_ai_speed_label.text = "AI Speed: %s  [< >]" % speed_name
 
 func _on_step_by_step_waiting() -> void:
-	"""T7-36: Show the continue button when step-by-step mode pauses."""
+	"""T7-36: The AI paused for the player. Turn the "AI is thinking…" banner into
+	an explicit "AI paused — Continue" prompt with a clickable button, so
+	step-by-step mode has a visible way forward and not just the hotkey."""
+	_ai_step_prompt_active = true
+	if ai_thinking_overlay:
+		# The pause always happens mid-thinking-sequence (AIPlayer only pauses once
+		# _ai_thinking is set), but force the banner up rather than assume it.
+		ai_thinking_overlay.visible = true
+		# Solid, not pulsing: this is a control to click, not a progress spinner.
+		_stop_ai_thinking_pulse()
+	if ai_thinking_label:
+		ai_thinking_label.text = "AI paused — step-by-step"
 	if _ai_step_continue_button:
+		_ai_step_continue_button.text = "Continue ▶ (%s)" % _ai_step_continue_key_name()
 		_ai_step_continue_button.visible = true
+	print("Main: T7-36 step-by-step paused — Continue prompt shown")
 
 func _on_step_continue_pressed() -> void:
 	"""T7-36: User pressed the continue button in step-by-step mode."""
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	if ai_player:
 		ai_player.step_by_step_continue()
-	if _ai_step_continue_button:
-		_ai_step_continue_button.visible = false
+	_hide_step_continue_button()
 
 func _hide_step_continue_button() -> void:
-	"""T7-36: Hide the continue button (e.g., when AI turn ends)."""
+	"""T7-36: Drop the step prompt and put the banner back to "AI is thinking…"."""
+	_ai_step_prompt_active = false
 	if _ai_step_continue_button:
 		_ai_step_continue_button.visible = false
+	if ai_thinking_overlay and ai_thinking_overlay.visible:
+		if ai_thinking_label:
+			ai_thinking_label.text = "AI is thinking..."
+		_ai_thinking_dots_count = 3
+		_start_ai_thinking_pulse()
 
 # =============================================================================
 # T7-52: AI Unit Highlighting During Actions
@@ -6325,15 +6429,28 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	# T39: datasheet modal (rebindable: datasheet_modal, default I) opens for selected unit
+	# T39: datasheet modal (rebindable: datasheet_modal, default I) opens for the
+	# selected unit — in EVERY phase, not just Movement/Charge (see
+	# _selected_unit_id_or_empty). Pressing it again while the card is up closes
+	# it, so the key is a toggle rather than a one-way door.
+	# Falls back to whatever token the cursor is over when nothing is selected,
+	# which is the only way to read an ENEMY datasheet (enemies are never
+	# "selected") and matches what players instinctively try: hover, press I.
 	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "datasheet_modal"):
 		var ds = get_node_or_null("DatasheetModal")
 		if ds != null:
+			if ds.visible:
+				ds.close()
+				get_viewport().set_input_as_handled()
+				return
 			var sel_id := _selected_unit_id_or_empty()
+			if sel_id == "":
+				sel_id = _hovered_unit_id_or_empty()
 			if sel_id != "":
 				ds.open_for(sel_id)
 				get_viewport().set_input_as_handled()
 				return
+			print("Main: datasheet key pressed with no unit selected or hovered — nothing to show")
 
 	# Shared ESC: dismiss ruler tool first, then close datasheet modal.
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
@@ -7018,15 +7135,53 @@ func _selected_unit_id_or_empty() -> String:
 	# Best-effort lookup of the currently-selected unit across the various
 	# controller autoloads / scene nodes that track selection. Returns "" if
 	# nothing is selected.
-	for path in ["MovementController", "ShootingController", "ChargeController", "FightController"]:
+	#
+	# The controllers do NOT agree on one field name for "the unit the player has
+	# selected" — Movement/Charge use active_unit_id, Shooting uses
+	# active_shooter_id, Fight uses current_fighter_id. The old blanket
+	# `"active_unit_id" in c` scan therefore found nothing at all in the shooting
+	# and fight phases, which silently no-oped every caller: the datasheet key
+	# (I), fit-to-selection (Shift+F), the LoS overview and pad-Y. Per-controller
+	# field names below (SELECTION_FIELDS_BY_CONTROLLER).
+	#
+	# The controller owning the CURRENT phase is asked first — the others keep
+	# their last selection after a phase change, so a stale MovementController id
+	# would otherwise beat the live shooter.
+	for path in _selection_controller_order():
 		var c = get_node_or_null(path)
-		if c != null and "active_unit_id" in c and str(c.get("active_unit_id")) != "":
-			return str(c.get("active_unit_id"))
+		if c == null:
+			continue
+		for field in SELECTION_FIELDS_BY_CONTROLLER.get(path, ["active_unit_id"]):
+			if field in c and str(c.get(field)) != "":
+				return str(c.get(field))
 	# DEPLOY-CYCLE: during deployment the unit being placed counts as selected
 	# (lets the pad Y datasheet toggle work while deploying).
 	if deployment_controller and is_instance_valid(deployment_controller) and deployment_controller.is_placing():
 		return str(deployment_controller.get_current_unit())
 	return ""
+
+
+# Ask the current phase's controller first, then everyone else in the usual
+# order (a phase with no controller of its own just falls through to the scan).
+func _selection_controller_order() -> Array:
+	var order: Array = []
+	var owner_path: String = SELECTION_CONTROLLER_FOR_PHASE.get(current_phase, "")
+	if owner_path != "":
+		order.append(owner_path)
+	for path in SELECTION_CONTROLLER_ORDER:
+		if not order.has(path):
+			order.append(path)
+	return order
+
+
+# The unit the cursor is currently over, if any — "" when the pointer is not on
+# a model. _token_hover_unit_id is only set once the hover card has actually
+# popped; _token_hover_pending_unit_id is set the moment the cursor lands on a
+# token, so pressing a key mid-dwell still resolves to the right unit.
+func _hovered_unit_id_or_empty() -> String:
+	if _token_hover_unit_id != "":
+		return _token_hover_unit_id
+	return _token_hover_pending_unit_id
 
 
 # T13: fit the whole board into the viewport with 32px margin per edge. Sets
@@ -9279,6 +9434,19 @@ func _show_formations_dialog(player: int) -> void:
 	DialogUtils.popup_full_height(formations_dialog)
 	print("Main: Showed formations dialog for Player %d" % player)
 
+func _close_formations_dialog() -> void:
+	"""Tear down the formations declaration dialog if one is open.
+
+	Detaches before queue_free (which only frees at end of frame) so the stable
+	"FormationsDialog" name is immediately free for the next instance — same
+	reason _show_formations_dialog does it."""
+	if formations_dialog and is_instance_valid(formations_dialog):
+		if formations_dialog.get_parent():
+			formations_dialog.get_parent().remove_child(formations_dialog)
+		formations_dialog.queue_free()
+		formations_dialog = null
+		print("Main: Closed formations declaration dialog")
+
 # ========================================
 # Pre-deployment Roll-off UI (issue #85)
 # ========================================
@@ -9581,6 +9749,13 @@ func _on_formations_confirm_pressed() -> void:
 	if not confirm_result.get("success", false) and not confirm_result.get("pending", false):
 		print("Main: CONFIRM_FORMATIONS failed for player %d — not showing next dialog" % confirming_player)
 		return
+
+	# Belt-and-braces: this player's declarations are in, so the dialog has done
+	# its job. It is an exclusive popup — anything it survives over swallows every
+	# click and keypress underneath it, including the step-by-step Continue button
+	# once the turn passes to an AI. No-ops on the normal path (the dialog's own
+	# Confirm button frees itself before this handler is reachable).
+	_close_formations_dialog()
 
 	if not is_multiplayer:
 		# Single player / hotseat — show dialog for the other player if needed

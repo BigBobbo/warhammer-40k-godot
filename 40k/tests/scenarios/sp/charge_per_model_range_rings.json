@@ -10,7 +10,7 @@
   "rng_seed": 42,
   "transition_to_phase": 9,
   "disable_ai": true,
-  "description": "Feature: charge-range overlays must be per-model at BOTH stages of the charge flow. U_CHARGER_0 is a 3-model Boyz unit; it and the Shield-Captain target are repositioned onto verified open ground (clear of the fixture's ruins) at charger x=950 y={540,600,660}, target (800,600). PRE-ROLL: selecting the unit (real _on_unit_selected UI path) must show the orange 12\" charge THREAT ENVELOPE — the union of every model's base outline inflated by 12\" (eligibility is edge-to-edge from ANY model, 11.02) — instead of the old single 12\" ring centred on the unit centroid. Asserted via charge_threat_outlines (one merged loop) and charge_threat_bounds: y spans [540-(480+base_r) .. 660+(480+base_r)] and x max = 950+(480+base_r) where base_r = base_radius_px(32); the old centroid ring would stop 60px+base_r short at both y extremes (600±480). POST-ROLL: DECLARE_CHARGE + CHARGE_ROLL + click the real 'Keep Roll' button to decline the Command Re-roll -> the real charge_roll_made signal enables movement and swaps the overlay for GREEN per-model reach rings. Asserts: range_visual holds 31 nodes (3 rings x 10 dash arcs + 1 summary label); each ring's arc_idx-0 first point (= centre + (radius,0)) sits on a DISTINCT model origin (y=540 / 600 / 660), and each radius equals charge_distance * PX_PER_INCH proving the rings show the rolled reach, not a fixed 12\".",
+  "description": "Feature: charge-range overlays must be per-model at BOTH stages of the charge flow. U_CHARGER_0 is a 3-model Boyz unit; it and the Shield-Captain target are repositioned onto verified open ground (clear of the fixture's ruins) at charger x=950 y={540,600,660}, target (800,600). PRE-ROLL: selecting the unit (real _on_unit_selected UI path) must show the orange 12\" charge THREAT ENVELOPE — the union of every model's base outline inflated by 12\" (eligibility is edge-to-edge from ANY model, 11.02) — instead of the old single 12\" ring centred on the unit centroid. Asserted via charge_threat_outlines (one merged loop) and charge_threat_bounds: y spans [540-(480+base_r) .. 660+(480+base_r)] and x max = 950+(480+base_r) where base_r = base_radius_px(32); the old centroid ring would stop 60px+base_r short at both y extremes (600±480). POST-ROLL: DECLARE_CHARGE + CHARGE_ROLL + click the real 'Keep Roll' button to decline the Command Re-roll -> the real charge_roll_made signal enables movement and swaps the overlay for GREEN per-model reach rings. Asserts: range_visual holds 31 nodes (3 rings x 10 dash arcs + 1 summary label); each ring's arc_idx-0 first point (= centre + (radius,0)) sits on a DISTINCT model origin (y=540 / 600 / 660), and each radius equals charge_distance * PX_PER_INCH PLUS that model's base extent (the ring marks where the base EDGE can reach, not where the model centre can reach), proving the rings show the rolled reach, not a fixed 12\".",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 9 },
@@ -96,13 +96,13 @@
       "equals": 660.0 },
 
     { "act": "execute_script",
-      "script": "abs(main.charge_controller.range_visual.get_child(0).points[0].x - 950.0 - main.charge_controller.charge_distance * Measurement.PX_PER_INCH)",
+      "script": "abs(main.charge_controller.range_visual.get_child(0).points[0].x - 950.0 - main.charge_controller.charge_distance * Measurement.PX_PER_INCH - Measurement.base_extent_px(GameState.get_unit(\"U_CHARGER_0\").models[0]))",
       "expect_max": 1.0 },
     { "act": "execute_script",
-      "script": "abs(main.charge_controller.range_visual.get_child(10).points[0].x - 950.0 - main.charge_controller.charge_distance * Measurement.PX_PER_INCH)",
+      "script": "abs(main.charge_controller.range_visual.get_child(10).points[0].x - 950.0 - main.charge_controller.charge_distance * Measurement.PX_PER_INCH - Measurement.base_extent_px(GameState.get_unit(\"U_CHARGER_0\").models[1]))",
       "expect_max": 1.0 },
     { "act": "execute_script",
-      "script": "abs(main.charge_controller.range_visual.get_child(20).points[0].x - 950.0 - main.charge_controller.charge_distance * Measurement.PX_PER_INCH)",
+      "script": "abs(main.charge_controller.range_visual.get_child(20).points[0].x - 950.0 - main.charge_controller.charge_distance * Measurement.PX_PER_INCH - Measurement.base_extent_px(GameState.get_unit(\"U_CHARGER_0\").models[2]))",
       "expect_max": 1.0 },
 
     { "act": "screenshot", "label": "02_postroll_per_model_reach_rings" }
