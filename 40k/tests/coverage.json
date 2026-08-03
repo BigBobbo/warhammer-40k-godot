@@ -8903,6 +8903,34 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "DECLARED"
+    },
+    {
+      "id": "dialogs.AttackAssignmentDialog.loadout_groups",
+      "description": "The melee attack dialog partitions a unit into loadout sections — models carrying the same melee weapons — and each section picks its own weapon and its own target. A Boyz mob shows a 'Boss Nob x1' section and a 'Boy x9' section (model order, matching the datasheet's composition), and setting one leaves the other untouched. Assignments are emitted as disjoint per-weapon model lists so every eligible model swings exactly one melee weapon (11e Fight - Select Melee Weapon).",
+      "scenarios": [
+        "fight_loadout_groups_split_11e",
+        "tut_t6_krumpin"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.AttackAssignmentDialog.group_split",
+      "description": "'Split' divides one loadout section between the weapons it carries, with per-weapon model counts that always sum to the section size (raising one takes from the others, lowering hands the remainder back), so a half-assigned or illegal plan cannot be built. Only offered on sections with 2+ models AND 2+ weapons.",
+      "scenarios": [
+        "fight_loadout_groups_split_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.AttackAssignmentDialog.best_krump_auto_assign",
+      "description": "The dialog opens on a target-aware auto-assigned plan — the highest expected-damage weapon for each section against the selected target — so a straightforward activation is a single Fight! click, and 'Best Krump' re-applies it after manual changes. Expected damage parses the float-valued defender stats GameState stores and applies AP as a save penalty.",
+      "scenarios": [
+        "fight_loadout_groups_split_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
