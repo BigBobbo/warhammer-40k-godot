@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.20.1",
+      "date": "2026-08-03",
+      "summary": "Paying 1 CP to swap a secondary away now clears its board marker, and the Missions panel says whose cards each block holds.",
+      "changes": [
+        "Fixed (reported from the Missions tab): after spending 1 CP in the Command phase to replace A Tempting Target, the card left your hand but 'TEMPTING TARGET (P1)' stayed stuck on the objective for the rest of the game \u2014 so the board still looked like you were holding it.",
+        "Every way a secondary leaves your hand now takes its board markers with it: the 1 CP replace and the New Orders stratagem were the two that did not (voluntary discard and scoring already did). Marked for Death target flags and the Beacon unit badge were left behind the same way and are now cleared too.",
+        "If both players hold A Tempting Target on the same objective, dropping one no longer wipes the other's marker \u2014 it re-labels to whoever still holds the card.",
+        "The Missions panel (M) now reads 'YOUR MISSIONS \u2014 Player 1 (Adeptus Custodes)' and 'OPPONENT'S MISSIONS \u2014 Player 2 (Orks)', with each side's faction named, so your opponent's hand can no longer be mistaken for your own."
+      ]
+    },
+    {
       "version": "1.20.0",
       "date": "2026-08-03",
       "summary": "Every to-hit and to-wound modifier now says WHERE it came from — and Lions of the Emperor units sparkle on the board while Against All Odds is live.",
