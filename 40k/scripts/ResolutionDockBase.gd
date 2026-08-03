@@ -46,6 +46,10 @@ var _fast_finishing: bool = false
 var header_label: Label
 var queue_box: VBoxContainer
 var status_label: Label
+# Named provenance for the modifiers that shaped THIS roll's threshold — see
+# ModifierLedger. Hidden when the roll had no modifiers at all.
+var modifier_header: Label
+var modifier_box: VBoxContainer
 var reroll_label: Label
 var reroll_row: HBoxContainer
 var primary_button: Button
@@ -135,6 +139,23 @@ func _ready() -> void:
 	status_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.8))
 	add_child(status_label)
 
+	# WHY is the threshold what it is? Every ±1 / re-roll the engine applied,
+	# named with its source. Before this, a Lions of the Emperor player wounding
+	# on 2+ off Against All Odds saw only "8 wound(s) caused" and had no way to
+	# confirm the detachment rule had fired at all.
+	modifier_header = Label.new()
+	modifier_header.name = "DockModifierHeader"
+	modifier_header.add_theme_font_size_override("font_size", 15)
+	modifier_header.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	modifier_header.visible = false
+	add_child(modifier_header)
+
+	modifier_box = VBoxContainer.new()
+	modifier_box.name = "DockModifiers"
+	modifier_box.add_theme_constant_override("separation", 1)
+	modifier_box.visible = false
+	add_child(modifier_box)
+
 	# Command Re-roll chips (one button per die at a staged pause)
 	reroll_label = Label.new()
 	reroll_label.name = "DockRerollLabel"
@@ -214,6 +235,7 @@ func deactivate() -> void:
 	assignments.clear()
 	current_index = -1
 	_fast_finishing = false
+	_clear_modifiers()
 	_clear_reroll_chips()
 	var sig := _pause_signal_name()
 	if phase and sig != "" and phase.has_signal(sig) and phase.is_connected(sig, _on_stage_paused):
@@ -359,17 +381,25 @@ func _on_stage_paused(stage: String, info: Dictionary) -> void:
 		_rebuild_queue()
 		call_deferred("_auto_continue_stage", stage)
 		return
+	# Name the threshold in the status line too — "5 hit(s)" alone never told the
+	# player WHAT they were rolling against, so a modified 3+ → 2+ was invisible.
+	var thr := str(info.get("threshold", "")).strip_edges()
 	if stage == "hits":
 		state = "staged_hits"
 		primary_button.text = _stage_primary_text("hits")
-		status_label.text = "%s hit roll: %d hit(s)." % [str(info.get("weapon_name", "Weapon")), int(info.get("hits", 0))]
+		var hit_thr := " %s" % thr if thr != "" else ""
+		status_label.text = "%s — hit roll%s: %d hit(s)." % [
+			str(info.get("weapon_name", "Weapon")), hit_thr, int(info.get("hits", 0))]
 	else:
 		state = "staged_wounds"
 		primary_button.text = _stage_primary_text("wounds")
-		status_label.text = "%d wound(s) caused — %s will make saves." % [int(info.get("wounds", 0)), str(info.get("target_name", "the target"))]
+		var wnd_thr := " %s" % thr if thr != "" else ""
+		status_label.text = "Wound roll%s — %d wound(s) caused; %s will make saves." % [
+			wnd_thr, int(info.get("wounds", 0)), str(info.get("target_name", "the target"))]
 	primary_button.disabled = false
 	fast_button.visible = true
 	fast_button.text = "Fast Roll ⏩"
+	_populate_modifiers(stage, info)
 	_populate_reroll_chips(stage, info)
 	_rebuild_queue()
 	# Pad: focus the primary button so A advances to the next stage (deferred so
@@ -446,6 +476,41 @@ func _process(delta: float) -> void:
 		return
 	if get_viewport().gui_get_focus_owner() == null:
 		primary_button.grab_focus()
+
+# ---------------------------------------------------------------------------
+# Modifier provenance ("why is it a 2+?")
+# ---------------------------------------------------------------------------
+
+## List every modifier the engine applied to THIS roll, named with its source.
+## Driven by the `modifier_ledger` the phases now attach to each staged pause;
+## a pause without one (older path, or a genuinely unmodified roll) hides the
+## section rather than showing an empty header.
+func _populate_modifiers(stage: String, info: Dictionary) -> void:
+	_clear_modifiers()
+	var kind := ModifierLedger.KIND_HIT if stage == "hits" else ModifierLedger.KIND_WOUND
+	var entries: Array = ModifierLedger.lines(info.get("modifier_ledger", []), kind)
+	if entries.is_empty():
+		return
+	modifier_header.text = "MODIFIERS — %s ROLL" % ("HIT" if stage == "hits" else "WOUND")
+	modifier_header.visible = true
+	modifier_box.visible = true
+	for e in entries:
+		var row := Label.new()
+		row.text = "✦ %s" % str(e.get("text", ""))
+		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_theme_font_size_override("font_size", 15)
+		row.add_theme_color_override("font_color", Color(str(e.get("color", "#9FE09F"))))
+		modifier_box.add_child(row)
+
+func _clear_modifiers() -> void:
+	if modifier_header:
+		modifier_header.visible = false
+	if modifier_box == null:
+		return
+	modifier_box.visible = false
+	for child in modifier_box.get_children():
+		modifier_box.remove_child(child)
+		child.free()
 
 # ---------------------------------------------------------------------------
 # Command Re-roll chips

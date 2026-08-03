@@ -2,6 +2,20 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.20.0",
+      "date": "2026-08-03",
+      "summary": "Every to-hit and to-wound modifier now says WHERE it came from — and Lions of the Emperor units sparkle on the board while Against All Odds is live.",
+      "changes": [
+        "Fixed (reported from a Lions of the Emperor fight): you were wounding on 2+ thanks to Against All Odds, but nothing on screen said so — the melee panel showed only 'N wound(s) caused' and the Dice Log showed an anonymous 'Wound modifier: +1'.",
+        "The melee and shooting resolution panels grow a MODIFIERS section listing every modifier applied to that roll, each named with its rule and the reason — e.g. 'Against All Odds: +1 to wound — no other friendly unit within 6\"'.",
+        "The Dice Log names the source too, instead of a bare '+1 to hit' / 'Wound modifier: +1'. This covers ALL modifiers, not just the Custodes one — Oath of Moment, [LANCE], [TWIN-LINKED], Stealth, cover, Big Guns Never Tire, Tank Hunters and the rest now identify themselves.",
+        "A modifier that another rule cancels (Captain-General, [PSYCHIC]) is shown struck out as '(cancelled)' rather than silently claiming a bonus you did not get.",
+        "The hit and wound status lines now state what you are rolling against, e.g. 'Guardian spear — hit roll 2+: 5 hit(s)'.",
+        "Models of a Lions of the Emperor unit that is currently earning Against All Odds SPARKLE on the board — a twinkle inside the base, deliberately not a ring, so a model's real base size stays unambiguous.",
+        "Hovering one of those models explains it in words: what the bonus is, and which friendly unit is nearest and how far away — so you can see at a glance whether a move is about to cost you the bonus."
+      ]
+    },
+    {
       "version": "1.19.7",
       "date": "2026-08-03",
       "summary": "Consolidation: a unit offered an Objective Consolidation can finally make it — the board no longer snaps your models back for 'not moving closer to the enemy'.",

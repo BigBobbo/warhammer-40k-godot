@@ -1,0 +1,300 @@
+{
+  "id": "aao_lions_melee_provenance",
+  "covers": [
+    "ui.resolution_dock.modifier_provenance",
+    "ui.fight.melee_resolution.modifier_source",
+    "ui.board.against_all_odds_sparkle",
+    "ui.board.hover_card.against_all_odds",
+    "detachment.lions_of_the_emperor.against_all_odds",
+    "autoloads.FactionAbilityManager.evaluate_against_all_odds"
+  ],
+  "fixture": "custodes_lions_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Reported issue: fighting with a Lions of the Emperor Custodian Guard squad, the player was wounding on 2+ from Against All Odds but NOTHING on screen said so \u2014 the melee resolution panel showed only 'N wound(s) caused' and the Dice Log showed an anonymous 'Wound modifier: +1'. This scenario isolates U_CUSTODIAN_GUARD_A mid-board (nearest friendly well beyond 6\") with U_BOYZ_K in engagement range, then proves the three new surfaces a player can actually see: (1) the models SPARKLE on the board \u2014 deliberately NOT an extra ring, which would make the base size ambiguous; (2) hovering a sparkling model explains the bonus in words and names the nearest friendly with its distance; (3) the FightResolutionDock grows a MODIFIERS section naming 'Against All Odds' at BOTH the hit and wound pauses, and the Dice Log names the source instead of printing a bare +1. Setup-only privileges: CP zeroed so no stratagem prompt interrupts the staged rolls, auto_allocate_wounds on so the defender's save overlay does not block the sequence, Boyz wounds inflated so no model dies mid-scenario and changes the board mid-assert.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Isolate the Custodian Guard mid-board and park the Boyz in engagement\n# range (~0.5\" edge-to-edge; 32mm bases are ~25.2px in radius at 40px/inch).\nvar g = GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_A\"]\nfor i in range(g[\"models\"].size()):\n\tg[\"models\"][i][\"position\"] = {\"x\": 300.0 + float(i) * 36.0, \"y\": 1200.0}\nvar b = GameState.state[\"units\"][\"U_BOYZ_K\"]\nfor i in range(b[\"models\"].size()):\n\tb[\"models\"][i][\"position\"] = {\"x\": 300.0 + float(i) * 36.0, \"y\": 1270.0}\n\tb[\"models\"][i][\"wounds\"] = 99\n\tb[\"models\"][i][\"current_wounds\"] = 99\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().enter_phase(GameState.create_snapshot())"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MomentShackleDialog",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MomentShackleDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The rule really is live for the isolated squad...\nvar snap = PhaseManager.get_current_phase_instance().game_state_snapshot\nreturn FactionAbilityManager.check_against_all_odds(snap[\"units\"][\"U_CUSTODIAN_GUARD_A\"], snap)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# ...and NOT for a control squad still standing among its friends.\nvar snap = PhaseManager.get_current_phase_instance().game_state_snapshot\nreturn FactionAbilityManager.check_against_all_odds(snap[\"units\"][\"U_CUSTODIAN_GUARD_B\"], snap)",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The board tracker (which drives the sparkle) must agree with the engine.\nvar st = FactionAbilityManager.get_against_all_odds_status(\"U_CUSTODIAN_GUARD_A\")\nreturn st.get(\"applicable\", false) and st.get(\"active\", false)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The nearest friendly is measured and named \u2014 this is what the hover card\n# reports, and it must be beyond 6\" for the bonus to be live.\nvar st = FactionAbilityManager.get_against_all_odds_status(\"U_CUSTODIAN_GUARD_A\")\nreturn st.get(\"nearest_name\", \"\") != \"\" and float(st.get(\"nearest_inches\", 0.0)) > 6.0",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Every model of the squad sparkles (the predicate TokenVisual._draw reads).\nvar layer = tree.root.get_node(\"Main\").get_node(\"BoardRoot/TokenLayer\")\nvar sparkling = 0\nfor child in layer.get_children():\n\tvar n = child\n\tif not n.has_meta(\"unit_id\") and n.get_child_count() > 0:\n\t\tn = n.get_child(0)\n\tif not n.has_meta(\"unit_id\"):\n\t\tcontinue\n\tif str(n.get_meta(\"unit_id\")) != \"U_CUSTODIAN_GUARD_A\":\n\t\tcontinue\n\tif n.has_method(\"_has_against_all_odds\") and n._has_against_all_odds():\n\t\tsparkling += 1\nreturn sparkling",
+      "expect_min": 5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# A crowded friendly squad must NOT sparkle \u2014 the marker has to mean something.\nvar layer = tree.root.get_node(\"Main\").get_node(\"BoardRoot/TokenLayer\")\nfor child in layer.get_children():\n\tvar n = child\n\tif not n.has_meta(\"unit_id\") and n.get_child_count() > 0:\n\t\tn = n.get_child(0)\n\tif not n.has_meta(\"unit_id\"):\n\t\tcontinue\n\tif str(n.get_meta(\"unit_id\")) != \"U_CUSTODIAN_GUARD_B\":\n\t\tcontinue\n\tif n.has_method(\"_has_against_all_odds\") and n._has_against_all_odds():\n\t\treturn \"crowded squad is sparkling\"\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sparkling_isolated_squad"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nvar focus := Vector2(372.0, 1215.0)\nvar z := 5.0\nvar vp: Vector2 = m.get_viewport().get_visible_rect().size\nm.camera.position = focus\nm.camera.zoom = Vector2(z, z)\nm.view_zoom = z\nm.view_offset = focus - vp / (2.0 * z)\nm.update_view_transform()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "01b_sparkle_closeup"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_board()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "hover_unit",
+      "unit_id": "U_CUSTODIAN_GUARD_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var t = tree.root.get_node(\"Main\")._token_hover_label\nreturn t != null and t.get_parsed_text().contains(\"Against All Odds\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The card must say what the bonus IS, not merely name it.\nvar t = tree.root.get_node(\"Main\")._token_hover_label.get_parsed_text()\nreturn t.contains(\"+1 to Hit\") and t.contains(\"+1 to Wound\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_hover_card_explains_the_sparkle"
+    },
+    {
+      "act": "hover_board_at",
+      "x": 900.0,
+      "y": 400.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true,
+      "optional": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_A",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/KatahStanceDialog",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/KatahStanceDialog/Content/Buttons/DacataraiButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.is_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# THE FIX, hit stage: the dock names the rule behind the modified threshold.\nvar d = tree.root.get_node(\"Main\").get_node(\"FightController\").fight_resolution_dock\nvar txt = \"\"\nfor row in d.modifier_box.get_children():\n\ttxt += row.text + \"|\"\nreturn d.modifier_header.visible and txt.contains(\"Against All Odds: +1 to hit\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The status line now also states WHAT is being rolled against.\nvar d = tree.root.get_node(\"Main\").get_node(\"FightController\").fight_resolution_dock\nreturn d.status_label.text.contains(\"hit roll\") and d.status_label.text.contains(\"+\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_fight_dock_names_against_all_odds_hit"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# THE FIX, wound stage: this is the '2+ to wound' the report was about.\nvar d = tree.root.get_node(\"Main\").get_node(\"FightController\").fight_resolution_dock\nvar txt = \"\"\nfor row in d.modifier_box.get_children():\n\ttxt += row.text + \"|\"\nreturn d.modifier_header.visible and txt.contains(\"Against All Odds: +1 to wound\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# ...and the reason travels with it, not just the number.\nvar d = tree.root.get_node(\"Main\").get_node(\"FightController\").fight_resolution_dock\nvar txt = \"\"\nfor row in d.modifier_box.get_children():\n\ttxt += row.text + \"|\"\nreturn txt.contains(\"within 6\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_fight_dock_names_against_all_odds_wound"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The Dice Log names the source too \u2014 no more anonymous 'Wound modifier: +1'.\nvar log = tree.root.get_node(\"Main\").get_node(\"FightController\").dice_log_display\nreturn log.get_parsed_text().contains(\"Against All Odds\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var panel = tree.root.get_node(\"Main\").get_node_or_null(\"HUD_Left/GameLogPanel\")\nif panel == null:\n\tfor n in tree.root.get_node(\"Main\").find_children(\"*\", \"\", true, false):\n\t\tif n.has_method(\"get_dice_log_display\") or n.get(\"_tab_dice_button\") != null:\n\t\t\tpanel = n\n\t\t\tbreak\nif panel == null:\n\treturn \"panel not found\"\npanel._tab_dice_button.emit_signal(\"pressed\")\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "05_dice_log_names_the_source"
+    }
+  ]
+}
