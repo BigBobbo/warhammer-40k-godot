@@ -120,7 +120,10 @@ func _build_ui() -> void:
 	# dark parchment-on-black dialog background.)
 	var info = Label.new()
 	info.name = "Legend"
-	info.text = "• Green arrow = valid (closer to enemy, within 3\")\n• Red arrow = invalid (too far or wrong direction)\n• Dashed line = movement path with distance\n• Green dots = unit coherency maintained"
+	# The arrows point wherever the mandatory mode says the models must go — the
+	# selected objective in Objective mode, the closest enemy otherwise.
+	var arrow_target = "the objective" if str(_consolidate_context().get("mode", "")) == "objective" else "enemy"
+	info.text = "• Green arrow = valid (closer to %s, within 3\")\n• Red arrow = invalid (too far or wrong direction)\n• Dashed line = movement path with distance\n• Green dots = unit coherency maintained" % arrow_target
 	info.add_theme_font_size_override("font_size", 16)
 	info.add_theme_color_override("font_color", _LEGEND_COLOR)
 	container.add_child(info)
@@ -278,20 +281,37 @@ func _on_skip_pressed() -> void:
 	await get_tree().create_timer(0.1).timeout
 	queue_free()
 
+func _consolidate_context() -> Dictionary:
+	"""The unit's 12.08 BEFORE MOVING context — mandatory mode plus its selected
+	enemy targets or objective. Comes from the phase (the same call the drag
+	validation and CONSOLIDATE validation make), never re-derived here."""
+	if controller_reference != null and not controller_reference.consolidate_context_11e.is_empty():
+		return controller_reference.consolidate_context_11e
+	if phase_reference != null and phase_reference.has_method("get_consolidation_context_11e"):
+		return phase_reference.get_consolidation_context_11e(unit_id)
+	return {}
+
 func _get_consolidate_mode_text() -> String:
-	"""Determine what consolidate mode is available and return instruction text"""
-	if not phase_reference:
-		return "Drag models on the battlefield to consolidate\nUp to %.1f\" toward closest enemy" % max_distance
+	"""Instruction text for the unit's mandatory 12.08 consolidation mode.
 
-	# Check if unit can reach engagement range
-	var unit = phase_reference.get_unit(unit_id)
-	var can_reach_engagement = phase_reference._can_unit_reach_engagement_range(unit) if phase_reference.has_method("_can_unit_reach_engagement_range") else true
-
-	if can_reach_engagement:
-		return "Consolidate: Move up to %.1f\"\n• Must end closer to closest enemy\n• Must end in base contact if possible\n• Must remain in Engagement Range" % max_distance
-	else:
-		# Too far from enemies - objective mode
-		return "Consolidate: Move up to %.1f\"\n• Move toward closest objective marker\n• At least one model must end within 3\" of objective\n• Must maintain Unit Coherency" % max_distance
+	This used to gate on FightPhase._can_unit_reach_engagement_range() — a 10e
+	heuristic for 'could this unit reach engagement range within its 3" move'
+	(3" + 2" engagement range = 5"), which is NOT the 12.08 mode order. A unit
+	3-5" from an enemy and within 3" of an objective was shown the enemy rules
+	('must end closer to closest enemy') for a move the rules say is an
+	Objective Consolidation."""
+	var ctx = _consolidate_context()
+	match str(ctx.get("mode", "")):
+		"ongoing":
+			return "Ongoing Consolidation: Move up to %.1f\"\n• Models in base contact with an enemy cannot move\n• Each model moved must end closer to the closest selected enemy unit\n• Must still be engaged with every unit it started engaged with" % max_distance
+		"engaging":
+			return "Engaging Consolidation: Move up to %.1f\"\n• Each model moved must end closer to the closest selected enemy unit\n• The unit must end engaged with every selected enemy unit\n• Enemy units it engages that have not fought will be selected to fight" % max_distance
+		"objective":
+			var obj_name = str(ctx.get("objective", ""))
+			var obj_suffix = " (%s)" % obj_name if obj_name != "" else ""
+			return "Objective Consolidation: Move up to %.1f\" toward the objective%s\n• Each model moved must end within range of the objective, or closer to it\n• The unit must end within range of the objective\n• Must maintain Unit Coherency" % [max_distance, obj_suffix]
+		_:
+			return "Consolidate: no mode applies from here (12.08)\n• Not engaged, no enemy unit within 3\", no objective within 3\"\n• Confirm without moving to complete this unit's step"
 
 func _is_unit_in_engagement_range(unit: Dictionary) -> bool:
 	"""Check if unit is currently in engagement range with any enemy"""

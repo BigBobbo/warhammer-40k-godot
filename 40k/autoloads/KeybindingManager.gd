@@ -99,9 +99,9 @@ func _register_defaults() -> void:
 	_register("toggle_stratagem_panel", "Toggle Stratagems Panel", CATEGORY_PANELS, KEY_S)
 	_register("toggle_missions_panel", "Toggle Missions Panel", CATEGORY_PANELS, KEY_M)
 	_register("toggle_replay_panel", "Toggle AI Replay Panel", CATEGORY_PANELS, KEY_R)
-	# Default C, not T: T is the measuring tape. Chat is networked-only, so it
-	# yields the more-used key to the tape (which the player expects on T).
-	_register("toggle_chat_panel", "Toggle Chat Panel", CATEGORY_PANELS, KEY_C)
+	# Puts the caret in the game log's note box (replaces the removed chat panel
+	# toggle, which used the same key). Default C, not T: T is the measuring tape.
+	_register("focus_log_note", "Add Note to Game Log", CATEGORY_PANELS, KEY_C)
 	# Weapon Range Comparison panel: intentionally UNBOUND by default. It used to
 	# default to W, which is ALSO camera_pan_up — so pressing W to pan the camera up
 	# also toggled this panel unintentionally. No key is bound out of the box now;

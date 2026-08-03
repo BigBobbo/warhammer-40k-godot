@@ -496,8 +496,10 @@ func _ready() -> void:
 	# Setup player scores and CP display in top bar
 	_setup_score_display()
 
-	# T-102: connect chat signal so messages accumulate even when the panel is closed.
-	_ensure_chat_signal_connected()
+	# Notes typed by the other player arrive as a NetworkManager signal and are
+	# appended to the shared game log. Connected here (not with the log panel) so a
+	# remote note is never dropped just because the panel was rebuilt or hidden.
+	_ensure_log_note_signal_connected()
 
 	# P3-109: Setup turn/round progress indicator
 	_setup_round_indicator()
@@ -5962,6 +5964,118 @@ func _build_phase_end_confirm_content() -> void:
 
 	_phase_end_confirm.add_child(content)
 
+# ── "Confirm your charge move first" prompt ─────────────────────────
+# Raised instead of the End-Phase confirm whenever the player presses the
+# phase-action button (mouse or Enter) while a charge move is still open.
+#
+# The whole point is to answer "what am I meant to do next?" in place, so the
+# primary button IS the missing step — pressing it confirms the charge move
+# rather than sending the player back to hunt for a button in the right-hand
+# panel they had already scrolled past.
+var _charge_confirm_first_prompt: ConfirmationDialog = null
+var _charge_confirm_first_headline: Label = null
+var _charge_confirm_first_hint: Label = null
+
+func _show_charge_confirm_first_prompt() -> void:
+	if _charge_confirm_first_prompt == null or not is_instance_valid(_charge_confirm_first_prompt):
+		_charge_confirm_first_prompt = ConfirmationDialog.new()
+		_charge_confirm_first_prompt.name = "ChargeConfirmFirstDialog"
+		_charge_confirm_first_prompt.title = "Charge move not confirmed"
+		_charge_confirm_first_prompt.confirmed.connect(_on_charge_confirm_first_accepted)
+		add_child(_charge_confirm_first_prompt)
+		_build_charge_confirm_first_content()
+	elif _charge_confirm_first_prompt.visible:
+		return  # already asking — a second press must not stack a second prompt
+
+	var unit_name := ""
+	if charge_controller and charge_controller.has_method("get_charge_move_unit_name"):
+		unit_name = str(charge_controller.get_charge_move_unit_name())
+	var headline := "Confirm your charge move first"
+	var can_confirm := _charge_move_is_confirmable()
+	var hint := ""
+	if can_confirm:
+		hint = "%s has a charge move staged but not committed — on the board it already looks done, but nothing is locked in until you confirm it. Ending the Charge phase now would throw the charge away." % (unit_name if unit_name != "" else "This unit")
+	else:
+		# Nothing staged yet: the roll succeeded but no model has been placed,
+		# so there is nothing to confirm — tell them how to place models instead
+		# of offering a button that would fail.
+		headline = "Finish the charge move first"
+		hint = "%s passed its charge roll but no model has been moved yet. Drag its models into engagement range, or click 'Snap to Contact', then confirm. Ending the Charge phase now would throw the charge away." % (unit_name if unit_name != "" else "This unit")
+
+	_charge_confirm_first_prompt.dialog_text = headline
+	if _charge_confirm_first_headline:
+		_charge_confirm_first_headline.text = headline
+	if _charge_confirm_first_hint:
+		_charge_confirm_first_hint.text = hint
+	# The OK button names the action it performs — same reason the End-Phase
+	# confirm says "End Charge Phase" instead of a bare "OK".
+	_charge_confirm_first_prompt.ok_button_text = "Confirm Charge Moves"
+	_charge_confirm_first_prompt.get_ok_button().disabled = not can_confirm
+	_charge_confirm_first_prompt.cancel_button_text = "Go Back"
+	DialogUtils.popup_phase_end_prompt(_charge_confirm_first_prompt, DialogConstants.SMALL)
+
+func _build_charge_confirm_first_content() -> void:
+	_WhiteDwarfTheme.apply_to_dialog(_charge_confirm_first_prompt)
+	var panel_style := _WhiteDwarfTheme.create_panel_style()
+	panel_style.set_content_margin_all(18)
+	_charge_confirm_first_prompt.add_theme_stylebox_override("panel", panel_style)
+	# Hidden but still sizing the window, exactly as in _build_phase_end_confirm_content.
+	var builtin_label := _charge_confirm_first_prompt.get_label()
+	if builtin_label:
+		builtin_label.visible = false
+		builtin_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		builtin_label.custom_minimum_size = Vector2.ZERO
+
+	var content := VBoxContainer.new()
+	content.name = "Content"
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.add_theme_constant_override("separation", 10)
+
+	_charge_confirm_first_headline = Label.new()
+	_charge_confirm_first_headline.name = "Headline"
+	_charge_confirm_first_headline.add_theme_font_size_override("font_size", 26)
+	_charge_confirm_first_headline.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	_charge_confirm_first_headline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_charge_confirm_first_headline.autowrap_mode = TextServer.AUTOWRAP_OFF
+	content.add_child(_charge_confirm_first_headline)
+
+	_WhiteDwarfTheme.add_gold_separator(content)
+
+	_charge_confirm_first_hint = Label.new()
+	_charge_confirm_first_hint.name = "Hint"
+	_charge_confirm_first_hint.add_theme_font_size_override("font_size", 18)
+	_charge_confirm_first_hint.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	_charge_confirm_first_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_charge_confirm_first_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_charge_confirm_first_hint.custom_minimum_size = Vector2(DialogConstants.SMALL.x - 60, 0)
+	content.add_child(_charge_confirm_first_hint)
+
+	_charge_confirm_first_prompt.add_child(content)
+
+## True when at least one model is staged, i.e. the confirm button would do
+## something. Mirrors ChargeController's own confirm-button enable rule.
+func _charge_move_is_confirmable() -> bool:
+	return charge_controller and is_instance_valid(charge_controller) \
+			and charge_controller.has_method("has_unconfirmed_charge_move") \
+			and charge_controller.has_unconfirmed_charge_move()
+
+func _on_charge_confirm_first_accepted() -> void:
+	if not _charge_move_is_confirmable():
+		return
+	print("Main: charge-confirm-first prompt accepted — confirming staged charge move")
+	DebugLogger.info("Charge confirm-first prompt accepted", {
+		"unit": charge_controller.get_charge_move_unit_name()
+	})
+	charge_controller._on_confirm_charge_moves()
+	# One press, one action: the charge resolves and the player decides what to
+	# do with the result (another unit may still be able to charge). Say so, so
+	# the second press of End Charge Phase is an informed one rather than a
+	# "why didn't that end the phase?" repeat of the same confusion.
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_success(
+			"Charge move confirmed — press End Charge Phase again when you're done charging", 4.0)
+
 ## Plain-English "what am I giving up, and what comes next" line for the
 ## End-Phase confirm — the bit a player who doesn't know 40k needs. Returns ""
 ## for actions that are not a plain "end this phase" (roll-offs, "Continue",
@@ -6289,8 +6403,7 @@ func _input(event: InputEvent) -> void:
 		return
 
 	# Measuring tape: toggle click-to-measure mode (rebindable: measuring_tape,
-	# default T). Handled BEFORE the chat-panel toggle (also default T) so the
-	# tape wins the key rather than being shadowed by chat.
+	# default T).
 	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "measuring_tape"):
 		MeasuringTapeManager.toggle_measure_mode()
 		_update_measure_mode_hint()
@@ -6353,11 +6466,16 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	# T-102: Chat panel toggle (rebindable: toggle_chat_panel, default T). Only shows in networked games.
-	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "toggle_chat_panel"):
-		_toggle_chat_panel()
-		get_viewport().set_input_as_handled()
-		return
+	# Game-log note box (rebindable: focus_log_note, default C) — puts the caret in
+	# the note field at the bottom of the game log. Escape leaves the field again
+	# (see the top of _run_pause_menu_cascade). Falls through when the log panel is
+	# hidden or showing the Dice Log tab, so the key isn't silently eaten.
+	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "focus_log_note"):
+		if game_log_panel and is_instance_valid(game_log_panel) \
+				and game_log_panel.has_method("focus_note_input") \
+				and game_log_panel.focus_note_input():
+			get_viewport().set_input_as_handled()
+			return
 
 	# T-103: Weapon range comparison panel (rebindable: weapon_range_panel, default W)
 	if event is InputEventKey and event.pressed and not event.echo and KeybindingManager.matches_action(event, "weapon_range_panel"):
@@ -7233,6 +7351,32 @@ func focus_on_deployment_zone(player: int, animate: bool = true) -> void:
 		view_offset = target_offset
 		update_view_transform()
 
+func focus_on_world_point(world_pos: Vector2, animate: bool = true) -> void:
+	"""Pan the camera so world_pos sits at the viewport centre AND STAY THERE.
+
+	The sibling focus_on_position_briefly() bounces back to the previous view
+	after a hold; this one is for callouts the player has to act on (11e 03.03
+	out-of-coherency markers), which must remain framed until they resolve.
+	Keeps the current zoom unless it is so far out the marker would be a speck."""
+	var viewport_size = get_viewport().get_visible_rect().size
+	var target_zoom = clamp(view_zoom, 0.75, 1.5)
+	var target_offset = world_pos - viewport_size / (2.0 * target_zoom)
+
+	if animate:
+		if _auto_zoom_tween and _auto_zoom_tween.is_valid():
+			_auto_zoom_tween.kill()
+		_auto_zoom_tween = create_tween()
+		_auto_zoom_tween.set_parallel(true)
+		_auto_zoom_tween.set_ease(Tween.EASE_OUT)
+		_auto_zoom_tween.set_trans(Tween.TRANS_CUBIC)
+		_auto_zoom_tween.tween_property(self, "view_zoom", target_zoom, 0.5)
+		_auto_zoom_tween.tween_property(self, "view_offset", target_offset, 0.5)
+		_auto_zoom_tween.tween_method(_tween_update_view, 0.0, 1.0, 0.5)
+	else:
+		view_zoom = target_zoom
+		view_offset = target_offset
+		update_view_transform()
+
 func _tween_update_view(_progress: float) -> void:
 	update_view_transform()
 
@@ -7864,6 +8008,22 @@ func update_ui() -> void:
 					status_label.text = "Scout step: select a \"[Reserves -> DZ]\" unit (right panel) to set it up wholly within your deployment zone, or drag on-table scouts, then End Scout Moves."
 				else:
 					status_label.text = "Scout step: select a scout unit to move, or End Scout Moves."
+			phase_action_button.disabled = false
+
+		GameStateData.Phase.CHARGE:
+			# Name the current step of the charge flow, the way Movement and
+			# Scout already do. The charge panel has always carried this text,
+			# but it sits low in the right-hand panel — a player watching the
+			# board and the top-right button never sees it, which is how a
+			# staged-but-unconfirmed charge move reads as "the game is stuck".
+			var ai_charge = get_node_or_null("/root/AIPlayer")
+			if ai_charge and ai_charge.is_ai_player(active_player):
+				status_label.text = "AI Player %d is charging..." % active_player
+			elif charge_controller and is_instance_valid(charge_controller) \
+					and charge_controller.has_method("get_next_step_hint"):
+				status_label.text = str(charge_controller.get_next_step_hint())
+			else:
+				status_label.text = "Select a unit to charge, or end the Charge phase"
 			phase_action_button.disabled = false
 
 		_:
@@ -11267,6 +11427,30 @@ func _on_phase_action_pressed() -> void:
 			print("Main: Phase action button blocked — not local player's turn")
 			return
 
+	# Charge phase: a staged-but-unconfirmed charge move outranks the end-phase
+	# prompt. The models are already sitting at their destinations on the board
+	# (ChargeController writes them optimistically), so the charge LOOKS finished
+	# — the reported symptom was a player snapping to contact, reading that as
+	# done, and pressing this button. Ending here would bin a successful charge
+	# roll without a word. Say what the missing step is and offer to do it.
+	# Placed before the generic confirm so the player gets the specific
+	# instruction rather than "End Charge Phase? — any unit you haven't charged
+	# with won't get to charge", which describes a different situation entirely.
+	if current_phase == GameStateData.Phase.CHARGE \
+			and charge_controller and is_instance_valid(charge_controller) \
+			and charge_controller.has_method("is_charge_move_in_progress") \
+			and charge_controller.is_charge_move_in_progress() \
+			and not _is_active_player_ai():
+		# Returning here skips the confirm gate below, which is where the
+		# one-shot "the player already answered" flag is consumed. Clear it so a
+		# stale true can never survive to wave a LATER press past the End-Phase
+		# confirm. (The generic confirm is modal, so it cannot in practice still
+		# be open while a charge move starts — this just keeps the flag's
+		# single-use contract true on every path out of this function.)
+		_phase_end_confirm_answered = false
+		_show_charge_confirm_first_prompt()
+		return
+
 	# Confirm gate. A mouse click or Enter on this button used to end the phase
 	# outright — no way back from a misclick, and nothing telling a new player
 	# what they were giving up. Both devices now go through the same centred
@@ -12662,6 +12846,9 @@ func _setup_game_log_panel() -> void:
 	# History browser: clicking a log card reverts the board to that step.
 	if game_log_panel.has_signal("history_step_requested"):
 		game_log_panel.history_step_requested.connect(_on_history_step_requested)
+	# Free-text note box at the bottom of the log.
+	if game_log_panel.has_signal("note_submitted"):
+		game_log_panel.note_submitted.connect(_on_log_note_submitted)
 	# The log panel is created after _fix_hud_layout, so re-apply the pad-mode
 	# bottom inset here or its newest entry hides behind the pad hint strip.
 	_connect_pad_bottom_inset()
@@ -13248,6 +13435,11 @@ func _on_replay_event_applied(event: Dictionary) -> void:
 		var entry_type = "info"
 		if event_type == "phase_change":
 			entry_type = "phase_header"
+		elif event_type == "player_note":
+			# A note the player typed during the recorded game — re-shown as the
+			# same note card it was live. add_entry (not add_player_note) so
+			# playback does not re-record it into the current recording.
+			entry_type = "player_note"
 		elif event.get("active_player", 0) == 1:
 			entry_type = "p1_action"
 		elif event.get("active_player", 0) == 2:
@@ -13729,106 +13921,47 @@ var _vp_timeline_history: Array = []
 var _vp_timeline_panel: PanelContainer = null
 var _vp_timeline_list: VBoxContainer = null
 
-# T-102: chat / feed panel for multiplayer games.
-var _chat_panel: PanelContainer = null
-var _chat_log_box: VBoxContainer = null
-var _chat_input: LineEdit = null
-var _chat_history: Array = []  # entries: { player: int, text: String }
-var _chat_signal_connected: bool = false
+# Free-text notes the player adds to the game log.
+#
+# This replaces the old T-102 chat / feed pop-up, which floated over the
+# bottom-left of the board (on top of the game log), grabbed keyboard focus the
+# moment it opened, and dropped everything typed into it the moment it closed.
+# Worse, it soft-locked the game: with its LineEdit focused, the phase
+# controllers skip their keyboard handling (they bail when a text input has
+# focus), so Escape — which Main defers to ShootingController while a shooter is
+# active — reached nobody, and the panel's own toggle key just typed a letter
+# into the box.
+#
+# Notes now go into the game log itself via the box at the bottom of the log
+# panel: they persist, they are filterable, they are recorded into the replay,
+# and in a networked game both players see the same line.
+var _log_note_signal_connected: bool = false
 
-func _ensure_chat_signal_connected() -> void:
-	if _chat_signal_connected:
+func _ensure_log_note_signal_connected() -> void:
+	if _log_note_signal_connected:
 		return
-	if NetworkManager and NetworkManager.has_signal("chat_message_received"):
-		if not NetworkManager.chat_message_received.is_connected(_on_chat_message_received):
-			NetworkManager.chat_message_received.connect(_on_chat_message_received)
-		_chat_signal_connected = true
+	if NetworkManager and NetworkManager.has_signal("log_note_received"):
+		if not NetworkManager.log_note_received.is_connected(_on_log_note_received):
+			NetworkManager.log_note_received.connect(_on_log_note_received)
+		_log_note_signal_connected = true
 
-func _on_chat_message_received(sender_player: int, text: String) -> void:
-	_chat_history.append({"player": sender_player, "text": text})
-	if _chat_history.size() > 100:
-		_chat_history = _chat_history.slice(-100)
-	if _chat_log_box and is_instance_valid(_chat_log_box):
-		_append_chat_row(sender_player, text)
-
-func _append_chat_row(sender_player: int, text: String) -> void:
-	var row := HBoxContainer.new()
-	var who := Label.new()
-	who.text = "P%d:" % sender_player
-	who.add_theme_font_size_override("font_size", 16)
-	if sender_player == 1:
-		who.add_theme_color_override("font_color", Color(0.4, 0.6, 1.0))
-	else:
-		who.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
-	who.custom_minimum_size = Vector2(34, 0)
-	row.add_child(who)
-	var msg := Label.new()
-	msg.text = text
-	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	msg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	msg.add_theme_font_size_override("font_size", 16)
-	row.add_child(msg)
-	_chat_log_box.add_child(row)
-
-func _toggle_chat_panel() -> void:
-	if _chat_panel and is_instance_valid(_chat_panel):
-		_chat_panel.queue_free()
-		_chat_panel = null
-		_chat_log_box = null
-		_chat_input = null
-		print("Main: Chat panel closed")
-		return
-	_ensure_chat_signal_connected()
-	_chat_panel = PanelContainer.new()
-	_chat_panel.name = "ChatPanel"
-	_chat_panel.anchor_left = 0.0
-	_chat_panel.anchor_top = 1.0
-	_chat_panel.anchor_right = 0.0
-	_chat_panel.anchor_bottom = 1.0
-	_chat_panel.offset_left = 16
-	_chat_panel.offset_top = -260
-	_chat_panel.offset_right = 380
-	_chat_panel.offset_bottom = -16
-	var vbox := VBoxContainer.new()
-	_chat_panel.add_child(vbox)
-	var title := Label.new()
-	title.text = "Chat / Feed"
-	title.add_theme_font_size_override("font_size", 18)
-	vbox.add_child(title)
-	var _gsep6 = ColorRect.new()
-	_gsep6.custom_minimum_size = Vector2(0, 2)
-	_gsep6.color = Color(WhiteDwarfTheme.WH_GOLD.r, WhiteDwarfTheme.WH_GOLD.g, WhiteDwarfTheme.WH_GOLD.b, 0.4)
-	_gsep6.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_child(_gsep6)
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_child(scroll)
-	_chat_log_box = VBoxContainer.new()
-	_chat_log_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_chat_log_box)
-	# Replay history
-	for entry in _chat_history:
-		_append_chat_row(int(entry.get("player", 0)), str(entry.get("text", "")))
-	_chat_input = LineEdit.new()
-	_chat_input.placeholder_text = "Type a message and press Enter…"
-	_chat_input.text_submitted.connect(_on_chat_input_submitted)
-	vbox.add_child(_chat_input)
-	add_child(_chat_panel)
-	_chat_panel.z_index = UI_OVERLAY_Z
-	_chat_input.grab_focus()
-	print("Main: Chat panel opened")
-
-func _on_chat_input_submitted(text: String) -> void:
+func _on_log_note_submitted(text: String) -> void:
+	"""The local player pressed Enter in the game log's note box."""
 	if text.strip_edges() == "":
 		return
-	if NetworkManager:
-		NetworkManager.send_chat_message(text)
+	if NetworkManager and NetworkManager.has_method("send_log_note"):
+		# Echoes locally and broadcasts; _on_log_note_received does the logging for
+		# both ends, so the note is written exactly once here.
+		_ensure_log_note_signal_connected()
+		NetworkManager.send_log_note(text)
 	else:
-		# Local fallback — echo as P1 so the panel still functions in solo testing.
-		_on_chat_message_received(1, text)
-	if _chat_input and is_instance_valid(_chat_input):
-		_chat_input.clear()
+		_on_log_note_received(1, text)
+
+func _on_log_note_received(sender_player: int, text: String) -> void:
+	"""A note from either player (local echo or remote peer) → the game log."""
+	if GameEventLog:
+		GameEventLog.add_player_note(sender_player, text)
+	print("Main: Game log note from P%d: %s" % [sender_player, text])
 
 
 # T-103: Weapon range comparison panel.
@@ -15360,6 +15493,19 @@ func _run_pause_menu_cascade(is_keyboard_escape: bool) -> bool:
 	# while a shooter is active, so we leave the event for it. The pad's View
 	# button has no such downstream handler, so it passes is_keyboard_escape =
 	# false and falls straight through to the settings toggle instead.
+
+	# Typing in a text field (the game log's note box, the unit-list filter, a save
+	# name…): Escape leaves the field first, before any overlay/pause handling.
+	# Without this a focused LineEdit is a keyboard trap — the phase controllers
+	# skip their own ESC handling while a text input has focus (MA-41), and Main
+	# defers ESC to ShootingController whenever a shooter is active, so the key
+	# reached nobody. That is exactly how the removed chat pop-up soft-locked the
+	# game, and any focused field could do it again.
+	var focused_control = get_viewport().gui_get_focus_owner()
+	if focused_control is LineEdit or focused_control is TextEdit:
+		focused_control.release_focus()
+		print("Main: Escape released focus from text input")
+		return true
 
 	# History browser: return to the live game before anything else.
 	if _history_view_active:

@@ -10,9 +10,10 @@ signal attacks_confirmed(assignments: Array)
 signal skip_fight_requested(unit_id: String)
 # The player backed out of this activation before assigning anything — the
 # controller submits CANCEL_FIGHTER_SELECTION, which un-picks the unit and puts
-# the fighter-selection panel back. Emitted by the "◀ Pick Anuvver Unit" button
-# AND by every native dismissal (Escape, the window ✕, pad Ⓑ), which previously
-# just hid the dialog and stranded the phase with no way to fight or re-pick.
+# the fighter-selection panel back. Emitted by the "◀ Back — Pick Another Unit"
+# button AND by every native dismissal (Escape, the window ✕, pad Ⓑ), which
+# previously just hid the dialog and stranded the phase with no way to fight or
+# re-pick.
 signal selection_cancelled(unit_id: String)
 # Pad (controller): emitted with the unit_id of the target_list row the D-pad
 # ◀ ▶ cursor now sits on, so the FightController can bracket it on the board
@@ -36,6 +37,15 @@ var extra_attacks_target_list: ItemList = null  # T3-3: Target selector for Extr
 var all_to_target_button: Button = null  # T5-UX5: "All to Target" shortcut button
 var best_krump_button: Button = null  # Auto-assign the best weapon per group
 var _pad_hint_label: Label = null  # Controller hint row (shown only when a pad is active)
+# Collapsible "where does E[D] come from?" table. Folded away by default: the
+# assignment rows only ever showed a bare `E[D]≈8.3`, so a player comparing two
+# Vaultswords profiles had to take the number on faith (and, reading it as
+# "8.3 dead models", could be badly misled — a D3 weapon wastes two thirds of
+# its damage on 1-wound Stormboyz). Expanding it shows the whole hit → wound →
+# save → damage chain per assignment, plus the models it actually kills.
+var _breakdown_toggle: Button = null
+var _breakdown_scroll: ScrollContainer = null
+var _breakdown_display: RichTextLabel = null
 
 # MA-LOADOUT (melee): who can swing what. `_eligible_models` is every model
 # that may fight this activation; `_weapon_carriers` maps a weapon id to the
@@ -266,7 +276,16 @@ func _build_ui() -> void:
 	# split group) cannot push the buttons off the bottom of the dialog.
 	var groups_scroll = ScrollContainer.new()
 	groups_scroll.name = "GroupsScroll"
-	groups_scroll.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 260)
+	# Sized to what the sections actually need, capped at the old fixed 260 so a
+	# mob with several loadouts still scrolls rather than growing without bound.
+	# It used to reserve 260px unconditionally, which for a single-model, single-
+	# weapon fighter (a Warboss with just his Power klaw) was ~150px of empty box
+	# — and on a 1080p screen that was exactly the room the damage-breakdown
+	# section below needed, so the new table opened half off the bottom edge.
+	var groups_needed := 0.0
+	for g in _groups:
+		groups_needed += 40.0 + float(26 * min(4, max(1, g.weapons.size())) + 8) + 26.0
+	groups_scroll.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, clampf(groups_needed, 90.0, 260.0))
 	groups_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_groups_box = VBoxContainer.new()
 	_groups_box.name = "GroupsBox"
@@ -309,8 +328,11 @@ func _build_ui() -> void:
 	# manual fiddling.
 	best_krump_button = Button.new()
 	best_krump_button.name = "BestKrumpButton"
-	best_krump_button.text = "Best Krump ✨"
-	best_krump_button.tooltip_text = "Auto-pick the best melee weapon for each group against the selected target"
+	# Label is plain English for the same reason as the back button below — the
+	# node name / handler keep the "best_krump" spelling because windowed
+	# scenarios click this by path and coverage tags key off it.
+	best_krump_button.text = "Best Weapons ✨"
+	best_krump_button.tooltip_text = "Auto-pick the best melee weapon for each section against the selected target"
 	best_krump_button.pressed.connect(_on_best_krump_pressed)
 	button_container.add_child(best_krump_button)
 
@@ -376,7 +398,10 @@ func _build_ui() -> void:
 	# activation costs nothing.
 	var back_button = Button.new()
 	back_button.name = "BackToSelectionButton"
-	back_button.text = "◀ Pick Anuvver Unit"
+	# Plain English, not Ork slang: this dialog is faction-agnostic chrome — a
+	# Custodes player has no reason to read "Pick Anuvver Unit" (reported). The
+	# Ork voice belongs to the tutorial narrator cards, not to the buttons.
+	back_button.text = "◀ Back — Pick Another Unit"
 	back_button.tooltip_text = "Un-pick this unit and choose a different one to fight (nothing is assigned yet)"
 	back_button.pressed.connect(_on_back_to_selection_pressed)
 	button_container.add_child(back_button)
@@ -394,6 +419,35 @@ func _build_ui() -> void:
 	assignments_display.name = "AssignmentsDisplay"
 	assignments_display.bbcode_enabled = true
 	container.add_child(assignments_display)
+
+	# The E[D] figures above are the whole basis for "Best Weapons" and for any
+	# manual weapon comparison, but until now they arrived with no working shown.
+	# This folds the derivation away by default (it is a lot of rows for a mob
+	# with several sections) and expands it on demand.
+	_breakdown_toggle = Button.new()
+	_breakdown_toggle.name = "BreakdownToggleButton"
+	_breakdown_toggle.text = "▶ Show damage breakdown"
+	_breakdown_toggle.tooltip_text = "Show how each E[D] figure is built: attacks → hits → wounds → failed saves → damage → models slain"
+	_breakdown_toggle.flat = true
+	_breakdown_toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_breakdown_toggle.add_theme_font_size_override("font_size", 15)
+	_breakdown_toggle.pressed.connect(_on_breakdown_toggled)
+	container.add_child(_breakdown_toggle)
+
+	# Bounded height: a 3-section plan renders three tables, and letting them
+	# grow the dialog freely pushes "Fight!" off the bottom of the screen.
+	_breakdown_scroll = ScrollContainer.new()
+	_breakdown_scroll.name = "BreakdownScroll"
+	_breakdown_scroll.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 220)
+	_breakdown_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_breakdown_scroll.visible = false
+	_breakdown_display = RichTextLabel.new()
+	_breakdown_display.name = "BreakdownDisplay"
+	_breakdown_display.bbcode_enabled = true
+	_breakdown_display.fit_content = true
+	_breakdown_display.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_breakdown_scroll.add_child(_breakdown_display)
+	container.add_child(_breakdown_scroll)
 
 	# Pad (controller) hint row — the melee twin of the shooting phase's target
 	# ring, spelled out for a controller. Shown only when the pad is the active
@@ -731,7 +785,7 @@ func _best_weapon_for_group(gi: int, target_id: String) -> String:
 	var best_id := ""
 	var best_score := -1.0
 	for wid in g.weapons:
-		var score := _estimate_expected_damage(wid, target_id, g.models.size())
+		var score := _estimate_expected_damage(wid, target_id, g.models.size(), str(g.get("owner", "")))
 		if score > best_score:
 			best_score = score
 			best_id = wid
@@ -866,7 +920,8 @@ func _sync_group_widgets() -> void:
 					continue
 				var w: Dictionary = _weapon_by_id.get(str(line.get("weapon", "")), {})
 				atks += _average_dice_notation(str(w.get("attacks", "1"))) * float(count)
-				ed += _estimate_expected_damage(str(line.get("weapon", "")), str(line.get("target", "")), count)
+				ed += _estimate_expected_damage(str(line.get("weapon", "")), str(line.get("target", "")), count,
+					str(g.get("owner", "")))
 			summary.text = "≈%s attacks · E[D]≈%.1f" % [
 				("%.1f" % atks) if atks != floor(atks) else ("%d" % int(atks)), ed]
 	_updating_spins = false
@@ -1243,12 +1298,12 @@ func _on_all_to_target_pressed() -> void:
 	_rebuild_assignments()
 
 
-# "Best Krump": re-derive the whole plan — best weapon per section against the
+# "Best Weapons": re-derive the whole plan — best weapon per section against the
 # selected target, splits merged. The one-click way back to a sane default after
 # manual fiddling, and the plan the dialog already opens on.
 func _on_best_krump_pressed() -> void:
 	var target_id := _selected_target_id()
-	print("[AttackAssignmentDialog] Best Krump: auto-assigning %d section(s) vs %s" % [_groups.size(), target_id])
+	print("[AttackAssignmentDialog] Best Weapons: auto-assigning %d section(s) vs %s" % [_groups.size(), target_id])
 	_apply_best_plan(target_id)
 	var toast := get_node_or_null("/root/ToastManager")
 	if toast != null:
@@ -1266,7 +1321,8 @@ func _update_assignments_display() -> void:
 		# the count — "Power klaw (1 model)" next to "Choppa (9 models)" is the
 		# whole point of the plan.
 		var swinging: int = (assignment.get("models", []) as Array).size()
-		var ed: float = _estimate_expected_damage(assignment.weapon, assignment.target, swinging)
+		var ed: float = _estimate_expected_damage(assignment.weapon, assignment.target, swinging,
+			str(assignment.get("attacker", "")))
 		total_expected_damage += ed
 		var w: Dictionary = _weapon_by_id.get(str(assignment.weapon), {})
 		assignments_display.append_text("- %s → %s (%d model%s) [E[D]≈%.1f]\n" % [
@@ -1290,23 +1346,271 @@ func _update_assignments_display() -> void:
 	if total_expected_damage > 0.0:
 		assignments_display.append_text("[b]Total expected damage: %.1f[/b]\n" % total_expected_damage)
 
+	_render_breakdown()
+	# Swapping a weapon with the section open changes how many rows it holds —
+	# re-fit so the last footnote never ends up half under the dialog edge.
+	if _breakdown_scroll != null and _breakdown_scroll.visible:
+		_refit_breakdown()
+
+
+# ── damage breakdown table ──────────────────────────────────────────────────
+
+func _on_breakdown_toggled() -> void:
+	if _breakdown_scroll == null or _breakdown_toggle == null:
+		return
+	_breakdown_scroll.visible = not _breakdown_scroll.visible
+	_breakdown_toggle.text = "▼ Hide damage breakdown" if _breakdown_scroll.visible \
+		else "▶ Show damage breakdown"
+	print("[AttackAssignmentDialog] Damage breakdown %s" % ("expanded" if _breakdown_scroll.visible else "collapsed"))
+	_render_breakdown()
+	_refit_breakdown()
+
+
+# Size the section to the tables it actually holds (bounded, so a five-section
+# plan still scrolls rather than growing without limit), let the dialog re-fit
+# around it, and keep the result on screen. Deferred a frame because a
+# RichTextLabel only knows its content height once it has laid the tables out.
+func _refit_breakdown() -> void:
+	if _breakdown_scroll == null or not is_inside_tree():
+		return
+	await get_tree().process_frame
+	if not is_inside_tree() or _breakdown_scroll == null or _breakdown_display == null:
+		return
+	if _breakdown_scroll.visible:
+		_breakdown_scroll.custom_minimum_size.y = clampf(
+			_breakdown_display.get_content_height() + 12.0, 120.0, 320.0)
+		await get_tree().process_frame
+		if not is_inside_tree():
+			return
+	reset_size()
+	_keep_on_screen()
+
+
+# An expanded breakdown can push the dialog past the bottom of the window, where
+# the very rows the player opened it to read are the ones that fall off. Clamp
+# the height to the viewport and slide the dialog back up to fit.
+func _keep_on_screen() -> void:
+	# Only meaningful for an embedded subwindow, where `position` is in the
+	# parent viewport's coordinates. As a native OS window it is in screen
+	# space and the window manager already places it.
+	if not is_embedded():
+		return
+	var vp: Vector2 = get_tree().root.get_visible_rect().size
+	if vp.y <= 0.0:
+		return
+	var max_h := int(vp.y - 16.0)
+	if size.y > max_h:
+		size = Vector2i(size.x, max_h)
+	var max_y := int(max(8.0, vp.y - float(size.y) - 8.0))
+	position = Vector2i(position.x, clampi(position.y, 8, max_y))
+
+
+# The same rows the assignments display lists, as
+# {weapon, target, models, owner, extra} — one source of truth so a table row
+# can never describe an assignment that is not in the plan.
+func _breakdown_rows() -> Array:
+	var rows: Array = []
+	for a in assignments:
+		rows.append({
+			"weapon": str(a.get("weapon", "")),
+			"target": str(a.get("target", "")),
+			"models": (a.get("models", []) as Array).size(),
+			"owner": str(a.get("attacker", "")),
+			"extra": false,
+		})
+	if not extra_attacks_weapons.is_empty():
+		var ea_target_id := str(_get_extra_attacks_target_id())
+		for weapon in extra_attacks_weapons:
+			var wid: String = RulesEngine.generate_weapon_id(str(weapon.get("name", "")), str(weapon.get("type", "")))
+			var carriers: Array = _carriers_across_group(wid)
+			rows.append({
+				"weapon": wid,
+				"target": ea_target_id,
+				"models": carriers.size(),
+				"owner": _mk_unit(str(carriers[0])) if not carriers.is_empty() else "",
+				"extra": true,
+			})
+	return rows
+
+
+# One table per assignment: the hit → wound → save → damage chain, each step
+# showing what it needs, how likely it is and what is left after it. The final
+# DAMAGE row is by construction the same `E[D]` printed on the assignment row
+# above, so the table explains that number rather than competing with it.
+func _render_breakdown() -> void:
+	if _breakdown_display == null:
+		return
+	_breakdown_display.clear()
+
+	var rows: Array = _breakdown_rows()
+	if rows.is_empty():
+		_breakdown_display.append_text("[i]Nothing assigned yet — pick a weapon for a section above.[/i]")
+		return
+
+	for i in range(rows.size()):
+		var row: Dictionary = rows[i]
+		var bd: Dictionary = _damage_breakdown(str(row.weapon), str(row.target), int(row.models), str(row.owner))
+		if bd.is_empty():
+			continue
+		if i > 0:
+			_breakdown_display.append_text("\n")
+		_breakdown_display.append_text("[bgcolor=#2a2314][b][color=#E8C477] ⚔ %s → %s · %d model%s%s [/color][/b][/bgcolor]\n" % [
+			bd.weapon_name, _target_name(str(row.target)), int(row.models),
+			"" if int(row.models) == 1 else "s",
+			" · Extra Attacks" if row.extra else ""])
+		_render_breakdown_table(bd)
+		_render_breakdown_footnotes(bd)
+
+
+func _render_breakdown_table(bd: Dictionary) -> void:
+	var rtl := _breakdown_display
+	rtl.push_table(4)
+	rtl.set_table_column_expand(0, false)
+	rtl.set_table_column_expand(1, true)
+	rtl.set_table_column_expand(2, false)
+	rtl.set_table_column_expand(3, false)
+
+	_bd_header_cell("STEP")
+	_bd_header_cell("NEEDS")
+	_bd_header_cell("CHANCE")
+	_bd_header_cell("EXPECTED")
+
+	_bd_row("ATTACKS", Color(0.30, 0.34, 0.40),
+		"%s each × %d model%s" % [bd.attacks_str, int(bd.models), "" if int(bd.models) == 1 else "s"],
+		"—",
+		"[b]%s[/b] attacks" % _bd_num(bd.total_attacks))
+
+	_bd_row("HIT", Color(0.16, 0.38, 0.62),
+		"WS %d+" % int(bd.skill),
+		"%.0f%%" % (float(bd.p_hit) * 100.0),
+		"[b]%s[/b] hits" % _bd_num(bd.expected_hits))
+
+	_bd_row("WOUND", Color(0.66, 0.38, 0.12),
+		"S%d vs T%d → %d+" % [int(bd.strength), int(bd.toughness), int(bd.wound_need)],
+		"%.0f%%" % (float(bd.p_wound) * 100.0),
+		"[b]%s[/b] wounds" % _bd_num(bd.expected_wounds))
+
+	# Which save the defender actually gets, and why. An invulnerable save
+	# ignores AP entirely, so naming the one in use is the difference between
+	# "AP-3 strips their armour" and "AP-3 does nothing, they have a 4++".
+	var save_text := ""
+	if int(bd.effective_save) >= 7:
+		save_text = "Sv %d+ %s → no save" % [int(bd.target_save), _bd_ap(int(bd.ap))]
+	elif bd.uses_invuln:
+		save_text = "%d++ invuln (ignores %s)" % [int(bd.target_invuln), _bd_ap(int(bd.ap))]
+	else:
+		save_text = "Sv %d+ %s → %d+" % [int(bd.target_save), _bd_ap(int(bd.ap)), int(bd.modified_save)]
+	_bd_row("SAVE", Color(0.44, 0.30, 0.66),
+		save_text,
+		"%.0f%% fail" % (float(bd.p_unsaved) * 100.0),
+		"[b]%s[/b] unsaved" % _bd_num(bd.expected_unsaved))
+
+	_bd_row("DAMAGE", Color(0.58, 0.48, 0.10),
+		"%s per unsaved wound" % str(bd.damage_str),
+		"—",
+		"[b]%s[/b] damage" % _bd_num(bd.expected_damage / max(0.0001, float(bd.p_damage_through))))
+
+	if int(bd.fnp) >= 2 and int(bd.fnp) <= 6:
+		_bd_row("FNP", Color(0.10, 0.52, 0.34),
+			"Feel No Pain %d+" % int(bd.fnp),
+			"%.0f%% ignored" % ((1.0 - float(bd.p_damage_through)) * 100.0),
+			"[b]%s[/b] damage" % _bd_num(bd.expected_damage))
+
+	_bd_row("SLAIN", Color(0.55, 0.16, 0.16),
+		"%d wound%s per model" % [int(bd.wounds_per_model), "" if int(bd.wounds_per_model) == 1 else "s"],
+		"—",
+		"[b]≈%s[/b] of %d slain" % [_bd_num(bd.expected_slain), int(bd.alive_models)])
+
+	rtl.pop()  # table
+	# A table is an INLINE element: without this the footnotes below render on
+	# the table's own line, i.e. floating to the right of the header row.
+	rtl.append_text("\n")
+
+
+# Notes under the table: the two things a raw E[D] number hides.
+func _render_breakdown_footnotes(bd: Dictionary) -> void:
+	var rtl := _breakdown_display
+	if float(bd.wasted_damage) >= 0.05:
+		rtl.append_text("[font_size=13][color=#C98A8A]  ⚠ %s damage per wound vs %d-wound models — ≈%s of the %s damage is lost to overkill.[/color][/font_size]\n" % [
+			str(bd.damage_str), int(bd.wounds_per_model), _bd_num(bd.wasted_damage), _bd_num(bd.expected_damage)])
+	var caveats: Array = (bd.get("unmodelled", []) as Array).duplicate()
+	caveats.append("re-rolls / modifiers / cover / stratagems")
+	rtl.append_text("[font_size=13][color=#8F9AA8]  Not modelled: %s.[/color][/font_size]\n" % ", ".join(caveats))
+
+
+func _bd_header_cell(text: String) -> void:
+	var rtl := _breakdown_display
+	rtl.push_cell()
+	rtl.set_cell_padding(Rect2(6, 2, 6, 2))
+	rtl.append_text("[font_size=12][color=#8F9AA8][b]%s[/b][/color][/font_size]" % text)
+	rtl.pop()
+
+
+# One step row: a solid colored chip in the fixed left column (the same step
+# colors the Dice Log uses, so both read as one language), then the plain-text
+# columns.
+func _bd_row(chip: String, chip_bg: Color, needs: String, chance: String, leaves: String) -> void:
+	var rtl := _breakdown_display
+	rtl.push_cell()
+	rtl.set_cell_row_background_color(chip_bg, chip_bg)
+	rtl.set_cell_padding(Rect2(6, 2, 6, 2))
+	rtl.append_text("[font_size=12][b]%s[/b][/font_size]" % chip)
+	rtl.pop()
+	for text in [needs, chance, leaves]:
+		rtl.push_cell()
+		rtl.set_cell_padding(Rect2(6, 2, 6, 2))
+		rtl.append_text("[font_size=14]%s[/font_size]" % text)
+		rtl.pop()
+
+
+# Whole numbers stay whole ("5 attacks", not "5.0 attacks"); everything else
+# keeps one decimal, which is the precision the assignment rows already print.
+static func _bd_num(v: float) -> String:
+	if is_equal_approx(v, round(v)):
+		return "%d" % int(round(v))
+	return "%.1f" % v
+
+
+static func _bd_ap(ap: int) -> String:
+	return "AP0" if ap == 0 else "AP-%d" % abs(ap)
+
 
 # T-093: analytic expected-damage estimator for AttackAssignmentDialog preview.
-# Uses standard Warhammer 10e math: E[D] = A * Phit * Pwound * Punsaved * D
+# Uses standard Warhammer 10e/11e math: E[D] = A * Phit * Pwound * Punsaved * D
 # where probability functions parse weapon profile + defender stats.
-func _estimate_expected_damage(weapon_id: String, target_id: String, swinging_models: int = -1) -> float:
+#
+# This single float is what the group summaries, the assignment rows and the
+# "Best Weapons" auto-pick all score on. `damage_breakdown()` below is the SAME
+# computation with every intermediate kept, so the collapsible table can show a
+# player where the number comes from and still add up to exactly this figure.
+func _estimate_expected_damage(weapon_id: String, target_id: String, swinging_models: int = -1, prefer_unit_id: String = "") -> float:
+	var bd := _damage_breakdown(weapon_id, target_id, swinging_models, prefer_unit_id)
+	return float(bd.get("expected_damage", 0.0))
+
+
+# Resolve the weapon profile and the defender off the live board, then hand the
+# pure math to `damage_breakdown()`. Returns {} when either side is unresolvable.
+func _damage_breakdown(weapon_id: String, target_id: String, swinging_models: int = -1, prefer_unit_id: String = "") -> Dictionary:
 	if phase_reference == null or unit_id == "" or target_id == "":
-		return 0.0
-	var attacker_unit = phase_reference.get_unit(unit_id)
+		return {}
 	var target_unit = phase_reference.get_unit(target_id)
-	if attacker_unit.is_empty() or target_unit.is_empty():
-		return 0.0
+	if target_unit.is_empty():
+		return {}
 	# Find weapon. 19.03: search every component of the Attached unit — the
 	# attached leader's power klaw is not on his bodyguard's datasheet, and
 	# without this its forecast row silently read 0 (and the "best weapon"
-	# auto-plan would never pick it).
-	var weapon: Dictionary = {}
+	# auto-plan would never pick it). The component that ACTUALLY swings it is
+	# searched first: a Warboss and his Boss Nob can both carry a "Power klaw"
+	# with different stats, and scoring his swing on the mob's profile is wrong
+	# by ~40% — the same trap Mathhammer.resolve_weapon_profile documents.
+	var search_order: Array = []
+	if prefer_unit_id != "":
+		search_order.append(prefer_unit_id)
 	for member_id in (_group_unit_ids if not _group_unit_ids.is_empty() else [unit_id]):
+		if not member_id in search_order:
+			search_order.append(member_id)
+	var weapon: Dictionary = {}
+	for member_id in search_order:
 		for w in phase_reference.get_unit(member_id).get("meta", {}).get("weapons", []):
 			var wname = w.get("name", "")
 			var wid = RulesEngine.generate_weapon_id(wname, w.get("type", ""))
@@ -1316,14 +1620,7 @@ func _estimate_expected_damage(weapon_id: String, target_id: String, swinging_mo
 		if not weapon.is_empty():
 			break
 	if weapon.is_empty():
-		return 0.0
-	# Parse weapon stats — strip dice notation by averaging
-	var attacks_str: String = str(weapon.get("attacks", "1"))
-	var strength_int: int = _parse_stat_int(str(weapon.get("strength", "4")))
-	var ap_int: int = _parse_stat_int(str(weapon.get("ap", "0")))
-	var damage_str: String = str(weapon.get("damage", "1"))
-	var attacks_avg: float = _average_dice_notation(attacks_str)
-	var damage_avg: float = _average_dice_notation(damage_str)
+		return {}
 	# Total attacks = per-weapon attacks x the models actually swinging it.
 	# MA-LOADOUT: the caller passes that count (the assignment's model list), so
 	# the preview no longer multiplies a one-model Power klaw by the whole mob.
@@ -1331,35 +1628,174 @@ func _estimate_expected_damage(weapon_id: String, target_id: String, swinging_mo
 	var swinging: int = swinging_models
 	if swinging < 0:
 		swinging = _carriers_across_group(weapon_id).size()
-	var total_attacks: float = attacks_avg * float(max(1, swinging))
-	# Hit probability from WS/BS (weapon's accuracy attribute). `weapon_skill` is
-	# the key the army JSONs actually use — without it every melee weapon scored
-	# as WS4+, which made the auto-pick blind to a Nob's WS3 Choppa vs his WS4
+	# FNP is passed in rather than read inside `damage_breakdown`: the real value
+	# can be granted by an effect (not just the datasheet), and only RulesEngine
+	# knows about those — keeping that lookup out here is what lets the math stay
+	# a pure, board-free static function.
+	var bd := damage_breakdown(weapon, target_unit, swinging, RulesEngine.get_unit_fnp(target_unit))
+	bd["target_name"] = _target_name(target_id)
+	return bd
+
+
+# Weapon abilities that bend the hit → wound → save chain but which the forecast
+# below does NOT apply, mapped to the label the table footnote prints. Naming
+# them is the honest half of showing the working: a player reading a Sustained
+# Hits 1 profile's `E[D]≈3.1` should know the real figure is higher, rather than
+# trusting a number the resolution step will not reproduce.
+const _UNMODELLED_ABILITIES := {
+	"sustained_hits": "Sustained Hits",
+	"lethal_hits": "Lethal Hits",
+	"devastating_wounds": "Devastating Wounds",
+	"twin_linked": "Twin-linked",
+	"anti": "Anti-X",
+	"lance": "Lance",
+	"melta": "Melta",
+	"blast": "Blast",
+}
+
+
+# The whole chain for `swinging_models` models swinging `weapon` at
+# `target_unit`, with every intermediate value kept so the breakdown table can
+# show its working. Static and board-free (the caller resolves both dictionaries)
+# so the math is testable headless.
+#
+# Deliberately coarse — `unmodelled` names what it skips. It models exactly what
+# the assignment rows have always shown, so the table's DAMAGE row is the same
+# `E[D]` figure printed next to the assignment; nothing new is invented for the
+# table and no forecast changes because it was opened.
+static func damage_breakdown(weapon: Dictionary, target_unit: Dictionary, swinging_models: int, fnp_override: int = -1) -> Dictionary:
+	if weapon.is_empty() or target_unit.is_empty():
+		return {}
+
+	var stats: Dictionary = target_unit.get("meta", {}).get("stats", {})
+	var models: int = max(1, swinging_models)
+
+	# ATTACKS
+	var attacks_str: String = str(weapon.get("attacks", "1"))
+	var attacks_avg: float = _average_dice_notation(attacks_str)
+	var total_attacks: float = attacks_avg * float(models)
+
+	# HIT — from WS/BS (the weapon's accuracy attribute). `weapon_skill` is the
+	# key the army JSONs actually use — without it every melee weapon scored as
+	# WS4+, which made the auto-pick blind to a Nob's WS3 Choppa vs his WS4
 	# Power klaw.
 	var skill_int: int = _parse_stat_int(str(weapon.get("skill",
 		weapon.get("weapon_skill", weapon.get("ws", weapon.get("bs", "4"))))))
 	var p_hit: float = clampf(float(7 - skill_int) / 6.0, 1.0/6.0, 5.0/6.0)
-	# Wound probability vs target T
-	var target_T: int = _parse_stat_int(str(target_unit.get("meta", {}).get("stats", {}).get("toughness", 4)))
-	var p_wound: float = _wound_probability(strength_int, target_T)
-	# Unsaved probability: target save - AP, capped invuln
-	var target_save: int = _parse_stat_int(str(target_unit.get("meta", {}).get("stats", {}).get("save", 5)))
-	var target_invuln: int = _parse_stat_int(str(target_unit.get("meta", {}).get("stats", {}).get("invuln", 7)))
-	# AP WORSENS a save, and the army JSONs store it negative ("-2"). The old
-	# `target_save - max(0, ap_int)` clamped every negative AP to 0, so AP was
-	# silently ignored — which made the preview flatter than reality and, now
-	# that the auto-pick is driven by this number, would have handed a Boss Nob
-	# his Big choppa over the AP-2 Power klaw against 2+ armour. Take the
-	# magnitude and add it; 7+ means no save at all.
+	var expected_hits: float = total_attacks * p_hit
+
+	# WOUND — the 10e/11e S-vs-T chart.
+	var strength_int: int = _parse_stat_int(str(weapon.get("strength", "4")))
+	var target_T: int = max(1, _parse_stat_int(str(stats.get("toughness", 4))))
+	var wound_need: int = _wound_threshold(strength_int, target_T)
+	var p_wound: float = float(7 - wound_need) / 6.0
+	var expected_wounds: float = expected_hits * p_wound
+
+	# SAVE — AP WORSENS a save, and the army JSONs store it negative ("-2"). The
+	# old `target_save - max(0, ap_int)` clamped every negative AP to 0, so AP was
+	# silently ignored — which made the preview flatter than reality and, now that
+	# the auto-pick is driven by this number, would have handed a Boss Nob his Big
+	# choppa over the AP-2 Power klaw against 2+ armour. Take the magnitude and
+	# add it; 7+ means no save at all. An invulnerable save is never modified by
+	# AP, so the defender uses whichever of the two is better.
+	var ap_int: int = _parse_stat_int(str(weapon.get("ap", "0")))
 	var ap_penalty: int = abs(ap_int)
+	var target_save: int = _parse_stat_int(str(stats.get("save", 5)))
+	if target_save <= 0:
+		target_save = 7
+	var target_invuln: int = _parse_stat_int(str(stats.get("invuln", 7)))
+	# A datasheet with no invuln stores 0, not 7 — reading that literally gave an
+	# "effective save 0+", i.e. a 0% chance of any damage getting through.
+	if target_invuln <= 0:
+		target_invuln = 7
 	var modified_save: int = min(7, target_save + ap_penalty)
 	var effective_save: int = min(modified_save, target_invuln)
 	var p_unsaved: float = clampf(float(effective_save - 1) / 6.0, 0.0, 1.0)
-	# FNP not factored (would need to read defender flags); coarse preview.
-	return total_attacks * p_hit * p_wound * p_unsaved * damage_avg
+	var expected_unsaved: float = expected_wounds * p_unsaved
+
+	# DAMAGE
+	var damage_str: String = str(weapon.get("damage", "1"))
+	var damage_avg: float = _average_dice_notation(damage_str)
+
+	# FEEL NO PAIN — rolled per point of damage, so it scales the whole total.
+	# It applies identically to every weapon against the same defender, so
+	# folding it in cannot re-order "Best Weapons"; it just stops the forecast
+	# over-promising against a 5+++ target.
+	var fnp: int = fnp_override if fnp_override >= 0 else _parse_stat_int(str(stats.get("fnp", 0)))
+	var p_damage_through: float = 1.0
+	if fnp >= 2 and fnp <= 6:
+		p_damage_through = clampf(float(fnp - 1) / 6.0, 0.0, 1.0)
+	var expected_damage: float = expected_unsaved * damage_avg * p_damage_through
+
+	# MODELS SLAIN — the number the player is usually really after, and NOT the
+	# same as expected damage: damage spilling past a model's last wound is lost
+	# (10e/11e), so a D3 weapon throws away two thirds of every hit on 1-wound
+	# Stormboyz. Reporting only E[D] made a 5A/D3 profile look nearly three times
+	# better than a 9A/D1 one that actually kills more of them.
+	var alive_models: int = 0
+	var wounds_per_model: int = 0
+	for m in target_unit.get("models", []):
+		if not m.get("alive", true):
+			continue
+		alive_models += 1
+		wounds_per_model = max(wounds_per_model, int(m.get("wounds", 1)))
+	if wounds_per_model <= 0:
+		wounds_per_model = max(1, _parse_stat_int(str(stats.get("wounds", 1))))
+	if alive_models <= 0:
+		alive_models = max(1, target_unit.get("models", []).size())
+	var damage_per_wound: float = min(damage_avg, float(wounds_per_model)) * p_damage_through
+	var expected_slain: float = min(
+		float(alive_models),
+		expected_unsaved * damage_per_wound / float(wounds_per_model))
+	var wasted_damage: float = max(0.0, expected_unsaved * (damage_avg - float(wounds_per_model)) * p_damage_through)
+
+	var unmodelled: Array = []
+	for ability in weapon.get("abilities", []):
+		var aid := ""
+		if typeof(ability) == TYPE_DICTIONARY:
+			aid = str(ability.get("id", ""))
+		elif typeof(ability) == TYPE_STRING:
+			aid = str(ability)
+		if _UNMODELLED_ABILITIES.has(aid) and not _UNMODELLED_ABILITIES[aid] in unmodelled:
+			unmodelled.append(_UNMODELLED_ABILITIES[aid])
+
+	return {
+		"weapon_name": str(weapon.get("name", "?")),
+		"target_name": str(target_unit.get("meta", {}).get("name", "target")),
+		"models": models,
+		"attacks_str": attacks_str,
+		"attacks_avg": attacks_avg,
+		"total_attacks": total_attacks,
+		"skill": skill_int,
+		"p_hit": p_hit,
+		"expected_hits": expected_hits,
+		"strength": strength_int,
+		"toughness": target_T,
+		"wound_need": wound_need,
+		"p_wound": p_wound,
+		"expected_wounds": expected_wounds,
+		"ap": ap_int,
+		"target_save": target_save,
+		"target_invuln": target_invuln,
+		"modified_save": modified_save,
+		"effective_save": effective_save,
+		"uses_invuln": target_invuln < modified_save,
+		"p_unsaved": p_unsaved,
+		"expected_unsaved": expected_unsaved,
+		"damage_str": damage_str,
+		"damage_avg": damage_avg,
+		"fnp": fnp,
+		"p_damage_through": p_damage_through,
+		"expected_damage": expected_damage,
+		"wounds_per_model": wounds_per_model,
+		"alive_models": alive_models,
+		"expected_slain": expected_slain,
+		"wasted_damage": wasted_damage,
+		"unmodelled": unmodelled,
+	}
 
 
-func _parse_stat_int(s: String) -> int:
+static func _parse_stat_int(s: String) -> int:
 	# Accept "4", "4+", "S", numeric; defaults to 4 on parse failure
 	s = s.strip_edges()
 	if s.is_empty():
@@ -1382,7 +1818,7 @@ func _parse_stat_int(s: String) -> int:
 	return 4
 
 
-func _average_dice_notation(s: String) -> float:
+static func _average_dice_notation(s: String) -> float:
 	# Handles "1", "3", "D6", "2D3", "D6+1", "2D6"
 	s = s.strip_edges().to_upper().replace(" ", "")
 	if s.is_empty():
@@ -1408,17 +1844,23 @@ func _average_dice_notation(s: String) -> float:
 	return float(n) * (float(x) + 1.0) / 2.0 + bonus
 
 
-func _wound_probability(s: int, t: int) -> float:
-	# 10e wound chart
+# The roll a wound needs on the 10e/11e S-vs-T chart. Split out of
+# `_wound_probability` so the breakdown table can print "S6 vs T5 → 3+" rather
+# than only the resulting percentage.
+static func _wound_threshold(s: int, t: int) -> int:
 	if s >= t * 2:
-		return 5.0 / 6.0
+		return 2
 	if s > t:
-		return 4.0 / 6.0
+		return 3
 	if s == t:
-		return 3.0 / 6.0
+		return 4
 	if s * 2 <= t:
-		return 1.0 / 6.0
-	return 2.0 / 6.0
+		return 6
+	return 5
+
+
+static func _wound_probability(s: int, t: int) -> float:
+	return float(7 - _wound_threshold(s, t)) / 6.0
 
 func _on_skip_fight_pressed() -> void:
 	print("[AttackAssignmentDialog] Skip fight pressed (no eligible targets) for unit: ", unit_id)

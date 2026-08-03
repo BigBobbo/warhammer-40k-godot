@@ -544,11 +544,20 @@ func test_multiplayer_reconnection():
 	assert_eq(network_manager.get_network_mode(), NetworkManager.NetworkMode.HOST,
 		"Should be back in HOST mode after reconnect")
 
-func test_multiplayer_chat_functionality():
-	"""Test in-game chat functionality"""
+func test_multiplayer_log_note_functionality():
+	"""Free-text notes typed into the Game Log's note box become log entries.
+
+	Replaces the old chat-panel test: the floating chat/feed pop-up was removed,
+	and player-written text now goes into the shared game log instead (broadcast
+	to the peer via NetworkManager.send_log_note in a networked game)."""
 	if not network_manager:
 		pass_test("NetworkManager not available")
 		return
+
+	assert_true(network_manager.has_signal("log_note_received"),
+		"NetworkManager should expose the log_note_received signal")
+	assert_true(network_manager.has_method("send_log_note"),
+		"NetworkManager should expose send_log_note")
 
 	# Load game scene
 	# host_runner = get_scene_runner() # Method not available in current GUT version
@@ -557,29 +566,38 @@ func test_multiplayer_chat_functionality():
 
 	await wait_frames(5)
 
-	# Find chat input
-	var chat_input = host_scene.find_child("ChatInput", true, false)
-	if not chat_input:
-		chat_input = host_scene.find_child("MessageInput", true, false)
+	var note_input = host_scene.find_child("NoteInput", true, false)
+	assert_not_null(note_input, "Game Log panel should expose a NoteInput field")
+	if not note_input:
+		return
 
-	if chat_input:
-		# Type message
-		chat_input.text = "Hello from test!"
+	var game_event_log = host_scene.get_node_or_null("/root/GameEventLog")
+	assert_not_null(game_event_log, "GameEventLog autoload should be present")
+	if not game_event_log:
+		return
 
-		# Press Enter to send
-		var key_event = InputEventKey.new()
-		key_event.keycode = KEY_ENTER
-		key_event.pressed = true
+	var before = game_event_log.count_entries_of_type("player_note")
 
-		host_scene.get_viewport().push_input(key_event)
-		await wait_frames(3)
+	# Submitting is what pressing Enter in the field does.
+	note_input.text = "Hold the left flank"
+	note_input.text_submitted.emit("Hold the left flank")
+	await wait_frames(3)
 
-		# Verify message was sent (would check chat history)
-		var chat_history = host_scene.find_child("ChatHistory", true, false)
-		if chat_history:
-			# Check if message appears in history
-			assert_true(true, "Chat message sent")
-	else:
-		pass_test("Chat functionality not implemented")
+	assert_eq(game_event_log.count_entries_of_type("player_note"), before + 1,
+		"Submitting the note box should add exactly one player_note log entry")
+	assert_eq(note_input.text, "", "The note box should clear after submitting")
+
+	var found_text := false
+	for entry in game_event_log.get_all_entries():
+		if entry.get("type", "") == "player_note" and "Hold the left flank" in str(entry.get("text", "")):
+			found_text = true
+	assert_true(found_text, "The note text should appear in the game log entry")
+
+	# Blank / whitespace-only notes are dropped rather than logged.
+	var after_real = game_event_log.count_entries_of_type("player_note")
+	note_input.text_submitted.emit("   ")
+	await wait_frames(3)
+	assert_eq(game_event_log.count_entries_of_type("player_note"), after_real,
+		"A whitespace-only note should not be logged")
 
 # Helper method for waiting frames - removed, using parent class method instead
