@@ -220,6 +220,20 @@ var _token_hover_tooltip: PanelContainer = null
 var _token_hover_label: RichTextLabel = null
 var _token_hover_unit_id: String = ""
 var _token_hover_model_id: String = ""
+# Hover DWELL: the stats card only pops once the cursor has been PARKED on the
+# same model for HOVER_DWELL_SEC. It used to appear the instant the pointer
+# crossed a base, which made dragging models (Movement / Charge) miserable — the
+# card covered the board the player was aiming at while they were sweeping the
+# mouse across their own squad to pick a model up. Sweeping past a model now
+# costs nothing; stopping on it still gets you the stats.
+const HOVER_DWELL_SEC: float = 0.55
+# Sub-pixel/jitter motion must not keep restarting the countdown, so only a real
+# move (more than this many screen px since the dwell was armed) re-arms it.
+const HOVER_DWELL_MOVE_TOLERANCE_PX: float = 4.0
+var _token_hover_pending_unit_id: String = ""
+var _token_hover_pending_model_id: String = ""
+var _token_hover_dwell_left: float = 0.0
+var _token_hover_dwell_anchor: Vector2 = Vector2.ZERO
 
 var _aura_rings_layer: Node2D = null
 var _aura_rings_visible: bool = false
@@ -6583,6 +6597,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
+	# Board model stats card: count down the hover dwell (see _tick_token_hover_dwell).
+	_tick_token_hover_dwell(delta)
+
 	# MA-41: Skip camera/view keyboard controls when a text input has focus
 	var _text_focused = _is_text_input_focused()
 
@@ -7929,27 +7946,36 @@ func _resolve_token_meta_node(token: Node) -> Node2D:
 			return child
 	return null
 
-func _check_token_hover(mouse_pos: Vector2) -> void:
+## Hit-test the board under `mouse_pos` and drive the model stats card.
+## `force`: skip the dwell countdown and show the card at once. Only the
+## explicit R4 / L4 peek and the dwell timer firing use it — a plain mouse move
+## always has to wait out HOVER_DWELL_SEC of stillness.
+func _check_token_hover(mouse_pos: Vector2, force: bool = false) -> void:
 	if not token_layer or not is_instance_valid(token_layer):
 		return
 	# Controller: the card is suppressed by default (it covers the very spot the
 	# virtual cursor is placing a model on) — hold R4 / L4 to peek. See
 	# _token_hover_allowed / PadRouter.stats_peek_active.
 	if not _token_hover_allowed():
-		_hide_token_hover()
+		_reset_token_hover()
+		return
+	# A held mouse button means the player is DRAGGING (a model, a selection box,
+	# or the camera) — never the moment to drop a stats card over the board.
+	if not force and Input.get_mouse_button_mask() != 0:
+		_reset_token_hover()
 		return
 	# The datasheet card is a read-the-rules overlay covering the middle of the
 	# screen; a board tooltip peeking out from behind it is pure noise.
 	var _ds = get_node_or_null("DatasheetModal")
 	if _ds != null and _ds.visible:
-		_hide_token_hover()
+		_reset_token_hover()
 		return
 	# Suppress the tooltip while the mouse is over a HUD panel — the board
 	# position under the HUD is not what the player is pointing at.
 	for hud_name in ["HUD_Right", "HUD_Bottom", "HUD_Left"]:
 		var hud = get_node_or_null(hud_name)
 		if hud is Control and hud.visible and hud.get_global_rect().has_point(mouse_pos):
-			_hide_token_hover()
+			_reset_token_hover()
 			return
 	# Tokens are children of BoardRoot/TokenLayer, so token.position is in
 	# board space. Convert the mouse the same way every other board handler
@@ -7982,19 +8008,32 @@ func _check_token_hover(mouse_pos: Vector2) -> void:
 			best_dist = dist
 			best_token = meta_node
 	if best_token:
-		var uid = best_token.get_meta("unit_id")
-		var mid = best_token.get_meta("model_id") if best_token.has_meta("model_id") else ""
-		# Re-render when either the unit OR the specific model under the cursor
-		# changes, so per-model profile info (Boss Nob vs Boy, etc.) updates as
-		# the cursor moves between models of the same squad.
-		if uid != _token_hover_unit_id or mid != _token_hover_model_id:
+		var uid = str(best_token.get_meta("unit_id"))
+		var mid = str(best_token.get_meta("model_id")) if best_token.has_meta("model_id") else ""
+		# Already showing this exact model: keep the card glued to the cursor.
+		if uid == _token_hover_unit_id and mid == _token_hover_model_id:
+			_position_token_hover(mouse_pos)
+			return
+		# A different model (or nothing) is showing. Drop the stale card first —
+		# per-model profile info (Boss Nob vs Boy, etc.) must never lag behind
+		# the cursor — then either show at once or start the dwell countdown.
+		_hide_token_hover()
+		if force:
 			_token_hover_unit_id = uid
 			_token_hover_model_id = mid
 			_show_token_hover(uid, mouse_pos, mid)
-		else:
-			_position_token_hover(mouse_pos)
-	elif _token_hover_unit_id != "":
-		_hide_token_hover()
+			return
+		# Re-arm the countdown when the cursor lands on a NEW model, or when it
+		# is still travelling across the one it is already waiting on. Parking
+		# the cursor lets the timer in _process run out and pop the card.
+		if uid != _token_hover_pending_unit_id or mid != _token_hover_pending_model_id \
+				or _token_hover_dwell_anchor.distance_to(mouse_pos) > HOVER_DWELL_MOVE_TOLERANCE_PX:
+			_token_hover_pending_unit_id = uid
+			_token_hover_pending_model_id = mid
+			_token_hover_dwell_anchor = mouse_pos
+			_token_hover_dwell_left = HOVER_DWELL_SEC
+	else:
+		_reset_token_hover()
 
 ## Whether the board hover stats card may show right now.
 ## Mouse & keyboard: always (the pointer is beside the model, never on top of the
@@ -8016,14 +8055,14 @@ func _token_hover_allowed() -> bool:
 ## R4 / L4 peek pressed or released — re-run the hit test (or drop the card) at
 ## once, instead of waiting for the next cursor motion.
 func _on_pad_stats_peek_changed(active: bool) -> void:
+	_reset_token_hover()
 	if not active:
-		_hide_token_hover()
 		return
-	_token_hover_unit_id = ""
-	_token_hover_model_id = ""
 	var vp := get_viewport()
 	if vp != null:
-		_check_token_hover(vp.get_mouse_position())
+		# force: holding the paddle IS the request for the card — making the pad
+		# player also hold the stick still for half a second would be absurd.
+		_check_token_hover(vp.get_mouse_position(), true)
 
 
 func _show_token_hover(unit_id: String, screen_pos: Vector2, model_id: String = "") -> void:
@@ -8253,6 +8292,50 @@ func _hide_token_hover() -> void:
 	_token_hover_model_id = ""
 	if _token_hover_tooltip:
 		_token_hover_tooltip.visible = false
+
+
+## Drop the card AND forget what it was counting down to. Every "the cursor is
+## not on a hoverable model any more" path uses this; the hand-off between two
+## models uses the bare _hide_token_hover so the dwell state survives.
+func _reset_token_hover() -> void:
+	_hide_token_hover()
+	_cancel_token_hover_dwell()
+
+
+func _cancel_token_hover_dwell() -> void:
+	_token_hover_pending_unit_id = ""
+	_token_hover_pending_model_id = ""
+	_token_hover_dwell_left = 0.0
+
+
+## Per-frame half of the dwell: mouse motion arms the countdown, stillness runs
+## it out. Ticked from _process because the card has to appear while NO input is
+## arriving — that is the whole point of "hover and keep still".
+func _tick_token_hover_dwell(delta: float) -> void:
+	# The button state has to be POLLED, not just read off motion events: a drag
+	# can start with a press and no motion at all, and once a model is in hand
+	# the phase controllers (Movement / Charge / Fight) mark the motion events
+	# handled, so _check_token_hover never hears another word about the cursor.
+	# Without this the card raised before the grab just sat there for the whole
+	# drag — the exact obstruction this dwell exists to remove.
+	if Input.get_mouse_button_mask() != 0:
+		if _token_hover_unit_id != "" or _token_hover_pending_unit_id != "":
+			_reset_token_hover()
+		return
+	if _token_hover_pending_unit_id == "":
+		return
+	_token_hover_dwell_left -= delta
+	if _token_hover_dwell_left > 0.0:
+		return
+	var at := _token_hover_dwell_anchor
+	_cancel_token_hover_dwell()
+	# Re-run the hit test rather than trusting the armed target: the board can
+	# pan/zoom or a model can die during the countdown. Test at the ANCHOR — the
+	# position the last motion event reported — not Viewport.get_mouse_position():
+	# the OS cursor is clamped to the window, so a token the view has scrolled
+	# off-screen reads back at the clamped edge and the hit test finds nothing.
+	# Nothing has moved since the anchor was set; that is what the dwell means.
+	_check_token_hover(at, true)
 
 func _on_unit_selected(index: int) -> void:
 	# Hide hover tooltip when a unit is selected for deployment

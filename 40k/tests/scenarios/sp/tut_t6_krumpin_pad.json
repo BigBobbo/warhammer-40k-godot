@@ -2,11 +2,13 @@
   "id": "tut_t6_krumpin_pad",
   "covers": [
     "tutorial.t6.fight.pad",
-    "tutorial.t6.attack_dialog.pad"
+    "tutorial.t6.attack_dialog.pad",
+    "tutorial.t6.pile_in_step.pad",
+    "dialogs.PileInDialog.AutoButton"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T6 driven with pad input. The Fight phase advertises HINTS_FIGHT (D-pad navigates the focused panel, A presses, ls points, Start ends the phase) and the AttackAssignmentDialog carries its own pad hint row (dpad up/down weapon, left/right target, A assign, Start Fight!). Covers the whole alternating activation: the Boyz swing, then the WARBOSS takes his Fights First swing before the enemy gets one, then the Custodian Guard swings back with its rolls revealed step by step in the resolution dock. Note RB does not cycle fighters here - after the instructor card is dismissed the pad sits in panel-focus mode, so the fighter is picked with the cursor (or D-pad navigation within the panel). Cursor-glide + A is legitimate on the fight HUD because PadRouter._handle_a has no fight-phase board verb.",
+  "description": "Tutorial lesson T6 driven with pad input. The Fight phase advertises HINTS_FIGHT (D-pad navigates the focused panel, A presses, ls points, Start ends the phase) and the AttackAssignmentDialog carries its own pad hint row (dpad up/down weapon, left/right target, A assign, Start Fight!). The Pile In step is a real move on the pad too — the cursor lands on the Boyz + Warboss row, A opens the PileInDialog and Auto Pile In / Confirm Move shuffles the back rank into engagement range. Covers the whole alternating activation: the Boyz swing, then the WARBOSS takes his Fights First swing before the enemy gets one, then the Custodian Guard swings back with its rolls revealed step by step in the resolution dock. Note RB does not cycle fighters here - after the instructor card is dismissed the pad sits in panel-focus mode, so the fighter is picked with the cursor (or D-pad navigation within the panel). Cursor-glide + A is legitimate on the fight HUD because PadRouter._handle_a has no fight-phase board verb.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -28,12 +30,12 @@
     },
     {
       "act": "pad_cursor_glide",
-      "button_text": "Tutorial",
-      "comment": "Was a blind D-pad-down + A, which assumed Tutorial sat one focus-step below the menu's initial focus; the above-the-fold rework put the six secondary actions in a 3-column grid, so ▼ from Start Game now lands on Multiplayer and the picker never opened — every step after this one failed. Same repair tut_t1_basics_pad / tut_t3_get_movin_pad already carry."
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton",
+      "comment": "SEPARATE PRE-EXISTING ISSUE (verified on a clean tree, 2026-08-02): the first D-pad press on the main menu now lands on Multiplayer (Beta), not Tutorial, so 'dpad down + A' opened the wrong screen and this scenario never reached the lesson at all. Glide the cursor instead — the same pad idiom the rest of this scenario uses — so the T6 pad path is actually exercised. The menu focus order is not this scenario's subject."
     },
     {
       "act": "wait_seconds",
-      "seconds": 0.2
+      "seconds": 0.3
     },
     {
       "act": "simulate_joy_button",
@@ -88,7 +90,8 @@
     },
     {
       "act": "pad_cursor_glide",
-      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton"
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_BOYZ_T",
+      "comment": "the row the step wants — End Pile In is no longer an allowed action here, five Boyz are still out of engagement range"
     },
     {
       "act": "simulate_joy_button",
@@ -96,7 +99,50 @@
     },
     {
       "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/PileInDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pile_in_move"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/AutoButton",
+      "emit_pressed": true,
+      "comment": "the PileInDialog is an embedded modal Window — driven with the same emit escape hatch as the attack dialog. On a pad the player glides the cursor onto it and presses A (the cursor synthesises real mouse events)."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"/root/Main/FightController\").get_pile_in_movements().size()",
+      "multiline": true,
+      "equals": 5,
+      "comment": "the five back-rank Boyz are staged; the front rank is locked in base contact"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
       "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = GameState.create_snapshot()\nreturn RulesEngine.get_eligible_melee_model_indices(b.units[\"U_BOYZ_T\"], b).size()",
+      "multiline": true,
+      "equals": 10,
+      "comment": "the pile-in put the whole mob back in the fight (5 before it)"
     },
     {
       "act": "execute_script",

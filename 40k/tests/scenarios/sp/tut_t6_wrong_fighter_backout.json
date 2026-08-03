@@ -30,8 +30,8 @@
     },
     {
       "act": "pad_cursor_glide",
-      "button_text": "Tutorial",
-      "comment": "Glide onto the menu's Tutorial button rather than a blind D-pad-down + A: the above-the-fold rework put the six secondary actions in a 3-column grid, so ▼ from Start Game lands on Multiplayer and the picker never opens. Same repair tut_t1_basics_pad / tut_t3_get_movin_pad already carry."
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton",
+      "comment": "Glide onto the menu's Tutorial button rather than a blind D-pad-down + A: the first D-pad press on the main menu lands on Multiplayer (Beta), not Tutorial, so the picker never opens. Same node-path idiom tut_t6_krumpin_pad now carries."
     },
     {
       "act": "wait_seconds",
@@ -81,11 +81,36 @@
     },
     {
       "act": "pad_cursor_glide",
-      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton"
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_BOYZ_T",
+      "comment": "T6 now opens with a REAL pile-in (#839): End Pile In is not an allowed action at this step because five Boyz are still out of engagement range. Click the row to open the PileInDialog, same as tut_t6_krumpin_pad."
     },
     {
       "act": "simulate_joy_button",
       "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/PileInDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/AutoButton",
+      "emit_pressed": true,
+      "comment": "the PileInDialog is an embedded modal Window — driven with the same emit escape hatch as the attack dialog"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PileInDialog/Content/Buttons/ConfirmButton",
+      "emit_pressed": true
     },
     {
       "act": "wait_seconds",
