@@ -1,0 +1,267 @@
+{
+  "id": "tut_t6_fight_row_dpad",
+  "covers": [
+    "tutorial.t6.fight_row.dpad",
+    "tutorial.pad_prompts.dpad_first",
+    "padrouter.panel_nav.row_walk",
+    "padrouter.panel_nav.skips_disabled",
+    "fightsequencer.attached_unit_activation"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "Reported by a Steam Deck player: a T6 Krumpin' fight-row prompt told them to 'Glide {ls} onto da row' even though the row is plain D-pad work. This scenario proves it: it drives the lesson on the pad, asserts the rendered prompt names the D-pad glyph and no longer names LS, picks the fight row with REAL D-pad presses (PadRouter's nested-panel walker steps a row at a time and skips DISABLED stops, so the pad never lands on the enemy's dead row that A could not press), and confirms A on that row really activates the unit — it opens the Epic Challenge offer, because the row is the ATTACHED unit 'Boyz + Warboss' and contains a CHARACTER. Originally written against the separate 'boss_swings' step (step 6 of 8), which is gone now that 19.03 makes the Leader fight inside his squad's one activation; the same pad claims are made at the pick_fighter row instead. The enemy_swings half is unchanged: that prompt must not tell the player to glide the stick either, and the save card grabs pad focus onto its own Roll Saves button.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.apply_mode_policy(\"dynamic\")\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "the harness pins the policy so a device claim can happen at all"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 9,
+      "comment": "LB claims pad mode"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "InputDeviceManager.is_pad_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.start_lesson(\"t6_krumpin\")\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 12.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "intro"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A = Continue on the instructor card"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pile_in"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "Start = End Pile In"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "pick_fighter"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar q = [ov]\nwhile not q.is_empty():\n\tvar n = q.pop_front()\n\tif n is RichTextLabel and n.name == \"BodyText\" and n.is_visible_in_tree():\n\t\treturn \"✚\" in str(n.text)\n\tfor c in n.get_children():\n\t\tq.append(c)\nreturn \"no body text\"",
+      "multiline": true,
+      "equals": true,
+      "comment": "THE REPORTED BUG (ported from the removed boss_swings step): the fight-row prompt must name the D-pad glyph (GlyphDB maps {dpad} -> ✚). The row walk is plain D-pad work; the lesson used to tell a Steam Deck player to glide the stick."
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar q = [ov]\nwhile not q.is_empty():\n\tvar n = q.pop_front()\n\tif n is RichTextLabel and n.name == \"BodyText\" and n.is_visible_in_tree():\n\t\treturn \"LS\" in str(n.text)\n\tfor c in n.get_children():\n\t\tq.append(c)\nreturn \"no body text\"",
+      "multiline": true,
+      "equals": false,
+      "comment": "...and must NOT still tell the Deck player to glide the left stick (GlyphDB maps {ls} -> LS)"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "first D-pad press enters HUD_Right panel focus (AISuggestionButton)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "second lands on the Boyz row — the pick_fighter prompt's promise"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nreturn \"none\" if f == null else str(f.name)",
+      "multiline": true,
+      "equals": "Fight_U_BOYZ_T",
+      "comment": "the fight UnitList is a VBox of Buttons (not an ItemList), so it IS on the D-pad focus chain"
+    },
+    {
+      "act": "execute_script",
+      "script": "var lst = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList\")\nvar enemy = lst.get_node_or_null(\"Fight_U_CUSTODIAN_GUARD_T\")\nvar f = tree.root.get_viewport().gui_get_focus_owner()\nreturn \"%s|%s\" % [enemy != null and enemy.disabled, f != null and f.name == \"Fight_U_CUSTODIAN_GUARD_T\"]",
+      "multiline": true,
+      "equals": "true|false",
+      "comment": "PadRouter's nested-panel walker steps a ROW at a time and SKIPS disabled stops — the enemy's row is disabled during Player 1's pick and the D-pad never parks on it (A could not press it)."
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "for c in tree.root.get_children():\n\tif c is AcceptDialog and c.visible and str(c.title).begins_with(\"Epic Challenge\"):\n\t\tfor btn in c.find_children(\"*\", \"Button\", true, false):\n\t\t\tif btn.text == \"Decline\":\n\t\t\t\tbtn.pressed.emit()\n\t\t\t\treturn \"declined\"\nreturn \"no epic dialog\"",
+      "multiline": true,
+      "equals": "declined",
+      "comment": "A on the focused row really activated the ATTACHED unit: it contains a CHARACTER, so Epic Challenge is offered (auto-named dialog nodes, so the button is found by text). This is the claim the removed boss_swings block used to make about the Warboss's own row."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "assign_attacks"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12,
+      "comment": "the attack dialog's own pad row: down steps the weapon"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A assigns it"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 6,
+      "comment": "Start = Fight!"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "roll_it_out"
+    },
+    {
+      "act": "execute_script",
+      "script": "var fast = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockFastButton\")\nif fast != null and fast.is_visible_in_tree() and not fast.disabled:\n\tfast.pressed.emit()\n\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "Fast Roll the Boyz' whole activation — this scenario is about step 6, not the dock"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_T.flags.has_fought",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.state.get(\"units\", {})\nvar ph = PhaseManager.get_current_phase_instance()\nreturn \"%s|%s|%s\" % [\n\tu.get(\"U_BOYZ_T\", {}).get(\"flags\", {}).get(\"has_fought\", false),\n\tu.get(\"U_WARBOSS_T\", {}).get(\"flags\", {}).get(\"has_fought\", false),\n\tstr(ph.sequencer_11e.eligible_units(GameState.state, 1, false))]",
+      "multiline": true,
+      "equals": "true|true|[]",
+      "comment": "19.03: the row the D-pad picked was the whole ATTACHED unit, so ONE activation swung the Boyz AND their Warboss. There is no second Ork row to walk to — which is why the old 'step 6 of 8' boss_swings prompt this scenario was written against no longer exists."
+    },
+    {
+      "act": "screenshot",
+      "label": "02_attached_unit_fought_via_dpad"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "enemy_swings",
+      "comment": "step 7 — the other prompt that used to say 'glide {ls}'"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ov = tree.root.get_node_or_null(\"/root/TutorialOverlay\")\nvar q = [ov]\nwhile not q.is_empty():\n\tvar n = q.pop_front()\n\tif n is RichTextLabel and n.name == \"BodyText\" and n.is_visible_in_tree():\n\t\treturn \"LS\" in str(n.text)\n\tfor c in n.get_children():\n\t\tq.append(c)\nreturn \"no body text\"",
+      "multiline": true,
+      "equals": false,
+      "comment": "step 7 must not tell the Deck player to glide the stick onto Roll Saves either"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 10.0,
+      "comment": "the AI takes its alternating activation and parks at the staged hit pause"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0,
+      "comment": "A steps the enemy's rolls on the dock — exactly what the prompt promises"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var f = tree.root.get_viewport().gui_get_focus_owner()\nif f == null:\n\treturn \"no focus\"\nvar ov = tree.root.get_node_or_null(\"/root/Main/AllocationGroupOverlay\")\nif ov == null or not ov.is_ancestor_of(f):\n\treturn \"focus outside card: \" + str(f.get_path())\nreturn \"Roll Saves\" in str(f.text)",
+      "multiline": true,
+      "equals": true,
+      "comment": "THE STEP-7 CLAIM: the save card confines pad focus to itself and lands it on its own Roll Saves button (AllocationGroupOverlay._refresh_pad_focus), so the prompt can just say 'press A' — no stick glide needed"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_save_card_focus_on_roll_saves"
+    }
+  ]
+}

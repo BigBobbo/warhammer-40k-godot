@@ -2,11 +2,12 @@
   "id": "tut_t6_krumpin_pad",
   "covers": [
     "tutorial.t6.fight.pad",
-    "tutorial.t6.attack_dialog.pad"
+    "tutorial.t6.attack_dialog.pad",
+    "fightsequencer.attached_unit_activation"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T6 driven with pad input. The Fight phase advertises HINTS_FIGHT (D-pad navigates the focused panel, A presses, ls points, Start ends the phase) and the AttackAssignmentDialog carries its own pad hint row (dpad up/down weapon, left/right target, A assign, Start Fight!). Covers the whole alternating activation: the Boyz swing, then the WARBOSS takes his Fights First swing before the enemy gets one, then the Custodian Guard swings back with its rolls revealed step by step in the resolution dock. Note RB does not cycle fighters here - after the instructor card is dismissed the pad sits in panel-focus mode, so the fighter is picked with the cursor (or D-pad navigation within the panel). Cursor-glide + A is legitimate on the fight HUD because PadRouter._handle_a has no fight-phase board verb.",
+  "description": "Tutorial lesson T6 driven with pad input. The Fight phase advertises HINTS_FIGHT (D-pad navigates the focused panel, A presses, ls points, Start ends the phase) and the AttackAssignmentDialog carries its own pad hint row (dpad up/down weapon, left/right target, A assign, Start Fight!). Covers the whole alternating activation: the Boyz swing, then the ATTACHED unit (Boyz + Warboss) takes its ONE Fights First swing — boss included — before the enemy gets one, then the Custodian Guard swings back with its rolls revealed step by step in the resolution dock. Note RB does not cycle fighters here - after the instructor card is dismissed the pad sits in panel-focus mode, so the fighter is picked with the cursor (or D-pad navigation within the panel). Cursor-glide + A is legitimate on the fight HUD because PadRouter._handle_a has no fight-phase board verb.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -233,94 +234,14 @@
     },
     {
       "act": "execute_script",
-      "script": "TutorialManager.current_step_id()",
-      "equals": "boss_swings",
-      "comment": "the Warboss charged too, so he is Fights First as well — the lesson must take his swing BEFORE the Custodes get one (it used to tell the player to end the phase here, forfeiting him)"
+      "script": "var u = GameState.state.get(\"units\", {})\nvar ph = PhaseManager.get_current_phase_instance()\nvar sel = ph.sequencer_11e.peek_selection(GameState.state)\nreturn \"%s|%s|%s\" % [\n\tu.get(\"U_BOYZ_T\", {}).get(\"flags\", {}).get(\"has_fought\", false),\n\tu.get(\"U_WARBOSS_T\", {}).get(\"flags\", {}).get(\"has_fought\", false),\n\tstr(sel.get(\"player\", 0)) + \":\" + \",\".join(sel.get(\"candidates\", []))]",
+      "multiline": true,
+      "equals": "true|true|2:U_CUSTODIAN_GUARD_T",
+      "comment": "19.03: the Warboss charged too, but he is ATTACHED to the Boyz — one unit, one activation. That single Fights First activation stamps has_fought on both, and the sequencer hands straight over to Player 2. Before, it offered '1:U_WARBOSS_T' here: da boss took a second swing of his own with the Custodes waiting."
     },
     {
       "act": "screenshot",
-      "label": "05_boyz_fought_pad"
-    },
-    {
-      "act": "execute_script",
-      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar sel = ph.sequencer_11e.peek_selection(GameState.state)\nreturn str(sel.get(\"player\", 0)) + \":\" + \",\".join(sel.get(\"candidates\", []))",
-      "multiline": true,
-      "equals": "1:U_WARBOSS_T",
-      "comment": "the sequencer offers da boss next, not the enemy — Fights First is exhausted before Remaining Combats"
-    },
-    {
-      "act": "pad_cursor_glide",
-      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_T",
-      "comment": "HINTS_FIGHT lists \"ls Point\", so the cursor is a first-class fight control here"
-    },
-    {
-      "act": "simulate_joy_button",
-      "button_index": 0
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 2.5
-    },
-    {
-      "act": "execute_script",
-      "script": "for c in tree.root.get_children():\n\tif c is AcceptDialog and c.visible:\n\t\tvar stack = [c]\n\t\twhile not stack.is_empty():\n\t\t\tvar n = stack.pop_back()\n\t\t\tfor ch in n.get_children():\n\t\t\t\tstack.append(ch)\n\t\t\t\tif ch is Button and str(ch.text) == \"Decline\":\n\t\t\t\t\tch.pressed.emit()\n\t\t\t\t\treturn true\nreturn true",
-      "multiline": true,
-      "equals": true,
-      "comment": "selecting a CHARACTER offers EPIC CHALLENGE first; its dialog has auto-named nodes, so find the Decline button by text (tolerant — the offer only appears when the player can pay 1 CP)"
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 2.0
-    },
-    {
-      "act": "expect_node_visible",
-      "node": "/root/AttackAssignmentDialog",
-      "timeout_s": 4.0
-    },
-    {
-      "act": "execute_script",
-      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn false\nwl.select(0)\nwl.item_selected.emit(0)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn str(d.unit_id) == \"U_WARBOSS_T\"",
-      "multiline": true,
-      "equals": true
-    },
-    {
-      "act": "click_node",
-      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
-      "emit_pressed": true
-    },
-    {
-      "act": "wait_frames",
-      "frames": 12
-    },
-    {
-      "act": "click_node",
-      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
-      "emit_pressed": true
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 3.0
-    },
-    {
-      "act": "execute_script",
-      "script": "var b = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockFastButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
-      "multiline": true,
-      "equals": true,
-      "comment": "Fast Roll da boss's swing"
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 5.0,
-      "comment": "Fast Roll finishes da boss's whole activation: the dock auto-answers every later pause and his saves are rolled by the computer (the defender is the AI)"
-    },
-    {
-      "act": "expect_state",
-      "path": "units.U_WARBOSS_T.flags.has_fought",
-      "equals": true
-    },
-    {
-      "act": "screenshot",
-      "label": "06_warboss_fought_pad"
+      "label": "05_attached_unit_fought_pad"
     },
     {
       "act": "execute_script",

@@ -3016,11 +3016,18 @@ func is_epic_challenge_available(player: int, unit_id: String) -> Dictionary:
 	if unit.is_empty():
 		return {"available": false, "reason": "Unit not found"}
 
-	var keywords = unit.get("meta", {}).get("keywords", [])
+	# 19.03: an ATTACHED unit contains a CHARACTER model when its Leader is
+	# attached, even though the bodyguard's own keywords say otherwise. The
+	# Attached unit now fights in ONE activation under the bodyguard's id, so
+	# checking only that unit's keywords made Epic Challenge unreachable for
+	# every attached leader — exactly the unit the stratagem is written for.
 	var has_character = false
-	for kw in keywords:
-		if kw.to_upper() == "CHARACTER":
-			has_character = true
+	for component_id in RulesEngine.attached_unit_component_ids(unit_id, GameState.state):
+		for kw in GameState.get_unit(component_id).get("meta", {}).get("keywords", []):
+			if str(kw).to_upper() == "CHARACTER":
+				has_character = true
+				break
+		if has_character:
 			break
 
 	if not has_character:

@@ -5,11 +5,14 @@
     "tutorial.engine.fixture_boot",
     "fightphase.attached_unit_targeting",
     "rulesengine.attached_unit_targeting",
-    "aidecisionmaker.fight_attached_target"
+    "aidecisionmaker.fight_attached_target",
+    "fightsequencer.attached_unit_activation",
+    "attackassignmentdialog.attached_unit",
+    "stratagemmanager.epic_challenge_attached"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Tutorial lesson T6 (Krumpin'), mouse player path: boot from the tutorial_t6_fight fixture -> End Pile In -> Boyz fight the Custodian Guard (pick a melee weapon + target, Weapon to Target, Fight!, Fast Roll, Done) -> the WARBOSS takes his Fights First swing before the enemy gets one (Decline Epic Challenge, assign, Fight!) -> the Custodian Guard swings back at the ATTACHED unit (19.02: the Warboss leads the Boyz, so he is not a target of his own and the wounds go on the Boyz first) and its hit/wound rolls are revealed step by step in the resolution dock (spectating: 'Show Wound Roll' / 'Show Saving Throws', no Command Re-roll on the enemy's dice) before the player rolls their own saves -> end the phase. The attack dialog and allocation overlay are embedded modal Windows, so their controls are driven via the emit escape hatch.",
+  "description": "Tutorial lesson T6 (Krumpin'), mouse player path: boot from the tutorial_t6_fight fixture -> End Pile In -> the ATTACHED unit fights as ONE (19.03): a single 'Boyz + Warboss' row, one Epic Challenge offer, one attack dialog listing the mob's choppas AND the leader's Power klaw, and one activation that stamps has_fought on both components — the Warboss no longer takes a second swing of his own with the enemy activating in between -> the Custodian Guard swings back at the ATTACHED unit (19.02: the leader is not a target of his own, so the wounds go on the Boyz first) and its hit/wound rolls are revealed step by step in the resolution dock (spectating: 'Show Wound Roll' / 'Show Saving Throws', no Command Re-roll on the enemy's dice) before the player rolls their own saves -> end the phase. The attack dialog and allocation overlay are embedded modal Windows, so their controls are driven via the emit escape hatch.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -115,12 +118,30 @@
       "label": "02_pile_in_done"
     },
     {
+      "act": "execute_script",
+      "script": "var lst = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList\")\nvar rows = []\nfor c in lst.get_children():\n\tif c is Button:\n\t\trows.append(c.name + \"=\" + c.text)\nreturn \",\".join(rows)",
+      "multiline": true,
+      "equals": "Fight_U_BOYZ_T=Boyz + Warboss,Fight_U_CUSTODIAN_GUARD_T=Custodian Guard",
+      "comment": "19.03: ONE row for the Attached unit. The Warboss used to get a second row of his own and a second activation after the Boyz', with the Custodes swinging in between."
+    },
+    {
       "act": "click_node",
       "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_T"
     },
     {
       "act": "wait_seconds",
       "seconds": 2.5
+    },
+    {
+      "act": "execute_script",
+      "script": "for c in tree.root.get_children():\n\tif c is AcceptDialog and c.visible and str(c.title).begins_with(\"Epic Challenge\"):\n\t\tfor btn in c.find_children(\"*\", \"Button\", true, false):\n\t\t\tif btn.text == \"Decline\":\n\t\t\t\tbtn.pressed.emit()\n\t\t\t\treturn \"declined\"\nreturn \"no epic dialog\"",
+      "multiline": true,
+      "equals": "declined",
+      "comment": "19.03: Epic Challenge is offered for the ATTACHED unit now — the CHARACTER is inside it. Before, it only appeared on the Warboss's own (now-removed) activation, which would have made the stratagem unreachable for every attached leader."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
     },
     {
       "act": "execute_script",
@@ -140,8 +161,8 @@
       "act": "execute_script",
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn \"empty lists\"\nvar want = -1\nvar labels = []\nfor i in range(wl.item_count):\n\tlabels.append(str(wl.get_item_text(i)))\n\tif str(wl.get_item_text(i)).begins_with(\"Power klaw\"):\n\t\twant = i\nif want < 0:\n\treturn \"no Power klaw offered\"\nwl.select(want)\nwl.item_selected.emit(want)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn str(wl.get_item_text(want))",
       "multiline": true,
-      "equals": "Power klaw (A:3 S:9 AP:-2 D:2 — 1 model, ≈3 attacks)",
-      "comment": "MA-LOADOUT: the weapon list now names how many models actually carry each weapon. The Boss Nob is the only Boy with a Power klaw, so it reads '1 model, ≈3 attacks' — it used to offer the whole mob's 30 attacks with it."
+      "equals": "Power klaw (A:3 S:9 AP:-2 D:2 — 1 model, ≈3 attacks) [Warboss]",
+      "comment": "19.03: ONE dialog for the whole Attached unit — the Boyz' choppas AND the Warboss's Power klaw, tagged with whose it is. The klaw is a datasheet OPTION the mob never took, so a 1-model row here is the leader's, not a Boy's."
     },
     {
       "act": "wait_frames",
@@ -164,10 +185,10 @@
     },
     {
       "act": "execute_script",
-      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nreturn \",\".join(out)",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"attacker\", \"?\")) + \":\" + str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nout.sort()\nreturn \",\".join(out)",
       "multiline": true,
-      "equals": "power_klaw_melee:1,choppa_melee:9",
-      "comment": "picking the klaw builds the whole mob's plan: da Nob swings his klaw, the other nine Boyz swing the choppas they actually carry. Before this the dialog sent ONE assignment with no model list and the engine gave all ten models the klaw."
+      "equals": "U_BOYZ_T:big_choppa_melee:1,U_BOYZ_T:choppa_melee:9,U_WARBOSS_T:power_klaw_melee:1",
+      "comment": "19.03: one plan, split per component — the engine resolves each assignment against its own `attacker`, so the Warboss keeps his own S9 AP-2 D2 klaw and WS instead of inheriting his bodyguard's profile."
     },
     {
       "act": "click_node",
@@ -199,10 +220,10 @@
     },
     {
       "act": "execute_script",
-      "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar prim = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton\")\nif prim != null and prim.is_visible_in_tree():\n\tprim.pressed.emit()\n\treturn true\nreturn true",
+      "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar dock = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock\")\nif dock != null and dock.is_visible_in_tree() and not dock.spectating:\n\tvar prim = dock.get_node_or_null(\"DockPrimaryButton\")\n\tif prim != null and prim.is_visible_in_tree():\n\t\tprim.pressed.emit()\nreturn true",
       "multiline": true,
       "equals": true,
-      "comment": "clear whichever defender card or dock step is up (tolerant no-op when the activation already finished)"
+      "comment": "clear whichever defender card or dock step is up (tolerant no-op when the activation already finished) | NEVER presses a SPECTATING dock: with the Attached unit fighting in ONE activation the enemy's swing starts sooner, and an unguarded fallback press here stole the staged reveal the player is meant to watch below."
     },
     {
       "act": "wait_seconds",
@@ -210,9 +231,10 @@
     },
     {
       "act": "execute_script",
-      "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar prim = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton\")\nif prim != null and prim.is_visible_in_tree():\n\tprim.pressed.emit()\n\treturn true\nreturn true",
+      "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar dock = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock\")\nif dock != null and dock.is_visible_in_tree() and not dock.spectating:\n\tvar prim = dock.get_node_or_null(\"DockPrimaryButton\")\n\tif prim != null and prim.is_visible_in_tree():\n\t\tprim.pressed.emit()\nreturn true",
       "multiline": true,
-      "equals": true
+      "equals": true,
+      "comment": "clear whichever defender card or dock step is up (tolerant — the exact sequence depends on the dice) | NEVER presses a SPECTATING dock: with the Attached unit fighting in ONE activation the enemy's swing starts sooner, and an unguarded fallback press here stole the staged reveal the player is meant to watch below."
     },
     {
       "act": "wait_seconds",
@@ -220,9 +242,10 @@
     },
     {
       "act": "execute_script",
-      "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar prim = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton\")\nif prim != null and prim.is_visible_in_tree():\n\tprim.pressed.emit()\n\treturn true\nreturn true",
+      "script": "var base = \"/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/\"\nfor p in [base + \"ResultPanel/DoneButton\", base + \"RerollPanel/KeepRollsButton\", base + \"ConfirmButton\"]:\n\tvar b = tree.root.get_node_or_null(p)\n\tif b != null and b.is_visible_in_tree():\n\t\tb.pressed.emit()\n\t\treturn true\nvar dock = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock\")\nif dock != null and dock.is_visible_in_tree() and not dock.spectating:\n\tvar prim = dock.get_node_or_null(\"DockPrimaryButton\")\n\tif prim != null and prim.is_visible_in_tree():\n\t\tprim.pressed.emit()\nreturn true",
       "multiline": true,
-      "equals": true
+      "equals": true,
+      "comment": "clear whichever defender card or dock step is up (tolerant — the exact sequence depends on the dice) | NEVER presses a SPECTATING dock: with the Attached unit fighting in ONE activation the enemy's swing starts sooner, and an unguarded fallback press here stole the staged reveal the player is meant to watch below."
     },
     {
       "act": "wait_seconds",
@@ -235,89 +258,14 @@
     },
     {
       "act": "execute_script",
-      "script": "TutorialManager.current_step_id()",
-      "equals": "boss_swings",
-      "comment": "the Warboss charged too, so he is Fights First as well — the lesson must take his swing BEFORE the Custodes get one (it used to tell the player to end the phase here, forfeiting him)"
+      "script": "var u = GameState.state.get(\"units\", {})\nvar ph = PhaseManager.get_current_phase_instance()\nreturn \"%s|%s|%s|%s\" % [\n\tu.get(\"U_BOYZ_T\", {}).get(\"flags\", {}).get(\"has_fought\", false),\n\tu.get(\"U_WARBOSS_T\", {}).get(\"flags\", {}).get(\"has_fought\", false),\n\tstr(ph.sequencer_11e.eligible_units(GameState.state, 1, false)),\n\tstr(ph._combatants_11e())]",
+      "multiline": true,
+      "equals": "true|true|[]|[\"U_BOYZ_T\"]",
+      "comment": "THE REPORTED BUG: the Warboss took a SECOND activation of his own after his Boyz had swung, and the Custodes got to fight in between. 19.03 — the Attached unit fights as ONE unit: that single activation stamps has_fought on BOTH components, Player 1 has nothing left owed a fight, and the FIGHT SEQUENCE panel lists one combatant, not two."
     },
     {
       "act": "screenshot",
-      "label": "05_boyz_fought"
-    },
-    {
-      "act": "execute_script",
-      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar sel = ph.sequencer_11e.peek_selection(GameState.state)\nreturn str(sel.get(\"player\", 0)) + \":\" + \",\".join(sel.get(\"candidates\", []))",
-      "multiline": true,
-      "equals": "1:U_WARBOSS_T",
-      "comment": "the sequencer offers da boss next, not the enemy — Fights First is exhausted before Remaining Combats"
-    },
-    {
-      "act": "click_node",
-      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_T"
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 2.5
-    },
-    {
-      "act": "execute_script",
-      "script": "for c in tree.root.get_children():\n\tif c is AcceptDialog and c.visible:\n\t\tvar stack = [c]\n\t\twhile not stack.is_empty():\n\t\t\tvar n = stack.pop_back()\n\t\t\tfor ch in n.get_children():\n\t\t\t\tstack.append(ch)\n\t\t\t\tif ch is Button and str(ch.text) == \"Decline\":\n\t\t\t\t\tch.pressed.emit()\n\t\t\t\t\treturn true\nreturn true",
-      "multiline": true,
-      "equals": true,
-      "comment": "selecting a CHARACTER offers EPIC CHALLENGE first; its dialog has auto-named nodes, so find the Decline button by text (tolerant — the offer only appears when the player can pay 1 CP)"
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 2.0
-    },
-    {
-      "act": "expect_node_visible",
-      "node": "/root/AttackAssignmentDialog",
-      "timeout_s": 4.0
-    },
-    {
-      "act": "execute_script",
-      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/WeaponList\")\nvar tl = d.get_node(\"Content/TargetList\")\nif wl.item_count == 0 or tl.item_count == 0:\n\treturn false\nwl.select(0)\nwl.item_selected.emit(0)\ntl.select(0)\ntl.item_selected.emit(0)\nreturn str(d.unit_id) == \"U_WARBOSS_T\"",
-      "multiline": true,
-      "equals": true
-    },
-    {
-      "act": "click_node",
-      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
-      "emit_pressed": true
-    },
-    {
-      "act": "wait_frames",
-      "frames": 12
-    },
-    {
-      "act": "click_node",
-      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
-      "emit_pressed": true
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 3.0
-    },
-    {
-      "act": "execute_script",
-      "script": "var b = tree.root.get_node_or_null(\"/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockFastButton\")\nif b != null and b.is_visible_in_tree():\n\tb.pressed.emit()\nreturn true",
-      "multiline": true,
-      "equals": true,
-      "comment": "Fast Roll da boss's swing"
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 5.0,
-      "comment": "Fast Roll finishes da boss's whole activation: the dock auto-answers every later pause and his saves are rolled by the computer (the defender is the AI)"
-    },
-    {
-      "act": "expect_state",
-      "path": "units.U_WARBOSS_T.flags.has_fought",
-      "equals": true
-    },
-    {
-      "act": "screenshot",
-      "label": "06_warboss_fought"
+      "label": "05_attached_unit_fought_as_one"
     },
     {
       "act": "execute_script",

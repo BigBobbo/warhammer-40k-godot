@@ -196,6 +196,75 @@ func _run_tests():
 	_check("AI still finds the Attached unit when only the leader is in ER",
 		str(lo_plan.get("target_id", "")) == "U_BG", str(lo_plan))
 
+	print("\n-- 19.03: the ATTACHED unit fights as ONE unit --")
+	# The attacker side. Before this the Leader was a candidate of his own, so
+	# he took a SECOND activation after his bodyguard's — and because 12.04
+	# alternates, the enemy fought in between.
+	var seq = fp.sequencer_11e
+	_check("fight list offers the bodyguard, never the attached leader",
+		"U_BG" in seq.eligible_units(gs.state, 1, false)
+		and not "U_LEADER" in seq.eligible_units(gs.state, 1, false),
+		str(seq.eligible_units(gs.state, 1, false)))
+	_check("the pair are ONE combatant row",
+		fp._combatants_11e().count("U_BG") == 1 and not "U_LEADER" in fp._combatants_11e(),
+		str(fp._combatants_11e()))
+	_check("group display name names both", fp._fight_attached_display_name("U_BG") == "Boyz T + Warboss T",
+		fp._fight_attached_display_name("U_BG"))
+	_check("_fight_group_ids covers both components",
+		fp._fight_group_ids("U_BG") == ["U_BG", "U_LEADER"], str(fp._fight_group_ids("U_BG")))
+
+	# Fights First is the Attached unit's: flag the LEADER only and the whole
+	# unit must be offered in the Fights First step.
+	gs.state.units["U_LEADER"].flags["fights_first"] = true
+	_check("Fights First on the leader lifts the whole Attached unit",
+		"U_BG" in seq.eligible_units(gs.state, 1, true), str(seq.eligible_units(gs.state, 1, true)))
+	gs.state.units["U_LEADER"].flags.erase("fights_first")
+
+	# Selecting the Attached unit spends BOTH components' fight.
+	_check("selecting the leader directly is rejected",
+		not fp._validate_select_fighter({"unit_id": "U_LEADER", "player": 1}).valid,
+		str(fp._validate_select_fighter({"unit_id": "U_LEADER", "player": 1})))
+	seq.select_to_fight("U_BG", gs.state)
+	_check("select_to_fight marks the whole group fought",
+		seq.fought.get("U_BG", false) and seq.fought.get("U_LEADER", false), str(seq.fought))
+	_check("the leader is NOT owed a second activation",
+		seq.eligible_units(gs.state, 1, false).is_empty()
+		and not seq.group_eligible_to_fight("U_BG", gs.state),
+		str(seq.eligible_units(gs.state, 1, false)))
+	seq.fought.erase("U_BG")
+	seq.fought.erase("U_LEADER")
+
+	# Both components' assignments live in ONE activation's batch.
+	fp.active_fighter_id = "U_BG"
+	_check("an assignment may name the attached leader",
+		fp._validate_assign_attacks({"unit_id": "U_LEADER", "target_id": "U_ATK",
+			"weapon_id": "power_klaw_melee", "attacking_models": ["0"]}).valid,
+		str(fp._validate_assign_attacks({"unit_id": "U_LEADER", "target_id": "U_ATK",
+			"weapon_id": "power_klaw_melee", "attacking_models": ["0"]})))
+	# The one-weapon rule is per COMPONENT: model "0" of the bodyguard and
+	# model "0" of the leader are different models, and used to collide.
+	fp.pending_attacks = [{"attacker": "U_BG", "weapon": "choppa_melee", "target": "U_ATK", "models": ["0"]}]
+	_check("one-weapon rule does not collide across components",
+		fp._find_one_weapon_rule_conflict("power_klaw_melee", ["0"], "U_LEADER") == "",
+		fp._find_one_weapon_rule_conflict("power_klaw_melee", ["0"], "U_LEADER"))
+	_check("one-weapon rule still fires WITHIN a component",
+		fp._find_one_weapon_rule_conflict("power_klaw_melee", ["0"], "U_BG") == "choppa_melee",
+		fp._find_one_weapon_rule_conflict("power_klaw_melee", ["0"], "U_BG"))
+
+	# The AI submits ONE whole-unit assignment naming the bodyguard; the
+	# attached leader must still swing in that same activation.
+	fp.pending_attacks = []
+	fp.confirmed_attacks = [{"attacker": "U_BG", "weapon": "choppa_melee", "target": "U_ATK"}]
+	fp._auto_assign_unassigned_models()
+	var leader_swings: Array = []
+	for a in fp.confirmed_attacks:
+		if str(a.get("attacker", "")) == "U_LEADER":
+			leader_swings.append(str(a.get("weapon", "")))
+	_check("a whole-unit assignment still makes the attached leader swing",
+		leader_swings == ["power_klaw_melee"], str(fp.confirmed_attacks))
+	fp.confirmed_attacks = []
+	fp.active_fighter_id = ""
+
 	print("\n-- 05.03/05.04 allocation fold --")
 	var from_bg = rules._build_attached_allocation_unit_11e("U_BG", board)
 	var from_leader = rules._build_attached_allocation_unit_11e("U_LEADER", board)

@@ -14,7 +14,8 @@
     "bullets": [
       "Da Fight phase opens wiv [b]Pile In[/b] — every engaged unit may shuffle 3\" closer. Skip it wiv [b]End Pile In[/b].",
       "Click a unit in [b]UNITS THAT CAN FIGHT[/b] to activate it. Units dat charged swing first — [b]all[/b] of 'em, before da enemy gets a look in.",
-      "In da attack panel: pick [b]one[/b] melee weapon, pick da target, [b]Weapon to Target[/b], den [b]Fight![/b]",
+      "A Warboss leadin' a mob is [b]part of dat mob[/b] — one row, [b]Boyz + Warboss[/b], an' dey krump in da [b]same[/b] activation. He don't get a swing of his own.",
+      "In da attack panel: pick [b]one[/b] melee weapon, pick da target, [b]Weapon to Target[/b], den [b]Fight![/b] Every uvver model swings what it's got — da boss's Power klaw included.",
       "Da dice dock rolls it out — [b]Fast Roll ⏩[/b] does da lot, [b]Done ✔[/b] finishes da activation.",
       "Den da enemy activates an' da dock rolls [b]deir[/b] hits an' wounds at ya — you roll da saves an' can spend a [b]Command Re-roll[/b].",
       "You an' da enemy alternate activations till everyone's swung. Last lesson: Runnin' da Show."
@@ -25,7 +26,7 @@
       "id": "intro",
       "prompt": {
         "bark": "FIGHT PHASE!",
-        "text": "Da Boyz an' da Warboss made it in — now dey get to krump. Every engaged unit fights once, an' units dat [b]charged[/b] all go before da enemy does. It starts wiv a [b]Pile In[/b] step."
+        "text": "Da Boyz an' da Warboss made it in — now dey get to krump. Da boss is [b]leadin'[/b] dat mob, so dey're [b]one unit[/b]: one row in da list, one activation, an' dey all swing togevver. Every engaged unit fights once, an' units dat [b]charged[/b] all go before da enemy does. It starts wiv a [b]Pile In[/b] step."
       },
       "spotlight": "none",
       "allow": [],
@@ -60,9 +61,9 @@
     {
       "id": "pick_fighter",
       "prompt": {
-        "bark": "BOYZ FIRST!",
-        "kbm": "Click [b]Boyz[/b] under UNITS THAT CAN FIGHT. Dey charged, so dey swing before da Custodes do.",
-        "pad": "{dpad} ▼ walks da fight panel onto da [b]Boyz[/b] row — {a} presses it. Dey charged, so dey swing first."
+        "bark": "BOYZ AN' BOSS!",
+        "kbm": "Click [b]Boyz + Warboss[/b] under UNITS THAT CAN FIGHT — one row, 'cos da boss leads dat mob an' dey fight as one unit. Dey charged, so dey swing before da Custodes do.",
+        "pad": "{dpad} ▼ walks da fight panel onto da [b]Boyz + Warboss[/b] row — {a} presses it. One row, 'cos da boss leads dat mob. Dey charged, so dey swing first."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList"
@@ -84,14 +85,14 @@
         ]
       },
       "hint": {
-        "text": "Da list only shows units in engagement range — dat's who can fight."
+        "text": "Da list only shows units in engagement range — dat's who can fight. Da Warboss ain't listed on his own: he's part of da Boyz now."
       }
     },
     {
       "id": "assign_attacks",
       "prompt": {
         "bark": "PICK YER CHOPPA!",
-        "kbm": "Each model fights wiv [b]one[/b] melee weapon. Pick a weapon in da list, click da [b]Custodian Guard[/b] target, hit [b]Weapon to Target[/b], den [b]Fight![/b]",
+        "kbm": "Each model fights wiv [b]one[/b] melee weapon. Pick a weapon in da list, click da [b]Custodian Guard[/b] target, hit [b]Weapon to Target[/b], den [b]Fight![/b] Da rest of da unit swings what it carries — includin' da boss's klaw.",
         "pad": "Da attack panel takes its own controls: {dpad} ▲▼ picks da weapon, ◀▶ picks da target, {a} assigns 'em, den {menu} for [b]Fight![/b]"
       },
       "anchor": {
@@ -101,7 +102,9 @@
       "allow": [
         "BATCH_FIGHT_ACTIONS",
         "ASSIGN_ATTACKS",
-        "SELECT_FIGHTER"
+        "SELECT_FIGHTER",
+        "USE_EPIC_CHALLENGE",
+        "DECLINE_EPIC_CHALLENGE"
       ],
       "done": {
         "action": {
@@ -109,14 +112,14 @@
         }
       },
       "hint": {
-        "text": "Each weapon says how many of yer boyz actually carry it. Only da Nob's got a Power klaw, so pickin' it swings his klaw an' da rest of da mob's choppas — da panel lists both lines."
+        "text": "Da weapon list is da [b]whole[/b] unit's — da mob's choppas, da Nob's big choppa an' da [b]Warboss's Power klaw[/b], each sayin' how many models carry it. Pick one an' everyone else swings what dey've got."
       }
     },
     {
       "id": "roll_it_out",
       "prompt": {
         "bark": "KRUMP 'EM!",
-        "kbm": "Same dice dock as shootin': [b]Fast Roll ⏩[/b] rolls hits, wounds an' saves in one go (or step frough wiv da big button). Finish wiv [b]Done ✔[/b].",
+        "kbm": "Same dice dock as shootin': [b]Fast Roll ⏩[/b] rolls hits, wounds an' saves in one go (or step frough wiv da big button) — for da mob's choppas [b]an'[/b] da boss's klaw, 'cos it's all one activation. Finish wiv [b]Done ✔[/b].",
         "pad": "Da dock starts on [b]Roll to Wound ▶[/b] — {dpad} ▼ drops onto [b]Fast Roll ⏩[/b], den {a}. Clear any save cards, den [b]Done ✔[/b]."
       },
       "anchor": {
@@ -140,58 +143,14 @@
       },
       "hint_after_s": 30,
       "hint": {
-        "text": "Da big dock button always says what's next — keep pressin' it till it says Done."
-      }
-    },
-    {
-      "id": "boss_swings",
-      "prompt": {
-        "bark": "DA BOSS AIN'T SWUNG YET!",
-        "kbm": "Da Warboss charged an' all, so he's [b]Fights First[/b] too — da Custodes wait till he's swung. Click [b]Warboss[/b], [b]Decline[/b] da Epic Challenge offer, assign his weapon an' [b]Fight![/b]",
-        "pad": "Da Warboss charged an' all, so he's [b]Fights First[/b] too. Da {dpad} is parked down on da dice dock — tap ▲ till it lands on da [b]Warboss[/b] row, den {a}. [b]Decline[/b] da Epic Challenge, assign his weapon, den {menu} for [b]Fight![/b]"
-      },
-      "anchor": {
-        "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList"
-      },
-      "spotlight": "soft",
-      "allow": [
-        "SELECT_FIGHTER",
-        "USE_EPIC_CHALLENGE",
-        "BATCH_FIGHT_ACTIONS",
-        "ASSIGN_ATTACKS",
-        "CONTINUE_TO_WOUNDS",
-        "CONTINUE_TO_SAVES",
-        "APPLY_SAVES",
-        "APPLY_MELEE_SAVES",
-        "CONTINUE_SEQUENCE",
-        "FAST_FINISH_FIGHT",
-        "COMPLETE_FIGHT_FOR_UNIT",
-        "USE_FIGHT_REROLL",
-        "RESOLVE_FIGHT",
-        "SKIP_UNIT"
-      ],
-      "done": {
-        "any": [
-          {
-            "state": "units.U_WARBOSS_T.flags.has_fought",
-            "equals": true
-          },
-          {
-            "script": "var n = 0\nfor m in GameState.state.get(\"units\", {}).get(\"U_CUSTODIAN_GUARD_T\", {}).get(\"models\", []):\n\tif m.get(\"alive\", true):\n\t\tn += 1\nreturn n == 0",
-            "equals": true
-          }
-        ]
-      },
-      "hint_after_s": 30,
-      "hint": {
-        "text": "Every unit dat charged swings before da enemy picks — dat's why da boss is still on da list. Endin' da phase now would just frow his swing away."
+        "text": "Da big dock button always says what's next — keep pressin' it till it says Done. One activation covers da whole unit, boss an' all."
       }
     },
     {
       "id": "enemy_swings",
       "prompt": {
         "bark": "NOW DEY KRUMP BACK!",
-        "kbm": "Both yer mobs have swung, so it's da Custodes' turn — dat's alternatin' activation. Da dock rolls [b]deir[/b] hits an' wounds; step frough it, den [b]Roll Saves[/b] on da card an' spend a [b]Command Re-roll[/b] if a save lets ya down.",
+        "kbm": "Yer mob has swung — boss an' all, in da one activation — so it's da Custodes' turn. Dat's alternatin' activation. Da dock rolls [b]deir[/b] hits an' wounds; step frough it, den [b]Roll Saves[/b] on da card an' spend a [b]Command Re-roll[/b] if a save lets ya down.",
         "pad": "Da Custodes swing back now. Step frough deir rolls on da dock wiv {a}. Da save card takes da {dpad} on its own an' already sits on [b]Roll Saves[/b] — just press {a}."
       },
       "anchor": {

@@ -3510,6 +3510,24 @@ static func attached_unit_models(unit_id: String, board: Dictionary) -> Array:
 		out.append_array(char_unit.get("models", []))
 	return out
 
+# The component unit ids of the Attached unit headed by unit_id: the unit
+# itself first, then each attached CHARACTER that still exists. 19.03 makes
+# these ONE unit — they pile in together, fight in ONE activation and
+# consolidate together — but the state model keeps them as separate unit dicts
+# so each component keeps its own stats, abilities, weapons and model indices.
+# Callers that must act "as one unit" walk this list rather than folding the
+# dicts together (see FightPhase's fight-group handling).
+static func attached_unit_component_ids(unit_id: String, board: Dictionary) -> Array:
+	var units = board.get("units", {})
+	var out: Array = [unit_id]
+	var unit = units.get(unit_id, {})
+	if unit.is_empty():
+		return out
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		if units.has(str(char_id)) and str(char_id) != unit_id:
+			out.append(str(char_id))
+	return out
+
 static func _unit_has_alive_model(unit: Dictionary) -> bool:
 	for m in unit.get("models", []):
 		if m.get("alive", true):
@@ -15676,6 +15694,33 @@ static func check_units_in_engagement_range(unit1: Dictionary, unit2: Dictionary
 ## type-aware format).
 static func generate_weapon_id(weapon_name: String, weapon_type: String = "") -> String:
 	return _generate_weapon_id(weapon_name, weapon_type)
+
+## Expected value of a characteristic string: "1", "3", "D6", "2D3", "D6+1".
+## Used wherever a weapon has to be RANKED without rolling — the attack-dialog's
+## forecast rows and FightPhase's "which weapon does this model swing when
+## nobody chose for it" both read it, so their answers agree.
+static func average_dice_notation(s: String) -> float:
+	s = s.strip_edges().to_upper().replace(" ", "")
+	if s.is_empty():
+		return 1.0
+	if s.is_valid_int():
+		return float(int(s))
+	var plus_idx = s.find("+")
+	var bonus: float = 0.0
+	if plus_idx >= 0:
+		var after = s.substr(plus_idx + 1)
+		if after.is_valid_int():
+			bonus = float(int(after))
+		s = s.substr(0, plus_idx)
+	var d_idx = s.find("D")
+	if d_idx < 0:
+		return 1.0 + bonus
+	var n_str = s.substr(0, d_idx)
+	var x_str = s.substr(d_idx + 1)
+	var n: int = int(n_str) if n_str.is_valid_int() else 1
+	var x: int = int(x_str) if x_str.is_valid_int() else 6
+	# Average of one die of size x is (x+1)/2.
+	return float(n) * (float(x) + 1.0) / 2.0 + bonus
 
 ## MA-LOADOUT: force per-model loadout resolution (ranged + melee) on a unit so
 ## UI/read paths can then read model.ranged_loadout / model.melee_loadout.

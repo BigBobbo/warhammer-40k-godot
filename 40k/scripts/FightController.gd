@@ -1675,7 +1675,12 @@ func _add_selection_subphase_units(container: VBoxContainer, data: Dictionary, s
 			# labels used everywhere else. eligible_units only carries the
 			# SELECTING player's units, so its name lookup would leave every
 			# other unit rendering as a raw unit id.
-			var unit_name = GameState.get_unit_display_name(unit_id)
+			# 19.03: when the phase offers an ATTACHED unit it hands over the
+			# combined label ("Boyz + Warboss") — one row for one activation.
+			# Fall back to the plain display name for every other unit.
+			var unit_name = str(eligible_units.get(unit_id, {}).get("name", ""))
+			if unit_name == "":
+				unit_name = GameState.get_unit_display_name(unit_id)
 			unit_button.text = "%s%s" % [
 				unit_name,
 				" (Fought)" if has_fought else ""
