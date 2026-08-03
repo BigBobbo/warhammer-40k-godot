@@ -2,13 +2,25 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.17.5",
+      "version": "1.18.1",
       "date": "2026-08-03",
       "summary": "The melee attack panel now says what its buttons do in plain English — no more Ork slang on a Custodes screen.",
       "changes": [
         "Fixed (reported): the attack-assignment panel's back button read '◀ Pick Anuvver Unit'. It now reads '◀ Back — Pick Another Unit', which is what it actually does — un-pick this unit and choose a different one to fight.",
         "The auto-assign button next to it read 'Best Krump ✨' and now reads 'Best Weapons ✨'.",
         "Ork voice stays where it belongs: the tutorial's instructor cards still talk like an Ork. The buttons you click during a normal game are written for whichever army you brought."
+      ]
+    },
+    {
+      "version": "1.18.0",
+      "date": "2026-08-03",
+      "summary": "Line-of-sight debug (hold L) now shows you WHAT is blocking the shot: each line is solid up to the wall that stops it and fades out beyond.",
+      "changes": [
+        "Blocked sight lines used to be drawn at full strength all the way to the target, so a unit that could not see anything painted the whole board solid red and buried the terrain you were trying to read.",
+        "Each blocked line is now drawn solid only as far as the first piece of terrain that actually stops it, then continues as a faint, darker ghost to the target — so the real blocker is obvious at a glance.",
+        "A small amber marker sits on the exact point where each line dies. With a whole squad's worth of lines, those markers trace out the edge of the wall or ruin doing the blocking.",
+        "The same split applies to the phase-independent hold-L overview, so blocked unit-to-unit lines also fade at the terrain rather than running dashed red across the table.",
+        "Fixed: holding L on a unit that has no eligible targets — the exact moment you want this debug — used to draw nothing at all, because the code that gathers the enemy units crashed and looked for a player number that does not exist."
       ]
     },
     {
