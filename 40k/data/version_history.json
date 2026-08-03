@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.17.3",
+      "date": "2026-08-03",
+      "summary": "AI speed 'Step-by-step' now actually gives you the step: a Continue button appears on the AI banner instead of the game sitting on 'AI is thinking…' forever.",
+      "changes": [
+        "Fixed (reported in Declare Battle Formations): with AI speed set to Step-by-step the game froze on 'AI is thinking..' with nothing to press. The Continue button existed but was locked inside a panel that was never shown, so the only way out was to change the AI speed.",
+        "The AI banner now says 'AI paused — step-by-step' and carries a 'Continue ▶ (Space)' button. Click it — or press Space — to let the AI take exactly one more action.",
+        "The banner stops pulsing and stops animating its dots while it is waiting for you, so 'paused' no longer looks like 'still thinking'.",
+        "Switching the AI speed away from Step-by-step clears the prompt instead of leaving it stranded on screen.",
+        "Confirming your battle formations from the top bar now closes the declaration dialog, so it can't be left floating over the AI's turn."
+      ]
+    },
+    {
       "version": "1.17.2",
       "date": "2026-08-03",
       "summary": "The green dashed move-range ring now shows how far the MODEL can reach, not how far its centre can reach — so a wide base no longer sticks out past the ring.",
