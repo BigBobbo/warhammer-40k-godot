@@ -145,7 +145,7 @@ const DESC_OVERRIDES := {
 	"weapon_range_panel": "Weapon range comparison panel",
 	"ai_suggestion": "AI suggestion + reasoning (vs AI)",
 	"objective_check": "Print objective control to the game log",
-	"datasheet_modal": "Open the selected unit's datasheet",
+	"datasheet_modal": "Datasheet for the selected (or hovered) unit",
 }
 
 var _body: VBoxContainer = null

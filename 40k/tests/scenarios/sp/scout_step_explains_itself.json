@@ -1,0 +1,95 @@
+{
+  "id": "scout_step_explains_itself",
+  "covers": [
+    "phases.ScoutPhase.UI.skipped_step_is_announced",
+    "phases.ScoutPhase.UI.eligible_units_are_named"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "description": "Reported bug: 'I had scouts in my list and deployed them, but I did not appear to get the option to make a scout move — the first interaction I have is showing what secondary I've drawn.' Root cause: when no unit is recognised as having Scouts, ScoutPhase._on_phase_enter auto-completes on the very frame it is entered, leaving nothing on screen but a bare phase header, so the player is dropped straight onto the secondary-mission draw with no way to tell whether the game decided none of their units were Scouts or whether the step is broken. This scenario drives both halves against the live UI: (1) with every Scouts ability stripped, the SCOUT phase still self-completes to COMMAND but the on-screen Game Log now spells out that no unit in either army has Scouts; (2) with Scouts restored on the Witchseekers, the log names exactly which units may Scout and the phase stays put for the player to act.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for uid in GameState.state.units:\n\tvar abs_ = GameState.state.units[uid].get(\"meta\", {}).get(\"abilities\", [])\n\tfor i in range(abs_.size() - 1, -1, -1):\n\t\tvar a = abs_[i]\n\t\tvar n = str(a.get(\"name\", \"\")) if a is Dictionary else str(a)\n\t\tif n.to_lower().begins_with(\"scout\"):\n\t\t\tabs_.remove_at(i)\nreturn GameState.get_scout_units_for_player(1).size() + GameState.get_scout_units_for_player(2).size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var panel = tree.root.get_node_or_null(\"Main/GameLogPanel\")\nif panel == null:\n\treturn \"NO PANEL\"\nvar stack = [panel]\nvar out = \"\"\nwhile not stack.is_empty():\n\tvar n = stack.pop_back()\n\tfor c in n.get_children():\n\t\tstack.append(c)\n\tif n is RichTextLabel:\n\t\tout += n.get_parsed_text() + \"\\n\"\n\telif n is Label:\n\t\tout += str(n.text) + \"\\n\"\nreturn out.contains(\"No Scout moves are available\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var panel = tree.root.get_node_or_null(\"Main/GameLogPanel\")\nif panel == null:\n\treturn \"NO PANEL\"\nvar stack = [panel]\nvar out = \"\"\nwhile not stack.is_empty():\n\tvar n = stack.pop_back()\n\tfor c in n.get_children():\n\t\tstack.append(c)\n\tif n is RichTextLabel:\n\t\tout += n.get_parsed_text() + \"\\n\"\n\telif n is Label:\n\t\tout += str(n.text) + \"\\n\"\nreturn out.contains(\"Player 1: no unit in this army has the Scouts ability\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var tm = tree.root.get_node_or_null(\"ToastManager\")\nif tm == null:\n\treturn \"NO TOAST MANAGER\"\nvar stack = [tm]\nvar out = \"\"\nwhile not stack.is_empty():\n\tvar n = stack.pop_back()\n\tfor c in n.get_children():\n\t\tstack.append(c)\n\tif n is Label:\n\t\tout += str(n.text) + \"\\n\"\nreturn out.contains(\"Scout step skipped\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "no_scouts_skip_explained"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({\"name\": \"Scouts 6\\\"\", \"type\": \"Core\"})\nGameState.state.units.U_WITCHSEEKERS_D.meta.abilities.append({\"name\": \"Scouts 6\\\"\", \"type\": \"Core\"})\nGameState.set_active_player(1)\nreturn GameState.get_scout_units_for_player(1).size()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "expect_phase",
+      "equals": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var panel = tree.root.get_node_or_null(\"Main/GameLogPanel\")\nif panel == null:\n\treturn \"NO PANEL\"\nvar stack = [panel]\nvar out = \"\"\nwhile not stack.is_empty():\n\tvar n = stack.pop_back()\n\tfor c in n.get_children():\n\t\tstack.append(c)\n\tif n is RichTextLabel:\n\t\tout += n.get_parsed_text() + \"\\n\"\n\telif n is Label:\n\t\tout += str(n.text) + \"\\n\"\nreturn out.contains(\"Player 1 may make Scout moves with: Witchseekers, Witchseekers\")",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ul = tree.root.get_node_or_null(\"Main/HUD_Right/VBoxContainer/UnitListPanel\")\nvar rows = 0\nfor i in range(ul.item_count):\n\tif str(ul.get_item_text(i)).contains(\"Witchseekers\"):\n\t\trows += 1\nreturn rows",
+      "equals": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "scout_step_lists_eligible_units"
+    }
+  ]
+}
