@@ -2873,6 +2873,33 @@
       "status": "covered"
     },
     {
+      "id": "shooting.loadout_resolution.dual_profile_wargear",
+      "description": "MA-LOADOUT: a roster's wargear line names the BASE weapon ('5x Castellan axe' / '5x Guardian spear') while the datasheet lists a dual-profile weapon under its profile name ('Castellan axe – Ranged'). The counts are matched by base name (and case-insensitively), so a model carrying a grenade launcher AND an axe is offered BOTH ranged weapons in the Shooting phase instead of only the first. A base name shared by two profiles of one weapon (Gork's Klaw – Strike / – Sweep) stays unreadable rather than being collapsed onto one profile.",
+      "scenarios": [
+        "allarus_dual_profile_weapon_shooting"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.RulesEngine._resolve_type_loadout",
+      "description": "Per-model loadout resolution from the roster's wargear counts, and the re-resolution path: a unit stamped by an OLDER resolver version has its ranged_loadout/melee_loadout cleared and re-derived on load, so a fix reaches saved games instead of only new ones.",
+      "scenarios": [
+        "allarus_dual_profile_weapon_shooting"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.shooting.weapon_tree_rows",
+      "description": "The WEAPON ASSIGNMENTS tree lists one row per distinct ranged weapon the unit's models actually carry, with a ×N bearer count and the profile's stat line — so a two-gun model shows two rows and both can be assigned to a target.",
+      "scenarios": [
+        "allarus_dual_profile_weapon_shooting"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "autoloads/TerrainManager.gd:is_model_hidden",
       "description": "13.09 HIDDEN qualification: INFANTRY/BEASTS/SWARM within a terrain-area GROUP that contains a dense feature (any part of base), unit hasn't shot this or last turn. Group-aware so a model on one linked boundary half counts the whole area's dense pieces.",
       "scenarios": [
