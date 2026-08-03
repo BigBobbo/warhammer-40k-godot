@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.13.4",
+      "date": "2026-08-02",
+      "summary": "Charge phase: 'Snap to Contact' comes back after you undo a model's move — reverting a model no longer takes the snap option away for the rest of the charge.",
+      "changes": [
+        "Fixed (reported): after moving your chargers and then reverting one with B / 'Undo Last Model', 'Snap to Contact' stayed greyed out for the rest of that charge, so the model you just put back could only be dragged into contact by hand.",
+        "The button (and the controller's [X] Snap to Contact prompt) now light up again the moment any model returns to the still-to-move list — undo one model, undo all of them, snap again as often as you like.",
+        "'Snap to Contact' is no longer sliced in half by the edge of the right-hand panel: the Confirm / Undo / Snap row wraps onto a second line when it doesn't fit, so the whole button is visible and clickable."
+      ]
+    },
+    {
       "version": "1.13.3",
       "date": "2026-08-02",
       "summary": "Steam Deck: the D-pad now walks the whole Declare Battle Formations list instead of jumping out of it — every Strategic Reserves and Deep Strike option is reachable again.",
