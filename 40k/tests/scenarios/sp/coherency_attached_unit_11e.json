@@ -1,0 +1,119 @@
+{
+  "id": "coherency_attached_unit_11e",
+  "covers": [
+    "phases.ScoringPhase.coherency_attached_unit_03_03",
+    "rules.AttackSequence.check_attached_unit_coherency",
+    "ui.CoherencyWarningVisual"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "transition_to_phase": 11,
+  "disable_ai": true,
+  "description": "User report 2026-08-03: the End of Turn 03.03 check demanded a model removal from a squad that was in coherency, because it measured the bodyguard WITHOUT its attached character (19.03). Part 1: a Boyz model that is 3.7\" from every squadmate but 1\" from the attached Weirdboy is IN coherency — no removal is offered and END_TURN is not gated. Part 2: pushed out of the Weirdboy's reach too, the same model IS an offender — the removal dialog opens, the model is ringed on the board by a flashing CoherencyWarningVisual carrying its 2\" coherency reach, and removing it clears the gate. Part 3: the markers are torn down once coherency is restored.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 11
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var boyz = GameState.get_unit(\"U_BOYZ_K\")\nvar k = 0\nfor m in boyz[\"models\"]:\n\tif str(m.get(\"id\", \"\")) == \"m1\":\n\t\tcontinue\n\tm[\"position\"] = {\"x\": 1100.0 + (k % 3) * 60.0, \"y\": 1100.0 + floor(k / 3.0) * 60.0}\n\tm[\"alive\"] = true\n\tk += 1\nfor m in boyz[\"models\"]:\n\tif str(m.get(\"id\", \"\")) == \"m1\":\n\t\tm[\"position\"] = {\"x\": 1420.0, \"y\": 1160.0}\n\t\tm[\"alive\"] = true\nGameState.get_unit(\"U_WEIRDBOY_J\")[\"models\"][0][\"position\"] = {\"x\": 1330.0, \"y\": 1160.0}\nreturn \"%s/%s\" % [str(GameState.get_unit(\"U_WEIRDBOY_J\").get(\"attached_to\", \"\")), str(k)]",
+      "equals": "U_BOYZ_K/9"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var solo = AttackSequence.check_unit_coherency(GameState.get_unit(\"U_BOYZ_K\"))\nvar grp = AttackSequence.check_attached_unit_coherency(\"U_BOYZ_K\", GameState.state[\"units\"])\nreturn \"solo=%s grp=%s\" % [str(solo.offenders), str(grp.coherent)]",
+      "equals": "solo=[\"m1\"] grp=true"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._get_incoherent_human_units().size()",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_bridged_by_character_no_removal_demanded"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for m in GameState.get_unit(\"U_BOYZ_K\")[\"models\"]:\n\tif str(m.get(\"id\", \"\")) == \"m1\":\n\t\tm[\"position\"] = {\"x\": 1490.0, \"y\": 1160.0}\nvar coh = AttackSequence.check_attached_unit_coherency(\"U_BOYZ_K\", GameState.state[\"units\"])\nreturn \"%s|%s\" % [str(coh.coherent), str(coh.offenders)]",
+      "equals": "false|[{ \"unit_id\": \"U_BOYZ_K\", \"model_id\": \"m1\" }]"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_TURN"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "trigger_coherency_removal",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/CoherencyRemovalDialog",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/BoardRoot/TokenLayer/CoherencyWarning_U_BOYZ_K_m1",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"Main/BoardRoot/TokenLayer/CoherencyWarning_U_BOYZ_K_m1\").is_primary",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var mk = tree.root.get_node(\"Main/BoardRoot/TokenLayer/CoherencyWarning_U_BOYZ_K_m1\")\n# 32mm base radius (25.2px) + 2\" coherency reach (80px)\nreturn abs(mk.reach_radius_px - 105.2) < 0.05",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_offender_ringed_with_2in_coherency_reach"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/CoherencyRemovalDialog/Content/Row_U_BOYZ_K/Remove_U_BOYZ_K_m1",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"Main/BoardRoot/TokenLayer/CoherencyWarning_U_BOYZ_K_m1\") == null",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "03_removed_markers_cleared_turn_ended"
+    }
+  ]
+}

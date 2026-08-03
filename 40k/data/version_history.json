@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.19.5",
+      "date": "2026-08-03",
+      "summary": "End of Turn no longer demands you delete models from squads that are in coherency — and when a model really is stranded, the board shows you which one and how far it has to come back.",
+      "changes": [
+        "Fixed (reported after an auto-pilot / snap-to-base turn): 'Out of Coherency — Remove Models' popped up for a Custodian Guard squad that looked perfectly formed. The check measured the squad WITHOUT the Character leading it, so a model standing next to the Blade Champion — which is in coherency, they are one unit — looked stranded and you were told to destroy it.",
+        "The End of Turn check now reads the squad and its attached Leader as the single unit they are, and only counts a model as out of coherency when it is stranded under BOTH readings. It will not destroy a model your own move, pile-in or consolidate was allowed to place.",
+        "The opposite mistake is gone too: a Leader standing off one end of a long mob no longer drags the whole mob over the 9\" limit. On a real save that alone was condemning 43 models across three Boyz mobs.",
+        "Coherency now measures with the same 0.05\" slack the movement ghosts, deployment circles and pile-in helper already draw with — a model snapped to exactly 2\" can no longer read as 'in range' and then be destroyed for it.",
+        "Offending models are now flagged ON THE BOARD: a flashing red boundary on the model plus its dashed 2\" coherency ring, so you can see exactly how far a squadmate has to move to fix it. The camera pans to the worst offender.",
+        "The removal dialog leads with the most isolated model and says how far it is from its nearest squadmate, instead of a row of identical 'Remove mN' buttons; the rest carry their distance in a tooltip and wrap instead of running off the edge."
+      ]
+    },
+    {
       "version": "1.19.4",
       "date": "2026-08-03",
       "summary": "Fixed the AI shooting phase freezing after you took your time rolling saves — the 'AI is thinking' banner would flash forever and the turn never moved on.",

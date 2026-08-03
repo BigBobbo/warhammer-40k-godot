@@ -503,61 +503,74 @@ func _complete_actions_11e(_player: int) -> void:
 ## offender models (the owning player's pick UI arrives with the 11e
 ## scenario suite, ISS-063); diffs go through the pipeline so replay/
 ## network observe the removals. No on-death triggers fire by design.
+## 19.03: judged over the whole ATTACHED unit (bodyguard + attached
+## characters) — the same membership the pile-in / consolidate validators
+## used when they approved these positions. Measuring a bodyguard alone
+## destroyed models that were in coherency via the attached character.
 func _enforce_coherency_11e(_player: int) -> void:
 	if GameConstants.edition < 11:
 		return
 	var units = GameState.state.get("units", {})
 	for unit_id in units:
 		var unit = units[unit_id]
-		var alive := 0
-		for m in unit.get("models", []):
-			if m.get("alive", true) and m.get("position") != null:
-				alive += 1
-		if alive <= 1:
+		# Covered by their bodyguard's group / not on the battlefield.
+		if unit.get("attached_to", null) != null or unit.get("embarked_in", null) != null:
 			continue
 		var removed: Array = []
 		# Remove offenders one at a time, rechecking, until coherent
-		# (capped at the model count to guarantee termination). The player
-		# may choose which models to remove (03.03); the auto-pick removes
-		# the MOST ISOLATED offender (greatest total distance to the rest),
-		# which preserves the largest coherent group.
-		for _i in range(unit.get("models", []).size()):
-			var coh = AttackSequence.check_unit_coherency(unit)
+		# (capped at the group's model count to guarantee termination). The
+		# player may choose which models to remove (03.03); the auto-pick
+		# removes the MOST ISOLATED offender (greatest total distance to the
+		# rest), which preserves the largest coherent group.
+		var coh = AttackSequence.check_attached_unit_coherency(str(unit_id), units)
+		for _i in range(int(coh.get("model_count", 0))):
 			if coh.coherent:
 				break
-			var offender_id = _most_isolated_offender(unit, coh.offenders)
+			var offender = _most_isolated_offender_11e(coh.group_ids, units, coh.offenders)
+			var off_unit_id := str(offender.get("unit_id", ""))
+			var off_model_id := str(offender.get("model_id", ""))
+			var off_models: Array = units.get(off_unit_id, {}).get("models", [])
 			var changes: Array = []
-			for mi in range(unit.models.size()):
-				if str(unit.models[mi].get("id", mi)) == str(offender_id):
-					changes.append({"op": "set", "path": StateSchema.path_model_field(unit_id, mi, "alive"), "value": false})
-					changes.append({"op": "set", "path": StateSchema.path_model_field(unit_id, mi, "current_wounds"), "value": 0})
+			for mi in range(off_models.size()):
+				if str(off_models[mi].get("id", mi)) == off_model_id:
+					changes.append({"op": "set", "path": StateSchema.path_model_field(off_unit_id, mi, "alive"), "value": false})
+					changes.append({"op": "set", "path": StateSchema.path_model_field(off_unit_id, mi, "current_wounds"), "value": 0})
 					break
 			if changes.is_empty():
 				break
 			apply_state_changes(changes)
-			removed.append(offender_id)
+			removed.append("%s/%s" % [off_unit_id, off_model_id])
+			coh = AttackSequence.check_attached_unit_coherency(str(unit_id), units)
 		if not removed.is_empty():
 			print("[PhaseManager] ISS-042: %s out of coherency at End of Turn — removed %s (destroyed, no on-death triggers per 03.03)" % [unit_id, str(removed)])
 
 
-func _most_isolated_offender(unit: Dictionary, offenders: Array) -> String:
-	var models: Array = unit.get("models", [])
-	var best_id := str(offenders[0])
+## Pick the offender with the greatest total distance to the rest of the
+## ATTACHED unit. `offenders` are {unit_id, model_id} pairs spanning the
+## group's component units; the return value is the same shape.
+func _most_isolated_offender_11e(group_ids: Array, units: Dictionary, offenders: Array) -> Dictionary:
+	var all_models: Array = []
+	for gid in group_ids:
+		for m in units.get(gid, {}).get("models", []):
+			if m.get("alive", true) and m.get("position") != null:
+				all_models.append({"unit_id": str(gid), "model_id": str(m.get("id", "")), "model": m})
+
+	var best: Dictionary = offenders[0]
 	var best_score := -1.0
-	for oid in offenders:
+	for off in offenders:
 		var om = null
-		for m in models:
-			if str(m.get("id", "")) == str(oid):
-				om = m
+		for entry in all_models:
+			if entry.unit_id == str(off.get("unit_id", "")) and entry.model_id == str(off.get("model_id", "")):
+				om = entry.model
 				break
 		if om == null:
 			continue
 		var total := 0.0
-		for m in models:
-			if not m.get("alive", true) or str(m.get("id", "")) == str(oid):
+		for entry in all_models:
+			if entry.unit_id == str(off.get("unit_id", "")) and entry.model_id == str(off.get("model_id", "")):
 				continue
-			total += Measurement.model_to_model_distance_px(om, m)
+			total += Measurement.model_to_model_distance_px(om, entry.model)
 		if total > best_score:
 			best_score = total
-			best_id = str(oid)
-	return best_id
+			best = off
+	return best
