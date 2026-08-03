@@ -8197,6 +8197,16 @@
       "fidelity": "DECLARED"
     },
     {
+      "id": "ui.fight.attack_dialog.plain_language_labels",
+      "description": "The AttackAssignmentDialog's action row is faction-agnostic chrome and must be written in plain English. Reported: playing Custodes, the back button read '◀ Pick Anuvver Unit' and the auto-assign button 'Best Krump ✨' — Ork slang the player had no way to parse. They now read '◀ Back — Pick Another Unit' and 'Best Weapons ✨'. The scenario asserts both labels on a Custodes-vs-Orks fixture, sweeps the whole button row for leftover slang, and checks the longer labels still fit inside the dialog. Ork voice is unchanged in the tutorial instructor cards, which are narration rather than chrome.",
+      "scenarios": [
+        "fight_dialogs_single_confirm_11e",
+        "tut_t6_wrong_fighter_backout"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "ui.fight.staged_hit_wound_pause",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: staged_fight_reroll_ui.",
       "scenarios": [
