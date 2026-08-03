@@ -1,0 +1,308 @@
+{
+  "id": "fight_damage_breakdown_table",
+  "covers": [
+    "dialogs.AttackAssignmentDialog.damage_breakdown",
+    "dialogs.AttackAssignmentDialog.breakdown_toggle",
+    "ui.fight.expected_damage_transparency"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Reported from the Fight phase (a Blade Champion choosing between Vaultswords profiles against Stormboyz): the attack dialog printed 'E[D]≈8.3' for one weapon and '≈3.1' for another with nothing to explain either number — and no hint that 8.3 is raw DAMAGE, not 8.3 dead models. The dialog now carries a collapsible 'Show damage breakdown' section rendering one table per assignment (ATTACKS → HIT → WOUND → SAVE → (FNP) → DAMAGE → SLAIN), each row naming what it needs, its chance and what is left after it, plus footnotes for damage lost to overkill and for the weapon abilities the forecast does not model. PART A drives the Warboss (Power klaw + an [EXTRA ATTACKS] squig) into 2+/T6 Custodian Guard and asserts the section is folded on open, that the real button expands it, that the chain renders, and that the table's rows multiply out to exactly the E[D] the assignment row already printed. PART B activates the Custodian Guard, whose datasheet offers THREE melee profiles — the same shape of decision as the reported Vaultswords choice — and switches between them with the breakdown open, proving the table follows the weapon and that the high-damage profile is the one flagged for overkill against 1-wound models.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)",
+      "comment": "zero CP so no stratagem prompt interrupts an activation"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set_auto_allocate_wounds(true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 1, \"current_wounds\": 1}, true)",
+      "comment": "SETUP-ONLY PRIVILEGE: make the Warboss a 1-wound model so PART B's defender overkills the way the reported Stormboyz did. The fixture has no 1-wound unit engaged with the Custodian Guard, and overkill — damage spilling past a model's last wound and being lost — is the whole reason expected DAMAGE and expected DEAD MODELS diverge. Only the defender's wounds stat is staged; every forecast, row and footnote below is computed by the real code from the real profiles. (The sibling fight_one_weapon_per_model_11e scenario stages the same field the other way, setting wounds to 99.)"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_B",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/AttackAssignmentDialog/Content/BreakdownScroll",
+      "property": "visible",
+      "equals": false,
+      "comment": "folded away on open — a player who does not want the detail sees the dialog exactly as before"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/AttackAssignmentDialog/Content/BreakdownToggleButton",
+      "property": "text",
+      "equals": "▶ Show damage breakdown"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_breakdown_collapsed"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/BreakdownToggleButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/AttackAssignmentDialog/Content/BreakdownScroll",
+      "property": "visible",
+      "equals": true
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/AttackAssignmentDialog/Content/BreakdownToggleButton",
+      "property": "text",
+      "equals": "▼ Hide damage breakdown"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar t = d.get_node(\"Content/BreakdownScroll/BreakdownDisplay\").get_parsed_text()\nfor w in [\"ATTACKS\", \"HIT\", \"WOUND\", \"SAVE\", \"DAMAGE\", \"SLAIN\"]:\n\tif not w in t:\n\t\treturn \"missing row: \" + w\nreturn \"all rows\"",
+      "multiline": true,
+      "equals": "all rows",
+      "comment": "every step of the resolution chain is rendered, in the order the dice are actually rolled"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar t = d.get_node(\"Content/BreakdownScroll/BreakdownDisplay\").get_parsed_text()\nfor w in [\"WS 3+\", \"S10 vs T6 → 3+\", \"Sv 2+ AP-2 → 4+\"]:\n\tif not w in t:\n\t\treturn \"missing: \" + w + \" in: \" + t\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the three rolls the player asked to see, for the Warboss's Power klaw into 2+/T6 Custodian Guard: WS3+ to hit, S10 beats T6 so wounds on 3+, and AP-2 worsens their 2+ armour to 4+"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar t = d.get_node(\"Content/BreakdownScroll/BreakdownDisplay\").get_parsed_text()\nif not \"Attack squig\" in t:\n\treturn \"no table for the Extra Attacks weapon\"\nif not \"Extra Attacks\" in t:\n\treturn \"the Extra Attacks table is not labelled as one\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the auto-included [EXTRA ATTACKS] weapon gets its own table too — it is part of the total the assignments box prints"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar bd = d._damage_breakdown(\"power_klaw_melee\", \"U_CUSTODIAN_GUARD_B\", 1, \"U_WARBOSS_B\")\nvar chain = bd.total_attacks * bd.p_hit * bd.p_wound * bd.p_unsaved * bd.damage_avg * bd.p_damage_through\nif abs(chain - bd.expected_damage) > 0.001:\n\treturn \"chain %.4f != E[D] %.4f\" % [chain, bd.expected_damage]\nif abs(bd.expected_damage - d._estimate_expected_damage(\"power_klaw_melee\", \"U_CUSTODIAN_GUARD_B\", 1, \"U_WARBOSS_B\")) > 0.001:\n\treturn \"table disagrees with the assignment row\"\nreturn \"%.2f\" % bd.expected_damage",
+      "multiline": true,
+      "equals": "1.78",
+      "comment": "the table's rows multiply out to exactly the E[D] the assignment row above prints — the breakdown explains that number rather than computing a second, different one"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar t = d.get_node(\"Content/BreakdownScroll/BreakdownDisplay\").get_parsed_text()\nreturn \"Not modelled\" in t",
+      "multiline": true,
+      "equals": true,
+      "comment": "the forecast says out loud what it skips (re-rolls, modifiers, cover, stratagems, and any weapon ability on the profile) instead of presenting a coarse estimate as exact"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_breakdown_expanded_warboss"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/BreakdownToggleButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/AttackAssignmentDialog/Content/BreakdownScroll",
+      "property": "visible",
+      "equals": false,
+      "comment": "and folds back away — the section is opt-in in both directions"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = PhaseManager.get_current_phase_instance()\nvar out = []\nfor a in p.staged_fight_state[\"assignments\"]:\n\tout.append(str(a.get(\"weapon\", \"?\")))\nreturn \",\".join(out)",
+      "multiline": true,
+      "equals": "power_klaw_melee,attack_squig_melee",
+      "comment": "the activation still resolves normally — opening the breakdown is a read-only view and changes nothing about what is submitted"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)",
+      "comment": "PART B: walk the resolution dock through so the next activation can be picked"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel",
+      "timeout_s": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_B\"]\nvar n = 0\nfor m in u[\"models\"]:\n\tm[\"melee_loadout\"] = [\"Guardian spear\", \"Misericordia\"]\n\tn += 1\nu[\"_loadout_checked\"] = true\nreturn n",
+      "multiline": true,
+      "equals": 4,
+      "comment": "SETUP-ONLY PRIVILEGE: this roster buys the Guard nothing but Guardian spears, so their section offers a single weapon and there is nothing to compare — while the reported case was a Blade Champion choosing between THREE Vaultswords on one datasheet. Stamp the models with the two-weapon melee_loadout the engine itself writes during loadout resolution (same key, same shape) so the section is genuinely two-way. Everything downstream — grouping, the weapon list, the forecast, the table and its footnotes — is the real code path."
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/KatahStanceDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/KatahStanceDialog/Content/Buttons/DacataraiButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nreturn d.get_node(\"Content/GroupsScroll/GroupsBox/Group0/Body/WeaponList\").item_count",
+      "multiline": true,
+      "equals": 2,
+      "comment": "the Custodian Guard section now offers two melee profiles — the same shape of decision as the reported Blade Champion choosing between Vaultswords"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/BreakdownToggleButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar t = d.get_node(\"Content/BreakdownScroll/BreakdownDisplay\").get_parsed_text()\nfor w in [\"Guardian spear\", \"S7 vs T5 → 3+\", \"Sv 4+ AP-2 → 6+\"]:\n\tif not w in t:\n\t\treturn \"missing: \" + w + \" in: \" + t\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the auto-picked Guardian spear (S7 AP-2 D2) into the T5/4+ Warboss"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar t = d.get_node(\"Content/BreakdownScroll/BreakdownDisplay\").get_parsed_text()\nreturn \"lost to overkill\" in t",
+      "multiline": true,
+      "equals": true,
+      "comment": "THE REPORTED CONFUSION, made visible: a 2-damage weapon against 1-wound models throws half of every hit away, so its expected DAMAGE is roughly double the damage that does anything. Reading E[D] as 'dead models' is exactly the mistake this line prevents."
+    },
+    {
+      "act": "screenshot",
+      "label": "03_breakdown_guardian_spear_overkill_warned"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/GroupsScroll/GroupsBox/Group0/Body/WeaponList\")\nvar want = -1\nfor i in range(wl.item_count):\n\tif str(wl.get_item_text(i)).begins_with(\"Misericordia\"):\n\t\twant = i\nif want < 0:\n\treturn \"no Misericordia offered\"\nwl.select(want)\nwl.item_selected.emit(want)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "switch the section onto a different profile with the breakdown open — the comparison the player is actually making. Weapon rows are driven via select() + item_selected.emit() because synthetic clicks do not land inside popup windows."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 12
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar t = d.get_node(\"Content/BreakdownScroll/BreakdownDisplay\").get_parsed_text()\nif not \"Misericordia\" in t:\n\treturn \"table did not follow the weapon change\"\nif \"Guardian spear\" in t:\n\treturn \"stale Guardian spear table still rendered\"\nif not \"S5 vs T5 → 4+\" in t:\n\treturn \"missing the Misericordia wound line in: \" + t\nif \"lost to overkill\" in t:\n\treturn \"a 1-damage weapon cannot overkill a 1-wound model\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the table re-renders live for the newly picked weapon: S5 now only equals T5 so wounds land on 4+ instead of 3+, and the overkill warning is gone because a 1-damage profile wastes nothing on a 1-wound model. Comparing two profiles this way is the whole reason the section exists."
+    },
+    {
+      "act": "screenshot",
+      "label": "04_breakdown_misericordia_no_overkill"
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set_auto_allocate_wounds(false)"
+    }
+  ]
+}
