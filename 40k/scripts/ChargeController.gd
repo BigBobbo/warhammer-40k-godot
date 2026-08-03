@@ -89,6 +89,12 @@ var group_drag_start_pos: Vector2 = Vector2.ZERO  # board-local point where the 
 var group_drag_start_positions: Dictionary = {}  # model_id -> Vector2 at drag start
 var group_ghost_container: Node2D = null  # ghost previews for the group drag
 var confirm_button: Button = null  # Button to confirm charge moves
+# Attention pulse on the confirm button while it is the pending step (see
+# _update_confirm_button_emphasis). Tracked so the loop is started/killed once
+# per state change instead of on every button-state refresh.
+const _CONFIRM_PULSE_BRIGHT := Color(1.35, 1.28, 1.08)
+var _confirm_pulse_tween: Tween = null
+var _confirm_pulse_active: bool = false
 var charge_direction_visual: Node2D = null  # P3-99: Live direction validation feedback
 
 # Base-to-base snap state
@@ -238,6 +244,24 @@ func _input(event: InputEvent) -> void:
 						if panel_button.get_global_rect().has_point(mouse_event.global_position):
 							print("DEBUG: Click is within a charge-panel button, not handling")
 							return  # Let the button handle this click
+				# EVERY other HUD control needs the same courtesy. The three
+				# whitelisted buttons above were the only escapes, so while a
+				# charge move was awaiting confirmation this handler ate the
+				# press for the whole rest of the interface — the top-right
+				# "End Charge Phase" button most visibly, but equally the unit
+				# list, the game log tabs, the Suggest button and the overwatch
+				# toggle. Nothing was disabled and hover tooltips still showed
+				# (motion is only consumed mid-drag), so the reported symptom
+				# was "I click End Charge Phase and nothing happens" — the game
+				# reading as broken when the click simply never arrived.
+				# gui_get_hovered_control() is null over the bare board and
+				# non-null over any Control, which is exactly the split we want;
+				# it is the same test Main._unhandled_input uses to scope wheel
+				# zoom to the board, and _try_click_select_target already uses it
+				# a few hundred lines below.
+				if get_viewport().gui_get_hovered_control() != null:
+					print("DEBUG: Click is over a HUD control, not handling")
+					return  # Let Godot's GUI pass deliver it
 
 			print("DEBUG: ChargeController _input - Left mouse button, pressed: ", mouse_event.pressed)
 			if mouse_event.pressed:
@@ -253,6 +277,12 @@ func _input(event: InputEvent) -> void:
 		# MA-41: Skip keyboard input when a text input has focus
 		var focused = get_viewport().gui_get_focus_owner()
 		if focused is LineEdit or focused is TextEdit:
+			return
+		# Same reasoning as ShootingController._datasheet_modal_open: this runs
+		# in _input, ahead of Main's ESC cascade, so an ESC here would clear the
+		# charge selection instead of closing the datasheet card the player is
+		# reading.
+		if _datasheet_modal_open():
 			return
 		# Keyboard rotation controls during charge movement
 		if event.pressed and dragging_model:
@@ -270,6 +300,17 @@ func _input(event: InputEvent) -> void:
 			elif event.keycode == KEY_ESCAPE and selected_models.size() > 0:
 				_clear_charge_selection()
 				get_viewport().set_input_as_handled()
+
+
+# True while the read-only datasheet card (DatasheetModal, the I / pad-Y
+# overlay) is on screen. Phase shortcuts stand down while it is up.
+func _datasheet_modal_open() -> bool:
+	var m = SceneRefs.main()
+	if m == null:
+		return false
+	var ds = m.get_node_or_null("DatasheetModal")
+	return ds != null and ds.visible
+
 
 func _handle_mouse_down(global_pos: Vector2) -> void:
 	print("DEBUG: Mouse down at global pos: ", global_pos)
@@ -685,9 +726,37 @@ func _clear_group_ghost_visuals() -> void:
 		group_ghost_container.queue_free()
 	group_ghost_container = null
 
+func _group_charge_cost_inches(probe_pos: Vector2) -> float:
+	"""Worst member's total charge spend if the whole selection translated by
+	(probe_pos - group_drag_start_pos). Every member moves by the same vector, so
+	the group is capped by whichever model is closest to spending its roll —
+	mirrors _validate_group_charge_move's max_total_inches."""
+	var vec: Vector2 = probe_pos - group_drag_start_pos
+	var worst := 0.0
+	for entry in selected_models:
+		var model_id: String = entry.get("model_id", "")
+		var model = _get_gamestate_model(model_id)
+		if model.is_empty():
+			continue
+		var old_pos: Vector2 = _get_model_position(model)
+		var new_pos: Vector2 = old_pos + vec
+		var hop := Measurement.px_to_inches(old_pos.distance_to(new_pos)) \
+			+ _calculate_terrain_penalty_for_path(old_pos, new_pos)
+		worst = max(worst, _get_model_charge_accumulated(model_id) + hop)
+	return worst
+
+func _clamp_group_charge_to_budget(local_pos: Vector2) -> Vector2:
+	"""Hold a group charge drag inside the tightest member's remaining roll. The
+	budget is the whole charge_distance because _group_charge_cost_inches already
+	counts each member's earlier hops."""
+	return clamp_drag_to_budget(
+		group_drag_start_pos, local_pos, float(charge_distance), _group_charge_cost_inches)
+
 func _update_group_drag(local_pos: Vector2) -> void:
 	if not group_dragging:
 		return
+	if drag_clamp_active():
+		local_pos = _clamp_group_charge_to_budget(local_pos)
 	var drag_vector = local_pos - group_drag_start_pos
 	var validation = _validate_group_charge_move(drag_vector)
 
@@ -706,6 +775,10 @@ func _end_group_drag(local_pos: Vector2) -> void:
 	if not group_dragging:
 		return
 	group_dragging = false
+	# Same clamp the live preview used, so the drop commits where the ghosts
+	# stopped instead of failing validation past the charge roll.
+	if drag_clamp_active():
+		local_pos = _clamp_group_charge_to_budget(local_pos)
 	var drag_vector = local_pos - group_drag_start_pos
 	var validation = _validate_group_charge_move(drag_vector)
 	_clear_group_ghost_visuals()
@@ -1353,6 +1426,7 @@ func _update_button_states() -> void:
 	if is_instance_valid(undo_charge_model_button):
 		undo_charge_model_button.visible = awaiting_movement
 		undo_charge_model_button.disabled = _moved_model_order.is_empty()
+	_update_confirm_button_emphasis()
 
 	# Update charge status
 	_update_charge_status()
@@ -1368,6 +1442,9 @@ func _update_button_states() -> void:
 	# funnels through here, so re-render the hints from the new state.
 	if PadRouter and PadRouter.has_method("refresh_hints"):
 		PadRouter.refresh_hints()
+	# ...and for the same reason, re-render the top status bar, which now names
+	# the current charge step instead of a static "Phase: CHARGE".
+	emit_signal("ui_update_requested")
 
 	# Update info label with clear step-by-step instructions
 	if is_instance_valid(charge_info_label):
@@ -2294,6 +2371,7 @@ func _enable_charge_movement(unit_id: String, max_distance: int) -> void:
 	if confirm_button and is_instance_valid(confirm_button):
 		confirm_button.visible = true
 		confirm_button.disabled = true  # Enable when at least one model moved
+		_update_confirm_button_emphasis()
 		print("DEBUG: Confirm button made visible and disabled")
 		print("DEBUG: Confirm button position: ", confirm_button.position)
 		print("DEBUG: Confirm button size: ", confirm_button.size)
@@ -2411,7 +2489,11 @@ func _add_confirm_button() -> void:
 	confirm_button.name = "ConfirmChargeButton"
 	confirm_button.text = "Confirm Charge Moves"
 	confirm_button.visible = false
-	_WhiteDwarfTheme.apply_to_button(confirm_button)
+	# Primary styling, not the same flat gold as its two neighbours: this is the
+	# step that actually commits the charge, and dressing all three the same is
+	# why "Snap to Contact" read as the finish line. Snap/Undo stay secondary.
+	_WhiteDwarfTheme.apply_primary_button(confirm_button)
+	confirm_button.tooltip_text = "Lock in the charge move you have staged — nothing is committed until you do"
 	print("DEBUG: Connecting confirm button signal...")
 	confirm_button.pressed.connect(_on_confirm_charge_moves)
 	print("DEBUG: Signal connected, adding to right panel...")
@@ -2516,11 +2598,53 @@ func _refresh_confirm_row_button_states() -> void:
 	# Snap needs at least one model still waiting to be placed.
 	if is_instance_valid(auto_path_charge_button):
 		auto_path_charge_button.disabled = models_to_move.is_empty()
+	_update_confirm_button_emphasis()
 	# The pad hint bar mirrors these buttons ("[X] Snap to Contact",
 	# "[B] Undo Model") off their disabled flags, so re-render it here too —
 	# otherwise the bar keeps promising (or hiding) an action that just changed.
 	if PadRouter and PadRouter.has_method("refresh_hints"):
 		PadRouter.refresh_hints()
+	# The top status bar names the current charge step (Main.update_ui reads
+	# get_next_step_hint). This signal was declared and connected but never
+	# emitted, so that bar sat on a generic "Phase: CHARGE" for the whole flow —
+	# emit it from the one place every affordance change funnels through.
+	emit_signal("ui_update_requested")
+
+
+# Pulse the confirm button while it is the action the charge is waiting on, and
+# stop the moment it isn't. Purely an attention cue: a staged-but-unconfirmed
+# charge move looks finished on the board (the models are already sitting in
+# base contact after a Snap to Contact), so nothing on screen distinguished
+# "done" from "one click away from done" — the state a player was in when they
+# went looking for End Charge Phase instead.
+func _update_confirm_button_emphasis() -> void:
+	if not is_instance_valid(confirm_button):
+		return
+	var should_pulse: bool = confirm_button.visible and not confirm_button.disabled
+	if should_pulse == _confirm_pulse_active:
+		return
+	_confirm_pulse_active = should_pulse
+	if _confirm_pulse_tween and _confirm_pulse_tween.is_valid():
+		_confirm_pulse_tween.kill()
+	_confirm_pulse_tween = null
+	if not should_pulse:
+		confirm_button.modulate = Color.WHITE
+		return
+	# Respect the accessibility setting (SettingsService clamps it to 0.25–3.0);
+	# the defensive <= 0 arm just rests the button at its brightest rather than
+	# dividing by zero if that ever changes.
+	var speed: float = 1.0
+	if SettingsService:
+		speed = float(SettingsService.animation_speed)
+	if speed <= 0.0:
+		confirm_button.modulate = _CONFIRM_PULSE_BRIGHT
+		return
+	_confirm_pulse_tween = confirm_button.create_tween()
+	_confirm_pulse_tween.set_loops()
+	_confirm_pulse_tween.tween_property(confirm_button, "modulate",
+			_CONFIRM_PULSE_BRIGHT, 0.55 / speed)
+	_confirm_pulse_tween.tween_property(confirm_button, "modulate",
+			Color.WHITE, 0.55 / speed)
 
 func _get_model_position(model: Dictionary) -> Vector2:
 	var pos = model.get("position")
@@ -2665,12 +2789,52 @@ func _start_model_drag(model: Dictionary, world_pos: Vector2) -> void:
 
 		print("DEBUG: Created ghost visual and movement line for ", model_id)
 
+# ── Over-range drag clamp (charge move) ─────────────────────────────────────
+# Same restraint the movement phase and pile-in use, against the charge roll
+# instead of a Move stat: drag past what the 2D6 will carry you and the model
+# stops at the farthest point it can still legally reach. Squeezing the last
+# inch out of a charge roll is exactly where hand-aiming at the circle hurt
+# most. Gate + ray search live on PhaseControllerBase.
+
+func _charge_move_cost_inches(dest: Vector2) -> float:
+	"""Total inches THIS HOP spends: raw distance + terrain penalty, measured from
+	the model's current position, matching _validate_charge_position's Check 1."""
+	if not dragging_model:
+		return 0.0
+	var old_pos = _get_model_position(dragging_model)
+	if old_pos == null:
+		return 0.0
+	return Measurement.px_to_inches(old_pos.distance_to(dest)) \
+		+ _calculate_terrain_penalty_for_path(old_pos, dest)
+
+func _clamp_charge_to_budget(dest: Vector2, charge_key: String) -> Vector2:
+	"""Hold `dest` inside whatever the charge roll has left after earlier hops.
+	Distance + terrain only — the "must end in engagement range of a target"
+	rule stays with _validate_charge_position, because shortening the move must
+	not be mistaken for satisfying it."""
+	if not dragging_model:
+		return dest
+	var old_pos = _get_model_position(dragging_model)
+	if old_pos == null:
+		return dest
+	return clamp_drag_to_budget(
+		old_pos, dest,
+		float(charge_distance) - _get_model_charge_accumulated(charge_key),
+		_charge_move_cost_inches)
+
 func _update_model_drag(world_pos: Vector2) -> void:
 	if not dragging_model:
 		return
 
 	var model_id = dragging_model.get("id", "")
 	var charge_key = _charge_model_key(dragging_model_source_unit_id, model_id)
+
+	# Clamp BEFORE the snap logic so base-contact snapping is only offered where
+	# the model can actually reach — snapping to a target beyond the roll would
+	# just re-create the rejected-on-drop problem this fixes.
+	if drag_clamp_active():
+		world_pos = _clamp_charge_to_budget(world_pos, charge_key)
+
 	var effective_pos = world_pos  # Position that may be adjusted by snap
 
 	# Base-to-base snap: check if cursor is close enough to snap to a target
@@ -2693,6 +2857,20 @@ func _update_model_drag(world_pos: Vector2) -> void:
 			snap_target_model_id = snap_result.get("target_model_id", "")
 			effective_pos = snap_position
 			print("DEBUG: Snapped to base contact with target model ", snap_target_model_id)
+
+	# A snap engaged from an in-reach cursor can still land base contact just
+	# past the roll (the contact point sits further out than the cursor did).
+	# Clamp the snapped result too and drop the snap when that shortens it —
+	# otherwise the ghost reads cyan "locked to contact" for a placement the drop
+	# would reject, which is the exact failure the clamp exists to remove.
+	if drag_clamp_active():
+		var clamped_effective = _clamp_charge_to_budget(effective_pos, charge_key)
+		if not clamped_effective.is_equal_approx(effective_pos):
+			effective_pos = clamped_effective
+			if snap_active:
+				snap_active = false
+				snap_target_model_id = ""
+				print("DEBUG: Snap released — base contact is beyond the remaining charge distance")
 
 	# Update ghost visual position (uses snapped position when active)
 	if ghost_visual:
@@ -2751,6 +2929,13 @@ func _end_model_drag(world_pos: Vector2) -> void:
 	if snap_active:
 		final_pos = snap_position
 		print("DEBUG: Using snapped position for model ", charge_key, " at ", final_pos)
+
+	# Same clamp the live preview applied, so the drop lands where the ghost
+	# stopped instead of being rejected past the charge roll. The two MUST agree
+	# or the player drops on the ghost and the model goes somewhere else.
+	if drag_clamp_active():
+		final_pos = _clamp_charge_to_budget(final_pos, charge_key)
+		print("DEBUG: Charge drop clamped to remaining charge distance -> ", final_pos)
 
 	# Reset snap state
 	snap_active = false
@@ -3139,6 +3324,46 @@ func _remaining_models_message() -> String:
 		return "Squad moved! Drag the leader too, or confirm — unmoved leaders follow automatically"
 	return "Move remaining %d models into engagement range" % models_to_move.size()
 
+# ── "What am I meant to do next?" ───────────────────────────────────
+# A charge move is staged on screen (models already sitting at their new spots,
+# GameState written optimistically) but APPLY_CHARGE_MOVE has NOT been sent, so
+# nothing is committed and the phase must not end underneath it. Main asks this
+# before acting on "End Charge Phase" so the player is told to confirm instead
+# of the press appearing to do nothing (or, via Enter, silently binning the move).
+func has_unconfirmed_charge_move() -> bool:
+	return awaiting_movement and not moved_models.is_empty()
+
+# True from the moment the roll succeeds until the move is confirmed — including
+# the stretch before any model has been placed, where "End Charge Phase" would
+# throw away a successful charge roll.
+func is_charge_move_in_progress() -> bool:
+	return awaiting_movement
+
+# Display name of the unit whose charge move is mid-flight, for prompts and the
+# top-bar status line ("" when no charge is being moved).
+func get_charge_move_unit_name() -> String:
+	if active_unit_id == "":
+		return ""
+	var unit = GameState.get_unit(active_unit_id)
+	return unit.get("meta", {}).get("name", active_unit_id)
+
+# One line naming the single next step of the charge flow, for the top status
+# bar. The right-hand panel has carried this text all along (charge_info_label),
+# but a player watching the board and the top-right button never looks there —
+# which is how "Snap to Contact worked, now nothing does" happens.
+func get_next_step_hint() -> String:
+	if awaiting_movement:
+		if not moved_models.is_empty() and models_to_move.is_empty():
+			return "Charge move staged — click 'Confirm Charge Moves' to lock it in"
+		if not moved_models.is_empty():
+			return "Charge move in progress — place the rest, or click 'Confirm Charge Moves'"
+		return "Drag models into engagement range, or click 'Snap to Contact'"
+	if awaiting_roll:
+		return "Charge declared — click 'Roll 2D6' for the charge distance"
+	if active_unit_id != "":
+		return "Click a charge target, then 'Declare Charge'"
+	return "Select a unit to charge, or end the Charge phase"
+
 func _validate_charge_position(model: Dictionary, new_pos: Vector2, charge_key: String = "", group_overrides: Dictionary = {}) -> bool:
 	# group_overrides (model_id -> Vector2): prospective positions of squadmates
 	# moving in the same group drag — they occupy those spots, not their current ones.
@@ -3370,6 +3595,7 @@ func _on_confirm_charge_moves() -> void:
 	_clear_movement_visuals()
 	if is_instance_valid(confirm_button):
 		confirm_button.visible = false
+		_update_confirm_button_emphasis()  # stop the attention pulse with it
 	# T-092 fix: hide the Snap to Contact + Undo buttons together with confirm
 	# so they don't linger visible + clickable (and silently no-op) once this
 	# charge is done. _update_ui_for_next_charge() → _update_button_states()
@@ -5084,6 +5310,12 @@ func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void
 	# individual model. Anchored on the origin (not the live position) so the ring
 	# stays put as a fixed reference while the model is dragged; the panel's
 	# Used/Left readout tracks the live remaining budget.
+	#
+	# Each ring is drawn at the rolled distance PLUS that model's base extent: the
+	# charge budget is measured centre-to-centre, so a ring at the raw distance
+	# marks where the model's centre may stop and a wide base overhangs it at max
+	# range. Inflating per model makes the ring mean "the furthest any part of this
+	# model can end up" (same convention as the Movement phase reach ring).
 	if not is_instance_valid(range_visual):
 		return
 	_clear_charge_range_circle()
@@ -5093,6 +5325,7 @@ func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void
 	if unit.is_empty():
 		return
 	var radius_px := Measurement.inches_to_px(max_distance)
+	var max_ring_radius := radius_px
 	var centers: Array = []
 	# Charging unit's own models, plus its attached CHARACTER models — they are
 	# draggable too (keyed "<char_unit>:<model>"), so show their reach as well.
@@ -5114,7 +5347,9 @@ func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void
 			if center == Vector2.ZERO:
 				continue
 			centers.append(center)
-			_draw_charge_dashed_circle(center, radius_px, CHARGE_MODEL_RANGE_COLOR, CHARGE_MODEL_RANGE_WIDTH)
+			var ring_radius: float = radius_px + Measurement.base_extent_px(model)
+			max_ring_radius = maxf(max_ring_radius, ring_radius)
+			_draw_charge_dashed_circle(center, ring_radius, CHARGE_MODEL_RANGE_COLOR, CHARGE_MODEL_RANGE_WIDTH)
 
 	# One summary label above the group — every model shares the same rolled reach,
 	# so a per-model number would just be the same value repeated N times.
@@ -5130,7 +5365,7 @@ func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void
 		range_label.text = "%d\" charge move (each model)" % int(round(max_distance))
 		range_label.add_theme_font_size_override("font_size", 32)
 		range_label.add_theme_color_override("font_color", CHARGE_MODEL_RANGE_LABEL_COLOR)
-		range_label.position = Vector2(group_center.x - 150, top_y - (radius_px + 40))
+		range_label.position = Vector2(group_center.x - 150, top_y - (max_ring_radius + 40))
 		range_label.z_index = 55
 		range_visual.add_child(range_label)
 

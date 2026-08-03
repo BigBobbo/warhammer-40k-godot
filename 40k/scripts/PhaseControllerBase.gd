@@ -126,6 +126,127 @@ func rebind_shared_dice_log() -> void:
 	print("PhaseControllerBase: %s dice log rebound to the shared GameLogPanel tab" % name)
 
 
+# ── Over-range drag clamp (shared by Movement / Charge / Fight) ─────
+# Dragging a model further than it can go used to follow the cursor into an
+# invalid preview that was rejected on drop, so squeezing out the last inch
+# meant landing the cursor on the range circle by hand. Clamped, the drag stops
+# at the farthest point the model can actually still reach: the player drags in
+# roughly the right direction and takes the maximum legal distance (the XCOM 2 /
+# Into the Breach feel).
+#
+# Every phase that drags a model against a distance budget shares this: the
+# movement phase's Normal/Advance/Fall Back, the charge move, and the fight
+# phase's pile-in / consolidate. The per-phase cost function differs (terrain is
+# charged differently, and pile-in ignores it entirely), so the search is
+# parameterised by a `cost_fn` the caller supplies.
+
+## Is the over-range drag clamp in force right now?
+##
+## The pad carry is ALWAYS clamped: an over-range pad drop that snaps back and
+## strands the virtual cursor is unusable, so that is not a preference (P0 Steam
+## Deck smoothness). On mouse & keyboard it follows Settings › Controls › "Stop
+## model drags at their maximum move range", ON by default. Turning it off
+## restores the historical free drag with the red over-range preview.
+##
+## Read live on every motion event so a mid-game settings change takes effect on
+## the very next drag with no reload. Autoloads are fetched defensively because
+## bare headless harnesses instantiate controllers without them.
+func drag_clamp_active() -> bool:
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	if idm != null and idm.has_method("is_pad_active") and idm.is_pad_active():
+		return true
+	var settings = get_node_or_null("/root/SettingsService")
+	if settings == null:
+		return false
+	return bool(settings.get("drag_clamp_to_max_range"))
+
+
+# How finely the ray from the pickup point to the cursor is searched for the
+# farthest affordable stop — a coarse descending scan to bracket the boundary,
+# then bisections to sharpen it.
+#
+# A plain "budget minus endpoint penalty" formula is NOT enough wherever terrain
+# is costed, because the penalty is a step function of where you stop: dragging
+# a Telemon at a tall ruin costs +10" AT the ruin but 0" one inch short of it,
+# and the naive formula subtracts the ruin's cost from the budget everywhere
+# along the ray and pins the model at 0".
+#
+# 10 + 5 caps the worst case at 15 cost queries per motion event while still
+# landing within ~budget/320 (≈0.025" on an 8" move, i.e. the phases' movement
+# epsilon) of the true boundary — and the refinement always converges from the
+# affordable side, so the point returned is legal regardless of precision.
+# Measured in the movement phase: 2.1 ms per over-range motion event across
+# terrain, vs 0.12 ms for the single-query in-range case.
+const DRAG_CLAMP_SCAN_SAMPLES: int = 10
+const DRAG_CLAMP_REFINE_STEPS: int = 5
+const DRAG_CLAMP_EPSILON: float = 0.02
+
+
+## Clamp `to_pos` back along the ray from `from_pos` to the farthest point whose
+## cost fits `budget_inches`; returns `to_pos` unchanged when it already fits.
+##
+## `cost_fn` is `func(dest: Vector2) -> float` returning the TOTAL inches a stop
+## at `dest` spends — raw distance plus whatever the phase charges on top
+## (terrain, climbs). It must be the same accounting the phase validates the
+## drop with, or the clamp parks the model exactly on a boundary the phase then
+## rejects.
+##
+## Geometry only: overlap, board edge and any "must end closer to a target"
+## rules stay with the caller, because shortening a move must not silently force
+## an illegal placement.
+func clamp_drag_to_budget(from_pos: Vector2, to_pos: Vector2, budget_inches: float, cost_fn: Callable) -> Vector2:
+	var seg: Vector2 = to_pos - from_pos
+	var seg_len_px: float = seg.length()
+	if seg_len_px <= 0.0:
+		return to_pos
+	budget_inches = max(0.0, budget_inches)
+	var cost_at_cursor: float = float(cost_fn.call(to_pos))
+	if cost_at_cursor <= budget_inches + DRAG_CLAMP_EPSILON:
+		return to_pos
+
+	var dir: Vector2 = seg / seg_len_px
+	var point_at := func(inches: float) -> Vector2:
+		return from_pos + dir * Measurement.inches_to_px(inches)
+
+	# Fast path — the cost is pure distance along this ray, so the answer is
+	# closed-form. True whenever nothing is charged on top at the cursor: a
+	# shorter sub-segment can only cross a subset of what the full segment
+	# crosses, and any point on it lies on the full segment, so a zero surcharge
+	# at the cursor means zero surcharge the whole way in. This is the
+	# open-board case (the overwhelming majority of drags, and ALWAYS the case
+	# for pile-in / consolidate, which charge no terrain) and keeps the
+	# per-motion-event cost at one query instead of 15.
+	var requested_inches: float = Measurement.px_to_inches(seg_len_px)
+	if cost_at_cursor <= requested_inches + DRAG_CLAMP_EPSILON:
+		return point_at.call(budget_inches)
+
+	var affordable := func(inches: float) -> bool:
+		return float(cost_fn.call(point_at.call(inches))) <= budget_inches + DRAG_CLAMP_EPSILON
+
+	# Surcharged ground in the way: the cost is a step function of where you
+	# stop, so walk in from the cursor and take the FIRST affordable sample — the
+	# farthest one, which is what "drag roughly the right way and take the
+	# maximum" means. Never search past `budget_inches`: beyond that the raw
+	# distance alone already busts the cap, so those samples cannot pay off, and
+	# skipping them spends the whole sample budget on the stretch that can.
+	var step: float = min(requested_inches, budget_inches) / float(DRAG_CLAMP_SCAN_SAMPLES)
+	var lo: float = 0.0        # affordable (standing still always is)
+	var hi: float = step       # unaffordable — tightened if the scan finds better
+	for i in range(DRAG_CLAMP_SCAN_SAMPLES, 0, -1):
+		var d: float = step * float(i)
+		if affordable.call(d):
+			lo = d
+			hi = d + step
+			break
+	for _i in range(DRAG_CLAMP_REFINE_STEPS):
+		var mid: float = (lo + hi) * 0.5
+		if affordable.call(mid):
+			lo = mid
+		else:
+			hi = mid
+	return point_at.call(lo)
+
+
 # ── ISS-013: phase signal registry ──────────────────────────────────
 # Subclasses declare the phase signals they consume; attach/detach connect
 # and disconnect them symmetrically. This replaces both the per-signal

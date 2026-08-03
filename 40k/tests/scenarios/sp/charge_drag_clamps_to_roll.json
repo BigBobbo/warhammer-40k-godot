@@ -1,0 +1,287 @@
+{
+  "id": "charge_drag_clamps_to_roll",
+  "covers": [
+    "charge.drag_clamp_to_max_range",
+    "charge.drag_clamp_setting_toggle",
+    "charge.drag_clamp_group",
+    "settings.controls.drag_clamp_to_max_range",
+    "phases.ChargePhase.UI.over_range_drag"
+  ],
+  "fixture": "audit_372_charge_modifier",
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "The charge move is where hand-aiming at the range circle hurt most — the 2D6 roll is the whole budget and wasting half an inch loses the charge. Dragging a charging model past its roll must now hold it at the farthest point it can still reach. Part A (setting ON, the new default): a Warboss with a kept 12\" roll is dragged 25\" and the ghost must stop at 12.00\" from the pickup point, with the hop cost inside the roll. Part B (setting OFF): the identical drag runs the full 25\" and reads as over the roll. Part C: with the clamp back on, the over-range drop commits at the clamped distance and the model's recorded charge path stays inside the roll — it is not rejected for distance. Asserts against the controller's own accounting (_charge_move_cost_inches / _get_model_charge_accumulated), which is the same accounting _validate_charge_position judges the drop with.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 9
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"position\": {\"x\": 300.0, \"y\": 1880.0}, \"rotation\": 0.0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "exists": true,
+      "script": "# Park the target 7.5\" of EDGE distance straight below the charger — inside the\n# 12\" declaration range, and far enough that a 7\" charge move (set below) can be\n# spent in full and still land inside 1\" engagement range instead of overshooting\n# into an overlap. Derived from the real base radii rather than hard-coded.\nvar wb = GameState.state.units[\"U_WARBOSS_B\"].models[0]\nvar bc = GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0]\nvar r1 = Measurement.base_radius_px(int(wb.get(\"base_mm\", 32)))\nvar r2 = Measurement.base_radius_px(int(bc.get(\"base_mm\", 32)))\nvar y = 1880.0 + r1 + r2 + Measurement.inches_to_px(7.5)\nbc.merge({\"position\": {\"x\": 300.0, \"y\": y}, \"rotation\": 0.0}, true)\nreturn \"target at y=%.1f (edge gap 7.5\\\")\" % y"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_WARBOSS_IN_MEGA_ARMOUR_D\"].models[0].merge({\"position\": {\"x\": 1400.0, \"y\": 300.0}, \"rotation\": 0.0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_WARBOSS_B\"].merge({\"flags\": {}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.update_unit_visuals(\"U_WARBOSS_B\")"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.update_unit_visuals(\"U_BLADE_CHAMPION_A\")"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.update_unit_visuals(\"U_WARBOSS_IN_MEGA_ARMOUR_D\")"
+    },
+    {
+      "act": "wait_for_tweens"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "exists": true,
+      "script": "# The fixture has this Warboss attached to a Boyz mob, and an attached\n# CHARACTER charges as part of its bodyguard rather than on its own. Detach it\n# so it is an independently chargeable unit — this test is about the drag\n# clamp, not about attachment.\nvar ch = GameState.state.units[\"U_WARBOSS_B\"]\nvar bg_id = str(ch.get(\"attached_to\", \"\"))\nch[\"attached_to\"] = null\nif bg_id != \"\" and GameState.state.units.has(bg_id):\n\tvar bg = GameState.state.units[bg_id]\n\tvar lst: Array = bg.get(\"attachment_data\", {}).get(\"attached_characters\", [])\n\tlst.erase(\"U_WARBOSS_B\")\nreturn \"detached from %s\" % bg_id"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DECLARE_CHARGE",
+        "actor_unit_id": "U_WARBOSS_B",
+        "payload": {
+          "target_unit_ids": [
+            "U_BLADE_CHAMPION_A"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CHARGE_ROLL",
+        "actor_unit_id": "U_WARBOSS_B",
+        "payload": {
+          "rng_seed": 23
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "get_tree().root.find_children(\"KeepRollButton\", \"\", true, false)[0].emit_signal(\"pressed\")"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.set(\"active_unit_id\", \"U_WARBOSS_B\")"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.set(\"selected_targets\", [\"U_BLADE_CHAMPION_A\"])"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.awaiting_movement",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": 7,
+      "script": "# Pin the roll to 7\" against the 7.5\" gap. A 12\" roll into a 7.5\" gap CANNOT be\n# spent in full — the model would run through the target — so the drop would be\n# rejected on the engagement-range rule and tell us nothing about the distance\n# clamp. 7\" leaves the full roll usable, which is the case this test is about.\nvar cc = tree.root.get_node(\"Main\").charge_controller\ncc.charge_distance = 7\nreturn cc.charge_distance"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Part A: clamp ON (the default) and frame the drag so the pickup point and\n# the far cursor are both on screen.\nSettingsService.set_drag_clamp_to_max_range(true)\nvar m = tree.root.get_node(\"Main\")\nm.view_zoom = 0.6\nm.view_offset = Vector2(300.0 - 900.0 / 0.6, 1880.0 - 200.0 / 0.6)\nm.update_view_transform()\nreturn SettingsService.drag_clamp_to_max_range"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "drag_board",
+      "from_x": 300.0,
+      "from_y": 1880.0,
+      "to_x": 300.0,
+      "to_y": 2880.0,
+      "steps": 14,
+      "release": false
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Cursor is 25\" out; the ghost must be held at the 7\" roll, and the hop cost\n# the controller will judge the drop with must fit inside it.\nvar m = tree.root.get_node(\"Main\")\nvar cc = m.charge_controller\nif cc.ghost_visual == null or not is_instance_valid(cc.ghost_visual):\n\treturn false\nvar start = cc.dragging_model.get(\"original_position\")\nvar ghost_in = Measurement.px_to_inches((cc.ghost_visual.position - start).length())\nvar cost = cc._charge_move_cost_inches(cc.ghost_visual.position)\nm.set_meta(\"charge_probe\", \"cursor=25.00\\\" ghost=%.3f\\\" cost=%.3f\\\" roll=%d\\\"\" % [ghost_in, cost, cc.charge_distance])\nreturn abs(ghost_in - 7.0) <= 0.05 and cost <= float(cc.charge_distance) + 0.02"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"charge_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_clamp_on_charge_ghost_held_at_the_roll"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 300.0,
+      "y": 2880.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Part C (checked here, on this same drop): the over-range drop COMMITS at the\n# clamped distance instead of being rejected for exceeding the roll.\nvar m = tree.root.get_node(\"Main\")\nvar cc = m.charge_controller\nvar moved = cc.moved_models.has(\"m1\")\nvar acc = cc._get_model_charge_accumulated(\"m1\")\nm.set_meta(\"charge_drop_probe\", \"committed=%s accumulated=%.3f\\\" roll=%d\\\"\" % [str(moved), acc, cc.charge_distance])\nreturn moved and acc <= float(cc.charge_distance) + 0.02 and acc > 6.5"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"charge_drop_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_clamp_on_charge_move_committed_at_the_roll"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Part B: undo the staged charge move and repeat with the setting OFF.\nvar cc = tree.root.get_node(\"Main\").charge_controller\nif cc.has_method(\"_on_undo_last_charge_model\"):\n\tcc._on_undo_last_charge_model()\nSettingsService.set_drag_clamp_to_max_range(false)\nreturn not SettingsService.drag_clamp_to_max_range"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.moved_models.has(\"m1\")",
+      "equals": false
+    },
+    {
+      "act": "drag_board",
+      "from_x": 300.0,
+      "from_y": 1880.0,
+      "to_x": 300.0,
+      "to_y": 2880.0,
+      "steps": 14,
+      "release": false
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Unclamped: the ghost follows the cursor the full 25\", well past the roll.\nvar m = tree.root.get_node(\"Main\")\nvar cc = m.charge_controller\nif cc.ghost_visual == null or not is_instance_valid(cc.ghost_visual):\n\treturn false\nvar start = cc.dragging_model.get(\"original_position\")\nvar ghost_in = Measurement.px_to_inches((cc.ghost_visual.position - start).length())\nm.set_meta(\"charge_unclamped_probe\", \"ghost=%.2f\\\" roll=%d\\\"\" % [ghost_in, cc.charge_distance])\nreturn ghost_in > 24.0"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"charge_unclamped_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_clamp_off_charge_ghost_runs_past_the_roll"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 300.0,
+      "y": 2880.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.moved_models.has(\"m1\")",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "04_clamp_off_over_range_charge_drop_rejected"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Part D — the PAD is always clamped, setting or no setting. Turn the player\n# preference OFF, make the pad the active device, and the gate must still be on.\n# The gate is the ONLY pad-specific difference; the ray search itself is the same\n# code the mouse parts above exercise.\nSettingsService.set_drag_clamp_to_max_range(false)\nvar cc = tree.root.get_node(\"Main\").charge_controller\nreturn InputDeviceManager.is_pad_active() and cc.drag_clamp_active()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# ...and the clamp still holds an over-range point at the roll while the pad is\n# active and the preference is off. Called directly rather than by injecting\n# mouse motion, which would flip the active device back to mouse & keyboard.\nvar m = tree.root.get_node(\"Main\")\nvar cc = m.charge_controller\nvar start = Vector2(300.0, 1880.0)\ncc.dragging_model = GameState.state.units[\"U_WARBOSS_B\"].models[0].duplicate(true)\ncc.dragging_model[\"original_position\"] = start\ncc.dragging_model_source_unit_id = \"U_WARBOSS_B\"\nvar clamped = cc._clamp_charge_to_budget(Vector2(300.0, 2880.0), \"m1\")\nvar reach = Measurement.px_to_inches((clamped - start).length())\ncc.dragging_model = null\nm.set_meta(\"charge_pad_probe\", \"pad_active=%s setting=%s clamped_reach=%.3f\\\" roll=%d\\\"\" % [str(InputDeviceManager.is_pad_active()), str(SettingsService.drag_clamp_to_max_range), reach, cc.charge_distance])\nreturn abs(reach - float(cc.charge_distance)) <= 0.05"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"charge_pad_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "SettingsService.set_drag_clamp_to_max_range(true)\nreturn SettingsService.drag_clamp_to_max_range"
+    }
+  ]
+}

@@ -2313,25 +2313,30 @@ func _start_model_drag(mouse_pos: Vector2) -> void:
 			and not PadRouter.is_carrying():
 		PadRouter.adopt_cursor_drag_as_carry(str(model.get("unit_id", active_unit_id)), str(model.get("model_id", model.get("id", ""))))
 
-# P0 Steam Deck smoothness: clamp a tentative drag position to the model's
-# remaining movement budget, so an over-range pad carry stops exactly on the
-# reach circle instead of being rejected on drop (matching XCOM 2 / Into the
-# Breach, where the unit stops at the movement boundary). Geometry only — the
-# endpoint terrain penalty is subtracted from the budget, and an already-legal
-# move is returned unchanged. Overlap / board-edge legality is left to the
-# caller: shortening distance must not silently force an illegal overlap.
+# Over-range drag clamp — the gate and the ray search live on
+# PhaseControllerBase (drag_clamp_active / clamp_drag_to_budget) so the movement,
+# charge and pile-in drags all restrain identically. This wrapper supplies the
+# movement phase's own budget and cost accounting.
+func _drag_clamp_active() -> bool:
+	return drag_clamp_active()
+
+func _move_cost_inches(dest: Vector2) -> float:
+	"""Total inches this move spends: raw distance + terrain penalty, costed by
+	the same phase function that validates the drop."""
+	return Measurement.px_to_inches((dest - drag_start_pos).length()) \
+		+ _get_terrain_penalty_for_move(drag_start_pos, dest)
+
+# P0 Steam Deck smoothness (now also the mouse default): clamp a tentative drag
+# position to the model's remaining movement budget, so an over-range carry
+# stops exactly where the model can still legally reach instead of being
+# rejected on drop. Distance + terrain only; an already-affordable move is
+# returned unchanged. Overlap / board-edge legality is left to the caller:
+# shortening distance must not silently force an illegal overlap.
 func _clamp_move_to_budget(world_pos: Vector2) -> Vector2:
-	var seg: Vector2 = world_pos - drag_start_pos
-	var seg_len_px: float = seg.length()
-	if seg_len_px <= 0.0:
-		return world_pos
-	var already_used: float = _get_accumulated_distance()
-	var effective_cap: float = _get_effective_move_cap()
-	var terrain_penalty: float = _get_terrain_penalty_for_move(drag_start_pos, world_pos)
-	var max_geo_inches: float = max(0.0, effective_cap - already_used - terrain_penalty)
-	if Measurement.px_to_inches(seg_len_px) <= max_geo_inches + MOVEMENT_CAP_EPSILON:
-		return world_pos
-	return drag_start_pos + seg.normalized() * Measurement.inches_to_px(max_geo_inches)
+	return clamp_drag_to_budget(
+		drag_start_pos, world_pos,
+		_get_effective_move_cap() - _get_accumulated_distance(),
+		_move_cost_inches)
 
 func _update_model_drag(mouse_pos: Vector2) -> void:
 	if not dragging_model:
@@ -2350,11 +2355,12 @@ func _update_model_drag(mouse_pos: Vector2) -> void:
 	if _should_snap_to_grid():
 		world_pos = _snap_to_grid(world_pos)
 
-	# P0 Steam Deck smoothness: on the pad, clamp an over-range drag to the
-	# model's remaining move budget so the ghost stops on the reach circle
-	# instead of running past it (over-range clamped, not rejected — the XCOM 2 /
-	# Into the Breach feel). Mouse keeps its free red-preview drag.
-	if InputDeviceManager.is_pad_active():
+	# Clamp an over-range drag to the model's remaining move budget so the ghost
+	# stops on the reach circle instead of running past it (over-range clamped,
+	# not rejected — the XCOM 2 / Into the Breach feel). Always on for the pad
+	# carry; on mouse & keyboard it follows the "Stop model drags at their
+	# maximum move range" setting (see _drag_clamp_active).
+	if _drag_clamp_active():
 		world_pos = _clamp_move_to_budget(world_pos)
 
 	# Update path
@@ -2468,9 +2474,11 @@ func _end_model_drag(mouse_pos: Vector2) -> void:
 	
 	print("Final position: ", world_pos)
 
-	# P0: clamp over-range to the budget (see _update_model_drag) so a pad drop
-	# stages at the boundary rather than being rejected and snapping back.
-	if InputDeviceManager.is_pad_active():
+	# Clamp over-range to the budget (see _update_model_drag) so the drop stages
+	# at the boundary the ghost was previewing rather than being rejected and
+	# snapping back. Same gate as the live preview — the two MUST agree, or the
+	# player drops where they see the ghost and the model jumps somewhere else.
+	if _drag_clamp_active():
 		world_pos = _clamp_move_to_budget(world_pos)
 
 	# Distance is recomputed here only for the debug log; the legality decision
@@ -3852,8 +3860,22 @@ func _get_active_unit_keywords() -> Array:
 	return unit.get("meta", {}).get("keywords", [])
 
 func _get_terrain_penalty_for_move(from_pos: Vector2, to_pos: Vector2) -> float:
-	"""Calculate terrain penalty via TerrainManager.
-	Units always stay on ground floor — no height penalty. Only difficult ground applies."""
+	"""What this move costs in terrain inches on top of the raw distance.
+
+	Delegates to MovementPhase._get_movement_terrain_penalty — the SAME function
+	that validates the drop — so the preview readout, the over-range drag clamp
+	and the accept/reject decision can never disagree. They used to: this helper
+	charged only TerrainManager's horizontal difficult-ground penalty and omitted
+	the T-103 multi-floor vertical climb, so dragging a Telemon onto a tall ruin
+	previewed 4" and validated at 10". With the drag clamp on, that mismatch is
+	fatal rather than cosmetic — the clamp parks the model exactly on the
+	preview's boundary, which the phase then rejects for exceeding the cap.
+	Passed log_it=false: this runs once per mouse-motion event.
+
+	Falls back to the raw TerrainManager call when no phase is attached (headless
+	harnesses instantiate this controller standalone)."""
+	if current_phase and current_phase.has_method("_get_movement_terrain_penalty"):
+		return float(current_phase._get_movement_terrain_penalty(from_pos, to_pos, active_unit_id, false))
 	var terrain_manager = get_node_or_null("/root/TerrainManager")
 	if not terrain_manager or not terrain_manager.has_method("calculate_movement_terrain_penalty"):
 		return 0.0
@@ -4652,11 +4674,11 @@ func _update_group_drag(mouse_pos: Vector2) -> void:
 	# Calculate drag vector from drag start position
 	var drag_vector = world_pos - drag_start_pos
 
-	# P0 pad smoothness, group edition: clamp the whole formation to the tightest
-	# member's remaining budget so the ghosts stop on the reach circles instead of
-	# running past them (mirrors _clamp_move_to_budget in the single-model drag).
-	# Mouse keeps its free red-preview drag.
-	if InputDeviceManager.is_pad_active():
+	# Group edition of the over-range clamp: hold the whole formation to the
+	# tightest member's remaining budget so the ghosts stop on the reach circles
+	# instead of running past them (mirrors _clamp_move_to_budget in the
+	# single-model drag). Same gate — pad always, mouse per the setting.
+	if _drag_clamp_active():
 		drag_vector = _clamp_group_drag_vector(drag_vector)
 
 	# Update ghost positions to show preview
@@ -4767,9 +4789,9 @@ func _end_group_drag(mouse_pos: Vector2) -> void:
 
 	# Calculate final drag vector
 	var drag_vector = world_pos - drag_start_pos
-	# Pad drop: same budget clamp the live preview used, so the drop lands where
-	# the ghosts stopped instead of being rejected past the reach circle.
-	if InputDeviceManager.is_pad_active():
+	# Drop: same budget clamp the live preview used, so the drop lands where the
+	# ghosts stopped instead of being rejected past the reach circle.
+	if _drag_clamp_active():
 		drag_vector = _clamp_group_drag_vector(drag_vector)
 
 	# Freeze the members + start positions, then tear down the live-drag state
@@ -5696,7 +5718,7 @@ func pad_carry_drop_rejection(screen_pos: Vector2) -> String:
 	var world_pos: Vector2 = board_root.transform.affine_inverse() * screen_pos if board_root else get_global_mouse_position()
 	if _should_snap_to_grid():
 		world_pos = _snap_to_grid(world_pos)
-	if InputDeviceManager.is_pad_active():
+	if _drag_clamp_active():
 		world_pos = _clamp_move_to_budget(world_pos)
 	return _compute_move_rejection(world_pos)
 
@@ -6208,13 +6230,23 @@ const MOVE_RANGE_OVERLAY_WIDTH: float = 5.0
 func _draw_dashed_range_circle(center: Vector2, radius_px: float, label_text: String) -> void:
 	# Draws a dashed circle (with optional distance label) into move_range_visual.
 	# Shared by the per-model movement-reach overlays.
+	#
+	# radius_px is expected to already include the model's base extent (see
+	# _show_model_range_overlay): the ring marks where the model's BASE EDGE can
+	# reach, not where its centre can reach.
 	if not is_instance_valid(move_range_visual) or radius_px <= 0.0:
 		return
-	# P1 (Steam Deck): on the pad the carried model CLAMPS exactly onto this ring
-	# (MovementController._clamp_move_to_budget), so the boundary is a hard edge the
-	# player slides to — draw it brighter, thicker, and lifted above board tokens so
-	# it can't read as a faint suggestion or be occluded. Mouse keeps the softer
-	# dashed guide, since a mouse drag can cross the ring into an invalid preview.
+	# P1 (Steam Deck): on the pad the carried model's leading base edge CLAMPS
+	# exactly onto this ring (_clamp_move_to_budget clamps the centre to the
+	# budget, and the ring sits one base extent further out), so the boundary is a
+	# hard edge the player slides to — draw it brighter, thicker, and lifted above
+	# board tokens so it can't read as a faint suggestion or be occluded.
+	#
+	# A clamped MOUSE drag now hits that same hard edge, but the emphatic styling
+	# is deliberately NOT extended to it: a group drag paints one circle per
+	# model, and the 1.4x stroke that reads well behind a single carried pad ghost
+	# turns four overlapping circles into a wall of green (asserted by the
+	# move_ghosts_above_range_circles scenario's <= 6px width check).
 	var pad_carry := InputDeviceManager.is_pad_active()
 	var col: Color = MOVE_RANGE_OVERLAY_COLOR
 	var width: float = MOVE_RANGE_OVERLAY_WIDTH
@@ -6264,17 +6296,27 @@ func _show_model_range_overlay(model: Dictionary, center: Vector2) -> void:
 	# pickup position. Radius is the *remaining* distance this model may move, so
 	# it automatically reflects the Advance distance during an Advance, and shrinks
 	# to the leftover allowance when continuing a staged move.
+	#
+	# The drawn radius is the remaining move PLUS the model's base extent: the
+	# move budget is measured centre-to-centre, so a ring at the raw budget marks
+	# where the model's centre may stop and a wide base visibly overhangs it at
+	# max range. Inflating by the base extent makes the ring read as "the furthest
+	# any part of this model can end up", which is what players expect. The label
+	# still reports the movement distance, not the drawn radius.
 	if not is_instance_valid(move_range_visual) or model.is_empty():
 		return
 	_clear_move_range_overlay()
 	var remaining: float = _get_effective_move_cap() - _get_accumulated_distance_for_model(model)
 	if remaining <= 0.0:
 		return
-	_draw_dashed_range_circle(center, Measurement.inches_to_px(remaining), _format_range_label(remaining))
+	var radius_px: float = Measurement.inches_to_px(remaining) + Measurement.base_extent_px(model)
+	_draw_dashed_range_circle(center, radius_px, _format_range_label(remaining))
 
 func _show_group_range_overlay() -> void:
 	# Per-model reach circles for every model in a group drag (labels omitted to
-	# avoid clutter when several circles overlap).
+	# avoid clutter when several circles overlap). Each ring is inflated by ITS OWN
+	# model's base extent — a squad can mix base sizes (e.g. an attached CHARACTER
+	# on a bigger base), so one shared radius would misdraw at least one of them.
 	if not is_instance_valid(move_range_visual) or selected_models.is_empty():
 		return
 	_clear_move_range_overlay()
@@ -6286,7 +6328,8 @@ func _show_group_range_overlay() -> void:
 		var remaining: float = cap - _get_accumulated_distance_for_model(model_data)
 		if remaining <= 0.0:
 			continue
-		_draw_dashed_range_circle(start_pos, Measurement.inches_to_px(remaining), "")
+		var radius_px: float = Measurement.inches_to_px(remaining) + Measurement.base_extent_px(model_data)
+		_draw_dashed_range_circle(start_pos, radius_px, "")
 
 func _clear_move_range_overlay() -> void:
 	if not is_instance_valid(move_range_visual):

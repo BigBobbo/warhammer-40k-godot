@@ -166,8 +166,8 @@
       "act": "execute_script",
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar b = d.get_node_or_null(\"Content/ButtonContainer/BackToSelectionButton\")\nif b == null:\n\treturn \"no back button\"\nreturn \"%s|%s\" % [str(b.text), str(b.visible)]",
       "multiline": true,
-      "equals": "◀ Pick Anuvver Unit|true",
-      "comment": "the way out is VISIBLE on the dialog, not just a hidden key — a mouse player has to be able to see it"
+      "equals": "◀ Back — Pick Another Unit|true",
+      "comment": "the way out is VISIBLE on the dialog, not just a hidden key — a mouse player has to be able to see it. Label is plain English even here in the Ork tutorial: it used to read '◀ Pick Anuvver Unit', which a Custodes player had no way to parse (the Ork voice is the narrator's, not the chrome's)."
     },
     {
       "act": "execute_script",

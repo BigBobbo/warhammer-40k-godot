@@ -515,6 +515,16 @@ func _handle_end_turn() -> Dictionary:
 ## 03.03 (audit #16): units with >1 positioned model, a HUMAN owner, and a
 ## failed coherency check. AI-owned units are left to the PhaseManager
 ## auto-pick hook.
+##
+## 19.03: the check runs over the whole ATTACHED unit (bodyguard + attached
+## characters), the same membership FightPhase._validate_unit_coherency uses
+## when it approves the pile-in / consolidate move that produced these
+## positions. Measuring the bodyguard on its own reported models as
+## out-of-coherency when they were in coherency via the attached character,
+## and the player was asked to delete a model that was legally placed.
+##
+## Offenders are reported per COMPONENT unit (one pending entry each), so
+## `entry.unit_id` always owns every model id in `entry.offenders`.
 func _get_incoherent_human_units() -> Array:
 	var out: Array = []
 	var gc = GameState.state.get("meta", {}).get("game_config", {})
@@ -522,11 +532,14 @@ func _get_incoherent_human_units() -> Array:
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	for unit_id in units:
 		var unit = units[unit_id]
-		var alive := 0
-		for m in unit.get("models", []):
-			if m.get("alive", true) and m.get("position") != null:
-				alive += 1
-		if alive <= 1:
+		# Attached characters are judged with their bodyguard's group, which
+		# the bodyguard's own iteration covers — skip so they aren't measured
+		# alone (and never twice).
+		if unit.get("attached_to", null) != null:
+			continue
+		# 03.03 only applies to units ON THE BATTLEFIELD: embarked / reserve /
+		# undeployed units have no positioned models to be incoherent with.
+		if unit.get("embarked_in", null) != null:
 			continue
 		var owner := int(unit.get("owner", 0))
 		var ptype := str(gc.get("player%d_type" % owner, "HUMAN")).to_upper()
@@ -538,15 +551,74 @@ func _get_incoherent_human_units() -> Array:
 		# PhaseManager auto-pick backstop instead of pausing the turn.
 		if ai_player_node and ai_player_node.is_ai_player(owner):
 			continue
-		var coh = AttackSequence.check_unit_coherency(unit)
-		if not coh.coherent:
+		var coh = AttackSequence.check_attached_unit_coherency(str(unit_id), units)
+		# Diagnostics: the two readings disagreeing means some validator let a
+		# model reach a spot the other reading calls incoherent. Not fatal (the
+		# player keeps the model), but it is the fingerprint of a move/pile-in/
+		# consolidate solver placing models it should not.
+		if coh.merged_offenders.size() != coh.solo_offenders.size():
+			DebugLogger.info("ScoringPhase: 03.03 readings differ for %s — attached-unit(19.03) flags %s, standalone flags %s; only the intersection is treated as out of coherency" % [
+				str(unit_id), str(coh.merged_offenders), str(coh.solo_offenders)])
+		if coh.coherent:
+			continue
+		# Split the merged offender list back out per component unit so the
+		# removal dialog / REMOVE_MODEL_FOR_COHERENCY validation keep their
+		# "entry.unit_id owns entry.offenders" contract.
+		var details := _describe_coherency_offenders(coh, units)
+		var by_unit: Dictionary = {}
+		for det in details:
+			var oid := str(det.unit_id)
+			if not by_unit.has(oid):
+				by_unit[oid] = []
+			by_unit[oid].append(det)
+		for oid in by_unit:
+			var ounit = units.get(oid, {})
 			out.append({
-				"unit_id": str(unit_id),
-				"unit_name": unit.get("meta", {}).get("name", str(unit_id)),
-				"player": owner,
-				"offenders": coh.offenders.duplicate(),
+				"unit_id": str(oid),
+				"unit_name": ounit.get("meta", {}).get("name", str(oid)),
+				"player": int(ounit.get("owner", owner)),
+				"offenders": by_unit[oid].map(func(d): return str(d.model_id)),
+				"offender_details": by_unit[oid],
+				"group_ids": coh.group_ids.duplicate(),
 			})
 	return out
+
+## Annotate each offender with how far it sits from the nearest OTHER model of
+## its Attached unit, sorted most-isolated first.
+##
+## When the 9" envelope is what broke, EVERY model in the unit comes back as an
+## offender (they are all >9" from the straggler), so an unordered list of ten
+## identical "Remove mN" buttons tells the player nothing about which model is
+## actually the problem. Sorting by isolation puts the straggler first, and the
+## distance drives the button label + the emphasised board marker.
+func _describe_coherency_offenders(coh: Dictionary, units: Dictionary) -> Array:
+	var all_models: Array = []
+	for gid in coh.get("group_ids", []):
+		for m in units.get(gid, {}).get("models", []):
+			if m.get("alive", true) and m.get("position") != null:
+				all_models.append({"unit_id": str(gid), "model_id": str(m.get("id", "")), "model": m})
+
+	var details: Array = []
+	for off in coh.get("offenders", []):
+		var oid := str(off.get("unit_id", ""))
+		var mid := str(off.get("model_id", ""))
+		var om = null
+		for entry in all_models:
+			if entry.unit_id == oid and entry.model_id == mid:
+				om = entry.model
+				break
+		var nearest := -1.0
+		if om != null:
+			for entry in all_models:
+				if entry.unit_id == oid and entry.model_id == mid:
+					continue
+				var d = Measurement.model_to_model_distance_inches(om, entry.model)
+				if nearest < 0.0 or d < nearest:
+					nearest = d
+		details.append({"unit_id": oid, "model_id": mid, "nearest_inches": nearest})
+
+	details.sort_custom(func(a, b): return a.nearest_inches > b.nearest_inches)
+	return details
 
 func _is_human_player_11e(player: int) -> bool:
 	var gc = GameState.state.get("meta", {}).get("game_config", {})

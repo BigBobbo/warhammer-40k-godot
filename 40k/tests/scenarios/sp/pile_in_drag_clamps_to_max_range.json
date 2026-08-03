@@ -1,0 +1,225 @@
+{
+  "id": "pile_in_drag_clamps_to_max_range",
+  "covers": [
+    "fight.pile_in.drag_clamp_to_max_range",
+    "fight.pile_in.drag_clamp_setting_toggle",
+    "settings.controls.drag_clamp_to_max_range",
+    "phases.FightPhase.UI.pile_in_over_range_drag"
+  ],
+  "fixture": "co_pretrigger",
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "description": "Pile-in / consolidate always clamped the DROP to 3\" — but the model followed the cursor out to arm's length first and only jumped back on release, so the live preview lied about where it would end up. Part A (setting ON, the new default): a Custodian Guard model is dragged 16\" toward the enemy with the button still held, and its live position must already be held at the 3\" cap, so the ghost is the truth. Part B (setting OFF): the same drag runs the full distance mid-flight, reproducing the old snap-back — and the release then delivers NOTHING — the far position fails the overlap / must-move-closer checks that run before the drop's own distance clamp, so the model reverts to where it started and the whole pile-in is lost. That is exactly the cost the clamp removes. Distances are measured against the model's ORIGINAL position, which is what _end_model_drag_pile_in judges the drop with.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "piling_in_player_11e",
+      "equals": 1
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_CUSTODIAN_GUARD_B",
+      "emit_pressed": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/PileInDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Part A: clamp ON (the default). Record the model's original position so the\n# assertions measure exactly what the drop check measures.\nSettingsService.set_drag_clamp_to_max_range(true)\nvar fc = tree.root.get_node(\"Main\").fight_controller\nvar key = fc.original_model_positions.keys().filter(func(k): return str(k).ends_with(\":m1\") and str(k).begins_with(\"U_CUSTODIAN_GUARD_B\"))\nreturn SettingsService.drag_clamp_to_max_range"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Frame the pile-in so the model, its 3\" stop and the far cursor are all legible\n# in the screenshots. screen = (world - view_offset) * view_zoom.\nvar m = tree.root.get_node(\"Main\")\nm.view_zoom = 1.3\nm.view_offset = Vector2(200.0 - 700.0 / 1.3, 100.0 - 300.0 / 1.3)\nm.update_view_transform()\nreturn true"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 200.0,
+      "from_y": 100.0,
+      "to_x": 600.0,
+      "to_y": 600.0,
+      "steps": 14,
+      "release": false
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Mid-drag, button still down: the model must ALREADY be held at its 3\" cap\n# (16\" of cursor travel), not out at the cursor waiting to snap back.\nvar m = tree.root.get_node(\"Main\")\nvar fc = m.fight_controller\nvar key = fc.drag_model_id\nif key == \"\":\n\treturn false\nvar orig = fc.original_model_positions.get(key, Vector2.ZERO)\nvar live = fc.current_model_positions.get(key, Vector2.ZERO)\nvar live_in = Measurement.px_to_inches(orig.distance_to(live))\nvar cap = fc._effective_pile_in_cap_inches(key)\nvar cursor_in = Measurement.px_to_inches(orig.distance_to(Vector2(600.0, 600.0)))\nm.set_meta(\"pile_in_key\", key)\nm.set_meta(\"pile_in_probe\", \"cursor=%.2f\\\" live=%.3f\\\" cap=%.2f\\\"\" % [cursor_in, live_in, cap])\nreturn cursor_in > 14.0 and abs(live_in - cap) <= 0.05"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"pile_in_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_clamp_on_pile_in_held_at_3in_mid_drag"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 600.0,
+      "y": 600.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# The drop lands where the ghost was — no visible snap-back.\nvar m = tree.root.get_node(\"Main\")\nvar fc = m.fight_controller\nvar key = str(m.get_meta(\"pile_in_key\", \"\"))\nif key == \"\" or not fc.original_model_positions.has(key):\n\treturn false\nvar orig = fc.original_model_positions[key]\nvar final_in = Measurement.px_to_inches(orig.distance_to(fc.current_model_positions[key]))\nm.set_meta(\"pile_in_drop_probe\", \"final=%.3f\\\"\" % final_in)\nreturn abs(final_in - 3.0) <= 0.05"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"pile_in_drop_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_clamp_on_pile_in_dropped_at_the_cap"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Part B: reset the model and repeat with the setting OFF.\nvar fc = tree.root.get_node(\"Main\").fight_controller\nfor key in fc.original_model_positions.keys():\n\tfc.current_model_positions[key] = fc.original_model_positions[key]\nfc._update_pile_in_visuals()\nSettingsService.set_drag_clamp_to_max_range(false)\nreturn not SettingsService.drag_clamp_to_max_range"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "drag_board",
+      "from_x": 200.0,
+      "from_y": 100.0,
+      "to_x": 600.0,
+      "to_y": 600.0,
+      "steps": 14,
+      "release": false
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Unclamped: mid-drag the model is out at the cursor, far past its 3\" — the\n# old behaviour, where the release then yanked it back.\nvar m = tree.root.get_node(\"Main\")\nvar fc = m.fight_controller\nvar key = fc.drag_model_id\nif key == \"\":\n\treturn false\nvar orig = fc.original_model_positions.get(key, Vector2.ZERO)\nvar live_in = Measurement.px_to_inches(orig.distance_to(fc.current_model_positions.get(key, Vector2.ZERO)))\nm.set_meta(\"pile_in_key\", key)\nm.set_meta(\"pile_in_unclamped_probe\", \"live=%.2f\\\" cap=%.2f\\\"\" % [live_in, fc._effective_pile_in_cap_inches(key)])\nreturn live_in > 10.0"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"pile_in_unclamped_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_clamp_off_pile_in_runs_past_the_cap_mid_drag"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 600.0,
+      "y": 600.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# With the clamp OFF the over-range drop delivers NOTHING: the far position\n# fails the overlap / must-move-closer checks that run BEFORE the drop\n# distance clamp, so the model is reverted to where it started and the\n# player loses the whole pile-in. That is the cost the clamp removes — with\n# it on (above) the same gesture banks the full 3\".\nvar m = tree.root.get_node(\"Main\")\nvar fc = m.fight_controller\nvar key = str(m.get_meta(\"pile_in_key\", \"\"))\nif key == \"\" or not fc.original_model_positions.has(key):\n\treturn false\nvar orig = fc.original_model_positions[key]\nvar final_in = Measurement.px_to_inches(orig.distance_to(fc.current_model_positions[key]))\nm.set_meta(\"pile_in_off_drop_probe\", \"final=%.3f\\\"\" % final_in)\nreturn final_in <= 0.05"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"pile_in_off_drop_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_clamp_off_over_range_drop_reverts_to_start"
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Part C — the PAD is always clamped, setting or no setting. Preference OFF,\n# pad made the active device: the gate must still be on and the clamp must still\n# hold an over-range point at the 3\" cap. Called directly rather than by\n# injecting mouse motion, which would flip the active device back to KBM.\nSettingsService.set_drag_clamp_to_max_range(false)\nvar m = tree.root.get_node(\"Main\")\nvar fc = m.fight_controller\nif not InputDeviceManager.is_pad_active() or not fc.drag_clamp_active():\n\treturn false\nvar key = str(m.get_meta(\"pile_in_key\", \"\"))\nif key == \"\" or not fc.original_model_positions.has(key):\n\treturn false\nfc.drag_model_id = key\nvar orig = fc.original_model_positions[key]\nvar clamped = fc._clamp_pile_in_to_budget(orig + Vector2(400.0, 500.0))\nvar reach = Measurement.px_to_inches(orig.distance_to(clamped))\nvar cap = fc._effective_pile_in_cap_inches(key)\nfc.drag_model_id = \"\"\nm.set_meta(\"pile_in_pad_probe\", \"pad_active=%s setting=%s clamped_reach=%.3f\\\" cap=%.2f\\\"\" % [str(InputDeviceManager.is_pad_active()), str(SettingsService.drag_clamp_to_max_range), reach, cap])\nreturn abs(reach - cap) <= 0.05"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"pile_in_pad_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "SettingsService.set_drag_clamp_to_max_range(true)\nreturn SettingsService.drag_clamp_to_max_range"
+    }
+  ]
+}

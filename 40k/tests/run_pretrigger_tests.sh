@@ -12,6 +12,7 @@
 #   - T1-1 MELTA X keyword pipeline (auto-resolve damage bonus at half range)
 #   - T1-2 TWIN-LINKED keyword pipeline (re-roll all failed wound rolls)
 #   - T2-1 STEALTH ability pipeline (-1 to hit on ranged attacks vs Stealth target)
+#   - modifier provenance (every hit/wound modifier names its source rule)
 #   - T5-MP5 dice broadcast sync (NetworkManager re-emits result["dice"] on remote)
 #   - T5-MP4-RELIABILITY save broadcast id + retry budget + defender dedupe
 #   - T5-MP3 shooting visual broadcast (SELECT_SHOOTER/ASSIGN_TARGET/CONFIRM/COMPLETE)
@@ -137,6 +138,7 @@ TESTS=(
     "tests/test_global_consolidation_ai_11e.gd"
     "tests/test_global_pile_in_11e.gd"
     "tests/test_iss067_scouts_11e.gd"
+    "tests/test_scout_detection_and_visibility.gd"
     "tests/test_iss068_infiltrators_11e.gd"
     "tests/test_iss069_lone_operative_11e.gd"
     "tests/test_iss070_keyword_scoped_abilities.gd"
@@ -150,6 +152,7 @@ TESTS=(
     "tests/test_terrain_area_visibility_11e.gd"
     "tests/test_fullauto_faction_rules.gd"
     "tests/test_custodes_lions_silent_hunters.gd"
+    "tests/test_modifier_provenance.gd"
     "tests/test_ai_movement_coordination.gd"
     "tests/test_ai_battle_plan.gd"
 )
