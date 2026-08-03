@@ -550,10 +550,14 @@ func show_cover_indicator_at(position: Vector2, in_cover: bool) -> void:
 
 	add_child(indicator)
 
-	# Auto-remove after 2 seconds
+	# Auto-remove after 2 seconds. MEM-14: the timer used to free only the
+	# indicator and then leak itself, so every cover check left a dead Timer
+	# node parented here for the rest of the session.
 	var timer = Timer.new()
 	timer.wait_time = 2.0
 	timer.one_shot = true
-	timer.timeout.connect(func(): indicator.queue_free())
+	timer.timeout.connect(func():
+		indicator.queue_free()
+		timer.queue_free())
 	add_child(timer)
 	timer.start()
