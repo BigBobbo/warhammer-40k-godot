@@ -23,6 +23,28 @@ const TERRAIN_HIGHLIGHT_COLOR = Color(1.0, 0.5, 0.0, 0.8)  # Orange
 const TERRAIN_BLOCKED_COLOR = Color(1.0, 0.0, 0.0, 0.8)  # Red
 const TERRAIN_COVER_COLOR = Color(1.0, 1.0, 0.0, 0.8)  # Yellow
 
+# ===== BLOCKED-LINE SPLIT =====
+# A blocked sight line used to be drawn at full strength all the way to the
+# target, so a shooter with no LoS painted the board solid red and told the
+# player nothing about WHY. Lines that carry a "block_at" point are now drawn
+# solid only as far as the terrain that stops them and ghosted past it, with a
+# marker on the hit itself — the union of those markers traces the silhouette
+# of the wall/ruin edge actually cutting the shot off.
+const PAST_BLOCK_WIDTH_SCALE := 0.5
+# The shooter fan stacks hundreds of overlapping lines, so its tail needs a very
+# low alpha to stay readable; the L overview draws one line per unit pair and
+# would vanish at that strength.
+const PAST_BLOCK_ALPHA_SCALE := 0.10
+const OVERVIEW_PAST_BLOCK_ALPHA_SCALE := 0.35
+# Alpha alone is not enough for the fan: n overlapping tails composite to
+# 1-(1-a)^n, so a bundle of ~20 lines converging on one target saturates back to
+# full-strength red and reads as a live sight line again. Darkening the hue too
+# means a saturated bundle lands on dried-blood maroon instead — still obviously
+# the dead side of the blocker.
+const PAST_BLOCK_DARKEN := 0.45
+const BLOCK_MARKER_COLOR := Color(1.0, 0.85, 0.2, 0.9)  # Amber — reads over red
+const BLOCK_MARKER_SCALE := 1.2
+
 # ===== L-KEY SIGHT-LINE OVERVIEW (phase-independent) =====
 # While the L overlay is held, draw one sight line per (friendly unit ->
 # enemy unit) pair: solid green when a clear line exists, dashed red between
@@ -60,15 +82,24 @@ func _draw() -> void:
 	# (key is "is_clear" — "clear" would collide with Dictionary.clear())
 	for ol in overview_lines:
 		var oc: Color = OVERVIEW_CLEAR_COLOR if ol["is_clear"] else OVERVIEW_BLOCKED_COLOR
-		if ol["is_clear"]:
+		var o_tail: Color = oc
+		if ol.has("block_at"):
+			# Dashed red only as far as the terrain that kills the line; past
+			# the blocker it ghosts out so the blocker is what draws the eye.
+			var o_block: Vector2 = ol["block_at"]
+			o_tail = _ghost_color(oc, OVERVIEW_PAST_BLOCK_ALPHA_SCALE)
+			draw_dashed_line(ol["from"], o_block, oc, OVERVIEW_LINE_WIDTH, 14.0)
+			draw_dashed_line(o_block, ol["to"], o_tail, OVERVIEW_LINE_WIDTH * PAST_BLOCK_WIDTH_SCALE, 14.0)
+			draw_circle(o_block, OVERVIEW_LINE_WIDTH * BLOCK_MARKER_SCALE, BLOCK_MARKER_COLOR)
+		elif ol["is_clear"]:
 			draw_line(ol["from"], ol["to"], oc, OVERVIEW_LINE_WIDTH)
 		else:
 			draw_dashed_line(ol["from"], ol["to"], oc, OVERVIEW_LINE_WIDTH, 14.0)
 		draw_circle(ol["from"], OVERVIEW_LINE_WIDTH * 1.8, oc)
 		# Arrowhead at the target end so direction reads at a glance
 		var odir = (ol["to"] - ol["from"]).normalized()
-		draw_line(ol["to"], ol["to"] - odir.rotated(0.45) * 13.0, oc, OVERVIEW_LINE_WIDTH)
-		draw_line(ol["to"], ol["to"] - odir.rotated(-0.45) * 13.0, oc, OVERVIEW_LINE_WIDTH)
+		draw_line(ol["to"], ol["to"] - odir.rotated(0.45) * 13.0, o_tail, OVERVIEW_LINE_WIDTH)
+		draw_line(ol["to"], ol["to"] - odir.rotated(-0.45) * 13.0, o_tail, OVERVIEW_LINE_WIDTH)
 
 	# Draw all LoS lines
 	for los_data in los_lines:
@@ -76,28 +107,53 @@ func _draw() -> void:
 		var to_pos = los_data.to
 		var color = los_data.color
 		var width = los_data.get("width", LOS_LINE_WIDTH)
-		
-		# Draw main line
-		draw_line(from_pos, to_pos, color, width)
-		
+
+		# Lines that know where they died draw solid up to the blocker and
+		# ghost the dead stretch beyond it; everything past the blocker (tail,
+		# endpoint, arrowhead) uses the ghosted colour so the segment that
+		# still means something is the only one at full strength.
+		var tail_color: Color = color
+		if los_data.has("block_at"):
+			var block_pos: Vector2 = los_data["block_at"]
+			tail_color = _ghost_color(color, PAST_BLOCK_ALPHA_SCALE)
+			draw_line(from_pos, block_pos, color, width)
+			draw_line(block_pos, to_pos, tail_color, width * PAST_BLOCK_WIDTH_SCALE)
+		else:
+			draw_line(from_pos, to_pos, color, width)
+
 		# Draw endpoints
 		draw_circle(from_pos, width * 2, color)
-		draw_circle(to_pos, width * 2, color)
-		
+		draw_circle(to_pos, width * 2, tail_color)
+
 		# Draw arrow at target end
 		var direction = (to_pos - from_pos).normalized()
 		var arrow_size = 15
 		var arrow_angle = 0.5
 		var arrow_point1 = to_pos - direction.rotated(arrow_angle) * arrow_size
 		var arrow_point2 = to_pos - direction.rotated(-arrow_angle) * arrow_size
-		draw_line(to_pos, arrow_point1, color, width)
-		draw_line(to_pos, arrow_point2, color, width)
-		
+		draw_line(to_pos, arrow_point1, tail_color, width)
+		draw_line(to_pos, arrow_point2, tail_color, width)
+
+		# Mark the hit itself last so it sits on top of the fan — hundreds of
+		# these overlapping trace out the terrain edge doing the blocking.
+		if los_data.has("block_at"):
+			draw_circle(los_data["block_at"], width * BLOCK_MARKER_SCALE, BLOCK_MARKER_COLOR)
+
 		# Draw intersection points if any
 		if los_data.has("intersections"):
 			for intersection in los_data.intersections:
 				draw_circle(intersection, width * 1.5, Color.WHITE)
 				draw_circle(intersection, width, color)
+
+# Darker and near-transparent: the stretch of a sight line that is already dead
+# because terrain cut it off before this point.
+func _ghost_color(color: Color, alpha_scale: float) -> Color:
+	return Color(
+		color.r * PAST_BLOCK_DARKEN,
+		color.g * PAST_BLOCK_DARKEN,
+		color.b * PAST_BLOCK_DARKEN,
+		color.a * alpha_scale
+	)
 
 func check_and_visualize_los(from_pos: Vector2, to_pos: Vector2, board: Dictionary) -> Dictionary:
 	# Perform LoS check and visualize results
@@ -156,16 +212,22 @@ func check_and_visualize_los(from_pos: Vector2, to_pos: Vector2, board: Dictiona
 	
 	return result
 
-func add_los_line(from: Vector2, to: Vector2, color: Color = LOS_COLOR_CLEAR, intersections: Array = []) -> void:
+# block_at (optional Vector2): the point where terrain first cuts this line off.
+# When supplied, _draw splits the line there instead of drawing one flat run to
+# the target. Untyped so callers can pass null for "nothing blocked it".
+func add_los_line(from: Vector2, to: Vector2, color: Color = LOS_COLOR_CLEAR, intersections: Array = [], block_at = null) -> void:
 	# Add a LoS line to be drawn
-	los_lines.append({
+	var line := {
 		"from": from,
 		"to": to,
 		"color": color,
 		"intersections": intersections,
 		"timestamp": Time.get_ticks_msec()
-	})
-	
+	}
+	if block_at is Vector2:
+		line["block_at"] = block_at
+	los_lines.append(line)
+
 	# Keep only recent lines (last 5 seconds)
 	var current_time = Time.get_ticks_msec()
 	los_lines = los_lines.filter(func(line): return current_time - line.timestamp < 5000)
@@ -418,8 +480,15 @@ func _unit_pair_sight_line(src: Dictionary, tgt: Dictionary, board: Dictionary, 
 		if r.has_los and r.sight_line.size() >= 2:
 			return {"from": r.sight_line[0], "to": r.sight_line[1], "is_clear": true}
 
+	# Blocked: fall back to the nearest pair's centre line, and pin where that
+	# line actually dies so _draw can ghost the stretch past the blocker.
 	var nearest = pairs[0]
-	return {"from": nearest[1].pos, "to": nearest[2].pos, "is_clear": false}
+	var blocked_line := {"from": nearest[1].pos, "to": nearest[2].pos, "is_clear": false}
+	var blk = EnhancedLineOfSight.block_point_for_line(
+		nearest[1].pos, nearest[2].pos, board, nearest[1].model, nearest[2].model)
+	if not blk.is_empty():
+		blocked_line["block_at"] = blk.point
+	return blocked_line
 
 
 func _alive_positioned_models(unit: Dictionary) -> Array:
@@ -516,7 +585,8 @@ func visualize_enhanced_los(shooter_model: Dictionary, target_model: Dictionary,
 	if not debug_enabled:
 		return
 
-	var result = EnhancedLineOfSight.check_enhanced_visibility(shooter_model, target_model, board)
+	# want_block_points: the overlay needs WHERE each blocked line hits terrain.
+	var result = EnhancedLineOfSight.check_enhanced_visibility(shooter_model, target_model, board, true)
 
 	if result.has_los:
 		# Draw successful sight line in green
@@ -776,7 +846,7 @@ func visualize_enhanced_los_detailed(shooter_model: Dictionary, target_model: Di
 	if not debug_enabled:
 		return
 
-	var result = EnhancedLineOfSight.check_enhanced_visibility(shooter_model, target_model, board)
+	var result = EnhancedLineOfSight.check_enhanced_visibility(shooter_model, target_model, board, true)
 
 	# Always draw base outlines
 	_draw_base_outline(shooter_model, Color.BLUE)
@@ -790,7 +860,7 @@ func visualize_enhanced_los_detailed(shooter_model: Dictionary, target_model: Di
 	if result.has("attempted_lines"):
 		for line_data in result.attempted_lines:
 			var line_color = LOS_COLOR_CLEAR if not line_data.blocked else Color(1.0, 0.5, 0.5, 0.3)
-			add_los_line(line_data.from, line_data.to, line_color)
+			add_los_line(line_data.from, line_data.to, line_color, [], line_data.get("block_at", null))
 
 	# Highlight the successful line if any
 	if result.has_los and result.has("sight_line") and result.sight_line.size() >= 2:
@@ -812,8 +882,10 @@ func visualize_enhanced_los_detailed(shooter_model: Dictionary, target_model: Di
 func _draw_blocked_sight_attempts(attempted_lines: Array, blocking_terrain: Array) -> void:
 	for line_data in attempted_lines:
 		if line_data.blocked:
-			# Draw blocked lines in red
-			add_los_line(line_data.from, line_data.to, LOS_COLOR_BLOCKED)
+			# Draw blocked lines in red — solid up to whatever stopped them,
+			# ghosted past it (see _draw). block_at is absent when the blocker
+			# could not be pinned to a point, and the line falls back to flat.
+			add_los_line(line_data.from, line_data.to, LOS_COLOR_BLOCKED, [], line_data.get("block_at", null))
 		else:
 			# Draw clear lines in dim green
 			add_los_line(line_data.from, line_data.to, Color(0.5, 1.0, 0.5, 0.5))
