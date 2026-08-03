@@ -577,7 +577,9 @@ func add_shooting_combat_log(shooter_name: String, target_name: String, weapon_n
 		if save_info.get("using_invuln", false):
 			save_type = "Invulnerable Save %s" % save_info.get("threshold", "?")
 		else:
-			save_type = "Armour Save %s (AP -%d)" % [save_info.get("threshold", "?"), save_info.get("ap", 0)]
+			# `ap` is stored negative (AP-1 == -1); print one "-N" reading either way.
+			var ap_mag = absi(int(save_info.get("ap", 0)))
+			save_type = "Armour Save %s (AP %s)" % [save_info.get("threshold", "?"), ("0" if ap_mag == 0 else "-%d" % ap_mag)]
 		var save_line = "  Saves: %s — rolled %s" % [save_type, save_rolls_str]
 		save_line += " — %d passed, %d failed" % [save_info.get("passed", 0), save_info.get("failed", 0)]
 		add_combat_detail(save_line)

@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.19.1",
+      "version": "1.19.2",
       "date": "2026-08-03",
       "summary": "The attack panel can now show its working: a fold-out table breaks every expected-damage figure down into to-hit, to-wound and save — and tells you how many models it actually kills.",
       "changes": [
@@ -14,6 +14,18 @@
         "Feel No Pain is now factored into the forecast and shown as its own row — the estimate used to ignore it and over-promise against tough defenders.",
         "The section is folded away by default and changes nothing about what a unit swings; it is a read-only view.",
         "Forecasts for an attached Leader are now scored on HIS datasheet rather than his bodyguard's, so a Warboss's Power klaw is no longer estimated using the Boss Nob's weaker one."
+      ]
+    },
+    {
+      "version": "1.19.1",
+      "date": "2026-08-03",
+      "summary": "The game log now shows the armour saves, so \"No models destroyed\" finally says why nothing died.",
+      "changes": [
+        "Fixed (reported from the Shooting phase): a combat card listed the hit roll and the wound roll and then jumped straight to \"No models destroyed\" — the defender's saving throws, the actual reason the wounds bounced, were nowhere in the Game Log.",
+        "Every shooting combat card now carries a third dice row — \"Save (5+)\" or \"Inv Save (4+)\" — right under Hit and Wound, with the dice coloured against the roll the defender actually needed and a \"— N failed\" tally.",
+        "\"Show details\" spells the same thing out in words: which unit saved against which weapon, the armour or invulnerable save with the weapon's AP applied, the dice rolled, and how many passed. Feel No Pain rolls appear there too.",
+        "The closing result line reads \"No models destroyed (2/2 saves passed)\" — or \"3 models destroyed (1/4 saves passed)\" — so the outcome explains itself at a glance.",
+        "Melee gets the same treatment: the Fight phase's saves were being logged in a shape the log could not read, so they never appeared as a save row either."
       ]
     },
     {
