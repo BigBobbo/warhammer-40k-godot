@@ -28,6 +28,7 @@ var _animation_speed_slider: HSlider
 var _animation_speed_label: Label
 var _menu_scroll_speed_slider: HSlider
 var _menu_scroll_speed_label: Label
+var _drag_clamp_checkbox: CheckBox
 var _colorblind_dropdown: OptionButton
 var _board_style_dropdown: OptionButton
 var _ruins_style_dropdown: OptionButton
@@ -397,6 +398,18 @@ func _build_controls_tab(parent: VBoxContainer) -> void:
 	# has no capture button; listed here so players know it exists).
 	_add_section_header(parent, "Mouse")
 	_add_mouse_info_row(parent, "Zoom In / Out", "Mouse Wheel")
+
+	# Over-range drag clamping on mouse & keyboard. Without it a drag past the
+	# reach circle just turns red and is rejected on drop, so squeezing out the
+	# last inch of a move means landing the cursor on the circle by hand.
+	_drag_clamp_checkbox = _add_checkbox_row(parent, "Stop model drags at their maximum move range", "_on_drag_clamp_toggled")
+	var drag_clamp_help = Label.new()
+	drag_clamp_help.text = "On: dragging a model further than it can move holds it on its green range circle, so you drag roughly the right direction and it takes the full legal distance. Off: the drag follows the cursor past the circle and the over-range drop is rejected. Controller carries are always clamped."
+	drag_clamp_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	drag_clamp_help.custom_minimum_size = Vector2(620, 0)
+	drag_clamp_help.add_theme_font_size_override("font_size", 16)
+	drag_clamp_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	parent.add_child(drag_clamp_help)
 
 	# Menu scroll speed — how fast the wheel / trackpad scrolls menus and panels
 	# (a fraction of Godot's default). Lower = slower.
@@ -942,6 +955,8 @@ func _load_current_settings() -> void:
 	if _menu_scroll_speed_slider:
 		_menu_scroll_speed_slider.value = SettingsService.menu_scroll_speed
 		_update_scroll_speed_label(_menu_scroll_speed_label, SettingsService.menu_scroll_speed)
+	if _drag_clamp_checkbox:
+		_drag_clamp_checkbox.button_pressed = SettingsService.drag_clamp_to_max_range
 	if _input_mode_dropdown:
 		var policy_index := INPUT_MODE_POLICIES.find(str(SettingsService.input_mode_policy))
 		# A run whose policy came from --input-mode= (or the harness pin) can be
@@ -1051,6 +1066,11 @@ func _on_animation_speed_changed(value: float) -> void:
 func _on_menu_scroll_speed_changed(value: float) -> void:
 	SettingsService.set_menu_scroll_speed(value)
 	_update_scroll_speed_label(_menu_scroll_speed_label, value)
+
+func _on_drag_clamp_toggled(pressed: bool) -> void:
+	# MovementController re-reads this on every drag motion event, so the change
+	# applies to the very next drag — no reload, no re-select.
+	SettingsService.set_drag_clamp_to_max_range(pressed)
 
 func _on_controller_text_boost_toggled(pressed: bool) -> void:
 	SettingsService.set_controller_text_boost(pressed)

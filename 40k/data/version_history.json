@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.18.0",
+      "date": "2026-08-03",
+      "summary": "Dragging a model further than it can move now holds it at its maximum range instead of letting it run past — drag roughly the right way and the model takes the full move.",
+      "changes": [
+        "Fixed (reported with the mouse): the green circle showed how far a model could go, but nothing stopped you dragging past it — you had to land the cursor on the circle by hand or the drop was rejected and the model snapped back.",
+        "Drag a model past its range and it now stops ON its range circle, still showing a valid move. Let go anywhere past the circle and it stages the full distance.",
+        "Works the same when you drag a whole squad: the formation stops at the tightest model's limit.",
+        "Terrain is costed properly while you drag. A model that cannot afford to climb into a ruin now stops just short of it at a spot the game accepts, instead of previewing a move that was rejected on the drop.",
+        "New setting — Settings > Controls > 'Stop model drags at their maximum move range'. On by default; turn it off to go back to the old free drag with the red over-range preview.",
+        "Controller and Steam Deck carries already worked this way and are unchanged."
+      ]
+    },
+    {
       "version": "1.17.0",
       "date": "2026-08-03",
       "summary": "A Leader and the squad he joined now fight in ONE activation — one row, one attack panel, one swing. The enemy no longer gets a turn in between.",

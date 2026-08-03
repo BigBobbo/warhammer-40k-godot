@@ -1,0 +1,95 @@
+{
+  "id": "move_drag_clamps_to_max_range",
+  "covers": [
+    "movement.drag_clamp_to_max_range",
+    "movement.drag_clamp_setting_toggle",
+    "movement.drag_clamp_terrain_aware",
+    "settings.controls.drag_clamp_to_max_range",
+    "phases.MovementPhase.UI.over_range_drag"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Dragging a model further than it can move must hold it AT its maximum range instead of letting it run past into a drop the phase rejects. Part A (setting ON, the new default): the Blade Champion (M=6\") is dragged 15\" straight down over open board with the button still held (drag_board release:false) so the live drag frame can be inspected — the ghost must sit exactly 6.00\" from the pickup point while the cursor is 15\" away, the preview must read VALID, and mouse_up_board must stage a real 6.0\" move. Part B (setting OFF): the identical drag must reproduce the historical free drag — ghost 15\" out, preview invalid, and the drop rejected with nothing staged. Part C: the clamp costs terrain the way the phase does — the Telemon (M=8\") dragged at a tall ruin it cannot afford to enter stops SHORT of the ruin at a distance the phase accepts, rather than at a geometric 8\" the phase would reject for the climb cost. Part C is the regression that matters: MovementController used to omit the T-103 vertical-climb term MovementPhase charges, so clamping to the controller's own boundary produced a guaranteed-rejected drop.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+
+    { "act": "execute_script", "multiline": true, "equals": true,
+      "script": "# Part A setup: clamp ON (the default), and frame the board so the pickup\n# point, the 6\" reach circle and the far cursor are all on screen.\nSettingsService.set_drag_clamp_to_max_range(true)\nvar m = tree.root.get_node(\"Main\")\nm.view_zoom = 1.4\nm.view_offset = Vector2(120.0 - 760.0 / 1.4, 100.0 - 190.0 / 1.4)\nm.update_view_transform()\nreturn SettingsService.drag_clamp_to_max_range" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+
+    { "act": "click_unit", "unit_id": "U_BLADE_CHAMPION_A" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_BLADE_CHAMPION_A" },
+    { "act": "execute_script", "script": "main.movement_controller._get_effective_move_cap()", "equals": 6.0 },
+
+    { "act": "drag_board", "from_x": 120.0, "from_y": 100.0, "to_x": 120.0, "to_y": 700.0, "steps": 14, "release": false },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main.movement_controller.dragging_model", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "equals": true,
+      "script": "# The cursor is 15\" from the pickup point; the ghost must be held at the 6\"\n# cap. Recorded as meta so the numbers show up in the scenario output.\nvar m = tree.root.get_node(\"Main\")\nvar mc = m.movement_controller\nvar ghost = m.get_node(\"BoardRoot/MovementGhostVisual\")\nvar ghost_in = Measurement.px_to_inches((ghost.position - mc.drag_start_pos).length())\nvar cursor_in = Measurement.px_to_inches((Vector2(120.0, 700.0) - mc.drag_start_pos).length())\nm.set_meta(\"clamp_probe\", \"cursor=%.2f\\\" ghost=%.3f\\\" cap=%.2f\\\"\" % [cursor_in, ghost_in, mc._get_effective_move_cap()])\nreturn cursor_in > 14.0 and abs(ghost_in - 6.0) <= 0.05" },
+    { "act": "execute_script", "script": "str(main.get_meta(\"clamp_probe\"))", "exists": true },
+
+    { "act": "execute_script", "multiline": true, "equals": true,
+      "script": "# Held at the cap means the preview reads LEGAL — the whole point is that the\n# player never has to aim at the circle to get the full move.\nvar mc = tree.root.get_node(\"Main\").movement_controller\nvar ghost = tree.root.get_node(\"Main\").get_node(\"BoardRoot/MovementGhostVisual\")\nreturn mc.path_valid and mc._compute_move_rejection(ghost.position) == \"\"" },
+    { "act": "screenshot", "label": "01_clamp_on_ghost_held_at_6in_while_cursor_15in_away" },
+
+    { "act": "mouse_up_board", "x": 120.0, "y": 700.0 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "PhaseManager.current_phase_instance.active_moves[\"U_BLADE_CHAMPION_A\"].staged_moves.size()", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "equals": true,
+      "script": "# The drop stages the FULL move, not a rejection: 6.0\" of a 6.0\" cap.\nvar md = PhaseManager.current_phase_instance.active_moves[\"U_BLADE_CHAMPION_A\"]\nvar d = float(md[\"model_distances\"].get(\"U_BLADE_CHAMPION_A:m1\", -1.0))\ntree.root.get_node(\"Main\").set_meta(\"staged_probe\", \"staged=%.3f\\\"\" % d)\nreturn abs(d - 6.0) <= 0.05" },
+    { "act": "execute_script", "script": "str(main.get_meta(\"staged_probe\"))", "exists": true },
+    { "act": "screenshot", "label": "02_clamp_on_full_6in_move_staged" },
+
+    { "act": "execute_script", "multiline": true, "equals": true,
+      "script": "# Part B: same drag with the setting OFF must reproduce the historical free\n# drag. Reset the unit so it starts from the same board state.\nSettingsService.set_drag_clamp_to_max_range(false)\nvar pi = PhaseManager.current_phase_instance\npi.process_action({\"type\": \"RESET_UNIT_MOVE\", \"actor_unit_id\": \"U_BLADE_CHAMPION_A\"})\nreturn not SettingsService.drag_clamp_to_max_range" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "click_unit", "unit_id": "U_BLADE_CHAMPION_A" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_BLADE_CHAMPION_A" },
+
+    { "act": "drag_board", "from_x": 120.0, "from_y": 100.0, "to_x": 120.0, "to_y": 700.0, "steps": 14, "release": false },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "equals": true,
+      "script": "# Ghost follows the cursor all 15\" out, and the preview says so.\nvar m = tree.root.get_node(\"Main\")\nvar mc = m.movement_controller\nvar ghost = m.get_node(\"BoardRoot/MovementGhostVisual\")\nvar ghost_in = Measurement.px_to_inches((ghost.position - mc.drag_start_pos).length())\nm.set_meta(\"unclamped_probe\", \"ghost=%.2f\\\" path_valid=%s\" % [ghost_in, str(mc.path_valid)])\nreturn ghost_in > 14.0 and not mc.path_valid" },
+    { "act": "execute_script", "script": "str(main.get_meta(\"unclamped_probe\"))", "exists": true },
+    { "act": "screenshot", "label": "03_clamp_off_ghost_runs_15in_past_the_circle" },
+
+    { "act": "mouse_up_board", "x": 120.0, "y": 700.0 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "multiline": true, "equals": true,
+      "script": "# Over-range drop with the clamp off is rejected outright — nothing staged.\nvar pi = PhaseManager.current_phase_instance\nif not pi.active_moves.has(\"U_BLADE_CHAMPION_A\"):\n\treturn true\nreturn pi.active_moves[\"U_BLADE_CHAMPION_A\"].get(\"staged_moves\", []).size() == 0" },
+    { "act": "screenshot", "label": "04_clamp_off_over_range_drop_rejected" },
+
+    { "act": "execute_script", "multiline": true, "equals": true,
+      "script": "# Part C: clamp back ON, and reframe on the Telemon (M=8\") which sits above a\n# tall ruin it cannot afford to climb into.\nSettingsService.set_drag_clamp_to_max_range(true)\nvar pi = PhaseManager.current_phase_instance\nfor uid in pi.active_moves.keys():\n\tpi.process_action({\"type\": \"RESET_UNIT_MOVE\", \"actor_unit_id\": uid})\nvar m = tree.root.get_node(\"Main\")\nm.view_zoom = 1.2\nm.view_offset = Vector2(600.0 - 930.0 / 1.2, 250.0 - 250.0 / 1.2)\nm.update_view_transform()\nreturn SettingsService.drag_clamp_to_max_range" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "click_unit", "unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "multiline": true, "exists": true,
+      "script": "# Picking a different unit mid-session raises a \"Switch Unit?\" confirm; after\n# a reset it does not. Press it when it is there, no-op when it is not, so the\n# step is robust either way.\nvar stack: Array = [tree.root]\nwhile not stack.is_empty():\n\tvar n = stack.pop_back()\n\tfor c in n.get_children():\n\t\tstack.append(c)\n\tif n is Button and n.visible and not n.disabled and str(n.text).begins_with(\"Switch to\"):\n\t\tn.emit_signal(\"pressed\")\n\t\treturn \"pressed: %s\" % n.text\nreturn \"no switch dialog\"" },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_TELEMON_HEAVY_DREADNOUGHT_I" },
+
+    { "act": "drag_board", "from_x": 600.0, "from_y": 250.0, "to_x": 600.0, "to_y": 850.0, "steps": 14, "release": false },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "equals": true,
+      "script": "# The clamp costs terrain with the SAME function that validates the drop, so\n# the stop it picks is one the phase will accept. Geometrically it is well\n# short of the 8\" cap (the ruin's climb + difficult-ground cost eats the rest),\n# and crucially _compute_move_rejection agrees it is legal.\nvar m = tree.root.get_node(\"Main\")\nvar mc = m.movement_controller\nvar ghost = m.get_node(\"BoardRoot/MovementGhostVisual\")\nvar ghost_in = Measurement.px_to_inches((ghost.position - mc.drag_start_pos).length())\nvar cost = mc._move_cost_inches(ghost.position)\nm.set_meta(\"terrain_probe\", \"ghost=%.3f\\\" total_cost=%.3f\\\" cap=%.2f\\\" reject='%s'\" % [ghost_in, cost, mc._get_effective_move_cap(), mc._compute_move_rejection(ghost.position)])\nreturn ghost_in < 8.0 and cost <= mc._get_effective_move_cap() + 0.02 and mc._compute_move_rejection(ghost.position) == \"\"" },
+    { "act": "execute_script", "script": "str(main.get_meta(\"terrain_probe\"))", "exists": true },
+    { "act": "screenshot", "label": "05_clamp_stops_short_of_unaffordable_terrain" },
+
+    { "act": "mouse_up_board", "x": 600.0, "y": 850.0 },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "multiline": true, "equals": true,
+      "script": "# The regression: this drop used to be REJECTED because the controller's\n# preview omitted the vertical-climb cost the phase charges. It must stage.\nvar pi = PhaseManager.current_phase_instance\nif not pi.active_moves.has(\"U_TELEMON_HEAVY_DREADNOUGHT_I\"):\n\treturn false\nreturn pi.active_moves[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].get(\"staged_moves\", []).size() == 1" },
+    { "act": "screenshot", "label": "06_terrain_aware_clamp_drop_accepted" },
+
+    { "act": "execute_script", "multiline": true, "equals": true,
+      "script": "# Leave the setting at its shipped default so a later scenario in the same run\n# is not affected.\nSettingsService.set_drag_clamp_to_max_range(true)\nreturn SettingsService.drag_clamp_to_max_range" }
+  ]
+}
