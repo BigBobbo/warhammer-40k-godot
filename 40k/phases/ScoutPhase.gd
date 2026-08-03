@@ -57,6 +57,13 @@ func _on_phase_enter() -> void:
 	var total_scouts = p1_scouts.size() + p2_scouts.size() \
 		+ scout_reserve_units_pending[1].size() + scout_reserve_units_pending[2].size()
 
+	# Tell the player what this step resolved to, in the on-screen log. Without
+	# this the whole step is invisible when nobody can Scout: the phase
+	# auto-completes and the player is dropped straight onto the
+	# secondary-mission draw, unable to tell whether the game decided none of
+	# their units are Scouts or whether the Scout step is simply broken.
+	_announce_scout_step(total_scouts)
+
 	if total_scouts == 0:
 		log_phase_message("No units with Scout ability found, skipping Scout phase")
 		# Use call_deferred to avoid emitting signal during enter_phase
@@ -75,6 +82,50 @@ func _on_phase_enter() -> void:
 
 func _complete_phase() -> void:
 	emit_signal("phase_completed")
+
+# ========================================
+# Player-visible narration
+# ========================================
+
+func _log_to_players(text: String) -> void:
+	# log_phase_message() only reaches the debug log file — the player never
+	# sees it. GameEventLog is the on-screen Game Log panel.
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel and gel.has_method("add_info_entry"):
+		gel.add_info_entry(text)
+	log_phase_message(text)
+
+func _announce_scout_step(total_scouts: int) -> void:
+	"""Spell out, per player, who may Scout and why anyone eligible-looking cannot."""
+	for p in [1, 2]:
+		var report = GameState.get_scout_eligibility_report(p)
+		var names: Array = []
+		for entry in report.get("eligible", []):
+			names.append(str(entry.get("name", entry.get("unit_id", ""))))
+		if names.is_empty():
+			_log_to_players("Scout step — Player %d: no unit in this army has the Scouts ability." % p)
+		else:
+			_log_to_players("Scout step — Player %d may make Scout moves with: %s." % [p, ", ".join(names)])
+		for blocker in report.get("blocked", []):
+			_log_to_players("Scout step — Player %d: %s has Scouts but cannot move — %s." % [
+				p, str(blocker.get("name", "")), str(blocker.get("reason", ""))
+			])
+
+	if total_scouts > 0:
+		return
+
+	_log_to_players("No Scout moves are available — skipping the Scout step.")
+	# A log line alone is easy to miss when the step lasts a single frame, so
+	# surface it as a toast too — but only when a human is actually watching.
+	var ai = get_node_or_null("/root/AIPlayer")
+	var human_present := true
+	if ai and ai.has_method("is_ai_player"):
+		human_present = not (ai.is_ai_player(1) and ai.is_ai_player(2))
+	if not human_present:
+		return
+	var toast = get_node_or_null("/root/ToastManager")
+	if toast and toast.has_method("show_info"):
+		toast.show_info("Scout step skipped — no unit in either army has the Scouts ability", 5.0)
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Scout Phase")
