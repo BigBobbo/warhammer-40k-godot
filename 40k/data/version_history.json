@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.17.1",
+      "date": "2026-08-03",
+      "summary": "Consolidation: a unit offered an Objective Consolidation can finally make it — the board no longer snaps your models back for 'not moving closer to the enemy'.",
+      "changes": [
+        "Fixed (reported from the Fight phase): a unit more than 3\" from every enemy but within 3\" of an objective was correctly listed as '[Objective]' in the Consolidate step, yet every drag toward that objective sprang back to where it started. The move dialog and the board were still judging the move by the old 'is there an enemy within 5\"?' rule instead of the mandatory 12.08 mode.",
+        "The Consolidate dialog now states the rules for the mode you are actually in — Ongoing, Engaging or Objective — and names the objective you are consolidating onto.",
+        "Movement arrows point at the objective (and turn green for moves onto it) in Objective Consolidation, instead of pointing at an enemy you are not allowed to move toward.",
+        "The board and the Confirm Move check now share one rules check, so a drag the board accepts is never rejected when you confirm it.",
+        "Auto Consolidate no longer says 'no legal move' for a unit standing next to a large terrain objective (its area, not the marker dot, is the objective)."
+      ]
+    },
+    {
       "version": "1.17.0",
       "date": "2026-08-03",
       "summary": "A Leader and the squad he joined now fight in ONE activation — one row, one attack panel, one swing. The enemy no longer gets a turn in between.",

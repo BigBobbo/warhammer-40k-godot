@@ -15859,13 +15859,32 @@ static func _determine_ai_consolidate_mode(snapshot: Dictionary, unit: Dictionar
 	if enemy_in_range:
 		return "ENGAGEMENT"
 
-	# Otherwise Objective consolidation, but ONLY if an objective is actually in
-	# range (model edge within 3" + marker radius). An objective merely existing
-	# somewhere on the board does not permit a consolidation move toward it.
-	for obj_pos in _get_objectives(snapshot):
+	# Otherwise Objective consolidation, but ONLY if an objective is actually
+	# within 3" (12.08 BEFORE). An objective merely existing somewhere on the
+	# board does not permit a consolidation move toward it.
+	#
+	# Measured through MissionManager when it is reachable, exactly as
+	# ConsolidationMove._objectives_within does: for a TERRAIN-HOSTED objective
+	# (14.01) the 3" is measured to the hosting AREA, not the marker centre, so a
+	# unit standing on a wide central ruin qualifies even though its bases sit
+	# well over 3.78" from the marker point. Judging that case by marker centre
+	# alone returned NONE while the validator offered Objective mode, and Auto
+	# Consolidate answered "no legal move" for a unit the rules let move.
+	var mm = Engine.get_main_loop().root.get_node_or_null("/root/MissionManager") if Engine.get_main_loop() != null else null
+	var mm_ready = mm != null and mm.has_method("model_within_inches_of_objective")
+	for obj in snapshot.get("board", {}).get("objectives", []):
+		var obj_pos = obj.get("position", null)
+		if obj_pos == null:
+			continue
+		if not (obj_pos is Vector2):
+			obj_pos = Vector2(float(obj_pos.get("x", 0)), float(obj_pos.get("y", 0)))
 		for model in alive_models:
 			var mpos = _get_model_position(model)
 			if mpos == Vector2.INF:
+				continue
+			if mm_ready:
+				if mm.model_within_inches_of_objective(model, obj, 3.0):
+					return "OBJECTIVE"
 				continue
 			var mbr = _model_bounding_radius_px(model.get("base_mm", 32), model.get("base_type", "circular"), model.get("base_dimensions", {}))
 			if mpos.distance_to(obj_pos) - mbr <= objective_range_px:

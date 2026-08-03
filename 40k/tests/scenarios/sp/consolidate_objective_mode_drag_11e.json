@@ -1,0 +1,82 @@
+{
+  "id": "consolidate_objective_mode_drag_11e",
+  "covers": [
+    "movetypes.ConsolidationMove.select_mode",
+    "movetypes.ConsolidationMove.model_move_allowed",
+    "phases.FightPhase.get_consolidation_context_11e",
+    "phases.FightPhase.check_consolidation_model_move_11e",
+    "scripts.FightController._end_model_drag_pile_in",
+    "scripts.FightController._fight_move_aim_point",
+    "dialogs.ConsolidateDialog._get_consolidate_mode_text"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Regression for 'Objective Consolidation is offered but the drag is refused' (12.08). The right-panel Consolidate picker reads the mode off ConsolidationMove.select_mode and correctly showed [Objective], but ConsolidateDialog and FightController._end_model_drag_pile_in re-derived the mode from the legacy 10e heuristic FightPhase._can_unit_reach_engagement_range() — 'is any enemy within my 3\" move + engagement range (2\" at 11e) = 5\"'. For a unit 3-5\" from an enemy that heuristic says ENGAGEMENT while 12.08 says Objective (Engaging Consolidation needs an enemy within 3\"), so the dialog printed the enemy rules and every drag toward the objective was reverted with 'not moving closer to enemy'. The player could see the mode and could not use it. Setup stands the isolated Shield-Captain 3\" short of the terrain-hosted centre objective (14.01: hosted by area-trapezoid-43, so 'in range' means a base ON the area) with the nearest enemy — Warboss C — 3.4\" away edge-to-edge: outside 12.08's 3\" Engaging gate, inside the old 5\" heuristic (asserted below, so the fix is not just a distance tweak). It then drives the real global Pile In / Consolidate steps, opens the real ConsolidateDialog from the real picker button, asserts the dialog states the Objective-mode rules and not the enemy ones, drags the model 2.5\" onto the objective with real mouse input (directly AWAY from the enemy), and confirms with the real Confirm Move button — asserting GameState ends with the model on the objective and in range of it.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "execute_script", "script": "GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0].merge({\"position\": {\"x\": 880.0, \"y\": 1080.0}, \"alive\": true}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_C\"].models[0].merge({\"position\": {\"x\": 880.0, \"y\": 880.0}, \"alive\": true}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].flags.merge({\"was_eligible_to_fight\": true}, true)" },
+
+    { "act": "execute_script", "script": "str(GameState.state.board.objectives[0].id)", "equals": "obj_center" },
+    { "act": "execute_script", "script": "return str(TerrainManager.area_at(Vector2(880, 1200)).get(\"id\", \"none\"))", "multiline": true, "equals": "area-trapezoid-43" },
+    { "act": "execute_script", "script": "MissionManager.model_within_inches_of_objective(GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0], GameState.state.board.objectives[0], 3.0)", "equals": true },
+    { "act": "execute_script", "script": "MissionManager.model_in_objective_range(GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0], GameState.state.board.objectives[0])", "equals": false },
+
+    { "act": "execute_script", "script": "return str(MoveTypes.get_type(\"consolidation\").select_mode(\"U_SHIELD_CAPTAIN_A\", GameState.state).mode)", "multiline": true, "equals": "objective" },
+    { "act": "execute_script", "script": "return str(PhaseManager.get_current_phase_instance().get_consolidation_context_11e(\"U_SHIELD_CAPTAIN_A\").get(\"mode\", \"\"))", "multiline": true, "equals": "objective" },
+    { "act": "execute_script", "script": "return PhaseManager.get_current_phase_instance()._can_unit_reach_engagement_range(GameState.state.units[\"U_SHIELD_CAPTAIN_A\"])", "multiline": true, "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN" } },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN" } },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._begin_consolidation_step_11e()" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 1 },
+    { "act": "expect_phase_property", "property": "consolidating_player_11e", "equals": 2 },
+    { "act": "dispatch_action", "action": { "type": "END_CONSOLIDATION" } },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_phase_property", "property": "consolidating_player_11e", "equals": 1 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList/Consolidate_U_SHIELD_CAPTAIN_A", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "\"Objective\" in main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList/Consolidate_U_SHIELD_CAPTAIN_A\").text", "equals": true },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList/Consolidate_U_SHIELD_CAPTAIN_A", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_node_visible", "node": "/root/ConsolidateDialog", "timeout_s": 5.0 },
+
+    { "act": "execute_script", "script": "\"objective\" in main.get_tree().root.get_node(\"ConsolidateDialog/Content/Instruction\").text.to_lower()", "equals": true },
+    { "act": "execute_script", "script": "\"closest enemy\" in main.get_tree().root.get_node(\"ConsolidateDialog/Content/Instruction\").text.to_lower()", "equals": false },
+    { "act": "execute_script", "script": "\"closer to the objective\" in main.get_tree().root.get_node(\"ConsolidateDialog/Content/Legend\").text", "equals": true },
+    { "act": "screenshot", "label": "01_consolidate_dialog_objective_mode" },
+
+    { "act": "click_node", "node": "/root/ConsolidateDialog/Content/Buttons/AutoButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"ConsolidateDialog\")\nreturn d.model_movements.size()", "multiline": true, "expect_min": 1 },
+    { "act": "execute_script", "script": "var d=tree.root.get_node_or_null(\"ConsolidateDialog\")\nreturn d.get_node(\"Content/Status\").text.begins_with(\"✓\")", "multiline": true, "equals": true },
+    { "act": "click_node", "node": "/root/ConsolidateDialog/Content/Buttons/ResetButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "float(main.get_node(\"FightController\").current_model_positions[\"m1\"].y)", "expect_max": 1081.0 },
+
+    { "act": "drag_board", "from_x": 880.0, "from_y": 1080.0, "to_x": 880.0, "to_y": 1180.0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "float(main.get_node(\"FightController\").current_model_positions[\"m1\"].y)", "expect_min": 1175.0 },
+    { "act": "execute_script", "script": "return str(tree.current_scene.get_node(\"FightController\").consolidate_context_11e.get(\"mode\", \"\"))", "multiline": true, "equals": "objective" },
+    { "act": "screenshot", "label": "02_model_dragged_onto_objective" },
+
+    { "act": "click_node", "node": "/root/ConsolidateDialog/Content/Buttons/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "float(GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0].position.y)", "expect_min": 1175.0 },
+    { "act": "execute_script", "script": "MissionManager.model_in_objective_range(GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models[0], GameState.state.board.objectives[0])", "equals": true },
+    { "act": "screenshot", "label": "03_consolidated_onto_objective" }
+  ]
+}

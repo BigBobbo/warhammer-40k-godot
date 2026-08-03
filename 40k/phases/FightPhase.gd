@@ -6004,3 +6004,77 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 	if not after.ok:
 		errors.append_array(after.violations)
 	return {"valid": errors.is_empty(), "errors": errors}
+
+# ============================================================================
+# 12.08 CONSOLIDATION MODE — the single source the UI reads
+# ============================================================================
+#
+# The Consolidate step's mode is MANDATORY and assessed in a fixed order:
+# Ongoing (engaged) -> Engaging (enemy unit within 3") -> Objective (objective
+# within 3"). _validate_consolidate_11e resolves it through the
+# ConsolidationMove template; the player-facing UI used to re-derive it from
+# _can_unit_reach_engagement_range() — a 10e-era "could this unit reach
+# engagement range with its 3\" move?" heuristic (3" move + 2" engagement range
+# = 5"). The two disagree for any unit 3-5" from an enemy: 12.08 says Objective,
+# the heuristic said engagement, so ConsolidateDialog printed the enemy rules and
+# FightController reverted every drag toward the objective the right-hand picker
+# had just offered ("[Objective]"). These helpers hand the UI the same context
+# and the same per-model verdict the validator uses, so the two cannot drift
+# apart again.
+
+# 12.08 BEFORE MOVING for `unit_id`, resolved on the folded (19.03) board so an
+# Attached unit is judged as the one unit it is. Returns
+# ConsolidationMove.before_moving()'s dict plus "mode" ("" when no mode applies)
+# and, in Objective mode, "objective_position" (board px) for the UI to draw its
+# arrows toward.
+func get_consolidation_context_11e(unit_id: String) -> Dictionary:
+	var empty := {"mode": "", "targets": [], "objective": ""}
+	var tmpl: ConsolidationMove = MoveTypes.get_type("consolidation")
+	if tmpl == null or get_unit(unit_id).is_empty():
+		return empty
+	var folded_board = _fight_folded_board(unit_id, GameState.state)
+	var mode = str(tmpl.select_mode(unit_id, folded_board).mode)
+	if mode == "":
+		return empty
+	var ctx = tmpl.before_moving(unit_id, folded_board, null, {"mode": mode})
+	ctx["mode"] = mode
+	if mode == "objective":
+		ctx["objective_position"] = consolidation_objective_position_11e(str(ctx.get("objective", "")))
+	log_phase_message("[11e 12.08] Consolidation mode for %s: %s%s" % [
+		unit_id, mode,
+		(" (objective %s)" % str(ctx.get("objective", ""))) if mode == "objective" else ""
+	])
+	return ctx
+
+# Board-px centre of objective marker `obj_id`, or Vector2.ZERO when unknown.
+# Objective positions round-trip through saves as {x, y} dicts, so accept both.
+func consolidation_objective_position_11e(obj_id: String) -> Vector2:
+	if obj_id == "":
+		return Vector2.ZERO
+	for obj in GameState.state.get("board", {}).get("objectives", []):
+		if str(obj.get("id", "")) != obj_id:
+			continue
+		var pos = obj.get("position", Vector2.ZERO)
+		if pos is Dictionary:
+			return Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+		if pos is Vector2:
+			return pos
+		return Vector2.ZERO
+	return Vector2.ZERO
+
+# 12.08 WHILE MOVING for ONE model — the same ConsolidationMove verdict
+# _validate_consolidate_11e applies per moved model, so a drag the board accepts
+# is a drag Confirm Move will accept. `key` is a fight-move key: a plain model
+# index/id, or "char_unit:key" for an attached character's model (19.03).
+# `ctx` comes from get_consolidation_context_11e().
+func check_consolidation_model_move_11e(unit_id: String, key, new_pos: Vector2, ctx: Dictionary) -> Dictionary:
+	var tmpl: ConsolidationMove = MoveTypes.get_type("consolidation")
+	if tmpl == null:
+		return {"allowed": true, "reason": ""}
+	if str(ctx.get("mode", "")) == "":
+		return {"allowed": false, "reason": "no consolidation mode applies — the unit cannot move (12.08)"}
+	var route = _fight_split_move_key(unit_id, key)
+	var model = _resolve_fight_model(route.unit_id, route.model_key)
+	if model.is_empty():
+		return {"allowed": true, "reason": ""}
+	return tmpl.model_move_allowed(unit_id, model, {"x": new_pos.x, "y": new_pos.y}, GameState.state, ctx)

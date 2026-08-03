@@ -8979,6 +8979,60 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "movetypes.ConsolidationMove.model_move_allowed",
+      "description": "12.08 WHILE MOVING per model, by mode: Ongoing/Engaging must end closer to the closest selected enemy unit (base-contact models locked in Ongoing); Objective must end within range of the selected objective, or closer to it. The board drag path and CONSOLIDATE validation both route through this one verdict.",
+      "scenarios": [
+        "consolidate_objective_mode_drag_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase.get_consolidation_context_11e",
+      "description": "The 12.08 BEFORE MOVING context (mandatory mode + selected targets/objective, resolved on the folded 19.03 board) that the Consolidate UI reads instead of re-deriving the mode from the 10e _can_unit_reach_engagement_range heuristic.",
+      "scenarios": [
+        "consolidate_objective_mode_drag_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase.check_consolidation_model_move_11e",
+      "description": "Per-model 12.08 WHILE MOVING verdict exposed to the UI, so a drag the board accepts is a drag Confirm Move accepts.",
+      "scenarios": [
+        "consolidate_objective_mode_drag_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.FightController._end_model_drag_pile_in",
+      "description": "Drop handling for a pile-in / consolidate model drag: overlap and off-board reverts, the 3\" (pivot-aware) clamp, and — while consolidating — the mandatory 12.08 mode check that decides whether the drop stands or springs back.",
+      "scenarios": [
+        "consolidate_objective_mode_drag_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.FightController._fight_move_aim_point",
+      "description": "Where the pile-in / consolidate direction arrow points: the selected objective during an Objective Consolidation, the closest enemy model otherwise.",
+      "scenarios": [
+        "consolidate_objective_mode_drag_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.ConsolidateDialog._get_consolidate_mode_text",
+      "description": "The Consolidate dialog states the rules of the unit's actual 12.08 mode — Ongoing / Engaging / Objective (naming the objective) — or says no mode applies.",
+      "scenarios": [
+        "consolidate_objective_mode_drag_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
