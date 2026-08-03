@@ -639,6 +639,35 @@ func return_aircraft_to_reserves(player: int) -> Array:
 		apply_state_changes(changes)
 	return affected
 
+# Scouts ability text matching.
+#
+# Ability names arrive as "Scout 6\"" (hand-authored 10e rosters) or
+# "Scouts 6\"" (11e datasheets and the 40kdc dataset). The distance pattern
+# therefore has to allow the plural: the previous regex was
+# "scout\\s+(\\d+)", which cannot match "Scouts 9\"" because an `s` sits
+# where the whitespace was required — every Scouts 7"/8"/9" unit silently
+# fell through to the 6" default and made a 6" scout move.
+const SCOUT_DISTANCE_PATTERN: String = "(?i)\\bscouts?\\s*(\\d+)"
+# Stricter form for the description fallback: the rule text always spells the
+# distance with an inches mark ("Scouts 6\": ..."), so requiring it keeps
+# flavour text that merely mentions scouts from being read as the ability.
+const SCOUT_DESCRIPTION_PATTERN: String = "(?i)\\bscouts?\\s+(\\d+)\\s*\""
+
+var _scout_distance_regex: RegEx = null
+var _scout_description_regex: RegEx = null
+
+func _get_scout_distance_regex() -> RegEx:
+	if _scout_distance_regex == null:
+		_scout_distance_regex = RegEx.new()
+		_scout_distance_regex.compile(SCOUT_DISTANCE_PATTERN)
+	return _scout_distance_regex
+
+func _get_scout_description_regex() -> RegEx:
+	if _scout_description_regex == null:
+		_scout_description_regex = RegEx.new()
+		_scout_description_regex.compile(SCOUT_DESCRIPTION_PATTERN)
+	return _scout_description_regex
+
 func _unit_has_scout_own(unit_id: String) -> bool:
 	"""Check if a unit itself (not inherited) has the Scout ability.
 	Issue #389: also check description for the Scouts text — defends against
@@ -660,8 +689,10 @@ func _unit_has_scout_own(unit_id: String) -> bool:
 		if name.to_lower().begins_with("scout"):
 			return true
 		# Issue #389 fallback: detect "Scouts X\"" in the description text
-		# even when the name field is mis-tagged.
-		if "scouts " in description.to_lower() and "scouts x" in description.to_lower():
+		# even when the name field is mis-tagged. The original check required
+		# the literal substring "scouts x", which no real datasheet text
+		# contains, so this fallback never actually fired.
+		if description != "" and _get_scout_description_regex().search(description):
 			return true
 	# Glory Hog (Da Big Hunt): models in the bearer's unit have Scouts 9" —
 	# the bearer's own unit, and the bodyguard unit while attached.
@@ -676,24 +707,40 @@ func _get_scout_distance_from_abilities(abilities: Array) -> float:
 	"""Extract Scout distance from an abilities array. Returns 0.0 if no Scout ability found."""
 	for ability in abilities:
 		var name = ""
+		var description = ""
 		var value = 0
+		var parameter = ""
 		if ability is String:
 			name = ability
 		elif ability is Dictionary:
 			name = ability.get("name", "")
+			description = ability.get("description", "")
 			value = ability.get("value", 0)
-		if name.to_lower().begins_with("scout"):
-			# If value is explicitly set, use it
-			if value > 0:
-				return float(value)
-			# Try to parse distance from name, e.g. "Scout 6\"" or "Scout 6"
-			var regex = RegEx.new()
-			regex.compile("(?i)scout\\s+(\\d+)")
-			var result = regex.search(name)
-			if result:
-				return float(result.get_string(1))
-			# Default Scout distance is 6"
-			return 6.0
+			parameter = str(ability.get("parameter", ""))
+		var name_is_scout = name.to_lower().begins_with("scout")
+		# Mis-tagged entries (name "Core"/"Ability") still carry the rule text.
+		var desc_match = null
+		if not name_is_scout and description != "":
+			desc_match = _get_scout_description_regex().search(description)
+		if not name_is_scout and desc_match == null:
+			continue
+		# If value is explicitly set, use it
+		if value > 0:
+			return float(value)
+		# Try to parse distance from name, e.g. "Scout 6\"", "Scouts 9\"" or "Scout 6"
+		var result = _get_scout_distance_regex().search(name)
+		if result:
+			return float(result.get_string(1))
+		# Web-built rosters carry the distance in a separate `parameter` field
+		# ({"name": "Scouts 6\"", "type": "Core", "parameter": "6\""}).
+		if parameter != "":
+			var param_match = _get_scout_distance_regex().search("scout " + parameter)
+			if param_match:
+				return float(param_match.get_string(1))
+		if desc_match:
+			return float(desc_match.get_string(1))
+		# Default Scout distance is 6"
+		return 6.0
 	return 0.0
 
 func unit_has_scout(unit_id: String) -> bool:
@@ -810,6 +857,51 @@ func get_scout_units_for_player(player: int) -> Array:
 		if unit_has_scout(unit_id):
 			scout_units.append(unit_id)
 	return scout_units
+
+## Diagnostic for the Scout step: every unit in `player`'s army that the game
+## considers to have the Scouts ability, split into the ones that can act now
+## and the ones that cannot, with a plain-English reason for each blocker.
+##
+## Drives the player-visible narration in ScoutPhase. Before this existed the
+## Scout step auto-completed with nothing on screen but a phase header, so a
+## player whose army the game does not think has any Scouts unit saw the step
+## vanish and landed on the secondary-mission draw with no idea why.
+func get_scout_eligibility_report(player: int) -> Dictionary:
+	var eligible: Array = []
+	var blocked: Array = []
+	var reserve_eligible := get_scout_reserve_units_for_player(player)
+	for unit_id in state["units"]:
+		var unit = state["units"][unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if not unit_has_scout(unit_id):
+			continue
+		var unit_name = str(unit.get("meta", {}).get("name", unit_id))
+		var status = int(unit.get("status", 0))
+		var reason := ""
+		if unit.get("attached_to", null) != null:
+			reason = "it is leading %s and scouts with that unit" % _unit_display_name(str(unit.get("attached_to", "")))
+		elif unit.get("embarked_in", null) != null:
+			reason = "it is embarked in %s" % _unit_display_name(str(unit.get("embarked_in", "")))
+		elif status == UnitStatus.IN_RESERVES:
+			# 11e 24.31 lets a Strategic Reserves Scout unit set up in its own
+			# deployment zone instead; anything else in reserves cannot act.
+			if unit_id in reserve_eligible:
+				reason = ""
+			else:
+				reason = "it is in Reserves"
+		elif status != UnitStatus.DEPLOYED:
+			reason = "it is not set up on the battlefield"
+		if reason == "":
+			eligible.append({"unit_id": unit_id, "name": unit_name})
+		else:
+			blocked.append({"unit_id": unit_id, "name": unit_name, "reason": reason})
+	return {"eligible": eligible, "blocked": blocked}
+
+func _unit_display_name(unit_id: String) -> String:
+	if unit_id == "" or not state.get("units", {}).has(unit_id):
+		return unit_id
+	return str(state["units"][unit_id].get("meta", {}).get("name", unit_id))
 
 func unit_has_redeploy(unit_id: String) -> bool:
 	"""Check if a unit has a redeployment ability (e.g. from datasheet or detachment rules).
