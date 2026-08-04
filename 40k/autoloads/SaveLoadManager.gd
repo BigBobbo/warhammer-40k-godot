@@ -341,11 +341,14 @@ func _on_phase_changed_named_autosave(new_phase: int) -> void:
 		var display_path = ("cloud://" + _sanitize_filename(save_name)) if is_web_platform else (save_directory + _sanitize_filename(save_name) + SAVE_EXTENSION)
 		emit_signal("autosave_completed", display_path)
 
-# Build the "<army1> vs <army2> - <phase>" name for the phase-start autosave.
+# Build the "R<round> - <army1> vs <army2> - <phase>" name for the phase-start
+# autosave. The battle round leads so the load list groups and name-sorts by
+# round, and so each round keeps its own set of phase autosaves instead of every
+# round overwriting one shared slot per phase.
 func _phase_start_save_name(phase: int) -> String:
 	var army1 = GameState.get_faction_name(1)
 	var army2 = GameState.get_faction_name(2)
-	return "%s vs %s - %s" % [army1, army2, _phase_display_name(phase)]
+	return "R%d - %s vs %s - %s" % [GameState.get_battle_round(), army1, army2, _phase_display_name(phase)]
 
 # Human-readable, Title-Cased phase name ("MOVEMENT" -> "Movement",
 # "FIRST_TURN_ROLLOFF" -> "First Turn Rolloff").
@@ -1188,7 +1191,17 @@ func _create_save_metadata(custom_metadata: Dictionary = {}) -> Dictionary:
 		"version": StateSerializer.CURRENT_VERSION if StateSerializer else "1.1.0",
 		"created_at": Time.get_unix_time_from_system(),
 		"game_state": {
-			"turn": GameState.get_turn_number(),
+			# The player-facing "turn" is the BATTLE ROUND (the HUD reads
+			# "ROUND n/5" off meta.battle_round). meta.turn_number is a legacy
+			# counter that nothing advances anymore — the phases that used to
+			# bump it (PhaseManager's end-of-turn branch, TurnManager on MORALE)
+			# are unreachable now that SCORING wraps straight back to COMMAND,
+			# so it sat at 1 for the whole game and every save card claimed
+			# "Turn: 1". Record the battle round here and keep the raw legacy
+			# counter alongside it for diagnostics.
+			"turn": GameState.get_battle_round(),
+			"battle_round": GameState.get_battle_round(),
+			"turn_number": GameState.get_turn_number(),
 			"phase": GameState.get_current_phase(),
 			"active_player": GameState.get_active_player(),
 			"game_id": GameState.state.get("meta", {}).get("game_id", ""),
