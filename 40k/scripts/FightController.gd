@@ -2166,6 +2166,9 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 		return
 
 	var dialog = AcceptDialog.new()
+	# Named so windowed scenarios can address it by path (/root/CounterOffensiveDialog)
+	# instead of Godot's auto-generated "@AcceptDialog@N".
+	dialog.name = "CounterOffensiveDialog"
 	dialog.set_script(dialog_script)
 	dialog.setup(player, eligible_units)
 	dialog.counter_offensive_used.connect(_on_counter_offensive_used)
