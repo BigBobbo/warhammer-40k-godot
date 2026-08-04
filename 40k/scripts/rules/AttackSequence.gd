@@ -322,13 +322,35 @@ static func coherency_group_ids(unit_id: String, units: Dictionary) -> Array:
 ## pre-existing behaviour, which skipped 1-model units outright.
 static func check_attached_unit_coherency(unit_id: String, units: Dictionary) -> Dictionary:
 	var group := coherency_group_ids(unit_id, units)
+	var components: Array = []
+	for gid in group:
+		components.append({"unit_id": gid, "models": units.get(gid, {}).get("models", [])})
+	var verdict := attached_coherency_offenders(components)
+	verdict["group_ids"] = group
+	return verdict
 
+
+## The 19.03 ∩ standalone verdict over an EXPLICIT component list, so callers
+## that are reasoning about a hypothetical board (CasualtyPreference simulating
+## "who dies next") get the same answer End of Turn will give them — without
+## having to fabricate a units dictionary first.
+##
+## `components`: [{unit_id: String, models: Array}] — bodyguard first, then each
+## attached CHARACTER, exactly as coherency_group_ids orders them. Dead and
+## positionless models are filtered here, so a caller may pass a whole models
+## array and let this decide who is on the board.
+##
+## Returns {coherent, offenders: [{unit_id, model_id}], model_count,
+## merged_offenders, solo_offenders} — see check_attached_unit_coherency for
+## why an offender must fail BOTH readings.
+static func attached_coherency_offenders(components: Array) -> Dictionary:
 	# 19.03 reading: one merged model set (ids namespaced — two components can
 	# both call a model "m1").
 	var merged: Array = []
 	var owner_by_key: Dictionary = {}
-	for gid in group:
-		for m in units.get(gid, {}).get("models", []):
+	for comp in components:
+		var gid := str(comp.get("unit_id", ""))
+		for m in comp.get("models", []):
 			if not m.get("alive", true) or m.get("position") == null:
 				continue
 			var key := "%s|%s" % [gid, str(m.get("id", ""))]
@@ -343,8 +365,9 @@ static func check_attached_unit_coherency(unit_id: String, units: Dictionary) ->
 
 	# Standalone reading: each component unit measured on its own.
 	var solo_offenders: Dictionary = {}
-	for gid in group:
-		for mid in check_unit_coherency(units.get(gid, {})).get("offenders", []):
+	for comp in components:
+		var gid := str(comp.get("unit_id", ""))
+		for mid in check_unit_coherency({"models": comp.get("models", [])}).get("offenders", []):
 			solo_offenders["%s|%s" % [gid, str(mid)]] = true
 
 	var offenders: Array = []
@@ -355,7 +378,7 @@ static func check_attached_unit_coherency(unit_id: String, units: Dictionary) ->
 	return {
 		"coherent": offenders.is_empty(),
 		"offenders": offenders,
-		"group_ids": group,
+		"group_ids": [],
 		"model_count": merged.size(),
 		"merged_offenders": merged_offenders.keys(),
 		"solo_offenders": solo_offenders.keys(),

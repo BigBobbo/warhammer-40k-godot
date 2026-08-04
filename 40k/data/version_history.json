@@ -14,6 +14,18 @@
       ]
     },
     {
+      "version": "1.24.3",
+      "date": "2026-08-04",
+      "summary": "Automatic wound allocation now treats unit coherency as the top priority — including the attached character — instead of a tie-breaker, so casualties stop stranding your survivors.",
+      "changes": [
+        "When the computer allocates wounds for you (the 'Computer allocates wounds' setting, or any AI defender), it now picks the casualty that leaves the FEWEST models out of coherency, and only uses its other preferences — chaff first, sergeants and special weapons last, objective holders protected — to break ties between equally safe picks. Previously coherency was just a filter that skipped a model if removing it made things worse, and it gave up entirely once a formation was already broken.",
+        "Most visible in the Fight phase: after piling in, a squad is strung out and the model nearest the enemy is often the one holding two halves of the unit together. Removing it used to split the squad, and End of Turn would then destroy another model for being out of coherency — two models lost for one wound.",
+        "An attached CHARACTER is now counted as part of the unit while choosing (19.03), matching the End of Turn coherency check. A squad model standing next to its leader is in coherency, so the picker no longer treats that model as already lost, and it no longer picks a casualty that only looks safe because the leader was invisible to it.",
+        "If a model is ALREADY out of coherency, it is now the first casualty — End of Turn was going to destroy it anyway, so the incoming wound is spent on it and the rest of the unit stays intact.",
+        "Characters are still the last models picked, per the allocation rules."
+      ]
+    },
+    {
       "version": "1.24.2",
       "date": "2026-08-04",
       "summary": "Deep Strike fix: a squad arriving with an attached character now lets you place the character's model too, instead of teleporting it on top of the squad — and the arrived unit no longer lingers in the reinforcements list.",
