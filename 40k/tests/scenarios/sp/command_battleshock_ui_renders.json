@@ -9,11 +9,22 @@
   "rng_seed": 42,
   "transition_to_phase": 6,
   "disable_ai": true,
-  "description": "AUDIT P0: the Command-phase Battle-shock UI (Roll Battle-shock button) must actually RENDER for a human. Regression net for the fix where _setup_battle_shock_section early-returned during _ready (current_phase null) and was never rebuilt, so the button never appeared. U_KOMMANDOS_H starts at exactly half-strength (11e battle-shock trigger); after it is queued, the CommandController must show a BattleShockSection with a 'Roll Battle-shock' button.",
+  "description": "AUDIT P0: the Command-phase Battle-shock UI must actually RENDER for a human. Regression net for the fix where _setup_battle_shock_section early-returned during _ready (current_phase null) and was never rebuilt, so the controls never appeared. U_KOMMANDOS_H starts at exactly half-strength (11e battle-shock trigger); after it is queued, the CommandController must show a BattleShockSection carrying the RESOLVE BATTLE-SHOCK roll-call button plus a per-unit row, and that section must sit ABOVE THE FOLD of the command panel's scroll container so a real mouse click can reach it.",
   "steps": [
-    { "act": "wait_seconds", "seconds": 0.5 },
-    { "act": "expect_state", "path": "meta.phase", "equals": 6 },
-    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
     {
       "act": "execute_script",
       "script": "GameState.state[\"units\"][\"U_KOMMANDOS_H\"][\"flags\"].merge({\"battle_shocked\": false}, true)"
@@ -44,7 +55,10 @@
       "multiline": true,
       "equals": true
     },
-    { "act": "wait_frames", "frames": 4 },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
     {
       "act": "execute_script",
       "script": "var panel = SceneRefs.main_path(\"HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel\")\nif panel == null:\n\treturn \"NO_PANEL\"\nvar sec = panel.get_node_or_null(\"BattleShockSection\")\nreturn sec != null and sec.is_visible_in_tree()",
@@ -53,10 +67,17 @@
     },
     {
       "act": "execute_script",
-      "script": "var panel = SceneRefs.main_path(\"HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel\")\nvar sec = panel.get_node_or_null(\"BattleShockSection\") if panel else null\nif sec == null:\n\treturn \"NO_SECTION\"\nvar btns = sec.find_children(\"*\", \"Button\", true, false)\nvar found = false\nfor b in btns:\n\tif String(b.text).contains(\"Battle-shock\"):\n\t\tfound = true\nreturn found",
+      "script": "var panel = SceneRefs.main_path(\"HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel\")\nvar sec = panel.get_node_or_null(\"BattleShockSection\") if panel else null\nif sec == null:\n\treturn \"NO_SECTION\"\nvar cta = sec.get_node_or_null(\"BattleShockRollCallButton\")\nif cta == null:\n\treturn \"NO_ROLL_CALL_BUTTON\"\n# The per-unit shortcut row is still there, numbered in resolution order.\nvar rows = 0\nfor b in sec.find_children(\"*\", \"Button\", true, false):\n\tif String(b.text).begins_with(\"1.\"):\n\t\trows += 1\n# ...and the whole section must be reachable without scrolling: its button\n# has to sit inside the scroll container's visible rect, or a real click\n# lands on the container instead (see battleshock_roll_call_sequence).\nvar scroll = SceneRefs.main_path(\"HUD_Right/VBoxContainer/CommandScrollContainer\")\nvar in_view = scroll.get_global_rect().encloses(cta.get_global_rect())\nreturn [String(cta.text), rows == 1, in_view]",
       "multiline": true,
-      "equals": true
+      "equals": [
+        "▶  RESOLVE BATTLE-SHOCK (1)",
+        true,
+        true
+      ]
     },
-    { "act": "screenshot", "label": "battleshock_section_rendered" }
+    {
+      "act": "screenshot",
+      "label": "battleshock_section_rendered"
+    }
   ]
 }

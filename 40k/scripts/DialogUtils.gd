@@ -124,6 +124,25 @@ static func popup_at_bottom(dialog: Window, base_size: Vector2 = Vector2.ZERO, m
 		t.process_frame.connect(DialogUtils._reanchor_bottom.bind(dialog, margin_bottom), CONNECT_ONE_SHOT)
 
 
+## Re-measure a bottom-anchored dialog against its CURRENT content and re-pin it
+## to the bottom edge. Call this after swapping the content of an already-open
+## bottom dialog (staged flows that replace their card between steps): the
+## initial one-shot re-anchor has long since fired, and `size_changed` only
+## repositions — it never re-measures — so a card that grew keeps the old,
+## now-wrong height and drifts up the screen.
+static func refit_bottom(dialog: Window) -> void:
+	if not is_instance_valid(dialog) or not dialog.visible or not dialog.is_inside_tree():
+		return
+	var margin: int = int(dialog.get_meta("wd_bottom_margin", DialogConstants.BOTTOM_CLEARANCE))
+	var t := dialog.get_tree()
+	if t == null:
+		_reanchor_bottom(dialog, margin)
+		return
+	# Deferred by a frame so the swapped-in content has been laid out (autowrap
+	# Labels have re-wrapped) before we measure it.
+	t.process_frame.connect(DialogUtils._reanchor_bottom.bind(dialog, margin), CONNECT_ONE_SHOT)
+
+
 static func _repin_bottom_on_resize(dialog: Window) -> void:
 	if not is_instance_valid(dialog) or not dialog.visible or not dialog.is_inside_tree():
 		return
