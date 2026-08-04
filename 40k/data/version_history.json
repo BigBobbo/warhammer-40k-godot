@@ -14,6 +14,19 @@
       ]
     },
     {
+      "version": "1.22.5",
+      "date": "2026-08-04",
+      "summary": "Fight fix: a led unit fighting two different enemies no longer has its whole activation thrown away with 'not within engagement range'.",
+      "changes": [
+        "Fixed (reported): activating a unit that has a Leader attached — a Custodian Guard led by a Blade Champion, say — picking 'Best Weapons ✨' and pressing Fight! could be refused with 'Units are not within engagement range', on a unit plainly still locked in combat. The activation was lost.",
+        "Cause: the bodyguard and its Leader fight as one unit, so the target list showed every enemy EITHER of them had reached. 'Best Weapons ✨' then pointed both halves at the one enemy you picked — and the half standing too far from it was rejected, taking the whole activation with it.",
+        "Each section of the dialog is now limited to the enemies its own models are in Engagement Range of. 'Best Weapons ✨' and 'All to Target' send a section that cannot reach your pick at the best enemy it CAN reach, and say so, rather than building a plan the game will refuse.",
+        "When a unit's sections are locked with different enemies the dialog now says so up front, and each section's target button only cycles through what that section can actually hit.",
+        "The opposite failure is closed too: an out-of-reach swing that happened to be second in the list used to be waved through and resolve in full — a Blade Champion 8\" from a mob still killing models in it. Every attack in the batch is checked now.",
+        "Refusals name the units involved (\"'Blade Champion' is not within Engagement Range of 'Stormboyz Beta'\") instead of the old unattributed message."
+      ]
+    },
+    {
       "version": "1.22.4",
       "date": "2026-08-04",
       "summary": "The Pile In and Consolidate steps now clearly show a list of units you can pick, instead of unit names that read like more instruction text.",
