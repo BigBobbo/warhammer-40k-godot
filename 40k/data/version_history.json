@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.24.1",
+      "version": "1.24.2",
       "date": "2026-08-04",
       "summary": "Deep Strike fix: a squad arriving with an attached character now lets you place the character's model too, instead of teleporting it on top of the squad — and the arrived unit no longer lingers in the reinforcements list.",
       "changes": [
@@ -12,6 +12,19 @@
         "When the AI (or a loaded scenario) brings in a squad with a leader, the leader is now dropped in the nearest clear spot beside the squad instead of stacking onto it.",
         "Fixed: after a reinforcement arrived, its 'Arrive from Deep Strike: ...' row stayed in the reinforcements list. Clicking that stale row tried to start a normal move for a unit that had just arrived and showed 'Error: Unit has already moved this phase'. The list now refreshes as soon as the unit lands.",
         "The arrival line in the game log now names the whole unit and counts all its models — 'Custodian Guard + Blade Champion arrived from Reserves (Deep Strike) (4 models)' rather than reporting the squad alone."
+      ]
+    },
+    {
+      "version": "1.24.1",
+      "date": "2026-08-04",
+      "summary": "Fight phase: 'Best Weapons ✨' no longer suggests attacks that overkill one unit — it spreads a unit's attacks across the enemies it is engaged with, and the dialog now says how much of a plan is being thrown away.",
+      "changes": [
+        "Fixed (reported from a live game): the auto-allocation in the Assign Attacks dialog pointed the whole activation at one target and rated it on raw expected damage. Raw damage counts points that can never land — damage past a model's last wound is lost, and damage past the target unit's last wound is lost too, because it never spills onto another unit. So the suggested plan happily threw a whole squad at a unit it killed three times over, wasting most of the attacks while other engaged enemies stood untouched.",
+        "The auto-allocation now scores on the damage that actually comes off a defender's wounds, and places models one at a time: as soon as a second target would take more than the first has left, the rest of the section goes there instead. Pick the Custodian Guard into a nearly-dead Warboss and it sends one model at him and the other three at the Boyz beside him.",
+        "A section can now be split across two TARGETS, not just between the weapons it carries. That was the missing half for a uniform squad — one loadout, one section — which previously had to go all-in on a single unit no matter how far its attacks overshot. 'Split…' is offered whenever a section has several models and either several weapons or several targets.",
+        "The assignments box now shows what a plan really does: each line adds '≈X lands' when that differs from its raw forecast, the total reads '≈X lands · ≈Y thrown away', and a warning names any unit you have aimed more damage at than it has wounds left — with the reminder that the surplus does not carry over to another unit.",
+        "The damage breakdown table gained a LANDS row (how much of this swing the target can still absorb) and a note when a single section alone is more damage than the target has wounds.",
+        "Weapon choice is overkill-aware too: a high-damage profile no longer outranks a multi-attack one against 1-wound models, where most of each hit is thrown away."
       ]
     },
     {
