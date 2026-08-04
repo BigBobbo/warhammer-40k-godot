@@ -601,6 +601,11 @@ func _ready() -> void:
 	# Setup Strategic Reserves button
 	_setup_reserves_button()
 
+	# Reserves visibility UI — badge + off-board tray + detail panel. Must run
+	# after _restructure_ui_layout() (line ~494) so the top bar's RosterToggle
+	# exists to anchor the badge next to.
+	_setup_reserves_ui()
+
 
 	# Setup deployment hover tooltip (T5-UX11)
 	_setup_deploy_hover_tooltip()
@@ -2614,6 +2619,10 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 
 		unit_list.visible = false
 		show_unit_card(unit_id)
+		# The unit is now DEPLOYING, not IN_RESERVES — lift its chip off the
+		# off-board tray so the rail shows what is still waiting. Cancelling
+		# puts it back (see _cancel_reinforcement_to_list).
+		refresh_reserves_ui()
 
 func _on_reinforcement_confirmed() -> void:
 	"""Handle reinforcement placement completion"""
@@ -2701,6 +2710,7 @@ func _on_reinforcement_confirmed() -> void:
 		deployment_controller.unit_confirmed.disconnect(_on_reinforcement_confirmed)
 
 	refresh_unit_list()
+	refresh_reserves_ui()
 	update_ui()
 
 # Controller "Undo Unit" (PadRouter B during placement): clear the ENTIRE unit's
@@ -2740,6 +2750,9 @@ func _cancel_reinforcement_to_list() -> void:
 	unit_list.visible = true
 	if movement_controller and is_instance_valid(movement_controller) and movement_controller.has_method("_refresh_unit_list"):
 		movement_controller._refresh_unit_list()
+	# reset_unit() put the unit back to IN_RESERVES without emitting an action,
+	# so the tray/badge need an explicit nudge to re-list it.
+	refresh_reserves_ui()
 	update_ui()
 
 # ISS-067 (11e 24.31) — Scout unit in Strategic Reserves may be set up wholly
@@ -6351,6 +6364,18 @@ func _input(event: InputEvent) -> void:
 	# Army panel toggle (rebindable: toggle_army_panel, default U)
 	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_army_panel"):
 		_toggle_army_panel()
+		get_viewport().set_input_as_handled()
+		return
+
+	# Reserves detail panel (rebindable: toggle_reserves_panel, default P)
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_reserves_panel"):
+		toggle_reserves_panel()
+		get_viewport().set_input_as_handled()
+		return
+
+	# Off-board reserves tray (rebindable: toggle_reserves_tray, unbound by default)
+	if event is InputEventKey and event.pressed and KeybindingManager.matches_action(event, "toggle_reserves_tray"):
+		toggle_reserves_tray()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -13615,6 +13640,83 @@ func _toggle_visual_style() -> void:
 		var msg = "STYLE: %s [8]" % new_style.to_upper()
 		ToastManager.show_toast(msg)
 	print("Main: Visual style toggled to %s" % new_style)
+
+
+# ============================================================================
+# Reserves UI (three tiers — see scripts/ReservesData.gd for the shared model)
+#   1. ReservesBadge — always-on counts in the top bar.
+#   2. ReservesTray  — off-board "second table" rails flanking the board.
+#   3. ReservesPanel — full detail overlay, and the arrival launcher.
+# Before this, a unit in Reserves was visible only in the active player's
+# Movement-phase unit list; the opponent's reserves were not shown anywhere.
+# ============================================================================
+# Loaded by path, not by global class name. A freshly-added class_name is not
+# in the running process's global class list until the project is re-imported,
+# and Main.gd is re-parsed on every change_scene into Main.tscn — resolving
+# these by name made the whole scene fail to load from a clean checkout.
+# _install_design_guidelines_overlays() preloads its overlays for the same reason.
+const _ReservesTrayScript = preload("res://scripts/ReservesTray.gd")
+const _ReservesBadgeScript = preload("res://scripts/ReservesBadge.gd")
+const _ReservesPanelScript = preload("res://scripts/ReservesPanel.gd")
+
+var _reserves_panel = null
+
+func _setup_reserves_ui() -> void:
+	var tray = _ReservesTrayScript.new()
+	add_child(tray)
+	tray.z_index = UI_PANEL_Z
+
+	var hud_container = get_node_or_null("HUD_Bottom/HBoxContainer")
+	if hud_container != null and not hud_container.has_node("ReservesBadge"):
+		var badge = _ReservesBadgeScript.new()
+		hud_container.add_child(badge)
+		# Sit next to the other top-bar toggles rather than at the far end.
+		var roster_btn = hud_container.get_node_or_null("RosterToggle")
+		if roster_btn != null:
+			hud_container.move_child(badge, roster_btn.get_index() + 1)
+		badge.badge_pressed.connect(toggle_reserves_panel)
+		badge.tray_toggle_requested.connect(toggle_reserves_tray)
+
+	print("Main: Reserves UI installed (badge + tray + panel)")
+
+
+func toggle_reserves_tray() -> void:
+	var tray = get_node_or_null("ReservesTray")
+	if tray != null and tray.has_method("toggle_visible"):
+		tray.toggle_visible()
+		ToastManager.show_toast("Off-board reserves tray %s" % ("shown" if tray.enabled else "hidden"))
+
+
+func toggle_reserves_panel() -> void:
+	if _reserves_panel and is_instance_valid(_reserves_panel):
+		_reserves_panel.queue_free()
+		_reserves_panel = null
+		return
+
+	_reserves_panel = _ReservesPanelScript.new()
+	add_child(_reserves_panel)
+	_reserves_panel.z_index = UI_OVERLAY_Z
+	_reserves_panel.panel_closed.connect(_on_reserves_panel_closed)
+	print("Main: Reserves panel opened")
+
+
+func _on_reserves_panel_closed() -> void:
+	_reserves_panel = null
+
+
+# Force the reserves tiers to re-read GameState. They already refresh off
+# PhaseManager's phase/action/round signals, but placement flips a unit's
+# status directly via apply_state_changes (IN_RESERVES → DEPLOYING and back
+# on cancel), which is not an action and so emits nothing.
+func refresh_reserves_ui() -> void:
+	var tray = get_node_or_null("ReservesTray")
+	if tray != null and tray.has_method("refresh"):
+		tray.refresh()
+	var badge = get_node_or_null("HUD_Bottom/HBoxContainer/ReservesBadge")
+	if badge != null and badge.has_method("refresh"):
+		badge.refresh()
+	if _reserves_panel and is_instance_valid(_reserves_panel):
+		_reserves_panel.refresh()
 
 
 var _army_panel: ArmyPanel = null

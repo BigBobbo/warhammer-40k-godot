@@ -1,6 +1,7 @@
 extends Node
 
 const GameStateData = preload("res://autoloads/GameState.gd")
+const ReservesDataScript = preload("res://scripts/ReservesData.gd")
 
 # GameEventLog - Converts raw game actions into human-readable log entries
 # Listens to PhaseManager signals and maintains a persistent log across all phases
@@ -282,7 +283,16 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 		"PLACE_REINFORCEMENT", "SCOUT_RESERVES_DEPLOY":
 			if ai_desc != "":
 				return prefix + ai_desc
-			return prefix + "%s arrived from Reserves (Deep Strike)%s" % [unit_name, _model_suffix(unit_id)]
+			# This used to hardcode "(Deep Strike)" for every arrival, so a
+			# Strategic Reserves unit that had just been placed within 6" of a
+			# board edge was logged as a Deep Strike. Report the rule the
+			# placement actually used — the action carries the override the
+			# player chose, otherwise fall back to the unit's own reserve type.
+			var placement_type = action.get("placement_type", "")
+			if placement_type == null or str(placement_type) == "":
+				placement_type = ReservesDataScript.resolve_reserve_type(unit_id, GameState.get_unit(unit_id))
+			return prefix + "%s arrived from Reserves (%s)%s" % [
+				unit_name, ReservesDataScript.type_label(str(placement_type)), _model_suffix(unit_id)]
 		"PLACE_RAPID_INGRESS_REINFORCEMENT":
 			if ai_desc != "":
 				return prefix + ai_desc
