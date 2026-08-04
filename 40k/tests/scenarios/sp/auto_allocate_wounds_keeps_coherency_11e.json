@@ -1,0 +1,86 @@
+{
+  "id": "auto_allocate_wounds_keeps_coherency_11e",
+  "covers": [
+    "scripts.rules.CasualtyPreference.coherency_first",
+    "scripts.rules.CasualtyPreference.attached_character_context",
+    "scripts.rules.AttackSequence.attached_coherency_offenders",
+    "scripts.AllocationGroupOverlay.auto_mode",
+    "scripts.FightController.melee_wound_allocation",
+    "settings.auto_allocate_wounds"
+  ],
+  "fixture": "attached_pile_in_step",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Fight phase, 'Computer allocates wounds' ON: the auto casualty picker must not hand the survivors an out-of-coherency formation, and it must count the attached CHARACTER as part of the unit (19.03) while deciding. The Custodian Guard is strung into two islands bridged ONLY by the Blade Champion (m1 m2 [Champion] m3, 2.5\" centres); the Ork is parked under m2, so m2 is the cheapest model by proximity/charge-denial score — but killing m2 strands m1 for real, and 03.03 would destroy m1 at End of Turn as well. The scenario pins the counterfactual live (killing m1 = 0 offenders, killing m2 = 1), then drives the real melee save path (FightController._on_melee_saves_required -> AllocationGroupOverlay auto mode) with one auto-failing 3-damage wound and asserts the computer removed m1, not m2, leaving the whole Attached unit coherent.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "var gs = tree.root.get_node(\"GameState\")\nvar guard = gs.state[\"units\"][\"U_CUSTODIAN_GUARD_B\"]\nguard[\"models\"][0][\"position\"] = Vector2(460, 660)\nguard[\"models\"][1][\"position\"] = Vector2(560, 660)\nguard[\"models\"][2][\"position\"] = Vector2(760, 660)\ngs.state[\"units\"][\"U_BLADE_CHAMPION_A\"][\"models\"][0][\"position\"] = Vector2(660, 660)\ngs.state[\"units\"][\"U_ENEMY_BOYZ_X\"][\"models\"][0][\"position\"] = Vector2(560, 900)\ntree.root.get_node(\"SettingsService\").set_auto_allocate_wounds(true)\nvar refs = tree.root.get_node_or_null(\"SceneRefs\")\nvar m = refs.main() if refs != null else null\nif m != null and m.has_method(\"refresh_all_model_visuals\"):\n\tm.refresh_all_model_visuals()\nreturn true",
+      "equals": true },
+    { "act": "wait_for_tweens", "timeout_s": 5.0 },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"SceneRefs\").main()\nvar vp = m.get_viewport().get_visible_rect().size\nm.view_zoom = 2.0\nm.view_offset = Vector2(610, 730) - vp / (2.0 * m.view_zoom)\nm.camera.position = Vector2(610, 730)\nm.camera.zoom = Vector2(2.0, 2.0)\nm.update_view_transform()\nreturn true",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "SettingsService.auto_allocate_wounds",
+      "equals": true },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "var units = tree.root.get_node(\"GameState\").state[\"units\"]\nreturn AttackSequence.check_attached_unit_coherency(\"U_CUSTODIAN_GUARD_B\", units).coherent",
+      "equals": true },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "var units = tree.root.get_node(\"GameState\").state[\"units\"]\nvar models = units[\"U_CUSTODIAN_GUARD_B\"][\"models\"]\nvar out = []\nfor i in [0, 1]:\n\tmodels[i][\"alive\"] = false\n\tout.append(AttackSequence.check_attached_unit_coherency(\"U_CUSTODIAN_GUARD_B\", units).offenders.size())\n\tmodels[i][\"alive\"] = true\nreturn \"kill_m1=%d kill_m2=%d\" % [out[0], out[1]]",
+      "equals": "kill_m1=0 kill_m2=1" },
+
+    { "act": "screenshot", "label": "01_two_islands_bridged_by_the_champion" },
+
+    { "act": "execute_script",
+      "script": "main.fight_controller._on_melee_saves_required([RulesEngine.prepare_save_resolution(1, \"U_CUSTODIAN_GUARD_B\", \"U_ENEMY_BOYZ_X\", {\"name\": \"Coherency Test Choppa\", \"ap\": -10, \"damage\": 3, \"damage_raw\": \"3\", \"keywords\": [], \"special_rules\": \"\"}, GameState.state)])" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script",
+      "script": "is_instance_valid(main.fight_controller.active_melee_allocation_overlay)",
+      "equals": true },
+    { "act": "screenshot", "label": "02_overlay_auto_allocating" },
+
+    { "act": "wait_seconds", "seconds": 6.0 },
+    { "act": "wait_for_tweens", "timeout_s": 5.0 },
+
+    { "act": "execute_script",
+      "script": "RulesEngine.count_alive_models(GameState.get_unit(\"U_CUSTODIAN_GUARD_B\"))",
+      "equals": 2 },
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[0].alive",
+      "equals": false },
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[1].alive",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[2].alive",
+      "equals": true },
+    { "act": "execute_script",
+      "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].alive",
+      "equals": true },
+
+    { "act": "execute_script",
+      "multiline": true,
+      "script": "var units = tree.root.get_node(\"GameState\").state[\"units\"]\nvar coh = AttackSequence.check_attached_unit_coherency(\"U_CUSTODIAN_GUARD_B\", units)\nreturn \"coherent=%s offenders=%d\" % [str(coh.coherent), coh.offenders.size()]",
+      "equals": "coherent=true offenders=0" },
+
+    { "act": "screenshot", "label": "03_survivors_still_in_coherency" },
+
+    { "act": "execute_script",
+      "script": "SettingsService.set_auto_allocate_wounds(false)" }
+  ]
+}
