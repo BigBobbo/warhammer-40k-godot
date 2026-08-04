@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.23.0",
+      "date": "2026-08-04",
+      "summary": "Reactive stratagem popups (Leap to Defend, Fire Overwatch, Counter-Offensive, Rapid Ingress) no longer time you out, and you can now look at the board before deciding.",
+      "changes": [
+        "Fixed (reported): the 'Heroic Intervention — Leap to Defend?' popup at the end of your opponent's charge phase declined itself after 5 seconds. If you reached for the camera to see where the chargers ended up, the window vanished and the stratagem was gone. That countdown is removed — the window now waits for you, and nothing is ever declined on your behalf. Same for Fire Overwatch and Counter-Offensive.",
+        "New: an 'Examine Board' toggle on those popups. Switch it on and the window steps aside, the board un-dims, and you can pan and zoom the whole battlefield. A 'Back to the decision' bar stays on screen the entire time — click it (or press Escape) and the popup comes straight back with nothing decided.",
+        "The mouse wheel now zooms the board while a reactive popup is open, instead of doing nothing.",
+        "Rapid Ingress keeps its 10-second timer, but the timer pauses while you are examining the board.",
+        "Board clicks stay blocked while a decision is pending, so looking around can never accidentally move a model or end a phase."
+      ]
+    },
+    {
       "version": "1.22.1",
       "date": "2026-08-03",
       "summary": "Browser fix: the game log was quietly eating ~90 MB of memory, which is what got long Safari/itch.io sessions reloaded for 'using significant memory'.",

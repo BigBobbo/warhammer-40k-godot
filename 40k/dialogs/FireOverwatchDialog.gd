@@ -20,11 +20,12 @@ var player: int = 0
 var target_unit_id: String = ""  # The enemy unit that just moved/charged
 var eligible_units: Array = []  # Array of { unit_id: String, unit_name: String }
 
-# MA-42: Auto-decline timer
-const AUTO_DECLINE_SECONDS: float = 5.0
-var _countdown_timer: Timer = null
+# DEFENDER CONTROL (2026-08-04): the 5-second MA-42 auto-decline countdown is
+# gone. Choosing which unit fires Overwatch means checking what is in range of
+# the enemy that just moved — a board question — and five seconds punished the
+# player for looking. The window now waits; see ReactiveDecisionUI.
 var _countdown_label: Label = null
-var _time_remaining: float = AUTO_DECLINE_SECONDS
+var _resolved: bool = false
 
 func setup(p_player: int, p_target_unit_id: String, p_eligible_units: Array) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
@@ -36,6 +37,16 @@ func setup(p_player: int, p_target_unit_id: String, p_eligible_units: Array) -> 
 
 	# Disable default OK button - we use custom buttons
 	get_ok_button().visible = false
+
+	# Non-exclusive on purpose: "exclusive" is the engine's nothing-else-may-see-
+	# this-input mode, and the wheel-to-camera forwarding in _input() below is
+	# verified against this non-exclusive configuration (2026-08-04, live). The
+	# board is still un-clickable while the window is open — Main's full-screen
+	# reactive overlay swallows every board/HUD click regardless.
+	exclusive = false
+	# Escape / window-X = Decline.
+	close_requested.connect(_on_decline_pressed)
+	canceled.connect(_on_decline_pressed)
 
 	_build_ui()
 
@@ -126,11 +137,19 @@ func _build_ui() -> void:
 
 	main_container.add_child(HSeparator.new())
 
+	# "Examine Board" toggle — which of my units can actually see and reach that
+	# enemy is a board question, so let the player look before answering.
+	ReactiveDecisionUI.add_examine_toggle(self, main_container, "Fire Overwatch")
+
+	main_container.add_child(HSeparator.new())
+
 	# Decline button
 	var button_container = HBoxContainer.new()
+	button_container.name = "Buttons"
 	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
 
 	var decline_button = Button.new()
+	decline_button.name = "DeclineButton"
 	decline_button.text = "Decline"
 	decline_button.custom_minimum_size = Vector2(200, 40)
 	decline_button.pressed.connect(_on_decline_pressed)
@@ -138,40 +157,23 @@ func _build_ui() -> void:
 
 	main_container.add_child(button_container)
 
-	# MA-42: Countdown timer display
-	_countdown_label = Label.new()
-	_countdown_label.text = "Auto-declining in %d seconds..." % int(AUTO_DECLINE_SECONDS)
-	_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_countdown_label.add_theme_font_size_override("font_size", 17)
-	_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	# Replaces the old auto-decline countdown.
+	_countdown_label = ReactiveDecisionUI.window_hint_label(
+		"Take your time — this window waits for you and nothing is declined automatically.")
 	main_container.add_child(_countdown_label)
 
 	add_child(main_container)
 
-	# MA-42: Start auto-decline timer
-	_countdown_timer = Timer.new()
-	_countdown_timer.wait_time = 1.0
-	_countdown_timer.timeout.connect(_on_countdown_tick)
-	add_child(_countdown_timer)
-	_time_remaining = AUTO_DECLINE_SECONDS
-	_countdown_timer.start()
-
-func _on_countdown_tick() -> void:
-	_time_remaining -= 1.0
-	if _time_remaining <= 0:
-		_countdown_timer.stop()
-		print("FireOverwatchDialog: Auto-declining after %d seconds" % int(AUTO_DECLINE_SECONDS))
-		_on_decline_pressed()
-		return
-	if is_instance_valid(_countdown_label):
-		_countdown_label.text = "Auto-declining in %d seconds..." % int(_time_remaining)
-		# Color-code: red when low
-		if _time_remaining <= 2:
-			_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+func _input(event: InputEvent) -> void:
+	# Wheel notches over the board behind this window zoom the camera instead of
+	# dying on the sub-window — see ReactiveDecisionUI.forward_camera_wheel.
+	ReactiveDecisionUI.forward_camera_wheel(self, event)
 
 func _on_use_pressed(shooter_unit_id: String) -> void:
-	if _countdown_timer:
-		_countdown_timer.stop()
+	if _resolved:
+		return
+	_resolved = true
+	ReactiveDecisionUI.stop_examining(self)
 	var unit_name = ""
 	for unit_info in eligible_units:
 		if unit_info.unit_id == shooter_unit_id:
@@ -183,8 +185,11 @@ func _on_use_pressed(shooter_unit_id: String) -> void:
 	queue_free()
 
 func _on_decline_pressed() -> void:
-	if _countdown_timer:
-		_countdown_timer.stop()
+	# close_requested and canceled both land here (Escape / window-X).
+	if _resolved:
+		return
+	_resolved = true
+	ReactiveDecisionUI.stop_examining(self)
 	print("FireOverwatchDialog: Player %d declines FIRE OVERWATCH" % player)
 	emit_signal("fire_overwatch_declined", player)
 	hide()

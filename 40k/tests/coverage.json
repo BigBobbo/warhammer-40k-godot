@@ -9119,6 +9119,42 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "dialogs.HeroicInterventionDialog.no_auto_decline",
+      "description": "DEFENDER CONTROL: the end-of-charge-phase Heroic Intervention window has no auto-decline countdown — it stays open indefinitely (verified still open 8s after opening, longer than the old 5s MA-42 timer) so reaching for the camera can never silently decline the stratagem.",
+      "scenarios": [
+        "hi_examine_board_no_autodecline_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.HeroicInterventionDialog.examine_board_toggle",
+      "description": "The HI window's 'Examine Board' toggle hides the dialog, un-dims the MA-42 blocking overlay and raises a 'Back to the decision' bar; returning restores the dialog with the stratagem still selectable.",
+      "scenarios": [
+        "hi_examine_board_no_autodecline_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.ReactiveDecisionUI.board_examine",
+      "description": "Shared board-examine affordance for reactive decision windows (Heroic Intervention, Fire Overwatch, Counter-Offensive, Rapid Ingress): toggle on/off, HUD return bar, and wheel forwarding out of the focused sub-window.",
+      "scenarios": [
+        "hi_examine_board_no_autodecline_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.Main.reactive_overlay_camera_passthrough",
+      "description": "The MA-42 blocking overlay forwards camera-only gestures (wheel zoom, drag-pan while examining) to the view while still swallowing board clicks; Main.zoom_camera_notch is the shared entry point a focused dialog sub-window uses to hand the wheel back to the board.",
+      "scenarios": [
+        "hi_examine_board_no_autodecline_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
