@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.23.0",
+      "date": "2026-08-04",
+      "summary": "Deep Strike placement now stops on the 9\" line instead of being rejected: aim a little too close and the model is held as near the enemy as the rules allow.",
+      "changes": [
+        "Fixed (reported): placing a unit arriving from Deep Strike or Reserves as close to the enemy as possible meant landing the cursor exactly on an invisible 9\" line — fiddly with a mouse and effectively impossible with a controller thumbstick. Aim inside the exclusion zone now and the model is pushed back out and held on the boundary, rather than turning red and refusing the drop.",
+        "This is the mirror image of the existing movement behaviour that stops a model being dragged past its maximum move: there the model can never go too far, here it can never come too close.",
+        "While the model is being held, a dashed amber line runs from it back to your cursor with a 'held at 9\"' note, so it is obvious the model is being kept out rather than stuck.",
+        "Works the same for Strategic Reserves, Rapid Ingress, Infiltrators deployment and the 12\" Omni-scramblers stand-off, for single models and for whole Spread/Tight formation blocks (the whole block slides out together, keeping its shape).",
+        "Always on when playing with a controller. On mouse and keyboard it can be switched off in Settings > Controls (\"Hold Deep Strike placement outside the 9\\\" exclusion zone\") if you would rather place to the exact inch yourself.",
+        "Fixed: while placing a Deep Strike / Reserves unit, picking an already-placed model back up (Shift+click, or L3 on a controller) to nudge it only allowed dropping it back inside your own deployment zone. It is now judged by the same reinforcement rules the original drop was."
+      ]
+    },
+    {
       "version": "1.22.4",
       "date": "2026-08-04",
       "summary": "The Pile In and Consolidate steps now clearly show a list of units you can pick, instead of unit names that read like more instruction text.",

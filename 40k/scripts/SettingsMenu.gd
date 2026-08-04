@@ -29,6 +29,7 @@ var _animation_speed_label: Label
 var _menu_scroll_speed_slider: HSlider
 var _menu_scroll_speed_label: Label
 var _drag_clamp_checkbox: CheckBox
+var _placement_clamp_checkbox: CheckBox
 var _colorblind_dropdown: OptionButton
 var _board_style_dropdown: OptionButton
 var _ruins_style_dropdown: OptionButton
@@ -410,6 +411,18 @@ func _build_controls_tab(parent: VBoxContainer) -> void:
 	drag_clamp_help.add_theme_font_size_override("font_size", 16)
 	drag_clamp_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	parent.add_child(drag_clamp_help)
+
+	# The same idea pointed the other way, for reserves arriving from off-table:
+	# without it, dropping a model at exactly 9" from the enemy means finding an
+	# invisible line with the cursor.
+	_placement_clamp_checkbox = _add_checkbox_row(parent, "Hold Deep Strike placement outside the 9\" exclusion zone", "_on_placement_clamp_toggled")
+	var placement_clamp_help = Label.new()
+	placement_clamp_help.text = "On: aiming a Deep Strike / Reserves / Infiltrators drop inside the 9\" enemy exclusion zone parks the model on the boundary — as close to the enemy as the rules allow — with a dashed line back to your cursor. Off: the ghost follows the cursor into the zone, turns red, and the drop is rejected. Controller placement is always clamped."
+	placement_clamp_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	placement_clamp_help.custom_minimum_size = Vector2(620, 0)
+	placement_clamp_help.add_theme_font_size_override("font_size", 16)
+	placement_clamp_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	parent.add_child(placement_clamp_help)
 
 	# Menu scroll speed — how fast the wheel / trackpad scrolls menus and panels
 	# (a fraction of Godot's default). Lower = slower.
@@ -957,6 +970,8 @@ func _load_current_settings() -> void:
 		_update_scroll_speed_label(_menu_scroll_speed_label, SettingsService.menu_scroll_speed)
 	if _drag_clamp_checkbox:
 		_drag_clamp_checkbox.button_pressed = SettingsService.drag_clamp_to_max_range
+	if _placement_clamp_checkbox:
+		_placement_clamp_checkbox.button_pressed = SettingsService.placement_clamp_to_exclusion
 	if _input_mode_dropdown:
 		var policy_index := INPUT_MODE_POLICIES.find(str(SettingsService.input_mode_policy))
 		# A run whose policy came from --input-mode= (or the harness pin) can be
@@ -1071,6 +1086,11 @@ func _on_drag_clamp_toggled(pressed: bool) -> void:
 	# MovementController re-reads this on every drag motion event, so the change
 	# applies to the very next drag — no reload, no re-select.
 	SettingsService.set_drag_clamp_to_max_range(pressed)
+
+func _on_placement_clamp_toggled(pressed: bool) -> void:
+	# DeploymentController re-reads this every frame it updates the placement
+	# ghost, so the change applies to the placement already in progress.
+	SettingsService.set_placement_clamp_to_exclusion(pressed)
 
 func _on_controller_text_boost_toggled(pressed: bool) -> void:
 	SettingsService.set_controller_text_boost(pressed)
