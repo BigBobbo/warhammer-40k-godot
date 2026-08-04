@@ -282,11 +282,17 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 		"PLACE_REINFORCEMENT", "SCOUT_RESERVES_DEPLOY":
 			if ai_desc != "":
 				return prefix + ai_desc
-			return prefix + "%s arrived from Reserves (Deep Strike)%s" % [unit_name, _model_suffix(unit_id)]
+			# 24.10: an Attached unit arrives as ONE unit, so name its leader(s)
+			# and count their models too. Reporting the bodyguard squad alone
+			# ("Custodian Guard ... (3 models)") read as if the leader never
+			# arrived, which is exactly what the leader-placement bug looked like.
+			return prefix + "%s arrived from Reserves (Deep Strike)%s" % [
+				_attached_unit_label(unit_id, unit_name), _attached_model_suffix(unit_id)]
 		"PLACE_RAPID_INGRESS_REINFORCEMENT":
 			if ai_desc != "":
 				return prefix + ai_desc
-			return prefix + "%s arrived via Rapid Ingress" % unit_name
+			return prefix + "%s arrived via Rapid Ingress%s" % [
+				_attached_unit_label(unit_id, unit_name), _attached_model_suffix(unit_id)]
 		"DECLARE_RESERVES", "PLACE_IN_RESERVES", "SEND_TO_STRATEGIC_RESERVES":
 			if ai_desc != "":
 				return prefix + ai_desc
@@ -405,6 +411,32 @@ func _get_alive_model_count(unit_id: String) -> int:
 func _model_suffix(unit_id: String) -> String:
 	"""' (N models)' suffix, or '' when the count is unknown/singular-agnostic."""
 	var n = _get_alive_model_count(unit_id)
+	if n <= 0:
+		return ""
+	var label = "model" if n == 1 else "models"
+	return " (%d %s)" % [n, label]
+
+func _get_attached_character_ids(unit_id: String) -> Array:
+	"""CHARACTERs currently leading `unit_id` (empty for a plain unit)."""
+	if unit_id == "":
+		return []
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	return unit.get("attachment_data", {}).get("attached_characters", [])
+
+func _attached_unit_label(unit_id: String, unit_name: String) -> String:
+	"""'Custodian Guard + Blade Champion' for an Attached unit, plain name otherwise."""
+	var names := []
+	for char_id in _get_attached_character_ids(unit_id):
+		names.append(_get_unit_name(str(char_id)))
+	if names.is_empty():
+		return unit_name
+	return "%s + %s" % [unit_name, ", ".join(names)]
+
+func _attached_model_suffix(unit_id: String) -> String:
+	"""' (N models)' counting the WHOLE Attached unit — bodyguard plus leaders."""
+	var n = _get_alive_model_count(unit_id)
+	for char_id in _get_attached_character_ids(unit_id):
+		n += _get_alive_model_count(str(char_id))
 	if n <= 0:
 		return ""
 	var label = "model" if n == 1 else "models"
