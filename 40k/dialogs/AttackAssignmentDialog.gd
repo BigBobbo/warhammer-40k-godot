@@ -32,6 +32,29 @@ var assignments: Array = []
 var weapon_list: ItemList = null
 var target_list: ItemList = null
 var assignments_display: RichTextLabel = null
+
+# ── resolution order (11e 04.03 / 05.04) ────────────────────────────────────
+# A unit's weapons resolve ONE PROFILE AT A TIME, in the order the ATTACKER
+# picks: "select one weapon targeting that unit that has not yet been used to
+# make attacks" (04.03). Because damage never carries between models and 05.04
+# forces each hit onto an already-wounded model where possible, whether the
+# power klaw swings before or after the choppas decides how much of its damage
+# lands instead of being soaked by an almost-dead model.
+#
+# The engine already honours the order — FightPhase._staged_fight_* walks
+# `confirmed_attacks` front-to-back ("Weapon %d of %d") and
+# RulesEngine.resolve_melee_attacks loops the same array — but until now the
+# player had no way to SET it: the order fell out of the loadout-section build
+# order in _rebuild_assignments(). These rows are that lever (the melee twin of
+# the shooting phase's WeaponOrderPanel).
+var _order_scroll: ScrollContainer = null
+var _order_box: VBoxContainer = null
+var _order_keys: Array = []             # "attacker|weapon|target" in the player's chosen order
+var _natural_first_target: String = ""  # first assignment in BUILD order (Extra Attacks fallback)
+const _ORDER_ROW_H: int = 32
+const _ORDER_ROWS_VISIBLE: int = 5
+const _ORDER_TOOLTIP: String = "Weapons resolve top to bottom (11e 04.03). Damage does not carry between models (05.04), so a big-damage profile is wasted if it lands on a model that is already nearly dead — swing it while the target is fresh, and let the chip attacks finish off whatever it wounded."
+
 var extra_attacks_weapons: Array = []  # T3-3: Track Extra Attacks weapons for auto-inclusion
 var extra_attacks_target_list: ItemList = null  # T3-3: Target selector for Extra Attacks weapons
 var all_to_target_button: Button = null  # T5-UX5: "All to Target" shortcut button
@@ -441,14 +464,38 @@ func _build_ui() -> void:
 
 	# Current assignments display
 	var assignments_label = Label.new()
-	assignments_label.text = "Assignments:"
+	assignments_label.text = "Assignments — resolve in this order:"
 	assignments_label.name = "AssignmentsLabel"
+	assignments_label.tooltip_text = _ORDER_TOOLTIP
 	container.add_child(assignments_label)
 
+	var order_hint = Label.new()
+	order_hint.name = "OrderHintLabel"
+	order_hint.text = "▲▼ reorders. Weapons swing top to bottom — put the big-damage profile first while the target is fresh."
+	order_hint.tooltip_text = _ORDER_TOOLTIP
+	order_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	order_hint.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, 0)
+	order_hint.add_theme_font_size_override("font_size", 13)
+	order_hint.modulate = Color(1, 1, 1, 0.7)
+	container.add_child(order_hint)
+
+	# Bounded, like the breakdown table below: a split mob can plan five or six
+	# weapon lines and letting them grow the dialog freely pushes "Fight!" off
+	# the bottom of the screen.
+	_order_scroll = ScrollContainer.new()
+	_order_scroll.name = "AssignmentOrderScroll"
+	_order_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_order_box = VBoxContainer.new()
+	_order_box.name = "AssignmentOrderBox"
+	_order_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_order_scroll.add_child(_order_box)
+	container.add_child(_order_scroll)
+
 	assignments_display = RichTextLabel.new()
-	# Tall enough for the plan lines PLUS the total and its overkill note — at 70
-	# the warning that a target is being over-committed sat below the fold, which
-	# is exactly the reader who needs it.
+	# The plan lines themselves now live in the reorderable rows above, so this
+	# label carries the Extra Attacks preview, the total, and the overkill note.
+	# Still 116: the over-commitment warning wraps to two or three lines, and at
+	# 70 it sat below the fold — which is exactly the reader who needs it.
 	assignments_display.custom_minimum_size = Vector2(480, 116)
 	assignments_display.name = "AssignmentsDisplay"
 	assignments_display.bbcode_enabled = true
@@ -1265,11 +1312,152 @@ func _rebuild_assignments() -> void:
 					merged[key] = entry
 					assignments.append(entry)
 
+	# Extra Attacks fall back to "whatever the first line is aiming at", and that
+	# must stay the BUILD order — reordering which weapon swings first is not a
+	# licence to silently repoint the attack squig.
+	_natural_first_target = str(assignments[0].get("target", "")) if not assignments.is_empty() else ""
+
+	# Every weapon/target/split edit rebuilds this array from the sections, so a
+	# resolution order the player set by hand has to be re-applied on top.
+	_apply_saved_order()
+
 	for a in assignments:
 		print("[AttackAssignmentDialog] Assignment: %s swings %s → %s (%d model(s): %s)" % [
 			a.attacker, a.weapon, a.target, a.models.size(), str(a.models)])
 	print("[AttackAssignmentDialog] Total assignments: ", assignments.size())
 	_update_assignments_display()
+
+
+# ── resolution order helpers (11e 04.03) ────────────────────────────────────
+
+static func _assignment_key(a: Dictionary) -> String:
+	return "%s|%s|%s" % [a.get("attacker", ""), a.get("weapon", ""), a.get("target", "")]
+
+
+# Re-apply the player's chosen order to a freshly rebuilt assignment array.
+# A line the player has never ordered — they just split a section, or switched
+# its weapon — inherits the rank of the line before it in BUILD order, so it
+# lands beside its section-mates instead of being exiled to the bottom.
+# sort_custom is not stable in Godot, hence the explicit build-index tiebreak.
+func _apply_saved_order() -> void:
+	if _order_keys.is_empty() or assignments.size() < 2:
+		_remember_order()
+		return
+	var ranked: Array = []
+	var last_rank: float = -1.0
+	for i in range(assignments.size()):
+		var known: int = _order_keys.find(_assignment_key(assignments[i]))
+		var rank: float
+		if known >= 0:
+			rank = float(known)
+			last_rank = rank
+		else:
+			rank = last_rank + 0.5
+		ranked.append({"rank": rank, "build": i, "assignment": assignments[i]})
+	ranked.sort_custom(func(x, y):
+		return x.rank < y.rank if x.rank != y.rank else x.build < y.build)
+	var ordered: Array = []
+	for entry in ranked:
+		ordered.append(entry.assignment)
+	assignments = ordered
+	_remember_order()
+
+
+func _remember_order() -> void:
+	_order_keys = []
+	for a in assignments:
+		_order_keys.append(_assignment_key(a))
+
+
+func _on_order_move(index: int, dir: int) -> void:
+	var dest: int = index + dir
+	if index < 0 or index >= assignments.size() or dest < 0 or dest >= assignments.size():
+		return
+	var moved: Dictionary = assignments[index]
+	assignments[index] = assignments[dest]
+	assignments[dest] = moved
+	_remember_order()
+	print("[AttackAssignmentDialog] Resolution order: %s → %s now resolves %s (position %d of %d)" % [
+		str(moved.get("weapon", "?")), str(moved.get("target", "?")),
+		"earlier" if dir < 0 else "later", dest + 1, assignments.size()])
+	_update_assignments_display()
+	# Keep focus travelling with the line that moved, so holding ▲ walks a
+	# weapon up the list instead of losing focus on every rebuild.
+	var landed = _order_box.get_node_or_null("OrderRow%d/%s" % [dest, "MoveUp" if dir < 0 else "MoveDown"])
+	if landed != null and not landed.disabled:
+		landed.grab_focus()
+
+
+# Rebuild the ordered assignment rows. Returns the summed expected damage so
+# the caller does not have to re-run the (not free) per-line estimate.
+func _rebuild_order_rows() -> Dictionary:
+	var walk := {"expected": 0.0, "effective": 0.0, "committed": {}, "pools": {}}
+	if _order_box == null:
+		return walk
+	for child in _order_box.get_children():
+		_order_box.remove_child(child)
+		child.queue_free()
+
+	var committed: Dictionary = walk.committed  # target_id -> uncapped damage pledged
+	var pools: Dictionary = walk.pools          # target_id -> wounds the defender has left
+	for i in range(assignments.size()):
+		var a: Dictionary = assignments[i]
+		var swinging: int = (a.get("models", []) as Array).size()
+		var bd: Dictionary = _damage_breakdown(str(a.get("weapon", "")), str(a.get("target", "")),
+			swinging, str(a.get("attacker", "")))
+		var ed: float = float(bd.get("expected_damage", 0.0))
+		walk.expected += ed
+		# Book this line against its target's wound pool IN RESOLUTION ORDER, so
+		# the row the player put first gets credit for the wounds it removes and
+		# whatever is piled on behind it is reported as waste. Reordering the
+		# rows therefore moves the "thrown away" damage between lines, which is
+		# the whole reason the order is worth choosing.
+		var lands: float = _commit_effective(bd, str(a.get("target", "")), committed, pools)
+		walk.effective += lands
+
+		var row := HBoxContainer.new()
+		row.name = "OrderRow%d" % i
+
+		var up := Button.new()
+		up.name = "MoveUp"
+		up.text = "▲"
+		up.disabled = i == 0
+		up.tooltip_text = _ORDER_TOOLTIP
+		up.pressed.connect(_on_order_move.bind(i, -1))
+		row.add_child(up)
+
+		var down := Button.new()
+		down.name = "MoveDown"
+		down.text = "▼"
+		down.disabled = i == assignments.size() - 1
+		down.tooltip_text = _ORDER_TOOLTIP
+		down.pressed.connect(_on_order_move.bind(i, 1))
+		row.add_child(down)
+
+		var label := Label.new()
+		label.name = "Label"
+		var w: Dictionary = _weapon_by_id.get(str(a.get("weapon", "")), {})
+		label.text = "%d. %s → %s (%d model%s)  E[D]≈%.1f%s" % [
+			i + 1, w.get("name", a.get("weapon", "")), _target_name(str(a.get("target", ""))),
+			swinging, "" if swinging == 1 else "s", ed, _lands_suffix(ed, lands)]
+		label.tooltip_text = _ORDER_TOOLTIP
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(label)
+
+		_order_box.add_child(row)
+
+	if _order_scroll != null:
+		# Measure rather than assume: the Steam Deck legibility pass grew the
+		# fonts, and a hardcoded row height clipped the last line mid-glyph.
+		var wanted: float = _order_box.get_combined_minimum_size().y
+		var row_h: float = wanted / float(maxi(assignments.size(), 1))
+		if row_h < float(_ORDER_ROW_H):
+			row_h = float(_ORDER_ROW_H)
+			wanted = row_h * float(maxi(assignments.size(), 1))
+		_order_scroll.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40,
+			minf(wanted, row_h * float(_ORDER_ROWS_VISIBLE)) + 4.0)
+	return walk
 
 
 # Push the group plans back onto their widgets (list selection, spin counts,
@@ -1789,31 +1977,22 @@ func _update_assignments_display() -> void:
 	if not assignments_display:
 		return
 
+	# Each line is one weapon and the models that actually swing it, so name the
+	# count — "Power klaw (1 model)" next to "Choppa (9 models)" is the whole
+	# point of the plan. The lines themselves now live in the reorderable rows
+	# above (11e 04.03), which hand back the summed expected damage.
 	assignments_display.clear()
-	var total_expected_damage: float = 0.0
-	# Damage this plan has already pledged to each target, walked in plan order.
-	# A defender only has so many wounds and damage never spills onto another
-	# unit, so every point past that is thrown away — which is exactly what the
-	# reported "maximum damage" plan was doing without saying so.
-	var committed: Dictionary = {}   # target_id -> uncapped effective damage pledged
-	var pools: Dictionary = {}       # target_id -> wounds the defender has left
-	var total_effective: float = 0.0
-
-	for assignment in assignments:
-		# Each line is one weapon and the models that actually swing it, so name
-		# the count — "Power klaw (1 model)" next to "Choppa (9 models)" is the
-		# whole point of the plan.
-		var swinging: int = (assignment.get("models", []) as Array).size()
-		var bd: Dictionary = _damage_breakdown(str(assignment.weapon), str(assignment.target), swinging,
-			str(assignment.get("attacker", "")))
-		var ed: float = float(bd.get("expected_damage", 0.0))
-		total_expected_damage += ed
-		var lands: float = _commit_effective(bd, str(assignment.target), committed, pools)
-		total_effective += lands
-		var w: Dictionary = _weapon_by_id.get(str(assignment.weapon), {})
-		assignments_display.append_text("- %s → %s (%d model%s) [E[D]≈%.1f%s]\n" % [
-			w.get("name", assignment.weapon), _target_name(str(assignment.target)),
-			swinging, "" if swinging == 1 else "s", ed, _lands_suffix(ed, lands)])
+	# The per-line walk lives in _rebuild_order_rows() now: it renders one
+	# reorderable row per weapon AND books each line's damage against its
+	# target's wound pool, in the player's chosen resolution order. Those two
+	# belong together — the overkill accounting is plan-order dependent (the
+	# FIRST section aimed at a nearly-dead unit gets credit for finishing it),
+	# and plan order is exactly what the ▲▼ buttons now control.
+	var walk: Dictionary = _rebuild_order_rows()
+	var total_expected_damage: float = float(walk.get("expected", 0.0))
+	var total_effective: float = float(walk.get("effective", 0.0))
+	var committed: Dictionary = walk.get("committed", {})  # target_id -> uncapped damage pledged
+	var pools: Dictionary = walk.get("pools", {})          # target_id -> wounds the defender has left
 
 	# T3-3: Show Extra Attacks auto-assignments preview
 	if not extra_attacks_weapons.is_empty():
@@ -1829,7 +2008,7 @@ func _update_assignments_display() -> void:
 			total_expected_damage += ed
 			var lands: float = _commit_effective(ea_bd, str(ea_target_id), committed, pools)
 			total_effective += lands
-			assignments_display.append_text("- %s → %s (%d model%s) [Extra Attacks, E[D]≈%.1f%s]\n" % [
+			assignments_display.append_text("- %s → %s (%d model%s) [Extra Attacks — resolves last, E[D]≈%.1f%s]\n" % [
 				weapon_name, _target_name(str(ea_target_id)), ea_carriers.size(),
 				"" if ea_carriers.size() == 1 else "s", ed, _lands_suffix(ed, lands)])
 
@@ -2564,7 +2743,11 @@ func _get_extra_attacks_target_id() -> String:
 	if eligible_targets.size() == 1:
 		return eligible_targets.keys()[0]
 
-	# Fall back to the first assignment's target (most common case)
+	# Fall back to the first assignment's target (most common case) — in BUILD
+	# order, not the player's resolution order: reordering which weapon swings
+	# first must not silently repoint the Extra Attacks weapons at someone else.
+	if _natural_first_target != "":
+		return _natural_first_target
 	if not assignments.is_empty():
 		return assignments[0].get("target", eligible_targets.keys()[0])
 

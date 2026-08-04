@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.25.0",
+      "date": "2026-08-04",
+      "summary": "You can now choose the order your melee weapons swing in — the Assign Attacks dialog lists the plan as reorderable rows.",
+      "changes": [
+        "In the Fight phase a unit's weapons resolve one profile at a time, in the order you pick (11e 04.03). The game already resolved them front to back — 'Weapon 1 of 3', 'Weapon 2 of 3' — but you had no way to set that order: it came out of the order the weapon sections happened to be built in, so an attached character's Power klaw always swung before the mob's choppas.",
+        "The Assign Attacks dialog now shows 'Assignments — resolve in this order' as numbered rows with ▲▼ buttons. Each row names the weapon, its target, how many models swing it and its expected damage, so you can see what you are reordering.",
+        "Why it matters: damage never carries over between models, and a hit has to go on an already-wounded model where possible. Swing your big-damage weapon while the target is fresh and let the chip attacks finish off whatever it wounded — do it the other way round and half of a power klaw's damage disappears into a model that was already nearly dead.",
+        "The order you pick survives editing the plan underneath it: split a section or change its target and your promoted weapon stays where you put it, with any brand-new line landing next to its own section.",
+        "Extra Attacks weapons (an attack squig and the like) are still added automatically and always resolve last; the dialog now says so."
+      ]
+    },
+    {
       "version": "1.24.3",
       "date": "2026-08-04",
       "summary": "Automatic wound allocation now treats unit coherency as the top priority — including the attached character — instead of a tie-breaker, so casualties stop stranding your survivors.",
@@ -51,7 +63,8 @@
         "Insane Bravery (1 CP) and the Command Re-roll are now offered on the same card, at the moment they matter — the re-roll keeps the failed dice on screen and shows the discarded roll instead of popping a second window over the top.",
         "'End Command Phase' with tests outstanding now offers 'Roll them now' as the default. Auto-resolving them all at once is still there, but it is a choice you make rather than what silently happens.",
         "A 'Roll the rest for me' button on the roll call skips ahead at any point, and the sequence closes with a summary of who passed, who failed and who spent Insane Bravery.",
-        "The camera returns to where you left it when the roll call finishes."      ]
+        "The camera returns to where you left it when the roll call finishes."
+      ]
     },
     {
       "version": "1.23.1",
