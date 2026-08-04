@@ -5776,6 +5776,9 @@ func setup_command_controller() -> void:
 	if not command_controller.ui_update_requested.is_connected(_on_command_ui_update_requested):
 		command_controller.ui_update_requested.connect(_on_command_ui_update_requested)
 		print("Connected ui_update_requested signal")
+	if not command_controller.battle_shock_sequence_finished.is_connected(_on_battle_shock_sequence_finished):
+		command_controller.battle_shock_sequence_finished.connect(_on_battle_shock_sequence_finished)
+		print("Connected battle_shock_sequence_finished signal")
 
 func setup_movement_controller() -> void:
 	print("Setting up MovementController...")
@@ -7592,16 +7595,23 @@ func focus_on_deployment_zone(player: int, animate: bool = true) -> void:
 		view_offset = target_offset
 		update_view_transform()
 
-func focus_on_world_point(world_pos: Vector2, animate: bool = true) -> void:
-	"""Pan the camera so world_pos sits at the viewport centre AND STAY THERE.
+func focus_on_world_point(world_pos: Vector2, animate: bool = true,
+		screen_anchor: Vector2 = Vector2(0.5, 0.5)) -> void:
+	"""Pan the camera so world_pos sits at `screen_anchor` AND STAY THERE.
 
 	The sibling focus_on_position_briefly() bounces back to the previous view
 	after a hold; this one is for callouts the player has to act on (11e 03.03
 	out-of-coherency markers), which must remain framed until they resolve.
-	Keeps the current zoom unless it is so far out the marker would be a speck."""
+	Keeps the current zoom unless it is so far out the marker would be a speck.
+
+	`screen_anchor` is where on screen the point should land, as a 0..1 fraction
+	of the viewport — the default centres it. Callers that open a docked panel
+	over the board (the Battle-shock roll call's bottom card) pass a higher
+	anchor so the thing being pointed at does not end up BEHIND the panel."""
 	var viewport_size = get_viewport().get_visible_rect().size
 	var target_zoom = clamp(view_zoom, 0.75, 1.5)
-	var target_offset = world_pos - viewport_size / (2.0 * target_zoom)
+	var anchor_px = Vector2(viewport_size.x * screen_anchor.x, viewport_size.y * screen_anchor.y)
+	var target_offset = world_pos - anchor_px / target_zoom
 
 	if animate:
 		if _auto_zoom_tween and _auto_zoom_tween.is_valid():
@@ -7616,6 +7626,29 @@ func focus_on_world_point(world_pos: Vector2, animate: bool = true) -> void:
 	else:
 		view_zoom = target_zoom
 		view_offset = target_offset
+		update_view_transform()
+
+func restore_view_snapshot(offset: Vector2, zoom: float, animate: bool = true) -> void:
+	"""Glide the camera back to a previously captured (view_offset, view_zoom).
+
+	Companion to focus_on_world_point() for flows that take the camera on a tour
+	and owe the player their original framing back — the Battle-shock roll call
+	pans to each unit in turn, so it snapshots the view first and restores it
+	when the queue is done.
+	"""
+	if animate:
+		if _auto_zoom_tween and _auto_zoom_tween.is_valid():
+			_auto_zoom_tween.kill()
+		_auto_zoom_tween = create_tween()
+		_auto_zoom_tween.set_parallel(true)
+		_auto_zoom_tween.set_ease(Tween.EASE_IN_OUT)
+		_auto_zoom_tween.set_trans(Tween.TRANS_CUBIC)
+		_auto_zoom_tween.tween_property(self, "view_zoom", zoom, 0.5)
+		_auto_zoom_tween.tween_property(self, "view_offset", offset, 0.5)
+		_auto_zoom_tween.tween_method(_tween_update_view, 0.0, 1.0, 0.5)
+	else:
+		view_zoom = zoom
+		view_offset = offset
 		update_view_transform()
 
 func _tween_update_view(_progress: float) -> void:
@@ -12504,10 +12537,37 @@ func _show_battle_shock_confirmation_dialog(untested_units: Array, active_player
 	dialog.setup(untested_units)
 	dialog.end_command_confirmed.connect(_on_end_command_confirmed.bind(active_player))
 	dialog.end_command_cancelled.connect(_on_end_command_cancelled)
+	dialog.roll_tests_requested.connect(_on_battle_shock_roll_tests_requested.bind(active_player))
 	get_tree().root.add_child(dialog)
 	# Centered: a phase-end commitment the player must not walk past.
 	DialogUtils.popup_phase_end_prompt(dialog)
 	print("Main: P3-94: Battle-shock confirmation dialog shown")
+
+func _on_battle_shock_roll_tests_requested(active_player: int) -> void:
+	"""Player chose to roll the outstanding battle-shock tests on screen.
+
+	Hands off to the CommandController roll call; it emits
+	battle_shock_sequence_finished(end_phase_after=true) when the queue is done,
+	which is where END_COMMAND is finally dispatched.
+	"""
+	if command_controller and is_instance_valid(command_controller) \
+			and command_controller.has_method("start_battle_shock_sequence"):
+		if command_controller.start_battle_shock_sequence("", true):
+			print("Main: Battle-shock roll call started from the end-of-phase prompt")
+			return
+	# Roll call unavailable (no phase, AI seat, remote seat) — do not strand the
+	# player mid-phase; fall back to the historical auto-resolve.
+	print("Main: Battle-shock roll call could not start — falling back to auto-resolve")
+	_on_end_command_confirmed(active_player)
+
+func _on_battle_shock_sequence_finished(end_phase_after: bool) -> void:
+	"""The roll call closed. Continue to END_COMMAND only if it was started from
+	the end-of-phase prompt; a roll call opened from the panel just returns the
+	player to the Command phase."""
+	print("Main: Battle-shock roll call finished (end_phase_after=%s)" % str(end_phase_after))
+	update_after_command_action()
+	if end_phase_after:
+		_on_end_command_confirmed(GameState.get_active_player())
 
 func _on_end_command_confirmed(active_player: int) -> void:
 	"""P3-94: Player confirmed ending command phase despite untested battle-shock units"""

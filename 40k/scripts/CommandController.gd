@@ -10,6 +10,10 @@ const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 
 signal command_action_requested(action: Dictionary)
 signal ui_update_requested()
+# Emitted when the Battle-shock roll call finishes. `end_phase_after` is true
+# when the sequence was started from the "End Command Phase" prompt, so Main
+# knows to carry on and end the phase.
+signal battle_shock_sequence_finished(end_phase_after: bool)
 
 # Marks the gold rules created by _add_command_gold_separator() so a section
 # teardown can take its own separator with it (see _remove_section_with_separator).
@@ -40,6 +44,25 @@ var _guard_eligible_ids: Dictionary = {}       # unit_id -> true (valid guards)
 var _board_pick: Dictionary = {}
 var _board_pick_banner: CanvasLayer = null
 var _board_pick_banner_label: Label = null
+
+# --- Battle-shock roll call state (see _start_battle_shock_sequence) ---------
+const _BattleShockSequenceDialogScript = preload("res://dialogs/BattleShockSequenceDialog.gd")
+const _AIUnitHighlightScript = preload("res://scripts/AIUnitHighlight.gd")
+# Amber: "this unit is under test". Deliberately not one of the AI action
+# colours (blue/red/orange) so it reads as its own thing.
+const BATTLE_SHOCK_RING_COLOR := Color(1.0, 0.72, 0.15)
+
+var _bs_dialog: AcceptDialog = null
+var _bs_order: Array = []          # unit_ids, in resolution order
+var _bs_index: int = 0
+var _bs_active: bool = false
+var _bs_awaiting_result: bool = false
+var _bs_end_phase_after: bool = false
+var _bs_rings: Array = []          # pulsing ring nodes on the tested unit
+var _bs_saved_view: Dictionary = {}  # camera offset/zoom to restore afterwards
+var _bs_passed: Array = []
+var _bs_failed: Array = []
+var _bs_auto: Array = []
 
 func _ready() -> void:
 	_setup_ui_references()
@@ -76,6 +99,18 @@ func _exit_tree() -> void:
 
 	# Drop any live "Pick on board" banner (it lives under the scene root).
 	_remove_board_pick_banner()
+
+	# Tear down a Battle-shock roll call left open by a phase change — the dialog
+	# lives under the scene root and its rings under the token layer, so neither
+	# goes away with this controller.
+	if _bs_active or _bs_dialog:
+		print("CommandController: Cleaning up open Battle-shock roll call on exit")
+		_bs_active = false
+		_bs_clear_rings()
+		if _bs_dialog and is_instance_valid(_bs_dialog):
+			_bs_dialog.hide()
+			_bs_dialog.queue_free()
+		_bs_dialog = null
 
 	# Clean up right panel elements
 	var container = SceneRefs.hud_right_vbox()
@@ -590,6 +625,14 @@ func _setup_battle_shock_section(command_panel: VBoxContainer) -> void:
 	var shock_section = VBoxContainer.new()
 	shock_section.name = "BattleShockSection"
 	command_panel.add_child(shock_section)
+	# Battle-shock is the phase's one MANDATORY step, so its call to action has
+	# to be above the fold. Appended at the end it landed ~1200px down a 1080px
+	# screen — off the bottom of the scroll container, where a real mouse click
+	# lands on the container instead of the button (proved by the windowed
+	# scenario: the same click that worked via emit_pressed missed entirely).
+	# Hoist the section (with its gold rule) to sit directly under the
+	# "End Command Phase" button.
+	_hoist_section_after(command_panel, shock_section, "EndCommandPhaseButton")
 
 	var shock_title = Label.new()
 	shock_title.text = "BATTLE-SHOCK TESTS"
@@ -600,49 +643,68 @@ func _setup_battle_shock_section(command_panel: VBoxContainer) -> void:
 	shock_section.add_child(shock_title)
 
 	var shock_note = Label.new()
-	shock_note.text = "%d unit(s) below half-strength" % shock_tests.size()
+	shock_note.name = "BattleShockCountLabel"
+	shock_note.text = "%d unit(s) must test" % shock_tests.size()
 	shock_note.add_theme_font_size_override("font_size", 16)
 	shock_note.add_theme_color_override("font_color", Color(0.8, 0.6, 0.2))
 	shock_section.add_child(shock_note)
 
-	for test_action in shock_tests:
+	# PRIMARY entry point: walk the whole queue one unit at a time, with the
+	# camera on each unit and the dice rolled in front of the player. Before this
+	# existed the only way to resolve a test was a bare per-unit button whose
+	# entire feedback was a line in the game log.
+	var roll_call_btn = Button.new()
+	roll_call_btn.name = "BattleShockRollCallButton"
+	roll_call_btn.text = "▶  RESOLVE BATTLE-SHOCK (%d)" % shock_tests.size()
+	roll_call_btn.tooltip_text = "Step through each test in order — the camera moves to the unit and the dice are rolled on screen."
+	roll_call_btn.custom_minimum_size = Vector2(230, 36)
+	roll_call_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_WhiteDwarfTheme.apply_primary_button(roll_call_btn)
+	roll_call_btn.add_theme_font_size_override("font_size", 17)
+	roll_call_btn.pressed.connect(_on_battle_shock_roll_call_pressed)
+	shock_section.add_child(roll_call_btn)
+
+	var order_note = Label.new()
+	order_note.text = "Resolved in army-list order. You confirm each roll."
+	order_note.add_theme_font_size_override("font_size", 14)
+	order_note.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	order_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	shock_section.add_child(order_note)
+
+	# The per-unit buttons remain as a "jump straight to this one" shortcut, but
+	# they now open the SAME roll call (starting at that unit) rather than
+	# silently resolving — one presentation of a battle-shock test, one place to
+	# learn to read it.
+	for i in range(shock_tests.size()):
+		var test_action = shock_tests[i]
 		var unit_id = test_action.get("unit_id", "")
 		var unit = GameState.state.get("units", {}).get(unit_id, {})
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		# Effective Ld (best model in an Attached unit, minus any improvement) —
+		# the number the roll actually has to beat, not the bodyguard's stat line.
 		var ld = unit.get("meta", {}).get("stats", {}).get("leadership", 7)
+		if current_phase and current_phase.has_method("_get_effective_leadership"):
+			ld = current_phase._get_effective_leadership(unit_id)
 
-		# Unit container
-		var unit_box = VBoxContainer.new()
-		unit_box.add_theme_constant_override("separation", 2)
-		shock_section.add_child(unit_box)
-
-		# Roll test button
-		var test_btn = Button.new()
-		test_btn.text = "Roll Battle-shock: %s (Ld %d)" % [unit_name, ld]
-		test_btn.custom_minimum_size = Vector2(230, 28)
-		test_btn.pressed.connect(_on_battle_shock_test_pressed.bind(unit_id))
-		_WhiteDwarfTheme.apply_to_button(test_btn)
-		unit_box.add_child(test_btn)
-
-		# Check for Insane Bravery stratagem availability
 		var has_insane_bravery = false
 		for strat_action in stratagem_actions:
-			if strat_action.get("stratagem_id", "") == "insane_bravery" and strat_action.get("target_unit_id", "") == unit_id:
+			if strat_action.get("stratagem_id", "") == "insane_bravery" \
+					and strat_action.get("target_unit_id", "") == unit_id:
 				has_insane_bravery = true
 				break
 
+		var test_btn = Button.new()
+		test_btn.text = "%d.  %s (Ld %d)%s" % [
+			i + 1, unit_name, ld, "  ★" if has_insane_bravery else ""]
+		test_btn.tooltip_text = "Start the Battle-shock roll call at %s%s" % [
+			unit_name,
+			"\n★ Insane Bravery (1 CP) is available for this unit" if has_insane_bravery else ""]
+		test_btn.custom_minimum_size = Vector2(230, 28)
+		test_btn.pressed.connect(_on_battle_shock_test_pressed.bind(unit_id))
+		_WhiteDwarfTheme.apply_to_button(test_btn)
 		if has_insane_bravery:
-			var strat_btn = Button.new()
-			strat_btn.text = "INSANE BRAVERY (1 CP) - Auto-pass"
-			strat_btn.custom_minimum_size = Vector2(230, 28)
-			WhiteDwarfTheme.apply_to_button(strat_btn)
-			strat_btn.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
-			strat_btn.pressed.connect(_on_insane_bravery_pressed.bind(unit_id))
-			_WhiteDwarfTheme.apply_to_button(strat_btn)
-			strat_btn.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
-			unit_box.add_child(strat_btn)
-
-		_add_command_gold_separator(unit_box)
+			test_btn.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+		shock_section.add_child(test_btn)
 
 func _setup_faction_abilities_section(command_panel: VBoxContainer) -> void:
 	"""Build faction abilities display (Oath of Moment, Waaagh!, etc.)."""
@@ -834,19 +896,441 @@ func _on_plant_waaagh_banner_pressed(unit_id: String) -> void:
 	})
 
 func _on_battle_shock_test_pressed(unit_id: String) -> void:
-	print("CommandController: Battle-shock test requested for %s" % unit_id)
+	# Panel shortcut: open the roll call AT this unit and carry on from there.
+	print("CommandController: Battle-shock roll call requested starting at %s" % unit_id)
+	start_battle_shock_sequence(unit_id, false)
+
+func _on_battle_shock_roll_call_pressed() -> void:
+	print("CommandController: Battle-shock roll call requested (all units)")
+	start_battle_shock_sequence("", false)
+
+# NOTE: the side-panel "INSANE BRAVERY (1 CP)" button is gone — the stratagem is
+# now offered on the roll-call card itself, at the moment the unit is up (see
+# _on_bs_insane_bravery_requested). The panel keeps a ★ marker on any unit it is
+# available for so it is still discoverable from the panel.
+
+# ============================================================================
+# BATTLE-SHOCK ROLL CALL
+# ============================================================================
+#
+# Battle-shock tests used to resolve invisibly: the per-unit button dispatched
+# BATTLE_SHOCK_TEST and the ONLY feedback was a game-log line, and ending the
+# phase auto-resolved every outstanding test in one silent loop. This walks the
+# queue instead — one unit at a time, in army-list order:
+#
+#   camera pans to the unit  →  amber rings pulse on its models  →  the player
+#   reads why it must test and what it needs  →  presses Roll  →  two big dice
+#   tumble and land  →  verdict (with the consequences spelled out)  →  Next.
+#
+# Insane Bravery and the Command Re-roll are offered inside the same card, at
+# the moment they matter. A "Roll the rest for me" button keeps the old
+# one-shot speed for anyone who wants it — but now as a deliberate choice.
+#
+# NOT used for AI players (never block an AI turn on a human click) and, in
+# multiplayer, only on the seat that owns the units.
+
+func is_battle_shock_sequence_active() -> bool:
+	return _bs_active
+
+## Open the roll call. `start_unit_id` (optional) puts that unit first; the rest
+## follow in queue order. `end_phase_after` chains END_COMMAND when the queue is
+## exhausted (used by the "End Command Phase" prompt).
+## Returns true if the sequence opened.
+func start_battle_shock_sequence(start_unit_id: String = "", end_phase_after: bool = false) -> bool:
+	if _bs_active:
+		print("CommandController: Battle-shock roll call already running")
+		return false
+	if not current_phase or not current_phase.has_method("get_battle_shock_queue"):
+		print("CommandController: No command phase — cannot start Battle-shock roll call")
+		return false
+
+	var queue: Array = current_phase.get_battle_shock_queue()
+	if queue.is_empty():
+		print("CommandController: No outstanding Battle-shock tests")
+		return false
+
+	var player: int = GameState.get_active_player()
+
+	# The AI resolves its own tests through the plain action path — a modal that
+	# waits for a human "Next" would stall its turn forever.
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		print("CommandController: Skipping Battle-shock roll call for AI player %d" % player)
+		return false
+
+	# Multiplayer: the tests belong to the active player — the other seat watches
+	# the board, it does not get a modal it cannot answer.
+	if NetworkManager and NetworkManager.is_networked() \
+			and NetworkManager.get_local_player() != player:
+		print("CommandController: Battle-shock is P%d's roll call — local seat waits" % player)
+		return false
+
+	_bs_order.clear()
+	for entry in queue:
+		_bs_order.append(str(entry.get("unit_id", "")))
+	if start_unit_id != "":
+		var at := _bs_order.find(start_unit_id)
+		if at > 0:
+			# Rotate so the clicked unit leads and nothing is dropped — every
+			# queued unit still gets its turn.
+			_bs_order = _bs_order.slice(at) + _bs_order.slice(0, at)
+
+	_bs_index = 0
+	_bs_active = true
+	_bs_awaiting_result = false
+	_bs_end_phase_after = end_phase_after
+	_bs_passed.clear()
+	_bs_failed.clear()
+	_bs_auto.clear()
+	_bs_save_view()
+
+	_bs_dialog = AcceptDialog.new()
+	_bs_dialog.set_script(_BattleShockSequenceDialogScript)
+	# Stable name so windowed scenarios can address it by path.
+	_bs_dialog.name = "BattleShockSequenceDialog"
+	_bs_dialog.setup(player)
+	_bs_dialog.roll_requested.connect(_on_bs_roll_requested)
+	_bs_dialog.insane_bravery_requested.connect(_on_bs_insane_bravery_requested)
+	_bs_dialog.command_reroll_requested.connect(_on_bs_command_reroll_requested)
+	_bs_dialog.command_reroll_declined.connect(_on_bs_command_reroll_declined)
+	_bs_dialog.next_requested.connect(_on_bs_next_requested)
+	_bs_dialog.auto_resolve_rest_requested.connect(_on_bs_auto_resolve_requested)
+	_bs_dialog.closed.connect(_on_bs_closed)
+	get_tree().root.add_child(_bs_dialog)
+	# Bottom-anchored: the camera is parked on the unit under test, so the board
+	# must stay visible behind the card.
+	DialogUtils.popup_at_bottom(_bs_dialog)
+
+	print("CommandController: Battle-shock roll call started — %d test(s), order=%s" % [
+		_bs_order.size(), str(_bs_order)])
+	_bs_show_current()
+	return true
+
+func _bs_show_current() -> void:
+	"""Present the unit at _bs_index: camera, rings, and the pre-roll card."""
+	if not _bs_active:
+		return
+	if _bs_index >= _bs_order.size():
+		_bs_finish()
+		return
+
+	var unit_id: String = str(_bs_order[_bs_index])
+	var entry: Dictionary = _bs_entry_for(unit_id)
+	if entry.is_empty():
+		# Already resolved (e.g. auto-resolved out from under us) — skip it
+		# rather than showing a card for a test that no longer exists.
+		print("CommandController: Battle-shock — %s no longer needs a test, skipping" % unit_id)
+		_bs_index += 1
+		_bs_show_current()
+		return
+
+	_bs_focus_unit(unit_id)
+	if _bs_dialog and is_instance_valid(_bs_dialog):
+		_bs_dialog.show_entry(entry, _bs_index, _bs_order.size(),
+			_bs_order.size() - _bs_index - 1)
+
+func _bs_entry_for(unit_id: String) -> Dictionary:
+	"""Fresh queue row for `unit_id`, or {} if it no longer owes a test.
+
+	Re-queried per step rather than cached: spending CP on Insane Bravery for an
+	earlier unit changes whether it is still offered for a later one, and a
+	Command Re-roll changes the CP pool mid-sequence.
+	"""
+	if not current_phase or not current_phase.has_method("get_battle_shock_queue"):
+		return {}
+	for entry in current_phase.get_battle_shock_queue():
+		if str(entry.get("unit_id", "")) == unit_id:
+			return entry
+	return {}
+
+func _on_bs_roll_requested(unit_id: String) -> void:
+	if not _bs_active:
+		return
+	print("CommandController: Battle-shock roll — %s" % unit_id)
+	_bs_awaiting_result = true
+	if _bs_dialog and is_instance_valid(_bs_dialog):
+		_bs_dialog.begin_tumble()
 	emit_signal("command_action_requested", {
 		"type": "BATTLE_SHOCK_TEST",
 		"unit_id": unit_id
 	})
+	# Single-player routes the action synchronously, so by now the phase has
+	# emitted either battle_shock_test_resolved or command_reroll_opportunity and
+	# _bs_awaiting_result is clear. If it is still set and we are not waiting on
+	# a network round-trip, the dispatch was rejected — hand the card back
+	# instead of leaving the dice tumbling forever.
+	if _bs_awaiting_result and not (NetworkManager and NetworkManager.is_networked()):
+		print("CommandController: Battle-shock roll for %s was not resolved — reverting card" % unit_id)
+		_bs_awaiting_result = false
+		if _bs_dialog and is_instance_valid(_bs_dialog):
+			_bs_dialog.cancel_roll()
 
-func _on_insane_bravery_pressed(unit_id: String) -> void:
-	print("CommandController: Insane Bravery stratagem requested for %s" % unit_id)
+func _on_bs_insane_bravery_requested(unit_id: String) -> void:
+	if not _bs_active:
+		return
+	print("CommandController: Battle-shock — INSANE BRAVERY on %s" % unit_id)
+	_bs_awaiting_result = true
 	emit_signal("command_action_requested", {
 		"type": "USE_STRATAGEM",
 		"stratagem_id": "insane_bravery",
 		"target_unit_id": unit_id
 	})
+	if _bs_awaiting_result and not (NetworkManager and NetworkManager.is_networked()):
+		print("CommandController: Insane Bravery on %s was rejected" % unit_id)
+		_bs_awaiting_result = false
+
+func _on_bs_command_reroll_requested(unit_id: String) -> void:
+	if not _bs_active:
+		return
+	print("CommandController: Battle-shock — Command Re-roll for %s" % unit_id)
+	_bs_awaiting_result = true
+	if _bs_dialog and is_instance_valid(_bs_dialog):
+		# begin_reroll() is driven by command_reroll_completed (which carries the
+		# discarded dice); start the tumble here so the press feels immediate.
+		_bs_dialog.begin_tumble()
+	emit_signal("command_action_requested", {
+		"type": "USE_COMMAND_REROLL",
+		"unit_id": unit_id,
+	})
+
+func _on_bs_command_reroll_declined(unit_id: String) -> void:
+	if not _bs_active:
+		return
+	print("CommandController: Battle-shock — Command Re-roll declined for %s" % unit_id)
+	_bs_awaiting_result = true
+	emit_signal("command_action_requested", {
+		"type": "DECLINE_COMMAND_REROLL",
+		"unit_id": unit_id,
+	})
+
+func _on_bs_next_requested() -> void:
+	if not _bs_active:
+		return
+	_bs_index += 1
+	_bs_show_current()
+
+func _on_bs_auto_resolve_requested() -> void:
+	"""'Roll the rest for me' — dispatch the remaining tests back to back."""
+	if not _bs_active:
+		return
+	print("CommandController: Battle-shock — auto-resolving %d remaining test(s)" % (
+		_bs_order.size() - _bs_index))
+	# Snapshot first: dispatching mutates the phase's tested list, so iterating
+	# the live queue while resolving would skip units.
+	var remaining: Array = []
+	for i in range(_bs_index, _bs_order.size()):
+		remaining.append(str(_bs_order[i]))
+	for unit_id in remaining:
+		if _bs_entry_for(unit_id).is_empty():
+			continue
+		emit_signal("command_action_requested", {
+			"type": "BATTLE_SHOCK_TEST",
+			"unit_id": unit_id
+		})
+		# An auto-resolved test that pauses for a Command Re-roll would strand
+		# the phase mid-decision — decline it so the roll stands.
+		if current_phase and current_phase.get("_awaiting_reroll_decision"):
+			emit_signal("command_action_requested", {
+				"type": "DECLINE_COMMAND_REROLL",
+				"unit_id": unit_id,
+			})
+	_bs_index = _bs_order.size()
+	_bs_finish()
+
+func _on_bs_closed() -> void:
+	_bs_teardown()
+
+func _on_battle_shock_test_resolved(result: Dictionary) -> void:
+	"""Phase seam: a test has FINALLY settled (after any re-roll decision)."""
+	# The AI resolves its tests through this same seam; only tally while a roll
+	# call is actually running, or the summary would carry the opponent's units.
+	if not _bs_active:
+		return
+	var unit_id: String = str(result.get("unit_id", ""))
+	var unit_name: String = str(result.get("unit_name", unit_id))
+	if bool(result.get("auto_passed", false)):
+		if unit_name not in _bs_auto:
+			_bs_auto.append(unit_name)
+	elif bool(result.get("test_passed", false)):
+		if unit_name not in _bs_passed:
+			_bs_passed.append(unit_name)
+	else:
+		if unit_name not in _bs_failed:
+			_bs_failed.append(unit_name)
+
+	if not _bs_dialog or not is_instance_valid(_bs_dialog):
+		return
+	# Only drive the card for the unit it is showing — the auto-resolve burst
+	# fires this signal once per remaining unit.
+	if _bs_dialog.current_unit_id() != unit_id:
+		return
+
+	_bs_awaiting_result = false
+	if bool(result.get("auto_passed", false)):
+		_bs_dialog.show_auto_pass(result)
+	else:
+		_bs_dialog.settle_result(result)
+
+func _bs_handle_reroll_opportunity(unit_id: String, roll_context: Dictionary) -> void:
+	"""Command Re-roll offered mid-roll-call: fold it into the card in place."""
+	_bs_awaiting_result = false
+	if _bs_dialog and is_instance_valid(_bs_dialog):
+		_bs_dialog.settle_reroll_offer(roll_context)
+
+func _on_bs_reroll_completed(original_rolls: Array, _new_rolls: Array, _context: String) -> void:
+	"""Note the discarded dice on the card before the re-roll lands."""
+	if _bs_active and _bs_dialog and is_instance_valid(_bs_dialog):
+		_bs_dialog.begin_reroll(original_rolls)
+
+func _bs_finish() -> void:
+	"""Queue exhausted: show the tally, drop the board furniture, restore view."""
+	_bs_clear_rings()
+	_bs_restore_view()
+	if _bs_dialog and is_instance_valid(_bs_dialog):
+		_bs_dialog.show_summary(_bs_passed, _bs_failed, _bs_auto)
+	print("CommandController: Battle-shock roll call complete — %d passed, %d failed, %d auto-passed" % [
+		_bs_passed.size(), _bs_failed.size(), _bs_auto.size()])
+	emit_signal("ui_update_requested")
+	_refresh_ui()
+
+func _bs_teardown() -> void:
+	var end_phase_after := _bs_end_phase_after
+	_bs_active = false
+	_bs_awaiting_result = false
+	_bs_end_phase_after = false
+	_bs_clear_rings()
+	_bs_restore_view()
+	if _bs_dialog and is_instance_valid(_bs_dialog):
+		_bs_dialog.hide()
+		_bs_dialog.queue_free()
+	_bs_dialog = null
+	_bs_order.clear()
+	_bs_index = 0
+	_refresh_ui()
+	emit_signal("battle_shock_sequence_finished", end_phase_after)
+
+# --- camera + board furniture -----------------------------------------------
+
+func _bs_save_view() -> void:
+	var main = SceneRefs.main()
+	if main and "view_offset" in main and "view_zoom" in main:
+		_bs_saved_view = {"offset": main.view_offset, "zoom": main.view_zoom}
+	else:
+		_bs_saved_view = {}
+
+func _bs_restore_view() -> void:
+	if _bs_saved_view.is_empty():
+		return
+	var main = SceneRefs.main()
+	if main and main.has_method("restore_view_snapshot"):
+		main.restore_view_snapshot(_bs_saved_view.get("offset", Vector2.ZERO),
+			float(_bs_saved_view.get("zoom", 1.0)))
+	_bs_saved_view = {}
+
+func _bs_focus_unit(unit_id: String) -> void:
+	"""Pan to the unit under test and ring its models."""
+	_bs_clear_rings()
+	var centre: Vector2 = _bs_unit_centroid(unit_id)
+	if centre != Vector2.INF:
+		var main = SceneRefs.main()
+		if main and main.has_method("focus_on_world_point"):
+			main.focus_on_world_point(centre, true, _bs_focus_anchor())
+	_bs_spawn_rings(unit_id)
+
+func _bs_focus_anchor() -> Vector2:
+	"""Where on screen the unit under test should land, as a 0..1 fraction.
+
+	NOT the viewport centre: the roll-call card is docked to the bottom edge and
+	the top HUD bar eats the first ~100px, so centring would park the unit we
+	just told the player to look at squarely BEHIND the card. Aim for the middle
+	of the band that is actually board.
+	"""
+	var vp: Vector2 = get_viewport_rect().size
+	if vp.y <= 0.0:
+		return Vector2(0.5, 0.34)
+	var top: float = float(DialogConstants.TOP_HUD_CLEARANCE)
+	var bottom: float = vp.y - float(DialogConstants.BOTTOM_CLEARANCE)
+	if _bs_dialog and is_instance_valid(_bs_dialog) and _bs_dialog.visible \
+			and _bs_dialog.size.y > 0:
+		bottom = min(bottom, float(_bs_dialog.position.y))
+	var mid: float = (top + bottom) * 0.5
+	return Vector2(0.5, clampf(mid / vp.y, 0.2, 0.5))
+
+func _bs_unit_centroid(unit_id: String) -> Vector2:
+	"""Average alive-model position for a unit, INCLUDING attached characters."""
+	var sum := Vector2.ZERO
+	var count := 0
+	var ids: Array = [unit_id]
+	ids.append_array(GameState.get_attached_characters(unit_id))
+	for uid in ids:
+		var unit = GameState.state.get("units", {}).get(str(uid), {})
+		for model in unit.get("models", []):
+			if not model.get("alive", true):
+				continue
+			var pos = model.get("position", null)
+			if pos == null:
+				continue
+			if pos is Dictionary:
+				pos = Vector2(pos.get("x", 0.0), pos.get("y", 0.0))
+			sum += pos
+			count += 1
+	if count == 0:
+		return Vector2.INF
+	return sum / float(count)
+
+func _bs_spawn_rings(unit_id: String) -> void:
+	"""Pulsing amber rings on every token of the unit under test.
+
+	A camera pan alone is not enough on a crowded board — the player has to know
+	WHICH of the models in frame is being tested.
+	"""
+	var token_layer = SceneRefs.token_layer()
+	if not token_layer:
+		return
+	var ids: Array = [unit_id]
+	ids.append_array(GameState.get_attached_characters(unit_id))
+	# Casualties normally lose their token, but belt and braces: a ring on a dead
+	# model would misreport the unit's strength at the exact moment the card is
+	# telling the player how few are left.
+	var dead_models: Dictionary = {}
+	for uid in ids:
+		for model in GameState.state.get("units", {}).get(str(uid), {}).get("models", []):
+			if not model.get("alive", true):
+				dead_models["%s/%s" % [str(uid), str(model.get("id", ""))]] = true
+	for child in token_layer.get_children():
+		if not child.has_meta("unit_id"):
+			continue
+		var tok_unit := str(child.get_meta("unit_id"))
+		if tok_unit not in ids:
+			continue
+		if not child.visible:
+			continue
+		if child.has_meta("model_id") \
+				and dead_models.has("%s/%s" % [tok_unit, str(child.get_meta("model_id"))]):
+			continue
+		var radius := 28.0
+		if "base_shape" in child and child.base_shape:
+			var bounds = child.base_shape.get_bounds()
+			radius = max(bounds.size.x, bounds.size.y) / 2.0 + 6.0
+		var ring = Node2D.new()
+		# Unique per MODEL: siblings sharing a name get auto-renamed to
+		# "@BattleShockFocusRing_U_BOYZ_E@7", which no longer starts with the
+		# prefix — so anything counting the rings by name silently under-reports
+		# them (it read 2 of 9 before this).
+		ring.name = "BattleShockFocusRing_%s_%s" % [
+			tok_unit, str(child.get_meta("model_id")) if child.has_meta("model_id") else str(_bs_rings.size())]
+		ring.set_script(_AIUnitHighlightScript)
+		ring.setup(radius, BATTLE_SHOCK_RING_COLOR)
+		ring.position = child.position
+		ring.z_index = 9  # just under the token's z_index of 10
+		token_layer.add_child(ring)
+		_bs_rings.append(ring)
+
+func _bs_clear_rings() -> void:
+	for ring in _bs_rings:
+		if is_instance_valid(ring):
+			ring.queue_free()
+	_bs_rings.clear()
 
 func _add_command_gold_separator(parent: Control) -> void:
 	var sep = ColorRect.new()
@@ -858,6 +1342,29 @@ func _add_command_gold_separator(parent: Control) -> void:
 	sep.color = Color(_WhiteDwarfTheme.WH_GOLD.r, _WhiteDwarfTheme.WH_GOLD.g, _WhiteDwarfTheme.WH_GOLD.b, 0.4)
 	sep.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	parent.add_child(sep)
+
+func _hoist_section_after(command_panel: VBoxContainer, section: Control, anchor_name: String) -> void:
+	"""Move `section` (and the gold rule that introduces it) to sit right after
+	`anchor_name`, keeping rule-then-section adjacency.
+
+	Sections are built by appending, and _refresh_ui() rebuilds them on every
+	state change — so anything that must stay near the top of the panel has to
+	be repositioned explicitly after each rebuild, or it drifts to the bottom.
+	"""
+	var anchor = command_panel.get_node_or_null(anchor_name)
+	if anchor == null or section.get_parent() != command_panel:
+		return
+	var sep: Node = null
+	var sec_idx := section.get_index()
+	if sec_idx > 0:
+		var prev = command_panel.get_child(sec_idx - 1)
+		if _is_command_separator(prev):
+			sep = prev
+	var target := anchor.get_index() + 1
+	if sep != null:
+		command_panel.move_child(sep, target)
+		target += 1
+	command_panel.move_child(section, target)
 
 func _is_command_separator(node: Node) -> bool:
 	"""True for either separator flavour used in the command panel."""
@@ -927,6 +1434,11 @@ func set_phase(phase: BasePhase) -> void:
 		if phase.has_signal("command_reroll_completed"):
 			if not phase.command_reroll_completed.is_connected(_on_command_reroll_completed):
 				phase.command_reroll_completed.connect(_on_command_reroll_completed)
+		# Battle-shock roll call: drives the dice animation off the settled result
+		# instead of scraping the game log.
+		if phase.has_signal("battle_shock_test_resolved"):
+			if not phase.battle_shock_test_resolved.is_connected(_on_battle_shock_test_resolved):
+				phase.battle_shock_test_resolved.connect(_on_battle_shock_test_resolved)
 
 		# Connect SecondaryMissionManager signals for reactive UI updates
 		var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
@@ -1054,6 +1566,15 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		print("CommandController: Skipping command reroll dialog for AI player %d" % player)
 		return
 
+	# Mid-roll-call: fold the offer into the roll-call card (the failed dice stay
+	# on screen while the player decides) rather than stacking a second dialog
+	# on top of it with the dice nowhere in sight.
+	if _bs_active and _bs_dialog and is_instance_valid(_bs_dialog) \
+			and _bs_dialog.current_unit_id() == unit_id:
+		print("CommandController: Command Re-roll offered inside the Battle-shock roll call")
+		_bs_handle_reroll_opportunity(unit_id, roll_context)
+		return
+
 	# Multiplayer: the re-roll decision belongs to the testing unit's OWNER —
 	# only their seat shows the dialog.
 	if NetworkManager and NetworkManager.is_networked() \
@@ -1104,6 +1625,8 @@ func _on_command_reroll_completed(original_rolls: Array, new_rolls: Array, conte
 	print("CommandController: Reroll comparison — %s → %s (%s)" % [str(original_rolls), str(new_rolls), context])
 	if dice_roll_visual and is_instance_valid(dice_roll_visual):
 		dice_roll_visual.show_reroll_comparison(original_rolls, new_rolls, context)
+	# Roll call: label the discarded dice on the card before the new roll lands.
+	_on_bs_reroll_completed(original_rolls, new_rolls, context)
 
 # ============================================================================
 # SECONDARY MISSION REVIEW (show drawn missions with replace option)
