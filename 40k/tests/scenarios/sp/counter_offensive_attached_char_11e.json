@@ -1,0 +1,100 @@
+{
+  "id": "counter_offensive_attached_char_11e",
+  "covers": [
+    "autoloads.StratagemManager.get_counter_offensive_eligible_units",
+    "phases.FightPhase.counter_offensive_11e",
+    "phases.FightPhase.attached_units_19_01",
+    "dialogs.CounterOffensiveDialog.attached_unit_rows",
+    "scripts.FightController.counter_offensive_dialog"
+  ],
+  "fixture": "counter_offensive_attached_11e",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Reported bug: when the Counter-Offensive interrupt was offered, the dialog listed an ATTACHED CHARACTER as a unit of its own — the Blade Champion leading Custodian Guard got its own 'Fight Next (2 CP)' row alongside the Guard's. 11e 19.01: 'an attached unit is a single unit for all rules purposes', so the Attached unit gets ONE row. The old builder (StratagemManager.get_counter_offensive_eligible_units) walked raw unit dicts and applied the retired 10e target condition ('within Engagement Range … not already selected to fight'), so any attached character standing in the melee — as in the report — got listed twice over. It now folds each Attached unit onto its bodyguard and takes 15.12's real target condition ('one friendly unit that is eligible to fight', 12.04) from the live FightSequencer. Player path: P2 (Orks, active) passes both Pile In halves, selects the Warboss engaged with the Custodian Guard, assigns all attacks and resolves them; the Counter-Offensive window then opens for P1 and must show the Attached unit as ONE row named 'Custodian Guard + Blade Champion' with no Blade Champion row of its own (the Telemon Heavy Dreadnought, separately engaged with the same Warboss, is a unit in its own right and keeps its row — the fold must not collapse unrelated units). Clicking that row spends 2 CP and hands P1 the activation for the whole Attached unit. Setup-only privileges: P2's CP is zeroed so no Ork stratagem prompt (e.g. Epic Challenge on the Warboss) interleaves with the window under test; Custodes model wounds are inflated so nobody dies mid-scenario. (This scenario used to stop the dialog's 5-second auto-decline timer so the assertions were not racing it; that timer is gone — the window now waits for the defender — so the workaround was dropped.)",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "execute_script", "script": "RulesEngine.is_attached_character(\"U_BLADE_CHAMPION_A\", GameState.state)", "equals": true, "comment": "the fixture really does have the Attached unit formed — otherwise the rest proves nothing" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 4}, true)" },
+    { "act": "execute_script", "script": "SettingsService.set(\"auto_allocate_wounds\", true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "multiline": true, "script": "for m in GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models:\n\tm.merge({\"wounds\": 99, \"current_wounds\": 99}, true)\nreturn GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models.size()", "equals": 4 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 5.0 },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BLADE_CHAMPION_A\") == null",
+      "equals": true,
+      "comment": "19.01 baseline: the champion is not a fighter of his own in the picker either"
+    },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_B", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton", "emit_pressed": true },
+
+    { "act": "expect_node_visible", "node": "/root/CounterOffensiveDialog", "timeout_s": 8.0 },
+    { "act": "expect_phase_property", "property": "awaiting_counter_offensive", "equals": true },
+    { "act": "expect_phase_property", "property": "counter_offensive_player", "equals": 1 },
+
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"CounterOffensiveDialog/Content/UnitScroll/UnitList\").get_child_count()",
+      "equals": 2,
+      "comment": "TWO rows, not three: the Attached unit (folded) and the Telemon Heavy Dreadnought, which is separately engaged with the Warboss and is a unit in its own right. The bug listed the Blade Champion as a third row."
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"CounterOffensiveDialog/Content/UnitScroll/UnitList/CO_U_BLADE_CHAMPION_A\") == null",
+      "equals": true,
+      "comment": "no row of the attached character's own (19.01)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"CounterOffensiveDialog/Content/UnitScroll/UnitList/CO_U_CUSTODIAN_GUARD_B/NameLabel\").text",
+      "equals": "Custodian Guard + Blade Champion",
+      "comment": "the single row names the whole Attached unit, same convention as the pile-in picker"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var rows = []\nfor c in tree.root.get_node(\"CounterOffensiveDialog/Content/UnitScroll/UnitList\").get_children():\n\trows.append(str(c.get_node(\"NameLabel\").text))\nreturn \"|\".join(rows)",
+      "equals": "Custodian Guard + Blade Champion|Telemon Heavy Dreadnought",
+      "comment": "every rendered row, read off the real Labels. The attached pair is ONE row; a genuinely separate engaged unit still gets its own — the fold does not collapse unrelated units."
+    },
+    { "act": "screenshot", "label": "01_counter_offensive_one_attached_unit_row" },
+
+    {
+      "act": "click_node",
+      "node": "/root/CounterOffensiveDialog/Content/UnitScroll/UnitList/CO_U_CUSTODIAN_GUARD_B/UseButton",
+      "emit_pressed": true
+    },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_phase_property", "property": "awaiting_counter_offensive", "equals": false },
+    { "act": "expect_phase_property", "property": "active_fighter_id", "equals": "U_CUSTODIAN_GUARD_B" },
+    { "act": "expect_state", "path": "players.1.cp", "equals": 2, "comment": "15.12 costs 2 CP (4 -> 2)" },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].flags.get(\"fights_first\", false)",
+      "equals": true,
+      "comment": "11e 15.12 EFFECT grants Fights First until end of phase — the 10e effect was only 'your unit fights next'"
+    },
+    { "act": "screenshot", "label": "02_attached_unit_activated_by_counter_offensive" }
+  ]
+}
