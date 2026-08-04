@@ -3758,11 +3758,15 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 			return {"valid": false, "errors": errors}
 		DebugLogger.info(str("MovementPhase: P2-80 — Rapid Ingress unit %s using Deep Strike placement rules (from Strategic Reserves)" % unit.get("meta", {}).get("name", unit_id)))
 
+	# The whole arriving set-up: bodyguard + every attached CHARACTER coming in
+	# with it (11e 24.10 — one Attached unit, set up together and validated together).
+	var arrival_groups = _collect_arrival_groups(unit, unit_id, model_positions if model_positions is Array else [], action.get("model_rotations", []), action)
+
 	# Set-up overlap gate (03.02) — same as normal reinforcement placement:
 	# Rapid Ingress models may not be set up overlapping existing models,
 	# each other, or walls.
 	if model_positions is Array:
-		var setup_overlap = _validate_reinforcement_setup_overlaps(unit, unit_id, model_positions, action.get("model_rotations", []))
+		var setup_overlap = _validate_reinforcement_setup_overlaps(arrival_groups)
 		if not setup_overlap.valid:
 			return setup_overlap
 
@@ -3772,71 +3776,75 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 		var board_height = GameState.state.board.size.height
 		var px_per_inch = 40.0
 
-		for i in range(model_positions.size()):
-			var pos = model_positions[i]
-			if pos == null:
-				continue
+		for g in arrival_groups:
+			var g_unit_id = str(g["unit_id"])
+			var g_models = g["unit"].get("models", [])
+			var g_label = "" if g_unit_id == unit_id else "%s " % g["unit"].get("meta", {}).get("name", g_unit_id)
+			for i in range(g["positions"].size()):
+				var pos = _reinforcement_pos_to_vec2(g["positions"][i])
+				if pos == null:
+					continue
 
-			var pos_inches_x = pos.x / px_per_inch
-			var pos_inches_y = pos.y / px_per_inch
+				var pos_inches_x = pos.x / px_per_inch
+				var pos_inches_y = pos.y / px_per_inch
 
-			# Must be on the board
-			if pos_inches_x < 0 or pos_inches_x > board_width or pos_inches_y < 0 or pos_inches_y > board_height:
-				errors.append("Model %d: position is off the board" % i)
-				continue
+				# Must be on the board
+				if pos_inches_x < 0 or pos_inches_x > board_width or pos_inches_y < 0 or pos_inches_y > board_height:
+					errors.append("%sModel %d: position is off the board" % [g_label, i])
+					continue
 
-			# Must be >9" from all enemy models (edge-to-edge)
-			var model_data = unit.get("models", [])[i] if i < unit.get("models", []).size() else {}
-			var model_base_mm = model_data.get("base_mm", 32)
-			var model_radius_inches = (model_base_mm / 2.0) / 25.4
+				# Must be >9" from all enemy models (edge-to-edge)
+				var model_data = g_models[i] if i < g_models.size() else {}
+				var model_base_mm = model_data.get("base_mm", 32)
+				var model_radius_inches = (model_base_mm / 2.0) / 25.4
 
-			# For Rapid Ingress, "enemies" are the active player's models
-			# get_enemy_model_positions(player) returns models NOT belonging to player
-			# 11e (20.04 Ingress): set up >8" from enemies (vs 10e's >9").
-			var min_enemy_sep = GameConstants.reinforcement_min_enemy_distance_inches()
-			var enemy_positions = GameState.get_enemy_model_positions(player)
-			for enemy in enemy_positions:
-				var enemy_pos_px = Vector2(enemy.x, enemy.y)
-				var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
-				var dist_px = pos.distance_to(enemy_pos_px)
-				var dist_inches = dist_px / px_per_inch
-				var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-				if edge_dist < min_enemy_sep:
-					errors.append("Model %d: must be >%.0f\" from enemy models (currently %.1f\")" % [i, min_enemy_sep, edge_dist])
-					break
+				# For Rapid Ingress, "enemies" are the active player's models
+				# get_enemy_model_positions(player) returns models NOT belonging to player
+				# 11e (20.04 Ingress): set up >8" from enemies (vs 10e's >9").
+				var min_enemy_sep = GameConstants.reinforcement_min_enemy_distance_inches()
+				var enemy_positions = GameState.get_enemy_model_positions(player)
+				for enemy in enemy_positions:
+					var enemy_pos_px = Vector2(enemy.x, enemy.y)
+					var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
+					var dist_px = pos.distance_to(enemy_pos_px)
+					var dist_inches = dist_px / px_per_inch
+					var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
+					if edge_dist < min_enemy_sep:
+						errors.append("%sModel %d: must be >%.0f\" from enemy models (currently %.1f\")" % [g_label, i, min_enemy_sep, edge_dist])
+						break
 
-			# Strategic Reserves: must be within 6" of a battlefield edge
-			# P2-80: Use placement_type for validation
-			if placement_type == "strategic_reserves":
-				var dist_to_left = pos_inches_x
-				var dist_to_right = board_width - pos_inches_x
-				var dist_to_top = pos_inches_y
-				var dist_to_bottom = board_height - pos_inches_y
-				var min_edge_dist = min(dist_to_left, dist_to_right, dist_to_top, dist_to_bottom)
+				# Strategic Reserves: must be within 6" of a battlefield edge
+				# P2-80: Use placement_type for validation
+				if placement_type == "strategic_reserves":
+					var dist_to_left = pos_inches_x
+					var dist_to_right = board_width - pos_inches_x
+					var dist_to_top = pos_inches_y
+					var dist_to_bottom = board_height - pos_inches_y
+					var min_edge_dist = min(dist_to_left, dist_to_right, dist_to_top, dist_to_bottom)
 
-				if min_edge_dist > 6.0:
-					errors.append("Model %d: Strategic Reserves must be within 6\" of a battlefield edge (nearest edge: %.1f\")" % [i, min_edge_dist])
+					if min_edge_dist > 6.0:
+						errors.append("%sModel %d: Strategic Reserves must be within 6\" of a battlefield edge (nearest edge: %.1f\")" % [g_label, i, min_edge_dist])
 
-				# Turn 2: cannot be in opponent's deployment zone
-				if battle_round == 2:
-					# For Rapid Ingress, "opponent" is the active player
-					var opponent = get_current_player()
-					var opponent_zone = GameState.get_deployment_zone_for_player(opponent)
-					var zone_poly = opponent_zone.get("poly", [])
-					if _point_in_deployment_zone(pos_inches_x, pos_inches_y, zone_poly):
-						errors.append("Model %d: Strategic Reserves cannot arrive in opponent's deployment zone during Turn 2" % i)
+					# Turn 2: cannot be in opponent's deployment zone
+					if battle_round == 2:
+						# For Rapid Ingress, "opponent" is the active player
+						var opponent = get_current_player()
+						var opponent_zone = GameState.get_deployment_zone_for_player(opponent)
+						var zone_poly = opponent_zone.get("poly", [])
+						if _point_in_deployment_zone(pos_inches_x, pos_inches_y, zone_poly):
+							errors.append("%sModel %d: Strategic Reserves cannot arrive in opponent's deployment zone during Turn 2" % [g_label, i])
 
-			# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
-			var omni_positions = GameState.get_omni_scrambler_positions(player)
-			for omni in omni_positions:
-				var omni_pos_px = Vector2(omni.x, omni.y)
-				var omni_radius_inches = (omni.base_mm / 2.0) / 25.4
-				var dist_px = pos.distance_to(omni_pos_px)
-				var dist_inches = dist_px / px_per_inch
-				var edge_dist = dist_inches - model_radius_inches - omni_radius_inches
-				if edge_dist < 12.0:
-					errors.append("Model %d: cannot be set up within 12\" of enemy Omni-scramblers (%s) (currently %.1f\")" % [i, omni.get("unit_name", "unknown"), edge_dist])
-					break
+				# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
+				var omni_positions = GameState.get_omni_scrambler_positions(player)
+				for omni in omni_positions:
+					var omni_pos_px = Vector2(omni.x, omni.y)
+					var omni_radius_inches = (omni.base_mm / 2.0) / 25.4
+					var dist_px = pos.distance_to(omni_pos_px)
+					var dist_inches = dist_px / px_per_inch
+					var edge_dist = dist_inches - model_radius_inches - omni_radius_inches
+					if edge_dist < 12.0:
+						errors.append("%sModel %d: cannot be set up within 12\" of enemy Omni-scramblers (%s) (currently %.1f\")" % [g_label, i, omni.get("unit_name", "unknown"), edge_dist])
+						break
 
 	# Check unit coherency
 	if errors.is_empty():
@@ -3950,26 +3958,49 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 		changes.append_array(MoveTypes.get_type("ingress").after_moving_effects(unit_id, {}))
 		log_phase_message("[11e] %s arrived via ingress move (may charge; no further moves this phase)" % unit_id)
 
-	# Deploy attached characters that are also in reserves (same logic as PLACE_REINFORCEMENT)
+	# Deploy attached characters that are also in reserves (same logic as PLACE_REINFORCEMENT):
+	# the leader's model comes from the placement UI when the player positioned it,
+	# and is auto-placed clear of the squad otherwise.
 	var unit = get_unit(unit_id)
 	var attachment_data = unit.get("attachment_data", {})
 	var attached_chars = attachment_data.get("attached_characters", [])
+	var char_model_positions = action.get("character_model_positions", {})
+	var char_model_rotations = action.get("character_model_rotations", {})
+	var arrival_footprint = _arrival_footprint(unit, model_positions, model_rotations)
 
 	for char_id in attached_chars:
 		var char_unit = get_unit(char_id)
 		if char_unit.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES:
 			continue
+		var char_positions = char_model_positions.get(char_id, [])
+		var char_rotations = char_model_rotations.get(char_id, [])
 		var char_models = char_unit.get("models", [])
 		for ci in range(char_models.size()):
 			var char_pos = null
-			if model_positions.size() > 0 and model_positions[0] != null:
-				char_pos = Vector2(model_positions[0].x + 40.0 * (ci + 1), model_positions[0].y)
+			if ci < char_positions.size():
+				char_pos = _reinforcement_pos_to_vec2(char_positions[ci])
+			var char_rot = null
+			if ci < char_rotations.size() and char_rotations[ci] != null:
+				char_rot = float(char_rotations[ci])
+			if char_pos == null:
+				char_pos = _auto_place_attached_character_model(char_models[ci], char_unit, model_positions, arrival_footprint)
 			if char_pos != null:
 				changes.append({
 					"op": "set",
 					"path": "units.%s.models.%d.position" % [char_id, ci],
 					"value": {"x": char_pos.x, "y": char_pos.y}
 				})
+				if char_rot != null:
+					changes.append({
+						"op": "set",
+						"path": "units.%s.models.%d.rotation" % [char_id, ci],
+						"value": char_rot
+					})
+				var footprint_model = char_models[ci].duplicate()
+				footprint_model["position"] = char_pos
+				if char_rot != null:
+					footprint_model["rotation"] = char_rot
+				arrival_footprint.append(footprint_model)
 		changes.append({
 			"op": "set",
 			"path": "units.%s.status" % char_id,
@@ -5310,12 +5341,17 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 			return {"valid": false, "errors": errors}
 		DebugLogger.info(str("MovementPhase: P2-80 — Unit %s using Deep Strike placement rules (from Strategic Reserves)" % unit.get("meta", {}).get("name", unit_id)))
 
+	# The whole arriving set-up: bodyguard + every attached CHARACTER coming in
+	# with it. The leader's models are validated by the SAME rules as the squad's
+	# (they used to bypass every check below and get teleported in unvalidated).
+	var arrival_groups = _collect_arrival_groups(unit, unit_id, model_positions if model_positions is Array else [], action.get("model_rotations", []), action)
+
 	# Set-up overlap gate (03.02) — applies at every edition and must run
 	# BEFORE the 11e ingress branch below, which returns early. Without this,
 	# arriving models could legally be stacked on top of models already on
 	# the board (or on each other / on walls).
 	if model_positions is Array:
-		var setup_overlap = _validate_reinforcement_setup_overlaps(unit, unit_id, model_positions, action.get("model_rotations", []))
+		var setup_overlap = _validate_reinforcement_setup_overlaps(arrival_groups)
 		if not setup_overlap.valid:
 			return setup_overlap
 
@@ -5327,15 +5363,13 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 	if GameConstants.edition >= 11:
 		var ingress_tmpl = MoveTypes.get_type("ingress")
 		var pos_vecs: Array = []
-		for p in model_positions:
-			if p == null:
-				continue
-			if p is Array:
-				pos_vecs.append(Vector2(p[0], p[1]))
-			elif p is Dictionary:
-				pos_vecs.append(Vector2(float(p.get("x", 0)), float(p.get("y", 0))))
-			else:
-				pos_vecs.append(p)
+		for g in arrival_groups:
+			for p in g["positions"]:
+				if p == null:
+					continue
+				var pv = _reinforcement_pos_to_vec2(p)
+				if pv != null:
+					pos_vecs.append(pv)
 		# A12 (20.04): supply the opponent's deployment-zone polygon (converted
 		# inches→px) so the "not in opponent DZ before battle round 3" ban is
 		# actually enforced (previously omitted, leaving the check inert).
@@ -5355,81 +5389,88 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 		log_phase_message("[11e] Ingress set-up validated for %s (%s, round %d)" % [unit_id, placement_type, battle_round])
 		return {"valid": true, "errors": []}
 
-	# Validate model positions
+	# Validate model positions — for the whole arriving set-up (bodyguard AND any
+	# attached CHARACTER coming in with it).
 	if model_positions is Array:
 		var board_width = GameState.state.board.size.width  # 44 inches
 		var board_height = GameState.state.board.size.height  # 60 inches
 		var px_per_inch = 40.0
 
-		for i in range(model_positions.size()):
-			var pos = model_positions[i]
-			if pos == null:
-				continue
+		for g in arrival_groups:
+			var g_unit_id = str(g["unit_id"])
+			var g_models = g["unit"].get("models", [])
+			# The bodyguard keeps the bare "Model N" wording; a leader's models are
+			# named so the player can tell which model of the arrival is illegal.
+			var g_label = "" if g_unit_id == unit_id else "%s " % g["unit"].get("meta", {}).get("name", g_unit_id)
+			for i in range(g["positions"].size()):
+				var pos = _reinforcement_pos_to_vec2(g["positions"][i])
+				if pos == null:
+					continue
 
-			var pos_inches_x = pos.x / px_per_inch
-			var pos_inches_y = pos.y / px_per_inch
+				var pos_inches_x = pos.x / px_per_inch
+				var pos_inches_y = pos.y / px_per_inch
 
-			# All reinforcements must be on the board
-			if pos_inches_x < 0 or pos_inches_x > board_width or pos_inches_y < 0 or pos_inches_y > board_height:
-				errors.append("Model %d: position is off the board" % i)
-				continue
+				# All reinforcements must be on the board
+				if pos_inches_x < 0 or pos_inches_x > board_width or pos_inches_y < 0 or pos_inches_y > board_height:
+					errors.append("%sModel %d: position is off the board" % [g_label, i])
+					continue
 
-			# Must be >9" from all enemy models (edge-to-edge)
-			var model_data = unit.get("models", [])[i] if i < unit.get("models", []).size() else {}
-			var model_base_mm = model_data.get("base_mm", 32)
-			var model_radius_inches = (model_base_mm / 2.0) / 25.4  # mm to inches
+				# Must be >9" from all enemy models (edge-to-edge)
+				var model_data = g_models[i] if i < g_models.size() else {}
+				var model_base_mm = model_data.get("base_mm", 32)
+				var model_radius_inches = (model_base_mm / 2.0) / 25.4  # mm to inches
 
-			var enemy_positions = GameState.get_enemy_model_positions(active_player)
-			for enemy in enemy_positions:
-				var enemy_pos_px = Vector2(enemy.x, enemy.y)
-				var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
-				var dist_px = pos.distance_to(enemy_pos_px)
-				var dist_inches = dist_px / px_per_inch
-				# Edge-to-edge distance: center distance minus both radii
-				var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-				if edge_dist < 9.0:
-					errors.append("Model %d: must be >9\" from enemy models (currently %.1f\")" % [i, edge_dist])
-					break
+				var enemy_positions = GameState.get_enemy_model_positions(active_player)
+				for enemy in enemy_positions:
+					var enemy_pos_px = Vector2(enemy.x, enemy.y)
+					var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
+					var dist_px = pos.distance_to(enemy_pos_px)
+					var dist_inches = dist_px / px_per_inch
+					# Edge-to-edge distance: center distance minus both radii
+					var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
+					if edge_dist < 9.0:
+						errors.append("%sModel %d: must be >9\" from enemy models (currently %.1f\")" % [g_label, i, edge_dist])
+						break
 
-			# Strategic Reserves: must be within 6" of a battlefield edge
-			# P2-80: Use placement_type (which may override reserve_type) for validation
-			if placement_type == "strategic_reserves":
-				var dist_to_left = pos_inches_x
-				var dist_to_right = board_width - pos_inches_x
-				var dist_to_top = pos_inches_y
-				var dist_to_bottom = board_height - pos_inches_y
-				var min_edge_dist = min(dist_to_left, dist_to_right, dist_to_top, dist_to_bottom)
+				# Strategic Reserves: must be within 6" of a battlefield edge
+				# P2-80: Use placement_type (which may override reserve_type) for validation
+				if placement_type == "strategic_reserves":
+					var dist_to_left = pos_inches_x
+					var dist_to_right = board_width - pos_inches_x
+					var dist_to_top = pos_inches_y
+					var dist_to_bottom = board_height - pos_inches_y
+					var min_edge_dist = min(dist_to_left, dist_to_right, dist_to_top, dist_to_bottom)
 
-				if min_edge_dist > 6.0:
-					errors.append("Model %d: Strategic Reserves must be within 6\" of a battlefield edge (nearest edge: %.1f\")" % [i, min_edge_dist])
+					if min_edge_dist > 6.0:
+						errors.append("%sModel %d: Strategic Reserves must be within 6\" of a battlefield edge (nearest edge: %.1f\")" % [g_label, i, min_edge_dist])
 
-				# Turn 2: cannot be in opponent's deployment zone (unless unit has Outflank — OA-27)
-				if battle_round == 2:
-					var _ability_mgr_outflank = get_node_or_null("/root/UnitAbilityManager")
-					var _has_outflank = _ability_mgr_outflank and _ability_mgr_outflank.has_outflank(unit_id)
-					if not _has_outflank:
-						var opponent = 3 - active_player
-						var opponent_zone = GameState.get_deployment_zone_for_player(opponent)
-						var zone_poly = opponent_zone.get("poly", [])
-						if _point_in_deployment_zone(pos_inches_x, pos_inches_y, zone_poly):
-							errors.append("Model %d: Strategic Reserves cannot arrive in opponent's deployment zone during Turn 2" % i)
-					else:
-						DebugLogger.info(str("MovementPhase: OA-27 Outflank — unit %s bypasses opponent deployment zone restriction" % unit_id))
+					# Turn 2: cannot be in opponent's deployment zone (unless unit has Outflank — OA-27)
+					if battle_round == 2:
+						var _ability_mgr_outflank = get_node_or_null("/root/UnitAbilityManager")
+						var _has_outflank = _ability_mgr_outflank and _ability_mgr_outflank.has_outflank(unit_id)
+						if not _has_outflank:
+							var opponent = 3 - active_player
+							var opponent_zone = GameState.get_deployment_zone_for_player(opponent)
+							var zone_poly = opponent_zone.get("poly", [])
+							if _point_in_deployment_zone(pos_inches_x, pos_inches_y, zone_poly):
+								errors.append("%sModel %d: Strategic Reserves cannot arrive in opponent's deployment zone during Turn 2" % [g_label, i])
+						else:
+							DebugLogger.info(str("MovementPhase: OA-27 Outflank — unit %s bypasses opponent deployment zone restriction" % unit_id))
 
-			# Deep Strike: can be placed anywhere on the board (>9" check already done above)
-			# No additional restrictions for deep strike placement
+				# Deep Strike: can be placed anywhere on the board (>9" check already done above)
+				# No additional restrictions for deep strike placement
 
-			# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
-			var omni_positions = GameState.get_omni_scrambler_positions(active_player)
-			for omni in omni_positions:
-				var omni_pos_px = Vector2(omni.x, omni.y)
-				var omni_radius_inches = (omni.base_mm / 2.0) / 25.4
-				var dist_px = pos.distance_to(omni_pos_px)
-				var dist_inches = dist_px / px_per_inch
-				var edge_dist = dist_inches - model_radius_inches - omni_radius_inches
-				if edge_dist < 12.0:
-					errors.append("Model %d: cannot be set up within 12\" of enemy Omni-scramblers (%s) (currently %.1f\")" % [i, omni.get("unit_name", "unknown"), edge_dist])
-					break
+				# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
+				var omni_positions = GameState.get_omni_scrambler_positions(active_player)
+				for omni in omni_positions:
+					var omni_pos_px = Vector2(omni.x, omni.y)
+					var omni_radius_inches = (omni.base_mm / 2.0) / 25.4
+					var dist_px = pos.distance_to(omni_pos_px)
+					var dist_inches = dist_px / px_per_inch
+					var edge_dist = dist_inches - model_radius_inches - omni_radius_inches
+					if edge_dist < 12.0:
+						errors.append("%sModel %d: cannot be set up within 12\" of enemy Omni-scramblers (%s) (currently %.1f\")" % [g_label, i, omni.get("unit_name", "unknown"), edge_dist])
+						break
 
 	# Check unit coherency: reinforcement models must maintain 2" horizontal and 5" vertical coherency
 	if errors.is_empty():
@@ -5462,7 +5503,7 @@ func _point_in_deployment_zone(x_inches: float, y_inches: float, zone_poly: Arra
 			packed.append(Vector2(coord.x, coord.y))
 	return Geometry2D.is_point_in_polygon(Vector2(x_inches, y_inches), packed)
 
-func _validate_reinforcement_setup_overlaps(unit: Dictionary, unit_id: String, model_positions: Array, model_rotations: Array) -> Dictionary:
+func _validate_reinforcement_setup_overlaps(groups: Array) -> Dictionary:
 	# 03.02: a unit that is SET UP (reinforcements, Rapid Ingress) is placed
 	# like any other set-up — its models may not overlap any base already on
 	# the board, may not overlap each other, and may not sit on a wall.
@@ -5471,60 +5512,204 @@ func _validate_reinforcement_setup_overlaps(unit: Dictionary, unit_id: String, m
 	# a scripted/AI PLACE_REINFORCEMENT could stack arriving models on top of
 	# units already on the board. The human placement UI blocks this
 	# client-side, which is why only AI games ever showed the stacks.
+	#
+	# `groups` is the whole arriving set-up — the bodyguard plus any attached
+	# CHARACTER arriving with it (see _collect_arrival_groups). They are checked
+	# as ONE set-up so the leader can neither land on the squad it joins nor on
+	# a unit already deployed, and every arriving unit is skipped when scanning
+	# the board (their own models are still in reserves anyway).
 	var errors: Array = []
-	var unit_models = unit.get("models", [])
-	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var arriving_ids := {}
+	for g in groups:
+		arriving_ids[str(g["unit_id"])] = true
 	var placed: Array = []
-	for i in range(model_positions.size()):
-		if i >= unit_models.size():
-			break
-		var pos = model_positions[i]
-		if pos == null or not unit_models[i].get("alive", true):
-			continue
-		var pos_vec: Vector2
-		if pos is Vector2:
-			pos_vec = pos
-		elif pos is Dictionary:
-			pos_vec = Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
-		elif pos is Array and pos.size() >= 2:
-			pos_vec = Vector2(float(pos[0]), float(pos[1]))
-		else:
-			continue
-		var check_model = unit_models[i].duplicate()
-		check_model["position"] = pos_vec
-		if i < model_rotations.size() and model_rotations[i] != null:
-			check_model["rotation"] = float(model_rotations[i])
-		var model_label = str(check_model.get("id", "m%d" % (i + 1)))
-
-		# Against every model already on the board (any owner). Embarked units
-		# carry null positions and are skipped by the position check.
-		var found_overlap := false
-		for other_id in game_state_snapshot.get("units", {}):
-			if other_id == unit_id:
+	for g in groups:
+		var unit_id = str(g["unit_id"])
+		var unit_models = g["unit"].get("models", [])
+		var unit_keywords = g["unit"].get("meta", {}).get("keywords", [])
+		var model_positions: Array = g["positions"]
+		var model_rotations: Array = g["rotations"]
+		for i in range(model_positions.size()):
+			if i >= unit_models.size():
+				break
+			var pos = model_positions[i]
+			if pos == null or not unit_models[i].get("alive", true):
 				continue
-			var other_unit = game_state_snapshot.units[other_id]
-			for om in other_unit.get("models", []):
-				if not om.get("alive", true) or om.get("position", null) == null:
+			var pos_vec = _reinforcement_pos_to_vec2(pos)
+			if pos_vec == null:
+				continue
+			var check_model = unit_models[i].duplicate()
+			check_model["position"] = pos_vec
+			if i < model_rotations.size() and model_rotations[i] != null:
+				check_model["rotation"] = float(model_rotations[i])
+			var model_label = str(check_model.get("id", "m%d" % (i + 1)))
+
+			# Against every model already on the board (any owner). Embarked units
+			# carry null positions and are skipped by the position check.
+			var found_overlap := false
+			for other_id in game_state_snapshot.get("units", {}):
+				if arriving_ids.has(other_id):
 					continue
-				if Measurement.models_overlap(check_model, om) and not _is_touching_within_tolerance(check_model, om):
-					errors.append("Model %s cannot be set up overlapping a model of %s" % [model_label, other_id])
-					found_overlap = true
+				var other_unit = game_state_snapshot.units[other_id]
+				for om in other_unit.get("models", []):
+					if not om.get("alive", true) or om.get("position", null) == null:
+						continue
+					if Measurement.models_overlap(check_model, om) and not _is_touching_within_tolerance(check_model, om):
+						errors.append("Model %s cannot be set up overlapping a model of %s" % [model_label, other_id])
+						found_overlap = true
+						break
+				if found_overlap:
 					break
-			if found_overlap:
-				break
 
-		# Against the other arriving models of this same set-up.
-		for pm in placed:
-			if Measurement.models_overlap(check_model, pm) and not _is_touching_within_tolerance(check_model, pm):
-				errors.append("Models %s and %s of the arriving unit cannot be set up overlapping each other" % [model_label, str(pm.get("id", "?"))])
-				break
+			# Against the other arriving models of this same set-up.
+			for pm in placed:
+				if Measurement.models_overlap(check_model, pm) and not _is_touching_within_tolerance(check_model, pm):
+					errors.append("Models %s and %s of the arriving unit cannot be set up overlapping each other" % [model_label, str(pm.get("id", "?"))])
+					break
 
-		# Walls: the set-up position must be clear of walls the unit can't occupy.
-		if Measurement.model_overlaps_any_wall(check_model, unit_keywords):
-			errors.append("Model %s cannot be set up overlapping a wall" % model_label)
+			# Walls: the set-up position must be clear of walls the unit can't occupy.
+			if Measurement.model_overlaps_any_wall(check_model, unit_keywords):
+				errors.append("Model %s cannot be set up overlapping a wall" % model_label)
 
-		placed.append(check_model)
+			# Issue #87 parity with the placement UI: no part of a base may hang off
+			# the battlefield. The 11e ingress branch returns on the template's
+			# verdict and IngressMove.validate_setup does not test board bounds at
+			# all for a Deep Strike (its 6"-from-edge rule is lifted), so nothing
+			# else checks this engine-side.
+			# Deliberately limited to the attached leaders for now: the primary
+			# unit's positions can come from AIDecisionMaker, whose edge margin is a
+			# flat 30px rather than the model's own base radius, so a wide-based
+			# unit arriving on the edge strip would start failing validation.
+			# Widening this to the whole set-up means making that margin
+			# base-aware first.
+			if g.get("check_board_bounds", false) and Measurement.model_outside_board(pos_vec, check_model):
+				errors.append("Model %s cannot be set up off the battlefield" % model_label)
+
+			placed.append(check_model)
 	return {"valid": errors.is_empty(), "errors": errors}
+
+# Positions reach the phase as Vector2 (placement UI), Dictionary (replayed /
+# networked actions) or [x, y] (scripted tests). Returns null for anything else.
+func _reinforcement_pos_to_vec2(pos) -> Variant:
+	if pos is Vector2:
+		return pos
+	if pos is Dictionary and pos.has("x") and pos.has("y"):
+		return Vector2(float(pos["x"]), float(pos["y"]))
+	if pos is Array and pos.size() >= 2:
+		return Vector2(float(pos[0]), float(pos[1]))
+	return null
+
+# An arriving set-up is the bodyguard PLUS every attached CHARACTER still in
+# reserves — 11e 24.10: they are one Attached unit and are set up together.
+# Returns [{unit_id, unit, positions, rotations}], the bodyguard first. Character
+# positions come from the action when the player placed them (see
+# Main._split_placement_positions); an AI/scripted arrival that omits them gets
+# an empty positions array here and is auto-placed at process time.
+func _collect_arrival_groups(unit: Dictionary, unit_id: String, model_positions: Array, model_rotations: Array, action: Dictionary) -> Array:
+	var groups: Array = [{
+		"unit_id": unit_id,
+		"unit": unit,
+		"positions": model_positions,
+		"rotations": model_rotations,
+		"check_board_bounds": false,  # see _validate_reinforcement_setup_overlaps
+	}]
+	var char_positions_by_id = action.get("character_model_positions", {})
+	var char_rotations_by_id = action.get("character_model_rotations", {})
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		var char_unit = get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+		if char_unit.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		groups.append({
+			"unit_id": str(char_id),
+			"unit": char_unit,
+			"positions": char_positions_by_id.get(char_id, []),
+			"rotations": char_rotations_by_id.get(char_id, []),
+			"check_board_bounds": true,
+		})
+	return groups
+
+# Positioned copies of the arriving unit's models — the bases this set-up has
+# already committed to the table. Used as extra collision targets when a leader
+# has to be auto-placed (its squad's models are still "in reserves" in the
+# snapshot, so scanning the board alone would not see them).
+func _arrival_footprint(unit: Dictionary, model_positions: Array, model_rotations: Array) -> Array:
+	var out: Array = []
+	var models = unit.get("models", [])
+	for i in range(model_positions.size()):
+		if i >= models.size():
+			break
+		if not models[i].get("alive", true):
+			continue
+		var pv = _reinforcement_pos_to_vec2(model_positions[i])
+		if pv == null:
+			continue
+		var m = models[i].duplicate()
+		m["position"] = pv
+		if i < model_rotations.size() and model_rotations[i] != null:
+			m["rotation"] = float(model_rotations[i])
+		out.append(m)
+	return out
+
+# Fallback spot for an attached CHARACTER whose position the action did not
+# carry (AI / scripted arrivals). Spirals outwards from the squad's centre and
+# returns the first ring position whose base is clear of every model already on
+# the board, of the models arriving with it, and of walls. The old behaviour —
+# a flat "first model + 1 inch to the right" — dropped the leader straight on
+# top of its own squad, which is what put stacked tokens on the board.
+func _auto_place_attached_character_model(char_model: Dictionary, char_unit: Dictionary, model_positions: Array, arrival_footprint: Array) -> Variant:
+	var anchor: Variant = null
+	var sum := Vector2.ZERO
+	var n := 0
+	for p in model_positions:
+		var pv = _reinforcement_pos_to_vec2(p)
+		if pv != null:
+			sum += pv
+			n += 1
+	if n > 0:
+		anchor = sum / float(n)
+	if anchor == null:
+		return null
+
+	var keywords = char_unit.get("meta", {}).get("keywords", [])
+	var owner = int(char_unit.get("owner", 0))
+	var step = max(Measurement.base_radius_px(char_model.get("base_mm", 32)) * 2.0, 40.0)
+	var candidate = char_model.duplicate()
+	for ring in range(1, 13):
+		var radius = step * ring
+		for spoke in range(12):
+			var angle = TAU * float(spoke) / 12.0
+			candidate["position"] = anchor + Vector2(cos(angle), sin(angle)) * radius
+			if _auto_placement_spot_is_clear(candidate, arrival_footprint, keywords, owner):
+				return candidate["position"]
+	# Nothing clear within ~12 rings — fall back to the old offset so the leader
+	# still arrives rather than being silently left in reserves.
+	log_phase_message("WARNING: no clear auto-placement spot for attached character; using squad centre offset")
+	return anchor + Vector2(step, 0.0)
+
+func _auto_placement_spot_is_clear(candidate: Dictionary, arrival_footprint: Array, keywords: Array, owner: int) -> bool:
+	for other in arrival_footprint:
+		if Measurement.models_overlap(candidate, other):
+			return false
+	# 20.04/24.09: an arriving model must also stay outside the enemy exclusion,
+	# so the auto spot is a legal set-up and not merely a non-overlapping one.
+	var min_enemy_px = Measurement.inches_to_px(GameConstants.reinforcement_min_enemy_distance_inches())
+	for other_id in game_state_snapshot.get("units", {}):
+		var other_unit = game_state_snapshot.units[other_id]
+		var is_enemy = int(other_unit.get("owner", 0)) != owner
+		for om in other_unit.get("models", []):
+			if not om.get("alive", true) or om.get("position", null) == null:
+				continue
+			if Measurement.models_overlap(candidate, om):
+				return false
+			if is_enemy and Measurement.model_to_model_distance_px(candidate, om) <= min_enemy_px:
+				return false
+	if Measurement.model_overlaps_any_wall(candidate, keywords):
+		return false
+	if Measurement.model_outside_board(candidate["position"], candidate):
+		return false
+	return true
 
 func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 	"""Process placing a reserve unit onto the battlefield"""
@@ -5570,12 +5755,20 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 		changes.append_array(MoveTypes.get_type("ingress").after_moving_effects(unit_id, {}))
 		log_phase_message("[11e] %s arrived via ingress move (may charge; no further moves this phase)" % unit_id)
 
-	# Deploy attached characters that are also in reserves
-	# Per 10e rules, attached characters arrive together with their bodyguard
+	# Deploy attached characters that are also in reserves.
+	# 11e 24.10: the leader and its bodyguard are ONE Attached unit, so they are
+	# set up together. The placement UI now places the leader's model(s) itself
+	# and ships them in `character_model_positions`; only AI / scripted arrivals
+	# that omit them fall back to _auto_place_attached_character_model.
 	var unit = get_unit(unit_id)
 	var attachment_data = unit.get("attachment_data", {})
 	var attached_chars = attachment_data.get("attached_characters", [])
 	var char_model_positions = action.get("character_model_positions", {})
+	var char_model_rotations = action.get("character_model_rotations", {})
+	# Every base this set-up has already committed to the table — the arriving
+	# squad plus any leader already positioned — so the fallback never drops a
+	# leader on top of the unit it just joined.
+	var arrival_footprint = _arrival_footprint(unit, model_positions, model_rotations)
 
 	for char_id in attached_chars:
 		var char_unit = get_unit(char_id)
@@ -5584,23 +5777,34 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 
 		# Deploy the character — use provided positions or place near the bodyguard
 		var char_positions = char_model_positions.get(char_id, [])
+		var char_rotations = char_model_rotations.get(char_id, [])
 		var char_models = char_unit.get("models", [])
 		for ci in range(char_models.size()):
 			var char_pos = null
 			if ci < char_positions.size():
-				char_pos = char_positions[ci]
-			elif model_positions.size() > 0:
-				# Place near the first bodyguard model with a small offset
-				var base_pos = model_positions[0]
-				if base_pos != null:
-					# Offset based on character model index (40px = ~1 inch)
-					char_pos = Vector2(base_pos.x + 40.0 * (ci + 1), base_pos.y)
+				char_pos = _reinforcement_pos_to_vec2(char_positions[ci])
+			var char_rot = null
+			if ci < char_rotations.size() and char_rotations[ci] != null:
+				char_rot = float(char_rotations[ci])
+			if char_pos == null:
+				char_pos = _auto_place_attached_character_model(char_models[ci], char_unit, model_positions, arrival_footprint)
 			if char_pos != null:
 				changes.append({
 					"op": "set",
 					"path": "units.%s.models.%d.position" % [char_id, ci],
 					"value": {"x": char_pos.x, "y": char_pos.y}
 				})
+				if char_rot != null:
+					changes.append({
+						"op": "set",
+						"path": "units.%s.models.%d.rotation" % [char_id, ci],
+						"value": char_rot
+					})
+				var footprint_model = char_models[ci].duplicate()
+				footprint_model["position"] = char_pos
+				if char_rot != null:
+					footprint_model["rotation"] = char_rot
+				arrival_footprint.append(footprint_model)
 
 		changes.append({
 			"op": "set",

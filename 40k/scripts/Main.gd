@@ -2795,13 +2795,19 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 
 		deployment_controller.unit_id = unit_id
 		deployment_controller.model_idx = 0
-		deployment_controller.temp_positions.clear()
-		deployment_controller.temp_rotations.clear()
-		var unit_data = GameState.get_unit(unit_id)
-		deployment_controller.temp_positions.resize(unit_data["models"].size())
-		deployment_controller.temp_rotations.resize(unit_data["models"].size())
-		deployment_controller.temp_rotations.fill(0.0)
+		deployment_controller.placement_order.clear()
+		# 24.10/20.04: an Attached unit arrives from reserves as ONE unit, so the
+		# player must place the leader's model too — not just the bodyguard squad.
+		# setup_placement_models folds every attached CHARACTER still in reserves
+		# into this same placement session (combined mode), exactly as deployment
+		# does. Without it the session was sized off the bodyguard alone and the
+		# phase handler silently teleported the leader 1" to the right of the
+		# squad's first model (usually straight on top of another base).
+		deployment_controller.setup_placement_models(unit_id, true)
 		deployment_controller.formation_rotation = 0.0
+		deployment_controller.formation_mode = "SINGLE"
+		deployment_controller.setup_model_type_picker()
+		deployment_controller.preselect_first_model_type()
 
 		# Create ghost for placement
 		deployment_controller._create_ghost()
@@ -2839,6 +2845,61 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		unit_list.visible = false
 		show_unit_card(unit_id)
 
+# Read the deployment controller's placement buffers back out, per unit.
+# A combined set-up (bodyguard + attached CHARACTERs, see
+# DeploymentController.setup_placement_models) indexes temp_positions by the
+# COMBINED model list, so it has to be split before it can be dispatched: the
+# action carries the bodyguard's models in `model_positions` and each leader's
+# in `character_model_positions[char_id]`, both indexed by that unit's own
+# models array. Plain (un-combined) sessions pass straight through.
+# Returns {model_positions, model_rotations, character_model_positions,
+# character_model_rotations}.
+func _split_placement_positions(bodyguard_id: String) -> Dictionary:
+	var out := {
+		"model_positions": [],
+		"model_rotations": [],
+		"character_model_positions": {},
+		"character_model_rotations": {},
+	}
+	if not deployment_controller:
+		return out
+
+	if not deployment_controller.is_combined_deployment:
+		for pos in deployment_controller.temp_positions:
+			out["model_positions"].append(pos)
+		out["model_rotations"] = deployment_controller.temp_rotations.duplicate()
+		return out
+
+	var bg_model_count = GameState.get_unit(bodyguard_id).get("models", []).size()
+	out["model_positions"].resize(bg_model_count)  # nulls = model not placed
+	out["model_rotations"].resize(bg_model_count)
+	out["model_rotations"].fill(0.0)
+
+	for i in range(deployment_controller.combined_models.size()):
+		var cm = deployment_controller.combined_models[i]
+		var owner_id = str(cm["unit_id"])
+		var midx = int(cm["model_idx"])
+		var pos = deployment_controller.temp_positions[i] if i < deployment_controller.temp_positions.size() else null
+		var rot = deployment_controller.temp_rotations[i] if i < deployment_controller.temp_rotations.size() else 0.0
+		if owner_id == bodyguard_id:
+			if midx < out["model_positions"].size():
+				out["model_positions"][midx] = pos
+				out["model_rotations"][midx] = rot
+			continue
+		if not out["character_model_positions"].has(owner_id):
+			var char_count = GameState.get_unit(owner_id).get("models", []).size()
+			var cp := []
+			cp.resize(char_count)
+			var cr := []
+			cr.resize(char_count)
+			cr.fill(0.0)
+			out["character_model_positions"][owner_id] = cp
+			out["character_model_rotations"][owner_id] = cr
+		if midx < out["character_model_positions"][owner_id].size():
+			out["character_model_positions"][owner_id][midx] = pos
+			out["character_model_rotations"][owner_id][midx] = rot
+	return out
+
 func _on_reinforcement_confirmed() -> void:
 	"""Handle reinforcement placement completion"""
 	if _selected_unit_for_reserves == "":
@@ -2851,13 +2912,12 @@ func _on_reinforcement_confirmed() -> void:
 		return
 
 	# Collect model positions from the deployment controller
-	var model_positions = []
-	for pos in deployment_controller.temp_positions:
-		model_positions.append(pos)
+	var split = _split_placement_positions(unit_id)
+	var model_positions = split["model_positions"]
+	var model_rotations = split["model_rotations"]
 
-	var model_rotations = deployment_controller.temp_rotations.duplicate()
-
-	print("Main: Reinforcement placement confirmed for %s with %d model positions" % [unit_id, model_positions.size()])
+	print("Main: Reinforcement placement confirmed for %s with %d model positions (+%d attached character(s))" % [
+		unit_id, model_positions.size(), split["character_model_positions"].size()])
 
 	# Reset the unit status back to IN_RESERVES before sending the action
 	# (the action processor will set it to DEPLOYED)
@@ -2882,6 +2942,12 @@ func _on_reinforcement_confirmed() -> void:
 	}
 	if _reinforcement_placement_type != "":
 		action["placement_type"] = _reinforcement_placement_type
+	# Attached CHARACTERs placed in this same session travel with the action so
+	# the phase uses the player's chosen spots (and validates them) instead of
+	# falling back to its auto-offset.
+	if not split["character_model_positions"].is_empty():
+		action["character_model_positions"] = split["character_model_positions"]
+		action["character_model_rotations"] = split["character_model_rotations"]
 
 	var result = NetworkIntegration.route_action(action)
 
@@ -3218,13 +3284,14 @@ func _begin_rapid_ingress_placement(unit_id: String) -> void:
 
 		deployment_controller.unit_id = unit_id
 		deployment_controller.model_idx = 0
-		deployment_controller.temp_positions.clear()
-		deployment_controller.temp_rotations.clear()
-		var unit_data = GameState.get_unit(unit_id)
-		deployment_controller.temp_positions.resize(unit_data["models"].size())
-		deployment_controller.temp_rotations.resize(unit_data["models"].size())
-		deployment_controller.temp_rotations.fill(0.0)
+		deployment_controller.placement_order.clear()
+		# Same as a normal reserves arrival: an Attached unit ingresses as ONE
+		# unit, so the leader's model is placed by the player in this session too.
+		deployment_controller.setup_placement_models(unit_id, true)
 		deployment_controller.formation_rotation = 0.0
+		deployment_controller.formation_mode = "SINGLE"
+		deployment_controller.setup_model_type_picker()
+		deployment_controller.preselect_first_model_type()
 
 		# Create ghost for placement
 		deployment_controller._create_ghost()
@@ -3258,13 +3325,12 @@ func _on_rapid_ingress_confirmed() -> void:
 		return
 
 	# Collect model positions from the deployment controller
-	var model_positions = []
-	for pos in deployment_controller.temp_positions:
-		model_positions.append(pos)
+	var split = _split_placement_positions(unit_id)
+	var model_positions = split["model_positions"]
+	var model_rotations = split["model_rotations"]
 
-	var model_rotations = deployment_controller.temp_rotations.duplicate()
-
-	print("Main: Rapid Ingress placement confirmed for %s with %d model positions" % [unit_id, model_positions.size()])
+	print("Main: Rapid Ingress placement confirmed for %s with %d model positions (+%d attached character(s))" % [
+		unit_id, model_positions.size(), split["character_model_positions"].size()])
 
 	# Reset the unit status back to IN_RESERVES before sending the action
 	# (the action processor will set it to DEPLOYED)
@@ -3286,6 +3352,9 @@ func _on_rapid_ingress_confirmed() -> void:
 		"phase": GameStateData.Phase.MOVEMENT,
 		"timestamp": Time.get_unix_time_from_system()
 	}
+	if not split["character_model_positions"].is_empty():
+		action["character_model_positions"] = split["character_model_positions"]
+		action["character_model_rotations"] = split["character_model_rotations"]
 
 	var result = NetworkIntegration.route_action(action)
 
@@ -5080,7 +5149,17 @@ func _setup_objectives() -> void:
 						if controller != old_ctrl:
 							obj_visual.flash_control_change(controller, old_ctrl)
 			)
-		
+
+			# Seed the label from the CURRENT control state. The signal above
+			# only fires on a change, so on a loaded save (which restores
+			# MissionManager.objective_control_state) a freshly built visual
+			# would otherwise sit on its "Uncontrolled" default forever even
+			# with models on the marker. No flash — this isn't a capture.
+			obj_visual.update_control(
+				MissionManager.objective_control_state.get(obj.id, 0),
+				MissionManager.is_objective_contested(obj.id)
+			)
+
 		# Connect objective removal signal (for Scorched Earth burns and Supply Drop)
 		if not MissionManager.objective_removed.is_connected(_on_objective_removed):
 			MissionManager.objective_removed.connect(_on_objective_removed)
@@ -5766,6 +5845,9 @@ func setup_command_controller() -> void:
 	if not command_controller.ui_update_requested.is_connected(_on_command_ui_update_requested):
 		command_controller.ui_update_requested.connect(_on_command_ui_update_requested)
 		print("Connected ui_update_requested signal")
+	if not command_controller.battle_shock_sequence_finished.is_connected(_on_battle_shock_sequence_finished):
+		command_controller.battle_shock_sequence_finished.connect(_on_battle_shock_sequence_finished)
+		print("Connected battle_shock_sequence_finished signal")
 
 func setup_movement_controller() -> void:
 	print("Setting up MovementController...")
@@ -7582,16 +7664,23 @@ func focus_on_deployment_zone(player: int, animate: bool = true) -> void:
 		view_offset = target_offset
 		update_view_transform()
 
-func focus_on_world_point(world_pos: Vector2, animate: bool = true) -> void:
-	"""Pan the camera so world_pos sits at the viewport centre AND STAY THERE.
+func focus_on_world_point(world_pos: Vector2, animate: bool = true,
+		screen_anchor: Vector2 = Vector2(0.5, 0.5)) -> void:
+	"""Pan the camera so world_pos sits at `screen_anchor` AND STAY THERE.
 
 	The sibling focus_on_position_briefly() bounces back to the previous view
 	after a hold; this one is for callouts the player has to act on (11e 03.03
 	out-of-coherency markers), which must remain framed until they resolve.
-	Keeps the current zoom unless it is so far out the marker would be a speck."""
+	Keeps the current zoom unless it is so far out the marker would be a speck.
+
+	`screen_anchor` is where on screen the point should land, as a 0..1 fraction
+	of the viewport — the default centres it. Callers that open a docked panel
+	over the board (the Battle-shock roll call's bottom card) pass a higher
+	anchor so the thing being pointed at does not end up BEHIND the panel."""
 	var viewport_size = get_viewport().get_visible_rect().size
 	var target_zoom = clamp(view_zoom, 0.75, 1.5)
-	var target_offset = world_pos - viewport_size / (2.0 * target_zoom)
+	var anchor_px = Vector2(viewport_size.x * screen_anchor.x, viewport_size.y * screen_anchor.y)
+	var target_offset = world_pos - anchor_px / target_zoom
 
 	if animate:
 		if _auto_zoom_tween and _auto_zoom_tween.is_valid():
@@ -7606,6 +7695,29 @@ func focus_on_world_point(world_pos: Vector2, animate: bool = true) -> void:
 	else:
 		view_zoom = target_zoom
 		view_offset = target_offset
+		update_view_transform()
+
+func restore_view_snapshot(offset: Vector2, zoom: float, animate: bool = true) -> void:
+	"""Glide the camera back to a previously captured (view_offset, view_zoom).
+
+	Companion to focus_on_world_point() for flows that take the camera on a tour
+	and owe the player their original framing back — the Battle-shock roll call
+	pans to each unit in turn, so it snapshots the view first and restores it
+	when the queue is done.
+	"""
+	if animate:
+		if _auto_zoom_tween and _auto_zoom_tween.is_valid():
+			_auto_zoom_tween.kill()
+		_auto_zoom_tween = create_tween()
+		_auto_zoom_tween.set_parallel(true)
+		_auto_zoom_tween.set_ease(Tween.EASE_IN_OUT)
+		_auto_zoom_tween.set_trans(Tween.TRANS_CUBIC)
+		_auto_zoom_tween.tween_property(self, "view_zoom", zoom, 0.5)
+		_auto_zoom_tween.tween_property(self, "view_offset", offset, 0.5)
+		_auto_zoom_tween.tween_method(_tween_update_view, 0.0, 1.0, 0.5)
+	else:
+		view_zoom = zoom
+		view_offset = offset
 		update_view_transform()
 
 func _tween_update_view(_progress: float) -> void:
@@ -7991,6 +8103,16 @@ func _refresh_unit_list_inner() -> void:
 		GameStateData.Phase.MOVEMENT:
 			# MovementController manages its own right panel UI, hide the shared unit list
 			unit_list.visible = false
+			# ...and rebuild THAT list too, because it is the one the player can
+			# see. Everything below this point populates the hidden `unit_list`,
+			# so a refresh triggered by an arriving reinforcement left the visible
+			# panel stale: the unit that had just landed kept its "Arrive from
+			# Deep Strike: ..." row, and clicking it went down the normal-move
+			# path instead (reported as "Error: Unit has already moved this
+			# phase", since an ingress move blocks further moves).
+			if movement_controller and is_instance_valid(movement_controller) \
+					and movement_controller.has_method("_refresh_unit_list"):
+				movement_controller._refresh_unit_list()
 			var all_units = GameState.get_units_for_player(active_player)
 			var deployed_count = 0
 			var battle_round = GameState.get_battle_round()
@@ -12494,10 +12616,37 @@ func _show_battle_shock_confirmation_dialog(untested_units: Array, active_player
 	dialog.setup(untested_units)
 	dialog.end_command_confirmed.connect(_on_end_command_confirmed.bind(active_player))
 	dialog.end_command_cancelled.connect(_on_end_command_cancelled)
+	dialog.roll_tests_requested.connect(_on_battle_shock_roll_tests_requested.bind(active_player))
 	get_tree().root.add_child(dialog)
 	# Centered: a phase-end commitment the player must not walk past.
 	DialogUtils.popup_phase_end_prompt(dialog)
 	print("Main: P3-94: Battle-shock confirmation dialog shown")
+
+func _on_battle_shock_roll_tests_requested(active_player: int) -> void:
+	"""Player chose to roll the outstanding battle-shock tests on screen.
+
+	Hands off to the CommandController roll call; it emits
+	battle_shock_sequence_finished(end_phase_after=true) when the queue is done,
+	which is where END_COMMAND is finally dispatched.
+	"""
+	if command_controller and is_instance_valid(command_controller) \
+			and command_controller.has_method("start_battle_shock_sequence"):
+		if command_controller.start_battle_shock_sequence("", true):
+			print("Main: Battle-shock roll call started from the end-of-phase prompt")
+			return
+	# Roll call unavailable (no phase, AI seat, remote seat) — do not strand the
+	# player mid-phase; fall back to the historical auto-resolve.
+	print("Main: Battle-shock roll call could not start — falling back to auto-resolve")
+	_on_end_command_confirmed(active_player)
+
+func _on_battle_shock_sequence_finished(end_phase_after: bool) -> void:
+	"""The roll call closed. Continue to END_COMMAND only if it was started from
+	the end-of-phase prompt; a roll call opened from the panel just returns the
+	player to the Command phase."""
+	print("Main: Battle-shock roll call finished (end_phase_after=%s)" % str(end_phase_after))
+	update_after_command_action()
+	if end_phase_after:
+		_on_end_command_confirmed(GameState.get_active_player())
 
 func _on_end_command_confirmed(active_player: int) -> void:
 	"""P3-94: Player confirmed ending command phase despite untested battle-shock units"""

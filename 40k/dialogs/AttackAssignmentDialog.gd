@@ -140,6 +140,7 @@ var _weapon_by_id: Dictionary = {}      # weapon_id -> weapon profile dictionary
 var _groups: Array = []
 var _focused_group: int = 0
 var _groups_box: VBoxContainer = null
+var _groups_scroll: ScrollContainer = null
 var _updating_spins: bool = false  # re-entrancy guard for split SpinBox rebalancing
 
 func setup(fighter_id: String, targets: Dictionary, phase) -> void:
@@ -317,17 +318,15 @@ func _build_ui() -> void:
 	# split group) cannot push the buttons off the bottom of the dialog.
 	var groups_scroll = ScrollContainer.new()
 	groups_scroll.name = "GroupsScroll"
-	# Sized to what the sections actually need, capped at the old fixed 260 so a
-	# mob with several loadouts still scrolls rather than growing without bound.
-	# It used to reserve 260px unconditionally, which for a single-model, single-
-	# weapon fighter (a Warboss with just his Power klaw) was ~150px of empty box
-	# — and on a 1080p screen that was exactly the room the damage-breakdown
-	# section below needed, so the new table opened half off the bottom edge.
-	var groups_needed := 0.0
-	for g in _groups:
-		groups_needed += 40.0 + float(26 * min(4, max(1, g.weapons.size())) + 8) + 26.0
-	groups_scroll.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, clampf(groups_needed, 90.0, 260.0))
+	# Sized by _resize_groups_scroll to what the sections actually SHOW, capped at
+	# the old fixed 260 so a mob with several loadouts still scrolls rather than
+	# growing without bound. It used to reserve 260px unconditionally, which for a
+	# single-model, single-weapon fighter (a Warboss with just his Power klaw) was
+	# ~150px of empty box — and on a 1080p screen that was exactly the room the
+	# damage-breakdown section below needed, so the new table opened half off the
+	# bottom edge.
 	groups_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_groups_scroll = groups_scroll
 	_groups_box = VBoxContainer.new()
 	_groups_box.name = "GroupsBox"
 	_groups_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -376,17 +375,18 @@ func _build_ui() -> void:
 	var button_container = HBoxContainer.new()
 	button_container.name = "ButtonContainer"
 
-	# Auto-assign: give every group the weapon with the best expected damage
-	# against the selected target. This is the "don't drown me in options" path —
-	# the dialog already opens on this plan, and the button restores it after any
-	# manual fiddling.
+	# Auto-assign: build the plan that removes the most wounds — best weapon per
+	# section, spread across the engaged units so no one target is drowned in
+	# more damage than it has wounds. This is the "don't drown me in options"
+	# path — the dialog already opens on this plan, and the button restores it
+	# after any manual fiddling.
 	best_krump_button = Button.new()
 	best_krump_button.name = "BestKrumpButton"
 	# Label is plain English for the same reason as the back button below — the
 	# node name / handler keep the "best_krump" spelling because windowed
 	# scenarios click this by path and coverage tags key off it.
 	best_krump_button.text = "Best Weapons ✨"
-	best_krump_button.tooltip_text = "Auto-pick the best melee weapon for each section against the selected target"
+	best_krump_button.tooltip_text = "Auto-pick the best melee weapon for each section and spread the sections across the engaged units, so no target is given more damage than it has wounds left"
 	best_krump_button.pressed.connect(_on_best_krump_pressed)
 	button_container.add_child(best_krump_button)
 
@@ -492,7 +492,11 @@ func _build_ui() -> void:
 	container.add_child(_order_scroll)
 
 	assignments_display = RichTextLabel.new()
-	assignments_display.custom_minimum_size = Vector2(480, 52)
+	# The plan lines themselves now live in the reorderable rows above, so this
+	# label carries the Extra Attacks preview, the total, and the overkill note.
+	# Still 116: the over-commitment warning wraps to two or three lines, and at
+	# 70 it sat below the fold — which is exactly the reader who needs it.
+	assignments_display.custom_minimum_size = Vector2(480, 116)
 	assignments_display.name = "AssignmentsDisplay"
 	assignments_display.bbcode_enabled = true
 	container.add_child(assignments_display)
@@ -713,13 +717,15 @@ func _build_group_section(gi: int) -> Control:
 	header.add_child(tgt_button)
 	g["target_button"] = tgt_button
 
-	# Split is only meaningful when there are several models AND several weapons
-	# to divide them between.
-	if g.models.size() > 1 and g.weapons.size() > 1:
+	# Split needs several models AND somewhere to divide them: either several
+	# weapons, or several targets. The target case was missing, which is why a
+	# uniform squad — one loadout, one section — could only ever be pointed at a
+	# single unit, no matter how far its attacks overshot that unit's wounds.
+	if g.models.size() > 1 and (g.weapons.size() > 1 or eligible_targets.size() > 1):
 		var split_button := Button.new()
 		split_button.name = "SplitButton"
 		split_button.text = "Split…"
-		split_button.tooltip_text = "Divide this section between several weapons"
+		split_button.tooltip_text = "Divide this section between several weapons or several targets"
 		split_button.pressed.connect(_on_split_toggled.bind(gi))
 		header.add_child(split_button)
 		g["split_button"] = split_button
@@ -744,50 +750,117 @@ func _build_group_section(gi: int) -> Control:
 	box.add_child(list)
 	g["list"] = list
 
-	# Split mode: one count row per weapon. Built now, hidden until toggled.
+	# Split mode: one count row per PLAN LINE. Populated by _rebuild_split_rows,
+	# hidden until toggled. It used to be one fixed row per weapon, which could
+	# not represent the same weapon pointed at two different targets — the shape
+	# every "stop overkilling one unit" plan needs.
 	var split_box := VBoxContainer.new()
 	split_box.name = "SplitBox"
 	split_box.visible = false
-	for wid in g.weapons:
-		var w: Dictionary = _weapon_by_id.get(wid, {})
-		var row := HBoxContainer.new()
-		row.name = "SplitRow_%s" % wid
-		var name_label := Label.new()
-		name_label.text = str(w.get("name", wid))
-		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(name_label)
-
-		var spin := SpinBox.new()
-		spin.name = "Count_%s" % wid
-		spin.min_value = 0
-		spin.max_value = g.models.size()
-		spin.step = 1
-		spin.value = 0
-		spin.value_changed.connect(_on_split_count_changed.bind(gi, wid))
-		row.add_child(spin)
-		g.spins[wid] = spin
-
-		var line_tgt := Button.new()
-		line_tgt.name = "LineTarget_%s" % wid
-		line_tgt.tooltip_text = "Click to send this weapon's models at a different target"
-		line_tgt.pressed.connect(_on_line_target_cycle.bind(gi, wid))
-		line_tgt.disabled = _targets_for_group(gi).size() < 2
-		row.add_child(line_tgt)
-		g.line_target_buttons[wid] = line_tgt
-
-		split_box.add_child(row)
 	box.add_child(split_box)
 	g["split_box"] = split_box
+	_rebuild_split_rows(gi)
 
 	# Per-group summary (attack count + expected damage).
 	var summary := Label.new()
 	summary.name = "GroupSummary"
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	summary.add_theme_font_size_override("font_size", 15)
 	summary.modulate = Color(1, 1, 1, 0.8)
 	box.add_child(summary)
 	g["summary"] = summary
 
 	return panel
+
+
+# The rows the split view has to show for a group: its plan lines, or — before a
+# plan exists — one empty row per weapon (the shape the Split button seeds).
+func _split_row_lines(g: Dictionary) -> Array:
+	if not (g.lines as Array).is_empty():
+		return g.lines
+	var seeded: Array = []
+	for wid in g.weapons:
+		seeded.append({"weapon": str(wid), "count": 0, "target": _selected_target_id()})
+	return seeded
+
+
+# Rebuild a group's split rows so there is exactly one per plan line. Lines are
+# addressed by INDEX rather than by weapon id, because the same weapon can now
+# appear twice with different targets ("6 Boyz → Grots, 4 Boyz → Nobz").
+#
+# Node names keep the historic `SplitRow_<weapon>` / `Count_<weapon>` spelling
+# for the FIRST line of each weapon — windowed scenarios address those by path —
+# and suffix any repeat with `_2`, `_3`, …
+func _rebuild_split_rows(only_gi: int = -1) -> void:
+	for gi in range(_groups.size()):
+		if only_gi >= 0 and gi != only_gi:
+			continue
+		var g: Dictionary = _groups[gi]
+		var split_box: VBoxContainer = g.get("split_box", null)
+		if split_box == null:
+			continue
+		for child in split_box.get_children():
+			split_box.remove_child(child)
+			child.queue_free()
+		g["spins"] = {}
+		g["line_target_buttons"] = {}
+
+		var rows: Array = _split_row_lines(g)
+		var seen_weapon: Dictionary = {}
+		for li in range(rows.size()):
+			var line: Dictionary = rows[li]
+			var wid := str(line.get("weapon", ""))
+			var w: Dictionary = _weapon_by_id.get(wid, {})
+			seen_weapon[wid] = int(seen_weapon.get(wid, 0)) + 1
+			var suffix := "" if int(seen_weapon[wid]) == 1 else "_%d" % int(seen_weapon[wid])
+
+			var row := HBoxContainer.new()
+			row.name = "SplitRow_%s%s" % [wid, suffix]
+			var name_label := Label.new()
+			name_label.text = str(w.get("name", wid))
+			name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(name_label)
+
+			var spin := SpinBox.new()
+			spin.name = "Count_%s%s" % [wid, suffix]
+			spin.min_value = 0
+			spin.max_value = g.models.size()
+			spin.step = 1
+			spin.value = int(line.get("count", 0))
+			spin.value_changed.connect(_on_split_count_changed.bind(gi, li))
+			row.add_child(spin)
+			g.spins[li] = spin
+
+			var line_tgt := Button.new()
+			line_tgt.name = "LineTarget_%s%s" % [wid, suffix]
+			line_tgt.tooltip_text = "Click to send this row's models at a different target"
+			line_tgt.pressed.connect(_on_line_target_cycle.bind(gi, li))
+			line_tgt.disabled = eligible_targets.size() < 2
+			row.add_child(line_tgt)
+			g.line_target_buttons[li] = line_tgt
+
+			split_box.add_child(row)
+	_resize_groups_scroll()
+
+
+# Size the sections box to what its sections currently SHOW. It used to be
+# computed once, from the weapon count alone — so a section split across two
+# targets (same weapon, two rows) had its second row clipped clean off the
+# bottom, hiding half the plan the dialog had just built. Still bounded, so a
+# mob with five sections scrolls rather than pushing "Fight!" off the screen.
+func _resize_groups_scroll() -> void:
+	if _groups_scroll == null:
+		return
+	var needed := 0.0
+	for g in _groups:
+		var body := 0.0
+		if bool(g.get("split", false)):
+			# A split row is a SpinBox row — taller than an ItemList row.
+			body = 44.0 * float(max(1, (g.lines as Array).size())) + 8.0
+		else:
+			body = 26.0 * float(min(4, max(1, (g.weapons as Array).size()))) + 8.0
+		needed += 40.0 + body + 26.0
+	_groups_scroll.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40, clampf(needed, 90.0, 260.0))
 
 
 # Model keys of every eligible model across the Attached unit that carries
@@ -957,39 +1030,231 @@ func _components_disagree_on_targets() -> bool:
 	return true
 
 
-# Give every group the weapon with the highest expected damage against
-# `target_id`, un-split, all pointed at that target — or, for a section that is
-# not in Engagement Range of it, at the best target that section HAS reached
-# (19.03: an Attached unit's components stand apart, and 11e requires each
-# target to be engaged with the model swinging at it).
+# Build the whole plan for "maximum damage": which weapon each section swings,
+# WHICH TARGET it swings at, and how the section divides when one target cannot
+# absorb it.
+#
+# Reported defect: this used to point every section at `target_id` with its
+# highest RAW expected-damage weapon. Raw damage counts points that can never
+# land — past a model's last wound, and past the target UNIT's last wound — so
+# the "best" plan happily threw 25 damage at a 6-wound Warboss and called it 25,
+# leaving the other engaged units untouched. Nineteen of those attacks were
+# wasted and the dialog said nothing.
+#
+# The allocator now works on EFFECTIVE damage (what actually comes off a wound
+# pool) and places models ONE AT A TIME, each on whichever section/weapon/target
+# cell removes the most wounds with it. A target stops attracting models as its
+# pool runs down, so the rest of the section flows to the next-best target by
+# itself — which is how a single-loadout squad, one section carrying one weapon,
+# ends up divided across two enemies at all.
+#
+# `target_id` (the list selection) survives only as a tie-break, so a plan with
+# nothing to choose between is still the one the player pointed at.
 func _apply_best_plan(target_id: String) -> void:
-	if target_id == "":
+	if _groups.is_empty() or eligible_targets.is_empty():
 		return
+
+	# Target order: the selected one first, so equal-value cells resolve to the
+	# player's own pick rather than to dictionary order.
+	var targets: Array = []
+	if target_id != "" and eligible_targets.has(target_id):
+		targets.append(target_id)
+	for tid in eligible_targets.keys():
+		if not str(tid) in targets:
+			targets.append(str(tid))
+
+	# Remaining wound pool per target, minus whatever the auto-included
+	# [EXTRA ATTACKS] weapons are already going to take off it — those swing
+	# whether or not this plan asks them to, so their damage is spoken for.
+	var pool: Dictionary = {}
+	for tid in targets:
+		pool[tid] = _target_wounds_remaining(str(tid))
+	if not extra_attacks_weapons.is_empty():
+		var ea_target := _get_extra_attacks_target_id()
+		if pool.has(ea_target):
+			for weapon in extra_attacks_weapons:
+				var ea_wid := RulesEngine.generate_weapon_id(str(weapon.get("name", "")), str(weapon.get("type", "")))
+				var ea_bd := _damage_breakdown(ea_wid, ea_target, _carriers_across_group(ea_wid).size())
+				pool[ea_target] = max(0.0, float(pool[ea_target]) - float(ea_bd.get("effective_uncapped", 0.0)))
+
+	# Per-model effective damage for every (section, weapon, target) cell. Damage
+	# is linear in the number of models swinging, so one probe per cell is enough
+	# to price any number of models.
+	var per_model: Dictionary = {}   # "gi|wid|tid" -> effective damage for ONE model
+	var per_model_raw: Dictionary = {}
 	for gi in range(_groups.size()):
 		var g: Dictionary = _groups[gi]
-		g.split = false
-		var tid := _clamp_target_for_group(gi, target_id)
-		var best := _best_weapon_for_group(gi, tid)
-		if best == "":
+		# ONLY the targets this section has actually reached (11e Select Targets —
+		# each target must be engaged with the model swinging at it). A cell the
+		# section cannot reach is never priced, so the allocator can never spread
+		# onto a target the engine would reject.
+		var reach: Array = _targets_for_group(gi)
+		for wid in g.weapons:
+			for tid in targets:
+				if not str(tid) in reach:
+					continue
+				var bd := _damage_breakdown(str(wid), str(tid), 1, str(g.get("owner", "")))
+				if bd.is_empty():
+					continue
+				var key := "%d|%s|%s" % [gi, wid, tid]
+				per_model[key] = float(bd.get("effective_uncapped", 0.0))
+				per_model_raw[key] = float(bd.get("expected_damage", 0.0))
+
+	var models_left: Array = []
+	var plans: Array = []
+	for g in _groups:
+		models_left.append(int(g.models.size()))
+		plans.append([])
+
+	# Greedy fill, ONE MODEL AT A TIME on marginal value. Filling a target right
+	# up to its last wound in one go is the trap the old plan fell into from the
+	# other direction: the model that finishes a 6-wound Warboss contributes only
+	# the 1.4 wounds still standing, and if a second target would have taken its
+	# full 2.8, sending it there is strictly more damage. Marginal value is the
+	# only way to see that, so each model is placed on its own.
+	var placed_by_cell: Array = []   # gi -> {"weapon|target": models}
+	for _g in _groups:
+		placed_by_cell.append({})
+	while true:
+		var best_key := ""
+		var best_value := 0.0
+		var best_gi := -1
+		var best_wid := ""
+		var best_tid := ""
+		var best_raw := -1.0
+		for gi in range(_groups.size()):
+			if models_left[gi] <= 0:
+				continue
+			var g: Dictionary = _groups[gi]
+			for wid in g.weapons:
+				for ti in range(targets.size()):
+					var tid := str(targets[ti])
+					var key := "%d|%s|%s" % [gi, wid, tid]
+					if not per_model.has(key):
+						continue
+					var pm: float = float(per_model[key])
+					if pm <= 0.0:
+						continue
+					var headroom: float = float(pool.get(tid, 0.0))
+					if headroom <= 0.0:
+						continue
+					# What THIS model actually removes here: its own output, or
+					# whatever is left of the pool, whichever is smaller.
+					var value: float = min(pm, headroom)
+					if value > best_value + 0.00001 \
+							or (absf(value - best_value) <= 0.00001 and float(per_model_raw.get(key, 0.0)) > best_raw):
+						best_value = value
+						best_raw = float(per_model_raw.get(key, 0.0))
+						best_key = key
+						best_gi = gi
+						best_wid = str(wid)
+						best_tid = tid
+		if best_key == "":
+			break
+		var cell := "%s|%s" % [best_wid, best_tid]
+		placed_by_cell[best_gi][cell] = int(placed_by_cell[best_gi].get(cell, 0)) + 1
+		pool[best_tid] = max(0.0, float(pool[best_tid]) - float(per_model[best_key]))
+		models_left[best_gi] -= 1
+
+	# Collapse the per-model placements back into plan lines (one per
+	# weapon+target combination the section actually used).
+	for gi in range(_groups.size()):
+		for cell in placed_by_cell[gi]:
+			var parts: PackedStringArray = str(cell).split("|")
+			plans[gi].append({"weapon": parts[0], "count": int(placed_by_cell[gi][cell]),
+				"target": parts[1] if parts.size() > 1 else ""})
+
+	# Anything left over has nowhere useful to go (every engaged unit is already
+	# dead several times over on paper). Those models still have to swing at
+	# SOMETHING legal, so give them the hardest-hitting weapon against the
+	# selected target rather than dropping them out of the plan.
+	for gi in range(_groups.size()):
+		if models_left[gi] <= 0:
 			continue
-		g.lines = [{"weapon": best, "count": g.models.size(), "target": tid}]
+		# Clamped to what this section has reached — a leftover model still may
+		# only swing at an enemy it is engaged with.
+		var fallback_tid := _clamp_target_for_group(gi, str(targets[0]))
+		if fallback_tid == "" or not str(fallback_tid) in _targets_for_group(gi):
+			continue
+		var raw_best := _best_raw_weapon_for_group(gi, fallback_tid)
+		if raw_best == "":
+			continue
+		plans[gi].append({"weapon": raw_best, "count": models_left[gi], "target": fallback_tid})
+		models_left[gi] = 0
+
+	for gi in range(_groups.size()):
+		var g: Dictionary = _groups[gi]
+		if (plans[gi] as Array).is_empty():
+			continue
+		g.lines = plans[gi]
+		# A section divided between two targets (or two weapons) IS a split — the
+		# un-split view can only show one weapon row and one target, so it would
+		# hide half the plan it just built.
+		g.split = (plans[gi] as Array).size() > 1
+		print("[AttackAssignmentDialog] Auto-plan '%s': %s" % [g.label, str(plans[gi])])
+
+	_rebuild_split_rows()
 	_sync_group_widgets()
 	_rebuild_assignments()
 
 
-# The weapon a group should swing against `target_id`: the highest expected
-# damage across the whole group. Target-aware on purpose — a Power klaw is the
-# right answer against Custodes and the wrong one against Gretchin, which a
-# fixed attacks x damage score could never tell apart.
-func _best_weapon_for_group(gi: int, target_id: String) -> String:
+# Remaining wounds across the whole Attached target unit — the number the plan
+# above is not allowed to exceed without calling the surplus what it is.
+func _target_wounds_remaining(target_id: String) -> float:
+	if phase_reference == null or target_id == "":
+		return 0.0
+	var models: Array = []
+	var board = phase_reference.get("game_state_snapshot")
+	if typeof(board) == TYPE_DICTIONARY and not board.is_empty():
+		models = RulesEngine.attached_unit_models(target_id, board)
+	if models.is_empty():
+		models = phase_reference.get_unit(target_id).get("models", [])
+	var total := 0.0
+	for m in models:
+		if not m.get("alive", true):
+			continue
+		total += max(0.0, float(m.get("current_wounds", m.get("wounds", 1))))
+	return total
+
+
+# The weapon a group should swing against `target_id`: the one that removes the
+# most wounds from it. Target-aware on purpose — a Power klaw is the right
+# answer against Custodes and the wrong one against Gretchin, which a fixed
+# attacks x damage score could never tell apart. `committed` is damage the rest
+# of the plan has already pledged to that target, so a saturated target stops
+# flattering the biggest weapon.
+func _best_weapon_for_group(gi: int, target_id: String, committed: float = 0.0) -> String:
+	var g: Dictionary = _groups[gi]
+	var headroom: float = max(0.0, _target_wounds_remaining(target_id) - committed)
+	var best_id := ""
+	var best_score := -1.0
+	var best_raw := -1.0
+	for wid in g.weapons:
+		var bd := _damage_breakdown(str(wid), target_id, g.models.size(), str(g.get("owner", "")))
+		if bd.is_empty():
+			continue
+		var score: float = min(float(bd.get("effective_uncapped", 0.0)), headroom)
+		var raw: float = float(bd.get("expected_damage", 0.0))
+		# Ties are broken on raw damage so a target that is already dead on paper
+		# (every weapon scores the same headroom) still names the real hitter.
+		if score > best_score + 0.00001 or (absf(score - best_score) <= 0.00001 and raw > best_raw):
+			best_score = score
+			best_raw = raw
+			best_id = str(wid)
+	return best_id
+
+
+# Ignores overkill entirely — only for the "nothing left to kill" fallback, where
+# every effective score is zero and the plan still has to name a weapon.
+func _best_raw_weapon_for_group(gi: int, target_id: String) -> String:
 	var g: Dictionary = _groups[gi]
 	var best_id := ""
 	var best_score := -1.0
 	for wid in g.weapons:
-		var score := _estimate_expected_damage(wid, target_id, g.models.size(), str(g.get("owner", "")))
+		var score := _estimate_expected_damage(str(wid), target_id, g.models.size(), str(g.get("owner", "")))
 		if score > best_score:
 			best_score = score
-			best_id = wid
+			best_id = str(wid)
 	return best_id
 
 
@@ -1125,20 +1390,30 @@ func _on_order_move(index: int, dir: int) -> void:
 
 # Rebuild the ordered assignment rows. Returns the summed expected damage so
 # the caller does not have to re-run the (not free) per-line estimate.
-func _rebuild_order_rows() -> float:
+func _rebuild_order_rows() -> Dictionary:
+	var walk := {"expected": 0.0, "effective": 0.0, "committed": {}, "pools": {}}
 	if _order_box == null:
-		return 0.0
+		return walk
 	for child in _order_box.get_children():
 		_order_box.remove_child(child)
 		child.queue_free()
 
-	var total: float = 0.0
+	var committed: Dictionary = walk.committed  # target_id -> uncapped damage pledged
+	var pools: Dictionary = walk.pools          # target_id -> wounds the defender has left
 	for i in range(assignments.size()):
 		var a: Dictionary = assignments[i]
 		var swinging: int = (a.get("models", []) as Array).size()
-		var ed: float = _estimate_expected_damage(str(a.get("weapon", "")), str(a.get("target", "")),
+		var bd: Dictionary = _damage_breakdown(str(a.get("weapon", "")), str(a.get("target", "")),
 			swinging, str(a.get("attacker", "")))
-		total += ed
+		var ed: float = float(bd.get("expected_damage", 0.0))
+		walk.expected += ed
+		# Book this line against its target's wound pool IN RESOLUTION ORDER, so
+		# the row the player put first gets credit for the wounds it removes and
+		# whatever is piled on behind it is reported as waste. Reordering the
+		# rows therefore moves the "thrown away" damage between lines, which is
+		# the whole reason the order is worth choosing.
+		var lands: float = _commit_effective(bd, str(a.get("target", "")), committed, pools)
+		walk.effective += lands
 
 		var row := HBoxContainer.new()
 		row.name = "OrderRow%d" % i
@@ -1162,9 +1437,9 @@ func _rebuild_order_rows() -> float:
 		var label := Label.new()
 		label.name = "Label"
 		var w: Dictionary = _weapon_by_id.get(str(a.get("weapon", "")), {})
-		label.text = "%d. %s → %s (%d model%s)  E[D]≈%.1f" % [
+		label.text = "%d. %s → %s (%d model%s)  E[D]≈%.1f%s" % [
 			i + 1, w.get("name", a.get("weapon", "")), _target_name(str(a.get("target", ""))),
-			swinging, "" if swinging == 1 else "s", ed]
+			swinging, "" if swinging == 1 else "s", ed, _lands_suffix(ed, lands)]
 		label.tooltip_text = _ORDER_TOOLTIP
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1182,7 +1457,7 @@ func _rebuild_order_rows() -> float:
 			wanted = row_h * float(maxi(assignments.size(), 1))
 		_order_scroll.custom_minimum_size = Vector2(DialogConstants.LARGE.x - 40,
 			minf(wanted, row_h * float(_ORDER_ROWS_VISIBLE)) + 4.0)
-	return total
+	return walk
 
 
 # Push the group plans back onto their widgets (list selection, spin counts,
@@ -1214,13 +1489,14 @@ func _sync_group_widgets() -> void:
 						lst.ensure_current_is_visible()
 						break
 		else:
-			for wid in g.weapons:
-				var spin: SpinBox = g.spins.get(wid, null)
+			for li in range(g.lines.size()):
+				var line: Dictionary = g.lines[li]
+				var spin: SpinBox = g.spins.get(li, null)
 				if spin != null:
-					spin.value = _line_count(g, wid)
-				var btn: Button = g.line_target_buttons.get(wid, null)
+					spin.value = int(line.get("count", 0))
+				var btn: Button = g.line_target_buttons.get(li, null)
 				if btn != null:
-					btn.text = "→ %s" % _target_name(_line_target(g, wid))
+					btn.text = "→ %s" % _target_name(str(line.get("target", "")))
 
 		# Group target caption: one target for the whole group, or "(mixed)".
 		var tb: Button = g.get("target_button", null)
@@ -1259,13 +1535,10 @@ func _sync_group_widgets() -> void:
 	_updating_spins = false
 
 
-func _line_count(g: Dictionary, weapon_id: String) -> int:
-	for line in g.lines:
-		if str(line.get("weapon", "")) == weapon_id:
-			return int(line.get("count", 0))
-	return 0
-
-
+# The target of the FIRST line a weapon appears on. A weapon can now hold more
+# than one line (same weapon, two targets), so this is only for the callers that
+# collapse a section back to a single line — picking a weapon, merging a split —
+# where "the target it had" is exactly what is wanted.
 func _line_target(g: Dictionary, weapon_id: String) -> String:
 	for line in g.lines:
 		if str(line.get("weapon", "")) == weapon_id:
@@ -1307,6 +1580,7 @@ func _on_group_weapon_selected(index: int, gi: int) -> void:
 	g.split = false
 	g.lines = [{"weapon": wid, "count": g.models.size(), "target": tid}]
 	print("[AttackAssignmentDialog] Group '%s' → %s (%d model(s))" % [g.label, wid, g.models.size()])
+	_rebuild_split_rows(gi)
 	_sync_group_widgets()
 	_rebuild_assignments()
 
@@ -1332,17 +1606,18 @@ func _on_group_target_cycle(gi: int) -> void:
 	_rebuild_assignments()
 
 
-func _on_line_target_cycle(gi: int, weapon_id: String) -> void:
+func _on_line_target_cycle(gi: int, line_index: int) -> void:
 	var g: Dictionary = _groups[gi]
+	# Only the targets THIS section has actually reached — cycling onto one it is
+	# not engaged with would build a plan the engine rejects.
 	var keys: Array = _targets_for_group(gi)
-	if keys.size() < 2:
+	if keys.size() < 2 or line_index < 0 or line_index >= g.lines.size():
 		return
-	for line in g.lines:
-		if str(line.get("weapon", "")) == weapon_id:
-			var next_idx := (keys.find(str(line.get("target", ""))) + 1) % keys.size()
-			line["target"] = str(keys[next_idx])
-			print("[AttackAssignmentDialog] Group '%s' / %s now targets %s" % [g.label, weapon_id, line.target])
-			break
+	var line: Dictionary = g.lines[line_index]
+	var next_idx := (keys.find(str(line.get("target", ""))) + 1) % keys.size()
+	line["target"] = str(keys[next_idx])
+	print("[AttackAssignmentDialog] Group '%s' / row %d (%s) now targets %s" % [
+		g.label, line_index, str(line.get("weapon", "")), line.target])
 	_sync_group_widgets()
 	_rebuild_assignments()
 
@@ -1350,6 +1625,10 @@ func _on_line_target_cycle(gi: int, weapon_id: String) -> void:
 # Split mode seeds every weapon with a line so the SpinBoxes have something to
 # hold, keeping the group's current weapon as the one that starts with all the
 # models (so toggling Split and toggling it straight back is a no-op plan).
+#
+# A section that carries only ONE weapon gets a second row on the next target
+# instead — otherwise Split would open a one-row view with nothing to divide,
+# and a uniform squad could never send its surplus attacks at a second unit.
 func _on_split_toggled(gi: int) -> void:
 	var g: Dictionary = _groups[gi]
 	_set_focused_group(gi)
@@ -1357,43 +1636,55 @@ func _on_split_toggled(gi: int) -> void:
 		# Merge back: the weapon holding the most models wins the whole group.
 		var best_wid := ""
 		var best_count := -1
+		var best_tid := ""
 		for line in g.lines:
 			if int(line.get("count", 0)) > best_count:
 				best_count = int(line.get("count", 0))
 				best_wid = str(line.get("weapon", ""))
-		var tid := _line_target(g, best_wid)
+				best_tid = str(line.get("target", ""))
+		if best_tid == "":
+			best_tid = _line_target(g, best_wid)
 		g.split = false
-		g.lines = [{"weapon": best_wid, "count": g.models.size(), "target": tid}]
+		g.lines = [{"weapon": best_wid, "count": g.models.size(), "target": best_tid}]
 		print("[AttackAssignmentDialog] Group '%s' merged onto %s" % [g.label, best_wid])
 	else:
 		var current_wid := str(g.lines[0].get("weapon", "")) if not g.lines.is_empty() else str(g.weapons[0])
 		var tid := _line_target(g, current_wid)
 		var new_lines: Array = []
-		for wid in g.weapons:
-			new_lines.append({
-				"weapon": wid,
-				"count": g.models.size() if wid == current_wid else 0,
-				"target": tid
-			})
+		if g.weapons.size() > 1:
+			for wid in g.weapons:
+				new_lines.append({
+					"weapon": wid,
+					"count": g.models.size() if wid == current_wid else 0,
+					"target": tid
+				})
+			print("[AttackAssignmentDialog] Group '%s' split across %d weapon(s)" % [g.label, g.weapons.size()])
+		else:
+			var keys: Array = eligible_targets.keys()
+			var next_tid := str(keys[(keys.find(tid) + 1) % keys.size()]) if keys.size() > 1 else tid
+			new_lines.append({"weapon": current_wid, "count": g.models.size(), "target": tid})
+			new_lines.append({"weapon": current_wid, "count": 0, "target": next_tid})
+			print("[AttackAssignmentDialog] Group '%s' split across targets %s / %s" % [g.label, tid, next_tid])
 		g.split = true
 		g.lines = new_lines
-		print("[AttackAssignmentDialog] Group '%s' split across %d weapon(s)" % [g.label, g.weapons.size()])
+	_rebuild_split_rows(gi)
 	_sync_group_widgets()
 	_rebuild_assignments()
 
 
 # Counts always sum to the group size, so the player can never build an illegal
-# or half-assigned plan: raising one weapon takes models from the others (from
-# the bottom up), lowering it hands the remainder back to the first other line.
-func _on_split_count_changed(value: float, gi: int, weapon_id: String) -> void:
+# or half-assigned plan: raising one row takes models from the others (from the
+# bottom up), lowering it hands the remainder back to the first other row.
+# Addressed by LINE INDEX — the same weapon can hold two rows aimed at two
+# different targets, so a weapon id no longer identifies a row.
+func _on_split_count_changed(value: float, gi: int, line_index: int) -> void:
 	if _updating_spins:
 		return
 	var g: Dictionary = _groups[gi]
+	if line_index < 0 or line_index >= g.lines.size():
+		return
 	var size: int = g.models.size()
-	for line in g.lines:
-		if str(line.get("weapon", "")) == weapon_id:
-			line["count"] = clampi(int(value), 0, size)
-			break
+	g.lines[line_index]["count"] = clampi(int(value), 0, size)
 
 	var total := 0
 	for line in g.lines:
@@ -1404,26 +1695,23 @@ func _on_split_count_changed(value: float, gi: int, weapon_id: String) -> void:
 		for i in range(g.lines.size() - 1, -1, -1):
 			if excess <= 0:
 				break
-			var line = g.lines[i]
-			if str(line.get("weapon", "")) == weapon_id:
+			if i == line_index:
 				continue
+			var line = g.lines[i]
 			var take: int = min(excess, int(line.get("count", 0)))
 			line["count"] = int(line.get("count", 0)) - take
 			excess -= take
 	elif total < size:
 		var remainder := size - total
 		var placed := false
-		for line in g.lines:
-			if str(line.get("weapon", "")) == weapon_id:
+		for i in range(g.lines.size()):
+			if i == line_index:
 				continue
-			line["count"] = int(line.get("count", 0)) + remainder
+			g.lines[i]["count"] = int(g.lines[i].get("count", 0)) + remainder
 			placed = true
 			break
 		if not placed:
-			for line in g.lines:
-				if str(line.get("weapon", "")) == weapon_id:
-					line["count"] = int(line.get("count", 0)) + remainder
-					break
+			g.lines[line_index]["count"] = int(g.lines[line_index].get("count", 0)) + remainder
 
 	_set_focused_group(gi)
 	_sync_group_widgets()
@@ -1657,21 +1945,30 @@ func _on_all_to_target_pressed() -> void:
 	_rebuild_assignments()
 
 
-# "Best Weapons": re-derive the whole plan — best weapon per section against the
-# selected target, splits merged. The one-click way back to a sane default after
-# manual fiddling, and the plan the dialog already opens on.
+# "Best Weapons": re-derive the whole plan — best weapon per section, spread
+# across the engaged units so the plan stops at each target's last wound. The
+# one-click way back to a sane default after manual fiddling, and the plan the
+# dialog already opens on.
 func _on_best_krump_pressed() -> void:
 	var target_id := _selected_target_id()
-	print("[AttackAssignmentDialog] Best Weapons: auto-assigning %d section(s) vs %s" % [_groups.size(), target_id])
+	print("[AttackAssignmentDialog] Best Weapons: auto-assigning %d section(s), preferred target %s" % [_groups.size(), target_id])
 	var redirected := _plan_has_redirected_sections()
 	_apply_best_plan(target_id)
 	var toast := get_node_or_null("/root/ToastManager")
 	if toast != null:
+		var tids: Array = []
+		for a in assignments:
+			if not str(a.get("target", "")) in tids:
+				tids.append(str(a.get("target", "")))
 		# A section not in Engagement Range of the selected target gets the best
 		# target it HAS reached — say so, rather than letting the assignment
-		# list quietly disagree with the target the player clicked.
+		# list quietly disagree with the target the player clicked. A plan that
+		# spread itself to avoid overkill says THAT instead: the sections could
+		# all have reached the selected target, they just had no reason to.
 		if redirected:
 			toast.show_toast("✨ Best weapon per section — some are locked with a different enemy and swing at that instead")
+		elif tids.size() > 1:
+			toast.show_toast("✨ Best weapons — attacks spread across %d targets to avoid overkill" % tids.size())
 		else:
 			toast.show_toast("✨ Best weapon picked for each section")
 
@@ -1685,7 +1982,17 @@ func _update_assignments_display() -> void:
 	# point of the plan. The lines themselves now live in the reorderable rows
 	# above (11e 04.03), which hand back the summed expected damage.
 	assignments_display.clear()
-	var total_expected_damage: float = _rebuild_order_rows()
+	# The per-line walk lives in _rebuild_order_rows() now: it renders one
+	# reorderable row per weapon AND books each line's damage against its
+	# target's wound pool, in the player's chosen resolution order. Those two
+	# belong together — the overkill accounting is plan-order dependent (the
+	# FIRST section aimed at a nearly-dead unit gets credit for finishing it),
+	# and plan order is exactly what the ▲▼ buttons now control.
+	var walk: Dictionary = _rebuild_order_rows()
+	var total_expected_damage: float = float(walk.get("expected", 0.0))
+	var total_effective: float = float(walk.get("effective", 0.0))
+	var committed: Dictionary = walk.get("committed", {})  # target_id -> uncapped damage pledged
+	var pools: Dictionary = walk.get("pools", {})          # target_id -> wounds the defender has left
 
 	# T3-3: Show Extra Attacks auto-assignments preview
 	if not extra_attacks_weapons.is_empty():
@@ -1696,19 +2003,65 @@ func _update_assignments_display() -> void:
 			# 19.03: count carriers across every component of the Attached unit
 			# (the Warboss's attack squig swings with his Boyz).
 			var ea_carriers: Array = _carriers_across_group(weapon_id)
-			var ed: float = _estimate_expected_damage(weapon_id, ea_target_id, ea_carriers.size())
+			var ea_bd: Dictionary = _damage_breakdown(weapon_id, str(ea_target_id), ea_carriers.size())
+			var ed: float = float(ea_bd.get("expected_damage", 0.0))
 			total_expected_damage += ed
-			assignments_display.append_text("- %s → %s (%d model%s) [Extra Attacks — resolves last, E[D]≈%.1f]\n" % [
+			var lands: float = _commit_effective(ea_bd, str(ea_target_id), committed, pools)
+			total_effective += lands
+			assignments_display.append_text("- %s → %s (%d model%s) [Extra Attacks — resolves last, E[D]≈%.1f%s]\n" % [
 				weapon_name, _target_name(str(ea_target_id)), ea_carriers.size(),
-				"" if ea_carriers.size() == 1 else "s", ed])
+				"" if ea_carriers.size() == 1 else "s", ed, _lands_suffix(ed, lands)])
+
 	if total_expected_damage > 0.0:
-		assignments_display.append_text("[b]Total expected damage: %.1f[/b]\n" % total_expected_damage)
+		assignments_display.append_text("[b]Total expected damage: %.1f[/b]" % total_expected_damage)
+		var wasted: float = max(0.0, total_expected_damage - total_effective)
+		if wasted >= 0.05:
+			assignments_display.append_text("   [color=#C98A8A]≈%.1f lands · ≈%.1f thrown away[/color]" % [
+				total_effective, wasted])
+		assignments_display.append_text("\n")
+
+		# Name the units this plan is over-committed against, so the fix is
+		# obvious: point a section somewhere else, or Split… it across two.
+		var saturated: Array = []
+		for tid in committed:
+			var pledged: float = float(committed[tid])
+			var pool: float = float(pools.get(tid, 0.0))
+			if pledged > pool + 0.05:
+				saturated.append("%s has ≈%s wound%s left but ≈%s damage aimed at it" % [
+					_target_name(str(tid)), _bd_num(pool), "" if abs(pool - 1.0) < 0.05 else "s", _bd_num(pledged)])
+		if not saturated.is_empty():
+			assignments_display.append_text(
+				"[color=#C98A8A]⚠ Overkill — %s. The surplus does NOT carry to another unit: re-target a section (→) or Split… it.[/color]\n"
+				% "; ".join(saturated))
 
 	_render_breakdown()
 	# Swapping a weapon with the section open changes how many rows it holds —
 	# re-fit so the last footnote never ends up half under the dialog edge.
 	if _breakdown_scroll != null and _breakdown_scroll.visible:
 		_refit_breakdown()
+
+
+# Book one assignment's damage against its target's wound pool and return the
+# part that actually lands. `committed` / `pools` are walked in plan order, so
+# the FIRST section aimed at a nearly-dead unit gets credit for finishing it and
+# everything piled on behind it is correctly reported as waste.
+func _commit_effective(bd: Dictionary, target_id: String, committed: Dictionary, pools: Dictionary) -> float:
+	if bd.is_empty():
+		return 0.0
+	if not pools.has(target_id):
+		pools[target_id] = float(bd.get("wounds_remaining", 0.0))
+	var already: float = float(committed.get(target_id, 0.0))
+	var uncapped: float = float(bd.get("effective_uncapped", 0.0))
+	committed[target_id] = already + uncapped
+	return clampf(float(pools[target_id]) - already, 0.0, uncapped)
+
+
+# "· ≈3.0 lands" — appended only when raw damage and landed damage actually
+# differ, so a plan with nothing wasted reads exactly as it always did.
+func _lands_suffix(raw: float, lands: float) -> String:
+	if raw - lands < 0.05:
+		return ""
+	return " · ≈%.1f lands" % lands
 
 
 # ── damage breakdown table ──────────────────────────────────────────────────
@@ -1879,6 +2232,17 @@ func _render_breakdown_table(bd: Dictionary) -> void:
 		"—",
 		"[b]≈%s[/b] of %d slain" % [_bd_num(bd.expected_slain), int(bd.alive_models)])
 
+	# What the defender can still absorb. Raw E[D] is blind to this — it counts
+	# damage aimed at a unit that is already dead on paper just the same — and
+	# that blindness is what let the auto-plan pile a whole activation onto one
+	# target while other engaged units went untouched.
+	_bd_row("LANDS", Color(0.20, 0.34, 0.46),
+		"%s has %s wound%s left" % [str(bd.get("target_name", "target")),
+			_bd_num(float(bd.get("wounds_remaining", 0.0))),
+			"" if is_equal_approx(float(bd.get("wounds_remaining", 0.0)), 1.0) else "s"],
+		"—",
+		"[b]≈%s[/b] of %s damage" % [_bd_num(float(bd.get("effective_damage", 0.0))), _bd_num(bd.expected_damage)])
+
 	rtl.pop()  # table
 	# A table is an INLINE element: without this the footnotes below render on
 	# the table's own line, i.e. floating to the right of the header row.
@@ -1891,6 +2255,12 @@ func _render_breakdown_footnotes(bd: Dictionary) -> void:
 	if float(bd.wasted_damage) >= 0.05:
 		rtl.append_text("[font_size=13][color=#C98A8A]  ⚠ %s damage per wound vs %d-wound models — ≈%s of the %s damage is lost to overkill.[/color][/font_size]\n" % [
 			str(bd.damage_str), int(bd.wounds_per_model), _bd_num(bd.wasted_damage), _bd_num(bd.expected_damage)])
+	# The second, bigger leak: aiming more damage at a unit than it has wounds.
+	# Nothing spills onto the next unit, so those attacks simply do not happen.
+	var pool_waste: float = max(0.0, float(bd.get("effective_uncapped", 0.0)) - float(bd.get("wounds_remaining", 0.0)))
+	if pool_waste >= 0.05:
+		rtl.append_text("[font_size=13][color=#C98A8A]  ⚠ This alone is ≈%s more damage than %s has wounds left (%s) — the surplus is wasted, it does not carry over to another unit.[/color][/font_size]\n" % [
+			_bd_num(pool_waste), str(bd.get("target_name", "the target")), _bd_num(float(bd.get("wounds_remaining", 0.0)))])
 	var caveats: Array = (bd.get("unmodelled", []) as Array).duplicate()
 	caveats.append("re-rolls / modifiers / cover / stratagems")
 	rtl.append_text("[font_size=13][color=#8F9AA8]  Not modelled: %s.[/color][/font_size]\n" % ", ".join(caveats))
@@ -1990,7 +2360,15 @@ func _damage_breakdown(weapon_id: String, target_id: String, swinging_models: in
 	# can be granted by an effect (not just the datasheet), and only RulesEngine
 	# knows about those — keeping that lookup out here is what lets the math stay
 	# a pure, board-free static function.
-	var bd := damage_breakdown(weapon, target_unit, swinging, RulesEngine.get_unit_fnp(target_unit))
+	# The defender's wound pool spans the whole ATTACHED unit: a bodyguard with a
+	# leader attached absorbs the leader's wounds too, so scoring overkill off the
+	# bodyguard's models alone would declare the target saturated too early and
+	# send attacks elsewhere that still had somewhere useful to go.
+	var pool_models: Array = []
+	var board = phase_reference.get("game_state_snapshot")
+	if typeof(board) == TYPE_DICTIONARY and not board.is_empty():
+		pool_models = RulesEngine.attached_unit_models(target_id, board)
+	var bd := damage_breakdown(weapon, target_unit, swinging, RulesEngine.get_unit_fnp(target_unit), pool_models)
 	bd["target_name"] = _target_name(target_id)
 	return bd
 
@@ -2021,7 +2399,13 @@ const _UNMODELLED_ABILITIES := {
 # the assignment rows have always shown, so the table's DAMAGE row is the same
 # `E[D]` figure printed next to the assignment; nothing new is invented for the
 # table and no forecast changes because it was opened.
-static func damage_breakdown(weapon: Dictionary, target_unit: Dictionary, swinging_models: int, fnp_override: int = -1) -> Dictionary:
+#
+# `pool_models` overrides which models make up the defender's remaining wound
+# pool (see the OVERKILL block). The caller passes the WHOLE Attached unit's
+# models when the target is a bodyguard carrying a leader — that leader's wounds
+# are part of the same pool, so scoring against the bodyguard alone would
+# under-state how much damage the target can actually absorb.
+static func damage_breakdown(weapon: Dictionary, target_unit: Dictionary, swinging_models: int, fnp_override: int = -1, pool_models: Array = []) -> Dictionary:
 	if weapon.is_empty() or target_unit.is_empty():
 		return {}
 
@@ -2107,6 +2491,37 @@ static func damage_breakdown(weapon: Dictionary, target_unit: Dictionary, swingi
 		expected_unsaved * damage_per_wound / float(wounds_per_model))
 	var wasted_damage: float = max(0.0, expected_unsaved * (damage_avg - float(wounds_per_model)) * p_damage_through)
 
+	# ── OVERKILL: what this swing can ACTUALLY take off the defender ─────────
+	# Reported: "auto-allocate for maximum damage overkilled the target it told
+	# me to attack, wasting a lot of attacks while there were other units I
+	# could have picked". `expected_damage` is a RAW forecast — it counts every
+	# point of damage the dice produce, including points that can never land:
+	#
+	#   * damage past a model's last wound is lost (10e/11e — no spillover onto
+	#     the next model), which `damage_per_wound` above already accounts for;
+	#   * damage past the UNIT's last wound is lost too, and never spills onto
+	#     another unit at all. Twenty-five damage aimed at a 6-wound Warboss is
+	#     six damage and nineteen wasted attacks.
+	#
+	# `effective_damage` is the second cap applied to the first, and it is the
+	# number any "assign for maximum damage" plan has to be scored on. Raw E[D]
+	# is still reported alongside it — it is what the dice will show.
+	var pool_source: Array = pool_models if not pool_models.is_empty() else target_unit.get("models", [])
+	var wounds_remaining: float = 0.0
+	for m in pool_source:
+		if not m.get("alive", true):
+			continue
+		wounds_remaining += max(0.0, float(m.get("current_wounds", m.get("wounds", wounds_per_model))))
+	# A fixture with no per-model wound values still has a pool: fall back to the
+	# datasheet profile rather than reporting an already-dead unit.
+	if wounds_remaining <= 0.0:
+		wounds_remaining = float(alive_models * wounds_per_model)
+	# Linear in the number of swinging models (attacks scale with models), which
+	# is what lets the allocator work out how many models a target actually needs.
+	var effective_uncapped: float = expected_unsaved * damage_per_wound
+	var effective_damage: float = min(effective_uncapped, wounds_remaining)
+	var overkill_damage: float = max(0.0, expected_damage - effective_damage)
+
 	var unmodelled: Array = []
 	for ability in weapon.get("abilities", []):
 		var aid := ""
@@ -2149,6 +2564,10 @@ static func damage_breakdown(weapon: Dictionary, target_unit: Dictionary, swingi
 		"alive_models": alive_models,
 		"expected_slain": expected_slain,
 		"wasted_damage": wasted_damage,
+		"wounds_remaining": wounds_remaining,
+		"effective_uncapped": effective_uncapped,
+		"effective_damage": effective_damage,
+		"overkill_damage": overkill_damage,
 		"unmodelled": unmodelled,
 	}
 
