@@ -21,11 +21,15 @@ var charging_unit_id: String = ""  # The enemy unit that just charged
 var eligible_units: Array = []  # Array of { unit_id: String, unit_name: String }
 var charging_unit_name: String = ""
 
-# MA-42: Auto-decline timer
-const AUTO_DECLINE_SECONDS: float = 5.0
-var _countdown_timer: Timer = null
+# DEFENDER CONTROL (2026-08-04): the 5-second MA-42 auto-decline countdown is
+# GONE. "Which unit should counter-charge, and is it worth the CP?" is a board
+# question, and five seconds was not long enough to even look — players reported
+# reaching for the camera and finding the window had declined itself, with the
+# stratagem no longer reachable. The window now waits for the player, exactly
+# like StratagemDialog; see ReactiveDecisionUI for the Examine Board affordance
+# that lets them study the board without losing it.
 var _countdown_label: Label = null
-var _time_remaining: float = AUTO_DECLINE_SECONDS
+var _resolved: bool = false
 
 func setup(p_player: int, p_charging_unit_id: String, p_eligible_units: Array) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
@@ -41,6 +45,17 @@ func setup(p_player: int, p_charging_unit_id: String, p_eligible_units: Array) -
 
 	# Disable default OK button - we use custom buttons
 	get_ok_button().visible = false
+
+	# Non-exclusive on purpose: "exclusive" is the engine's nothing-else-may-see-
+	# this-input mode, and the wheel-to-camera forwarding in _input() below is
+	# verified against this non-exclusive configuration (2026-08-04, live). The
+	# board is still un-clickable while the window is open — Main's full-screen
+	# reactive overlay swallows every board/HUD click regardless.
+	exclusive = false
+	# Escape / window-X = Decline, so the window can never be dismissed into a
+	# state where the decision is neither taken nor declined.
+	close_requested.connect(_on_decline_pressed)
+	canceled.connect(_on_decline_pressed)
 
 	_build_ui()
 
@@ -168,6 +183,12 @@ func _build_ui() -> void:
 
 	main_container.add_child(HSeparator.new())
 
+	# "Examine Board" toggle — the counter-charge decision is entirely about
+	# where the chargers ended up, so the player must be able to look.
+	ReactiveDecisionUI.add_examine_toggle(self, main_container, "Heroic Intervention")
+
+	main_container.add_child(HSeparator.new())
+
 	# Decline button
 	var button_container = HBoxContainer.new()
 	button_container.name = "Buttons"
@@ -182,44 +203,24 @@ func _build_ui() -> void:
 
 	main_container.add_child(button_container)
 
-	# MA-42: Countdown timer display
-	_countdown_label = Label.new()
-	_countdown_label.text = "Auto-declining in %d seconds..." % int(AUTO_DECLINE_SECONDS)
-	_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_countdown_label.add_theme_font_size_override("font_size", 17)
-	_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	# Replaces the old auto-decline countdown: say plainly that the window is
+	# not on a clock, so nobody panic-clicks Decline.
+	_countdown_label = ReactiveDecisionUI.window_hint_label(
+		"Take your time — this window waits for you and nothing is declined automatically.")
 	main_container.add_child(_countdown_label)
 
 	add_child(main_container)
 
-	# MA-42: Start auto-decline timer. setup() runs BEFORE the dialog is added
-	# to the tree, so an explicit start() here fails ("Timer was not added to
-	# the SceneTree") and the auto-decline never armed — autostart arms it the
-	# moment the dialog enters the tree instead.
-	_countdown_timer = Timer.new()
-	_countdown_timer.wait_time = 1.0
-	_countdown_timer.autostart = true
-	_countdown_timer.timeout.connect(_on_countdown_tick)
-	_time_remaining = AUTO_DECLINE_SECONDS
-	add_child(_countdown_timer)
-	if is_inside_tree():
-		_countdown_timer.start()
-
-func _on_countdown_tick() -> void:
-	_time_remaining -= 1.0
-	if _time_remaining <= 0:
-		_countdown_timer.stop()
-		print("HeroicInterventionDialog: Auto-declining after %d seconds" % int(AUTO_DECLINE_SECONDS))
-		_on_decline_pressed()
-		return
-	if is_instance_valid(_countdown_label):
-		_countdown_label.text = "Auto-declining in %d seconds..." % int(_time_remaining)
-		if _time_remaining <= 2:
-			_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+func _input(event: InputEvent) -> void:
+	# Wheel notches over the board behind this window zoom the camera instead of
+	# dying on the sub-window — see ReactiveDecisionUI.forward_camera_wheel.
+	ReactiveDecisionUI.forward_camera_wheel(self, event)
 
 func _on_use_pressed(unit_id: String, mode: String = "leap_to_defend") -> void:
-	if _countdown_timer:
-		_countdown_timer.stop()
+	if _resolved:
+		return
+	_resolved = true
+	ReactiveDecisionUI.stop_examining(self)
 	var unit_name = ""
 	for unit_info in eligible_units:
 		if unit_info.unit_id == unit_id:
@@ -231,8 +232,12 @@ func _on_use_pressed(unit_id: String, mode: String = "leap_to_defend") -> void:
 	queue_free()
 
 func _on_decline_pressed() -> void:
-	if _countdown_timer:
-		_countdown_timer.stop()
+	# close_requested and canceled both land here (Escape / window-X); the guard
+	# keeps a single decline from being emitted twice.
+	if _resolved:
+		return
+	_resolved = true
+	ReactiveDecisionUI.stop_examining(self)
 	print("HeroicInterventionDialog: Player %d declines HEROIC INTERVENTION" % player)
 	emit_signal("heroic_intervention_declined", player)
 	hide()
