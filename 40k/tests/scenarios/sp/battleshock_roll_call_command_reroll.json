@@ -1,0 +1,159 @@
+{
+  "id": "battleshock_roll_call_command_reroll",
+  "covers": [
+    "scripts.CommandController.battle_shock_roll_call",
+    "dialogs.BattleShockSequenceDialog.command_reroll",
+    "phases.CommandPhase.command_reroll_opportunity"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "description": "A failed Battle-shock test offers the Command Re-roll ON THE ROLL-CALL CARD, with the failed dice still on screen — it used to pop a second dialog over the top with the dice nowhere in sight. Kommandos' Leadership is set to 13 so 2D6 can never pass, making the failure (and therefore the re-roll offer) deterministic. Drives: Roll → FAILED + re-roll offer → spend 1 CP → the discarded roll is named, the dice tumble again, the second failure applies Battle-shocked → summary lists the unit under Battle-shocked.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Ld 13 cannot be beaten on 2D6, so the test ALWAYS fails and the Command\n# Re-roll is ALWAYS offered — no seed hunting.\nGameState.state[\"units\"][\"U_KOMMANDOS_H\"][\"meta\"][\"stats\"][\"leadership\"] = 13\nGameState.state[\"units\"][\"U_KOMMANDOS_H\"][\"flags\"].merge({\"battle_shocked\": false}, true)\nGameState.state[\"players\"][\"2\"][\"cp\"] = 3\nvar ph = PhaseManager.get_current_phase_instance()\nph._units_tested.clear()\nph._identify_units_needing_tests()\ntree.current_scene.get_node_or_null(\"CommandController\")._refresh_ui()\nreturn ph._units_needing_test",
+      "equals": [
+        "U_KOMMANDOS_H"
+      ]
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# A real player answers the start-of-phase prompts (secondary-mission review,\n# Beacon / Condemn designations, ...) before reaching for the command panel.\n# Those are EXCLUSIVE windows, so a real mouse click on the panel underneath\n# goes nowhere until they are gone — clear whatever this fixture opened so the\n# click under test is the only thing in play.\nvar closed = []\nfor c in tree.root.get_children():\n\tif c is Window and c != tree.root:\n\t\tclosed.append(String(c.name))\n\t\tc.hide()\n\t\tc.queue_free()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/BattleShockSection/BattleShockRollCallButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/BattleShockSequenceDialog",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"BattleShockSequenceDialog/Content/TargetLabel\").text",
+      "equals": "Needs 13+ on 2D6  (Leadership 13)"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/BattleShockSequenceDialog/Content/ButtonBar/RollButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The failure is on screen WITH its dice, and the offer is on the same card.\nvar d = tree.root.get_node(\"BattleShockSequenceDialog\")\nvar verdict = d.get_node(\"Content/VerdictLabel\").get_parsed_text()\nvar ph = PhaseManager.get_current_phase_instance()\nreturn [\n\tverdict.contains(\"FAILED\"),\n\td.get_node_or_null(\"Content/ButtonBar/CommandRerollButton\") != null,\n\td.get_node_or_null(\"Content/ButtonBar/KeepRollButton\") != null,\n\td.get_node(\"Content/DiceRow/TotalLabel\").text.begins_with(\"= \"),\n\tph._awaiting_reroll_decision,\n\t# No second dialog stacked on top of the card.\n\ttree.root.get_node_or_null(\"CommandRerollDialog\") == null\n]",
+      "equals": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "act": "screenshot",
+      "label": "01_failed_with_reroll_offer_on_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/BattleShockSequenceDialog/Content/ButtonBar/CommandRerollButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# 1 CP spent, the discarded roll is named on the card, and the re-rolled\n# (still failing) test has applied Battle-shocked.\nvar d = tree.root.get_node(\"BattleShockSequenceDialog\")\nvar note = d.get_node(\"Content/RerollNoteLabel\")\nvar verdict = d.get_node(\"Content/VerdictLabel\").get_parsed_text()\nvar effects = d.get_node(\"Content/EffectsLabel\").text\nvar u = GameState.state[\"units\"][\"U_KOMMANDOS_H\"]\nreturn [\n\tnote.visible,\n\tnote.text.begins_with(\"Command Re-roll — discarded\"),\n\tint(GameState.state[\"players\"][\"2\"][\"cp\"]) == 2,\n\tverdict.contains(\"BATTLE-SHOCKED\"),\n\teffects.contains(\"OC 0\"),\n\tbool(u.get(\"flags\", {}).get(\"battle_shocked\", false))\n]",
+      "equals": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "act": "screenshot",
+      "label": "02_after_command_reroll"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"BattleShockSequenceDialog/Content/ButtonBar/NextButton\").text",
+      "equals": "Finish ▶"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/BattleShockSequenceDialog/Content/ButtonBar/NextButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node(\"BattleShockSequenceDialog\")\nvar summary = d.get_node(\"Content/VerdictLabel\").get_parsed_text()\nreturn [d.get_node(\"Content/HeadingLabel\").text, summary.contains(\"Battle-shocked:\") and summary.contains(\"Kommandos\")]",
+      "equals": [
+        "BATTLE-SHOCK COMPLETE",
+        true
+      ]
+    },
+    {
+      "act": "screenshot",
+      "label": "03_summary_lists_battleshocked"
+    }
+  ]
+}

@@ -14,6 +14,14 @@ extends SceneTree
 #   F) terrain-hosted objectives (11e 14.01): the hosting AREA is the
 #      objective — a model on the area is protected even when outside the
 #      marker radius, and a model inside the radius but OFF the area is not
+#   G) coherency DOMINATES the soft score: an already-stranded model is the
+#      first casualty (it repairs the unit) even when it is the sergeant
+#   H) 19.03: an attached CHARACTER counts as coherency context — the pick
+#      that keeps the squad linked through its leader wins, both for the raw
+#      target unit (engine auto-resolve) and the folded allocation unit (the
+#      overlay's auto mode), and the leader is still the last model picked
+#   I) the incremental evaluator agrees with AttackSequence's rule reading
+#      for every candidate removal (no drift from the shared 03.03 source)
 #
 # Usage: godot --headless --path . -s tests/test_casualty_preference.gd
 
@@ -216,9 +224,128 @@ func _run_tests():
 		_check("full order is [B, C, A]", str(order_f) == str([1, 2, 0]), str(order_f))
 		tm.terrain_features = tf_before
 
+	# ── G) coherency dominates: kill the stranded model first ──────────
+	print("\n-- G) an already-stranded model is the first casualty --")
+	# A chain of three troopers plus a SERGEANT stranded 7.5" off the end
+	# (0 squadmates within 2"): 03.03 destroys him at End of Turn whatever we
+	# do, so spending an incoming wound on him is free — and it leaves the
+	# survivors coherent. The old "first candidate that does not WORSEN
+	# coherency" rule took a trooper instead and the unit lost two models.
+	var strand_models = [
+		_model("t1", 400, 400, {"model_type": "trooper"}),
+		_model("t2", 500, 400, {"model_type": "trooper"}),
+		_model("t3", 600, 400, {"model_type": "trooper"}),
+		_model("sgt", 900, 400, {"model_type": "squad_sergeant"}),
+	]
+	var strand = {"id": "U_STRAND", "owner": 2, "flags": {},
+		"meta": {"name": "Strandy", "keywords": ["INFANTRY"],
+			"stats": {"toughness": 4, "save": 3, "wounds": 1, "objective_control": 2}},
+		"models": strand_models}
+	var state_g = _state_with({"U_STRAND": strand, "U_ENEMY": _enemy_unit("U_ENEMY", [[1200, 400]])})
+	var pre_g = AttackSequence.check_unit_coherency(strand)
+	_check("setup: the sergeant starts OUT of coherency",
+		not pre_g.coherent and "sgt" in pre_g.offenders, str(pre_g))
+	var order_g = CasualtyPreference.compute_preferred_targets(strand, state_g)
+	_check("the stranded sergeant dies first despite his keep score",
+		int(order_g[0]) == 3, str(order_g))
+	var survivors_g = []
+	for i in [0, 1, 2]:
+		survivors_g.append(strand_models[i])
+	_check("removing him leaves the survivors coherent",
+		AttackSequence.check_unit_coherency({"models": survivors_g}).coherent)
+
+	# ── H) 19.03: the attached CHARACTER is coherency context ──────────
+	print("\n-- H) attached leader counts when picking casualties --")
+	# Squad strung out into two pairs, bridged ONLY by the attached leader:
+	#   g1  g2   [L]   g3  g4     (2.5" centre spacing = 1.24" edge)
+	# g2 and g3 are 3.74" apart, so measured ALONE the squad is two islands;
+	# 19.03 makes the leader a mate of both, which is why nothing is out of
+	# coherency right now. The enemy sits under g2, so g2 is the cheapest
+	# model by score — but killing g2 strands g1 for real. g1 is the pick.
+	var att_guard_models = [
+		_model("g1", 460, 400), _model("g2", 560, 400),
+		_model("g3", 760, 400), _model("g4", 860, 400),
+	]
+	var att_guard = {"id": "U_GUARD", "owner": 2, "flags": {},
+		"meta": {"name": "Custodian Guard", "keywords": ["INFANTRY"],
+			"stats": {"toughness": 6, "save": 2, "wounds": 3, "objective_control": 2}},
+		"attachment_data": {"attached_characters": ["U_LEADER"]},
+		"models": att_guard_models}
+	var att_leader = {"id": "U_LEADER", "owner": 2, "flags": {}, "attached_to": "U_GUARD",
+		"meta": {"name": "Blade Champion", "keywords": ["INFANTRY", "CHARACTER"],
+			"stats": {"toughness": 6, "save": 2, "wounds": 5, "objective_control": 1}},
+		"models": [_model("L", 660, 400)]}
+	var state_h = _state_with({"U_GUARD": att_guard, "U_LEADER": att_leader,
+		"U_ENEMY": _enemy_unit("U_ENEMY", [[560, 700]])})
+	var att_units = state_h.units
+	_check("setup: nothing is out of coherency while the leader bridges the squad",
+		AttackSequence.check_attached_unit_coherency("U_GUARD", att_units).coherent)
+	# The discriminator: measured WITHOUT the leader, killing g1 and killing g2
+	# look equally bad (each strands the other's islandmate), so a leader-blind
+	# picker falls through to the keep score and takes g2 — the one that really
+	# does strand a model. With the leader in the reading only g2 breaks.
+	var _solo_after = func(dead: int) -> int:
+		var subset := []
+		for i in range(att_guard_models.size()):
+			if i != dead:
+				subset.append(att_guard_models[i])
+		return AttackSequence.check_unit_coherency({"models": subset}).offenders.size()
+	var _attached_after = func(dead: int) -> int:
+		var was = att_guard_models[dead].get("alive", true)
+		att_guard_models[dead]["alive"] = false
+		var n: int = AttackSequence.check_attached_unit_coherency("U_GUARD", att_units).offenders.size()
+		att_guard_models[dead]["alive"] = was
+		return n
+	_check("setup: leader-blind, killing g1 and killing g2 score the same (1 offender each)",
+		_solo_after.call(0) == 1 and _solo_after.call(1) == 1,
+		"g1=%d g2=%d" % [_solo_after.call(0), _solo_after.call(1)])
+	_check("setup: leader-aware, only killing g2 actually breaks coherency",
+		_attached_after.call(0) == 0 and _attached_after.call(1) == 1,
+		"g1=%d g2=%d" % [_attached_after.call(0), _attached_after.call(1)])
+	var order_h = CasualtyPreference.compute_preferred_targets(att_guard, state_h)
+	_check("the pick that keeps everyone linked wins over the cheapest model (g1, not g2)",
+		int(order_h[0]) == 0, str(order_h))
+	# What the engine will actually do once that model is gone.
+	att_guard_models[0]["alive"] = false
+	_check("after the pick the whole Attached unit is still coherent",
+		AttackSequence.check_attached_unit_coherency("U_GUARD", att_units).coherent,
+		str(AttackSequence.check_attached_unit_coherency("U_GUARD", att_units).offenders))
+	att_guard_models[0]["alive"] = true
+
+	# Same board through the OVERLAY's shape: the folded allocation unit, where
+	# the leader's model is a candidate too (and 05.04 keeps him last).
+	var folded = rules._build_attached_allocation_unit_11e("U_GUARD", state_h).unit
+	_check("folded allocation unit carries all 5 models", folded.models.size() == 5, str(folded.models.size()))
+	var order_h2 = CasualtyPreference.compute_preferred_targets(folded, state_h, {"defender_player": 2})
+	_check("folded unit reaches the same first pick", int(order_h2[0]) == 0, str(order_h2))
+	_check("the attached CHARACTER is still the very last pick (05.04)",
+		int(order_h2[4]) == 4, str(order_h2))
+
+	# ── I) the fast evaluator matches the shared rule reading ──────────
+	print("\n-- I) incremental evaluator == AttackSequence's 03.03 reading --")
+	var cm = CasualtyPreference._build_coherency_model(att_guard, state_h)
+	var drift = []
+	for i in range(att_guard_models.size()):
+		var fast: int = cm.offenders_without(i)
+		var was = att_guard_models[i].get("alive", true)
+		att_guard_models[i]["alive"] = false
+		var slow: int = AttackSequence.check_attached_unit_coherency("U_GUARD", att_units).offenders.size()
+		att_guard_models[i]["alive"] = was
+		if fast != slow:
+			drift.append("kill %d: fast=%d slow=%d" % [i, fast, slow])
+	_check("every candidate removal agrees with check_attached_unit_coherency",
+		drift.is_empty(), str(drift))
+
 	var ai = root.get_node_or_null("AIPlayer")
 	_check("AIPlayer autoload present", ai != null)
 	if ai != null:
+		# "Computer allocates wounds" persists to user://settings.cfg, and the
+		# windowed scenarios flip it — pin it OFF here rather than inheriting
+		# whatever the last run on this machine left behind.
+		var ss = root.get_node_or_null("SettingsService")
+		var auto_setting_before = ss.get_auto_allocate_wounds() if ss != null else false
+		if ss != null:
+			ss.set_auto_allocate_wounds(false)
 		var auto_off = CasualtyPreference.engine_auto_preference(boyz, state_e)
 		_check("engine_auto_preference is [] for a human defender", auto_off.is_empty(), str(auto_off))
 		var enabled_before = ai.enabled
@@ -230,6 +357,13 @@ func _run_tests():
 			str(auto_on) == str([4, 3, 2, 1, 0]), str(auto_on))
 		ai.enabled = enabled_before
 		ai.ai_players = players_before
+		# The 'Computer allocates wounds' setting also reaches a HUMAN defender.
+		if ss != null:
+			ss.set_auto_allocate_wounds(true)
+			var human_auto = CasualtyPreference.engine_auto_preference(boyz, state_e)
+			_check("engine_auto_preference computes for a human who delegated allocation",
+				str(human_auto) == str([4, 3, 2, 1, 0]), str(human_auto))
+			ss.set_auto_allocate_wounds(auto_setting_before)
 
 	GameConstants.edition = edition_before
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])

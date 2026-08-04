@@ -1,0 +1,95 @@
+{
+  "id": "consolidate_step_unit_list_clarity",
+  "covers": [
+    "scripts.FightController._build_step_panel",
+    "scripts.FightController._populate_consolidation_step_panel",
+    "scripts.FightController._add_step_unit_row",
+    "scripts.FightController._style_step_unit_button",
+    "scripts.FightController._refresh_step_list_header",
+    "scripts.FightController._configure_step_filter",
+    "scripts.FightController._apply_step_filter",
+    "phases.FightPhase._build_consolidation_step_data_11e"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Reported bug: in the global Consolidate step (12.07) 'the text telling you what to do is indistinguishable from the names of the units, so it is not clear to the player that it is a list of eligible units'. The ConsolidationStepPanel rendered the instruction paragraph and the per-unit buttons as the same flat parchment text — the right panel's default Button look is borderless — with no header and no gap between them, and it had no answer at all for a player with a big army (the rows just ran on down the panel, one truncated line each: 'Custodian Guard Beta + Blade Champion Beta  [Obj...'). This scenario drives the REAL Consolidate step and asserts the fix on the live UI: (1) a gold UnitListHeader now names and counts the list ('ELIGIBLE UNITS (n) - CLICK ONE TO CONSOLIDATE'); (2) the instruction paragraph is a different colour from the rows, so the two can no longer be read as one block; (3) each row is a real boxed button (a 'normal' stylebox override with the 4px gold left spine) instead of bare text; (4) with a big list the UnitFilter box appears, narrows the rows live as the player types real key events into it, restates the header as 'n of m', and the surviving row still opens the real ConsolidateDialog; (5) clearing the filter restores every row. Setup-only privilege: the 12.08 'was_eligible_to_fight' flag is stamped on the Orks so one player faces a long list (the flag is exactly what FightPhase._stamp_fight_eligibility_11e sets); the panel itself is built by the production path from FightPhase._build_consolidation_step_data_11e, and the filter is driven by a real mouse click plus real key events.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var n = 0\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) != 2:\n\t\tcontinue\n\tif not u.has(\"flags\"):\n\t\tu[\"flags\"] = {}\n\tu[\"flags\"][\"was_eligible_to_fight\"] = true\n\tn += 1\nreturn n",
+      "expect_min": 10 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN" } },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN" } },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._begin_consolidation_step_11e()" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 1 },
+    { "act": "expect_phase_property", "property": "consolidating_player_11e", "equals": 2 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel", "timeout_s": 5.0 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitListHeader", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitListHeader\").text.begins_with(\"ELIGIBLE UNITS\")", "equals": true },
+    { "act": "execute_script", "script": "\"CLICK ONE TO CONSOLIDATE\" in main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitListHeader\").text", "equals": true },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var p = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel\")\nvar row = null\nfor c in p.get_node(\"UnitList\").get_children():\n\tif c is Button:\n\t\trow = c\n\t\tbreak\nif row == null:\n\treturn \"no rows\"\nreturn p.get_node(\"StepInstructions\").get_theme_color(\"font_color\") != row.get_theme_color(\"font_color\")",
+      "equals": true },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var ul = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList\")\nvar row = null\nfor c in ul.get_children():\n\tif c is Button:\n\t\trow = c\n\t\tbreak\nif row == null:\n\treturn \"no rows\"\nif not row.has_theme_stylebox_override(\"normal\"):\n\treturn \"no stylebox override\"\nreturn row.get_theme_stylebox(\"normal\").border_width_left",
+      "equals": 4 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var ul = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList\")\nvar n = 0\nfor c in ul.get_children():\n\tif c is Button:\n\t\tn += 1\nreturn n",
+      "expect_min": 6 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitFilter", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "01_consolidate_step_headed_list_of_boxed_unit_rows" },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitFilter" },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitFilter\").has_focus()", "equals": true },
+    { "act": "simulate_key", "keycode": "B", "unicode": "b" },
+    { "act": "simulate_key", "keycode": "O", "unicode": "o" },
+    { "act": "simulate_key", "keycode": "Y", "unicode": "y" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitFilter\").text", "equals": "boy" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var ul = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList\")\nvar shown = 0\nvar total = 0\nvar off_topic = 0\nfor c in ul.get_children():\n\tif not (c is Button):\n\t\tcontinue\n\ttotal += 1\n\tif c.visible:\n\t\tshown += 1\n\t\tif c.text.to_lower().find(\"boy\") == -1:\n\t\t\toff_topic += 1\nreturn \"%d/%d off=%d\" % [shown, total, off_topic]" },
+    { "act": "execute_script", "multiline": true,
+      "script": "var ul = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList\")\nvar shown = 0\nvar total = 0\nvar off_topic = 0\nfor c in ul.get_children():\n\tif not (c is Button):\n\t\tcontinue\n\ttotal += 1\n\tif c.visible:\n\t\tshown += 1\n\t\tif c.text.to_lower().find(\"boy\") == -1:\n\t\t\toff_topic += 1\nreturn shown > 0 and shown < total and off_topic == 0",
+      "equals": true },
+    { "act": "execute_script", "script": "\" of \" in main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitListHeader\").text", "equals": true },
+    { "act": "screenshot", "label": "02_filter_narrows_list_and_header_restates_count" },
+
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList/Consolidate_U_BOYZ_E\").visible", "equals": true },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList/Consolidate_U_BOYZ_E", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_node_visible", "node": "/root/ConsolidateDialog", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "03_filtered_row_still_opens_consolidate_dialog" },
+    { "act": "click_node", "node": "/root/ConsolidateDialog/Content/Buttons/SkipButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitFilter", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitFilter" },
+    { "act": "simulate_key", "keycode": "Backspace" },
+    { "act": "simulate_key", "keycode": "Backspace" },
+    { "act": "simulate_key", "keycode": "Backspace" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitFilter\").text", "equals": "" },
+    { "act": "execute_script", "multiline": true,
+      "script": "var ul = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList\")\nvar hidden = 0\nfor c in ul.get_children():\n\tif c is Button and not c.visible:\n\t\thidden += 1\nreturn hidden",
+      "equals": 0 },
+    { "act": "execute_script", "script": "\" of \" in main.get_tree().root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitListHeader\").text", "equals": false },
+    { "act": "screenshot", "label": "04_clearing_the_filter_restores_every_row" }
+  ]
+}

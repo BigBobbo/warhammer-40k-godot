@@ -17,6 +17,12 @@ const BasePhase = preload("res://phases/BasePhase.gd")
 
 signal command_reroll_opportunity(unit_id: String, player: int, roll_context: Dictionary)
 signal command_reroll_completed(original_rolls: Array, new_rolls: Array, context: String)  # P3-118: For reroll visualization
+# Fired the moment a unit's battle-shock test is FINALLY settled (after any
+# Command Re-roll decision), and for an Insane Bravery auto-pass. The
+# Battle-shock roll call (CommandController) drives its dice animation off this
+# instead of scraping the game log — the results used to be visible ONLY as log
+# lines, which is the whole reason the roll call exists.
+signal battle_shock_test_resolved(result: Dictionary)
 
 # Track which units still need battle-shock tests this phase
 var _units_needing_test: Array = []
@@ -1104,6 +1110,11 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 					"%s FAILED Battle-shock test: [%d, %d] = %d vs Ld %d — now Battle-shocked!" % [
 						unit_name, die1, die2, roll_total, leadership])
 
+	# Tell the UI the test has FINALLY settled so the roll call can tumble its
+	# dice onto these values. Emitted after the log entries so a listener that
+	# reads the log sees a consistent picture.
+	emit_signal("battle_shock_test_resolved", result)
+
 	return result
 
 func _handle_use_command_reroll(action: Dictionary) -> Dictionary:
@@ -1273,7 +1284,7 @@ func _apply_insane_bravery(unit_id: String, strat_result: Dictionary) -> Diction
 	}
 	GameState.add_action_to_phase_log(log_entry)
 
-	return {
+	var ib_result = {
 		"success": true,
 		"unit_id": unit_id,
 		"unit_name": unit_name,
@@ -1287,6 +1298,13 @@ func _apply_insane_bravery(unit_id: String, strat_result: Dictionary) -> Diction
 		"stratagem_used": "insane_bravery",
 		"message": "%s AUTO-PASSED battle-shock test (INSANE BRAVERY - 1 CP)" % unit_name
 	}
+
+	# Same seam the rolled tests use, so the roll call can show an
+	# "AUTO-PASSED — INSANE BRAVERY" card instead of hanging on a roll that
+	# never happens.
+	emit_signal("battle_shock_test_resolved", ib_result)
+
+	return ib_result
 
 # ============================================================================
 # FACTION ABILITIES — WAAAGH! (Orks)
@@ -2563,6 +2581,100 @@ func _handle_dismiss_relic_setup(action: Dictionary) -> Dictionary:
 		"message": "Kept relic markers: %s" % str(res.get("markers", [])),
 		"markers": res.get("markers", []),
 	}
+
+func get_battle_shock_queue(include_tested: bool = false) -> Array:
+	"""The Battle-shock ROLL CALL queue, in resolution order.
+
+	Order is `_units_needing_test` order, i.e. army-list order — stable across a
+	phase and across a reload, so "test 2 of 4" always means the same unit. Each
+	entry carries everything the roll-call dialog needs to explain the test to
+	the player BEFORE the dice move: which unit, why it has to test, what it
+	needs, and whether Insane Bravery is still on the table. None of this was
+	available from the game-log line, which only ever showed the outcome.
+	"""
+	var queue: Array = []
+	var strat_manager = get_node_or_null("/root/StratagemManager")
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	var current_player = get_current_player()
+
+	for unit_id in _units_needing_test:
+		var tested: bool = unit_id in _units_tested
+		if tested and not include_tested:
+			continue
+		var unit = GameState.state.get("units", {}).get(unit_id, {})
+		if unit.is_empty():
+			continue
+
+		# Model / wound tally INCLUDING attached characters — the same combined
+		# view the half-strength checks use, so the number the player reads
+		# matches the reason they are being asked to roll.
+		var alive := 0
+		var total := 0
+		for model in unit.get("models", []):
+			total += 1
+			if model.get("alive", true):
+				alive += 1
+		for char_id in GameState.get_attached_characters(unit_id):
+			var char_unit = GameState.state.get("units", {}).get(char_id, {})
+			for model in char_unit.get("models", []):
+				total += 1
+				if model.get("alive", true):
+					alive += 1
+
+		var is_shocked: bool = unit.get("flags", {}).get("battle_shocked", false)
+		var below_half: bool = GameState.is_below_half_strength_combined(unit_id)
+		var at_half: bool = GameState.is_at_half_strength_combined(unit_id)
+
+		# Single-model units halve on WOUNDS, not model count — say so, or the
+		# "1 of 1 models" line reads like a bug.
+		var strength_text := "%d of %d models remaining" % [alive, total]
+		if total == 1:
+			var m0 = unit.get("models", [])[0] if unit.get("models", []).size() > 0 else {}
+			var max_w := int(m0.get("wounds", 1))
+			var cur_w := int(m0.get("current_wounds", max_w))
+			strength_text = "%d of %d wounds remaining" % [cur_w, max_w]
+
+		var reason := ""
+		var reason_text := ""
+		if is_shocked:
+			reason = "shocked"
+			reason_text = "Already Battle-shocked — pass to recover"
+		elif below_half:
+			reason = "below_half"
+			reason_text = "Below Half-strength"
+		elif at_half:
+			reason = "at_half"
+			reason_text = "At Half-strength"
+		else:
+			# Queued earlier this phase and has since been healed/reinforced. It
+			# still owes the test (it was taken at the start of the phase), but
+			# don't invent a reason that no longer holds.
+			reason = "queued"
+			reason_text = "Battle-shock test outstanding"
+
+		var insane_bravery_available := false
+		if strat_manager and not tested:
+			var can_use = strat_manager.can_use_stratagem(current_player, "insane_bravery", unit_id)
+			insane_bravery_available = can_use.get("can_use", false)
+
+		queue.append({
+			"unit_id": unit_id,
+			"unit_name": unit.get("meta", {}).get("name", unit_id),
+			"owner": int(unit.get("owner", 0)),
+			"leadership": _get_effective_leadership(unit_id),
+			"battle_shock_bonus": ability_mgr.get_battle_shock_bonus(unit_id) if ability_mgr else 0,
+			"alive": alive,
+			"total": total,
+			"strength_text": strength_text,
+			"reason": reason,
+			"reason_text": reason_text,
+			"was_battle_shocked": is_shocked,
+			"insane_bravery_available": insane_bravery_available,
+			"tested": tested,
+			"auto_passed": unit_id in _units_auto_passed,
+		})
+
+	return queue
 
 func get_untested_battle_shock_units() -> Array:
 	"""Return info about units that need battle-shock tests but haven't been tested yet."""

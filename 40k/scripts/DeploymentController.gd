@@ -268,70 +268,7 @@ func begin_deploy(_unit_id: String) -> void:
 			for char_id in attached_char_ids:
 				print("[DeploymentController] STATE REPAIR: Set %s.attached_to = %s" % [char_id, _unit_id])
 
-	if GameState.formations_declared() and attached_char_ids.size() > 0:
-		is_combined_deployment = true
-		print("[DeploymentController] Combined deployment: bodyguard %s + %d attached character(s)" % [_unit_id, attached_char_ids.size()])
-
-		# MA-19: Build combined model profiles for picker and add model_type to entries
-		var bg_profiles = unit_data.get("meta", {}).get("model_profiles", {})
-		var has_bg_profiles = bg_profiles.size() > 0
-		var bg_type_key = "bg_" + _unit_id
-		_combined_profiles = {}
-
-		# Copy bodyguard profiles or create synthetic one
-		if has_bg_profiles:
-			for key in bg_profiles:
-				_combined_profiles[key] = bg_profiles[key]
-		else:
-			var bg_name = unit_data.get("meta", {}).get("name", "Bodyguard")
-			_combined_profiles[bg_type_key] = {"label": bg_name}
-
-		# Add bodyguard models first (with model_type)
-		for i in range(unit_data["models"].size()):
-			var model = unit_data["models"][i]
-			var mt = model.get("model_type", "")
-			var model_data_entry = model
-			if mt == "":
-				# No model_type - use synthetic bodyguard type
-				mt = bg_type_key
-				model_data_entry = model.duplicate()
-				model_data_entry["model_type"] = mt
-			combined_models.append({
-				"unit_id": _unit_id,
-				"model_idx": i,
-				"model_data": model_data_entry,
-				"model_type": mt
-			})
-
-		# Then add character models (with synthetic model_type)
-		for char_id in attached_char_ids:
-			var char_data = GameState.get_unit(char_id)
-			if char_data.is_empty():
-				push_error("[DeploymentController] Attached character not found: %s" % char_id)
-				continue
-			var char_name = char_data.get("meta", {}).get("name", "Character")
-			var char_type_key = "char_" + char_id
-			_combined_profiles[char_type_key] = {"label": char_name, "is_character": true}
-			for i in range(char_data["models"].size()):
-				var char_model = char_data["models"][i].duplicate()
-				char_model["model_type"] = char_type_key
-				combined_models.append({
-					"unit_id": char_id,
-					"model_idx": i,
-					"model_data": char_model,
-					"model_type": char_type_key
-				})
-			print("[DeploymentController] Added %d models from character %s (%s)" % [char_data["models"].size(), char_id, char_name])
-
-		# Size temp arrays to fit all combined models
-		temp_positions.resize(combined_models.size())
-		temp_rotations.resize(combined_models.size())
-		temp_rotations.fill(0.0)
-		print("[DeploymentController] Combined deployment total models: %d" % combined_models.size())
-	else:
-		temp_positions.resize(unit_data["models"].size())
-		temp_rotations.resize(unit_data["models"].size())
-		temp_rotations.fill(0.0)
+	setup_placement_models(_unit_id)
 
 	formation_rotation = 0.0  # Reset formation rotation for new unit
 	# Reset to SINGLE so controller state matches the UI (the formation buttons
@@ -340,30 +277,8 @@ func begin_deploy(_unit_id: String) -> void:
 	# clicking the already-pressed "Single" button wouldn't fire any signal).
 	formation_mode = "SINGLE"
 
-	# MA-15: Reset model type picker state
-	has_model_type_picker = false
-	selected_model_type = ""
-	_hide_model_type_picker()
-
 	# MA-15/MA-19: Check if model type picker should be shown
-	if is_combined_deployment:
-		# MA-19: Show picker for combined deployment (character + bodyguard types)
-		if _combined_profiles.size() > 1:
-			var effective_models = _get_effective_models()
-			var distinct_types = _get_distinct_unplaced_types(effective_models, [])
-			if distinct_types.size() > 1:
-				has_model_type_picker = true
-				_show_model_type_picker(_combined_profiles, effective_models)
-				print("[DeploymentController] MA-19: Combined deployment picker shown with %d types" % distinct_types.size())
-	else:
-		# MA-15: Non-combined deployment with model_profiles
-		var model_profiles = unit_data.get("meta", {}).get("model_profiles", {})
-		if model_profiles.size() > 1:
-			var distinct_types = _get_distinct_unplaced_types(unit_data["models"], [])
-			if distinct_types.size() > 1:
-				has_model_type_picker = true
-				_show_model_type_picker(model_profiles, unit_data["models"])
-				print("[DeploymentController] MA-15: Model type picker shown with %d types" % distinct_types.size())
+	setup_model_type_picker()
 
 	# Check if this unit has Infiltrators ability
 	is_infiltrators_mode = GameState.unit_has_infiltrators(unit_id)
@@ -397,6 +312,138 @@ func begin_deploy(_unit_id: String) -> void:
 		var remaining = _get_unplaced_model_indices()
 		if not remaining.is_empty():
 			_create_formation_ghosts(min(formation_size, remaining.size()))
+
+# Size the placement buffers for `p_unit_id` and, when it leads attached
+# CHARACTERs, fold their models into the SAME session so the player places the
+# whole Attached unit (bodyguard + leader) — 11e 24.10: an Attached unit is a
+# single unit and is set up as one. Shared by deployment (begin_deploy) and by
+# the movement-phase set-ups in Main (reserves arrival / Rapid Ingress), which
+# previously sized the buffers off the bodyguard's models alone — that is why a
+# Deep Striking squad with a leader only ever offered the squad's models and the
+# leader got teleported next to them by the phase handler.
+#
+# `only_reserves_characters` restricts the fold-in to characters still
+# IN_RESERVES: a reinforcement arrival brings in only the models that are
+# actually arriving, whereas at deployment every attached character is off the
+# table anyway. Returns true when a combined list was built.
+func setup_placement_models(p_unit_id: String, only_reserves_characters: bool = false) -> bool:
+	temp_positions.clear()
+	temp_rotations.clear()
+	combined_models.clear()
+	is_combined_deployment = false
+	_combined_profiles.clear()
+
+	var unit_data = GameState.get_unit(p_unit_id)
+	if unit_data.is_empty():
+		return false
+
+	var attached_char_ids: Array = []
+	for char_id in unit_data.get("attachment_data", {}).get("attached_characters", []):
+		var char_data = GameState.get_unit(char_id)
+		if char_data.is_empty():
+			push_error("[DeploymentController] Attached character not found: %s" % char_id)
+			continue
+		if only_reserves_characters and int(char_data.get("status", 0)) != GameStateData.UnitStatus.IN_RESERVES:
+			# Already on the battlefield — it is not arriving with this set-up.
+			print("[DeploymentController] Skipping attached character %s (not in reserves)" % char_id)
+			continue
+		attached_char_ids.append(char_id)
+
+	# Reserves arrivals do not depend on formations_declared(): the attachment is
+	# already live on the unit by then (it is what put the character in reserves).
+	if attached_char_ids.size() > 0 and (only_reserves_characters or GameState.formations_declared()):
+		is_combined_deployment = true
+		print("[DeploymentController] Combined placement: bodyguard %s + %d attached character(s)" % [p_unit_id, attached_char_ids.size()])
+
+		# MA-19: Build combined model profiles for picker and add model_type to entries
+		var bg_profiles = unit_data.get("meta", {}).get("model_profiles", {})
+		var has_bg_profiles = bg_profiles.size() > 0
+		var bg_type_key = "bg_" + p_unit_id
+
+		# Copy bodyguard profiles or create synthetic one
+		if has_bg_profiles:
+			for key in bg_profiles:
+				_combined_profiles[key] = bg_profiles[key]
+		else:
+			var bg_name = unit_data.get("meta", {}).get("name", "Bodyguard")
+			_combined_profiles[bg_type_key] = {"label": bg_name}
+
+		# Add bodyguard models first (with model_type)
+		for i in range(unit_data["models"].size()):
+			var model = unit_data["models"][i]
+			var mt = model.get("model_type", "")
+			var model_data_entry = model
+			if mt == "":
+				# No model_type - use synthetic bodyguard type
+				mt = bg_type_key
+				model_data_entry = model.duplicate()
+				model_data_entry["model_type"] = mt
+			combined_models.append({
+				"unit_id": p_unit_id,
+				"model_idx": i,
+				"model_data": model_data_entry,
+				"model_type": mt
+			})
+
+		# Then add character models (with synthetic model_type)
+		for char_id in attached_char_ids:
+			var char_data = GameState.get_unit(char_id)
+			var char_name = char_data.get("meta", {}).get("name", "Character")
+			var char_type_key = "char_" + char_id
+			_combined_profiles[char_type_key] = {"label": char_name, "is_character": true}
+			for i in range(char_data["models"].size()):
+				var char_model = char_data["models"][i].duplicate()
+				char_model["model_type"] = char_type_key
+				combined_models.append({
+					"unit_id": char_id,
+					"model_idx": i,
+					"model_data": char_model,
+					"model_type": char_type_key
+				})
+			print("[DeploymentController] Added %d models from character %s (%s)" % [char_data["models"].size(), char_id, char_name])
+
+		# Size temp arrays to fit all combined models
+		temp_positions.resize(combined_models.size())
+		temp_rotations.resize(combined_models.size())
+		temp_rotations.fill(0.0)
+		print("[DeploymentController] Combined placement total models: %d" % combined_models.size())
+		return true
+
+	temp_positions.resize(unit_data["models"].size())
+	temp_rotations.resize(unit_data["models"].size())
+	temp_rotations.fill(0.0)
+	return false
+
+# MA-15/MA-19: (re)build the model-type picker for the current placement session.
+# Split out of begin_deploy so the movement-phase set-ups get the same picker —
+# a combined arrival needs it to let the player choose "place the leader next".
+func setup_model_type_picker() -> void:
+	has_model_type_picker = false
+	selected_model_type = ""
+	_hide_model_type_picker()
+
+	if is_combined_deployment:
+		# MA-19: Show picker for combined placement (character + bodyguard types)
+		if _combined_profiles.size() > 1:
+			var effective_models = _get_effective_models()
+			var distinct_types = _get_distinct_unplaced_types(effective_models, [])
+			if distinct_types.size() > 1:
+				has_model_type_picker = true
+				_show_model_type_picker(_combined_profiles, effective_models)
+				print("[DeploymentController] MA-19: Combined placement picker shown with %d types" % distinct_types.size())
+		return
+
+	# MA-15: Non-combined placement with model_profiles
+	var unit_data = GameState.get_unit(unit_id)
+	if unit_data.is_empty():
+		return
+	var model_profiles = unit_data.get("meta", {}).get("model_profiles", {})
+	if model_profiles.size() > 1:
+		var distinct_types = _get_distinct_unplaced_types(unit_data["models"], [])
+		if distinct_types.size() > 1:
+			has_model_type_picker = true
+			_show_model_type_picker(model_profiles, unit_data["models"])
+			print("[DeploymentController] MA-15: Model type picker shown with %d types" % distinct_types.size())
 
 var _split_declined_units: Dictionary = {}
 var _pending_split_unit_id: String = ""
@@ -566,7 +613,7 @@ func try_place_at(world_pos: Vector2) -> void:
 	var test_model = model_data.duplicate()
 	test_model["position"] = world_pos
 	test_model["rotation"] = rotation
-	if Measurement.model_overlaps_any_wall(test_model, _get_deploying_unit_keywords()):
+	if Measurement.model_overlaps_any_wall(test_model, _get_deploying_unit_keywords(model_idx)):
 		_show_toast("Cannot overlap with walls this unit can't cross")
 		return
 
@@ -865,6 +912,12 @@ func confirm() -> void:
 		is_reinforcement_mode = false
 		reinforcement_placement_type = ""
 		is_scout_reserves_mode = false
+		# A reserves arrival can be a COMBINED set-up (bodyguard + attached
+		# characters); clear it here too so the next session never reads a stale
+		# combined list through get_total_model_count() / _get_effective_models().
+		is_combined_deployment = false
+		combined_models.clear()
+		_combined_profiles.clear()
 		# MA-15: Clean up model type picker
 		has_model_type_picker = false
 		selected_model_type = ""
@@ -1846,11 +1899,22 @@ func _overlaps_with_existing_models_shape(pos: Vector2, model_data: Dictionary, 
 	if not shape:
 		return false
 
-	# Check overlap with already placed models in current unit
+	# Check overlap with already placed models in current unit.
+	# Index-safe for combined placements: temp_positions is indexed by the
+	# COMBINED list (bodyguard + attached characters), which is longer than
+	# unit_data["models"] — reading the bodyguard array at a character's index
+	# threw once any model was placed after the leader (undo / type picker).
 	var unit_data = GameState.get_unit(unit_id)
+	var unit_models = unit_data.get("models", [])
 	for i in range(temp_positions.size()):
 		if temp_positions[i] != null:
-			var other_model_data = unit_data["models"][i]
+			var other_model_data: Dictionary
+			if is_combined_deployment and i < combined_models.size():
+				other_model_data = combined_models[i]["model_data"]
+			elif i < unit_models.size():
+				other_model_data = unit_models[i]
+			else:
+				continue
 			var other_rotation = temp_rotations[i] if i < temp_rotations.size() else 0.0
 			if _shapes_overlap(pos, model_data, rotation, temp_positions[i], other_model_data, other_rotation):
 				return true
@@ -1916,9 +1980,15 @@ func _overlaps_with_existing_models(pos: Vector2, radius: float) -> bool:
 	
 	return false
 
-func _get_deploying_unit_keywords() -> Array:
+func _get_deploying_unit_keywords(index: int = -1) -> Array:
 	if unit_id == "":
 		return []
+	# Combined placement: the model at `index` may belong to an attached
+	# CHARACTER, whose traversal keywords (e.g. INFANTRY vs JUMP PACK) can
+	# differ from the bodyguard squad's.
+	if index >= 0 and is_combined_deployment and index < combined_models.size():
+		var owner_id = str(combined_models[index]["unit_id"])
+		return GameState.get_unit(owner_id).get("meta", {}).get("keywords", [])
 	return GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
 
 func _show_toast(message: String, color: Color = Color.RED) -> void:
@@ -2022,7 +2092,7 @@ func _process(delta: float) -> void:
 			var test_model = model_data.duplicate()
 			test_model["position"] = mouse_pos
 			test_model["rotation"] = rotation
-			if Measurement.model_overlaps_any_wall(test_model, _get_deploying_unit_keywords()):
+			if Measurement.model_overlaps_any_wall(test_model, _get_deploying_unit_keywords(model_idx)):
 				is_valid = false
 
 		if ghost_sprite.has_method("set_validity"):
@@ -3024,6 +3094,29 @@ func _on_model_type_selected(type_key: String) -> void:
 		var remaining = _get_unplaced_model_indices()
 		if not remaining.is_empty():
 			_create_formation_ghosts(min(formation_size, remaining.size()))
+
+# Start a picker-enabled session on the FIRST unplaced model rather than
+# pausing for a type choice. The movement-phase set-ups (reserves arrival /
+# Rapid Ingress) use this so placement is live the moment the session opens —
+# the player places the squad in order and can click the picker to jump to the
+# leader. Without it, has_model_type_picker with no selected type parks
+# model_idx on the "waiting for a pick" sentinel and no ghost appears.
+func preselect_first_model_type() -> void:
+	if not has_model_type_picker:
+		return
+	var effective_models = _get_effective_models()
+	for i in range(effective_models.size()):
+		if i < temp_positions.size() and temp_positions[i] != null:
+			continue
+		var mt = str(effective_models[i].get("model_type", ""))
+		if mt == "":
+			continue
+		selected_model_type = mt
+		model_idx = i
+		if model_type_picker_panel and is_instance_valid(model_type_picker_panel):
+			model_type_picker_panel.highlight_selected(mt)
+		print("[DeploymentController] Placement starts on model %d (type %s)" % [i, mt])
+		return
 
 func _get_model_type_label(model_data: Dictionary, unit_data: Dictionary) -> String:
 	"""MA-17/MA-19: Get the display label for a model's type from model_profiles.

@@ -27,9 +27,16 @@ extends RefCounted
 ##                objective whose control would flip are protected
 ##                (OC counts once per unit — MissionManager math — so what
 ##                matters is keeping AT LEAST one body in range)
-##  ▫ coherency — the final order is built greedily so each casualty leaves
-##                the survivors in unit coherency whenever possible (never
-##                remove the "bridge" model while an end model will do)
+##  ▫ coherency — DOMINANT. The order is built greedily and every step picks
+##                the casualty that leaves the FEWEST survivors out of
+##                coherency; the value/proximity/objective score above only
+##                breaks ties between equally-coherent picks. 03.03 destroys
+##                out-of-coherency models at End of Turn, so a careless pick
+##                costs a whole extra model — that outranks every soft
+##                preference here. Judged over the whole ATTACHED unit
+##                (19.03): an attached CHARACTER's model is part of this
+##                unit, so a casualty that strands the leader (or strands
+##                the squad from it) is scored as the break it is.
 ##
 ## Objective range uses MissionManager.model_in_objective_range — the SAME
 ## shared predicate objective control itself uses — so terrain-hosted
@@ -112,20 +119,24 @@ static func compute_preferred_targets(unit: Dictionary, state: Dictionary, opts:
 			score += KEEP_WOUNDED
 		keep[i] = score
 
-	var order: Array = _coherency_aware_order(unit, alive, keep)
+	var order: Array = _coherency_aware_order(unit, alive, keep, state)
 
 	var parts: Array = []
 	for i in order:
 		parts.append("%s=%.0f" % [str(models[i].get("id", i)), keep[i]])
-	var line := "[CasualtyPreference] %s die-first order (idx=%s): %s" % [
-		str(unit.get("id", unit.get("meta", {}).get("name", "?"))), str(order), ", ".join(parts)]
+	_log("[CasualtyPreference] %s die-first order (idx=%s): %s" % [
+		str(unit.get("id", unit.get("meta", {}).get("name", "?"))), str(order), ", ".join(parts)])
+	return order
+
+
+## print() + mirror into the persistent debug log (stdout isn't always
+## reachable — see CLAUDE.md).
+static func _log(line: String) -> void:
 	print(line)
-	# Mirror into the persistent debug log (stdout isn't always reachable).
 	var loop = Engine.get_main_loop()
 	var dl = loop.root.get_node_or_null("DebugLogger") if loop != null and loop.root != null else null
 	if dl != null and dl.has_method("info"):
 		dl.info(line, {})
-	return order
 
 
 ## Engine-side hook for the non-interactive resolve paths (AI vs AI, or an
@@ -400,29 +411,269 @@ static func _objective_keep(unit: Dictionary, alive: Array, state: Dictionary, d
 
 # ── coherency-aware ordering ────────────────────────────────────────
 
-## Offender count for the remaining alive set with `excluded` removed —
-## straight through AttackSequence.check_unit_coherency so the edition's
-## real coherency rule applies (11e: 2" to a mate + 9" envelope).
-static func _offender_count(unit: Dictionary, remaining: Array, excluded: int) -> int:
+## Incremental coherency evaluator for one ATTACHED unit's models.
+##
+## Answers "how many models would be out of coherency if THIS one died next?"
+## for every candidate, at every step of the greedy order. Doing that straight
+## through AttackSequence.check_attached_unit_coherency would be O(n²) distance
+## work per candidate; here the pairwise near/far matrix is built ONCE (models
+## do not move while wounds are allocated) and each candidate is an O(n) walk of
+## cached neighbour counts.
+##
+## The verdict it reproduces is exactly AttackSequence.attached_coherency_offenders:
+## merged neighbours (19.03 — the leader counts as a mate) intersected with the
+## per-component envelope (a leader standing off one end must not condemn the
+## squad it is attached to). test_casualty_preference cross-checks the two on
+## live subsets so this fast path can never silently drift from the rule.
+class CoherencyModel extends RefCounted:
+	var usable: bool = false          # < 2 positioned models: coherency cannot bind
+	var entry_of: Dictionary = {}     # candidate model index -> entry index
+	var comp_of: Array = []           # entry -> component index
+	var comp_live: Array = []         # component -> live entry count
+	var live: Array = []              # entry -> still on the board
+	var near: Array = []              # entry -> Array[bool] within 2" (+tol)
+	var far: Array = []               # entry -> Array[bool] beyond the 9" envelope
+	var nb_all: Array = []            # entry -> live neighbours anywhere in the unit
+	var far_all: Array = []           # entry -> live models outside its envelope
+	var nb_solo: Array = []           # ditto, restricted to the entry's component
+	var far_solo: Array = []
+	var n_live: int = 0
+	var _legacy_pairs: bool = false   # 10e only: 7+ models need 2 neighbours
+
+	func _init(models: Array, comps: Array, meas: Node) -> void:
+		# `models` are the entry model dicts (alive + positioned), `comps` their
+		# component indices. Thresholds mirror AttackSequence.check_unit_coherency.
+		var n: int = models.size()
+		comp_of = comps
+		_legacy_pairs = GameConstants.edition < 11
+		var tol: float = meas.DISTANCE_TOLERANCE_INCHES
+		var coh_px: float = meas.inches_to_px(GameConstants.coherency_distance_inches() + tol)
+		var env_px: float = 0.0
+		if GameConstants.edition >= 11:
+			env_px = meas.inches_to_px(GameConstants.coherency_envelope_inches() + tol)
+		var comp_count := 0
+		for c in comps:
+			comp_count = maxi(comp_count, int(c) + 1)
+		comp_live.resize(comp_count)
+		comp_live.fill(0)
+		for i in range(n):
+			live.append(true)
+			near.append([])
+			far.append([])
+			near[i].resize(n)
+			far[i].resize(n)
+			near[i].fill(false)
+			far[i].fill(false)
+			comp_live[int(comps[i])] += 1
+		for i in range(n):
+			for j in range(i + 1, n):
+				var d: float = meas.model_to_model_distance_px(models[i], models[j])
+				var is_near: bool = d <= coh_px
+				var is_far: bool = env_px > 0.0 and d > env_px
+				near[i][j] = is_near
+				near[j][i] = is_near
+				far[i][j] = is_far
+				far[j][i] = is_far
+		for i in range(n):
+			var nb := 0
+			var fr := 0
+			var nbs := 0
+			var frs := 0
+			for j in range(n):
+				if i == j:
+					continue
+				var same: bool = int(comps[i]) == int(comps[j])
+				if near[i][j]:
+					nb += 1
+					if same:
+						nbs += 1
+				if far[i][j]:
+					fr += 1
+					if same:
+						frs += 1
+			nb_all.append(nb)
+			far_all.append(fr)
+			nb_solo.append(nbs)
+			far_solo.append(frs)
+		n_live = n
+		usable = n >= 2
+
+	func _required(count: int) -> int:
+		return 2 if (_legacy_pairs and count >= 7) else 1
+
+	## Offenders among the survivors, optionally with entry `skip` treated as
+	## already dead (-1 = nobody). A model only counts when BOTH readings
+	## condemn it (see AttackSequence.check_attached_unit_coherency).
+	func offenders(skip: int = -1) -> int:
+		if skip >= 0 and not live[skip]:
+			skip = -1  # already dead: removing it again changes nothing
+		var total: int = n_live - (1 if skip >= 0 else 0)
+		if total <= 1:
+			return 0
+		var req_all: int = _required(total)
+		var count := 0
+		for i in range(live.size()):
+			if not live[i] or i == skip:
+				continue
+			var nb: int = nb_all[i]
+			var fr: int = far_all[i]
+			if skip >= 0:
+				if near[i][skip]:
+					nb -= 1
+				if far[i][skip]:
+					fr -= 1
+			if nb >= req_all and fr == 0:
+				continue  # 19.03 reading clears it
+			var c: int = int(comp_of[i])
+			var csize: int = comp_live[c] - (1 if skip >= 0 and int(comp_of[skip]) == c else 0)
+			if csize <= 1:
+				continue  # a 1-model component is always coherent on its own
+			var nbs: int = nb_solo[i]
+			var frs: int = far_solo[i]
+			if skip >= 0 and int(comp_of[skip]) == c:
+				if near[i][skip]:
+					nbs -= 1
+				if far[i][skip]:
+					frs -= 1
+			if nbs >= _required(csize) and frs == 0:
+				continue  # standalone reading clears it
+			count += 1
+		return count
+
+	## Offenders left if candidate model index `idx` is the next casualty.
+	## Models with no position are not on the coherency board at all, so
+	## removing them changes nothing.
+	func offenders_without(idx: int) -> int:
+		return offenders(int(entry_of.get(idx, -1)))
+
+	## Commit a casualty: candidate model index `idx` is dead from here on.
+	func kill(idx: int) -> void:
+		if not entry_of.has(idx):
+			return
+		var e: int = int(entry_of[idx])
+		if not live[e]:
+			return
+		live[e] = false
+		n_live -= 1
+		var c: int = int(comp_of[e])
+		comp_live[c] -= 1
+		for i in range(live.size()):
+			if not live[i]:
+				continue
+			var same: bool = int(comp_of[i]) == c
+			if near[i][e]:
+				nb_all[i] -= 1
+				if same:
+					nb_solo[i] -= 1
+			if far[i][e]:
+				far_all[i] -= 1
+				if same:
+					far_solo[i] -= 1
+
+
+## Resolve the Attached unit (19.03) the passed `unit` belongs to into
+## components, and work out which of ITS model indices map where.
+##
+## Two shapes reach this module and both must work:
+##  ▫ the FOLDED allocation unit the overlay builds
+##    (RulesEngine._build_attached_allocation_unit_11e) — bodyguard models
+##    then each attached CHARACTER's, so every model is a candidate;
+##  ▫ the RAW target unit the engine auto-resolve paths pass — only its own
+##    models can take wounds, but the attached CHARACTER's model still sits on
+##    the board and still has to end up in coherency, so it is folded in as
+##    CONTEXT (never as a casualty candidate).
+##
+## Returns {comp_ids, comp_models, cand: {model index -> [component, local]}}.
+static func _attached_layout(unit: Dictionary, state: Dictionary) -> Dictionary:
+	var own_models: Array = unit.get("models", [])
+	var solo: Dictionary = {
+		"comp_ids": [str(unit.get("id", "self"))],
+		"comp_models": [own_models],
+		"cand": {},
+	}
+	for i in range(own_models.size()):
+		solo.cand[i] = [0, i]
+	var units: Dictionary = state.get("units", {})
+	var own_id: String = str(unit.get("id", ""))
+	if own_id == "" or not units.has(own_id):
+		return solo
+	var group: Array = AttackSequence.coherency_group_ids(own_id, units)
+	if group.size() <= 1:
+		return solo
+	var comp_models: Array = []
+	var total := 0
+	for gid in group:
+		var ms: Array = units.get(gid, {}).get("models", [])
+		comp_models.append(ms)
+		total += ms.size()
+	var out: Dictionary = {"comp_ids": group, "comp_models": comp_models, "cand": {}}
+	if own_models.size() == total:
+		# Folded Attached unit: virtual index i walks the components in the
+		# same order the fold appended them.
+		var i := 0
+		for c in range(group.size()):
+			var n: int = comp_models[c].size()
+			comp_models[c] = own_models.slice(i, i + n)
+			for local in range(n):
+				out.cand[i] = [c, local]
+				i += 1
+		return out
+	var own_c: int = group.find(own_id)
+	if own_c < 0 or comp_models[own_c].size() != own_models.size():
+		return solo  # unrecognised shape — measure the unit on its own
+	comp_models[own_c] = own_models
+	for i in range(own_models.size()):
+		out.cand[i] = [own_c, i]
+	return out
+
+
+static func _build_coherency_model(unit: Dictionary, state: Dictionary) -> CoherencyModel:
+	var layout: Dictionary = _attached_layout(unit, state)
+	var comp_models: Array = layout.comp_models
+	var by_slot: Dictionary = {}  # "c|local" -> candidate model index
+	for idx in layout.cand:
+		var pair: Array = layout.cand[idx]
+		by_slot["%d|%d" % [int(pair[0]), int(pair[1])]] = int(idx)
+	var models: Array = []
+	var comps: Array = []
+	var entry_of: Dictionary = {}
+	for c in range(comp_models.size()):
+		var ms: Array = comp_models[c]
+		for local in range(ms.size()):
+			var m: Dictionary = ms[local]
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			var slot: String = "%d|%d" % [c, local]
+			if by_slot.has(slot):
+				entry_of[int(by_slot[slot])] = models.size()
+			models.append(m)
+			comps.append(c)
+	var cm := CoherencyModel.new(models, comps, _measurement())
+	cm.entry_of = entry_of
+	return cm
+
+
+## Build the die-first order greedily, coherency FIRST: at each step every
+## still-standing candidate is scored by how many models would be left out of
+## coherency once it dies, and the pick is the one with the fewest — the keep
+## score above only breaks ties. 03.03 destroys out-of-coherency models at End
+## of Turn, so the "cheapest" chaff model is a bad trade when removing it
+## strands two others; and when the formation is ALREADY broken this naturally
+## removes the stranded model first, which repairs the unit instead of
+## deepening the split.
+##
+## CHARACTER models are held out of the candidate pool while any bodyguard
+## model is standing: 05.04 allocates CHARACTER groups last regardless, so
+## letting coherency pull a leader forward would only desync this simulation
+## from what the engine actually does.
+static func _coherency_aware_order(unit: Dictionary, alive: Array, keep: Dictionary, state: Dictionary) -> Array:
 	var models: Array = unit.get("models", [])
-	var subset: Array = []
-	for i in remaining:
-		if i == excluded:
-			continue
-		subset.append(models[i])
-	if subset.size() <= 1:
-		return 0
-	var check: Dictionary = AttackSequence.check_unit_coherency({"models": subset})
-	return check.get("offenders", []).size()
-
-
-## Build the die-first order greedily: at each step take the lowest-keep
-## model whose removal does not worsen coherency (never split the unit by
-## pulling a bridge model while an end model is available). If every
-## candidate worsens it — already-broken formations — fall back to pure
-## score order rather than stalling.
-static func _coherency_aware_order(unit: Dictionary, alive: Array, keep: Dictionary) -> Array:
+	var is_char: Dictionary = {}
+	for i in alive:
+		is_char[i] = _is_character_model(unit, models[i])
+	var cm := _build_coherency_model(unit, state)
 	var order: Array = []
+	var breaks := 0
 	var remaining: Array = alive.duplicate()
 	while remaining.size() > 0:
 		var ranked: Array = remaining.duplicate()
@@ -430,13 +681,28 @@ static func _coherency_aware_order(unit: Dictionary, alive: Array, keep: Diction
 			if absf(float(keep[a]) - float(keep[b])) > 0.001:
 				return float(keep[a]) < float(keep[b])
 			return a < b)
-		var chosen = ranked[0]
-		if remaining.size() > 2:
-			var before: int = _offender_count(unit, remaining, -1)
-			for cand in ranked:
-				if _offender_count(unit, remaining, cand) <= before:
+		var pool: Array = []
+		for i in ranked:
+			if not is_char.get(i, false):
+				pool.append(i)
+		if pool.is_empty():
+			pool = ranked
+		var chosen = pool[0]
+		if cm.usable:
+			var best := -1
+			for cand in pool:
+				var n: int = cm.offenders_without(cand)
+				if best < 0 or n < best:
+					best = n
 					chosen = cand
-					break
+					if n == 0:
+						break  # pool is keep-sorted: the cheapest clean pick
+			if best > 0:
+				breaks += 1
 		order.append(chosen)
 		remaining.erase(chosen)
+		cm.kill(chosen)
+	if breaks > 0:
+		_log("[CasualtyPreference] %s — %d/%d casualty step(s) cannot avoid breaking coherency" % [
+			str(unit.get("id", "?")), breaks, order.size()])
 	return order
