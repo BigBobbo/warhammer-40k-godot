@@ -2571,13 +2571,19 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 
 		deployment_controller.unit_id = unit_id
 		deployment_controller.model_idx = 0
-		deployment_controller.temp_positions.clear()
-		deployment_controller.temp_rotations.clear()
-		var unit_data = GameState.get_unit(unit_id)
-		deployment_controller.temp_positions.resize(unit_data["models"].size())
-		deployment_controller.temp_rotations.resize(unit_data["models"].size())
-		deployment_controller.temp_rotations.fill(0.0)
+		deployment_controller.placement_order.clear()
+		# 24.10/20.04: an Attached unit arrives from reserves as ONE unit, so the
+		# player must place the leader's model too — not just the bodyguard squad.
+		# setup_placement_models folds every attached CHARACTER still in reserves
+		# into this same placement session (combined mode), exactly as deployment
+		# does. Without it the session was sized off the bodyguard alone and the
+		# phase handler silently teleported the leader 1" to the right of the
+		# squad's first model (usually straight on top of another base).
+		deployment_controller.setup_placement_models(unit_id, true)
 		deployment_controller.formation_rotation = 0.0
+		deployment_controller.formation_mode = "SINGLE"
+		deployment_controller.setup_model_type_picker()
+		deployment_controller.preselect_first_model_type()
 
 		# Create ghost for placement
 		deployment_controller._create_ghost()
@@ -2615,6 +2621,61 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		unit_list.visible = false
 		show_unit_card(unit_id)
 
+# Read the deployment controller's placement buffers back out, per unit.
+# A combined set-up (bodyguard + attached CHARACTERs, see
+# DeploymentController.setup_placement_models) indexes temp_positions by the
+# COMBINED model list, so it has to be split before it can be dispatched: the
+# action carries the bodyguard's models in `model_positions` and each leader's
+# in `character_model_positions[char_id]`, both indexed by that unit's own
+# models array. Plain (un-combined) sessions pass straight through.
+# Returns {model_positions, model_rotations, character_model_positions,
+# character_model_rotations}.
+func _split_placement_positions(bodyguard_id: String) -> Dictionary:
+	var out := {
+		"model_positions": [],
+		"model_rotations": [],
+		"character_model_positions": {},
+		"character_model_rotations": {},
+	}
+	if not deployment_controller:
+		return out
+
+	if not deployment_controller.is_combined_deployment:
+		for pos in deployment_controller.temp_positions:
+			out["model_positions"].append(pos)
+		out["model_rotations"] = deployment_controller.temp_rotations.duplicate()
+		return out
+
+	var bg_model_count = GameState.get_unit(bodyguard_id).get("models", []).size()
+	out["model_positions"].resize(bg_model_count)  # nulls = model not placed
+	out["model_rotations"].resize(bg_model_count)
+	out["model_rotations"].fill(0.0)
+
+	for i in range(deployment_controller.combined_models.size()):
+		var cm = deployment_controller.combined_models[i]
+		var owner_id = str(cm["unit_id"])
+		var midx = int(cm["model_idx"])
+		var pos = deployment_controller.temp_positions[i] if i < deployment_controller.temp_positions.size() else null
+		var rot = deployment_controller.temp_rotations[i] if i < deployment_controller.temp_rotations.size() else 0.0
+		if owner_id == bodyguard_id:
+			if midx < out["model_positions"].size():
+				out["model_positions"][midx] = pos
+				out["model_rotations"][midx] = rot
+			continue
+		if not out["character_model_positions"].has(owner_id):
+			var char_count = GameState.get_unit(owner_id).get("models", []).size()
+			var cp := []
+			cp.resize(char_count)
+			var cr := []
+			cr.resize(char_count)
+			cr.fill(0.0)
+			out["character_model_positions"][owner_id] = cp
+			out["character_model_rotations"][owner_id] = cr
+		if midx < out["character_model_positions"][owner_id].size():
+			out["character_model_positions"][owner_id][midx] = pos
+			out["character_model_rotations"][owner_id][midx] = rot
+	return out
+
 func _on_reinforcement_confirmed() -> void:
 	"""Handle reinforcement placement completion"""
 	if _selected_unit_for_reserves == "":
@@ -2627,13 +2688,12 @@ func _on_reinforcement_confirmed() -> void:
 		return
 
 	# Collect model positions from the deployment controller
-	var model_positions = []
-	for pos in deployment_controller.temp_positions:
-		model_positions.append(pos)
+	var split = _split_placement_positions(unit_id)
+	var model_positions = split["model_positions"]
+	var model_rotations = split["model_rotations"]
 
-	var model_rotations = deployment_controller.temp_rotations.duplicate()
-
-	print("Main: Reinforcement placement confirmed for %s with %d model positions" % [unit_id, model_positions.size()])
+	print("Main: Reinforcement placement confirmed for %s with %d model positions (+%d attached character(s))" % [
+		unit_id, model_positions.size(), split["character_model_positions"].size()])
 
 	# Reset the unit status back to IN_RESERVES before sending the action
 	# (the action processor will set it to DEPLOYED)
@@ -2658,6 +2718,12 @@ func _on_reinforcement_confirmed() -> void:
 	}
 	if _reinforcement_placement_type != "":
 		action["placement_type"] = _reinforcement_placement_type
+	# Attached CHARACTERs placed in this same session travel with the action so
+	# the phase uses the player's chosen spots (and validates them) instead of
+	# falling back to its auto-offset.
+	if not split["character_model_positions"].is_empty():
+		action["character_model_positions"] = split["character_model_positions"]
+		action["character_model_rotations"] = split["character_model_rotations"]
 
 	var result = NetworkIntegration.route_action(action)
 
@@ -2994,13 +3060,14 @@ func _begin_rapid_ingress_placement(unit_id: String) -> void:
 
 		deployment_controller.unit_id = unit_id
 		deployment_controller.model_idx = 0
-		deployment_controller.temp_positions.clear()
-		deployment_controller.temp_rotations.clear()
-		var unit_data = GameState.get_unit(unit_id)
-		deployment_controller.temp_positions.resize(unit_data["models"].size())
-		deployment_controller.temp_rotations.resize(unit_data["models"].size())
-		deployment_controller.temp_rotations.fill(0.0)
+		deployment_controller.placement_order.clear()
+		# Same as a normal reserves arrival: an Attached unit ingresses as ONE
+		# unit, so the leader's model is placed by the player in this session too.
+		deployment_controller.setup_placement_models(unit_id, true)
 		deployment_controller.formation_rotation = 0.0
+		deployment_controller.formation_mode = "SINGLE"
+		deployment_controller.setup_model_type_picker()
+		deployment_controller.preselect_first_model_type()
 
 		# Create ghost for placement
 		deployment_controller._create_ghost()
@@ -3034,13 +3101,12 @@ func _on_rapid_ingress_confirmed() -> void:
 		return
 
 	# Collect model positions from the deployment controller
-	var model_positions = []
-	for pos in deployment_controller.temp_positions:
-		model_positions.append(pos)
+	var split = _split_placement_positions(unit_id)
+	var model_positions = split["model_positions"]
+	var model_rotations = split["model_rotations"]
 
-	var model_rotations = deployment_controller.temp_rotations.duplicate()
-
-	print("Main: Rapid Ingress placement confirmed for %s with %d model positions" % [unit_id, model_positions.size()])
+	print("Main: Rapid Ingress placement confirmed for %s with %d model positions (+%d attached character(s))" % [
+		unit_id, model_positions.size(), split["character_model_positions"].size()])
 
 	# Reset the unit status back to IN_RESERVES before sending the action
 	# (the action processor will set it to DEPLOYED)
@@ -3062,6 +3128,9 @@ func _on_rapid_ingress_confirmed() -> void:
 		"phase": GameStateData.Phase.MOVEMENT,
 		"timestamp": Time.get_unix_time_from_system()
 	}
+	if not split["character_model_positions"].is_empty():
+		action["character_model_positions"] = split["character_model_positions"]
+		action["character_model_rotations"] = split["character_model_rotations"]
 
 	var result = NetworkIntegration.route_action(action)
 
@@ -7760,6 +7829,16 @@ func _refresh_unit_list_inner() -> void:
 		GameStateData.Phase.MOVEMENT:
 			# MovementController manages its own right panel UI, hide the shared unit list
 			unit_list.visible = false
+			# ...and rebuild THAT list too, because it is the one the player can
+			# see. Everything below this point populates the hidden `unit_list`,
+			# so a refresh triggered by an arriving reinforcement left the visible
+			# panel stale: the unit that had just landed kept its "Arrive from
+			# Deep Strike: ..." row, and clicking it went down the normal-move
+			# path instead (reported as "Error: Unit has already moved this
+			# phase", since an ingress move blocks further moves).
+			if movement_controller and is_instance_valid(movement_controller) \
+					and movement_controller.has_method("_refresh_unit_list"):
+				movement_controller._refresh_unit_list()
 			var all_units = GameState.get_units_for_player(active_player)
 			var deployed_count = 0
 			var battle_round = GameState.get_battle_round()

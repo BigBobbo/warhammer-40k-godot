@@ -1,0 +1,225 @@
+{
+  "id": "deep_strike_attached_character_placement",
+  "covers": [
+    "Main._begin_reinforcement_placement",
+    "Main._split_placement_positions",
+    "Main._on_reinforcement_confirmed",
+    "DeploymentController.setup_placement_models",
+    "DeploymentController.setup_model_type_picker",
+    "MovementPhase._process_place_reinforcement",
+    "MovementPhase._collect_arrival_groups",
+    "controller.reinforcement.attached_character"
+  ],
+  "fixture": "attached_char_advance_overlap",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Reported bug: Deep Striking a Custodian Guard with a Blade Champion attached let the player place the Custodian Guard's models but NEVER the Blade Champion \u2014 Main._begin_reinforcement_placement sized the placement session off the bodyguard's models alone (unlike DeploymentController.begin_deploy, which folds attached characters into a combined session), and MovementPhase then silently teleported the leader to first_bodyguard_model + 1\" \u2014 usually straight on top of the squad, with none of the set-up rules validated against it. This drives the real player path: click the 'Arrive from Deep Strike: Custodian Guard + Blade Champion' reinforcement row, assert the session now covers all 4 models (3 guards + the champion) with the model-type picker offering 'Blade Champion x1', place the three guards by clicking the board, click the picker's Blade Champion button, click the board where the champion should stand, confirm with the real Confirm button, and assert the champion arrived AT THE CLICKED SPOT (not the old +1\" auto-offset) and clear of every guard base.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Put the Attached unit (Custodian Guard led by a Blade Champion) into Deep\n# Strike reserves for battle round 2 \u2014 the same per-unit state FormationsPhase\n# writes when the player declares them as reserves.\nvar gs = GameState.state\ngs[\"meta\"][\"battle_round\"] = 2\nfor uid in [\"U_CUSTODIAN_GUARD_B\", \"U_BLADE_CHAMPION_A\"]:\n\tgs.units[uid][\"status\"] = GameState.UnitStatus.IN_RESERVES\n\tgs.units[uid][\"reserve_type\"] = \"deep_strike\"\n\tfor m in gs.units[uid][\"models\"]:\n\t\tm[\"position\"] = null\ngs.units[\"U_BLADE_CHAMPION_A\"][\"attached_to\"] = \"U_CUSTODIAN_GUARD_B\"\ngs.units[\"U_CUSTODIAN_GUARD_B\"][\"attachment_data\"] = {\"attached_characters\": [\"U_BLADE_CHAMPION_A\"]}\nreturn \"%d/%d\" % [gs.units.U_CUSTODIAN_GUARD_B.status, gs.units.U_BLADE_CHAMPION_A.status]",
+      "equals": "7/7"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller._refresh_unit_list()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The Attached unit gets ONE reinforcement row naming both units; the leader\n# never gets a row of its own (it arrives with its bodyguard).\nvar texts = tree.current_scene.movement_controller.get_unit_list_texts()\nvar row = \"\"\nfor t in texts:\n\tif str(t).begins_with(\"Arrive from\"):\n\t\trow += str(t) + \"|\"\nreturn row",
+      "equals": "Arrive from Deep Strike: Custodian Guard + Blade Champion|"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_reinforcement_row"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var list = tree.current_scene.movement_controller.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_CUSTODIAN_GUARD_B\":\n\t\treturn i\nreturn -1",
+      "equals": 1
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList",
+      "index": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.is_placing()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.is_reinforcement_mode",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.reinforcement_placement_type",
+      "equals": "deep_strike"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# THE BUG: this used to be 3 (the Custodian Guard alone) so the Blade Champion\n# could never be placed. It must now cover the whole Attached unit.\nvar dc = tree.current_scene.deployment_controller\nreturn \"total=%d combined=%s\" % [dc.get_total_model_count(), str(dc.is_combined_deployment)]",
+      "equals": "total=4 combined=true"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The leader is a distinct model type in the picker, so the player can choose\n# when to place it.\nvar dc = tree.current_scene.deployment_controller\nvar p = dc.model_type_picker_panel\nif p == null or not is_instance_valid(p):\n\treturn \"NO_PICKER\"\nvar labels = []\nfor key in p.type_buttons:\n\tlabels.append(str(p.type_buttons[key].text))\nlabels.sort()\nreturn \", \".join(labels)",
+      "equals": "Blade Champion x1, Custodian Guard x3"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_placement_session_includes_leader"
+    },
+    {
+      "act": "click_board_at",
+      "x": 700,
+      "y": 1200
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "click_board_at",
+      "x": 780,
+      "y": 1200
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.2
+    },
+    {
+      "act": "click_board_at",
+      "x": 740,
+      "y": 1130
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.get_placed_count()",
+      "equals": 3
+    },
+    {
+      "act": "click_node",
+      "button_text": "Blade Champion x1"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var dc = tree.current_scene.deployment_controller\nvar cm = dc.combined_models[dc.model_idx]\nreturn str(cm[\"unit_id\"])",
+      "equals": "U_BLADE_CHAMPION_A"
+    },
+    {
+      "act": "click_board_at",
+      "x": 740,
+      "y": 1270
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.get_placed_count()",
+      "equals": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "03_leader_placed_by_player"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_CUSTODIAN_GUARD_B.status",
+      "equals": 2
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BLADE_CHAMPION_A.status",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The champion landed where the PLAYER clicked, not at the old\n# first_guard_model + 1\" auto-offset (which would have been 740,1200).\nvar p = GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0].position\nreturn \"%.0f,%.0f\" % [float(p.x), float(p.y)]",
+      "equals": "740,1270"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# And it does not overlap any of the guards it arrived with.\nvar champ = GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0]\nvar worst = 9999.0\nfor m in GameState.get_unit(\"U_CUSTODIAN_GUARD_B\").models:\n\tif m.get(\"position\", null) == null:\n\t\tcontinue\n\tif Measurement.models_overlap(champ, m):\n\t\treturn \"OVERLAP\"\n\tworst = min(worst, Measurement.model_to_model_distance_px(champ, m))\nreturn \"CLEAR\" if worst > 0.0 else \"TOUCHING\"",
+      "equals": "CLEAR"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The arrived unit must drop out of the reinforcements list. It used to\n# linger (only the HIDDEN deployment list was refreshed), and clicking the\n# stale row started a normal move on a unit that had just ingressed \u2014\n# \"Error: Unit has already moved this phase\".\nvar texts = tree.current_scene.movement_controller.get_unit_list_texts()\nvar rows = []\nfor t in texts:\n\tif str(t).begins_with(\"Arrive from\"):\n\t\trows.append(str(t))\nreturn \"|\".join(rows)",
+      "equals": ""
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# ...and it now appears under DEPLOYED UNITS as one Attached unit.\nvar texts = tree.current_scene.movement_controller.get_unit_list_texts()\nfor t in texts:\n\tif str(t).begins_with(\"Custodian Guard\"):\n\t\treturn str(t)\nreturn \"NOT_LISTED\"",
+      "equals": "Custodian Guard + Blade Champion [YET TO MOVE]"
+    },
+    {
+      "act": "execute_script",
+      "multiline": false,
+      "script": "event_log_count_containing(\"Custodian Guard + Blade Champion arrived from Reserves (Deep Strike) (4 models)\")",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "04_attached_unit_arrived"
+    }
+  ]
+}
