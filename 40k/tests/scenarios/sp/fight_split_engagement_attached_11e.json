@@ -1,0 +1,405 @@
+{
+  "id": "fight_split_engagement_attached_11e",
+  "covers": [
+    "dialogs.AttackAssignmentDialog.component_targets",
+    "dialogs.AttackAssignmentDialog.best_krump_auto_assign",
+    "dialogs.AttackAssignmentDialog.all_to_target",
+    "phases.FightPhase.melee_targets_for_component",
+    "phases.FightPhase._validate_assign_attacks",
+    "rules.11e.fight.select_targets"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 4242,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Reported bug: the player's Custodian Guard (led by a Blade Champion) was plainly still in combat, they activated it in the opponent's Fight phase, clicked 'Best Weapons ✨' and confirmed — and the game answered that the targets were outside engagement range, killing the whole activation. Cause: 19.03 makes the bodyguard and its attached CHARACTER ONE unit, so FightPhase._get_eligible_melee_targets measured Engagement Range across BOTH components and offered every enemy either had reached; the dialog then pointed EVERY section at the one selected target; but _rebuild_assignments files each section under its own component unit, and _validate_assign_attacks measures the ATTACKER as that component alone (correctly — 11e 'Select Targets' requires each target to be engaged with the model that has that weapon). The half that had not reached that enemy was rejected and took the batch with it. This scenario builds exactly that geometry — the Custodian Guard locked with one Boyz mob, the Blade Champion locked with another, neither engaged with the other's — and drives the real player path: open the dialog, read the split-engagement warning, click 'Best Weapons ✨', click 'Fight!'. The activation must resolve, with the Guard swinging at ITS mob and the Champion at HIS.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var GS = GameState.state\n# Park every unit except the four this scenario needs well off the board so\n# nothing else lands in anyone's Engagement Range and muddies the target lists.\nvar keep = [\"U_CUSTODIAN_GUARD_B\", \"U_BLADE_CHAMPION_A\", \"U_BOYZ_E\", \"U_BOYZ_F\"]\nfor uid in GS[\"units\"].keys():\n\tif uid in keep:\n\t\tcontinue\n\tvar i = 0\n\tfor m in GS[\"units\"][uid][\"models\"]:\n\t\tm[\"position\"] = {\"x\": 25000.0 + float(i) * 60.0, \"y\": 25000.0}\n\t\ti += 1\n# Seat order is incidental to the bug (the reported case was the OTHER\n# way round — the opponent's Fight phase, the player's turn to activate);\n# P1 active just makes the Custodes the first pick of the 12.04 step.\nGS[\"meta\"][\"active_player\"] = 1\nreturn \"parked\"",
+      "comment": "clear the board so only the reported geometry is in play"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "CharacterAttachmentManager.attach_character(\"U_BLADE_CHAMPION_A\", \"U_CUSTODIAN_GUARD_B\")\nreturn str(GameState.state[\"units\"][\"U_BLADE_CHAMPION_A\"].get(\"attached_to\", \"\"))",
+      "equals": "U_CUSTODIAN_GUARD_B",
+      "comment": "19.03: Blade Champion + Custodian Guard are ONE Attached unit, ONE activation"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var GS = GameState.state\n# 40px = 1\". Engagement Range is 2\" at 11e.\n# Custodian Guard line, locked with Boyz E only.\nvar guard = GS[\"units\"][\"U_CUSTODIAN_GUARD_B\"][\"models\"]\nvar gx = 1200.0\nfor i in range(guard.size()):\n\tguard[i][\"alive\"] = true\n\tguard[i][\"position\"] = {\"x\": gx + float(i) * 50.0, \"y\": 700.0}\n# The Blade Champion stands 10\" behind them, locked with Boyz F only.\nGS[\"units\"][\"U_BLADE_CHAMPION_A\"][\"models\"][0][\"alive\"] = true\nGS[\"units\"][\"U_BLADE_CHAMPION_A\"][\"models\"][0][\"position\"] = {\"x\": gx, \"y\": 1100.0}\n# One LIVE Boy from each mob in contact with its own half; the rest stay\n# parked. The fixture already has casualties in these mobs, so index 0 is not\n# necessarily alive — and a dead model is skipped by every range check.\nvar placed = []\nfor pair in [[\"U_BOYZ_E\", 770.0], [\"U_BOYZ_F\", 1180.0]]:\n\tvar ms = GS[\"units\"][str(pair[0])][\"models\"]\n\tfor i in range(ms.size()):\n\t\tms[i][\"position\"] = {\"x\": 25000.0 + float(i) * 60.0, \"y\": 25000.0}\n\tfor i in range(ms.size()):\n\t\tif ms[i].get(\"alive\", true):\n\t\t\tms[i][\"position\"] = {\"x\": gx, \"y\": float(pair[1])}\n\t\t\tplaced.append(\"%s#%d\" % [str(pair[0]), i])\n\t\t\tbreak\n# Remember how many models each mob still has, so the post-fight step can\n# prove BOTH of them actually took hits.\nvar base = {}\nfor uid in [\"U_BOYZ_E\", \"U_BOYZ_F\"]:\n\tvar n = 0\n\tfor m in GS[\"units\"][uid][\"models\"]:\n\t\tif m.get(\"alive\", true):\n\t\t\tn += 1\n\tbase[uid] = n\nEngine.set_meta(\"scn_alive_baseline\", base)\nreturn \" \".join(placed)",
+      "comment": "the reported geometry: each component of the Attached unit locked with a DIFFERENT mob"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "PhaseManager.transition_to_phase(10)\nreturn \"re-entered\"",
+      "comment": "re-enter the Fight phase so it stamps eligibility against the new geometry"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var fp = PhaseManager.get_current_phase_instance()\nvar t = fp._get_eligible_melee_targets(\"U_CUSTODIAN_GUARD_B\").keys()\nt.sort()\nreturn str(t)",
+      "equals": "[\"U_BOYZ_E\", \"U_BOYZ_F\"]",
+      "comment": "19.03: the ACTIVATION may attack both mobs (one reached by each component)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var fp = PhaseManager.get_current_phase_instance()\nreturn str(fp.melee_targets_for_component(\"U_CUSTODIAN_GUARD_B\", [])) + \" | \" + str(fp.melee_targets_for_component(\"U_BLADE_CHAMPION_A\", []))",
+      "equals": "[\"U_BOYZ_E\"] | [\"U_BOYZ_F\"]",
+      "comment": "...but neither COMPONENT may attack both — this is the narrowing the plan-builders now do"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_PILE_IN",
+        "player": 1
+      }
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_PILE_IN",
+        "player": 2
+      }
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_PILE_IN",
+        "player": 1
+      },
+      "comment": "12.02 halves are dispatched in both orders — the active player goes first and a rejected duplicate is a harmless no-op"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_PILE_IN",
+        "player": 2
+      }
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pile_in_step_11e",
+      "equals": 2,
+      "comment": "PileInStep11e.DONE — the Pile In step is finished, so units may now be selected to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_FIGHTER",
+        "unit_id": "U_CUSTODIAN_GUARD_B",
+        "player": 1
+      }
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DECLINE_EPIC_CHALLENGE",
+        "unit_id": "U_CUSTODIAN_GUARD_B",
+        "player": 1
+      }
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_KATAH_STANCE",
+        "unit_id": "U_CUSTODIAN_GUARD_B",
+        "stance": "dacatarai",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog/Content/SplitEngagementNote",
+      "comment": "the player is TOLD the sections are locked with different enemies before they pick"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = Engine.get_main_loop().root.get_node_or_null(\"AttackAssignmentDialog\")\nvar out = []\nfor g in d._groups:\n\tout.append(str(g.get(\"owner\", \"\")) + \"=\" + str(d._component_targets.get(str(g.get(\"owner\", \"\")), [])))\nreturn \" | \".join(out)",
+      "equals": "U_CUSTODIAN_GUARD_B=[\"U_BOYZ_E\"] | U_BLADE_CHAMPION_A=[\"U_BOYZ_F\"]",
+      "comment": "each section knows its own reach"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_dialog_warns_sections_locked_with_different_enemies"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = Engine.get_main_loop().root.get_node_or_null(\"AttackAssignmentDialog\")\nvar tl = d.target_list\nfor i in range(tl.item_count):\n\tif str(tl.get_item_metadata(i)) == \"U_BOYZ_F\":\n\t\ttl.select(i)\n\t\treturn str(tl.get_item_metadata(i))\nreturn \"not-found\"",
+      "equals": "U_BOYZ_F",
+      "comment": "pick the mob only the BLADE CHAMPION has reached — the reported case, where the FIRST assignment in the batch (the bodyguard's) is the illegal one and takes the whole activation down with it. Driven via select() because synthetic clicks do not land inside popup windows."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/BestKrumpButton",
+      "emit_pressed": true,
+      "comment": "THE REPORTED CLICK — 'auto pick for most damage'"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = Engine.get_main_loop().root.get_node_or_null(\"AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"attacker\", \"\")) + \"->\" + str(a.get(\"target\", \"\")))\nout.sort()\nreturn \" | \".join(out)",
+      "equals": "U_BLADE_CHAMPION_A->U_BOYZ_F | U_CUSTODIAN_GUARD_B->U_BOYZ_E",
+      "comment": "each section swings at the mob IT is engaged with, not the one selected for the whole unit"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_best_weapons_plan_each_section_on_a_reachable_enemy"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true,
+      "comment": "THE REPORTED CONFIRM — used to be rejected with 'not within engagement range'"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "03_immediately_after_fight_pressed",
+      "comment": "before the fix this frame carried the 'Fight action failed: Units are not within engagement range' toast and nothing resolved"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock",
+      "timeout_s": 6.0,
+      "comment": "the batch was ACCEPTED — staged resolution began instead of an 'engagement range' rejection"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var seen = {}\nfor a in PhaseManager.get_current_phase_instance().confirmed_attacks:\n\tseen[str(a.get(\"attacker\", \"\")) + \"->\" + str(a.get(\"target\", \"\"))] = true\nvar keys = seen.keys()\nkeys.sort()\nreturn \" | \".join(keys)",
+      "equals": "U_BLADE_CHAMPION_A->U_BOYZ_F | U_CUSTODIAN_GUARD_B->U_BOYZ_E",
+      "comment": "the engine ACCEPTED both components' assignments — this is the batch that used to be rejected"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_batch_accepted_staged_resolution_running"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockFastButton",
+      "emit_pressed": true,
+      "comment": "Fast Roll — resolve both weapons' remaining stages with no more pauses"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
+      "emit_pressed": true,
+      "comment": "defender side, round 1 — confirm the wound-allocation order (tolerant: skipped when not on screen)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
+      "emit_pressed": true,
+      "comment": "defender side, round 1 — keep the save rolls (tolerant: skipped when not on screen)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton",
+      "emit_pressed": true,
+      "comment": "defender side, round 1 — let the engine pick the casualties (tolerant: skipped when not on screen)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true,
+      "comment": "defender side, round 1 — close the allocation result (tolerant: skipped when not on screen)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockFastButton",
+      "emit_pressed": true,
+      "comment": "resume the attacker's staged rolls for the next weapon"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
+      "emit_pressed": true,
+      "comment": "defender side, round 2 — confirm the wound-allocation order (tolerant: skipped when not on screen)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
+      "emit_pressed": true,
+      "comment": "defender side, round 2 — keep the save rolls (tolerant: skipped when not on screen)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton",
+      "emit_pressed": true,
+      "comment": "defender side, round 2 — let the engine pick the casualties (tolerant: skipped when not on screen)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true,
+      "comment": "defender side, round 2 — close the allocation result (tolerant: skipped when not on screen)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockFastButton",
+      "emit_pressed": true,
+      "comment": "resume the attacker's staged rolls for the next weapon"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton",
+      "emit_pressed": true,
+      "comment": "defender side, round 3 — confirm the wound-allocation order (tolerant: skipped when not on screen)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
+      "emit_pressed": true,
+      "comment": "defender side, round 3 — keep the save rolls (tolerant: skipped when not on screen)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton",
+      "emit_pressed": true,
+      "comment": "defender side, round 3 — let the engine pick the casualties (tolerant: skipped when not on screen)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "emit_pressed": true,
+      "comment": "defender side, round 3 — close the allocation result (tolerant: skipped when not on screen)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockFastButton",
+      "emit_pressed": true,
+      "comment": "resume the attacker's staged rolls for the next weapon"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var fp = PhaseManager.get_current_phase_instance()\nreturn \"U_CUSTODIAN_GUARD_B\" in fp.units_that_fought",
+      "equals": true,
+      "comment": "REGRESSION: the activation resolved instead of being rejected"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var base = Engine.get_meta(\"scn_alive_baseline\", {})\nvar out = []\nfor uid in [\"U_BOYZ_E\", \"U_BOYZ_F\"]:\n\tvar n = 0\n\tfor m in GameState.state[\"units\"][uid][\"models\"]:\n\t\tif m.get(\"alive\", true):\n\t\t\tn += 1\n\tout.append(\"%s:%s\" % [uid, \"hit\" if n < int(base.get(uid, 0)) else \"untouched\"])\nreturn \" \".join(out)",
+      "equals": "U_BOYZ_E:hit U_BOYZ_F:hit",
+      "comment": "both mobs actually took the hits — the Guard killed its Boy, the Champion killed his (each had exactly one model on the board)"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_activation_resolved_both_halves_swung"
+    }
+  ]
+}
