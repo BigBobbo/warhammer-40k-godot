@@ -186,6 +186,21 @@ func _add_mission_option(parent: VBoxContainer, mission: Dictionary, index: int)
 
 	hbox.add_child(info_vbox)
 
+	# Cards that may not be discarded (Fixed Missions; anything that scored VP
+	# this turn and is therefore already achieved) are listed but locked, with
+	# the rule spelled out — silently dropping them would look like the card had
+	# vanished. Callers that don't annotate default to discardable.
+	var can_discard: bool = bool(mission.get("_can_discard", true))
+	var block_reason: String = str(mission.get("_discard_reason", ""))
+	if not can_discard and block_reason != "":
+		var reason_label = Label.new()
+		reason_label.text = block_reason
+		reason_label.add_theme_font_size_override("font_size", 15)
+		reason_label.add_theme_color_override("font_color", Color(0.9, 0.55, 0.3))
+		reason_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		reason_label.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 190, 0)
+		info_vbox.add_child(reason_label)
+
 	# Discard button (right side)
 	var discard_btn = Button.new()
 	var cp_label = "+1 CP" if can_gain_cp else "+0 CP (cap)"
@@ -193,10 +208,19 @@ func _add_mission_option(parent: VBoxContainer, mission: Dictionary, index: int)
 	discard_btn.custom_minimum_size = Vector2(130, 36)
 	discard_btn.add_theme_font_size_override("font_size", 16)
 	discard_btn.add_theme_color_override("font_color", Color.GOLD)
-	discard_btn.pressed.connect(_on_discard_pressed.bind(index))
+	# The card's own index in the player's active list when the caller supplies
+	# it — the dialog's row order must not be assumed to match.
+	var action_index: int = int(mission.get("_index", index))
+	if can_discard:
+		discard_btn.pressed.connect(_on_discard_pressed.bind(action_index))
+	else:
+		discard_btn.disabled = true
+		discard_btn.tooltip_text = block_reason
 	hbox.add_child(discard_btn)
-	# Register in the top-to-bottom controller focus chain.
-	_discard_buttons.append(discard_btn)
+	# Register in the top-to-bottom controller focus chain (a disabled button is
+	# skipped by focus, so pad navigation still lands on a usable one).
+	if can_discard:
+		_discard_buttons.append(discard_btn)
 
 func _on_discard_pressed(mission_index: int) -> void:
 	print("MissionDiscardDialog: Player chose to discard mission index %d" % mission_index)

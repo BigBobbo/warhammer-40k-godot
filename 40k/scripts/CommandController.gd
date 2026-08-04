@@ -383,8 +383,8 @@ func _setup_secondary_missions_section(command_panel: VBoxContainer) -> void:
 	# New Orders stratagem button
 	_add_new_orders_button(section, current_player, active_missions)
 
-func _add_mission_card_ui(parent: VBoxContainer, mission: Dictionary, index: int, player: int) -> void:
-	"""Add a single mission card display with voluntary discard button."""
+func _add_mission_card_ui(parent: VBoxContainer, mission: Dictionary, _index: int, player: int) -> void:
+	"""Add a single mission card display (name, timing, conditions, VP scored)."""
 	var card_container = PanelContainer.new()
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.15, 0.15, 0.2, 0.9)
@@ -470,15 +470,13 @@ func _add_mission_card_ui(parent: VBoxContainer, mission: Dictionary, index: int
 		vp_label.add_theme_color_override("font_color", Color(0.3, 0.9, 0.3))
 		card_vbox.add_child(vp_label)
 
-	# Voluntary Discard button
-	var discard_btn = Button.new()
-	discard_btn.text = "Discard (+1 CP)"
-	discard_btn.custom_minimum_size = Vector2(0, 24)
-	discard_btn.add_theme_font_size_override("font_size", 16)
-	discard_btn.tooltip_text = "Voluntarily discard this mission. Gain 1 CP if it's your turn."
-	discard_btn.pressed.connect(_on_voluntary_discard_pressed.bind(index))
-	_WhiteDwarfTheme.apply_to_button(discard_btn)
-	card_vbox.add_child(discard_btn)
+	# No discard-for-CP button here: discarding a Secondary Mission card for 1 CP
+	# happens at the END of your turn ("At the end of each player's turn ... you
+	# can discard one or more of your active Secondary Mission cards"), which the
+	# Scoring phase panel and the end-of-turn dialog own. The Command phase's
+	# legal card-management option is the New Orders Stratagem below. The button
+	# that used to sit here also dispatched VOLUNTARY_DISCARD, which CommandPhase
+	# has never handled — pressing it did nothing at all.
 
 func _add_new_orders_button(parent: VBoxContainer, player: int, active_missions: Array) -> void:
 	"""Add the New Orders stratagem button if available."""
@@ -556,14 +554,6 @@ func _get_timing_display(timing: String) -> String:
 			return "While active"
 		_:
 			return timing
-
-func _on_voluntary_discard_pressed(mission_index: int) -> void:
-	"""Handle voluntary discard button press."""
-	print("CommandController: Voluntary discard requested for mission index %d" % mission_index)
-	emit_signal("command_action_requested", {
-		"type": "VOLUNTARY_DISCARD",
-		"mission_index": mission_index,
-	})
 
 func _on_new_orders_pressed(mission_index: int) -> void:
 	"""Handle New Orders stratagem button press."""
