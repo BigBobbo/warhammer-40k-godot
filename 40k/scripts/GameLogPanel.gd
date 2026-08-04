@@ -23,7 +23,11 @@ const PANEL_WIDTH := 340.0
 const CARD_GAP := 3
 const CARD_CORNER_RADIUS := 5
 const CARD_PADDING := 8
-const MAX_CARDS := 300
+# MEM-14: how many card node-trees stay materialised. Each card is ~70 KB even
+# after the Label conversion below, and the WASM heap never shrinks, so the web
+# build keeps a shorter tail. GameEventLog retains its own (larger) data cap
+# independently — this only bounds the rendered nodes.
+static var MAX_CARDS: int = 120 if OS.has_feature("web") else 300
 # Simple (non-combat) log entries longer than this are shown as a preview with a
 # visible "show more"/"show less" toggle, so long AI move rationales stay fully
 # readable without dumping a wall of text into every card. Typical one-line
@@ -688,8 +692,10 @@ func last_combat_card_dice_labels() -> Array:
 			return labels
 		for row in container.get_children():
 			for c in row.get_children():
-				if c is RichTextLabel:
-					var t: String = c.get_parsed_text().strip_edges()
+				# MEM-14: the row's prefix is a RichTextLabel or a plain Label
+				# depending on whether its markup needed a real BBCode parser.
+				if c is RichTextLabel or c is Label:
+					var t: String = _text_control_plain(c).strip_edges()
 					if t != "":
 						labels.append(t)
 					break
@@ -725,8 +731,11 @@ func last_combat_card_detail_lines() -> Array:
 		if not is_instance_valid(container):
 			return lines
 		for row in container.get_children():
-			if row is RichTextLabel:
-				lines.append(row.get_parsed_text().strip_edges())
+			# MEM-14: a text-only detail row is a RichTextLabel or a plain Label
+			# depending on whether its markup needed a real BBCode parser; a
+			# dice-bearing row is an HFlowContainer of word/dice cells.
+			if row is RichTextLabel or row is Label:
+				lines.append(_text_control_plain(row).strip_edges())
 			else:
 				var parts: Array = []
 				for c in row.get_children():
@@ -791,9 +800,10 @@ func last_card_is_expanded() -> bool:
 	var label = card.get_meta("expand_label")
 	if not is_instance_valid(label):
 		return false
-	# get_parsed_text() strips BBCode, so this compares the VISIBLE text length to
-	# the stored full text — proving the toggle actually swapped in the full entry.
-	var shown_len := int(label.get_parsed_text().strip_edges().length())
+	# _text_control_plain() reads the markup-free text off either control type, so
+	# this compares the VISIBLE text length to the stored full text — proving the
+	# toggle actually swapped in the full entry.
+	var shown_len := int(_text_control_plain(label).strip_edges().length())
 	var full_len := int(String(card.get_meta("expand_full_text", "")).length())
 	return shown_len >= full_len
 
@@ -806,7 +816,7 @@ func last_card_visible_char_count() -> int:
 	var label = card.get_meta("expand_label")
 	if not is_instance_valid(label):
 		return -1
-	return int(label.get_parsed_text().strip_edges().length())
+	return int(_text_control_plain(label).strip_edges().length())
 
 func expand_last_card() -> bool:
 	# Test introspection helper: drive the last expandable card's toggle the same
@@ -908,18 +918,8 @@ func _make_dice_row(prefix_bbcode: String, rolls: Array, threshold: int, use_thr
 	hbox.add_theme_constant_override("separation", 4)
 	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var prefix := RichTextLabel.new()
-	prefix.bbcode_enabled = true
-	prefix.fit_content = true
-	prefix.scroll_active = false
-	# The prefix is non-expanding, so leaving autowrap on lets it collapse to a
-	# 1px-wide column and grow absurdly tall. Disable autowrap so it sizes to its
-	# natural single-line width.
-	prefix.autowrap_mode = TextServer.AUTOWRAP_OFF
-	prefix.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	prefix.add_theme_font_size_override("normal_font_size", normal_size)
-	prefix.add_theme_font_size_override("bold_font_size", bold_size)
-	prefix.append_text(prefix_bbcode)
+	# MEM-14: non-wrapping — the prefix sizes to its natural single-line width.
+	var prefix := _make_text_control(prefix_bbcode, normal_size, bold_size, false)
 	hbox.add_child(prefix)
 
 	if not rolls.is_empty():
@@ -928,17 +928,132 @@ func _make_dice_row(prefix_bbcode: String, rolls: Array, threshold: int, use_thr
 		dice.set_dice(rolls, threshold, use_threshold_colors)
 		hbox.add_child(dice)
 
-	var suffix := RichTextLabel.new()
-	suffix.bbcode_enabled = true
-	suffix.fit_content = true
-	suffix.scroll_active = false
-	suffix.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	suffix.add_theme_font_size_override("normal_font_size", normal_size)
-	suffix.add_theme_font_size_override("bold_font_size", bold_size)
-	suffix.append_text(suffix_bbcode)
+	var suffix := _make_text_control(suffix_bbcode, normal_size, bold_size)
 	hbox.add_child(suffix)
 
 	return hbox
+
+# ==========================================================================
+# Lightweight text controls (MEM-14)
+# ==========================================================================
+# A RichTextLabel costs ~180 KB of heap EACH in Godot 4.4 — constructing one
+# reserves a 64 KiB chunk trio in its internal item RID_Alloc before a single
+# character is added — against ~23 KB for a plain Label. The game log builds one
+# to several per card and holds MAX_CARDS of them, so the panel alone retained
+# ~90 MB in a running game (measured live: clearing the card container dropped
+# static memory from 347 MB to 255 MB). That is what pushed long itch.io
+# sessions past Safari's per-tab budget and got the tab reloaded with the
+# "this webpage is using significant memory" notice.
+#
+# Nearly every log line is UNIFORM markup — the whole string wrapped in
+# [b]/[i]/[color=…] with nothing inline — and in this project RichTextLabel's
+# normal_font, bold_font and italics_font all resolve to the same project font
+# (Rajdhani-SemiBold, via theme/custom_font), so [b] and [i] are already visual
+# no-ops here. Those lines render pixel-identically as a Label with a
+# font_color override, at an eighth of the memory. Lines with genuine inline
+# markup (dice badges, keyword highlights, mixed colours) still get a real
+# RichTextLabel.
+
+static func _uniform_markup(bbcode: String) -> Dictionary:
+	"""{"text": …, "color": Color|null} when `bbcode` is a plain string wrapped in
+	nothing but [b] / [i] / [color=…]. {} when it needs a real BBCode parser."""
+	var s := bbcode
+	var color: Variant = null
+	while true:
+		if s.begins_with("[b]") and s.ends_with("[/b]"):
+			s = s.substr(3, s.length() - 7)
+		elif s.begins_with("[i]") and s.ends_with("[/i]"):
+			s = s.substr(3, s.length() - 7)
+		elif s.begins_with("[color=") and s.ends_with("[/color]"):
+			var close := s.find("]")
+			if close < 0:
+				return {}
+			# Color.TRANSPARENT as the fallback doubles as a parse check: no log
+			# line intentionally renders invisible text.
+			var parsed := Color.from_string(s.substr(7, close - 7), Color.TRANSPARENT)
+			if parsed == Color.TRANSPARENT:
+				return {}
+			color = parsed  # innermost [color] wins, same as BBCode
+			s = s.substr(close + 1, s.length() - close - 1 - 8)
+		else:
+			break
+	# Anything left with a bracket may be markup we did not account for.
+	if s.contains("[") or s.contains("]"):
+		return {}
+	return {"text": s, "color": color}
+
+func _make_text_control(bbcode: String, normal_size: int, bold_size: int = -1, wrap: bool = true) -> Control:
+	"""Cheapest control that renders `bbcode` correctly: a Label for uniform
+	markup, a RichTextLabel for anything that needs inline formatting."""
+	var uniform := _uniform_markup(bbcode)
+	var h_flags := Control.SIZE_EXPAND_FILL if wrap else Control.SIZE_SHRINK_BEGIN
+	if not uniform.is_empty():
+		var lbl := Label.new()
+		lbl.text = String(uniform["text"])
+		# RichTextLabel wraps word-smart by default — match it so line breaks
+		# land in the same places as before.
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if wrap else TextServer.AUTOWRAP_OFF
+		lbl.add_theme_font_size_override("font_size", normal_size)
+		if uniform["color"] != null:
+			lbl.add_theme_color_override("font_color", uniform["color"])
+		lbl.size_flags_horizontal = h_flags
+		return lbl
+
+	var rtl := RichTextLabel.new()
+	rtl.bbcode_enabled = true
+	rtl.fit_content = true
+	rtl.scroll_active = false
+	if not wrap:
+		# A non-expanding autowrapping RichTextLabel collapses to a 1px-wide
+		# column and grows absurdly tall; size it to its natural width instead.
+		rtl.autowrap_mode = TextServer.AUTOWRAP_OFF
+	rtl.size_flags_horizontal = h_flags
+	rtl.add_theme_font_size_override("normal_font_size", normal_size)
+	rtl.add_theme_font_size_override("bold_font_size", bold_size if bold_size > 0 else normal_size)
+	rtl.append_text(bbcode)
+	return rtl
+
+func _set_text_control(ctrl: Control, bbcode: String) -> void:
+	"""Replace the contents of a control produced by _make_text_control."""
+	if ctrl is RichTextLabel:
+		ctrl.text = ""
+		ctrl.append_text(bbcode)
+		return
+	if not (ctrl is Label):
+		return
+	var lbl := ctrl as Label
+	var uniform := _uniform_markup(bbcode)
+	if uniform.is_empty():
+		# Markup grew richer than a Label can show — drop the tags rather than
+		# render them literally. (Callers reuse the same formatter, so this is a
+		# safety net, not the normal path.)
+		lbl.text = _strip_bbcode(bbcode)
+		return
+	lbl.text = String(uniform["text"])
+	if uniform["color"] != null:
+		lbl.add_theme_color_override("font_color", uniform["color"])
+
+static func _text_control_plain(ctrl: Control) -> String:
+	"""Visible, markup-free text of a control produced by _make_text_control."""
+	if ctrl is RichTextLabel:
+		return (ctrl as RichTextLabel).get_parsed_text()
+	if ctrl is Label:
+		return (ctrl as Label).text
+	return ""
+
+static func _strip_bbcode(bbcode: String) -> String:
+	var out := ""
+	var depth := 0
+	for i in bbcode.length():
+		var c := bbcode[i]
+		if c == "[":
+			depth += 1
+		elif c == "]":
+			if depth > 0:
+				depth -= 1
+		elif depth == 0:
+			out += c
+	return out
 
 func _format_dice_badges(rolls: Array, threshold: int) -> String:
 	"""Format an array of dice values as colored inline badges with good spacing."""
@@ -994,14 +1109,7 @@ func _start_combat_card(header_text: String, animate: bool) -> void:
 	var icon = _create_icon(category)
 	header_hbox.add_child(icon)
 
-	var header_label = RichTextLabel.new()
-	header_label.bbcode_enabled = true
-	header_label.fit_content = true
-	header_label.scroll_active = false
-	header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_label.add_theme_font_size_override("normal_font_size", 16)
-	header_label.add_theme_font_size_override("bold_font_size", 16)
-	header_label.append_text("[b][color=#E8C477]%s[/color][/b]" % header_text)
+	var header_label = _make_text_control("[b][color=#E8C477]%s[/color][/b]" % header_text, 16, 16)
 	header_hbox.add_child(header_label)
 
 	# Visible dice summary — VBox of per-roll rows, each row = prefix label + DiceRowVisual + suffix label
@@ -1105,15 +1213,7 @@ func _build_dice_aware_line(text: String, color_hex: String, normal_size: int, b
 	Wound: 0/7 [rolls] vs 4+" — from starving a trailing autowrap label down into a
 	~1px-wide, full-card-height skyscraper column."""
 	if _dice_regex.search(text) == null:
-		var label := RichTextLabel.new()
-		label.bbcode_enabled = true
-		label.fit_content = true
-		label.scroll_active = false
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.add_theme_font_size_override("normal_font_size", normal_size)
-		label.add_theme_font_size_override("bold_font_size", bold_size)
-		label.append_text("[color=%s]%s[/color]" % [color_hex, _highlight_keywords(text)])
-		return label
+		return _make_text_control("[color=%s]%s[/color]" % [color_hex, _highlight_keywords(text)], normal_size, bold_size)
 
 	var flow := HFlowContainer.new()
 	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1350,15 +1450,8 @@ func _make_phase_card(text: String) -> PanelContainer:
 	var icon = _create_icon(EntryCategory.PHASE)
 	hbox.add_child(icon)
 
-	var label = RichTextLabel.new()
-	label.bbcode_enabled = true
-	label.fit_content = true
-	label.scroll_active = false
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.add_theme_font_size_override("normal_font_size", 17)
-	label.add_theme_font_size_override("bold_font_size", 17)
 	var color_hex = phase_border.to_html(false)
-	label.append_text("[b][color=#%s]%s[/color][/b]" % [color_hex, clean_text])
+	var label = _make_text_control("[b][color=#%s]%s[/color][/b]" % [color_hex, clean_text], 17, 17)
 	hbox.add_child(label)
 
 	return card
@@ -1440,14 +1533,7 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 	if is_truncated:
 		preview_text = text.substr(0, SIMPLE_CARD_PREVIEW_CHARS).strip_edges() + "…"
 
-	var label = RichTextLabel.new()
-	label.bbcode_enabled = true
-	label.fit_content = true
-	label.scroll_active = false
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.add_theme_font_size_override("normal_font_size", 16)
-	label.add_theme_font_size_override("bold_font_size", 16)
-	label.append_text(_format_entry_text(preview_text, entry_type))
+	var label = _make_text_control(_format_entry_text(preview_text, entry_type), 16, 16)
 
 	if not is_truncated:
 		hbox.add_child(label)
@@ -1476,8 +1562,7 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 	# state, so the label-click shortcut and the button stay in sync.
 	toggle_btn.pressed.connect(func():
 		var expand: bool = toggle_btn.text.strip_edges() == "show more"
-		label.text = ""
-		label.append_text(_format_entry_text(full_text if expand else preview_text, fmt_type))
+		_set_text_control(label, _format_entry_text(full_text if expand else preview_text, fmt_type))
 		toggle_btn.text = "  show less" if expand else "  show more"
 		card.set_meta("expand_state", expand)
 	)
@@ -1489,6 +1574,11 @@ func _make_simple_entry_card(text: String, entry_type: String, category: int) ->
 			if toggle_btn.text.strip_edges() == "show more":
 				toggle_btn.pressed.emit()
 	)
+	# MEM-14: Label defaults to MOUSE_FILTER_IGNORE (RichTextLabel to STOP), so
+	# ask for input explicitly now that this may be either type. Cards that also
+	# carry a history marker still hand their clicks to the card — see
+	# _set_descendant_mouse_ignore().
+	label.mouse_filter = Control.MOUSE_FILTER_STOP
 	label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	label.tooltip_text = "Click to expand"
 
@@ -1553,14 +1643,7 @@ func _make_ai_thinking_block_card(text: String, link_context: Dictionary = {}, t
 	var icon = _create_icon(EntryCategory.AI_THINKING)
 	header_hbox.add_child(icon)
 
-	var header_label = RichTextLabel.new()
-	header_label.bbcode_enabled = true
-	header_label.fit_content = true
-	header_label.scroll_active = false
-	header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_label.add_theme_font_size_override("normal_font_size", 16)
-	header_label.add_theme_font_size_override("bold_font_size", 16)
-	header_label.append_text(header_format % header_text)
+	var header_label = _make_text_control(header_format % header_text, 16, 16)
 	# Let the card itself receive hover/click for the board-link interaction
 	header_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header_hbox.add_child(header_label)
@@ -1615,14 +1698,7 @@ func _make_combat_result_card(text: String) -> PanelContainer:
 	style.border_width_right = 1
 	card.add_theme_stylebox_override("panel", style)
 
-	var label = RichTextLabel.new()
-	label.bbcode_enabled = true
-	label.fit_content = true
-	label.scroll_active = false
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.add_theme_font_size_override("normal_font_size", 16)
-	label.add_theme_font_size_override("bold_font_size", 16)
-	label.append_text("[b][color=%s]%s[/color][/b]" % [text_color, text.strip_edges()])
+	var label = _make_text_control("[b][color=%s]%s[/color][/b]" % [text_color, text.strip_edges()], 16, 16)
 	card.add_child(label)
 
 	return card
@@ -1905,6 +1981,11 @@ func _make_die_badge(value: int, threshold: int) -> String:
 func _trim_old_cards(count: int) -> void:
 	for i in range(count):
 		if _card_container.get_child_count() == 0:
+			# MEM-14: the counter is the trim trigger, so it must never be left
+			# above the real child count — otherwise every subsequent card is
+			# trimmed the moment it is added and the log stays empty. Resync
+			# instead of just bailing.
+			_card_count = 0
 			break
 		var old_card = _card_container.get_child(0)
 		if old_card in _ai_cards:

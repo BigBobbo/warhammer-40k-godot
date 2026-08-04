@@ -81,6 +81,18 @@ var pad_cursor_magnetism: bool = true      # ease the cursor toward nearby token
 # Mouse & keyboard hovering is unaffected by this setting.
 var pad_hover_stats_card: bool = false
 
+# Drag clamping (mouse & keyboard). When ON, dragging a model past its remaining
+# movement budget stops the ghost ON the reach circle instead of letting it run
+# past into an invalid red preview that gets rejected on drop — the player just
+# drags in the direction they want and the model takes the maximum legal
+# distance (the XCOM 2 / Into the Breach feel). This is the same
+# MovementController._clamp_move_to_budget the Steam Deck / controller carry has
+# always used; this setting extends it to the mouse. OFF restores the historical
+# free drag with the red over-range preview, for players who want to place to
+# the exact inch themselves. The controller carry ignores this setting and stays
+# clamped — over-range pad drops were unusable without it (P0 Deck smoothness).
+var drag_clamp_to_max_range: bool = true
+
 # Menu / panel scroll speed — fraction of Godot's default mouse-wheel / trackpad
 # scroll distance applied to ScrollContainers and other scroll surfaces. 1.0 ==
 # stock engine speed; lower == slower. Consumed by ScrollSpeedController.
@@ -191,6 +203,7 @@ signal terrain_cover_labels_changed(enabled: bool)
 signal shooting_show_all_units_changed(show_all: bool)
 signal input_mode_policy_changed(policy: String)
 signal pad_hover_stats_card_changed(enabled: bool)
+signal drag_clamp_to_max_range_changed(enabled: bool)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
@@ -448,6 +461,15 @@ func set_pad_hover_stats_card(enabled: bool) -> void:
 	pad_hover_stats_card_changed.emit(pad_hover_stats_card)
 	_save_settings()
 	print("[SettingsService] pad_hover_stats_card set to %s" % str(pad_hover_stats_card))
+
+func get_drag_clamp_to_max_range() -> bool:
+	return drag_clamp_to_max_range
+
+func set_drag_clamp_to_max_range(enabled: bool) -> void:
+	drag_clamp_to_max_range = enabled
+	drag_clamp_to_max_range_changed.emit(drag_clamp_to_max_range)
+	_save_settings()
+	print("[SettingsService] drag_clamp_to_max_range set to %s" % str(drag_clamp_to_max_range))
 
 func set_input_mode_policy(policy: String) -> void:
 	# "auto" | "pad" | "kbm" | "dynamic" — see input_mode_policy above.
@@ -729,6 +751,7 @@ func _save_settings() -> void:
 	config.set_value("controls", "pad_cursor_sensitivity", pad_cursor_sensitivity)
 	config.set_value("controls", "pad_cursor_magnetism", pad_cursor_magnetism)
 	config.set_value("controls", "pad_hover_stats_card", pad_hover_stats_card)
+	config.set_value("controls", "drag_clamp_to_max_range", drag_clamp_to_max_range)
 
 	var err = config.save(SETTINGS_FILE_PATH)
 	if err != OK:
@@ -809,5 +832,6 @@ func _load_settings() -> void:
 	pad_cursor_sensitivity = clampf(config.get_value("controls", "pad_cursor_sensitivity", 1.0), 0.3, 2.0)
 	pad_cursor_magnetism = bool(config.get_value("controls", "pad_cursor_magnetism", true))
 	pad_hover_stats_card = bool(config.get_value("controls", "pad_hover_stats_card", false))
+	drag_clamp_to_max_range = bool(config.get_value("controls", "drag_clamp_to_max_range", true))
 
 	print("[SettingsService] Settings loaded from %s" % SETTINGS_FILE_PATH)

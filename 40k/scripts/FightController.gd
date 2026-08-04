@@ -3554,12 +3554,25 @@ func _update_model_drag_pile_in(mouse_pos: Vector2) -> void:
 
 	var new_pos = mouse_pos + drag_offset
 
+	# Over-range drag clamp: hold the model inside its remaining pile-in /
+	# consolidate budget WHILE dragging. _end_model_drag_pile_in has always
+	# clamped the drop the same way, so before this the model followed the cursor
+	# out to arm's length and then jumped back on release — the live preview now
+	# shows the truth. Same gate as the movement and charge drags.
+	if drag_clamp_active():
+		new_pos = _clamp_pile_in_to_budget(new_pos)
+
 	# T-093: snap-to-base-contact — if dragging within snap zone of a closest
 	# enemy model, snap to base-to-base. Snap zone is 0.6" beyond contact
 	# (mirrors charge phase snap behavior).
 	var snap_pos = _maybe_snap_to_b2b(new_pos)
 	if snap_pos != Vector2.ZERO:
 		new_pos = snap_pos
+		# Base contact can sit just past the budget; the drop clamps it anyway,
+		# so clamp the snapped point too rather than previewing a spot the
+		# release would visibly snatch back.
+		if drag_clamp_active():
+			new_pos = _clamp_pile_in_to_budget(new_pos)
 
 	# Update position tracking
 	current_model_positions[drag_model_id] = new_pos
@@ -3761,6 +3774,24 @@ func _is_model_pivoted(model_id: String) -> bool:
 		return false
 	var start = original_model_rotations.get(model_id, 0.0)
 	return abs(current_model_rotations[model_id] - start) > 0.001
+
+func _pile_in_cost_inches(dest: Vector2) -> float:
+	"""Inches a pile-in / consolidate stop at `dest` spends. Raw distance from the
+	model's ORIGINAL position only — pile-in charges no terrain penalty, matching
+	the drop check in _end_model_drag_pile_in."""
+	var original_pos: Vector2 = original_model_positions.get(drag_model_id, drag_start_pos)
+	return Measurement.px_to_inches(original_pos.distance_to(dest))
+
+func _clamp_pile_in_to_budget(dest: Vector2) -> Vector2:
+	"""Hold `dest` inside the model's remaining 3" (less any pivot cost). Mirrors
+	the clamp _end_model_drag_pile_in applies on release, so the live ghost and
+	the drop agree. Overlap / off-board / must-move-closer checks stay on the
+	drop — shortening the move must not be mistaken for satisfying them."""
+	if drag_model_id == "":
+		return dest
+	var original_pos: Vector2 = original_model_positions.get(drag_model_id, drag_start_pos)
+	return clamp_drag_to_budget(
+		original_pos, dest, _effective_pile_in_cap_inches(drag_model_id), _pile_in_cost_inches)
 
 func _effective_pile_in_cap_inches(model_id: String) -> float:
 	"""The positional distance a model may still move: 3" minus the pivot cost if

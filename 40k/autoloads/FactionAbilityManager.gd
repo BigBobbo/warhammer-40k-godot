@@ -254,8 +254,85 @@ var _razgit_resolved: bool = false
 # Key: player string, Value: number of units redeployed via Mork's Kunnin'
 var _morks_kunnin_redeploys_used: Dictionary = {"1": 0, "2": 0}
 
+# ── AGAINST ALL ODDS live board tracker ─────────────────────────────────────
+# The board marker needs "is this unit earning +1/+1 RIGHT NOW", but the 6"
+# check is O(friendly models²) per unit — far too costly to run inside
+# TokenVisual._draw() at 60fps. So it is evaluated on a slow poll here and
+# cached; tokens read the cache in O(1) and only redraw when the set changes.
+# Entirely skipped unless a player actually runs Lions of the Emperor.
+signal against_all_odds_changed()
+
+const _AAO_POLL_INTERVAL := 0.25
+var _aao_status: Dictionary = {}      # unit_id -> {applicable, active, nearest_name, nearest_inches}
+var _aao_poll_accum: float = 0.0
+
 func _ready():
 	print("FactionAbilityManager: Ready")
+	set_process(true)
+
+func _process(delta: float) -> void:
+	_aao_poll_accum += delta
+	if _aao_poll_accum < _AAO_POLL_INTERVAL:
+		return
+	_aao_poll_accum = 0.0
+	_refresh_against_all_odds()
+
+## Recompute the Against All Odds status of every unit on the board. Emits
+## against_all_odds_changed only when a unit's ACTIVE state actually flips, so
+## idle boards cost one cheap scan per poll and no redraws at all.
+func _refresh_against_all_odds() -> void:
+	var board = GameState.state if GameState else {}
+	var units = board.get("units", {})
+	if units.is_empty():
+		if not _aao_status.is_empty():
+			_aao_status.clear()
+			emit_signal("against_all_odds_changed")
+		return
+	# Cheap gate: no Lions of the Emperor army → nothing to track.
+	var any_lions := false
+	for pk in board.get("factions", {}):
+		var det = str(board["factions"][pk].get("detachment", ""))
+		if FactionStratagemLoaderData._normalise_detachment_name(det) == "lions of the emperor":
+			any_lions = true
+			break
+	if not any_lions:
+		if not _aao_status.is_empty():
+			_aao_status.clear()
+			emit_signal("against_all_odds_changed")
+		return
+
+	var next: Dictionary = {}
+	var changed := false
+	for unit_id in units:
+		var u = units[unit_id]
+		# The evaluator excludes the unit from its own 6" scan by matching on
+		# unit.id. A unit dict without one would measure zero distance to itself
+		# and never light up — so stamp the dictionary key in when it is absent.
+		if not u.has("id"):
+			u = u.duplicate()
+			u["id"] = str(unit_id)
+		var st = evaluate_against_all_odds(u, board, true)
+		if not st.get("applicable", false):
+			continue
+		next[unit_id] = st
+		var prev = _aao_status.get(unit_id, {})
+		if prev.get("active", null) != st.get("active", false):
+			changed = true
+	if next.size() != _aao_status.size():
+		changed = true
+	_aao_status = next
+	if changed:
+		emit_signal("against_all_odds_changed")
+
+## Cached Against All Odds status for one unit — {} when the unit can never earn
+## it (wrong faction/detachment, or a VEHICLE), so callers can treat an empty
+## dict as "draw nothing".
+func get_against_all_odds_status(unit_id: String) -> Dictionary:
+	return _aao_status.get(unit_id, {})
+
+## Is this unit currently earning the +1 Hit / +1 Wound?
+func is_against_all_odds_active(unit_id: String) -> bool:
+	return _aao_status.get(unit_id, {}).get("active", false)
 
 # ============================================================================
 # ABILITY DETECTION
@@ -2883,7 +2960,28 @@ func is_morks_kunnin_redeploy_available(player: int) -> bool:
 # ============================================================================
 
 static func check_against_all_odds(attacker_unit: Dictionary, board: Dictionary) -> bool:
-	"""Check if Against All Odds grants +1 Hit and +1 Wound.
+	"""Thin wrapper over evaluate_against_all_odds for the resolution hot path —
+	the engine only needs the yes/no, and skips measuring the nearest friendly."""
+	return evaluate_against_all_odds(attacker_unit, board, false).get("active", false)
+
+
+static func evaluate_against_all_odds(attacker_unit: Dictionary, board: Dictionary, want_nearest: bool = false) -> Dictionary:
+	"""Full Against All Odds status — the SINGLE source of truth shared by the
+	resolution engine (via check_against_all_odds) and the board's sparkle /
+	hover readout, so what the player sees can never drift from what the dice do.
+
+	Returns:
+	  applicable      — this unit could earn the bonus at all (Lions detachment,
+	                    non-VEHICLE ADEPTUS CUSTODES). Non-applicable units get
+	                    no marker whatsoever.
+	  active          — it currently DOES earn +1 Hit / +1 Wound.
+	  nearest_name    — closest other friendly unit (only when want_nearest).
+	  nearest_inches  — edge-to-edge distance to it, INF when nothing else is on
+	                    the battlefield (only when want_nearest).
+
+	want_nearest=false keeps the original early-exit: the first friendly found
+	within 6\" ends the scan. The visual path passes true and measures every
+	friendly so the tooltip can name the unit that is (or nearly is) spoiling it.
 	Condition: the unit's army runs the Lions of the Emperor detachment, and the
 	unit is a non-VEHICLE ADEPTUS CUSTODES unit with no other friendly units
 	within 6\". Leader rules: an attached CHARACTER and its bodyguard count as
@@ -2891,16 +2989,17 @@ static func check_against_all_odds(attacker_unit: Dictionary, board: Dictionary)
 	every model in the combined unit. Friendly units that are not on the
 	battlefield (embarked in a Transport, or in Reserves — whose models keep
 	stale coordinates) never block."""
+	var result := {"applicable": false, "active": false, "nearest_name": "", "nearest_inches": INF}
 	var owner = attacker_unit.get("owner", -1)
 	if owner < 0:
-		return false
+		return result
 	# Detachment gate — Against All Odds is the Lions of the Emperor rule; a
 	# Shield Host (or any other Custodes) army must not receive it. Normalise
 	# NBSP/space/case the same way FactionStratagemLoader does (issue #366:
 	# hand-edited rosters carry U+00A0 in the detachment name).
 	var detachment = str(board.get("factions", {}).get(str(owner), {}).get("detachment", ""))
 	if FactionStratagemLoaderData._normalise_detachment_name(detachment) != "lions of the emperor":
-		return false
+		return result
 	var keywords = attacker_unit.get("meta", {}).get("keywords", [])
 	var is_custodes = false
 	var is_vehicle = false
@@ -2911,7 +3010,11 @@ static func check_against_all_odds(attacker_unit: Dictionary, board: Dictionary)
 		if upper == "VEHICLE":
 			is_vehicle = true
 	if not is_custodes or is_vehicle:
-		return false
+		return result
+	# Past every gate: the unit CAN earn the bonus, so it always gets a marker —
+	# lit when isolated, dim when a friendly is spoiling it.
+	result["applicable"] = true
+	result["active"] = true
 	var attacker_id = str(attacker_unit.get("id", ""))
 	var units = board.get("units", {})
 	# Build the attacking unit's attached group (self + attached leaders, or —
@@ -2997,9 +3100,16 @@ static func check_against_all_odds(attacker_unit: Dictionary, board: Dictionary)
 				var edge_dist = (sqrt(dx * dx + dy * dy) - a_base - o_base) / 40.0
 				if edge_dist < min_dist:
 					min_dist = edge_dist
+		if min_dist < result["nearest_inches"]:
+			result["nearest_inches"] = min_dist
+			result["nearest_name"] = str(other_unit.get("meta", {}).get("name", other_id))
 		if min_dist <= 6.0:
-			return false
-	return true
+			result["active"] = false
+			# The engine's fast path has its answer; only the visual readout
+			# keeps scanning, to name the CLOSEST friendly.
+			if not want_nearest:
+				return result
+	return result
 
 # ============================================================================
 # SKIN-CRAWLING DISORIENTATION — SILENT HUNTERS
