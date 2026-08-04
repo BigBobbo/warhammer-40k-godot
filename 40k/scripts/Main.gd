@@ -11605,14 +11605,28 @@ func _on_phase_action_pressed() -> void:
 			if GameState.is_game_complete():
 				print("Main: Game is complete, cannot advance phase")
 				return
-			# Check for active secondary missions and offer discard opportunity
+			# Check for active secondary missions and offer discard opportunity.
+			# Each card carries its own eligibility (Fixed cards are never
+			# discardable; a card you scored VP from this turn is already
+			# achieved) — if none of them can be discarded there is nothing to
+			# prompt for and the turn just ends.
 			var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 			if secondary_mgr and secondary_mgr.is_initialized(active_player):
 				var active_missions = secondary_mgr.get_active_missions(active_player)
-				if active_missions.size() > 0:
+				var any_discardable := false
+				for i in range(active_missions.size()):
+					var gate = secondary_mgr.can_voluntarily_discard(active_player, i)
+					active_missions[i]["_index"] = i
+					active_missions[i]["_can_discard"] = gate["allowed"]
+					active_missions[i]["_discard_reason"] = gate["reason"]
+					if gate["allowed"]:
+						any_discardable = true
+				if active_missions.size() > 0 and any_discardable:
 					print("Main: Player %d has %d active secondary missions, showing discard dialog" % [active_player, active_missions.size()])
 					_show_mission_discard_dialog(active_missions, active_player)
 					return
+				elif active_missions.size() > 0:
+					print("Main: Player %d has %d active secondary missions but none may be discarded — ending turn" % [active_player, active_missions.size()])
 			action = {"type": "END_SCORING", "player": active_player}
 		GameStateData.Phase.MORALE:
 			action = {"type": "END_MORALE", "player": active_player}
