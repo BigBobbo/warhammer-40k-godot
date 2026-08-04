@@ -9221,6 +9221,33 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "DECLARED"
+    },
+    {
+      "id": "dialogs.AttackAssignmentDialog.auto_allocate_overkill",
+      "description": "The melee attack dialog's auto-allocation scores plans on EFFECTIVE damage, not raw expected damage: damage past a model's last wound is lost (10e/11e) and damage past the target UNIT's last wound is lost too, because it never spills onto another unit. Models are placed one at a time on marginal value, so a target stops attracting attacks once its wound pool is spent and the surplus goes to another engaged unit \u2014 only ever to a unit that section has actually reached. Reported: the suggested plan overkilled the target it named and wasted most of an activation while other units were available to pick.",
+      "scenarios": [
+        "fight_auto_allocate_spillover"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.AttackAssignmentDialog.split_across_targets",
+      "description": "A loadout section can be divided across TWO TARGETS with the same weapon, not only between the weapons it carries \u2014 the shape a uniform single-weapon squad needs to send its surplus attacks somewhere useful. Split rows are keyed by plan line (the first line of each weapon keeps the historic SplitRow_<weapon> node name), 'Split\u2026' is offered whenever a multi-model section has 2+ weapons OR 2+ targets, and the sections box is sized from the rows it actually shows so a second row is not clipped away.",
+      "scenarios": [
+        "fight_auto_allocate_spillover"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "ui.fight.overkill_warning",
+      "description": "The attack dialog's assignments box reports what a plan actually removes, not just what the dice produce: each line prints '\u2248X lands' when that differs from its raw E[D], the total prints landed vs thrown away, and a warning names any unit the plan has aimed more damage at than it has wounds left, saying the surplus does not carry to another unit. The warning fires only on a genuinely over-committed target.",
+      "scenarios": [
+        "fight_auto_allocate_spillover"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
