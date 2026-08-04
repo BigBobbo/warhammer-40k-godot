@@ -109,6 +109,12 @@ func _register_defaults() -> void:
 	_register("weapon_range_panel", "Toggle Weapon Range Panel", CATEGORY_PANELS, KEY_NONE)
 	_register("datasheet_modal", "Open Unit Datasheet", CATEGORY_PANELS, KEY_I)
 	_register("toggle_roster_strip", "Toggle Roster Strip", CATEGORY_PANELS, KEY_B)
+	# Reserves detail panel. P is the only unclaimed letter left in this map —
+	# R is the AI replay panel and S is Stratagems.
+	_register("toggle_reserves_panel", "Toggle Reserves Panel", CATEGORY_PANELS, KEY_P)
+	# The off-board reserve rails are on by default and have a top-bar button,
+	# so they ship UNBOUND rather than taking one of the last free keys.
+	_register("toggle_reserves_tray", "Toggle Off-Board Reserves Tray", CATEGORY_PANELS, KEY_NONE)
 	_register("toggle_mathhammer", "Toggle Mathhammer", CATEGORY_PANELS, KEY_H)
 	_register("toggle_vp_timeline", "Toggle VP Timeline", CATEGORY_PANELS, KEY_V)
 	_register("toggle_visual_style", "Cycle Unit Visual Style", CATEGORY_PANELS, KEY_8)

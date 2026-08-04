@@ -2,6 +2,21 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.26.0",
+      "date": "2026-08-04",
+      "summary": "You can now see what is waiting in Reserves — yours AND your opponent's — without opening anything: an always-on counter in the top bar, off-board unit rails either side of the board, and a full Reserves panel on P.",
+      "changes": [
+        "New: off-board Reserves rails. Units held in Reserves now sit in the empty margins either side of the battlefield, the way the models sit beside a real table — one rail per player, each unit showing its name, model count, points and whether it arrives by Deep Strike or Strategic Reserves. Your own rail is marked YOU. Previously your opponent's reserves were not shown anywhere in the game: you could be facing 9 units and 1,270 points of Orks waiting off-table with nothing on screen to tell you.",
+        "New: a RESERVES counter in the top bar, always visible, showing both armies' unit counts and points and how long is left to bring them in. It turns red on the last battle round, because anything still in Reserves when Battle Round 3 ends is destroyed.",
+        "New: a Reserves panel (press P, or click the top-bar counter) listing both armies side by side in full — arrival rule and what it means, model counts, points, attached characters and any passengers riding inside a transport that is still off-table.",
+        "Your own reserve units can now be brought in from anywhere: click a unit on your rail, or use the panel's 'Bring in' button, and placement starts as normal. Before this, the only way in was a three-row scroll box in the right-hand panel that showed 3 of your 9 waiting units at a time.",
+        "Clicking any reserve unit that you cannot bring in right now — including every enemy unit — opens its datasheet instead, so you can check what is about to arrive.",
+        "Fixed: the game log announced every arrival as '(Deep Strike)' even when the unit had actually arrived by Strategic Reserves within 6\" of a board edge. It now names the rule the placement actually used.",
+        "Reserve units whose arrival type had never been recorded (which was every unit in a loaded save) were all treated as Strategic Reserves. They are now identified from the unit's own Deep Strike ability instead.",
+        "The rails fold themselves away when they would overlap the board — when you zoom right in, or on a narrow window — and can be hidden entirely by shift-clicking the top-bar counter."
+      ]
+    },
+    {
       "version": "1.25.0",
       "date": "2026-08-04",
       "summary": "You can now choose the order your melee weapons swing in — the Assign Attacks dialog lists the plan as reorderable rows.",

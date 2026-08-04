@@ -1,6 +1,7 @@
 extends Node
 
 const GameStateData = preload("res://autoloads/GameState.gd")
+const ReservesDataScript = preload("res://scripts/ReservesData.gd")
 
 # GameEventLog - Converts raw game actions into human-readable log entries
 # Listens to PhaseManager signals and maintains a persistent log across all phases
@@ -286,8 +287,19 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			# and count their models too. Reporting the bodyguard squad alone
 			# ("Custodian Guard ... (3 models)") read as if the leader never
 			# arrived, which is exactly what the leader-placement bug looked like.
-			return prefix + "%s arrived from Reserves (Deep Strike)%s" % [
-				_attached_unit_label(unit_id, unit_name), _attached_model_suffix(unit_id)]
+			#
+			# The arrival rule was also hardcoded to "(Deep Strike)", so a
+			# Strategic Reserves unit that had just been placed within 6" of a
+			# board edge was logged as a Deep Strike. Report the rule the
+			# placement actually used — the action carries the override the
+			# player chose, otherwise fall back to the unit's own reserve type.
+			var placement_type = action.get("placement_type", "")
+			if placement_type == null or str(placement_type) == "":
+				placement_type = ReservesDataScript.resolve_reserve_type(unit_id, GameState.get_unit(unit_id))
+			return prefix + "%s arrived from Reserves (%s)%s" % [
+				_attached_unit_label(unit_id, unit_name),
+				ReservesDataScript.type_label(str(placement_type)),
+				_attached_model_suffix(unit_id)]
 		"PLACE_RAPID_INGRESS_REINFORCEMENT":
 			if ai_desc != "":
 				return prefix + ai_desc
