@@ -2,12 +2,21 @@ extends AcceptDialog
 
 # CounterOffensiveDialog - UI for Counter-Offensive stratagem during Fight phase
 #
-# COUNTER-OFFENSIVE (Core – Strategic Ploy Stratagem, 2 CP)
-# WHEN: Fight phase, just after an enemy unit has fought.
-# TARGET: One unit from your army that is within Engagement Range of one or more
-#         enemy units and that has not already been selected to fight this phase.
-# EFFECT: Your unit fights next.
-# RESTRICTION: Once per phase.
+# COUNTEROFFENSIVE (11e Core Stratagem 15.12, 2 CP)
+# WHEN: Fight step of your opponent's Fight phase, just after an enemy unit has
+#       resolved its attacks.
+# TARGET: One friendly unit that is eligible to fight.
+# EFFECT: Until the end of the phase, your unit has the Fights First ability and
+#         it must be the next unit you select to fight (12.04).
+#
+# (The 10e wording this dialog used to print — "within Engagement Range … your
+# unit fights next" — was retired with the rest of the 10e core set.)
+#
+# 19.01: "an attached unit is a single unit for all rules purposes", so the rows
+# below are ATTACHED units, not raw unit dicts: a bodyguard leading a CHARACTER
+# gets ONE row ("Custodian Guard + Blade Champion") and picking it activates the
+# whole thing. The list arrives pre-folded from
+# StratagemManager.get_counter_offensive_eligible_units.
 #
 # Shows eligible units with "Use" buttons and a "Decline" button.
 
@@ -49,6 +58,9 @@ func setup(p_player: int, p_eligible_units: Array) -> void:
 
 func _build_ui() -> void:
 	var main_container = VBoxContainer.new()
+	# Named (like AttackAssignmentDialog's "Content") so windowed scenarios can
+	# address the rows below by a stable path instead of "@VBoxContainer@12".
+	main_container.name = "Content"
 	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Header
@@ -61,7 +73,7 @@ func _build_ui() -> void:
 
 	# Subheader
 	var subheader = Label.new()
-	subheader.text = "Core - Strategic Ploy Stratagem"
+	subheader.text = "Core Stratagem - 15.12"
 	subheader.add_theme_font_size_override("font_size", 16)
 	subheader.add_theme_color_override("font_color", Color.GRAY)
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -82,7 +94,7 @@ func _build_ui() -> void:
 
 	# Effect description
 	var effect_label = Label.new()
-	effect_label.text = "An enemy unit has just fought. You may select one of your eligible units to fight next, overriding the normal alternation."
+	effect_label.text = "An enemy unit has just resolved its attacks. Until the end of the phase, the unit you select has the Fights First ability and must be the next unit you select to fight."
 	effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	effect_label.add_theme_font_size_override("font_size", 17)
 	main_container.add_child(effect_label)
@@ -97,19 +109,26 @@ func _build_ui() -> void:
 
 	# Scrollable container for eligible units
 	var scroll = ScrollContainer.new()
+	scroll.name = "UnitScroll"
 	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 120)
 	var unit_list = VBoxContainer.new()
+	unit_list.name = "UnitList"
 
 	for unit_info in eligible_units:
 		var unit_container = HBoxContainer.new()
+		# One row per ATTACHED unit (19.01), addressed by the id that activates
+		# it — the bodyguard's, never an attached character's.
+		unit_container.name = "CO_%s" % unit_info.unit_id
 
 		var name_label = Label.new()
+		name_label.name = "NameLabel"
 		name_label.text = unit_info.unit_name
 		name_label.add_theme_font_size_override("font_size", 17)
 		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		unit_container.add_child(name_label)
 
 		var use_button = Button.new()
+		use_button.name = "UseButton"
 		use_button.text = "Fight Next (2 CP)"
 		use_button.custom_minimum_size = Vector2(150, 30)
 		use_button.pressed.connect(_on_use_pressed.bind(unit_info.unit_id))
