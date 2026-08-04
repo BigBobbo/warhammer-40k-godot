@@ -20,7 +20,7 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var mgr = SecondaryMissionManager\nvar p = GameState.get_active_player()\nvar st = mgr._player_state[str(p)]\nst[\"mode\"] = \"fixed\"\nst[\"active\"] = []\nfor mid in [\"engage_on_all_fronts\", \"assassination\"]:\n\tst[\"active\"].append(mgr._create_active_mission(SecondaryMissionData.get_mission_by_id(mid)))\nvar bw = float(GameState.state.get(\"board\", {}).get(\"size\", {}).get(\"width\", 44))\nvar bh = float(GameState.state.get(\"board\", {}).get(\"size\", {}).get(\"height\", 60))\nvar pts = [Vector2(bw * 0.15, bh * 0.15), Vector2(bw * 0.85, bh * 0.15), Vector2(bw * 0.15, bh * 0.85)]\nvar placed = 0\nfor uid in GameState.state[\"units\"].keys():\n\tif placed >= 3:\n\t\tbreak\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"owner\", 0)) != p:\n\t\tcontinue\n\tvar models = u.get(\"models\", [])\n\tif models.size() == 0:\n\t\tcontinue\n\tvar px = Vector2(Measurement.inches_to_px(pts[placed].x), Measurement.inches_to_px(pts[placed].y))\n\tfor m in models:\n\t\tm[\"position\"] = {\"x\": px.x, \"y\": px.y}\n\t\tm[\"alive\"] = true\n\tplaced += 1\nreturn placed",
+      "script": "var mgr = SecondaryMissionManager\nvar p = GameState.get_active_player()\n# Own the setup end-to-end: this scenario is about the discard gate, so it\n# builds the hand itself rather than depending on whatever the fixture's\n# Command-phase entry left in the deck (iss063b covers that bootstrap).\nif not mgr.is_initialized(p):\n\tmgr.setup_tactical_deck(p)\nvar st = mgr._player_state[str(p)]\nst[\"mode\"] = \"fixed\"\nst[\"active\"] = []\nfor mid in [\"engage_on_all_fronts\", \"assassination\"]:\n\tst[\"active\"].append(mgr._create_active_mission(SecondaryMissionData.get_mission_by_id(mid)))\nvar bw = float(GameState.state.get(\"board\", {}).get(\"size\", {}).get(\"width\", 44))\nvar bh = float(GameState.state.get(\"board\", {}).get(\"size\", {}).get(\"height\", 60))\nvar pts = [Vector2(bw * 0.15, bh * 0.15), Vector2(bw * 0.85, bh * 0.15), Vector2(bw * 0.15, bh * 0.85)]\nvar placed = 0\nfor uid in GameState.state[\"units\"].keys():\n\tif placed >= 3:\n\t\tbreak\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"owner\", 0)) != p:\n\t\tcontinue\n\tvar models = u.get(\"models\", [])\n\tif models.size() == 0:\n\t\tcontinue\n\tvar px = Vector2(Measurement.inches_to_px(pts[placed].x), Measurement.inches_to_px(pts[placed].y))\n\tfor m in models:\n\t\tm[\"position\"] = {\"x\": px.x, \"y\": px.y}\n\t\tm[\"alive\"] = true\n\tplaced += 1\nreturn placed",
       "equals": 3
     },
     {
@@ -88,14 +88,15 @@
       "equals": true
     },
     {
-      "act": "expect_state",
-      "path": "meta.phase",
-      "equals": 6
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var mgr = SecondaryMissionManager\nvar fixed_key = \"\"\nfor k in [\"1\", \"2\"]:\n\tif str(mgr._player_state[k].get(\"mode\", \"\")) == \"fixed\":\n\t\tfixed_key = k\nif fixed_key == \"\":\n\treturn \"no fixed player\"\nvar ids = []\nfor m in mgr._player_state[fixed_key][\"active\"]:\n\tids.append(str(m[\"id\"]))\nvar inst = PhaseManager.get_current_phase_instance()\nvar offers = 0\nif inst != null and inst.has_method(\"get_available_actions\"):\n\tfor a in inst.get_available_actions():\n\t\tif str(a.get(\"type\", \"\")) == \"DISCARD_SECONDARY\":\n\t\t\toffers += 1\nreturn \"%s discard_offers=%d\" % [str(ids), offers]",
+      "equals": "[\"engage_on_all_fronts\", \"assassination\"] discard_offers=0"
     },
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var mgr = SecondaryMissionManager\nvar p = GameState.get_active_player()\nvar st = mgr._player_state[str(p)]\nst[\"mode\"] = \"tactical\"\nst[\"active\"] = []\nfor mid in [\"engage_on_all_fronts\", \"assassination\"]:\n\tst[\"active\"].append(mgr._create_active_mission(SecondaryMissionData.get_mission_by_id(mid)))\nvar bw = float(GameState.state.get(\"board\", {}).get(\"size\", {}).get(\"width\", 44))\nvar bh = float(GameState.state.get(\"board\", {}).get(\"size\", {}).get(\"height\", 60))\nvar pts = [Vector2(bw * 0.15, bh * 0.15), Vector2(bw * 0.85, bh * 0.15), Vector2(bw * 0.15, bh * 0.85)]\nvar placed = 0\nfor uid in GameState.state[\"units\"].keys():\n\tif placed >= 3:\n\t\tbreak\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"owner\", 0)) != p:\n\t\tcontinue\n\tvar models = u.get(\"models\", [])\n\tif models.size() == 0:\n\t\tcontinue\n\tvar px = Vector2(Measurement.inches_to_px(pts[placed].x), Measurement.inches_to_px(pts[placed].y))\n\tfor m in models:\n\t\tm[\"position\"] = {\"x\": px.x, \"y\": px.y}\n\t\tm[\"alive\"] = true\n\tplaced += 1\nreturn \"p%d placed=%d\" % [p, placed]"
+      "script": "var mgr = SecondaryMissionManager\nvar p = GameState.get_active_player()\n# Own the setup end-to-end: this scenario is about the discard gate, so it\n# builds the hand itself rather than depending on whatever the fixture's\n# Command-phase entry left in the deck (iss063b covers that bootstrap).\nif not mgr.is_initialized(p):\n\tmgr.setup_tactical_deck(p)\nvar st = mgr._player_state[str(p)]\nst[\"mode\"] = \"tactical\"\nst[\"active\"] = []\nfor mid in [\"engage_on_all_fronts\", \"assassination\"]:\n\tst[\"active\"].append(mgr._create_active_mission(SecondaryMissionData.get_mission_by_id(mid)))\nvar bw = float(GameState.state.get(\"board\", {}).get(\"size\", {}).get(\"width\", 44))\nvar bh = float(GameState.state.get(\"board\", {}).get(\"size\", {}).get(\"height\", 60))\nvar pts = [Vector2(bw * 0.15, bh * 0.15), Vector2(bw * 0.85, bh * 0.15), Vector2(bw * 0.15, bh * 0.85)]\nvar placed = 0\nfor uid in GameState.state[\"units\"].keys():\n\tif placed >= 3:\n\t\tbreak\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"owner\", 0)) != p:\n\t\tcontinue\n\tvar models = u.get(\"models\", [])\n\tif models.size() == 0:\n\t\tcontinue\n\tvar px = Vector2(Measurement.inches_to_px(pts[placed].x), Measurement.inches_to_px(pts[placed].y))\n\tfor m in models:\n\t\tm[\"position\"] = {\"x\": px.x, \"y\": px.y}\n\t\tm[\"alive\"] = true\n\tplaced += 1\nreturn \"p%d placed=%d\" % [p, placed]"
     },
     {
       "act": "execute_script",
@@ -120,7 +121,7 @@
     {
       "act": "execute_script",
       "multiline": true,
-      "script": "var mgr = SecondaryMissionManager\nvar p = GameState.get_active_player()\nvar st = mgr._player_state[str(p)]\nst[\"active\"].insert(0, mgr._create_active_mission(SecondaryMissionData.get_mission_by_id(\"no_prisoners\")))\nst[\"active\"][0][\"vp_scored\"] = 3\nst[\"active\"][0][\"vp_scored_this_turn\"] = 3\nreturn str(mgr.can_voluntarily_discard(p, 0))",
+      "script": "var mgr = SecondaryMissionManager\nvar p = GameState.get_active_player()\n# Own the setup end-to-end: this scenario is about the discard gate, so it\n# builds the hand itself rather than depending on whatever the fixture's\n# Command-phase entry left in the deck (iss063b covers that bootstrap).\nif not mgr.is_initialized(p):\n\tmgr.setup_tactical_deck(p)\nvar st = mgr._player_state[str(p)]\nst[\"active\"].insert(0, mgr._create_active_mission(SecondaryMissionData.get_mission_by_id(\"no_prisoners\")))\nst[\"active\"][0][\"vp_scored\"] = 3\nst[\"active\"][0][\"vp_scored_this_turn\"] = 3\nreturn str(mgr.can_voluntarily_discard(p, 0))",
       "equals": "{ \"allowed\": false, \"reason\": \"Already scored 3 VP this turn — an achieved card cannot be discarded for CP\" }"
     },
     {
