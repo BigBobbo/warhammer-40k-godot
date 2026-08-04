@@ -9122,6 +9122,87 @@
       "status": "covered"
     },
     {
+      "id": "dialogs.HeroicInterventionDialog.no_auto_decline",
+      "description": "DEFENDER CONTROL: the end-of-charge-phase Heroic Intervention window has no auto-decline countdown — it stays open indefinitely (verified still open 8s after opening, longer than the old 5s MA-42 timer) so reaching for the camera can never silently decline the stratagem.",
+      "scenarios": [
+        "hi_examine_board_no_autodecline_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.HeroicInterventionDialog.examine_board_toggle",
+      "description": "The HI window's 'Examine Board' toggle hides the dialog, un-dims the MA-42 blocking overlay and raises a 'Back to the decision' bar; returning restores the dialog with the stratagem still selectable.",
+      "scenarios": [
+        "hi_examine_board_no_autodecline_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.ReactiveDecisionUI.board_examine",
+      "description": "Shared board-examine affordance for reactive decision windows (Heroic Intervention, Fire Overwatch, Counter-Offensive, Rapid Ingress): toggle on/off, HUD return bar, and wheel forwarding out of the focused sub-window.",
+      "scenarios": [
+        "hi_examine_board_no_autodecline_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.Main.reactive_overlay_camera_passthrough",
+      "description": "The MA-42 blocking overlay forwards camera-only gestures (wheel zoom, drag-pan while examining) to the view while still swallowing board clicks; Main.zoom_camera_notch is the shared entry point a focused dialog sub-window uses to hand the wheel back to the board.",
+      "scenarios": [
+        "hi_examine_board_no_autodecline_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.AttackAssignmentDialog.component_targets",
+      "description": "The attack dialog narrows the activation's target list PER COMPONENT: each loadout section may only be pointed at enemies its own models are in Engagement Range of (11e Fight 'Select Targets' — each target must be engaged with the model that has that weapon). An Attached unit whose bodyguard and Leader are locked with different enemies gets a warning note, per-section target-cycle buttons limited to that section's reach, and a plan that is legal by construction.",
+      "scenarios": [
+        "fight_split_engagement_attached_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.AttackAssignmentDialog.all_to_target",
+      "description": "'All to Target' points every section at the selected enemy, except sections not in Engagement Range of it — those are sent at the best enemy they HAVE reached, with a toast saying so, instead of building a batch the engine rejects.",
+      "scenarios": [
+        "fight_split_engagement_attached_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase.melee_targets_for_component",
+      "description": "melee_targets_for_component / reachable_melee_target_for: the subset of an activation's melee targets a single component of an Attached unit may legally attack, measured exactly as _validate_assign_attacks measures it. Used by the attack dialog and by the engine's own auto-assign for attached components / Extra Attacks.",
+      "scenarios": [
+        "fight_split_engagement_attached_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase._validate_assign_attacks",
+      "description": "ASSIGN_ATTACKS engagement gate: the ATTACKER is the named component alone (the TARGET is the whole Attached unit), and a rejection names both units. Every sub-action of BATCH_FIGHT_ACTIONS is validated just before it is processed, so an illegal later assignment can no longer resolve unchecked.",
+      "scenarios": [
+        "fight_split_engagement_attached_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "rules.11e.fight.select_targets",
+      "description": "11e Fight, Select Targets: 'each target must be engaged with the model that has that weapon' — an Attached unit's components stand apart, so the activation's target list is not the list any single component may swing at.",
+      "scenarios": [
+        "fight_split_engagement_attached_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
       "id": "scoring.objective_control.board_label_sync",
       "description": "The on-board objective marker's control label / rim / area tint is synced from MissionManager.objective_control_state whenever control is checked, so an objective the player already held when the visuals were built (e.g. after loading a save) never keeps its default 'Uncontrolled' text",
       "scenarios": [
