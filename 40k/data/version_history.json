@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.23.2",
+      "version": "1.24.3",
       "date": "2026-08-04",
       "summary": "Automatic wound allocation now treats unit coherency as the top priority — including the attached character — instead of a tie-breaker, so casualties stop stranding your survivors.",
       "changes": [
@@ -12,6 +12,46 @@
         "If a model is ALREADY out of coherency, it is now the first casualty — End of Turn was going to destroy it anyway, so the incoming wound is spent on it and the rest of the unit stays intact.",
         "Characters are still the last models picked, per the allocation rules."
       ]
+    },
+    {
+      "version": "1.24.2",
+      "date": "2026-08-04",
+      "summary": "Deep Strike fix: a squad arriving with an attached character now lets you place the character's model too, instead of teleporting it on top of the squad — and the arrived unit no longer lingers in the reinforcements list.",
+      "changes": [
+        "Fixed (reported from a live game): Deep Striking a Custodian Guard squad with a Blade Champion attached only let you place the Custodian Guard's models. The Blade Champion was never offered — the game silently dropped it 1\" to the right of the squad's first model, usually straight on top of another base. An attached unit arrives as one unit, so the placement session now covers every model of it: place the squad, click the leader in the 'Select Model Type' list, and put it where you want it.",
+        "The leader's model is now checked by the same set-up rules as the rest of the unit — it cannot be placed overlapping a model, a wall or the board edge, inside the enemy exclusion, or (for Strategic Reserves) away from a board edge. Previously none of those applied to it.",
+        "The same fix applies to units arriving via the Rapid Ingress stratagem.",
+        "When the AI (or a loaded scenario) brings in a squad with a leader, the leader is now dropped in the nearest clear spot beside the squad instead of stacking onto it.",
+        "Fixed: after a reinforcement arrived, its 'Arrive from Deep Strike: ...' row stayed in the reinforcements list. Clicking that stale row tried to start a normal move for a unit that had just arrived and showed 'Error: Unit has already moved this phase'. The list now refreshes as soon as the unit lands.",
+        "The arrival line in the game log now names the whole unit and counts all its models — 'Custodian Guard + Blade Champion arrived from Reserves (Deep Strike) (4 models)' rather than reporting the squad alone."
+      ]
+    },
+    {
+      "version": "1.24.1",
+      "date": "2026-08-04",
+      "summary": "Fight phase: 'Best Weapons ✨' no longer suggests attacks that overkill one unit — it spreads a unit's attacks across the enemies it is engaged with, and the dialog now says how much of a plan is being thrown away.",
+      "changes": [
+        "Fixed (reported from a live game): the auto-allocation in the Assign Attacks dialog pointed the whole activation at one target and rated it on raw expected damage. Raw damage counts points that can never land — damage past a model's last wound is lost, and damage past the target unit's last wound is lost too, because it never spills onto another unit. So the suggested plan happily threw a whole squad at a unit it killed three times over, wasting most of the attacks while other engaged enemies stood untouched.",
+        "The auto-allocation now scores on the damage that actually comes off a defender's wounds, and places models one at a time: as soon as a second target would take more than the first has left, the rest of the section goes there instead. Pick the Custodian Guard into a nearly-dead Warboss and it sends one model at him and the other three at the Boyz beside him.",
+        "A section can now be split across two TARGETS, not just between the weapons it carries. That was the missing half for a uniform squad — one loadout, one section — which previously had to go all-in on a single unit no matter how far its attacks overshot. 'Split…' is offered whenever a section has several models and either several weapons or several targets.",
+        "The assignments box now shows what a plan really does: each line adds '≈X lands' when that differs from its raw forecast, the total reads '≈X lands · ≈Y thrown away', and a warning names any unit you have aimed more damage at than it has wounds left — with the reminder that the surplus does not carry over to another unit.",
+        "The damage breakdown table gained a LANDS row (how much of this swing the target can still absorb) and a note when a single section alone is more damage than the target has wounds.",
+        "Weapon choice is overkill-aware too: a high-damage profile no longer outranks a multi-attack one against 1-wound models, where most of each hit is thrown away."
+      ]
+    },
+    {
+      "version": "1.24.0",
+      "date": "2026-08-04",
+      "summary": "Battle-shock tests are now rolled in front of you, one unit at a time — the camera moves to the unit, the dice tumble on screen, and you click Next.",
+      "changes": [
+        "Battle-shock used to resolve invisibly: ending the Command phase auto-resolved every outstanding test in one silent go, and the only trace was a couple of lines in the game log. There is now a Battle-shock roll call — the tests are resolved in army-list order, one at a time, and you confirm each one.",
+        "For each unit the camera pans to it and its models get a pulsing amber ring, so you can see exactly who is testing before anything is rolled.",
+        "Two big dice tumble and land in front of you, like the first-turn roll-off. The card tells you the unit, how many models it has left, WHY it has to test (Below Half-strength / At Half-strength / already Battle-shocked) and what it needs to pass.",
+        "The result spells out the consequence instead of leaving you to work it out: a failure says 'OC 0 · no Stratagems · no Actions · Desperate Escape when Falling Back', and a pass while Battle-shocked says 'RECOVERED'.",
+        "Insane Bravery (1 CP) and the Command Re-roll are now offered on the same card, at the moment they matter — the re-roll keeps the failed dice on screen and shows the discarded roll instead of popping a second window over the top.",
+        "'End Command Phase' with tests outstanding now offers 'Roll them now' as the default. Auto-resolving them all at once is still there, but it is a choice you make rather than what silently happens.",
+        "A 'Roll the rest for me' button on the roll call skips ahead at any point, and the sequence closes with a summary of who passed, who failed and who spent Insane Bravery.",
+        "The camera returns to where you left it when the roll call finishes."      ]
     },
     {
       "version": "1.23.1",

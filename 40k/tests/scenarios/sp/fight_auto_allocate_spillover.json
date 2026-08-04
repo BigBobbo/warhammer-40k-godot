@@ -1,0 +1,177 @@
+{
+  "id": "fight_auto_allocate_spillover",
+  "covers": [
+    "dialogs.AttackAssignmentDialog.auto_allocate_overkill",
+    "dialogs.AttackAssignmentDialog.split_across_targets",
+    "ui.fight.overkill_warning"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Reported from the Fight phase: the attack dialog's auto-allocation ('Best Weapons ✨', which is also the plan the dialog opens on) suggested attacks that OVERKILLED the target it named, wasting most of the activation, while other engaged enemies were still there to be picked. The cause was the scoring: it ranked plans on RAW expected damage, which counts damage past a model's last wound (lost — 10e/11e) and damage past the target UNIT's last wound (lost too, and it never spills onto another unit). Every section was then pointed at ONE target. The allocator now works on EFFECTIVE damage — what actually comes off a wound pool — and places models one at a time on marginal value, so a section is divided across targets the moment a second target would take more than the first has left. This scenario drives the real player path: the Custodian Guard (4 models, one uniform Guardian-spear loadout — the shape that could NOT be spread before, because splitting was per-weapon only) activates engaged with BOTH a 6-wound Warboss and a 10-model Boyz mob. PART A: the dialog opens on the new plan and the section is genuinely split across the two targets, with the split rows rendered for the same weapon twice. PART B: 'All to Target' reproduces the OLD behaviour (every model onto the Warboss) and the assignments box now says out loud that the plan is overkill and how much is being thrown away. PART C: 'Best Weapons ✨' restores the spread and the warning clears. Fight! then submits both halves and the engine accepts them. Setup-only privileges (mirroring the sibling fight scenarios): CP zeroed so no stratagem prompt interrupts an activation; the real auto-allocate-wounds setting switched ON so the defender's saves resolve without the interactive overlay; the reserve Boyz mob deployed into engagement range of the Custodian Guard (it starts undeployed, so this is placement, not a rewritten board); and the two Ork units marked as having already taken their swings this phase so the Custodian Guard is the activation offered — every in-game decision below is a real button press.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)", "comment": "zero CP so no stratagem prompt interrupts an activation" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "SettingsService.set_auto_allocate_wounds(true)" },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var xs = [170, 225, 280, 335, 390]\nvar i = 0\nfor m in GameState.state.units[\"U_BOYZ_K\"].models:\n\tm[\"position\"] = {\"x\": float(xs[i % 5]), \"y\": 165.0 + 52.0 * float(i / 5)}\n\tm[\"alive\"] = true\n\ti += 1\nreturn \"deployed %d\" % i",
+      "equals": "deployed 10",
+      "comment": "SETUP-ONLY PRIVILEGE: U_BOYZ_K starts the fixture UNDEPLOYED (no model positions at all), so this places it rather than rewriting a board position. It goes into engagement range of the Custodian Guard, which is what gives the Guard's activation a SECOND legal target — the whole point of the reported bug is that a second target existed and the suggestion ignored it. The fixture has no other engagement offering two targets to a multi-model attacker."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nph.sequencer_11e.fought[\"U_WARBOSS_B\"] = true\nph.sequencer_11e.fought[\"U_BOYZ_K\"] = true\nreturn \"P2 fought\"",
+      "equals": "P2 fought",
+      "comment": "SETUP-ONLY PRIVILEGE: P2's two engaged units are marked as having already swung this phase — an ordinary mid-phase state — so the alternating sequence offers the Custodian Guard next. Without it the scenario would have to play out two unrelated Ork activations first."
+    },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nreturn str(ph._get_eligible_melee_targets(\"U_CUSTODIAN_GUARD_B\").keys())",
+      "equals": "[\"U_BOYZ_K\", \"U_WARBOSS_B\"]",
+      "comment": "the engine agrees the Guard really is engaged with both — the dialog is not being handed a fiction"
+    },
+
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
+      "timeout_s": 5.0
+    },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel",
+      "timeout_s": 5.0
+    },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_CUSTODIAN_GUARD_B", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    {
+      "act": "click_node",
+      "node": "/root/KatahStanceDialog/Content/Buttons/RendaxButton",
+      "emit_pressed": true,
+      "comment": "the Custodian Guard's Martial Ka'tah prompt — a real dialog on this activation's path, answered with a real press"
+    },
+
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
+    { "act": "wait_frames", "frames": 12 },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nif d._groups.size() != 1:\n\treturn \"expected ONE section, got %d\" % d._groups.size()\nreturn \"%s x%d weapons=%d\" % [str(d._groups[0].label), (d._groups[0].models as Array).size(), (d._groups[0].weapons as Array).size()]",
+      "equals": "Models x4 weapons=1",
+      "comment": "PART A — the attacker is a single uniform loadout section. Before this change a section could only be divided BY WEAPON, so a section carrying one weapon could never be divided at all: it was all-or-nothing on one target."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(\"%s:%d\" % [str(a.get(\"target\", \"?\")), (a.get(\"models\", []) as Array).size()])\nout.sort()\nreturn \",\".join(out)",
+      "equals": "U_BOYZ_K:3,U_WARBOSS_B:1",
+      "comment": "THE FIX. The dialog OPENS on a plan divided across both engaged units: one Guardian spear at the 6-wound Warboss (one model's swing already covers him) and the other three at the Boyz, where the surplus can still remove models. The old plan put all four on whichever target the list happened to select first and counted the ~12 damage past the Warboss's last wound as though it landed."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar seen = {}\nfor a in d.assignments:\n\tfor m in a.get(\"models\", []):\n\t\tif seen.has(str(m)):\n\t\t\treturn \"model \" + str(m) + \" assigned twice\"\n\t\tseen[str(m)] = true\nreturn str(seen.size())",
+      "equals": "4",
+      "comment": "11e one-weapon-per-model still holds across the split: every eligible model appears exactly once"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar sb = d.get_node_or_null(\"Content/GroupsScroll/GroupsBox/Group0/Body/SplitBox\")\nif sb == null:\n\treturn \"no SplitBox\"\nvar rows = []\nfor c in sb.get_children():\n\trows.append(c.name)\nreturn \"vis=%s %s\" % [str(sb.visible), \",\".join(rows)]",
+      "equals": "vis=true SplitRow_guardian_spear_melee,SplitRow_guardian_spear_melee_2",
+      "comment": "and the UI SHOWS the division: two rows for the SAME weapon, one per target. Split rows used to be keyed by weapon id, which physically could not represent this; the first row keeps the historic node name so existing scenarios still address it."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar a = d.get_node(\"Content/GroupsScroll/GroupsBox/Group0/Body/SplitBox/SplitRow_guardian_spear_melee/LineTarget_guardian_spear_melee\")\nvar b = d.get_node(\"Content/GroupsScroll/GroupsBox/Group0/Body/SplitBox/SplitRow_guardian_spear_melee_2/LineTarget_guardian_spear_melee_2\")\nreturn \"%s | %s\" % [str(a.text), str(b.text)]",
+      "equals": "→ Warboss | → Boyz",
+      "comment": "each row names its own target on its button, and both rows are on-screen — the sections box is now sized from the rows it actually shows, so the second row is not clipped away"
+    },
+    { "act": "screenshot", "label": "01_auto_plan_split_across_two_targets" },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nfor i in range(d.target_list.item_count):\n\tif str(d.target_list.get_item_metadata(i)) == \"U_WARBOSS_B\":\n\t\td.target_list.select(i)\n\t\treturn \"selected\"\nreturn \"Warboss not in target list\"",
+      "equals": "selected",
+      "comment": "PART B — point the shared target selector at the Warboss (ItemList rows cannot be reached by synthetic clicks inside a popup window; the buttons below are real presses)"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true,
+      "comment": "and send EVERY model at him — this is exactly the plan the old auto-allocation produced by itself"
+    },
+    { "act": "wait_frames", "frames": 10 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(\"%s:%d\" % [str(a.get(\"target\", \"?\")), (a.get(\"models\", []) as Array).size()])\nout.sort()\nreturn \",\".join(out)",
+      "equals": "U_WARBOSS_B:4",
+      "comment": "all four models on one target — the player is still allowed to do this, it is just no longer what the game suggests"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar t = str(d.assignments_display.get_parsed_text())\nif not \"Overkill\" in t:\n\treturn \"no overkill warning in: \" + t\nif not \"Warboss\" in t:\n\treturn \"warning does not name the target: \" + t\nif not \"thrown away\" in t:\n\treturn \"no wasted-damage figure: \" + t\nreturn \"warned\"",
+      "equals": "warned",
+      "comment": "THE OTHER HALF OF THE REPORT: the box no longer reports wasted damage as if it landed. It names the unit that is over-committed, how many wounds it actually has left, how much of the forecast lands, and how much is thrown away — and says damage never spills onto another unit."
+    },
+    { "act": "screenshot", "label": "02_all_on_one_target_overkill_warning" },
+
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/BestKrumpButton",
+      "emit_pressed": true,
+      "comment": "PART C — the auto-allocation button itself, pressed for real"
+    },
+    { "act": "wait_frames", "frames": 12 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(\"%s:%d\" % [str(a.get(\"target\", \"?\")), (a.get(\"models\", []) as Array).size()])\nout.sort()\nreturn \",\".join(out)",
+      "equals": "U_BOYZ_K:3,U_WARBOSS_B:1",
+      "comment": "'Best Weapons ✨' rebuilds the spread — it is the same allocator the dialog opened on, and it undoes the overkill the player just built"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nreturn \"Overkill\" in str(d.assignments_display.get_parsed_text())",
+      "equals": false,
+      "comment": "and with nothing over-committed the warning is gone — it fires on a real problem, not on every plan"
+    },
+    { "act": "screenshot", "label": "03_best_weapons_restores_the_spread" },
+
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    { "act": "wait_seconds", "seconds": 1.5 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nvar out = []\nfor a in p.staged_fight_state[\"assignments\"]:\n\tout.append(\"%s:%d\" % [str(a.get(\"target\", \"?\")), (a.get(\"models\", []) as Array).size()])\nout.sort()\nreturn \",\".join(out)",
+      "equals": "U_BOYZ_K:3,U_WARBOSS_B:1",
+      "comment": "the split plan survives the engine: both halves are staged as separate assignments against separate targets, which is what the one-weapon-per-model validator accepts"
+    },
+    { "act": "screenshot", "label": "04_split_activation_submitted" }
+  ]
+}
