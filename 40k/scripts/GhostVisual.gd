@@ -29,6 +29,17 @@ const PULSE_MAX_ALPHA: float = 1.0  # Maximum alpha multiplier during pulse
 var nearest_model_world_pos = null  # Vector2 or null
 var nearest_model_distance_inches: float = -1.0  # -1 means no data
 
+# Exclusion-zone clamp tether: where the player's cursor actually is while the
+# ghost is being held outside a Deep Strike / Infiltrators stand-off bubble
+# (see DeploymentController._clamped_placement_position). Null when the ghost
+# is following the cursor normally, which is the overwhelming majority of the
+# time. Without this the ghost silently detaches from the cursor and reads as a
+# stuck preview; the tether says "your aim is in there, the model can only get
+# this close".
+var clamp_origin_world = null  # Vector2 or null
+var clamp_label: String = ""
+const CLAMP_TETHER_COLOR: Color = Color(1.0, 0.65, 0.2, 0.85)
+
 # P3-116: Coherency preview — lines to ALL unit models during movement
 # Each entry: { "world_pos": Vector2, "distance_inches": float, "in_coherency": bool }
 var coherency_lines_data: Array = []
@@ -112,9 +123,55 @@ func _draw() -> void:
 		# Fallback: single nearest model line (used in deployment)
 		_draw_coherency_line(border_color)
 
+	# Tether back to the cursor while the ghost is held out of an exclusion zone
+	if clamp_origin_world != null:
+		_draw_clamp_tether(pulse_factor)
+
 	# MA-17: Draw model type label above the ghost
 	if model_type_label != "":
 		_draw_model_type_label(pulse_factor)
+
+func _draw_clamp_tether(pulse_factor: float) -> void:
+	"""Dashed line from the held ghost back to the player's actual cursor, with a
+	small ring where the cursor is and a caption naming the limit holding it."""
+	# Same BoardRoot-space -> local conversion the coherency lines use: this node
+	# may hang off a container positioned at the drag location.
+	var board_pos: Vector2 = position
+	if get_parent():
+		board_pos = get_parent().position + position
+	var local_target: Vector2 = clamp_origin_world - board_pos
+	var total_length: float = local_target.length()
+	if total_length < 2.0:
+		return
+
+	var color := Color(CLAMP_TETHER_COLOR.r, CLAMP_TETHER_COLOR.g, CLAMP_TETHER_COLOR.b, CLAMP_TETHER_COLOR.a * pulse_factor)
+	var dir: Vector2 = local_target / total_length
+	var dash_length := 7.0
+	var gap_length := 5.0
+	var travelled := 0.0
+	while travelled < total_length:
+		var dash_start: Vector2 = dir * travelled
+		var dash_end: Vector2 = dir * min(travelled + dash_length, total_length)
+		draw_line(dash_start, dash_end, color, 1.5, true)
+		travelled += dash_length + gap_length
+
+	# Hollow ring marking the cursor itself.
+	draw_arc(local_target, 5.0, 0, TAU, 16, color, 1.5, true)
+
+	if clamp_label == "":
+		return
+	var font := ThemeDB.fallback_font
+	var font_size := 13
+	var text_size := font.get_string_size(clamp_label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	var caption_pos: Vector2 = local_target * 0.5 - Vector2(text_size.x / 2.0, 6.0)
+	draw_rect(Rect2(caption_pos - Vector2(4, text_size.y - 1), text_size + Vector2(8, 4)), Color(0.0, 0.0, 0.0, 0.55 * pulse_factor))
+	draw_string(font, caption_pos, clamp_label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
+
+func set_clamp_origin(world_pos, label: String = "") -> void:
+	"""world_pos: Vector2 cursor position while the ghost is held out of an
+	exclusion zone, or null when the ghost is tracking the cursor normally."""
+	clamp_origin_world = world_pos
+	clamp_label = label
 
 func _draw_coherency_line(border_color: Color) -> void:
 	if nearest_model_world_pos == null:

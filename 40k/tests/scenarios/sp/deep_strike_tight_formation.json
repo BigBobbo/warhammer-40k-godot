@@ -5,13 +5,15 @@
     "controller.reinforcement.formation_off_board",
     "DeploymentController._validate_formation_position",
     "DeploymentController.try_place_formation_at",
-    "Measurement.model_outside_board"
+    "Measurement.model_outside_board",
+    "controller.reinforcement.formation_exclusion_clamp",
+    "PlacementClamp"
   ],
   "fixture": "ri_pretrigger",
   "rng_seed": 42,
   "transition_to_phase": 7,
   "disable_ai": true,
-  "description": "Deep Strike + TIGHT formation regression (GH bug): placing a formation from Deep Strike at a spot that is a LEGAL deep-strike position (on the board, >9\" from all enemies) but OUTSIDE the owning player's deployment zone was being falsely rejected with 'Formation would place models outside deployment zone or overlapping'. Root cause: _validate_formation_position only branched on is_infiltrators_mode, so reinforcement placements fell through to the deployment-zone check. This drives the real reinforcement UI path (select reserves unit -> TIGHT formation -> try_place_formation_at) at board-centre no-man's-land (880,1200) and asserts the 5-model formation actually places. Negative case 1: the next TIGHT group dropped 5.5\" from the enemy Witchseekers is still rejected, proving the >9\" reinforcement gate stays enforced. Negative case 2 (off-board edge guard): a TIGHT group anchored at (115,900) leaves the left model's CENTRE on the board (~x=12) but its 32mm base hanging over the left edge (~x=-13); reinforcement/infiltrator validators only test the centre, so before the edge fix the whole row placed off the table. Asserts the group is rejected (placed count stays 5) — mirrors the single-model try_place_at() board-edge guard.",
+  "description": "Deep Strike + TIGHT formation regression (GH bug): placing a formation from Deep Strike at a spot that is a LEGAL deep-strike position (on the board, >9\" from all enemies) but OUTSIDE the owning player's deployment zone was being falsely rejected with 'Formation would place models outside deployment zone or overlapping'. Root cause: _validate_formation_position only branched on is_infiltrators_mode, so reinforcement placements fell through to the deployment-zone check. This drives the real reinforcement UI path (select reserves unit -> TIGHT formation -> try_place_formation_at) at board-centre no-man's-land (880,1200) and asserts the 5-model formation actually places. Negative case 1: the next TIGHT group dropped 5.5\" from the enemy Witchseekers is INSIDE the 9\" exclusion zone. Since the exclusion-zone placement clamp landed, that is no longer rejected — the whole block is held out to the boundary and placed there keeping its shape, the group edition of the single-model clamp (see deep_strike_exclusion_clamp.json). The rule this case guards is asserted directly instead, and harder: every model on the table ends up more than 9\" from every enemy. Negative case 2 (off-board edge guard): a TIGHT group anchored at (115,900) leaves the left model's CENTRE on the board (~x=12) but its 32mm base hanging over the left edge (~x=-13); reinforcement/infiltrator validators only test the centre, so before the edge fix the whole row placed off the table. Asserts the group is rejected (placed count stays 10; that anchor is nowhere near an enemy, so the exclusion clamp leaves it alone and the edge guard is still the only thing deciding) — mirrors the single-model try_place_at() board-edge guard.",
   "steps": [
     { "act": "wait_seconds", "seconds": 1.0 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
@@ -37,12 +39,13 @@
     { "act": "wait_seconds", "seconds": 0.3 },
     { "act": "screenshot", "label": "02_formation_placed_in_no_mans_land" },
 
-    { "act": "execute_script", "multiline": true, "script": "var dc = tree.current_scene.deployment_controller\ndc.try_place_formation_at(Vector2(880, 270))\nreturn dc.get_placed_count()", "equals": 5 },
+    { "act": "execute_script", "multiline": true, "script": "# Negative case 1, updated for the exclusion-zone placement clamp: this block is\n# aimed 5.5\" from the enemy Witchseekers, i.e. INSIDE the 9\" exclusion zone. It\n# used to be rejected outright; it is now held out to the boundary and placed\n# there, exactly as the single-model ghost is.\nvar dc = tree.current_scene.deployment_controller\ndc.try_place_formation_at(Vector2(880, 270))\nreturn dc.get_placed_count()", "equals": 10 },
+    { "act": "execute_script", "multiline": true, "script": "# The gate this case exists for, asserted directly: every model now on the table\n# — the no-man's-land block AND the one aimed too close — is more than 9\" from\n# every enemy, edge to edge. The clamp may only move a drop TO a legal spot; it\n# can never carry one past the rule.\nvar dc = tree.current_scene.deployment_controller\nvar worst = 1000.0\nfor i in range(dc.temp_positions.size()):\n\tif dc.temp_positions[i] == null:\n\t\tcontinue\n\tfor enemy in GameState.get_enemy_model_positions(2):\n\t\tvar edge = dc.temp_positions[i].distance_to(Vector2(enemy.x, enemy.y)) / 40.0 - (32.0 / 2.0) / 25.4 - (float(enemy.base_mm) / 2.0) / 25.4\n\t\tif edge < worst:\n\t\t\tworst = edge\nreturn snappedf(worst, 0.01)", "expect_min": 9.0 },
     { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "screenshot", "label": "03_near_enemy_group_still_rejected" },
+    { "act": "screenshot", "label": "03_near_enemy_group_held_out_to_9in" },
 
     { "act": "execute_script", "multiline": true, "script": "var dc = tree.current_scene.deployment_controller\nvar r = dc.calculate_tight_formation(Vector2(115, 900), 5, 32, 0.0, [])\nvar cx = r[\"positions\"][0].x\nreturn cx > 0.0 and (cx - 25.2) < 0.0", "equals": true },
-    { "act": "execute_script", "multiline": true, "script": "var dc = tree.current_scene.deployment_controller\ndc.try_place_formation_at(Vector2(115, 900))\nreturn dc.get_placed_count()", "equals": 5 },
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.current_scene.deployment_controller\ndc.try_place_formation_at(Vector2(115, 900))\nreturn dc.get_placed_count()", "equals": 10 },
     { "act": "wait_seconds", "seconds": 0.3 },
     { "act": "screenshot", "label": "04_off_board_edge_group_rejected" }
   ]
