@@ -123,6 +123,28 @@ const PILE_IN_STEP_INSTRUCTIONS := "Pick a unit to make its pile-in move (up to 
 const CONSOLIDATE_STEP_INSTRUCTIONS := "All fighting is resolved. Pick a unit to make its consolidation move (up to 3\"). Consolidating is optional — units you don't pick simply stay put."
 const STEP_MOVE_IN_PROGRESS_INSTRUCTIONS := "Drag the unit's models on the battlefield, then Confirm Move (or Skip) in the dialog below."
 
+# ── Global-step unit list presentation (12.02 Pile In / 12.07 Consolidate) ──
+# Reported bug: in the Consolidate step "the text telling you what to do is
+# indistinguishable from the names of the units, so it is not clear to the
+# player that it is a list of eligible units". The instruction paragraph and the
+# unit rows rendered as the same flat parchment text, with no header between
+# them and no button chrome on the rows (the right panel's default Button style
+# is borderless). Three things fix it, applied to BOTH step sections:
+#   1. the paragraph is demoted to muted caption text,
+#   2. a gold "ELIGIBLE UNITS (n)" header names the list and counts it,
+#   3. every row is a bordered, hover-lit button with a gold left spine.
+const STEP_INSTRUCTION_COLOR := Color(0.72, 0.68, 0.60)
+const STEP_ROW_MIN_HEIGHT := 30
+# Above this many eligible units the step section grows a type-to-filter box so
+# a big army stays scannable. The whole right panel scrolls either way, but
+# hunting one squad down a 20-row list is the chore this removes.
+const STEP_FILTER_MIN_UNITS := 6
+# Verb used in the list header / filter hint, per step section.
+const STEP_LIST_VERBS := {
+	"PileInStepPanel": "PILE IN",
+	"ConsolidationStepPanel": "CONSOLIDATE",
+}
+
 # UI Elements
 var unit_selector: ItemList
 var attack_tree: Tree
@@ -450,6 +472,7 @@ func _build_step_panel(panel_name: String, end_button_name: String, end_handler:
 	var panel = VBoxContainer.new()
 	panel.name = panel_name
 	panel.visible = false
+	panel.add_theme_constant_override("separation", 4)
 
 	var step_title = Label.new()
 	step_title.name = "StepTitle"
@@ -464,20 +487,234 @@ func _build_step_panel(panel_name: String, end_button_name: String, end_handler:
 	instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# Bound the width so the autowrap label reports a sane minimum height
 	instructions.custom_minimum_size = Vector2(230, 0)
-	instructions.add_theme_font_size_override("font_size", 16)
+	instructions.add_theme_font_size_override("font_size", 15)
+	# Muted caption weight — this is the "what this step is" paragraph, NOT a
+	# pickable row. It used to render in the same colour/size as the unit
+	# buttons underneath, which is exactly why the list didn't read as a list.
+	instructions.add_theme_color_override("font_color", STEP_INSTRUCTION_COLOR)
 	panel.add_child(instructions)
+
+	# The header the section was missing entirely: the unit rows previously
+	# began straight after the instruction paragraph with no boundary at all.
+	var list_header = Label.new()
+	list_header.name = "UnitListHeader"
+	list_header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	list_header.custom_minimum_size = Vector2(230, 0)
+	list_header.add_theme_font_size_override("font_size", 15)
+	list_header.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_GOLD)
+	if FactionPalettes:
+		list_header.add_theme_font_override("font", FactionPalettes.FONT_RAJDHANI_BOLD)
+	panel.add_child(list_header)
+
+	# Type-to-filter, shown only once the list is long enough to be a chore to
+	# scan (STEP_FILTER_MIN_UNITS) or while a filter is already typed. Safe for
+	# pad players: PadRouter._panel_stops never lands focus on a LineEdit.
+	var filter_edit = LineEdit.new()
+	filter_edit.name = "UnitFilter"
+	filter_edit.placeholder_text = "Filter eligible units…"
+	filter_edit.clear_button_enabled = true
+	filter_edit.visible = false
+	filter_edit.custom_minimum_size = Vector2(230, 0)
+	filter_edit.add_theme_font_size_override("font_size", 15)
+	var filter_style = StyleBoxFlat.new()
+	filter_style.bg_color = Color(0.08, 0.08, 0.10, 0.95)
+	filter_style.border_color = Color(_WhiteDwarfTheme.WH_GOLD, 0.5)
+	filter_style.set_border_width_all(1)
+	filter_style.set_corner_radius_all(3)
+	filter_style.set_content_margin_all(4)
+	filter_edit.add_theme_stylebox_override("normal", filter_style)
+	var filter_focus_style = filter_style.duplicate()
+	filter_focus_style.border_color = _WhiteDwarfTheme.WH_GOLD
+	filter_edit.add_theme_stylebox_override("focus", filter_focus_style)
+	filter_edit.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	filter_edit.add_theme_color_override("font_placeholder_color", Color(0.55, 0.52, 0.45))
+	filter_edit.add_theme_color_override("caret_color", _WhiteDwarfTheme.WH_GOLD)
+	filter_edit.text_changed.connect(_on_step_filter_text_changed.bind(panel))
+	panel.add_child(filter_edit)
 
 	var unit_list = VBoxContainer.new()
 	unit_list.name = "UnitList"
+	unit_list.add_theme_constant_override("separation", 3)
 	panel.add_child(unit_list)
+
+	# Shown when the typed filter hides every row — without it the section just
+	# looks broken/empty.
+	var empty_hint = Label.new()
+	empty_hint.name = "FilterEmptyHint"
+	empty_hint.visible = false
+	empty_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	empty_hint.custom_minimum_size = Vector2(230, 0)
+	empty_hint.add_theme_font_size_override("font_size", 15)
+	empty_hint.add_theme_color_override("font_color", STEP_INSTRUCTION_COLOR)
+	panel.add_child(empty_hint)
+
+	# Gap + separator so the end-of-step button can never be mistaken for one
+	# more unit row at the bottom of the list.
+	var end_gap = Control.new()
+	end_gap.custom_minimum_size = Vector2(0, 4)
+	panel.add_child(end_gap)
 
 	var end_button = Button.new()
 	end_button.name = end_button_name
 	end_button.pressed.connect(end_handler)
+	_WhiteDwarfTheme.apply_secondary_button(end_button)
 	panel.add_child(end_button)
 
 	_add_fight_gold_separator(panel)
 	return panel
+
+# ── Step unit-row chrome ─────────────────────────────────────────────────────
+# The right panel's default Button look is borderless, so the step rows drew as
+# bare text sitting directly under the instruction paragraph. These give each
+# row a boxed background and a gold left spine, so a glance reads "list of
+# clickable units" instead of "more sentences".
+
+func _step_row_style(bg: Color, accent: Color) -> StyleBoxFlat:
+	# 1px outline with a 4px left edge — the "spine" that makes a stack of these
+	# read as list rows rather than a paragraph.
+	var style = StyleBoxFlat.new()
+	style.bg_color = bg
+	style.border_color = accent
+	style.set_border_width_all(1)
+	style.border_width_left = 4
+	style.set_corner_radius_all(3)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 5
+	style.content_margin_bottom = 5
+	return style
+
+func _style_step_unit_button(button: Button, actionable: bool) -> void:
+	"""Box a global-step unit row so it reads as a pickable list entry."""
+	var accent := _WhiteDwarfTheme.WH_GOLD if actionable else Color(0.45, 0.38, 0.30)
+	button.add_theme_stylebox_override("normal", _step_row_style(
+		Color(0.16, 0.14, 0.11, 0.95) if actionable else Color(0.11, 0.10, 0.08, 0.95),
+		Color(accent, 0.7 if actionable else 0.4)))
+	button.add_theme_stylebox_override("hover",
+		_step_row_style(Color(0.45, 0.09, 0.09, 0.95), _WhiteDwarfTheme.WH_GOLD))
+	button.add_theme_stylebox_override("pressed",
+		_step_row_style(Color(0.35, 0.05, 0.06, 0.95), _WhiteDwarfTheme.WH_PARCHMENT))
+	button.add_theme_stylebox_override("disabled",
+		_step_row_style(Color(0.10, 0.09, 0.07, 0.7), Color(0.4, 0.3, 0.2, 0.4)))
+	button.add_theme_stylebox_override("focus",
+		_step_row_style(Color(0.16, 0.14, 0.11, 0.95), _WhiteDwarfTheme.WH_PARCHMENT))
+	button.add_theme_color_override("font_color",
+		_WhiteDwarfTheme.WH_PARCHMENT if actionable else Color(0.62, 0.58, 0.50))
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", _WhiteDwarfTheme.WH_GOLD)
+	button.add_theme_color_override("font_disabled_color", Color(0.5, 0.45, 0.35, 0.6))
+	button.add_theme_font_size_override("font_size", 16)
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.custom_minimum_size = Vector2(230, STEP_ROW_MIN_HEIGHT)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Wrap rather than trim where the engine supports it: the reported screen
+	# showed "Custodian Guard Beta + Blade Champion Beta  [Obj…", i.e. the one
+	# token that says WHAT the move would be was the token being cut off.
+	if "autowrap_mode" in button:
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	else:
+		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+
+func _add_step_unit_row(unit_list: VBoxContainer, node_name: String, unit_name: String,
+		tag: String, tooltip: String, actionable: bool, on_pressed: Callable) -> Button:
+	"""One row of a global-step unit list (12.02 Pile In / 12.07 Consolidate).
+	Node name stays `PileIn_<unit_id>` / `Consolidate_<unit_id>` — windowed
+	scenarios and the T6 tutorial anchor on those paths."""
+	var button = Button.new()
+	button.name = node_name
+	button.text = "%s  [%s]" % [unit_name, tag]
+	button.tooltip_text = tooltip
+	_style_step_unit_button(button, actionable)
+	button.set_meta("step_unit_name", unit_name)
+	button.set_meta("step_unit_tag", tag)
+	button.pressed.connect(on_pressed)
+	unit_list.add_child(button)
+	return button
+
+# ── Step unit-list header + filter ───────────────────────────────────────────
+
+func _step_list_verb(panel: VBoxContainer) -> String:
+	return str(STEP_LIST_VERBS.get(str(panel.name), "ACT"))
+
+func _refresh_step_list_header(panel: VBoxContainer) -> void:
+	"""Gold "ELIGIBLE UNITS (n) — CLICK ONE TO …" line above the rows, with the
+	visible/total split while a filter is narrowing the list."""
+	if panel == null or not is_instance_valid(panel):
+		return
+	var header: Label = panel.get_node_or_null("UnitListHeader")
+	if header == null:
+		return
+	var unit_list = panel.get_node_or_null("UnitList")
+	var total := 0
+	var shown := 0
+	if unit_list:
+		for child in unit_list.get_children():
+			if not (child is Button):
+				continue
+			total += 1
+			if child.visible:
+				shown += 1
+	var count_text := str(total)
+	if shown != total:
+		count_text = "%d of %d" % [shown, total]
+	header.text = "ELIGIBLE UNITS (%s) — CLICK ONE TO %s" % [count_text, _step_list_verb(panel)]
+	# There is a list to introduce exactly when there are rows. Repopulating
+	# brings the header back after _show_step_panel_waiting hid it, and the
+	# unconditional un-busy sweep can never surface it over a multiplayer
+	# "waiting for Player N" note (which clears the rows).
+	header.visible = total > 0
+
+func _on_step_filter_text_changed(_new_text: String, panel: VBoxContainer) -> void:
+	_apply_step_filter(panel)
+
+func _apply_step_filter(panel: VBoxContainer) -> void:
+	"""Hide rows that don't contain the typed substring (case-insensitive), then
+	restate the header count and, when nothing survives, say so explicitly."""
+	if panel == null or not is_instance_valid(panel):
+		return
+	var filter_edit: LineEdit = panel.get_node_or_null("UnitFilter")
+	var unit_list = panel.get_node_or_null("UnitList")
+	if unit_list == null:
+		return
+	var needle := ""
+	if filter_edit:
+		needle = filter_edit.text.strip_edges().to_lower()
+	var total := 0
+	var shown := 0
+	for child in unit_list.get_children():
+		if not (child is Button):
+			continue
+		total += 1
+		var haystack := "%s %s" % [
+			str(child.get_meta("step_unit_name", child.text)),
+			str(child.get_meta("step_unit_tag", ""))
+		]
+		child.visible = needle == "" or haystack.to_lower().find(needle) != -1
+		if child.visible:
+			shown += 1
+	var empty_hint: Label = panel.get_node_or_null("FilterEmptyHint")
+	if empty_hint:
+		empty_hint.visible = total > 0 and shown == 0
+		if empty_hint.visible:
+			empty_hint.text = "No eligible unit matches \"%s\" — clear the filter to see all %d." % [
+				filter_edit.text.strip_edges() if filter_edit else "", total]
+	_refresh_step_list_header(panel)
+
+func _configure_step_filter(panel: VBoxContainer, player: int, unit_count: int) -> void:
+	"""Show the filter box once the list is long enough to warrant it. The typed
+	text survives repopulation within the same player's half (the section is
+	re-emitted after every move) but is dropped when the half changes hands."""
+	var filter_edit: LineEdit = panel.get_node_or_null("UnitFilter")
+	if filter_edit == null:
+		return
+	if int(panel.get_meta("step_filter_player", -1)) != player:
+		panel.set_meta("step_filter_player", player)
+		filter_edit.text = ""
+	filter_edit.visible = unit_count >= STEP_FILTER_MIN_UNITS or filter_edit.text.strip_edges() != ""
+	if not filter_edit.visible:
+		filter_edit.text = ""
+	_apply_step_filter(panel)
 
 func _build_fight_selection_panel() -> VBoxContainer:
 	"""Build the (hidden) right-panel section for the 12.04 fighter pick.
@@ -552,6 +789,11 @@ func _show_step_panel_waiting(panel: VBoxContainer, title_text: String, waiting_
 	panel.get_node("StepTitle").text = title_text
 	panel.get_node("StepInstructions").text = waiting_text
 	_clear_step_unit_list(panel.get_node("UnitList"))
+	# No list to introduce, count or filter while we're only watching.
+	for child_name in ["UnitListHeader", "UnitFilter", "FilterEmptyHint"]:
+		var c = panel.get_node_or_null(child_name)
+		if c:
+			c.visible = false
 	for btn_name in ["EndPileInButton", "EndConsolidationButton"]:
 		var b = panel.get_node_or_null(btn_name)
 		if b:
@@ -574,6 +816,17 @@ func _set_step_panel_busy(panel: VBoxContainer, busy: bool) -> void:
 		var b = panel.get_node_or_null(btn_name)
 		if b:
 			b.disabled = busy
+	# Keep the list header honest while the greyed-out rows can't be clicked.
+	var header: Label = panel.get_node_or_null("UnitListHeader")
+	if header:
+		if busy:
+			if header.visible:
+				header.text = "MOVE IN PROGRESS — FINISH IT ON THE BATTLEFIELD"
+		else:
+			_refresh_step_list_header(panel)
+	var filter_edit: LineEdit = panel.get_node_or_null("UnitFilter")
+	if filter_edit:
+		filter_edit.editable = not busy
 
 func set_phase(phase: BasePhase) -> void:
 	current_phase = phase
@@ -1913,6 +2166,9 @@ func _on_counter_offensive_opportunity(player: int, eligible_units: Array) -> vo
 		return
 
 	var dialog = AcceptDialog.new()
+	# Named so windowed scenarios can address it by path (/root/CounterOffensiveDialog)
+	# instead of Godot's auto-generated "@AcceptDialog@N".
+	dialog.name = "CounterOffensiveDialog"
 	dialog.set_script(dialog_script)
 	dialog.setup(player, eligible_units)
 	dialog.counter_offensive_used.connect(_on_counter_offensive_used)
@@ -2562,15 +2818,15 @@ func _populate_pile_in_step_panel(data: Dictionary) -> void:
 	for unit_id in eligible:
 		var info = eligible[unit_id]
 		var engaged: bool = info.get("engaged", false)
-		var unit_button = Button.new()
-		unit_button.name = "PileIn_%s" % unit_id
-		unit_button.text = "%s  %s" % [info.get("name", unit_id), "[Engaged]" if engaged else "[Charged]"]
-		unit_button.tooltip_text = "Engaged — every engaged enemy is a pile-in target" if engaged \
+		var unit_name = str(info.get("name", unit_id))
+		var tag := "Engaged" if engaged else "Charged"
+		var tooltip := "Engaged — every engaged enemy is a pile-in target" if engaged \
 			else "Charged this turn — pick enemy units within 5\" as targets"
-		unit_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		unit_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		unit_button.pressed.connect(_on_pile_in_step_unit_chosen.bind(unit_id))
-		unit_list.add_child(unit_button)
+		_add_step_unit_row(unit_list, "PileIn_%s" % unit_id, unit_name, tag,
+			"%s — %s" % [unit_name, tooltip], true,
+			_on_pile_in_step_unit_chosen.bind(unit_id))
+
+	_configure_step_filter(pile_in_step_panel, int(player), eligible.size())
 
 	var end_button = pile_in_step_panel.get_node("EndPileInButton")
 	end_button.text = "End Pile In (Player %d)" % player
@@ -2707,32 +2963,39 @@ func _populate_consolidation_step_panel(data: Dictionary) -> void:
 	var unit_list = consolidation_step_panel.get_node("UnitList")
 	_clear_step_unit_list(unit_list)
 	var eligible: Dictionary = data.get("eligible_units", {})
+	# Units that CAN move first, "no move possible" last — with a big army the
+	# rows that actually do something should not be buried among dead ones.
+	var actionable_ids: Array = []
+	var inert_ids: Array = []
 	for unit_id in eligible:
+		if str(eligible[unit_id].get("mode", "")) == "":
+			inert_ids.append(unit_id)
+		else:
+			actionable_ids.append(unit_id)
+	for unit_id in actionable_ids + inert_ids:
 		var info = eligible[unit_id]
 		var mode = str(info.get("mode", ""))
+		var unit_name = str(info.get("name", unit_id))
 		var mode_tag := ""
 		var mode_tooltip := ""
 		match mode:
 			"ongoing":
-				mode_tag = "[Ongoing]"
+				mode_tag = "Ongoing"
 				mode_tooltip = "Ongoing — engaged: move closer to the enemy"
 			"engaging":
-				mode_tag = "[Engaging]"
+				mode_tag = "Engaging"
 				mode_tooltip = "Engaging — enemy within 3\": may move into engagement"
 			"objective":
-				mode_tag = "[Objective]"
+				mode_tag = "Objective"
 				mode_tooltip = "Objective within 3\": may move onto it"
 			_:
-				mode_tag = "[No move]"
+				mode_tag = "No move possible"
 				mode_tooltip = "No move possible from here"
-		var unit_button = Button.new()
-		unit_button.name = "Consolidate_%s" % unit_id
-		unit_button.text = "%s  %s" % [info.get("name", unit_id), mode_tag]
-		unit_button.tooltip_text = mode_tooltip
-		unit_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		unit_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		unit_button.pressed.connect(_on_consolidation_unit_chosen.bind(unit_id))
-		unit_list.add_child(unit_button)
+		_add_step_unit_row(unit_list, "Consolidate_%s" % unit_id, unit_name, mode_tag,
+			"%s — %s" % [unit_name, mode_tooltip], mode != "",
+			_on_consolidation_unit_chosen.bind(unit_id))
+
+	_configure_step_filter(consolidation_step_panel, int(player), eligible.size())
 
 	var end_button = consolidation_step_panel.get_node("EndConsolidationButton")
 	end_button.text = "End Consolidation (Player %d)" % player

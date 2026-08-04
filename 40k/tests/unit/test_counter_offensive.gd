@@ -89,7 +89,17 @@ func _setup_fight_scenario() -> void:
 		p2_unit_b.models[i].position = {"x": 305 + i * 20, "y": 100}
 	GameState.state.units["U_P2_B"] = p2_unit_b
 
-	# Give both players enough CP for Counter-Offensive (costs 2)
+	# Give both players enough CP for Counter-Offensive (costs 2).
+	# The bare GUT GameState has no "players" block, so this used to throw
+	# ("Invalid access to key 'players'") and every CP-dependent assertion in
+	# this file silently degraded to "Not enough CP (need 2, have 0)" — the
+	# stratagem sections were reporting failures that had nothing to do with
+	# Counter-Offensive. Create the block if it is missing.
+	if not GameState.state.has("players"):
+		GameState.state["players"] = {}
+	for player_key in ["1", "2"]:
+		if not GameState.state.players.has(player_key):
+			GameState.state.players[player_key] = {"cp": 0, "vp": 0}
 	GameState.state.players["1"]["cp"] = 5
 	GameState.state.players["2"]["cp"] = 5
 
@@ -276,6 +286,120 @@ func test_eligible_units_excludes_dead_units():
 
 	for unit_info in eligible:
 		assert_ne(unit_info.unit_id, "U_P1_A", "U_P1_A should not be eligible (all models dead)")
+
+
+# ==========================================
+# Section 3b: Attached units are ONE target (11e 19.01)
+# ==========================================
+# Reported bug: the Counter-Offensive dialog listed a CHARACTER attached to a
+# bodyguard squad as a unit of its own, so the Blade Champion leading Custodian
+# Guard got a second "Fight Next (2 CP)" row. 19.01: "an attached unit is a
+# single unit for all rules purposes" — one row, named for the whole thing.
+
+func _attach_character_to(character_id: String, bodyguard_id: String) -> void:
+	GameState.state.units[character_id]["attached_to"] = bodyguard_id
+	GameState.state.units[bodyguard_id]["attachment_data"] = {"attached_characters": [character_id]}
+
+func _setup_attached_fight_scenario() -> void:
+	"""U_P1_A (bodyguard) led by U_P1_CHAR, both engaged with U_P2_A."""
+	_setup_fight_scenario()
+	var char_unit = _create_unit("U_P1_CHAR", 1, 1, ["INFANTRY", "CHARACTER"], 2, 6, 6)
+	# Standing in the same melee as its bodyguard — this is the case the old
+	# 10e "in Engagement Range" filter listed as a target of its own.
+	char_unit.models[0].position = {"x": 110, "y": 100}
+	char_unit.meta.name = "Blade Champion"
+	GameState.state.units["U_P1_CHAR"] = char_unit
+	GameState.state.units["U_P1_A"].meta.name = "Custodian Guard"
+	_attach_character_to("U_P1_CHAR", "U_P1_A")
+
+func _eligible_ids(eligible: Array) -> Array:
+	var out := []
+	for unit_info in eligible:
+		out.append(unit_info.unit_id)
+	return out
+
+func test_eligible_units_excludes_attached_character():
+	"""19.01: an attached CHARACTER gets no row of its own."""
+	_setup_attached_fight_scenario()
+
+	var eligible = StratagemManager.get_counter_offensive_eligible_units(
+		1, [], GameState.create_snapshot()
+	)
+	var ids = _eligible_ids(eligible)
+	assert_true("U_P1_A" in ids, "The bodyguard heads the Attached unit's row")
+	assert_false("U_P1_CHAR" in ids, "The attached character must NOT be a target of its own (19.01)")
+
+func test_eligible_units_attached_row_names_the_whole_unit():
+	"""The single row reads 'Custodian Guard + Blade Champion'."""
+	_setup_attached_fight_scenario()
+
+	var eligible = StratagemManager.get_counter_offensive_eligible_units(
+		1, [], GameState.create_snapshot()
+	)
+	var name := ""
+	for unit_info in eligible:
+		if unit_info.unit_id == "U_P1_A":
+			name = unit_info.unit_name
+	assert_eq(name, "Custodian Guard + Blade Champion", "Row names the whole Attached unit")
+
+func test_eligible_units_attached_group_fought_spends_whole_unit():
+	"""The Attached unit fights ONCE — marking either component spends it."""
+	_setup_attached_fight_scenario()
+
+	var eligible = StratagemManager.get_counter_offensive_eligible_units(
+		1, ["U_P1_CHAR"], GameState.create_snapshot()
+	)
+	assert_false("U_P1_A" in _eligible_ids(eligible),
+		"Bodyguard is spent when its attached character is marked as having fought")
+
+func test_eligible_units_attached_character_battle_shock_blocks_unit():
+	"""01.07: a battle-shocked component cannot be targeted by stratagems."""
+	_setup_attached_fight_scenario()
+	GameState.state.units["U_P1_CHAR"]["flags"]["battle_shocked"] = true
+
+	var eligible = StratagemManager.get_counter_offensive_eligible_units(
+		1, [], GameState.create_snapshot()
+	)
+	assert_false("U_P1_A" in _eligible_ids(eligible),
+		"Battle-shocked attached character blocks the whole Attached unit")
+
+func test_eligible_units_character_alone_after_bodyguard_wiped():
+	"""19.05: once the bodyguard is destroyed the CHARACTER is his own unit again."""
+	_setup_attached_fight_scenario()
+	for model in GameState.state.units["U_P1_A"].models:
+		model.alive = false
+
+	var eligible = StratagemManager.get_counter_offensive_eligible_units(
+		1, [], GameState.create_snapshot()
+	)
+	var ids = _eligible_ids(eligible)
+	assert_true("U_P1_CHAR" in ids, "Character stands alone once its bodyguard is wiped")
+	assert_false("U_P1_A" in ids, "The wiped bodyguard is not eligible")
+
+func test_eligible_units_honours_fight_eligible_list():
+	"""15.12 TARGET is 12.04's 'eligible to fight' — supplied by the sequencer."""
+	_setup_attached_fight_scenario()
+
+	# Only the OTHER P1 unit is eligible to fight per the sequencer, so the
+	# attached pair must not be offered even though it is in engagement range.
+	var eligible = StratagemManager.get_counter_offensive_eligible_units(
+		1, [], GameState.create_snapshot(), ["U_P1_B"]
+	)
+	var ids = _eligible_ids(eligible)
+	assert_true("U_P1_B" in ids, "Sequencer-eligible unit is offered")
+	assert_false("U_P1_A" in ids, "Unit outside the 12.04 list is not offered")
+
+func test_eligible_units_fight_list_matches_attached_component():
+	"""The Attached unit is eligible when ANY component is (only the leader engaged)."""
+	_setup_attached_fight_scenario()
+
+	# The sequencer names the CHARACTER; the row is still the bodyguard's.
+	var eligible = StratagemManager.get_counter_offensive_eligible_units(
+		1, [], GameState.create_snapshot(), ["U_P1_CHAR"]
+	)
+	var ids = _eligible_ids(eligible)
+	assert_true("U_P1_A" in ids, "Bodyguard's row carries the eligible component")
+	assert_false("U_P1_CHAR" in ids, "Still no row of the character's own")
 
 
 # ==========================================

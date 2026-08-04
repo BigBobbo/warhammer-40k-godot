@@ -66,6 +66,23 @@ var _weapon_carriers: Dictionary = {}   # weapon_id -> Array[String] model keys
 var _model_key_unit: Dictionary = {}    # model key -> owning component unit id
 var _group_unit_ids: Array = []         # component unit ids, bodyguard first
 
+# component unit id -> Array[target_id] this component may legally swing at.
+#
+# `eligible_targets` is the ACTIVATION's list, measured across the whole
+# Attached unit (19.03). Each COMPONENT can only attack what its own models
+# have reached — 11e Fight, "Select Targets": each target must be engaged with
+# the model that has that weapon. A Custodian Guard locked with one Ork mob and
+# its attached Blade Champion locked with another share this dialog, and the
+# activation may attack both mobs, but neither component may attack both.
+#
+# Reported bug: every section was offered the whole activation's list, so
+# "Best Weapons ✨" (which points EVERY section at the ONE selected target)
+# produced a plan the engine then rejected with "not within engagement range"
+# — on a unit plainly still in combat, with no way to tell which half was the
+# problem. Filled by _build_component_targets, and every path that sets a
+# section's target clamps through _targets_for_group / _clamp_target_for_group.
+var _component_targets: Dictionary = {}
+
 # "<unit_id>#<index>" — see _eligible_models.
 static func _mk(owner_id: String, model_index: int) -> String:
 	return "%s#%d" % [owner_id, model_index]
@@ -133,6 +150,7 @@ func _build_ui() -> void:
 	# every CHARACTER attached to it. Everything below walks the components.
 	_group_unit_ids = RulesEngine.attached_unit_component_ids(unit_id, phase_reference.game_state_snapshot)
 	var unit = phase_reference.get_unit(unit_id)
+	_build_component_targets()
 
 	# Show eligible model count (per 10e: only models in engagement range can
 	# fight) across the whole Attached unit.
@@ -317,6 +335,19 @@ func _build_ui() -> void:
 	if target_list.item_count > 0:
 		target_list.select(0)
 	container.add_child(target_list)
+
+	# 19.03 + 11e "Select Targets": when this Attached unit's components are
+	# locked with DIFFERENT enemies, no single target is legal for every
+	# section — say so up front, because the bulk buttons below will then send
+	# some sections elsewhere and a silent redirect reads as a bug.
+	if _components_disagree_on_targets():
+		var split_note = Label.new()
+		split_note.name = "SplitEngagementNote"
+		split_note.text = "This unit's sections are locked with different enemies — each can only attack what IT is in Engagement Range of, so a section may not follow the target picked above."
+		split_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		split_note.add_theme_font_size_override("font_size", 14)
+		split_note.modulate = Color(1, 0.85, 0.5)
+		container.add_child(split_note)
 
 	# Button container for assignment actions
 	var button_container = HBoxContainer.new()
@@ -625,9 +656,14 @@ func _build_group_section(gi: int) -> Control:
 	# no pointer — a button is drivable by both.
 	var tgt_button := Button.new()
 	tgt_button.name = "GroupTargetButton"
-	tgt_button.tooltip_text = "Click to send this section at a different target"
+	# Cycling is limited to what THIS section has reached, so the tooltip names
+	# them — otherwise a section stuck on one target reads as a broken button.
+	var reachable_names: Array = []
+	for tid in _targets_for_group(gi):
+		reachable_names.append(_target_name(str(tid)))
+	tgt_button.tooltip_text = "Click to send this section at a different target (in Engagement Range of it: %s)" % ", ".join(reachable_names)
 	tgt_button.pressed.connect(_on_group_target_cycle.bind(gi))
-	tgt_button.disabled = eligible_targets.size() < 2
+	tgt_button.disabled = _targets_for_group(gi).size() < 2
 	header.add_child(tgt_button)
 	g["target_button"] = tgt_button
 
@@ -689,7 +725,7 @@ func _build_group_section(gi: int) -> Control:
 		line_tgt.name = "LineTarget_%s" % wid
 		line_tgt.tooltip_text = "Click to send this weapon's models at a different target"
 		line_tgt.pressed.connect(_on_line_target_cycle.bind(gi, wid))
-		line_tgt.disabled = eligible_targets.size() < 2
+		line_tgt.disabled = _targets_for_group(gi).size() < 2
 		row.add_child(line_tgt)
 		g.line_target_buttons[wid] = line_tgt
 
@@ -760,18 +796,137 @@ func _selected_target_id() -> String:
 	return ""
 
 
+# ── per-component reach (11e "Select Targets") ──────────────────────────────
+
+# Narrow the activation's target list to what each COMPONENT has actually
+# reached. FightPhase.melee_targets_for_component measures exactly what
+# _validate_assign_attacks measures, so a plan built from these lists can never
+# be rejected for engagement range. See _component_targets.
+func _build_component_targets() -> void:
+	_component_targets = {}
+	var candidates: Array = eligible_targets.keys()
+	for member_id in _group_unit_ids:
+		var reachable: Array = []
+		if phase_reference != null and phase_reference.has_method("melee_targets_for_component"):
+			reachable = phase_reference.melee_targets_for_component(str(member_id), candidates)
+		else:
+			# No phase to ask (unit tests constructing the dialog bare): fall
+			# back to the activation's list rather than blanking every section.
+			reachable = candidates.duplicate()
+		_component_targets[str(member_id)] = reachable
+		print("[AttackAssignmentDialog] Component '%s' may attack %s (activation offers %s)" % [
+			member_id, str(reachable), str(candidates)])
+
+
+# The targets section `gi` may be pointed at. Only falls back to the whole
+# activation's list when this component was never measured (no phase to ask) —
+# a component measured as reaching NOTHING must stay empty, or the fallback
+# would hand it the very targets the engine is about to reject.
+func _targets_for_group(gi: int) -> Array:
+	if gi < 0 or gi >= _groups.size():
+		return eligible_targets.keys()
+	var owner_id := str(_groups[gi].get("owner", unit_id))
+	if not _component_targets.has(owner_id):
+		return eligible_targets.keys()
+	return _component_targets[owner_id]
+
+
+# True when section `gi` is within Engagement Range of `target_id`.
+func _group_can_reach(gi: int, target_id: String) -> bool:
+	return target_id != "" and target_id in _targets_for_group(gi)
+
+
+# `preferred` when this section can reach it, otherwise the reachable target it
+# expects to do the most damage to. Never returns an unreachable target — that
+# is the whole point: the plan this dialog submits must be legal by
+# construction, not legal by luck of geometry.
+func _clamp_target_for_group(gi: int, preferred: String) -> String:
+	if _group_can_reach(gi, preferred):
+		return preferred
+	var reachable := _targets_for_group(gi)
+	if reachable.is_empty():
+		return preferred
+	var best_id := str(reachable[0])
+	var best_score := -1.0
+	var g: Dictionary = _groups[gi]
+	for tid in reachable:
+		var wid := _best_weapon_for_group(gi, str(tid))
+		if wid == "":
+			continue
+		var score := _estimate_expected_damage(wid, str(tid), g.models.size(), str(g.get("owner", "")))
+		if score > best_score:
+			best_score = score
+			best_id = str(tid)
+	if preferred != "":
+		print("[AttackAssignmentDialog] Section '%s' is not engaged with %s — swinging at %s instead" % [
+			g.label, _target_name(preferred), _target_name(best_id)])
+	return best_id
+
+
+# Component-level twin of _clamp_target_for_group, for assignments that are not
+# built from a section (the [EXTRA ATTACKS] auto-adds on confirm).
+func _clamp_target_for_component(component_id: String, preferred: String) -> String:
+	if not _component_targets.has(component_id):
+		return preferred
+	var reachable: Array = _component_targets[component_id]
+	if reachable.is_empty() or preferred in reachable:
+		return preferred
+	return str(reachable[0])
+
+
+# The target this component's regular (non-EXTRA ATTACKS) assignment is already
+# pointed at, or "" when it has none.
+func _component_regular_target(component_id: String) -> String:
+	for a in assignments:
+		if str(a.get("attacker", "")) == component_id and str(a.get("target", "")) != "":
+			return str(a.get("target", ""))
+	return ""
+
+
+# True when some section cannot reach the dialog's selected target, i.e. the
+# bulk actions had to send it somewhere else.
+func _plan_has_redirected_sections() -> bool:
+	var selected := _selected_target_id()
+	if selected == "":
+		return false
+	for gi in range(_groups.size()):
+		if not _group_can_reach(gi, selected):
+			return true
+	return false
+
+
+# True when no single target is legal for every section — the components of
+# this Attached unit have reached different enemies. Drives the warning note.
+func _components_disagree_on_targets() -> bool:
+	if _groups.size() < 2:
+		return false
+	for tid in eligible_targets:
+		var reachable_by_all := true
+		for gi in range(_groups.size()):
+			if not _group_can_reach(gi, str(tid)):
+				reachable_by_all = false
+				break
+		if reachable_by_all:
+			return false
+	return true
+
+
 # Give every group the weapon with the highest expected damage against
-# `target_id`, un-split, all pointed at that target.
+# `target_id`, un-split, all pointed at that target — or, for a section that is
+# not in Engagement Range of it, at the best target that section HAS reached
+# (19.03: an Attached unit's components stand apart, and 11e requires each
+# target to be engaged with the model swinging at it).
 func _apply_best_plan(target_id: String) -> void:
 	if target_id == "":
 		return
 	for gi in range(_groups.size()):
 		var g: Dictionary = _groups[gi]
 		g.split = false
-		var best := _best_weapon_for_group(gi, target_id)
+		var tid := _clamp_target_for_group(gi, target_id)
+		var best := _best_weapon_for_group(gi, tid)
 		if best == "":
 			continue
-		g.lines = [{"weapon": best, "count": g.models.size(), "target": target_id}]
+		g.lines = [{"weapon": best, "count": g.models.size(), "target": tid}]
 	_sync_group_widgets()
 	_rebuild_assignments()
 
@@ -971,6 +1126,7 @@ func _on_group_weapon_selected(index: int, gi: int) -> void:
 	var tid := _line_target(g, wid)
 	if tid == "":
 		tid = _selected_target_id()
+	tid = _clamp_target_for_group(gi, tid)
 	g.split = false
 	g.lines = [{"weapon": wid, "count": g.models.size(), "target": tid}]
 	print("[AttackAssignmentDialog] Group '%s' → %s (%d model(s))" % [g.label, wid, g.models.size()])
@@ -978,9 +1134,11 @@ func _on_group_weapon_selected(index: int, gi: int) -> void:
 	_rebuild_assignments()
 
 
+# Cycling walks THIS section's reachable targets, not the activation's — a
+# section can only ever be pointed at an enemy its own models have reached.
 func _on_group_target_cycle(gi: int) -> void:
 	var g: Dictionary = _groups[gi]
-	var keys: Array = eligible_targets.keys()
+	var keys: Array = _targets_for_group(gi)
 	if keys.size() < 2:
 		return
 	var current := ""
@@ -999,7 +1157,7 @@ func _on_group_target_cycle(gi: int) -> void:
 
 func _on_line_target_cycle(gi: int, weapon_id: String) -> void:
 	var g: Dictionary = _groups[gi]
-	var keys: Array = eligible_targets.keys()
+	var keys: Array = _targets_for_group(gi)
 	if keys.size() < 2:
 		return
 	for line in g.lines:
@@ -1259,12 +1417,27 @@ func _on_assign_pressed() -> void:
 	var target_id = str(target_list.get_item_metadata(target_idx[0]))
 
 	var g: Dictionary = _groups[_focused_group]
+	# The selected target may be one only ANOTHER component of this Attached
+	# unit has reached — send this section at something it is actually engaged
+	# with rather than building a plan the engine will reject.
+	var clamped_id := _clamp_target_for_group(_focused_group, target_id)
+	if clamped_id != target_id:
+		_notify_redirect(g, target_id, clamped_id)
 	g.split = false
-	g.lines = [{"weapon": weapon_id, "count": g.models.size(), "target": target_id}]
+	g.lines = [{"weapon": weapon_id, "count": g.models.size(), "target": clamped_id}]
 	print("[AttackAssignmentDialog] Group '%s' assigned %s → %s (%d model(s))" % [
-		g.label, weapon_id, target_id, g.models.size()])
+		g.label, weapon_id, clamped_id, g.models.size()])
 	_sync_group_widgets()
 	_rebuild_assignments()
+
+
+# Tell the player when a bulk action could not honour their target pick. Silent
+# redirection is how the old behaviour hid the problem in the first place.
+func _notify_redirect(g: Dictionary, wanted: String, used: String) -> void:
+	var toast := get_node_or_null("/root/ToastManager")
+	if toast != null and toast.has_method("show_toast"):
+		toast.show_toast("%s is not in Engagement Range of %s — swinging at %s" % [
+			g.get("label", "Section"), _target_name(wanted), _target_name(used)])
 
 
 # "All to Target": send EVERY section at the selected target, each keeping the
@@ -1284,16 +1457,25 @@ func _on_all_to_target_pressed() -> void:
 		return
 
 	var target_id = str(target_list.get_item_metadata(target_idx[0]))
+	var redirected := 0
 	for gi in range(_groups.size()):
 		var g: Dictionary = _groups[gi]
+		# Sections of an Attached unit stand in different places — one may not
+		# have reached this target at all (11e: each target must be engaged
+		# with the model swinging at it). Send those at what they CAN hit.
+		var clamped_id := _clamp_target_for_group(gi, target_id)
+		if clamped_id != target_id:
+			redirected += 1
+			_notify_redirect(g, target_id, clamped_id)
 		if g.lines.is_empty():
-			var best := _best_weapon_for_group(gi, target_id)
+			var best := _best_weapon_for_group(gi, clamped_id)
 			if best != "":
-				g.lines = [{"weapon": best, "count": g.models.size(), "target": target_id}]
+				g.lines = [{"weapon": best, "count": g.models.size(), "target": clamped_id}]
 			continue
 		for line in g.lines:
-			line["target"] = target_id
-	print("[AttackAssignmentDialog] All %d section(s) → %s" % [_groups.size(), target_id])
+			line["target"] = clamped_id
+	print("[AttackAssignmentDialog] All %d section(s) → %s (%d redirected — not engaged with it)" % [
+		_groups.size(), target_id, redirected])
 	_sync_group_widgets()
 	_rebuild_assignments()
 
@@ -1304,10 +1486,17 @@ func _on_all_to_target_pressed() -> void:
 func _on_best_krump_pressed() -> void:
 	var target_id := _selected_target_id()
 	print("[AttackAssignmentDialog] Best Weapons: auto-assigning %d section(s) vs %s" % [_groups.size(), target_id])
+	var redirected := _plan_has_redirected_sections()
 	_apply_best_plan(target_id)
 	var toast := get_node_or_null("/root/ToastManager")
 	if toast != null:
-		toast.show_toast("✨ Best weapon picked for each section")
+		# A section not in Engagement Range of the selected target gets the best
+		# target it HAS reached — say so, rather than letting the assignment
+		# list quietly disagree with the target the player clicked.
+		if redirected:
+			toast.show_toast("✨ Best weapon per section — some are locked with a different enemy and swing at that instead")
+		else:
+			toast.show_toast("✨ Best weapon picked for each section")
 
 
 func _update_assignments_display() -> void:
@@ -1930,14 +2119,24 @@ func _on_confirmed() -> void:
 				print("[AttackAssignmentDialog] T3-3: Auto-added Extra Attacks weapon '%s' → '%s' (whole unit)" % [weapon_name, ea_target_id])
 				continue
 			for owner_id in ea_by_owner:
+				# The Extra Attacks target selector is activation-level, but
+				# these attacks come from ONE component's models and are gated
+				# per component like any other (11e: each target must be
+				# engaged with the model that has that weapon). Send them at
+				# whatever that component's regular weapon is already swinging
+				# at — the Warboss's attack squig hits what his klaw hits — and
+				# fall back to the nearest legal target for it.
+				var ea_owner_target := _component_regular_target(str(owner_id))
+				if ea_owner_target == "":
+					ea_owner_target = _clamp_target_for_component(str(owner_id), ea_target_id)
 				assignments.append({
 					"attacker": owner_id,
 					"weapon": weapon_id,
-					"target": ea_target_id,
+					"target": ea_owner_target,
 					"models": ea_by_owner[owner_id]
 				})
 				print("[AttackAssignmentDialog] T3-3: Auto-added Extra Attacks weapon '%s' for %s (%d model(s)) → '%s'" % [
-					weapon_name, owner_id, ea_by_owner[owner_id].size(), ea_target_id])
+					weapon_name, owner_id, ea_by_owner[owner_id].size(), ea_owner_target])
 
 	print("[AttackAssignmentDialog] Emitting attacks_confirmed with ", assignments.size(), " assignments (including Extra Attacks)")
 	hide()
