@@ -1682,10 +1682,62 @@
       "scenarios": [
         "auto_allocate_wounds",
         "auto_allocate_wounds_off",
-        "auto_allocate_wounds_settings_ui"
+        "auto_allocate_wounds_settings_ui",
+        "auto_allocate_wounds_keeps_coherency_11e"
       ],
       "fidelity": "HANDLER",
-      "last_verified_commit": "28088acc",
+      "last_verified_commit": "afd4c12",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.rules.CasualtyPreference.coherency_first",
+      "description": "Auto wound allocation ranks candidates by resulting coherency offenders FIRST (value/proximity/objective only break ties), so a casualty never strands survivors when another model would do.",
+      "scenarios": [
+        "auto_allocate_wounds_keeps_coherency_11e"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "afd4c12",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.rules.CasualtyPreference.attached_character_context",
+      "description": "19.03: an attached CHARACTER's model counts as part of the unit while the auto picker scores coherency, matching the End of Turn (03.03) check.",
+      "scenarios": [
+        "auto_allocate_wounds_keeps_coherency_11e"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "afd4c12",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.rules.AttackSequence.attached_coherency_offenders",
+      "description": "Shared offender reading (19.03 merged neighbours intersected with the per-component envelope) over an explicit component list, so a hypothetical board — who dies next — gets the same verdict End of Turn gives.",
+      "scenarios": [
+        "auto_allocate_wounds_keeps_coherency_11e"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "afd4c12",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.AllocationGroupOverlay.auto_mode",
+      "description": "Overlay auto mode (AI defender / 'Computer allocates wounds') resolves the batch with the CasualtyPreference order and applies the casualties to GameState with no player input.",
+      "scenarios": [
+        "auto_allocate_wounds_keeps_coherency_11e",
+        "auto_allocate_wounds"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "afd4c12",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.FightController.melee_wound_allocation",
+      "description": "FightController._on_melee_saves_required opens the 11e AllocationGroupOverlay for melee saves (same defender path as shooting).",
+      "scenarios": [
+        "auto_allocate_wounds_keeps_coherency_11e"
+      ],
+      "fidelity": "HANDLER",
+      "last_verified_commit": "afd4c12",
       "status": "covered"
     },
     {
