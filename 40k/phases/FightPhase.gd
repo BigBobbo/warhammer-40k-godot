@@ -738,8 +738,22 @@ func _validate_assign_attacks(action: Dictionary) -> Dictionary:
 	# Check units are within engagement range. Measured against the whole
 	# Attached unit (19.03) so a target engaged only via its attached leader's
 	# model is still reachable.
+	#
+	# NOTE the asymmetry, and that it is deliberate: the TARGET is the whole
+	# Attached unit, the ATTACKER is only the component named by `unit_id`.
+	# 11e Fight ("Select Targets") makes each target's legality a property of
+	# the MODEL that carries the weapon — "each target must be engaged with the
+	# model that has that weapon" — and an Attached unit's components stand in
+	# different places, so the bodyguard cannot swing at an enemy that only its
+	# leader's model has reached. Callers that build a plan for a whole
+	# activation must narrow per component first (melee_targets_for_component).
 	if not _units_in_engagement_range(unit, {"models": RulesEngine.attached_unit_models(target_id, game_state_snapshot)}):
-		errors.append("Units are not within engagement range")
+		var attacker_label = unit.get("meta", {}).get("name", unit_id)
+		var target_label = target_unit.get("meta", {}).get("name", target_id)
+		if _fight_group_ids(unit_id).size() > 1 or _fight_is_attached_character(unit_id):
+			errors.append("'%s' is not within Engagement Range of '%s' — another part of its Attached unit is, but each model can only attack what IT is engaged with" % [attacker_label, target_label])
+		else:
+			errors.append("'%s' is not within Engagement Range of '%s'" % [attacker_label, target_label])
 
 	# Check weapon exists and is melee
 	var weapon = RulesEngine.get_weapon_profile(weapon_id)
@@ -1944,6 +1958,24 @@ func _process_batch_fight_actions(action: Dictionary) -> Dictionary:
 			sub["timestamp"] = action.get("timestamp", 0)
 
 		DebugLogger.info(str("[FightPhase] Batch sub-action %d: %s" % [i, sub.get("type", "")]))
+
+		# Validate HERE, not in _validate_batch_fight_actions. That pre-flight
+		# can only check sub-action 0 (everything after it depends on state the
+		# earlier ones write), so it deliberately skips the rest — but
+		# process_action does NOT validate either, and the gap let an illegal
+		# later ASSIGN_ATTACKS resolve in full. Observed: an attached Blade
+		# Champion assigned to a mob 8" away swung at it anyway, because the
+		# bodyguard's assignment happened to sort first and pass.
+		# By the time we get here the earlier sub-actions HAVE been applied, so
+		# the state each check sees is the right one.
+		var sub_validation = validate_action(sub)
+		if not sub_validation.get("valid", false):
+			var sub_errors = sub_validation.get("errors", [])
+			var sub_error_text: String = ", ".join(sub_errors) if (sub_errors is Array and not sub_errors.is_empty()) else "Action not allowed"
+			push_error("[FightPhase] Batch sub-action %d (%s) rejected: %s" % [i, sub.get("type", ""), sub_error_text])
+			log_phase_message("Fight batch rejected at step %d (%s): %s" % [i, sub.get("type", ""), sub_error_text])
+			return {"success": false, "error": sub_error_text, "errors": sub_errors}
+
 		var result = process_action(sub)
 
 		if not result.get("success", false):
@@ -2292,10 +2324,24 @@ func _auto_inject_extra_attacks_for_unit(fighter_id: String) -> void:
 			continue
 		assigned_weapon_ids[attack.get("weapon", "")] = true
 
-	# Determine default target: use first confirmed attack's target, or first known target
+	# Determine default target: this component's own swing first, then the rest
+	# of the activation. 19.03 components stand apart, so the bodyguard's target
+	# is not necessarily one this component's models have reached — and 11e
+	# requires each target to be engaged with the model making the attacks.
+	# reachable_melee_target_for clamps to something it IS engaged with.
 	var default_target = ""
-	if not confirmed_attacks.is_empty():
-		default_target = confirmed_attacks[0].get("target", "")
+	for attack in confirmed_attacks:
+		if str(attack.get("attacker", active_fighter_id)) == fighter_id and str(attack.get("target", "")) != "":
+			default_target = str(attack.get("target", ""))
+			break
+	if default_target == "" and not confirmed_attacks.is_empty():
+		default_target = str(confirmed_attacks[0].get("target", ""))
+	if default_target != "":
+		var ea_target := reachable_melee_target_for(fighter_id, default_target)
+		if ea_target != default_target:
+			log_phase_message("[19.03] %s is not engaged with %s — its Extra Attacks swing at %s" % [
+				fighter_id, default_target, ea_target if ea_target != "" else "nothing"])
+		default_target = ea_target
 
 	for weapon in ea_weapons:
 		var weapon_name = weapon.get("name", "Unknown")
@@ -2360,15 +2406,37 @@ func _auto_assign_unassigned_models_for_unit(fighter_id: String) -> void:
 			return  # a per-model path drove this activation; respect its choices
 		regular.append(attack)
 
-	# The target the Attached unit is already fighting — read from the whole
-	# activation, since an attached component may have no assignment yet.
+	# The target the Attached unit is already fighting. This component's OWN
+	# assignments win when it has any (its gap-filled models join the swing
+	# their squadmates are already making); otherwise fall back to the rest of
+	# the activation, since an attached component may have no assignment yet.
 	var default_target = ""
-	for attack in confirmed_attacks:
+	for attack in regular:
 		if str(attack.get("target", "")) != "":
 			default_target = str(attack.get("target", ""))
 			break
 	if default_target == "":
+		for attack in confirmed_attacks:
+			if str(attack.get("target", "")) != "":
+				default_target = str(attack.get("target", ""))
+				break
+	if default_target == "":
 		return
+
+	# ...but "the target the ACTIVATION is fighting" is not necessarily one THIS
+	# component's models have reached (19.03 components stand apart, and 11e
+	# requires each target to be engaged with the model swinging at it). Clamp
+	# to a target this component is actually in Engagement Range of — inheriting
+	# the bodyguard's pick blind wrote assignments that skip validation and
+	# would resolve attacks from models nowhere near the unit they hit.
+	var component_target := reachable_melee_target_for(fighter_id, default_target)
+	if component_target == "":
+		log_phase_message("[19.03] %s is in no enemy's Engagement Range — no auto-assigned attacks for it" % fighter_id)
+		return
+	if component_target != default_target:
+		log_phase_message("[19.03] %s is not engaged with %s — its models swing at %s instead" % [
+			fighter_id, default_target, component_target])
+	default_target = component_target
 
 	if regular.is_empty():
 		# Nothing assigned for this component at all. For the unit that was
@@ -3165,6 +3233,53 @@ func _get_eligible_melee_targets(unit_id: String) -> Dictionary:
 			}
 
 	return targets
+
+# The subset of `candidate_ids` that `component_id`'s OWN models are within
+# Engagement Range of — i.e. exactly the targets an ASSIGN_ATTACKS naming this
+# component will pass _validate_assign_attacks against.
+#
+# _get_eligible_melee_targets answers "what may this ACTIVATION attack", and
+# measures the actor as the whole Attached unit (19.03). That is the right
+# question for the activation, and the WRONG one for any single component:
+# 11e Fight ("Select Targets") requires each target to be engaged with the
+# model carrying the weapon, and an Attached unit's components stand in
+# different places. A Custodian Guard led by a Blade Champion can have the
+# bodyguard locked with one Ork mob and the Champion locked with another —
+# the activation may attack both, but neither component may attack both.
+#
+# Reported bug: the attack dialog offered the whole activation's target list to
+# every section, so "Best Weapons ✨" (which points every section at the ONE
+# selected target) built a plan whose bodyguard half the engine then rejected
+# with "not within engagement range" — on a unit plainly still in combat.
+# Callers narrow with this first; the engine gate stays as-is.
+# Empty `candidate_ids` means "the whole activation's list".
+func melee_targets_for_component(component_id: String, candidate_ids: Array = []) -> Array:
+	var out: Array = []
+	var component = get_unit(component_id)
+	if component.is_empty():
+		return out
+	var candidates: Array = candidate_ids
+	if candidates.is_empty():
+		candidates = _get_eligible_melee_targets(component_id).keys()
+	for tid in candidates:
+		var target_id := str(tid)
+		var target_models: Array = RulesEngine.attached_unit_models(target_id, game_state_snapshot)
+		if target_models.is_empty():
+			continue
+		if _units_in_engagement_range(component, {"models": target_models}):
+			out.append(target_id)
+	return out
+
+# Clamp `preferred_target_id` to something `component_id` may legally attack:
+# the preference when it is reachable, otherwise the first reachable candidate,
+# otherwise "" (this component contributes nothing to the activation).
+func reachable_melee_target_for(component_id: String, preferred_target_id: String, candidate_ids: Array = []) -> String:
+	var reachable := melee_targets_for_component(component_id, candidate_ids)
+	if reachable.is_empty():
+		return ""
+	if preferred_target_id != "" and preferred_target_id in reachable:
+		return preferred_target_id
+	return str(reachable[0])
 
 func _get_model_position(unit_id: String, model_id: String) -> Vector2:
 	var unit = get_unit(unit_id)
