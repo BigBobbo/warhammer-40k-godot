@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.23.0",
+      "date": "2026-08-04",
+      "summary": "Fight phase: 'Best Weapons ✨' no longer suggests attacks that overkill one unit — it spreads a unit's attacks across the enemies it is engaged with, and the dialog now says how much of a plan is being thrown away.",
+      "changes": [
+        "Fixed (reported from a live game): the auto-allocation in the Assign Attacks dialog pointed the whole activation at one target and rated it on raw expected damage. Raw damage counts points that can never land — damage past a model's last wound is lost, and damage past the target unit's last wound is lost too, because it never spills onto another unit. So the suggested plan happily threw a whole squad at a unit it killed three times over, wasting most of the attacks while other engaged enemies stood untouched.",
+        "The auto-allocation now scores on the damage that actually comes off a defender's wounds, and places models one at a time: as soon as a second target would take more than the first has left, the rest of the section goes there instead. Pick the Custodian Guard into a nearly-dead Warboss and it sends one model at him and the other three at the Boyz beside him.",
+        "A section can now be split across two TARGETS, not just between the weapons it carries. That was the missing half for a uniform squad — one loadout, one section — which previously had to go all-in on a single unit no matter how far its attacks overshot. 'Split…' is offered whenever a section has several models and either several weapons or several targets.",
+        "The assignments box now shows what a plan really does: each line adds '≈X lands' when that differs from its raw forecast, the total reads '≈X lands · ≈Y thrown away', and a warning names any unit you have aimed more damage at than it has wounds left — with the reminder that the surplus does not carry over to another unit.",
+        "The damage breakdown table gained a LANDS row (how much of this swing the target can still absorb) and a note when a single section alone is more damage than the target has wounds.",
+        "Weapon choice is overkill-aware too: a high-damage profile no longer outranks a multi-attack one against 1-wound models, where most of each hit is thrown away."
+      ]
+    },
+    {
       "version": "1.22.2",
       "date": "2026-08-03",
       "summary": "Secondary Missions: a card you scored VP from this turn can no longer be discarded for +1 CP, and Fixed Mission cards stop offering a Discard button that never worked.",
