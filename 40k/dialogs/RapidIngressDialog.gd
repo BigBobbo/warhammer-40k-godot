@@ -21,14 +21,15 @@ const COUNTDOWN_SECONDS: float = 10.0
 var player: int = 0
 var eligible_units: Array = []  # Array of { unit_id: String, unit_name: String, reserve_type: String }
 
-# MA-42: Auto-decline timer
-const AUTO_DECLINE_SECONDS: float = 5.0
+# The 10s countdown above is this window's only clock; the redundant 5s MA-42
+# auto-decline that used to sit alongside it is gone (it never armed here, and
+# a second hidden timer on a board decision is exactly the lock-out players
+# reported). The remaining countdown pauses while the board is being examined.
 var _countdown_timer: Timer = null
 var _seconds_remaining: float = COUNTDOWN_SECONDS
 var _countdown_label: Label = null
 var _countdown_bar: ProgressBar = null
 var _resolved: bool = false
-var _time_remaining: float = AUTO_DECLINE_SECONDS
 
 func setup(p_player: int, p_eligible_units: Array) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
@@ -39,8 +40,15 @@ func setup(p_player: int, p_eligible_units: Array) -> void:
 
 	# Disable default OK button and close button - we use custom buttons
 	get_ok_button().visible = false
+	# Non-exclusive on purpose: "exclusive" is the engine's nothing-else-may-see-
+	# this-input mode, and the wheel-to-camera forwarding in _input() below is
+	# verified against this non-exclusive configuration (2026-08-04, live). The
+	# board is still un-clickable while the window is open — Main's full-screen
+	# reactive overlay swallows every board/HUD click regardless.
+	exclusive = false
 	# Prevent closing via X button or Escape — must use Arrive/Decline or wait for timeout
 	close_requested.connect(_on_close_requested)
+	canceled.connect(_on_close_requested)
 
 	_build_ui()
 	_start_countdown()
@@ -151,25 +159,27 @@ func _build_ui() -> void:
 
 	main_container.add_child(HSeparator.new())
 
+	# "Examine Board" toggle — where the opponent's units ended their moves is
+	# exactly what decides whether a reserve arrival is worth 1 CP. The countdown
+	# below is PAUSED while the board is being examined, so a look can never
+	# cost the player the stratagem.
+	ReactiveDecisionUI.add_examine_toggle(self, main_container, "Rapid Ingress")
+
+	main_container.add_child(HSeparator.new())
+
 	# Decline button
 	var button_container = HBoxContainer.new()
+	button_container.name = "Buttons"
 	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
 
 	var decline_button = Button.new()
+	decline_button.name = "DeclineButton"
 	decline_button.text = "Decline"
 	decline_button.custom_minimum_size = Vector2(200, 40)
 	decline_button.pressed.connect(_on_decline_pressed)
 	button_container.add_child(decline_button)
 
 	main_container.add_child(button_container)
-
-	# MA-42: Countdown timer display
-	_countdown_label = Label.new()
-	_countdown_label.text = "Auto-declining in %d seconds..." % int(AUTO_DECLINE_SECONDS)
-	_countdown_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_countdown_label.add_theme_font_size_override("font_size", 17)
-	_countdown_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
-	main_container.add_child(_countdown_label)
 
 	add_child(main_container)
 
@@ -183,6 +193,12 @@ func _start_countdown() -> void:
 	print("RapidIngressDialog: Countdown started — %d seconds for Player %d" % [int(COUNTDOWN_SECONDS), player])
 
 func _on_countdown_tick() -> void:
+	# PAUSED while the player is examining the board: a look at the battlefield
+	# must never cost them the stratagem (2026-08-04 player report).
+	if ReactiveDecisionUI.is_examining(self):
+		if _countdown_label:
+			_countdown_label.text = "Paused — examining the board (%d seconds left)" % max(0, ceili(_seconds_remaining))
+		return
 	_seconds_remaining -= 0.1
 	if _countdown_label:
 		var secs = max(0, ceili(_seconds_remaining))
@@ -198,6 +214,11 @@ func _on_countdown_tick() -> void:
 		print("RapidIngressDialog: Countdown expired — auto-declining for Player %d" % player)
 		_on_decline_pressed()
 
+func _input(event: InputEvent) -> void:
+	# Wheel notches over the board behind this window zoom the camera instead of
+	# dying on the sub-window — see ReactiveDecisionUI.forward_camera_wheel.
+	ReactiveDecisionUI.forward_camera_wheel(self, event)
+
 func _on_close_requested() -> void:
 	# Treat closing the dialog (X button / Escape) as declining
 	_on_decline_pressed()
@@ -206,6 +227,7 @@ func _on_use_pressed(unit_id: String) -> void:
 	if _resolved:
 		return
 	_resolved = true
+	ReactiveDecisionUI.stop_examining(self)
 	if _countdown_timer:
 		_countdown_timer.stop()
 	var unit_name = ""
@@ -222,6 +244,7 @@ func _on_decline_pressed() -> void:
 	if _resolved:
 		return
 	_resolved = true
+	ReactiveDecisionUI.stop_examining(self)
 	if _countdown_timer:
 		_countdown_timer.stop()
 	print("RapidIngressDialog: Player %d declines RAPID INGRESS" % player)

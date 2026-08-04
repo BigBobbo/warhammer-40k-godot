@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.23.0",
+      "version": "1.24.0",
       "date": "2026-08-04",
       "summary": "Battle-shock tests are now rolled in front of you, one unit at a time — the camera moves to the unit, the dice tumble on screen, and you click Next.",
       "changes": [
@@ -14,6 +14,45 @@
         "'End Command Phase' with tests outstanding now offers 'Roll them now' as the default. Auto-resolving them all at once is still there, but it is a choice you make rather than what silently happens.",
         "A 'Roll the rest for me' button on the roll call skips ahead at any point, and the sequence closes with a summary of who passed, who failed and who spent Insane Bravery.",
         "The camera returns to where you left it when the roll call finishes."
+      ]
+    },
+    {
+      "version": "1.23.0",
+      "date": "2026-08-04",
+      "summary": "Reactive stratagem popups (Leap to Defend, Fire Overwatch, Counter-Offensive, Rapid Ingress) no longer time you out, and you can now look at the board before deciding.",
+      "changes": [
+        "Fixed (reported): the 'Heroic Intervention — Leap to Defend?' popup at the end of your opponent's charge phase declined itself after 5 seconds. If you reached for the camera to see where the chargers ended up, the window vanished and the stratagem was gone. That countdown is removed — the window now waits for you, and nothing is ever declined on your behalf. Same for Fire Overwatch and Counter-Offensive.",
+        "New: an 'Examine Board' toggle on those popups. Switch it on and the window steps aside, the board un-dims, and you can pan and zoom the whole battlefield. A 'Back to the decision' bar stays on screen the entire time — click it (or press Escape) and the popup comes straight back with nothing decided.",
+        "The mouse wheel now zooms the board while a reactive popup is open, instead of doing nothing.",
+        "Rapid Ingress keeps its 10-second timer, but the timer pauses while you are examining the board.",
+        "Board clicks stay blocked while a decision is pending, so looking around can never accidentally move a model or end a phase."
+      ]
+    },
+    {
+      "version": "1.22.5",
+      "date": "2026-08-04",
+      "summary": "Fight fix: a led unit fighting two different enemies no longer has its whole activation thrown away with 'not within engagement range'.",
+      "changes": [
+        "Fixed (reported): activating a unit that has a Leader attached — a Custodian Guard led by a Blade Champion, say — picking 'Best Weapons ✨' and pressing Fight! could be refused with 'Units are not within engagement range', on a unit plainly still locked in combat. The activation was lost.",
+        "Cause: the bodyguard and its Leader fight as one unit, so the target list showed every enemy EITHER of them had reached. 'Best Weapons ✨' then pointed both halves at the one enemy you picked — and the half standing too far from it was rejected, taking the whole activation with it.",
+        "Each section of the dialog is now limited to the enemies its own models are in Engagement Range of. 'Best Weapons ✨' and 'All to Target' send a section that cannot reach your pick at the best enemy it CAN reach, and say so, rather than building a plan the game will refuse.",
+        "When a unit's sections are locked with different enemies the dialog now says so up front, and each section's target button only cycles through what that section can actually hit.",
+        "The opposite failure is closed too: an out-of-reach swing that happened to be second in the list used to be waved through and resolve in full — a Blade Champion 8\" from a mob still killing models in it. Every attack in the batch is checked now.",
+        "Refusals name the units involved (\"'Blade Champion' is not within Engagement Range of 'Stormboyz Beta'\") instead of the old unattributed message."
+      ]
+    },
+    {
+      "version": "1.22.4",
+      "date": "2026-08-04",
+      "summary": "The Pile In and Consolidate steps now clearly show a list of units you can pick, instead of unit names that read like more instruction text.",
+      "changes": [
+        "Fixed (reported): in the Consolidate step the sentence telling you what to do looked exactly like the unit names underneath it, so it wasn't clear the panel was offering you a list of units to click.",
+        "Eligible units are now listed under a gold 'ELIGIBLE UNITS (n) — CLICK ONE TO CONSOLIDATE' heading, and each unit is a proper bordered button that lights up under the cursor.",
+        "The explanation paragraph above the list is now dimmed, so the instructions and the pickable units can't be read as one block of text.",
+        "Unit rows no longer cut off the bit that matters: 'Custodian Guard Beta + Blade Champion Beta  [Obj…' now wraps and shows the full '[Objective]' hint.",
+        "Units that actually have a move available are listed first; units with no move possible are greyed and sorted to the bottom.",
+        "With a big army the list gains a 'Filter eligible units…' box — type any part of a unit's name and the list narrows as you type, with the heading showing how many of the total are still shown.",
+        "The same treatment is applied to the Pile In step, which had the identical problem."
       ]
     },
     {
