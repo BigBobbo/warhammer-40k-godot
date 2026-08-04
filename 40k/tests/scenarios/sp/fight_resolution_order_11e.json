@@ -1,15 +1,14 @@
 {
-  "id": "fight_loadout_groups_split_11e",
+  "id": "fight_resolution_order_11e",
   "covers": [
-    "dialogs.AttackAssignmentDialog.loadout_groups",
-    "dialogs.AttackAssignmentDialog.group_split",
-    "dialogs.AttackAssignmentDialog.best_krump_auto_assign",
-    "phases.FightPhase.one_weapon_per_model",
-    "rules.11e.fight.select_melee_weapon"
+    "dialogs.AttackAssignmentDialog.resolution_order",
+    "dialogs.AttackAssignmentDialog.order_survives_rebuild",
+    "phases.FightPhase.staged_fight_assignment_order",
+    "rules.11e.fight.select_weapon_not_yet_used"
   ],
   "rng_seed": 4242,
   "edition": 11,
-  "description": "Melee attack allocation by LOADOUT GROUP (the Option B rework). The AttackAssignmentDialog used to offer one flat weapon menu for the whole unit: picking a weapon gave its carriers that weapon and silently auto-assigned every other model a statically-scored 'best' weapon. For a Boyz mob that reached only 4 of the 6 whole-group combinations, could never divide one group between two weapons, and never told the player any of it was happening. The dialog now partitions the mob into same-loadout sections — 'Boy x9' (Choppa / Close combat weapon) and 'Boss Nob x1' (Big choppa / Choppa) — each picking its own weapon and its own target. This scenario boots the T6 tutorial fixture (the reported case) and drives the real player path: (1) the dialog opens on the target-aware auto-assign — nine Choppas plus the Nob's Big choppa against 2+/4++ Custodian Guard — so 'open then Fight!' is one click; (2) switching the Boy section to Close combat weapon while the Nob keeps his Big choppa produces a combination that was NOT expressible before; (3) Split divides the Boy section five Choppas / four Close combat weapons, which was likewise impossible; (4) Fight! submits all three groups as disjoint per-weapon assignments and the engine's one-weapon-per-model validator accepts them. Weapon rows are driven via ItemList.select() + item_selected.emit() because synthetic clicks do not land inside popup windows; the Split and Fight! presses are real button presses.",
+  "description": "The attacker's choice of WEAPON RESOLUTION ORDER inside one fight activation (11e 04.03: 'select one weapon targeting that unit that has not yet been used to make attacks'). The engine has always resolved a unit's assignments front-to-back — FightPhase._staged_fight_* steps them as 'Weapon N of M' and RulesEngine.resolve_melee_attacks loops the same array — but the player could not SET that order: it fell out of the loadout-section build order in AttackAssignmentDialog._rebuild_assignments(), so the Boss Nob's Big choppa always swung before the Boyz' Choppas simply because his section was built first. Order is a real decision because damage never carries between models and 05.04 forces each hit onto an already-wounded model where possible, so a big-damage profile resolved after the chip attacks gets soaked by a model that is already nearly dead. The fixture is the T6 tutorial's ATTACHED unit — Warboss (Power klaw + attack squig) leading a Boyz mob with a Boss Nob — so the plan spans three loadout sections across two components. This scenario drives the new reorder rows: (1) the dialog opens on the build order, Big choppa → Choppa → Power klaw; (2) OrderRow1's real ▲ button promotes the Choppa line and the numbered rows renumber; (3) splitting the Boy section afterwards REBUILDS the whole assignment array from the sections, and the hand-picked order survives — the promoted Choppa stays first, the Big choppa stays behind it, and the brand-new Close combat weapon line lands beside its section-mate instead of at the bottom; (4) Fight! hands the engine that exact order, so staged resolution runs Choppa → Close combat weapon → Big choppa → Power klaw, with the Extra Attacks attack squig appended last as it always is. Before the rows existed this same plan could only ever resolve Big choppa first.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -71,7 +70,7 @@
       "script": "var u = GameState.state[\"units\"][\"U_BOYZ_T\"]\nvar n = 0\nfor m in u[\"models\"]:\n\tif str(m.get(\"model_type\", \"\")) == \"boy\":\n\t\tm[\"melee_loadout\"] = [\"Choppa\", \"Close combat weapon\"]\n\t\tn += 1\nu[\"_loadout_checked\"] = true\nreturn n",
       "multiline": true,
       "equals": 9,
-      "comment": "SETUP-ONLY PRIVILEGE: the tutorial roster buys the mob nothing but choppas, so its Boy section has a single melee weapon and the Split affordance (which needs 2+ models AND 2+ weapons) never appears. Stamp the nine Boyz with the two-weapon melee_loadout the engine itself writes during loadout resolution — same key, same shape — so the section is genuinely splittable. Everything downstream (grouping, the Split UI, the counts, the submitted assignments and the engine's validation) is the real path."
+      "comment": "SETUP-ONLY PRIVILEGE (same stamp fight_loadout_groups_split_11e uses): the tutorial roster buys the mob nothing but choppas, so the Boy section holds one weapon and cannot split into a third line. Stamp the two-weapon melee_loadout the engine itself writes during loadout resolution — same key, same shape. Everything downstream (grouping, the order rows, the reorder, the submitted assignments, the engine's staged resolution) is the real path."
     },
     {
       "act": "expect_node_visible",
@@ -104,11 +103,7 @@
     },
     {
       "act": "wait_seconds",
-      "seconds": 2.0
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 2.0
+      "seconds": 3.0
     },
     {
       "act": "click_node",
@@ -123,7 +118,7 @@
       "act": "execute_script",
       "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out",
       "multiline": true,
-      "comment": "SELECT_FIGHTER on a unit with a CHARACTER raises the Epic Challenge prompt first, and that stratagem decision gates the attack-assignment dialog — without this the dialog never opens and every assertion below fails. Decline it via its real button; tolerant no-op if the prompt is not offered."
+      "comment": "SELECT_FIGHTER on a unit with a CHARACTER raises the Epic Challenge prompt first, and that stratagem decision gates the attack-assignment dialog. Decline it via its real button; tolerant no-op if the prompt is not offered."
     },
     {
       "act": "expect_node_visible",
@@ -136,33 +131,33 @@
     },
     {
       "act": "execute_script",
-      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor g in d._groups:\n\tout.append(str(g.label) + \":\" + str((g.models as Array).size()))\nreturn \",\".join(out)",
-      "multiline": true,
-      "equals": "Boss Nob:1,Boy:9,Warboss:1",
-      "comment": "the mob is partitioned by what its models actually carry, listed in model order (the datasheet's own composition order): the Boss Nob, then the nine Boyz"
-    },
-    {
-      "act": "execute_script",
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nreturn \",\".join(out)",
       "multiline": true,
       "equals": "big_choppa_melee:1,choppa_melee:9,power_klaw_melee:1",
-      "comment": "the dialog OPENS on the auto-assigned plan — target-aware expected damage picks the Boyz' Choppa and the Nob's Big choppa against 2+/4++ Custodes — so open-then-Fight! is a legal one-click activation. The old dialog opened with nothing assigned."
+      "comment": "the dialog opens on the BUILD order — the Boss Nob's section is built first, so his Big choppa resolves first by accident of construction, not by choice"
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/AttackAssignmentDialog/Content/GroupsScroll/GroupsBox/Group1/Body/WeaponList",
-      "timeout_s": 3.0
-    },
-    {
-      "act": "screenshot",
-      "label": "01_two_loadout_sections_auto_assigned"
+      "node": "/root/AttackAssignmentDialog/Content/AssignmentOrderScroll/AssignmentOrderBox/OrderRow1/MoveUp",
+      "timeout_s": 3.0,
+      "comment": "NEW UI: one reorderable row per weapon line — this is the affordance that did not exist"
     },
     {
       "act": "execute_script",
-      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar wl = d.get_node(\"Content/GroupsScroll/GroupsBox/Group1/Body/WeaponList\")\nvar want = -1\nfor i in range(wl.item_count):\n\tif str(wl.get_item_text(i)).begins_with(\"Close combat weapon\"):\n\t\twant = i\nif want < 0:\n\treturn \"no Close combat weapon offered\"\nwl.select(want)\nwl.item_selected.emit(want)\nreturn \"ok\"",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor r in d._order_box.get_children():\n\tout.append(str(r.get_node(\"Label\").text).split(\" → \")[0])\nreturn \",\".join(out)",
       "multiline": true,
-      "equals": "ok",
-      "comment": "switch ONLY the Boy section to its other weapon; the Boss Nob section is untouched"
+      "equals": "1. Big choppa,2. Choppa,3. Power klaw",
+      "comment": "rows are numbered in resolution order and name the weapon (each row also carries its target, model count and E[D])"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_order_rows_build_order"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/AssignmentOrderScroll/AssignmentOrderBox/OrderRow1/MoveUp",
+      "emit_pressed": true,
+      "comment": "promote the Boyz' Choppa line above the Boss Nob's Big choppa — a real button press on the real row"
     },
     {
       "act": "wait_frames",
@@ -172,34 +167,42 @@
       "act": "execute_script",
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nreturn \",\".join(out)",
       "multiline": true,
-      "equals": "big_choppa_melee:1,close_combat_weapon_melee:9,power_klaw_melee:1",
-      "comment": "NEW CAPABILITY: nine Boyz switched to Close combat weapons while the Boss Nob keeps his Big choppa. The old flat menu drove the whole unit from one pick, so the two sections could not be set independently."
+      "equals": "choppa_melee:9,big_choppa_melee:1,power_klaw_melee:1",
+      "comment": "NEW CAPABILITY: the attacker picks which profile resolves first (11e 04.03). Before this the array order was whatever the section build produced and no click could change it."
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor r in d._order_box.get_children():\n\tout.append(str(r.get_node(\"Label\").text).split(\" → \")[0])\nreturn \",\".join(out)",
+      "multiline": true,
+      "equals": "1. Choppa,2. Big choppa,3. Power klaw",
+      "comment": "the rows renumber, so the player can read the resolution order straight off the dialog"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar top = d._order_box.get_node(\"OrderRow0/MoveUp\")\nvar bottom = d._order_box.get_node(\"OrderRow\" + str(d.assignments.size() - 1) + \"/MoveDown\")\nreturn str(top.disabled) + \",\" + str(bottom.disabled)",
+      "multiline": true,
+      "equals": "true,true",
+      "comment": "the ends of the list cannot walk off it"
     },
     {
       "act": "screenshot",
-      "label": "02_boy_section_switched_nob_unchanged"
+      "label": "02_choppa_promoted_above_big_choppa"
     },
     {
       "act": "click_node",
       "node": "/root/AttackAssignmentDialog/Content/GroupsScroll/GroupsBox/Group1/Body/Header/SplitButton",
-      "emit_pressed": true
+      "emit_pressed": true,
+      "comment": "now edit the PLAN underneath the order: splitting the Boy section rebuilds the whole assignment array from the sections"
     },
     {
       "act": "wait_frames",
       "frames": 8
-    },
-    {
-      "act": "execute_script",
-      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nreturn d._groups[1].split",
-      "multiline": true,
-      "equals": true
     },
     {
       "act": "execute_script",
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar spin = d.get_node(\"Content/GroupsScroll/GroupsBox/Group1/Body/SplitBox/SplitRow_choppa_melee/Count_choppa_melee\")\nspin.value = 5\nreturn int(spin.value)",
       "multiline": true,
-      "equals": 5,
-      "comment": "divide the Boy section: five Choppas. The remaining four models fall back onto the section's other weapon automatically, so the counts always sum to the section size."
+      "equals": 5
     },
     {
       "act": "wait_frames",
@@ -209,19 +212,12 @@
       "act": "execute_script",
       "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar out = []\nfor a in d.assignments:\n\tout.append(str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nreturn \",\".join(out)",
       "multiline": true,
-      "equals": "big_choppa_melee:1,choppa_melee:5,close_combat_weapon_melee:4,power_klaw_melee:1",
-      "comment": "NEW CAPABILITY: an intra-section split. Five Boyz swing Choppas, four swing Close combat weapons, the Nob swings his Big choppa and the attached Warboss his Power klaw — four weapons in one activation, which the old one-weapon-for-the-whole-unit dialog could never produce."
-    },
-    {
-      "act": "execute_script",
-      "script": "var d = tree.root.get_node(\"/root/AttackAssignmentDialog\")\nvar seen = {}\nfor a in d.assignments:\n\tfor m in a.get(\"models\", []):\n\t\tvar key = str(a.get(\"attacker\", \"?\")) + \"/\" + str(m)\n\t\tif seen.has(key):\n\t\t\treturn \"model \" + key + \" assigned twice\"\n\t\tseen[key] = true\nreturn str(seen.size())",
-      "multiline": true,
-      "equals": "11",
-      "comment": "11e one-weapon-per-model: every eligible model appears exactly once across the whole plan (disjoint model lists are what FightPhase's validator checks). 11 = the 10-model Boyz mob plus the attached Warboss, whose model indices restart at 0 in his own component."
+      "equals": "choppa_melee:5,close_combat_weapon_melee:4,big_choppa_melee:1,power_klaw_melee:1",
+      "comment": "the hand-picked order SURVIVES the rebuild: the promoted Choppa line is still first, the Big choppa still last, and the brand-new Close combat weapon line lands beside its section-mate rather than being exiled to the bottom"
     },
     {
       "act": "screenshot",
-      "label": "03_split_five_choppa_four_ccw_plus_big_choppa"
+      "label": "03_order_survives_section_split"
     },
     {
       "act": "click_node",
@@ -236,12 +232,12 @@
       "act": "execute_script",
       "script": "var p = PhaseManager.get_current_phase_instance()\nvar out = []\nfor a in p.staged_fight_state[\"assignments\"]:\n\tout.append(str(a.get(\"weapon\", \"?\")) + \":\" + str((a.get(\"models\", []) as Array).size()))\nreturn \",\".join(out)",
       "multiline": true,
-      "equals": "big_choppa_melee:1,choppa_melee:5,close_combat_weapon_melee:4,power_klaw_melee:1,attack_squig_melee:1",
-      "comment": "the engine stages exactly the submitted plan, in build order, with the Extra Attacks attack squig appended last."
+      "equals": "choppa_melee:5,close_combat_weapon_melee:4,big_choppa_melee:1,power_klaw_melee:1,attack_squig_melee:1",
+      "comment": "THE POINT: the engine resolves in the player's order. Staged resolution steps these front-to-back as 'Weapon 1 of 3' … 'Weapon 3 of 3', so the Big choppa now swings LAST — the inverse of what this same plan produced before the rows existed."
     },
     {
       "act": "screenshot",
-      "label": "04_engine_staged_three_weapon_groups"
+      "label": "04_engine_resolves_in_chosen_order"
     }
   ]
 }
