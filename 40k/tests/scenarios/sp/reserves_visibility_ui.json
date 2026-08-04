@@ -1,0 +1,204 @@
+{
+	"id": "reserves_visibility_ui",
+	"covers": [
+		"reserves.ui.badge",
+		"reserves.ui.tray",
+		"reserves.ui.panel",
+		"reserves.ui.arrival_from_tray",
+		"reservesdata.reserve_type_resolution"
+	],
+	"fixture": "ri_pretrigger",
+	"disable_ai": true,
+	"rng_seed": 42,
+	"description": "Reserves visibility UI (badge + off-board tray + detail panel). Before this, a unit in Reserves was surfaced ONLY in the active player's Movement-phase unit list, and the opponent's reserves were not shown anywhere in any phase — in this fixture P2 has 9 units / 1,270 pts off-table and P1 could not see any of it. Drives the player-visible path: asserts the always-on badge reports BOTH armies, that both off-board rails render in the gutters flanking the board with the right units, that the enemy rail is populated (the core fix), that the detail panel lists both sides, and that clicking a tray chip for your own unit during your Movement phase starts the real reinforcement placement. Also pins ReservesData.resolve_reserve_type, which has to survive `reserve_type` being missing or null (every unit in this fixture carries no reserve_type) by falling back to the unit's Deep Strike ability.",
+	"steps": [
+		{
+			"act": "wait_seconds",
+			"seconds": 1.0
+		},
+		{
+			"act": "expect_phase",
+			"equals": 7
+		},
+
+		{
+			"act": "execute_script",
+			"script": "var b = tree.root.get_node_or_null(\"Main/HUD_Bottom/HBoxContainer/ReservesBadge\")\nreturn b != null and b.visible",
+			"multiline": true,
+			"equals": true
+		},
+		{
+			"act": "execute_script",
+			"script": "var b = tree.root.get_node_or_null(\"Main/HUD_Bottom/HBoxContainer/ReservesBadge\")\nreturn b.get_summary_text()",
+			"multiline": true,
+			"equals": "P1 1·215  You 9·1,270  by R3"
+		},
+
+		{
+			"act": "expect_node_visible",
+			"node": "/root/Main/ReservesTray/Rail_P1",
+			"timeout_s": 2.0
+		},
+		{
+			"act": "expect_node_visible",
+			"node": "/root/Main/ReservesTray/Rail_P2",
+			"timeout_s": 2.0
+		},
+		{
+			"act": "execute_script",
+			"script": "var t = tree.root.get_node_or_null(\"Main/ReservesTray\")\nreturn t.visible_unit_ids_for(1)",
+			"multiline": true,
+			"equals": ["U_CALADIUS_GRAV-TANK_E"]
+		},
+		{
+			"act": "execute_script",
+			"script": "var t = tree.root.get_node_or_null(\"Main/ReservesTray\")\nreturn t.visible_unit_ids_for(2).size()",
+			"multiline": true,
+			"equals": 9
+		},
+		{
+			"act": "execute_script",
+			"script": "var t = tree.root.get_node_or_null(\"Main/ReservesTray\")\nreturn t.visible_unit_ids_for(2)[0]",
+			"multiline": true,
+			"equals": "U_GHAZGHKULL_THRAKA_A"
+		},
+		{
+			"act": "execute_script",
+			"script": "var t = tree.root.get_node_or_null(\"Main/ReservesTray\")\nvar r1 = t.rail_for(1)\nvar r2 = t.rail_for(2)\nvar log_panel = tree.root.get_node_or_null(\"Main/GameLogPanel\")\nvar hud_right = tree.root.get_node_or_null(\"Main/HUD_Right\")\nreturn r1.position.x >= log_panel.position.x + log_panel.size.x and r2.position.x + r2.size.x <= hud_right.position.x",
+			"multiline": true,
+			"equals": true
+		},
+		{
+			"act": "screenshot",
+			"label": "01_tray_both_rails"
+		},
+
+		{
+			"act": "execute_script",
+			"script": "var RD = load(\"res://scripts/ReservesData.gd\")\nreturn RD.resolve_reserve_type(\"U_BOYZ_E\", {\"reserve_type\": null})",
+			"multiline": true,
+			"equals": "strategic_reserves"
+		},
+		{
+			"act": "execute_script",
+			"script": "var RD = load(\"res://scripts/ReservesData.gd\")\nreturn RD.resolve_reserve_type(\"U_BLADE_CHAMPION_A\", {\"reserve_type\": null})",
+			"multiline": true,
+			"equals": "deep_strike"
+		},
+		{
+			"act": "execute_script",
+			"script": "var RD = load(\"res://scripts/ReservesData.gd\")\nreturn RD.resolve_reserve_type(\"U_BOYZ_E\", {\"reserve_type\": \"deep_strike\"})",
+			"multiline": true,
+			"equals": "deep_strike"
+		},
+
+		{
+			"act": "simulate_key",
+			"keycode": "P"
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 0.5
+		},
+		{
+			"act": "expect_node_visible",
+			"node": "/root/Main/ReservesPanel",
+			"timeout_s": 2.0
+		},
+		{
+			"act": "execute_script",
+			"script": "var p = tree.root.get_node_or_null(\"Main/ReservesPanel\")\nreturn p.get_row_texts(1)",
+			"multiline": true,
+			"equals": ["[SR] Caladius Grav-tank — 1 model · 215 pts"]
+		},
+		{
+			"act": "execute_script",
+			"script": "var p = tree.root.get_node_or_null(\"Main/ReservesPanel\")\nreturn p.get_row_texts(2).size()",
+			"multiline": true,
+			"equals": 9
+		},
+		{
+			"act": "execute_script",
+			"script": "var p = tree.root.get_node_or_null(\"Main/ReservesPanel\")\nreturn p.get_row_texts(2)[0]",
+			"multiline": true,
+			"equals": "[SR] Ghazghkull Thraka — 2 models · 300 pts"
+		},
+		{
+			"act": "screenshot",
+			"label": "02_panel_both_armies"
+		},
+		{
+			"act": "simulate_key",
+			"keycode": "Escape"
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 0.5
+		},
+
+		{
+			"act": "execute_script",
+			"script": "var t = tree.root.get_node_or_null(\"Main/ReservesTray\")\nreturn t.t_click_chip(\"U_MEGANOBZ_L\")",
+			"multiline": true,
+			"equals": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 1.0
+		},
+		{
+			"act": "execute_script",
+			"script": "var m = tree.root.get_node_or_null(\"Main\")\nreturn m.deployment_controller.unit_id",
+			"multiline": true,
+			"equals": "U_MEGANOBZ_L"
+		},
+		{
+			"act": "execute_script",
+			"script": "var m = tree.root.get_node_or_null(\"Main\")\nreturn m.deployment_controller.is_reinforcement_mode",
+			"multiline": true,
+			"equals": true
+		},
+		{
+			"act": "execute_script",
+			"script": "var m = tree.root.get_node_or_null(\"Main\")\nreturn m.deployment_controller.reinforcement_placement_type",
+			"multiline": true,
+			"equals": "strategic_reserves"
+		},
+		{
+			"act": "execute_script",
+			"script": "var t = tree.root.get_node_or_null(\"Main/ReservesTray\")\nreturn \"U_MEGANOBZ_L\" in t.visible_unit_ids_for(2)",
+			"multiline": true,
+			"equals": false
+		},
+		{
+			"act": "screenshot",
+			"label": "03_chip_click_started_placement"
+		},
+
+		{
+			"act": "execute_script",
+			"script": "var m = tree.root.get_node_or_null(\"Main\")\nm._cancel_reinforcement_to_list()\nreturn true",
+			"multiline": true,
+			"equals": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 0.5
+		},
+		{
+			"act": "expect_state",
+			"path": "units.U_MEGANOBZ_L.status",
+			"equals": 7
+		},
+		{
+			"act": "execute_script",
+			"script": "var t = tree.root.get_node_or_null(\"Main/ReservesTray\")\nreturn \"U_MEGANOBZ_L\" in t.visible_unit_ids_for(2)",
+			"multiline": true,
+			"equals": true
+		},
+		{
+			"act": "screenshot",
+			"label": "04_cancel_returns_chip"
+		}
+	]
+}
