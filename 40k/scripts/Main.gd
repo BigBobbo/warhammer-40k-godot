@@ -169,6 +169,23 @@ var _reactive_stratagem_safety_timer: Timer = null
 # stratagems. This timer only force-hides a STUCK overlay (it never declines
 # the window); the real decision always comes from the defender's dialog.
 const REACTIVE_STRATAGEM_SAFETY_SECONDS: float = 120.0
+# The decision dialog the overlay is currently blocking FOR. While this is alive
+# the overlay is not stuck — it is doing its job — so the safety timer re-arms
+# instead of tearing the block down under a player who is still reading.
+var _reactive_decision_dialog: Window = null
+
+# "Examine Board" mode (see ReactiveDecisionUI): the reactive decision dialog is
+# hidden and the blocking overlay goes fully transparent, so the player can look
+# at the battlefield the decision is ABOUT. Clicks stay blocked; only camera
+# gestures (wheel zoom, drag-pan — plus the usual WASD/+- keys) get through.
+var _board_examine_active: bool = false
+var _board_examine_bar: PanelContainer = null
+var _board_examine_label: Label = null
+var _board_examine_button: Button = null
+var _board_examine_return: Callable = Callable()
+var _board_examine_pulse_tween: Tween = null
+# Mouse drag-pan state while examining (middle- or right-drag moves the view).
+var _board_examine_dragging: bool = false
 
 # T5-V3: Phase transition animation banner
 var phase_transition_banner: PhaseTransitionBanner = null
@@ -1279,9 +1296,15 @@ func _setup_reactive_stratagem_overlay() -> void:
 	_reactive_stratagem_overlay.anchor_right = 1.0
 	_reactive_stratagem_overlay.anchor_top = 0.0
 	_reactive_stratagem_overlay.anchor_bottom = 1.0
-	_reactive_stratagem_overlay.color = Color(0.0, 0.0, 0.0, 0.45)
+	_reactive_stratagem_overlay.color = REACTIVE_OVERLAY_DIM
 	_reactive_stratagem_overlay.mouse_filter = Control.MOUSE_FILTER_STOP  # Block all input
 	_reactive_stratagem_overlay.visible = false
+	# Board CLICKS stay blocked, but looking is not acting: the overlay forwards
+	# camera-only gestures (wheel zoom, middle/right drag-pan) to the view so a
+	# player facing a reactive decision can actually SEE the board it is about.
+	# Without this the wheel died on the overlay and the player's zoom attempt
+	# did nothing at all (2026-08-04 report).
+	_reactive_stratagem_overlay.gui_input.connect(_on_reactive_overlay_gui_input)
 	add_child(_reactive_stratagem_overlay)
 
 	# Centered banner panel
@@ -1324,6 +1347,11 @@ func _setup_reactive_stratagem_overlay() -> void:
 	vbox.add_child(_reactive_stratagem_overlay_timer_label)
 
 	_reactive_stratagem_overlay.add_child(_reactive_stratagem_overlay_panel)
+
+	# "Examine Board" bar — the way BACK from a board look. Parented to the
+	# overlay so it draws (and picks input) above it even while the overlay is
+	# transparent; hidden until begin_board_examine().
+	_build_board_examine_bar()
 
 	# Safety-net timer — see _reactive_stratagem_safety_timer declaration. One-shot;
 	# (re)started every time the overlay is shown, cancelled when it is hidden.
@@ -1379,6 +1407,10 @@ func hide_reactive_stratagem_waiting() -> void:
 	# MA-42: Hide the blocking overlay when the decision is made or timer expires
 	if not _reactive_stratagem_overlay:
 		return
+	# Always tear down examine mode, even on the early-outs below: the "Back to
+	# the decision" bar must never outlive the decision it points at.
+	end_board_examine()
+	_reactive_decision_dialog = null
 	if not _reactive_stratagem_pending:
 		return
 	_reactive_stratagem_pending = false
@@ -1396,13 +1428,205 @@ func _on_reactive_stratagem_safety_timeout() -> void:
 	# Safety net: the owning controller never called hide_reactive_stratagem_waiting()
 	# (e.g. its decision dialog was orphaned by a phase transition). Force the
 	# input-blocking overlay down so the player is never permanently locked out.
-	# This only clears the UI — the reactive window's own auto-decline already
+	# This only clears the UI — the reactive window's own resolution path already
 	# resolved (or will resolve) the game state via the decision dialog / AI path.
 	if not _reactive_stratagem_pending:
+		return
+	# DEFENDER CONTROL: the reactive dialogs no longer auto-decline, so a window
+	# still open after 2 minutes is a player thinking (or examining the board),
+	# not a stuck overlay. Tearing the block down under them would let the
+	# ACTIVE player click the battlefield mid-decision. Re-arm instead; the
+	# force-hide is reserved for a genuinely orphaned overlay (no live dialog).
+	if is_instance_valid(_reactive_decision_dialog):
+		if _reactive_stratagem_safety_timer and is_instance_valid(_reactive_stratagem_safety_timer):
+			_reactive_stratagem_safety_timer.start(REACTIVE_STRATAGEM_SAFETY_SECONDS)
+		print("Main: Reactive stratagem overlay safety-timeout — decision dialog still open, re-arming")
 		return
 	push_warning("Main: Reactive stratagem overlay safety-timeout fired — force-hiding stuck blocking overlay")
 	print("Main: Reactive stratagem overlay safety-timeout fired — force-hiding stuck blocking overlay")
 	hide_reactive_stratagem_waiting()
+
+# =============================================================================
+# "Examine Board" mode for reactive decision windows (2026-08-04)
+# =============================================================================
+# A reactive window ("do you want to Leap to Defend?") asks a question about the
+# BOARD, but the dialog plus the MA-42 dim covered it, and the wheel died on the
+# overlay so the player could not even zoom out to look. The dialog now carries
+# an "Examine Board" toggle (ReactiveDecisionUI) which hides itself and calls in
+# here: the dim drops to fully transparent, a "Back to the decision" bar takes
+# the banner's place, and camera gestures are forwarded through the overlay.
+# Board clicks stay blocked throughout — the player can look, not act.
+
+const REACTIVE_OVERLAY_DIM := Color(0.0, 0.0, 0.0, 0.45)
+const REACTIVE_OVERLAY_CLEAR := Color(0.0, 0.0, 0.0, 0.0)
+
+func _build_board_examine_bar() -> void:
+	_board_examine_bar = PanelContainer.new()
+	_board_examine_bar.name = "BoardExamineBar"
+	# Top-center strip: out of the way of the board, impossible to miss.
+	_board_examine_bar.anchor_left = 0.5
+	_board_examine_bar.anchor_right = 0.5
+	_board_examine_bar.anchor_top = 0.0
+	_board_examine_bar.anchor_bottom = 0.0
+	_board_examine_bar.offset_left = -320
+	_board_examine_bar.offset_right = 320
+	# Clear the top HUD strip so the bar never sits on the phase/CP readout the
+	# player is also checking while they look around.
+	_board_examine_bar.offset_top = DialogConstants.TOP_HUD_CLEARANCE + 12
+	_board_examine_bar.offset_bottom = DialogConstants.TOP_HUD_CLEARANCE + 92
+	_board_examine_bar.mouse_filter = Control.MOUSE_FILTER_STOP
+	_board_examine_bar.visible = false
+
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.08, 0.05, 0.97)
+	style.border_color = _WhiteDwarfTheme.WH_GOLD
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(8)
+	style.set_content_margin_all(10)
+	_board_examine_bar.add_theme_stylebox_override("panel", style)
+
+	var vbox = VBoxContainer.new()
+	vbox.name = "Content"
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 6)
+	_board_examine_bar.add_child(vbox)
+
+	_board_examine_label = Label.new()
+	_board_examine_label.name = "BoardExamineLabel"
+	_board_examine_label.text = "Examining the board — your decision is on hold"
+	_board_examine_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_board_examine_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	_board_examine_label.add_theme_font_size_override("font_size", 19)
+	vbox.add_child(_board_examine_label)
+
+	_board_examine_button = Button.new()
+	_board_examine_button.name = "BoardExamineReturnButton"
+	_board_examine_button.text = "◀  Back to the decision"
+	_board_examine_button.custom_minimum_size = Vector2(300, 34)
+	_board_examine_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_board_examine_button.tooltip_text = "Return to the stratagem window (Escape also works). Nothing has been decided."
+	_board_examine_button.pressed.connect(_on_board_examine_return_pressed)
+	vbox.add_child(_board_examine_button)
+
+	_reactive_stratagem_overlay.add_child(_board_examine_bar)
+
+
+## Called by ReactiveDecisionUI when the player toggles "Examine Board" on.
+## `on_return` is invoked when they come back (bar button or Escape).
+func begin_board_examine(decision_label: String, on_return: Callable) -> void:
+	if not _reactive_stratagem_overlay:
+		return
+	_board_examine_return = on_return
+	_board_examine_active = true
+	_board_examine_dragging = false
+	# Un-dim: the whole point is to SEE the board. The overlay stays visible (and
+	# MOUSE_FILTER_STOP) so board clicks are still swallowed.
+	_reactive_stratagem_overlay.color = REACTIVE_OVERLAY_CLEAR
+	_reactive_stratagem_overlay.visible = true
+	if _reactive_stratagem_overlay_panel:
+		_reactive_stratagem_overlay_panel.visible = false
+	if _reactive_stratagem_overlay_pulse_tween:
+		_reactive_stratagem_overlay_pulse_tween.kill()
+		_reactive_stratagem_overlay_pulse_tween = null
+	if _board_examine_label:
+		_board_examine_label.text = "Examining the board — your %s decision is on hold" % decision_label
+	if _board_examine_button:
+		_board_examine_button.text = "◀  Back to the %s decision" % decision_label
+	if _board_examine_bar:
+		_board_examine_bar.visible = true
+		# Pulse the way back so it reads as the live affordance, not chrome.
+		if _board_examine_pulse_tween:
+			_board_examine_pulse_tween.kill()
+		_board_examine_pulse_tween = create_tween().set_loops()
+		_board_examine_pulse_tween.tween_property(_board_examine_bar, "modulate", Color(1, 1, 1, 0.75), 1.0).set_trans(Tween.TRANS_SINE)
+		_board_examine_pulse_tween.tween_property(_board_examine_bar, "modulate", Color(1, 1, 1, 1.0), 1.0).set_trans(Tween.TRANS_SINE)
+	print("Main: board-examine mode ON (%s decision held)" % decision_label)
+
+
+## Restore the dim + banner and drop the examine bar. Idempotent.
+func end_board_examine() -> void:
+	if not _board_examine_active:
+		return
+	_board_examine_active = false
+	_board_examine_dragging = false
+	_board_examine_return = Callable()
+	if _board_examine_pulse_tween:
+		_board_examine_pulse_tween.kill()
+		_board_examine_pulse_tween = null
+	if _board_examine_bar:
+		_board_examine_bar.visible = false
+		_board_examine_bar.modulate = Color(1, 1, 1, 1)
+	if _reactive_stratagem_overlay:
+		_reactive_stratagem_overlay.color = REACTIVE_OVERLAY_DIM
+	if _reactive_stratagem_overlay_panel:
+		_reactive_stratagem_overlay_panel.visible = true
+	print("Main: board-examine mode OFF")
+
+
+func is_board_examining() -> bool:
+	return _board_examine_active
+
+
+func _on_board_examine_return_pressed() -> void:
+	var cb := _board_examine_return
+	# end_board_examine() clears the callable, so grab it first; the dialog's own
+	# set_examining(false) re-shows the window and calls back in here.
+	if cb.is_valid():
+		cb.call()
+	else:
+		end_board_examine()
+
+
+## Register the dialog the blocking overlay is currently held open for, so the
+## safety timer can tell "player is still deciding" from "overlay is orphaned".
+func set_reactive_decision_dialog(dialog: Window) -> void:
+	_reactive_decision_dialog = dialog
+
+
+## One mouse-wheel notch of camera zoom, anchored on `screen_anchor` (root
+## viewport coordinates). Public because an embedded dialog Window swallows
+## EVERY mouse event while it is focused — including notches over the board
+## behind it — so those windows hand the wheel back to the board through here
+## (ReactiveDecisionUI.forward_camera_wheel). Returns true if the view moved.
+func zoom_camera_notch(zoom_in: bool, screen_anchor: Vector2) -> bool:
+	var factor: float = WHEEL_ZOOM_FACTOR if zoom_in else 1.0 / WHEEL_ZOOM_FACTOR
+	note_camera_gesture("zoom_in" if zoom_in else "zoom_out")
+	if _zoom_about(view_zoom * factor, screen_anchor):
+		update_view_transform()
+		return true
+	return false
+
+
+## Camera-only passthrough on the blocking overlay. The overlay exists to stop
+## the board being CLICKED during someone else's decision window; it was also
+## silently eating the mouse wheel, so a player who tried to zoom out to see the
+## board got nothing (and, before this change, lost the stratagem to the
+## 5-second auto-decline while they fiddled). Looking is not acting.
+##
+## This fires while the decision dialog is HIDDEN — i.e. board-examine mode, and
+## the attacker-side wait. While the dialog Window itself is up the engine routes
+## every mouse event into that sub-window instead, so the wheel is forwarded from
+## there (ReactiveDecisionUI.forward_camera_wheel) rather than here.
+func _on_reactive_overlay_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.pressed and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
+			print("Main: reactive overlay forwarding wheel %d to camera (examining=%s)" % [mb.button_index, str(_board_examine_active)])
+			zoom_camera_notch(mb.button_index == MOUSE_BUTTON_WHEEL_UP, get_viewport().get_mouse_position())
+			_reactive_stratagem_overlay.accept_event()
+			return
+		# Drag-pan only while examining: during the dimmed wait a stray drag on
+		# the block should stay inert.
+		if _board_examine_active and (mb.button_index == MOUSE_BUTTON_MIDDLE or mb.button_index == MOUSE_BUTTON_RIGHT):
+			_board_examine_dragging = mb.pressed
+			_reactive_stratagem_overlay.accept_event()
+			return
+	elif event is InputEventMouseMotion and _board_examine_dragging:
+		var mm := event as InputEventMouseMotion
+		view_offset -= mm.relative.rotated(-view_rotation) / view_zoom
+		note_camera_pan_gesture(-mm.relative)
+		update_view_transform()
+		_reactive_stratagem_overlay.accept_event()
 
 # =============================================================================
 # P3-56: Web Relay "Waiting for game state" Loading Screen
@@ -6282,6 +6506,13 @@ func _input(event: InputEvent) -> void:
 	# Use direct keycode check for reliability (is_action_pressed can miss with physical_keycode-only mappings)
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		print("Main: Escape key pressed")
+		# Board-examine mode owns Escape first: the player is mid-decision with
+		# the stratagem window parked, so Escape means "I'm done looking", not
+		# "open the pause menu".
+		if _board_examine_active:
+			_on_board_examine_return_pressed()
+			get_viewport().set_input_as_handled()
+			return
 		# Shared with the pad View/Select button — see _run_pause_menu_cascade.
 		# Returns false only for the shooting defer (leave the event for
 		# ShootingController); every other branch handles and consumes it.

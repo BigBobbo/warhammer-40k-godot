@@ -1181,8 +1181,23 @@ func _do_pad_cursor_glide(step: Dictionary) -> Dictionary:
 			return {"pass": false, "error": "glide target vanished while re-resolving"}
 		target = resolved
 		if (vc.get_cursor_pos() - target).length() <= 4.0:
+			# "Already on the target" must still leave the SAME state a real
+			# glide does, or the step silently means something different from
+			# the one below it. glide_to_screen claims pad mode and warps
+			# (synthesising motion); returning early did neither, so after an
+			# earlier real-mouse click_node the game was still in KBM mode and
+			# VirtualCursor.is_cursor_active() was false — which makes the next
+			# A press fall through PadRouter._try_open_move_menu's cursor gate
+			# instead of clicking at the cursor. A player can never be in that
+			# state: reaching the target means having moved the stick, which
+			# claims pad mode on the way. Measured on tut_t6_krumpin_pad, where
+			# an unrelated right-panel layout change happened to park the cursor
+			# within 4px of the next target and turned its A press into a no-op.
+			InputDeviceManager.claim_pad()
+			vc.warp_to(target)
+			await get_tree().process_frame
 			return {"pass": true, "target": [target.x, target.y], "rounds": rounds,
-					"stalls": stalls}
+					"stalls": stalls, "via": "already_on_target"}
 		var ok: bool = await vc.glide_to_screen(target, float(step.get("timeout_s", 4.0)))
 		if not ok:
 			# A non-arrival is NOT necessarily a dead target. VirtualCursor._process
