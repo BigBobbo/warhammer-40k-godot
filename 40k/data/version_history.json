@@ -17,6 +17,15 @@
       ]
     },
     {
+      "version": "1.23.1",
+      "date": "2026-08-04",
+      "summary": "Objective markers no longer read 'Uncontrolled' on the board while your models are standing on them.",
+      "changes": [
+        "Fixed (reported from a live game): objectives you genuinely controlled kept the 'Uncontrolled' label on the board — including terrain objectives with a whole squad parked inside them — even though the OBJECTIVE CONTROL list in the right-hand panel named you as the controller. The board label only ever refreshed when control CHANGED hands, so any objective you already held when the board was drawn (most often after loading a saved game, which restores objective control before rebuilding the markers) kept its default 'Uncontrolled' text until control happened to flip.",
+        "The marker's label, gold rim and area tint are now synced to the real control state whenever objective control is checked, so what the board shows always matches who actually holds the objective."
+      ]
+    },
+    {
       "version": "1.23.0",
       "date": "2026-08-04",
       "summary": "Reactive stratagem popups (Leap to Defend, Fire Overwatch, Counter-Offensive, Rapid Ingress) no longer time you out, and you can now look at the board before deciding.",
