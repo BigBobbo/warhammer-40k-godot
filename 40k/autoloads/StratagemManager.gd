@@ -3101,10 +3101,31 @@ func is_counter_offensive_available(player: int) -> Dictionary:
 		return {"available": false, "reason": validation.reason}
 	return {"available": true, "reason": ""}
 
-func get_counter_offensive_eligible_units(player: int, units_that_fought: Array, game_state_snapshot: Dictionary) -> Array:
+func get_counter_offensive_eligible_units(player: int, units_that_fought: Array, game_state_snapshot: Dictionary, fight_eligible_ids = null) -> Array:
 	"""
 	Get units eligible for Counter-Offensive for a given player.
-	Requirements: owned by player, in engagement range, not fought this phase, not battle-shocked.
+
+	11e 15.12 TARGET: "One friendly unit that is eligible to fight." 12.04
+	defines eligible to fight as: not already selected to fight this phase, AND
+	(engaged, OR engaged at the start of the Fight step, OR made a charge move
+	this turn). Only the live FightSequencer knows the "engaged at the start of
+	this step" half, so the Fight phase passes its 12.04 candidate list in via
+	`fight_eligible_ids`. Callers without a sequencer (tests, headless probes)
+	leave it null and fall back to the bare geometric "in Engagement Range"
+	check — the subset of 12.04 that is derivable from a snapshot alone.
+
+	19.01: "An attached unit is a single unit for all rules purposes", so an
+	attached CHARACTER never gets a row of its own here — the Blade Champion
+	leading Custodian Guard is offered through the Guard's row, and selecting
+	that row activates the whole Attached unit. The conditions that belong to
+	the unit as a whole (fought, battle-shocked, eligible to fight) are asked of
+	every component and folded onto the bodyguard; survival is asked of the
+	bodyguard alone, because 19.05 dissolves the Attached unit the moment its
+	bodyguard is destroyed.
+
+	Battle-shocked units stay excluded (01.07: "its controlling player cannot
+	target that unit with stratagems").
+
 	Returns array of { unit_id: String, unit_name: String }
 	"""
 	var eligible = []
@@ -3115,21 +3136,23 @@ func get_counter_offensive_eligible_units(player: int, units_that_fought: Array,
 		return eligible
 
 	var all_units = game_state_snapshot.get("units", {})
+	var use_fight_list: bool = fight_eligible_ids != null
 	for unit_id in all_units:
 		var unit = all_units[unit_id]
 		if int(unit.get("owner", 0)) != player:
 			continue
 
-		# Must not have already fought this phase
-		if unit_id in units_that_fought:
+		# 19.01: an attached CHARACTER is a component of its bodyguard's
+		# Attached unit, not a unit of its own — no row. (19.05 lets him back
+		# out as his own unit once the bodyguard is wiped; is_attached_character
+		# already returns false in that case.)
+		if RulesEngine.is_attached_character(unit_id, game_state_snapshot):
 			continue
 
-		# Must not be battle-shocked
-		var flags = unit.get("flags", {})
-		if flags.get("battle_shocked", false):
-			continue
-
-		# Must have alive models
+		# Must have alive models of its OWN. 19.05: once a bodyguard unit is
+		# destroyed its leaders are units in their own right again (and are
+		# offered as such by the branch above), so a wiped bodyguard must not
+		# stay on the list on the strength of its ex-leader's model.
 		var has_alive = false
 		for model in unit.get("models", []):
 			if model.get("alive", true):
@@ -3138,26 +3161,79 @@ func get_counter_offensive_eligible_units(player: int, units_that_fought: Array,
 		if not has_alive:
 			continue
 
-		# Must be in engagement range of at least one enemy
-		var in_engagement = false
-		var unit_owner = int(unit.get("owner", 0))
-		for other_unit_id in all_units:
-			var other_unit = all_units[other_unit_id]
-			if int(other_unit.get("owner", 0)) == unit_owner:
-				continue
-			if _units_in_engagement_range(unit, other_unit):
-				in_engagement = true
-				break
+		var group_ids = RulesEngine.attached_unit_component_ids(unit_id, game_state_snapshot)
 
-		if not in_engagement:
+		# Must not have already fought this phase — the Attached unit fights
+		# ONCE, so any component being marked spends the whole unit's fight.
+		var group_fought = false
+		for gid in group_ids:
+			if gid in units_that_fought:
+				group_fought = true
+				break
+		if group_fought:
 			continue
+
+		# Must not be battle-shocked (any component battle-shocks the unit)
+		var battle_shocked = false
+		for gid in group_ids:
+			if all_units.get(gid, {}).get("flags", {}).get("battle_shocked", false):
+				battle_shocked = true
+				break
+		if battle_shocked:
+			continue
+
+		if use_fight_list:
+			# 12.04 eligibility, straight from the sequencer. The Attached unit
+			# is eligible when ANY component is (e.g. a bodyguard standing off
+			# the enemy while only its Leader's model is engaged).
+			var in_fight_list = false
+			for gid in group_ids:
+				if gid in fight_eligible_ids:
+					in_fight_list = true
+					break
+			if not in_fight_list:
+				continue
+		else:
+			# Fallback: in engagement range of at least one enemy — measured
+			# across the whole Attached unit's models.
+			var in_engagement = false
+			for gid in group_ids:
+				var member = all_units.get(gid, {})
+				if member.is_empty():
+					continue
+				for other_unit_id in all_units:
+					var other_unit = all_units[other_unit_id]
+					if int(other_unit.get("owner", 0)) == player:
+						continue
+					if _units_in_engagement_range(member, other_unit):
+						in_engagement = true
+						break
+				if in_engagement:
+					break
+
+			if not in_engagement:
+				continue
 
 		eligible.append({
 			"unit_id": unit_id,
-			"unit_name": _unit_display_name(unit, unit_id)
+			"unit_name": _attached_unit_display_name(unit_id, game_state_snapshot)
 		})
 
 	return eligible
+
+func _attached_unit_display_name(unit_id: String, board: Dictionary) -> String:
+	"""19.01 display name for an Attached unit's single row:
+	"Custodian Guard Beta + Blade Champion Beta" (movement-panel convention)."""
+	var all_units = board.get("units", {})
+	var name = _unit_display_name(all_units.get(unit_id, {}), unit_id)
+	var char_names: Array = []
+	for gid in RulesEngine.attached_unit_component_ids(unit_id, board):
+		if gid == unit_id:
+			continue
+		char_names.append(_unit_display_name(all_units.get(gid, {}), gid))
+	if char_names.is_empty():
+		return name
+	return "%s + %s" % [name, ", ".join(char_names)]
 
 func _units_in_engagement_range(unit1: Dictionary, unit2: Dictionary) -> bool:
 	"""Check if any model from unit1 is within 1\" of any model from unit2."""
