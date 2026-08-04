@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.22.2",
+      "version": "1.22.3",
       "date": "2026-08-04",
       "summary": "Fight fix: a led unit fighting two different enemies no longer has its whole activation thrown away with 'not within engagement range'.",
       "changes": [
@@ -12,6 +12,17 @@
         "When a unit's sections are locked with different enemies the dialog now says so up front, and each section's target button only cycles through what that section can actually hit.",
         "The opposite failure is closed too: an out-of-reach swing that happened to be second in the list used to be waved through and resolve in full — a Blade Champion 8\" from a mob still killing models in it. Every attack in the batch is checked now.",
         "Refusals name the units involved (\"'Blade Champion' is not within Engagement Range of 'Stormboyz Beta'\") instead of the old unattributed message."
+      ]
+    },
+    {
+      "version": "1.22.2",
+      "date": "2026-08-03",
+      "summary": "Secondary Missions: a card you scored VP from this turn can no longer be discarded for +1 CP, and Fixed Mission cards stop offering a Discard button that never worked.",
+      "changes": [
+        "Fixed (reported from a live game): a Secondary Mission card that had already scored victory points this turn was still offered for the end-of-turn 'discard for +1 CP'. The mission pack resolves the two in order — first you discard the cards you scored VP from (they are achieved), and only then may you discard active cards for CP — so a scored card is never available to cash in.",
+        "Fixed Missions can never be discarded (only the Adapt or Die Mission Rule card can replace one), but the Scoring panel and the end-of-turn prompt both showed a 'Discard (+1 CP)' button for them. Pressing it did nothing at all. The button is now greyed out with the reason on the card, and the end-of-turn prompt no longer opens when nothing may be discarded.",
+        "Any card that is locked out now says why — 'Fixed Missions cannot be discarded' or 'Already scored N VP this turn — an achieved card cannot be discarded for CP' — instead of a button that silently fails.",
+        "Removed the 'Discard (+1 CP)' button from the Command phase mission panel: discarding for CP is an end-of-turn action, and that button dispatched an action the Command phase never handled, so it did nothing. New Orders (1 CP) is still there, which is the Command phase's real card-swap option."
       ]
     },
     {
