@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.22.3",
+      "version": "1.22.5",
       "date": "2026-08-04",
       "summary": "Fight fix: a led unit fighting two different enemies no longer has its whole activation thrown away with 'not within engagement range'.",
       "changes": [
@@ -12,6 +12,31 @@
         "When a unit's sections are locked with different enemies the dialog now says so up front, and each section's target button only cycles through what that section can actually hit.",
         "The opposite failure is closed too: an out-of-reach swing that happened to be second in the list used to be waved through and resolve in full — a Blade Champion 8\" from a mob still killing models in it. Every attack in the batch is checked now.",
         "Refusals name the units involved (\"'Blade Champion' is not within Engagement Range of 'Stormboyz Beta'\") instead of the old unattributed message."
+      ]
+    },
+    {
+      "version": "1.22.4",
+      "date": "2026-08-04",
+      "summary": "The Pile In and Consolidate steps now clearly show a list of units you can pick, instead of unit names that read like more instruction text.",
+      "changes": [
+        "Fixed (reported): in the Consolidate step the sentence telling you what to do looked exactly like the unit names underneath it, so it wasn't clear the panel was offering you a list of units to click.",
+        "Eligible units are now listed under a gold 'ELIGIBLE UNITS (n) — CLICK ONE TO CONSOLIDATE' heading, and each unit is a proper bordered button that lights up under the cursor.",
+        "The explanation paragraph above the list is now dimmed, so the instructions and the pickable units can't be read as one block of text.",
+        "Unit rows no longer cut off the bit that matters: 'Custodian Guard Beta + Blade Champion Beta  [Obj…' now wraps and shows the full '[Objective]' hint.",
+        "Units that actually have a move available are listed first; units with no move possible are greyed and sorted to the bottom.",
+        "With a big army the list gains a 'Filter eligible units…' box — type any part of a unit's name and the list narrows as you type, with the heading showing how many of the total are still shown.",
+        "The same treatment is applied to the Pile In step, which had the identical problem."
+      ]
+    },
+    {
+      "version": "1.22.3",
+      "date": "2026-08-04",
+      "summary": "Counter-Offensive fix: a character attached to a squad is no longer offered as a separate unit in the 2 CP interrupt, and the stratagem now follows the 11th edition wording instead of the retired 10th edition one.",
+      "changes": [
+        "Fixed (reported from a live game): when the Counter-Offensive interrupt was offered, an attached character was listed as a unit of its own — a Blade Champion leading a squad of Custodian Guard got its own 'Fight Next (2 CP)' row next to theirs. An attached unit is a single unit for all rules purposes, so it now gets one row, named for the whole unit ('Custodian Guard + Blade Champion'), and picking it activates the character and the squad together.",
+        "Counter-Offensive was still running the 10th edition version of the stratagem. It now targets 'one friendly unit that is eligible to fight' — which includes a unit that was engaged at the start of the Fight step, or that charged this turn — rather than only units currently within Engagement Range.",
+        "Counter-Offensive can now only be used during your OPPONENT'S Fight phase, as the current edition requires. Previously the active player was also offered it whenever a defending unit swung back.",
+        "The dialog now describes what the stratagem actually does in this edition: the unit you pick gains Fights First until the end of the phase and must be the next unit you select to fight."
       ]
     },
     {

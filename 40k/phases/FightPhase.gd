@@ -2765,15 +2765,29 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	# — keep the 12.08 consolidation-eligibility stamps cumulative.
 	_stamp_fight_eligibility_11e()
 
-	# Counter-Offensive window: "after an enemy unit has fought"
+	# Counter-Offensive window (11e 15.12) — "Fight step of your OPPONENT'S
+	# Fight phase, just after an enemy unit has resolved its attacks".
 	var fought_unit = get_unit(unit_id)
 	var fought_unit_owner = int(fought_unit.get("owner", 0))
 	var opponent_player = 2 if fought_unit_owner == 1 else 1
 	var co_check = StratagemManager.is_counter_offensive_available(opponent_player)
+	# 11e restricts the window to the non-active player: during your own Fight
+	# phase you cannot counter-offensive (10e's version had no such clause —
+	# "Fight phase, just after an enemy unit has fought" — and this offered the
+	# active player the stratagem whenever a defender's unit swung back).
+	if GameConstants.edition >= 11 and opponent_player == GameState.get_active_player():
+		co_check = {"available": false, "reason": "COUNTER-OFFENSIVE is only usable in your opponent's Fight phase (15.12)"}
 	var co_eligible = []
 	if co_check.available:
+		# 15.12 TARGET is "one friendly unit that is eligible to fight" — hand
+		# the sequencer's live 12.04 candidate list over rather than re-deriving
+		# a 10e "in Engagement Range" approximation. It is already 19.01-folded,
+		# so attached CHARACTERs arrive through their bodyguard's entry.
+		var co_fight_eligible = null
+		if sequencer_11e != null:
+			co_fight_eligible = sequencer_11e.eligible_units(GameState.state, opponent_player, false)
 		co_eligible = StratagemManager.get_counter_offensive_eligible_units(
-			opponent_player, units_that_fought, game_state_snapshot
+			opponent_player, units_that_fought, game_state_snapshot, co_fight_eligible
 		)
 	if not co_eligible.is_empty():
 		awaiting_counter_offensive = true
@@ -4849,11 +4863,27 @@ func _validate_use_counter_offensive(action: Dictionary) -> Dictionary:
 		errors.append("Unit does not belong to player %d" % player)
 		return {"valid": false, "errors": errors}
 
-	if unit_id in units_that_fought:
-		errors.append("Unit has already fought this phase")
+	# 19.01: an Attached unit is a single unit — its CHARACTER has no activation
+	# of his own, so the bodyguard's id is the only legal selection here.
+	if _fight_is_attached_character(unit_id):
+		errors.append("%s is an attached character — select its bodyguard; the Attached unit counter-offensives as one (19.01)" % unit_id)
 		return {"valid": false, "errors": errors}
 
-	if not _is_unit_in_combat(unit):
+	# The Attached unit fights ONCE: any component being marked spends it.
+	for gid in _fight_group_ids(unit_id):
+		if gid in units_that_fought:
+			errors.append("Unit has already fought this phase")
+			return {"valid": false, "errors": errors}
+
+	# 11e 15.12 TARGET: "one friendly unit that is eligible to fight" (12.04 —
+	# engaged, engaged at the start of the step, or charged this turn). The 10e
+	# version demanded Engagement Range specifically; keep that as the fallback
+	# for the sequencer-less path only.
+	if sequencer_11e != null:
+		if not sequencer_11e.group_eligible_to_fight(unit_id, GameState.state):
+			errors.append("Unit is not eligible to fight (12.04)")
+			return {"valid": false, "errors": errors}
+	elif not _is_unit_in_combat(unit):
 		errors.append("Unit is not in engagement range")
 		return {"valid": false, "errors": errors}
 
