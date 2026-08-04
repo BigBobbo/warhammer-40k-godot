@@ -1,0 +1,369 @@
+{
+  "id": "battleshock_roll_call_sequence",
+  "covers": [
+    "scripts.CommandController.battle_shock_roll_call",
+    "dialogs.BattleShockSequenceDialog",
+    "phases.CommandPhase.get_battle_shock_queue",
+    "phases.CommandPhase.battle_shock_test_resolved",
+    "scripts.Main.restore_view_snapshot",
+    "scripts.DiceFaceVisual"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "description": "Battle-shock tests must be ROLLED IN FRONT OF THE PLAYER, one unit at a time, instead of auto-resolving into the game log. Drives the real roll call through the real UI: the panel's RESOLVE BATTLE-SHOCK button opens the sequence dialog; it shows 'TEST 1 OF 2' for the first unit with its strength + the reason it must test; the camera pans to that unit and its models get focus rings; pressing Roll tumbles the dice and lands a verdict; Next walks to unit 2 (camera moves again); Finish shows the summary; Close restores the camera. Player CP is zeroed first so a failed test cannot branch into the Command Re-roll offer (covered separately by the Insane Bravery segment at the end).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.set_edition(11)",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Two P2 units owe a test: Kommandos are already at half strength (5/10);\n# set Boyz E to exactly 8 of 20 alive so it is BELOW half strength too\n# (its attached Warboss makes the combined unit 9 of 21).\nvar boyz = GameState.state[\"units\"][\"U_BOYZ_E\"]\nfor i in range(boyz[\"models\"].size()):\n\tboyz[\"models\"][i][\"alive\"] = i < 8\n# Rebuild the tokens so the board shows the casualties we just applied —\n# otherwise the focus rings would be asserted against a stale board.\nSceneRefs.main()._recreate_unit_visuals()\n# Zero CP so a failed test cannot branch into the Command Re-roll pause.\nGameState.state[\"players\"][\"2\"][\"cp\"] = 0\nvar cp = PhaseManager.get_current_phase_instance()\ncp._units_tested.clear()\ncp._identify_units_needing_tests()\nreturn cp._units_needing_test.size()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var q = PhaseManager.get_current_phase_instance().get_battle_shock_queue()\nreturn [q[0][\"unit_id\"], q[0][\"reason\"], q[1][\"unit_id\"], q[1][\"reason\"]]",
+      "equals": [
+        "U_BOYZ_E",
+        "below_half",
+        "U_KOMMANDOS_H",
+        "at_half"
+      ]
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var cc = tree.current_scene.get_node_or_null(\"CommandController\")\nif cc == null:\n\treturn \"NO_CONTROLLER\"\ncc._refresh_ui()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/BattleShockSection/BattleShockRollCallButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "SceneRefs.main_path(\"HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/BattleShockSection/BattleShockRollCallButton\").text",
+      "equals": "▶  RESOLVE BATTLE-SHOCK (2)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.set_meta(\"bs_test_offset\", main.view_offset)",
+      "equals": null
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# A real player answers the start-of-phase prompts (secondary-mission review,\n# Beacon / Condemn designations, ...) before reaching for the command panel.\n# Those are EXCLUSIVE windows, so a real mouse click on the panel underneath\n# goes nowhere until they are gone — clear whatever this fixture opened so the\n# click under test is the only thing in play.\nvar closed = []\nfor c in tree.root.get_children():\n\tif c is Window and c != tree.root:\n\t\tclosed.append(String(c.name))\n\t\tc.hide()\n\t\tc.queue_free()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/BattleShockSection/BattleShockRollCallButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/BattleShockSequenceDialog",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"BattleShockSequenceDialog/Content/HeadingLabel\").text",
+      "equals": "BATTLE-SHOCK  ·  TEST 1 OF 2"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"BattleShockSequenceDialog/Content/UnitLabel\").text",
+      "equals": "Boyz"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"BattleShockSequenceDialog/Content/StrengthLabel\").text",
+      "equals": "9 of 21 models remaining"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"BattleShockSequenceDialog/Content/ReasonLabel\").text",
+      "equals": "Below Half-strength"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"BattleShockSequenceDialog/Content/TargetLabel\").text.begins_with(\"Needs 7+ on 2D6\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The camera must have moved onto the unit under test...\nvar m = SceneRefs.main()\nvar moved = m.view_offset != m.get_meta(\"bs_test_offset\")\n# ...and every ALIVE model of it must be ringed on the board: 8 surviving\n# Boyz plus the attached Warboss, which tests as part of the unit. Rings are\n# named per model, so a rename collision cannot hide any of them.\nvar rings = 0\nfor c in SceneRefs.token_layer().get_children():\n\tif String(c.name).begins_with(\"BattleShockFocusRing_\"):\n\t\trings += 1\nreturn [moved, rings == 9]",
+      "equals": [
+        true,
+        true
+      ]
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "screenshot",
+      "label": "01_roll_call_unit_1_preroll"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/BattleShockSequenceDialog/Content/ButtonBar/RollButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The dice have settled on the real values and a verdict is on screen.\nvar d = tree.root.get_node(\"BattleShockSequenceDialog\")\nvar total = d.get_node(\"Content/DiceRow/TotalLabel\").text\nvar verdict = d.get_node(\"Content/VerdictLabel\").get_parsed_text()\nvar tested = \"U_BOYZ_E\" in PhaseManager.get_current_phase_instance()._units_tested\nvar decided = verdict.contains(\"PASSED\") or verdict.contains(\"FAILED\")\nreturn [total.begins_with(\"= \"), decided, tested]",
+      "equals": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "act": "screenshot",
+      "label": "02_roll_call_unit_1_result"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"BattleShockSequenceDialog/Content/ButtonBar/NextButton\").text",
+      "equals": "Next ▶  (1 to go)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.set_meta(\"bs_unit1_offset\", main.view_offset)",
+      "equals": null
+    },
+    {
+      "act": "click_node",
+      "node": "/root/BattleShockSequenceDialog/Content/ButtonBar/NextButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"BattleShockSequenceDialog/Content/HeadingLabel\").text",
+      "equals": "BATTLE-SHOCK  ·  TEST 2 OF 2"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"BattleShockSequenceDialog/Content/UnitLabel\").text",
+      "equals": "Kommandos"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"BattleShockSequenceDialog/Content/ReasonLabel\").text",
+      "equals": "At Half-strength"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.view_offset != main.get_meta(\"bs_unit1_offset\")",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The Kommandos must be framed in the band of screen that is actually board —\n# above the docked roll-call card, below the top HUD bar, clear of the log and\n# roster panels. Centring them (the old focus behaviour) would put them behind\n# the card we just told the player to read.\nvar m = SceneRefs.main()\nvar cc = tree.current_scene.get_node_or_null(\"CommandController\")\nvar centre: Vector2 = cc._bs_unit_centroid(\"U_KOMMANDOS_H\")\nvar screen: Vector2 = (centre - m.view_offset) * m.view_zoom\nvar vp: Vector2 = m.get_viewport().get_visible_rect().size\nvar dlg = tree.root.get_node(\"BattleShockSequenceDialog\")\nreturn [screen.y > 108.0, screen.y < float(dlg.position.y), screen.x > 340.0, screen.x < vp.x - 400.0]",
+      "equals": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "act": "screenshot",
+      "label": "03_roll_call_unit_2_camera_moved"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/BattleShockSequenceDialog/Content/ButtonBar/RollButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.8
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"BattleShockSequenceDialog/Content/ButtonBar/NextButton\").text",
+      "equals": "Finish ▶"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_roll_call_unit_2_result"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/BattleShockSequenceDialog/Content/ButtonBar/NextButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"BattleShockSequenceDialog/Content/HeadingLabel\").text",
+      "equals": "BATTLE-SHOCK COMPLETE"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Both units resolved, the focus rings are gone, and the summary names them.\nvar phase = PhaseManager.get_current_phase_instance()\nvar both = (\"U_BOYZ_E\" in phase._units_tested) and (\"U_KOMMANDOS_H\" in phase._units_tested)\nvar rings = 0\nvar layer = SceneRefs.token_layer()\nif layer:\n\tfor c in layer.get_children():\n\t\tif String(c.name).begins_with(\"BattleShockFocusRing_\"):\n\t\t\trings += 1\nvar summary = tree.root.get_node(\"BattleShockSequenceDialog/Content/VerdictLabel\").get_parsed_text()\nreturn [both, rings == 0, summary.contains(\"Boyz\") and summary.contains(\"Kommandos\")]",
+      "equals": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "act": "screenshot",
+      "label": "05_roll_call_summary"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/BattleShockSequenceDialog/Content/ButtonBar/CloseButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"BattleShockSequenceDialog\") == null",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = SceneRefs.main()\nvar restored: Vector2 = m.view_offset\nvar original: Vector2 = m.get_meta(\"bs_test_offset\")\nreturn restored.distance_to(original) < 2.0",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "06_camera_restored_after_roll_call"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Second segment: with CP in the bank, the roll call must offer INSANE\n# BRAVERY on the card (it used to be a separate button in the side panel).\nGameState.state[\"players\"][\"2\"][\"cp\"] = 3\nvar phase = PhaseManager.get_current_phase_instance()\nphase._units_tested.clear()\nphase._units_auto_passed.clear()\nphase._identify_units_needing_tests()\nvar cc = tree.current_scene.get_node_or_null(\"CommandController\")\ncc._refresh_ui()\nreturn phase._units_needing_test.size()",
+      "equals": 2
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/BattleShockSection/BattleShockRollCallButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/BattleShockSequenceDialog/Content/ButtonBar/InsaneBraveryButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "07_insane_bravery_offered_on_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/BattleShockSequenceDialog/Content/ButtonBar/InsaneBraveryButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node(\"BattleShockSequenceDialog\")\nvar verdict = d.get_node(\"Content/VerdictLabel\").get_parsed_text()\nvar cp_spent = int(GameState.state[\"players\"][\"2\"][\"cp\"]) == 2\nvar shocked = GameState.state[\"units\"][\"U_BOYZ_E\"].get(\"flags\", {}).get(\"battle_shocked\", false)\nreturn [verdict.contains(\"AUTO-PASSED\"), cp_spent, shocked]",
+      "equals": [
+        true,
+        true,
+        false
+      ]
+    },
+    {
+      "act": "screenshot",
+      "label": "08_insane_bravery_auto_pass"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/BattleShockSequenceDialog/Content/ButtonBar/AutoResolveButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# 'Roll the rest for me' resolves everything still outstanding and lands on\n# the summary — the old silent behaviour, now as an explicit choice.\nvar phase = PhaseManager.get_current_phase_instance()\nvar heading = tree.root.get_node(\"BattleShockSequenceDialog/Content/HeadingLabel\").text\nreturn [phase.get_untested_battle_shock_units().is_empty(), heading]",
+      "equals": [
+        true,
+        "BATTLE-SHOCK COMPLETE"
+      ]
+    },
+    {
+      "act": "screenshot",
+      "label": "09_auto_resolve_rest"
+    }
+  ]
+}

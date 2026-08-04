@@ -4,10 +4,18 @@ extends AcceptDialog
 #
 # Shows a warning when the player attempts to end the Command phase while there
 # are units that haven't taken their battle-shock tests yet. Lists the untested
-# units and asks for confirmation before auto-resolving.
+# units and offers the choice the old dialog never did: ROLL THEM, one unit at a
+# time, in front of the player (the Battle-shock roll call), instead of having
+# them auto-resolved into the game log where nobody reads them.
+#
+# Three ways out, in order of prominence:
+#   Roll them now ▶      — open the roll call, then end the phase (default)
+#   Auto-resolve & end   — the historical behaviour, now an explicit choice
+#   Back                 — return to the Command phase
 
 signal end_command_confirmed()
 signal end_command_cancelled()
+signal roll_tests_requested()
 
 var untested_units: Array = []
 
@@ -39,7 +47,7 @@ func _build_ui() -> void:
 
 	# Warning message
 	var warning_label = Label.new()
-	warning_label.text = "%d unit(s) have not taken their Battle-shock test. They will be auto-resolved if you end the phase. Continue?" % untested_units.size()
+	warning_label.text = "%d unit(s) have not taken their Battle-shock test.\nRoll them one at a time, or let them auto-resolve into the game log." % untested_units.size()
 	warning_label.add_theme_font_size_override("font_size", 18)
 	warning_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	warning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -72,12 +80,27 @@ func _build_ui() -> void:
 
 	main_container.add_child(HSeparator.new())
 
-	# Buttons
+	# Buttons — "roll them" is the primary, widest action.
+	var roll_container = HBoxContainer.new()
+	roll_container.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	var roll_button = Button.new()
+	roll_button.name = "RollTestsButton"
+	roll_button.text = "▶  Roll them now"
+	roll_button.tooltip_text = "Step through each test: the camera moves to the unit and the dice are rolled on screen."
+	roll_button.custom_minimum_size = Vector2(320, 42)
+	WhiteDwarfTheme.apply_primary_button(roll_button)
+	roll_button.add_theme_font_size_override("font_size", 18)
+	roll_button.pressed.connect(_on_roll_pressed)
+	roll_container.add_child(roll_button)
+	main_container.add_child(roll_container)
+
 	var button_container = HBoxContainer.new()
 	button_container.alignment = BoxContainer.ALIGNMENT_CENTER
 
 	var cancel_button = Button.new()
-	cancel_button.text = "Cancel"
+	cancel_button.name = "CancelButton"
+	cancel_button.text = "Back"
 	cancel_button.custom_minimum_size = Vector2(150, 40)
 	cancel_button.pressed.connect(_on_cancel_pressed)
 	button_container.add_child(cancel_button)
@@ -87,7 +110,9 @@ func _build_ui() -> void:
 	button_container.add_child(spacer)
 
 	var confirm_button = Button.new()
-	confirm_button.text = "End Command Phase"
+	confirm_button.name = "AutoResolveEndButton"
+	confirm_button.text = "Auto-resolve & end"
+	confirm_button.tooltip_text = "Resolve every outstanding test at once. Results go to the game log only."
 	confirm_button.custom_minimum_size = Vector2(150, 40)
 	confirm_button.add_theme_color_override("font_color", Color.ORANGE)
 	confirm_button.pressed.connect(_on_confirm_pressed)
@@ -96,6 +121,12 @@ func _build_ui() -> void:
 	main_container.add_child(button_container)
 
 	add_child(main_container)
+
+func _on_roll_pressed() -> void:
+	print("BattleShockConfirmationDialog: Player chose to roll %d battle-shock test(s) on screen" % untested_units.size())
+	emit_signal("roll_tests_requested")
+	hide()
+	queue_free()
 
 func _on_confirm_pressed() -> void:
 	print("BattleShockConfirmationDialog: Player confirmed ending command phase with %d untested units" % untested_units.size())

@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.23.1",
+      "version": "1.24.1",
       "date": "2026-08-04",
       "summary": "Fight phase: 'Best Weapons ✨' no longer suggests attacks that overkill one unit — it spreads a unit's attacks across the enemies it is engaged with, and the dialog now says how much of a plan is being thrown away.",
       "changes": [
@@ -12,6 +12,30 @@
         "The assignments box now shows what a plan really does: each line adds '≈X lands' when that differs from its raw forecast, the total reads '≈X lands · ≈Y thrown away', and a warning names any unit you have aimed more damage at than it has wounds left — with the reminder that the surplus does not carry over to another unit.",
         "The damage breakdown table gained a LANDS row (how much of this swing the target can still absorb) and a note when a single section alone is more damage than the target has wounds.",
         "Weapon choice is overkill-aware too: a high-damage profile no longer outranks a multi-attack one against 1-wound models, where most of each hit is thrown away."
+      ]
+    },
+    {
+      "version": "1.24.0",
+      "date": "2026-08-04",
+      "summary": "Battle-shock tests are now rolled in front of you, one unit at a time — the camera moves to the unit, the dice tumble on screen, and you click Next.",
+      "changes": [
+        "Battle-shock used to resolve invisibly: ending the Command phase auto-resolved every outstanding test in one silent go, and the only trace was a couple of lines in the game log. There is now a Battle-shock roll call — the tests are resolved in army-list order, one at a time, and you confirm each one.",
+        "For each unit the camera pans to it and its models get a pulsing amber ring, so you can see exactly who is testing before anything is rolled.",
+        "Two big dice tumble and land in front of you, like the first-turn roll-off. The card tells you the unit, how many models it has left, WHY it has to test (Below Half-strength / At Half-strength / already Battle-shocked) and what it needs to pass.",
+        "The result spells out the consequence instead of leaving you to work it out: a failure says 'OC 0 · no Stratagems · no Actions · Desperate Escape when Falling Back', and a pass while Battle-shocked says 'RECOVERED'.",
+        "Insane Bravery (1 CP) and the Command Re-roll are now offered on the same card, at the moment they matter — the re-roll keeps the failed dice on screen and shows the discarded roll instead of popping a second window over the top.",
+        "'End Command Phase' with tests outstanding now offers 'Roll them now' as the default. Auto-resolving them all at once is still there, but it is a choice you make rather than what silently happens.",
+        "A 'Roll the rest for me' button on the roll call skips ahead at any point, and the sequence closes with a summary of who passed, who failed and who spent Insane Bravery.",
+        "The camera returns to where you left it when the roll call finishes."
+      ]
+    },
+    {
+      "version": "1.23.1",
+      "date": "2026-08-04",
+      "summary": "Objective markers no longer read 'Uncontrolled' on the board while your models are standing on them.",
+      "changes": [
+        "Fixed (reported from a live game): objectives you genuinely controlled kept the 'Uncontrolled' label on the board — including terrain objectives with a whole squad parked inside them — even though the OBJECTIVE CONTROL list in the right-hand panel named you as the controller. The board label only ever refreshed when control CHANGED hands, so any objective you already held when the board was drawn (most often after loading a saved game, which restores objective control before rebuilding the markers) kept its default 'Uncontrolled' text until control happened to flip.",
+        "The marker's label, gold rim and area tint are now synced to the real control state whenever objective control is checked, so what the board shows always matches who actually holds the objective."
       ]
     },
     {

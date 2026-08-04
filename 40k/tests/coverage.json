@@ -2302,7 +2302,8 @@
       "description": "11e 14.01 terrain-as-objective: when a terrain area covers an objective marker, control is decided by models whose base overlaps the area (any part, not just the centre point), not the 3.79\" marker radius (control flips 1->0 when the converted layout replaces open ground at obj_center)",
       "scenarios": [
         "terrain_11e_layouts",
-        "objective_contested_vs_uncontrolled"
+        "objective_contested_vs_uncontrolled",
+        "objective_labels_survive_load"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -9200,6 +9201,26 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "scoring.objective_control.board_label_sync",
+      "description": "The on-board objective marker's control label / rim / area tint is synced from MissionManager.objective_control_state whenever control is checked, so an objective the player already held when the visuals were built (e.g. after loading a save) never keeps its default 'Uncontrolled' text",
+      "scenarios": [
+        "objective_labels_survive_load"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "saveload.objective_control_state",
+      "description": "objective_control_state survives a save/load round-trip AND is reflected on the rebuilt board markers, not just in the HUD's OBJECTIVE CONTROL list",
+      "scenarios": [
+        "objective_labels_survive_load"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
     },
     {
       "id": "dialogs.AttackAssignmentDialog.auto_allocate_overkill",
