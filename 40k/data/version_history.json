@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.22.4",
+      "date": "2026-08-04",
+      "summary": "Objective markers no longer read 'Uncontrolled' on the board while your models are standing on them.",
+      "changes": [
+        "Fixed (reported from a live game): objectives you genuinely controlled kept the 'Uncontrolled' label on the board — including terrain objectives with a whole squad parked inside them — even though the OBJECTIVE CONTROL list in the right-hand panel named you as the controller. The board label only ever refreshed when control CHANGED hands, so any objective you already held when the board was drawn (most often after loading a saved game, which restores objective control before rebuilding the markers) kept its default 'Uncontrolled' text until control happened to flip.",
+        "The marker's label, gold rim and area tint are now synced to the real control state whenever objective control is checked, so what the board shows always matches who actually holds the objective."
+      ]
+    },
+    {
       "version": "1.22.3",
       "date": "2026-08-04",
       "summary": "Counter-Offensive fix: a character attached to a squad is no longer offered as a separate unit in the 2 CP interrupt, and the stratagem now follows the 11th edition wording instead of the retired 10th edition one.",

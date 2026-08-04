@@ -1,0 +1,158 @@
+{
+  "id": "objective_labels_survive_load",
+  "covers": [
+    "scoring.objective_control.board_label_sync",
+    "scoring.terrain_objective_14_01",
+    "saveload.objective_control_state"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "Board objective labels read 'Uncontrolled' with the player's models standing on the marker. Root cause: ObjectiveVisual's control label is only ever driven by MissionManager.objective_control_changed, which check_all_objectives() emits ONLY on a change. A save restores objective_control_state, then Main._setup_objectives() builds fresh ObjectiveVisuals whose label defaults to 'Uncontrolled' \u2014 the following check finds no change, no signal fires, and the label stays wrong forever (while the HUD's OBJECTIVE CONTROL list, which reads the state dict directly, showed the truth). Stage A parks Custodian Guard inside area-large-2 (hosts obj_nml_1) and the Telemon inside area-trapezoid-43 (hosts obj_center) \u2014 both terrain-hosted objectives (11e 14.01) \u2014 and asserts the CHANGE path still updates the labels. Stage B saves, reloads, and swaps back into Main so the visuals are rebuilt against already-established control state; every held objective's board label must still name the controller. Pre-fix Stage B reported 'Uncontrolled' for all three.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "00_fixture_loaded"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager._objective_host_areas(MissionManager._get_objective_by_id(\"obj_nml_1\")).size()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager._objective_host_areas(MissionManager._get_objective_by_id(\"obj_center\")).size()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "var gs = tree.root.get_node(\"GameState\")\nvar i = 0\nfor m in gs.state[\"units\"][\"U_CUSTODIAN_GUARD_B\"][\"models\"]:\n\tm[\"position\"] = {\"x\": 200.0 + i * 45.0, \"y\": 750.0}\n\ti += 1\ngs.state[\"units\"][\"U_TELEMON_HEAVY_DREADNOUGHT_I\"][\"models\"][0][\"position\"] = {\"x\": 880.0, \"y\": 1330.0}\nreturn i",
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._sync_all_token_positions()"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.check_all_objectives()"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.objective_control_state.get(\"obj_nml_1\", -1)",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.objective_control_state.get(\"obj_center\", -1)",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.objective_control_state.get(\"obj_home_1\", -1)",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.objectives_visual_refs[\"obj_nml_1\"].control_indicator.text",
+      "equals": "Adeptus Custodes"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.objectives_visual_refs[\"obj_center\"].control_indicator.text",
+      "equals": "Adeptus Custodes"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_board()"
+    },
+    {
+      "act": "wait_for_tweens",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_labels_after_live_capture"
+    },
+    {
+      "act": "execute_script",
+      "script": "SaveLoadManager.save_game(\"scn_objective_labels_survive_load\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "SaveLoadManager.load_game(\"scn_objective_labels_survive_load\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var gs = tree.root.get_node(\"GameState\")\ngs.state[\"meta\"][\"from_save\"] = true\nreturn tree.change_scene_to_file(\"res://scenes/Main.tscn\")",
+      "equals": 0,
+      "multiline": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.objective_control_state.get(\"obj_nml_1\", -1)",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.objective_control_state.get(\"obj_center\", -1)",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.objectives_visual_refs[\"obj_nml_1\"].control_indicator.text",
+      "equals": "Adeptus Custodes"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.objectives_visual_refs[\"obj_center\"].control_indicator.text",
+      "equals": "Adeptus Custodes"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.objectives_visual_refs[\"obj_home_1\"].control_indicator.text",
+      "equals": "Adeptus Custodes"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.objectives_visual_refs[\"obj_home_2\"].control_indicator.text",
+      "equals": "Uncontrolled"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"TemptingTargetDialog\")\nif d != null:\n\td.hide()\nvar r = tree.root.get_node_or_null(\"SecondaryMissionReviewDialog\")\nif r != null:\n\tr.hide()\nvar hp = tree.current_scene.get_node_or_null(\"GameLogPanel\")\nif hp != null:\n\thp.visible = false\nreturn true",
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.fit_view_to_board()"
+    },
+    {
+      "act": "wait_for_tweens",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "02_labels_survive_reload"
+    }
+  ]
+}

@@ -4856,7 +4856,17 @@ func _setup_objectives() -> void:
 						if controller != old_ctrl:
 							obj_visual.flash_control_change(controller, old_ctrl)
 			)
-		
+
+			# Seed the label from the CURRENT control state. The signal above
+			# only fires on a change, so on a loaded save (which restores
+			# MissionManager.objective_control_state) a freshly built visual
+			# would otherwise sit on its "Uncontrolled" default forever even
+			# with models on the marker. No flash — this isn't a capture.
+			obj_visual.update_control(
+				MissionManager.objective_control_state.get(obj.id, 0),
+				MissionManager.is_objective_contested(obj.id)
+			)
+
 		# Connect objective removal signal (for Scorched Earth burns and Supply Drop)
 		if not MissionManager.objective_removed.is_connected(_on_objective_removed):
 			MissionManager.objective_removed.connect(_on_objective_removed)

@@ -333,6 +333,29 @@ func check_all_objectives() -> void:
 			emit_signal("objective_control_changed", obj.id, controller, old_controller)
 			print("MissionManager: %s control changed from %d to %d%s" % [obj.id, old_controller, controller, " (contested)" if contested else ""])
 
+	# The board label is driven by objective_control_changed, which only fires on
+	# a CHANGE — so a visual built while control state was ALREADY established
+	# never received its initial value. Push the current state into every live
+	# visual so the label can never drift from objective_control_state.
+	refresh_objective_visuals()
+
+## Sync every ObjectiveVisual's control label / tint with the current
+## objective_control_state. Needed because objective_control_changed only fires
+## on a change: loading a save restores objective_control_state, then
+## Main._setup_objectives() builds fresh ObjectiveVisuals whose label defaults to
+## "Uncontrolled", and the following check_all_objectives() finds no change — so
+## an objective the player genuinely held read "Uncontrolled" with their models
+## standing on it, until control happened to flip. Cheap (<= 5 objectives).
+func refresh_objective_visuals() -> void:
+	for obj_id in objectives_visual_refs:
+		var vis = objectives_visual_refs[obj_id]
+		if vis == null or not is_instance_valid(vis) or not vis.has_method("update_control"):
+			continue
+		# Burned / removed / mid-burn markers own their own label — don't clobber it.
+		if obj_id in removed_objectives or obj_id in burned_objectives or burn_in_progress.has(obj_id):
+			continue
+		vis.update_control(objective_control_state.get(obj_id, 0), is_objective_contested(obj_id))
+
 ## ISS-055 / D3-a: the terrain areas hosting an objective (14.01: those
 ## areas ARE the objective). Layout-sourced objectives name their areas via
 ## source_pieces — the linked centre pair counts as ONE objective spanning
