@@ -1,0 +1,263 @@
+{
+  "id": "los_overlay_targetable_vs_visible",
+  "covers": [
+    "scripts/LoSDebugVisual.gd",
+    "scripts/ShootingController.gd",
+    "autoloads/RulesEngine.gd",
+    "RulesEngine.unit_sight_line",
+    "RulesEngine.explain_target_ineligibility",
+    "ShootingController._show_target_reason_lines",
+    "debug.los_overlay_targeting_verdict",
+    "settings.los_debug_check_out_of_range"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "The LoS debug overlay must answer the SAME question as the target list. It used to answer 'is there a clear sight line', so a squad the game refuses to shoot was painted solid green (reported 2026-08: Custodian Guard -> Stormboyz, 'there is at least one green line between the two squads but the target is not an option') and a squad that WAS a legal target could be painted red, because the overlay ran its own 1-3 pair loop with an extra TerrainManager.model_visible_11e gate the rules path never applies. Board: a Custodian Guard (24\" Guardian spear) with Boyz Gamma 15\" away up a clear corridor (LEGAL TARGET) and Kommandos 32\" away up the same corridor (clear sight line, OUT OF RANGE). Green must mean targetable and nothing else; the out-of-range squad must come back amber with the reason written on the line; and with a shooter armed the overlay must volunteer that reason instead of drawing nothing at all for the squad the player cannot select. Also drives Settings > Visual > \"LoS Debug: include units out of weapon range\" through the real menu: with it off, the out-of-range squad is dropped before any line-of-sight work happens, so the overlay only talks about enemies your guns can actually reach.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The hot-seat handoff screen is a full-screen CanvasLayer that eats input; acknowledge it the way the player's [Enter] does before driving anything.",
+      "script": "if HandoffManager._visible:\n\tHandoffManager._on_ready_pressed()\nreturn HandoffManager._visible",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Setup: one Custodian Guard and two Ork squads in a clear vertical corridor at board x=12\"; everything else removed from play so the overlay draws exactly the two lines under test.",
+      "script": "var main = tree.root.get_node(\"Main\")\nvar units = GameState.state[\"units\"]\nvar keep = {\"U_CUSTODIAN_GUARD_B\": [Vector2(480, 2000), 45.0], \"U_BOYZ_K\": [Vector2(480, 1400), -45.0], \"U_KOMMANDOS_H\": [Vector2(480, 720), -45.0]}\nfor uid in units:\n\tif keep.has(uid):\n\t\tvar c = keep[uid][0]\n\t\tvar step = keep[uid][1]\n\t\tvar i = 0\n\t\tfor m in units[uid].get(\"models\", []):\n\t\t\tif not m.get(\"alive\", true):\n\t\t\t\tcontinue\n\t\t\tm[\"position\"] = {\"x\": c.x, \"y\": c.y + i * step}\n\t\t\ti += 1\n\t\tunits[uid][\"status\"] = GameStateData.UnitStatus.DEPLOYED\n\telse:\n\t\tfor m in units[uid].get(\"models\", []):\n\t\t\tm[\"alive\"] = false\nmain._recreate_unit_visuals()\nmain.get_node(\"ShootingController\")._refresh_unit_list(false)\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Ground truth from the rules engine: Boyz Gamma IS in the target list, Kommandos is NOT. Every assertion below is about the overlay agreeing with this.",
+      "script": "var e = RulesEngine.get_eligible_targets(\"U_CUSTODIAN_GUARD_B\", GameState.create_snapshot(false))\nreturn \"%s|%s\" % [str(e.has(\"U_BOYZ_K\")), str(e.has(\"U_KOMMANDOS_H\"))]",
+      "equals": "true|false"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "…and the refusal is a RANGE refusal, not a sight-line one — which is exactly why a pure-LoS overlay drew it green.",
+      "script": "var why = RulesEngine.explain_target_ineligibility(\"U_CUSTODIAN_GUARD_B\", \"U_KOMMANDOS_H\", GameState.create_snapshot(false))\nreturn why.code",
+      "equals": "out_of_range"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The unit-level sight line is CLEAR for both squads: the two units really can see each other. Pinning this is what makes the green/amber split meaningful rather than an accident of geometry.",
+      "script": "var b = GameState.create_snapshot(false)\nvar a = RulesEngine.unit_sight_line(\"U_CUSTODIAN_GUARD_B\", \"U_BOYZ_K\", b)\nvar c = RulesEngine.unit_sight_line(\"U_CUSTODIAN_GUARD_B\", \"U_KOMMANDOS_H\", b)\nreturn \"%s|%s\" % [str(a.has_los), str(c.has_los)]",
+      "equals": "true|true"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Guard the hard-coded row index below against fixture drift.",
+      "script": "var list = tree.root.get_node(\"Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/ShooterUnitList\")\nif list.item_count < 1 or not list.get_item_text(0).begins_with(\"Custodian Guard\"):\n\treturn \"row 0 is not Custodian Guard\"\nreturn \"ok\"",
+      "equals": "ok"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/ShooterUnitList",
+      "index": 0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").active_shooter_id",
+      "equals": "U_CUSTODIAN_GUARD_B"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.t32_synthesize_l(true)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Shooter mode: the per-model fan still covers the eligible target…",
+      "script": "return tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\").los_lines.size()",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "…and the squad the player CANNOT select now gets a summary line carrying the reason. Before the fix this list was empty and the overlay said nothing whatsoever about Kommandos.",
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nvar hits = []\nfor ol in lv.overview_lines:\n\thits.append(\"%s:%s:%s\" % [ol[\"tgt\"], ol[\"verdict\"], str(ol[\"reason\"] != \"\")])\nreturn \"|\".join(hits)",
+      "equals": "U_KOMMANDOS_H:visible_not_targetable:true"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shooter_mode_reason_line"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.t32_synthesize_l(false)",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "Now the unit->unit overview — the exact call Main._toggle_los_debug() makes when L is held with no shooter armed. Both squads get a line and the verdicts must split.",
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nlv.set_debug_enabled(true)\nlv.show_overview(\"U_CUSTODIAN_GUARD_B\")\nvar out = {}\nfor ol in lv.overview_lines:\n\tout[ol[\"tgt\"]] = ol[\"verdict\"]\nreturn \"%s|%s\" % [str(out.get(\"U_BOYZ_K\", \"missing\")), str(out.get(\"U_KOMMANDOS_H\", \"missing\"))]",
+      "equals": "targetable|visible_not_targetable"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The out-of-range squad's line carries the player-facing reason, drawn on the line itself.",
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nfor ol in lv.overview_lines:\n\tif ol[\"tgt\"] == \"U_KOMMANDOS_H\":\n\t\treturn ol[\"reason\"]\nreturn \"no line\"",
+      "equals": "Kommandos is out of range"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "THE invariant, checked over every line the overlay drew: a solid-green line means the target list will accept that unit, and every unit the target list accepts is drawn green. Deliberately falls back to the pre-fix line shape (is_clear, no verdict key) so this fails on BEHAVIOUR rather than on a missing API when run against the old overlay — where it reports 2 mismatches: the legal target painted red and the out-of-range squad painted green.",
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nvar board = GameState.create_snapshot(false)\nvar mismatches = 0\nfor ol in lv.overview_lines:\n\tvar src = str(ol.get(\"src\", \"U_CUSTODIAN_GUARD_B\"))\n\tvar tgt = str(ol.get(\"tgt\", \"\"))\n\tif tgt == \"\":\n\t\tfor uid in [\"U_BOYZ_K\", \"U_KOMMANDOS_H\"]:\n\t\t\tfor m in board[\"units\"][uid][\"models\"]:\n\t\t\t\tif m.get(\"alive\", true) and Vector2(m[\"position\"][\"x\"], m[\"position\"][\"y\"]).distance_to(ol[\"to\"]) < 40.0:\n\t\t\t\t\ttgt = uid\n\tvar green = str(ol.get(\"verdict\", \"targetable\" if ol[\"is_clear\"] else \"blocked\")) == \"targetable\"\n\tvar elig = RulesEngine.get_eligible_targets(src, board)\n\tif green != elig.has(tgt):\n\t\tmismatches += 1\nreturn mismatches",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_overview_green_vs_amber"
+    },
+    {
+      "act": "execute_script",
+      "comment": "Precondition: the setting ships ON, but it is persisted in user://settings.cfg, so a machine that ran this suite before could start from OFF.",
+      "script": "SettingsService.set_los_debug_check_out_of_range(true)\nreturn SettingsService.los_debug_check_out_of_range",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "comment": "Main._open_settings_menu is the shared entry point the Escape handler and windowed scenarios both use.",
+      "script": "var m = tree.root.get_node(\"Main\")\nm._open_settings_menu()\nreturn m._settings_menu != null",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "button_text": "Visual",
+      "comment": "Real clicks from here on — the settings menu is built procedurally, so there is no stable NodePath to aim at and button_text is the resolver scenarios use for it."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The checkbox reflects the shipped default before we touch it.",
+      "script": "var sm = tree.root.get_node(\"Main\")._settings_menu\nreturn sm._los_debug_out_of_range_checkbox.button_pressed",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "button_text": "LoS Debug: include units out of weapon range"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "comment": "The checkbox actually wrote through to the service (and thus to settings.cfg).",
+      "script": "return SettingsService.los_debug_check_out_of_range",
+      "multiline": true,
+      "equals": false
+    },
+    {
+      "act": "click_node",
+      "button_text": "Close"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"Main\")._settings_menu == null",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "comment": "With the setting off the out-of-range squad is gone entirely — not amber, not red, absent — while the squad you CAN shoot is untouched.",
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nlv.set_debug_enabled(true)\nlv.show_overview(\"U_CUSTODIAN_GUARD_B\")\nvar rows = []\nfor ol in lv.overview_lines:\n\trows.append(\"%s:%s\" % [ol[\"tgt\"], ol[\"verdict\"]])\nreturn \"|\".join(rows)",
+      "multiline": true,
+      "equals": "U_BOYZ_K:targetable"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_out_of_range_skipped"
+    },
+    {
+      "act": "execute_script",
+      "comment": "…and turning it back on through the same menu path restores the amber line, so the toggle is genuinely two-way.",
+      "script": "var m = tree.root.get_node(\"Main\")\nm._open_settings_menu()\nreturn m._settings_menu != null",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "button_text": "Visual"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_node",
+      "button_text": "LoS Debug: include units out of weapon range"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_node",
+      "button_text": "Close"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nlv.show_overview(\"U_CUSTODIAN_GUARD_B\")\nvar rows = []\nfor ol in lv.overview_lines:\n\trows.append(\"%s:%s\" % [ol[\"tgt\"], ol[\"verdict\"]])\nreturn \"|\".join(rows)",
+      "multiline": true,
+      "equals": "U_BOYZ_K:targetable|U_KOMMANDOS_H:visible_not_targetable"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "No SCRIPT ERRORs fired while driving any of the above.",
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nlv.hide_overview()\nreturn lv.overview_lines.size()",
+      "equals": 0
+    }
+  ]
+}

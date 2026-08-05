@@ -2202,9 +2202,19 @@ func refresh_los_debug_visuals() -> void:
 				enemy_units = enemy_units_direct
 
 			print("[ShootingController] Visualizing LoS to %d enemy units" % enemy_units.size())
+			# Settings > Visual: when the player has turned OFF checking enemies no
+			# gun could reach, skip them here too. This branch is the worst case for
+			# it — a shooter with nothing to shoot fans every model pair against
+			# every enemy on the board, most of them far out of range.
+			var skip_far := not SettingsService.los_debug_check_out_of_range
+			var reach_board: Dictionary = GameState.create_snapshot(false) if skip_far else {}
 			for enemy_id in enemy_units:
+				if skip_far and not RulesEngine.unit_within_weapon_reach(active_shooter_id, enemy_id, reach_board):
+					print("[ShootingController] Skipping out-of-range enemy unit: %s" % enemy_id)
+					continue
 				print("[ShootingController] Visualizing LoS to enemy unit: %s" % enemy_id)
 				_visualize_los_to_target(active_shooter_id, enemy_id)
+		_show_target_reason_lines()
 		return
 
 	print("[ShootingController] Refreshing LoS debug visuals for active shooter: %s" % active_shooter_id)
@@ -2214,6 +2224,21 @@ func refresh_los_debug_visuals() -> void:
 	for target_id in eligible_targets:
 		print("[ShootingController] Visualizing LoS to target: %s" % target_id)
 		_visualize_los_to_target(active_shooter_id, target_id)
+
+	_show_target_reason_lines()
+
+# The per-model fan is only ever drawn to targets this shooter CAN shoot, so on
+# its own the overlay says nothing about the squad the player is squinting at and
+# cannot select (reported 2026-08: "there is at least one green line between the
+# two squads but the target is not an option"). Layer one summary line per
+# INELIGIBLE enemy unit on top, carrying the reason it is off-limits.
+func _show_target_reason_lines() -> void:
+	if not los_debug_visual or not is_instance_valid(los_debug_visual):
+		return
+	if not los_debug_visual.debug_enabled or active_shooter_id == "":
+		return
+	if los_debug_visual.has_method("show_target_reasons"):
+		los_debug_visual.show_target_reasons(active_shooter_id)
 
 func _get_closest_model_position(from_unit: Dictionary, to_unit: Dictionary) -> Vector2:
 	# Find the model in from_unit closest to any model in to_unit
@@ -2330,11 +2355,12 @@ func _on_unit_selected_for_shooting(unit_id: String) -> void:
 		dice_log_display.append_text("[color=cyan]Auto-assigned %d weapon(s) → %s (only eligible target)[/color]\n" %
 			[auto_count, only_target_name])
 
-	# Visualize LoS to all eligible targets
+	# Visualize LoS to all eligible targets, plus why the rest are off-limits
 	if los_debug_visual and los_debug_visual.debug_enabled:
 		print("ShootingController: Visualizing LoS to ", eligible_targets.size(), " targets")
 		for target_id in eligible_targets:
 			_visualize_los_to_target(unit_id, target_id)
+		_show_target_reason_lines()
 
 	# Pad: a freshly-armed shooter immediately brackets its first target so
 	# D-pad ◀ ▶ / A have a visible subject from the first press (no-op on KBM).
@@ -2356,11 +2382,12 @@ func _on_targets_available(unit_id: String, targets: Dictionary) -> void:
 	if eligible_targets.is_empty():
 		_report_no_eligible_targets(unit_id)
 
-	# Trigger LoS visualization for each eligible target
+	# Trigger LoS visualization for each eligible target, plus why the rest are off-limits
 	if los_debug_visual and los_debug_visual.debug_enabled:
 		print("ShootingController: Visualizing LoS to ", targets.size(), " targets")
 		for target_id in targets:
 			_visualize_los_to_target(unit_id, target_id)
+		_show_target_reason_lines()
 
 	# Pad: bracket the first target for the freshly-armed shooter (no-op on KBM).
 	PadRouter.sync_shoot_target_highlight()
