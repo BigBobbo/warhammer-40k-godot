@@ -1,0 +1,60 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Drukhari — expendable strike squads, transports as durability (draft)",
+	"description": "DRAFT from research/youtube/ai_learnings.json. F025 (medium, 4 channels): Drukhari squads are sent to kill a key piece with no expectation of surviving, and leaving a squad outside its transport is named as the error. TRADE_UNFAVORABLE_PENALTY 0.7 -> 0.9 lets an expensive squad kill a cheaper key target, THREAT_FRAGILE_BONUS 1.3 -> 1.0 stops the AI refusing the exposure. The round-4 rule restores caution once trades stop buying anything. RISK: under a Purge the Foe opponent this profile feeds their primary directly — benchmark against Purge specifically.",
+	"parameters": {
+		"TRADE_UNFAVORABLE_PENALTY": 0.9,
+		"THREAT_FRAGILE_BONUS": 1.0,
+		"TRADE_FAVORABLE_BONUS": 1.3,
+		"THREAT_CHARGE_PENALTY": 1.2
+	},
+	"rules": [
+		{
+			"id": "drukhari_late_caution",
+			"name": "Rounds 4-5: stop spending units, protect what scores (F025)",
+			"priority": 10,
+			"enabled": true,
+			"conditions": [
+				{
+					"type": "round_gte",
+					"value": 4
+				}
+			],
+			"actions": [
+				{
+					"type": "multiply",
+					"param": "THREAT_FRAGILE_BONUS",
+					"value": 1.3
+				},
+				{
+					"type": "override",
+					"param": "TRADE_UNFAVORABLE_PENALTY",
+					"value": 0.7
+				}
+			]
+		},
+		{
+			"id": "drukhari_commit_when_behind",
+			"name": "Behind on VP: accept worse trades to break a stalemate (F025)",
+			"priority": 20,
+			"enabled": true,
+			"conditions": [
+				{
+					"type": "vp_behind"
+				},
+				{
+					"type": "round_lte",
+					"value": 3
+				}
+			],
+			"actions": [
+				{
+					"type": "override",
+					"param": "TRADE_UNFAVORABLE_PENALTY",
+					"value": 1.0
+				}
+			]
+		}
+	]
+}

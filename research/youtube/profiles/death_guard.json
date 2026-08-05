@@ -1,0 +1,38 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Death Guard — lock the enemy in, win by denial (draft)",
+	"description": "DRAFT from research/youtube/ai_learnings.json. F024 (medium, 3 channels): Death Guard are described as low-damage and very hard to disengage from; the play is to engage and stay engaged so the enemy neither shoots nor scores, ideally with two units on one target so multiple fall-back tests are needed. PHASE_PLAN_LOCK_SHOOTER_BONUS 3.0 -> 5.0 makes lock-down charges compete, SURVIVAL_HOLD_BONUS 1.5 -> 3.0 and SURVIVAL_FALL_BACK_BONUS 2.0 -> 1.0 keep the AI in combats it is losing on damage. HIGHEST-RISK PROFILE IN THIS SET: staying in losing fights is exactly what survival assessment was added to prevent. Benchmark against a high-damage melee opponent before adopting anything here.",
+	"parameters": {
+		"PHASE_PLAN_LOCK_SHOOTER_BONUS": 5.0,
+		"SURVIVAL_HOLD_BONUS": 3.0,
+		"SURVIVAL_FALL_BACK_BONUS": 1.0,
+		"PHASE_PLAN_RANGED_STRENGTH_DANGEROUS": 3.5
+	},
+	"rules": [
+		{
+			"id": "dg_release_when_dying",
+			"name": "Restore normal fall-back once the army is being ground down (F024 risk)",
+			"priority": 10,
+			"enabled": true,
+			"conditions": [
+				{
+					"type": "units_remaining_pct_lte",
+					"value": 50.0
+				}
+			],
+			"actions": [
+				{
+					"type": "override",
+					"param": "SURVIVAL_FALL_BACK_BONUS",
+					"value": 2.0
+				},
+				{
+					"type": "override",
+					"param": "SURVIVAL_HOLD_BONUS",
+					"value": 1.5
+				}
+			]
+		}
+	]
+}
