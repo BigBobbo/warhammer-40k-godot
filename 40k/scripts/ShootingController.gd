@@ -2202,7 +2202,16 @@ func refresh_los_debug_visuals() -> void:
 				enemy_units = enemy_units_direct
 
 			print("[ShootingController] Visualizing LoS to %d enemy units" % enemy_units.size())
+			# Settings > Visual: when the player has turned OFF checking enemies no
+			# gun could reach, skip them here too. This branch is the worst case for
+			# it — a shooter with nothing to shoot fans every model pair against
+			# every enemy on the board, most of them far out of range.
+			var skip_far := not SettingsService.los_debug_check_out_of_range
+			var reach_board: Dictionary = GameState.create_snapshot(false) if skip_far else {}
 			for enemy_id in enemy_units:
+				if skip_far and not RulesEngine.unit_within_weapon_reach(active_shooter_id, enemy_id, reach_board):
+					print("[ShootingController] Skipping out-of-range enemy unit: %s" % enemy_id)
+					continue
 				print("[ShootingController] Visualizing LoS to enemy unit: %s" % enemy_id)
 				_visualize_los_to_target(active_shooter_id, enemy_id)
 		_show_target_reason_lines()

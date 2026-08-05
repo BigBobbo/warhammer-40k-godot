@@ -7,12 +7,13 @@
     "RulesEngine.unit_sight_line",
     "RulesEngine.explain_target_ineligibility",
     "ShootingController._show_target_reason_lines",
-    "debug.los_overlay_targeting_verdict"
+    "debug.los_overlay_targeting_verdict",
+    "settings.los_debug_check_out_of_range"
   ],
   "fixture": "audit_baseline_postdeploy",
   "rng_seed": 42,
   "transition_to_phase": 8,
-  "description": "The LoS debug overlay must answer the SAME question as the target list. It used to answer 'is there a clear sight line', so a squad the game refuses to shoot was painted solid green (reported 2026-08: Custodian Guard -> Stormboyz, 'there is at least one green line between the two squads but the target is not an option') and a squad that WAS a legal target could be painted red, because the overlay ran its own 1-3 pair loop with an extra TerrainManager.model_visible_11e gate the rules path never applies. Board: a Custodian Guard (24\" Guardian spear) with Boyz Gamma 15\" away up a clear corridor (LEGAL TARGET) and Kommandos 32\" away up the same corridor (clear sight line, OUT OF RANGE). Green must mean targetable and nothing else; the out-of-range squad must come back amber with the reason written on the line; and with a shooter armed the overlay must volunteer that reason instead of drawing nothing at all for the squad the player cannot select.",
+  "description": "The LoS debug overlay must answer the SAME question as the target list. It used to answer 'is there a clear sight line', so a squad the game refuses to shoot was painted solid green (reported 2026-08: Custodian Guard -> Stormboyz, 'there is at least one green line between the two squads but the target is not an option') and a squad that WAS a legal target could be painted red, because the overlay ran its own 1-3 pair loop with an extra TerrainManager.model_visible_11e gate the rules path never applies. Board: a Custodian Guard (24\" Guardian spear) with Boyz Gamma 15\" away up a clear corridor (LEGAL TARGET) and Kommandos 32\" away up the same corridor (clear sight line, OUT OF RANGE). Green must mean targetable and nothing else; the out-of-range squad must come back amber with the reason written on the line; and with a shooter armed the overlay must volunteer that reason instead of drawing nothing at all for the squad the player cannot select. Also drives Settings > Visual > \"LoS Debug: include units out of weapon range\" through the real menu: with it off, the out-of-range squad is dropped before any line-of-sight work happens, so the overlay only talks about enemies your guns can actually reach.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -135,6 +136,121 @@
     {
       "act": "screenshot",
       "label": "02_overview_green_vs_amber"
+    },
+    {
+      "act": "execute_script",
+      "comment": "Precondition: the setting ships ON, but it is persisted in user://settings.cfg, so a machine that ran this suite before could start from OFF.",
+      "script": "SettingsService.set_los_debug_check_out_of_range(true)\nreturn SettingsService.los_debug_check_out_of_range",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "comment": "Main._open_settings_menu is the shared entry point the Escape handler and windowed scenarios both use.",
+      "script": "var m = tree.root.get_node(\"Main\")\nm._open_settings_menu()\nreturn m._settings_menu != null",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "button_text": "Visual",
+      "comment": "Real clicks from here on — the settings menu is built procedurally, so there is no stable NodePath to aim at and button_text is the resolver scenarios use for it."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "The checkbox reflects the shipped default before we touch it.",
+      "script": "var sm = tree.root.get_node(\"Main\")._settings_menu\nreturn sm._los_debug_out_of_range_checkbox.button_pressed",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "button_text": "LoS Debug: include units out of weapon range"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "comment": "The checkbox actually wrote through to the service (and thus to settings.cfg).",
+      "script": "return SettingsService.los_debug_check_out_of_range",
+      "multiline": true,
+      "equals": false
+    },
+    {
+      "act": "click_node",
+      "button_text": "Close"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"Main\")._settings_menu == null",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "comment": "With the setting off the out-of-range squad is gone entirely — not amber, not red, absent — while the squad you CAN shoot is untouched.",
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nlv.set_debug_enabled(true)\nlv.show_overview(\"U_CUSTODIAN_GUARD_B\")\nvar rows = []\nfor ol in lv.overview_lines:\n\trows.append(\"%s:%s\" % [ol[\"tgt\"], ol[\"verdict\"]])\nreturn \"|\".join(rows)",
+      "multiline": true,
+      "equals": "U_BOYZ_K:targetable"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_out_of_range_skipped"
+    },
+    {
+      "act": "execute_script",
+      "comment": "…and turning it back on through the same menu path restores the amber line, so the toggle is genuinely two-way.",
+      "script": "var m = tree.root.get_node(\"Main\")\nm._open_settings_menu()\nreturn m._settings_menu != null",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "button_text": "Visual"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_node",
+      "button_text": "LoS Debug: include units out of weapon range"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_node",
+      "button_text": "Close"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var lv = tree.root.get_node(\"Main/BoardRoot/LoSDebugVisual\")\nlv.show_overview(\"U_CUSTODIAN_GUARD_B\")\nvar rows = []\nfor ol in lv.overview_lines:\n\trows.append(\"%s:%s\" % [ol[\"tgt\"], ol[\"verdict\"]])\nreturn \"|\".join(rows)",
+      "multiline": true,
+      "equals": "U_BOYZ_K:targetable|U_KOMMANDOS_H:visible_not_targetable"
     },
     {
       "act": "execute_script",

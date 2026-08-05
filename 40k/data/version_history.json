@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.27.2",
+      "date": "2026-08-05",
+      "summary": "New setting: let the line-of-sight overlay skip enemies none of your guns could reach, for a quieter and faster board.",
+      "changes": [
+        "New (requested): Settings > Visual > \"LoS Debug: include units out of weapon range\". On by default — enemies no weapon in the selected unit could reach are still checked and drawn dashed amber, labelled \"is out of range\", which is what explains a squad you can plainly see but cannot select.",
+        "Turn it off and those enemies are dropped before any line-of-sight work happens at all: the overlay then shows only the enemies your guns can actually reach. On a deployed 2000pt board that took a whole-board sweep from 64 lines and ~0.9s down to 16 lines and ~0.3s.",
+        "A unit carrying no ranged weapons has no range to be outside of, so its sight lines are never filtered — assault units still get the full overlay either way."
+      ]
+    },
+    {
       "version": "1.27.1",
       "date": "2026-08-05",
       "summary": "The line-of-sight overlay (hold L) now tells you what you can actually SHOOT, not just what you can see: green means it is a legal target, amber means visible-but-off-limits and says why.",

@@ -36,6 +36,7 @@ var _ruins_style_dropdown: OptionButton
 var _terrain_debug_checkbox: CheckBox
 var _terrain_scatter_checkbox: CheckBox
 var _terrain_cover_checkbox: CheckBox
+var _los_debug_out_of_range_checkbox: CheckBox
 
 var _auto_allocate_checkbox: CheckBox
 var _hotseat_handoff_checkbox: CheckBox
@@ -240,6 +241,14 @@ func _build_ui() -> void:
 	_terrain_debug_checkbox = _add_checkbox_row(visual_content, "Terrain Debug Labels (internal ids + LoS badges)", "_on_terrain_debug_labels_toggled")
 	_terrain_scatter_checkbox = _add_checkbox_row(visual_content, "Terrain Scatter Props (crates, sandbags, trees)", "_on_terrain_scatter_toggled")
 	_terrain_cover_checkbox = _add_checkbox_row(visual_content, "Terrain Cover Labels (LB / +2 / +1 chips on terrain)", "_on_terrain_cover_labels_toggled")
+	_los_debug_out_of_range_checkbox = _add_checkbox_row(visual_content, "LoS Debug: include units out of weapon range", "_on_los_debug_out_of_range_toggled")
+	var los_range_help = Label.new()
+	los_range_help.text = "Affects the line-of-sight overlay (hold L). On by default: enemies no weapon in the selected unit could reach are still checked and drawn dashed amber, labelled \"is out of range\" — that is what explains a squad you can plainly see but cannot select. Turn it off to skip them entirely, for a quieter board and a faster overlay on a crowded one."
+	los_range_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	los_range_help.custom_minimum_size = Vector2(620, 0)
+	los_range_help.add_theme_font_size_override("font_size", 16)
+	los_range_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	visual_content.add_child(los_range_help)
 
 	# ── Gameplay Tab ──
 	var gameplay_scroll = _create_tab_scroll()
@@ -946,6 +955,8 @@ func _load_current_settings() -> void:
 		_terrain_scatter_checkbox.button_pressed = SettingsService.show_terrain_scatter
 	if _terrain_cover_checkbox:
 		_terrain_cover_checkbox.button_pressed = SettingsService.show_terrain_cover_labels
+	if _los_debug_out_of_range_checkbox:
+		_los_debug_out_of_range_checkbox.button_pressed = SettingsService.los_debug_check_out_of_range
 
 	# Gameplay
 	if _auto_allocate_checkbox:
@@ -1173,6 +1184,9 @@ func _on_terrain_scatter_toggled(pressed: bool) -> void:
 
 func _on_terrain_cover_labels_toggled(pressed: bool) -> void:
 	SettingsService.set_show_terrain_cover_labels(pressed)
+
+func _on_los_debug_out_of_range_toggled(pressed: bool) -> void:
+	SettingsService.set_los_debug_check_out_of_range(pressed)
 
 # ============================================================================
 # Gameplay Callbacks

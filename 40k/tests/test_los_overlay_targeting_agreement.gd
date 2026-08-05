@@ -21,6 +21,11 @@ extends SceneTree
 #   3. reason == "" agrees with get_eligible_targets() membership — including
 #      the two gates the prose version used to miss entirely (embarked units,
 #      and Lone Operative ranges other than 12").
+#   4. unit_within_weapon_reach() backs Settings > Visual > "LoS Debug: include
+#      units out of weapon range". It is a pure distance test against the
+#      LONGEST gun in the loadout, so it can only ever over-include — a unit the
+#      target list would accept can never be filtered away — and a melee-only
+#      unit, having no range to be outside of, is never filtered at all.
 #
 # The windowed half lives in tests/scenarios/sp/los_overlay_targetable_vs_visible.json.
 #
@@ -180,6 +185,34 @@ func _run_tests():
 		why_lone.code == "lone_operative", "%s / %s" % [why_lone.code, why_lone.reason])
 	_check("…quoting the datasheet's own range, not 12\"",
 		why_lone.reason.contains("6\""), why_lone.reason)
+
+	print("\n-- Settings > Visual: the out-of-range pre-filter --")
+	rules.clear_los_memo()
+	_check("longest ranged weapon is read off the loadout (24\" Guardian spear)",
+		is_equal_approx(rules.max_ranged_weapon_range_inches("U_CUST", board), 24.0),
+		str(rules.max_ranged_weapon_range_inches("U_CUST", board)))
+	_check("near squad (15\") is within reach", rules.unit_within_weapon_reach("U_CUST", "U_NEAR", board))
+	_check("far squad (32\") is not", not rules.unit_within_weapon_reach("U_CUST", "U_FAR", board))
+	# The filter must never hide something the target list would accept: it is a
+	# pure distance test against the LONGEST gun, so it can only over-include.
+	_check("nothing the target list accepts is filtered out",
+		rules.get_eligible_targets("U_CUST", board).keys().all(
+			func(uid): return rules.unit_within_weapon_reach("U_CUST", uid, board)))
+	# A melee-only unit has no range to be outside of — filtering it to nothing
+	# would blank the overlay for every assault unit on the board.
+	var melee_only := {
+		"units": {
+			"U_MELEE": {"owner": 1, "flags": {}, "models": shooter_models, "meta": {
+				"name": "Kustodian Blades", "display_name": "Kustodian Blades",
+				"keywords": ["INFANTRY"], "stats": {}, "weapons": [], "abilities": []}},
+			"U_FAR": _orks(far_models),
+		},
+		"terrain_features": [],
+	}
+	_check("a unit with no ranged weapons reports 0\" reach",
+		is_equal_approx(rules.max_ranged_weapon_range_inches("U_MELEE", melee_only), 0.0))
+	_check("…and is therefore never filtered (its sight lines stay drawn)",
+		rules.unit_within_weapon_reach("U_MELEE", "U_FAR", melee_only))
 
 	print("\n-- the overlay's invariant: reason == \"\"  <=>  in the target list --")
 	var boards := {"open": board, "walled": walled, "embarked": embarked, "lone": lone}

@@ -483,7 +483,8 @@ func _process(delta: float) -> void:
 
 
 func _overview_state_signature() -> int:
-	var parts: Array = [overview_source_unit_id, overview_ineligible_only]
+	var parts: Array = [overview_source_unit_id, overview_ineligible_only,
+		SettingsService.los_debug_check_out_of_range]
 	var units: Dictionary = GameState.state.get("units", {})
 	parts.append(int(GameState.state.get("meta", {}).get("active_player", 0)))
 	# The verdicts are phase-sensitive (a target list only exists while shooting),
@@ -531,6 +532,12 @@ func _rebuild_overview() -> void:
 	# player has actually pointed at ONE unit and asked about it; the colours
 	# (green = shootable) stay honest in both.
 	var want_reasons := overview_source_unit_id != ""
+	# Settings > Visual: with this off, an enemy no gun in the source unit could
+	# reach is dropped BEFORE any line-of-sight work — the overlay then only
+	# talks about enemies you can actually shoot at. Out-of-range pairs are also
+	# the expensive ones (the eligibility sweep never warms the LoS cache for
+	# them), so this is the cheap mode as well as the quiet one.
+	var skip_out_of_range := not SettingsService.los_debug_check_out_of_range
 
 	for src_id in sources:
 		var src = units[src_id]
@@ -550,6 +557,8 @@ func _rebuild_overview() -> void:
 			if typeof(tgt) != TYPE_DICTIONARY:
 				continue
 			if int(tgt.get("owner", 0)) == src_owner:
+				continue
+			if skip_out_of_range and not RulesEngine.unit_within_weapon_reach(src_id, tgt_id, board):
 				continue
 			var line := _unit_pair_sight_line(src_id, tgt_id, src, tgt, board, src_targeting, eligible, want_reasons)
 			if line.is_empty():

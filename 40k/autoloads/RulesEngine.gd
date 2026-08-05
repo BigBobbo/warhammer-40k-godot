@@ -5811,6 +5811,59 @@ static func unit_sight_line(actor_unit_id: String, target_unit_id: String, board
 			out["block_at"] = blk.point
 	return out
 
+## Longest RANGED weapon reach, in inches, anywhere in the unit's loadout —
+## including an attached character's guns and firing-deck loans, because
+## get_unit_weapons emits those as bearers too. 0.0 when the unit carries no
+## ranged weapon at all.
+static func max_ranged_weapon_range_inches(actor_unit_id: String, board: Dictionary) -> float:
+	var longest := 0.0
+	var unit_weapons = get_unit_weapons(actor_unit_id, board)
+	for model_id in unit_weapons:
+		for weapon_id in unit_weapons[model_id]:
+			var profile = get_weapon_profile(weapon_id, board)
+			if profile.is_empty():
+				continue
+			# "Melee" parses to 0.0, so a stray melee profile can never win here.
+			longest = maxf(longest, float(profile.get("range", 0)))
+	return longest
+
+## Cheap "could any of this unit's guns even reach that one?" — pure
+## edge-to-edge distance against the longest ranged weapon in the loadout, with
+## NO line-of-sight work at all.
+##
+## The LoS debug overlay uses it to drop out-of-range enemies before paying for
+## a visibility sweep, which is what Settings > Visual > "LoS Debug: include
+## units out of weapon range" switches off. Deliberately NOT a targeting rule:
+## it ignores Pistols-in-engagement, Big Guns Never Tire and everything else, so
+## it can only ever be an over-approximation of what get_eligible_targets will
+## accept — no unit that IS a legal target can be filtered out by it.
+##
+## A unit with no ranged weapons has nothing to be out of range OF, so this
+## answers true and filters nothing (a melee unit's sight lines stay drawn).
+static func unit_within_weapon_reach(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> bool:
+	var range_in := max_ranged_weapon_range_inches(actor_unit_id, board)
+	if range_in <= 0.0:
+		return true
+	var units = board.get("units", {})
+	var actor_unit = units.get(actor_unit_id, {})
+	var target_unit = units.get(target_unit_id, {})
+	if actor_unit.is_empty() or target_unit.is_empty():
+		return false
+	var range_px := Measurement.inches_to_px(range_in)
+	for actor_model in actor_unit.get("models", []):
+		if not actor_model.get("alive", true):
+			continue
+		if not _get_model_position(actor_model):
+			continue
+		for target_model in target_unit.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+			if not _get_model_position(target_model):
+				continue
+			if Measurement.model_to_model_distance_px(actor_model, target_model) <= range_px:
+				return true
+	return false
+
 static func _check_target_visibility(actor_unit_id: String, target_unit_id: String, weapon_id: String, board: Dictionary) -> Dictionary:
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})

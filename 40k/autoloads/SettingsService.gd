@@ -133,6 +133,16 @@ var show_terrain_scatter: bool = true
 # it on via Settings > Visual.
 var show_terrain_cover_labels: bool = false
 
+# LoS debug overlay (hold L) — whether enemy units that NO weapon in the
+# selected unit could reach are examined at all. ON (default) keeps the current
+# behaviour: they are checked and drawn dashed amber with "…is out of range",
+# which is what tells a player why a squad they can plainly see is missing from
+# the target list. OFF drops them before any line-of-sight work happens, so the
+# overlay shows only enemies your guns can actually reach — a quieter board, and
+# markedly less work on a crowded one, since out-of-range pairs are exactly the
+# ones the eligibility sweep never warms the LoS cache for.
+var los_debug_check_out_of_range: bool = true
+
 # Gameplay settings
 # When true, the computer automatically chooses which wounded/destroyed models
 # are removed during wound allocation instead of prompting the local player.
@@ -212,6 +222,7 @@ signal unit_color_display_changed(new_mode: String)
 signal terrain_debug_labels_changed(enabled: bool)
 signal terrain_scatter_changed(enabled: bool)
 signal terrain_cover_labels_changed(enabled: bool)
+signal los_debug_check_out_of_range_changed(enabled: bool)
 signal shooting_show_all_units_changed(show_all: bool)
 signal input_mode_policy_changed(policy: String)
 signal pad_hover_stats_card_changed(enabled: bool)
@@ -716,6 +727,12 @@ func set_show_terrain_cover_labels(enabled: bool) -> void:
 	_save_settings()
 	print("[SettingsService] show_terrain_cover_labels set to %s" % str(enabled))
 
+func set_los_debug_check_out_of_range(enabled: bool) -> void:
+	los_debug_check_out_of_range = enabled
+	los_debug_check_out_of_range_changed.emit(los_debug_check_out_of_range)
+	_save_settings()
+	print("[SettingsService] los_debug_check_out_of_range set to %s" % str(enabled))
+
 # ============================================================================
 # P3-111: Settings Persistence
 # ============================================================================
@@ -740,6 +757,7 @@ func _save_settings() -> void:
 	config.set_value("visual", "terrain_debug_labels", terrain_debug_labels)
 	config.set_value("visual", "show_terrain_scatter", show_terrain_scatter)
 	config.set_value("visual", "show_terrain_cover_labels", show_terrain_cover_labels)
+	config.set_value("visual", "los_debug_check_out_of_range", los_debug_check_out_of_range)
 	config.set_value("visual", "board_style", board_style)
 	config.set_value("visual", "ruins_style", ruins_style)
 
@@ -806,6 +824,7 @@ func _load_settings() -> void:
 	terrain_debug_labels = config.get_value("visual", "terrain_debug_labels", false)
 	show_terrain_scatter = config.get_value("visual", "show_terrain_scatter", true)
 	show_terrain_cover_labels = config.get_value("visual", "show_terrain_cover_labels", false)
+	los_debug_check_out_of_range = config.get_value("visual", "los_debug_check_out_of_range", true)
 	board_style = config.get_value("visual", "board_style", "grass")
 	ruins_style = config.get_value("visual", "ruins_style", "concrete")
 

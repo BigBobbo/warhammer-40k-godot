@@ -9327,6 +9327,15 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "settings.los_debug_check_out_of_range",
+      "description": "Settings > Visual > \"LoS Debug: include units out of weapon range\" (default ON). Off, the LoS overlay drops any enemy no weapon in the selected unit could reach BEFORE doing line-of-sight work \u2014 the amber 'is out of range' lines disappear and the whole-board sweep gets markedly cheaper. Backed by RulesEngine.unit_within_weapon_reach, a pure distance test against the longest gun in the loadout, so it can only over-include (nothing the target list accepts is ever filtered away) and a melee-only unit is never filtered at all. Driven end to end through the real settings menu.",
+      "scenarios": [
+        "los_overlay_targetable_vs_visible"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
