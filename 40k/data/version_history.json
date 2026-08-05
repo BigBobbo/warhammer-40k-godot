@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.27.1",
+      "date": "2026-08-05",
+      "summary": "Fixed the camera running away on its own after you switch to another app and come back — the game no longer thinks you are still holding a pan key.",
+      "changes": [
+        "Fixed (reported): taking a screenshot, alt-tabbing, or otherwise leaving the game while holding a camera pan key left the board scrolling in that direction forever once you came back. Pressing the opposite direction only cancelled it out while you held it — let go and the board carried on sliding away.",
+        "The cause: the key-release goes to whatever took the keyboard, so the game never saw it and went on believing the key was down. The game now clears any keys it still thinks are held whenever the window loses or regains focus.",
+        "The camera also no longer pans while the game is in the background, so you come back to the board where you left it instead of somewhere off the edge.",
+        "The same fix covers held Shift and Ctrl, which silently change what a click does (box-select and add-to-selection), and a middle/right-drag of the board that was interrupted by switching away."
+      ]
+    },
+    {
       "version": "1.27.0",
       "date": "2026-08-04",
       "summary": "Deep Strike placement now stops on the 9\" line instead of being rejected: aim a little too close and the model is held as near the enemy as the rules allow.",
