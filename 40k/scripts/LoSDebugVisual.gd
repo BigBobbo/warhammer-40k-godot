@@ -47,24 +47,51 @@ const BLOCK_MARKER_SCALE := 1.2
 
 # ===== L-KEY SIGHT-LINE OVERVIEW (phase-independent) =====
 # While the L overlay is held, draw one sight line per (friendly unit ->
-# enemy unit) pair: solid green when a clear line exists, dashed red between
-# the nearest models when the pair budget found none. Unlike los_lines
-# (5-second expiry, fed by the shooting controller's per-model debug), these
-# persist until the overlay turns off and auto-refresh while models move.
+# enemy unit) pair. Unlike los_lines (5-second expiry, fed by the shooting
+# controller's per-model debug), these persist until the overlay turns off and
+# auto-refresh while models move.
+#
+# THREE states, not two (2026-08 bug report: "there is a green line between the
+# two squads but the target is not an option"). A clear sight line is NOT the
+# same thing as a legal target — range, engagement range, Hidden (13.09), Lone
+# Operative and the rest all still apply — so a two-colour overlay was bound to
+# contradict the target list:
+#   ▪ TARGETABLE — solid green. The unit IS in get_eligible_targets: click it
+#     and it works. This is the only state that promises anything.
+#   ▪ VISIBLE    — dashed amber + the reason. The models can see each other but
+#     the shot is illegal. This is the state the overlay used to paint green.
+#   ▪ BLOCKED    — dashed red, split at the terrain that kills the line.
+# Outside the shooting phase there is no target list to agree with, so the
+# overlay stays a pure "who can see whom" map (targetable/blocked only).
 const OVERVIEW_REFRESH_INTERVAL := 0.5
 const OVERVIEW_CLEAR_COLOR := Color(0.25, 1.0, 0.35, 0.9)
 const OVERVIEW_BLOCKED_COLOR := Color(1.0, 0.3, 0.25, 0.7)
+# Amber: reads as "look at me" against both the green and the red, and matches
+# the block marker's family so the overlay keeps one palette.
+const OVERVIEW_WARN_COLOR := Color(1.0, 0.72, 0.15, 0.95)
 const OVERVIEW_LINE_WIDTH := 2.5
-# Nearest model pairs tried per unit pair before declaring it blocked.
-# check_enhanced_visibility already samples base-edge points per pair, so a
-# small pair budget keeps the all-units sweep inside a frame budget while a
-# selected unit gets extra pairs for "only the flank model can see" layouts.
-const OVERVIEW_MAX_PAIRS_SELECTED := 3
-const OVERVIEW_MAX_PAIRS_ALL := 1
+const OVERVIEW_REASON_FONT_SIZE := 17
+const OVERVIEW_REASON_MAX_CHARS := 52
+# Nearest model pairs the overlay may test when hunting for the line to DRAW.
+# The old overlay used 1-3 here to decide the VERDICT too, which is how a
+# perfectly legal target ended up painted red: the flank model that could see
+# was never tried. The verdict now comes from the eligibility path, so this is
+# only a cap on line-art fidelity. Measured on a deployed 2000pt board it also
+# barely moves the clock (the LoS memo absorbs it): a whole-board sweep costs
+# ~0.9s on the first rebuild and ~0.2s after, at any budget from 4 up.
+const OVERVIEW_MAX_PAIRS := 24
+
+const VERDICT_TARGETABLE := "targetable"
+const VERDICT_VISIBLE := "visible_not_targetable"
+const VERDICT_BLOCKED := "blocked"
 
 var overview_active: bool = false
 var overview_source_unit_id: String = ""  # "" -> every unit of the active player
-var overview_lines: Array = []  # {from: Vector2, to: Vector2, is_clear: bool}
+# Shooter mode: the per-model fan already covers every ELIGIBLE target, so the
+# summary lines only carry the enemies the shooter cannot shoot, plus why.
+var overview_ineligible_only: bool = false
+# {from, to, is_clear, verdict, reason, src, tgt, block_at?}
+var overview_lines: Array = []
 var _overview_accum: float = 0.0
 var _overview_sig: int = 0
 
@@ -78,10 +105,17 @@ func _draw() -> void:
 	if not debug_enabled:
 		return
 
-	# Overview sight lines (L overlay): green solid = clear, red dashed = blocked
+	# Overview sight lines (L overlay). Solid green = shootable right now;
+	# dashed amber = visible but not a legal target (reason drawn alongside);
+	# dashed red = no sight line, split at the terrain that stops it.
 	# (key is "is_clear" — "clear" would collide with Dictionary.clear())
 	for ol in overview_lines:
-		var oc: Color = OVERVIEW_CLEAR_COLOR if ol["is_clear"] else OVERVIEW_BLOCKED_COLOR
+		var verdict: String = ol.get("verdict", VERDICT_TARGETABLE if ol["is_clear"] else VERDICT_BLOCKED)
+		var oc: Color = OVERVIEW_CLEAR_COLOR
+		if verdict == VERDICT_BLOCKED:
+			oc = OVERVIEW_BLOCKED_COLOR
+		elif verdict == VERDICT_VISIBLE:
+			oc = OVERVIEW_WARN_COLOR
 		var o_tail: Color = oc
 		if ol.has("block_at"):
 			# Dashed red only as far as the terrain that kills the line; past
@@ -91,15 +125,22 @@ func _draw() -> void:
 			draw_dashed_line(ol["from"], o_block, oc, OVERVIEW_LINE_WIDTH, 14.0)
 			draw_dashed_line(o_block, ol["to"], o_tail, OVERVIEW_LINE_WIDTH * PAST_BLOCK_WIDTH_SCALE, 14.0)
 			draw_circle(o_block, OVERVIEW_LINE_WIDTH * BLOCK_MARKER_SCALE, BLOCK_MARKER_COLOR)
-		elif ol["is_clear"]:
+		elif verdict == VERDICT_TARGETABLE:
 			draw_line(ol["from"], ol["to"], oc, OVERVIEW_LINE_WIDTH)
 		else:
+			# Amber (and any blocker-less red): dashed, so "a line exists" never
+			# reads as "you may fire down it".
 			draw_dashed_line(ol["from"], ol["to"], oc, OVERVIEW_LINE_WIDTH, 14.0)
 		draw_circle(ol["from"], OVERVIEW_LINE_WIDTH * 1.8, oc)
 		# Arrowhead at the target end so direction reads at a glance
 		var odir = (ol["to"] - ol["from"]).normalized()
 		draw_line(ol["to"], ol["to"] - odir.rotated(0.45) * 13.0, o_tail, OVERVIEW_LINE_WIDTH)
 		draw_line(ol["to"], ol["to"] - odir.rotated(-0.45) * 13.0, o_tail, OVERVIEW_LINE_WIDTH)
+		# Only the amber lines get text: green needs no excuse, and red already
+		# says "terrain" with the block marker. Labelling everything would bury
+		# the board the same way full-strength red lines used to.
+		if verdict == VERDICT_VISIBLE and str(ol.get("reason", "")) != "":
+			_draw_reason_label(ol["from"], ol["to"], str(ol["reason"]), oc)
 
 	# Draw all LoS lines
 	for los_data in los_lines:
@@ -144,6 +185,30 @@ func _draw() -> void:
 			for intersection in los_data.intersections:
 				draw_circle(intersection, width * 1.5, Color.WHITE)
 				draw_circle(intersection, width, color)
+
+# "Visible, but you still cannot shoot it — here is why", written on the line
+# itself. Sits at the target end of the line (where the player is looking when
+# they wonder why that squad is missing from the list) and is nudged
+# perpendicular so it never sits on top of the line art.
+func _draw_reason_label(from: Vector2, to: Vector2, reason: String, color: Color) -> void:
+	var font := ThemeDB.fallback_font
+	if font == null:
+		return
+	var text := reason
+	if text.length() > OVERVIEW_REASON_MAX_CHARS:
+		text = text.substr(0, OVERVIEW_REASON_MAX_CHARS - 1) + "…"
+	var dir := (to - from).normalized()
+	# Perpendicular that always points "up" on screen, so labels on lines
+	# running in opposite directions do not flip to the other side.
+	var perp := Vector2(dir.y, -dir.x)
+	if perp.y > 0.0:
+		perp = -perp
+	var anchor: Vector2 = from.lerp(to, 0.72) + perp * 12.0
+	# Outline first so the text survives over pale terrain as well as dark.
+	draw_string_outline(font, anchor, text, HORIZONTAL_ALIGNMENT_LEFT, -1,
+		OVERVIEW_REASON_FONT_SIZE, 5, Color(0.0, 0.0, 0.0, 0.85))
+	draw_string(font, anchor, text, HORIZONTAL_ALIGNMENT_LEFT, -1,
+		OVERVIEW_REASON_FONT_SIZE, color)
 
 # Darker and near-transparent: the stretch of a sight line that is already dead
 # because terrain cut it off before this point.
@@ -284,6 +349,10 @@ func clear_all_debug_visuals() -> void:
 # player (or a scenario) had just opened — the overlay went blank while L
 # was still held.
 func clear_shooter_visuals() -> void:
+	# ...but the shooter's own "why can't I shoot that" summary lines ARE part
+	# of the shooter drawing set and go stale the moment the shooter does.
+	if overview_ineligible_only:
+		hide_overview()
 	clear_los_lines()
 	clear_all_highlights()
 	_remove_all_child_visuals()
@@ -355,6 +424,7 @@ func toggle_debug() -> void:
 func show_overview(source_unit_id: String = "") -> void:
 	overview_active = true
 	overview_source_unit_id = source_unit_id
+	overview_ineligible_only = false
 	_overview_accum = 0.0
 	_overview_sig = 0
 	# Drop any stale shooter-mode drawings so the overlay reads clean.
@@ -367,11 +437,31 @@ func show_overview(source_unit_id: String = "") -> void:
 		source_unit_id if source_unit_id != "" else "<active player>", overview_lines.size()])
 
 
+# Shooter-mode companion to the overview. The per-model fan is only ever drawn
+# to targets the shooter CAN shoot, so the shooting phase's overlay had nothing
+# to say about the one thing a player actually asks it — "why is that squad not
+# in my target list?". This adds one summary line per INELIGIBLE enemy unit,
+# carrying the reason, and deliberately leaves los_lines (the fan) alone.
+func show_target_reasons(shooter_unit_id: String) -> void:
+	if shooter_unit_id == "":
+		return
+	overview_active = true
+	overview_source_unit_id = shooter_unit_id
+	overview_ineligible_only = true
+	_overview_accum = 0.0
+	_overview_sig = 0
+	_rebuild_overview()
+	set_process(true)
+	print("[LoSDebugVisual] Target-reason lines ON (shooter=%s, %d lines)" % [
+		shooter_unit_id, overview_lines.size()])
+
+
 func hide_overview() -> void:
 	if not overview_active and overview_lines.is_empty():
 		return
 	overview_active = false
 	overview_source_unit_id = ""
+	overview_ineligible_only = false
 	overview_lines.clear()
 	set_process(false)
 	queue_redraw()
@@ -393,9 +483,12 @@ func _process(delta: float) -> void:
 
 
 func _overview_state_signature() -> int:
-	var parts: Array = [overview_source_unit_id]
+	var parts: Array = [overview_source_unit_id, overview_ineligible_only]
 	var units: Dictionary = GameState.state.get("units", {})
 	parts.append(int(GameState.state.get("meta", {}).get("active_player", 0)))
+	# The verdicts are phase-sensitive (a target list only exists while shooting),
+	# so a phase change has to invalidate them even if nothing moved.
+	parts.append(int(GameState.state.get("meta", {}).get("phase", -1)))
 	for uid in units:
 		var u = units[uid]
 		if typeof(u) != TYPE_DICTIONARY:
@@ -415,11 +508,11 @@ func _rebuild_overview() -> void:
 	var board = GameState.create_snapshot(false)
 	var units: Dictionary = board.get("units", {})
 
+	var active_player := int(board.get("meta", {}).get("active_player", 1))
 	var sources: Array = []
 	if overview_source_unit_id != "" and units.has(overview_source_unit_id):
 		sources.append(overview_source_unit_id)
 	else:
-		var active_player := int(board.get("meta", {}).get("active_player", 1))
 		for uid in units:
 			var u = units[uid]
 			if typeof(u) != TYPE_DICTIONARY:
@@ -427,10 +520,29 @@ func _rebuild_overview() -> void:
 			if int(u.get("owner", 0)) == active_player:
 				sources.append(uid)
 
-	var max_pairs: int = OVERVIEW_MAX_PAIRS_SELECTED if overview_source_unit_id != "" else OVERVIEW_MAX_PAIRS_ALL
+	# The three-state verdict only means something where a target list exists.
+	# Everywhere else the overlay stays a pure sight map, which also keeps the
+	# rules-engine eligibility sweep out of phases that never ask for it.
+	var targeting_aware := int(board.get("meta", {}).get("phase", -1)) == GameStateData.Phase.SHOOTING
+	# Per-target reason text costs a full weapons x models pass EACH, and the
+	# all-units sweep is 150+ pairs — half a second per rebuild, on a held key
+	# that re-runs whenever a model moves. It also stacks 100+ overlapping
+	# labels nobody can read. So the prose is reserved for the mode where the
+	# player has actually pointed at ONE unit and asked about it; the colours
+	# (green = shootable) stay honest in both.
+	var want_reasons := overview_source_unit_id != ""
+
 	for src_id in sources:
 		var src = units[src_id]
 		var src_owner := int(src.get("owner", 0))
+		# ONE eligibility sweep per shooter answers "targetable?" for every
+		# enemy; the (much pricier) per-target explanation is then only paid for
+		# the handful that are visible yet still illegal — the ones that need a
+		# label. Asking for a reason per enemy pair instead cost ~0.5s a rebuild.
+		var eligible: Dictionary = {}
+		var src_targeting := targeting_aware and src_owner == active_player
+		if src_targeting:
+			eligible = RulesEngine.get_eligible_targets(src_id, board)
 		for tgt_id in units:
 			if str(tgt_id) == str(src_id):
 				continue
@@ -439,56 +551,80 @@ func _rebuild_overview() -> void:
 				continue
 			if int(tgt.get("owner", 0)) == src_owner:
 				continue
-			var line := _unit_pair_sight_line(src, tgt, board, max_pairs)
-			if not line.is_empty():
-				overview_lines.append(line)
+			var line := _unit_pair_sight_line(src_id, tgt_id, src, tgt, board, src_targeting, eligible, want_reasons)
+			if line.is_empty():
+				continue
+			# Shooter mode: the fan already draws every eligible target in full.
+			if overview_ineligible_only and line["verdict"] == VERDICT_TARGETABLE:
+				continue
+			overview_lines.append(line)
 	queue_redraw()
 
 
-# Best sight line between two units, mirroring the shooting-eligibility LoS
-# path (11e hidden/obscuring gates + EnhancedLineOfSight), tried over the
-# `max_pairs` nearest model pairs. Blocked pairs fall back to a nearest-model
-# center line so the player still sees WHICH pair was judged.
-func _unit_pair_sight_line(src: Dictionary, tgt: Dictionary, board: Dictionary, max_pairs: int) -> Dictionary:
-	var src_models := _alive_positioned_models(src)
-	var tgt_models := _alive_positioned_models(tgt)
-	if src_models.is_empty() or tgt_models.is_empty():
+# One overview line for a (shooter unit -> enemy unit) pair.
+#
+# Geometry AND verdict both come from RulesEngine now. The old version rolled
+# its own pair loop with an extra TerrainManager.model_visible_11e gate the
+# rules path never applies, over a 1-3 pair budget — so it disagreed with the
+# target list in both directions: red lines to units that were perfectly legal
+# targets, and green lines to units the game refuses to shoot.
+#
+# `eligible` is the shooter's already-computed get_eligible_targets map (empty
+# when `targeting_aware` is false).
+func _unit_pair_sight_line(src_id: String, tgt_id: String, src: Dictionary, tgt: Dictionary, board: Dictionary, targeting_aware: bool, eligible: Dictionary, want_reason: bool) -> Dictionary:
+	if _alive_positioned_models(src).is_empty() or _alive_positioned_models(tgt).is_empty():
 		return {}
 
-	var pairs: Array = []
-	for a in src_models:
-		for t in tgt_models:
-			pairs.append([a.pos.distance_squared_to(t.pos), a, t])
-	pairs.sort_custom(func(x, y): return x[0] < y[0])
+	var verdict := ""
+	var reason := ""
+	# How many nearest model pairs the sight-line hunt may try. Only the line
+	# ART depends on it (see RulesEngine.unit_sight_line) — the colour comes
+	# from the eligibility verdict — so it stays small enough that sweeping the
+	# whole board is affordable.
+	var pair_budget := OVERVIEW_MAX_PAIRS
 
-	# 11e visibility gates (13.09 HIDDEN detection / 13.10-13.11 obscuring)
-	# to match RulesEngine._check_target_visibility.
-	var tm = null
-	if GameConstants.edition >= 11:
-		tm = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
+	if targeting_aware:
+		if eligible.has(tgt_id):
+			# Legal target. INDIRECT FIRE lands here without a sight line too —
+			# and rightly draws green, because the player CAN shoot it.
+			verdict = VERDICT_TARGETABLE
+		elif want_reason:
+			var why := RulesEngine.explain_target_ineligibility(src_id, tgt_id, board)
+			reason = why.reason
+			if why.code == "no_los" or why.code == "hidden":
+				# The rules engine already proved no model pair can see this
+				# unit. Skip the hunt entirely and just draw the nearest pair's
+				# dead line — this is the common case on a terrain-heavy board
+				# and searching it was most of the overlay's cost.
+				verdict = VERDICT_BLOCKED
+				pair_budget = 1
+			else:
+				# Off-limits for a NON-visibility reason (range, engagement,
+				# Lone Operative, …): whether the models can see each other is
+				# what decides amber vs red, so the hunt still runs.
+				verdict = ""
 
-	var budget: int = mini(max_pairs, pairs.size())
-	for i in range(budget):
-		var a = pairs[i][1]
-		var t = pairs[i][2]
-		if tm != null:
-			if not tm.hidden_model_visible_to(t.model, tgt, a.model):
-				continue
-			if not tm.model_visible_11e(a.model, t.model):
-				continue
-		var r = EnhancedLineOfSight.check_enhanced_visibility(a.model, t.model, board)
-		if r.has_los and r.sight_line.size() >= 2:
-			return {"from": r.sight_line[0], "to": r.sight_line[1], "is_clear": true}
+	var sight := RulesEngine.unit_sight_line(src_id, tgt_id, board, true, pair_budget)
+	if verdict == "":
+		verdict = VERDICT_BLOCKED
+		if sight.has_los:
+			verdict = VERDICT_VISIBLE if targeting_aware else VERDICT_TARGETABLE
 
-	# Blocked: fall back to the nearest pair's centre line, and pin where that
-	# line actually dies so _draw can ghost the stretch past the blocker.
-	var nearest = pairs[0]
-	var blocked_line := {"from": nearest[1].pos, "to": nearest[2].pos, "is_clear": false}
-	var blk = EnhancedLineOfSight.block_point_for_line(
-		nearest[1].pos, nearest[2].pos, board, nearest[1].model, nearest[2].model)
-	if not blk.is_empty():
-		blocked_line["block_at"] = blk.point
-	return blocked_line
+	var line := {
+		"from": sight.from,
+		"to": sight.to,
+		# Kept as the "a line exists" flag callers/scenarios already read; it now
+		# tracks the verdict, so `is_clear == false` always means BLOCKED and
+		# therefore always carries a block_at when one could be resolved.
+		"is_clear": verdict != VERDICT_BLOCKED,
+		"verdict": verdict,
+		"reason": reason,
+		"src": src_id,
+		"tgt": tgt_id,
+	}
+	if verdict == VERDICT_BLOCKED and sight.has("block_at"):
+		line["block_at"] = sight.block_at
+	return line
 
 
 func _alive_positioned_models(unit: Dictionary) -> Array:

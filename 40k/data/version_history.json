@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.27.1",
+      "date": "2026-08-05",
+      "summary": "The line-of-sight overlay (hold L) now tells you what you can actually SHOOT, not just what you can see: green means it is a legal target, amber means visible-but-off-limits and says why.",
+      "changes": [
+        "Fixed (reported): the L overlay drew a solid green line to a squad that was not offered as a target at all — 'there is at least one green line between the two squads but the target is not an option'. Green meant nothing more than 'terrain is not in the way', so any squad that was out of range, Hidden, engaged with one of your own units, a Lone Operative or inside a transport still got a green line and no explanation.",
+        "Sight lines now come in three states: solid green — this unit IS in your target list, click it and it works; dashed amber — your models can see it but the shot is illegal, with the reason (for example 'Kommandos is out of range') written on the line itself; dashed red — no line of sight, still split at the terrain that blocks it.",
+        "Fixed the same disagreement in the other direction: a squad you COULD legally shoot was sometimes drawn red, because the overlay only tested the one or two closest pairs of models and applied a stricter visibility test than the game's own targeting does. Both now use the same rules-engine check.",
+        "With a shooter selected, holding L also draws one line per enemy you cannot target, each labelled with the reason. Previously it drew lines only to targets you could already shoot, so the squad you were actually asking about got nothing.",
+        "Fixed: clicking an enemy that is inside a transport, or a Lone Operative whose datasheet range is not 12\", showed the generic 'Target cannot be shot' instead of the real reason."
+      ]
+    },
+    {
       "version": "1.27.0",
       "date": "2026-08-04",
       "summary": "Deep Strike placement now stops on the 9\" line instead of being rejected: aim a little too close and the model is held as near the enemy as the rules allow.",

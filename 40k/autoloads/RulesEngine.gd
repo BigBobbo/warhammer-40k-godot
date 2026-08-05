@@ -5735,33 +5735,81 @@ static func _has_los_to_target_unit(actor_unit_id: String, target_unit_id: Strin
 	Used to gate Indirect Fire's -1 BS / Benefit of Cover penalties — per 10e
 	those only apply when the target is NOT visible to any model in the firing
 	unit."""
+	return unit_sight_line(actor_unit_id, target_unit_id, board, false).has_los
+
+## The best sight line between two UNITS, judged with EXACTLY the visibility
+## predicate target eligibility uses (11e HIDDEN gate 13.09 + the base-aware
+## LoS in _check_line_of_sight), ignoring weapon range and the Indirect Fire
+## bypass. This is the single source of truth for "can these two units see each
+## other, and along which line?" — the LoS debug overlay used to answer that
+## question with its own hand-rolled pair loop (plus an extra, stricter
+## TerrainManager.model_visible_11e gate the rules path never applies), so the
+## overlay routinely disagreed with the target list in BOTH directions.
+##
+## Model pairs are tried nearest-first: that is the line a player would draw by
+## hand, and it is the pair most likely to be clear, so the scan normally stops
+## on the first check.
+##
+## `max_pairs` caps how many of those nearest pairs are tried (0 = every pair).
+## Rules callers leave it unlimited; the debug overlay caps it, because a fully
+## blocked 20-model mob vs a 20-model mob is 400 base-sampled visibility checks
+## and the overlay sweeps every unit pair on the board. Capping only ever costs
+## the overlay line ART (it may draw the nearest pair instead of the one that
+## actually sees) — the VERDICT it colours by comes from the eligibility path.
+##
+## Returns:
+##   has_los  : bool     — at least one pair has a clear, 11e-legal sight line
+##   from/to  : Vector2  — the pair that PROVED sight; when nothing can see
+##                         anything, the closest pair instead
+##   block_at : Vector2  — (blocked only, and only when want_block_point) where
+##                         the drawn line first hits the terrain that kills it
+static func unit_sight_line(actor_unit_id: String, target_unit_id: String, board: Dictionary, want_block_point: bool = true, max_pairs: int = 0) -> Dictionary:
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
 	var target_unit = units.get(target_unit_id, {})
+	var out := {"has_los": false, "from": Vector2.ZERO, "to": Vector2.ZERO}
 	if actor_unit.is_empty() or target_unit.is_empty():
-		return false
-	var actor_models = actor_unit.get("models", [])
-	var target_models = target_unit.get("models", [])
-	var tm_hidden = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
-	for actor_model in actor_models:
+		return out
+
+	var pairs: Array = []
+	for actor_model in actor_unit.get("models", []):
 		if not actor_model.get("alive", true):
 			continue
 		var actor_pos = _get_model_position(actor_model)
 		if not actor_pos:
 			continue
-		for target_model in target_models:
+		for target_model in target_unit.get("models", []):
 			if not target_model.get("alive", true):
 				continue
 			var target_pos = _get_model_position(target_model)
 			if not target_pos:
 				continue
-			# 13.09: a hidden model is not visible beyond its detection range —
-			# "visible to any model in the firing unit" must honour that too.
-			if tm_hidden != null and not tm_hidden.hidden_model_visible_to(target_model, target_unit, actor_model):
-				continue
-			if _check_line_of_sight(actor_pos, target_pos, board, actor_model, target_model):
-				return true
-	return false
+			pairs.append([actor_pos.distance_squared_to(target_pos), actor_model, target_model, actor_pos, target_pos])
+	if pairs.is_empty():
+		return out
+	pairs.sort_custom(func(a, b): return a[0] < b[0])
+
+	var tm_hidden = Engine.get_main_loop().root.get_node_or_null("TerrainManager") if GameConstants.edition >= 11 else null
+	var budget: int = pairs.size() if max_pairs <= 0 else mini(max_pairs, pairs.size())
+	for i in range(budget):
+		var p = pairs[i]
+		# 13.09: a hidden model is not visible beyond its detection range —
+		# "visible to any model in the firing unit" must honour that too.
+		if tm_hidden != null and not tm_hidden.hidden_model_visible_to(p[2], target_unit, p[1]):
+			continue
+		if _check_line_of_sight(p[3], p[4], board, p[1], p[2]):
+			return {"has_los": true, "from": p[3], "to": p[4]}
+
+	# Nothing can see anything — hand back the closest pair so the caller can
+	# show WHICH line was judged, and where terrain killed it.
+	var nearest = pairs[0]
+	out["from"] = nearest[3]
+	out["to"] = nearest[4]
+	if want_block_point:
+		var blk = EnhancedLineOfSight.block_point_for_line(nearest[3], nearest[4], board, nearest[1], nearest[2])
+		if not blk.is_empty():
+			out["block_at"] = blk.point
+	return out
 
 static func _check_target_visibility(actor_unit_id: String, target_unit_id: String, weapon_id: String, board: Dictionary) -> Dictionary:
 	var units = board.get("units", {})
@@ -6308,20 +6356,37 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary, first
 # Mirrors the eligibility checks in get_eligible_targets so the UI can explain
 # why a clicked enemy unit is greyed out (out of range, no LoS, Lone Operative, etc.).
 static func get_target_ineligibility_reason(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> String:
+	return explain_target_ineligibility(actor_unit_id, target_unit_id, board).reason
+
+# Structured form of the above: the same verdict plus a stable `code` naming
+# WHICH gate refused the target. The LoS debug overlay needs the code, not just
+# the prose — "no_los"/"hidden" mean there is provably no clear model pair, so
+# the overlay can skip hunting for one (that hunt is the expensive half of a
+# whole-board sweep). Codes: "" (eligible), no_shooter, invalid_target,
+# friendly, attached, embarked, destroyed, friendly_engagement, lone_operative,
+# psychic_veil, no_weapons, engagement_range, out_of_range, hidden, no_los.
+static func explain_target_ineligibility(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> Dictionary:
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
 	var target_unit = units.get(target_unit_id, {})
 
 	if actor_unit.is_empty():
-		return "No active shooter"
+		return _ineligible("no_shooter", "No active shooter")
 	if target_unit.is_empty():
-		return "Invalid target"
+		return _ineligible("invalid_target", "Invalid target")
 
 	if target_unit.get("owner", 0) == actor_unit.get("owner", 0):
-		return "Cannot target a friendly unit"
+		return _ineligible("friendly", "Cannot target a friendly unit")
 
 	if target_unit.get("attached_to", null) != null:
-		return "Cannot target an attached character — shoot the bodyguard unit"
+		return _ineligible("attached", "Cannot target an attached character — shoot the bodyguard unit")
+
+	# 18.01: models inside a TRANSPORT are not on the battlefield. get_eligible_targets
+	# skips them; without the same skip here an embarked unit's stale pre-embark
+	# position could report in range + LoS and this function would answer "" —
+	# i.e. "targetable" — for a unit the target list will never offer.
+	if target_unit.get("embarked_in", null) != null:
+		return _ineligible("embarked", "%s is embarked in a transport — shoot the transport instead" % target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_unit_id)))
 
 	var has_alive = false
 	for model in target_unit.get("models", []):
@@ -6329,7 +6394,7 @@ static func get_target_ineligibility_reason(actor_unit_id: String, target_unit_i
 			has_alive = true
 			break
 	if not has_alive:
-		return "Target unit is destroyed"
+		return _ineligible("destroyed", "Target unit is destroyed")
 
 	var target_name = target_unit.get("meta", {}).get("display_name", target_unit.get("meta", {}).get("name", target_unit_id))
 	var actor_owner = actor_unit.get("owner", 0)
@@ -6341,21 +6406,25 @@ static func get_target_ineligibility_reason(actor_unit_id: String, target_unit_i
 	# except when the target is a Monster/Vehicle, since they can also be targeted normally.)
 	if not target_is_monster_vehicle:
 		if _is_target_in_friendly_engagement(target_unit_id, actor_unit_id, actor_owner, units, board):
-			return "%s is in engagement range with a friendly unit" % target_name
+			return _ineligible("friendly_engagement", "%s is in engagement range with a friendly unit" % target_name)
 
 	# Lone Operative
 	if has_lone_operative(target_unit) and target_unit.get("attached_to", null) == null:
 		var attached_chars = target_unit.get("attachment_data", {}).get("attached_characters", [])
 		if attached_chars.is_empty():
 			var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
-			if min_dist > 12.0:
-				return "%s has Lone Operative — must be within 12\" (currently %.1f\")" % [target_name, min_dist]
+			# Read the datasheet's range like get_eligible_targets does — hardcoding
+			# 12" made this disagree with the target list for any Lone Operative X"
+			# that is not the 12" default.
+			var lo_range = get_lone_operative_range(target_unit)
+			if min_dist > lo_range:
+				return _ineligible("lone_operative", "%s has Lone Operative — must be within %d\" (currently %.1f\")" % [target_name, int(lo_range), min_dist])
 
 	# Psychic Veil
 	if target_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PSYCHIC_VEIL, false):
 		var min_dist = _get_min_distance_to_target_rules(actor_unit_id, target_unit_id, board)
 		if min_dist > 18.0:
-			return "%s has Psychic Veil — must be within 18\" (currently %.1f\")" % [target_name, min_dist]
+			return _ineligible("psychic_veil", "%s has Psychic Veil — must be within 18\" (currently %.1f\")" % [target_name, min_dist])
 
 	# Per-weapon analysis: figure out if it's a range issue, LoS issue, or engagement issue
 	var actor_in_engagement = actor_unit.get("flags", {}).get("in_engagement", false)
@@ -6431,22 +6500,26 @@ static func get_target_ineligibility_reason(actor_unit_id: String, target_unit_i
 									any_in_los = true
 
 	if not has_any_weapon:
-		return "%s has no usable weapons" % actor_unit.get("meta", {}).get("display_name", actor_unit_id)
+		return _ineligible("no_weapons", "%s has no usable weapons" % actor_unit.get("meta", {}).get("display_name", actor_unit_id))
 
 	if actor_in_engagement and not any_weapon_passed_er_filter:
 		if actor_is_monster_vehicle:
-			return "No weapons can reach %s while in engagement range" % target_name
+			return _ineligible("engagement_range", "No weapons can reach %s while in engagement range" % target_name)
 		else:
-			return "Your unit is in engagement range — only Pistols can shoot, and %s is not in your engagement range" % target_name
+			return _ineligible("engagement_range", "Your unit is in engagement range — only Pistols can shoot, and %s is not in your engagement range" % target_name)
 
 	if not any_in_range:
-		return "%s is out of range" % target_name
+		return _ineligible("out_of_range", "%s is out of range" % target_name)
 	if not any_in_los:
 		if any_hidden_blocked:
-			return "%s is Hidden (dense terrain, hasn't shot recently) — visible only within %d\" detection range; your closest model is %.1f\" away" % [target_name, int(round(hidden_det_range)), hidden_min_dist]
-		return "No line of sight to %s — terrain blocks every sight line" % target_name
+			return _ineligible("hidden", "%s is Hidden (dense terrain, hasn't shot recently) — visible only within %d\" detection range; your closest model is %.1f\" away" % [target_name, int(round(hidden_det_range)), hidden_min_dist])
+		return _ineligible("no_los", "No line of sight to %s — terrain blocks every sight line" % target_name)
 
-	return ""
+	return {"reason": "", "code": ""}
+
+static func _ineligible(code: String, reason: String) -> Dictionary:
+	return {"reason": reason, "code": code}
+
 
 # Check if target unit is within engagement range (1", or 2" through barricades) of actor unit
 static func _is_target_within_engagement_range(actor_unit_id: String, target_unit_id: String, board: Dictionary) -> bool:

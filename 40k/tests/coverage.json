@@ -9300,6 +9300,33 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "debug.los_overlay_targeting_verdict",
+      "description": "The LoS debug overlay agrees with the target list instead of answering a different question. A solid-green sight line means the unit IS in get_eligible_targets (click it and it works); a unit the models can see but may not legally shoot (out of range, Hidden 13.09, engaged with a friendly unit, Lone Operative, embarked) comes back dashed amber with the reason drawn on the line; only a genuinely blocked line stays red. With a shooter armed, the per-model fan is joined by one summary line per INELIGIBLE enemy so the overlay explains the squad the player cannot select. Verdicts and geometry both come from RulesEngine (unit_sight_line / explain_target_ineligibility), not the overlay's own pair loop.",
+      "scenarios": [
+        "los_overlay_targetable_vs_visible"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "RulesEngine.unit_sight_line",
+      "description": "Unit-to-unit sight judged with exactly the predicate target eligibility uses (base-aware LoS + the 13.09 hidden gate), ignoring weapon range. Returns the model pair that proves sight, or the nearest pair plus the point where its line dies. _has_los_to_target_unit delegates to it, so debug drawing and Indirect Fire spotting can never diverge.",
+      "scenarios": [
+        "los_overlay_targetable_vs_visible"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
+    },
+    {
+      "id": "RulesEngine.explain_target_ineligibility",
+      "description": "Structured form of get_target_ineligibility_reason: the same prose plus a stable code (out_of_range / no_los / hidden / embarked / lone_operative / friendly_engagement / ...). reason == \"\" now agrees with get_eligible_targets membership on every gate, including embarked units (18.01) and Lone Operative ranges other than 12\", both of which the prose version used to report as targetable.",
+      "scenarios": [
+        "los_overlay_targetable_vs_visible"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered"
     }
   ]
 }
