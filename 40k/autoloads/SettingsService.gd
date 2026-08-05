@@ -93,6 +93,18 @@ var pad_hover_stats_card: bool = false
 # clamped — over-range pad drops were unusable without it (P0 Deck smoothness).
 var drag_clamp_to_max_range: bool = true
 
+# Placement clamping (mouse & keyboard). The inverse of the drag clamp above:
+# when ON, a Deep Strike / Strategic Reserves / Rapid Ingress / Infiltrators
+# placement aimed inside the 9" enemy exclusion zone holds the ghost on the
+# boundary instead of turning red, so the player aims roughly where they want
+# and the model lands as close as the rule allows. Hitting that boundary by
+# hand is fiddly with a mouse and effectively impossible with a thumbstick.
+# OFF restores the historical behaviour (ghost follows the cursor in, reddens,
+# and the click is rejected) for players who prefer to place to the exact inch
+# themselves. Like the drag clamp, the controller ignores this setting and stays
+# clamped. See DeploymentController._clamped_placement_position.
+var placement_clamp_to_exclusion: bool = true
+
 # Menu / panel scroll speed — fraction of Godot's default mouse-wheel / trackpad
 # scroll distance applied to ScrollContainers and other scroll surfaces. 1.0 ==
 # stock engine speed; lower == slower. Consumed by ScrollSpeedController.
@@ -204,6 +216,7 @@ signal shooting_show_all_units_changed(show_all: bool)
 signal input_mode_policy_changed(policy: String)
 signal pad_hover_stats_card_changed(enabled: bool)
 signal drag_clamp_to_max_range_changed(enabled: bool)
+signal placement_clamp_to_exclusion_changed(enabled: bool)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
@@ -470,6 +483,15 @@ func set_drag_clamp_to_max_range(enabled: bool) -> void:
 	drag_clamp_to_max_range_changed.emit(drag_clamp_to_max_range)
 	_save_settings()
 	print("[SettingsService] drag_clamp_to_max_range set to %s" % str(drag_clamp_to_max_range))
+
+func get_placement_clamp_to_exclusion() -> bool:
+	return placement_clamp_to_exclusion
+
+func set_placement_clamp_to_exclusion(enabled: bool) -> void:
+	placement_clamp_to_exclusion = enabled
+	placement_clamp_to_exclusion_changed.emit(placement_clamp_to_exclusion)
+	_save_settings()
+	print("[SettingsService] placement_clamp_to_exclusion set to %s" % str(placement_clamp_to_exclusion))
 
 func set_input_mode_policy(policy: String) -> void:
 	# "auto" | "pad" | "kbm" | "dynamic" — see input_mode_policy above.
@@ -752,6 +774,7 @@ func _save_settings() -> void:
 	config.set_value("controls", "pad_cursor_magnetism", pad_cursor_magnetism)
 	config.set_value("controls", "pad_hover_stats_card", pad_hover_stats_card)
 	config.set_value("controls", "drag_clamp_to_max_range", drag_clamp_to_max_range)
+	config.set_value("controls", "placement_clamp_to_exclusion", placement_clamp_to_exclusion)
 
 	var err = config.save(SETTINGS_FILE_PATH)
 	if err != OK:
@@ -833,5 +856,6 @@ func _load_settings() -> void:
 	pad_cursor_magnetism = bool(config.get_value("controls", "pad_cursor_magnetism", true))
 	pad_hover_stats_card = bool(config.get_value("controls", "pad_hover_stats_card", false))
 	drag_clamp_to_max_range = bool(config.get_value("controls", "drag_clamp_to_max_range", true))
+	placement_clamp_to_exclusion = bool(config.get_value("controls", "placement_clamp_to_exclusion", true))
 
 	print("[SettingsService] Settings loaded from %s" % SETTINGS_FILE_PATH)

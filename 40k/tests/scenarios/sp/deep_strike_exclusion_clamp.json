@@ -1,0 +1,109 @@
+{
+  "id": "deep_strike_exclusion_clamp",
+  "covers": [
+    "deployment.reinforcement.exclusion_clamp",
+    "deployment.reinforcement.clamp_setting_off_is_historical",
+    "DeploymentController",
+    "PlacementClamp",
+    "GhostVisual",
+    "settings.controls.placement_clamp_to_exclusion"
+  ],
+  "fixture": "ri_pretrigger",
+  "rng_seed": 42,
+  "edition": 11,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Deep Strike placement aimed inside the 9\" enemy exclusion zone is HELD on the boundary instead of being rejected — the inverse of the movement phase's over-range drag clamp. Landing a drop at exactly 9\" by hand is fiddly with a mouse and effectively impossible with a thumbstick, so the ghost now stops at the nearest legal point outside the bubble and drags a dashed tether back to the cursor. Drives a real Kommandos (32mm) Deep Strike arrival against the fixture's Telemon (100mm) at (600,250): its exclusion bubble radius is 9\" + 1.969\" + 0.630\" = 11.598\" = 463.9px. Part A pins the historical behaviour with the setting OFF (ghost follows the cursor in, reddens, click rejected). Part B turns it on: a deep aim shows the tether, an aim 0.6\" inside the line parks the ghost at 9.05\" edge-to-edge, and the click places the model there.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_KOMMANDOS_H.status", "equals": 7 },
+
+    { "act": "execute_script", "multiline": true, "script": "# Arrive by Deep Strike rather than Strategic Reserves, so the 6\"-from-a-board-edge\n# band is out of the picture and the 9\" enemy stand-off is the only thing shaping\n# where this unit may land.\nGameState.state.units.U_KOMMANDOS_H.reserve_type = \"deep_strike\"\nreturn str(GameState.state.units.U_KOMMANDOS_H.reserve_type)", "equals": "deep_strike" },
+
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nvar list = m.movement_controller.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_KOMMANDOS_H\":\n\t\tlist.select(i)\n\t\tlist.item_selected.emit(i)\n\t\treturn true\nreturn false", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "main.deployment_controller.is_placing()", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.is_reinforcement_mode", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.reinforcement_placement_type", "equals": "deep_strike" },
+
+    { "act": "execute_script", "multiline": true, "script": "# The point every step below aims at, and how far inside the Telemon's bubble it\n# is. Positive = illegal today.\nvar telemon = Vector2(600, 250)\nvar aim = Vector2(600, 690)\nvar bubble_px = (9.0 + (100.0 / 2.0) / 25.4 + (32.0 / 2.0) / 25.4) * 40.0\nreturn snappedf(bubble_px - aim.distance_to(telemon), 0.1)", "expect_min": 20.0, "expect_max": 30.0 },
+
+    { "act": "execute_script", "multiline": true, "script": "# Frame the Telemon, its 9\" bubble and the stretch of boundary the ghost gets\n# held on, so the captures actually show the behaviour rather than a postage\n# stamp of the whole table.\nvar m = tree.root.get_node(\"Main\")\nm.view_zoom = 1.2\nm.view_offset = Vector2(600.0 - 930.0 / 1.2, 480.0 - 540.0 / 1.2)\nm.update_view_transform()\nreturn snappedf(m.view_zoom, 0.01)", "equals": 1.2 },
+
+    { "act": "execute_script", "script": "SettingsService.set_placement_clamp_to_exclusion(false)" },
+    { "act": "hover_board_at", "x": 600.0, "y": 690.0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "script": "# Setting OFF: the ghost sits under the cursor, wherever that is.\nvar dc = tree.current_scene.deployment_controller\nreturn dc.ghost_sprite.position.distance_to(dc._get_world_mouse_position()) < 3.0", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.ghost_sprite.is_valid_position", "equals": false },
+    { "act": "execute_script", "script": "main.deployment_controller.ghost_sprite.clamp_origin_world == null", "equals": true },
+    { "act": "screenshot", "label": "01_clamp_off_ghost_red_inside_zone" },
+
+    { "act": "click_board_at", "x": 600.0, "y": 690.0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 0 },
+    { "act": "screenshot", "label": "02_clamp_off_click_rejected" },
+
+    { "act": "execute_script", "script": "SettingsService.set_placement_clamp_to_exclusion(true)" },
+    { "act": "hover_board_at", "x": 600.0, "y": 480.0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "script": "# A deep aim: the ghost is held way out on the boundary and the tether points\n# back at the cursor the player is actually holding.\nvar dc = tree.current_scene.deployment_controller\nvar g = dc.ghost_sprite\nreturn g.clamp_origin_world != null and g.position.distance_to(g.clamp_origin_world) > 100.0", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.ghost_sprite.is_valid_position", "equals": true },
+    { "act": "screenshot", "label": "03_clamp_on_deep_aim_tether" },
+
+    { "act": "hover_board_at", "x": 600.0, "y": 690.0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main.deployment_controller.ghost_sprite.clamp_origin_world != null", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.ghost_sprite.is_valid_position", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "# The whole point: the held ghost sits ON the 9\" line (plus the clamp's 0.05\"\n# of daylight), not at some arbitrary spot the push happened to reach.\nvar dc = tree.current_scene.deployment_controller\nvar ghost_pos = dc.ghost_sprite.position\nvar best = 1000.0\nfor enemy in GameState.get_enemy_model_positions(2):\n\tvar d = ghost_pos.distance_to(Vector2(enemy.x, enemy.y)) / 40.0\n\tvar edge = d - (32.0 / 2.0) / 25.4 - (float(enemy.base_mm) / 2.0) / 25.4\n\tif edge < best:\n\t\tbest = edge\nreturn snappedf(best, 0.01)", "expect_min": 9.0, "expect_max": 9.2 },
+    { "act": "screenshot", "label": "04_clamp_on_ghost_held_at_9in" },
+
+    { "act": "click_board_at", "x": 600.0, "y": 690.0 },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "script": "main.deployment_controller.get_placed_count()", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "script": "# ...and the model actually lands there: legal, and as close to the enemy as the\n# rule allows.\nvar dc = tree.current_scene.deployment_controller\nvar placed = dc.temp_positions[0]\nvar best = 1000.0\nfor enemy in GameState.get_enemy_model_positions(2):\n\tvar d = placed.distance_to(Vector2(enemy.x, enemy.y)) / 40.0\n\tvar edge = d - (32.0 / 2.0) / 25.4 - (float(enemy.base_mm) / 2.0) / 25.4\n\tif edge < best:\n\t\tbest = edge\nreturn snappedf(best, 0.01)", "expect_min": 9.0, "expect_max": 9.2 },
+    { "act": "screenshot", "label": "05_clamp_on_model_placed_on_the_line" },
+
+    { "act": "execute_script", "script": "SettingsService.set_placement_clamp_to_exclusion(false)" },
+    { "act": "simulate_joy_button", "button_index": 12 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "multiline": true, "script": "# Part C — the PAD is always clamped, setting or no setting: a thumbstick cannot\n# land on a 1-pixel boundary, which is half of what was reported. Turn the player\n# preference OFF, make the pad the active device, and the gate must still be on.\n# That gate is the ONLY pad-specific difference; the push itself is the same code\n# the mouse parts above exercised.\nvar dc = tree.current_scene.deployment_controller\nreturn InputDeviceManager.is_pad_active() and dc._placement_clamp_active() and not SettingsService.placement_clamp_to_exclusion", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "# ...and it still pushes an inside-the-bubble aim back out while the pad is\n# active and the preference is off. Called directly rather than by injecting\n# mouse motion, which would flip the active device back to mouse & keyboard.\nvar dc = tree.current_scene.deployment_controller\nvar model = GameState.state.units.U_KOMMANDOS_H.models[1]\nvar held = dc._clamped_placement_position(Vector2(600, 690), model, 0.0)\nvar best = 1000.0\nfor enemy in GameState.get_enemy_model_positions(2):\n\tvar edge = held.distance_to(Vector2(enemy.x, enemy.y)) / 40.0 - (32.0 / 2.0) / 25.4 - (float(enemy.base_mm) / 2.0) / 25.4\n\tif edge < best:\n\t\tbest = edge\ntree.current_scene.set_meta(\"ds_pad_probe\", \"pad=%s setting=%s held=%s edge=%.3f\\\"\" % [str(InputDeviceManager.is_pad_active()), str(SettingsService.placement_clamp_to_exclusion), str(held), best])\nreturn snappedf(best, 0.01)", "expect_min": 9.0, "expect_max": 9.2 },
+    { "act": "execute_script", "script": "str(main.get_meta(\"ds_pad_probe\"))", "exists": true },
+
+    { "act": "execute_script", "multiline": true, "script": "# The D-pad press above cycles the deploy formation while a placement is live\n# (pad_reinforcement_formation_row covers that). Put it back to SINGLE so the\n# pad drive below is placing one model, like the mouse parts did.\nvar dc = tree.current_scene.deployment_controller\ndc.set_formation_mode(\"SINGLE\")\nreturn dc.formation_mode", "equals": "SINGLE" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "multiline": true, "script": "# Remember where the cursor is BEFORE the stick moves it. The glide target below\n# is deliberately somewhere else on the exclusion boundary, so the stick has to\n# actually steer there — a glide that reports 'already_on_target' would prove\n# nothing about the pad.\ntree.current_scene.set_meta(\"ds_pad_cursor_before\", tree.current_scene.deployment_controller._get_world_mouse_position())\nreturn str(tree.current_scene.get_meta(\"ds_pad_cursor_before\"))", "exists": true },
+    { "act": "pad_cursor_glide", "x": 700.0, "y": 640.0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "multiline": true, "script": "# Part D — the whole pad path for real, not a direct call: the left stick drove\n# the virtual cursor to a point 1.5\" inside the Telemon's exclusion bubble, and\n# the ghost is held on the 9\" line with the setting still OFF. This is the half\n# of the report a thumbstick makes impossible to do by hand.\nvar m = tree.current_scene\nvar dc = m.deployment_controller\nvar g = dc.ghost_sprite\nvar cursor = dc._get_world_mouse_position()\nvar moved = cursor.distance_to(m.get_meta(\"ds_pad_cursor_before\"))\nvar best = 1000.0\nfor enemy in GameState.get_enemy_model_positions(2):\n\tvar edge = g.position.distance_to(Vector2(enemy.x, enemy.y)) / 40.0 - (32.0 / 2.0) / 25.4 - (float(enemy.base_mm) / 2.0) / 25.4\n\tif edge < best:\n\t\tbest = edge\nm.set_meta(\"ds_pad_glide_probe\", \"pad=%s cursor_active=%s setting=%s cursor=%s (stick moved it %.0fpx) ghost=%s edge=%.3f\\\"\" % [str(InputDeviceManager.is_pad_active()), str(VirtualCursor.is_cursor_active()), str(SettingsService.placement_clamp_to_exclusion), str(cursor), moved, str(g.position), best])\nif not VirtualCursor.is_cursor_active():\n\treturn -1.0\nif moved < 50.0:\n\treturn -2.0\nif g.clamp_origin_world == null:\n\treturn -3.0\nif not g.is_valid_position:\n\treturn -4.0\nreturn snappedf(best, 0.01)", "expect_min": 9.0, "expect_max": 9.3 },
+    { "act": "execute_script", "script": "str(main.get_meta(\"ds_pad_glide_probe\"))", "exists": true },
+    { "act": "screenshot", "label": "07_pad_stick_aim_held_at_9in" },
+
+    { "act": "execute_script", "multiline": true, "script": "var dc = tree.current_scene.deployment_controller\ntree.current_scene.set_meta(\"ds_pad_count_before\", dc.get_placed_count())\ntree.current_scene.set_meta(\"ds_pad_index\", dc.model_idx)\nreturn dc.get_placed_count()", "expect_min": 1 },
+    { "act": "simulate_joy_button", "button_index": 0 },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "multiline": true, "script": "# A places exactly one more model — the pad's placing press, routed as a real\n# click at the virtual cursor.\nvar m = tree.current_scene\nreturn m.deployment_controller.get_placed_count() - int(m.get_meta(\"ds_pad_count_before\"))", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "script": "# ...and it landed on the boundary, not at the illegal point the stick was\n# pointing at.\nvar m = tree.current_scene\nvar dc = m.deployment_controller\nvar placed = dc.temp_positions[int(m.get_meta(\"ds_pad_index\"))]\nvar best = 1000.0\nfor enemy in GameState.get_enemy_model_positions(2):\n\tvar edge = placed.distance_to(Vector2(enemy.x, enemy.y)) / 40.0 - (32.0 / 2.0) / 25.4 - (float(enemy.base_mm) / 2.0) / 25.4\n\tif edge < best:\n\t\tbest = edge\nm.set_meta(\"ds_pad_drop_probe\", \"pad_placed_at=%s edge=%.3f\\\" (stick was aiming at board 700,640 = 7.5\\\")\" % [str(placed), best])\nreturn snappedf(best, 0.01)", "expect_min": 9.0, "expect_max": 9.3 },
+    { "act": "execute_script", "script": "str(main.get_meta(\"ds_pad_drop_probe\"))", "exists": true },
+    { "act": "screenshot", "label": "08_pad_a_placed_on_the_line" },
+
+    { "act": "execute_script", "multiline": true, "script": "# Leave the setting at its shipped default so a later scenario in the same run\n# is not affected.\nSettingsService.set_placement_clamp_to_exclusion(true)\nreturn SettingsService.placement_clamp_to_exclusion", "equals": true },
+
+    { "act": "execute_script", "script": "main._open_settings_menu()" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "main._settings_menu._tab_buttons[3].text", "equals": "Controls" },
+    { "act": "execute_script", "script": "main._settings_menu._on_tab_pressed(3)" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main._settings_menu._placement_clamp_checkbox.is_visible_in_tree()", "equals": true },
+    { "act": "execute_script", "script": "main._settings_menu._placement_clamp_checkbox.text", "equals": "Hold Deep Strike placement outside the 9\" exclusion zone" },
+    { "act": "execute_script", "script": "main._settings_menu._placement_clamp_checkbox.button_pressed", "equals": true },
+    { "act": "screenshot", "label": "06_settings_controls_toggle" },
+    { "act": "execute_script", "multiline": true, "script": "# The checkbox drives the real setter, so a player turning it off turns the\n# clamp off for the placement already in progress.\nvar sm = tree.current_scene._settings_menu\nsm._placement_clamp_checkbox.button_pressed = false\nsm._placement_clamp_checkbox.toggled.emit(false)\nreturn SettingsService.placement_clamp_to_exclusion", "equals": false },
+    { "act": "execute_script", "multiline": true, "script": "SettingsService.set_placement_clamp_to_exclusion(true)\nreturn SettingsService.placement_clamp_to_exclusion", "equals": true }
+  ]
+}

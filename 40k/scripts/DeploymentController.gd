@@ -70,6 +70,42 @@ var reinforcement_placement_type: String = ""
 # Infiltrators mode (deploy anywhere >9" from enemy zone and enemy models)
 var is_infiltrators_mode: bool = false
 
+# Stand-off distances enforced during placement, edge-to-edge in inches. Named
+# so the validators below and the exclusion-clamp bubble builder cannot drift
+# apart: the clamp parks the ghost exactly on one of these boundaries, so if it
+# measured a different distance from the validator it would park the model on a
+# line the click then rejects.
+const REINFORCEMENT_ENEMY_STANDOFF_INCHES: float = 9.0
+const OMNI_SCRAMBLER_STANDOFF_INCHES: float = 12.0
+const INFILTRATORS_ENEMY_STANDOFF_INCHES: float = 9.0
+
+# How far past the stand-off boundary a clamped ghost is parked. The boundary IS
+# the rejection threshold, so landing mathematically on it risks measuring a
+# hair under and being rejected; this matches the game's own float-comparison
+# tolerance (Measurement.DISTANCE_TOLERANCE_INCHES — not referenced directly
+# because an autoload lookup is not a constant expression), a safe and, at 2 px,
+# invisible amount of daylight.
+const EXCLUSION_CLAMP_MARGIN_INCHES: float = 0.05
+
+# When the straight push out of the exclusion zone lands somewhere unusable —
+# almost always a model already placed on the same stretch of the 9" ring, which
+# is exactly what happens while walking a whole unit along the boundary — search
+# outwards from it and take the nearest spot that IS usable.
+#
+# The search is sized in BASE WIDTHS, not in fractions of the push: a shallow
+# aim only needs nudging a few pixels to clear the ring, but getting around the
+# model already standing there always costs a base width whether the push was
+# 5 px or 500. Steps go sideways along the boundary (both ways, so a queue can
+# build in either direction) and straight back from it.
+const EXCLUSION_CLAMP_SIDE_STEPS: Array = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 4.0, -4.0]
+const EXCLUSION_CLAMP_BACK_STEPS: Array = [1.0, 2.0]
+# One step, as a fraction of the placed model's own base extent. Just over one
+# base guarantees a step actually clears a same-size neighbour.
+const EXCLUSION_CLAMP_STEP_BASES: float = 1.05
+# Ceiling on validator calls per clamp so a crowded board cannot make the
+# per-frame ghost update expensive.
+const EXCLUSION_CLAMP_MAX_CANDIDATE_TESTS: int = 12
+
 # Scout reserves mode (11e 24.31: a Scout unit in Strategic Reserves may be set
 # up wholly within its own deployment zone). Reuses the normal "wholly within
 # DZ" placement validation but, like reinforcement mode, emits unit_confirmed on
@@ -567,6 +603,13 @@ func try_place_at(world_pos: Vector2) -> void:
 	if ghost_sprite and ghost_sprite.has_method("get_base_rotation"):
 		rotation = ghost_sprite.get_base_rotation()
 
+	# Deep Strike / Infiltrators: drop where the ghost was being previewed, which
+	# for a click aimed inside an exclusion bubble is the nearest legal spot just
+	# outside it rather than the illegal point itself. Same call the per-frame
+	# preview makes (_process), so preview and drop cannot disagree; a no-op for
+	# every position that is placeable as aimed.
+	world_pos = _clamped_placement_position(world_pos, model_data, rotation)
+
 	# Issue #87: no part of any model's base may extend off the
 	# battlefield. Applies to all placement modes (normal / reinforcement /
 	# infiltrators) — normal deployment zones are already on-board so this
@@ -684,6 +727,18 @@ func try_place_formation_at(world_pos: Vector2) -> void:
 
 	# Validate all positions
 	var zone = BoardState.get_deployment_zone_for_player(GameState.get_active_player())
+
+	# Same exclusion-zone clamp the formation preview applied, so a block aimed
+	# slightly inside the 9" bubble drops where its ghosts were shown — pressed
+	# up against the boundary — instead of being rejected. A no-op whenever the
+	# block is already clear of it (_clamped_formation_anchor returns the anchor
+	# untouched unless every model ends up legal).
+	var clamped_anchor = _clamped_formation_anchor(world_pos, positions, formation_model_data, formation_rotations, zone)
+	if clamped_anchor != world_pos:
+		var anchor_shift = clamped_anchor - world_pos
+		for i in range(positions.size()):
+			positions[i] = positions[i] + anchor_shift
+
 	var all_valid = true
 	var error_msg = ""
 
@@ -2016,15 +2071,23 @@ func _process(delta: float) -> void:
 
 	# Handle repositioning ghost updates (highest priority)
 	if repositioning_model and reposition_ghost:
-		reposition_ghost.position = mouse_pos
 		var model_data = _reposition_model_data(reposition_model_index)
-		var is_valid = _validate_reposition(mouse_pos, model_data, reposition_model_index, true)
-		reposition_ghost.set_validity(is_valid)
-		# Show coherency distance during repositioning too
 		var rot = 0.0
 		if reposition_ghost.has_method("get_base_rotation"):
 			rot = reposition_ghost.get_base_rotation()
-		_update_coherency_distance_display(mouse_pos, model_data, rot)
+		# A lifted model gets the same exclusion-zone clamp as a fresh drop, so
+		# nudging one up against the 9" line works the same way placing it did.
+		var lifted_pos = _clamped_placement_position(mouse_pos, model_data, rot, reposition_model_index)
+		reposition_ghost.position = lifted_pos
+		if reposition_ghost.has_method("set_clamp_origin"):
+			if lifted_pos.is_equal_approx(mouse_pos):
+				reposition_ghost.set_clamp_origin(null, "")
+			else:
+				reposition_ghost.set_clamp_origin(mouse_pos, _placement_clamp_label())
+		var is_valid = _validate_reposition(lifted_pos, model_data, reposition_model_index, true)
+		reposition_ghost.set_validity(is_valid)
+		# Show coherency distance during repositioning too
+		_update_coherency_distance_display(lifted_pos, model_data, rot)
 		_update_coherency_circles()
 		return
 
@@ -2042,8 +2105,6 @@ func _process(delta: float) -> void:
 
 	# Handle single mode ghost updates
 	if ghost_sprite != null and model_idx < temp_positions.size():
-		ghost_sprite.position = mouse_pos
-
 		# Get model data - from combined_models for combined deployment, otherwise from unit
 		var model_data: Dictionary
 		if is_combined_deployment and model_idx < combined_models.size():
@@ -2058,6 +2119,18 @@ func _process(delta: float) -> void:
 		if ghost_sprite.has_method("get_base_rotation"):
 			rotation = ghost_sprite.get_base_rotation()
 
+		# Hold the ghost outside the Deep Strike / Infiltrators exclusion zone
+		# rather than letting it drift in and turn red. try_place_at() applies
+		# the SAME clamp to the click, so what the player sees previewed is
+		# exactly where the model lands.
+		var ghost_pos = _clamped_placement_position(mouse_pos, model_data, rotation)
+		ghost_sprite.position = ghost_pos
+		if ghost_sprite.has_method("set_clamp_origin"):
+			if ghost_pos.is_equal_approx(mouse_pos):
+				ghost_sprite.set_clamp_origin(null, "")
+			else:
+				ghost_sprite.set_clamp_origin(mouse_pos, _placement_clamp_label())
+
 		var is_valid = false
 
 		if is_reinforcement_mode:
@@ -2065,16 +2138,16 @@ func _process(delta: float) -> void:
 			# silent=true — this is the per-frame ghost-colour check; a failure just
 			# reddens the ghost, it must NOT stack a toast every frame (the click in
 			# try_place_at surfaces the reason).
-			is_valid = _validate_reinforcement_position(mouse_pos, model_data, rotation, true)
+			is_valid = _validate_reinforcement_position(ghost_pos, model_data, rotation, true)
 			# Also check model overlap
-			if is_valid and _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation):
+			if is_valid and _overlaps_with_existing_models_shape(ghost_pos, model_data, rotation):
 				is_valid = false
 		elif is_infiltrators_mode:
 			# Infiltrators mode: validate >9" from enemy zone and enemy models
 			# (silent per-frame — see the reinforcement branch above).
-			is_valid = _validate_infiltrators_position(mouse_pos, model_data, rotation, true)
+			is_valid = _validate_infiltrators_position(ghost_pos, model_data, rotation, true)
 			# Also check model overlap
-			if is_valid and _overlaps_with_existing_models_shape(mouse_pos, model_data, rotation):
+			if is_valid and _overlaps_with_existing_models_shape(ghost_pos, model_data, rotation):
 				is_valid = false
 		else:
 			# Normal deployment: check deployment zone and model overlap
@@ -2090,7 +2163,7 @@ func _process(delta: float) -> void:
 		# Also check wall collision, honoring the deploying unit's traversal keywords.
 		if is_valid:
 			var test_model = model_data.duplicate()
-			test_model["position"] = mouse_pos
+			test_model["position"] = ghost_pos
 			test_model["rotation"] = rotation
 			if Measurement.model_overlaps_any_wall(test_model, _get_deploying_unit_keywords(model_idx)):
 				is_valid = false
@@ -2098,8 +2171,9 @@ func _process(delta: float) -> void:
 		if ghost_sprite.has_method("set_validity"):
 			ghost_sprite.set_validity(is_valid)
 
-		# Update coherency distance display near ghost
-		_update_coherency_distance_display(mouse_pos, model_data, rotation)
+		# Update coherency distance display near ghost — measured from where the
+		# ghost actually IS, which a clamped placement moves off the cursor.
+		_update_coherency_distance_display(ghost_pos, model_data, rotation)
 
 	# DEPLOY-VIS-5: Update coherency circle colors based on ghost position
 	_update_coherency_circles()
@@ -2412,6 +2486,16 @@ func _update_formation_ghost_positions(mouse_pos: Vector2) -> void:
 
 	# Update ghost positions and validity
 	var zone = BoardState.get_deployment_zone_for_player(GameState.get_active_player())
+
+	# Hold the whole block outside the Deep Strike / Infiltrators exclusion zone.
+	# try_place_formation_at() re-derives the same shifted anchor, so the drop
+	# lands on the previewed block.
+	var clamped_anchor = _clamped_formation_anchor(mouse_pos, positions, formation_model_data, ghost_rotations, zone)
+	if clamped_anchor != mouse_pos:
+		var shift = clamped_anchor - mouse_pos
+		for i in range(positions.size()):
+			positions[i] = positions[i] + shift
+
 	for i in range(formation_preview_ghosts.size()):
 		var ghost = formation_preview_ghosts[i]
 		if i < positions.size():
@@ -2636,7 +2720,17 @@ func _validate_reposition(world_pos: Vector2, model_data: Dictionary, model_inde
 	var active_player = GameState.get_active_player()
 	var rotation = _reposition_rotation_for(model_index)
 
-	if is_infiltrators_mode:
+	if is_reinforcement_mode:
+		# Reinforcement (Deep Strike / Strategic Reserves / Rapid Ingress): the
+		# unit is arriving across the whole battlefield, so the same rules the
+		# initial drop is judged by apply to a lift-and-nudge of one of its
+		# models. Without this branch the else-branch below measured a lifted
+		# Deep Strike model against the player's own DEPLOYMENT ZONE, so it
+		# could only ever be dropped back inside it — nudging a model that had
+		# just been legally placed mid-board was impossible.
+		if not _validate_reinforcement_position(world_pos, model_data, rotation, silent):
+			return false
+	elif is_infiltrators_mode:
 		# In Infiltrators mode, use Infiltrators validation instead of zone check
 		if not _validate_infiltrators_position(world_pos, model_data, rotation, silent):
 			return false
@@ -2703,6 +2797,9 @@ func _end_model_repositioning(mouse_pos: Vector2) -> void:
 	# The facing the player is holding the model at — rotating mid-lift is part
 	# of the nudge, so the drop has to commit it, not throw it away.
 	var drop_rotation := _reposition_rotation_for(reposition_model_index)
+	# Same clamp the lifted ghost was previewing with, so the model lands where
+	# the player saw it hovering (a no-op outside the exclusion zone).
+	world_pos = _clamped_placement_position(world_pos, model_data, drop_rotation, reposition_model_index)
 	var token := _find_preview_token(reposition_model_index)
 
 	# Validate final position
@@ -2794,6 +2891,239 @@ func pad_cancel_reposition() -> bool:
 	_cancel_model_repositioning()
 	return true
 
+# ── Exclusion-zone placement clamp ──────────────────────────────────
+# The inverse of the movement phase's over-range drag clamp: instead of holding
+# a model INSIDE a circle it may not leave, this holds a Deep Strike / Strategic
+# Reserves / Rapid Ingress placement OUTSIDE the 9" bubbles it may not enter.
+# Aim the cursor slightly too close and the ghost stops on the boundary instead
+# of turning red, so squeezing a drop to exactly 9" no longer means landing the
+# cursor on an invisible line by hand (impossible on a thumbstick, fiddly on a
+# mouse).
+#
+# SAFETY PROPERTY: the clamp only ever moves a position that is inside a
+# stand-off bubble — i.e. one the click path rejects outright today — and only
+# to a point the real validator accepts. Anything that places successfully now
+# places identically, at the very same coordinates.
+
+func _placement_clamp_active() -> bool:
+	"""Whether placements should be held outside the exclusion zone. Always on
+	for the pad (a thumbstick cannot hit a 1-pixel boundary), otherwise the
+	player's setting. Mirrors PhaseControllerBase.drag_clamp_active()."""
+	var idm = get_node_or_null("/root/InputDeviceManager")
+	if idm != null and idm.has_method("is_pad_active") and idm.is_pad_active():
+		return true
+	var settings = get_node_or_null("/root/SettingsService")
+	if settings == null:
+		return false
+	return bool(settings.get("placement_clamp_to_exclusion"))
+
+func _placement_exclusion_bubbles(model_data: Dictionary) -> Array:
+	"""The forbidden discs this placement's CENTRE must stay out of, in board px.
+	Each radius is the rule's stand-off plus both base radii, so it encodes
+	exactly the edge-to-edge test the matching validator runs."""
+	var bubbles: Array = []
+	if not (is_reinforcement_mode or is_infiltrators_mode):
+		return bubbles
+
+	var px_per_inch: float = 40.0
+	var model_radius_inches: float = (float(model_data.get("base_mm", 32)) / 2.0) / 25.4
+	var active_player: int = GameState.get_active_player()
+
+	var enemy_standoff: float = REINFORCEMENT_ENEMY_STANDOFF_INCHES if is_reinforcement_mode else INFILTRATORS_ENEMY_STANDOFF_INCHES
+	for enemy in GameState.get_enemy_model_positions(active_player):
+		var enemy_radius_inches: float = (float(enemy.base_mm) / 2.0) / 25.4
+		var radius_inches: float = enemy_standoff + model_radius_inches + enemy_radius_inches
+		bubbles.append(PlacementClamp.make_bubble(Vector2(enemy.x, enemy.y), radius_inches * px_per_inch))
+
+	# Omni-scramblers push reinforcements out to 12". Infiltrators are not
+	# subject to it (its validator does not check it either), so the bubble set
+	# stays a faithful mirror of whichever validator will judge the result.
+	if is_reinforcement_mode:
+		for omni in GameState.get_omni_scrambler_positions(active_player):
+			var omni_radius_inches: float = (float(omni.base_mm) / 2.0) / 25.4
+			var radius_inches: float = OMNI_SCRAMBLER_STANDOFF_INCHES + model_radius_inches + omni_radius_inches
+			bubbles.append(PlacementClamp.make_bubble(Vector2(omni.x, omni.y), radius_inches * px_per_inch))
+
+	return bubbles
+
+func _placement_position_is_legal(pos: Vector2, model_data: Dictionary, rotation: float, exclude_index: int = -1) -> bool:
+	"""Every gate try_place_at() applies, in the same order and silently. The
+	clamp offers a position only if this says the click would accept it.
+	`exclude_index` is the staged model being lifted for repositioning, which
+	must not be treated as an obstacle to itself."""
+	var edge_model: Dictionary = model_data.duplicate()
+	edge_model["rotation"] = rotation
+	if Measurement.model_outside_board(pos, edge_model):
+		return false
+
+	if is_reinforcement_mode:
+		if not _validate_reinforcement_position(pos, model_data, rotation, true):
+			return false
+	elif is_infiltrators_mode:
+		if not _validate_infiltrators_position(pos, model_data, rotation, true):
+			return false
+	else:
+		return false
+
+	if exclude_index >= 0:
+		if _would_overlap_excluding_self(pos, model_data, exclude_index):
+			return false
+	elif _overlaps_with_existing_models_shape(pos, model_data, rotation):
+		return false
+
+	var test_model: Dictionary = model_data.duplicate()
+	test_model["position"] = pos
+	test_model["rotation"] = rotation
+	# Index-aware like try_place_at's own wall check: in a combined placement the
+	# model in hand may belong to an attached CHARACTER whose traversal keywords
+	# differ from the squad's, and the clamp has to judge walls exactly as the
+	# click will. A lift supplies the staged slot it is holding; a fresh drop is
+	# on model_idx.
+	var keyword_index: int = exclude_index if exclude_index >= 0 else model_idx
+	if Measurement.model_overlaps_any_wall(test_model, _get_deploying_unit_keywords(keyword_index)):
+		return false
+
+	return true
+
+func _clamped_placement_position(world_pos: Vector2, model_data: Dictionary, rotation: float, exclude_index: int = -1) -> Vector2:
+	"""Hold `world_pos` outside the placement exclusion zone, or return it
+	untouched when it is already outside — or when nothing legal is reachable by
+	pushing it out, so the ghost stays red under the cursor and the click still
+	explains itself exactly as before. `exclude_index` is the staged model being
+	lifted for repositioning (it must not block its own new home)."""
+	if not (is_reinforcement_mode or is_infiltrators_mode):
+		return world_pos
+	if not _placement_clamp_active():
+		return world_pos
+
+	var bubbles: Array = _placement_exclusion_bubbles(model_data)
+	if bubbles.is_empty():
+		return world_pos
+	# Outside every bubble already: the player is placing legally (or is being
+	# stopped by something this clamp has no business moving them for, like the
+	# board edge). Costs one distance test per enemy model and is the case
+	# almost every frame.
+	if PlacementClamp.penetration_px(world_pos, bubbles) <= 0.0:
+		return world_pos
+
+	var margin_px: float = EXCLUSION_CLAMP_MARGIN_INCHES * 40.0
+	var pushed: Vector2 = PlacementClamp.escape(world_pos, bubbles, margin_px)
+	if _placement_position_is_legal(pushed, model_data, rotation, exclude_index):
+		return pushed
+
+	# Straight out is blocked — nearly always by a model of this same unit already
+	# standing on that stretch of the boundary. Step along the boundary to either
+	# side of it, and back away from it, and take whichever free spot ends up
+	# closest to where the player actually pointed.
+	var push_vector: Vector2 = pushed - world_pos
+	if push_vector.length_squared() < 0.000001:
+		return world_pos
+	var out_dir: Vector2 = push_vector.normalized()
+	var along: Vector2 = Vector2(-out_dir.y, out_dir.x)  # tangent to the ring
+	var step_px: float = maxf(_get_shape_max_extent(model_data) * EXCLUSION_CLAMP_STEP_BASES, 12.0)
+
+	var candidates: Array = []
+	for side in EXCLUSION_CLAMP_SIDE_STEPS:
+		candidates.append(pushed + along * (float(side) * step_px))
+	for back in EXCLUSION_CLAMP_BACK_STEPS:
+		candidates.append(pushed + out_dir * (float(back) * step_px))
+	# Re-escape every one: stepping sideways along one bubble's ring can walk
+	# straight into a neighbouring bubble, and a candidate that is not even
+	# outside the exclusion zone is not worth a validator call.
+	for i in range(candidates.size()):
+		candidates[i] = PlacementClamp.escape(candidates[i], bubbles, margin_px)
+
+	candidates.sort_custom(func(a, b): return world_pos.distance_squared_to(a) < world_pos.distance_squared_to(b))
+
+	var tests: int = 0
+	for candidate in candidates:
+		if tests >= EXCLUSION_CLAMP_MAX_CANDIDATE_TESTS:
+			break
+		tests += 1
+		if _placement_position_is_legal(candidate, model_data, rotation, exclude_index):
+			return candidate
+
+	# Nothing legal nearby — leave the player's own aim alone.
+	return world_pos
+
+func _clamped_formation_anchor(anchor: Vector2, positions: Array, model_data_array: Array, rotations: Array, zone: PackedVector2Array) -> Vector2:
+	"""Group edition of the clamp: shift a whole formation just far enough that
+	EVERY model clears the exclusion zone, keeping the block's shape and facing
+	intact. The formation layout is a pure translation of its anchor, so moving
+	the anchor moves the block — the same trick
+	MovementController._clamp_group_drag_vector uses to hold a dragged formation
+	inside its move budget.
+
+	All-or-nothing, like the drop it previews: if the shifted block is not
+	legal in full, the anchor is returned untouched and the ghosts redden
+	exactly as they do today."""
+	if not (is_reinforcement_mode or is_infiltrators_mode):
+		return anchor
+	if not _placement_clamp_active():
+		return anchor
+	if positions.is_empty():
+		return anchor
+
+	# Bubble radii fold in the placed model's own base, so a formation of mixed
+	# bases needs a set per base size. Cached because that is nearly always one
+	# set shared by every model in the block.
+	var bubbles_by_base: Dictionary = {}
+	var bubbles_for := func(index: int) -> Array:
+		var md: Dictionary = model_data_array[index] if index < model_data_array.size() else {}
+		var key: int = int(md.get("base_mm", 32))
+		if not bubbles_by_base.has(key):
+			bubbles_by_base[key] = _placement_exclusion_bubbles(md)
+		return bubbles_by_base[key]
+
+	var offsets: Array = []
+	for pos in positions:
+		offsets.append(pos - anchor)
+
+	var margin_px: float = EXCLUSION_CLAMP_MARGIN_INCHES * 40.0
+	var shift: Vector2 = Vector2.ZERO
+	for _iteration in range(PlacementClamp.MAX_ESCAPE_ITERATIONS):
+		# Move by whichever model is worst off; the rest are re-measured next
+		# round, so a shift that drags someone else into a bubble is corrected
+		# rather than shipped.
+		var worst_push: Vector2 = Vector2.ZERO
+		var worst_len: float = 0.0
+		for i in range(positions.size()):
+			var bubbles: Array = bubbles_for.call(i)
+			if bubbles.is_empty():
+				continue
+			var p: Vector2 = anchor + shift + offsets[i]
+			if PlacementClamp.penetration_px(p, bubbles) <= 0.0:
+				continue
+			var push: Vector2 = PlacementClamp.escape(p, bubbles, margin_px) - p
+			var push_len: float = push.length()
+			if push_len > worst_len:
+				worst_len = push_len
+				worst_push = push
+		if worst_len <= 0.0:
+			break
+		shift += worst_push
+
+	if shift == Vector2.ZERO:
+		return anchor
+
+	for i in range(positions.size()):
+		var candidate: Vector2 = anchor + shift + offsets[i]
+		var md: Dictionary = model_data_array[i] if i < model_data_array.size() else {}
+		var rot: float = float(rotations[i]) if i < rotations.size() else 0.0
+		var edge_model: Dictionary = md.duplicate()
+		edge_model["rotation"] = rot
+		if Measurement.model_outside_board(candidate, edge_model):
+			return anchor
+		if not _validate_formation_position(candidate, md, zone, rot, true):
+			return anchor
+
+	return anchor + shift
+
+func _placement_clamp_label() -> String:
+	"""Caption for the tether drawn from the cursor to a held ghost."""
+	var standoff: float = REINFORCEMENT_ENEMY_STANDOFF_INCHES if is_reinforcement_mode else INFILTRATORS_ENEMY_STANDOFF_INCHES
+	return "held at %.0f\"" % standoff
+
 func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary, rotation: float, silent: bool = false) -> bool:
 	"""Validate a reinforcement placement position (Deep Strike / Strategic Reserves).
 	silent=true suppresses the failure toasts — the per-frame ghost-colour check
@@ -2822,7 +3152,7 @@ func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary
 		var dist_px = world_pos.distance_to(enemy_pos_px)
 		var dist_inches = dist_px / px_per_inch
 		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-		if edge_dist < 9.0:
+		if edge_dist < REINFORCEMENT_ENEMY_STANDOFF_INCHES:
 			if not silent:
 				_show_toast("Must be >9\" from enemy models (%.1f\")" % edge_dist)
 			return false
@@ -2851,7 +3181,7 @@ func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary
 		var dist_px = world_pos.distance_to(omni_pos_px)
 		var dist_inches = dist_px / px_per_inch
 		var edge_dist = dist_inches - model_radius_inches - omni_radius_inches
-		if edge_dist < 12.0:
+		if edge_dist < OMNI_SCRAMBLER_STANDOFF_INCHES:
 			if not silent:
 				_show_toast("Cannot deploy within 12\" of Omni-scramblers (%s) (%.1f\")" % [omni.get("unit_name", "unknown"), edge_dist])
 			return false
@@ -2913,7 +3243,7 @@ func _validate_infiltrators_position(world_pos: Vector2, model_data: Dictionary,
 		var dist_px = world_pos.distance_to(enemy_pos_px)
 		var dist_inches = dist_px / px_per_inch
 		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-		if edge_dist < 9.0:
+		if edge_dist < INFILTRATORS_ENEMY_STANDOFF_INCHES:
 			if not silent:
 				_show_toast("Infiltrators must be >9\" from enemy models (%.1f\")" % edge_dist)
 			return false
