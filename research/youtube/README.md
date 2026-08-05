@@ -82,16 +82,43 @@ second. The script tries IOS first and falls back to ANDROID_VR.
 python3 scrape_all.py    # resumable; skips video_ids already in the output
 ```
 
-### Rate limit (measured 2026-08-04)
+### Rate limit (measured 2026-08-04/05)
 
 From this cloud IP the run is clean at ~96% for the first **~680 videos**, then
-hits a hard wall — every subsequent request returns `LOGIN_REQUIRED`. A 4-minute
-cooldown does not clear it. Final tally for one window: **658 of 1,054**
-(7.0M words). The remaining ids are in `transcripts_pending_ids.txt`; re-running
-`scrape_all.py` after a longer cooldown tops the file up because it resumes.
+hits a hard wall — every subsequent request returns `LOGIN_REQUIRED`. Final tally
+for one window: **658 of 1,054** (7.0M words, 83 channels).
 
-On a residential IP (e.g. a local Mac) this ceiling is far higher or absent, and
-plain `yt-dlp --write-auto-subs` works directly — no InnerTube poking needed.
+The wall was then characterised properly:
+
+- **Not client-scoped.** Nine InnerTube client fingerprints were probed against a
+  pending video (IOS, IOS_MUSIC, IOS_MESSAGES_EXTENSION, ANDROID,
+  ANDROID_TESTSUITE, WEB_EMBEDDED_PLAYER, TVHTML5, MEDIA_CONNECT, base IOS).
+  All refused. The quota is IP-scoped; swapping clients buys nothing.
+- **Not a short cooldown.** Eight 15-minute cooldown rounds (2 hours) all stayed
+  blocked.
+- **Not limited to the player endpoint.** Once throttled, the RSS feed returns
+  404 for a channel id that returned 200 earlier, and the channel listing page
+  parses 1 `lockupViewModel` instead of 30. The *harvest* routes degrade too.
+
+So a cloud IP gets roughly one ~680-video window, then loses YouTube access
+broadly for an extended period (>2h, likely 24h).
+
+### Finishing on a residential IP
+
+A home IP does not carry the cloud-provider penalty that triggers this, and
+plain `yt-dlp` works directly — no InnerTube poking needed:
+
+```bash
+cd research/youtube && ./finish_on_mac.sh
+```
+
+`finish_on_mac.sh` reads `transcripts_pending_ids.txt`, fetches with
+`--sleep-requests 1`, folds the raw json3 into the same JSONL shape this corpus
+uses, and skips anything already downloaded so re-runs are cheap. If a bot check
+ever does appear, add `--cookies-from-browser chrome`.
+
+Note ~70 of the 396 pending videos are livestreams or Shorts with no caption
+track at all, so the realistic ceiling is around 984, not 1,054.
 
 ### Output
 
