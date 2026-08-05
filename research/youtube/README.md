@@ -130,8 +130,12 @@ current snapshot.
 
 ### Output
 
-`transcripts_text.jsonl.gz` — 1,029 transcripts, 10.5M words, 90 channels;
-one JSON object per line:
+`transcripts_text.jsonl.gz` — 1,029 transcripts, 10.5M words, 90 channels.
+
+**Not in git.** At 18.6 MB it was 94% of this work's byte weight and would be
+permanent in history, so it is gitignored and passed around out-of-band.
+Regenerate it with `scrape_all.py` (or `finish_on_mac.sh`) and drop it in this
+directory; `search_transcripts.py` expects it here. One JSON object per line:
 `video_id, title, channel, date, cats, url, auto, words, text`.
 `text` keeps coarse `[MM:00]` minute markers so a claim can be traced back to a
 timestamp; per-cue millisecond timing is dropped to keep the file at ~18 MB

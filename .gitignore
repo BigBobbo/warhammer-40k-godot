@@ -62,3 +62,10 @@ ai_loop_log.txt
 ai_loop_status.txt
 ai_loop_tracker.json
 ai_loop_tracker.json.games
+
+# Harvested transcript corpus - large binary, kept out of git.
+# Regenerate with research/youtube/scrape_all.py or finish_on_mac.sh
+research/youtube/transcripts_text.jsonl.gz
+research/youtube/transcripts.jsonl.gz
+research/youtube/subs_raw/
+research/youtube/transcripts_from_mac.jsonl
