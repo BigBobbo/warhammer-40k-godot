@@ -7169,6 +7169,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	# notch as a second gesture.
 	get_viewport().set_input_as_handled()
 
+func _notification(what: int) -> void:
+	# Focus-change hygiene for the camera. The stuck-KEY half lives in
+	# KeybindingManager.flush_held_keys() (an autoload, so every held-key poll in
+	# the game is covered); the drag-pan latch below is Main's own state, so it
+	# has to be cleared here. A middle/right drag-pan that was in progress when
+	# focus was taken never sees its button-up either, which left the view glued
+	# to the mouse the moment the player came back and moved it.
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		if _board_examine_dragging:
+			print("Main: focus lost mid drag-pan — clearing drag latch")
+			_board_examine_dragging = false
+
 func _process(delta: float) -> void:
 	# Board model stats card: count down the hover dwell (see _tick_token_hover_dwell).
 	_tick_token_hover_dwell(delta)

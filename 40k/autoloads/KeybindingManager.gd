@@ -194,6 +194,19 @@ func matches_action(event: InputEventKey, action_id: String) -> bool:
 func is_action_pressed(action_id: String) -> bool:
 	if not bindings.has(action_id):
 		return false
+	# A held-key poll only means anything while the window actually has focus.
+	# Main._process runs whether or not the game is focused, so without this the
+	# camera keeps panning for the entire time the player is away in another app
+	# — they alt-tab back to a board that has scrolled off screen. See the
+	# "Focus-change input hygiene" block below for the whole story.
+	#
+	# Queried live instead of latched off the focus notifications on purpose: a
+	# latched flag that ever missed its FOCUS_IN would kill every held-key action
+	# for the rest of the session, which is a worse bug than the one being fixed.
+	# DisplayServer is always current, and reports focused under both the X11 and
+	# headless drivers, so headless tests and scenario runs are unaffected.
+	if not DisplayServer.window_is_focused():
+		return false
 	var b = bindings[action_id]
 	# An unbound action (no primary key AND no alt key) is never "pressed".
 	if b.key == 0 and b.get("alt_key", 0) == 0:
@@ -397,6 +410,76 @@ func load_bindings() -> void:
 			_wrp.alt_key = _wrp.default_alt_key
 			print("[KeybindingManager] Migrated stale weapon_range_panel=W binding to unbound (new default)")
 	print("[KeybindingManager] Loaded keybindings from %s" % SAVE_PATH)
+
+# ============================================================================
+# Focus-change input hygiene
+# ============================================================================
+# Godot decides "is this key down?" from the key events it has seen:
+# Input.is_key_pressed() reads a cache that a key-DOWN adds to and a key-UP
+# removes from. If the window loses focus while a key is HELD — alt-tab, an OS
+# screenshot hotkey, any overlay that grabs the keyboard — that key-UP is
+# delivered to whatever took focus and never reaches Godot. The key then stays
+# "down" in the cache for the rest of the session.
+#
+# Main._process() polls these actions every frame to pan the camera, so a stuck
+# camera_pan_right scrolled the board off screen and would not stop. Pressing
+# the opposite key only cancelled it out (pan_dir.x = -1 + 1 = 0) for as long as
+# that key was held, then the runaway pan resumed — exactly how it was reported.
+#
+# The same stale cache also silently changes what a click does: MovementController
+# / ChargeController / DeploymentController poll Shift and Ctrl directly for box
+# select and additive select, so those are flushed too, not just the camera keys.
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+			flush_held_keys("focus lost")
+		NOTIFICATION_APPLICATION_FOCUS_IN, NOTIFICATION_WM_WINDOW_FOCUS_IN:
+			# Flushed on the way back in as well as on the way out. If the
+			# focus-out notification never arrived (or arrived before the key was
+			# physically pressed), the stale key is still cached here and the
+			# player would be dropped straight back into the runaway pan. A key
+			# the player is genuinely still holding costs them one re-press.
+			flush_held_keys("focus regained")
+
+
+## Every keycode a binding can currently reference, plus the bare modifiers.
+## Rebuilt on demand rather than cached: bindings are rebindable at runtime, and
+## this only ever runs on a focus change, never per frame.
+func _tracked_keycodes() -> Array:
+	var seen := {}
+	for action_id in bindings:
+		var b = bindings[action_id]
+		for kc in [int(b.get("key", 0)), int(b.get("alt_key", 0))]:
+			if kc != 0:
+				seen[kc] = true
+	# Modifiers are polled straight off Input by the phase controllers and are
+	# not registered bindings, so they have to be added explicitly.
+	for kc in [KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META]:
+		seen[kc] = true
+	return seen.keys()
+
+
+## Clear Godot's cached "key is down" state for every key it still thinks is
+## held. Returns how many were released — 0 is the normal, healthy case.
+##
+## Parsing a synthetic key-UP is the way back: Input.parse_input_event() updates
+## the very same cache the real events update, so is_key_pressed() reports false
+## again on the next frame. Godot exposes no direct "forget the keyboard" call.
+func flush_held_keys(reason: String = "") -> int:
+	var released: Array = []
+	for kc in _tracked_keycodes():
+		if not (Input.is_key_pressed(kc) or Input.is_physical_key_pressed(kc)):
+			continue
+		var ev := InputEventKey.new()
+		ev.keycode = kc
+		ev.physical_keycode = kc
+		ev.pressed = false
+		Input.parse_input_event(ev)
+		released.append(_keycode_to_string(kc))
+	if not released.is_empty():
+		print("[KeybindingManager] Released %d stuck key(s) on %s: %s" % [released.size(), reason, ", ".join(released)])
+	return released.size()
 
 # ============================================================================
 # Helpers

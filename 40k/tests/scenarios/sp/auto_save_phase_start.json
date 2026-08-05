@@ -2,32 +2,59 @@
   "id": "auto_save_phase_start",
   "covers": [
     "save.autosave_on_phase_start",
+    "save.autosave_round_prefix",
+    "save.card_round_display",
     "SaveLoadManager._on_phase_changed_named_autosave",
+    "SaveLoadManager._phase_start_save_name",
+    "SaveLoadManager._create_save_metadata",
+    "SaveLoadDialog._create_save_tooltip",
     "SettingsService.set_autosave_on_phase_start"
   ],
   "fixture": "audit_382_cp_grant",
   "transition_to_phase": 6,
-  "description": "Phase-start autosave: at the start of each phase the controlling player writes/overwrites a save named '<army1> vs <army2> - <phase>'. On by default with a Settings > Gameplay toggle. This drives real PhaseManager transitions (the same signal a player's End Phase triggers) and asserts the named save appears when ON, does NOT appear when the toggle is OFF, and reappears when turned back ON.",
+  "description": "Phase-start autosave: at the start of each phase the controlling player writes/overwrites a save named 'R<round> - <army1> vs <army2> - <phase>'. On by default with a Settings > Gameplay toggle. This drives real PhaseManager transitions (the same signal a player's End Phase triggers) and asserts (a) the round-prefixed named save appears when ON, does NOT appear when the toggle is OFF, and reappears when turned back ON; (b) the save's metadata records the REAL battle round (it used to record meta.turn_number, a dead counter stuck at 1, so every save card read 'Turn: 1'); (c) the Save/Load dialog's list row and tooltip show that round back to the player.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.phase", "equals": 6 },
 
     { "act": "execute_script", "multiline": true, "script": "DirAccess.remove_absolute(ProjectSettings.globalize_path(\"user://settings.cfg\"))\nSettingsService._load_settings()\nSaveLoadManager.set_autosave_on_phase_start(SettingsService.autosave_on_phase_start)\nreturn (SettingsService.autosave_on_phase_start and SaveLoadManager.autosave_on_phase_start)", "equals": true },
 
-    { "act": "execute_script", "multiline": true, "script": "var n = \"%s vs %s - Movement\" % [GameState.get_faction_name(1), GameState.get_faction_name(2)]\nSaveLoadManager.delete_save_file(n)\nPhaseManager.transition_to_phase(7)\nreturn true", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "while GameState.get_battle_round() < 2:\n\tGameState.advance_battle_round()\nreturn GameState.get_battle_round()", "equals": 2 },
+
+    { "act": "execute_script", "multiline": true, "script": "var n = SaveLoadManager._phase_start_save_name(7)\nvar want = \"R2 - %s vs %s - Movement\" % [GameState.get_faction_name(1), GameState.get_faction_name(2)]\nSaveLoadManager.delete_save_file(n)\nPhaseManager.transition_to_phase(7)\nreturn n if n != want else \"ok\"", "equals": "ok" },
     { "act": "wait_seconds", "seconds": 0.3 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
-    { "act": "execute_script", "multiline": true, "script": "var n = \"%s vs %s - Movement\" % [GameState.get_faction_name(1), GameState.get_faction_name(2)]\nreturn SaveLoadManager.save_exists(n)", "equals": true },
-    { "act": "screenshot", "label": "01_movement_autosave_written" },
+    { "act": "execute_script", "multiline": true, "script": "var n = \"R%d - %s vs %s - Movement\" % [GameState.get_battle_round(), GameState.get_faction_name(1), GameState.get_faction_name(2)]\nreturn SaveLoadManager.save_exists(n)", "equals": true },
 
-    { "act": "execute_script", "multiline": true, "script": "SettingsService.set_autosave_on_phase_start(false)\nvar n = \"%s vs %s - Command\" % [GameState.get_faction_name(1), GameState.get_faction_name(2)]\nSaveLoadManager.delete_save_file(n)\nPhaseManager.transition_to_phase(6)\nreturn SaveLoadManager.autosave_on_phase_start", "equals": false },
+    { "act": "execute_script", "multiline": true, "script": "var n = \"R%d - %s vs %s - Movement\" % [GameState.get_battle_round(), GameState.get_faction_name(1), GameState.get_faction_name(2)]\nvar md = SaveLoadManager.get_save_info(n).get(\"metadata\", {})\nvar gs = md.get(\"game_state\", {})\nreturn \"%d/%d/%d\" % [int(gs.get(\"turn\", -1)), int(gs.get(\"battle_round\", -1)), int(md.get(\"preview\", {}).get(\"battle_round\", -1))]", "equals": "2/2/2" },
+
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.root.get_node(\"/root/Main/SaveLoadDialog\")\nd.show_dialog()\nreturn d.visible", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.root.get_node(\"/root/Main/SaveLoadDialog\")\nvar want = \"R%d - %s vs %s - Movement\" % [GameState.get_battle_round(), GameState.get_faction_name(1), GameState.get_faction_name(2)]\nfor i in range(d.save_files_data.size()):\n\tif d.save_files_data[i].get(\"display_name\", \"\") != want:\n\t\tcontinue\n\tvar row = d.saves_list.get_item_text(i)\n\tvar tip = d.saves_list.get_item_tooltip(i)\n\tif not row.begins_with(\"R2 - \"):\n\t\treturn \"row did not start with the round: \" + row\n\tif not (\"Round: 2\" in tip):\n\t\treturn \"tooltip round wrong: \" + tip\n\tif not (\"Phase: Movement\" in tip):\n\t\treturn \"tooltip phase wrong: \" + tip\n\treturn \"ok\"\nreturn \"row not found for \" + want", "equals": "ok" },
+    { "act": "screenshot", "label": "01_movement_autosave_card_shows_round_2" },
+
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.root.get_node(\"/root/Main/SaveLoadDialog\")\nvar want = \"R%d - %s vs %s - Movement\" % [GameState.get_battle_round(), GameState.get_faction_name(1), GameState.get_faction_name(2)]\nd.filter_input.text = want\nd._on_filter_text_changed(want)\nreturn d.save_files_data.size()", "equals": 1 },
     { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "execute_script", "multiline": true, "script": "var n = \"%s vs %s - Command\" % [GameState.get_faction_name(1), GameState.get_faction_name(2)]\nreturn SaveLoadManager.save_exists(n)", "equals": false },
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.root.get_node(\"/root/Main/SaveLoadDialog\")\nvar lst = d.saves_list\nvar r = lst.get_item_rect(0)\nvar p = lst.get_global_rect().position + r.position + r.size * 0.5\np.y -= lst.get_v_scroll_bar().value\nInput.warp_mouse(p)\nfor down in [true, false]:\n\tvar ev = InputEventMouseButton.new()\n\tev.button_index = MOUSE_BUTTON_LEFT\n\tev.pressed = down\n\tev.position = p\n\tev.global_position = p\n\tInput.parse_input_event(ev)\nreturn true", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "script": "return tree.root.get_node(\"/root/Main/SaveLoadDialog\").selected_save_index", "equals": 0 },
+    { "act": "execute_script", "multiline": true, "script": "var t = tree.root.get_node(\"/root/Main/SaveLoadDialog\").preview_label.get_parsed_text()\nreturn t if not (\"Round 2\" in t) else \"ok\"", "equals": "ok" },
+    { "act": "screenshot", "label": "02_preview_panel_reads_round_2" },
+
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.root.get_node(\"/root/Main/SaveLoadDialog\")\nvar lst = d.saves_list\nvar r = lst.get_item_rect(0)\nvar p = lst.get_global_rect().position + r.position + r.size * 0.5\np.y -= lst.get_v_scroll_bar().value\nInput.warp_mouse(p)\nvar ev = InputEventMouseMotion.new()\nev.position = p\nev.global_position = p\nInput.parse_input_event(ev)\nreturn true", "equals": true },
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "screenshot", "label": "03_tooltip_reads_round_2_phase_movement" },
+
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.root.get_node(\"/root/Main/SaveLoadDialog\")\nd.filter_input.text = \"\"\nd._on_filter_text_changed(\"\")\nd.hide()\nreturn true", "equals": true },
+
+    { "act": "execute_script", "multiline": true, "script": "SettingsService.set_autosave_on_phase_start(false)\nvar n = \"R%d - %s vs %s - Command\" % [GameState.get_battle_round(), GameState.get_faction_name(1), GameState.get_faction_name(2)]\nSaveLoadManager.delete_save_file(n)\nPhaseManager.transition_to_phase(6)\nreturn SaveLoadManager.autosave_on_phase_start", "equals": false },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    { "act": "execute_script", "multiline": true, "script": "var n = \"R%d - %s vs %s - Command\" % [GameState.get_battle_round(), GameState.get_faction_name(1), GameState.get_faction_name(2)]\nreturn SaveLoadManager.save_exists(n)", "equals": false },
     { "act": "screenshot", "label": "02_toggle_off_no_autosave" },
 
-    { "act": "execute_script", "multiline": true, "script": "SettingsService.set_autosave_on_phase_start(true)\nvar n = \"%s vs %s - Movement\" % [GameState.get_faction_name(1), GameState.get_faction_name(2)]\nSaveLoadManager.delete_save_file(n)\nPhaseManager.transition_to_phase(7)\nreturn true", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "SettingsService.set_autosave_on_phase_start(true)\nvar n = \"R%d - %s vs %s - Movement\" % [GameState.get_battle_round(), GameState.get_faction_name(1), GameState.get_faction_name(2)]\nSaveLoadManager.delete_save_file(n)\nPhaseManager.transition_to_phase(7)\nreturn true", "equals": true },
     { "act": "wait_seconds", "seconds": 0.3 },
-    { "act": "execute_script", "multiline": true, "script": "var n = \"%s vs %s - Movement\" % [GameState.get_faction_name(1), GameState.get_faction_name(2)]\nreturn SaveLoadManager.save_exists(n)", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var n = \"R%d - %s vs %s - Movement\" % [GameState.get_battle_round(), GameState.get_faction_name(1), GameState.get_faction_name(2)]\nreturn SaveLoadManager.save_exists(n)", "equals": true },
     { "act": "screenshot", "label": "03_reenabled_autosave_written" }
   ]
 }

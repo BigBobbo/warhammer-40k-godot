@@ -2,25 +2,48 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.27.2",
+      "version": "1.27.4",
       "date": "2026-08-05",
       "summary": "New setting: let the line-of-sight overlay skip enemies none of your guns could reach, for a quieter and faster board.",
       "changes": [
-        "New (requested): Settings > Visual > \"LoS Debug: include units out of weapon range\". On by default — enemies no weapon in the selected unit could reach are still checked and drawn dashed amber, labelled \"is out of range\", which is what explains a squad you can plainly see but cannot select.",
+        "New (requested): Settings > Visual > \"LoS Debug: include units out of weapon range\". On by default \u2014 enemies no weapon in the selected unit could reach are still checked and drawn dashed amber, labelled \"is out of range\", which is what explains a squad you can plainly see but cannot select.",
         "Turn it off and those enemies are dropped before any line-of-sight work happens at all: the overlay then shows only the enemies your guns can actually reach. On a deployed 2000pt board that took a whole-board sweep from 64 lines and ~0.9s down to 16 lines and ~0.3s.",
-        "A unit carrying no ranged weapons has no range to be outside of, so its sight lines are never filtered — assault units still get the full overlay either way."
+        "A unit carrying no ranged weapons has no range to be outside of, so its sight lines are never filtered \u2014 assault units still get the full overlay either way."
+      ]
+    },
+    {
+      "version": "1.27.3",
+      "date": "2026-08-05",
+      "summary": "The line-of-sight overlay (hold L) now tells you what you can actually SHOOT, not just what you can see: green means it is a legal target, amber means visible-but-off-limits and says why.",
+      "changes": [
+        "Fixed (reported): the L overlay drew a solid green line to a squad that was not offered as a target at all \u2014 'there is at least one green line between the two squads but the target is not an option'. Green meant nothing more than 'terrain is not in the way', so any squad that was out of range, Hidden, engaged with one of your own units, a Lone Operative or inside a transport still got a green line and no explanation.",
+        "Sight lines now come in three states: solid green \u2014 this unit IS in your target list, click it and it works; dashed amber \u2014 your models can see it but the shot is illegal, with the reason (for example 'Kommandos is out of range') written on the line itself; dashed red \u2014 no line of sight, still split at the terrain that blocks it.",
+        "Fixed the same disagreement in the other direction: a squad you COULD legally shoot was sometimes drawn red, because the overlay only tested the one or two closest pairs of models and applied a stricter visibility test than the game's own targeting does. Both now use the same rules-engine check.",
+        "With a shooter selected, holding L also draws one line per enemy you cannot target, each labelled with the reason. Previously it drew lines only to targets you could already shoot, so the squad you were actually asking about got nothing.",
+        "Fixed: clicking an enemy that is inside a transport, or a Lone Operative whose datasheet range is not 12\", showed the generic 'Target cannot be shot' instead of the real reason."
+      ]
+    },
+    {
+      "version": "1.27.2",
+      "date": "2026-08-05",
+      "summary": "Fixed the camera running away on its own after you switch to another app and come back — the game no longer thinks you are still holding a pan key.",
+      "changes": [
+        "Fixed (reported): taking a screenshot, alt-tabbing, or otherwise leaving the game while holding a camera pan key left the board scrolling in that direction forever once you came back. Pressing the opposite direction only cancelled it out while you held it — let go and the board carried on sliding away.",
+        "The cause: the key-release goes to whatever took the keyboard, so the game never saw it and went on believing the key was down. The game now clears any keys it still thinks are held whenever the window loses or regains focus.",
+        "The camera also no longer pans while the game is in the background, so you come back to the board where you left it instead of somewhere off the edge.",
+        "The same fix covers held Shift and Ctrl, which silently change what a click does (box-select and add-to-selection), and a middle/right-drag of the board that was interrupted by switching away."
       ]
     },
     {
       "version": "1.27.1",
       "date": "2026-08-05",
-      "summary": "The line-of-sight overlay (hold L) now tells you what you can actually SHOOT, not just what you can see: green means it is a legal target, amber means visible-but-off-limits and says why.",
+      "summary": "Autosaves now show the battle round they were taken on — and lead with it in the name — instead of claiming 'Turn: 1' for the whole game.",
       "changes": [
-        "Fixed (reported): the L overlay drew a solid green line to a squad that was not offered as a target at all — 'there is at least one green line between the two squads but the target is not an option'. Green meant nothing more than 'terrain is not in the way', so any squad that was out of range, Hidden, engaged with one of your own units, a Lone Operative or inside a transport still got a green line and no explanation.",
-        "Sight lines now come in three states: solid green — this unit IS in your target list, click it and it works; dashed amber — your models can see it but the shot is illegal, with the reason (for example 'Kommandos is out of range') written on the line itself; dashed red — no line of sight, still split at the terrain that blocks it.",
-        "Fixed the same disagreement in the other direction: a squad you COULD legally shoot was sometimes drawn red, because the overlay only tested the one or two closest pairs of models and applied a stricter visibility test than the game's own targeting does. Both now use the same rules-engine check.",
-        "With a shooter selected, holding L also draws one line per enemy you cannot target, each labelled with the reason. Previously it drew lines only to targets you could already shoot, so the squad you were actually asking about got nothing.",
-        "Fixed: clicking an enemy that is inside a transport, or a Lone Operative whose datasheet range is not 12\", showed the generic 'Target cannot be shot' instead of the real reason."
+        "Every save card in the Load Game list said 'Turn: 1' no matter how far into the battle you were. The save itself was always fine — loading it put you back on the right round — but the card was reading a dead internal counter that nothing has advanced since scoring started looping straight back to the Command phase. Cards now read the real battle round.",
+        "Phase-start autosaves are now named 'R2 - Adeptus Custodes vs Orks - Fight' — round first — so the list groups by round and each round keeps its own set of phase autosaves instead of every round overwriting one shared slot per phase. Note that this means more autosave entries build up over a game.",
+        "The tooltip now reads 'Round: 2 / Phase: Fight' instead of the raw numbers 'Turn: 1.0 / Phase: 10.0'.",
+        "Fixed the phase name on save cards being one phase behind — a save taken in the Fight phase was labelled 'Scoring'.",
+        "Older saves made before this fix also display their correct round, read from the preview data they already stored."
       ]
     },
     {
