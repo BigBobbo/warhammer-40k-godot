@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.27.1",
+      "date": "2026-08-05",
+      "summary": "Autosaves now show the battle round they were taken on — and lead with it in the name — instead of claiming 'Turn: 1' for the whole game.",
+      "changes": [
+        "Every save card in the Load Game list said 'Turn: 1' no matter how far into the battle you were. The save itself was always fine — loading it put you back on the right round — but the card was reading a dead internal counter that nothing has advanced since scoring started looping straight back to the Command phase. Cards now read the real battle round.",
+        "Phase-start autosaves are now named 'R2 - Adeptus Custodes vs Orks - Fight' — round first — so the list groups by round and each round keeps its own set of phase autosaves instead of every round overwriting one shared slot per phase. Note that this means more autosave entries build up over a game.",
+        "The tooltip now reads 'Round: 2 / Phase: Fight' instead of the raw numbers 'Turn: 1.0 / Phase: 10.0'.",
+        "Fixed the phase name on save cards being one phase behind — a save taken in the Fight phase was labelled 'Scoring'.",
+        "Older saves made before this fix also display their correct round, read from the preview data they already stored."
+      ]
+    },
+    {
       "version": "1.27.0",
       "date": "2026-08-04",
       "summary": "Deep Strike placement now stops on the 9\" line instead of being rejected: aim a little too close and the model is held as near the enemy as the rules allow.",
