@@ -791,13 +791,40 @@ func _create_save_tooltip(save_info: Dictionary) -> String:
 
 	if metadata.has("game_state"):
 		var game_state = metadata["game_state"]
-		tooltip_lines.append("Turn: " + str(game_state.get("turn", "Unknown")))
-		tooltip_lines.append("Phase: " + str(game_state.get("phase", "Unknown")))
-		tooltip_lines.append("Active Player: " + str(game_state.get("active_player", "Unknown")))
+		# JSON round-trips these ints as floats, so str() used to render
+		# "Turn: 1.0" / "Phase: 10.0" — format them as ints, and show the phase
+		# by name like the preview panel does.
+		tooltip_lines.append("Round: " + _get_round_text(metadata))
+		var phase_num = int(game_state.get("phase", -1))
+		tooltip_lines.append("Phase: " + (_get_phase_name(phase_num) if phase_num >= 0 else "Unknown"))
+		if game_state.has("active_player"):
+			tooltip_lines.append("Active Player: %d" % int(game_state["active_player"]))
+		else:
+			tooltip_lines.append("Active Player: Unknown")
 
 	tooltip_lines.append("File: " + save_info.get("display_name", "Unknown"))
 
 	return "\n".join(tooltip_lines)
+
+# The player-facing round for a save card ("ROUND n/5" in the HUD).
+# Saves written before the metadata fix carry a stale game_state.turn of 1
+# (meta.turn_number never advanced), but their preview block always recorded the
+# real meta.battle_round — prefer that so old saves still read correctly.
+func _get_round_text(metadata: Dictionary) -> String:
+	var preview = metadata.get("preview", {})
+	if preview.has("battle_round"):
+		return _round_to_text(preview["battle_round"])
+	var game_state = metadata.get("game_state", {})
+	for key in ["battle_round", "turn"]:
+		if game_state.has(key):
+			return _round_to_text(game_state[key])
+	return "?"
+
+# JSON round-trips these ints as floats, so a bare str() renders "1.0".
+func _round_to_text(value) -> String:
+	if typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT:
+		return str(int(value))
+	return str(value)
 
 func _update_button_states() -> void:
 	var has_selection = selected_save_index >= 0 and selected_save_index < save_files_data.size()
@@ -1231,8 +1258,8 @@ func _update_preview_panel() -> void:
 
 func _render_preview(metadata: Dictionary, preview: Dictionary) -> void:
 	var game_state = metadata.get("game_state", {})
-	var battle_round = preview.get("battle_round", game_state.get("turn", "?"))
-	var phase_num = game_state.get("phase", -1)
+	var battle_round = _get_round_text(metadata)
+	var phase_num = int(game_state.get("phase", -1))
 	var phase_name = _get_phase_name(phase_num)
 
 	var bbcode = ""
@@ -1309,21 +1336,19 @@ func _render_preview(metadata: Dictionary, preview: Dictionary) -> void:
 
 	preview_label.text = bbcode
 
+# Title-cased phase name straight off the enum ("FIRST_TURN_ROLLOFF" -> "First
+# Turn Rolloff"). This used to be a hand-written match that predated SCOUT_MOVES
+# being inserted into GameStateData.Phase, so every id from ROLL_OFF up was
+# labelled with the previous phase's name (a FIGHT save read "Scoring").
 func _get_phase_name(phase_num: int) -> String:
-	match phase_num:
-		0: return "Formations"
-		1: return "Deployment"
-		2: return "Redeployment"
-		3: return "Scout"
-		4: return "Roll Off"
-		5: return "Command"
-		6: return "Movement"
-		7: return "Shooting"
-		8: return "Charge"
-		9: return "Fight"
-		10: return "Scoring"
-		11: return "Morale"
-		_: return "Unknown"
+	if phase_num < 0 or phase_num >= GameStateData.Phase.size():
+		return "Unknown"
+	var words = []
+	for part in String(GameStateData.Phase.keys()[phase_num]).split("_", false):
+		if part.is_empty():
+			continue
+		words.append(part.substr(0, 1).to_upper() + part.substr(1).to_lower())
+	return " ".join(words)
 
 # ============================================================================
 # SAVE-16: Save Slots
@@ -1340,8 +1365,8 @@ func _refresh_slot_info() -> void:
 			if has_save:
 				var metadata = info.get("metadata", {})
 				var game_state = metadata.get("game_state", {})
-				var turn = game_state.get("turn", "?")
-				var phase = game_state.get("phase", -1)
+				var round_text = _get_round_text(metadata)
+				var phase = int(game_state.get("phase", -1))
 				var phase_name = _get_phase_name(phase) if phase >= 0 else "?"
 				var created_at = metadata.get("created_at", 0)
 				var timestamp_text = ""
@@ -1359,7 +1384,7 @@ func _refresh_slot_info() -> void:
 				var faction_text = ""
 				if not p1_faction.is_empty() and not p2_faction.is_empty():
 					faction_text = "%s vs %s  " % [p1_faction, p2_faction]
-				slot_labels[i].text = "%sTurn %s - %s  %s" % [faction_text, str(turn), phase_name, timestamp_text]
+				slot_labels[i].text = "%sRound %s - %s  %s" % [faction_text, round_text, phase_name, timestamp_text]
 				slot_labels[i].add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 			else:
 				slot_labels[i].text = "[Empty]"
