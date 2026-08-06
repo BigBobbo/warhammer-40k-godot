@@ -1538,7 +1538,7 @@ func _charge_attached_character_changes(bodyguard_id: String, per_model_paths: D
 	var bodyguard = get_unit(bodyguard_id)
 	if bodyguard.is_empty():
 		return changes
-	var attached_chars = bodyguard.get("attachment_data", {}).get("attached_characters", [])
+	var attached_chars = RulesEngine.attached_character_ids(bodyguard_id, game_state_snapshot)
 	if attached_chars.is_empty():
 		return changes
 
@@ -2198,9 +2198,7 @@ func _validate_unit_coherency_for_charge(unit_id: String, per_model_paths: Dicti
 	# where they stand now would wrongly fail every charge that moves the squad
 	# away and leaves the leader to follow automatically.
 	var ride_delta = _charge_bodyguard_delta(unit_id, per_model_paths)
-	var group_unit_ids: Array = [unit_id]
-	for cid in get_unit(unit_id).get("attachment_data", {}).get("attached_characters", []):
-		group_unit_ids.append(str(cid))
+	var group_unit_ids: Array = RulesEngine.attached_unit_component_ids(unit_id, game_state_snapshot)
 	for group_uid in group_unit_ids:
 		var group_unit = get_unit(group_uid)
 		for model in group_unit.get("models", []):
@@ -2449,7 +2447,7 @@ func _resolve_charge_path_ref(unit_id: String, path_key: String) -> Dictionary:
 		return {"unit_id": unit_id, "model_id": path_key, "model": model}
 	var src_unit_id = path_key.substr(0, sep)
 	var model_id = path_key.substr(sep + 1)
-	var attached = get_unit(unit_id).get("attachment_data", {}).get("attached_characters", [])
+	var attached = RulesEngine.attached_character_ids(unit_id, game_state_snapshot)
 	var is_attached = false
 	for cid in attached:
 		if str(cid) == src_unit_id:
@@ -3369,6 +3367,20 @@ func _validate_use_heroic_intervention(action: Dictionary) -> Dictionary:
 		errors.append("Unit does not belong to player %d" % player)
 		return {"valid": false, "errors": errors}
 
+	# 19.01: an attached CHARACTER is not a unit of its own — he counter-charges
+	# as part of his bodyguard's Attached unit. Mirrors _can_unit_charge's
+	# attached_to gate so a stale dialog or a remote client cannot select him.
+	if RulesEngine.is_attached_character(unit_id, game_state_snapshot):
+		errors.append("Attached CHARACTERs counter-charge with their unit, not on their own")
+		return {"valid": false, "errors": errors}
+
+	# 15.11 requires an UNENGAGED unit — asked of the whole Attached unit, so a
+	# leader whose squad is already locked in combat cannot "intervene" into the
+	# fight he is already part of.
+	if RulesEngine.is_attached_unit_engaged(unit_id, game_state_snapshot):
+		errors.append("Unit is already in Engagement Range of an enemy unit")
+		return {"valid": false, "errors": errors}
+
 	# Check unit is not battle-shocked
 	var flags = unit.get("flags", {})
 	if flags.get("battle_shocked", false):
@@ -3663,11 +3675,26 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 
 	return create_result(true, changes)
 
+# Every model of the Attached unit making a Heroic Intervention: the selected
+# unit's own models plus its attached CHARACTER(s)'. 19.01 makes them one unit,
+# and StratagemManager offers the HI row on the strength of all of them, so the
+# target search and the reach check below must see the same models. Falls back
+# to the unit's own models when it leads nobody.
+func _hi_group_models(unit_id: String) -> Array:
+	var out: Array = []
+	for gid in RulesEngine.attached_unit_component_ids(unit_id, game_state_snapshot):
+		out.append_array(game_state_snapshot.get("units", {}).get(gid, {}).get("models", []))
+	return out
+
 # 11e 15.11: pick the closest enemy unit within max_range inches
 # (edge-to-edge) as the HI charge target; LEAP TO DEFEND additionally
 # requires the target to have made a charge move this turn.
+# Measured across the whole Attached unit (19.01), matching the model set the
+# eligibility builder offered the row on — otherwise a squad whose only model
+# near the enemy is its attached CHARACTER's is offered a counter-charge and
+# then told there is no target.
 func _closest_hi_target_11e(unit_id: String, player: int, max_range: float, require_charged: bool) -> String:
-	var unit = get_unit(unit_id)
+	var group_models := _hi_group_models(unit_id)
 	var best_id := ""
 	var best_px := INF
 	var range_px = Measurement.inches_to_px(max_range)
@@ -3684,7 +3711,7 @@ func _closest_hi_target_11e(unit_id: String, player: int, max_range: float, requ
 				break
 		if not any_alive:
 			continue
-		for m in unit.get("models", []):
+		for m in group_models:
 			if not m.get("alive", true) or m.get("position") == null:
 				continue
 			for em in other.get("models", []):
@@ -3698,7 +3725,9 @@ func _closest_hi_target_11e(unit_id: String, player: int, max_range: float, requ
 
 func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: int, target_ids: Array) -> bool:
 	"""Check if the HI charge roll is sufficient to reach engagement range of the target.
-	P2-77: Now accounts for terrain vertical distance penalties along the charge path."""
+	P2-77: Now accounts for terrain vertical distance penalties along the charge path.
+	19.01: judged across the whole Attached unit — the leader's model counts, and
+	reaching Engagement Range with ANY model of the unit satisfies the charge."""
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return false
@@ -3707,7 +3736,7 @@ func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: i
 	var unit_keywords = unit.get("meta", {}).get("keywords", [])
 	var has_fly = "FLY" in unit_keywords
 
-	for model in unit.get("models", []):
+	for model in _hi_group_models(unit_id):
 		if not model.get("alive", true):
 			continue
 
