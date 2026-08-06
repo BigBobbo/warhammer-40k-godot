@@ -2,13 +2,27 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.28.3",
+      "version": "1.28.4",
       "date": "2026-08-06",
       "summary": "Heroic Intervention no longer offers a character who is already in the fight: an attached leader is part of his squad, so he counter-charges with them or not at all.",
       "changes": [
         "Fixed (reported): the end-of-Charge-phase Heroic Intervention window offered \"Blade Champion Beta\" his own Leap to Defend / Into the Fray buttons while the Custodian Guard he was leading had just been charged \u2014 a counter-charge into the combat he was already fighting in. Attaching a character makes the two one unit, so he never gets a row of his own, and using the stratagem on him is now rejected outright.",
         "The \"must be unengaged\" condition is now measured across the whole attached unit. Before, it only looked at the leader's own model, so a champion standing a couple of inches behind his squad counted as free while the squad was locked in combat.",
         "An attached unit that really is clear of combat is still offered \u2014 as one entry named \"Custodian Guard Beta + Blade Champion Beta\", the same way the Counter-Offensive window names it \u2014 and units standing off the melee are unaffected."
+      ]
+    },
+    {
+      "version": "1.28.3",
+      "date": "2026-08-06",
+      "summary": "Death Trap's Booby Trap now names the terrain areas it means, highlights them on the board, and lets every eligible unit spring one.",
+      "changes": [
+        "The Booby Trap list no longer shows raw ids like \"area-trapezoid-3\". Each row now reads e.g. \"Large area — left, enemy territory — holds the Expansion objective (5 VP)\", naming where the area sits, whether it holds an objective and what it pays.",
+        "Picking a target now lights the candidate areas up on the board in orange, and the one you are hovering or have keyboard focus on is drawn brighter — so you can see exactly which footprint each row refers to. The dialog says so in as many words, in the same orange, so the outlines are not left to guesswork.",
+        "The dialog now explains what a \"terrain area\" actually is (the marked footprint your scenery stands on — the whole outlined zone, not each wall or crate inside it) and lists how the mission scores.",
+        "Fixed: individual scenery pieces (barricades, gantries, generators) were offered as trap targets. Only the terrain-area footprints are trappable now, matching the core rules — on the standard layouts that is 16 areas, not the 44 loose pieces.",
+        "Fixed: Booby Trap was limited to one area per turn. The card allows unlimited uses, so you can now trap several areas in a turn — one per unit standing in them. The dialog tells you how many units you have and stops you over-picking.",
+        "Fixed: an objective sitting on the boundary of its terrain area could be missed, so a 5 VP area scored 2. Objective-to-area links now come from the layout data itself.",
+        "Fixed: Booby Trap and relic markers on the board could lose their names when the overlay redrew, which made them impossible to look up."
       ]
     },
     {
@@ -47,9 +61,9 @@
       "date": "2026-08-05",
       "summary": "New setting: let the line-of-sight overlay skip enemies none of your guns could reach, for a quieter and faster board.",
       "changes": [
-        "New (requested): Settings > Visual > \"LoS Debug: include units out of weapon range\". On by default \u2014 enemies no weapon in the selected unit could reach are still checked and drawn dashed amber, labelled \"is out of range\", which is what explains a squad you can plainly see but cannot select.",
+        "New (requested): Settings > Visual > \"LoS Debug: include units out of weapon range\". On by default — enemies no weapon in the selected unit could reach are still checked and drawn dashed amber, labelled \"is out of range\", which is what explains a squad you can plainly see but cannot select.",
         "Turn it off and those enemies are dropped before any line-of-sight work happens at all: the overlay then shows only the enemies your guns can actually reach. On a deployed 2000pt board that took a whole-board sweep from 64 lines and ~0.9s down to 16 lines and ~0.3s.",
-        "A unit carrying no ranged weapons has no range to be outside of, so its sight lines are never filtered \u2014 assault units still get the full overlay either way."
+        "A unit carrying no ranged weapons has no range to be outside of, so its sight lines are never filtered — assault units still get the full overlay either way."
       ]
     },
     {
@@ -57,8 +71,8 @@
       "date": "2026-08-05",
       "summary": "The line-of-sight overlay (hold L) now tells you what you can actually SHOOT, not just what you can see: green means it is a legal target, amber means visible-but-off-limits and says why.",
       "changes": [
-        "Fixed (reported): the L overlay drew a solid green line to a squad that was not offered as a target at all \u2014 'there is at least one green line between the two squads but the target is not an option'. Green meant nothing more than 'terrain is not in the way', so any squad that was out of range, Hidden, engaged with one of your own units, a Lone Operative or inside a transport still got a green line and no explanation.",
-        "Sight lines now come in three states: solid green \u2014 this unit IS in your target list, click it and it works; dashed amber \u2014 your models can see it but the shot is illegal, with the reason (for example 'Kommandos is out of range') written on the line itself; dashed red \u2014 no line of sight, still split at the terrain that blocks it.",
+        "Fixed (reported): the L overlay drew a solid green line to a squad that was not offered as a target at all — 'there is at least one green line between the two squads but the target is not an option'. Green meant nothing more than 'terrain is not in the way', so any squad that was out of range, Hidden, engaged with one of your own units, a Lone Operative or inside a transport still got a green line and no explanation.",
+        "Sight lines now come in three states: solid green — this unit IS in your target list, click it and it works; dashed amber — your models can see it but the shot is illegal, with the reason (for example 'Kommandos is out of range') written on the line itself; dashed red — no line of sight, still split at the terrain that blocks it.",
         "Fixed the same disagreement in the other direction: a squad you COULD legally shoot was sometimes drawn red, because the overlay only tested the one or two closest pairs of models and applied a stricter visibility test than the game's own targeting does. Both now use the same rules-engine check.",
         "With a shooter selected, holding L also draws one line per enemy you cannot target, each labelled with the reason. Previously it drew lines only to targets you could already shoot, so the squad you were actually asking about got nothing.",
         "Fixed: clicking an enemy that is inside a transport, or a Lone Operative whose datasheet range is not 12\", showed the generic 'Target cannot be shot' instead of the real reason."

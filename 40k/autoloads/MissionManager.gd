@@ -1551,21 +1551,24 @@ func _run_primary_auto_actions_11e(player: int, battle_round: int) -> void:
 					st["operation_markers"] = int(st.get("operation_markers", 0)) + 1
 					print("MissionManager: 11e Vital Link operation marker %d placed (P%s)" % [st["operation_markers"], pk])
 			"death_trap":
-				# Booby Trap: once per turn, an untrapped terrain area containing
-				# one of your models (eligibility simplified)
-				var tm = get_node_or_null("/root/TerrainManager")
-				if tm != null:
-					for feature in tm.terrain_features:
-						var fid = feature.get("id", "")
-						if fid == "" or fid in st["trapped"]:
-							continue
-						if _player_model_in_terrain_11e(player, feature):
-							st["trapped"].append(fid)
-							if not st.has("trapped_this_turn"):
-								st["trapped_this_turn"] = []
-							st["trapped_this_turn"].append(fid)
-							print("MissionManager: 11e Booby Trapped %s (P%s)" % [fid, pk])
-							break
+				# Booby Trap: unlimited uses per turn, one untrapped TERRAIN AREA
+				# per acting unit (see the 13.01 note above the terrain helpers).
+				# This is the AI/headless backstop, so it takes every area it can
+				# staff with a distinct unit — objective areas first.
+				var dt_wanted = []
+				for entry in get_booby_trap_candidates_11e(player):
+					dt_wanted.append(str(entry["id"]))
+				var dt_assign = _assign_booby_trap_units_11e(player, dt_wanted)
+				if not st.has("trapped_this_turn"):
+					st["trapped_this_turn"] = []
+				for fid in dt_assign["granted"]:
+					st["trapped"].append(fid)
+					st["trapped_this_turn"].append(fid)
+					print("MissionManager: 11e Booby Trapped %s (P%s, unit %s)" % [
+						fid, pk, dt_assign["units"].find_key(fid)])
+				if not dt_assign["refused"].is_empty():
+					print("MissionManager: 11e Booby Trap skipped %d area(s) — no spare unit (P%s)" % [
+						dt_assign["refused"].size(), pk])
 			"gather_intel":
 				if battle_round >= 2:
 					for obj in GameState.state.board.get("objectives", []):
@@ -1946,18 +1949,20 @@ func get_pending_card_action_11e(player: int, battle_round: int = -1) -> Diction
 				targets.append(_objective_target_entry_11e(obj_id))
 		"death_trap":
 			pending["action_name"] = "Booby Trap"
-			pending["description"] = "Once per turn: trap an untrapped terrain area containing one of your models (2 VP this turn, +3 more if it holds an objective; kills in trapped terrain pay separately)."
-			var tm = get_node_or_null("/root/TerrainManager")
-			if tm != null:
-				for feature in tm.terrain_features:
-					var fid = feature.get("id", "")
-					if fid == "" or fid in st.get("trapped", []):
-						continue
-					if _player_model_in_terrain_11e(player, feature):
-						var label = str(fid)
-						if _terrain_contains_objective_11e(tm, fid):
-							label += " (holds an objective)"
-						targets.append({"id": fid, "label": label})
+			pending["description"] = "A TERRAIN AREA is one of the marked footprints your scenery stands on \u2014 the whole outlined zone, not each individual wall or crate inside it. Tick every area you want to trap; each one needs a different unit of yours standing inside it, and stays Trapped for the rest of the game."
+			pending["help"] = "End of this turn: 2 VP per area you trapped, or 5 VP if the area holds an objective. Separately, 3 VP if you destroyed an enemy unit that began the turn in terrain you had already trapped."
+			pending["mode"] = "multi"
+			pending["highlight_kind"] = "terrain_area"
+			var dt_candidates = get_booby_trap_candidates_11e(player)
+			var dt_all = []
+			for entry in dt_candidates:
+				targets.append({"id": entry["id"], "label": entry["label"]})
+				dt_all.append(str(entry["id"]))
+			# One trap per acting unit — pre-tick (and cap at) the best set the
+			# player's units can actually staff, objective areas first.
+			var dt_best = _assign_booby_trap_units_11e(player, dt_all)["granted"]
+			pending["default_selected"] = dt_best
+			pending["max_picks"] = dt_best.size()
 		"gather_intel":
 			if battle_round < 2:
 				return {}
@@ -2047,12 +2052,18 @@ func resolve_card_action_11e(player: int, target_ids: Array) -> Dictionary:
 					st["decoyed_ever"].append(tid)
 				print("MissionManager: 11e Decoyed %s (P%s, player choice)" % [tid, pk])
 		"death_trap":
+			# One trap per acting unit: a unit can only perform one action, so two
+			# areas sharing their only occupant cannot both be trapped this turn.
+			var dt_assign = _assign_booby_trap_units_11e(player, picks)
+			if not dt_assign["refused"].is_empty():
+				return {"success": false, "error": "No spare unit to trap %s \u2014 each Booby Trap needs its own unit inside that terrain area" % ", ".join(PackedStringArray(dt_assign["refused"]))}
 			if not st.has("trapped_this_turn"):
 				st["trapped_this_turn"] = []
-			for tid in picks:
+			for tid in dt_assign["granted"]:
 				st["trapped"].append(tid)
 				st["trapped_this_turn"].append(tid)
-				print("MissionManager: 11e Booby Trapped %s (P%s, player choice)" % [tid, pk])
+				print("MissionManager: 11e Booby Trapped %s (P%s, player choice, unit %s)" % [
+					tid, pk, dt_assign["units"].find_key(tid)])
 		"gather_intel":
 			for tid in picks:
 				st["intel_tokens"].append(tid)
@@ -2596,6 +2607,197 @@ func _player_model_in_terrain_11e(player: int, feature: Dictionary) -> bool:
 				return true
 	return false
 
+# ============================================================
+# 11e DEATH TRAP — terrain AREA helpers
+# ============================================================
+# "Terrain area" is a defined term in the 11e core rules (13.01, Placing
+# Terrain). After listing the three ways to place terrain, the rule says:
+# "In each case, the area of the battlefield occupied by that boundary or
+# terrain feature is known as a terrain area."
+#
+# GW's matched-play layouts — the ones this game ships in 40k/terrain_layouts/
+# — all use the FIRST of those methods: a flat boundary marker (7"x11.5"
+# rectangles, 8"x11.5" triangles, ...) with one or more terrain features
+# standing wholly within it. So a layout's trappable terrain areas are its
+# piece_class "area" footprints; the crates, barricades, gantries and corner
+# ruins inside them are terrain FEATURES and are NOT separately trappable.
+#
+# Legacy / pre-11e layouts author no "area" pieces at all — every piece was
+# dropped straight onto the battlefield, which is 13.01's SECOND method, and
+# there each piece genuinely IS its own terrain area. So the filter below only
+# engages for layouts that actually define area footprints.
+
+## True when this layout uses boundary-marker terrain areas (11e GW layouts).
+func _layout_defines_terrain_areas_11e(tm) -> bool:
+	if tm == null:
+		return false
+	for feature in tm.terrain_features:
+		if str(feature.get("piece_class", "")) == "area":
+			return true
+	return false
+
+## Unit IDs with at least one living model inside this terrain area's
+## footprint. Booby Trap is a UNIT action, so each trap consumes one unit.
+func _units_with_model_in_terrain_11e(player: int, feature: Dictionary) -> Array:
+	var polygon = feature.get("polygon", PackedVector2Array())
+	var out = []
+	if polygon.is_empty():
+		return out
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if not _unit_on_battlefield_11e(unit_id):
+			continue
+		for model in unit.get("models", []):
+			if not model.get("alive", true) or model.get("position") == null:
+				continue
+			var pos = model.get("position")
+			if pos is Dictionary:
+				pos = Vector2(pos.x, pos.y)
+			if Geometry2D.is_point_in_polygon(pos, polygon):
+				out.append(str(unit_id))
+				break
+	return out
+
+## Objective IDs belonging to this terrain area. GW's 11e layouts name the
+## terrain areas that ARE each objective (14.01, carried on the objective as
+## source_pieces) — more reliable than a point-in-polygon test, since a linked
+## centre pair lists both halves and a marker can sit right on a boundary.
+## Legacy layouts carry no source_pieces, so those fall back to geometry.
+func _terrain_objective_ids_11e(tm, feature_id: String) -> Array:
+	var out = []
+	for obj in GameState.state.board.get("objectives", []):
+		if feature_id in obj.get("source_pieces", []):
+			out.append(str(obj.get("id", "")))
+	if not out.is_empty():
+		return out
+	for feature in tm.terrain_features:
+		if str(feature.get("id", "")) != feature_id:
+			continue
+		var polygon = feature.get("polygon", PackedVector2Array())
+		if polygon.is_empty():
+			continue
+		for obj in GameState.state.board.get("objectives", []):
+			var pos = obj.get("position")
+			if pos is Dictionary:
+				pos = Vector2(pos.x, pos.y)
+			if pos != null and Geometry2D.is_point_in_polygon(pos, polygon):
+				out.append(str(obj.get("id", "")))
+	return out
+
+## Rough size word for a terrain area, from the GW template its id came from
+## ("area-large-9" -> "Large"). Legacy layouts fall back to the piece type.
+func _terrain_area_size_word_11e(feature: Dictionary) -> String:
+	var fid = str(feature.get("id", ""))
+	if fid.begins_with("area-large"):
+		return "Large"
+	if fid.begins_with("area-medium"):
+		return "Medium"
+	if fid.begins_with("area-trapezoid"):
+		return "Angled"
+	if fid.begins_with("area-long-line"):
+		return "Long"
+	if fid.begins_with("area-short-line"):
+		return "Small"
+	return str(feature.get("type", "terrain")).capitalize()
+
+## Human-readable name for a terrain area. Players pick these off a list and
+## then have to find them on the table, so lead with WHERE it is and close
+## with what it pays. Raw ids like "area-trapezoid-3" told them neither.
+func _terrain_area_label_11e(tm, feature: Dictionary, player: int) -> String:
+	var pos = feature.get("position", Vector2.ZERO)
+	if pos is Dictionary:
+		pos = Vector2(pos.get("x", 0), pos.get("y", 0))
+
+	# Territory, not board-thirds: deployment zones can be quarters (Search
+	# and Destroy) or diagonals, and "enemy territory" is what the card cares
+	# about anyway.
+	var territory = "No Man's Land"
+	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
+	if secondary_mgr != null:
+		var mine = secondary_mgr._get_deployment_zone_polygon(player)
+		var theirs = secondary_mgr._get_deployment_zone_polygon(3 - player)
+		if not mine.is_empty() and Geometry2D.is_point_in_polygon(pos, mine):
+			territory = "your territory"
+		elif not theirs.is_empty() and Geometry2D.is_point_in_polygon(pos, theirs):
+			territory = "enemy territory"
+
+	var board = GameState.state.get("board", {}).get("size", {})
+	var board_w = Measurement.inches_to_px(float(board.get("width", 44)))
+	var flank = "centre"
+	if board_w > 0:
+		if pos.x < board_w / 3.0:
+			flank = "left"
+		elif pos.x > board_w * 2.0 / 3.0:
+			flank = "right"
+
+	var label = "%s area — %s, %s" % [_terrain_area_size_word_11e(feature), flank, territory]
+	var obj_ids = _terrain_objective_ids_11e(tm, str(feature.get("id", "")))
+	if obj_ids.is_empty():
+		return "%s (2 VP)" % label
+	var designation = str(_get_objective_by_id(obj_ids[0]).get("designation", ""))
+	if designation != "":
+		return "%s — holds the %s objective (5 VP)" % [label, designation.capitalize()]
+	return "%s — holds an objective (5 VP)" % label
+
+## The terrain areas `player` could Booby Trap right now: untrapped, and
+## holding at least one of their models. Booby Trap is a unit action, so each
+## entry also carries the units that could perform it — one trap each.
+## Shape: [{id, label, holds_objective, units: [unit_id]}], objectives first.
+func get_booby_trap_candidates_11e(player: int) -> Array:
+	var tm = get_node_or_null("/root/TerrainManager")
+	if tm == null:
+		return []
+	var already = _primary_state_11e.get(str(player), {}).get("trapped", [])
+	var layout_has_areas = _layout_defines_terrain_areas_11e(tm)
+	var out = []
+	for feature in tm.terrain_features:
+		var fid = str(feature.get("id", ""))
+		if fid == "" or fid in already:
+			continue
+		if layout_has_areas and str(feature.get("piece_class", "")) != "area":
+			continue
+		var units = _units_with_model_in_terrain_11e(player, feature)
+		if units.is_empty():
+			continue
+		out.append({
+			"id": fid,
+			"label": _terrain_area_label_11e(tm, feature, player),
+			"holds_objective": not _terrain_objective_ids_11e(tm, fid).is_empty(),
+			"units": units,
+		})
+	# An objective area pays 5 VP against 2 — surface those first.
+	out.sort_custom(func(a, b):
+		if a["holds_objective"] != b["holds_objective"]:
+			return a["holds_objective"]
+		return str(a["id"]) < str(b["id"]))
+	return out
+
+## Booby Trap is performed BY a unit and a unit can only act once, so N traps
+## in a turn need N distinct units. Greedily backs each requested area with
+## its own unit and reports the ones that could not be staffed.
+func _assign_booby_trap_units_11e(player: int, area_ids: Array) -> Dictionary:
+	var candidates = {}
+	for entry in get_booby_trap_candidates_11e(player):
+		candidates[str(entry["id"])] = entry["units"]
+	var used = {}
+	var granted = []
+	var refused = []
+	for aid in area_ids:
+		var aid_s = str(aid)
+		var assigned = ""
+		for unit_id in candidates.get(aid_s, []):
+			if not used.has(unit_id):
+				assigned = str(unit_id)
+				break
+		if assigned == "":
+			refused.append(aid_s)
+			continue
+		used[assigned] = aid_s
+		granted.append(aid_s)
+	return {"granted": granted, "refused": refused, "units": used}
+
 ## Enemy units destroyed this turn (on the battlefield at the active
 ## player's turn start, fully dead now). Dead models keep their positions,
 ## which the location-conditioned kill checks below rely on.
@@ -2692,17 +2894,7 @@ func _final_relic_marker_held_11e(player: int) -> bool:
 	return false
 
 func _terrain_contains_objective_11e(tm, feature_id: String) -> bool:
-	for feature in tm.terrain_features:
-		if feature.get("id", "") != feature_id:
-			continue
-		var polygon = feature.get("polygon", PackedVector2Array())
-		for obj in GameState.state.board.get("objectives", []):
-			var pos = obj.get("position")
-			if pos is Dictionary:
-				pos = Vector2(pos.x, pos.y)
-			if not polygon.is_empty() and Geometry2D.is_point_in_polygon(pos, polygon):
-				return true
-	return false
+	return not _terrain_objective_ids_11e(tm, feature_id).is_empty()
 
 func _enemy_wholly_in_my_dz_11e(player: int) -> bool:
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
