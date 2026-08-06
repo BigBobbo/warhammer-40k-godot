@@ -6,10 +6,11 @@ extends SceneTree
 # training example: the AI's own candidate scoring joined to the outcome it
 # produced, plus enough provenance to know what environment produced it.
 #
-# These exercise AIBenchmarkRunner.build_game_record — deliberately a STATIC,
-# fully-parameterised helper so the schema can be tested without standing up a
-# 6-minute game. The live end-to-end path (a real benchmark writing a real
-# record) is covered by the shell smoke in run_ai_benchmark.sh.
+# These exercise AIGameRecord.build/validate — deliberately STATIC and fully
+# parameterised so the schema can be tested without standing up a 6-minute
+# game. The live end-to-end path (a real benchmark writing a real record,
+# on both the completed and the stalled exit) is covered by running
+# run_ai_benchmark.sh and indexing the result with tools/ai_lab/build_index.py.
 #
 # Run via:
 #   godot --headless --path 40k --script tests/test_game_record_export.gd
