@@ -70,6 +70,10 @@ func _register_defaults() -> void:
 	# killed this tool's earlier V and G bindings.
 	_register("los_check", "Check Line of Sight (hold)", CATEGORY_GAMEPLAY, KEY_X)
 	_register("los_debug", "Sight-Line Overlay (hold)", CATEGORY_GAMEPLAY, KEY_L)
+	# Whole-board "what can this unit see" shading, per selected unit. Shift+L:
+	# the toggle sibling of the held-L sight lines — same mnemonic family, and
+	# Shift+L is unclaimed (plain L is the hold overlay, Ctrl+L nothing).
+	_register("los_vision_map", "Vision Map (unit visibility shading)", CATEGORY_GAMEPLAY, KEY_L, {"shift": true})
 
 	# Shooting phase (T5-UX12 → KeybindingManager registration 2026-05-05)
 	# These were previously hardcoded keycode matches in ShootingController; promoting
