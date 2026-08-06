@@ -1,0 +1,243 @@
+{
+  "id": "iss064j_booby_trap_areas_11e",
+  "covers": [
+    "missions.primary_11e.booby_trap_areas",
+    "missions.primary_11e.card_action_prompt"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 11,
+  "disable_ai": true,
+  "description": "Death Trap / Booby Trap targets are TERRAIN AREAS (11e core rules 13.01) — the marked footprints scenery stands in, not each wall or crate inside them. Drives the real End Turn button into the CardActionDialog and proves: only piece_class 'area' footprints are offered (the 28 feature pieces are not), every row is a human-readable label naming board position and VP value, the candidates are outlined on the board and brighten on hover, and several units can each trap an area in the same turn.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"meta\"].merge({\"game_config\": {\"deployment\": \"sweeping_engagement\", \"player1_disposition\": \"take_and_hold\", \"player2_disposition\": \"disruption\"}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "TerrainManager.load_terrain_layout(\"take_and_hold_vs_disruption_1\")\nMissionManager.check_all_objectives()\nvar areas = 0\nvar feats = 0\nfor p in TerrainManager.terrain_features:\n\tif str(p.get(\"piece_class\", \"\")) == \"area\":\n\t\tareas += 1\n\telse:\n\t\tfeats += 1\nreturn \"%d areas / %d features\" % [areas, feats]",
+      "equals": "16 areas / 28 features"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.initialize_mission(\"take_and_hold\")"
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.get_primary_mission_for_player(2)[\"id\"]",
+      "equals": "death_trap"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var want = [\"area-large-9\", \"area-medium-15\"]\nvar centres = {}\nfor p in TerrainManager.terrain_features:\n\tvar pid = str(p.get(\"id\", \"\"))\n\tif pid in want:\n\t\tvar poly = p.get(\"polygon\", PackedVector2Array())\n\t\tvar acc = Vector2.ZERO\n\t\tfor v in poly:\n\t\t\tacc += v\n\t\tcentres[pid] = acc / max(1, poly.size())\nvar picked = []\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) != 2:\n\t\tcontinue\n\tif u.get(\"embarked_in\", null) != null and str(u.get(\"embarked_in\", \"\")) != \"\":\n\t\tcontinue\n\tvar live = false\n\tfor m in u.get(\"models\", []):\n\t\tif m.get(\"alive\", true) and m.get(\"position\") != null:\n\t\t\tlive = true\n\tif live:\n\t\tpicked.append(str(uid))\n\tif picked.size() >= 2:\n\t\tbreak\nvar moved = 0\nfor i in range(min(picked.size(), want.size())):\n\tvar c = centres.get(want[i], null)\n\tif c == null:\n\t\tcontinue\n\tfor m in GameState.state.units[picked[i]][\"models\"]:\n\t\tif m.get(\"alive\", true):\n\t\t\tm[\"position\"] = {\"x\": c.x, \"y\": c.y}\n\tmoved += 1\nreturn moved",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ids = []\nfor e in MissionManager.get_booby_trap_candidates_11e(2):\n\tids.append(str(e[\"id\"]))\nreturn ids",
+      "equals": [
+        "area-large-10",
+        "area-large-9",
+        "area-medium-15",
+        "area-medium-16"
+      ]
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for e in MissionManager.get_booby_trap_candidates_11e(2):\n\tvar pc = \"\"\n\tfor p in TerrainManager.terrain_features:\n\t\tif str(p.get(\"id\", \"\")) == str(e[\"id\"]):\n\t\t\tpc = str(p.get(\"piece_class\", \"\"))\n\tif pc != \"area\":\n\t\treturn false\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager.on_turn_start_11e(2)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state[\"meta\"][\"active_player\"] = 2\nreturn int(GameState.state[\"meta\"][\"active_player\"])",
+      "equals": 2
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/CardActionDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/CardActionDialog/Content/Check_area-large-9",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/CardActionDialog/Content/Check_area-medium-15",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var names = []\nfor c in tree.root.get_node(\"CardActionDialog/Content\").get_children():\n\tif str(c.name).begins_with(\"Check_\"):\n\t\tnames.append(str(c.name).replace(\"Check_\", \"\"))\nreturn names.size()",
+      "equals": 4
+    },
+    {
+      "act": "execute_script",
+      "script": "\"5 VP\" in main.get_tree().root.get_node(\"CardActionDialog/Content/Check_area-large-9\").text",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"CardActionDialog/Content/Check_area-large-9\").text"
+    },
+    {
+      "act": "execute_script",
+      "script": "\"2 VP\" in main.get_tree().root.get_node(\"CardActionDialog/Content/Check_area-medium-15\").text",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"CardActionDialog/Content/Check_area-large-9\").text != \"area-large-9\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "\"terrain area\" in main.get_tree().root.get_node(\"CardActionDialog/Content/Description\").text.to_lower()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "\"5 VP\" in main.get_tree().root.get_node(\"CardActionDialog/Content/HelpText\").text",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/BoardRoot/CardActionOverlay/Highlight_area-large-9",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/BoardRoot/CardActionOverlay/Highlight_area-medium-15",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n = 0\nfor c in tree.current_scene.get_node(\"BoardRoot/CardActionOverlay\").get_children():\n\tif str(c.name).begins_with(\"Highlight_\"):\n\t\tn += 1\nreturn n",
+      "equals": 4
+    },
+    {
+      "act": "screenshot",
+      "label": "01_booby_trap_dialog_areas_highlighted"
+    },
+    {
+      "act": "screenshot",
+      "label": "01b_board_closeup_highlighted",
+      "region": [
+        695,
+        175,
+        535,
+        360
+      ]
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.root.get_node(\"CardActionDialog/Content/Check_area-large-9\").grab_focus()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/CardActionOverlay/HighlightEdge_area-large-9\").width",
+      "equals": 10.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/CardActionOverlay/HighlightEdge_area-medium-15\").width",
+      "equals": 5.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_hovered_area_brightened"
+    },
+    {
+      "act": "screenshot",
+      "label": "02b_board_closeup_hovered",
+      "region": [
+        695,
+        175,
+        535,
+        360
+      ]
+    },
+    {
+      "act": "click_node",
+      "node": "/root/CardActionDialog/Content/Actions/ConfirmCardAction",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "MissionManager._primary_state_11e[\"2\"][\"trapped\"].size()",
+      "equals": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n = 0\nfor c in tree.current_scene.get_node(\"BoardRoot/CardActionOverlay\").get_children():\n\tif str(c.name).begins_with(\"Highlight_\"):\n\t\tn += 1\nreturn n",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.current_scene.get_node_or_null(\"BoardRoot/CardActionOverlay/Badge_area-large-9\")\nif b == null:\n\treturn \"MISSING\"\nreturn str(b.text)",
+      "multiline": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_trapped_areas_badged_on_board"
+    },
+    {
+      "act": "execute_script",
+      "script": "\"BOOBY TRAP (P2)\" in main.get_node(\"BoardRoot/CardActionOverlay/Badge_area-large-9\").text",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_trapped_areas_badged_on_board"
+    }
+  ]
+}
