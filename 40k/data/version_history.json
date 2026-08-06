@@ -2,6 +2,21 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.28.0",
+      "date": "2026-08-06",
+      "summary": "The AI now plays the 11th-edition Hidden rule — it hides its infantry in dense terrain, holds fire to stay untargetable, and screens deep strike at the correct 8\" instead of a stale 9\".",
+      "changes": [
+        "New: the AI understands Hidden (core rules 13.09). Its INFANTRY, BEASTS and SWARM units now actively prefer movement destinations inside dense terrain, where enemies further than their detection range (15\", or 12\" through dense terrain) simply cannot target them. The rule was already fully implemented in the game; the AI just never played for it, and only ever benefited by accident when a destination happened to land in cover.",
+                "New: the AI will hold its fire to stay Hidden. Shooting gives up Hidden for the current turn AND the next one, so a unit that cannot meaningfully hurt anything now declines the shot instead of trading two turns of untargetability for a few chip wounds. The game log tells you why, e.g. \"Shield-Captain holds fire to stay Hidden (shot worth 0.1 < 2.4)\". Units that already fired this turn, or whose position hides them from nobody, are unaffected — the AI never goes passive for free.",
+        "New: the AI shoots enemies that are about to disappear. An enemy squad sitting in dense terrain that has not fired this turn will be Hidden on its next turn, so it now gets a modest priority boost while the window is still open.",
+        "Fixed: the AI screened deep strike against a 9\" bubble, but 11th edition sets units up more than 8\" away (20.04's ingress move, which the game already implemented). The AI therefore believed an 8-9\" ring around each of its units was covered when the opponent could legally drop into it. Denial radius and screen spacing are now read from the same rule the rest of the game uses, and shrink automatically if an enemy in reserve advertises a shorter arrival distance.",
+        "Fixed: the same stale 9\" also made the AI refuse its OWN legal 8-9\" reinforcement placements, so units arriving from reserve had fewer options than the rules allow.",
+        "New: the AI now treats battle-shock as a way to take objectives, not just something to recover from. Because a battle-shocked unit's Objective Control drops to \"-\", the AI will spend a stratagem to shock an enemy off a marker rather than trying to kill it — scored by the victory points that actually swing, multiplied by the real chance the roll fails.",
+        "Fixed: the AI paid an \"enemy is holding an objective\" premium when picking shooting targets even for enemies that were already battle-shocked and therefore holding nothing.",
+        "Movement into enemy line of sight is now costed for the Overwatch it invites, weighted by how many shots are pointed at the destination rather than how good those guns are — Overwatch is snap-shooting, so volume is what hurts. Melee units and the last two battle rounds discount it, so the AI still crosses the board to score."
+      ]
+    },
+    {
       "version": "1.27.4",
       "date": "2026-08-05",
       "summary": "New setting: let the line-of-sight overlay skip enemies none of your guns could reach, for a quieter and faster board.",

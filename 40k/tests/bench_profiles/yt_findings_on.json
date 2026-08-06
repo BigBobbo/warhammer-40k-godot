@@ -1,0 +1,13 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "YouTube findings ON — treatment arm",
+	"description": "Treatment arm for the 2026-08-06 YouTube-corpus A/B. States the shipped defaults explicitly so the arm is self-documenting and so the two arms differ only in these values. F001 seeks Hidden when moving, F002 prices the two-turn cost of surrendering it by shooting, F003 shoots enemies about to regain it, F004 charges movement for the Overwatch it newly exposes the unit to, F009 plays for battle-shock as objective denial. DEEP_STRIKE_DENIAL_RANGE_PX is deliberately absent so the F007 derivation from GameConstants.reinforcement_min_enemy_distance_inches() (11e: >8\") is active.",
+	"parameters": {
+		"WEIGHT_HIDDEN_GAINED": 4.0,
+		"HIDDEN_FORFEIT_PENALTY": 3.0,
+		"HIDDEN_WINDOW_BONUS": 1.25,
+		"OVERWATCH_EXPOSURE_PENALTY": 0.35,
+		"BATTLE_SHOCK_DENIAL_WEIGHT": 1.0
+	}
+}

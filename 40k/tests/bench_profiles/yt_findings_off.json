@@ -1,0 +1,14 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "YouTube findings OFF — control arm",
+	"description": "Control arm for the 2026-08-06 YouTube-corpus A/B. Zeroes every parameter added for findings F001/F002/F003 (11e Hidden awareness), F004 (Overwatch exposure) and F009 (battle-shock as objective denial), and pins the deep-strike denial radius back to the legacy fixed 9\" (360px) that F007 replaced with a derivation. Applying this to P2 recovers the pre-change AI for that player while P1 and the code are identical in both arms, so the margin difference isolates the findings.",
+	"parameters": {
+		"WEIGHT_HIDDEN_GAINED": 0.0,
+		"HIDDEN_FORFEIT_PENALTY": 0.0,
+		"HIDDEN_WINDOW_BONUS": 1.0,
+		"OVERWATCH_EXPOSURE_PENALTY": 0.0,
+		"BATTLE_SHOCK_DENIAL_WEIGHT": 0.0,
+		"DEEP_STRIKE_DENIAL_RANGE_PX": 360.0
+	}
+}

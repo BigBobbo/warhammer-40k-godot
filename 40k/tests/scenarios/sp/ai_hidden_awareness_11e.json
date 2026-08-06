@@ -1,0 +1,94 @@
+{
+  "id": "ai_hidden_awareness_11e",
+  "covers": [
+    "ai.movement.hidden_seeking",
+    "ai.shooting.hidden_forfeit",
+    "ai.screening.deep_strike_denial_radius",
+    "rules.11e.hidden_13_09",
+    "autoloads.TerrainManager.is_model_hidden",
+    "ui.GameLogPanel.ai_thinking_cards"
+  ],
+  "fixture": "audit_383_battleshock_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "description": "11e Hidden awareness (corpus findings F001/F002) and the F007 deep-strike denial radius, driven against the live game on the official 11e terrain layout (26 dense pieces). Player 1's Shield-Captain is teleported into the dense terrain area at (260,750) with its ranged-attack history cleared -- exactly the 13.09 state ('within a terrain area that contains one or more dense terrain features' AND 'did not make one or more ranged attacks during this turn or during the previous turn') -- and the Ork Battlewagon is placed 10 inches away as its ONLY legal target, so the whole shooting phase on offer is a chip shot into a T12 Sv3+ hull. Asserts, in order: (a) TerrainManager.is_model_hidden agrees the model is Hidden -- ENGINE truth, not the AI's opinion; (b) AIDecisionMaker._position_would_be_hidden reaches the same verdict from a synthesised probe model, which is the mechanism F001 needs to score a destination the unit has NOT moved to yet; (c) that probe returns FALSE on open ground, so the predicate discriminates rather than always answering yes; (d) F001 pays a movement bonus for the Hidden destination and exactly 0.0 for the open one; (e) F002 prices the two-turn forfeit above zero; (f) F007 derives the deep-strike denial radius from GameConstants.reinforcement_min_enemy_distance_inches() and gets 8 inches under 11e, not the 9 the AI previously hardcoded; (g) the PLAYER PATH -- clicking the real 'Suggest (K)' button runs the live AI and writes its reasoning into the left-hand game log, where the player can read that the unit is staying Hidden rather than trading two turns of untargetability for a chip shot; (h) the CONTROL -- replaying the identical decision with flags.shot_recently=true (Hidden already surrendered, so there is nothing left to protect) returns SHOOT, proving the hold-fire is caused by the Hidden state and not merely by the shot being poor.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Park every OTHER unit in the far corner so the Shield-Captain's only legal\n# target is the Battlewagon 10 inches away -- a genuine chip shot, which is\n# the \"cannot meaningfully hurt anything\" case F002 is about.\nfor uid in GameState.state[\"units\"]:\n\tif uid == \"U_SHIELD_CAPTAIN_A\" or uid == \"U_BATTLEWAGON_G\":\n\t\tcontinue\n\tvar u = GameState.state[\"units\"][uid]\n\tvar k = 0\n\tfor m in u.get(\"models\", []):\n\t\tif m.get(\"position\") == null:\n\t\t\tcontinue\n\t\tm[\"position\"] = {\"x\": 1650.0 + float(k % 5) * 45.0, \"y\": 1980.0 + float(k / 5) * 45.0}\n\t\tk += 1\nvar sc = GameState.state[\"units\"][\"U_SHIELD_CAPTAIN_A\"]\nfor m in sc[\"models\"]:\n\tm[\"position\"] = {\"x\": 260.0, \"y\": 750.0}\nif not sc.has(\"flags\"):\n\tsc[\"flags\"] = {}\nsc[\"flags\"][\"shot_recently\"] = false\nsc[\"flags\"][\"last_shot_idx\"] = -100\nvar bw = GameState.state[\"units\"][\"U_BATTLEWAGON_G\"]\nfor m in bw[\"models\"]:\n\tm[\"position\"] = {\"x\": 260.0, \"y\": 1150.0}\nreturn true",
+      "equals": true
+    },
+    { "act": "execute_script", "script": "main._recreate_unit_visuals()" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var tm = tree.root.get_node_or_null(\"TerrainManager\")\nvar u = GameState.state[\"units\"][\"U_SHIELD_CAPTAIN_A\"]\nvar n = 0\nfor m in u[\"models\"]:\n\tif not m.get(\"alive\", true):\n\t\tcontinue\n\tif tm.is_model_hidden(m, u):\n\t\tn += 1\nreturn n",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.state[\"units\"][\"U_SHIELD_CAPTAIN_A\"]\nreturn AIDecisionMaker._position_would_be_hidden(u, Vector2(260.0, 750.0))",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.state[\"units\"][\"U_SHIELD_CAPTAIN_A\"]\nreturn AIDecisionMaker._position_would_be_hidden(u, Vector2(880.0, 1980.0))",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var snap = GameState.create_snapshot()\nvar u = snap[\"units\"][\"U_SHIELD_CAPTAIN_A\"]\nvar enemies = {}\nfor uid in snap[\"units\"]:\n\tif int(snap[\"units\"][uid].get(\"owner\", 0)) == 2:\n\t\tenemies[uid] = snap[\"units\"][uid]\nvar f = FileAccess.open(\"user://hidden_probe.txt\", FileAccess.WRITE)\nf.store_line(\"F001 hidden_gain_in_dense_terrain = %.3f\" % AIDecisionMaker._hidden_gain_value(u, Vector2(260.0, 750.0), enemies))\nf.store_line(\"F001 hidden_gain_open_ground      = %.3f\" % AIDecisionMaker._hidden_gain_value(u, Vector2(880.0, 1980.0), enemies))\nf.store_line(\"F002 forfeit_cost                 = %.3f\" % AIDecisionMaker._hidden_forfeit_cost(u, enemies))\nvar r = AIDecisionMaker._deep_strike_denial_radius_px(snap, 1)\nf.store_line(\"F007 denial_radius                = %.1f px = %.1f in\" % [r, r / Measurement.inches_to_px(1.0)])\nf.close()\nreturn AIDecisionMaker._hidden_gain_value(u, Vector2(260.0, 750.0), enemies)",
+      "expect_min": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var snap = GameState.create_snapshot()\nvar u = snap[\"units\"][\"U_SHIELD_CAPTAIN_A\"]\nvar enemies = {}\nfor uid in snap[\"units\"]:\n\tif int(snap[\"units\"][uid].get(\"owner\", 0)) == 2:\n\t\tenemies[uid] = snap[\"units\"][uid]\nreturn AIDecisionMaker._hidden_gain_value(u, Vector2(880.0, 1980.0), enemies)",
+      "equals": 0.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var snap = GameState.create_snapshot()\nvar u = snap[\"units\"][\"U_SHIELD_CAPTAIN_A\"]\nvar enemies = {}\nfor uid in snap[\"units\"]:\n\tif int(snap[\"units\"][uid].get(\"owner\", 0)) == 2:\n\t\tenemies[uid] = snap[\"units\"][uid]\nreturn AIDecisionMaker._hidden_forfeit_cost(u, enemies)",
+      "expect_min": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var snap = GameState.create_snapshot()\nreturn AIDecisionMaker._deep_strike_denial_radius_px(snap, 1) / Measurement.inches_to_px(1.0)",
+      "equals": 8.0
+    },
+    { "act": "screenshot", "label": "01_shield_captain_hidden_in_dense_terrain" },
+    { "act": "execute_script", "script": "GameEventLog.clear()" },
+    { "act": "click_node", "button_text": "Suggest (K)" },
+    { "act": "wait_seconds", "seconds": 3.0 },
+    {
+      "act": "execute_script",
+      "script": "GameEventLog.has_ai_entry_containing_any([\"stays Hidden\"])",
+      "equals": true
+    },
+    { "act": "screenshot", "label": "02_game_log_shows_ai_staying_hidden", "region": [0, 105, 460, 700] },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIDecisionMaker.reset_caches()\nvar snap = GameState.create_snapshot()\nvar actions = [{\"type\": \"SELECT_SHOOTER\", \"actor_unit_id\": \"U_SHIELD_CAPTAIN_A\"}]\nvar d = AIDecisionMaker.decide(8, snap, actions, 1, 2)\nvar f = FileAccess.open(\"user://hidden_decision.txt\", FileAccess.WRITE)\nf.store_line(\"hidden  -> type=%s desc=%s\" % [str(d.get(\"type\", \"?\")), str(d.get(\"_ai_description\", \"\"))])\nf.close()\nreturn str(d.get(\"type\", \"?\"))",
+      "equals": "SKIP_UNIT"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIDecisionMaker.reset_caches()\nvar snap = GameState.create_snapshot()\nsnap[\"units\"][\"U_SHIELD_CAPTAIN_A\"][\"flags\"][\"shot_recently\"] = true\nvar actions = [{\"type\": \"SELECT_SHOOTER\", \"actor_unit_id\": \"U_SHIELD_CAPTAIN_A\"}]\nvar d = AIDecisionMaker.decide(8, snap, actions, 1, 2)\nvar prev = \"\"\nvar fr = FileAccess.open(\"user://hidden_decision.txt\", FileAccess.READ)\nif fr != null:\n\tprev = fr.get_as_text()\n\tfr.close()\nvar f2 = FileAccess.open(\"user://hidden_decision.txt\", FileAccess.WRITE)\nf2.store_string(prev)\nf2.store_line(\"control -> type=%s desc=%s\" % [str(d.get(\"type\", \"?\")), str(d.get(\"_ai_description\", \"\"))])\nf2.close()\nreturn str(d.get(\"type\", \"?\"))",
+      "equals": "SHOOT"
+    },
+    { "act": "screenshot", "label": "03_board_end_state" }
+  ]
+}

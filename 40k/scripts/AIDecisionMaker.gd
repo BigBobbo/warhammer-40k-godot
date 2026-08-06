@@ -66,6 +66,13 @@ static func _measurement():
 		return main.root.get_node_or_null("Measurement")
 	return null
 
+# Late-bound reference to the GameState autoload
+static func _game_state():
+	var main = Engine.get_main_loop()
+	if main is SceneTree and main.root:
+		return main.root.get_node_or_null("GameState")
+	return null
+
 # Late-bound reference to TerrainManager autoload
 static func _terrain_manager():
 	var main = Engine.get_main_loop()
@@ -623,9 +630,70 @@ const THREAT_SAFE_MARGIN_INCHES: float = 2.0 # Extra buffer beyond raw threat ra
 # the enemy can charge without needing to move first, making it critically dangerous
 const THREAT_CLOSE_MELEE_DISTANCE_INCHES: float = 12.0
 
+# =============================================================================
+# 11e HIDDEN AWARENESS (core rules 13.09) — corpus findings F001/F002/F003
+# =============================================================================
+# 13.09 verbatim: "A model is hidden while all of the following apply to it:
+#   • That model has the INFANTRY/BEASTS/SWARM keyword and is within a terrain
+#     area that contains one or more dense terrain features.
+#   • That model's unit did not make one or more ranged attacks during this
+#     turn or during the previous turn.
+#  While a model is hidden, it can only be visible to enemy models that are
+#  within its detection range. Unless otherwise stated, a model's detection
+#  range is 15"." Gone to Ground subtracts a further 3" (→ 12") against an
+# observer whose view is broken by dense terrain; the floor is 9".
+#
+# RulesEngine + TerrainManager already implement all of this (is_model_hidden,
+# hidden_model_visible_to, detection_range_inches_for). Before these weights
+# the AI had *zero* references to it — it only ever benefited by accident when
+# a destination happened to land in terrain. These three constants are what
+# make the AI actually play for the rule.
+#
+# F001 — seek Hidden when moving. Sized against SECONDARY_POSITIONAL_BONUS
+# (4.0) so it is a real pull but cannot outbid an objective (WEIGHT_UNCONTROLLED_OBJ
+# is 11.0+); it is also scaled down by how little immunity the position buys.
+const WEIGHT_HIDDEN_GAINED: float = 4.0
+# F002 — shooting surrenders Hidden for this turn AND the next, so pulling the
+# trigger is a two-turn commitment to being shootable. Subtracted from a
+# currently-Hidden unit's shooting score so it still fires when the damage is
+# real but declines chip shots. Zero once Hidden is already lost.
+const HIDDEN_FORFEIT_PENALTY: float = 3.0
+# F003 — an enemy that fired last turn but not this one is on a timer: it will
+# be Hidden (and possibly untargetable) on its next turn. Modest multiplier so
+# it breaks ties rather than overriding threat.
+const HIDDEN_WINDOW_BONUS: float = 1.25
+
+# F009 — how hard the AI plays for battle-shock as objective denial. Scales
+# _battle_shock_flip_value; 0.0 disables the offensive battle-shock heuristics
+# entirely (used by the A/B arms).
+const BATTLE_SHOCK_DENIAL_WEIGHT: float = 1.0
+
+# =============================================================================
+# OVERWATCH EXPOSURE (corpus finding F004)
+# =============================================================================
+# 11e moved Fire Overwatch to the end of the opponent's Movement phase; this
+# engine still implements the 10e Balance Dataslate timing (MovementPhase.gd
+# _check_fire_overwatch_opportunity fires on "normal move start"/"move end"/
+# "fall back move start"/reinforcement set-up). Either way the AI's own
+# movement is what pays for it, INSIDE the AI's own turn and before it acts —
+# which is precisely what THREAT_SHOOTING_PENALTY's old 0.5 value ("often
+# unavoidable") did not price. Overwatch is snap-shooting (unmodified 6s to
+# hit), so what hurts is SHOT VOLUME, not weapon quality.
+# Applied only to the *increase* in exposure a move creates, and only against
+# enemies that can still fire Overwatch (24" band, has ranged weapons).
+const OVERWATCH_EXPOSURE_PENALTY: float = 0.35   # per (normalised) shot of incoming snap fire
+const OVERWATCH_RANGE_INCHES: float = 24.0       # StratagemManager's eligibility band
+const OVERWATCH_SHOTS_REFERENCE: float = 20.0    # shot volume that scores a full penalty
+
 # Screening / Deep Strike denial constants (AI-TACTIC-3, MOV-4)
-const DEEP_STRIKE_DENIAL_RANGE_PX: float = 360.0  # 9 inches — deep strike must land >9" from enemies
-const SCREEN_SPACING_PX: float = 720.0             # 18 inches — spacing between screeners for full denial coverage
+# F007: these two are no longer read by the screening path — the denial radius
+# and screener spacing are now DERIVED per game from
+# GameConstants.reinforcement_min_enemy_distance_inches() (10e >9", 11e >8")
+# and from any enemy reserve unit advertising a shorter drop. See
+# _deep_strike_denial_radius_px / _screen_spacing_px. Kept as the documented
+# 10e values for reference and for any profile that still names them.
+const DEEP_STRIKE_DENIAL_RANGE_PX: float = 360.0  # 9 inches — the 10e stand-off
+const SCREEN_SPACING_PX: float = 720.0             # 18 inches — 2x the 10e stand-off
 const SCREEN_CHEAP_UNIT_POINTS: int = 100           # Units at or below this point cost are screening candidates
 const SCREEN_SCORE_BASE: float = 8.0                # Base score for a screening assignment (comparable to objective priority)
 const THREAT_CLOSE_MELEE_PENALTY: float = 2.0   # Extra penalty on top of normal charge threat for being within 12"
@@ -6494,14 +6562,19 @@ static func _is_valid_reinforcement_position(pos: Vector2, base_mm: int,
 	if pos.y < BASE_MARGIN_PX or pos.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
 		return false
 
-	# Must be >9" from all enemy models (edge-to-edge)
+	# Must be more than the ingress stand-off from all enemy models
+	# (edge-to-edge). 10e: >9". 11e 20.04 Ingress Move: >8". Read it from
+	# GameConstants rather than hardcoding — the engine's own placement
+	# validator uses the same source, and a hardcoded 9.0 made the AI refuse
+	# perfectly legal 8-9" arrivals under 11e.
+	var ingress_standoff = GameConstants.reinforcement_min_enemy_distance_inches()
 	var model_radius_inches = (base_mm / 2.0) / 25.4
 	for enemy in enemy_model_positions:
 		var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
 		var dist_px = pos.distance_to(enemy.position)
 		var dist_inches = dist_px / PIXELS_PER_INCH
 		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-		if edge_dist < 9.0:
+		if edge_dist < ingress_standoff:
 			return false
 
 	# Strategic reserves: must be within 6" of a board edge
@@ -7514,6 +7587,32 @@ static func _assign_units_to_objectives(
 					if dest_threat.charge_threat > current_threat.charge_threat + 0.5:
 						score -= (dest_threat.charge_threat - current_threat.charge_threat) * 0.5 * move_strategy.survival
 
+			# --- F004: OVERWATCH EXPOSURE ---
+			# Fire Overwatch is paid inside our OWN Movement phase, before this
+			# unit gets to do anything with the ground it just took. Charge only
+			# the exposure the move CREATES, and let melee-archetype units
+			# discount it the same way they discount charge threat — they are
+			# buying a fight the snap shots cannot stop.
+			if not already_on_obj and not enemies.is_empty():
+				var ow_pen = _overwatch_exposure_penalty(unit, centroid, estimated_dest, enemies)
+				if ow_pen > 0.0:
+					if _unit_has_melee_weapons(unit) and not has_ranged:
+						ow_pen *= get_param("THREAT_MELEE_UNIT_IGNORE", THREAT_MELEE_UNIT_IGNORE)
+					# Rounds 4-5 the primary clock outweighs the tax (F004 risk note).
+					if battle_round >= 4:
+						ow_pen *= 0.5
+					score -= ow_pen * move_strategy.survival
+
+			# --- F001: HIDDEN-SEEKING (11e 13.09) ---
+			# Ending the move inside a dense terrain area makes INFANTRY/BEASTS/
+			# SWARM untargetable beyond 15" (12" through dense terrain). Scored
+			# per (unit, objective) pair, so the pull is toward objectives whose
+			# approach happens to land in cover — it can bias WHICH objective,
+			# never whether to contest one.
+			var hidden_bonus = _hidden_gain_value(unit, estimated_dest, enemies)
+			if hidden_bonus > 0.0:
+				score += hidden_bonus
+
 			# --- AGAINST ALL ODDS (Lions): prefer destinations that keep the 6" bubble ---
 			# +1 Hit / +1 Wound on every attack is worth more than stacking a
 			# second unit on a covered marker — spread across objectives unless
@@ -8022,6 +8121,9 @@ static func _assign_units_to_objectives(
 
 	var denial_idx = 0  # Track which denial position to assign next
 	var block_idx = 0   # T7-42: Track which corridor blocking position to assign next
+	# F007: screeners are spaced so their denial bubbles touch (2R), derived
+	# from the real arrival stand-off rather than a hardcoded 18".
+	var screen_spacing_px = _screen_spacing_px(snapshot, player)
 	for entry in unassigned_units:
 		var unit_id = entry.unit_id
 		var unit = entry.unit
@@ -8039,7 +8141,7 @@ static func _assign_units_to_objectives(
 			# Check spacing: don't cluster screeners, keep ~18" apart
 			var too_close_to_screener = false
 			for sp in screener_positions:
-				if denial_pos.distance_to(sp) < SCREEN_SPACING_PX * 0.5:
+				if denial_pos.distance_to(sp) < screen_spacing_px * 0.5:
 					too_close_to_screener = true
 					break
 
@@ -8061,6 +8163,20 @@ static func _assign_units_to_objectives(
 				var unit_name = _dn(unit, unit_id)
 				print("AIDecisionMaker: [SCREEN] Assigned %s to SCREEN at (%.0f,%.0f) — %s" % [
 					unit_name, denial_pos.x, denial_pos.y, denial.reason])
+				# F006 (corrected): report a physically passable hole in the
+				# screening formation. 11e seals on base clearance alone —
+				# gap must be < rA + rB + widest enemy base diameter.
+				if not enemies.is_empty():
+					var screen_model_positions: Array = []
+					for m in unit.get("models", []):
+						if m.get("alive", true):
+							var mp = _get_model_position(m)
+							if mp != Vector2.INF:
+								screen_model_positions.append(mp)
+					var hole = _screen_widest_passable_gap_inches(screen_model_positions, unit, enemies)
+					if hole > 0.0:
+						print("AIDecisionMaker: [SCREEN-GAP] %s's line has a %.1f\" passable hole (widest enemy base %.1f\") — enemy models can walk through" % [
+							unit_name, hole, _widest_enemy_base_inches(enemies)])
 				continue
 
 		# --- SCREENING FALLBACK: Use _compute_screen_position for non-denial screening ---
@@ -8071,7 +8187,7 @@ static func _assign_units_to_objectives(
 				# Check spacing
 				var too_close = false
 				for sp in screener_positions:
-					if screen_pos.distance_to(sp) < SCREEN_SPACING_PX * 0.5:
+					if screen_pos.distance_to(sp) < screen_spacing_px * 0.5:
 						too_close = true
 						break
 				if not too_close:
@@ -9681,7 +9797,7 @@ static func _compute_movement_toward_target(
 	# try to find a safer alternative that still makes progress
 	if not threat_data.is_empty():
 		var desired_dest = centroid + final_move_vector
-		var safer_dest = _find_safer_position(centroid, desired_dest, move_px, threat_data, unit, objectives)
+		var safer_dest = _find_safer_position(centroid, desired_dest, move_px, threat_data, unit, objectives, enemies)
 		if safer_dest != desired_dest:
 			final_move_vector = safer_dest - centroid
 
@@ -10043,6 +10159,10 @@ static func _calculate_denial_positions(
 ) -> Array:
 	var denial_positions = []
 
+	# F007: derive the denial radius from the arriving units, not a constant.
+	var denial_radius_px = _deep_strike_denial_radius_px(snapshot, player)
+	var screen_step_px = denial_radius_px * 2.0
+
 	# Identify home objectives that need protection from deep strike
 	for eval in obj_evaluations:
 		if not eval.get("is_home", false):
@@ -10063,7 +10183,7 @@ static func _calculate_denial_positions(
 		var toward_center = (board_center - obj_pos).normalized()
 		# Place screener between the objective and the center, at ~9" offset
 		# This creates a denial zone that covers the objective area
-		var denial_pos = obj_pos + toward_center * DEEP_STRIKE_DENIAL_RANGE_PX * 0.75
+		var denial_pos = obj_pos + toward_center * denial_radius_px * 0.75
 
 		# Clamp to board
 		denial_pos.x = clamp(denial_pos.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
@@ -10072,7 +10192,7 @@ static func _calculate_denial_positions(
 		# Check if an existing screener already covers this area
 		var already_covered = false
 		for screener_pos in existing_screeners:
-			if screener_pos.distance_to(denial_pos) < DEEP_STRIKE_DENIAL_RANGE_PX:
+			if screener_pos.distance_to(denial_pos) < denial_radius_px:
 				already_covered = true
 				break
 
@@ -10092,7 +10212,7 @@ static func _calculate_denial_positions(
 		var zone_max_x = deployment_zone.get("max_x", BOARD_WIDTH_PX)
 		var zone_min_y = deployment_zone.get("min_y", 0.0)
 		var zone_max_y = deployment_zone.get("max_y", BOARD_HEIGHT_PX)
-		var step = SCREEN_SPACING_PX  # Check every 18"
+		var step = screen_step_px  # sample at 2x the denial radius
 
 		var sample_x = zone_min_x + step * 0.5
 		while sample_x < zone_max_x:
@@ -10118,7 +10238,7 @@ static func _calculate_denial_positions(
 						nearest_friendly_dist = d
 
 				# If no friendly unit within denial range, this is a gap
-				if nearest_friendly_dist > DEEP_STRIKE_DENIAL_RANGE_PX:
+				if nearest_friendly_dist > denial_radius_px:
 					denial_positions.append({
 						"position": sample_pos,
 						"priority": 3.0,  # Lower priority than objective denial
@@ -11623,6 +11743,34 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 
 		var target_summary = "; ".join(desc_parts) if not desc_parts.is_empty() else "targets"
 
+		# --- F002: HOLD FIRE TO KEEP HIDDEN (11e 13.09) ---
+		# Shooting forfeits Hidden for this turn AND the next, so pulling the
+		# trigger sells two turns of untargetability. Price that against what
+		# the shot actually buys: a unit that cannot meaningfully hurt anything
+		# should stay invisible instead. The cost is zero once Hidden is already
+		# gone (unit shot this turn) or when the position hides us from nobody.
+		var hidden_cost = _hidden_forfeit_cost(unit, enemies)
+		if hidden_cost > 0.0:
+			# Value the shooting in the same currency as the penalty: fraction
+			# of a target's health bar removed, summed over targets.
+			var shoot_worth := 0.0
+			for tid in target_damage:
+				var hp_t = float(target_hp.get(tid, 0.0))
+				if hp_t > 0.0:
+					shoot_worth += minf(float(target_damage[tid]) / hp_t, 1.0)
+			shoot_worth *= 10.0  # a full kill is worth 10, comparable to SCREEN_SCORE_BASE
+			if shoot_worth < hidden_cost:
+				print("AIDecisionMaker: [F002-HIDDEN] %s holds fire — shot worth %.1f < %.1f cost of surrendering Hidden (%s)" % [
+					unit_name, shoot_worth, hidden_cost, target_summary])
+				_add_thinking_step("%s stays Hidden: shooting would give up the Hidden rule for this turn and the next, and the only shot on offer is %s — not worth being targetable for two turns." % [
+					unit_name, target_summary])
+				return {
+					"type": "SKIP_UNIT",
+					"actor_unit_id": selected_unit_id,
+					"_ai_description": "%s holds fire to stay Hidden (shot worth %.1f < %.1f)" % [
+						unit_name, shoot_worth, hidden_cost]
+				}
+
 		# Record structured decision for AI Gameplay Visualizer
 		var shoot_candidates = []
 		var shoot_chosen_idx = 0
@@ -12438,6 +12586,11 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	# --- Objective presence: units on/near objectives are strategically critical ---
 	var unit_centroid = _get_unit_centroid(target_unit)
 	var oc = int(stats.get("objective_control", stats.get("oc", 0)))
+	# F009: a battle-shocked unit's models have OC "-" (11e 01.07), so it is
+	# already contributing nothing to objective control. Do not pay the
+	# objective-holder premium for shooting a unit that is not holding it.
+	if target_unit.get("flags", {}).get("battle_shocked", false):
+		oc = 0
 	if unit_centroid != Vector2.INF:
 		var objectives = _get_objectives(snapshot)
 		var on_objective = false
@@ -12463,6 +12616,18 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 			value *= 1.15
 			if oc >= 1:
 				value += float(oc) * get_param("MACRO_OC_NEAR_OBJECTIVE_WEIGHT", MACRO_OC_NEAR_OBJECTIVE_WEIGHT)
+
+	# --- F003: SHOOT IT WHILE THE WINDOW IS OPEN (11e 13.09) ---
+	# Availability is otherwise treated as binary and permanent. An enemy that
+	# qualifies for Hidden, is standing in a dense terrain area and has not
+	# fired this turn will be untargetable beyond its detection range on its
+	# next turn — a target that is legal now and illegal later.
+	if _target_regains_hidden_soon(target_unit):
+		var hw = get_param("HIDDEN_WINDOW_BONUS", HIDDEN_WINDOW_BONUS)
+		if hw != 1.0:
+			value *= hw
+			print("AIDecisionMaker: [F003-HIDDEN] x%.2f priority for %s (regains Hidden next turn)" % [
+				hw, _dn_meta(meta, unit_id)])
 
 	# Secondary mission kill-target bonus: boost priority when target matches active kill secondaries
 	var sec_awareness = _get_secondary_awareness(player)
@@ -19573,6 +19738,179 @@ static func _p_2d6_fail(needed: int) -> float:
 	"""P(2D6 < needed) — e.g. probability of FAILING a battle-shock test vs Ld."""
 	return 1.0 - _charge_success_probability(float(needed))
 
+static func _effective_leadership_for(unit_id: String, unit: Dictionary, snapshot: Dictionary) -> int:
+	"""The Leadership a battle-shock roll is actually taken against. For an
+	Attached unit that is the HIGHEST Ld among its models, so a Leader makes
+	the bodyguard squad HARDER to shock (the roll is 2D6 >= Ld to pass).
+	Prefers CommandPhase._get_effective_leadership — the very function
+	FactionAbilityManager.force_battle_shock_test resolves Ld with — so the
+	AI's failure probability matches the roll the engine will actually make."""
+	var cp_script = load("res://phases/CommandPhase.gd")
+	if cp_script != null and unit_id != "" and cp_script.has_method("_get_effective_leadership"):
+		var gs = _game_state()
+		if gs != null and gs.state.get("units", {}).has(unit_id):
+			return int(cp_script._get_effective_leadership(unit_id))
+	# Snapshot-only fallback (headless tests, hypothetical states): same rule,
+	# resolved against the snapshot rather than live GameState.
+	var ld = int(unit.get("meta", {}).get("stats", {}).get("leadership", 7))
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		var char_unit = snapshot.get("units", {}).get(str(char_id), {})
+		if char_unit.is_empty():
+			continue
+		var char_ld = int(char_unit.get("meta", {}).get("stats", {}).get("leadership", 0))
+		if char_ld > ld:
+			ld = char_ld
+	return ld
+
+# =============================================================================
+# BATTLE-SHOCK AS OBJECTIVE DENIAL (finding F009)
+# =============================================================================
+# 11e 01.07: a battle-shocked unit's models have OC "-". Objectives can
+# therefore be flipped WITHOUT killing anything, which is far cheaper against
+# a durable holder. The AI already read the flag defensively —
+# _get_oc_at_position skips battle-shocked units, and _evaluate_insane_bravery
+# prices keeping our own units unshocked — but it never once considered
+# INFLICTING it. This is the offensive mirror of Insane Bravery.
+#
+# Two 11e details make this much stronger than the 10e version of the same
+# play, and both are implemented by this engine:
+#   • Battle-shock does NOT auto-expire. 10e cleared it at the start of the
+#     owner's next Command phase; 11e (and CommandPhase._clear_battle_shocked_flags,
+#     which returns early for edition >= 11) keeps it until the owner PASSES a
+#     battle-shock roll in their own Command phase Battle-shock Step.
+#   • Only the ACTIVE player rolls, for their OWN units — so an enemy shocked
+#     during our turn cannot test out of it until their next Command phase,
+#     and stays at OC "-" for every end-of-phase control check in between.
+# The score is still multiplied by the actual failure probability so the AI
+# does not spend CP on coin flips.
+
+## Expected VP swing from battle-shocking `target_unit` — the objectives its
+## OC is currently holding that we would take if that OC vanished, weighted by
+## the probability the battle-shock roll actually fails.
+static func _battle_shock_flip_value(
+	target_unit: Dictionary, target_id: String, snapshot: Dictionary,
+	player: int, roll_modifier: int = 0
+) -> Dictionary:
+	var empty := {"vp": 0.0, "p_fail": 0.0, "score": 0.0, "objectives": []}
+	# Kill-switch first, so a caller that forgets the guard still costs nothing.
+	if get_param("BATTLE_SHOCK_DENIAL_WEIGHT", BATTLE_SHOCK_DENIAL_WEIGHT) <= 0.0:
+		return empty
+	if target_unit.is_empty():
+		return empty
+	# Already shocked — its OC is already "-", there is nothing left to deny.
+	if target_unit.get("flags", {}).get("battle_shocked", false):
+		return empty
+	var target_oc = int(target_unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
+	if target_oc <= 0:
+		return empty
+
+	var friendly_units = _get_units_for_player(snapshot, player)
+	var enemy_units = _get_enemy_units(snapshot, player)
+
+	# Count current holds both ways so _estimate_objective_vp_value can do its
+	# marginal (hold_min-N) analysis rather than paying flat per objective.
+	var objectives = _get_objectives(snapshot)
+	var my_holds := 0
+	var their_holds := 0
+	for obj_pos in objectives:
+		var f = _get_oc_at_position(obj_pos, friendly_units, player, true)
+		var e = _get_oc_at_position(obj_pos, enemy_units, player, false)
+		if f > e:
+			my_holds += 1
+		elif e > f:
+			their_holds += 1
+
+	var total_vp := 0.0
+	var flipped: Array = []
+	var target_centroid = _get_unit_centroid(target_unit)
+	if target_centroid == Vector2.INF:
+		return empty
+
+	for i in range(objectives.size()):
+		var obj_pos = objectives[i]
+		# Is this unit's OC actually in play here?
+		var contributes := false
+		for m in target_unit.get("models", []):
+			if not m.get("alive", true):
+				continue
+			var mp = _get_model_position(m)
+			if mp != Vector2.INF and mp.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+				contributes = true
+				break
+		if not contributes:
+			continue
+
+		var friendly_oc = _get_oc_at_position(obj_pos, friendly_units, player, true)
+		var enemy_oc = _get_oc_at_position(obj_pos, enemy_units, player, false)
+		var enemy_oc_after = maxi(0, enemy_oc - target_oc)
+		# 14.02/14.03: control needs STRICTLY higher level, and a tie leaves an
+		# objective uncontrolled (or secured to its previous holder). Zeroing
+		# their OC only wins us the objective if we have OC of our own there.
+		var flips_to_us = friendly_oc >= 1 and friendly_oc <= enemy_oc and friendly_oc > enemy_oc_after
+		var denies_them = enemy_oc > friendly_oc and enemy_oc_after <= friendly_oc
+		if not (flips_to_us or denies_them):
+			continue
+
+		var obj_zone = ""
+		var board_objs = snapshot.get("board", {}).get("objectives", [])
+		if i < board_objs.size():
+			obj_zone = str(board_objs[i].get("zone", ""))
+		var is_home = (player == 1 and obj_zone == "player1") or (player == 2 and obj_zone == "player2")
+		var is_enemy_home = (player == 1 and obj_zone == "player2") or (player == 2 and obj_zone == "player1")
+		var vp_result = _estimate_objective_vp_value({
+			"is_home": is_home,
+			"is_enemy_home": is_enemy_home,
+			"is_central": not is_home and not is_enemy_home,
+			"is_held_by_me": flips_to_us,
+		}, player, my_holds, their_holds)
+		var obj_vp = float(vp_result.get("vp", 0.0))
+		# Denying without taking is worth less than taking.
+		if not flips_to_us:
+			obj_vp *= 0.5
+		total_vp += obj_vp
+		flipped.append("obj%d (%+.1f VP)" % [i, obj_vp])
+
+	if total_vp <= 0.0:
+		return empty
+
+	# Use the SAME Leadership the engine actually rolls against.
+	# FactionAbilityManager.force_battle_shock_test resolves Ld via
+	# CommandPhase._get_effective_leadership, which for an Attached unit takes
+	# the HIGHEST Ld among its models (11e 01.06 phrases this as "one or more
+	# of the Ld characteristics"). Reading raw meta.stats.leadership here would
+	# under-estimate the target number whenever a Leader is attached, and so
+	# over-estimate our chance of shocking exactly the bodyguard squads most
+	# worth shocking.
+	var ld = _effective_leadership_for(target_id, target_unit, snapshot)
+	# A -1 modifier to the roll is the same as needing one more on the dice.
+	var p_fail = _p_2d6_fail(ld - roll_modifier)
+	var weight = get_param("BATTLE_SHOCK_DENIAL_WEIGHT", BATTLE_SHOCK_DENIAL_WEIGHT)
+	return {
+		"vp": total_vp,
+		"p_fail": p_fail,
+		"score": total_vp * p_fail * weight,
+		"objectives": flipped,
+	}
+
+## Best enemy to battle-shock for objective value, among those satisfying
+## `filter` (a Callable taking (unit_id, unit) -> bool).
+static func _best_battle_shock_target(
+	snapshot: Dictionary, player: int, roll_modifier: int, filter: Callable
+) -> Dictionary:
+	var best := {}
+	var best_score := 0.0
+	for eid in _get_enemy_units(snapshot, player):
+		var enemy = snapshot.units[eid]
+		if _get_alive_models(enemy).is_empty():
+			continue
+		if not filter.call(eid, enemy):
+			continue
+		var v = _battle_shock_flip_value(enemy, eid, snapshot, player, roll_modifier)
+		if v.score > best_score:
+			best_score = v.score
+			best = {"enemy_id": eid, "enemy_name": _dn(enemy, eid), "eval": v}
+	return best
+
 static func _evaluate_insane_bravery(snapshot: Dictionary, use_strat_actions: Array, player: int) -> Dictionary:
 	"""INSANE BRAVERY (11e 15.04, once per battle): auto-pass one battle-shock
 	test. Worth its 1 CP + once-per-battle slot only when a valuable unit —
@@ -19793,6 +20131,81 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 							"reason": "unshocks %s (regains OC + stratagem access)" % _dn(unit, uid),
 							"context": {"battle_shock_target_id": uid}}
 			return {}
+
+		"SQUIG FLINGIN'":
+			# F009: 1 CP, Movement phase — a chosen enemy unit within 9" of the
+			# flinging unit takes a Battle-shock roll at -1. Battle-shock sets
+			# OC to "-", so this flips objectives without killing anything.
+			# Score it by the VP that swings, times the actual failure chance.
+			if phase_name != "movement":
+				return {}
+			if get_param("BATTLE_SHOCK_DENIAL_WEIGHT", BATTLE_SHOCK_DENIAL_WEIGHT) <= 0.0:
+				return {}
+			var sf_best := {}
+			var sf_best_score := 0.0
+			for uid in friendly_units:
+				var flinger = friendly_units[uid]
+				if _get_alive_models(flinger).is_empty():
+					continue
+				var fc = _get_unit_centroid(flinger)
+				if fc == Vector2.INF:
+					continue
+				var in_range = func(_eid, enemy):
+					var ec = _get_unit_centroid(enemy)
+					return ec != Vector2.INF and fc.distance_to(ec) <= 9.0 * PIXELS_PER_INCH
+				var pick_sf = _best_battle_shock_target(snapshot, player, -1, in_range)
+				if pick_sf.is_empty():
+					continue
+				var s = pick_sf.eval.score
+				if s > sf_best_score:
+					sf_best_score = s
+					sf_best = {
+						"unit_id": uid,
+						"unit_name": _dn(flinger, uid),
+						"score": s,
+						"reason": "battle-shocks %s (%.0f%% fail vs Ld) — OC drops to '-' on %s" % [
+							pick_sf.enemy_name, pick_sf.eval.p_fail * 100.0,
+							", ".join(pick_sf.eval.objectives)],
+						"context": {"enemy_unit_id": pick_sf.enemy_id},
+					}
+			return sf_best
+
+		"IMPENDING CRUNCH":
+			# F009: 1 CP, Charge phase — EVERY enemy unit in Engagement Range of
+			# the charging unit takes a Battle-shock roll at -1. Sum the
+			# objective-flip value across all of them.
+			if phase_name != "charge":
+				return {}
+			if get_param("BATTLE_SHOCK_DENIAL_WEIGHT", BATTLE_SHOCK_DENIAL_WEIGHT) <= 0.0:
+				return {}
+			var ic_best := {}
+			var ic_best_score := 0.0
+			for uid in friendly_units:
+				var charger = friendly_units[uid]
+				if _get_alive_models(charger).is_empty():
+					continue
+				if not charger.get("flags", {}).get("charged_this_turn", false):
+					continue
+				var total := 0.0
+				var names: Array = []
+				for eid in enemy_units:
+					var enemy = enemy_units[eid]
+					if _get_closest_model_distance_inches(charger, enemy) > GameConstants.engagement_range_inches():
+						continue
+					var v = _battle_shock_flip_value(enemy, eid, snapshot, player, -1)
+					if v.score > 0.0:
+						total += v.score
+						names.append("%s (%.0f%%)" % [_dn(enemy, eid), v.p_fail * 100.0])
+				if total > ic_best_score:
+					ic_best_score = total
+					ic_best = {
+						"unit_id": uid,
+						"unit_name": _dn(charger, uid),
+						"score": total,
+						"reason": "battle-shocks %s — OC drops to '-' while they hold objectives" % ", ".join(names),
+						"context": {},
+					}
+			return ic_best
 
 		"GRAB AND BASH":
 			# Waaagh! effects for one unit (5++ / +1S/+1A / advance+charge).
@@ -21184,6 +21597,343 @@ static func _get_player_cp_from_snapshot(snapshot: Dictionary, player: int) -> i
 	return int(player_data.get("cp", 0))
 
 # =============================================================================
+# SCREEN GAP GEOMETRY (finding F006 — corrected)
+# =============================================================================
+# F006 claims a screen seals when model gaps are narrower than the enemy base
+# "plus 2 inches", because a moving model "must stay more than 1 inch away".
+# That is a TENTH-edition rule and it is NOT how 11e works, so it is not what
+# is implemented here:
+#   • 11e Normal Move has no mid-move Engagement Range restriction at all —
+#     the only clause is "AFTER MOVING: Your unit must be unengaged". A model
+#     may move straight through an enemy's Engagement Range.
+#   • This engine agrees: MovementPhase._check_engagement_range_at_position
+#     tests the DESTINATION only, and _path_crosses_enemy_bases blocks solely
+#     on base-to-base overlap ("moving *near* enemies is fine, moving
+#     *through* their bases is not").
+#   • Engagement Range is 2" in 11e anyway, not the 1" the claim assumes.
+# The real 11e condition is pure physical clearance: a mover of base diameter
+# d fits between two screeners of radii rA, rB iff the clear edge gap
+# (D - rA - rB) is at least d. So the gap SEALS iff D < rA + rB + d.
+# Screens still bite as end-state denial (a unit may run the gauntlet but not
+# stop within 2"), and still block charges onto a protected unit.
+
+## Widest enemy base on the board, in inches — what a screen must seal against.
+static func _widest_enemy_base_inches(enemies: Dictionary) -> float:
+	var widest := 0.0
+	for eid in enemies:
+		for m in enemies[eid].get("models", []):
+			if not m.get("alive", true):
+				continue
+			var d = float(int(m.get("base_mm", 32))) / 25.4
+			if d > widest:
+				widest = d
+	return widest if widest > 0.0 else (32.0 / 25.4)
+
+## Maximum centre-to-centre spacing (px) at which two screening models of this
+## unit still physically seal against the widest enemy base. Spacing wider than
+## this leaves a hole the enemy can walk a model through.
+static func _screen_max_model_spacing_px(unit: Dictionary, enemies: Dictionary) -> float:
+	var screener_radius_in = (float(_unit_base_mm(unit)) / 25.4) / 2.0
+	var mover_diameter_in = _widest_enemy_base_inches(enemies)
+	# D < rA + rB + d  (equal-radius screeners)
+	return (screener_radius_in * 2.0 + mover_diameter_in) * PIXELS_PER_INCH
+
+## Does this set of model positions leave a passable hole? Reports the widest
+## offending gap in inches, or -1.0 when the line seals.
+static func _screen_widest_passable_gap_inches(
+	positions: Array, unit: Dictionary, enemies: Dictionary
+) -> float:
+	if positions.size() < 2:
+		return -1.0
+	var max_seal_px = _screen_max_model_spacing_px(unit, enemies)
+	var worst := -1.0
+	# Nearest-neighbour spacing along the line: a hole exists where a model's
+	# closest teammate is further than the sealing distance.
+	for i in range(positions.size()):
+		var nearest := INF
+		for j in range(positions.size()):
+			if i == j:
+				continue
+			var d = positions[i].distance_to(positions[j])
+			if d < nearest:
+				nearest = d
+		if nearest != INF and nearest > max_seal_px:
+			var gap_in = (nearest - max_seal_px) / PIXELS_PER_INCH
+			if gap_in > worst:
+				worst = gap_in
+	return worst
+
+# =============================================================================
+# DEEP-STRIKE DENIAL GEOMETRY (finding F007)
+# =============================================================================
+# The AI screened against a hardcoded 9" bubble. Two things were wrong with
+# that under 11e:
+#   1. The core stand-off is no longer 9". 20.04's ingress move requires
+#      "more than 8 inches horizontally from all enemy units", and this
+#      engine already implements that via
+#      GameConstants.reinforcement_min_enemy_distance_inches(). Screening
+#      against 9" leaves an 8-9" annulus the AI believes is covered and the
+#      opponent can legally drop into — the AI was under-screening.
+#   2. The radius is not a constant of the game, it is a property of the
+#      ARRIVING unit. Any enemy ability advertising a shorter distance
+#      shrinks the bubble the screen has to project, and using one fixed
+#      number under-screens against exactly the units best able to punish it.
+# So: take the core value from GameConstants, then take the minimum over any
+# advertised shorter distance on enemy units still in reserve.
+
+## Parse a stand-off distance out of an ability that grants an ingress/deep
+## strike drop, e.g. "can be set up ... more than 6\" horizontally from all
+## enemy units". Returns -1.0 when the ability does not advertise one.
+static func _ability_ingress_distance_inches(text: String) -> float:
+	var t = text.to_lower()
+	if not ("deep strike" in t or "ingress" in t or "set up" in t):
+		return -1.0
+	# Look for `N"` or `N inch` following a "more than"/"further than" phrase.
+	var re := RegEx.new()
+	re.compile("(?:more than|further than|at least|greater than)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:\"|''|inch|in\\b)")
+	var m = re.search(t)
+	if m == null:
+		return -1.0
+	var v = float(m.get_string(1))
+	# Sanity band — a parsed 24" aura or 1" coherency is not an ingress rule.
+	if v < 3.0 or v > 12.0:
+		return -1.0
+	return v
+
+## The radius (px) a screen must project to deny a deep strike this game.
+## Core value from the engine's own rule, tightened by any enemy reserve unit
+## that advertises a shorter drop. Cached per snapshot is unnecessary — this
+## runs once per screening pass over a handful of reserve units.
+static func _deep_strike_denial_radius_px(snapshot: Dictionary, player: int) -> float:
+	# A profile may pin the radius (in px) to disable the derivation — used by
+	# the A/B arms to recover the old fixed-9" behaviour.
+	var pinned = get_param("DEEP_STRIKE_DENIAL_RANGE_PX", -1.0)
+	if pinned > 0.0:
+		return pinned
+	var core_inches = GameConstants.reinforcement_min_enemy_distance_inches()
+	var best_inches = core_inches
+	var advertiser := ""
+	for uid in snapshot.get("units", {}):
+		var u = snapshot.units[uid]
+		if int(u.get("owner", 0)) == player:
+			continue
+		if u.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		for ab in u.get("meta", {}).get("abilities", []):
+			var txt := ""
+			if ab is String:
+				txt = ab
+			elif ab is Dictionary:
+				txt = "%s %s" % [str(ab.get("name", "")), str(ab.get("description", ""))]
+			var d = _ability_ingress_distance_inches(txt)
+			if d > 0.0 and d < best_inches:
+				best_inches = d
+				advertiser = _dn(u, uid)
+	if advertiser != "":
+		print("AIDecisionMaker: [F007-SCREEN] denial radius %.0f\" -> %.0f\" (%s can arrive closer)" % [
+			core_inches, best_inches, advertiser])
+	return best_inches * PIXELS_PER_INCH
+
+## Spacing between screening positions that still seals the gap between them:
+## two denial bubbles of radius R touch at 2R centre-to-centre.
+static func _screen_spacing_px(snapshot: Dictionary, player: int) -> float:
+	return _deep_strike_denial_radius_px(snapshot, player) * 2.0
+
+# =============================================================================
+# 11e HIDDEN AWARENESS (13.09) — findings F001 / F002 / F003
+# =============================================================================
+# Thin AI-side wrappers over TerrainManager's existing 13.09 implementation.
+# Nothing here re-derives the rule: is_model_hidden() is the single source of
+# truth, so keyword eligibility, the dense-terrain-area test and the
+# "no ranged attacks this turn or last turn" flag stay in one place.
+
+## True when the unit's keywords could ever qualify for Hidden (13.09).
+## Cheap pre-filter so the terrain work is skipped for VEHICLES/MONSTERS.
+static func _unit_hidden_eligible(unit: Dictionary) -> bool:
+	if GameConstants.edition < 11:
+		return false
+	var kw = unit.get("meta", {}).get("keywords", [])
+	return ("INFANTRY" in kw) or ("BEASTS" in kw) or ("SWARM" in kw)
+
+## Base size the unit's models actually use, for synthesising a probe model.
+static func _unit_base_mm(unit: Dictionary) -> int:
+	for m in unit.get("models", []):
+		if m.get("alive", true):
+			return int(m.get("base_mm", 32))
+	return 32
+
+## Would a model of this unit standing at `pos` be Hidden?
+## Builds a probe model — TerrainManager.pieces_model_within_of() reads only
+## `position` and `base_mm`, so a synthesised dict is a faithful stand-in for
+## "if I moved here". The unit dict is passed through untouched, so the
+## keyword and shot-history halves of 13.09 are evaluated against real state.
+static func _position_would_be_hidden(unit: Dictionary, pos: Vector2, base_mm: int = -1) -> bool:
+	if not _unit_hidden_eligible(unit):
+		return false
+	var tm = _terrain_manager()
+	if tm == null or not tm.has_method("is_model_hidden"):
+		return false
+	var probe := {
+		"position": pos,
+		"base_mm": (base_mm if base_mm > 0 else _unit_base_mm(unit)),
+		"alive": true,
+	}
+	return tm.is_model_hidden(probe, unit)
+
+## Is the unit Hidden right now (any alive model)? Used by F002 to know
+## whether there is anything left to surrender by shooting.
+static func _unit_is_currently_hidden(unit: Dictionary) -> bool:
+	if not _unit_hidden_eligible(unit):
+		return false
+	var tm = _terrain_manager()
+	if tm == null or not tm.has_method("is_model_hidden"):
+		return false
+	for m in unit.get("models", []):
+		if not m.get("alive", true):
+			continue
+		if tm.is_model_hidden(m, unit):
+			return true
+	return false
+
+## How much immunity is a Hidden position at `pos` actually worth?
+## Returns the fraction (0..1) of enemy units that could NOT target the unit
+## there — a Hidden position that hides from nothing is worth nothing, which
+## is the guard the finding's risk note asks for. Detection range is taken
+## per-observer from TerrainManager so Gone to Ground's −3" is respected.
+static func _hidden_immunity_fraction(unit: Dictionary, pos: Vector2, enemies: Dictionary) -> float:
+	var tm = _terrain_manager()
+	if tm == null:
+		return 0.0
+	var det_inches := 15.0
+	if tm.has_method("detection_range_base_inches"):
+		det_inches = tm.detection_range_base_inches(unit)
+	var det_px = det_inches * PIXELS_PER_INCH
+	var total := 0
+	var outside := 0
+	for eid in enemies:
+		var enemy = enemies[eid]
+		var status = enemy.get("status", 0)
+		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		if not _unit_has_ranged_weapons(enemy):
+			continue
+		var ec = _get_unit_centroid(enemy)
+		if ec == Vector2.INF:
+			continue
+		total += 1
+		if pos.distance_to(ec) > det_px:
+			outside += 1
+	if total == 0:
+		return 0.0
+	return float(outside) / float(total)
+
+## F001 — movement bonus for ending a move Hidden. Scaled by how many enemy
+## shooters the position actually hides from, so the AI does not burrow into
+## terrain that conceals it from nobody.
+static func _hidden_gain_value(unit: Dictionary, dest: Vector2, enemies: Dictionary) -> float:
+	var w = get_param("WEIGHT_HIDDEN_GAINED", WEIGHT_HIDDEN_GAINED)
+	if w <= 0.0:
+		return 0.0
+	if not _position_would_be_hidden(unit, dest):
+		return 0.0
+	var frac = _hidden_immunity_fraction(unit, dest, enemies)
+	if frac <= 0.0:
+		return 0.0
+	return w * frac
+
+## F002 — the price of pulling the trigger while Hidden. Shooting forfeits
+## Hidden for this turn AND the next, so this is a two-turn cost, scaled by
+## how much untargetability is being sold.
+static func _hidden_forfeit_cost(shooter_unit: Dictionary, enemies: Dictionary) -> float:
+	var p = get_param("HIDDEN_FORFEIT_PENALTY", HIDDEN_FORFEIT_PENALTY)
+	if p <= 0.0:
+		return 0.0
+	# Already shot this turn → Hidden is gone anyway, nothing left to sell.
+	if shooter_unit.get("flags", {}).get("shot_recently", false):
+		return 0.0
+	if not _unit_is_currently_hidden(shooter_unit):
+		return 0.0
+	var c = _get_unit_centroid(shooter_unit)
+	if c == Vector2.INF:
+		return 0.0
+	var frac = _hidden_immunity_fraction(shooter_unit, c, enemies)
+	if frac <= 0.0:
+		return 0.0
+	return p * frac
+
+## F003 — is this enemy about to regain Hidden? It qualifies on keywords, is
+## standing in a dense terrain area, and has not fired this turn, so on its
+## next turn it may simply be untargetable. Shoot it while the window is open.
+static func _target_regains_hidden_soon(target_unit: Dictionary) -> bool:
+	if not _unit_hidden_eligible(target_unit):
+		return false
+	if target_unit.get("flags", {}).get("shot_recently", false):
+		return false
+	var tm = _terrain_manager()
+	if tm == null or not tm.has_method("is_model_hidden"):
+		return false
+	# is_model_hidden already answers "would be Hidden given current shot
+	# history"; a unit that is Hidden *now* is the same window, and one that
+	# fired this turn is excluded by the flag check above.
+	for m in target_unit.get("models", []):
+		if not m.get("alive", true):
+			continue
+		if tm.is_model_hidden(m, target_unit):
+			return true
+	return false
+
+# =============================================================================
+# OVERWATCH EXPOSURE (finding F004)
+# =============================================================================
+
+## Total raw shot volume of a unit's ranged weapons, scaled by alive models.
+## Overwatch is snap-shooting (unmodified 6s), so volume is what matters —
+## BS, S, AP and D are all irrelevant to how much a torrent of shots hurts.
+static func _unit_ranged_shot_volume(unit: Dictionary) -> float:
+	var shots := 0.0
+	for w in unit.get("meta", {}).get("weapons", []):
+		if str(w.get("type", "")).to_lower() != "ranged":
+			continue
+		var a = w.get("attacks", "1")
+		if a == null:
+			a = "1"
+		shots += _parse_average_damage(str(a))
+	var alive = float(_get_alive_models(unit).size())
+	return shots * maxf(alive, 1.0)
+
+## F004 — penalty for a destination that newly exposes the unit to Fire
+## Overwatch. Only the *increase* in exposure is charged: enemies that could
+## already overwatch us from where we stand are not a reason to refuse to move.
+static func _overwatch_exposure_penalty(
+	unit: Dictionary, from_pos: Vector2, to_pos: Vector2, enemies: Dictionary
+) -> float:
+	var w = get_param("OVERWATCH_EXPOSURE_PENALTY", OVERWATCH_EXPOSURE_PENALTY)
+	if w <= 0.0:
+		return 0.0
+	var band_px = get_param("OVERWATCH_RANGE_INCHES", OVERWATCH_RANGE_INCHES) * PIXELS_PER_INCH
+	var reference = maxf(get_param("OVERWATCH_SHOTS_REFERENCE", OVERWATCH_SHOTS_REFERENCE), 1.0)
+	var newly_exposed_shots := 0.0
+	for eid in enemies:
+		var enemy = enemies[eid]
+		var status = enemy.get("status", 0)
+		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		if enemy.get("flags", {}).get("battle_shocked", false):
+			continue  # battle-shocked units cannot Fire Overwatch
+		if not _unit_has_ranged_weapons(enemy):
+			continue
+		var ec = _get_unit_centroid(enemy)
+		if ec == Vector2.INF:
+			continue
+		var was_in_band = from_pos.distance_to(ec) <= band_px
+		var will_be_in_band = to_pos.distance_to(ec) <= band_px
+		if will_be_in_band and not was_in_band:
+			newly_exposed_shots += _unit_ranged_shot_volume(enemy)
+	if newly_exposed_shots <= 0.0:
+		return 0.0
+	return w * (newly_exposed_shots / reference)
+
+# =============================================================================
 # ENEMY THREAT RANGE AWARENESS (AI-TACTIC-4, MOV-2)
 # =============================================================================
 # Calculates charge threat zones and shooting ranges for enemy units,
@@ -21388,7 +22138,8 @@ static func _is_position_in_charge_threat(pos: Vector2, threat_data: Array) -> b
 
 static func _find_safer_position(
 	current_pos: Vector2, desired_pos: Vector2, move_px: float,
-	threat_data: Array, own_unit: Dictionary, objectives: Array
+	threat_data: Array, own_unit: Dictionary, objectives: Array,
+	enemies: Dictionary = {}
 ) -> Vector2:
 	"""Given a desired movement destination, try to find a nearby position that
 	reduces threat exposure while still making progress toward the objective.
@@ -21458,6 +22209,12 @@ static func _find_safer_position(
 			progress = (current_dist_to_obj - cand_dist_to_obj) / PIXELS_PER_INCH  # Inches gained toward objective
 		# Score: progress matters, but reducing threat also matters
 		var score = progress * 1.5 - cand_threat.total_threat
+		# F001: of two equally safe dodges, take the one that ends Hidden —
+		# untargetability beyond the detection range beats a marginal threat
+		# delta, and this is exactly the "sidestep into the ruin" move players
+		# describe as the first two rounds' primary movement objective.
+		if not enemies.is_empty():
+			score += _hidden_gain_value(own_unit, candidate, enemies)
 		if score > best_score:
 			best_score = score
 			best_pos = candidate
