@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.27.5",
+      "date": "2026-08-06",
+      "summary": "The attack dialog now names the models that are sitting the fight out, and how far away they are — so a leader with no section is explained instead of looking like a lost model.",
+      "changes": [
+        "Fixed (reported): a Custodian Guard led by a Blade Champion opened Assign Attacks reading \"Models in engagement range: 5/6\" with no Blade Champion section anywhere — no weapon, no target, no way to swing with him. He was simply outside Engagement Range, which is a legal outcome, but nothing on screen said so, and a leader missing from his own squad's attack list is indistinguishable from the game having split him off from it.",
+        "The dialog now adds a line under the count: \"Not fighting — outside Engagement Range (2\\\"): Blade Champion ×1 (nearest enemy 3.4\\\")\". It names each part of the unit that cannot fight, how many of its models are out, and the measured distance from the closest one to the nearest enemy model — so \"out of range\" is one glance away from \"bug\".",
+        "Applies to any unit, not just attached leaders: a mob whose back rank cannot reach gets the same one-line explanation instead of a bare fraction."
+      ]
+    },
+    {
       "version": "1.27.4",
       "date": "2026-08-05",
       "summary": "New setting: let the line-of-sight overlay skip enemies none of your guns could reach, for a quieter and faster board.",

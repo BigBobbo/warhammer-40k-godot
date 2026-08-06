@@ -1,0 +1,141 @@
+{
+  "id": "fight_leader_out_of_er_explained_11e",
+  "covers": [
+    "dialogs.AttackAssignmentDialog.sitting_out_note",
+    "dialogs.AttackAssignmentDialog.eligible_models",
+    "rules.RulesEngine.get_eligible_melee_model_indices",
+    "rules.11e.fight.engaged"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 4242,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Reported bug: a Custodian Guard led by a Blade Champion opened the attack dialog and the Champion was simply NOT THERE — no section, no weapon, no way to swing with him — while the header read 'Models in engagement range: 5/6'. The player could not tell whether the Champion was out of Engagement Range or whether the game had wrongly split him off from his squad. This scenario builds exactly that board: the Guard line locked with a Boyz mob and the Champion in base contact BEHIND them, 3.4\" from the nearest Boy (11e Engagement Range is 2\"). The Champion is correctly ineligible - 11e 04.02 requires each target to be engaged with the model carrying the weapon - so the dialog must SAY SO by name and by distance instead of silently dropping his section.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "clear the board so only the reported geometry is in play",
+      "script": "var GS = GameState.state\nvar keep = [\"U_CUSTODIAN_GUARD_B\", \"U_BLADE_CHAMPION_A\", \"U_BOYZ_E\"]\nfor uid in GS[\"units\"].keys():\n\tif uid in keep:\n\t\tcontinue\n\tvar i = 0\n\tfor m in GS[\"units\"][uid][\"models\"]:\n\t\tm[\"position\"] = {\"x\": 25000.0 + float(i) * 60.0, \"y\": 25000.0}\n\t\ti += 1\nGS[\"meta\"][\"active_player\"] = 1\nreturn \"parked\""
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "19.03: Blade Champion + Custodian Guard are ONE Attached unit, ONE activation",
+      "script": "CharacterAttachmentManager.attach_character(\"U_BLADE_CHAMPION_A\", \"U_CUSTODIAN_GUARD_B\")\nreturn str(GameState.state[\"units\"][\"U_BLADE_CHAMPION_A\"].get(\"attached_to\", \"\"))",
+      "equals": "U_CUSTODIAN_GUARD_B"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the reported geometry — 40px = 1\". A Boyz line at y=600; the Guard line 1.8\" in front of it (engaged, 11e ER is 2\"); the Champion in base contact BEHIND the Guard line, which puts him 3.375\" from the nearest Boy.",
+      "script": "var GS = GameState.state\nvar guard = GS[\"units\"][\"U_CUSTODIAN_GUARD_B\"][\"models\"]\nvar gx = 1200.0\nfor i in range(guard.size()):\n\tguard[i][\"alive\"] = true\n\tguard[i][\"position\"] = {\"x\": gx + float(i) * 66.0, \"y\": 728.7}\nGS[\"units\"][\"U_BLADE_CHAMPION_A\"][\"models\"][0][\"alive\"] = true\nGS[\"units\"][\"U_BLADE_CHAMPION_A\"][\"models\"][0][\"position\"] = {\"x\": gx + 66.0, \"y\": 791.7}\n# One live Boy facing each Guard model; every other Boy stays parked. The\n# fixture already has casualties in this mob, so index 0 is not necessarily\n# alive — and a dead model is skipped by every range check.\nvar ms = GS[\"units\"][\"U_BOYZ_E\"][\"models\"]\nfor i in range(ms.size()):\n\tms[i][\"position\"] = {\"x\": 25000.0 + float(i) * 60.0, \"y\": 25000.0}\nvar placed = []\nfor i in range(ms.size()):\n\tif placed.size() >= guard.size():\n\t\tbreak\n\tif ms[i].get(\"alive\", true):\n\t\tms[i][\"position\"] = {\"x\": gx + float(placed.size()) * 66.0, \"y\": 600.0}\n\t\tplaced.append(\"U_BOYZ_E#%d\" % i)\nreturn \" \".join(placed)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the measured truth: every Guard model is engaged, the Champion is 3.375\" away — well outside the 2\" Engagement Range",
+      "script": "var GS = GameState.state\nvar boyz = []\nfor m in GS[\"units\"][\"U_BOYZ_E\"][\"models\"]:\n\tif m.get(\"alive\", true) and float(m[\"position\"][\"y\"]) < 10000.0:\n\t\tboyz.append(m)\nvar worst_guard = 0.0\nfor g in GS[\"units\"][\"U_CUSTODIAN_GUARD_B\"][\"models\"]:\n\tvar best = 9999.0\n\tfor b in boyz:\n\t\tbest = min(best, Measurement.model_to_model_distance_inches(g, b))\n\tworst_guard = max(worst_guard, best)\nvar champ = GS[\"units\"][\"U_BLADE_CHAMPION_A\"][\"models\"][0]\nvar champ_d = 9999.0\nfor b in boyz:\n\tchamp_d = min(champ_d, Measurement.model_to_model_distance_inches(champ, b))\nreturn \"boyz=%d guard=%.2f champ=%.2f er=%.1f\" % [boyz.size(), worst_guard, champ_d, GameConstants.engagement_range_inches()]",
+      "equals": "boyz=3 guard=1.80 champ=3.38 er=2.0"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "RulesEngine agrees per component: every Guard model may fight, the Champion may not",
+      "script": "var GS = GameState.state\nvar g = RulesEngine.get_eligible_melee_model_indices(GS[\"units\"][\"U_CUSTODIAN_GUARD_B\"], GS)\nvar c = RulesEngine.get_eligible_melee_model_indices(GS[\"units\"][\"U_BLADE_CHAMPION_A\"], GS)\nreturn \"guard=%d champ=%d\" % [g.size(), c.size()]",
+      "equals": "guard=3 champ=0"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "re-enter the Fight phase so it stamps eligibility against the new geometry",
+      "script": "PhaseManager.transition_to_phase(10)\nreturn \"re-entered\""
+    },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 1 } },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 2 } },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 1 } },
+    { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 2 } },
+    {
+      "act": "execute_script",
+      "comment": "PileInStep11e.DONE — units may now be selected to fight",
+      "script": "PhaseManager.get_current_phase_instance().pile_in_step_11e",
+      "equals": 2
+    },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "dispatch_action", "action": { "type": "SELECT_FIGHTER", "unit_id": "U_CUSTODIAN_GUARD_B", "player": 1 } },
+    { "act": "dispatch_action", "action": { "type": "DECLINE_EPIC_CHALLENGE", "unit_id": "U_CUSTODIAN_GUARD_B", "player": 1 } },
+    { "act": "dispatch_action", "action": { "type": "SELECT_KATAH_STANCE", "unit_id": "U_CUSTODIAN_GUARD_B", "stance": "dacatarai", "player": 1 } },
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog" },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the reported symptom: the Champion has no section in the dialog at all",
+      "script": "var d = Engine.get_main_loop().root.get_node_or_null(\"AttackAssignmentDialog\")\nvar out = []\nfor g in d._groups:\n\tout.append(\"%s x%d\" % [str(g.get(\"owner\", \"\")), int(g.get(\"models\", []).size())])\nout.sort()\nreturn \" | \".join(out)",
+      "equals": "U_CUSTODIAN_GUARD_B x3"
+    },
+    {
+      "act": "expect_node_visible",
+      "comment": "THE FIX — the dialog now names who is sitting out and how far away he is, so the player can tell 'out of range' from 'the game lost my Champion'",
+      "node": "/root/AttackAssignmentDialog/Content/SittingOutNote"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the note names the Blade Champion, his model count and his measured distance to the nearest enemy",
+      "script": "var d = Engine.get_main_loop().root.get_node_or_null(\"AttackAssignmentDialog\")\nvar n = d.get_node_or_null(\"Content/SittingOutNote\")\nvar t = str(n.text)\nreturn \"%s|%s|%s\" % [str(\"Blade Champion\" in t), str(\"3.4\" in t), str(\"2\\\"\" in t)]",
+      "equals": "true|true|true"
+    },
+    { "act": "screenshot", "label": "01_dialog_names_the_leader_sitting_out_of_engagement_range" },
+
+    {
+      "act": "click_node",
+      "comment": "un-pick the unit so the same activation can be re-opened against new geometry",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/BackToSelectionButton",
+      "emit_pressed": true
+    },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the CONTROL: a Boy gets round the back and engages the Champion (0.29\"). Nothing else on the board moves — only the Champion's own reach changes.",
+      "script": "var GS = GameState.state\nvar ms = GS[\"units\"][\"U_BOYZ_E\"][\"models\"]\nfor i in range(ms.size()):\n\tif ms[i].get(\"alive\", true) and float(ms[i][\"position\"][\"y\"]) > 10000.0:\n\t\tms[i][\"position\"] = {\"x\": 1266.0, \"y\": 860.0}\n\t\treturn \"U_BOYZ_E#%d moved behind the Champion\" % i\nreturn \"no spare Boy\""
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the Champion is now engaged — and RulesEngine says so for HIS component, with no change to the Guard's",
+      "script": "var GS = GameState.state\nvar g = RulesEngine.get_eligible_melee_model_indices(GS[\"units\"][\"U_CUSTODIAN_GUARD_B\"], GS)\nvar c = RulesEngine.get_eligible_melee_model_indices(GS[\"units\"][\"U_BLADE_CHAMPION_A\"], GS)\nreturn \"guard=%d champ=%d\" % [g.size(), c.size()]",
+      "equals": "guard=3 champ=1"
+    },
+    { "act": "dispatch_action", "action": { "type": "SELECT_FIGHTER", "unit_id": "U_CUSTODIAN_GUARD_B", "player": 1 } },
+    { "act": "dispatch_action", "action": { "type": "DECLINE_EPIC_CHALLENGE", "unit_id": "U_CUSTODIAN_GUARD_B", "player": 1 } },
+    { "act": "dispatch_action", "action": { "type": "SELECT_KATAH_STANCE", "unit_id": "U_CUSTODIAN_GUARD_B", "stance": "dacatarai", "player": 1 } },
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog" },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "REGRESSION GUARD: the leader is NOT structurally split off from his squad — engage him and he gets his own section in the very same dialog, alongside the bodyguard's",
+      "script": "var d = Engine.get_main_loop().root.get_node_or_null(\"AttackAssignmentDialog\")\nvar out = []\nfor g in d._groups:\n\tout.append(\"%s x%d\" % [str(g.get(\"owner\", \"\")), int(g.get(\"models\", []).size())])\nout.sort()\nreturn \" | \".join(out)",
+      "equals": "U_BLADE_CHAMPION_A x1 | U_CUSTODIAN_GUARD_B x3"
+    },
+    {
+      "act": "execute_script",
+      "comment": "and with nobody sitting out, the note is gone rather than reading '×0'",
+      "script": "str(Engine.get_main_loop().root.get_node_or_null(\"AttackAssignmentDialog\").get_node_or_null(\"Content/SittingOutNote\"))",
+      "equals": "<Object#null>"
+    },
+    {
+      "act": "execute_script",
+      "comment": "every model of the Attached unit is now in the fight",
+      "script": "str(Engine.get_main_loop().root.get_node_or_null(\"AttackAssignmentDialog\").get_node_or_null(\"Content/EligibleCountLabel\").text)",
+      "equals": "All 4 models in engagement range"
+    },
+    { "act": "screenshot", "label": "02_engaged_leader_gets_his_own_section" }
+  ]
+}
