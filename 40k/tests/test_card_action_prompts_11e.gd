@@ -321,6 +321,90 @@ func _run_tests():
 		mgr._relic_setup_prompt_pending == true)
 	tm.terrain_features = saved_features
 
+	print("\n-- Death Trap: Booby Trap targets are terrain AREAS, one per unit --")
+	# 11e core rules 13.01: a terrain AREA is the boundary/footprint the scenery
+	# stands in. GW layouts put several terrain FEATURES inside one area marker,
+	# so only the area footprints are trappable.
+	var dt_saved = tm.terrain_features
+	var dt_pos = _obj_position(nml)
+	var ox = float(dt_pos.x)
+	var oy = float(dt_pos.y)
+	var dt_area_a = PackedVector2Array([Vector2(ox - 100, oy - 100), Vector2(ox + 100, oy - 100),
+		Vector2(ox + 100, oy + 100), Vector2(ox - 100, oy + 100)])
+	var dt_area_b = PackedVector2Array([Vector2(ox + 500, oy - 100), Vector2(ox + 700, oy - 100),
+		Vector2(ox + 700, oy + 100), Vector2(ox + 500, oy + 100)])
+	tm.terrain_features = [
+		{"id": "area-large-1", "piece_class": "area", "type": "ruins",
+			"position": Vector2(ox, oy), "polygon": dt_area_a},
+		{"id": "area-medium-2", "piece_class": "area", "type": "ruins",
+			"position": Vector2(ox + 600, oy), "polygon": dt_area_b},
+		# Scenery standing INSIDE area-medium-2 — a terrain feature, not an area.
+		{"id": "barricade-3", "piece_class": "feature", "type": "barricade",
+			"position": Vector2(ox + 600, oy),
+			"polygon": PackedVector2Array([Vector2(ox + 580, oy - 20), Vector2(ox + 620, oy - 20),
+				Vector2(ox + 620, oy + 20), Vector2(ox + 580, oy + 20)])},
+	]
+	mgr.initialize_dispositions_11e("take_and_hold", "disruption")
+	_check("P2 plays Death Trap", mgr.get_primary_mission_for_player(2).get("id", "") == "death_trap")
+	_spawn_unit("U_DT1", 2, {"x": ox, "y": oy})
+	_spawn_unit("U_DT2", 2, {"x": ox + 600, "y": oy})
+	var dt_pending = mgr.get_pending_card_action_11e(2)
+	var dt_ids = _target_ids(dt_pending)
+	_check("Booby Trap is multi-pick (unlimited uses per turn)",
+		dt_pending.get("mode", "") == "multi", str(dt_pending.get("mode")))
+	_check("both terrain AREAS offered",
+		"area-large-1" in dt_ids and "area-medium-2" in dt_ids, str(dt_ids))
+	_check("scenery inside an area is NOT separately trappable",
+		not "barricade-3" in dt_ids, str(dt_ids))
+	_check("objective area sorts first", dt_ids.size() > 0 and dt_ids[0] == "area-large-1", str(dt_ids))
+	var dt_label = str(dt_pending.get("targets", [{}])[0].get("label", ""))
+	_check("label is human-readable, not a raw id",
+		dt_label != "area-large-1" and "VP" in dt_label, dt_label)
+	_check("objective area advertises 5 VP", "5 VP" in dt_label, dt_label)
+	_check("max_picks matches the units available",
+		int(dt_pending.get("max_picks", 0)) == 2, str(dt_pending.get("max_picks")))
+	_check("dialog is told to highlight terrain areas",
+		str(dt_pending.get("highlight_kind", "")) == "terrain_area", str(dt_pending.get("highlight_kind")))
+	var dt_res = mgr.resolve_card_action_11e(2, ["area-large-1", "area-medium-2"])
+	_check("two units can trap two areas in the same turn", dt_res.get("success", false), str(dt_res))
+	_check("both areas recorded as trapped this turn",
+		mgr._primary_state_11e["2"].get("trapped_this_turn", []).size() == 2,
+		str(mgr._primary_state_11e["2"].get("trapped_this_turn", [])))
+
+	# A unit only gets one action, so it cannot spring two traps: overlapping
+	# areas with a single occupant must be refused.
+	tm.terrain_features = [
+		{"id": "area-large-1", "piece_class": "area", "type": "ruins",
+			"position": Vector2(ox, oy), "polygon": dt_area_a},
+		{"id": "area-medium-2", "piece_class": "area", "type": "ruins",
+			"position": Vector2(ox, oy), "polygon": dt_area_a},
+	]
+	mgr.initialize_dispositions_11e("take_and_hold", "disruption")
+	gs.state.units.erase("U_DT2")
+	var ov_pending = mgr.get_pending_card_action_11e(2)
+	_check("both overlapping areas are offered", _target_ids(ov_pending).size() == 2,
+		str(_target_ids(ov_pending)))
+	_check("but only one of them can be staffed",
+		int(ov_pending.get("max_picks", 0)) == 1, str(ov_pending.get("max_picks")))
+	var ov_res = mgr.resolve_card_action_11e(2, ["area-large-1", "area-medium-2"])
+	_check("trapping two areas with one unit is refused",
+		not ov_res.get("success", true), str(ov_res))
+	var ov_ok = mgr.resolve_card_action_11e(2, ["area-large-1"])
+	_check("trapping one area with one unit is accepted", ov_ok.get("success", false), str(ov_ok))
+
+	# Legacy/pre-11e layouts author no "area" pieces at all. There every piece
+	# was placed directly on the battlefield (13.01's second method) and so IS
+	# its own terrain area — the area filter must not empty the list.
+	tm.terrain_features = [
+		{"id": "ruins_legacy", "type": "ruins", "position": Vector2(ox, oy), "polygon": dt_area_a},
+	]
+	mgr.initialize_dispositions_11e("take_and_hold", "disruption")
+	var legacy_pending = mgr.get_pending_card_action_11e(2)
+	_check("legacy layout (no area pieces) still offers its terrain",
+		"ruins_legacy" in _target_ids(legacy_pending), str(_target_ids(legacy_pending)))
+	gs.state.units.erase("U_DT1")
+	tm.terrain_features = dt_saved
+
 	print("\n-- Per-unit mission actions: Sabotage / Vanguard / Extract Intel --")
 	var pm = root.get_node_or_null("PhaseManager")
 	_check("PhaseManager present", pm != null)

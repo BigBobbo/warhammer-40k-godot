@@ -955,15 +955,50 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 	content.add_child(HSeparator.new())
 
 	var desc = Label.new()
+	desc.name = "Description"
 	desc.text = str(pending.get("description", ""))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(desc)
+
+	# Optional scoring crib — the mission cards are terse and players cannot
+	# see the card while this dialog is up.
+	if str(pending.get("help", "")) != "":
+		var help = Label.new()
+		help.name = "HelpText"
+		help.text = str(pending.get("help", ""))
+		help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		help.add_theme_font_size_override("font_size", 13)
+		help.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
+		content.add_child(help)
+
+	# Terrain-area actions (Booby Trap) light their candidates up on the board:
+	# a list of ids alone never told the player which footprint was which.
+	var highlights_terrain: bool = str(pending.get("highlight_kind", "")) == "terrain_area"
+	var all_target_ids: Array = []
+	for t in pending.get("targets", []):
+		all_target_ids.append(str(t.get("id", "")))
+	if highlights_terrain:
+		_set_terrain_area_highlight(all_target_ids)
+		# Say out loud what the orange on the board means — the outlines are
+		# useless as a cue if the player does not connect them to these rows.
+		var hint = Label.new()
+		hint.name = "HighlightHint"
+		hint.text = "Every area you can trap is outlined in orange on the board. Point at a row below (or tab to it) and that area lights up brighter, so you can see exactly which footprint it is."
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hint.add_theme_font_size_override("font_size", 13)
+		hint.add_theme_color_override("font_color", CardActionOverlay.HIGHLIGHT_COLOR)
+		content.add_child(hint)
 	content.add_child(HSeparator.new())
 
 	# Double-fire guard shared by target buttons / confirm / skip / cancel
 	var resolved = [false]
 	var multi_mode: bool = str(pending.get("mode", "single")) == "multi"
 	var checkboxes: Array = []
+
+	# max_picks caps a multi action whose uses are limited (Booby Trap needs a
+	# distinct unit per area). Absent/0 means "no cap" — Decoy et al.
+	var max_picks: int = int(pending.get("max_picks", 0))
+	var default_selected = pending.get("default_selected", null)
 
 	for target in pending.get("targets", []):
 		var tid: String = str(target.get("id", ""))
@@ -973,9 +1008,14 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 			check.name = "Check_%s" % tid
 			check.text = tlabel
 			# Default all-selected mirrors the auto-resolve (Decoy/Extract
-			# Intelligence place on every eligible objective).
-			check.button_pressed = true
+			# Intelligence place on every eligible objective). Cards that cap
+			# their own uses send an explicit default_selected instead.
+			check.button_pressed = tid in default_selected if default_selected is Array else true
 			check.set_meta("target_id", tid)
+			if highlights_terrain:
+				check.mouse_entered.connect(func(): _set_terrain_area_highlight(all_target_ids, tid))
+				check.focus_entered.connect(func(): _set_terrain_area_highlight(all_target_ids, tid))
+				check.mouse_exited.connect(func(): _set_terrain_area_highlight(all_target_ids))
 			content.add_child(check)
 			checkboxes.append(check)
 		else:
@@ -986,6 +1026,7 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 				if resolved[0]:
 					return
 				resolved[0] = true
+				_set_terrain_area_highlight([])
 				emit_signal("scoring_action_requested", {
 					"type": "RESOLVE_CARD_ACTION",
 					"targets": [tid],
@@ -996,6 +1037,18 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 			content.add_child(btn)
 
 	content.add_child(HSeparator.new())
+
+	# Over-selection notice for capped multi actions (Booby Trap): every trap
+	# needs its own unit, so ticking a fourth area with three units available
+	# has to be refused BEFORE the resolve rejects the whole action.
+	var cap_notice = Label.new()
+	cap_notice.name = "CapNotice"
+	cap_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	cap_notice.add_theme_font_size_override("font_size", 13)
+	cap_notice.add_theme_color_override("font_color", Color(1.0, 0.45, 0.35))
+	cap_notice.visible = false
+	content.add_child(cap_notice)
+
 	var button_row = HBoxContainer.new()
 	button_row.name = "Actions"
 	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1006,6 +1059,22 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 		confirm_btn.name = "ConfirmCardAction"
 		confirm_btn.text = "Confirm Selection"
 		confirm_btn.custom_minimum_size = Vector2(170, 36)
+		var sync_cap = func():
+			if max_picks <= 0:
+				return
+			var ticked = 0
+			for check in checkboxes:
+				if is_instance_valid(check) and check.button_pressed:
+					ticked += 1
+			var over = ticked > max_picks
+			cap_notice.visible = over
+			if over:
+				cap_notice.text = "You have %d unit(s) able to do this — untick %d area(s)." % [
+					max_picks, ticked - max_picks]
+			confirm_btn.disabled = over
+		for check in checkboxes:
+			check.toggled.connect(func(_pressed): sync_cap.call())
+		sync_cap.call()
 		confirm_btn.pressed.connect(func():
 			if resolved[0]:
 				return
@@ -1014,6 +1083,7 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 			for check in checkboxes:
 				if is_instance_valid(check) and check.button_pressed:
 					picks.append(str(check.get_meta("target_id")))
+			_set_terrain_area_highlight([])
 			emit_signal("scoring_action_requested", {
 				"type": "RESOLVE_CARD_ACTION",
 				"targets": picks,
@@ -1031,6 +1101,7 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 		if resolved[0]:
 			return
 		resolved[0] = true
+		_set_terrain_area_highlight([])
 		emit_signal("scoring_action_requested", {
 			"type": "SKIP_CARD_ACTION",
 			"player": player,
@@ -1045,6 +1116,7 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 		if resolved[0]:
 			return
 		resolved[0] = true
+		_set_terrain_area_highlight([])
 		emit_signal("scoring_action_requested", {
 			"type": "SKIP_CARD_ACTION",
 			"player": player,
@@ -1055,6 +1127,17 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 	dialog.add_child(content)
 	get_tree().root.add_child(dialog)
 	DialogUtils.popup_at_bottom(dialog, DialogConstants.MEDIUM)
+
+## Light the candidate terrain areas up on the board while a terrain-targeting
+## card action (Booby Trap) is being picked. An empty list clears them.
+func _set_terrain_area_highlight(ids: Array, focus_id: String = "") -> void:
+	var overlay = get_tree().root.get_node_or_null("Main/BoardRoot/CardActionOverlay")
+	if overlay == null or not overlay.has_method("highlight_terrain_areas"):
+		return
+	if ids.is_empty():
+		overlay.clear_terrain_area_highlights()
+	else:
+		overlay.highlight_terrain_areas(ids, focus_id)
 
 func _recheck_card_action() -> void:
 	# After resolve/skip the gate should be down — finish the turn the player

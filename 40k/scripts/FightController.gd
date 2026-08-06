@@ -2371,13 +2371,27 @@ func _on_pile_in_required(unit_id: String, max_distance: float) -> void:
 		push_error("Failed to load PileInDialog.gd")
 		return
 
+	# A confirmed predecessor is still in the tree for 0.1s (PileInDialog frees
+	# itself on a timer) while the phase has ALREADY re-emitted the step data
+	# and re-enabled the unit rows — so back-to-back picks in the 12.02 step
+	# land inside that window. Retire it now: without this, add_child renames
+	# the new dialog (@AcceptDialog@NNNN, breaking the stable /root/PileInDialog
+	# path) and the outgoing one's tree_exiting disarms the NEW dialog's
+	# pile-in mode. See _is_superseded_move_dialog.
+	var stale = get_tree().root.get_node_or_null("PileInDialog")
+	if stale != null:
+		stale.name = "PileInDialogStale"
+		if not stale.is_queued_for_deletion():
+			stale.queue_free()
+		print("[FightController] Retired stale PileInDialog before opening %s's" % unit_id)
+
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
 	dialog.name = "PileInDialog"
 	dialog.setup(unit_id, max_distance, current_phase, self)  # Pass controller reference
-	dialog.pile_in_confirmed.connect(_on_pile_in_confirmed.bind(unit_id))
-	dialog.pile_in_skipped.connect(_on_pile_in_skipped.bind(unit_id))
-	dialog.tree_exiting.connect(_on_pile_in_dialog_closed)
+	dialog.pile_in_confirmed.connect(_on_pile_in_confirmed.bind(unit_id, dialog))
+	dialog.pile_in_skipped.connect(_on_pile_in_skipped.bind(unit_id, dialog))
+	dialog.tree_exiting.connect(_on_pile_in_dialog_closed.bind(dialog))
 	get_tree().root.add_child(dialog)
 	# Dock to the bottom of the screen so it doesn't cover the battlefield the
 	# player is dragging models across.
@@ -2407,9 +2421,16 @@ func _convert_fight_move_payload(unit_id: String, payload: Dictionary) -> Dictio
 				break
 	return converted
 
-func _on_pile_in_confirmed(movements: Dictionary, unit_id: String) -> void:
+func _on_pile_in_confirmed(movements: Dictionary, unit_id: String, dialog: Node = null) -> void:
 	"""Submit PILE_IN action with movements"""
 	print("[FightController] Pile-in confirmed with movements: ", movements)
+
+	# A superseded dialog's Confirm would submit an EMPTY pile-in and spend the
+	# unit's one move (12.02) without moving a single model. Drop it instead —
+	# the live dialog is the one the player is looking at.
+	if _is_superseded_move_dialog(dialog):
+		print("[FightController] Ignoring pile-in confirm from superseded dialog for ", unit_id)
+		return
 
 	# Convert model IDs from "m1" format to array indices "0" format for FightPhase
 	# (attached characters' models keep their "unit:index" prefix)
@@ -2433,9 +2454,9 @@ func _on_pile_in_confirmed(movements: Dictionary, unit_id: String) -> void:
 	}
 	emit_signal("fight_action_requested", action)
 
-func _on_pile_in_skipped(unit_id: String) -> void:
+func _on_pile_in_skipped(unit_id: String, dialog: Node = null) -> void:
 	"""Submit PILE_IN action with no movements"""
-	_on_pile_in_confirmed({}, unit_id)
+	_on_pile_in_confirmed({}, unit_id, dialog)
 
 func _on_attack_assignment_required(unit_id: String, targets: Dictionary) -> void:
 	"""Show attack assignment dialog"""
@@ -2723,9 +2744,9 @@ func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 	dialog.set_script(dialog_script)
 	dialog.name = "ConsolidateDialog"
 	dialog.setup(unit_id, max_distance, current_phase, self)  # Pass controller reference
-	dialog.consolidate_confirmed.connect(_on_consolidate_confirmed.bind(unit_id))
-	dialog.consolidate_skipped.connect(_on_consolidate_skipped.bind(unit_id))
-	dialog.tree_exiting.connect(_on_consolidate_dialog_closed)
+	dialog.consolidate_confirmed.connect(_on_consolidate_confirmed.bind(unit_id, dialog))
+	dialog.consolidate_skipped.connect(_on_consolidate_skipped.bind(unit_id, dialog))
+	dialog.tree_exiting.connect(_on_consolidate_dialog_closed.bind(dialog))
 	get_tree().root.add_child(dialog)
 	# Dock to the bottom of the screen so it doesn't cover the battlefield the
 	# player is dragging models across (same treatment as the Pile In dialog).
@@ -2734,9 +2755,15 @@ func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 	# Enable consolidate mode (uses same system as pile-in)
 	_enable_consolidate_mode(unit_id, dialog)
 
-func _on_consolidate_confirmed(movements: Dictionary, unit_id: String) -> void:
+func _on_consolidate_confirmed(movements: Dictionary, unit_id: String, dialog: Node = null) -> void:
 	"""Submit CONSOLIDATE action with movements"""
 	print("[FightController] Consolidate confirmed with movements: ", movements)
+
+	# Same guard as the pile-in step: a superseded dialog's Confirm would spend
+	# the unit's one consolidation move (12.07) without moving anything.
+	if _is_superseded_move_dialog(dialog):
+		print("[FightController] Ignoring consolidate confirm from superseded dialog for ", unit_id)
+		return
 
 	# Convert model IDs from "m1" format to array indices "0" format for FightPhase
 	# (attached characters' models keep their "unit:index" prefix)
@@ -2764,9 +2791,9 @@ func _on_consolidate_confirmed(movements: Dictionary, unit_id: String) -> void:
 	current_fighter_id = ""
 	current_fighter_owner = -1
 
-func _on_consolidate_skipped(unit_id: String) -> void:
+func _on_consolidate_skipped(unit_id: String, dialog: Node = null) -> void:
 	"""Submit CONSOLIDATE action with no movements"""
-	_on_consolidate_confirmed({}, unit_id)
+	_on_consolidate_confirmed({}, unit_id, dialog)
 
 # ============================================================================
 # 11e 12.02: GLOBAL PILE IN STEP UI
@@ -3261,8 +3288,31 @@ func _disable_pile_in_mode() -> void:
 
 	print("[FightController] Pile-in mode disabled")
 
-func _on_pile_in_dialog_closed() -> void:
+# True when `dialog` has been SUPERSEDED — another move dialog now owns the
+# interactive pile-in/consolidate mode. The confirmed PileInDialog /
+# ConsolidateDialog frees itself on a 0.1s timer, but by then the phase has
+# already re-emitted the global step's data, repopulated the unit rows and
+# re-enabled them, so a player who picks their next unit straight away arms a
+# NEW dialog inside that window. Without this check the outgoing dialog's
+# tree_exiting ran _disable_pile_in_mode() over the top of it: dragging did
+# nothing, "Auto Pile In" reported "no legal move (models already in base
+# contact or no enemy in reach)", and Confirm submitted an EMPTY pile-in that
+# marked the unit as having piled in without moving it — the reported
+# "it skipped the third one … the unit is not piled in".
+#
+# Callbacks connected without a bound dialog (dialog == null) keep the old
+# unconditional behaviour.
+func _is_superseded_move_dialog(dialog: Node) -> bool:
+	if dialog == null:
+		return false
+	return pile_in_dialog_ref != null and is_instance_valid(pile_in_dialog_ref) \
+		and pile_in_dialog_ref != dialog
+
+func _on_pile_in_dialog_closed(dialog: Node = null) -> void:
 	"""Handle pile-in dialog being closed"""
+	if _is_superseded_move_dialog(dialog):
+		print("[FightController] Superseded PileInDialog exited — keeping the live pile-in mode")
+		return
 	_disable_pile_in_mode()
 
 func _create_pile_in_visuals() -> void:
@@ -4220,8 +4270,11 @@ func _enable_consolidate_mode(unit_id: String, dialog: Node) -> void:
 	_enable_pile_in_mode(unit_id, dialog)
 	print("[FightController] Consolidate mode enabled for ", unit_id)
 
-func _on_consolidate_dialog_closed() -> void:
+func _on_consolidate_dialog_closed(dialog: Node = null) -> void:
 	"""Handle consolidate dialog being closed"""
+	if _is_superseded_move_dialog(dialog):
+		print("[FightController] Superseded ConsolidateDialog exited — keeping the live consolidate mode")
+		return
 	_disable_pile_in_mode()
 
 func _model_off_board(moving_model_id: String, new_pos: Vector2) -> bool:
@@ -4478,7 +4531,7 @@ func _on_sweeping_advance_available(unit_id: String, player: int, in_engagement:
 	dialog.setup(unit_id, in_engagement, move_distance, current_phase, self)
 	dialog.sweeping_advance_accepted.connect(_on_sweeping_advance_accepted.bind(unit_id))
 	dialog.sweeping_advance_declined.connect(_on_sweeping_advance_declined.bind(unit_id))
-	dialog.tree_exiting.connect(_on_sweeping_advance_dialog_closed)
+	dialog.tree_exiting.connect(_on_sweeping_advance_dialog_closed.bind(dialog))
 	get_tree().root.add_child(dialog)
 	DialogUtils.popup_at_bottom(dialog)
 
@@ -4536,8 +4589,11 @@ func _on_sweeping_advance_declined(unit_id: String) -> void:
 	emit_signal("fight_action_requested", action)
 	sweeping_advance_active = false
 
-func _on_sweeping_advance_dialog_closed() -> void:
+func _on_sweeping_advance_dialog_closed(dialog: Node = null) -> void:
 	"""Handle Sweeping Advance dialog being closed"""
+	if _is_superseded_move_dialog(dialog):
+		print("[FightController] Superseded SweepingAdvanceDialog exited — keeping the live move mode")
+		return
 	_disable_pile_in_mode()
 	sweeping_advance_active = false
 
@@ -4567,7 +4623,7 @@ func _on_acrobatic_escape_available(unit_id: String, player: int, move_distance:
 	dialog.setup(unit_id, move_distance, current_phase, self)
 	dialog.acrobatic_escape_accepted.connect(_on_acrobatic_escape_accepted.bind(unit_id))
 	dialog.acrobatic_escape_declined.connect(_on_acrobatic_escape_declined.bind(unit_id))
-	dialog.tree_exiting.connect(_on_acrobatic_escape_dialog_closed)
+	dialog.tree_exiting.connect(_on_acrobatic_escape_dialog_closed.bind(dialog))
 	get_tree().root.add_child(dialog)
 	DialogUtils.popup_at_bottom(dialog)
 
@@ -4624,7 +4680,10 @@ func _on_acrobatic_escape_declined(unit_id: String) -> void:
 	emit_signal("fight_action_requested", action)
 	acrobatic_escape_active = false
 
-func _on_acrobatic_escape_dialog_closed() -> void:
+func _on_acrobatic_escape_dialog_closed(dialog: Node = null) -> void:
 	"""Handle Acrobatic Escape dialog being closed"""
+	if _is_superseded_move_dialog(dialog):
+		print("[FightController] Superseded AcrobaticEscapeDialog exited — keeping the live move mode")
+		return
 	_disable_pile_in_mode()
 	acrobatic_escape_active = false
