@@ -2,6 +2,27 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.28.1",
+      "date": "2026-08-06",
+      "summary": "Vision Map v2: the shading is now true ray-cast geometry — smooth shadow wedges that snap to the terrain, instead of the blocky 1\" squares.",
+      "changes": [
+        "Fixed (requested): the Vision Map's shading was built from 1\" grid cells and read as blocky stair-steps. It is now computed by casting rays from each model of the chosen unit — one ray at every terrain corner — so the seen/hidden boundary is smooth geometry that follows the ruins' actual silhouettes exactly.",
+        "Same rules underneath, now sharper to look at: obscuring ruins with the stand-inside exception, solid walls, elevated models seeing over Solid features — all unchanged, and still continuously cross-checked against the game's own targeting maths (plus a new check that what is DRAWN matches what the rules say).",
+        "The panel now reports what share of the board the unit can see; everything else — the 👁 Vision button, Shift+L, the per-unit picker, auto-recompute when models move — works as before."
+      ]
+    },
+    {
+      "version": "1.28.0",
+      "date": "2026-08-06",
+      "summary": "New: Vision Map — pick any unit and the board shades everything that unit can see, so you can tell at a glance whether a deploy spot is hidden or exposed.",
+      "changes": [
+        "New (requested): a whole-board visibility view to complement the model-to-model sight lines — open it with the 👁 Vision button on the bottom bar or Shift+L, pick a unit from the panel, and every spot that unit can see is washed warm red while hidden ground stays cool blue. Weapon range is ignored on purpose: it answers \"can I be SEEN here\", not \"can I be shot\".",
+        "One unit at a time, by design — the panel lists every unit on the board (yours and theirs) and a single click switches whose eyes you are looking through; gold rings mark the chosen unit's models. Deployment is the intended home: select an enemy unit that just deployed, then drop your own models in the blue.",
+        "The shading uses the same terrain rules as targeting itself (obscuring ruins with the stand-inside exception, solid walls, barricades), it recomputes automatically as models are placed, moved or slain, and it works in every phase.",
+        "Precision is 1\" squares judged at ground level from each model's base — the last blue cell before a corner may still let a base edge peek out, and upper-floor sight is approximated."
+      ]
+    },
+    {
       "version": "1.27.4",
       "date": "2026-08-05",
       "summary": "New setting: let the line-of-sight overlay skip enemies none of your guns could reach, for a quieter and faster board.",
