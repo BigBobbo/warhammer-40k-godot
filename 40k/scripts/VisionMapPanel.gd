@@ -76,7 +76,7 @@ func _ready() -> void:
 	vbox.add_child(status_label)
 
 	var footnote := Label.new()
-	footnote.text = "Cell precision 1\"; a base edge can peek past a corner from the last hidden cell."
+	footnote.text = "Ray-cast from each model at ground level; shadow edges follow the terrain exactly. A base edge can still peek out from just inside a shadow."
 	footnote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	footnote.add_theme_font_size_override("font_size", 12)
 	footnote.modulate = Color(1, 1, 1, 0.5)
@@ -193,7 +193,6 @@ func _update_status() -> void:
 		status_label.text = overlay.status_reason()
 		return
 	if not overlay.is_compute_done():
-		status_label.text = "Mapping vision… %d%%" % int(overlay.compute_progress() * 100.0)
+		status_label.text = "Casting rays… %d%%" % int(overlay.compute_progress() * 100.0)
 		return
-	status_label.text = "%d\" cells seen: %d · hidden: %d" % [
-		int(VisionMapOverlay.CELL_INCHES), overlay.visible_cell_count(), overlay.hidden_cell_count()]
+	status_label.text = "≈%d%% of the board in this unit's sight" % int(overlay.seen_ratio() * 100.0)

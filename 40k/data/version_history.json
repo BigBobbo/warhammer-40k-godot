@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.28.1",
+      "date": "2026-08-06",
+      "summary": "Vision Map v2: the shading is now true ray-cast geometry — smooth shadow wedges that snap to the terrain, instead of the blocky 1\" squares.",
+      "changes": [
+        "Fixed (requested): the Vision Map's shading was built from 1\" grid cells and read as blocky stair-steps. It is now computed by casting rays from each model of the chosen unit — one ray at every terrain corner — so the seen/hidden boundary is smooth geometry that follows the ruins' actual silhouettes exactly.",
+        "Same rules underneath, now sharper to look at: obscuring ruins with the stand-inside exception, solid walls, elevated models seeing over Solid features — all unchanged, and still continuously cross-checked against the game's own targeting maths (plus a new check that what is DRAWN matches what the rules say).",
+        "The panel now reports what share of the board the unit can see; everything else — the 👁 Vision button, Shift+L, the per-unit picker, auto-recompute when models move — works as before."
+      ]
+    },
+    {
       "version": "1.28.0",
       "date": "2026-08-06",
       "summary": "New: Vision Map — pick any unit and the board shades everything that unit can see, so you can tell at a glance whether a deploy spot is hidden or exposed.",

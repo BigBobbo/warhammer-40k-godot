@@ -8,66 +8,214 @@
   "transition_to_phase": 1,
   "edition": 11,
   "disable_ai": true,
-  "description": "Vision Map (whole-board visibility shading, per selected unit) drives end-to-end during DEPLOYMENT — the phase it was requested for: deploy one unit per side, open the panel with the real bottom-bar 👁 button, pick the ENEMY Warboss from the unit list with a real click, and the board shades everything that Warboss can see (warm = seen, cool = hidden), ignoring weapon range. Asserts the overlay computes a full grid with BOTH visible and hidden cells on the 44-piece default layout, that run_self_check re-judges sampled cells through the CANONICAL EnhancedLineOfSight._check_single_line_of_sight_11e with zero disagreements (the L-overlay lesson: a debug view with private LoS logic will drift from the rules engine), that a single click re-targets the map to another unit, and that the Off row + Close button clear the shading.",
+  "description": "Vision Map v2 (ray-cast visibility fans, per selected unit) drives end-to-end during DEPLOYMENT — the phase it was requested for: deploy one unit per side, open the panel with the real bottom-bar 👁 button, pick the ENEMY Warboss from the unit list with a real click, and the board shades everything that Warboss can see with smooth ray-cast shadow geometry (warm = seen, cool = hidden), ignoring weapon range. After the real click, compute_now() fast-forwards the frame-sliced sweep so asserts are deterministic. Asserts the sweep completes with a genuine seen/hidden mix, and that run_self_check holds BOTH agreements at zero mismatches: the per-point judge vs the CANONICAL EnhancedLineOfSight._check_single_line_of_sight_11e, and the RENDERED fan geometry vs that judge (the L-overlay lesson: a debug view with private LoS logic will drift — a renderer can too). Also proves one click re-targets the map to another unit, and the Off row + Close button clear the shading.",
   "steps": [
-    { "act": "wait_seconds", "seconds": 1.0 },
-    { "act": "expect_state", "path": "meta.phase", "equals": 1 },
-    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
-
-    { "act": "dispatch_action", "action": {
-      "type": "DEPLOY_UNIT",
-      "unit_id": "U_BLADE_CHAMPION_A",
-      "model_positions": [{ "x": 880, "y": 240 }],
-      "model_rotations": [0]
-    }},
-    { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "wait_frames", "frames": 3 },
-    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
-
-    { "act": "dispatch_action", "action": {
-      "type": "DEPLOY_UNIT",
-      "unit_id": "U_WARBOSS_B",
-      "model_positions": [{ "x": 880, "y": 2160 }],
-      "model_rotations": [0]
-    }},
-    { "act": "expect_action_result", "path": "success", "equals": true },
-    { "act": "wait_frames", "frames": 3 },
-    { "act": "screenshot", "label": "01_two_units_deployed" },
-
-    { "act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/VisionMapButton" },
-    { "act": "expect_node_visible", "node": "/root/Main/VisionMapPanel", "timeout_s": 2.0 },
-    { "act": "screenshot", "label": "02_panel_open" },
-
-    { "act": "execute_script", "script": "Main.get_node(\"VisionMapPanel/VBox/UnitList\").item_count", "equals": 3 },
-    { "act": "execute_script", "script": "Main.get_node(\"VisionMapPanel/VBox/UnitList\").get_item_text(2)", "equals": "P2 · Warboss" },
-
-    { "act": "click_item_list", "node": "/root/Main/VisionMapPanel/VBox/UnitList", "index": 2 },
-    { "act": "wait_frames", "frames": 3 },
-    { "act": "execute_script", "script": "Main.get_vision_map_overlay().source_unit_id", "equals": "U_WARBOSS_B" },
-
-    { "act": "wait_seconds", "seconds": 3.0 },
-    { "act": "execute_script", "script": "Main.get_vision_map_overlay().is_compute_done()", "equals": true },
-    { "act": "execute_script", "script": "Main.get_vision_map_overlay().visible_cell_count()", "expect_min": 100 },
-    { "act": "execute_script", "script": "Main.get_vision_map_overlay().hidden_cell_count()", "expect_min": 100 },
-    { "act": "execute_script", "script": "var o = tree.root.get_node(\"Main\").get_vision_map_overlay()\nvar r = o.run_self_check(120)\nreturn \"checked=%d mismatches=%d\" % [int(r.checked), int(r.mismatches)]", "multiline": true, "equals": "checked=120 mismatches=0" },
-    { "act": "screenshot", "label": "03_vision_map_enemy_warboss" },
-
-    { "act": "click_item_list", "node": "/root/Main/VisionMapPanel/VBox/UnitList", "index": 1 },
-    { "act": "wait_frames", "frames": 3 },
-    { "act": "execute_script", "script": "Main.get_vision_map_overlay().source_unit_id", "equals": "U_BLADE_CHAMPION_A" },
-    { "act": "wait_seconds", "seconds": 3.0 },
-    { "act": "execute_script", "script": "Main.get_vision_map_overlay().is_compute_done()", "equals": true },
-    { "act": "screenshot", "label": "04_switched_to_blade_champion" },
-
-    { "act": "click_item_list", "node": "/root/Main/VisionMapPanel/VBox/UnitList", "index": 0 },
-    { "act": "wait_frames", "frames": 3 },
-    { "act": "execute_script", "script": "Main.get_vision_map_overlay().is_active()", "equals": false },
-    { "act": "screenshot", "label": "05_off_row_clears_shading" },
-
-    { "act": "click_node", "node": "/root/Main/VisionMapPanel/VBox/Header/CloseButton", "emit_pressed": true },
-    { "act": "wait_frames", "frames": 3 },
-    { "act": "execute_script", "script": "Main.get_node(\"VisionMapPanel\").visible", "equals": false },
-    { "act": "execute_script", "script": "Main.get_node(\"HUD_Bottom/HBoxContainer/VisionMapButton\").button_pressed", "equals": false },
-    { "act": "screenshot", "label": "06_panel_closed" }
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 1
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DEPLOY_UNIT",
+        "unit_id": "U_BLADE_CHAMPION_A",
+        "model_positions": [
+          {
+            "x": 880,
+            "y": 240
+          }
+        ],
+        "model_rotations": [
+          0
+        ]
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DEPLOY_UNIT",
+        "unit_id": "U_WARBOSS_B",
+        "model_positions": [
+          {
+            "x": 880,
+            "y": 2160
+          }
+        ],
+        "model_rotations": [
+          0
+        ]
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_two_units_deployed"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/VisionMapButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/VisionMapPanel",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_panel_open"
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.get_node(\"VisionMapPanel/VBox/UnitList\").item_count",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.get_node(\"VisionMapPanel/VBox/UnitList\").get_item_text(2)",
+      "equals": "P2 · Warboss"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/VisionMapPanel/VBox/UnitList",
+      "index": 2
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.get_vision_map_overlay().source_unit_id",
+      "equals": "U_WARBOSS_B"
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.get_vision_map_overlay().compute_now()"
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.get_vision_map_overlay().is_compute_done()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.get_vision_map_overlay().seen_ratio()",
+      "expect_min": 0.03
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.get_vision_map_overlay().seen_ratio()",
+      "expect_max": 0.97
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var o = tree.root.get_node(\"Main\").get_vision_map_overlay()\nvar r = o.run_self_check(150)\nreturn \"m=%d rm=%d rc_ok=%s\" % [int(r.mismatches), int(r.render_mismatches), str(int(r.render_checked) > 80)]",
+      "equals": "m=0 rm=0 rc_ok=true"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_vision_map_enemy_warboss"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/VisionMapPanel/VBox/UnitList",
+      "index": 1
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.get_vision_map_overlay().source_unit_id",
+      "equals": "U_BLADE_CHAMPION_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.get_vision_map_overlay().compute_now()"
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.get_vision_map_overlay().is_compute_done()",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_switched_to_blade_champion"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/VisionMapPanel/VBox/UnitList",
+      "index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.get_vision_map_overlay().is_active()",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "05_off_row_clears_shading"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/VisionMapPanel/VBox/Header/CloseButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.get_node(\"VisionMapPanel\").visible",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "Main.get_node(\"HUD_Bottom/HBoxContainer/VisionMapButton\").button_pressed",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "06_panel_closed"
+    }
   ]
 }
