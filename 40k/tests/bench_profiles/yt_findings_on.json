@@ -1,0 +1,13 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "YouTube findings ON — opt-in, not shipped",
+	"description": "Enables the five behavioural weights for findings F001/F002/F003 (11e Hidden awareness), F004 (Overwatch exposure) and F009 (battle-shock as objective denial) at their corpus-suggested starting values. These are NOT the shipped defaults — the defaults are neutral, because benchmarking did not support enabling them (tests/bench_baselines/2026-08-06_mirror_new_vs_old.md). This file is the arm to load for a tuning sweep, and it is what tests/scenarios/sp/ai_hidden_awareness_11e.json loads to exercise the machinery. DEEP_STRIKE_DENIAL_RANGE_PX is deliberately absent so the F007 derivation from GameConstants.reinforcement_min_enemy_distance_inches() (11e: >8\") stays active.",
+	"parameters": {
+		"WEIGHT_HIDDEN_GAINED": 4.0,
+		"HIDDEN_FORFEIT_PENALTY": 3.0,
+		"HIDDEN_WINDOW_BONUS": 1.25,
+		"OVERWATCH_EXPOSURE_PENALTY": 0.35,
+		"BATTLE_SHOCK_DENIAL_WEIGHT": 1.0
+	}
+}

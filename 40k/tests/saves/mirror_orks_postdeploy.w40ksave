@@ -1,0 +1,7814 @@
+{
+	"_serialization": {
+		"game_version": "1.1.0",
+		"serializer": "StateSerializer",
+		"timestamp": 1777894597.85005,
+		"version": "1.1.0"
+	},
+	"board": {
+		"deployment_zones": [
+			{
+				"player": 1.0,
+				"poly": [
+					{
+						"x": 0.0,
+						"y": 0.0
+					},
+					{
+						"x": 44.0,
+						"y": 0.0
+					},
+					{
+						"x": 44.0,
+						"y": 8.0
+					},
+					{
+						"x": 34.0,
+						"y": 8.0
+					},
+					{
+						"x": 34.0,
+						"y": 14.0
+					},
+					{
+						"x": 10.0,
+						"y": 14.0
+					},
+					{
+						"x": 10.0,
+						"y": 8.0
+					},
+					{
+						"x": 0.0,
+						"y": 8.0
+					}
+				]
+			},
+			{
+				"player": 2.0,
+				"poly": [
+					{
+						"x": 0.0,
+						"y": 52.0
+					},
+					{
+						"x": 10.0,
+						"y": 52.0
+					},
+					{
+						"x": 10.0,
+						"y": 46.0
+					},
+					{
+						"x": 34.0,
+						"y": 46.0
+					},
+					{
+						"x": 34.0,
+						"y": 52.0
+					},
+					{
+						"x": 44.0,
+						"y": 52.0
+					},
+					{
+						"x": 44.0,
+						"y": 60.0
+					},
+					{
+						"x": 0.0,
+						"y": 60.0
+					}
+				]
+			}
+		],
+		"objectives": [
+			{
+				"id": "obj_center",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 1200.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"id": "obj_nml_1",
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 880.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"id": "obj_nml_2",
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 1520.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"id": "obj_home_1",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 160.0
+				},
+				"radius_mm": 40.0,
+				"zone": "player1"
+			},
+			{
+				"id": "obj_home_2",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 2240.0
+				},
+				"radius_mm": 40.0,
+				"zone": "player2"
+			}
+		],
+		"size": {
+			"height": 60,
+			"width": 44
+		},
+		"terrain": [],
+		"terrain_features": [
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_1",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 80.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 80.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 720.0,
+					"y": 200.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 320.0
+						},
+						"id": "ruins_1_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 80.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 680.0,
+							"y": 80.0
+						},
+						"id": "ruins_1_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 800.0,
+							"y": 80.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_2",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2080.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1040.0,
+					"y": 2200.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2320.0
+						},
+						"id": "ruins_2_wall_south",
+						"start": {
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2080.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 960.0,
+							"y": 2320.0
+						},
+						"id": "ruins_2_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 1080.0,
+							"y": 2320.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_3",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 960.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 440.0,
+					"y": 1080.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1200.0
+						},
+						"id": "ruins_3_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 1200.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_4",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1440.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1240.0,
+							"y": 1440.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1240.0,
+							"y": 1200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1320.0,
+					"y": 1320.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1240.0,
+							"y": 1200.0
+						},
+						"id": "ruins_4_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1200.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_5",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 260.0,
+					"y": 1400.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 200.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1600.0
+						},
+						"id": "ruins_5_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 360.0,
+							"y": 1600.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_6",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 800.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 800.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1500.0,
+					"y": 1000.0
+				},
+				"rotation": 90.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 200.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1400.0,
+							"y": 800.0
+						},
+						"id": "ruins_6_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 800.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_7",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 440.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 440.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 320.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 200.0
+						},
+						"id": "ruins_7_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 200.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 440.0
+						},
+						"id": "ruins_7_wall_south",
+						"start": {
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 440.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 360.0
+						},
+						"id": "ruins_7_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 280.0
+						},
+						"type": "door"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 390.0
+						},
+						"id": "ruins_7_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 250.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "medium",
+				"id": "ruins_8",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 560.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 560.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 440.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 560.0
+						},
+						"id": "ruins_8_wall_east",
+						"start": {
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 320.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": false,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 520.0,
+							"y": 440.0
+						},
+						"id": "ruins_8_wall_center",
+						"start": {
+							"_type": "Vector2",
+							"x": 280.0,
+							"y": 440.0
+						},
+						"type": "window"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "low",
+				"id": "ruins_9",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 1840.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 1840.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 2080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2080.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 1960.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_10",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 1960.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 2200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 2200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 2080.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 1960.0
+						},
+						"id": "ruins_10_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1960.0
+						},
+						"type": "solid"
+					},
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 2200.0
+						},
+						"id": "ruins_10_wall_west",
+						"start": {
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1960.0
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "medium",
+				"id": "ruins_11",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 625.441528320312,
+							"y": 844.852783203125
+						},
+						{
+							"_type": "Vector2",
+							"x": 964.852783203125,
+							"y": 505.441558837891
+						},
+						{
+							"_type": "Vector2",
+							"x": 1134.55847167969,
+							"y": 675.147216796875
+						},
+						{
+							"_type": "Vector2",
+							"x": 795.147216796875,
+							"y": 1014.55847167969
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 760.0
+				},
+				"rotation": -45.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 964.852783203125,
+							"y": 505.441558837891
+						},
+						"id": "ruins_11_wall_north",
+						"start": {
+							"_type": "Vector2",
+							"x": 625.441528320312,
+							"y": 844.852783203125
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "tall",
+				"id": "ruins_12",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 625.441528320312,
+							"y": 1724.85278320312
+						},
+						{
+							"_type": "Vector2",
+							"x": 964.852783203125,
+							"y": 1385.44152832031
+						},
+						{
+							"_type": "Vector2",
+							"x": 1134.55847167969,
+							"y": 1555.14721679688
+						},
+						{
+							"_type": "Vector2",
+							"x": 795.147216796875,
+							"y": 1894.55847167969
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 1640.0
+				},
+				"rotation": -45.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 480.0,
+					"y": 240.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins",
+				"walls": [
+					{
+						"blocks_los": true,
+						"blocks_movement": {
+							"INFANTRY": false,
+							"MONSTER": true,
+							"VEHICLE": true
+						},
+						"end": {
+							"_type": "Vector2",
+							"x": 1134.55847167969,
+							"y": 1555.14721679688
+						},
+						"id": "ruins_12_wall_south",
+						"start": {
+							"_type": "Vector2",
+							"x": 795.147216796875,
+							"y": 1894.55847167969
+						},
+						"type": "solid"
+					}
+				]
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "low",
+				"id": "woods_1",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 80.0,
+							"y": 640.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 640.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 800.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 80.0,
+							"y": 800.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 160.0,
+					"y": 720.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 160.0,
+					"y": 160.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "woods"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"height_category": "low",
+				"id": "woods_2",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1680.0,
+							"y": 1600.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1680.0,
+							"y": 1760.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 1760.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1600.0,
+					"y": 1680.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 160.0,
+					"y": 160.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "woods"
+			}
+		],
+		"terrain_layout": "layout_2"
+	},
+	"factions": {
+		"1": {
+			"created_date": "2025-02-20",
+			"detachment": "War Horde",
+			"name": "Orks",
+			"player_name": "",
+			"points": 2000.0,
+			"team_name": ""
+		},
+		"2": {
+			"created_date": "2025-02-20",
+			"detachment": "War Horde",
+			"name": "Orks",
+			"player_name": "",
+			"points": 2000.0,
+			"team_name": ""
+		}
+	},
+	"history": [],
+	"meta": {
+		"active_player": 1,
+		"battle_round": 1,
+		"created_at": 1777894246.48332,
+		"deployment_type": "crucible_of_battle",
+		"first_turn_player": 1,
+		"formations_p1_confirmed": true,
+		"formations_p2_confirmed": true,
+		"game_id": "c02b1ee3-2b22-48a0-b65b-3033f9c810e94c65",
+		"phase": 6,
+		"roll_off_choice": "second",
+		"roll_off_player1_roll": 3,
+		"roll_off_player2_roll": 6,
+		"roll_off_winner": 2,
+		"turn_number": 1,
+		"version": "1.1.0"
+	},
+	"phase_log": [],
+	"players": {
+		"1": {
+			"bonus_cp_gained_this_round": 0,
+			"cp": 4,
+			"primary_vp": 0,
+			"secondary_vp": 0,
+			"vp": 0
+		},
+		"2": {
+			"bonus_cp_gained_this_round": 0,
+			"cp": 4,
+			"primary_vp": 0,
+			"secondary_vp": 0,
+			"vp": 0
+		}
+	},
+	"secondary_missions": {
+		"active_actions": {
+			"1": [],
+			"2": []
+		},
+		"objective_control_at_turn_start": {
+			"obj_center": 0,
+			"obj_home_1": 0,
+			"obj_home_2": 0,
+			"obj_nml_1": 0,
+			"obj_nml_2": 0
+		},
+		"player_state": {
+			"1": {
+				"active": [],
+				"deck": [
+					"display_of_might",
+					"bring_it_down",
+					"assassination",
+					"cleanse",
+					"deploy_teleport_homer",
+					"extend_battle_lines",
+					"engage_on_all_fronts",
+					"behind_enemy_lines",
+					"overwhelming_force",
+					"defend_stronghold",
+					"a_tempting_target",
+					"marked_for_death",
+					"secure_no_mans_land",
+					"storm_hostile_objective",
+					"no_prisoners",
+					"area_denial",
+					"cull_the_horde",
+					"establish_locus"
+				],
+				"discard": [],
+				"initialized": true,
+				"mode": "tactical",
+				"secondary_vp": 0
+			},
+			"2": {
+				"active": [],
+				"deck": [
+					"display_of_might",
+					"bring_it_down",
+					"assassination",
+					"cleanse",
+					"deploy_teleport_homer",
+					"extend_battle_lines",
+					"engage_on_all_fronts",
+					"behind_enemy_lines",
+					"overwhelming_force",
+					"defend_stronghold",
+					"a_tempting_target",
+					"marked_for_death",
+					"secure_no_mans_land",
+					"storm_hostile_objective",
+					"no_prisoners",
+					"area_denial",
+					"cull_the_horde",
+					"establish_locus"
+				],
+				"discard": [],
+				"initialized": true,
+				"mode": "tactical",
+				"secondary_vp": 0
+			}
+		},
+		"units_destroyed_this_turn": []
+	},
+	"unit_visuals": {},
+	"units": {
+		"MIR_U_BATTLEWAGON_G": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_BATTLEWAGON_G",
+			"meta": {
+				"abilities": [
+					{
+						"description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D6 mortal wounds.",
+						"name": "Deadly Demise D6",
+						"type": "Core"
+					},
+					{
+						"description": "Firing Deck 11. Each time this transport shoots, up to 11 models embarked within it can be selected to shoot as well. Each time such a model makes a ranged attack, it is treated as if it were not embarked, except that it cannot use any abilities that require it to be on the battlefield.",
+						"name": "FIRING DECK",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time this model loses one or more wounds, roll one D6: on a 6, this model does not lose a wound.",
+						"name": "Ramshackle",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll.",
+						"name": "Damaged: 1-5 Wounds Remaining",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Add 2 to this model's Toughness characteristic. If this model is equipped with this wargear, it loses the Firing Deck ability.",
+						"name": "'Ard Case",
+						"type": "Wargear"
+					},
+					{
+						"description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. This model cannot transport models that are JUMP PACK models.",
+						"name": "TRANSPORT",
+						"type": "Special"
+					}
+				],
+				"display_name": "Battlewagon",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLEWAGON",
+					"ORKS",
+					"TRANSPORT",
+					"VEHICLE"
+				],
+				"name": "Battlewagon",
+				"points": 160.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 10.0,
+					"objective_control": 5.0,
+					"save": 3.0,
+					"toughness": 12.0,
+					"wounds": 16.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Battlewagon",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Deff rolla",
+					"1x Grabbin' klaw",
+					"1x Kannon",
+					"1x Lobba",
+					"1x Wreckin' ball",
+					"1x 'Ard Case"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "D6+3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kannon \u2013 frag",
+						"range": "36",
+						"special_rules": "blast",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "D6",
+						"name": "Kannon \u2013 shell",
+						"range": "36",
+						"strength": "10",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D6+1",
+						"ballistic_skill": "5",
+						"damage": "2",
+						"name": "Killkannon",
+						"range": "24",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "D6",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Lobba",
+						"range": "48",
+						"special_rules": "blast, indirect fire",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-3",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "5",
+						"name": "Zzap gun",
+						"range": "36",
+						"special_rules": "anti-vehicle 4+",
+						"strength": "D6+6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Deff rolla",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "2",
+						"damage": "2",
+						"name": "Grabbin' klaw",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "6",
+						"damage": "1",
+						"name": "Tracks and wheels",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "4"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"damage": "D6",
+						"name": "Wreckin' ball",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_dimensions": {
+						"length": 180.0,
+						"width": 110.0
+					},
+					"base_mm": 180.0,
+					"base_type": "rectangular",
+					"current_wounds": 16.0,
+					"id": "m1",
+					"position": {
+						"_type": "Vector2",
+						"x": 1616.267716535433,
+						"y": 416.267716535433
+					},
+					"status_effects": [],
+					"wounds": 16.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_BATTLEWAGON_G",
+			"status": 2,
+			"transport_data": {
+				"capacity": 22,
+				"capacity_keywords": [
+					"ORKS",
+					"INFANTRY"
+				],
+				"capacity_multipliers": {
+					"MEGA ARMOUR": 2
+				},
+				"embarked_units": [],
+				"excluded_keywords": [
+					"JUMP PACK"
+				],
+				"firing_deck": 0
+			}
+		},
+		"MIR_U_BOYZ_E": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_BOYZ_E",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "At the end of your Command phase, if this unit is within range of an objective marker you control, that objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn.",
+						"name": "Get Da Good Bitz",
+						"type": "Datasheet"
+					},
+					{
+						"description": "If this unit has a Starting Strength of 20, you can attach up to two Leader units to it instead of one (but only if one of those is a WARBOSS model). If you do, and this unit is destroyed, the Leader units attached to it become separate units with their original Starting Strengths.",
+						"name": "BODYGUARD",
+						"type": "Special (\u043f\u0440\u0430\u0432\u0430\u044f \u043a\u043e\u043b\u043e\u043d\u043a\u0430)"
+					}
+				],
+				"display_name": "Boyz Alpha",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLELINE",
+					"BOYZ",
+					"GRENADES",
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"name": "Boyz",
+				"points": 80.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9-19 Boyz",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"9x Slugga",
+					"1x Slugga"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Rokkit launcha",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"_type": "Vector2",
+						"x": 1490.9133858267717,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"_type": "Vector2",
+						"x": 1430.44094488189,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"_type": "Vector2",
+						"x": 1369.968503937008,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"_type": "Vector2",
+						"x": 1309.4960629921263,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"_type": "Vector2",
+						"x": 1249.0236220472445,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"_type": "Vector2",
+						"x": 1188.5511811023628,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"_type": "Vector2",
+						"x": 1128.078740157481,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"_type": "Vector2",
+						"x": 1067.6062992125992,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"_type": "Vector2",
+						"x": 1007.1338582677174,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"_type": "Vector2",
+						"x": 946.6614173228356,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m11",
+					"position": {
+						"_type": "Vector2",
+						"x": 886.1889763779538,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m12",
+					"position": {
+						"_type": "Vector2",
+						"x": 825.7165354330721,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m13",
+					"position": {
+						"_type": "Vector2",
+						"x": 765.2440944881903,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m14",
+					"position": {
+						"_type": "Vector2",
+						"x": 704.7716535433085,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m15",
+					"position": {
+						"_type": "Vector2",
+						"x": 644.2992125984267,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m16",
+					"position": {
+						"_type": "Vector2",
+						"x": 583.8267716535449,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m17",
+					"position": {
+						"_type": "Vector2",
+						"x": 523.3543307086632,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m18",
+					"position": {
+						"_type": "Vector2",
+						"x": 462.8818897637814,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m19",
+					"position": {
+						"_type": "Vector2",
+						"x": 402.4094488188996,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m20",
+					"position": {
+						"_type": "Vector2",
+						"x": 341.9370078740178,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_BOYZ_E",
+			"status": 2
+		},
+		"MIR_U_BOYZ_F": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_BOYZ_F",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "At the end of your Command phase, if this unit is within range of an objective marker you control, that objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn.",
+						"name": "Get Da Good Bitz",
+						"type": "Datasheet"
+					},
+					{
+						"description": "If this unit has a Starting Strength of 20, you can attach up to two Leader units to it instead of one (but only if one of those is a WARBOSS model). If you do, and this unit is destroyed, the Leader units attached to it become separate units with their original Starting Strengths.",
+						"name": "BODYGUARD",
+						"type": "Special (\u043f\u0440\u0430\u0432\u0430\u044f \u043a\u043e\u043b\u043e\u043d\u043a\u0430)"
+					}
+				],
+				"display_name": "Boyz Beta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLELINE",
+					"BOYZ",
+					"GRENADES",
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"model_profiles": {
+					"boss_nob": {
+						"label": "Boss Nob",
+						"stats_override": {
+							"save": 4.0,
+							"weapon_skill": 3.0
+						},
+						"transport_slots": 1.0,
+						"weapons": [
+							"Big choppa",
+							"Choppa",
+							"Power klaw",
+							"Slugga",
+							"Kombi-weapon"
+						]
+					},
+					"boy": {
+						"label": "Boy",
+						"stats_override": {
+							"weapon_skill": 4.0
+						},
+						"transport_slots": 1.0,
+						"weapons": [
+							"Choppa",
+							"Close combat weapon",
+							"Shoota",
+							"Slugga",
+							"Big shoota",
+							"Rokkit launcha"
+						]
+					}
+				},
+				"name": "Boyz",
+				"points": 80.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9-19 Boyz",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"9x Slugga",
+					"1x Slugga"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Rokkit launcha",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"model_type": "boss_nob",
+					"position": {
+						"_type": "Vector2",
+						"x": 281.464566929136,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 220.99212598425424,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 160.51968503937246,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 100.04724409449068,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 39.5748031496089,
+						"y": 532.8031496062993
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1460.6771653543308,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1400.204724409449,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1339.7322834645672,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1279.2598425196854,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1218.7874015748037,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m11",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1158.3149606299219,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m12",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1097.84251968504,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m13",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1037.3700787401583,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m14",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 976.8976377952765,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m15",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 916.4251968503947,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m16",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 855.952755905513,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m17",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 795.4803149606312,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m18",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 735.0078740157494,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m19",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 674.5354330708676,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m20",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 614.0629921259858,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_BOYZ_F",
+			"status": 2
+		},
+		"MIR_U_BOYZ_K": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_BOYZ_K",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "At the end of your Command phase, if this unit is within range of an objective marker you control, that objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn.",
+						"name": "Get Da Good Bitz",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Boyz Gamma",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLELINE",
+					"BOYZ",
+					"GRENADES",
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"name": "Boyz",
+				"points": 80.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9 Boyz",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"9x Slugga",
+					"1x Slugga"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Rokkit launcha",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"_type": "Vector2",
+						"x": 553.590551181104,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"_type": "Vector2",
+						"x": 493.11811023622226,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"_type": "Vector2",
+						"x": 432.6456692913405,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"_type": "Vector2",
+						"x": 372.1732283464587,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"_type": "Vector2",
+						"x": 311.7007874015769,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"_type": "Vector2",
+						"x": 251.22834645669514,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"_type": "Vector2",
+						"x": 190.75590551181335,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"_type": "Vector2",
+						"x": 130.28346456693157,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"_type": "Vector2",
+						"x": 69.81102362204979,
+						"y": 487.4488188976379
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"_type": "Vector2",
+						"x": 1430.44094488189,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_BOYZ_K",
+			"status": 2
+		},
+		"MIR_U_GHAZGHKULL_THRAKA_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_GHAZGHKULL_THRAKA_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Waaagh! faction ability",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While a Waaagh! is active for Ghazghkull's army, each time a model in this unit makes a melee attack, add 1 to the Hit roll and the Wound roll. In addition, each time a model in this unit makes a melee attack, a Critical Hit is scored on a 5+ rather than a 6.",
+						"name": "Prophet of Da Great Waaagh!",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While a Waaagh! is active for Ghazghkull's army, friendly ORKS units within 12\" of this unit have the Lethal Hits ability on their melee weapons.",
+						"name": "Ghazghkull's Waaagh! Banner (Aura)",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Ghazghkull Thraka",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ORKS",
+					"MONSTER",
+					"CHARACTER",
+					"EPIC HERO",
+					"WARBOSS",
+					"GHAZGHKULL THRAKA"
+				],
+				"name": "Ghazghkull Thraka",
+				"points": 300.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 9.0,
+					"wounds": 12.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Ghazghkull Thraka",
+						"line": 1.0
+					},
+					{
+						"description": "1 Makari",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"1x Gork's Klaw",
+					"1x Mork's Roar",
+					"1x Makari's Stabba"
+				],
+				"weapons": [
+					{
+						"ap": "-4",
+						"attacks": "5",
+						"damage": "D3+3",
+						"name": "Gork's Klaw",
+						"range": "Melee",
+						"strength": "14",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-1",
+						"attacks": "D6",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Mork's Roar",
+						"range": "24",
+						"special_rules": "rapid fire 2",
+						"strength": "7",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "4",
+						"damage": "1",
+						"name": "Makari's Stabba",
+						"range": "Melee",
+						"strength": "3",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 100.0,
+					"current_wounds": 12.0,
+					"id": "m1",
+					"position": {
+						"_type": "Vector2",
+						"x": 1065.0866141732286,
+						"y": 384.77165354330714
+					},
+					"status_effects": [],
+					"wounds": 12.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"_type": "Vector2",
+						"x": 1369.968503937008,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_GHAZGHKULL_THRAKA_A",
+			"status": 2
+		},
+		"MIR_U_KAPTIN_BADRUKK_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_KAPTIN_BADRUKK_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Waaagh! faction ability",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, each time a model in that unit makes a ranged attack, re-roll a Hit roll of 1.",
+						"name": "Flashiest Gitz",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While this model is on the battlefield, subtract 1 from the Toughness characteristic of enemy INFANTRY units that are within 6\" of this model.",
+						"name": "Ded Glowy Ammo (Aura)",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Kaptin Badrukk can be attached to a Flash Gitz unit.",
+						"name": "Leader",
+						"type": "Core"
+					}
+				],
+				"display_name": "Kaptin Badrukk",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ORKS",
+					"INFANTRY",
+					"CHARACTER",
+					"FREEBOOTER",
+					"KAPTIN BADRUKK"
+				],
+				"name": "Kaptin Badrukk",
+				"points": 100.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Kaptin Badrukk",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Da Rippa",
+					"1x Kustom mega-blasta",
+					"1x Power klaw"
+				],
+				"weapons": [
+					{
+						"ap": "-1",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Da Rippa",
+						"range": "Melee",
+						"special_rules": "lethal hits",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "2",
+						"damage": "D6",
+						"name": "Kustom mega-blasta",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "8",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 1260.0,
+						"y": 70.0
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_KAPTIN_BADRUKK_A",
+			"status": 2
+		},
+		"MIR_U_KOMMANDOS_H": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_KOMMANDOS_H",
+			"meta": {
+				"abilities": [
+					{
+						"description": "During deployment, this unit can be set up anywhere on the battlefield that is more than 9\" horizontally away from the enemy deployment zone and more than 9\" away from all enemy models.",
+						"name": "Infiltrators",
+						"type": "Core"
+					},
+					{
+						"description": "If every model in a unit has this ability, then each time a ranged attack is made against this unit, subtract 1 from the Hit roll.",
+						"name": "Stealth",
+						"type": "Core"
+					},
+					{
+						"description": "After deployment, this unit can make a Normal Move of up to 6\", but must end that move more than 9\" horizontally away from all enemy models.",
+						"name": "Scout 6\"",
+						"range": 6.0,
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "At the start of your Shooting phase, if this unit is within 9\" of one or more enemy units, it can use this ability. If it does, until the end of the phase, this unit is not eligible to shoot, but you roll one D6 for each model in this unit that is within 9\" of an enemy unit: for each 5+, that enemy unit suffers 1 mortal wound.",
+						"name": "Throat Slittas",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Enemy units cannot use the Fire Overwatch Stratagem to shoot at this unit.",
+						"name": "Sneaky Surprise",
+						"type": "Datasheet"
+					},
+					{
+						"description": "At the start of the Declare Battle Formations step, this unit can be split into two units, each containing five models.",
+						"name": "Patrol Squad",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, in your opponent's Shooting phase, when this unit is selected as the target of a ranged attack, until the end of the phase, models in this unit have a 5+ invulnerable save.",
+						"name": "Distraction Grot",
+						"type": "Wargear"
+					},
+					{
+						"description": "Once per battle, after this unit ends a Normal move, you can select one enemy unit within 12\" of and visible to this unit and roll one D6: on a 3+, that enemy unit suffers D3 mortal wounds.",
+						"name": "Bomb Squigs",
+						"type": "Wargear"
+					}
+				],
+				"display_name": "Kommandos",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"GRENADES",
+					"INFANTRY",
+					"KOMMANDOS",
+					"ORKS"
+				],
+				"name": "Kommandos",
+				"points": 135.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9 Kommandos",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"10x Choppa",
+					"10x Slugga"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"_type": "Vector2",
+						"x": 1309.4960629921263,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"_type": "Vector2",
+						"x": 1249.0236220472445,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"_type": "Vector2",
+						"x": 1188.5511811023628,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"_type": "Vector2",
+						"x": 946.6614173228356,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"_type": "Vector2",
+						"x": 886.1889763779538,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"_type": "Vector2",
+						"x": 825.7165354330721,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"_type": "Vector2",
+						"x": 765.2440944881903,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"_type": "Vector2",
+						"x": 704.7716535433085,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"_type": "Vector2",
+						"x": 644.2992125984267,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"_type": "Vector2",
+						"x": 583.8267716535449,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_KOMMANDOS_H",
+			"status": 2
+		},
+		"MIR_U_LOOTAS_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_LOOTAS_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "If your Army Faction is ORKS, once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase, the Waaagh! is active for your army and:\n- Units from your army with this ability are eligible to declare a charge in a turn in which they Advanced.\n- Add 1 to the Strength and Attacks characteristics of melee weapons equipped by models from your army with this ability.\n- Models from your army with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time a model in this unit makes a ranged attack, re-roll a Hit roll of 1. If that attack targets a unit that is within range of an objective marker, you can re-roll the Hit roll instead.",
+						"name": "Dat's Our Loot!",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Lootas",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ORKS",
+					"LOOTAS",
+					"INFANTRY"
+				],
+				"model_profiles": {
+					"loota_deffgun": {
+						"label": "Loota (Deffgun)",
+						"stats_override": {},
+						"transport_slots": 1.0,
+						"weapons": [
+							"Deffgun",
+							"Close combat weapon"
+						]
+					},
+					"loota_kmb": {
+						"label": "Loota (Kustom Mega-blasta)",
+						"stats_override": {},
+						"transport_slots": 1.0,
+						"weapons": [
+							"Kustom mega-blasta",
+							"Close combat weapon"
+						]
+					},
+					"spanner": {
+						"label": "Spanner",
+						"stats_override": {
+							"ballistic_skill": 4.0
+						},
+						"transport_slots": 1.0,
+						"weapons": [
+							"Kustom mega-blasta",
+							"Close combat weapon"
+						]
+					}
+				},
+				"name": "Lootas",
+				"points": 100.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Spanner",
+						"line": 1.0
+					},
+					{
+						"description": "8 Lootas",
+						"line": 2.0
+					},
+					{
+						"description": "2 Lootas (KMB)",
+						"line": 3.0
+					}
+				],
+				"wargear": [
+					"1x Spanner",
+					"1x Close combat weapon",
+					"1x Kustom mega-blasta",
+					"2x Loota (KMB)",
+					"2x Close combat weapon",
+					"2x Kustom mega-blasta",
+					"8x Loota",
+					"8x Close combat weapon",
+					"8x Deffgun"
+				],
+				"weapons": [
+					{
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "6",
+						"damage": "2",
+						"name": "Deffgun",
+						"range": "48",
+						"special_rules": "heavy, rapid fire 1",
+						"strength": "8",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "D6",
+						"name": "Kustom mega-blasta",
+						"range": "24",
+						"special_rules": "hazardous",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 523.3543307086632,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 462.8818897637814,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 402.4094488188996,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 341.9370078740178,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 281.464566929136,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 220.99212598425424,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 160.51968503937246,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 100.04724409449068,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"model_type": "loota_kmb",
+					"position": {
+						"_type": "Vector2",
+						"x": 39.5748031496089,
+						"y": 442.0944881889766
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"model_type": "loota_kmb",
+					"position": {
+						"_type": "Vector2",
+						"x": 1400.204724409449,
+						"y": 396.74015748031525
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m11",
+					"model_type": "spanner",
+					"position": {
+						"_type": "Vector2",
+						"x": 1339.7322834645672,
+						"y": 396.74015748031525
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_LOOTAS_A",
+			"status": 2
+		},
+		"MIR_U_MEGANOBZ_L": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_MEGANOBZ_L",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time a model in this unit makes a melee attack, if this unit made a Charge move this turn, add 1 to the Wound roll.",
+						"name": "Krumpin' Time",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Meganobz",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"INFANTRY",
+					"MEGA ARMOUR",
+					"ORKS",
+					"MEGANOBZ",
+					"GRENADES"
+				],
+				"model_profiles": {
+					"meganob_klaw": {
+						"label": "Meganob (Power Klaw)",
+						"stats_override": {},
+						"transport_slots": 2.0,
+						"weapons": [
+							"Kustom shoota",
+							"Power klaw"
+						]
+					},
+					"meganob_saws": {
+						"label": "Meganob (Killsaws)",
+						"stats_override": {},
+						"transport_slots": 2.0,
+						"weapons": [
+							"Kustom shoota",
+							"Killsaws"
+						]
+					}
+				},
+				"name": "Meganobz",
+				"points": 160.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 5.0,
+					"objective_control": 1.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 3.0
+				},
+				"unit_composition": [
+					{
+						"description": "2-6 Meganobz",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "4",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kustom shoota",
+						"range": "18",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-3",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Killsaws",
+						"range": "Melee",
+						"special_rules": "twin-linked",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m1",
+					"model_type": "meganob_klaw",
+					"position": {
+						"_type": "Vector2",
+						"x": 1272.9606299212596,
+						"y": 375.322834645669
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m2",
+					"model_type": "meganob_klaw",
+					"position": {
+						"_type": "Vector2",
+						"x": 1197.3700787401572,
+						"y": 375.322834645669
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m3",
+					"model_type": "meganob_klaw",
+					"position": {
+						"_type": "Vector2",
+						"x": 951.7007874015742,
+						"y": 375.322834645669
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m4",
+					"model_type": "meganob_saws",
+					"position": {
+						"_type": "Vector2",
+						"x": 876.1102362204717,
+						"y": 375.322834645669
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m5",
+					"model_type": "meganob_saws",
+					"position": {
+						"_type": "Vector2",
+						"x": 800.5196850393693,
+						"y": 375.322834645669
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_MEGANOBZ_L",
+			"status": 2
+		},
+		"MIR_U_NOB_WAAAGH_BANNER_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_NOB_WAAAGH_BANNER_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Waaagh! faction ability",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Once per battle, at the start of the battle round, this model can use this ability. If it does, until the start of the next battle round, this model's unit gains the benefits of the Waaagh! ability as if you had called a Waaagh! this battle round.",
+						"name": "Plant the Waaagh! Banner",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While this model is gaining the benefits of the Waaagh! ability, it has a 4+ invulnerable save and an Objective Control characteristic of 5.",
+						"name": "Da Boss Iz Watchin'",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Nob with Waaagh! Banner can be attached to a Boyz, Breaka Boyz, or Nobz unit.",
+						"name": "Leader",
+						"type": "Core"
+					}
+				],
+				"display_name": "Nob with Waaagh! Banner",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ORKS",
+					"NOB WITH WAAAGH! BANNER",
+					"INFANTRY",
+					"CHARACTER"
+				],
+				"name": "Nob with Waaagh! Banner",
+				"points": 70.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 3.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Nob with Waaagh! Banner",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Kustom shoota",
+					"1x Waaagh! banner"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "4",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kustom shoota",
+						"range": "18",
+						"special_rules": "rapid fire 2",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Waaagh! banner",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 3.0,
+					"id": "m1",
+					"position": {
+						"x": 1040.0,
+						"y": 70.0
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_NOB_WAAAGH_BANNER_A",
+			"status": 2
+		},
+		"MIR_U_PAINBOSS_I": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_PAINBOSS_I",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Each time this model would lose a wound, roll one D6: on a 5+, that wound is not lost.",
+						"name": "Feel No Pain 5+",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.",
+						"name": "Dok's Toolz",
+						"type": "Datasheet"
+					},
+					{
+						"description": "At the end of your Movement phase, you can select one friendly BEAST SNAGGA CHARACTER model within 3\" of this model. That model regains up to 3 lost wounds.",
+						"name": "Sawbonez",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While this model is leading a unit, that unit is eligible to declare a charge in a turn in which it Fell Back.",
+						"name": "One Scalpel Short of a Medpack",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, if the bearer's unit is below its Starting Strength, you can return up to D3 destroyed Bodyguard models to that unit.",
+						"name": "Grot Orderly",
+						"type": "Wargear"
+					}
+				],
+				"display_name": "Painboss",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"INFANTRY",
+					"BEAST SNAGGA",
+					"ORKS",
+					"PAINBOSS"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BEAST SNAGGA BOYZ",
+						"BOYZ"
+					]
+				},
+				"name": "Painboss",
+				"points": 70.0,
+				"stats": {
+					"fnp": 5.0,
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Painboss",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Beast Snagga klaw",
+					"1x Grot Orderly"
+				],
+				"weapons": [
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Beast Snagga klaw",
+						"range": "Melee",
+						"special_rules": "anti-monster 4+, anti-vehicle 4+",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 1460.0,
+						"y": 70.0
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_PAINBOSS_I",
+			"status": 2
+		},
+		"MIR_U_WARBOSS_B": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_WARBOSS_B",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
+						"name": "Might is Right",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While the Waaagh! is active for your army, add 4 to the Attacks characteristic of this model's melee weapons.",
+						"name": "Da Biggest and da Best",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Warboss Alpha",
+				"enhancements": [],
+				"is_warlord": true,
+				"keywords": [
+					"CHARACTER",
+					"GRENADES",
+					"INFANTRY",
+					"ORKS",
+					"WARBOSS"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ"
+					]
+				},
+				"name": "Warboss",
+				"points": 75.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Warboss",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Kombi-weapon",
+					"1x Power klaw",
+					"1x Twin sluggas"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Twin slugga",
+						"range": "12",
+						"special_rules": "pistol, twin-linked",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Attack squig",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "4"
+					},
+					{
+						"ap": "-1",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 1710.0,
+						"y": 70.0
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_WARBOSS_B",
+			"status": 2
+		},
+		"MIR_U_WARBOSS_C": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_WARBOSS_C",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
+						"name": "Might is Right",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While the Waaagh! is active for your army, add 4 to the Attacks characteristic of this model's melee weapons.",
+						"name": "Da Biggest and da Best",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Warboss Beta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"GRENADES",
+					"INFANTRY",
+					"ORKS",
+					"WARBOSS"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ"
+					]
+				},
+				"name": "Warboss",
+				"points": 75.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Warboss",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Kombi-weapon",
+					"1x Power klaw",
+					"1x Twin sluggas"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Twin slugga",
+						"range": "12",
+						"special_rules": "pistol, twin-linked",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Attack squig",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "4"
+					},
+					{
+						"ap": "-1",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 1640.0,
+						"y": 70.0
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_WARBOSS_C",
+			"status": 2
+		},
+		"MIR_U_WARBOSS_IN_MEGA_ARMOUR_D": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_WARBOSS_IN_MEGA_ARMOUR_D",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
+						"name": "Might is Right",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While the Waaagh! is active for your army, this model's 'uge choppa has a Damage characteristic of 3.",
+						"name": "Dead Brutal",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Warboss in Mega Armour",
+				"enhancements": [
+					"Tellyporta"
+				],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"INFANTRY",
+					"MEGA ARMOUR",
+					"ORKS",
+					"WARBOSS",
+					"WARBOSS IN MEGA ARMOUR"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ"
+					]
+				},
+				"name": "Warboss in Mega Armour",
+				"points": 115.0,
+				"stats": {
+					"fnp": 5.0,
+					"leadership": 6.0,
+					"move": 5.0,
+					"objective_control": 1.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 7.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Warboss in Mega Armour",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x 'Uge choppa"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "4",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "'Uge choppa",
+						"range": "Melee",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 50.0,
+					"current_wounds": 7.0,
+					"id": "m1",
+					"position": {
+						"x": 1560.0,
+						"y": 70.0
+					},
+					"status_effects": [],
+					"wounds": 7.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_WARBOSS_IN_MEGA_ARMOUR_D",
+			"status": 2
+		},
+		"MIR_U_WAZBOM_BLASTAJET": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_WAZBOM_BLASTAJET",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Deadly Demise D3",
+						"name": "Deadly Demise",
+						"parameter": "D3",
+						"type": "Core"
+					},
+					{
+						"description": "Waaagh! faction ability",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time this model makes a ranged attack that targets a unit that cannot FLY, re-roll a Hit roll of 1.",
+						"name": "Blastajet Attack Run",
+						"type": "Datasheet"
+					}
+				],
+				"damaged_profile": {
+					"description": "While this model has 1-4 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll.",
+					"wounds_remaining": "1-4"
+				},
+				"display_name": "Wazbom Blastajet",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"WAZBOM BLASTAJET",
+					"ORKS",
+					"GRENADES",
+					"AIRCRAFT",
+					"VEHICLE",
+					"SPEED FREEKS",
+					"FLY"
+				],
+				"name": "Wazbom Blastajet",
+				"points": 175.0,
+				"stats": {
+					"invulnerable_save": 6.0,
+					"leadership": 7.0,
+					"move": 20.0,
+					"objective_control": 0.0,
+					"save": 3.0,
+					"toughness": 9.0,
+					"wounds": 12.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Wazbom Blastajet",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-3",
+						"attacks": "D3",
+						"ballistic_skill": "4",
+						"damage": "4",
+						"name": "Smasha gun",
+						"range": "48",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "4",
+						"damage": "D6",
+						"name": "Twin wazbom mega-kannon",
+						"range": "36",
+						"special_rules": "blast, hazardous, twin-linked",
+						"strength": "12",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Armoured hull",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 120.0,
+					"current_wounds": 12.0,
+					"id": "m1",
+					"position": {
+						"_type": "Vector2",
+						"x": 699.7322834645672,
+						"y": 293.43307086614186
+					},
+					"status_effects": [],
+					"wounds": 12.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_WAZBOM_BLASTAJET",
+			"status": 2
+		},
+		"MIR_U_WEIRDBOY_J": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "MIR_U_WEIRDBOY_J",
+			"meta": {
+				"abilities": [
+					{
+						"description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D3 mortal wounds.",
+						"name": "Deadly Demise D3",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, add 1 to the Strength and Damage characteristics of this model's 'Eadbanger weapon for every 5 models in that unit (rounding down), but while that unit contains 10 or more models, that weapon has the [HAZARDOUS] ability.",
+						"name": "Waaagh! Energy",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per turn, at the end of your Movement phase, one WEIRDBOY from your army can use this ability. If it does, roll one D6: on a 1, that WEIRDBOY's unit suffers D6 mortal wounds; on a 2+, remove this WEIRDBOY's unit from the battlefield and set it up again anywhere on the battlefield that is more than 9\" horizontally away from all enemy models.",
+						"name": "Da Jump",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Weirdboy",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"INFANTRY",
+					"PSYKER",
+					"ORKS",
+					"WEIRDBOY"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ"
+					]
+				},
+				"name": "Weirdboy",
+				"points": 65.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Weirdboy",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x 'Eadbanger",
+					"1x Weirdboy staff"
+				],
+				"weapons": [
+					{
+						"ap": "-3",
+						"attacks": "1",
+						"ballistic_skill": "4",
+						"damage": "1",
+						"name": "'Eadbanger",
+						"range": "24",
+						"special_rules": "precision, psychic",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "D3",
+						"name": "Weirdboy staff",
+						"range": "Melee",
+						"special_rules": "psychic",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 1360.0,
+						"y": 70.0
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "MIR_U_WEIRDBOY_J",
+			"status": 2
+		},
+		"U_BATTLEWAGON_G": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_BATTLEWAGON_G",
+			"meta": {
+				"abilities": [
+					{
+						"description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D6 mortal wounds.",
+						"name": "Deadly Demise D6",
+						"type": "Core"
+					},
+					{
+						"description": "Firing Deck 11. Each time this transport shoots, up to 11 models embarked within it can be selected to shoot as well. Each time such a model makes a ranged attack, it is treated as if it were not embarked, except that it cannot use any abilities that require it to be on the battlefield.",
+						"name": "FIRING DECK",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time this model loses one or more wounds, roll one D6: on a 6, this model does not lose a wound.",
+						"name": "Ramshackle",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While this model has 1-5 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll.",
+						"name": "Damaged: 1-5 Wounds Remaining",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Add 2 to this model's Toughness characteristic. If this model is equipped with this wargear, it loses the Firing Deck ability.",
+						"name": "'Ard Case",
+						"type": "Wargear"
+					},
+					{
+						"description": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR model takes up the space of 2 models. This model cannot transport models that are JUMP PACK models.",
+						"name": "TRANSPORT",
+						"type": "Special"
+					}
+				],
+				"display_name": "Battlewagon",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLEWAGON",
+					"ORKS",
+					"TRANSPORT",
+					"VEHICLE"
+				],
+				"name": "Battlewagon",
+				"points": 160.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 10.0,
+					"objective_control": 5.0,
+					"save": 3.0,
+					"toughness": 12.0,
+					"wounds": 16.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Battlewagon",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Deff rolla",
+					"1x Grabbin' klaw",
+					"1x Kannon",
+					"1x Lobba",
+					"1x Wreckin' ball",
+					"1x 'Ard Case"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "D6+3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kannon \u2013 frag",
+						"range": "36",
+						"special_rules": "blast",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "D6",
+						"name": "Kannon \u2013 shell",
+						"range": "36",
+						"strength": "10",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D6+1",
+						"ballistic_skill": "5",
+						"damage": "2",
+						"name": "Killkannon",
+						"range": "24",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "D6",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Lobba",
+						"range": "48",
+						"special_rules": "blast, indirect fire",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-3",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "5",
+						"name": "Zzap gun",
+						"range": "36",
+						"special_rules": "anti-vehicle 4+",
+						"strength": "D6+6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Deff rolla",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "2",
+						"damage": "2",
+						"name": "Grabbin' klaw",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "6",
+						"damage": "1",
+						"name": "Tracks and wheels",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "4"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"damage": "D6",
+						"name": "Wreckin' ball",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_dimensions": {
+						"length": 180.0,
+						"width": 110.0
+					},
+					"base_mm": 180.0,
+					"base_type": "rectangular",
+					"current_wounds": 16.0,
+					"id": "m1",
+					"position": {
+						"_type": "Vector2",
+						"x": 143.73228346456693,
+						"y": 1983.732283464567
+					},
+					"status_effects": [],
+					"wounds": 16.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BATTLEWAGON_G",
+			"status": 2,
+			"transport_data": {
+				"capacity": 22,
+				"capacity_keywords": [
+					"ORKS",
+					"INFANTRY"
+				],
+				"capacity_multipliers": {
+					"MEGA ARMOUR": 2
+				},
+				"embarked_units": [],
+				"excluded_keywords": [
+					"JUMP PACK"
+				],
+				"firing_deck": 0
+			}
+		},
+		"U_BOYZ_E": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_BOYZ_E",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "At the end of your Command phase, if this unit is within range of an objective marker you control, that objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn.",
+						"name": "Get Da Good Bitz",
+						"type": "Datasheet"
+					},
+					{
+						"description": "If this unit has a Starting Strength of 20, you can attach up to two Leader units to it instead of one (but only if one of those is a WARBOSS model). If you do, and this unit is destroyed, the Leader units attached to it become separate units with their original Starting Strengths.",
+						"name": "BODYGUARD",
+						"type": "Special (\u043f\u0440\u0430\u0432\u0430\u044f \u043a\u043e\u043b\u043e\u043d\u043a\u0430)"
+					}
+				],
+				"display_name": "Boyz Alpha",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLELINE",
+					"BOYZ",
+					"GRENADES",
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"name": "Boyz",
+				"points": 80.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9-19 Boyz",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"9x Slugga",
+					"1x Slugga"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Rokkit launcha",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"_type": "Vector2",
+						"x": 269.0866141732283,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"_type": "Vector2",
+						"x": 329.5590551181101,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"_type": "Vector2",
+						"x": 390.0314960629919,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"_type": "Vector2",
+						"x": 450.5039370078737,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"_type": "Vector2",
+						"x": 510.97637795275546,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"_type": "Vector2",
+						"x": 571.4488188976372,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"_type": "Vector2",
+						"x": 631.921259842519,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"_type": "Vector2",
+						"x": 692.3937007874008,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"_type": "Vector2",
+						"x": 752.8661417322826,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"_type": "Vector2",
+						"x": 813.3385826771644,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m11",
+					"position": {
+						"_type": "Vector2",
+						"x": 873.8110236220462,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m12",
+					"position": {
+						"_type": "Vector2",
+						"x": 934.2834645669279,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m13",
+					"position": {
+						"_type": "Vector2",
+						"x": 994.7559055118097,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m14",
+					"position": {
+						"_type": "Vector2",
+						"x": 1055.2283464566915,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m15",
+					"position": {
+						"_type": "Vector2",
+						"x": 1115.7007874015733,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m16",
+					"position": {
+						"_type": "Vector2",
+						"x": 1176.173228346455,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m17",
+					"position": {
+						"_type": "Vector2",
+						"x": 1236.6456692913368,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m18",
+					"position": {
+						"_type": "Vector2",
+						"x": 1297.1181102362186,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m19",
+					"position": {
+						"_type": "Vector2",
+						"x": 1357.5905511811004,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m20",
+					"position": {
+						"_type": "Vector2",
+						"x": 1418.0629921259822,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BOYZ_E",
+			"status": 2
+		},
+		"U_BOYZ_F": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_BOYZ_F",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "At the end of your Command phase, if this unit is within range of an objective marker you control, that objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn.",
+						"name": "Get Da Good Bitz",
+						"type": "Datasheet"
+					},
+					{
+						"description": "If this unit has a Starting Strength of 20, you can attach up to two Leader units to it instead of one (but only if one of those is a WARBOSS model). If you do, and this unit is destroyed, the Leader units attached to it become separate units with their original Starting Strengths.",
+						"name": "BODYGUARD",
+						"type": "Special (\u043f\u0440\u0430\u0432\u0430\u044f \u043a\u043e\u043b\u043e\u043d\u043a\u0430)"
+					}
+				],
+				"display_name": "Boyz Beta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLELINE",
+					"BOYZ",
+					"GRENADES",
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"model_profiles": {
+					"boss_nob": {
+						"label": "Boss Nob",
+						"stats_override": {
+							"save": 4.0,
+							"weapon_skill": 3.0
+						},
+						"transport_slots": 1.0,
+						"weapons": [
+							"Big choppa",
+							"Choppa",
+							"Power klaw",
+							"Slugga",
+							"Kombi-weapon"
+						]
+					},
+					"boy": {
+						"label": "Boy",
+						"stats_override": {
+							"weapon_skill": 4.0
+						},
+						"transport_slots": 1.0,
+						"weapons": [
+							"Choppa",
+							"Close combat weapon",
+							"Shoota",
+							"Slugga",
+							"Big shoota",
+							"Rokkit launcha"
+						]
+					}
+				},
+				"name": "Boyz",
+				"points": 80.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9-19 Boyz",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"9x Slugga",
+					"1x Slugga"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Rokkit launcha",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"model_type": "boss_nob",
+					"position": {
+						"_type": "Vector2",
+						"x": 1478.535433070864,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1539.0078740157458,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1599.4803149606275,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1659.9527559055093,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1720.425196850391,
+						"y": 1867.1968503937007
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 299.3228346456692,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 359.795275590551,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 420.2677165354328,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 480.74015748031456,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 541.2125984251963,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m11",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 601.6850393700781,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m12",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 662.1574803149599,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m13",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 722.6299212598417,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m14",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 783.1023622047235,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m15",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 843.5748031496053,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m16",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 904.047244094487,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m17",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 964.5196850393688,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m18",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1024.9921259842506,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m19",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1085.4645669291324,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m20",
+					"model_type": "boy",
+					"position": {
+						"_type": "Vector2",
+						"x": 1145.9370078740142,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BOYZ_F",
+			"status": 2
+		},
+		"U_BOYZ_K": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_BOYZ_K",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "At the end of your Command phase, if this unit is within range of an objective marker you control, that objective marker remains under your control, even if you have no models within range of it, until your opponent controls it at the start or end of any turn.",
+						"name": "Get Da Good Bitz",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Boyz Gamma",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"BATTLELINE",
+					"BOYZ",
+					"GRENADES",
+					"INFANTRY",
+					"MOB",
+					"ORKS"
+				],
+				"name": "Boyz",
+				"points": 80.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9 Boyz",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"9x Slugga",
+					"1x Slugga"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "5",
+						"damage": "3",
+						"name": "Rokkit launcha",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Shoota",
+						"range": "18",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"_type": "Vector2",
+						"x": 1206.409448818896,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"_type": "Vector2",
+						"x": 1266.8818897637777,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"_type": "Vector2",
+						"x": 1327.3543307086595,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"_type": "Vector2",
+						"x": 1387.8267716535413,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"_type": "Vector2",
+						"x": 1448.299212598423,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"_type": "Vector2",
+						"x": 1508.7716535433049,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"_type": "Vector2",
+						"x": 1569.2440944881866,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"_type": "Vector2",
+						"x": 1629.7165354330684,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"_type": "Vector2",
+						"x": 1690.1889763779502,
+						"y": 1912.551181102362
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"_type": "Vector2",
+						"x": 329.5590551181101,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BOYZ_K",
+			"status": 2
+		},
+		"U_GHAZGHKULL_THRAKA_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_GHAZGHKULL_THRAKA_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Waaagh! faction ability",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While a Waaagh! is active for Ghazghkull's army, each time a model in this unit makes a melee attack, add 1 to the Hit roll and the Wound roll. In addition, each time a model in this unit makes a melee attack, a Critical Hit is scored on a 5+ rather than a 6.",
+						"name": "Prophet of Da Great Waaagh!",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While a Waaagh! is active for Ghazghkull's army, friendly ORKS units within 12\" of this unit have the Lethal Hits ability on their melee weapons.",
+						"name": "Ghazghkull's Waaagh! Banner (Aura)",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Ghazghkull Thraka",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ORKS",
+					"MONSTER",
+					"CHARACTER",
+					"EPIC HERO",
+					"WARBOSS",
+					"GHAZGHKULL THRAKA"
+				],
+				"name": "Ghazghkull Thraka",
+				"points": 300.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 9.0,
+					"wounds": 12.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Ghazghkull Thraka",
+						"line": 1.0
+					},
+					{
+						"description": "1 Makari",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"1x Gork's Klaw",
+					"1x Mork's Roar",
+					"1x Makari's Stabba"
+				],
+				"weapons": [
+					{
+						"ap": "-4",
+						"attacks": "5",
+						"damage": "D3+3",
+						"name": "Gork's Klaw",
+						"range": "Melee",
+						"strength": "14",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-1",
+						"attacks": "D6",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Mork's Roar",
+						"range": "24",
+						"special_rules": "rapid fire 2",
+						"strength": "7",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "4",
+						"damage": "1",
+						"name": "Makari's Stabba",
+						"range": "Melee",
+						"strength": "3",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 100.0,
+					"current_wounds": 12.0,
+					"id": "m1",
+					"position": {
+						"_type": "Vector2",
+						"x": 694.9133858267714,
+						"y": 2015.2283464566929
+					},
+					"status_effects": [],
+					"wounds": 12.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"_type": "Vector2",
+						"x": 390.0314960629919,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_GHAZGHKULL_THRAKA_A",
+			"status": 2
+		},
+		"U_KAPTIN_BADRUKK_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_KAPTIN_BADRUKK_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Waaagh! faction ability",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, each time a model in that unit makes a ranged attack, re-roll a Hit roll of 1.",
+						"name": "Flashiest Gitz",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While this model is on the battlefield, subtract 1 from the Toughness characteristic of enemy INFANTRY units that are within 6\" of this model.",
+						"name": "Ded Glowy Ammo (Aura)",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Kaptin Badrukk can be attached to a Flash Gitz unit.",
+						"name": "Leader",
+						"type": "Core"
+					}
+				],
+				"display_name": "Kaptin Badrukk",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ORKS",
+					"INFANTRY",
+					"CHARACTER",
+					"FREEBOOTER",
+					"KAPTIN BADRUKK"
+				],
+				"name": "Kaptin Badrukk",
+				"points": 100.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Kaptin Badrukk",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Da Rippa",
+					"1x Kustom mega-blasta",
+					"1x Power klaw"
+				],
+				"weapons": [
+					{
+						"ap": "-1",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Da Rippa",
+						"range": "Melee",
+						"special_rules": "lethal hits",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "2",
+						"damage": "D6",
+						"name": "Kustom mega-blasta",
+						"range": "24",
+						"special_rules": "blast",
+						"strength": "8",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 500.0,
+						"y": 2330.0
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_KAPTIN_BADRUKK_A",
+			"status": 2
+		},
+		"U_KOMMANDOS_H": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_KOMMANDOS_H",
+			"meta": {
+				"abilities": [
+					{
+						"description": "During deployment, this unit can be set up anywhere on the battlefield that is more than 9\" horizontally away from the enemy deployment zone and more than 9\" away from all enemy models.",
+						"name": "Infiltrators",
+						"type": "Core"
+					},
+					{
+						"description": "If every model in a unit has this ability, then each time a ranged attack is made against this unit, subtract 1 from the Hit roll.",
+						"name": "Stealth",
+						"type": "Core"
+					},
+					{
+						"description": "After deployment, this unit can make a Normal Move of up to 6\", but must end that move more than 9\" horizontally away from all enemy models.",
+						"name": "Scout 6\"",
+						"range": 6.0,
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "At the start of your Shooting phase, if this unit is within 9\" of one or more enemy units, it can use this ability. If it does, until the end of the phase, this unit is not eligible to shoot, but you roll one D6 for each model in this unit that is within 9\" of an enemy unit: for each 5+, that enemy unit suffers 1 mortal wound.",
+						"name": "Throat Slittas",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Enemy units cannot use the Fire Overwatch Stratagem to shoot at this unit.",
+						"name": "Sneaky Surprise",
+						"type": "Datasheet"
+					},
+					{
+						"description": "At the start of the Declare Battle Formations step, this unit can be split into two units, each containing five models.",
+						"name": "Patrol Squad",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, in your opponent's Shooting phase, when this unit is selected as the target of a ranged attack, until the end of the phase, models in this unit have a 5+ invulnerable save.",
+						"name": "Distraction Grot",
+						"type": "Wargear"
+					},
+					{
+						"description": "Once per battle, after this unit ends a Normal move, you can select one enemy unit within 12\" of and visible to this unit and roll one D6: on a 3+, that enemy unit suffers D3 mortal wounds.",
+						"name": "Bomb Squigs",
+						"type": "Wargear"
+					}
+				],
+				"display_name": "Kommandos",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"GRENADES",
+					"INFANTRY",
+					"KOMMANDOS",
+					"ORKS"
+				],
+				"name": "Kommandos",
+				"points": 135.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Boss Nob",
+						"line": 1.0
+					},
+					{
+						"description": "9 Kommandos",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"10x Choppa",
+					"10x Slugga"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Slugga",
+						"range": "12",
+						"special_rules": "pistol",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Choppa",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"_type": "Vector2",
+						"x": 450.5039370078737,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"_type": "Vector2",
+						"x": 510.97637795275546,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"_type": "Vector2",
+						"x": 571.4488188976372,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"_type": "Vector2",
+						"x": 813.3385826771644,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"position": {
+						"_type": "Vector2",
+						"x": 873.8110236220462,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"position": {
+						"_type": "Vector2",
+						"x": 934.2834645669279,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"position": {
+						"_type": "Vector2",
+						"x": 994.7559055118097,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"position": {
+						"_type": "Vector2",
+						"x": 1055.2283464566915,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"position": {
+						"_type": "Vector2",
+						"x": 1115.7007874015733,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"position": {
+						"_type": "Vector2",
+						"x": 1176.173228346455,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_KOMMANDOS_H",
+			"status": 2
+		},
+		"U_LOOTAS_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_LOOTAS_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "If your Army Faction is ORKS, once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase, the Waaagh! is active for your army and:\n- Units from your army with this ability are eligible to declare a charge in a turn in which they Advanced.\n- Add 1 to the Strength and Attacks characteristics of melee weapons equipped by models from your army with this ability.\n- Models from your army with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time a model in this unit makes a ranged attack, re-roll a Hit roll of 1. If that attack targets a unit that is within range of an objective marker, you can re-roll the Hit roll instead.",
+						"name": "Dat's Our Loot!",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Lootas",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ORKS",
+					"LOOTAS",
+					"INFANTRY"
+				],
+				"model_profiles": {
+					"loota_deffgun": {
+						"label": "Loota (Deffgun)",
+						"stats_override": {},
+						"transport_slots": 1.0,
+						"weapons": [
+							"Deffgun",
+							"Close combat weapon"
+						]
+					},
+					"loota_kmb": {
+						"label": "Loota (Kustom Mega-blasta)",
+						"stats_override": {},
+						"transport_slots": 1.0,
+						"weapons": [
+							"Kustom mega-blasta",
+							"Close combat weapon"
+						]
+					},
+					"spanner": {
+						"label": "Spanner",
+						"stats_override": {
+							"ballistic_skill": 4.0
+						},
+						"transport_slots": 1.0,
+						"weapons": [
+							"Kustom mega-blasta",
+							"Close combat weapon"
+						]
+					}
+				},
+				"name": "Lootas",
+				"points": 100.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Spanner",
+						"line": 1.0
+					},
+					{
+						"description": "8 Lootas",
+						"line": 2.0
+					},
+					{
+						"description": "2 Lootas (KMB)",
+						"line": 3.0
+					}
+				],
+				"wargear": [
+					"1x Spanner",
+					"1x Close combat weapon",
+					"1x Kustom mega-blasta",
+					"2x Loota (KMB)",
+					"2x Close combat weapon",
+					"2x Kustom mega-blasta",
+					"8x Loota",
+					"8x Close combat weapon",
+					"8x Deffgun"
+				],
+				"weapons": [
+					{
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "6",
+						"damage": "2",
+						"name": "Deffgun",
+						"range": "48",
+						"special_rules": "heavy, rapid fire 1",
+						"strength": "8",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"ballistic_skill": "5",
+						"damage": "D6",
+						"name": "Kustom mega-blasta",
+						"range": "24",
+						"special_rules": "hazardous",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 1236.6456692913368,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 1297.1181102362186,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 1357.5905511811004,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 1418.0629921259822,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m5",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 1478.535433070864,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m6",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 1539.0078740157458,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m7",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 1599.4803149606275,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m8",
+					"model_type": "loota_deffgun",
+					"position": {
+						"_type": "Vector2",
+						"x": 1659.9527559055093,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m9",
+					"model_type": "loota_kmb",
+					"position": {
+						"_type": "Vector2",
+						"x": 1720.425196850391,
+						"y": 1957.9055118110234
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m10",
+					"model_type": "loota_kmb",
+					"position": {
+						"_type": "Vector2",
+						"x": 359.795275590551,
+						"y": 2003.2598425196848
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m11",
+					"model_type": "spanner",
+					"position": {
+						"_type": "Vector2",
+						"x": 420.2677165354328,
+						"y": 2003.2598425196848
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_LOOTAS_A",
+			"status": 2
+		},
+		"U_MEGANOBZ_L": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_MEGANOBZ_L",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time a model in this unit makes a melee attack, if this unit made a Charge move this turn, add 1 to the Wound roll.",
+						"name": "Krumpin' Time",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Meganobz",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"INFANTRY",
+					"MEGA ARMOUR",
+					"ORKS",
+					"MEGANOBZ",
+					"GRENADES"
+				],
+				"model_profiles": {
+					"meganob_klaw": {
+						"label": "Meganob (Power Klaw)",
+						"stats_override": {},
+						"transport_slots": 2.0,
+						"weapons": [
+							"Kustom shoota",
+							"Power klaw"
+						]
+					},
+					"meganob_saws": {
+						"label": "Meganob (Killsaws)",
+						"stats_override": {},
+						"transport_slots": 2.0,
+						"weapons": [
+							"Kustom shoota",
+							"Killsaws"
+						]
+					}
+				},
+				"name": "Meganobz",
+				"points": 160.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 5.0,
+					"objective_control": 1.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 3.0
+				},
+				"unit_composition": [
+					{
+						"description": "2-6 Meganobz",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "4",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kustom shoota",
+						"range": "18",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "3"
+					},
+					{
+						"ap": "-3",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Killsaws",
+						"range": "Melee",
+						"special_rules": "twin-linked",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m1",
+					"model_type": "meganob_klaw",
+					"position": {
+						"_type": "Vector2",
+						"x": 487.0393700787404,
+						"y": 2024.677165354331
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m2",
+					"model_type": "meganob_klaw",
+					"position": {
+						"_type": "Vector2",
+						"x": 562.6299212598428,
+						"y": 2024.677165354331
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m3",
+					"model_type": "meganob_klaw",
+					"position": {
+						"_type": "Vector2",
+						"x": 808.2992125984258,
+						"y": 2024.677165354331
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m4",
+					"model_type": "meganob_saws",
+					"position": {
+						"_type": "Vector2",
+						"x": 883.8897637795283,
+						"y": 2024.677165354331
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 3.0,
+					"id": "m5",
+					"model_type": "meganob_saws",
+					"position": {
+						"_type": "Vector2",
+						"x": 959.4803149606307,
+						"y": 2024.677165354331
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_MEGANOBZ_L",
+			"status": 2
+		},
+		"U_NOB_WAAAGH_BANNER_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_NOB_WAAAGH_BANNER_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Waaagh! faction ability",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Once per battle, at the start of the battle round, this model can use this ability. If it does, until the start of the next battle round, this model's unit gains the benefits of the Waaagh! ability as if you had called a Waaagh! this battle round.",
+						"name": "Plant the Waaagh! Banner",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While this model is gaining the benefits of the Waaagh! ability, it has a 4+ invulnerable save and an Objective Control characteristic of 5.",
+						"name": "Da Boss Iz Watchin'",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Nob with Waaagh! Banner can be attached to a Boyz, Breaka Boyz, or Nobz unit.",
+						"name": "Leader",
+						"type": "Core"
+					}
+				],
+				"display_name": "Nob with Waaagh! Banner",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ORKS",
+					"NOB WITH WAAAGH! BANNER",
+					"INFANTRY",
+					"CHARACTER"
+				],
+				"name": "Nob with Waaagh! Banner",
+				"points": 70.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 3.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Nob with Waaagh! Banner",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Kustom shoota",
+					"1x Waaagh! banner"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "4",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kustom shoota",
+						"range": "18",
+						"special_rules": "rapid fire 2",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Waaagh! banner",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 3.0,
+					"id": "m1",
+					"position": {
+						"x": 720.0,
+						"y": 2330.0
+					},
+					"status_effects": [],
+					"wounds": 3.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_NOB_WAAAGH_BANNER_A",
+			"status": 2
+		},
+		"U_PAINBOSS_I": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_PAINBOSS_I",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Each time this model would lose a wound, roll one D6: on a 5+, that wound is not lost.",
+						"name": "Feel No Pain 5+",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, models in that unit have the Feel No Pain 5+ ability.",
+						"name": "Dok's Toolz",
+						"type": "Datasheet"
+					},
+					{
+						"description": "At the end of your Movement phase, you can select one friendly BEAST SNAGGA CHARACTER model within 3\" of this model. That model regains up to 3 lost wounds.",
+						"name": "Sawbonez",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While this model is leading a unit, that unit is eligible to declare a charge in a turn in which it Fell Back.",
+						"name": "One Scalpel Short of a Medpack",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, if the bearer's unit is below its Starting Strength, you can return up to D3 destroyed Bodyguard models to that unit.",
+						"name": "Grot Orderly",
+						"type": "Wargear"
+					}
+				],
+				"display_name": "Painboss",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"INFANTRY",
+					"BEAST SNAGGA",
+					"ORKS",
+					"PAINBOSS"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BEAST SNAGGA BOYZ",
+						"BOYZ"
+					]
+				},
+				"name": "Painboss",
+				"points": 70.0,
+				"stats": {
+					"fnp": 5.0,
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Painboss",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Beast Snagga klaw",
+					"1x Grot Orderly"
+				],
+				"weapons": [
+					{
+						"ap": "-2",
+						"attacks": "3",
+						"damage": "2",
+						"name": "Beast Snagga klaw",
+						"range": "Melee",
+						"special_rules": "anti-monster 4+, anti-vehicle 4+",
+						"strength": "9",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 300.0,
+						"y": 2330.0
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_PAINBOSS_I",
+			"status": 2
+		},
+		"U_WARBOSS_B": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_WARBOSS_B",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
+						"name": "Might is Right",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While the Waaagh! is active for your army, add 4 to the Attacks characteristic of this model's melee weapons.",
+						"name": "Da Biggest and da Best",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Warboss Alpha",
+				"enhancements": [],
+				"is_warlord": true,
+				"keywords": [
+					"CHARACTER",
+					"GRENADES",
+					"INFANTRY",
+					"ORKS",
+					"WARBOSS"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ"
+					]
+				},
+				"name": "Warboss",
+				"points": 75.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Warboss",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Kombi-weapon",
+					"1x Power klaw",
+					"1x Twin sluggas"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Twin slugga",
+						"range": "12",
+						"special_rules": "pistol, twin-linked",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Attack squig",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "4"
+					},
+					{
+						"ap": "-1",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 50.0,
+						"y": 2330.0
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_WARBOSS_B",
+			"status": 2
+		},
+		"U_WARBOSS_C": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_WARBOSS_C",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
+						"name": "Might is Right",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While the Waaagh! is active for your army, add 4 to the Attacks characteristic of this model's melee weapons.",
+						"name": "Da Biggest and da Best",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Warboss Beta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"GRENADES",
+					"INFANTRY",
+					"ORKS",
+					"WARBOSS"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ"
+					]
+				},
+				"name": "Warboss",
+				"points": 75.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 4.0,
+					"toughness": 5.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Warboss",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Kombi-weapon",
+					"1x Power klaw",
+					"1x Twin sluggas"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Kombi-weapon",
+						"range": "24",
+						"special_rules": "anti-infantry 4+, devastating wounds, rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"ballistic_skill": "5",
+						"damage": "1",
+						"name": "Twin slugga",
+						"range": "12",
+						"special_rules": "pistol, twin-linked",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Attack squig",
+						"range": "Melee",
+						"special_rules": "extra attacks",
+						"strength": "4",
+						"type": "Melee",
+						"weapon_skill": "4"
+					},
+					{
+						"ap": "-1",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Big choppa",
+						"range": "Melee",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "Power klaw",
+						"range": "Melee",
+						"strength": "10",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 120.0,
+						"y": 2330.0
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_WARBOSS_C",
+			"status": 2
+		},
+		"U_WARBOSS_IN_MEGA_ARMOUR_D": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+			"meta": {
+				"abilities": [
+					{
+						"description": "",
+						"name": "Core",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, each time a model in that unit makes a melee attack, add 1 to the Hit roll.",
+						"name": "Might is Right",
+						"type": "Datasheet"
+					},
+					{
+						"description": "While the Waaagh! is active for your army, this model's 'uge choppa has a Damage characteristic of 3.",
+						"name": "Dead Brutal",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Warboss in Mega Armour",
+				"enhancements": [
+					"Tellyporta"
+				],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"INFANTRY",
+					"MEGA ARMOUR",
+					"ORKS",
+					"WARBOSS",
+					"WARBOSS IN MEGA ARMOUR"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ"
+					]
+				},
+				"name": "Warboss in Mega Armour",
+				"points": 115.0,
+				"stats": {
+					"fnp": 5.0,
+					"leadership": 6.0,
+					"move": 5.0,
+					"objective_control": 1.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 7.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Warboss in Mega Armour",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x 'Uge choppa"
+				],
+				"weapons": [
+					{
+						"ap": "0",
+						"attacks": "3",
+						"ballistic_skill": "4",
+						"damage": "1",
+						"name": "Big shoota",
+						"range": "36",
+						"special_rules": "rapid fire 2",
+						"strength": "5",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "4",
+						"damage": "2",
+						"name": "'Uge choppa",
+						"range": "Melee",
+						"strength": "12",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 50.0,
+					"current_wounds": 7.0,
+					"id": "m1",
+					"position": {
+						"x": 200.0,
+						"y": 2330.0
+					},
+					"status_effects": [],
+					"wounds": 7.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_WARBOSS_IN_MEGA_ARMOUR_D",
+			"status": 2
+		},
+		"U_WAZBOM_BLASTAJET": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_WAZBOM_BLASTAJET",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Deadly Demise D3",
+						"name": "Deadly Demise",
+						"parameter": "D3",
+						"type": "Core"
+					},
+					{
+						"description": "Waaagh! faction ability",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "Each time this model makes a ranged attack that targets a unit that cannot FLY, re-roll a Hit roll of 1.",
+						"name": "Blastajet Attack Run",
+						"type": "Datasheet"
+					}
+				],
+				"damaged_profile": {
+					"description": "While this model has 1-4 wounds remaining, each time this model makes an attack, subtract 1 from the Hit roll.",
+					"wounds_remaining": "1-4"
+				},
+				"display_name": "Wazbom Blastajet",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"WAZBOM BLASTAJET",
+					"ORKS",
+					"GRENADES",
+					"AIRCRAFT",
+					"VEHICLE",
+					"SPEED FREEKS",
+					"FLY"
+				],
+				"name": "Wazbom Blastajet",
+				"points": 175.0,
+				"stats": {
+					"invulnerable_save": 6.0,
+					"leadership": 7.0,
+					"move": 20.0,
+					"objective_control": 0.0,
+					"save": 3.0,
+					"toughness": 9.0,
+					"wounds": 12.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Wazbom Blastajet",
+						"line": 1.0
+					}
+				],
+				"wargear": [],
+				"weapons": [
+					{
+						"ap": "-3",
+						"attacks": "D3",
+						"ballistic_skill": "4",
+						"damage": "4",
+						"name": "Smasha gun",
+						"range": "48",
+						"special_rules": "blast",
+						"strength": "9",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "D3",
+						"ballistic_skill": "4",
+						"damage": "D6",
+						"name": "Twin wazbom mega-kannon",
+						"range": "36",
+						"special_rules": "blast, hazardous, twin-linked",
+						"strength": "12",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "3",
+						"damage": "1",
+						"name": "Armoured hull",
+						"range": "Melee",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "4"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 120.0,
+					"current_wounds": 12.0,
+					"id": "m1",
+					"position": {
+						"_type": "Vector2",
+						"x": 1060.2677165354328,
+						"y": 2106.566929133858
+					},
+					"status_effects": [],
+					"wounds": 12.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_WAZBOM_BLASTAJET",
+			"status": 2
+		},
+		"U_WEIRDBOY_J": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {},
+			"id": "U_WEIRDBOY_J",
+			"meta": {
+				"abilities": [
+					{
+						"description": "When this model is destroyed, roll one D6. On a 6, each unit within 6\" suffers D3 mortal wounds.",
+						"name": "Deadly Demise D3",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, at the start of your Command phase, you can call a Waaagh!. If you do, until the start of your next Command phase: units with this ability are eligible to charge in a turn in which they Advanced; add 1 to the Strength and Attacks characteristics of melee weapons equipped by models with this ability; models with this ability have a 5+ invulnerable save.",
+						"name": "Waaagh!",
+						"type": "Faction"
+					},
+					{
+						"description": "While this model is leading a unit, add 1 to the Strength and Damage characteristics of this model's 'Eadbanger weapon for every 5 models in that unit (rounding down), but while that unit contains 10 or more models, that weapon has the [HAZARDOUS] ability.",
+						"name": "Waaagh! Energy",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per turn, at the end of your Movement phase, one WEIRDBOY from your army can use this ability. If it does, roll one D6: on a 1, that WEIRDBOY's unit suffers D6 mortal wounds; on a 2+, remove this WEIRDBOY's unit from the battlefield and set it up again anywhere on the battlefield that is more than 9\" horizontally away from all enemy models.",
+						"name": "Da Jump",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Weirdboy",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"CHARACTER",
+					"INFANTRY",
+					"PSYKER",
+					"ORKS",
+					"WEIRDBOY"
+				],
+				"leader_data": {
+					"can_lead": [
+						"BOYZ"
+					]
+				},
+				"name": "Weirdboy",
+				"points": 65.0,
+				"stats": {
+					"leadership": 7.0,
+					"move": 6.0,
+					"objective_control": 1.0,
+					"save": 5.0,
+					"toughness": 5.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Weirdboy",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x 'Eadbanger",
+					"1x Weirdboy staff"
+				],
+				"weapons": [
+					{
+						"ap": "-3",
+						"attacks": "1",
+						"ballistic_skill": "4",
+						"damage": "1",
+						"name": "'Eadbanger",
+						"range": "24",
+						"special_rules": "precision, psychic",
+						"strength": "6",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-1",
+						"attacks": "3",
+						"damage": "D3",
+						"name": "Weirdboy staff",
+						"range": "Melee",
+						"special_rules": "psychic",
+						"strength": "8",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 400.0,
+						"y": 2330.0
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_WEIRDBOY_J",
+			"status": 2
+		}
+	}
+}

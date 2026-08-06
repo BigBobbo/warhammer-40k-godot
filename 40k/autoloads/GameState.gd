@@ -968,11 +968,27 @@ func get_enemy_deployment_zone(player: int) -> Dictionary:
 	var enemy_player = 3 - player
 	return get_deployment_zone_for_player(enemy_player)
 
+## An army-list HEADER row that an older army importer materialised as a
+## "unit": keywords ["UNKNOWN"], no abilities, no weapons, no unit
+## composition — and a points value that is the ARMY total rather than a unit
+## cost. tests/saves/audit_baseline_postdeploy.w40ksave carries one
+## (U_STRIKE_FORCE_A, "Strike Force", 2000 pts).
+##
+## It has to be excluded from every points and unit-count total, because those
+## totals gate the 11e 20.01 Strategic Reserves cap. Counting it read that
+## fixture's 1840-point Ork army as 3840, which doubled the 50% allowance from
+## 920 to 1920 and let the AI put 69% of its real army into reserve — starting
+## the game with 570 points on the board against 1120. No army file under
+## 40k/armies/ produces such a row today, so this guard is purely defensive
+## against stale saves, but the failure it prevents is silent and severe.
+func is_placeholder_unit(unit: Dictionary) -> bool:
+	return "UNKNOWN" in unit.get("meta", {}).get("keywords", [])
+
 func get_total_army_points(player: int) -> int:
 	var total = 0
 	for unit_id in state["units"]:
 		var unit = state["units"][unit_id]
-		if unit["owner"] == player:
+		if unit["owner"] == player and not is_placeholder_unit(unit):
 			total += unit.get("meta", {}).get("points", 0)
 	return total
 
@@ -980,7 +996,8 @@ func get_reserves_points(player: int) -> int:
 	var total = 0
 	for unit_id in state["units"]:
 		var unit = state["units"][unit_id]
-		if unit["owner"] == player and unit["status"] == UnitStatus.IN_RESERVES:
+		if unit["owner"] == player and unit["status"] == UnitStatus.IN_RESERVES \
+				and not is_placeholder_unit(unit):
 			total += unit.get("meta", {}).get("points", 0)
 	return total
 
@@ -988,7 +1005,7 @@ func get_total_unit_count(player: int) -> int:
 	var count = 0
 	for unit_id in state["units"]:
 		var unit = state["units"][unit_id]
-		if unit["owner"] == player:
+		if unit["owner"] == player and not is_placeholder_unit(unit):
 			count += 1
 	return count
 
@@ -996,7 +1013,8 @@ func get_reserves_unit_count(player: int) -> int:
 	var count = 0
 	for unit_id in state["units"]:
 		var unit = state["units"][unit_id]
-		if unit["owner"] == player and unit["status"] == UnitStatus.IN_RESERVES:
+		if unit["owner"] == player and unit["status"] == UnitStatus.IN_RESERVES \
+				and not is_placeholder_unit(unit):
 			count += 1
 	return count
 

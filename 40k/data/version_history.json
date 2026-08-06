@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.28.6",
+      "date": "2026-08-06",
+      "summary": "The AI now screens deep strike at the correct 8\" and stops refusing its own legal reinforcement drops — plus a batch of rules-correctness fixes to how it reads the board.",
+      "changes": [
+        "Fixed: the AI screened against deep strike as if enemies had to arrive more than 9\" away, but 11th edition sets units up more than 8\" away (20.04's ingress move, which the game already implemented). The AI therefore believed an 8-9\" ring around each of its units was covered when the opponent could legally drop into it. It now reads the distance from the same rule the rest of the game uses, and tightens the ring further if an enemy in reserve advertises a shorter arrival.",
+        "Fixed: the same stale 9\" made the AI refuse its OWN legal 8-9\" reinforcement placements, so its units arriving from reserve had fewer options than the rules allow.",
+        "Fixed: the AI paid an \"enemy is holding an objective\" premium when choosing shooting targets even for enemies that were already battle-shocked — a battle-shocked unit's Objective Control is \"-\", so it is holding nothing.",
+        "Fixed: an army-list header row imported as if it were a unit (a leftover in older saved games) could double the AI's Strategic Reserves allowance and make it start a battle with most of its army off the table. Army points and unit counts now ignore those rows.",
+        "Under the hood: the AI has learned the 11th-edition Hidden rule (13.09) — seeking dense terrain, weighing the two-turn cost of giving Hidden up by shooting, and shooting enemies that are about to regain it — along with Overwatch-exposure costing and using battle-shock to strip Objective Control. These are switched OFF by default: benchmarking across 50 games did not show them winning more games, so they ship dormant pending tuning rather than changing how the AI plays today."
+      ]
+    },
+    {
       "version": "1.28.5",
       "date": "2026-08-06",
       "summary": "Fixed the Pile In step silently skipping a unit when you piled in several units one after another.",
@@ -16,9 +28,9 @@
       "date": "2026-08-06",
       "summary": "Heroic Intervention no longer offers a character who is already in the fight: an attached leader is part of his squad, so he counter-charges with them or not at all.",
       "changes": [
-        "Fixed (reported): the end-of-Charge-phase Heroic Intervention window offered \"Blade Champion Beta\" his own Leap to Defend / Into the Fray buttons while the Custodian Guard he was leading had just been charged \u2014 a counter-charge into the combat he was already fighting in. Attaching a character makes the two one unit, so he never gets a row of his own, and using the stratagem on him is now rejected outright.",
+        "Fixed (reported): the end-of-Charge-phase Heroic Intervention window offered \"Blade Champion Beta\" his own Leap to Defend / Into the Fray buttons while the Custodian Guard he was leading had just been charged — a counter-charge into the combat he was already fighting in. Attaching a character makes the two one unit, so he never gets a row of his own, and using the stratagem on him is now rejected outright.",
         "The \"must be unengaged\" condition is now measured across the whole attached unit. Before, it only looked at the leader's own model, so a champion standing a couple of inches behind his squad counted as free while the squad was locked in combat.",
-        "An attached unit that really is clear of combat is still offered \u2014 as one entry named \"Custodian Guard Beta + Blade Champion Beta\", the same way the Counter-Offensive window names it \u2014 and units standing off the melee are unaffected."
+        "An attached unit that really is clear of combat is still offered — as one entry named \"Custodian Guard Beta + Blade Champion Beta\", the same way the Counter-Offensive window names it — and units standing off the melee are unaffected."
       ]
     },
     {
