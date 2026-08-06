@@ -27,8 +27,95 @@ var _step_results: Array = []
 var _last_action_result = null
 var _start_cp: Dictionary = {}  # player_id -> cp at scenario start (for delta_from_start)
 var _started: bool = false
+var _hermetic_active: bool = false
 
 const RESULTS_SUBDIR := "test_results/scenarios"
+
+# ============================================================================
+# HERMETIC SETTINGS (2026-08-06)
+#
+# A scenario's result must not depend on the machine it runs on. SettingsService
+# persists user preferences to user://settings.cfg, and several of them change
+# game LOGIC, not just presentation — auto_allocate_wounds decides whether an
+# attack pauses for the defender's save overlay at all. Worse, scenarios that
+# call SettingsService setters mid-run persist the change, poisoning the
+# machine's settings.cfg for every later scenario AND for later suite runs
+# (found 2026-08-06: aao_lions_melee_provenance and friends set
+# auto_allocate_wounds=true and never set it back, which is exactly the
+# settings.cfg state that made ai_shooting_stall_defender_lock fail 7/35).
+#
+# Two guarantees, enforced for every automated harness run (--scenario-file,
+# gut_cmdln, and godot -s test scripts — autoloads are live in all of them):
+#   1. IN:  every setting in HERMETIC_SETTINGS starts at its fresh-install
+#      default (the declared var default in SettingsService.gd), machine
+#      overrides are logged loudly so a failure report is self-diagnosing.
+#   2. OUT: user://settings.cfg is byte-restored to its pre-run state on exit,
+#      so nothing a run persists can leak into the next run or clobber the
+#      developer's real preferences. A stale backup left by a crashed run is
+#      healed at the next startup.
+#
+# A scenario that NEEDS a non-default value must set it itself in a step
+# (e.g. "SettingsService.set_auto_allocate_wounds(true)") — see _schema.md.
+# ============================================================================
+
+const SETTINGS_FILE := "user://settings.cfg"
+const SETTINGS_BACKUP := "user://settings.cfg.scenario_backup"
+const SETTINGS_ABSENT_MARKER := "<<no settings.cfg existed before this run>>"
+
+# Every persisted SettingsService value that can change what a scenario or a
+# headless test observes: rules flow, UI flow, input geometry, save side
+# effects, and board/token visuals that scenarios assert on.
+#
+# Deliberately NOT pinned:
+#   - input_mode_policy: InputDeviceManager pins the harness to "dynamic"
+#     itself; re-applying the player default ("auto") would resolve and LOCK
+#     kbm and break every pad_* scenario.
+#   - window_mode / window_resolution / vsync_enabled: SettingsService's
+#     _apply_display_settings() already no-ops under the harness.
+#   - controller_text_boost: _pad_text_boost_active() is already false under
+#     --scenario-file.
+#   - master/music/sfx volume, audio_muted: inaudible to assertions; CI runs
+#     the Dummy audio driver.
+const HERMETIC_SETTINGS: Array[String] = [
+	# Gameplay / rules flow
+	"auto_allocate_wounds",
+	"shooting_pause_policy",
+	"shooting_show_all_units",
+	"hotseat_handoff_enabled",
+	# Input-driven placement behaviour (where dragged/placed models land)
+	"drag_clamp_to_max_range",
+	"placement_clamp_to_exclusion",
+	# Timing / canvas geometry
+	"animation_speed",
+	"ui_scale",
+	# Save/load side effects
+	"save_files_pretty_print",
+	"save_files_compression",
+	"save_measurements",
+	"autosave_on_round_end",
+	"autosave_on_phase_transition",
+	"autosave_on_phase_start",
+	# Board/token visuals that scenarios assert on
+	"unit_visual_style",
+	"unit_color_display_mode",
+	"retro_mode",
+	"show_unit_labels",
+	"terrain_debug_labels",
+	"show_terrain_scatter",
+	"show_terrain_cover_labels",
+	"los_debug_check_out_of_range",
+	"board_style",
+	"ruins_style",
+	"colorblind_mode",
+	# Controls that alter scenario input math
+	"menu_scroll_speed",
+	"pad_invert_camera_y",
+	"pad_swap_sticks",
+	"pad_camera_sensitivity",
+	"pad_cursor_sensitivity",
+	"pad_cursor_magnetism",
+	"pad_hover_stats_card",
+]
 
 
 func _ready() -> void:
@@ -39,13 +126,131 @@ func _ready() -> void:
 			_scenario_path = a.split("=", true, 1)[1]
 			break
 
+	# Crash healing: a previous harness run that died mid-scenario may have left
+	# its settings.cfg backup behind (with mid-run values still on disk). Put
+	# the machine file back before anything else reads or writes it. No-op when
+	# no backup exists, so normal player launches are unaffected.
+	_heal_stale_settings_backup()
+
 	if _scenario_path == "":
-		return  # not in scenario mode — no-op autoload
+		# Not in scenario mode. The headless test harnesses (gut_cmdln /
+		# godot -s tests/…) run with live autoloads too, and are exposed to the
+		# same ambient-settings hazard — give them the same hermetic guarantee.
+		if _is_cmdline_test_harness():
+			_hermetic_settings_setup()
+		return  # otherwise: normal play — no-op autoload
 
 	print("[ScenarioRunner] Activating, scenario_file=%s" % _scenario_path)
+	_hermetic_settings_setup()
 	# Defer to next idle frame so other autoloads (GameState, SaveLoadManager,
 	# PhaseManager, etc.) finish their _ready before we touch them.
 	call_deferred("_kick_off")
+
+
+func _exit_tree() -> void:
+	# Runs on get_tree().quit() for every exit path (all-pass, step failures,
+	# _fail_and_quit) — the single choke point that guarantees the machine's
+	# settings.cfg leaves a harness run exactly as it entered it.
+	if _hermetic_active:
+		_restore_settings_file()
+
+
+func _is_cmdline_test_harness() -> bool:
+	# Mirrors SettingsService._is_automated_harness() for the NON-scenario
+	# harnesses: the GUT suite (gut_cmdln) and direct script runs
+	# (godot -s tests/test_*.gd). Scenario mode is detected separately via
+	# --scenario-file in _ready. A normal player launch never passes these.
+	for a in OS.get_cmdline_args() + OS.get_cmdline_user_args():
+		if typeof(a) != TYPE_STRING:
+			continue
+		if a.find("gut_cmdln") != -1 or a == "-s" or a == "--script":
+			return true
+	return false
+
+
+func _hermetic_settings_setup() -> void:
+	# See the HERMETIC SETTINGS block at the top of this file.
+	var ss = get_node_or_null("/root/SettingsService")
+	if ss == null:
+		return
+	_backup_settings_file()
+	_hermetic_active = true
+	# Fresh-install defaults come from a throwaway instance of the script
+	# itself (its _ready never runs), so this can never drift from the declared
+	# var defaults in SettingsService.gd.
+	var fresh = (ss.get_script() as GDScript).new()
+	var overrides := 0
+	for prop in HERMETIC_SETTINGS:
+		if not (prop in fresh):
+			push_warning("[ScenarioRunner] HERMETIC_SETTINGS names unknown property '%s' — skipped" % prop)
+			continue
+		var machine_val = ss.get(prop)
+		var default_val = fresh.get(prop)
+		if machine_val != default_val:
+			overrides += 1
+			print("[ScenarioRunner] HERMETIC: %s machine value %s -> fresh-install default %s" % [prop, machine_val, default_val])
+		ss.set(prop, default_val)
+	fresh.free()
+	# Re-push the few consumers that cached machine values during their own
+	# _ready (everything else reads SettingsService at decision time).
+	ss._apply_ui_scale()
+	if StateSerializer:
+		StateSerializer.set_pretty_print(ss.save_files_pretty_print)
+		StateSerializer.set_compression_enabled(ss.save_files_compression)
+	if MeasuringTapeManager:
+		MeasuringTapeManager.set_save_persistence(ss.save_measurements)
+	if SaveLoadManager:
+		SaveLoadManager.set_autosave_on_round_end(ss.autosave_on_round_end)
+		SaveLoadManager.set_autosave_on_phase_transition(ss.autosave_on_phase_transition)
+		SaveLoadManager.set_autosave_on_phase_start(ss.autosave_on_phase_start)
+	if ScrollSpeedController:
+		ScrollSpeedController.menu_scroll_speed = ss.menu_scroll_speed
+	print("[ScenarioRunner] settings hermetic: %d value(s) pinned to fresh-install defaults (%d machine override(s) neutralised); settings.cfg backed up, byte-restored on exit" % [HERMETIC_SETTINGS.size(), overrides])
+
+
+func _heal_stale_settings_backup() -> void:
+	if not FileAccess.file_exists(SETTINGS_BACKUP):
+		return
+	print("[ScenarioRunner] stale settings backup from a crashed harness run found — restoring the machine's settings.cfg")
+	_restore_settings_file()
+
+
+func _backup_settings_file() -> void:
+	var backup := FileAccess.open(SETTINGS_BACKUP, FileAccess.WRITE)
+	if backup == null:
+		print("[ScenarioRunner] WARNING: could not create settings backup at %s — machine settings.cfg will NOT be restored after this run" % SETTINGS_BACKUP)
+		return
+	if FileAccess.file_exists(SETTINGS_FILE):
+		var src := FileAccess.open(SETTINGS_FILE, FileAccess.READ)
+		if src != null:
+			backup.store_buffer(src.get_buffer(src.get_length()))
+			src.close()
+	else:
+		backup.store_string(SETTINGS_ABSENT_MARKER)
+	backup.close()
+
+
+func _restore_settings_file() -> void:
+	# Put user://settings.cfg back exactly as the run found it (byte-for-byte),
+	# then drop the backup. Idempotent — a second call is a no-op.
+	if not FileAccess.file_exists(SETTINGS_BACKUP):
+		return
+	var backup := FileAccess.open(SETTINGS_BACKUP, FileAccess.READ)
+	if backup == null:
+		return
+	var bytes := backup.get_buffer(backup.get_length())
+	backup.close()
+	if bytes.get_string_from_utf8() == SETTINGS_ABSENT_MARKER:
+		if FileAccess.file_exists(SETTINGS_FILE):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_FILE))
+		print("[ScenarioRunner] settings.cfg removed on exit (none existed before this run)")
+	else:
+		var dst := FileAccess.open(SETTINGS_FILE, FileAccess.WRITE)
+		if dst != null:
+			dst.store_buffer(bytes)
+			dst.close()
+		print("[ScenarioRunner] settings.cfg byte-restored to its pre-run machine state")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_BACKUP))
 
 
 func _kick_off() -> void:
@@ -252,6 +457,11 @@ func _run_scenario() -> void:
 	if selector_dry_run:
 		_write_selectors_report(scenario_id, passed, failed)
 	_write_results(scenario_id, passed, failed)
+	# Hermetic OUT-guarantee: hand the machine its settings.cfg back before the
+	# summary line, so the log shows the restore happened. (_exit_tree would
+	# also catch this; the call is idempotent.)
+	if _hermetic_active:
+		_restore_settings_file()
 	print("[ScenarioRunner] === %s: %d passed, %d failed ===" % [scenario_id, passed, failed])
 	emit_signal("scenario_finished", scenario_id, passed, failed)
 	get_tree().quit(0 if failed == 0 else 1)
@@ -2365,4 +2575,6 @@ func _write_results(scenario_id: String, passed: int, failed: int) -> void:
 
 func _fail_and_quit(reason: String) -> void:
 	print("[ScenarioRunner] FATAL: %s" % reason)
+	if _hermetic_active:
+		_restore_settings_file()
 	get_tree().quit(2)

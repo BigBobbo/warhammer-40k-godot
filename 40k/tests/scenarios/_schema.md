@@ -373,6 +373,36 @@ CI runs the multi-peer suite as a separate job
 need Xvfb because the multi-peer subprocesses run `--headless` and the
 network sync is the unit under test, not the UI rendering.
 
+## Hermetic settings (2026-08-06)
+
+A scenario's result must not depend on the machine it runs on. `SettingsService`
+persists user preferences to `user://settings.cfg`, and several change game
+LOGIC, not presentation — `auto_allocate_wounds` decides whether an attack
+pauses for the defender's save overlay at all. The runner therefore guarantees,
+for every harness run (`--scenario-file`, `gut_cmdln`, `godot -s`):
+
+1. **IN**: every setting in `ScenarioRunner.HERMETIC_SETTINGS` starts at its
+   fresh-install default (the declared var default in `SettingsService.gd`).
+   Machine overrides are logged (`[ScenarioRunner] HERMETIC: ...`) so a failure
+   report is self-diagnosing.
+2. **OUT**: `user://settings.cfg` is byte-restored to its pre-run state on
+   every exit path, so a scenario that calls a `SettingsService` setter cannot
+   poison the next scenario or the developer's real preferences. (Before this,
+   `aao_lions_melee_provenance` and friends persisted `auto_allocate_wounds=true`
+   into the machine config and broke `ai_shooting_stall_defender_lock` 7/35.)
+
+A scenario that NEEDS a non-default value must set it itself in a step and,
+ideally, assert it — e.g.
+
+```json
+{ "act": "execute_script", "multiline": true,
+  "script": "SettingsService.set_auto_allocate_wounds(true)\nreturn SettingsService.get_auto_allocate_wounds()",
+  "equals": true }
+```
+
+Do not rely on a value another scenario set, and do not bother restoring at the
+end of the scenario — the runner's exit restore already isolates you.
+
 ## Anti-patterns
 
 - **`dispatch_action` for the player-facing trigger.** If a player would have
@@ -380,6 +410,8 @@ network sync is the unit under test, not the UI rendering.
   (or equivalent) not `dispatch_action`. Past sessions have closed features
   as "verified" using `dispatch_action` only and the player could not
   actually reach the button. See `CLAUDE.md` feature-validation rule.
+- **Inheriting ambient settings.** If your assertions depend on a
+  `SettingsService` value, set it in a step (see "Hermetic settings" above).
 - **Skipping screenshots on UI flows.** A screenshot every 2-3 steps catches
   silent visual regressions and gives a human auditor something to check
   when results look ambiguous.
