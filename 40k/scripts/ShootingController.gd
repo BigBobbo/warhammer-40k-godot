@@ -6167,7 +6167,7 @@ func _eligible_bearer_slice(weapon_id: String, target_id: String, model_ids: Arr
 	if model_ids.is_empty():
 		return []
 	var board: Dictionary = current_phase.game_state_snapshot if current_phase else GameState.create_snapshot(false)
-	var filtered = RulesEngine._filter_eligible_model_ids(model_ids, active_shooter_id, weapon_id, target_id, board)
+	var filtered = RulesEngine.filter_eligible_model_ids(model_ids, active_shooter_id, weapon_id, target_id, board)
 	var kept: Array = filtered.get("kept", model_ids)
 	var dropped: Array = filtered.get("dropped", [])
 	if not dropped.is_empty():
