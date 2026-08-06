@@ -1,0 +1,67 @@
+{
+  "id": "pile_in_step_back_to_back_units",
+  "covers": [
+    "scripts.FightController._on_pile_in_dialog_closed",
+    "scripts.FightController._is_superseded_move_dialog",
+    "scripts.FightController._on_pile_in_required",
+    "dialogs.PileInDialog.AutoButton",
+    "phases.FightPhase.pile_in_11e"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Regression: piling in three units back-to-back in the 11e global Pile In step (12.02). A confirmed PileInDialog frees itself on a 0.1s timer, but the phase has already re-emitted the step data and re-enabled the unit rows — so picking the next unit straight away lands inside that window. The outgoing dialog's tree_exiting used to run _disable_pile_in_mode() over the top of the dialog that had just been armed: add_child renamed the new dialog (@AcceptDialog@NNNN, so /root/PileInDialog no longer resolved), pile_in_active went false, 'Auto Pile In' reported 'no legal move', and Confirm submitted an EMPTY pile-in that spent the unit's one move without moving a model — the reported 'it skipped the third one … the unit is not piled in'. Setup: three P1 units (Custodian Guard + two Witchseekers) each parked 0.6\" from an Ork unit (engaged, not yet in base contact), everything else pushed to the board edges. Player path: click each unit's step row, Auto Pile In, Confirm — with NO pause between one unit's Confirm and the next unit's row click. All three must keep the stable /root/PileInDialog node, keep pile_in_active true, produce a real auto move, and actually advance up the board.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+
+    { "act": "execute_script", "multiline": true, "script": "var st = GameState.state\nvar p1x = 120.0\nvar p2x = 120.0\nfor uid in st.units:\n\tvar u = st.units[uid]\n\tvar own = int(u.get(\"owner\", 0))\n\tfor i in range(u.models.size()):\n\t\tif own == 1:\n\t\t\tu.models[i][\"position\"] = {\"x\": p1x, \"y\": 120.0}\n\t\t\tp1x += 70.0\n\t\t\tif p1x > 1650.0:\n\t\t\t\tp1x = 120.0\n\t\telse:\n\t\t\tu.models[i][\"position\"] = {\"x\": p2x, \"y\": 2280.0}\n\t\t\tp2x += 70.0\n\t\t\tif p2x > 1650.0:\n\t\t\t\tp2x = 120.0\nvar pairs = [[\"U_CUSTODIAN_GUARD_B\", \"U_BOYZ_K\", 350.0], [\"U_WITCHSEEKERS_C\", \"U_BOYZ_E\", 850.0], [\"U_WITCHSEEKERS_D\", \"U_BOYZ_F\", 1350.0]]\nfor p in pairs:\n\tvar a = st.units[p[0]]\n\tvar b = st.units[p[1]]\n\tvar bx = float(p[2])\n\tvar by = 1000.0\n\tvar ai = -1\n\tfor i in range(a.models.size()):\n\t\tif a.models[i].get(\"alive\", true):\n\t\t\tif ai < 0:\n\t\t\t\tai = i\n\t\t\ta.models[i][\"position\"] = {\"x\": bx + i * 66.0, \"y\": by}\n\tvar bi = -1\n\tfor j in range(b.models.size()):\n\t\tif b.models[j].get(\"alive\", true):\n\t\t\tif bi < 0:\n\t\t\t\tbi = j\n\t\t\tb.models[j][\"position\"] = {\"x\": bx + (j % 4) * 66.0, \"y\": by + 300.0 + int(j / 4) * 66.0}\n\tvar gap = Measurement.base_extent_px(a.models[ai]) + Measurement.base_extent_px(b.models[bi]) + Measurement.inches_to_px(0.6)\n\tb.models[bi][\"position\"] = {\"x\": bx, \"y\": by + gap}\nreturn \"positioned\"", "equals": "positioned" },
+    { "act": "execute_script", "script": "main._sync_all_token_positions()" },
+    { "act": "execute_script", "script": "PhaseManager.transition_to_phase(10)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 1 },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "script": "var ph = PhaseManager.get_current_phase_instance()\nvar e = ph._pile_in_eligible_units_11e(1)\ne.sort()\nreturn \",\".join(e)", "equals": "U_CUSTODIAN_GUARD_B,U_WITCHSEEKERS_C,U_WITCHSEEKERS_D" },
+    { "act": "screenshot", "label": "01_three_units_eligible_to_pile_in" },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_CUSTODIAN_GUARD_B", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.35 },
+    { "act": "expect_node_visible", "node": "/root/PileInDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "main.fight_controller.pile_in_active", "equals": true },
+    { "act": "click_node", "node": "/root/PileInDialog/Content/Buttons/AutoButton", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "main.fight_controller.get_pile_in_movements().size() > 0", "equals": true },
+    { "act": "click_node", "node": "/root/PileInDialog/Content/Buttons/ConfirmButton", "emit_pressed": true },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_WITCHSEEKERS_C", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.35 },
+    { "act": "expect_node_visible", "node": "/root/PileInDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "main.fight_controller.pile_in_active", "equals": true },
+    { "act": "execute_script", "script": "main.fight_controller.pile_in_unit_id", "equals": "U_WITCHSEEKERS_C" },
+    { "act": "click_node", "node": "/root/PileInDialog/Content/Buttons/AutoButton", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "main.fight_controller.get_pile_in_movements().size() > 0", "equals": true },
+    { "act": "click_node", "node": "/root/PileInDialog/Content/Buttons/ConfirmButton", "emit_pressed": true },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList/PileIn_U_WITCHSEEKERS_D", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.35 },
+    { "act": "expect_node_visible", "node": "/root/PileInDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "main.fight_controller.pile_in_active", "equals": true },
+    { "act": "execute_script", "script": "main.fight_controller.pile_in_unit_id", "equals": "U_WITCHSEEKERS_D" },
+    { "act": "screenshot", "label": "02_third_unit_dialog_armed_after_back_to_back_picks" },
+    { "act": "click_node", "node": "/root/PileInDialog/Content/Buttons/AutoButton", "emit_pressed": true },
+    { "act": "wait_frames", "frames": 6 },
+    { "act": "execute_script", "script": "main.fight_controller.get_pile_in_movements().size() > 0", "equals": true },
+    { "act": "click_node", "node": "/root/PileInDialog/Content/Buttons/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.6 },
+
+    { "act": "execute_script", "multiline": true, "script": "var ph = PhaseManager.get_current_phase_instance()\nvar k = ph.units_that_piled_in.keys()\nk.sort()\nreturn \",\".join(k)", "equals": "U_CUSTODIAN_GUARD_B,U_WITCHSEEKERS_C,U_WITCHSEEKERS_D" },
+    { "act": "execute_script", "multiline": true, "script": "var st = GameState.state\nvar moved = []\nfor u in [\"U_CUSTODIAN_GUARD_B\", \"U_WITCHSEEKERS_C\", \"U_WITCHSEEKERS_D\"]:\n\tfor m in st.units[u].models:\n\t\tif m.get(\"alive\", true) and float(m.position.y) > 1005.0:\n\t\t\tmoved.append(u)\n\t\t\tbreak\nmoved.sort()\nreturn \",\".join(moved)", "equals": "U_CUSTODIAN_GUARD_B,U_WITCHSEEKERS_C,U_WITCHSEEKERS_D" },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 2 },
+    { "act": "screenshot", "label": "03_all_three_units_piled_in_step_passed_to_p2" }
+  ]
+}

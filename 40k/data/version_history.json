@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.28.5",
+      "date": "2026-08-06",
+      "summary": "Fixed the Pile In step silently skipping a unit when you piled in several units one after another.",
+      "changes": [
+        "Fixed (reported): \"I had three different units to pile in — I clicked the first one, auto pile in, clicked the second one, auto pile in, but then it seems to have skipped the third one... The unit is not piled in!\". Picking the next unit straight after confirming the previous one handed you a dead Pile In window: dragging models did nothing, \"Auto Pile In\" answered \"no legal move (models already in base contact or no enemy in reach)\", and \"Confirm Move\" spent that unit's one pile-in move without moving a single model — so the unit dropped off the list still sitting where it started.",
+        "Cause: the window you had just confirmed lingers for a tenth of a second before closing itself, and on the way out it switched off the pile-in you had already started for the NEXT unit. Only the window you are actually looking at can end a move now, so back-to-back pile-ins work at any speed.",
+        "The same fix covers the Consolidate step, plus Sweeping Advance and Acrobatic Escape, which share the same drag-a-unit machinery."
+      ]
+    },
+    {
       "version": "1.28.4",
       "date": "2026-08-06",
       "summary": "Heroic Intervention no longer offers a character who is already in the fight: an attached leader is part of his squad, so he counter-charges with them or not at all.",
