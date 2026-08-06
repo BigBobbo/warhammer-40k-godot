@@ -192,11 +192,40 @@ func _build_ui() -> void:
 				alive_count += 1
 
 	var instruction = Label.new()
+	instruction.name = "EligibleCountLabel"
 	if _eligible_models.size() < alive_count:
 		instruction.text = "Models in engagement range: %d/%d" % [_eligible_models.size(), alive_count]
 	else:
 		instruction.text = "All %d models in engagement range" % alive_count
 	container.add_child(instruction)
+
+	# ...and WHO the missing ones are. Reported bug: a Custodian Guard led by a
+	# Blade Champion opened this dialog with "Models in engagement range: 5/6"
+	# and no Champion section anywhere — no weapon, no target, no way to swing
+	# with him. The Champion was simply outside Engagement Range, which is a
+	# legal outcome (11e 04.02: "each target must be engaged with the model that
+	# has that weapon"), but the dialog never said so, and a leader vanishing
+	# from his own squad's attack list reads exactly like the game having split
+	# him off from it. Name every alive model that is sitting out, and give the
+	# distance that decided it, so "out of range" is distinguishable from "bug"
+	# without leaving the dialog.
+	var sitting_out := _build_sitting_out_rows()
+	if not sitting_out.is_empty():
+		var sitting_note = Label.new()
+		sitting_note.name = "SittingOutNote"
+		var parts: Array = []
+		for row in sitting_out:
+			if row.nearest < INF:
+				parts.append("%s ×%d (nearest enemy %.1f\")" % [row.name, int(row.count), float(row.nearest)])
+			else:
+				parts.append("%s ×%d" % [row.name, int(row.count)])
+		sitting_note.text = "Not fighting — outside Engagement Range (%s\"): %s" % [
+			_format_inches(GameConstants.engagement_range_inches()), ", ".join(parts)]
+		sitting_note.tooltip_text = "Only models engaged with an enemy can be selected to fight (11e). These models are too far away to swing this activation — pile in closer next time, or accept that this part of the unit sits the fight out."
+		sitting_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		sitting_note.add_theme_font_size_override("font_size", 14)
+		sitting_note.modulate = Color(1, 0.85, 0.5)
+		container.add_child(sitting_note)
 
 	# T3-3: Separate melee weapons into regular and Extra Attacks. Both lists
 	# span the Attached unit's components; a weapon named by two of them is ONE
@@ -913,6 +942,84 @@ func _selected_target_id() -> String:
 	if not eligible_targets.is_empty():
 		return str(eligible_targets.keys()[0])
 	return ""
+
+
+# ── who is sitting this activation out ──────────────────────────────────────
+
+# "2" for 2.0, "1.5" for 1.5 — Engagement Range is edition-dependent (1" at
+# 10e, 2" at 11e) and reading it off GameConstants keeps the note honest if the
+# switch ever moves.
+func _format_inches(value: float) -> String:
+	if is_equal_approx(value, roundf(value)):
+		return str(int(roundf(value)))
+	return "%.1f" % value
+
+# One row per COMPONENT that has alive models which cannot fight: the
+# component's name, how many of its models are sitting out, and how far the
+# closest of them is from the nearest enemy model. `nearest` is INF when there
+# is no enemy on the board to measure against (nothing to say, so the caller
+# prints the count alone).
+#
+# Grouped per component rather than per model because that is the unit the
+# player thinks in — "my Blade Champion isn't fighting", not "model 0 of
+# U_BLADE_CHAMPION_A isn't fighting" — and because a bodyguard's back rank
+# sitting out wants ONE line, not eight.
+func _build_sitting_out_rows() -> Array:
+	var rows: Array = []
+	for member_id in _group_unit_ids:
+		var member: Dictionary = phase_reference.get_unit(member_id)
+		var models: Array = member.get("models", [])
+		var eligible_idx := {}
+		for key in _eligible_models:
+			if _model_key_unit.get(key, "") == str(member_id):
+				eligible_idx[int(_mk_index(str(key)))] = true
+
+		var count := 0
+		var nearest := INF
+		for i in range(models.size()):
+			if not models[i].get("alive", true):
+				continue
+			if eligible_idx.has(i):
+				continue
+			count += 1
+			var d := _nearest_enemy_distance_inches(member, models[i])
+			if d < nearest:
+				nearest = d
+		if count == 0:
+			continue
+
+		var member_meta: Dictionary = member.get("meta", {})
+		rows.append({
+			"unit_id": str(member_id),
+			"name": str(member_meta.get("display_name", member_meta.get("name", member_id))),
+			"count": count,
+			"nearest": nearest,
+		})
+		print("[AttackAssignmentDialog] %s: %d model(s) cannot fight — nearest enemy %s" % [
+			member_id, count, ("%.2f\"" % nearest) if nearest < INF else "n/a"])
+	return rows
+
+# Edge-to-edge distance from `model` to the closest alive enemy model anywhere
+# on the board. Deliberately measured against EVERY enemy, not just this
+# activation's eligible targets: the question the note answers is "how far is
+# this model from being in the fight at all".
+func _nearest_enemy_distance_inches(owner_unit: Dictionary, model: Dictionary) -> float:
+	var best := INF
+	if phase_reference == null:
+		return best
+	var owner_side := str(owner_unit.get("owner", 0))
+	var all_units: Dictionary = phase_reference.game_state_snapshot.get("units", {})
+	for other_id in all_units:
+		var other: Dictionary = all_units[other_id]
+		if str(other.get("owner", 0)) == owner_side:
+			continue
+		for enemy_model in other.get("models", []):
+			if not enemy_model.get("alive", true):
+				continue
+			var d: float = Measurement.model_to_model_distance_inches(model, enemy_model)
+			if d < best:
+				best = d
+	return best
 
 
 # ── per-component reach (11e "Select Targets") ──────────────────────────────
