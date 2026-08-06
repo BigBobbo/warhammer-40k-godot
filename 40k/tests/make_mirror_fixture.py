@@ -38,6 +38,87 @@ def mirror_point(x, y, w_px, h_px):
     return w_px - x, h_px - y
 
 
+def is_placeholder(unit):
+    """Army-list header rows that an older importer materialised as UNITS.
+
+    `audit_baseline_postdeploy` carries one: U_STRIKE_FORCE_A, name
+    "Strike Force", keywords ["UNKNOWN"], null abilities/weapons/composition,
+    a single 1-wound T4 model — and points 2000, which is the ARMY total, not
+    a unit cost. It is not a datasheet; it should never have been a unit.
+
+    It does real damage wherever unit points are summed:
+      * GameState.get_total_army_points() reads the Ork army as 3840 pts
+        instead of 1840, so the 50%% Strategic Reserves cap (11e 20.01)
+        becomes 1920 instead of 920 — which is how that fixture ends up with
+        69%% of the Ork army in reserve and only 570 pts on the board.
+      * AIDecisionMaker._calculate_target_value adds points *
+        MACRO_POINTS_WEIGHT (0.008), so the phantom scores +16.0 against a
+        Boyz mob's +0.64 — the enemy AI is drawn to shooting a 1-wound
+        placeholder.
+    No current army file under 40k/armies/ contains such a row, so this is
+    stale fixture data rather than a live importer bug.
+    """
+    kw = (unit.get("meta") or {}).get("keywords") or []
+    return "UNKNOWN" in kw
+
+
+def place_undeployed(units, owner, zone_px, w_px, h_px):
+    """Grid-pack every model that has no position into the owner's zone.
+
+    Reserves are optional in 11e, and a fixture where both armies start fully
+    on the table removes the reserve-arrival confound entirely — no 50%% cap
+    to respect, no round-2 trickle, no round-3 destruction deadline.
+    """
+    (zx0, zx1, zy0, zy1) = zone_px
+    occupied = []  # (x, y, radius_px)
+    for u in units.values():
+        if int(u.get("owner", 0)) != owner:
+            continue
+        for m in u.get("models", []):
+            p = m.get("position")
+            if p:
+                occupied.append((float(p["x"]), float(p["y"]),
+                                 float(m.get("base_mm", 32)) / 25.4 * PX_PER_INCH / 2.0))
+
+    def fits(x, y, r):
+        if not (zx0 + r <= x <= zx1 - r and zy0 + r <= y <= zy1 - r):
+            return False
+        for (ox, oy, orad) in occupied:
+            if (x - ox) ** 2 + (y - oy) ** 2 < (r + orad + 2.0) ** 2:
+                return False
+        return True
+
+    placed = 0
+    for uid in sorted(units.keys()):
+        u = units[uid]
+        if int(u.get("owner", 0)) != owner:
+            continue
+        for m in u.get("models", []):
+            if m.get("position") or not m.get("alive", True):
+                continue
+            r = float(m.get("base_mm", 32)) / 25.4 * PX_PER_INCH / 2.0
+            step = max(8.0, r * 0.6)
+            spot = None
+            y = zy0 + r + 2.0
+            while y <= zy1 - r and spot is None:
+                x = zx0 + r + 2.0
+                while x <= zx1 - r:
+                    if fits(x, y, r):
+                        spot = (x, y)
+                        break
+                    x += step
+                y += step
+            if spot is None:
+                raise RuntimeError(f"no room to place a model of {uid}")
+            m["position"] = {"_type": "Vector2", "x": spot[0], "y": spot[1]}
+            occupied.append((spot[0], spot[1], r))
+            placed += 1
+        # everything is on the table now
+        if int(u.get("status", 0)) == 7:
+            u["status"] = 2
+    return placed
+
+
 def remap(uid, keep):
     """New id for a copied unit; ids that are not units (None) pass through."""
     if uid is None or uid == "":
@@ -55,12 +136,31 @@ def build(source_player: int, out_name: str) -> str:
     other = 1 if source_player == 2 else 2
 
     units = d["units"]
+
+    # 0. drop army-list header rows that were imported as units (see
+    #    is_placeholder) — they corrupt every points and unit-count total.
+    phantoms = [uid for uid, u in units.items() if is_placeholder(u)]
+    for uid in phantoms:
+        print(f"  dropping placeholder unit {uid} "
+              f"({units[uid]['meta'].get('name')}, {int(units[uid]['meta'].get('points', 0))} pts)")
+        del units[uid]
+
     src_ids = [uid for uid, u in units.items() if int(u.get("owner", 0)) == source_player]
     drop_ids = [uid for uid, u in units.items() if int(u.get("owner", 0)) == other]
     if not src_ids:
         sys.exit(f"no units owned by player {source_player}")
 
     src_set = set(src_ids)
+
+    # 0b. put the whole source army on the table before mirroring it
+    zones = {}
+    for z in d["board"]["deployment_zones"]:
+        xs = [p["x"] * PX_PER_INCH for p in z["poly"]]
+        ys = [p["y"] * PX_PER_INCH for p in z["poly"]]
+        zones[int(z["player"])] = (min(xs), max(xs), min(ys), max(ys))
+    n_placed = place_undeployed(units, source_player, zones[source_player], w_px, h_px)
+    if n_placed:
+        print(f"  deployed {n_placed} previously-reserved model(s) for P{source_player}")
 
     # 1. remove the army being replaced
     for uid in drop_ids:
@@ -72,6 +172,8 @@ def build(source_player: int, out_name: str) -> str:
         new_id = PREFIX + uid
         u["id"] = new_id
         u["owner"] = other
+        if int(u.get("status", 0)) == 7:
+            u["status"] = 2
         if u.get("squad_id"):
             u["squad_id"] = remap(u["squad_id"], src_set)
         # cross-unit references must point at the COPIES, not the originals
@@ -152,6 +254,15 @@ def validate(path, source_player):
 
     pts1 = sum(x[2] for x in s1)
     pts2 = sum(x[2] for x in s2)
+
+    for uid, u in units.items():
+        if "UNKNOWN" in ((u.get("meta") or {}).get("keywords") or []):
+            errs.append(f"{uid}: placeholder unit survived into the fixture")
+        if int(u.get("status", 0)) == 7:
+            errs.append(f"{uid}: still IN_RESERVES — fixture should start fully deployed")
+        for m in u.get("models", []):
+            if m.get("alive", True) and not m.get("position"):
+                errs.append(f"{uid}: alive model with no position")
 
     # every reference must resolve
     for uid, u in units.items():

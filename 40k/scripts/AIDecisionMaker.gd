@@ -12461,8 +12461,12 @@ static func _calculate_target_value(target_unit: Dictionary, snapshot: Dictionar
 	var all_units = snapshot.get("units", {})
 
 	# --- Points cost: expensive units are strategically more valuable to remove ---
+	# Ignore army-list header rows that an older importer turned into units
+	# (keywords ["UNKNOWN"], points = the whole ARMY's cost). One of those
+	# scores +16.0 here against a Boyz mob's +0.64, which makes a 1-wound
+	# placeholder the most attractive target on the board.
 	var points = int(meta.get("points", 0))
-	if points > 0:
+	if points > 0 and not ("UNKNOWN" in keywords):
 		value += float(points) * get_param("MACRO_POINTS_WEIGHT", MACRO_POINTS_WEIGHT)
 
 	# --- T7-24: Points-per-wound efficiency bonus ---
