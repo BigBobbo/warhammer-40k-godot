@@ -16,6 +16,8 @@
     { "act": "expect_state", "path": "meta.phase", "equals": 9 },
     { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
 
+    { "act": "execute_script", "script": "CharacterAttachmentManager.detach_character(\"U_WARBOSS_C\")",
+      "comment": "he leads Boyz Beta in this fixture; this scenario is about the window's camera/decline behaviour with a lone CHARACTER, and 19.01 would otherwise pull the whole 22-model squad along with the teleport below (see iss15_heroic_intervention_fray_11e)" },
     { "act": "execute_script", "script": "GameState.get_unit(\"U_WARBOSS_C\")[\"models\"][0].merge({\"position\": {\"x\": 933.24, \"y\": 1343.63}}, true)" },
     { "act": "execute_script", "script": "main._sync_all_token_positions()" },
     { "act": "wait_seconds", "seconds": 1.0 },

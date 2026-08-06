@@ -2669,10 +2669,12 @@ func _get_attached_character_ids(of_unit_id: String = "") -> Array:
 	var unit = GameState.get_unit(uid)
 	if unit.is_empty():
 		return []
-	var out: Array = []
-	for cid in unit.get("attachment_data", {}).get("attached_characters", []):
-		out.append(str(cid))
-	return out
+	# Via RulesEngine, not the raw attachment_data list: saves exist where a
+	# leader is linked only by his own `attached_to` back-pointer, and reading
+	# the forward list alone left his model undraggable during his squad's
+	# charge (most visibly on a Heroic Intervention, where the leader's model
+	# is often the one nearest the enemy).
+	return RulesEngine.attached_character_ids(uid, GameState.state)
 
 func _charge_model_key(unit_id: String, model_id: String) -> String:
 	if unit_id == "" or unit_id == active_unit_id:

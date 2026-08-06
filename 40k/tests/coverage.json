@@ -9386,6 +9386,51 @@
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
+    },
+    {
+      "id": "autoloads.StratagemManager.get_heroic_intervention_eligible_units_11e",
+      "description": "The 15.11 end-of-charge-phase Heroic Intervention window's eligibility builder folds Attached units (19.01): an attached CHARACTER never gets a row of his own, and the \"unengaged\" condition is measured across bodyguard + leader, so a squad already locked in combat is not offered a counter-charge into that same combat. Genuinely unengaged units, attached or not, are unaffected and are named \"Squad + Leader\".",
+      "scenarios": [
+        "hi_attached_char_not_offered_11e"
+      ],
+      "last_verified_commit": "5eb5141",
+      "status": "covered"
+    },
+    {
+      "id": "autoloads.RulesEngine.is_attached_unit_engaged",
+      "description": "Engagement asked of the whole Attached unit rather than one unit dict's own models. is_unit_engaged reads a leader trailing a couple of inches behind his squad as unengaged while the unit he belongs to is locked in combat; this predicate folds bodyguard + attached CHARACTER(s) and resolves an attached character to his bodyguard first (19.02).",
+      "scenarios": [
+        "hi_attached_char_not_offered_11e"
+      ],
+      "last_verified_commit": "5eb5141",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ChargePhase.heroic_intervention_11e",
+      "description": "_validate_use_heroic_intervention rejects a USE_HEROIC_INTERVENTION naming an attached CHARACTER (19.01) or a unit whose Attached unit is already in Engagement Range (15.11), so a stale dialog or a remote client cannot push an illegal counter-charge past the UI. The rejection names the rule rather than falling back to a generic \"Action not allowed\".",
+      "scenarios": [
+        "hi_attached_char_not_offered_11e"
+      ],
+      "last_verified_commit": "5eb5141",
+      "status": "covered"
+    },
+    {
+      "id": "phases.ChargePhase.attached_units_19_01",
+      "description": "The Charge phase treats bodyguard + attached CHARACTER as ONE unit when selecting a Heroic Intervention unit, matching the charge-move handling that already rides the leader along with his squad (_charge_attached_character_changes).",
+      "scenarios": [
+        "hi_attached_char_not_offered_11e"
+      ],
+      "last_verified_commit": "5eb5141",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.HeroicInterventionDialog.attached_unit_rows",
+      "description": "The Heroic Intervention window renders ONE row per Attached unit, headed by the bodyguard; the attached CHARACTER gets no Row_<id> and no Leap to Defend / Into the Fray buttons of his own.",
+      "scenarios": [
+        "hi_attached_char_not_offered_11e"
+      ],
+      "last_verified_commit": "5eb5141",
+      "status": "covered"
     }
   ]
 }

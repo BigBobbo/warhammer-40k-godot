@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.28.4",
+      "date": "2026-08-06",
+      "summary": "Heroic Intervention no longer offers a character who is already in the fight: an attached leader is part of his squad, so he counter-charges with them or not at all.",
+      "changes": [
+        "Fixed (reported): the end-of-Charge-phase Heroic Intervention window offered \"Blade Champion Beta\" his own Leap to Defend / Into the Fray buttons while the Custodian Guard he was leading had just been charged \u2014 a counter-charge into the combat he was already fighting in. Attaching a character makes the two one unit, so he never gets a row of his own, and using the stratagem on him is now rejected outright.",
+        "The \"must be unengaged\" condition is now measured across the whole attached unit. Before, it only looked at the leader's own model, so a champion standing a couple of inches behind his squad counted as free while the squad was locked in combat.",
+        "An attached unit that really is clear of combat is still offered \u2014 as one entry named \"Custodian Guard Beta + Blade Champion Beta\", the same way the Counter-Offensive window names it \u2014 and units standing off the melee are unaffected."
+      ]
+    },
+    {
       "version": "1.28.3",
       "date": "2026-08-06",
       "summary": "Death Trap's Booby Trap now names the terrain areas it means, highlights them on the board, and lets every eligible unit spring one.",
