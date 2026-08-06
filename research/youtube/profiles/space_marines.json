@@ -1,0 +1,10 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Space Marines — Oath valued by re-roll gain (draft)",
+	"description": "DRAFT from research/youtube/ai_learnings.json. F026 (medium, 3 channels): Oath of Moment's value is the re-roll it ADDS, so it is wasted on a target our already-re-rolling units will shoot. The real fix is a code change in _select_oath_of_moment_target (AIDecisionMaker.gd:4844) to weight candidates by expected damage gained rather than by target properties — no existing constant expresses it, so OATH_REROLL_GAIN_WEIGHT is declared here as the parameter that change should read. This profile is therefore thinner than the others ON PURPOSE: the finding is a logic change, not a tuning change, and inventing constants to fake it would misrepresent the evidence.",
+	"parameters": {
+		"OATH_REROLL_GAIN_WEIGHT": 1.0,
+		"MACRO_LEADER_BUFF_BONUS": 1.5
+	}
+}

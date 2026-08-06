@@ -62,3 +62,6 @@ ai_loop_log.txt
 ai_loop_status.txt
 ai_loop_tracker.json
 ai_loop_tracker.json.games
+
+# YouTube transcript corpus for AI research (19MB) — see research/youtube/README.md
+research/youtube/transcripts_text.jsonl.gz

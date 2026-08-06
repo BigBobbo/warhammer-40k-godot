@@ -1,0 +1,1067 @@
+<title>How good 40k players think — mined from 1,029 YouTube transcripts</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --bg:#fbfaf8; --panel:#ffffff; --ink:#1c1a17; --muted:#6a6560; --line:#e4e0da;
+  --accent:#8a2f24; --accent-soft:#f3e6e3; --chip:#f1eee9;
+  --hi:#2f6b4f; --hi-soft:#e6f0ea; --mid:#8a6a1f; --mid-soft:#f6efdd;
+  --lo:#6a6560; --lo-soft:#efedea;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#16151a; --panel:#1e1d23; --ink:#eceaf0; --muted:#9a95a3; --line:#302e38;
+    --accent:#e0857a; --accent-soft:#33232a; --chip:#282730;
+    --hi:#7fd0a5; --hi-soft:#1b2f26; --mid:#e3c274; --mid-soft:#332c1c;
+    --lo:#9a95a3; --lo-soft:#26252c;
+  }
+}
+:root[data-theme=light]{
+  --bg:#fbfaf8; --panel:#ffffff; --ink:#1c1a17; --muted:#6a6560; --line:#e4e0da;
+  --accent:#8a2f24; --accent-soft:#f3e6e3; --chip:#f1eee9;
+  --hi:#2f6b4f; --hi-soft:#e6f0ea; --mid:#8a6a1f; --mid-soft:#f6efdd;
+  --lo:#6a6560; --lo-soft:#efedea;
+}
+:root[data-theme=dark]{
+  --bg:#16151a; --panel:#1e1d23; --ink:#eceaf0; --muted:#9a95a3; --line:#302e38;
+  --accent:#e0857a; --accent-soft:#33232a; --chip:#282730;
+  --hi:#7fd0a5; --hi-soft:#1b2f26; --mid:#e3c274; --mid-soft:#332c1c;
+  --lo:#9a95a3; --lo-soft:#26252c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.6 ui-serif,Georgia,'Iowan Old Style','Times New Roman',serif;
+  -webkit-text-size-adjust:100%}
+.wrap{max-width:920px;margin:0 auto;padding:0 20px 96px}
+header{padding:56px 0 8px;border-bottom:1px solid var(--line);margin-bottom:28px}
+h1{font-size:2.1rem;line-height:1.15;margin:0 0 10px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0;max-width:62ch}
+.meta{color:var(--muted);font-size:.85rem;margin-top:14px}
+.sans{font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+h2{font-size:1.32rem;margin:44px 0 4px;letter-spacing:-.01em;scroll-margin-top:16px}
+h2 .n{color:var(--muted);font-size:.8rem;font-weight:400;margin-left:8px;
+  font-family:ui-sans-serif,system-ui,sans-serif}
+.dfn{color:var(--muted);font-size:.92rem;margin:0 0 18px;max-width:64ch}
+.controls{position:sticky;top:0;z-index:5;background:var(--bg);
+  border-bottom:1px solid var(--line);padding:12px 0 12px;margin-bottom:6px}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:7px}
+.row:last-child{margin-bottom:0}
+.lbl{font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);
+  font-family:ui-sans-serif,system-ui,sans-serif;margin-right:6px;min-width:66px}
+button{font:inherit;font-family:ui-sans-serif,system-ui,sans-serif;font-size:.8rem;
+  background:var(--chip);color:var(--ink);border:1px solid transparent;
+  border-radius:999px;padding:4px 11px;cursor:pointer;line-height:1.4}
+button:hover{border-color:var(--line)}
+button[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);
+  color:var(--accent);font-weight:600}
+.theme{margin-left:auto}
+article{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:20px 22px;margin:0 0 14px}
+.claim{font-size:1.06rem;font-weight:600;margin:0 0 10px;line-height:1.45}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.tag{font-family:ui-sans-serif,system-ui,sans-serif;font-size:.7rem;
+  letter-spacing:.03em;padding:2px 9px;border-radius:999px;background:var(--chip);
+  color:var(--muted);white-space:nowrap}
+.tag.fac{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.tag.high{background:var(--hi-soft);color:var(--hi)}
+.tag.medium{background:var(--mid-soft);color:var(--mid)}
+.tag.low{background:var(--lo-soft);color:var(--lo)}
+.tag.warn{background:var(--accent-soft);color:var(--accent);font-weight:600}
+p.detail{margin:0 0 12px}
+.diff{margin:0 0 12px;padding:10px 14px;border-left:3px solid var(--accent);
+  background:var(--accent-soft);border-radius:0 8px 8px 0;font-size:.94rem}
+.diff b{font-family:ui-sans-serif,system-ui,sans-serif;font-size:.7rem;
+  text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:3px;
+  color:var(--accent)}
+.src{font-family:ui-sans-serif,system-ui,sans-serif;font-size:.85rem;
+  color:var(--muted);margin-top:12px}
+.src li{margin-bottom:5px}
+.src ul{margin:6px 0 0;padding-left:18px}
+.src a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
+.src a:hover{border-bottom-color:var(--accent)}
+.q{color:var(--ink);opacity:.85}
+details{margin-top:14px;border-top:1px dashed var(--line);padding-top:10px}
+summary{cursor:pointer;font-family:ui-sans-serif,system-ui,sans-serif;
+  font-size:.78rem;color:var(--muted);letter-spacing:.03em;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▸ ";color:var(--accent)}
+details[open] summary::before{content:"▾ "}
+details .body{font-family:ui-sans-serif,system-ui,sans-serif;font-size:.85rem;
+  color:var(--muted);margin-top:10px}
+details .body div{margin-bottom:7px}
+details .body b{color:var(--ink);font-weight:600}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em;
+  background:var(--chip);padding:1px 5px;border-radius:4px}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;
+  background:var(--panel)}
+table{border-collapse:collapse;font-family:ui-sans-serif,system-ui,sans-serif;
+  font-size:.8rem;width:100%}
+th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);
+  white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:.72rem;text-transform:uppercase;
+  letter-spacing:.05em}
+td.n{text-align:center;color:var(--muted)}
+td.n.has{color:var(--accent);font-weight:700}
+tr:last-child td{border-bottom:none}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:18px 22px;margin-bottom:14px}
+.note h3{margin:0 0 8px;font-size:1rem}
+.note ul{margin:0;padding-left:20px;font-size:.94rem}
+.note li{margin-bottom:7px}
+.empty{color:var(--muted);font-style:italic;padding:26px 0}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:.82rem;font-family:ui-sans-serif,system-ui,sans-serif}
+@media(max-width:620px){
+  h1{font-size:1.6rem} .wrap{padding:0 14px 64px} header{padding-top:32px}
+  article{padding:16px 15px} .lbl{min-width:100%;margin-bottom:2px}
+}
+</style>
+<div class="wrap">
+<header>
+<h1>How good 40k players actually think</h1>
+<p class="sub">31 decision patterns pulled out of roughly 1,200 hours of 11th-edition Warhammer 40,000 talk — tournament coverage, battle reports and list reviews — organised by the decision you are making, not by the video it came from. Every claim links to the moment somebody said it.</p>
+<p class="meta sans">1029 transcripts · 90 channels · 2026-04-04 to 2026-08-04 (68 transcripts carry no date field) · generated 2026-08-05</p>
+</header>
+<div class="controls sans">
+<div class="row"><span class="lbl">Decision</span>
+<button data-k="d" data-v="all" aria-pressed="true">Everything</button>
+<button data-k="d" data-v="positioning_and_concealment" aria-pressed="false">Where to stand</button>
+<button data-k="d" data-v="screening_and_zoning" aria-pressed="false">Screening and denying space</button>
+<button data-k="d" data-v="target_selection" aria-pressed="false">What to shoot</button>
+<button data-k="d" data-v="objective_trade" aria-pressed="false">Objectives and scoring</button>
+<button data-k="d" data-v="attrition_and_trades" aria-pressed="false">When to accept a bad trade</button>
+<button data-k="d" data-v="melee_commitment" aria-pressed="false">When to charge</button>
+<button data-k="d" data-v="disengage_and_lock" aria-pressed="false">Staying in combat, or getting out</button>
+<button data-k="d" data-v="reserves_and_arrival" aria-pressed="false">Reserves and arrival</button>
+<button data-k="d" data-v="ability_timing" aria-pressed="false">When to spend your big ability</button>
+<button data-k="d" data-v="action_economy" aria-pressed="false">Who performs the actions</button>
+<button data-k="d" data-v="tempo_and_commitment" aria-pressed="false">Turn order and commitment</button>
+</div>
+<div class="row"><span class="lbl">Army</span>
+<button data-k="f" data-v="all" aria-pressed="true">All armies</button>
+<button data-k="f" data-v="general" aria-pressed="false">Holds for everyone</button>
+<button data-k="f" data-v="Adeptus Custodes" aria-pressed="false">Adeptus Custodes</button>
+<button data-k="f" data-v="Death Guard" aria-pressed="false">Death Guard</button>
+<button data-k="f" data-v="Drukhari" aria-pressed="false">Drukhari</button>
+<button data-k="f" data-v="Grey Knights" aria-pressed="false">Grey Knights</button>
+<button data-k="f" data-v="Orks" aria-pressed="false">Orks</button>
+<button data-k="f" data-v="Space Marines" aria-pressed="false">Space Marines</button>
+<button data-k="f" data-v="Tyranids" aria-pressed="false">Tyranids</button>
+<button class="theme" data-k="theme" data-v="t">Light / dark</button>
+</div></div>
+<section data-d="positioning_and_concealment">
+<h2>Where to stand<span class="n"></span></h2>
+<p class="dfn">Where a unit physically stands: what it can see, what can see it, what terrain state it ends its move in, and what that costs or buys.</p>
+<article data-d="positioning_and_concealment" data-f="general">
+<p class="claim">Infantry should end movement inside dense terrain so they gain Hidden, which makes them untargetable beyond 15&quot; (12&quot; when the shooter&#x27;s view is broken by dense terrain).</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag high">high confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">11e&#x27;s Hidden rule (core rules 13.09) gives INFANTRY/BEASTS/SWARM in a dense terrain area a detection range — enemies further away simply cannot target them, regardless of line of sight. Good players treat &#x27;get to hidden 12&#x27; as the primary movement objective for infantry in the first two rounds, because it converts an entire enemy shooting phase into nothing. The 3&quot; reduction for being obscured by dense terrain is deliberately farmed, not incidental.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=0Gcpze1G4Lc&amp;t=600s" target="_blank" rel="noopener">40K Dirtbags @ 10:00</a> — <span class="q">&ldquo;I try and get that dense cover for the hidden 12 ... How fast can I get to hidden 12&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=SkaqF6vbCYA&amp;t=720s" target="_blank" rel="noopener">Happy Krumping @ 12:00</a> — <span class="q">&ldquo;elite infantry is incredibly powerful, making use of the hidden rule ... can&#x27;t be targeted outside of 15 or 12&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=dPFfT2IIlME&amp;t=900s" target="_blank" rel="noopener">Tabletop Titans @ 15:00</a> — <span class="q">&ldquo;if you want to be a shooting army right now ... you have to be able to get within hidden range quickly&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=HQ0sQa37uHA&amp;t=780s" target="_blank" rel="noopener">Planet 40K @ 13:00</a> — <span class="q">&ldquo;as it&#x27;s a monster, you&#x27;re not going to be getting the hidden keyword&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> AIDecisionMaker.gd contains zero references to &#x27;hidden&#x27; (grep -ci hidden = 0), while RulesEngine.gd fully implements 13.09 (hidden_model_visible_to, TerrainManager.detection_range_inches_for, 15&quot; base minus a 3&quot; dense penalty). The AI therefore benefits from Hidden only by accident when a destination happens to be in terrain.</div>
+<div><b>Change:</b> Add a movement-destination bonus (start ~4.0, comparable to SECONDARY_POSITIONAL_BONUS 4.0) when the destination puts an INFANTRY/BEASTS/SWARM unit inside a dense terrain area and the unit has not shot this turn. Scale by how many enemy units are further than the detection range returned by TerrainManager.detection_range_inches_for — a Hidden position that hides from nothing is worth nothing.</div>
+<div><b>Risk:</b> Over-weighting drags infantry into terrain and off objectives; Hidden does not stop charges or blast/indirect, so a Hidden unit can still be run down. Gate it against the objective VP estimator so it never outbids a scoring move.</div>
+<div><b>Where:</b> <code>_score_movement_destination (movement scoring) — new WEIGHT_HIDDEN_GAINED constant</code> &middot; new_heuristic &middot; high priority</div>
+</div></details>
+</article>
+<article data-d="positioning_and_concealment" data-f="general">
+<p class="claim">Shooting surrenders Hidden for this turn and the next, so a unit that cannot meaningfully hurt anything should hold its fire and stay untargetable.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag high">high confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Hidden requires that the unit made no ranged attacks this turn or last turn, so pulling the trigger is a two-turn commitment to being shootable. Players explicitly weigh a marginal shooting phase against a turn of immunity, and will decline shots with backfield or objective-holding infantry to keep the state. This is a genuine per-unit decision every shooting phase, not a list-building consideration.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=TJQWtTZiP1g&amp;t=3480s" target="_blank" rel="noopener">Zeeto @ 58:00</a> — <span class="q">&ldquo;as soon as you give up hidden, you shoot a ball across the map ... you&#x27;ve got the 15 inch hidden anyway&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=k-IMme1pngY&amp;t=2520s" target="_blank" rel="noopener">Mid Table Tactics @ 42:00</a> — <span class="q">&ldquo;They&#x27;re not going to be hidden though because they are probably going to shoot&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=VqwMdS9MuIY&amp;t=11160s" target="_blank" rel="noopener">TacticalTortoise 40k @ 186:00</a> — <span class="q">&ldquo;I&#x27;m hidden in the line like this cuz I just got to shoot there ... not hidden cuz they&#x27;re shooting&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=f_z0hvW0VMk&amp;t=2940s" target="_blank" rel="noopener">Proxy Hammer @ 49:00</a> — <span class="q">&ldquo;you don&#x27;t have to move out into the open ... remain hidden even while shooting&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> The AI shoots whenever a legal shooting action scores above zero. It has no concept of a non-damage cost to firing, so it will trade two turns of untargetability for one low-value shooting action.</div>
+<div><b>Change:</b> When the shooter is currently Hidden, subtract a penalty from every shooting assignment for that unit — scale it by how many enemy units are outside detection range (i.e. how much immunity is being sold). Suggested start: 3.0, so the unit still fires when the expected damage is real but declines chip shots.</div>
+<div><b>Risk:</b> An over-large penalty produces a passive gunline that never shoots. The penalty must be zero for units that already shot this turn (Hidden is already lost) and for units with a &#x27;remain hidden while shooting&#x27; ability.</div>
+<div><b>Where:</b> <code>shooting-phase target scoring — new HIDDEN_FORFEIT_PENALTY constant</code> &middot; new_heuristic &middot; high priority</div>
+</div></details>
+</article>
+<article data-d="positioning_and_concealment" data-f="general">
+<p class="claim">Every move into enemy line of sight is taxed by Overwatch, which in 11e fires at the end of the opponent&#x27;s Movement phase and can no longer be baited out with a single expendable model.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag high">high confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Overwatch moved to the end of the opponent&#x27;s Movement phase and uses snap shooting (hits only on unmodified 6s, no re-rolls). Because the defender now watches the whole movement phase resolve before choosing a target, the old trick of pushing one cheap model out to draw the shot is dead — the defender simply waits and picks the best target. Players describe this as having to declare their whole movement plan to the opponent before paying for it.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=qahZnQPN8a8&amp;t=1620s" target="_blank" rel="noopener">Vanguard Tactics @ 27:00</a> — <span class="q">&ldquo;Overwatch is so powerful in this game now because you can&#x27;t ... put one model out ... you can&#x27;t bait them out anymore&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=eUpeWbN7gF4&amp;t=1680s" target="_blank" rel="noopener">StrikingScorpion82 @ 28:00</a> — <span class="q">&ldquo;overwatch is done at the end of the opponent&#x27;s movement phase ... it&#x27;s a decision we can make uh once movement&#x27;s done&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=FT5JoL5Myis&amp;t=300s" target="_blank" rel="noopener">Deploy on the Line 40K @ 05:00</a> — <span class="q">&ldquo;it&#x27;s just too easy to overwatch in 11th edition. You can&#x27;t play around it anymore with these big squads&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=uKl8cEJlk0c&amp;t=1620s" target="_blank" rel="noopener">6 Plus Plus Gaming @ 27:00</a> — <span class="q">&ldquo;with how Overwatch is now, that&#x27;s really really powerful to have a reactive move&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> THREAT_SHOOTING_PENALTY is 0.5 and commented &#x27;Lighter penalty for moving into shooting range (reduced from 1.0 — often unavoidable)&#x27;. That reasoning was written for a shooting phase the mover could answer; 11e Overwatch is paid inside the mover&#x27;s own turn, before it acts.</div>
+<div><b>Change:</b> Raise THREAT_SHOOTING_PENALTY to ~1.0 and add a separate OVERWATCH_EXPOSURE_PENALTY applied only when the destination is visible to an enemy unit that has not yet used Fire Overwatch this round, weighted by that unit&#x27;s raw shot volume (snap shooting rewards volume and torrent, not quality). Do not apply it to destinations already inside enemy line of sight before the move.</div>
+<div><b>Risk:</b> Too high and the AI refuses to cross the board at all, which loses on primary. The penalty should be suppressed for melee-archetype units (they already discount threat via THREAT_MELEE_UNIT_IGNORE) and in rounds 4-5.</div>
+<div><b>Where:</b> <code>THREAT_SHOOTING_PENALTY (currently 0.5)</code> &middot; weight_constant &middot; high priority</div>
+</div></details>
+</article>
+<article data-d="positioning_and_concealment" data-f="general">
+<p class="claim">The default opening is to stage the army out of line of sight behind mid-board terrain and physically occupy the staging point the opponent wants.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">player judgement</span>
+</div>
+<p class="detail">Because shooting is punishing and Hidden is available, the first-turn move is usually to get behind the centre ruin rather than onto the mid-board objectives. The refinement is that the terrain piece is a contested resource: putting bodies against it denies the opponent the same protection, so the move is simultaneously defensive and a denial play.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=-Bh3n-_Tpfs&amp;t=3660s" target="_blank" rel="noopener">40K Fireside @ 61:00</a> — <span class="q">&ldquo;move block your opponent from touching the middle ruin and staging your army behind it&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=6Lgr1hUGsgw&amp;t=840s" target="_blank" rel="noopener">Master Crafted @ 14:00</a> — <span class="q">&ldquo;we&#x27;re behind it, we&#x27;re hidden, they can&#x27;t see us, but at least we know that we&#x27;re taking up the space&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=1SRkN4Drhs4&amp;t=1080s" target="_blank" rel="noopener">Play On Tabletop @ 18:00</a> — <span class="q">&ldquo;my jumpack intercessors will move to stage behind this terrain ... I just don&#x27;t want to be shot&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=mX7VBM9qJjY&amp;t=420s" target="_blank" rel="noopener">Auspex Tactics @ 07:00</a> — <span class="q">&ldquo;staged as far forward as possible but out of line of sight&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Corridor blocking already exists but is keyed to objectives — it places blockers 55% of the way from an objective toward a threatening enemy. It has no notion of terrain pieces as the thing worth denying.</div>
+<div><b>Change:</b> Extend the corridor-block candidate set with the mid-board dense terrain areas TerrainManager already exposes, scoring a blocking position that both breaks enemy line of sight to our army and sits against the terrain the enemy would otherwise stage in. Reuse CORRIDOR_BLOCK_SCORE_BASE so the two compete on one scale.</div>
+<div><b>Risk:</b> Terrain-hugging can strand units away from scoring positions in rounds 4-5, where STRATEGY_LATE_OBJECTIVE (1.6) should dominate. Gate to rounds 1-2.</div>
+<div><b>Where:</b> <code>CORRIDOR_BLOCK_SCORE_BASE (7.0) / CORRIDOR_BLOCK_POSITION_RATIO (0.55)</code> &middot; weight_constant &middot; medium priority</div>
+</div></details>
+</article>
+<article data-d="positioning_and_concealment" data-f="general">
+<p class="claim">Cover in 11e worsens the attacker&#x27;s Ballistic Skill by 1 rather than improving the defender&#x27;s save, so seeking cover degrades incoming fire and ignore-cover weapons are worth aiming deliberately.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">3 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Benefit of Cover (13.08) applies a -1 to hit rather than a save bonus, which is a different shape of protection: it scales with the number of shots rather than with AP, and it stacks differently with re-rolls. Players call it out in play as &#x27;your storm bolters will be at minus one to hit&#x27;, and treat ignore-cover as a targeting consideration rather than a list-building nicety.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=aQsog-fkQJ8&amp;t=5100s" target="_blank" rel="noopener">Maelstrom Gaming Studios - Tyranids @ 85:00</a> — <span class="q">&ldquo;partially obscured ... your storm bolters will be at minus one to hit&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=VqwMdS9MuIY&amp;t=10260s" target="_blank" rel="noopener">TacticalTortoise 40k @ 171:00</a> — <span class="q">&ldquo;Don&#x27;t get cover, right? Yeah. No, it&#x27;s ignore cover for all&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=1SRkN4Drhs4&amp;t=3120s" target="_blank" rel="noopener">Play On Tabletop @ 52:00</a> — <span class="q">&ldquo;because you&#x27;re not an infantry, so you have to be obscured by the terrain itself&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Cover terrain types are enumerated (COVER_TERRAIN_WITHIN_AND_BEHIND, COVER_TERRAIN_WITHIN_ONLY) and RulesEngine resolves the modifier, but movement scoring has no explicit term for ending in cover, and target scoring has no term for the target being in cover.</div>
+<div><b>Change:</b> Add a modest movement bonus for destinations granting Benefit of Cover (smaller than the Hidden bonus in F001 — cover is a -1, Hidden is immunity), and reduce a target&#x27;s efficiency multiplier when it has cover against the shooter unless the weapon ignores cover.</div>
+<div><b>Risk:</b> Cover and Hidden are sought in the same terrain, so the two bonuses can double-count and over-concentrate the army into one ruin. Apply cover only when Hidden does not already apply.</div>
+<div><b>Where:</b> <code>movement destination scoring + EFFICIENCY_* target matching</code> &middot; weight_constant &middot; medium priority</div>
+</div></details>
+</article>
+</section>
+<section data-d="screening_and_zoning">
+<h2>Screening and denying space<span class="n"></span></h2>
+<p class="dfn">Using bodies to deny space — blocking deep strike arrival, blocking charge lanes, and blocking physical movement paths.</p>
+<article data-d="screening_and_zoning" data-f="general">
+<p class="claim">A screen is defined by the gaps between its models relative to the enemy&#x27;s base size, not by the unit&#x27;s overall position — gaps must be too narrow for an enemy base to pass through while staying more than 1&quot; away.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag high">high confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Models cannot move within Engagement Range of enemies during a normal move, so two screening models placed a base-width-plus-2&quot; apart form a wall; placed wider, they are decoration. Players talk in terms of the specific enemy base they are screening against (32mm, 2&quot;), and losing a game to a single unplanned gap is a recurring post-mortem. Consolidation compounds the error: a model that squeezes through kills the screen and then consolidates into whatever was behind it.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=gRqdSBkqVlA&amp;t=1320s" target="_blank" rel="noopener">6 Plus Plus Gaming @ 22:00</a> — <span class="q">&ldquo;What I didn&#x27;t think of was leaving gaps between my models to screen a 32 mil base&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=VqwMdS9MuIY&amp;t=30840s" target="_blank" rel="noopener">TacticalTortoise 40k @ 514:00</a> — <span class="q">&ldquo;create a gap that is less than 1 in between all of those models ... will prevent any orc model from going through&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=xFGyuYmXyJY&amp;t=600s" target="_blank" rel="noopener">Proxy Hammer @ 10:00</a> — <span class="q">&ldquo;you can have a little bit of space in between your models that they won&#x27;t be able to actually fit through&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=VPTL092E0VI&amp;t=780s" target="_blank" rel="noopener">Grimdark Breakdown @ 13:00</a> — <span class="q">&ldquo;The amount of times that I have tried to screen and there&#x27;s a tiny hole&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Screening is scored at unit granularity: SCREEN_SPACING_PX (18&quot;) spaces whole screening units, and AI_B2B_GAP_PX (0.5px) is only used for base-to-base packing. Nothing checks whether the resulting model line has a passable gap.</div>
+<div><b>Change:</b> When laying out a unit flagged as a screener, cap inter-model spacing at (largest enemy base diameter + 2&quot;) and validate the finished line against the widest enemy base on the board. Expose the cap as SCREEN_MAX_MODEL_GAP_PX so it is tunable per profile.</div>
+<div><b>Risk:</b> Tight spacing shortens the screen, so fewer inches are covered per unit and blast weapons get better value. It also interacts with unit coherency — the layout must still satisfy coherency after casualties.</div>
+<div><b>Where:</b> <code>screening placement (SCREEN_SCORE_BASE path) — new SCREEN_MODEL_GAP logic</code> &middot; new_heuristic &middot; high priority</div>
+</div></details>
+</article>
+<article data-d="screening_and_zoning" data-f="general">
+<p class="claim">Deep-strike denial must use the arriving unit&#x27;s own minimum distance, because 6&quot; deep strike is common in 11e and a 9&quot;-spaced screen does not stop it.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag high">high confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Numerous 11e detachments and enhancements grant deep strike at 6&quot; rather than the core 9&quot;, and players describe having to screen &#x27;really aggressively&#x27; as a result. Denial geometry is the sum of two radii: to deny a 9&quot; arrival, screeners must be within 18&quot; of each other; to deny a 6&quot; arrival, within 12&quot;. Using one fixed number under-screens against exactly the units most able to punish it.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=uYFHWwWSklU&amp;t=5220s" target="_blank" rel="noopener">Odyssey40k @ 87:00</a> — <span class="q">&ldquo;there&#x27;s a 6-in deep strike in retaliation ... you have to screen really aggressively for it&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=SyVxk7EW_tI&amp;t=7920s" target="_blank" rel="noopener">Tactical Sugar @ 132:00</a> — <span class="q">&ldquo;it&#x27;s so much harder screen out now in 11th and deep strikes are so much more important in 11th&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=nGqRAvAMTYA&amp;t=3960s" target="_blank" rel="noopener">TacticalTortoise 40k @ 66:00</a> — <span class="q">&ldquo;He also can 6 in deep strike high OC onto an objective in order to grab it&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=8_HAdKldvhs&amp;t=1200s" target="_blank" rel="noopener">The Tabletop Alliance 40K @ 20:00</a> — <span class="q">&ldquo;What do you have in reserve? Screamers ... 6 in deep strike now&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Both constants are hardcoded to the core-rules 9&quot; case. _find_screening_positions steps the board every SCREEN_SPACING_PX and treats any point further than DEEP_STRIKE_DENIAL_RANGE_PX from a friendly model as deniable.</div>
+<div><b>Change:</b> Derive the radius per threat: scan enemy units still in reserve for a deep-strike ability naming a distance, take the minimum across them, and use 2x that as the screen spacing for this game. Keep the current values as the fallback when no reserve unit advertises a shorter range.</div>
+<div><b>Risk:</b> A 12&quot; spacing needs ~50% more screening bodies to cover the same frontage; on low-model armies this will starve objectives. Pair with a cap on how many units may take screening assignments.</div>
+<div><b>Where:</b> <code>DEEP_STRIKE_DENIAL_RANGE_PX (360.0 = 9&quot;) and SCREEN_SPACING_PX (720.0 = 18&quot;)</code> &middot; weight_constant &middot; high priority</div>
+</div></details>
+</article>
+<article data-d="screening_and_zoning" data-f="Orks">
+<p class="claim">Gretchin exist to absorb the screening and home-objective jobs so Boyz mobs are never assigned to them.</p>
+<div class="tags">
+<span class="tag fac">Orks</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">2 channels agree</span>
+<span class="tag">player judgement</span>
+</div>
+<p class="detail">Ork lists carry multiple cheap Gretchin units specifically as job-units: sit on home, screen the deployment zone, and block deep strike, leaving the 20-model Boyz mobs free to be the offensive units the army actually wins with. The failure mode players describe is a Boyz mob that ends up babysitting an objective — a 200-point unit doing a 40-point unit&#x27;s job.</p>
+<div class="diff"><b>Why this army is different</b>The general AI picks screeners by cost threshold (SCREEN_CHEAP_UNIT_POINTS 100) and would happily assign a cheap-ish melee unit to a screen. For Orks the assignment should be near-absolute: Gretchin take these roles first and Boyz take them only when no Gretchin remain, even if the Boyz mob is closer.</div>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=QZ9wggn2oUo&amp;t=420s" target="_blank" rel="noopener">Tabletop Nexus @ 07:00</a> — <span class="q">&ldquo;Gretchen handle the boring jobs, your home objectives, more screening so boys don&#x27;t have to&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=Enm67qaqHkU&amp;t=300s" target="_blank" rel="noopener">40K Dirtbags @ 05:00</a> — <span class="q">&ldquo;we have three units of Gretchen, 120 men, two 10 mans&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=DHVBk9vnR8w&amp;t=120s" target="_blank" rel="noopener">40K Dirtbags @ 02:00</a> — <span class="q">&ldquo;20-man gretchin with Zagdrod, two 10-man gretchin which I really liked having extra gretchin unit&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Any unit at or below 100 points is a screening candidate, scored at SCREEN_SCORE_BASE 8.0 against objective priorities. Ork Boyz mobs are above the threshold so they are not screen candidates, but they are still eligible for home-objective assignments.</div>
+<div><b>Change:</b> Ork profile: lower SCREEN_CHEAP_UNIT_POINTS to ~60 so only Gretchin-class units qualify, and raise SCREEN_SCORE_BASE to ~10.0 so those units take screening over a marginal objective push. Pair with a rule that raises WEIGHT_ALREADY_HELD_OBJ for melee units so Boyz leave held objectives.</div>
+<div><b>Risk:</b> If the army has lost its Gretchin, a 60-point threshold leaves nothing eligible to screen at all. Needs a fallback to the default threshold when no candidate exists.</div>
+<div><b>Where:</b> <code>SCREEN_CHEAP_UNIT_POINTS (100) / SCREEN_SCORE_BASE (8.0)</code> &middot; profile_rule &middot; medium priority</div>
+</div></details>
+</article>
+<article data-d="screening_and_zoning" data-f="general">
+<p class="claim">A screen must still be intact during the opponent&#x27;s turn, because Rapid Ingress lets reserves arrive in the opponent&#x27;s Movement phase.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Rapid Ingress moves a reserve unit onto the table during the opponent&#x27;s movement phase, so a screen evaluated only at the end of the AI&#x27;s own turn can be bypassed the moment it takes casualties or moves. Players build lists specifically around having a Rapid Ingress target and describe screening against it as a distinct obligation from screening against normal deep strike.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=Enm67qaqHkU&amp;t=240s" target="_blank" rel="noopener">40K Dirtbags @ 04:00</a> — <span class="q">&ldquo;at least one unit in reserves cuz you&#x27;re making lists to have a reserve rapid ingress target&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=1AwnDclFviQ&amp;t=9540s" target="_blank" rel="noopener">WarGames Live @ 159:00</a> — <span class="q">&ldquo;this dog is doing some rapid ingress screening which is nice ... Deep strike denying&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=pAk1YiuioNQ&amp;t=3420s" target="_blank" rel="noopener">Happy Krumping @ 57:00</a> — <span class="q">&ldquo;You don&#x27;t have to screen the rapid ingress. You don&#x27;t have to worry about screening&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=gRqdSBkqVlA&amp;t=360s" target="_blank" rel="noopener">6 Plus Plus Gaming @ 06:00</a> — <span class="q">&ldquo;a big Helion Brick for rapid ingress threats ... I needed a infiltrate screen unit against things like Emperor&#x27;s Children&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Screening positions are chosen during the AI&#x27;s movement phase and evaluated against the board as it stands then. Nothing re-checks coverage after the AI&#x27;s own shooting/charge phases move or lose the screening unit.</div>
+<div><b>Change:</b> Re-validate screening coverage at the end of the AI&#x27;s turn and, when a gap has opened, prefer keeping a screening unit stationary over using it in a charge. Simplest form: mark units holding a screening assignment as ineligible for charges unless the charge itself closes the gap.</div>
+<div><b>Risk:</b> Locking screeners out of charges wastes them when no reserves remain. Skip the restriction entirely once the opponent has nothing left in reserve — the AI can see reserve counts in the snapshot.</div>
+<div><b>Where:</b> <code>screening assignment validity window</code> &middot; new_heuristic &middot; medium priority</div>
+</div></details>
+</article>
+<article data-d="screening_and_zoning" data-f="Tyranids">
+<p class="claim">Tyranids should spend cheap broods and spore mines as disposable movement blockers placed in the enemy&#x27;s path, not as objective holders held back safely.</p>
+<div class="tags">
+<span class="tag fac">Tyranids</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">3 channels agree</span>
+<span class="tag">player judgement</span>
+</div>
+<p class="detail">Tyranid screening pieces are cheap enough to be spent every turn and are placed specifically to force the opponent to go around — the value is the movement tax, not the bodies. Players describe placing spore mines downfield turn after turn to close deep-strike lanes, and describe a single unscreened gap as what lets the opponent through.</p>
+<div class="diff"><b>Why this army is different</b>The general AI picks screeners by cost threshold and places them to cover deep-strike arrival zones near its own objectives. Tyranids should also project blockers forward into the enemy&#x27;s approach lanes and treat them as consumable each turn, which the general threat model would penalise as walking into danger.</div>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=K8OD14Mz6N4&amp;t=540s" target="_blank" rel="noopener">Into the Hive Mind @ 09:00</a> — <span class="q">&ldquo;putting these spore mines out that screen out deep strikers or any kind of reserve&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=VPTL092E0VI&amp;t=780s" target="_blank" rel="noopener">Grimdark Breakdown @ 13:00</a> — <span class="q">&ldquo;you could put things in their way to block their easy path&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=sPWC5HujB_Y&amp;t=1140s" target="_blank" rel="noopener">StrikingScorpion82 @ 19:00</a> — <span class="q">&ldquo;holding objectives, picking on isolated, tying units down, blocking movements ... it&#x27;s no big deal if they&#x27;re slain&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Corridor blocking exists at 7.0 base priority — below screening&#x27;s 8.0 — capped at 4 positions, and requires an enemy within 30&quot; of the objective being protected.</div>
+<div><b>Change:</b> Tyranid profile: raise CORRIDOR_BLOCK_SCORE_BASE to ~9.0 so blocking outbids screening for cheap broods, and raise CORRIDOR_BLOCK_MAX_POSITIONS to 6. Lower THREAT_FRAGILE_BONUS so the blockers accept being killed.</div>
+<div><b>Risk:</b> Cheap Tyranid units are also the army&#x27;s OC on objectives; spending them all as blockers can leave nothing scoring. Cap the number of units that may take a blocking assignment as a fraction of the army.</div>
+<div><b>Where:</b> <code>CORRIDOR_BLOCK_SCORE_BASE (7.0) / CORRIDOR_BLOCK_MAX_POSITIONS (4)</code> &middot; profile_rule &middot; medium priority</div>
+</div></details>
+</article>
+</section>
+<section data-d="target_selection">
+<h2>What to shoot<span class="n"></span></h2>
+<p class="dfn">Given a set of legal targets, which one to shoot or fight, and how much to commit to it.</p>
+<article data-d="target_selection" data-f="general">
+<p class="claim">Enemy infantry that is about to regain Hidden should be shot this turn, because next turn it may be untargetable.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">2 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Hidden returns once a unit goes a full turn without shooting, so an enemy unit that fired last turn but not this one is on a timer. Players consciously reprioritise onto those units while the window is open, rather than picking the highest-value target and finding it unshootable next turn. This is the mirror image of the decision to hold fire.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=gRQZh-QYBIQ&amp;t=1200s" target="_blank" rel="noopener">Boltgun Tactics @ 20:00</a> — <span class="q">&ldquo;I&#x27;m not going to shoot the raptors cuz they might get hidden um if I don&#x27;t shoot&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=Enm67qaqHkU&amp;t=420s" target="_blank" rel="noopener">40K Dirtbags @ 07:00</a> — <span class="q">&ldquo;these guys won&#x27;t be able to shoot me turn one if everybody&#x27;s hidden&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Target value is computed from points, output, survivability and objective presence. Availability is treated as binary and permanent: there is no notion of a target that is legal now and illegal later.</div>
+<div><b>Change:</b> Multiply target value by ~1.25 when the target is an INFANTRY/BEASTS/SWARM unit standing in dense terrain that did not make ranged attacks this turn — it will be Hidden on the opponent&#x27;s next turn. Read the same flags RulesEngine uses for 13.09.</div>
+<div><b>Risk:</b> Chasing the window can pull fire off a genuinely more dangerous target. Keep the multiplier modest so it breaks ties rather than overriding threat.</div>
+<div><b>Where:</b> <code>_calculate_target_value — new HIDDEN_WINDOW_BONUS</code> &middot; weight_constant &middot; medium priority</div>
+</div></details>
+</article>
+<article data-d="target_selection" data-f="general">
+<p class="claim">Clearing enemy screens is worth more than the screen&#x27;s points, because the screen is what stops the rest of the army from scoring or charging.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag high">high confidence</span>
+<span class="tag">3 channels agree</span>
+<span class="tag">player judgement</span>
+</div>
+<p class="detail">Players routinely commit an expensive unit to kill a cheap one and describe it as a good decision, because the cheap unit is denying a charge lane, an objective, or a deep-strike landing zone. Points-per-wound efficiency scores this as a bad trade; the players&#x27; framing is that the screen&#x27;s value is the value of everything it is blocking. The counterweight they also state is not to use your best melee unit on chaff when a cheaper one will do.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=VqwMdS9MuIY&amp;t=3720s" target="_blank" rel="noopener">TacticalTortoise 40k @ 62:00</a> — <span class="q">&ldquo;it&#x27;s absolutely worth a genailer squad to eviscerate one of those ranger squads even though it&#x27;s a trade down&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=_xKjN6N1jT0&amp;t=240s" target="_blank" rel="noopener">40K Fireside @ 04:00</a> — <span class="q">&ldquo;you need to kill like I don&#x27;t know, 10 guardsmen move blocking your big charges&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=7AgzQIEq3j4&amp;t=5580s" target="_blank" rel="noopener">TacticalTortoise 40k @ 93:00</a> — <span class="q">&ldquo;you can clear screening units and infiltrators ... have to run 20 possessed into ... 10 commandos&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=D5XVd0FRgK8&amp;t=120s" target="_blank" rel="noopener">Warpbane Tactics @ 02:00</a> — <span class="q">&ldquo;unit left alive on one wood can still hold an objective, block our movement ... That is why finis&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Trade analysis penalises killing cheap units with expensive ones (TRADE_UNFAVORABLE_PENALTY 0.7), and is gated to Competitive difficulty only (use_trade_analysis). A screening unit is scored as its points and output, so it looks like a bad target.</div>
+<div><b>Change:</b> Add a positional-value term to _calculate_target_value: if the target is currently inside our own screening-denial evaluation (it is blocking a charge lane, sitting in a deep-strike landing zone we want, or contesting an objective our VP estimator prices), suppress the TRADE_UNFAVORABLE_PENALTY for that target rather than adding raw score. Suppression, not a bonus, keeps the existing scale intact.</div>
+<div><b>Risk:</b> Suppressing the penalty too broadly recreates the pre-trade-analysis behaviour of shooting lascannons at Grots. It must key off an explicit blocking role, not off cheapness.</div>
+<div><b>Where:</b> <code>TRADE_PPW_WEIGHT (0.25) / TRADE_UNFAVORABLE_PENALTY (0.7)</code> &middot; weight_constant &middot; high priority</div>
+</div></details>
+</article>
+<article data-d="target_selection" data-f="general">
+<p class="claim">Battle-shocking a unit strips its Objective Control to zero, so an objective can be flipped without killing anything.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag high">high confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">A battle-shocked unit&#x27;s models have OC &#x27;-&#x27;, cannot be targeted by stratagems and cannot start actions. Players describe whole lists built around it (&#x27;battleshock OC denial&#x27;) and use forced battle-shock tests specifically to deny a primary score in the opponent&#x27;s command phase. Against durable objective-holders this is far cheaper than killing them, and it is the counter to armies that ignore attrition.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=TJQWtTZiP1g&amp;t=120s" target="_blank" rel="noopener">Zeeto @ 02:00</a> — <span class="q">&ldquo;That sort of Battleshock um OC denial sort of list ... would probably work well in teams&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=eokQteHr0Fo&amp;t=1140s" target="_blank" rel="noopener">6 Plus Plus Gaming @ 19:00</a> — <span class="q">&ldquo;if you really need them to not have a secondary uh primary point ... it&#x27;s a really powerful strategy&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=qwnHaQvzCq0&amp;t=840s" target="_blank" rel="noopener">Grimdark Breakdown @ 14:00</a> — <span class="q">&ldquo;If you Battle Shock me, I go to 1 OC instead of 0&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=ewxyBDMvC64&amp;t=1380s" target="_blank" rel="noopener">The Six Machine @ 23:00</a> — <span class="q">&ldquo;it is more likely that you will get battleshocked and potentially stay battleshocked&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> The AI reads the battle_shocked flag defensively (it un-shocks its own units via &#x27;Da Captain&#x27;, and skips shocked enemies in some checks) but never evaluates inflicting battle-shock as a route to controlling an objective. Objective contest is computed from raw OC only.</div>
+<div><b>Change:</b> When scoring an ability or stratagem that forces a battle-shock test, add the VP the objective would be worth if the target&#x27;s OC went to zero — reuse _estimate_objective_vp_value with the target&#x27;s OC removed and score the delta. Same term should make a shocked enemy unit a lower-priority shooting target while it is shocked and already contributing nothing.</div>
+<div><b>Risk:</b> Battle-shock is a leadership roll and often fails; the score must be multiplied by the actual pass probability or the AI will spend CP on coin flips. It also lasts only until the next command phase, so it is worthless outside the scoring window.</div>
+<div><b>Where:</b> <code>objective contest evaluation + battle-shock-inflicting ability/stratagem scoring</code> &middot; new_heuristic &middot; high priority</div>
+</div></details>
+</article>
+<article data-d="target_selection" data-f="general">
+<p class="claim">Concentrate onto one target until it is destroyed rather than spreading damage; a unit left on one wound still holds objectives and blocks movement.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">2 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">A surviving model retains full Objective Control and full blocking geometry, so partial damage buys almost nothing in a mission-scored edition. Players describe spreading fire as the specific mistake that cost them a game, and finishing targets as the corrective. This mostly corroborates what the AI already does, but the mechanism matters: the reason to finish is positional, not damage-economic.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=PWtaFLZYu_U&amp;t=180s" target="_blank" rel="noopener">Warpbane Tactics @ 03:00</a> — <span class="q">&ldquo;spreading my damage across multiple units would have been a massive mistake. I focused on completely removing one unit at a time&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=D5XVd0FRgK8&amp;t=120s" target="_blank" rel="noopener">Warpbane Tactics @ 02:00</a> — <span class="q">&ldquo;unit left alive on one wood can still hold an objective, block our movement&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=lNn0zv_w8t8&amp;t=300s" target="_blank" rel="noopener">Planet 40K @ 05:00</a> — <span class="q">&ldquo;another bad priority target ... is just simply bad trades&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Focus fire already exists at Normal+ and MICRO_MARGINAL_KILL_BONUS rewards the assignment that crosses the kill threshold. The weighting is damage-denominated, so a target holding an objective is not preferentially finished.</div>
+<div><b>Change:</b> Multiply MICRO_MARGINAL_KILL_BONUS by ~1.4 when the target currently contributes OC to an objective our VP estimator prices above zero, so finishing a scoring unit outbids starting on a fresh one.</div>
+<div><b>Risk:</b> Low. The main hazard is stacking with the disposition kill-pressure term and producing tunnel vision on one objective.</div>
+<div><b>Where:</b> <code>MICRO_MARGINAL_KILL_BONUS (2.5) / MICRO_OVERKILL_DECAY (0.35) / OVERKILL_TOLERANCE (1.15)</code> &middot; weight_constant &middot; medium priority</div>
+</div></details>
+</article>
+<article data-d="target_selection" data-f="general">
+<p class="claim">Units standing on objectives are premium targets in every round, not just rounds 4-5, because several common secondaries pay for killing them.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">&#x27;Kill things on objectives&#x27; recurs as a secondary across the corpus, and players reshuffle their whole shooting plan when they draw it — sometimes needing two kills on markers for full value. Combined with the primary card, an enemy unit on a marker is being paid for twice: once by removing its OC, once by the secondary. This is a scoring decision dressed as a target-priority decision.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=Krfpc2el0cA&amp;t=1500s" target="_blank" rel="noopener">Tabletop Titans @ 25:00</a> — <span class="q">&ldquo;Overwhelming is good. This is kill things on objectives. It&#x27;s what I want to do ... you really want to try to get two kills&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=VvZD_rjUBjE&amp;t=1140s" target="_blank" rel="noopener">MiniWarGaming @ 19:00</a> — <span class="q">&ldquo;Kill things on the critical objectives with overwhelming force&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=TPV3hVKSUxw&amp;t=2520s" target="_blank" rel="noopener">Play On Tabletop @ 42:00</a> — <span class="q">&ldquo;we&#x27;ve got overwhelming force. So, kill things on objectives&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=1AwnDclFviQ&amp;t=33120s" target="_blank" rel="noopener">WarGames Live @ 552:00</a> — <span class="q">&ldquo;Kill things on objectives. Easy. And do actions&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> The bonus for shooting units on objectives is part of the rounds-4-5 strategy block only. In rounds 1-3 an enemy unit on a marker is valued the same as one in the open.</div>
+<div><b>Change:</b> Move the objective-occupancy bonus out of the late-game block and apply it whenever the active secondary or primary card pays for kills on objectives — the SecondaryMissionManager hints already surface this. Keep the extra late-game multiplier on top.</div>
+<div><b>Risk:</b> Applied unconditionally it double-counts with the OC-denial value of the same kill and can pull fire off genuinely dangerous units early. Gate it on the mission actually paying for it.</div>
+<div><b>Where:</b> <code>STRATEGY_LATE_OBJ_TARGET_BONUS (1.3)</code> &middot; weight_constant &middot; medium priority</div>
+</div></details>
+</article>
+</section>
+<section data-d="objective_trade">
+<h2>Objectives and scoring<span class="n"></span></h2>
+<p class="dfn">Whether to take, hold, contest, or give up an objective, and what that is worth relative to killing something.</p>
+<article data-d="objective_trade" data-f="general">
+<p class="claim">Tabling the opponent is no longer a win condition in 11e; the AI should accept losing units it cannot save if the exchange keeps it ahead on primary.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag high">high confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Multiple channels contrast 11e with 10e explicitly: in 10e killing the opponent&#x27;s army was a common route to victory, in 11e games are decided on accumulated primary and secondary VP with a 45-point primary cap. The practical consequence is that a durable army can lose the attrition war and still win, and an aggressive army that wins every fight can lose on points.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=MG546BN181w&amp;t=2820s" target="_blank" rel="noopener">Grimdark Breakdown @ 47:00</a> — <span class="q">&ldquo;You do not have to kill your opponent in 11th edition. A giant condition of winning was tableabling your opponent in 10th&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=9fuvetVLB3s&amp;t=1740s" target="_blank" rel="noopener">Master Crafted @ 29:00</a> — <span class="q">&ldquo;they don&#x27;t have to kill you. It&#x27;s just going to take you five turns to kill their army and they&#x27;re just going to keep scoring&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=EBJW0VDeT_Q&amp;t=2700s" target="_blank" rel="noopener">40K Dirtbags @ 45:00</a> — <span class="q">&ldquo;win on primary by denying primary and stuff like that. It&#x27;s really the only way to to win 40k&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=VU4S_6e1NgE&amp;t=1440s" target="_blank" rel="noopener">Deploy on the Line 40K @ 24:00</a> — <span class="q">&ldquo;you&#x27;re just going to win on primary points as long as you don&#x27;t burn out&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Rounds 1-2 boost kill-seeking 30% and hold objective weight just below full (0.95). The VP-denominated objective estimator already exists, so the framework is right, but the early-round modifiers still tilt toward damage.</div>
+<div><b>Change:</b> Bring STRATEGY_EARLY_AGGRESSION down toward 1.1 and STRATEGY_EARLY_OBJECTIVE up to 1.0, and A/B it the way orks_discipline_a.json A/B&#x27;d the Ork constant. Do not change the late modifiers — they already favour objectives.</div>
+<div><b>Risk:</b> Reduced early aggression can let an aggressive opponent establish the mid-board unopposed, which loses on primary for the opposite reason. This is a benchmark question, not a settled one — hence the profile arm rather than a constant edit.</div>
+<div><b>Where:</b> <code>STRATEGY_EARLY_AGGRESSION (1.3) / STRATEGY_EARLY_OBJECTIVE (0.95)</code> &middot; weight_constant &middot; medium priority</div>
+</div></details>
+</article>
+<article data-d="objective_trade" data-f="general">
+<p class="claim">The force disposition should modulate how much the AI values killing versus holding, not just which objectives it prices.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">11e pairs each player&#x27;s disposition deck against the opponent&#x27;s, and the five dispositions reward very different behaviour: Purge the Foe pays for destroying units every turn, Take and Hold pays for straightforward objective control, Recon and Priority Assets pay for actions in specific places, and Disruption scores poorly overall — which players treat as licence to stop caring about scoring and simply attack. That last inversion is the clearest evidence that disposition should change aggression, not only objective pricing.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=pAk1YiuioNQ&amp;t=4200s" target="_blank" rel="noopener">Happy Krumping @ 70:00</a> — <span class="q">&ldquo;disruption scores poorly, it kind of releases you to not have to worry about scoring ... you might as well just obliterate your opponents&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=14LSO7MS3QI&amp;t=5100s" target="_blank" rel="noopener">Deploy on the Line 40K @ 85:00</a> — <span class="q">&ldquo;if they were taking recon they&#x27;re just trying to kill people and say whatever you score your points later&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=ogMKXBVh4g0&amp;t=120s" target="_blank" rel="noopener">Warpbane Tactics @ 02:00</a> — <span class="q">&ldquo;Disruption is about interfering with your opponent&#x27;s plans, it rewards movement, positioning&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=i7MkaccGXeA&amp;t=1500s" target="_blank" rel="noopener">TacticalTortoise 40k @ 25:00</a> — <span class="q">&ldquo;gives you points where you destroy enemies ... So it&#x27;s a simply a race&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> _build_primary_awareness already parses the player&#x27;s own 11e primary card and sets objective_pressure, enemy_home_bonus, central_bonus and a boolean kill_pressure. objective_pressure feeds objective scoring, but kill_pressure is only recorded — it does not modify the aggression/charge-threshold modifiers.</div>
+<div><b>Change:</b> Multiply the aggression modifier by ~1.2 and the charge threshold by ~0.9 while awareness.kill_pressure is true, and apply the inverse when objective_pressure is high and kill_pressure false. This is a small change because the parsing already exists.</div>
+<div><b>Risk:</b> Double-counting: kill-based primary rules already raise the VP value of killing through the estimator, so a second multiplier can over-rotate. Cap the combined aggression modifier.</div>
+<div><b>Where:</b> <code>_build_primary_awareness → feed kill_pressure into the aggression modifier stack</code> &middot; new_heuristic &middot; medium priority</div>
+</div></details>
+</article>
+<article data-d="objective_trade" data-f="Adeptus Custodes">
+<p class="claim">Custodes cannot screen and score simultaneously; they should concentrate into one or two bricks and concede board area rather than spreading to cover objectives.</p>
+<div class="tags">
+<span class="tag fac">Adeptus Custodes</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">3 channels agree</span>
+<span class="tag">player judgement</span>
+</div>
+<p class="detail">With roughly a third of a normal army&#x27;s unit count, every Custodes unit split off to hold a marker is a unit missing from the one place the army can win a fight. Players describe the army as wanting to move as a wrecking ball, and describe splitting as the mistake. The army&#x27;s compensation is that its units are individually hard enough to hold an objective against a much larger force, so it can arrive late and still take the ground.</p>
+<div class="diff"><b>Why this army is different</b>The general AI spreads units across objectives by score, using SUPPORT_STACK_PENALTY (3.5) to actively discourage stacking. For Custodes that penalty is backwards: concentration is the plan, and the army should accept holding fewer objectives for longer rather than contesting more of them briefly.</div>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=EAqaLgAudQo&amp;t=12960s" target="_blank" rel="noopener">Tabletop Titans @ 216:00</a> — <span class="q">&ldquo;custodians are just not designed that way. They want to be hanging out together just few units but just wrecking ball&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=9fuvetVLB3s&amp;t=3780s" target="_blank" rel="noopener">Master Crafted @ 63:00</a> — <span class="q">&ldquo;it still just didn&#x27;t feel great as a custod player to have to uh be playing might with purge&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=ET9gYSgKRfs&amp;t=240s" target="_blank" rel="noopener">Hubtown Hammer @ 04:00</a> — <span class="q">&ldquo;we will always have minus one to hit in the fight phase since they will be within 12 in with the hidden rule&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Custodes get a single scalar aggression of 1.5, which raises kill-seeking and lowers the charge threshold. Nothing changes how widely the army spreads; SUPPORT_STACK_PENALTY 3.5 applies as normal and pushes units apart.</div>
+<div><b>Change:</b> This is the clearest evidence that a single &#x27;aggression&#x27; scalar is the wrong model. For Custodes the differentiating parameter is concentration, not aggression: drop SUPPORT_STACK_PENALTY to ~1.5 in the Custodes profile and raise WEIGHT_ALREADY_HELD_OBJ toward -1.0 so units stay on ground they already hold, while leaving FACTION_AGGRESSION_CUSTODES at 1.5.</div>
+<div><b>Risk:</b> Concentration loses to mission formats that reward spread (Recon table quarters, Priority Assets actions). The profile should be benchmarked per disposition, not adopted globally.</div>
+<div><b>Where:</b> <code>FACTION_AGGRESSION_CUSTODES (1.5) — plus SUPPORT_STACK_PENALTY in the profile</code> &middot; faction_constant &middot; medium priority</div>
+</div></details>
+</article>
+<article data-d="objective_trade" data-f="Grey Knights">
+<p class="claim">Grey Knights teleport (pick a unit up and redeploy it) costs objective control, so its value is disposition-dependent — under Take and Hold, teleporting a scoring unit is usually a net loss.</p>
+<div class="tags">
+<span class="tag fac">Grey Knights</span>
+<span class="tag low">low confidence</span>
+<span class="tag">1 channel agree</span>
+<span class="tag">player judgement</span>
+</div>
+<p class="detail">Repositioning a unit off an objective removes its OC contribution for the scoring window, so the same ability that is a free reposition under a kill-oriented card is a self-inflicted VP loss under an objective-oriented one. The arrival-turn buffs that reward teleporting are also limited to the turn the unit arrives, so the benefit is one turn while the objective loss can span two.</p>
+<div class="diff"><b>Why this army is different</b>A general AI treats a free reposition as unambiguously good. For Grey Knights the ability has to be priced against the VP estimator before use, and its worth swings with the primary card.</div>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=veM7sLjtdIw&amp;t=60s" target="_blank" rel="noopener">Warpbane Tactics @ 01:00</a> — <span class="q">&ldquo;being careful about when we use our teleportation. Picking a unit up is incredibly useful, but under Take and Hold, that decision becomes more costly&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=D5XVd0FRgK8&amp;t=180s" target="_blank" rel="noopener">Warpbane Tactics @ 03:00</a> — <span class="q">&ldquo;Fury of the Titan. Each time one of our units is set up using the deep strike ability until the end of that turn&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Repositioning abilities are scored on the destination&#x27;s movement value. The VP the unit was contributing at its origin is not subtracted.</div>
+<div><b>Change:</b> Subtract _estimate_objective_vp_value for the origin objective from the score of any pick-up-and-place ability, so the decision is a net VP comparison. This is a general improvement that Grey Knights make most visible.</div>
+<div><b>Risk:</b> Low confidence — a single channel. Implement the VP subtraction as general logic rather than as a Grey Knights special case, and do not ship a Grey Knights profile on this evidence.</div>
+<div><b>Where:</b> <code>teleport / redeploy ability scoring</code> &middot; faction_ability &middot; low priority</div>
+</div></details>
+</article>
+</section>
+<section data-d="attrition_and_trades">
+<h2>When to accept a bad trade<span class="n"></span></h2>
+<p class="dfn">Whether a unit&#x27;s likely loss is acceptable for what it buys.</p>
+<article data-d="attrition_and_trades" data-f="Drukhari">
+<p class="claim">Drukhari should fight out of transports and treat committed squads as expendable — a squad that disembarks, kills, and dies has done its job.</p>
+<div class="tags">
+<span class="tag fac">Drukhari</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">player judgement</span>
+</div>
+<p class="detail">Drukhari infantry are fast and lethal but do not survive being shot, so the transport is not a delivery convenience but the unit&#x27;s durability. Players describe squads as explicitly suicidal — sent to remove a key piece with no expectation of returning — and describe leaving a unit outside its transport as the error. The army&#x27;s economy assumes it trades its units away and keeps scoring with what is left.</p>
+<div class="diff"><b>Why this army is different</b>The general AI protects expensive and fragile units (THREAT_FRAGILE_BONUS 1.3, ARCHETYPE_ELITE_SURVIVAL 1.25) and penalises trading an expensive unit into a cheaper one. Drukhari should accept those trades when the target is a key enabler, and should weight embarkation far more heavily than a general army would.</div>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=jJwrYZs3l-I&amp;t=660s" target="_blank" rel="noopener">Deploy on the Line 40K @ 11:00</a> — <span class="q">&ldquo;squad in transport. They&#x27;re going to suicide themselves&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=nCQuNE_8V44&amp;t=1140s" target="_blank" rel="noopener">SkaredCast @ 19:00</a> — <span class="q">&ldquo;you didn&#x27;t need the entire unit to kill them. They died very fast. Should have kept them in the transport&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=gRqdSBkqVlA&amp;t=420s" target="_blank" rel="noopener">6 Plus Plus Gaming @ 07:00</a> — <span class="q">&ldquo;Drukhari really love it in Sky Splinter Assault ... it gives them that bit of protection&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=3lwK9jAR0RM&amp;t=1380s" target="_blank" rel="noopener">MiniWarGaming @ 23:00</a> — <span class="q">&ldquo;going to pick Drazar up to protect Drazar from at least a round of shooting&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Trade analysis penalises expensive-kills-cheap down to 0.7, and fragile high-value units get a 1.3x threat multiplier steering them away from danger. Both push against the Drukhari pattern.</div>
+<div><b>Change:</b> Drukhari profile: raise TRADE_UNFAVORABLE_PENALTY to ~0.9 (nearly neutral) and lower THREAT_FRAGILE_BONUS to ~1.0, so committed units accept exposure. Add a rule that restores caution in rounds 4-5 (round_gte 4 → multiply THREAT_FRAGILE_BONUS by 1.3) so the AI stops throwing units away once the trades no longer buy anything.</div>
+<div><b>Risk:</b> Under Purge the Foe the opponent is paid for every unit destroyed, so an expendable-units profile actively feeds their primary. Benchmark specifically against a Purge opponent before adopting.</div>
+<div><b>Where:</b> <code>TRADE_UNFAVORABLE_PENALTY (0.7) / THREAT_FRAGILE_BONUS (1.3)</code> &middot; profile_rule &middot; medium priority</div>
+</div></details>
+</article>
+</section>
+<section data-d="melee_commitment">
+<h2>When to charge<span class="n"></span></h2>
+<p class="dfn">Whether to charge, what to charge, and what a charge is for when it is not for damage.</p>
+<article data-d="melee_commitment" data-f="general">
+<p class="claim">Charging purely to tie up a dangerous shooter is worth doing even when the charging unit expects to deal and receive negligible damage.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">A unit locked in engagement generally cannot shoot, so a cheap charge can switch off an expensive gun for a full turn. Players make this charge knowing they will lose the melee, and specifically use it against vehicles and gunline units that would otherwise fire freely. The value is the enemy&#x27;s forgone shooting phase, not the combat result.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=MkeH0tr1o_o&amp;t=3420s" target="_blank" rel="noopener">WednesdayNightWarhammer @ 57:00</a> — <span class="q">&ldquo;I guess I would attempt the charge to get just to tie you up&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=0Gcpze1G4Lc&amp;t=840s" target="_blank" rel="noopener">40K Dirtbags @ 14:00</a> — <span class="q">&ldquo;this thing was within range to move up and shoot her. So, I needed to make this charge to stop this tank&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=HER6VzUGO60&amp;t=39480s" target="_blank" rel="noopener">WarGames Live @ 658:00</a> — <span class="q">&ldquo;We&#x27;ll charge the truck in just to lock you in because we can still touch you and still be on the objective&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=lp4j3iYlpQ4&amp;t=1500s" target="_blank" rel="noopener">Mordian Glory @ 25:00</a> — <span class="q">&ldquo;I charged up to the hell hound just to tie them up again&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> The multi-phase planner already gives a 3.0 bonus for charging dangerous shooters, but it is gated behind use_multi_phase_planning (Hard+), and the charge must still clear the normal charge threshold that is driven by expected damage.</div>
+<div><b>Change:</b> Make the lock bonus able to carry a charge on its own: when the target exceeds PHASE_PLAN_RANGED_STRENGTH_DANGEROUS and the charger is cheap relative to it, bypass the expected-damage component of the charge threshold rather than adding to it. Consider lowering the gate to Normal, since players treat this as basic play.</div>
+<div><b>Risk:</b> Feeding cheap units into melee they lose can hand the opponent Purge-the-Foe VP and free consolidation moves toward objectives. Require that the charger is not currently contributing OC to a priced objective.</div>
+<div><b>Where:</b> <code>PHASE_PLAN_LOCK_SHOOTER_BONUS (3.0) / PHASE_PLAN_RANGED_STRENGTH_DANGEROUS (5.0)</code> &middot; weight_constant &middot; medium priority</div>
+</div></details>
+</article>
+<article data-d="melee_commitment" data-f="general">
+<p class="claim">Consolidation should be scored as a positioning move — onto an objective, into a new enemy unit, or backwards out of line of sight — not as a default 3&quot; shuffle.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">After fighting, the 3&quot; consolidation is often the most valuable move of the turn: it can put a unit onto an objective it could not have charged, drag it into a second enemy unit to lock that one too, or pull it back behind terrain so it is not shot in the opponent&#x27;s turn. Players choose deliberately between those three outcomes and name the reason each time.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=Enm67qaqHkU&amp;t=1440s" target="_blank" rel="noopener">40K Dirtbags @ 24:00</a> — <span class="q">&ldquo;I picked this objective to cons consolidate backwards a little bit so he doesn&#x27;t get shot&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=aQsog-fkQJ8&amp;t=4260s" target="_blank" rel="noopener">Maelstrom Gaming Studios - Tyranids @ 71:00</a> — <span class="q">&ldquo;I will tow this guy onto the objective ... get a tiny bit further away&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=YM1sRZGVOhw&amp;t=720s" target="_blank" rel="noopener">Auspex Tactics @ 12:00</a> — <span class="q">&ldquo;If you&#x27;re able to hit something, destroy something, consolidate into something else&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=6V8asnfgFUE&amp;t=9660s" target="_blank" rel="noopener">Boltgun Tactics @ 161:00</a> — <span class="q">&ldquo;We&#x27;ll just consolidate into the middle&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Consolidation is resolved without a dedicated scoring pass comparable to _score_movement_destination; there is no explicit objective/LoS evaluation of the 3&quot; options.</div>
+<div><b>Change:</b> Score consolidation destinations with the same three terms used for movement — objective VP delta (via _estimate_objective_vp_value), number of additional enemy units brought into engagement, and whether the destination breaks enemy line of sight — and pick the max.</div>
+<div><b>Risk:</b> Consolidating out of line of sight can also leave an objective; the VP term must dominate. Rules constraints on consolidation (must end closer to the nearest enemy, or toward an objective) restrict the legal set and must be respected.</div>
+<div><b>Where:</b> <code>consolidation move selection in the FIGHT phase</code> &middot; new_heuristic &middot; medium priority</div>
+</div></details>
+</article>
+</section>
+<section data-d="disengage_and_lock">
+<h2>Staying in combat, or getting out<span class="n"></span></h2>
+<p class="dfn">Whether to fall back out of an engagement, or deliberately stay in one to deny the enemy its shooting.</p>
+<article data-d="disengage_and_lock" data-f="general">
+<p class="claim">Falling back is expensive: most vehicles cannot fall back and shoot, and a battle-shocked unit must make Desperate Escape rolls, so staying locked is often correct.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">2 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Fall Back normally forbids shooting and charging for the rest of the turn unless a specific ability says otherwise, and that ability is usually restricted to infantry. Players are caught out by this mid-game. The corollary drives the opposite decision too: armies that want the enemy stuck deliberately engage from multiple units so that falling back is unattractive.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=F5TL7LhZJlY&amp;t=780s" target="_blank" rel="noopener">40K Dirtbags @ 13:00</a> — <span class="q">&ldquo;He spends a CP realizing after the fact that you can&#x27;t fall back and shoot with vehicles. It&#x27;s only infantry&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=Enm67qaqHkU&amp;t=1500s" target="_blank" rel="noopener">40K Dirtbags @ 25:00</a> — <span class="q">&ldquo;If they fall back and shoot, these guys could have fell back and shot. But that&#x27;s only one unit of shooting&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=aQsog-fkQJ8&amp;t=5880s" target="_blank" rel="noopener">Maelstrom Gaming Studios - Tyranids @ 98:00</a> — <span class="q">&ldquo;no, we&#x27;ll fall back and we&#x27;ll take our hazardous roles. Ones and twos, they die&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Survival assessment (Normal+) compares expected damage against remaining wounds and adds a flat 2.0 toward falling back when the unit is threatened. The lost shooting phase is not priced.</div>
+<div><b>Change:</b> Subtract the unit&#x27;s own expected ranged output from the fall-back score unless it has a fall-back-and-shoot ability, and subtract more when the unit is battle-shocked (Desperate Escape casualties). A VEHICLE without that ability should almost never fall back purely for survival.</div>
+<div><b>Risk:</b> Holding a losing combat can lose the unit outright. The change should only reweight, not veto — SURVIVAL_LETHAL_THRESHOLD (0.75) must still force the retreat when destruction is likely.</div>
+<div><b>Where:</b> <code>SURVIVAL_FALL_BACK_BONUS (2.0) / SURVIVAL_HOLD_BONUS (1.5)</code> &middot; weight_constant &middot; medium priority</div>
+</div></details>
+</article>
+<article data-d="disengage_and_lock" data-f="Death Guard">
+<p class="claim">Death Guard win by making disengagement expensive rather than by killing — they should seek to engage multiple enemy units at once and hold them there.</p>
+<div class="tags">
+<span class="tag fac">Death Guard</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">3 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Death Guard stack leadership penalties and fall-back punishment, so a unit engaged by them faces a hard Desperate Escape roll to leave. Players deliberately engage one enemy unit with two of their own so that the opponent must pass multiple tests, and describe the army as low-damage but very hard to get away from. The scoring consequence is that a locked enemy is not shooting and not scoring, which is the army&#x27;s whole engine.</p>
+<div class="diff"><b>Why this army is different</b>The general AI evaluates melee by expected damage and uses SURVIVAL_FALL_BACK_BONUS to leave losing fights. Death Guard should prefer engagements it does not win on damage, and should value multi-unit engagement (more fall-back tests) that the general model treats as inefficient over-commitment.</div>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=F5TL7LhZJlY&amp;t=1380s" target="_blank" rel="noopener">40K Dirtbags @ 23:00</a> — <span class="q">&ldquo;If both of these guys were in combat with the death shroud ... both of them would have to pass a seven up to fall back&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=OKoDYKdWm1E&amp;t=360s" target="_blank" rel="noopener">Factions&amp;Fate @ 06:00</a> — <span class="q">&ldquo;against you you want to be in melee, so that might benefit me the most&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=u8fm403MGtg&amp;t=480s" target="_blank" rel="noopener">40K Fireside @ 08:00</a> — <span class="q">&ldquo;Plague Legion it gets stuck in combat a lot and it&#x27;s really hard to get out of combat&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Locking bonuses only apply to targets classed as dangerous shooters (PHASE_PLAN_RANGED_STRENGTH_DANGEROUS 5.0), and survival assessment pulls the AI out of losing fights from Normal upward.</div>
+<div><b>Change:</b> Death Guard profile: raise PHASE_PLAN_LOCK_SHOOTER_BONUS to ~5.0, raise SURVIVAL_HOLD_BONUS to ~3.0 so the AI stays in combats it is losing on damage, and lower SURVIVAL_FALL_BACK_BONUS to ~1.0.</div>
+<div><b>Risk:</b> Staying in fights it loses is exactly the failure mode survival assessment was added to fix; if the enemy can simply kill the engaged unit, this profile feeds it. Needs benchmarking against a high-damage melee opponent specifically.</div>
+<div><b>Where:</b> <code>PHASE_PLAN_LOCK_SHOOTER_BONUS (3.0) / SURVIVAL_HOLD_BONUS (1.5)</code> &middot; profile_rule &middot; medium priority</div>
+</div></details>
+</article>
+</section>
+<section data-d="reserves_and_arrival">
+<h2>Reserves and arrival<span class="n"></span></h2>
+<p class="dfn">What to hold off the table, and when to bring it on.</p>
+<article data-d="reserves_and_arrival" data-f="general">
+<p class="claim">Keeping one unit in reserve as a reactive answer is standard, but committing the whole army to the table is correct against high-pressure lists — the corpus genuinely disagrees on how much to hold back.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">player judgement</span>
+</div>
+<p class="detail">One camp treats a reserve unit as a deliberate list slot: something held to answer whatever the opponent commits, or to Rapid Ingress into a gap. The other camp says that against lists which apply immediate pressure you need every body on the table from turn one, because arriving later means arriving after the mid-board is lost. Both are stated confidently by strong players; the resolving variable appears to be the opponent&#x27;s speed, which the AI can measure.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=Enm67qaqHkU&amp;t=240s" target="_blank" rel="noopener">40K Dirtbags @ 04:00</a> — <span class="q">&ldquo;at least one unit in reserves cuz you&#x27;re making lists to have a reserve rapid ingress target&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=ym0SnzF2ydg&amp;t=9720s" target="_blank" rel="noopener">Art of War 40k @ 162:00</a> — <span class="q">&ldquo;maybe they should have just started the game in reserve so they could be a little bit more of a reactive answer&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=pAk1YiuioNQ&amp;t=540s" target="_blank" rel="noopener">Happy Krumping @ 09:00</a> — <span class="q">&ldquo;If you&#x27;re ever going to play against it, don&#x27;t start things in reserves. You need everything on the table&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=gZWxrJy66nw&amp;t=720s" target="_blank" rel="noopener">Deploy on the Line 40K @ 12:00</a> — <span class="q">&ldquo;there&#x27;s no reason to put anything in reserve because I have redeploy&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Reserves selection puts melee-oriented and short-range deep-strike units into reserve up to the 50% points / 50% units cap, without reference to how fast the opponent&#x27;s army is.</div>
+<div><b>Change:</b> Before declaring reserves, compute the opponent&#x27;s effective turn-one threat range (max Move + Advance + charge across their deployed units, plus scout moves). Above a threshold (~20&quot;), reduce the reserve budget toward one unit; below it, keep the current behaviour. Expose the threshold as RESERVE_PRESSURE_THRESHOLD_INCHES.</div>
+<div><b>Risk:</b> Threat range is a crude proxy — an army can be fast and harmless. Getting it wrong in the aggressive direction leaves the AI with nothing in reserve against alpha strikes, which is the failure mode the second camp is warning about.</div>
+<div><b>Where:</b> <code>_evaluate_reserves_declarations</code> &middot; new_heuristic &middot; medium priority</div>
+</div></details>
+</article>
+<article data-d="reserves_and_arrival" data-f="general">
+<p class="claim">Reactive movement abilities are widespread enough in 11e that the AI cannot treat enemy positions as fixed between its own decisions.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Detachment rules, enhancements and stratagems across many factions grant a move triggered by an enemy action — being shot, or an enemy coming within a set distance. Players plan around it explicitly: they decline moves that would trigger a reactive escape, and they buy reactive-move abilities specifically as insurance against 11e&#x27;s stronger Overwatch. Any AI plan that assumes the target stays put will systematically over-value long charges and precise blocking positions.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=ycW5l0xHp9s&amp;t=480s" target="_blank" rel="noopener">PNW 40K @ 08:00</a> — <span class="q">&ldquo;He can make a reactive move ... reactive moves in general are very powerful&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=Wm2Hd8h74_o&amp;t=3900s" target="_blank" rel="noopener">HivemindHobbies @ 65:00</a> — <span class="q">&ldquo;if he moves up at all, then they will automatically reactive move behind this obscuring wall&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=Enm67qaqHkU&amp;t=1200s" target="_blank" rel="noopener">40K Dirtbags @ 20:00</a> — <span class="q">&ldquo;he then reactive moves and kind of spreads out to stop Ghaz from moving this way&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=VqwMdS9MuIY&amp;t=3600s" target="_blank" rel="noopener">TacticalTortoise 40k @ 60:00</a> — <span class="q">&ldquo;it has the ability to reactive move to enemies going close to it ... it may be able to jump away&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Look-ahead is Competitive-only and models opponent responses generically. Nothing detects that a specific enemy unit owns a reactive-move ability.</div>
+<div><b>Change:</b> Scan enemy datasheet abilities and the opponent&#x27;s detachment stratagems for reactive-move wording, and discount blocking-position and marginal-charge scores against those units by ~30%. Gate to Hard+ rather than Competitive-only, since it is a defensive correction rather than deep search.</div>
+<div><b>Risk:</b> Ability-text scanning is brittle and will both miss and over-match. A false positive makes the AI refuse good charges. Prefer an explicit ability list over free-text matching.</div>
+<div><b>Where:</b> <code>AIDifficultyConfig.use_look_ahead (Competitive only)</code> &middot; difficulty_gate &middot; medium priority</div>
+</div></details>
+</article>
+</section>
+<section data-d="ability_timing">
+<h2>When to spend your big ability<span class="n"></span></h2>
+<p class="dfn">When to fire a once-per-battle or once-per-turn army ability, stratagem, or command resource.</p>
+<article data-d="ability_timing" data-f="Orks">
+<p class="claim">Waaagh! should not be called in round 1, nor the moment a single unit can reach something — it wants several units simultaneously in advance-and-charge range, and its 5+ invulnerable is worth calling for on its own when crossing open ground.</p>
+<div class="tags">
+<span class="tag fac">Orks</span>
+<span class="tag high">high confidence</span>
+<span class="tag">3 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Waaagh! is once per battle and grants advance-and-charge, +1 Strength and Attacks in melee, and a 5+ invulnerable save to the whole army for one battle round. Because it is a single one-shot, the payoff is the number of units that convert it into a charge at once; spending it to reach one target wastes the army-wide component. Players also call it purely defensively, to survive a turn of shooting while advancing — which means &#x27;how many units can charge&#x27; is not the only trigger.</p>
+<div class="diff"><b>Why this army is different</b>The general-case AI fires a once-per-battle offensive buff as early as it can be used, on the reasoning that more turns benefit. Waaagh! does not work that way: it lasts one battle round, so early use is pure waste, and its value is the count of units that benefit simultaneously plus the defensive save for the turn the army is most exposed.</div>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=QZ9wggn2oUo&amp;t=240s" target="_blank" rel="noopener">Tabletop Nexus @ 04:00</a> — <span class="q">&ldquo;Don&#x27;t call it turn one, though. Don&#x27;t call it the moment you can reach something&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=QZ9wggn2oUo&amp;t=240s" target="_blank" rel="noopener">Tabletop Nexus @ 04:00</a> — <span class="q">&ldquo;A strong Waaagh! turn has several units positioned to benefit at once&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=DHVBk9vnR8w&amp;t=420s" target="_blank" rel="noopener">40K Dirtbags @ 07:00</a> — <span class="q">&ldquo;moved up a little bit like two extra inches forward uh to plan for turn two Waagh&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=vLQTE5P6pJg&amp;t=180s" target="_blank" rel="noopener">Hubtown Hammer @ 03:00</a> — <span class="q">&ldquo;Turn two, the Orks used the Waagh, which turned out to be a great choice ... blunted by some hot five plus invulnerable&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=Enm67qaqHkU&amp;t=1980s" target="_blank" rel="noopener">40K Dirtbags @ 33:00</a> — <span class="q">&ldquo;if I give up Zod turn one with a Waagh, I spent my Waagh and now I gave up Zod&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Round 1: calls Waaagh! if ANY single unit is within 22&quot; of an enemy (units_in_range &gt;= 1). Round 2+: calls it unconditionally, with the comment &#x27;Round 2+: always use it — waiting loses turns of benefit&#x27;. The unit count is computed but only used for the log line from round 2 onward, and the 5+ invulnerable is never considered.</div>
+<div><b>Change:</b> Replace the round-1 gate with a units_in_range threshold of 3+, and replace the unconditional round-2 fire with &#x27;units_in_range &gt;= 3, or round &gt;= 4 (use-it-or-lose-it)&#x27;. Add a defensive trigger: fire it regardless of charge count when more than half the army is inside enemy threat range and lacks an invulnerable save. Expose the threshold as WAAAGH_MIN_UNITS_IN_RANGE.</div>
+<div><b>Risk:</b> A threshold set too high never fires the ability, which is strictly worse than firing it late — hence the round-4 backstop. The 22&quot; advance-and-charge estimate is centroid-based and optimistic; 3 units at 22&quot; may be 1 unit in practice.</div>
+<div><b>Where:</b> <code>AIDecisionMaker.gd:4481 CALL_WAAAGH block</code> &middot; faction_ability &middot; high priority</div>
+</div></details>
+</article>
+<article data-d="ability_timing" data-f="Tyranids">
+<p class="claim">Tyranid battle-shock output is an offensive tempo tool used to strip OC and enable precision kills, not a passive debuff — the units carrying it should be positioned aggressively to keep enemies inside its range.</p>
+<div class="tags">
+<span class="tag fac">Tyranids</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Shadow in the Warp and unit-level shock effects turn enemy objective-holders into OC-0 passengers and open up follow-up plays: players describe shocking a target and then charging in to precision out the character. That makes the delivery units (Neurolictors and similar) forward-positioned pieces whose range band matters more than their survival, which is the opposite of how a support unit is normally played.</p>
+<div class="diff"><b>Why this army is different</b>The general AI treats support and buff units as things to protect, applying THREAT_FRAGILE_BONUS (1.3) to keep high-value fragile units out of danger. Tyranid shock-delivery units need to be inside their aura range of the enemy&#x27;s scoring units, which means deliberately accepting threat that the general model penalises.</div>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=efeKiBbPUPM&amp;t=540s" target="_blank" rel="noopener">Maelstrom Gaming Studios - Tyranids @ 09:00</a> — <span class="q">&ldquo;My Neurolictor battleshocked Volus and the Paladins, which allowed both the Neurolictor and the Hive turret to charge in and precision out&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=OKoDYKdWm1E&amp;t=240s" target="_blank" rel="noopener">Factions&amp;Fate @ 04:00</a> — <span class="q">&ldquo;infiltrated up here just a little bit past my deployment line, but still within range to hand out battle shocks&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=uAmbb_rrUvM&amp;t=900s" target="_blank" rel="noopener">winters SEO @ 15:00</a> — <span class="q">&ldquo;shadow in the warp and signapse ... hurts the enemy when they&#x27;re in range of signapse&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=7AgzQIEq3j4&amp;t=7260s" target="_blank" rel="noopener">TacticalTortoise 40k @ 121:00</a> — <span class="q">&ldquo;force the battle the um shadow in the warp battle shock at a higher penalty&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Fragile high-value units get an extra threat multiplier and are steered away from the enemy. Nothing values keeping an aura source within range of enemy units.</div>
+<div><b>Change:</b> Tyranid profile: reduce THREAT_FRAGILE_BONUS toward 1.0 and add a movement term that rewards destinations keeping enemy scoring units inside the shock aura&#x27;s range — mirroring the AAO_RADIUS_INCHES / WEIGHT_AAO_ISOLATION pattern already used for Against All Odds.</div>
+<div><b>Risk:</b> Neurolictor-class units are cheap but not expendable; walking them into charge range hands over kill VP under Purge the Foe. Bound the exposure to units the enemy cannot reach with a charge this turn.</div>
+<div><b>Where:</b> <code>THREAT_FRAGILE_BONUS (1.3) / WEIGHT_OC_EFFICIENCY (2.0)</code> &middot; profile_rule &middot; medium priority</div>
+</div></details>
+</article>
+<article data-d="ability_timing" data-f="Space Marines">
+<p class="claim">Oath of Moment should be discounted against targets that our own shooters can already re-roll into — its value is the re-roll it adds, not the target&#x27;s threat.</p>
+<div class="tags">
+<span class="tag fac">Space Marines</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">3 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Oath grants re-rolls against one enemy unit, so its marginal value collapses when the units that will actually shoot the target already re-roll hits from another source. Players state this directly when reviewing lists — a unit hitting on 2s with re-roll 1s &#x27;does not need Oath of Moment&#x27;. The corollary is that Oath goes on the target the unbuffed portion of the army must kill.</p>
+<div class="diff"><b>Why this army is different</b>This is a refinement rather than a reversal: the general logic of &#x27;mark what you most want dead&#x27; is right, but for Space Marines specifically the score must be computed against the shooters that will use it, not against the target in isolation.</div>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=pAk1YiuioNQ&amp;t=1320s" target="_blank" rel="noopener">Happy Krumping @ 22:00</a> — <span class="q">&ldquo;They already hit on twos ... re-rolling hit rolls of one. They do not need oath of moment&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=eUQmB4CTKlk&amp;t=1260s" target="_blank" rel="noopener">Tabletop Tactics @ 21:00</a> — <span class="q">&ldquo;I&#x27;m going to put Oath of Moment on that big brain bug ... he&#x27;s super tough&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=qwnHaQvzCq0&amp;t=840s" target="_blank" rel="noopener">Grimdark Breakdown @ 14:00</a> — <span class="q">&ldquo;the only thing you have to remember to do in your Command phase then is ... That&#x27;s my Oath of Moment target&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Scores each candidate from _calculate_target_value plus target-side modifiers: toughness, save, remaining wounds, below-half-strength, invulnerable discount, leader-buff bonus, and a 0.5x penalty when the army lacks weapons that can hurt it. All modifiers are properties of the target; none look at the shooters&#x27; existing re-rolls.</div>
+<div><b>Change:</b> Weight each candidate by the expected damage the army would gain from the re-roll, computed over the units likely to shoot it — i.e. sum over candidate shooters of (damage with re-roll − damage without), and skip shooters that already re-roll hits. This reuses the existing _check_army_can_damage_target traversal.</div>
+<div><b>Risk:</b> More expensive to compute each command phase, and it can pick a soft target the army would have killed anyway. Keep the existing target-side terms as a tiebreak.</div>
+<div><b>Where:</b> <code>_select_oath_of_moment_target (AIDecisionMaker.gd:4844)</code> &middot; faction_ability &middot; medium priority</div>
+</div></details>
+</article>
+</section>
+<section data-d="action_economy">
+<h2>Who performs the actions<span class="n"></span></h2>
+<p class="dfn">Which unit spends its turn performing a mission action rather than fighting.</p>
+<article data-d="action_economy" data-f="general">
+<p class="claim">Mission actions consume the acting unit&#x27;s shooting, so they should be assigned to the cheapest unit that can reach and survive, not to whatever is nearest.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">4 channels agree</span>
+<span class="tag">matches the rules</span>
+</div>
+<p class="detail">Recon and Priority Assets dispositions are action-heavy, actions are limited to one per turn on some cards and cannot start before round two on others, and starting an action generally costs the unit its shooting phase. Players therefore build in small, cheap, mobile units whose whole job is to walk somewhere and press a button. Notable exception in 11e: Titanic units can shoot and perform actions.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=VPTL092E0VI&amp;t=720s" target="_blank" rel="noopener">Grimdark Breakdown @ 12:00</a> — <span class="q">&ldquo;They have very small bases and then put down somewhere else on the board to do the action&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=7AgzQIEq3j4&amp;t=600s" target="_blank" rel="noopener">TacticalTortoise 40k @ 10:00</a> — <span class="q">&ldquo;Titanic units can shoot and perform actions. So, it&#x27;s not actually like that bad&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=42CPnCfuCN8&amp;t=60s" target="_blank" rel="noopener">Recon By Fire @ 01:00</a> — <span class="q">&ldquo;for one CP, they are capable of shooting and still being able to perform an action&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=mbNWzDn6Pu4&amp;t=300s" target="_blank" rel="noopener">Exile Wargaming @ 05:00</a> — <span class="q">&ldquo;we have to triangulate objectives by doing actions on them. We can only do one a turn&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Primary-card marker/action mechanics are auto-resolved by MissionManager as a headless/AI backstop, and _build_primary_awareness gives those rule types a flat +1.0 generic objective pressure. There is no cost model for which unit performs the action.</div>
+<div><b>Change:</b> When an action is available, rank candidate units by (expected ranged output forgone + points at risk) ascending and pick the cheapest that can reach. Skip the forgone-output term for TITANIC units.</div>
+<div><b>Risk:</b> The cheapest unit is often the screening unit; pulling it off a screen to press a button can open a deep-strike lane. Exclude units currently holding a screening assignment.</div>
+<div><b>Where:</b> <code>action assignment (MissionManager._run_primary_auto_actions_11e is the backstop)</code> &middot; new_heuristic &middot; medium priority</div>
+</div></details>
+</article>
+</section>
+<section data-d="tempo_and_commitment">
+<h2>Turn order and commitment<span class="n"></span></h2>
+<p class="dfn">Which battle round to commit the army, and how much to hold back.</p>
+<article data-d="tempo_and_commitment" data-f="general">
+<p class="claim">In 11e the player who rolls highest must take the first turn, so deployment has to be robust to going either first or second rather than optimised for a choice.</p>
+<div class="tags">
+<span class="tag">every army</span>
+<span class="tag medium">medium confidence</span>
+<span class="tag">2 channels agree</span>
+<span class="tag">unverified against the rules</span>
+</div>
+<p class="detail">Players describe not having to &#x27;sweat&#x27; the first-turn roll because the choice is gone, and describe being forced into a first turn they did not want for their disposition. The planning consequence is that a deployment which is only good on the play, or only good on the draw, is a liability — and that counter-deployment against what the opponent has already put down matters more than turn-order gambling.</p>
+<div class="src"><ul>
+<li><a href="https://youtube.com/watch?v=dy1zEFAKLzk&amp;t=180s" target="_blank" rel="noopener">MiniWarGaming @ 03:00</a> — <span class="q">&ldquo;This is the nice thing about the whoever rolls highest has to go first. I do not have to sweat about who gets first turn&rdquo;</span></li>
+<li><a href="https://youtube.com/watch?v=mbNWzDn6Pu4&amp;t=600s" target="_blank" rel="noopener">Exile Wargaming @ 10:00</a> — <span class="q">&ldquo;we did win the dice roll and had to go first, which I don&#x27;t really like in recon&rdquo;</span></li>
+</ul></div>
+<details><summary>What this means for the game&rsquo;s AI</summary><div class="body">
+<div><b>Today:</b> Counter-deployment is already enabled from Normal upward, which is the right call under this rule. No change is strictly required.</div>
+<div><b>Change:</b> No weight change. Record the rule so that any future &#x27;choose to go second&#x27; logic is not written, and so deployment scoring is not tuned on an assumed turn order. Verify against the 11e core rules before relying on it.</div>
+<div><b>Risk:</b> None — this finding is informational. It is marked unverified because it rests on two channels&#x27; asides rather than a rules quotation.</div>
+<div><b>Where:</b> <code>AIDifficultyConfig.use_counter_deployment (Normal+)</code> &middot; difficulty_gate &middot; low priority</div>
+</div></details>
+</article>
+</section>
+<p class="empty" id="empty" hidden>Nothing matches those two filters — that combination is a coverage gap, listed at the bottom of the page.</p>
+<h2>Where the evidence actually is</h2>
+<p class="dfn">Findings per decision and army. Blank cells are honest gaps, not zero-importance: several armies have plenty of transcripts and still produced nothing decision-shaped.</p>
+<div class="tblwrap"><table><thead><tr><th>Army</th><th>Transcripts</th>
+<th>Where</th>
+<th>Screening</th>
+<th>What</th>
+<th>Objectives</th>
+<th>When</th>
+<th>When</th>
+<th>Staying</th>
+<th>Reserves</th>
+<th>When</th>
+<th>Who</th>
+<th>Turn</th>
+<th>Total</th></tr></thead><tbody>
+<tr><td>Holds for everyone</td><td class="n">1029</td>
+<td class="n has">5</td>
+<td class="n has">3</td>
+<td class="n has">5</td>
+<td class="n has">2</td>
+<td class="n">·</td>
+<td class="n has">2</td>
+<td class="n has">1</td>
+<td class="n has">2</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+<td class="n has">1</td>
+<td class="n has">22</td>
+</tr>
+<tr><td>Adeptus Custodes</td><td class="n">54</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+</tr>
+<tr><td>Death Guard</td><td class="n">79</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+</tr>
+<tr><td>Drukhari</td><td class="n">46</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+</tr>
+<tr><td>Grey Knights</td><td class="n">60</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+</tr>
+<tr><td>Orks</td><td class="n">213</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">2</td>
+</tr>
+<tr><td>Space Marines</td><td class="n">214</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+</tr>
+<tr><td>Tyranids</td><td class="n">110</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">1</td>
+<td class="n">·</td>
+<td class="n">·</td>
+<td class="n has">2</td>
+</tr>
+</tbody></table></div>
+<h2>Where good players disagree</h2>
+<p class="dfn">Recorded rather than smoothed over. Where a disagreement has a resolving variable, it is named.</p>
+<div class="note"><h3>How much of the army to place in Strategic Reserves</h3><ul>
+<li>Keep at least one unit in reserve as a reactive answer / Rapid Ingress threat (40K Dirtbags, Enm67qaqHkU 04:00; Art of War 40k, ym0SnzF2ydg 162:00)</li>
+<li>Against high-pressure lists put nothing in reserve — you need every body on the table to hold the mid-board (Happy Krumping, pAk1YiuioNQ 09:00)</li>
+<li>Reserves are unnecessary when the army has a redeploy ability instead (Deploy on the Line 40K, gZWxrJy66nw 12:00)</li>
+</ul><p class="dfn" style="margin:12px 0 0">Not a contradiction so much as an unstated conditional: the resolving variable is the opponent&#x27;s turn-one threat range, which the AI can compute. Encoded that way in F014 rather than picking a side.</p></div>
+<div class="note"><h3>Whether the Disruption disposition is playable</h3><ul>
+<li>Disruption scores poorly, which frees you to ignore scoring and just kill (Happy Krumping, pAk1YiuioNQ 70:00)</li>
+<li>Disruption sucks, people know it&#x27;s awful (Deploy on the Line 40K, 14LSO7MS3QI 85:00)</li>
+<li>Disruption rewards movement and positioning and is about interfering with the opponent&#x27;s plan (Warpbane Tactics, ogMKXBVh4g0 02:00)</li>
+</ul><p class="dfn" style="margin:12px 0 0">Tournament data in the corpus (Warp Friends, PShNfK_IJAA 21:00) shows factions posting notably higher win rates INTO Disruption, supporting the &#x27;weak disposition&#x27; read. The AI should not be tuned to Disruption as a baseline.</p></div>
+<div class="note"><h3>Whether 11e Overwatch is oppressive or merely strong</h3><ul>
+<li>You can&#x27;t play around it any more — big squads just get overwatched (Deploy on the Line 40K, FT5JoL5Myis 05:00)</li>
+<li>It hits on sixes; it&#x27;s not &#x27;giga crazy&#x27; unless the volume is there (TacticalTortoise 40k, VqwMdS9MuIY 127:00)</li>
+</ul><p class="dfn" style="margin:12px 0 0">Both are consistent with the rule: snap shooting punishes volume/torrent shooters and is weak for elite guns. The AI&#x27;s exposure penalty should therefore scale with the watching unit&#x27;s shot count, not its damage quality — reflected in F004.</p></div>
+<div class="note"><h3>Whether World Eaters should still play maximum aggression in 11e</h3><ul>
+<li>11e removed the need to push everything onto objectives; hold home, take a couple of bricks, do actions (Exile Wargaming, mbNWzDn6Pu4 34:00)</li>
+<li>The faction&#x27;s identity and detachments remain melee-compulsion oriented (Tactical Sugar, uizU0NPlR14 10:00; WednesdayNightWarhammer, zVx7smZIRf0 04:00)</li>
+</ul><p class="dfn" style="margin:12px 0 0">The corpus does not support FACTION_AGGRESSION_WORLD_EATERS = 2.0 as a well-evidenced value — it is the highest constant in the file and rests on no corpus evidence at all. Flagged in gaps rather than changed.</p></div>
+<h2>What this corpus does not tell you</h2>
+<div class="note"><ul>
+<li>Necrons (101 transcripts, 56 in-title) yielded no high-confidence differentiated finding. Coverage is heavy but almost entirely list-review and battle-report play-by-play; the reanimation-vs-trade reasoning the AI would need is never stated explicitly. This is the largest coverage-to-findings gap in the corpus.</li>
+<li>World Eaters (58 transcripts): only one channel makes a decision-shaped claim, and it argues AGAINST the blanket aggression the code already encodes. No profile emitted; FACTION_AGGRESSION_WORLD_EATERS = 2.0 should be treated as unevidenced.</li>
+<li>Leagues of Votann (47 transcripts, 16 in-title): the judgement-token search returned zero hits in the title-attributed pool. Either the mechanic changed in 11e or the corpus does not discuss it — unresolved.</li>
+<li>Aeldari (50), Thousand Sons (48), Chaos Knights (43), Emperor&#x27;s Children (43): present in volume but discussion is list-composition and datasheet review, not decision reasoning. No actionable finding extracted.</li>
+<li>Adepta Sororitas (9), Agents of the Imperium (6), Ynnari (4), Harlequins (10): too thin to attribute anything safely.</li>
+<li>Imperial Knights and Chaos Knights: one channel notes they must pay CP to shoot and act in the same turn (Recon By Fire, 42CPnCfuCN8 01:00), which implies a distinctive action-economy problem for low-unit-count armies. Single-source, so recorded here rather than as a finding.</li>
+<li>The corpus is competitive/tournament-skewed and post-dates the late-July 2026 balance dataslate for only part of its range. Faction findings drawn on June/early-July material may already be stale; each finding&#x27;s evidence dates are given so this can be re-checked.</li>
+<li>Deployment as a decision (where to place units before turn one) is discussed constantly but almost always in terms of a specific board and layout, which does not generalise into a weight. No deployment finding survived.</li>
+<li>Secondary mission selection and discard is barely reasoned about on camera despite being a per-turn decision the AI makes; the SECONDARY_* constants have no corpus support either way.</li>
+</ul></div>
+<footer>Mined from auto-generated captions, so unit and army names are frequently mangled — no finding is assigned to an army on a single mis-hearable mention. Quotes are verbatim from the captions, including their errors. Rules claims were checked against the 11th-edition core rules; claims that are players&rsquo; judgement rather than rules are labelled as such. The corpus skews competitive and is a broad sweep, not a census.</footer>
+</div>
+<script>
+(function(){
+  var D='all', F='all';
+  function apply(){
+    var shown={};
+    document.querySelectorAll('article[data-d]').forEach(function(a){
+      var ok=(D==='all'||a.dataset.d===D)&&(F==='all'||a.dataset.f===F);
+      a.hidden=!ok; if(ok){shown[a.dataset.d]=(shown[a.dataset.d]||0)+1;}
+    });
+    var any=false;
+    document.querySelectorAll('section[data-d]').forEach(function(s){
+      var n=shown[s.dataset.d]||0; s.hidden=!n; if(n)any=true;
+      var c=s.querySelector('.n'); if(c)c.textContent=n===1?'1 finding':n+' findings';
+    });
+    document.getElementById('empty').hidden=any;
+  }
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-k]'); if(!b)return;
+    var k=b.dataset.k, v=b.dataset.v;
+    if(k==='d'){D=v;} else if(k==='f'){F=v;} else if(k==='theme'){
+      var r=document.documentElement;
+      var cur=r.dataset.theme||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+      r.dataset.theme=cur==='dark'?'light':'dark'; return;
+    }
+    document.querySelectorAll('button[data-k="'+k+'"]').forEach(function(o){
+      o.setAttribute('aria-pressed', o.dataset.v===v?'true':'false');
+    });
+    apply();
+  });
+  apply();
+})();
+</script>

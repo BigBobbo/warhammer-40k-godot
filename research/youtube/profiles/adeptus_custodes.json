@@ -1,0 +1,38 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Adeptus Custodes — concentrate, do not spread (draft)",
+	"description": "DRAFT from research/youtube/ai_learnings.json. F022 (medium confidence, 3 channels): Custodes have too few units to screen and score at once; players describe the army as wanting to move as one wrecking ball and describe splitting as the mistake. The differentiating parameter is CONCENTRATION, not aggression — SUPPORT_STACK_PENALTY 3.5 -> 1.5 stops the AI pushing units apart, and WEIGHT_ALREADY_HELD_OBJ -3.0 -> -1.0 stops it abandoning ground it holds. FACTION_AGGRESSION_CUSTODES stays at 1.5: the corpus supports the army being fight-oriented, it does not support changing that number. This profile is the concrete argument that a single per-faction aggression scalar is too coarse — nothing about Custodes identity is expressible as 'more or less aggressive'.",
+	"parameters": {
+		"FACTION_AGGRESSION_CUSTODES": 1.5,
+		"SUPPORT_STACK_PENALTY": 1.5,
+		"WEIGHT_ALREADY_HELD_OBJ": -1.0,
+		"SCREEN_SCORE_BASE": 4.0
+	},
+	"rules": [
+		{
+			"id": "custodes_late_spread",
+			"name": "Rounds 4-5: allow spreading again for end-game objectives (F022)",
+			"priority": 10,
+			"enabled": true,
+			"conditions": [
+				{
+					"type": "round_gte",
+					"value": 4
+				}
+			],
+			"actions": [
+				{
+					"type": "override",
+					"param": "SUPPORT_STACK_PENALTY",
+					"value": 3.5
+				},
+				{
+					"type": "override",
+					"param": "WEIGHT_ALREADY_HELD_OBJ",
+					"value": -3.0
+				}
+			]
+		}
+	]
+}

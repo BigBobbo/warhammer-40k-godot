@@ -1,0 +1,38 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Tyranids — forward shock delivery and disposable blockers (draft)",
+	"description": "DRAFT from research/youtube/ai_learnings.json. F023 (medium, 4 channels): Tyranid battle-shock output is offensive tempo — shock a holder, strip its OC, then charge in and precision the character out. That means the aura carriers must be forward, so THREAT_FRAGILE_BONUS 1.3 -> 1.0 stops the AI treating them as things to hide. F031 (medium, 3 channels): cheap broods and spore mines are spent as movement blockers in the enemy's path, so CORRIDOR_BLOCK_SCORE_BASE 7.0 -> 9.0 (above SCREEN_SCORE_BASE 8.0, so blocking outbids screening) and CORRIDOR_BLOCK_MAX_POSITIONS 4 -> 6. F009 (battle-shock OC denial) is a GENERAL finding and is deliberately NOT encoded here — it should land as core logic, not as a Tyranid quirk.",
+	"parameters": {
+		"THREAT_FRAGILE_BONUS": 1.0,
+		"CORRIDOR_BLOCK_SCORE_BASE": 9.0,
+		"CORRIDOR_BLOCK_MAX_POSITIONS": 6,
+		"SCREEN_CHEAP_UNIT_POINTS": 120
+	},
+	"rules": [
+		{
+			"id": "nids_protect_when_thin",
+			"name": "Below 40% of the army, stop spending blockers (F031 risk note)",
+			"priority": 10,
+			"enabled": true,
+			"conditions": [
+				{
+					"type": "units_remaining_pct_lte",
+					"value": 40.0
+				}
+			],
+			"actions": [
+				{
+					"type": "override",
+					"param": "CORRIDOR_BLOCK_SCORE_BASE",
+					"value": 5.0
+				},
+				{
+					"type": "override",
+					"param": "THREAT_FRAGILE_BONUS",
+					"value": 1.3
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,67 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Orks — Waaagh! discipline and Gretchin job-units (draft)",
+	"description": "DRAFT from research/youtube/ai_learnings.json (corpus 2026-04..2026-08). F019 (Waaagh! timing, high confidence, 3 channels): the code at AIDecisionMaker.gd:4481 fires Waaagh! in round 1 on a single unit within 22\" and unconditionally from round 2. Players say the opposite — don't call it turn one, don't call it to reach one thing, want several units benefiting at once. WAAAGH_MIN_UNITS_IN_RANGE does not exist yet; it is declared here as the parameter the code change in F019 should read. F020 (Gretchin job-units, medium): SCREEN_CHEAP_UNIT_POINTS 100 -> 60 so only Gretchin-class units are screen candidates, SCREEN_SCORE_BASE 8.0 -> 10.0 so they take those jobs over a marginal objective push. FACTION_AGGRESSION_ORKS is left at the benchmark-tuned 1.2 (tests/bench_baselines/2026-07-10_ork_discipline_ab.md) — the corpus gives no reason to move a value that was settled by benchmark.",
+	"parameters": {
+		"FACTION_AGGRESSION_ORKS": 1.2,
+		"WAAAGH_MIN_UNITS_IN_RANGE": 3,
+		"SCREEN_CHEAP_UNIT_POINTS": 60,
+		"SCREEN_SCORE_BASE": 10.0,
+		"WEIGHT_ALREADY_HELD_OBJ": -3.0
+	},
+	"rules": [
+		{
+			"id": "ork_waaagh_backstop",
+			"name": "Waaagh! use-it-or-lose-it from round 4 (F019)",
+			"priority": 10,
+			"enabled": true,
+			"conditions": [
+				{
+					"type": "phase",
+					"value": "COMMAND"
+				},
+				{
+					"type": "round_gte",
+					"value": 4
+				}
+			],
+			"actions": [
+				{
+					"type": "override",
+					"param": "WAAAGH_MIN_UNITS_IN_RANGE",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "ork_boyz_off_held_objectives",
+			"name": "Melee units leave objectives already held — Gretchin hold them (F020)",
+			"priority": 20,
+			"enabled": true,
+			"conditions": [
+				{
+					"type": "phase",
+					"value": "MOVEMENT"
+				},
+				{
+					"type": "is_melee_unit"
+				},
+				{
+					"type": "on_objective"
+				},
+				{
+					"type": "unit_points_gte",
+					"value": 150
+				}
+			],
+			"actions": [
+				{
+					"type": "override",
+					"param": "WEIGHT_ALREADY_HELD_OBJ",
+					"value": -7.0
+				}
+			]
+		}
+	]
+}
