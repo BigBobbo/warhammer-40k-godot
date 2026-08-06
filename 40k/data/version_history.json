@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.28.0",
+      "date": "2026-08-06",
+      "summary": "New: Vision Map — pick any unit and the board shades everything that unit can see, so you can tell at a glance whether a deploy spot is hidden or exposed.",
+      "changes": [
+        "New (requested): a whole-board visibility view to complement the model-to-model sight lines — open it with the 👁 Vision button on the bottom bar or Shift+L, pick a unit from the panel, and every spot that unit can see is washed warm red while hidden ground stays cool blue. Weapon range is ignored on purpose: it answers \"can I be SEEN here\", not \"can I be shot\".",
+        "One unit at a time, by design — the panel lists every unit on the board (yours and theirs) and a single click switches whose eyes you are looking through; gold rings mark the chosen unit's models. Deployment is the intended home: select an enemy unit that just deployed, then drop your own models in the blue.",
+        "The shading uses the same terrain rules as targeting itself (obscuring ruins with the stand-inside exception, solid walls, barricades), it recomputes automatically as models are placed, moved or slain, and it works in every phase.",
+        "Precision is 1\" squares judged at ground level from each model's base — the last blue cell before a corner may still let a base edge peek out, and upper-floor sight is approximated."
+      ]
+    },
+    {
       "version": "1.27.4",
       "date": "2026-08-05",
       "summary": "New setting: let the line-of-sight overlay skip enemies none of your guns could reach, for a quieter and faster board.",
