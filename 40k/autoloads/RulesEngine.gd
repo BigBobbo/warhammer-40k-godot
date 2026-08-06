@@ -3660,6 +3660,13 @@ static func attached_unit_models(unit_id: String, board: Dictionary) -> Array:
 # so each component keeps its own stats, abilities, weapons and model indices.
 # Callers that must act "as one unit" walk this list rather than folding the
 # dicts together (see FightPhase's fight-group handling).
+# BOTH sides of the linkage are walked, for the same reason attached_unit_target_id
+# does: saves and tutorial fixtures exist where only ONE side was written. In
+# audit_370_bgnt_shoot, for instance, Boyz Beta's attached_characters names one of
+# its two Warbosses and the other is linked only by its own `attached_to` — the
+# forward list alone dropped that leader out of his own unit, so anything measured
+# across "the whole Attached unit" (engagement, stratagem eligibility, fight
+# groups) silently ignored his model.
 static func attached_unit_component_ids(unit_id: String, board: Dictionary) -> Array:
 	var units = board.get("units", {})
 	var out: Array = [unit_id]
@@ -3667,8 +3674,24 @@ static func attached_unit_component_ids(unit_id: String, board: Dictionary) -> A
 	if unit.is_empty():
 		return out
 	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
-		if units.has(str(char_id)) and str(char_id) != unit_id:
+		if units.has(str(char_id)) and str(char_id) != unit_id and not out.has(str(char_id)):
 			out.append(str(char_id))
+	for other_id in units:
+		if other_id == unit_id or out.has(str(other_id)):
+			continue
+		var back_ptr = units[other_id].get("attached_to", null)
+		if back_ptr != null and str(back_ptr) == unit_id:
+			out.append(str(other_id))
+	return out
+
+# Just the attached CHARACTER components of the Attached unit headed by unit_id
+# (i.e. attached_unit_component_ids minus the head). Call this instead of reading
+# `attachment_data.attached_characters` directly: that forward list alone misses a
+# leader who is linked only by his own `attached_to` back-pointer, which real
+# saves contain (see attached_unit_component_ids).
+static func attached_character_ids(unit_id: String, board: Dictionary) -> Array:
+	var out: Array = attached_unit_component_ids(unit_id, board)
+	out.erase(unit_id)
 	return out
 
 static func _unit_has_alive_model(unit: Dictionary) -> bool:
@@ -16196,3 +16219,18 @@ static func is_unit_engaged(unit_id: String, board: Dictionary) -> bool:
 
 static func is_unit_unengaged(unit_id: String, board: Dictionary) -> bool:
 	return not is_unit_engaged(unit_id, board)
+
+## Same predicate, asked of the whole ATTACHED unit (19.01: bodyguard +
+## attached CHARACTER(s) are one unit for all rules purposes). is_unit_engaged
+## measures a single unit dict's own models, so a leader standing a couple of
+## inches behind his squad reads as "unengaged" while the squad he is part of is
+## locked in combat — which is how a Blade Champion leading a charged Custodian
+## Guard was offered Heroic Intervention into a fight he was already in.
+## Any component being engaged engages the whole Attached unit; an attached
+## CHARACTER passed in resolves to its bodyguard first (19.02).
+static func is_attached_unit_engaged(unit_id: String, board: Dictionary) -> bool:
+	var head_id := attached_unit_target_id(unit_id, board)
+	for component_id in attached_unit_component_ids(head_id, board):
+		if is_unit_engaged(component_id, board):
+			return true
+	return false

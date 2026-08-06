@@ -3583,6 +3583,14 @@ func is_heroic_intervention_available(player: int) -> Dictionary:
 # merely sits at 8-12" and did not charge satisfies NEITHER mode, so the prompt
 # was un-actionable (Leap finds no charged target, Fray finds none within 6")
 # and the player was shown a Heroic Intervention offer they could not use.
+#
+# 19.01 ATTACHED UNITS: bodyguard + attached CHARACTER(s) are ONE unit, so the
+# window offers ONE row (headed by the bodyguard) and every condition below is
+# asked of the whole Attached unit. Reported bug: a Blade Champion leading a
+# Custodian Guard squad that had just been charged was offered a Heroic
+# Intervention *into the combat he was already fighting in* — he got a row of
+# his own (19.01 says he has none) and the "unengaged" test only looked at his
+# own model, which sat a few inches behind the squad taking the charge.
 func get_heroic_intervention_eligible_units_11e(player: int) -> Array:
 	var eligible: Array = []
 	var snapshot = GameState.create_snapshot()
@@ -3592,10 +3600,37 @@ func get_heroic_intervention_eligible_units_11e(player: int) -> Array:
 		var unit = snapshot.units[unit_id]
 		if int(unit.get("owner", 0)) != player:
 			continue
-		if unit.get("flags", {}).get("battle_shocked", false):
+
+		# 19.01: an attached CHARACTER is a component of its bodyguard's
+		# Attached unit, not a unit of its own — no row of his own. (19.05
+		# hands him back his own unit once the bodyguard is wiped, and
+		# is_attached_character already returns false in that case.)
+		if RulesEngine.is_attached_character(unit_id, snapshot):
 			continue
-		if unit.get("embarked_in", null) != null:
+
+		var group_ids = RulesEngine.attached_unit_component_ids(unit_id, snapshot)
+
+		# Any component battle-shocked / embarked disqualifies the whole unit.
+		var blocked := false
+		for gid in group_ids:
+			var member = snapshot.units.get(gid, {})
+			if member.get("flags", {}).get("battle_shocked", false):
+				blocked = true
+				break
+			if member.get("embarked_in", null) != null:
+				blocked = true
+				break
+			var member_keywords: Array = member.get("meta", {}).get("keywords", [])
+			if "VEHICLE" in member_keywords and not ("WALKER" in member_keywords or "CHARACTER" in member_keywords):
+				blocked = true
+				break
+		if blocked:
 			continue
+
+		# Must have alive models of its OWN — 19.05 dissolves the Attached unit
+		# when the bodyguard is destroyed, so a wiped squad must not stay on the
+		# list on the strength of its ex-leader's model (he is offered in his
+		# own right by then).
 		var has_alive := false
 		for m in unit.get("models", []):
 			if m.get("alive", true) and m.get("position") != null:
@@ -3603,21 +3638,27 @@ func get_heroic_intervention_eligible_units_11e(player: int) -> Array:
 				break
 		if not has_alive:
 			continue
-		var keywords: Array = unit.get("meta", {}).get("keywords", [])
-		if "VEHICLE" in keywords and not ("WALKER" in keywords or "CHARACTER" in keywords):
+
+		# 15.11 requires an UNENGAGED unit — measured across the whole Attached
+		# unit, so a leader whose squad is locked in combat is not offered a
+		# counter-charge into the fight he is already in.
+		if RulesEngine.is_attached_unit_engaged(unit_id, snapshot):
 			continue
-		if RulesEngine.is_unit_engaged(unit_id, snapshot):
-			continue
-		# A legal target for at least one HI mode (edge-to-edge):
+
+		# A legal target for at least one HI mode (edge-to-edge), measured from
+		# every model of the Attached unit:
 		#   any enemy within 6" (Into the Fray), OR
 		#   an enemy that charged this turn within 12" (Leap to Defend).
+		var group_models: Array = []
+		for gid in group_ids:
+			group_models.append_array(snapshot.units.get(gid, {}).get("models", []))
 		var has_target := false
 		for other_id in snapshot.get("units", {}):
 			var other = snapshot.units[other_id]
 			if int(other.get("owner", 0)) == player:
 				continue
 			var other_charged: bool = other.get("flags", {}).get("charged_this_turn", false)
-			for m in unit.get("models", []):
+			for m in group_models:
 				if not m.get("alive", true) or m.get("position") == null:
 					continue
 				for em in other.get("models", []):
@@ -3634,7 +3675,7 @@ func get_heroic_intervention_eligible_units_11e(player: int) -> Array:
 		if has_target:
 			eligible.append({
 				"unit_id": unit_id,
-				"unit_name": _unit_display_name(unit, unit_id)
+				"unit_name": _attached_unit_display_name(unit_id, snapshot)
 			})
 	return eligible
 
@@ -3648,6 +3689,10 @@ func get_heroic_intervention_eligible_units(player: int, charging_enemy_unit_id:
 	  - Not battle-shocked
 	  - Has alive models
 	  - Not a VEHICLE (unless it has WALKER keyword)
+	19.01: an Attached unit (bodyguard + CHARACTER leader) is ONE unit, so it
+	gets ONE row headed by the bodyguard and every condition is asked of all its
+	components — see get_heroic_intervention_eligible_units_11e for the reported
+	bug this mirrors.
 	Returns array of { unit_id: String, unit_name: String }
 	"""
 	var eligible = []
@@ -3667,12 +3712,38 @@ func get_heroic_intervention_eligible_units(player: int, charging_enemy_unit_id:
 		if int(unit.get("owner", 0)) != player:
 			continue
 
-		# Must not be battle-shocked
-		var flags = unit.get("flags", {})
-		if flags.get("battle_shocked", false):
+		# 19.01: no row of an attached CHARACTER's own — he counter-charges as
+		# part of his bodyguard's Attached unit or not at all.
+		if RulesEngine.is_attached_character(unit_id, game_state_snapshot):
 			continue
 
-		# Must have alive models
+		var group_ids = RulesEngine.attached_unit_component_ids(unit_id, game_state_snapshot)
+
+		# Must not be battle-shocked, and must not be a VEHICLE without WALKER
+		# — asked of every component of the Attached unit.
+		var blocked = false
+		for gid in group_ids:
+			var member = all_units.get(gid, {})
+			if member.get("flags", {}).get("battle_shocked", false):
+				blocked = true
+				break
+			var keywords = member.get("meta", {}).get("keywords", [])
+			var is_vehicle = false
+			var is_walker = false
+			for kw in keywords:
+				var kw_upper = kw.to_upper()
+				if kw_upper == "VEHICLE":
+					is_vehicle = true
+				if kw_upper == "WALKER":
+					is_walker = true
+			if is_vehicle and not is_walker:
+				blocked = true
+				break
+		if blocked:
+			continue
+
+		# Must have alive models of its OWN (19.05: a wiped bodyguard no longer
+		# heads an Attached unit — its ex-leader is listed in his own right).
 		var has_alive = false
 		for model in unit.get("models", []):
 			if model.get("alive", true):
@@ -3681,40 +3752,42 @@ func get_heroic_intervention_eligible_units(player: int, charging_enemy_unit_id:
 		if not has_alive:
 			continue
 
-		# Check VEHICLE restriction: cannot select VEHICLE unless it has WALKER keyword
-		var keywords = unit.get("meta", {}).get("keywords", [])
-		var is_vehicle = false
-		var is_walker = false
-		for kw in keywords:
-			var kw_upper = kw.to_upper()
-			if kw_upper == "VEHICLE":
-				is_vehicle = true
-			if kw_upper == "WALKER":
-				is_walker = true
-		if is_vehicle and not is_walker:
-			continue
-
-		# Must NOT already be in engagement range of any enemy unit
+		# Must NOT already be in engagement range of any enemy unit — measured
+		# across the whole Attached unit, so a leader whose squad is locked in
+		# combat is not offered a counter-charge into that same combat.
 		var in_engagement = false
 		var unit_owner = int(unit.get("owner", 0))
-		for other_unit_id in all_units:
-			var other_unit = all_units[other_unit_id]
-			if int(other_unit.get("owner", 0)) == unit_owner:
+		for gid in group_ids:
+			var member = all_units.get(gid, {})
+			if member.is_empty():
 				continue
-			if _units_in_engagement_range(unit, other_unit):
-				in_engagement = true
+			for other_unit_id in all_units:
+				var other_unit = all_units[other_unit_id]
+				if int(other_unit.get("owner", 0)) == unit_owner:
+					continue
+				if _units_in_engagement_range(member, other_unit):
+					in_engagement = true
+					break
+			if in_engagement:
 				break
 		if in_engagement:
 			continue
 
-		# Must be within 6" of the charging enemy unit
-		var within_6 = _unit_within_distance_of_unit(unit, charging_unit, 6.0)
+		# Must be within 6" of the charging enemy unit (any component's models)
+		var within_6 = false
+		for gid in group_ids:
+			var member = all_units.get(gid, {})
+			if member.is_empty():
+				continue
+			if _unit_within_distance_of_unit(member, charging_unit, 6.0):
+				within_6 = true
+				break
 		if not within_6:
 			continue
 
 		eligible.append({
 			"unit_id": unit_id,
-			"unit_name": _unit_display_name(unit, unit_id)
+			"unit_name": _attached_unit_display_name(unit_id, game_state_snapshot)
 		})
 
 	return eligible

@@ -1,0 +1,134 @@
+{
+  "id": "hi_attached_char_not_offered_11e",
+  "covers": [
+    "autoloads.StratagemManager.get_heroic_intervention_eligible_units_11e",
+    "autoloads.RulesEngine.is_attached_unit_engaged",
+    "phases.ChargePhase.heroic_intervention_11e",
+    "phases.ChargePhase.attached_units_19_01",
+    "dialogs.HeroicInterventionDialog.attached_unit_rows"
+  ],
+  "fixture": "counter_offensive_attached_11e",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "PLAYER REPORT (2026-08-06): 'Blade Champion Beta is attached to a squad that has been charged in combat. I've been given the option to heroically intervene, but as my Blade Champion is already part of the squad that is engaged, I did not think I needed to do that — in fact I did not think that would even be possible.' The end-of-charge-phase Heroic Intervention window listed the attached Blade Champion as a unit of his own, offering a counter-charge into the combat he was already fighting in. Two bugs, both in StratagemManager's HI eligibility builder: (1) 19.01 makes bodyguard + attached CHARACTER ONE unit, so the leader must never get a row of his own (the Counter-Offensive builder already folds this way — HI never did); (2) the 15.11 'unengaged' test used RulesEngine.is_unit_engaged, which measures a single unit dict's OWN models, so a leader trailing a couple of inches behind the squad taking the charge read as unengaged while his unit was locked in combat. This scenario reproduces exactly that board: the Ork Warboss charges home into the Custodian Guard, the Blade Champion leading them is pulled back ~5\" so his own model is clear of Engagement Range (the trap), and the player ends the Charge phase to open the HI window. It asserts the champion is an attached character whose own model is NOT in ER while is_attached_unit_engaged says his unit IS, then drives the real button and reads the real dialog rows: no Row_U_BLADE_CHAMPION_A, no Row_U_CUSTODIAN_GUARD_B (the whole Attached unit is engaged), and the window still offers the genuinely unengaged Custodes that stand off the melee — the fold must not swallow unrelated units.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2, "comment": "P2 Orks are charging, so P1 Custodes is the defender offered the 15.11 window" },
+
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_WARBOSS_B\"].flags.merge({\"charged_this_turn\": true}, true)",
+      "comment": "the Warboss charged home into the Custodian Guard this turn — that is what the HI window reacts to"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_BLADE_CHAMPION_A\"].models[0].merge({\"position\": {\"x\": 300.0, \"y\": 220.0}}, true)",
+      "comment": "reproduce the reported board: the leader trails BEHIND his squad, so his own model is clear of the Warboss while the Guard he is part of is locked in combat"
+    },
+    { "act": "execute_script", "script": "main._sync_all_token_positions()" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.is_attached_character(\"U_BLADE_CHAMPION_A\", GameState.state)",
+      "equals": true,
+      "comment": "the fixture really does have the Attached unit formed — otherwise the rest proves nothing"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.is_unit_engaged(\"U_CUSTODIAN_GUARD_B\", GameState.state)",
+      "equals": true,
+      "comment": "the squad IS in Engagement Range of the charging Warboss"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.is_unit_engaged(\"U_BLADE_CHAMPION_A\", GameState.state)",
+      "equals": false,
+      "comment": "THE TRAP: measured on his own model alone the leader reads as unengaged — this is what used to let him through"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.is_attached_unit_engaged(\"U_BLADE_CHAMPION_A\", GameState.state)",
+      "equals": true,
+      "comment": "folded across the Attached unit he IS engaged — 15.11 needs an unengaged unit"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ids = []\nfor r in StratagemManager.get_heroic_intervention_eligible_units_11e(1):\n\tids.append(str(r.get(\"unit_id\", \"\")))\nreturn \"|\".join(ids)",
+      "not_equals": "",
+      "comment": "the builder still finds SOMEBODY for P1 — the window has to open for the dialog assertions below to mean anything"
+    },
+
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_node_visible", "node": "/root/HeroicInterventionDialog", "timeout_s": 5.0 },
+    { "act": "expect_phase_property", "property": "awaiting_heroic_intervention", "equals": true },
+    { "act": "expect_phase_property", "property": "heroic_intervention_player", "equals": 1 },
+
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_BLADE_CHAMPION_A\") == null",
+      "equals": true,
+      "comment": "THE BUG: the attached Blade Champion had his own row with Leap to Defend / Into the Fray buttons (19.01 says he has none)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_CUSTODIAN_GUARD_B\") == null",
+      "equals": true,
+      "comment": "and his squad gets no row either — the whole Attached unit is already in the combat (15.11 needs an unengaged unit)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"HeroicInterventionDialog/Content/UnitScroll/UnitList\").get_child_count()",
+      "expect_min": 1,
+      "comment": "the window still offers the genuinely unengaged Custodes standing off the melee — the Attached-unit fold must not swallow unrelated units, or this scenario would pass on an empty dialog"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var bad = []\nfor c in tree.root.get_node(\"HeroicInterventionDialog/Content/UnitScroll/UnitList\").get_children():\n\tvar uid = str(c.name).substr(4)\n\tif RulesEngine.is_attached_character(uid, GameState.state):\n\t\tbad.append(uid + \":attached\")\n\tif RulesEngine.is_attached_unit_engaged(uid, GameState.state):\n\t\tbad.append(uid + \":engaged\")\nreturn \"|\".join(bad)",
+      "equals": "",
+      "comment": "the rule itself, checked against every rendered row rather than a hardcoded roster: no row may be an attached CHARACTER (19.01) or a unit whose Attached unit is already in combat (15.11)"
+    },
+    { "act": "screenshot", "label": "01_hi_window_no_attached_champion_row" },
+
+    {
+      "act": "dispatch_action",
+      "action": { "type": "USE_HEROIC_INTERVENTION", "unit_id": "U_BLADE_CHAMPION_A", "player": 1 },
+      "comment": "server-side gate: even a stale dialog or a remote client cannot push the attached leader through"
+    },
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    {
+      "act": "expect_action_result",
+      "path": "error",
+      "equals": "Attached CHARACTERs counter-charge with their unit, not on their own",
+      "comment": "and the rejection names the rule, not a generic 'Action not allowed'"
+    },
+
+    { "act": "click_node", "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"HeroicInterventionDialog\") == null",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 10,
+      "comment": "declining still completes the Charge phase the window was holding open (_hi_pending_phase_complete)"
+    },
+    { "act": "screenshot", "label": "02_declined_charge_phase_completes" }
+  ]
+}
