@@ -132,6 +132,11 @@ var camera_gestures_used: Dictionary = {}
 # top-bar toggle. los_debug_active mirrors the debug state for scenarios.
 var los_debug_active: bool = false
 
+# Vision map: whole-board visibility shading for one selected unit
+# (VisionMapOverlay in BoardRoot + VisionMapPanel selector, toggled by the
+# bottom-bar 👁 button or Shift+L).
+var _vision_map_panel: VisionMapPanel = null
+
 # Replay mode
 var is_replay_mode: bool = false
 var replay_ui: Node = null
@@ -4862,6 +4867,28 @@ func _setup_terrain() -> void:
 		$BoardRoot.add_child(los_dbg)
 		print("Added persistent LoSDebugVisual to BoardRoot")
 
+	# Vision map — whole-board "what can this unit see" shading, selected
+	# unit-by-unit from the Vision panel (bottom-bar button / Shift+L). Lives
+	# all game long like LoSDebugVisual; earns its keep during deployment.
+	if not $BoardRoot.has_node("VisionMapOverlay"):
+		var vision_overlay = preload("res://scripts/VisionMapOverlay.gd").new()
+		$BoardRoot.add_child(vision_overlay)
+		print("Added persistent VisionMapOverlay to BoardRoot")
+
+	# Vision map toggle — a PLAYER tool (not dev-gated): deployment is where it
+	# matters most and Shift+D dev tools are invisible to a normal player.
+	var hud_container_vision = $HUD_Bottom/HBoxContainer
+	if hud_container_vision and not hud_container_vision.has_node("VisionMapButton"):
+		var vision_btn := Button.new()
+		vision_btn.name = "VisionMapButton"
+		vision_btn.text = "👁 Vision"
+		vision_btn.toggle_mode = true
+		vision_btn.tooltip_text = "Vision Map (%s): shade everything one chosen unit can see — check deploy spots for cover" \
+			% (KeybindingManager.get_primary_key_display("los_vision_map") if KeybindingManager else "Shift+L")
+		vision_btn.toggled.connect(_on_vision_map_button_toggled)
+		hud_container_vision.add_child(vision_btn)
+		print("Added VisionMapButton to HUD")
+
 	# Dev tools — hidden by default, toggled with Shift+D
 	var hud_container2 = $HUD_Bottom/HBoxContainer
 	if hud_container2:
@@ -5242,6 +5269,67 @@ func _toggle_los_debug() -> void:
 				los_debug.show_overview(_selected_unit_id_or_empty())
 	else:
 		print("LoS debug visual not found")
+
+# ═══ Vision map (unit visibility shading) ═══
+
+func get_vision_map_overlay() -> VisionMapOverlay:
+	return get_node_or_null("BoardRoot/VisionMapOverlay") as VisionMapOverlay
+
+func _toggle_vision_map_panel() -> void:
+	if _vision_map_panel and is_instance_valid(_vision_map_panel) and _vision_map_panel.visible:
+		_close_vision_map_panel()
+		return
+	var overlay := get_vision_map_overlay()
+	if overlay == null:
+		# Save loaded straight into a phase before _setup_terrain? Create on
+		# demand, same guarantee _toggle_los_debug makes for its layer.
+		if not has_node("BoardRoot"):
+			print("Vision map: no BoardRoot, cannot open")
+			return
+		overlay = preload("res://scripts/VisionMapOverlay.gd").new()
+		$BoardRoot.add_child(overlay)
+		print("Vision map: created BoardRoot overlay on demand")
+	if _vision_map_panel == null or not is_instance_valid(_vision_map_panel):
+		_vision_map_panel = preload("res://scripts/VisionMapPanel.gd").new()
+		_vision_map_panel.overlay = overlay
+		# Left side: the right edge belongs to the phase unit list / unit card,
+		# which deployment needs visible WHILE this panel is open.
+		_vision_map_panel.anchor_left = 0.0
+		_vision_map_panel.anchor_right = 0.0
+		_vision_map_panel.anchor_top = 0.16
+		_vision_map_panel.anchor_bottom = 0.16
+		_vision_map_panel.offset_left = 16
+		_vision_map_panel.offset_right = 312
+		_vision_map_panel.grow_vertical = Control.GROW_DIRECTION_END
+		_vision_map_panel.close_requested.connect(_close_vision_map_panel)
+		add_child(_vision_map_panel)
+		_vision_map_panel.z_index = UI_OVERLAY_Z
+	else:
+		_vision_map_panel.visible = true
+		_vision_map_panel.rebuild_unit_list()
+	_sync_vision_map_button(true)
+	print("Vision map panel opened")
+
+func _close_vision_map_panel() -> void:
+	# Closing the picker also drops the shading — an unlabelled full-board wash
+	# with no visible control to switch it off would read as a rendering bug.
+	var overlay := get_vision_map_overlay()
+	if overlay:
+		overlay.clear_map()
+	if _vision_map_panel and is_instance_valid(_vision_map_panel):
+		_vision_map_panel.visible = false
+	_sync_vision_map_button(false)
+	print("Vision map panel closed")
+
+func _on_vision_map_button_toggled(pressed: bool) -> void:
+	var open := _vision_map_panel != null and is_instance_valid(_vision_map_panel) and _vision_map_panel.visible
+	if pressed != open:
+		_toggle_vision_map_panel()
+
+func _sync_vision_map_button(pressed: bool) -> void:
+	var btn := get_node_or_null("HUD_Bottom/HBoxContainer/VisionMapButton") as Button
+	if btn:
+		btn.set_pressed_no_signal(pressed)
 
 func _show_toast(message: String, duration: float = 2.0) -> void:
 	# Route through global ToastManager for consistent on-screen display
@@ -6841,6 +6929,16 @@ func _input(event: InputEvent) -> void:
 			return
 		print("Debug mode key (9) pressed!")
 		DebugManager.toggle_debug_mode()
+		get_viewport().set_input_as_handled()
+		return
+
+	# Vision map panel (rebindable: los_vision_map, default Shift+L — the
+	# toggle sibling of held-L). Checked BEFORE the los_debug block: that
+	# block's release branch deliberately ignores modifiers, so it would
+	# swallow the Shift+L release; the press is what toggles here.
+	if event is InputEventKey and event.pressed and not event.echo \
+			and KeybindingManager.matches_action(event, "los_vision_map"):
+		_toggle_vision_map_panel()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -10897,6 +10995,14 @@ func _clear_debug_visualizations() -> void:
 	var los_debug = board_root.get_node_or_null("LoSDebugVisual")
 	if los_debug and is_instance_valid(los_debug) and los_debug.has_method("clear_all_debug_visuals"):
 		los_debug.clear_all_debug_visuals()
+
+	# Vision map: the loaded game has different units, so the shading (and the
+	# selector panel, if open) is stale — drop both.
+	var vision_overlay = board_root.get_node_or_null("VisionMapOverlay")
+	if vision_overlay and is_instance_valid(vision_overlay) and vision_overlay.has_method("clear_map"):
+		vision_overlay.clear_map()
+	if _vision_map_panel and is_instance_valid(_vision_map_panel) and _vision_map_panel.visible:
+		_close_vision_map_panel()
 
 func _on_save_failed(error: String) -> void:
 	print("Save failed: %s" % error)
