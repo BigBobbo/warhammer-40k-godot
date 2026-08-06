@@ -7,7 +7,7 @@
       "summary": "Death Trap's Booby Trap now names the terrain areas it means, highlights them on the board, and lets every eligible unit spring one.",
       "changes": [
         "The Booby Trap list no longer shows raw ids like \"area-trapezoid-3\". Each row now reads e.g. \"Large area — left, enemy territory — holds the Expansion objective (5 VP)\", naming where the area sits, whether it holds an objective and what it pays.",
-        "Picking a target now lights the candidate areas up on the board in orange, and the one you are hovering or have keyboard focus on is drawn brighter — so you can see exactly which footprint each row refers to.",
+        "Picking a target now lights the candidate areas up on the board in orange, and the one you are hovering or have keyboard focus on is drawn brighter — so you can see exactly which footprint each row refers to. The dialog says so in as many words, in the same orange, so the outlines are not left to guesswork.",
         "The dialog now explains what a \"terrain area\" actually is (the marked footprint your scenery stands on — the whole outlined zone, not each wall or crate inside it) and lists how the mission scores.",
         "Fixed: individual scenery pieces (barricades, gantries, generators) were offered as trap targets. Only the terrain-area footprints are trappable now, matching the core rules — on the standard layouts that is 16 areas, not the 44 loose pieces.",
         "Fixed: Booby Trap was limited to one area per turn. The card allows unlimited uses, so you can now trap several areas in a turn — one per unit standing in them. The dialog tells you how many units you have and stops you over-picking.",

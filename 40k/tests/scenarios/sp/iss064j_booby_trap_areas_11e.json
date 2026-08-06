@@ -9,7 +9,7 @@
   "rng_seed": 42,
   "transition_to_phase": 11,
   "disable_ai": true,
-  "description": "Death Trap / Booby Trap targets are TERRAIN AREAS (11e core rules 13.01) — the marked footprints scenery stands in, not each wall or crate inside them. Drives the real End Turn button into the CardActionDialog and proves: only piece_class 'area' footprints are offered (the 28 feature pieces are not), every row is a human-readable label naming board position and VP value, the candidates are outlined on the board and brighten on hover, and several units can each trap an area in the same turn.",
+  "description": "Death Trap / Booby Trap targets are TERRAIN AREAS (11e core rules 13.01) — the marked footprints scenery stands in, not each wall or crate inside them. Drives the real End Turn button into the CardActionDialog and proves: only piece_class 'area' footprints are offered (the 28 feature pieces are not), every row is a human-readable label naming board position and VP value, the candidates are outlined on the board and brighten on hover, with an in-dialog line telling the player that is what the orange means, and several units can each trap an area in the same turn.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -135,6 +135,16 @@
     {
       "act": "execute_script",
       "script": "\"5 VP\" in main.get_tree().root.get_node(\"CardActionDialog/Content/HelpText\").text",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/CardActionDialog/Content/HighlightHint",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "\"outlined in orange\" in main.get_tree().root.get_node(\"CardActionDialog/Content/HighlightHint\").text",
       "equals": true
     },
     {

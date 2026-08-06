@@ -970,12 +970,7 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 		help.add_theme_font_size_override("font_size", 13)
 		help.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 		content.add_child(help)
-	content.add_child(HSeparator.new())
 
-	# Double-fire guard shared by target buttons / confirm / skip / cancel
-	var resolved = [false]
-	var multi_mode: bool = str(pending.get("mode", "single")) == "multi"
-	var checkboxes: Array = []
 	# Terrain-area actions (Booby Trap) light their candidates up on the board:
 	# a list of ids alone never told the player which footprint was which.
 	var highlights_terrain: bool = str(pending.get("highlight_kind", "")) == "terrain_area"
@@ -984,6 +979,21 @@ func _show_card_action_dialog(pending: Dictionary, player: int) -> void:
 		all_target_ids.append(str(t.get("id", "")))
 	if highlights_terrain:
 		_set_terrain_area_highlight(all_target_ids)
+		# Say out loud what the orange on the board means — the outlines are
+		# useless as a cue if the player does not connect them to these rows.
+		var hint = Label.new()
+		hint.name = "HighlightHint"
+		hint.text = "Every area you can trap is outlined in orange on the board. Point at a row below (or tab to it) and that area lights up brighter, so you can see exactly which footprint it is."
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hint.add_theme_font_size_override("font_size", 13)
+		hint.add_theme_color_override("font_color", CardActionOverlay.HIGHLIGHT_COLOR)
+		content.add_child(hint)
+	content.add_child(HSeparator.new())
+
+	# Double-fire guard shared by target buttons / confirm / skip / cancel
+	var resolved = [false]
+	var multi_mode: bool = str(pending.get("mode", "single")) == "multi"
+	var checkboxes: Array = []
 
 	# max_picks caps a multi action whose uses are limited (Booby Trap needs a
 	# distinct unit per area). Absent/0 means "no cap" — Decoy et al.
