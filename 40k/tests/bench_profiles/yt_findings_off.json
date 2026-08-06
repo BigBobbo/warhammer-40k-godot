@@ -1,8 +1,8 @@
 {
 	"format": "wh40k_ai_profile",
 	"version": 1,
-	"profile_name": "YouTube findings OFF — control arm",
-	"description": "Control arm for the 2026-08-06 YouTube-corpus A/B. Zeroes every parameter added for findings F001/F002/F003 (11e Hidden awareness), F004 (Overwatch exposure) and F009 (battle-shock as objective denial), and pins the deep-strike denial radius back to the legacy fixed 9\" (360px) that F007 replaced with a derivation. Applying this to P2 recovers the pre-change AI for that player while P1 and the code are identical in both arms, so the margin difference isolates the findings.",
+	"profile_name": "YouTube findings OFF — now the shipped default",
+	"description": "Control arm for the 2026-08-06 YouTube-corpus A/B. As of that date this arm matches the SHIPPED DEFAULTS: the five behavioural weights were set to neutral in AIDecisionMaker after the mirror-match head-to-head measured -2.05 VP/game (95% CI [-7.2, +3.1], record 6-12-2) and the earlier asymmetric A/B measured +3.0 VP — two estimates straddling zero. Keeping this file is still useful: it also pins DEEP_STRIKE_DENIAL_RANGE_PX back to the legacy 9\" that F007 replaced with a derivation, which the shipped default does NOT do (the 8\" fix ships on, being a rules correction rather than a behaviour change). Use it to reproduce the pre-change AI wholesale.",
 	"parameters": {
 		"WEIGHT_HIDDEN_GAINED": 0.0,
 		"HIDDEN_FORFEIT_PENALTY": 0.0,

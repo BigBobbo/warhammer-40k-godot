@@ -649,24 +649,40 @@ const THREAT_CLOSE_MELEE_DISTANCE_INCHES: float = 12.0
 # a destination happened to land in terrain. These three constants are what
 # make the AI actually play for the rule.
 #
+# ---------------------------------------------------------------------------
+# SHIPPED DEFAULT: OFF (neutral). 2026-08-06.
+# The five weights below implement corpus findings F001/F002/F003/F004/F009.
+# They are fully implemented and covered by
+# tests/scenarios/sp/ai_hidden_awareness_11e.json, but they are NOT enabled by
+# default, because the only two measurements of them do not support it:
+#   * side-swapped A/B on audit_baseline_postdeploy: +3.0 VP (13 paired seeds)
+#   * side-swapped mirror match, with an A/A null to validate the harness:
+#     -2.05 VP/game, 95% CI [-7.2, +3.1], head-to-head record 6-12-2
+# Two estimates straddling zero, with the cleaner one leaning negative and the
+# loss concentrated in secondaries, is not a licence to ship a behaviour
+# change. See tests/bench_baselines/2026-08-06_mirror_new_vs_old.md.
+# Set them via a profile (tests/bench_profiles/yt_findings_on.json holds the
+# corpus-suggested values) to run a tuning sweep. Turn them on by default only
+# when a multi-matchup grid clears them.
+# ---------------------------------------------------------------------------
 # F001 — seek Hidden when moving. Sized against SECONDARY_POSITIONAL_BONUS
 # (4.0) so it is a real pull but cannot outbid an objective (WEIGHT_UNCONTROLLED_OBJ
 # is 11.0+); it is also scaled down by how little immunity the position buys.
-const WEIGHT_HIDDEN_GAINED: float = 4.0
+const WEIGHT_HIDDEN_GAINED: float = 0.0        # off; corpus-suggested 4.0
 # F002 — shooting surrenders Hidden for this turn AND the next, so pulling the
 # trigger is a two-turn commitment to being shootable. Subtracted from a
 # currently-Hidden unit's shooting score so it still fires when the damage is
 # real but declines chip shots. Zero once Hidden is already lost.
-const HIDDEN_FORFEIT_PENALTY: float = 3.0
+const HIDDEN_FORFEIT_PENALTY: float = 0.0      # off; corpus-suggested 3.0
 # F003 — an enemy that fired last turn but not this one is on a timer: it will
 # be Hidden (and possibly untargetable) on its next turn. Modest multiplier so
 # it breaks ties rather than overriding threat.
-const HIDDEN_WINDOW_BONUS: float = 1.25
+const HIDDEN_WINDOW_BONUS: float = 1.0         # off (neutral multiplier); corpus-suggested 1.25
 
 # F009 — how hard the AI plays for battle-shock as objective denial. Scales
 # _battle_shock_flip_value; 0.0 disables the offensive battle-shock heuristics
 # entirely (used by the A/B arms).
-const BATTLE_SHOCK_DENIAL_WEIGHT: float = 1.0
+const BATTLE_SHOCK_DENIAL_WEIGHT: float = 0.0  # off; corpus-suggested 1.0
 
 # =============================================================================
 # OVERWATCH EXPOSURE (corpus finding F004)
@@ -681,7 +697,7 @@ const BATTLE_SHOCK_DENIAL_WEIGHT: float = 1.0
 # hit), so what hurts is SHOT VOLUME, not weapon quality.
 # Applied only to the *increase* in exposure a move creates, and only against
 # enemies that can still fire Overwatch (24" band, has ranged weapons).
-const OVERWATCH_EXPOSURE_PENALTY: float = 0.35   # per (normalised) shot of incoming snap fire
+const OVERWATCH_EXPOSURE_PENALTY: float = 0.0    # off; corpus-suggested 0.35 per (normalised) shot
 const OVERWATCH_RANGE_INCHES: float = 24.0       # StratagemManager's eligibility band
 const OVERWATCH_SHOTS_REFERENCE: float = 20.0    # shot volume that scores a full penalty
 

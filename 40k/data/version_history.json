@@ -4,16 +4,13 @@
     {
       "version": "1.28.0",
       "date": "2026-08-06",
-      "summary": "The AI now plays the 11th-edition Hidden rule — it hides its infantry in dense terrain, holds fire to stay untargetable, and screens deep strike at the correct 8\" instead of a stale 9\".",
+      "summary": "The AI now screens deep strike at the correct 8\" and stops refusing its own legal reinforcement drops — plus a batch of rules-correctness fixes to how it reads the board.",
       "changes": [
-        "New: the AI understands Hidden (core rules 13.09). Its INFANTRY, BEASTS and SWARM units now actively prefer movement destinations inside dense terrain, where enemies further than their detection range (15\", or 12\" through dense terrain) simply cannot target them. The rule was already fully implemented in the game; the AI just never played for it, and only ever benefited by accident when a destination happened to land in cover.",
-                "New: the AI will hold its fire to stay Hidden. Shooting gives up Hidden for the current turn AND the next one, so a unit that cannot meaningfully hurt anything now declines the shot instead of trading two turns of untargetability for a few chip wounds. The game log tells you why, e.g. \"Shield-Captain holds fire to stay Hidden (shot worth 0.1 < 2.4)\". Units that already fired this turn, or whose position hides them from nobody, are unaffected — the AI never goes passive for free.",
-        "New: the AI shoots enemies that are about to disappear. An enemy squad sitting in dense terrain that has not fired this turn will be Hidden on its next turn, so it now gets a modest priority boost while the window is still open.",
-        "Fixed: the AI screened deep strike against a 9\" bubble, but 11th edition sets units up more than 8\" away (20.04's ingress move, which the game already implemented). The AI therefore believed an 8-9\" ring around each of its units was covered when the opponent could legally drop into it. Denial radius and screen spacing are now read from the same rule the rest of the game uses, and shrink automatically if an enemy in reserve advertises a shorter arrival distance.",
-        "Fixed: the same stale 9\" also made the AI refuse its OWN legal 8-9\" reinforcement placements, so units arriving from reserve had fewer options than the rules allow.",
-        "New: the AI now treats battle-shock as a way to take objectives, not just something to recover from. Because a battle-shocked unit's Objective Control drops to \"-\", the AI will spend a stratagem to shock an enemy off a marker rather than trying to kill it — scored by the victory points that actually swing, multiplied by the real chance the roll fails.",
-        "Fixed: the AI paid an \"enemy is holding an objective\" premium when picking shooting targets even for enemies that were already battle-shocked and therefore holding nothing.",
-        "Movement into enemy line of sight is now costed for the Overwatch it invites, weighted by how many shots are pointed at the destination rather than how good those guns are — Overwatch is snap-shooting, so volume is what hurts. Melee units and the last two battle rounds discount it, so the AI still crosses the board to score."
+        "Fixed: the AI screened against deep strike as if enemies had to arrive more than 9\" away, but 11th edition sets units up more than 8\" away (20.04's ingress move, which the game already implemented). The AI therefore believed an 8-9\" ring around each of its units was covered when the opponent could legally drop into it. It now reads the distance from the same rule the rest of the game uses, and tightens the ring further if an enemy in reserve advertises a shorter arrival.",
+        "Fixed: the same stale 9\" made the AI refuse its OWN legal 8-9\" reinforcement placements, so its units arriving from reserve had fewer options than the rules allow.",
+        "Fixed: the AI paid an \"enemy is holding an objective\" premium when choosing shooting targets even for enemies that were already battle-shocked — a battle-shocked unit's Objective Control is \"-\", so it is holding nothing.",
+        "Fixed: an army-list header row imported as if it were a unit (a leftover in older saved games) could double the AI's Strategic Reserves allowance and make it start a battle with most of its army off the table. Army points and unit counts now ignore those rows.",
+        "Under the hood: the AI has learned the 11th-edition Hidden rule (13.09) — seeking dense terrain, weighing the two-turn cost of giving Hidden up by shooting, and shooting enemies that are about to regain it — along with Overwatch-exposure costing and using battle-shock to strip Objective Control. These are switched OFF by default: benchmarking across 50 games did not show them winning more games, so they ship dormant pending tuning rather than changing how the AI plays today."
       ]
     },
     {
@@ -21,9 +18,9 @@
       "date": "2026-08-05",
       "summary": "New setting: let the line-of-sight overlay skip enemies none of your guns could reach, for a quieter and faster board.",
       "changes": [
-        "New (requested): Settings > Visual > \"LoS Debug: include units out of weapon range\". On by default \u2014 enemies no weapon in the selected unit could reach are still checked and drawn dashed amber, labelled \"is out of range\", which is what explains a squad you can plainly see but cannot select.",
+        "New (requested): Settings > Visual > \"LoS Debug: include units out of weapon range\". On by default — enemies no weapon in the selected unit could reach are still checked and drawn dashed amber, labelled \"is out of range\", which is what explains a squad you can plainly see but cannot select.",
         "Turn it off and those enemies are dropped before any line-of-sight work happens at all: the overlay then shows only the enemies your guns can actually reach. On a deployed 2000pt board that took a whole-board sweep from 64 lines and ~0.9s down to 16 lines and ~0.3s.",
-        "A unit carrying no ranged weapons has no range to be outside of, so its sight lines are never filtered \u2014 assault units still get the full overlay either way."
+        "A unit carrying no ranged weapons has no range to be outside of, so its sight lines are never filtered — assault units still get the full overlay either way."
       ]
     },
     {
@@ -31,8 +28,8 @@
       "date": "2026-08-05",
       "summary": "The line-of-sight overlay (hold L) now tells you what you can actually SHOOT, not just what you can see: green means it is a legal target, amber means visible-but-off-limits and says why.",
       "changes": [
-        "Fixed (reported): the L overlay drew a solid green line to a squad that was not offered as a target at all \u2014 'there is at least one green line between the two squads but the target is not an option'. Green meant nothing more than 'terrain is not in the way', so any squad that was out of range, Hidden, engaged with one of your own units, a Lone Operative or inside a transport still got a green line and no explanation.",
-        "Sight lines now come in three states: solid green \u2014 this unit IS in your target list, click it and it works; dashed amber \u2014 your models can see it but the shot is illegal, with the reason (for example 'Kommandos is out of range') written on the line itself; dashed red \u2014 no line of sight, still split at the terrain that blocks it.",
+        "Fixed (reported): the L overlay drew a solid green line to a squad that was not offered as a target at all — 'there is at least one green line between the two squads but the target is not an option'. Green meant nothing more than 'terrain is not in the way', so any squad that was out of range, Hidden, engaged with one of your own units, a Lone Operative or inside a transport still got a green line and no explanation.",
+        "Sight lines now come in three states: solid green — this unit IS in your target list, click it and it works; dashed amber — your models can see it but the shot is illegal, with the reason (for example 'Kommandos is out of range') written on the line itself; dashed red — no line of sight, still split at the terrain that blocks it.",
         "Fixed the same disagreement in the other direction: a squad you COULD legally shoot was sometimes drawn red, because the overlay only tested the one or two closest pairs of models and applied a stricter visibility test than the game's own targeting does. Both now use the same rules-engine check.",
         "With a shooter selected, holding L also draws one line per enemy you cannot target, each labelled with the reason. Previously it drew lines only to targets you could already shoot, so the squad you were actually asking about got nothing.",
         "Fixed: clicking an enemy that is inside a transport, or a Lone Operative whose datasheet range is not 12\", showed the generic 'Target cannot be shot' instead of the real reason."

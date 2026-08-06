@@ -138,3 +138,35 @@ Split the change by evidence class:
   two measurements of them straddle zero. Defaulting them to neutral keeps the
   machinery and the tests while leaving `yt_findings_on.json` as the opt-in
   arm for a proper tuning sweep.
+
+---
+
+## Decision taken (2026-08-06)
+
+The recommendation above was applied. In `AIDecisionMaker.gd` the five
+behavioural weights now default to neutral:
+
+| constant | shipped | corpus-suggested |
+|---|---|---|
+| `WEIGHT_HIDDEN_GAINED` | 0.0 | 4.0 |
+| `HIDDEN_FORFEIT_PENALTY` | 0.0 | 3.0 |
+| `HIDDEN_WINDOW_BONUS` | 1.0 | 1.25 |
+| `OVERWATCH_EXPOSURE_PENALTY` | 0.0 | 0.35 |
+| `BATTLE_SHOCK_DENIAL_WEIGHT` | 0.0 | 1.0 |
+
+The bug fixes ship ON and are unaffected: the deep-strike denial radius derived
+at 8", the matching fix to `_is_valid_reinforcement_position`, not paying the
+objective-holder premium for an already-battle-shocked target, and the
+placeholder-unit guard. None of those are behaviour tuning; they are the AI
+being brought into line with rules the engine already implements.
+
+`tests/scenarios/sp/ai_hidden_awareness_11e.json` now loads
+`yt_findings_on.json` to exercise the dormant machinery, and asserts in both
+directions: with the profile the decision is SKIP_UNIT, with it cleared (i.e.
+shipped defaults) the same decision is SHOOT. 25/25 passing. That test is what
+keeps the feature from bit-rotting while it is switched off.
+
+**To revisit:** run a Custodes mirror (`make_mirror_fixture.py --source 1`)
+alongside the Ork one before turning any of these back on. A change that helps
+one mirror and hurts the other is the overfitting case this whole exercise
+exists to catch, and only the Ork mirror has been tested.
