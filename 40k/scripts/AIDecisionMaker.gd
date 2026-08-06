@@ -21904,6 +21904,14 @@ static func _unit_ranged_shot_volume(unit: Dictionary) -> float:
 ## F004 — penalty for a destination that newly exposes the unit to Fire
 ## Overwatch. Only the *increase* in exposure is charged: enemies that could
 ## already overwatch us from where we stand are not a reason to refuse to move.
+##
+## APPROXIMATION, deliberately: this is a RANGE test, not a line-of-sight test.
+## Fire Overwatch also requires the target to be visible, but the AI's only LoS
+## helper (_can_shooter_see_target) takes unit IDs and so cannot answer for a
+## destination the unit has not moved to yet. Distance into the 24" band is
+## therefore an upper bound on exposure — a destination behind a wall is
+## charged as if it were in the open. Keep the weight modest for that reason;
+## it is a tax on crossing open ground, not a LoS model.
 static func _overwatch_exposure_penalty(
 	unit: Dictionary, from_pos: Vector2, to_pos: Vector2, enemies: Dictionary
 ) -> float:
