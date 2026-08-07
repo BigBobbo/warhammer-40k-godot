@@ -194,7 +194,13 @@ func _watch_loop() -> void:
 			return
 		var elapsed = (Time.get_ticks_msec() - _start_ticks) / 1000.0
 		if elapsed > _max_seconds:
-			_finish_stalled("max_seconds exceeded (%.0fs)" % elapsed)
+			# A wall-clock overrun is NOT a stall. The game was making progress; the
+			# box was just too slow (usually because lanes were oversubscribed).
+			# Conflating the two makes the stall-rate guardrail depend on machine
+			# load, so a busy box would look like an AI regression.
+			_finish_timeout("max_seconds exceeded (%.0fs) at round %d, %d actions" % [
+				elapsed, GameState.get_battle_round(),
+				ai._action_log.size() if ai != null else 0])
 			return
 		# Progress signature: round | phase | actions taken. If it freezes for
 		# STALL_SECONDS of real time, the game is stuck — that is itself a
@@ -255,7 +261,14 @@ func _finish_completed() -> void:
 	_write_and_quit(_collect_result("completed", ""), 0)
 
 func _finish_stalled(reason: String) -> void:
+	"""Genuine deadlock: the progress signature froze for STALL_SECONDS."""
 	_write_and_quit(_collect_result("stalled", reason), 2)
+
+func _finish_timeout(reason: String) -> void:
+	"""Ran out of wall clock while still progressing — a throughput problem,
+	not an AI defect. Reported separately so campaign guardrails can count
+	stalls without counting slow machines."""
+	_write_and_quit(_collect_result("timeout", reason), 3)
 
 func _finish_with_error(reason: String) -> void:
 	_write_and_quit({"status": "error", "note": reason, "fixture": _fixture, "seed": _seed}, 2)

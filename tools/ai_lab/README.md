@@ -21,6 +21,32 @@ nothing could learn from them.
 | M1 | `build_index.py` | A season directory → Parquet + DuckDB with joining views |
 | M2 | `params_manifest.py` | Extracts the real tunable surface from the source |
 | M2 | `validate_profile.py` | Blocks the four silent-failure modes of the rule DSL |
+| M2 | `run_lanes.py` | Plays one arm across concurrent lanes into a season |
+| M2 | `determinism_check.py` | Proves two same-seed seasons are identical |
+| M2 | `run_paired.py` | **The evaluator**: side-swapped pairs, sequential stopping |
+| M3 | `sensitivity_screen.py` | Ranks which constants actually move the margin |
+| M4 | `cem_driver.py` | Cross-entropy search with racing over the ranked dims |
+| — | `gate_candidate.py` | The five accept/reject gates a change must clear |
+| — | `feature_census.py` | Maps the ceiling parameter search cannot pass |
+| — | `tunability_audit.py` | Finds scoring no profile can reach |
+| — | `audit_extract.py` | Builds expressiveness-audit dossiers from records |
+
+### The pipeline, end to end
+
+```
+fixture_check ──► run_lanes ──► records ──► build_index ──► DuckDB views
+                     │                                          │
+                     ▼                                          ▼
+              run_paired (E, F, verdict)              feature_census
+                     │                                tunability_audit
+        ┌────────────┴────────────┐                   audit_extract
+        ▼                         ▼                          │
+ sensitivity_screen ──────►  cem_driver                       ▼
+        (rank dims)          (search them)            expressiveness
+                                  │                       findings
+                                  ▼
+                          gate_candidate ──► ship + version_history entry
+```
 
 ## M0 — `fixture_check.py`
 
@@ -192,15 +218,53 @@ python3 tools/ai_lab/fixture_check.py                 # the M0 gate itself
 godot --headless --path 40k --script tests/test_game_record_export.gd
 ```
 
+## Determinism — and what it bought
+
+The AI layer called the **global** unseeded RNG in 16 places. Difficulty score
+noise is applied inside a movement-ordering *sort comparator*, so unit
+activation order was itself stochastic: two same-seed games diverged at the
+fifth movement decision and finished as different games, one stalled and one
+not. Everything now draws from a seeded `RandomNumberGenerator`, and
+`Array.shuffle()` is replaced by a deterministic Fisher-Yates for the same
+reason.
+
+Verified by `determinism_check.py`: six seeds played twice reproduce **exactly**
+— 2,403 action lines and 568 decision records identical, at Hard with noise
+active.
+
+What that bought, immediately:
+
+- **Common random numbers.** A paired M1/M2 pair now shares dice, deck *and*
+  noise draws, so the difference isolates the profile. The null test (candidate
+  identical to baseline) returns `E = 0.00, se = 0.00` with byte-identical
+  margins per seed — which is also a free **no-op detector** for candidates that
+  lint clean but change nothing.
+- **Stalls reproduce from their own seed**, which is how the round-5 charge
+  deadlock got root-caused.
+
+## `timeout` is not `stalled`
+
+A game that exceeds its wall clock while still making progress is reported as
+`timeout` (exit 3), not `stalled` (exit 2). Conflating them makes the
+stall-rate guardrail depend on machine load — three oversubscribed Ork lanes
+produced three "stalls" that were nothing of the kind. **Do not run more lanes
+than you have cores minus one.**
+
 ## Not built yet
 
-M2's determinism work (seeding the AI layer's bare `randf()` sites) and
-`run_paired.py`; M3's sensitivity screen; M4's CEM driver. See
-`research/ai_learning_framework_design.md` §6 for the staging and each stage's
-kill criterion.
+Nothing in the M0–M4 chain. Remaining known gaps are the instrumentation ones
+in `research/audit_findings_2026-08-07.md` (F-03…F-07): shooting records the
+assigned plan rather than the alternatives, and movement `score` is a copy of
+`objective_priority` rather than a decomposition.
 
-One correction to that document, from building this: it estimates the tunable
-surface at "96 `get_param` + 8 `get_param_int` ≈ 104 parameters across 152 call
-sites". The parameter count is exactly right; the call-site count measured
-**166** at `60ce588`. Run `params_manifest.py` for the current number rather
-than trusting either figure.
+Two corrections to `research/ai_learning_framework_design.md`, from building
+this:
+
+- It estimates "104 parameters across 152 call sites". The call-site count
+  measured **166** at `60ce588`, and after promoting hardcoded coefficients the
+  surface is now **126 parameters across 189 call sites**. Run
+  `params_manifest.py` rather than trusting any written figure.
+- Its throughput planning assumes the Ork mirror throughout. The Custodes
+  mirror resolves a full game in ~48 s against ~487 s, so screens and racing
+  rounds belong there and the M3 estimate of "~300 games ≈ one overnight run"
+  is closer to 20 minutes.

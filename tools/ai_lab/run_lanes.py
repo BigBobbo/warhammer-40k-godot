@@ -148,6 +148,9 @@ def run_one(seed: int, args, stamp: str, ud: str, season: str, sha: str) -> dict
         os.remove(record_path)
 
     # Keep the stdout log only when something went wrong: 41-51 MB per game.
+    # NOTE `timeout` != `stalled`: a timeout means the box was too slow (usually
+    # oversubscribed lanes) while the game was still progressing. Both are
+    # unusable as data, but only `stalled` indicates an AI defect.
     status = outcome.get("status", "missing")
     if status == "completed":
         os.remove(log_path)
@@ -167,6 +170,8 @@ def run_one(seed: int, args, stamp: str, ud: str, season: str, sha: str) -> dict
 def summarise(results: list[dict], args, sha: str) -> dict:
     completed = [r for r in results if r.get("status") == "completed"]
     bad = [r for r in results if r.get("status") != "completed"]
+    timeouts = [r for r in results if r.get("status") == "timeout"]
+    stalls = [r for r in results if r.get("status") == "stalled"]
     margins = [float(r.get("vp_diff_p2_minus_p1", 0)) for r in completed]
 
     mean = statistics.fmean(margins) if margins else float("nan")
@@ -178,6 +183,7 @@ def summarise(results: list[dict], args, sha: str) -> dict:
         "difficulty": args.difficulty, "time_scale": args.time_scale,
         "p1_profile": args.p1_profile or "", "p2_profile": args.p2_profile or "",
         "games": len(results), "completed": len(completed), "not_completed": len(bad),
+        "stalled": len(stalls), "timed_out": len(timeouts),
         "mean_margin_p2_minus_p1": round(mean, 3) if margins else None,
         "sd": round(sd, 3) if len(margins) > 1 else None,
         "se": round(se, 3) if len(margins) > 1 else None,
@@ -250,7 +256,14 @@ def main(argv=None) -> int:
     say("=" * 68)
     say("arm %s on %s — %d games in %.1f min"
         % (args.arm, args.fixture, summary["games"], summary["wall_seconds_total"] / 60.0))
-    say("  completed %d, not completed %d" % (summary["completed"], summary["not_completed"]))
+    say("  completed %d, not completed %d  (stalled %d, timed out %d)"
+        % (summary["completed"], summary["not_completed"],
+           summary["stalled"], summary["timed_out"]))
+    if summary["timed_out"]:
+        say("  NOTE: a timeout means the box ran out of wall clock while the game was")
+        say("        still progressing — usually oversubscribed lanes. Re-run those")
+        say("        seeds with fewer lanes or a higher --max-seconds; do NOT read")
+        say("        them as AI stalls.")
     if summary["se"] is not None:
         say("  mean margin (P2-P1) = %+.2f   sd %.2f   se %.2f   95%% CI [%+.1f, %+.1f]"
             % (summary["mean_margin_p2_minus_p1"], summary["sd"], summary["se"],
