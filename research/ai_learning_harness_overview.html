@@ -191,10 +191,10 @@
     and&mdash;more usefully&mdash;what it still can&rsquo;t.
   </p>
   <div class="meta">
-    <span>commit ef5b389</span>
+    <span>commit f858a34+</span>
     <span>Godot 4.4.1 · GDScript</span>
     <span>offline analysis in Python</span>
-    <span>stages M0 · M1 · M2&thinsp;(static half)</span>
+    <span>M0 · M1 · M2 complete · M3 running</span>
   </div>
 </header>
 
@@ -203,8 +203,8 @@
   <h2>The loop is not yet a loop</h2>
   <p class="col" style="margin-top:var(--s3)">
     Everything on the top row runs unattended today. Everything on the bottom row is
-    still a person reading a table and editing a number by hand. That gap is the whole
-    story: it is not a missing idea, it is a missing evaluator.
+    now built but not yet <em>run to a verdict</em>. The evaluator exists and passes its
+    own null test; what it has not yet done is accept a change.
   </p>
 
   <div class="panel" style="margin-top:var(--s4)">
@@ -229,31 +229,33 @@
         </div>
       </div>
 
-      <div class="band" style="margin-top:var(--s3)">Not built &mdash; a human stands here</div>
+      <div class="band" style="margin-top:var(--s3)">Built &mdash; not yet run to a verdict</div>
       <div class="pipe-row">
-        <div class="stage ghost">
+        <div class="stage">
           <span class="stage-name">Rank influence</span>
-          <span class="stage-what">M3 sensitivity screen<br>~300 games</span>
+          <span class="stage-what">sensitivity_screen.py<br>336 games, running</span>
         </div>
         <div class="stage ghost">
           <span class="stage-name">Propose</span>
-          <span class="stage-what">M4 CEM search<br>over ~10&ndash;15 weights</span>
+          <span class="stage-what">cem_driver.py<br>racing + shared seeds</span>
         </div>
         <div class="stage ghost">
           <span class="stage-name">Evaluate</span>
-          <span class="stage-what">M2 paired driver<br>side-swap, early stop</span>
+          <span class="stage-what">run_paired.py<br>null test: E=0.00, se 0</span>
         </div>
         <div class="stage ghost">
           <span class="stage-name">Accept &amp; ship</span>
-          <span class="stage-what">gates + scenario suite<br>&rarr; static profile</span>
+          <span class="stage-what">gate_candidate.py<br>five gates</span>
         </div>
       </div>
     </div>
 
     <p class="gap-note" style="margin-top:var(--s4)">
-      The return arrow does not exist. Nothing yet reads the season and proposes a change,
-      and nothing yet decides accept/reject without a person. The harness makes the
-      question answerable; it does not answer it.
+      The return arrow now exists in code &mdash; <code>cem_driver.py</code> proposes,
+      <code>run_paired.py</code> decides by a pre-registered stopping rule, and
+      <code>gate_candidate.py</code> holds five gates in front of shipping. What has not
+      happened yet is a candidate clearing them. Until one does, the honest claim is that
+      the question is now <em>answerable</em>, not answered.
     </p>
   </div>
 </section>
@@ -274,8 +276,8 @@
   </div>
 
   <div class="stat-row" style="margin-top:var(--s4)">
-    <div class="stat"><span class="stat-n">104</span><span class="stat-l">tunable parameters<br>96 float · 8 int</span></div>
-    <div class="stat"><span class="stat-n">166</span><span class="stat-l">call sites reading them</span></div>
+    <div class="stat"><span class="stat-n">126</span><span class="stat-l">tunable parameters<br>was 104 before promotion</span></div>
+    <div class="stat"><span class="stat-n">189</span><span class="stat-l">call sites reading them</span></div>
     <div class="stat"><span class="stat-n">13</span><span class="stat-l">rule condition types</span></div>
     <div class="stat"><span class="stat-n">3</span><span class="stat-l">rule action operations</span></div>
     <div class="stat"><span class="stat-n">9</span><span class="stat-l">context keys rules can test</span></div>
@@ -284,9 +286,10 @@
   <div class="panel" style="margin-top:var(--s3)">
     <h3>The tunable surface is smaller than the constant count suggests</h3>
     <p style="color:var(--ink-soft); font-size:0.94rem">
-      The file declares <strong>152</strong> constants, but only the <strong>104</strong>
-      actually read through <code>get_param()</code> / <code>get_param_int()</code> can be
-      reached from a profile. Writing the other 48 into a profile produces a candidate that
+      The file declares <strong>152</strong> constants, but only those actually read through
+      <code>get_param()</code> / <code>get_param_int()</code> can be reached from a profile
+      &mdash; <strong>104</strong> of them when this was written. Twenty-two more have since
+      been promoted from bare literals at unchanged values, taking it to <strong>126</strong>. Writing the other 48 into a profile produces a candidate that
       validates, runs, and changes nothing &mdash; burning a full evaluation budget to
       measure zero. <code>params_manifest.py</code> derives the real list from source rather
       than trusting a hand-kept note.
@@ -533,8 +536,12 @@
       <div><strong>~6 minutes per game.</strong> <span style="color:var(--ink-soft)">Measured 350&ndash;403&nbsp;s. Roughly 350&ndash;500 games/day at three lanes on four cores &mdash; the whole budget, for everything.</span></div>
     </div>
     <div class="item">
+      <span class="chip chip-built">fixed</span>
+      <div><strong>Games are now exactly seed-reproducible.</strong> <span style="color:var(--ink-soft)">Score noise ran through a bare unseeded <code>randf()</code> &mdash; and it is applied inside a movement-ordering <em>sort comparator</em>, so activation order itself was stochastic. All 16 AI-layer call sites now draw from a seeded generator, and <code>Array.shuffle()</code> was replaced by a deterministic Fisher-Yates for the same reason. Verified across <strong>10 seeds on both mirrors</strong>: 5,109 action lines and 1,332 decision records identical between independent runs.</span></div>
+    </div>
+    <div class="item">
       <span class="chip chip-lim">variance</span>
-      <div><strong>Games are not seed-reproducible.</strong> <span style="color:var(--ink-soft)">Score noise runs through a bare unseeded <code>randf()</code>, including inside a movement-ordering sort comparator, so activation order itself is stochastic. Fixing it enables common-random-number pairing and single-rollout counterfactuals. Not yet done.</span></div>
+      <div><strong>But common random numbers help less than hoped.</strong> <span style="color:var(--ink-soft)">A pair now shares dice, deck and noise draws, and an <em>identical</em> candidate reproduces exactly &mdash; which is a free no-op detector. A candidate that actually changes a decision, though, reshuffles every subsequent dice draw, so the paired spread stays wide. Early screen results show se of 1.3&ndash;3.8 VP at four pairs. Pairing removes the structural bias; it does not remove the game's own chaos.</span></div>
     </div>
     <div class="item">
       <span class="chip chip-lim">coverage</span>
@@ -549,8 +556,12 @@
       <div><strong>Two mirror fixtures is a narrow world.</strong> <span style="color:var(--ink-soft)">Mirrors remove army asymmetry by construction, which is what makes an A/A test meaningful &mdash; but a weight that wins an Ork mirror need not transfer, and evaluation runs at difficulties players may not use.</span></div>
     </div>
     <div class="item">
-      <span class="chip chip-no">not built</span>
-      <div><strong>Nothing searches yet.</strong> <span style="color:var(--ink-soft)">No sensitivity screen, no optimiser, no automated accept/reject. Today a person reads <code>arm_summary</code> and edits a profile. The harness shortens that loop; it does not close it.</span></div>
+      <span class="chip chip-lim">unproven</span>
+      <div><strong>The search exists but has not yet produced an accepted change.</strong> <span style="color:var(--ink-soft)">Screen, optimiser and the five-gate accept/reject are written and the evaluator passes its null test, but no candidate has cleared the gates. Until one does, this is a measuring instrument that has been calibrated, not an AI that has been improved &mdash; and saying otherwise would repeat exactly the mistake that produced <strong>&minus;2.05 VP, CI [&minus;7.2, +3.1]</strong>.</span></div>
+    </div>
+    <div class="item">
+      <span class="chip chip-lim">ceiling</span>
+      <div><strong>78% of scoring arithmetic is still unreachable.</strong> <span style="color:var(--ink-soft)">Down from 84% after promoting 22 coefficients, but the great majority of the numbers that decide games remain bare literals no profile can touch. Whatever the optimiser finds, it is searching under a fifth of the machine.</span></div>
     </div>
   </div>
 </section>
