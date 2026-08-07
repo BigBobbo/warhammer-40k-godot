@@ -1,5 +1,14 @@
 # Expressiveness audit — first run, 2026-08-07
 
+> **Status update, same day.** F-01 and F-02 are partially ACTED ON: 22 of the
+> named coefficients were promoted to `get_param` with identical values, so the
+> objective-assignment reachability penalty, charge-target and fight-target
+> scoring are now inside the search space (104 → 126 parameters; unreachable
+> scoring arithmetic 84% → 78%). Promotion is behaviour-preserving by
+> construction — it changes *what a search can reach*, not what the AI does.
+> Whether moving them helps is a question for the evaluator, not this audit.
+> F-04…F-07 (the instrumentation gaps) are still open.
+
 Run against 19 A/A games on `mirror_orks_postdeploy` at `ef5b389`
 (2,502 movement decisions, 4 instrumented decision types).
 
