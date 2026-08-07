@@ -1,10 +1,12 @@
 # AI Overhaul — task list
 
 Goal: make the AI **stronger** and **improvable** — every decision visible,
-every decision reachable by tuning, phases connected by one plan and one value
-function, bounded lookahead where it pays, and an automated
-propose → play → measure → gate → ship loop (a "Karpathy loop") that turns
-games played into strength gained.
+every decision reachable by tuning, phases connected by a plan for the game
+and a plan for the turn over one shared value function, bounded lookahead
+where it pays, and an automated propose → play → measure → gate → ship loop
+(a "Karpathy loop") that turns games played into strength gained.
+
+36 tasks in six workstreams. See the phase table at the bottom for order.
 
 Companion document: `docs/AI_CURRENT_AND_FUTURE.html` explains the current AI,
 the target architecture, and the reasoning behind this plan. Read it first if
@@ -406,9 +408,11 @@ coordination ledgers, mission awareness) — and the multi-phase plan only
 builds at Hard+ difficulty, so on Normal most cross-phase coordination is
 silently off. A score can pass through five uncalibrated stacked modifiers
 (faction aggression ÷, archetype ×, round strategy ×, tempo ×, difficulty
-noise +). Give the AI one explicit value function and one turn-level plan
-that every phase serves. This is the structural answer to "phase models
-without a connecting layer".*
+noise +). Give the AI one explicit value function and two plan horizons every
+phase serves — a battle plan for the game, a turn plan for the turn. This is
+the structural answer to "phase models without a connecting layer". Note the
+horizons are separate on purpose: deployment and reserves are decided once
+and pay off three rounds later, which no per-turn object can own.*
 
 - [ ] **C0 — One source of truth for combat math**
   - **Lock:** AIDM  • **Depends:** D1 (the property test exists first, as the guard)  • **Cost:** code-only
@@ -492,6 +496,63 @@ without a connecting layer".*
     movement + shooting + charge intents (the "whole turn's intent at once"
     the July review asked for).
 
+- [ ] **C2b — BattlePlan: how we intend to win this game**
+  - **Lock:** AIDM  • **Depends:** C1 (V terms), C2 (TurnPlan is its execution vehicle)  • **Cost:** code + gate (~200 games)
+  - **Context:** Above TurnPlan there is nothing. No object states how the AI
+    intends to win the *game* — which objectives it contests all game versus
+    concedes, whether it is the alpha strike or the counter-punch, when
+    reserves land and what job they do, how CP and once-per-battle abilities
+    spread across five rounds. Deployment and reserves are decided before
+    round 1 and only pay off in rounds 2-3, so no per-turn object can own
+    them: today reserves scoring is an orphan (18 hardcoded coefficients,
+    promoted in A4) and deployment invents its own strategy per unit. The
+    measured evidence says this layer carries the project's largest effects —
+    the reserves cap alone moved a benchmark matchup from 12 to 39 primary VP
+    (`docs/AI_REVIEW_2026-07-11.md` §2.4, §5), while every purely tactical
+    change measured so far sat inside the noise.
+  - **Spec:** `BattlePlan` — a per-player object built once after both armies
+    are known and before deployment, and **reviewed** at each command phase,
+    never rebuilt from scratch. Contents:
+    - **win route** — projected primary/secondary VP for both sides from the
+      mission cards and both army compositions; a chosen route (out-hold /
+      out-kill / trade-and-hold) naming the C1 value terms it maximizes;
+    - **objective stance** — per objective, for the game: contest-always /
+      take-late / concede, with the round it matters;
+    - **tempo** — commit round (alpha strike vs counter-punch), derived from
+      relative threat ranges and durability;
+    - **force allocation** — a durable per-unit job for the game (anchor
+      home, hammer, screen, harass, reserve delivery) that TurnPlan tasks
+      serve or explicitly override with a reason;
+    - **resource arcs** — reserve manifest (which units, target arrival
+      round, target job), CP arc per round (feeding C3), once-per-battle
+      ability timing.
+    Review semantics mirror the movement plan's replan-for-cause: the plan is
+    re-scored each command phase against V and revised only when evidence
+    contradicts it (a conceded objective becomes cheap, the commit round
+    passed with no viable strike, the win route's projection inverts). Every
+    revision is narrated. Downstream: TurnPlan (C2) derives unit tasks from
+    the force allocation; C5's deployment posture derives from win route +
+    tempo + objective stance instead of being independently invented;
+    reserves declarations read the reserve manifest instead of their own
+    scoring.
+  - **Acceptance — Tier A:** (1) Built-but-not-consulted (flag off) is
+    byte-identical vs pre-C2b on `determinism_check.py`. (2) Two new exams
+    pass: "against a faster, tougher enemy the plan concedes the far
+    objective and holds two near ones all game", and "reserves arrive in the
+    round the manifest named, not on generic arrival scoring". (3) Pooled
+    E ≥ −1 VP at 1 SE across both mirrors and the B2 asymmetric fixture, and
+    a plan-vs-no-plan arm reported with its measured E whichever way it
+    falls. (4) Plan revisions are recorded decisions with candidates; ≥1
+    revision occurs and is narrated across a 5-round game.
+  - **Tier B:** A replayed game reads as one story — deployment, reserve
+    arrival and the round-4 push all serve the plan the log announced before
+    round 1.
+  - **Kill criterion:** if the plan arm measures worse than no plan at 1 SE
+    on both mirrors after one revision pass of the review triggers, ship it
+    default-off behind a parameter and write up which commitments hurt. A
+    wrong plan committed to is worse than no plan; this criterion exists to
+    catch exactly that.
+
 - [ ] **C3 — CP budget as a decision, not nine private floors**
   - **Lock:** AIDM  • **Depends:** C2  • **Cost:** code + evaluator gate (~100 games)
   - **Context:** AUDIT Tier-3: no CP economy exists — nine stratagem
@@ -523,17 +584,22 @@ without a connecting layer".*
   - **Tier B:** WAAAGH! timing narration still reads correctly.
 
 - [ ] **C5 — Deployment master plan (posture before placement)**
-  - **Lock:** AIDM  • **Depends:** A5 (deployment params exist)  • **Cost:** code + gate (~150 games)
+  - **Lock:** AIDM  • **Depends:** A5 (deployment params exist), C2b (the posture comes from the battle plan)  • **Cost:** code + gate (~150 games)
   - **Context:** Deployment is reactive per unit; no whole-army posture
     ("castle center", "refuse left flank", "spread for scout screens")
     exists, and misclassification is known (Stormboyz deploy as "durable
     ranged", `docs/AI_REVIEW_2026-07-11.md` §6). Deployment largely decides
-    round 1-2.
-  - **Spec:** Score 3-4 explicit postures against opponent deployment,
-    mission, and army archetype; chosen posture parameterizes the existing
-    per-unit placement (column geometry, depth, role targets). Fix role
-    classification to weigh melee reach vs token pistols. Posture is a
-    recorded decision and a persona bias point (F1).
+    round 1-2. It is independent in *timing* — it happens once, before
+    everything — but maximally coupled in *consequence*, which is why the
+    posture must be derived rather than invented: cover is only valuable if
+    the plan intends to shoot from there.
+  - **Spec:** Derive the posture from C2b's win route, tempo and objective
+    stance (score 3-4 candidate postures for how well each *serves the plan*,
+    rather than scoring them against the board in isolation); the chosen
+    posture then parameterizes the existing per-unit placement (column
+    geometry, depth, role targets). Fix role classification to weigh melee
+    reach vs token pistols. Posture is a recorded decision, and its bias
+    point for personas lives in the battle plan (F1).
   - **Acceptance — Tier A:** (1) two deployment exams pass (melee horde
     deploys forward-weighted vs shooting army; fragile shooters castle
     against melee). (2) pooled E ≥ −1 VP at 1 SE; deployment scenarios
@@ -832,17 +898,20 @@ strategist biases), not code forks — so the improvement loop can tune each
 persona the same way it tunes the default.*
 
 - [ ] **F1 — Persona schema: strategist biases in shipped profiles**
-  - **Lock:** Profiles + AIDM  • **Depends:** C2 (TurnPlan reads biases), E5 (shipping channel)  • **Cost:** code + gate (~100 games)
+  - **Lock:** Profiles + AIDM  • **Depends:** C2b (BattlePlan reads biases), C2, E5 (shipping channel)  • **Cost:** code + gate (~100 games)
   - **Context:** Profiles already carry `playstyle`/`faction_affinity`
     metadata that nothing reads. Faction behavior today is five hardcoded
-    aggression constants plus archetype detection. The persona surface
-    should be: parameter pack (exists) + rules (exists) + **strategist
-    biases** (new: posture preference, risk posture, reserve appetite,
-    objective-vs-kill lean, target priorities) consumed by TurnPlan/C5.
+    aggression constants plus archetype detection. A persona is not "charges
+    more" — it is *how this army wins*, which makes the battle plan its
+    natural home. The persona surface should be: parameter pack (exists) +
+    rules (exists) + **strategist biases** (new) consumed by **C2b first**
+    (win-route preference, tempo bias, reserve appetite, objective stance
+    lean) and TurnPlan/C5 second (risk posture, target priorities).
   - **Spec:** Extend `wh40k_ai_profile` v2 with a `strategist` block (all
-    fields optional, defaults = current behavior); TurnPlan and deployment
-    posture read them; `validate_profile.py` and `ai-creator` learn the new
-    fields. Document in `AI_TUNING.md`.
+    fields optional, defaults = current behavior); BattlePlan reads the
+    game-level biases, TurnPlan and deployment posture the turn-level ones;
+    `validate_profile.py` and `ai-creator` learn the new fields. Document in
+    `AI_TUNING.md`.
   - **Acceptance — Tier A:** (1) v1 profiles still load (round-trip test).
     (2) A test profile with `risk_posture: reckless` measurably shifts the
     fingerprint (charge rate up, reserve % down) on 10 games vs default —
@@ -900,7 +969,7 @@ persona the same way it tunes the default.*
 |---|---|---|---|
 | 1 | A1 A2 A3 A4 A5 D1 · B0 B1 B2 B4 | See clearly, measure cheaply | records honest; unreachable ≤50%; games ≤30 s/300 s; exams live; baseline frozen |
 | 2 | A6 A7 B3 B5 C0 C1 · B6 spike | Instrument everything, dedupe the math, validate V, nightly pulse | census ≥9 types; one combat-math module; V correlation ≥0.5; nightly report running |
-| 3 | C2 C3 C4 E1 · E4 E5 | One plan; first full-budget search; ship channel | TurnPlan live in all phases; E1 shipped-or-null; profiles shippable |
+| 3 | C2 C2b C3 C4 E1 · E4 E5 | Two plan horizons; first full-budget search; ship channel | TurnPlan live in all phases; BattlePlan built, reviewed and measured; E1 shipped-or-null; profiles shippable |
 | 4 | D2 D3 D4 C5 C6 C7 | Lookahead + remaining plan features | D3 pays ≥+1 VP or is parked with numbers |
 | 5 | E2 E3 E6 F1 F2 F3 | The loop runs itself; personas; difficulty | one analyst cycle + one patch cycle complete; two personas shipped |
 

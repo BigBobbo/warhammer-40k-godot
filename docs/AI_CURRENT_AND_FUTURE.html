@@ -163,7 +163,7 @@
     <li>A serious <b>self-play measurement lab already exists</b> in the repo (deterministic
     AI-vs-AI games, a paired evaluator, an optimizer, acceptance gates). It has honestly measured
     two plausible improvement ideas as useless and one as harmful. It is starved, not broken.</li>
-    <li>The target: a <b>three-layer AI</b> (turn-level strategist → per-phase tacticians →
+    <li>The target: a <b>three-layer AI</b> (game- and turn-level strategist → per-phase tacticians →
     bounded lookahead) over <b>one board-value function</b>, with personas as data — wrapped in an
     <b>automated improvement loop</b> (propose → play → measure → gate → ship): a Karpathy loop
     for the AI itself.</li>
@@ -361,7 +361,7 @@ per-phase knowledge that already works.</p>
       </marker>
     </defs>
     <g fill="none" stroke="var(--accent)" stroke-width="2">
-      <rect x="150" y="18" width="380" height="64" rx="4" stroke-dasharray="6 4"/>
+      <rect x="150" y="8" width="380" height="82" rx="4" stroke-dasharray="6 4"/>
     </g>
     <g fill="none" stroke="currentColor" stroke-width="1.3">
       <rect x="70"  y="140" width="110" height="54" rx="4"/>
@@ -375,8 +375,9 @@ per-phase knowledge that already works.</p>
       <rect x="620" y="18" width="215" height="64" rx="4" stroke-dasharray="6 4"/>
     </g>
     <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="currentColor">
-      <text x="340" y="44" text-anchor="middle" font-weight="700" fill="var(--accent)">Strategist — TurnPlan (new)</text>
-      <text x="340" y="62" text-anchor="middle" font-size="11.5">unit → task · postures · CP budget · at every difficulty</text>
+      <text x="340" y="30" text-anchor="middle" font-weight="700" fill="var(--accent)">Strategist (new)</text>
+      <text x="340" y="52" text-anchor="middle" font-size="11.5">BattlePlan — win route · objective stance · reserve &amp; CP arcs · once per game</text>
+      <text x="340" y="72" text-anchor="middle" font-size="11.5">TurnPlan — unit → task · postures · CP budget · once per turn</text>
       <text x="125" y="163" text-anchor="middle" font-weight="700">Move</text>
       <text x="255" y="163" text-anchor="middle" font-weight="700">Shoot</text>
       <text x="385" y="163" text-anchor="middle" font-weight="700">Charge</text>
@@ -399,22 +400,22 @@ per-phase knowledge that already works.</p>
       <text x="727" y="61" text-anchor="middle" font-size="11.5">profile + strategist biases</text>
     </g>
     <g stroke="currentColor" stroke-width="1.3" fill="none">
-      <line x1="255" y1="82" x2="255" y2="138" marker-end="url(#arr2)"/>
-      <line x1="425" y1="82" x2="425" y2="138" marker-end="url(#arr2)"/>
+      <line x1="255" y1="90" x2="255" y2="138" marker-end="url(#arr2)"/>
+      <line x1="425" y1="90" x2="425" y2="138" marker-end="url(#arr2)"/>
       <line x1="255" y1="194" x2="255" y2="250" marker-end="url(#arr2)"/>
       <line x1="425" y1="194" x2="425" y2="250" marker-end="url(#arr2)"/>
       <line x1="340" y1="312" x2="340" y2="366" marker-end="url(#arr2)"/>
-      <line x1="618" y1="50" x2="532" y2="50" marker-end="url(#arr2)"/>
+      <line x1="618" y1="49" x2="532" y2="49" marker-end="url(#arr2)"/>
       <line x1="618" y1="157" x2="572" y2="157" marker-end="url(#arr2)" stroke="var(--accent)" stroke-width="1.6"/>
       <line x1="618" y1="260" x2="590" y2="260" stroke-width="1.3"/>
       <path d="M 590 260 L 555 260 L 555 200" marker-end="url(#arr2)"/>
       <path d="M 727 194 L 727 214" marker-end="url(#arr2)" stroke="var(--accent)" stroke-width="1.6"/>
     </g>
     <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="currentColor" opacity=".75">
-      <text x="243" y="106" text-anchor="end">tasks</text>
+      <text x="243" y="112" text-anchor="end">tasks</text>
       <text x="243" y="222" text-anchor="end">candidates</text>
       <text x="352" y="344" text-anchor="start">best action</text>
-      <text x="575" y="42"  text-anchor="middle">biases</text>
+      <text x="575" y="41"  text-anchor="middle">biases</text>
       <text x="596" y="149" text-anchor="middle">scores</text>
       <text x="737" y="209" text-anchor="start">leaf eval</text>
     </g>
@@ -427,17 +428,28 @@ per-phase knowledge that already works.</p>
   </svg>
   </div>
   <figcaption>Fig. 2 — Target architecture. The four phase tacticians are today's solvers, kept.
-  What is new: one plan above them, one value function and one combat-math module beside them,
-  bounded lookahead below them, and personas as data.</figcaption>
+  What is new: two plan horizons above them — one for the game, one for the turn — one value
+  function and one combat-math module beside them, bounded lookahead below them, and personas as
+  data.</figcaption>
 </figure>
 
 <ul>
-  <li><b>Strategist.</b> Once per turn, at every difficulty, build a <code>TurnPlan</code>: which
-  objectives matter this round (from the mission math that already exists), a task per unit
-  (hold, take, screen, hunt, deliver, hold-lane), a deployment posture, and a CP budget that can
-  hold a command point back for overwatch. The eight ad-hoc caches become views of this one
-  object. The plan persists, is consumed as units act, replans only for cause, and is narrated —
-  the July coordination work already proved this pattern in the movement phase.</li>
+  <li><b>Strategist, at two horizons.</b> A <code>BattlePlan</code> is built once, before
+  deployment, from both army lists and the mission cards: how we intend to win (out-hold,
+  out-kill, trade-and-hold), which objectives we contest all game and which we concede, whether
+  we are the alpha strike or the counter-punch, a job per unit for the game, and the resource
+  arcs — reserve manifest, CP per round, once-per-battle timing. Below it, a <code>TurnPlan</code>
+  is built each turn, at every difficulty: a task per unit serving the battle plan's job list,
+  focus-fire and charge intentions, and this turn's CP budget. The eight ad-hoc caches become
+  views of the turn plan. Both plans persist, are consumed as units act, and are revised only
+  for cause — the July coordination work already proved that pattern in the movement phase.</li>
+  <li><b>Why two horizons and not one.</b> Deployment and reserves are decided once, before
+  round one, and only pay off in rounds two and three; no per-turn object can own them. That is
+  also why deployment is not split off as its own independent AI: it is independent in
+  <em>timing</em> but maximally coupled in <em>consequence</em>. Cover is only worth deploying
+  into if the plan intends to shoot from there. The largest measured behavior swing in this
+  project's history was a deployment-phase decision — a reserves cap that moved a benchmark
+  matchup from 12 to 39 primary victory points.</li>
   <li><b>Tacticians.</b> The per-phase solvers stay — they hold real domain knowledge. They
   change in two ways: candidates are generated <em>against the TurnPlan's tasks</em>, and scored
   with named, reachable, recorded terms instead of inline literals.</li>
@@ -452,8 +464,9 @@ per-phase knowledge that already works.</p>
   validated against actual outcomes (does round-3 V predict the final margin?), and only then
   allowed to steer decisions. The scoring-horizon failure taught this order.</li>
   <li><b>Personas.</b> A persona is a data file: parameter pack + conditional rules (both exist
-  today) + strategist biases (new: risk posture, reserve appetite, posture preference, target
-  priorities). Ork "Green Tide" and Custodes "Shield Host" ship first. Difficulty stops meaning
+  today) + strategist biases (new). The biases attach to the battle plan first, because a persona
+  is not "charges more" — it is <em>how this army wins</em>: win route, tempo, reserve appetite,
+  which objectives it refuses to concede. Ork "Green Tide" and Custodes "Shield Host" ship first. Difficulty stops meaning
   "how much random noise" and starts meaning "how deep the plan and the search go".</li>
 </ul>
 
@@ -621,8 +634,8 @@ precisely the right shape here, and the repo is already more than half way to it
 <!-- ============================ PART III ============================ -->
 <div class="partband"><span class="n">PART III</span><h2>The path</h2></div>
 
-<h3><span class="sn">§13</span>Six workstreams, thirty tasks</h3>
-<p>The full plan is <code>.llm/ai-overhaul-todo.md</code>: 30 tasks, each self-contained — context
+<h3><span class="sn">§13</span>Six workstreams, thirty-six tasks</h3>
+<p>The full plan is <code>.llm/ai-overhaul-todo.md</code>: 36 tasks, each self-contained — context
 with evidence, an exact spec, machine-checkable acceptance (Tier A), a human check (Tier B),
 cost, dependencies, and kill criteria for the speculative ones. Any task can be handed alone to
 an engineer or an LLM session. In brief:</p>
@@ -631,7 +644,7 @@ an engineer or an LLM session. In brief:</p>
   <tbody>
     <tr><td><b>A — Truth &amp; Reach</b> (7)</td><td>Honest decision records everywhere; promote ~90 hardcoded literals to named parameters; a CI ratchet so neither regresses.</td><td>Tears down walls 1–2. The repo's own evidence says this is worth more than any search over the current surface.</td></tr>
     <tr><td><b>B — Measurement Engine</b> (7)</td><td>Freeze a baseline opponent; make games ~2× faster; asymmetric fixtures; a 12-exam tactical suite; nightly self-play with drift alarms; a counterfactual-replay spike.</td><td>Tears down wall 5. Every later workstream pays its bills in games.</td></tr>
-    <tr><td><b>C — One Plan, One Value</b> (8)</td><td>One combat-math module; V(state) validated dark; TurnPlan across all phases and difficulties; CP budgeting; scored command phase; deployment postures; dependency-ordered movement; escort pairing.</td><td>Tears down wall 4 — the connecting layer.</td></tr>
+    <tr><td><b>C — One Plan, One Value</b> (9)</td><td>One combat-math module; V(state) validated dark; TurnPlan across all phases and difficulties; BattlePlan for the whole game; CP budgeting; scored command phase; deployment postures derived from the battle plan; dependency-ordered movement; escort pairing.</td><td>Tears down wall 4 — the connecting layer, at both horizons.</td></tr>
     <tr><td><b>D — Looking Ahead</b> (4)</td><td>Reconcile AI math with the RulesEngine; an EV forward model with a measured budget; 1-ply opponent replies on high-stakes moves; beam search over charge/fight order.</td><td>Tears down wall 3. Each search feature must pay ≥ +1 VP or it ships off by default.</td></tr>
     <tr><td><b>E — The Loop</b> (6)</td><td>Full-budget parameter search; LLM rule proposer; LLM patch proposer; fingerprint gate; a shipping channel for profiles; a runbook an LLM can execute.</td><td>Option B made real. Every proposer goes through the same gate.</td></tr>
     <tr><td><b>F — Personas &amp; Difficulty</b> (3)</td><td>Persona schema read by the strategist; two shipped personas, provably distinct and non-regressing; difficulty from capability instead of noise.</td><td>The product face of all of the above.</td></tr>
@@ -644,7 +657,7 @@ an engineer or an LLM session. In brief:</p>
   <tbody>
     <tr><td>1 — See clearly, measure cheaply</td><td>A1–A5, D1 · B0–B2, B4</td><td>Records honest; unreachable arithmetic ≤ 50%; games ≤ 30 s / 300 s; exams live; baseline frozen.</td></tr>
     <tr><td>2 — Instrument, dedupe, validate V</td><td>A6–A7, B3, B5, C0–C1 · B6</td><td>≥ 9 decision types recorded; one combat-math module; V predicts outcomes (ρ ≥ 0.5); nightly report running. <b>← decision checkpoint (§11)</b></td></tr>
-    <tr><td>3 — One plan; first real search; ship channel</td><td>C2–C4, E1 · E4–E5</td><td>TurnPlan live in all phases; full-budget tuning campaign shipped-or-null; profiles shippable.</td></tr>
+    <tr><td>3 — Both plan horizons; first real search; ship channel</td><td>C2, C2b, C3–C4, E1 · E4–E5</td><td>TurnPlan live in all phases; BattlePlan built, reviewed and measured; full-budget tuning campaign shipped-or-null; profiles shippable.</td></tr>
     <tr><td>4 — Lookahead and the rest of the plan</td><td>D2–D4, C5–C7</td><td>1-ply replies pay ≥ +1 VP or are parked with numbers.</td></tr>
     <tr><td>5 — The loop runs; personas ship</td><td>E2–E3, E6, F1–F3</td><td>One analyst cycle and one patch cycle complete end-to-end; two personas shipped; difficulty ladder measured.</td></tr>
   </tbody>
