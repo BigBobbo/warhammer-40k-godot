@@ -5,6 +5,11 @@ through `.llm/ai-overhaul-todo.md` unattended. The prompt is resumable: state li
 todo file's checkboxes/evidence blocks, `.llm/ai-overhaul-progress.md`, and pushed commits,
 so re-running the same prompt in a new session continues instead of restarting.*
 
+*The prompt deliberately names no task list of its own — it reads whatever
+`.llm/ai-overhaul-todo.md` contains at launch. Amending the plan therefore needs no change
+here; only cross-references that name specific task ids (the background-campaign list, the
+mirror-fixture note) are worth refreshing when tasks are added or renumbered.*
+
 ---
 
 Work through .llm/ai-overhaul-todo.md and complete every task in it, autonomously, end to end.
@@ -31,11 +36,19 @@ SETUP
 
 ORDER
 Follow the phase table at the bottom of the todo file (Phase 1 → 5), tasks in listed order
-within a phase, respecting each task's Depends line. You are a single session, so Lock tags
-never conflict. Long self-play campaigns (B3, E1, anything over ~30 minutes of games) must run
-in the background (they are resumable — run_lanes skips finished seeds, cem_driver checkpoints
-each generation); while they run, work the next task that does not depend on their results.
-Never idle waiting on games while independent work exists.
+within a phase, respecting each task's Depends line. The file is the authority on scope and
+sequence — it held 36 tasks across six workstreams when this prompt was written, but trust what
+you read, not that number. Task ids are not strictly alphabetical (C0 and C2b were inserted);
+go by the phase table. You are a single session, so Lock tags never conflict.
+
+Any task whose Cost line names 100 or more games is a long campaign: start it in the background
+and work the next task that does not depend on its result while it runs. Campaigns are
+resumable — run_lanes skips finished seeds, cem_driver checkpoints each generation — so a lost
+container costs the current game, not the campaign. Read each task's Cost line rather than
+relying on the list, but at time of writing the rule covers B3 and every task in WS-C from C2
+onward, WS-D's D3 and D4, all of WS-E's E1-E3, and all of WS-F. E1 is by far the largest at
+1,500-3,500 games (2-4 days): start it the moment its dependencies clear and treat everything
+after it as work to fill that window. Never idle waiting on games while independent work exists.
 
 PER-TASK LOOP — strictly, for every task
 1. Re-read the task. Verify every premise against the code; line numbers drift, function names
@@ -63,15 +76,19 @@ GATES YOU MAY NEVER SKIP
   non-regression for structural changes).
 - Every new fixture passes tools/ai_lab/fixture_check.py before its first game.
 - Statistical work defaults to the Custodes mirror (~10x cheaper); use the Ork mirror only
-  where melee coverage is the point (B3, D4).
+  where melee coverage is the point (B3, D4) or where the task names it (C2b's gate spans both
+  mirrors plus the B2 asymmetric fixture).
 - Player-facing tasks (E5, F1, F2, F3): windowed scenario + in-game screenshot + a
   40k/data/version_history.json entry, per CLAUDE.md.
 
 OUTCOMES THAT COUNT AS COMPLETION — handle and continue, do not stop
 - A kill criterion fires -> execute its documented off-ramp (write-up, default-off parameter,
-  park), record the measured numbers, mark the task done with that outcome.
+  park), record the measured numbers, mark the task done with that outcome. C2b, D3 and D4 all
+  have one; shipping a feature default-off with the measurement behind it is a completed task,
+  not a failure.
 - The evaluator returns null or negative -> the honest write-up IS the deliverable (E1 says so
-  explicitly: "ship or null — either outcome is the deliverable").
+  explicitly: "ship or null — either outcome is the deliverable"). C2b goes further and requires
+  the plan-vs-no-plan arm to be reported whichever way it falls — report it either way.
 - A task assumes a resource you lack (e.g. an external API key for E2/E3's proposer) -> build
   the pluggable interface as specced, act as the proposer yourself for the validation cycle,
   and record the substitution in the task notes.
