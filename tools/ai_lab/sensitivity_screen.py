@@ -15,9 +15,12 @@ parameter and nothing else. Rank by the larger |E| of the two directions.
 Two properties worth stating plainly:
 
   * A parameter that produces E = 0 with zero variance across every paired
-    seed did not change a single decision. That is not a weak effect, it is NO
-    effect, and it is reported as `no_op` rather than as a small number. Most
-    commonly the parameter is simply never consulted on this fixture.
+    seed changed no DECISION at this delta — every game replayed identically.
+    That is not a weak effect, it is no effect, and it is reported as `no_op`
+    rather than as a small number. Note what it does NOT prove: the parameter
+    may well be read, and simply never move an argmax (it scales a term that
+    is dominated, or the unit had only one option). "Unread" and "read but
+    never decisive" are indistinguishable from the outcome alone.
   * The screen ranks INFLUENCE, not benefit. A parameter with a large |E| is
     worth searching over; the sign here is one noisy sample and must not be
     read as "set it this way".
@@ -161,7 +164,7 @@ def main(argv=None) -> int:
     print("=" * 78)
     print("  %-36s %-9s %-9s %s" % ("parameter", "default", "|E| max", "note"))
     for r in results:
-        note = "NO-OP — never consulted on this fixture" if r["no_op"] else ""
+        note = "no decision changed at +/-%.0f%%" % (args.delta * 100) if r["no_op"] else ""
         print("  %-36s %-9g %-9.2f %s" % (r["param"], r["default"], r["influence"], note))
 
     movers = [r for r in results if not r["no_op"] and r["influence"] >= 2.0]
