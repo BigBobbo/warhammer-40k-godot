@@ -76,8 +76,19 @@ def play_arm(seeds, fixture, arm, p1, p2, season, difficulty, time_scale,
     return out
 
 
-def margins_by_seed(season: str, arm: str) -> dict:
-    """Read margins straight from the records, so a resumed run reuses games."""
+def margins_by_seed(season: str, arm: str, candidate: str = None) -> dict:
+    """Margins for ONE candidate's games in an arm, keyed by seed.
+
+    The `candidate` filter is not optional in practice. Several campaigns share
+    a season directory — a sensitivity screen runs 42 evaluations into one —
+    and every one of them labels its arms M1/M2. Keying only on (arm, seed)
+    therefore pooled EVERY candidate's games together, so evaluation N silently
+    averaged in evaluations 1..N-1. The first result was right and every result
+    after it was contaminated.
+
+    The record already carries what is needed to disambiguate: in arm M1 the
+    candidate is P2's profile, in arm M2 it is P1's.
+    """
     out = {}
     for p in find_records(season):
         try:
@@ -89,6 +100,17 @@ def margins_by_seed(season: str, arm: str) -> dict:
         prov, o = rec.get("provenance") or {}, rec.get("outcome") or {}
         if prov.get("arm") != arm or o.get("status") != "completed":
             continue
+        if candidate is not None:
+            p1 = (prov.get("p1_profile") or {}).get("path", "")
+            p2 = (prov.get("p2_profile") or {}).get("path", "")
+            owned = p2 if arm == "M1" else p1
+            # "" means the shipped defaults (no profile file), which is a real
+            # and distinct identity — abspath("") would resolve to the cwd and
+            # silently match nothing.
+            want = os.path.abspath(candidate) if candidate else ""
+            have = os.path.abspath(owned) if owned else ""
+            if have != want:
+                continue
         out[_int(prov.get("seed"), -1)] = _num(o.get("vp_diff_p2_minus_p1"), 0.0)
     return out
 
@@ -138,12 +160,57 @@ def decide(effects, min_pairs, target_effect, futility_se):
     return "continue", s
 
 
+def selftest() -> int:
+    """Guard the candidate-pooling bug: several campaigns share a season
+    directory and all label their arms M1/M2, so pairing MUST key on the
+    candidate as well as (arm, seed)."""
+    import gzip, shutil, tempfile
+    tmp = tempfile.mkdtemp(prefix="paired_selftest_")
+    fails = []
+    try:
+        def rec(arm, seed, p1, p2, margin):
+            return {"schema": SCHEMA, "schema_version": 1, "game_id": "%s_%d" % (arm, seed),
+                    "provenance": {"arm": arm, "seed": seed,
+                                   "p1_profile": {"path": p1}, "p2_profile": {"path": p2}},
+                    "outcome": {"status": "completed", "vp_diff_p2_minus_p1": margin},
+                    "vp_events": [], "decisions": [], "action_log": [],
+                    "decision_batches_total": 0, "decision_batches_dropped": 0}
+        cand_a, cand_b = os.path.join(tmp, "a.json"), os.path.join(tmp, "b.json")
+        rows = [rec("M1", 1, "", cand_a, 10), rec("M2", 1, cand_a, "", -10),
+                rec("M1", 2, "", cand_b, 99), rec("M2", 2, cand_b, "", -99)]
+        for i, r in enumerate(rows):
+            with open(os.path.join(tmp, "g%d.record.json" % i), "w") as fh:
+                json.dump(r, fh)
+
+        m1a = margins_by_seed(tmp, "M1", cand_a)
+        m2a = margins_by_seed(tmp, "M2", cand_a)
+        if sorted(m1a) != [1] or sorted(m2a) != [1]:
+            fails.append("candidate A picked up another candidate's games: %s %s" % (m1a, m2a))
+        ea = [(m1a[k] - m2a[k]) / 2.0 for k in sorted(set(m1a) & set(m2a))]
+        if ea != [10.0]:
+            fails.append("E for candidate A should be [10.0], got %s" % ea)
+
+        unfiltered = margins_by_seed(tmp, "M1")
+        if len(unfiltered) != 2:
+            fails.append("unfiltered lookup should see both candidates, got %s" % unfiltered)
+
+        base = margins_by_seed(tmp, "M2", "")
+        if base:
+            fails.append("empty candidate must mean shipped-defaults identity, not match-all: %s" % base)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    for f in fails:
+        print("  FAIL %s" % f)
+    print("run_paired selftest: %s (%d failed)" % ("PASS" if not fails else "FAIL", len(fails)))
+    return 1 if fails else 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--candidate", required=True, help="candidate profile JSON")
+    ap.add_argument("--candidate", default="", help="candidate profile JSON")
     ap.add_argument("--baseline", default="", help="baseline profile (default: shipped defaults)")
     ap.add_argument("--fixture", default="mirror_custodes_postdeploy")
-    ap.add_argument("--season", required=True)
+    ap.add_argument("--season", default="")
     ap.add_argument("--seed-base", type=int, default=9000)
     ap.add_argument("--max-pairs", type=int, default=24)
     ap.add_argument("--min-pairs", type=int, default=6)
@@ -157,7 +224,12 @@ def main(argv=None) -> int:
     ap.add_argument("--aa-arm", action="store_true",
                     help="also play an A/A arm as a live harness guard")
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
+    if args.selftest:
+        return selftest()
+    if not args.candidate or not args.season:
+        ap.error("--candidate and --season are required")
 
     season = os.path.abspath(args.season)
     os.makedirs(season, exist_ok=True)
@@ -192,7 +264,8 @@ def main(argv=None) -> int:
                      args.difficulty, args.time_scale, args.max_seconds, args.lanes, stamp, sha)
         played += len(batch)
 
-        m1, m2 = margins_by_seed(season, "M1"), margins_by_seed(season, "M2")
+        m1 = margins_by_seed(season, "M1", args.candidate)
+        m2 = margins_by_seed(season, "M2", args.candidate)
         paired = sorted(set(m1) & set(m2))
         effects = [(m1[s_] - m2[s_]) / 2.0 for s_ in paired]
         biases = [(m1[s_] + m2[s_]) / 2.0 for s_ in paired]
@@ -206,11 +279,12 @@ def main(argv=None) -> int:
         if verdict != "continue":
             break
 
-    m1, m2 = margins_by_seed(season, "M1"), margins_by_seed(season, "M2")
+    m1 = margins_by_seed(season, "M1", args.candidate)
+    m2 = margins_by_seed(season, "M2", args.candidate)
     paired = sorted(set(m1) & set(m2))
     effects = [(m1[s_] - m2[s_]) / 2.0 for s_ in paired]
     biases = [(m1[s_] + m2[s_]) / 2.0 for s_ in paired]
-    aa = list(margins_by_seed(season, "AA").values()) if args.aa_arm else []
+    aa = list(margins_by_seed(season, "AA", args.baseline).values()) if args.aa_arm else []
 
     summary = {
         "schema": "wh40k_paired_campaign", "schema_version": 1,

@@ -125,7 +125,11 @@ def main(argv=None) -> int:
             path = os.path.join(prof_dir, "%s_%s.json" % (name, label))
             write_profile(path, "screen %s %s" % (name, label), {name: value},
                           "M3 sensitivity screen: %s = %g (default %g)" % (name, value, base))
-            res = evaluate(path, args.fixture, season, args.pairs, seed_base,
+            # Its own season subdirectory as well as the candidate filter in
+            # run_paired: two independent defences against one campaign's games
+            # being counted in another's arithmetic.
+            sub = os.path.join(season, "%s_%s" % (name, label))
+            res = evaluate(path, args.fixture, sub, args.pairs, seed_base,
                            args.lanes, args.max_seconds, args.difficulty)
             seed_base += args.pairs + 10
             e = res.get("E", {})
@@ -138,11 +142,18 @@ def main(argv=None) -> int:
         row["influence"] = max(eff) if eff else 0.0
         row["no_op"] = all(d["verdict"] == "no_op" for d in row["directions"].values())
         results.append(row)
+        # Checkpoint after every parameter. A full screen is hours of games and
+        # writing only at the end means an interruption throws all of it away.
+        with open(os.path.join(season, "screen_results.json"), "w") as fh:
+            json.dump({"fixture": args.fixture, "delta": args.delta, "pairs": args.pairs,
+                       "complete": False, "wall_seconds": round(time.time() - t0, 1),
+                       "results": sorted(results, key=lambda r: -r["influence"])}, fh, indent=2)
 
     results.sort(key=lambda r: -r["influence"])
     out = os.path.join(season, "screen_results.json")
     with open(out, "w") as fh:
         json.dump({"fixture": args.fixture, "delta": args.delta, "pairs": args.pairs,
+                   "complete": True,
                    "wall_seconds": round(time.time() - t0, 1), "results": results}, fh, indent=2)
 
     print("\n" + "=" * 78)
