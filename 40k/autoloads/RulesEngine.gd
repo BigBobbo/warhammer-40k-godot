@@ -16192,6 +16192,13 @@ static func apply_damage_to_unit_pool(target_unit_id: String, total_damage: int,
 static func get_model_by_id(unit: Dictionary, model_id: String) -> Dictionary:
 	return _get_model_by_id(unit, model_id)
 
+## SPLIT-FIRE / PER-MODEL LOS+RANGE: the subset of `model_ids` still eligible
+## to fire weapon_id at target_unit_id ({kept, dropped, reasons}) — the same
+## resolve-time filter the engine applies, so UI previews (the blocked-bearers
+## panel) agree with which models will actually shoot.
+static func filter_eligible_model_ids(model_ids: Array, actor_unit_id: String, weapon_id: String, target_unit_id: String, board: Dictionary) -> Dictionary:
+	return _filter_eligible_model_ids(model_ids, actor_unit_id, weapon_id, target_unit_id, board)
+
 ## Legacy center-to-center LoS check (debug/visualization only).
 static func check_legacy_line_of_sight(from_pos: Vector2, to_pos: Vector2, board: Dictionary) -> bool:
 	return _check_legacy_line_of_sight(from_pos, to_pos, board)

@@ -1491,6 +1491,8 @@ func _should_stage_fight(action: Dictionary, interactive_saves: bool = true) -> 
 ## to call from `fighting_begun` (confirmed_attacks is already populated).
 func fight_activation_will_stage() -> bool:
 	var ss = get_node_or_null("/root/SettingsService")
+	# (null service == stripped headless harness -> auto-allocate, same as
+	# _process_roll_dice above and ShootingPhase._should_pause_for_human_saves.)
 	var auto_alloc: bool = ss == null or ss.get_auto_allocate_wounds()
 	if NetworkManager.is_networked():
 		auto_alloc = false

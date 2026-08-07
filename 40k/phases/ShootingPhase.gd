@@ -3031,8 +3031,14 @@ func _should_pause_for_human_saves(save_data_list: Array) -> bool:
 		return false
 	if not _is_player_human(_defending_player_for_save_data(save_data_list)):
 		return false
+	# (null SettingsService only happens in stripped headless harnesses — treat
+	# it as auto-allocate so engine-level tests keep one-shot resolution and
+	# nothing waits for an APPLY_SAVES that no overlay will ever send. Same
+	# fallback, for the same reason, as FightPhase._process_roll_dice and
+	# FightPhase.fight_activation_will_stage; in a real game the autoload
+	# always exists and the player's setting decides.)
 	var ss = get_node_or_null("/root/SettingsService")
-	var auto_alloc: bool = ss != null and ss.get_auto_allocate_wounds()
+	var auto_alloc: bool = ss == null or ss.get_auto_allocate_wounds()
 	return not auto_alloc
 
 # Store the AI shoot context and hand the first save batch to the defender.

@@ -11,7 +11,7 @@
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "AI SHOOTING STALL (reported 2026-08-03): the AI's shooting phase froze mid-activation after the human defender took a while to roll saves \u2014 the 'AI is thinking' banner flashed on every watchdog tick and the phase never ended. While an attack is paused on the defender's save allocation the phase used to keep offering RESOLVE_SHOOTING / SELECT_SHOOTER / SKIP_UNIT / END_SHOOTING (active_shooter_id and confirmed_assignments are still populated), so a stray click or AI evaluation re-entered the paused activation: RESOLVE_SHOOTING re-rolled the WHOLE attack behind the defender's back while their overlay still showed the discarded dice, and the second saves_required was deduped away \u2014 after which no save window ever opened again and pending_save_data never drained. This scenario drives the atomic SHOOT that pauses on the defender, asserts the DEFENDER CONTROL LOCK (only APPLY_SAVES on offer, every re-entry action rejected, END_SHOOTING left unlocked as the player's manual escape hatch), then walks the real allocation overlay to Done and asserts the batch drained and the attacker's controls came back.",
+  "description": "AI SHOOTING STALL (reported 2026-08-03): the AI's shooting phase froze mid-activation after the human defender took a while to roll saves \u2014 the 'AI is thinking' banner flashed on every watchdog tick and the phase never ended. While an attack is paused on the defender's save allocation the phase used to keep offering RESOLVE_SHOOTING / SELECT_SHOOTER / SKIP_UNIT / END_SHOOTING (active_shooter_id and confirmed_assignments are still populated), so a stray click or AI evaluation re-entered the paused activation: RESOLVE_SHOOTING re-rolled the WHOLE attack behind the defender's back while their overlay still showed the discarded dice, and the second saves_required was deduped away \u2014 after which no save window ever opened again and pending_save_data never drained. This scenario drives the atomic SHOOT that pauses on the defender, asserts the DEFENDER CONTROL LOCK (only APPLY_SAVES on offer, every re-entry action rejected, END_SHOOTING left unlocked as the player's manual escape hatch), then walks the real allocation overlay to Done and asserts the batch drained and the attacker's controls came back. HERMETIC: the pause under test only exists while auto_allocate_wounds is OFF, so the scenario sets it explicitly instead of inheriting the machine's settings.cfg (2026-08-06: an ambient auto_allocate_wounds=true, left behind by earlier suite runs, auto-rolled the saves and failed 7 of 35 asserts here; ScenarioRunner now also pins fresh-install defaults for every harness run).",
   "steps": [
     {
       "act": "wait_seconds",
@@ -26,6 +26,12 @@
       "act": "execute_script",
       "script": "GameState.set_edition(11)",
       "equals": 11
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set_auto_allocate_wounds(false)\nreturn SettingsService.get_auto_allocate_wounds()",
+      "equals": false
     },
     {
       "act": "execute_script",
