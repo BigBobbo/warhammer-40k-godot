@@ -760,6 +760,43 @@ static func ai_shuffle(arr: Array) -> void:
 			arr[i] = arr[j]
 			arr[j] = tmp
 
+# A6 — record the decisions that used to happen in silence.
+#
+# Before this, five call sites emitted decision records (movement, shooting,
+# charge, fight, +1). Deployment placement, reserves declarations, leader
+# attachment, warlord choice, the command phase, secondary discards and the
+# reactive windows all chose among scored alternatives and left no trace —
+# invisible to offline analysis, to the replay UI, and to any learning loop.
+# The AI could be making its worst decisions in exactly the places nobody
+# could see.
+#
+# `scored` is [{description, score, key, score_breakdown}], newest scoring
+# first or not — this sorts. `chosen_key` identifies the pick; if it is not in
+# the list, nothing is emitted rather than a record that points at the wrong
+# row. K caps how many rejected options are kept.
+static func _record_choice(decision_type: String, unit_id: String, unit_name: String,
+		scored: Array, chosen_key: String, context: Dictionary = {}, k: int = 6) -> void:
+	if scored.is_empty():
+		return
+	var ranked := scored.duplicate()
+	ranked.sort_custom(func(a, b): return float(a.get("score", 0.0)) > float(b.get("score", 0.0)))
+	var top: Array = []
+	var chosen := -1
+	for i in range(ranked.size()):
+		var is_chosen: bool = str(ranked[i].get("key", "")) == chosen_key
+		if top.size() >= k and not is_chosen:
+			continue
+		if top.size() >= k and chosen >= 0:
+			break
+		top.append(ranked[i])
+		if is_chosen:
+			chosen = top.size() - 1
+	if chosen < 0:
+		return
+	var ctx := context.duplicate()
+	ctx["options_considered"] = scored.size()
+	_add_decision_record(decision_type, unit_id, unit_name, top, chosen, {}, ctx)
+
 # A2 (audit F-05) — additive score decomposition.
 # Movement `score` was a single number and the record's only reported term was
 # `objective_priority`, which equalled it in 99% of candidates. So the trace
@@ -3183,6 +3220,7 @@ static func _choose_warlord(snapshot: Dictionary, warlord_actions: Array, player
 
 	var best_action = {}
 	var best_score = -1.0
+	var wl_scored: Array = []  # A6
 
 	for action in warlord_actions:
 		var unit_id = action.get("unit_id", "")
@@ -3190,11 +3228,16 @@ static func _choose_warlord(snapshot: Dictionary, warlord_actions: Array, player
 		var stats = unit.get("meta", {}).get("stats", {})
 		var wounds = float(stats.get("wounds", 4))
 		var score = wounds
+		var attached_bonus := 0.0
 
 		# Prefer characters already attached to a bodyguard
 		var attachment = unit.get("attachment_data", {})
 		if not attachment.get("attached_to", "").is_empty():
-			score += get_param("WARLORD_ATTACHED_BONUS", WARLORD_ATTACHED_BONUS)
+			attached_bonus = get_param("WARLORD_ATTACHED_BONUS", WARLORD_ATTACHED_BONUS)
+			score += attached_bonus
+
+		wl_scored.append({"description": "Warlord: %s" % _dn(unit, unit_id), "score": score,
+			"key": unit_id, "score_breakdown": {"wounds": wounds, "attached_to_bodyguard": attached_bonus}})
 
 		if score > best_score:
 			best_score = score
@@ -3204,6 +3247,8 @@ static func _choose_warlord(snapshot: Dictionary, warlord_actions: Array, player
 		return {}
 
 	var char_name = _dn(all_units.get(best_action.get("unit_id", ""), {}), "unknown")
+	_record_choice("warlord", str(best_action.get("unit_id", "")), char_name, wl_scored,
+		str(best_action.get("unit_id", "")), {"phase": "formations"})
 	best_action["_ai_description"] = "AI designates %s as Warlord" % char_name
 	print("AIDecisionMaker: Warlord designation — %s (score=%.1f)" % [char_name, best_score])
 	return best_action
@@ -3215,11 +3260,16 @@ static func _evaluate_best_leader_attachment(snapshot: Dictionary, attachment_ac
 	var all_units = snapshot.get("units", {})
 	var best_score = -1.0
 	var best_action = {}
+	var pair_scored: Array = []  # A6: the whole pairing matrix, not just the winner
 
 	for action in attachment_actions:
 		var char_id = action.get("character_id", "")
 		var bg_id = action.get("bodyguard_id", "")
 		var score = _score_leader_bodyguard_pairing(char_id, bg_id, all_units)
+		pair_scored.append({
+			"description": "%s leads %s" % [_dn(all_units.get(char_id, {}), char_id), _dn(all_units.get(bg_id, {}), bg_id)],
+			"score": score, "key": "%s|%s" % [char_id, bg_id],
+			"score_breakdown": {"pairing_synergy": score}})
 
 		if score > best_score:
 			best_score = score
@@ -3231,6 +3281,9 @@ static func _evaluate_best_leader_attachment(snapshot: Dictionary, attachment_ac
 	var char_name = _dn(all_units.get(best_action.get("character_id", ""), {}), "unknown")
 	var bg_id = best_action.get("bodyguard_id", "")
 	var bg_name = _dn(all_units.get(bg_id, {}), "unknown")
+	_record_choice("leader_attachment", str(best_action.get("character_id", "")), char_name,
+		pair_scored, "%s|%s" % [str(best_action.get("character_id", "")), bg_id],
+		{"phase": "formations"})
 	best_action["_ai_description"] = "AI attaches %s to %s (synergy: %.2f)" % [char_name, bg_name, best_score]
 	print("AIDecisionMaker: Leader attachment - %s -> %s (score=%.2f)" % [char_name, bg_name, best_score])
 	# Track this bodyguard as having a leader — prevents embarking in transports
@@ -3591,6 +3644,7 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 	var min_board_units = objectives_on_board + 2
 	var comfort_sr_points = int(total_army_points * 0.25)
 	var scored_candidates = []
+	var res_scored: Array = []  # A6: the whole field, winners and losers
 	for unit_id in unit_best_action:
 		var action = unit_best_action[unit_id]
 		var unit = all_units.get(unit_id, {})
@@ -3620,6 +3674,15 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 				current_reserves_points + unit_points if reserve_type == "strategic_reserves" else current_reserves_points, comfort_sr_points])
 			score -= presence_penalty
 
+		# A6: every unit that was WEIGHED, including the ones scored at or below
+		# zero — "we considered reserving the Battlewagon and priced it at -1.2"
+		# is the interesting half of a reserves decision.
+		res_scored.append({
+			"description": "%s -> %s" % [_dn(unit, unit_id),
+				"Deep Strike" if reserve_type == "deep_strike" else "Strategic Reserves"],
+			"score": score, "key": unit_id,
+			"score_breakdown": {"reserve_value": score + presence_penalty,
+				"board_presence_penalty": -presence_penalty, "points": float(unit_points)}})
 		if score > 0.0:
 			scored_candidates.append({
 				"action": action,
@@ -3648,6 +3711,10 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 
 	var action = best.action
 	var unit_name = _dn(all_units.get(best.unit_id, {}), "unknown")
+	_record_choice("reserves", str(best.unit_id), unit_name, res_scored, str(best.unit_id),
+		{"phase": "formations", "reserve_type": str(best.reserve_type),
+			"reserved_points_before": current_reserves_points,
+			"cap_points": max_reserves_points})
 	var type_label = "Deep Strike" if best.reserve_type == "deep_strike" else "Strategic Reserves"
 	action["_ai_description"] = "AI declares %s in %s (score: %.1f, %dpts)" % [
 		unit_name, type_label, best.score, best.points]
@@ -3916,6 +3983,47 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	# AGAINST ALL ODDS (Lions): start the game spaced 6"+ from already-deployed
 	# friendlies so round 1 opens with the +1 Hit / +1 Wound bubble intact.
 	best_pos = _aao_adjust_deploy_position(best_pos, unit, snapshot, player, zone_bounds)
+
+	# A6: deployment placement scored among real alternatives. Deployment
+	# largely decides rounds 1-2 and until now it left no trace at all — the
+	# phase with the longest-lived consequences was the least visible one.
+	# Score a ring of alternates around the chosen spot with the same terrain
+	# scorer that produced it, so the record shows what the pick beat.
+	var dep_scored: Array = []
+	var dep_probe: Array = [best_pos]
+	for ang in [0.0, 1.2566, 2.5133, 3.7699, 5.0265]:
+		var probe: Vector2 = best_pos + Vector2(cos(ang), sin(ang)) * (6.0 * PIXELS_PER_INCH)
+		probe.x = clampf(probe.x, zone_bounds.min_x, zone_bounds.max_x)
+		probe.y = clampf(probe.y, zone_bounds.min_y, zone_bounds.max_y)
+		dep_probe.append(probe)
+	for i in range(dep_probe.size()):
+		var pp: Vector2 = dep_probe[i]
+		var obj_gain := 0.0
+		for op in objectives:
+			obj_gain = maxf(obj_gain, 24.0 - minf(24.0, pp.distance_to(op) / PIXELS_PER_INCH))
+		# Spacing from what is already deployed: a spot that stacks on a
+		# friendly is worse than one that does not, whatever else it offers.
+		var crowding := 0.0
+		for ouid in snapshot.get("units", {}):
+			var ou = snapshot.units[ouid]
+			if int(ou.get("owner", 0)) != player:
+				continue
+			if int(ou.get("status", 0)) != GameStateData.UnitStatus.DEPLOYED:
+				continue
+			var oc2 = _get_unit_centroid(ou)
+			if oc2 == Vector2.INF:
+				continue
+			var gap := oc2.distance_to(pp) / PIXELS_PER_INCH
+			if gap < 6.0:
+				crowding -= (6.0 - gap)
+		dep_scored.append({
+			"description": ("chosen spot" if i == 0 else "alternate %d" % i) + " (%.0f, %.0f)" % [pp.x, pp.y],
+			"score": obj_gain + crowding, "key": str(i),
+			"pos": [pp.x, pp.y],
+			"score_breakdown": {"objective_proximity": obj_gain, "crowding": crowding}})
+	_record_choice("deployment", unit_id, unit_name, dep_scored, "0",
+		{"phase": "deployment", "role": unit_role,
+			"unit_pos": [best_pos.x, best_pos.y]})
 
 	# Generate formation positions
 	var models = unit.get("models", [])
@@ -5335,6 +5443,7 @@ static func _select_oath_of_moment_target(snapshot: Dictionary, oath_actions: Ar
 	var units = snapshot.get("units", {})
 	var best_target_id = ""
 	var best_score = -INF
+	var oath_scored: Array = []  # A6
 	var best_name = ""
 
 	for action in oath_actions:
@@ -5406,6 +5515,11 @@ static func _select_oath_of_moment_target(snapshot: Dictionary, oath_actions: Ar
 		print("AIDecisionMaker: Oath of Moment candidate %s — score %.2f (T%d, Sv%d+, %.0fW remaining, invuln %d+)" % [
 			target_name, score, toughness, save, remaining_wounds, invuln if invuln > 0 else 0])
 
+		oath_scored.append({"description": "Oath: %s" % target_name, "score": score,
+			"key": target_id, "score_breakdown": {"target_priority": score,
+				"toughness": float(toughness), "save": float(save),
+				"remaining_wounds": float(remaining_wounds)}})
+
 		if score > best_score:
 			best_score = score
 			best_target_id = target_id
@@ -5414,6 +5528,8 @@ static func _select_oath_of_moment_target(snapshot: Dictionary, oath_actions: Ar
 	if best_target_id == "":
 		return {}
 
+	_record_choice("oath_of_moment", best_target_id, best_name, oath_scored, best_target_id,
+		{"phase": "command"})
 	print("AIDecisionMaker: T7-45 Oath of Moment target selected: %s (score: %.2f)" % [best_name, best_score])
 	return {
 		"type": "SELECT_OATH_TARGET",
@@ -17381,6 +17497,7 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 	var worst_mission_index = -1
 	var worst_mission_score = INF
 	var worst_mission_name = ""
+	var sec_scored: Array = []  # A6
 
 	for i in range(active_missions.size()):
 		var mission = active_missions[i]
@@ -17390,6 +17507,13 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 		_add_thinking_step("Secondary '%s': achievability %.2f %s" % [
 			mission_name, score,
 			"— looks scoreable, keeping" if score >= 0.5 else ("— difficult" if score >= 0.2 else "— close to impossible")])
+
+		# A6: score here is ACHIEVABILITY, so the discard candidate is the
+		# LOWEST — record it negated, so the record's "best" row is the option
+		# actually taken and regret arithmetic downstream stays sign-correct.
+		sec_scored.append({"description": "Discard '%s'" % mission_name,
+			"score": -score, "key": str(i),
+			"score_breakdown": {"achievability": score, "discard_value": -score}})
 
 		if score < worst_mission_score:
 			worst_mission_score = score
@@ -17415,6 +17539,15 @@ static func _decide_scoring(snapshot: Dictionary, available_actions: Array, play
 	if not can_gain_cp:
 		print("AIDecisionMaker: [SCORING]   Bonus CP cap reached — discard won't grant CP this round")
 
+	if not sec_scored.is_empty():
+		# The "keep everything" option is a real candidate and has to be in the
+		# record, or a decision to keep looks like no decision at all.
+		sec_scored.append({"description": "Keep every secondary", "score": -discard_threshold,
+			"key": "keep", "score_breakdown": {"discard_threshold": discard_threshold}})
+		var sec_choice: String = str(worst_mission_index) if (worst_mission_index >= 0 and worst_mission_score < discard_threshold) else "keep"
+		_record_choice("secondary_discard", "", "secondaries", sec_scored, sec_choice,
+			{"phase": "scoring", "round": battle_round, "deck_size": deck_size,
+				"can_gain_cp": can_gain_cp})
 	if worst_mission_index >= 0 and worst_mission_score < discard_threshold:
 		# Find the matching discard action
 		for action in discard_actions:

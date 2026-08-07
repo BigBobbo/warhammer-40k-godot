@@ -30,3 +30,8 @@ Run started 2026-08-07 on branch `claude/ai-overhaul-todo-completion-ve8fhj`
 | A2 | DONE | movement score decomposed: named-terms 0/803 -> 797/803, census terms 12 -> 36 | 2026-08-07 |
 | A3 | DONE | parameters_used drained from get_param: 5 -> 105 distinct params in records; validator PASS | 2026-08-07 |
 | A4 | DONE | 50 reserves/embark/disembark coefficients promoted; unreachable 78% -> 62%; null test E=0.00+/-0.00 | 2026-08-07 |
+| A5 | DONE | 59 fight/charge/deployment coefficients promoted; unreachable 62% -> 42%; null test E=0.00 | 2026-08-07 |
+| D1 | DONE | combat-math oracle shipped; melee wound-overflow cap fixed (3.0x error) and measured neutral (pooled E=-0.74+/-0.75); 92 divergences catalogued as a ratchet, owned by new task D1b | 2026-08-07 |
+| A7 | DONE | .github/workflows/ai-lab.yml + ratchet_check.py; red/green verified by exit code; NOT yet observed on a GitHub runner | 2026-08-07 |
+| B4 | DONE | 12 exams authored, 10 gate and pass in ~300s, 2 moved to aspirational/ owned by D3 and D4; verdicts deterministic across two runs | 2026-08-07 |
+| D1b | NEW | split out of D1: close the catalogued melee-keyword and ranged over-prediction classes | 2026-08-07 |

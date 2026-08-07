@@ -382,6 +382,65 @@ contain the alternatives that were considered (F-04).*
     movement, shooting, charge, and fight phases (validator check).
   - **Tier B:** The F10 decision export opened in `ai-visualizer` shows the
     new decision types with sensible candidates.
+  - **Status 2026-08-07: PARTIAL — code complete, one of six new types
+    verified live. Checkbox deliberately left unchecked.**
+    ```
+    Six new decision types emitted via a shared _record_choice helper:
+      deployment         top-K placement (chosen spot + 5 alternates on a 6"
+                         ring, scored by objective proximity and crowding)
+      warlord            per-candidate wounds + attached-to-bodyguard bonus
+      leader_attachment  the whole pairing matrix, not just the winner
+      reserves           every unit weighed, INCLUDING the ones scored at or
+                         below zero, with the board-presence penalty split out
+      oath_of_moment     per-target priority with T/Sv/remaining-wounds
+      secondary_discard  discard-vs-keep, with "keep everything" as a real
+                         candidate so a decision to keep is not invisible
+
+    determinism_check.py --require trajectory, post-D1 reference (4824b2f)
+    vs A6, Custodes mirror, 2 seeds:
+      PASS — 766 action lines identical, records 237 -> 265
+
+    feature_census.py on the A6 Custodes season:
+      secondary_discard  17 decisions, all with >1 candidate   <- VERIFIED LIVE
+      total distinct terms across the AI: 36 -> 39
+    ```
+    **Blocker, reproduced:** the other five types sit on formations/deployment
+    code paths that no available fixture drives end to end.
+    * Both campaign mirrors start at phase 6 (COMMAND), post-deployment, so
+      `_decide_deployment`, warlord, leader attachment and reserves are never
+      reached: an exam at phase 0 on `mirror_custodes_postdeploy` finishes in
+      15 s with **0** decision records of any type.
+    * `deployment_start` is not a usable benchmark fixture. One full game on
+      it (`BENCH_DATA_DIR=... run_ai_benchmark.sh 1 deployment_start`)
+      completed 5 rounds in 25 s with this action log:
+      `ROLL_OFF_FIRST_TURN 1, CONFIRM_FIRST_TURN 1, END_COMMAND 10,
+       END_SHOOTING 10, END_CHARGE 10, END_FIGHT 10, END_SCORING 10,
+       SELECT_MARTIAL_MASTERY 5, DISCARD_SECONDARY 7,
+       REPLACE_SECONDARY_MISSION 4` — **no DEPLOY_UNIT action at all** and no
+      movement phase. The six units never deploy and the game plays out empty.
+    This is a missing fixture, not a missing emitter, so it is split out as
+    **A6b** rather than left as a claim that the code works.
+
+- [ ] **A6b — A pre-deployment benchmark fixture**
+  - **Lock:** Fixtures  • **Depends:** A6  • **Cost:** fixture build + ~6 games
+  - **Context:** Every fixture the lab can actually play starts post-deployment,
+    so the formations and deployment phases — where reserves, warlord, leader
+    attachment and placement are decided, and where C5 and C2b will live —
+    have never been exercised by a benchmark or an exam. `deployment_start`
+    looks like the fixture for this and is not: a full game on it produces no
+    `DEPLOY_UNIT` action at all (evidence under A6).
+  - **Spec:** Root-cause why `deployment_start` does not drive deployment under
+    `--ai-benchmark` (prime suspect: `meta.game_config` is null in that save,
+    and `_kick_off` sets player types but the deployment phase may gate on
+    something else). Then build `predeploy_custodes_vs_orks` from the same two
+    armies as the B2 asymmetric fixture, at phase 0 with every unit
+    undeployed, and make it pass `fixture_check.py`.
+  - **Acceptance — Tier A:** (1) One full benchmark game on the new fixture
+    contains `DEPLOY_UNIT` actions and completes. (2) `feature_census.py` on
+    that game reports decision records in the formations and deployment
+    phases, taking instrumented decision types to ≥ 9 — which is A6's
+    acceptance (2), still owed. (3) `fixture_check.py` passes.
+  - **Tier B:** none.
 
 - [x] **A7 — CI ratchet: reachability and record integrity can only improve**
   - **Lock:** CI + Lab  • **Depends:** A2, A4  • **Cost:** CI-only

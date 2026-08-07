@@ -108,9 +108,14 @@ def main(argv=None) -> int:
             return 1
         with open(newest, encoding="utf-8") as fh:
             camp = json.load(fh)
-        E = (camp.get("E") or {})
-        mean, se = float(E.get("mean", 9e9)), float(E.get("se") or 0.0)
-        ok = abs(mean) < 1e-9 and abs(se) < 1e-9
+        # run_paired writes the effect under `effect_E` (its stdout summary
+        # calls it `E`; the campaign file is the authority).
+        E = (camp.get("effect_E") or camp.get("E") or {})
+        if "mean" not in E:
+            print("\nSELFTEST FAIL — campaign file has no effect: keys=%s" % sorted(camp.keys()))
+            return 1
+        mean, se = float(E["mean"]), float(E.get("se") or 0.0)
+        ok = abs(mean) < 1e-9 and abs(se) < 1e-9 and camp.get("verdict") == "no_op"
         print("\nSELFTEST: frozen vs frozen  E = %+.2f  se = %.2f  ->  %s"
               % (mean, se, "PASS" if ok else "FAIL"))
         if not ok:
