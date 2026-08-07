@@ -1,0 +1,74 @@
+{
+  "id": "mv01_take_the_free_objective",
+  "covers": ["ai.movement.objective_assignment", "ai.movement.control_range"],
+  "fixture": "mirror_custodes_postdeploy",
+  "phase": 7,
+  "player": 1,
+  "difficulty": 2,
+  "seed": 4242,
+  "rationale": "Objective control is scored in the COMMAND phase of every battle round from 2 onward (11e 25.1), so a marker nobody stands on is free victory points for whoever walks a model within 3 inches of it. Here U_CUSTODIAN_GUARD_B (OC 3, Move 6) is parked 2.5 inches from obj_nml_1 with no enemy within 30 inches: there is no threat to price, no competing objective in reach, and no reason to be anywhere else. An AI that does not close that 2.5 inches is not weighing a trade-off, it is failing to see the board.",
+  "setup": [
+    "var st = GameState.state",
+    "# Put the Custodian Guard within one short move of the uncontested",
+    "# no-man's-land objective at (400, 880), and clear the area of enemies so",
+    "# the only consideration left is 'take the free points'.",
+    "var g = st.units.U_CUSTODIAN_GUARD_B",
+    "var k = 0",
+    "for m in g.models:",
+    "\tm.position = {\"x\": 300.0 + float(k) * 32.0, \"y\": 800.0}",
+    "\tk += 1",
+    "# Park every OTHER friendly far from this objective so the exam measures",
+    "# one unit's decision, not the squad-assignment tie-break.",
+    "for uid in st.units:",
+    "\tvar u = st.units[uid]",
+    "\tif uid == \"U_CUSTODIAN_GUARD_B\":",
+    "\t\tcontinue",
+    "\tvar j = 0",
+    "\tfor m in u.get(\"models\", []):",
+    "\t\tif m.get(\"position\") == null:",
+    "\t\t\tcontinue",
+    "\t\tif int(u.get(\"owner\", 0)) == 1:",
+    "\t\t\tm.position = {\"x\": 1500.0 + float(j % 6) * 40.0, \"y\": 120.0 + float(j / 6) * 40.0}",
+    "\t\telse:",
+    "\t\t\tm.position = {\"x\": 1500.0 + float(j % 6) * 40.0, \"y\": 2300.0 - float(j / 6) * 40.0}",
+    "\t\tj += 1",
+    "return st.units.U_CUSTODIAN_GUARD_B.models[0].position"
+  ],
+  "assert": [
+    {
+      "name": "Custodian Guard ends movement within control range of obj_nml_1",
+      "script": [
+        "var u = GameState.state.units.U_CUSTODIAN_GUARD_B",
+        "var obj = Vector2(400.0, 880.0)",
+        "var best = 1e9",
+        "for m in u.models:",
+        "\tif not m.get(\"alive\", true):",
+        "\t\tcontinue",
+        "\tvar p = m.position",
+        "\tvar v = Vector2(float(p.x), float(p.y)) if not (p is Vector2) else p",
+        "\tbest = min(best, v.distance_to(obj) / 40.0)",
+        "return best"
+      ],
+      "expect_max": 3.0
+    },
+    {
+      "name": "the move was a recorded decision naming that objective",
+      "script": [
+        "var ai = tree.root.get_node_or_null(\"AIPlayer\")",
+        "var n = 0",
+        "for b in ai._all_decision_records:",
+        "\tfor r in b.get(\"records\", []):",
+        "\t\tif str(r.get(\"unit_id\", \"\")) != \"U_CUSTODIAN_GUARD_B\":",
+        "\t\t\tcontinue",
+        "\t\tif str(r.get(\"decision_type\", \"\")) != \"movement\":",
+        "\t\t\tcontinue",
+        "\t\tvar c = r.get(\"candidates\", [])",
+        "\t\tvar ci = int(r.get(\"chosen_index\", -1))",
+        "\t\tif ci >= 0 and ci < c.size() and str(c[ci].get(\"description\", \"\")).find(\"obj_nml_1\") >= 0:",
+        "\t\t\tn += 1",
+        "return n"
+      ],
+      "expect_min": 1
+    }
+  ]
+}

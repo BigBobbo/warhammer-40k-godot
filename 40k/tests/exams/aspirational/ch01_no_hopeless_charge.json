@@ -1,0 +1,58 @@
+{
+  "id": "ch01_no_hopeless_charge",
+  "covers": [
+    "ai.charge.odds"
+  ],
+  "fixture": "mirror_custodes_postdeploy",
+  "phase": 9,
+  "player": 1,
+  "difficulty": 2,
+  "seed": 4250,
+  "rationale": "A charge needs 2D6 to cover the gap. At 14 inches that is 1 in 36, and a failed charge wastes the unit's whole turn while leaving it in the open. At 5 inches it is 30 in 36. This exam puts the only chargeable enemy 14.5 inches away and checks the AI declares no charge at all \u2014 the cheapest possible probe of whether charge probability is priced or ignored.",
+  "setup": [
+    "var st = GameState.state",
+    "const KEEP = [\"U_CUSTODIAN_GUARD_B\",\"MIR_U_WITCHSEEKERS_C\"]",
+    "var _u1 = st.units.U_CUSTODIAN_GUARD_B",
+    "var _k1 = 0",
+    "for m in _u1.models:",
+    "\tm.position = {\"x\": 880.0 + float(_k1) * 32.0, \"y\": 1000.0}",
+    "\t_k1 += 1",
+    "var _u2 = st.units.MIR_U_WITCHSEEKERS_C",
+    "var _k2 = 0",
+    "for m in _u2.models:",
+    "\tm.position = {\"x\": 880.0 + float(_k2) * 32.0, \"y\": 1580.0}",
+    "\t_k2 += 1",
+    "for uid in st.units:",
+    "\tvar u = st.units[uid]",
+    "\tif uid in KEEP:",
+    "\t\tcontinue",
+    "\tvar j = 0",
+    "\tfor m in u.get(\"models\", []):",
+    "\t\tif m.get(\"position\") == null:",
+    "\t\t\tcontinue",
+    "\t\tif int(u.get(\"owner\", 0)) == 1:",
+    "\t\t\tm.position = {\"x\": 1500.0 + float(j % 6) * 40.0, \"y\": 120.0 + float(j / 6) * 40.0}",
+    "\t\telse:",
+    "\t\t\tm.position = {\"x\": 1500.0 + float(j % 6) * 40.0, \"y\": 2300.0 - float(j / 6) * 40.0}",
+    "\t\tj += 1",
+    "return true"
+  ],
+  "assert": [
+    {
+      "name": "no charge was declared across a 14 inch gap",
+      "script": [
+        "var ai = tree.root.get_node_or_null(\"AIPlayer\")",
+        "var n = 0",
+        "for e in ai._action_log:",
+        "\tif str(e.get(\"action_type\", \"\")) == \"DECLARE_CHARGE\":",
+        "\t\tn += 1",
+        "return n"
+      ],
+      "expect_max": 0
+    }
+  ],
+  "aspirational": true,
+  "owner": "D4",
+  "why_it_fails_today": "Charge declaration order and odds are scored heuristically today; the AI declares a charge it cannot make when it has nothing else to do. D4's beam search over charge-declaration order is where a hopeless declaration gets priced against not declaring at all.",
+  "measured_2026_08_07": "FAIL \u2014 this is the expected result until D4 lands."
+}

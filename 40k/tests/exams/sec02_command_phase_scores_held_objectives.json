@@ -1,0 +1,46 @@
+{
+  "id": "sec02_command_phase_scores_held_objectives",
+  "covers": [
+    "ai.scoring.primary"
+  ],
+  "fixture": "mirror_custodes_postdeploy",
+  "phase": 6,
+  "player": 1,
+  "difficulty": 2,
+  "seed": 4253,
+  "rationale": "The end-to-end sanity check the rest of the suite leans on: if holding an objective does not turn into VP, every movement exam above is measuring something that does not pay. Round 3, the Telemon (OC 5) on obj_center with no enemy near it; after the command phase player 1's VP must have risen.",
+  "setup": [
+    "var st = GameState.state",
+    "st.meta.battle_round = 3",
+    "const KEEP = [\"U_TELEMON_HEAVY_DREADNOUGHT_I\"]",
+    "var _u1 = st.units.U_TELEMON_HEAVY_DREADNOUGHT_I",
+    "var _k1 = 0",
+    "for m in _u1.models:",
+    "\tm.position = {\"x\": 870.0 + float(_k1) * 32.0, \"y\": 1195.0}",
+    "\t_k1 += 1",
+    "for uid in st.units:",
+    "\tvar u = st.units[uid]",
+    "\tif uid in KEEP:",
+    "\t\tcontinue",
+    "\tvar j = 0",
+    "\tfor m in u.get(\"models\", []):",
+    "\t\tif m.get(\"position\") == null:",
+    "\t\t\tcontinue",
+    "\t\tif int(u.get(\"owner\", 0)) == 1:",
+    "\t\t\tm.position = {\"x\": 1500.0 + float(j % 6) * 40.0, \"y\": 120.0 + float(j / 6) * 40.0}",
+    "\t\telse:",
+    "\t\t\tm.position = {\"x\": 1500.0 + float(j % 6) * 40.0, \"y\": 2300.0 - float(j / 6) * 40.0}",
+    "\t\tj += 1",
+    "return true"
+  ],
+  "assert": [
+    {
+      "name": "player 1 scored primary VP for the objective it holds",
+      "script": [
+        "var p = GameState.state.get(\"players\", {}).get(\"1\", {})",
+        "return float(p.get(\"vp\", 0))"
+      ],
+      "expect_min": 1
+    }
+  ]
+}

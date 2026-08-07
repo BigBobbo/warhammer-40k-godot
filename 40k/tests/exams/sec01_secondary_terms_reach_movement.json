@@ -1,0 +1,36 @@
+{
+  "id": "sec01_secondary_terms_reach_movement",
+  "covers": [
+    "ai.movement.secondary_awareness"
+  ],
+  "fixture": "mirror_custodes_postdeploy",
+  "phase": 7,
+  "player": 1,
+  "difficulty": 2,
+  "seed": 4252,
+  "rationale": "Secondary missions are up to half the points on the table, and the AI has positional terms for them (zone bonuses, spread, enemy-zone push, kill proximity). This exam does not assert which secondary is drawn \u2014 that is the deck's business \u2014 it asserts the machinery is LIVE: at least one movement candidate in the phase carries a non-zero secondary term. A silent regression here would leave the AI playing primary-only while the log still claimed otherwise.",
+  "setup": [
+    "var st = GameState.state",
+    "st.meta.battle_round = 2",
+    "return true"
+  ],
+  "assert": [
+    {
+      "name": "a movement candidate carries a non-zero secondary term",
+      "script": [
+        "var ai = tree.root.get_node_or_null(\"AIPlayer\")",
+        "var n = 0",
+        "for b in ai._all_decision_records:",
+        "\tfor r in b.get(\"records\", []):",
+        "\t\tif str(r.get(\"decision_type\", \"\")) != \"movement\":",
+        "\t\t\tcontinue",
+        "\t\tfor c in r.get(\"candidates\", []):",
+        "\t\t\tfor k in c.get(\"score_breakdown\", {}):",
+        "\t\t\t\tif str(k).begins_with(\"secondary_\") and abs(float(c.score_breakdown[k])) > 0.0001:",
+        "\t\t\t\t\tn += 1",
+        "return n"
+      ],
+      "expect_min": 1
+    }
+  ]
+}

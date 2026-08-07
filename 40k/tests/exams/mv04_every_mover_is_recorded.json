@@ -1,0 +1,54 @@
+{
+  "id": "mv04_every_mover_is_recorded",
+  "covers": [
+    "ai.records.movement_coverage"
+  ],
+  "fixture": "mirror_custodes_postdeploy",
+  "phase": 7,
+  "player": 1,
+  "difficulty": 2,
+  "seed": 4245,
+  "rationale": "Not a tactics probe \u2014 a data one, and the cheapest possible guard on WS-A. If a refactor stops emitting movement records the AI keeps playing and every offline analysis silently starts describing a smaller game. Nine units move; at least six must produce a movement decision record with two or more scored candidates.",
+  "setup": [
+    "return GameState.state.units.size()"
+  ],
+  "assert": [
+    {
+      "name": "at least 6 movement records carry >= 2 scored candidates",
+      "script": [
+        "var ai = tree.root.get_node_or_null(\"AIPlayer\")",
+        "var n = 0",
+        "for b in ai._all_decision_records:",
+        "\tfor r in b.get(\"records\", []):",
+        "\t\tif str(r.get(\"decision_type\", \"\")) == \"movement\" and r.get(\"candidates\", []).size() >= 2:",
+        "\t\t\tn += 1",
+        "return n"
+      ],
+      "expect_min": 6
+    },
+    {
+      "name": "every movement candidate's terms sum to its score",
+      "script": [
+        "var ai = tree.root.get_node_or_null(\"AIPlayer\")",
+        "var bad = 0",
+        "const SKIP = [\"assigned_by\",\"expected_vp\",\"distance_inches\",\"turns_to_reach\",\"unit_oc\"]",
+        "for b in ai._all_decision_records:",
+        "\tfor r in b.get(\"records\", []):",
+        "\t\tif str(r.get(\"decision_type\", \"\")) != \"movement\":",
+        "\t\t\tcontinue",
+        "\t\tfor c in r.get(\"candidates\", []):",
+        "\t\t\tvar tot = 0.0",
+        "\t\t\tfor k in c.get(\"score_breakdown\", {}):",
+        "\t\t\t\tif k in SKIP:",
+        "\t\t\t\t\tcontinue",
+        "\t\t\t\tvar v = c.score_breakdown[k]",
+        "\t\t\t\tif v is float or v is int:",
+        "\t\t\t\t\ttot += float(v)",
+        "\t\t\tif abs(tot - float(c.get(\"score\", 0.0))) > 0.01:",
+        "\t\t\t\tbad += 1",
+        "return bad"
+      ],
+      "expect_max": 0
+    }
+  ]
+}
