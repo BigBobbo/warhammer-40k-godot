@@ -186,7 +186,7 @@ contain the alternatives that were considered (F-04).*
     "Melta → Terminators 4.2 EV vs Melta → Boyz 1.1 EV" shape the task asked
     for. The hold-fire record reads as a priced two-way choice.
 
-- [ ] **A2 — Movement records decompose their score**
+- [x] **A2 — Movement records decompose their score**
   - **Lock:** AIDM  • **Depends:** —  • **Cost:** code-only + 2 verification games
   - **Context:** Audit F-05: movement `score` equals `objective_priority` in
     99% of candidates and `assigned_by` is recorded for 22 of 1,660
@@ -209,6 +209,35 @@ contain the alternatives that were considered (F-04).*
     to ≥5.
   - **Tier B:** Pick one movement decision in the record; the breakdown
     explains the choice to a human without reading code.
+  - **Evidence (2026-08-07):**
+    ```
+    python3 tools/ai_lab/determinism_check.py seasons/ref_cust_HEAD seasons/a2_cust --require trajectory
+      -> PASS (trajectory)  766 action lines identical, records 187 -> 237
+    python3 tools/ai_lab/determinism_check.py seasons/ref_ork_HEAD  seasons/a2_ork  --require trajectory
+      -> PASS (trajectory)  1341 action lines identical, records 400 -> 505
+
+    python3 tools/ai_lab/validate_records.py seasons/a2_cust     # (Ork numbers in brackets)
+      [PASS] sum-equals-score   803/803 (1512/1512) = 100.0%   before A2: 780/803, and only
+                                                               because score WAS objective_priority
+      [PASS] named-terms        797/803 (1508/1512) = 99.3%    before A2: 0/803  = 0.0%
+      [PASS] criteria-vary      unit_oc no longer reported as a movement criterion (moved to context)
+
+    python3 tools/ai_lab/feature_census.py seasons/ref_cust_HEAD  vs  seasons/a2_cust
+      movement scoring terms          1 real term -> 21 named additive terms (24 keys total)
+      total distinct terms, whole AI  12 -> 36
+      decomposition verdict           "score == objective_priority in 97% of candidates"
+                                   -> "score is not a copy of any single reported term"
+    ```
+    The one remaining `validate_records` failure on these seasons is
+    `params-exist: charge_threshold` — that is F-06, which is A3's subject,
+    not A2's; it is fixed in the next commit.
+    Files: `40k/scripts/AIDecisionMaker.gd`.
+  - **Tier B self-assessed 2026-08-07 — pending human spot-check.** Sample
+    movement candidate now reads e.g. `objective_priority 8.0,
+    distance_penalty -1.5, oc_efficiency 1.2, secondary_zone 3.5,
+    threat_delta -2.1` summing to the printed score, with `assigned_by`
+    naming the pass that made the call — enough to explain the choice
+    without opening the source.
 
 - [ ] **A3 — `parameters_used` tells the truth**
   - **Lock:** AIDM  • **Depends:** —  • **Cost:** code-only

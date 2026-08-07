@@ -2783,6 +2783,13 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 			# COORD-4: the chosen entry is the ASSIGNED objective — not a guess
 			# re-derived from the destination. Attacks/screens get a synthetic
 			# chosen entry so the card can say what the unit is really doing.
+			# A2: the assignment mechanism behind ~half of all AI decisions was
+			# absent from the data (assigned_by appeared on 22 of 1,660 candidates).
+			# Name the pass once here and stamp it on every candidate below.
+			var assign_pass_name := str(assignment.get("assign_pass", ""))
+			if assign_pass_name == "":
+				assign_pass_name = ("screen" if assign_action == "screen" else
+					("hold" if assign_action == "hold" else "unassigned"))
 			var chosen_idx = -1
 			if assign_obj_id.begins_with("obj") and assign_action in ["hold", "move", "advance"]:
 				for ci in range(unit_candidates.size()):
@@ -2803,11 +2810,18 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 					_:
 						syn_desc = "%s %s (%s)" % [assign_action.capitalize(), assign_obj_id, assignment.get("reason", "")]
 				var syn_pos = assignment.get("objective_pos", Vector2.INF)
+				# A2: the synthetic entry carries whatever terms the assignment kept
+				# from the candidate it was built on, so the chosen row is decomposed
+				# like every other row instead of being a bare total with a label.
+				var syn_terms: Dictionary = (assignment.get("score_terms", {}) as Dictionary).duplicate()
+				if syn_terms.is_empty():
+					syn_terms = {"assignment_override": float(assignment.get("score", 0.0))}
+				syn_terms["assigned_by"] = assign_pass_name
 				synthetic_chosen = {
 					"description": syn_desc,
 					"score": assignment.get("score", 0.0),
 					"pos": [syn_pos.x, syn_pos.y] if syn_pos != Vector2.INF else [],
-					"score_breakdown": {"assigned_by": "battle plan (%s)" % assignment.get("assign_pass", "?")},
+					"score_breakdown": syn_terms,
 				}
 			for cand_i in range(unit_candidates.size()):
 				var cand = unit_candidates[cand_i]
@@ -2818,16 +2832,23 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 				# have been enriched during the greedy pass — capture/reinforce/etc.)
 				if cand_i == chosen_idx and not assignment.is_empty():
 					cand_desc = "%s %s (%s%s)" % [str(assignment.get("action", cand.get("action", "move"))).capitalize(), assign_obj_id, assignment.get("reason", cand.get("reason", "")), vp_note]
+				# A2: the real additive terms this candidate's score was built from
+				# (sum == score), plus the per-candidate descriptors that are NOT
+				# addends. `unit_oc` moved to the record context — F-07: it is
+				# identical across every candidate of a decision, so it never
+				# separated them and reporting it as a criterion was misleading.
+				var cand_terms: Dictionary = (cand.get("score_terms", {}) as Dictionary).duplicate()
+				if cand_terms.is_empty():
+					cand_terms = {"objective_priority": float(cand.get("score", 0.0))}
+				cand_terms["expected_vp"] = cand_vp
+				cand_terms["distance_inches"] = cand.get("distance", 0.0) / PIXELS_PER_INCH
+				cand_terms["turns_to_reach"] = float(cand.get("turns_to_reach", 0.0))
+				cand_terms["assigned_by"] = assign_pass_name
 				cand_cards.append({
 					"description": cand_desc,
 					"score": cand.get("score", 0.0),
 					"pos": [cand.get("objective_pos", Vector2.ZERO).x, cand.get("objective_pos", Vector2.ZERO).y],
-					"score_breakdown": {
-						"objective_priority": cand.get("score", 0.0),
-						"expected_vp": cand_vp,
-						"distance_inches": cand.get("distance", 0.0) / PIXELS_PER_INCH,
-						"unit_oc": cand.get("unit_oc", 0),
-					}
+					"score_breakdown": cand_terms,
 				})
 			if not synthetic_chosen.is_empty():
 				cand_cards.push_front(synthetic_chosen)
@@ -2839,7 +2860,10 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 				 "WEIGHT_CONTESTED_OBJ": get_param("WEIGHT_CONTESTED_OBJ", WEIGHT_CONTESTED_OBJ),
 				 "WEIGHT_VP_PER_POINT": get_param("WEIGHT_VP_PER_POINT", WEIGHT_VP_PER_POINT)},
 				{"phase": "movement", "round": snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1)),
-				 "unit_pos": [centroid.x, centroid.y] if centroid != Vector2.INF else []})
+				 "unit_pos": [centroid.x, centroid.y] if centroid != Vector2.INF else [],
+				 "unit_oc": int(unit_candidates[0].get("unit_oc", 0)),
+				 "assigned_by": assign_pass_name,
+				 "assign_action": assign_action})
 			# COORD-4: whenever the assignment overrode raw scores (hold rules,
 			# redirects, backfills), SAY SO — a card that reads "chose 10.9,
 			# rejected 20.2" with no explanation looks like the AI can't compare
@@ -7663,14 +7687,19 @@ static func _assign_units_to_objectives(
 			# Base score from objective priority
 			# T7-43: Scale objective priority by round strategy modifier
 			var score = eval.priority * move_strategy.objective_priority
+			# A2 (audit F-05): every additive term that builds this score, by name,
+			# so the record can say WHY a candidate won instead of restating its
+			# total. sum(score_terms) == score by construction — _t_add returns the
+			# delta it recorded and _t_mul records the exact difference it made.
+			var score_terms := {"objective_priority": score}
 
 			# OC efficiency: high-OC units are more valuable at contested objectives
 			if eval.oc_needed > 0:
-				score += min(float(unit_oc) / max(1.0, float(eval.oc_needed)), 1.5) * get_param("WEIGHT_OC_EFFICIENCY", WEIGHT_OC_EFFICIENCY)
+				score += _t_add(score_terms, "oc_efficiency", min(float(unit_oc) / max(1.0, float(eval.oc_needed)), 1.5) * get_param("WEIGHT_OC_EFFICIENCY", WEIGHT_OC_EFFICIENCY))
 
 			# Distance penalty: further away = less useful
 			if turns_to_reach > 1:
-				score -= (turns_to_reach - 1) * get_param("MOVE_TURNS_AWAY_PENALTY", MOVE_TURNS_AWAY_PENALTY)
+				score += _t_add(score_terms, "distance_penalty", -((turns_to_reach - 1) * get_param("MOVE_TURNS_AWAY_PENALTY", MOVE_TURNS_AWAY_PENALTY)))
 
 			# SCORING HORIZON. An objective is only worth what it can still score.
 			# A unit arriving in round A holds it for the command phases of
@@ -7683,7 +7712,7 @@ static func _assign_units_to_objectives(
 				var total_chances := maxi(1, MAX_BATTLE_ROUNDS_AI - battle_round)
 				var reach_factor := float(scoring_chances) / float(total_chances)
 				reach_factor = maxf(reach_factor, get_param("MOVE_UNREACHABLE_FLOOR", MOVE_UNREACHABLE_FLOOR))
-				score *= reach_factor
+				score = _t_mul(score_terms, "reach_horizon", score, reach_factor)
 
 			# Already on the objective: big bonus for holding
 			# T13-1: Scale bonus by round — staying put becomes more valuable as game progresses
@@ -7700,7 +7729,7 @@ static func _assign_units_to_objectives(
 				var faction_agg = _get_faction_aggression(snapshot, player)
 				if eval.is_home and faction_agg > 1.0 and battle_round <= 3:
 					stay_bonus /= faction_agg
-				score += stay_bonus
+				score += _t_add(score_terms, "stay_on_objective", stay_bonus)
 				# T16-1: Horde OC advantage — multi-model units contribute more OC
 				# and are harder to shift off objectives. Give extra stay bonus for model count.
 				# But not for aggressive factions on home objectives — they should advance
@@ -7708,19 +7737,19 @@ static func _assign_units_to_objectives(
 				if eval.is_home and faction_agg > 1.0 and battle_round <= 3:
 					pass  # Skip horde bonus for aggressive factions on home objectives
 				elif alive_models >= 10:
-					score += get_param("MOVE_HORDE_BONUS_LARGE", MOVE_HORDE_BONUS_LARGE)  # Large squad — very hard to contest
+					score += _t_add(score_terms, "horde_presence", get_param("MOVE_HORDE_BONUS_LARGE", MOVE_HORDE_BONUS_LARGE))  # Large squad — very hard to contest
 				elif alive_models >= 5:
-					score += get_param("MOVE_HORDE_BONUS_MEDIUM", MOVE_HORDE_BONUS_MEDIUM)  # Medium squad — decent presence
+					score += _t_add(score_terms, "horde_presence", get_param("MOVE_HORDE_BONUS_MEDIUM", MOVE_HORDE_BONUS_MEDIUM))  # Medium squad — decent presence
 
 			# Can reach this turn: bonus
 			if dist_inches <= move_inches:
-				score += get_param("MOVE_REACHABLE_BONUS", MOVE_REACHABLE_BONUS)
+				score += _t_add(score_terms, "reachability", get_param("MOVE_REACHABLE_BONUS", MOVE_REACHABLE_BONUS))
 			elif dist_inches <= move_inches + 2.0:  # Reachable with advance
-				score += get_param("MOVE_ADVANCE_REACHABLE_BONUS", MOVE_ADVANCE_REACHABLE_BONUS)
+				score += _t_add(score_terms, "reachability", get_param("MOVE_ADVANCE_REACHABLE_BONUS", MOVE_ADVANCE_REACHABLE_BONUS))
 
 			# Scoring round awareness: if this is round 1 and we can't reach by round 2, lower priority
 			if battle_round == 1 and turns_to_reach > 1:
-				score -= get_param("MOVE_UNREACHABLE_EARLY_PENALTY", MOVE_UNREACHABLE_EARLY_PENALTY)
+				score += _t_add(score_terms, "reachability", -(get_param("MOVE_UNREACHABLE_EARLY_PENALTY", MOVE_UNREACHABLE_EARLY_PENALTY)))
 
 			# Estimate where the unit would end up after moving toward this objective
 			# (used by both weapon range scoring and threat awareness)
@@ -7738,19 +7767,19 @@ static func _assign_units_to_objectives(
 					if not enemies_at_dest.is_empty():
 						# Good — moving here keeps targets in range
 						var kept_ratio = float(enemies_at_dest.size()) / float(enemies_currently_in_range.size())
-						score += get_param("WEIGHT_FIRING_POSITION_KEPT", WEIGHT_FIRING_POSITION_KEPT) * kept_ratio
+						score += _t_add(score_terms, "firing_position", get_param("WEIGHT_FIRING_POSITION_KEPT", WEIGHT_FIRING_POSITION_KEPT) * kept_ratio)
 					else:
 						# Bad — moving here loses ALL current shooting targets
-						score += get_param("WEIGHT_FIRING_POSITION_LOST", WEIGHT_FIRING_POSITION_LOST)
+						score += _t_add(score_terms, "firing_position", get_param("WEIGHT_FIRING_POSITION_LOST", WEIGHT_FIRING_POSITION_LOST))
 				elif not enemies_at_dest.is_empty():
 					# No current targets, but moving here brings enemies into range
-					score += get_param("WEIGHT_FIRING_POSITION_GAINED", WEIGHT_FIRING_POSITION_GAINED)
+					score += _t_add(score_terms, "firing_position", get_param("WEIGHT_FIRING_POSITION_GAINED", WEIGHT_FIRING_POSITION_GAINED))
 				elif eval.enemy_nearby > 0:
 					# No targets in range now or at dest, but enemies near objective
-					score += 1.0
+					score += _t_add(score_terms, "firing_position", 1.0)
 			elif has_ranged and eval.enemy_nearby > 0:
 				# Fallback for units with no ranged weapon range data
-				score += 1.0
+				score += _t_add(score_terms, "firing_position", 1.0)
 
 			# --- THREAT AWARENESS (AI-TACTIC-4, MOV-2) ---
 			# Penalize assignments that route units into enemy threat zones
@@ -7762,10 +7791,10 @@ static func _assign_units_to_objectives(
 				# Penalize moving INTO more danger than we're currently in
 				var threat_increase = dest_threat.total_threat - current_threat.total_threat
 				if threat_increase > 0.5:
-					score -= threat_increase * move_strategy.survival
+					score += _t_add(score_terms, "threat_delta", -(threat_increase * move_strategy.survival))
 					# Extra charge threat penalty: being chargeable is worse than being shot at
 					if dest_threat.charge_threat > current_threat.charge_threat + 0.5:
-						score -= (dest_threat.charge_threat - current_threat.charge_threat) * 0.5 * move_strategy.survival
+						score += _t_add(score_terms, "threat_delta", -((dest_threat.charge_threat - current_threat.charge_threat) * 0.5 * move_strategy.survival))
 
 			# --- F004: OVERWATCH EXPOSURE ---
 			# Fire Overwatch is paid inside our OWN Movement phase, before this
@@ -7781,7 +7810,7 @@ static func _assign_units_to_objectives(
 					# Rounds 4-5 the primary clock outweighs the tax (F004 risk note).
 					if battle_round >= 4:
 						ow_pen *= 0.5
-					score -= ow_pen * move_strategy.survival
+					score += _t_add(score_terms, "overwatch_risk", -(ow_pen * move_strategy.survival))
 
 			# --- F001: HIDDEN-SEEKING (11e 13.09) ---
 			# Ending the move inside a dense terrain area makes INFANTRY/BEASTS/
@@ -7791,7 +7820,7 @@ static func _assign_units_to_objectives(
 			# never whether to contest one.
 			var hidden_bonus = _hidden_gain_value(unit, estimated_dest, enemies)
 			if hidden_bonus > 0.0:
-				score += hidden_bonus
+				score += _t_add(score_terms, "hidden_gain", hidden_bonus)
 
 			# --- AGAINST ALL ODDS (Lions): prefer destinations that keep the 6" bubble ---
 			# +1 Hit / +1 Wound on every attack is worth more than stacking a
@@ -7800,9 +7829,9 @@ static func _assign_units_to_objectives(
 			if unit_aao_eligible:
 				var aao_gap = _aao_min_friendly_gap_inches(unit, snapshot, player, estimated_dest - centroid, aao_intent_overrides, aao_ignore)
 				if aao_gap > AAO_RADIUS_INCHES + AAO_SPACING_BUFFER_INCHES:
-					score += get_param("WEIGHT_AAO_ISOLATION", WEIGHT_AAO_ISOLATION)
+					score += _t_add(score_terms, "aao_isolation", get_param("WEIGHT_AAO_ISOLATION", WEIGHT_AAO_ISOLATION))
 				elif aao_gap <= AAO_RADIUS_INCHES:
-					score -= get_param("AAO_CLUMP_PENALTY", AAO_CLUMP_PENALTY)
+					score += _t_add(score_terms, "aao_isolation", -(get_param("AAO_CLUMP_PENALTY", AAO_CLUMP_PENALTY)))
 
 			# --- T7-23: MULTI-PHASE PLANNING INFLUENCE ---
 			# Units with charge intent should be biased toward charge angle
@@ -7819,10 +7848,10 @@ static func _assign_units_to_objectives(
 						var alignment = dir_to_obj.dot(dir_to_charge)
 						if alignment > 0.5:
 							# Objective is in the same general direction as charge target
-							score += get_param("PHASE_PLAN_CHARGE_LANE_BONUS", PHASE_PLAN_CHARGE_LANE_BONUS) * alignment
+							score += _t_add(score_terms, "charge_lane", get_param("PHASE_PLAN_CHARGE_LANE_BONUS", PHASE_PLAN_CHARGE_LANE_BONUS) * alignment)
 						elif alignment < -0.3:
 							# Objective is in the opposite direction — penalize
-							score -= get_param("PHASE_PLAN_CHARGE_LANE_BONUS", PHASE_PLAN_CHARGE_LANE_BONUS) * 0.5
+							score += _t_add(score_terms, "charge_lane", -(get_param("PHASE_PLAN_CHARGE_LANE_BONUS", PHASE_PLAN_CHARGE_LANE_BONUS) * 0.5))
 
 			# Ranged units: bonus for objectives that maintain shooting lanes
 			if has_ranged and not charge_intent.is_empty() == false:
@@ -7837,7 +7866,7 @@ static func _assign_units_to_objectives(
 							if lane_centroid != Vector2.INF:
 								var dist_to_lane_target = obj_pos.distance_to(lane_centroid) / PIXELS_PER_INCH
 								if dist_to_lane_target <= max_weapon_range:
-									score += get_param("PHASE_PLAN_SHOOTING_LANE_BONUS", PHASE_PLAN_SHOOTING_LANE_BONUS) * 0.5
+									score += _t_add(score_terms, "shooting_lane", get_param("PHASE_PLAN_SHOOTING_LANE_BONUS", PHASE_PLAN_SHOOTING_LANE_BONUS) * 0.5)
 
 			# --- 11e PRIMARY MISSION (FORCE-DISPOSITION) INFLUENCE ---
 			# The player's own primary card decides which objectives actually
@@ -7846,20 +7875,20 @@ static func _assign_units_to_objectives(
 			if not primary_awareness.is_empty() and primary_awareness.get("active_rules", 0) > 0:
 				var pr_obj_pressure = primary_awareness.get("objective_pressure", 0.0)
 				if pr_obj_pressure > 0.0:
-					score += minf(pr_obj_pressure, 6.0) * 0.5
+					score += _t_add(score_terms, "primary_awareness", minf(pr_obj_pressure, 6.0) * 0.5)
 				if primary_awareness.get("enemy_home_bonus", 0.0) > 0.0 and eval.get("is_enemy_home", false):
-					score += primary_awareness.enemy_home_bonus
+					score += _t_add(score_terms, "primary_awareness", primary_awareness.enemy_home_bonus)
 				if primary_awareness.get("central_bonus", 0.0) > 0.0:
 					var pr_center = Vector2(BOARD_WIDTH_PX / 2.0, BOARD_HEIGHT_PX / 2.0)
 					if obj_pos.distance_to(pr_center) <= 4.0 * PIXELS_PER_INCH:
-						score += primary_awareness.central_bonus
+						score += _t_add(score_terms, "primary_awareness", primary_awareness.central_bonus)
 				if primary_awareness.get("hold_home_required", false) and eval.get("is_home", false):
-					score += 3.0
+					score += _t_add(score_terms, "primary_awareness", 3.0)
 				if primary_awareness.get("quarters", false):
 					var pr_covered = _get_covered_quarters(snapshot.get("units", {}), player)
 					var pr_quarter = _get_table_quarter(estimated_dest)
 					if not pr_covered[pr_quarter]:
-						score += get_param("SECONDARY_SPREAD_BONUS", SECONDARY_SPREAD_BONUS) * 0.7
+						score += _t_add(score_terms, "secondary_spread", get_param("SECONDARY_SPREAD_BONUS", SECONDARY_SPREAD_BONUS) * 0.7)
 
 			# --- T7-25: SECONDARY MISSION AWARENESS INFLUENCE ---
 			# Factor active secondary missions into movement positioning (per-player)
@@ -7869,7 +7898,7 @@ static func _assign_units_to_objectives(
 				var zone_bonuses = sec_awareness.get("objective_zone_bonuses", {})
 				var obj_zone_key = eval.get("zone", "")
 				if obj_zone_key != "" and zone_bonuses.has(obj_zone_key):
-					score += zone_bonuses[obj_zone_key]
+					score += _t_add(score_terms, "secondary_zone", zone_bonuses[obj_zone_key])
 
 				# Behind Enemy Lines: bias movement toward enemy deployment zone
 				# Apply a proximity-based bonus to ANY destination closer to enemy zone center
@@ -7887,24 +7916,24 @@ static func _assign_units_to_objectives(
 					var dist_from_enemy_zone = estimated_dest.distance_to(enemy_zone_center) / PIXELS_PER_INCH
 					# Strong bonus when within 18" of enemy zone center, scaling up as we get closer
 					if dist_from_enemy_zone <= 8.0:
-						score += enemy_push * 1.5  # In or near enemy zone — max bonus
+						score += _t_add(score_terms, "secondary_enemy_push", enemy_push * 1.5)  # In or near enemy zone — max bonus
 					elif dist_from_enemy_zone <= 16.0:
-						score += enemy_push * (1.0 - (dist_from_enemy_zone - 8.0) / 16.0)
+						score += _t_add(score_terms, "secondary_enemy_push", enemy_push * (1.0 - (dist_from_enemy_zone - 8.0) / 16.0))
 					elif dist_from_enemy_zone <= 24.0:
-						score += enemy_push * 0.3 * (1.0 - (dist_from_enemy_zone - 16.0) / 16.0)
+						score += _t_add(score_terms, "secondary_enemy_push", enemy_push * 0.3 * (1.0 - (dist_from_enemy_zone - 16.0) / 16.0))
 					# Also keep the objective zone bonus for enemy home objectives
 					if eval.is_enemy_home:
-						score += enemy_push * 0.5
+						score += _t_add(score_terms, "secondary_enemy_push", enemy_push * 0.5)
 
 				# Defend Stronghold: bias toward own zone objectives
 				var defend_home_bonus = sec_awareness.get("defend_home", 0.0)
 				if defend_home_bonus > 0.0 and eval.is_home:
-					score += defend_home_bonus
+					score += _t_add(score_terms, "secondary_defend_home", defend_home_bonus)
 
 				# NML priority: bonus for no man's land objectives
 				var nml_bonus = sec_awareness.get("nml_priority", 0.0)
 				if nml_bonus > 0.0 and not eval.is_home and not eval.is_enemy_home:
-					score += nml_bonus
+					score += _t_add(score_terms, "secondary_no_mans_land", nml_bonus)
 
 				# Area Denial: bonus for moving toward board center
 				var center_bonus = sec_awareness.get("center_priority", 0.0)
@@ -7913,9 +7942,9 @@ static func _assign_units_to_objectives(
 					var dest_dist_to_center = estimated_dest.distance_to(board_center) / PIXELS_PER_INCH
 					# Scale bonus inversely with distance to center (max at center, 0 at 12"+)
 					if dest_dist_to_center <= 6.0:
-						score += center_bonus * (1.0 - dest_dist_to_center / 6.0)
+						score += _t_add(score_terms, "secondary_center", center_bonus * (1.0 - dest_dist_to_center / 6.0))
 					elif dest_dist_to_center <= 12.0:
-						score += center_bonus * 0.2 * (1.0 - (dest_dist_to_center - 6.0) / 6.0)
+						score += _t_add(score_terms, "secondary_center", center_bonus * 0.2 * (1.0 - (dest_dist_to_center - 6.0) / 6.0))
 
 				# Engage on All Fronts: bonus for moving into uncovered table quarters
 				if sec_awareness.get("spread_needed", false):
@@ -7923,7 +7952,7 @@ static func _assign_units_to_objectives(
 					var dest_quarter = _get_table_quarter(estimated_dest)
 					if not covered[dest_quarter]:
 						# Moving into an uncovered quarter — valuable for scoring
-						score += get_param("SECONDARY_SPREAD_BONUS", SECONDARY_SPREAD_BONUS)
+						score += _t_add(score_terms, "secondary_spread", get_param("SECONDARY_SPREAD_BONUS", SECONDARY_SPREAD_BONUS))
 
 				# Outflank (11e): bonus for destinations within 6" of a side board
 				# edge and beyond our own half — where the card scores.
@@ -7933,7 +7962,7 @@ static func _assign_units_to_objectives(
 					var in_own_half = (player == 1 and estimated_dest.y < BOARD_HEIGHT_PX * 0.5) or \
 						(player == 2 and estimated_dest.y >= BOARD_HEIGHT_PX * 0.5)
 					if edge_dist_in <= 6.0 and not in_own_half:
-						score += edge_flank
+						score += _t_add(score_terms, "secondary_edge_flank", edge_flank)
 
 				# Kill target proximity: bias positioning toward secondary kill targets
 				var kill_kws = sec_awareness.get("kill_keywords", [])
@@ -7950,7 +7979,7 @@ static func _assign_units_to_objectives(
 						var enemy_keywords = enemy.get("meta", {}).get("keywords", [])
 						for ekw in enemy_keywords:
 							if ekw.to_upper() in kill_kws:
-								score += get_param("SECONDARY_KILL_PROXIMITY_BONUS", SECONDARY_KILL_PROXIMITY_BONUS)
+								score += _t_add(score_terms, "secondary_kill_proximity", get_param("SECONDARY_KILL_PROXIMITY_BONUS", SECONDARY_KILL_PROXIMITY_BONUS))
 								break
 
 				# T12-2: No Prisoners — bonus for positioning near any enemy unit (kills score VP)
@@ -7967,7 +7996,7 @@ static func _assign_units_to_objectives(
 					# Bonus scales with proximity — max 2.0 at 0", 0 at 18"
 					if nearest_enemy_dist < 18.0:
 						var kill_prox_bonus = 2.0 * (1.0 - nearest_enemy_dist / 18.0)
-						score += kill_prox_bonus
+						score += _t_add(score_terms, "secondary_kill_proximity", kill_prox_bonus)
 
 				# T12-2: Overwhelming Force — bonus for positioning near enemies ON objectives
 				if sec_awareness.get("kill_near_objectives", false):
@@ -7981,7 +8010,7 @@ static func _assign_units_to_objectives(
 							continue
 						var d = estimated_dest.distance_to(enemy_centroid) / PIXELS_PER_INCH
 						if d < 14.0:
-							score += 2.5 * (1.0 - d / 14.0)
+							score += _t_add(score_terms, "secondary_kill_proximity", 2.5 * (1.0 - d / 14.0))
 							break  # Only count once per objective
 
 			# Determine recommended action
@@ -8012,7 +8041,8 @@ static func _assign_units_to_objectives(
 				"unit_oc": unit_oc,
 				"already_on_obj": already_on_obj,
 				"turns_to_reach": turns_to_reach,
-				"vp_value": eval.get("vp_value", 0.0)
+				"vp_value": eval.get("vp_value", 0.0),
+				"score_terms": score_terms
 			})
 
 	# Sort by score (highest first)
@@ -8200,6 +8230,9 @@ static func _assign_units_to_objectives(
 			"attack_target_name": gate.target_name,
 			"attack_advance": gate.advance,
 			"score": a.get("score", 0.0),
+			# A2: the melee-seeker conversion reuses the candidate's score, so it
+			# reuses its decomposition too rather than presenting a bare total.
+			"score_terms": (a.get("score_terms", {}) as Dictionary).duplicate(),
 			"reason": gate.reason,
 			"distance": gate.distance_inches * PIXELS_PER_INCH,
 			"unit_oc": a.get("unit_oc", 1),
@@ -8326,14 +8359,19 @@ static func _assign_units_to_objectives(
 					break
 
 			if not too_close_to_screener:
-				var score = get_param("SCREEN_SCORE_BASE", SCREEN_SCORE_BASE) + denial.priority
+				# A2: name the addends as they are applied (sum == score).
+				var screen_terms := {}
+				var score = _t_add(screen_terms, "screen_base", get_param("SCREEN_SCORE_BASE", SCREEN_SCORE_BASE))
+				score += _t_add(screen_terms, "denial_priority", float(denial.priority))
 				# Closer units score higher for screening
-				score -= (dist_to_denial / PIXELS_PER_INCH) * 0.3
+				score += _t_add(screen_terms, "screen_distance", -((dist_to_denial / PIXELS_PER_INCH) * 0.3))
 				assignments[unit_id] = {
 					"objective_id": "screen_denial",
 					"objective_pos": denial_pos,
 					"action": "screen",
+					"assign_pass": "screen_denial",
 					"score": score,
+					"score_terms": screen_terms,
 					"reason": denial.reason,
 					"distance": dist_to_denial
 				}
@@ -8376,7 +8414,11 @@ static func _assign_units_to_objectives(
 						"objective_id": "screen_protect",
 						"objective_pos": screen_pos,
 						"action": "screen",
+						"assign_pass": "screen_protect",
 						"score": get_param("SCREEN_SCORE_BASE", SCREEN_SCORE_BASE),
+						# A2: a one-term score IS its decomposition — say so explicitly
+						# rather than leaving the record to guess.
+						"score_terms": {"screen_base": get_param("SCREEN_SCORE_BASE", SCREEN_SCORE_BASE)},
 						"reason": "screening valuable friendlies from enemy threats",
 						"distance": dist_to_screen
 					}
@@ -8403,14 +8445,19 @@ static func _assign_units_to_objectives(
 					break
 
 			if not too_close_to_blocker:
-				var score = get_param("CORRIDOR_BLOCK_SCORE_BASE", CORRIDOR_BLOCK_SCORE_BASE) + block.priority
+				# A2: name the addends as they are applied (sum == score).
+				var block_terms := {}
+				var score = _t_add(block_terms, "block_base", get_param("CORRIDOR_BLOCK_SCORE_BASE", CORRIDOR_BLOCK_SCORE_BASE))
+				score += _t_add(block_terms, "block_priority", float(block.priority))
 				# Closer units score higher for blocking
-				score -= (dist_to_block / PIXELS_PER_INCH) * 0.3
+				score += _t_add(block_terms, "block_distance", -((dist_to_block / PIXELS_PER_INCH) * 0.3))
 				assignments[unit_id] = {
 					"objective_id": "corridor_block",
 					"objective_pos": block_pos,
 					"action": "screen",
+					"assign_pass": "corridor_block",
 					"score": score,
+					"score_terms": block_terms,
 					"reason": block.reason,
 					"distance": dist_to_block
 				}
