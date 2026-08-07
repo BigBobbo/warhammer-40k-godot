@@ -1,0 +1,8 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Scoring horizon OFF (pre-fix behaviour)",
+	"description": "Restores the model as it was before the scoring-horizon fix: an objective's value ignores whether the unit can arrive in time to score it, and distance costs only a small linear penalty. Used as the BASELINE arm so the fix can be measured rather than assumed.",
+	"parameters": { "MOVE_REACH_HORIZON": 0.0 },
+	"rules": []
+}

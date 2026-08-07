@@ -469,6 +469,28 @@ const FIGHT_CAN_WIPE_BONUS: float = 6.0           # we can likely destroy the un
 const FIGHT_CAN_HALVE_BONUS: float = 3.0          # we can take it below half strength
 const FIGHT_OVERKILL_PENALTY: float = 1.0         # >3x the wounds remaining
 
+# --- Scoring horizon: can this unit still SCORE the objective? -------------
+# The battle lasts five rounds and primary VP is awarded in each command phase
+# from round 2, so an objective a unit cannot stand on before the last command
+# phase is worth exactly nothing to it. The assignment scorer computed
+# turns_to_reach and then only fed it a small linear penalty — a couple of
+# points against objective priorities of 20-100 — so an objective eight turns
+# away in round 5 still outscored one the unit was standing on.
+#
+# Measured on 6 games / 803 movement decisions before this: 57% of chosen
+# destinations were 24"+ away and 24% were 40"+, against unit moves of 5-12".
+# Across 19 games, 49.6% of movement decisions picked a destination both
+# farther away AND lower-scoring than an available alternative.
+#
+# No value of MOVE_TURNS_AWAY_PENALTY fixes that, because the penalty is
+# linear and the correct semantics is a horizon: value scales with how many
+# scoring opportunities remain after arrival, and hits zero past the horizon.
+# MOVE_REACH_HORIZON is a 0/1 switch so the old behaviour stays measurable as
+# an A/B baseline.
+const MOVE_REACH_HORIZON: float = 1.0        # 0 disables, restoring the old model
+const MOVE_UNREACHABLE_FLOOR: float = 0.05   # residual value past the horizon
+const MAX_BATTLE_ROUNDS_AI: int = 5          # mirrors GameState.MAX_BATTLE_ROUNDS
+
 # --- Objective-assignment coefficients (promoted from bare literals) --------
 # These decide where every unit goes, every movement phase — 49.6% of movement
 # decisions in a 19-game sample picked a destination both farther away and
@@ -7623,6 +7645,19 @@ static func _assign_units_to_objectives(
 			# Distance penalty: further away = less useful
 			if turns_to_reach > 1:
 				score -= (turns_to_reach - 1) * get_param("MOVE_TURNS_AWAY_PENALTY", MOVE_TURNS_AWAY_PENALTY)
+
+			# SCORING HORIZON. An objective is only worth what it can still score.
+			# A unit arriving in round A holds it for the command phases of
+			# rounds A+1..5, so its value scales with that count and collapses to
+			# a floor once the game would end first. Units already standing on an
+			# objective are exempt: holding is scored by the hold pass, not here.
+			if get_param("MOVE_REACH_HORIZON", MOVE_REACH_HORIZON) > 0.0 and not already_on_obj:
+				var arrival_round := battle_round + int(turns_to_reach) - 1
+				var scoring_chances := maxi(0, MAX_BATTLE_ROUNDS_AI - arrival_round)
+				var total_chances := maxi(1, MAX_BATTLE_ROUNDS_AI - battle_round)
+				var reach_factor := float(scoring_chances) / float(total_chances)
+				reach_factor = maxf(reach_factor, get_param("MOVE_UNREACHABLE_FLOOR", MOVE_UNREACHABLE_FLOOR))
+				score *= reach_factor
 
 			# Already on the objective: big bonus for holding
 			# T13-1: Scale bonus by round — staying put becomes more valuable as game progresses
