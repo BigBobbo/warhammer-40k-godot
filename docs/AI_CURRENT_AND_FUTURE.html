@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The 40k AI — how it works, and what it should become</title>
+<style>
+  :root {
+    --ground:      #F3F5F4;
+    --panel:       #FFFFFF;
+    --panel-alt:   #EAEEEC;
+    --ink:         #121A18;
+    --ink-soft:    #46524E;
+    --ink-faint:   #6E7C77;
+    --rule:        #CFD8D4;
+    --rule-strong: #A9B6B1;
+    --accent:      #157F6B;
+    --accent-soft: #DCEBE6;
+    --warn:        #9A6512;
+    --warn-soft:   #F4E9D5;
+    --bad:         #A33A2B;
+    --bad-soft:    #F6E2DE;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --serif: ui-serif, Charter, "Iowan Old Style", Georgia, serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --measure: 70ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#0E1413; --panel:#151D1B; --panel-alt:#1C2624;
+      --ink:#E6EDEA; --ink-soft:#A7B5B0; --ink-faint:#7C8A85;
+      --rule:#2A3634; --rule-strong:#3C4A47;
+      --accent:#4FBFA4; --accent-soft:#16302B;
+      --warn:#D6A44E; --warn-soft:#2E2617;
+      --bad:#E0806E;  --bad-soft:#331F1B;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0E1413; --panel:#151D1B; --panel-alt:#1C2624;
+    --ink:#E6EDEA; --ink-soft:#A7B5B0; --ink-faint:#7C8A85;
+    --rule:#2A3634; --rule-strong:#3C4A47;
+    --accent:#4FBFA4; --accent-soft:#16302B;
+    --warn:#D6A44E; --warn-soft:#2E2617;
+    --bad:#E0806E;  --bad-soft:#331F1B;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 1.04rem;
+    line-height: 1.62;
+  }
+  .wrap { max-width: calc(var(--measure) + 3rem); margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+  header.doc { border-bottom: 3px double var(--rule-strong); padding-bottom: 1.4rem; margin-bottom: 2.2rem; }
+  .eyebrow {
+    font-family: var(--sans); font-size: .74rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-faint); margin: 0 0 .8rem;
+  }
+  h1 {
+    font-size: 2.05rem; line-height: 1.18; margin: 0 0 .8rem;
+    font-weight: 700; letter-spacing: -.01em; text-wrap: balance;
+  }
+  .lede { font-size: 1.12rem; color: var(--ink-soft); margin: 0; max-width: 62ch; }
+  .partband {
+    display: flex; align-items: baseline; gap: .9rem;
+    margin: 3.4rem 0 1.6rem; padding-top: 1.2rem;
+    border-top: 3px double var(--rule-strong);
+  }
+  .partband .n {
+    font-family: var(--sans); font-weight: 700; font-size: .8rem;
+    letter-spacing: .1em; color: var(--accent);
+    border: 1.5px solid var(--accent); border-radius: 2px;
+    padding: .15rem .5rem; white-space: nowrap;
+  }
+  .partband h2 { font-size: 1.42rem; margin: 0; letter-spacing: -.01em; }
+  h3 { font-size: 1.14rem; margin: 2.1rem 0 .7rem; letter-spacing: -.005em; }
+  h3 .sn { color: var(--accent); font-family: var(--sans); font-size: .85rem; font-weight: 700; margin-right: .45rem; }
+  p { margin: .75rem 0; }
+  ul, ol { margin: .75rem 0; padding-left: 1.4rem; }
+  li { margin: .3rem 0; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  code {
+    font-family: var(--mono); font-size: .84em;
+    background: var(--panel-alt); border-radius: 3px; padding: .08em .3em;
+  }
+  .tldr {
+    background: var(--panel); border: 1px solid var(--rule);
+    border-left: 4px solid var(--accent); border-radius: 4px;
+    padding: 1rem 1.3rem; margin: 1.8rem 0;
+  }
+  .tldr .t { font-family: var(--sans); font-weight: 700; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin: 0 0 .5rem; }
+  .tldr ul { margin: 0; }
+  table {
+    border-collapse: collapse; width: 100%; margin: 1rem 0;
+    font-family: var(--sans); font-size: .86rem; line-height: 1.45;
+    font-variant-numeric: tabular-nums;
+  }
+  .tablewrap { overflow-x: auto; margin: 1rem 0; }
+  th { text-align: left; font-weight: 650; color: var(--ink-soft); border-bottom: 2px solid var(--rule-strong); padding: .45rem .7rem .45rem 0; }
+  td { border-bottom: 1px solid var(--rule); padding: .45rem .7rem .45rem 0; vertical-align: top; }
+  td.num, th.num { text-align: right; padding-right: .2rem; }
+  .good { color: var(--accent); font-weight: 650; }
+  .warnc { color: var(--warn); font-weight: 650; }
+  .badc { color: var(--bad); font-weight: 650; }
+  figure { margin: 1.6rem 0; }
+  figure svg { max-width: 100%; height: auto; display: block; background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; }
+  figcaption { font-family: var(--sans); font-size: .82rem; color: var(--ink-faint); margin-top: .5rem; }
+  .figscroll { overflow-x: auto; }
+  .figscroll svg { min-width: 620px; }
+  .callout {
+    background: var(--warn-soft); border: 1px solid var(--warn);
+    border-radius: 4px; padding: .9rem 1.2rem; margin: 1.4rem 0;
+  }
+  .callout .t { font-family: var(--sans); font-weight: 700; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--warn); margin: 0 0 .4rem; }
+  .decision {
+    background: var(--panel); border: 2px solid var(--accent);
+    border-radius: 6px; padding: 1.2rem 1.4rem; margin: 1.8rem 0;
+  }
+  .decision .t { font-family: var(--sans); font-weight: 700; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin: 0 0 .6rem; }
+  .walls { counter-reset: wall; margin: 1rem 0; padding: 0; list-style: none; }
+  .walls > li {
+    counter-increment: wall; position: relative;
+    padding: .1rem 0 .1rem 2.6rem; margin: .9rem 0;
+  }
+  .walls > li::before {
+    content: counter(wall); position: absolute; left: 0; top: .15rem;
+    width: 1.7rem; height: 1.7rem; border-radius: 50%;
+    background: var(--bad-soft); color: var(--bad);
+    font-family: var(--sans); font-weight: 700; font-size: .85rem;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .walls b { display: block; }
+  .srcs { font-family: var(--sans); font-size: .86rem; }
+  .srcs li { margin: .35rem 0; }
+  .kicker { color: var(--ink-faint); font-style: italic; }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<header class="doc">
+  <p class="eyebrow">Strategy document · 2026-08-07 · branch <code>claude/warhammer-ai-strategy-3g974r</code></p>
+  <h1>The 40k AI — how it works, and what it should become</h1>
+  <p class="lede">The AI opponent is a large hand-built scoring engine. It is better than its
+  reputation, and it has a measurement lab most game studios never build. But its structure caps
+  how good it can get. This page explains the current system, the target system, and the one
+  decision the owner has to make. The step-by-step plan lives in
+  <code>.llm/ai-overhaul-todo.md</code>.</p>
+</header>
+
+<div class="tldr">
+  <p class="t">Summary</p>
+  <ul>
+    <li>Today the AI plays by <b>scoring candidate actions and picking the highest</b>, one action
+    at a time, with hand-set weights. Your description of it is accurate.</li>
+    <li>Its real ceiling is structural: <b>78% of its scoring arithmetic is hardcoded numbers no
+    tuning process can reach</b>, most decisions leave no trace in the data, it never looks ahead,
+    and the phases do not share one plan or one definition of "a good position".</li>
+    <li>A serious <b>self-play measurement lab already exists</b> in the repo (deterministic
+    AI-vs-AI games, a paired evaluator, an optimizer, acceptance gates). It has honestly measured
+    two plausible improvement ideas as useless and one as harmful. It is starved, not broken.</li>
+    <li>The target: a <b>three-layer AI</b> (turn-level strategist → per-phase tacticians →
+    bounded lookahead) over <b>one board-value function</b>, with personas as data — wrapped in an
+    <b>automated improvement loop</b> (propose → play → measure → gate → ship): a Karpathy loop
+    for the AI itself.</li>
+    <li><b>Do not rewrite from scratch.</b> The evidence — including a decade of results from Blood
+    Bowl AI competitions — favors restructuring the existing engine around shared services, then
+    letting the loop improve it.</li>
+    <li><b>Flagged decision:</b> static AI vs. one that improves over time. Recommendation:
+    <b>offline-improvable</b> — the AI stays deterministic and explainable in the player's hands;
+    the improvement happens between releases, machine-driven, human-gated. Details in §11.</li>
+  </ul>
+</div>
+
+<!-- ============================ PART I ============================ -->
+<div class="partband"><span class="n">PART I</span><h2>The AI today</h2></div>
+
+<h3><span class="sn">§1</span>The shape of it</h3>
+<p>Three components run the AI. <code>AIPlayer.gd</code> (4,022 lines) is the driver: it watches
+game signals, waits a beat, and asks for a decision. <code>AIDecisionMaker.gd</code> (22,553
+lines, 390 static functions) is the brain: it takes a snapshot of the game state and a list of
+legal action types, and returns exactly one action. <code>AIAbilityAnalyzer.gd</code> reads unit
+abilities into numeric multipliers. A difficulty config gates features per level.</p>
+<p>The AI submits its action through <code>NetworkIntegration.route_action()</code> — the same
+pipeline a human's clicks go through. The engine validates every action and rejects illegal ones.
+This is a real strength: the AI cannot cheat, and rule changes cannot silently desynchronize it.
+Then the loop repeats, 400–750 times per game.</p>
+
+<figure>
+  <div class="figscroll">
+  <svg viewBox="0 0 860 292" role="img" aria-label="Today's control loop: game signals wake AIPlayer, which asks AIDecisionMaker to score candidates and pick one action; the action goes through the shared validation pipeline back into the game. Eight static caches beside the brain carry plans between calls.">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.3">
+      <rect x="20"  y="60" width="150" height="72" rx="4"/>
+      <rect x="240" y="60" width="150" height="72" rx="4"/>
+      <rect x="460" y="60" width="170" height="72" rx="4"/>
+      <rect x="690" y="60" width="150" height="72" rx="4"/>
+      <rect x="460" y="196" width="170" height="64" rx="4" stroke="var(--accent)" stroke-width="2"/>
+    </g>
+    <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="currentColor">
+      <text x="95"  y="88"  text-anchor="middle" font-weight="700">Game engine</text>
+      <text x="95"  y="106" text-anchor="middle" font-size="11.5">PhaseManager · signals</text>
+      <text x="315" y="88"  text-anchor="middle" font-weight="700">AIPlayer</text>
+      <text x="315" y="106" text-anchor="middle" font-size="11.5">timer · recovery</text>
+      <text x="545" y="82"  text-anchor="middle" font-weight="700">AIDecisionMaker</text>
+      <text x="545" y="100" text-anchor="middle" font-size="11.5">score candidates,</text>
+      <text x="545" y="116" text-anchor="middle" font-size="11.5">pick the highest</text>
+      <text x="765" y="88"  text-anchor="middle" font-weight="700">route_action</text>
+      <text x="765" y="106" text-anchor="middle" font-size="11.5">validate · apply</text>
+      <text x="545" y="222" text-anchor="middle" font-weight="700" fill="var(--accent)">8 static plan caches</text>
+      <text x="545" y="240" text-anchor="middle" font-size="11.5">focus fire · battle plan · intents…</text>
+    </g>
+    <g stroke="currentColor" stroke-width="1.3" fill="none">
+      <line x1="170" y1="96" x2="238" y2="96" marker-end="url(#arr)"/>
+      <line x1="390" y1="96" x2="458" y2="96" marker-end="url(#arr)"/>
+      <line x1="630" y1="96" x2="688" y2="96" marker-end="url(#arr)"/>
+      <path d="M 765 132 L 765 168 L 95 168 L 95 134" marker-end="url(#arr)"/>
+      <line x1="545" y1="132" x2="545" y2="194" marker-end="url(#arr)" stroke="var(--accent)" stroke-width="1.6"/>
+      <line x1="575" y1="194" x2="575" y2="134" marker-end="url(#arr)" stroke="var(--accent)" stroke-width="1.6"/>
+    </g>
+    <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="currentColor" opacity=".75">
+      <text x="204" y="88" text-anchor="middle">wakes</text>
+      <text x="424" y="88" text-anchor="middle">snapshot</text>
+      <text x="659" y="88" text-anchor="middle">one action</text>
+      <text x="430" y="186" text-anchor="middle">state changes → signals · repeat 400–750× per game</text>
+      <text x="620" y="168" text-anchor="start">plans live here,</text>
+      <text x="620" y="182" text-anchor="start">between calls</text>
+    </g>
+  </svg>
+  </div>
+  <figcaption>Fig. 1 — The loop today. One action per call. Anything the AI "intends" beyond the
+  current action must survive in the green side-caches; anything not cached is re-derived from
+  scratch on the next call.</figcaption>
+</figure>
+
+<h3><span class="sn">§2</span>What "ranking model" means here</h3>
+<p>Your description holds: at each step the AI enumerates candidates, computes a score for each,
+and takes the best. A charge decision, for example, multiplies expected melee damage, target
+value, the exact probability of making the 2d6 charge distance (all 36 outcomes enumerated),
+overwatch risk, and several bonuses — then compares the best score against a threshold built from
+tempo, difficulty, round strategy, army archetype and faction aggression.</p>
+<p>The weights live in three layers. About <b>128 named parameters</b> are read through
+<code>get_param()</code>, which means a config file, a per-player profile, or a conditional rule
+("if losing by 10 VP in round 4, raise aggression") can override them without touching code —
+there are two web tools for exactly this. But roughly <b>170 more coefficients are bare literals
+in the code</b> (<code>score&nbsp;+=&nbsp;3.0</code>), and those outnumber the reachable ones
+inside the functions that decide games: reserves scoring, objective assignment, embarkation,
+fight-target selection. A tuning process — human or machine — cannot touch them, no matter how
+many games it plays. This is your "if a decision is not encoded in the weights, it never
+improves" concern, and the repo's own audit confirmed it mechanically.</p>
+
+<h3><span class="sn">§3</span>What it already does well</h3>
+<ul>
+  <li><b>Army-wide shooting optimization.</b> The shooting phase builds a weapon×target
+  expected-damage matrix over every shooter at once and allocates greedily by marginal value,
+  with kill-threshold and overkill logic. This is genuine cross-unit coordination.</li>
+  <li><b>Mission-aware play.</b> Objectives are priced in expected victory points from the actual
+  mission cards, with marginal analysis ("does one more objective reach the hold-2 threshold?").
+  Secondary missions shape movement, target choice and discards through ~20 per-card assessors.</li>
+  <li><b>Cross-phase glue exists</b> — eight caches: a persistent movement battle plan, charge
+  intents and lock-targets computed at movement start, shooting that deliberately under-shoots
+  planned charge targets, gang-up and finish-off coordination in melee.</li>
+  <li><b>It explains itself.</b> Every decision narrates chosen vs. rejected options with scores
+  into the game log, with board-linked hover arrows. Players can read why. This transparency is a
+  product feature worth protecting.</li>
+  <li><b>It is honest about failure.</b> Six implemented-then-measured features are kill-switched
+  to zero in the code with their measured confidence intervals in comments.</li>
+</ul>
+
+<h3><span class="sn">§4</span>The measurement lab (already built)</h3>
+<p>Since July the repo has grown something rare: an evaluation pipeline for the AI itself.
+Headless AI-vs-AI games run deterministically (seeded dice, seeded decks, seeded AI noise — two
+runs at the same seed produce identical games). Every game writes a record with every decision
+considered, every score, provenance hashes, and the outcome; a season converts to a queryable
+database. A paired evaluator answers "is candidate B better than baseline A?" with side-swapped,
+seed-paired arms and a pre-registered stopping rule. A cross-entropy optimizer searches parameter
+space. A five-gate acceptance check (two matchups, no stalls, no scenario regressions, an
+action-mix "still looks like 40k" guard, interpretability caps) decides shippability.</p>
+<p>It has already produced the most valuable thing a lab can produce: honest negative results.</p>
+<div class="tablewrap"><table>
+  <thead><tr><th>Experiment</th><th class="num">Games</th><th>Measured effect (VP/game)</th><th>Verdict</th></tr></thead>
+  <tbody>
+    <tr><td>Six behaviors mined from 1,029 YouTube strategy transcripts</td><td class="num">~40</td><td>−2.05, CI [−7.2, +3.1]</td><td class="warnc">Null — not shipped</td></tr>
+    <tr><td>Scoring-horizon model ("value objectives you can still score")</td><td class="num">~40</td><td>−4.29, CI [−7.43, −1.15]</td><td class="badc">Harmful — rejected</td></tr>
+    <tr><td>Cross-entropy search over 6 parameters</td><td class="num">264</td><td>+2.25 ± 3.2 (best)</td><td class="warnc">Indistinguishable from zero</td></tr>
+    <tr><td>Sensitivity screen, ±30% on 21 parameters</td><td class="num">336</td><td>5 parameters move ≥ 2 VP</td><td class="good">Ranked the search space</td></tr>
+  </tbody>
+</table></div>
+<p class="kicker">Two lessons sit in this table. Plausible ideas measure as worse more often than
+anyone expects — intuition is not a tuning method. And the sensitivity screen's most influential
+parameter had been an unreachable hardcoded literal until the morning of the screen.</p>
+
+<h3><span class="sn">§5</span>Why it caps out — five walls</h3>
+<ol class="walls">
+  <li><b>Most decisions are invisible.</b> Only ~5 decision types emit records. Shooting records
+  the chosen plan, not the alternatives it weighed; movement records one number instead of its
+  breakdown. Offline analysis — or any learning — cannot study what was never written down.</li>
+  <li><b>Most scoring is unreachable.</b> 78% of scoring arithmetic uses bare literals no
+  profile, config, or optimizer can move. Tuning today searches a sixth of the machine.</li>
+  <li><b>It never looks ahead.</b> No search, no simulation, no "what does the opponent do to
+  this position?" — the code has expected-value dice math but zero lookahead. The Competitive
+  difficulty's <code>use_look_ahead</code> flag is dead config: nothing calls it.</li>
+  <li><b>The phases do not share one goal.</b> Eight side-caches coordinate pairwise by
+  convention. There is no board evaluation — no function that says how good a position is — so
+  each phase optimizes its own local proxy. Five stacked multipliers (faction, archetype, round,
+  tempo, noise) modify scores multiplicatively with no calibration. And the multi-phase plan only
+  builds at Hard difficulty and above; on Normal, cross-phase play is silently off.</li>
+  <li><b>Improvement is starved.</b> A game costs 48 s (elite mirror) to 487 s (horde mirror);
+  per-seed noise is 9–15 VP; proving a +4 VP change needs hundreds of games. The one optimizer
+  campaign so far ran a tenth of its designed budget. Nothing runs in CI. The loop exists but
+  turns slowly.</li>
+</ol>
+
+<h3><span class="sn">§6</span>Should we rip it out?</h3>
+<p>No — and this is a conclusion from evidence, not sentiment. The brain's nominal interface is
+one function, but its real surface is wide: fourteen reactive entry points (overwatch, rerolls,
+interventions…), some twenty geometry helpers called directly by other systems, and the
+narration contract the UI and tests depend on. Meanwhile, well over half of the file is not
+decision logic at all — it is reusable geometry, collision resolution, probability math and
+weapon parsing that any engine would need. Rewriting all of that buys nothing.</p>
+<p>The outside world agrees. The closest research analog to this game is Blood Bowl — a Games
+Workshop tabletop game with dice, a board, and a brutal branching factor, which has run an
+academic AI competition since 2019. Its standing result: <b>scripted bots built on domain
+knowledge beat pure machine-learning approaches for years</b>; the first ML winner (2021) had to
+imitate a scripted bot and hybridize with search to get there; full-game tree search alone
+struggles. The path that wins at this scale is: keep the domain knowledge, restructure it, add
+selective search, and measure relentlessly.</p>
+
+<!-- ============================ PART II ============================ -->
+<div class="partband"><span class="n">PART II</span><h2>The target AI</h2></div>
+
+<h3><span class="sn">§7</span>Design goals</h3>
+<ul>
+  <li><b>Stronger:</b> beats today's frozen AI by a margin a player can feel (measured, not felt).</li>
+  <li><b>Improvable:</b> every decision visible in data, every coefficient reachable by tuning,
+  and an automated loop that converts games played into strength gained.</li>
+  <li><b>Explainable:</b> the game log keeps narrating true reasons. This is a product promise.</li>
+  <li><b>Characterful:</b> armies play differently through data-defined personas, not code forks.</li>
+  <li><b>Same hardware:</b> milliseconds per decision in-engine; no ML runtime in the game.</li>
+</ul>
+
+<h3><span class="sn">§8</span>The architecture: three layers, two shared services</h3>
+<p>The user's instinct in the brief is exactly right: per-phase solvers without a connecting
+layer cannot express a strategy. The target adds the connecting layer explicitly — and keeps the
+per-phase knowledge that already works.</p>
+
+<figure>
+  <div class="figscroll">
+  <svg viewBox="0 0 860 470" role="img" aria-label="Target architecture: a per-turn Strategist produces a TurnPlan of unit tasks; four per-phase tacticians generate candidate actions against those tasks; a bounded lookahead layer evaluates high-stakes candidates with an expected-value forward model. All layers score against one shared board-value function and one shared combat-math module. Personas bias the strategist as data. Actions still exit through the unchanged validation pipeline.">
+    <defs>
+      <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <g fill="none" stroke="var(--accent)" stroke-width="2">
+      <rect x="150" y="18" width="380" height="64" rx="4" stroke-dasharray="6 4"/>
+    </g>
+    <g fill="none" stroke="currentColor" stroke-width="1.3">
+      <rect x="70"  y="140" width="110" height="54" rx="4"/>
+      <rect x="200" y="140" width="110" height="54" rx="4"/>
+      <rect x="330" y="140" width="110" height="54" rx="4"/>
+      <rect x="460" y="140" width="110" height="54" rx="4"/>
+      <rect x="150" y="252" width="380" height="60" rx="4" stroke-dasharray="6 4"/>
+      <rect x="150" y="368" width="380" height="52" rx="4"/>
+      <rect x="620" y="120" width="215" height="74" rx="4" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
+      <rect x="620" y="222" width="215" height="74" rx="4"/>
+      <rect x="620" y="18" width="215" height="64" rx="4" stroke-dasharray="6 4"/>
+    </g>
+    <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="currentColor">
+      <text x="340" y="44" text-anchor="middle" font-weight="700" fill="var(--accent)">Strategist — TurnPlan (new)</text>
+      <text x="340" y="62" text-anchor="middle" font-size="11.5">unit → task · postures · CP budget · at every difficulty</text>
+      <text x="125" y="163" text-anchor="middle" font-weight="700">Move</text>
+      <text x="255" y="163" text-anchor="middle" font-weight="700">Shoot</text>
+      <text x="385" y="163" text-anchor="middle" font-weight="700">Charge</text>
+      <text x="515" y="163" text-anchor="middle" font-weight="700">Fight</text>
+      <text x="125" y="181" text-anchor="middle" font-size="11">tacticians:</text>
+      <text x="255" y="181" text-anchor="middle" font-size="11">today's phase</text>
+      <text x="385" y="181" text-anchor="middle" font-size="11">solvers, kept</text>
+      <text x="515" y="181" text-anchor="middle" font-size="11">and connected</text>
+      <text x="340" y="276" text-anchor="middle" font-weight="700">Lookahead (new, bounded)</text>
+      <text x="340" y="294" text-anchor="middle" font-size="11.5">1-ply opponent reply on top-K moves · beam over charge/fight order</text>
+      <text x="340" y="392" text-anchor="middle" font-weight="700">route_action → validation</text>
+      <text x="340" y="408" text-anchor="middle" font-size="11.5">unchanged — the engine stays the referee</text>
+      <text x="727" y="146" text-anchor="middle" font-weight="700" fill="var(--accent)">V(state) (new)</text>
+      <text x="727" y="163" text-anchor="middle" font-size="11.5">one board value: projected VP,</text>
+      <text x="727" y="178" text-anchor="middle" font-size="11.5">material EV, threat — validated first</text>
+      <text x="727" y="247" text-anchor="middle" font-weight="700">CombatMath</text>
+      <text x="727" y="264" text-anchor="middle" font-size="11.5">one damage model, property-tested</text>
+      <text x="727" y="279" text-anchor="middle" font-size="11.5">against the RulesEngine</text>
+      <text x="727" y="44" text-anchor="middle" font-weight="700">Personas (data)</text>
+      <text x="727" y="61" text-anchor="middle" font-size="11.5">profile + strategist biases</text>
+    </g>
+    <g stroke="currentColor" stroke-width="1.3" fill="none">
+      <line x1="255" y1="82" x2="255" y2="138" marker-end="url(#arr2)"/>
+      <line x1="425" y1="82" x2="425" y2="138" marker-end="url(#arr2)"/>
+      <line x1="255" y1="194" x2="255" y2="250" marker-end="url(#arr2)"/>
+      <line x1="425" y1="194" x2="425" y2="250" marker-end="url(#arr2)"/>
+      <line x1="340" y1="312" x2="340" y2="366" marker-end="url(#arr2)"/>
+      <line x1="618" y1="50" x2="532" y2="50" marker-end="url(#arr2)"/>
+      <line x1="618" y1="157" x2="572" y2="157" marker-end="url(#arr2)" stroke="var(--accent)" stroke-width="1.6"/>
+      <line x1="618" y1="260" x2="590" y2="260" stroke-width="1.3"/>
+      <path d="M 590 260 L 555 260 L 555 200" marker-end="url(#arr2)"/>
+      <path d="M 727 194 L 727 214" marker-end="url(#arr2)" stroke="var(--accent)" stroke-width="1.6"/>
+    </g>
+    <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="currentColor" opacity=".75">
+      <text x="243" y="106" text-anchor="end">tasks</text>
+      <text x="243" y="222" text-anchor="end">candidates</text>
+      <text x="352" y="344" text-anchor="start">best action</text>
+      <text x="575" y="42"  text-anchor="middle">biases</text>
+      <text x="596" y="149" text-anchor="middle">scores</text>
+      <text x="737" y="209" text-anchor="start">leaf eval</text>
+    </g>
+    <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="currentColor">
+      <line x1="70" y1="446" x2="100" y2="446" stroke="currentColor" stroke-width="1.3"/>
+      <text x="108" y="450">exists today</text>
+      <line x1="210" y1="446" x2="240" y2="446" stroke="currentColor" stroke-width="1.3" stroke-dasharray="6 4"/>
+      <text x="248" y="450">to build</text>
+    </g>
+  </svg>
+  </div>
+  <figcaption>Fig. 2 — Target architecture. The four phase tacticians are today's solvers, kept.
+  What is new: one plan above them, one value function and one combat-math module beside them,
+  bounded lookahead below them, and personas as data.</figcaption>
+</figure>
+
+<ul>
+  <li><b>Strategist.</b> Once per turn, at every difficulty, build a <code>TurnPlan</code>: which
+  objectives matter this round (from the mission math that already exists), a task per unit
+  (hold, take, screen, hunt, deliver, hold-lane), a deployment posture, and a CP budget that can
+  hold a command point back for overwatch. The eight ad-hoc caches become views of this one
+  object. The plan persists, is consumed as units act, replans only for cause, and is narrated —
+  the July coordination work already proved this pattern in the movement phase.</li>
+  <li><b>Tacticians.</b> The per-phase solvers stay — they hold real domain knowledge. They
+  change in two ways: candidates are generated <em>against the TurnPlan's tasks</em>, and scored
+  with named, reachable, recorded terms instead of inline literals.</li>
+  <li><b>Lookahead.</b> A forward model applies expected-value outcomes to a lightweight state
+  view — no dice sampling needed for evaluation, because the combat math is already
+  expectation-based. Spend it only where it pays: the opponent's best reply to the top few
+  high-stakes moves, and beam search over charge-declaration and fight-activation order, where
+  branching is small. Search depth becomes the difficulty knob, replacing score noise.</li>
+  <li><b>V(state).</b> One function says how good a position is: projected primary and secondary
+  VP over the remaining scoring turns, material expected value, threat balance — decomposed into
+  named terms, every term tunable. It ships dark first: computed and recorded for a season,
+  validated against actual outcomes (does round-3 V predict the final margin?), and only then
+  allowed to steer decisions. The scoring-horizon failure taught this order.</li>
+  <li><b>Personas.</b> A persona is a data file: parameter pack + conditional rules (both exist
+  today) + strategist biases (new: risk posture, reserve appetite, posture preference, target
+  priorities). Ork "Green Tide" and Custodes "Shield Host" ship first. Difficulty stops meaning
+  "how much random noise" and starts meaning "how deep the plan and the search go".</li>
+</ul>
+
+<h3><span class="sn">§9</span>The improvement loop — a Karpathy loop for the game AI</h3>
+<p>Karpathy's loop, in its 2026 form: an agent proposes a change, an automated harness evaluates
+it against a baseline, improvements are kept, failures are rolled back, and the committed result
+becomes the next baseline. The model never retrains; the <em>artifacts</em> improve. That is
+precisely the right shape here, and the repo is already more than half way to it.</p>
+
+<figure>
+  <div class="figscroll">
+  <svg viewBox="0 0 880 310" role="img" aria-label="The improvement loop: proposers (human, optimizer, LLM rule-writer, LLM patch-writer) submit candidates through validation into deterministic self-play; a paired evaluator measures the effect; a five-gate check accepts or rejects; accepted changes ship as versioned profiles; game records flow back to the proposers as evidence.">
+    <defs>
+      <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+      </marker>
+    </defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.3">
+      <rect x="20"  y="60"  width="150" height="118" rx="4"/>
+      <rect x="212" y="88"  width="118" height="62" rx="4"/>
+      <rect x="372" y="88"  width="150" height="62" rx="4"/>
+      <rect x="564" y="88"  width="128" height="62" rx="4"/>
+      <rect x="734" y="88"  width="126" height="62" rx="4" stroke-dasharray="6 4"/>
+      <rect x="372" y="226" width="150" height="56" rx="4"/>
+    </g>
+    <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="currentColor">
+      <text x="95" y="82"  text-anchor="middle" font-weight="700">Proposers</text>
+      <text x="95" y="102" text-anchor="middle" font-size="11.5">human</text>
+      <text x="95" y="119" text-anchor="middle" font-size="11.5">CEM optimizer</text>
+      <text x="95" y="136" text-anchor="middle" font-size="11.5" opacity=".7">LLM: profile rules</text>
+      <text x="95" y="153" text-anchor="middle" font-size="11.5" opacity=".7">LLM: code patches</text>
+      <text x="271" y="113" text-anchor="middle" font-weight="700">Validate</text>
+      <text x="271" y="131" text-anchor="middle" font-size="11.5">lint · DSL traps</text>
+      <text x="447" y="107" text-anchor="middle" font-weight="700">Play</text>
+      <text x="447" y="124" text-anchor="middle" font-size="11.5">deterministic self-play</text>
+      <text x="447" y="139" text-anchor="middle" font-size="11.5">+ tactical exams</text>
+      <text x="628" y="107" text-anchor="middle" font-weight="700">Measure + gate</text>
+      <text x="628" y="124" text-anchor="middle" font-size="11.5">paired E ± SE,</text>
+      <text x="628" y="139" text-anchor="middle" font-size="11.5">5 gates · fingerprint</text>
+      <text x="797" y="113" text-anchor="middle" font-weight="700">Ship</text>
+      <text x="797" y="131" text-anchor="middle" font-size="11.5">versioned profile</text>
+      <text x="447" y="249" text-anchor="middle" font-weight="700">Game records</text>
+      <text x="447" y="266" text-anchor="middle" font-size="11.5">every decision → DuckDB</text>
+    </g>
+    <g stroke="currentColor" stroke-width="1.3" fill="none">
+      <line x1="170" y1="119" x2="210" y2="119" marker-end="url(#arr3)"/>
+      <line x1="330" y1="119" x2="370" y2="119" marker-end="url(#arr3)"/>
+      <line x1="522" y1="119" x2="562" y2="119" marker-end="url(#arr3)"/>
+      <line x1="692" y1="119" x2="732" y2="119" marker-end="url(#arr3)" stroke-dasharray="6 4"/>
+      <line x1="447" y1="150" x2="447" y2="224" marker-end="url(#arr3)"/>
+      <path d="M 370 254 L 95 254 L 95 180" marker-end="url(#arr3)"/>
+      <path d="M 628 150 L 628 200 L 540 200" stroke="var(--warn)"/>
+      <path d="M 540 200 L 300 200 L 300 168 " stroke="var(--warn)"/>
+      <path d="M 300 168 L 95 168 " stroke="var(--warn)" marker-end="url(#arr3)"/>
+    </g>
+    <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="currentColor" opacity=".75">
+      <text x="190" y="110" text-anchor="middle">candidate</text>
+      <text x="459" y="190" text-anchor="start">telemetry</text>
+      <text x="238" y="248" text-anchor="middle">evidence for the next hypothesis</text>
+      <text x="620" y="193" text-anchor="middle" fill="var(--warn)">rejected → rolled back, with numbers</text>
+      <text x="797" y="170" text-anchor="middle">accepted becomes</text>
+      <text x="797" y="184" text-anchor="middle">the new baseline</text>
+    </g>
+    <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="currentColor">
+      <line x1="20" y1="296" x2="50" y2="296" stroke="currentColor" stroke-width="1.3"/>
+      <text x="58" y="300">exists today</text>
+      <line x1="160" y1="296" x2="190" y2="296" stroke="currentColor" stroke-width="1.3" stroke-dasharray="6 4"/>
+      <text x="198" y="300">to build</text>
+    </g>
+  </svg>
+  </div>
+  <figcaption>Fig. 3 — The improvement loop. Validate, play, and measure exist and work. To
+  build: cheaper games, tactical exams, the two LLM proposers, the widened Goodhart fingerprint,
+  and a shipping channel for accepted profiles.</figcaption>
+</figure>
+
+<p>What makes this loop trustworthy rather than a treadmill:</p>
+<ul>
+  <li><b>Determinism.</b> Same seed, same game — so a no-op candidate measures exactly 0.00, and
+  any claimed "behavior-preserving" refactor can be proven byte-identical.</li>
+  <li><b>Tactical exams.</b> Full games are noisy (9–15 VP per seed). Constructed positions with
+  a known best play ("take the free objective", "screen the deep strike", "finish the wounded
+  Knight") give sharp pass/fail signal in seconds. Chess engines have used test suites this way
+  for decades; this project's exam suite becomes the cheap inner loop.</li>
+  <li><b>The Goodhart guard.</b> The gate already checks that a candidate still charges, still
+  fights, still plays like 40k. It gets widened into a behavioral fingerprint with drift limits
+  calibrated from A/A noise, plus a human skim of two full game logs per shipped change.</li>
+  <li><b>Everything proposes through the same gate</b> — a human's hunch, the optimizer's
+  parameter vector, an LLM's profile rule, an LLM's code patch. There are no side doors.</li>
+</ul>
+
+<h3><span class="sn">§10</span>What the research supports</h3>
+<ul>
+  <li><b>Bot Bowl (Blood Bowl AI competition, IEEE CoG, 2019–2023):</b> a scripted bot won the
+  two most recent editions (2022 and 2023, with ML entries relegated to a side prize); the only
+  ML winner ever (2021) imitated a scripted bot and hybridized with search; full-game MCTS
+  remains impractical. Closest analog to 40k in existence — and this game has a harder action
+  space (continuous positioning, not a grid) and far less compute than the RL systems that
+  conquered other games. Validates: keep the scripted knowledge, add selective search, measure
+  hard. Note the plan follows this: nothing in it ships a learned policy — modern AI is used as
+  the offline <em>improver</em> of the scripted system, never the player.</li>
+  <li><b>XCOM 2 (GDC):</b> utility scoring over generated move candidates with named factors —
+  the same family as this codebase; its strength came from disciplined factor design, not
+  exotic algorithms.</li>
+  <li><b>Civilization VI:</b> leader personalities as data-defined weight sets over one engine —
+  the persona model proposed here.</li>
+  <li><b>Utility + search hybrids</b> (e.g. the <i>Tactical Troops</i> study): utility AI assigns
+  orders at the strategic layer, search refines tactics below — the two-layer split in Fig. 2.</li>
+  <li><b>Stochastic search theory:</b> expectimax and determinized/chance-node MCTS handle dice
+  cleanly; with expectation-based combat math, 1-ply evaluation needs no sampling at all.</li>
+  <li><b>AlphaEvolve (DeepMind, 2025)</b> and <b>Karpathy's loop (2026):</b> LLM proposes, an
+  automated evaluator disposes, improvements compound — shown to improve real production
+  heuristics. This is §9's blueprint, applied to profile rules first and code patches second.</li>
+</ul>
+
+<h3><span class="sn">§11</span>The decision you asked to be flagged: static vs. improving</h3>
+<div class="decision">
+  <p class="t">Decision required — improvement posture</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Option</th><th>What it means</th><th>Strength ceiling</th><th>Cost / risk</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>A. Static</b></td>
+        <td>Restructure (Parts II §8), tune by hand, ship. No automated loop beyond one optimizer pass.</td>
+        <td>One-time jump, then plateau. Every future gain costs an engineer-day per hypothesis.</td>
+        <td>Lowest. But the measured record shows hand hypotheses usually fail (−2.05, −4.29).</td>
+      </tr>
+      <tr>
+        <td><b>B. Offline-improvable</b> <span class="good">← recommended</span></td>
+        <td>Same restructuring, plus the §9 loop on a cadence: optimizer + LLM proposers, human-gated, shipping versioned profiles between releases. The shipped AI stays deterministic and explainable.</td>
+        <td>Compounding. Strength grows while the team sleeps; failures roll back with numbers.</td>
+        <td>Moderate: lab upkeep + compute (hundreds of games per accepted change). Goodhart risk — mitigated by the fingerprint gate and exams.</td>
+      </tr>
+      <tr>
+        <td><b>C. Learned components</b></td>
+        <td>Add trained models (a fitted value function, then policy nets) on top of B.</td>
+        <td>Highest in theory.</td>
+        <td>Not now: 200–500 games/day is orders of magnitude short of RL budgets, no ML runtime in-engine, and it trades away explainability. Bot Bowl says it loses at this scale.</td>
+      </tr>
+    </tbody>
+  </table></div>
+  <p><b>Recommendation: B.</b> The distinction that matters: the AI a player faces is static
+  <em>within a release</em> — deterministic, testable, explainable — and improving
+  <em>across releases</em>, with the loop doing the searching and humans holding the gate.
+  B strictly contains A (stop the loop and you have A), and B builds the two things C would ever
+  need (a decision dataset and a forward model), so it forecloses nothing. Revisit C only if B
+  plateaus <em>and</em> the dataset has grown to millions of decisions.</p>
+  <p>The plan is sequenced so this decision is not urgent: Phases 1–2 (visibility, reachability,
+  measurement capacity, the value function) are identical under A and B. The checkpoint sits at
+  the end of Phase 2.</p>
+</div>
+
+<h3><span class="sn">§12</span>What we would not do</h3>
+<ul>
+  <li><b>Per-action LLM play.</b> 50–200 engine actions per turn at ~1–3 s per call means
+  minutes-long turns, dollars per game, no determinism, and a model that can still propose
+  illegal moves. Bounded roles instead: strategist-level nudges (a few calls per game, optional)
+  and the offline proposer roles in §9.</li>
+  <li><b>Deep RL / AlphaZero-style self-play training.</b> Needs millions of episodes; this
+  project generates hundreds per day. See option C.</li>
+  <li><b>A ground-up rewrite.</b> §6. The plan restructures in place, behavior-preserving at
+  every step the evaluator can verify.</li>
+</ul>
+
+<!-- ============================ PART III ============================ -->
+<div class="partband"><span class="n">PART III</span><h2>The path</h2></div>
+
+<h3><span class="sn">§13</span>Six workstreams, thirty tasks</h3>
+<p>The full plan is <code>.llm/ai-overhaul-todo.md</code>: 30 tasks, each self-contained — context
+with evidence, an exact spec, machine-checkable acceptance (Tier A), a human check (Tier B),
+cost, dependencies, and kill criteria for the speculative ones. Any task can be handed alone to
+an engineer or an LLM session. In brief:</p>
+<div class="tablewrap"><table>
+  <thead><tr><th>Workstream</th><th>What it does</th><th>Why it is first-class</th></tr></thead>
+  <tbody>
+    <tr><td><b>A — Truth &amp; Reach</b> (7)</td><td>Honest decision records everywhere; promote ~90 hardcoded literals to named parameters; a CI ratchet so neither regresses.</td><td>Tears down walls 1–2. The repo's own evidence says this is worth more than any search over the current surface.</td></tr>
+    <tr><td><b>B — Measurement Engine</b> (7)</td><td>Freeze a baseline opponent; make games ~2× faster; asymmetric fixtures; a 12-exam tactical suite; nightly self-play with drift alarms; a counterfactual-replay spike.</td><td>Tears down wall 5. Every later workstream pays its bills in games.</td></tr>
+    <tr><td><b>C — One Plan, One Value</b> (8)</td><td>One combat-math module; V(state) validated dark; TurnPlan across all phases and difficulties; CP budgeting; scored command phase; deployment postures; dependency-ordered movement; escort pairing.</td><td>Tears down wall 4 — the connecting layer.</td></tr>
+    <tr><td><b>D — Looking Ahead</b> (4)</td><td>Reconcile AI math with the RulesEngine; an EV forward model with a measured budget; 1-ply opponent replies on high-stakes moves; beam search over charge/fight order.</td><td>Tears down wall 3. Each search feature must pay ≥ +1 VP or it ships off by default.</td></tr>
+    <tr><td><b>E — The Loop</b> (6)</td><td>Full-budget parameter search; LLM rule proposer; LLM patch proposer; fingerprint gate; a shipping channel for profiles; a runbook an LLM can execute.</td><td>Option B made real. Every proposer goes through the same gate.</td></tr>
+    <tr><td><b>F — Personas &amp; Difficulty</b> (3)</td><td>Persona schema read by the strategist; two shipped personas, provably distinct and non-regressing; difficulty from capability instead of noise.</td><td>The product face of all of the above.</td></tr>
+  </tbody>
+</table></div>
+
+<h3><span class="sn">§14</span>Sequencing and the exit conditions</h3>
+<div class="tablewrap"><table>
+  <thead><tr><th>Phase</th><th>Tasks</th><th>Exit condition</th></tr></thead>
+  <tbody>
+    <tr><td>1 — See clearly, measure cheaply</td><td>A1–A5, D1 · B0–B2, B4</td><td>Records honest; unreachable arithmetic ≤ 50%; games ≤ 30 s / 300 s; exams live; baseline frozen.</td></tr>
+    <tr><td>2 — Instrument, dedupe, validate V</td><td>A6–A7, B3, B5, C0–C1 · B6</td><td>≥ 9 decision types recorded; one combat-math module; V predicts outcomes (ρ ≥ 0.5); nightly report running. <b>← decision checkpoint (§11)</b></td></tr>
+    <tr><td>3 — One plan; first real search; ship channel</td><td>C2–C4, E1 · E4–E5</td><td>TurnPlan live in all phases; full-budget tuning campaign shipped-or-null; profiles shippable.</td></tr>
+    <tr><td>4 — Lookahead and the rest of the plan</td><td>D2–D4, C5–C7</td><td>1-ply replies pay ≥ +1 VP or are parked with numbers.</td></tr>
+    <tr><td>5 — The loop runs; personas ship</td><td>E2–E3, E6, F1–F3</td><td>One analyst cycle and one patch cycle complete end-to-end; two personas shipped; difficulty ladder measured.</td></tr>
+  </tbody>
+</table></div>
+
+<h3><span class="sn">§15</span>How we will know it worked</h3>
+<ul>
+  <li><b>The loop's falsifiable metric</b> (inherited from the lab's design brief): a fully
+  automated cycle produces a change beating the incumbent by ≥ +4 VP per game at two standard
+  errors across ≥ 2 matchups, without regressing the scenario suite. That has never happened
+  yet; the plan exists to make it routine.</li>
+  <li><b>The ladder:</b> margin against the frozen 2026-08 baseline rises release over release —
+  absolute progress, not progress against a moving target.</li>
+  <li><b>The exams:</b> pass count on the tactical suite rises; aspirational exams flip on as
+  WS-C/WS-D land.</li>
+  <li><b>The product:</b> two personas a player can tell apart in two rounds; a difficulty
+  ladder where each step measurably beats the one below; a game log that still explains every
+  choice.</li>
+</ul>
+
+<h3><span class="sn">§16</span>Sources</h3>
+<ul class="srcs">
+  <li>In-repo: <code>docs/AI_SYSTEM_DOCUMENTATION.md</code> · <code>docs/AI_DECISION_REVIEW_2026-07.md</code> · <code>docs/AI_TUNING.md</code> · <code>40k/AUDIT_AI_RULES.md</code> · <code>research/ai_improvement_status_2026-08-07.md</code> · <code>research/audit_findings_2026-08-07.md</code> · <code>tools/ai_lab/README.md</code> · <code>40k/tests/bench_baselines/</code></li>
+  <li><a href="https://njustesen.github.io/botbowl/">Bot Bowl — the Blood Bowl AI competition</a> and <a href="https://github.com/njustesen/botbowl/blob/main/docs/papers.md">its papers list</a></li>
+  <li><a href="https://www.pcgamer.com/gdc-2013-the-ai-tricks-behind-xcom-assassins-creed-3-and-warframe/">XCOM's utility AI (GDC 2013 write-up)</a></li>
+  <li><a href="https://www.researchgate.net/publication/358095717_Combining_Utility_AI_and_MCTS_Towards_Creating_Intelligent_Agents_in_Video_Games_with_the_Use_Case_of_Tactical_Troops_Anthracite_Shift">Combining Utility AI and MCTS (Tactical Troops)</a></li>
+  <li><a href="http://orangehelicopter.com/academic/papers/cig11.pdf">Determinization and Information-Set MCTS</a> · <a href="https://arxiv.org/abs/2009.08922">AI and Wargaming (survey)</a></li>
+  <li><a href="https://deepmind.google/discover/blog/alphaevolve-a-gemini-powered-coding-agent-for-designing-advanced-algorithms/">AlphaEvolve (DeepMind)</a> · <a href="https://www.datacamp.com/tutorial/guide-to-autoresearch">Karpathy's autoresearch loop (guide)</a></li>
+  <li><a href="https://www.spronck.net/pubs/BNAIC2008Bergsma.pdf">Task allocation for turn-based strategy (Bergsma &amp; Spronck)</a> · <a href="https://www.gdcvault.com/play/1025772/-Into-the-Breach-Design">Into the Breach design postmortem (intent transparency)</a></li>
+</ul>
+
+</div>
+</body>
+</html>
