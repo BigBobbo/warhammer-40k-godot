@@ -26,5 +26,7 @@ Run started 2026-08-07 on branch `claude/ai-overhaul-todo-completion-ve8fhj`
 
 | Task | Status | Key result | When |
 |---|---|---|---|
-</content>
-</invoke>
+| A1 | DONE | shooting records carry real alternatives; hold_fire recorded both ways; trajectory-identical both mirrors | 2026-08-07 |
+| A2 | DONE | movement score decomposed: named-terms 0/803 -> 797/803, census terms 12 -> 36 | 2026-08-07 |
+| A3 | DONE | parameters_used drained from get_param: 5 -> 105 distinct params in records; validator PASS | 2026-08-07 |
+| A4 | DONE | 50 reserves/embark/disembark coefficients promoted; unreachable 78% -> 62%; null test E=0.00+/-0.00 | 2026-08-07 |

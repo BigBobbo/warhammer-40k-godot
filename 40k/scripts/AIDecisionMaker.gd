@@ -507,6 +507,75 @@ static func get_param_int(param_name: String, default_value: int) -> int:
 	return default_value
 
 
+
+# --- Fight, charge and deployment coefficients (A5 promotion) ---
+# The rest of audit F-02's mass. Deployment scoring was 'nearly all
+# hard-coded' (docs/AI_DECISION_REVIEW_2026-07.md 3.1), which made deployment
+# untunable per persona — and deployment largely decides rounds 1-2. Charge
+# and fight coefficients all screened INERT on the Custodes mirror, but that
+# fixture fields 9 elite units; B3 re-screens them on the 16-unit Ork horde,
+# where melee decisions are frequent. They cannot be judged until they are
+# reachable. VALUES ARE UNCHANGED.
+const CHARGE_COMBO_OBJ_MULT: float = 1.3  # multi-charge: a target is on an objective
+const CHARGE_COMBO_SHORT_3IN_MULT: float = 1.3  # multi-charge: farthest target within 3"
+const CHARGE_COMBO_SHORT_6IN_MULT: float = 1.2  # multi-charge: farthest target within 6"
+const CHARGE_COMBO_TIGHT_CLUSTER_MULT: float = 1.1  # multi-charge: targets are tightly clustered
+const CHARGE_GANG_UP_BONUS: float = 3.0  # charge target: a friendly unit is already fighting it
+const CHARGE_HALF_KILL_BONUS: float = 3.0  # charge target: we can remove half its remaining wounds
+const CHARGE_LIKELY_KILL_BONUS: float = 5.0  # charge target: we can likely kill it outright
+const CHARGE_LOW_TOUGHNESS_BONUS: float = 1.0  # charge target: toughness 3 or less
+const CHARGE_SHORT_3IN_MULT: float = 1.3  # charge: needs 3" or less (reliability multiplier)
+const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
+const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
+const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
+const DEPLOY_TERRAIN_CHAR_LOS_BLOCK: float = 5.0  # deployment terrain, character: piece blocks line of sight
+const DEPLOY_TERRAIN_DURABLE_COVER: float = 2.5  # deployment terrain, durable ranged: cover
+const DEPLOY_TERRAIN_DURABLE_LOS_BLOCK: float = 1.0  # deployment terrain, durable ranged: LoS blocker
+const DEPLOY_TERRAIN_FORWARD_WEIGHT: float = 2.0  # deployment terrain, melee: weight on how far forward the piece is
+const DEPLOY_TERRAIN_FRAGILE_COVER: float = 3.5  # deployment terrain, fragile shooter: cover
+const DEPLOY_TERRAIN_FRAGILE_LOS_BLOCK: float = 3.0  # deployment terrain, fragile shooter: LoS blocker
+const DEPLOY_TERRAIN_MELEE_COVER: float = 1.5  # deployment terrain, melee: cover
+const DEPLOY_TERRAIN_MELEE_LOS_BLOCK: float = 4.0  # deployment terrain, melee: LoS blocker to advance behind
+const DEPLOY_TERRAIN_SCREEN_COVER: float = 2.0  # deployment terrain, screen: cover
+const DEPLOY_TERRAIN_SCREEN_LOS_BLOCK: float = 1.5  # deployment terrain, screen: LoS blocker
+const FIGHT_ALREADY_OVERKILLED: float = 1.0  # fight target: prior fighters already overkilled it (penalty)
+const FIGHT_LOCK_DANGEROUS_SHOOTER: float = 1.5  # fight target: shooter above the dangerous-output threshold
+const FIGHT_LOCK_LONG_RANGE: float = 2.0  # fight target: long-ranged shooter worth locking in melee
+const FIGHT_LOW_TOUGHNESS: float = 1.0  # fight target: toughness 3 or less
+const FIGHT_ORDER_BADLY_HURT: float = 1.5  # fight order: this unit will be badly hurt
+const FIGHT_ORDER_CAN_WIPE: float = 6.0  # fight order: this unit can wipe its target, so it goes first
+const FIGHT_ORDER_CHARACTER: float = 2.0  # fight order: target is a CHARACTER
+const FIGHT_ORDER_DAMAGE_WEIGHT: float = 1.0  # fight order: weight on raw expected melee damage
+const FIGHT_ORDER_DANGEROUS_SHOOTER: float = 2.0  # fight order: target is a dangerous shooter
+const FIGHT_ORDER_HALF_KILL: float = 3.0  # fight order: this unit can take its target below half
+const FIGHT_ORDER_LIKELY_TO_DIE: float = 3.0  # fight order: this unit is likely to die, get its value first
+const FIGHT_ORDER_MASSIVE_OVERKILL: float = 1.5  # fight order: massive overkill, let others take the weak target (penalty)
+const FIGHT_ORDER_TARGET_ON_OBJ: float = 1.5  # fight order: target is on an objective
+const FIGHT_TARGET_ON_OBJ: float = 2.0  # fight target: standing on an objective
+const REINFORCE_AAO_BROKEN: float = 3.0  # reinforcement spot: lands inside a friendly bubble, buff lost (penalty)
+const REINFORCE_AAO_CLEAR: float = 4.0  # reinforcement spot: arrives with Against All Odds live
+const REINFORCE_CHARGE_RANGE: float = 3.0  # reinforcement spot: lands inside charge range
+const REINFORCE_NEAR_CHARGE_RANGE: float = 2.0  # reinforcement spot: just outside charge range
+const REINFORCE_OBJ_FAR_BASE: float = 8.0  # reinforcement spot: base value at longer range from an objective
+const REINFORCE_OBJ_NEAR_BASE: float = 10.0  # reinforcement spot: base value for landing near an objective
+const RESERVE_DEPLOY_CONTESTED_OBJ: float = 1.5  # reserve arrival order: a contested objective needs help
+const RESERVE_DEPLOY_DEEP_STRIKE: float = 2.0  # reserve arrival order: unit deep strikes
+const RESERVE_DEPLOY_MELEE: float = 1.5  # reserve arrival order: melee unit
+const RESERVE_DEPLOY_OPEN_OBJ: float = 0.5  # reserve arrival order: an uncontested objective is available
+const RESERVE_DEPLOY_POINTS_DIVISOR: float = 50.0  # reserve arrival order: points per unit of base priority
+const RESERVE_DEPLOY_ROUND_4: float = 2.0  # reserve arrival order: round 4
+const RESERVE_DEPLOY_ROUND_5: float = 5.0  # reserve arrival order: round 5, last chance to arrive
+const RESERVE_DEPLOY_SHORT_RANGE: float = 1.0  # reserve arrival order: short-ranged unit
+const SCOUT_OBJ_ALREADY_HELD: float = 5.0  # scout target: already held (penalty)
+const SCOUT_OBJ_CONTESTED: float = 5.0  # scout target: contested, worth reinforcing
+const SCOUT_OBJ_DISTANCE_PENALTY: float = 0.3  # scout target: penalty per inch of distance
+const SCOUT_OBJ_ENEMY_HELD: float = 7.0  # scout target: enemy holds it, a scout can get there first
+const SCOUT_OBJ_ENEMY_ZONE: float = 4.0  # scout target: inside the enemy deployment zone (penalty)
+const SCOUT_OBJ_NO_MANS_LAND: float = 3.0  # scout target: sits in no man's land
+const SCOUT_OBJ_OWN_ZONE: float = 2.0  # scout target: inside our own zone (penalty)
+const SCOUT_OBJ_UNCONTROLLED: float = 10.0  # scout target: objective nobody controls
+const WARLORD_ATTACHED_BONUS: float = 10.0  # warlord pick: character is already attached to a bodyguard
+
 # --- Reserves / embarkation / disembarkation coefficients (A4 promotion) ---
 # Audit F-02 concentration table: these three functions carried 46 bare
 # literals between them — the largest single block of scoring arithmetic no
@@ -3119,7 +3188,7 @@ static func _choose_warlord(snapshot: Dictionary, warlord_actions: Array, player
 		# Prefer characters already attached to a bodyguard
 		var attachment = unit.get("attachment_data", {})
 		if not attachment.get("attached_to", "").is_empty():
-			score += 10.0
+			score += get_param("WARLORD_ATTACHED_BONUS", WARLORD_ATTACHED_BONUS)
 
 		if score > best_score:
 			best_score = score
@@ -4147,42 +4216,42 @@ static func _score_terrain_for_role(terrain: Dictionary, role: String, pos_near_
 		"character":
 			# Characters strongly prefer LoS blockers — hide behind tall terrain
 			if blocks_los:
-				score += 5.0
+				score += get_param("DEPLOY_TERRAIN_CHAR_LOS_BLOCK", DEPLOY_TERRAIN_CHAR_LOS_BLOCK)
 			if grants_cover:
-				score += 2.0
+				score += get_param("DEPLOY_TERRAIN_CHAR_COVER", DEPLOY_TERRAIN_CHAR_COVER)
 		"fragile_shooter":
 			# Fragile shooters want cover and ideally LoS blockers nearby
 			# They want to be *next to* LoS blockers (not behind them from their own targets)
 			# but behind them from the enemy's perspective
 			if blocks_los:
-				score += 3.5
+				score += get_param("DEPLOY_TERRAIN_FRAGILE_COVER", DEPLOY_TERRAIN_FRAGILE_COVER)
 			if grants_cover:
-				score += 3.0
+				score += get_param("DEPLOY_TERRAIN_FRAGILE_LOS_BLOCK", DEPLOY_TERRAIN_FRAGILE_LOS_BLOCK)
 		"durable_shooter":
 			# Durable shooters benefit from cover but don't need to hide as much
 			if grants_cover:
-				score += 2.5
+				score += get_param("DEPLOY_TERRAIN_DURABLE_COVER", DEPLOY_TERRAIN_DURABLE_COVER)
 			if blocks_los:
-				score += 1.0
+				score += get_param("DEPLOY_TERRAIN_DURABLE_LOS_BLOCK", DEPLOY_TERRAIN_DURABLE_LOS_BLOCK)
 		"melee":
 			# Melee units want LoS blockers to advance behind (block enemy shooting)
 			# They prefer terrain near the front edge of the deployment zone
 			if blocks_los:
-				score += 4.0
+				score += get_param("DEPLOY_TERRAIN_MELEE_LOS_BLOCK", DEPLOY_TERRAIN_MELEE_LOS_BLOCK)
 			if grants_cover:
-				score += 1.5
+				score += get_param("DEPLOY_TERRAIN_MELEE_COVER", DEPLOY_TERRAIN_MELEE_COVER)
 			# Bonus for terrain closer to the front edge (closer to the enemy)
 			var front_y = zone_bounds.max_y if is_top_zone else zone_bounds.min_y
 			var dist_from_front = abs(pos_near_terrain.y - front_y)
 			var zone_height = abs(zone_bounds.max_y - zone_bounds.min_y)
 			if zone_height > 0:
-				score += 2.0 * (1.0 - clamp(dist_from_front / zone_height, 0.0, 1.0))
+				score += get_param("DEPLOY_TERRAIN_FORWARD_WEIGHT", DEPLOY_TERRAIN_FORWARD_WEIGHT) * (1.0 - clamp(dist_from_front / zone_height, 0.0, 1.0))
 		"general":
 			# General units get moderate benefit from any terrain
 			if grants_cover:
-				score += 2.0
+				score += get_param("DEPLOY_TERRAIN_SCREEN_COVER", DEPLOY_TERRAIN_SCREEN_COVER)
 			if blocks_los:
-				score += 1.5
+				score += get_param("DEPLOY_TERRAIN_SCREEN_LOS_BLOCK", DEPLOY_TERRAIN_SCREEN_LOS_BLOCK)
 
 	# Impassable terrain has no deployment value
 	if terrain_type == "impassable":
@@ -4546,27 +4615,27 @@ static func _find_best_scout_objective(
 
 		# Uncontrolled objectives are highest priority for scouts
 		if friendly_oc == 0 and enemy_oc == 0:
-			score += 10.0
+			score += get_param("SCOUT_OBJ_UNCONTROLLED", SCOUT_OBJ_UNCONTROLLED)
 		# Objectives not yet secured by friendlies
 		elif friendly_oc == 0 and enemy_oc > 0:
-			score += 7.0  # Enemy holds it, scout can get there first
+			score += get_param("SCOUT_OBJ_ENEMY_HELD", SCOUT_OBJ_ENEMY_HELD)  # Enemy holds it, scout can get there first
 		elif friendly_oc > 0 and friendly_oc <= enemy_oc:
-			score += 5.0  # Contested, reinforce
+			score += get_param("SCOUT_OBJ_CONTESTED", SCOUT_OBJ_CONTESTED)  # Contested, reinforce
 		elif friendly_oc > enemy_oc and friendly_oc > 0:
-			score -= 5.0  # Already held, lower priority
+			score -= get_param("SCOUT_OBJ_ALREADY_HELD", SCOUT_OBJ_ALREADY_HELD)  # Already held, lower priority
 
 		# Prefer no-man's-land objectives (center of the board)
 		if obj_zone == "no_mans_land":
-			score += 3.0
+			score += get_param("SCOUT_OBJ_NO_MANS_LAND", SCOUT_OBJ_NO_MANS_LAND)
 		# Home objectives are less valuable to scout toward (already nearby)
 		if is_home:
-			score -= 4.0
+			score -= get_param("SCOUT_OBJ_ENEMY_ZONE", SCOUT_OBJ_ENEMY_ZONE)
 		# Don't rush enemy home objectives with scouts
 		if is_enemy_home:
-			score -= 2.0
+			score -= get_param("SCOUT_OBJ_OWN_ZONE", SCOUT_OBJ_OWN_ZONE)
 
 		# Closer objectives score better (within scout range is ideal)
-		score -= dist_inches * 0.3
+		score -= dist_inches * get_param("SCOUT_OBJ_DISTANCE_PENALTY", SCOUT_OBJ_DISTANCE_PENALTY)
 
 		if score > best_score:
 			best_score = score
@@ -6554,25 +6623,25 @@ static func _score_reserves_deployment(unit: Dictionary, unit_id: String, reserv
 	var has_melee = _unit_has_melee_weapons(unit)
 
 	# Base priority: more expensive units are more impactful
-	score += points / 50.0
+	score += points / get_param("RESERVE_DEPLOY_POINTS_DIVISOR", RESERVE_DEPLOY_POINTS_DIVISOR)
 
 	# Deep strike units get a slight priority (they can be placed more flexibly)
 	if reserve_type == "deep_strike":
-		score += 2.0
+		score += get_param("RESERVE_DEPLOY_DEEP_STRIKE", RESERVE_DEPLOY_DEEP_STRIKE)
 
 	# Melee units benefit from arriving to charge next turn
 	if has_melee:
-		score += 1.5
+		score += get_param("RESERVE_DEPLOY_MELEE", RESERVE_DEPLOY_MELEE)
 
 	# Ranged units benefit from shooting immediately after arrival
 	if has_ranged:
-		score += 1.0
+		score += get_param("RESERVE_DEPLOY_SHORT_RANGE", RESERVE_DEPLOY_SHORT_RANGE)
 
 	# Round urgency: later rounds increase urgency (must deploy by Round 5 or lose the unit)
 	if battle_round >= 4:
-		score += 5.0  # Critical — last chance on Round 5
+		score += get_param("RESERVE_DEPLOY_ROUND_5", RESERVE_DEPLOY_ROUND_5)  # Critical — last chance on Round 5
 	elif battle_round >= 3:
-		score += 2.0
+		score += get_param("RESERVE_DEPLOY_ROUND_4", RESERVE_DEPLOY_ROUND_4)
 
 	# Check if there are contested objectives that need reinforcement
 	var friendly_units = _get_units_for_player(snapshot, player)
@@ -6580,9 +6649,9 @@ static func _score_reserves_deployment(unit: Dictionary, unit_id: String, reserv
 	for eval in obj_evaluations:
 		var obj_state = eval.get("state", "")
 		if obj_state in ["contested", "enemy_held"]:
-			score += 1.5  # Contested objectives benefit from reinforcement
+			score += get_param("RESERVE_DEPLOY_CONTESTED_OBJ", RESERVE_DEPLOY_CONTESTED_OBJ)  # Contested objectives benefit from reinforcement
 		elif obj_state == "uncontested":
-			score += 0.5
+			score += get_param("RESERVE_DEPLOY_OPEN_OBJ", RESERVE_DEPLOY_OPEN_OBJ)
 
 	return score
 
@@ -6767,9 +6836,9 @@ static func _score_and_sort_reinforcement_candidates(candidates: Array, objectiv
 			for ap in aao_avoid:
 				aao_gap = minf(aao_gap, pos.distance_to(ap))
 			if aao_gap >= aao_want_px:
-				score += 4.0   # arrives with +1 Hit / +1 Wound live
+				score += get_param("REINFORCE_AAO_CLEAR", REINFORCE_AAO_CLEAR)   # arrives with +1 Hit / +1 Wound live
 			elif aao_gap <= aao_break_px:
-				score -= 3.0   # lands inside a friendly's bubble — buff lost
+				score -= get_param("REINFORCE_AAO_BROKEN", REINFORCE_AAO_BROKEN)   # lands inside a friendly's bubble — buff lost
 
 		# Closer to objectives = better (but not TOO close — we want control range)
 		var min_obj_dist = INF
@@ -6781,9 +6850,9 @@ static func _score_and_sort_reinforcement_candidates(candidates: Array, objectiv
 			# Best score at ~3-6" from objective (control range)
 			var dist_inches = min_obj_dist / PIXELS_PER_INCH
 			if dist_inches <= 6.0:
-				score += 10.0 - dist_inches  # Close to objective is great
+				score += get_param("REINFORCE_OBJ_NEAR_BASE", REINFORCE_OBJ_NEAR_BASE) - dist_inches  # Close to objective is great
 			else:
-				score += max(0.0, 8.0 - dist_inches * 0.3)  # Diminishing returns further out
+				score += max(0.0, get_param("REINFORCE_OBJ_FAR_BASE", REINFORCE_OBJ_FAR_BASE) - dist_inches * 0.3)  # Diminishing returns further out
 
 		# Near enemy units = good for melee threats, but also risky
 		var min_enemy_dist = INF
@@ -6797,9 +6866,9 @@ static func _score_and_sort_reinforcement_candidates(candidates: Array, objectiv
 			var enemy_inches = min_enemy_dist / PIXELS_PER_INCH
 			# Sweet spot: 10-15" from enemies (can shoot, hard to charge immediately)
 			if enemy_inches >= 10.0 and enemy_inches <= 15.0:
-				score += 3.0
+				score += get_param("REINFORCE_CHARGE_RANGE", REINFORCE_CHARGE_RANGE)
 			elif enemy_inches >= 9.0 and enemy_inches < 10.0:
-				score += 2.0  # Just out of charge range, decent
+				score += get_param("REINFORCE_NEAR_CHARGE_RANGE", REINFORCE_NEAR_CHARGE_RANGE)  # Just out of charge range, decent
 
 		scored.append({"pos": pos, "score": score})
 
@@ -13770,9 +13839,9 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 
 			# Bonus for short charges (high reliability)
 			if charge_distance_needed <= 6.0:
-				score *= 1.2
+				score *= get_param("CHARGE_SHORT_6IN_MULT", CHARGE_SHORT_6IN_MULT)
 			if charge_distance_needed <= 3.0:
-				score *= 1.3
+				score *= get_param("CHARGE_SHORT_3IN_MULT", CHARGE_SHORT_3IN_MULT)
 
 			# Bonus for charging onto objectives
 			# T7-43: In late game, extra bonus for charging onto objectives (objective control > kills)
@@ -13781,7 +13850,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var charge_battle_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 			for obj_pos in objectives:
 				if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-					score *= 1.5  # Target is on an objective
+					score *= get_param("CHARGE_TARGET_ON_OBJ_MULT", CHARGE_TARGET_ON_OBJ_MULT)  # Target is on an objective
 					if charge_battle_round >= 4:
 						score *= get_param("STRATEGY_LATE_CHARGE_ON_OBJ_BONUS", STRATEGY_LATE_CHARGE_ON_OBJ_BONUS)
 					break
@@ -14089,9 +14158,9 @@ static func _score_multi_target_combo(
 
 	# Distance bonuses based on the farthest target (all must be reached)
 	if charge_distance_needed <= 6.0:
-		score *= 1.2
+		score *= get_param("CHARGE_COMBO_SHORT_6IN_MULT", CHARGE_COMBO_SHORT_6IN_MULT)
 	if charge_distance_needed <= 3.0:
-		score *= 1.3
+		score *= get_param("CHARGE_COMBO_SHORT_3IN_MULT", CHARGE_COMBO_SHORT_3IN_MULT)
 
 	# Multi-target bonus: engaging multiple enemies is tactically valuable
 	# (locks down more shooters, denies more overwatch, more fight targets)
@@ -14104,7 +14173,7 @@ static func _score_multi_target_combo(
 	var min_dist = combo[0].dist  # Already sorted by distance
 	var dist_spread = max_dist - min_dist
 	if dist_spread <= 2.0:
-		score *= 1.1  # Targets are very close together — efficient multi-charge
+		score *= get_param("CHARGE_COMBO_TIGHT_CLUSTER_MULT", CHARGE_COMBO_TIGHT_CLUSTER_MULT)  # Targets are very close together — efficient multi-charge
 
 	# Objective bonus (any target on an objective)
 	var objectives = _get_objectives(snapshot)
@@ -14114,7 +14183,7 @@ static func _score_multi_target_combo(
 		var target_centroid = _get_unit_centroid(target_unit)
 		for obj_pos in objectives:
 			if target_centroid != Vector2.INF and target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-				score *= 1.3
+				score *= get_param("CHARGE_COMBO_OBJ_MULT", CHARGE_COMBO_OBJ_MULT)
 				if charge_battle_round >= 4:
 					score *= get_param("STRATEGY_LATE_CHARGE_ON_OBJ_BONUS", STRATEGY_LATE_CHARGE_ON_OBJ_BONUS)
 				break
@@ -14213,7 +14282,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 	# Bonus for targeting units with low toughness (likely kill)
 	var target_toughness = int(target.get("meta", {}).get("stats", {}).get("toughness", 4))
 	if target_toughness <= 3:
-		score += 1.0
+		score += get_param("CHARGE_LOW_TOUGHNESS_BONUS", CHARGE_LOW_TOUGHNESS_BONUS)
 
 	# --- AI-GAP-4: Factor in charger's melee leader bonuses ---
 	var charger_id = charger.get("id", "")
@@ -14263,7 +14332,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 				var target_centroid = _get_unit_centroid(target)
 				if funit_centroid != Vector2.INF and target_centroid != Vector2.INF:
 					if funit_centroid.distance_to(target_centroid) <= _engagement_range_px() * 2.0:
-						score += 3.0  # Big bonus for concentrating attacks
+						score += get_param("CHARGE_GANG_UP_BONUS", CHARGE_GANG_UP_BONUS)  # Big bonus for concentrating attacks
 						print("AIDecisionMaker: [FOCUS-CHARGE] Bonus for %s — friendly unit already fighting target %s" % [
 							_dn(charger, ""), _dn(target, "")])
 						break
@@ -14343,9 +14412,9 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 	var target_remaining_wounds = _calculate_kill_threshold(target)
 	if target_remaining_wounds > 0 and melee_damage / target_remaining_wounds >= 0.5:
 		# We can do 50%+ of remaining wounds — good chance of killing
-		score += 3.0
+		score += get_param("CHARGE_HALF_KILL_BONUS", CHARGE_HALF_KILL_BONUS)
 		if melee_damage >= target_remaining_wounds:
-			score += 5.0  # Likely kill! Very high priority
+			score += get_param("CHARGE_LIKELY_KILL_BONUS", CHARGE_LIKELY_KILL_BONUS)  # Likely kill! Very high priority
 			print("AIDecisionMaker: [KILL-PRIORITY] Charge can likely kill %s (%.1f dmg vs %.0f wounds)" % [
 				_dn(target, ""), melee_damage, target_remaining_wounds])
 
@@ -15777,23 +15846,23 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 	if target_has_ranged:
 		var max_range = _get_max_weapon_range(target)
 		if max_range >= 24.0:
-			score += 2.0  # Lock long-range shooters
+			score += get_param("FIGHT_LOCK_LONG_RANGE", FIGHT_LOCK_LONG_RANGE)  # Lock long-range shooters
 		var ranged_output = _estimate_unit_ranged_strength(target)
 		if ranged_output >= PHASE_PLAN_RANGED_STRENGTH_DANGEROUS:
-			score += 1.5  # Extra bonus for truly dangerous shooters
+			score += get_param("FIGHT_LOCK_DANGEROUS_SHOOTER", FIGHT_LOCK_DANGEROUS_SHOOTER)  # Extra bonus for truly dangerous shooters
 
 	# --- Target on objective bonus ---
 	var target_centroid = _get_unit_centroid(target)
 	if target_centroid != Vector2.INF:
 		for obj_pos in objectives:
 			if target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-				score += 2.0  # Killing/weakening units on objectives is valuable
+				score += get_param("FIGHT_TARGET_ON_OBJ", FIGHT_TARGET_ON_OBJ)  # Killing/weakening units on objectives is valuable
 				break
 
 	# --- Low toughness bonus (likely to wound effectively) ---
 	var target_toughness = int(target.get("meta", {}).get("stats", {}).get("toughness", 4))
 	if target_toughness <= 3:
-		score += 1.0
+		score += get_param("FIGHT_LOW_TOUGHNESS", FIGHT_LOW_TOUGHNESS)
 
 	# --- AI-GAP-4: Factor in target's defensive abilities ---
 	var target_id = target.get("id", "")
@@ -15828,7 +15897,7 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 				score += significant_bonus  # Medium bonus: combined damage is significant
 		elif remaining_after_prior <= 0:
 			# Target already overkilled by prior fighters — small penalty (reduced from -2.0)
-			score -= 1.0
+			score -= get_param("FIGHT_ALREADY_OVERKILLED", FIGHT_ALREADY_OVERKILLED)
 	else:
 		# T19-2: PROACTIVE gang-up detection — first attacker on a target gets bonus if
 		# other friendly units are also engaged with the same target (they'll fight later)
@@ -15970,34 +16039,34 @@ static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot:
 	# --- Kill potential (highest weight): can we wipe the target? ---
 	# Units that can kill their target should go first — removes the target before it fights back
 	if best_target_remaining_wounds > 0 and best_target_damage >= best_target_remaining_wounds:
-		score += 6.0  # Can likely wipe — fight first to deny enemy retaliation
+		score += get_param("FIGHT_ORDER_CAN_WIPE", FIGHT_ORDER_CAN_WIPE)  # Can likely wipe — fight first to deny enemy retaliation
 		print("AIDecisionMaker: T7-46   %s: +6.0 kill potential (%.1f dmg vs %.0f HP)" % [unit_name, best_target_damage, best_target_remaining_wounds])
 	elif best_target_remaining_wounds > 0 and best_target_damage >= best_target_remaining_wounds * 0.5:
-		score += 3.0  # Can take below half — still valuable to go early
+		score += get_param("FIGHT_ORDER_HALF_KILL", FIGHT_ORDER_HALF_KILL)  # Can take below half — still valuable to go early
 		print("AIDecisionMaker: T7-46   %s: +3.0 half-kill potential" % unit_name)
 
 	# --- Damage output: raw expected damage contribution ---
-	score += best_target_damage * 1.0
+	score += best_target_damage * get_param("FIGHT_ORDER_DAMAGE_WEIGHT", FIGHT_ORDER_DAMAGE_WEIGHT)
 
 	# --- Target value: is the best target high-value? ---
 	var target_keywords = best_target.get("meta", {}).get("keywords", [])
 
 	# CHARACTER targets — eliminate high-value leaders
 	if "CHARACTER" in target_keywords:
-		score += 2.0
+		score += get_param("FIGHT_ORDER_CHARACTER", FIGHT_ORDER_CHARACTER)
 
 	# Dangerous ranged units — fight first to keep them locked or kill them
 	if _unit_has_ranged_weapons(best_target):
 		var ranged_output = _estimate_unit_ranged_strength(best_target)
 		if ranged_output >= PHASE_PLAN_RANGED_STRENGTH_DANGEROUS:
-			score += 2.0
+			score += get_param("FIGHT_ORDER_DANGEROUS_SHOOTER", FIGHT_ORDER_DANGEROUS_SHOOTER)
 
 	# Target on objective — clearing objective holders is valuable
 	var target_centroid = _get_unit_centroid(best_target)
 	if target_centroid != Vector2.INF:
 		for obj_pos in objectives:
 			if target_centroid.distance_to(obj_pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-				score += 1.5
+				score += get_param("FIGHT_ORDER_TARGET_ON_OBJ", FIGHT_ORDER_TARGET_ON_OBJ)
 				break
 
 	# --- Vulnerability: units likely to die should fight first ---
@@ -16008,14 +16077,14 @@ static func _score_fighter_priority(unit: Dictionary, unit_id: String, snapshot:
 		incoming_damage += _estimate_melee_damage(enemy, unit, snapshot)
 	var our_remaining_wounds = _calculate_kill_threshold(unit)
 	if our_remaining_wounds > 0 and incoming_damage >= our_remaining_wounds * get_param("SURVIVAL_LETHAL_THRESHOLD", SURVIVAL_LETHAL_THRESHOLD):
-		score += 3.0  # Unit is likely to die — fight first to get value
+		score += get_param("FIGHT_ORDER_LIKELY_TO_DIE", FIGHT_ORDER_LIKELY_TO_DIE)  # Unit is likely to die — fight first to get value
 		print("AIDecisionMaker: T7-46   %s: +3.0 vulnerability (%.1f incoming vs %.0f HP)" % [unit_name, incoming_damage, our_remaining_wounds])
 	elif our_remaining_wounds > 0 and incoming_damage >= our_remaining_wounds * get_param("SURVIVAL_SEVERE_THRESHOLD", SURVIVAL_SEVERE_THRESHOLD):
-		score += 1.5  # Unit will be badly hurt — prefer fighting early
+		score += get_param("FIGHT_ORDER_BADLY_HURT", FIGHT_ORDER_BADLY_HURT)  # Unit will be badly hurt — prefer fighting early
 
 	# --- Overkill penalty: don't activate big damage units first against weak targets ---
 	if best_target_remaining_wounds > 0 and best_target_damage > best_target_remaining_wounds * 2.5:
-		score -= 1.5  # Massive overkill — let other units handle weak targets first
+		score -= get_param("FIGHT_ORDER_MASSIVE_OVERKILL", FIGHT_ORDER_MASSIVE_OVERKILL)  # Massive overkill — let other units handle weak targets first
 
 	# --- AI-GAP-4: Factor in offensive multipliers from abilities ---
 	var all_units = snapshot.get("units", {})

@@ -101,14 +101,26 @@ func _initialize() -> void:
 
 
 # ---------------------------------------------------------------- defenders --
-# A grid spanning what the shipped lists actually field: a horde body, a
-# marine-equivalent, an elite 2+/T6, a T9 walker and a T12 hull. Save 7 means
-# "no save"; invuln 0 means none.
+# A grid spanning the toughness/save/wounds space the shipped lists actually
+# field: a horde body, a marine-equivalent, an elite 2+/T6, a T9 walker and a
+# T12 hull. Save 7 means "no save"; invuln 0 means none.
+#
+# Model counts are sized so the unit can absorb a whole volley without being
+# wiped: a wiped unit truncates the engine's damage and the comparison stops
+# measuring the arithmetic and starts measuring the unit's health bar. (A
+# single-model 1-wound target caps the engine at 1.0 no matter what is shot at
+# it, which is why the first version of this grid reported every high-attack
+# weapon as a 200% "divergence" — it was measuring saturation, not error.)
+#
+# Damage is read back by applying the engine's own diffs with the engine's own
+# applier, RulesEngine._apply_diff_to_board. The diff stream is the record the
+# game itself acts on, so using anything else here would be testing a ruler we
+# invented rather than the one the game uses.
 func _defender_grid() -> Array:
 	return [
-		{"label": "T4 Sv6+ W1 (horde)",      "t": 4,  "sv": 6, "w": 1, "inv": 0, "models": 10, "kw": ["INFANTRY"]},
-		{"label": "T4 Sv3+ W2 (marine)",     "t": 4,  "sv": 3, "w": 2, "inv": 0, "models": 5,  "kw": ["INFANTRY"]},
-		{"label": "T6 Sv2+ W3 4++ (elite)",  "t": 6,  "sv": 2, "w": 3, "inv": 4, "models": 4,  "kw": ["INFANTRY"]},
+		{"label": "T4 Sv6+ W1 (horde body)", "t": 4,  "sv": 6, "w": 1, "inv": 0, "models": 30, "kw": ["INFANTRY"]},
+		{"label": "T4 Sv3+ W2 (marine)",     "t": 4,  "sv": 3, "w": 2, "inv": 0, "models": 20, "kw": ["INFANTRY"]},
+		{"label": "T6 Sv2+ W3 4++ (elite)",  "t": 6,  "sv": 2, "w": 3, "inv": 4, "models": 10, "kw": ["INFANTRY"]},
 		{"label": "T9 Sv3+ W12 (walker)",    "t": 9,  "sv": 3, "w": 12, "inv": 0, "models": 1, "kw": ["VEHICLE"]},
 		{"label": "T12 Sv2+ W16 (hull)",     "t": 12, "sv": 2, "w": 16, "inv": 0, "models": 1, "kw": ["VEHICLE", "MONSTER"]},
 	]
@@ -232,24 +244,15 @@ func _mc_expected_damage(re, weapon: Dictionary, defender: Dictionary,
 			if res is Dictionary:
 				why = str(res.get("log_text", "engine refused the action"))
 			return {"ok": false, "note": why}
-		# Read the survivors two ways and take the lower. The melee path
-		# applies its own diffs to `board` as it resolves (so later assignments
-		# see the damage), while the shooting path returns diffs without
-		# touching the board. Replaying diffs onto an already-updated board
-		# silently subtracts zero — which is exactly how every melee weapon
-		# measured 0.000 the first time this test ran.
-		var after := 0.0
-		var final_wounds: Array = []
-		for m in board.units.U_DEF.models:
-			final_wounds.append(float(m.current_wounds))
+		# Apply the engine's diffs with the engine's own applier, then read the
+		# survivors off the board. The melee path already applied them in
+		# place, so re-applying a `set` is a no-op there.
 		for d in res.get("diffs", []):
-			var path := str(d.get("path", ""))
-			if path.begins_with("units.U_DEF.models.") and path.ends_with(".current_wounds"):
-				var idx := int(path.split(".")[3])
-				if idx >= 0 and idx < final_wounds.size():
-					final_wounds[idx] = minf(final_wounds[idx], float(d.get("value", 0)))
-		for fw in final_wounds:
-			after += fw
+			re._apply_diff_to_board(board, d)
+		var after := 0.0
+		for m in board.units.U_DEF.models:
+			if m.get("alive", true):
+				after += float(m.current_wounds)
 		var dealt: float = before - after
 		if s == 0 and _verbose:
 			print("  [mc] melee=%s wid=%s before=%.1f after=%.1f diffs=%d"

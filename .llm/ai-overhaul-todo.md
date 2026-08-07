@@ -322,7 +322,7 @@ contain the alternatives that were considered (F-04).*
     `DISEMBARK_TRANSPORT_THREATENED`, `EMBARK_SINGLE_WOUND`), and each row in
     `AI_TUNING.md` carries the condition that triggers it.
 
-- [ ] **A5 — Promote fight, charge, and deployment literals**
+- [x] **A5 — Promote fight, charge, and deployment literals**
   - **Lock:** AIDM  • **Depends:** A4 (pattern established)  • **Cost:** code-only + null test
   - **Context:** Remaining F-02 mass: `_score_fight_target` (12 coefficients),
     charge scoring remnants, and deployment scoring ("nearly all hard-coded",
@@ -337,6 +337,30 @@ contain the alternatives that were considered (F-04).*
   - **Acceptance — Tier A:** determinism byte-identical; audit share ≤ 50%;
     null test E = 0.00.
   - **Tier B:** none.
+  - **Evidence (2026-08-07):**
+    ```
+    59 coefficients promoted across _score_fight_target, _score_fighter_priority
+    (fight ORDER), _score_charge_target, _evaluate_best_charge,
+    _score_multi_target_combo, _score_terrain_for_role, _find_best_scout_objective,
+    _score_reserves_deployment, _score_and_sort_reinforcement_candidates and
+    _choose_warlord.
+
+    tunability_audit.py   unreachable 179 -> 120 coefficients
+                          unreachable share 62% -> 42%   (target was <= 50%)
+    params_manifest.py    178 -> 237 parameters
+
+    determinism_check.py (A5 vs A4, --require all)
+      Custodes  766 action lines AND 237 decision records identical
+      Ork      1341 action lines AND 505 decision records identical
+
+    null test (a5_null_defaults.json on BOTH arms, Custodes mirror)
+      VERDICT: NO_OP after 6 pairs = 12 games
+      E = +0.00 VP/game  se 0.0  CI [0.0, 0.0]     (F = -1.33 +/- 2.93)
+    ```
+    Cumulative for A4+A5: unreachable share **78% -> 42%**, 225 -> 120
+    unreachable coefficients, 128 -> 237 parameters.
+    Files: `40k/scripts/AIDecisionMaker.gd`, `docs/AI_TUNING.md`,
+    `40k/tests/bench_profiles/a5_null_defaults.json`.
 
 - [ ] **A6 — Decision records for every decision type**
   - **Lock:** AIDM  • **Depends:** A2  • **Cost:** code-only + 2 games
