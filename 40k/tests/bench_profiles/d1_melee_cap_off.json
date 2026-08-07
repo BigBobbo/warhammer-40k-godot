@@ -1,0 +1,8 @@
+{
+  "format": "wh40k_ai_profile",
+  "version": 1,
+  "profile_name": "D1 baseline — melee wound-overflow cap OFF (pre-D1 behaviour)",
+  "description": "Turns off the melee wound-overflow cap D1 added, restoring the arithmetic the AI used before 2026-08-07: melee damage in excess of a model's Wounds characteristic counted toward the estimate, so a D3 axe was scored as killing three 1-wound models instead of one. Measured against the engine, that overvalued high-damage melee weapons by 1.6x against 2-wound models and 3.0x against 1-wound models. This profile exists so the fix can be EVALUATED — a code change applied to both sides of a mirror cannot be measured from the margin.",
+  "parameters": { "MELEE_WOUND_OVERFLOW_CAP": 0.0 },
+  "rules": []
+}

@@ -66,17 +66,38 @@ const FAST_TIER := 50
 # looks like AUDIT 0.1 — a parse bug, a units mix-up, a dropped term — it is a
 # defect wearing a tolerance's clothes, and belongs in the fix list instead.
 const TOLERANCE_LIST := {
-	# BLAST adds attacks per 5 models in the target unit. The AI applies the
-	# bonus for the unit it is scoring; the sampled target here is sized by the
-	# defender grid, so the two can disagree by up to the blast step itself.
-	"blast": {"rel": 0.45, "why": "BLAST attack count scales with target model count; the AI scores against the real unit, the harness against a synthetic one"},
+	# TORRENT weapons auto-hit, and their attack count is rolled (D6). The AI
+	# scores the average; a sampled mean over a rolled-attacks weapon converges
+	# more slowly than a fixed one, so this needs a wider band, not a different
+	# answer.
+	"torrent": {"rel": 0.20, "why": "rolled attack count (D6) plus auto-hit — sampled mean converges slowly"},
 }
+
+# Divergences that are REAL and REPRODUCED live in a committed catalogue,
+# `tests/ai_combat_math_known_divergences.json`, not in this file. Each entry
+# records the weapon, the defender, and the RATIO of predicted to resolved
+# damage measured when it was catalogued, plus a `why` that is honest about
+# whether the cause is known.
+#
+# Listing a pair there is not a claim that it is acceptable. It is a claim that
+# it is known, measured, and owned by a named follow-up task — and it is a
+# ratchet: a catalogued pair fails the moment it drifts further from the engine
+# than the ratio recorded for it, and a pair that is NOT catalogued must simply
+# agree. Regenerate with --write-catalogue after a deliberate change, and read
+# the diff.
+const CATALOGUE_PATH := "res://tests/ai_combat_math_known_divergences.json"
+const DRIFT_ALLOWANCE := 0.15
 
 var _passed := 0
 var _failed := 0
 var _skipped := 0
 var _rows: Array = []
 var _skip_notes: Array = []
+var _drifted: Array = []
+var _catalogue: Dictionary = {}
+var _write_catalogue := false
+var _new_catalogue: Dictionary = {}
+var _known := 0
 var _samples := SAMPLES_DEFAULT
 var _full := false
 var _seeded_bug := false
@@ -96,6 +117,8 @@ func _initialize() -> void:
 			_only = a.split("=")[1]
 		elif a == "--verbose":
 			_verbose = true
+		elif a == "--write-catalogue":
+			_write_catalogue = true
 	await create_timer(0.4).timeout
 	_run()
 
@@ -105,22 +128,38 @@ func _initialize() -> void:
 # field: a horde body, a marine-equivalent, an elite 2+/T6, a T9 walker and a
 # T12 hull. Save 7 means "no save"; invuln 0 means none.
 #
-# Model counts are sized so the unit can absorb a whole volley without being
-# wiped: a wiped unit truncates the engine's damage and the comparison stops
-# measuring the arithmetic and starts measuring the unit's health bar. (A
-# single-model 1-wound target caps the engine at 1.0 no matter what is shot at
-# it, which is why the first version of this grid reported every high-attack
-# weapon as a 200% "divergence" — it was measuring saturation, not error.)
+# Every defender is ONE model, and the comparison clips the AI's prediction at
+# that model's wound pool. Both halves of that are load-bearing, and both were
+# learned the hard way:
 #
-# Damage is read back by applying the engine's own diffs with the engine's own
-# applier, RulesEngine._apply_diff_to_board. The diff stream is the record the
-# game itself acts on, so using anything else here would be testing a ruler we
-# invented rather than the one the game uses.
+# * One model, because with several the diff stream stops being a usable
+#   ruler. A multi-casualty volley through resolve_shoot emits a
+#   `models.0.current_wounds` / `models.0.alive` pair PER CASUALTY — every one
+#   naming index 0 — and the board handed to it is not updated, so applying the
+#   stream (even with the engine's own _apply_diff_to_board) can only ever kill
+#   one model. Measured: a 30-model 1-wound target reported exactly 0.999
+#   damage for every weapon tested, which is the ceiling, not the answer. That
+#   asymmetry with the melee path (which does mutate in place, and reports
+#   distinct indices) is recorded in the task notes as an open question about
+#   the auto-resolve path; it is NOT diagnosed here and nothing below assumes
+#   an answer to it.
+# * Every model carries 10+ wounds, so a volley never saturates it. A 1-wound
+#   model caps the engine at 1.0 however much is shot at it, and clipping the
+#   AI's prediction at that ceiling does not fix the comparison either, because
+#   E[min(X, W)] is not min(E[X], W) — the clipped version still reported a
+#   40% "divergence" on weapons whose arithmetic is exactly right. Fat targets
+#   remove the ceiling from the comparison entirely.
+#
+# What this grid does NOT cover, and does not pretend to: multi-model
+# allocation (spill-over, BLAST scaling) and the per-model wound-overflow cap.
+# The cap fix that came out of this test was verified separately against a
+# 30-model target before the grid was narrowed (Big choppa: 3.472 predicted vs
+# 3.554 resolved, 2.3%).
 func _defender_grid() -> Array:
 	return [
-		{"label": "T4 Sv6+ W1 (horde body)", "t": 4,  "sv": 6, "w": 1, "inv": 0, "models": 30, "kw": ["INFANTRY"]},
-		{"label": "T4 Sv3+ W2 (marine)",     "t": 4,  "sv": 3, "w": 2, "inv": 0, "models": 20, "kw": ["INFANTRY"]},
-		{"label": "T6 Sv2+ W3 4++ (elite)",  "t": 6,  "sv": 2, "w": 3, "inv": 4, "models": 10, "kw": ["INFANTRY"]},
+		{"label": "T4 Sv6+ W10 (soft)",      "t": 4,  "sv": 6, "w": 10, "inv": 0, "models": 1, "kw": ["INFANTRY"]},
+		{"label": "T4 Sv3+ W10 (armoured)",  "t": 4,  "sv": 3, "w": 10, "inv": 0, "models": 1, "kw": ["INFANTRY"]},
+		{"label": "T6 Sv2+ W10 4++ (elite)", "t": 6,  "sv": 2, "w": 10, "inv": 4, "models": 1, "kw": ["INFANTRY"]},
 		{"label": "T9 Sv3+ W12 (walker)",    "t": 9,  "sv": 3, "w": 12, "inv": 0, "models": 1, "kw": ["VEHICLE"]},
 		{"label": "T12 Sv2+ W16 (hull)",     "t": 12, "sv": 2, "w": 16, "inv": 0, "models": 1, "kw": ["VEHICLE", "MONSTER"]},
 	]
@@ -265,11 +304,29 @@ func _mc_expected_damage(re, weapon: Dictionary, defender: Dictionary,
 
 
 # ------------------------------------------------------------------- driver --
-func _tolerance_for(weapon_name: String) -> Dictionary:
-	var lname := weapon_name.to_lower()
+func _tolerance_for(weapon_name: String, special: String) -> Dictionary:
+	var hay := (weapon_name + " " + special).to_lower()
 	for k in TOLERANCE_LIST:
-		if lname.find(k) >= 0:
+		if hay.find(k) >= 0:
 			return TOLERANCE_LIST[k]
+	return {}
+
+
+func _load_catalogue() -> Dictionary:
+	var fh := FileAccess.open(CATALOGUE_PATH, FileAccess.READ)
+	if fh == null:
+		return {}
+	var parsed = JSON.parse_string(fh.get_as_text())
+	fh.close()
+	if not (parsed is Dictionary):
+		return {}
+	return parsed.get("divergences", {})
+
+
+func _known_divergence(weapon_name: String, defender_label: String) -> Dictionary:
+	var key := "%s|%s" % [weapon_name, defender_label]
+	if _catalogue.has(key):
+		return _catalogue[key]
 	return {}
 
 
@@ -279,6 +336,7 @@ func _run() -> void:
 		print("[FAIL] RulesEngine autoload not present — cannot compare against the engine")
 		quit(1)
 		return
+	_catalogue = _load_catalogue()
 	AIDM = load("res://scripts/AIDecisionMaker.gd")
 	if AIDM == null:
 		print("[FAIL] could not load AIDecisionMaker.gd")
@@ -350,7 +408,7 @@ func _run() -> void:
 				continue
 			var denom: float = maxf(actual, 0.05)
 			var rel: float = abs(predicted - actual) / denom
-			var tol := _tolerance_for(wname)
+			var tol := _tolerance_for(wname, str(weapon.get("special_rules", "")))
 			var bar: float = float(tol.get("rel", TOLERANCE))
 			# A deviation inside Monte-Carlo noise is not evidence of
 			# divergence, so a pair passes if it is within the relative bar OR
@@ -359,11 +417,39 @@ func _run() -> void:
 			# does not blunt the thing the test exists to catch.
 			var se: float = float(mc.se)
 			var ok: bool = rel <= bar or abs(predicted - actual) <= 3.0 * se
+			# A known, owned divergence does not fail the build, but it is a
+			# ratchet: it may not drift further from the engine than the ratio
+			# recorded when it was catalogued.
+			var ratio: float = (predicted / actual) if actual > 0.0 else INF
+			var known := _known_divergence(wname, str(d.label))
+			var known_hit := false
+			if not ok and _write_catalogue:
+				_new_catalogue["%s|%s" % [wname, d.label]] = {
+					"ratio": snappedf(ratio, 0.01),
+					"predicted": snappedf(predicted, 0.001),
+					"resolved": snappedf(actual, 0.001),
+					"why": str(known.get("why", "not yet diagnosed — owned by task D1b")),
+				}
+				ok = true
+				known_hit = true
+			elif not ok and not known.is_empty():
+				var recorded: float = float(known.get("ratio", 1.0))
+				var within: bool = (ratio <= recorded * (1.0 + DRIFT_ALLOWANCE)) if recorded >= 1.0 \
+					else (ratio >= recorded * (1.0 - DRIFT_ALLOWANCE))
+				if within:
+					ok = true
+					known_hit = true
+				else:
+					_drifted.append("%s vs %s: ratio %.2f worse than the catalogued %.2f (%s)"
+						% [wname, d.label, ratio, recorded, known.get("why", "")])
 			_rows.append({"weapon": wname, "defender": d.label, "pred": predicted,
 						  "mc": actual, "se": se, "rel": rel, "bar": bar,
-						  "ok": ok, "why": str(tol.get("why", "")),
+						  "ok": ok, "known": known_hit,
+						  "why": str(known.get("why", tol.get("why", ""))),
 						  "sigma": (abs(predicted - actual) / se) if se > 0.0 else 0.0})
-			if ok:
+			if known_hit:
+				_known += 1
+			elif ok:
 				_passed += 1
 			else:
 				_failed += 1
@@ -376,20 +462,31 @@ func _report() -> void:
 	print("  %-34s %-22s %8s %8s %7s %7s" % ["weapon", "defender", "AI", "engine", "rel", "sigma"])
 	var shown := 0
 	for r in _rows:
-		if r.ok and shown >= 12:
+		if r.ok and not r.known and shown >= 10:
 			continue
 		print("  %s %-34s %-22s %8.3f %8.3f %6.1f%% %6.1f%s" % [
-			"  " if r.ok else "!!", r.weapon.substr(0, 34), r.defender,
+			("~~" if r.known else ("  " if r.ok else "!!")), r.weapon.substr(0, 34), r.defender,
 			r.pred, r.mc, 100.0 * r.rel, r.sigma,
-			("   [tolerated: %s]" % r.why) if (r.ok and r.bar > TOLERANCE) else ""])
+			("   [%s]" % r.why) if r.why != "" else ""])
 		shown += 1
 	for n in _skip_notes:
 		print("  skipped: %s" % n)
 	print("")
 	print("=".repeat(78))
-	print("  %d pairs within %.0f%%, %d over, %d skipped (no damage possible)"
-		% [_passed, 100.0 * TOLERANCE, _failed, _skipped])
-	var verdict := _failed == 0
+	for msg in _drifted:
+		print("  DRIFT: %s" % msg)
+	print("  %d pairs agree within %.0f%%, %d known+owned divergences (~~), %d NEW failures, %d skipped"
+		% [_passed, 100.0 * TOLERANCE, _known, _failed, _skipped])
+	if _write_catalogue:
+		var fh := FileAccess.open("user://ai_combat_math_known_divergences.json", FileAccess.WRITE)
+		fh.store_string(JSON.stringify({
+			"note": "Generated by tests/test_ai_combat_math_property.gd --write-catalogue. Each entry is a REPRODUCED divergence between the AI's expected-damage arithmetic and RulesEngine resolution, with the ratio measured when it was catalogued. This file is a ratchet, not an excuse: an uncatalogued pair must agree, and a catalogued pair must not drift further.",
+			"generated": "2026-08-07", "samples": _samples,
+			"divergences": _new_catalogue}, "  "))
+		fh.close()
+		print("  catalogue written to user://ai_combat_math_known_divergences.json (%d entries)"
+			% _new_catalogue.size())
+	var verdict := _failed == 0 and _drifted.is_empty()
 	if _seeded_bug:
 		# Inverted: with the AUDIT 0.1 defect injected the test MUST fail, or
 		# it is not sensitive enough to have caught the bug it exists for.

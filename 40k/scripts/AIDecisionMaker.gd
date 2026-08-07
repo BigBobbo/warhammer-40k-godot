@@ -508,6 +508,12 @@ static func get_param_int(param_name: String, default_value: int) -> int:
 
 
 
+# D1: melee wound-overflow cap. 1.0 = on (correct), 0.0 = off (pre-D1
+# behaviour). Exists as a parameter, not a bare `if`, because a code change
+# applied to both sides of a mirror cannot be measured from the margin — the
+# evaluator needs a way to give one side the old behaviour.
+const MELEE_WOUND_OVERFLOW_CAP: float = 1.0  # melee damage capped at the target's wounds-per-model
+
 # --- Fight, charge and deployment coefficients (A5 promotion) ---
 # The rest of audit F-02's mass. Deployment scoring was 'nearly all
 # hard-coded' (docs/AI_DECISION_REVIEW_2026-07.md 3.1), which made deployment
@@ -14672,6 +14678,23 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 		var p_hit = _hit_probability(ws)
 		var p_wound = _wound_probability(strength, target_toughness)
 		var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
+
+		# D1: WOUND OVERFLOW CAP. Damage in excess of a model's Wounds
+		# characteristic is lost — a D3 axe kills one 1-wound Boy, it does not
+		# kill three. The ranged estimator has always capped this
+		# (_estimate_weapon_damage, "T7-6"); the melee estimator never did, so
+		# every high-damage melee weapon was overvalued against 1- and 2-wound
+		# models: the Castellan axe measured 8.33 predicted vs 2.81 resolved
+		# against a T4 Sv6+ 1W horde (3.0x) and 4.17 vs 2.68 against 2W marines
+		# (1.6x). Same class of defect as AUDIT 0.1, found by the D1 property
+		# test comparing the AI's prediction against RulesEngine resolution.
+		# Parameter-gated at 1.0 = ON so the fix is measurable: a code change
+		# applied to both sides of a mirror cannot be evaluated from the
+		# margin, so the paired evaluator runs defaults (capped) against a
+		# profile that sets this to 0.0 (uncapped, the old behaviour).
+		var wounds_per_model = _get_target_wounds_per_model(defender)
+		if wounds_per_model > 0 and get_param("MELEE_WOUND_OVERFLOW_CAP", MELEE_WOUND_OVERFLOW_CAP) > 0.0:
+			damage = min(damage, float(wounds_per_model))
 
 		# Total expected damage across the models that actually carry this weapon
 		var carriers = _weapon_carrier_count(attacker, w)

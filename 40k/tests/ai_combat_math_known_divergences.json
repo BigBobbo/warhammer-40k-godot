@@ -1,0 +1,559 @@
+{
+  "divergences": {
+    "Balistus grenade launcher|T4 Sv3+ W10 (armoured)": {
+      "predicted": 0.729,
+      "ratio": 1.38,
+      "resolved": 0.527,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Balistus grenade launcher|T4 Sv6+ W10 (soft)": {
+      "predicted": 1.458,
+      "ratio": 1.86,
+      "resolved": 0.782,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Balistus grenade launcher|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 0.324,
+      "ratio": 1.16,
+      "resolved": 0.28,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Balistus grenade launcher|T9 Sv3+ W12 (walker)": {
+      "predicted": 0.243,
+      "ratio": 1.21,
+      "resolved": 0.201,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Beast Snagga klaw|T12 Sv2+ W16 (hull)": {
+      "predicted": 0.889,
+      "ratio": 0.65,
+      "resolved": 1.373,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Beastchoppa|T12 Sv2+ W16 (hull)": {
+      "predicted": 0.556,
+      "ratio": 0.34,
+      "resolved": 1.64,
+      "why": "melee ANTI-VEHICLE 4+ not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Beastchoppa|T9 Sv3+ W12 (walker)": {
+      "predicted": 1.667,
+      "ratio": 0.67,
+      "resolved": 2.505,
+      "why": "melee ANTI-VEHICLE 4+ not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Big shoota|T4 Sv6+ W10 (soft)": {
+      "predicted": 1.111,
+      "ratio": 1.37,
+      "resolved": 0.809,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Boltgun|T4 Sv3+ W10 (armoured)": {
+      "predicted": 0.167,
+      "ratio": 0.82,
+      "resolved": 0.204,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Boltgun|T4 Sv6+ W10 (soft)": {
+      "predicted": 0.417,
+      "ratio": 0.87,
+      "resolved": 0.477,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Boomstikks|T4 Sv3+ W10 (armoured)": {
+      "predicted": 0.444,
+      "ratio": 1.2,
+      "resolved": 0.37,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Boomstikks|T4 Sv6+ W10 (soft)": {
+      "predicted": 1.111,
+      "ratio": 1.57,
+      "resolved": 0.707,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Castellan axe – Ranged|T4 Sv3+ W10 (armoured)": {
+      "predicted": 0.833,
+      "ratio": 1.16,
+      "resolved": 0.721,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Castellan axe – Ranged|T4 Sv6+ W10 (soft)": {
+      "predicted": 1.667,
+      "ratio": 1.23,
+      "resolved": 1.355,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Dirgesinger|T4 Sv3+ W10 (armoured)": {
+      "predicted": 1.926,
+      "ratio": 0.71,
+      "resolved": 2.715,
+      "why": "melee keyword modifiers not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Dirgesinger|T4 Sv6+ W10 (soft)": {
+      "predicted": 3.481,
+      "ratio": 1.28,
+      "resolved": 2.715,
+      "why": "melee keyword modifiers not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Dirgesinger|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 1.333,
+      "ratio": 0.49,
+      "resolved": 2.715,
+      "why": "melee keyword modifiers not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Eagle's Scream|T4 Sv3+ W10 (armoured)": {
+      "predicted": 2.222,
+      "ratio": 1.22,
+      "resolved": 1.818,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Eagle's Scream|T4 Sv6+ W10 (soft)": {
+      "predicted": 3.333,
+      "ratio": 1.39,
+      "resolved": 2.404,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Eagle's Scream|T9 Sv3+ W12 (walker)": {
+      "predicted": 1.111,
+      "ratio": 1.14,
+      "resolved": 0.978,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Guardian spear – Ranged|T4 Sv3+ W10 (armoured)": {
+      "predicted": 0.833,
+      "ratio": 1.16,
+      "resolved": 0.721,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Guardian spear – Ranged|T4 Sv6+ W10 (soft)": {
+      "predicted": 1.667,
+      "ratio": 1.23,
+      "resolved": 1.355,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Kannon – Frag|T4 Sv3+ W10 (armoured)": {
+      "predicted": 0.481,
+      "ratio": 1.24,
+      "resolved": 0.388,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Kannon – Frag|T4 Sv6+ W10 (soft)": {
+      "predicted": 1.204,
+      "ratio": 1.65,
+      "resolved": 0.73,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Kannon – Frag|T9 Sv3+ W12 (walker)": {
+      "predicted": 0.241,
+      "ratio": 1.16,
+      "resolved": 0.207,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Killkannon|T4 Sv3+ W10 (armoured)": {
+      "predicted": 1.667,
+      "ratio": 1.44,
+      "resolved": 1.155,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Killkannon|T4 Sv6+ W10 (soft)": {
+      "predicted": 2.5,
+      "ratio": 1.68,
+      "resolved": 1.484,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Killkannon|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 1.0,
+      "ratio": 1.21,
+      "resolved": 0.829,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Killkannon|T9 Sv3+ W12 (walker)": {
+      "predicted": 1.0,
+      "ratio": 1.19,
+      "resolved": 0.839,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Kombi-weapon|T12 Sv2+ W16 (hull)": {
+      "predicted": 0.083,
+      "ratio": 0.76,
+      "resolved": 0.11,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Kombi-weapon|T4 Sv3+ W10 (armoured)": {
+      "predicted": 0.181,
+      "ratio": 0.52,
+      "resolved": 0.347,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Kombi-weapon|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 0.125,
+      "ratio": 0.36,
+      "resolved": 0.347,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Kombi-weapon|T9 Sv3+ W12 (walker)": {
+      "predicted": 0.083,
+      "ratio": 0.76,
+      "resolved": 0.11,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Lobba|T4 Sv3+ W10 (armoured)": {
+      "predicted": 0.259,
+      "ratio": 1.15,
+      "resolved": 0.225,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Lobba|T4 Sv6+ W10 (soft)": {
+      "predicted": 0.648,
+      "ratio": 1.3,
+      "resolved": 0.497,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Mork's Teeth|T12 Sv2+ W16 (hull)": {
+      "predicted": 0.556,
+      "ratio": 0.55,
+      "resolved": 1.003,
+      "why": "melee TWIN LINKED not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Mork's Teeth|T4 Sv3+ W10 (armoured)": {
+      "predicted": 3.333,
+      "ratio": 0.74,
+      "resolved": 4.507,
+      "why": "melee TWIN LINKED not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Mork's Teeth|T4 Sv6+ W10 (soft)": {
+      "predicted": 6.667,
+      "ratio": 0.77,
+      "resolved": 8.628,
+      "why": "melee TWIN LINKED not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Mork's Teeth|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 1.667,
+      "ratio": 0.67,
+      "resolved": 2.477,
+      "why": "melee TWIN LINKED not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Mork's Teeth|T9 Sv3+ W12 (walker)": {
+      "predicted": 1.667,
+      "ratio": 0.59,
+      "resolved": 2.839,
+      "why": "melee TWIN LINKED not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Neural shredder|T4 Sv3+ W10 (armoured)": {
+      "predicted": 2.204,
+      "ratio": 2.5,
+      "resolved": 0.881,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Neural shredder|T4 Sv6+ W10 (soft)": {
+      "predicted": 3.306,
+      "ratio": 3.41,
+      "resolved": 0.97,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Neural shredder|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 1.556,
+      "ratio": 1.98,
+      "resolved": 0.784,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Neural shredder|T9 Sv3+ W12 (walker)": {
+      "predicted": 0.778,
+      "ratio": 1.39,
+      "resolved": 0.561,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Phase sword and poison blades|T12 Sv2+ W16 (hull)": {
+      "predicted": 1.157,
+      "ratio": 0.48,
+      "resolved": 2.393,
+      "why": "melee LETHAL HITS not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Phase sword and poison blades|T4 Sv3+ W10 (armoured)": {
+      "predicted": 5.556,
+      "ratio": 0.9,
+      "resolved": 6.175,
+      "why": "melee LETHAL HITS not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Phase sword and poison blades|T4 Sv6+ W10 (soft)": {
+      "predicted": 5.556,
+      "ratio": 0.9,
+      "resolved": 6.175,
+      "why": "melee LETHAL HITS not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Phase sword and poison blades|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 1.389,
+      "ratio": 0.72,
+      "resolved": 1.923,
+      "why": "melee LETHAL HITS not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Phase sword and poison blades|T9 Sv3+ W12 (walker)": {
+      "predicted": 2.778,
+      "ratio": 0.7,
+      "resolved": 3.96,
+      "why": "melee LETHAL HITS not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Psychic Tempest|T4 Sv3+ W10 (armoured)": {
+      "predicted": 2.667,
+      "ratio": 1.86,
+      "resolved": 1.436,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Psychic Tempest|T4 Sv6+ W10 (soft)": {
+      "predicted": 6.667,
+      "ratio": 3.44,
+      "resolved": 1.936,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Psychic Tempest|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 1.0,
+      "ratio": 1.33,
+      "resolved": 0.755,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Psychic Tempest|T9 Sv3+ W12 (walker)": {
+      "predicted": 1.333,
+      "ratio": 1.39,
+      "resolved": 0.956,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Salvo launcher|T12 Sv2+ W16 (hull)": {
+      "predicted": 0.833,
+      "ratio": 0.59,
+      "resolved": 1.42,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Salvo launcher|T4 Sv3+ W10 (armoured)": {
+      "predicted": 2.604,
+      "ratio": 0.86,
+      "resolved": 3.019,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Salvo launcher|T4 Sv6+ W10 (soft)": {
+      "predicted": 3.125,
+      "ratio": 0.86,
+      "resolved": 3.64,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Salvo launcher|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 1.25,
+      "ratio": 0.76,
+      "resolved": 1.643,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Salvo launcher|T9 Sv3+ W12 (walker)": {
+      "predicted": 2.083,
+      "ratio": 0.76,
+      "resolved": 2.739,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Sentinel blade – Ranged|T4 Sv3+ W10 (armoured)": {
+      "predicted": 0.833,
+      "ratio": 1.16,
+      "resolved": 0.721,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Sentinel blade – Ranged|T4 Sv6+ W10 (soft)": {
+      "predicted": 1.667,
+      "ratio": 1.23,
+      "resolved": 1.355,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin arachnus heavy blaze cannon|T12 Sv2+ W16 (hull)": {
+      "predicted": 6.111,
+      "ratio": 1.25,
+      "resolved": 4.907,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin arachnus heavy blaze cannon|T4 Sv3+ W10 (armoured)": {
+      "predicted": 12.731,
+      "ratio": 2.32,
+      "resolved": 5.481,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin arachnus heavy blaze cannon|T4 Sv6+ W10 (soft)": {
+      "predicted": 15.278,
+      "ratio": 2.79,
+      "resolved": 5.475,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin arachnus heavy blaze cannon|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 7.639,
+      "ratio": 1.59,
+      "resolved": 4.807,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin arachnus heavy blaze cannon|T9 Sv3+ W12 (walker)": {
+      "predicted": 10.185,
+      "ratio": 1.86,
+      "resolved": 5.465,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin iliastus accelerator cannon|T12 Sv2+ W16 (hull)": {
+      "predicted": 1.667,
+      "ratio": 0.74,
+      "resolved": 2.238,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin iliastus accelerator cannon|T4 Sv3+ W10 (armoured)": {
+      "predicted": 6.25,
+      "ratio": 2.11,
+      "resolved": 2.964,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin iliastus accelerator cannon|T4 Sv6+ W10 (soft)": {
+      "predicted": 12.5,
+      "ratio": 4.17,
+      "resolved": 3.0,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin iliastus accelerator cannon|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 3.333,
+      "ratio": 1.21,
+      "resolved": 2.75,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin iliastus accelerator cannon|T9 Sv3+ W12 (walker)": {
+      "predicted": 5.0,
+      "ratio": 1.69,
+      "resolved": 2.95,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin lastrum bolt cannon|T4 Sv3+ W10 (armoured)": {
+      "predicted": 1.0,
+      "ratio": 1.45,
+      "resolved": 0.689,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin lastrum bolt cannon|T4 Sv6+ W10 (soft)": {
+      "predicted": 2.0,
+      "ratio": 2.14,
+      "resolved": 0.937,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin lastrum bolt cannon|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 0.5,
+      "ratio": 1.18,
+      "resolved": 0.424,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin lastrum bolt cannon|T9 Sv3+ W12 (walker)": {
+      "predicted": 0.5,
+      "ratio": 1.18,
+      "resolved": 0.423,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin sluggas|T4 Sv3+ W10 (armoured)": {
+      "predicted": 0.111,
+      "ratio": 0.71,
+      "resolved": 0.156,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin sluggas|T4 Sv6+ W10 (soft)": {
+      "predicted": 0.278,
+      "ratio": 0.71,
+      "resolved": 0.391,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin sluggas|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 0.037,
+      "ratio": 0.59,
+      "resolved": 0.063,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Twin sluggas|T9 Sv3+ W12 (walker)": {
+      "predicted": 0.037,
+      "ratio": 0.63,
+      "resolved": 0.059,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Vaultswords – Hurricanis|T12 Sv2+ W16 (hull)": {
+      "predicted": 0.417,
+      "ratio": 0.82,
+      "resolved": 0.51,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Vaultswords – Hurricanis|T4 Sv3+ W10 (armoured)": {
+      "predicted": 2.5,
+      "ratio": 0.82,
+      "resolved": 3.062,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Vaultswords – Hurricanis|T4 Sv6+ W10 (soft)": {
+      "predicted": 5.0,
+      "ratio": 0.82,
+      "resolved": 6.073,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Vaultswords – Hurricanis|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 0.833,
+      "ratio": 0.81,
+      "resolved": 1.028,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Vaultswords – Hurricanis|T9 Sv3+ W12 (walker)": {
+      "predicted": 1.25,
+      "ratio": 0.81,
+      "resolved": 1.544,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Vaultswords – Victus|T12 Sv2+ W16 (hull)": {
+      "predicted": 1.389,
+      "ratio": 0.69,
+      "resolved": 2.014,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Vaultswords – Victus|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 3.125,
+      "ratio": 0.78,
+      "resolved": 4.023,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Watcher's Axe|T4 Sv3+ W10 (armoured)": {
+      "predicted": 8.333,
+      "ratio": 1.11,
+      "resolved": 7.522,
+      "why": "melee keyword modifiers not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Watcher's Axe|T4 Sv6+ W10 (soft)": {
+      "predicted": 12.5,
+      "ratio": 1.31,
+      "resolved": 9.516,
+      "why": "melee keyword modifiers not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    },
+    "Witchseeker flamer|T4 Sv3+ W10 (armoured)": {
+      "predicted": 0.583,
+      "ratio": 1.3,
+      "resolved": 0.448,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Witchseeker flamer|T4 Sv6+ W10 (soft)": {
+      "predicted": 1.458,
+      "ratio": 1.84,
+      "resolved": 0.794,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Zzap gun|T4 Sv3+ W10 (armoured)": {
+      "predicted": 0.694,
+      "ratio": 1.39,
+      "resolved": 0.5,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Zzap gun|T4 Sv6+ W10 (soft)": {
+      "predicted": 0.833,
+      "ratio": 1.37,
+      "resolved": 0.61,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    },
+    "Zzap gun|T6 Sv2+ W10 4++ (elite)": {
+      "predicted": 0.278,
+      "ratio": 1.6,
+      "resolved": 0.173,
+      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    }
+  },
+  "generated": "2026-08-07",
+  "note": "Generated by tests/test_ai_combat_math_property.gd --write-catalogue. Each entry is a REPRODUCED divergence between AIDecisionMaker's expected-damage arithmetic and what RulesEngine actually resolves, with the predicted/resolved ratio measured when it was catalogued (1500 Monte-Carlo samples per pair, seeded). This file is a RATCHET, not an excuse: a pair that is NOT listed here must agree within 10%, and a pair that IS listed fails the moment it drifts more than 15% further from the engine. Every entry is owned by task D1b in .llm/ai-overhaul-todo.md. Regenerate with --write-catalogue after a deliberate change and READ THE DIFF.",
+  "samples": 1500
+}

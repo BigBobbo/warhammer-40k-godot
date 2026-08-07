@@ -1,0 +1,8 @@
+{
+  "format": "wh40k_ai_profile",
+  "version": 1,
+  "profile_name": "D1 candidate — melee wound-overflow cap ON (the shipped default)",
+  "description": "The shipped default, stated explicitly so the paired evaluator has a candidate file to point at. Melee damage in excess of a model's Wounds characteristic is discarded, matching what RulesEngine actually resolves and what the ranged estimator has always done. Measured by tests/test_ai_combat_math_property.gd: with the cap the Big choppa predicts 3.472 against a 3.554 sampled mean (2.3%); without it, 8.333 against 2.805 (3.0x).",
+  "parameters": { "MELEE_WOUND_OVERFLOW_CAP": 1.0 },
+  "rules": []
+}

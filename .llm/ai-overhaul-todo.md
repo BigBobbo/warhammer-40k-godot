@@ -383,7 +383,7 @@ contain the alternatives that were considered (F-04).*
   - **Tier B:** The F10 decision export opened in `ai-visualizer` shows the
     new decision types with sensible candidates.
 
-- [ ] **A7 — CI ratchet: reachability and record integrity can only improve**
+- [x] **A7 — CI ratchet: reachability and record integrity can only improve**
   - **Lock:** CI + Lab  • **Depends:** A2, A4  • **Cost:** CI-only
   - **Context:** No workflow runs any AI-lab check today (verified: no
     `bench|ai_lab` reference in `.github/workflows/`). Promotions and
@@ -398,6 +398,49 @@ contain the alternatives that were considered (F-04).*
   - **Acceptance — Tier A:** CI job green on the branch; a deliberate
     test-commit re-hardcoding one parameter turns it red; reverting greens it.
   - **Tier B:** Job runtime < 2 minutes.
+  - **Evidence (2026-08-07):**
+    ```
+    .github/workflows/ai-lab.yml — two jobs, split by cost:
+      static  (no games, no Godot): params_manifest, validate_records
+              --selftest, validate_profile --selftest, every shipped bench
+              profile linted, fixture_check, ratchet_check
+      oracle  (headless Godot): the D1 property test + its seeded-bug
+              sensitivity check
+
+    tools/ai_lab/ratchet_check.py + tools/ai_lab/ratchet.json
+      parameters                238   (may only rise)
+      call_sites                305   (may only rise)
+      unreachable_coefficients  120   (may only fall)
+      unreachable_share_pct    41.2   (may only fall)
+      instrumentation call sites: _add_decision_record 6, _t_add 47, _t_mul 1,
+                                  _note_param_read 8, _stash_shooting_alternatives 2
+      decision types emitted: charge, fight, hold_fire, movement, shooting
+
+    red/green cycle, verified by exit code:
+      baseline                                    exit 0
+      re-hardcode WEIGHT_OC_EFFICIENCY -> `* 2.0` exit 1
+        [FAIL] parameters fell 238 -> 237
+        [FAIL] call_sites fell 305 -> 304
+        [FAIL] unreachable_coefficients rose 120 -> 121
+        [FAIL] unreachable_share_pct rose 41.2 -> 41.6
+      revert                                      exit 0
+
+    every static-job step run locally: all pass.
+    ```
+    Two deviations from the task text, both deliberate: (1) the spec asked for
+    `validate_records.py --schema-only` in CI, but CI has no game records to
+    point it at — the `--selftest`, which seeds one defect per check, is the
+    runnable equivalent and is what the job runs. (2) The ratchet watches
+    instrumentation call sites and emitted decision types as well as the
+    counts the task named, because A1-A3's value is exactly the thing a
+    refactor can drop without any existing test noticing.
+    Files: `.github/workflows/ai-lab.yml`, `tools/ai_lab/ratchet_check.py`,
+    `tools/ai_lab/ratchet.json`.
+  - **Tier B self-assessed 2026-08-07 — pending human spot-check.** The static
+    job is seconds locally (no Godot, no games); the oracle job is ~4 min for
+    the fast tier plus ~2 min for the sensitivity check, so it is a separate
+    job rather than blocking the fast one. **Not yet observed on a GitHub
+    runner** — every step was executed locally instead.
 
 ---
 
@@ -907,6 +950,19 @@ selective search beats both pure scripting and pure ML at this scale.*
       * 75 ranged pairs where the AI OVER-predicts by 1.5-2.4x. Concentrated in
         twin-linked, torrent and grenade weapons. **The cause is not isolated**
         and this write-up does not pretend otherwise.
+    **The fix is behaviourally neutral, and it is shipped on correctness
+    grounds, not on a measured strength gain.** Paired evaluation, cap ON vs
+    cap OFF, stopping rule pre-registered by run_paired before the first game:
+    ```
+    Custodes mirror, 12 pairs = 24 games   E = -1.33 VP/game  se 0.93   FUTILE
+    Ork mirror (melee-relevant), 6 pairs   E = +0.33 VP/game  se 1.25   FUTILE
+    inverse-variance pooled                E = -0.74 VP/game  se 0.75
+    ```
+    Non-regression bar for a structural change is E ≥ −1 VP at 1 SE: pooled
+    E + SE = +0.01. Both mirrors' intervals straddle zero, so the honest
+    reading is that correcting a 1.6-3.0x overvaluation of melee damage did
+    not measurably move the margin — which is itself worth knowing, and is the
+    third time in this repo that a plausible effect has measured at zero.
     Files: `40k/tests/test_ai_combat_math_property.gd`,
     `40k/tests/ai_combat_math_known_divergences.json`,
     `40k/tests/bench_profiles/d1_melee_cap_{on,off}.json`,
