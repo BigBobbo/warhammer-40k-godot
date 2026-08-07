@@ -214,20 +214,50 @@ func _watch_loop() -> void:
 			_finish_stalled("no progress for %.0fs at %s" % [STALL_SECONDS, sig])
 			return
 
+## Resolve a profile path and load it. A profile that was ASKED FOR and
+## could not be loaded is a fatal error, not a warning: the game would
+## otherwise play with default behaviour and report a perfectly normal
+## result, so an A/B comparing two unloadable profiles measures nothing and
+## looks exactly like a candidate that had no effect. That happened — a
+## whole paired campaign returned E = 0.00 because both arms silently fell
+## back to defaults.
+func _resolve_profile_path(path: String) -> String:
+	var candidates := [path]
+	if not path.begins_with("res://") and not path.begins_with("user://") \
+			and not path.begins_with("/"):
+		# Relative paths are ambiguous: Godot resolves them against res://,
+		# but a driver launching from the repo root means them relative to
+		# THAT. Try both rather than failing on a path that plainly exists.
+		candidates.append("res://" + path)
+		var repo_root = ProjectSettings.globalize_path("res://").path_join("..")
+		candidates.append(repo_root.path_join(path))
+		candidates.append(repo_root.path_join(path.trim_prefix("40k/")))
+	for c in candidates:
+		if FileAccess.file_exists(c):
+			return c
+	return ""
+
 func _load_profile(player: int, path: String) -> void:
 	if path == "":
 		return
-	var f = FileAccess.open(path, FileAccess.READ)
+	var resolved = _resolve_profile_path(path)
+	if resolved == "":
+		_finish_with_error("profile for P%d could not be resolved: %s" % [player, path])
+		return
+	var f = FileAccess.open(resolved, FileAccess.READ)
 	if f == null:
-		print("[AIBench] WARNING: profile not found: %s" % path)
+		_finish_with_error("profile for P%d could not be opened: %s" % [player, resolved])
 		return
 	var parsed = JSON.parse_string(f.get_as_text())
 	f.close()
-	if parsed is Dictionary:
+	if not (parsed is Dictionary):
+		_finish_with_error("profile for P%d is not a JSON object: %s" % [player, resolved])
+		return
+	if true:
 		AIDecisionMaker.load_player_profile(player, parsed)
 		_profile_inline[player] = parsed
 		print("[AIBench] Loaded profile for P%d from %s (%d parameters)" % [
-			player, path, parsed.get("parameters", {}).size()])
+			player, resolved, parsed.get("parameters", {}).size()])
 
 func _collect_result(status: String, note: String) -> Dictionary:
 	var mm = get_node_or_null("/root/MissionManager")

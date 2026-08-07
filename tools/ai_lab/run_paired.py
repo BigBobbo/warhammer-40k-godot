@@ -100,6 +100,18 @@ def margins_by_seed(season: str, arm: str, candidate: str = None) -> dict:
         prov, o = rec.get("provenance") or {}, rec.get("outcome") or {}
         if prov.get("arm") != arm or o.get("status") != "completed":
             continue
+        # A game whose requested profile never loaded played as the DEFAULT and
+        # is not evidence about the candidate. Provenance records the profile
+        # inline, so an empty inline against a non-empty path is exactly that
+        # failure. Skipping such games turns a silent wrong answer into a
+        # visibly missing one.
+        bad = False
+        for key in ("p1_profile", "p2_profile"):
+            entry = prov.get(key) or {}
+            if entry.get("path") and not entry.get("inline"):
+                bad = True
+        if bad:
+            continue
         if candidate is not None:
             p1 = (prov.get("p1_profile") or {}).get("path", "")
             p2 = (prov.get("p2_profile") or {}).get("path", "")
@@ -233,6 +245,11 @@ def main(argv=None) -> int:
 
     season = os.path.abspath(args.season)
     os.makedirs(season, exist_ok=True)
+    # Absolute, always: a relative profile path is resolved against res:// by
+    # the engine and against the repo root by the caller, and guessing wrong
+    # used to mean the profile silently did not load.
+    args.candidate = os.path.abspath(args.candidate) if args.candidate else ""
+    args.baseline = os.path.abspath(args.baseline) if args.baseline else ""
     sha = run_lanes.git_sha()
     stamp = time.strftime("%Y%m%d_%H%M%S")
 
