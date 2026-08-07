@@ -1,0 +1,65 @@
+{
+  "id": "hi_abort_move_releases_phase",
+  "covers": [
+    "phases.ChargePhase.ABORT_HEROIC_INTERVENTION_MOVE",
+    "phases.ChargePhase.11e_heroic_intervention_end_of_phase",
+    "autoloads.AIPlayer.max_actions_fallback_validates"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "A pending Heroic Intervention must always have a legal way out, or the charge phase deadlocks. Three of forty benchmark games froze at round 5 exactly here: the AI's HI move could not reach engagement range, _compute_charge_move submitted a 'best effort' it knew fell short, the validator rejected it, the AI's SKIP_CHARGE recovery ALSO failed ('unit has already acted this phase'), and the HI-move sub-state offers no other action — so nothing could ever make progress and the 200-action escape routed a bare descriptor that can never validate. 11e 15.11 treats an intervention whose move cannot be made as simply failing, which is what this scenario drives: set the HI up through the real player path (End Charge Phase -> HI dialog -> Into the Fray), then instead of moving, ABORT. The intervention must resolve as failed, the HI state must clear, the unit must NOT be marked charged, and the phase must complete to Fight rather than hanging. Live counterpart: seeds 7012 and 7017 on mirror_orks_postdeploy deadlocked before this fix and now run to round 5.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+
+    { "act": "execute_script", "script": "CharacterAttachmentManager.detach_character(\"U_WARBOSS_C\")",
+      "comment": "same setup as iss15_heroic_intervention_fray_11e: a lone CHARACTER counter-charging, so the teleport below does not drag an attached squad out of coherency" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_WARBOSS_C\")[\"models\"][0].merge({\"position\": {\"x\": 933.24, \"y\": 1343.63}}, true)" },
+    { "act": "execute_script", "script": "main._sync_all_token_positions()" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "screenshot", "label": "01_charge_phase_before_hi" },
+
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_node_visible", "node": "/root/HeroicInterventionDialog", "timeout_s": 3.0 },
+    { "act": "click_node",
+      "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WARBOSS_C/Fray_U_WARBOSS_C",
+      "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "screenshot", "label": "02_hi_move_pending" },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().heroic_intervention_unit_id",
+      "equals": "U_WARBOSS_C",
+      "comment": "the sub-state that used to be a dead end" },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var acts = PhaseManager.get_available_actions()\nvar types = []\nfor a in acts:\n\ttypes.append(a.get(\"type\", \"\"))\nreturn \"ABORT_HEROIC_INTERVENTION_MOVE\" in types",
+      "equals": true,
+      "comment": "before the fix this sub-state offered ONLY APPLY_HEROIC_INTERVENTION_MOVE, so a move that could not reach engagement range had no legal resolution at all" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "ABORT_HEROIC_INTERVENTION_MOVE",
+      "actor_unit_id": "U_WARBOSS_C",
+      "payload": { "reason": "could not reach engagement range" }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().heroic_intervention_unit_id",
+      "equals": "",
+      "comment": "HI state cleared, so the phase is no longer blocked" },
+    { "act": "expect_state", "path": "units.U_WARBOSS_C.flags.charged_this_turn", "not_equals": true },
+    { "act": "expect_state", "path": "units.U_WARBOSS_C.flags.heroic_intervention", "not_equals": true },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10,
+      "comment": "the deferred end-of-phase completion fires — the phase RELEASES instead of hanging" },
+    { "act": "screenshot", "label": "03_hi_aborted_phase_released" }
+  ]
+}

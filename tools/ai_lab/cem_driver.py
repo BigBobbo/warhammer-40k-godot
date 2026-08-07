@@ -168,10 +168,15 @@ def main(argv=None) -> int:
             pop.append({"k": k, "params": params, "profile": path})
 
         # --- race: everyone gets a cheap look --------------------------------
+        # Every candidate in a generation is raced on the SAME seeds. Because the
+        # AI's RNG is seeded, that makes the comparison BETWEEN candidates paired
+        # too, not just each candidate against the baseline — the ranking stops
+        # being polluted by which seeds a candidate happened to draw. Seeds change
+        # between generations so the search cannot overfit one seed set.
+        race_seed_base = seed_base
         for c in pop:
             res = evaluate(c["profile"], args.fixture, season, args.race_pairs,
-                           seed_base, args.lanes, args.max_seconds, args.difficulty)
-            seed_base += args.race_pairs + 10
+                           race_seed_base, args.lanes, args.max_seconds, args.difficulty)
             c["race"] = res
             c["E"] = res.get("E", {}).get("mean")
             c["verdict"] = res.get("verdict")
@@ -185,10 +190,14 @@ def main(argv=None) -> int:
         survivors = rated[: max(args.elite, len(rated) // 2)]
 
         # --- survivors get a harder look -------------------------------------
+        # Fresh seeds, shared across survivors: re-using the race seeds would
+        # reward whichever candidate got lucky on them (the winner's curse), and
+        # a second look on the same games is not a second look at all.
+        seed_base = race_seed_base + args.race_pairs + 20
+        final_seed_base = seed_base
         for c in survivors:
             res = evaluate(c["profile"], args.fixture, season, args.final_pairs,
-                           seed_base, args.lanes, args.max_seconds, args.difficulty)
-            seed_base += args.final_pairs + 10
+                           final_seed_base, args.lanes, args.max_seconds, args.difficulty)
             c["final"] = res
             fe = res.get("E", {}).get("mean")
             if fe is not None:
@@ -215,6 +224,7 @@ def main(argv=None) -> int:
             elif vals:
                 mu[n] = vals[0]
 
+        seed_base = final_seed_base + args.final_pairs + 20
         history.append({"generation": gen,
                         "mu": {n: round(mu[n], 4) for n in names},
                         "sigma": {n: round(sigma[n], 4) for n in names},
