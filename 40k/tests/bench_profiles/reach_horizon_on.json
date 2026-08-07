@@ -1,0 +1,8 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Scoring horizon ON (measured at -4.29 VP — rejected)",
+	"description": "Enables the scoring-horizon model: an objective's value scales with the scoring opportunities remaining after arrival and collapses past the horizon. Measured against the shipped default over 12 paired side-swapped seeds on mirror_custodes_postdeploy at E = -4.29 VP/game, 95% CI [-7.43, -1.15] — clearly worse, so it ships disabled. Kept so the result can be reproduced and so variants (a gentler MOVE_UNREACHABLE_FLOOR) can be tested against the same baseline.",
+	"parameters": { "MOVE_REACH_HORIZON": 1.0 },
+	"rules": []
+}

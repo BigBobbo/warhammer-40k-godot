@@ -337,8 +337,10 @@ def main(argv=None) -> int:
             print("  NOTE: every paired seed played out IDENTICALLY, so this candidate")
             print("        is behaviourally a no-op. Lint it with validate_profile.py —")
             print("        the usual cause is multiply/add on an undeclared parameter.")
+        # One pair contributes ONE game per arm: M1 + M2, plus AA when enabled.
+        # The old formula multiplied by an extra 2 and reported double.
         print("VERDICT: %s   after %d pair(s) = %d games"
-              % (verdict.upper(), len(effects), len(effects) * (3 if args.aa_arm else 2) * 2))
+              % (verdict.upper(), len(effects), len(effects) * (3 if args.aa_arm else 2)))
         e = summary["effect_E"]
         print("  E (candidate - baseline) = %+.2f VP/game   se %s   95%% CI %s"
               % (e.get("mean", float("nan")), e.get("se"), e.get("ci95")))

@@ -482,12 +482,23 @@ const FIGHT_OVERKILL_PENALTY: float = 1.0         # >3x the wounds remaining
 # Across 19 games, 49.6% of movement decisions picked a destination both
 # farther away AND lower-scoring than an available alternative.
 #
-# No value of MOVE_TURNS_AWAY_PENALTY fixes that, because the penalty is
-# linear and the correct semantics is a horizon: value scales with how many
-# scoring opportunities remain after arrival, and hits zero past the horizon.
-# MOVE_REACH_HORIZON is a 0/1 switch so the old behaviour stays measurable as
-# an A/B baseline.
-const MOVE_REACH_HORIZON: float = 1.0        # 0 disables, restoring the old model
+# MEASURED AND REJECTED — DEFAULT OFF. The reasoning above describes a real
+# defect, but the obvious remedy was tested and it makes the AI WORSE:
+#
+#   paired, side-swapped, 12 pairs / 48 games on mirror_custodes_postdeploy
+#   E = -4.29 VP/game, se 1.60, 95% CI [-7.43, -1.15]
+#   (bench_baselines/2026-08-07_reach_horizon_rejected.md)
+#
+# The whole interval is below zero, so this is not noise. A plausible reading:
+# marching at a far objective is not purely wasted. The unit contests, screens
+# and threatens on the way, and passes near other objectives; suppressing that
+# pulls the army into a huddle and concedes the board. Deciding not to walk
+# somewhere is not the same as deciding to do something better instead.
+#
+# Kept, switched off, because the knob is searchable and because someone will
+# otherwise re-derive this idea from the same evidence. Set to 1.0 to re-enable;
+# a gentler MOVE_UNREACHABLE_FLOOR is the obvious variant to try.
+const MOVE_REACH_HORIZON: float = 0.0        # 1 enables; measured at -4.29 VP
 const MOVE_UNREACHABLE_FLOOR: float = 0.05   # residual value past the horizon
 const MAX_BATTLE_ROUNDS_AI: int = 5          # mirrors GameState.MAX_BATTLE_ROUNDS
 
