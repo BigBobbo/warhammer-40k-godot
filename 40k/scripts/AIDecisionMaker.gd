@@ -109,6 +109,21 @@ static func _can_shooter_see_target(shooter_unit_id: String, target_unit_id: Str
 static var _focus_fire_plan: Dictionary = {}
 static var _focus_fire_plan_built: bool = false
 
+# A1 (audit F-04): the alternatives each weapon was actually weighed against.
+# The plan builder scores every weapon x target pair and then throws the losers
+# away, so the emitted record used to restate the plan ("shoot at X") with
+# chosen_index hardcoded to 0 — which makes shooting regret/credit analysis
+# impossible, because the data never contained a rejected option.
+# Captured at the moment of assignment (no extra decision-affecting work) as
+#   {unit_id: {weapon_id: {"candidates": [...], "chosen_index": int,
+#                          "source": "focus_fire"|"fallback"}}}
+# and consumed once by _decide_shooting when that unit shoots.
+static var _shooting_alternatives: Dictionary = {}
+# How many scored alternatives to keep per weapon. The audit asks for K >= 4
+# where available; keep a few more so a human reading a record can see the
+# shape of the field, not just the podium.
+const SHOOTING_ALTERNATIVES_K: int = 6
+
 # Grenade stratagem evaluation — checked once per shooting phase
 static var _grenade_evaluated: bool = false
 
@@ -2404,7 +2419,7 @@ static func _decide_random_shooting(snapshot: Dictionary, available_actions: Arr
 			for tid in enemy_ids:
 				var single_target = {}
 				single_target[tid] = enemies[tid]
-				var assignments = _build_unit_assignments_fallback(shooter, ranged_weapons, single_target, snapshot)
+				var assignments = _build_unit_assignments_fallback(shooter, ranged_weapons, single_target, snapshot, shooter_id)
 				if not assignments.is_empty():
 					var tname = _dn(enemies[tid], tid)
 					return {
@@ -11864,13 +11879,13 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			assignments = valid_assignments
 			# If all plan targets were destroyed, fall back to greedy scoring
 			if assignments.is_empty() and not fallback_enemies.is_empty():
-				assignments = _build_unit_assignments_fallback(unit, ranged_weapons, fallback_enemies, snapshot)
+				assignments = _build_unit_assignments_fallback(unit, ranged_weapons, fallback_enemies, snapshot, selected_unit_id)
 				print("AIDecisionMaker: Plan targets destroyed, using fallback for %s (%d assignments)" % [unit_name, assignments.size()])
 			else:
 				print("AIDecisionMaker: Using focus fire plan for %s (%d assignments)" % [unit_name, assignments.size()])
 		else:
 			# Fallback: per-weapon greedy scoring (same as old behavior)
-			assignments = _build_unit_assignments_fallback(unit, ranged_weapons, fallback_enemies, snapshot)
+			assignments = _build_unit_assignments_fallback(unit, ranged_weapons, fallback_enemies, snapshot, selected_unit_id)
 			print("AIDecisionMaker: Using fallback scoring for %s (%d assignments)" % [unit_name, assignments.size()])
 
 		if assignments.is_empty():
@@ -11924,6 +11939,35 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 				if hp_t > 0.0:
 					shoot_worth += minf(float(target_damage[tid]) / hp_t, 1.0)
 			shoot_worth *= 10.0  # a full kill is worth 10, comparable to SCREEN_SCORE_BASE
+			# A1 (audit F-04): the hold-fire branch returned before any record was
+			# emitted, so the most interesting shooting decision class — the one
+			# where the AI declines a shot on purpose — was absent from the data
+			# entirely. Record it as the two-way choice it actually is, whichever
+			# way it falls, so the Hidden-value term is measurable offline.
+			var hold_round = int(snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1)))
+			_add_decision_record("hold_fire", selected_unit_id, unit_name, [
+				{
+					"description": "Hold fire — stay Hidden",
+					"score": hidden_cost,
+					"score_breakdown": {
+						"hidden_forfeit_cost": hidden_cost,
+						"shoot_worth": shoot_worth,
+						"net": hidden_cost - shoot_worth,
+					},
+				},
+				{
+					"description": "Shoot (%s)" % target_summary,
+					"score": shoot_worth,
+					"score_breakdown": {
+						"shoot_worth": shoot_worth,
+						"hidden_forfeit_cost": hidden_cost,
+						"net": shoot_worth - hidden_cost,
+					},
+				},
+			], (0 if shoot_worth < hidden_cost else 1),
+				{"HIDDEN_FORFEIT_COST": hidden_cost},
+				{"phase": "shooting", "round": hold_round,
+					"targets_considered": target_damage.size()})
 			if shoot_worth < hidden_cost:
 				print("AIDecisionMaker: [F002-HIDDEN] %s holds fire — shot worth %.1f < %.1f cost of surrendering Hidden (%s)" % [
 					unit_name, shoot_worth, hidden_cost, target_summary])
@@ -11936,28 +11980,15 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 						unit_name, shoot_worth, hidden_cost]
 				}
 
-		# Record structured decision for AI Gameplay Visualizer
-		var shoot_candidates = []
-		var shoot_chosen_idx = 0
-		var shoot_idx = 0
-		for tid in target_damage:
-			var tname = target_name_map.get(tid, tid)
-			var dmg = target_damage[tid]
-			var hp = target_hp[tid]
-			var kill_pct = (dmg / hp * 100.0) if hp > 0 else 0.0
-			shoot_candidates.append({
-				"description": "Shoot at %s" % tname,
-				"score": dmg,
-				"score_breakdown": {"expected_damage": dmg, "target_hp": hp, "kill_chance": min(kill_pct, 100.0)}
-			})
-			shoot_idx += 1
-		if shoot_candidates.size() > 0:
-			var shoot_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
-			_add_decision_record("shooting", selected_unit_id, unit_name,
-				shoot_candidates, 0,
-				{"OVERKILL_TOLERANCE": get_param("OVERKILL_TOLERANCE", OVERKILL_TOLERANCE),
-					"KILL_BONUS_MULTIPLIER": get_param("KILL_BONUS_MULTIPLIER", KILL_BONUS_MULTIPLIER)},
-				{"phase": "shooting", "round": shoot_round})
+		# A1 (audit F-04): emit one record per weapon assignment carrying the
+		# alternatives that weapon actually lost to, captured by the scorer at
+		# the moment of choice. The record this replaces listed the assignments
+		# the plan had already made, with chosen_index hardcoded to 0 — a
+		# restatement of the outcome, from which no regret or credit could be
+		# computed. Falls back to the per-target summary only when the scorer
+		# left nothing behind (e.g. a plan inherited past a destroyed target).
+		_emit_shooting_records(selected_unit_id, unit_name, assignments, snapshot,
+			target_damage, target_hp, target_name_map)
 
 		return {
 			"type": "SHOOT",
@@ -11972,6 +12003,135 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 	_focus_fire_plan_built = false
 	_focus_fire_plan.clear()
 	return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase"}
+
+static func _emit_shooting_records(unit_id: String, unit_name: String,
+		assignments: Array, snapshot: Dictionary, target_damage: Dictionary,
+		target_hp: Dictionary, target_name_map: Dictionary) -> void:
+	"""One decision record per weapon that fired, listing the scored targets it
+	beat. Consumes (and clears) the alternatives the scorer stashed for this
+	unit so a re-entry cannot replay a stale field."""
+	var shoot_round = int(snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1)))
+	var params := {
+		"OVERKILL_TOLERANCE": get_param("OVERKILL_TOLERANCE", OVERKILL_TOLERANCE),
+		"KILL_BONUS_MULTIPLIER": get_param("KILL_BONUS_MULTIPLIER", KILL_BONUS_MULTIPLIER),
+		"MICRO_MODEL_KILL_VALUE": get_param("MICRO_MODEL_KILL_VALUE", MICRO_MODEL_KILL_VALUE),
+		"MICRO_MARGINAL_KILL_BONUS": get_param("MICRO_MARGINAL_KILL_BONUS", MICRO_MARGINAL_KILL_BONUS),
+		"MICRO_OVERKILL_DECAY": get_param("MICRO_OVERKILL_DECAY", MICRO_OVERKILL_DECAY),
+	}
+	var per_weapon: Dictionary = _shooting_alternatives.get(unit_id, {})
+	_shooting_alternatives.erase(unit_id)
+	var emitted := 0
+	for a in assignments:
+		var wid = str(a.get("weapon_id", ""))
+		if not per_weapon.has(wid):
+			continue
+		var entry: Dictionary = per_weapon[wid]
+		var cands: Array = entry.get("candidates", [])
+		if cands.is_empty():
+			continue
+		_add_decision_record("shooting", unit_id, unit_name, cands,
+			int(entry.get("chosen_index", 0)), params,
+			{"phase": "shooting", "round": shoot_round, "weapon_id": wid,
+				"source": str(entry.get("source", "")),
+				"alternatives_considered": cands.size()})
+		emitted += 1
+	if emitted > 0:
+		return
+	# No captured field (rare: assignments that survived the plan but whose
+	# scoring pass is gone). Emit the per-target summary rather than nothing —
+	# but say so, so the analysis layer can exclude it from regret work.
+	var fallback_cands: Array = []
+	for tid in target_damage:
+		var hp = float(target_hp.get(tid, 0.0))
+		var dmg = float(target_damage[tid])
+		fallback_cands.append({
+			"description": "Shoot at %s" % str(target_name_map.get(tid, tid)),
+			"score": dmg,
+			"target_unit_id": tid,
+			"score_breakdown": {"expected_damage": dmg, "target_hp": hp,
+				"kill_fraction": (dmg / hp) if hp > 0.0 else 0.0},
+		})
+	if fallback_cands.is_empty():
+		return
+	var best := 0
+	for i in range(fallback_cands.size()):
+		if float(fallback_cands[i]["score"]) > float(fallback_cands[best]["score"]):
+			best = i
+	_add_decision_record("shooting", unit_id, unit_name, fallback_cands, best, params,
+		{"phase": "shooting", "round": shoot_round, "source": "plan_summary",
+			"alternatives_considered": fallback_cands.size()})
+
+# =============================================================================
+# A1 — SHOOTING ALTERNATIVES CAPTURE (audit F-04)
+# =============================================================================
+# The shooting record used to store the assigned plan, not the options weighed:
+# candidates were the assignments themselves and chosen_index was a literal 0.
+# These helpers stash the real scored field at the moment the choice is made so
+# _decide_shooting can emit it. They are pure bookkeeping — nothing here feeds
+# back into a score, so the action stream is unchanged.
+
+static func _stash_shooting_alternatives(unit_id: String, weapon_id: String,
+		candidates: Array, chosen_index: int, source: String) -> void:
+	if candidates.is_empty() or chosen_index < 0:
+		return
+	if not _shooting_alternatives.has(unit_id):
+		_shooting_alternatives[unit_id] = {}
+	_shooting_alternatives[unit_id][weapon_id] = {
+		"candidates": candidates,
+		"chosen_index": chosen_index,
+		"source": source,
+	}
+
+static func _capture_shooting_alternatives(weapon_entry: Dictionary, chosen_enemy_id: String,
+		dmg_row: Dictionary, enemies: Dictionary, target_values: Dictionary,
+		kill_thresholds: Dictionary, allocated_damage: Dictionary,
+		model_wounds_map: Dictionary, efficiency_cache: Dictionary, wi: int) -> void:
+	"""Rank every target this weapon could have taken, by the same marginal
+	value that picked the winner, and keep the top K."""
+	var weapon = weapon_entry.get("weapon", {})
+	var weapon_name = str(weapon.get("name", "weapon"))
+	var scored: Array = []
+	for enemy_id in enemies:
+		var dmg = float(dmg_row.get(enemy_id, 0.0))
+		if dmg <= 0.0:
+			continue  # out of range / no LoS / cannot be targeted — not an option
+		var eff = float(efficiency_cache.get("%d:%s" % [wi, enemy_id], 1.0))
+		var mv = _calculate_marginal_value(
+			dmg, enemy_id, target_values, kill_thresholds,
+			allocated_damage, model_wounds_map, eff, enemies)
+		var enemy = enemies[enemy_id]
+		var threshold = float(kill_thresholds.get(enemy_id, 0.0))
+		scored.append({
+			"description": "%s → %s" % [weapon_name, _dn(enemy, enemy_id)],
+			"score": mv,
+			"target_unit_id": enemy_id,
+			"score_breakdown": {
+				"marginal_value": mv,
+				"expected_damage": dmg,
+				"target_value": float(target_values.get(enemy_id, 0.0)),
+				"kill_threshold": threshold,
+				"already_allocated": float(allocated_damage.get(enemy_id, 0.0)),
+				"efficiency": eff,
+				"kill_fraction": (dmg / threshold) if threshold > 0.0 else 0.0,
+			},
+		})
+	if scored.is_empty():
+		return
+	scored.sort_custom(func(a, b): return float(a["score"]) > float(b["score"]))
+	var top: Array = []
+	var chosen_index := -1
+	for i in range(scored.size()):
+		if top.size() >= SHOOTING_ALTERNATIVES_K and chosen_index >= 0:
+			break
+		if top.size() >= SHOOTING_ALTERNATIVES_K and str(scored[i]["target_unit_id"]) != chosen_enemy_id:
+			continue
+		top.append(scored[i])
+		if str(scored[i]["target_unit_id"]) == chosen_enemy_id:
+			chosen_index = top.size() - 1
+	if chosen_index < 0:
+		return  # the winner is not in its own ranking — do not emit a lie
+	_stash_shooting_alternatives(str(weapon_entry.get("unit_id", "")),
+		str(weapon_entry.get("weapon_id", "")), top, chosen_index, "focus_fire")
 
 # =============================================================================
 # FOCUS FIRE PLAN BUILDER
@@ -12202,6 +12362,16 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 
 		if best_wi < 0 or best_enemy_id == "":
 			break  # No profitable assignments remaining
+
+		# A1: capture the field this weapon actually beat, BEFORE allocated_damage
+		# moves — the marginal values below are exactly the ones the winner was
+		# compared against on this iteration. Recomputed for the single winning
+		# weapon rather than stashed for all of them: one extra row of pure
+		# arithmetic per assignment instead of a write in the O(W^2*E) hot loop.
+		_capture_shooting_alternatives(
+			all_weapons[best_wi], best_enemy_id, damage_matrix[best_wi], enemies,
+			target_values, kill_thresholds, allocated_damage, model_wounds_map,
+			efficiency_cache, best_wi)
 
 		# Assign this weapon to the best target
 		weapon_target[best_wi] = best_enemy_id
@@ -13034,7 +13204,7 @@ static func _estimate_weapon_damage(weapon: Dictionary, target_unit: Dictionary,
 	var efficiency = _calculate_efficiency_multiplier(weapon, target_unit)
 	return raw_damage * efficiency
 
-static func _build_unit_assignments_fallback(unit: Dictionary, ranged_weapons: Array, enemies: Dictionary, snapshot: Dictionary) -> Array:
+static func _build_unit_assignments_fallback(unit: Dictionary, ranged_weapons: Array, enemies: Dictionary, snapshot: Dictionary, unit_id_hint: String = "") -> Array:
 	"""
 	Fallback per-weapon greedy scoring (original behavior).
 	Used when a unit is not in the focus fire plan.
@@ -13061,14 +13231,43 @@ static func _build_unit_assignments_fallback(unit: Dictionary, ranged_weapons: A
 		# Score each enemy target (includes weapon range check)
 		var best_target_id = ""
 		var best_score = -1.0
+		var fb_scored: Array = []  # A1: the field, not just the winner
 		for enemy_id in enemies:
 			var enemy = enemies[enemy_id]
 			var score = _score_shooting_target(weapon, enemy, snapshot, unit)
+			if score > 0.0:
+				fb_scored.append({
+					"description": "%s → %s" % [weapon_name, _dn(enemy, enemy_id)],
+					"score": score,
+					"target_unit_id": enemy_id,
+					"score_breakdown": {
+						"expected_damage": score,
+						"kill_threshold": _calculate_kill_threshold(enemy),
+						"efficiency": _calculate_efficiency_multiplier(weapon, enemy),
+					},
+				})
 			if score > best_score:
 				best_score = score
 				best_target_id = enemy_id
 
 		if best_target_id != "" and best_score > 0:
+			# A1: keep the top-K scored targets with the winner's index, so the
+			# record shows what this weapon rejected and why.
+			fb_scored.sort_custom(func(a, b): return float(a["score"]) > float(b["score"]))
+			var fb_top: Array = []
+			var fb_chosen := -1
+			for i in range(fb_scored.size()):
+				if fb_top.size() >= SHOOTING_ALTERNATIVES_K and fb_chosen >= 0:
+					break
+				if fb_top.size() >= SHOOTING_ALTERNATIVES_K and str(fb_scored[i]["target_unit_id"]) != best_target_id:
+					continue
+				fb_top.append(fb_scored[i])
+				if str(fb_scored[i]["target_unit_id"]) == best_target_id:
+					fb_chosen = fb_top.size() - 1
+			if fb_chosen >= 0:
+				var fb_uid = unit_id_hint if unit_id_hint != "" else str(unit.get("id", ""))
+				_stash_shooting_alternatives(fb_uid, weapon_id,
+					fb_top, fb_chosen, "fallback")
 			assignments.append({
 				"weapon_id": weapon_id,
 				"target_unit_id": best_target_id,

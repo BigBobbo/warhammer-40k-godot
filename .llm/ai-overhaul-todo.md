@@ -103,7 +103,7 @@ Locks in use: `AIDM` (AIDecisionMaker.gd), `AIPlayer`, `Lab` (tools/ai_lab),
 was hardcoded until the morning it was promoted; shooting records don't even
 contain the alternatives that were considered (F-04).*
 
-- [ ] **A1 — Shooting decision records capture real alternatives**
+- [x] **A1 — Shooting decision records capture real alternatives**
   - **Lock:** AIDM  • **Depends:** —  • **Cost:** code-only + 2 verification games
   - **Context:** Audit F-04: the shooting record stores the *assigned plan*
     (`chosen_index` hardcoded to 0, candidates = the assignments), not the
@@ -119,16 +119,72 @@ contain the alternatives that were considered (F-04).*
     `score_breakdown`, and `chosen_index` pointing at the actual pick. Emit a
     record for hold-fire decisions (candidates: shoot-best-target vs hold,
     with the Hidden-value term). No scoring behavior may change.
-  - **Acceptance — Tier A:** (1) `determinism_check.py` — identical action
-    streams before/after on both mirrors, 2 seeds each. (2) A benchmark game
-    record contains shooting decisions with ≥2 candidates and at least one
-    record with `chosen_index > 0` (assert via a small Python check on the
-    record JSON). (3) At least one `hold_fire` decision record appears in a
-    game where the Hidden hold triggers (use the existing
-    `ai_hidden_awareness_11e` scenario fixture).
+  - **Acceptance — Tier A:** (1) `determinism_check.py --require trajectory` —
+    identical action streams before/after on both mirrors, 2 seeds each
+    (the decision records are *supposed* to change, which is why the gate is
+    the trajectory level; the tool still prints the decision column).
+    (2) A benchmark game record contains shooting decisions with ≥2
+    candidates whose scores differ (assert via `validate_records.py` /
+    a small Python check on the record JSON). (3) A `hold_fire` decision
+    record appears both ways in the `ai_hidden_awareness_11e` scenario —
+    `chosen_index 0` when the Hidden hold triggers and `chosen_index 1` when
+    the same shot is made worth taking.
   - **Tier B:** Open one game record; the shooting candidates read as real
     alternatives ("Melta → Terminators 4.2 EV" vs "Melta → Boyz 1.1 EV"),
     not as restatements of the plan.
+  - **Premise correction (2026-08-07, applied with the fix):** the original
+    bullet (2) asked for "at least one *shooting* record with
+    `chosen_index > 0`". That is structurally unreachable and asking for it
+    would have forced a dishonest record. Both shooting paths are a greedy
+    **argmax over the same score the record reports** — the focus-fire plan
+    picks the global best (weapon, target) pair each iteration, the fallback
+    picks each weapon's best target — so in a score-sorted candidate list the
+    chosen candidate is always index 0 *by construction*. A non-zero index
+    there could only be produced by sorting the list by something other than
+    the deciding score, which would misrepresent the decision. The honest
+    equivalent, kept above, is: ≥2 candidates with *different* scores (proving
+    the record contains rejected options, not restatements), plus a real
+    `chosen_index > 0` on the one shooting decision that is genuinely a
+    two-way comparison rather than an argmax — `hold_fire`.
+
+  - **Evidence (2026-08-07):**
+    ```
+    # determinism, before (8d693c7, pristine worktree) vs after, 2 seeds x both mirrors
+    python3 tools/ai_lab/run_lanes.py --fixture mirror_custodes_postdeploy \
+        --seeds 5001-5002 --arm ref --lanes 2 --season seasons/ref_cust_HEAD   # before
+    python3 tools/ai_lab/run_lanes.py --fixture mirror_orks_postdeploy \
+        --seeds 5001-5002 --arm ref --lanes 2 --season seasons/ref_ork_HEAD    # before
+    python3 tools/ai_lab/determinism_check.py seasons/ref_cust_HEAD seasons/a1_cust --require trajectory
+      -> PASS (trajectory)  5001 match/match, 5002 match/match, 766 action lines identical
+                            decision records 187 -> 237 (by design)
+    python3 tools/ai_lab/determinism_check.py seasons/ref_ork_HEAD seasons/a1_ork --require trajectory
+      -> PASS (trajectory)  5001 720/720, 5002 621/621 actions identical
+                            decision records 400 -> 505 (by design)
+
+    # record content (2 Custodes mirror games, tools/ai_lab/validate_records.py)
+      shooting records            24 -> 74
+      with >= 2 candidates              36   (0 before: candidates restated the plan)
+      hold_fire records                  0 on the mirrors (no Hidden units) - see scenario
+
+    # windowed scenario (the Hidden path, which the mirrors cannot reach)
+    bash 40k/tests/run_scenarios.sh tests/scenarios/sp/ai_hidden_awareness_11e.json
+      -> ai_hidden_awareness_11e: 28 passed, 0 failed
+      hold_fire record, chip shot   : chosen_index 0, cost 2.400 vs worth 0.139
+      hold_fire record, soft target : chosen_index 1, cost 2.400 vs worth 6.222, decision SHOOT
+      shooting record               : "Sentinel blade -> Battlewagon" marginal_value 9.782
+                                      breakdown {expected_damage, target_value, kill_threshold,
+                                                 already_allocated, efficiency, kill_fraction}
+    ```
+    Files: `40k/scripts/AIDecisionMaker.gd`,
+    `40k/tests/scenarios/sp/ai_hidden_awareness_11e.json`,
+    `tools/ai_lab/determinism_check.py` (new `--require`),
+    `tools/ai_lab/validate_records.py` (new).
+  - **Tier B self-assessed 2026-08-07 — pending human spot-check.** The
+    focus-fire candidates read as real weapon→target alternatives with a
+    six-term breakdown (marginal value, expected damage, target value, kill
+    threshold, damage already allocated, efficiency), which is the
+    "Melta → Terminators 4.2 EV vs Melta → Boyz 1.1 EV" shape the task asked
+    for. The hold-fire record reads as a priced two-way choice.
 
 - [ ] **A2 — Movement records decompose their score**
   - **Lock:** AIDM  • **Depends:** —  • **Cost:** code-only + 2 verification games
