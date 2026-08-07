@@ -65,3 +65,11 @@ ai_loop_tracker.json.games
 
 # YouTube transcript corpus for AI research (19MB) — see research/youtube/README.md
 research/youtube/transcripts_text.jsonl.gz
+
+# AI learning loop (M1): per-game records + season indexes. A season is
+# ~40-80 KB gzipped per game, so 10k games is 0.4-0.8 GB — data, not source.
+# Campaign summaries and accepted profiles ARE committed (they are the
+# decisions); the raw games are reproducible from seed + git_sha + fixture.
+bench_data/**
+!bench_data/**/campaign_*.json
+!bench_data/**/accepted_*.json

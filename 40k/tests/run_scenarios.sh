@@ -119,10 +119,19 @@ for s in "${SCENARIOS[@]}"; do
         osascript -e 'tell application "Godot" to activate' 2>/dev/null || true
     fi
 
-    if godot --path . --scenario-file="$s" 2>&1 | tee /tmp/scenario_run_${SCENARIO_ID}.log | grep -E "^\[ScenarioRunner\]|PASS|FAIL|=== "; then
+    # SCEN-TIMEOUT: a scenario that never exits used to block the whole batch
+    # with output indistinguishable from a slow one. Scenarios legitimately run
+    # 2-3 minutes (several script `wait_seconds` in a row), so the cap is
+    # generous — it exists to bound a hang, not to police pace. Raise it with
+    # SCENARIO_TIMEOUT for a deliberately long scenario.
+    if timeout "${SCENARIO_TIMEOUT:-600}" godot --path . --scenario-file="$s" 2>&1 | tee /tmp/scenario_run_${SCENARIO_ID}.log | grep -E "^\[ScenarioRunner\]|PASS|FAIL|=== "; then
         EXIT_CODE=${PIPESTATUS[0]}
     else
         EXIT_CODE=${PIPESTATUS[0]}
+        if [ "$EXIT_CODE" = "124" ]; then
+            echo "    TIMED OUT after ${SCENARIO_TIMEOUT:-600}s — this is a HANG, not a failed"
+            echo "    assertion. Full log: /tmp/scenario_run_${SCENARIO_ID}.log"
+        fi
     fi
 
     if [ $EXIT_CODE -eq 0 ]; then

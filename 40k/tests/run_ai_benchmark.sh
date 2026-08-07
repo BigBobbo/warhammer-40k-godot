@@ -14,6 +14,17 @@
 # Env overrides: BENCH_DIFFICULTY (default 1=Normal), BENCH_TIME_SCALE (3),
 #   BENCH_MAX_SECONDS (600), BENCH_SEED_BASE (1000)
 #
+# M1 (AI learning loop) env overrides:
+#   BENCH_DATA_DIR  if set, each game's `wh40k_ai_game_record` is gzipped and
+#                   moved here, building a season directory that
+#                   tools/ai_lab/build_index.py can turn into a queryable
+#                   DuckDB. Unset = records stay in userdata.
+#   BENCH_ARM       label recorded in every game record's provenance (e.g.
+#                   "baseline" / "candidate"), so a season can be split by arm.
+#   BENCH_KEEP_LOGS how many failed-game stdout logs to retain (default 50).
+#                   Logs run 41-51 MB per game, so ~18 GB/day at 400 games —
+#                   they are kept ONLY for stalled/errored games, gzipped.
+#
 # Output: per-game JSON under <godot-userdata>/test_results/bench/ + an
 # aggregated bench_report.json/md, summary printed to stdout.
 
@@ -27,9 +38,20 @@ DIFFICULTY="${BENCH_DIFFICULTY:-1}"
 TIME_SCALE="${BENCH_TIME_SCALE:-3}"
 MAX_SECONDS="${BENCH_MAX_SECONDS:-600}"
 SEED_BASE="${BENCH_SEED_BASE:-1000}"
+BENCH_DATA_DIR="${BENCH_DATA_DIR:-}"
+BENCH_ARM="${BENCH_ARM:-}"
+BENCH_KEEP_LOGS="${BENCH_KEEP_LOGS:-50}"
 
 cd "$(dirname "$0")/.."
 export PATH="$HOME/bin:$PATH"
+
+# Provenance: which build actually played these games. Without it a season
+# silently pools games from either side of a rules fix and the pooled effect
+# is meaningless. build_index.py exposes git_sha so campaigns can pin it.
+GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+    GIT_SHA="${GIT_SHA}-dirty"
+fi
 
 # Fixtures live in tests/saves but load from saves/
 mkdir -p saves
@@ -47,7 +69,25 @@ STAMP=$(date +%Y%m%d_%H%M%S)
 echo "================================================================"
 echo "AI benchmark: $GAMES game(s), fixture=$FIXTURE, difficulty=$DIFFICULTY"
 echo "profiles: P1='${P1_PROFILE:-default}' P2='${P2_PROFILE:-default}'"
+echo "git: $GIT_SHA  arm: '${BENCH_ARM:-none}'"
 echo "================================================================"
+
+# M0 gate: never learn on an unvalidated fixture. This is advisory here (the
+# script is also used for one-off probes on scenario fixtures) but a campaign
+# driver must treat a non-zero exit as fatal — a broken environment produces
+# confident garbage, fast. See tools/ai_lab/fixture_check.py.
+if ! python3 ../tools/ai_lab/fixture_check.py "$FIXTURE" >/tmp/fixture_check.$$ 2>&1; then
+    echo "!!! FIXTURE CHECK FAILED for '$FIXTURE' — results are NOT safe to tune on:"
+    sed 's/^/    /' /tmp/fixture_check.$$
+    echo "!!! (mirrors are the campaign-eligible fixtures; see tools/ai_lab/fixture_check.py)"
+fi
+rm -f /tmp/fixture_check.$$
+
+if [ -n "$BENCH_DATA_DIR" ]; then
+    mkdir -p "$BENCH_DATA_DIR"
+    echo "season records -> $BENCH_DATA_DIR"
+fi
+FAILED_LOG_DIR="$BENCH_DIR/failed_logs"
 
 RESULTS=()
 for i in $(seq 1 "$GAMES"); do
@@ -57,12 +97,45 @@ for i in $(seq 1 "$GAMES"); do
     ARGS=(--headless --path . -- --ai-benchmark
         "--bench-fixture=$FIXTURE" "--bench-seed=$SEED"
         "--bench-out=$OUT_REL" "--bench-difficulty=$DIFFICULTY"
-        "--bench-time-scale=$TIME_SCALE" "--bench-max-seconds=$MAX_SECONDS")
+        "--bench-time-scale=$TIME_SCALE" "--bench-max-seconds=$MAX_SECONDS"
+        "--bench-git-sha=$GIT_SHA")
     [ -n "$P1_PROFILE" ] && ARGS+=("--bench-p1-profile=$P1_PROFILE")
     [ -n "$P2_PROFILE" ] && ARGS+=("--bench-p2-profile=$P2_PROFILE")
+    [ -n "$BENCH_ARM" ] && ARGS+=("--bench-arm=$BENCH_ARM")
 
-    timeout $((MAX_SECONDS + 120)) godot "${ARGS[@]}" 2>&1 | grep -E "^\[AIBench\]" | tail -4
-    RESULTS+=("$BENCH_DIR/${STAMP}_game_${i}.json")
+    # Capture the whole stdout rather than piping straight to grep: a stalled
+    # game's log is the only artifact that explains WHY it stalled, and it is
+    # gone once the process exits.
+    GAME_LOG=$(mktemp "${TMPDIR:-/tmp}/aibench_${STAMP}_${i}_XXXXXX.log")
+    timeout $((MAX_SECONDS + 120)) godot "${ARGS[@]}" > "$GAME_LOG" 2>&1
+    grep -E "^\[AIBench\]" "$GAME_LOG" | tail -5
+
+    RESULT_JSON="$BENCH_DIR/${STAMP}_game_${i}.json"
+    RECORD_JSON="$BENCH_DIR/${STAMP}_game_${i}.record.json"
+    RESULTS+=("$RESULT_JSON")
+
+    STATUS=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('status',''))" \
+        "$RESULT_JSON" 2>/dev/null || echo "missing")
+
+    # Keep the full log only when something went wrong — 41-51 MB/game means
+    # "archive everything" is ~18 GB/day at 400 games/day.
+    if [ "$STATUS" = "completed" ]; then
+        rm -f "$GAME_LOG"
+    else
+        mkdir -p "$FAILED_LOG_DIR"
+        gzip -c "$GAME_LOG" > "$FAILED_LOG_DIR/${STAMP}_game_${i}_${STATUS}.log.gz"
+        rm -f "$GAME_LOG"
+        echo "    kept failure log: $FAILED_LOG_DIR/${STAMP}_game_${i}_${STATUS}.log.gz"
+        # prune to the newest BENCH_KEEP_LOGS
+        ls -1t "$FAILED_LOG_DIR"/*.log.gz 2>/dev/null | tail -n +$((BENCH_KEEP_LOGS + 1)) \
+            | while read -r old; do rm -f "$old"; done
+    fi
+
+    # Gzip the game record into the season directory.
+    if [ -n "$BENCH_DATA_DIR" ] && [ -f "$RECORD_JSON" ]; then
+        gzip -c "$RECORD_JSON" > "$BENCH_DATA_DIR/${STAMP}_game_${i}.record.json.gz"
+        rm -f "$RECORD_JSON"
+    fi
 done
 
 # Aggregate

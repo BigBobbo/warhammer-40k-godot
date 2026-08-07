@@ -1,0 +1,656 @@
+<title>The 40k AI learning harness — what it does, and what it doesn't</title>
+<style>
+  :root {
+    --ground:      #F3F5F4;
+    --panel:       #FFFFFF;
+    --panel-alt:   #EAEEEC;
+    --ink:         #121A18;
+    --ink-soft:    #46524E;
+    --ink-faint:   #6E7C77;
+    --rule:        #CFD8D4;
+    --rule-strong: #A9B6B1;
+    --accent:      #157F6B;
+    --accent-soft: #DCEBE6;
+    --warn:        #9A6512;
+    --warn-soft:   #F4E9D5;
+    --bad:         #A33A2B;
+    --bad-soft:    #F6E2DE;
+
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --serif: ui-serif, Charter, "Iowan Old Style", Georgia, serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+    --measure: 68ch;
+    --s1: 0.35rem; --s2: 0.7rem; --s3: 1.1rem;
+    --s4: 1.8rem; --s5: 2.8rem; --s6: 4.4rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:#0E1413; --panel:#151D1B; --panel-alt:#1C2624;
+      --ink:#E6EDEA; --ink-soft:#A7B5B0; --ink-faint:#7C8A85;
+      --rule:#2A3634; --rule-strong:#3C4A47;
+      --accent:#4FBFA4; --accent-soft:#16302B;
+      --warn:#D6A44E; --warn-soft:#2E2617;
+      --bad:#E0806E;  --bad-soft:#331F1B;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0E1413; --panel:#151D1B; --panel-alt:#1C2624;
+    --ink:#E6EDEA; --ink-soft:#A7B5B0; --ink-faint:#7C8A85;
+    --rule:#2A3634; --rule-strong:#3C4A47;
+    --accent:#4FBFA4; --accent-soft:#16302B;
+    --warn:#D6A44E; --warn-soft:#2E2617;
+    --bad:#E0806E;  --bad-soft:#331F1B;
+  }
+  :root[data-theme="light"] {
+    --ground:#F3F5F4; --panel:#FFFFFF; --panel-alt:#EAEEEC;
+    --ink:#121A18; --ink-soft:#46524E; --ink-faint:#6E7C77;
+    --rule:#CFD8D4; --rule-strong:#A9B6B1;
+    --accent:#157F6B; --accent-soft:#DCEBE6;
+    --warn:#9A6512; --warn-soft:#F4E9D5;
+    --bad:#A33A2B;  --bad-soft:#F6E2DE;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--serif); font-size: 1.02rem; line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 78rem; margin: 0 auto; padding: var(--s5) var(--s4) var(--s6); }
+  .col { max-width: var(--measure); }
+
+  h1, h2, h3 { font-family: var(--sans); text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(1.9rem, 4.4vw, 3rem); line-height: 1.08; letter-spacing: -0.026em; font-weight: 680; }
+  h2 { font-size: clamp(1.3rem, 2.3vw, 1.65rem); line-height: 1.2; letter-spacing: -0.018em; font-weight: 640; }
+  h3 { font-size: 1.02rem; letter-spacing: -0.008em; font-weight: 640; margin-bottom: var(--s1); }
+  p { margin: 0; }
+  a { color: var(--accent); text-underline-offset: 2px; }
+  strong { font-weight: 620; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+  code { background: var(--panel-alt); padding: 0.08em 0.34em; border-radius: 2px; }
+
+  /* ---- masthead ---- */
+  header { border-bottom: 2px solid var(--ink); padding-bottom: var(--s4); }
+  .lede { font-size: clamp(1.05rem, 1.7vw, 1.22rem); color: var(--ink-soft); margin-top: var(--s3); }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: var(--s3); margin-top: var(--s4);
+    font-family: var(--mono); font-size: 0.74rem; color: var(--ink-faint);
+  }
+  .meta span { white-space: nowrap; }
+
+  /* ---- sections ---- */
+  section { margin-top: var(--s6); }
+  .qhead { display: flex; gap: var(--s3); align-items: baseline; margin-bottom: var(--s3); }
+  .qnum {
+    font-family: var(--mono); font-size: 0.78rem; color: var(--accent);
+    border: 1px solid var(--accent); border-radius: 2px;
+    padding: 0.1rem 0.4rem; flex: none;
+  }
+  .stack { display: flex; flex-direction: column; gap: var(--s3); }
+  .stack-tight { display: flex; flex-direction: column; gap: var(--s2); }
+
+  /* ---- status chips ---- */
+  .chip {
+    font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 0.16rem 0.44rem; border-radius: 2px;
+    white-space: nowrap; font-weight: 600;
+  }
+  .chip-built { background: var(--accent-soft); color: var(--accent); }
+  .chip-no    { background: var(--panel-alt);  color: var(--ink-faint); }
+  .chip-trap  { background: var(--bad-soft);   color: var(--bad); }
+  .chip-lim   { background: var(--warn-soft);  color: var(--warn); }
+
+  /* ---- panels ---- */
+  .panel {
+    background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 3px; padding: var(--s4);
+  }
+  .panel + .panel { margin-top: var(--s3); }
+
+  /* ---- the pipeline ---- */
+  .pipe { display: flex; flex-direction: column; gap: var(--s2); }
+  .pipe-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: var(--s2); }
+  .stage {
+    flex: 1 1 9.5rem; min-width: 8.5rem;
+    border: 1px solid var(--rule-strong); border-radius: 3px;
+    padding: var(--s2) var(--s3); background: var(--panel);
+    display: flex; flex-direction: column; gap: 0.2rem;
+  }
+  .stage.ghost { border-style: dashed; background: transparent; color: var(--ink-faint); }
+  .stage-name { font-family: var(--sans); font-weight: 620; font-size: 0.9rem; }
+  .stage-what { font-family: var(--mono); font-size: 0.7rem; color: var(--ink-faint); line-height: 1.4; }
+  .stage.ghost .stage-name { color: var(--ink-faint); }
+  .band {
+    display: flex; align-items: center; gap: var(--s2);
+    font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  .band::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+  .gap-note {
+    border-left: 2px solid var(--bad); padding-left: var(--s3);
+    font-family: var(--mono); font-size: 0.76rem; color: var(--ink-soft);
+    line-height: 1.55;
+  }
+
+  /* ---- tables ---- */
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 0.5rem 0.7rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th {
+    font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-faint); font-weight: 600;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ---- figure numbers ---- */
+  .stat-row { display: flex; flex-wrap: wrap; gap: var(--s2); }
+  .stat {
+    flex: 1 1 8rem; border: 1px solid var(--rule); border-radius: 3px;
+    padding: var(--s3); background: var(--panel);
+  }
+  .stat-n {
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+    font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; color: var(--accent);
+    display: block; line-height: 1.1;
+  }
+  .stat-l { font-family: var(--mono); font-size: 0.68rem; color: var(--ink-faint); line-height: 1.45; margin-top: var(--s1); display: block; }
+
+  /* ---- item lists ---- */
+  .items { display: flex; flex-direction: column; gap: var(--s3); }
+  .item { display: grid; grid-template-columns: 6.4rem 1fr; gap: var(--s3); align-items: start; }
+  .item > .chip { justify-self: start; margin-top: 0.18rem; }
+  @media (max-width: 34rem) { .item { grid-template-columns: 1fr; gap: var(--s1); } }
+
+  ul.plain { margin: 0; padding-left: 1.1rem; }
+  ul.plain li { margin-bottom: var(--s1); }
+  ul.plain li::marker { color: var(--ink-faint); }
+
+  footer {
+    margin-top: var(--s6); border-top: 1px solid var(--rule-strong);
+    padding-top: var(--s4); color: var(--ink-faint); font-size: 0.86rem;
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Warhammer 40,000 · AI benchmark harness</div>
+  <h1>A harness for improving the AI &mdash; and the gap where the learning still isn&rsquo;t</h1>
+  <p class="lede col">
+    The AI already explains every decision it makes. Until now it threw all of that away
+    the instant the process exited. This is what got built, what it can actually change,
+    and&mdash;more usefully&mdash;what it still can&rsquo;t.
+  </p>
+  <div class="meta">
+    <span>commit f858a34+</span>
+    <span>Godot 4.4.1 · GDScript</span>
+    <span>offline analysis in Python</span>
+    <span>M0 · M1 · M2 complete · M3 running</span>
+  </div>
+</header>
+
+<!-- ============ THE SHAPE OF IT ============ -->
+<section>
+  <h2>The loop is not yet a loop</h2>
+  <p class="col" style="margin-top:var(--s3)">
+    Everything on the top row runs unattended today. Everything on the bottom row is
+    now built but not yet <em>run to a verdict</em>. The evaluator exists and passes its
+    own null test; what it has not yet done is accept a change.
+  </p>
+
+  <div class="panel" style="margin-top:var(--s4)">
+    <div class="pipe">
+      <div class="band">Built &mdash; runs unattended</div>
+      <div class="pipe-row">
+        <div class="stage">
+          <span class="stage-name">Play</span>
+          <span class="stage-what">AIBenchmarkRunner<br>~6 min/game headless</span>
+        </div>
+        <div class="stage">
+          <span class="stage-name">Record</span>
+          <span class="stage-what">decisions + outcome<br>+ provenance, 49 KB gz</span>
+        </div>
+        <div class="stage">
+          <span class="stage-name">Collect</span>
+          <span class="stage-what">run_lanes.py<br>3 concurrent lanes</span>
+        </div>
+        <div class="stage">
+          <span class="stage-name">Index</span>
+          <span class="stage-what">build_index.py<br>Parquet + DuckDB views</span>
+        </div>
+      </div>
+
+      <div class="band" style="margin-top:var(--s3)">Built &mdash; not yet run to a verdict</div>
+      <div class="pipe-row">
+        <div class="stage">
+          <span class="stage-name">Rank influence</span>
+          <span class="stage-what">sensitivity_screen.py<br>336 games, running</span>
+        </div>
+        <div class="stage ghost">
+          <span class="stage-name">Propose</span>
+          <span class="stage-what">cem_driver.py<br>racing + shared seeds</span>
+        </div>
+        <div class="stage ghost">
+          <span class="stage-name">Evaluate</span>
+          <span class="stage-what">run_paired.py<br>null test: E=0.00, se 0</span>
+        </div>
+        <div class="stage ghost">
+          <span class="stage-name">Accept &amp; ship</span>
+          <span class="stage-what">gate_candidate.py<br>five gates</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="gap-note" style="margin-top:var(--s4)">
+      The return arrow now exists in code &mdash; <code>cem_driver.py</code> proposes,
+      <code>run_paired.py</code> decides by a pre-registered stopping rule, and
+      <code>gate_candidate.py</code> holds five gates in front of shipping. What has not
+      happened yet is a candidate clearing them. Until one does, the honest claim is that
+      the question is now <em>answerable</em>, not answered.
+    </p>
+  </div>
+</section>
+
+<!-- ============ Q1 ============ -->
+<section>
+  <div class="qhead">
+    <span class="qnum">Q1</span>
+    <h2>What can it change?</h2>
+  </div>
+
+  <div class="col stack">
+    <p>
+      Exactly two surfaces, both inside <code>AIDecisionMaker.gd</code>. Neither touches
+      the ~22,300 lines of decision <em>logic</em> &mdash; only the numbers that logic
+      consults.
+    </p>
+  </div>
+
+  <div class="stat-row" style="margin-top:var(--s4)">
+    <div class="stat"><span class="stat-n">126</span><span class="stat-l">tunable parameters<br>was 104 before promotion</span></div>
+    <div class="stat"><span class="stat-n">189</span><span class="stat-l">call sites reading them</span></div>
+    <div class="stat"><span class="stat-n">13</span><span class="stat-l">rule condition types</span></div>
+    <div class="stat"><span class="stat-n">3</span><span class="stat-l">rule action operations</span></div>
+    <div class="stat"><span class="stat-n">9</span><span class="stat-l">context keys rules can test</span></div>
+  </div>
+
+  <div class="panel" style="margin-top:var(--s3)">
+    <h3>The tunable surface is smaller than the constant count suggests</h3>
+    <p style="color:var(--ink-soft); font-size:0.94rem">
+      The file declares <strong>152</strong> constants, but only those actually read through
+      <code>get_param()</code> / <code>get_param_int()</code> can be reached from a profile
+      &mdash; <strong>104</strong> of them when this was written. Twenty-two more have since
+      been promoted from bare literals at unchanged values, taking it to <strong>126</strong>. Writing the other 48 into a profile produces a candidate that
+      validates, runs, and changes nothing &mdash; burning a full evaluation budget to
+      measure zero. <code>params_manifest.py</code> derives the real list from source rather
+      than trusting a hand-kept note.
+    </p>
+  </div>
+
+  <div class="panel">
+    <h3>What it cannot change</h3>
+    <ul class="plain" style="color:var(--ink-soft); font-size:0.94rem">
+      <li>The <em>features</em> the heuristic scores on. New terms are code, not configuration &mdash; parameter search cannot invent them.</li>
+      <li>Anything about phase order, rules resolution, or engine behaviour.</li>
+      <li>The 7 of 17 <code>AIDifficultyConfig</code> gates that have no callers at all.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ Q2 ============ -->
+<section>
+  <div class="qhead">
+    <span class="qnum">Q2</span>
+    <h2>How does it change them?</h2>
+  </div>
+
+  <div class="col stack">
+    <p>
+      Through a <strong>profile</strong>: a JSON file with a flat <code>parameters</code> map
+      and a <code>rules</code> array. Rules carry AND-ed <code>conditions</code> and
+      <code>actions</code> (<code>override</code> / <code>multiply</code> / <code>add</code>).
+      At read time a parameter resolves in a fixed priority order:
+    </p>
+  </div>
+
+  <div class="panel" style="margin-top:var(--s3)">
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Priority</th><th>Source</th><th>Set by</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1 &mdash; highest</td><td>rule override</td><td>a profile rule whose conditions currently hold</td></tr>
+          <tr><td class="num">2</td><td>player profile</td><td>the <code>parameters</code> map, per player</td></tr>
+          <tr><td class="num">3</td><td>global config</td><td><code>ai_config.json</code></td></tr>
+          <tr><td class="num">4 &mdash; fallback</td><td><code>const</code> default</td><td>the source declaration</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Learning is offline, and deliberately so</h3>
+    <p style="color:var(--ink-soft); font-size:0.94rem">
+      Search happens on the box; players receive a static, version-stamped, human-reviewed
+      profile. Three reasons. Every accepted change clears the scenario suite and a
+      two-matchup grid <em>before</em> anyone sees it &mdash; online adaptation cannot be
+      gated that way. The AI narrates its reasoning in the game log, and a fixed profile keeps
+      that narration truthful. And a player might play 20 games a month against measurement
+      noise of &plusmn;9&ndash;15 VP, so online adaptation would be fitting dice, not skill.
+    </p>
+  </div>
+
+  <div class="panel">
+    <h3 style="display:flex; gap:var(--s2); align-items:center; flex-wrap:wrap">
+      <span>Four ways the engine changes nothing, silently</span>
+      <span class="chip chip-trap">engine behaviour</span>
+    </h3>
+    <p style="color:var(--ink-soft); font-size:0.94rem; margin-bottom:var(--s3)">
+      <code>ProfileManager.validate_profile()</code> checks structure only &mdash; format tag,
+      version, name, rules having ids. A generated profile can pass it and do nothing, or the
+      opposite of what it says. <code>validate_profile.py</code> now blocks all four; the
+      engine still behaves this way.
+    </p>
+    <div class="items">
+      <div class="item">
+        <span class="chip chip-trap">silent zero</span>
+        <div>
+          <strong>Multiplying an undeclared parameter switches it off.</strong>
+          <span style="color:var(--ink-soft)">
+            <code>_get_base_param_value</code> returns <code>0.0</code> for any parameter not in
+            the profile or <code>ai_config.json</code> &mdash; including every parameter whose only
+            value is a <code>const</code>. So &ldquo;multiply <code>WEIGHT_CONTESTED_OBJ</code> by
+            1.2&rdquo; does not scale 8.0 to 9.6; it computes 0.0&nbsp;&times;&nbsp;1.2. <code>add</code>
+            is the same trap quieter: it yields the bare addend.
+          </span>
+        </div>
+      </div>
+      <div class="item">
+        <span class="chip chip-trap">passes</span>
+        <div>
+          <strong>An unknown condition type is treated as met.</strong>
+          <span style="color:var(--ink-soft)">
+            <code>_check_rule_conditions</code> is a <code>match</code> with no default arm, so a
+            misspelling doesn&rsquo;t fail the rule &mdash; it fires the rule unconditionally, every
+            round. <code>round_gt</code> is not a type; <code>round_gte</code> is.
+          </span>
+        </div>
+      </div>
+      <div class="item">
+        <span class="chip chip-trap">dropped</span>
+        <div>
+          <strong>An unknown action operation vanishes.</strong>
+          <span style="color:var(--ink-soft)">Anything that isn&rsquo;t override/multiply/add matches no arm and is discarded without warning.</span>
+        </div>
+      </div>
+      <div class="item">
+        <span class="chip chip-trap">dead</span>
+        <div>
+          <strong>Every <code>vp_*</code> condition is inert.</strong>
+          <span style="color:var(--ink-soft)">
+            <code>_get_vp_diff</code> reads <code>meta.player1_vp</code>/<code>player2_vp</code>;
+            a repo-wide search shows those keys are written by exactly one test. Real VP lives at
+            <code>GameState.state.players[pk].vp</code>. So <code>vp_diff</code> is always 0:
+            <code>vp_ahead</code> and <code>vp_diff_gte</code> never fire, and <code>vp_behind</code>
+            and <code>vp_diff_lte</code> fire <em>always</em>.
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q3 ============ -->
+<section>
+  <div class="qhead">
+    <span class="qnum">Q3</span>
+    <h2>How does it identify what to change?</h2>
+  </div>
+
+  <div class="col stack">
+    <p>
+      This is what M1 unlocked. <code>AIDecisionMaker</code> already built a complete
+      &ldquo;here were my options, here is how I scored each one, here is what I picked, here are
+      the parameters I used&rdquo; trace for every decision &mdash; and discarded all of it at
+      process exit. The outcome went to a separate file that had no idea the decisions existed.
+      <strong>Nothing joined them, so nothing could learn from them.</strong>
+    </p>
+    <p>
+      Now every game leaves one self-describing record, and a season becomes four SQL views.
+    </p>
+  </div>
+
+  <div class="panel" style="margin-top:var(--s4)">
+    <div class="scroll">
+      <table>
+        <thead><tr><th>View</th><th>What it answers</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="num">decision_outcomes</td>
+            <td>Every decision joined to how its game ended. This is the join that did not exist before.</td>
+          </tr>
+          <tr>
+            <td class="num">round_vp</td>
+            <td>Per-round VP deltas &mdash; an intermediate reward signal, so credit assignment doesn&rsquo;t depend on one terminal number across 400&ndash;600 actions.</td>
+          </tr>
+          <tr>
+            <td class="num">arm_summary</td>
+            <td>Margin and spread per fixture, arm and commit. Refuses to pool across commits by default.</td>
+          </tr>
+          <tr>
+            <td class="num">data_quality</td>
+            <td>Games that dropped decision batches or recorded none &mdash; a biased sample, flagged rather than averaged in.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>The mining signal: regret against the AI&rsquo;s own opinion</h3>
+    <p style="color:var(--ink-soft); font-size:0.94rem">
+      Each decision row carries the gap between the candidate the AI took and the best score it
+      assigned to any candidate. Nonzero means something &mdash; difficulty noise, or a
+      coordination override &mdash; deflected the choice away from the heuristic&rsquo;s own
+      judgement. It measures deviation from the <em>heuristic</em>, not from truth, so it points
+      at questions rather than answering them.
+    </p>
+    <p style="color:var(--ink-soft); font-size:0.94rem; margin-top:var(--s3)">
+      The first indexed games already raise one. Movement departs from its top-scored candidate in
+      <strong>217 of 332</strong> decisions, mean gap <strong>~7.9</strong> score units &mdash; an
+      order of magnitude beyond what Hard&rsquo;s &plusmn;0.5 noise can produce, so something
+      structural is overriding the score. Shooting, charge and fight barely deflect at all.
+      <em>The cause has not been traced.</em> That is precisely the kind of question the dataset
+      exists to make askable.
+    </p>
+  </div>
+
+  <div class="panel">
+    <h3 style="display:flex; gap:var(--s2); align-items:center; flex-wrap:wrap">
+      <span>Before any of this counts: the environment gate</span>
+      <span class="chip chip-built">M0</span>
+    </h3>
+    <p style="color:var(--ink-soft); font-size:0.94rem">
+      Every AI baseline predating this work was tuned on a fixture carrying an army-list header row
+      imported as a <em>unit</em> &mdash; <code>points: 2000</code>, <code>keywords: ["UNKNOWN"]</code>.
+      It inflated one army from 1,840 to 3,840 points, doubled the Strategic Reserves cap, and drew
+      the enemy AI into shooting a 1-wound phantom. Nothing recorded which fixture a result came from,
+      so the corruption stayed invisible and invalidated every historical tuning decision at once.
+      <code>fixture_check.py</code> now fails that fixture and passes the two mirrors, and every game
+      record pins the fixture&rsquo;s SHA-256 alongside the commit.
+    </p>
+  </div>
+</section>
+
+<!-- ============ Q4 ============ -->
+<section>
+  <div class="qhead">
+    <span class="qnum">Q4</span>
+    <h2>What are its limitations?</h2>
+  </div>
+
+  <div class="col">
+    <p>
+      The binding one is not subtle, and it is not the algorithm.
+    </p>
+  </div>
+
+  <div class="panel" style="margin-top:var(--s4); border-color:var(--warn)">
+    <h3>Measurement, not ideas, is the bottleneck</h3>
+    <p style="color:var(--ink-soft); font-size:0.94rem">
+      Paired effect standard deviation is <strong>8.37 VP</strong>. Detecting an effect of size
+      &Delta; at two standard errors needs <code>(2&thinsp;&times;&thinsp;8.37&thinsp;/&thinsp;&Delta;)&sup2;</code> pairs:
+    </p>
+    <div class="scroll" style="margin-top:var(--s3)">
+      <table>
+        <thead><tr><th>Effect to resolve</th><th>Pairs</th><th>Games per matchup</th><th>Wall clock @ 3 lanes</th></tr></thead>
+        <tbody>
+          <tr><td class="num">5 VP</td><td class="num">12</td><td class="num">24</td><td class="num">~50 min</td></tr>
+          <tr><td class="num">4 VP</td><td class="num">18</td><td class="num">36</td><td class="num">~1.2 h</td></tr>
+          <tr><td class="num">3 VP</td><td class="num">32</td><td class="num">64</td><td class="num">~2.1 h</td></tr>
+          <tr><td class="num">2 VP</td><td class="num">71</td><td class="num">142</td><td class="num">~4.7 h</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="color:var(--ink-soft); font-size:0.94rem; margin-top:var(--s3)">
+      The project already ran the natural experiment. Mining 1,029 match transcripts produced 31
+      evidence-backed findings; six were implemented; the measured result was
+      <strong>&minus;2.05 VP, 95% CI [&minus;7.2, +3.1]</strong> &mdash; indistinguishable from zero,
+      point estimate mildly favouring the <em>old</em> behaviour. The ideas weren&rsquo;t obviously
+      bad. They were unjudgeable, because at this noise level idea quality cannot be assessed
+      without an evaluator. That is why the evaluator came first.
+    </p>
+  </div>
+
+  <div class="items" style="margin-top:var(--s4)">
+    <div class="item">
+      <span class="chip chip-lim">throughput</span>
+      <div><strong>~6 minutes per game.</strong> <span style="color:var(--ink-soft)">Measured 350&ndash;403&nbsp;s. Roughly 350&ndash;500 games/day at three lanes on four cores &mdash; the whole budget, for everything.</span></div>
+    </div>
+    <div class="item">
+      <span class="chip chip-built">fixed</span>
+      <div><strong>Games are now exactly seed-reproducible.</strong> <span style="color:var(--ink-soft)">Score noise ran through a bare unseeded <code>randf()</code> &mdash; and it is applied inside a movement-ordering <em>sort comparator</em>, so activation order itself was stochastic. All 16 AI-layer call sites now draw from a seeded generator, and <code>Array.shuffle()</code> was replaced by a deterministic Fisher-Yates for the same reason. Verified across <strong>10 seeds on both mirrors</strong>: 5,109 action lines and 1,332 decision records identical between independent runs.</span></div>
+    </div>
+    <div class="item">
+      <span class="chip chip-lim">variance</span>
+      <div><strong>But common random numbers help less than hoped.</strong> <span style="color:var(--ink-soft)">A pair now shares dice, deck and noise draws, and an <em>identical</em> candidate reproduces exactly &mdash; which is a free no-op detector. A candidate that actually changes a decision, though, reshuffles every subsequent dice draw, so the paired spread stays wide. Early screen results show se of 1.3&ndash;3.8 VP at four pairs. Pairing removes the structural bias; it does not remove the game's own chaos.</span></div>
+    </div>
+    <div class="item">
+      <span class="chip chip-lim">coverage</span>
+      <div><strong>The trace is shallower than it looks.</strong> <span style="color:var(--ink-soft)">Only four decision sites emit records &mdash; movement, shooting, charge, fight. Command, scoring and reactive decisions are invisible. Shooting records the plan rather than the alternatives considered, and the &ldquo;hold fire to stay Hidden&rdquo; branch returns <em>before</em> its record is written.</span></div>
+    </div>
+    <div class="item">
+      <span class="chip chip-lim">proxy</span>
+      <div><strong>VP margin is a proxy, and proxies get gamed.</strong> <span style="color:var(--ink-soft)">A search optimising it may find degenerate play or exploit engine bugs. The AI also has to <em>look</em> like it is playing 40k, which no single number captures.</span></div>
+    </div>
+    <div class="item">
+      <span class="chip chip-lim">locality</span>
+      <div><strong>Two mirror fixtures is a narrow world.</strong> <span style="color:var(--ink-soft)">Mirrors remove army asymmetry by construction, which is what makes an A/A test meaningful &mdash; but a weight that wins an Ork mirror need not transfer, and evaluation runs at difficulties players may not use.</span></div>
+    </div>
+    <div class="item">
+      <span class="chip chip-lim">unproven</span>
+      <div><strong>The search exists but has not yet produced an accepted change.</strong> <span style="color:var(--ink-soft)">Screen, optimiser and the five-gate accept/reject are written and the evaluator passes its null test, but no candidate has cleared the gates. Until one does, this is a measuring instrument that has been calibrated, not an AI that has been improved &mdash; and saying otherwise would repeat exactly the mistake that produced <strong>&minus;2.05 VP, CI [&minus;7.2, +3.1]</strong>.</span></div>
+    </div>
+    <div class="item">
+      <span class="chip chip-lim">ceiling</span>
+      <div><strong>78% of scoring arithmetic is still unreachable.</strong> <span style="color:var(--ink-soft)">Down from 84% after promoting 22 coefficients, but the great majority of the numbers that decide games remain bare literals no profile can touch. Whatever the optimiser finds, it is searching under a fifth of the machine.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Q5 ============ -->
+<section>
+  <div class="qhead">
+    <span class="qnum">Q5</span>
+    <h2>How could it be improved?</h2>
+  </div>
+
+  <div class="col">
+    <p>
+      In this order, because each stage is worthless without the one before it. Every stage
+      carries a kill criterion, so the effort is falsifiable rather than open-ended.
+    </p>
+  </div>
+
+  <div class="panel" style="margin-top:var(--s4)">
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Next</th><th>What it adds</th><th>Cost</th><th>Kill criterion</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="num">Seed the AI&rsquo;s RNG</td>
+            <td>Exact same-seed replay; common-random-number pairing cuts the games needed per comparison; single-rollout counterfactuals become possible.</td>
+            <td class="num">≤ 2 days</td>
+            <td>If same-seed games aren&rsquo;t identical after two days, ship the paired driver without it and move on.</td>
+          </tr>
+          <tr>
+            <td class="num">Paired A/B driver</td>
+            <td>Seed-paired, side-swapped arms with sequential stopping and an always-on A/A arm that halts the campaign if the harness drifts.</td>
+            <td class="num">1&ndash;3 days</td>
+            <td>&mdash; foundational</td>
+          </tr>
+          <tr>
+            <td class="num">Sensitivity screen</td>
+            <td>One-at-a-time &plusmn;30% over ~15 candidate weights, to find which constants actually move the margin.</td>
+            <td class="num">~300 games</td>
+            <td>If fewer than five parameters move it by ≥2 VP, drop the optimiser for plain coordinate descent.</td>
+          </tr>
+          <tr>
+            <td class="num">Automated search</td>
+            <td>Cross-entropy method over the surviving 10&ndash;15 weights, with racing to kill bad candidates early. First unattended accept/reject.</td>
+            <td class="num">1.5&ndash;3.5k games</td>
+            <td>No accepted ≥4 VP change within one 30-day season &rarr; stop tuning weights, move the budget to feature work.</td>
+          </tr>
+          <tr>
+            <td class="num">Widen the trace</td>
+            <td>Fix the dead <code>vp_diff</code> context; instrument command, scoring and reactive decisions; add per-phase board digests.</td>
+            <td class="num">&mdash;</td>
+            <td>&mdash; unlocks rule search</td>
+          </tr>
+          <tr>
+            <td class="num">Rule-DSL search</td>
+            <td>Search over readable rules rather than bare numbers. The one place an LLM plausibly beats its cheap baseline &mdash; proposing semantically sensible rules random mutation would take thousands of games to stumble on.</td>
+            <td class="num">&mdash;</td>
+            <td>Dies if its accept-rate per 1k games doesn&rsquo;t beat templated mutation.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>The bar for calling any of it a success</h3>
+    <p style="color:var(--ink-soft); font-size:0.94rem">
+      Within one 30-day season and ≤12,000 games, the automated cycle must produce a profile change
+      that beats the shipped default by <strong>≥ +4 VP/game pooled across both mirrors at ≥2
+      standard errors</strong>, with no matchup worse than &minus;2 VP, no increase in stall rate,
+      zero new scenario-suite failures, and a concurrent A/A arm that stays within 2 se of zero.
+      If nothing clears that bar inside the season, weight tuning is falsified at this budget and
+      gets stopped &mdash; and the dataset remains valuable regardless.
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div class="col stack-tight">
+    <p style="font-family:var(--mono); font-size:0.76rem">
+      fixture_check.py &middot; run_lanes.py &middot; build_index.py &middot; params_manifest.py &middot; validate_profile.py
+      &mdash; all under <code>tools/ai_lab/</code>
+    </p>
+    <p>
+      Design and staging follow <code>research/ai_learning_framework_design.md</code>.
+      Figures are measured on this build, not estimated, except the sample-cost table, which is
+      arithmetic from the committed paired standard deviation.
+    </p>
+  </div>
+</footer>
+
+</div>

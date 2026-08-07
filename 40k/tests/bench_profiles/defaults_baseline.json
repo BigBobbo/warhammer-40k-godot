@@ -1,0 +1,8 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Shipped defaults (empty override set)",
+	"description": "Declares no parameters and no rules, so every get_param falls through to its const default. This is the BASELINE arm of every paired campaign: using it on both sides turns run_paired into an A/A null test, which must return E = 0 exactly now that the AI's RNG is seeded.",
+	"parameters": {},
+	"rules": []
+}
