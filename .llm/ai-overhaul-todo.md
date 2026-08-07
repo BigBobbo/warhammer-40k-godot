@@ -555,7 +555,7 @@ looked inert because the only cheap fixture is melee-light.*
     cause is a real order-dependence in AIPlayer's signal handling, stop,
     file the bug as its own task, and keep paced mode as the default.
 
-- [ ] **B2 — Asymmetric fixtures with clean baselines**
+- [x] **B2 — Asymmetric fixtures with clean baselines**
   - **Lock:** Fixtures  • **Depends:** —  • **Cost:** ~80 games (A/A)
   - **Context:** Two mirrors exist (Orks, Custodes). Mirrors isolate
     candidate effects but can't detect matchup overfitting — a change that
@@ -572,6 +572,38 @@ looked inert because the only cheap fixture is melee-light.*
     completes 5/5 games without stall at Hard.
   - **Tier B:** The two army lists are the shipped default lists a player
     actually sees.
+  - **Evidence (2026-08-07):**
+    ```
+    python3 40k/tests/make_asym_fixture.py
+      removed 9 mirrored Custodes unit(s) from P2
+      added 16 Ork unit(s) as P2
+      P1: 9 units, 1335 pts   P2: 16 units, 1840 pts
+      validation passed (no placeholders, nothing in reserves, no dangling
+      references, every army still in its own half)
+
+    python3 tools/ai_lab/fixture_check.py asym_orks_vs_custodes_postdeploy
+      [PASS]  sha256=784fc01f1e1c  round=1 phase=6 active=P1 first_turn=P1
+
+    A/A, 20 games, seeds 7001-7020, Hard, shipped defaults both sides:
+      completed 20/20, stalled 0, timed out 0     <- acceptance (3), 4x over
+      F = -11.30 VP/game   sd 11.34   se 2.54   95% CI [-16.27, -6.33]
+    ```
+    F's sign and magnitude are documented in the committed report: P1
+    (Custodes) wins by ~11 VP *despite fielding 505 fewer points*, because P1
+    takes the first turn (~19 VP on this board) and nine elite bodies hold
+    five objectives better than sixteen Ork bodies take them. F cancels
+    exactly under `run_paired`'s side swap, so a large *known* F is fine — an
+    unknown or drifting one is not, which is why it is written down with its
+    interval. sd 11.34 is at the low end of the mirrors' 9-15 VP range, so
+    this fixture costs no more games per VP of resolution than they do.
+    Files: `40k/tests/make_asym_fixture.py`,
+    `40k/tests/saves/asym_orks_vs_custodes_postdeploy.w40ksave`,
+    `40k/tests/bench_baselines/2026-08_asym_fixture_AA.md`.
+  - **Tier B self-assessed 2026-08-07 — pending human spot-check.** Both
+    armies are lifted unmodified from the two shipped mirror fixtures, which
+    are themselves built from the shipped `audit_baseline_postdeploy` lists —
+    Lions of the Emperor Custodes and Speedwaaagh! Orks, at their shipped
+    points. No unit was edited, added or repositioned.
 
 - [ ] **B3 — Sensitivity screen on the Ork mirror**
   - **Lock:** Lab  • **Depends:** B1 (else ~28 h), A5 (melee params exist)  • **Cost:** ~300 games
