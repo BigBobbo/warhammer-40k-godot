@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.28.7",
+      "date": "2026-08-07",
+      "summary": "Fixed a Charge phase freeze: a Heroic Intervention that could not reach the enemy left the game stuck with no way to continue.",
+      "changes": [
+        "Fixed: if a unit used Heroic Intervention and then could not legally end its move within Engagement Range of the target, the game froze in the Charge phase. The intervening unit had already acted, so it could not skip, and the only action the game still offered was the move that had just been rejected — leaving no legal way forward for either player. It showed up as the game simply never advancing past Charge. A Heroic Intervention whose move cannot be made now simply fails, which is what 11th edition's rule 15.11 describes: the unit stays where it is, the Charge phase completes, and play continues into Fight.",
+        "Fixed: the AI no longer submits a Heroic Intervention move it has already worked out cannot reach the target. It stands the intervention down instead, and says so in the log.",
+        "Fixed: the AI's last-resort 'unstick the phase' routine used to try an action without checking the game would accept it, so it could retry the same rejected action forever. It now only plays actions that will actually be allowed, and advances the phase if nothing else is available."
+      ]
+    },
+    {
       "version": "1.28.6",
       "date": "2026-08-06",
       "summary": "The AI now screens deep strike at the correct 8\" and stops refusing its own legal reinforcement drops — plus a batch of rules-correctness fixes to how it reads the board.",
