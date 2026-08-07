@@ -277,6 +277,7 @@ static func reset_caches() -> void:
 	_bodyguards_with_leaders.clear()
 	_thinking_steps.clear()
 	_decision_records.clear()
+	_param_reads.clear()
 	_movement_plan_logged = false
 	_focus_fire_plan_logged = false
 	_fight_order_logged = false
@@ -440,33 +441,71 @@ static func _get_base_param_value(param_name: String) -> float:
 		return float(_config_overrides[param_name])
 	return 0.0  # Will use const default via get_param
 
+# A3 (audit F-06) — `parameters_used` must list the knobs that were actually
+# turned. Records used to advertise names hand-written at the emission site,
+# several of which are bare `const`s no `get_param` ever asks for (e.g.
+# KILL_BONUS_MULTIPLIER), so an optimiser or an LLM reading a record would aim
+# at parameters no profile can move — and only 5 of 100+ tunables ever showed
+# up at all. The fix is to stop asking the emission site what it *thinks* it
+# used and read it off the resolver: every get_param/get_param_int call during
+# a decide() lands here, and _add_decision_record drains the set.
+#
+# The map is a plain name -> resolved value; writing an existing key again is
+# the common case and costs one hash. It is cleared at the top of decide()
+# alongside _decision_records, so a read from one decision cannot be credited
+# to the next.
+static var _param_reads: Dictionary = {}
+
+static func _note_param_read(param_name: String, value: float) -> void:
+	_param_reads[param_name] = value
+
+static func take_param_reads() -> Dictionary:
+	var out := _param_reads.duplicate()
+	_param_reads.clear()
+	return out
+
 static func get_param(param_name: String, default_value: float) -> float:
 	"""Get a tunable parameter value. Priority: rule overrides > player profile > global config > default."""
 	# 1. Rule-based dynamic overrides (highest priority)
 	if _active_rule_overrides.has(param_name):
-		return float(_active_rule_overrides[param_name])
+		var v_rule := float(_active_rule_overrides[param_name])
+		_note_param_read(param_name, v_rule)
+		return v_rule
 	# 2. Per-player profile parameters
 	if _current_player > 0 and _player_profiles.has(_current_player):
 		var profile_params = _player_profiles[_current_player].get("parameters", {})
 		if profile_params.has(param_name):
-			return float(profile_params[param_name])
+			var v_prof := float(profile_params[param_name])
+			_note_param_read(param_name, v_prof)
+			return v_prof
 	# 3. Global config overrides (ai_config.json)
 	if _config_overrides.has(param_name):
-		return float(_config_overrides[param_name])
+		var v_cfg := float(_config_overrides[param_name])
+		_note_param_read(param_name, v_cfg)
+		return v_cfg
 	# 4. Default constant value
+	_note_param_read(param_name, default_value)
 	return default_value
 
 static func get_param_int(param_name: String, default_value: int) -> int:
 	"""Get an integer tunable parameter value. Priority: rule overrides > player profile > global config > default."""
 	if _active_rule_overrides.has(param_name):
-		return int(_active_rule_overrides[param_name])
+		var i_rule := int(_active_rule_overrides[param_name])
+		_note_param_read(param_name, float(i_rule))
+		return i_rule
 	if _current_player > 0 and _player_profiles.has(_current_player):
 		var profile_params = _player_profiles[_current_player].get("parameters", {})
 		if profile_params.has(param_name):
-			return int(profile_params[param_name])
+			var i_prof := int(profile_params[param_name])
+			_note_param_read(param_name, float(i_prof))
+			return i_prof
 	if _config_overrides.has(param_name):
-		return int(_config_overrides[param_name])
+		var i_cfg := int(_config_overrides[param_name])
+		_note_param_read(param_name, float(i_cfg))
+		return i_cfg
+	_note_param_read(param_name, float(default_value))
 	return default_value
+
 
 # --- Charge / fight target-scoring coefficients (promoted from literals) ----
 # The other two decisive scoring paths. Same rationale and same discipline as
@@ -588,18 +627,59 @@ static func ai_shuffle(arr: Array) -> void:
 			arr[i] = arr[j]
 			arr[j] = tmp
 
+# A2 (audit F-05) — additive score decomposition.
+# Movement `score` was a single number and the record's only reported term was
+# `objective_priority`, which equalled it in 99% of candidates. So the trace
+# showed WHAT was chosen and nothing about WHY, and every offline attribution
+# built on it was guesswork. These two helpers make each contribution name
+# itself as it is applied, with the invariant sum(terms) == score: _t_add
+# returns the delta it recorded (so the caller adds exactly what was booked),
+# and _t_mul books the exact difference a multiplier made rather than the
+# multiplier itself, which is what keeps a scaling step inside an additive
+# ledger. Neither reads anything back — instrumentation only.
+static func _t_add(terms: Dictionary, key: String, delta: float) -> float:
+	if delta != 0.0:
+		terms[key] = float(terms.get(key, 0.0)) + delta
+	return delta
+
+static func _t_mul(terms: Dictionary, key: String, score: float, factor: float) -> float:
+	var after := score * factor
+	if after != score:
+		terms[key] = float(terms.get(key, 0.0)) + (after - score)
+	return after
+
 # Structured decision record helper — adds a decision record for the AI Gameplay Visualizer
 static func _add_decision_record(decision_type: String, unit_id: String, unit_name: String,
 		candidates: Array, chosen_index: int, parameters_used: Dictionary = {},
 		context: Dictionary = {}) -> void:
 	"""Add a structured decision record capturing full scoring breakdown."""
+	# A3 (audit F-06): `parameters_used` is EXACTLY the set of parameters this
+	# decision path resolved through get_param — drained from the resolver, not
+	# a list hand-written at the call site. Those hand-written lists advertised
+	# names that are bare `const`s no profile can reach
+	# (TEMPO_CHARGE_THRESHOLD_REDUCTION) and even names that are not parameters
+	# at all (`charge_threshold`, a computed local), so an optimiser or an LLM
+	# reading a record would aim at knobs that do not exist. Draining (rather
+	# than copying) means the next decision starts from empty, so a read is
+	# credited to the decision that made it.
+	#
+	# Whatever the call site passed is kept — it is genuinely useful context,
+	# just not a tunable surface — under context.derived_values.
+	var resolved := take_param_reads()
+	var derived := {}
+	for k in parameters_used:
+		if not resolved.has(k):
+			derived[k] = parameters_used[k]
+	if not derived.is_empty():
+		context = context.duplicate()
+		context["derived_values"] = derived
 	var record = {
 		"decision_type": decision_type,
 		"unit_id": unit_id,
 		"unit_name": unit_name,
 		"candidates": candidates,
 		"chosen_index": chosen_index,
-		"parameters_used": parameters_used,
+		"parameters_used": resolved,
 		"difficulty": AIDifficultyConfigData.difficulty_name(_current_difficulty),
 		"context": context,
 	}
@@ -1955,6 +2035,7 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 		evaluate_rules(player, rule_context)
 	_thinking_steps.clear()  # Reset thinking log for this decision
 	_decision_records.clear()  # Reset decision records for this decision
+	_param_reads.clear()  # A3: parameter reads are attributed per decision
 	_thinking_context = {}  # Reset board-link context for this decision
 	var diff_name = AIDifficultyConfigData.difficulty_name(difficulty)
 	# T7-43: Log round strategy mode

@@ -239,7 +239,7 @@ contain the alternatives that were considered (F-04).*
     naming the pass that made the call — enough to explain the choice
     without opening the source.
 
-- [ ] **A3 — `parameters_used` tells the truth**
+- [x] **A3 — `parameters_used` tells the truth**
   - **Lock:** AIDM  • **Depends:** —  • **Cost:** code-only
   - **Context:** Audit F-06: records advertise parameters (e.g.
     `KILL_BONUS_MULTIPLIER`) that are bare `const`s with no `get_param` call —
@@ -255,6 +255,26 @@ contain the alternatives that were considered (F-04).*
     it. (3) Count of distinct parameters appearing in records across one
     benchmark game ≥ 25 (from 5).
   - **Tier B:** none.
+  - **Evidence (2026-08-07):**
+    ```
+    determinism_check --require trajectory, ref(8d693c7) vs a3
+      Custodes  766 action lines identical   Ork  1341 action lines identical
+
+    validate_records.py, before A3 (the a2 seasons):
+      [FAIL] params-exist  names not in params_manifest: {'charge_threshold': 5}
+    validate_records.py, after A3:
+      [PASS] params-exist  99 distinct parameter names (Custodes) / 105 (Ork),
+                           all reachable via get_param        (target was >= 25, from 5)
+      VERDICT: PASS on both mirrors
+
+    seeded fake -> validate_records.py --selftest
+      phantom parameter      ok=False failed=['params-exist']  PASS
+    ```
+    `charge_threshold` was never a parameter at all (a computed local) and
+    `TEMPO_CHARGE_THRESHOLD_REDUCTION` is a bare `const` no `get_param`
+    reads — exactly F-06. Both are gone from `parameters_used` and preserved
+    under `context.derived_values`, so no debugging information was dropped.
+    Files: `40k/scripts/AIDecisionMaker.gd`, `tools/ai_lab/validate_records.py`.
 
 - [ ] **A4 — Promote reserves/embark/disembark literals to parameters**
   - **Lock:** AIDM  • **Depends:** —  • **Cost:** code-only + null test (~20 games)
