@@ -276,7 +276,7 @@ contain the alternatives that were considered (F-04).*
     under `context.derived_values`, so no debugging information was dropped.
     Files: `40k/scripts/AIDecisionMaker.gd`, `tools/ai_lab/validate_records.py`.
 
-- [ ] **A4 — Promote reserves/embark/disembark literals to parameters**
+- [x] **A4 — Promote reserves/embark/disembark literals to parameters**
   - **Lock:** AIDM  • **Depends:** —  • **Cost:** code-only + null test (~20 games)
   - **Context:** F-02 concentration table: `_score_unit_for_reserves` (18
     bare coefficients), `_score_unit_for_embarkation` (14),
@@ -294,6 +294,33 @@ contain the alternatives that were considered (F-04).*
     (3) Null test: `run_paired.py` with candidate == baseline returns
     E = 0.00, SE = 0.00 (the free no-op detector still works).
   - **Tier B:** Parameter names in `AI_TUNING.md` are self-explanatory.
+  - **Evidence (2026-08-07):**
+    ```
+    50 coefficients promoted across the three functions (46 bare literals plus
+    4 divisors/caps that were part of the same expressions).
+
+    tunability_audit.py     unreachable 225 -> 179 coefficients (-46, target was -40)
+                            unreachable share 78% -> 62%
+    params_manifest.py      128 -> 178 parameters, 191 -> 245 call sites
+
+    determinism_check.py (A4 vs A3, --require all, i.e. records too)
+      Custodes  766 action lines AND 237 decision records identical
+      Ork      1341 action lines AND 505 decision records identical
+
+    null test:
+    python3 tools/ai_lab/run_paired.py --candidate a4_null_defaults.json \
+        --baseline a4_null_defaults.json --fixture mirror_custodes_postdeploy --min-pairs 6
+      VERDICT: NO_OP after 6 pairs = 12 games
+      E = +0.00 VP/game  se 0.0  CI [0.0, 0.0]     (F = -5.50 +/- 4.15)
+    ```
+    The null profile is committed as `40k/tests/bench_profiles/a4_null_defaults.json`
+    so the no-op detector can be re-run at any time.
+    Files: `40k/scripts/AIDecisionMaker.gd`, `docs/AI_TUNING.md`,
+    `40k/tests/bench_profiles/a4_null_defaults.json`.
+  - **Tier B self-assessed 2026-08-07 — pending human spot-check.** Names read
+    as `<SUBSYSTEM>_<CASE>` with the case spelled out (`RESERVES_DS_PURE_MELEE`,
+    `DISEMBARK_TRANSPORT_THREATENED`, `EMBARK_SINGLE_WOUND`), and each row in
+    `AI_TUNING.md` carries the condition that triggers it.
 
 - [ ] **A5 — Promote fight, charge, and deployment literals**
   - **Lock:** AIDM  • **Depends:** A4 (pattern established)  • **Cost:** code-only + null test

@@ -241,6 +241,91 @@ respect the `MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES` chase cap.
 | `SECONDARY_CENTER_BONUS` | 3.5 | Area Denial: center positioning |
 | `SECONDARY_ENEMY_ZONE_PUSH_BONUS` | 7.0 | Behind Enemy Lines: pushing into the enemy deployment zone |
 
+### Reserves, embarkation and disembarkation (A4, 2026-08-07)
+
+These three scorers between them held 46 bare literals — the largest single
+block of scoring arithmetic no profile, rule or optimiser could reach
+(`research/audit_findings_2026-08-07.md` F-02). Reserves sizing has already
+lost a benchmark game on its own (950 pts held back;
+`docs/AI_REVIEW_2026-07-11.md` §2.4), so the block being untunable was not a
+theoretical problem. Promotion kept every default **exactly** as it was, which
+`determinism_check.py` verifies as byte-identical play.
+
+### Reserves — deep strike
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `RESERVES_DS_LONG_RANGE` | 1.5 | deep strike: long-range shooter |
+| `RESERVES_DS_MID_RANGE` | 3.5 | deep strike: shooter with max range <= 24" |
+| `RESERVES_DS_MIXED_MELEE` | 6 | deep strike: mixed melee/ranged unit |
+| `RESERVES_DS_POINTS_CAP` | 3 | deep strike: cap on the points-value bonus |
+| `RESERVES_DS_POINTS_DIVISOR` | 100 | deep strike: points per unit of value bonus |
+| `RESERVES_DS_PURE_MELEE` | 8 | deep strike: pure-melee unit |
+| `RESERVES_DS_SHORT_RANGE` | 5 | deep strike: shooter with max range <= 18" |
+
+### Reserves — strategic reserves
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `RESERVES_SR_MIXED_MELEE` | 2.5 | strategic reserves: mixed melee/ranged unit |
+| `RESERVES_SR_MOVE_10` | 1.5 | strategic reserves: unit with Move >= 10" |
+| `RESERVES_SR_MOVE_12` | 2 | strategic reserves: unit with Move >= 12" |
+| `RESERVES_SR_MOVE_8` | 0.5 | strategic reserves: unit with Move >= 8" |
+| `RESERVES_SR_POINTS_CAP` | 1.5 | strategic reserves: cap on the melee points bonus |
+| `RESERVES_SR_POINTS_DIVISOR` | 200 | strategic reserves: points per unit of melee value bonus |
+| `RESERVES_SR_PURE_MELEE` | 4 | strategic reserves: pure-melee unit |
+| `RESERVES_SR_RANGED` | 0.5 | strategic reserves: any other ranged unit |
+| `RESERVES_SR_SHORT_RANGE` | 2 | strategic reserves: shooter with max range <= 18" |
+
+### Reserves — universal modifiers
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `RESERVES_CHEAP_SCREEN_PENALTY` | 0.5 | cheap non-Deep-Strike unit (better as a screen) |
+| `RESERVES_LONG_RANGE_PENALTY` | 0.3 | ranged-only unit with max range >= 36" |
+| `RESERVES_VEHICLE_MELEE_PENALTY` | 0.7 | melee-only VEHICLE/MONSTER |
+| `RESERVES_VEHICLE_RANGED_PENALTY` | 0.4 | VEHICLE/MONSTER that is not melee-only |
+
+### Embarkation (which cargo wants a transport)
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `EMBARK_COSTLY` | 0.1 | cargo costs >= 100 pts |
+| `EMBARK_EXPENSIVE` | 0.15 | cargo costs >= 150 pts |
+| `EMBARK_INFANTRY` | 0.1 | cargo is INFANTRY (the common transportable type) |
+| `EMBARK_LOW_TOUGHNESS` | 0.3 | cargo toughness <= 4 |
+| `EMBARK_MEDIUM_UNIT` | 0.15 | cargo has <= 10 models |
+| `EMBARK_MELEE` | 0.25 | cargo has melee weapons (transport delivers the charge) |
+| `EMBARK_MID_RANGE` | 0.15 | cargo max weapon range <= 24" |
+| `EMBARK_OC_PER_POINT` | 0.1 | per point of objective control on the cargo |
+| `EMBARK_POOR_SAVE` | 0.2 | cargo save 5+ or worse |
+| `EMBARK_SHORT_RANGE` | 0.3 | cargo max weapon range <= 12" |
+| `EMBARK_SINGLE_WOUND` | 0.2 | cargo models have 1 wound |
+| `EMBARK_SLOW` | 0.1 | cargo Move <= 6" |
+| `EMBARK_SMALL_UNIT` | 0.3 | cargo has <= 5 models (capacity-efficient) |
+| `EMBARK_VERY_SLOW` | 0.2 | cargo Move <= 5" |
+
+### Disembarkation (get out now, or stay in?)
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `DISEMBARK_AGGRESSIVE_FACTION` | 0.2 | aggressive faction keyword on the cargo |
+| `DISEMBARK_CHARGE_CHANCE` | 0.4 | a charge is on after disembarking |
+| `DISEMBARK_COSTLY_CARGO` | 0.15 | cargo costs >= 100 pts |
+| `DISEMBARK_ELITE_CARGO` | 0.3 | cargo costs >= 200 pts |
+| `DISEMBARK_NO_FIRING_DECK` | 0.4 | transport has no Firing Deck (nothing gained by staying in) |
+| `DISEMBARK_OBJ_FAR` | 0.15 | objective within 12" of the transport |
+| `DISEMBARK_OBJ_NEAR` | 0.4 | objective within 6" of the transport |
+| `DISEMBARK_OBJ_ON_TOP` | 0.8 | transport is standing on an objective |
+| `DISEMBARK_OC_BONUS` | 0.1 | per point of cargo OC when claiming that objective |
+| `DISEMBARK_ROUND_1_PENALTY` | 0.2 | round 1: mild penalty for disembarking early |
+| `DISEMBARK_ROUND_2_BONUS` | 0.3 | round 2: start getting out |
+| `DISEMBARK_ROUND_3_BONUS` | 0.8 | round 3+: objectives will not score themselves |
+| `DISEMBARK_SHOOTING_BASE` | 0.3 | at least one enemy in range after disembarking |
+| `DISEMBARK_SHOOTING_PER_TARGET` | 0.1 | per additional enemy in range |
+| `DISEMBARK_TRANSPORT_STUCK` | 0.3 | transport remained stationary — cargo is going nowhere |
+| `DISEMBARK_TRANSPORT_THREATENED` | 0.25 | an anti-tank weapon can reach the transport |
+
 ---
 
 ## What is *not* (yet) a parameter

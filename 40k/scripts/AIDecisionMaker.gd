@@ -507,6 +507,64 @@ static func get_param_int(param_name: String, default_value: int) -> int:
 	return default_value
 
 
+# --- Reserves / embarkation / disembarkation coefficients (A4 promotion) ---
+# Audit F-02 concentration table: these three functions carried 46 bare
+# literals between them — the largest single block of scoring arithmetic no
+# profile, rule or optimiser could reach. Reserves sizing alone has already
+# lost a benchmark game single-handedly (950 pts in reserves,
+# docs/AI_REVIEW_2026-07-11.md 2.4). VALUES ARE UNCHANGED: promotion at the
+# same numbers must not move one decision, which determinism_check proves.
+const DISEMBARK_AGGRESSIVE_FACTION: float = 0.2  # aggressive faction keyword on the cargo
+const DISEMBARK_CHARGE_CHANCE: float = 0.4  # a charge is on after disembarking
+const DISEMBARK_COSTLY_CARGO: float = 0.15  # cargo costs >= 100 pts
+const DISEMBARK_ELITE_CARGO: float = 0.3  # cargo costs >= 200 pts
+const DISEMBARK_NO_FIRING_DECK: float = 0.4  # transport has no Firing Deck (nothing gained by staying in)
+const DISEMBARK_OBJ_FAR: float = 0.15  # objective within 12" of the transport
+const DISEMBARK_OBJ_NEAR: float = 0.4  # objective within 6" of the transport
+const DISEMBARK_OBJ_ON_TOP: float = 0.8  # transport is standing on an objective
+const DISEMBARK_OC_BONUS: float = 0.1  # per point of cargo OC when claiming that objective
+const DISEMBARK_ROUND_1_PENALTY: float = 0.2  # round 1: mild penalty for disembarking early
+const DISEMBARK_ROUND_2_BONUS: float = 0.3  # round 2: start getting out
+const DISEMBARK_ROUND_3_BONUS: float = 0.8  # round 3+: objectives will not score themselves
+const DISEMBARK_SHOOTING_BASE: float = 0.3  # at least one enemy in range after disembarking
+const DISEMBARK_SHOOTING_PER_TARGET: float = 0.1  # per additional enemy in range
+const DISEMBARK_TRANSPORT_STUCK: float = 0.3  # transport remained stationary — cargo is going nowhere
+const DISEMBARK_TRANSPORT_THREATENED: float = 0.25  # an anti-tank weapon can reach the transport
+const EMBARK_COSTLY: float = 0.1  # cargo costs >= 100 pts
+const EMBARK_EXPENSIVE: float = 0.15  # cargo costs >= 150 pts
+const EMBARK_INFANTRY: float = 0.1  # cargo is INFANTRY (the common transportable type)
+const EMBARK_LOW_TOUGHNESS: float = 0.3  # cargo toughness <= 4
+const EMBARK_MEDIUM_UNIT: float = 0.15  # cargo has <= 10 models
+const EMBARK_MELEE: float = 0.25  # cargo has melee weapons (transport delivers the charge)
+const EMBARK_MID_RANGE: float = 0.15  # cargo max weapon range <= 24"
+const EMBARK_OC_PER_POINT: float = 0.1  # per point of objective control on the cargo
+const EMBARK_POOR_SAVE: float = 0.2  # cargo save 5+ or worse
+const EMBARK_SHORT_RANGE: float = 0.3  # cargo max weapon range <= 12"
+const EMBARK_SINGLE_WOUND: float = 0.2  # cargo models have 1 wound
+const EMBARK_SLOW: float = 0.1  # cargo Move <= 6"
+const EMBARK_SMALL_UNIT: float = 0.3  # cargo has <= 5 models (capacity-efficient)
+const EMBARK_VERY_SLOW: float = 0.2  # cargo Move <= 5"
+const RESERVES_CHEAP_SCREEN_PENALTY: float = 0.5  # cheap non-Deep-Strike unit (better as a screen)
+const RESERVES_DS_LONG_RANGE: float = 1.5  # deep strike: long-range shooter
+const RESERVES_DS_MID_RANGE: float = 3.5  # deep strike: shooter with max range <= 24"
+const RESERVES_DS_MIXED_MELEE: float = 6.0  # deep strike: mixed melee/ranged unit
+const RESERVES_DS_POINTS_CAP: float = 3.0  # deep strike: cap on the points-value bonus
+const RESERVES_DS_POINTS_DIVISOR: float = 100.0  # deep strike: points per unit of value bonus
+const RESERVES_DS_PURE_MELEE: float = 8.0  # deep strike: pure-melee unit
+const RESERVES_DS_SHORT_RANGE: float = 5.0  # deep strike: shooter with max range <= 18"
+const RESERVES_LONG_RANGE_PENALTY: float = 0.3  # ranged-only unit with max range >= 36"
+const RESERVES_SR_MIXED_MELEE: float = 2.5  # strategic reserves: mixed melee/ranged unit
+const RESERVES_SR_MOVE_10: float = 1.5  # strategic reserves: unit with Move >= 10"
+const RESERVES_SR_MOVE_12: float = 2.0  # strategic reserves: unit with Move >= 12"
+const RESERVES_SR_MOVE_8: float = 0.5  # strategic reserves: unit with Move >= 8"
+const RESERVES_SR_POINTS_CAP: float = 1.5  # strategic reserves: cap on the melee points bonus
+const RESERVES_SR_POINTS_DIVISOR: float = 200.0  # strategic reserves: points per unit of melee value bonus
+const RESERVES_SR_PURE_MELEE: float = 4.0  # strategic reserves: pure-melee unit
+const RESERVES_SR_RANGED: float = 0.5  # strategic reserves: any other ranged unit
+const RESERVES_SR_SHORT_RANGE: float = 2.0  # strategic reserves: shooter with max range <= 18"
+const RESERVES_VEHICLE_MELEE_PENALTY: float = 0.7  # melee-only VEHICLE/MONSTER
+const RESERVES_VEHICLE_RANGED_PENALTY: float = 0.4  # VEHICLE/MONSTER that is not melee-only
+
 # --- Charge / fight target-scoring coefficients (promoted from literals) ----
 # The other two decisive scoring paths. Same rationale and same discipline as
 # the movement block above: values UNCHANGED, so promotion is a no-op.
@@ -3333,50 +3391,50 @@ static func _score_unit_for_embarkation(unit: Dictionary, unit_id: String, model
 	# Fragile units benefit most from transport protection
 	# Low toughness (T3-4) and poor saves (5+, 6+) want to be in transports
 	if toughness <= 4:
-		score += 0.3
+		score += get_param("EMBARK_LOW_TOUGHNESS", EMBARK_LOW_TOUGHNESS)
 	if save >= 5:
-		score += 0.2
+		score += get_param("EMBARK_POOR_SAVE", EMBARK_POOR_SAVE)
 	if wounds == 1:
-		score += 0.2  # Single-wound models are very fragile
+		score += get_param("EMBARK_SINGLE_WOUND", EMBARK_SINGLE_WOUND)  # Single-wound models are very fragile
 
 	# Small units are more efficient to transport (fewer models = more capacity-efficient)
 	if model_count <= 5:
-		score += 0.3
+		score += get_param("EMBARK_SMALL_UNIT", EMBARK_SMALL_UNIT)
 	elif model_count <= 10:
-		score += 0.15
+		score += get_param("EMBARK_MEDIUM_UNIT", EMBARK_MEDIUM_UNIT)
 
 	# Units with good ranged weapons benefit from being delivered safely to shooting range
 	if _unit_has_ranged_weapons(unit):
 		var max_range = _get_max_weapon_range(unit)
 		if max_range <= 12.0:
-			score += 0.3  # Short-range weapons need transport delivery
+			score += get_param("EMBARK_SHORT_RANGE", EMBARK_SHORT_RANGE)  # Short-range weapons need transport delivery
 		elif max_range <= 24.0:
-			score += 0.15
+			score += get_param("EMBARK_MID_RANGE", EMBARK_MID_RANGE)
 
 	# Melee units benefit greatly from transport delivery to charge range
 	if _unit_has_melee_weapons(unit):
-		score += 0.25
+		score += get_param("EMBARK_MELEE", EMBARK_MELEE)
 
 	# Slow units (M5" or less) benefit more from transport speed
 	if move <= 5:
-		score += 0.2
+		score += get_param("EMBARK_VERY_SLOW", EMBARK_VERY_SLOW)
 	elif move <= 6:
-		score += 0.1
+		score += get_param("EMBARK_SLOW", EMBARK_SLOW)
 
 	# Higher point units are more worth protecting
 	if points >= 150:
-		score += 0.15
+		score += get_param("EMBARK_EXPENSIVE", EMBARK_EXPENSIVE)
 	elif points >= 100:
-		score += 0.1
+		score += get_param("EMBARK_COSTLY", EMBARK_COSTLY)
 
 	# INFANTRY keyword is the most common transport-compatible type
 	if "INFANTRY" in keywords:
-		score += 0.1
+		score += get_param("EMBARK_INFANTRY", EMBARK_INFANTRY)
 
 	# Objective control value — units with good OC benefit from fast objective delivery
 	var oc = int(stats.get("objective_control", stats.get("oc", 1)))
 	if oc >= 2:
-		score += 0.1 * oc
+		score += get_param("EMBARK_OC_PER_POINT", EMBARK_OC_PER_POINT) * oc
 
 	print("AIDecisionMaker: [FORM-2] Score %s for transport: %.2f (T%d, Sv%d+, W%d, M%d\", %d models, %dpts)" % [
 		_dn(unit, unit_id), score, toughness, save, wounds, move, model_count, points])
@@ -3576,30 +3634,30 @@ static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_
 		# Deep Strike allows deployment anywhere >9" from enemies — extremely flexible.
 		# Melee units benefit most: arrive close, charge next turn.
 		if has_melee and not has_ranged:
-			score += 8.0  # Pure melee — Deep Strike is their ideal delivery method
+			score += get_param("RESERVES_DS_PURE_MELEE", RESERVES_DS_PURE_MELEE)  # Pure melee — Deep Strike is their ideal delivery method
 		elif has_melee:
-			score += 6.0  # Mixed melee/ranged still benefits significantly
+			score += get_param("RESERVES_DS_MIXED_MELEE", RESERVES_DS_MIXED_MELEE)  # Mixed melee/ranged still benefits significantly
 		elif has_ranged and max_range <= 18:
-			score += 5.0  # Very short-range shooters (flamers, meltas) need positioning
+			score += get_param("RESERVES_DS_SHORT_RANGE", RESERVES_DS_SHORT_RANGE)  # Very short-range shooters (flamers, meltas) need positioning
 		elif has_ranged and max_range <= 24:
-			score += 3.5  # Short-range shooters benefit from flexible arrival
+			score += get_param("RESERVES_DS_MID_RANGE", RESERVES_DS_MID_RANGE)  # Short-range shooters benefit from flexible arrival
 		else:
-			score += 1.5  # Long-range shooters have marginal benefit from Deep Strike
+			score += get_param("RESERVES_DS_LONG_RANGE", RESERVES_DS_LONG_RANGE)  # Long-range shooters have marginal benefit from Deep Strike
 
 		# Bonus for high-value units (worth positioning carefully)
-		score += clamp(points / 100.0, 0.0, 3.0)
+		score += clamp(points / get_param("RESERVES_DS_POINTS_DIVISOR", RESERVES_DS_POINTS_DIVISOR), 0.0, get_param("RESERVES_DS_POINTS_CAP", RESERVES_DS_POINTS_CAP))
 
 	elif reserve_type == "strategic_reserves":
 		# Strategic reserves arrive within 6" of a board edge — less flexible but still useful.
 		# Primarily benefits fast melee units that can exploit flank entry.
 		if has_melee and not has_ranged:
-			score += 4.0  # Pure melee benefits from flank delivery
+			score += get_param("RESERVES_SR_PURE_MELEE", RESERVES_SR_PURE_MELEE)  # Pure melee benefits from flank delivery
 		elif has_melee:
-			score += 2.5  # Mixed units get moderate benefit
+			score += get_param("RESERVES_SR_MIXED_MELEE", RESERVES_SR_MIXED_MELEE)  # Mixed units get moderate benefit
 		elif has_ranged and max_range <= 18:
-			score += 2.0  # Short-range shooters can use edge entry
+			score += get_param("RESERVES_SR_SHORT_RANGE", RESERVES_SR_SHORT_RANGE)  # Short-range shooters can use edge entry
 		else:
-			score += 0.5  # Ranged units generally want Turn 1 shooting
+			score += get_param("RESERVES_SR_RANGED", RESERVES_SR_RANGED)  # Ranged units generally want Turn 1 shooting
 
 		# Fast units capitalize better on board edge entry (more distance after arriving)
 		var movement = 0
@@ -3614,15 +3672,15 @@ static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_
 			elif m_stat is int or m_stat is float:
 				movement = max(movement, int(m_stat))
 		if movement >= 12:
-			score += 2.0  # Very fast units (bikes, cavalry) are great from reserves
+			score += get_param("RESERVES_SR_MOVE_12", RESERVES_SR_MOVE_12)  # Very fast units (bikes, cavalry) are great from reserves
 		elif movement >= 10:
-			score += 1.5
+			score += get_param("RESERVES_SR_MOVE_10", RESERVES_SR_MOVE_10)
 		elif movement >= 8:
-			score += 0.5
+			score += get_param("RESERVES_SR_MOVE_8", RESERVES_SR_MOVE_8)
 
 		# Bonus for melee-oriented high-value units
 		if has_melee:
-			score += clamp(points / 200.0, 0.0, 1.5)
+			score += clamp(points / get_param("RESERVES_SR_POINTS_DIVISOR", RESERVES_SR_POINTS_DIVISOR), 0.0, get_param("RESERVES_SR_POINTS_CAP", RESERVES_SR_POINTS_CAP))
 
 	# --- Universal modifiers ---
 
@@ -3630,17 +3688,17 @@ static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_
 	# (they have range and durability, and losing a turn of shooting is costly)
 	if "VEHICLE" in keywords or "MONSTER" in keywords:
 		if not has_melee or has_ranged:
-			score *= 0.4  # Significant penalty unless they're melee-focused
+			score *= get_param("RESERVES_VEHICLE_RANGED_PENALTY", RESERVES_VEHICLE_RANGED_PENALTY)  # Significant penalty unless they're melee-focused
 		else:
-			score *= 0.7  # Melee vehicles/monsters still get some penalty
+			score *= get_param("RESERVES_VEHICLE_MELEE_PENALTY", RESERVES_VEHICLE_MELEE_PENALTY)  # Melee vehicles/monsters still get some penalty
 
 	# Purely long-range ranged units should stay on the table for Turn 1 shooting
 	if has_ranged and not has_melee and max_range >= 36:
-		score *= 0.3  # Heavy ranged platforms (Devastators, Leman Russ) want to shoot immediately
+		score *= get_param("RESERVES_LONG_RANGE_PENALTY", RESERVES_LONG_RANGE_PENALTY)  # Heavy ranged platforms (Devastators, Leman Russ) want to shoot immediately
 
 	# Cheap screening units are sometimes better deployed as screens
 	if points <= get_param_int("SCREEN_CHEAP_UNIT_POINTS", SCREEN_CHEAP_UNIT_POINTS) and not has_deep_strike:
-		score *= 0.5  # Cheap units are better as Turn 1 screens than reserves
+		score *= get_param("RESERVES_CHEAP_SCREEN_PENALTY", RESERVES_CHEAP_SCREEN_PENALTY)  # Cheap units are better as Turn 1 screens than reserves
 
 	var unit_name = _dn(unit, unit_id)
 	var type_label = "DS" if reserve_type == "deep_strike" else "SR"
@@ -7004,13 +7062,13 @@ static func _score_disembark_benefit(unit: Dictionary, unit_id: String, transpor
 
 	if nearest_obj_dist <= 3.0:
 		# Transport is on an objective — disembark to claim it with OC
-		score += 0.8 + (oc * 0.1)
+		score += get_param("DISEMBARK_OBJ_ON_TOP", DISEMBARK_OBJ_ON_TOP) + (oc * get_param("DISEMBARK_OC_BONUS", DISEMBARK_OC_BONUS))
 		print("AIDecisionMaker: [MOV-7]   %s: objective within %.1f\" — high disembark priority (OC%d)" % [unit_name, nearest_obj_dist, oc])
 	elif nearest_obj_dist <= 6.0:
-		score += 0.4
+		score += get_param("DISEMBARK_OBJ_NEAR", DISEMBARK_OBJ_NEAR)
 		print("AIDecisionMaker: [MOV-7]   %s: objective within %.1f\" — moderate disembark priority" % [unit_name, nearest_obj_dist])
 	elif nearest_obj_dist <= 12.0:
-		score += 0.15
+		score += get_param("DISEMBARK_OBJ_FAR", DISEMBARK_OBJ_FAR)
 
 	# Factor 2: Shooting opportunity — disembark if enemies are in weapon range
 	if _unit_has_ranged_weapons(unit):
@@ -7026,7 +7084,7 @@ static func _score_disembark_benefit(unit: Dictionary, unit_id: String, transpor
 				enemies_in_range += 1
 
 		if enemies_in_range > 0:
-			score += 0.3 + (enemies_in_range * 0.1)
+			score += get_param("DISEMBARK_SHOOTING_BASE", DISEMBARK_SHOOTING_BASE) + (enemies_in_range * get_param("DISEMBARK_SHOOTING_PER_TARGET", DISEMBARK_SHOOTING_PER_TARGET))
 			print("AIDecisionMaker: [MOV-7]   %s: %d enemies in shooting range (%.0f\")" % [unit_name, enemies_in_range, max_range])
 
 	# Factor 3: Charge opportunity — disembark melee units near enemies
@@ -7042,18 +7100,18 @@ static func _score_disembark_benefit(unit: Dictionary, unit_id: String, transpor
 				var dist_inches = transport_pos.distance_to(enemy_pos) / PIXELS_PER_INCH
 				var move_inches = float(stats.get("move", 6))
 				if dist_inches <= move_inches + 12.0 + 3.0:  # Move + charge range + disembark
-					score += 0.4
+					score += get_param("DISEMBARK_CHARGE_CHANCE", DISEMBARK_CHARGE_CHANCE)
 					print("AIDecisionMaker: [MOV-7]   %s: enemy in charge range after disembark (%.1f\")" % [unit_name, dist_inches])
 					break
 
 	# Factor 4: Battle round — later rounds strongly favor disembarking
 	# Units sitting in transports aren't scoring objectives or fighting
 	if battle_round == 1:
-		score -= 0.2  # Mild penalty for early disembark
+		score -= get_param("DISEMBARK_ROUND_1_PENALTY", DISEMBARK_ROUND_1_PENALTY)  # Mild penalty for early disembark
 	elif battle_round == 2:
-		score += 0.3  # Start disembarking — can't sit in transport forever
+		score += get_param("DISEMBARK_ROUND_2_BONUS", DISEMBARK_ROUND_2_BONUS)  # Start disembarking — can't sit in transport forever
 	elif battle_round >= 3:
-		score += 0.8  # Must disembark — objectives are critical, units will be destroyed if transport dies
+		score += get_param("DISEMBARK_ROUND_3_BONUS", DISEMBARK_ROUND_3_BONUS)  # Must disembark — objectives are critical, units will be destroyed if transport dies
 
 	# Factor 5: Transport safety — if transport is in danger, disembark to avoid losing contents
 	for enemy_id in enemies:
@@ -7068,22 +7126,22 @@ static func _score_disembark_benefit(unit: Dictionary, unit_id: String, transpor
 				if w.get("type", "").to_lower() == "ranged":
 					var strength = int(w.get("strength", 4))
 					if strength >= 7:  # Anti-tank capable
-						score += 0.25
+						score += get_param("DISEMBARK_TRANSPORT_THREATENED", DISEMBARK_TRANSPORT_THREATENED)
 						print("AIDecisionMaker: [MOV-7]   %s: transport threatened by S%d weapon (%.1f\" away)" % [unit_name, strength, dist_inches])
 						break
 
 	# Factor 6: High-value cargo — elite/character units contribute more on the board
 	var unit_points = int(unit.get("meta", {}).get("points", 0))
 	if unit_points >= 200:
-		score += 0.3
+		score += get_param("DISEMBARK_ELITE_CARGO", DISEMBARK_ELITE_CARGO)
 	elif unit_points >= 100:
-		score += 0.15
+		score += get_param("DISEMBARK_COSTLY_CARGO", DISEMBARK_COSTLY_CARGO)
 
 	# Factor 7: Aggressive factions (Orks, World Eaters, etc.) should disembark earlier
 	var keywords = unit.get("meta", {}).get("keywords", [])
 	for kw in keywords:
 		if kw in ["ORKS", "WORLD EATERS", "TYRANIDS"]:
-			score += 0.2
+			score += get_param("DISEMBARK_AGGRESSIVE_FACTION", DISEMBARK_AGGRESSIVE_FACTION)
 			break
 
 	# Factor 8: Transport has 'Ard Case or no Firing Deck — units can't shoot while
@@ -7098,13 +7156,13 @@ static func _score_disembark_benefit(unit: Dictionary, unit_id: String, transpor
 		if "'ard case" in aname or "ard case" in aname:
 			has_ard_case = true
 	if has_ard_case or not has_firing_deck:
-		score += 0.4
+		score += get_param("DISEMBARK_NO_FIRING_DECK", DISEMBARK_NO_FIRING_DECK)
 		print("AIDecisionMaker: [MOV-7]   %s: transport has no Firing Deck — no benefit to staying embarked" % [unit_name])
 
 	# Factor 9: Transport remained stationary last turn — if stuck, disembark immediately
 	var transport_remained_stationary = transport.get("flags", {}).get("remained_stationary", false)
 	if transport_remained_stationary and battle_round >= 2:
-		score += 0.3
+		score += get_param("DISEMBARK_TRANSPORT_STUCK", DISEMBARK_TRANSPORT_STUCK)
 		print("AIDecisionMaker: [MOV-7]   %s: transport stuck (remained stationary) — disembark urgency" % [unit_name])
 
 	return score
