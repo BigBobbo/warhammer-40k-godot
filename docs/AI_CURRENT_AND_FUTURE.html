@@ -547,10 +547,14 @@ precisely the right shape here, and the repo is already more than half way to it
 
 <h3><span class="sn">§10</span>What the research supports</h3>
 <ul>
-  <li><b>Bot Bowl (Blood Bowl AI competition, IEEE CoG):</b> scripted domain knowledge beat pure
-  RL for years; the first ML winner imitated a scripted bot; full-game MCTS remains impractical.
-  Closest analog to 40k in existence. Validates: keep the scripted knowledge, add selective
-  search, measure hard.</li>
+  <li><b>Bot Bowl (Blood Bowl AI competition, IEEE CoG, 2019–2023):</b> a scripted bot won the
+  two most recent editions (2022 and 2023, with ML entries relegated to a side prize); the only
+  ML winner ever (2021) imitated a scripted bot and hybridized with search; full-game MCTS
+  remains impractical. Closest analog to 40k in existence — and this game has a harder action
+  space (continuous positioning, not a grid) and far less compute than the RL systems that
+  conquered other games. Validates: keep the scripted knowledge, add selective search, measure
+  hard. Note the plan follows this: nothing in it ships a learned policy — modern AI is used as
+  the offline <em>improver</em> of the scripted system, never the player.</li>
   <li><b>XCOM 2 (GDC):</b> utility scoring over generated move candidates with named factors —
   the same family as this codebase; its strength came from disciplined factor design, not
   exotic algorithms.</li>
