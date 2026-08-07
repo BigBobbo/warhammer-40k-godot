@@ -141,6 +141,10 @@ func _kick_off() -> void:
 		var smm = get_node_or_null("/root/SecondaryMissionManager")
 		if smm != null and smm.has_method("set_test_seed"):
 			smm.set_test_seed(_seed)
+		# M2: and the AI layer's own RNG — score noise, Easy-mode picks and
+		# scatter all drew from the GLOBAL generator, which is why two
+		# same-seed games diverged at the fifth movement decision.
+		AIDecisionMaker.set_ai_seed(_seed)
 
 	# 3) Live battle scene (phases/controllers need it)
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")

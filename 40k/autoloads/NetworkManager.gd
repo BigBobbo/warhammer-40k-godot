@@ -2591,6 +2591,7 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		"DECLINE_HEROIC_INTERVENTION",
 		"HEROIC_INTERVENTION_CHARGE_ROLL",
 		"APPLY_HEROIC_INTERVENTION_MOVE",
+		"ABORT_HEROIC_INTERVENTION_MOVE",
 		"END_FIGHT",
 		# Reactive stratagem windows — the deciding player is frequently NOT
 		# the active player (opponent's fight activation, opponent's charge),

@@ -453,6 +453,93 @@ static func get_param_int(param_name: String, default_value: int) -> int:
 		return int(_config_overrides[param_name])
 	return default_value
 
+# --- Charge / fight target-scoring coefficients (promoted from literals) ----
+# The other two decisive scoring paths. Same rationale and same discipline as
+# the movement block above: values UNCHANGED, so promotion is a no-op.
+const CHARGE_MELEE_DAMAGE_WEIGHT: float = 2.0     # expected melee damage multiplier
+const CHARGE_BELOW_HALF_BONUS: float = 3.0        # target already below half strength
+const CHARGE_CHARACTER_BONUS: float = 2.0         # target is a CHARACTER
+const CHARGE_CANT_HURT_PENALTY: float = 1.0       # we cannot meaningfully damage it
+const CHARGE_TIE_UP_SHOOTER_BONUS: float = 2.0    # locks a long-range shooter in combat
+const FIGHT_MELEE_DAMAGE_WEIGHT: float = 2.0      # expected melee damage multiplier
+const FIGHT_BELOW_HALF_BONUS: float = 3.0         # target already below half strength
+const FIGHT_CHARACTER_BONUS: float = 2.0          # target is a CHARACTER
+const FIGHT_CANT_HURT_PENALTY: float = 3.0        # we cannot meaningfully damage it
+const FIGHT_CAN_WIPE_BONUS: float = 6.0           # we can likely destroy the unit outright
+const FIGHT_CAN_HALVE_BONUS: float = 3.0          # we can take it below half strength
+const FIGHT_OVERKILL_PENALTY: float = 1.0         # >3x the wounds remaining
+
+# --- Objective-assignment coefficients (promoted from bare literals) --------
+# These decide where every unit goes, every movement phase — 49.6% of movement
+# decisions in a 19-game sample picked a destination both farther away and
+# lower-scoring than an available alternative, driven by the reachability
+# penalty below. All of it was hardcoded, so no profile, rule or optimiser
+# could reach it at any games budget. Values are UNCHANGED; promoting them is
+# a behaviour-preserving no-op that simply enlarges the search space.
+const MOVE_TURNS_AWAY_PENALTY: float = 2.0        # per extra turn needed to arrive
+const MOVE_STAY_BONUS_LATE: float = 7.0           # already on objective, round >= 4
+const MOVE_STAY_BONUS_SCORING: float = 6.0        # already on objective, round >= 2
+const MOVE_STAY_BONUS_EARLY: float = 5.0          # already on objective, round 1
+const MOVE_HORDE_BONUS_LARGE: float = 2.0         # >= 10 alive models holding
+const MOVE_HORDE_BONUS_MEDIUM: float = 1.0        # >= 5 alive models holding
+const MOVE_REACHABLE_BONUS: float = 3.0           # arrives this turn with a normal move
+const MOVE_ADVANCE_REACHABLE_BONUS: float = 1.5   # arrives only by advancing
+const MOVE_UNREACHABLE_EARLY_PENALTY: float = 2.0 # round 1 and cannot arrive next round
+const MOVE_ENEMIES_NEAR_OBJ_BONUS: float = 1.0    # no firing solution, but enemies are near
+
+# =============================================================================
+# M2 — seeded AI-layer RNG
+# =============================================================================
+# RulesEngine seeds dice and the secondary deck, but the AI layer itself called
+# the GLOBAL unseeded RNG: difficulty score noise, Easy-mode action picks,
+# deployment scatter and reinforcement scatter. Score noise is applied inside a
+# movement-ordering SORT COMPARATOR, so unit activation order was stochastic
+# per run — which is why two same-seed games diverged at the fifth movement
+# decision and ended as completely different games (one stalled, one did not).
+#
+# Everything in the AI layer now draws from this generator. Seeded, the whole
+# game is reproducible from (seed, identical starting state) because the AI's
+# call ORDER is itself deterministic. Unseeded (normal play) it is randomized
+# once, so behaviour is statistically unchanged.
+static var _ai_rng: RandomNumberGenerator = null
+static var _ai_rng_seeded: bool = false
+
+static func _rng() -> RandomNumberGenerator:
+	if _ai_rng == null:
+		_ai_rng = RandomNumberGenerator.new()
+		_ai_rng.randomize()
+	return _ai_rng
+
+## Seed the AI layer. Pass -1 to return to unseeded play.
+static func set_ai_seed(seed_value: int) -> void:
+	_ai_rng = RandomNumberGenerator.new()
+	if seed_value >= 0:
+		_ai_rng.seed = seed_value
+		_ai_rng_seeded = true
+	else:
+		_ai_rng.randomize()
+		_ai_rng_seeded = false
+
+static func is_ai_seeded() -> bool:
+	return _ai_rng_seeded
+
+static func ai_randf() -> float:
+	return _rng().randf()
+
+static func ai_randi() -> int:
+	return _rng().randi()
+
+## Deterministic Fisher-Yates. Array.shuffle() uses the global RNG, so it would
+## reintroduce exactly the non-determinism this section exists to remove.
+static func ai_shuffle(arr: Array) -> void:
+	var r = _rng()
+	for i in range(arr.size() - 1, 0, -1):
+		var j = r.randi_range(0, i)
+		if i != j:
+			var tmp = arr[i]
+			arr[i] = arr[j]
+			arr[j] = tmp
+
 # Structured decision record helper — adds a decision record for the AI Gameplay Visualizer
 static func _add_decision_record(decision_type: String, unit_id: String, unit_name: String,
 		candidates: Array, chosen_index: int, parameters_used: Dictionary = {},
@@ -864,7 +951,7 @@ static func _apply_difficulty_noise(score: float) -> float:
 	var noise = AIDifficultyConfigData.get_score_noise(_current_difficulty)
 	if noise <= 0.0:
 		return score
-	return score + (randf() - 0.5) * noise * 2.0
+	return score + (ai_randf() - 0.5) * noise * 2.0
 
 static func _get_difficulty_charge_threshold_modifier() -> float:
 	"""Get charge threshold modifier for current difficulty."""
@@ -1180,10 +1267,26 @@ static var _current_player: int = 0  # Active AI player for profile lookups
 static var _current_difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL
 
 static func _get_vp_diff(snapshot: Dictionary, player: int) -> int:
-	"""Get VP differential (positive = ahead, negative = behind)."""
-	var meta = snapshot.get("meta", {})
-	var p1_vp = meta.get("player1_vp", 0)
-	var p2_vp = meta.get("player2_vp", 0)
+	"""Get VP differential (positive = ahead, negative = behind).
+
+	Real victory points live in state.players[<player>].vp, written by
+	MissionManager. This previously read meta.player1_vp / meta.player2_vp,
+	which a repo-wide search shows are written by exactly ONE test
+	(tests/test_ai_movement_coordination.gd) and by nothing in a real game.
+	So vp_diff was always 0 in play, which silently disabled all five vp_*
+	profile rule conditions: vp_ahead and vp_diff_gte could never fire, and
+	vp_behind and vp_diff_lte fired ALWAYS. The legacy keys are still read
+	as a fallback so existing tests keep working."""
+	var players = snapshot.get("players", {})
+	var p1_vp = 0
+	var p2_vp = 0
+	if players is Dictionary and (players.has("1") or players.has("2")):
+		p1_vp = int((players.get("1", {}) as Dictionary).get("vp", 0))
+		p2_vp = int((players.get("2", {}) as Dictionary).get("vp", 0))
+	else:
+		var meta = snapshot.get("meta", {})
+		p1_vp = int(meta.get("player1_vp", 0))
+		p2_vp = int(meta.get("player2_vp", 0))
 	if player == 1:
 		return p1_vp - p2_vp
 	return p2_vp - p1_vp
@@ -2156,7 +2259,7 @@ static func _decide_random(phase: int, snapshot: Dictionary, available_actions: 
 			return {"type": t, "_ai_description": "End phase (Easy)"}
 
 	# Last resort: pick a random action
-	var random_action = available_actions[randi() % available_actions.size()]
+	var random_action = available_actions[ai_randi() % available_actions.size()]
 	var result = random_action.duplicate()
 	result["_ai_description"] = "Random action: %s (Easy)" % result.get("type", "?")
 	return result
@@ -2185,13 +2288,13 @@ static func _decide_random_movement(snapshot: Dictionary, available_actions: Arr
 
 	# Pick a random unit
 	var unit_ids = movable_units.keys()
-	var uid = unit_ids[randi() % unit_ids.size()]
+	var uid = unit_ids[ai_randi() % unit_ids.size()]
 	var move_types = movable_units[uid]
 	var unit = snapshot.get("units", {}).get(uid, {})
 	var unit_name = _dn(unit, uid)
 
 	# 50% chance to remain stationary, 50% chance to move
-	if "REMAIN_STATIONARY" in move_types and randf() < 0.5:
+	if "REMAIN_STATIONARY" in move_types and ai_randf() < 0.5:
 		return {
 			"type": "REMAIN_STATIONARY",
 			"actor_unit_id": uid,
@@ -2210,8 +2313,8 @@ static func _decide_random_movement(snapshot: Dictionary, available_actions: Arr
 			var cx = float(pos.get("x", 0))
 			var cy = float(pos.get("y", 0))
 			# Random direction, random distance up to max move
-			var angle = randf() * TAU
-			var dist = randf() * move_px
+			var angle = ai_randf() * TAU
+			var dist = ai_randf() * move_px
 			var dest_x = clamp(cx + cos(angle) * dist, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
 			var dest_y = clamp(cy + sin(angle) * dist, BASE_MARGIN_PX, BOARD_HEIGHT_PX - BASE_MARGIN_PX)
 			destinations[mid] = [dest_x, dest_y]
@@ -2238,7 +2341,7 @@ static func _decide_random_shooting(snapshot: Dictionary, available_actions: Arr
 	# If SHOOT actions available, pick randomly
 	if action_types.has("SHOOT"):
 		var shoot_actions = action_types["SHOOT"]
-		var chosen = shoot_actions[randi() % shoot_actions.size()]
+		var chosen = shoot_actions[ai_randi() % shoot_actions.size()]
 		var result = chosen.duplicate()
 		var unit_name = _dn(snapshot.get("units", {}).get(result.get("actor_unit_id", ""), {}), "?")
 		result["_ai_description"] = "%s shoots randomly (Easy)" % unit_name
@@ -2253,7 +2356,7 @@ static func _decide_random_shooting(snapshot: Dictionary, available_actions: Arr
 	# _decide_shooting()'s Step 5 but with the target chosen at random.
 	if action_types.has("SELECT_SHOOTER"):
 		var shooters = action_types["SELECT_SHOOTER"]
-		var chosen = shooters[randi() % shooters.size()]
+		var chosen = shooters[ai_randi() % shooters.size()]
 		var shooter_id = chosen.get("actor_unit_id", chosen.get("unit_id", ""))
 		var shooter = snapshot.get("units", {}).get(shooter_id, {})
 		var shooter_name = _dn(shooter, shooter_id)
@@ -2264,7 +2367,7 @@ static func _decide_random_shooting(snapshot: Dictionary, available_actions: Arr
 		if not ranged_weapons.is_empty():
 			var enemies = _get_shootable_enemy_units(snapshot, player)
 			var enemy_ids = enemies.keys()
-			enemy_ids.shuffle()
+			ai_shuffle(enemy_ids)
 			for tid in enemy_ids:
 				var single_target = {}
 				single_target[tid] = enemies[tid]
@@ -2291,7 +2394,7 @@ static func _decide_random_shooting(snapshot: Dictionary, available_actions: Arr
 
 	# Skip unit if available
 	if action_types.has("SKIP_UNIT"):
-		var a = action_types["SKIP_UNIT"][randi() % action_types["SKIP_UNIT"].size()]
+		var a = action_types["SKIP_UNIT"][ai_randi() % action_types["SKIP_UNIT"].size()]
 		return {"type": "SKIP_UNIT", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Skip unit (Easy)"}
 
 	return {"type": "END_SHOOTING", "_ai_description": "End Shooting Phase (Easy fallback)"}
@@ -2300,9 +2403,9 @@ static func _decide_random_charge(snapshot: Dictionary, available_actions: Array
 	"""Easy mode charge: rarely charges (20% chance), mostly skips."""
 	if action_types.has("DECLARE_CHARGE"):
 		# 20% chance to charge
-		if randf() < 0.2:
+		if ai_randf() < 0.2:
 			var charges = action_types["DECLARE_CHARGE"]
-			var chosen = charges[randi() % charges.size()]
+			var chosen = charges[ai_randi() % charges.size()]
 			var result = chosen.duplicate()
 			var unit_name = _dn(snapshot.get("units", {}).get(result.get("actor_unit_id", ""), {}), "?")
 			result["_ai_description"] = "%s charges randomly (Easy)" % unit_name
@@ -2311,7 +2414,7 @@ static func _decide_random_charge(snapshot: Dictionary, available_actions: Array
 	# Skip charging or end phase
 	if action_types.has("SKIP_UNIT_CHARGE"):
 		var skips = action_types["SKIP_UNIT_CHARGE"]
-		var chosen = skips[randi() % skips.size()]
+		var chosen = skips[ai_randi() % skips.size()]
 		return {"type": "SKIP_UNIT_CHARGE", "actor_unit_id": chosen.get("actor_unit_id", ""), "_ai_description": "Skip charge (Easy)"}
 
 	if action_types.has("END_CHARGE"):
@@ -7519,18 +7622,18 @@ static func _assign_units_to_objectives(
 
 			# Distance penalty: further away = less useful
 			if turns_to_reach > 1:
-				score -= (turns_to_reach - 1) * 2.0
+				score -= (turns_to_reach - 1) * get_param("MOVE_TURNS_AWAY_PENALTY", MOVE_TURNS_AWAY_PENALTY)
 
 			# Already on the objective: big bonus for holding
 			# T13-1: Scale bonus by round — staying put becomes more valuable as game progresses
 			if already_on_obj:
 				var stay_bonus = 0.0
 				if battle_round >= 4:
-					stay_bonus = 7.0  # Late game: staying on objective is critical for VP
+					stay_bonus = get_param("MOVE_STAY_BONUS_LATE", MOVE_STAY_BONUS_LATE)  # Late game: staying on objective is critical for VP
 				elif battle_round >= 2:
-					stay_bonus = 6.0  # Scoring rounds: don't leave scored objectives
+					stay_bonus = get_param("MOVE_STAY_BONUS_SCORING", MOVE_STAY_BONUS_SCORING)  # Scoring rounds: don't leave scored objectives
 				else:
-					stay_bonus = 5.0  # Round 1: still good to hold early positions
+					stay_bonus = get_param("MOVE_STAY_BONUS_EARLY", MOVE_STAY_BONUS_EARLY)  # Round 1: still good to hold early positions
 				# Aggressive factions should not camp home objectives — reduce stay bonus
 				# Orks (1.8 aggression) get only ~33% of the home stay bonus in early rounds
 				var faction_agg = _get_faction_aggression(snapshot, player)
@@ -7544,19 +7647,19 @@ static func _assign_units_to_objectives(
 				if eval.is_home and faction_agg > 1.0 and battle_round <= 3:
 					pass  # Skip horde bonus for aggressive factions on home objectives
 				elif alive_models >= 10:
-					score += 2.0  # Large squad — very hard to contest
+					score += get_param("MOVE_HORDE_BONUS_LARGE", MOVE_HORDE_BONUS_LARGE)  # Large squad — very hard to contest
 				elif alive_models >= 5:
-					score += 1.0  # Medium squad — decent presence
+					score += get_param("MOVE_HORDE_BONUS_MEDIUM", MOVE_HORDE_BONUS_MEDIUM)  # Medium squad — decent presence
 
 			# Can reach this turn: bonus
 			if dist_inches <= move_inches:
-				score += 3.0
+				score += get_param("MOVE_REACHABLE_BONUS", MOVE_REACHABLE_BONUS)
 			elif dist_inches <= move_inches + 2.0:  # Reachable with advance
-				score += 1.5
+				score += get_param("MOVE_ADVANCE_REACHABLE_BONUS", MOVE_ADVANCE_REACHABLE_BONUS)
 
 			# Scoring round awareness: if this is round 1 and we can't reach by round 2, lower priority
 			if battle_round == 1 and turns_to_reach > 1:
-				score -= 2.0
+				score -= get_param("MOVE_UNREACHABLE_EARLY_PENALTY", MOVE_UNREACHABLE_EARLY_PENALTY)
 
 			# Estimate where the unit would end up after moving toward this objective
 			# (used by both weapon range scoring and threat awareness)
@@ -11806,7 +11909,8 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			var shoot_round = snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1))
 			_add_decision_record("shooting", selected_unit_id, unit_name,
 				shoot_candidates, 0,
-				{"OVERKILL_TOLERANCE": OVERKILL_TOLERANCE, "KILL_BONUS_MULTIPLIER": KILL_BONUS_MULTIPLIER},
+				{"OVERKILL_TOLERANCE": get_param("OVERKILL_TOLERANCE", OVERKILL_TOLERANCE),
+					"KILL_BONUS_MULTIPLIER": get_param("KILL_BONUS_MULTIPLIER", KILL_BONUS_MULTIPLIER)},
 				{"phase": "shooting", "round": shoot_round})
 
 		return {
@@ -13628,7 +13732,7 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 
 	# --- Expected melee damage ---
 	var melee_damage = _estimate_melee_damage(charger, target, {}, 1 if aao_solo_charge else 0)
-	score += melee_damage * 2.0  # Weight melee damage highly
+	score += melee_damage * get_param("CHARGE_MELEE_DAMAGE_WEIGHT", CHARGE_MELEE_DAMAGE_WEIGHT)  # Weight melee damage highly
 	if aao_charger and not aao_solo_charge:
 		print("AIDecisionMaker: [AAO] %s charge on %s lands within 6\" of a friendly — no Against All Odds" % [
 			_dn(charger, ""), _dn(target, "")])
@@ -13641,24 +13745,24 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 
 	# Bonus for targets below half strength (easier to finish off)
 	if total_models > 0 and alive_models * 2 < total_models:
-		score += 3.0
+		score += get_param("CHARGE_BELOW_HALF_BONUS", CHARGE_BELOW_HALF_BONUS)
 
 	# Bonus for CHARACTER targets
 	if "CHARACTER" in target_keywords:
-		score += 2.0
+		score += get_param("CHARGE_CHARACTER_BONUS", CHARGE_CHARACTER_BONUS)
 
 	# Penalty for very tough targets we can't damage effectively
 	# Reduced from -3 to -1 because charging still locks enemies in combat,
 	# preventing them from shooting and contesting objectives
 	if melee_damage < 1.0:
-		score -= 1.0
+		score -= get_param("CHARGE_CANT_HURT_PENALTY", CHARGE_CANT_HURT_PENALTY)
 
 	# Bonus for engaging dangerous ranged units (stops them from shooting)
 	var target_has_ranged = _unit_has_ranged_weapons(target)
 	if target_has_ranged:
 		var max_range = _get_max_weapon_range(target)
 		if max_range >= 24.0:
-			score += 2.0  # Good to tie up long-range shooters
+			score += get_param("CHARGE_TIE_UP_SHOOTER_BONUS", CHARGE_TIE_UP_SHOOTER_BONUS)  # Good to tie up long-range shooters
 
 	# T7-23: Enhanced bonus for locking dangerous shooters in combat
 	# Units identified by the phase plan as dangerous shooters get extra charge priority
@@ -14322,7 +14426,15 @@ static func _compute_charge_move(snapshot: Dictionary, unit_id: String, rolled_d
 				print("AIDecisionMaker: No legal charge move reaches any target for %s — failing the charge" % unit_name)
 				return {"type": "SKIP_CHARGE", "actor_unit_id": unit_id,
 					"_ai_description": "%s cannot complete the charge move — charge fails" % unit_name}
-			print("AIDecisionMaker: Heroic intervention move could not reach ER — submitting best effort")
+			# Submitting a move we KNOW falls short is guaranteed to fail the phase
+			# validator, and the HI-move sub-state offers no other action — that is
+			# exactly how three benchmark games deadlocked at round 5 (see
+			# bench_baselines/2026-08-07_mirror_AA_both.md). 11e 15.11: an
+			# intervention whose move cannot be made simply fails, so say so.
+			print("AIDecisionMaker: Heroic intervention move cannot reach ER for %s — aborting the intervention" % unit_name)
+			return {"type": "ABORT_HEROIC_INTERVENTION_MOVE", "actor_unit_id": unit_id,
+				"payload": {"reason": "could not reach engagement range"},
+				"_ai_description": "%s cannot reach engagement range — Heroic Intervention fails" % unit_name}
 		else:
 			# Partial coverage: proceed against the reachable subset (11e picks
 			# targets with the move; the roll-time filter already vetted reach).
@@ -15194,7 +15306,7 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 	var score = 0.0
 
 	# --- Expected melee damage (primary factor) ---
-	score += expected_damage * 2.0
+	score += expected_damage * get_param("FIGHT_MELEE_DAMAGE_WEIGHT", FIGHT_MELEE_DAMAGE_WEIGHT)
 
 	# --- Target value factors ---
 	var target_keywords = target.get("meta", {}).get("keywords", [])
@@ -15204,30 +15316,30 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 
 	# Bonus for targets below half strength (easier to wipe out — denies VP, removes threat)
 	if total_models > 0 and alive_models * 2 < total_models:
-		score += 3.0
+		score += get_param("FIGHT_CAN_HALVE_BONUS", FIGHT_CAN_HALVE_BONUS)
 
 	# Bonus for CHARACTER targets (high-value eliminations)
 	if "CHARACTER" in target_keywords:
-		score += 2.0
+		score += get_param("FIGHT_CHARACTER_BONUS", FIGHT_CHARACTER_BONUS)
 
 	# Penalty for targets we can't meaningfully damage
 	if expected_damage < 1.0:
-		score -= 3.0
+		score -= get_param("FIGHT_CANT_HURT_PENALTY", FIGHT_CANT_HURT_PENALTY)
 
 	# --- Kill potential bonus: can we actually wipe the target? ---
 	# Use CURRENT wounds, not max — a Knight on 5/22 wounds is finishable.
 	var target_remaining_wounds = _calculate_kill_threshold(target)
 	if expected_damage >= target_remaining_wounds and target_remaining_wounds > 0:
 		# We can likely wipe this unit — big bonus for removing it from the game
-		score += 6.0
+		score += get_param("FIGHT_CAN_WIPE_BONUS", FIGHT_CAN_WIPE_BONUS)
 	elif target_remaining_wounds > 0 and expected_damage >= target_remaining_wounds * 0.5:
 		# We can take them below half strength
-		score += 3.0
+		score += get_param("FIGHT_BELOW_HALF_BONUS", FIGHT_BELOW_HALF_BONUS)
 
 	# --- Overkill penalty: don't waste massive damage on a nearly-dead 1-model unit ---
 	if target_remaining_wounds > 0 and expected_damage > target_remaining_wounds * 3.0:
 		# More than 3x the wounds remaining — significant overkill
-		score -= 1.0
+		score -= get_param("FIGHT_OVERKILL_PENALTY", FIGHT_OVERKILL_PENALTY)
 
 	# --- Lock dangerous shooters bonus: keep ranged threats tied up in combat ---
 	var target_has_ranged = _unit_has_ranged_weapons(target)
@@ -18735,8 +18847,8 @@ static func _find_wall_free_center(model_template: Dictionary, zone_bounds: Dict
 
 	for sample in range(30):
 		var test_pos = Vector2(
-			zone_bounds.min_x + margin + randf() * (zone_width - margin * 2),
-			zone_bounds.min_y + margin + randf() * (zone_height - margin * 2)
+			zone_bounds.min_x + margin + ai_randf() * (zone_width - margin * 2),
+			zone_bounds.min_y + margin + ai_randf() * (zone_height - margin * 2)
 		)
 
 		# Check if within the actual polygon (not just bounding box)

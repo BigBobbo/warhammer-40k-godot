@@ -27,17 +27,19 @@ The three traps, all verified in scripts/AIDecisionMaker.gd:
   3. UNKNOWN ACTIONS VANISH (:393-414). An action whose `type` is not
      override/multiply/add matches no arm and is silently dropped.
 
-Plus one dead surface: `vp_diff` is always 0 in live play. `_get_vp_diff`
-(:1182-1189) reads `meta.player1_vp` / `meta.player2_vp`, and a repo-wide
-search shows those keys are written by exactly one test
-(tests/test_ai_movement_coordination.gd:50). Real VP lives at
-`GameState.state.players[pk].vp`. Every `vp_*` condition is therefore a no-op
-in a real game — `vp_ahead` and `vp_diff_gte` never fire, and `vp_behind` /
-`vp_diff_lte` fire ALWAYS, because 0 >= 0 and 0 <= 0.
+Plus a fourth check that is derived rather than asserted: whether the `vp_*`
+conditions can fire at all. `_get_vp_diff` used to read `meta.player1_vp` /
+`meta.player2_vp` — keys a repo-wide search shows are written by exactly one
+test — so `vp_diff` was always 0 and every `vp_*` condition was a no-op:
+`vp_ahead` and `vp_diff_gte` never fired, and `vp_behind` and `vp_diff_lte`
+fired ALWAYS, because 0 >= 0 and 0 <= 0. It now reads
+`GameState.state.players[pk].vp` and they work. `params_manifest._dead_conditions`
+re-derives this from the source on every run, so a revert re-arms the warning
+automatically instead of leaving a stale comment behind.
 
-A search process generating profiles will hit all four. Without this linter it
-spends the evaluation budget measuring the noise floor and concludes, honestly
-and wrongly, that nothing helps.
+A search process generating profiles will hit all of these. Without this linter
+it spends the evaluation budget measuring the noise floor and concludes,
+honestly and wrongly, that nothing helps.
 
 Usage:
     python3 tools/ai_lab/validate_profile.py 40k/tests/bench_profiles/*.json
@@ -295,13 +297,17 @@ SELFTEST_CASES = [
                    "actions": [{"type": "scale", "param": "WEIGHT_CONTESTED_OBJ",
                                 "value": 1.2}]}],
     }, "SILENTLY DROPPED"),
-    ("dead vp condition", {
-        "format": FORMAT_TAG, "version": 1, "profile_name": "trap4",
+    # vp_* conditions were dead while _get_vp_diff read meta.player1_vp /
+    # meta.player2_vp (keys only a test ever wrote). Now that it reads
+    # state.players[pk].vp they are live, so this must lint CLEAN. The
+    # _dead_conditions regression below guards the other direction.
+    ("vp condition, now that vp_diff is wired up", {
+        "format": FORMAT_TAG, "version": 1, "profile_name": "vp-live",
         "parameters": {"WEIGHT_CONTESTED_OBJ": 8.0},
         "rules": [{"id": "r1", "conditions": [{"type": "vp_behind"}],
                    "actions": [{"type": "override", "param": "WEIGHT_CONTESTED_OBJ",
                                 "value": 9.0}]}],
-    }, "vp_diff is always 0"),
+    }, None),
     ("nonexistent parameter", {
         "format": FORMAT_TAG, "version": 1, "profile_name": "bogus",
         "parameters": {"TOTALLY_MADE_UP_WEIGHT": 3.0}, "rules": [],
@@ -348,10 +354,30 @@ def selftest() -> int:
                         {"WEIGHT_CONTESTED_OBJ"}).ok:
         fails.append("an ai_config.json base should clear the silent-zero error")
 
+    # Regression: if _get_vp_diff is ever reverted to the legacy meta.* keys,
+    # the linter must start flagging vp_* rules again on its own. The check is
+    # derived from source, so prove it against a synthetic legacy body rather
+    # than trusting today's answer.
+    from params_manifest import _dead_conditions
+    legacy = ('static func _get_vp_diff(snapshot: Dictionary, player: int) -> int:\n'
+              '\tvar meta = snapshot.get("meta", {})\n'
+              '\tvar p1_vp = meta.get("player1_vp", 0)\n'
+              '\treturn p1_vp\n'
+              'static func _next() -> void:\n')
+    if _dead_conditions(legacy) != ["vp_ahead", "vp_behind", "vp_diff_gte", "vp_diff_lte"]:
+        fails.append("a legacy _get_vp_diff should mark the vp_* conditions dead again")
+    fixed = ('static func _get_vp_diff(snapshot: Dictionary, player: int) -> int:\n'
+             '\tvar players = snapshot.get("players", {})\n'
+             '\tvar p1_vp = int(players.get("1", {}).get("vp", 0))\n'
+             '\treturn p1_vp\n'
+             'static func _next() -> void:\n')
+    if _dead_conditions(fixed) != []:
+        fails.append("a fixed _get_vp_diff should mark no conditions dead")
+
     for f in fails:
         print("  FAIL %s" % f)
     print("selftest: %s (%d/%d checks failed)"
-          % ("PASS" if not fails else "FAIL", len(fails), len(SELFTEST_CASES) + 2))
+          % ("PASS" if not fails else "FAIL", len(fails), len(SELFTEST_CASES) + 4))
     return 1 if fails else 0
 
 

@@ -93,6 +93,20 @@ def parse_action_ops(src: str) -> list:
     return ops
 
 
+def _dead_conditions(src: str) -> list:
+    """vp_* conditions are dead whenever _get_vp_diff reads only the legacy keys.
+
+    Derived, not asserted: if someone reverts _get_vp_diff to the meta.* keys,
+    the linter starts flagging vp_* rules again automatically.
+    """
+    m = re.search(r'static func _get_vp_diff\(.*?\n(?=static func )', src, re.S)
+    if not m:
+        return []
+    body = m.group(0)
+    reads_real_vp = 'players' in body and '"vp"' in body
+    return [] if reads_real_vp else ["vp_ahead", "vp_behind", "vp_diff_gte", "vp_diff_lte"]
+
+
 def build_manifest(source: str = SOURCE) -> dict:
     with open(source) as fh:
         src = fh.read()
@@ -132,13 +146,13 @@ def build_manifest(source: str = SOURCE) -> dict:
         "context_keys": ["phase", "round", "vp_diff", "units_remaining_pct",
                          "nearest_enemy_inches", "on_objective", "is_melee_unit",
                          "is_vehicle", "unit_points"],
-        # Conditions that can never fire in a live game: _get_vp_diff reads
-        # meta.player1_vp / meta.player2_vp, and a repo-wide search shows those
-        # keys are written by exactly one test
-        # (tests/test_ai_movement_coordination.gd:50). Real VP lives at
-        # GameState.state.players[pk].vp. So vp_diff is always 0 in play, and
-        # every vp_* condition below is dead until that is wired up.
-        "dead_condition_types": ["vp_ahead", "vp_behind", "vp_diff_gte", "vp_diff_lte"],
+        # Conditions that cannot fire in a live game. This list is derived from
+        # _get_vp_diff's source: while it read meta.player1_vp/player2_vp (keys
+        # only a test ever wrote), vp_diff was always 0 and every vp_* condition
+        # was dead. It now reads state.players[pk].vp, so they work — but the
+        # check stays source-derived rather than hardcoded, so the linter tracks
+        # the engine instead of drifting from it.
+        "dead_condition_types": _dead_conditions(src),
     }
 
 

@@ -1872,7 +1872,15 @@ func _evaluate_and_act() -> void:
 			# forward progress resets the counter and unfreezes the game. The
 			# old escape only knew END_*, so sub-states (Sawbonez window, fight
 			# selection) froze the game permanently.
-			for wanted in ["end", "decline_skip", "any"]:
+			# SOAK-2: route only actions the phase will actually ACCEPT. The old
+			# escape routed the first matching DESCRIPTOR from get_available_actions,
+			# but a descriptor is not a complete action — APPLY_HEROIC_INTERVENTION_MOVE
+			# needs a per_model_paths payload it does not carry, so routing it failed
+			# validation every time and the counter never reset. That turned a
+			# recoverable hiccup into a permanent deadlock in three of forty
+			# benchmark games. Validate first, and skip anything that cannot pass.
+			var pm_phase = pm.get_current_phase_instance() if pm.has_method("get_current_phase_instance") else null
+			for wanted in ["end", "decline_skip", "abort", "any"]:
 				for fa in fallback_actions:
 					var ft = fa.get("type", "")
 					var matches = false
@@ -1881,13 +1889,28 @@ func _evaluate_and_act() -> void:
 							matches = ft.begins_with("END_") or ft == "GAME_OVER"
 						"decline_skip":
 							matches = ft.begins_with("DECLINE_") or ft.begins_with("SKIP_")
+						"abort":
+							matches = ft.begins_with("ABORT_")
 						"any":
 							matches = true
-					if matches:
-						print("AIPlayer: Max actions fallback — routing %s to make progress" % ft)
-						NetworkIntegration.route_action(fa)
-						_end_ai_thinking()
-						return
+					if not matches:
+						continue
+					if pm_phase != null and pm_phase.has_method("validate_action"):
+						var v = pm_phase.validate_action(fa)
+						if not v.get("valid", false):
+							print("AIPlayer: Max actions fallback — skipping %s (would fail: %s)" % [ft, str(v.get("errors", []))])
+							continue
+					print("AIPlayer: Max actions fallback — routing %s to make progress" % ft)
+					NetworkIntegration.route_action(fa)
+					_end_ai_thinking()
+					return
+			# Nothing offered can pass validation. Advancing the phase is the last
+			# resort, and it is strictly better than freezing the game forever.
+			push_error("AIPlayer: no valid fallback action in phase %d — forcing phase advance" % GameState.get_current_phase())
+			if pm.has_method("advance_to_next_phase"):
+				pm.advance_to_next_phase()
+			elif pm_phase != null and pm_phase.has_signal("phase_completed"):
+				pm_phase.emit_signal("phase_completed")
 		_end_ai_thinking()
 		return
 
@@ -2154,14 +2177,23 @@ func _execute_next_action(player: int) -> void:
 			var failed_charge_unit_id = decision.get("actor_unit_id", "")
 			if failed_charge_unit_id != "":
 				var charge_unit_name = _get_unit_name(failed_charge_unit_id)
-				print("AIPlayer: Charge move failed for %s, sending SKIP_CHARGE" % failed_charge_unit_id)
-				_log_ai_event(player, "%s charge move failed — skipping" % charge_unit_name)
+				# A failed HEROIC INTERVENTION move cannot recover via SKIP_CHARGE: the
+				# unit has already acted this phase, so SKIP_CHARGE is itself rejected
+				# and the HI sub-state (which offers no other action) never releases.
+				# That double failure is what deadlocked three benchmark games.
+				var is_hi = decision.get("type") == "APPLY_HEROIC_INTERVENTION_MOVE"
+				var recovery_type = "ABORT_HEROIC_INTERVENTION_MOVE" if is_hi else "SKIP_CHARGE"
+				print("AIPlayer: Charge move failed for %s, sending %s" % [failed_charge_unit_id, recovery_type])
+				_log_ai_event(player, "%s charge move failed — %s" % [charge_unit_name,
+					"Heroic Intervention fails" if is_hi else "skipping"])
 				_current_phase_actions += 1
 				NetworkIntegration.route_action({
-					"type": "SKIP_CHARGE",
+					"type": recovery_type,
 					"actor_unit_id": failed_charge_unit_id,
 					"player": player,
-					"_ai_description": "Skipped charge for %s — move validation failed" % charge_unit_name
+					"payload": {"reason": "move validation failed"} if is_hi else {},
+					"_ai_description": "%s for %s — move validation failed" % [
+						"Heroic Intervention failed" if is_hi else "Skipped charge", charge_unit_name]
 				})
 
 		# Handle failed pile-in — retry with empty movements, or CONSOLIDATE if already retried
@@ -2720,7 +2752,7 @@ func _show_ai_movement_paths(origin_positions: Dictionary, destinations: Diction
 		return
 
 	var visual = AIMovementPathVisualScript.new()
-	visual.name = "AIMovementPathVisual_%d" % (randi() % 10000)
+	visual.name = "AIMovementPathVisual_%d" % (AIDecisionMaker.ai_randi() % 10000)
 	board_root.add_child(visual)
 	visual.show_paths(paths, player)
 
@@ -3471,8 +3503,8 @@ func _handle_failed_deployment(player: int, original_decision: Dictionary) -> vo
 		# Try multiple random samples to find a wall-free center point
 		for sample in range(20):
 			var test_center = Vector2(
-				zone_bounds.min_x + 80 + randf() * (zone_width - 160),
-				zone_bounds.min_y + 80 + randf() * (zone_height - 160)
+				zone_bounds.min_x + 80 + AIDecisionMaker.ai_randf() * (zone_width - 160),
+				zone_bounds.min_y + 80 + AIDecisionMaker.ai_randf() * (zone_height - 160)
 			)
 
 			# Check if center is within the actual zone polygon (not just bounding box)
@@ -3614,8 +3646,8 @@ func _handle_failed_reinforcement(player: int, original_decision: Dictionary) ->
 		var zone_width = placement_bounds.get("max_x", 1760.0) - placement_bounds.get("min_x", 0.0)
 		var zone_height = placement_bounds.get("max_y", 2400.0) - placement_bounds.get("min_y", 0.0)
 		var test_center = Vector2(
-			placement_bounds.get("min_x", 0.0) + 80 + randf() * (zone_width - 160),
-			placement_bounds.get("min_y", 0.0) + 80 + randf() * (zone_height - 160)
+			placement_bounds.get("min_x", 0.0) + 80 + AIDecisionMaker.ai_randf() * (zone_width - 160),
+			placement_bounds.get("min_y", 0.0) + 80 + AIDecisionMaker.ai_randf() * (zone_height - 160)
 		)
 
 		var positions = AIDecisionMaker._generate_formation_positions(test_center, alive_count, base_mm, placement_bounds)

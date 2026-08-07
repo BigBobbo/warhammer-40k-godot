@@ -217,6 +217,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_heroic_intervention_charge_roll(action)
 		"APPLY_HEROIC_INTERVENTION_MOVE":
 			return _validate_apply_heroic_intervention_move(action)
+		"ABORT_HEROIC_INTERVENTION_MOVE":
+			return _validate_abort_heroic_intervention_move(action)
 		"USE_TANK_SHOCK":
 			return _validate_use_tank_shock(action)
 		"DECLINE_TANK_SHOCK":
@@ -267,6 +269,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_heroic_intervention_charge_roll(action)
 		"APPLY_HEROIC_INTERVENTION_MOVE":
 			return _process_apply_heroic_intervention_move(action)
+		"ABORT_HEROIC_INTERVENTION_MOVE":
+			return _process_abort_heroic_intervention_move(action)
 		"USE_TANK_SHOCK":
 			return _process_use_tank_shock(action)
 		"DECLINE_TANK_SHOCK":
@@ -2562,7 +2566,19 @@ func get_available_actions() -> Array:
 			"player": heroic_intervention_player,
 			"description": "Apply Heroic Intervention movement for %s" % heroic_intervention_unit_id
 		})
-		return actions  # Block other actions until HI move is applied
+		# A Heroic Intervention move that cannot legally reach engagement range
+		# has to have a way out, or this sub-state is a dead end: it returns
+		# ONLY the APPLY action, and APPLY is rejected by validation whenever
+		# the move falls short. That combination deadlocked three benchmark
+		# games at round 5 (see bench_baselines/2026-08-07_mirror_AA_both.md).
+		# 11e 15.11: an intervention whose move cannot be made simply fails.
+		actions.append({
+			"type": "ABORT_HEROIC_INTERVENTION_MOVE",
+			"actor_unit_id": heroic_intervention_unit_id,
+			"player": heroic_intervention_player,
+			"description": "Heroic Intervention fails — %s cannot reach engagement range" % heroic_intervention_unit_id
+		})
+		return actions  # Block other actions until HI move is applied or aborted
 
 	# --- Normal charge actions ---
 
@@ -3571,6 +3587,41 @@ func _process_heroic_intervention_charge_roll(action: Dictionary) -> Dictionary:
 	# This action is for manual triggering of the charge roll if needed
 	# In the current flow, the roll is done automatically in _process_use_heroic_intervention
 	# This is kept for compatibility with potential future UI changes
+	return create_result(true, [])
+
+func _validate_abort_heroic_intervention_move(action: Dictionary) -> Dictionary:
+	"""A pending Heroic Intervention may always be stood down.
+
+	Only structural state is checked: if there is an HI awaiting its move,
+	aborting it is legal. 11e 15.11 treats an intervention whose move cannot
+	be made as simply failing, so there is nothing further to validate."""
+	if heroic_intervention_unit_id == "":
+		return {"valid": false, "errors": ["No Heroic Intervention is pending"]}
+	if heroic_intervention_pending_charge.is_empty():
+		return {"valid": false, "errors": ["No Heroic Intervention charge data"]}
+	return {"valid": true, "errors": []}
+
+func _process_abort_heroic_intervention_move(action: Dictionary) -> Dictionary:
+	"""Resolve a pending Heroic Intervention as failed and release the phase.
+
+	Mirrors the failure branch of _process_apply_heroic_intervention_move: the
+	unit does not move, the HI state is cleared, and any deferred end-of-phase
+	completion fires. Without this the sub-state has no exit."""
+	var unit_id = action.get("actor_unit_id", heroic_intervention_unit_id)
+	var reason = action.get("payload", {}).get("reason", "could not reach engagement range")
+	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
+	log_phase_message("Heroic Intervention failed for %s: %s" % [unit_name, reason])
+
+	heroic_intervention_unit_id = ""
+	heroic_intervention_pending_charge = {}
+	heroic_intervention_charging_unit_id = ""
+	heroic_intervention_player = 0
+
+	emit_signal("charge_resolved", unit_id, false, {
+		"reason": reason,
+		"heroic_intervention": true,
+	})
+	_complete_phase_after_heroic_intervention_if_pending()
 	return create_result(true, [])
 
 func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
