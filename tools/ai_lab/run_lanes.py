@@ -101,10 +101,24 @@ def run_one(seed: int, args, stamp: str, ud: str, season: str, sha: str) -> dict
     record_path = result_path.replace(".json", ".record.json")
     season_record = os.path.join(season, "%s.record.json.gz" % tag)
 
+    # Resume on (arm, seed), not on the exact filename. The tag carries a
+    # per-invocation timestamp, so a resumed campaign used to replay every game
+    # it had already paid for — which matters a lot here, because a suspended
+    # container kills the driver and losing an hour of games to a restart is
+    # worse than any amount of tidiness.
+    existing = None
     if os.path.exists(season_record):
+        existing = season_record
+    else:
+        suffix = "_%s_%d.record.json.gz" % (args.arm, seed)
+        for name in sorted(os.listdir(season)) if os.path.isdir(season) else []:
+            if name.endswith(suffix):
+                existing = os.path.join(season, name)
+                break
+    if existing:
         say("  [seed %d] already collected — skipping" % seed)
         try:
-            with gzip.open(season_record, "rt") as fh:
+            with gzip.open(existing, "rt") as fh:
                 return {"seed": seed, **(json.load(fh).get("outcome") or {}), "skipped": True}
         except OSError:
             pass
