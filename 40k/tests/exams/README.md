@@ -32,6 +32,17 @@ bash 40k/tests/run_exams.sh --aspirational      # the ones that fail BY DESIGN
 
 Exit 0 iff every exam in the batch passed.
 
+`run_exams.sh` runs `tools/ai_lab/check_exams.py` first — a ~1 s static
+pre-flight that verifies each exam's fixture exists, every `U_*` id it names is
+actually in that fixture, and a phase-1 exam is pointed at a fixture that starts
+at deployment. Without it a bad unit id costs you a two-minute run per broken
+exam before it surfaces as ERROR-with-no-verdict. Run it directly while
+editing:
+
+```bash
+python3 tools/ai_lab/check_exams.py
+```
+
 ## Two lists, on purpose
 
 `exams/*.json` are **probes of real capability**: the current AI is expected to
