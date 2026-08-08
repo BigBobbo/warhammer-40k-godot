@@ -10,6 +10,99 @@ Run started 2026-08-07 on branch `claude/ai-overhaul-todo-completion-ve8fhj`
 
 ---
 
+# 2026-08-08 — the fixtures moved to 2000 points, and deployment got covered
+
+Two user questions drove this, and both turned out to be pointing at the same
+hole in the measurement environment.
+
+## 1. "Why those army lists?" → they were not lists anyone plays
+
+Every fixture in the lab was spliced out of a hand-built benchmark save:
+Custodes at **1335** points, Orks at **1840**. 40k is balanced at 2000 and
+that is what this game is designed to be played at, so every number the lab
+had ever produced described a format nobody fields. Neither army matched
+`custodes_lions.json` or `recon_stomps.json` — the lists a player actually
+picks.
+
+`40k/tests/make_2000pt_fixture.gd` now builds fixtures from the **shipped**
+lists through the game's own `ArmyListManager.load_army_list` +
+`apply_army_to_game_state`, so display names, ability canonicalisation,
+wargear/enhancement stat bonuses, model-profile wounds and the Custodes
+deep-strike backfill all happen exactly as they do for a player. Six
+fixtures, 2000 points a side, all passing `fixture_check.py`:
+
+| fixture | P1 | P2 | starts at |
+|---|---|---|---|
+| `mirror_custodes_2000_postdeploy` | Lions of the Emperor 11u/42m | mirrored 180° | R1 Command |
+| `mirror_orks_2000_postdeploy` | Speedwaaagh! 17u/77m | mirrored 180° | R1 Command |
+| `asym_2000_postdeploy` | Custodes 2000 | Orks 2000 | R1 Command |
+| `mirror_custodes_2000_predeploy` | as above | as above | **Deployment** |
+| `mirror_orks_2000_predeploy` | as above | as above | **Deployment** |
+| `asym_2000_predeploy` | as above | as above | **Deployment** |
+
+Lab defaults (`run_lanes`, `run_paired`, `vs_baseline`, `sensitivity_screen`,
+`cem_driver`, `gate_candidate`, `run_ai_benchmark.sh`, `AIBenchmarkRunner`)
+all repointed. `AIBenchmarkRunner` and `run_ai_benchmark.sh` had been
+defaulting to `audit_baseline_postdeploy` — the *known-corrupt* fixture — so a
+no-argument run quietly produced numbers from the placeholder-contaminated
+save. Fixed.
+
+## 2. "Why do the tests skip deployment?" → the fixtures skipped it, not the harness
+
+`AIBenchmarkRunner` takes its start phase straight from `meta.phase`. Every
+fixture was a `*_postdeploy` save at `Phase.COMMAND`, so `_decide_deployment`
+was never called — in the phase `AIDecisionMaker`'s own source calls out as
+the one that *"largely decides rounds 1-2"*, with twelve `DEPLOY_TERRAIN_*`
+coefficients that no paired A/B could have moved, because they are read
+before a post-deployment fixture starts. Measured effect would have been
+exactly zero by construction, and would have read as "these do not matter".
+
+Verified by running it, not by arguing: seed 9001 on
+`mirror_custodes_2000_predeploy` → `status: completed`, battle_round 5, **826
+actions**, 103 `Deploying <unit> (role=…)` lines, P1 66 VP vs P2 81 VP, 194 s,
+zero errors. New gated exam `dp01_deployment_is_recorded` asserts units get
+placed *and* that `_record_choice("deployment", …)` emits scored candidates
+with named parameters. Full write-up:
+`40k/tests/bench_baselines/2026-08-08_deployment_phase_coverage.md`.
+
+Both variants are kept on purpose: `_predeploy` is the honest whole-game
+evaluation, `_postdeploy` holds deployment fixed and is ~4x cheaper per data
+point, which is legitimate variance reduction for A/B work on later phases.
+
+## Things found on the way
+
+* **`fixture_check.py` could not read any save over 50 KB.** `StateSerializer`
+  gzip+base64s above `COMPRESSION_SIZE_THRESHOLD` with no header, so
+  `json.load` failed with a bare "Expecting value: line 1 column 1" that reads
+  like corruption. Three committed fixtures were silently unreadable
+  (`custodes_lions_pretrigger`, `bw_load_deploy_pretrigger`,
+  `grenade_shooting_desync`) and all six new ones would have been.
+* **A bare `--mirror` was silently ignored** by the generator, producing a
+  fixture named like a mirror whose sides were packed independently. It
+  passed the generator's own "models out of place: 0" check because that
+  check only tests zone membership. Unknown arguments are now fatal.
+* **Screening is unreachable on an 11-unit list.** `sc02_screen_covers_the_gap`
+  failed after migration, and the cause was not the substitution: screening is
+  only offered to units still *unassigned* after objective assignment, and 11
+  Custodes units across 5 objectives never leaves one spare. 17 Ork units do.
+  The exam moved to the Ork mirror, where the Gretchin get SCREEN-PROTECT
+  assignments. Worth knowing independently of the exam.
+* **Ork exams are expensive.** The mover checks each destination against every
+  model on the table (`deployed=142` in the log), so a single movement phase on
+  the 77-model list runs many times a Custodes one. Ork exams get their own
+  timeout, and non-exam units are no longer teleported wholesale on that
+  fixture.
+
+## Status
+
+Committed and pushed: `d122f2d`, `c6b694a`, `a0a399c`. Exam suite 9/10 on the
+new fixtures with sc02 in flight on the Ork mirror. A/A reference numbers (F,
+sd) for the 2000-pt fixtures are **being measured now** — until that table
+exists, do not read a paired stopping rule on these fixtures as if it had the
+old fixtures' spread.
+
+---
+
 # FINAL SUMMARY — run of 2026-08-07/08
 
 **11 commits on `claude/ai-overhaul-todo-completion-ve8fhj`, all pushed.**

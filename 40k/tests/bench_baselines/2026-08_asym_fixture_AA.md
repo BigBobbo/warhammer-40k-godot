@@ -1,5 +1,16 @@
 # B2 — `asym_orks_vs_custodes_postdeploy`: the fixture and its bias
 
+> **Superseded fixtures (2026-08-08).** The numbers below were measured on
+> `mirror_custodes_postdeploy` (1335 pts), `mirror_orks_postdeploy` (1840 pts)
+> and `asym_orks_vs_custodes_postdeploy` — armies spliced out of a hand-built
+> save, matching no list a player can pick, at points values 40k is not
+> balanced at. They remain **accurate for what they measured** and are kept
+> unedited for exactly that reason. They are no longer the lab's reference:
+> the campaign fixtures are now the 2000-point ones built from the shipped
+> `custodes_lions` and `recon_stomps` lists (see `tools/ai_lab/README.md`).
+> A/A numbers on those fixtures are their own table, measured, not inherited —
+> see `2026-08-08_2000pt_fixture_AA.md`.
+
 **Date:** 2026-08-07 · **Fixture sha256:** `784fc01f1e1c` · **Built by:**
 `40k/tests/make_asym_fixture.py`
 
