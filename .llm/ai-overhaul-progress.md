@@ -101,6 +101,22 @@ across two runs. 2 aspirational exams fail by design.
 - **A6b** — a pre-deployment benchmark fixture, so A6's remaining five
   decision types can be verified and so C2b/C5 have somewhere to run.
 
+## Correction (2026-08-08)
+
+B2's Tier B self-assessment claimed the asymmetric fixture's armies are "the
+shipped default lists a player actually sees". They are not — neither matches
+any file under `40k/armies/`; they are whatever the hand-built
+`audit_baseline_postdeploy` benchmark save contained, at 1335 and 1840 points
+rather than 2000. B2's Tier A evidence is unaffected (the fixture is valid,
+F is measured, the games ran clean); the Tier B bar is not met and now says so.
+
+This exposes a limitation of the **whole lab**, not one fixture: every number
+this project has measured comes from two factions at non-tournament points, so
+a tuned profile risks optimising for a matchup nobody plays. Four unused
+2000-pt shipped lists exist. Building a fourth fixture from two of them and
+adding it to the gate grid is cheap, and belongs *before* E1 spends thousands
+of games. See the corrected B2 entry in the todo file.
+
 ## Nothing is BLOCKED
 
 No task was abandoned to an unreproduced obstacle. The two partials each carry

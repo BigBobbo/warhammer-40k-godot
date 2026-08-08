@@ -676,11 +676,43 @@ looked inert because the only cheap fixture is melee-light.*
     Files: `40k/tests/make_asym_fixture.py`,
     `40k/tests/saves/asym_orks_vs_custodes_postdeploy.w40ksave`,
     `40k/tests/bench_baselines/2026-08_asym_fixture_AA.md`.
-  - **Tier B self-assessed 2026-08-07 — pending human spot-check.** Both
-    armies are lifted unmodified from the two shipped mirror fixtures, which
-    are themselves built from the shipped `audit_baseline_postdeploy` lists —
-    Lions of the Emperor Custodes and Speedwaaagh! Orks, at their shipped
-    points. No unit was edited, added or repositioned.
+  - **Tier B self-assessed 2026-08-07, CORRECTED 2026-08-08 — FAILS as
+    originally worded.** Both armies are lifted unmodified from the two mirror
+    fixtures and no unit was edited, added or repositioned — that part holds.
+    But the Tier B bar is "the shipped default lists a player actually sees",
+    and they are **not**:
+    ```
+    Custodes mirror P1 : Blade Champion, Caladius Grav-tank,
+                         Contemptor-Achillus, Custodian Guard, Shield-Captain,
+                         Jetbike Captain, Telemon, Witchseekers x2   1335 pts
+    40k/armies/custodes_lions.json : Blade Champion x3, Custodian Guard x6,
+                         Allarus x1, Prosecutors x1                  2000 pts
+    Ork mirror P2      : Battlewagon, Boyz x3, Ghazghkull, Kaptin Badrukk,
+                         Kommandos, Lootas, Meganobz, Nob w/ Banner,
+                         Painboss, Warboss x2, Warboss in Mega Armour,
+                         Wazbom Blastajet, Weirdboy                  1840 pts
+    40k/armies/recon_stomps.json   : Deffkilla Wartrike x2, Mek, Wazdakka,
+                         Stormboyz x4, Warbikers x4, Deffkoptas x2,
+                         Gretchin x2, Stompa                         2000 pts
+    ```
+    Neither matches any file under `40k/armies/`. The fixture armies are
+    whatever the hand-built `audit_baseline_postdeploy` benchmark save
+    contained — a reasonable elite-vs-horde contrast, but not a roster a
+    player picks, and not at tournament points.
+  - **External-validity limitation (2026-08-08), applies to the WHOLE lab, not
+    just this fixture.** Every number this project has ever measured comes from
+    **two factions at non-tournament points**. B2 narrows the matchup-overfitting
+    blind spot but does not close it: it is the same two armies in a different
+    arrangement. A profile that E1 eventually ships would be tuned on
+    Custodes-vs-Orks and could be worse against Space Marines, or against a
+    different Ork detachment. Unused and available at full 2000 points:
+    `custodes_lions.json` (Lions of the Emperor), `recon_stomps.json`
+    (Speedwaaagh!), `battlewagons.json` (Rollin' Deff), `orks_taktikal.json`
+    (Taktikal Brigade). `space_marines.json` is a 330-pt stub, so a third
+    faction needs a list built first. The cheapest fix is a fourth fixture from
+    two *shipped* 2000-pt lists, added to the gate grid before E1 spends
+    thousands of games — otherwise the campaign optimises for a matchup nobody
+    plays.
 
 - [ ] **B3 — Sensitivity screen on the Ork mirror**
   - **Lock:** Lab  • **Depends:** B1 (else ~28 h), A5 (melee params exist)  • **Cost:** ~300 games
