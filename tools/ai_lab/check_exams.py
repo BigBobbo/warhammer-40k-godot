@@ -19,7 +19,7 @@ Checks, in order of how expensive they are to discover the slow way:
   4. the JSON has the keys the runner requires.
 
 Usage:
-    python3 tools/ai_lab/check_exams.py            # gated + aspirational
+    python3 tools/ai_lab/check_exams.py            # gated + aspirational + slow
     python3 tools/ai_lab/check_exams.py --json
 
 Exit 0 iff every exam passed.
@@ -42,6 +42,9 @@ from fixture_check import load_save  # noqa: E402
 EXAM_DIRS = [
     os.path.join(REPO, "40k", "tests", "exams"),
     os.path.join(REPO, "40k", "tests", "exams", "aspirational"),
+    # Parked-for-cost exams are still checked: an exam nobody runs is exactly
+    # the one whose unit ids rot without anyone noticing.
+    os.path.join(REPO, "40k", "tests", "exams", "slow"),
 ]
 SAVES = os.path.join(REPO, "40k", "tests", "saves")
 

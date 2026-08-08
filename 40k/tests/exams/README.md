@@ -43,7 +43,7 @@ editing:
 python3 tools/ai_lab/check_exams.py
 ```
 
-## Two lists, on purpose
+## Three lists, on purpose
 
 `exams/*.json` are **probes of real capability**: the current AI is expected to
 pass them, and a failure is a regression. `exams/aspirational/*.json` are the
@@ -51,6 +51,14 @@ opposite — positions the AI is expected to get *wrong* today, written down as
 the falsifiable target for a specific future task (each names its owner task).
 Keeping them apart is what stops the suite from decaying into a wishlist that
 is always red and therefore never read.
+
+`exams/slow/*.json` is a third, smaller list: exams that are **correct and
+would pass** but cost more wall clock than the whole gated suite is allowed.
+They are excluded from `--suite` and run with `--slow` or by name. Parking one
+is a debt, not a resolution — `exams/slow/README.md` records each one's
+measured cost and the specific thing that would make it affordable again. The
+pre-flight still checks them, because an exam nobody runs is exactly the one
+whose unit ids rot unnoticed.
 
 ## The fixtures they run on (changed 2026-08-08)
 

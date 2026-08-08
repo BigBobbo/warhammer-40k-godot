@@ -10,7 +10,8 @@
 #   bash 40k/tests/run_exams.sh                    # every exam in tests/exams/
 #   bash 40k/tests/run_exams.sh <id> [<id> ...]    # named exams
 #   bash 40k/tests/run_exams.sh --aspirational     # the fail-by-design list
-#   bash 40k/tests/run_exams.sh --all              # both lists
+#   bash 40k/tests/run_exams.sh --slow             # correct but over budget
+#   bash 40k/tests/run_exams.sh --all              # every list
 #
 # Exit 0 iff every exam in the batch passed. The aspirational list is reported
 # but never gates: those exams exist to FAIL until the task that owns each one
@@ -22,6 +23,7 @@ export PATH="$HOME/bin:$PATH"
 
 EXAM_DIR="tests/exams"
 ASPIRATIONAL_DIR="tests/exams/aspirational"
+SLOW_DIR="tests/exams/slow"
 
 # Fixtures live in tests/saves but load_game() resolves them from res://saves/.
 mkdir -p saves
@@ -35,12 +37,16 @@ GATED=1
 case "$MODE" in
     --suite) SPECS=($(find "$EXAM_DIR" -maxdepth 1 -name "*.json" | sort)) ;;
     --aspirational) SPECS=($(find "$ASPIRATIONAL_DIR" -maxdepth 1 -name "*.json" | sort)); GATED=0 ;;
+    # Correct but too slow to gate on — see tests/exams/slow/README.md for the
+    # measured cost of each and what would make it affordable again.
+    --slow) SPECS=($(find "$SLOW_DIR" -maxdepth 1 -name "*.json" | sort)); GATED=0 ;;
     --all) SPECS=($(find "$EXAM_DIR" -maxdepth 2 -name "*.json" | sort)) ;;
     *)
         for id in "$@"; do
             if [ -f "$id" ]; then SPECS+=("$id")
             elif [ -f "$EXAM_DIR/$id.json" ]; then SPECS+=("$EXAM_DIR/$id.json")
             elif [ -f "$ASPIRATIONAL_DIR/$id.json" ]; then SPECS+=("$ASPIRATIONAL_DIR/$id.json")
+            elif [ -f "$SLOW_DIR/$id.json" ]; then SPECS+=("$SLOW_DIR/$id.json")
             else echo "no such exam: $id" >&2; exit 2
             fi
         done
