@@ -271,30 +271,51 @@ def check_positions(units: dict, rep: Report) -> None:
 
 
 def check_predeploy(units: dict, rep: Report) -> None:
-    """A pre-deployment fixture's invariants are the inverse of a post-deploy one.
+    """A fixture stopped at Phase.DEPLOYMENT: check status and position AGREE.
 
     `DeploymentPhase._get_undeployed_units_for_player` is what turns units into
-    DEPLOY_UNIT actions, and it keys off `status == UNDEPLOYED`. A unit that
-    arrives at phase 1 already marked DEPLOYED emits no action, is never placed,
-    and simply plays no part in the game — silently, with no error anywhere. So
-    the two things worth asserting are exactly the two that would go unnoticed:
-    nothing is on the table yet, and every unit is actually deployable.
+    DEPLOY_UNIT actions, and it keys off `status == UNDEPLOYED`. Both halves of
+    a mismatch are silent bugs, in opposite directions:
+
+      * UNDEPLOYED but already positioned — the unit is offered for deployment
+        again and re-placed, discarding whatever the fixture author set up;
+      * DEPLOYED (or anything else) but positionless — no DEPLOY_UNIT action is
+        ever emitted for it, nothing places it, and the unit sits out the whole
+        game with no error raised anywhere.
+
+    A *partially* deployed fixture is legitimate and deliberate — that is what
+    `deployment_nearly_complete` exists to be — so this is a per-unit
+    consistency check, not "nothing may be on the table". The split is recorded
+    in `rep.info` so a fully-empty fixture stays distinguishable at a glance.
     """
-    placed = 0
-    bad_status = []
+    fully, empty, partial = 0, 0, 0
     for uid, u in units.items():
         status = int(u.get("status", 0) or 0)
-        if status not in (STATUS_UNDEPLOYED, STATUS_IN_RESERVES):
-            bad_status.append("%s(status=%d)" % (uid, status))
-        for m in _alive_models(u):
-            if parse_point(m.get("position")) is not None:
-                placed += 1
-    if placed:
-        rep.err("pre-deployment fixture has %d model(s) already on the table" % placed)
-    if bad_status:
-        rep.err("pre-deployment fixture has %d unit(s) not UNDEPLOYED/IN_RESERVES — they "
-                "will never be deployed and will sit out the game: %s"
-                % (len(bad_status), ", ".join(sorted(bad_status)[:8])))
+        if status == STATUS_IN_RESERVES:
+            continue
+        if u.get("embarked_in"):
+            continue  # positionless on purpose — inside a transport
+        alive = _alive_models(u)
+        if not alive:
+            continue
+        placed = sum(1 for m in alive if parse_point(m.get("position")) is not None)
+        if placed == 0:
+            empty += 1
+            if status != STATUS_UNDEPLOYED:
+                rep.err("%s: status=%d but no model has a position — DeploymentPhase "
+                        "emits DEPLOY_UNIT only for UNDEPLOYED units, so nothing will "
+                        "ever place this one and it sits out the game" % (uid, status))
+        elif placed == len(alive):
+            fully += 1
+            if status == STATUS_UNDEPLOYED:
+                rep.err("%s: fully positioned but still UNDEPLOYED — it will be offered "
+                        "for deployment again and re-placed, discarding these positions"
+                        % uid)
+        else:
+            partial += 1
+            rep.err("%s: %d of %d alive models positioned — a half-placed unit is "
+                    "neither deployable nor coherent" % (uid, placed, len(alive)))
+    rep.info["deployment"] = {"deployed": fully, "undeployed": empty, "partial": partial}
 
 
 def check_reserves_cap(units: dict, rep: Report) -> None:
