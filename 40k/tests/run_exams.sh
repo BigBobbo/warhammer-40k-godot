@@ -59,6 +59,18 @@ echo "================================================================"
 echo "TACTICAL EXAMS — ${#SPECS[@]} exam(s)"
 echo "================================================================"
 
+# Static pre-flight, ~1 s and no Godot. An exam naming a unit its fixture does
+# not contain does not fail loudly — the setup snippet raises, the exam reports
+# ERROR with no verdict, and you learn that roughly two minutes later, per
+# broken exam. Catch it before spending the wall clock.
+if ! python3 ../tools/ai_lab/check_exams.py > /tmp/check_exams.$$ 2>&1; then
+    echo "!!! exam pre-flight FAILED — fix these before running the suite:"
+    sed 's/^/    /' /tmp/check_exams.$$
+    rm -f /tmp/check_exams.$$
+    exit 2
+fi
+rm -f /tmp/check_exams.$$
+
 PASSED=0; FAILED=0; ERRORED=0
 FAILED_IDS=()
 START=$(date +%s)

@@ -62,6 +62,9 @@ jobs:
       - name: Fixture gate
         run: python3 tools/ai_lab/fixture_check.py
 
+      - name: Exam pre-flight — every exam's units exist in its fixture
+        run: python3 tools/ai_lab/check_exams.py
+
       - name: Ratchet — reachability and instrumentation may only improve
         run: python3 tools/ai_lab/ratchet_check.py
 
