@@ -91,7 +91,7 @@ def evaluate(profile, fixture, season, pairs, seed_base, lanes, max_seconds, dif
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--season", required=True)
-    ap.add_argument("--fixture", default="mirror_custodes_postdeploy",
+    ap.add_argument("--fixture", default="mirror_custodes_2000_postdeploy",
                     help="Custodes by default: ~48 s/game against ~487 s for the Ork "
                          "mirror, so a screen there costs about a tenth as much")
     ap.add_argument("--params", default="", help="comma-separated; default: the built-in set")

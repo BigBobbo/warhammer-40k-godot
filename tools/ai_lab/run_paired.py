@@ -221,7 +221,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--candidate", default="", help="candidate profile JSON")
     ap.add_argument("--baseline", default="", help="baseline profile (default: shipped defaults)")
-    ap.add_argument("--fixture", default="mirror_custodes_postdeploy")
+    ap.add_argument("--fixture", default="mirror_custodes_2000_postdeploy")
     ap.add_argument("--season", default="")
     ap.add_argument("--seed-base", type=int, default=9000)
     ap.add_argument("--max-pairs", type=int, default=24)

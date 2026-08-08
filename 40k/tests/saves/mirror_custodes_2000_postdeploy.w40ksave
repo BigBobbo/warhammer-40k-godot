@@ -1,0 +1,9396 @@
+{
+	"_serialization": {
+		"game_version": "1.3.0",
+		"serializer": "StateSerializer",
+		"timestamp": 1786226760.30564,
+		"version": "1.3.0"
+	},
+	"board": {
+		"deployment_zones": [
+			{
+				"player": 1.0,
+				"poly": [
+					{
+						"x": 0.0,
+						"y": 0.0
+					},
+					{
+						"x": 44.0,
+						"y": 0.0
+					},
+					{
+						"x": 44.0,
+						"y": 8.0
+					},
+					{
+						"x": 34.0,
+						"y": 8.0
+					},
+					{
+						"x": 34.0,
+						"y": 14.0
+					},
+					{
+						"x": 10.0,
+						"y": 14.0
+					},
+					{
+						"x": 10.0,
+						"y": 8.0
+					},
+					{
+						"x": 0.0,
+						"y": 8.0
+					}
+				]
+			},
+			{
+				"player": 2.0,
+				"poly": [
+					{
+						"x": 0.0,
+						"y": 52.0
+					},
+					{
+						"x": 10.0,
+						"y": 52.0
+					},
+					{
+						"x": 10.0,
+						"y": 46.0
+					},
+					{
+						"x": 34.0,
+						"y": 46.0
+					},
+					{
+						"x": 34.0,
+						"y": 52.0
+					},
+					{
+						"x": 44.0,
+						"y": 52.0
+					},
+					{
+						"x": 44.0,
+						"y": 60.0
+					},
+					{
+						"x": 0.0,
+						"y": 60.0
+					}
+				]
+			}
+		],
+		"objectives": [
+			{
+				"id": "obj_center",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 1200.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"id": "obj_nml_1",
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 880.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"id": "obj_nml_2",
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 1520.0
+				},
+				"radius_mm": 40.0,
+				"zone": "no_mans_land"
+			},
+			{
+				"id": "obj_home_1",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 160.0
+				},
+				"radius_mm": 40.0,
+				"zone": "player1"
+			},
+			{
+				"id": "obj_home_2",
+				"position": {
+					"_type": "Vector2",
+					"x": 880.0,
+					"y": 2240.0
+				},
+				"radius_mm": 40.0,
+				"zone": "player2"
+			}
+		],
+		"size": {
+			"height": 60.0,
+			"width": 44.0
+		},
+		"terrain": [
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-large-1",
+				"is_objective": true,
+				"objective_role": "expansion",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 1420.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 1880.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1640.0,
+							"y": 1880.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1640.0,
+							"y": 1420.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1500.0,
+					"y": 1650.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 460.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-large-2",
+				"is_objective": true,
+				"objective_role": "expansion",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 980.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 520.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 120.0,
+							"y": 520.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 120.0,
+							"y": 980.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 260.0,
+					"y": 750.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 460.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-balanced-right-3",
+				"parent_area_id": "area-large-1",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1379.19995117188,
+							"y": 1437.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1579.19995117188,
+							"y": 1437.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1579.19995117188,
+							"y": 1457.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1399.19995117188,
+							"y": 1457.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1399.19995117188,
+							"y": 1617.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1379.19995117188,
+							"y": 1617.19995117188
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1439.19995117188,
+					"y": 1487.19995117188
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 200.0,
+					"y": 180.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-balanced-right-4",
+				"parent_area_id": "area-large-2",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 380.799987792969,
+							"y": 962.799987792969
+						},
+						{
+							"_type": "Vector2",
+							"x": 180.800003051758,
+							"y": 962.799987792969
+						},
+						{
+							"_type": "Vector2",
+							"x": 180.800003051758,
+							"y": 942.799987792969
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.799987792969,
+							"y": 942.799987792969
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.799987792969,
+							"y": 782.799987792969
+						},
+						{
+							"_type": "Vector2",
+							"x": 380.799987792969,
+							"y": 782.799987792969
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 320.799987792969,
+					"y": 912.799987792969
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 199.999984741211,
+					"y": 180.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-right-5",
+				"parent_area_id": "area-large-1",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1499.39196777344,
+							"y": 1859.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1619.39196777344,
+							"y": 1859.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1619.39196777344,
+							"y": 1599.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1599.39196777344,
+							"y": 1599.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1599.39196777344,
+							"y": 1839.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1499.39196777344,
+							"y": 1839.7919921875
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1592.72399902344,
+					"y": 1763.1240234375
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 120.0,
+					"y": 260.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-right-6",
+				"parent_area_id": "area-large-2",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 260.608001708984,
+							"y": 540.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 140.608001708984,
+							"y": 540.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 140.608001708984,
+							"y": 800.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.608001708984,
+							"y": 800.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.608001708984,
+							"y": 560.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 260.608001708984,
+							"y": 560.2080078125
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 167.276000976562,
+					"y": 636.8759765625
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 120.0,
+					"y": 260.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-medium-7",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 520.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 520.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 360.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 360.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 520.0,
+					"y": 440.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-medium-8",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 1880.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 1880.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2040.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 2040.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1240.0,
+					"y": 1960.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-short-9",
+				"parent_area_id": "area-medium-7",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1133.86804199219,
+							"y": 2024.13195800781
+						},
+						{
+							"_type": "Vector2",
+							"x": 1213.86804199219,
+							"y": 2024.13195800781
+						},
+						{
+							"_type": "Vector2",
+							"x": 1213.86804199219,
+							"y": 2004.13195800781
+						},
+						{
+							"_type": "Vector2",
+							"x": 1153.86804199219,
+							"y": 2004.13195800781
+						},
+						{
+							"_type": "Vector2",
+							"x": 1153.86804199219,
+							"y": 1904.13195800781
+						},
+						{
+							"_type": "Vector2",
+							"x": 1133.86804199219,
+							"y": 1904.13195800781
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1157.19995117188,
+					"y": 1980.80004882812
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 120.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-short-10",
+				"parent_area_id": "area-medium-8",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 626.132019042969,
+							"y": 375.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 546.132019042969,
+							"y": 375.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 546.132019042969,
+							"y": 395.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 606.132019042969,
+							"y": 395.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 606.132019042969,
+							"y": 495.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 626.132019042969,
+							"y": 495.868011474609
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 602.799987792969,
+					"y": 419.200012207031
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 120.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-short-11",
+				"parent_area_id": "area-medium-7",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1343.33203125,
+							"y": 1895.46801757812
+						},
+						{
+							"_type": "Vector2",
+							"x": 1263.33203125,
+							"y": 1895.46801757812
+						},
+						{
+							"_type": "Vector2",
+							"x": 1263.33203125,
+							"y": 1915.46801757812
+						},
+						{
+							"_type": "Vector2",
+							"x": 1323.33203125,
+							"y": 1915.46801757812
+						},
+						{
+							"_type": "Vector2",
+							"x": 1323.33203125,
+							"y": 2015.46801757812
+						},
+						{
+							"_type": "Vector2",
+							"x": 1343.33203125,
+							"y": 2015.46801757812
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1320.0,
+					"y": 1938.80004882812
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 120.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-short-12",
+				"parent_area_id": "area-medium-8",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 416.667999267578,
+							"y": 504.532012939453
+						},
+						{
+							"_type": "Vector2",
+							"x": 496.667999267578,
+							"y": 504.532012939453
+						},
+						{
+							"_type": "Vector2",
+							"x": 496.667999267578,
+							"y": 484.532012939453
+						},
+						{
+							"_type": "Vector2",
+							"x": 436.667999267578,
+							"y": 484.532012939453
+						},
+						{
+							"_type": "Vector2",
+							"x": 436.667999267578,
+							"y": 384.532012939453
+						},
+						{
+							"_type": "Vector2",
+							"x": 416.667999267578,
+							"y": 384.532012939453
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 440.0,
+					"y": 461.200012207031
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 120.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-large-13",
+				"is_objective": true,
+				"objective_role": "home",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 560.0,
+							"y": 1699.59997558594
+						},
+						{
+							"_type": "Vector2",
+							"x": 560.0,
+							"y": 2159.60009765625
+						},
+						{
+							"_type": "Vector2",
+							"x": 840.0,
+							"y": 2159.60009765625
+						},
+						{
+							"_type": "Vector2",
+							"x": 840.0,
+							"y": 1699.59997558594
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 700.0,
+					"y": 1929.59997558594
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 460.000122070312
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-large-14",
+				"is_objective": true,
+				"objective_role": "home",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1200.0,
+							"y": 700.400024414062
+						},
+						{
+							"_type": "Vector2",
+							"x": 1200.0,
+							"y": 240.399993896484
+						},
+						{
+							"_type": "Vector2",
+							"x": 920.0,
+							"y": 240.399993896484
+						},
+						{
+							"_type": "Vector2",
+							"x": 920.0,
+							"y": 700.400024414062
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1060.0,
+					"y": 470.399993896484
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 460.000030517578
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-left-19",
+				"parent_area_id": "area-large-13",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 557.408020019531,
+							"y": 1830.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 557.408020019531,
+							"y": 1710.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 817.408020019531,
+							"y": 1710.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 817.408020019531,
+							"y": 1730.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 577.408020019531,
+							"y": 1730.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 577.408020019531,
+							"y": 1830.2080078125
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 654.075988769531,
+					"y": 1736.8759765625
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 260.0,
+					"y": 120.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-left-20",
+				"parent_area_id": "area-large-14",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1202.59204101562,
+							"y": 569.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1202.59204101562,
+							"y": 689.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 942.591979980469,
+							"y": 689.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 942.591979980469,
+							"y": 669.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1182.59204101562,
+							"y": 669.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1182.59204101562,
+							"y": 569.7919921875
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1105.92395019531,
+					"y": 663.1240234375
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 260.000061035156,
+					"y": 120.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-short-21",
+				"parent_area_id": "area-large-13",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 577.468017578125,
+							"y": 2146.13208007812
+						},
+						{
+							"_type": "Vector2",
+							"x": 577.468017578125,
+							"y": 2066.13208007812
+						},
+						{
+							"_type": "Vector2",
+							"x": 597.468017578125,
+							"y": 2066.13208007812
+						},
+						{
+							"_type": "Vector2",
+							"x": 597.468017578125,
+							"y": 2126.13208007812
+						},
+						{
+							"_type": "Vector2",
+							"x": 697.468017578125,
+							"y": 2126.13208007812
+						},
+						{
+							"_type": "Vector2",
+							"x": 697.468017578125,
+							"y": 2146.13208007812
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 620.799987792969,
+					"y": 2122.80004882812
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 120.0,
+					"y": 80.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-short-22",
+				"parent_area_id": "area-large-14",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1182.53198242188,
+							"y": 253.86799621582
+						},
+						{
+							"_type": "Vector2",
+							"x": 1182.53198242188,
+							"y": 333.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 1162.53198242188,
+							"y": 333.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 1162.53198242188,
+							"y": 273.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 1062.53198242188,
+							"y": 273.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 1062.53198242188,
+							"y": 253.86799621582
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1139.19995117188,
+					"y": 277.200012207031
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 120.0,
+					"y": 80.0000152587891
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "area-short-line-23",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 840.0,
+							"y": 1700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1080.0,
+							"y": 1700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1080.0,
+							"y": 1620.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 840.0,
+							"y": 1620.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 960.0,
+					"y": 1660.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 80.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "area-short-line-24",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 920.0,
+							"y": 700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 680.0,
+							"y": 700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 680.0,
+							"y": 780.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 920.0,
+							"y": 780.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 800.0,
+					"y": 740.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 80.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "catwalk-25",
+				"parent_area_id": "area-short-line-23",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 820.0,
+							"y": 1700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1100.0,
+							"y": 1700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1100.0,
+							"y": 1620.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 820.0,
+							"y": 1620.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 960.0,
+					"y": 1660.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 80.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "catwalk-26",
+				"parent_area_id": "area-short-line-24",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 940.0,
+							"y": 700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 660.0,
+							"y": 700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 660.0,
+							"y": 780.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 940.0,
+							"y": 780.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 800.0,
+					"y": 740.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 80.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "area-long-line-27",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 80.0,
+							"y": 1840.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1840.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1740.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 80.0,
+							"y": 1740.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 1790.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 100.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "area-long-line-28",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1680.0,
+							"y": 560.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 560.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 660.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1680.0,
+							"y": 660.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1480.0,
+					"y": 610.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 100.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "gantry-29",
+				"parent_area_id": "area-long-line-27",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 1830.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 320.0,
+							"y": 1830.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 320.0,
+							"y": 1750.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 1750.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 1790.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 80.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "gantry-30",
+				"parent_area_id": "area-long-line-28",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 570.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1440.0,
+							"y": 570.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1440.0,
+							"y": 650.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 650.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1480.0,
+					"y": 610.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 80.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "barricade-31",
+				"parent_area_id": "area-long-line-27",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 467.200012207031,
+							"y": 1776.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 327.200012207031,
+							"y": 1776.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 327.200012207031,
+							"y": 1816.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 347.200012207031,
+							"y": 1816.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 347.200012207031,
+							"y": 1796.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 447.200012207031,
+							"y": 1796.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 447.200012207031,
+							"y": 1816.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 467.200012207031,
+							"y": 1816.75598144531
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 397.200012207031,
+					"y": 1791.19995117188
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 140.0,
+					"y": 40.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "barricade-32",
+				"parent_area_id": "area-long-line-28",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1292.80004882812,
+							"y": 623.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1432.80004882812,
+							"y": 623.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1432.80004882812,
+							"y": 583.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1412.80004882812,
+							"y": 583.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1412.80004882812,
+							"y": 603.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1312.80004882812,
+							"y": 603.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1312.80004882812,
+							"y": 583.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1292.80004882812,
+							"y": 583.244018554688
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1362.80004882812,
+					"y": 608.799987792969
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 140.0,
+					"y": 40.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "barricade-33",
+				"parent_area_id": "area-long-line-27",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 233.600006103516,
+							"y": 1776.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 93.5999984741211,
+							"y": 1776.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 93.5999984741211,
+							"y": 1816.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 113.599998474121,
+							"y": 1816.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 113.599998474121,
+							"y": 1796.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 213.600006103516,
+							"y": 1796.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 213.600006103516,
+							"y": 1816.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 233.600006103516,
+							"y": 1816.35595703125
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 163.600006103516,
+					"y": 1790.80004882812
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 140.0,
+					"y": 40.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "barricade-34",
+				"parent_area_id": "area-long-line-28",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1526.40002441406,
+							"y": 623.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1666.40002441406,
+							"y": 623.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1666.40002441406,
+							"y": 583.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1646.40002441406,
+							"y": 583.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1646.40002441406,
+							"y": 603.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1546.40002441406,
+							"y": 603.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1546.40002441406,
+							"y": 583.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1526.40002441406,
+							"y": 583.643981933594
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1596.40002441406,
+					"y": 609.200012207031
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 140.0,
+					"y": 40.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "area-medium-35",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 320.0,
+							"y": 1280.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 320.0,
+							"y": 1520.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1520.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1280.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 1400.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 160.0,
+					"y": 240.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "area-medium-36",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1440.0,
+							"y": 1120.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1440.0,
+							"y": 880.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 880.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 1120.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 1000.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 160.0,
+					"y": 240.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "generator-37",
+				"parent_area_id": "area-medium-35",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 340.0,
+							"y": 1480.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 460.0,
+							"y": 1480.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 460.0,
+							"y": 1320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 340.0,
+							"y": 1320.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 1400.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 120.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "generator-38",
+				"parent_area_id": "area-medium-36",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1420.0,
+							"y": 920.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1300.0,
+							"y": 920.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1300.0,
+							"y": 1080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1420.0,
+							"y": 1080.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 1000.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 120.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "area-short-line-39",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1280.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 1280.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 1240.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 80.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "area-short-line-40",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 1120.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 1120.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 1200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1480.0,
+					"y": 1160.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 80.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "pipe-41",
+				"parent_area_id": "area-short-line-39",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 170.0,
+							"y": 1260.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 390.0,
+							"y": 1260.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 390.0,
+							"y": 1220.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 170.0,
+							"y": 1220.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 1240.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 220.0,
+					"y": 40.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "pipe-42",
+				"parent_area_id": "area-short-line-40",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1590.0,
+							"y": 1140.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1370.0,
+							"y": 1140.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1370.0,
+							"y": 1180.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1590.0,
+							"y": 1180.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1480.0,
+					"y": 1160.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 220.0,
+					"y": 40.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-trapezoid-43",
+				"is_objective": true,
+				"link_group": "Center",
+				"objective_role": "center",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 650.0,
+							"y": 1400.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 650.0,
+							"y": 1080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1110.0,
+							"y": 1320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1110.0,
+							"y": 1400.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 834.0,
+					"y": 1288.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 460.0,
+					"y": 320.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-trapezoid-44",
+				"is_objective": true,
+				"link_group": "Center",
+				"objective_role": "center",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1110.0,
+							"y": 1000.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1110.0,
+							"y": 1320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 650.0,
+							"y": 1080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 650.0,
+							"y": 1000.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 926.0,
+					"y": 1112.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 460.0,
+					"y": 320.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-balanced-left-45",
+				"parent_area_id": "area-trapezoid-43",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 666.799987792969,
+							"y": 1384.80004882812
+						},
+						{
+							"_type": "Vector2",
+							"x": 666.799987792969,
+							"y": 1184.80004882812
+						},
+						{
+							"_type": "Vector2",
+							"x": 686.799987792969,
+							"y": 1184.80004882812
+						},
+						{
+							"_type": "Vector2",
+							"x": 686.799987792969,
+							"y": 1364.80004882812
+						},
+						{
+							"_type": "Vector2",
+							"x": 846.799987792969,
+							"y": 1364.80004882812
+						},
+						{
+							"_type": "Vector2",
+							"x": 846.799987792969,
+							"y": 1384.80004882812
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 716.799987792969,
+					"y": 1324.80004882812
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 180.0,
+					"y": 200.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-balanced-left-46",
+				"parent_area_id": "area-trapezoid-44",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1093.19995117188,
+							"y": 1015.20001220703
+						},
+						{
+							"_type": "Vector2",
+							"x": 1093.19995117188,
+							"y": 1215.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1073.19995117188,
+							"y": 1215.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1073.19995117188,
+							"y": 1035.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 913.200012207031,
+							"y": 1035.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 913.200012207031,
+							"y": 1015.20001220703
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1043.19995117188,
+					"y": 1075.19995117188
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 179.999938964844,
+					"y": 199.999938964844
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-tiny-47",
+				"parent_area_id": "area-trapezoid-43",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 669.255981445312,
+							"y": 1018.05603027344
+						},
+						{
+							"_type": "Vector2",
+							"x": 749.255981445312,
+							"y": 1018.05603027344
+						},
+						{
+							"_type": "Vector2",
+							"x": 749.255981445312,
+							"y": 1038.05603027344
+						},
+						{
+							"_type": "Vector2",
+							"x": 689.255981445312,
+							"y": 1038.05603027344
+						},
+						{
+							"_type": "Vector2",
+							"x": 689.255981445312,
+							"y": 1098.05603027344
+						},
+						{
+							"_type": "Vector2",
+							"x": 669.255981445312,
+							"y": 1098.05603027344
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 696.400024414062,
+					"y": 1045.19995117188
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 80.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-tiny-48",
+				"parent_area_id": "area-trapezoid-44",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1090.74401855469,
+							"y": 1381.94396972656
+						},
+						{
+							"_type": "Vector2",
+							"x": 1010.74401855469,
+							"y": 1381.94396972656
+						},
+						{
+							"_type": "Vector2",
+							"x": 1010.74401855469,
+							"y": 1361.94396972656
+						},
+						{
+							"_type": "Vector2",
+							"x": 1070.74401855469,
+							"y": 1361.94396972656
+						},
+						{
+							"_type": "Vector2",
+							"x": 1070.74401855469,
+							"y": 1301.94396972656
+						},
+						{
+							"_type": "Vector2",
+							"x": 1090.74401855469,
+							"y": 1301.94396972656
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1063.59997558594,
+					"y": 1354.80004882812
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 80.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			}
+		],
+		"terrain_features": [
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-large-1",
+				"is_objective": true,
+				"objective_role": "expansion",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 1420.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 1880.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1640.0,
+							"y": 1880.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1640.0,
+							"y": 1420.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1500.0,
+					"y": 1650.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 460.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-large-2",
+				"is_objective": true,
+				"objective_role": "expansion",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 980.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 520.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 120.0,
+							"y": 520.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 120.0,
+							"y": 980.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 260.0,
+					"y": 750.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 460.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-balanced-right-3",
+				"parent_area_id": "area-large-1",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1379.19995117188,
+							"y": 1437.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1579.19995117188,
+							"y": 1437.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1579.19995117188,
+							"y": 1457.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1399.19995117188,
+							"y": 1457.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1399.19995117188,
+							"y": 1617.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1379.19995117188,
+							"y": 1617.19995117188
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1439.19995117188,
+					"y": 1487.19995117188
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 200.0,
+					"y": 180.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-balanced-right-4",
+				"parent_area_id": "area-large-2",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 380.799987792969,
+							"y": 962.799987792969
+						},
+						{
+							"_type": "Vector2",
+							"x": 180.800003051758,
+							"y": 962.799987792969
+						},
+						{
+							"_type": "Vector2",
+							"x": 180.800003051758,
+							"y": 942.799987792969
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.799987792969,
+							"y": 942.799987792969
+						},
+						{
+							"_type": "Vector2",
+							"x": 360.799987792969,
+							"y": 782.799987792969
+						},
+						{
+							"_type": "Vector2",
+							"x": 380.799987792969,
+							"y": 782.799987792969
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 320.799987792969,
+					"y": 912.799987792969
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 199.999984741211,
+					"y": 180.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-right-5",
+				"parent_area_id": "area-large-1",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1499.39196777344,
+							"y": 1859.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1619.39196777344,
+							"y": 1859.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1619.39196777344,
+							"y": 1599.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1599.39196777344,
+							"y": 1599.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1599.39196777344,
+							"y": 1839.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1499.39196777344,
+							"y": 1839.7919921875
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1592.72399902344,
+					"y": 1763.1240234375
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 120.0,
+					"y": 260.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-right-6",
+				"parent_area_id": "area-large-2",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 260.608001708984,
+							"y": 540.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 140.608001708984,
+							"y": 540.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 140.608001708984,
+							"y": 800.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.608001708984,
+							"y": 800.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.608001708984,
+							"y": 560.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 260.608001708984,
+							"y": 560.2080078125
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 167.276000976562,
+					"y": 636.8759765625
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 120.0,
+					"y": 260.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-medium-7",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 520.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 520.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 640.0,
+							"y": 360.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 360.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 520.0,
+					"y": 440.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-medium-8",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 1880.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 1880.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1120.0,
+							"y": 2040.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 2040.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1240.0,
+					"y": 1960.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 160.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-short-9",
+				"parent_area_id": "area-medium-7",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1133.86804199219,
+							"y": 2024.13195800781
+						},
+						{
+							"_type": "Vector2",
+							"x": 1213.86804199219,
+							"y": 2024.13195800781
+						},
+						{
+							"_type": "Vector2",
+							"x": 1213.86804199219,
+							"y": 2004.13195800781
+						},
+						{
+							"_type": "Vector2",
+							"x": 1153.86804199219,
+							"y": 2004.13195800781
+						},
+						{
+							"_type": "Vector2",
+							"x": 1153.86804199219,
+							"y": 1904.13195800781
+						},
+						{
+							"_type": "Vector2",
+							"x": 1133.86804199219,
+							"y": 1904.13195800781
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1157.19995117188,
+					"y": 1980.80004882812
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 120.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-short-10",
+				"parent_area_id": "area-medium-8",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 626.132019042969,
+							"y": 375.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 546.132019042969,
+							"y": 375.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 546.132019042969,
+							"y": 395.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 606.132019042969,
+							"y": 395.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 606.132019042969,
+							"y": 495.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 626.132019042969,
+							"y": 495.868011474609
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 602.799987792969,
+					"y": 419.200012207031
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 120.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-short-11",
+				"parent_area_id": "area-medium-7",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1343.33203125,
+							"y": 1895.46801757812
+						},
+						{
+							"_type": "Vector2",
+							"x": 1263.33203125,
+							"y": 1895.46801757812
+						},
+						{
+							"_type": "Vector2",
+							"x": 1263.33203125,
+							"y": 1915.46801757812
+						},
+						{
+							"_type": "Vector2",
+							"x": 1323.33203125,
+							"y": 1915.46801757812
+						},
+						{
+							"_type": "Vector2",
+							"x": 1323.33203125,
+							"y": 2015.46801757812
+						},
+						{
+							"_type": "Vector2",
+							"x": 1343.33203125,
+							"y": 2015.46801757812
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1320.0,
+					"y": 1938.80004882812
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 120.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-short-12",
+				"parent_area_id": "area-medium-8",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 416.667999267578,
+							"y": 504.532012939453
+						},
+						{
+							"_type": "Vector2",
+							"x": 496.667999267578,
+							"y": 504.532012939453
+						},
+						{
+							"_type": "Vector2",
+							"x": 496.667999267578,
+							"y": 484.532012939453
+						},
+						{
+							"_type": "Vector2",
+							"x": 436.667999267578,
+							"y": 484.532012939453
+						},
+						{
+							"_type": "Vector2",
+							"x": 436.667999267578,
+							"y": 384.532012939453
+						},
+						{
+							"_type": "Vector2",
+							"x": 416.667999267578,
+							"y": 384.532012939453
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 440.0,
+					"y": 461.200012207031
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 120.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-large-13",
+				"is_objective": true,
+				"objective_role": "home",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 560.0,
+							"y": 1699.59997558594
+						},
+						{
+							"_type": "Vector2",
+							"x": 560.0,
+							"y": 2159.60009765625
+						},
+						{
+							"_type": "Vector2",
+							"x": 840.0,
+							"y": 2159.60009765625
+						},
+						{
+							"_type": "Vector2",
+							"x": 840.0,
+							"y": 1699.59997558594
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 700.0,
+					"y": 1929.59997558594
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 460.000122070312
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-large-14",
+				"is_objective": true,
+				"objective_role": "home",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1200.0,
+							"y": 700.400024414062
+						},
+						{
+							"_type": "Vector2",
+							"x": 1200.0,
+							"y": 240.399993896484
+						},
+						{
+							"_type": "Vector2",
+							"x": 920.0,
+							"y": 240.399993896484
+						},
+						{
+							"_type": "Vector2",
+							"x": 920.0,
+							"y": 700.400024414062
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1060.0,
+					"y": 470.399993896484
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 460.000030517578
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-left-19",
+				"parent_area_id": "area-large-13",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 557.408020019531,
+							"y": 1830.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 557.408020019531,
+							"y": 1710.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 817.408020019531,
+							"y": 1710.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 817.408020019531,
+							"y": 1730.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 577.408020019531,
+							"y": 1730.2080078125
+						},
+						{
+							"_type": "Vector2",
+							"x": 577.408020019531,
+							"y": 1830.2080078125
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 654.075988769531,
+					"y": 1736.8759765625
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 260.0,
+					"y": 120.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-left-20",
+				"parent_area_id": "area-large-14",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1202.59204101562,
+							"y": 569.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1202.59204101562,
+							"y": 689.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 942.591979980469,
+							"y": 689.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 942.591979980469,
+							"y": 669.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1182.59204101562,
+							"y": 669.7919921875
+						},
+						{
+							"_type": "Vector2",
+							"x": 1182.59204101562,
+							"y": 569.7919921875
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1105.92395019531,
+					"y": 663.1240234375
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 260.000061035156,
+					"y": 120.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-short-21",
+				"parent_area_id": "area-large-13",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 577.468017578125,
+							"y": 2146.13208007812
+						},
+						{
+							"_type": "Vector2",
+							"x": 577.468017578125,
+							"y": 2066.13208007812
+						},
+						{
+							"_type": "Vector2",
+							"x": 597.468017578125,
+							"y": 2066.13208007812
+						},
+						{
+							"_type": "Vector2",
+							"x": 597.468017578125,
+							"y": 2126.13208007812
+						},
+						{
+							"_type": "Vector2",
+							"x": 697.468017578125,
+							"y": 2126.13208007812
+						},
+						{
+							"_type": "Vector2",
+							"x": 697.468017578125,
+							"y": 2146.13208007812
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 620.799987792969,
+					"y": 2122.80004882812
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 120.0,
+					"y": 80.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-short-22",
+				"parent_area_id": "area-large-14",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1182.53198242188,
+							"y": 253.86799621582
+						},
+						{
+							"_type": "Vector2",
+							"x": 1182.53198242188,
+							"y": 333.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 1162.53198242188,
+							"y": 333.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 1162.53198242188,
+							"y": 273.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 1062.53198242188,
+							"y": 273.868011474609
+						},
+						{
+							"_type": "Vector2",
+							"x": 1062.53198242188,
+							"y": 253.86799621582
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1139.19995117188,
+					"y": 277.200012207031
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 120.0,
+					"y": 80.0000152587891
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "area-short-line-23",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 840.0,
+							"y": 1700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1080.0,
+							"y": 1700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1080.0,
+							"y": 1620.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 840.0,
+							"y": 1620.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 960.0,
+					"y": 1660.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 80.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "area-short-line-24",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 920.0,
+							"y": 700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 680.0,
+							"y": 700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 680.0,
+							"y": 780.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 920.0,
+							"y": 780.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 800.0,
+					"y": 740.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 80.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "catwalk-25",
+				"parent_area_id": "area-short-line-23",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 820.0,
+							"y": 1700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1100.0,
+							"y": 1700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1100.0,
+							"y": 1620.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 820.0,
+							"y": 1620.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 960.0,
+					"y": 1660.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 80.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "catwalk-26",
+				"parent_area_id": "area-short-line-24",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 940.0,
+							"y": 700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 660.0,
+							"y": 700.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 660.0,
+							"y": 780.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 940.0,
+							"y": 780.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 800.0,
+					"y": 740.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 80.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "area-long-line-27",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 80.0,
+							"y": 1840.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1840.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1740.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 80.0,
+							"y": 1740.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 1790.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 100.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "area-long-line-28",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1680.0,
+							"y": 560.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 560.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 660.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1680.0,
+							"y": 660.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1480.0,
+					"y": 610.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 100.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "gantry-29",
+				"parent_area_id": "area-long-line-27",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 1830.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 320.0,
+							"y": 1830.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 320.0,
+							"y": 1750.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 240.0,
+							"y": 1750.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 1790.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 80.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "gantry-30",
+				"parent_area_id": "area-long-line-28",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 570.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1440.0,
+							"y": 570.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1440.0,
+							"y": 650.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1520.0,
+							"y": 650.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1480.0,
+					"y": 610.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 80.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "barricade-31",
+				"parent_area_id": "area-long-line-27",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 467.200012207031,
+							"y": 1776.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 327.200012207031,
+							"y": 1776.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 327.200012207031,
+							"y": 1816.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 347.200012207031,
+							"y": 1816.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 347.200012207031,
+							"y": 1796.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 447.200012207031,
+							"y": 1796.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 447.200012207031,
+							"y": 1816.75598144531
+						},
+						{
+							"_type": "Vector2",
+							"x": 467.200012207031,
+							"y": 1816.75598144531
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 397.200012207031,
+					"y": 1791.19995117188
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 140.0,
+					"y": 40.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "barricade-32",
+				"parent_area_id": "area-long-line-28",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1292.80004882812,
+							"y": 623.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1432.80004882812,
+							"y": 623.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1432.80004882812,
+							"y": 583.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1412.80004882812,
+							"y": 583.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1412.80004882812,
+							"y": 603.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1312.80004882812,
+							"y": 603.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1312.80004882812,
+							"y": 583.244018554688
+						},
+						{
+							"_type": "Vector2",
+							"x": 1292.80004882812,
+							"y": 583.244018554688
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1362.80004882812,
+					"y": 608.799987792969
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 140.0,
+					"y": 40.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "barricade-33",
+				"parent_area_id": "area-long-line-27",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 233.600006103516,
+							"y": 1776.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 93.5999984741211,
+							"y": 1776.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 93.5999984741211,
+							"y": 1816.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 113.599998474121,
+							"y": 1816.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 113.599998474121,
+							"y": 1796.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 213.600006103516,
+							"y": 1796.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 213.600006103516,
+							"y": 1816.35595703125
+						},
+						{
+							"_type": "Vector2",
+							"x": 233.600006103516,
+							"y": 1816.35595703125
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 163.600006103516,
+					"y": 1790.80004882812
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 140.0,
+					"y": 40.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "barricade-34",
+				"parent_area_id": "area-long-line-28",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1526.40002441406,
+							"y": 623.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1666.40002441406,
+							"y": 623.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1666.40002441406,
+							"y": 583.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1646.40002441406,
+							"y": 583.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1646.40002441406,
+							"y": 603.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1546.40002441406,
+							"y": 603.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1546.40002441406,
+							"y": 583.643981933594
+						},
+						{
+							"_type": "Vector2",
+							"x": 1526.40002441406,
+							"y": 583.643981933594
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1596.40002441406,
+					"y": 609.200012207031
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 140.0,
+					"y": 40.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "area-medium-35",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 320.0,
+							"y": 1280.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 320.0,
+							"y": 1520.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1520.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 480.0,
+							"y": 1280.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 1400.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 160.0,
+					"y": 240.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "area-medium-36",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1440.0,
+							"y": 1120.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1440.0,
+							"y": 880.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 880.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1280.0,
+							"y": 1120.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 1000.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 160.0,
+					"y": 240.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "generator-37",
+				"parent_area_id": "area-medium-35",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 340.0,
+							"y": 1480.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 460.0,
+							"y": 1480.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 460.0,
+							"y": 1320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 340.0,
+							"y": 1320.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 400.0,
+					"y": 1400.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 120.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 3.0,
+				"id": "generator-38",
+				"parent_area_id": "area-medium-36",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1420.0,
+							"y": 920.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1300.0,
+							"y": 920.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1300.0,
+							"y": 1080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1420.0,
+							"y": 1080.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1360.0,
+					"y": 1000.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 120.0,
+					"y": 160.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "area-short-line-39",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1280.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 1280.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 400.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 160.0,
+							"y": 1200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 1240.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 80.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "area-short-line-40",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 1120.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 1120.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1360.0,
+							"y": 1200.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1600.0,
+							"y": 1200.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1480.0,
+					"y": 1160.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 240.0,
+					"y": 80.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "pipe-41",
+				"parent_area_id": "area-short-line-39",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 170.0,
+							"y": 1260.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 390.0,
+							"y": 1260.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 390.0,
+							"y": 1220.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 170.0,
+							"y": 1220.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 280.0,
+					"y": 1240.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 220.0,
+					"y": 40.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "medium",
+				"height_inches": 2.0,
+				"id": "pipe-42",
+				"parent_area_id": "area-short-line-40",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1590.0,
+							"y": 1140.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1370.0,
+							"y": 1140.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1370.0,
+							"y": 1180.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1590.0,
+							"y": 1180.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1480.0,
+					"y": 1160.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 220.0,
+					"y": 40.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-trapezoid-43",
+				"is_objective": true,
+				"link_group": "Center",
+				"objective_role": "center",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 650.0,
+							"y": 1400.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 650.0,
+							"y": 1080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1110.0,
+							"y": 1320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1110.0,
+							"y": 1400.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 834.0,
+					"y": 1288.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 460.0,
+					"y": 320.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "area-trapezoid-44",
+				"is_objective": true,
+				"link_group": "Center",
+				"objective_role": "center",
+				"piece_class": "area",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1110.0,
+							"y": 1000.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 1110.0,
+							"y": 1320.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 650.0,
+							"y": 1080.0
+						},
+						{
+							"_type": "Vector2",
+							"x": 650.0,
+							"y": 1000.0
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 926.0,
+					"y": 1112.0
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 460.0,
+					"y": 320.0
+				},
+				"traits": [
+					"obscuring",
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-balanced-left-45",
+				"parent_area_id": "area-trapezoid-43",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 666.799987792969,
+							"y": 1384.80004882812
+						},
+						{
+							"_type": "Vector2",
+							"x": 666.799987792969,
+							"y": 1184.80004882812
+						},
+						{
+							"_type": "Vector2",
+							"x": 686.799987792969,
+							"y": 1184.80004882812
+						},
+						{
+							"_type": "Vector2",
+							"x": 686.799987792969,
+							"y": 1364.80004882812
+						},
+						{
+							"_type": "Vector2",
+							"x": 846.799987792969,
+							"y": 1364.80004882812
+						},
+						{
+							"_type": "Vector2",
+							"x": 846.799987792969,
+							"y": 1384.80004882812
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 716.799987792969,
+					"y": 1324.80004882812
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 180.0,
+					"y": 200.0
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "dense",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-ruin-balanced-left-46",
+				"parent_area_id": "area-trapezoid-44",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1093.19995117188,
+							"y": 1015.20001220703
+						},
+						{
+							"_type": "Vector2",
+							"x": 1093.19995117188,
+							"y": 1215.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1073.19995117188,
+							"y": 1215.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 1073.19995117188,
+							"y": 1035.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 913.200012207031,
+							"y": 1035.19995117188
+						},
+						{
+							"_type": "Vector2",
+							"x": 913.200012207031,
+							"y": 1015.20001220703
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1043.19995117188,
+					"y": 1075.19995117188
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 179.999938964844,
+					"y": 199.999938964844
+				},
+				"traits": [
+					"obscuring"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-tiny-47",
+				"parent_area_id": "area-trapezoid-43",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 669.255981445312,
+							"y": 1018.05603027344
+						},
+						{
+							"_type": "Vector2",
+							"x": 749.255981445312,
+							"y": 1018.05603027344
+						},
+						{
+							"_type": "Vector2",
+							"x": 749.255981445312,
+							"y": 1038.05603027344
+						},
+						{
+							"_type": "Vector2",
+							"x": 689.255981445312,
+							"y": 1038.05603027344
+						},
+						{
+							"_type": "Vector2",
+							"x": 689.255981445312,
+							"y": 1098.05603027344
+						},
+						{
+							"_type": "Vector2",
+							"x": 669.255981445312,
+							"y": 1098.05603027344
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 696.400024414062,
+					"y": 1045.19995117188
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 80.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			},
+			{
+				"can_move_through": {
+					"INFANTRY": true,
+					"MONSTER": false,
+					"VEHICLE": false
+				},
+				"category": "light",
+				"floor": 0,
+				"height_category": "tall",
+				"height_inches": 5.0,
+				"id": "corner-tiny-48",
+				"parent_area_id": "area-trapezoid-44",
+				"piece_class": "feature",
+				"polygon": {
+					"_type": "PackedVector2Array",
+					"data": [
+						{
+							"_type": "Vector2",
+							"x": 1090.74401855469,
+							"y": 1381.94396972656
+						},
+						{
+							"_type": "Vector2",
+							"x": 1010.74401855469,
+							"y": 1381.94396972656
+						},
+						{
+							"_type": "Vector2",
+							"x": 1010.74401855469,
+							"y": 1361.94396972656
+						},
+						{
+							"_type": "Vector2",
+							"x": 1070.74401855469,
+							"y": 1361.94396972656
+						},
+						{
+							"_type": "Vector2",
+							"x": 1070.74401855469,
+							"y": 1301.94396972656
+						},
+						{
+							"_type": "Vector2",
+							"x": 1090.74401855469,
+							"y": 1301.94396972656
+						}
+					]
+				},
+				"position": {
+					"_type": "Vector2",
+					"x": 1063.59997558594,
+					"y": 1354.80004882812
+				},
+				"rotation": 0.0,
+				"size": {
+					"_type": "Vector2",
+					"x": 80.0,
+					"y": 80.0
+				},
+				"traits": [
+					"difficult_ground"
+				],
+				"type": "ruins"
+			}
+		],
+		"terrain_layout": "take_and_hold_mirror_1"
+	},
+	"faction_ability_manager": {
+		"active_doctrine": {
+			"1": "",
+			"2": ""
+		},
+		"active_effects": {
+			"1": {
+
+			},
+			"2": {
+
+			}
+		},
+		"active_mastery": {
+			"1": "",
+			"2": ""
+		},
+		"bionik_workshop_resolved": false,
+		"bionik_workshop_results": {
+
+		},
+		"boss_watchin_used": {
+			"1": false,
+			"2": false
+		},
+		"da_kaptin_used_round": {
+			"1": 0,
+			"2": 0
+		},
+		"doctrines_used": {
+			"1": [],
+			"2": []
+		},
+		"loot_objective": {
+			"1": "",
+			"2": ""
+		},
+		"loot_objective_round": {
+			"1": 0,
+			"2": 0
+		},
+		"mastery_selected_round": {
+			"1": 0,
+			"2": 0
+		},
+		"morks_kunnin_redeploys_used": {
+			"1": 0,
+			"2": 0
+		},
+		"plant_waaagh_banner_used": {
+
+		},
+		"player_abilities": {
+			"1": [],
+			"2": []
+		},
+		"player_detachment": {
+			"1": "",
+			"2": ""
+		},
+		"razgit_redeploys_used": {
+			"1": 0,
+			"2": 0
+		},
+		"razgit_resolved": false,
+		"waaagh_active": {
+			"1": false,
+			"2": false
+		},
+		"waaagh_used": {
+			"1": false,
+			"2": false
+		}
+	},
+	"factions": {
+		"1": {
+			"created_date": "2026-07-10",
+			"data_source": "40kdc-data 1.0.19 (11th edition, launch)",
+			"detachment": "Lions of the Emperor",
+			"edition": 11.0,
+			"name": "Adeptus Custodes",
+			"player_name": "",
+			"points": 2000.0,
+			"schema": 2.0,
+			"team_name": ""
+		},
+		"2": {
+			"created_date": "2026-07-10",
+			"data_source": "40kdc-data 1.0.19 (11th edition, launch)",
+			"detachment": "Lions of the Emperor",
+			"edition": 11.0,
+			"name": "Adeptus Custodes",
+			"player_name": "",
+			"points": 2000.0,
+			"schema": 2.0,
+			"team_name": ""
+		}
+	},
+	"history": [],
+	"meta": {
+		"active_player": 1,
+		"battle_round": 1,
+		"created_at": 1777894246.48332,
+		"deployment_type": "crucible_of_battle",
+		"first_turn_player": 1,
+		"formations": {
+			"1": {
+				"leader_attachments": {
+
+				},
+				"reserves": [],
+				"transport_embarkations": {
+
+				}
+			},
+			"2": {
+				"leader_attachments": {
+
+				},
+				"reserves": [],
+				"transport_embarkations": {
+
+				}
+			}
+		},
+		"formations_declared": true,
+		"formations_p1_confirmed": true,
+		"formations_p2_confirmed": true,
+		"game_id": "c02b1ee3-2b22-48a0-b65b-3033f9c810e94c65",
+		"phase": 6,
+		"roll_off_choice": "second",
+		"roll_off_player1_roll": 3,
+		"roll_off_player2_roll": 6,
+		"roll_off_winner": 2,
+		"turn": 1,
+		"turn_number": 1,
+		"version": "1.1.0"
+	},
+	"mission_manager": {
+		"alive_at_turn_start_11e": {
+
+		},
+		"burn_in_progress": {
+
+		},
+		"burned_objectives_arr": [],
+		"burned_objectives_meta": {
+
+		},
+		"character_claimed_objectives": {
+
+		},
+		"control_at_turn_start": {
+
+		},
+		"current_mission": {
+			"description": "Score VP by controlling objectives at the end of your Command phase.",
+			"id": "take_and_hold",
+			"max_vp": 50,
+			"name": "Take and Hold",
+			"objectives_used": "all",
+			"scoring": {
+				"count_home_objectives": true,
+				"max_vp_per_turn": 15,
+				"vp_per_objective": 5,
+				"when": "command_phase_end"
+			},
+			"scoring_rules": {
+				"count_home_objectives": true,
+				"max_vp_per_turn": 15,
+				"vp_per_objective": 5,
+				"when": "command_phase_end"
+			},
+			"scoring_type": "hold_objectives",
+			"special_rules": [],
+			"start_round": 2,
+			"type": "primary"
+		},
+		"eog_primary_scored": false,
+		"kills_per_round": {
+
+		},
+		"kills_this_round": {
+			"1": 0,
+			"2": 0
+		},
+		"objective_control_state": {
+			"obj_center": 0,
+			"obj_home_1": 0,
+			"obj_home_2": 0,
+			"obj_nml_1": 0,
+			"obj_nml_2": 0
+		},
+		"pending_burns": {
+
+		},
+		"pending_rituals": {
+
+		},
+		"pending_terraforms": {
+
+		},
+		"player_dispositions": {
+
+		},
+		"player_primary_missions": {
+
+		},
+		"primary_state_11e": {
+
+		},
+		"primary_vp_this_turn": {
+			"1": 0,
+			"2": 0
+		},
+		"relic_markers_11e": [],
+		"relic_setup_prompt_pending": false,
+		"removed_objectives": [],
+		"ritual_objectives": {
+
+		},
+		"sticky_objectives": {
+
+		},
+		"supply_drop_resolved_round_4": false,
+		"terraformed_objectives": {
+
+		},
+		"units_alive_at_round_start": {
+
+		},
+		"vp_timeline": {
+
+		}
+	},
+	"phase_log": [],
+	"players": {
+		"1": {
+			"bonus_cp_gained_this_round": 0.0,
+			"cp": 4.0,
+			"primary_vp": 0.0,
+			"secondary_vp": 0.0,
+			"vp": 0.0
+		},
+		"2": {
+			"bonus_cp_gained_this_round": 0.0,
+			"cp": 4.0,
+			"primary_vp": 0.0,
+			"secondary_vp": 0.0,
+			"vp": 0.0
+		}
+	},
+	"secondary_missions": {
+		"active_actions": {
+			"1": [],
+			"2": []
+		},
+		"objective_control_at_turn_start": {
+			"obj_center": 0.0,
+			"obj_home_1": 0.0,
+			"obj_home_2": 0.0,
+			"obj_nml_1": 0.0,
+			"obj_nml_2": 0.0
+		},
+		"player_state": {
+			"1": {
+				"active": [
+					{
+						"achieved": false,
+						"action": {
+
+						},
+						"category": "Purge the Enemy",
+						"id": "no_prisoners",
+						"interaction_details": {
+
+						},
+						"interaction_type": "",
+						"mission_data": {
+
+						},
+						"name": "No Prisoners",
+						"number": 14.0,
+						"pending_interaction": false,
+						"requires_action": false,
+						"scoring": {
+							"conditions": [
+								{
+									"check": "enemy_unit_destroyed",
+									"params": {
+
+									},
+									"vp": 2.0
+								}
+							],
+							"max_vp_per_score": 5.0,
+							"when": "while_active"
+						},
+						"vp_scored": 0.0
+					},
+					{
+						"achieved": false,
+						"action": {
+
+						},
+						"category": "Battlefield Supremacy",
+						"id": "display_of_might",
+						"interaction_details": {
+
+						},
+						"interaction_type": "",
+						"mission_data": {
+
+						},
+						"name": "Display of Might",
+						"number": 4.0,
+						"pending_interaction": false,
+						"requires_action": false,
+						"scoring": {
+							"conditions": [
+								{
+									"check": "more_units_wholly_in_no_mans_land_than_opponent",
+									"params": {
+
+									},
+									"vp": 5.0
+								}
+							],
+							"when": "end_of_your_turn"
+						},
+						"vp_scored": 0.0
+					}
+				],
+				"deck": [
+					"secure_no_mans_land",
+					"extend_battle_lines",
+					"a_tempting_target",
+					"bring_it_down",
+					"behind_enemy_lines",
+					"overwhelming_force",
+					"area_denial",
+					"assassination",
+					"deploy_teleport_homer",
+					"defend_stronghold",
+					"storm_hostile_objective",
+					"establish_locus",
+					"marked_for_death",
+					"cull_the_horde",
+					"cleanse",
+					"engage_on_all_fronts"
+				],
+				"discard": [],
+				"initialized": true,
+				"mode": "tactical",
+				"secondary_vp": 0.0
+			},
+			"2": {
+				"active": [
+					{
+						"achieved": false,
+						"action": {
+
+						},
+						"category": "Purge the Enemy",
+						"id": "no_prisoners",
+						"interaction_details": {
+
+						},
+						"interaction_type": "",
+						"mission_data": {
+
+						},
+						"name": "No Prisoners",
+						"number": 14.0,
+						"pending_interaction": false,
+						"requires_action": false,
+						"scoring": {
+							"conditions": [
+								{
+									"check": "enemy_unit_destroyed",
+									"params": {
+
+									},
+									"vp": 2.0
+								}
+							],
+							"max_vp_per_score": 5.0,
+							"when": "while_active"
+						},
+						"vp_scored": 0.0
+					},
+					{
+						"achieved": false,
+						"action": {
+
+						},
+						"category": "Battlefield Supremacy",
+						"id": "display_of_might",
+						"interaction_details": {
+
+						},
+						"interaction_type": "",
+						"mission_data": {
+
+						},
+						"name": "Display of Might",
+						"number": 4.0,
+						"pending_interaction": false,
+						"requires_action": false,
+						"scoring": {
+							"conditions": [
+								{
+									"check": "more_units_wholly_in_no_mans_land_than_opponent",
+									"params": {
+
+									},
+									"vp": 5.0
+								}
+							],
+							"when": "end_of_your_turn"
+						},
+						"vp_scored": 0.0
+					}
+				],
+				"deck": [
+					"secure_no_mans_land",
+					"extend_battle_lines",
+					"a_tempting_target",
+					"bring_it_down",
+					"behind_enemy_lines",
+					"overwhelming_force",
+					"area_denial",
+					"assassination",
+					"deploy_teleport_homer",
+					"defend_stronghold",
+					"storm_hostile_objective",
+					"establish_locus",
+					"marked_for_death",
+					"cull_the_horde",
+					"cleanse",
+					"engage_on_all_fronts"
+				],
+				"discard": [],
+				"initialized": true,
+				"mode": "tactical",
+				"secondary_vp": 0.0
+			}
+		},
+		"units_destroyed_this_turn": []
+	},
+	"stratagem_manager": {
+		"active_effects": [],
+		"player_faction_stratagems": {
+			"1": [
+				"faction_ac_lions_of_the_emperor_peerless_warrior",
+				"faction_ac_lions_of_the_emperor_gilded_champion",
+				"faction_ac_lions_of_the_emperor_defiant_to_the_last",
+				"faction_ac_lions_of_the_emperor_unleash_the_lions",
+				"faction_ac_lions_of_the_emperor_manoeuvre_and_fire",
+				"faction_ac_lions_of_the_emperor_swift_as_the_eagle"
+			],
+			"2": [
+				"faction_ac_lions_of_the_emperor_peerless_warrior",
+				"faction_ac_lions_of_the_emperor_gilded_champion",
+				"faction_ac_lions_of_the_emperor_defiant_to_the_last",
+				"faction_ac_lions_of_the_emperor_unleash_the_lions",
+				"faction_ac_lions_of_the_emperor_manoeuvre_and_fire",
+				"faction_ac_lions_of_the_emperor_swift_as_the_eagle"
+			]
+		},
+		"usage_history": {
+			"1": [],
+			"2": []
+		}
+	},
+	"unit_ability_manager": {
+		"active_ability_effects": [],
+		"active_aura_effects": {
+
+		},
+		"applied_this_phase": {
+
+		},
+		"mekaniak_used_this_turn": {
+
+		},
+		"once_per_battle_used": {
+
+		},
+		"once_per_round_used": {
+
+		},
+		"scatter_used_this_turn": {
+
+		}
+	},
+	"unit_visuals": {
+
+	},
+	"units": {
+		"U_ALLARUS_CUSTODIANS_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_ALLARUS_CUSTODIANS_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, the unit can be placed into Strategic Reserves.",
+						"name": "From Golden Light",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll the Wound roll.",
+						"name": "Slayers of Tyrants",
+						"type": "Datasheet"
+					},
+					{
+						"description": "The unit gets +1 to its Objective Control characteristic.",
+						"name": "Vexilla",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Allarus Custodians",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"ALLARUS CUSTODIANS",
+					"IMPERIUM",
+					"INFANTRY",
+					"TERMINATOR"
+				],
+				"name": "Allarus Custodians",
+				"points": 275.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 5.0,
+					"objective_control": 3.0,
+					"save": 2.0,
+					"toughness": 7.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "2-6 Allarus Custodian",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Balistus grenade launcher",
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "blast"
+							}
+						],
+						"ap": "-1",
+						"attacks": "D6",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Balistus grenade launcher",
+						"range": "18",
+						"special_rules": "blast",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 33.4960632324219,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 103.496063232422,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 173.496063232422,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 243.496063232422,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 313.496063232422,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_ALLARUS_CUSTODIANS_A",
+			"status": 2
+		},
+		"U_ALLARUS_CUSTODIANS_A_P2": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_ALLARUS_CUSTODIANS_A_P2",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, the unit can be placed into Strategic Reserves.",
+						"name": "From Golden Light",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll the Wound roll.",
+						"name": "Slayers of Tyrants",
+						"type": "Datasheet"
+					},
+					{
+						"description": "The unit gets +1 to its Objective Control characteristic.",
+						"name": "Vexilla",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Allarus Custodians",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"ALLARUS CUSTODIANS",
+					"IMPERIUM",
+					"INFANTRY",
+					"TERMINATOR"
+				],
+				"name": "Allarus Custodians",
+				"points": 275.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 5.0,
+					"objective_control": 3.0,
+					"save": 2.0,
+					"toughness": 7.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "2-6 Allarus Custodian",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Balistus grenade launcher",
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "blast"
+							}
+						],
+						"ap": "-1",
+						"attacks": "D6",
+						"ballistic_skill": "2",
+						"damage": "1",
+						"name": "Balistus grenade launcher",
+						"range": "18",
+						"special_rules": "blast",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 1726.50393676758,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 1656.50393676758,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 1586.50393676758,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 1516.50393676758,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 1446.50393676758,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_ALLARUS_CUSTODIANS_A_P2",
+			"status": 2
+		},
+		"U_BLADE_CHAMPION_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_BLADE_CHAMPION_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, the unit gains the Advance & Charge ability.",
+						"name": "Martial Inspiration",
+						"type": "Datasheet"
+					},
+					{
+						"description": "After being attached to a unit, you can re-roll the Charge roll.",
+						"name": "Swift Onslaught",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Blade Champion Alpha",
+				"enhancements": [],
+				"is_warlord": true,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BLADE CHAMPION",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"leader_data": {
+					"can_lead": [
+						"CUSTODIAN GUARD",
+						"CUSTODIAN GUARD WITH ADRASITE AND PYRITHITE SPEARS",
+						"CUSTODIAN WARDENS",
+						"SAGITTARUM CUSTODIANS"
+					]
+				},
+				"name": "Blade Champion",
+				"points": 110.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Blade Champion",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Vaultswords"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "precision"
+							}
+						],
+						"ap": "-2",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Vaultswords – Behemor",
+						"range": "Melee",
+						"special_rules": "precision",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "sustained_hits",
+								"x": 1.0
+							}
+						],
+						"ap": "-1",
+						"attacks": "9",
+						"damage": "1",
+						"name": "Vaultswords – Hurricanis",
+						"range": "Melee",
+						"special_rules": "sustained hits 1",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "devastating_wounds"
+							}
+						],
+						"ap": "-3",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Vaultswords – Victus",
+						"range": "Melee",
+						"special_rules": "devastating wounds",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 383.496063232422,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_BLADE_CHAMPION_A",
+			"status": 2
+		},
+		"U_BLADE_CHAMPION_A_P2": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_BLADE_CHAMPION_A_P2",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, the unit gains the Advance & Charge ability.",
+						"name": "Martial Inspiration",
+						"type": "Datasheet"
+					},
+					{
+						"description": "After being attached to a unit, you can re-roll the Charge roll.",
+						"name": "Swift Onslaught",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Blade Champion Alpha",
+				"enhancements": [],
+				"is_warlord": true,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BLADE CHAMPION",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"leader_data": {
+					"can_lead": [
+						"CUSTODIAN GUARD",
+						"CUSTODIAN GUARD WITH ADRASITE AND PYRITHITE SPEARS",
+						"CUSTODIAN WARDENS",
+						"SAGITTARUM CUSTODIANS"
+					]
+				},
+				"name": "Blade Champion",
+				"points": 110.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Blade Champion",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Vaultswords"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "precision"
+							}
+						],
+						"ap": "-2",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Vaultswords – Behemor",
+						"range": "Melee",
+						"special_rules": "precision",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "sustained_hits",
+								"x": 1.0
+							}
+						],
+						"ap": "-1",
+						"attacks": "9",
+						"damage": "1",
+						"name": "Vaultswords – Hurricanis",
+						"range": "Melee",
+						"special_rules": "sustained hits 1",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "devastating_wounds"
+							}
+						],
+						"ap": "-3",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Vaultswords – Victus",
+						"range": "Melee",
+						"special_rules": "devastating wounds",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 1376.50393676758,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BLADE_CHAMPION_A_P2",
+			"status": 2
+		},
+		"U_BLADE_CHAMPION_B": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_BLADE_CHAMPION_B",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, the unit gains the Advance & Charge ability.",
+						"name": "Martial Inspiration",
+						"type": "Datasheet"
+					},
+					{
+						"description": "After being attached to a unit, you can re-roll the Charge roll.",
+						"name": "Swift Onslaught",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Blade Champion Beta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BLADE CHAMPION",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"leader_data": {
+					"can_lead": [
+						"CUSTODIAN GUARD",
+						"CUSTODIAN GUARD WITH ADRASITE AND PYRITHITE SPEARS",
+						"CUSTODIAN WARDENS",
+						"SAGITTARUM CUSTODIANS"
+					]
+				},
+				"name": "Blade Champion",
+				"points": 125.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Blade Champion",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Vaultswords"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "precision"
+							}
+						],
+						"ap": "-2",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Vaultswords – Behemor",
+						"range": "Melee",
+						"special_rules": "precision",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "sustained_hits",
+								"x": 1.0
+							}
+						],
+						"ap": "-1",
+						"attacks": "9",
+						"damage": "1",
+						"name": "Vaultswords – Hurricanis",
+						"range": "Melee",
+						"special_rules": "sustained hits 1",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "devastating_wounds"
+							}
+						],
+						"ap": "-3",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Vaultswords – Victus",
+						"range": "Melee",
+						"special_rules": "devastating wounds",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 453.496063232422,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_BLADE_CHAMPION_B",
+			"status": 2
+		},
+		"U_BLADE_CHAMPION_B_P2": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_BLADE_CHAMPION_B_P2",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, the unit gains the Advance & Charge ability.",
+						"name": "Martial Inspiration",
+						"type": "Datasheet"
+					},
+					{
+						"description": "After being attached to a unit, you can re-roll the Charge roll.",
+						"name": "Swift Onslaught",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Blade Champion Beta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BLADE CHAMPION",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"leader_data": {
+					"can_lead": [
+						"CUSTODIAN GUARD",
+						"CUSTODIAN GUARD WITH ADRASITE AND PYRITHITE SPEARS",
+						"CUSTODIAN WARDENS",
+						"SAGITTARUM CUSTODIANS"
+					]
+				},
+				"name": "Blade Champion",
+				"points": 125.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Blade Champion",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Vaultswords"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "precision"
+							}
+						],
+						"ap": "-2",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Vaultswords – Behemor",
+						"range": "Melee",
+						"special_rules": "precision",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "sustained_hits",
+								"x": 1.0
+							}
+						],
+						"ap": "-1",
+						"attacks": "9",
+						"damage": "1",
+						"name": "Vaultswords – Hurricanis",
+						"range": "Melee",
+						"special_rules": "sustained hits 1",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "devastating_wounds"
+							}
+						],
+						"ap": "-3",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Vaultswords – Victus",
+						"range": "Melee",
+						"special_rules": "devastating wounds",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 1306.50393676758,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BLADE_CHAMPION_B_P2",
+			"status": 2
+		},
+		"U_BLADE_CHAMPION_C": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_BLADE_CHAMPION_C",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, the unit gains the Advance & Charge ability.",
+						"name": "Martial Inspiration",
+						"type": "Datasheet"
+					},
+					{
+						"description": "After being attached to a unit, you can re-roll the Charge roll.",
+						"name": "Swift Onslaught",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Blade Champion Gamma",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BLADE CHAMPION",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"leader_data": {
+					"can_lead": [
+						"CUSTODIAN GUARD",
+						"CUSTODIAN GUARD WITH ADRASITE AND PYRITHITE SPEARS",
+						"CUSTODIAN WARDENS",
+						"SAGITTARUM CUSTODIANS"
+					]
+				},
+				"name": "Blade Champion",
+				"points": 125.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Blade Champion",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Vaultswords"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "precision"
+							}
+						],
+						"ap": "-2",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Vaultswords – Behemor",
+						"range": "Melee",
+						"special_rules": "precision",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "sustained_hits",
+								"x": 1.0
+							}
+						],
+						"ap": "-1",
+						"attacks": "9",
+						"damage": "1",
+						"name": "Vaultswords – Hurricanis",
+						"range": "Melee",
+						"special_rules": "sustained hits 1",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "devastating_wounds"
+							}
+						],
+						"ap": "-3",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Vaultswords – Victus",
+						"range": "Melee",
+						"special_rules": "devastating wounds",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 523.496032714844,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_BLADE_CHAMPION_C",
+			"status": 2
+		},
+		"U_BLADE_CHAMPION_C_P2": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_BLADE_CHAMPION_C_P2",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "The unit gains the Leader ability.",
+						"name": "Leader",
+						"type": "Core"
+					},
+					{
+						"description": "Once per battle, the unit gains the Advance & Charge ability.",
+						"name": "Martial Inspiration",
+						"type": "Datasheet"
+					},
+					{
+						"description": "After being attached to a unit, you can re-roll the Charge roll.",
+						"name": "Swift Onslaught",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Blade Champion Gamma",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BLADE CHAMPION",
+					"CHARACTER",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"leader_data": {
+					"can_lead": [
+						"CUSTODIAN GUARD",
+						"CUSTODIAN GUARD WITH ADRASITE AND PYRITHITE SPEARS",
+						"CUSTODIAN WARDENS",
+						"SAGITTARUM CUSTODIANS"
+					]
+				},
+				"name": "Blade Champion",
+				"points": 125.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 6.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Blade Champion",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"1x Vaultswords"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "precision"
+							}
+						],
+						"ap": "-2",
+						"attacks": "6",
+						"damage": "2",
+						"name": "Vaultswords – Behemor",
+						"range": "Melee",
+						"special_rules": "precision",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "sustained_hits",
+								"x": 1.0
+							}
+						],
+						"ap": "-1",
+						"attacks": "9",
+						"damage": "1",
+						"name": "Vaultswords – Hurricanis",
+						"range": "Melee",
+						"special_rules": "sustained hits 1",
+						"strength": "5",
+						"type": "Melee",
+						"weapon_skill": "2"
+					},
+					{
+						"abilities": [
+							{
+								"id": "devastating_wounds"
+							}
+						],
+						"ap": "-3",
+						"attacks": "5",
+						"damage": "3",
+						"name": "Vaultswords – Victus",
+						"range": "Melee",
+						"special_rules": "devastating wounds",
+						"strength": "6",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 6.0,
+					"id": "m1",
+					"position": {
+						"x": 1236.50396728516,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 6.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_BLADE_CHAMPION_C_P2",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Add 1 to this model's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll a Wound roll of 1.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Alpha",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 215.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 593.496032714844,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 663.496032714844,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 733.496032714844,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 803.496032714844,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 873.496032714844,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_CUSTODIAN_GUARD_A",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_A_P2": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_A_P2",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Add 1 to this model's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll a Wound roll of 1.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Alpha",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 215.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 1166.50396728516,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 1096.50396728516,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 1026.50396728516,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 956.503967285156,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 886.503967285156,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_CUSTODIAN_GUARD_A_P2",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_B": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_B",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Add 1 to this model's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll a Wound roll of 1.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Beta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 215.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 943.496032714844,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 1013.49603271484,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 1083.49609375,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 1153.49609375,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 1223.49609375,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_CUSTODIAN_GUARD_B",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_B_P2": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_B_P2",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Add 1 to this model's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll a Wound roll of 1.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Beta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 215.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 816.503967285156,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 746.503967285156,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 676.50390625,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 606.50390625,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 536.50390625,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_CUSTODIAN_GUARD_B_P2",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_C": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_C",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Add 1 to this model's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll a Wound roll of 1.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Gamma",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 215.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 1293.49609375,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 1363.49609375,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 1433.49609375,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 1503.49609375,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 1573.49609375,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_CUSTODIAN_GUARD_C",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_C_P2": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_C_P2",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Add 1 to this model's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll a Wound roll of 1.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Gamma",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 215.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 466.50390625,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 396.50390625,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 326.50390625,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 256.50390625,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 186.50390625,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_CUSTODIAN_GUARD_C_P2",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_D": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_D",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Add 1 to this model's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll a Wound roll of 1.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Delta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 225.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 1643.49609375,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 1713.49609375,
+						"y": 33.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 63.4960632324219,
+						"y": 93.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 133.496063232422,
+						"y": 93.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 203.496063232422,
+						"y": 93.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_CUSTODIAN_GUARD_D",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_D_P2": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_D_P2",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Add 1 to this model's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll a Wound roll of 1.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Delta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 225.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 116.50390625,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 46.50390625,
+						"y": 2366.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 1696.50393676758,
+						"y": 2306.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 1626.50393676758,
+						"y": 2306.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 1556.50393676758,
+						"y": 2306.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_CUSTODIAN_GUARD_D_P2",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_E": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_E",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Add 1 to this model's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll a Wound roll of 1.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Epsilon",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 225.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 273.496063232422,
+						"y": 93.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 343.496063232422,
+						"y": 93.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 413.496063232422,
+						"y": 93.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 483.496063232422,
+						"y": 93.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 553.496032714844,
+						"y": 93.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_CUSTODIAN_GUARD_E",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_E_P2": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_E_P2",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Add 1 to this model's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll a Wound roll of 1.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Epsilon",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 225.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 1486.50393676758,
+						"y": 2306.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 1416.50393676758,
+						"y": 2306.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 1346.50393676758,
+						"y": 2306.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 1276.50393676758,
+						"y": 2306.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 1206.50396728516,
+						"y": 2306.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_CUSTODIAN_GUARD_E_P2",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_F": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_F",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Add 1 to this model's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll a Wound roll of 1.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Zeta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 225.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 623.496032714844,
+						"y": 93.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 693.496032714844,
+						"y": 93.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 763.496032714844,
+						"y": 93.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 833.496032714844,
+						"y": 93.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 903.496032714844,
+						"y": 93.4960632324219
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_CUSTODIAN_GUARD_F",
+			"status": 2
+		},
+		"U_CUSTODIAN_GUARD_F_P2": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_CUSTODIAN_GUARD_F_P2",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "The unit has the Deep Strike ability.",
+						"name": "Deep Strike",
+						"type": "Core"
+					},
+					{
+						"description": "Add 1 to this model's Wounds characteristic.",
+						"name": "Praesidium Shield",
+						"type": "Datasheet"
+					},
+					{
+						"description": "Once per battle, during the Shooting phase, the unit gains the Shoot Again ability.",
+						"name": "Sentinel Storm",
+						"type": "Datasheet"
+					},
+					{
+						"description": "You can re-roll a Wound roll of 1.",
+						"name": "Stand Vigil",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Custodian Guard Zeta",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"BATTLELINE",
+					"CUSTODIAN GUARD",
+					"IMPERIUM",
+					"INFANTRY"
+				],
+				"name": "Custodian Guard",
+				"points": 225.0,
+				"stats": {
+					"invuln": 4.0,
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 2.0,
+					"toughness": 6.0,
+					"wounds": 4.0
+				},
+				"unit_composition": [
+					{
+						"description": "4-5 Custodian Guard",
+						"line": 1.0
+					}
+				],
+				"wargear": [
+					"5x Guardian spear"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "assault"
+							}
+						],
+						"ap": "-1",
+						"attacks": "2",
+						"ballistic_skill": "2",
+						"damage": "2",
+						"name": "Guardian spear – Ranged",
+						"range": "24",
+						"special_rules": "assault",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "-2",
+						"attacks": "5",
+						"damage": "2",
+						"name": "Guardian spear – Melee",
+						"range": "Melee",
+						"strength": "7",
+						"type": "Melee",
+						"weapon_skill": "2"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m1",
+					"position": {
+						"x": 1136.50396728516,
+						"y": 2306.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m2",
+					"position": {
+						"x": 1066.50396728516,
+						"y": 2306.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m3",
+					"position": {
+						"x": 996.503967285156,
+						"y": 2306.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m4",
+					"position": {
+						"x": 926.503967285156,
+						"y": 2306.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				},
+				{
+					"alive": true,
+					"base_mm": 40.0,
+					"current_wounds": 4.0,
+					"id": "m5",
+					"position": {
+						"x": 856.503967285156,
+						"y": 2306.50393676758
+					},
+					"status_effects": [],
+					"wounds": 4.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_CUSTODIAN_GUARD_F_P2",
+			"status": 2
+		},
+		"U_PROSECUTORS_A": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_PROSECUTORS_A",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "During the Shooting phase against PSYKER targets:\n  -> The unit's weapons gain [DEVASTATING WOUNDS].\n  -> The unit's weapons gain [PRECISION].",
+						"name": "Purity of Execution",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Prosecutors",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"ANATHEMA PSYKANA",
+					"IMPERIUM",
+					"INFANTRY",
+					"PROSECUTORS"
+				],
+				"name": "Prosecutors",
+				"points": 45.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 3.0,
+					"toughness": 3.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Prosecutor Sister Superior",
+						"line": 1.0
+					},
+					{
+						"description": "3-9 Prosecutor",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"4x Boltgun",
+					"4x Close combat weapon"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "3",
+						"damage": "1",
+						"name": "Boltgun",
+						"range": "24",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "3",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 967.196838378906,
+						"y": 87.1968536376953
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 1037.19689941406,
+						"y": 87.1968536376953
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 1107.19689941406,
+						"y": 87.1968536376953
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 1177.19689941406,
+						"y": 87.1968536376953
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 1,
+			"squad_id": "U_PROSECUTORS_A",
+			"status": 2
+		},
+		"U_PROSECUTORS_A_P2": {
+			"attached_to": null,
+			"attachment_data": {
+				"attached_characters": []
+			},
+			"disembarked_this_phase": false,
+			"embarked_in": null,
+			"flags": {
+
+			},
+			"id": "U_PROSECUTORS_A_P2",
+			"meta": {
+				"abilities": [
+					{
+						"description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS].",
+						"name": "Martial Ka'tah",
+						"type": "Faction"
+					},
+					{
+						"description": "During the Shooting phase against PSYKER targets:\n  -> The unit's weapons gain [DEVASTATING WOUNDS].\n  -> The unit's weapons gain [PRECISION].",
+						"name": "Purity of Execution",
+						"type": "Datasheet"
+					}
+				],
+				"display_name": "Prosecutors",
+				"enhancements": [],
+				"is_warlord": false,
+				"keywords": [
+					"ADEPTUS CUSTODES",
+					"ANATHEMA PSYKANA",
+					"IMPERIUM",
+					"INFANTRY",
+					"PROSECUTORS"
+				],
+				"name": "Prosecutors",
+				"points": 45.0,
+				"stats": {
+					"leadership": 6.0,
+					"move": 6.0,
+					"objective_control": 2.0,
+					"save": 3.0,
+					"toughness": 3.0,
+					"wounds": 1.0
+				},
+				"unit_composition": [
+					{
+						"description": "1 Prosecutor Sister Superior",
+						"line": 1.0
+					},
+					{
+						"description": "3-9 Prosecutor",
+						"line": 2.0
+					}
+				],
+				"wargear": [
+					"4x Boltgun",
+					"4x Close combat weapon"
+				],
+				"weapons": [
+					{
+						"abilities": [
+							{
+								"id": "rapid_fire",
+								"x": 1.0
+							}
+						],
+						"ap": "0",
+						"attacks": "1",
+						"ballistic_skill": "3",
+						"damage": "1",
+						"name": "Boltgun",
+						"range": "24",
+						"special_rules": "rapid fire 1",
+						"strength": "4",
+						"type": "Ranged"
+					},
+					{
+						"ap": "0",
+						"attacks": "2",
+						"damage": "1",
+						"name": "Close combat weapon",
+						"range": "Melee",
+						"strength": "3",
+						"type": "Melee",
+						"weapon_skill": "3"
+					}
+				]
+			},
+			"models": [
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m1",
+					"position": {
+						"x": 792.803161621094,
+						"y": 2312.8031463623
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m2",
+					"position": {
+						"x": 722.803100585938,
+						"y": 2312.8031463623
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m3",
+					"position": {
+						"x": 652.803100585938,
+						"y": 2312.8031463623
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				},
+				{
+					"alive": true,
+					"base_mm": 32.0,
+					"current_wounds": 1.0,
+					"id": "m4",
+					"position": {
+						"x": 582.803100585938,
+						"y": 2312.8031463623
+					},
+					"status_effects": [],
+					"wounds": 1.0
+				}
+			],
+			"owner": 2,
+			"squad_id": "U_PROSECUTORS_A_P2",
+			"status": 2
+		}
+	}
+}

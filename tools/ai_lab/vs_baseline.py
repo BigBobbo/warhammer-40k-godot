@@ -53,7 +53,7 @@ def main(argv=None) -> int:
     ap.add_argument("--season", default="")
     ap.add_argument("--baseline", default=BASELINE,
                     help="which freeze to measure against (default: 2026-08)")
-    ap.add_argument("--fixture", default="mirror_custodes_postdeploy")
+    ap.add_argument("--fixture", default="mirror_custodes_2000_postdeploy")
     ap.add_argument("--min-pairs", type=int, default=8)
     ap.add_argument("--max-pairs", type=int, default=24)
     ap.add_argument("--lanes", type=int, default=3)

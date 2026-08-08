@@ -45,7 +45,7 @@ sys.path.insert(0, HERE)
 from build_index import find_records, load_record, SCHEMA, _int  # noqa: E402
 from params_manifest import build_manifest  # noqa: E402
 
-MIRRORS = ["mirror_orks_postdeploy", "mirror_custodes_postdeploy"]
+MIRRORS = ["mirror_custodes_2000_postdeploy", "mirror_orks_2000_postdeploy"]
 
 
 def run_paired(candidate, fixture, season, pairs, seed_base, lanes, max_seconds, difficulty):
