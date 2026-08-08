@@ -35,3 +35,8 @@ Run started 2026-08-07 on branch `claude/ai-overhaul-todo-completion-ve8fhj`
 | A7 | DONE | .github/workflows/ai-lab.yml + ratchet_check.py; red/green verified by exit code; NOT yet observed on a GitHub runner | 2026-08-07 |
 | B4 | DONE | 12 exams authored, 10 gate and pass in ~300s, 2 moved to aspirational/ owned by D3 and D4; verdicts deterministic across two runs | 2026-08-07 |
 | D1b | NEW | split out of D1: close the catalogued melee-keyword and ranged over-prediction classes | 2026-08-07 |
+| B2 | DONE | asym_orks_vs_custodes_postdeploy built + fixture_check PASS; A/A F=-11.30+/-2.54 over 20 games, 0 stalls | 2026-08-07 |
+| A6 | PARTIAL | 6 new decision types emitted, determinism-clean; only secondary_discard verified live — no fixture drives formations/deployment (split out as A6b) | 2026-08-07 |
+| A6b | NEW | build a pre-deployment benchmark fixture so A6's other five types can be verified | 2026-08-07 |
+| B0 | DONE | 238-parameter frozen profile + vs_baseline.py (selftest E=0.00); A/A F measured on all three fixtures, 50 games, 0 stalls | 2026-08-08 |
+| B1 | PARTIAL | premise disproved by measurement: time_scale 6->120 does not move wall clock, so pacing is NOT the cost. Fixed overhead ~15s/game, AI compute ~115ms/action. --bench-unpaced deliberately not shipped | 2026-08-08 |

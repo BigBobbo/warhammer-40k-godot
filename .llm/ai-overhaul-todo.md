@@ -594,6 +594,43 @@ looked inert because the only cheap fixture is melee-light.*
   - **Kill criterion:** if unpaced mode changes any decision stream and the
     cause is a real order-dependence in AIPlayer's signal handling, stop,
     file the bug as its own task, and keep paced mode as the default.
+  - **PREMISE CORRECTED 2026-08-08 — measured, not assumed. Status: PARTIAL,
+    checkbox left unchecked.**
+    The task assumes frame pacing is the cost and that an unpaced mode is the
+    win. **It is not.** `Engine.time_scale` already divides the pacing delay,
+    so raising it 20x should shrink wall clock if pacing dominated. It does
+    not move at all:
+    ```
+    same game (mirror_custodes_postdeploy, seed 5001, Hard, 380 actions):
+      time_scale=6     wall 58.8 s     margin +1, 5 rounds, completed
+      time_scale=30    wall 54.3 s     margin +1, 5 rounds, completed
+      time_scale=120   wall 59.5 s     margin +1, 5 rounds, completed
+    ```
+    A 20x change in pacing produces a <10% wall-clock change, inside run-to-run
+    noise. Shipping `--bench-unpaced` would therefore be shipping a flag that
+    measurably does nothing, so it is deliberately NOT implemented — the
+    evidence beats the spec.
+    Where the time actually goes, measured the same way:
+    ```
+    godot --headless --path 40k --quit-after 2            10.3 s   engine boot
+    ... --ai-benchmark --bench-max-seconds=3              18.3 s   boot + fixture
+                                                                   + scene + 3 s
+      => fixed per-process overhead ~= 15 s
+      => a 58.8 s Custodes game is ~26% fixed overhead, ~44 s of AI compute
+         (380 actions ~= 115 ms/action)
+    ```
+    **The two real levers, in order:**
+    1. **Play N games per process.** ~15 s per game of pure boot/scene cost,
+       paid once per game today. Worth 26% on the Custodes mirror and ~3% on
+       the Ork one. Needs `AIBenchmarkRunner` to reset and re-load a fixture
+       in-process, and `run_lanes` to hand it a seed list instead of one seed.
+    2. **The AI decision hot path**, which is everything else and is the whole
+       story on the Ork mirror. 115 ms per action on a 9-unit fixture is the
+       number to attack; the task's prime suspect (the focus-fire weapon x
+       target matrix rebuild) has NOT been confirmed — no profile has been
+       taken, and this write-up does not claim one has.
+    The ≤30 s / ≤300 s targets are unchanged and remain unmet: lever 1 alone
+    gets Custodes to ~44 s. Lever 2 has to carry the rest.
 
 - [x] **B2 — Asymmetric fixtures with clean baselines**
   - **Lock:** Fixtures  • **Depends:** —  • **Cost:** ~80 games (A/A)
