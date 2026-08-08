@@ -510,7 +510,7 @@ and progress absolute. Evidence: the first CEM campaign ran a tenth of its
 designed budget because games are expensive; every charge/fight coefficient
 looked inert because the only cheap fixture is melee-light.*
 
-- [ ] **B0 — Freeze the incumbent as a permanent baseline**
+- [x] **B0 — Freeze the incumbent as a permanent baseline**
   - **Lock:** Fixtures  • **Depends:** —  • **Cost:** ~40 games
   - **Context:** Today every comparison is candidate-vs-current, a moving
     target. Progress needs an absolute reference: a frozen opponent that
@@ -529,6 +529,46 @@ looked inert because the only cheap fixture is melee-light.*
     (3) Baseline report committed with F, SE, CI per mirror.
   - **Tier B:** README in `bench_baselines/` explains when to re-freeze
     (only at major milestones, keeping old freezes forever).
+  - **Evidence (2026-08-07/08):**
+    ```
+    40k/data/ai_profiles/baseline_2026_08.json — 238 parameters, every one in
+    the manifest, with an explicit value. Frozen at 333f23f (after A1-A5).
+
+    python3 tools/ai_lab/validate_profile.py 40k/data/ai_profiles/baseline_2026_08.json
+      [PASS]  1 profile linted, 0 failed
+      (declaring all 238 also sidesteps the silent-zero trap by construction)
+
+    python3 tools/ai_lab/vs_baseline.py --selftest --season <s> --lanes 1
+      VERDICT: NO_OP after 3 pairs = 6 games
+      E = +0.00 VP/game  se 0.00  CI [0.00, 0.00]
+      SELFTEST: frozen vs frozen -> PASS
+
+    A/A reference, baseline profile on BOTH sides, Hard:
+      mirror_custodes_postdeploy   20 games  F = -0.25   sd 11.96  se 2.67  CI [-5.49, +4.99]
+      mirror_orks_postdeploy       10 games  F = -6.20   sd  7.64  se 2.42  CI [-10.90, -1.50]
+      asym_orks_vs_custodes        20 games  F = -11.30  sd 11.34  se 2.54  CI [-16.27, -6.33]
+      50 games total, 0 stalled, 0 timed out
+    ```
+    The Ork mirror's F is small but marginally non-zero: same board, same
+    rotation, so the residual is first-turn advantage failing to cancel —
+    sixteen Ork bodies convert a first move into board control better than
+    nine elite bodies do, which is an asymmetry a mirror cannot remove. Ork
+    spread is also tighter (sd 7.64 vs 11.96), so it resolves a given effect
+    in fewer games than its 10x wall-clock cost suggests.
+    `git tag ai-baseline-2026-08` exists locally; **pushing tags is refused by
+    this environment's git proxy** (`send-pack: unexpected disconnect`), so the
+    freeze is identified by the sha in the profile's `frozen_at` block and in
+    the report instead. Nothing depends on the tag reaching the remote.
+    Files: `40k/data/ai_profiles/baseline_2026_08.json`,
+    `tools/ai_lab/vs_baseline.py`,
+    `40k/tests/bench_baselines/2026-08_frozen_baseline.md`,
+    `40k/tests/bench_baselines/README.md`.
+  - **Tier B self-assessed 2026-08-08 — pending human spot-check.** The
+    `bench_baselines/README.md` re-freeze section says: only at a genuine
+    milestone; never edit a freeze in place; never delete one; a new freeze is
+    a new file, a new tag and a new report, and must land with its own
+    validate/selftest/A-A table plus one paired run of the new freeze against
+    the old so the step between them is a number rather than an assumption.
 
 - [ ] **B1 — Make headless games fast**
   - **Lock:** AIPlayer  • **Depends:** —  • **Cost:** profiling + ~20 games
