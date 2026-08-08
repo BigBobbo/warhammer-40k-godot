@@ -731,6 +731,20 @@ looked inert because the only cheap fixture is melee-light.*
     two *shipped* 2000-pt lists, added to the gate grid before E1 spends
     thousands of games — otherwise the campaign optimises for a matchup nobody
     plays.
+  - **RESOLVED, in part (2026-08-08).** The points half of this is fixed: the
+    campaign fixtures are now built from `custodes_lions` and `recon_stomps` at
+    2000 points a side, through `ArmyListManager`, by
+    `40k/tests/make_2000pt_fixture.gd`. Every lab default points at them and
+    all six pass `fixture_check.py`. The 1335/1840-pt fixtures are retained
+    only so the 2026-08 freeze's A/A table stays checkable.
+    **The faction half is NOT fixed.** It is still two factions, Custodes and
+    Orks — `battlewagons.json` (Rollin' Deff) and `orks_taktikal.json`
+    (Taktikal Brigade) are a different *detachment*, not a different army, and
+    `space_marines.json` is still a 330-pt stub. A profile tuned here can still
+    be worse against a third faction, and nothing measured so far would show it.
+    Building a real 2000-pt Space Marine list is the remaining work, and it is
+    a prerequisite for reading E1's output as "the AI got better" rather than
+    "the AI got better at this matchup".
 
 - [ ] **B3 — Sensitivity screen on the Ork mirror**
   - **Lock:** Lab  • **Depends:** B1 (else ~28 h), A5 (melee params exist)  • **Cost:** ~300 games
