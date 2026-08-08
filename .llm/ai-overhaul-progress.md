@@ -93,13 +93,52 @@ point, which is legitimate variance reduction for A/B work on later phases.
   timeout, and non-exam units are no longer teleported wholesale on that
   fixture.
 
+## Measured: A/A on the new fixtures
+
+| Fixture | games | F (P2−P1) | sd | se | s/game | stalls |
+|---|---|---|---|---|---|---|
+| `mirror_custodes_2000_postdeploy` | 20 | −3.60 | 11.35 | 2.54 | 162 | 0 |
+| `mirror_custodes_2000_predeploy` | 12 | −0.25 | 20.21 | 5.83 | 227 | 0 |
+| `mirror_orks_2000_postdeploy` | 8 | *running* | | | | |
+
+52 games, all completed, zero stalls, zero timeouts. Both F values are
+indistinguishable from zero, which is what a mirror should look like.
+
+**The number that changes plans is the spread, not F.** Letting the AI deploy
+takes sd from 11.35 to 20.21. Games needed for a given standard error scale
+with sd², so equal statistical power costs **3.17x the games and 4.44x the
+wall clock** — a paired A/B that resolves in an hour post-deployment needs
+about four and a half hours pre-deployment. That converts "keep both fixtures"
+from a preference into a measurement: a shooting or charge change tested on
+`_predeploy` pays 4.4x for variance from a phase it cannot touch.
+
+## Known defect I introduced and did not fix: the packing is too tight
+
+`make_2000pt_fixture.gd` packs first-fit from the zone edge with a fixed 10 px
+step, which minimises area and therefore *maximises* contact:
+
+```
+mirror_orks_2000_postdeploy      77 models, 58.6% of the 44x14in zone,
+                                 median nearest-neighbour gap 2.7px = 0.07 in
+mirror_custodes_2000_postdeploy  42 models, 12.8% of the zone,
+                                 median nearest-neighbour gap 4.1px = 0.10 in
+```
+
+At 0.07" every Ork model that tries to move is boxed in and the mover grinds
+on `INTRA_OBSTACLE_DEBUG … FAILED to resolve collision`. It is why the
+screening exam had to be parked for cost, and no player deploys like this. The
+fix is a target gap of ~0.5-1" rather than "as tight as legal" — the zone is
+only 58.6% full. It is a fixture rebuild that invalidates the A/A numbers
+above, so it is written down rather than done mid-measurement. **This is the
+highest-value next action on the fixtures.**
+
 ## Status
 
-Committed and pushed: `d122f2d`, `c6b694a`, `a0a399c`. Exam suite 9/10 on the
-new fixtures with sc02 in flight on the Ork mirror. A/A reference numbers (F,
-sd) for the 2000-pt fixtures are **being measured now** — until that table
-exists, do not read a paired stopping rule on these fixtures as if it had the
-old fixtures' spread.
+Committed and pushed: `d122f2d`, `c6b694a`, `a0a399c`, `60305e7`, `ffee243`,
+`9ff51e7`, `76dea36`, `1ee8df0`, `c99cef1`, `f21ce36`. Gated exam suite
+**10/10 in 170 s** on the 2000-pt fixtures, including the new deployment exam.
+The Ork A/A is still running; its row above is marked as such rather than
+guessed.
 
 ---
 
