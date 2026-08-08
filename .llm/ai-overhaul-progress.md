@@ -32,7 +32,8 @@ current speeds), and E2/E3 each cost 300-400 games per cycle.
 | **D1** | A combat-math oracle: every shipped weapon x a defender grid x 1,500 seeded Monte-Carlo resolutions through the real RulesEngine. Found and fixed a 1.6-3.0x melee overvaluation. 92 remaining divergences catalogued as a CI ratchet. |
 | **B0** | Frozen 2026-08 baseline (238 explicit parameters), `vs_baseline.py` with a selftest that asserts frozen-vs-frozen is exactly 0.00, and A/A reference numbers on all three fixtures (50 games, zero stalls). |
 | **B2** | `asym_orks_vs_custodes_postdeploy` — the third matchup `gate_candidate.py` always wanted. F measured at -11.30 +/- 2.54 over 20 games. |
-| **B4** | 12 tactical exams; 10 gate and pass in ~300 s, 2 fail by design and are owned by D3/D4. |
+| **B4** | 12 tactical exams; 10 gate and pass in ~195-300 s, 2 fail by design and are owned by D3/D4. |
+| **D1b (melee half)** | `_estimate_melee_damage` routed through `_apply_weapon_keyword_modifiers`, so ANTI-X / TWIN LINKED / LETHAL HITS reach a melee estimate for the first time. Catalogued divergences **92 -> 81**. |
 
 ## Measured deltas
 
@@ -51,6 +52,19 @@ a real decomposition 0% -> 99.3%; tunables visible in records 5 -> 105.
 | D1 melee wound-overflow cap | Custodes mirror, 12 pairs | -1.33 | 0.93 | futile |
 | | Ork mirror, 6 pairs | +0.33 | 1.25 | futile |
 | | **pooled** | **-0.74** | **0.75** | non-regression bar met (E + SE = +0.01 >= -1) |
+| D1b melee weapon keywords | Ork mirror, 6 pairs | **+0.00** | 0.00 | **NO_OP — every paired seed identical** |
+| | Custodes mirror, 9 pairs | +0.28 | 0.28 | futile |
+
+**A pattern worth naming.** Two sizeable corrections to the AI's damage
+arithmetic in a row — a 1.6-3.0x melee overflow and a whole class of missing
+weapon keywords — measured at exactly zero, and one of them provably changed
+not a single decision. That suggests target selection is dominated by the
+macro terms (target value, objective proximity, threat) rather than by the
+fine detail of expected damage, and that the *tactical* half of the plan may
+be pulling on a rope that is not attached. WS-C's own evidence points the same
+way: the reserves cap moved a matchup 12 -> 39 primary VP while every purely
+tactical change measured so far sat inside the noise. Worth testing
+deliberately before WS-D spends hundreds of games on lookahead.
 
 Everything else this run shipped is instrumentation, tooling or fixtures,
 proven byte-identical (or trajectory-identical, for instrumentation) by
@@ -79,7 +93,8 @@ across two runs. 2 aspirational exams fail by design.
 
 ## Tasks opened by this run
 
-- **D1b** — close the catalogued combat-math divergences. 17 melee pairs where
+- **D1b** — close the catalogued combat-math divergences. **Melee half done
+  2026-08-08** (92 -> 81 catalogued, gate NO_OP/futile). Originally 17 melee pairs where
   `_estimate_melee_damage` never calls `_apply_weapon_keyword_modifiers`, so
   ANTI-X / TWIN LINKED / LETHAL HITS are invisible to every melee estimate;
   75 ranged pairs over-predicting 1.5-2.4x with the cause **not isolated**.
@@ -109,11 +124,15 @@ sha recorded inside the profile and its report.
    nothing reads it. A2/A3 have already made the record plumbing it needs
    honest, and B0's A/A seasons plus B5's nightly would supply the 100 archived
    games its correlation gate wants.
-3. **D1b's melee half.** One function that never calls a helper the ranged
-   path has always called, worth 17 catalogued divergences, and it makes the
-   AI's melee estimates correct in exactly the situations melee weapons are
-   designed for. Cheap, bounded, and the oracle is already in CI to prove it
-   worked.
+3. **Test the "does tactical accuracy matter?" hypothesis before WS-D.** Two
+   damage-math corrections measuring at zero (one a provable no-op) is now a
+   pattern, not a coincidence. The cheapest test is a deliberately *degraded*
+   arm — scale the AI's expected-damage terms by 0.7 and 1.4 behind a
+   parameter and measure — because if neither direction moves the margin, the
+   AI is not choosing targets on damage at all, and D3's one-ply reply is
+   being built on a term the AI barely uses. That is 4 hours of games against
+   the several days D3/D4 would otherwise cost, and it is exactly the kind of
+   question this run's instrumentation was built to answer.
 
 ## Standing environment notes
 
