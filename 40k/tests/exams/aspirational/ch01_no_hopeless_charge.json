@@ -3,7 +3,7 @@
   "covers": [
     "ai.charge.odds"
   ],
-  "fixture": "mirror_custodes_postdeploy",
+  "fixture": "mirror_custodes_2000_postdeploy",
   "phase": 9,
   "player": 1,
   "difficulty": 2,
@@ -11,13 +11,13 @@
   "rationale": "A charge needs 2D6 to cover the gap. At 14 inches that is 1 in 36, and a failed charge wastes the unit's whole turn while leaving it in the open. At 5 inches it is 30 in 36. This exam puts the only chargeable enemy 14.5 inches away and checks the AI declares no charge at all \u2014 the cheapest possible probe of whether charge probability is priced or ignored.",
   "setup": [
     "var st = GameState.state",
-    "const KEEP = [\"U_CUSTODIAN_GUARD_B\",\"MIR_U_WITCHSEEKERS_C\"]",
+    "const KEEP = [\"U_CUSTODIAN_GUARD_B\",\"U_CUSTODIAN_GUARD_C_P2\"]",
     "var _u1 = st.units.U_CUSTODIAN_GUARD_B",
     "var _k1 = 0",
     "for m in _u1.models:",
     "\tm.position = {\"x\": 880.0 + float(_k1) * 32.0, \"y\": 1000.0}",
     "\t_k1 += 1",
-    "var _u2 = st.units.MIR_U_WITCHSEEKERS_C",
+    "var _u2 = st.units.U_CUSTODIAN_GUARD_C_P2",
     "var _k2 = 0",
     "for m in _u2.models:",
     "\tm.position = {\"x\": 880.0 + float(_k2) * 32.0, \"y\": 1580.0}",

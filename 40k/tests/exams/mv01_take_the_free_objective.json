@@ -1,7 +1,7 @@
 {
   "id": "mv01_take_the_free_objective",
   "covers": ["ai.movement.objective_assignment", "ai.movement.control_range"],
-  "fixture": "mirror_custodes_postdeploy",
+  "fixture": "mirror_custodes_2000_postdeploy",
   "phase": 7,
   "player": 1,
   "difficulty": 2,

@@ -1,0 +1,81 @@
+{
+  "id": "dp01_deployment_is_recorded",
+  "covers": [
+    "ai.deployment.records",
+    "ai.deployment.reachable"
+  ],
+  "fixture": "mirror_custodes_2000_predeploy",
+  "phase": 1,
+  "player": 1,
+  "difficulty": 2,
+  "seed": 4260,
+  "max_actions": 40,
+  "rationale": "Deployment is the phase AIDecisionMaker's own source calls out as the one that 'largely decides rounds 1-2', it owns twelve tunable terrain coefficients (DEPLOY_TERRAIN_*), and until 2026-08-08 it had zero benchmark coverage — every fixture in the repo started at round 1 Command with the armies already placed, so _decide_deployment was never called and none of those twelve parameters could move a measured result. This exam runs the real deployment phase on a fixture that starts there with nothing on the table, and checks two things: that units actually get deployed, and that _record_choice(\"deployment\", ...) emits scored candidates for them. The second half is what makes the twelve coefficients tunable at all — a decision with no record is invisible to every offline analysis in tools/ai_lab.",
+  "setup": [
+    "var st = GameState.state",
+    "# Nothing to construct. The fixture's whole point is that it starts empty:",
+    "# every unit UNDEPLOYED, every model position null. Count what we start",
+    "# with so the assertion below is measuring a change, not a constant.",
+    "var undeployed = 0",
+    "for uid in st.units:",
+    "\tvar u = st.units[uid]",
+    "\tif int(u.get(\"owner\", 0)) != 1:",
+    "\t\tcontinue",
+    "\tif int(u.get(\"status\", -1)) == 0:",
+    "\t\tundeployed += 1",
+    "return undeployed"
+  ],
+  "assert": [
+    {
+      "name": "player 1 actually placed units on the table",
+      "script": [
+        "var st = GameState.state",
+        "var placed = 0",
+        "for uid in st.units:",
+        "\tvar u = st.units[uid]",
+        "\tif int(u.get(\"owner\", 0)) != 1:",
+        "\t\tcontinue",
+        "\tfor m in u.get(\"models\", []):",
+        "\t\tif m.get(\"position\") != null:",
+        "\t\t\tplaced += 1",
+        "\t\t\tbreak",
+        "return placed"
+      ],
+      "expect_min": 3
+    },
+    {
+      "name": "every deployment decision is recorded with scored candidates",
+      "script": [
+        "var ai = tree.root.get_node_or_null(\"AIPlayer\")",
+        "if ai == null:",
+        "\treturn -1",
+        "var n = 0",
+        "for b in ai._all_decision_records:",
+        "\tfor r in b.get(\"records\", []):",
+        "\t\tif str(r.get(\"decision_type\", \"\")) != \"deployment\":",
+        "\t\t\tcontinue",
+        "\t\tif r.get(\"candidates\", []).size() >= 2:",
+        "\t\t\tn += 1",
+        "return n"
+      ],
+      "expect_min": 3
+    },
+    {
+      "name": "deployment records name the DEPLOY_TERRAIN_* parameters they read",
+      "script": [
+        "var ai = tree.root.get_node_or_null(\"AIPlayer\")",
+        "if ai == null:",
+        "\treturn -1",
+        "var seen = {}",
+        "for b in ai._all_decision_records:",
+        "\tfor r in b.get(\"records\", []):",
+        "\t\tif str(r.get(\"decision_type\", \"\")) != \"deployment\":",
+        "\t\t\tcontinue",
+        "\t\tfor k in r.get(\"parameters_used\", {}):",
+        "\t\t\tseen[str(k)] = true",
+        "return seen.size()"
+      ],
+      "expect_min": 1
+    }
+  ]
+}

@@ -3,17 +3,17 @@
   "covers": [
     "ai.scoring.primary"
   ],
-  "fixture": "mirror_custodes_postdeploy",
+  "fixture": "mirror_custodes_2000_postdeploy",
   "phase": 6,
   "player": 1,
   "difficulty": 2,
   "seed": 4253,
-  "rationale": "The end-to-end sanity check the rest of the suite leans on: if holding an objective does not turn into VP, every movement exam above is measuring something that does not pay. Round 3, the Telemon (OC 5) on obj_center with no enemy near it; after the command phase player 1's VP must have risen.",
+  "rationale": "The end-to-end sanity check the rest of the suite leans on: if holding an objective does not turn into VP, every movement exam above is measuring something that does not pay. Round 3, the Allarus Custodians (OC 3) on obj_center with no enemy near them; after the command phase player 1's VP must have risen.",
   "setup": [
     "var st = GameState.state",
     "st.meta.battle_round = 3",
-    "const KEEP = [\"U_TELEMON_HEAVY_DREADNOUGHT_I\"]",
-    "var _u1 = st.units.U_TELEMON_HEAVY_DREADNOUGHT_I",
+    "const KEEP = [\"U_ALLARUS_CUSTODIANS_A\"]",
+    "var _u1 = st.units.U_ALLARUS_CUSTODIANS_A",
     "var _k1 = 0",
     "for m in _u1.models:",
     "\tm.position = {\"x\": 870.0 + float(_k1) * 32.0, \"y\": 1195.0}",

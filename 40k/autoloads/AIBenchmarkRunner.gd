@@ -31,7 +31,12 @@ extends Node
 # See research/ai_learning_framework_design.md §7.
 
 var _active: bool = false
-var _fixture: String = "audit_baseline_postdeploy"
+# Default to a fixture that PASSES tools/ai_lab/fixture_check.py. The previous
+# default, audit_baseline_postdeploy, still carries the U_STRIKE_FORCE_A
+# army-list header row imported as a unit — 2000 phantom points that break the
+# Strategic Reserves cap and out-score every real unit in target selection. A
+# no-argument run should not quietly produce numbers from that.
+var _fixture: String = "mirror_custodes_2000_postdeploy"
 var _seed: int = -1
 var _out_path: String = "test_results/bench/result.json"
 var _p1_profile_path: String = ""

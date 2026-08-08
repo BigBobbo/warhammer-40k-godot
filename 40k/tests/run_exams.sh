@@ -75,7 +75,12 @@ run_one() {
     local id
     id=$(basename "$spec" .json)
     local log="$RUNDIR/$id.log"
-    timeout 240 godot --headless --path . -- --ai-benchmark \
+    # 240s covers a Custodes movement phase comfortably. The Ork fixture is
+    # 77 models against 42 and a single phase there runs several times longer,
+    # so the budget is per-exam and overridable rather than one number for all.
+    local budget="${EXAM_TIMEOUT:-240}"
+    grep -q '"fixture": *"[a-z_]*orks' "$spec" && budget="${EXAM_TIMEOUT_ORKS:-720}"
+    timeout "$budget" godot --headless --path . -- --ai-benchmark \
         "--exam=res://${spec}" "--exam-out=test_results/exams/${id}.json" > "$log" 2>&1
     echo $? > "$RUNDIR/$id.rc"
 }

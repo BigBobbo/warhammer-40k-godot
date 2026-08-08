@@ -63,15 +63,33 @@ reference.**
 4. **Fixture integrity first.** Any new fixture passes
    `tools/ai_lab/fixture_check.py` before a single game is played on it. A
    corrupt fixture already invalidated every pre-2026-08-06 baseline once.
+4b. **Measure at 2000 points, on lists a player can pick** (added 2026-08-08).
+   40k is balanced at 2000 points and this game is designed to be played
+   there. Every number in this repo before 2026-08-08 came from 1335- and
+   1840-point armies spliced out of a hand-built save, matching no shipped
+   list. The campaign fixtures are now built by
+   `40k/tests/make_2000pt_fixture.gd` from the shipped `custodes_lions`
+   (Lions of the Emperor) and `recon_stomps` (Speedwaaagh!) lists through
+   ArmyListManager, at 2000 points a side:
+     mirror_custodes_2000_postdeploy   11 units / 42 models
+     mirror_orks_2000_postdeploy       17 units / 77 models
+     asym_2000_postdeploy              Custodes vs Orks
+   plus `_predeploy` variants that start at Phase.DEPLOYMENT so the AI places
+   its own army. Do not add a fixture built any other way to
+   `CAMPAIGN_FIXTURES`.
 5. **Interpretability is a product requirement.** The AI narrates its
    reasoning in the game log. Any change must keep the narration truthful
    (chosen/rejected candidates with real scores). A change that cannot
    explain itself in the log is not shippable.
 6. **No ML runtime in-engine.** GDScript in-engine; all numerical/learning
    work lives in Python (`tools/ai_lab/`) operating on exported records.
-7. **Cost everything in games and wall-clock.** ~48 s/game on the Custodes
-   mirror, ~487 s on the Ork mirror, 3 lanes on 4 cores. Per-seed margin SD
-   is 9–15 VP. Evaluation budget is the scarcest resource in this project.
+7. **Cost everything in games and wall-clock.** On the retired 1335/1840-pt
+   fixtures: ~48 s/game Custodes mirror, ~487 s Ork mirror. On the 2000-pt
+   fixtures a game is materially more expensive — 194 s measured for one
+   complete `mirror_custodes_2000_predeploy` game (deployment through round 5,
+   826 actions, seed 9001, Hard, time_scale 6). 3 lanes on 4 cores. Per-seed
+   margin SD is 9–15 VP. Evaluation budget is the scarcest resource in this
+   project, and it just got scarcer — budget accordingly.
 8. **Do not remove debugging logs** (project rule), and player-facing changes
    update `40k/data/version_history.json` and need a windowed scenario.
 

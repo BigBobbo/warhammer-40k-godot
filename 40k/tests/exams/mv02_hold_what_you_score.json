@@ -3,17 +3,17 @@
   "covers": [
     "ai.movement.stay_on_objective"
   ],
-  "fixture": "mirror_custodes_postdeploy",
+  "fixture": "mirror_custodes_2000_postdeploy",
   "phase": 7,
   "player": 1,
   "difficulty": 2,
   "seed": 4243,
-  "rationale": "Primary VP are awarded in the COMMAND phase for objectives you control at that moment (11e 25.1). A unit already standing on a marker in round 3 with nothing contesting it converts to points by doing nothing at all; walking off it trades guaranteed VP for a speculative future position. This exam puts the Telemon (OC 5) on obj_center in round 3 with no enemy within 25 inches and checks it is still there when the phase ends.",
+  "rationale": "Primary VP are awarded in the COMMAND phase for objectives you control at that moment (11e 25.1). A unit already standing on a marker in round 3 with nothing contesting it converts to points by doing nothing at all; walking off it trades guaranteed VP for a speculative future position. This exam puts the Allarus Custodians (OC 3, the highest in Lions of the Emperor) on obj_center in round 3 with no enemy within 25 inches and checks they are still there when the phase ends.",
   "setup": [
     "var st = GameState.state",
     "st.meta.battle_round = 3",
-    "const KEEP = [\"U_TELEMON_HEAVY_DREADNOUGHT_I\"]",
-    "var _u1 = st.units.U_TELEMON_HEAVY_DREADNOUGHT_I",
+    "const KEEP = [\"U_ALLARUS_CUSTODIANS_A\"]",
+    "var _u1 = st.units.U_ALLARUS_CUSTODIANS_A",
     "var _k1 = 0",
     "for m in _u1.models:",
     "\tm.position = {\"x\": 870.0 + float(_k1) * 32.0, \"y\": 1195.0}",
@@ -35,9 +35,9 @@
   ],
   "assert": [
     {
-      "name": "Telemon is still within control range of obj_center",
+      "name": "Allarus Custodians are still within control range of obj_center",
       "script": [
-        "var u = GameState.state.units.U_TELEMON_HEAVY_DREADNOUGHT_I",
+        "var u = GameState.state.units.U_ALLARUS_CUSTODIANS_A",
         "var obj = Vector2(880.0, 1200.0)",
         "var best = 1e9",
         "for m in u.models:",

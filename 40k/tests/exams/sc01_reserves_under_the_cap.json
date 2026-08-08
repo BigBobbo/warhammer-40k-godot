@@ -4,7 +4,7 @@
     "ai.formations.reserves_cap",
     "rules.11e.20_01"
   ],
-  "fixture": "mirror_custodes_postdeploy",
+  "fixture": "mirror_custodes_2000_postdeploy",
   "phase": 0,
   "player": 1,
   "difficulty": 2,

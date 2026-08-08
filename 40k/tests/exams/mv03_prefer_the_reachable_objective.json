@@ -4,7 +4,7 @@
     "ai.movement.distance_penalty",
     "ai.movement.reachability"
   ],
-  "fixture": "mirror_custodes_postdeploy",
+  "fixture": "mirror_custodes_2000_postdeploy",
   "phase": 7,
   "player": 1,
   "difficulty": 2,

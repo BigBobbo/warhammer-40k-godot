@@ -3,7 +3,7 @@
   "covers": [
     "ai.charge.odds"
   ],
-  "fixture": "mirror_custodes_postdeploy",
+  "fixture": "mirror_custodes_2000_postdeploy",
   "phase": 9,
   "player": 1,
   "difficulty": 2,
@@ -11,13 +11,13 @@
   "rationale": "The mirror image of ch01, and it has to be there \u2014 an AI that never charges passes ch01 trivially. The same Custodian Guard, the same target, 4 inches away: 2D6 makes that on 33 of 36 rolls, the target is a 1-wound OC 1 squad sitting on no-man's-land, and the Guard wins that fight decisively. Declining here is not caution, it is inaction.",
   "setup": [
     "var st = GameState.state",
-    "const KEEP = [\"U_CUSTODIAN_GUARD_B\",\"MIR_U_WITCHSEEKERS_C\"]",
+    "const KEEP = [\"U_CUSTODIAN_GUARD_B\",\"U_CUSTODIAN_GUARD_C_P2\"]",
     "var _u1 = st.units.U_CUSTODIAN_GUARD_B",
     "var _k1 = 0",
     "for m in _u1.models:",
     "\tm.position = {\"x\": 880.0 + float(_k1) * 32.0, \"y\": 1000.0}",
     "\t_k1 += 1",
-    "var _u2 = st.units.MIR_U_WITCHSEEKERS_C",
+    "var _u2 = st.units.U_CUSTODIAN_GUARD_C_P2",
     "var _k2 = 0",
     "for m in _u2.models:",
     "\tm.position = {\"x\": 880.0 + float(_k2) * 32.0, \"y\": 1180.0}",

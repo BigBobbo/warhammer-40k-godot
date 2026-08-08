@@ -41,6 +41,34 @@ the falsifiable target for a specific future task (each names its owner task).
 Keeping them apart is what stops the suite from decaying into a wishlist that
 is always red and therefore never read.
 
+## The fixtures they run on (changed 2026-08-08)
+
+The suite used to run entirely on `mirror_custodes_postdeploy` — 1335 points
+of an army no player can pick. It now runs on the 2000-point fixtures built
+from the shipped lists (`tools/ai_lab/README.md` has the table), which
+changed three things worth knowing before you write an exam:
+
+* **Unit ids moved.** Player 2's units are `U_..._P2`, not `MIR_U_...`, and
+  the datasheets are whatever `custodes_lions` / `recon_stomps` actually
+  field. There is no Caladius, Telemon or Witchseekers unit any more.
+* **Pick the fixture for the behaviour, not for habit.** `sc02` screens on
+  the Ork mirror because screening is only offered to units left *unassigned*
+  after objective assignment, and 11 Custodes units across 5 objectives never
+  leaves one spare — the branch is unreachable on that fixture by
+  construction. 17 Ork units do leave cheap mobs surplus.
+* **Do not teleport whole armies on the Ork fixture.** The old habit of
+  parking every non-exam unit in a corner grid costs minutes there: 77 models
+  including a 180 mm Stompa base do not fit a 40 px cell, and the mover
+  retries placement 40 rings deep for each one. Move only the units the exam
+  is actually about; the rest are already legally deployed. Ork exams get a
+  larger timeout automatically (`EXAM_TIMEOUT_ORKS`, default 720 s).
+
+`dp01_deployment_is_recorded` runs on `mirror_custodes_2000_predeploy`, which
+starts at `Phase.DEPLOYMENT` with nothing on the table. It replaces the
+aspirational `_a6_deployment_records` probe, whose note ("the two mirror
+fixtures start post-deployment and can never exercise them") stopped being
+true when that fixture landed.
+
 ## Writing one
 
 The assertion scripts are GDScript bodies with `tree` bound (the SceneTree);
