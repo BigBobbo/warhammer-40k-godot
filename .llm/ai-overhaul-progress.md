@@ -7,6 +7,114 @@ this file is the index.
 Run started 2026-08-07 on branch `claude/ai-overhaul-todo-completion-ve8fhj`
 (from `origin/main` @ `8d693c7`).
 
+
+---
+
+# FINAL SUMMARY — run of 2026-08-07/08
+
+**11 commits on `claude/ai-overhaul-todo-completion-ve8fhj`, all pushed.**
+Phase 1 is complete except for B1; Phase 2 is not started. The workstreams
+after that (WS-C plan layers, WS-D lookahead, WS-E the loop, WS-F personas)
+are untouched, and two of them are physically out of reach for one session:
+E1 alone is a 1,500-3,500-game campaign (2-4 days of unattended compute at
+current speeds), and E2/E3 each cost 300-400 games per cycle.
+
+## Tasks completed and validated
+
+| Task | Outcome |
+|---|---|
+| **A1** | Shooting records carry the real scored field (top-6 weapon x target with marginal value, expected damage, target value, kill threshold, allocation, efficiency) instead of restating the plan. `hold_fire` recorded for the first time, proven both ways in a windowed scenario (chosen_index 0 on a chip shot, 1 when the shot is made worth taking). |
+| **A2** | Movement score decomposed into 21 named additive terms with `sum(terms) == score`. Candidates carrying >= 3 named terms: **0/803 -> 797/803**. `unit_oc` moved from criteria to context (F-07). |
+| **A3** | `parameters_used` drained from the `get_param` resolver instead of hand-written at the call site. Distinct tunables named in records: **5 -> 105**. Two phantom names (`charge_threshold`, a computed local; `TEMPO_CHARGE_THRESHOLD_REDUCTION`, a bare const) removed from the tunable surface and preserved as `context.derived_values`. |
+| **A4** | 50 reserves/embark/disembark coefficients promoted. Paired null test **E = 0.00 +/- 0.00**. |
+| **A5** | 59 fight/charge/deployment coefficients promoted. Paired null test **E = 0.00 +/- 0.00**. |
+| **A7** | `.github/workflows/ai-lab.yml` (static + oracle jobs) and `ratchet_check.py`. Red/green verified by exit code: 0 -> 1 on re-hardcoding one parameter -> 0 on revert. |
+| **D1** | A combat-math oracle: every shipped weapon x a defender grid x 1,500 seeded Monte-Carlo resolutions through the real RulesEngine. Found and fixed a 1.6-3.0x melee overvaluation. 92 remaining divergences catalogued as a CI ratchet. |
+| **B0** | Frozen 2026-08 baseline (238 explicit parameters), `vs_baseline.py` with a selftest that asserts frozen-vs-frozen is exactly 0.00, and A/A reference numbers on all three fixtures (50 games, zero stalls). |
+| **B2** | `asym_orks_vs_custodes_postdeploy` — the third matchup `gate_candidate.py` always wanted. F measured at -11.30 +/- 2.54 over 20 games. |
+| **B4** | 12 tactical exams; 10 gate and pass in ~300 s, 2 fail by design and are owned by D3/D4. |
+
+## Measured deltas
+
+**Reachability** (the thing the repo's own evidence said was worth more than
+searching): unreachable scoring arithmetic **78% -> 42%**, 225 -> 120
+coefficients, 128 -> 238 parameters across 191 -> 305 call sites.
+
+**Instrumentation:** decision types emitted 4 -> 10 (5 verified live);
+distinct scoring terms across the whole AI 12 -> 39; movement candidates with
+a real decomposition 0% -> 99.3%; tunables visible in records 5 -> 105.
+
+**Shipped behaviour changes — exactly one, and it is neutral:**
+
+| Change | Fixture | E (VP/game) | se | Verdict |
+|---|---|---|---|---|
+| D1 melee wound-overflow cap | Custodes mirror, 12 pairs | -1.33 | 0.93 | futile |
+| | Ork mirror, 6 pairs | +0.33 | 1.25 | futile |
+| | **pooled** | **-0.74** | **0.75** | non-regression bar met (E + SE = +0.01 >= -1) |
+
+Everything else this run shipped is instrumentation, tooling or fixtures,
+proven byte-identical (or trajectory-identical, for instrumentation) by
+`determinism_check.py` on both mirrors at 2 seeds each. **No claim of a
+strength gain is made anywhere in this run**, because none was measured. That
+is now the third plausible idea in this repo to measure at or below zero.
+
+**Exam suite:** did not exist before; **10/10 gated exams pass**, deterministic
+across two runs. 2 aspirational exams fail by design.
+
+## Partial, with the blocker reproduced
+
+- **A6 — PARTIAL.** Six new decision types are implemented and
+  determinism-clean, but only `secondary_discard` is verified in a real game.
+  The other five sit on formations/deployment paths no playable fixture
+  reaches: both mirrors start post-deployment, and `deployment_start` produces
+  **zero `DEPLOY_UNIT` actions** in a full benchmark game (action log recorded
+  under the task). Split out as **A6b**.
+- **B1 — PARTIAL, premise disproved.** The task assumed frame pacing was the
+  cost. It is not: a 20x change in `time_scale` moves wall clock <10%
+  (58.8 / 54.3 / 59.5 s). `--bench-unpaced` was deliberately NOT shipped —
+  it would be a flag that measurably does nothing. The real levers, measured:
+  ~15 s/game fixed process overhead (26% of a Custodes game) and ~115 ms per
+  AI action. The prime suspect for the latter is **not** confirmed; no profile
+  was taken and none is claimed.
+
+## Tasks opened by this run
+
+- **D1b** — close the catalogued combat-math divergences. 17 melee pairs where
+  `_estimate_melee_damage` never calls `_apply_weapon_keyword_modifiers`, so
+  ANTI-X / TWIN LINKED / LETHAL HITS are invisible to every melee estimate;
+  75 ranged pairs over-predicting 1.5-2.4x with the cause **not isolated**.
+- **A6b** — a pre-deployment benchmark fixture, so A6's remaining five
+  decision types can be verified and so C2b/C5 have somewhere to run.
+
+## Nothing is BLOCKED
+
+No task was abandoned to an unreproduced obstacle. The two partials each carry
+a reproduced failing command and its output. One environment limitation was
+hit and is recorded rather than worked around: **this environment's git proxy
+refuses tag pushes** (`send-pack: unexpected disconnect`), so
+`ai-baseline-2026-08` exists locally only and the freeze is identified by the
+sha recorded inside the profile and its report.
+
+## The three highest-value next actions
+
+1. **B1 lever 1, then a real profile.** Playing N games per process reclaims
+   ~15 s of every Custodes game for a bounded change to `AIBenchmarkRunner`
+   and `run_lanes`. Then *actually profile* an Ork game before touching AI
+   code — 115 ms/action is the number, and the focus-fire matrix is a
+   suspicion, not a finding. Everything downstream is paid for in games, and
+   E1 is 1,500-3,500 of them: this is the highest-leverage remaining task in
+   the plan and it now has measurements instead of assumptions.
+2. **C1 (the value function), dark.** It is the dependency for C2, C2b, D3 and
+   D4 — half the remaining plan — and it costs no behaviour risk because
+   nothing reads it. A2/A3 have already made the record plumbing it needs
+   honest, and B0's A/A seasons plus B5's nightly would supply the 100 archived
+   games its correlation gate wants.
+3. **D1b's melee half.** One function that never calls a helper the ranged
+   path has always called, worth 17 catalogued divergences, and it makes the
+   AI's melee estimates correct in exactly the situations melee weapons are
+   designed for. Cheap, bounded, and the oracle is already in CI to prove it
+   worked.
+
 ## Standing environment notes
 
 - 4 cores / 15 GB RAM. 3 lanes is the documented maximum (`cores - 1`); at 2
