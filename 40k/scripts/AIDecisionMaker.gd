@@ -508,6 +508,10 @@ static func get_param_int(param_name: String, default_value: int) -> int:
 
 
 
+# D1b: route melee estimates through the weapon-keyword modifiers the ranged
+# estimator has always used. 1.0 = on, 0.0 = off (pre-D1b behaviour).
+const MELEE_KEYWORD_MODIFIERS: float = 1.0  # ANTI-X / TWIN LINKED / LETHAL HITS modelled in melee
+
 # D1: melee wound-overflow cap. 1.0 = on (correct), 0.0 = off (pre-D1
 # behaviour). Exists as a parameter, not a bare `if`, because a code change
 # applied to both sides of a mirror cannot be measured from the margin — the
@@ -14794,6 +14798,28 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 		var p_hit = _hit_probability(ws)
 		var p_wound = _wound_probability(strength, target_toughness)
 		var p_unsaved = 1.0 - _save_probability(target_save, ap, target_invuln)
+
+		# D1b: WEAPON KEYWORDS. The ranged estimator has always routed through
+		# _apply_weapon_keyword_modifiers; the melee one never did, so ANTI-X,
+		# TWIN LINKED, LETHAL HITS and SUSTAINED HITS were invisible to every
+		# melee estimate — the AI under-valued exactly the weapons built to kill
+		# the thing it was looking at. Measured by the D1 oracle: a Beastchoppa
+		# (ANTI-VEHICLE 4+) against a T12 hull predicted 0.56 against a 1.64
+		# sampled mean. Melee has no range band, so distance is passed as
+		# unknown (-1) and the range-dependent keywords (RAPID FIRE, MELTA) fall
+		# through their "no bonus" paths, which is correct for a melee profile.
+		# Gated so the fix is measurable: a code change applied to both sides of
+		# a mirror cannot be evaluated from the margin.
+		if get_param("MELEE_KEYWORD_MODIFIERS", MELEE_KEYWORD_MODIFIERS) > 0.0:
+			var mkw = _apply_weapon_keyword_modifiers(
+				w, defender, attacks, p_hit, p_wound, p_unsaved, damage,
+				strength, target_toughness, target_save, ap, target_invuln,
+				-1.0, 0.0)
+			attacks = mkw["attacks"]
+			p_hit = mkw["p_hit"]
+			p_wound = mkw["p_wound"]
+			p_unsaved = mkw["p_unsaved"]
+			damage = mkw["damage"]
 
 		# D1: WOUND OVERFLOW CAP. Damage in excess of a model's Wounds
 		# characteristic is lost — a D3 axe kills one 1-wound Boy, it does not

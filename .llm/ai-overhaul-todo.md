@@ -1168,6 +1168,44 @@ selective search beats both pure scripting and pure ML at this scale.*
     "not isolated" is not an acceptable end state twice.
   - **Tier B:** A 40k player reading the melee estimate for an ANTI-VEHICLE
     weapon against a vehicle agrees with the number.
+  - **Progress 2026-08-08 — the MELEE HALF is done; the ranged class remains.**
+    `_estimate_melee_damage` now routes through
+    `_apply_weapon_keyword_modifiers`, the same helper the ranged estimator
+    has always used, so ANTI-X / TWIN LINKED / LETHAL HITS / SUSTAINED HITS
+    reach a melee estimate for the first time. Melee has no range band, so
+    distance is passed as unknown (-1) and the range-gated keywords (RAPID
+    FIRE, MELTA) fall through their no-bonus paths, which is correct for a
+    melee profile. Gated as `MELEE_KEYWORD_MODIFIERS` (default 1.0) so the
+    change is measurable at all.
+    ```
+    oracle, 1500 samples/pair:
+      catalogued divergences 92 -> 81
+      RESOLVED (12): Phase sword and poison blades x5 (LETHAL HITS),
+                     Vaultswords - Hurricanis x5, Vaultswords - Victus x2
+      NEW (1):       Beast Snagga klaw vs T9 walker, ratio 1.21
+                     (2.963 predicted vs 2.449 resolved — the AI now
+                     over-predicts this one slightly; recorded in the
+                     catalogue rather than hidden)
+      agreements 158 -> 169, VERDICT: PASS with the regenerated catalogue
+
+    paired gate, keywords ON vs OFF, stopping rule pre-registered:
+      Ork mirror,      6 pairs = 12 games   E = +0.00  se 0.00   NO_OP
+      Custodes mirror, 9 pairs = 18 games   E = +0.28  se 0.28   FUTILE
+    ```
+    **The Ork arm is a provable no-op — every paired seed played out
+    identically**, so on that fixture the corrected melee keyword arithmetic
+    changed not one decision. Custodes is +0.28 ± 0.28, indistinguishable from
+    zero. Non-regression is satisfied on both.
+    That is now **two** sizeable corrections to the AI's damage arithmetic in a
+    row (D1's 1.6-3.0x melee overflow, D1b's missing keywords) that measure at
+    zero. The pattern is worth naming rather than shrugging at: it suggests
+    target selection is dominated by the macro terms (target value, objective
+    proximity, threat) rather than by the fine detail of expected damage, and
+    that the *tactical* half of the plan may be pulling on a rope that is not
+    attached. WS-C's evidence for the strategic layer carrying the largest
+    effects (reserves cap: 12 -> 39 primary VP) points the same way. Worth
+    checking before WS-D spends games on lookahead.
+    **Still open:** the 75-pair ranged class, cause not isolated.
 
 - [ ] **D2 — Forward-model service with a measured budget**
   - **Lock:** AIDM  • **Depends:** D1  • **Cost:** code + microbenchmarks
