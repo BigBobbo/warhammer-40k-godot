@@ -140,11 +140,20 @@ Worth doing before anyone tries to tune them; until then, treat those five as
 
 ## Still open
 
-* No A/A reference (F, sd) has been measured on the `_predeploy` fixtures
-  yet, so the games-per-VP-of-resolution cost of the extra deployment
-  variance is **not yet known**. Until that exists, do not run a paired A/B
-  on `_predeploy` and read its stopping rule as if it had the same spread as
-  the post-deployment mirrors.
+* ~~No A/A reference on `_predeploy`~~ — **measured 2026-08-08**, and the
+  answer is larger than the per-game cost suggested. 12 games on
+  `mirror_custodes_2000_predeploy`: F = −0.25 ± 5.83, **sd 20.21** against the
+  post-deployment fixture's 11.35. Games needed scale with sd², so equal
+  statistical power costs **3.17x the games and 4.44x the wall clock**. A
+  paired A/B that resolves in an hour post-deployment needs about four and a
+  half hours pre-deployment. Full table in `2026-08-08_2000pt_fixture_AA.md`.
+  This is the honest price of covering deployment, and it is the concrete
+  reason `_postdeploy` stays the instrument for changes deployment cannot
+  touch.
+* The Ork fixtures have no A/A reference yet, and their packing is a known
+  problem — 77 models at a 0.07" median nearest-neighbour gap make the
+  movement phase grind (see `40k/tests/exams/slow/README.md`). Measure before
+  trusting a stopping rule there.
 * The five `FRAGILE_*` / `SCREEN_*` deployment coefficients are still
   **unverified as reachable** — see above. `mirror_orks_2000_predeploy` is the
   fixture that would settle it, and no exam points there yet.
