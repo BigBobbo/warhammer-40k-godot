@@ -52,12 +52,17 @@ Three `*_predeploy` fixtures, built by the same generator with `--predeploy`:
 `UNDEPLOYED (0)`, which is what `DeploymentPhase._get_undeployed_units_for_player`
 keys off when it emits `DEPLOY_UNIT` actions.
 
-`fixture_check.py` now asserts the **inverse** invariants on these rather than
-failing them: nothing placed, every unit UNDEPLOYED or IN_RESERVES. That is
-not a skipped check — a unit that arrives at phase 1 already marked DEPLOYED
-emits no `DEPLOY_UNIT` action, is never placed, and silently sits out the
-entire game with no error raised anywhere. It is the exact failure the gate
-should catch, just inverted.
+`fixture_check.py` recognises the mode from `meta.phase` and checks that unit
+status and model position **agree**, rather than applying post-deployment
+invariants that a pre-deployment save cannot satisfy. It is not a relaxation —
+both mismatches are silent bugs in opposite directions. DEPLOYED but
+positionless: `DeploymentPhase` emits `DEPLOY_UNIT` only for UNDEPLOYED units,
+so nothing ever places it and it sits out the game with no error anywhere.
+Fully positioned but UNDEPLOYED: it gets offered for deployment again and
+re-placed, discarding the author's setup. Both, plus the half-placed case, are
+verified by seeding each defect into `mirror_custodes_2000_predeploy` and
+confirming the gate rejects it. A *partially* deployed fixture stays legal —
+that is what `deployment_nearly_complete` exists to be.
 
 ## Verification — a real game, from deployment to round 5
 
@@ -99,6 +104,40 @@ rather than replacing one with the other:
 Choosing `_postdeploy` is legitimate; choosing it *by default and without
 noticing* is what produced a lab where the decisive phase had no coverage.
 
+## The exam that now guards it
+
+`40k/tests/exams/dp01_deployment_is_recorded.json`, run on
+`mirror_custodes_2000_predeploy`:
+
+```
+[AIExam] dp01_deployment_is_recorded: 3 passed, 0 failed -> PASS
+   OK  player 1 actually placed units on the table                     got 11, expected >= 3
+   OK  every deployment decision is recorded with scored candidates    got 22, expected >= 3
+   OK  deployment records name the DEPLOY_TERRAIN_* parameters read    got 11, expected >= 1
+```
+
+The second and third assertions are the ones that matter for tuning. A
+decision with no record is invisible to everything in `tools/ai_lab/`, and a
+record that does not name the parameters it read cannot be attributed to a
+coefficient. 22 recorded deployment decisions across 26 decision batches, and
+these coefficients named in them:
+
+```
+DEPLOY_TERRAIN_CHAR_COVER        DEPLOY_TERRAIN_DURABLE_COVER
+DEPLOY_TERRAIN_CHAR_LOS_BLOCK    DEPLOY_TERRAIN_DURABLE_LOS_BLOCK
+DEPLOY_TERRAIN_MELEE_COVER       DEPLOY_TERRAIN_FORWARD_WEIGHT
+DEPLOY_TERRAIN_MELEE_LOS_BLOCK
+```
+
+Seven of the twelve. The missing five are the `FRAGILE_*` and `SCREEN_*`
+pairs, and their absence is a property of the army rather than a defect:
+`_classify_deployment_role` never returns `fragile_shooter` or `screen` for
+Lions of the Emperor, whose cheapest unit is 45 points of 1-wound Prosecutors
+and whose rest are 4-wound elites. Exercising those five needs
+`mirror_orks_2000_predeploy` — Gretchin and Stormboyz classify differently.
+Worth doing before anyone tries to tune them; until then, treat those five as
+**unverified as reachable**, not as verified.
+
 ## Still open
 
 * No A/A reference (F, sd) has been measured on the `_predeploy` fixtures
@@ -106,6 +145,12 @@ noticing* is what produced a lab where the decisive phase had no coverage.
   variance is **not yet known**. Until that exists, do not run a paired A/B
   on `_predeploy` and read its stopping rule as if it had the same spread as
   the post-deployment mirrors.
-* Task A6's deployment-decision-record gap is unblocked but not closed: the
-  aspirational exam `_a6_deployment_records.json` can now be pointed at a
-  fixture that actually reaches the deployment phase.
+* The five `FRAGILE_*` / `SCREEN_*` deployment coefficients are still
+  **unverified as reachable** — see above. `mirror_orks_2000_predeploy` is the
+  fixture that would settle it, and no exam points there yet.
+* Task A6's deployment-decision-record gap is closed for the decision type
+  itself (`dp01` above), which is what retired the aspirational
+  `_a6_deployment_records` probe. The other A6 decision types that no fixture
+  exercised — warlord designation, leader attachment, reserves declaration —
+  are reachable from a `_predeploy` fixture's Formations phase but have no
+  exam asserting their records yet.
