@@ -247,12 +247,35 @@ func _pack(player: int, zone: Dictionary) -> int:
 	var placed := 0
 	const STEP := 10.0
 
+	# Fill from the edge of the zone NEAREST THE BOARD CENTRE, i.e. the front
+	# rank, for both players.
+	#
+	# Scanning from `zone.min_y` unconditionally looks symmetric and is not:
+	# min_y is the BOARD EDGE for player 1 and the FRONT of the zone for player
+	# 2. Combined with largest-base-first, that put player 1's big bases at the
+	# back and player 2's at the front — from the same code. Measured on the
+	# 77-model Ork army, mean depth from its own front rank:
+	#
+	#     mirror (P1)   big bases 5.0 in back    small bases 2.4 in
+	#     asym   (P2)   big bases 5.0 in front   small bases 7.6 in
+	#
+	# The big bases are the Warbikers, Deffkoptas, Wartrikes and Stompa — Move
+	# 10-12, the models that most want to advance. Walling them in behind 43
+	# Gretchin and Stormboyz is a deployment no player would make, and the AI
+	# cannot dig them out: it burns the movement phase failing to resolve
+	# collisions against its own screen. That is why mirror_orks_2000_postdeploy
+	# could not finish a game while asym_2000_postdeploy, holding the SAME army,
+	# finished in 266 s. Proven by removing the enemy army entirely — the grind
+	# survived, so it was never about the opponent.
+	var board_mid: float = float(GS.state.board.size.height) * PX_PER_INCH * 0.5
+	var front_is_max: bool = absf(zone.max_y - board_mid) < absf(zone.min_y - board_mid)
+
 	for item in queue:
 		var m = GS.state.units[item.uid].models[item.idx]
 		var r: float = item.r
 		var spot := Vector2.INF
-		var y: float = zone.min_y + r + 2.0
-		while y <= zone.max_y - r and spot == Vector2.INF:
+		var y: float = (zone.max_y - r - 2.0) if front_is_max else (zone.min_y + r + 2.0)
+		while (y >= zone.min_y + r if front_is_max else y <= zone.max_y - r) and spot == Vector2.INF:
 			var x: float = zone.min_x + r + 2.0
 			while x <= zone.max_x - r:
 				var ok := true
@@ -269,7 +292,7 @@ func _pack(player: int, zone: Dictionary) -> int:
 					spot = Vector2(x, y)
 					break
 				x += STEP
-			y += STEP
+			y += (-STEP if front_is_max else STEP)
 		if spot == Vector2.INF:
 			_fail("no room in P%d's zone for a %.0fmm model of %s (%d of %d already placed)"
 				% [player, m.get("base_mm", 32), item.uid, placed, queue.size()])

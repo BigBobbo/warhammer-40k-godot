@@ -67,7 +67,73 @@ failed, so this is still open:
    reproduce the pre-change margin and action count exactly). The fixture still
    does not leave battle round 1.
 
-**Where it actually stands.** ~2x achieved against the ~20-50x this fixture
+**ROOT CAUSE FOUND (2026-08-09).** It is none of the above. It is a single
+boxed-in unit walking an enormous fallback ladder.
+
+The owner pointed out that two armies cannot collide with each other in round
+one — they deploy 20-30 inches apart — so the Orks had to be obstructing
+themselves, and asked why that does not happen in `asym_2000_postdeploy`,
+which holds the same 77 Orks. Both halves of that turned out to be right, and
+chasing the second half found the bug.
+
+Deleting the opposing army entirely (`40k/tests/make_probe_fixture.gd`) and
+running the Orks alone:
+
+| Orks alone, no enemy | packing | result | collision failures |
+|---|---|---|---|
+| deployment zone 1 | back-packed | stuck in round 1 at 280 s | 184 |
+| deployment zone 1 | front-packed | stuck in round 1 at 400 s | 369 |
+| deployment zone 2 | front-packed | **all 5 rounds in 131 s** | 23 |
+
+So it is not the enemy, not the army, and not base ordering (front-packing
+made it worse). It is also not the board: all 44 terrain pieces have an exact
+180-degree twin, and each zone holds 5 pieces of identical area.
+
+The action counts give it away:
+
+| probe | actions | move decisions | succeeded |
+|---|---|---|---|
+| zone 2 | 782 | 99 | 99 |
+| zone 1 | — | **1** | **0** |
+
+One unit. One decision. 280 seconds. Warbikers Delta at (734, 358), 6 models
+on 75mm bases, targeting `obj_home_2` at (880, 2240). Models m4, m5 and m6
+cannot be placed, the unit early-bails at 3/6 failed — and then the same
+attempt repeats with the same obstacles and the same result, 54 times before
+the process was killed.
+
+Those 54 are not a loop. They are rungs of the fallback ladder inside ONE call
+to `_get_unit_move_destinations`, which tries, in order:
+
+    6  move fractions            (1.0 .. 0.1)
+    6  formation moves           (same fractions)
+    8  alternate angles          (4 angles x 2 fractions)
+   15  relaxed collision 0.85x   (5 angles x 3 fractions)
+   15  relaxed collision 0.70x   (5 angles x 3 fractions)
+   28+ relaxed collision 0.50x   (7+ angles x 4 fractions)
+   ----
+   ~78 full attempts, each a per-model search against every model on the table
+
+On a crowded board each rung costs seconds, so one genuinely stuck unit
+consumes minutes. There is no early exit that concludes "this unit cannot
+move, leave it and move on". Worse, it all happens inside a single decision
+call, so the engine never gets another frame — which is why neither the
+90-second stall detector nor the benchmark's own `max_seconds` fired.
+
+**This is an AI robustness bug, not a fixture defect.** Any unit that gets
+boxed in — by its own army, in a real player's game — will hang the turn the
+same way. The fixture merely makes it reproducible.
+
+**The fix is an early exit, not a faster search.** Once a unit has failed the
+strict modes with the same models failing for the same reason, the remaining
+~60 rungs cannot succeed; they differ only in how far and at what angle it
+tries to go, and the blocker is adjacent. Detect "no model can be placed at
+any fraction" once and return `remain_stationary`. That is a behaviour change
+(a stuck unit would hold instead of eventually finding a relaxed 0.5x-radius
+placement), so it needs the paired evaluator — but it should be cheap and it
+removes a hang.
+
+**Where the earlier work stands.** ~2x achieved against the ~20-50x this fixture
 would need. The remaining cost is not the cost *per* query but the **number of
 queries**: 14,153 collision tests and 8,783 exact-overlap tests for two unit
 moves. That comes from the structure of the search — 6 move fractions x ~6
