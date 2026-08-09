@@ -177,15 +177,19 @@ func _build() -> void:
 	for line in report:
 		print("[fixture]   %s" % line)
 
-	# A 2000-pt save is ~200 KB of JSON, well over StateSerializer's 50 KB
-	# COMPRESSION_SIZE_THRESHOLD, so the default path would gzip+base64 it into
-	# one unreadable line. The engine reads that back fine (deserialize_game_state
-	# auto-detects), but a committed fixture wants to be greppable and diffable
-	# like the ones already in 40k/tests/saves/. Turn compression off for the
-	# write only.
-	var ss = root.get_node_or_null("StateSerializer")
-	if ss != null:
-		ss.set_compression_enabled(false)
+	# Leave StateSerializer's compression ALONE — a 2000-pt save is ~200 KB of
+	# JSON and it gzip+base64s anything over COMPRESSION_SIZE_THRESHOLD (50 KB).
+	#
+	# An earlier version of this disabled it so the committed fixture would be
+	# greppable and diffable. That was the wrong trade. Six fixtures of
+	# pretty-printed JSON added ~72,000 lines to the pull request — ten times the
+	# size of the actual code change — and nobody reviews 12,000 lines of model
+	# coordinates anyway. Compressed they are ~19 KB and one line each, a 92%
+	# reduction, and the review value lost is close to zero because
+	# `tools/ai_lab/fixture_check.py` validates the contents properly (unit
+	# counts, points, the 11e reserves cap, mirror symmetry, status/position
+	# agreement) and reads either form transparently. Provenance is the sha256
+	# recorded in every game record, not the diff.
 	if not slm.save_game(_out):
 		_fail("save_game(%r) returned false" % _out)
 		return
