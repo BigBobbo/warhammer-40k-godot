@@ -46,13 +46,17 @@ from build_index import find_records, load_record, SCHEMA, _int  # noqa: E402
 from params_manifest import build_manifest  # noqa: E402
 
 # The gate needs >= 2 MATCHUPS, or a candidate that is merely matchup-specific
-# passes. mirror_orks_2000_postdeploy is temporarily out: a game on it does not
-# leave battle round 1 (see 40k/tests/exams/slow/README.md for the profiling).
-# asym_2000_postdeploy is Custodes-vs-Orks, a genuinely different matchup from
-# the Custodes mirror, and it completes in ~266 s — so the grid keeps its second
-# arm. Put the Ork mirror back the moment it is viable; two views of one matchup
-# is exactly the blind spot this list exists to avoid.
-MIRRORS = ["mirror_custodes_2000_postdeploy", "asym_2000_postdeploy"]
+# passes. asym_2000_postdeploy is Custodes-vs-Orks, a genuinely different
+# matchup from the Custodes mirror.
+#
+# mirror_orks_2000_postdeploy is BACK (2026-08-09): the round-1 hang was a
+# boxed-in unit walking an unbounded fallback ladder, fixed by partial squad
+# movement + a stuck early-exit + a deterministic search budget (see
+# 40k/tests/bench_baselines/2026-08-09_large_army_bundle_first_runs.md —
+# completed 5-round games at ~705 s shared / seed 7001, plus the A/A season
+# in bench_data/ork_aa_postfix). Budget gate runs accordingly: an Ork game
+# is ~4x a Custodes one, so size --pairs with that in mind.
+MIRRORS = ["mirror_custodes_2000_postdeploy", "asym_2000_postdeploy", "mirror_orks_2000_postdeploy"]
 
 
 def run_paired(candidate, fixture, season, pairs, seed_base, lanes, max_seconds, difficulty):

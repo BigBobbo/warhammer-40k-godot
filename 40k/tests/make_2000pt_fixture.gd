@@ -47,6 +47,8 @@ var _mirror := ""
 var _out := ""
 var _predeploy := false
 var _preformations := false
+var _deployment := ""
+var _gap_inches := 0.05  # 2px, the historical packing clearance
 
 
 func _initialize() -> void:
@@ -55,6 +57,24 @@ func _initialize() -> void:
 		elif a.begins_with("--p2="): _p2 = a.split("=", true, 1)[1]
 		elif a.begins_with("--mirror="): _mirror = a.split("=", true, 1)[1]
 		elif a.begins_with("--out="): _out = a.split("=", true, 1)[1]
+		elif a.begins_with("--deployment="):
+			# Replace the shell's deployment layout (zones + objectives +
+			# meta.deployment_type) with a named type from DeploymentZoneData,
+			# e.g. search_and_destroy. Zone geometry is arbitrary polygons, so
+			# this is only allowed together with --predeploy/--preformations:
+			# _pack() scans rectangular bounds and would happily pack models
+			# into the corners of a quarter-circle zone the engine rejects.
+			_deployment = a.split("=", true, 1)[1]
+		elif a.begins_with("--gap="):
+			# Clearance between packed bases, in INCHES (default 0.05" = the
+			# old 2px). The committed postdeploy mirrors pack at 0.07"
+			# nearest-neighbour gaps — shoulder-to-shoulder in a zone only 59%
+			# full, a deployment no player would make and the documented
+			# "highest-value next action on the fixtures". ~0.5-0.75" is a
+			# realistic table look. NOTE: swapping the canonical postdeploy
+			# fixture invalidates every A/A row measured on the old packing —
+			# build a *_spaced variant first and re-baseline deliberately.
+			_gap_inches = float(a.split("=", true, 1)[1])
 		elif a == "--predeploy": _predeploy = true
 		elif a == "--preformations":
 			# Everything --predeploy does, PLUS the game starts at the
@@ -80,6 +100,10 @@ func _initialize() -> void:
 		printerr("usage: --p1=<list> --p2=<list> --out=<name>  |  --mirror=<list> --out=<name>")
 		quit(2)
 		return
+	if _deployment != "" and not _predeploy:
+		printerr("[fixture] FAIL: --deployment requires --predeploy or --preformations (the packer assumes rectangular zones)")
+		quit(2)
+		return
 	await create_timer(0.5).timeout
 	_build()
 
@@ -102,6 +126,24 @@ func _build() -> void:
 		_fail("could not load the shell save %s" % SHELL)
 		return
 	print("[fixture] shell loaded: %s" % SHELL)
+
+	# 1b. --deployment: swap the shell's layout for a named one. Zones come
+	# from the same source the game itself uses (DeploymentZoneData, backed by
+	# 40k/deployment_zones/<type>.json), and objectives are replaced together
+	# with the zones — a Search and Destroy game on Crucible objectives would
+	# be a layout no mission pack contains.
+	if _deployment != "":
+		var dz = load("res://scripts/data/DeploymentZoneData.gd")
+		var zones_new: Array = dz.get_zones(_deployment)
+		var objs_new: Array = dz.get_objectives_px(_deployment)
+		if zones_new.is_empty() or objs_new.is_empty():
+			_fail("unknown or empty deployment type %r" % _deployment)
+			return
+		GS.state.board["deployment_zones"] = zones_new
+		GS.state.board["objectives"] = objs_new
+		GS.state.meta["deployment_type"] = _deployment
+		print("[fixture] deployment layout replaced: %s (%d zones, %d objectives)" % [
+			_deployment, zones_new.size(), objs_new.size()])
 
 	# 2. Both armies, through the real loader.
 	alm.scan_available_armies()
@@ -269,6 +311,7 @@ func _pack(player: int, zone: Dictionary) -> int:
 	var occupied: Array = []
 	var placed := 0
 	const STEP := 10.0
+	var clearance_px: float = _gap_inches * PX_PER_INCH
 
 	# Fill from the edge of the zone NEAREST THE BOARD CENTRE, i.e. the front
 	# rank, for both players.
@@ -303,7 +346,7 @@ func _pack(player: int, zone: Dictionary) -> int:
 			while x <= zone.max_x - r:
 				var ok := true
 				for o in occupied:
-					var gap: float = r + o[2] + 2.0
+					var gap: float = r + o[2] + clearance_px
 					var dx: float = x - o[0]
 					if absf(dx) >= gap:
 						continue
