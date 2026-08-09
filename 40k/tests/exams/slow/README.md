@@ -220,3 +220,11 @@ changes behaviour and needs the paired evaluator first.
   crowded (a failing model costs a 392-candidate search per rung). The
   rebuilt mirror completes but remains the slowest fixture. The search-design
   notes in the section above still apply.
+* Found in passing, PRE-EXISTING (fires in the historical baseline runs too —
+  both custodes seeds reproduce their margins exactly WITH it firing):
+  `_assess_engage_on_all_fronts` (AIDecisionMaker.gd:18231) indexes the
+  return of `_get_covered_quarters` as a Dictionary, but that function
+  returns an Array — `SCRIPT ERROR: Invalid access to property or key 'true'
+  on a base object of type 'Array'`, and the mission is then scored 0.0 and
+  discarded as unachievable whenever this path runs. Fixing it changes which
+  secondaries the AI keeps, so it needs the paired evaluator; not fixed here.
