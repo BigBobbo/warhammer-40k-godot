@@ -85,3 +85,15 @@ verdict (needs |E| ≥ 4 at 2 se, or se ≤ 1.6 for futility), so a bigger
 campaign can tighten this; nothing here argues for turning the bundle off.
 The trajectory across the run: +3.25 → +0.38 → 0.00 → −1.50 as pairs
 accumulated — noise collapsing around zero.
+
+## Addendum 3 — Search and Destroy mirror (the owner's suggested zone type)
+
+`mirror_orks_2000_sd_preformations` seed 7005: **completed**, 5 rounds, 641
+actions, 304 s, P1 39 / P2 80 VP. Full loop — live Formations (both Stompas
+loaded 22/22), AI deployment of 154 models into the QUARTER-CIRCLE zones
+(the polygon projection visibly engaged: dozens of "centre not wholly in
+zone polygon — projected to ..." lines), reserves from round 2, zero
+permanently-failed deployments, zero script errors. One Warbikers squad
+exhausted its deploy retries and went to Strategic Reserves via the new
+auto_timeout fallback — the path that used to deadlock END_DEPLOYMENT.
+The 41-VP margin is one seed of mirror noise, not a claim about the layout.
