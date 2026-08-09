@@ -728,6 +728,24 @@ const MOVE_REACH_HORIZON: float = 0.0        # 1 enables; measured at -4.29 VP
 const MOVE_UNREACHABLE_FLOOR: float = 0.05   # residual value past the horizon
 const MAX_BATTLE_ROUNDS_AI: int = 5          # mirrors GameState.MAX_BATTLE_ROUNDS
 
+# Cap on FAILED unit-placement attempts inside one _compute_movement_toward_target
+# call before the unit is treated as unmovable for this decision (returns {} =
+# remain stationary). The fallback ladder is ~78 rungs (fractions x formation x
+# alternate angles x three relaxed-collision levels); a genuinely boxed-in unit
+# fails every one, each rung re-running a per-model search of up to ~392
+# candidate positions against every model on the table. Measured on
+# mirror_orks_2000_postdeploy (154 models, before its illegal-deployment rebuild)
+# ONE such decision ran for minutes inside a single engine frame — which also
+# meant neither the benchmark stall detector nor --bench-max-seconds could fire.
+#
+# 0 = unlimited (ships OFF: cutting the ladder short changes which move gets
+# made when a late relaxed rung would have found a spot, and behaviour changes
+# need the paired evaluator — tools/ai_lab/run_paired.py — before they ship;
+# the same gating convention as MOVE_RIGID_BLOCK_FIRST above). A value around
+# 10-15 keeps the worst case at roughly two fraction ladders' cost while still
+# letting the common congestion cases resolve.
+const MOVE_LADDER_FAIL_BUDGET: float = 0.0   # 0 = off; see the note above
+
 # --- Objective-assignment coefficients (promoted from bare literals) --------
 # These decide where every unit goes, every movement phase — 49.6% of movement
 # decisions in a 19-game sample picked a destination both farther away and
@@ -10428,6 +10446,12 @@ static func _compute_movement_toward_target(
 		unit_name, centroid.x, centroid.y, target_pos.x, target_pos.y, move_px, safe_move_px, final_move_vector.length()])
 	var fractions_to_try = [1.0, 0.75, 0.5, 0.25, 0.15, 0.1]
 
+	# Fail budget across ALL rungs of the fallback ladder below. 0 = unlimited
+	# (the shipped default — see MOVE_LADDER_FAIL_BUDGET's note). When set, a
+	# unit that keeps failing placement stops burning rungs and holds instead.
+	var ladder_fail_budget := int(get_param("MOVE_LADDER_FAIL_BUDGET", MOVE_LADDER_FAIL_BUDGET))
+	var ladder_fails := 0
+
 	# PASS 1 — move the squad as a block, longest first (MOVE_RIGID_BLOCK_FIRST).
 	# The player's drag-select-and-drag: every model translates by the same
 	# vector, and the attempt is abandoned the moment one destination is
@@ -10453,6 +10477,9 @@ static func _compute_movement_toward_target(
 	# PASS 2 — per-model placement with collision resolution (the original
 	# ladder, unchanged). Only reached when no rigid translation is legal.
 	for fraction in fractions_to_try:
+		if ladder_fail_budget > 0 and ladder_fails >= ladder_fail_budget:
+			_debug_log_info("AI_MOVE_DEBUG %s: ladder fail budget %d exhausted — treating unit as unmovable this decision" % [unit_name, ladder_fail_budget])
+			return {}
 		var try_vector = final_move_vector * fraction
 		var destinations = _try_move_with_collision_check(
 			alive_models, try_vector, enemies, unit, deployed_models,
@@ -10472,10 +10499,14 @@ static func _compute_movement_toward_target(
 			_debug_log_info("AI_MOVE_DEBUG %s: returning %d dests, fraction=%.2f, max_dist=%.1fpx (%.1fin), cap=%.1fpx" % [
 				unit_name, destinations.size(), fraction, max_dist, max_dist / PIXELS_PER_INCH, safe_move_px])
 			return destinations
+		ladder_fails += 1
 
 	# Individual placement failed at all fractions — try formation move (maintains spacing)
 	_debug_log_info("AI_MOVE_DEBUG %s: individual placement failed, trying formation move" % [unit_name])
 	for fraction in fractions_to_try:
+		if ladder_fail_budget > 0 and ladder_fails >= ladder_fail_budget:
+			_debug_log_info("AI_MOVE_DEBUG %s: ladder fail budget %d exhausted — treating unit as unmovable this decision" % [unit_name, ladder_fail_budget])
+			return {}
 		var try_vector = final_move_vector * fraction
 		var destinations = _try_formation_move(
 			alive_models, try_vector, enemies, unit, deployed_models,
@@ -10493,6 +10524,7 @@ static func _compute_movement_toward_target(
 			_debug_log_info("AI_MOVE_DEBUG %s: formation move succeeded, fraction=%.2f, max_dist=%.1fpx (%.1fin)" % [
 				unit_name, fraction, max_dist, max_dist / PIXELS_PER_INCH])
 			return destinations
+		ladder_fails += 1
 
 	# All fractions failed in the original direction — try alternate angles
 	# This helps large bases (Ghazghkull's 100mm) navigate around dense formations
@@ -10501,6 +10533,9 @@ static func _compute_movement_toward_target(
 	for angle in alt_angles:
 		var rotated_vector = final_move_vector.rotated(angle)
 		for fraction in [0.75, 0.25]:
+			if ladder_fail_budget > 0 and ladder_fails >= ladder_fail_budget:
+				_debug_log_info("AI_MOVE_DEBUG %s: ladder fail budget %d exhausted — treating unit as unmovable this decision" % [unit_name, ladder_fail_budget])
+				return {}
 			var try_vector = rotated_vector * fraction
 			var destinations = _try_move_with_collision_check(
 				alive_models, try_vector, enemies, unit, deployed_models,
@@ -10518,6 +10553,7 @@ static func _compute_movement_toward_target(
 				_debug_log_info("AI_MOVE_DEBUG %s: alternate angle %.0f° fraction=%.2f succeeded, max_dist=%.1fpx (%.1fin)" % [
 					unit_name, rad_to_deg(angle), fraction, max_dist, max_dist / PIXELS_PER_INCH])
 				return destinations
+			ladder_fails += 1
 
 	# Relaxed collision modes — progressively more permissive
 	# Level 1: 0.85x radius, forward + side angles, coarse fractions
@@ -10526,6 +10562,9 @@ static func _compute_movement_toward_target(
 	for angle in level1_angles:
 		var base_vec = final_move_vector if angle == 0.0 else final_move_vector.rotated(angle)
 		for fraction in [0.5, 0.25, 0.1]:
+			if ladder_fail_budget > 0 and ladder_fails >= ladder_fail_budget:
+				_debug_log_info("AI_MOVE_DEBUG %s: ladder fail budget %d exhausted — treating unit as unmovable this decision" % [unit_name, ladder_fail_budget])
+				return {}
 			var try_vector = base_vec * fraction
 			var destinations = _try_move_with_collision_check(
 				alive_models, try_vector, enemies, unit, deployed_models,
@@ -10543,6 +10582,7 @@ static func _compute_movement_toward_target(
 				_debug_log_info("AI_MOVE_DEBUG %s: relaxed 0.85x angle=%.0f° fraction=%.2f succeeded, max_dist=%.1fpx (%.1fin)" % [
 					unit_name, rad_to_deg(angle), fraction, max_dist, max_dist / PIXELS_PER_INCH])
 				return destinations
+			ladder_fails += 1
 
 	# Level 2: 0.7x radius, all angles including backward
 	var level2_angles = [0.0, deg_to_rad(45), deg_to_rad(-45), deg_to_rad(90), deg_to_rad(-90),
@@ -10551,6 +10591,9 @@ static func _compute_movement_toward_target(
 	for angle in level2_angles:
 		var base_vec = final_move_vector if angle == 0.0 else final_move_vector.rotated(angle)
 		for fraction in [0.5, 0.25, 0.1]:
+			if ladder_fail_budget > 0 and ladder_fails >= ladder_fail_budget:
+				_debug_log_info("AI_MOVE_DEBUG %s: ladder fail budget %d exhausted — treating unit as unmovable this decision" % [unit_name, ladder_fail_budget])
+				return {}
 			var try_vector = base_vec * fraction
 			var destinations = _try_move_with_collision_check(
 				alive_models, try_vector, enemies, unit, deployed_models,
@@ -10568,6 +10611,7 @@ static func _compute_movement_toward_target(
 				_debug_log_info("AI_MOVE_DEBUG %s: relaxed 0.70x angle=%.0f° fraction=%.2f succeeded, max_dist=%.1fpx (%.1fin)" % [
 					unit_name, rad_to_deg(angle), fraction, max_dist, max_dist / PIXELS_PER_INCH])
 				return destinations
+			ladder_fails += 1
 
 	# Level 3: 0.5x radius — last resort for any unit stuck in congestion
 	_debug_log_info("AI_MOVE_DEBUG %s: trying relaxed collision (0.50x radius, base %dmm)" % [unit_name, base_mm])
@@ -10575,6 +10619,9 @@ static func _compute_movement_toward_target(
 			deg_to_rad(90), deg_to_rad(-90), deg_to_rad(135), deg_to_rad(-135), deg_to_rad(180)]:
 		var base_vec = final_move_vector if angle == 0.0 else final_move_vector.rotated(angle)
 		for fraction in [0.75, 0.5, 0.25, 0.1]:
+			if ladder_fail_budget > 0 and ladder_fails >= ladder_fail_budget:
+				_debug_log_info("AI_MOVE_DEBUG %s: ladder fail budget %d exhausted — treating unit as unmovable this decision" % [unit_name, ladder_fail_budget])
+				return {}
 			var try_vector = base_vec * fraction
 			var destinations = _try_move_with_collision_check(
 				alive_models, try_vector, enemies, unit, deployed_models,
@@ -10592,8 +10639,9 @@ static func _compute_movement_toward_target(
 				_debug_log_info("AI_MOVE_DEBUG %s: relaxed 0.50x angle=%.0f° fraction=%.2f succeeded, max_dist=%.1fpx (%.1fin)" % [
 					unit_name, rad_to_deg(angle), fraction, max_dist, max_dist / PIXELS_PER_INCH])
 				return destinations
+			ladder_fails += 1
 
-	_debug_log_info("AI_MOVE_DEBUG %s: all relaxed modes failed" % [unit_name])
+	_debug_log_info("AI_MOVE_DEBUG %s: all relaxed modes failed (%d failed placement attempts)" % [unit_name, ladder_fails])
 	return {}
 
 static func _find_unblocked_move_enhanced(
@@ -11946,6 +11994,11 @@ static func _resolve_movement_collision(
 	var _near := func(at: Vector2) -> Array:
 		return _grid_nearby(_grid, at, _my_bound + 8.0)
 
+	# BLOCKER-DEBUG: census of WHY candidates were rejected, logged only when
+	# the whole search fails — converts "boxed in" into a named cause.
+	var _rej := {"board": 0, "cap": 0, "collide": 0, "wall": 0, "terrain": 0,
+		"enemy": 0, "mv": 0, "overlap": 0, "coherency": 0, "tried": 0}
+
 	# MOV-FIX (2026-07-13): a resolved candidate is only ACCEPTED if it (a) does
 	# not really overlap another base (engine-exact, defeats relaxed-mode
 	# overlaps) and (b) stays within unit coherency of an already-placed model.
@@ -11955,6 +12008,7 @@ static func _resolve_movement_collision(
 	# in one benchmark game, permanently freezing units like the Custodian Guard.
 	var _accept := func(candidate: Vector2) -> bool:
 		if _dest_really_overlaps(candidate, base_mm, base_type, base_dimensions, _near.call(candidate)):
+			_rej.overlap += 1
 			return false
 		if not unit_placed.is_empty() and coherency_max_px > 0.0:
 			var coh := false
@@ -11967,33 +12021,43 @@ static func _resolve_movement_collision(
 					coh = true
 					break
 			if not coh:
+				_rej.coherency += 1
 				return false
 		return true
+
+	# Shared predicate chain for all three candidate passes — SAME checks in the
+	# SAME order as before; returns the name of the first check that rejects the
+	# candidate ("" = candidate survives to _accept). Behaviour-identical to the
+	# previous inline chains; exists so the failure log can say WHY.
+	var _reject_reason := func(candidate: Vector2) -> String:
+		if candidate.x < BASE_MARGIN_PX or candidate.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
+			return "board"
+		if candidate.y < BASE_MARGIN_PX or candidate.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
+			return "board"
+		if original_pos != Vector2.INF and move_cap_px > 0.0:
+			if original_pos.distance_to(candidate) > move_cap_px:
+				return "cap"
+		if _position_collides_with_deployed(candidate, base_mm, _near.call(candidate), 1.0, base_type, base_dimensions, radius_factor):
+			return "collide"
+		if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
+			return "wall"
+		if _path_blocked_by_solid_terrain(original_pos, candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
+			return "terrain"
+		if _is_position_near_enemy(candidate, enemies, unit):
+			return "enemy"
+		if not mv_models.is_empty() and original_pos != Vector2.INF:
+			if _path_crosses_monster_vehicle(original_pos, candidate, base_mm, base_type, base_dimensions, mv_models):
+				return "mv"
+		return ""
 
 	for multiplier in offsets:
 		var offset = perp * base_radius * multiplier
 		var candidate = dest + offset
-
-		if candidate.x < BASE_MARGIN_PX or candidate.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
+		_rej.tried += 1
+		var _r1: String = _reject_reason.call(candidate)
+		if _r1 != "":
+			_rej[_r1] += 1
 			continue
-		if candidate.y < BASE_MARGIN_PX or candidate.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
-			continue
-
-		if original_pos != Vector2.INF and move_cap_px > 0.0:
-			if original_pos.distance_to(candidate) > move_cap_px:
-				continue
-
-		if _position_collides_with_deployed(candidate, base_mm, _near.call(candidate), 1.0, base_type, base_dimensions, radius_factor):
-			continue
-		if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
-			continue
-		if _path_blocked_by_solid_terrain(original_pos, candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
-			continue
-		if _is_position_near_enemy(candidate, enemies, unit):
-			continue
-		if not mv_models.is_empty() and original_pos != Vector2.INF:
-			if _path_crosses_monster_vehicle(original_pos, candidate, base_mm, base_type, base_dimensions, mv_models):
-				continue
 		if _accept.call(candidate):
 			return candidate
 
@@ -12002,24 +12066,11 @@ static func _resolve_movement_collision(
 		for back_mult in [0.5, 1.0, 1.5]:
 			var offset = perp * base_radius * multiplier + back_dir * base_radius * back_mult
 			var candidate = dest + offset
-			if candidate.x < BASE_MARGIN_PX or candidate.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
+			_rej.tried += 1
+			var _r2: String = _reject_reason.call(candidate)
+			if _r2 != "":
+				_rej[_r2] += 1
 				continue
-			if candidate.y < BASE_MARGIN_PX or candidate.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
-				continue
-			if original_pos != Vector2.INF and move_cap_px > 0.0:
-				if original_pos.distance_to(candidate) > move_cap_px:
-					continue
-			if _position_collides_with_deployed(candidate, base_mm, _near.call(candidate), 1.0, base_type, base_dimensions, radius_factor):
-				continue
-			if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
-				continue
-			if _path_blocked_by_solid_terrain(original_pos, candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
-				continue
-			if _is_position_near_enemy(candidate, enemies, unit):
-				continue
-			if not mv_models.is_empty() and original_pos != Vector2.INF:
-				if _path_crosses_monster_vehicle(original_pos, candidate, base_mm, base_type, base_dimensions, mv_models):
-					continue
 			if _accept.call(candidate):
 				return candidate
 
@@ -12033,27 +12084,30 @@ static func _resolve_movement_collision(
 		for p_idx in range(points_in_ring):
 			var angle = (2.0 * PI * p_idx) / points_in_ring
 			var candidate = Vector2(dest.x + cos(angle) * ring_radius, dest.y + sin(angle) * ring_radius)
-			if candidate.x < BASE_MARGIN_PX or candidate.x > BOARD_WIDTH_PX - BASE_MARGIN_PX:
+			_rej.tried += 1
+			var _r3: String = _reject_reason.call(candidate)
+			if _r3 != "":
+				_rej[_r3] += 1
 				continue
-			if candidate.y < BASE_MARGIN_PX or candidate.y > BOARD_HEIGHT_PX - BASE_MARGIN_PX:
-				continue
-			if original_pos != Vector2.INF and move_cap_px > 0.0:
-				if original_pos.distance_to(candidate) > move_cap_px:
-					continue
-			if _position_collides_with_deployed(candidate, base_mm, _near.call(candidate), 1.0, base_type, base_dimensions, radius_factor):
-				continue
-			if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
-				continue
-			if _path_blocked_by_solid_terrain(original_pos, candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
-				continue
-			if _is_position_near_enemy(candidate, enemies, unit):
-				continue
-			if not mv_models.is_empty() and original_pos != Vector2.INF:
-				if _path_crosses_monster_vehicle(original_pos, candidate, base_mm, base_type, base_dimensions, mv_models):
-					continue
 			if _accept.call(candidate):
 				return candidate
 
+	# BLOCKER-DEBUG: the whole search failed — log the rejection census and NAME
+	# the nearest obstacles so the log states the cause, not just "boxed in".
+	var _blockers: Array = []
+	var _obs_sorted := obstacles.duplicate()
+	_obs_sorted.sort_custom(func(a, b):
+		return a.position.distance_to(dest) < b.position.distance_to(dest))
+	for _bi in range(mini(3, _obs_sorted.size())):
+		var _ob = _obs_sorted[_bi]
+		_blockers.append("%s/%s@%.0fpx" % [
+			str(_ob.get("unit_id", _ob.get("id", "placed"))),
+			str(_ob.get("model_id", "?")), _ob.position.distance_to(dest)])
+	_debug_log_info("RESOLVE_FAIL dest=(%.0f,%.0f) orig=(%.0f,%.0f) cap=%.0f rf=%.2f coh_max=%.0f placed=%d tried=%d rej={board:%d cap:%d collide:%d wall:%d terrain:%d enemy:%d mv:%d overlap:%d coh:%d} nearest=[%s]" % [
+		dest.x, dest.y, original_pos.x, original_pos.y, move_cap_px, radius_factor,
+		coherency_max_px, unit_placed.size(), _rej.tried,
+		_rej.board, _rej.cap, _rej.collide, _rej.wall, _rej.terrain, _rej.enemy,
+		_rej.mv, _rej.overlap, _rej.coherency, ", ".join(_blockers)])
 	return Vector2.INF
 
 static func _get_deployed_models_excluding_unit(snapshot: Dictionary, exclude_unit_id: String) -> Array:
@@ -12088,7 +12142,11 @@ static func _get_deployed_models_excluding_unit(snapshot: Dictionary, exclude_un
 				"base_mm": model.get("base_mm", 32),
 				"base_type": model.get("base_type", "circular"),
 				"base_dimensions": model.get("base_dimensions", {}),
-				"rotation": model.get("rotation", 0.0)
+				"rotation": model.get("rotation", 0.0),
+				# BLOCKER-DEBUG: identity so collision-failure logs can NAME the
+				# obstacle that rejected a placement instead of "boxed in".
+				"unit_id": uid,
+				"model_id": str(model.get("id", ""))
 			})
 	return deployed
 
@@ -19462,7 +19520,11 @@ static func _get_all_deployed_model_positions(snapshot: Dictionary) -> Array:
 				"base_mm": model.get("base_mm", 32),
 				"base_type": model.get("base_type", "circular"),
 				"base_dimensions": model.get("base_dimensions", {}),
-				"rotation": model.get("rotation", 0.0)
+				"rotation": model.get("rotation", 0.0),
+				# BLOCKER-DEBUG: identity so collision-failure logs can NAME the
+				# obstacle that rejected a placement instead of "boxed in".
+				"unit_id": unit_id,
+				"model_id": str(model.get("id", ""))
 			})
 	return deployed
 
