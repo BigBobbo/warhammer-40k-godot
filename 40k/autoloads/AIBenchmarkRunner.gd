@@ -397,6 +397,11 @@ func _watch_loop() -> void:
 		if sig != _last_progress_sig:
 			_last_progress_sig = sig
 			_last_progress_ticks = Time.get_ticks_msec()
+			# Collision-profile counters, printed alongside progress so a run
+			# that never finishes still yields the numbers.
+			AIDecisionMaker._dump_collision_profile("r%d p%d a%d elapsed=%.0fs" % [
+				GameState.get_battle_round(), GameState.get_current_phase(),
+				ai._action_log.size() if ai != null else 0, elapsed])
 		elif (Time.get_ticks_msec() - _last_progress_ticks) / 1000.0 > STALL_SECONDS:
 			_finish_stalled("no progress for %.0fs at %s" % [STALL_SECONDS, sig])
 			return

@@ -11146,6 +11146,7 @@ static func _line_intersects_polygon(from: Vector2, to: Vector2, polygon: Packed
 	return false
 
 static func _is_position_near_enemy(pos: Vector2, enemies: Dictionary, own_unit: Dictionary) -> bool:
+	_prof_enemy += 1
 	# Check if position is within engagement range (1") of any enemy model
 	var own_models = own_unit.get("models", [])
 	var own_base_mm = own_models[0].get("base_mm", 32) if own_models.size() > 0 else 32
@@ -11179,6 +11180,7 @@ static func _is_position_near_enemy(pos: Vector2, enemies: Dictionary, own_unit:
 # the endpoint rule applies (vehicles/monsters may not stop on ruin walls;
 # infantry may).
 static func _dest_overlaps_wall(dest: Vector2, base_mm: int, base_type: String, base_dimensions: Dictionary, unit_keywords: Array = []) -> bool:
+	_prof_wall += 1
 	var meas = _measurement()
 	if meas == null or not meas.has_method("model_overlaps_any_wall"):
 		return false
@@ -11194,6 +11196,7 @@ static func _dest_overlaps_wall(dest: Vector2, base_mm: int, base_type: String, 
 # the same way so the AI routes around ruin walls instead of dispatching
 # doomed staged moves.
 static func _path_blocked_by_solid_terrain(from_pos: Vector2, to_pos: Vector2, base_mm: int, base_type: String, base_dimensions: Dictionary, unit_keywords: Array) -> bool:
+	_prof_terrain += 1
 	if from_pos == Vector2.INF:
 		return false
 	var tm = _terrain_manager()
@@ -11734,6 +11737,7 @@ static func _get_monster_vehicle_models(snapshot: Dictionary, exclude_unit_id: S
 static func _path_crosses_monster_vehicle(from_pos: Vector2, to_pos: Vector2,
 	base_mm: int, base_type: String, base_dimensions: Dictionary,
 	mv_models: Array, rotation: float = 0.0) -> bool:
+	_prof_mv += 1
 	if mv_models.is_empty():
 		return false
 	var meas = _measurement()
@@ -11775,6 +11779,94 @@ static func _path_crosses_monster_vehicle(from_pos: Vector2, to_pos: Vector2,
 # to accept so a relaxed placement can still squeeze into a legal gap but can
 # never end up genuinely on top of another model. A cheap distance pre-filter
 # keeps it from running models_overlap against the whole board.
+# ---------------------------------------------------------------- OBSTACLE GRID
+# A uniform spatial grid over the obstacle list, so a position query visits only
+# the models that could possibly be in range instead of all of them.
+#
+# Why: profiled on mirror_orks_2000_postdeploy (154 models on the table), eight
+# seconds of one movement phase performed
+#     _position_collides_with_deployed   14,153 calls / 1,757,641 obstacle iterations
+#     _dest_really_overlaps               8,783 calls / 1,321,591 obstacle iterations
+#                                                       ... and only 603 shape tests
+# — 3.08 million iterations for about two unit moves, of which 99.95% of the
+# exact-overlap work was a distance pre-filter throwing the obstacle away again.
+# _resolve_movement_collision alone tries 28 candidate positions and runs both
+# scans on each, and the caller invokes it once per model per move fraction.
+#
+# This is a pure lookup optimisation and MUST stay behaviour-preserving: the
+# bucket query returns a SUPERSET of the obstacles within the query radius, and
+# the original predicates then run unchanged over that subset. Anything excluded
+# is provably further away than any possible interaction distance, so every
+# decision is bit-for-bit what it was. Verified with determinism_check.
+# Above this radius a base is treated as "oversized" and kept out of the grid.
+# 100px ~= 2.5in ~= a 64mm base; the Ork list's Stompa (180mm) and Wartrikes
+# (120mm) are the only things past it.
+const BIG_OBSTACLE_RADIUS_PX := 100.0
+
+
+static func _build_obstacle_grid(obstacles: Array) -> Dictionary:
+	var max_r := 0.0
+	var entries: Array = []
+	for ob in obstacles:
+		var ob_pos = ob.get("position", null)
+		if ob_pos == null:
+			continue
+		var op: Vector2 = ob_pos if ob_pos is Vector2 else Vector2(float(ob_pos.get("x", 0)), float(ob_pos.get("y", 0)))
+		# Bounding radius is the larger of the two radii the predicates use, so
+		# it is the safe one to size the grid with.
+		var r := _model_bounding_radius_px(
+			ob.get("base_mm", 32), ob.get("base_type", "circular"), ob.get("base_dimensions", {}))
+		max_r = maxf(max_r, r)
+		entries.append({"ob": ob, "pos": op, "r": r})
+	# Sizing the cell on the LARGEST base is what a naive grid does, and one
+	# oversized model ruins it for everyone: a single 180mm Stompa (radius 142px)
+	# forces 324px cells, so every query drags in ~34 neighbours instead of a
+	# handful. Split the few oversized bases into a flat list that is always
+	# scanned, and size the grid for the rest. Measured effect of the split on
+	# mirror_orks_2000_postdeploy is in the commit message.
+	var big: Array = []
+	var small: Array = []
+	var small_max := 0.0
+	for e in entries:
+		if e.r > BIG_OBSTACLE_RADIUS_PX:
+			big.append(e.ob)
+		else:
+			small.append(e)
+			small_max = maxf(small_max, e.r)
+	var cell: float = maxf(80.0, small_max * 2.0 + 40.0)
+	var cells := {}
+	for e in small:
+		var key := Vector2i(int(floor(e.pos.x / cell)), int(floor(e.pos.y / cell)))
+		if not cells.has(key):
+			cells[key] = []
+		cells[key].append(e.ob)
+	return {"cell": cell, "cells": cells, "max_radius": small_max,
+			"big": big, "count": entries.size()}
+
+
+static func _grid_nearby(grid: Dictionary, pos: Vector2, query_radius: float) -> Array:
+	"""Obstacles whose cell is within query_radius of pos — a superset of those
+	actually in range. Never returns fewer than the true set."""
+	if grid.is_empty():
+		return []
+	var cell: float = grid.cell
+	var reach: float = query_radius + grid.max_radius
+	var cells: Dictionary = grid.cells
+	var x0 := int(floor((pos.x - reach) / cell))
+	var x1 := int(floor((pos.x + reach) / cell))
+	var y0 := int(floor((pos.y - reach) / cell))
+	var y1 := int(floor((pos.y + reach) / cell))
+	# Oversized bases are always included — there are only a handful and they
+	# are exactly the ones a cell-size heuristic cannot bound.
+	var out: Array = (grid.big as Array).duplicate()
+	for ix in range(x0, x1 + 1):
+		for iy in range(y0, y1 + 1):
+			var key := Vector2i(ix, iy)
+			if cells.has(key):
+				out.append_array(cells[key])
+	return out
+
+
 static func _dest_really_overlaps(dest: Vector2, base_mm: int, base_type: String,
 	base_dimensions: Dictionary, obstacles: Array, rotation: float = 0.0) -> bool:
 	var meas = _measurement()
@@ -11788,7 +11880,9 @@ static func _dest_really_overlaps(dest: Vector2, base_mm: int, base_type: String
 		"base_dimensions": base_dimensions,
 		"rotation": rotation
 	}
+	_prof_dro_calls += 1
 	for ob in obstacles:
+		_prof_dro_iters += 1
 		var ob_pos = ob.get("position", null)
 		if ob_pos == null:
 			continue
@@ -11798,6 +11892,7 @@ static func _dest_really_overlaps(dest: Vector2, base_mm: int, base_type: String
 		# Distance pre-filter: bases can only overlap if their bounding circles do.
 		if dest.distance_to(op) > my_bound + ob_bound:
 			continue
+		_prof_dro_shape += 1
 		if meas.models_overlap(mover, ob):
 			return true
 	return false
@@ -11840,6 +11935,17 @@ static func _resolve_movement_collision(
 	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 4.0, -4.0, 5.0, -5.0]
 	var rc_unit_kw: Array = unit.get("meta", {}).get("keywords", [])
 
+	# Bucket the obstacles ONCE for the candidate positions below. Each
+	# candidate previously scanned the whole obstacle list twice; profiled at
+	# 1.76M + 1.32M obstacle iterations for ~2 unit moves on the 154-model Ork
+	# fixture. _grid_nearby returns a SUPERSET of what is in range, so the
+	# predicates below see exactly the obstacles they would have accepted
+	# anyway and the decision is unchanged.
+	var _grid := _build_obstacle_grid(obstacles)
+	var _my_bound := _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	var _near := func(at: Vector2) -> Array:
+		return _grid_nearby(_grid, at, _my_bound + 8.0)
+
 	# MOV-FIX (2026-07-13): a resolved candidate is only ACCEPTED if it (a) does
 	# not really overlap another base (engine-exact, defeats relaxed-mode
 	# overlaps) and (b) stays within unit coherency of an already-placed model.
@@ -11848,7 +11954,7 @@ static func _resolve_movement_collision(
 	# passed but CONFIRM was rejected with "Unit coherency broken" — 22 of these
 	# in one benchmark game, permanently freezing units like the Custodian Guard.
 	var _accept := func(candidate: Vector2) -> bool:
-		if _dest_really_overlaps(candidate, base_mm, base_type, base_dimensions, obstacles):
+		if _dest_really_overlaps(candidate, base_mm, base_type, base_dimensions, _near.call(candidate)):
 			return false
 		if not unit_placed.is_empty() and coherency_max_px > 0.0:
 			var coh := false
@@ -11877,7 +11983,7 @@ static func _resolve_movement_collision(
 			if original_pos.distance_to(candidate) > move_cap_px:
 				continue
 
-		if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions, radius_factor):
+		if _position_collides_with_deployed(candidate, base_mm, _near.call(candidate), 1.0, base_type, base_dimensions, radius_factor):
 			continue
 		if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
 			continue
@@ -11903,7 +12009,7 @@ static func _resolve_movement_collision(
 			if original_pos != Vector2.INF and move_cap_px > 0.0:
 				if original_pos.distance_to(candidate) > move_cap_px:
 					continue
-			if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions, radius_factor):
+			if _position_collides_with_deployed(candidate, base_mm, _near.call(candidate), 1.0, base_type, base_dimensions, radius_factor):
 				continue
 			if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
 				continue
@@ -11934,7 +12040,7 @@ static func _resolve_movement_collision(
 			if original_pos != Vector2.INF and move_cap_px > 0.0:
 				if original_pos.distance_to(candidate) > move_cap_px:
 					continue
-			if _position_collides_with_deployed(candidate, base_mm, obstacles, 1.0, base_type, base_dimensions, radius_factor):
+			if _position_collides_with_deployed(candidate, base_mm, _near.call(candidate), 1.0, base_type, base_dimensions, radius_factor):
 				continue
 			if _dest_overlaps_wall(candidate, base_mm, base_type, base_dimensions, rc_unit_kw):
 				continue
@@ -19445,13 +19551,36 @@ static func _model_movement_radius_px(base_mm: int, base_type: String = "circula
 		_:
 			return (base_mm / 2.0) * mm_to_px
 
+# PROFILING (temporary, 2026-08-09): the Ork 2000-pt fixture cannot finish a
+# game, and density and rigid-block movement have both been ruled out by
+# measurement. These counters answer "where does the time actually go" with
+# numbers instead of a reading of the code. Dumped by _dump_collision_profile().
+static var _prof_pcd_calls: int = 0
+static var _prof_pcd_iters: int = 0
+static var _prof_dro_calls: int = 0
+static var _prof_dro_iters: int = 0
+static var _prof_dro_shape: int = 0
+static var _prof_wall: int = 0
+static var _prof_terrain: int = 0
+static var _prof_enemy: int = 0
+static var _prof_mv: int = 0
+
+
+static func _dump_collision_profile(tag: String) -> void:
+	print("[COLLISION_PROFILE] %s: pcd calls=%d iters=%d | dro calls=%d iters=%d shape=%d | wall=%d terrain=%d enemy=%d mv=%d" % [
+		tag, _prof_pcd_calls, _prof_pcd_iters, _prof_dro_calls, _prof_dro_iters, _prof_dro_shape,
+		_prof_wall, _prof_terrain, _prof_enemy, _prof_mv])
+
+
 static func _position_collides_with_deployed(pos: Vector2, base_mm: int, deployed_models: Array, min_gap_px: float = 1.0, base_type: String = "circular", base_dimensions: Dictionary = {}, radius_factor: float = 1.0) -> bool:
 	"""Check if a position would collide with any deployed model.
 	Uses the tighter movement radius for rectangular bases to avoid
 	false positives that prevent large vehicles from moving.
 	radius_factor < 1.0 shrinks both collision circles (relaxed mode)."""
 	var my_radius = _model_movement_radius_px(base_mm, base_type, base_dimensions) * radius_factor
+	_prof_pcd_calls += 1
 	for dm in deployed_models:
+		_prof_pcd_iters += 1
 		var other_radius = _model_movement_radius_px(
 			dm.get("base_mm", 32),
 			dm.get("base_type", "circular"),
