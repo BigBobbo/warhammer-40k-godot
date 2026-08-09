@@ -42,13 +42,30 @@ every model that tries to move is boxed in by neighbours and the mover grinds:
 The Custodes fixture is packed just as tightly but fills only an eighth of the
 zone, so there is escape room around the block and it does not bite.
 
-**What would fix it.** The packer uses a fixed 10 px step and first-fit from
-the top edge, which minimises area used and therefore maximises contact. The
-zone is only 58.6% full — there is room to spread. Packing to a target gap of
-~0.5-1" instead of "as tight as legal" would both make this exam affordable and
-produce a deployment a player might actually field. That is a fixture rebuild,
-so it invalidates the A/A numbers measured on the current packing and should be
-done deliberately, not mid-season.
+**What would fix it — and what does NOT.** Two hypotheses were tested and both
+failed, so this is still open:
+
+1. *Packing density.* The obvious read, and it is wrong. A rebuilt fixture with
+   a **6x larger** median gap (0.42 in against 0.07 in) was still in BATTLE
+   ROUND 1 after 14 minutes. Spacing is not the cause. Note also that the Ork
+   list genuinely fills its zone: laid out as per-unit blocks, the blocks come
+   to 80-87% of the 44x14in zone whichever layout is used, so there is not much
+   room to spread even if it had helped.
+2. *Moving the squad as a block* (`MOVE_RIGID_BLOCK_FIRST`, default off). A
+   rigid translation of the whole unit, retried at shorter fractions — the
+   player's drag-select-and-drag. It works on the Custodes fixture (82-88
+   successful block moves per game) but scores **0 successes** here in a
+   10-minute run: on a board this dense an all-or-nothing translation of 6+
+   models past terrain essentially never has every model clear at once.
+
+What that leaves is the per-model fallback itself. `_resolve_movement_collision`
+runs a bounded search per colliding model against every other model on the
+table, and the caller invokes it once per move fraction, so a congested unit
+pays six full searches before anything cheap is tried — roughly 11 seconds for
+a single unit's move on this fixture. The obstacle test is a linear scan over
+all 154 models; a uniform-grid spatial index would cut it by a large constant
+factor and is **behaviour-preserving**, which makes it the right next thing to
+try. That is a profiling job, not a guess, and it has not been done.
 
 **Until then:** the screening path has no automated guard. It is exercised in
 real games (6 SCREEN plan lines in a 306-line 2000-pt game), so it is not
