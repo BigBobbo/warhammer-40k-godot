@@ -97,3 +97,17 @@ permanently-failed deployments, zero script errors. One Warbikers squad
 exhausted its deploy retries and went to Strategic Reserves via the new
 auto_timeout fallback — the path that used to deadlock END_DEPLOYMENT.
 The 41-VP margin is one seed of mirror noise, not a claim about the layout.
+
+## Addendum 4 — the A/A season: the UNUSABLE row is replaced
+
+10 seeds (7001-7010), 61.9 min at 2 lanes, season `bench_data/ork_aa_postfix`:
+
+    completed 10 / stalled 0 / timed out 0
+    F (P2−P1) = +9.60   sd 16.11   se 5.09   95% CI [−0.4, +19.6]
+    per-game wall: 670-757 s (median 733) under shared load
+
+Seed 7001's season game reproduced this session's standalone run EXACTLY
+(733 actions, margin +9) — independent invocations, identical trajectory,
+so determinism holds through every new code path. The A/A row is written
+into `2026-08-08_2000pt_fixture_AA.md`; the fixture is back in
+`gate_candidate.MIRRORS`.
