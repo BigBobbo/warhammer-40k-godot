@@ -133,6 +133,20 @@ any fraction" once and return `remain_stationary`. That is a behaviour change
 placement), so it needs the paired evaluator — but it should be cheap and it
 removes a hang.
 
+**FIX LANDED (2026-08-09).** Three parameters, defaults ON, baseline arm in
+`40k/tests/bench_profiles/large_army_moves_off.json`:
+
+* `MOVE_PARTIAL_SQUAD` — models that can move DO move; blocked models stay at
+  their positions (0" moves are legal, AIPlayer already confirms partial
+  staging). The all-or-nothing requirement was what made every rung fail.
+* `MOVE_STUCK_EARLY_EXIT` — zero movers across all strict fractions ends the
+  ladder and memoises the unit as stuck for the round (the memo also covers
+  the ~7 re-invocations per decision/recompute).
+* `MOVE_SEARCH_BUDGET` — a deterministic candidate-position ceiling per
+  computation (20k). Observed live on the diagnosed unit: "Warbikers Delta:
+  MOVE_SEARCH_BUDGET exhausted before relaxed 0.50x (40051 candidates);
+  holding this round" — bounded, where before it was minutes.
+
 **Where the earlier work stands.** ~2x achieved against the ~20-50x this fixture
 would need. The remaining cost is not the cost *per* query but the **number of
 queries**: 14,153 collision tests and 8,783 exact-overlap tests for two unit

@@ -11566,7 +11566,8 @@ static func _try_move_with_collision_check(
 				resolved_dest = _resolve_movement_collision(
 					dest, move_vector, base_mm, base_type, base_dimensions,
 					all_obstacles, enemies, unit, orig_pos, move_cap_px, mv_models, radius_factor,
-					placed_models, coherency_max_px
+					placed_models, coherency_max_px,
+					intra_unit_obstacles if partial else []
 				)
 			if resolved_dest == Vector2.INF:
 				failed_models.append({"model": model, "intended_dest": dest})
@@ -12181,8 +12182,16 @@ static func _resolve_movement_collision(
 	obstacles: Array, enemies: Dictionary, unit: Dictionary,
 	original_pos: Vector2 = Vector2.INF, move_cap_px: float = 0.0,
 	mv_models: Array = [], radius_factor: float = 1.0,
-	unit_placed: Array = [], coherency_max_px: float = 0.0
+	unit_placed: Array = [], coherency_max_px: float = 0.0,
+	stay_anchors: Array = []
 ) -> Vector2:
+	# stay_anchors (partial-squad mode): current positions of same-unit models
+	# that have not moved (and on a congested board mostly will not). A
+	# resolved candidate must stay coherent with placed movers OR one of these
+	# anchors — without this, the one model that CAN move gets relocated up to
+	# the full move cap away, the mixed moved+stayed set fails the final
+	# coherency gate, and the whole ladder fails rung after rung even though a
+	# short coherent shuffle existed.
 	var perp = Vector2(-move_vector.y, move_vector.x).normalized()
 	var base_radius = _model_movement_radius_px(base_mm, base_type, base_dimensions)
 	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 4.0, -4.0, 5.0, -5.0]
@@ -12209,7 +12218,7 @@ static func _resolve_movement_collision(
 	var _accept := func(candidate: Vector2) -> bool:
 		if _dest_really_overlaps(candidate, base_mm, base_type, base_dimensions, _near.call(candidate)):
 			return false
-		if not unit_placed.is_empty() and coherency_max_px > 0.0:
+		if (not unit_placed.is_empty() or not stay_anchors.is_empty()) and coherency_max_px > 0.0:
 			var coh := false
 			for pm in unit_placed:
 				var pp = pm.get("position", null) if pm is Dictionary else pm
@@ -12219,6 +12228,15 @@ static func _resolve_movement_collision(
 				if candidate.distance_to(ppv) <= coherency_max_px:
 					coh = true
 					break
+			if not coh:
+				for an in stay_anchors:
+					var ap = an.get("position", null) if an is Dictionary else an
+					if ap == null:
+						continue
+					var apv: Vector2 = ap if ap is Vector2 else Vector2(float(ap.get("x", 0)), float(ap.get("y", 0)))
+					if candidate.distance_to(apv) <= coherency_max_px:
+						coh = true
+						break
 			if not coh:
 				return false
 		return true
