@@ -53,3 +53,17 @@ Zero `SCRIPT ERROR` lines in either game log.
 - The postdeploy fixture's 0.07" packing remains a fixture defect to
   rebuild (~0.5-1" gaps); these runs prove robustness under it, not that it
   is a sensible board.
+
+## Addendum — Custodes arm smoke, same seed (5001), sequential runs
+
+| arm | status | rounds | actions | wall s | vp_diff (P2−P1) |
+|---|---|---|---|---|---|
+| OFF profile (`large_army_moves_off`, both players) | completed | 5 | 561 | 167 | −4 |
+| shipped defaults (bundle ON) | completed | 5 | 514 | 141 | +13 |
+
+Both profiles verified loaded ("Loaded profile for P" ×2). One seed — this
+row validates the A/B instrument (both arms healthy, comparable shape), not
+strength. On this healthy board the ON arm fired ZERO budget/stuck/partial
+events: the mechanisms engage only under congestion, by construction. The
+paired campaign (`bench_data/campaign_large_army_bundle`, seeds 9100+) is
+the strength measurement.
