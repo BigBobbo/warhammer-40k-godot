@@ -46,6 +46,7 @@ var _p2 := ""
 var _mirror := ""
 var _out := ""
 var _predeploy := false
+var _preformations := false
 
 
 func _initialize() -> void:
@@ -55,6 +56,15 @@ func _initialize() -> void:
 		elif a.begins_with("--mirror="): _mirror = a.split("=", true, 1)[1]
 		elif a.begins_with("--out="): _out = a.split("=", true, 1)[1]
 		elif a == "--predeploy": _predeploy = true
+		elif a == "--preformations":
+			# Everything --predeploy does, PLUS the game starts at the
+			# FORMATIONS phase with nothing pre-confirmed. Every earlier
+			# fixture carried formations_p1/p2_confirmed = true, so
+			# FormationsPhase auto-completed and the AI's leader-attachment,
+			# transport-embarkation and reserves-declaration code was dead in
+			# every automated game ever played.
+			_predeploy = true
+			_preformations = true
 		else:
 			# Silently ignoring an unrecognised flag is how a bare `--mirror`
 			# (no `=<list>`) produced a fixture that was named like a mirror,
@@ -163,7 +173,16 @@ func _build() -> void:
 	# 6. Round 1, command phase, player 1 first — the shell's own start point,
 	#    restated so this does not silently inherit a different one later.
 	st.meta["battle_round"] = 1
-	st.meta["phase"] = 1 if _predeploy else 6  # Phase.DEPLOYMENT / Phase.COMMAND
+	if _preformations:
+		st.meta["phase"] = 0  # Phase.FORMATIONS
+		# The shell save carries these as true, which makes FormationsPhase
+		# auto-complete on entry. Clear them so the phase actually runs.
+		st.meta["formations_p1_confirmed"] = false
+		st.meta["formations_p2_confirmed"] = false
+		st.meta["formations_declared"] = false
+		st.meta["formations"] = {"1": {}, "2": {}}
+	else:
+		st.meta["phase"] = 1 if _predeploy else 6  # Phase.DEPLOYMENT / Phase.COMMAND
 	st.meta["active_player"] = 1
 	st.meta["first_turn_player"] = 1
 	st.meta["turn"] = 1

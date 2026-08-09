@@ -56,6 +56,7 @@ PX_PER_INCH = 40.0
 STATUS_IN_RESERVES = 7  # GameState.UnitStatus.IN_RESERVES (autoloads/GameState.gd:17)
 STATUS_UNDEPLOYED = 0   # GameState.UnitStatus.UNDEPLOYED
 PHASE_DEPLOYMENT = 1    # GameState.Phase.DEPLOYMENT (autoloads/GameState.gd:16)
+PHASE_FORMATIONS = 0    # GameState.Phase.FORMATIONS — also pre-placement
 
 # No single 11e datasheet in this project's army files costs this much. A unit
 # above it is almost certainly an army-list header row, not a datasheet.
@@ -464,12 +465,16 @@ def check_fixture(path: str, strict: bool = False, mirror: bool | None = None) -
         rep.err("no units in fixture")
         return rep
 
-    # A fixture that starts at Deployment has not placed anything yet, so the
-    # placement invariants are inverted rather than absent. Detect the mode from
-    # meta.phase rather than from the filename — the phase is what the runner
-    # actually reads (AIBenchmarkRunner reads meta.phase to pick its start
-    # phase), so keying off it means the check and the run cannot disagree.
-    predeploy = int((d.get("meta") or {}).get("phase", -1) or -1) == PHASE_DEPLOYMENT
+    # A fixture that starts at Formations or Deployment has not placed anything
+    # yet, so the placement invariants are inverted rather than absent. Detect
+    # the mode from meta.phase rather than from the filename — the phase is what
+    # the runner actually reads (AIBenchmarkRunner reads meta.phase to pick its
+    # start phase), so keying off it means the check and the run cannot disagree.
+    # NOTE: FORMATIONS is phase 0, so the old `meta.get("phase", -1) or -1`
+    # idiom would have collapsed it to -1 — parse None explicitly instead.
+    _phase_raw = (d.get("meta") or {}).get("phase")
+    _phase = int(_phase_raw) if _phase_raw is not None else -1
+    predeploy = _phase in (PHASE_DEPLOYMENT, PHASE_FORMATIONS)
     rep.info["predeploy"] = predeploy
 
     check_placeholders(units, rep)

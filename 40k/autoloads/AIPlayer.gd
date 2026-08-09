@@ -3507,8 +3507,13 @@ func _handle_failed_deployment(player: int, original_decision: Dictionary) -> vo
 				zone_bounds.min_y + 80 + AIDecisionMaker.ai_randf() * (zone_height - 160)
 			)
 
-			# Check if center is within the actual zone polygon (not just bounding box)
-			if zone_poly_pixels.size() > 0 and not Geometry2D.is_point_in_polygon(test_center, zone_poly_pixels):
+			# The engine requires the model WHOLLY inside the zone polygon —
+			# centre-only testing accepted centres whose base edge stuck out,
+			# which is one of the ways the retry ladder kept failing.
+			if zone_poly_pixels.size() > 0 and not AIDecisionMaker._pos_wholly_in_zone_poly(
+					test_center,
+					AIDecisionMaker._model_bounding_radius_px(base_mm, base_type, base_dimensions),
+					zone_poly_pixels):
 				continue
 
 			# Check if a model at this position would overlap walls
@@ -3524,8 +3529,8 @@ func _handle_failed_deployment(player: int, original_decision: Dictionary) -> vo
 			print("AIPlayer: Deployment retry %d for %s: no wall-free center found" % [attempt + 1, unit_name])
 			continue
 
-		var positions = AIDecisionMaker._generate_formation_positions(best_center, models.size(), base_mm, zone_bounds)
-		positions = AIDecisionMaker._resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions)
+		var positions = AIDecisionMaker._generate_formation_positions(best_center, models.size(), base_mm, zone_bounds, zone_poly_pixels)
+		positions = AIDecisionMaker._resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions, zone_poly_pixels)
 
 		# Validate all positions are wall-free before submitting
 		var all_wall_free = true
@@ -3589,6 +3594,18 @@ func _fallback_to_reserves(player: int, unit_id: String, unit_name: String) -> v
 
 	_current_phase_actions += 1
 	var result = NetworkIntegration.route_action(reserves_action)
+
+	# Cap-rejected (e.g. 50% already reserved)? Retry ONCE with the P2-42
+	# auto_timeout bypass. Before this, a unit that could neither fit on the
+	# table nor under the cap went to _failed_deploy_unit_ids — but
+	# _all_units_deployed() still counted it, so END_DEPLOYMENT stayed invalid
+	# forever and the deployment phase deadlocked the whole game.
+	if result == null or not result.get("success", false):
+		var first_err = "" if result == null else str(result.get("error", result.get("errors", "")))
+		print("AIPlayer: Reserves fallback for %s rejected (%s) — retrying with auto_timeout bypass" % [unit_name, first_err])
+		reserves_action["auto_timeout"] = true
+		_current_phase_actions += 1
+		result = NetworkIntegration.route_action(reserves_action)
 
 	if result != null and result.get("success", false):
 		print("AIPlayer: Successfully placed %s in strategic reserves" % unit_name)
