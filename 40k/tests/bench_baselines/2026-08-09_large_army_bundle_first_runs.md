@@ -67,3 +67,21 @@ strength. On this healthy board the ON arm fired ZERO budget/stuck/partial
 events: the mechanisms engage only under congestion, by construction. The
 paired campaign (`bench_data/campaign_large_army_bundle`, seeds 9100+) is
 the strength measurement.
+
+## Addendum 2 — paired A/B, Custodes mirror, 8 pairs (campaign max)
+
+`run_paired.py`, candidate = `large_army_moves_off` (OLD behaviour), baseline
+= shipped defaults (bundle ON), seeds 9100+, 16 games, all completed, 0
+stalls. Campaign JSON:
+`bench_data/campaign_large_army_bundle/campaign_paired_20260809_210034_large_army_moves_off.json`.
+
+    E (old − new) = −1.50 VP/game   se 2.142   95% CI [−5.7, +2.7]   t = −0.7
+    F (structural) = −4.50           se 3.718
+
+Read: at this budget the bundle is strength-NEUTRAL on the healthy mirror —
+the point estimate slightly favours the new defaults and the CI excludes a
+regression larger than ~2.7 VP at 95%. The stopping rule never reached a
+verdict (needs |E| ≥ 4 at 2 se, or se ≤ 1.6 for futility), so a bigger
+campaign can tighten this; nothing here argues for turning the bundle off.
+The trajectory across the run: +3.25 → +0.38 → 0.00 → −1.50 as pairs
+accumulated — noise collapsing around zero.
