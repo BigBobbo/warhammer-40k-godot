@@ -163,3 +163,16 @@ from numbers rather than from a reading of it.
 **Until then:** the screening path has no automated guard. It is exercised in
 real games (6 SCREEN plan lines in a 306-line 2000-pt game), so it is not
 untested — it is unguarded against regression.
+
+**UN-PARKED (2026-08-09) — and it FAILED, which is new information.** With
+the movement fix in, the exam produces a verdict in 473 s (against two
+timeouts at 700-1500 s before), so the COST reason for parking is gone. Its
+first-ever completed run then failed on substance: got +2.73" against the
+≤ 0.5" bar. The log shows why — the screen assignment fired ("Gretchin
+Alpha (OC2): SCREEN") but the same plan sent the protectee forward ("Mek
+(OC1): MOVE obj_nml_1, 38.1\" away"), so the Mek walked past its own screen:
+_compute_screen_position works from the protectee's PRE-move position and
+nothing stops the objective pass from marching the protectee downfield of
+it. That is a real coordination gap, correctly caught. The exam has moved
+to `aspirational/`, owned by the screen/protectee-coordination task in
+`.llm/ai-overhaul-todo.md`.

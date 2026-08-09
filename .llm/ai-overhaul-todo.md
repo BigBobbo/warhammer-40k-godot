@@ -460,6 +460,28 @@ contain the alternatives that were considered (F-04).*
     acceptance (2), still owed. (3) `fixture_check.py` passes.
   - **Tier B:** none.
 
+- [ ] **C8 — A screen must survive the protectee's own move**
+  - **Lock:** AIDecisionMaker (movement planning)  • **Depends:** none  • **Cost:** code + ~12 paired games
+  - **Context (2026-08-09):** `sc02_screen_covers_the_gap` became affordable
+    after the large-army movement fix (verdict in 473 s) and its first-ever
+    completed run FAILED: +2.73" against the ≤ 0.5" bar. Root cause from the
+    run log — the plan assigned "Gretchin Alpha (OC2): SCREEN" and, in the
+    same pass, "Mek (OC1): MOVE obj_nml_1, 38.1\" away": the protectee is
+    routed downfield of its own screen, because `_compute_screen_position`
+    works from the protectee's PRE-move position and the objective pass
+    never checks whether a unit it moves is currently being screened.
+  - **Spec:** Either compute screen positions against the protectee's
+    PLANNED destination (`_movement_intents` / the turn movement plan), or
+    have the objective pass cap a screened protectee's move so it does not
+    cross its screen line — pick after reading COORD-2/COORD-4. Behaviour
+    change: paired evaluator before shipping.
+  - **Acceptance — Tier A:** `sc02_screen_covers_the_gap` (now in
+    `aspirational/`) passes and moves back into the gated suite; paired A/B
+    on the Custodes mirror is non-regressing.
+  - **Tier B:** the Ork-mirror screen lines in a full game show the screen
+    between threat and protectee at the END of the movement phase, not just
+    at assignment time.
+
 - [x] **A7 — CI ratchet: reachability and record integrity can only improve**
   - **Lock:** CI + Lab  • **Depends:** A2, A4  • **Cost:** CI-only
   - **Context:** No workflow runs any AI-lab check today (verified: no
