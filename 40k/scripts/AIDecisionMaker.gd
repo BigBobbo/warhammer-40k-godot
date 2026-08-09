@@ -4219,6 +4219,31 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 			positions = _resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions, zone_poly)
 			print("AIDecisionMaker: Found wall-free center for %s at (%.0f, %.0f)" % [unit_name, wall_free_center.x, wall_free_center.y])
 
+	# Pre-gate with the ENGINE'S OWN acceptance rules before submitting — the
+	# reinforcement path already does both of these (there they took 6 engine
+	# round-trips down to 1). The circular collision radius under-covers oval
+	# bases (avg(L,W)/2), so 31 of the Ork list's 77 models could pass the
+	# resolver and still be rejected at DEPLOY_UNIT. One nudged re-resolve
+	# toward the zone centre fixes most of them locally; if that fails too,
+	# submit the original and let AIPlayer's retry ladder handle it (old path).
+	if positions.size() >= 1:
+		var gate_bad: bool = _formation_really_overlaps(positions, base_mm, base_type, base_dimensions, deployed_models) \
+			or (positions.size() >= 2 and not _check_formation_coherency(positions, base_mm))
+		if gate_bad:
+			var zone_mid := Vector2((zone_bounds.min_x + zone_bounds.max_x) / 2.0, (zone_bounds.min_y + zone_bounds.max_y) / 2.0)
+			var nudged_center: Vector2 = best_pos + (zone_mid - best_pos).normalized() * (_deploy_footprint_px(unit) * 2.0 + 20.0)
+			if not zone_poly.is_empty():
+				nudged_center = _project_into_zone_poly(nudged_center, _deploy_footprint_px(unit) + 5.0, zone_poly)
+			var retry_positions = _generate_formation_positions(nudged_center, models.size(), base_mm, zone_bounds, zone_poly)
+			retry_positions = _resolve_formation_collisions(retry_positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions, zone_poly)
+			var retry_ok: bool = not _formation_really_overlaps(retry_positions, base_mm, base_type, base_dimensions, deployed_models) \
+				and (retry_positions.size() < 2 or _check_formation_coherency(retry_positions, base_mm))
+			if retry_ok:
+				_debug_log_info("AI_DEPLOY %s: pre-gate rejected first formation (overlap/coherency), nudged re-resolve accepted" % [unit_name])
+				positions = retry_positions
+			else:
+				_debug_log_info("AI_DEPLOY %s: pre-gate rejected formation and the nudged retry — submitting original for engine retry ladder" % [unit_name])
+
 	var rotations = []
 	for i in range(models.size()):
 		rotations.append(0.0)
