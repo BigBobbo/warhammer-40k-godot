@@ -58,14 +58,27 @@ failed, so this is still open:
    10-minute run: on a board this dense an all-or-nothing translation of 6+
    models past terrain essentially never has every model clear at once.
 
-What that leaves is the per-model fallback itself. `_resolve_movement_collision`
-runs a bounded search per colliding model against every other model on the
-table, and the caller invokes it once per move fraction, so a congested unit
-pays six full searches before anything cheap is tried — roughly 11 seconds for
-a single unit's move on this fixture. The obstacle test is a linear scan over
-all 154 models; a uniform-grid spatial index would cut it by a large constant
-factor and is **behaviour-preserving**, which makes it the right next thing to
-try. That is a profiling job, not a guess, and it has not been done.
+3. *The obstacle scan being a linear pass over all 154 models.* Profiled and
+   fixed — and it was real, but not sufficient. Eight seconds of one movement
+   phase (~2 unit moves) was doing **3.08 million obstacle iterations**, of
+   which 99.95% of the exact-overlap work was a distance pre-filter throwing
+   the obstacle straight back out. A uniform spatial grid cut it 4.1x/4.4x and
+   roughly halved the phase, verified behaviour-preserving (both Custodes seeds
+   reproduce the pre-change margin and action count exactly). The fixture still
+   does not leave battle round 1.
+
+**Where it actually stands.** ~2x achieved against the ~20-50x this fixture
+would need. The remaining cost is not the cost *per* query but the **number of
+queries**: 14,153 collision tests and 8,783 exact-overlap tests for two unit
+moves. That comes from the structure of the search — 6 move fractions x ~6
+models x 28 candidate positions x several predicates each, with no memory
+between attempts. Making that cheaper means changing the search, not the
+lookup: cache a unit's failure so a boxed-in unit does not re-derive it six
+times, cut the fraction ladder once a unit is known stuck, or compute a
+free-space map once per phase instead of per candidate. That is a design change
+with its own measurement, and it has not been attempted. The profiling counters
+(`_dump_collision_profile`) are left in the code so the next attempt starts
+from numbers rather than from a reading of it.
 
 **Until then:** the screening path has no automated guard. It is exercised in
 real games (6 SCREEN plan lines in a 306-line 2000-pt game), so it is not
