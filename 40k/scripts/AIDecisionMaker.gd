@@ -18470,10 +18470,14 @@ static func _assess_engage_on_all_fronts(units: Dictionary, player: int) -> floa
 	if alive < 2:
 		return 0.05  # Can't cover enough quarters
 	# Check how many quarters we currently have units in (>6" from center)
+	# _get_covered_quarters returns an Array of 4 bools — iterate the VALUES.
+	# The old `covered[q]` indexed the array with a bool ("Invalid access to
+	# property or key 'true' on a base object of type 'Array'"), a live
+	# SCRIPT ERROR whenever Engage on All Fronts was assessed.
 	var covered = _get_covered_quarters(units, player)
 	var covered_count = 0
 	for q in covered:
-		if covered[q]:
+		if q:
 			covered_count += 1
 	if covered_count >= 3:
 		return 0.8  # Already in 3+ quarters — very achievable
