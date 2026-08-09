@@ -200,9 +200,17 @@ Every step below is measured, not reasoned.
 any fixture whose units fail the ENGINE's own
 `AttackSequence.check_unit_coherency` — the exact predicate ISS-042 enforces.
 `mirror_orks_2000_postdeploy` was rebuilt (sha256 76b7e123…): 0 incoherent
-units, 0 ISS-042 removals in play, and the game now **leaves battle round 1**
-— player 1's full turn, the thing that never finished before, completes in
-~4 minutes and the game keeps going. The movement
+units, 0 ISS-042 removals in play, and the fixture that "cannot finish a
+game" now **completes all 5 battle rounds**:
+
+    seed 9101, Hard, time_scale 6
+    status=completed  battle_round=5  actions=798  wall=956 s  margin=-7
+
+Against the previous behaviour — still in battle round 1 after 22 minutes,
+one unit and one decision consuming 280 s of it. It is still the slowest
+fixture in the lab at ~16 minutes a game (the per-model search is unchanged;
+see below), so it needs a budget well above the 350 s the other fixtures
+use, but nothing is unmovable and every decision returns in bounded time. The movement
 ladder also gained `MOVE_LADDER_FAIL_BUDGET` (default 0 = off, same gating
 convention as MOVE_RIGID_BLOCK_FIRST): when set, a unit that keeps failing
 placement stops burning rungs after N failed attempts and holds instead —
