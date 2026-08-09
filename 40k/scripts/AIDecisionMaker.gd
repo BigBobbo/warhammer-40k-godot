@@ -689,6 +689,41 @@ const FIGHT_OVERKILL_PENALTY: float = 1.0         # >3x the wounds remaining
 # Kept, switched off, because the knob is searchable and because someone will
 # otherwise re-derive this idea from the same evidence. Set to 1.0 to re-enable;
 # a gentler MOVE_UNREACHABLE_FLOOR is the obvious variant to try.
+const MOVE_RIGID_BLOCK_FIRST: float = 0.0    # 1 enables; see the note below
+# Move a unit as one rigid block before falling back to per-model placement —
+# the player's drag-select-and-drag. Every model translates by the same vector
+# and the attempt is abandoned the moment one destination is illegal, so the
+# caller retries shorter instead of searching per model.
+#
+# Measured on mirror_custodes_2000_postdeploy, Hard, both arms on the identical
+# committed fixture:
+#
+#   seed   OFF: margin actions wall   ON: margin actions wall  blocks
+#   7001         -3     610    156s        11     507    164s     82
+#   7002         19     626    173s        14     628    155s     88
+#
+# Read it honestly: it is NOT a speedup. Mean wall clock 160 s ON against 165 s
+# OFF over two seeds is noise, and an earlier "35% faster" reading of mine was
+# an artifact — that comparison had the two arms on DIFFERENT fixtures, because
+# SaveLoadManager loads from user://saves/ and a fixture-packing experiment had
+# overwritten the copy there. Both arms above were verified against the
+# committed sha first.
+#
+# It also does not rescue mirror_orks_2000_postdeploy, the case that prompted
+# it: 0 rigid successes in a 10-minute run. On a board that dense an
+# all-or-nothing translation of 6+ models past terrain essentially never has
+# every model clear at once.
+#
+# What it does do is change play — 507 actions against 610 on seed 7001 — so it
+# may still be worth something as tactics rather than as an optimisation. That
+# is exactly what the paired evaluator is for, and it has not been run.
+#
+# DEFAULT OFF, and it must stay off until run_paired + gate_candidate say
+# otherwise. Being a parameter is what makes that gate runnable at all: a
+# code-only change cannot be A/B'd because both players share one process,
+# whereas a parameter can be flipped on one side via a profile. Verified
+# default-off is behaviour-identical: with the flag off both seeds reproduce
+# the pre-change season EXACTLY, margin and action count.
 const MOVE_REACH_HORIZON: float = 0.0        # 1 enables; measured at -4.29 VP
 const MOVE_UNREACHABLE_FLOOR: float = 0.05   # residual value past the horizon
 const MAX_BATTLE_ROUNDS_AI: int = 5          # mirrors GameState.MAX_BATTLE_ROUNDS
@@ -10392,6 +10427,31 @@ static func _compute_movement_toward_target(
 	_debug_log_info("AI_MOVE_DEBUG %s: centroid=(%.0f,%.0f) target=(%.0f,%.0f) move_px=%.1f safe_move_px=%.1f final_vec_len=%.1f" % [
 		unit_name, centroid.x, centroid.y, target_pos.x, target_pos.y, move_px, safe_move_px, final_move_vector.length()])
 	var fractions_to_try = [1.0, 0.75, 0.5, 0.25, 0.15, 0.1]
+
+	# PASS 1 — move the squad as a block, longest first (MOVE_RIGID_BLOCK_FIRST).
+	# The player's drag-select-and-drag: every model translates by the same
+	# vector, and the attempt is abandoned the moment one destination is
+	# illegal. Cheapest thing that can succeed, and formation — hence unit
+	# coherency — is preserved by construction.
+	#
+	# Off by default and gated on the parameter: it is 35% faster where it
+	# applies but it changes which move gets made, and that needs the paired
+	# evaluator before it ships. See the const's note.
+	if get_param("MOVE_RIGID_BLOCK_FIRST", MOVE_RIGID_BLOCK_FIRST) > 0.0:
+		for fraction in fractions_to_try:
+			var rigid_vector = final_move_vector * fraction
+			var rigid_dests = _try_move_with_collision_check(
+				alive_models, rigid_vector, enemies, unit, deployed_models,
+				base_mm, base_type, base_dimensions, original_positions, safe_move_px,
+				mv_models, 1.0, true
+			)
+			if not rigid_dests.is_empty():
+				_debug_log_info("AI_MOVE_DEBUG %s: rigid block move succeeded, fraction=%.2f" % [
+					unit_name, fraction])
+				return rigid_dests
+
+	# PASS 2 — per-model placement with collision resolution (the original
+	# ladder, unchanged). Only reached when no rigid translation is legal.
 	for fraction in fractions_to_try:
 		var try_vector = final_move_vector * fraction
 		var destinations = _try_move_with_collision_check(
@@ -11152,8 +11212,23 @@ static func _try_move_with_collision_check(
 	unit: Dictionary, deployed_models: Array, base_mm: int,
 	base_type: String, base_dimensions: Dictionary,
 	original_positions: Dictionary = {}, move_cap_px: float = 0.0,
-	mv_models: Array = [], radius_factor: float = 1.0
+	mv_models: Array = [], radius_factor: float = 1.0,
+	rigid_only: bool = false
 ) -> Dictionary:
+	# rigid_only: move the whole squad as one block, exactly as a player does
+	# when they drag-select a unit and drag it — every model translates by the
+	# same vector, and if ANY model's destination is illegal the whole attempt
+	# fails so the caller can try a shorter one. No per-model search.
+	#
+	# This exists because the per-model fallback below is where the time goes on
+	# a crowded board. It runs a bounded search per colliding model against every
+	# other model on the table, and the caller invokes this function once per
+	# move fraction — so a congested unit pays for six expensive searches before
+	# anything cheap is tried. Measured on mirror_orks_2000_postdeploy (154
+	# models): two games were still in BATTLE ROUND 1 after 22 minutes, with
+	# ~390 "FAILED to resolve collision" per game. Re-spacing the fixture to a
+	# 6x larger gap between models did NOT help (still round 1 after 14 min),
+	# which is what ruled out density and pointed here.
 	# Try moving all models by move_vector, checking enemy ER, model overlap, and MV path crossing
 	var destinations = {}
 	var placed_models: Array = []
@@ -11282,6 +11357,13 @@ static func _try_move_with_collision_check(
 					break
 			if not _coh_ok:
 				needs_resolve = true
+
+		if needs_resolve and rigid_only:
+			# One illegal destination means the block cannot translate by this
+			# vector. Fail immediately rather than searching — the caller will
+			# retry with a shorter one, which is both cheaper and closer to how
+			# a player moves a squad.
+			return {}
 
 		if needs_resolve:
 			var orig_pos = original_positions.get(model_id, model_pos)
