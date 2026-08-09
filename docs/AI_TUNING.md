@@ -241,6 +241,221 @@ respect the `MELEE_AGGRESSION_ADVANCE_THRESHOLD_INCHES` chase cap.
 | `SECONDARY_CENTER_BONUS` | 3.5 | Area Denial: center positioning |
 | `SECONDARY_ENEMY_ZONE_PUSH_BONUS` | 7.0 | Behind Enemy Lines: pushing into the enemy deployment zone |
 
+### Reserves, embarkation and disembarkation (A4, 2026-08-07)
+
+These three scorers between them held 46 bare literals — the largest single
+block of scoring arithmetic no profile, rule or optimiser could reach
+(`research/audit_findings_2026-08-07.md` F-02). Reserves sizing has already
+lost a benchmark game on its own (950 pts held back;
+`docs/AI_REVIEW_2026-07-11.md` §2.4), so the block being untunable was not a
+theoretical problem. Promotion kept every default **exactly** as it was, which
+`determinism_check.py` verifies as byte-identical play.
+
+### Reserves — deep strike
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `RESERVES_DS_LONG_RANGE` | 1.5 | deep strike: long-range shooter |
+| `RESERVES_DS_MID_RANGE` | 3.5 | deep strike: shooter with max range <= 24" |
+| `RESERVES_DS_MIXED_MELEE` | 6 | deep strike: mixed melee/ranged unit |
+| `RESERVES_DS_POINTS_CAP` | 3 | deep strike: cap on the points-value bonus |
+| `RESERVES_DS_POINTS_DIVISOR` | 100 | deep strike: points per unit of value bonus |
+| `RESERVES_DS_PURE_MELEE` | 8 | deep strike: pure-melee unit |
+| `RESERVES_DS_SHORT_RANGE` | 5 | deep strike: shooter with max range <= 18" |
+
+### Reserves — strategic reserves
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `RESERVES_SR_MIXED_MELEE` | 2.5 | strategic reserves: mixed melee/ranged unit |
+| `RESERVES_SR_MOVE_10` | 1.5 | strategic reserves: unit with Move >= 10" |
+| `RESERVES_SR_MOVE_12` | 2 | strategic reserves: unit with Move >= 12" |
+| `RESERVES_SR_MOVE_8` | 0.5 | strategic reserves: unit with Move >= 8" |
+| `RESERVES_SR_POINTS_CAP` | 1.5 | strategic reserves: cap on the melee points bonus |
+| `RESERVES_SR_POINTS_DIVISOR` | 200 | strategic reserves: points per unit of melee value bonus |
+| `RESERVES_SR_PURE_MELEE` | 4 | strategic reserves: pure-melee unit |
+| `RESERVES_SR_RANGED` | 0.5 | strategic reserves: any other ranged unit |
+| `RESERVES_SR_SHORT_RANGE` | 2 | strategic reserves: shooter with max range <= 18" |
+
+### Reserves — universal modifiers
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `RESERVES_CHEAP_SCREEN_PENALTY` | 0.5 | cheap non-Deep-Strike unit (better as a screen) |
+| `RESERVES_LONG_RANGE_PENALTY` | 0.3 | ranged-only unit with max range >= 36" |
+| `RESERVES_VEHICLE_MELEE_PENALTY` | 0.7 | melee-only VEHICLE/MONSTER |
+| `RESERVES_VEHICLE_RANGED_PENALTY` | 0.4 | VEHICLE/MONSTER that is not melee-only |
+
+### Embarkation (which cargo wants a transport)
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `EMBARK_COSTLY` | 0.1 | cargo costs >= 100 pts |
+| `EMBARK_EXPENSIVE` | 0.15 | cargo costs >= 150 pts |
+| `EMBARK_INFANTRY` | 0.1 | cargo is INFANTRY (the common transportable type) |
+| `EMBARK_LOW_TOUGHNESS` | 0.3 | cargo toughness <= 4 |
+| `EMBARK_MEDIUM_UNIT` | 0.15 | cargo has <= 10 models |
+| `EMBARK_MELEE` | 0.25 | cargo has melee weapons (transport delivers the charge) |
+| `EMBARK_MID_RANGE` | 0.15 | cargo max weapon range <= 24" |
+| `EMBARK_OC_PER_POINT` | 0.1 | per point of objective control on the cargo |
+| `EMBARK_POOR_SAVE` | 0.2 | cargo save 5+ or worse |
+| `EMBARK_SHORT_RANGE` | 0.3 | cargo max weapon range <= 12" |
+| `EMBARK_SINGLE_WOUND` | 0.2 | cargo models have 1 wound |
+| `EMBARK_SLOW` | 0.1 | cargo Move <= 6" |
+| `EMBARK_SMALL_UNIT` | 0.3 | cargo has <= 5 models (capacity-efficient) |
+| `EMBARK_VERY_SLOW` | 0.2 | cargo Move <= 5" |
+
+### Disembarkation (get out now, or stay in?)
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `DISEMBARK_AGGRESSIVE_FACTION` | 0.2 | aggressive faction keyword on the cargo |
+| `DISEMBARK_CHARGE_CHANCE` | 0.4 | a charge is on after disembarking |
+| `DISEMBARK_COSTLY_CARGO` | 0.15 | cargo costs >= 100 pts |
+| `DISEMBARK_ELITE_CARGO` | 0.3 | cargo costs >= 200 pts |
+| `DISEMBARK_NO_FIRING_DECK` | 0.4 | transport has no Firing Deck (nothing gained by staying in) |
+| `DISEMBARK_OBJ_FAR` | 0.15 | objective within 12" of the transport |
+| `DISEMBARK_OBJ_NEAR` | 0.4 | objective within 6" of the transport |
+| `DISEMBARK_OBJ_ON_TOP` | 0.8 | transport is standing on an objective |
+| `DISEMBARK_OC_BONUS` | 0.1 | per point of cargo OC when claiming that objective |
+| `DISEMBARK_ROUND_1_PENALTY` | 0.2 | round 1: mild penalty for disembarking early |
+| `DISEMBARK_ROUND_2_BONUS` | 0.3 | round 2: start getting out |
+| `DISEMBARK_ROUND_3_BONUS` | 0.8 | round 3+: objectives will not score themselves |
+| `DISEMBARK_SHOOTING_BASE` | 0.3 | at least one enemy in range after disembarking |
+| `DISEMBARK_SHOOTING_PER_TARGET` | 0.1 | per additional enemy in range |
+| `DISEMBARK_TRANSPORT_STUCK` | 0.3 | transport remained stationary — cargo is going nowhere |
+| `DISEMBARK_TRANSPORT_THREATENED` | 0.25 | an anti-tank weapon can reach the transport |
+
+### Fight, charge and deployment (A5, 2026-08-07)
+
+The rest of F-02's mass. Deployment scoring was "nearly all hard-coded"
+(`docs/AI_DECISION_REVIEW_2026-07.md` §3.1) — which meant deployment, the
+thing that largely decides rounds 1-2, could not be tuned per persona at all.
+Every charge and fight coefficient screened *inert* on the Custodes mirror,
+but that fixture fields 9 elite units; B3 re-screens them on the 16-unit Ork
+horde where melee decisions are frequent. A coefficient cannot be judged until
+it is reachable. Values unchanged; `determinism_check.py` verifies that.
+
+After A4 + A5 the unreachable share of scoring arithmetic is **42%**, down
+from 78%.
+
+### Deployment — terrain preference by role
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `DEPLOY_TERRAIN_CHAR_COVER` | 2 | deployment terrain, character: piece grants cover |
+| `DEPLOY_TERRAIN_CHAR_LOS_BLOCK` | 5 | deployment terrain, character: piece blocks line of sight |
+| `DEPLOY_TERRAIN_DURABLE_COVER` | 2.5 | deployment terrain, durable ranged: cover |
+| `DEPLOY_TERRAIN_DURABLE_LOS_BLOCK` | 1 | deployment terrain, durable ranged: LoS blocker |
+| `DEPLOY_TERRAIN_FORWARD_WEIGHT` | 2 | deployment terrain, melee: weight on how far forward the piece is |
+| `DEPLOY_TERRAIN_FRAGILE_COVER` | 3.5 | deployment terrain, fragile shooter: cover |
+| `DEPLOY_TERRAIN_FRAGILE_LOS_BLOCK` | 3 | deployment terrain, fragile shooter: LoS blocker |
+| `DEPLOY_TERRAIN_MELEE_COVER` | 1.5 | deployment terrain, melee: cover |
+| `DEPLOY_TERRAIN_MELEE_LOS_BLOCK` | 4 | deployment terrain, melee: LoS blocker to advance behind |
+| `DEPLOY_TERRAIN_SCREEN_COVER` | 2 | deployment terrain, screen: cover |
+| `DEPLOY_TERRAIN_SCREEN_LOS_BLOCK` | 1.5 | deployment terrain, screen: LoS blocker |
+
+### Deployment — scout objective choice
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `SCOUT_OBJ_ALREADY_HELD` | 5 | scout target: already held (penalty) |
+| `SCOUT_OBJ_CONTESTED` | 5 | scout target: contested, worth reinforcing |
+| `SCOUT_OBJ_DISTANCE_PENALTY` | 0.3 | scout target: penalty per inch of distance |
+| `SCOUT_OBJ_ENEMY_HELD` | 7 | scout target: enemy holds it, a scout can get there first |
+| `SCOUT_OBJ_ENEMY_ZONE` | 4 | scout target: inside the enemy deployment zone (penalty) |
+| `SCOUT_OBJ_NO_MANS_LAND` | 3 | scout target: sits in no man's land |
+| `SCOUT_OBJ_OWN_ZONE` | 2 | scout target: inside our own zone (penalty) |
+| `SCOUT_OBJ_UNCONTROLLED` | 10 | scout target: objective nobody controls |
+
+### Reserves — arrival ordering and placement
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `RESERVE_DEPLOY_CONTESTED_OBJ` | 1.5 | reserve arrival order: a contested objective needs help |
+| `RESERVE_DEPLOY_DEEP_STRIKE` | 2 | reserve arrival order: unit deep strikes |
+| `RESERVE_DEPLOY_MELEE` | 1.5 | reserve arrival order: melee unit |
+| `RESERVE_DEPLOY_OPEN_OBJ` | 0.5 | reserve arrival order: an uncontested objective is available |
+| `RESERVE_DEPLOY_POINTS_DIVISOR` | 50 | reserve arrival order: points per unit of base priority |
+| `RESERVE_DEPLOY_ROUND_4` | 2 | reserve arrival order: round 4 |
+| `RESERVE_DEPLOY_ROUND_5` | 5 | reserve arrival order: round 5, last chance to arrive |
+| `RESERVE_DEPLOY_SHORT_RANGE` | 1 | reserve arrival order: short-ranged unit |
+
+### Reserves — reinforcement placement
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `REINFORCE_AAO_BROKEN` | 3 | reinforcement spot: lands inside a friendly bubble, buff lost (penalty) |
+| `REINFORCE_AAO_CLEAR` | 4 | reinforcement spot: arrives with Against All Odds live |
+| `REINFORCE_CHARGE_RANGE` | 3 | reinforcement spot: lands inside charge range |
+| `REINFORCE_NEAR_CHARGE_RANGE` | 2 | reinforcement spot: just outside charge range |
+| `REINFORCE_OBJ_FAR_BASE` | 8 | reinforcement spot: base value at longer range from an objective |
+| `REINFORCE_OBJ_NEAR_BASE` | 10 | reinforcement spot: base value for landing near an objective |
+
+### Charge — target and multi-charge scoring
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `CHARGE_BELOW_HALF_BONUS` | 3 | target already below half strength |
+| `CHARGE_CANT_HURT_PENALTY` | 1 | we cannot meaningfully damage it |
+| `CHARGE_CHARACTER_BONUS` | 2 | target is a CHARACTER |
+| `CHARGE_COMBO_OBJ_MULT` | 1.3 | multi-charge: a target is on an objective |
+| `CHARGE_COMBO_SHORT_3IN_MULT` | 1.3 | multi-charge: farthest target within 3" |
+| `CHARGE_COMBO_SHORT_6IN_MULT` | 1.2 | multi-charge: farthest target within 6" |
+| `CHARGE_COMBO_TIGHT_CLUSTER_MULT` | 1.1 | multi-charge: targets are tightly clustered |
+| `CHARGE_GANG_UP_BONUS` | 3 | charge target: a friendly unit is already fighting it |
+| `CHARGE_HALF_KILL_BONUS` | 3 | charge target: we can remove half its remaining wounds |
+| `CHARGE_LIKELY_KILL_BONUS` | 5 | charge target: we can likely kill it outright |
+| `CHARGE_LOW_TOUGHNESS_BONUS` | 1 | charge target: toughness 3 or less |
+| `CHARGE_MELEE_DAMAGE_WEIGHT` | 2 | expected melee damage multiplier |
+| `CHARGE_RANGE_PX` | 480 | 12 inches |
+| `CHARGE_SHORT_3IN_MULT` | 1.3 | charge: needs 3" or less (reliability multiplier) |
+| `CHARGE_SHORT_6IN_MULT` | 1.2 | charge: needs 6" or less (reliability multiplier) |
+| `CHARGE_TARGET_ON_OBJ_MULT` | 1.5 | charge: target is standing on an objective |
+| `CHARGE_TIE_UP_SHOOTER_BONUS` | 2 | locks a long-range shooter in combat |
+
+### Fight — which enemy to attack
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `FIGHT_LOCK_DANGEROUS_SHOOTER` | 1.5 | fight target: shooter above the dangerous-output threshold |
+| `FIGHT_LOCK_LONG_RANGE` | 2 | fight target: long-ranged shooter worth locking in melee |
+
+### Fight — activation order
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `FIGHT_ORDER_BADLY_HURT` | 1.5 | fight order: this unit will be badly hurt |
+| `FIGHT_ORDER_CAN_WIPE` | 6 | fight order: this unit can wipe its target, so it goes first |
+| `FIGHT_ORDER_CHARACTER` | 2 | fight order: target is a CHARACTER |
+| `FIGHT_ORDER_DAMAGE_WEIGHT` | 1 | fight order: weight on raw expected melee damage |
+| `FIGHT_ORDER_DANGEROUS_SHOOTER` | 2 | fight order: target is a dangerous shooter |
+| `FIGHT_ORDER_HALF_KILL` | 3 | fight order: this unit can take its target below half |
+| `FIGHT_ORDER_LIKELY_TO_DIE` | 3 | fight order: this unit is likely to die, get its value first |
+| `FIGHT_ORDER_MASSIVE_OVERKILL` | 1.5 | fight order: massive overkill, let others take the weak target (penalty) |
+| `FIGHT_ORDER_TARGET_ON_OBJ` | 1.5 | fight order: target is on an objective |
+
+### Fight — remaining target terms
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `FIGHT_ALREADY_OVERKILLED` | 1 | fight target: prior fighters already overkilled it (penalty) |
+| `FIGHT_BELOW_HALF_BONUS` | 3 | target already below half strength |
+| `FIGHT_CANT_HURT_PENALTY` | 3 | we cannot meaningfully damage it |
+| `FIGHT_CAN_HALVE_BONUS` | 3 | we can take it below half strength |
+| `FIGHT_CAN_WIPE_BONUS` | 6 | we can likely destroy the unit outright |
+| `FIGHT_CHARACTER_BONUS` | 2 | target is a CHARACTER |
+| `FIGHT_LOW_TOUGHNESS` | 1 | fight target: toughness 3 or less |
+| `FIGHT_MELEE_DAMAGE_WEIGHT` | 2 | expected melee damage multiplier |
+| `FIGHT_OVERKILL_PENALTY` | 1 | >3x the wounds remaining |
+| `FIGHT_TARGET_ON_OBJ` | 2 | fight target: standing on an objective |
+
+### Warlord selection
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `WARLORD_ATTACHED_BONUS` | 10 | warlord pick: character is already attached to a bodyguard |
+
 ---
 
 ## What is *not* (yet) a parameter

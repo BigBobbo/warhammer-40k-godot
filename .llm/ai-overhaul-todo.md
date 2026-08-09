@@ -6,7 +6,8 @@ and a plan for the turn over one shared value function, bounded lookahead
 where it pays, and an automated propose → play → measure → gate → ship loop
 (a "Karpathy loop") that turns games played into strength gained.
 
-36 tasks in six workstreams. See the phase table at the bottom for order.
+36 tasks in six workstreams (37 since D1b was split out of D1 on
+2026-08-07). See the phase table at the bottom for order.
 
 Companion document: `docs/AI_CURRENT_AND_FUTURE.html` explains the current AI,
 the target architecture, and the reasoning behind this plan. Read it first if
@@ -62,15 +63,33 @@ reference.**
 4. **Fixture integrity first.** Any new fixture passes
    `tools/ai_lab/fixture_check.py` before a single game is played on it. A
    corrupt fixture already invalidated every pre-2026-08-06 baseline once.
+4b. **Measure at 2000 points, on lists a player can pick** (added 2026-08-08).
+   40k is balanced at 2000 points and this game is designed to be played
+   there. Every number in this repo before 2026-08-08 came from 1335- and
+   1840-point armies spliced out of a hand-built save, matching no shipped
+   list. The campaign fixtures are now built by
+   `40k/tests/make_2000pt_fixture.gd` from the shipped `custodes_lions`
+   (Lions of the Emperor) and `recon_stomps` (Speedwaaagh!) lists through
+   ArmyListManager, at 2000 points a side:
+     mirror_custodes_2000_postdeploy   11 units / 42 models
+     mirror_orks_2000_postdeploy       17 units / 77 models
+     asym_2000_postdeploy              Custodes vs Orks
+   plus `_predeploy` variants that start at Phase.DEPLOYMENT so the AI places
+   its own army. Do not add a fixture built any other way to
+   `CAMPAIGN_FIXTURES`.
 5. **Interpretability is a product requirement.** The AI narrates its
    reasoning in the game log. Any change must keep the narration truthful
    (chosen/rejected candidates with real scores). A change that cannot
    explain itself in the log is not shippable.
 6. **No ML runtime in-engine.** GDScript in-engine; all numerical/learning
    work lives in Python (`tools/ai_lab/`) operating on exported records.
-7. **Cost everything in games and wall-clock.** ~48 s/game on the Custodes
-   mirror, ~487 s on the Ork mirror, 3 lanes on 4 cores. Per-seed margin SD
-   is 9–15 VP. Evaluation budget is the scarcest resource in this project.
+7. **Cost everything in games and wall-clock.** On the retired 1335/1840-pt
+   fixtures: ~48 s/game Custodes mirror, ~487 s Ork mirror. On the 2000-pt
+   fixtures a game is materially more expensive — 194 s measured for one
+   complete `mirror_custodes_2000_predeploy` game (deployment through round 5,
+   826 actions, seed 9001, Hard, time_scale 6). 3 lanes on 4 cores. Per-seed
+   margin SD is 9–15 VP. Evaluation budget is the scarcest resource in this
+   project, and it just got scarcer — budget accordingly.
 8. **Do not remove debugging logs** (project rule), and player-facing changes
    update `40k/data/version_history.json` and need a windowed scenario.
 
@@ -103,7 +122,7 @@ Locks in use: `AIDM` (AIDecisionMaker.gd), `AIPlayer`, `Lab` (tools/ai_lab),
 was hardcoded until the morning it was promoted; shooting records don't even
 contain the alternatives that were considered (F-04).*
 
-- [ ] **A1 — Shooting decision records capture real alternatives**
+- [x] **A1 — Shooting decision records capture real alternatives**
   - **Lock:** AIDM  • **Depends:** —  • **Cost:** code-only + 2 verification games
   - **Context:** Audit F-04: the shooting record stores the *assigned plan*
     (`chosen_index` hardcoded to 0, candidates = the assignments), not the
@@ -119,18 +138,74 @@ contain the alternatives that were considered (F-04).*
     `score_breakdown`, and `chosen_index` pointing at the actual pick. Emit a
     record for hold-fire decisions (candidates: shoot-best-target vs hold,
     with the Hidden-value term). No scoring behavior may change.
-  - **Acceptance — Tier A:** (1) `determinism_check.py` — identical action
-    streams before/after on both mirrors, 2 seeds each. (2) A benchmark game
-    record contains shooting decisions with ≥2 candidates and at least one
-    record with `chosen_index > 0` (assert via a small Python check on the
-    record JSON). (3) At least one `hold_fire` decision record appears in a
-    game where the Hidden hold triggers (use the existing
-    `ai_hidden_awareness_11e` scenario fixture).
+  - **Acceptance — Tier A:** (1) `determinism_check.py --require trajectory` —
+    identical action streams before/after on both mirrors, 2 seeds each
+    (the decision records are *supposed* to change, which is why the gate is
+    the trajectory level; the tool still prints the decision column).
+    (2) A benchmark game record contains shooting decisions with ≥2
+    candidates whose scores differ (assert via `validate_records.py` /
+    a small Python check on the record JSON). (3) A `hold_fire` decision
+    record appears both ways in the `ai_hidden_awareness_11e` scenario —
+    `chosen_index 0` when the Hidden hold triggers and `chosen_index 1` when
+    the same shot is made worth taking.
   - **Tier B:** Open one game record; the shooting candidates read as real
     alternatives ("Melta → Terminators 4.2 EV" vs "Melta → Boyz 1.1 EV"),
     not as restatements of the plan.
+  - **Premise correction (2026-08-07, applied with the fix):** the original
+    bullet (2) asked for "at least one *shooting* record with
+    `chosen_index > 0`". That is structurally unreachable and asking for it
+    would have forced a dishonest record. Both shooting paths are a greedy
+    **argmax over the same score the record reports** — the focus-fire plan
+    picks the global best (weapon, target) pair each iteration, the fallback
+    picks each weapon's best target — so in a score-sorted candidate list the
+    chosen candidate is always index 0 *by construction*. A non-zero index
+    there could only be produced by sorting the list by something other than
+    the deciding score, which would misrepresent the decision. The honest
+    equivalent, kept above, is: ≥2 candidates with *different* scores (proving
+    the record contains rejected options, not restatements), plus a real
+    `chosen_index > 0` on the one shooting decision that is genuinely a
+    two-way comparison rather than an argmax — `hold_fire`.
 
-- [ ] **A2 — Movement records decompose their score**
+  - **Evidence (2026-08-07):**
+    ```
+    # determinism, before (8d693c7, pristine worktree) vs after, 2 seeds x both mirrors
+    python3 tools/ai_lab/run_lanes.py --fixture mirror_custodes_postdeploy \
+        --seeds 5001-5002 --arm ref --lanes 2 --season seasons/ref_cust_HEAD   # before
+    python3 tools/ai_lab/run_lanes.py --fixture mirror_orks_postdeploy \
+        --seeds 5001-5002 --arm ref --lanes 2 --season seasons/ref_ork_HEAD    # before
+    python3 tools/ai_lab/determinism_check.py seasons/ref_cust_HEAD seasons/a1_cust --require trajectory
+      -> PASS (trajectory)  5001 match/match, 5002 match/match, 766 action lines identical
+                            decision records 187 -> 237 (by design)
+    python3 tools/ai_lab/determinism_check.py seasons/ref_ork_HEAD seasons/a1_ork --require trajectory
+      -> PASS (trajectory)  5001 720/720, 5002 621/621 actions identical
+                            decision records 400 -> 505 (by design)
+
+    # record content (2 Custodes mirror games, tools/ai_lab/validate_records.py)
+      shooting records            24 -> 74
+      with >= 2 candidates              36   (0 before: candidates restated the plan)
+      hold_fire records                  0 on the mirrors (no Hidden units) - see scenario
+
+    # windowed scenario (the Hidden path, which the mirrors cannot reach)
+    bash 40k/tests/run_scenarios.sh tests/scenarios/sp/ai_hidden_awareness_11e.json
+      -> ai_hidden_awareness_11e: 28 passed, 0 failed
+      hold_fire record, chip shot   : chosen_index 0, cost 2.400 vs worth 0.139
+      hold_fire record, soft target : chosen_index 1, cost 2.400 vs worth 6.222, decision SHOOT
+      shooting record               : "Sentinel blade -> Battlewagon" marginal_value 9.782
+                                      breakdown {expected_damage, target_value, kill_threshold,
+                                                 already_allocated, efficiency, kill_fraction}
+    ```
+    Files: `40k/scripts/AIDecisionMaker.gd`,
+    `40k/tests/scenarios/sp/ai_hidden_awareness_11e.json`,
+    `tools/ai_lab/determinism_check.py` (new `--require`),
+    `tools/ai_lab/validate_records.py` (new).
+  - **Tier B self-assessed 2026-08-07 — pending human spot-check.** The
+    focus-fire candidates read as real weapon→target alternatives with a
+    six-term breakdown (marginal value, expected damage, target value, kill
+    threshold, damage already allocated, efficiency), which is the
+    "Melta → Terminators 4.2 EV vs Melta → Boyz 1.1 EV" shape the task asked
+    for. The hold-fire record reads as a priced two-way choice.
+
+- [x] **A2 — Movement records decompose their score**
   - **Lock:** AIDM  • **Depends:** —  • **Cost:** code-only + 2 verification games
   - **Context:** Audit F-05: movement `score` equals `objective_priority` in
     99% of candidates and `assigned_by` is recorded for 22 of 1,660
@@ -153,8 +228,37 @@ contain the alternatives that were considered (F-04).*
     to ≥5.
   - **Tier B:** Pick one movement decision in the record; the breakdown
     explains the choice to a human without reading code.
+  - **Evidence (2026-08-07):**
+    ```
+    python3 tools/ai_lab/determinism_check.py seasons/ref_cust_HEAD seasons/a2_cust --require trajectory
+      -> PASS (trajectory)  766 action lines identical, records 187 -> 237
+    python3 tools/ai_lab/determinism_check.py seasons/ref_ork_HEAD  seasons/a2_ork  --require trajectory
+      -> PASS (trajectory)  1341 action lines identical, records 400 -> 505
 
-- [ ] **A3 — `parameters_used` tells the truth**
+    python3 tools/ai_lab/validate_records.py seasons/a2_cust     # (Ork numbers in brackets)
+      [PASS] sum-equals-score   803/803 (1512/1512) = 100.0%   before A2: 780/803, and only
+                                                               because score WAS objective_priority
+      [PASS] named-terms        797/803 (1508/1512) = 99.3%    before A2: 0/803  = 0.0%
+      [PASS] criteria-vary      unit_oc no longer reported as a movement criterion (moved to context)
+
+    python3 tools/ai_lab/feature_census.py seasons/ref_cust_HEAD  vs  seasons/a2_cust
+      movement scoring terms          1 real term -> 21 named additive terms (24 keys total)
+      total distinct terms, whole AI  12 -> 36
+      decomposition verdict           "score == objective_priority in 97% of candidates"
+                                   -> "score is not a copy of any single reported term"
+    ```
+    The one remaining `validate_records` failure on these seasons is
+    `params-exist: charge_threshold` — that is F-06, which is A3's subject,
+    not A2's; it is fixed in the next commit.
+    Files: `40k/scripts/AIDecisionMaker.gd`.
+  - **Tier B self-assessed 2026-08-07 — pending human spot-check.** Sample
+    movement candidate now reads e.g. `objective_priority 8.0,
+    distance_penalty -1.5, oc_efficiency 1.2, secondary_zone 3.5,
+    threat_delta -2.1` summing to the printed score, with `assigned_by`
+    naming the pass that made the call — enough to explain the choice
+    without opening the source.
+
+- [x] **A3 — `parameters_used` tells the truth**
   - **Lock:** AIDM  • **Depends:** —  • **Cost:** code-only
   - **Context:** Audit F-06: records advertise parameters (e.g.
     `KILL_BONUS_MULTIPLIER`) that are bare `const`s with no `get_param` call —
@@ -170,8 +274,28 @@ contain the alternatives that were considered (F-04).*
     it. (3) Count of distinct parameters appearing in records across one
     benchmark game ≥ 25 (from 5).
   - **Tier B:** none.
+  - **Evidence (2026-08-07):**
+    ```
+    determinism_check --require trajectory, ref(8d693c7) vs a3
+      Custodes  766 action lines identical   Ork  1341 action lines identical
 
-- [ ] **A4 — Promote reserves/embark/disembark literals to parameters**
+    validate_records.py, before A3 (the a2 seasons):
+      [FAIL] params-exist  names not in params_manifest: {'charge_threshold': 5}
+    validate_records.py, after A3:
+      [PASS] params-exist  99 distinct parameter names (Custodes) / 105 (Ork),
+                           all reachable via get_param        (target was >= 25, from 5)
+      VERDICT: PASS on both mirrors
+
+    seeded fake -> validate_records.py --selftest
+      phantom parameter      ok=False failed=['params-exist']  PASS
+    ```
+    `charge_threshold` was never a parameter at all (a computed local) and
+    `TEMPO_CHARGE_THRESHOLD_REDUCTION` is a bare `const` no `get_param`
+    reads — exactly F-06. Both are gone from `parameters_used` and preserved
+    under `context.derived_values`, so no debugging information was dropped.
+    Files: `40k/scripts/AIDecisionMaker.gd`, `tools/ai_lab/validate_records.py`.
+
+- [x] **A4 — Promote reserves/embark/disembark literals to parameters**
   - **Lock:** AIDM  • **Depends:** —  • **Cost:** code-only + null test (~20 games)
   - **Context:** F-02 concentration table: `_score_unit_for_reserves` (18
     bare coefficients), `_score_unit_for_embarkation` (14),
@@ -189,8 +313,35 @@ contain the alternatives that were considered (F-04).*
     (3) Null test: `run_paired.py` with candidate == baseline returns
     E = 0.00, SE = 0.00 (the free no-op detector still works).
   - **Tier B:** Parameter names in `AI_TUNING.md` are self-explanatory.
+  - **Evidence (2026-08-07):**
+    ```
+    50 coefficients promoted across the three functions (46 bare literals plus
+    4 divisors/caps that were part of the same expressions).
 
-- [ ] **A5 — Promote fight, charge, and deployment literals**
+    tunability_audit.py     unreachable 225 -> 179 coefficients (-46, target was -40)
+                            unreachable share 78% -> 62%
+    params_manifest.py      128 -> 178 parameters, 191 -> 245 call sites
+
+    determinism_check.py (A4 vs A3, --require all, i.e. records too)
+      Custodes  766 action lines AND 237 decision records identical
+      Ork      1341 action lines AND 505 decision records identical
+
+    null test:
+    python3 tools/ai_lab/run_paired.py --candidate a4_null_defaults.json \
+        --baseline a4_null_defaults.json --fixture mirror_custodes_postdeploy --min-pairs 6
+      VERDICT: NO_OP after 6 pairs = 12 games
+      E = +0.00 VP/game  se 0.0  CI [0.0, 0.0]     (F = -5.50 +/- 4.15)
+    ```
+    The null profile is committed as `40k/tests/bench_profiles/a4_null_defaults.json`
+    so the no-op detector can be re-run at any time.
+    Files: `40k/scripts/AIDecisionMaker.gd`, `docs/AI_TUNING.md`,
+    `40k/tests/bench_profiles/a4_null_defaults.json`.
+  - **Tier B self-assessed 2026-08-07 — pending human spot-check.** Names read
+    as `<SUBSYSTEM>_<CASE>` with the case spelled out (`RESERVES_DS_PURE_MELEE`,
+    `DISEMBARK_TRANSPORT_THREATENED`, `EMBARK_SINGLE_WOUND`), and each row in
+    `AI_TUNING.md` carries the condition that triggers it.
+
+- [x] **A5 — Promote fight, charge, and deployment literals**
   - **Lock:** AIDM  • **Depends:** A4 (pattern established)  • **Cost:** code-only + null test
   - **Context:** Remaining F-02 mass: `_score_fight_target` (12 coefficients),
     charge scoring remnants, and deployment scoring ("nearly all hard-coded",
@@ -205,6 +356,30 @@ contain the alternatives that were considered (F-04).*
   - **Acceptance — Tier A:** determinism byte-identical; audit share ≤ 50%;
     null test E = 0.00.
   - **Tier B:** none.
+  - **Evidence (2026-08-07):**
+    ```
+    59 coefficients promoted across _score_fight_target, _score_fighter_priority
+    (fight ORDER), _score_charge_target, _evaluate_best_charge,
+    _score_multi_target_combo, _score_terrain_for_role, _find_best_scout_objective,
+    _score_reserves_deployment, _score_and_sort_reinforcement_candidates and
+    _choose_warlord.
+
+    tunability_audit.py   unreachable 179 -> 120 coefficients
+                          unreachable share 62% -> 42%   (target was <= 50%)
+    params_manifest.py    178 -> 237 parameters
+
+    determinism_check.py (A5 vs A4, --require all)
+      Custodes  766 action lines AND 237 decision records identical
+      Ork      1341 action lines AND 505 decision records identical
+
+    null test (a5_null_defaults.json on BOTH arms, Custodes mirror)
+      VERDICT: NO_OP after 6 pairs = 12 games
+      E = +0.00 VP/game  se 0.0  CI [0.0, 0.0]     (F = -1.33 +/- 2.93)
+    ```
+    Cumulative for A4+A5: unreachable share **78% -> 42%**, 225 -> 120
+    unreachable coefficients, 128 -> 237 parameters.
+    Files: `40k/scripts/AIDecisionMaker.gd`, `docs/AI_TUNING.md`,
+    `40k/tests/bench_profiles/a5_null_defaults.json`.
 
 - [ ] **A6 — Decision records for every decision type**
   - **Lock:** AIDM  • **Depends:** A2  • **Cost:** code-only + 2 games
@@ -225,8 +400,67 @@ contain the alternatives that were considered (F-04).*
     movement, shooting, charge, and fight phases (validator check).
   - **Tier B:** The F10 decision export opened in `ai-visualizer` shows the
     new decision types with sensible candidates.
+  - **Status 2026-08-07: PARTIAL — code complete, one of six new types
+    verified live. Checkbox deliberately left unchecked.**
+    ```
+    Six new decision types emitted via a shared _record_choice helper:
+      deployment         top-K placement (chosen spot + 5 alternates on a 6"
+                         ring, scored by objective proximity and crowding)
+      warlord            per-candidate wounds + attached-to-bodyguard bonus
+      leader_attachment  the whole pairing matrix, not just the winner
+      reserves           every unit weighed, INCLUDING the ones scored at or
+                         below zero, with the board-presence penalty split out
+      oath_of_moment     per-target priority with T/Sv/remaining-wounds
+      secondary_discard  discard-vs-keep, with "keep everything" as a real
+                         candidate so a decision to keep is not invisible
 
-- [ ] **A7 — CI ratchet: reachability and record integrity can only improve**
+    determinism_check.py --require trajectory, post-D1 reference (4824b2f)
+    vs A6, Custodes mirror, 2 seeds:
+      PASS — 766 action lines identical, records 237 -> 265
+
+    feature_census.py on the A6 Custodes season:
+      secondary_discard  17 decisions, all with >1 candidate   <- VERIFIED LIVE
+      total distinct terms across the AI: 36 -> 39
+    ```
+    **Blocker, reproduced:** the other five types sit on formations/deployment
+    code paths that no available fixture drives end to end.
+    * Both campaign mirrors start at phase 6 (COMMAND), post-deployment, so
+      `_decide_deployment`, warlord, leader attachment and reserves are never
+      reached: an exam at phase 0 on `mirror_custodes_postdeploy` finishes in
+      15 s with **0** decision records of any type.
+    * `deployment_start` is not a usable benchmark fixture. One full game on
+      it (`BENCH_DATA_DIR=... run_ai_benchmark.sh 1 deployment_start`)
+      completed 5 rounds in 25 s with this action log:
+      `ROLL_OFF_FIRST_TURN 1, CONFIRM_FIRST_TURN 1, END_COMMAND 10,
+       END_SHOOTING 10, END_CHARGE 10, END_FIGHT 10, END_SCORING 10,
+       SELECT_MARTIAL_MASTERY 5, DISCARD_SECONDARY 7,
+       REPLACE_SECONDARY_MISSION 4` — **no DEPLOY_UNIT action at all** and no
+      movement phase. The six units never deploy and the game plays out empty.
+    This is a missing fixture, not a missing emitter, so it is split out as
+    **A6b** rather than left as a claim that the code works.
+
+- [ ] **A6b — A pre-deployment benchmark fixture**
+  - **Lock:** Fixtures  • **Depends:** A6  • **Cost:** fixture build + ~6 games
+  - **Context:** Every fixture the lab can actually play starts post-deployment,
+    so the formations and deployment phases — where reserves, warlord, leader
+    attachment and placement are decided, and where C5 and C2b will live —
+    have never been exercised by a benchmark or an exam. `deployment_start`
+    looks like the fixture for this and is not: a full game on it produces no
+    `DEPLOY_UNIT` action at all (evidence under A6).
+  - **Spec:** Root-cause why `deployment_start` does not drive deployment under
+    `--ai-benchmark` (prime suspect: `meta.game_config` is null in that save,
+    and `_kick_off` sets player types but the deployment phase may gate on
+    something else). Then build `predeploy_custodes_vs_orks` from the same two
+    armies as the B2 asymmetric fixture, at phase 0 with every unit
+    undeployed, and make it pass `fixture_check.py`.
+  - **Acceptance — Tier A:** (1) One full benchmark game on the new fixture
+    contains `DEPLOY_UNIT` actions and completes. (2) `feature_census.py` on
+    that game reports decision records in the formations and deployment
+    phases, taking instrumented decision types to ≥ 9 — which is A6's
+    acceptance (2), still owed. (3) `fixture_check.py` passes.
+  - **Tier B:** none.
+
+- [x] **A7 — CI ratchet: reachability and record integrity can only improve**
   - **Lock:** CI + Lab  • **Depends:** A2, A4  • **Cost:** CI-only
   - **Context:** No workflow runs any AI-lab check today (verified: no
     `bench|ai_lab` reference in `.github/workflows/`). Promotions and
@@ -241,6 +475,49 @@ contain the alternatives that were considered (F-04).*
   - **Acceptance — Tier A:** CI job green on the branch; a deliberate
     test-commit re-hardcoding one parameter turns it red; reverting greens it.
   - **Tier B:** Job runtime < 2 minutes.
+  - **Evidence (2026-08-07):**
+    ```
+    .github/workflows/ai-lab.yml — two jobs, split by cost:
+      static  (no games, no Godot): params_manifest, validate_records
+              --selftest, validate_profile --selftest, every shipped bench
+              profile linted, fixture_check, ratchet_check
+      oracle  (headless Godot): the D1 property test + its seeded-bug
+              sensitivity check
+
+    tools/ai_lab/ratchet_check.py + tools/ai_lab/ratchet.json
+      parameters                238   (may only rise)
+      call_sites                305   (may only rise)
+      unreachable_coefficients  120   (may only fall)
+      unreachable_share_pct    41.2   (may only fall)
+      instrumentation call sites: _add_decision_record 6, _t_add 47, _t_mul 1,
+                                  _note_param_read 8, _stash_shooting_alternatives 2
+      decision types emitted: charge, fight, hold_fire, movement, shooting
+
+    red/green cycle, verified by exit code:
+      baseline                                    exit 0
+      re-hardcode WEIGHT_OC_EFFICIENCY -> `* 2.0` exit 1
+        [FAIL] parameters fell 238 -> 237
+        [FAIL] call_sites fell 305 -> 304
+        [FAIL] unreachable_coefficients rose 120 -> 121
+        [FAIL] unreachable_share_pct rose 41.2 -> 41.6
+      revert                                      exit 0
+
+    every static-job step run locally: all pass.
+    ```
+    Two deviations from the task text, both deliberate: (1) the spec asked for
+    `validate_records.py --schema-only` in CI, but CI has no game records to
+    point it at — the `--selftest`, which seeds one defect per check, is the
+    runnable equivalent and is what the job runs. (2) The ratchet watches
+    instrumentation call sites and emitted decision types as well as the
+    counts the task named, because A1-A3's value is exactly the thing a
+    refactor can drop without any existing test noticing.
+    Files: `.github/workflows/ai-lab.yml`, `tools/ai_lab/ratchet_check.py`,
+    `tools/ai_lab/ratchet.json`.
+  - **Tier B self-assessed 2026-08-07 — pending human spot-check.** The static
+    job is seconds locally (no Godot, no games); the oracle job is ~4 min for
+    the fast tier plus ~2 min for the sensitivity check, so it is a separate
+    job rather than blocking the fast one. **Not yet observed on a GitHub
+    runner** — every step was executed locally instead.
 
 ---
 
@@ -251,7 +528,7 @@ and progress absolute. Evidence: the first CEM campaign ran a tenth of its
 designed budget because games are expensive; every charge/fight coefficient
 looked inert because the only cheap fixture is melee-light.*
 
-- [ ] **B0 — Freeze the incumbent as a permanent baseline**
+- [x] **B0 — Freeze the incumbent as a permanent baseline**
   - **Lock:** Fixtures  • **Depends:** —  • **Cost:** ~40 games
   - **Context:** Today every comparison is candidate-vs-current, a moving
     target. Progress needs an absolute reference: a frozen opponent that
@@ -270,6 +547,46 @@ looked inert because the only cheap fixture is melee-light.*
     (3) Baseline report committed with F, SE, CI per mirror.
   - **Tier B:** README in `bench_baselines/` explains when to re-freeze
     (only at major milestones, keeping old freezes forever).
+  - **Evidence (2026-08-07/08):**
+    ```
+    40k/data/ai_profiles/baseline_2026_08.json — 238 parameters, every one in
+    the manifest, with an explicit value. Frozen at 333f23f (after A1-A5).
+
+    python3 tools/ai_lab/validate_profile.py 40k/data/ai_profiles/baseline_2026_08.json
+      [PASS]  1 profile linted, 0 failed
+      (declaring all 238 also sidesteps the silent-zero trap by construction)
+
+    python3 tools/ai_lab/vs_baseline.py --selftest --season <s> --lanes 1
+      VERDICT: NO_OP after 3 pairs = 6 games
+      E = +0.00 VP/game  se 0.00  CI [0.00, 0.00]
+      SELFTEST: frozen vs frozen -> PASS
+
+    A/A reference, baseline profile on BOTH sides, Hard:
+      mirror_custodes_postdeploy   20 games  F = -0.25   sd 11.96  se 2.67  CI [-5.49, +4.99]
+      mirror_orks_postdeploy       10 games  F = -6.20   sd  7.64  se 2.42  CI [-10.90, -1.50]
+      asym_orks_vs_custodes        20 games  F = -11.30  sd 11.34  se 2.54  CI [-16.27, -6.33]
+      50 games total, 0 stalled, 0 timed out
+    ```
+    The Ork mirror's F is small but marginally non-zero: same board, same
+    rotation, so the residual is first-turn advantage failing to cancel —
+    sixteen Ork bodies convert a first move into board control better than
+    nine elite bodies do, which is an asymmetry a mirror cannot remove. Ork
+    spread is also tighter (sd 7.64 vs 11.96), so it resolves a given effect
+    in fewer games than its 10x wall-clock cost suggests.
+    `git tag ai-baseline-2026-08` exists locally; **pushing tags is refused by
+    this environment's git proxy** (`send-pack: unexpected disconnect`), so the
+    freeze is identified by the sha in the profile's `frozen_at` block and in
+    the report instead. Nothing depends on the tag reaching the remote.
+    Files: `40k/data/ai_profiles/baseline_2026_08.json`,
+    `tools/ai_lab/vs_baseline.py`,
+    `40k/tests/bench_baselines/2026-08_frozen_baseline.md`,
+    `40k/tests/bench_baselines/README.md`.
+  - **Tier B self-assessed 2026-08-08 — pending human spot-check.** The
+    `bench_baselines/README.md` re-freeze section says: only at a genuine
+    milestone; never edit a freeze in place; never delete one; a new freeze is
+    a new file, a new tag and a new report, and must land with its own
+    validate/selftest/A-A table plus one paired run of the new freeze against
+    the old so the step between them is a number rather than an assumption.
 
 - [ ] **B1 — Make headless games fast**
   - **Lock:** AIPlayer  • **Depends:** —  • **Cost:** profiling + ~20 games
@@ -295,8 +612,45 @@ looked inert because the only cheap fixture is melee-light.*
   - **Kill criterion:** if unpaced mode changes any decision stream and the
     cause is a real order-dependence in AIPlayer's signal handling, stop,
     file the bug as its own task, and keep paced mode as the default.
+  - **PREMISE CORRECTED 2026-08-08 — measured, not assumed. Status: PARTIAL,
+    checkbox left unchecked.**
+    The task assumes frame pacing is the cost and that an unpaced mode is the
+    win. **It is not.** `Engine.time_scale` already divides the pacing delay,
+    so raising it 20x should shrink wall clock if pacing dominated. It does
+    not move at all:
+    ```
+    same game (mirror_custodes_postdeploy, seed 5001, Hard, 380 actions):
+      time_scale=6     wall 58.8 s     margin +1, 5 rounds, completed
+      time_scale=30    wall 54.3 s     margin +1, 5 rounds, completed
+      time_scale=120   wall 59.5 s     margin +1, 5 rounds, completed
+    ```
+    A 20x change in pacing produces a <10% wall-clock change, inside run-to-run
+    noise. Shipping `--bench-unpaced` would therefore be shipping a flag that
+    measurably does nothing, so it is deliberately NOT implemented — the
+    evidence beats the spec.
+    Where the time actually goes, measured the same way:
+    ```
+    godot --headless --path 40k --quit-after 2            10.3 s   engine boot
+    ... --ai-benchmark --bench-max-seconds=3              18.3 s   boot + fixture
+                                                                   + scene + 3 s
+      => fixed per-process overhead ~= 15 s
+      => a 58.8 s Custodes game is ~26% fixed overhead, ~44 s of AI compute
+         (380 actions ~= 115 ms/action)
+    ```
+    **The two real levers, in order:**
+    1. **Play N games per process.** ~15 s per game of pure boot/scene cost,
+       paid once per game today. Worth 26% on the Custodes mirror and ~3% on
+       the Ork one. Needs `AIBenchmarkRunner` to reset and re-load a fixture
+       in-process, and `run_lanes` to hand it a seed list instead of one seed.
+    2. **The AI decision hot path**, which is everything else and is the whole
+       story on the Ork mirror. 115 ms per action on a 9-unit fixture is the
+       number to attack; the task's prime suspect (the focus-fire weapon x
+       target matrix rebuild) has NOT been confirmed — no profile has been
+       taken, and this write-up does not claim one has.
+    The ≤30 s / ≤300 s targets are unchanged and remain unmet: lever 1 alone
+    gets Custodes to ~44 s. Lever 2 has to carry the rest.
 
-- [ ] **B2 — Asymmetric fixtures with clean baselines**
+- [x] **B2 — Asymmetric fixtures with clean baselines**
   - **Lock:** Fixtures  • **Depends:** —  • **Cost:** ~80 games (A/A)
   - **Context:** Two mirrors exist (Orks, Custodes). Mirrors isolate
     candidate effects but can't detect matchup overfitting — a change that
@@ -313,6 +667,84 @@ looked inert because the only cheap fixture is melee-light.*
     completes 5/5 games without stall at Hard.
   - **Tier B:** The two army lists are the shipped default lists a player
     actually sees.
+  - **Evidence (2026-08-07):**
+    ```
+    python3 40k/tests/make_asym_fixture.py
+      removed 9 mirrored Custodes unit(s) from P2
+      added 16 Ork unit(s) as P2
+      P1: 9 units, 1335 pts   P2: 16 units, 1840 pts
+      validation passed (no placeholders, nothing in reserves, no dangling
+      references, every army still in its own half)
+
+    python3 tools/ai_lab/fixture_check.py asym_orks_vs_custodes_postdeploy
+      [PASS]  sha256=784fc01f1e1c  round=1 phase=6 active=P1 first_turn=P1
+
+    A/A, 20 games, seeds 7001-7020, Hard, shipped defaults both sides:
+      completed 20/20, stalled 0, timed out 0     <- acceptance (3), 4x over
+      F = -11.30 VP/game   sd 11.34   se 2.54   95% CI [-16.27, -6.33]
+    ```
+    F's sign and magnitude are documented in the committed report: P1
+    (Custodes) wins by ~11 VP *despite fielding 505 fewer points*, because P1
+    takes the first turn (~19 VP on this board) and nine elite bodies hold
+    five objectives better than sixteen Ork bodies take them. F cancels
+    exactly under `run_paired`'s side swap, so a large *known* F is fine — an
+    unknown or drifting one is not, which is why it is written down with its
+    interval. sd 11.34 is at the low end of the mirrors' 9-15 VP range, so
+    this fixture costs no more games per VP of resolution than they do.
+    Files: `40k/tests/make_asym_fixture.py`,
+    `40k/tests/saves/asym_orks_vs_custodes_postdeploy.w40ksave`,
+    `40k/tests/bench_baselines/2026-08_asym_fixture_AA.md`.
+  - **Tier B self-assessed 2026-08-07, CORRECTED 2026-08-08 — FAILS as
+    originally worded.** Both armies are lifted unmodified from the two mirror
+    fixtures and no unit was edited, added or repositioned — that part holds.
+    But the Tier B bar is "the shipped default lists a player actually sees",
+    and they are **not**:
+    ```
+    Custodes mirror P1 : Blade Champion, Caladius Grav-tank,
+                         Contemptor-Achillus, Custodian Guard, Shield-Captain,
+                         Jetbike Captain, Telemon, Witchseekers x2   1335 pts
+    40k/armies/custodes_lions.json : Blade Champion x3, Custodian Guard x6,
+                         Allarus x1, Prosecutors x1                  2000 pts
+    Ork mirror P2      : Battlewagon, Boyz x3, Ghazghkull, Kaptin Badrukk,
+                         Kommandos, Lootas, Meganobz, Nob w/ Banner,
+                         Painboss, Warboss x2, Warboss in Mega Armour,
+                         Wazbom Blastajet, Weirdboy                  1840 pts
+    40k/armies/recon_stomps.json   : Deffkilla Wartrike x2, Mek, Wazdakka,
+                         Stormboyz x4, Warbikers x4, Deffkoptas x2,
+                         Gretchin x2, Stompa                         2000 pts
+    ```
+    Neither matches any file under `40k/armies/`. The fixture armies are
+    whatever the hand-built `audit_baseline_postdeploy` benchmark save
+    contained — a reasonable elite-vs-horde contrast, but not a roster a
+    player picks, and not at tournament points.
+  - **External-validity limitation (2026-08-08), applies to the WHOLE lab, not
+    just this fixture.** Every number this project has ever measured comes from
+    **two factions at non-tournament points**. B2 narrows the matchup-overfitting
+    blind spot but does not close it: it is the same two armies in a different
+    arrangement. A profile that E1 eventually ships would be tuned on
+    Custodes-vs-Orks and could be worse against Space Marines, or against a
+    different Ork detachment. Unused and available at full 2000 points:
+    `custodes_lions.json` (Lions of the Emperor), `recon_stomps.json`
+    (Speedwaaagh!), `battlewagons.json` (Rollin' Deff), `orks_taktikal.json`
+    (Taktikal Brigade). `space_marines.json` is a 330-pt stub, so a third
+    faction needs a list built first. The cheapest fix is a fourth fixture from
+    two *shipped* 2000-pt lists, added to the gate grid before E1 spends
+    thousands of games — otherwise the campaign optimises for a matchup nobody
+    plays.
+  - **RESOLVED, in part (2026-08-08).** The points half of this is fixed: the
+    campaign fixtures are now built from `custodes_lions` and `recon_stomps` at
+    2000 points a side, through `ArmyListManager`, by
+    `40k/tests/make_2000pt_fixture.gd`. Every lab default points at them and
+    all six pass `fixture_check.py`. The 1335/1840-pt fixtures are retained
+    only so the 2026-08 freeze's A/A table stays checkable.
+    **The faction half is NOT fixed.** It is still two factions, Custodes and
+    Orks — `battlewagons.json` (Rollin' Deff) and `orks_taktikal.json`
+    (Taktikal Brigade) are a different *detachment*, not a different army, and
+    `space_marines.json` is still a 330-pt stub. A profile tuned here can still
+    be worse against a third faction, and nothing measured so far would show it.
+    Building a real 2000-pt Space Marine list is the remaining work, and it is
+    a prerequisite for reading E1's output as "the AI got better" rather than
+    "the AI got better at this matchup".
 
 - [ ] **B3 — Sensitivity screen on the Ork mirror**
   - **Lock:** Lab  • **Depends:** B1 (else ~28 h), A5 (melee params exist)  • **Cost:** ~300 games
@@ -330,7 +762,7 @@ looked inert because the only cheap fixture is melee-light.*
     concurrently and returned |E| < 1 SE (harness sanity).
   - **Tier B:** Report ends with a ranked "search these next" list for E1.
 
-- [ ] **B4 — Tactical exams: cheap, sharp, falsifiable probes**
+- [x] **B4 — Tactical exams: cheap, sharp, falsifiable probes**
   - **Lock:** Exams  • **Depends:** —  • **Cost:** authoring + <10 min/run
   - **Context:** Full games are a noisy, expensive signal (SD 9–15 VP,
     minutes per game). Most regressions and most capability gains are
@@ -357,6 +789,45 @@ looked inert because the only cheap fixture is melee-light.*
     (3) Deterministic: two runs at the same seed produce identical verdicts.
   - **Tier B:** Each rationale is convincing to a 40k player; no exam
     rewards degenerate play.
+  - **Evidence (2026-08-07):**
+    ```
+    12 exams authored on mirror_custodes_postdeploy: 4 movement/objective,
+    2 screening/reserves, 2 shooting, 2 charge, 2 scoring/secondary.
+    Exam mode added to AIBenchmarkRunner (--exam=<spec> --exam-out=<path>):
+    reuses its fixture load, seeding, both-players-AI config and live scene,
+    then runs ONE phase and grades GDScript assertions over GameState and the
+    AI's own decision records.
+
+    bash 40k/tests/run_exams.sh          # EXAM_LANES=2
+      10 passed, 0 failed, 0 errored  (301s and 308s across two runs)
+      -> under the 10-minute budget; 3 lanes brings it to ~160s
+
+    Determinism (acceptance 3): the two runs above produced identical
+    verdicts AND identical per-assertion detail strings for all 10 exams.
+
+    Calibration (acceptance 2): 10 of the 12 pass; the 2 that fail do so BY
+    DESIGN and were moved to tests/exams/aspirational/ with an owning task, as
+    the task text requires:
+      ch01_no_hopeless_charge      owner D4  — the AI declares a charge across
+                                   a 14" gap (1-in-36) when it has nothing
+                                   else to do; pricing a hopeless declaration
+                                   against not declaring is D4's beam search.
+      sh01_finish_the_wounded_target owner D3 — with a 1-wound character and a
+                                   fresh squad both in range, the
+                                   marginal-value allocator picks on damage
+                                   efficiency alone, because nothing prices
+                                   "it dies before it acts again". That is
+                                   D3's one-ply reply.
+    ```
+    Files: `40k/tests/exams/` (10 gated + 2 aspirational + README),
+    `40k/tests/run_exams.sh`, `40k/autoloads/AIBenchmarkRunner.gd`.
+  - **Tier B self-assessed 2026-08-07 — pending human spot-check.** Every
+    rationale cites the rule or the VP arithmetic that makes the expected play
+    correct (11e 25.1 for objective scoring, 20.01 for the reserves cap, 2D6
+    charge odds). Two exams exist specifically to stop the suite rewarding
+    inaction: `ch02` is the mirror of `ch01` (an AI that never charges cannot
+    pass both), and `mv04`'s sum-equals-score check cannot be satisfied by
+    doing nothing because it requires records to exist at all.
 
 - [ ] **B5 — Nightly self-play season with drift alarms**
   - **Lock:** CI + Lab  • **Depends:** B0, B1  • **Cost:** runner time nightly
@@ -649,7 +1120,7 @@ Full-game tree search is out of reach (branching, clone cost) — targeted
 lookahead is not. Bot Bowl's years of results say scripted candidates +
 selective search beats both pure scripting and pure ML at this scale.*
 
-- [ ] **D1 — Reconcile the AI's damage math with the RulesEngine**
+- [x] **D1 — Reconcile the AI's damage math with the RulesEngine**
   - **Lock:** AIDM  • **Depends:** —  • **Cost:** code + property test (no games)
   - **Context:** The AI *predicts* combat with its own expected-damage
     reimplementation; the engine *resolves* it in RulesEngine. They have
@@ -669,6 +1140,136 @@ selective search beats both pure scripting and pure ML at this scale.*
     divergences either fixed or on the documented tolerance list with
     rationale. (3) CI wired.
   - **Tier B:** Tolerance list reviewed — nothing on it looks like AUDIT 0.1.
+  - **Evidence (2026-08-07):**
+    ```
+    40k/tests/test_ai_combat_math_property.gd
+      125 distinct weapon profiles across the shipped army lists
+      x 5 single-model defender profiles (T4/Sv6, T4/Sv3, T6/Sv2+4++, T9/Sv3, T12/Sv2)
+      x 1500 seeded Monte-Carlo resolutions through RulesEngine.resolve_shoot /
+        resolve_melee_attacks
+      fast tier (50 weapons) runs headless in ~4 min; --full for the whole corpus
+
+    godot --headless --path 40k -s tests/test_ai_combat_math_property.gd -- --samples=1500
+      158 pairs agree within 10%, 92 known+owned divergences, 0 NEW failures
+      VERDICT: PASS
+
+    godot ... -- --samples=600 --seeded-bug        # AUDIT 0.1 reintroduced
+      163 agree, 71 known, 16 NEW failures -> DETECTED
+      VERDICT: PASS   (inverted: it MUST fail with the bug injected)
+    ```
+    **Divergence found and FIXED:** `_estimate_melee_damage` never capped
+    damage at the target's wounds-per-model, though the ranged estimator
+    always has ("T7-6"). Every high-damage melee weapon was therefore
+    overvalued against 1- and 2-wound models — the Castellan axe measured
+    8.33 predicted vs 2.81 resolved against a 1-wound body (3.0x) and 4.17 vs
+    2.68 against 2-wound marines (1.6x). Same class as AUDIT 0.1. With the cap:
+    Big choppa 3.472 predicted vs 3.554 resolved (2.3%). Shipped as
+    `MELEE_WOUND_OVERFLOW_CAP` (default 1.0 = on) rather than a bare `if`,
+    because a code change applied to both sides of a mirror cannot be measured
+    from the margin — the evaluator needs a way to hand one side the old
+    behaviour (`d1_melee_cap_off.json`).
+
+    **Divergences catalogued, NOT tolerated silently:** 92 pairs remain, in
+    `40k/tests/ai_combat_math_known_divergences.json`, each with its measured
+    predicted/resolved ratio. The file is a ratchet — an uncatalogued pair must
+    agree within 10%, a catalogued one fails if it drifts 15% further. Two
+    classes, both owned by the new task **D1b**:
+      * 17 melee pairs where `_estimate_melee_damage` ignores weapon keyword
+        modifiers entirely (ANTI-X, TWIN LINKED, LETHAL HITS). The ranged
+        estimator calls `_apply_weapon_keyword_modifiers`; the melee one never
+        has. The AI UNDER-values exactly the weapons built to kill what it is
+        looking at — Beastchoppa vs a T12 hull: 0.56 predicted, 1.64 resolved.
+      * 75 ranged pairs where the AI OVER-predicts by 1.5-2.4x. Concentrated in
+        twin-linked, torrent and grenade weapons. **The cause is not isolated**
+        and this write-up does not pretend otherwise.
+    **The fix is behaviourally neutral, and it is shipped on correctness
+    grounds, not on a measured strength gain.** Paired evaluation, cap ON vs
+    cap OFF, stopping rule pre-registered by run_paired before the first game:
+    ```
+    Custodes mirror, 12 pairs = 24 games   E = -1.33 VP/game  se 0.93   FUTILE
+    Ork mirror (melee-relevant), 6 pairs   E = +0.33 VP/game  se 1.25   FUTILE
+    inverse-variance pooled                E = -0.74 VP/game  se 0.75
+    ```
+    Non-regression bar for a structural change is E ≥ −1 VP at 1 SE: pooled
+    E + SE = +0.01. Both mirrors' intervals straddle zero, so the honest
+    reading is that correcting a 1.6-3.0x overvaluation of melee damage did
+    not measurably move the margin — which is itself worth knowing, and is the
+    third time in this repo that a plausible effect has measured at zero.
+    Files: `40k/tests/test_ai_combat_math_property.gd`,
+    `40k/tests/ai_combat_math_known_divergences.json`,
+    `40k/tests/bench_profiles/d1_melee_cap_{on,off}.json`,
+    `40k/scripts/AIDecisionMaker.gd`, `.github/workflows/ai-lab.yml`.
+  - **Tier B self-assessed 2026-08-07 — pending human spot-check.** The one
+    entry in `TOLERANCE_LIST` (torrent weapons, wider band for a rolled attack
+    count) is a sampling-convergence allowance, not a modelling claim. Nothing
+    on it looks like AUDIT 0.1 — the things that *do* look like AUDIT 0.1 were
+    deliberately kept out of the tolerance list and put in the catalogue with
+    an owning task instead.
+
+- [ ] **D1b — Close the catalogued combat-math divergences**
+  - **Lock:** AIDM  • **Depends:** D1  • **Cost:** code + gate (~100 games/class)
+  - **Context:** D1's oracle catalogued 92 reproduced (weapon, defender) pairs
+    where the AI's expected damage disagrees with what the engine resolves, in
+    two classes with opposite signs. Neither is a rounding difference; both
+    change which target the AI picks. The catalogue
+    (`40k/tests/ai_combat_math_known_divergences.json`) carries the measured
+    ratio for each pair and is already a CI ratchet, so this task is bounded:
+    close a class, regenerate, watch the catalogue shrink.
+  - **Spec:** (1) Melee keyword modifiers: `_estimate_melee_damage` computes
+    `p_hit`/`p_wound`/`p_unsaved` directly and never calls
+    `_apply_weapon_keyword_modifiers`, so ANTI-X, TWIN LINKED, LETHAL HITS and
+    SUSTAINED HITS are invisible to every melee estimate. Route melee through
+    the same helper the ranged path uses (this is also C0's job — do it there
+    if C0 lands first). (2) Ranged over-prediction on twin-linked/torrent/
+    grenade weapons: **diagnose before fixing** — instrument one pair end to
+    end (predicted terms vs the engine's own dice log) and find where the two
+    part company. Do not guess from the keyword name.
+  - **Acceptance — Tier A:** (1) The catalogue shrinks by the whole melee
+    class (17 pairs) and the property test still passes with the smaller
+    catalogue committed. (2) Each fix is either determinism-identical or
+    passes a paired evaluation at E ≥ −1 VP at 1 SE on both mirrors. (3) The
+    ranged class either shrinks or gains a written root-cause note per pair —
+    "not isolated" is not an acceptable end state twice.
+  - **Tier B:** A 40k player reading the melee estimate for an ANTI-VEHICLE
+    weapon against a vehicle agrees with the number.
+  - **Progress 2026-08-08 — the MELEE HALF is done; the ranged class remains.**
+    `_estimate_melee_damage` now routes through
+    `_apply_weapon_keyword_modifiers`, the same helper the ranged estimator
+    has always used, so ANTI-X / TWIN LINKED / LETHAL HITS / SUSTAINED HITS
+    reach a melee estimate for the first time. Melee has no range band, so
+    distance is passed as unknown (-1) and the range-gated keywords (RAPID
+    FIRE, MELTA) fall through their no-bonus paths, which is correct for a
+    melee profile. Gated as `MELEE_KEYWORD_MODIFIERS` (default 1.0) so the
+    change is measurable at all.
+    ```
+    oracle, 1500 samples/pair:
+      catalogued divergences 92 -> 81
+      RESOLVED (12): Phase sword and poison blades x5 (LETHAL HITS),
+                     Vaultswords - Hurricanis x5, Vaultswords - Victus x2
+      NEW (1):       Beast Snagga klaw vs T9 walker, ratio 1.21
+                     (2.963 predicted vs 2.449 resolved — the AI now
+                     over-predicts this one slightly; recorded in the
+                     catalogue rather than hidden)
+      agreements 158 -> 169, VERDICT: PASS with the regenerated catalogue
+
+    paired gate, keywords ON vs OFF, stopping rule pre-registered:
+      Ork mirror,      6 pairs = 12 games   E = +0.00  se 0.00   NO_OP
+      Custodes mirror, 9 pairs = 18 games   E = +0.28  se 0.28   FUTILE
+    ```
+    **The Ork arm is a provable no-op — every paired seed played out
+    identically**, so on that fixture the corrected melee keyword arithmetic
+    changed not one decision. Custodes is +0.28 ± 0.28, indistinguishable from
+    zero. Non-regression is satisfied on both.
+    That is now **two** sizeable corrections to the AI's damage arithmetic in a
+    row (D1's 1.6-3.0x melee overflow, D1b's missing keywords) that measure at
+    zero. The pattern is worth naming rather than shrugging at: it suggests
+    target selection is dominated by the macro terms (target value, objective
+    proximity, threat) rather than by the fine detail of expected damage, and
+    that the *tactical* half of the plan may be pulling on a rope that is not
+    attached. WS-C's evidence for the strategic layer carrying the largest
+    effects (reserves cap: 12 -> 39 primary VP) points the same way. Worth
+    checking before WS-D spends games on lookahead.
+    **Still open:** the 75-pair ranged class, cause not isolated.
 
 - [ ] **D2 — Forward-model service with a measured budget**
   - **Lock:** AIDM  • **Depends:** D1  • **Cost:** code + microbenchmarks
@@ -970,7 +1571,7 @@ persona the same way it tunes the default.*
 | 1 | A1 A2 A3 A4 A5 D1 · B0 B1 B2 B4 | See clearly, measure cheaply | records honest; unreachable ≤50%; games ≤30 s/300 s; exams live; baseline frozen |
 | 2 | A6 A7 B3 B5 C0 C1 · B6 spike | Instrument everything, dedupe the math, validate V, nightly pulse | census ≥9 types; one combat-math module; V correlation ≥0.5; nightly report running |
 | 3 | C2 C2b C3 C4 E1 · E4 E5 | Two plan horizons; first full-budget search; ship channel | TurnPlan live in all phases; BattlePlan built, reviewed and measured; E1 shipped-or-null; profiles shippable |
-| 4 | D2 D3 D4 C5 C6 C7 | Lookahead + remaining plan features | D3 pays ≥+1 VP or is parked with numbers |
+| 4 | D1b D2 D3 D4 C5 C6 C7 | Lookahead + remaining plan features | D3 pays ≥+1 VP or is parked with numbers |
 | 5 | E2 E3 E6 F1 F2 F3 | The loop runs itself; personas; difficulty | one analyst cycle + one patch cycle complete; two personas shipped |
 
 **Decision checkpoint (owner):** after Phase 2, choose the improvement posture —

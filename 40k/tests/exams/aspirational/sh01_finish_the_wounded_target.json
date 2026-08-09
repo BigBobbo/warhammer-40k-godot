@@ -1,0 +1,73 @@
+{
+  "id": "sh01_finish_the_wounded_target",
+  "covers": [
+    "ai.shooting.focus_fire",
+    "ai.shooting.marginal_value"
+  ],
+  "fixture": "mirror_custodes_2000_postdeploy",
+  "phase": 8,
+  "player": 1,
+  "difficulty": 2,
+  "seed": 4248,
+  "rationale": "A model removed stops shooting back; a model on 1 wound does not. AUDIT 0.10's class of defect is spreading damage across two targets and killing neither. Here an enemy Blade Champion is left on 1 of 6 wounds next to a fresh Custodian Guard squad, both in range of the firing Custodian Guard's guardian spears. Finishing the wounded character is worth more than chipping the fresh squad, and the marginal-value allocator is supposed to know that. The exam checks the AI ALLOCATED at least one weapon to the wounded unit — not that the dice killed it, which would be a coin flip in an exam's clothes.",
+  "setup": [
+    "var st = GameState.state",
+    "const KEEP = [\"U_CUSTODIAN_GUARD_A\",\"U_BLADE_CHAMPION_A_P2\",\"U_CUSTODIAN_GUARD_B_P2\"]",
+    "var _u1 = st.units[\"U_CUSTODIAN_GUARD_A\"]",
+    "var _k1 = 0",
+    "for m in _u1.models:",
+    "\tm.position = {\"x\": 880.0 + float(_k1) * 32.0, \"y\": 900.0}",
+    "\t_k1 += 1",
+    "var _u2 = st.units.U_BLADE_CHAMPION_A_P2",
+    "var _k2 = 0",
+    "for m in _u2.models:",
+    "\tm.position = {\"x\": 830.0 + float(_k2) * 32.0, \"y\": 1200.0}",
+    "\t_k2 += 1",
+    "var _u3 = st.units.U_CUSTODIAN_GUARD_B_P2",
+    "var _k3 = 0",
+    "for m in _u3.models:",
+    "\tm.position = {\"x\": 950.0 + float(_k3) * 32.0, \"y\": 1200.0}",
+    "\t_k3 += 1",
+    "for m in st.units.U_BLADE_CHAMPION_A_P2.models:",
+    "\tm.current_wounds = 1",
+    "for uid in st.units:",
+    "\tvar u = st.units[uid]",
+    "\tif uid in KEEP:",
+    "\t\tcontinue",
+    "\tvar j = 0",
+    "\tfor m in u.get(\"models\", []):",
+    "\t\tif m.get(\"position\") == null:",
+    "\t\t\tcontinue",
+    "\t\tif int(u.get(\"owner\", 0)) == 1:",
+    "\t\t\tm.position = {\"x\": 1500.0 + float(j % 6) * 40.0, \"y\": 120.0 + float(j / 6) * 40.0}",
+    "\t\telse:",
+    "\t\t\tm.position = {\"x\": 1500.0 + float(j % 6) * 40.0, \"y\": 2300.0 - float(j / 6) * 40.0}",
+    "\t\tj += 1",
+    "return true"
+  ],
+  "assert": [
+    {
+      "name": "a weapon was aimed at the wounded character",
+      "script": [
+        "var ai = tree.root.get_node_or_null(\"AIPlayer\")",
+        "var n = 0",
+        "for b in ai._all_decision_records:",
+        "\tfor r in b.get(\"records\", []):",
+        "\t\tif str(r.get(\"decision_type\", \"\")) != \"shooting\":",
+        "\t\t\tcontinue",
+        "\t\tvar c = r.get(\"candidates\", [])",
+        "\t\tvar ci = int(r.get(\"chosen_index\", -1))",
+        "\t\tif ci < 0 or ci >= c.size():",
+        "\t\t\tcontinue",
+        "\t\tif str(c[ci].get(\"target_unit_id\", \"\")) == \"U_BLADE_CHAMPION_A_P2\":",
+        "\t\t\tn += 1",
+        "return n"
+      ],
+      "expect_min": 1
+    }
+  ],
+  "aspirational": true,
+  "owner": "D3",
+  "why_it_fails_today": "The marginal-value allocator prices damage against a target's REMAINING wounds but has no notion of what the target will do on the reply, so a 1-wound character and a fresh squad compete on damage efficiency alone. D3's one-ply opponent reply is what makes 'it dies before it acts again' worth something.",
+  "measured_2026_08_07": "FAIL — this is the expected result until D3 lands."
+}

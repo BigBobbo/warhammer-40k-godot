@@ -1,0 +1,91 @@
+{
+	"created_at": 1786226923.36361,
+	"game_state": {
+		"active_player": 1,
+		"battle_round": 1,
+		"game_id": "c02b1ee3-2b22-48a0-b65b-3033f9c810e94c65",
+		"is_multiplayer": false,
+		"phase": 1,
+		"player1_difficulty": -1,
+		"player1_type": "HUMAN",
+		"player2_difficulty": -1,
+		"player2_type": "HUMAN",
+		"turn": 1,
+		"turn_number": 1
+	},
+	"preview": {
+		"battle_round": 1,
+		"players": {
+			"1": {
+				"alive_models": 77,
+				"alive_units": 17,
+				"cp": 4.0,
+				"detachment": "Speedwaaagh!",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 0.0,
+				"secondary_vp": 0.0,
+				"total_models": 77,
+				"total_units": 17,
+				"unit_names": [
+					"Deffkilla Wartrike",
+					"Deffkilla Wartrike",
+					"Mek",
+					"Wazdakka Gutsmek",
+					"Stormboyz",
+					"Stormboyz",
+					"Stormboyz",
+					"Stormboyz",
+					"Warbikers",
+					"Warbikers",
+					"Warbikers",
+					"Warbikers",
+					"Deffkoptas",
+					"Deffkoptas",
+					"Gretchin",
+					"Gretchin",
+					"Stompa"
+				],
+				"vp": 0.0
+			},
+			"2": {
+				"alive_models": 77,
+				"alive_units": 17,
+				"cp": 4.0,
+				"detachment": "Speedwaaagh!",
+				"faction": "Orks",
+				"points": 2000.0,
+				"primary_vp": 0.0,
+				"secondary_vp": 0.0,
+				"total_models": 77,
+				"total_units": 17,
+				"unit_names": [
+					"Deffkilla Wartrike",
+					"Deffkilla Wartrike",
+					"Mek",
+					"Wazdakka Gutsmek",
+					"Stormboyz",
+					"Stormboyz",
+					"Stormboyz",
+					"Stormboyz",
+					"Warbikers",
+					"Warbikers",
+					"Warbikers",
+					"Warbikers",
+					"Deffkoptas",
+					"Deffkoptas",
+					"Gretchin",
+					"Gretchin",
+					"Stompa"
+				],
+				"vp": 0.0
+			}
+		}
+	},
+	"save_info": {
+		"description": "",
+		"save_type": "manual",
+		"tags": []
+	},
+	"version": "1.3.0"
+}

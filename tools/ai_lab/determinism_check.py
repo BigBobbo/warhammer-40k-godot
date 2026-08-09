@@ -121,6 +121,13 @@ def main(argv=None) -> int:
     ap.add_argument("season_a")
     ap.add_argument("season_b")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--require", choices=("all", "trajectory", "outcome"), default="all",
+                    help="which levels must match for exit 0. Default 'all' — the bar "
+                         "for a behavior-preserving refactor. Use 'trajectory' for an "
+                         "INSTRUMENTATION change, whose whole point is that the records "
+                         "get richer while the game played stays identical; the decision "
+                         "column is still printed, so a trajectory-level pass never hides "
+                         "a record change, it just stops calling it a failure.")
     args = ap.parse_args(argv)
 
     A, B = by_seed(args.season_a), by_seed(args.season_b)
@@ -130,9 +137,17 @@ def main(argv=None) -> int:
                          % (sorted(A), sorted(B)))
 
     results = [compare(A[s], B[s]) for s in seeds]
+
+    def passes(r: dict) -> bool:
+        if args.require == "outcome":
+            return r["outcome_match"]
+        if args.require == "trajectory":
+            return r["trajectory_match"]
+        return r["trajectory_match"] and r["decisions_match"]
+
     if args.json:
-        print(json.dumps(results, indent=2))
-        return 0 if all(r["trajectory_match"] and r["decisions_match"] for r in results) else 1
+        print(json.dumps({"require": args.require, "results": results}, indent=2))
+        return 0 if all(passes(r) for r in results) else 1
 
     print("=" * 74)
     print("DETERMINISM CHECK — %d seed(s) played twice" % len(seeds))
@@ -146,7 +161,9 @@ def main(argv=None) -> int:
             "match" if r["decisions_match"] else "DIFFER",
             r["actions_a"], r["actions_b"]))
 
-    bad = [r for r in results if not (r["trajectory_match"] and r["decisions_match"])]
+    if args.require != "all":
+        print("\n  (exit status gated on: %s)" % args.require)
+    bad = [r for r in results if not passes(r)]
     for r in bad:
         print("\n  seed %d first divergence:" % r["seed"])
         for k, label in (("decision_divergence", "decision"), ("trajectory_divergence", "action")):
@@ -158,7 +175,15 @@ def main(argv=None) -> int:
 
     ok = not bad
     print("\n" + "=" * 74)
-    if ok:
+    if ok and args.require == "trajectory" and any(not r["decisions_match"] for r in results):
+        total = sum(r["actions_a"] for r in results)
+        print("PASS (trajectory) — %d seed(s) play the SAME GAME: %d action lines"
+              % (len(seeds), total))
+        print("       identical. Decision records differ by design (%d -> %d records)."
+              % (sum(r["decisions_a"] for r in results),
+                 sum(r["decisions_b"] for r in results)))
+        print("       That is the instrumentation claim: richer trace, same game.")
+    elif ok:
         total = sum(r["actions_a"] for r in results)
         print("PASS — %d seed(s) reproduce EXACTLY: %d action lines and %d decision"
               % (len(seeds), total, sum(r["decisions_a"] for r in results)))

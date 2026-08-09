@@ -53,7 +53,7 @@ fixture_check ──► run_lanes ──► records ──► build_index ──
 ```bash
 python3 tools/ai_lab/fixture_check.py            # gate: the campaign fixtures
 python3 tools/ai_lab/fixture_check.py --all      # survey every fixture
-python3 tools/ai_lab/fixture_check.py mirror_orks_postdeploy --json
+python3 tools/ai_lab/fixture_check.py mirror_orks_2000_postdeploy --json
 ```
 
 Every AI baseline predating 2026-08-06 was tuned on a fixture containing an
@@ -82,7 +82,53 @@ $ python3 tools/ai_lab/fixture_check.py audit_baseline_postdeploy
 ```
 
 Note `3840` — that is the phantom's 2000 points inflating a 1840-point army.
-The campaign-eligible fixtures are the two mirrors, and only those.
+The campaign-eligible fixtures are the mirrors, and only those.
+
+### The fixtures (changed 2026-08-08)
+
+The lab used to run on `mirror_custodes_postdeploy` (1335 pts) and
+`mirror_orks_postdeploy` (1840 pts), both built by mirroring an army already
+inside the corrupt save. Neither matched a list a player can pick, and neither
+was near 2000 points — the format 40k is balanced at and the one this game is
+designed to be played at. So every number the lab had produced described a
+format nobody plays.
+
+The current fixtures are built by `40k/tests/make_2000pt_fixture.gd` from the
+**shipped** army lists, through `ArmyListManager.load_army_list` +
+`apply_army_to_game_state`, so display names, ability canonicalisation,
+wargear/enhancement stat bonuses, model-profile wounds and the Custodes
+deep-strike backfill all happen exactly as they do for a player:
+
+| fixture | P1 | P2 | start |
+|---|---|---|---|
+| `mirror_custodes_2000_postdeploy` | Lions of the Emperor, 11 units / 42 models / 2000 pts | mirrored | R1 Command |
+| `mirror_orks_2000_postdeploy` | Speedwaaagh!, 17 units / 77 models / 2000 pts | mirrored | R1 Command |
+| `asym_2000_postdeploy` | Custodes 2000 | Orks 2000 | R1 Command |
+| `mirror_custodes_2000_predeploy` | as above | as above | **Deployment** |
+| `mirror_orks_2000_predeploy` | as above | as above | **Deployment** |
+| `asym_2000_predeploy` | as above | as above | **Deployment** |
+
+`_postdeploy` starts at round 1 Command with both armies packed into their
+zones; deployment is held fixed, which removes one source of variance when
+A/B-ing the phases after it. `_predeploy` starts at `Phase.DEPLOYMENT` with
+nothing on the table, so the AI runs `_decide_deployment` and places its own
+army — the only way to evaluate the phase the AI's own source calls out as
+the one that "largely decides rounds 1-2".
+
+Rebuild them with:
+
+```bash
+godot --headless --path 40k --script tests/make_2000pt_fixture.gd -- \
+    --mirror=custodes_lions --out=mirror_custodes_2000_postdeploy
+godot --headless --path 40k --script tests/make_2000pt_fixture.gd -- \
+    --mirror=recon_stomps --out=mirror_orks_2000_predeploy --predeploy
+godot --headless --path 40k --script tests/make_2000pt_fixture.gd -- \
+    --p1=custodes_lions --p2=recon_stomps --out=asym_2000_postdeploy
+```
+
+`--mirror` takes a list name (`--mirror=<list>`); a bare `--mirror` is a hard
+error, because it used to be silently ignored and produced a fixture named
+like a mirror whose two sides were packed independently.
 
 ## M1 — game records
 
@@ -133,7 +179,7 @@ them only for stalled/errored games, gzipped, newest `BENCH_KEEP_LOGS` (50).
 ```bash
 BENCH_DATA_DIR=bench_data/season_1 BENCH_ARM=baseline \
 BENCH_DIFFICULTY=2 BENCH_TIME_SCALE=6 \
-  bash 40k/tests/run_ai_benchmark.sh 10 mirror_orks_postdeploy
+  bash 40k/tests/run_ai_benchmark.sh 10 mirror_orks_2000_postdeploy
 ```
 
 `BENCH_DATA_DIR` gzips each record into a season directory. `BENCH_ARM` labels

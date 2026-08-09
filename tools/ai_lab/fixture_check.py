@@ -40,9 +40,12 @@ Warnings alone do not fail the run unless --strict is given.
 from __future__ import annotations
 
 import argparse
+import base64
+import gzip
 import hashlib
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -51,14 +54,30 @@ SAVES = os.path.join(REPO, "40k", "tests", "saves")
 
 PX_PER_INCH = 40.0
 STATUS_IN_RESERVES = 7  # GameState.UnitStatus.IN_RESERVES (autoloads/GameState.gd:17)
+STATUS_UNDEPLOYED = 0   # GameState.UnitStatus.UNDEPLOYED
+PHASE_DEPLOYMENT = 1    # GameState.Phase.DEPLOYMENT (autoloads/GameState.gd:16)
 
 # No single 11e datasheet in this project's army files costs this much. A unit
 # above it is almost certainly an army-list header row, not a datasheet.
 MAX_PLAUSIBLE_UNIT_POINTS = 800
 
-# Fixtures a learning campaign is allowed to run on. Deliberately just the two
+# Fixtures a learning campaign is allowed to run on. Deliberately just the
 # mirrors: they remove the army/points asymmetry BY CONSTRUCTION, which is what
 # makes an A/A test meaningful.
+#
+# The `_2000_` fixtures are the current default. 40k is balanced at 2000 points
+# and that is what the game is designed to be played at, so a lab whose every
+# number came from 1335- and 1840-point armies was measuring a format nobody
+# plays. These are built by `40k/tests/make_2000pt_fixture.gd` from the SHIPPED
+# army lists — `custodes_lions` (Lions of the Emperor) and `recon_stomps`
+# (Speedwaaagh!) — through the game's own ArmyListManager, so the units are
+# exactly the ones a player gets from the army picker.
+#
+# `_predeploy` variants start at Phase.DEPLOYMENT with nothing on the table, so
+# the AI plays the deployment phase itself instead of inheriting a placement it
+# did not choose. `_postdeploy` variants start at round 1 Command with both
+# armies packed into their zones, which removes deployment variance and is the
+# lower-noise choice for A/B work on the phases after it.
 #
 # `audit_baseline_postdeploy` is NOT here and must not be added. It is the
 # fixture every pre-2026-08-06 baseline was tuned on and it still carries the
@@ -66,6 +85,12 @@ MAX_PLAUSIBLE_UNIT_POINTS = 800
 # It is kept in the repo because scenario tests reference it, not because it is
 # fit to learn on.
 CAMPAIGN_FIXTURES = [
+    "mirror_custodes_2000_predeploy",
+    "mirror_orks_2000_predeploy",
+    "mirror_custodes_2000_postdeploy",
+    "mirror_orks_2000_postdeploy",
+    # Retained: the 2026-08 frozen baseline's A/A numbers were measured on
+    # these, so they stay checkable until that freeze is superseded.
     "mirror_orks_postdeploy",
     "mirror_custodes_postdeploy",
 ]
@@ -108,6 +133,33 @@ def sha256_of(path: str) -> str:
         for chunk in iter(lambda: fh.read(1 << 16), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+_B64_RE = re.compile(r"^[A-Za-z0-9+/]+=*$")
+
+
+def load_save(path: str) -> dict:
+    """Read a .w40ksave, transparently handling the compressed form.
+
+    `StateSerializer.save_game` gzips + base64s any payload at or above
+    `COMPRESSION_SIZE_THRESHOLD` (50 KB) and writes the base64 text straight
+    into the file with no header or marker — exactly as
+    `StateSerializer._compress_json` produces it. Every 2000-point fixture is
+    over that threshold, and several older fixtures in `40k/tests/saves/` are
+    too, so a plain `json.load` fails on them with a bare "Expecting value:
+    line 1 column 1" that reads like a corrupt file rather than a compressed
+    one. Detection mirrors `StateSerializer._is_compressed`: base64 alphabet
+    end to end, length a multiple of 4.
+    """
+    with open(path, "rb") as fh:
+        raw = fh.read()
+    text = raw.decode("utf-8", errors="replace").strip()
+    if text and _B64_RE.match(text) and len(text) % 4 == 0:
+        try:
+            return json.loads(gzip.decompress(base64.b64decode(text)).decode("utf-8"))
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError("looked base64/gzip compressed but did not decode: %s" % exc)
+    return json.loads(text)
 
 
 def parse_point(p):
@@ -218,6 +270,54 @@ def check_positions(units: dict, rep: Report) -> None:
             rep.err("%s: %d alive model(s) on the table with no position" % (uid, missing))
 
 
+def check_predeploy(units: dict, rep: Report) -> None:
+    """A fixture stopped at Phase.DEPLOYMENT: check status and position AGREE.
+
+    `DeploymentPhase._get_undeployed_units_for_player` is what turns units into
+    DEPLOY_UNIT actions, and it keys off `status == UNDEPLOYED`. Both halves of
+    a mismatch are silent bugs, in opposite directions:
+
+      * UNDEPLOYED but already positioned — the unit is offered for deployment
+        again and re-placed, discarding whatever the fixture author set up;
+      * DEPLOYED (or anything else) but positionless — no DEPLOY_UNIT action is
+        ever emitted for it, nothing places it, and the unit sits out the whole
+        game with no error raised anywhere.
+
+    A *partially* deployed fixture is legitimate and deliberate — that is what
+    `deployment_nearly_complete` exists to be — so this is a per-unit
+    consistency check, not "nothing may be on the table". The split is recorded
+    in `rep.info` so a fully-empty fixture stays distinguishable at a glance.
+    """
+    fully, empty, partial = 0, 0, 0
+    for uid, u in units.items():
+        status = int(u.get("status", 0) or 0)
+        if status == STATUS_IN_RESERVES:
+            continue
+        if u.get("embarked_in"):
+            continue  # positionless on purpose — inside a transport
+        alive = _alive_models(u)
+        if not alive:
+            continue
+        placed = sum(1 for m in alive if parse_point(m.get("position")) is not None)
+        if placed == 0:
+            empty += 1
+            if status != STATUS_UNDEPLOYED:
+                rep.err("%s: status=%d but no model has a position — DeploymentPhase "
+                        "emits DEPLOY_UNIT only for UNDEPLOYED units, so nothing will "
+                        "ever place this one and it sits out the game" % (uid, status))
+        elif placed == len(alive):
+            fully += 1
+            if status == STATUS_UNDEPLOYED:
+                rep.err("%s: fully positioned but still UNDEPLOYED — it will be offered "
+                        "for deployment again and re-placed, discarding these positions"
+                        % uid)
+        else:
+            partial += 1
+            rep.err("%s: %d of %d alive models positioned — a half-placed unit is "
+                    "neither deployable nor coherent" % (uid, placed, len(alive)))
+    rep.info["deployment"] = {"deployed": fully, "undeployed": empty, "partial": partial}
+
+
 def check_reserves_cap(units: dict, rep: Report) -> None:
     """11e 20.01: at most half an army's points may start in Strategic Reserves.
 
@@ -298,7 +398,7 @@ def army_signature(units: dict, player: int) -> list:
     return sorted(sig)
 
 
-def check_mirror(d: dict, units: dict, rep: Report) -> None:
+def check_mirror(d: dict, units: dict, rep: Report, positions: bool = True) -> None:
     """For a mirror fixture, both sides must be identical by construction.
 
     A mirror removes the army/points asymmetry rather than cancelling it
@@ -314,6 +414,9 @@ def check_mirror(d: dict, units: dict, rep: Report) -> None:
                 rep.err("   P1 %s  vs  P2 %s" % (a, b))
         if len(s1) != len(s2):
             rep.err("   unit counts differ: P1=%d P2=%d" % (len(s1), len(s2)))
+        return
+
+    if not positions:
         return
 
     size = (d.get("board") or {}).get("size") or {}
@@ -350,8 +453,7 @@ def check_fixture(path: str, strict: bool = False, mirror: bool | None = None) -
     name = os.path.basename(path).replace(".w40ksave", "")
     rep = Report(name, path)
     try:
-        with open(path) as fh:
-            d = json.load(fh)
+        d = load_save(path)
     except Exception as exc:  # noqa: BLE001 — an unparseable fixture is just a failure
         rep.err("could not parse: %s" % exc)
         return rep
@@ -362,17 +464,30 @@ def check_fixture(path: str, strict: bool = False, mirror: bool | None = None) -
         rep.err("no units in fixture")
         return rep
 
+    # A fixture that starts at Deployment has not placed anything yet, so the
+    # placement invariants are inverted rather than absent. Detect the mode from
+    # meta.phase rather than from the filename — the phase is what the runner
+    # actually reads (AIBenchmarkRunner reads meta.phase to pick its start
+    # phase), so keying off it means the check and the run cannot disagree.
+    predeploy = int((d.get("meta") or {}).get("phase", -1) or -1) == PHASE_DEPLOYMENT
+    rep.info["predeploy"] = predeploy
+
     check_placeholders(units, rep)
     check_structure(units, rep)
-    check_positions(units, rep)
+    if predeploy:
+        check_predeploy(units, rep)
+    else:
+        check_positions(units, rep)
+        check_deployment_zones(d, units, rep)
     check_reserves_cap(units, rep)
-    check_deployment_zones(d, units, rep)
     check_meta(d, rep)
 
     is_mirror = looks_like_mirror(name, units) if mirror is None else mirror
     rep.info["mirror"] = is_mirror
     if is_mirror:
-        check_mirror(d, units, rep)
+        # Position mirroring is meaningless before anything is placed; the army
+        # signatures still have to match, and check_mirror tests that first.
+        check_mirror(d, units, rep, positions=not predeploy)
 
     if strict and rep.warnings:
         rep.errors.extend("(strict) " + w for w in rep.warnings)

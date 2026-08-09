@@ -101,7 +101,7 @@ def main(argv=None) -> int:
     ap.add_argument("--params-from", default="")
     ap.add_argument("--min-influence", type=float, default=1.0)
     ap.add_argument("--dims", type=int, default=12)
-    ap.add_argument("--fixture", default="mirror_custodes_postdeploy")
+    ap.add_argument("--fixture", default="mirror_custodes_2000_postdeploy")
     ap.add_argument("--population", type=int, default=8)
     ap.add_argument("--elite", type=int, default=3)
     ap.add_argument("--generations", type=int, default=5)

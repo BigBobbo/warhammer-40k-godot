@@ -7,8 +7,10 @@
 #   bash 40k/tests/run_ai_benchmark.sh [GAMES] [FIXTURE] [P1_PROFILE] [P2_PROFILE]
 #
 #   GAMES       number of games (default 3)
-#   FIXTURE     save fixture to start from (default audit_baseline_postdeploy —
-#               Custodes P1 vs Orks P2, round 1 Command, post-deployment)
+#   FIXTURE     save fixture to start from (default mirror_custodes_2000_postdeploy
+#               — Lions of the Emperor on both sides, 2000 pts, round 1 Command,
+#               post-deployment). Use mirror_custodes_2000_predeploy to start at
+#               the DEPLOYMENT phase and have the AI place its own army.
 #   P1_PROFILE / P2_PROFILE  optional parameter-override JSON paths
 #
 # Env overrides: BENCH_DIFFICULTY (default 1=Normal), BENCH_TIME_SCALE (3),
@@ -31,7 +33,7 @@
 set -u
 
 GAMES="${1:-3}"
-FIXTURE="${2:-audit_baseline_postdeploy}"
+FIXTURE="${2:-mirror_custodes_2000_postdeploy}"
 P1_PROFILE="${3:-}"
 P2_PROFILE="${4:-}"
 DIFFICULTY="${BENCH_DIFFICULTY:-1}"

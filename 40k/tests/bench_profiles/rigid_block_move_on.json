@@ -1,0 +1,7 @@
+{
+	"format": "wh40k_ai_profile",
+	"version": 1,
+	"profile_name": "Rigid block movement ON (measured for speed; strength UNGATED)",
+	"description": "Moves a unit as one rigid block before falling back to per-model placement — every model translates by the same vector and the attempt is abandoned the moment one destination is illegal, which is the player's drag-select-and-drag. Suggested by the project owner after two 2000-pt Ork games failed to leave BATTLE ROUND 1 in 22 minutes. Speed is measured; STRENGTH IS NOT, so this ships disabled until run_paired + gate_candidate say otherwise.",
+	"parameters": { "MOVE_RIGID_BLOCK_FIRST": 1.0 }
+}

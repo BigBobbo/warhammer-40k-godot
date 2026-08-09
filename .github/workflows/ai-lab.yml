@@ -1,0 +1,108 @@
+name: AI lab
+
+# The AI's measurement machinery had no CI at all: nothing checked that the
+# scoring surface stays reachable, that decision records stay honest, or that
+# the AI's damage arithmetic still agrees with the engine that resolves it.
+# Promotions and instrumentation rot silently without a ratchet, and the AI has
+# already shipped one arithmetic divergence that cost it games for months
+# (AUDIT 0.1: "D6" parsed as 1.0).
+#
+# Two jobs, split by what they cost:
+#
+#   static   — no games, no Godot. Seconds. Runs on every push.
+#   oracle   — the D1 property test: the AI's expected damage against 1,500
+#              seeded Monte-Carlo resolutions per (weapon, defender) pair
+#              through the real RulesEngine. Minutes, headless, no rendering.
+#
+# Neither plays a benchmark game; game-playing lives in the nightly season
+# (B5), because a 5-round mirror game is minutes of runner time each.
+
+on:
+  push:
+    branches: [ '**' ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      full_corpus:
+        description: "Run the oracle over every weapon, not the fast tier"
+        type: boolean
+        default: false
+
+env:
+  GODOT_VERSION: "4.4.1"
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    name: Reachability and record integrity (no games)
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Parameter manifest
+        run: python3 tools/ai_lab/params_manifest.py
+
+      - name: Record validator self-test
+        run: python3 tools/ai_lab/validate_records.py --selftest
+
+      - name: Profile linter self-test
+        run: python3 tools/ai_lab/validate_profile.py --selftest
+
+      - name: Lint every shipped bench profile
+        run: |
+          for f in 40k/tests/bench_profiles/*.json; do
+            python3 tools/ai_lab/validate_profile.py "$f"
+          done
+
+      - name: Fixture gate
+        run: python3 tools/ai_lab/fixture_check.py
+
+      - name: Exam pre-flight — every exam's units exist in its fixture
+        run: python3 tools/ai_lab/check_exams.py
+
+      - name: Ratchet — reachability and instrumentation may only improve
+        run: python3 tools/ai_lab/ratchet_check.py
+
+  oracle:
+    runs-on: ubuntu-latest
+    name: AI damage math vs RulesEngine (D1)
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          use-dotnet: false
+
+      - name: Import project
+        run: |
+          cd 40k
+          timeout 300 godot --headless --import || true
+
+      - name: Property test (fast tier)
+        if: ${{ github.event.inputs.full_corpus != 'true' }}
+        run: |
+          cd 40k
+          godot --headless --path . -s tests/test_ai_combat_math_property.gd -- --samples=1500 | tee /tmp/oracle.log
+          grep -q "VERDICT: PASS" /tmp/oracle.log
+
+      - name: Property test (full corpus)
+        if: ${{ github.event.inputs.full_corpus == 'true' }}
+        run: |
+          cd 40k
+          godot --headless --path . -s tests/test_ai_combat_math_property.gd -- --full --samples=1500 | tee /tmp/oracle.log
+          grep -q "VERDICT: PASS" /tmp/oracle.log
+
+      - name: Sensitivity check — the oracle must still catch AUDIT 0.1
+        run: |
+          cd 40k
+          godot --headless --path . -s tests/test_ai_combat_math_property.gd -- --samples=600 --seeded-bug | tee /tmp/seeded.log
+          grep -q "DETECTED" /tmp/seeded.log

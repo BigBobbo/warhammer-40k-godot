@@ -31,7 +31,12 @@ extends Node
 # See research/ai_learning_framework_design.md §7.
 
 var _active: bool = false
-var _fixture: String = "audit_baseline_postdeploy"
+# Default to a fixture that PASSES tools/ai_lab/fixture_check.py. The previous
+# default, audit_baseline_postdeploy, still carries the U_STRIKE_FORCE_A
+# army-list header row imported as a unit — 2000 phantom points that break the
+# Strategic Reserves cap and out-score every real unit in target selection. A
+# no-argument run should not quietly produce numbers from that.
+var _fixture: String = "mirror_custodes_2000_postdeploy"
 var _seed: int = -1
 var _out_path: String = "test_results/bench/result.json"
 var _p1_profile_path: String = ""
@@ -43,6 +48,23 @@ var _time_scale: float = 3.0
 var _git_sha: String = ""
 var _arm: String = ""
 var _record_out_path: String = ""
+
+# B4 — TACTICAL EXAM MODE.
+# A full game is a noisy, expensive signal: SD 9-15 VP per seed and minutes of
+# wall clock. Most regressions and most capability gains are visible in seconds
+# in a CONSTRUCTED position — "does it take the uncontested objective 4 inches
+# away", "does it finish the Knight on 5 wounds instead of spreading damage".
+# Chess engines call these test suites. An exam reuses everything this runner
+# already does (fixture load, deterministic seeding, both-players-AI config,
+# the live battle scene) and differs in three ways: it may mutate the loaded
+# state first, it runs ONE phase instead of a whole game, and it ends by
+# evaluating machine-checkable assertions over the resulting state and the
+# AI's own decision records.
+var _exam_spec_path: String = ""
+var _exam_out_path: String = ""
+var _exam: Dictionary = {}
+var _exam_phase: int = -1
+var _exam_results: Array = []
 
 var _start_ticks: int = 0
 var _last_progress_ticks: int = 0
@@ -98,14 +120,151 @@ func _ready() -> void:
 			_arm = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-record-out="):
 			_record_out_path = a.split("=", true, 1)[1]
+		elif a.begins_with("--exam="):
+			_exam_spec_path = a.split("=", true, 1)[1]
+		elif a.begins_with("--exam-out="):
+			_exam_out_path = a.split("=", true, 1)[1]
 	# Default the record alongside the result file:
 	#   test_results/bench/run_1.json -> test_results/bench/run_1.record.json
 	if _record_out_path == "":
 		_record_out_path = _out_path.get_basename() + ".record.json"
 	_active = true
-	print("[AIBench] Activating: fixture=%s seed=%d difficulty=%d time_scale=%.1f" % [
-		_fixture, _seed, _difficulty, _time_scale])
+	if _exam_spec_path != "":
+		if not _load_exam_spec():
+			return
+	print("[AIBench] Activating: fixture=%s seed=%d difficulty=%d time_scale=%.1f%s" % [
+		_fixture, _seed, _difficulty, _time_scale,
+		("  exam=%s" % _exam.get("id", "?")) if _exam_spec_path != "" else ""])
 	call_deferred("_kick_off")
+
+# ---------------------------------------------------------------- B4 exams --
+
+func _load_exam_spec() -> bool:
+	var fh = FileAccess.open(_exam_spec_path, FileAccess.READ)
+	if fh == null:
+		printerr("[AIExam] cannot read spec: %s" % _exam_spec_path)
+		get_tree().quit(2)
+		return false
+	var parsed = JSON.parse_string(fh.get_as_text())
+	fh.close()
+	if not (parsed is Dictionary):
+		printerr("[AIExam] spec is not a JSON object: %s" % _exam_spec_path)
+		get_tree().quit(2)
+		return false
+	_exam = parsed
+	_fixture = str(_exam.get("fixture", _fixture))
+	_seed = int(_exam.get("seed", 4242))
+	_difficulty = int(_exam.get("difficulty", 2))
+	_exam_phase = int(_exam.get("phase", -1))
+	_max_seconds = float(_exam.get("max_seconds", 120.0))
+	_time_scale = float(_exam.get("time_scale", 6.0))
+	if _exam_out_path == "":
+		_exam_out_path = "test_results/exams/%s.json" % str(_exam.get("id", "exam"))
+	return true
+
+func _run_gdscript(src: String, label: String):
+	"""Compile and run a snippet with the tree bound, the way the MCP bridge
+	does. Exams are data, and their assertions have to be able to reach into
+	live state — but they must not be able to fail silently, so a compile or
+	run error is a FAILED exam, never a skipped one."""
+	var full := "extends RefCounted\nfunc run(tree):\n"
+	for line in src.split("\n"):
+		full += "\t" + line + "\n"
+	var sc := GDScript.new()
+	sc.source_code = full
+	var err := sc.reload()
+	if err != OK:
+		return {"_error": "%s: compile failed (err %d)" % [label, err]}
+	var obj = sc.new()
+	if obj == null or not obj.has_method("run"):
+		return {"_error": "%s: could not instance" % label}
+	return obj.run(get_tree())
+
+func _exam_evaluate() -> void:
+	var records := []
+	var ai = get_node_or_null("/root/AIPlayer")
+	if ai != null and "_all_decision_records" in ai:
+		records = ai._all_decision_records
+	var passed := 0
+	var failed := 0
+	for a in _exam.get("assert", []):
+		var name = str(a.get("name", "?"))
+		var body = a.get("script", "return null")
+		if body is Array:
+			body = "\n".join(body)
+		var got = _run_gdscript(str(body), name)
+		var ok := false
+		var detail := ""
+		if got is Dictionary and got.has("_error"):
+			detail = str(got["_error"])
+		elif a.has("equals"):
+			ok = str(got) == str(a["equals"])
+			detail = "got %s, expected %s" % [str(got), str(a["equals"])]
+		elif a.has("expect_min"):
+			ok = (got is float or got is int) and float(got) >= float(a["expect_min"])
+			detail = "got %s, expected >= %s" % [str(got), str(a["expect_min"])]
+		elif a.has("expect_max"):
+			ok = (got is float or got is int) and float(got) <= float(a["expect_max"])
+			detail = "got %s, expected <= %s" % [str(got), str(a["expect_max"])]
+		else:
+			detail = "assertion declares no expectation"
+		if ok:
+			passed += 1
+		else:
+			failed += 1
+		_exam_results.append({"name": name, "ok": ok, "detail": detail})
+		print("[AIExam]   %s %s — %s" % ["PASS" if ok else "FAIL", name, detail])
+	var verdict := "PASS" if failed == 0 and passed > 0 else "FAIL"
+	var out := {
+		"id": _exam.get("id", "exam"), "verdict": verdict,
+		"passed": passed, "failed": failed,
+		"rationale": _exam.get("rationale", ""),
+		"phase": _exam_phase, "player": _exam.get("player", 1),
+		"seed": _seed, "difficulty": _difficulty,
+		"decision_batches": records.size(),
+		"assertions": _exam_results,
+	}
+	var dir := _exam_out_path.get_base_dir()
+	if dir != "":
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://" + dir))
+	var fh = FileAccess.open("user://" + _exam_out_path, FileAccess.WRITE)
+	if fh != null:
+		fh.store_string(JSON.stringify(out, "  "))
+		fh.close()
+	print("[AIExam] RESULT %s" % JSON.stringify(out))
+	print("[AIExam] %s: %d passed, %d failed -> %s" % [out.id, passed, failed, verdict])
+	get_tree().quit(0 if verdict == "PASS" else 1)
+
+func _exam_watch_loop() -> void:
+	"""Run exactly one phase for the player under test, then grade."""
+	var pm = get_node_or_null("/root/PhaseManager")
+	var start_round = GameState.get_battle_round()
+	var max_actions = int(_exam.get("max_actions", 400))
+	var acted := 0
+	var ai = get_node_or_null("/root/AIPlayer")
+	while true:
+		await get_tree().create_timer(0.25).timeout
+		var elapsed = (Time.get_ticks_msec() - _start_ticks) / 1000.0
+		if ai != null:
+			acted = ai._action_log.size() if "_action_log" in ai else 0
+		var cur_phase = int(GameState.state.get("meta", {}).get("phase", -1))
+		if pm.game_ended:
+			print("[AIExam] game ended during the exam phase")
+			break
+		if cur_phase != _exam_phase or GameState.get_battle_round() != start_round:
+			print("[AIExam] phase %d complete (now %d) after %d actions" % [
+				_exam_phase, cur_phase, acted])
+			break
+		if acted >= max_actions:
+			print("[AIExam] action cap %d reached" % max_actions)
+			break
+		if elapsed > _max_seconds:
+			print("[AIExam] wall-clock cap %.0fs reached" % _max_seconds)
+			break
+	# Let any in-flight resolution settle before grading.
+	for i in range(20):
+		await get_tree().process_frame
+	_exam_evaluate()
 
 func _kick_off() -> void:
 	await get_tree().process_frame
@@ -176,6 +335,34 @@ func _kick_off() -> void:
 	# baseline fixture) and let the AI drive to the end
 	var pm = get_node_or_null("/root/PhaseManager")
 	var start_phase = int(GameState.state.get("meta", {}).get("phase", 6))
+
+	# B4: an exam constructs its position first, then runs one named phase.
+	if _exam_spec_path != "":
+		var setup = _exam.get("setup", "")
+		if setup is Array:
+			setup = "\n".join(setup)
+		if str(setup) != "":
+			var r = _run_gdscript(str(setup), "setup")
+			if r is Dictionary and r.has("_error"):
+				printerr("[AIExam] %s" % r["_error"])
+				get_tree().quit(2)
+				return
+			print("[AIExam] setup applied -> %s" % str(r))
+		var main = get_tree().current_scene
+		if main != null and main.has_method("_recreate_unit_visuals"):
+			main._recreate_unit_visuals()
+		if _exam_phase >= 0:
+			start_phase = _exam_phase
+		else:
+			_exam_phase = start_phase
+		pm.transition_to_phase(start_phase)
+		_start_ticks = Time.get_ticks_msec()
+		print("[AIExam] %s: running phase %d, round %d, player %s at difficulty %d" % [
+			_exam.get("id", "?"), start_phase, GameState.get_battle_round(),
+			str(_exam.get("player", 1)), _difficulty])
+		_exam_watch_loop()
+		return
+
 	pm.transition_to_phase(start_phase)
 
 	_start_ticks = Time.get_ticks_msec()
@@ -210,6 +397,11 @@ func _watch_loop() -> void:
 		if sig != _last_progress_sig:
 			_last_progress_sig = sig
 			_last_progress_ticks = Time.get_ticks_msec()
+			# Collision-profile counters, printed alongside progress so a run
+			# that never finishes still yields the numbers.
+			AIDecisionMaker._dump_collision_profile("r%d p%d a%d elapsed=%.0fs" % [
+				GameState.get_battle_round(), GameState.get_current_phase(),
+				ai._action_log.size() if ai != null else 0, elapsed])
 		elif (Time.get_ticks_msec() - _last_progress_ticks) / 1000.0 > STALL_SECONDS:
 			_finish_stalled("no progress for %.0fs at %s" % [STALL_SECONDS, sig])
 			return

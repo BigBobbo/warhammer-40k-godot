@@ -215,7 +215,7 @@ def summarise(results: list[dict], args, sha: str) -> dict:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--fixture", default="mirror_orks_postdeploy")
+    ap.add_argument("--fixture", default="mirror_custodes_2000_postdeploy")
     ap.add_argument("--seeds", default="7001-7010", help="e.g. 7001-7020 or 1,2,3")
     ap.add_argument("--arm", default="AA", help="label recorded in provenance")
     ap.add_argument("--lanes", type=int, default=3,

@@ -32,3 +32,24 @@ so any AI change can be judged against a known reference instead of vibes.
 Command phase, post-deployment, Take and Hold / Search and Destroy. P1 wins
 most games at both difficulties in current baselines; the interesting signals
 are the stall count, the P2 VP trend, and cross-difficulty deltas.
+
+## The frozen baseline (B0, 2026-08)
+
+Everything above compares a candidate against **today's** build. That answers
+"did this change help?" and cannot answer "is the AI better than it was?" —
+the reference moves with the code.
+
+`40k/data/ai_profiles/baseline_2026_08.json` pins an opponent that never
+improves: an explicit value for all 238 manifest parameters, tagged
+`ai-baseline-2026-08` at `333f23f`. Measure against it with
+`tools/ai_lab/vs_baseline.py`, and read
+`2026-08_frozen_baseline.md` for the A/A reference numbers, the self-test,
+and the re-freeze policy.
+
+**When to re-freeze:** only at a genuine milestone — a profile that cleared
+`gate_candidate.py`, or a structural change that makes the old baseline
+unrepresentative of anything anyone would play. **Never edit a freeze in
+place, and never delete one.** A new freeze is a new file, a new tag and a new
+report; the ladder (margin against 2026-08 rising release over release) is the
+whole point of having one, and it evaporates the moment a freeze is edited.
+

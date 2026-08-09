@@ -1,0 +1,8 @@
+{
+  "format": "wh40k_ai_profile",
+  "version": 1,
+  "profile_name": "D1b candidate — melee weapon keywords modelled (the shipped default)",
+  "description": "The shipped default, stated explicitly so the paired evaluator has a candidate file to point at. _estimate_melee_damage routes through _apply_weapon_keyword_modifiers, the same helper the ranged estimator has always used, so ANTI-X, TWIN LINKED, LETHAL HITS and SUSTAINED HITS finally reach a melee estimate.",
+  "parameters": { "MELEE_KEYWORD_MODIFIERS": 1.0 },
+  "rules": []
+}
