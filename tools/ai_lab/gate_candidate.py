@@ -46,12 +46,26 @@ from build_index import find_records, load_record, SCHEMA, _int  # noqa: E402
 from params_manifest import build_manifest  # noqa: E402
 
 # The gate needs >= 2 MATCHUPS, or a candidate that is merely matchup-specific
-# passes. mirror_orks_2000_postdeploy is temporarily out: a game on it does not
-# leave battle round 1 (see 40k/tests/exams/slow/README.md for the profiling).
-# asym_2000_postdeploy is Custodes-vs-Orks, a genuinely different matchup from
-# the Custodes mirror, and it completes in ~266 s — so the grid keeps its second
-# arm. Put the Ork mirror back the moment it is viable; two views of one matchup
-# is exactly the blind spot this list exists to avoid.
+# passes. asym_2000_postdeploy is Custodes-vs-Orks, a genuinely different
+# matchup from the Custodes mirror, so the grid keeps its second arm there.
+#
+# mirror_orks_2000_postdeploy is still out, but NOT for the reason this comment
+# used to give. "A game on it does not leave battle round 1" was true of the
+# fixture as originally packed and is now FIXED: it deployed 19 of 34 units out
+# of coherency, the AI could not legally move them, and the engine's ISS-042
+# end-of-turn sweep amputated whichever army reached an End of Turn first. The
+# rebuilt fixture completes all 5 rounds (seed 9101: 798 actions, 956 s,
+# margin -7, zero coherency removals). See 40k/tests/exams/slow/README.md.
+#
+# What is left before it can rejoin this list is measurement, not viability:
+#   * cost — ~956 s/game against ~162 s for the Custodes mirror, so adding it
+#     roughly triples a gate run's wall clock. That is a deliberate trade for
+#     whoever owns the gate's budget, not something to slip in silently.
+#   * it has no A/A reference yet. Every other fixture in the lab has its
+#     structural bias F measured before it was trusted; the Ork mirror never
+#     could be, because it never finished a game. Establish that first.
+# Two views of one matchup is exactly the blind spot this list exists to avoid,
+# so this is worth doing — with its own numbers, as its own change.
 MIRRORS = ["mirror_custodes_2000_postdeploy", "asym_2000_postdeploy"]
 
 
