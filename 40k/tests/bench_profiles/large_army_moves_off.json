@@ -1,0 +1,14 @@
+{
+  "format": "wh40k_ai_profile",
+  "version": 1,
+  "profile_name": "large_army_moves_off",
+  "description": "Baseline arm for the 2026-08-09 large-army robustness bundle: restores the all-or-nothing per-model mover, the full 78-rung fallback ladder, an effectively unlimited search budget, JSON-order deployment and AABB-only zone handling. Pair against shipped defaults (all five ON) to measure the bundle.",
+  "parameters": {
+    "MOVE_PARTIAL_SQUAD": 0.0,
+    "MOVE_STUCK_EARLY_EXIT": 0.0,
+    "MOVE_SEARCH_BUDGET": 1000000000.0,
+    "DEPLOY_LARGEST_FIRST": 0.0,
+    "DEPLOY_POLYGON_AWARE": 0.0
+  },
+  "rules": []
+}

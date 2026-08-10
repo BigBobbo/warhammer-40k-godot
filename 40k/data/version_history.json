@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.29.0",
+      "date": "2026-08-09",
+      "summary": "Large armies work now: a boxed-in horde unit can no longer freeze the game for minutes, the AI moves squads the way a player does (move the models that fit, let the stragglers hold), and in AI games it finally uses transports and Strategic Reserves.",
+      "changes": [
+        "Fixed: one boxed-in unit in a packed army (e.g. the 77-model Ork Speedwaaagh! list) could freeze the game for minutes — the AI kept re-trying ~78 variations of a move that could never work, all inside a single decision, so even the stall detector could not see it. The AI now recognises a stuck unit quickly, lets it hold for the round, and every move search has a hard work ceiling.",
+        "Changed: when a squad moves, models that can move DO move and models that are blocked stay put — exactly how a player drag-moves a horde — instead of the whole squad refusing to move because one model could not fit. Unit coherency of the mixed result is still enforced.",
+        "Fixed: the AI now deploys its biggest bases first (the Stompa used to go last, into whatever scraps were left) and finally respects the real SHAPE of the deployment zone — triangles, quarters and crosses — instead of its bounding rectangle, which the engine kept rejecting.",
+        "Fixed: a unit that could not fit anywhere on the table could deadlock deployment forever; it now goes to Strategic Reserves even when the cap has to be waived as a last resort.",
+        "New: in AI games the Formations phase actually runs, so the AI embarks units into transports (it loads 22 Gretchin into the Stompa) and declares Strategic Reserves under the 50% cap — both were unreachable dead code in every automated game before.",
+        "Fixed: the AI proposed transport loads the engine had to reject (wrong keyword matching), which then blacklisted the transport for the whole game."
+      ]
+    },
+    {
       "version": "1.28.7",
       "date": "2026-08-07",
       "summary": "Fixed a Charge phase freeze: a Heroic Intervention that could not reach the enemy left the game stuck with no way to continue.",

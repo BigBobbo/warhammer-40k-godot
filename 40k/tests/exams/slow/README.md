@@ -133,6 +133,20 @@ any fraction" once and return `remain_stationary`. That is a behaviour change
 placement), so it needs the paired evaluator — but it should be cheap and it
 removes a hang.
 
+**FIX LANDED (2026-08-09).** Three parameters, defaults ON, baseline arm in
+`40k/tests/bench_profiles/large_army_moves_off.json`:
+
+* `MOVE_PARTIAL_SQUAD` — models that can move DO move; blocked models stay at
+  their positions (0" moves are legal, AIPlayer already confirms partial
+  staging). The all-or-nothing requirement was what made every rung fail.
+* `MOVE_STUCK_EARLY_EXIT` — zero movers across all strict fractions ends the
+  ladder and memoises the unit as stuck for the round (the memo also covers
+  the ~7 re-invocations per decision/recompute).
+* `MOVE_SEARCH_BUDGET` — a deterministic candidate-position ceiling per
+  computation (20k). Observed live on the diagnosed unit: "Warbikers Delta:
+  MOVE_SEARCH_BUDGET exhausted before relaxed 0.50x (40051 candidates);
+  holding this round" — bounded, where before it was minutes.
+
 **Where the earlier work stands.** ~2x achieved against the ~20-50x this fixture
 would need. The remaining cost is not the cost *per* query but the **number of
 queries**: 14,153 collision tests and 8,783 exact-overlap tests for two unit
@@ -149,6 +163,25 @@ from numbers rather than from a reading of it.
 **Until then:** the screening path has no automated guard. It is exercised in
 real games (6 SCREEN plan lines in a 306-line 2000-pt game), so it is not
 untested — it is unguarded against regression.
+
+**UN-PARKED (2026-08-09) — and it FAILED, which is new information.** With
+the movement fix in, the exam produces a verdict in 473 s (against two
+timeouts at 700-1500 s before), so the COST reason for parking is gone. Its
+first-ever completed run then failed on substance: got +2.73" against the
+≤ 0.5" bar. The log shows why — the screen assignment fired ("Gretchin
+Alpha (OC2): SCREEN") but the same plan sent the protectee forward ("Mek
+(OC1): MOVE obj_nml_1, 38.1\" away"), so the Mek walked past its own screen:
+_compute_screen_position works from the protectee's PRE-move position and
+nothing stops the objective pass from marching the protectee downfield of
+it. That is a real coordination gap, correctly caught. The exam has moved
+to `aspirational/`, owned by the screen/protectee-coordination task in
+`.llm/ai-overhaul-todo.md`.
+(Caveat added after the fixture-coherency root cause below landed: this
+run used the PRE-rebuild fixture, so the 14 untouched bystander units
+were illegally deployed. The coordination gap itself stands — the plan
+lines show the Mek routed 38" past its own screen regardless of the
+bystanders — but re-run the exam on the rebuilt fixture before trusting
+the +2.73" magnitude.)
 
 **TRIGGER FOUND AND FIXED (2026-08-09, second session).** The open question
 above — why player 1's army hangs while player 2's exact 180° rotation
@@ -236,3 +269,9 @@ changes behaviour and needs the paired evaluator first.
   on a base object of type 'Array'`, and the mission is then scored 0.0 and
   discarded as unachievable whenever this path runs. Fixing it changes which
   secondaries the AI keeps, so it needs the paired evaluator; not fixed here.
+  FIXED in the other 2026-08-09 session (independently found via the same
+  SCRIPT ERROR in a Custodes run): the caller now counts the Array's true
+  values. NOTE the fix's own VP effect is still unmeasured — the movement-
+  bundle paired A/B that ran afterwards carried it in BOTH arms, which keeps
+  that E clean but says nothing about this change in isolation. If a
+  secondary-selection shift shows up in later seasons, this is a suspect.

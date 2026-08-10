@@ -4,12 +4,12 @@
     "ai.formations.reserves_cap",
     "rules.11e.20_01"
   ],
-  "fixture": "mirror_custodes_2000_postdeploy",
+  "fixture": "mirror_orks_2000_preformations",
   "phase": 0,
   "player": 1,
   "difficulty": 2,
   "seed": 4246,
-  "rationale": "11e 20.01 caps Strategic Reserves at half the army's starting points, and the practical cap is much lower: units in reserve score nothing and contest nothing while they wait. A 950-point reserve declaration lost a benchmark game outright (docs/AI_REVIEW_2026-07-11.md 2.4). This exam runs the formations phase and checks the AI's own declaration keeps reserves at or under 50% of army points.",
+  "rationale": "11e 20.01 caps Strategic Reserves at half the army's starting points, and the practical cap is much lower: units in reserve score nothing and contest nothing while they wait. A 950-point reserve declaration lost a benchmark game outright (docs/AI_REVIEW_2026-07-11.md 2.4). This exam runs a LIVE formations phase (the fixture starts at phase 0 with nothing pre-confirmed — every earlier fixture auto-completed it, so the AI's declaration code had never once executed in an automated game) and checks the AI's own declaration keeps reserves at or under 50% of army points. The status test uses the integer enum (IN_RESERVES == 7) — the old string compare could never match anything a phase writes, which pinned 'reserved' at 0.0 and made the exam unfailable.",
   "setup": [
     "return GameState.get_battle_round()"
   ],
@@ -25,14 +25,21 @@
         "\t\tcontinue",
         "\tvar pts = float(u.get(\"meta\", {}).get(\"points\", 0))",
         "\ttotal += pts",
-        "\tif str(u.get(\"status\", \"\")) == \"IN_RESERVES\" or u.get(\"flags\", {}).get(\"in_reserves\", false):",
+        "\tif int(u.get(\"status\", 0)) == 7 or u.get(\"flags\", {}).get(\"in_reserves\", false):",
         "\t\treserved += pts",
         "if total <= 0.0:",
         "\treturn 0.0",
         "return 100.0 * reserved / total"
       ],
       "expect_max": 50.0
+    },
+    {
+      "name": "the formations phase actually ran for player 1 (confirmed flag set)",
+      "script": [
+        "return 1.0 if GameState.state.get(\"meta\", {}).get(\"formations_p1_confirmed\", false) else 0.0"
+      ],
+      "expect_min": 1.0
     }
   ],
-  "max_actions": 60
+  "max_actions": 120
 }

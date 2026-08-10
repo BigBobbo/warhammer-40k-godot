@@ -245,6 +245,18 @@ static var _fight_order_logged: bool = false
 static var _player_profiles: Dictionary = {}  # {player_id: {parameters: {}, rules: []}}
 static var _active_rule_overrides: Dictionary = {}  # Computed rule-based overrides for current context
 
+# Large-army movement robustness (see MOVE_PARTIAL_SQUAD const block).
+# _stuck_units: unit_id -> battle_round in which the full movement search
+# concluded the unit cannot move. Checked on entry to
+# _compute_movement_toward_target so the ~8 call sites (advance / attack /
+# normal / AAO shuffle / AIPlayer's 3-scale recompute) pay the ladder at most
+# once per unit per round. Cleared when the round changes and on game load.
+# _move_search_work / _move_search_budget: deterministic candidate-position
+# counter and its per-call ceiling (NOT wall clock — determinism-safe).
+static var _stuck_units: Dictionary = {}
+static var _move_search_work: int = 0
+static var _move_search_budget: int = 0
+
 # P2-92: Reset all static caches (called on game load to prevent stale data)
 static func reset_caches() -> void:
 	print("AIDecisionMaker: Resetting all static caches")
@@ -284,6 +296,8 @@ static func reset_caches() -> void:
 	_active_rule_overrides.clear()
 	_current_player = 0
 	_aao_now_cache.clear()
+	_stuck_units.clear()
+	_move_search_work = 0
 	print("AIDecisionMaker: Static caches reset complete")
 
 # Config override system — load parameter overrides for hand-tuning the AI.
@@ -537,6 +551,21 @@ const CHARGE_LOW_TOUGHNESS_BONUS: float = 1.0  # charge target: toughness 3 or l
 const CHARGE_SHORT_3IN_MULT: float = 1.3  # charge: needs 3" or less (reliability multiplier)
 const CHARGE_SHORT_6IN_MULT: float = 1.2  # charge: needs 6" or less (reliability multiplier)
 const CHARGE_TARGET_ON_OBJ_MULT: float = 1.5  # charge: target is standing on an objective
+# Deploy the LARGEST bases first (1 = on). The engine offers DEPLOY_UNIT in
+# army-JSON order, which put the 180mm/600pt Stompa LAST — into whatever
+# fragments 76 already-placed models left behind. The fixture packer hit the
+# identical failure and had to sort largest-base-first (make_2000pt_fixture.gd:
+# "fragmented the zone with 25mm Gretchin and then had nowhere to put a 180mm
+# Stompa"). Same fix, live.
+const DEPLOY_LARGEST_FIRST: float = 1.0
+# Respect the deployment zone POLYGON, not just its bounding box (1 = on).
+# Crucible of Battle is a triangle whose AABB is twice the zone; Search and
+# Destroy is a quarter-circle. Placing against the AABB produced positions the
+# engine rejects with "Model must be wholly within deployment zone" — measured
+# 2 of 17 unit centroids outside the polygon on the shipped Ork predeploy
+# fixture. With this on, candidate positions outside the polygon (allowing for
+# the model's bounding radius) are rejected/projected during placement.
+const DEPLOY_POLYGON_AWARE: float = 1.0
 const DEPLOY_TERRAIN_CHAR_COVER: float = 2.0  # deployment terrain, character: piece grants cover
 const DEPLOY_TERRAIN_CHAR_LOS_BLOCK: float = 5.0  # deployment terrain, character: piece blocks line of sight
 const DEPLOY_TERRAIN_DURABLE_COVER: float = 2.5  # deployment terrain, durable ranged: cover
@@ -728,23 +757,61 @@ const MOVE_REACH_HORIZON: float = 0.0        # 1 enables; measured at -4.29 VP
 const MOVE_UNREACHABLE_FLOOR: float = 0.05   # residual value past the horizon
 const MAX_BATTLE_ROUNDS_AI: int = 5          # mirrors GameState.MAX_BATTLE_ROUNDS
 
-# Cap on FAILED unit-placement attempts inside one _compute_movement_toward_target
-# call before the unit is treated as unmovable for this decision (returns {} =
-# remain stationary). The fallback ladder is ~78 rungs (fractions x formation x
-# alternate angles x three relaxed-collision levels); a genuinely boxed-in unit
-# fails every one, each rung re-running a per-model search of up to ~392
-# candidate positions against every model on the table. Measured on
-# mirror_orks_2000_postdeploy (154 models, before its illegal-deployment rebuild)
-# ONE such decision ran for minutes inside a single engine frame — which also
-# meant neither the benchmark stall detector nor --bench-max-seconds could fire.
+# --- Large-army movement robustness (2026-08-09) ----------------------------
+# Root cause of the Ork-fixture hang (see 40k/tests/exams/slow/README.md): one
+# boxed-in unit walks the whole ~78-rung fallback ladder inside a single
+# decision call — 6 strict fractions, 6 formation, 8 alternate angles, then 58+
+# relaxed-radius rungs — each rung a per-model search against every model on
+# the table, with no memory between rungs and no way to conclude "this unit
+# cannot move". Minutes per stuck unit, inside one frame. (The fixture that
+# made this reproducible ALSO turned out to deploy 19 units out of coherency —
+# rebuilt in e414516 — but any unit legally boxed in hits the same ladder.)
 #
-# 0 = unlimited (ships OFF: cutting the ladder short changes which move gets
-# made when a late relaxed rung would have found a spot, and behaviour changes
-# need the paired evaluator — tools/ai_lab/run_paired.py — before they ship;
-# the same gating convention as MOVE_RIGID_BLOCK_FIRST above). A value around
-# 10-15 keeps the worst case at roughly two fraction ladders' cost while still
-# letting the common congestion cases resolve.
-const MOVE_LADDER_FAIL_BUDGET: float = 0.0   # 0 = off; see the note above
+# Three coupled changes, each a parameter so a profile can A/B them. These
+# ship ON, measured: paired A/B on the Custodes mirror at 8 pairs is
+# strength-neutral (E = -1.50 +/- 2.14 VP), 10/10 Ork-mirror A/A games
+# completed with zero stalls, exams 10/10 — see
+# 40k/tests/bench_baselines/2026-08-09_large_army_bundle_first_runs.md.
+# The baseline arm is bench_profiles/large_army_moves_off.json.
+#
+# MOVE_PARTIAL_SQUAD — move the models that can move, leave the ones that
+# cannot at their current position (moving 0" is always legal for a model in a
+# normal move, and AIPlayer already confirms partial staging — "un-staged
+# models stay in place"). This is how a player moves a horde: drag the ones
+# that fit, deal with stragglers, accept that the tail holds. It removes the
+# all-or-nothing requirement that made every rung of the ladder fail on a
+# crowded board, so the first fraction usually succeeds and the ladder
+# collapses. Coherency of the mixed set (moved + stayed) is still checked
+# against the engine rule before the move is returned.
+#
+# MOVE_STUCK_EARLY_EXIT — once the strict fraction pass has failed at EVERY
+# fraction with no model placeable, the remaining ~60 rungs differ only in
+# angle and radius shrink while the blockers stay adjacent; skip them, record
+# the unit as stuck for this battle round, and let the caller fall through to
+# REMAIN_STATIONARY. The per-round memo also stops the advance/attack/normal
+# sub-decisions and AIPlayer's 3-scale recompute from each re-paying the
+# ladder for a unit already known stuck this round.
+#
+# MOVE_SEARCH_BUDGET — a deterministic ceiling on candidate positions examined
+# per _compute_movement_toward_target call (NOT wall clock, so identical
+# inputs still produce identical decisions on any machine). A successful move
+# resolves in well under 2k candidates; a boxed-in Warbikers squad was
+# measured walking ~300k. When the budget is exhausted the search returns "no
+# move" and the unit holds. Backstop for pathologies the early exit does not
+# match.
+const MOVE_PARTIAL_SQUAD: float = 1.0        # 0 restores all-or-nothing placement
+const MOVE_STUCK_EARLY_EXIT: float = 1.0     # 0 restores the full 78-rung ladder
+# 20k candidates ≈ 7 heavy rungs on the Ork board (~2,800 candidates per rung
+# when 3+ models each burn a full ~700-candidate resolution) ≈ under a minute
+# for the worst boxed-in unit, once per round. A successful move needs well
+# under 2k. Raise it for stronger play at slower wall clock; 0 = unlimited.
+const MOVE_SEARCH_BUDGET: float = 20000.0    # candidate positions per move computation
+# A second, coarser cap developed independently on main: FAILED unit-placement
+# attempts per computation (a rung-level count where MOVE_SEARCH_BUDGET counts
+# candidate positions). Ships OFF; the two mechanisms compose — if both are
+# set, whichever trips first ends the search. Around 10-15 keeps the worst
+# case at roughly two fraction ladders' cost.
+const MOVE_LADDER_FAIL_BUDGET: float = 0.0   # 0 = off; failed placements per computation
 
 # --- Objective-assignment coefficients (promoted from bare literals) --------
 # These decide where every unit goes, every movement phase — 49.6% of movement
@@ -2324,6 +2391,9 @@ static func decide(phase: int, snapshot: Dictionary, available_actions: Array, p
 		_movement_intents.clear()
 		_movement_recorded_units.clear()
 		_turn_movement_plan.clear()
+		# Stuck-unit memo is per-round: casualties and enemy moves can free a
+		# boxed-in unit, so it earns a fresh search each round.
+		_stuck_units.clear()
 
 	# T7-25: Reset secondary awareness when a new round starts (per-player)
 	if player == 1:
@@ -3495,14 +3565,19 @@ static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_acti
 			var unit = all_units.get(unit_id, {})
 			var unit_keywords = unit.get("meta", {}).get("keywords", [])
 
-			# Check keyword compatibility
+			# Check keyword compatibility. The engine requires the unit to carry
+			# ALL capacity keywords ("22 ORKS INFANTRY models" means ORKS *and*
+			# INFANTRY — FormationsPhase._validate). The old any-match here let
+			# the AI nominate MOUNTED/VEHICLE Orks for the Stompa; the engine
+			# rejected the whole declaration and AIPlayer then blacklisted the
+			# transport for the rest of the game.
 			if capacity_keywords.size() > 0:
-				var has_keyword = false
+				var has_all_keywords = true
 				for kw in capacity_keywords:
-					if kw in unit_keywords:
-						has_keyword = true
+					if not (kw in unit_keywords):
+						has_all_keywords = false
 						break
-				if not has_keyword:
+				if not has_all_keywords:
 					continue
 
 			# Count alive models
@@ -3909,6 +3984,17 @@ static func _score_unit_for_reserves(unit: Dictionary, unit_id: String, reserve_
 # DEPLOYMENT PHASE
 # =============================================================================
 
+static func _deploy_footprint_px(unit: Dictionary) -> float:
+	# Largest model bounding radius in the unit, in px — the packing-relevant
+	# size for DEPLOY_LARGEST_FIRST ordering (mirrors the fixture packer).
+	var best := 0.0
+	for m in unit.get("models", []):
+		var r = _model_bounding_radius_px(
+			int(m.get("base_mm", 32)), str(m.get("base_type", "circular")), m.get("base_dimensions", {}))
+		if r > best:
+			best = r
+	return best
+
 static func _decide_deployment(snapshot: Dictionary, available_actions: Array, player: int) -> Dictionary:
 	# Filter to DEPLOY_UNIT actions
 	var deploy_actions = available_actions.filter(func(a): return a.get("type") == "DEPLOY_UNIT")
@@ -3920,7 +4006,19 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 				return {"type": "END_DEPLOYMENT", "_ai_description": "End Deployment"}
 		return {}  # Nothing to do (opponent deploying)
 
-	# Pick first undeployed unit
+	# Deploy the largest bases first (see DEPLOY_LARGEST_FIRST): big footprints
+	# need contiguous space, which only exists while the zone is still empty.
+	if get_param("DEPLOY_LARGEST_FIRST", DEPLOY_LARGEST_FIRST) > 0.0:
+		var units_for_sort = snapshot.get("units", {})
+		deploy_actions.sort_custom(func(a, b):
+			var fa = _deploy_footprint_px(units_for_sort.get(a.get("unit_id", ""), {}))
+			var fb = _deploy_footprint_px(units_for_sort.get(b.get("unit_id", ""), {}))
+			if fa == fb:
+				# Deterministic tiebreak so equal footprints keep a stable order
+				return str(a.get("unit_id", "")) < str(b.get("unit_id", ""))
+			return fa > fb
+		)
+
 	var action_template = deploy_actions[0]
 	var unit_id = action_template.get("unit_id", "")
 	var unit = snapshot.get("units", {}).get(unit_id, {})
@@ -4088,11 +4186,29 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	var base_mm = first_model.get("base_mm", 32)
 	var base_type = first_model.get("base_type", "circular")
 	var base_dimensions = first_model.get("base_dimensions", {})
-	var positions = _generate_formation_positions(best_pos, models.size(), base_mm, zone_bounds)
+
+	# DEPLOY_POLYGON_AWARE: everything above worked against the zone's bounding
+	# box, but Crucible of Battle is a triangle and Search and Destroy a
+	# quarter — the engine rejects anything not wholly inside the POLYGON.
+	# Project the chosen centre into the polygon and hand the polygon to the
+	# formation generator and the collision resolver so every candidate they
+	# emit is one the engine can accept.
+	var zone_poly := PackedVector2Array()
+	if get_param("DEPLOY_POLYGON_AWARE", DEPLOY_POLYGON_AWARE) > 0.0:
+		zone_poly = _get_deployment_zone_polygon_pixels(snapshot, player)
+		if not zone_poly.is_empty():
+			var unit_bound := _deploy_footprint_px(unit)
+			var projected := _project_into_zone_poly(best_pos, unit_bound + 5.0, zone_poly)
+			if projected != best_pos:
+				_debug_log_info("AI_DEPLOY %s: centre (%.0f,%.0f) not wholly in zone polygon — projected to (%.0f,%.0f)" % [
+					unit_name, best_pos.x, best_pos.y, projected.x, projected.y])
+				best_pos = projected
+
+	var positions = _generate_formation_positions(best_pos, models.size(), base_mm, zone_bounds, zone_poly)
 
 	# Resolve collisions with already-deployed models
 	var deployed_models = _get_all_deployed_model_positions(snapshot)
-	positions = _resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions)
+	positions = _resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions, zone_poly)
 
 	# Validate positions don't overlap walls — if any do, try to find wall-free alternatives
 	var measurement = _measurement()
@@ -4109,12 +4225,37 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	if has_wall_overlap:
 		print("AIDecisionMaker: Initial positions for %s overlap walls, searching for wall-free positions" % unit_name)
 		# Get the actual zone polygon for point-in-polygon testing
-		var zone_poly_pixels = _get_deployment_zone_polygon_pixels(snapshot, player)
+		var zone_poly_pixels = zone_poly if not zone_poly.is_empty() else _get_deployment_zone_polygon_pixels(snapshot, player)
 		var wall_free_center = _find_wall_free_center(first_model, zone_bounds, zone_poly_pixels, unit_keywords)
 		if wall_free_center != Vector2.ZERO:
-			positions = _generate_formation_positions(wall_free_center, models.size(), base_mm, zone_bounds)
-			positions = _resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions)
+			positions = _generate_formation_positions(wall_free_center, models.size(), base_mm, zone_bounds, zone_poly)
+			positions = _resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions, zone_poly)
 			print("AIDecisionMaker: Found wall-free center for %s at (%.0f, %.0f)" % [unit_name, wall_free_center.x, wall_free_center.y])
+
+	# Pre-gate with the ENGINE'S OWN acceptance rules before submitting — the
+	# reinforcement path already does both of these (there they took 6 engine
+	# round-trips down to 1). The circular collision radius under-covers oval
+	# bases (avg(L,W)/2), so 31 of the Ork list's 77 models could pass the
+	# resolver and still be rejected at DEPLOY_UNIT. One nudged re-resolve
+	# toward the zone centre fixes most of them locally; if that fails too,
+	# submit the original and let AIPlayer's retry ladder handle it (old path).
+	if positions.size() >= 1:
+		var gate_bad: bool = _formation_really_overlaps(positions, base_mm, base_type, base_dimensions, deployed_models) \
+			or (positions.size() >= 2 and not _check_formation_coherency(positions, base_mm))
+		if gate_bad:
+			var zone_mid := Vector2((zone_bounds.min_x + zone_bounds.max_x) / 2.0, (zone_bounds.min_y + zone_bounds.max_y) / 2.0)
+			var nudged_center: Vector2 = best_pos + (zone_mid - best_pos).normalized() * (_deploy_footprint_px(unit) * 2.0 + 20.0)
+			if not zone_poly.is_empty():
+				nudged_center = _project_into_zone_poly(nudged_center, _deploy_footprint_px(unit) + 5.0, zone_poly)
+			var retry_positions = _generate_formation_positions(nudged_center, models.size(), base_mm, zone_bounds, zone_poly)
+			retry_positions = _resolve_formation_collisions(retry_positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions, zone_poly)
+			var retry_ok: bool = not _formation_really_overlaps(retry_positions, base_mm, base_type, base_dimensions, deployed_models) \
+				and (retry_positions.size() < 2 or _check_formation_coherency(retry_positions, base_mm))
+			if retry_ok:
+				_debug_log_info("AI_DEPLOY %s: pre-gate rejected first formation (overlap/coherency), nudged re-resolve accepted" % [unit_name])
+				positions = retry_positions
+			else:
+				_debug_log_info("AI_DEPLOY %s: pre-gate rejected formation and the nudged retry — submitting original for engine retry ladder" % [unit_name])
 
 	var rotations = []
 	for i in range(models.size()):
@@ -10304,6 +10445,17 @@ static func _compute_movement_toward_target(
 	if target_pos == Vector2.INF:
 		return {}
 
+	# Large-army robustness: a unit already proven stuck this round skips the
+	# whole search. The advance/attack/normal sub-decisions and AIPlayer's
+	# 3-scale staging recompute all funnel through here, so without this memo a
+	# boxed-in unit pays the full fallback ladder up to ~7 times per round.
+	# The memo is only ever WRITTEN by the stuck detectors below, so with those
+	# parameters disabled this read never fires and behaviour is unchanged.
+	var _cur_round: int = int(snapshot.get("meta", {}).get("battle_round", snapshot.get("battle_round", 1)))
+	if int(_stuck_units.get(unit_id, -1)) == _cur_round:
+		_debug_log_info("AI_MOVE_DEBUG %s: skipping search — marked stuck in round %d" % [_dn(unit, unit_id), _cur_round])
+		return {}
+
 	var alive_models = _get_alive_models_with_positions(unit)
 	# NOTE: Do NOT add attached character models here — their model IDs (e.g. "m1")
 	# clash with bodyguard model IDs and corrupt the destinations dict.
@@ -10446,6 +10598,10 @@ static func _compute_movement_toward_target(
 		unit_name, centroid.x, centroid.y, target_pos.x, target_pos.y, move_px, safe_move_px, final_move_vector.length()])
 	var fractions_to_try = [1.0, 0.75, 0.5, 0.25, 0.15, 0.1]
 
+	# Deterministic search budget for this whole computation (see the
+	# MOVE_SEARCH_BUDGET const block). Candidate positions, not wall clock.
+	_move_search_work = 0
+	_move_search_budget = int(get_param("MOVE_SEARCH_BUDGET", MOVE_SEARCH_BUDGET))
 	# Fail budget across ALL rungs of the fallback ladder below. 0 = unlimited
 	# (the shipped default — see MOVE_LADDER_FAIL_BUDGET's note). When set, a
 	# unit that keeps failing placement stops burning rungs and holds instead.
@@ -10476,16 +10632,22 @@ static func _compute_movement_toward_target(
 
 	# PASS 2 — per-model placement with collision resolution (the original
 	# ladder, unchanged). Only reached when no rigid translation is legal.
+	# strict_zero_movers tracks whether ANY strict fraction managed to place
+	# even one model — the stuck signature the early exit below keys on.
+	var strict_zero_movers := true
 	for fraction in fractions_to_try:
 		if ladder_fail_budget > 0 and ladder_fails >= ladder_fail_budget:
 			_debug_log_info("AI_MOVE_DEBUG %s: ladder fail budget %d exhausted — treating unit as unmovable this decision" % [unit_name, ladder_fail_budget])
 			return {}
 		var try_vector = final_move_vector * fraction
+		var fail_info := {}
 		var destinations = _try_move_with_collision_check(
 			alive_models, try_vector, enemies, unit, deployed_models,
 			base_mm, base_type, base_dimensions, original_positions, safe_move_px,
-			mv_models
+			mv_models, 1.0, false, fail_info
 		)
+		if int(fail_info.get("placed", 0)) > 0:
+			strict_zero_movers = false
 		if not destinations.is_empty():
 			if fraction < 1.0:
 				print("AIDecisionMaker: Using %.0f%% move to avoid model overlap" % (fraction * 100))
@@ -10500,6 +10662,26 @@ static func _compute_movement_toward_target(
 				unit_name, destinations.size(), fraction, max_dist, max_dist / PIXELS_PER_INCH, safe_move_px])
 			return destinations
 		ladder_fails += 1
+
+	# STUCK EARLY EXIT (see the MOVE_STUCK_EARLY_EXIT const block): every strict
+	# fraction failed and none of them could place even ONE model. The remaining
+	# ~60 rungs vary only the angle and the radius shrink while the blockers are
+	# ADJACENT — measured at 54 consecutive identical failures over 280 s on the
+	# Ork fixture. Record the unit stuck for this round; the caller falls
+	# through to REMAIN_STATIONARY.
+	if strict_zero_movers and get_param("MOVE_STUCK_EARLY_EXIT", MOVE_STUCK_EARLY_EXIT) > 0.0:
+		_stuck_units[unit_id] = _cur_round
+		_debug_log_info("AI_MOVE_DEBUG %s: STUCK_EARLY_EXIT — no model placeable at any strict fraction (work=%d); holding this round" % [
+			unit_name, _move_search_work])
+		return {}
+
+	# BUDGET GATE: nothing has succeeded yet and the deterministic candidate
+	# budget is spent — stop before the relaxed rungs multiply the cost.
+	if _move_search_budget > 0 and _move_search_work >= _move_search_budget:
+		_stuck_units[unit_id] = _cur_round
+		_debug_log_info("AI_MOVE_DEBUG %s: MOVE_SEARCH_BUDGET exhausted (%d candidates, no move found); holding this round" % [
+			unit_name, _move_search_work])
+		return {}
 
 	# Individual placement failed at all fractions — try formation move (maintains spacing)
 	_debug_log_info("AI_MOVE_DEBUG %s: individual placement failed, trying formation move" % [unit_name])
@@ -10528,6 +10710,10 @@ static func _compute_movement_toward_target(
 
 	# All fractions failed in the original direction — try alternate angles
 	# This helps large bases (Ghazghkull's 100mm) navigate around dense formations
+	if _move_search_budget > 0 and _move_search_work >= _move_search_budget:
+		_stuck_units[unit_id] = _cur_round
+		_debug_log_info("AI_MOVE_DEBUG %s: MOVE_SEARCH_BUDGET exhausted before angle pass (%d candidates); holding this round" % [unit_name, _move_search_work])
+		return {}
 	var alt_angles = [deg_to_rad(45), deg_to_rad(-45), deg_to_rad(90), deg_to_rad(-90)]
 	_debug_log_info("AI_MOVE_DEBUG %s: trying %d alternate angles" % [unit_name, alt_angles.size()])
 	for angle in alt_angles:
@@ -10556,6 +10742,10 @@ static func _compute_movement_toward_target(
 			ladder_fails += 1
 
 	# Relaxed collision modes — progressively more permissive
+	if _move_search_budget > 0 and _move_search_work >= _move_search_budget:
+		_stuck_units[unit_id] = _cur_round
+		_debug_log_info("AI_MOVE_DEBUG %s: MOVE_SEARCH_BUDGET exhausted before relaxed passes (%d candidates); holding this round" % [unit_name, _move_search_work])
+		return {}
 	# Level 1: 0.85x radius, forward + side angles, coarse fractions
 	var level1_angles = [0.0, deg_to_rad(45), deg_to_rad(-45), deg_to_rad(90), deg_to_rad(-90)]
 	_debug_log_info("AI_MOVE_DEBUG %s: trying relaxed collision (0.85x radius)" % [unit_name])
@@ -10585,6 +10775,10 @@ static func _compute_movement_toward_target(
 			ladder_fails += 1
 
 	# Level 2: 0.7x radius, all angles including backward
+	if _move_search_budget > 0 and _move_search_work >= _move_search_budget:
+		_stuck_units[unit_id] = _cur_round
+		_debug_log_info("AI_MOVE_DEBUG %s: MOVE_SEARCH_BUDGET exhausted before relaxed 0.70x (%d candidates); holding this round" % [unit_name, _move_search_work])
+		return {}
 	var level2_angles = [0.0, deg_to_rad(45), deg_to_rad(-45), deg_to_rad(90), deg_to_rad(-90),
 		deg_to_rad(135), deg_to_rad(-135), deg_to_rad(180)]
 	_debug_log_info("AI_MOVE_DEBUG %s: trying relaxed collision (0.70x radius)" % [unit_name])
@@ -10614,6 +10808,10 @@ static func _compute_movement_toward_target(
 			ladder_fails += 1
 
 	# Level 3: 0.5x radius — last resort for any unit stuck in congestion
+	if _move_search_budget > 0 and _move_search_work >= _move_search_budget:
+		_stuck_units[unit_id] = _cur_round
+		_debug_log_info("AI_MOVE_DEBUG %s: MOVE_SEARCH_BUDGET exhausted before relaxed 0.50x (%d candidates); holding this round" % [unit_name, _move_search_work])
+		return {}
 	_debug_log_info("AI_MOVE_DEBUG %s: trying relaxed collision (0.50x radius, base %dmm)" % [unit_name, base_mm])
 	for angle in [0.0, deg_to_rad(30), deg_to_rad(-30), deg_to_rad(60), deg_to_rad(-60),
 			deg_to_rad(90), deg_to_rad(-90), deg_to_rad(135), deg_to_rad(-135), deg_to_rad(180)]:
@@ -10641,7 +10839,11 @@ static func _compute_movement_toward_target(
 				return destinations
 			ladder_fails += 1
 
-	_debug_log_info("AI_MOVE_DEBUG %s: all relaxed modes failed (%d failed placement attempts)" % [unit_name, ladder_fails])
+	_debug_log_info("AI_MOVE_DEBUG %s: all relaxed modes failed (work=%d, %d failed placement attempts)" % [unit_name, _move_search_work, ladder_fails])
+	# The FULL ladder ran and found nothing — remember that for the rest of the
+	# round so the other call sites do not re-derive it (write is unconditional
+	# here: the exhaustive search itself is the evidence, whatever the flags).
+	_stuck_units[unit_id] = _cur_round
 	return {}
 
 static func _find_unblocked_move_enhanced(
@@ -11264,7 +11466,7 @@ static func _try_move_with_collision_check(
 	base_type: String, base_dimensions: Dictionary,
 	original_positions: Dictionary = {}, move_cap_px: float = 0.0,
 	mv_models: Array = [], radius_factor: float = 1.0,
-	rigid_only: bool = false
+	rigid_only: bool = false, fail_info: Dictionary = {}
 ) -> Dictionary:
 	# rigid_only: move the whole squad as one block, exactly as a player does
 	# when they drag-select a unit and drag it — every model translates by the
@@ -11281,6 +11483,13 @@ static func _try_move_with_collision_check(
 	# 6x larger gap between models did NOT help (still round 1 after 14 min),
 	# which is what ruled out density and pointed here.
 	# Try moving all models by move_vector, checking enemy ER, model overlap, and MV path crossing
+	# partial: models that cannot be placed stay at their current position
+	# instead of failing the whole attempt (see MOVE_PARTIAL_SQUAD const block).
+	# skip_resolution: set once the congestion bail threshold is hit — remaining
+	# collided models go straight to "stay put" without paying the per-model
+	# search, while models whose direct destination is free still move.
+	var partial := (not rigid_only) and get_param("MOVE_PARTIAL_SQUAD", MOVE_PARTIAL_SQUAD) > 0.0
+	var skip_resolution := false
 	var destinations = {}
 	var placed_models: Array = []
 	var failed_models: Array = []
@@ -11418,14 +11627,19 @@ static func _try_move_with_collision_check(
 
 		if needs_resolve:
 			var orig_pos = original_positions.get(model_id, model_pos)
-			var resolved_dest = _resolve_movement_collision(
-				dest, move_vector, base_mm, base_type, base_dimensions,
-				all_obstacles, enemies, unit, orig_pos, move_cap_px, mv_models, radius_factor,
-				placed_models, coherency_max_px
-			)
+			var budget_spent: bool = _move_search_budget > 0 and _move_search_work >= _move_search_budget
+			var resolved_dest = Vector2.INF
+			if not (skip_resolution or budget_spent):
+				resolved_dest = _resolve_movement_collision(
+					dest, move_vector, base_mm, base_type, base_dimensions,
+					all_obstacles, enemies, unit, orig_pos, move_cap_px, mv_models, radius_factor,
+					placed_models, coherency_max_px,
+					intra_unit_obstacles if partial else []
+				)
 			if resolved_dest == Vector2.INF:
 				failed_models.append({"model": model, "intended_dest": dest})
-				_debug_log_info("INTRA_OBSTACLE_DEBUG %s.%s FAILED to resolve collision" % [_unit_name, model_id])
+				if not (skip_resolution or budget_spent):
+					_debug_log_info("INTRA_OBSTACLE_DEBUG %s.%s FAILED to resolve collision" % [_unit_name, model_id])
 				# Re-add to intra_unit_obstacles — this model stays at its original
 				# position, so subsequent models must still avoid it.
 				intra_unit_obstacles.append({
@@ -11438,9 +11652,20 @@ static func _try_move_with_collision_check(
 				var bailout_threshold = 0.6 if sorted_models.size() > 6 else 0.4
 				var min_failures = 5 if sorted_models.size() > 6 else 3
 				if failed_models.size() >= min_failures and float(failed_models.size()) / float(sorted_models.size()) > bailout_threshold:
-					_debug_log_info("INTRA_OBSTACLE_DEBUG %s: early bailout — %d/%d models failed (>%.0f%%)" % [
-						_unit_name, failed_models.size(), sorted_models.size(), bailout_threshold * 100])
-					return {}
+					if partial:
+						# Majority cannot move. Stop paying the per-model search
+						# for the rest, but keep placing models whose direct
+						# destination is free — they still get their move.
+						if not skip_resolution:
+							skip_resolution = true
+							_debug_log_info("INTRA_OBSTACLE_DEBUG %s: congestion bail at %d/%d failed — remaining collided models hold" % [
+								_unit_name, failed_models.size(), sorted_models.size()])
+					else:
+						_debug_log_info("INTRA_OBSTACLE_DEBUG %s: early bailout — %d/%d models failed (>%.0f%%)" % [
+							_unit_name, failed_models.size(), sorted_models.size(), bailout_threshold * 100])
+						fail_info["placed"] = placed_models.size()
+						fail_info["failed"] = failed_models.size()
+						return {}
 				continue
 			dest = resolved_dest
 
@@ -11454,7 +11679,13 @@ static func _try_move_with_collision_check(
 
 	# Place failed models near already-placed ones using spiral search
 	# (reuses the function-scope coherency_max_px computed above)
-	if not failed_models.is_empty() and not placed_models.is_empty():
+	# In partial mode this pass is best-effort: a model the spiral cannot place
+	# STAYS at its current position (moving 0" is always legal) instead of
+	# failing the whole attempt. When the congestion bail or the search budget
+	# already fired, the spiral is skipped entirely — stragglers just hold.
+	var attempt_spiral: bool = not failed_models.is_empty() and not placed_models.is_empty() \
+		and not (partial and (skip_resolution or (_move_search_budget > 0 and _move_search_work >= _move_search_budget)))
+	if attempt_spiral:
 		var step = model_radius * 2.0 + 8.0
 
 		for fm in failed_models:
@@ -11471,9 +11702,13 @@ static func _try_move_with_collision_check(
 					break
 
 			for ring in range(1, 15):
+				# Deterministic search budget (see MOVE_SEARCH_BUDGET)
+				if _move_search_budget > 0 and _move_search_work >= _move_search_budget:
+					break
 				var ring_radius = step * ring
 				var points_in_ring = maxi(8, ring * 8)
 				for p_idx in range(points_in_ring):
+					_move_search_work += 1
 					var angle = (2.0 * PI * p_idx) / points_in_ring
 					var candidate = Vector2(anchor.x + cos(angle) * ring_radius, anchor.y + sin(angle) * ring_radius)
 					candidate.x = clamp(candidate.x, BASE_MARGIN_PX, BOARD_WIDTH_PX - BASE_MARGIN_PX)
@@ -11523,28 +11758,66 @@ static func _try_move_with_collision_check(
 					break
 
 			if not found:
+				if partial:
+					# Best effort failed — the model simply stays where it is
+					# (moving 0" is legal; AIPlayer confirms partial staging).
+					# Re-add it as an obstacle so later stragglers avoid it.
+					intra_unit_obstacles.append({
+						"id": model_id, "position": _get_model_position(model),
+						"base_mm": base_mm, "base_type": base_type,
+						"base_dimensions": base_dimensions
+					})
+					continue
 				print("AIDecisionMaker: Could not place model %s near formation" % model_id)
+				fail_info["placed"] = placed_models.size()
+				fail_info["failed"] = failed_models.size()
 				return {}  # Can't place all models — fail this move attempt
 
 	elif not failed_models.is_empty() and placed_models.is_empty():
-		# Every model failed — try full formation placement
+		# Every model failed — no partial progress is possible for this vector.
+		if partial:
+			# The full formation fallback below is the expensive path and, on a
+			# congested board, the one that never succeeds — a zero-mover rung
+			# is the stuck signature the ladder's early exit keys on. Fail fast.
+			fail_info["placed"] = 0
+			fail_info["failed"] = failed_models.size()
+			return {}
 		print("AIDecisionMaker: All %d models failed collision check, trying formation placement" % alive_models.size())
 		return _try_formation_move(alive_models, move_vector, enemies, unit, deployed_models, base_mm, base_type, base_dimensions, original_positions, move_cap_px, mv_models)
 
-	# Final coherency gate (engine-exact): the AI moves EVERY model, so the whole
-	# destination set must satisfy the same 2"-edge coherency rule the engine
-	# checks at CONFIRM. If a resolved placement still left the formation
-	# incoherent, reject this attempt so the caller retries at a shorter fraction
-	# (models stay closer to their coherent origins) — better than dispatching a
-	# move the engine will reject with "Unit coherency broken".
-	if destinations.size() >= 2:
+	# Final coherency gate (engine-exact): the whole destination set must
+	# satisfy the same 2"-edge coherency rule the engine checks at CONFIRM.
+	# In partial mode the unit's final shape is moved models PLUS the models
+	# that stayed at their original positions, so the union is what gets
+	# checked. If the mixed set is incoherent, reject this attempt so the
+	# caller retries at a shorter fraction (movers stay closer to the models
+	# that could not follow) — better than dispatching a move the engine will
+	# reject with "Unit coherency broken".
+	var stayed_positions: Array = []
+	if partial:
+		for fm in failed_models:
+			if not destinations.has(fm.model.get("id", "")):
+				var fpos = _get_model_position(fm.model)
+				if fpos != Vector2.INF:
+					stayed_positions.append(fpos)
+	if destinations.size() + stayed_positions.size() >= 2 and destinations.size() >= 1:
 		var final_positions: Array = []
 		for mid in destinations:
 			final_positions.append(Vector2(destinations[mid][0], destinations[mid][1]))
+		final_positions.append_array(stayed_positions)
 		if not _check_formation_coherency(final_positions, coherency_base_mm):
-			_debug_log_info("AI_MOVE_DEBUG %s: coherency gate rejected formation (%d models) — retrying shorter" % [_unit_name, destinations.size()])
+			_debug_log_info("AI_MOVE_DEBUG %s: coherency gate rejected formation (%d moved + %d stayed) — retrying shorter" % [
+				_unit_name, destinations.size(), stayed_positions.size()])
+			fail_info["placed"] = placed_models.size()
+			fail_info["failed"] = failed_models.size()
 			return {}
 
+	if partial and not stayed_positions.is_empty() and not destinations.is_empty():
+		_debug_log_info("AI_MOVE_DEBUG %s: PARTIAL_MOVE — %d models move, %d hold position" % [
+			_unit_name, destinations.size(), stayed_positions.size()])
+
+	fail_info["placed"] = placed_models.size()
+	fail_info["failed"] = failed_models.size()
 	return destinations
 
 static func _try_formation_move(
@@ -11976,8 +12249,16 @@ static func _resolve_movement_collision(
 	obstacles: Array, enemies: Dictionary, unit: Dictionary,
 	original_pos: Vector2 = Vector2.INF, move_cap_px: float = 0.0,
 	mv_models: Array = [], radius_factor: float = 1.0,
-	unit_placed: Array = [], coherency_max_px: float = 0.0
+	unit_placed: Array = [], coherency_max_px: float = 0.0,
+	stay_anchors: Array = []
 ) -> Vector2:
+	# stay_anchors (partial-squad mode): current positions of same-unit models
+	# that have not moved (and on a congested board mostly will not). A
+	# resolved candidate must stay coherent with placed movers OR one of these
+	# anchors — without this, the one model that CAN move gets relocated up to
+	# the full move cap away, the mixed moved+stayed set fails the final
+	# coherency gate, and the whole ladder fails rung after rung even though a
+	# short coherent shuffle existed.
 	var perp = Vector2(-move_vector.y, move_vector.x).normalized()
 	var base_radius = _model_movement_radius_px(base_mm, base_type, base_dimensions)
 	var offsets = [1.0, -1.0, 2.0, -2.0, 3.0, -3.0, 4.0, -4.0, 5.0, -5.0]
@@ -12010,7 +12291,7 @@ static func _resolve_movement_collision(
 		if _dest_really_overlaps(candidate, base_mm, base_type, base_dimensions, _near.call(candidate)):
 			_rej.overlap += 1
 			return false
-		if not unit_placed.is_empty() and coherency_max_px > 0.0:
+		if (not unit_placed.is_empty() or not stay_anchors.is_empty()) and coherency_max_px > 0.0:
 			var coh := false
 			for pm in unit_placed:
 				var pp = pm.get("position", null) if pm is Dictionary else pm
@@ -12020,6 +12301,15 @@ static func _resolve_movement_collision(
 				if candidate.distance_to(ppv) <= coherency_max_px:
 					coh = true
 					break
+			if not coh:
+				for an in stay_anchors:
+					var ap = an.get("position", null) if an is Dictionary else an
+					if ap == null:
+						continue
+					var apv: Vector2 = ap if ap is Vector2 else Vector2(float(ap.get("x", 0)), float(ap.get("y", 0)))
+					if candidate.distance_to(apv) <= coherency_max_px:
+						coh = true
+						break
 			if not coh:
 				_rej.coherency += 1
 				return false
@@ -12051,6 +12341,7 @@ static func _resolve_movement_collision(
 		return ""
 
 	for multiplier in offsets:
+		_move_search_work += 1
 		var offset = perp * base_radius * multiplier
 		var candidate = dest + offset
 		_rej.tried += 1
@@ -12063,7 +12354,10 @@ static func _resolve_movement_collision(
 
 	var back_dir = -move_vector.normalized()
 	for multiplier in [1.0, -1.0, 2.0, -2.0, 3.0, -3.0]:
+		if _move_search_budget > 0 and _move_search_work >= _move_search_budget:
+			return Vector2.INF
 		for back_mult in [0.5, 1.0, 1.5]:
+			_move_search_work += 1
 			var offset = perp * base_radius * multiplier + back_dir * base_radius * back_mult
 			var candidate = dest + offset
 			_rej.tried += 1
@@ -12079,9 +12373,12 @@ static func _resolve_movement_collision(
 	# to a spot that keeps the unit legal (or fail, letting a shorter move try).
 	var step = base_radius * 2.0 + 4.0
 	for ring in range(1, 10):
+		if _move_search_budget > 0 and _move_search_work >= _move_search_budget:
+			return Vector2.INF
 		var ring_radius = step * ring
 		var points_in_ring = maxi(12, ring * 8)
 		for p_idx in range(points_in_ring):
+			_move_search_work += 1
 			var angle = (2.0 * PI * p_idx) / points_in_ring
 			var candidate = Vector2(dest.x + cos(angle) * ring_radius, dest.y + sin(angle) * ring_radius)
 			_rej.tried += 1
@@ -18225,10 +18522,14 @@ static func _assess_engage_on_all_fronts(units: Dictionary, player: int) -> floa
 	if alive < 2:
 		return 0.05  # Can't cover enough quarters
 	# Check how many quarters we currently have units in (>6" from center)
+	# _get_covered_quarters returns an Array of 4 bools — iterate the VALUES.
+	# The old `covered[q]` indexed the array with a bool ("Invalid access to
+	# property or key 'true' on a base object of type 'Array'"), a live
+	# SCRIPT ERROR whenever Engage on All Fronts was assessed.
 	var covered = _get_covered_quarters(units, player)
 	var covered_count = 0
 	for q in covered:
-		if covered[q]:
+		if q:
 			covered_count += 1
 	if covered_count >= 3:
 		return 0.8  # Already in 3+ quarters — very achievable
@@ -19466,8 +19767,47 @@ static func _get_deployment_zone_bounds(snapshot: Dictionary, player: int) -> Di
 	else:
 		return {"min_x": 40.0, "max_x": 1720.0, "min_y": 1930.0, "max_y": 2390.0}
 
+static func _pos_wholly_in_zone_poly(pos: Vector2, bound_radius_px: float, poly: PackedVector2Array) -> bool:
+	# Approximates the engine's "wholly within deployment zone" gate
+	# (DeploymentPhase._shape_wholly_in_polygon): the centre must be inside the
+	# polygon AND at least bound_radius from every edge. Exact for circular
+	# bases; conservative for ovals/rects (bounding radius covers any rotation).
+	# An empty poly means "no polygon available" — treat as unconstrained, the
+	# AABB clamp already applied is then the only guard (old behaviour).
+	if poly.is_empty():
+		return true
+	if not Geometry2D.is_point_in_polygon(pos, poly):
+		return false
+	var n = poly.size()
+	for i in range(n):
+		var closest = Geometry2D.get_closest_point_to_segment(pos, poly[i], poly[(i + 1) % n])
+		if pos.distance_to(closest) < bound_radius_px:
+			return false
+	return true
+
+static func _project_into_zone_poly(pos: Vector2, bound_radius_px: float, poly: PackedVector2Array) -> Vector2:
+	# Returns pos unchanged when it already fits; otherwise walks from the
+	# polygon's vertex centroid toward pos and keeps the last point that fits.
+	# Deterministic, bounded (21 probes), and always returns SOMETHING inside
+	# for any convex-ish zone — the collision resolver spreads models from there.
+	if _pos_wholly_in_zone_poly(pos, bound_radius_px, poly):
+		return pos
+	var c := Vector2.ZERO
+	for v in poly:
+		c += v
+	c /= maxf(1.0, float(poly.size()))
+	var best := c
+	for t in range(1, 21):
+		var p = c.lerp(pos, float(t) / 20.0)
+		if _pos_wholly_in_zone_poly(p, bound_radius_px, poly):
+			best = p
+		else:
+			break
+	return best
+
 static func _generate_formation_positions(centroid: Vector2, num_models: int,
-										base_mm: int, zone_bounds: Dictionary) -> Array:
+										base_mm: int, zone_bounds: Dictionary,
+										zone_poly: PackedVector2Array = PackedVector2Array()) -> Array:
 	var positions = []
 	var base_radius_px = (base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
 	var spacing = base_radius_px * 2.0 + 10.0  # Base diameter + small gap
@@ -19489,6 +19829,11 @@ static func _generate_formation_positions(centroid: Vector2, num_models: int,
 					zone_bounds.get("max_x", BOARD_WIDTH_PX - margin) - margin)
 		pos.y = clamp(pos.y, zone_bounds.get("min_y", margin) + margin,
 					zone_bounds.get("max_y", BOARD_HEIGHT_PX - margin) - margin)
+
+		# DEPLOY_POLYGON_AWARE: the AABB clamp above is not enough on
+		# triangular/quarter zones — project any spot the polygon rejects.
+		if not zone_poly.is_empty() and not _pos_wholly_in_zone_poly(pos, margin, zone_poly):
+			pos = _project_into_zone_poly(pos, margin, zone_poly)
 
 		positions.append(pos)
 
@@ -19653,9 +19998,11 @@ static func _position_collides_with_deployed(pos: Vector2, base_mm: int, deploye
 			return true
 	return false
 
-static func _resolve_formation_collisions(positions: Array, base_mm: int, deployed_models: Array, zone_bounds: Dictionary, base_type: String = "circular", base_dimensions: Dictionary = {}) -> Array:
+static func _resolve_formation_collisions(positions: Array, base_mm: int, deployed_models: Array, zone_bounds: Dictionary, base_type: String = "circular", base_dimensions: Dictionary = {}, zone_poly: PackedVector2Array = PackedVector2Array()) -> Array:
 	"""For each position that collides, spiral-search for the nearest free spot.
-	Also prevents intra-formation overlap and maintains unit coherency."""
+	Also prevents intra-formation overlap and maintains unit coherency.
+	zone_poly (optional): the real deployment-zone polygon — candidates that are
+	not wholly inside it are rejected, mirroring the engine's deployment gate."""
 	var resolved = []
 	# Track positions we've already placed in this formation
 	var formation_placed: Array = []  # Array of {position, base_mm, base_type, base_dimensions}
@@ -19663,6 +20010,13 @@ static func _resolve_formation_collisions(positions: Array, base_mm: int, deploy
 	var my_radius = _model_bounding_radius_px(base_mm, base_type, base_dimensions)
 	var margin = my_radius + 5.0
 	var step = my_radius * 2.0 + 8.0  # Spiral step size
+
+	# Bucket the deployed models once (same superset-preserving grid the mover
+	# uses — behaviour-identical, ~4x fewer obstacle iterations on a 154-model
+	# board). formation_placed stays a flat list: it is at most one unit.
+	var _dgrid := _build_obstacle_grid(deployed_models)
+	var _dnear := func(at: Vector2) -> Array:
+		return _grid_nearby(_dgrid, at, my_radius + 8.0) + formation_placed
 
 	# Max center-to-center distance for 2" edge-to-edge coherency
 	var base_radius_inches = (base_mm / 2.0) / 25.4
@@ -19672,10 +20026,9 @@ static func _resolve_formation_collisions(positions: Array, base_mm: int, deploy
 	var required_connections = 2 if (GameConstants.edition < 11 and positions.size() >= 7) else 1
 
 	for pos in positions:
-		# Combine deployed models + already-placed formation models for collision
-		var all_obstacles = deployed_models + formation_placed
+		var in_poly_ok: bool = zone_poly.is_empty() or _pos_wholly_in_zone_poly(pos, my_radius, zone_poly)
 
-		if not _position_collides_with_deployed(pos, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
+		if in_poly_ok and not _position_collides_with_deployed(pos, base_mm, _dnear.call(pos), 1.0, base_type, base_dimensions):
 			# No collision — but check coherency with already-placed models
 			var coherent = resolved.is_empty()
 			if not coherent:
@@ -19697,6 +20050,8 @@ static func _resolve_formation_collisions(positions: Array, base_mm: int, deploy
 				continue
 
 		# Spiral search for a free spot that also maintains coherency
+		# (obstacles are queried PER CANDIDATE — a ring-11 candidate is ~1600px
+		# from pos, far outside any query anchored there)
 		var found = false
 		for ring in range(1, 12):  # Up to 11 rings outward (increased from 7 for coherency search)
 			var ring_radius = step * ring
@@ -19711,7 +20066,11 @@ static func _resolve_formation_collisions(positions: Array, base_mm: int, deploy
 				candidate.x = clamp(candidate.x, zone_bounds.get("min_x", margin) + margin, zone_bounds.get("max_x", BOARD_WIDTH_PX - margin) - margin)
 				candidate.y = clamp(candidate.y, zone_bounds.get("min_y", margin) + margin, zone_bounds.get("max_y", BOARD_HEIGHT_PX - margin) - margin)
 
-				if not _position_collides_with_deployed(candidate, base_mm, all_obstacles, 1.0, base_type, base_dimensions):
+				# Engine gate mirror: the model must sit wholly inside the zone polygon
+				if not zone_poly.is_empty() and not _pos_wholly_in_zone_poly(candidate, my_radius, zone_poly):
+					continue
+
+				if not _position_collides_with_deployed(candidate, base_mm, _dnear.call(candidate), 1.0, base_type, base_dimensions):
 					var is_coherent = resolved.is_empty()
 					if not is_coherent:
 						var conn_count_s = 0

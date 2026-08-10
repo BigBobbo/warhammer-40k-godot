@@ -49,23 +49,28 @@ from params_manifest import build_manifest  # noqa: E402
 # passes. asym_2000_postdeploy is Custodes-vs-Orks, a genuinely different
 # matchup from the Custodes mirror, so the grid keeps its second arm there.
 #
-# mirror_orks_2000_postdeploy is still out, but NOT for the reason this comment
-# used to give. "A game on it does not leave battle round 1" was true of the
-# fixture as originally packed and is now FIXED: it deployed 19 of 34 units out
-# of coherency, the AI could not legally move them, and the engine's ISS-042
-# end-of-turn sweep amputated whichever army reached an End of Turn first. The
-# rebuilt fixture completes all 5 rounds (seed 9101: 798 actions, 956 s,
-# margin -7, zero coherency removals). See 40k/tests/exams/slow/README.md.
+# mirror_orks_2000_postdeploy is still out, and the reason is now precise.
+# Two independent 2026-08-09 sessions fixed the round-1 hang from both ends:
+# the fixture deployed 19 of 34 units out of coherency and was REBUILT
+# (per-unit block packing; the ISS-042 sweep had been amputating whichever
+# army reached an End of Turn first), and the AI's movement search gained
+# partial squad movement + a stuck early-exit + a deterministic budget, so
+# even an illegally boxed-in unit no longer hangs (bundle measured
+# strength-neutral, E = -1.50 +/- 2.14 on the Custodes mirror). Completed
+# 5-round games exist from both fixes independently (rebuilt fixture seed
+# 9101: 798 actions, 956 s; pre-rebuild fixture + bundle: 10/10 A/A games,
+# median 733 s — that season is bench_data/ork_aa_postfix and describes the
+# SUPERSEDED fixture, not this one).
 #
 # What is left before it can rejoin this list is measurement, not viability:
-#   * cost — ~956 s/game against ~162 s for the Custodes mirror, so adding it
-#     roughly triples a gate run's wall clock. That is a deliberate trade for
-#     whoever owns the gate's budget, not something to slip in silently.
-#   * it has no A/A reference yet. Every other fixture in the lab has its
-#     structural bias F measured before it was trusted; the Ork mirror never
-#     could be, because it never finished a game. Establish that first.
-# Two views of one matchup is exactly the blind spot this list exists to avoid,
-# so this is worth doing — with its own numbers, as its own change.
+#   * an A/A reference on the REBUILT fixture with the merged code. The
+#     pre-rebuild season cannot stand in for it — the sweep was amputating
+#     armies mid-game there.
+#   * cost — roughly 730-960 s/game against ~162 s for the Custodes mirror,
+#     so adding it roughly triples a gate run's wall clock. That is a
+#     deliberate trade for whoever owns the gate's budget.
+# Two views of one matchup is exactly the blind spot this list exists to
+# avoid, so this is worth doing — with its own numbers, as its own change.
 MIRRORS = ["mirror_custodes_2000_postdeploy", "asym_2000_postdeploy"]
 
 

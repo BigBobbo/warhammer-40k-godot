@@ -9956,6 +9956,14 @@ func _setup_formations_phase() -> void:
 	else:
 		# Single player / hotseat — show for active player (starts with player 1)
 		var active_player = GameState.get_active_player()
+		# An AI active player drives Formations through actions
+		# (DECLARE_TRANSPORT_EMBARKATION / DECLARE_RESERVES / CONFIRM_FORMATIONS
+		# via AIPlayer) — popping the human declaration dialog over it left an
+		# exclusive modal nobody would ever close in an AI-vs-AI game.
+		var ai_node = get_node_or_null("/root/AIPlayer")
+		if ai_node and ai_node.is_ai_player(active_player):
+			print("Main: Formations phase — active player %d is AI, skipping declaration dialog" % active_player)
+			return
 		_show_formations_dialog(active_player)
 
 func _show_formations_dialog(player: int) -> void:
