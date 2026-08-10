@@ -111,3 +111,39 @@ Seed 7001's season game reproduced this session's standalone run EXACTLY
 so determinism holds through every new code path. The A/A row is written
 into `2026-08-08_2000pt_fixture_AA.md`; the fixture is back in
 `gate_candidate.MIRRORS`.
+
+## SUPERSESSION NOTE (added at merge, 2026-08-10)
+
+A parallel session (PR #897) root-caused the same hang from the other end:
+`mirror_orks_2000_postdeploy` as originally packed deployed 19 of 34 units
+OUT OF COHERENCY (models interleaved across units), and the ISS-042 sweep
+was amputating the most-isolated models at every End of Turn. The fixture
+was REBUILT with per-unit block packing.
+
+Consequences for the rows above:
+- All `mirror_orks_2000_postdeploy` rows in this file (seed 7001 single game
+  and the 10-seed A/A) were measured on the PRE-REBUILD fixture. They remain
+  valid as robustness evidence for the movement bundle — the AI now survives
+  even an illegal board without hanging, deterministically — but they do NOT
+  describe the rebuilt fixture. Its A/A is to be re-measured.
+- `mirror_orks_2000_postdeploy_spaced` was built with the old
+  model-interleaving packer — defective by the same diagnosis — and has
+  been DELETED rather than rebuilt. Measured with the merged per-unit
+  packer (`--gap` = clearance between unit blocks): 0.6", 0.4", 0.3",
+  0.25" and 0.15" all overflow the zone; only 0.1" fits, double the
+  canonical 0.05" and not meaningfully "spaced". The 0.5-1" aspiration in
+  the earlier progress notes was ill-posed for this army — its unit blocks
+  genuinely fill 80-87% of the zone, and density was falsified as the hang
+  cause anyway. `--gap` stays in the builder for lighter lists.
+- The preformations / Search-and-Destroy fixtures and every row measured on
+  them are UNAFFECTED: they ship undeployed, so the packer bug never touched
+  them, and in those games the AI deployed coherent formations itself.
+- The Custodes paired A/B (E = −1.50 ± 2.14) is likewise unaffected: the
+  old packer sorted by base size with unit-id tiebreak, so the near-uniform
+  Custodes bases kept each unit's models contiguous (and PR #897 verified
+  both Custodes seeds reproduce their historical margins exactly). The
+  interleaving bit the Orks because their base sizes alternate wildly.
+
+The two fixes are complementary: the fixture rebuild removes the pathology
+from the benchmark; the movement bundle removes the hang from the GAME for
+any board state that produces it legally.

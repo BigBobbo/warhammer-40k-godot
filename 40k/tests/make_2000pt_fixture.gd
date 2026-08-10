@@ -232,6 +232,22 @@ func _build() -> void:
 	st["phase_log"] = []
 	st["unit_visuals"] = {}
 
+	# 6.5. COHERENCY GATE — judged by the ENGINE's own predicate (the same one
+	# the ISS-042 end-of-turn sweep enforces), not a re-implementation. A
+	# fixture that deploys any unit out of coherency is an illegal game state:
+	# the AI cannot legally move the scattered unit (it grinds the movement
+	# ladder for minutes concluding that), and the engine amputates the unit at
+	# the next End of Turn. Either way every number measured on it is garbage.
+	# Refuse to write such a fixture.
+	if not _predeploy:
+		for uid in GS.state.units:
+			var coh = AttackSequence.check_unit_coherency(GS.state.units[uid])
+			if not bool(coh.get("coherent", false)):
+				_fail("unit %s would deploy OUT OF COHERENCY (offenders: %s) — illegal deployment, fixture not written"
+					% [uid, str(coh.get("offenders", []))])
+				return
+		print("[fixture] coherency gate: all units coherent as deployed")
+
 	# 7. Report before saving, so a bad fixture is visible in the build log.
 	var report := _summarise()
 	print("[fixture] %s" % _out)
@@ -280,33 +296,57 @@ func _radius_px(model: Dictionary) -> float:
 
 
 func _pack(player: int, zone: Dictionary) -> int:
-	"""Grid-pack every model of `player` into its zone without overlap.
+	"""Grid-pack every UNIT of `player` into its zone as one contiguous block.
 
-	LARGEST BASE FIRST. The first version of this walked units in sorted id
-	order, which fragmented the zone with 25mm Gretchin and then had nowhere to
-	put a 180mm Stompa — it failed on the 77th of 77 Ork models in a zone that
-	is only 59% full by area. Big-first is the standard bin-packing heuristic
-	and costs nothing here.
+	PER-UNIT BLOCKS, LARGEST UNIT FIRST. The first version of this packed the
+	77 MODELS individually, sorted by base size across the whole army — which
+	interleaved every unit's models with every other unit's and deployed 19 of
+	the Ork mirror's 34 units OUT OF COHERENCY (Warbikers Delta's six bikes
+	spanned 36 inches). That deployment is illegal, and it is what made
+	mirror_orks_2000_postdeploy unable to finish a game:
 
+	  * the AI's move placement (correctly) refuses to reproduce an incoherent
+	    formation, so a scattered unit wedged between other units' models has
+	    ZERO legal placements — and the movement fallback ladder re-derives
+	    that impossibility for minutes inside one decision call;
+	  * the engine's ISS-042 end-of-turn sweep (11e 03.03) then DESTROYS the
+	    scattered models of whichever army survives to an End of Turn — in the
+	    probe runs it amputated 31 of player 2's 77 models before that army
+	    ever moved, which is why "player 2's exact mirror completes" while
+	    player 1 hangs: player 1's first movement phase never ends, so the
+	    sweep never reaches it. Turn order converted the symmetric defect into
+	    an asymmetric outcome.
+
+	Packing each unit as a near-square block keeps every deployment legal:
+	within a block, neighbours sit 2px apart edge-to-edge (0.05in, far inside
+	the 2in coherency distance) and the block diagonal stays inside the 11e
+	9in envelope. _build gates on the engine's own coherency check afterwards.
+
+	Big-first at the unit level is the same bin-packing heuristic the model
+	version used (a zone fragmented by Gretchin has nowhere to put a Stompa).
 	Otherwise deliberately dumb and fully deterministic: a fixed scan step,
-	first free slot left-to-right then top-to-bottom, ties broken by unit id
-	then model index. A cleverer packing would be a hidden variable in every
-	game played on this fixture; the point is that it is reproducible, not that
-	it is good."""
-	var queue: Array = []
+	first anchor that fits the whole block, left-to-right then front-to-back,
+	ties broken by unit id. A cleverer packing would be a hidden variable in
+	every game played on this fixture; the point is that it is reproducible,
+	not that it is good."""
+	var uqueue: Array = []
 	for uid in GS.state.units:
 		var u = GS.state.units[uid]
 		if int(u.get("owner", 0)) != player:
 			continue
 		var models = u.get("models", [])
-		for i in range(models.size()):
-			queue.append({"uid": uid, "idx": i, "r": _radius_px(models[i])})
-	queue.sort_custom(func(a, b):
-		if abs(a.r - b.r) > 0.001:
+		if models.is_empty():
+			continue
+		var max_r := 0.0
+		for m in models:
+			max_r = maxf(max_r, _radius_px(m))
+		uqueue.append({"uid": uid, "n": models.size(), "r": max_r})
+	uqueue.sort_custom(func(a, b):
+		if absf(a.r - b.r) > 0.001:
 			return a.r > b.r
-		if a.uid != b.uid:
-			return a.uid < b.uid
-		return a.idx < b.idx)
+		if a.n != b.n:
+			return a.n > b.n
+		return a.uid < b.uid)
 
 	var occupied: Array = []
 	var placed := 0
@@ -318,41 +358,49 @@ func _pack(player: int, zone: Dictionary) -> int:
 	#
 	# Scanning from `zone.min_y` unconditionally looks symmetric and is not:
 	# min_y is the BOARD EDGE for player 1 and the FRONT of the zone for player
-	# 2. Combined with largest-base-first, that put player 1's big bases at the
-	# back and player 2's at the front — from the same code. Measured on the
-	# 77-model Ork army, mean depth from its own front rank:
-	#
-	#     mirror (P1)   big bases 5.0 in back    small bases 2.4 in
-	#     asym   (P2)   big bases 5.0 in front   small bases 7.6 in
-	#
-	# The big bases are the Warbikers, Deffkoptas, Wartrikes and Stompa — Move
-	# 10-12, the models that most want to advance. Walling them in behind 43
-	# Gretchin and Stormboyz is a deployment no player would make, and the AI
-	# cannot dig them out: it burns the movement phase failing to resolve
-	# collisions against its own screen. That is why mirror_orks_2000_postdeploy
-	# could not finish a game while asym_2000_postdeploy, holding the SAME army,
-	# finished in 266 s. Proven by removing the enemy army entirely — the grind
-	# survived, so it was never about the opponent.
+	# 2. Combined with largest-first, that put player 1's big bases at the
+	# back and player 2's at the front — from the same code.
 	var board_mid: float = float(GS.state.board.size.height) * PX_PER_INCH * 0.5
 	var front_is_max: bool = absf(zone.max_y - board_mid) < absf(zone.min_y - board_mid)
 
-	for item in queue:
-		var m = GS.state.units[item.uid].models[item.idx]
+	for item in uqueue:
+		var u = GS.state.units[item.uid]
+		var models: Array = u.get("models", [])
+		var n: int = item.n
 		var r: float = item.r
+		var cols: int = int(ceil(sqrt(float(n))))
+		var cell: float = r * 2.0 + 2.0
+		# Row-major local offsets from the block's front-left model. Row 0 is
+		# the FRONT rank; deeper rows extend toward the back of the zone.
+		var offs: Array = []
+		for i in range(n):
+			offs.append(Vector2(float(i % cols) * cell, float(i / cols) * cell))
+		var w: float = float(cols - 1) * cell
+		var h: float = float(int(ceil(float(n) / float(cols))) - 1) * cell
+
 		var spot := Vector2.INF
 		var y: float = (zone.max_y - r - 2.0) if front_is_max else (zone.min_y + r + 2.0)
-		while (y >= zone.min_y + r if front_is_max else y <= zone.max_y - r) and spot == Vector2.INF:
+		while ((y - h >= zone.min_y + r) if front_is_max else (y + h <= zone.max_y - r)) and spot == Vector2.INF:
 			var x: float = zone.min_x + r + 2.0
-			while x <= zone.max_x - r:
+			while x + w <= zone.max_x - r:
 				var ok := true
-				for o in occupied:
-					var gap: float = r + o[2] + clearance_px
-					var dx: float = x - o[0]
-					if absf(dx) >= gap:
-						continue
-					var dy: float = y - o[1]
-					if dx * dx + dy * dy < gap * gap:
-						ok = false
+				for i in range(n):
+					var mx: float = x + offs[i].x
+					var my: float = (y - offs[i].y) if front_is_max else (y + offs[i].y)
+					for o in occupied:
+						# clearance_px (--gap, default 0.05") applies BETWEEN
+						# units: `occupied` holds previously placed blocks'
+						# models. Intra-block spacing stays the fixed 2px cell
+						# so unit coherency is guaranteed by construction.
+						var gap: float = r + o[2] + clearance_px
+						var dx: float = mx - o[0]
+						if absf(dx) >= gap:
+							continue
+						var dy: float = my - o[1]
+						if dx * dx + dy * dy < gap * gap:
+							ok = false
+							break
+					if not ok:
 						break
 				if ok:
 					spot = Vector2(x, y)
@@ -360,12 +408,15 @@ func _pack(player: int, zone: Dictionary) -> int:
 				x += STEP
 			y += (-STEP if front_is_max else STEP)
 		if spot == Vector2.INF:
-			_fail("no room in P%d's zone for a %.0fmm model of %s (%d of %d already placed)"
-				% [player, m.get("base_mm", 32), item.uid, placed, queue.size()])
+			_fail("no room in P%d's zone for %s as a coherent block (%d models, cell %.0fpx; %d model(s) already placed)"
+				% [player, item.uid, n, cell, placed])
 			return -1
-		m["position"] = {"x": spot.x, "y": spot.y}
-		occupied.append([spot.x, spot.y, r])
-		placed += 1
+		for i in range(n):
+			var mx: float = spot.x + offs[i].x
+			var my: float = (spot.y - offs[i].y) if front_is_max else (spot.y + offs[i].y)
+			models[i]["position"] = {"x": mx, "y": my}
+			occupied.append([mx, my, _radius_px(models[i])])
+			placed += 1
 	return placed
 
 

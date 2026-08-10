@@ -176,3 +176,102 @@ nothing stops the objective pass from marching the protectee downfield of
 it. That is a real coordination gap, correctly caught. The exam has moved
 to `aspirational/`, owned by the screen/protectee-coordination task in
 `.llm/ai-overhaul-todo.md`.
+(Caveat added after the fixture-coherency root cause below landed: this
+run used the PRE-rebuild fixture, so the 14 untouched bystander units
+were illegally deployed. The coordination gap itself stands — the plan
+lines show the Mek routed 38" past its own screen regardless of the
+bystanders — but re-run the exam on the rebuilt fixture before trusting
+the +2.73" magnitude.)
+
+**TRIGGER FOUND AND FIXED (2026-08-09, second session).** The open question
+above — why player 1's army hangs while player 2's exact 180° rotation
+completes — is answered, and it was neither the AI's geometry nor the board.
+Every step below is measured, not reasoned.
+
+1. **The fixture deployed 19 of its 34 units OUT OF COHERENCY.**
+   `make_2000pt_fixture.gd::_pack` packed the 77 MODELS individually, sorted
+   by base size across the whole army, ignoring unit membership — so units'
+   models interleaved. Warbikers Delta's six bikes spanned **36 inches**
+   (m2 at x=191, m3 at x=1621); all 11 Gretchin Alpha models had no
+   squadmate within 2". Both zones identically (the mirror was geometrically
+   perfect — all 77 model pairs match under rotation to 0.01px).
+
+2. **That is why Warbikers Delta could not move.** The AI's placement search
+   (correctly) enforces the same coherency the engine validates at CONFIRM:
+   each moved model must land within coherency range of an already-placed
+   squadmate. A unit whose models start 5-15" apart, wedged between OTHER
+   units' models at 0.07" gaps, has ZERO legal placements — it would have to
+   contract 300-700px through a packed crowd inside one 12" move. The
+   instrumented failure census (`RESOLVE_FAIL` log lines, added this session)
+   names it: per failing model, all 392 candidates rejected —
+   `rej={board:176 cap:111 collide:65 wall:7 terrain:6 overlap:4 coh:23}`,
+   nearest obstacles `U_GRETCHIN_B/m11@72px, U_GRETCHIN_A/m9@101px` — models
+   of OTHER units parked around the bike. The ~78-rung ladder then re-derives
+   that impossibility for minutes inside ONE decision call (no frame yield,
+   which is why neither the stall detector nor --bench-max-seconds fired).
+
+3. **Why player 2's "exact mirror" completed anyway: the engine amputated its
+   army first.** ISS-042 (11e 03.03) destroys the most-isolated models of any
+   incoherent unit at every End of Turn — BOTH players' units. In the
+   P2-only probe, the sweep at the end of player 1's (empty) turn removed
+   **31 of player 2's 77 models** (10 of 11 Gretchin Alpha, 8 Gretchin Bravo,
+   both Deffkopta squads pruned, three Stormboyz squads pruned) BEFORE player
+   2 ever planned a move. Player 2 then played a smaller, legal army on a
+   thinner board: its objective evaluations differed (friendly_oc 5 vs 9 at
+   the mirrored home objective, VP estimates 2.5 vs 4.5), its plan differed
+   (Wazdakka HOLDs; jump-pack Stormboyz get the 47" trek instead of the
+   Warbikers), and every move succeeded. Player 1 never got that "help"
+   because the sweep runs at End of Turn and player 1's first movement phase
+   never ended. **Turn order converted a symmetric defect into the asymmetric
+   outcome.** The asym_2000_postdeploy result ("same Orks finish in 266s")
+   is the same artifact: there the Orks are player 2, so every asym game
+   quietly played Custodes vs Orks-minus-~31-models. Its A/A baseline
+   measured a fixture the rules had already amputated.
+
+**The fix.** `_pack` now packs each UNIT as a contiguous near-square block
+(largest unit first, same deterministic scan), and `_build` refuses to write
+any fixture whose units fail the ENGINE's own
+`AttackSequence.check_unit_coherency` — the exact predicate ISS-042 enforces.
+`mirror_orks_2000_postdeploy` was rebuilt (sha256 76b7e123…): 0 incoherent
+units, 0 ISS-042 removals in play, and the fixture that "cannot finish a
+game" now **completes all 5 battle rounds**:
+
+    seed 9101, Hard, time_scale 6
+    status=completed  battle_round=5  actions=798  wall=956 s  margin=-7
+
+Against the previous behaviour — still in battle round 1 after 22 minutes,
+one unit and one decision consuming 280 s of it. It is still the slowest
+fixture in the lab at ~16 minutes a game (the per-model search is unchanged;
+see below), so it needs a budget well above the 350 s the other fixtures
+use, but nothing is unmovable and every decision returns in bounded time. The movement
+ladder also gained `MOVE_LADDER_FAIL_BUDGET` (default 0 = off, same gating
+convention as MOVE_RIGID_BLOCK_FIRST): when set, a unit that keeps failing
+placement stops burning rungs after N failed attempts and holds instead —
+the robustness fix for a unit genuinely boxed in mid-game. Turning it on
+changes behaviour and needs the paired evaluator first.
+
+**Still true, and still open:**
+
+* `asym_2000_postdeploy` (and its A/A baseline, and the gate grid that uses
+  it) were built by the scattered packer and measured with the amputation
+  distortion. The fixture should be rebuilt with the fixed builder and its
+  baseline re-established — NOT silently, since numbers derived from the old
+  one are not comparable. Left to the owner to schedule.
+* The per-model collision search is still expensive when a legal move is
+  crowded (a failing model costs a 392-candidate search per rung). The
+  rebuilt mirror completes but remains the slowest fixture. The search-design
+  notes in the section above still apply.
+* Found in passing, PRE-EXISTING (fires in the historical baseline runs too —
+  both custodes seeds reproduce their margins exactly WITH it firing):
+  `_assess_engage_on_all_fronts` (AIDecisionMaker.gd:18231) indexes the
+  return of `_get_covered_quarters` as a Dictionary, but that function
+  returns an Array — `SCRIPT ERROR: Invalid access to property or key 'true'
+  on a base object of type 'Array'`, and the mission is then scored 0.0 and
+  discarded as unachievable whenever this path runs. Fixing it changes which
+  secondaries the AI keeps, so it needs the paired evaluator; not fixed here.
+  FIXED in the other 2026-08-09 session (independently found via the same
+  SCRIPT ERROR in a Custodes run): the caller now counts the Array's true
+  values. NOTE the fix's own VP effect is still unmeasured — the movement-
+  bundle paired A/B that ran afterwards carried it in BOTH arms, which keeps
+  that E clean but says nothing about this change in isolation. If a
+  secondary-selection shift shows up in later seasons, this is a suspect.

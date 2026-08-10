@@ -47,16 +47,31 @@ from params_manifest import build_manifest  # noqa: E402
 
 # The gate needs >= 2 MATCHUPS, or a candidate that is merely matchup-specific
 # passes. asym_2000_postdeploy is Custodes-vs-Orks, a genuinely different
-# matchup from the Custodes mirror.
+# matchup from the Custodes mirror, so the grid keeps its second arm there.
 #
-# mirror_orks_2000_postdeploy is BACK (2026-08-09): the round-1 hang was a
-# boxed-in unit walking an unbounded fallback ladder, fixed by partial squad
-# movement + a stuck early-exit + a deterministic search budget (see
-# 40k/tests/bench_baselines/2026-08-09_large_army_bundle_first_runs.md —
-# completed 5-round games at ~705 s shared / seed 7001, plus the A/A season
-# in bench_data/ork_aa_postfix). Budget gate runs accordingly: an Ork game
-# is ~4x a Custodes one, so size --pairs with that in mind.
-MIRRORS = ["mirror_custodes_2000_postdeploy", "asym_2000_postdeploy", "mirror_orks_2000_postdeploy"]
+# mirror_orks_2000_postdeploy is still out, and the reason is now precise.
+# Two independent 2026-08-09 sessions fixed the round-1 hang from both ends:
+# the fixture deployed 19 of 34 units out of coherency and was REBUILT
+# (per-unit block packing; the ISS-042 sweep had been amputating whichever
+# army reached an End of Turn first), and the AI's movement search gained
+# partial squad movement + a stuck early-exit + a deterministic budget, so
+# even an illegally boxed-in unit no longer hangs (bundle measured
+# strength-neutral, E = -1.50 +/- 2.14 on the Custodes mirror). Completed
+# 5-round games exist from both fixes independently (rebuilt fixture seed
+# 9101: 798 actions, 956 s; pre-rebuild fixture + bundle: 10/10 A/A games,
+# median 733 s — that season is bench_data/ork_aa_postfix and describes the
+# SUPERSEDED fixture, not this one).
+#
+# What is left before it can rejoin this list is measurement, not viability:
+#   * an A/A reference on the REBUILT fixture with the merged code. The
+#     pre-rebuild season cannot stand in for it — the sweep was amputating
+#     armies mid-game there.
+#   * cost — roughly 730-960 s/game against ~162 s for the Custodes mirror,
+#     so adding it roughly triples a gate run's wall clock. That is a
+#     deliberate trade for whoever owns the gate's budget.
+# Two views of one matchup is exactly the blind spot this list exists to
+# avoid, so this is worth doing — with its own numbers, as its own change.
+MIRRORS = ["mirror_custodes_2000_postdeploy", "asym_2000_postdeploy"]
 
 
 def run_paired(candidate, fixture, season, pairs, seed_base, lanes, max_seconds, difficulty):
