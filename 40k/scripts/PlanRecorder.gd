@@ -26,7 +26,7 @@ class_name PlanRecorder
 #   embarkations      -> units[*].embarked_in  (set by both the FORMATIONS
 #                        declaration and DEPLOYMENT's COMPOSITE_DEPLOY)
 #   attachments       -> units[*].attached_to  (likewise)
-#   earmarks          -> left empty; PM-6's intent painter fills them in
+#   earmarks          -> meta.plan_earmarks, written by PM-6's intent painter
 #
 # Reference: 40k/docs/PLAN_FORMAT.md
 
@@ -123,14 +123,26 @@ static func build_plan(state: Dictionary, info: Dictionary = {}, terrain_pieces:
 			"embarkations": [],
 			"attachments": [],
 		},
-		# PM-6 (intent painter) fills these in. The schema allows absence, but an
-		# explicit empty list makes a recorded plan obviously "not painted yet".
+		# Painted by PM-6's intent painter into meta.plan_earmarks. An explicit
+		# empty list makes an unpainted recording obviously unpainted.
 		"earmarks": [],
 	}
 	if plan["name"].is_empty():
 		plan["name"] = default_plan_name(state, player)
 
 	var arrival_round: int = int(info.get("arrival_round", DEFAULT_ARRIVAL_ROUND))
+
+	# PM-6 earmarks, filtered to units that still exist on this seat. A
+	# RESERVE_UNTIL earmark is UI sugar over deployment.reserves and the two
+	# MUST agree — the validator rejects a mismatch — so its round is collected
+	# here and applied to the reserves list below, overriding the unit's board
+	# position if it has one.
+	var reserve_until := {}
+	var painted := _painted_earmarks(state, units, player)
+	for entry in painted:
+		if str(entry.get("verb", "")) == "RESERVE_UNTIL":
+			reserve_until[str(entry.get("unit", ""))] = int(entry.get("round", arrival_round))
+	plan["earmarks"] = painted
 
 	# --- placements, reserves, embarkations, attachments ------------------
 	for unit_id in units.keys():
@@ -157,6 +169,15 @@ static func build_plan(state: Dictionary, info: Dictionary = {}, terrain_pieces:
 				"transport": str(embarked_in),
 			})
 			# Likewise: a passenger is deployed inside the transport.
+			continue
+
+		# A painted RESERVE_UNTIL wins over the board: the author is saying this
+		# unit STARTS in reserve, whatever it is doing in the sandbox.
+		if reserve_until.has(str(unit_id)):
+			plan["deployment"]["reserves"].append({
+				"unit": str(unit_id),
+				"arrival_round": int(reserve_until[str(unit_id)]),
+			})
 			continue
 
 		if int(unit.get("status", 0)) == STATUS_IN_RESERVES:
@@ -246,6 +267,32 @@ static func record_and_save(state: Dictionary, info: Dictionary = {}, terrain_pi
 # ============================================================
 # Internals
 # ============================================================
+
+static func _painted_earmarks(state: Dictionary, units: Dictionary, player: int) -> Array:
+	"""meta.plan_earmarks, filtered to units that still exist on this seat.
+
+	The painter writes the plan's own earmark shape, so entries pass straight
+	through. A stale entry (unit removed, or belonging to the other seat) is
+	dropped rather than emitted — the validator would reject the plan for a
+	reference the army cannot resolve."""
+	var raw = state.get("meta", {}).get("plan_earmarks", [])
+	if not (raw is Array):
+		return []
+	var out: Array = []
+	var seen := {}
+	for entry in raw:
+		if not (entry is Dictionary):
+			continue
+		var unit_id := str(entry.get("unit", ""))
+		if unit_id.is_empty() or seen.has(unit_id):
+			continue
+		var unit = units.get(unit_id, null)
+		if not (unit is Dictionary) or int(unit.get("owner", 0)) != player:
+			continue
+		seen[unit_id] = true
+		out.append(entry.duplicate(true))
+	return out
+
 
 static func _models_in_inches(unit: Dictionary) -> Array:
 	"""Every model of `unit` as [x, y] board inches, in MODEL ORDER.

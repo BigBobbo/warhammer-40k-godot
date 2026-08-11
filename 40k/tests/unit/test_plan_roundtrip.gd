@@ -74,6 +74,7 @@ func _run():
 		test_anchors()
 		test_partial_unit_is_skipped()
 		test_default_name()
+		test_painted_earmarks()
 		test_recording_validates()
 		test_roundtrip_seat_1()
 		test_roundtrip_seat_2()
@@ -362,6 +363,63 @@ func test_default_name() -> void:
 	var plan: Dictionary = REC.build_plan(_state(), {})
 	_assert(str(plan["name"]) == name,
 		"an unnamed recording falls back to the default name (got '%s')" % str(plan["name"]))
+
+
+func test_painted_earmarks() -> void:
+	print("\n-- PM-6 earmarks: passed through, filtered, RESERVE_UNTIL reconciled --")
+	var state := _state()
+	state["meta"]["plan_earmarks"] = [
+		{"unit": "U_GRETCHIN_A", "verb": "HOLD_OBJECTIVE", "target": "obj_home_1"},
+		{"unit": "U_STORMBOYZ_A", "verb": "SCREEN"},
+		# Painted onto a unit that is standing on the board: the plan must record
+		# it as a reserve instead, or the validator rejects the contradiction.
+		{"unit": "U_STOMPA_A", "verb": "RESERVE_UNTIL", "round": 3},
+		# Stale / other seat — must be dropped.
+		{"unit": "U_ENEMY_A", "verb": "PUSH_CENTER"},
+		{"unit": "U_NO_SUCH_UNIT", "verb": "PUSH_CENTER"},
+	]
+	var plan: Dictionary = REC.build_plan(state, {"name": "Painted"})
+	var earmarks: Array = plan["earmarks"]
+
+	var by_unit := {}
+	for e in earmarks:
+		by_unit[str(e.get("unit", ""))] = e
+
+	_assert(earmarks.size() == 3,
+		"only this seat's live units keep their earmark (got %s)" % str(by_unit.keys()))
+	_assert(not by_unit.has("U_ENEMY_A"), "the opposing seat's earmark is dropped")
+	_assert(not by_unit.has("U_NO_SUCH_UNIT"), "an earmark for a missing unit is dropped")
+	_assert(str(by_unit.get("U_GRETCHIN_A", {}).get("target", "")) == "obj_home_1",
+		"HOLD_OBJECTIVE keeps its bound target")
+
+	var reserved_ids := []
+	for r in plan["deployment"]["reserves"]:
+		reserved_ids.append(str(r["unit"]))
+	_assert("U_STOMPA_A" in reserved_ids,
+		"a painted RESERVE_UNTIL moves the unit into deployment.reserves (got %s)" % str(reserved_ids))
+	for r in plan["deployment"]["reserves"]:
+		if str(r["unit"]) == "U_STOMPA_A":
+			_assert(int(r["arrival_round"]) == 3,
+				"and carries the painted round, not the default (got %s)" % str(r))
+
+	var placed_ids := []
+	for p in plan["deployment"]["placements"]:
+		placed_ids.append(str(p["unit"]))
+	_assert(not ("U_STOMPA_A" in placed_ids),
+		"and it is no longer a placement (got %s)" % str(placed_ids))
+	_assert(not ("U_STOMPA_A" in plan["deployment"]["order"]),
+		"nor in the deployment order")
+
+	# The validator cross-checks RESERVE_UNTIL against deployment.reserves, so
+	# this is the assertion that proves the reconciliation is actually needed.
+	var result: Dictionary = PV.validate_plan(plan)
+	_assert(bool(result.get("valid", false)),
+		"a painted plan validates (errors: %s)" % str(result.get("errors", [])))
+
+	# No painting at all -> an explicitly empty list, not a missing key.
+	var unpainted: Dictionary = REC.build_plan(_state(), {"name": "Unpainted"})
+	_assert(unpainted["earmarks"] is Array and unpainted["earmarks"].is_empty(),
+		"an unpainted recording carries an explicit empty earmarks list")
 
 
 func test_recording_validates() -> void:

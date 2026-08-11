@@ -1116,6 +1116,11 @@ func _style_deployment_progress_bar(bar: ProgressBar, fill_color: Color, border_
 	bar.add_theme_stylebox_override("fill", fill_style)
 
 func _update_deployment_progress() -> void:
+	# PM-6: the intent painter appears once the editor's board is fully laid
+	# out. Hooked here because this already runs after every placement; a no-op
+	# outside a plan-editor session.
+	_refresh_intent_painter()
+
 	if not deployment_progress_container:
 		return
 
@@ -10435,6 +10440,45 @@ func _setup_plan_editor_banner() -> void:
 	print("Main: Plan Editor banner created")
 
 var plan_save_dialog: AcceptDialog = null
+var intent_painter: PanelContainer = null
+
+func _setup_intent_painter() -> void:
+	"""PM-6: the intent painter, shown once the editor's deployment is done.
+
+	It only makes sense against a finished board — an intent is about a unit
+	that is already standing somewhere — so it appears when nothing is left to
+	place, which in an editor session is also the moment the phase stops
+	advancing (PhaseManager's hold-open guard)."""
+	if not is_plan_editor():
+		return
+	if intent_painter != null and is_instance_valid(intent_painter):
+		return
+	var painter_script = preload("res://scripts/IntentPainter.gd")
+	intent_painter = painter_script.new()
+	add_child(intent_painter)
+	intent_painter.setup()
+	intent_painter.move_to_front()
+	print("Main: Plan Editor — intent painter created")
+
+func _refresh_intent_painter() -> void:
+	"""Create/refresh the painter when the editor's board is fully laid out, and
+	keep its list in step with the board. Cheap and idempotent — called from the
+	deployment progress update, which already runs on every placement."""
+	if not is_plan_editor():
+		return
+	var undeployed := 0
+	for unit_id in GameState.state.get("units", {}):
+		var unit = GameState.state.units[unit_id]
+		if int(unit.get("owner", 0)) != 1:
+			continue
+		var status := int(unit.get("status", 0))
+		if status != GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.IN_RESERVES:
+			undeployed += 1
+	if undeployed > 0:
+		return
+	_setup_intent_painter()
+	if intent_painter != null and is_instance_valid(intent_painter):
+		intent_painter.refresh()
 
 func _on_plan_editor_save_pressed() -> void:
 	"""PM-5: open the Save as Plan dialog over the finished deployment."""

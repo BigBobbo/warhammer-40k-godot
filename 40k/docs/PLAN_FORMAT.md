@@ -97,6 +97,39 @@ Proof: `40k/tests/unit/test_plan_roundtrip.gd` (record → consume for seat 1 an
 seat 2) and `40k/tests/scenarios/sp/pm5_record_and_save_plan.json` (the whole
 path from the menu, ending in a live round trip off the saved file).
 
+### The intent painter (PM-6)
+
+Once the editor's board is fully laid out, an **INTENTS** panel appears
+(`40k/scripts/IntentPainter.gd`). Pick a unit, pick one of the five verbs, and
+the unit gets a badge on the board (`40k/scripts/IntentOverlay.gd`).
+
+- **`HOLD_OBJECTIVE` is bound by clicking the objective.** `ObjectiveVisual` is
+  a plain `Node2D` with no input handling, so the painter hit-tests the
+  objective positions in `state.board.objectives` itself, with a tolerance of
+  the marker radius plus 20px.
+- **The badge's line** goes to the bound objective for `HOLD_OBJECTIVE` and to
+  the mission's *central* objective for `PUSH_CENTER` — which is what that verb
+  actually biases toward (`AIDecisionMaker._plan_central_objective_ids`).
+- **`RESERVE_UNTIL` overrides the board.** The author is saying the unit starts
+  in Reserves whatever it is doing in the sandbox, so the recorder moves it into
+  `deployment.reserves` with the painted round and drops its placement. The two
+  MUST agree — the validator rejects a `RESERVE_UNTIL` whose unit is not in the
+  reserves list, or is listed with a different round.
+- **Attached characters are not listed**: a character joined to a bodyguard
+  fights as part of that unit and is not separately steerable.
+
+Earmarks live in `meta.plan_earmarks` in exactly the shape the plan uses, and
+are written through `PhaseManager.apply_state_changes` rather than poked
+straight into `GameState.state` (ISS-001). `PlanRecorder` reads them back at
+save time, dropping any entry whose unit no longer exists on that seat.
+
+The overlay is deliberately NOT built on `AIMovementPathVisual` (2.5s hold + 1s
+fade) or `AIUnitHighlight` (a text-less pulsing ring). An intent badge is a
+persistent annotation, so it has its own non-fading lifecycle; only the drawing
+style is borrowed.
+
+Proof: `40k/tests/scenarios/sp/pm6_paint_intents.json`.
+
 ---
 
 ## Terminology: "earmark" vs "intent"

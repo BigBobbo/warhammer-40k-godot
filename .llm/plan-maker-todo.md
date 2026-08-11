@@ -1435,7 +1435,7 @@ Four findings:
 
 ## PM-6 — Intent painter
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-5, PM-3
 **Player-facing:** yes — version_history entry required
 
@@ -1468,7 +1468,73 @@ board with ≥2 visible earmark badges/arrows (the feature's signature image).
 
 **Out of scope.** New verbs, mid-battle repainting, TRADE.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/scripts/IntentPainter.gd` | new. The panel: unit list with each unit's current intent, the six buttons for the five verbs (Reserve R2/R3 are the same verb), Clear, and the HOLD click-to-bind mode |
+| `40k/scripts/IntentOverlay.gd` | new. Non-fading board badges + dashed line to the linked objective |
+| `40k/scripts/PlanRecorder.gd` | reads `meta.plan_earmarks` into `plan.earmarks`, filters stale/other-seat entries, and reconciles `RESERVE_UNTIL` into `deployment.reserves` |
+| `40k/scripts/Main.gd` | `_setup_intent_painter` / `_refresh_intent_painter`, hooked into `_update_deployment_progress` (already runs after every placement) |
+| `40k/tests/unit/test_plan_roundtrip.gd` | `test_painted_earmarks` added — 57 assertions total |
+| `40k/tests/scenarios/sp/pm6_paint_intents.json` | new windowed gate |
+| `40k/data/version_history.json` | 1.32.0 |
+| `40k/docs/PLAN_FORMAT.md` | "The intent painter" section |
+
+Windowed `sp/pm6_paint_intents` — **64 passed, 0 failed**, first run. The
+assertion values from the run's result JSON:
+
+| What | Value |
+|---|---|
+| painter offered while units are still to place | `false` (withheld) |
+| painter rows once the board is finished | 17 |
+| earmarks before painting | 0 |
+| HOLD bound by a real `click_board_at` on the marker | `HOLD_OBJECTIVE\|obj_home_1` |
+| the five verbs after painting | `HOLD_OBJECTIVE,HUNT_CHARACTERS,PUSH_CENTER,RESERVE_UNTIL,SCREEN` |
+| board badges / panel rows showing an intent | 5 / 5 |
+| after Clear | 4 earmarks, 4 badges |
+| saved file's earmarks | the same five, `HOLD` still bound to `obj_home_1` |
+| RESERVE_UNTIL unit also in `deployment.reserves` | `true` |
+| saved plan validated against the live army | `valid` |
+| AI's own `_plan_earmark_for` lookup agreeing, per unit | 5 |
+
+That last row is the one that matters: it is not enough for the painter to
+write JSON — the PM-3 consumption path has to return the same verb for the same
+unit, and it does for all five.
+
+`verify_delivery` on a live session — **verdict: PASS**, 0 log errors, with
+`painter_present`, `five_intents_painted = 5`, `five_board_badges = 5`,
+`hold_bound_to_objective = obj_home_1`, `saved_plan_carries_five_earmarks = 5`,
+`saved_plan_is_valid`.
+
+Headless: `test_plan_roundtrip.gd` **57 passed, 0 failed** (10 new assertions
+for earmark pass-through, filtering and the RESERVE_UNTIL reconciliation —
+including that the reconciled plan validates, which is what proves the
+reconciliation is load-bearing rather than cosmetic).
+
+Screenshot: `40k/docs/evidence/pm6_intents_painted.png` — the INTENTS panel with
+five units carrying jobs, and the board showing `HOLD obj_home_1` with its
+dashed line to the HOME 1 marker, plus `HUNT`, `RES R2` and `SCREEN` badges.
+
+Three findings:
+
+1. **`var x := helper()` fails to compile when the helper returns an untyped
+   Variant.** `_unit_centroid` / `_link_target` return `Vector2` or `null`, and
+   `:=` on them produced "Cannot infer the type of …" — which took the entire
+   painter script out of the build. The symptom was not a visible error but a
+   silently absent panel; the parse error only showed up in the debug log. Same
+   trap as PM-0's `candidate`/`shape_aware`.
+2. **`meta.name` is not unique and is the wrong thing to show.** recon_stomps
+   has four units whose `meta.name` is bare "Stormboyz", so the first painter
+   list was unusable. `GameState.get_unit_display_name` prefers
+   `meta.display_name` ("Stormboyz Alpha") — the same resolution the deployment
+   list uses.
+3. **A painted `RESERVE_UNTIL` contradicts the board by design**, and the
+   validator enforces that `deployment.reserves` is the single source of truth.
+   The recorder therefore has to move the unit into reserves and drop its
+   placement, not just copy the earmark across.
 
 ---
 
