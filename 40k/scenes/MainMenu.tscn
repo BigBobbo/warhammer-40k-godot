@@ -160,6 +160,12 @@ custom_minimum_size = Vector2(200, 40)
 size_flags_horizontal = 4
 text = "Plan Editor"
 
+[node name="PlanBrowserButton" type="Button" parent="ScrollContainer/MenuContainer/ButtonSection"]
+layout_mode = 2
+custom_minimum_size = Vector2(185, 38)
+size_flags_horizontal = 4
+text = "AI Plans"
+
 [node name="MultiplayerButton" type="Button" parent="ScrollContainer/MenuContainer/ButtonSection"]
 layout_mode = 2
 custom_minimum_size = Vector2(200, 40)

@@ -395,6 +395,17 @@ static func clear_player_plan(player: int) -> void:
 	_plan_auto_match_attempted.erase(player)
 	_plan_log("Cleared plan for player %d" % player)
 
+static func suppress_player_plan(player: int) -> void:
+	"""PM-7a's "None": this seat plays off the formula, full stop.
+
+	NOT the same as clear_player_plan() / set_player_plan(player, {}) — those
+	also clear the attempted-match flag, so `_resolve_plan_for` auto-matches a
+	plan on the very next decision and the seat silently ends up running one.
+	Burning the flag is what makes "None" mean none."""
+	_player_plans.erase(player)
+	_plan_auto_match_attempted[player] = true
+	_plan_log("Suppressed plans for player %d (no plan, no auto-match)" % player)
+
 static func clear_all_plans() -> void:
 	_player_plans.clear()
 	_plan_auto_match_attempted.clear()

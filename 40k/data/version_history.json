@@ -2,6 +2,31 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.34.0",
+      "date": "2026-08-11",
+      "summary": "An 'AI Plans' screen on the main menu: see every plan you have, what it is for, and whether it is still valid — and rename or delete your own.",
+      "changes": [
+        "New: an AI Plans button on the main menu. Each plan lists its army, deployment zone, terrain layout, where it came from, and a status column that says OK or how many problems it has.",
+        "Picking a plan shows its description, author, file path, and any problems or notes in full.",
+        "Rename a plan you wrote — the file is renamed with it, and a name already in use is refused rather than overwriting.",
+        "Delete asks for confirmation first, and only removes the file once you confirm.",
+        "Plans that ship with the game can be used but not renamed or deleted, and the screen says so instead of just greying out.",
+        "Closing the screen refreshes the AI Plan pickers, so a plan you just deleted can no longer be chosen."
+      ]
+    },
+    {
+      "version": "1.33.0",
+      "date": "2026-08-11",
+      "summary": "You can now hand the AI a plan when you set a game up: each AI seat gets an 'AI Plan' picker in the main menu.",
+      "changes": [
+        "New: a P1 / P2 AI Plan dropdown under each AI seat's army. It lists the plans saved for that army; a plan written for a different deployment zone is still offered but labelled with the zone it is for.",
+        "Auto (best match) lets the AI pick the closest plan for the army and zone by itself — this is the default.",
+        "None makes that seat play entirely off its own judgement, with no plan and no automatic match.",
+        "The game log says which plan each AI seat is playing when the battle starts, and the AI's turn summary repeats it, marked 'assigned' or 'auto-matched'.",
+        "An unreadable plan file falls back to Auto rather than starting a game that quietly ignores your choice."
+      ]
+    },
+    {
       "version": "1.32.0",
       "date": "2026-08-11",
       "summary": "Plans can now say what each unit is FOR: give a unit a job — hold this objective, push the middle, screen, arrive from reserve, or hunt characters — and it is saved with the plan.",

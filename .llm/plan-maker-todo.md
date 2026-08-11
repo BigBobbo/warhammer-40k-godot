@@ -1540,7 +1540,7 @@ Three findings:
 
 ## PM-7a — Assign plans in game setup
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-1, PM-2a
 **Player-facing:** yes — version_history entry required
 
@@ -1574,13 +1574,60 @@ setup screen with the dropdown populated.
 
 **Out of scope.** Browser (PM-7b), import/export (Deferred).
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/scripts/MainMenu.gd` | `_create_plan_dropdowns` (a picker per seat, under that seat's army row), `_refresh_plan_dropdowns` (filters by army, flags a zone mismatch and an invalid plan), `_selected_plan_value`, `player<N>_plan` in the start config, repopulation hooks |
+| `40k/scripts/Main.gd` | `_apply_configured_plans` — runs after `AIPlayer.configure()`; `_log_plan_choice` / `get_plan_choice_lines` |
+| `40k/scripts/AIDecisionMaker.gd` | `suppress_player_plan()` — the "None" state |
+| `40k/scripts/AITurnSummaryPanel.gd` | `_plan_line` — one line naming the plan and whether it was assigned or auto-matched |
+| `40k/tests/scenarios/sp/pm7a_assign_plan_from_menu.json` | the windowed gate |
+| `40k/data/version_history.json` | 1.33.0 |
+| `40k/docs/PLAN_FORMAT.md` | "Assigning a plan to an AI seat" |
+
+Windowed `sp/pm7a_assign_plan_from_menu` — **25 passed, 0 failed**. No fixture:
+it writes the shipped test plan into `user://ai_plans/`, then sets the Force
+Dispositions (take_and_hold vs purge_the_foe) and terrain variant 3 that
+*derive* hammer_anvil, so the plan's zone matches the game rather than being
+offered with a mismatch flag. Both seats AI on recon_stomps; seat 2 gets the
+plan, seat 1 is set to **None** — a controlled comparison. Measured values:
+
+| What | Value |
+|---|---|
+| derived zone after the matchup + variant selection | `hammer_anvil` |
+| the plan as offered | `Fixture — Recon Stomps rich (all five verbs)`, unflagged |
+| config after Start | `player1_plan = "none"`, `player2_plan = …fixture….json` |
+| `AIDecisionMaker.get_player_plan` | seat 2 = the fixture, seat 1 = `{}` |
+| game-log lines | `Player 1 AI plan: None — playing off its own judgement \| Player 2 AI plan: Fixture — Recon Stomps rich (all five verbs)` |
+| **plan-sourced deployment records** | **seat 2 = 12, seat 1 = 0** |
+| AI turn summary line | seat 2 `Plan: Fixture — … (assigned)`, seat 1 `""` |
+
+The record differential is the assertion that matters: it is end-to-end proof
+that a menu selection reaches the AI's decisions, and the zero on the other seat
+proves it is the selection doing it rather than an ambient auto-match.
+
+Screenshots: `40k/docs/evidence/pm7a_plan_dropdowns.png` (the setup screen with
+both pickers populated — "P1 AI Plan: None (no plan)", "P2 AI Plan: Fixture — …")
+and `pm7a_deployment_from_plan.png`.
+
+One finding, and it is the reason the scenario has a control:
+
+**`set_player_plan(player, {})` is not "no plan".** It routes to
+`clear_player_plan()`, which also erases `_plan_auto_match_attempted[player]` —
+so `_resolve_plan_for` runs its auto-match on the seat's very first decision and
+finds a plan anyway. The first run of this scenario caught it precisely:
+seat 1, set to None, produced **12** plan-sourced records. Fixed by adding
+`suppress_player_plan()`, which erases the plan but *sets* the attempted flag.
+Without the control step, "None" would have shipped meaning "Auto".
 
 ---
 
 ## PM-7b — Plan browser
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-7a
 **Player-facing:** yes — version_history entry required
 
@@ -1597,7 +1644,56 @@ shipped yet) shows no delete. Screenshot: populated browser.
 **Out of scope.** Editing, import/export dialogs (Deferred — FileDialog
 precedent for v2: `SaveLoadDialog.gd:51-52, 1487-1547`).
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/dialogs/PlanBrowserDialog.gd` | new. Six-column Tree (Plan / Army / Deployment / Terrain / Status / Where), detail line, rename, delete-behind-confirm, refresh |
+| `40k/scripts/PlanManager.gd` | `rename_plan` — rewrites `name`, moves the file to the new slug, refuses an empty or already-taken name, and refuses a `res://` path |
+| `40k/scenes/MainMenu.tscn`, `40k/scripts/MainMenu.gd` | `PlanBrowserButton` in the secondary grid; the dialog is popped at an explicit size and its close refreshes the seat pickers |
+| `40k/tests/scenarios/sp/pm7b_plan_browser.json` | the windowed gate |
+| `40k/data/version_history.json` | 1.34.0 |
+| `40k/docs/PLAN_FORMAT.md` | "The plan browser" |
+
+Windowed `sp/pm7b_plan_browser` — **42 passed, 0 failed**. It clears
+`user://ai_plans/` and writes exactly one plan there, so the row count and the
+delete both mean something. Asserted end to end:
+
+| What | Value |
+|---|---|
+| the row | `Fixture — Recon Stomps rich (all five verbs)\|recon_stomps\|hammer_anvil\|take_and_hold_vs_purge_the_foe_3\|OK\|yours` |
+| status line | `1 plan(s) — 1 of your own.` |
+| on selection | rename + delete enabled, name pre-filled, detail shows the path |
+| after Rename | `renamed_by_pm7b.json` exists, the old slug does not, the plan's own `name` is rewritten, and the row text follows |
+| Delete | confirmation dialog appears and the file **still exists**; only after confirming is it gone, row count 0, status `Deleted 'Renamed by pm7b'.` |
+| after closing the browser | the seat picker is back to 2 items (Auto / None) |
+
+Read-only shipped plans: nothing ships under `res://data/ai_plans` yet
+(PM-10 adds the first real content), so that branch is asserted against
+`PlanManager` directly rather than through a row that does not exist —
+`rename_plan` and `delete_plan` both return failure for a `res://` path and the
+file survives. Said plainly here rather than dressed up as UI coverage.
+
+`verify_delivery` — **verdict: PASS**, 0 log errors: `browser_open`,
+`one_row_listed = 1`, `validation_badge_ok = OK`,
+`army_and_zone_columns = recon_stomps/hammer_anvil`,
+`shipped_plans_are_read_only`.
+
+Screenshots: `40k/docs/evidence/pm7b_plan_browser.png` (the populated table with
+the green OK badge, detail line and action row) and `pm7b_delete_confirm.png`.
+
+Two findings:
+
+1. **A `Tree` with `SIZE_EXPAND_FILL` makes `AcceptDialog.popup_centered()`
+   grow to the full screen height**, which pushed the whole action row off the
+   bottom edge — invisible to the scenario, which was clicking the buttons by
+   path and passing. Caught only by looking at the screenshot. Fixed with a
+   fixed `custom_minimum_size` on the Tree plus an explicit size at popup time.
+2. **Shipped plans are disabled rather than hidden.** A hidden button reads as a
+   bug; a disabled one with "'X' ships with the game — it can be used but not
+   renamed or deleted" in the status line explains itself.
 
 ---
 

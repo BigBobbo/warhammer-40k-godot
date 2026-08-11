@@ -1,0 +1,149 @@
+{
+  "id": "pm7a_assign_plan_from_menu",
+  "covers": [
+    "ui.main_menu.ai_plan_dropdown",
+    "ui.main_menu.plan_dropdown_filters_by_army_and_zone",
+    "config.player_plan_reaches_ai",
+    "ai.plan_installed_after_configure"
+  ],
+  "disable_ai": false,
+  "description": "PM-7a: assigning an AI plan from the main menu actually reaches the AI. No fixture \u2014 the scenario starts on the real menu, writes the shipped test plan into user://ai_plans/, then sets the Force Dispositions and terrain variant that DERIVE hammer_anvil (take_and_hold vs purge_the_foe, variant 3) so the plan's zone matches the game. Both seats are set to AI on recon_stomps, and the picker is asserted to offer the plan unflagged (army and zone both match). Player 2 is given the plan; player 1 is set to None, making the two seats a controlled comparison. After pressing Start it asserts the choice landed in meta.game_config, that AIDecisionMaker holds the plan for seat 2 and nothing for seat 1 \u2014 which also proves the install happens AFTER AIPlayer.configure(), since configure clears plans \u2014 and finally that deployment produces plan-sourced decision records for seat 2 and exactly zero for seat 1.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar PM = load(\"res://scripts/PlanManager.gd\")\nvar fixture = PV.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\")\nif fixture.is_empty():\n\treturn \"fixture unreadable\"\nPM.ensure_user_plans_dir()\nvar path = \"user://ai_plans/%s.json\" % PM.slugify(str(fixture.get(\"name\", \"\")))\nvar f = FileAccess.open(path, FileAccess.WRITE)\nf.store_string(JSON.stringify(fixture, \"\\t\"))\nf.close()\nreturn \"%s|%s|%s\" % [path, str(fixture.keys.army_file), str(fixture.keys.deployment_zone_id)]",
+      "equals": "user://ai_plans/fixture_recon_stomps_rich_all_five_verbs.json|recon_stomps|hammer_anvil"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nm.p1_disposition_dropdown.selected = 0\nm.p2_disposition_dropdown.selected = 1\nm._on_disposition_changed(1)\nvar variant = -1\nfor i in range(m.terrain_options.size()):\n\tif str(m.terrain_options[i].id) == \"take_and_hold_vs_purge_the_foe_3\":\n\t\tvariant = i\nif variant < 0:\n\treturn \"variant missing\"\nm.terrain_dropdown.selected = variant\nm._on_terrain_layout_selected(variant)\nreturn m._selected_deployment_id()",
+      "equals": "hammer_anvil"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar army = -1\nfor i in range(m.army_options.size()):\n\tif str(m.army_options[i].id) == \"recon_stomps\":\n\t\tarmy = i\nm.player1_dropdown.selected = army\nm.player1_dropdown.emit_signal(\"item_selected\", army)\nm.player2_dropdown.selected = army\nm.player2_dropdown.emit_signal(\"item_selected\", army)\nm.player1_type_dropdown.selected = 1\nm._on_player1_type_changed(1)\nm.player2_type_dropdown.selected = 1\nm._on_player2_type_changed(1)\nreturn \"p1=%s p2=%s\" % [str(m.player1_plan_container.visible), str(m.player2_plan_container.visible)]",
+      "equals": "p1=true p2=true"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar idx = -1\nfor i in range(m.player2_plan_dropdown.item_count):\n\tif m.player2_plan_dropdown.get_item_text(i).begins_with(\"Fixture\"):\n\t\tidx = i\nif idx < 0:\n\tvar seen = []\n\tfor i in range(m.player2_plan_dropdown.item_count):\n\t\tseen.append(m.player2_plan_dropdown.get_item_text(i))\n\treturn \"NOT OFFERED: \" + str(seen)\nm.player2_plan_dropdown.selected = idx\n# \"None\" for player 1, so the two seats are a controlled comparison.\nm.player1_plan_dropdown.selected = 1\nreturn \"%s || p1=%s p2=%s\" % [m.player2_plan_dropdown.get_item_text(idx),\n\tm._selected_plan_value(1), m._selected_plan_value(2)]"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.current_scene._selected_plan_value(2).ends_with(\"fixture_recon_stomps_rich_all_five_verbs.json\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.current_scene._selected_plan_value(1)",
+      "equals": "none"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.current_scene.player2_plan_dropdown\nreturn d.get_item_text(d.selected).find(\"[\") < 0",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_setup_with_plan_dropdowns"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(tree.current_scene.name)",
+      "equals": "Main"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(GameState.state.meta.get(\"game_config\", {}).get(\"player2_plan\", \"\")).ends_with(\"fixture_recon_stomps_rich_all_five_verbs.json\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(GameState.state.meta.get(\"game_config\", {}).get(\"player1_plan\", \"\"))",
+      "equals": "none"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var AIDM = load(\"res://scripts/AIDecisionMaker.gd\")\nreturn str(AIDM.get_player_plan(2).get(\"name\", \"\"))",
+      "equals": "Fixture \u2014 Recon Stomps rich (all five verbs)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var AIDM = load(\"res://scripts/AIDecisionMaker.gd\")\nreturn AIDM.get_player_plan(1).is_empty()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var lines = tree.current_scene.get_plan_choice_lines()\nreturn \" | \".join(lines)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 30.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n = 0\nfor uid in GameState.state.units.keys():\n\tif int(GameState.state.units[uid].get(\"status\", 0)) == 0:\n\t\tn += 1\nreturn n",
+      "expect_max": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var per_seat = {1: 0, 2: 0}\nfor batch in AIPlayer._all_decision_records:\n\tvar seat = int(batch.get(\"player\", 0))\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"deployment\":\n\t\t\tcontinue\n\t\tif str(rec.get(\"context\", {}).get(\"source\", \"\")).begins_with(\"plan:\"):\n\t\t\tper_seat[seat] = int(per_seat.get(seat, 0)) + 1\nprint(\"SCENARIO pm7a plan deployment records: seat1=%d seat2=%d\" % [per_seat.get(1, 0), per_seat.get(2, 0)])\nreturn \"%d,%d\" % [int(per_seat.get(1, 0)), int(per_seat.get(2, 0))]"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var per_seat = {1: 0, 2: 0}\nfor batch in AIPlayer._all_decision_records:\n\tvar seat = int(batch.get(\"player\", 0))\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"deployment\":\n\t\t\tcontinue\n\t\tif str(rec.get(\"context\", {}).get(\"source\", \"\")).begins_with(\"plan:\"):\n\t\t\tper_seat[seat] = int(per_seat.get(seat, 0)) + 1\nprint(\"SCENARIO pm7a plan deployment records: seat1=%d seat2=%d\" % [per_seat.get(1, 0), per_seat.get(2, 0)])\nreturn int(per_seat.get(2, 0))",
+      "expect_min": 5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var per_seat = {1: 0, 2: 0}\nfor batch in AIPlayer._all_decision_records:\n\tvar seat = int(batch.get(\"player\", 0))\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"deployment\":\n\t\t\tcontinue\n\t\tif str(rec.get(\"context\", {}).get(\"source\", \"\")).begins_with(\"plan:\"):\n\t\t\tper_seat[seat] = int(per_seat.get(seat, 0)) + 1\nprint(\"SCENARIO pm7a plan deployment records: seat1=%d seat2=%d\" % [per_seat.get(1, 0), per_seat.get(2, 0)])\nreturn int(per_seat.get(1, 0))",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = tree.root.find_child(\"AITurnSummaryPanel\", true, false)\nif p == null:\n\treturn \"panel missing\"\nreturn p._plan_line(2)",
+      "equals": "Plan: Fixture \u2014 Recon Stomps rich (all five verbs) (assigned)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = tree.root.find_child(\"AITurnSummaryPanel\", true, false)\nreturn p._plan_line(1)",
+      "equals": ""
+    },
+    {
+      "act": "screenshot",
+      "label": "02_deployment_from_assigned_plan"
+    }
+  ]
+}

@@ -132,6 +132,63 @@ Proof: `40k/tests/scenarios/sp/pm6_paint_intents.json`.
 
 ---
 
+## Assigning a plan to an AI seat (PM-7a)
+
+Each AI seat in the main menu gets an **AI Plan** dropdown, under that seat's
+army row. It offers every saved plan whose `keys.army_file` matches the seat's
+army; a plan for a different `deployment_zone_id` is still listed but labelled
+with the zone it was written for (it would not place legally here, and every
+unit would degrade to the formula), and an invalid plan is labelled `(invalid)`.
+
+Three values reach `meta.game_config.player<N>_plan`:
+
+| Menu choice | Config value | Effect |
+|---|---|---|
+| Auto (best match) — default | `""` | The seat is left unset, so `AIDecisionMaker._resolve_plan_for` runs its one auto-match (`PlanManager.find_plan_for`) at decision time |
+| None (no plan) | `"none"` | `AIDecisionMaker.suppress_player_plan()` — no plan **and** no auto-match |
+| a plan | its path | `AIDecisionMaker.set_player_plan()` with the loaded file |
+
+Two ordering rules, both load-bearing:
+
+- **Install AFTER `AIPlayer.configure()`.** `configure()` calls
+  `clear_all_profiles()`, which clears plans too — anything installed before it
+  is discarded. Same reason `player<N>_ai_profile` is applied there.
+- **"None" is not `set_player_plan(player, {})`.** That call routes to
+  `clear_player_plan()`, which also clears the attempted-match flag, so the seat
+  auto-matches a plan on its very first decision and "None" silently becomes
+  "Auto". `suppress_player_plan()` burns the flag instead. The PM-7a scenario
+  catches exactly this: it sets seat 1 to None and asserts **zero**
+  plan-sourced deployment records against seat 2's twelve.
+
+Because the deployment zone at 11e is derived from the Force Disposition
+matchup plus the terrain variant, the dropdown is repopulated from
+`_refresh_derived_mission_display` (which every zone-changing path routes
+through) and from each army dropdown's `item_selected` — not from the
+deployment dropdown, which is invisible and only ever changes programmatically.
+
+Proof: `40k/tests/scenarios/sp/pm7a_assign_plan_from_menu.json`.
+
+### The plan browser (PM-7b)
+
+The **AI Plans** button opens `40k/dialogs/PlanBrowserDialog.gd`: one row per
+plan on the search path, with the validation badge coming straight from
+`PlanManager.list_plans` (which validates every entry it returns) — `OK`,
+`OK, N note(s)` for warnings, or `N problem(s)` in red.
+
+`user://` plans can be renamed (`PlanManager.rename_plan` rewrites `name` and
+moves the file to the new slug, refusing an empty name or one already taken)
+and deleted behind a confirmation. Shipped `res://` plans are listed and usable
+but the two buttons are **disabled with the reason shown**, not hidden — in an
+export they live inside the PCK and there is no file to rewrite or remove.
+`rename_plan` and `delete_plan` both enforce that independently of the UI.
+
+Closing the browser refreshes the per-seat plan pickers, so a plan just deleted
+cannot still be selected for a game.
+
+Proof: `40k/tests/scenarios/sp/pm7b_plan_browser.json`.
+
+---
+
 ## Terminology: "earmark" vs "intent"
 
 **`earmark`** is the word in the schema, in code, in logs and in decision

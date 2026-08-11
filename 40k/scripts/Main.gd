@@ -4,6 +4,9 @@ extends CanvasLayer
 const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
 # PM-5: the Plan Editor's deployment recorder (static; no autoload dependency).
 const PlanRecorderData = preload("res://scripts/PlanRecorder.gd")
+# PM-7a: installing the menu's per-seat plan choice on the AI.
+const PlanManagerData = preload("res://scripts/PlanManager.gd")
+const AIDecisionMakerData = preload("res://scripts/AIDecisionMaker.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 const GameLogPanelScript = preload("res://scripts/GameLogPanel.gd")
 const GameLogEntryScript = preload("res://scripts/GameLogEntry.gd")
@@ -718,6 +721,11 @@ func _initialize_ai_player() -> void:
 	if p2_profile != "" and p2_type == "AI":
 		ai_player.load_player_profile(2, p2_profile)
 		print("Main: Loaded AI profile '%s' for player 2" % p2_profile)
+
+	# PM-7a: per-seat AI plan chosen in the menu. AFTER configure() for the same
+	# reason the profiles are — configure() clears per-player plans and profiles,
+	# so anything installed before it is thrown away.
+	_apply_configured_plans(game_config, {1: p1_type, 2: p2_type})
 
 	# Connect to AI deployment signal so we can create visual tokens
 	if not ai_player.ai_unit_deployed.is_connected(_on_ai_unit_deployed):
@@ -10441,6 +10449,58 @@ func _setup_plan_editor_banner() -> void:
 
 var plan_save_dialog: AcceptDialog = null
 var intent_painter: PanelContainer = null
+
+## PM-7a: one line per AI seat in the game log at start, so it is obvious from
+## inside the game which plan (if any) the opponent is playing to. Also the
+## line the AI turn summary panel echoes.
+var _plan_choice_lines: Array = []
+
+func _log_plan_choice(text: String) -> void:
+	_plan_choice_lines.append(text)
+	DebugLogger.info("[PM-7a] %s" % text)
+	var event_log = get_node_or_null("/root/GameEventLog")
+	if event_log != null and event_log.has_method("add_info_entry"):
+		event_log.add_info_entry(text)
+
+func get_plan_choice_lines() -> Array:
+	"""The per-seat plan lines, for the AI turn summary panel and scenarios."""
+	return _plan_choice_lines.duplicate()
+
+func _apply_configured_plans(game_config: Dictionary, seat_types: Dictionary) -> void:
+	"""PM-7a: install the menu's per-seat plan choice on the AI.
+
+	Three values per seat, from MainMenu._selected_plan_value:
+	  ""      Auto — leave the seat unset so AIDecisionMaker's own matching
+	          (PlanManager.find_plan_for) picks the best plan at decision time;
+	  "none"  force the formula — no plan, and no auto-match either;
+	  <path>  install that specific plan file.
+
+	Runs after AIPlayer.configure(), which calls
+	AIDecisionMaker.clear_all_profiles() and with it clear_all_plans()."""
+	for player in [1, 2]:
+		if str(seat_types.get(player, "HUMAN")) != "AI":
+			continue
+		var choice := str(game_config.get("player%d_plan" % player, ""))
+		if choice == "":
+			print("Main: PM-7a — Player %d plan: Auto (the AI matches one at decision time)" % player)
+			_log_plan_choice("Player %d AI plan: Auto (best match)" % player)
+			continue
+		if choice == "none":
+			# suppress_player_plan, NOT set_player_plan(player, {}): the latter
+			# clears the attempted-match flag, so the seat would auto-match a
+			# plan on its first decision and "None" would quietly mean "Auto".
+			AIDecisionMakerData.suppress_player_plan(player)
+			print("Main: PM-7a — Player %d plan: None (formula only)" % player)
+			_log_plan_choice("Player %d AI plan: None — playing off its own judgement" % player)
+			continue
+		var plan: Dictionary = PlanManagerData.load_plan_file(choice)
+		if plan.is_empty():
+			push_warning("Main: PM-7a — could not read plan '%s' for player %d; falling back to Auto" % [choice, player])
+			print("Main: PM-7a — Player %d plan '%s' unreadable, falling back to Auto" % [player, choice])
+			continue
+		AIDecisionMakerData.set_player_plan(player, plan)
+		print("Main: PM-7a — Player %d plan: '%s' (%s)" % [player, str(plan.get("name", "?")), choice])
+		_log_plan_choice("Player %d AI plan: %s" % [player, str(plan.get("name", "?"))])
 
 func _setup_intent_painter() -> void:
 	"""PM-6: the intent painter, shown once the editor's deployment is done.

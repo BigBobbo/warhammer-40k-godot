@@ -184,6 +184,42 @@ static func save_plan(plan: Dictionary, army: Dictionary = {}) -> Dictionary:
 	_log("Saved plan '%s' to %s" % [plan.get("name", "?"), path])
 	return {"success": true, "path": path, "errors": [], "warnings": result.get("warnings", [])}
 
+static func rename_plan(path: String, new_name: String) -> Dictionary:
+	"""Rename a user:// plan: rewrite `name` and move the file to the new slug.
+
+	Shipped res:// plans cannot be renamed — they do not exist as writable files
+	in an export. Returns {success, path, error}."""
+	var trimmed := new_name.strip_edges()
+	if trimmed.is_empty():
+		return {"success": false, "path": path, "error": "A plan needs a name."}
+	if not path.begins_with(USER_PLANS_DIR):
+		return {"success": false, "path": path,
+			"error": "Shipped plans cannot be renamed — save a copy of your own instead."}
+	var plan := load_plan_file(path)
+	if plan.is_empty():
+		return {"success": false, "path": path, "error": "Could not read %s" % path}
+
+	var new_path := USER_PLANS_DIR + slugify(trimmed) + ".json"
+	if new_path != path and FileAccess.file_exists(new_path):
+		return {"success": false, "path": path,
+			"error": "A plan called '%s' already exists." % trimmed}
+
+	plan["name"] = trimmed
+	var file = FileAccess.open(new_path, FileAccess.WRITE)
+	if file == null:
+		return {"success": false, "path": path, "error": "Could not write %s" % new_path}
+	file.store_string(JSON.stringify(plan, "\t"))
+	file.close()
+
+	# Only unlink the old file once the new one is safely on disk, so a failed
+	# write can never lose the plan.
+	if new_path != path:
+		var dir = DirAccess.open(USER_PLANS_DIR)
+		if dir != null:
+			dir.remove(path.get_file())
+	_log("Renamed plan '%s' -> '%s' (%s)" % [path.get_file(), trimmed, new_path])
+	return {"success": true, "path": new_path, "error": ""}
+
 static func delete_plan(path: String) -> bool:
 	"""Delete a user:// plan. Shipped res:// plans cannot be deleted (they do
 	not exist as files in an exported build)."""
