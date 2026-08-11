@@ -1928,8 +1928,7 @@ Three findings:
 
 ## PM-10 — First real content + lab verdict
 
-**Status:** IN PROGRESS — content, scenario, export check and defect reports are
-done and committed; the paired A/B numbers and the stand-in game are outstanding
+**Status:** DONE
 **Depends:** PM-2a, PM-2b, PM-3 (PM-5 helpful for authoring)
 **Player-facing:** yes (shipped plans) — version_history entry required
 
@@ -2033,9 +2032,36 @@ a recognised resource type (`load()` returns a `JSON`), so `export_filter=
 `include_filter` of all four presets as an explicit guarantee.
 
 **Windowed gate.** `bash 40k/tests/run_scenario.sh
-tests/scenarios/sp/pm10_shipped_plan_from_menu.json` -> **27 passed, 0 failed**,
+tests/scenarios/sp/pm10_shipped_plan_from_menu.json` -> **28 passed, 0 failed**,
 starting on the real main menu and picking the shipped plan out of
 `res://data/ai_plans/`.
+
+**Paired A/B, Normal difficulty (the shipped default), 12 games.** Adherence
+100% on BOTH seats in every completed game (13/13 placements + 4/4 reserves).
+**E = +3.00 VP/game, se 6.83, 2-se [-10.7, +16.7], MDE +/-13.7 VP at n=4** — a
+null in the "could not have detected it" sense; E is not negative, which is the
+sanity check the gate asks for, and nothing stronger is claimed. Two of six
+planned pairs were lost to PM-F6, and NOT at random: 9001 and 9005 are exactly
+the seeds where the formula seat stalls. At three pairs the same run read
+E=+9.67 with an interval excluding zero; the fourth pair was -17.0 and it
+collapsed. That is written into the report as the reason not to read a
+sequential run early.
+
+**Stall gate FAILS and is reported as a failure**, not a footnote: 2 of 6 seeds
+hang in deployment, deterministically, always on the seat with plans OFF
+(PM-F6). A plan-driven opponent reproduces it reliably because the formula
+counter-deploys relative to the enemy cluster.
+
+**Owner evidence item (deliverable 4): a scripted stand-in, and the report says
+so in those words.** Seat 1 HUMAN vs seat 2 AI-with-plan from the real menu.
+It covers setup, formations and deployment — **not five battle rounds**, which
+is stated rather than glossed. The AI put 12 of 13 units down from the plan
+with reserves and attachments correct; `obj_home_1` finished **Uncontrolled**
+(PM-F5 in a human game); and the human seat could not legally deploy its Stompa
+**anywhere** — 9,408 candidate positions rejected — which is the clearest
+argument for the feature in the whole task: a plan's positions are validated
+against the deployment phase at authoring time, and a player gets no such help.
+Screenshot: `40k/docs/evidence/pm10_standin_human_vs_plan_ai.png`.
 
 Screenshots: `40k/docs/evidence/pm10_shipped_plan_selected.png` (the picker
 offering the shipped plan, unflagged) and `pm10_plan_vs_formula_deployment.png`

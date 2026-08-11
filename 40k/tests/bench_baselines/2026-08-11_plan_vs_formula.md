@@ -266,7 +266,7 @@ Adherence here is therefore counted two ways, and both are reported:
 
 ### In a real game from the menu
 
-`sp/pm10_shipped_plan_from_menu.json` — **27 passed, 0 failed** — plays a menu
+`sp/pm10_shipped_plan_from_menu.json` — **28 passed, 0 failed** — plays a menu
 game with the shipped hammer_anvil plan on seat 1 and "None" on seat 2, so the
 same army deploys twice on one board:
 
@@ -352,7 +352,10 @@ above instead. What follows is what the deployment phase showed. Screenshot:
 * **That cuts both ways as an argument for the feature.** A plan's positions
   are checked against the deployment phase itself at authoring time; a player
   eyeballing the same board gets no such help, and on this layout a 180mm base
-  simply has nowhere to stand once the rest of the army is down.
+  simply has nowhere to stand once the rest of the army is down. The windowed
+  scenario now asserts exactly this: the plan seat deploys its Stompa to within
+  0.05" of the planned spot on the same board where the human seat had 9,408
+  candidates refused.
 
 **Nobody contested the plan**, so nothing here says whether it is a *good*
 plan. That question is still open and is what the `"author": "claude-draft —

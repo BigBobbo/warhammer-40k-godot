@@ -7,7 +7,8 @@
 		"ai.plan_deployment_adherence_per_model",
 		"ai.plan_reserves_from_shipped_plan",
 		"ai.plan_attachments_from_shipped_plan",
-		"ui.plan_vs_formula_visibly_different"
+		"ui.plan_vs_formula_visibly_different",
+		"content.plan_seats_the_180mm_base_a_human_cannot"
 	],
 	"disable_ai": false,
 	"steps": [
@@ -141,6 +142,12 @@
 			"multiline": true,
 			"script": "# PM-F5, pinned deliberately: the plan declares NO embarkations and asks for\n# both Gretchin mobs on obj_home_1, and the AI puts them inside the Stompa\n# anyway. This asserts the CURRENT (wrong) behaviour so that fixing PM-F5\n# fails this step and forces the scenario to be updated, rather than the fix\n# landing unnoticed.\nvar plan_embarks = 0\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar plan = PV.load_plan_file(\"res://data/ai_plans/orks_recon_stomps_hammer_anvil.json\")\nplan_embarks = plan.get(\"deployment\", {}).get(\"embarkations\", []).size()\nvar forms = GameState.state.meta.get(\"formations\", {}).get(\"1\", {})\nvar loaded = []\nfor transport in forms.get(\"transport_embarkations\", {}).keys():\n\tfor passenger in forms[\"transport_embarkations\"][transport]:\n\t\tloaded.append(\"%s->%s\" % [str(passenger), str(transport)])\nloaded.sort()\nprint(\"SCENARIO pm10 PM-F5: plan declares %d embarkation(s); the AI made %s\" % [plan_embarks, str(loaded)])\nreturn \"plan=%d ai=%s\" % [plan_embarks, \",\".join(loaded)]",
 			"equals": "plan=0 ai=U_GRETCHIN_A->U_STOMPA_A,U_GRETCHIN_B->U_STOMPA_A"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The Stompa is the hardest model in the game to seat: a 180mm base needs\n# 7.09\" of clear ground, and on this layout the deployment zone is mostly\n# under terrain. Driving a HUMAN seat on this same board (the PM-10 stand-in)\n# could not place it ANYWHERE — 9,408 candidate positions across the zone,\n# every one refused by the phase. The plan seats it first time, because its\n# coordinates were validated against DeploymentPhase when the plan was\n# authored. That is the feature's actual argument, so it gets an assertion.\nvar snap = node.get_meta(\"pm10_snapshot\", {})\nvar rec = snap.get(\"U_STOMPA_A\", {})\nvar pos = rec.get(\"pos\", [])\nif pos.is_empty() or pos[0] == null:\n\treturn \"Stompa NOT deployed\"\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar plan = PV.load_plan_file(\"res://data/ai_plans/orks_recon_stomps_hammer_anvil.json\")\nvar want = []\nfor placement in plan.get(\"deployment\", {}).get(\"placements\", []):\n\tif str(placement.get(\"unit\", \"\")) == \"U_STOMPA_A\":\n\t\twant = placement.get(\"models_inches\", [])\nif want.is_empty():\n\treturn \"plan has no Stompa placement\"\nvar got = Vector2(float(pos[0][0]), float(pos[0][1])) / 40.0\nvar expected = Vector2(float(want[0][0]), float(want[0][1]))\nvar off = got.distance_to(expected)\nprint(\"SCENARIO pm10 Stompa: plan (%.2f, %.2f), deployed (%.2f, %.2f), off by %.3f in\" % [expected.x, expected.y, got.x, got.y, off])\nreturn \"deployed within 0.05in: %s\" % str(off <= 0.05)",
+			"equals": "deployed within 0.05in: true"
 		},
 		{
 			"act": "execute_script",
