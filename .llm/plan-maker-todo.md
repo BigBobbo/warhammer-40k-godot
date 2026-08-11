@@ -213,7 +213,7 @@ PM-11 docs + release coherence (needs all)
 
 ## PM-8a — SPIKE: prove two back-to-back in-session AI games
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** — (run early; results de-risk PM-8b)
 **Player-facing:** no
 
@@ -250,7 +250,100 @@ to reach for: the only precedent (`tests/helpers/GameInstance.gd:104`) has
 documented autoload-init flakiness (`tests/FINAL_STATUS.md`) and is
 impossible on the web export.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+VERIFIED: pure-state (no UI affordance) — PM-8a adds one headless spike driver
+under `40k/tests/spikes/` and one committed report. No production code changed,
+so nothing a player can see or click is different; the whole task IS a
+measurement of autoload state.
+
+**Verdict: in-session reset is VIABLE — and the task's candidate reset list is
+necessary but NOT sufficient.** Report:
+`40k/tests/bench_baselines/2026-08-11_pm8a_inline_reset_spike.md`.
+Driver: `40k/tests/spikes/pm8a_inline_reset_spike.gd`.
+
+```
+$ godot --headless --path . -s tests/spikes/pm8a_inline_reset_spike.gd
+game 1 (seed 8100): completed  round 5  205 actions  VP 35-66   11.4 s
+game 2 (seed 8101): completed  round 5  264 actions  VP 55-37   14.0 s
+game 3 (seed 8100): completed  round 5  205 actions  VP 35-66   10.4 s
+determinism g1 vs g3: {"same_seed": true, "identical": true, "mismatches": {},
+                       "first_action_divergence_index": -1}
+stderr: 0 SCRIPT ERROR, 0 "Lambda capture was freed", 0 "update_control on Nil"
+```
+
+Three consecutive from-menu AI-vs-AI games completed in one process (~10-14 s
+each for a 3-unit Custodes mirror at time_scale 10, running the FULL game from
+FORMATIONS), no stalls, equal unit counts at every game start, and **two games
+at the same seed produced byte-identical outcomes** while a third at a different
+seed produced a genuinely different game.
+
+**The load-bearing finding: with only the task's candidate resets
+(StratagemManager / UnitAbilityManager / MissionManager+Secondary init /
+PhaseManager.game_ended), two SAME-SEED in-session games diverged** — 205 vs 189
+actions, VP 35-66 vs 42-66 — while the same seed in two *separate processes*
+matched exactly (202 actions / 35-66 both runs). So the residual leakage was
+real, and had to be closed before PM-8b could claim seeded runs.
+
+The reset list that makes it deterministic (full table + per-step evidence in
+the report):
+1. `AIPlayer.configure({1:"HUMAN",2:"HUMAN"})` **before** tearing the game down
+   — the AI is otherwise still live during the rebuild and Main'"'"'s later
+   `configure()` erases the evidence by wiping `_action_log`. Fixing only this
+   moved the first action-trace divergence from index 0 to index 23.
+2. `StratagemManager.reset_for_new_game()` (proven: `_usage_history` 8/8 leaked).
+3. `UnitAbilityManager.reset_for_new_game()` (no leak observed with this army —
+   kept because the method has no production caller, so the risk is unproven
+   rather than disproven).
+4. `PhaseManager.reset()` **plus `_last_round_started = -1`**, which `reset()`
+   misses.
+5. **Re-initialise `FactionAbilityManager`'"'"'s per-game dictionaries — the actual
+   determinism-breaker.** It has no reset entry point at all; `_active_mastery`
+   / `_mastery_selected_round` carried into game 2, which then skipped
+   `SELECT_MARTIAL_MASTERY` and diverged from there.
+6. `MissionManager`: clear `_units_alive_at_round_start` and
+   `objectives_visual_refs` (`initialize_mission()` clears neither).
+7. `MissionManager`: disconnect the stale **lambda** receivers (below).
+8. `ActionLogger` / `GameEventLog` / `ReplayManager`: no reset entry points,
+   unbounded growth (257 actions, 570 entries at game 2'"'"'s bootstrap).
+9. Seed a **fourth** RNG channel — the GLOBAL RNG (`seed(n)`), which
+   `Array.shuffle()`/`randi()`/`randf()` draw from and which the documented
+   "seeding triple" does not cover. A fresh process starts it from a fixed
+   default (which is why separate processes agreed); in-session its state
+   carries over.
+
+**Ordering is part of the answer**: reset, THEN bootstrap. Resetting after the
+bootstrap wipes what the bootstrap just populated —
+`StratagemManager.reset_for_new_game()` clears the faction stratagems that
+applying the armies had just loaded.
+
+**Separate bug found (cosmetic, but it breaks the no-ERROR gate).**
+`Main._setup_objectives()` (`scripts/Main.gd:5186-5191`) connects a lambda to the
+`MissionManager.objective_control_changed` autoload signal that CAPTURES the
+`ObjectiveVisual` scene node. The connection outlives the scene: receivers
+accumulate 5 -> 10 -> 15 across three games, and every control change in game 2+
+fires game 1'"'"'s dead lambdas — `Lambda capture at index 1 was freed` plus
+`Nonexistent function '"'"'update_control'"'"' in base '"'"'Nil'"'"'` at Main.gd:5188. **105 such
+ERROR lines in a 3-game run, zero in game 1.** Determinism holds with them
+present, so they are cosmetic — but they would fail `verify_delivery` /
+`read_debug_log`, which PM-9 has to pass. The guard that works is an
+unconditional `Callable.is_custom()` sweep; `is_instance_valid(callable.get_object())`
+does NOT work, because a lambda'"'"'s bound object outlives the scene while its
+captures do not, so the connection still looks healthy.
+
+Instruments built for this (reusable by PM-8b): a per-game capture of the first
+60 `AIPlayer._action_log` entries with the **index of the first differing
+action** between two runs, and `_autoload_fingerprint()` — the size/value of
+every script-declared Array/Dictionary/bool/int on 17 autoloads, diffed between
+identical bootstrap points. The fingerprint found the log/record leaks but NOT
+the FactionAbilityManager one, because those are fixed-shape `{"1":…,"2":…}`
+dictionaries whose size never changes; the action trace found it.
+
+Also confirmed: a from-menu AI-vs-AI game works end to end (FORMATIONS confirm,
+deployment roll-off, deployment) — a path `AIBenchmarkRunner` never exercises,
+being fixture-only and post-deployment.
+
+Commit: see `PM-8a: spike — in-session multi-game reset is viable`.
 
 ---
 
