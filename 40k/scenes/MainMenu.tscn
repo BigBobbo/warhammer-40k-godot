@@ -154,6 +154,12 @@ custom_minimum_size = Vector2(200, 40)
 size_flags_horizontal = 4
 text = "Start Game"
 
+[node name="PlanEditorButton" type="Button" parent="ScrollContainer/MenuContainer/ButtonSection"]
+layout_mode = 2
+custom_minimum_size = Vector2(200, 40)
+size_flags_horizontal = 4
+text = "Plan Editor"
+
 [node name="MultiplayerButton" type="Button" parent="ScrollContainer/MenuContainer/ButtonSection"]
 layout_mode = 2
 custom_minimum_size = Vector2(200, 40)

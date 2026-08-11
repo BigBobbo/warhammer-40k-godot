@@ -682,6 +682,9 @@ func _ready() -> void:
 	# Start replay recording if configured (auto for AI vs AI)
 	_start_replay_recording_if_needed()
 
+	# PM-4: sandbox marker + clean exit (no-op outside the plan editor)
+	_setup_plan_editor_banner()
+
 	# Final pass: ensure all UI panels render above board elements
 	_ensure_ui_panels_on_top()
 
@@ -10013,6 +10016,12 @@ func _setup_roll_off_phase() -> void:
 	active player is the AI. Only a fully AI-vs-AI game skips the dialog (the AI
 	then auto-dispatches the roll-off actions itself)."""
 	print("Main: Setting up %s roll-off phase" % _roll_off_context())
+	# PM-4: the plan-editor sandbox has no opponent to roll against — resolve the
+	# deploy roll-off automatically so the author lands straight in Deployment.
+	if is_plan_editor() and current_phase == GameStateData.Phase.ROLL_OFF:
+		print("Main: Plan Editor — auto-resolving the deployment roll-off (no dialog)")
+		call_deferred("_plan_editor_auto_roll_off")
+		return
 	var ai_player = get_node_or_null("/root/AIPlayer")
 	var local_player: int = _roll_off_local_human(ai_player)
 	if local_player == 0:
@@ -10250,6 +10259,11 @@ func _on_formations_dialog_confirmed(player: int, formations: Dictionary) -> voi
 		# Single player / hotseat — show dialog for the other player
 		var other_player = 3 - player
 
+		# PM-4: in the plan-editor sandbox the other seat has no army — confirm
+		# for it rather than opening an empty declaration dialog.
+		if _plan_editor_confirm_absent_opponent(other_player):
+			return
+
 		# If the other player is AI, let the AI handle its own formations
 		var ai_player_node = get_node_or_null("/root/AIPlayer")
 		if ai_player_node and ai_player_node.is_ai_player(other_player):
@@ -10311,6 +10325,10 @@ func _on_formations_confirm_pressed() -> void:
 		# Single player / hotseat — show dialog for the other player if needed
 		var other_player = 3 - confirming_player
 
+		# PM-4: plan-editor sandbox — the other seat has no army to declare for.
+		if _plan_editor_confirm_absent_opponent(other_player):
+			return
+
 		# If the other player is AI, let the AI handle its own formations
 		var ai_player_node = get_node_or_null("/root/AIPlayer")
 		if ai_player_node and ai_player_node.is_ai_player(other_player):
@@ -10327,6 +10345,158 @@ func _on_formations_confirm_pressed() -> void:
 			# Secret declarations: handoff screen first in local hotseat.
 			HandoffManager.request_handoff(other_player, "Declare Battle Formations",
 				_show_formations_dialog.bind(other_player))
+
+# ========================================
+# PM-4: Plan Editor sandbox session
+# ========================================
+
+var plan_editor_banner: PanelContainer = null
+
+func is_plan_editor() -> bool:
+	"""Canonical read of the sandbox flag (set by MainMenu, stored in
+	meta.game_config so it survives save/load). PhaseManager owns the helper;
+	fall back to the raw read if the autoload is missing (headless harnesses)."""
+	var pm = get_node_or_null("/root/PhaseManager")
+	if pm and pm.has_method("is_plan_editor_session"):
+		return pm.is_plan_editor_session()
+	return bool(GameState.state.get("meta", {}).get("game_config", {}).get("plan_editor", false))
+
+func _setup_plan_editor_banner() -> void:
+	"""Persistent 'PLAN EDITOR' banner + a clean exit back to the main menu.
+
+	The sandbox looks exactly like a real game (same board, same deployment UI),
+	so it needs an unambiguous marker that no opponent exists and the session
+	will never advance past Deployment."""
+	if not is_plan_editor():
+		return
+
+	plan_editor_banner = PanelContainer.new()
+	plan_editor_banner.name = "PlanEditorBanner"
+	plan_editor_banner.anchor_left = 0.5
+	plan_editor_banner.anchor_right = 0.5
+	plan_editor_banner.anchor_top = 0.0
+	plan_editor_banner.anchor_bottom = 0.0
+	# Sits below the deployment progress strip (y 100-160, see
+	# _setup_deployment_progress_indicator) so the two never overlap.
+	plan_editor_banner.offset_left = -250.0
+	plan_editor_banner.offset_right = 250.0
+	plan_editor_banner.offset_top = 166.0
+	plan_editor_banner.offset_bottom = 210.0
+	plan_editor_banner.mouse_filter = Control.MOUSE_FILTER_PASS
+
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.16, 0.10, 0.04, 0.94)
+	style.border_color = _WhiteDwarfTheme.WH_GOLD
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(6)
+	plan_editor_banner.add_theme_stylebox_override("panel", style)
+
+	var row := HBoxContainer.new()
+	row.name = "PlanEditorBannerRow"
+	row.add_theme_constant_override("separation", 12)
+	plan_editor_banner.add_child(row)
+
+	var title := Label.new()
+	title.name = "PlanEditorBannerLabel"
+	title.text = "PLAN EDITOR"
+	title.add_theme_font_size_override("font_size", 18)
+	title.add_theme_color_override("font_color", Color(1.0, 0.84, 0.35))
+	row.add_child(title)
+
+	var subtitle := Label.new()
+	subtitle.name = "PlanEditorBannerSubtitle"
+	subtitle.text = "No opponent · deployment stays open"
+	subtitle.add_theme_font_size_override("font_size", 12)
+	subtitle.add_theme_color_override("font_color", Color(0.85, 0.82, 0.72))
+	subtitle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	subtitle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(subtitle)
+
+	var exit_button := Button.new()
+	exit_button.name = "PlanEditorExitButton"
+	exit_button.text = "Exit to Menu"
+	exit_button.tooltip_text = "Leave the plan editor and return to the main menu"
+	exit_button.pressed.connect(_on_plan_editor_exit_pressed)
+	row.add_child(exit_button)
+
+	add_child(plan_editor_banner)
+	plan_editor_banner.move_to_front()
+	print("Main: Plan Editor banner created")
+
+func _on_plan_editor_exit_pressed() -> void:
+	print("Main: Plan Editor — exiting to main menu")
+	# Same teardown as any other route back to the menu (AI off, recording
+	# finalized, PhaseManager reset) so the next game starts clean.
+	_on_main_menu_requested()
+
+func _plan_editor_confirm_absent_opponent(other_player: int) -> bool:
+	"""Auto-confirm Formations for the seat that has no army.
+
+	Returns true when it handled the hand-off (caller must not show a dialog).
+	The Formations phase only completes once BOTH players confirm, and the
+	editor's Player 2 has no units at all — so there is nothing for a human to
+	declare and no AI to declare it. Confirmation is legal: warlord validation
+	is a no-op for a player with no CHARACTERs."""
+	if not is_plan_editor():
+		return false
+	if current_phase != GameStateData.Phase.FORMATIONS:
+		return false
+
+	var phase_instance = PhaseManager.get_current_phase_instance()
+	if phase_instance and phase_instance.has_method("_is_player_confirmed") and phase_instance._is_player_confirmed(other_player):
+		return true
+
+	print("Main: Plan Editor — auto-confirming Formations for the absent Player %d" % other_player)
+	var result = NetworkIntegration.route_action({
+		"type": "CONFIRM_FORMATIONS",
+		"player": other_player
+	})
+	if not result.get("success", false):
+		print("Main: Plan Editor — auto-confirm for Player %d FAILED: %s" % [other_player, result.get("error", "unknown")])
+		DebugLogger.warn("[PlanEditor] auto-confirm formations failed", {
+			"player": other_player, "error": result.get("error", "unknown")
+		})
+	return true
+
+func _plan_editor_auto_roll_off() -> void:
+	"""Resolve the pre-deployment roll-off without a dialog, seating the target
+	army (Player 1) as Defender so it deploys first.
+
+	choice 'first' makes the WINNER the Defender, so a Player 2 win has to pick
+	'second' to hand the first deployment to Player 1. Ties force a re-roll per
+	the core rules, hence the loop."""
+	if current_phase != GameStateData.Phase.ROLL_OFF:
+		return
+
+	var winner := 0
+	for attempt in range(20):
+		var roll_result = NetworkIntegration.route_action({
+			"type": "ROLL_OFF_DEPLOYMENT",
+			"player": GameState.get_active_player()
+		})
+		if not roll_result.get("success", false):
+			print("Main: Plan Editor roll-off failed: %s" % roll_result.get("error", "unknown"))
+			return
+		if not roll_result.get("tied", false):
+			winner = int(roll_result.get("winner", GameState.state.get("meta", {}).get("roll_off_winner", 0)))
+			break
+		print("Main: Plan Editor roll-off tied (attempt %d) — re-rolling" % (attempt + 1))
+
+	if winner <= 0:
+		print("Main: Plan Editor roll-off never produced a winner — leaving the phase alone")
+		return
+
+	var choice: String = "first" if winner == 1 else "second"
+	var choice_result = NetworkIntegration.route_action({
+		"type": "CHOOSE_DEPLOYMENT",
+		"choice": choice,
+		"player": winner
+	})
+	if not choice_result.get("success", false):
+		print("Main: Plan Editor deploy-order choice failed: %s" % choice_result.get("error", "unknown"))
+		return
+	print("Main: Plan Editor — Player %d won the roll-off, chose '%s' → Player 1 (target army) deploys first" % [winner, choice])
 
 func _on_end_deployment_pressed() -> void:
 	print("Main: ========== _on_end_deployment_pressed CALLED ==========")

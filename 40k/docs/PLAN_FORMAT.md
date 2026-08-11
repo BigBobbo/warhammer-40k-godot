@@ -30,6 +30,36 @@ Related files:
 
 ---
 
+## Authoring: the Plan Editor sandbox (PM-4)
+
+The **Plan Editor** button on the main menu opens a solo planning session
+instead of a game. Pick the Player 1 army and — from the editor's own
+picker, next to the button — the deployment zone the plan is being written
+for. (The zone needs its own control because at 11th edition the *game's*
+zone is derived from the Force Disposition matchup plus the terrain variant
+and is shown as a read-only label; a plan is keyed on `deployment_zone_id`,
+so the author has to be able to choose it directly.)
+
+What the session does:
+
+| Step | Behaviour |
+|---|---|
+| Flag | `plan_editor: true` inside `meta.game_config` — the canonical read is `PhaseManager.is_plan_editor_session()` |
+| Seats | Target army is **Player 1** (plans are authored in the P1 frame; the AI mirrors for seat 2). Player 2's units are deleted right after army load |
+| FORMATIONS | Runs for real for the target army so reserves / embarkations / attachments can be recorded. The empty Player 2 seat is auto-confirmed |
+| ROLL_OFF | Auto-resolved with no dialog; the winner's choice is picked so **Player 1 is the Defender** and therefore deploys first |
+| DEPLOYMENT | The normal deployment UI, with the hotseat "pass the device" curtain suppressed (there is only one author) |
+| End of deployment | `PhaseManager._on_phase_completed` suppresses the advance, so the session **stays** in DEPLOYMENT with the board intact. All three deployment-completion emitters route through that one guard |
+| Exit | The `PLAN EDITOR` banner above the board carries an **Exit to Menu** button |
+
+Committed units cannot be un-deployed in v1 — the story for a mistake is
+exit and restart. Saving the layout as a plan is PM-5; painting earmarks
+onto it is PM-6.
+
+Windowed proof: `40k/tests/scenarios/sp/pm4_plan_editor_session.json`.
+
+---
+
 ## Terminology: "earmark" vs "intent"
 
 **`earmark`** is the word in the schema, in code, in logs and in decision

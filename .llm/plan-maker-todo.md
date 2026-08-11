@@ -1143,7 +1143,7 @@ Commit: see `PM-3: earmarks bias the AI's objective assignment and target choice
 
 ## PM-4 — Sandbox "Plan Editor" session
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-1
 **Player-facing:** yes — version_history entry required
 
@@ -1199,7 +1199,110 @@ banner + deployed units.
 **Out of scope.** Saving (PM-5), painting (PM-6), editing existing plans,
 building undo.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/scenes/MainMenu.tscn` | `PlanEditorButton` in `ButtonSection`, under `StartButton` |
+| `40k/scripts/MainMenu.gd` | `_setup_plan_editor_controls()` builds the editor's own `PlanEditorZoneDropdown` (all six zones, always editable); `_on_plan_editor_button_pressed()` builds the config with `plan_editor: true`, both seats HUMAN and the picked zone; `_initialize_game_with_config` deletes every owner-2 unit on the editor path; the cloud-army pending-config path resets both buttons |
+| `40k/autoloads/PhaseManager.gd` | `is_plan_editor_session()` (canonical read of `meta.game_config.plan_editor`) and the single hold-open guard at the top of `_on_phase_completed` |
+| `40k/scripts/Main.gd` | `is_plan_editor()`, `_setup_plan_editor_banner()` (banner + Exit to Menu), `_on_plan_editor_exit_pressed()`, `_plan_editor_confirm_absent_opponent()` (wired into BOTH formations-confirm handlers), `_plan_editor_auto_roll_off()` (tie re-roll loop, then the choice that makes P1 Defender), early return in `_setup_roll_off_phase` |
+| `40k/autoloads/HandoffManager.gd` | `is_local_hotseat()` returns false for an editor session |
+| `40k/tests/scenarios/sp/pm4_plan_editor_session.json` | the windowed gate (no fixture — starts on the real main menu) |
+| `40k/data/version_history.json` | 1.30.0 |
+| `40k/docs/PLAN_FORMAT.md` | "Authoring: the Plan Editor sandbox" section |
+
+Windowed scenario — **59 passed, 0 failed**:
+
+```
+[ScenarioRunner] === pm4_plan_editor_session: 59 passed, 0 failed ===
+```
+
+It starts on the boot MainMenu scene, selects `recon_stomps` + `hammer_anvil`
+in the editor's own picker, and presses the real button. It then asserts, in
+order: `meta.game_config.plan_editor == true`, **0 owner-2 units**, phase
+FORMATIONS with the declaration dialog up for the target army, and after one
+confirm — `formations_p2_confirmed == true` (the absent seat auto-confirmed),
+`meta.defender == 1` (the roll-off auto-resolved in the target army's favour)
+and phase DEPLOYMENT, with no dialog ever shown. One unit goes down the real
+player path (unit-list click → `click_board_at` → the `ConfirmButton`, asserted
+to reach status DEPLOYED); the other 16 are bulk-deployed by a deterministic
+first-fit packer and the token layer is resynced the way a load does.
+
+The gate itself: with **0** units left in any state other than DEPLOYED, the
+phase still reads DEPLOYMENT, an explicit `END_DEPLOYMENT` is also swallowed,
+and `PhaseManager.is_plan_editor_session()` is true. The debug log shows the
+guard firing three times and **zero ERROR lines**:
+
+```
+$ grep -c "Plan Editor hold-open" debug_20260811_122812.log
+3
+$ grep -cE "\[ERROR\]|SCRIPT ERROR" debug_20260811_122812.log
+0
+```
+
+Negative control (the last steps): clearing the flag makes
+`is_plan_editor_session()` false and the *same* `END_DEPLOYMENT` action then
+advances the phase. So the hold is attributable to the flag, not to a stuck
+phase — the assertion is not vacuous. Finally the banner's **Exit to Menu**
+button is clicked and the scene is asserted back to `MainMenu`.
+
+`verify_delivery` on a live session — **verdict: PASS**, 0 log errors:
+
+```
+OK  phase.is_DEPLOYMENT = DEPLOYMENT        OK  log.no_errors
+OK  plan_editor_session_flag = True         OK  no_player2_units = 0
+OK  target_army_is_defender = 1             OK  all_17_units_deployed = 17
+OK  nothing_left_to_place = 0               OK  banner_visible = True
+OK  exit_button_present = True              OK  every_model_has_a_token = True
+log: {"debug": 5, "error": 0, "info": 198, "other": 9, "warning": 0}
+```
+
+Headless regression suite after the fix for finding 5: **2645 passed, 0 failed
+across 116 tests** (the first run was 2644/1 — it executed
+`test_t011_designate_warlord_pin.gd` before that fix landed).
+
+Screenshot: `40k/docs/evidence/pm4_plan_editor_held_open.png` — the editor with
+the PLAN EDITOR banner and its Exit to Menu button, "Player 1 (Defender): 17/17
+units deployed / Player 2 (Attacker): 0/0", the whole Ork army on the board in
+the Hammer and Anvil zone, the log line "P1: Player 1 chose to deploy first",
+and the phase still reading Deployment. Also
+`40k/docs/evidence/pm4_main_menu_plan_editor.png` for the menu controls.
+
+Five findings worth carrying forward:
+
+1. **The hotseat handoff curtain fired over the editor.** Both seats are HUMAN
+   and neither is AI, so `HandoffManager.is_local_hotseat()` was true and a
+   full-screen "PASS THE DEVICE" panel hid the board at deployment start.
+   Caught only because the first screenshot showed it — a state-only check
+   would have passed. Fixed in `is_local_hotseat()`.
+2. **The banner collided with the deployment progress strip** (both anchored
+   top-centre at y 100-160). Moved to y 166-210.
+3. **Bulk `phase.execute_action` deployment does not create tokens.** The token
+   layer is built by `DeploymentController`; bypassing it leaves GameState
+   correct and the board empty. The scenario calls `_recreate_unit_visuals()` +
+   `_update_deployment_progress()` afterwards, the same resync a load does.
+   This is scaffolding, and it is why one unit is deployed by mouse.
+4. **`status == UNDEPLOYED` is not the right "still to place" test** — a unit
+   left mid-staging sits at `DEPLOYING`. The first version of the assertion
+   passed with one unit unconfirmed; it now counts anything that is neither
+   DEPLOYED nor IN_RESERVES.
+5. **A source-ORDER pin test broke on an unrelated insertion.**
+   `test_t011_designate_warlord_pin.gd` asserts
+   `Main.gd.find("\"type\": \"DESIGNATE_WARLORD\"") < find("\"type\":
+   \"CONFIRM_FORMATIONS\"")`. The new `_plan_editor_confirm_absent_opponent`
+   contains a `CONFIRM_FORMATIONS` literal, and putting it above the dialog
+   handler flipped the byte offsets even though no dispatch order changed. Fixed
+   by relocating the whole PM-4 section below both formations handlers rather
+   than weakening the pin. Worth knowing before adding any further action
+   literals to `Main.gd`.
+
+No headless test was added: every piece of PM-4 is a UI affordance or a
+phase-flow guard, and a source-shape pin test would be a regression net rather
+than validation (see CLAUDE.md's pin-test anti-pattern). The windowed scenario
+is the regression net.
 
 ---
 

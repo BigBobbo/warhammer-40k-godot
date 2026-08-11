@@ -377,6 +377,12 @@ func _get_next_phase(current: GameStateData.Phase) -> GameStateData.Phase:
 		_:
 			return GameStateData.Phase.DEPLOYMENT
 
+## PM-4: canonical read of the Plan Editor flag. It lives inside
+## meta.game_config (set by MainMenu._on_plan_editor_button_pressed) so it
+## survives save/load and is visible to every consumer through GameState.
+func is_plan_editor_session() -> bool:
+	return bool(GameState.state.get("meta", {}).get("game_config", {}).get("plan_editor", false))
+
 func _on_phase_completed() -> void:
 	if game_ended:
 		return
@@ -392,6 +398,16 @@ func _on_phase_completed() -> void:
 		return
 
 	var completed_phase = get_current_phase()
+
+	# PM-4: the Plan Editor sandbox ends at Deployment — the whole point is to
+	# sit in a fully deployed board so the plan can be recorded/painted. There
+	# are THREE emitters of deployment completion (DeploymentController's confirm,
+	# the END_DEPLOYMENT action, and DeploymentPhase's on-enter auto-complete);
+	# suppressing the advance here covers all of them with one guard.
+	if completed_phase == GameStateData.Phase.DEPLOYMENT and is_plan_editor_session():
+		print("PhaseManager: Plan Editor session — holding DEPLOYMENT open (no phase advance)")
+		DebugLogger.info("[PhaseManager] Plan Editor hold-open: DEPLOYMENT completion suppressed")
+		return
 
 	# Check for game end before advancing
 	if completed_phase == GameStateData.Phase.SCORING and GameState.is_game_complete():

@@ -5,6 +5,7 @@ One line per task: status, key result, timestamp (UTC). Companion to
 
 | Task | Status | Key result | When |
 |---|---|---|---|
+| PM-4 | DONE | Main-menu "Plan Editor" opens a solo sandbox: own zone picker, `plan_editor` in `meta.game_config`, P2 units deleted, real FORMATIONS for the target army with the absent seat auto-confirmed, roll-off auto-resolved with P1 as Defender, hotseat handoff suppressed, and one guard in `PhaseManager._on_phase_completed` holds DEPLOYMENT open. Windowed `sp/pm4_plan_editor_session` 55/55 from the main menu with a negative control proving the hold comes from the flag; 0 log errors. Version 1.30.0 | 2026-08-11 |
 | PM-0 | DONE | `wh40k_ai_plan` v1 schema + `PlanValidator.gd` + 2 fixtures + 65-assertion headless test (65 passed, 0 failed) | 2026-08-11 |
 | PM-3 | DONE | Five verbs bias real machinery (HOLD/PUSH via `_t_add`, SCREEN withholds into the screening pass, HUNT adds to all three target scorers), release-on-damage decay, fragment layering with explicit-profile precedence. Headless 35/35 incl. a real assignment differential; windowed `sp/pm3_earmarks_bias_assignment` 72/72 with 0 earmark records in the plans-off control. Version 1.29.2 | 2026-08-11 |
 | PM-2b | DONE | Plan drives FORMATIONS: reserves (plan owns them, over-cap trimmed in plan order), embarkations, attachments; PLACE_IN_RESERVES retrofit for post-formations games. Headless 27/27, windowed `sp/pm2b_formations_from_plan` 36/36 with both seats exact. Version 1.29.1 | 2026-08-11 |

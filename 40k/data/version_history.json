@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.30.0",
+      "date": "2026-08-11",
+      "summary": "New 'Plan Editor' on the main menu: a solo planning sandbox where you set your army up on the board with no opponent and no clock, ready for the plan you are writing.",
+      "changes": [
+        "New: a Plan Editor button on the main menu, with its own deployment-zone picker so you can plan for any zone regardless of which terrain variant the game would otherwise pick.",
+        "The editor runs the real pre-battle steps for your army — Declare Battle Formations, then Deployment — so what you set up is what the game would actually allow.",
+        "There is no opponent: Player 2 is removed, the deploy roll-off resolves itself with you setting up first, and no hand-the-device screen interrupts you.",
+        "When the last unit is down the session simply stays in Deployment instead of starting a battle, so the board keeps whatever you laid out.",
+        "A PLAN EDITOR banner sits above the board with an Exit to Menu button."
+      ]
+    },
+    {
       "version": "1.29.2",
       "date": "2026-08-11",
       "summary": "AI Plans can now give each unit a job for the whole battle — hold this objective, push the middle, screen, or hunt characters — and the AI leans that way instead of re-deciding from scratch every turn.",

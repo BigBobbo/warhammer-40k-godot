@@ -64,6 +64,12 @@ func is_local_hotseat() -> bool:
 		return false
 	if AIPlayer.is_ai_player(1) or AIPlayer.is_ai_player(2):
 		return false
+	# PM-4: the Plan Editor sandbox seats both sides as HUMAN (there is no AI
+	# and no network) but only Player 1 has an army — nobody is passing the
+	# device, so the "PASS THE DEVICE" curtain would just hide the board from
+	# the single author sitting at it.
+	if GameState.state.get("meta", {}).get("game_config", {}).get("plan_editor", false):
+		return false
 	# Only meaningful once a game is actually running (Main scene up).
 	return GameState.state.get("units", {}).size() > 0
 

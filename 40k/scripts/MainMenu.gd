@@ -42,6 +42,14 @@ var mission_value_label: Label = null
 var deployment_value_label: Label = null
 var _derived_displays_active: bool = false
 @onready var start_button: Button = $ScrollContainer/MenuContainer/ButtonSection/StartButton
+# PM-4: Plan Editor sandbox entry point. The editor needs its OWN deployment-zone
+# picker: in 11e the game's zone is DERIVED from the disposition matchup + terrain
+# variant (see _setup_derived_mission_displays), but a plan is keyed on
+# deployment_zone_id, so the author must be able to choose the zone they are
+# writing a plan for regardless of which variant the menu happens to have picked.
+@onready var plan_editor_button: Button = $ScrollContainer/MenuContainer/ButtonSection/PlanEditorButton
+var plan_editor_zone_container: HBoxContainer = null
+var plan_editor_zone_dropdown: OptionButton = null
 @onready var multiplayer_button: Button = $ScrollContainer/MenuContainer/ButtonSection/MultiplayerButton
 @onready var load_button: Button = $ScrollContainer/MenuContainer/ButtonSection/LoadButton
 @onready var replay_button: Button = $ScrollContainer/MenuContainer/ButtonSection/ReplayButton
@@ -153,6 +161,7 @@ func _ready() -> void:
 	_base_terrain_options = terrain_options.duplicate()
 	_setup_dropdowns()
 	_connect_signals()
+	_setup_plan_editor_controls()
 	_setup_save_load_dialog()
 
 	# Set defaults
@@ -235,7 +244,7 @@ func _apply_theme() -> void:
 
 	# Buttons — Start Game is primary, rest are secondary
 	WhiteDwarfThemeData.apply_primary_button(start_button)
-	for btn in [multiplayer_button, load_button, replay_button, settings_button, quit_button]:
+	for btn in [plan_editor_button, multiplayer_button, load_button, replay_button, settings_button, quit_button]:
 		WhiteDwarfThemeData.apply_secondary_button(btn)
 
 func _create_data_attribution_credit() -> void:
@@ -500,7 +509,8 @@ func _update_input_mode_status() -> void:
 func _apply_theme_to_dynamic_elements() -> void:
 	# Style dynamically created dropdowns and buttons
 	for dropdown in [player1_difficulty_dropdown, player2_difficulty_dropdown, ai_speed_dropdown,
-			p1_secondary_mode_dropdown, p2_secondary_mode_dropdown, army_sort_dropdown]:
+			p1_secondary_mode_dropdown, p2_secondary_mode_dropdown, army_sort_dropdown,
+			plan_editor_zone_dropdown]:
 		if dropdown:
 			WhiteDwarfThemeData.apply_to_button(dropdown)
 
@@ -509,7 +519,8 @@ func _apply_theme_to_dynamic_elements() -> void:
 			WhiteDwarfThemeData.apply_to_button(btn)
 
 	# Style dynamically created labels
-	for container in [player1_difficulty_container, player2_difficulty_container, ai_speed_container, army_sort_container]:
+	for container in [player1_difficulty_container, player2_difficulty_container, ai_speed_container,
+			army_sort_container, plan_editor_zone_container]:
 		if container:
 			for child in container.get_children():
 				if child is Label:
@@ -1356,6 +1367,7 @@ func _connect_signals() -> void:
 	# D5: picking an official 11e layout snaps deployment to its pattern
 	terrain_dropdown.item_selected.connect(_on_terrain_layout_selected)
 	start_button.pressed.connect(_on_start_button_pressed)
+	plan_editor_button.pressed.connect(_on_plan_editor_button_pressed)
 	multiplayer_button.pressed.connect(_on_multiplayer_button_pressed)
 	load_button.pressed.connect(_on_load_button_pressed)
 	replay_button.pressed.connect(_on_replay_button_pressed)
@@ -1365,7 +1377,7 @@ func _connect_signals() -> void:
 	# UI sound cues on the menu buttons (routed to the SFX bus).
 	var mm = get_node_or_null("/root/MusicManager")
 	if mm:
-		for b in [start_button, multiplayer_button, load_button, replay_button, settings_button, quit_button]:
+		for b in [start_button, plan_editor_button, multiplayer_button, load_button, replay_button, settings_button, quit_button]:
 			b.pressed.connect(func(): mm.play_sfx("click"))
 			b.mouse_entered.connect(func(): mm.play_sfx("hover"))
 
@@ -1481,6 +1493,10 @@ func _on_cloud_army_fetched(_army_name: String, _army_data: Dictionary) -> void:
 		# All cloud armies downloaded, proceed with game start
 		start_button.text = "Start Game"
 		start_button.disabled = false
+		# PM-4: the Plan Editor borrows the same pending-config machinery.
+		if plan_editor_button:
+			plan_editor_button.text = "Plan Editor"
+			plan_editor_button.disabled = false
 
 		var config = _pending_game_config
 		_pending_game_config = {}
@@ -1495,6 +1511,9 @@ func _on_cloud_army_fetch_failed(army_name: String, error: String) -> void:
 	_pending_game_config = {}
 	start_button.text = "Start Game"
 	start_button.disabled = false
+	if plan_editor_button:
+		plan_editor_button.text = "Plan Editor"
+		plan_editor_button.disabled = false
 
 func _initialize_game_with_config(config: Dictionary) -> void:
 	print("MainMenu: Initializing game state with configuration")
@@ -1557,7 +1576,21 @@ func _initialize_game_with_config(config: Dictionary) -> void:
 	else:
 		print("MainMenu: ArmyListManager not available, using placeholder armies")
 		GameState._initialize_placeholder_armies()
-	
+
+	# PM-4: the Plan Editor is a solo sandbox. Plans are authored in the Player 1
+	# frame (the AI mirrors them for seat 2 — see PlanValidator.mirror_inches), so
+	# the target army is Player 1 and Player 2 is removed entirely after army
+	# application. No pass-AI is needed: TurnManager.check_deployment_alternation
+	# already pins the deployment turn to the only side that still has units, and
+	# TurnManager._handle_deployment_phase_start seats that side first.
+	if config.get("plan_editor", false):
+		var removed_p2 := 0
+		for unit_id in GameState.state.units.keys():
+			if int(GameState.state.units[unit_id].get("owner", 0)) == 2:
+				GameState.state.units.erase(unit_id)
+				removed_p2 += 1
+		print("MainMenu: Plan Editor — cleared %d Player 2 units (solo sandbox)" % removed_p2)
+
 	# P2-85: Initialize fixed secondary missions if selected
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr:
@@ -1589,6 +1622,109 @@ func _initialize_game_with_config(config: Dictionary) -> void:
 		tutorial_mgr.note_real_game_started()
 
 	print("MainMenu: Game initialization complete. Total units: ", GameState.state.units.size())
+
+# ============================================================================
+# PM-4: Plan Editor sandbox
+# ============================================================================
+
+func _setup_plan_editor_controls() -> void:
+	"""Build the Plan Editor's own deployment-zone picker.
+
+	At 11th edition the *game's* deployment zone is derived from the Force
+	Disposition matchup plus the chosen terrain variant, so the Deployment
+	dropdown in the Mission section is hidden behind a read-only label
+	(_setup_derived_mission_displays). A plan, however, is keyed on
+	`deployment_zone_id` — the author has to be able to say "I am writing the
+	Hammer and Anvil plan" without hunting for a terrain variant that happens to
+	carry that pattern. Hence a separate, always-editable picker that only the
+	Plan Editor path reads."""
+	var button_section = $ScrollContainer/MenuContainer/ButtonSection
+	if button_section == null:
+		return
+
+	plan_editor_button.tooltip_text = "Set the Player 1 army up on the board with no opponent — a sandbox for writing an AI plan. Stays in Deployment when you are done."
+
+	plan_editor_zone_container = HBoxContainer.new()
+	plan_editor_zone_container.name = "PlanEditorZoneContainer"
+	plan_editor_zone_container.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	var label := Label.new()
+	label.name = "PlanEditorZoneLabel"
+	label.text = "Plan Editor Zone:"
+	label.custom_minimum_size = Vector2(150, 0)
+	plan_editor_zone_container.add_child(label)
+
+	plan_editor_zone_dropdown = OptionButton.new()
+	plan_editor_zone_dropdown.name = "PlanEditorZoneDropdown"
+	plan_editor_zone_dropdown.custom_minimum_size = Vector2(220, 0)
+	for option in deployment_options:
+		plan_editor_zone_dropdown.add_item(str(option.get("name", option.get("id", ""))))
+	plan_editor_zone_dropdown.selected = 0
+	plan_editor_zone_container.add_child(plan_editor_zone_dropdown)
+
+	button_section.add_child(plan_editor_zone_container)
+	# Sit directly under the Plan Editor button it belongs to.
+	button_section.move_child(plan_editor_zone_container, plan_editor_button.get_index() + 1)
+	print("MainMenu: Plan Editor zone picker created (%d zones)" % deployment_options.size())
+
+func _plan_editor_zone_id() -> String:
+	if plan_editor_zone_dropdown == null:
+		return "hammer_anvil"
+	var idx = plan_editor_zone_dropdown.selected
+	if idx < 0 or idx >= deployment_options.size():
+		return "hammer_anvil"
+	return str(deployment_options[idx].id)
+
+func _on_plan_editor_button_pressed() -> void:
+	"""Launch the planning sandbox: the Player 1 army, the chosen zone + terrain,
+	no opponent, held open at the end of Deployment."""
+	print("MainMenu: Plan Editor button pressed")
+
+	var army_id = str(army_options[player1_dropdown.selected].id)
+	var zone_id = _plan_editor_zone_id()
+
+	# Same shape as the Start Game config so every downstream consumer
+	# (MissionManager, TerrainManager, BoardState, Main) is unchanged; the
+	# editor-only differences are the plan_editor flag, the forced HUMAN seats
+	# and the explicit deployment zone.
+	var config = {
+		"terrain": terrain_options[terrain_dropdown.selected].id,
+		"mission": mission_options[mission_dropdown.selected].id,
+		"deployment": zone_id,
+		"player1_army": army_id,
+		# Player 2's units are cleared immediately after loading (see
+		# _initialize_game_with_config) — the editor has no opponent. Loading the
+		# same list keeps the army-loading block branch-free.
+		"player2_army": army_id,
+		"player1_type": "HUMAN",
+		"player2_type": "HUMAN",
+		"player1_difficulty": 1,
+		"player2_difficulty": 1,
+		"ai_speed": ai_speed_dropdown.selected if ai_speed_dropdown else 1,
+		"player1_secondary_mode": "tactical",
+		"player2_secondary_mode": "tactical",
+		"player1_fixed_missions": [],
+		"player2_fixed_missions": [],
+		"player1_disposition": _get_selected_disposition(p1_disposition_dropdown),
+		"player2_disposition": _get_selected_disposition(p2_disposition_dropdown),
+		"player1_name": _p1_name_edit.text.strip_edges() if _p1_name_edit else "",
+		"player2_name": "",
+		"plan_editor": true,
+	}
+
+	print("MainMenu: Starting Plan Editor with config: ", config)
+
+	if _is_cloud_selection(army_id):
+		plan_editor_button.disabled = true
+		plan_editor_button.text = "Downloading army..."
+		_pending_game_config = config
+		_cloud_fetch_count = 1
+		ArmyListManager.fetch_cloud_army(army_id, 1)
+		return
+
+	_initialize_game_with_config(config)
+	print("MainMenu: Transitioning to Main scene (Plan Editor)")
+	get_tree().change_scene_to_file("res://scenes/Main.tscn")
 
 func _on_multiplayer_button_pressed() -> void:
 	print("MainMenu: Multiplayer button pressed")
