@@ -440,7 +440,7 @@ Commit: see `PM-0: wh40k_ai_plan v1 schema, validator, fixtures, tests`.
 
 ## PM-1 — PlanManager: storage, listing, matching
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-0
 **Player-facing:** no
 
@@ -482,7 +482,78 @@ decisions for two fabricated snapshots pasted into Evidence.
 
 **Out of scope.** UI, AI consumption, recursive listing.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+VERIFIED: pure-state (no UI affordance) — `PlanManager` is a static
+`RefCounted` storage/matching utility with no scene, node, signal or input
+surface, and no runtime caller yet (its first UI caller is PM-7a's dropdown,
+its first AI caller is PM-2a; both carry their own windowed gates). Nothing a
+player can see or click changed in this task.
+
+Delivered:
+- `40k/scripts/PlanManager.gd` — search path `user://ai_plans/` then
+  `res://data/ai_plans/` (non-recursive, missing dir tolerated), `slugify`,
+  `list_plans` (browser rows incl. the PlanValidator badge), `load_plan_file`
+  (explicit path — how fixtures are loaded), `load_plan`/`find_plan_path`,
+  `save_plan` (validates, refuses invalid), `delete_plan` (user:// only),
+  `resolve_game_identity`, `rank_plan`, `find_plan_match_for`, `find_plan_for`.
+- `40k/tests/unit/test_plan_manager.gd`, registered in
+  `40k/tests/run_pretrigger_tests.sh`.
+- `PLAN_FORMAT.md` gained a "`_P<player>` mirror suffix" subsection.
+
+Commands + output:
+```
+$ godot --headless --path . -s tests/unit/test_plan_manager.gd
+=== PlanManager (PM-1) Tests ===
+... 55 PASS lines ...
+=== Results: 55 passed, 0 failed ===
+```
+
+Matching decisions for two fabricated snapshots, quoted from the run:
+```
+game_config path:
+  reason: army_file == game_config army 'recon_stomps',
+          zone 'crucible_of_battle', layout 'take_and_hold_mirror_1'  (rank 0, exact)
+faction-fallback path (NO game_config, fixture-style):
+  reason: faction fallback: 'Orks'/'Speedwaaagh!',
+          zone 'crucible_of_battle', layout 'take_and_hold_mirror_1'  (rank 0, exact)
+```
+
+Four findings that shaped the implementation:
+
+1. **The predeploy fixtures have no `game_config` key at all** — not an empty
+   dict, absent. Confirmed by decompressing all three
+   (`tests/saves/*_predeploy.w40ksave` are base64-of-gzip JSON) and again
+   in-engine: `test_real_predeploy_fixture_has_no_game_config` deserialises
+   `mirror_orks_2000_predeploy` through `StateSerializer` and asserts
+   `identity_source == "factions"`, `deployment_type == crucible_of_battle`,
+   `terrain_layout == take_and_hold_mirror_1`, faction `Orks`/`Speedwaaagh!`.
+   The fabricated snapshots in the test are checked against that real state, so
+   they cannot drift into fiction.
+2. **`state.factions` is keyed by the STRING player number** (`"1"`, `"2"` —
+   `GameState.gd:162/211`), and holds the army file's whole `faction` dict
+   including `detachment` (`ArmyListManager.gd:356-360`). Faction fallback
+   therefore compares the *plan's army file's* faction to the live one, and
+   requires the detachment to agree when both are known.
+3. **The `_P<player>` mirror re-key is load-bearing, and owner-blind lookup gets
+   it wrong.** When both seats pick the same list, player 2's units are
+   `U_X_P2` (`ArmyListManager.gd:333-346`) — but `U_X` still exists, owned by
+   player 1. A first cut of `resolve_unit_id` checked the plain id first and
+   silently handed seat 2 the *opponent's* unit; the test caught it. It now
+   tries the suffixed form first and verifies ownership. `units_for_player`
+   strips the suffix so a plan lines up at either seat. PM-2a depends on this.
+4. **Autoloads are not in the tree while a `-s` script's `_init()` runs.** This
+   is the same root cause as PM-0's `Identifier not found: Measurement`, now
+   pinned: the SceneTree script's `_init()` executes *before* autoload
+   `_ready()`. Tests that need an autoload must defer, per the existing
+   convention in `tests/test_new_game_reaches_rolloff.gd`
+   (`create_timer(0.2).timeout.connect(_run)`), which this test does.
+
+The test is hermetic: pre-existing `user://ai_plans/*.json` are moved to a
+backup dir for the duration and restored afterwards, so matching assertions are
+not perturbed by (and do not destroy) a developer's own plans.
+
+Commit: see `PM-1: PlanManager — plan storage, listing and game matching`.
 
 ---
 

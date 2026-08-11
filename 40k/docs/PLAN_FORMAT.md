@@ -195,6 +195,25 @@ the list), `PlanValidator.coverage()` resolves it in this order:
 None of these are errors. A plan for a slightly-edited list still applies to the
 units it can still identify.
 
+### The `_P<player>` mirror suffix
+
+When **both seats pick the same army list**, the two copies' unit keys would
+collide, so `ArmyListManager` re-keys the second copy with a deterministic
+`_P<player>` suffix (`ArmyListManager.gd:333-346`): player 2's Gretchin is
+`U_GRETCHIN_A_P2`, not `U_GRETCHIN_A`.
+
+A plan is authored against the *army file*, so it always says `U_GRETCHIN_A`.
+Every consumer must therefore look through the suffix:
+
+- `PlanManager.resolve_unit_id(plan_unit_id, player, units)` — plan id → the id
+  this game actually uses for that player. It tries the **suffixed form first**,
+  because in a mirror match both forms exist and the plain one belongs to the
+  *other* player.
+- `PlanManager.units_for_player(snapshot, player)` — the player's units re-keyed
+  back to army-file ids, for anything that wants to work in plan space.
+
+Mirror matches are the simulator's headline case, so this is not an edge case.
+
 ---
 
 ## Validation
