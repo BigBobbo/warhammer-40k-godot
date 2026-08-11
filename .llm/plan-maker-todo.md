@@ -815,6 +815,44 @@ AIDecisionMaker: [plan] Player 1 deploying U_BLADE_CHAMPION_A from plan 'Fixture
 AIDecisionMaker: [plan] Player 2 deploying U_BLADE_CHAMPION_A_P2 from plan 'Fixture — Custodes Lions on Crucible' (seat-2 mirrored)
 ```
 
+**Gate 4 — live MCP evidence (both arms, same fixture, one process).**
+Driver: `mcp_client.py` + `pm2a_capture.py` in the session scratchpad, driving
+the running windowed game over the bridge on 127.0.0.1:9080.
+```
+arm plan_active     : deployment sources  plan p1=5 p2=6 | formula p1=0 p2=0
+arm plans_disabled  : deployment sources  plan p1=0 p2=0 | formula p1=5 p2=6
+verify_delivery     : verdict PASS, log_summary {error: 0, warning: 0}
+```
+(The per-seat counts are lower than the scenario's 11/11 only because this
+driver does not raise `_max_decision_record_batches`, so the 500-batch ring
+drops the earliest batches. The ratio is the point: 100% plan vs 0%.)
+
+Screenshots (committed under `40k/docs/evidence/`):
+- `pm2a_plan_active_deployment.png` — both armies in the plan's compact blocks,
+  P1 top and P2 mirrored at the bottom; the game log narrates
+  "P1: Deployed Prosecutors from plan 'Fixture — Custodes Lions on Crucible'"
+  and the same for P2.
+- `pm2a_plans_disabled_formula_deployment.png` — the SAME fixture with
+  `PLANS_ENABLED = 0`: loose formula columns hugging the board edges.
+
+**That control arm produced an unplanned finding worth acting on.** With plans
+off, on the triangular `crucible_of_battle` zone the column formula repeatedly
+emits placements the phase rejects — the log fills with
+`"P2: Custodian Guard deployment failed (Model must be wholly within deployment
+zone …) — retrying"`, `(retry 1)`, `(retry 2)` — and one unit
+(Custodian Guard Zeta, 225 pts / 5 models) ends up dumped into **Strategic
+Reserves** because it could not be placed at all. The plan path placed every
+unit first time. This is measured behaviour of the PRE-EXISTING formula on a
+diagonal zone, not a regression introduced here; it is logged as a follow-up at
+the bottom of this file.
+
+A caveat recorded honestly: in that same live driver a few placements logged
+`(repaired)` where the headless test and the windowed scenario both had every
+unit land verbatim. The driver reloads the fixture twice in one process without
+the PM-8a reset list, which is exactly the residual in-session leakage PM-8a
+measured; the clean-start runs (34/34 headless, 22/22 at 0.000" windowed) are
+the ones to read for placement fidelity.
+
 Four findings worth carrying forward:
 
 1. **Plan pre-validation had to be made shape-accurate, not conservative.** The
@@ -1390,3 +1428,44 @@ version history renders in the main menu (screenshot).
 - Community sharing.
 - Extending `run_paired.py` with first-class plan arms (PM-10 can work
   through `run_ai_benchmark.sh` env; promote if the lab adopts plans).
+
+---
+
+## PM-F1 — FOLLOW-UP: the deployment formula fails validation on diagonal zones
+
+**Status:** TODO
+**Depends:** — (pre-existing behaviour, found while gathering PM-2a evidence)
+**Player-facing:** yes (AI behaviour)
+
+**What was observed.** Running `mirror_custodes_2000_predeploy`
+(`crucible_of_battle`, a TRIANGULAR zone) with `PLANS_ENABLED = 0`, the AI's
+column-formula deployment repeatedly emits placements `DeploymentPhase` rejects:
+```
+P2: Custodian Guard deployment failed (Model must be wholly within deployment
+    zone, Model must be wholly within deployment zone, …) — retrying
+P2: Deployed Custodian Guard (retry 1)
+P2: Prosecutors deployment failed (…) — retrying
+P2: Deployed Prosecutors (retry 2)
+```
+and one unit — Custodian Guard Zeta, 225 pts / 5 models — could not be placed at
+all and was dumped into **Strategic Reserves**, arriving R2+. Screenshot:
+`40k/docs/evidence/pm2a_plans_disabled_formula_deployment.png`.
+
+**Why.** `_decide_deployment` builds positions from a rectangular
+`zone_bounds`, and `_resolve_formation_collisions` clamps to that rectangle
+(`AIDecisionMaker.gd:19656-19712`). For hammer_anvil/dawn_of_war the rectangle
+IS the zone; for `crucible_of_battle` (triangle), `search_and_destroy` and
+`tipping_point` it is not, so the formula generates positions outside the real
+polygon. PM-2a added a polygon + shape-aware check on the PLAN path only
+(`_plan_shape_inside_polygon`); the formula path still has none.
+
+**Suggested fix.** Give the formula the same polygon containment guard the plan
+path now uses, i.e. re-project or reject-and-resample candidates against
+`_get_deployment_zone_polygon_pixels` before emitting the action.
+
+**Validation gate.** A windowed scenario on the crucible fixture with
+`PLANS_ENABLED = 0` asserting ZERO `deployment failed` log lines and zero units
+forced into reserves; plus a headless test over all six shipped zones.
+
+**Evidence.** _(fill)_
+
