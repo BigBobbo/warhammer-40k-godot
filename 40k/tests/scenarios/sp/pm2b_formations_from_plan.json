@@ -1,0 +1,181 @@
+{
+  "id": "pm2b_formations_from_plan",
+  "covers": [
+    "ai.formations.plan_reserves",
+    "ai.formations.plan_embarkations",
+    "ai.formations.plan_attachments"
+  ],
+  "edition": 11,
+  "rng_seed": 7101,
+  "description": "PM-2b: a plan's reserves, embarkations and leader attachments drive the AI's FORMATIONS declarations. The predeploy fixtures start at DEPLOYMENT with formations already confirmed, so this scenario starts on the main menu and bootstraps a real menu-style game (recon_stomps mirror on hammer_anvil, both seats AI) the way MainMenu._initialize_game_with_config does, then hands both seats the same plan AFTER AIPlayer.configure (which clears plans). It asserts that when FORMATIONS confirms, meta.formations records exactly the plan's declarations on BOTH seats - including player 2, whose units carry the _P2 mirror re-key - and that the AI's decision records attribute them to the plan.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var config = {\n\t\"terrain\": \"take_and_hold_vs_purge_the_foe_3\",\n\t\"mission\": \"take_and_hold\",\n\t\"deployment\": \"hammer_anvil\",\n\t\"player1_army\": \"recon_stomps\",\n\t\"player2_army\": \"recon_stomps\",\n\t\"player1_type\": \"HUMAN\",\n\t\"player2_type\": \"HUMAN\",\n\t\"player1_difficulty\": 1,\n\t\"player2_difficulty\": 1,\n\t\"ai_speed\": 0,\n\t\"player1_secondary_mode\": \"tactical\",\n\t\"player2_secondary_mode\": \"tactical\",\n\t\"player1_fixed_missions\": [],\n\t\"player2_fixed_missions\": [],\n\t\"player1_disposition\": \"\",\n\t\"player2_disposition\": \"\",\n\t\"player1_name\": \"\",\n\t\"player2_name\": \"\",\n}\n# Mirrors MainMenu._initialize_game_with_config (MainMenu.gd:1499-1591).\nGameState.state.clear()\nGameState.initialize_default_state(config.deployment)\nGameState.state.meta[\"game_config\"] = config\nTerrainManager.current_layout = config.terrain\nTerrainManager.load_terrain_layout(config.terrain)\nBoardState.initialize_deployment_zones(config.deployment)\nMissionManager.initialize_mission(config.mission)\nGameState.state.units.clear()\nfor player in [1, 2]:\n\tvar army = ArmyListManager.load_army_for_game(config[\"player%d_army\" % player], player)\n\tif army.is_empty():\n\t\treturn \"ARMY_LOAD_FAILED\"\n\tArmyListManager.apply_army_to_game_state(army, player)\nSecondaryMissionManager.initialize_for_game()\nGameState.state.meta[\"game_config\"] = config\nGameState.state.meta[\"from_menu\"] = true\nRulesEngine.set_test_seed(7101)\nSecondaryMissionManager.set_test_seed(7101)\nAIDecisionMaker.set_ai_seed(7101)\nreturn \"units=%d\" % GameState.state.units.size()",
+      "equals": "units=34"
+    },
+    {
+      "act": "execute_script",
+      "script": "get_tree().change_scene_to_file(\"res://scenes/Main.tscn\")"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_formations_phase_start"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var plan = PlanValidator.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\")\nif plan.is_empty():\n\treturn \"NO_PLAN\"\n# configure() clears plans, so it has to come first.\n# Engine human-gates read game_config.playerN_type and default to\n# HUMAN, so flip them to AI now that the scene is up.\nvar gc = GameState.state[\"meta\"][\"game_config\"]\ngc[\"player1_type\"] = \"AI\"\ngc[\"player2_type\"] = \"AI\"\nGameState.state[\"meta\"][\"game_config\"] = gc\nAIPlayer.configure({1: \"AI\", 2: \"AI\"}, {1: 1, 2: 1})\nAIPlayer.set_ai_speed_preset(0)\nAIDecisionMaker.set_player_plan(1, plan)\nAIDecisionMaker.set_player_plan(2, plan)\nreturn str(plan.get(\"name\", \"\"))",
+      "equals": "Fixture — Recon Stomps rich (all five verbs)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var f = GameState.state.get(\"meta\", {}).get(\"formations\", null)\nif f == null:\n\treturn 0\nif GameState.get_meta(\"pm2b_latch\", null) == null:\n\tGameState.set_meta(\"pm2b_latch\", f.duplicate(true))\n\tprint(\"SCENARIO pm2b latched formations: %s\" % JSON.stringify(f))\nreturn 1"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var f = GameState.state.get(\"meta\", {}).get(\"formations\", null)\nif f == null:\n\treturn 0\nif GameState.get_meta(\"pm2b_latch\", null) == null:\n\tGameState.set_meta(\"pm2b_latch\", f.duplicate(true))\n\tprint(\"SCENARIO pm2b latched formations: %s\" % JSON.stringify(f))\nreturn 1"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var f = GameState.state.get(\"meta\", {}).get(\"formations\", null)\nif f == null:\n\treturn 0\nif GameState.get_meta(\"pm2b_latch\", null) == null:\n\tGameState.set_meta(\"pm2b_latch\", f.duplicate(true))\n\tprint(\"SCENARIO pm2b latched formations: %s\" % JSON.stringify(f))\nreturn 1"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var f = GameState.state.get(\"meta\", {}).get(\"formations\", null)\nif f == null:\n\treturn 0\nif GameState.get_meta(\"pm2b_latch\", null) == null:\n\tGameState.set_meta(\"pm2b_latch\", f.duplicate(true))\n\tprint(\"SCENARIO pm2b latched formations: %s\" % JSON.stringify(f))\nreturn 1"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var f = GameState.state.get(\"meta\", {}).get(\"formations\", null)\nif f == null:\n\treturn 0\nif GameState.get_meta(\"pm2b_latch\", null) == null:\n\tGameState.set_meta(\"pm2b_latch\", f.duplicate(true))\n\tprint(\"SCENARIO pm2b latched formations: %s\" % JSON.stringify(f))\nreturn 1"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var f = GameState.state.get(\"meta\", {}).get(\"formations\", null)\nif f == null:\n\treturn 0\nif GameState.get_meta(\"pm2b_latch\", null) == null:\n\tGameState.set_meta(\"pm2b_latch\", f.duplicate(true))\n\tprint(\"SCENARIO pm2b latched formations: %s\" % JSON.stringify(f))\nreturn 1"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var f = GameState.state.get(\"meta\", {}).get(\"formations\", null)\nif f == null:\n\treturn 0\nif GameState.get_meta(\"pm2b_latch\", null) == null:\n\tGameState.set_meta(\"pm2b_latch\", f.duplicate(true))\n\tprint(\"SCENARIO pm2b latched formations: %s\" % JSON.stringify(f))\nreturn 1"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var f = GameState.state.get(\"meta\", {}).get(\"formations\", null)\nif f == null:\n\treturn 0\nif GameState.get_meta(\"pm2b_latch\", null) == null:\n\tGameState.set_meta(\"pm2b_latch\", f.duplicate(true))\n\tprint(\"SCENARIO pm2b latched formations: %s\" % JSON.stringify(f))\nreturn 1"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var f = GameState.state.get(\"meta\", {}).get(\"formations\", null)\nif f == null:\n\treturn 0\nif GameState.get_meta(\"pm2b_latch\", null) == null:\n\tGameState.set_meta(\"pm2b_latch\", f.duplicate(true))\n\tprint(\"SCENARIO pm2b latched formations: %s\" % JSON.stringify(f))\nreturn 1"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var f = GameState.state.get(\"meta\", {}).get(\"formations\", null)\nif f == null:\n\treturn 0\nif GameState.get_meta(\"pm2b_latch\", null) == null:\n\tGameState.set_meta(\"pm2b_latch\", f.duplicate(true))\n\tprint(\"SCENARIO pm2b latched formations: %s\" % JSON.stringify(f))\nreturn 1"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var f = GameState.state.get(\"meta\", {}).get(\"formations\", null)\nif f == null:\n\treturn 0\nif GameState.get_meta(\"pm2b_latch\", null) == null:\n\tGameState.set_meta(\"pm2b_latch\", f.duplicate(true))\n\tprint(\"SCENARIO pm2b latched formations: %s\" % JSON.stringify(f))\nreturn 1"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var f = GameState.state.get(\"meta\", {}).get(\"formations\", null)\nif f == null:\n\treturn 0\nif GameState.get_meta(\"pm2b_latch\", null) == null:\n\tGameState.set_meta(\"pm2b_latch\", f.duplicate(true))\n\tprint(\"SCENARIO pm2b latched formations: %s\" % JSON.stringify(f))\nreturn 1"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var f = GameState.state.get(\"meta\", {}).get(\"formations\", null)\nif f == null:\n\treturn 0\nif GameState.get_meta(\"pm2b_latch\", null) == null:\n\tGameState.set_meta(\"pm2b_latch\", f.duplicate(true))\n\tprint(\"SCENARIO pm2b latched formations: %s\" % JSON.stringify(f))\nreturn 1",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_after_formations_from_plan"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Expectations are read from the PLAN, so they cannot drift from it.\nvar plan = PlanValidator.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\")\nvar dep = plan[\"deployment\"]\nvar f = GameState.get_meta(\"pm2b_latch\", {})\nvar side = f.get(\"1\", {})\nvar suffix = \"\"\nvar reserves = []\nfor e in side.get(\"reserves\", []):\n\treserves.append(str(e.get(\"unit_id\", \"\")))\nvar emb = side.get(\"transport_embarkations\", {})\nvar att = side.get(\"leader_attachments\", {})\nvar missing = []\nfor e in dep[\"reserves\"]:\n\tif not reserves.has(str(e[\"unit\"]) + suffix):\n\t\tmissing.append(\"reserve \" + str(e[\"unit\"]))\nif reserves.size() != dep[\"reserves\"].size():\n\tmissing.append(\"reserve count %d != %d (the plan owns reserves, so the formula must add none)\" % [reserves.size(), dep[\"reserves\"].size()])\nfor e in dep[\"embarkations\"]:\n\tvar t = str(e[\"transport\"]) + suffix\n\tif not emb.has(t) or not str(emb[t]).contains(str(e[\"unit\"]) + suffix):\n\t\tmissing.append(\"embark \" + str(e[\"unit\"]))\nfor e in dep[\"attachments\"]:\n\tvar c = str(e[\"character\"]) + suffix\n\tif str(att.get(c, \"\")) != str(e[\"bodyguard\"]) + suffix:\n\t\tmissing.append(\"attach \" + str(e[\"character\"]))\nprint(\"SCENARIO pm2b P1 reserves=%s embark=%s attach=%s missing=%s\" % [str(reserves), JSON.stringify(emb), JSON.stringify(att), str(missing)])\nreturn missing.is_empty()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Expectations are read from the PLAN, so they cannot drift from it.\nvar plan = PlanValidator.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\")\nvar dep = plan[\"deployment\"]\nvar f = GameState.get_meta(\"pm2b_latch\", {})\nvar side = f.get(\"2\", {})\nvar suffix = \"_P2\"\nvar reserves = []\nfor e in side.get(\"reserves\", []):\n\treserves.append(str(e.get(\"unit_id\", \"\")))\nvar emb = side.get(\"transport_embarkations\", {})\nvar att = side.get(\"leader_attachments\", {})\nvar missing = []\nfor e in dep[\"reserves\"]:\n\tif not reserves.has(str(e[\"unit\"]) + suffix):\n\t\tmissing.append(\"reserve \" + str(e[\"unit\"]))\nif reserves.size() != dep[\"reserves\"].size():\n\tmissing.append(\"reserve count %d != %d (the plan owns reserves, so the formula must add none)\" % [reserves.size(), dep[\"reserves\"].size()])\nfor e in dep[\"embarkations\"]:\n\tvar t = str(e[\"transport\"]) + suffix\n\tif not emb.has(t) or not str(emb[t]).contains(str(e[\"unit\"]) + suffix):\n\t\tmissing.append(\"embark \" + str(e[\"unit\"]))\nfor e in dep[\"attachments\"]:\n\tvar c = str(e[\"character\"]) + suffix\n\tif str(att.get(c, \"\")) != str(e[\"bodyguard\"]) + suffix:\n\t\tmissing.append(\"attach \" + str(e[\"character\"]))\nprint(\"SCENARIO pm2b P2 reserves=%s embark=%s attach=%s missing=%s\" % [str(reserves), JSON.stringify(emb), JSON.stringify(att), str(missing)])\nreturn missing.is_empty()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var per_seat = {1: 0, 2: 0}\nfor batch in AIPlayer._all_decision_records:\n\tvar seat = int(batch.get(\"player\", 0))\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"formations\":\n\t\t\tcontinue\n\t\tif str(rec.get(\"context\", {}).get(\"source\", \"\")).begins_with(\"plan:\"):\n\t\t\tper_seat[seat] = int(per_seat.get(seat, 0)) + 1\nprint(\"SCENARIO pm2b plan formations records: seat1=%d seat2=%d\" % [per_seat.get(1, 0), per_seat.get(2, 0)])\nreturn mini(int(per_seat.get(1, 0)), int(per_seat.get(2, 0)))",
+      "expect_min": 4
+    }
+  ]
+}

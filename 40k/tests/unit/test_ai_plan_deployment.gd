@@ -38,6 +38,7 @@ const BOARD_H := 60.0
 # GameStateData.UnitStatus
 const STATUS_UNDEPLOYED := 0
 const STATUS_DEPLOYED := 2
+const STATUS_IN_RESERVES := 7
 
 var AIDM
 var PM
@@ -117,6 +118,18 @@ func _make_snapshot(zone_id: String, army_path: String, player: int) -> Dictiona
 		"units": units,
 	}
 
+func _reserve_plan_units(snapshot: Dictionary, plan: Dictionary, player: int) -> void:
+	"""Put the plan's reserves into IN_RESERVES, i.e. the state a game that has
+	already been through FORMATIONS with this plan is in.
+
+	Without this the deployment decision would (correctly) retrofit them through
+	PLACE_IN_RESERVES first — that path is PM-2b's, and is covered by
+	tests/unit/test_ai_plan_formations.gd. These tests are about placement."""
+	for entry in plan.get("deployment", {}).get("reserves", []):
+		var unit_id := str(entry.get("unit", ""))
+		if snapshot["units"].has(unit_id):
+			snapshot["units"][unit_id]["status"] = STATUS_IN_RESERVES
+
 func _deploy_actions(snapshot: Dictionary, player: int) -> Array:
 	"""One DEPLOY_UNIT per undeployed unit, in REVERSE key order so that
 	`deploy_actions[0]` provably differs from the plan's first ordered unit."""
@@ -175,6 +188,7 @@ func test_plan_order_and_placement() -> void:
 	var plan := _read_json(FIXTURE_RICH)
 	_assert(not plan.is_empty(), "rich fixture plan loads")
 	var snapshot := _make_snapshot("hammer_anvil", RECON_STOMPS, 1)
+	_reserve_plan_units(snapshot, plan, 1)
 	AIDM.clear_all_plans()
 	AIDM.set_player_plan(1, plan)
 
@@ -223,6 +237,7 @@ func test_uncovered_unit_falls_back() -> void:
 	# U_GRETCHIN_B is embarked in the rich fixture, so it has no placement.
 	var plan := _read_json(FIXTURE_RICH)
 	var snapshot := _make_snapshot("hammer_anvil", RECON_STOMPS, 1)
+	_reserve_plan_units(snapshot, plan, 1)
 	AIDM.clear_all_plans()
 	AIDM.set_player_plan(1, plan)
 
@@ -242,6 +257,7 @@ func test_uncovered_unit_falls_back() -> void:
 func test_seat_two_mirror() -> void:
 	var plan := _read_json(FIXTURE_RICH)
 	var snapshot := _make_snapshot("hammer_anvil", RECON_STOMPS, 2)
+	_reserve_plan_units(snapshot, plan, 2)
 	AIDM.clear_all_plans()
 	AIDM.set_player_plan(2, plan)
 
@@ -283,6 +299,7 @@ func test_seat_two_mirror() -> void:
 func test_plans_disabled_restores_formula() -> void:
 	var plan := _read_json(FIXTURE_RICH)
 	var snapshot := _make_snapshot("hammer_anvil", RECON_STOMPS, 1)
+	_reserve_plan_units(snapshot, plan, 1)
 	AIDM.clear_all_plans()
 	AIDM.set_player_plan(1, plan)
 	var actions := _deploy_actions(snapshot, 1)

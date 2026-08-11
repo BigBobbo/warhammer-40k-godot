@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.29.1",
+      "date": "2026-08-11",
+      "summary": "AI Plans now also decide the AI's pre-battle declarations — what it holds in Reserves, what rides in a transport, and which character leads which squad.",
+      "changes": [
+        "New: a plan can now say which units start in Reserves (and on which round they arrive), which units start inside a transport, and which character starts attached to which squad. The AI makes exactly those declarations in the Formations step instead of working it out itself.",
+        "The plan's Reserves list is the last word: while a plan is in force the AI adds no reserves of its own, so a plan that lists nothing really does start everything on the table.",
+        "A plan that asks for more Reserves than the rules allow is trimmed in the order it was written — the earliest entries are kept and the rest are dropped with a note in the log, rather than the whole declaration failing.",
+        "Anything the plan does not mention still falls to the AI: a plan that pairs one character with one squad leaves the AI free to attach the rest.",
+        "Reserves also work in a game that is already past the Formations step (for example a saved battle loaded straight into deployment): the AI holds those units back during deployment instead of putting them on the table. Transports and attachments cannot be set up that late, so a plan that asks for them there is skipped with a note."
+      ]
+    },
+    {
       "version": "1.29.0",
       "date": "2026-08-11",
       "summary": "The AI can now follow an authored deployment plan instead of its built-in column formula — the first step of the AI Plan system.",

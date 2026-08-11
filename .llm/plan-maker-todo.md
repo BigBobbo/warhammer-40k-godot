@@ -885,7 +885,7 @@ Four findings worth carrying forward:
 
 ## PM-2b — AI consumes formations: reserves, embarkations, attachments
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-2a
 **Player-facing:** yes — version_history entry required
 
@@ -926,7 +926,79 @@ clean; screenshot of the formations summary/board state.
 
 **Out of scope.** Disembark timing intents, transport routing.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Delivered in `40k/scripts/AIDecisionMaker.gd`:
+- `_decide_formations` runs a plan pass FIRST, emitting the plan's declarations
+  in the phase's own order (attach -> embark -> reserve) and stopping once they
+  are made, so anything unspecified still falls to existing logic.
+- `_plan_owns_reserves` suppresses the formula's reserves evaluation while a
+  plan is active — including for an EMPTY `reserves` list, which is a positive
+  statement ("start everything on the table") rather than an absence.
+- `_plan_reserve_units` trims an over-cap plan in PLAN ORDER and logs the trim,
+  mirroring `FormationsPhase.gd:400-420` (unit cap counts entries; points cap
+  includes a character attached to a reserved bodyguard, `:802-812`).
+- `_plan_deployment_reserve_action` + `plan_post_formations_reserves` retrofit
+  reserves through `PLACE_IN_RESERVES` for games already past FORMATIONS;
+  embarkations/attachments cannot be retrofitted and log once, then skip.
+- Every plan-driven declaration emits a `formations` decision record with
+  `source: "plan:<name>"` and a `declaration` of attachment/embarkation/reserves.
+
+```
+$ godot --headless --path . -s tests/unit/test_ai_plan_formations.gd
+=== Results: 27 passed, 0 failed ===
+
+$ bash 40k/tests/run_scenario.sh tests/scenarios/sp/pm2b_formations_from_plan.json
+[ScenarioRunner] === pm2b_formations_from_plan: 36 passed, 0 failed ===
+SCENARIO pm2b P1 reserves=["U_STORMBOYZ_B", "U_DEFFKOPTAS_A"]
+              embark={"U_STOMPA_A":["U_GRETCHIN_B"]}
+              attach={"U_DEFFKILLA_WARTRIKE_A":"U_WARBIKERS_C",
+                      "U_DEFFKILLA_WARTRIKE_B":"U_WARBIKERS_D"} missing=[]
+SCENARIO pm2b P2 reserves=["U_STORMBOYZ_B_P2", "U_DEFFKOPTAS_A_P2"]
+              embark={"U_STOMPA_A_P2":["U_GRETCHIN_B_P2"]}
+              attach={"U_DEFFKILLA_WARTRIKE_A_P2":"U_WARBIKERS_C_P2",
+                      "U_DEFFKILLA_WARTRIKE_B_P2":"U_WARBIKERS_D_P2"} missing=[]
+SCENARIO pm2b plan formations records: seat1=4 seat2=4
+```
+The second attachment on each seat is the AI's own — the plan names one pairing,
+so the rest still falls through, which is the designed behaviour.
+
+Screenshot: `40k/docs/evidence/pm2b_formations_from_plan.png` — the HUD reserves
+readout shows **"RESERVES You 2·205 P2 2·205 R2+"**, i.e. exactly the plan's two
+reserved units and 205 points (Stormboyz 65 + Deffkoptas 140) on BOTH seats.
+
+The scenario had to start from the main menu, because every shipped predeploy
+fixture begins at DEPLOYMENT with formations already confirmed. It bootstraps a
+menu-style game the way `MainMenu._initialize_game_with_config` does, then hands
+both seats the plan.
+
+Three findings:
+
+1. **The fixture plan asked for an attachment the game cannot make.** It paired
+   Wazdakka Gutsmek with Warbikers; `data/40kdc/leaderAttachments.json` has NO
+   leader row for Wazdakka at all, and the only leader eligible for `warbikers`
+   is `deffkilla-wartrike`. The AI therefore never matched an action and fell
+   through to its own pairing — correct degradation, but it means **an authored
+   plan can silently ask for an impossible attachment**. The fixture now pairs
+   the Deffkilla Wartrike; validator-side legality is logged as PM-F2 below.
+2. **The AI must be stood down until the plan is installed.** `Main` configures
+   the AI seats from `meta.game_config` as the scene loads, and
+   `AIPlayer.configure()` clears plans — so the AI began declaring formations
+   with no plan, and the first run of this scenario produced a player 1 with
+   formula-flavoured extras (two extra reserves, an extra passenger) next to a
+   player 2 that followed the plan exactly. The scenario now boots with both
+   seats HUMAN and flips them to AI after installing the plan. **PM-7a must do
+   the same thing in production: set the plan after `configure()`, before the
+   AI's first evaluation.**
+3. **A transport's `DECLARE_TRANSPORT_EMBARKATION` stays on offer** while it has
+   any eligible unit left, so "the action exists" does not mean the plan's
+   embarkation is still outstanding — the first cut re-issued it forever and the
+   phase never advanced. `meta.formations` cannot be used to tell, because it is
+   only written at CONFIRM time (`FormationsPhase.gd:1062-1079`); the phase's
+   own `DECLARE_RESERVES` action list is the reliable "still undeclared" set
+   (`:1217-1223`).
+
+Commit: see `PM-2b: the AI declares a plan's reserves, embarkations and attachments`.
 
 ---
 
@@ -1466,6 +1538,36 @@ path now uses, i.e. re-project or reject-and-resample candidates against
 **Validation gate.** A windowed scenario on the crucible fixture with
 `PLANS_ENABLED = 0` asserting ZERO `deployment failed` log lines and zero units
 forced into reserves; plus a headless test over all six shipped zones.
+
+**Evidence.** _(fill)_
+
+---
+
+## PM-F2 — FOLLOW-UP: the validator does not check attachment legality
+
+**Status:** TODO
+**Depends:** PM-0
+**Player-facing:** no (authoring-time validation)
+
+**What was observed.** A plan can name a leader/bodyguard pairing the game
+cannot make, and nothing complains: `PlanValidator` checks only that both ids
+are present and distinct. At play time the AI simply never matches an available
+`DECLARE_LEADER_ATTACHMENT` and falls through to its own pairing, so the author
+sees the plan "work" while the attachment it asked for never happens. This was
+found because the PM-0 rich fixture paired Wazdakka Gutsmek with Warbikers —
+`data/40kdc/leaderAttachments.json` has no leader row for Wazdakka at all, and
+`warbikers` is only led by `deffkilla-wartrike`.
+
+**Suggested fix.** Load `res://data/40kdc/leaderAttachments.json` in
+`PlanValidator` and, when an army dict is supplied, resolve each attachment's
+character and bodyguard to their datasheet ids and check membership. Emit a
+WARNING rather than an error if the datasheet id cannot be resolved (so an
+unusual army file cannot make a good plan unloadable), and an ERROR when the ids
+resolve and the pairing is genuinely not eligible.
+
+**Validation gate.** Headless cases in `test_plan_validator.gd`: the shipped
+fixture pairing passes; the Wazdakka/Warbikers pairing is rejected with the
+eligible leaders named; an unresolvable datasheet id warns instead of failing.
 
 **Evidence.** _(fill)_
 

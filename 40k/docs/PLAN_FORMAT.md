@@ -98,7 +98,8 @@ Real `recon_stomps` unit ids throughout. This is a trimmed version of
       { "unit": "U_GRETCHIN_B", "transport": "U_STOMPA_A" }
     ],
     "attachments": [
-      { "character": "U_WAZDAKKA_GUTSMEK_A", "bodyguard": "U_WARBIKERS_C" }
+      // Must be a pairing the game can make — see the formations section.
+      { "character": "U_DEFFKILLA_WARTRIKE_A", "bodyguard": "U_WARBIKERS_C" }
     ]
   },
 
@@ -315,13 +316,50 @@ On each of the AI's own deployment turns:
    *one unit* deploys via the formula. Every path ends in a valid action or a
    legal skip — never a stall.
 
+## How the AI consumes a plan (formations)
+
+`reserves`, `embarkations` and `attachments` are **FORMATIONS-phase** decisions,
+not deployment ones. When a plan is active `_decide_formations` emits the plan's
+declarations first, in the phase's own order — attach, embark, reserve — and
+stops once they are all made, leaving anything the plan does not mention to the
+AI's existing logic (a plan that pairs one character still lets the AI attach
+the rest).
+
+Three rules worth knowing:
+
+- **The plan's `reserves` list is the last word.** While a plan is active the
+  formula's own reserves evaluation is suppressed, so a plan whose `reserves` is
+  `[]` really does start everything on the table. Only a plan with no `reserves`
+  key at all leaves reserves to the AI.
+- **An over-cap plan is trimmed, not rejected.** Entries are kept in plan order
+  until the 50% points or 50% unit cap would break, and the rest are dropped
+  with a log line — so the trim is deterministic and reviewable.
+- **Attachments must be pairings the game can actually make.** The eligible
+  leader/bodyguard pairs come from `data/40kdc/leaderAttachments.json`; an
+  attachment that is not in there simply never matches an available action and
+  falls through to the AI's own pairing. The validator does **not** check this
+  today — see PM-F2 in `.llm/plan-maker-todo.md`.
+
+### Games that are already past FORMATIONS
+
+The shipped predeploy saves start at DEPLOYMENT with `meta.formations_declared`
+already set, so the declaration path never runs for them. Reserves still get in:
+during deployment the AI emits `PLACE_IN_RESERVES` for any plan reserve still
+sitting undeployed — the action `DeploymentPhase` keeps in validate/process "as
+a safety-net for AI fallback" (`DeploymentPhase.gd:1390-1394`), and which still
+enforces the caps.
+
+Embarkations and leader attachments have no such retrofit — they are
+formations-only — so a plan that asks for them in a fixture-era game logs once
+and skips them.
+
 ### Measuring adherence
 
 Every deployment decision record carries a `source` in its context:
 
 | `source` | Meaning |
 |---|---|
-| `plan:<name>` | placed from the plan (with `seat_mirrored` and `repaired` flags) |
+| `plan:<name>` | placed/declared from the plan (deployment records add `seat_mirrored` and `repaired`; formations records add a `declaration` of `attachment` / `embarkation` / `reserves`) |
 | `formula_fallback` | a plan was active but did not cover, or could not legally place, this unit |
 | `formula` | no plan applied at all |
 

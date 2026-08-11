@@ -25,6 +25,7 @@
 #   - PM-0 wh40k_ai_plan schema validator (verbs, seat-2 mirror, reserves caps)
 #   - PM-1 PlanManager storage + plan-to-game matching (game_config / faction)
 #   - PM-2a AI deployment from a plan (order, seat-2 mirror, formula fallback)
+#   - PM-2b AI formations from a plan (reserves, embarkations, attachments)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -161,6 +162,7 @@ TESTS=(
     "tests/unit/test_plan_validator.gd"
     "tests/unit/test_plan_manager.gd"
     "tests/unit/test_ai_plan_deployment.gd"
+    "tests/unit/test_ai_plan_formations.gd"
 )
 
 FAILED=0

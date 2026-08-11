@@ -663,6 +663,265 @@ static func _plan_deployment_action(plan: Dictionary, unit_id: String, unit: Dic
 		"_ai_description": "Deployed %s from plan '%s'%s" % [unit_name, plan_name, " (repaired)" if repaired else ""]
 	}
 
+# --- Formations consumption (PM-2b) -----------------------------------------
+
+static func _plan_owns_reserves(plan: Dictionary) -> bool:
+	"""True when the plan carries a `reserves` list — even an EMPTY one.
+
+	An empty list is a positive statement ("nothing goes into reserves"), so it
+	must suppress the formula's own reserves evaluation just as a populated one
+	does. Only a plan with no reserves key at all leaves reserves to the AI."""
+	if plan.is_empty():
+		return false
+	return _plan_deployment_section(plan).has("reserves")
+
+static func _plan_reserve_units(plan: Dictionary, snapshot: Dictionary, player: int) -> Array:
+	"""The plan's reserves as live unit ids, trimmed to the Chapter Approved
+	50% caps in PLAN ORDER so the trim is deterministic and reviewable.
+
+	Mirrors FormationsPhase.gd:400-420: the unit cap counts reserve ENTRIES; the
+	points cap includes a character the plan attaches to a reserved bodyguard
+	(FormationsPhase._get_declared_reserves_points, :802-812)."""
+	var deployment := _plan_deployment_section(plan)
+	var units: Dictionary = snapshot.get("units", {})
+
+	var total_points := 0
+	var total_units := 0
+	for unit_id in units.keys():
+		var unit = units[unit_id]
+		if not (unit is Dictionary) or int(unit.get("owner", 0)) != player:
+			continue
+		total_points += int(unit.get("meta", {}).get("points", 0))
+		total_units += 1
+	var max_points := int(total_points * 0.50)
+	var max_units := int(total_units * 0.50)
+
+	# character -> bodyguard, so a reserved bodyguard can carry its leader's points
+	var attached := {}
+	for entry in deployment.get("attachments", []):
+		if entry is Dictionary:
+			attached[str(entry.get("character", ""))] = str(entry.get("bodyguard", ""))
+
+	var chosen: Array = []
+	var used_points := 0
+	for entry in deployment.get("reserves", []):
+		if not (entry is Dictionary):
+			continue
+		var plan_uid := str(entry.get("unit", ""))
+		var live_id := _plan_live_unit_id(plan_uid, player, snapshot)
+		if live_id.is_empty():
+			continue
+		var cost := int(units[live_id].get("meta", {}).get("points", 0))
+		for char_id in attached.keys():
+			if str(attached[char_id]) != plan_uid:
+				continue
+			var live_char := _plan_live_unit_id(str(char_id), player, snapshot)
+			if not live_char.is_empty():
+				cost += int(units[live_char].get("meta", {}).get("points", 0))
+		if chosen.size() + 1 > max_units or used_points + cost > max_points:
+			_plan_log_once("%d:%s:reserve_cap" % [player, live_id],
+				"Plan '%s' reserves exceed the 50%% caps at %s (%d+%d > %d pts, or %d+1 > %d units) — trimming the rest in plan order" % [
+					str(plan.get("name", "?")), live_id, used_points, cost, max_points, chosen.size(), max_units])
+			break
+		chosen.append({"unit": live_id, "plan_unit": plan_uid, "arrival_round": int(entry.get("arrival_round", 2))})
+		used_points += cost
+	return chosen
+
+static func _plan_formations_action(plan: Dictionary, snapshot: Dictionary, player: int,
+		attachment_actions: Array, transport_actions: Array, reserves_actions: Array) -> Dictionary:
+	"""The next FORMATIONS declaration the plan asks for, or {} when the plan's
+	declarations are all made (leaving anything unspecified to existing logic).
+
+	Order matches the phase's own: attachments, then embarkations, then
+	reserves — attaching and embarking both remove units from what is still
+	declarable."""
+	var plan_name := str(plan.get("name", "?"))
+	var deployment := _plan_deployment_section(plan)
+
+	# 1. Leader attachments.
+	for entry in deployment.get("attachments", []):
+		if not (entry is Dictionary):
+			continue
+		var char_id := _plan_live_unit_id(str(entry.get("character", "")), player, snapshot)
+		var body_id := _plan_live_unit_id(str(entry.get("bodyguard", "")), player, snapshot)
+		if char_id.is_empty() or body_id.is_empty():
+			continue
+		for action in attachment_actions:
+			if str(action.get("character_id", "")) != char_id or str(action.get("bodyguard_id", "")) != body_id:
+				continue
+			var attach = action.duplicate(true)
+			attach["_ai_description"] = "Attached %s to %s from plan '%s'" % [
+				_dn(snapshot.units.get(char_id, {}), char_id),
+				_dn(snapshot.units.get(body_id, {}), body_id), plan_name]
+			_record_choice("formations", char_id, _dn(snapshot.units.get(char_id, {}), char_id), [{
+				"description": attach["_ai_description"], "score": 1.0, "key": "0",
+				"score_breakdown": {"plan": 1.0}}], "0",
+				{"phase": "formations", "declaration": "attachment",
+					"source": "plan:%s" % plan_name, "bodyguard": body_id})
+			_plan_log("Player %d attaching %s -> %s from plan '%s'" % [player, char_id, body_id, plan_name])
+			return attach
+
+	# 2. Transport embarkations, grouped per transport (the action carries one
+	#    transport and the list of units going inside it).
+	var by_transport := {}
+	var transport_order: Array = []
+	for entry in deployment.get("embarkations", []):
+		if not (entry is Dictionary):
+			continue
+		var unit_id := _plan_live_unit_id(str(entry.get("unit", "")), player, snapshot)
+		var transport_id := _plan_live_unit_id(str(entry.get("transport", "")), player, snapshot)
+		if unit_id.is_empty() or transport_id.is_empty():
+			continue
+		if not by_transport.has(transport_id):
+			by_transport[transport_id] = []
+			transport_order.append(transport_id)
+		by_transport[transport_id].append(unit_id)
+	# A transport's DECLARE_TRANSPORT_EMBARKATION stays on offer while it has ANY
+	# eligible unit left, so "the action exists" is not enough to know whether
+	# this plan embarkation is still outstanding — without a further check the
+	# plan pass would re-issue the same embarkation forever and the phase would
+	# never advance. The phase emits DECLARE_RESERVES for exactly the units that
+	# are not yet attached, embarked or reserved (FormationsPhase.gd:1217-1223),
+	# so that action list IS the "still undeclared" set. meta.formations cannot
+	# be used here: it is only written at CONFIRM time (:1062-1079).
+	var still_undeclared := {}
+	for action in reserves_actions:
+		still_undeclared[str(action.get("unit_id", ""))] = true
+	for transport_id in transport_order:
+		for action in transport_actions:
+			if str(action.get("transport_id", "")) != transport_id:
+				continue
+			var passengers: Array = []
+			for uid in by_transport[transport_id]:
+				if still_undeclared.has(str(uid)):
+					passengers.append(uid)
+			if passengers.is_empty():
+				continue  # already embarked (or otherwise declared) — plan satisfied
+			var names: Array = []
+			for uid in passengers:
+				names.append(_dn(snapshot.units.get(uid, {}), uid))
+			var embark := {
+				"type": "DECLARE_TRANSPORT_EMBARKATION",
+				"transport_id": transport_id,
+				"unit_ids": passengers,
+				"player": player,
+				"_ai_description": "Embarked %s in %s from plan '%s'" % [
+					", ".join(names), _dn(snapshot.units.get(transport_id, {}), transport_id), plan_name],
+			}
+			_record_choice("formations", transport_id, _dn(snapshot.units.get(transport_id, {}), transport_id), [{
+				"description": embark["_ai_description"], "score": 1.0, "key": "0",
+				"score_breakdown": {"plan": 1.0}}], "0",
+				{"phase": "formations", "declaration": "embarkation",
+					"source": "plan:%s" % plan_name, "passengers": passengers})
+			_plan_log("Player %d embarking %s in %s from plan '%s'" % [player, str(passengers), transport_id, plan_name])
+			return embark
+
+	# 3. Reserves. DEEP STRIKE where the unit has it (the phase offers both
+	#    reserve types for such a unit and deep strike is the stronger option);
+	#    strategic reserves otherwise.
+	for entry in _plan_reserve_units(plan, snapshot, player):
+		var unit_id: String = str(entry["unit"])
+		var preferred := {}
+		var fallback := {}
+		for action in reserves_actions:
+			if str(action.get("unit_id", "")) != unit_id:
+				continue
+			if str(action.get("reserve_type", "")) == "deep_strike":
+				preferred = action
+			else:
+				fallback = action
+		var chosen_action: Dictionary = preferred if not preferred.is_empty() else fallback
+		if chosen_action.is_empty():
+			continue
+		var reserve := chosen_action.duplicate(true)
+		reserve["_ai_description"] = "Held %s in %s from plan '%s' (arrives round %d)" % [
+			_dn(snapshot.units.get(unit_id, {}), unit_id),
+			str(reserve.get("reserve_type", "reserves")).replace("_", " "),
+			plan_name, int(entry.get("arrival_round", 2))]
+		_record_choice("formations", unit_id, _dn(snapshot.units.get(unit_id, {}), unit_id), [{
+			"description": reserve["_ai_description"], "score": 1.0, "key": "0",
+			"score_breakdown": {"plan": 1.0}}], "0",
+			{"phase": "formations", "declaration": "reserves",
+				"source": "plan:%s" % plan_name,
+				"reserve_type": str(reserve.get("reserve_type", "")),
+				"arrival_round": int(entry.get("arrival_round", 2))})
+		_plan_log("Player %d reserving %s from plan '%s' (%s)" % [
+			player, unit_id, plan_name, str(reserve.get("reserve_type", ""))])
+		return reserve
+
+	return {}
+
+static func _plan_deployment_reserve_action(plan: Dictionary, deploy_actions: Array,
+		player: int, snapshot: Dictionary) -> Dictionary:
+	"""PLACE_IN_RESERVES for a plan reserve that is still sitting undeployed.
+
+	DeploymentPhase excludes PLACE_IN_RESERVES from available_actions on
+	purpose (:1390-1394) and keeps it in validate/process "as a safety-net for
+	AI fallback" — which is exactly this case, and the phase still validates the
+	caps before accepting it."""
+	var pending := plan_post_formations_reserves(plan, snapshot, player)
+	if pending.is_empty():
+		return {}
+	var deployable := {}
+	for action in deploy_actions:
+		deployable[str(action.get("unit_id", ""))] = true
+
+	var gs = _game_state()
+	for entry in pending:
+		var unit_id: String = str(entry["unit"])
+		if not deployable.has(unit_id):
+			continue
+		var reserve_type := "strategic_reserves"
+		if gs != null and gs.has_method("unit_has_deep_strike") and gs.unit_has_deep_strike(unit_id):
+			reserve_type = "deep_strike"
+		var plan_name := str(plan.get("name", "?"))
+		var unit_name := _dn(snapshot.units.get(unit_id, {}), unit_id)
+		var description := "Held %s in %s from plan '%s' (arrives round %d)" % [
+			unit_name, reserve_type.replace("_", " "), plan_name, int(entry.get("arrival_round", 2))]
+		_record_choice("deployment", unit_id, unit_name, [{
+			"description": description, "score": 1.0, "key": "0",
+			"score_breakdown": {"plan": 1.0}}], "0",
+			{"phase": "deployment", "declaration": "reserves",
+				"source": "plan:%s" % plan_name, "reserve_type": reserve_type,
+				"arrival_round": int(entry.get("arrival_round", 2)),
+				"retrofit": true})
+		_plan_log("Player %d placing %s in %s from plan '%s' (post-formations retrofit)" % [
+			player, unit_id, reserve_type, plan_name])
+		return {
+			"type": "PLACE_IN_RESERVES",
+			"unit_id": unit_id,
+			"reserve_type": reserve_type,
+			"player": player,
+			"_ai_description": description,
+		}
+	return {}
+
+static func plan_post_formations_reserves(plan: Dictionary, snapshot: Dictionary, player: int) -> Array:
+	"""Plan reserves that are still declarable once FORMATIONS is already past.
+
+	The shipped predeploy fixtures start at DEPLOYMENT with
+	meta.formations_declared already set, so the normal declaration path never
+	runs for them; DeploymentPhase's PLACE_IN_RESERVES is the only remaining
+	way in (DeploymentPhase.gd:419-479). Embarkations and leader attachments
+	have no such retrofit — they are formations-only — so a plan that asks for
+	them in a fixture-era game logs and skips."""
+	var out: Array = []
+	if plan.is_empty() or not plans_enabled():
+		return out
+	var units: Dictionary = snapshot.get("units", {})
+	for entry in _plan_reserve_units(plan, snapshot, player):
+		var unit_id: String = str(entry["unit"])
+		# UnitStatus.UNDEPLOYED == 0: already-reserved or deployed units are done.
+		if int(units.get(unit_id, {}).get("status", -1)) != 0:
+			continue
+		out.append(entry)
+	var deployment := _plan_deployment_section(plan)
+	if not deployment.get("embarkations", []).is_empty() or not deployment.get("attachments", []).is_empty():
+		_plan_log_once("%d:post_formations_skip" % player,
+			"Plan '%s': embarkations/attachments cannot be retrofitted after FORMATIONS — skipped for player %d" % [
+				str(plan.get("name", "?")), player])
+	return out
+
 static func evaluate_rules(player: int, context: Dictionary) -> void:
 	"""Evaluate conditional rules for a player given game context.
 	Context keys: phase (String), round (int), vp_diff (int), units_remaining_pct (float),
@@ -3560,6 +3819,17 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 			"CONFIRM_FORMATIONS":
 				has_confirm = true
 
+	# PM-2b: a matching plan drives the FORMATIONS declarations. Reserves,
+	# embarkations and leader attachments are formations-phase decisions, not
+	# deployment ones, so this is where a plan's reserves/embarkations/
+	# attachments sections are consumed.
+	var formations_plan := _resolve_plan_for(player, snapshot)
+	if not formations_plan.is_empty():
+		var planned := _plan_formations_action(formations_plan, snapshot, player,
+			attachment_actions, transport_actions, reserves_actions)
+		if not planned.is_empty():
+			return planned
+
 	# If there are attachment options, evaluate and pick the best one
 	if not attachment_actions.is_empty():
 		var best = _evaluate_best_leader_attachment(snapshot, attachment_actions, player)
@@ -3575,7 +3845,11 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 
 	# T7-34 / FORM-3: After transport embarkations, evaluate reserves declarations.
 	# Put appropriate units in Strategic Reserves or Deep Strike based on army composition.
-	if not reserves_actions.is_empty():
+	# PM-2b: a plan's `reserves` list is the SINGLE SOURCE OF TRUTH, so when a
+	# plan is active the formula must not add reserves of its own on top —
+	# otherwise "declare exactly the plan's reserves" is not what happens, and
+	# the plan's reserve budget silently changes.
+	if not reserves_actions.is_empty() and not _plan_owns_reserves(formations_plan):
 		var reserves_decision = _evaluate_reserves_declarations(snapshot, reserves_actions, undeclare_reserves_actions, player)
 		if not reserves_decision.is_empty():
 			return reserves_decision
@@ -4258,6 +4532,14 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 	# for placements that will not validate.
 	var plan := _resolve_plan_for(player, snapshot)
 	var plan_name := str(plan.get("name", "")) if not plan.is_empty() else ""
+
+	# PM-2b: a plan reserve that FORMATIONS never got to declare (predeploy
+	# fixtures start at DEPLOYMENT with meta.formations_declared already set)
+	# still has one way in — DeploymentPhase's PLACE_IN_RESERVES safety net.
+	if not plan.is_empty():
+		var reserve_action := _plan_deployment_reserve_action(plan, deploy_actions, player, snapshot)
+		if not reserve_action.is_empty():
+			return reserve_action
 
 	# Pick first undeployed unit (plan order first, else the phase's own order)
 	var action_template = deploy_actions[0]

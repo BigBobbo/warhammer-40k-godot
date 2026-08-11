@@ -2,7 +2,7 @@
  "format": "wh40k_ai_plan",
  "version": 1,
  "name": "Fixture \u2014 Recon Stomps rich (all five verbs)",
- "description": "Test fixture exercising every schema section: ordered placements, reserves, an embarkation, a leader attachment and all five earmark verbs. Positions are authored in the player-1 hammer_anvil frame, laid out as per-unit blocks so every unit is legal on base size and 11e coherency, at BOTH seats.",
+ "description": "Test fixture exercising every schema section: ordered placements, reserves, an embarkation, a leader attachment and all five earmark verbs. Positions are authored in the player-1 hammer_anvil frame, laid out as per-unit blocks so every unit is legal on base size and 11e coherency at BOTH seats. The attachment pairs the Deffkilla Wartrike with Warbikers because that is the only Warbikers leader in data/40kdc/leaderAttachments.json \u2014 an attachment the game cannot make silently falls through to the AI's own pairing.",
  "author": "fixture",
  "keys": {
   "army_file": "recon_stomps",
@@ -14,8 +14,8 @@
  "deployment": {
   "order": [
    "U_STOMPA_A",
-   "U_DEFFKILLA_WARTRIKE_A",
    "U_DEFFKILLA_WARTRIKE_B",
+   "U_WAZDAKKA_GUTSMEK_A",
    "U_WARBIKERS_C",
    "U_WARBIKERS_D",
    "U_DEFFKOPTAS_B",
@@ -34,28 +34,13 @@
     "role_fallback": "anchor",
     "models_inches": [
      [
-      3.74,
-      3.74
+      3.69,
+      3.69
      ]
     ],
     "anchors": {
      "nearest_objective": "obj_home_1",
-     "depth_from_zone_edge_in": 14.26
-    }
-   },
-   {
-    "unit": "U_DEFFKILLA_WARTRIKE_A",
-    "unit_name": "Deffkilla Wartrike",
-    "role_fallback": "character",
-    "models_inches": [
-     [
-      16.26,
-      10.64
-     ]
-    ],
-    "anchors": {
-     "nearest_objective": "obj_center",
-     "depth_from_zone_edge_in": 7.36
+     "depth_from_zone_edge_in": 14.31
     }
    },
    {
@@ -64,13 +49,28 @@
     "role_fallback": "character",
     "models_inches": [
      [
-      22.57,
-      10.64
+      3.65,
+      11.03
      ]
     ],
     "anchors": {
      "nearest_objective": "obj_center",
-     "depth_from_zone_edge_in": 7.36
+     "depth_from_zone_edge_in": 6.97
+    }
+   },
+   {
+    "unit": "U_WAZDAKKA_GUTSMEK_A",
+    "unit_name": "Wazdakka Gutsmek",
+    "role_fallback": "character",
+    "models_inches": [
+     [
+      10.42,
+      10.51
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_center",
+     "depth_from_zone_edge_in": 7.49
     }
    },
    {
@@ -79,33 +79,33 @@
     "role_fallback": "flank",
     "models_inches": [
      [
-      9.16,
-      1.68
+      9.23,
+      1.84
      ],
      [
-      12.42,
-      1.68
+      12.86,
+      1.84
      ],
      [
-      15.67,
-      1.68
+      16.5,
+      1.84
      ],
      [
-      18.92,
-      1.68
+      9.23,
+      5.48
      ],
      [
-      9.16,
-      4.93
+      12.86,
+      5.48
      ],
      [
-      12.42,
-      4.93
+      16.5,
+      5.48
      ]
     ],
     "anchors": {
      "nearest_objective": "obj_home_1",
-     "depth_from_zone_edge_in": 15.24
+     "depth_from_zone_edge_in": 14.34
     }
    },
    {
@@ -114,33 +114,33 @@
     "role_fallback": "flank",
     "models_inches": [
      [
-      22.27,
-      1.68
+      20.18,
+      1.84
      ],
      [
-      25.53,
-      1.68
+      23.82,
+      1.84
      ],
      [
-      28.78,
-      1.68
+      27.45,
+      1.84
      ],
      [
-      32.03,
-      1.68
+      20.18,
+      5.48
      ],
      [
-      22.27,
-      4.93
+      23.82,
+      5.48
      ],
      [
-      25.53,
-      4.93
+      27.45,
+      5.48
      ]
     ],
     "anchors": {
      "nearest_objective": "obj_home_1",
-     "depth_from_zone_edge_in": 15.24
+     "depth_from_zone_edge_in": 14.34
     }
    },
    {
@@ -149,33 +149,33 @@
     "role_fallback": "flank",
     "models_inches": [
      [
-      1.68,
-      9.16
+      31.13,
+      1.84
      ],
      [
-      4.93,
-      9.16
+      34.77,
+      1.84
      ],
      [
-      8.18,
-      9.16
+      38.4,
+      1.84
      ],
      [
-      11.43,
-      9.16
+      31.13,
+      5.48
      ],
      [
-      1.68,
-      12.42
+      34.77,
+      5.48
      ],
      [
-      4.93,
-      12.42
+      38.4,
+      5.48
      ]
     ],
     "anchors": {
-     "nearest_objective": "obj_center",
-     "depth_from_zone_edge_in": 7.75
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 14.34
     }
    },
    {
@@ -184,21 +184,21 @@
     "role_fallback": "flank",
     "models_inches": [
      [
-      35.3,
-      9.16
+      15.39,
+      9.23
      ],
      [
-      38.55,
-      9.16
+      19.02,
+      9.23
      ],
      [
-      41.8,
-      9.16
+      22.65,
+      9.23
      ]
     ],
     "anchors": {
      "nearest_objective": "obj_center",
-     "depth_from_zone_edge_in": 8.84
+     "depth_from_zone_edge_in": 8.77
     }
    },
    {
@@ -207,21 +207,21 @@
     "role_fallback": "flank",
     "models_inches": [
      [
-      1.68,
-      15.77
+      26.34,
+      9.23
      ],
      [
-      4.93,
-      15.77
+      29.97,
+      9.23
      ],
      [
-      8.18,
-      15.77
+      33.61,
+      9.23
      ]
     ],
     "anchors": {
      "nearest_objective": "obj_center",
-     "depth_from_zone_edge_in": 2.23
+     "depth_from_zone_edge_in": 8.77
     }
    },
    {
@@ -230,53 +230,53 @@
     "role_fallback": "screen",
     "models_inches": [
      [
-      26.55,
-      8.32
+      0.78,
+      15.46
      ],
      [
-      28.11,
-      8.32
+      2.29,
+      15.46
      ],
      [
-      29.67,
-      8.32
+      3.8,
+      15.46
      ],
      [
-      31.23,
-      8.32
+      5.31,
+      15.46
      ],
      [
-      32.79,
-      8.32
+      6.82,
+      15.46
      ],
      [
-      26.55,
-      9.88
+      8.33,
+      15.46
      ],
      [
-      28.11,
-      9.88
+      0.78,
+      16.97
      ],
      [
-      29.67,
-      9.88
+      2.29,
+      16.97
      ],
      [
-      31.23,
-      9.88
+      3.8,
+      16.97
      ],
      [
-      32.79,
-      9.88
+      5.31,
+      16.97
      ],
      [
-      26.55,
-      11.44
+      6.82,
+      16.97
      ]
     ],
     "anchors": {
      "nearest_objective": "obj_center",
-     "depth_from_zone_edge_in": 8.69
+     "depth_from_zone_edge_in": 1.85
     }
    },
    {
@@ -285,29 +285,29 @@
     "role_fallback": "screen",
     "models_inches": [
      [
-      10.69,
-      14.92
+      9.89,
+      15.46
      ],
      [
-      12.25,
-      14.92
+      11.4,
+      15.46
      ],
      [
-      13.81,
-      14.92
+      12.91,
+      15.46
      ],
      [
-      15.37,
-      14.92
+      14.42,
+      15.46
      ],
      [
-      10.69,
-      16.48
+      15.93,
+      15.46
      ]
     ],
     "anchors": {
      "nearest_objective": "obj_center",
-     "depth_from_zone_edge_in": 2.77
+     "depth_from_zone_edge_in": 2.54
     }
    },
    {
@@ -316,29 +316,29 @@
     "role_fallback": "screen",
     "models_inches": [
      [
-      17.03,
-      14.92
+      17.49,
+      15.46
      ],
      [
-      18.59,
-      14.92
+      19.0,
+      15.46
      ],
      [
-      20.15,
-      14.92
+      20.51,
+      15.46
      ],
      [
-      21.71,
-      14.92
+      22.02,
+      15.46
      ],
      [
-      17.03,
-      16.48
+      23.53,
+      15.46
      ]
     ],
     "anchors": {
      "nearest_objective": "obj_center",
-     "depth_from_zone_edge_in": 2.77
+     "depth_from_zone_edge_in": 2.54
     }
    },
    {
@@ -347,29 +347,29 @@
     "role_fallback": "screen",
     "models_inches": [
      [
-      23.37,
-      14.92
+      25.09,
+      15.46
      ],
      [
-      24.93,
-      14.92
+      26.6,
+      15.46
      ],
      [
-      26.49,
-      14.92
+      28.11,
+      15.46
      ],
      [
-      28.05,
-      14.92
+      29.62,
+      15.46
      ],
      [
-      23.37,
-      16.48
+      31.13,
+      15.46
      ]
     ],
     "anchors": {
      "nearest_objective": "obj_center",
-     "depth_from_zone_edge_in": 2.77
+     "depth_from_zone_edge_in": 2.54
     }
    },
    {
@@ -378,13 +378,13 @@
     "role_fallback": "character",
     "models_inches": [
      [
-      29.71,
-      14.92
+      32.69,
+      15.46
      ]
     ],
     "anchors": {
      "nearest_objective": "obj_center",
-     "depth_from_zone_edge_in": 3.08
+     "depth_from_zone_edge_in": 2.54
     }
    }
   ],
@@ -406,7 +406,7 @@
   ],
   "attachments": [
    {
-    "character": "U_WAZDAKKA_GUTSMEK_A",
+    "character": "U_DEFFKILLA_WARTRIKE_A",
     "bodyguard": "U_WARBIKERS_C"
    }
   ]
