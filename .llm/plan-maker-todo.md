@@ -1928,7 +1928,8 @@ Three findings:
 
 ## PM-10 — First real content + lab verdict
 
-**Status:** TODO
+**Status:** IN PROGRESS — content, scenario, export check and defect reports are
+done and committed; the paired A/B numbers and the stand-in game are outstanding
 **Depends:** PM-2a, PM-2b, PM-3 (PM-5 helpful for authoring)
 **Player-facing:** yes (shipped plans) — version_history entry required
 
@@ -1983,7 +1984,67 @@ screenshots in report + TLDR; export check done (or its failure documented).
 **Out of scope.** Tuning earmark bonus params (defaults; note follow-up),
 more factions.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+**Two shipped plans**, `40k/data/ai_plans/orks_recon_stomps_crucible.json` and
+`orks_recon_stomps_hammer_anvil.json`, both `valid=true, 0 errors, 0 warnings`
+against the army (which is what turns on the coverage and reserve-cap checks).
+Each covers **13 placements + 4 reserves + 2 attachments = all 17 units**.
+Authored by `40k/tests/spikes/pm10_author_plans.gd`, which validates every
+placement with `DeploymentPhase.validate_action` on a live board, rounds to
+0.01" BEFORE validating, requires each model wholly inside the shipped zone
+polygon, and refuses to write a plan breaking the 9" coherency envelope.
+
+**Adherence.** Bench probe (seed 7002, `plans_on` both seats, crucible fixture):
+**13/13 distinct units from the plan on BOTH seats, 0 fallbacks.** Menu game
+(`sp/pm10_shipped_plan_from_menu`, 27/27): 9 of 13 placements eligible (2
+attached, 2 embarked by the AI — PM-F5), **9/9 plan-sourced, 8 landing within
+0.05"**, 1 repaired; control seat 0 plan records and **12.8" from the plan's
+coordinates on average**, so the comparison is not circular.
+
+**Three defects found, none of which produce an error or a stall** — all only
+visible because adherence is measured against the plan FILE rather than counted
+from the decision log (reserve arrivals also log `source: plan:`, which
+inflated a 5/11 seat to "9 records"):
+
+* **PM-F4** — `_plan_positions_legal` enforces 11e's 9" envelope
+  unconditionally while `DeploymentPhase` is edition-aware and the harness pins
+  10e. An 11-model Gretchin line 13.60" across validated clean and was then
+  refused by the AI in every game. Seat-2 adherence 5/11 -> 13/13 once fixed.
+* **PM-F5** — the AI embarks plan-placed units the plan never asked to embark:
+  both Gretchin mobs go inside the Stompa, so `obj_home_1` — the point of the
+  plan — is **Uncontrolled** at the end of deployment. Pinned in the scenario so
+  the fix cannot land unnoticed.
+* **PM-F3** — the predeploy fixtures carry a STALE crucible zone (stepped band,
+  `obj_home_1` at (22,4)) while a real game reads the shipped JSON triangle
+  (`obj_home_1` at (32,14)). Every bench run on those fixtures plays a board no
+  menu game can produce. The crucible plan is packed into the INTERSECTION of
+  the two so it is legal on both.
+
+A fourth thing worth recording, found the same way: **a partial plan eats
+itself.** Leaving the two attached Wartrikes out of the plan let the formula
+place them first, and six planned placements then collided with them.
+
+**Export check — verified with a real export, not by reading the filter.**
+`godot --headless --export-pack Linux` produced a 53 MB `.pck`; parsing its file
+table shows `data/ai_plans/orks_recon_stomps_crucible.json` present. `.json` is
+a recognised resource type (`load()` returns a `JSON`), so `export_filter=
+"all_resources"` already packs them; `data/ai_plans/*.json` was added to the
+`include_filter` of all four presets as an explicit guarantee.
+
+**Windowed gate.** `bash 40k/tests/run_scenario.sh
+tests/scenarios/sp/pm10_shipped_plan_from_menu.json` -> **27 passed, 0 failed**,
+starting on the real main menu and picking the shipped plan out of
+`res://data/ai_plans/`.
+
+Screenshots: `40k/docs/evidence/pm10_shipped_plan_selected.png` (the picker
+offering the shipped plan, unflagged) and `pm10_plan_vs_formula_deployment.png`
+(one board, plan seat vs formula seat, with the game log showing "Deployed
+Warbikers Beta from plan ... (repaired)" against the control seat's
+"anti_tank, col 5, row 3" — and HOME 1 Uncontrolled, which is PM-F5 on screen).
+
+Report: `40k/tests/bench_baselines/2026-08-11_plan_vs_formula.md`.
+Version 1.36.0.
 
 ---
 
@@ -2106,3 +2167,137 @@ eligible leaders named; an unresolvable datasheet id warns instead of failing.
 
 **Evidence.** _(fill)_
 
+
+---
+
+## PM-F3 — FOLLOW-UP: the predeploy fixtures carry a stale crucible zone
+
+**Status:** TODO
+**Depends:** — (pre-existing; found while authoring the PM-10 shipped plans)
+**Player-facing:** no (benchmark asset), but it invalidates comparisons
+
+**What was observed.** `DeploymentZoneData.get_zones()` loads
+`res://deployment_zones/<id>.json` in preference to its hardcoded fallback, and
+the crucible JSON was regenerated from the 40kdc 11e dataset. The
+`mirror_orks_2000_predeploy` fixture predates that regeneration and has the OLD
+geometry baked into its saved `board`, which `SaveLoadManager` restores verbatim:
+
+```
+fixture board:      44x8 band + 24x6 centre step,  obj_home_1 at (22, 4)
+deployment_zones/crucible_of_battle.json:
+                    triangle (0,0)-(44,30)-(44,0), obj_home_1 at (32, 14)
+```
+
+Verified two ways: the fixture's board printed after `load_game`, and
+`DeploymentZoneData.get_zones("crucible_of_battle")` on a fresh state (which
+logs `Loaded zones for 'crucible_of_battle' from JSON` and returns the
+triangle). The consequence is that **every AI benchmark run on these fixtures
+plays a board no menu game can produce** — the deployment phase validates
+against the fixture's stepped zone while `PlanValidator` and a real game use the
+triangle. It also silently split the two during PM-10 authoring: placements the
+phase accepted were flagged by the validator as outside the zone, which is what
+exposed it.
+
+**Suggested fix.** Regenerate the `mirror_*_predeploy` (and `_postdeploy`)
+fixtures from a fresh game so their `board` matches the shipped zone JSON, then
+re-run `tools/ai_lab/fixture_check.py` and record new sha256s. This is
+deliberately NOT done inside PM-10: it moves a shared benchmark asset that the
+existing `tests/bench_baselines/` reports were measured on, so it wants its own
+task and its own note in those reports.
+
+**Interim mitigation (already in place).** `tests/spikes/pm10_author_plans.gd`
+requires every model to be wholly inside the SHIPPED polygon as well as
+accepted by the live phase, so the shipped crucible plan is legal on both
+boards.
+
+**Validation gate.** New fixture sha256s recorded; `fixture_check.py` passes;
+the fixture's `board.deployment_zones` equals
+`DeploymentZoneData.get_zones("crucible_of_battle")` asserted in a headless
+test so this cannot silently rot again.
+
+**Evidence.** _(fill)_
+
+---
+
+## PM-F4 — FOLLOW-UP: the AI's plan-legality coherency check is not edition-aware
+
+**Status:** TODO
+**Depends:** PM-2a
+**Player-facing:** yes (AI silently ignores a legal plan placement)
+
+**What was observed.** `AIDecisionMaker._plan_positions_legal` enforces the 11e
+coherency rule — "2\" to at least one other model AND a 9\" envelope to every
+other model" — **unconditionally**, with a comment claiming `DeploymentPhase`
+"enforces this on the action via the same helper". It does not: the phase's
+`_check_deployment_coherency` delegates to the edition-aware
+`AttackSequence.check_unit_coherency`, and the automated harness pins
+`GameConstants.edition` to the legacy 10e baseline, which has no 9" envelope.
+
+The two therefore disagree, and the AI is the stricter one. Concretely: the
+PM-10 authoring pass laid Gretchin Alpha out as an 11-model line 13.60" across,
+`DeploymentPhase.validate_action` accepted it (10e rules in force), and then at
+play time the AI refused its own plan's placement with "did not validate and
+repair failed" — in every game, on both seats. It cost a whole measured
+campaign before it was spotted, and it is invisible unless you diff the plan
+against where the models actually ended up.
+
+**Suggested fix.** Have `_plan_positions_legal` call the same edition-aware
+helper the phase uses rather than hardcoding the 11e envelope, so "the AI will
+accept this placement" and "the phase will accept this action" cannot diverge.
+Whichever way the edition setting points, the two must agree.
+
+**Interim mitigation (already in place).** `tests/spikes/pm10_author_plans.gd`
+filters candidate formation shapes to a 8.8" span and refuses to write a plan
+whose emitted placements exceed 9", so the shipped plans satisfy the stricter
+of the two rules.
+
+**Validation gate.** A headless case that builds a placement legal under 10e
+and illegal under 11e, and asserts the phase and `_plan_positions_legal` agree
+under each edition setting.
+
+**Evidence.** _(fill)_
+
+---
+
+## PM-F5 — FOLLOW-UP: the AI embarks plan-placed units the plan never asked to embark
+
+**Status:** TODO
+**Depends:** PM-2b
+**Player-facing:** yes — it silently defeats the plan's stated intent
+
+**What was observed.** The shipped hammer_anvil plan declares
+`"embarkations": []`, gives both Gretchin mobs explicit placements ON
+`obj_home_1`, and earmarks both `HOLD_OBJECTIVE obj_home_1`. In a real
+from-the-menu game the AI put them **inside the Stompa** — which is a
+TRANSPORT — during FORMATIONS:
+
+```
+Player 1 transport_embarkations: { "U_STOMPA_A": ["U_GRETCHIN_A", "U_GRETCHIN_B"] }
+Player 2 transport_embarkations: { "U_STOMPA_A_P2": ["U_GRETCHIN_A_P2", "U_GRETCHIN_B_P2"] }
+```
+
+Both seats, every run. Embarked units do not deploy on their own, so the plan's
+placements for them are never used and the objective the whole plan is built
+around is left empty at deployment. There is **no log line and no error** — the
+units simply are not there. It is only visible by diffing the plan against
+where the models actually ended up.
+
+PM-2b made the plan able to *declare* embarkations. It did not make an empty
+`embarkations` list mean "and embark nothing else": the formula's own
+embarkation logic still runs and can overrule a plan that wants the unit on the
+ground.
+
+**Suggested fix.** When a plan is active for a seat, treat
+`deployment.embarkations` as the complete embarkation list for units the plan
+covers: a unit with a plan PLACEMENT must not be embarked by the formula.
+Leave units the plan does not mention to the formula, exactly as deployment
+order already does. Consider logging when the formula's choice is suppressed,
+so the interaction is visible rather than implicit.
+
+**Validation gate.** Extend `sp/pm10_shipped_plan_from_menu.json`: it currently
+PINS the wrong behaviour on purpose (`plan=0 ai=U_GRETCHIN_A->U_STOMPA_A,...`)
+so that fixing this fails the step and forces the update. After the fix, both
+Gretchin deploy from the plan and `eligible` rises from 9 to 11.
+
+**Evidence.** Debug log `debug_20260811_194852.log`; the scenario's own
+`SCENARIO pm10 PM-F5:` line.

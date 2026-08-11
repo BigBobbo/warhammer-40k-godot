@@ -1,0 +1,414 @@
+{
+	"author": "claude-draft — owner review wanted",
+	"deployment": {
+		"attachments": [
+			{
+				"bodyguard": "U_WARBIKERS_C",
+				"character": "U_DEFFKILLA_WARTRIKE_A"
+			},
+			{
+				"bodyguard": "U_WARBIKERS_D",
+				"character": "U_DEFFKILLA_WARTRIKE_B"
+			}
+		],
+		"embarkations": [],
+		"order": [
+			"U_GRETCHIN_A",
+			"U_GRETCHIN_B",
+			"U_STORMBOYZ_A",
+			"U_STORMBOYZ_B",
+			"U_STOMPA_A",
+			"U_WAZDAKKA_GUTSMEK_A",
+			"U_DEFFKILLA_WARTRIKE_A",
+			"U_WARBIKERS_C",
+			"U_DEFFKILLA_WARTRIKE_B",
+			"U_WARBIKERS_D",
+			"U_WARBIKERS_A",
+			"U_WARBIKERS_B",
+			"U_MEK_A"
+		],
+		"placements": [
+			{
+				"models_inches": [
+					[
+						18.6,
+						3.32
+					],
+					[
+						19.96,
+						3.32
+					],
+					[
+						21.32,
+						3.32
+					],
+					[
+						22.68,
+						3.32
+					],
+					[
+						24.04,
+						3.32
+					],
+					[
+						25.4,
+						3.32
+					],
+					[
+						18.6,
+						4.68
+					],
+					[
+						19.96,
+						4.68
+					],
+					[
+						21.32,
+						4.68
+					],
+					[
+						22.68,
+						4.68
+					],
+					[
+						24.04,
+						4.68
+					]
+				],
+				"unit": "U_GRETCHIN_A",
+				"unit_name": "Gretchin"
+			},
+			{
+				"models_inches": [
+					[
+						13.6,
+						0.82
+					],
+					[
+						14.96,
+						0.82
+					],
+					[
+						16.32,
+						0.82
+					],
+					[
+						17.68,
+						0.82
+					],
+					[
+						19.04,
+						0.82
+					],
+					[
+						20.4,
+						0.82
+					],
+					[
+						13.6,
+						2.18
+					],
+					[
+						14.96,
+						2.18
+					],
+					[
+						16.32,
+						2.18
+					],
+					[
+						17.68,
+						2.18
+					],
+					[
+						19.04,
+						2.18
+					]
+				],
+				"unit": "U_GRETCHIN_B",
+				"unit_name": "Gretchin"
+			},
+			{
+				"models_inches": [
+					[
+						6.82,
+						1.14
+					],
+					[
+						8.18,
+						1.14
+					],
+					[
+						6.82,
+						2.5
+					],
+					[
+						8.18,
+						2.5
+					],
+					[
+						6.82,
+						3.86
+					]
+				],
+				"unit": "U_STORMBOYZ_A",
+				"unit_name": "Stormboyz"
+			},
+			{
+				"models_inches": [
+					[
+						27.28,
+						3.0
+					],
+					[
+						28.64,
+						3.0
+					],
+					[
+						30.0,
+						3.0
+					],
+					[
+						31.36,
+						3.0
+					],
+					[
+						32.72,
+						3.0
+					]
+				],
+				"unit": "U_STORMBOYZ_B",
+				"unit_name": "Stormboyz"
+			},
+			{
+				"models_inches": [
+					[
+						25.0,
+						9.0
+					]
+				],
+				"unit": "U_STOMPA_A",
+				"unit_name": "Stompa"
+			},
+			{
+				"models_inches": [
+					[
+						32.0,
+						9.5
+					]
+				],
+				"unit": "U_WAZDAKKA_GUTSMEK_A",
+				"unit_name": "Wazdakka Gutsmek"
+			},
+			{
+				"models_inches": [
+					[
+						40.0,
+						4.0
+					]
+				],
+				"unit": "U_DEFFKILLA_WARTRIKE_A",
+				"unit_name": "Deffkilla Wartrike"
+			},
+			{
+				"models_inches": [
+					[
+						28.62,
+						5.5
+					],
+					[
+						30.37,
+						5.5
+					],
+					[
+						32.12,
+						5.5
+					],
+					[
+						33.88,
+						5.5
+					],
+					[
+						35.63,
+						5.5
+					],
+					[
+						37.38,
+						5.5
+					]
+				],
+				"unit": "U_WARBIKERS_C",
+				"unit_name": "Warbikers"
+			},
+			{
+				"models_inches": [
+					[
+						11.0,
+						3.5
+					]
+				],
+				"unit": "U_DEFFKILLA_WARTRIKE_B",
+				"unit_name": "Deffkilla Wartrike"
+			},
+			{
+				"models_inches": [
+					[
+						13.75,
+						4.47
+					],
+					[
+						15.5,
+						4.47
+					],
+					[
+						17.25,
+						4.47
+					],
+					[
+						13.75,
+						7.53
+					],
+					[
+						15.5,
+						7.53
+					],
+					[
+						17.25,
+						7.53
+					]
+				],
+				"unit": "U_WARBIKERS_D",
+				"unit_name": "Warbikers"
+			},
+			{
+				"models_inches": [
+					[
+						34.25,
+						1.5
+					],
+					[
+						36.0,
+						1.5
+					],
+					[
+						37.75,
+						1.5
+					]
+				],
+				"unit": "U_WARBIKERS_A",
+				"unit_name": "Warbikers"
+			},
+			{
+				"models_inches": [
+					[
+						19.12,
+						6.97
+					],
+					[
+						20.88,
+						6.97
+					],
+					[
+						19.12,
+						10.03
+					]
+				],
+				"unit": "U_WARBIKERS_B",
+				"unit_name": "Warbikers"
+			},
+			{
+				"models_inches": [
+					[
+						20.5,
+						9.0
+					]
+				],
+				"unit": "U_MEK_A",
+				"unit_name": "Mek"
+			}
+		],
+		"reserves": [
+			{
+				"arrival_round": 2,
+				"unit": "U_STORMBOYZ_C"
+			},
+			{
+				"arrival_round": 2,
+				"unit": "U_STORMBOYZ_D"
+			},
+			{
+				"arrival_round": 2,
+				"unit": "U_DEFFKOPTAS_A"
+			},
+			{
+				"arrival_round": 2,
+				"unit": "U_DEFFKOPTAS_B"
+			}
+		]
+	},
+	"description": "Gretchin hold the home objective with a second mob screening beside them. The Stompa leads Wazdakka and both Warbiker mobs — each led by a Deffkilla Wartrike — straight up the middle, with two Stormboyz mobs screening the approach. Two more Stormboyz mobs and both Deffkopta units stay in Reserves and arrive on round 2, the Deffkoptas dropping in on whichever character is worth hunting.",
+	"earmarks": [
+		{
+			"target": "obj_home_1",
+			"unit": "U_GRETCHIN_A",
+			"verb": "HOLD_OBJECTIVE"
+		},
+		{
+			"target": "obj_home_1",
+			"unit": "U_GRETCHIN_B",
+			"verb": "HOLD_OBJECTIVE"
+		},
+		{
+			"unit": "U_STORMBOYZ_A",
+			"verb": "SCREEN"
+		},
+		{
+			"unit": "U_STORMBOYZ_B",
+			"verb": "SCREEN"
+		},
+		{
+			"round": 2,
+			"unit": "U_STORMBOYZ_C",
+			"verb": "RESERVE_UNTIL"
+		},
+		{
+			"round": 2,
+			"unit": "U_STORMBOYZ_D",
+			"verb": "RESERVE_UNTIL"
+		},
+		{
+			"unit": "U_STOMPA_A",
+			"verb": "PUSH_CENTER"
+		},
+		{
+			"unit": "U_WAZDAKKA_GUTSMEK_A",
+			"verb": "PUSH_CENTER"
+		},
+		{
+			"unit": "U_WARBIKERS_C",
+			"verb": "PUSH_CENTER"
+		},
+		{
+			"unit": "U_WARBIKERS_D",
+			"verb": "PUSH_CENTER"
+		},
+		{
+			"unit": "U_DEFFKOPTAS_A",
+			"verb": "HUNT_CHARACTERS"
+		},
+		{
+			"unit": "U_DEFFKOPTAS_B",
+			"verb": "HUNT_CHARACTERS"
+		}
+	],
+	"format": "wh40k_ai_plan",
+	"keys": {
+		"army_file": "recon_stomps",
+		"deployment_zone_id": "crucible_of_battle",
+		"detachment_hint": "",
+		"mission_id": "",
+		"terrain_layout_id": "take_and_hold_mirror_1"
+	},
+	"name": "Orks — Recon Stomps on Crucible",
+	"version": 1
+}

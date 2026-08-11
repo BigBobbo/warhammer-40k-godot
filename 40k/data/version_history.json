@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.36.0",
+      "date": "2026-08-11",
+      "summary": "Two ready-made Ork battle plans now ship with the game, so the computer can be given a real plan without writing one first.",
+      "changes": [
+        "New: 'Orks — Recon Stomps on Crucible' and 'Orks — Recon Stomps on Hammer and Anvil' appear in the AI Plan picker and the AI Plans screen whenever the Recon Stomps army is chosen on a matching deployment zone.",
+        "Both plans play the same idea: Gretchin sit on the home objective with a second mob screening beside them, the Stompa leads Wazdakka and both Warbiker mobs — each with a Deffkilla Wartrike attached — up the middle, two Stormboyz mobs screen the approach, and two more Stormboyz mobs plus both Deffkopta units arrive from Reserves on round 2.",
+        "They are shipped plans, so they are read-only: you can use them and see them in the browser, but rename and delete stay yours-only.",
+        "Marked 'claude-draft — owner review wanted' in the author field, so it is obvious these are a starting point rather than a tuned list."
+      ]
+    },
+    {
       "version": "1.35.0",
       "date": "2026-08-11",
       "summary": "New Battle Simulator: play the same battle several times with the computer on both sides, and see whether a plan actually wins more often.",

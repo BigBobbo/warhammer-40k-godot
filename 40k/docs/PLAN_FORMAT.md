@@ -270,6 +270,101 @@ path and a full 2-game run.
 
 ---
 
+## The shipped plans (PM-10)
+
+Two plans ship in `res://data/ai_plans/` and are on `PlanManager`'s search
+path, so they appear in the menu's AI Plan picker and in the plan browser with
+`source: shipped` (read-only — see PM-7b).
+
+| file | zone | terrain key | covers |
+|---|---|---|---|
+| `orks_recon_stomps_crucible.json` | `crucible_of_battle` | `take_and_hold_mirror_1` | 13 placed, 4 reserved, 2 attached |
+| `orks_recon_stomps_hammer_anvil.json` | `hammer_anvil` | *(empty — any layout)* | 13 placed, 4 reserved, 2 attached |
+
+13 placed + 4 reserved = all 17 units, deliberately: see "Cover the whole army"
+below.
+
+Both carry the same content: Gretchin on `obj_home_1` with a second mob
+screening beside them, the Stompa leading Wazdakka and both Warbiker mobs up
+the middle, two Stormboyz mobs screening, and two Stormboyz mobs plus both
+Deffkopta units in Reserves for round 2. Each Deffkilla Wartrike is attached to
+a 6-strong Warbiker mob — the only pairing `data/40kdc/leaderAttachments.json`
+allows.
+
+They are authored by `40k/tests/spikes/pm10_author_plans.gd`, which is worth
+reading before hand-editing either file. Three things it does that hand
+authoring gets wrong:
+
+1. **Every placement is validated by `DeploymentPhase.validate_action` on a
+   live board**, not by eye. A position that looks fine and is actually
+   rejected does not fail loudly — the unit silently degrades to the formula.
+2. **It rounds to 0.01" BEFORE validating**, so the coordinates checked are
+   byte-for-byte the ones written to the file.
+3. **It requires each model to sit wholly inside the SHIPPED zone polygon as
+   well**, checked as "centre in the polygon and no polygon edge nearer than
+   the base's bounding radius". This matters because of the next section.
+4. **It keeps every unit inside the 9" coherency envelope and refuses to write
+   a plan that does not** — which the phase alone will not catch. See below.
+
+### Phase-validated is not the same as AI-accepted (the 9" envelope trap)
+
+`AIDecisionMaker._plan_positions_legal` enforces 11e coherency — 2" to a
+neighbour **and 9" to every other model in the unit** — unconditionally.
+`DeploymentPhase._check_deployment_coherency` enforces it through the
+edition-aware `AttackSequence.check_unit_coherency`, and the automated harness
+pins `GameConstants.edition` to the legacy 10e baseline, which has no 9"
+envelope.
+
+So `phase.validate_action` will happily accept a placement the AI then throws
+away. It happened: Gretchin Alpha was authored as an 11-model line **13.60"
+across**, validated clean, and then fell back to the formula in *every*
+measured game on *both* seats with only `did not validate and repair failed` in
+the log. Seat-2 adherence was 5/11 before this was found. Filed as **PM-F4**.
+
+If you hand-author or hand-edit a plan, check the widest pair in each unit.
+The authoring script does it for you and refuses to write the file otherwise.
+
+### The predeploy fixtures carry a stale crucible zone
+
+`DeploymentZoneData.get_zones()` prefers `res://deployment_zones/<id>.json`
+over its hardcoded fallback, and the crucible JSON was regenerated from the
+40kdc 11e dataset. The `mirror_orks_*_predeploy` fixtures predate that
+regeneration and have the OLD geometry baked into their saved `board`:
+
+```
+fixture board (what the deployment phase checks on a bench run):
+  a 44x8 band plus a 24x6 centre step, obj_home_1 at (22, 4)
+res://deployment_zones/crucible_of_battle.json (what a real game and
+PlanValidator use):
+  the triangle (0,0)-(44,30)-(44,0), obj_home_1 at (32, 14)
+```
+
+Loading a save restores `board.deployment_zones` from the save, so a bench run
+on those fixtures plays a board no menu game can produce. The crucible plan is
+therefore packed into the INTERSECTION of the two polygons — legal on the
+fixture AND in a real game — at the cost of not being able to sit on both
+versions of `obj_home_1` at once (it covers the fixture's, since that is where
+it is measured; the `HOLD_OBJECTIVE` earmark still drives the unit to whichever
+`obj_home_1` the live board has). Regenerating the fixtures is filed as
+**PM-F3** rather than done here, because it moves a shared benchmark asset that
+the neighbouring baselines were measured on.
+
+### Cover the whole army
+
+The crucible zone cannot hold this whole army on the board: the usable
+intersection is about 410 sq in against roughly 330 sq in of base-plus-gap
+area. The plans answer that with **Reserves**, not with partial coverage —
+both Deffkopta units and two Stormboyz mobs come down on round 2 (410 of 2000
+points and 4 of 17 units, inside the 50% caps), and everything else gets an
+explicit placement.
+
+Leaving a unit out of the plan entirely is the tempting shortcut and it is a
+trap. A unit the plan does not cover is deployed by the FORMULA, in the
+formula's own position — which may be exactly where a later planned placement
+wants to be. Partial plans on a tight board eat themselves.
+
+---
+
 ## Terminology: "earmark" vs "intent"
 
 **`earmark`** is the word in the schema, in code, in logs and in decision
