@@ -652,7 +652,7 @@ Commit: see `PM-1: PlanManager — plan storage, listing and game matching`.
 
 ## PM-2a — AI consumes deployment: order, placement, seat mirror, bench plumbing
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-1
 **Player-facing:** yes (AI behavior) — version_history entry required
 
@@ -729,7 +729,119 @@ random resampler; last resort only. The Canonical-names section.
 
 **Out of scope.** Reserves/embark/attach (PM-2b), earmarks (PM-3), UI.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Delivered (all in `40k/scripts/AIDecisionMaker.gd` unless noted):
+- `set_player_plan` / `clear_player_plan` / `clear_all_plans` / `get_player_plan`
+  / `plans_enabled`, mirroring `load_player_profile`. **Decision + doc:
+  `clear_all_profiles()` now also clears plans**, so `AIPlayer.configure()`
+  (`AIPlayer.gd:325`) resets them once per game and callers apply a plan AFTER
+  configure, exactly like `Main.gd` does for `playerN_ai_profile`
+  (`Main.gd:707-715`). Documented in the function docstring and in
+  `PLAN_FORMAT.md`.
+- `_resolve_plan_for` — explicit plan first, else ONE `PlanManager.find_plan_for`
+  attempt per player per game. Gated on `plans_enabled()`.
+- `_decide_deployment`: plan order replaces `deploy_actions[0]`; plan placement
+  replaces the column formula; both degrade per-unit.
+- `_plan_positions_px` (inches -> px + the seat-2 `[44-x, 60-y]` mirror),
+  `_plan_positions_legal`, `_plan_shape_inside_polygon`, `_plan_shapes_overlap`,
+  `_plan_deployment_action`.
+- Instrumentation: deployment decision records carry
+  `source: "plan:<name>" | "formula_fallback" | "formula"`, plus
+  `seat_mirrored` and `repaired`.
+- Snapshot contract: `_player_plans`, `_plan_auto_match_attempted` and
+  `_plan_logged_once` are registered in BOTH `_snapshot_planning_state` and
+  `_restore_planning_state`, and a test proves a preview cannot leak a plan.
+- `PLANS_ENABLED: 1` added to the `parameters` object of `40k/data/ai_config.json`
+  (with a `_readme` note).
+- Bench plumbing: `--bench-p1-plan` / `--bench-p2-plan` +
+  `BENCH_P1_PLAN` / `BENCH_P2_PLAN` in `AIBenchmarkRunner.gd` and
+  `run_ai_benchmark.sh`; plan name/path/sha256 stamped into the result JSON and
+  the record provenance. **An unloadable or invalid plan is FATAL**, matching the
+  profile precedent — a silently-formula arm looks exactly like a null effect.
+- New fixture `tests/fixtures/ai_plans/fixture_custodes_lions_crucible.json`
+  keyed to the predeploy save's real identity, so the bench measures a plan
+  actually being followed rather than 100% fallback.
+- Docs: `PLAN_FORMAT.md` gained "How the AI consumes a plan (deployment)",
+  adherence-measurement and benchmarking sections.
+  `40k/data/version_history.json` 1.29.0 prepended.
+
+**Gate 1 — headless.** `tests/unit/test_ai_plan_deployment.gd` (registered in
+`run_pretrigger_tests.sh`):
+```
+$ godot --headless --path . -s tests/unit/test_ai_plan_deployment.gd
+=== Results: 34 passed, 0 failed ===
+```
+covering: the phase's own first action is provably NOT the plan's first unit;
+all 13 ordered units deploy in plan order; all 13 land within 0.5" of the
+authored positions; an uncovered unit (the embarked Gretchin) falls back with
+`source: formula_fallback`; seat 2 mirrors to within 0.000" and lands inside the
+player-2 zone while the UNmirrored positions land 0/11 inside it;
+`PLANS_ENABLED=0` reproduces `deploy_actions[0]` and records `source: formula`;
+the snapshot contract holds; and the whole path runs on the REAL
+`mirror_orks_2000_predeploy` save at both seats — a crucible_of_battle TRIANGLE
+with `_P2`-re-keyed player-2 units — with 0 models outside either zone.
+
+**Gate 2 — determinism.** Two independent seasons, same seeds, plans on BOTH
+seats, via the new bench plumbing:
+```
+$ BENCH_P1_PLAN=40k/tests/fixtures/ai_plans/fixture_custodes_lions_crucible.json \
+  BENCH_P2_PLAN=40k/tests/fixtures/ai_plans/fixture_custodes_lions_crucible.json \
+  BENCH_SEED_BASE=5001 BENCH_DATA_DIR=/tmp/pm2a_seasonA \
+  bash 40k/tests/run_ai_benchmark.sh 2 mirror_custodes_2000_predeploy      # and again -> seasonB
+$ python3 tools/ai_lab/determinism_check.py /tmp/pm2a_seasonA /tmp/pm2a_seasonB
+  seed     outcome   trajectory  decisions   actions A/B
+  5002     match     match       match       744/744
+  5003     match     match       match       758/758
+PASS — 2 seed(s) reproduce EXACTLY: 1502 action lines and 408 decision
+       records identical across independent runs.
+```
+Both games completed to battle round 5 with the plan loaded and stamped into
+the result JSON (`p1_plan_name` / `p2_plan_name`), i.e. the plan path really was
+exercised rather than silently falling back.
+
+**Gate 3 — windowed scenario.** `tests/scenarios/sp/pm2a_ai_deploys_from_plan.json`:
+```
+$ bash 40k/tests/run_scenario.sh tests/scenarios/sp/pm2a_ai_deploys_from_plan.json
+[ScenarioRunner] === pm2a_ai_deploys_from_plan: 41 passed, 0 failed ===
+SCENARIO pm2a adherence 22/22 units within 0.5in, worst 0.000in
+SCENARIO pm2a plan deployment records: seat1=11 seat2=11
+SCENARIO pm2a seat-mirrored deployments: 11
+SCENARIO pm2a seat-2 models inside own zone: 42/42
+```
+Live log lines from that run:
+```
+AIDecisionMaker: [plan] Player 1 deploying U_BLADE_CHAMPION_A from plan 'Fixture — Custodes Lions on Crucible'
+AIDecisionMaker: [plan] Player 2 deploying U_BLADE_CHAMPION_A_P2 from plan 'Fixture — Custodes Lions on Crucible' (seat-2 mirrored)
+```
+
+Four findings worth carrying forward:
+
+1. **Plan pre-validation had to be made shape-accurate, not conservative.** The
+   first cut approximated "wholly within the zone" with a bounding circle
+   (`_model_bounding_radius_px`, which for an oval is half the DIAGONAL — 1.69"
+   for a 42x75mm Warbiker vs 1.48" for its widest axis). That over-strictness
+   silently degraded 8 of 13 legal placements to repaired ones. It now calls the
+   very helpers `DeploymentPhase` calls (`Measurement.shape_wholly_in_polygon`,
+   `create_base_shape().overlaps_with`), so a plan placement is rejected exactly
+   when the phase would reject it: 13/13 now land verbatim.
+2. **Coherency was a missing check, and it is not optional.** `DeploymentPhase`
+   enforces 11e 03.03 (2" neighbour + 9" envelope) on the ACTION
+   (`DeploymentPhase.gd:197-232`). Without the same check in the pre-validation,
+   a plan that laid a unit out in a long line would emit an action the phase
+   rejects — and a rejected deployment action is what stalls an AI deployment.
+   `_plan_positions_legal` now calls `AttackSequence.check_unit_coherency`, and
+   the fixtures are authored as compact per-unit blocks.
+3. **Scenario `execute_script` resolves global class names only in MULTILINE
+   mode.** A single-line `AIDecisionMaker.get_player_plan(1)` fails with
+   "Invalid named index 'AIDecisionMaker' for base type Object" (the
+   `Expression.parse` path); the same code as a multiline step works. Also
+   `GameState.set_meta`/`get_meta` is Godot's Object metadata, NOT `state.meta` —
+   reading it back via `GameState.state["meta"][key]` throws.
+4. **Unit ids are not stable across a game.** The Lions detachment splits Allarus
+   Custodians into `U_ALLARUS_CUSTODIANS_A_lion_1..4` mid-game, so a live unit
+   count that is 22 at deployment becomes 26 later. Anything keyed on "the set of
+   units" must not assume it is fixed.
 
 ---
 

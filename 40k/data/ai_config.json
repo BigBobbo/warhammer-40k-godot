@@ -8,7 +8,12 @@
     "AI Gameplay Visualizer) overrides this file; per-player profiles (user://ai_profiles/) and",
     "their conditional rules override everything. Only 'parameters' is read — keys starting",
     "with '_' are ignored, so keep notes wherever you like.",
-    "Leave 'parameters' empty to play with the built-in defaults."
+    "Leave 'parameters' empty to play with the built-in defaults.",
+    "PLANS_ENABLED (1 = on) is the master switch for the AI Plan system:",
+    "  set it to 0 and the AI ignores every plan and behaves exactly as it did",
+    "  before plans existed. See docs/PLAN_FORMAT.md."
   ],
-  "parameters": {}
+  "parameters": {
+    "PLANS_ENABLED": 1
+  }
 }

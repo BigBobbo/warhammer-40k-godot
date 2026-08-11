@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.29.0",
+      "date": "2026-08-11",
+      "summary": "The AI can now follow an authored deployment plan instead of its built-in column formula — the first step of the AI Plan system.",
+      "changes": [
+        "New: AI Plans. A plan is a small JSON file that says, for one army list on one deployment map, exactly where every model goes and in what order — and the AI now follows it. Deployment largely decides the first two battle rounds, and until now the AI always spread out on the same generic column pattern regardless of the army or the map.",
+        "A plan is written from the player-1 side of the board and works from either side: when the AI is sitting in the player-2 seat it rotates every position 180 degrees so the same plan deploys legally there too.",
+        "Plans never make the AI do something illegal. Each unit's placement is checked against the real deployment rules — inside your zone, no overlaps, clear of walls and off-board edges, and in unit coherency — and anything that does not fit is nudged into place or, failing that, deployed the old way for that unit only. Units the plan does not mention deploy normally, after the planned ones.",
+        "Turn it all off with the PLANS_ENABLED setting in data/ai_config.json (set it to 0) for exactly the old behaviour.",
+        "Under the hood: the AI's decision log now records whether each deployment came from a plan or from the formula, so how faithfully a plan was followed can be measured after a game."
+      ]
+    },
+    {
       "version": "1.28.7",
       "date": "2026-08-07",
       "summary": "Fixed a Charge phase freeze: a Heroic Intervention that could not reach the enemy left the game stuck with no way to continue.",

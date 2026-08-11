@@ -41,6 +41,11 @@ var _seed: int = -1
 var _out_path: String = "test_results/bench/result.json"
 var _p1_profile_path: String = ""
 var _p2_profile_path: String = ""
+# PM-2a: AI plans, the artifact the whole Plan Maker workstream exists to
+# measure. Mirrors the profile flags exactly so a paired A/B can swap sides.
+var _p1_plan_path: String = ""
+var _p2_plan_path: String = ""
+var _plan_inline: Dictionary = {1: {}, 2: {}}
 var _difficulty: int = 1  # Normal — the default players face
 var _max_seconds: float = 600.0
 var _time_scale: float = 3.0
@@ -108,6 +113,10 @@ func _ready() -> void:
 			_p1_profile_path = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-p2-profile="):
 			_p2_profile_path = a.split("=", true, 1)[1]
+		elif a.begins_with("--bench-p1-plan="):
+			_p1_plan_path = a.split("=", true, 1)[1]
+		elif a.begins_with("--bench-p2-plan="):
+			_p2_plan_path = a.split("=", true, 1)[1]
 		elif a.begins_with("--bench-difficulty="):
 			_difficulty = int(a.split("=", true, 1)[1])
 		elif a.begins_with("--bench-max-seconds="):
@@ -327,6 +336,10 @@ func _kick_off() -> void:
 	_connect_vp_events()
 	_load_profile(1, _p1_profile_path)
 	_load_profile(2, _p2_profile_path)
+	# PM-2a: plans, like profiles, must be applied AFTER configure() — it calls
+	# clear_all_profiles(), which also clears plans.
+	_load_plan(1, _p1_plan_path)
+	_load_plan(2, _p2_plan_path)
 
 	# 5) Accelerate the AI's pacing timers
 	Engine.time_scale = maxf(1.0, _time_scale)
@@ -451,6 +464,33 @@ func _load_profile(player: int, path: String) -> void:
 		print("[AIBench] Loaded profile for P%d from %s (%d parameters)" % [
 			player, resolved, parsed.get("parameters", {}).size()])
 
+## Load an AI plan and hand it to the decision maker. Like a profile, a plan
+## that was ASKED FOR and could not be loaded is FATAL: the game would play on
+## with formula deployment and report a perfectly ordinary result, so a
+## plan-vs-formula A/B would measure nothing while looking like a null effect.
+func _load_plan(player: int, path: String) -> void:
+	if path == "":
+		return
+	var resolved = _resolve_profile_path(path)
+	if resolved == "":
+		_finish_with_error("plan for P%d could not be resolved: %s" % [player, path])
+		return
+	var plan = PlanValidator.load_plan_file(resolved)
+	if plan.is_empty():
+		_finish_with_error("plan for P%d could not be read as JSON: %s" % [player, resolved])
+		return
+	var verdict = PlanValidator.validate_plan(plan)
+	if not verdict.get("valid", false):
+		_finish_with_error("plan for P%d is invalid: %s (%s)" % [
+			player, resolved, "; ".join(verdict.get("errors", []))])
+		return
+	AIDecisionMaker.set_player_plan(player, plan)
+	_plan_inline[player] = plan
+	print("[AIBench] Loaded plan '%s' for P%d from %s (%d placements, %d warnings)" % [
+		plan.get("name", "?"), player, resolved,
+		plan.get("deployment", {}).get("placements", []).size(),
+		verdict.get("warnings", []).size()])
+
 func _collect_result(status: String, note: String) -> Dictionary:
 	var mm = get_node_or_null("/root/MissionManager")
 	var vp = mm.get_vp_summary() if mm != null else {}
@@ -470,6 +510,10 @@ func _collect_result(status: String, note: String) -> Dictionary:
 		"difficulty": _difficulty,
 		"p1_profile": _p1_profile_path,
 		"p2_profile": _p2_profile_path,
+		"p1_plan": _p1_plan_path,
+		"p2_plan": _p2_plan_path,
+		"p1_plan_name": str(_plan_inline.get(1, {}).get("name", "")),
+		"p2_plan_name": str(_plan_inline.get(2, {}).get("name", "")),
 		"winner": winner,
 		"vp": vp,
 		"vp_diff_p2_minus_p1": p2_total - p1_total,
@@ -550,11 +594,20 @@ func _fixture_path() -> String:
 
 func _profile_provenance(player: int) -> Dictionary:
 	var path = _p1_profile_path if player == 1 else _p2_profile_path
-	return {
+	var plan_path = _p1_plan_path if player == 1 else _p2_plan_path
+	var out := {
 		"path": path,
 		"sha256": _sha256_of(path),
 		"inline": _profile_inline.get(player, {}),
 	}
+	# PM-2a: a record has to say which PLAN produced these decisions, for the
+	# same reason it says which profile did — a plan-vs-formula A/B is
+	# unreadable if the arm is not stamped into the artifact.
+	if plan_path != "":
+		out["plan_path"] = plan_path
+		out["plan_sha256"] = _sha256_of(plan_path)
+		out["plan_name"] = str(_plan_inline.get(player, {}).get("name", ""))
+	return out
 
 func _build_provenance() -> Dictionary:
 	var fixture_path = _fixture_path()

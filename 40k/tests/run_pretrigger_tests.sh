@@ -24,6 +24,7 @@
 #   - TestModeHandler transition_to_phase action (multi-peer boot-phase advance)
 #   - PM-0 wh40k_ai_plan schema validator (verbs, seat-2 mirror, reserves caps)
 #   - PM-1 PlanManager storage + plan-to-game matching (game_config / faction)
+#   - PM-2a AI deployment from a plan (order, seat-2 mirror, formula fallback)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -159,6 +160,7 @@ TESTS=(
     "tests/test_ai_battle_plan.gd"
     "tests/unit/test_plan_validator.gd"
     "tests/unit/test_plan_manager.gd"
+    "tests/unit/test_ai_plan_deployment.gd"
 )
 
 FAILED=0

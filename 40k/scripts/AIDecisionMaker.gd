@@ -335,9 +335,333 @@ static func clear_player_profile(player: int) -> void:
 	print("AIDecisionMaker: Cleared profile for player %d" % player)
 
 static func clear_all_profiles() -> void:
-	"""Clear all player profiles."""
+	"""Clear all player profiles.
+
+	PM-2a: this ALSO clears AI plans. AIPlayer.configure() calls this once per
+	game (AIPlayer.gd:325), and a plan is per-game configuration exactly like a
+	profile — carrying one into the next game silently is worse than losing it.
+	Callers that want a plan therefore apply it AFTER configure(), the same way
+	Main.gd applies playerN_ai_profile (Main.gd:707-715)."""
 	_player_profiles.clear()
 	_active_rule_overrides.clear()
+	clear_all_plans()
+
+# ============================================================
+# AI PLANS (PM-2a) — see 40k/docs/PLAN_FORMAT.md
+# ============================================================
+# A plan is authored data describing how a specific army deploys on a specific
+# map, plus per-unit intents for the game. Consumption rules:
+#   - a plan is an INTENT with a fallback chain, never a script: any placement
+#     that will not validate is repaired, and if repair fails that one unit
+#     deploys via the normal column formula;
+#   - plan coordinates are ALWAYS in the player-1 frame, so a consumer seated
+#     as player 2 mirrors them by [x, y] -> [44 - x, 60 - y] (inches);
+#   - everything is gated on the PLANS_ENABLED parameter, so a single config
+#     flag restores pre-plan behaviour exactly.
+
+const PlanManagerScript = preload("res://scripts/PlanManager.gd")
+
+# Board dimensions in INCHES, for the seat-2 mirror. Not the same constants as
+# BOARD_WIDTH_PX / BOARD_HEIGHT_PX.
+const PLAN_BOARD_WIDTH_IN: float = 44.0
+const PLAN_BOARD_HEIGHT_IN: float = 60.0
+
+# player -> plan dictionary. Config-like: decide() never edits a plan's content.
+static var _player_plans: Dictionary = {}
+# player -> true once an auto-match has been attempted, so the plan search path
+# is scanned at most once per player per game.
+static var _plan_auto_match_attempted: Dictionary = {}
+# "<player>:<message key>" -> true, so a per-unit fallback logs once, not once
+# per decision tick.
+static var _plan_logged_once: Dictionary = {}
+
+static func set_player_plan(player: int, plan: Dictionary) -> void:
+	"""Explicitly assign a plan to a player, mirroring load_player_profile.
+
+	Apply this AFTER AIPlayer.configure() — configure() clears plans."""
+	if plan.is_empty():
+		clear_player_plan(player)
+		return
+	_player_plans[player] = plan
+	_plan_auto_match_attempted[player] = true
+	var deployment = plan.get("deployment", {})
+	var placements = deployment.get("placements", []) if deployment is Dictionary else []
+	_plan_log("Set plan '%s' for player %d (%d placement(s), %d earmark(s))" % [
+		str(plan.get("name", "?")), player, placements.size(), plan.get("earmarks", []).size()])
+
+static func clear_player_plan(player: int) -> void:
+	_player_plans.erase(player)
+	_plan_auto_match_attempted.erase(player)
+	_plan_log("Cleared plan for player %d" % player)
+
+static func clear_all_plans() -> void:
+	_player_plans.clear()
+	_plan_auto_match_attempted.clear()
+	_plan_logged_once.clear()
+
+static func get_player_plan(player: int) -> Dictionary:
+	return _player_plans.get(player, {})
+
+static func plans_enabled() -> bool:
+	"""PLANS_ENABLED lives in the `parameters` object of data/ai_config.json.
+	Setting it to 0 restores pre-plan behaviour with no other change."""
+	return get_param("PLANS_ENABLED", 1.0) > 0.5
+
+static func _plan_log(msg: String) -> void:
+	print("AIDecisionMaker: [plan] %s" % msg)
+	_debug_log_info("[AIDecisionMaker/plan] %s" % msg)
+
+static func _plan_log_once(key: String, msg: String) -> void:
+	if _plan_logged_once.has(key):
+		return
+	_plan_logged_once[key] = true
+	_plan_log(msg)
+
+static func _resolve_plan_for(player: int, snapshot: Dictionary) -> Dictionary:
+	"""The plan in force for `player`: the explicitly set one, else a single
+	auto-match attempt against the plan search path."""
+	if not plans_enabled():
+		return {}
+	if _player_plans.has(player):
+		return _player_plans[player]
+	if bool(_plan_auto_match_attempted.get(player, false)):
+		return {}
+	_plan_auto_match_attempted[player] = true
+	var found: Dictionary = PlanManagerScript.find_plan_for(player, snapshot)
+	if not found.is_empty():
+		_player_plans[player] = found
+		_plan_log("Auto-matched plan '%s' for player %d" % [str(found.get("name", "?")), player])
+	return found
+
+# --- Deployment consumption -------------------------------------------------
+
+static func _plan_deployment_section(plan: Dictionary) -> Dictionary:
+	var deployment = plan.get("deployment", {})
+	return deployment if deployment is Dictionary else {}
+
+static func _plan_live_unit_id(plan_unit_id: String, player: int, snapshot: Dictionary) -> String:
+	"""Plan unit id -> the id this game uses, through the `_P<player>` re-key
+	ArmyListManager applies when both seats pick the same army list."""
+	return PlanManagerScript.resolve_unit_id(plan_unit_id, player, snapshot.get("units", {}))
+
+static func _plan_pick_deploy_action(plan: Dictionary, deploy_actions: Array, player: int, snapshot: Dictionary) -> Dictionary:
+	"""The DEPLOY_UNIT action for the earliest plan-order unit still undeployed.
+
+	The alternation with the opponent, defender-first and the TITANIC skips are
+	all phase-controlled and untouched — this only replaces `deploy_actions[0]`
+	on the AI's own turns. Units the plan does not mention deploy after the
+	planned ones, via the formula."""
+	var order = _plan_deployment_section(plan).get("order", [])
+	if not (order is Array):
+		return {}
+	var by_unit := {}
+	for action in deploy_actions:
+		by_unit[str(action.get("unit_id", ""))] = action
+	for plan_unit_id in order:
+		var live_id := _plan_live_unit_id(str(plan_unit_id), player, snapshot)
+		if live_id.is_empty():
+			continue
+		if by_unit.has(live_id):
+			return by_unit[live_id]
+	return {}
+
+static func _plan_placement_for(plan: Dictionary, live_unit_id: String, player: int, snapshot: Dictionary) -> Dictionary:
+	for placement in _plan_deployment_section(plan).get("placements", []):
+		if not (placement is Dictionary):
+			continue
+		if _plan_live_unit_id(str(placement.get("unit", "")), player, snapshot) == live_unit_id:
+			return placement
+	return {}
+
+static func _plan_positions_px(placement: Dictionary, model_count: int, player: int) -> Array:
+	"""models_inches -> board pixels, mirrored for seat 2. [] when the plan does
+	not cover every model of the unit."""
+	var raw = placement.get("models_inches", [])
+	if not (raw is Array) or raw.size() < model_count:
+		return []
+	var mirror := player != 1
+	var out: Array = []
+	for i in range(model_count):
+		var pair = raw[i]
+		if not (pair is Array) or pair.size() < 2:
+			return []
+		var x := float(pair[0])
+		var y := float(pair[1])
+		if mirror:
+			x = PLAN_BOARD_WIDTH_IN - x
+			y = PLAN_BOARD_HEIGHT_IN - y
+		out.append(Vector2(x * PIXELS_PER_INCH, y * PIXELS_PER_INCH))
+	return out
+
+static func _plan_shape_inside_polygon(pos: Vector2, model: Dictionary, radius_px: float, poly: PackedVector2Array) -> bool:
+	"""The phase's wholly-within-zone rule (DeploymentPhase.gd:306).
+
+	_resolve_formation_collisions only clamps to a RECTANGLE, which is wrong for
+	the triangular and stepped zones (crucible_of_battle is a triangle), so the
+	polygon has to be checked separately.
+
+	Uses the same shape-aware helper the phase does, so a plan placement is
+	rejected here exactly when the phase would reject it — no more and no less.
+	Being stricter would degrade legal edge-of-zone placements to the formula
+	for no reason; being looser would emit actions the phase then rejects, and
+	a rejected deployment action is what stalls an AI deployment."""
+	if poly.size() < 3:
+		return true  # no polygon to test against — defer to the phase
+	var measurement = _measurement()
+	if measurement and measurement.has_method("shape_wholly_in_polygon"):
+		return measurement.shape_wholly_in_polygon(pos, model, 0.0, poly)
+	# Measurement unavailable (early boot): fall back to a conservative
+	# bounding-circle approximation — centre plus eight rim points.
+	if not Geometry2D.is_point_in_polygon(pos, poly):
+		return false
+	for i in range(8):
+		var angle := (TAU * i) / 8.0
+		if not Geometry2D.is_point_in_polygon(pos + Vector2(cos(angle), sin(angle)) * radius_px, poly):
+			return false
+	return true
+
+static func _plan_shapes_overlap(pos_a: Vector2, model_a: Dictionary, pos_b: Vector2, model_b: Dictionary) -> bool:
+	"""Shape-aware overlap, mirroring DeploymentPhase._position_overlaps_existing_models_shape."""
+	var measurement = _measurement()
+	if measurement == null or not measurement.has_method("create_base_shape"):
+		return false
+	var shape_a = measurement.create_base_shape(model_a)
+	var shape_b = measurement.create_base_shape(model_b)
+	if shape_a == null or shape_b == null:
+		return false
+	return shape_a.overlaps_with(shape_b, pos_a, 0.0, pos_b, float(model_b.get("rotation", 0.0)))
+
+static func _plan_positions_legal(positions: Array, unit: Dictionary, player: int, snapshot: Dictionary,
+		zone_poly: PackedVector2Array, deployed_models: Array,
+		base_mm: int, base_type: String, base_dimensions: Dictionary) -> bool:
+	"""Pre-validate a planned placement against everything DeploymentPhase will
+	check, so a plan can never produce an illegal deployment action."""
+	var models: Array = unit.get("models", [])
+	if positions.size() != models.size():
+		return false
+	var radius := _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	var measurement = _measurement()
+	var shape_aware: bool = measurement != null and measurement.has_method("create_base_shape")
+	var unit_keywords: Array = unit.get("meta", {}).get("keywords", [])
+	for i in range(positions.size()):
+		var pos: Vector2 = positions[i]
+		var model_i: Dictionary = models[i]
+		if not _plan_shape_inside_polygon(pos, model_i, radius, zone_poly):
+			return false
+		# Against already-deployed models.
+		if shape_aware:
+			for dm in deployed_models:
+				if _plan_shapes_overlap(pos, model_i, dm.get("position", Vector2.ZERO), dm):
+					return false
+		elif _position_collides_with_deployed(pos, base_mm, deployed_models, 1.0, base_type, base_dimensions):
+			return false
+		# Against the rest of this formation.
+		for j in range(i + 1, positions.size()):
+			if shape_aware:
+				if _plan_shapes_overlap(pos, model_i, positions[j], models[j]):
+					return false
+			elif _position_collides_with_deployed(positions[j], base_mm, [{
+					"position": pos, "base_mm": base_mm,
+					"base_type": base_type, "base_dimensions": base_dimensions}],
+					1.0, base_type, base_dimensions):
+				return false
+		if measurement:
+			var test_model = model_i.duplicate()
+			test_model["position"] = pos
+			test_model["rotation"] = 0.0
+			if measurement.model_overlaps_any_wall(test_model, unit_keywords):
+				return false
+			if measurement.model_outside_board(pos, test_model):
+				return false
+	# Coherency (11e 03.03): 2" to at least one other model AND a 9" envelope to
+	# every other model in the unit. DeploymentPhase enforces this on the action
+	# (DeploymentPhase.gd:197-232) via the same helper, so a plan that spreads a
+	# unit too far has to fall back here rather than emit an action the phase
+	# will reject — that rejection is what stalls an AI deployment.
+	if positions.size() > 1 and measurement:
+		var coherency_models: Array = []
+		for i in range(positions.size()):
+			var m = models[i].duplicate()
+			m["position"] = positions[i]
+			m["rotation"] = 0.0
+			m["alive"] = true
+			coherency_models.append(m)
+		var coherency = AttackSequence.check_unit_coherency({"models": coherency_models})
+		if not coherency.get("coherent", true):
+			return false
+	return true
+
+static func _plan_deployment_action(plan: Dictionary, unit_id: String, unit: Dictionary,
+		player: int, snapshot: Dictionary, zone_bounds: Dictionary) -> Dictionary:
+	"""A DEPLOY_UNIT action built from the plan, or {} to fall back to the
+	formula for this one unit. Never returns an illegal action."""
+	var plan_name := str(plan.get("name", "?"))
+	var placement := _plan_placement_for(plan, unit_id, player, snapshot)
+	if placement.is_empty():
+		return {}
+
+	var models: Array = unit.get("models", [])
+	if models.is_empty():
+		return {}
+	var positions := _plan_positions_px(placement, models.size(), player)
+	if positions.is_empty():
+		_plan_log_once("%d:%s:models" % [player, unit_id],
+			"Plan '%s' covers %s with fewer positions than it has models — using the formula" % [plan_name, unit_id])
+		return {}
+
+	var first_model: Dictionary = models[0]
+	var base_mm: int = int(first_model.get("base_mm", 32))
+	var base_type: String = str(first_model.get("base_type", "circular"))
+	var base_dimensions: Dictionary = first_model.get("base_dimensions", {})
+	var zone_poly := _get_deployment_zone_polygon_pixels(snapshot, player)
+	var deployed_models := _get_all_deployed_model_positions(snapshot)
+
+	var repaired := false
+	if not _plan_positions_legal(positions, unit, player, snapshot, zone_poly, deployed_models,
+			base_mm, base_type, base_dimensions):
+		var candidate := _resolve_formation_collisions(positions, base_mm, deployed_models,
+			zone_bounds, base_type, base_dimensions)
+		if _plan_positions_legal(candidate, unit, player, snapshot, zone_poly, deployed_models,
+				base_mm, base_type, base_dimensions):
+			positions = candidate
+			repaired = true
+		else:
+			_plan_log_once("%d:%s:illegal" % [player, unit_id],
+				"Plan '%s' placement for %s did not validate and repair failed — using the formula" % [plan_name, unit_id])
+			return {}
+
+	var rotations: Array = []
+	for i in range(positions.size()):
+		rotations.append(0.0)
+
+	var unit_name := _dn(unit, unit_id)
+	var centroid := Vector2.ZERO
+	for p in positions:
+		centroid += p
+	centroid /= float(positions.size())
+	# One-option record: the plan chose this spot, so there is nothing it beat.
+	# The `source` field is what makes plan adherence countable per game per seat.
+	_record_choice("deployment", unit_id, unit_name, [{
+		"description": "plan '%s' placement (%.0f, %.0f)" % [plan_name, centroid.x, centroid.y],
+		"score": 1.0, "key": "0", "pos": [centroid.x, centroid.y],
+		"score_breakdown": {"plan": 1.0}}], "0",
+		{"phase": "deployment", "source": "plan:%s" % plan_name,
+			"plan_unit": str(placement.get("unit", unit_id)),
+			"seat_mirrored": player != 1, "repaired": repaired,
+			"unit_pos": [centroid.x, centroid.y]})
+
+	_plan_log("Player %d deploying %s from plan '%s'%s%s" % [
+		player, unit_id, plan_name,
+		" (seat-2 mirrored)" if player != 1 else "",
+		" (repaired)" if repaired else ""])
+
+	return {
+		"type": "DEPLOY_UNIT",
+		"unit_id": unit_id,
+		"model_positions": positions,
+		"model_rotations": rotations,
+		"_ai_description": "Deployed %s from plan '%s'%s" % [unit_name, plan_name, " (repaired)" if repaired else ""]
+	}
 
 static func evaluate_rules(player: int, context: Dictionary) -> void:
 	"""Evaluate conditional rules for a player given game context.
@@ -2450,6 +2774,12 @@ static func _snapshot_planning_state() -> Dictionary:
 		"active_rule_overrides": _active_rule_overrides.duplicate(true),
 		"current_player": _current_player,
 		"current_difficulty": _current_difficulty,
+		# PM-2a: _resolve_plan_for() can auto-match and CACHE a plan during a
+		# decide(), so the human-hint preview would otherwise install a plan on
+		# the live AI as a side effect of showing a suggestion.
+		"player_plans": _player_plans.duplicate(true),
+		"plan_auto_match_attempted": _plan_auto_match_attempted.duplicate(true),
+		"plan_logged_once": _plan_logged_once.duplicate(true),
 	}
 
 static func _restore_planning_state(s: Dictionary) -> void:
@@ -2485,6 +2815,9 @@ static func _restore_planning_state(s: Dictionary) -> void:
 	_active_rule_overrides = s["active_rule_overrides"]
 	_current_player = s["current_player"]
 	_current_difficulty = s["current_difficulty"]
+	_player_plans = s["player_plans"]
+	_plan_auto_match_attempted = s["plan_auto_match_attempted"]
+	_plan_logged_once = s["plan_logged_once"]
 
 # =============================================================================
 # T7-40: EASY DIFFICULTY — RANDOM VALID ACTIONS
@@ -3920,8 +4253,18 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 				return {"type": "END_DEPLOYMENT", "_ai_description": "End Deployment"}
 		return {}  # Nothing to do (opponent deploying)
 
-	# Pick first undeployed unit
+	# PM-2a: a matching plan chooses BOTH which unit goes down next and where.
+	# Everything below stays the fallback for units the plan does not cover and
+	# for placements that will not validate.
+	var plan := _resolve_plan_for(player, snapshot)
+	var plan_name := str(plan.get("name", "")) if not plan.is_empty() else ""
+
+	# Pick first undeployed unit (plan order first, else the phase's own order)
 	var action_template = deploy_actions[0]
+	if not plan.is_empty():
+		var planned_action := _plan_pick_deploy_action(plan, deploy_actions, player, snapshot)
+		if not planned_action.is_empty():
+			action_template = planned_action
 	var unit_id = action_template.get("unit_id", "")
 	var unit = snapshot.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
@@ -3929,6 +4272,11 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 
 	# Calculate deployment zone bounds
 	var zone_bounds = _get_deployment_zone_bounds(snapshot, player)
+
+	if not plan.is_empty():
+		var plan_action := _plan_deployment_action(plan, unit_id, unit, player, snapshot, zone_bounds)
+		if not plan_action.is_empty():
+			return plan_action
 
 	# T7-18: Classify unit role for terrain-aware deployment
 	var unit_role = _classify_deployment_role(unit)
@@ -4078,8 +4426,13 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 			"score": obj_gain + crowding, "key": str(i),
 			"pos": [pp.x, pp.y],
 			"score_breakdown": {"objective_proximity": obj_gain, "crowding": crowding}})
+	# PM-2a: `source` makes plan adherence countable per game per seat —
+	# "formula" when no plan applies at all, "formula_fallback" when a plan is
+	# active but did not cover (or could not legally place) this unit.
 	_record_choice("deployment", unit_id, unit_name, dep_scored, "0",
 		{"phase": "deployment", "role": unit_role,
+			"source": "formula_fallback" if not plan_name.is_empty() else "formula",
+			"plan": plan_name,
 			"unit_pos": [best_pos.x, best_pos.y]})
 
 	# Generate formation positions

@@ -12,6 +12,7 @@
 #               post-deployment). Use mirror_custodes_2000_predeploy to start at
 #               the DEPLOYMENT phase and have the AI place its own army.
 #   P1_PROFILE / P2_PROFILE  optional parameter-override JSON paths
+#   BENCH_P1_PLAN / BENCH_P2_PLAN  optional wh40k_ai_plan JSON paths (PM-2a)
 #
 # Env overrides: BENCH_DIFFICULTY (default 1=Normal), BENCH_TIME_SCALE (3),
 #   BENCH_MAX_SECONDS (600), BENCH_SEED_BASE (1000)
@@ -42,6 +43,11 @@ MAX_SECONDS="${BENCH_MAX_SECONDS:-600}"
 SEED_BASE="${BENCH_SEED_BASE:-1000}"
 BENCH_DATA_DIR="${BENCH_DATA_DIR:-}"
 BENCH_ARM="${BENCH_ARM:-}"
+# PM-2a: AI plans, passed like profiles. A plan that cannot be loaded or does
+# not validate is FATAL inside the runner, on purpose — an arm that silently
+# fell back to formula deployment would look like a null effect.
+BENCH_P1_PLAN="${BENCH_P1_PLAN:-}"
+BENCH_P2_PLAN="${BENCH_P2_PLAN:-}"
 BENCH_KEEP_LOGS="${BENCH_KEEP_LOGS:-50}"
 
 cd "$(dirname "$0")/.."
@@ -71,6 +77,7 @@ STAMP=$(date +%Y%m%d_%H%M%S)
 echo "================================================================"
 echo "AI benchmark: $GAMES game(s), fixture=$FIXTURE, difficulty=$DIFFICULTY"
 echo "profiles: P1='${P1_PROFILE:-default}' P2='${P2_PROFILE:-default}'"
+echo "plans:    P1='${BENCH_P1_PLAN:-none}' P2='${BENCH_P2_PLAN:-none}'"
 echo "git: $GIT_SHA  arm: '${BENCH_ARM:-none}'"
 echo "================================================================"
 
@@ -103,6 +110,8 @@ for i in $(seq 1 "$GAMES"); do
         "--bench-git-sha=$GIT_SHA")
     [ -n "$P1_PROFILE" ] && ARGS+=("--bench-p1-profile=$P1_PROFILE")
     [ -n "$P2_PROFILE" ] && ARGS+=("--bench-p2-profile=$P2_PROFILE")
+    [ -n "$BENCH_P1_PLAN" ] && ARGS+=("--bench-p1-plan=$BENCH_P1_PLAN")
+    [ -n "$BENCH_P2_PLAN" ] && ARGS+=("--bench-p2-plan=$BENCH_P2_PLAN")
     [ -n "$BENCH_ARM" ] && ARGS+=("--bench-arm=$BENCH_ARM")
 
     # Capture the whole stdout rather than piping straight to grep: a stalled

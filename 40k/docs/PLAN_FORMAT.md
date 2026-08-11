@@ -277,6 +277,74 @@ Ranked best-first:
 Ties break deterministically (alphabetically by plan name), and the choice plus
 its reason are written to the debug log.
 
+## How the AI consumes a plan (deployment)
+
+`AIDecisionMaker` owns consumption, mirroring how it owns profile application
+while `ProfileManager` owns profile storage:
+
+```gdscript
+AIDecisionMaker.set_player_plan(player, plan)   # after AIPlayer.configure()
+AIDecisionMaker.clear_player_plan(player)
+AIDecisionMaker.get_player_plan(player)
+AIDecisionMaker.plans_enabled()                 # PLANS_ENABLED > 0.5
+```
+
+**Apply a plan AFTER `AIPlayer.configure()`.** `configure()` calls
+`clear_all_profiles()`, which also clears plans — a plan is per-game
+configuration exactly like a profile, and carrying one silently into the next
+game is worse than losing it. With no plan explicitly set, the AI asks
+`PlanManager.find_plan_for()` **once per player per game**.
+
+On each of the AI's own deployment turns:
+
+1. **Order.** Instead of taking `deploy_actions[0]`, the AI takes the action for
+   the earliest `deployment.order` unit that is still undeployed. Alternation
+   with the opponent, defender-first and the TITANIC skips are phase-controlled
+   and untouched. Units the plan does not list deploy afterwards, via the
+   formula.
+2. **Placement.** `models_inches` → pixels (`PIXELS_PER_INCH`), mirrored first
+   when the AI is seated as player 2.
+3. **Legality.** The placement is checked against everything `DeploymentPhase`
+   will check, using the *same* shape-aware helpers so it is neither stricter
+   nor looser: wholly within the zone POLYGON (not its bounding rectangle —
+   `crucible_of_battle` is a triangle), no overlap with deployed models or
+   within the formation, clear of walls the unit cannot cross, on the board, and
+   in 11e coherency (2" neighbour + 9" envelope).
+4. **Repair, then fall back.** A placement that fails goes through
+   `_resolve_formation_collisions`; if the repaired version still fails, that
+   *one unit* deploys via the formula. Every path ends in a valid action or a
+   legal skip — never a stall.
+
+### Measuring adherence
+
+Every deployment decision record carries a `source` in its context:
+
+| `source` | Meaning |
+|---|---|
+| `plan:<name>` | placed from the plan (with `seat_mirrored` and `repaired` flags) |
+| `formula_fallback` | a plan was active but did not cover, or could not legally place, this unit |
+| `formula` | no plan applied at all |
+
+Counting `plan:` records per seat is how a run reports adherence — and a seat-2
+adherence of zero is the signature of a missing coordinate transform.
+
+### Benchmarking a plan
+
+`AIBenchmarkRunner` takes plans exactly like profiles:
+
+```bash
+BENCH_P1_PLAN=40k/tests/fixtures/ai_plans/fixture_custodes_lions_crucible.json \
+BENCH_P2_PLAN=40k/tests/fixtures/ai_plans/fixture_custodes_lions_crucible.json \
+BENCH_SEED_BASE=5001 bash 40k/tests/run_ai_benchmark.sh 2 mirror_custodes_2000_predeploy
+```
+
+(or `--bench-p1-plan=` / `--bench-p2-plan=` directly). A plan that cannot be
+loaded, or that fails validation, is a **fatal** error rather than a warning:
+otherwise the arm would quietly play with formula deployment and report a
+perfectly ordinary result, and the A/B would measure nothing while looking like
+a null effect. The plan path, its sha256 and its name are stamped into both the
+result JSON and the game record's provenance.
+
 ## Enabling / disabling
 
 Plans are gated on the numeric AI parameter **`PLANS_ENABLED`** (default `1`),
