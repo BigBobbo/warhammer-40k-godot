@@ -53,10 +53,49 @@ What the session does:
 | Exit | The `PLAN EDITOR` banner above the board carries an **Exit to Menu** button |
 
 Committed units cannot be un-deployed in v1 — the story for a mistake is
-exit and restart. Saving the layout as a plan is PM-5; painting earmarks
-onto it is PM-6.
+exit and restart. Painting earmarks onto a recording is PM-6.
 
 Windowed proof: `40k/tests/scenarios/sp/pm4_plan_editor_session.json`.
+
+### Save as Plan — the recorder (PM-5)
+
+The banner's **Save as Plan** button reads the laid-out board back out through
+`40k/scripts/PlanRecorder.gd` and writes it to `user://ai_plans/`.
+
+| Plan field | Recorded from |
+|---|---|
+| `keys` | `PlanManager.resolve_game_identity(1, state)` — army file, zone, layout, detachment — plus `meta.game_config.mission` |
+| `deployment.order` | `state.phase_log`, in dispatch order. The editor holds DEPLOYMENT open, so the log is never committed to history and still holds every action of the phase. Placed units the log does not mention are appended after |
+| `deployment.placements` | `units[*].models[*].position`, px ÷ 40 → inches, rounded to 2dp, in model order |
+| `deployment.reserves` | `status == IN_RESERVES`. The game stores no arrival round, so a recording defaults to `2` |
+| `deployment.embarkations` | `units[*].embarked_in` — set by both the Formations declaration and Deployment's `COMPOSITE_DEPLOY` |
+| `deployment.attachments` | `units[*].attached_to`, same two sources |
+| `earmarks` | left `[]` — PM-6 fills them in |
+
+Rules the recorder follows:
+
+- **Only the author's seat.** Player 2 is not in an editor session anyway, but
+  the filter is explicit so the same function works on a normal game state.
+- **A unit is recorded once.** A reserved / embarked / attached unit is emitted
+  in its own list and NOT as a placement — an attached character has no board
+  position of its own, and "both placed and reserved" is a validator error.
+- **A half-placed unit is skipped entirely.** `models_inches` is indexed by
+  model number on consumption, so a gap would mis-seat the unit.
+- **An unresolvable `terrain_layout_id` is dropped**, not emitted. `""` means
+  "matches any layout" and is legal; an id with no file behind it is an error
+  that would make the plan unsaveable.
+- **`anchors` are derived and recorded only** (never resolved in v1), all
+  measured from the unit's centroid: nearest objective id, distance to the
+  nearest edge of the player-1 zone, nearest terrain piece id.
+
+`PlanManager.save_plan` refuses an invalid plan, so the dialog stays open and
+prints the validator's errors rather than closing over them. Validation runs
+against the *live* army (`PlanRecorder.own_army`), which is what makes the
+coverage and 50%-reserves-cap checks meaningful.
+
+Proof: `40k/tests/unit/test_plan_roundtrip.gd` (record → consume for seat 1 and
+seat 2) and `40k/tests/scenarios/sp/pm5_record_and_save_plan.json` (the whole
+path from the menu, ending in a live round trip off the saved file).
 
 ---
 

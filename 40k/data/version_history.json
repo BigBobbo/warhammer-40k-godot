@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.31.0",
+      "date": "2026-08-11",
+      "summary": "The Plan Editor can now save what you set up: 'Save as Plan' writes your deployment out as an AI plan the computer opponent can follow.",
+      "changes": [
+        "New: a Save as Plan button on the Plan Editor banner. It records the order you deployed in, every model's exact position, and anything you held in reserve, put in a transport or attached to a squad.",
+        "The name is filled in for you as '<army> — <zone>', and the plan is written to your own plans folder.",
+        "A plan that would not be legal is refused with the reason shown in the dialog, rather than saved and silently ignored later.",
+        "Saved plans work from either side of the table — the AI mirrors your layout automatically when it plays the other deployment zone.",
+        "Unit roles (intents) are not part of this step; a saved plan starts with none."
+      ]
+    },
+    {
       "version": "1.30.0",
       "date": "2026-08-11",
       "summary": "New 'Plan Editor' on the main menu: a solo planning sandbox where you set your army up on the board with no opponent and no clock, ready for the plan you are writing.",

@@ -1308,7 +1308,7 @@ is the regression net.
 
 ## PM-5 — Deployment recorder: Save as Plan
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-4, PM-2a (round-trip), PM-1
 **Player-facing:** yes — version_history entry required
 
@@ -1356,7 +1356,80 @@ formations meta).
 **Out of scope.** Editing existing plans (delete + re-record is the v1
 story).
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/scripts/PlanRecorder.gd` | new. All static, no autoload dependency (the PlanValidator rule — a `-s` test has no autoloads during `_init`). `build_plan`, `default_plan_name`, `own_army`, `record_and_save` |
+| `40k/dialogs/PlanSaveDialog.gd` | new. Name (pre-filled) / description / author, validator errors and warnings printed in-dialog, stays open on refusal |
+| `40k/scripts/Main.gd` | `Save as Plan` button on the Plan Editor banner, `_on_plan_editor_save_pressed`, `_on_plan_saved` toast |
+| `40k/tests/unit/test_plan_roundtrip.gd` | new, registered in `run_pretrigger_tests.sh` |
+| `40k/tests/scenarios/sp/pm5_record_and_save_plan.json` | new windowed gate |
+| `40k/data/version_history.json` | 1.31.0 |
+| `40k/docs/PLAN_FORMAT.md` | "Save as Plan — the recorder" section: the field-by-field source table and the four recording rules |
+
+Headless — **47 passed, 0 failed**. The round-trip half of it builds a
+deployment, records it, and feeds the recording back through the PM-2a
+consumption path for both seats:
+
+```
+PASS: seat 1: U_GRETCHIN_A lands within 0.5in of the recording (worst 0.000in)
+PASS: seat 2: U_GRETCHIN_A lands within 0.5in of the mirrored recording (worst 0.000in)
+… (3 units × 2 seats, all 0.000in)
+PASS: a recorded plan is valid (errors: [])   PASS: and warning-free (warnings: [])
+=== Results: 47 passed, 0 failed ===
+```
+
+Windowed `sp/pm5_record_and_save_plan` — **49 passed, 0 failed**. From the main
+menu: enter the editor, lay out all 17 recon_stomps units (one by mouse), press
+**Save as Plan** on the banner, and save with a real button click. The measured
+results, straight out of the run's result JSON:
+
+| Step | Value |
+|---|---|
+| plan file before the save | absent (deleted first, so "it appeared" means something) |
+| default name in the dialog | `recon_stomps — hammer_anvil` |
+| saved path | `user://ai_plans/recon_stomps_hammer_anvil.json` |
+| re-read from disk, validated against the live army | `valid` |
+| placements / order | 17 / 17 |
+| **fidelity** — recorded vs the units actually on the table | 77 models, worst **0.0056"** (2dp rounding) |
+| **round trip** — saved file → PM-2a consumer, both seats | worst **5.4e-06"**, zero formula fallbacks |
+
+Refusal control in the same run: clearing the name and pressing Save prints
+"A plan needs a name" in-dialog, the dialog stays open, and no file is written —
+so the success path is not just "the button did something".
+
+`verify_delivery` on a live session — **verdict: PASS**, 0 log errors, with
+`plan_file_written`, `saved_file_is_valid`, `all_17_units_recorded = 17`,
+`order_covers_every_placement`, `earmarks_left_for_pm6 = 0`.
+
+Screenshots: `40k/docs/evidence/pm5_save_dialog.png` (the dialog over the
+completed 17-unit deployment, name pre-filled) and
+`40k/docs/evidence/pm5_saved_toast.png` (the "Plan saved:
+recon_stomps_hammer_anvil.json" toast).
+
+Four findings:
+
+1. **`AcceptDialog`'s OK button cannot be driven by a windowed scenario** — its
+   node path is auto-generated (`@PanelContainer@123/@Button@456`). The dialog
+   hides the built-in OK and carries its own `PlanSaveButton` /
+   `PlanCancelButton` under a stable path instead. Worth copying for any future
+   dialog that a scenario has to click.
+2. **Validation needs the army passed in or it silently skips half its work.**
+   `PlanValidator.validate_plan(plan, {})` runs the structural checks but not
+   coverage or the 50% reserves caps. `record_and_save` therefore defaults
+   `army` to `PlanRecorder.own_army(state, player)` — the LIVE units, which is
+   also what makes the ids line up.
+3. **`terrain_layout_id` is an error, not a warning, when it does not resolve.**
+   Emitting the config's terrain id blindly would produce recordings that
+   `save_plan` refuses. The recorder drops an unresolvable id to `""` ("matches
+   any layout"), which is a legal, weaker key.
+4. **Three unit states must not be recorded as placements**: reserved (a
+   validator error if it is also placed), embarked, and attached — the last two
+   have no board position of their own. All three are lifted into their own
+   lists instead.
 
 ---
 

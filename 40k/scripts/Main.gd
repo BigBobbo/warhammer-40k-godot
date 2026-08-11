@@ -2,6 +2,8 @@ extends CanvasLayer
 # Use global class_name references instead of preloads to avoid web export reload issues
 # GameStateData, BasePhase, ShootingPhase, NetworkIntegration are available via class_name
 const _WhiteDwarfTheme = preload("res://scripts/WhiteDwarfTheme.gd")
+# PM-5: the Plan Editor's deployment recorder (static; no autoload dependency).
+const PlanRecorderData = preload("res://scripts/PlanRecorder.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
 const GameLogPanelScript = preload("res://scripts/GameLogPanel.gd")
 const GameLogEntryScript = preload("res://scripts/GameLogEntry.gd")
@@ -10413,6 +10415,14 @@ func _setup_plan_editor_banner() -> void:
 	subtitle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(subtitle)
 
+	# PM-5: record the board as a plan.
+	var save_button := Button.new()
+	save_button.name = "PlanEditorSaveButton"
+	save_button.text = "Save as Plan"
+	save_button.tooltip_text = "Write this deployment out as an AI plan"
+	save_button.pressed.connect(_on_plan_editor_save_pressed)
+	row.add_child(save_button)
+
 	var exit_button := Button.new()
 	exit_button.name = "PlanEditorExitButton"
 	exit_button.text = "Exit to Menu"
@@ -10423,6 +10433,38 @@ func _setup_plan_editor_banner() -> void:
 	add_child(plan_editor_banner)
 	plan_editor_banner.move_to_front()
 	print("Main: Plan Editor banner created")
+
+var plan_save_dialog: AcceptDialog = null
+
+func _on_plan_editor_save_pressed() -> void:
+	"""PM-5: open the Save as Plan dialog over the finished deployment."""
+	print("Main: Plan Editor — opening Save as Plan dialog")
+	if plan_save_dialog and is_instance_valid(plan_save_dialog):
+		# Detach before queue_free (which only frees at end of frame) so the
+		# stable node name is immediately available to the next instance.
+		if plan_save_dialog.get_parent():
+			plan_save_dialog.get_parent().remove_child(plan_save_dialog)
+		plan_save_dialog.queue_free()
+		plan_save_dialog = null
+
+	var dialog_script = preload("res://dialogs/PlanSaveDialog.gd")
+	plan_save_dialog = AcceptDialog.new()
+	plan_save_dialog.set_script(dialog_script)
+	plan_save_dialog.name = "PlanSaveDialog"
+	plan_save_dialog.exclusive = false
+	add_child(plan_save_dialog)
+
+	var default_name: String = PlanRecorderData.default_plan_name(GameState.state, 1)
+	var default_author: String = str(GameState.state.get("meta", {}).get("game_config", {}).get("player1_name", ""))
+	plan_save_dialog.setup(default_name, default_author)
+	plan_save_dialog.plan_saved.connect(_on_plan_saved)
+	plan_save_dialog.popup_centered()
+
+func _on_plan_saved(path: String) -> void:
+	print("Main: Plan Editor — plan saved to %s" % path)
+	var toast_mgr = get_node_or_null("/root/ToastManager")
+	if toast_mgr:
+		toast_mgr.show_success("Plan saved: %s" % path.get_file())
 
 func _on_plan_editor_exit_pressed() -> void:
 	print("Main: Plan Editor — exiting to main menu")
