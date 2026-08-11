@@ -384,6 +384,7 @@ static func set_player_plan(player: int, plan: Dictionary) -> void:
 		return
 	_player_plans[player] = plan
 	_plan_auto_match_attempted[player] = true
+	apply_plan_profile_fragment(player, plan)
 	var deployment = plan.get("deployment", {})
 	var placements = deployment.get("placements", []) if deployment is Dictionary else []
 	_plan_log("Set plan '%s' for player %d (%d placement(s), %d earmark(s))" % [
@@ -398,6 +399,7 @@ static func clear_all_plans() -> void:
 	_player_plans.clear()
 	_plan_auto_match_attempted.clear()
 	_plan_logged_once.clear()
+	_plan_released_earmarks.clear()
 
 static func get_player_plan(player: int) -> Dictionary:
 	return _player_plans.get(player, {})
@@ -430,6 +432,7 @@ static func _resolve_plan_for(player: int, snapshot: Dictionary) -> Dictionary:
 	var found: Dictionary = PlanManagerScript.find_plan_for(player, snapshot)
 	if not found.is_empty():
 		_player_plans[player] = found
+		apply_plan_profile_fragment(player, found)
 		_plan_log("Auto-matched plan '%s' for player %d" % [str(found.get("name", "?")), player])
 	return found
 
@@ -921,6 +924,177 @@ static func plan_post_formations_reserves(plan: Dictionary, snapshot: Dictionary
 			"Plan '%s': embarkations/attachments cannot be retrofitted after FORMATIONS — skipped for player %d" % [
 				str(plan.get("name", "?")), player])
 	return out
+
+# --- Earmark consumption (PM-3) ---------------------------------------------
+# Earmarks are PRIORS, not orders: each verb biases machinery the AI already
+# has, never overrides legality, and is RELEASED once the unit is too badly
+# damaged to do the job. Default weights live next to the other tunables so a
+# profile or ai_config.json can move them.
+
+const PLAN_EARMARK_HOLD_BONUS: float = 8.0
+const PLAN_EARMARK_PUSH_BONUS: float = 6.0
+const PLAN_EARMARK_HUNT_BONUS: float = 4.0
+const PLAN_EARMARK_RELEASE_AT: float = 0.5
+
+# "<player>:<live unit id>" -> true, once a unit has dropped below the release
+# threshold. Mutable, so it is registered in the snapshot contract.
+static var _plan_released_earmarks: Dictionary = {}
+
+static func _plan_earmark_for(unit_id: String, player: int, snapshot: Dictionary) -> Dictionary:
+	"""The earmark in force for `unit_id`, or {} — gated on PLANS_ENABLED, on a
+	matching plan, and on the unit still being strong enough to carry it."""
+	var plan := _resolve_plan_for(player, snapshot)
+	if plan.is_empty():
+		return {}
+	var earmarks = plan.get("earmarks", [])
+	if not (earmarks is Array):
+		return {}
+	for entry in earmarks:
+		if not (entry is Dictionary):
+			continue
+		if _plan_live_unit_id(str(entry.get("unit", "")), player, snapshot) != unit_id:
+			continue
+		if _plan_earmark_released(unit_id, player, snapshot, plan, str(entry.get("verb", ""))):
+			return {}
+		return entry
+	return {}
+
+static func _plan_earmark_released(unit_id: String, player: int, snapshot: Dictionary,
+		plan: Dictionary, verb: String) -> bool:
+	"""True once the unit is below PLAN_EARMARK_RELEASE_AT of its starting
+	strength. A plan written for a fresh unit stops being good advice for a
+	wreck of one, so the earmark decays out and the unit rejoins normal
+	decision-making. Logged exactly once per unit."""
+	var unit: Dictionary = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+	var models: Array = unit.get("models", [])
+	if models.is_empty():
+		return false
+	var alive := 0
+	for model in models:
+		if model.get("alive", true):
+			alive += 1
+	var fraction := float(alive) / float(models.size())
+	if fraction >= get_param("PLAN_EARMARK_RELEASE_AT", PLAN_EARMARK_RELEASE_AT):
+		return false
+	var key := "%d:%s" % [player, unit_id]
+	if not _plan_released_earmarks.has(key):
+		_plan_released_earmarks[key] = true
+		_plan_log("Released %s's %s earmark from plan '%s' — down to %d/%d models (%.0f%%)" % [
+			unit_id, verb, str(plan.get("name", "?")), alive, models.size(), fraction * 100.0])
+	return true
+
+static func _plan_central_objective_ids(snapshot: Dictionary) -> Array:
+	"""Objective ids PUSH_CENTER should aim at: the mission's own `central`
+	designation where it exists, else whatever sits nearest the board centre."""
+	var mm = null
+	var main_loop = Engine.get_main_loop()
+	if main_loop is SceneTree and main_loop.root:
+		mm = main_loop.root.get_node_or_null("MissionManager")
+	if mm != null and mm.has_method("get_objective_ids_by_designation"):
+		var designated: Array = mm.get_objective_ids_by_designation("central")
+		if not designated.is_empty():
+			return designated
+	var centre := Vector2(BOARD_WIDTH_PX * 0.5, BOARD_HEIGHT_PX * 0.5)
+	var best_id := ""
+	var best_dist := INF
+	for obj in snapshot.get("board", {}).get("objectives", []):
+		if not (obj is Dictionary):
+			continue
+		var pos = obj.get("position", null)
+		if pos == null:
+			continue
+		var p: Vector2 = pos if pos is Vector2 else Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+		var d := centre.distance_to(p)
+		if d < best_dist:
+			best_dist = d
+			best_id = str(obj.get("id", ""))
+	return [best_id] if not best_id.is_empty() else []
+
+static func _plan_objective_earmark_bonus(unit_id: String, objective_id: String,
+		player: int, snapshot: Dictionary) -> Dictionary:
+	"""{bonus, earmark} for a (unit, objective) pair. HOLD_OBJECTIVE and
+	PUSH_CENTER are the same shape — an additive term the record can name."""
+	var earmark := _plan_earmark_for(unit_id, player, snapshot)
+	if earmark.is_empty():
+		return {"bonus": 0.0, "earmark": ""}
+	var verb := str(earmark.get("verb", ""))
+	if verb == "HOLD_OBJECTIVE":
+		if str(earmark.get("target", "")) == objective_id:
+			return {"bonus": get_param("PLAN_EARMARK_HOLD_BONUS", PLAN_EARMARK_HOLD_BONUS),
+				"earmark": "HOLD_OBJECTIVE:%s" % objective_id}
+	elif verb == "PUSH_CENTER":
+		if _plan_central_objective_ids(snapshot).has(objective_id):
+			return {"bonus": get_param("PLAN_EARMARK_PUSH_BONUS", PLAN_EARMARK_PUSH_BONUS),
+				"earmark": "PUSH_CENTER:%s" % objective_id}
+	return {"bonus": 0.0, "earmark": ""}
+
+static func _plan_unit_is_screening(unit_id: String, player: int, snapshot: Dictionary) -> bool:
+	"""SCREEN withholds the unit from the objective passes entirely.
+
+	There is no "offer this unit to screening first" entry point — the screening
+	pass (pass 3) only ever sees units the objective passes left unassigned — so
+	the only way to make a unit screen is to keep it out of those passes."""
+	var earmark := _plan_earmark_for(unit_id, player, snapshot)
+	return not earmark.is_empty() and str(earmark.get("verb", "")) == "SCREEN"
+
+static func _plan_hunt_bonus(attacker_unit: Dictionary, target_unit: Dictionary,
+		snapshot: Dictionary, player: int) -> float:
+	"""HUNT_CHARACTERS: an ADDITIVE term alongside the scorers' existing
+	CHARACTER handling, never a replacement for it — _score_shooting_target
+	already multiplies CHARACTER targets by 1.2, and swapping that constant out
+	would change behaviour for every unit, earmarked or not."""
+	if attacker_unit.is_empty() or target_unit.is_empty():
+		return 0.0
+	if not ("CHARACTER" in target_unit.get("meta", {}).get("keywords", [])):
+		return 0.0
+	var attacker_id := str(attacker_unit.get("id", ""))
+	if attacker_id.is_empty():
+		return 0.0
+	var seat := player if player > 0 else int(attacker_unit.get("owner", 0))
+	if seat <= 0:
+		return 0.0
+	var earmark := _plan_earmark_for(attacker_id, seat, snapshot)
+	if earmark.is_empty() or str(earmark.get("verb", "")) != "HUNT_CHARACTERS":
+		return 0.0
+	return get_param("PLAN_EARMARK_HUNT_BONUS", PLAN_EARMARK_HUNT_BONUS)
+
+static func apply_plan_profile_fragment(player: int, plan: Dictionary) -> void:
+	"""Layer a plan's `profile_fragment` in as this player's profile.
+
+	Merge order, highest first: rule overrides > an explicitly assigned
+	per-player profile > the plan's fragment > ai_config.json > code default.
+	An explicit profile therefore WINS: this only installs the fragment when the
+	player has no profile of their own, so assigning a profile is never silently
+	overwritten by a plan."""
+	if plan.is_empty() or not plans_enabled():
+		return
+	var fragment = plan.get("profile_fragment", {})
+	if not (fragment is Dictionary):
+		return
+	if fragment.get("parameters", {}).is_empty() and fragment.get("rules", []).is_empty():
+		return
+	if _player_profiles.has(player):
+		_plan_log("Player %d already has an explicit profile — plan '%s' fragment NOT applied" % [
+			player, str(plan.get("name", "?"))])
+		return
+	load_player_profile(player, fragment)
+	_plan_log("Applied plan '%s' profile_fragment for player %d" % [str(plan.get("name", "?")), player])
+
+static func _plan_earmark_context(unit_id: String, player: int, snapshot: Dictionary,
+		unit_candidates: Array) -> String:
+	"""The record's `earmark` field: "VERB" for a unit under an earmark, and
+	"VERB:objective" when the assignment it actually took was the one the
+	earmark pointed at."""
+	var earmark := _plan_earmark_for(unit_id, player, snapshot)
+	if earmark.is_empty():
+		return ""
+	var verb := str(earmark.get("verb", ""))
+	for cand in unit_candidates:
+		if cand is Dictionary and not str(cand.get("earmark", "")).is_empty():
+			return str(cand["earmark"])
+	return verb
 
 static func evaluate_rules(player: int, context: Dictionary) -> void:
 	"""Evaluate conditional rules for a player given game context.
@@ -3039,6 +3213,7 @@ static func _snapshot_planning_state() -> Dictionary:
 		"player_plans": _player_plans.duplicate(true),
 		"plan_auto_match_attempted": _plan_auto_match_attempted.duplicate(true),
 		"plan_logged_once": _plan_logged_once.duplicate(true),
+		"plan_released_earmarks": _plan_released_earmarks.duplicate(true),
 	}
 
 static func _restore_planning_state(s: Dictionary) -> void:
@@ -3077,6 +3252,7 @@ static func _restore_planning_state(s: Dictionary) -> void:
 	_player_plans = s["player_plans"]
 	_plan_auto_match_attempted = s["plan_auto_match_attempted"]
 	_plan_logged_once = s["plan_logged_once"]
+	_plan_released_earmarks = s["plan_released_earmarks"]
 
 # =============================================================================
 # T7-40: EASY DIFFICULTY — RANDOM VALID ACTIONS
@@ -3763,7 +3939,10 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 				 "unit_pos": [centroid.x, centroid.y] if centroid != Vector2.INF else [],
 				 "unit_oc": int(unit_candidates[0].get("unit_oc", 0)),
 				 "assigned_by": assign_pass_name,
-				 "assign_action": assign_action})
+				 "assign_action": assign_action,
+				 # PM-3: which earmark, if any, biased this assignment — the
+				 # field a run reads to count earmark adherence per seat.
+				 "earmark": _plan_earmark_context(unit_id, player, snapshot, unit_candidates)})
 			# COORD-4: whenever the assignment overrode raw scores (hold rules,
 			# redirects, backfills), SAY SO — a card that reads "chose 10.9,
 			# rejected 20.2" with no explanation looks like the AI can't compare
@@ -8686,6 +8865,14 @@ static func _assign_units_to_objectives(
 		if is_engaged:
 			continue  # Engaged units handled separately
 
+		# PM-3: a SCREEN earmark keeps the unit OUT of the objective passes so it
+		# falls through to the screening pass below, which only ever considers
+		# units these passes left unassigned.
+		if _plan_unit_is_screening(unit_id, player, snapshot):
+			_plan_log_once("%d:%s:screen" % [player, unit_id],
+				"Earmark SCREEN withholds %s from the objective passes" % unit_id)
+			continue
+
 		var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
 		var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
 		var unit_keywords = unit.get("meta", {}).get("keywords", [])
@@ -9052,11 +9239,19 @@ static func _assign_units_to_objectives(
 					action = "advance"
 					reason = "advancing for extra range"
 
+			# PM-3: the plan's HOLD_OBJECTIVE / PUSH_CENTER bias, as a named
+			# additive term so it shows up in score_breakdown like every other.
+			var plan_bias := _plan_objective_earmark_bonus(unit_id, obj_id, player, snapshot)
+			var plan_earmark_label := str(plan_bias.get("earmark", ""))
+			if float(plan_bias.get("bonus", 0.0)) != 0.0:
+				score += _t_add(score_terms, "plan_earmark", float(plan_bias["bonus"]))
+
 			candidates.append({
 				"unit_id": unit_id,
 				"objective_id": obj_id,
 				"objective_pos": obj_pos,
 				"score": score,
+				"earmark": plan_earmark_label,
 				"action": action,
 				"reason": reason,
 				"distance": dist_px,
@@ -15257,6 +15452,8 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 	# Bonus for CHARACTER targets
 	if "CHARACTER" in target_keywords:
 		score += get_param("CHARGE_CHARACTER_BONUS", CHARGE_CHARACTER_BONUS)
+	# PM-3: HUNT_CHARACTERS adds to that bonus rather than replacing it.
+	score += _plan_hunt_bonus(charger, target, snapshot, player)
 
 	# Penalty for very tough targets we can't damage effectively
 	# Reduced from -3 to -1 because charging still locks enemies in combat,
@@ -16867,6 +17064,8 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 	# Bonus for CHARACTER targets (high-value eliminations)
 	if "CHARACTER" in target_keywords:
 		score += get_param("FIGHT_CHARACTER_BONUS", FIGHT_CHARACTER_BONUS)
+	# PM-3: HUNT_CHARACTERS adds to that bonus rather than replacing it.
+	score += _plan_hunt_bonus(attacker, target, snapshot, player)
 
 	# Penalty for targets we can't meaningfully damage
 	if expected_damage < 1.0:
@@ -21003,6 +21202,10 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 	var keywords = target_unit.get("meta", {}).get("keywords", [])
 	if "CHARACTER" in keywords:
 		expected_damage *= 1.2
+
+	# PM-3: HUNT_CHARACTERS is an ADDITIVE term alongside the x1.2 above — the
+	# multiplier applies to every shooter, earmarked or not, so it stays put.
+	expected_damage += _plan_hunt_bonus(shooter_unit, target_unit, snapshot, int(shooter_unit.get("owner", 0)))
 
 	# Apply weapon-target efficiency multiplier
 	var efficiency = _calculate_efficiency_multiplier(weapon, target_unit)

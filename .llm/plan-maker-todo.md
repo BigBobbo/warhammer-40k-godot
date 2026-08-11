@@ -1004,7 +1004,7 @@ Commit: see `PM-2b: the AI declares a plan's reserves, embarkations and attachme
 
 ## PM-3 — AI consumes earmarks + profile fragment
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-1 (recommended after PM-2a)
 **Player-facing:** yes — version_history entry required
 
@@ -1061,7 +1061,83 @@ fragments.
 
 **Out of scope.** New verbs, per-unit parameter systems, TRADE.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+One mechanism per verb, all in `40k/scripts/AIDecisionMaker.gd`:
+- `HOLD_OBJECTIVE` / `PUSH_CENTER` — a named additive `_t_add(score_terms,
+  "plan_earmark", …)` on the (unit, objective) pair inside
+  `_assign_units_to_objectives`, weighted by `PLAN_EARMARK_HOLD_BONUS` /
+  `PLAN_EARMARK_PUSH_BONUS`. PUSH_CENTER resolves the centre through
+  `MissionManager.get_objective_ids_by_designation("central")`, falling back to
+  nearest-to-board-centre.
+- `SCREEN` — the unit is skipped in the objective passes so it drops into the
+  leftover pass, which is the only thing that feeds screening; there is no
+  "offer to screening first" entry point.
+- `HUNT_CHARACTERS` — `_plan_hunt_bonus` added in `_score_shooting_target`,
+  `_score_charge_target` and `_score_fight_target`, ALONGSIDE their existing
+  CHARACTER handling (shooting's x1.2 multiplier is untouched, since it applies
+  to every shooter, earmarked or not).
+- `RESERVE_UNTIL` — consumed at formations/deployment in PM-2b.
+- Decay: `_plan_earmark_released` drops an earmark below
+  `PLAN_EARMARK_RELEASE_AT` (0.5) of starting models, logged once;
+  `_plan_released_earmarks` is registered in both halves of the snapshot
+  contract.
+- `apply_plan_profile_fragment` layers a plan's fragment in through
+  `load_player_profile` — and refuses when the player already has an explicit
+  profile, so assigning a profile is never silently overwritten by a plan.
+- Movement decision records carry `context.earmark`
+  (e.g. `"PUSH_CENTER:obj_center"`).
+
+```
+$ godot --headless --path . -s tests/unit/test_ai_plan_earmarks.gd
+=== Results: 35 passed, 0 failed ===
+```
+including the gate's differential run through the REAL
+`_assign_units_to_objectives`: with plans off the unit is assigned obj_home_1;
+with a HOLD_OBJECTIVE earmark it is assigned obj_center, and the assignment's
+`score_breakdown` names the `plan_earmark` term that did it. SCREEN shows the
+same shape — `assign_pass` moves from `capture` to `support`.
+
+```
+$ bash 40k/tests/run_scenario.sh tests/scenarios/sp/pm3_earmarks_bias_assignment.json
+[ScenarioRunner] === pm3_earmarks_bias_assignment: 72 passed, 0 failed ===
+SCENARIO pm3 earmarked_units=2 control_earmark_records=0 differed_vs_control=1
+SCENARIO pm3   U_ALLARUS_CUSTODIANS_A    earmark=PUSH_CENTER:obj_center
+                 plan[capture|Move obj_center …]  control[capture|Move obj_center …]
+SCENARIO pm3   U_ALLARUS_CUSTODIANS_A_P2 earmark=PUSH_CENTER:obj_center
+                 plan[capture|Move obj_center …]  control[capture|Move obj_nml_2 …]
+```
+The scenario runs the SAME fixture twice in one session — plan arm, then
+`PLANS_ENABLED=0` control — and compares movement decision RECORDS rather than
+positions, because a position can coincide while the reasoning differs. The
+control arm produced **zero** earmark-tagged records, and one of the two
+earmarked units was demonstrably rerouted (seat 2's Allarus went to obj_center
+under the plan and obj_nml_2 without it). The other agreed with the formula,
+which is the honest outcome for a prior: an earmark tilts a decision, it does
+not always change it.
+
+Screenshot: `40k/docs/evidence/pm3_earmarks_after_movement.png` — the plan arm at
+battle round 2 with the earmarked Allarus units around the centre objective.
+Note plainly: this is a board state, not a picture of the mechanism; the
+decisive evidence is the record comparison above.
+
+Three findings:
+
+1. **`obj_evaluations` entries are read with dot notation, so a missing field
+   throws and silently yields NO candidates at all.** A fabricated eval without
+   `is_home` made `_assign_units_to_objectives` return `{}` with only a
+   `SCRIPT ERROR` line to show for it. Anything constructing evals in a test
+   must carry the full shape.
+2. **The "hold" pass overrides raw scores.** A unit already standing on an
+   objective is assigned by the hold pass before the score-sorted capture pass,
+   so no scoring bonus can move it. An earmark differential has to use a unit
+   that is NOT already on an objective.
+3. **The assignment is greedy and consumes each objective's OC need.** A second
+   unit standing next to the earmarked objective claims it first and the
+   earmark has nothing left to win, so the isolated differential uses a single
+   free chooser.
+
+Commit: see `PM-3: earmarks bias the AI's objective assignment and target choice`.
 
 ---
 

@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.29.2",
+      "date": "2026-08-11",
+      "summary": "AI Plans can now give each unit a job for the whole battle — hold this objective, push the middle, screen, or hunt characters — and the AI leans that way instead of re-deciding from scratch every turn.",
+      "changes": [
+        "New: per-unit intents. A plan can tell the AI what each unit is FOR: Hold Objective (a named one), Push Centre, Screen, Reserve Until a round, or Hunt Characters. The AI's own judgement still does the work — the intent just tilts it.",
+        "Hold Objective and Push Centre add a visible weighting toward that objective when the AI decides where each unit goes, and the AI's decision log names the intent that tipped it.",
+        "Screen keeps a unit out of the objective grab entirely, so it ends up doing the screening and blocking job instead.",
+        "Hunt Characters makes a unit prefer enemy characters when it picks shooting, charge and melee targets — added on top of the AI's existing preference, not instead of it.",
+        "Intents fade when a unit is wrecked: once it is below half strength the AI stops holding it to a job written for a fresh squad, and says so in the log. The half-strength point is adjustable.",
+        "A plan can also carry AI tuning of its own. A profile you assign yourself always wins over a plan's tuning, so a plan can never quietly override your settings."
+      ]
+    },
+    {
       "version": "1.29.1",
       "date": "2026-08-11",
       "summary": "AI Plans now also decide the AI's pre-battle declarations — what it holds in Reserves, what rides in a transport, and which character leads which squad.",

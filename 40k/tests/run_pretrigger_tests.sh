@@ -26,6 +26,7 @@
 #   - PM-1 PlanManager storage + plan-to-game matching (game_config / faction)
 #   - PM-2a AI deployment from a plan (order, seat-2 mirror, formula fallback)
 #   - PM-2b AI formations from a plan (reserves, embarkations, attachments)
+#   - PM-3 AI earmarks (hold/push/screen/hunt bias, release, fragment layering)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -163,6 +164,7 @@ TESTS=(
     "tests/unit/test_plan_manager.gd"
     "tests/unit/test_ai_plan_deployment.gd"
     "tests/unit/test_ai_plan_formations.gd"
+    "tests/unit/test_ai_plan_earmarks.gd"
 )
 
 FAILED=0
