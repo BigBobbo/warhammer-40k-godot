@@ -16,11 +16,35 @@ importantly — does it *do what the plan says*?
 
 ## VERDICT
 
-**PENDING — the paired A/B was still running when this file was committed.**
-Everything else in this report is measured and final; the effect E, its se and
-the per-game table land in the follow-up commit. Nothing below is a
-placeholder: the adherence numbers, the three defects and the stall are all
-from completed runs.
+**The plan feature does what it claims: 100% adherence, on both seats, in
+every game that completed.** 13 of 13 placements and 4 of 4 reserves, measured
+against the plan file rather than counted from the log. That is the primary
+gate and it passes with room to spare.
+
+**The run also fails the other half of the primary gate: there were stalls.**
+Two of six seeds hung in deployment, deterministically, on the seat with plans
+switched OFF. That is a pre-existing formula defect (**PM-F6**) rather than a
+plan defect — but a plan-driven opponent reproduces it reliably, so shipping
+plans makes it reachable in ordinary play, and it cost a third of the paired
+data.
+
+**There is no measured VP effect: E = +3.00 VP/game, se 6.83, 2-se interval
+[−10.7, +16.7] at n = 4.** The run cannot see anything smaller than ±13.7 VP,
+so this is a null in the "we could not have detected it" sense rather than the
+"it does nothing" sense. E is not negative, which is the sanity check the gate
+asks for, and nothing stronger is claimed. (At three pairs the same run read
++9.67 with an interval excluding zero; the fourth pair was −17.0. That is
+recorded in full as an argument against reading sequential runs early.)
+
+**Three further defects were found by measuring adherence properly**
+(PM-F3, PM-F4, PM-F5), all of which the AI absorbs silently: no error, no
+stall, just the AI doing something other than what the plan says. PM-F5 is the
+one to fix first — it leaves the objective the whole plan is built around
+**Uncontrolled** at the end of deployment.
+
+Both plans ship. They are marked `"author": "claude-draft — owner review
+wanted"`, and that label is doing real work: the content is strong practice
+mechanically, but nobody has played against it.
 
 ---
 
@@ -95,9 +119,64 @@ recomputed at that n rather than at 6.
 
 ## Results
 
-**PENDING — see VERDICT.** The 18-game run (6 pairs x M1/M2 + a 6-game A/A
-arm, Normal difficulty) was still in flight at commit time. What is already
-known from it is the stall below, which came out of its first wave.
+12 games, 6 seeds x 2 arms, Normal difficulty, `--max-seconds 1800`.
+`plans_on` is on P2 in M1 and on P1 in M2, so the pair difference cancels the
+fixture's structural bias.
+
+| arm | seed | winner | margin (P2−P1) | rounds | wall | plan seat adherence |
+|---|---|---|---|---|---|---|
+| M1 | 9001 | — | *stalled* | 1 | 94s | — |
+| M1 | 9002 | 2 | +23 | 5 | 989s | 13/13 + 4/4 |
+| M1 | 9003 | 2 | +19 | 5 | 834s | 13/13 + 4/4 |
+| M1 | 9004 | 1 | −27 | 5 | 1103s | 13/13 + 4/4 |
+| M1 | 9005 | — | *stalled* | 1 | 95s | — |
+| M1 | 9006 | 2 | +11 | 5 | 689s | 13/13 + 4/4 |
+| M2 | 9001 | 2 | +9 | 5 | 911s | 13/13 + 4/4 |
+| M2 | 9002 | 2 | +1 | 5 | 661s | 13/13 + 4/4 |
+| M2 | 9003 | 2 | +8 | 5 | 790s | 13/13 + 4/4 |
+| M2 | 9004 | 2 | +7 | 5 | 1288s | 13/13 + 4/4 |
+| M2 | 9006 | 1 | −14 | 5 | 740s | 13/13 + 4/4 |
+
+**A seed only yields a pair if it completes in BOTH arms**, and PM-F6 stalled
+9001 and 9005 in M1, so those seeds are gone regardless of what M2 did with
+them. That is how 6 planned pairs became the handful reported below.
+
+### The effect
+
+```
+paired seeds       9002, 9003, 9004, 9006     n = 4  (of 6 planned)
+per-pair effects   +11.0, +5.5, -17.0, +12.5
+E                  +3.00 VP/game
+sd 13.67   se 6.83   2-se interval [-10.7, +16.7]
+minimum detectable effect at n=4 (2 se):  +/- 13.7 VP
+F (structural bias, from the A/B arms themselves) = +3.50 VP
+```
+
+**E is +3.00 VP/game with an interval that comfortably spans zero. There is no
+measured effect here, and that is the expected outcome at this n.** A plan
+worth 3 VP a game is invisible to a 4-pair run that cannot see anything under
+±13.7 VP. The gate asked for E to be *reported* with its se and for the MDE to
+be stated plainly — done — and for "E not significantly negative" as a sanity
+check, which passes.
+
+**A caution worth recording, because it nearly went the other way.** With three
+pairs in hand this read `E = +9.67, sd 3.69, se 2.13`, a 2-se interval of
+`[+5.4, +13.9]` that excluded zero, and would have satisfied the
+pre-registered |E| ≥ 4 VP and 2 se rule. The fourth pair was −17.0 and the
+effect collapsed to +3.00 with the interval spanning zero. Three consistent
+numbers are not evidence of consistency; an sd estimated from three points is
+an artefact of the sample. The interim figure is left here deliberately as the
+reason not to read a sequential run early.
+
+**The missing seeds are not missing at random.** 9001 and 9005 are exactly the
+seeds where the formula seat stalls (PM-F6), so the surviving sample is the one
+where the formula could deploy successfully. Which way that biases E is not
+established; it is another reason the number is reported rather than claimed.
+
+Confirming a real effect needs the PM-F6 stall fixed and a re-run at 12+ pairs.
+On the prior sd of ~20 VP/game that is roughly ±8 VP of resolution — still
+coarse, which is why the plan feature is justified on adherence and
+predictability rather than on VP.
 
 ### Stalls — the primary gate FAILS, and it dominated the run
 
