@@ -256,7 +256,7 @@ impossible on the web export.
 
 ## PM-0 — Plan schema v1 + validator + example fixtures
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** —
 **Player-facing:** no
 
@@ -366,7 +366,75 @@ pasted into Evidence.
 **Out of scope.** Runtime loading (PM-1), AI behavior (PM-2x/3), anchor
 resolution.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+VERIFIED: pure-state (no UI affordance) — PM-0 ships only a format doc, a
+static `RefCounted` validator with no scene, node, signal or input surface, two
+JSON test fixtures, and a headless test. Nothing in this task is reachable from
+the running UI: no menu entry, button, panel or overlay is added or changed, and
+`PlanValidator` has no runtime caller yet (its first callers arrive in PM-1 and
+PM-2a, both of which carry their own windowed gates). A windowed scenario here
+could only screenshot an unchanged main menu, which CLAUDE.md explicitly calls a
+marker rather than evidence.
+
+Delivered:
+- `40k/docs/PLAN_FORMAT.md` — annotated example on real recon_stomps ids, verb
+  table, frame/transform rule, matching + fallback semantics, fragment merge
+  order, earmark-vs-intent note.
+- `40k/scripts/PlanValidator.gd` — static, ProfileManager-style.
+- `40k/tests/fixtures/ai_plans/fixture_minimal_valid.json` and
+  `fixture_recon_stomps_rich.json` (13 placements / 54 models / all five verbs /
+  reserves / embarkation / attachment, `"author": "fixture"`).
+- `40k/tests/unit/test_plan_validator.gd`, registered in the `TESTS` array of
+  `40k/tests/run_pretrigger_tests.sh`.
+
+Commands + output:
+```
+$ godot --headless --import          # clean, rc=0, no errors/warnings
+$ godot --headless --path . -s tests/unit/test_plan_validator.gd
+=== PlanValidator (PM-0) Tests ===
+... 65 PASS lines ...
+=== Results: 65 passed, 0 failed ===
+```
+(No `SCRIPT ERROR` lines. The only stderr at exit is the engine's standard
+`RID allocations ... leaked at exit` / `resources still in use at exit` noise
+that every headless run in this repo emits, including a bare
+`godot --headless --import`.)
+
+Two findings that changed the implementation from the task text:
+
+1. **`DeploymentZoneData` cannot be preloaded from a `-s` SceneTree test.** It
+   calls the `Measurement` autoload, whose identifier does not resolve in that
+   compile context; preloading it yields
+   `SCRIPT ERROR: Compile Error: Identifier not found: Measurement` and the
+   preloaded script's static funcs then fail with
+   `Invalid call. Nonexistent function 'get_zones' in base 'GDScript'`
+   (reproduced, then fixed). PlanValidator therefore reads
+   `res://deployment_zones/<id>.json` directly — the same JSON
+   `DeploymentZoneData.get_zones()` itself prefers (`:29-34`) — and stays
+   autoload-free. `test_deployment_types_all_have_zone_json` asserts every
+   `DEPLOYMENT_TYPES` entry really has such a file (all 6 do), reading the const
+   out of the source text so no ERROR line is emitted. **Consumers of the zone
+   polygons in later PM tasks that run in-game (PM-2a) can use
+   `DeploymentZoneData` normally; only `-s` test context is affected.**
+
+2. **The "transformed placement outside P2 zone" corruption case is reachable
+   with real shipped data.** All 6 selectable zones are exact point reflections
+   (asserted for every vertex by `test_shipped_zones_are_point_symmetric`), so
+   the P2 check can never fire for them. But
+   `res://deployment_zones/crucible_of_battle_new.json` — a file on disk that is
+   NOT in `DEPLOYMENT_TYPES` — is asymmetric (P1 is the triangle
+   (0,0)-(44,0)-(0,30); P2 starts at y=33, not y=30). A placement at
+   `[4.0, 26.0]` is inside its P1 zone and mirrors to `(40, 34)`, outside its P2
+   zone, so the test exercises the real error path with real data rather than a
+   fabricated polygon.
+
+Also verified while building: reserves caps mirror `FormationsPhase.gd:400-420`
+exactly — the unit-count cap counts reserves *entries* (`:814-816`) while the
+points cap includes characters attached to a reserved bodyguard (`:802-812`);
+both are asserted.
+
+Commit: see `PM-0: wh40k_ai_plan v1 schema, validator, fixtures, tests`.
 
 ---
 

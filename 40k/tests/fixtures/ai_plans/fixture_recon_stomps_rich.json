@@ -1,0 +1,447 @@
+{
+ "format": "wh40k_ai_plan",
+ "version": 1,
+ "name": "Fixture \u2014 Recon Stomps rich (all five verbs)",
+ "description": "Test fixture exercising every schema section: ordered placements, reserves, an embarkation, a leader attachment and all five earmark verbs. Positions are authored in the player-1 hammer_anvil frame.",
+ "author": "fixture",
+ "keys": {
+  "army_file": "recon_stomps",
+  "detachment_hint": "Speedwaaagh!",
+  "deployment_zone_id": "hammer_anvil",
+  "terrain_layout_id": "take_and_hold_vs_purge_the_foe_3",
+  "mission_id": ""
+ },
+ "deployment": {
+  "order": [
+   "U_GRETCHIN_A",
+   "U_STORMBOYZ_A",
+   "U_STORMBOYZ_C",
+   "U_STORMBOYZ_D",
+   "U_WARBIKERS_A",
+   "U_WARBIKERS_B",
+   "U_WARBIKERS_C",
+   "U_WARBIKERS_D",
+   "U_DEFFKOPTAS_B",
+   "U_DEFFKILLA_WARTRIKE_A",
+   "U_DEFFKILLA_WARTRIKE_B",
+   "U_MEK_A",
+   "U_STOMPA_A"
+  ],
+  "placements": [
+   {
+    "unit": "U_GRETCHIN_A",
+    "unit_name": "Gretchin",
+    "role_fallback": "screen",
+    "models_inches": [
+     [
+      2.5,
+      3.0
+     ],
+     [
+      4.0,
+      3.0
+     ],
+     [
+      5.5,
+      3.0
+     ],
+     [
+      7.0,
+      3.0
+     ],
+     [
+      8.5,
+      3.0
+     ],
+     [
+      10.0,
+      3.0
+     ],
+     [
+      11.5,
+      3.0
+     ],
+     [
+      13.0,
+      3.0
+     ],
+     [
+      14.5,
+      3.0
+     ],
+     [
+      16.0,
+      3.0
+     ],
+     [
+      17.5,
+      3.0
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 15.0
+    }
+   },
+   {
+    "unit": "U_STORMBOYZ_A",
+    "unit_name": "Stormboyz",
+    "role_fallback": "screen",
+    "models_inches": [
+     [
+      2.5,
+      6.0
+     ],
+     [
+      4.0,
+      6.0
+     ],
+     [
+      5.5,
+      6.0
+     ],
+     [
+      7.0,
+      6.0
+     ],
+     [
+      8.5,
+      6.0
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 12.0
+    }
+   },
+   {
+    "unit": "U_STORMBOYZ_C",
+    "unit_name": "Stormboyz",
+    "role_fallback": "screen",
+    "models_inches": [
+     [
+      2.5,
+      9.0
+     ],
+     [
+      4.0,
+      9.0
+     ],
+     [
+      5.5,
+      9.0
+     ],
+     [
+      7.0,
+      9.0
+     ],
+     [
+      8.5,
+      9.0
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 9.0
+    }
+   },
+   {
+    "unit": "U_STORMBOYZ_D",
+    "unit_name": "Stormboyz",
+    "role_fallback": "screen",
+    "models_inches": [
+     [
+      2.5,
+      12.0
+     ],
+     [
+      4.0,
+      12.0
+     ],
+     [
+      5.5,
+      12.0
+     ],
+     [
+      7.0,
+      12.0
+     ],
+     [
+      8.5,
+      12.0
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_center",
+     "depth_from_zone_edge_in": 6.0
+    }
+   },
+   {
+    "unit": "U_WARBIKERS_A",
+    "unit_name": "Warbikers",
+    "role_fallback": "flank",
+    "models_inches": [
+     [
+      2.5,
+      15.0
+     ],
+     [
+      4.5,
+      15.0
+     ],
+     [
+      6.5,
+      15.0
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_center",
+     "depth_from_zone_edge_in": 3.0
+    }
+   },
+   {
+    "unit": "U_WARBIKERS_B",
+    "unit_name": "Warbikers",
+    "role_fallback": "flank",
+    "models_inches": [
+     [
+      20.0,
+      3.0
+     ],
+     [
+      22.0,
+      3.0
+     ],
+     [
+      24.0,
+      3.0
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 15.0
+    }
+   },
+   {
+    "unit": "U_WARBIKERS_C",
+    "unit_name": "Warbikers",
+    "role_fallback": "flank",
+    "models_inches": [
+     [
+      11.0,
+      6.0
+     ],
+     [
+      13.0,
+      6.0
+     ],
+     [
+      15.0,
+      6.0
+     ],
+     [
+      17.0,
+      6.0
+     ],
+     [
+      19.0,
+      6.0
+     ],
+     [
+      21.0,
+      6.0
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 12.0
+    }
+   },
+   {
+    "unit": "U_WARBIKERS_D",
+    "unit_name": "Warbikers",
+    "role_fallback": "flank",
+    "models_inches": [
+     [
+      11.0,
+      9.0
+     ],
+     [
+      13.0,
+      9.0
+     ],
+     [
+      15.0,
+      9.0
+     ],
+     [
+      17.0,
+      9.0
+     ],
+     [
+      19.0,
+      9.0
+     ],
+     [
+      21.0,
+      9.0
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 9.0
+    }
+   },
+   {
+    "unit": "U_DEFFKOPTAS_B",
+    "unit_name": "Deffkoptas",
+    "role_fallback": "flank",
+    "models_inches": [
+     [
+      11.0,
+      12.0
+     ],
+     [
+      13.0,
+      12.0
+     ],
+     [
+      15.0,
+      12.0
+     ],
+     [
+      17.0,
+      12.0
+     ],
+     [
+      19.0,
+      12.0
+     ],
+     [
+      21.0,
+      12.0
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_center",
+     "depth_from_zone_edge_in": 6.0
+    }
+   },
+   {
+    "unit": "U_DEFFKILLA_WARTRIKE_A",
+    "unit_name": "Deffkilla Wartrike",
+    "role_fallback": "character",
+    "models_inches": [
+     [
+      9.5,
+      15.0
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_center",
+     "depth_from_zone_edge_in": 3.0
+    }
+   },
+   {
+    "unit": "U_DEFFKILLA_WARTRIKE_B",
+    "unit_name": "Deffkilla Wartrike",
+    "role_fallback": "character",
+    "models_inches": [
+     [
+      27.0,
+      3.0
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 15.0
+    }
+   },
+   {
+    "unit": "U_MEK_A",
+    "unit_name": "Mek",
+    "role_fallback": "character",
+    "models_inches": [
+     [
+      24.0,
+      6.0
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 12.0
+    }
+   },
+   {
+    "unit": "U_STOMPA_A",
+    "unit_name": "Stompa",
+    "role_fallback": "anchor",
+    "models_inches": [
+     [
+      24.0,
+      9.0
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 9.0
+    }
+   }
+  ],
+  "reserves": [
+   {
+    "unit": "U_STORMBOYZ_B",
+    "arrival_round": 2
+   },
+   {
+    "unit": "U_DEFFKOPTAS_A",
+    "arrival_round": 3
+   }
+  ],
+  "embarkations": [
+   {
+    "unit": "U_GRETCHIN_B",
+    "transport": "U_STOMPA_A"
+   }
+  ],
+  "attachments": [
+   {
+    "character": "U_WAZDAKKA_GUTSMEK_A",
+    "bodyguard": "U_WARBIKERS_C"
+   }
+  ]
+ },
+ "earmarks": [
+  {
+   "unit": "U_GRETCHIN_A",
+   "unit_name": "Gretchin",
+   "verb": "HOLD_OBJECTIVE",
+   "target": "obj_home_1"
+  },
+  {
+   "unit": "U_WARBIKERS_C",
+   "unit_name": "Warbikers",
+   "verb": "PUSH_CENTER"
+  },
+  {
+   "unit": "U_STORMBOYZ_A",
+   "unit_name": "Stormboyz",
+   "verb": "SCREEN"
+  },
+  {
+   "unit": "U_STORMBOYZ_B",
+   "unit_name": "Stormboyz",
+   "verb": "RESERVE_UNTIL",
+   "round": 2
+  },
+  {
+   "unit": "U_DEFFKILLA_WARTRIKE_A",
+   "unit_name": "Deffkilla Wartrike",
+   "verb": "HUNT_CHARACTERS"
+  }
+ ],
+ "profile_fragment": {
+  "parameters": {},
+  "rules": []
+ }
+}

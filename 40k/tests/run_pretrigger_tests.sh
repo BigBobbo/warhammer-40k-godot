@@ -22,6 +22,7 @@
 #   - TestModeHandler shooting-phase action handler dispatch (multi-peer infra)
 #   - TestModeHandler command-file double-execution race fix (in-flight set)
 #   - TestModeHandler transition_to_phase action (multi-peer boot-phase advance)
+#   - PM-0 wh40k_ai_plan schema validator (verbs, seat-2 mirror, reserves caps)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -155,6 +156,7 @@ TESTS=(
     "tests/test_modifier_provenance.gd"
     "tests/test_ai_movement_coordination.gd"
     "tests/test_ai_battle_plan.gd"
+    "tests/unit/test_plan_validator.gd"
 )
 
 FAILED=0
