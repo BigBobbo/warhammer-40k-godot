@@ -309,6 +309,55 @@ matters when reading it:
 
 _(observations filled in below)_
 
+### What was actually played
+
+A real menu game: seat 1 **HUMAN** on `recon_stomps`, seat 2 **AI** on
+`recon_stomps` with the shipped hammer_anvil plan, hammer_anvil derived from
+the Force Dispositions + `take_and_hold_vs_purge_the_foe_3`. The script
+designated a warlord, confirmed formations, won the roll-off, chose a side, and
+then deployed seat 1 from the plan's own (unmirrored) coordinates.
+
+**Scope, stated plainly: this covers setup, formations and deployment — not
+five battle rounds.** Driving a human seat's whole game through the bridge is a
+much bigger job than it looks and the session budget went on the four defects
+above instead. What follows is what the deployment phase showed. Screenshot:
+`40k/docs/evidence/pm10_standin_human_vs_plan_ai.png`.
+
+### Where the plan looked smart
+
+* **It deployed at all.** The AI put 12 of 13 units down straight from the plan
+  ("*P2: Deployed Warbikers Gamma from plan 'Orks — Recon Stomps on Hammer and
+  Anvil'*", over and over in the game log), with 4 in reserves exactly as
+  declared, while the human seat next to it was grinding.
+* **Reserves and attachments came out right without any prompting** — the same
+  4 units held back, the same 2 Wartrikes attached, in a game that had nothing
+  to do with the bench fixture.
+* **Every position it used was pre-validated.** That is the real advantage and
+  it is invisible until you try to do it by hand — see below.
+
+### Where the plan, and the board, looked stupid
+
+* **`obj_home_1` is Uncontrolled at the end of deployment** — the objective the
+  entire plan is written around. That is PM-F5: the AI put both Gretchin mobs
+  inside the Stompa. A person watching this game would see the AI ignore its
+  own stated intent, with nothing in the log to explain it.
+* **The human seat could not legally deploy its Stompa anywhere.** 9,408
+  candidate positions across the whole zone were rejected by the phase — the
+  screenshot shows why, with the highlighted zone almost entirely under
+  terrain. The plan's own Stompa coordinate was among the rejects for seat 1
+  (`Model cannot overlap with walls this unit can't cross`), while the AI
+  seated its mirrored Stompa without trouble: the terrain on this layout is not
+  symmetric, so a plan authored in the player-1 frame is not automatically
+  comfortable in it.
+* **That cuts both ways as an argument for the feature.** A plan's positions
+  are checked against the deployment phase itself at authoring time; a player
+  eyeballing the same board gets no such help, and on this layout a 180mm base
+  simply has nowhere to stand once the rest of the army is down.
+
+**Nobody contested the plan**, so nothing here says whether it is a *good*
+plan. That question is still open and is what the `"author": "claude-draft —
+owner review wanted"` label is for.
+
 ---
 
 ## What the plans are
