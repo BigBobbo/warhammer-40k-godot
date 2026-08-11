@@ -19069,11 +19069,18 @@ static func _assess_engage_on_all_fronts(units: Dictionary, player: int) -> floa
 	var alive = _count_alive_units_for_player(units, player)
 	if alive < 2:
 		return 0.05  # Can't cover enough quarters
-	# Check how many quarters we currently have units in (>6" from center)
+	# Check how many quarters we currently have units in (>6" from center).
+	# _get_covered_quarters returns an ARRAY of four bools, so iterate its
+	# values. The previous `for q in covered: if covered[q]` treated it as a
+	# dictionary: `q` was already the bool, and `covered[false]` threw
+	# "Invalid access to property or key 'false' on a base object of type
+	# 'Array'" on every call — which left covered_count permanently 0, so this
+	# assessment could never see a spread-out army and always fell through to
+	# the alive-count branches below.
 	var covered = _get_covered_quarters(units, player)
 	var covered_count = 0
-	for q in covered:
-		if covered[q]:
+	for is_covered in covered:
+		if is_covered:
 			covered_count += 1
 	if covered_count >= 3:
 		return 0.8  # Already in 3+ quarters — very achievable

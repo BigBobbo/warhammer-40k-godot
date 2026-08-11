@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.35.0",
+      "date": "2026-08-11",
+      "summary": "New Battle Simulator: play the same battle several times with the computer on both sides, and see whether a plan actually wins more often.",
+      "changes": [
+        "New: a Battle Simulator button on the main menu. Pick the armies, the plan for each side (or none), the deployment zone, the terrain and how many games to play, then press Run.",
+        "The games play out on screen underneath the panel, one after another, so you can watch or leave it running.",
+        "How long it will take is not guessed: the estimate appears after the first game finishes and is based on how long that game actually took.",
+        "Results fill in as they finish — winner, score, battle rounds, how many units each side put down from its plan, and the time taken — with a summary of wins and the average margin.",
+        "Cancel stops after the game in progress and keeps the results so far.",
+        "Every simulated game is recorded, so any of them can be replayed from Watch Replays, and the full results are written to a file you can open."
+      ]
+    },
+    {
       "version": "1.34.0",
       "date": "2026-08-11",
       "summary": "An 'AI Plans' screen on the main menu: see every plan you have, what it is for, and whether it is still valid — and rename or delete your own.",

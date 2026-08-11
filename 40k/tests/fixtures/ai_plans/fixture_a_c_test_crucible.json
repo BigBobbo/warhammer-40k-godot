@@ -1,0 +1,78 @@
+{
+	"author": "pm8b",
+	"deployment": {
+		"attachments": [],
+		"embarkations": [],
+		"order": [
+			"U_WITCHSEEKERS_C",
+			"U_BLADE_CHAMPION_A",
+			"U_CALADIUS_GRAV-TANK_E"
+		],
+		"placements": [
+			{
+				"models_inches": [
+					[
+						30.0,
+						12.0
+					],
+					[
+						31.5,
+						12.0
+					],
+					[
+						33.0,
+						12.0
+					],
+					[
+						34.5,
+						12.0
+					]
+				],
+				"unit": "U_WITCHSEEKERS_C",
+				"unit_name": "Witchseekers"
+			},
+			{
+				"models_inches": [
+					[
+						34.0,
+						8.0
+					]
+				],
+				"unit": "U_BLADE_CHAMPION_A",
+				"unit_name": "Blade Champion"
+			},
+			{
+				"models_inches": [
+					[
+						36.0,
+						18.0
+					]
+				],
+				"unit": "U_CALADIUS_GRAV-TANK_E",
+				"unit_name": "Caladius Grav-tank"
+			}
+		],
+		"reserves": []
+	},
+	"description": "Small three-unit fixture for the PM-8b simulator gate: fast games, both seats covered.",
+	"earmarks": [
+		{
+			"unit": "U_WITCHSEEKERS_C",
+			"verb": "SCREEN"
+		},
+		{
+			"unit": "U_BLADE_CHAMPION_A",
+			"verb": "PUSH_CENTER"
+		}
+	],
+	"format": "wh40k_ai_plan",
+	"keys": {
+		"army_file": "A_C_test",
+		"deployment_zone_id": "crucible_of_battle",
+		"detachment_hint": "",
+		"mission_id": "",
+		"terrain_layout_id": "take_and_hold_mirror_1"
+	},
+	"name": "Fixture — A_C_test on Crucible",
+	"version": 1
+}

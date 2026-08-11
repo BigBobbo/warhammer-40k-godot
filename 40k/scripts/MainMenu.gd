@@ -68,6 +68,9 @@ var plan_editor_zone_dropdown: OptionButton = null
 # Plan Editor — browsing plans is a housekeeping action, not part of starting a
 # session.
 @onready var plan_browser_button: Button = $ScrollContainer/MenuContainer/ButtonSection/PlanBrowserButton
+# PM-9: the Battle Simulator overlay lives in an autoload (games change scene
+# underneath it), so the menu only has to open it.
+@onready var simulator_button: Button = $ScrollContainer/MenuContainer/ButtonSection/SimulatorButton
 var plan_browser_dialog: AcceptDialog = null
 @onready var multiplayer_button: Button = $ScrollContainer/MenuContainer/ButtonSection/MultiplayerButton
 @onready var load_button: Button = $ScrollContainer/MenuContainer/ButtonSection/LoadButton
@@ -263,8 +266,8 @@ func _apply_theme() -> void:
 
 	# Buttons — Start Game is primary, rest are secondary
 	WhiteDwarfThemeData.apply_primary_button(start_button)
-	for btn in [plan_editor_button, plan_browser_button, multiplayer_button, load_button,
-			replay_button, settings_button, quit_button]:
+	for btn in [plan_editor_button, plan_browser_button, simulator_button, multiplayer_button,
+			load_button, replay_button, settings_button, quit_button]:
 		WhiteDwarfThemeData.apply_secondary_button(btn)
 
 func _create_data_attribution_credit() -> void:
@@ -444,8 +447,8 @@ func _promote_buttons_above_fold() -> void:
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 8)
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	for btn_name in ["TutorialButton", "PlanBrowserButton", "MultiplayerButton", "LoadButton",
-			"ReplayButton", "SettingsButton", "QuitButton"]:
+	for btn_name in ["TutorialButton", "PlanBrowserButton", "SimulatorButton", "MultiplayerButton",
+			"LoadButton", "ReplayButton", "SettingsButton", "QuitButton"]:
 		var b = buttons.get_node_or_null(NodePath(btn_name))
 		if b != null:
 			buttons.remove_child(b)
@@ -1512,6 +1515,7 @@ func _connect_signals() -> void:
 	start_button.pressed.connect(_on_start_button_pressed)
 	plan_editor_button.pressed.connect(_on_plan_editor_button_pressed)
 	plan_browser_button.pressed.connect(_on_plan_browser_button_pressed)
+	simulator_button.pressed.connect(_on_simulator_button_pressed)
 	multiplayer_button.pressed.connect(_on_multiplayer_button_pressed)
 	load_button.pressed.connect(_on_load_button_pressed)
 	replay_button.pressed.connect(_on_replay_button_pressed)
@@ -1521,8 +1525,8 @@ func _connect_signals() -> void:
 	# UI sound cues on the menu buttons (routed to the SFX bus).
 	var mm = get_node_or_null("/root/MusicManager")
 	if mm:
-		for b in [start_button, plan_editor_button, plan_browser_button, multiplayer_button,
-				load_button, replay_button, settings_button, quit_button]:
+		for b in [start_button, plan_editor_button, plan_browser_button, simulator_button,
+				multiplayer_button, load_button, replay_button, settings_button, quit_button]:
 			b.pressed.connect(func(): mm.play_sfx("click"))
 			b.mouse_entered.connect(func(): mm.play_sfx("hover"))
 
@@ -1899,6 +1903,15 @@ func _on_plan_browser_button_pressed() -> void:
 	# Explicit size — AcceptDialog otherwise sizes to the content's minimum,
 	# which for a table is "as tall as it can get".
 	plan_browser_dialog.popup_centered(Vector2i(960, 560))
+
+func _on_simulator_button_pressed() -> void:
+	"""PM-9: open the Battle Simulator overlay."""
+	print("MainMenu: Battle Simulator button pressed")
+	var sim_ui = get_node_or_null("/root/PlanSimulatorUI")
+	if sim_ui == null:
+		push_warning("MainMenu: PlanSimulatorUI autoload not available")
+		return
+	sim_ui.open()
 
 func _on_multiplayer_button_pressed() -> void:
 	print("MainMenu: Multiplayer button pressed")

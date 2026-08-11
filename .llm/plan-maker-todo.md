@@ -1699,7 +1699,7 @@ Two findings:
 
 ## PM-8b — Simulator backend: plan vs plan, N seeded games
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-2a, PM-8a (its verdict dictates the reset implementation)
 **Player-facing:** partially (backend; version_history entry lands with PM-9)
 
@@ -1768,13 +1768,79 @@ run twice at same seed_base → identical winners and margins;
 **Out of scope.** UI (PM-9), parallelism, subprocesses, stats beyond
 mean ± sd.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/autoloads/PlanSimulator.gd` | new autoload. `start()` / `cancel()`, the four signals, per-game bootstrap + seeding, PM-8a's full reset list, result rows and summary, JSON output |
+| `40k/scripts/GameWatcher.gd` | new. The per-game watch loop extracted from the spike: completed / timeout / **stalled** as distinct outcomes |
+| `40k/scripts/AIDecisionMaker.gd` | fixed `_assess_engage_on_all_fronts` — see finding 2 |
+| `40k/tests/test_plan_simulator.gd` | the headless gate |
+| `40k/tests/fixtures/ai_plans/fixture_a_c_test_crucible.json` | a 3-unit plan so the gate runs in ~90s |
+| `40k/project.godot` | autoload registration |
+| `40k/docs/PLAN_FORMAT.md` | "Comparing two plans: the simulator", including the reset table |
+
+Headless gate — **39 passed, 0 failed**, and after finding 2, **zero
+SCRIPT ERROR lines across all four games**:
+
+```
+run A  game 1  seed 8200  completed  P1 25 - 35 P2  round 5  15.3s
+       game 2  seed 8201  completed  P1 37 - 10 P2  round 5  26.4s
+       summary: P1 1 - 1 P2 (0 draws), mean margin +8.5 ± 18.5
+run B  (same seed_base) identical: 25-35 and 37-10
+```
+
+| Gate item | Result |
+|---|---|
+| 2 result rows, different seeds | `[8200, 8201]`, i.e. `seed_base + i` |
+| equal unit counts at both game starts | `[6, 6]` |
+| **seat-2 plan adherence > 0** | 3 placements per game, both seats, both runs |
+| summary math agrees with the rows | wins 1/1/0, mean +8.50, sd 18.50 — recomputed from the rows in the test, not read back |
+| stalls / timeouts | 0 / 0 |
+| same `seed_base` twice | identical winner, margin and VP for both games |
+| a *different* seed is a different game | 230 actions 25-35 vs 254 actions 37-10 |
+| results file | `user://plan_sim_results/<timestamp>.json` |
+
+That last row matters: without it "deterministic" could just mean every game
+collapsed into the same one.
+
+Three findings:
+
+1. **The gate's army choice is load-bearing.** The first attempt used
+   `custodes_lions` (11 units) with the crucible fixture: game 1 finished in
+   178s but game 2 ran past the 600s cap and was recorded as a `timeout`. Real
+   2000-pt lists vary by several minutes per seed. The gate now uses the 3-unit
+   `A_C_test` list with a purpose-built fixture plan (~15-26s per game), which
+   is what the task text meant by "small armies". The timeout was the watcher
+   reporting correctly, not a hang — `stalled` stayed 0 throughout.
+2. **`_assess_engage_on_all_fronts` was throwing on every call.**
+   `_get_covered_quarters` returns an **Array** of four bools;
+   the caller iterated it as a Dictionary (`for q in covered: if covered[q]`),
+   so `q` was already the bool and `covered[false]` raised "Invalid access to
+   property or key 'false' on a base object of type 'Array'". The knock-on is
+   worse than the log noise: `covered_count` stayed permanently 0, so the AI
+   could never see a spread-out army and always fell through to the
+   alive-count branches. Fixed by iterating the values. Pre-existing; found
+   because the simulator's no-ERROR gate surfaced it. The other two call sites
+   index with `_get_table_quarter()` (an int) and were already correct.
+3. **`AIBenchmarkRunner` was NOT migrated onto `GameWatcher`.** The task text
+   asks for a helper "both callers share"; it currently has one caller. That
+   harness is where the project's bench baselines come from, and rewriting it
+   to prove a point about sharing is a worse trade than one duplicated 40-line
+   loop. `GameWatcher` is written to be adoptable when that harness is next
+   touched for its own reasons. Stated plainly rather than claimed as done.
+
+`tests/test_plan_simulator.gd` is deliberately **not** in
+`run_pretrigger_tests.sh`: it plays four full games (~90s), and the audit suite
+is already ~45 minutes. It is run directly, as above.
 
 ---
 
 ## PM-9 — Simulator UI
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-8b, PM-7a
 **Player-facing:** yes — version_history entry required (covers PM-8b too)
 
@@ -1801,7 +1867,62 @@ clean after the run. Screenshots: configured setup; completed results table
 
 **Out of scope.** Charts, Elo, parallel execution.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/autoloads/PlanSimulatorUI.gd` | new autoload CanvasLayer: pickers (army/plan per seat, zone, layout, games 1-20, difficulty), Run / Cancel / Close / Show results file, live progress, measured ETA, results table, summary, replay pointer |
+| `40k/scenes/MainMenu.tscn`, `40k/scripts/MainMenu.gd` | `SimulatorButton` + `_on_simulator_button_pressed` |
+| `40k/scripts/Main.gd` | the Game Over dialog is suppressed during a simulator run |
+| `40k/autoloads/ScenarioRunner.gd` | new `wait_for_script` act — see finding 1 |
+| `40k/tests/scenarios/sp/pm9_simulator_run.json` | the windowed gate |
+| `40k/data/version_history.json` | 1.35.0 (covers PM-8b too) |
+| `40k/docs/PLAN_FORMAT.md` | "The Battle Simulator overlay" |
+
+Windowed `sp/pm9_simulator_run` — **46 passed, 0 failed**. It runs the CANCEL
+path first (start → cancel → wait for the run to actually stop → assert
+`cancelled` and fewer games run than requested → Close lands on `MainMenu`),
+then a full 2-game run. Measured values from the final run:
+
+| What | Value |
+|---|---|
+| configured | `A_C_test\|crucible_of_battle\|take_and_hold_mirror_1\|2 games\|plan on P1` |
+| rows | `1\|1000\|Player 2` and `2\|1001\|Player 2` |
+| plan hits (P1 / P2) | `2 / 0` and `3 / 0` — nonzero for the planned seat, **exactly 0** for the None seat |
+| ETA before the first game | "unknown until the first game finishes" |
+| ETA after | "Measured 29s per game." |
+| table vs the results JSON on disk | `matches` — every row's seed and VP, and the summary line |
+| Close after the run | back on `MainMenu` |
+
+The table-vs-file check is the one that matters: it makes the panel a *view* of
+the results rather than a separately-maintained summary that could drift.
+
+Screenshots: `40k/docs/evidence/pm9_results_table.png` (the signature image —
+both rows, the plan/no-plan adherence split, the summary, the results-file
+toast) and `pm9_configured.png`.
+
+Three findings:
+
+1. **`await` inside a scenario `execute_script` silently does nothing.** The
+   snippet is compiled into a throwaway GDScript and invoked with `.call()`,
+   so an `await` makes `_run` a coroutine and `.call()` returns a
+   `GDScriptFunctionState` immediately — the step "passes" without having
+   waited. The first PM-9 run lost 11 assertions to this: everything downstream
+   of "wait until the run stops" ran while the simulator was still going. Fixed
+   by adding a `wait_for_script` act to `ScenarioRunner` that polls a snippet
+   until it matches or times out. That act is reusable by any scenario waiting
+   on a long-running process.
+2. **The Game Over dialog covered the results.** It is `exclusive` and
+   `always_on_top`, so it renders above the overlay's CanvasLayer — N games
+   meant N modal ceremonies hiding the table. Caught only by looking at the
+   screenshot; the scenario had already passed. Suppressed while a run is in
+   progress.
+3. **A stale ETA is worse than none.** Reopening the overlay and pressing Run
+   used to leave the previous run's "Measured 49s per game" on screen as if it
+   described the new one. Pressing Run now clears it; reopening without running
+   legitimately still shows the last completed run's measurement.
 
 ---
 

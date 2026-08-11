@@ -11934,6 +11934,15 @@ func _on_network_game_over(winner: int, reason: String) -> void:
 	_show_game_over_dialog(winner, reason)
 
 func _show_game_over_dialog(winner: int, reason: String) -> void:
+	# PM-9: during a simulator run the player asked for N games, not N game-over
+	# ceremonies. The dialog is exclusive and always_on_top, so it also covers
+	# the simulator's own results table. The result is still collected from
+	# MissionManager by PlanSimulator either way.
+	var simulator = get_node_or_null("/root/PlanSimulator")
+	if simulator != null and simulator.has_method("is_running") and simulator.is_running():
+		print("Main: Game over during a simulator run — suppressing the dialog")
+		return
+
 	# Clean up any existing dialog
 	if game_over_dialog and is_instance_valid(game_over_dialog):
 		game_over_dialog.queue_free()

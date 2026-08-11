@@ -189,6 +189,87 @@ Proof: `40k/tests/scenarios/sp/pm7b_plan_browser.json`.
 
 ---
 
+## Comparing two plans: the simulator (PM-8b)
+
+`PlanSimulator` (autoload) runs N seeded AI-vs-AI games back to back in one
+process — same mission, zone, layout and armies, plan A against plan B (either
+may be "no plan") — and reports who won, by how much, and how much of each plan
+the AI actually followed.
+
+```gdscript
+PlanSimulator.start({
+    zone_id = "crucible_of_battle", layout_id = "take_and_hold_mirror_1",
+    mission_id = "take_and_hold", army1 = "custodes_lions", army2 = "custodes_lions",
+    plan1 = "user://ai_plans/mine.json", plan2 = "",   # "" / "none" = no plan
+    games = 5, seed_base = 1000, difficulty = 1,
+})
+# signals: run_started(total) game_finished(i, result) run_finished(summary) run_cancelled(summary)
+```
+
+An **autoload**, because each game changes scene into `Main.tscn` — a node owned
+by the menu scene would be freed on the first game.
+
+### The reset list is not optional
+
+The PM-8a spike
+(`40k/tests/bench_baselines/2026-08-11_pm8a_inline_reset_spike.md`) established
+that consecutive in-process games are viable *only* with the full reset in
+`_reset_between_games`. With the obvious three entries
+(`StratagemManager` / `UnitAbilityManager` / `PhaseManager`), two same-seed
+games diverged. Every additional entry was earned by a measured divergence:
+
+| Entry | What it was hiding |
+|---|---|
+| Quiesce the AI **before** teardown | AIPlayer kept acting while the next game was assembled; the later `configure()` then wiped the evidence |
+| `FactionAbilityManager`'s per-game dictionaries | **The determinism-breaker.** No reset entry point, and fixed-shape `{"1":…,"2":…}` dicts whose *size* never changes, so a size fingerprint cannot see them leak |
+| `PhaseManager._last_round_started` | `reset()` does not clear it |
+| `MissionManager` lambda receivers | `Main._setup_objectives` connects lambdas capturing scene nodes to autoload signals; 105 ERROR lines in a 3-game run |
+| `ActionLogger` / `GameEventLog` / `ReplayManager` | Unbounded growth, and both logs feed AI-visible context |
+| **Seed the GLOBAL RNG** | `Array.shuffle()` / `randi()` / `randf()` do not use the seeding triple. A fresh process starts it from a fixed default — which is why two *processes* agreed — but the state carries over between in-session games |
+
+Order matters too: quiesce, reset, *then* bootstrap. Resetting after the
+bootstrap wipes what the bootstrap just populated.
+
+`ReplayManager.auto_record_ai` is deliberately left **on**: the auto-recorded
+replays are the only way to rewatch a simulated game. The cost is one replay
+file per game.
+
+Proof: `40k/tests/test_plan_simulator.gd` — a 2-game mirror run twice at the
+same `seed_base`, asserting identical winners/margins/VP across runs, a
+genuinely different game at a different seed, seat-2 plan adherence above zero,
+and summary arithmetic that agrees with the rows.
+
+### The Battle Simulator overlay (PM-9)
+
+`PlanSimulatorUI` is an **autoload `CanvasLayer`**, for the same reason
+`PlanSimulator` is an autoload: every game changes scene into `Main.tscn`, so a
+menu-scene Control would be freed on the first game. The consequence is a
+feature — the games play visibly underneath the panel.
+
+Three things it is deliberately careful about:
+
+- **The ETA is measured, never guessed.** It stays "unknown until the first
+  game finishes" and is then driven by the observed seconds per game. Wall time
+  varies enormously (the bench baselines are ~2.5 min/game Custodes and ~8 min
+  Orks; a 3-unit list is ~15 s headless and ~30 s windowed), so any static
+  estimate would be wrong most of the time. Pressing Run clears the previous
+  run's measurement rather than presenting it as this run's estimate.
+- **The results table is a view of the results file, not a second copy.** The
+  scenario asserts every row's seed and VP, and the summary line, against the
+  JSON `PlanSimulator` wrote to `user://plan_sim_results/`.
+- **Closing returns to the menu.** After a run the scene underneath the overlay
+  is a finished battle, not the menu, so `close()` performs the same teardown
+  `Main._on_main_menu_requested` does and changes scene.
+
+The game's own Game Over dialog is suppressed while a run is in progress
+(`Main._show_game_over_dialog`): it is `exclusive` and `always_on_top`, so N
+games meant N modal ceremonies covering the results table.
+
+Proof: `40k/tests/scenarios/sp/pm9_simulator_run.json`, which runs the cancel
+path and a full 2-game run.
+
+---
+
 ## Terminology: "earmark" vs "intent"
 
 **`earmark`** is the word in the schema, in code, in logs and in decision
