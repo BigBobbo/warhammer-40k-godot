@@ -2301,3 +2301,54 @@ Gretchin deploy from the plan and `eligible` rises from 9 to 11.
 
 **Evidence.** Debug log `debug_20260811_194852.log`; the scenario's own
 `SCENARIO pm10 PM-F5:` line.
+
+---
+
+## PM-F6 — FOLLOW-UP: the deployment formula stalls the game on the Ork predeploy fixture
+
+**Status:** TODO
+**Depends:** — (pre-existing; PM-F1 is probably the same defect)
+**Player-facing:** yes — the game hangs in deployment
+
+**What was observed.** In the PM-10 paired A/B on `mirror_orks_2000_predeploy`
+at **Normal** difficulty, 2 of the first 5 games ended `stalled` — "no progress
+for 90s" — both at round 1, phase 1, after ~41 actions. Both have the same
+signature, and it is always the seat with **plans OFF**:
+
+```
+seed 9001                                    seed 9005
+P1  Deployed Warbikers Gamma (col 5, row 3)  P1  Warbikers placed in reserves (fallback)
+P1  Warbikers placed in reserves (fallback)  P1  Deployed Warbikers Delta (col 1, row 4)
+P2  Deployed Warbikers Delta FROM PLAN       P1  Deployed Wazdakka Gutsmek (character…)
+P1  Deployed Warbikers Delta (col 1, row 4)  P1  Deployed Wazdakka Gutsmek (retry 4)
+P1  Deployed Wazdakka Gutsmek (character…)   P2  Deployed Warbikers Alpha FROM PLAN
+```
+
+The formula retries the same placement, falls back to reserves, and eventually
+the game makes no progress at all. The plan-driven seat deploys cleanly through
+the whole sequence in both games.
+
+**The plan does not cause it, but it does expose it.** Seed 9001 COMPLETED in
+an earlier run of the same arms with an earlier version of the plan. The
+deployment formula counter-deploys relative to the enemy cluster
+(`T7-44 melee counter-deploy: shift toward enemy cluster`), so changing what
+the opponent puts on the board changes where the formula tries to go — and on
+this fixture it tries to go somewhere it cannot legally fill. A plan-driven
+opponent is therefore a reliable way to reproduce it.
+
+**Why it matters beyond the lab.** Two of six seeds unusable is a 33% loss of
+paired data, which is why PM-10 could not report an effect at the intended n.
+A player would see the game stop during deployment.
+
+**Suggested fix.** Bound the retry loop in the deployment formula and make the
+final fallback unconditional (place legally anywhere in the zone, or into
+reserves) rather than allowing the phase to sit with no legal action. Then
+investigate why the chosen position is unfillable — the retry log lines name
+the unit (Warbikers, Wazdakka Gutsmek: 42x75mm and 92x120mm bases).
+
+**Validation gate.** A headless case that reproduces a stall on this fixture
+before the fix and completes after it, plus a re-run of the PM-10 A/B showing
+6 usable pairs.
+
+**Evidence.** `tests/bench_baselines/2026-08-11_plan_vs_formula.md`; the
+stalled games' `action_log` in the season directory.

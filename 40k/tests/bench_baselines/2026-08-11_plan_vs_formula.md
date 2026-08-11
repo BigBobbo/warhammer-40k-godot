@@ -85,6 +85,12 @@ A null E with high adherence is an acceptable — indeed expected — outcome. T
 point of the plan feature is that the AI does something a person can predict
 and recognise, not that it wins more.
 
+**And the realised n is smaller than the planned n**, because a seed only
+yields a pair if it completes in BOTH arms and PM-F6 stalls some of them. The
+table above is therefore the optimistic case; the number of pairs actually
+obtained is stated with the result, and the minimum detectable effect is
+recomputed at that n rather than at 6.
+
 ---
 
 ## Results
@@ -93,41 +99,59 @@ and recognise, not that it wins more.
 arm, Normal difficulty) was still in flight at commit time. What is already
 known from it is the stall below, which came out of its first wave.
 
-### Stalls
+### Stalls — the primary gate FAILS, and it dominated the run
 
-The primary gate includes **zero stalls**. It is not met, and the failure is
-not in the plan:
-
-```
-seed 9001 (M1): stalled  round 1  "no progress for 90s at 1|1|41"
-```
-
-The action log of that game shows what happened, and which seat did it:
+The primary gate includes **zero stalls**. It is not met. In the first
+completed wave of the M1 arm, **4 of 5 games did not complete**:
 
 ```
-P1  Deployed Warbikers Alpha (durable_shooter, col 3, row 3)
-P1  Deployed Warbikers (retry 1)
-P2  Deployed Warbikers Gamma from plan 'Orks — Recon Stomps on Crucible'
-P1  Deployed Warbikers Beta (durable_shooter, col 4, row 3)
-P1  Deployed Warbikers (retry 2)
-P2  Deployed Deffkilla Wartrike Beta from plan 'Orks — Recon Stomps on Crucible'
-P1  Warbikers placed in reserves (fallback)
-P2  Deployed Warbikers Delta from plan 'Orks — Recon Stomps on Crucible'
+9001  stalled    round 1   wall   94s   "no progress for 90s at 1|1|41"
+9002  timeout    round 4   wall  901s
+9003  completed  round 5   wall  839s   margin +19
+9004  timeout    round 4   wall  918s   margin -39
+9005  stalled    round 1   wall   94s   "no progress for 90s at 1|1|42"
 ```
 
-**P1 is the formula seat** (`plans_off` in the M1 arm) — it retries the same
-Warbikers placement, gives up into reserves, and eventually the game makes no
-progress for 90 seconds. The plan seat deploys cleanly through the whole
-sequence. The same retry-until-fallback pattern is visible in the windowed
-scenario's game log on the control seat ("*AND within 9" of every other model
-in the unit (1 model(s) out of coherency.) — retry…*").
+Two distinct problems, and only one of them is mine:
 
-So this is a **pre-existing deployment-formula defect** in the same family as
-PM-F1, surfaced by this run rather than caused by it — nothing in this task
-changes AI code, and the seat that stalls is the one with plans switched off.
-It is reported here as a gate failure regardless, because "the stall was
-somebody else's fault" is not the same as "there were no stalls", and a stalled
-game costs a whole pair.
+**The timeouts were my run configuration.** A completed game on this fixture at
+Normal takes ~840s; `--max-seconds 900` left no headroom, so games still
+playing round 4 were cut off. The run was relaunched with `--max-seconds 1800`.
+That is a harness setting, not a defect, and it is called out here because
+"2 timeouts" in a results table looks like an engine problem and was not.
+
+**The stalls are a real defect, and always on the seat with plans OFF.** Both
+have the same signature:
+
+```
+seed 9001                                    seed 9005
+P1  Deployed Warbikers Gamma (col 5, row 3)  P1  Warbikers placed in reserves (fallback)
+P1  Warbikers placed in reserves (fallback)  P1  Deployed Warbikers Delta (col 1, row 4)
+P2  Deployed Warbikers Delta FROM PLAN       P1  Deployed Wazdakka Gutsmek (character…)
+P1  Deployed Warbikers Delta (col 1, row 4)  P1  Deployed Wazdakka Gutsmek (retry 4)
+P1  Deployed Wazdakka Gutsmek (character…)   P2  Deployed Warbikers Alpha FROM PLAN
+```
+
+The formula retries a placement, falls back to reserves, and the game then
+makes no progress at all. The plan-driven seat deploys cleanly through both
+sequences. The same retry-until-fallback pattern appears in the windowed
+scenario's log on its control seat ("*AND within 9" of every other model in the
+unit (1 model(s) out of coherency.) — retry…*").
+
+**The plan does not cause it, but it does expose it — and that distinction is
+not a way of dodging the gate.** Seed 9001 completed in an earlier run of the
+same arms against an earlier version of the plan. The formula counter-deploys
+relative to the enemy cluster (`T7-44 melee counter-deploy: shift toward enemy
+cluster`), so changing what the opponent puts on the board changes where the
+formula tries to go, and on this fixture it sometimes tries to go somewhere it
+cannot legally fill. Shipping a plan therefore makes this reproducible in
+ordinary play. Filed as **PM-F6**.
+
+Nothing in this task changes AI code; the seat that hangs is the one with plans
+switched off. It is still reported as a gate failure, because "somebody else's
+bug" is not "no stalls", and because each stalled seed costs a whole pair —
+which is the direct reason the effect below is measured at a smaller n than
+intended.
 
 ---
 
