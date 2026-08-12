@@ -1,0 +1,200 @@
+{
+	"id": "pm11_reentry",
+	"description": "PM-11 coherence: the Plan Editor and the Battle Simulator survive being entered, left, and entered again. Both are unusual enough to be worth pinning. The Plan Editor deliberately holds the DEPLOYMENT phase open instead of letting it advance, and the Simulator is an autoload CanvasLayer that outlives the scene changes its own games cause — either could leave state behind that breaks the second visit, and neither would be caught by a test that only ever opens them once. The scenario opens each, leaves via its own exit path, returns to the menu, and opens it again, asserting the second visit is as good as the first.",
+	"covers": [
+		"ui.plan_editor_survives_reentry",
+		"ui.simulator_survives_reentry",
+		"state.no_simulator_overlay_left_behind",
+		"state.editor_flag_does_not_leak_into_a_normal_game"
+	],
+	"disable_ai": false,
+	"steps": [
+		{
+			"act": "wait_seconds",
+			"seconds": 1.5
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return str(tree.current_scene.name)",
+			"equals": "MainMenu"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Visit 1: open the Plan Editor.\nvar m = tree.current_scene\nvar army = -1\nfor i in range(m.army_options.size()):\n\tif str(m.army_options[i].id) == \"recon_stomps\":\n\t\tarmy = i\nm.player1_dropdown.selected = army\nm.player1_dropdown.emit_signal(\"item_selected\", army)\nvar zone = -1\nfor i in range(m.plan_editor_zone_dropdown.item_count):\n\tif m.plan_editor_zone_dropdown.get_item_text(i).begins_with(\"Hammer\"):\n\t\tzone = i\nif zone < 0:\n\treturn \"zone picker empty\"\nm.plan_editor_zone_dropdown.selected = zone\nreturn \"ready\"",
+			"equals": "ready"
+		},
+		{
+			"act": "click_node",
+			"node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/PlanEditorButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 5.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var pm = tree.root.get_node_or_null(\"PhaseManager\")\nreturn \"%s|%s\" % [str(tree.current_scene.name), str(pm.is_plan_editor_session())]",
+			"equals": "Main|true"
+		},
+		{
+			"act": "screenshot",
+			"label": "01_plan_editor_visit_1"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Leave the way a player does — the banner's own Exit to Menu button.\nvar btn = tree.root.find_child(\"PlanEditorExitButton\", true, false)\nif btn == null:\n\treturn \"exit button missing\"\nbtn.emit_signal(\"pressed\")\nreturn \"pressed\"",
+			"equals": "pressed"
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 5.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return str(tree.current_scene.name)",
+			"equals": "MainMenu"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The flag DOES survive the exit — meta.game_config keeps the editor's\n# config until something replaces it, so on the menu it still reads true.\n# That is recorded rather than asserted away, because the invariant that\n# actually matters is the next one: a normal game started afterwards must\n# not be a plan-editor session. MainMenu replaces meta.game_config wholesale\n# when Start Game is pressed, so the staleness cannot reach a real game — and\n# the next steps prove that rather than trusting the code read.\nvar pm = tree.root.get_node_or_null(\"PhaseManager\")\nprint(\"SCENARIO pm11 editor flag on the menu after exit: %s (stale, harmless — see next step)\" % str(pm.is_plan_editor_session()))\nreturn \"recorded\"",
+			"equals": "recorded"
+		},
+		{
+			"act": "click_node",
+			"node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 6.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# THE invariant: a normal game started straight after the editor is not a\n# plan-editor session. If it were, deployment would hold open and the game\n# would never start properly.\nvar pm = tree.root.get_node_or_null(\"PhaseManager\")\nprint(\"SCENARIO pm11 normal game after editor: scene=%s editor_session=%s\" % [str(tree.current_scene.name), str(pm.is_plan_editor_session())])\nreturn \"%s|%s\" % [str(tree.current_scene.name), str(pm.is_plan_editor_session())]",
+			"equals": "Main|false"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Back to the menu the way a player would, so the rest of the scenario\n# carries on from a known place.\nvar main = tree.current_scene\nif main.has_method(\"_on_main_menu_requested\"):\n\tmain._on_main_menu_requested()\n\treturn \"requested\"\nreturn \"no menu path\"",
+			"equals": "requested"
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 5.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return str(tree.current_scene.name)",
+			"equals": "MainMenu"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Visit 2: same again. This is the actual test.\nvar m = tree.current_scene\nvar army = -1\nfor i in range(m.army_options.size()):\n\tif str(m.army_options[i].id) == \"recon_stomps\":\n\t\tarmy = i\nm.player1_dropdown.selected = army\nm.player1_dropdown.emit_signal(\"item_selected\", army)\nvar zone = -1\nfor i in range(m.plan_editor_zone_dropdown.item_count):\n\tif m.plan_editor_zone_dropdown.get_item_text(i).begins_with(\"Hammer\"):\n\t\tzone = i\nm.plan_editor_zone_dropdown.selected = zone\nreturn \"ready\"",
+			"equals": "ready"
+		},
+		{
+			"act": "click_node",
+			"node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/PlanEditorButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 5.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var pm = tree.root.get_node_or_null(\"PhaseManager\")\nreturn \"%s|%s\" % [str(tree.current_scene.name), str(pm.is_plan_editor_session())]",
+			"equals": "Main|true"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The second session must be a fresh army, not the first one's leftovers.\nvar own = 0\nfor uid in GameState.state.units.keys():\n\tif int(GameState.state.units[uid].get(\"owner\", 0)) == 1:\n\t\town += 1\nvar enemy = 0\nfor uid in GameState.state.units.keys():\n\tif int(GameState.state.units[uid].get(\"owner\", 0)) == 2:\n\t\tenemy += 1\nprint(\"SCENARIO pm11 second editor session: %d own units, %d enemy units\" % [own, enemy])\nreturn \"%d|%d\" % [own, enemy]",
+			"equals": "17|0"
+		},
+		{
+			"act": "screenshot",
+			"label": "02_plan_editor_visit_2"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var btn = tree.root.find_child(\"PlanEditorExitButton\", true, false)\nif btn == null:\n\treturn \"exit button missing\"\nbtn.emit_signal(\"pressed\")\nreturn \"pressed\"",
+			"equals": "pressed"
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 5.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Visit 1 of the simulator.\nvar sim = tree.root.get_node_or_null(\"PlanSimulatorUI\")\nif sim == null:\n\treturn \"no PlanSimulatorUI autoload\"\nsim.open()\nreturn \"opened\"",
+			"equals": "opened"
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 2.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var sim = tree.root.get_node_or_null(\"PlanSimulatorUI\")\nreturn str(sim.visible)",
+			"equals": "true"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var sim = tree.root.get_node_or_null(\"PlanSimulatorUI\")\nsim.close()\nreturn \"closed\"",
+			"equals": "closed"
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 4.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var sim = tree.root.get_node_or_null(\"PlanSimulatorUI\")\nreturn \"%s|%s\" % [str(sim.visible), str(tree.current_scene.name)]",
+			"equals": "false|MainMenu"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Visit 2 of the simulator — the one that would catch a half-torn-down panel.\nvar sim = tree.root.get_node_or_null(\"PlanSimulatorUI\")\nsim.open()\nreturn \"opened\"",
+			"equals": "opened"
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 2.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var sim = tree.root.get_node_or_null(\"PlanSimulatorUI\")\nvar runner = tree.root.get_node_or_null(\"PlanSimulator\")\nvar running = false\nif runner != null and runner.has_method(\"is_running\"):\n\trunning = runner.is_running()\nprint(\"SCENARIO pm11 simulator second visit: visible=%s running=%s\" % [str(sim.visible), str(running)])\nreturn \"%s|%s\" % [str(sim.visible), str(running)]",
+			"equals": "true|false"
+		},
+		{
+			"act": "screenshot",
+			"label": "03_simulator_visit_2"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var sim = tree.root.get_node_or_null(\"PlanSimulatorUI\")\nsim.close()\nreturn \"closed\"",
+			"equals": "closed"
+		}
+	]
+}
