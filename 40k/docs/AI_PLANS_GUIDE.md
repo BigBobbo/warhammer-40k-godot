@@ -131,9 +131,6 @@ came from, and whether it is still valid.
 
 Honest list, so you are not surprised:
 
-* **The computer may load units into a transport even when the plan puts them
-  on an objective.** If your plan has a transport in it — a Stompa counts —
-  check where the passengers actually ended up. This is a known bug.
 * **A plan is written for one zone.** Used on a different one it will not
   match, and the computer falls back to its own judgement.
 * **Terrain moves.** A plan is laid out against one terrain layout; on a

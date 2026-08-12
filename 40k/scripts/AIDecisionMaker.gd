@@ -4029,7 +4029,7 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 	# T7-33 / FORM-2: After leader attachments, evaluate transport embarkation.
 	# Embark small/fast infantry units in transports for deployment efficiency.
 	if not transport_actions.is_empty():
-		var embark_decision = _evaluate_transport_embarkation(snapshot, transport_actions, player)
+		var embark_decision = _evaluate_transport_embarkation(snapshot, transport_actions, player, formations_plan)
 		if not embark_decision.is_empty():
 			return embark_decision
 
@@ -4214,11 +4214,26 @@ static func _score_leader_bodyguard_pairing(char_id: String, bg_id: String, all_
 # TRANSPORT EMBARKATION — FORMATIONS PHASE (T7-33 / FORM-2)
 # =============================================================================
 
-static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_actions: Array, player: int) -> Dictionary:
+static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_actions: Array, player: int,
+		plan: Dictionary = {}) -> Dictionary:
 	"""Evaluate which units should embark in available transports during formations.
 	Prioritizes embarking small/fast INFANTRY units for deployment efficiency.
-	Only embarks one transport per call (called repeatedly until no more are beneficial)."""
+	Only embarks one transport per call (called repeatedly until no more are beneficial).
+
+	PM-F5: `plan` is the plan in force for this seat, if any. A unit the plan
+	gives a PLACEMENT to is wanted ON THE BOARD at those coordinates, so the
+	formula must not put it inside a transport — an embarked unit does not
+	deploy itself and the placement is silently discarded. Units the plan does
+	not mention are still the formula's to decide, exactly as deployment order
+	already works."""
 	var all_units = snapshot.get("units", {})
+
+	# The plan's reserves AFTER the 50% trim — a trimmed-out entry is not going
+	# to be declared, so it is not claimed and the formula may still use it.
+	var plan_reserved_ids := {}
+	if not plan.is_empty():
+		for entry in _plan_reserve_units(plan, snapshot, player):
+			plan_reserved_ids[str(entry.get("unit", ""))] = true
 
 	# Build list of candidate units that could embark (not characters, not transports themselves)
 	var candidate_units = []
@@ -4256,6 +4271,23 @@ static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_acti
 		if unit_id in _bodyguards_with_leaders:
 			print("AIDecisionMaker: [FORM-2] Skipping %s for transport — has leader attached (needed on board)" % unit_id)
 			continue
+		# PM-F5: skip units the plan has already spoken for. Without this the
+		# formula's embarkation overrules the plan's own placement, and because
+		# an embarked unit never deploys, the plan's coordinates are dropped
+		# with no error — the unit is simply not where the plan put it. The same
+		# argument covers a unit the plan RESERVES: it is meant to arrive from
+		# reserves, not to start the game inside a transport.
+		if not plan.is_empty():
+			var claim := ""
+			if not _plan_placement_for(plan, unit_id, player, snapshot).is_empty():
+				claim = "places it on the board"
+			elif plan_reserved_ids.has(unit_id):
+				claim = "holds it in reserves"
+			if not claim.is_empty():
+				_plan_log_once("%d:%s:embark_suppressed" % [player, unit_id],
+					"Player %d NOT embarking %s — plan '%s' %s" % [
+						player, unit_id, str(plan.get("name", "?")), claim])
+				continue
 		candidate_units.append(unit_id)
 
 	if candidate_units.is_empty():

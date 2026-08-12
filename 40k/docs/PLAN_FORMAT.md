@@ -57,6 +57,19 @@ of deployment — the objective the plan is built around, empty, because the AI
 loaded the Gretchin into the Stompa (PM-F5). The stand-in capture shows the
 same thing in a human game.
 
+Those two captures are kept as they were taken. **PM-F5 is now fixed** — a unit
+the plan places (or reserves) is no longer embarked by the formula — so a run
+of the same scenario today deploys both Gretchin mobs on the board (11/11 each)
+instead of loading them into the Stompa: one on `obj_home_1`, the second
+screening beside it, which is what the plan asks for. See
+`pm_f5_gretchin_deployed_not_embarked.png` for the after.
+
+Read the "Uncontrolled" objective labels in either capture with care: that
+screenshot is taken at the first-turn roll-off, **before round 1**, so every
+objective reads Uncontrolled regardless of who is standing on it — `NML 1` does
+too, with nothing near it. The capture is evidence about where the models are,
+not about who holds what.
+
 ---
 
 ## Authoring: the Plan Editor sandbox (PM-4)

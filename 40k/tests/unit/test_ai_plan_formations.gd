@@ -12,6 +12,11 @@ extends SceneTree
 # DEPLOYMENT with formations already confirmed) is retrofitted through
 # DeploymentPhase's PLACE_IN_RESERVES safety net.
 #
+# PM-F5 — the formula's own embarkation pass must not overrule the plan: a unit
+# the plan PLACES or RESERVES is not embarked, while a unit the plan does not
+# mention still is. Carries a negative control, because the assertion is
+# worthless unless the formula genuinely wanted to embark that unit.
+#
 # Run with: godot --headless --path . -s tests/unit/test_ai_plan_formations.gd
 
 # Nothing is preloaded — see tests/unit/test_ai_plan_deployment.gd for why.
@@ -73,6 +78,21 @@ func _make_snapshot(player: int = 1) -> Dictionary:
 		for model in unit.get("models", []):
 			model["position"] = null
 			model["alive"] = true
+		# ArmyListManager derives transport_data from the TRANSPORT ability text
+		# at load time (ArmyListManager.gd:234); reading the army JSON directly
+		# skips that, and _evaluate_transport_embarkation ignores any transport
+		# without it. Without this the formula can never embark anything here,
+		# which would quietly make every embarkation assertion vacuous.
+		var kws: Array = unit.get("meta", {}).get("keywords", [])
+		if "TRANSPORT" in kws and not unit.has("transport_data"):
+			unit["transport_data"] = {
+				"capacity": 22,  # "transport capacity of 22 ORKS INFANTRY models"
+				"capacity_keywords": ["ORKS", "INFANTRY"],
+				"capacity_multipliers": {},
+				"excluded_keywords": [],
+				"embarked_units": [],
+				"firing_deck": 0,
+			}
 		units[unit_id] = unit
 	return {
 		"meta": {"deployment_type": "hammer_anvil", "battle_round": 1, "phase": 0},
@@ -120,6 +140,7 @@ func _run_tests() -> void:
 	test_plan_owns_reserves()
 	test_over_cap_reserves_are_trimmed()
 	test_post_formations_retrofit()
+	test_placed_units_are_not_embarked_by_formula()
 
 func test_declarations_in_order() -> void:
 	var plan := _read_json(FIXTURE_RICH)
@@ -269,5 +290,121 @@ func test_post_formations_retrofit() -> void:
 	var other := [{"type": "DEPLOY_UNIT", "unit_id": "U_GRETCHIN_A"}]
 	_assert(AIDM._plan_deployment_reserve_action(plan, other, 1, snapshot).is_empty(),
 		"a unit the plan does not reserve is not placed in reserves")
+
+	AIDM.clear_all_plans()
+
+func _drive_formations(player: int, plan: Dictionary) -> Array:
+	"""Run FORMATIONS to completion the way the phase does — decide, apply the
+	declaration, offer the reduced action list again — and return every
+	declaration made, in order."""
+	var snapshot := _make_snapshot(player)
+	AIDM.clear_all_plans()
+	if not plan.is_empty():
+		AIDM.set_player_plan(player, plan)
+
+	var declared := {"attached": [], "embarked": [], "reserved": []}
+	var made: Array = []
+	var seen := {}
+	# The real phase stops at CONFIRM_FORMATIONS; the bound is a guard against a
+	# decision loop, not an expected exit.
+	#
+	# A repeat is treated as "no further progress" rather than as another
+	# declaration: FormationsPhase records an embarkation in player_formations
+	# (:565-573) and only writes it onto the unit at CONFIRM (:973), so the
+	# snapshot the AI scores against never shows it, and the AI is free to offer
+	# the same one again. Counting repeats would inflate every embarkation
+	# assertion below.
+	for _i in range(40):
+		var d: Dictionary = AIDM._decide_formations(snapshot, _formations_actions(snapshot, player, declared), player)
+		var t := str(d.get("type", ""))
+		if t.is_empty() or t == "CONFIRM_FORMATIONS":
+			break
+		var key := "%s|%s|%s|%s" % [t, str(d.get("character_id", "")), str(d.get("transport_id", "")) + str(d.get("unit_ids", [])), str(d.get("unit_id", ""))]
+		if seen.has(key):
+			break
+		seen[key] = true
+		made.append(d)
+		match t:
+			"DECLARE_LEADER_ATTACHMENT":
+				declared["attached"].append(str(d.get("character_id", "")))
+			"DECLARE_TRANSPORT_EMBARKATION":
+				for uid in d.get("unit_ids", []):
+					declared["embarked"].append(str(uid))
+			"DECLARE_RESERVES":
+				declared["reserved"].append(str(d.get("unit_id", "")))
+			_:
+				# DESIGNATE_WARLORD and anything else declares nothing that
+				# changes the action list — stop rather than spin.
+				made.pop_back()
+				break
+	return made
+
+func _embarked_units(declarations: Array) -> Array:
+	var out: Array = []
+	for d in declarations:
+		if str(d.get("type", "")) != "DECLARE_TRANSPORT_EMBARKATION":
+			continue
+		for uid in d.get("unit_ids", []):
+			out.append(str(uid))
+	return out
+
+func test_placed_units_are_not_embarked_by_formula() -> void:
+	# PM-F5. The rich fixture PLACES U_GRETCHIN_A on the board and EMBARKS
+	# U_GRETCHIN_B in the Stompa — the two halves of the same decision. The bug
+	# was that the formula's own embarkation pass ran anyway and put the PLACED
+	# one in the Stompa too; an embarked unit never deploys, so the plan's
+	# coordinates for it were silently discarded.
+	var plan := _read_json(FIXTURE_RICH)
+	_assert(not plan.is_empty(), "rich fixture plan loads")
+	_assert(not AIDM._plan_placement_for(plan, "U_GRETCHIN_A", 1, _make_snapshot(1)).is_empty(),
+		"the fixture does place U_GRETCHIN_A (the test would be vacuous otherwise)")
+
+	# NEGATIVE CONTROL FIRST: with no plan at all, does the formula actually
+	# want to embark U_GRETCHIN_A? If it does not, the assertion below proves
+	# nothing and this test is worthless.
+	#
+	# clear_all_plans() is NOT enough to mean "no plan": _resolve_plan_for falls
+	# through to an auto-match, and since PM-10 shipped a hammer_anvil Ork plan
+	# this snapshot matches one. PLANS_ENABLED=0 is the only gate that stops
+	# every plan consumer, auto-match included.
+	AIDM._config_overrides["PLANS_ENABLED"] = 0
+	var formula_only := _embarked_units(_drive_formations(1, {}))
+	AIDM._config_overrides.erase("PLANS_ENABLED")
+	_assert(formula_only.has("U_GRETCHIN_A"),
+		"CONTROL: with no plan, the formula does embark U_GRETCHIN_A (got %s) — so suppressing it is a real change" % str(formula_only))
+
+	# With the plan in force, the placed unit stays on the board and only the
+	# unit the plan named goes inside.
+	var with_plan := _embarked_units(_drive_formations(1, plan))
+	_assert(not with_plan.has("U_GRETCHIN_A"),
+		"a unit the plan PLACES is not embarked by the formula (embarked: %s)" % str(with_plan))
+	_assert(with_plan.has("U_GRETCHIN_B"),
+		"…while the embarkation the plan DID ask for still happens (embarked: %s)" % str(with_plan))
+
+	# Every embarkation made under a plan must be one the plan asked for.
+	var plan_embarks: Array = []
+	for entry in plan["deployment"]["embarkations"]:
+		plan_embarks.append(str(entry["unit"]))
+	var unasked: Array = []
+	for uid in with_plan:
+		if not plan_embarks.has(uid):
+			unasked.append(uid)
+	_assert(unasked.is_empty(),
+		"no unit is embarked that the plan did not ask for (unasked: %s)" % str(unasked))
+
+	# A unit the plan does not mention at all is still the formula's to decide,
+	# exactly as deployment order already works.
+	var partial := _read_json(FIXTURE_RICH)
+	var kept: Array = []
+	for p in partial["deployment"]["placements"]:
+		if str(p.get("unit", "")) != "U_GRETCHIN_A":
+			kept.append(p)
+	partial["deployment"]["placements"] = kept
+	partial["deployment"]["embarkations"] = []
+	_assert(AIDM._plan_placement_for(partial, "U_GRETCHIN_A", 1, _make_snapshot(1)).is_empty(),
+		"the trimmed plan no longer places U_GRETCHIN_A")
+	var unmentioned := _embarked_units(_drive_formations(1, partial))
+	_assert(unmentioned.has("U_GRETCHIN_A"),
+		"a unit the plan does not mention is still embarkable by the formula (embarked: %s)" % str(unmentioned))
 
 	AIDM.clear_all_plans()

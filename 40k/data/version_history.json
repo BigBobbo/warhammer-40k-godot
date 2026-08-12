@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.36.2",
+      "date": "2026-08-12",
+      "summary": "Fixed: the computer no longer loads units into a transport when its plan puts them somewhere else.",
+      "changes": [
+        "The transport bug noted in 1.36.1 is fixed. If a plan gives a unit a place on the board, the computer leaves it there instead of loading it into a nearby transport — so in the ready-made Ork plans the Gretchin now start where they are meant to: one mob on the home objective, the second screening beside it, instead of both riding inside the Stompa.",
+        "The same applies to units the plan holds in Reserves: they arrive from Reserves as planned rather than starting the game inside a transport.",
+        "Units your plan does not mention are unchanged — the computer still decides for itself whether to load those into a transport."
+      ]
+    },
+    {
       "version": "1.36.1",
       "date": "2026-08-12",
       "summary": "Note on the new ready-made plans: the computer will use one automatically when it fits your game, and you can always turn that off.",

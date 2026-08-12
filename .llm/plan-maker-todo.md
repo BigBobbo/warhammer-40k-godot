@@ -2433,7 +2433,7 @@ under each edition setting.
 
 ## PM-F5 — FOLLOW-UP: the AI embarks plan-placed units the plan never asked to embark
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-2b
 **Player-facing:** yes — it silently defeats the plan's stated intent
 
@@ -2471,8 +2471,106 @@ PINS the wrong behaviour on purpose (`plan=0 ai=U_GRETCHIN_A->U_STOMPA_A,...`)
 so that fixing this fails the step and forces the update. After the fix, both
 Gretchin deploy from the plan and `eligible` rises from 9 to 11.
 
-**Evidence.** Debug log `debug_20260811_194852.log`; the scenario's own
-`SCENARIO pm10 PM-F5:` line.
+**Evidence (as filed).** Debug log `debug_20260811_194852.log`; the scenario's
+own `SCENARIO pm10 PM-F5:` line.
+
+---
+
+### Evidence (fixed, 2026-08-12)
+
+**Root cause.** `AIDecisionMaker._evaluate_transport_embarkation` built its
+candidate list straight off the snapshot and was never told a plan existed —
+the call site passed `snapshot, transport_actions, player` and nothing else.
+`_decide_formations` already suppressed the formula's *reserves* pass under a
+plan (`_plan_owns_reserves`, :4042) but ran the *embarkation* pass
+unconditionally two lines above it. So a plan could state where a unit goes and
+the formula would still load it into a transport, and because an embarked unit
+never deploys, the plan's coordinates were dropped with no error.
+
+**The fix.** `_evaluate_transport_embarkation` now takes the seat's plan and
+skips any unit the plan has already spoken for — a PLACEMENT ("places it on the
+board") or a post-trim RESERVE ("holds it in reserves") — logging the
+suppression once per unit via `_plan_log_once`. A unit the plan does not
+mention is untouched, exactly as deployment order already works. Reserves use
+the *trimmed* list, because an entry dropped by the 50% cap is never declared
+and so is not claimed.
+
+**FORMATIONS is the only route.** Worth stating because the fix is a single
+chokepoint: the AI never emits `COMPOSITE_DEPLOY` (the deploy-with-cargo
+action) — `DeploymentPhase.gd:704` says so in as many words, and the AI path
+sends `DEPLOY_UNIT`. There is no second way for the AI to embark anything.
+
+**Headless.** `tests/unit/test_ai_plan_formations.gd` — 35 passed, 0 failed,
+including a new `test_placed_units_are_not_embarked_by_formula`. It carries a
+NEGATIVE CONTROL, and the control is the point: with plans off the formula
+embarks `["U_GRETCHIN_A", "U_GRETCHIN_B"]` — the exact pair from the original
+bug report — and with the plan in force only `U_GRETCHIN_B`, the one the plan
+asked for, goes in. A unit the plan does not mention is still embarked.
+
+**Two things the test found out about itself** (both would have made every
+embarkation assertion in that file vacuous, and neither was obvious):
+
+* `clear_all_plans()` does NOT mean "no plan". `_resolve_plan_for` falls
+  through to an auto-match, and since PM-10 shipped a hammer_anvil Ork plan the
+  test snapshot matches one — so the first draft of the control was quietly
+  running WITH a plan. `_config_overrides["PLANS_ENABLED"] = 0` is the only
+  gate that stops every consumer, auto-match included.
+* The snapshot had no `transport_data`. `ArmyListManager` derives it from the
+  TRANSPORT ability text at load time (`ArmyListManager.gd:234`); reading
+  `armies/recon_stomps.json` directly skips that, and
+  `_evaluate_transport_embarkation` `continue`s past any transport without it.
+  The Stompa was therefore not a transport as far as the test was concerned.
+
+**Windowed gate.** `sp/pm10_shipped_plan_from_menu.json`, 28 assertions, all
+green. The step that PINNED the wrong behaviour now reads `plan=0 ai=` — the
+plan declares no embarkations and the AI makes none. Measured deltas:
+
+| | before | after |
+|---|---|---|
+| plan-sourced deployment records, seat 1 | 9 | **11** |
+| eligible placements (adherence denominator) | 9 | **11** |
+| exact within 0.05" | 8 of 9 | **10 of 11** |
+| `transport_embarkations` for seat 1 | `U_GRETCHIN_A, U_GRETCHIN_B -> U_STOMPA_A` | **empty** |
+
+The live log shows the suppression firing more widely than the filed report
+suggested — `U_WAZDAKKA_GUTSMEK_A`, `U_STORMBOYZ_A` and `U_STORMBOYZ_B` were
+also candidates the formula would have loaded into the Stompa:
+
+```
+[AIDecisionMaker/plan] Player 1 NOT embarking U_WAZDAKKA_GUTSMEK_A — plan '…' places it on the board
+[AIDecisionMaker/plan] Player 1 NOT embarking U_STORMBOYZ_A — plan '…' places it on the board
+[AIDecisionMaker/plan] Player 1 NOT embarking U_STORMBOYZ_B — plan '…' places it on the board
+SCENARIO pm10 PM-F5: plan declares 0 embarkation(s); the AI made []
+SCENARIO pm10 adherence: eligible=11 exact=10 ["U_WARBIKERS_B off by 7.17 in"]
+```
+
+**Not fixed here, and not caused here.** One placement still misses:
+`U_WARBIKERS_B` is refused by the phase (`Unit coherency broken … 3 model(s)
+out of coherency`) and repaired 7.17" away. That unit was already in the
+eligible set before this change and the floor already allowed one repair
+(8 of 9), so this is pre-existing repair behaviour, not a regression — the
+`expect_min` of 10 of 11 keeps exactly the same one-repair margin. PM-F4 is
+still open and is the likely neighbour of it.
+
+**Screenshot.** `docs/evidence/pm_f5_gretchin_deployed_not_embarked.png` —
+Gretchin Alpha and Gretchin Beta both on the board at 11/11 models, where they
+used to be inside the Stompa.
+
+**One thing the screenshot does NOT show, and must not be read as showing.**
+`HOME 1` still reads *Uncontrolled* in that capture. That is not PM-F5
+surviving: the shot is taken at the first-turn roll-off, BEFORE round 1, so
+every objective reads Uncontrolled — `NML 1` does too, with nothing near it.
+Whether the objective is actually held was checked against the plan's own
+coordinates instead: obj_home_1 sits at (22.0, 6.0) on hammer_anvil, and
+U_GRETCHIN_A's nearest model is 3.39" from the marker centre — 2.11" base-edge
+to marker-edge, inside the 3" control range. U_GRETCHIN_B is 6.68" away and is
+NOT on the objective, which is correct: it is the screening mob. The original
+report's phrasing ("both Gretchin … on obj_home_1") overstated the plan — only
+Alpha holds it. Control at a scoring point has NOT been driven end-to-end here.
+
+**Player-facing.** Version 1.36.2. The "known rough edge" naming this bug is
+removed from `docs/AI_PLANS_GUIDE.md`; `docs/PLAN_FORMAT.md` keeps the original
+PM-F5 captures as taken and says plainly that they now show the old behaviour.
 
 ---
 
