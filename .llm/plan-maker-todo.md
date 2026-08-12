@@ -2076,7 +2076,7 @@ Version 1.36.0.
 
 ## PM-11 — Docs, release notes, coherence pass
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** all previous
 **Player-facing:** yes — consolidated version_history entry if any gap
 
@@ -2100,7 +2100,54 @@ Version 1.36.0.
 **Validation gate.** Batch scenario run output in Evidence; docs committed;
 version history renders in the main menu (screenshot).
 
-**Evidence.** _(partial — batch run pending)_
+**Evidence.**
+
+**Batch run — `bash 40k/tests/run_scenarios.sh tests/scenarios/sp/pm*.json`:**
+
+```
+pm2a_ai_deploys_from_plan      41 passed, 0 failed
+pm2b_formations_from_plan      36 passed, 0 failed
+pm3_earmarks_bias_assignment   72 passed, 0 failed
+pm4_plan_editor_session        59 passed, 0 failed
+pm5_record_and_save_plan       49 passed, 0 failed
+pm6_paint_intents              64 passed, 0 failed
+pm7a_assign_plan_from_menu     25 passed, 0 failed
+pm7b_plan_browser              42 passed, 0 failed
+pm9_simulator_run              46 passed, 0 failed
+pm10_shipped_plan_from_menu    28 passed, 0 failed
+pm11_reentry                   36 passed, 0 failed
+                              498 assertions across 11 scenarios
+```
+
+**The batch earned its place on the first run: `pm7b_plan_browser` failed
+4 assertions.** It had been written when `res://data/ai_plans/` was empty, so
+it asserted the browser contained exactly ONE plan — the fixture it writes
+itself. PM-10 shipped two plans and the browser correctly showed three:
+
+```
+row_count()   expected 1, got 3
+status line   expected "1 plan(s) — 1 of your own.", got "3 plan(s) — 1 of your own."
+row lookup    expected index 0, got 2
+```
+
+The browser was right and the test was wrong. The scenario now locates rows
+**by name** and counts only rows marked `yours`, so it tests the thing it is
+actually about — the lifecycle of the user's own plan — and is indifferent to
+how much content ships beside it. Back to **42 passed, 0 failed**.
+
+This is the entire reason the task asks for one batch rather than trusting each
+scenario's own last green run: no individual re-run would have caught it,
+because the scenario that broke was not the one that changed.
+
+**Version history renders in the menu** —
+`40k/docs/evidence/pm11_version_history_in_menu.png` shows the badge reading
+`v1.36.1 · 2026-08-12` and the What's New panel carrying all three bullets,
+including the transport caveat. The same capture happens to show the **P2 AI
+Plan: "Auto (best match)"** dropdown, which is the auto-match behaviour that
+release note exists to explain.
+
+Screenshots: `pm11_plan_editor_reentry.png`, `pm11_simulator_reentry.png`,
+`pm11_version_history_in_menu.png`.
 
 **1. `PLAN_FORMAT.md` final pass.** Adds the walkthrough the task asked for:
 ten steps, each linked to a live capture from a windowed run (14 images, every

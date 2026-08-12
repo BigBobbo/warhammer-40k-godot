@@ -1,240 +1,240 @@
 {
-  "id": "pm7b_plan_browser",
-  "covers": [
-    "ui.main_menu.plan_browser_button",
-    "ui.PlanBrowserDialog.rows_and_badge",
-    "ui.PlanBrowserDialog.rename",
-    "ui.PlanBrowserDialog.delete_with_confirm",
-    "plan_manager.shipped_plans_are_read_only"
-  ],
-  "disable_ai": true,
-  "description": "PM-7b plan browser. No fixture: it clears user://ai_plans/, writes exactly one plan there from the shipped test fixture, and opens the browser from the menu with a real click. Asserts the row carries name / army / zone / terrain / validation badge / source, that selecting it fills the detail line and enables the user-plan actions, that Rename moves both the row and the file (and rewrites the plan's own name), that Delete goes through a confirmation step and only removes the file once confirmed, and that closing the browser refreshes the seat pickers so a deleted plan cannot still be chosen. Nothing ships under res://data/ai_plans yet, so the read-only half is asserted against PlanManager directly: rename_plan and delete_plan both refuse a res:// path and the file survives.",
-  "steps": [
-    {
-      "act": "wait_seconds",
-      "seconds": 1.5
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar PM = load(\"res://scripts/PlanManager.gd\")\nPM.ensure_user_plans_dir()\nvar dir = DirAccess.open(\"user://ai_plans\")\nif dir != null:\n\tdir.list_dir_begin()\n\tvar f = dir.get_next()\n\twhile f != \"\":\n\t\tif f.ends_with(\".json\"):\n\t\t\tdir.remove(f)\n\t\tf = dir.get_next()\n\tdir.list_dir_end()\nvar fixture = PV.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\")\nvar path = \"user://ai_plans/%s.json\" % PM.slugify(str(fixture.get(\"name\", \"\")))\nvar file = FileAccess.open(path, FileAccess.WRITE)\nfile.store_string(JSON.stringify(fixture, \"\\t\"))\nfile.close()\nreturn path",
-      "equals": "user://ai_plans/fixture_recon_stomps_rich_all_five_verbs.json"
-    },
-    {
-      "act": "click_node",
-      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/PlanBrowserButton",
-      "emit_pressed": true
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 1.0
-    },
-    {
-      "act": "expect_node_visible",
-      "node": "/root/MainMenu/PlanBrowserDialog",
-      "timeout_s": 3.0
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return node.get_node(\"/root/MainMenu/PlanBrowserDialog\").row_count()",
-      "equals": 1
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar item = t.get_root().get_first_child()\nvar out = []\nwhile item != null:\n\tout.append(\"%s|%s|%s|%s|%s|%s\" % [item.get_text(0), item.get_text(1), item.get_text(2),\n\t\titem.get_text(3), item.get_text(4), item.get_text(5)])\n\titem = item.get_next()\nreturn \" ;; \".join(out)",
-      "equals": "Fixture \u2014 Recon Stomps rich (all five verbs)|recon_stomps|hammer_anvil|take_and_hold_vs_purge_the_foe_3|OK|yours"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return node.get_node(\"/root/MainMenu/PlanBrowserDialog\").status_label.text",
-      "equals": "1 plan(s) \u2014 1 of your own."
-    },
-    {
-      "act": "screenshot",
-      "label": "01_browser_populated"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var d = node.get_node(\"/root/MainMenu/PlanBrowserDialog\")\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar item = t.get_root().get_first_child()\nif item == null:\n\treturn \"no rows\"\nitem.select(0)\nd._on_row_selected()\nreturn d.selected_path",
-      "equals": "user://ai_plans/fixture_recon_stomps_rich_all_five_verbs.json"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserRenameButton\").disabled",
-      "equals": false
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserDeleteButton\").disabled",
-      "equals": false
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserRenameEdit\").text",
-      "equals": "Fixture \u2014 Recon Stomps rich (all five verbs)"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserDetail\").text.find(\"user://ai_plans/\") >= 0",
-      "equals": true
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserRenameEdit\").text = \"Renamed by pm7b\"\nreturn true",
-      "equals": true
-    },
-    {
-      "act": "click_node",
-      "node": "/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserRenameButton",
-      "emit_pressed": true
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.6
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return FileAccess.file_exists(\"user://ai_plans/renamed_by_pm7b.json\")",
-      "equals": true
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return FileAccess.file_exists(\"user://ai_plans/fixture_recon_stomps_rich_all_five_verbs.json\")",
-      "equals": false
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nreturn str(PV.load_plan_file(\"user://ai_plans/renamed_by_pm7b.json\").get(\"name\", \"\"))",
-      "equals": "Renamed by pm7b"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nreturn t.get_root().get_first_child().get_text(0)",
-      "equals": "Renamed by pm7b"
-    },
-    {
-      "act": "screenshot",
-      "label": "02_after_rename"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var PM = load(\"res://scripts/PlanManager.gd\")\nvar r = PM.rename_plan(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\", \"nope\")\nreturn bool(r.get(\"success\", true))",
-      "equals": false
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var PM = load(\"res://scripts/PlanManager.gd\")\nreturn PM.delete_plan(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\")",
-      "equals": false
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return FileAccess.file_exists(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\")",
-      "equals": true
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var d = node.get_node(\"/root/MainMenu/PlanBrowserDialog\")\nvar e = d.entry_for(\"user://ai_plans/renamed_by_pm7b.json\")\nreturn str(e.get(\"source\", \"\"))",
-      "equals": "user"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var PM = load(\"res://scripts/PlanManager.gd\")\nreturn str(PM.rename_plan(\"user://ai_plans/renamed_by_pm7b.json\", \"   \").get(\"error\", \"\"))",
-      "equals": "A plan needs a name."
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var d = node.get_node(\"/root/MainMenu/PlanBrowserDialog\")\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar item = t.get_root().get_first_child()\nif item == null:\n\treturn \"no rows\"\nitem.select(0)\nd._on_row_selected()\nreturn d.selected_path",
-      "equals": "user://ai_plans/renamed_by_pm7b.json"
-    },
-    {
-      "act": "click_node",
-      "node": "/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserDeleteButton",
-      "emit_pressed": true
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.6
-    },
-    {
-      "act": "expect_node_visible",
-      "node": "/root/MainMenu/PlanBrowserDialog/PlanDeleteConfirm",
-      "timeout_s": 2.0
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return FileAccess.file_exists(\"user://ai_plans/renamed_by_pm7b.json\")",
-      "equals": true
-    },
-    {
-      "act": "screenshot",
-      "label": "03_delete_confirm"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanDeleteConfirm\").get_ok_button().emit_signal(\"pressed\")\nreturn true",
-      "equals": true
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.8
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return FileAccess.file_exists(\"user://ai_plans/renamed_by_pm7b.json\")",
-      "equals": false
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return node.get_node(\"/root/MainMenu/PlanBrowserDialog\").row_count()",
-      "equals": 0
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return node.get_node(\"/root/MainMenu/PlanBrowserDialog\").status_label.text",
-      "equals": "Deleted 'Renamed by pm7b'."
-    },
-    {
-      "act": "click_node",
-      "node": "/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserCloseButton",
-      "emit_pressed": true
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 0.6
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return tree.current_scene.player2_plan_dropdown.item_count",
-      "equals": 2
-    },
-    {
-      "act": "screenshot",
-      "label": "04_after_delete"
-    }
-  ]
+	"id": "pm7b_plan_browser",
+	"covers": [
+		"ui.main_menu.plan_browser_button",
+		"ui.PlanBrowserDialog.rows_and_badge",
+		"ui.PlanBrowserDialog.rename",
+		"ui.PlanBrowserDialog.delete_with_confirm",
+		"plan_manager.shipped_plans_are_read_only"
+	],
+	"disable_ai": true,
+	"description": "PM-7b plan browser. No fixture: it clears user://ai_plans/, writes exactly one plan there from the shipped test fixture, and opens the browser from the menu with a real click. Asserts the row carries name / army / zone / terrain / validation badge / source, that selecting it fills the detail line and enables the user-plan actions, that Rename moves both the row and the file (and rewrites the plan's own name), that Delete goes through a confirmation step and only removes the file once confirmed, and that closing the browser refreshes the seat pickers so a deleted plan cannot still be chosen. Nothing ships under res://data/ai_plans yet, so the read-only half is asserted against PlanManager directly: rename_plan and delete_plan both refuse a res:// path and the file survives.",
+	"steps": [
+		{
+			"act": "wait_seconds",
+			"seconds": 1.5
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar PM = load(\"res://scripts/PlanManager.gd\")\nPM.ensure_user_plans_dir()\nvar dir = DirAccess.open(\"user://ai_plans\")\nif dir != null:\n\tdir.list_dir_begin()\n\tvar f = dir.get_next()\n\twhile f != \"\":\n\t\tif f.ends_with(\".json\"):\n\t\t\tdir.remove(f)\n\t\tf = dir.get_next()\n\tdir.list_dir_end()\nvar fixture = PV.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\")\nvar path = \"user://ai_plans/%s.json\" % PM.slugify(str(fixture.get(\"name\", \"\")))\nvar file = FileAccess.open(path, FileAccess.WRITE)\nfile.store_string(JSON.stringify(fixture, \"\\t\"))\nfile.close()\nreturn path",
+			"equals": "user://ai_plans/fixture_recon_stomps_rich_all_five_verbs.json"
+		},
+		{
+			"act": "click_node",
+			"node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/PlanBrowserButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 1.0
+		},
+		{
+			"act": "expect_node_visible",
+			"node": "/root/MainMenu/PlanBrowserDialog",
+			"timeout_s": 3.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Rows are found BY NAME, not by index. This scenario used to assume the\n# browser contained exactly one plan — the fixture it writes — which stopped\n# being true the moment PM-10 shipped plans in res://data/ai_plans/. The\n# browser was right and the test was wrong. What this scenario is actually\n# about is the lifecycle of the user's OWN plan, so it now counts and locates\n# user rows and is indifferent to how much content ships alongside them.\nvar d = node.get_node(\"/root/MainMenu/PlanBrowserDialog\")\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar mine = 0\nvar total = 0\nvar item = t.get_root().get_first_child()\nwhile item != null:\n\ttotal += 1\n\tif item.get_text(5) == \"yours\":\n\t\tmine += 1\n\titem = item.get_next()\nprint(\"SCENARIO pm7b browser rows: %d total, %d yours (the rest are shipped)\" % [total, mine])\nreturn \"mine=%d total>=%d\" % [mine, 1 if total >= 1 else 0]",
+			"equals": "mine=1 total>=1"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Rows are found BY NAME, not by index. This scenario used to assume the\n# browser contained exactly one plan — the fixture it writes — which stopped\n# being true the moment PM-10 shipped plans in res://data/ai_plans/. The\n# browser was right and the test was wrong. What this scenario is actually\n# about is the lifecycle of the user's OWN plan, so it now counts and locates\n# user rows and is indifferent to how much content ships alongside them.\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar item = t.get_root().get_first_child()\nwhile item != null:\n\tif item.get_text(0) == \"Fixture — Recon Stomps rich (all five verbs)\":\n\t\tbreak\n\titem = item.get_next()\nif item == null:\n\treturn \"fixture row missing\"\nreturn \"%s|%s|%s|%s|%s|%s\" % [item.get_text(0), item.get_text(1), item.get_text(2),\n\titem.get_text(3), item.get_text(4), item.get_text(5)]",
+			"equals": "Fixture — Recon Stomps rich (all five verbs)|recon_stomps|hammer_anvil|take_and_hold_vs_purge_the_foe_3|OK|yours"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Rows are found BY NAME, not by index. This scenario used to assume the\n# browser contained exactly one plan — the fixture it writes — which stopped\n# being true the moment PM-10 shipped plans in res://data/ai_plans/. The\n# browser was right and the test was wrong. What this scenario is actually\n# about is the lifecycle of the user's OWN plan, so it now counts and locates\n# user rows and is indifferent to how much content ships alongside them.\nvar txt = node.get_node(\"/root/MainMenu/PlanBrowserDialog\").status_label.text\nprint(\"SCENARIO pm7b status line: %s\" % txt)\nreturn txt.ends_with(\"1 of your own.\")",
+			"equals": true
+		},
+		{
+			"act": "screenshot",
+			"label": "01_browser_populated"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var d = node.get_node(\"/root/MainMenu/PlanBrowserDialog\")\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar item = t.get_root().get_first_child()\nif item == null:\n\treturn \"no rows\"\nitem.select(0)\nd._on_row_selected()\nreturn d.selected_path",
+			"equals": "user://ai_plans/fixture_recon_stomps_rich_all_five_verbs.json"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserRenameButton\").disabled",
+			"equals": false
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserDeleteButton\").disabled",
+			"equals": false
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserRenameEdit\").text",
+			"equals": "Fixture — Recon Stomps rich (all five verbs)"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserDetail\").text.find(\"user://ai_plans/\") >= 0",
+			"equals": true
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserRenameEdit\").text = \"Renamed by pm7b\"\nreturn true",
+			"equals": true
+		},
+		{
+			"act": "click_node",
+			"node": "/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserRenameButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 0.6
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return FileAccess.file_exists(\"user://ai_plans/renamed_by_pm7b.json\")",
+			"equals": true
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return FileAccess.file_exists(\"user://ai_plans/fixture_recon_stomps_rich_all_five_verbs.json\")",
+			"equals": false
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nreturn str(PV.load_plan_file(\"user://ai_plans/renamed_by_pm7b.json\").get(\"name\", \"\"))",
+			"equals": "Renamed by pm7b"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Rows are found BY NAME, not by index. This scenario used to assume the\n# browser contained exactly one plan — the fixture it writes — which stopped\n# being true the moment PM-10 shipped plans in res://data/ai_plans/. The\n# browser was right and the test was wrong. What this scenario is actually\n# about is the lifecycle of the user's OWN plan, so it now counts and locates\n# user rows and is indifferent to how much content ships alongside them.\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar item = t.get_root().get_first_child()\nwhile item != null:\n\tif item.get_text(0) == \"Renamed by pm7b\":\n\t\tbreak\n\titem = item.get_next()\nreturn \"missing\" if item == null else item.get_text(0)",
+			"equals": "Renamed by pm7b"
+		},
+		{
+			"act": "screenshot",
+			"label": "02_after_rename"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var PM = load(\"res://scripts/PlanManager.gd\")\nvar r = PM.rename_plan(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\", \"nope\")\nreturn bool(r.get(\"success\", true))",
+			"equals": false
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var PM = load(\"res://scripts/PlanManager.gd\")\nreturn PM.delete_plan(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\")",
+			"equals": false
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return FileAccess.file_exists(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\")",
+			"equals": true
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var d = node.get_node(\"/root/MainMenu/PlanBrowserDialog\")\nvar e = d.entry_for(\"user://ai_plans/renamed_by_pm7b.json\")\nreturn str(e.get(\"source\", \"\"))",
+			"equals": "user"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var PM = load(\"res://scripts/PlanManager.gd\")\nreturn str(PM.rename_plan(\"user://ai_plans/renamed_by_pm7b.json\", \"   \").get(\"error\", \"\"))",
+			"equals": "A plan needs a name."
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Rows are found BY NAME, not by index. This scenario used to assume the\n# browser contained exactly one plan — the fixture it writes — which stopped\n# being true the moment PM-10 shipped plans in res://data/ai_plans/. The\n# browser was right and the test was wrong. What this scenario is actually\n# about is the lifecycle of the user's OWN plan, so it now counts and locates\n# user rows and is indifferent to how much content ships alongside them.\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar item = t.get_root().get_first_child()\nwhile item != null:\n\tif item.get_text(0) == \"Renamed by pm7b\":\n\t\tbreak\n\titem = item.get_next()\nif item == null:\n\treturn \"renamed row missing\"\nitem.select(0)\nvar d = node.get_node(\"/root/MainMenu/PlanBrowserDialog\")\nd._on_row_selected()\nreturn d.selected_path",
+			"equals": "user://ai_plans/renamed_by_pm7b.json"
+		},
+		{
+			"act": "click_node",
+			"node": "/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserDeleteButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 0.6
+		},
+		{
+			"act": "expect_node_visible",
+			"node": "/root/MainMenu/PlanBrowserDialog/PlanDeleteConfirm",
+			"timeout_s": 2.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return FileAccess.file_exists(\"user://ai_plans/renamed_by_pm7b.json\")",
+			"equals": true
+		},
+		{
+			"act": "screenshot",
+			"label": "03_delete_confirm"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanDeleteConfirm\").get_ok_button().emit_signal(\"pressed\")\nreturn true",
+			"equals": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 0.8
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return FileAccess.file_exists(\"user://ai_plans/renamed_by_pm7b.json\")",
+			"equals": false
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Rows are found BY NAME, not by index. This scenario used to assume the\n# browser contained exactly one plan — the fixture it writes — which stopped\n# being true the moment PM-10 shipped plans in res://data/ai_plans/. The\n# browser was right and the test was wrong. What this scenario is actually\n# about is the lifecycle of the user's OWN plan, so it now counts and locates\n# user rows and is indifferent to how much content ships alongside them.\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar mine = 0\nvar item = t.get_root().get_first_child()\nwhile item != null:\n\tif item.get_text(5) == \"yours\":\n\t\tmine += 1\n\titem = item.get_next()\nprint(\"SCENARIO pm7b after delete: %d of your own left\" % mine)\nreturn mine",
+			"equals": 0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return node.get_node(\"/root/MainMenu/PlanBrowserDialog\").status_label.text",
+			"equals": "Deleted 'Renamed by pm7b'."
+		},
+		{
+			"act": "click_node",
+			"node": "/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserActions/PlanBrowserCloseButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 0.6
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return tree.current_scene.player2_plan_dropdown.item_count",
+			"equals": 2
+		},
+		{
+			"act": "screenshot",
+			"label": "04_after_delete"
+		}
+	]
 }
