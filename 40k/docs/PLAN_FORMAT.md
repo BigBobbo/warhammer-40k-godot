@@ -28,6 +28,35 @@ Related files:
 | `40k/data/ai_plans/` | shipped plans |
 | `user://ai_plans/` | player-authored plans |
 
+**Writing for players?** `40k/docs/AI_PLANS_GUIDE.md` is the player-facing
+version of this document — same feature, no schema.
+
+---
+
+## The whole loop, in pictures
+
+Every image is a live capture from a windowed scenario run, not a mock-up.
+
+| Step | What it looks like | Capture |
+|---|---|---|
+| 1. Open the sandbox | Main menu gains **Plan Editor** + its own zone picker | `docs/evidence/pm4_main_menu_plan_editor.png` |
+| 2. Deploy | The session **stays open** at the end of deployment instead of advancing | `docs/evidence/pm4_plan_editor_held_open.png` |
+| 3. Save | `Save as Plan` writes it to `user://ai_plans/` and refuses an invalid plan in place | `docs/evidence/pm5_save_dialog.png`, `pm5_saved_toast.png` |
+| 4. Say what units are FOR | The INTENTS panel and the non-fading board badges | `docs/evidence/pm6_intents_painted.png` |
+| 5. Hand it to an AI seat | Per-seat **AI Plan** picker, filtered by army and zone | `docs/evidence/pm7a_plan_dropdowns.png` |
+| 6. Watch it deploy | Deployment driven by the plan | `docs/evidence/pm7a_deployment_from_plan.png` |
+| 7. Manage what you have | The plan browser, and delete-behind-a-confirm | `docs/evidence/pm7b_plan_browser.png`, `pm7b_delete_confirm.png` |
+| 8. Measure two plans | Battle Simulator: configure, then the results table | `docs/evidence/pm9_configured.png`, `pm9_results_table.png` |
+| 9. Shipped content | The picker offering a shipped plan; plan seat vs formula seat on one board | `docs/evidence/pm10_shipped_plan_selected.png`, `pm10_plan_vs_formula_deployment.png` |
+| 10. A game against it | Human seat vs the plan-driven AI | `docs/evidence/pm10_standin_human_vs_plan_ai.png` |
+
+Two of those pictures are worth looking at for what went *wrong*, because they
+are the honest half of the feature:
+`pm10_plan_vs_formula_deployment.png` shows **HOME 1 Uncontrolled** at the end
+of deployment — the objective the plan is built around, empty, because the AI
+loaded the Gretchin into the Stompa (PM-F5). The stand-in capture shows the
+same thing in a human game.
+
 ---
 
 ## Authoring: the Plan Editor sandbox (PM-4)

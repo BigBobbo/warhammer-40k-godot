@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.36.1",
+      "date": "2026-08-12",
+      "summary": "Note on the new ready-made plans: the computer will use one automatically when it fits your game, and you can always turn that off.",
+      "changes": [
+        "If you pick Recon Stomps for a computer player on a matching deployment zone, it will follow the matching ready-made plan even if you never touched the AI Plan picker — that is what 'Auto' means in the picker.",
+        "Choose 'None (no plan)' for that seat to get the old behaviour back; the computer then works its deployment out for itself exactly as before.",
+        "Known issue: if your plan includes a transport — a Stompa counts — the computer may load units into it even when the plan puts them on an objective. Check where the passengers ended up."
+      ]
+    },
+    {
       "version": "1.36.0",
       "date": "2026-08-11",
       "summary": "Two ready-made Ork battle plans now ship with the game, so the computer can be given a real plan without writing one first.",
