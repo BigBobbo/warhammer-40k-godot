@@ -1,0 +1,177 @@
+{
+	"id": "pm10_shipped_plan_from_menu",
+	"description": "PM-10: the SHIPPED plan works for a player. No fixture and no test plan written to disk — the scenario starts on the real main menu and picks 'Orks — Recon Stomps on Hammer and Anvil' straight out of res://data/ai_plans/, which is the only way to prove the shipped content is reachable rather than just well-formed. Both seats are AI on recon_stomps; seat 1 gets the plan and seat 2 gets None, so the same army deploys twice on one board — once from the plan, once from the formula — and the screenshot IS the plan-vs-formula comparison. Adherence is then measured the honest way: every covered unit's DEPLOYED model positions are compared against the plan file's own coordinates not just counted as plan-sourced records. Reserves and attachments are checked on the board too, because a plan that places units correctly and then forgets to hold four of them back has not been followed.",
+	"covers": [
+		"content.shipped_plan_listed_in_menu",
+		"content.shipped_plan_hammer_anvil_valid",
+		"ai.plan_deployment_adherence_per_model",
+		"ai.plan_reserves_from_shipped_plan",
+		"ai.plan_attachments_from_shipped_plan",
+		"ui.plan_vs_formula_visibly_different",
+		"content.plan_seats_the_180mm_base_a_human_cannot"
+	],
+	"disable_ai": false,
+	"steps": [
+		{
+			"act": "wait_seconds",
+			"seconds": 1.5
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var PM = load(\"res://scripts/PlanManager.gd\")\nvar found = []\nfor entry in PM.list_plans():\n\tif str(entry.get(\"source\", \"\")) == \"shipped\":\n\t\tfound.append(str(entry.get(\"name\", \"?\")))\nfound.sort()\nreturn \" | \".join(found)",
+			"equals": "Orks — Recon Stomps on Crucible | Orks — Recon Stomps on Hammer and Anvil"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar out = []\nfor f in [\"orks_recon_stomps_crucible\", \"orks_recon_stomps_hammer_anvil\"]:\n\tvar plan = PV.load_plan_file(\"res://data/ai_plans/%s.json\" % f)\n\tvar v = PV.validate_plan(plan)\n\tout.append(\"%s:%s/%d/%d\" % [f, str(v.get(\"valid\", false)), v.get(\"errors\", []).size(), v.get(\"warnings\", []).size()])\nreturn \" \".join(out)",
+			"equals": "orks_recon_stomps_crucible:true/0/0 orks_recon_stomps_hammer_anvil:true/0/0"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var m = tree.current_scene\nm.p1_disposition_dropdown.selected = 0\nm.p2_disposition_dropdown.selected = 1\nm._on_disposition_changed(1)\nvar variant = -1\nfor i in range(m.terrain_options.size()):\n\tif str(m.terrain_options[i].id) == \"take_and_hold_vs_purge_the_foe_3\":\n\t\tvariant = i\nif variant < 0:\n\treturn \"variant missing\"\nm.terrain_dropdown.selected = variant\nm._on_terrain_layout_selected(variant)\nreturn m._selected_deployment_id()",
+			"equals": "hammer_anvil"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var m = tree.current_scene\nvar army = -1\nfor i in range(m.army_options.size()):\n\tif str(m.army_options[i].id) == \"recon_stomps\":\n\t\tarmy = i\nm.player1_dropdown.selected = army\nm.player1_dropdown.emit_signal(\"item_selected\", army)\nm.player2_dropdown.selected = army\nm.player2_dropdown.emit_signal(\"item_selected\", army)\nm.player1_type_dropdown.selected = 1\nm._on_player1_type_changed(1)\nm.player2_type_dropdown.selected = 1\nm._on_player2_type_changed(1)\nreturn \"p1=%s p2=%s\" % [str(m.player1_plan_container.visible), str(m.player2_plan_container.visible)]",
+			"equals": "p1=true p2=true"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var d = tree.current_scene.player1_plan_dropdown\nvar idx = -1\nvar seen = []\nfor i in range(d.item_count):\n\tseen.append(d.get_item_text(i))\n\tif d.get_item_text(i).begins_with(\"Orks — Recon Stomps on Hammer\"):\n\t\tidx = i\nif idx < 0:\n\treturn \"NOT OFFERED: \" + str(seen)\nd.selected = idx\n# Seat 2 gets None, so the same army deploys twice on one board — once from\n# the plan, once from the formula.\ntree.current_scene.player2_plan_dropdown.selected = 1\nreturn d.get_item_text(idx)",
+			"equals": "Orks — Recon Stomps on Hammer and Anvil"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var d = tree.current_scene.player1_plan_dropdown\nreturn d.get_item_text(d.selected).find(\"[\") < 0",
+			"equals": true
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return tree.current_scene._selected_plan_value(1).ends_with(\"data/ai_plans/orks_recon_stomps_hammer_anvil.json\")",
+			"equals": true
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return tree.current_scene._selected_plan_value(2)",
+			"equals": "none"
+		},
+		{
+			"act": "screenshot",
+			"label": "01_shipped_plan_selected"
+		},
+		{
+			"act": "click_node",
+			"node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 4.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return str(tree.current_scene.name)",
+			"equals": "Main"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var AIDM = load(\"res://scripts/AIDecisionMaker.gd\")\nreturn \"%s|%s\" % [str(AIDM.get_player_plan(1).get(\"name\", \"\")), str(AIDM.get_player_plan(2).is_empty())]",
+			"equals": "Orks — Recon Stomps on Hammer and Anvil|true"
+		},
+		{
+			"act": "wait_for_script",
+			"multiline": true,
+			"script": "# Wait until SEAT 1 — the plan seat — has resolved every unit: deployed (2)\n# or in reserves (7). Two things this deliberately does NOT do:\n#   * it does not wait on both seats. The FORMULA seat leaves a unit\n#     undeployed on this board and the phase ends anyway, so an all-units\n#     condition never becomes true and the scenario hangs.\n#   * it does not key on the phase number. A fresh menu game starts in\n#     FORMATIONS (0), not DEPLOYMENT (1), so 'phase != 1' is already true\n#     before deployment begins and the snapshot would be taken of an empty\n#     board.\nvar pending = 0\nfor uid in GameState.state.units.keys():\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) != 1:\n\t\tcontinue\n\tif int(u.get(\"status\", 0)) <= 1:\n\t\tpending += 1\nreturn \"seat1_done\" if pending == 0 else \"pending:%d\" % pending",
+			"equals": "seat1_done",
+			"timeout_s": 420.0,
+			"poll_s": 1.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Freeze the board the moment deployment ends. Both seats are AI, so round 1\n# movement starts seconds later and would walk the models off their deployed\n# positions before the adherence check could read them — every assertion\n# below is made against this snapshot, not against live state.\nvar snap = {}\nfor uid in GameState.state.units.keys():\n\tvar u = GameState.state.units[uid]\n\tvar pos = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpos.append(null)\n\t\telse:\n\t\t\tpos.append([float(p.x), float(p.y)])\n\tvar rec = {}\n\trec[\"pos\"] = pos\n\trec[\"status\"] = int(u.get(\"status\", 0))\n\trec[\"owner\"] = int(u.get(\"owner\", 0))\n\tvar att = u.get(\"attached_to\", null)\n\trec[\"attached_to\"] = \"none\" if att == null else str(att)\n\tsnap[uid] = rec\nnode.set_meta(\"pm10_snapshot\", snap)\nprint(\"SCENARIO pm10 froze the board at the end of deployment: %d units\" % snap.size())\nreturn snap.size()",
+			"equals": 34
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# What each seat actually got onto the board. The formula seat can simply\n# fail to place a unit and the phase moves on regardless; the plan seat\n# deploys what the plan tells it to.\nvar snap = node.get_meta(\"pm10_snapshot\", {})\nvar left = {1: [], 2: []}\nfor uid in snap.keys():\n\tif int(snap[uid].get(\"status\", 0)) <= 1:\n\t\tleft[int(snap[uid].get(\"owner\", 0))].append(uid)\nleft[1].sort()\nleft[2].sort()\nprint(\"SCENARIO pm10 never deployed: seat1(plan)=%s seat2(formula)=%s\" % [str(left[1]), str(left[2])])\nreturn left[1].size()",
+			"equals": 0
+		},
+		{
+			"act": "screenshot",
+			"label": "02_plan_seat1_vs_formula_seat2"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var per_seat = {1: 0, 2: 0}\nfor batch in AIPlayer._all_decision_records:\n\tvar seat = int(batch.get(\"player\", 0))\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"deployment\":\n\t\t\tcontinue\n\t\tif str(rec.get(\"context\", {}).get(\"source\", \"\")).begins_with(\"plan:\"):\n\t\t\tper_seat[seat] = int(per_seat.get(seat, 0)) + 1\nprint(\"SCENARIO pm10 plan deployment records: seat1=%d seat2=%d\" % [per_seat.get(1, 0), per_seat.get(2, 0)])\nreturn int(per_seat.get(2, 0))",
+			"equals": 0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var n = 0\nfor batch in AIPlayer._all_decision_records:\n\tif int(batch.get(\"player\", 0)) != 1:\n\t\tcontinue\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"deployment\":\n\t\t\tcontinue\n\t\tif str(rec.get(\"context\", {}).get(\"source\", \"\")).begins_with(\"plan:\"):\n\t\t\tn += 1\nreturn n",
+			"expect_min": 9
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# ADHERENCE, measured against the PLAN FILE rather than the decision log: a\n# plan-sourced record only says the AI took the plan branch, not that the\n# models ended up where the plan put them. The plan sits on SEAT 1, so there\n# is no mirror in this comparison; the seat-2 mirror is pinned to 0.000\" by\n# the PM-2a scenario.\n#\n# Two kinds of placement are EXCLUDED from the denominator, because the unit\n# never deploys on its own and the plan's coordinates for it cannot apply:\n#   * a character the plan ATTACHES — it deploys with its bodyguard.\n#   * a unit the AI EMBARKED in a transport during FORMATIONS. The Stompa is\n#     a transport and the AI loads both Gretchin mobs into it off its own\n#     bat, even though the plan asks for them on the objective and declares\n#     no embarkations. That is a real defect in the plan consumer, filed as\n#     PM-F5 — it is excluded here rather than hidden, and asserted on its own\n#     in the next step so the day it is fixed this scenario says so.\nvar snap = node.get_meta(\"pm10_snapshot\", {})\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar plan = PV.load_plan_file(\"res://data/ai_plans/orks_recon_stomps_hammer_anvil.json\")\nvar attached = {}\nfor a in plan.get(\"deployment\", {}).get(\"attachments\", []):\n\tattached[str(a.get(\"character\", \"\"))] = true\nvar embarked = {}\nvar forms = GameState.state.meta.get(\"formations\", {}).get(\"1\", {})\nfor transport in forms.get(\"transport_embarkations\", {}).keys():\n\tfor passenger in forms[\"transport_embarkations\"][transport]:\n\t\tembarked[str(passenger)] = true\nvar eligible = 0\nvar exact = 0\nvar detail = []\nfor placement in plan.get(\"deployment\", {}).get(\"placements\", []):\n\tvar uid = str(placement.get(\"unit\", \"\"))\n\tif attached.has(uid) or embarked.has(uid):\n\t\tcontinue\n\teligible += 1\n\tvar rec = snap.get(uid, {})\n\tvar pos = rec.get(\"pos\", [])\n\tvar want = placement.get(\"models_inches\", [])\n\tif rec.is_empty() or pos.size() != want.size():\n\t\tdetail.append(\"%s MISSING\" % uid)\n\t\tcontinue\n\tvar worst = 0.0\n\tvar ok = true\n\tfor i in range(pos.size()):\n\t\tif pos[i] == null:\n\t\t\tok = false\n\t\t\tcontinue\n\t\tvar gv = Vector2(float(pos[i][0]), float(pos[i][1])) / 40.0\n\t\tvar wv = Vector2(float(want[i][0]), float(want[i][1]))\n\t\tworst = max(worst, gv.distance_to(wv))\n\tif ok and worst <= 0.05:\n\t\texact += 1\n\telse:\n\t\tdetail.append(\"%s off by %.2f in\" % [uid, worst])\nprint(\"SCENARIO pm10 adherence: eligible=%d exact=%d %s\" % [eligible, exact, str(detail)])\nreturn \"eligible=%d\" % eligible",
+			"equals": "eligible=9"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Of those nine, how many landed on the plan's own coordinates to within\n# 0.05\". The consumer is allowed to REPAIR a placement it cannot honour, and\n# a repaired unit deliberately does not count as exact — so this is a floor,\n# not an equality: which unit needs repairing depends on the deployment order,\n# and the first-turn roll-off shuffles that between runs.\nvar snap = node.get_meta(\"pm10_snapshot\", {})\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar plan = PV.load_plan_file(\"res://data/ai_plans/orks_recon_stomps_hammer_anvil.json\")\nvar attached = {}\nfor a in plan.get(\"deployment\", {}).get(\"attachments\", []):\n\tattached[str(a.get(\"character\", \"\"))] = true\nvar embarked = {}\nvar forms = GameState.state.meta.get(\"formations\", {}).get(\"1\", {})\nfor transport in forms.get(\"transport_embarkations\", {}).keys():\n\tfor passenger in forms[\"transport_embarkations\"][transport]:\n\t\tembarked[str(passenger)] = true\nvar exact = 0\nfor placement in plan.get(\"deployment\", {}).get(\"placements\", []):\n\tvar uid = str(placement.get(\"unit\", \"\"))\n\tif attached.has(uid) or embarked.has(uid):\n\t\tcontinue\n\tvar pos = snap.get(uid, {}).get(\"pos\", [])\n\tvar want = placement.get(\"models_inches\", [])\n\tif pos.size() != want.size():\n\t\tcontinue\n\tvar worst = 0.0\n\tvar ok = true\n\tfor i in range(pos.size()):\n\t\tif pos[i] == null:\n\t\t\tok = false\n\t\t\tcontinue\n\t\tvar gv = Vector2(float(pos[i][0]), float(pos[i][1])) / 40.0\n\t\tworst = max(worst, gv.distance_to(Vector2(float(want[i][0]), float(want[i][1]))))\n\tif ok and worst <= 0.05:\n\t\texact += 1\nreturn exact",
+			"expect_min": 8
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# PM-F5, pinned deliberately: the plan declares NO embarkations and asks for\n# both Gretchin mobs on obj_home_1, and the AI puts them inside the Stompa\n# anyway. This asserts the CURRENT (wrong) behaviour so that fixing PM-F5\n# fails this step and forces the scenario to be updated, rather than the fix\n# landing unnoticed.\nvar plan_embarks = 0\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar plan = PV.load_plan_file(\"res://data/ai_plans/orks_recon_stomps_hammer_anvil.json\")\nplan_embarks = plan.get(\"deployment\", {}).get(\"embarkations\", []).size()\nvar forms = GameState.state.meta.get(\"formations\", {}).get(\"1\", {})\nvar loaded = []\nfor transport in forms.get(\"transport_embarkations\", {}).keys():\n\tfor passenger in forms[\"transport_embarkations\"][transport]:\n\t\tloaded.append(\"%s->%s\" % [str(passenger), str(transport)])\nloaded.sort()\nprint(\"SCENARIO pm10 PM-F5: plan declares %d embarkation(s); the AI made %s\" % [plan_embarks, str(loaded)])\nreturn \"plan=%d ai=%s\" % [plan_embarks, \",\".join(loaded)]",
+			"equals": "plan=0 ai=U_GRETCHIN_A->U_STOMPA_A,U_GRETCHIN_B->U_STOMPA_A"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The Stompa is the hardest model in the game to seat: a 180mm base needs\n# 7.09\" of clear ground, and on this layout the deployment zone is mostly\n# under terrain. Driving a HUMAN seat on this same board (the PM-10 stand-in)\n# could not place it ANYWHERE — 9,408 candidate positions across the zone,\n# every one refused by the phase. The plan seats it first time, because its\n# coordinates were validated against DeploymentPhase when the plan was\n# authored. That is the feature's actual argument, so it gets an assertion.\nvar snap = node.get_meta(\"pm10_snapshot\", {})\nvar rec = snap.get(\"U_STOMPA_A\", {})\nvar pos = rec.get(\"pos\", [])\nif pos.is_empty() or pos[0] == null:\n\treturn \"Stompa NOT deployed\"\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar plan = PV.load_plan_file(\"res://data/ai_plans/orks_recon_stomps_hammer_anvil.json\")\nvar want = []\nfor placement in plan.get(\"deployment\", {}).get(\"placements\", []):\n\tif str(placement.get(\"unit\", \"\")) == \"U_STOMPA_A\":\n\t\twant = placement.get(\"models_inches\", [])\nif want.is_empty():\n\treturn \"plan has no Stompa placement\"\nvar got = Vector2(float(pos[0][0]), float(pos[0][1])) / 40.0\nvar expected = Vector2(float(want[0][0]), float(want[0][1]))\nvar off = got.distance_to(expected)\nprint(\"SCENARIO pm10 Stompa: plan (%.2f, %.2f), deployed (%.2f, %.2f), off by %.3f in\" % [expected.x, expected.y, got.x, got.y, off])\nreturn \"deployed within 0.05in: %s\" % str(off <= 0.05)",
+			"equals": "deployed within 0.05in: true"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The formula seat must NOT land on the plan's coordinates — otherwise the\n# adherence check above would pass for a plan that changed nothing, and the\n# two halves of the screenshot would not actually differ.\nvar snap = node.get_meta(\"pm10_snapshot\", {})\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar plan = PV.load_plan_file(\"res://data/ai_plans/orks_recon_stomps_hammer_anvil.json\")\nvar total = 0.0\nvar n = 0\nfor placement in plan.get(\"deployment\", {}).get(\"placements\", []):\n\tvar rec = snap.get(\"%s_P2\" % str(placement.get(\"unit\", \"\")), {})\n\tvar pos = rec.get(\"pos\", [])\n\tvar want = placement.get(\"models_inches\", [])\n\tfor i in range(min(pos.size(), want.size())):\n\t\tif pos[i] == null:\n\t\t\tcontinue\n\t\tvar gv = Vector2(float(pos[i][0]), float(pos[i][1])) / 40.0\n\t\ttotal += gv.distance_to(Vector2(44.0 - float(want[i][0]), 60.0 - float(want[i][1])))\n\t\tn += 1\nvar mean = total / max(1.0, float(n))\nprint(\"SCENARIO pm10 formula seat is %.1f in from the plan's coordinates on average (%d models)\" % [mean, n])\nreturn mean",
+			"expect_min": 3.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Reserves: the plan holds exactly these four back on seat 1.\n# Seat 2 is REPORTED, not asserted to zero: the formula has its own\n# reserve logic and independently held four units back in this game,\n# so 'the control seat reserves nothing' would be asserting something untrue\n# about the control seat rather than something true about the plan.\nvar snap = node.get_meta(\"pm10_snapshot\", {})\nvar in_reserve = {1: [], 2: []}\nfor uid in snap.keys():\n\tif int(snap[uid].get(\"status\", 0)) == 7:\n\t\tin_reserve[int(snap[uid].get(\"owner\", 0))].append(uid)\nin_reserve[1].sort()\nin_reserve[2].sort()\nprint(\"SCENARIO pm10 reserves: seat1(plan)=%s seat2(formula)=%s\" % [str(in_reserve[1]), str(in_reserve[2])])\nreturn \",\".join(in_reserve[1])",
+			"equals": "U_DEFFKOPTAS_A,U_DEFFKOPTAS_B,U_STORMBOYZ_C,U_STORMBOYZ_D"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Attachments: each Wartrike rides with the mob the plan gave it.\nvar snap = node.get_meta(\"pm10_snapshot\", {})\nvar out = []\nfor uid in [\"U_DEFFKILLA_WARTRIKE_A\", \"U_DEFFKILLA_WARTRIKE_B\"]:\n\tout.append(\"%s->%s\" % [uid, str(snap.get(uid, {}).get(\"attached_to\", \"none\"))])\nvar other = []\nfor uid in [\"U_DEFFKILLA_WARTRIKE_A_P2\", \"U_DEFFKILLA_WARTRIKE_B_P2\"]:\n\tother.append(str(snap.get(uid, {}).get(\"attached_to\", \"none\")))\nprint(\"SCENARIO pm10 attachments: seat1(plan)=%s seat2(formula)=%s\" % [str(out), str(other)])\nreturn \" \".join(out)",
+			"equals": "U_DEFFKILLA_WARTRIKE_A->U_WARBIKERS_C U_DEFFKILLA_WARTRIKE_B->U_WARBIKERS_D"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var p = tree.root.find_child(\"AITurnSummaryPanel\", true, false)\nif p == null:\n\treturn \"panel missing\"\nreturn p._plan_line(1)",
+			"equals": "Plan: Orks — Recon Stomps on Hammer and Anvil (assigned)"
+		}
+	]
+}

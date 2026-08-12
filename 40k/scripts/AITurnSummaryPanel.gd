@@ -77,6 +77,12 @@ func _build_summary(player: int, action_summary: Array) -> Dictionary:
 	if battle_round > 0:
 		header += ", Battle Round %d" % battle_round
 
+	# PM-7a: name the plan this seat is playing to, so a reader of the summary
+	# can tell "the AI did X" from "the AI did X because its plan said so".
+	var plan_line := _plan_line(player)
+	if plan_line != "":
+		lines.append(plan_line)
+
 	# Categorize actions by phase, then by type within each phase
 	var phase_actions = _categorize_by_phase(action_summary)
 
@@ -105,6 +111,20 @@ func _build_summary(player: int, action_summary: Array) -> Dictionary:
 		lines.append("No significant actions taken.")
 
 	return {"header": header, "lines": lines}
+
+func _plan_line(player: int) -> String:
+	"""PM-7a: "Plan: <name> (assigned|auto-matched)", or "" when this seat is
+	running on the formula. The distinction matters — an auto-matched plan is
+	one the game chose, not one the player picked."""
+	var AIDM = load("res://scripts/AIDecisionMaker.gd")
+	if AIDM == null or not AIDM.has_method("get_player_plan"):
+		return ""
+	var plan: Dictionary = AIDM.get_player_plan(player)
+	if plan.is_empty():
+		return ""
+	var configured := str(GameState.state.get("meta", {}).get("game_config", {}).get("player%d_plan" % player, ""))
+	var source := "assigned" if (configured != "" and configured != "none") else "auto-matched"
+	return "Plan: %s (%s)" % [str(plan.get("name", "?")), source]
 
 func _categorize_by_phase(actions: Array) -> Dictionary:
 	"""Group actions by their phase ID, preserving phase order."""

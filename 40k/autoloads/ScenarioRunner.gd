@@ -563,6 +563,8 @@ func _execute_step(i: int, act: String, step: Dictionary) -> Dictionary:
 			rec.merge(await _do_expect_token_visible(step), true)
 		"execute_script":
 			rec.merge(_do_execute_script(step), true)
+		"wait_for_script":
+			rec.merge(await _do_wait_for_script(step), true)
 		"pixel_diff":
 			rec.merge(_do_pixel_diff(step), true)
 		"expect_baseline_unchanged":
@@ -1684,6 +1686,43 @@ func _do_execute_script(step: Dictionary) -> Dictionary:
 
 	# equals / not_equals / exists -> reuse _compare
 	return _compare(step, actual, "script[%s]" % code.substr(0, 60))
+
+
+func _do_wait_for_script(step: Dictionary) -> Dictionary:
+	# Poll `script` until it matches, or until timeout_s elapses. This is the
+	# only way to wait on a long-running in-game process from a scenario:
+	# `await` inside an execute_script snippet does NOT work — the compiled
+	# function becomes a coroutine and .call() hands back a
+	# GDScriptFunctionState immediately, so the step "passes" without having
+	# waited for anything (PM-9 lost 11 assertions to exactly that).
+	#
+	#   { "act": "wait_for_script", "script": "return PlanSimulator.is_running()",
+	#     "equals": false, "timeout_s": 600, "poll_s": 2.0 }
+	#
+	# Without an expectation it waits for any truthy result.
+	var timeout_s := float(step.get("timeout_s", 60.0))
+	var poll_s := maxf(0.1, float(step.get("poll_s", 1.0)))
+	var probe := step.duplicate(true)
+	probe["multiline"] = true
+	probe.erase("timeout_s")
+	probe.erase("poll_s")
+	if not (probe.has("equals") or probe.has("not_equals") or probe.has("exists")
+			or probe.has("expect_min") or probe.has("expect_max")):
+		probe["equals"] = true
+
+	var elapsed := 0.0
+	var last := {}
+	while elapsed <= timeout_s:
+		last = _do_execute_script(probe)
+		if bool(last.get("pass", false)):
+			last["waited_s"] = elapsed
+			return last
+		await get_tree().create_timer(poll_s).timeout
+		elapsed += poll_s
+	last["pass"] = false
+	last["error"] = "wait_for_script: %.0fs elapsed, last actual=%s" % [elapsed, str(last.get("actual", "<none>"))]
+	last["waited_s"] = elapsed
+	return last
 
 
 func _do_pixel_diff(step: Dictionary) -> Dictionary:

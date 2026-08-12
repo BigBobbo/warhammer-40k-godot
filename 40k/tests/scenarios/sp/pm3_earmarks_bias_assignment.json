@@ -1,0 +1,341 @@
+{
+  "id": "pm3_earmarks_bias_assignment",
+  "covers": [
+    "ai.earmarks.hold_objective",
+    "ai.earmarks.push_center",
+    "ai.earmarks.screen",
+    "ai.earmarks.decision_records"
+  ],
+  "fixture": "mirror_custodes_2000_predeploy",
+  "edition": 11,
+  "rng_seed": 9001,
+  "description": "PM-3: earmarks bias the AI's objective assignment, and the decision records say so. Runs the SAME fixture twice in one session - first with a plan whose earmarks are SCREEN and PUSH_CENTER, then with PLANS_ENABLED=0 as a control - and latches, for each unit, the first movement decision record: its earmark context, the assignment pass that claimed it, and the candidate it chose. Asserts that the plan arm produces earmark-tagged movement records, that the control arm produces NONE, and reports for each earmarked unit how its assignment differed from the control. Records are compared rather than raw positions, because a position can coincide while the reasoning differs.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_phase",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"}, {1: 1, 2: 1})\nAIPlayer.set_ai_speed_preset(0)\nAIPlayer._max_decision_record_batches = 100000\nAIDecisionMaker._config_overrides.erase(\"PLANS_ENABLED\")\nvar plan = PlanValidator.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_custodes_lions_crucible.json\")\nAIDecisionMaker.set_player_plan(1, plan)\nAIDecisionMaker.set_player_plan(2, plan)\nreturn str(plan.get(\"name\", \"\"))"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_plan_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_plan_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_plan_arm_after_movement"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var mgr = tree.root.get_node_or_null(\"SaveLoadManager\") if false else SaveLoadManager\nSaveLoadManager.load_game(\"mirror_custodes_2000_predeploy\")\nGameState.state[\"meta\"][\"from_save\"] = true\nvar gc = GameState.state[\"meta\"].get(\"game_config\", {})\ngc[\"player1_type\"] = \"AI\"\ngc[\"player2_type\"] = \"AI\"\nGameState.state[\"meta\"][\"game_config\"] = gc\nGameState.set_meta(\"pm3_arm\", \"control\")\nreturn \"loaded\"",
+      "equals": "loaded"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"}, {1: 1, 2: 1})\nAIPlayer.set_ai_speed_preset(0)\nAIPlayer._max_decision_record_batches = 100000\nAIDecisionMaker.clear_all_plans()\nAIDecisionMaker._config_overrides[\"PLANS_ENABLED\"] = 0\nreturn \"plans_disabled\""
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var found = GameState.get_meta(\"pm3_control_arm\", {})\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"movement\":\n\t\t\tcontinue\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tvar uid = str(rec.get(\"unit_id\", \"\"))\n\t\tif found.has(uid):\n\t\t\tcontinue\n\t\tvar cards = rec.get(\"candidates\", [])\n\t\tvar chosen = int(rec.get(\"chosen_index\", 0))\n\t\tvar desc = str(cards[chosen].get(\"description\", \"\")) if chosen < cards.size() else \"\"\n\t\tfound[uid] = {\"earmark\": str(ctx.get(\"earmark\", \"\")), \"pass\": str(ctx.get(\"assigned_by\", \"\")), \"desc\": desc}\nGameState.set_meta(\"pm3_control_arm\", found)\nreturn found.size()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var a = GameState.get_meta(\"pm3_plan_arm\", {})\nvar b = GameState.get_meta(\"pm3_control_arm\", {})\nvar earmarked = []\nfor uid in a:\n\tif not str(a[uid].get(\"earmark\", \"\")).is_empty():\n\t\tearmarked.append(uid)\nvar control_earmarks = 0\nfor uid in b:\n\tif not str(b[uid].get(\"earmark\", \"\")).is_empty():\n\t\tcontrol_earmarks += 1\nvar differed = 0\nfor uid in earmarked:\n\tif b.has(uid) and str(a[uid].get(\"pass\", \"\")) + \"|\" + str(a[uid].get(\"desc\", \"\")) != str(b[uid].get(\"pass\", \"\")) + \"|\" + str(b[uid].get(\"desc\", \"\")):\n\t\tdiffered += 1\nprint(\"SCENARIO pm3 earmarked_units=%d control_earmark_records=%d differed_vs_control=%d\" % [earmarked.size(), control_earmarks, differed])\nfor uid in earmarked:\n\tprint(\"SCENARIO pm3   %s earmark=%s plan[%s|%s] control[%s|%s]\" % [uid, a[uid][\"earmark\"], a[uid][\"pass\"], a[uid][\"desc\"], str(b.get(uid, {}).get(\"pass\", \"-\")), str(b.get(uid, {}).get(\"desc\", \"-\"))])\nif control_earmarks != 0:\n\treturn -1\nreturn earmarked.size()",
+      "expect_min": 1
+    }
+  ]
+}

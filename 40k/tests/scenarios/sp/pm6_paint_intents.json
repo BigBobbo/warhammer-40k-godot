@@ -1,0 +1,343 @@
+{
+  "id": "pm6_paint_intents",
+  "covers": [
+    "ui.IntentPainter.appears_when_deployment_complete",
+    "ui.IntentPainter.five_verbs",
+    "ui.IntentPainter.hold_binds_by_board_click",
+    "ui.IntentPainter.clear_intent",
+    "ui.IntentOverlay.badges",
+    "plan_recorder.earmarks_saved",
+    "plan_recorder.reserve_until_reconciled"
+  ],
+  "disable_ai": true,
+  "description": "PM-6 intent painter. No fixture: from the main menu into the Plan Editor with recon_stomps + hammer_anvil, lay the army out, and paint intents. Asserts the painter is withheld until nothing is left to place; that all five verbs \u2014 and only those five \u2014 can be applied, one per unit; that HOLD_OBJECTIVE is bound by a REAL board click on the objective marker (ObjectiveVisual has no input handling, so the painter hit-tests the marker positions itself); that every earmark gets a board badge and a panel row, and that Clear removes both. Then it saves and re-reads the file: the five verbs and the bound target survive, the RESERVE_UNTIL unit also appears in deployment.reserves (the validator rejects a mismatch, so this is what proves the recorder reconciles them), the plan validates against the live army, and the AI's own PM-3 lookup returns all five.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar army_idx = -1\nfor i in range(m.army_options.size()):\n\tif str(m.army_options[i].id) == \"recon_stomps\":\n\t\tarmy_idx = i\nvar zone_idx = -1\nfor i in range(m.deployment_options.size()):\n\tif str(m.deployment_options[i].id) == \"hammer_anvil\":\n\t\tzone_idx = i\nm.player1_dropdown.selected = army_idx\nm.plan_editor_zone_dropdown.selected = zone_idx\nreturn \"%s|%s\" % [str(m.army_options[army_idx].id), m._plan_editor_zone_id()]",
+      "equals": "recon_stomps|hammer_anvil"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/PlanEditorButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.current_scene._on_formations_confirm_pressed()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.current_scene.get_node_or_null(\"IntentPainterPanel\") != null",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var path = \"user://ai_plans/recon_stomps_hammer_anvil.json\"\nif FileAccess.file_exists(path):\n\tDirAccess.open(\"user://ai_plans\").remove(path.get_file())\nreturn FileAccess.file_exists(path)",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var phase = PhaseManager.get_current_phase_instance()\nvar PX = 40.0\nvar order = []\nfor uid in GameState.state.units.keys():\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) != 1 or int(u.get(\"status\", 0)) != 0:\n\t\tcontinue\n\tvar m0 = u.get(\"models\", [])[0]\n\tvar d = m0.get(\"base_dimensions\", {})\n\tvar xw = PX * (float(d.get(\"length\", m0.get(\"base_mm\", 32))) / 25.4)\n\tvar yh = PX * (float(d.get(\"width\", m0.get(\"base_mm\", 32))) / 25.4)\n\torder.append({\"id\": uid, \"area\": xw * yh * u.get(\"models\", []).size(), \"xw\": xw, \"yh\": yh})\norder.sort_custom(func(a, b): return a.area > b.area)\nvar placed = 0\nvar failed = []\nfor entry in order:\n\tvar uid = str(entry.id)\n\tvar n = GameState.state.units[uid].get(\"models\", []).size()\n\tvar xw = float(entry.xw)\n\tvar yh = float(entry.yh)\n\tvar gap = 0.2 * PX\n\tvar cols = n\n\twhile cols > 1 and (cols - 1) * (xw + gap) > 7.5 * PX:\n\t\tcols -= 1\n\tvar block_w = cols * (xw + gap)\n\tvar block_h = int(ceil(float(n) / float(cols))) * (yh + gap)\n\tvar done = false\n\tvar gy = 0.6\n\twhile gy * PX + block_h < 18.0 * PX and not done:\n\t\tvar gx = 0.6\n\t\twhile gx * PX + block_w < 44.0 * PX and not done:\n\t\t\tvar positions = []\n\t\t\tfor i in range(n):\n\t\t\t\tpositions.append(Vector2(\n\t\t\t\t\tgx * PX + (i % cols) * (xw + gap) + xw / 2.0,\n\t\t\t\t\tgy * PX + (i / cols) * (yh + gap) + yh / 2.0))\n\t\t\tvar act = {\"type\": \"DEPLOY_UNIT\", \"unit_id\": uid, \"player\": 1, \"model_positions\": positions}\n\t\t\tif phase.validate_action(act).get(\"valid\", false):\n\t\t\t\tif phase.execute_action(act).get(\"success\", false):\n\t\t\t\t\tplaced += 1\n\t\t\t\t\tdone = true\n\t\t\tgx += 1.0\n\t\tgy += 1.0\n\tif not done:\n\t\tfailed.append(uid)\nif not failed.is_empty():\n\treturn \"FAILED:\" + str(failed)\nreturn placed",
+      "expect_min": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.current_scene._recreate_unit_visuals()\ntree.current_scene._update_deployment_progress()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/IntentPainterPanel",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return node.get_node(\"/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentUnitList\").item_count",
+      "expect_min": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(GameState.state.get(\"meta\", {}).get(\"plan_earmarks\", []).size())",
+      "equals": "0"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_painter_open_no_intents"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentUnitList",
+      "index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(node.get_node(\"/root/Main/IntentPainterPanel\").selected_unit) != \"\"",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentVerbColumn/IntentVerbGrid/IntentVerbHold",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(node.get_node(\"/root/Main/IntentPainterPanel\").awaiting_objective_for) != \"\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return node.get_node(\"/root/Main/IntentPainterPanel\").status_label.text.find(\"Click the objective\") >= 0",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for o in GameState.state.board.objectives:\n\tif str(o.id) == \"obj_home_1\":\n\t\tvar p = o.position\n\t\treturn \"%d,%d\" % [int(p.x), int(p.y)]\nreturn \"MISSING\"",
+      "not_equals": "MISSING"
+    },
+    {
+      "act": "click_board_at",
+      "x": 1060,
+      "y": 470
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(node.get_node(\"/root/Main/IntentPainterPanel\").awaiting_objective_for)",
+      "equals": ""
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var e = GameState.state.meta.get(\"plan_earmarks\", [])\nif e.size() != 1:\n\treturn \"count=%d\" % e.size()\nreturn \"%s|%s\" % [str(e[0].get(\"verb\", \"\")), str(e[0].get(\"target\", \"\"))]",
+      "equals": "HOLD_OBJECTIVE|obj_home_1"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentUnitList",
+      "index": 1
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentVerbColumn/IntentVerbGrid/IntentVerbPush",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentUnitList",
+      "index": 2
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentVerbColumn/IntentVerbGrid/IntentVerbScreen",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentUnitList",
+      "index": 3
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentVerbColumn/IntentVerbGrid/IntentVerbHunt",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentUnitList",
+      "index": 4
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentVerbColumn/IntentVerbGrid/IntentVerbReserve2",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var verbs = []\nfor e in GameState.state.meta.get(\"plan_earmarks\", []):\n\tverbs.append(str(e.get(\"verb\", \"\")))\nverbs.sort()\nreturn \",\".join(verbs)",
+      "equals": "HOLD_OBJECTIVE,HUNT_CHARACTERS,PUSH_CENTER,RESERVE_UNTIL,SCREEN"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return node.get_node(\"/root/Main/BoardRoot/IntentOverlay\").badge_count()",
+      "equals": 5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var l = node.get_node(\"/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentUnitList\")\nvar hits = 0\nfor i in range(l.item_count):\n\tif l.get_item_text(i).find(\"  \u2014  \") >= 0:\n\t\thits += 1\nreturn hits",
+      "equals": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_five_intents_painted"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentUnitList",
+      "index": 3
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentVerbColumn/IntentVerbClear",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return GameState.state.meta.get(\"plan_earmarks\", []).size()",
+      "equals": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return node.get_node(\"/root/Main/BoardRoot/IntentOverlay\").badge_count()",
+      "equals": 4
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentUnitList",
+      "index": 3
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/IntentPainterPanel/IntentPainterRoot/IntentPainterBody/IntentVerbColumn/IntentVerbGrid/IntentVerbHunt",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PlanEditorBanner/PlanEditorBannerRow/PlanEditorSaveButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PlanSaveDialog/PlanSaveRoot/PlanSaveActions/PlanSaveButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return bool(node.get_node(\"/root/Main/PlanSaveDialog\").last_result.get(\"success\", false))",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar p = PV.load_plan_file(\"user://ai_plans/recon_stomps_hammer_anvil.json\")\nvar verbs = []\nfor e in p.get(\"earmarks\", []):\n\tverbs.append(str(e.get(\"verb\", \"\")))\nverbs.sort()\nreturn \",\".join(verbs)",
+      "equals": "HOLD_OBJECTIVE,HUNT_CHARACTERS,PUSH_CENTER,RESERVE_UNTIL,SCREEN"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar p = PV.load_plan_file(\"user://ai_plans/recon_stomps_hammer_anvil.json\")\nfor e in p.get(\"earmarks\", []):\n\tif str(e.get(\"verb\", \"\")) == \"HOLD_OBJECTIVE\":\n\t\treturn str(e.get(\"target\", \"\"))\nreturn \"none\"",
+      "equals": "obj_home_1"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar p = PV.load_plan_file(\"user://ai_plans/recon_stomps_hammer_anvil.json\")\nvar reserved = []\nfor r in p.get(\"deployment\", {}).get(\"reserves\", []):\n\treserved.append(str(r.get(\"unit\", \"\")))\nvar painted = \"\"\nfor e in p.get(\"earmarks\", []):\n\tif str(e.get(\"verb\", \"\")) == \"RESERVE_UNTIL\":\n\t\tpainted = str(e.get(\"unit\", \"\"))\nreturn painted != \"\" and (painted in reserved)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar REC = load(\"res://scripts/PlanRecorder.gd\")\nvar p = PV.load_plan_file(\"user://ai_plans/recon_stomps_hammer_anvil.json\")\nvar res = PV.validate_plan(p, REC.own_army(GameState.state, 1))\nif not res.get(\"valid\", false):\n\treturn \"INVALID: \" + str(res.get(\"errors\", []))\nreturn \"valid\"",
+      "equals": "valid"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar AIDM = load(\"res://scripts/AIDecisionMaker.gd\")\nvar p = PV.load_plan_file(\"user://ai_plans/recon_stomps_hammer_anvil.json\")\nAIDM.clear_all_plans()\nAIDM.set_player_plan(1, p)\nvar n = 0\nfor e in p.get(\"earmarks\", []):\n\tvar got = AIDM._plan_earmark_for(str(e.get(\"unit\", \"\")), 1, GameState.create_snapshot())\n\tif not got.is_empty() and str(got.get(\"verb\", \"\")) == str(e.get(\"verb\", \"\")):\n\t\tn += 1\nAIDM.clear_all_plans()\nreturn n",
+      "equals": 5
+    },
+    {
+      "act": "screenshot",
+      "label": "03_saved_with_intents"
+    }
+  ]
+}

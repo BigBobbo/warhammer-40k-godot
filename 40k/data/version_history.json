@@ -2,6 +2,139 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.36.1",
+      "date": "2026-08-12",
+      "summary": "Note on the new ready-made plans: the computer will use one automatically when it fits your game, and you can always turn that off.",
+      "changes": [
+        "If you pick Recon Stomps for a computer player on a matching deployment zone, it will follow the matching ready-made plan even if you never touched the AI Plan picker — that is what 'Auto' means in the picker.",
+        "Choose 'None (no plan)' for that seat to get the old behaviour back; the computer then works its deployment out for itself exactly as before.",
+        "Known issue: if your plan includes a transport — a Stompa counts — the computer may load units into it even when the plan puts them on an objective. Check where the passengers ended up."
+      ]
+    },
+    {
+      "version": "1.36.0",
+      "date": "2026-08-11",
+      "summary": "Two ready-made Ork battle plans now ship with the game, so the computer can be given a real plan without writing one first.",
+      "changes": [
+        "New: 'Orks — Recon Stomps on Crucible' and 'Orks — Recon Stomps on Hammer and Anvil' appear in the AI Plan picker and the AI Plans screen whenever the Recon Stomps army is chosen on a matching deployment zone.",
+        "Both plans play the same idea: Gretchin sit on the home objective with a second mob screening beside them, the Stompa leads Wazdakka and both Warbiker mobs — each with a Deffkilla Wartrike attached — up the middle, two Stormboyz mobs screen the approach, and two more Stormboyz mobs plus both Deffkopta units arrive from Reserves on round 2.",
+        "They are shipped plans, so they are read-only: you can use them and see them in the browser, but rename and delete stay yours-only.",
+        "Marked 'claude-draft — owner review wanted' in the author field, so it is obvious these are a starting point rather than a tuned list."
+      ]
+    },
+    {
+      "version": "1.35.0",
+      "date": "2026-08-11",
+      "summary": "New Battle Simulator: play the same battle several times with the computer on both sides, and see whether a plan actually wins more often.",
+      "changes": [
+        "New: a Battle Simulator button on the main menu. Pick the armies, the plan for each side (or none), the deployment zone, the terrain and how many games to play, then press Run.",
+        "The games play out on screen underneath the panel, one after another, so you can watch or leave it running.",
+        "How long it will take is not guessed: the estimate appears after the first game finishes and is based on how long that game actually took.",
+        "Results fill in as they finish — winner, score, battle rounds, how many units each side put down from its plan, and the time taken — with a summary of wins and the average margin.",
+        "Cancel stops after the game in progress and keeps the results so far.",
+        "Every simulated game is recorded, so any of them can be replayed from Watch Replays, and the full results are written to a file you can open."
+      ]
+    },
+    {
+      "version": "1.34.0",
+      "date": "2026-08-11",
+      "summary": "An 'AI Plans' screen on the main menu: see every plan you have, what it is for, and whether it is still valid — and rename or delete your own.",
+      "changes": [
+        "New: an AI Plans button on the main menu. Each plan lists its army, deployment zone, terrain layout, where it came from, and a status column that says OK or how many problems it has.",
+        "Picking a plan shows its description, author, file path, and any problems or notes in full.",
+        "Rename a plan you wrote — the file is renamed with it, and a name already in use is refused rather than overwriting.",
+        "Delete asks for confirmation first, and only removes the file once you confirm.",
+        "Plans that ship with the game can be used but not renamed or deleted, and the screen says so instead of just greying out.",
+        "Closing the screen refreshes the AI Plan pickers, so a plan you just deleted can no longer be chosen."
+      ]
+    },
+    {
+      "version": "1.33.0",
+      "date": "2026-08-11",
+      "summary": "You can now hand the AI a plan when you set a game up: each AI seat gets an 'AI Plan' picker in the main menu.",
+      "changes": [
+        "New: a P1 / P2 AI Plan dropdown under each AI seat's army. It lists the plans saved for that army; a plan written for a different deployment zone is still offered but labelled with the zone it is for.",
+        "Auto (best match) lets the AI pick the closest plan for the army and zone by itself — this is the default.",
+        "None makes that seat play entirely off its own judgement, with no plan and no automatic match.",
+        "The game log says which plan each AI seat is playing when the battle starts, and the AI's turn summary repeats it, marked 'assigned' or 'auto-matched'.",
+        "An unreadable plan file falls back to Auto rather than starting a game that quietly ignores your choice."
+      ]
+    },
+    {
+      "version": "1.32.0",
+      "date": "2026-08-11",
+      "summary": "Plans can now say what each unit is FOR: give a unit a job — hold this objective, push the middle, screen, arrive from reserve, or hunt characters — and it is saved with the plan.",
+      "changes": [
+        "New: an INTENTS panel in the Plan Editor once your army is fully set up. Pick a unit, give it a job, and a badge appears on the board over that unit.",
+        "Hold Objective is bound by clicking the objective you mean — the badge draws a line to it so you can see the pairing at a glance.",
+        "Push Centre draws its line to the middle objective, which is what the AI actually aims at.",
+        "Reserve R2 / R3 records a unit as starting in Reserves regardless of where it is standing in the editor, and says so.",
+        "Clear intent takes a job back off; a unit with no intent is left entirely to the AI's own judgement.",
+        "Intents are saved into the plan, so the AI reads them back when it plays that plan."
+      ]
+    },
+    {
+      "version": "1.31.0",
+      "date": "2026-08-11",
+      "summary": "The Plan Editor can now save what you set up: 'Save as Plan' writes your deployment out as an AI plan the computer opponent can follow.",
+      "changes": [
+        "New: a Save as Plan button on the Plan Editor banner. It records the order you deployed in, every model's exact position, and anything you held in reserve, put in a transport or attached to a squad.",
+        "The name is filled in for you as '<army> — <zone>', and the plan is written to your own plans folder.",
+        "A plan that would not be legal is refused with the reason shown in the dialog, rather than saved and silently ignored later.",
+        "Saved plans work from either side of the table — the AI mirrors your layout automatically when it plays the other deployment zone.",
+        "Unit roles (intents) are not part of this step; a saved plan starts with none."
+      ]
+    },
+    {
+      "version": "1.30.0",
+      "date": "2026-08-11",
+      "summary": "New 'Plan Editor' on the main menu: a solo planning sandbox where you set your army up on the board with no opponent and no clock, ready for the plan you are writing.",
+      "changes": [
+        "New: a Plan Editor button on the main menu, with its own deployment-zone picker so you can plan for any zone regardless of which terrain variant the game would otherwise pick.",
+        "The editor runs the real pre-battle steps for your army — Declare Battle Formations, then Deployment — so what you set up is what the game would actually allow.",
+        "There is no opponent: Player 2 is removed, the deploy roll-off resolves itself with you setting up first, and no hand-the-device screen interrupts you.",
+        "When the last unit is down the session simply stays in Deployment instead of starting a battle, so the board keeps whatever you laid out.",
+        "A PLAN EDITOR banner sits above the board with an Exit to Menu button."
+      ]
+    },
+    {
+      "version": "1.29.2",
+      "date": "2026-08-11",
+      "summary": "AI Plans can now give each unit a job for the whole battle — hold this objective, push the middle, screen, or hunt characters — and the AI leans that way instead of re-deciding from scratch every turn.",
+      "changes": [
+        "New: per-unit intents. A plan can tell the AI what each unit is FOR: Hold Objective (a named one), Push Centre, Screen, Reserve Until a round, or Hunt Characters. The AI's own judgement still does the work — the intent just tilts it.",
+        "Hold Objective and Push Centre add a visible weighting toward that objective when the AI decides where each unit goes, and the AI's decision log names the intent that tipped it.",
+        "Screen keeps a unit out of the objective grab entirely, so it ends up doing the screening and blocking job instead.",
+        "Hunt Characters makes a unit prefer enemy characters when it picks shooting, charge and melee targets — added on top of the AI's existing preference, not instead of it.",
+        "Intents fade when a unit is wrecked: once it is below half strength the AI stops holding it to a job written for a fresh squad, and says so in the log. The half-strength point is adjustable.",
+        "A plan can also carry AI tuning of its own. A profile you assign yourself always wins over a plan's tuning, so a plan can never quietly override your settings."
+      ]
+    },
+    {
+      "version": "1.29.1",
+      "date": "2026-08-11",
+      "summary": "AI Plans now also decide the AI's pre-battle declarations — what it holds in Reserves, what rides in a transport, and which character leads which squad.",
+      "changes": [
+        "New: a plan can now say which units start in Reserves (and on which round they arrive), which units start inside a transport, and which character starts attached to which squad. The AI makes exactly those declarations in the Formations step instead of working it out itself.",
+        "The plan's Reserves list is the last word: while a plan is in force the AI adds no reserves of its own, so a plan that lists nothing really does start everything on the table.",
+        "A plan that asks for more Reserves than the rules allow is trimmed in the order it was written — the earliest entries are kept and the rest are dropped with a note in the log, rather than the whole declaration failing.",
+        "Anything the plan does not mention still falls to the AI: a plan that pairs one character with one squad leaves the AI free to attach the rest.",
+        "Reserves also work in a game that is already past the Formations step (for example a saved battle loaded straight into deployment): the AI holds those units back during deployment instead of putting them on the table. Transports and attachments cannot be set up that late, so a plan that asks for them there is skipped with a note."
+      ]
+    },
+    {
+      "version": "1.29.0",
+      "date": "2026-08-11",
+      "summary": "The AI can now follow an authored deployment plan instead of its built-in column formula — the first step of the AI Plan system.",
+      "changes": [
+        "New: AI Plans. A plan is a small JSON file that says, for one army list on one deployment map, exactly where every model goes and in what order — and the AI now follows it. Deployment largely decides the first two battle rounds, and until now the AI always spread out on the same generic column pattern regardless of the army or the map.",
+        "A plan is written from the player-1 side of the board and works from either side: when the AI is sitting in the player-2 seat it rotates every position 180 degrees so the same plan deploys legally there too.",
+        "Plans never make the AI do something illegal. Each unit's placement is checked against the real deployment rules — inside your zone, no overlaps, clear of walls and off-board edges, and in unit coherency — and anything that does not fit is nudged into place or, failing that, deployed the old way for that unit only. Units the plan does not mention deploy normally, after the planned ones.",
+        "Turn it all off with the PLANS_ENABLED setting in data/ai_config.json (set it to 0) for exactly the old behaviour.",
+        "Under the hood: the AI's decision log now records whether each deployment came from a plan or from the formula, so how faithfully a plan was followed can be measured after a game."
+      ]
+    },
+    {
       "version": "1.28.7",
       "date": "2026-08-07",
       "summary": "Fixed a Charge phase freeze: a Heroic Intervention that could not reach the enemy left the game stuck with no way to continue.",

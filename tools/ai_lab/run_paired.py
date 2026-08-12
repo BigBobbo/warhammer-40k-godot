@@ -59,8 +59,13 @@ class Args:
 
 
 def play_arm(seeds, fixture, arm, p1, p2, season, difficulty, time_scale,
-             max_seconds, lanes, stamp, sha):
+             max_seconds, lanes, stamp, sha, p1_plan="", p2_plan=""):
+    # PM-10: the plan is held CONSTANT across both arms and both seats; what
+    # swaps is the profile (PLANS_ENABLED 1 vs 0). That keeps the paired design
+    # intact — the pair difference isolates "followed the plan" from everything
+    # else, including the plan file itself.
     a = Args(fixture=fixture, arm=arm, p1_profile=p1, p2_profile=p2,
+             p1_plan=p1_plan, p2_plan=p2_plan,
              difficulty=difficulty, time_scale=time_scale, max_seconds=max_seconds,
              lanes=lanes, seeds="", season=season, skip_gate=True)
     import concurrent.futures
@@ -220,6 +225,10 @@ def selftest() -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--candidate", default="", help="candidate profile JSON")
+    ap.add_argument("--plan", default="",
+                    help="PM-10: a wh40k_ai_plan given to BOTH seats in both arms. "
+                         "Pair it with a baseline profile carrying PLANS_ENABLED: 0 "
+                         "to measure plan-vs-formula.")
     ap.add_argument("--baseline", default="", help="baseline profile (default: shipped defaults)")
     ap.add_argument("--fixture", default="mirror_custodes_2000_postdeploy")
     ap.add_argument("--season", default="")
@@ -273,12 +282,15 @@ def main(argv=None) -> int:
             break
         # M1: P1 baseline, P2 candidate. M2: swapped.
         play_arm(batch, args.fixture, "M1", args.baseline, args.candidate, season,
-                 args.difficulty, args.time_scale, args.max_seconds, args.lanes, stamp, sha)
+                 args.difficulty, args.time_scale, args.max_seconds, args.lanes, stamp, sha,
+                 args.plan, args.plan)
         play_arm(batch, args.fixture, "M2", args.candidate, args.baseline, season,
-                 args.difficulty, args.time_scale, args.max_seconds, args.lanes, stamp, sha)
+                 args.difficulty, args.time_scale, args.max_seconds, args.lanes, stamp, sha,
+                 args.plan, args.plan)
         if args.aa_arm:
             play_arm(batch, args.fixture, "AA", args.baseline, args.baseline, season,
-                     args.difficulty, args.time_scale, args.max_seconds, args.lanes, stamp, sha)
+                     args.difficulty, args.time_scale, args.max_seconds, args.lanes, stamp, sha,
+                     args.plan, args.plan)
         played += len(batch)
 
         m1 = margins_by_seed(season, "M1", args.candidate)

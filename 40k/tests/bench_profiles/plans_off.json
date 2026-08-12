@@ -1,0 +1,10 @@
+{
+  "format": "wh40k_ai_profile",
+  "version": 1,
+  "profile_name": "Plans off — the formula baseline for PM-10",
+  "description": "Sets PLANS_ENABLED to 0, which is the single gate every plan consumer sits behind: deployment order and per-model placement (PM-2a), formations reserves/embarkations/attachments (PM-2b) and earmark bias (PM-3) all check it. Loaded on the BASELINE arm of the PM-10 paired A/B so both arms are handed the same plan file and differ only in whether the AI is allowed to read it. Holding the plan constant and varying the gate — rather than passing the plan to one arm only — keeps everything else about the two arms byte-identical.",
+  "parameters": {
+    "PLANS_ENABLED": 0.0
+  },
+  "rules": []
+}

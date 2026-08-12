@@ -213,7 +213,7 @@ PM-11 docs + release coherence (needs all)
 
 ## PM-8a — SPIKE: prove two back-to-back in-session AI games
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** — (run early; results de-risk PM-8b)
 **Player-facing:** no
 
@@ -250,13 +250,106 @@ to reach for: the only precedent (`tests/helpers/GameInstance.gd:104`) has
 documented autoload-init flakiness (`tests/FINAL_STATUS.md`) and is
 impossible on the web export.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+VERIFIED: pure-state (no UI affordance) — PM-8a adds one headless spike driver
+under `40k/tests/spikes/` and one committed report. No production code changed,
+so nothing a player can see or click is different; the whole task IS a
+measurement of autoload state.
+
+**Verdict: in-session reset is VIABLE — and the task's candidate reset list is
+necessary but NOT sufficient.** Report:
+`40k/tests/bench_baselines/2026-08-11_pm8a_inline_reset_spike.md`.
+Driver: `40k/tests/spikes/pm8a_inline_reset_spike.gd`.
+
+```
+$ godot --headless --path . -s tests/spikes/pm8a_inline_reset_spike.gd
+game 1 (seed 8100): completed  round 5  205 actions  VP 35-66   11.4 s
+game 2 (seed 8101): completed  round 5  264 actions  VP 55-37   14.0 s
+game 3 (seed 8100): completed  round 5  205 actions  VP 35-66   10.4 s
+determinism g1 vs g3: {"same_seed": true, "identical": true, "mismatches": {},
+                       "first_action_divergence_index": -1}
+stderr: 0 SCRIPT ERROR, 0 "Lambda capture was freed", 0 "update_control on Nil"
+```
+
+Three consecutive from-menu AI-vs-AI games completed in one process (~10-14 s
+each for a 3-unit Custodes mirror at time_scale 10, running the FULL game from
+FORMATIONS), no stalls, equal unit counts at every game start, and **two games
+at the same seed produced byte-identical outcomes** while a third at a different
+seed produced a genuinely different game.
+
+**The load-bearing finding: with only the task's candidate resets
+(StratagemManager / UnitAbilityManager / MissionManager+Secondary init /
+PhaseManager.game_ended), two SAME-SEED in-session games diverged** — 205 vs 189
+actions, VP 35-66 vs 42-66 — while the same seed in two *separate processes*
+matched exactly (202 actions / 35-66 both runs). So the residual leakage was
+real, and had to be closed before PM-8b could claim seeded runs.
+
+The reset list that makes it deterministic (full table + per-step evidence in
+the report):
+1. `AIPlayer.configure({1:"HUMAN",2:"HUMAN"})` **before** tearing the game down
+   — the AI is otherwise still live during the rebuild and Main'"'"'s later
+   `configure()` erases the evidence by wiping `_action_log`. Fixing only this
+   moved the first action-trace divergence from index 0 to index 23.
+2. `StratagemManager.reset_for_new_game()` (proven: `_usage_history` 8/8 leaked).
+3. `UnitAbilityManager.reset_for_new_game()` (no leak observed with this army —
+   kept because the method has no production caller, so the risk is unproven
+   rather than disproven).
+4. `PhaseManager.reset()` **plus `_last_round_started = -1`**, which `reset()`
+   misses.
+5. **Re-initialise `FactionAbilityManager`'"'"'s per-game dictionaries — the actual
+   determinism-breaker.** It has no reset entry point at all; `_active_mastery`
+   / `_mastery_selected_round` carried into game 2, which then skipped
+   `SELECT_MARTIAL_MASTERY` and diverged from there.
+6. `MissionManager`: clear `_units_alive_at_round_start` and
+   `objectives_visual_refs` (`initialize_mission()` clears neither).
+7. `MissionManager`: disconnect the stale **lambda** receivers (below).
+8. `ActionLogger` / `GameEventLog` / `ReplayManager`: no reset entry points,
+   unbounded growth (257 actions, 570 entries at game 2'"'"'s bootstrap).
+9. Seed a **fourth** RNG channel — the GLOBAL RNG (`seed(n)`), which
+   `Array.shuffle()`/`randi()`/`randf()` draw from and which the documented
+   "seeding triple" does not cover. A fresh process starts it from a fixed
+   default (which is why separate processes agreed); in-session its state
+   carries over.
+
+**Ordering is part of the answer**: reset, THEN bootstrap. Resetting after the
+bootstrap wipes what the bootstrap just populated —
+`StratagemManager.reset_for_new_game()` clears the faction stratagems that
+applying the armies had just loaded.
+
+**Separate bug found (cosmetic, but it breaks the no-ERROR gate).**
+`Main._setup_objectives()` (`scripts/Main.gd:5186-5191`) connects a lambda to the
+`MissionManager.objective_control_changed` autoload signal that CAPTURES the
+`ObjectiveVisual` scene node. The connection outlives the scene: receivers
+accumulate 5 -> 10 -> 15 across three games, and every control change in game 2+
+fires game 1'"'"'s dead lambdas — `Lambda capture at index 1 was freed` plus
+`Nonexistent function '"'"'update_control'"'"' in base '"'"'Nil'"'"'` at Main.gd:5188. **105 such
+ERROR lines in a 3-game run, zero in game 1.** Determinism holds with them
+present, so they are cosmetic — but they would fail `verify_delivery` /
+`read_debug_log`, which PM-9 has to pass. The guard that works is an
+unconditional `Callable.is_custom()` sweep; `is_instance_valid(callable.get_object())`
+does NOT work, because a lambda'"'"'s bound object outlives the scene while its
+captures do not, so the connection still looks healthy.
+
+Instruments built for this (reusable by PM-8b): a per-game capture of the first
+60 `AIPlayer._action_log` entries with the **index of the first differing
+action** between two runs, and `_autoload_fingerprint()` — the size/value of
+every script-declared Array/Dictionary/bool/int on 17 autoloads, diffed between
+identical bootstrap points. The fingerprint found the log/record leaks but NOT
+the FactionAbilityManager one, because those are fixed-shape `{"1":…,"2":…}`
+dictionaries whose size never changes; the action trace found it.
+
+Also confirmed: a from-menu AI-vs-AI game works end to end (FORMATIONS confirm,
+deployment roll-off, deployment) — a path `AIBenchmarkRunner` never exercises,
+being fixture-only and post-deployment.
+
+Commit: see `PM-8a: spike — in-session multi-game reset is viable`.
 
 ---
 
 ## PM-0 — Plan schema v1 + validator + example fixtures
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** —
 **Player-facing:** no
 
@@ -366,13 +459,81 @@ pasted into Evidence.
 **Out of scope.** Runtime loading (PM-1), AI behavior (PM-2x/3), anchor
 resolution.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+VERIFIED: pure-state (no UI affordance) — PM-0 ships only a format doc, a
+static `RefCounted` validator with no scene, node, signal or input surface, two
+JSON test fixtures, and a headless test. Nothing in this task is reachable from
+the running UI: no menu entry, button, panel or overlay is added or changed, and
+`PlanValidator` has no runtime caller yet (its first callers arrive in PM-1 and
+PM-2a, both of which carry their own windowed gates). A windowed scenario here
+could only screenshot an unchanged main menu, which CLAUDE.md explicitly calls a
+marker rather than evidence.
+
+Delivered:
+- `40k/docs/PLAN_FORMAT.md` — annotated example on real recon_stomps ids, verb
+  table, frame/transform rule, matching + fallback semantics, fragment merge
+  order, earmark-vs-intent note.
+- `40k/scripts/PlanValidator.gd` — static, ProfileManager-style.
+- `40k/tests/fixtures/ai_plans/fixture_minimal_valid.json` and
+  `fixture_recon_stomps_rich.json` (13 placements / 54 models / all five verbs /
+  reserves / embarkation / attachment, `"author": "fixture"`).
+- `40k/tests/unit/test_plan_validator.gd`, registered in the `TESTS` array of
+  `40k/tests/run_pretrigger_tests.sh`.
+
+Commands + output:
+```
+$ godot --headless --import          # clean, rc=0, no errors/warnings
+$ godot --headless --path . -s tests/unit/test_plan_validator.gd
+=== PlanValidator (PM-0) Tests ===
+... 65 PASS lines ...
+=== Results: 65 passed, 0 failed ===
+```
+(No `SCRIPT ERROR` lines. The only stderr at exit is the engine's standard
+`RID allocations ... leaked at exit` / `resources still in use at exit` noise
+that every headless run in this repo emits, including a bare
+`godot --headless --import`.)
+
+Two findings that changed the implementation from the task text:
+
+1. **`DeploymentZoneData` cannot be preloaded from a `-s` SceneTree test.** It
+   calls the `Measurement` autoload, whose identifier does not resolve in that
+   compile context; preloading it yields
+   `SCRIPT ERROR: Compile Error: Identifier not found: Measurement` and the
+   preloaded script's static funcs then fail with
+   `Invalid call. Nonexistent function 'get_zones' in base 'GDScript'`
+   (reproduced, then fixed). PlanValidator therefore reads
+   `res://deployment_zones/<id>.json` directly — the same JSON
+   `DeploymentZoneData.get_zones()` itself prefers (`:29-34`) — and stays
+   autoload-free. `test_deployment_types_all_have_zone_json` asserts every
+   `DEPLOYMENT_TYPES` entry really has such a file (all 6 do), reading the const
+   out of the source text so no ERROR line is emitted. **Consumers of the zone
+   polygons in later PM tasks that run in-game (PM-2a) can use
+   `DeploymentZoneData` normally; only `-s` test context is affected.**
+
+2. **The "transformed placement outside P2 zone" corruption case is reachable
+   with real shipped data.** All 6 selectable zones are exact point reflections
+   (asserted for every vertex by `test_shipped_zones_are_point_symmetric`), so
+   the P2 check can never fire for them. But
+   `res://deployment_zones/crucible_of_battle_new.json` — a file on disk that is
+   NOT in `DEPLOYMENT_TYPES` — is asymmetric (P1 is the triangle
+   (0,0)-(44,0)-(0,30); P2 starts at y=33, not y=30). A placement at
+   `[4.0, 26.0]` is inside its P1 zone and mirrors to `(40, 34)`, outside its P2
+   zone, so the test exercises the real error path with real data rather than a
+   fabricated polygon.
+
+Also verified while building: reserves caps mirror `FormationsPhase.gd:400-420`
+exactly — the unit-count cap counts reserves *entries* (`:814-816`) while the
+points cap includes characters attached to a reserved bodyguard (`:802-812`);
+both are asserted.
+
+Commit: see `PM-0: wh40k_ai_plan v1 schema, validator, fixtures, tests`.
 
 ---
 
 ## PM-1 — PlanManager: storage, listing, matching
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-0
 **Player-facing:** no
 
@@ -414,13 +575,84 @@ decisions for two fabricated snapshots pasted into Evidence.
 
 **Out of scope.** UI, AI consumption, recursive listing.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+VERIFIED: pure-state (no UI affordance) — `PlanManager` is a static
+`RefCounted` storage/matching utility with no scene, node, signal or input
+surface, and no runtime caller yet (its first UI caller is PM-7a's dropdown,
+its first AI caller is PM-2a; both carry their own windowed gates). Nothing a
+player can see or click changed in this task.
+
+Delivered:
+- `40k/scripts/PlanManager.gd` — search path `user://ai_plans/` then
+  `res://data/ai_plans/` (non-recursive, missing dir tolerated), `slugify`,
+  `list_plans` (browser rows incl. the PlanValidator badge), `load_plan_file`
+  (explicit path — how fixtures are loaded), `load_plan`/`find_plan_path`,
+  `save_plan` (validates, refuses invalid), `delete_plan` (user:// only),
+  `resolve_game_identity`, `rank_plan`, `find_plan_match_for`, `find_plan_for`.
+- `40k/tests/unit/test_plan_manager.gd`, registered in
+  `40k/tests/run_pretrigger_tests.sh`.
+- `PLAN_FORMAT.md` gained a "`_P<player>` mirror suffix" subsection.
+
+Commands + output:
+```
+$ godot --headless --path . -s tests/unit/test_plan_manager.gd
+=== PlanManager (PM-1) Tests ===
+... 55 PASS lines ...
+=== Results: 55 passed, 0 failed ===
+```
+
+Matching decisions for two fabricated snapshots, quoted from the run:
+```
+game_config path:
+  reason: army_file == game_config army 'recon_stomps',
+          zone 'crucible_of_battle', layout 'take_and_hold_mirror_1'  (rank 0, exact)
+faction-fallback path (NO game_config, fixture-style):
+  reason: faction fallback: 'Orks'/'Speedwaaagh!',
+          zone 'crucible_of_battle', layout 'take_and_hold_mirror_1'  (rank 0, exact)
+```
+
+Four findings that shaped the implementation:
+
+1. **The predeploy fixtures have no `game_config` key at all** — not an empty
+   dict, absent. Confirmed by decompressing all three
+   (`tests/saves/*_predeploy.w40ksave` are base64-of-gzip JSON) and again
+   in-engine: `test_real_predeploy_fixture_has_no_game_config` deserialises
+   `mirror_orks_2000_predeploy` through `StateSerializer` and asserts
+   `identity_source == "factions"`, `deployment_type == crucible_of_battle`,
+   `terrain_layout == take_and_hold_mirror_1`, faction `Orks`/`Speedwaaagh!`.
+   The fabricated snapshots in the test are checked against that real state, so
+   they cannot drift into fiction.
+2. **`state.factions` is keyed by the STRING player number** (`"1"`, `"2"` —
+   `GameState.gd:162/211`), and holds the army file's whole `faction` dict
+   including `detachment` (`ArmyListManager.gd:356-360`). Faction fallback
+   therefore compares the *plan's army file's* faction to the live one, and
+   requires the detachment to agree when both are known.
+3. **The `_P<player>` mirror re-key is load-bearing, and owner-blind lookup gets
+   it wrong.** When both seats pick the same list, player 2's units are
+   `U_X_P2` (`ArmyListManager.gd:333-346`) — but `U_X` still exists, owned by
+   player 1. A first cut of `resolve_unit_id` checked the plain id first and
+   silently handed seat 2 the *opponent's* unit; the test caught it. It now
+   tries the suffixed form first and verifies ownership. `units_for_player`
+   strips the suffix so a plan lines up at either seat. PM-2a depends on this.
+4. **Autoloads are not in the tree while a `-s` script's `_init()` runs.** This
+   is the same root cause as PM-0's `Identifier not found: Measurement`, now
+   pinned: the SceneTree script's `_init()` executes *before* autoload
+   `_ready()`. Tests that need an autoload must defer, per the existing
+   convention in `tests/test_new_game_reaches_rolloff.gd`
+   (`create_timer(0.2).timeout.connect(_run)`), which this test does.
+
+The test is hermetic: pre-existing `user://ai_plans/*.json` are moved to a
+backup dir for the duration and restored afterwards, so matching assertions are
+not perturbed by (and do not destroy) a developer's own plans.
+
+Commit: see `PM-1: PlanManager — plan storage, listing and game matching`.
 
 ---
 
 ## PM-2a — AI consumes deployment: order, placement, seat mirror, bench plumbing
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-1
 **Player-facing:** yes (AI behavior) — version_history entry required
 
@@ -497,13 +729,163 @@ random resampler; last resort only. The Canonical-names section.
 
 **Out of scope.** Reserves/embark/attach (PM-2b), earmarks (PM-3), UI.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Delivered (all in `40k/scripts/AIDecisionMaker.gd` unless noted):
+- `set_player_plan` / `clear_player_plan` / `clear_all_plans` / `get_player_plan`
+  / `plans_enabled`, mirroring `load_player_profile`. **Decision + doc:
+  `clear_all_profiles()` now also clears plans**, so `AIPlayer.configure()`
+  (`AIPlayer.gd:325`) resets them once per game and callers apply a plan AFTER
+  configure, exactly like `Main.gd` does for `playerN_ai_profile`
+  (`Main.gd:707-715`). Documented in the function docstring and in
+  `PLAN_FORMAT.md`.
+- `_resolve_plan_for` — explicit plan first, else ONE `PlanManager.find_plan_for`
+  attempt per player per game. Gated on `plans_enabled()`.
+- `_decide_deployment`: plan order replaces `deploy_actions[0]`; plan placement
+  replaces the column formula; both degrade per-unit.
+- `_plan_positions_px` (inches -> px + the seat-2 `[44-x, 60-y]` mirror),
+  `_plan_positions_legal`, `_plan_shape_inside_polygon`, `_plan_shapes_overlap`,
+  `_plan_deployment_action`.
+- Instrumentation: deployment decision records carry
+  `source: "plan:<name>" | "formula_fallback" | "formula"`, plus
+  `seat_mirrored` and `repaired`.
+- Snapshot contract: `_player_plans`, `_plan_auto_match_attempted` and
+  `_plan_logged_once` are registered in BOTH `_snapshot_planning_state` and
+  `_restore_planning_state`, and a test proves a preview cannot leak a plan.
+- `PLANS_ENABLED: 1` added to the `parameters` object of `40k/data/ai_config.json`
+  (with a `_readme` note).
+- Bench plumbing: `--bench-p1-plan` / `--bench-p2-plan` +
+  `BENCH_P1_PLAN` / `BENCH_P2_PLAN` in `AIBenchmarkRunner.gd` and
+  `run_ai_benchmark.sh`; plan name/path/sha256 stamped into the result JSON and
+  the record provenance. **An unloadable or invalid plan is FATAL**, matching the
+  profile precedent — a silently-formula arm looks exactly like a null effect.
+- New fixture `tests/fixtures/ai_plans/fixture_custodes_lions_crucible.json`
+  keyed to the predeploy save's real identity, so the bench measures a plan
+  actually being followed rather than 100% fallback.
+- Docs: `PLAN_FORMAT.md` gained "How the AI consumes a plan (deployment)",
+  adherence-measurement and benchmarking sections.
+  `40k/data/version_history.json` 1.29.0 prepended.
+
+**Gate 1 — headless.** `tests/unit/test_ai_plan_deployment.gd` (registered in
+`run_pretrigger_tests.sh`):
+```
+$ godot --headless --path . -s tests/unit/test_ai_plan_deployment.gd
+=== Results: 34 passed, 0 failed ===
+```
+covering: the phase's own first action is provably NOT the plan's first unit;
+all 13 ordered units deploy in plan order; all 13 land within 0.5" of the
+authored positions; an uncovered unit (the embarked Gretchin) falls back with
+`source: formula_fallback`; seat 2 mirrors to within 0.000" and lands inside the
+player-2 zone while the UNmirrored positions land 0/11 inside it;
+`PLANS_ENABLED=0` reproduces `deploy_actions[0]` and records `source: formula`;
+the snapshot contract holds; and the whole path runs on the REAL
+`mirror_orks_2000_predeploy` save at both seats — a crucible_of_battle TRIANGLE
+with `_P2`-re-keyed player-2 units — with 0 models outside either zone.
+
+**Gate 2 — determinism.** Two independent seasons, same seeds, plans on BOTH
+seats, via the new bench plumbing:
+```
+$ BENCH_P1_PLAN=40k/tests/fixtures/ai_plans/fixture_custodes_lions_crucible.json \
+  BENCH_P2_PLAN=40k/tests/fixtures/ai_plans/fixture_custodes_lions_crucible.json \
+  BENCH_SEED_BASE=5001 BENCH_DATA_DIR=/tmp/pm2a_seasonA \
+  bash 40k/tests/run_ai_benchmark.sh 2 mirror_custodes_2000_predeploy      # and again -> seasonB
+$ python3 tools/ai_lab/determinism_check.py /tmp/pm2a_seasonA /tmp/pm2a_seasonB
+  seed     outcome   trajectory  decisions   actions A/B
+  5002     match     match       match       744/744
+  5003     match     match       match       758/758
+PASS — 2 seed(s) reproduce EXACTLY: 1502 action lines and 408 decision
+       records identical across independent runs.
+```
+Both games completed to battle round 5 with the plan loaded and stamped into
+the result JSON (`p1_plan_name` / `p2_plan_name`), i.e. the plan path really was
+exercised rather than silently falling back.
+
+**Gate 3 — windowed scenario.** `tests/scenarios/sp/pm2a_ai_deploys_from_plan.json`:
+```
+$ bash 40k/tests/run_scenario.sh tests/scenarios/sp/pm2a_ai_deploys_from_plan.json
+[ScenarioRunner] === pm2a_ai_deploys_from_plan: 41 passed, 0 failed ===
+SCENARIO pm2a adherence 22/22 units within 0.5in, worst 0.000in
+SCENARIO pm2a plan deployment records: seat1=11 seat2=11
+SCENARIO pm2a seat-mirrored deployments: 11
+SCENARIO pm2a seat-2 models inside own zone: 42/42
+```
+Live log lines from that run:
+```
+AIDecisionMaker: [plan] Player 1 deploying U_BLADE_CHAMPION_A from plan 'Fixture — Custodes Lions on Crucible'
+AIDecisionMaker: [plan] Player 2 deploying U_BLADE_CHAMPION_A_P2 from plan 'Fixture — Custodes Lions on Crucible' (seat-2 mirrored)
+```
+
+**Gate 4 — live MCP evidence (both arms, same fixture, one process).**
+Driver: `mcp_client.py` + `pm2a_capture.py` in the session scratchpad, driving
+the running windowed game over the bridge on 127.0.0.1:9080.
+```
+arm plan_active     : deployment sources  plan p1=5 p2=6 | formula p1=0 p2=0
+arm plans_disabled  : deployment sources  plan p1=0 p2=0 | formula p1=5 p2=6
+verify_delivery     : verdict PASS, log_summary {error: 0, warning: 0}
+```
+(The per-seat counts are lower than the scenario's 11/11 only because this
+driver does not raise `_max_decision_record_batches`, so the 500-batch ring
+drops the earliest batches. The ratio is the point: 100% plan vs 0%.)
+
+Screenshots (committed under `40k/docs/evidence/`):
+- `pm2a_plan_active_deployment.png` — both armies in the plan's compact blocks,
+  P1 top and P2 mirrored at the bottom; the game log narrates
+  "P1: Deployed Prosecutors from plan 'Fixture — Custodes Lions on Crucible'"
+  and the same for P2.
+- `pm2a_plans_disabled_formula_deployment.png` — the SAME fixture with
+  `PLANS_ENABLED = 0`: loose formula columns hugging the board edges.
+
+**That control arm produced an unplanned finding worth acting on.** With plans
+off, on the triangular `crucible_of_battle` zone the column formula repeatedly
+emits placements the phase rejects — the log fills with
+`"P2: Custodian Guard deployment failed (Model must be wholly within deployment
+zone …) — retrying"`, `(retry 1)`, `(retry 2)` — and one unit
+(Custodian Guard Zeta, 225 pts / 5 models) ends up dumped into **Strategic
+Reserves** because it could not be placed at all. The plan path placed every
+unit first time. This is measured behaviour of the PRE-EXISTING formula on a
+diagonal zone, not a regression introduced here; it is logged as a follow-up at
+the bottom of this file.
+
+A caveat recorded honestly: in that same live driver a few placements logged
+`(repaired)` where the headless test and the windowed scenario both had every
+unit land verbatim. The driver reloads the fixture twice in one process without
+the PM-8a reset list, which is exactly the residual in-session leakage PM-8a
+measured; the clean-start runs (34/34 headless, 22/22 at 0.000" windowed) are
+the ones to read for placement fidelity.
+
+Four findings worth carrying forward:
+
+1. **Plan pre-validation had to be made shape-accurate, not conservative.** The
+   first cut approximated "wholly within the zone" with a bounding circle
+   (`_model_bounding_radius_px`, which for an oval is half the DIAGONAL — 1.69"
+   for a 42x75mm Warbiker vs 1.48" for its widest axis). That over-strictness
+   silently degraded 8 of 13 legal placements to repaired ones. It now calls the
+   very helpers `DeploymentPhase` calls (`Measurement.shape_wholly_in_polygon`,
+   `create_base_shape().overlaps_with`), so a plan placement is rejected exactly
+   when the phase would reject it: 13/13 now land verbatim.
+2. **Coherency was a missing check, and it is not optional.** `DeploymentPhase`
+   enforces 11e 03.03 (2" neighbour + 9" envelope) on the ACTION
+   (`DeploymentPhase.gd:197-232`). Without the same check in the pre-validation,
+   a plan that laid a unit out in a long line would emit an action the phase
+   rejects — and a rejected deployment action is what stalls an AI deployment.
+   `_plan_positions_legal` now calls `AttackSequence.check_unit_coherency`, and
+   the fixtures are authored as compact per-unit blocks.
+3. **Scenario `execute_script` resolves global class names only in MULTILINE
+   mode.** A single-line `AIDecisionMaker.get_player_plan(1)` fails with
+   "Invalid named index 'AIDecisionMaker' for base type Object" (the
+   `Expression.parse` path); the same code as a multiline step works. Also
+   `GameState.set_meta`/`get_meta` is Godot's Object metadata, NOT `state.meta` —
+   reading it back via `GameState.state["meta"][key]` throws.
+4. **Unit ids are not stable across a game.** The Lions detachment splits Allarus
+   Custodians into `U_ALLARUS_CUSTODIANS_A_lion_1..4` mid-game, so a live unit
+   count that is 22 at deployment becomes 26 later. Anything keyed on "the set of
+   units" must not assume it is fixed.
 
 ---
 
 ## PM-2b — AI consumes formations: reserves, embarkations, attachments
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-2a
 **Player-facing:** yes — version_history entry required
 
@@ -544,13 +926,85 @@ clean; screenshot of the formations summary/board state.
 
 **Out of scope.** Disembark timing intents, transport routing.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Delivered in `40k/scripts/AIDecisionMaker.gd`:
+- `_decide_formations` runs a plan pass FIRST, emitting the plan's declarations
+  in the phase's own order (attach -> embark -> reserve) and stopping once they
+  are made, so anything unspecified still falls to existing logic.
+- `_plan_owns_reserves` suppresses the formula's reserves evaluation while a
+  plan is active — including for an EMPTY `reserves` list, which is a positive
+  statement ("start everything on the table") rather than an absence.
+- `_plan_reserve_units` trims an over-cap plan in PLAN ORDER and logs the trim,
+  mirroring `FormationsPhase.gd:400-420` (unit cap counts entries; points cap
+  includes a character attached to a reserved bodyguard, `:802-812`).
+- `_plan_deployment_reserve_action` + `plan_post_formations_reserves` retrofit
+  reserves through `PLACE_IN_RESERVES` for games already past FORMATIONS;
+  embarkations/attachments cannot be retrofitted and log once, then skip.
+- Every plan-driven declaration emits a `formations` decision record with
+  `source: "plan:<name>"` and a `declaration` of attachment/embarkation/reserves.
+
+```
+$ godot --headless --path . -s tests/unit/test_ai_plan_formations.gd
+=== Results: 27 passed, 0 failed ===
+
+$ bash 40k/tests/run_scenario.sh tests/scenarios/sp/pm2b_formations_from_plan.json
+[ScenarioRunner] === pm2b_formations_from_plan: 36 passed, 0 failed ===
+SCENARIO pm2b P1 reserves=["U_STORMBOYZ_B", "U_DEFFKOPTAS_A"]
+              embark={"U_STOMPA_A":["U_GRETCHIN_B"]}
+              attach={"U_DEFFKILLA_WARTRIKE_A":"U_WARBIKERS_C",
+                      "U_DEFFKILLA_WARTRIKE_B":"U_WARBIKERS_D"} missing=[]
+SCENARIO pm2b P2 reserves=["U_STORMBOYZ_B_P2", "U_DEFFKOPTAS_A_P2"]
+              embark={"U_STOMPA_A_P2":["U_GRETCHIN_B_P2"]}
+              attach={"U_DEFFKILLA_WARTRIKE_A_P2":"U_WARBIKERS_C_P2",
+                      "U_DEFFKILLA_WARTRIKE_B_P2":"U_WARBIKERS_D_P2"} missing=[]
+SCENARIO pm2b plan formations records: seat1=4 seat2=4
+```
+The second attachment on each seat is the AI's own — the plan names one pairing,
+so the rest still falls through, which is the designed behaviour.
+
+Screenshot: `40k/docs/evidence/pm2b_formations_from_plan.png` — the HUD reserves
+readout shows **"RESERVES You 2·205 P2 2·205 R2+"**, i.e. exactly the plan's two
+reserved units and 205 points (Stormboyz 65 + Deffkoptas 140) on BOTH seats.
+
+The scenario had to start from the main menu, because every shipped predeploy
+fixture begins at DEPLOYMENT with formations already confirmed. It bootstraps a
+menu-style game the way `MainMenu._initialize_game_with_config` does, then hands
+both seats the plan.
+
+Three findings:
+
+1. **The fixture plan asked for an attachment the game cannot make.** It paired
+   Wazdakka Gutsmek with Warbikers; `data/40kdc/leaderAttachments.json` has NO
+   leader row for Wazdakka at all, and the only leader eligible for `warbikers`
+   is `deffkilla-wartrike`. The AI therefore never matched an action and fell
+   through to its own pairing — correct degradation, but it means **an authored
+   plan can silently ask for an impossible attachment**. The fixture now pairs
+   the Deffkilla Wartrike; validator-side legality is logged as PM-F2 below.
+2. **The AI must be stood down until the plan is installed.** `Main` configures
+   the AI seats from `meta.game_config` as the scene loads, and
+   `AIPlayer.configure()` clears plans — so the AI began declaring formations
+   with no plan, and the first run of this scenario produced a player 1 with
+   formula-flavoured extras (two extra reserves, an extra passenger) next to a
+   player 2 that followed the plan exactly. The scenario now boots with both
+   seats HUMAN and flips them to AI after installing the plan. **PM-7a must do
+   the same thing in production: set the plan after `configure()`, before the
+   AI's first evaluation.**
+3. **A transport's `DECLARE_TRANSPORT_EMBARKATION` stays on offer** while it has
+   any eligible unit left, so "the action exists" does not mean the plan's
+   embarkation is still outstanding — the first cut re-issued it forever and the
+   phase never advanced. `meta.formations` cannot be used to tell, because it is
+   only written at CONFIRM time (`FormationsPhase.gd:1062-1079`); the phase's
+   own `DECLARE_RESERVES` action list is the reliable "still undeclared" set
+   (`:1217-1223`).
+
+Commit: see `PM-2b: the AI declares a plan's reserves, embarkations and attachments`.
 
 ---
 
 ## PM-3 — AI consumes earmarks + profile fragment
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-1 (recommended after PM-2a)
 **Player-facing:** yes — version_history entry required
 
@@ -607,13 +1061,89 @@ fragments.
 
 **Out of scope.** New verbs, per-unit parameter systems, TRADE.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+One mechanism per verb, all in `40k/scripts/AIDecisionMaker.gd`:
+- `HOLD_OBJECTIVE` / `PUSH_CENTER` — a named additive `_t_add(score_terms,
+  "plan_earmark", …)` on the (unit, objective) pair inside
+  `_assign_units_to_objectives`, weighted by `PLAN_EARMARK_HOLD_BONUS` /
+  `PLAN_EARMARK_PUSH_BONUS`. PUSH_CENTER resolves the centre through
+  `MissionManager.get_objective_ids_by_designation("central")`, falling back to
+  nearest-to-board-centre.
+- `SCREEN` — the unit is skipped in the objective passes so it drops into the
+  leftover pass, which is the only thing that feeds screening; there is no
+  "offer to screening first" entry point.
+- `HUNT_CHARACTERS` — `_plan_hunt_bonus` added in `_score_shooting_target`,
+  `_score_charge_target` and `_score_fight_target`, ALONGSIDE their existing
+  CHARACTER handling (shooting's x1.2 multiplier is untouched, since it applies
+  to every shooter, earmarked or not).
+- `RESERVE_UNTIL` — consumed at formations/deployment in PM-2b.
+- Decay: `_plan_earmark_released` drops an earmark below
+  `PLAN_EARMARK_RELEASE_AT` (0.5) of starting models, logged once;
+  `_plan_released_earmarks` is registered in both halves of the snapshot
+  contract.
+- `apply_plan_profile_fragment` layers a plan's fragment in through
+  `load_player_profile` — and refuses when the player already has an explicit
+  profile, so assigning a profile is never silently overwritten by a plan.
+- Movement decision records carry `context.earmark`
+  (e.g. `"PUSH_CENTER:obj_center"`).
+
+```
+$ godot --headless --path . -s tests/unit/test_ai_plan_earmarks.gd
+=== Results: 35 passed, 0 failed ===
+```
+including the gate's differential run through the REAL
+`_assign_units_to_objectives`: with plans off the unit is assigned obj_home_1;
+with a HOLD_OBJECTIVE earmark it is assigned obj_center, and the assignment's
+`score_breakdown` names the `plan_earmark` term that did it. SCREEN shows the
+same shape — `assign_pass` moves from `capture` to `support`.
+
+```
+$ bash 40k/tests/run_scenario.sh tests/scenarios/sp/pm3_earmarks_bias_assignment.json
+[ScenarioRunner] === pm3_earmarks_bias_assignment: 72 passed, 0 failed ===
+SCENARIO pm3 earmarked_units=2 control_earmark_records=0 differed_vs_control=1
+SCENARIO pm3   U_ALLARUS_CUSTODIANS_A    earmark=PUSH_CENTER:obj_center
+                 plan[capture|Move obj_center …]  control[capture|Move obj_center …]
+SCENARIO pm3   U_ALLARUS_CUSTODIANS_A_P2 earmark=PUSH_CENTER:obj_center
+                 plan[capture|Move obj_center …]  control[capture|Move obj_nml_2 …]
+```
+The scenario runs the SAME fixture twice in one session — plan arm, then
+`PLANS_ENABLED=0` control — and compares movement decision RECORDS rather than
+positions, because a position can coincide while the reasoning differs. The
+control arm produced **zero** earmark-tagged records, and one of the two
+earmarked units was demonstrably rerouted (seat 2's Allarus went to obj_center
+under the plan and obj_nml_2 without it). The other agreed with the formula,
+which is the honest outcome for a prior: an earmark tilts a decision, it does
+not always change it.
+
+Screenshot: `40k/docs/evidence/pm3_earmarks_after_movement.png` — the plan arm at
+battle round 2 with the earmarked Allarus units around the centre objective.
+Note plainly: this is a board state, not a picture of the mechanism; the
+decisive evidence is the record comparison above.
+
+Three findings:
+
+1. **`obj_evaluations` entries are read with dot notation, so a missing field
+   throws and silently yields NO candidates at all.** A fabricated eval without
+   `is_home` made `_assign_units_to_objectives` return `{}` with only a
+   `SCRIPT ERROR` line to show for it. Anything constructing evals in a test
+   must carry the full shape.
+2. **The "hold" pass overrides raw scores.** A unit already standing on an
+   objective is assigned by the hold pass before the score-sorted capture pass,
+   so no scoring bonus can move it. An earmark differential has to use a unit
+   that is NOT already on an objective.
+3. **The assignment is greedy and consumes each objective's OC need.** A second
+   unit standing next to the earmarked objective claims it first and the
+   earmark has nothing left to win, so the isolated differential uses a single
+   free chooser.
+
+Commit: see `PM-3: earmarks bias the AI's objective assignment and target choice`.
 
 ---
 
 ## PM-4 — Sandbox "Plan Editor" session
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-1
 **Player-facing:** yes — version_history entry required
 
@@ -669,13 +1199,116 @@ banner + deployed units.
 **Out of scope.** Saving (PM-5), painting (PM-6), editing existing plans,
 building undo.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/scenes/MainMenu.tscn` | `PlanEditorButton` in `ButtonSection`, under `StartButton` |
+| `40k/scripts/MainMenu.gd` | `_setup_plan_editor_controls()` builds the editor's own `PlanEditorZoneDropdown` (all six zones, always editable); `_on_plan_editor_button_pressed()` builds the config with `plan_editor: true`, both seats HUMAN and the picked zone; `_initialize_game_with_config` deletes every owner-2 unit on the editor path; the cloud-army pending-config path resets both buttons |
+| `40k/autoloads/PhaseManager.gd` | `is_plan_editor_session()` (canonical read of `meta.game_config.plan_editor`) and the single hold-open guard at the top of `_on_phase_completed` |
+| `40k/scripts/Main.gd` | `is_plan_editor()`, `_setup_plan_editor_banner()` (banner + Exit to Menu), `_on_plan_editor_exit_pressed()`, `_plan_editor_confirm_absent_opponent()` (wired into BOTH formations-confirm handlers), `_plan_editor_auto_roll_off()` (tie re-roll loop, then the choice that makes P1 Defender), early return in `_setup_roll_off_phase` |
+| `40k/autoloads/HandoffManager.gd` | `is_local_hotseat()` returns false for an editor session |
+| `40k/tests/scenarios/sp/pm4_plan_editor_session.json` | the windowed gate (no fixture — starts on the real main menu) |
+| `40k/data/version_history.json` | 1.30.0 |
+| `40k/docs/PLAN_FORMAT.md` | "Authoring: the Plan Editor sandbox" section |
+
+Windowed scenario — **59 passed, 0 failed**:
+
+```
+[ScenarioRunner] === pm4_plan_editor_session: 59 passed, 0 failed ===
+```
+
+It starts on the boot MainMenu scene, selects `recon_stomps` + `hammer_anvil`
+in the editor's own picker, and presses the real button. It then asserts, in
+order: `meta.game_config.plan_editor == true`, **0 owner-2 units**, phase
+FORMATIONS with the declaration dialog up for the target army, and after one
+confirm — `formations_p2_confirmed == true` (the absent seat auto-confirmed),
+`meta.defender == 1` (the roll-off auto-resolved in the target army's favour)
+and phase DEPLOYMENT, with no dialog ever shown. One unit goes down the real
+player path (unit-list click → `click_board_at` → the `ConfirmButton`, asserted
+to reach status DEPLOYED); the other 16 are bulk-deployed by a deterministic
+first-fit packer and the token layer is resynced the way a load does.
+
+The gate itself: with **0** units left in any state other than DEPLOYED, the
+phase still reads DEPLOYMENT, an explicit `END_DEPLOYMENT` is also swallowed,
+and `PhaseManager.is_plan_editor_session()` is true. The debug log shows the
+guard firing three times and **zero ERROR lines**:
+
+```
+$ grep -c "Plan Editor hold-open" debug_20260811_122812.log
+3
+$ grep -cE "\[ERROR\]|SCRIPT ERROR" debug_20260811_122812.log
+0
+```
+
+Negative control (the last steps): clearing the flag makes
+`is_plan_editor_session()` false and the *same* `END_DEPLOYMENT` action then
+advances the phase. So the hold is attributable to the flag, not to a stuck
+phase — the assertion is not vacuous. Finally the banner's **Exit to Menu**
+button is clicked and the scene is asserted back to `MainMenu`.
+
+`verify_delivery` on a live session — **verdict: PASS**, 0 log errors:
+
+```
+OK  phase.is_DEPLOYMENT = DEPLOYMENT        OK  log.no_errors
+OK  plan_editor_session_flag = True         OK  no_player2_units = 0
+OK  target_army_is_defender = 1             OK  all_17_units_deployed = 17
+OK  nothing_left_to_place = 0               OK  banner_visible = True
+OK  exit_button_present = True              OK  every_model_has_a_token = True
+log: {"debug": 5, "error": 0, "info": 198, "other": 9, "warning": 0}
+```
+
+Headless regression suite after the fix for finding 5: **2645 passed, 0 failed
+across 116 tests** (the first run was 2644/1 — it executed
+`test_t011_designate_warlord_pin.gd` before that fix landed).
+
+Screenshot: `40k/docs/evidence/pm4_plan_editor_held_open.png` — the editor with
+the PLAN EDITOR banner and its Exit to Menu button, "Player 1 (Defender): 17/17
+units deployed / Player 2 (Attacker): 0/0", the whole Ork army on the board in
+the Hammer and Anvil zone, the log line "P1: Player 1 chose to deploy first",
+and the phase still reading Deployment. Also
+`40k/docs/evidence/pm4_main_menu_plan_editor.png` for the menu controls.
+
+Five findings worth carrying forward:
+
+1. **The hotseat handoff curtain fired over the editor.** Both seats are HUMAN
+   and neither is AI, so `HandoffManager.is_local_hotseat()` was true and a
+   full-screen "PASS THE DEVICE" panel hid the board at deployment start.
+   Caught only because the first screenshot showed it — a state-only check
+   would have passed. Fixed in `is_local_hotseat()`.
+2. **The banner collided with the deployment progress strip** (both anchored
+   top-centre at y 100-160). Moved to y 166-210.
+3. **Bulk `phase.execute_action` deployment does not create tokens.** The token
+   layer is built by `DeploymentController`; bypassing it leaves GameState
+   correct and the board empty. The scenario calls `_recreate_unit_visuals()` +
+   `_update_deployment_progress()` afterwards, the same resync a load does.
+   This is scaffolding, and it is why one unit is deployed by mouse.
+4. **`status == UNDEPLOYED` is not the right "still to place" test** — a unit
+   left mid-staging sits at `DEPLOYING`. The first version of the assertion
+   passed with one unit unconfirmed; it now counts anything that is neither
+   DEPLOYED nor IN_RESERVES.
+5. **A source-ORDER pin test broke on an unrelated insertion.**
+   `test_t011_designate_warlord_pin.gd` asserts
+   `Main.gd.find("\"type\": \"DESIGNATE_WARLORD\"") < find("\"type\":
+   \"CONFIRM_FORMATIONS\"")`. The new `_plan_editor_confirm_absent_opponent`
+   contains a `CONFIRM_FORMATIONS` literal, and putting it above the dialog
+   handler flipped the byte offsets even though no dispatch order changed. Fixed
+   by relocating the whole PM-4 section below both formations handlers rather
+   than weakening the pin. Worth knowing before adding any further action
+   literals to `Main.gd`.
+
+No headless test was added: every piece of PM-4 is a UI affordance or a
+phase-flow guard, and a source-shape pin test would be a regression net rather
+than validation (see CLAUDE.md's pin-test anti-pattern). The windowed scenario
+is the regression net.
 
 ---
 
 ## PM-5 — Deployment recorder: Save as Plan
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-4, PM-2a (round-trip), PM-1
 **Player-facing:** yes — version_history entry required
 
@@ -723,13 +1356,86 @@ formations meta).
 **Out of scope.** Editing existing plans (delete + re-record is the v1
 story).
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/scripts/PlanRecorder.gd` | new. All static, no autoload dependency (the PlanValidator rule — a `-s` test has no autoloads during `_init`). `build_plan`, `default_plan_name`, `own_army`, `record_and_save` |
+| `40k/dialogs/PlanSaveDialog.gd` | new. Name (pre-filled) / description / author, validator errors and warnings printed in-dialog, stays open on refusal |
+| `40k/scripts/Main.gd` | `Save as Plan` button on the Plan Editor banner, `_on_plan_editor_save_pressed`, `_on_plan_saved` toast |
+| `40k/tests/unit/test_plan_roundtrip.gd` | new, registered in `run_pretrigger_tests.sh` |
+| `40k/tests/scenarios/sp/pm5_record_and_save_plan.json` | new windowed gate |
+| `40k/data/version_history.json` | 1.31.0 |
+| `40k/docs/PLAN_FORMAT.md` | "Save as Plan — the recorder" section: the field-by-field source table and the four recording rules |
+
+Headless — **47 passed, 0 failed**. The round-trip half of it builds a
+deployment, records it, and feeds the recording back through the PM-2a
+consumption path for both seats:
+
+```
+PASS: seat 1: U_GRETCHIN_A lands within 0.5in of the recording (worst 0.000in)
+PASS: seat 2: U_GRETCHIN_A lands within 0.5in of the mirrored recording (worst 0.000in)
+… (3 units × 2 seats, all 0.000in)
+PASS: a recorded plan is valid (errors: [])   PASS: and warning-free (warnings: [])
+=== Results: 47 passed, 0 failed ===
+```
+
+Windowed `sp/pm5_record_and_save_plan` — **49 passed, 0 failed**. From the main
+menu: enter the editor, lay out all 17 recon_stomps units (one by mouse), press
+**Save as Plan** on the banner, and save with a real button click. The measured
+results, straight out of the run's result JSON:
+
+| Step | Value |
+|---|---|
+| plan file before the save | absent (deleted first, so "it appeared" means something) |
+| default name in the dialog | `recon_stomps — hammer_anvil` |
+| saved path | `user://ai_plans/recon_stomps_hammer_anvil.json` |
+| re-read from disk, validated against the live army | `valid` |
+| placements / order | 17 / 17 |
+| **fidelity** — recorded vs the units actually on the table | 77 models, worst **0.0056"** (2dp rounding) |
+| **round trip** — saved file → PM-2a consumer, both seats | worst **5.4e-06"**, zero formula fallbacks |
+
+Refusal control in the same run: clearing the name and pressing Save prints
+"A plan needs a name" in-dialog, the dialog stays open, and no file is written —
+so the success path is not just "the button did something".
+
+`verify_delivery` on a live session — **verdict: PASS**, 0 log errors, with
+`plan_file_written`, `saved_file_is_valid`, `all_17_units_recorded = 17`,
+`order_covers_every_placement`, `earmarks_left_for_pm6 = 0`.
+
+Screenshots: `40k/docs/evidence/pm5_save_dialog.png` (the dialog over the
+completed 17-unit deployment, name pre-filled) and
+`40k/docs/evidence/pm5_saved_toast.png` (the "Plan saved:
+recon_stomps_hammer_anvil.json" toast).
+
+Four findings:
+
+1. **`AcceptDialog`'s OK button cannot be driven by a windowed scenario** — its
+   node path is auto-generated (`@PanelContainer@123/@Button@456`). The dialog
+   hides the built-in OK and carries its own `PlanSaveButton` /
+   `PlanCancelButton` under a stable path instead. Worth copying for any future
+   dialog that a scenario has to click.
+2. **Validation needs the army passed in or it silently skips half its work.**
+   `PlanValidator.validate_plan(plan, {})` runs the structural checks but not
+   coverage or the 50% reserves caps. `record_and_save` therefore defaults
+   `army` to `PlanRecorder.own_army(state, player)` — the LIVE units, which is
+   also what makes the ids line up.
+3. **`terrain_layout_id` is an error, not a warning, when it does not resolve.**
+   Emitting the config's terrain id blindly would produce recordings that
+   `save_plan` refuses. The recorder drops an unresolvable id to `""` ("matches
+   any layout"), which is a legal, weaker key.
+4. **Three unit states must not be recorded as placements**: reserved (a
+   validator error if it is also placed), embarked, and attached — the last two
+   have no board position of their own. All three are lifted into their own
+   lists instead.
 
 ---
 
 ## PM-6 — Intent painter
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-5, PM-3
 **Player-facing:** yes — version_history entry required
 
@@ -762,13 +1468,79 @@ board with ≥2 visible earmark badges/arrows (the feature's signature image).
 
 **Out of scope.** New verbs, mid-battle repainting, TRADE.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/scripts/IntentPainter.gd` | new. The panel: unit list with each unit's current intent, the six buttons for the five verbs (Reserve R2/R3 are the same verb), Clear, and the HOLD click-to-bind mode |
+| `40k/scripts/IntentOverlay.gd` | new. Non-fading board badges + dashed line to the linked objective |
+| `40k/scripts/PlanRecorder.gd` | reads `meta.plan_earmarks` into `plan.earmarks`, filters stale/other-seat entries, and reconciles `RESERVE_UNTIL` into `deployment.reserves` |
+| `40k/scripts/Main.gd` | `_setup_intent_painter` / `_refresh_intent_painter`, hooked into `_update_deployment_progress` (already runs after every placement) |
+| `40k/tests/unit/test_plan_roundtrip.gd` | `test_painted_earmarks` added — 57 assertions total |
+| `40k/tests/scenarios/sp/pm6_paint_intents.json` | new windowed gate |
+| `40k/data/version_history.json` | 1.32.0 |
+| `40k/docs/PLAN_FORMAT.md` | "The intent painter" section |
+
+Windowed `sp/pm6_paint_intents` — **64 passed, 0 failed**, first run. The
+assertion values from the run's result JSON:
+
+| What | Value |
+|---|---|
+| painter offered while units are still to place | `false` (withheld) |
+| painter rows once the board is finished | 17 |
+| earmarks before painting | 0 |
+| HOLD bound by a real `click_board_at` on the marker | `HOLD_OBJECTIVE\|obj_home_1` |
+| the five verbs after painting | `HOLD_OBJECTIVE,HUNT_CHARACTERS,PUSH_CENTER,RESERVE_UNTIL,SCREEN` |
+| board badges / panel rows showing an intent | 5 / 5 |
+| after Clear | 4 earmarks, 4 badges |
+| saved file's earmarks | the same five, `HOLD` still bound to `obj_home_1` |
+| RESERVE_UNTIL unit also in `deployment.reserves` | `true` |
+| saved plan validated against the live army | `valid` |
+| AI's own `_plan_earmark_for` lookup agreeing, per unit | 5 |
+
+That last row is the one that matters: it is not enough for the painter to
+write JSON — the PM-3 consumption path has to return the same verb for the same
+unit, and it does for all five.
+
+`verify_delivery` on a live session — **verdict: PASS**, 0 log errors, with
+`painter_present`, `five_intents_painted = 5`, `five_board_badges = 5`,
+`hold_bound_to_objective = obj_home_1`, `saved_plan_carries_five_earmarks = 5`,
+`saved_plan_is_valid`.
+
+Headless: `test_plan_roundtrip.gd` **57 passed, 0 failed** (10 new assertions
+for earmark pass-through, filtering and the RESERVE_UNTIL reconciliation —
+including that the reconciled plan validates, which is what proves the
+reconciliation is load-bearing rather than cosmetic).
+
+Screenshot: `40k/docs/evidence/pm6_intents_painted.png` — the INTENTS panel with
+five units carrying jobs, and the board showing `HOLD obj_home_1` with its
+dashed line to the HOME 1 marker, plus `HUNT`, `RES R2` and `SCREEN` badges.
+
+Three findings:
+
+1. **`var x := helper()` fails to compile when the helper returns an untyped
+   Variant.** `_unit_centroid` / `_link_target` return `Vector2` or `null`, and
+   `:=` on them produced "Cannot infer the type of …" — which took the entire
+   painter script out of the build. The symptom was not a visible error but a
+   silently absent panel; the parse error only showed up in the debug log. Same
+   trap as PM-0's `candidate`/`shape_aware`.
+2. **`meta.name` is not unique and is the wrong thing to show.** recon_stomps
+   has four units whose `meta.name` is bare "Stormboyz", so the first painter
+   list was unusable. `GameState.get_unit_display_name` prefers
+   `meta.display_name` ("Stormboyz Alpha") — the same resolution the deployment
+   list uses.
+3. **A painted `RESERVE_UNTIL` contradicts the board by design**, and the
+   validator enforces that `deployment.reserves` is the single source of truth.
+   The recorder therefore has to move the unit into reserves and drop its
+   placement, not just copy the earmark across.
 
 ---
 
 ## PM-7a — Assign plans in game setup
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-1, PM-2a
 **Player-facing:** yes — version_history entry required
 
@@ -802,13 +1574,60 @@ setup screen with the dropdown populated.
 
 **Out of scope.** Browser (PM-7b), import/export (Deferred).
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/scripts/MainMenu.gd` | `_create_plan_dropdowns` (a picker per seat, under that seat's army row), `_refresh_plan_dropdowns` (filters by army, flags a zone mismatch and an invalid plan), `_selected_plan_value`, `player<N>_plan` in the start config, repopulation hooks |
+| `40k/scripts/Main.gd` | `_apply_configured_plans` — runs after `AIPlayer.configure()`; `_log_plan_choice` / `get_plan_choice_lines` |
+| `40k/scripts/AIDecisionMaker.gd` | `suppress_player_plan()` — the "None" state |
+| `40k/scripts/AITurnSummaryPanel.gd` | `_plan_line` — one line naming the plan and whether it was assigned or auto-matched |
+| `40k/tests/scenarios/sp/pm7a_assign_plan_from_menu.json` | the windowed gate |
+| `40k/data/version_history.json` | 1.33.0 |
+| `40k/docs/PLAN_FORMAT.md` | "Assigning a plan to an AI seat" |
+
+Windowed `sp/pm7a_assign_plan_from_menu` — **25 passed, 0 failed**. No fixture:
+it writes the shipped test plan into `user://ai_plans/`, then sets the Force
+Dispositions (take_and_hold vs purge_the_foe) and terrain variant 3 that
+*derive* hammer_anvil, so the plan's zone matches the game rather than being
+offered with a mismatch flag. Both seats AI on recon_stomps; seat 2 gets the
+plan, seat 1 is set to **None** — a controlled comparison. Measured values:
+
+| What | Value |
+|---|---|
+| derived zone after the matchup + variant selection | `hammer_anvil` |
+| the plan as offered | `Fixture — Recon Stomps rich (all five verbs)`, unflagged |
+| config after Start | `player1_plan = "none"`, `player2_plan = …fixture….json` |
+| `AIDecisionMaker.get_player_plan` | seat 2 = the fixture, seat 1 = `{}` |
+| game-log lines | `Player 1 AI plan: None — playing off its own judgement \| Player 2 AI plan: Fixture — Recon Stomps rich (all five verbs)` |
+| **plan-sourced deployment records** | **seat 2 = 12, seat 1 = 0** |
+| AI turn summary line | seat 2 `Plan: Fixture — … (assigned)`, seat 1 `""` |
+
+The record differential is the assertion that matters: it is end-to-end proof
+that a menu selection reaches the AI's decisions, and the zero on the other seat
+proves it is the selection doing it rather than an ambient auto-match.
+
+Screenshots: `40k/docs/evidence/pm7a_plan_dropdowns.png` (the setup screen with
+both pickers populated — "P1 AI Plan: None (no plan)", "P2 AI Plan: Fixture — …")
+and `pm7a_deployment_from_plan.png`.
+
+One finding, and it is the reason the scenario has a control:
+
+**`set_player_plan(player, {})` is not "no plan".** It routes to
+`clear_player_plan()`, which also erases `_plan_auto_match_attempted[player]` —
+so `_resolve_plan_for` runs its auto-match on the seat's very first decision and
+finds a plan anyway. The first run of this scenario caught it precisely:
+seat 1, set to None, produced **12** plan-sourced records. Fixed by adding
+`suppress_player_plan()`, which erases the plan but *sets* the attempted flag.
+Without the control step, "None" would have shipped meaning "Auto".
 
 ---
 
 ## PM-7b — Plan browser
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-7a
 **Player-facing:** yes — version_history entry required
 
@@ -825,13 +1644,62 @@ shipped yet) shows no delete. Screenshot: populated browser.
 **Out of scope.** Editing, import/export dialogs (Deferred — FileDialog
 precedent for v2: `SaveLoadDialog.gd:51-52, 1487-1547`).
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/dialogs/PlanBrowserDialog.gd` | new. Six-column Tree (Plan / Army / Deployment / Terrain / Status / Where), detail line, rename, delete-behind-confirm, refresh |
+| `40k/scripts/PlanManager.gd` | `rename_plan` — rewrites `name`, moves the file to the new slug, refuses an empty or already-taken name, and refuses a `res://` path |
+| `40k/scenes/MainMenu.tscn`, `40k/scripts/MainMenu.gd` | `PlanBrowserButton` in the secondary grid; the dialog is popped at an explicit size and its close refreshes the seat pickers |
+| `40k/tests/scenarios/sp/pm7b_plan_browser.json` | the windowed gate |
+| `40k/data/version_history.json` | 1.34.0 |
+| `40k/docs/PLAN_FORMAT.md` | "The plan browser" |
+
+Windowed `sp/pm7b_plan_browser` — **42 passed, 0 failed**. It clears
+`user://ai_plans/` and writes exactly one plan there, so the row count and the
+delete both mean something. Asserted end to end:
+
+| What | Value |
+|---|---|
+| the row | `Fixture — Recon Stomps rich (all five verbs)\|recon_stomps\|hammer_anvil\|take_and_hold_vs_purge_the_foe_3\|OK\|yours` |
+| status line | `1 plan(s) — 1 of your own.` |
+| on selection | rename + delete enabled, name pre-filled, detail shows the path |
+| after Rename | `renamed_by_pm7b.json` exists, the old slug does not, the plan's own `name` is rewritten, and the row text follows |
+| Delete | confirmation dialog appears and the file **still exists**; only after confirming is it gone, row count 0, status `Deleted 'Renamed by pm7b'.` |
+| after closing the browser | the seat picker is back to 2 items (Auto / None) |
+
+Read-only shipped plans: nothing ships under `res://data/ai_plans` yet
+(PM-10 adds the first real content), so that branch is asserted against
+`PlanManager` directly rather than through a row that does not exist —
+`rename_plan` and `delete_plan` both return failure for a `res://` path and the
+file survives. Said plainly here rather than dressed up as UI coverage.
+
+`verify_delivery` — **verdict: PASS**, 0 log errors: `browser_open`,
+`one_row_listed = 1`, `validation_badge_ok = OK`,
+`army_and_zone_columns = recon_stomps/hammer_anvil`,
+`shipped_plans_are_read_only`.
+
+Screenshots: `40k/docs/evidence/pm7b_plan_browser.png` (the populated table with
+the green OK badge, detail line and action row) and `pm7b_delete_confirm.png`.
+
+Two findings:
+
+1. **A `Tree` with `SIZE_EXPAND_FILL` makes `AcceptDialog.popup_centered()`
+   grow to the full screen height**, which pushed the whole action row off the
+   bottom edge — invisible to the scenario, which was clicking the buttons by
+   path and passing. Caught only by looking at the screenshot. Fixed with a
+   fixed `custom_minimum_size` on the Tree plus an explicit size at popup time.
+2. **Shipped plans are disabled rather than hidden.** A hidden button reads as a
+   bug; a disabled one with "'X' ships with the game — it can be used but not
+   renamed or deleted" in the status line explains itself.
 
 ---
 
 ## PM-8b — Simulator backend: plan vs plan, N seeded games
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-2a, PM-8a (its verdict dictates the reset implementation)
 **Player-facing:** partially (backend; version_history entry lands with PM-9)
 
@@ -900,13 +1768,79 @@ run twice at same seed_base → identical winners and margins;
 **Out of scope.** UI (PM-9), parallelism, subprocesses, stats beyond
 mean ± sd.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/autoloads/PlanSimulator.gd` | new autoload. `start()` / `cancel()`, the four signals, per-game bootstrap + seeding, PM-8a's full reset list, result rows and summary, JSON output |
+| `40k/scripts/GameWatcher.gd` | new. The per-game watch loop extracted from the spike: completed / timeout / **stalled** as distinct outcomes |
+| `40k/scripts/AIDecisionMaker.gd` | fixed `_assess_engage_on_all_fronts` — see finding 2 |
+| `40k/tests/test_plan_simulator.gd` | the headless gate |
+| `40k/tests/fixtures/ai_plans/fixture_a_c_test_crucible.json` | a 3-unit plan so the gate runs in ~90s |
+| `40k/project.godot` | autoload registration |
+| `40k/docs/PLAN_FORMAT.md` | "Comparing two plans: the simulator", including the reset table |
+
+Headless gate — **39 passed, 0 failed**, and after finding 2, **zero
+SCRIPT ERROR lines across all four games**:
+
+```
+run A  game 1  seed 8200  completed  P1 25 - 35 P2  round 5  15.3s
+       game 2  seed 8201  completed  P1 37 - 10 P2  round 5  26.4s
+       summary: P1 1 - 1 P2 (0 draws), mean margin +8.5 ± 18.5
+run B  (same seed_base) identical: 25-35 and 37-10
+```
+
+| Gate item | Result |
+|---|---|
+| 2 result rows, different seeds | `[8200, 8201]`, i.e. `seed_base + i` |
+| equal unit counts at both game starts | `[6, 6]` |
+| **seat-2 plan adherence > 0** | 3 placements per game, both seats, both runs |
+| summary math agrees with the rows | wins 1/1/0, mean +8.50, sd 18.50 — recomputed from the rows in the test, not read back |
+| stalls / timeouts | 0 / 0 |
+| same `seed_base` twice | identical winner, margin and VP for both games |
+| a *different* seed is a different game | 230 actions 25-35 vs 254 actions 37-10 |
+| results file | `user://plan_sim_results/<timestamp>.json` |
+
+That last row matters: without it "deterministic" could just mean every game
+collapsed into the same one.
+
+Three findings:
+
+1. **The gate's army choice is load-bearing.** The first attempt used
+   `custodes_lions` (11 units) with the crucible fixture: game 1 finished in
+   178s but game 2 ran past the 600s cap and was recorded as a `timeout`. Real
+   2000-pt lists vary by several minutes per seed. The gate now uses the 3-unit
+   `A_C_test` list with a purpose-built fixture plan (~15-26s per game), which
+   is what the task text meant by "small armies". The timeout was the watcher
+   reporting correctly, not a hang — `stalled` stayed 0 throughout.
+2. **`_assess_engage_on_all_fronts` was throwing on every call.**
+   `_get_covered_quarters` returns an **Array** of four bools;
+   the caller iterated it as a Dictionary (`for q in covered: if covered[q]`),
+   so `q` was already the bool and `covered[false]` raised "Invalid access to
+   property or key 'false' on a base object of type 'Array'". The knock-on is
+   worse than the log noise: `covered_count` stayed permanently 0, so the AI
+   could never see a spread-out army and always fell through to the
+   alive-count branches. Fixed by iterating the values. Pre-existing; found
+   because the simulator's no-ERROR gate surfaced it. The other two call sites
+   index with `_get_table_quarter()` (an int) and were already correct.
+3. **`AIBenchmarkRunner` was NOT migrated onto `GameWatcher`.** The task text
+   asks for a helper "both callers share"; it currently has one caller. That
+   harness is where the project's bench baselines come from, and rewriting it
+   to prove a point about sharing is a worse trade than one duplicated 40-line
+   loop. `GameWatcher` is written to be adoptable when that harness is next
+   touched for its own reasons. Stated plainly rather than claimed as done.
+
+`tests/test_plan_simulator.gd` is deliberately **not** in
+`run_pretrigger_tests.sh`: it plays four full games (~90s), and the audit suite
+is already ~45 minutes. It is run directly, as above.
 
 ---
 
 ## PM-9 — Simulator UI
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-8b, PM-7a
 **Player-facing:** yes — version_history entry required (covers PM-8b too)
 
@@ -933,13 +1867,68 @@ clean after the run. Screenshots: configured setup; completed results table
 
 **Out of scope.** Charts, Elo, parallel execution.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+Shipped:
+
+| File | Change |
+|---|---|
+| `40k/autoloads/PlanSimulatorUI.gd` | new autoload CanvasLayer: pickers (army/plan per seat, zone, layout, games 1-20, difficulty), Run / Cancel / Close / Show results file, live progress, measured ETA, results table, summary, replay pointer |
+| `40k/scenes/MainMenu.tscn`, `40k/scripts/MainMenu.gd` | `SimulatorButton` + `_on_simulator_button_pressed` |
+| `40k/scripts/Main.gd` | the Game Over dialog is suppressed during a simulator run |
+| `40k/autoloads/ScenarioRunner.gd` | new `wait_for_script` act — see finding 1 |
+| `40k/tests/scenarios/sp/pm9_simulator_run.json` | the windowed gate |
+| `40k/data/version_history.json` | 1.35.0 (covers PM-8b too) |
+| `40k/docs/PLAN_FORMAT.md` | "The Battle Simulator overlay" |
+
+Windowed `sp/pm9_simulator_run` — **46 passed, 0 failed**. It runs the CANCEL
+path first (start → cancel → wait for the run to actually stop → assert
+`cancelled` and fewer games run than requested → Close lands on `MainMenu`),
+then a full 2-game run. Measured values from the final run:
+
+| What | Value |
+|---|---|
+| configured | `A_C_test\|crucible_of_battle\|take_and_hold_mirror_1\|2 games\|plan on P1` |
+| rows | `1\|1000\|Player 2` and `2\|1001\|Player 2` |
+| plan hits (P1 / P2) | `2 / 0` and `3 / 0` — nonzero for the planned seat, **exactly 0** for the None seat |
+| ETA before the first game | "unknown until the first game finishes" |
+| ETA after | "Measured 29s per game." |
+| table vs the results JSON on disk | `matches` — every row's seed and VP, and the summary line |
+| Close after the run | back on `MainMenu` |
+
+The table-vs-file check is the one that matters: it makes the panel a *view* of
+the results rather than a separately-maintained summary that could drift.
+
+Screenshots: `40k/docs/evidence/pm9_results_table.png` (the signature image —
+both rows, the plan/no-plan adherence split, the summary, the results-file
+toast) and `pm9_configured.png`.
+
+Three findings:
+
+1. **`await` inside a scenario `execute_script` silently does nothing.** The
+   snippet is compiled into a throwaway GDScript and invoked with `.call()`,
+   so an `await` makes `_run` a coroutine and `.call()` returns a
+   `GDScriptFunctionState` immediately — the step "passes" without having
+   waited. The first PM-9 run lost 11 assertions to this: everything downstream
+   of "wait until the run stops" ran while the simulator was still going. Fixed
+   by adding a `wait_for_script` act to `ScenarioRunner` that polls a snippet
+   until it matches or times out. That act is reusable by any scenario waiting
+   on a long-running process.
+2. **The Game Over dialog covered the results.** It is `exclusive` and
+   `always_on_top`, so it renders above the overlay's CanvasLayer — N games
+   meant N modal ceremonies hiding the table. Caught only by looking at the
+   screenshot; the scenario had already passed. Suppressed while a run is in
+   progress.
+3. **A stale ETA is worse than none.** Reopening the overlay and pressing Run
+   used to leave the previous run's "Measured 49s per game" on screen as if it
+   described the new one. Pressing Run now clears it; reopening without running
+   legitimately still shows the last completed run's measurement.
 
 ---
 
 ## PM-10 — First real content + lab verdict
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-2a, PM-2b, PM-3 (PM-5 helpful for authoring)
 **Player-facing:** yes (shipped plans) — version_history entry required
 
@@ -994,13 +1983,100 @@ screenshots in report + TLDR; export check done (or its failure documented).
 **Out of scope.** Tuning earmark bonus params (defaults; note follow-up),
 more factions.
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+**Two shipped plans**, `40k/data/ai_plans/orks_recon_stomps_crucible.json` and
+`orks_recon_stomps_hammer_anvil.json`, both `valid=true, 0 errors, 0 warnings`
+against the army (which is what turns on the coverage and reserve-cap checks).
+Each covers **13 placements + 4 reserves + 2 attachments = all 17 units**.
+Authored by `40k/tests/spikes/pm10_author_plans.gd`, which validates every
+placement with `DeploymentPhase.validate_action` on a live board, rounds to
+0.01" BEFORE validating, requires each model wholly inside the shipped zone
+polygon, and refuses to write a plan breaking the 9" coherency envelope.
+
+**Adherence.** Bench probe (seed 7002, `plans_on` both seats, crucible fixture):
+**13/13 distinct units from the plan on BOTH seats, 0 fallbacks.** Menu game
+(`sp/pm10_shipped_plan_from_menu`, 27/27): 9 of 13 placements eligible (2
+attached, 2 embarked by the AI — PM-F5), **9/9 plan-sourced, 8 landing within
+0.05"**, 1 repaired; control seat 0 plan records and **12.8" from the plan's
+coordinates on average**, so the comparison is not circular.
+
+**Three defects found, none of which produce an error or a stall** — all only
+visible because adherence is measured against the plan FILE rather than counted
+from the decision log (reserve arrivals also log `source: plan:`, which
+inflated a 5/11 seat to "9 records"):
+
+* **PM-F4** — `_plan_positions_legal` enforces 11e's 9" envelope
+  unconditionally while `DeploymentPhase` is edition-aware and the harness pins
+  10e. An 11-model Gretchin line 13.60" across validated clean and was then
+  refused by the AI in every game. Seat-2 adherence 5/11 -> 13/13 once fixed.
+* **PM-F5** — the AI embarks plan-placed units the plan never asked to embark:
+  both Gretchin mobs go inside the Stompa, so `obj_home_1` — the point of the
+  plan — is **Uncontrolled** at the end of deployment. Pinned in the scenario so
+  the fix cannot land unnoticed.
+* **PM-F3** — the predeploy fixtures carry a STALE crucible zone (stepped band,
+  `obj_home_1` at (22,4)) while a real game reads the shipped JSON triangle
+  (`obj_home_1` at (32,14)). Every bench run on those fixtures plays a board no
+  menu game can produce. The crucible plan is packed into the INTERSECTION of
+  the two so it is legal on both.
+
+A fourth thing worth recording, found the same way: **a partial plan eats
+itself.** Leaving the two attached Wartrikes out of the plan let the formula
+place them first, and six planned placements then collided with them.
+
+**Export check — verified with a real export, not by reading the filter.**
+`godot --headless --export-pack Linux` produced a 53 MB `.pck`; parsing its file
+table shows `data/ai_plans/orks_recon_stomps_crucible.json` present. `.json` is
+a recognised resource type (`load()` returns a `JSON`), so `export_filter=
+"all_resources"` already packs them; `data/ai_plans/*.json` was added to the
+`include_filter` of all four presets as an explicit guarantee.
+
+**Windowed gate.** `bash 40k/tests/run_scenario.sh
+tests/scenarios/sp/pm10_shipped_plan_from_menu.json` -> **28 passed, 0 failed**,
+starting on the real main menu and picking the shipped plan out of
+`res://data/ai_plans/`.
+
+**Paired A/B, Normal difficulty (the shipped default), 12 games.** Adherence
+100% on BOTH seats in every completed game (13/13 placements + 4/4 reserves).
+**E = +3.00 VP/game, se 6.83, 2-se [-10.7, +16.7], MDE +/-13.7 VP at n=4** — a
+null in the "could not have detected it" sense; E is not negative, which is the
+sanity check the gate asks for, and nothing stronger is claimed. Two of six
+planned pairs were lost to PM-F6, and NOT at random: 9001 and 9005 are exactly
+the seeds where the formula seat stalls. At three pairs the same run read
+E=+9.67 with an interval excluding zero; the fourth pair was -17.0 and it
+collapsed. That is written into the report as the reason not to read a
+sequential run early.
+
+**Stall gate FAILS and is reported as a failure**, not a footnote: 2 of 6 seeds
+hang in deployment, deterministically, always on the seat with plans OFF
+(PM-F6). A plan-driven opponent reproduces it reliably because the formula
+counter-deploys relative to the enemy cluster.
+
+**Owner evidence item (deliverable 4): a scripted stand-in, and the report says
+so in those words.** Seat 1 HUMAN vs seat 2 AI-with-plan from the real menu.
+It covers setup, formations and deployment — **not five battle rounds**, which
+is stated rather than glossed. The AI put 12 of 13 units down from the plan
+with reserves and attachments correct; `obj_home_1` finished **Uncontrolled**
+(PM-F5 in a human game); and the human seat could not legally deploy its Stompa
+**anywhere** — 9,408 candidate positions rejected — which is the clearest
+argument for the feature in the whole task: a plan's positions are validated
+against the deployment phase at authoring time, and a player gets no such help.
+Screenshot: `40k/docs/evidence/pm10_standin_human_vs_plan_ai.png`.
+
+Screenshots: `40k/docs/evidence/pm10_shipped_plan_selected.png` (the picker
+offering the shipped plan, unflagged) and `pm10_plan_vs_formula_deployment.png`
+(one board, plan seat vs formula seat, with the game log showing "Deployed
+Warbikers Beta from plan ... (repaired)" against the control seat's
+"anti_tank, col 5, row 3" — and HOME 1 Uncontrolled, which is PM-F5 on screen).
+
+Report: `40k/tests/bench_baselines/2026-08-11_plan_vs_formula.md`.
+Version 1.36.0.
 
 ---
 
 ## PM-11 — Docs, release notes, coherence pass
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** all previous
 **Player-facing:** yes — consolidated version_history entry if any gap
 
@@ -1024,7 +2100,153 @@ more factions.
 **Validation gate.** Batch scenario run output in Evidence; docs committed;
 version history renders in the main menu (screenshot).
 
-**Evidence.** _(fill)_
+**Evidence.**
+
+**Batch run — `bash 40k/tests/run_scenarios.sh tests/scenarios/sp/pm*.json`:**
+
+```
+pm2a_ai_deploys_from_plan      41 passed, 0 failed
+pm2b_formations_from_plan      36 passed, 0 failed
+pm3_earmarks_bias_assignment   72 passed, 0 failed
+pm4_plan_editor_session        59 passed, 0 failed
+pm5_record_and_save_plan       49 passed, 0 failed
+pm6_paint_intents              64 passed, 0 failed
+pm7a_assign_plan_from_menu     25 passed, 0 failed
+pm7b_plan_browser              42 passed, 0 failed
+pm9_simulator_run              46 passed, 0 failed
+pm10_shipped_plan_from_menu    28 passed, 0 failed
+pm11_reentry                   36 passed, 0 failed
+                              498 assertions across 11 scenarios
+```
+
+**The batch earned its place on the first run: `pm7b_plan_browser` failed
+4 assertions.** It had been written when `res://data/ai_plans/` was empty, so
+it asserted the browser contained exactly ONE plan — the fixture it writes
+itself. PM-10 shipped two plans and the browser correctly showed three:
+
+```
+row_count()   expected 1, got 3
+status line   expected "1 plan(s) — 1 of your own.", got "3 plan(s) — 1 of your own."
+row lookup    expected index 0, got 2
+```
+
+The browser was right and the test was wrong. The scenario now locates rows
+**by name** and counts only rows marked `yours`, so it tests the thing it is
+actually about — the lifecycle of the user's own plan — and is indifferent to
+how much content ships beside it. Back to **42 passed, 0 failed**.
+
+This is the entire reason the task asks for one batch rather than trusting each
+scenario's own last green run: no individual re-run would have caught it,
+because the scenario that broke was not the one that changed.
+
+**Version history renders in the menu** —
+`40k/docs/evidence/pm11_version_history_in_menu.png` shows the badge reading
+`v1.36.1 · 2026-08-12` and the What's New panel carrying all three bullets,
+including the transport caveat. The same capture happens to show the **P2 AI
+Plan: "Auto (best match)"** dropdown, which is the auto-match behaviour that
+release note exists to explain.
+
+Screenshots: `pm11_plan_editor_reentry.png`, `pm11_simulator_reentry.png`,
+`pm11_version_history_in_menu.png`.
+
+**A third assumption shipping content broke — and this one was a real bug.**
+The full headless suite came back `2698 passed, 4 failed`, all in
+`test_plan_manager.gd`. Two were the same empty-directory assumption as pm7b.
+The other two were not:
+
+```
+FAIL: a plan keyed to the fixture's real identity matches the real fixture state
+FAIL: …and at seat 2 of the mirror match
+```
+
+`find_plan_match_for` broke ties by **rank, then plan name alphabetically**.
+That was harmless while nothing shipped, because a user plan was the only
+candidate at its rank. With plans on the search path, a player who writes their
+own plan for a matchup a shipped plan also covers gets the **shipped** one
+whenever its name sorts earlier — `'Orks — Recon Stomps on Crucible'` beats
+`'PM1 Real Fixture'` on `'o' < 'p'`. Silently, and with no way for the player to
+tell.
+
+Fixed in `PlanManager.find_plan_match_for`: the tie-break is now rank, then
+**source** (yours beats shipped), then name, then path. Rank still dominates, so
+a more specific shipped plan still beats a vaguer plan of your own — which is
+the right way round. The test pins it, and first asserts that a shipped plan
+genuinely competes for that identity, so the check cannot pass vacuously.
+
+Suite after the fix: **`test_plan_manager.gd` 56 passed, 0 failed**, and the
+full headless suite re-run clean end to end:
+
+```
+bash 40k/tests/run_pretrigger_tests.sh
+Audit suite: 2703 passed, 0 failed across 117 tests
+```
+
+**1. `PLAN_FORMAT.md` final pass.** Adds the walkthrough the task asked for:
+ten steps, each linked to a live capture from a windowed run (14 images, every
+one verified present). Two of them are there for what went WRONG — `HOME 1`
+sitting **Uncontrolled** at the end of deployment is PM-F5 on screen. The
+five-verb table, coordinate-frame rule, matching/fallback semantics and
+fragment merge order were already present and were checked rather than
+rewritten.
+
+**2. Player-facing help.** New `40k/docs/AI_PLANS_GUIDE.md` — write a plan, say
+what units are for, hand it to a seat, measure it, manage what you have. Ends
+with a "known rough edges" section that names the transport bug (PM-F5) and the
+zone/terrain caveats instead of pretending they are not there.
+
+**3. version_history audit.** Every player-facing PM task added its entry —
+1.29.0, 1.29.1, 1.29.2, 1.30.0, 1.31.0, 1.32.0, 1.33.0, 1.34.0, 1.35.0,
+1.36.0. No gaps, so no consolidated headline entry was needed. **1.36.1 was
+added** for something the coherence pass turned up (below).
+
+**4. Coherence checks.**
+
+*`PLANS_ENABLED: 0` is inert* — `tests/spikes/pm11_plans_off_is_inert.gd`,
+**6 passed, 0 failed**. Runs the AI's real decision path four ways on one
+fixture at one seed:
+
+```
+chose nothing    PLACE_IN_RESERVES U_STORMBOYZ_C ... from plan 'Orks — Recon Stomps on Crucible'
+no plan at all   DEPLOY_UNIT U_DEFFKILLA_WARTRIKE_A first(357.28,436.89)
+plan + gate OFF  DEPLOY_UNIT U_DEFFKILLA_WARTRIKE_A first(357.28,436.89)
+plan + gate ON   PLACE_IN_RESERVES U_STORMBOYZ_C ... from plan
+```
+
+Gate OFF is byte-identical to having no plan. There is a **negative control** —
+gate ON must DIFFER — because without it the check would pass just as happily
+for a feature that does nothing at all.
+
+*The finding:* **shipping plans changed the default.** The AI auto-matches a
+shipped plan whenever army, zone and layout line up, so a player who has never
+opened the Plan Editor now gets plan-driven deployment on `recon_stomps`. That
+is what "Auto" in the picker always meant, but it had no consequences until
+this task put plans on the search path. Asserted in the spike, and written up
+for players in **1.36.1** with how to turn it off.
+
+*Re-entry* — `sp/pm11_reentry.json`, **36 passed, 0 failed**:
+
+```
+editor session          Main|true
+normal game after it    Main|false
+second editor visit     17 own units, 0 enemy   (fresh army, not leftovers)
+simulator closed        false|MainMenu
+simulator reopened      true|false              (visible, not still running)
+```
+
+*The second finding:* the `plan_editor` flag **does** survive leaving the
+editor — `meta.game_config` keeps it until something replaces it. The first
+draft of the scenario asserted it was cleared and failed. The right response
+was to ask whether it can hurt anyone: `MainMenu` replaces `meta.game_config`
+wholesale on Start, so it cannot reach a real game. The scenario now records
+the staleness and *proves* the invariant that matters by starting a normal game
+straight after the editor and asserting it is not a plan-editor session.
+
+*`--headless --import`* — clean (exit 0; only the usual exit-time RID-leak
+noise).
+
+**5. Print sweep.** Nothing to remove. The plan code logs through helpers that
+also write to the debug log (`_plan_log`, `PlanSimulator: %s`), which is the
+project convention, and CLAUDE.md forbids stripping debug logging.
 
 ---
 
@@ -1046,3 +2268,259 @@ version history renders in the main menu (screenshot).
 - Community sharing.
 - Extending `run_paired.py` with first-class plan arms (PM-10 can work
   through `run_ai_benchmark.sh` env; promote if the lab adopts plans).
+
+---
+
+## PM-F1 — FOLLOW-UP: the deployment formula fails validation on diagonal zones
+
+**Status:** TODO
+**Depends:** — (pre-existing behaviour, found while gathering PM-2a evidence)
+**Player-facing:** yes (AI behaviour)
+
+**What was observed.** Running `mirror_custodes_2000_predeploy`
+(`crucible_of_battle`, a TRIANGULAR zone) with `PLANS_ENABLED = 0`, the AI's
+column-formula deployment repeatedly emits placements `DeploymentPhase` rejects:
+```
+P2: Custodian Guard deployment failed (Model must be wholly within deployment
+    zone, Model must be wholly within deployment zone, …) — retrying
+P2: Deployed Custodian Guard (retry 1)
+P2: Prosecutors deployment failed (…) — retrying
+P2: Deployed Prosecutors (retry 2)
+```
+and one unit — Custodian Guard Zeta, 225 pts / 5 models — could not be placed at
+all and was dumped into **Strategic Reserves**, arriving R2+. Screenshot:
+`40k/docs/evidence/pm2a_plans_disabled_formula_deployment.png`.
+
+**Why.** `_decide_deployment` builds positions from a rectangular
+`zone_bounds`, and `_resolve_formation_collisions` clamps to that rectangle
+(`AIDecisionMaker.gd:19656-19712`). For hammer_anvil/dawn_of_war the rectangle
+IS the zone; for `crucible_of_battle` (triangle), `search_and_destroy` and
+`tipping_point` it is not, so the formula generates positions outside the real
+polygon. PM-2a added a polygon + shape-aware check on the PLAN path only
+(`_plan_shape_inside_polygon`); the formula path still has none.
+
+**Suggested fix.** Give the formula the same polygon containment guard the plan
+path now uses, i.e. re-project or reject-and-resample candidates against
+`_get_deployment_zone_polygon_pixels` before emitting the action.
+
+**Validation gate.** A windowed scenario on the crucible fixture with
+`PLANS_ENABLED = 0` asserting ZERO `deployment failed` log lines and zero units
+forced into reserves; plus a headless test over all six shipped zones.
+
+**Evidence.** _(fill)_
+
+---
+
+## PM-F2 — FOLLOW-UP: the validator does not check attachment legality
+
+**Status:** TODO
+**Depends:** PM-0
+**Player-facing:** no (authoring-time validation)
+
+**What was observed.** A plan can name a leader/bodyguard pairing the game
+cannot make, and nothing complains: `PlanValidator` checks only that both ids
+are present and distinct. At play time the AI simply never matches an available
+`DECLARE_LEADER_ATTACHMENT` and falls through to its own pairing, so the author
+sees the plan "work" while the attachment it asked for never happens. This was
+found because the PM-0 rich fixture paired Wazdakka Gutsmek with Warbikers —
+`data/40kdc/leaderAttachments.json` has no leader row for Wazdakka at all, and
+`warbikers` is only led by `deffkilla-wartrike`.
+
+**Suggested fix.** Load `res://data/40kdc/leaderAttachments.json` in
+`PlanValidator` and, when an army dict is supplied, resolve each attachment's
+character and bodyguard to their datasheet ids and check membership. Emit a
+WARNING rather than an error if the datasheet id cannot be resolved (so an
+unusual army file cannot make a good plan unloadable), and an ERROR when the ids
+resolve and the pairing is genuinely not eligible.
+
+**Validation gate.** Headless cases in `test_plan_validator.gd`: the shipped
+fixture pairing passes; the Wazdakka/Warbikers pairing is rejected with the
+eligible leaders named; an unresolvable datasheet id warns instead of failing.
+
+**Evidence.** _(fill)_
+
+
+---
+
+## PM-F3 — FOLLOW-UP: the predeploy fixtures carry a stale crucible zone
+
+**Status:** TODO
+**Depends:** — (pre-existing; found while authoring the PM-10 shipped plans)
+**Player-facing:** no (benchmark asset), but it invalidates comparisons
+
+**What was observed.** `DeploymentZoneData.get_zones()` loads
+`res://deployment_zones/<id>.json` in preference to its hardcoded fallback, and
+the crucible JSON was regenerated from the 40kdc 11e dataset. The
+`mirror_orks_2000_predeploy` fixture predates that regeneration and has the OLD
+geometry baked into its saved `board`, which `SaveLoadManager` restores verbatim:
+
+```
+fixture board:      44x8 band + 24x6 centre step,  obj_home_1 at (22, 4)
+deployment_zones/crucible_of_battle.json:
+                    triangle (0,0)-(44,30)-(44,0), obj_home_1 at (32, 14)
+```
+
+Verified two ways: the fixture's board printed after `load_game`, and
+`DeploymentZoneData.get_zones("crucible_of_battle")` on a fresh state (which
+logs `Loaded zones for 'crucible_of_battle' from JSON` and returns the
+triangle). The consequence is that **every AI benchmark run on these fixtures
+plays a board no menu game can produce** — the deployment phase validates
+against the fixture's stepped zone while `PlanValidator` and a real game use the
+triangle. It also silently split the two during PM-10 authoring: placements the
+phase accepted were flagged by the validator as outside the zone, which is what
+exposed it.
+
+**Suggested fix.** Regenerate the `mirror_*_predeploy` (and `_postdeploy`)
+fixtures from a fresh game so their `board` matches the shipped zone JSON, then
+re-run `tools/ai_lab/fixture_check.py` and record new sha256s. This is
+deliberately NOT done inside PM-10: it moves a shared benchmark asset that the
+existing `tests/bench_baselines/` reports were measured on, so it wants its own
+task and its own note in those reports.
+
+**Interim mitigation (already in place).** `tests/spikes/pm10_author_plans.gd`
+requires every model to be wholly inside the SHIPPED polygon as well as
+accepted by the live phase, so the shipped crucible plan is legal on both
+boards.
+
+**Validation gate.** New fixture sha256s recorded; `fixture_check.py` passes;
+the fixture's `board.deployment_zones` equals
+`DeploymentZoneData.get_zones("crucible_of_battle")` asserted in a headless
+test so this cannot silently rot again.
+
+**Evidence.** _(fill)_
+
+---
+
+## PM-F4 — FOLLOW-UP: the AI's plan-legality coherency check is not edition-aware
+
+**Status:** TODO
+**Depends:** PM-2a
+**Player-facing:** yes (AI silently ignores a legal plan placement)
+
+**What was observed.** `AIDecisionMaker._plan_positions_legal` enforces the 11e
+coherency rule — "2\" to at least one other model AND a 9\" envelope to every
+other model" — **unconditionally**, with a comment claiming `DeploymentPhase`
+"enforces this on the action via the same helper". It does not: the phase's
+`_check_deployment_coherency` delegates to the edition-aware
+`AttackSequence.check_unit_coherency`, and the automated harness pins
+`GameConstants.edition` to the legacy 10e baseline, which has no 9" envelope.
+
+The two therefore disagree, and the AI is the stricter one. Concretely: the
+PM-10 authoring pass laid Gretchin Alpha out as an 11-model line 13.60" across,
+`DeploymentPhase.validate_action` accepted it (10e rules in force), and then at
+play time the AI refused its own plan's placement with "did not validate and
+repair failed" — in every game, on both seats. It cost a whole measured
+campaign before it was spotted, and it is invisible unless you diff the plan
+against where the models actually ended up.
+
+**Suggested fix.** Have `_plan_positions_legal` call the same edition-aware
+helper the phase uses rather than hardcoding the 11e envelope, so "the AI will
+accept this placement" and "the phase will accept this action" cannot diverge.
+Whichever way the edition setting points, the two must agree.
+
+**Interim mitigation (already in place).** `tests/spikes/pm10_author_plans.gd`
+filters candidate formation shapes to a 8.8" span and refuses to write a plan
+whose emitted placements exceed 9", so the shipped plans satisfy the stricter
+of the two rules.
+
+**Validation gate.** A headless case that builds a placement legal under 10e
+and illegal under 11e, and asserts the phase and `_plan_positions_legal` agree
+under each edition setting.
+
+**Evidence.** _(fill)_
+
+---
+
+## PM-F5 — FOLLOW-UP: the AI embarks plan-placed units the plan never asked to embark
+
+**Status:** TODO
+**Depends:** PM-2b
+**Player-facing:** yes — it silently defeats the plan's stated intent
+
+**What was observed.** The shipped hammer_anvil plan declares
+`"embarkations": []`, gives both Gretchin mobs explicit placements ON
+`obj_home_1`, and earmarks both `HOLD_OBJECTIVE obj_home_1`. In a real
+from-the-menu game the AI put them **inside the Stompa** — which is a
+TRANSPORT — during FORMATIONS:
+
+```
+Player 1 transport_embarkations: { "U_STOMPA_A": ["U_GRETCHIN_A", "U_GRETCHIN_B"] }
+Player 2 transport_embarkations: { "U_STOMPA_A_P2": ["U_GRETCHIN_A_P2", "U_GRETCHIN_B_P2"] }
+```
+
+Both seats, every run. Embarked units do not deploy on their own, so the plan's
+placements for them are never used and the objective the whole plan is built
+around is left empty at deployment. There is **no log line and no error** — the
+units simply are not there. It is only visible by diffing the plan against
+where the models actually ended up.
+
+PM-2b made the plan able to *declare* embarkations. It did not make an empty
+`embarkations` list mean "and embark nothing else": the formula's own
+embarkation logic still runs and can overrule a plan that wants the unit on the
+ground.
+
+**Suggested fix.** When a plan is active for a seat, treat
+`deployment.embarkations` as the complete embarkation list for units the plan
+covers: a unit with a plan PLACEMENT must not be embarked by the formula.
+Leave units the plan does not mention to the formula, exactly as deployment
+order already does. Consider logging when the formula's choice is suppressed,
+so the interaction is visible rather than implicit.
+
+**Validation gate.** Extend `sp/pm10_shipped_plan_from_menu.json`: it currently
+PINS the wrong behaviour on purpose (`plan=0 ai=U_GRETCHIN_A->U_STOMPA_A,...`)
+so that fixing this fails the step and forces the update. After the fix, both
+Gretchin deploy from the plan and `eligible` rises from 9 to 11.
+
+**Evidence.** Debug log `debug_20260811_194852.log`; the scenario's own
+`SCENARIO pm10 PM-F5:` line.
+
+---
+
+## PM-F6 — FOLLOW-UP: the deployment formula stalls the game on the Ork predeploy fixture
+
+**Status:** TODO
+**Depends:** — (pre-existing; PM-F1 is probably the same defect)
+**Player-facing:** yes — the game hangs in deployment
+
+**What was observed.** In the PM-10 paired A/B on `mirror_orks_2000_predeploy`
+at **Normal** difficulty, 2 of the first 5 games ended `stalled` — "no progress
+for 90s" — both at round 1, phase 1, after ~41 actions. Both have the same
+signature, and it is always the seat with **plans OFF**:
+
+```
+seed 9001                                    seed 9005
+P1  Deployed Warbikers Gamma (col 5, row 3)  P1  Warbikers placed in reserves (fallback)
+P1  Warbikers placed in reserves (fallback)  P1  Deployed Warbikers Delta (col 1, row 4)
+P2  Deployed Warbikers Delta FROM PLAN       P1  Deployed Wazdakka Gutsmek (character…)
+P1  Deployed Warbikers Delta (col 1, row 4)  P1  Deployed Wazdakka Gutsmek (retry 4)
+P1  Deployed Wazdakka Gutsmek (character…)   P2  Deployed Warbikers Alpha FROM PLAN
+```
+
+The formula retries the same placement, falls back to reserves, and eventually
+the game makes no progress at all. The plan-driven seat deploys cleanly through
+the whole sequence in both games.
+
+**The plan does not cause it, but it does expose it.** Seed 9001 COMPLETED in
+an earlier run of the same arms with an earlier version of the plan. The
+deployment formula counter-deploys relative to the enemy cluster
+(`T7-44 melee counter-deploy: shift toward enemy cluster`), so changing what
+the opponent puts on the board changes where the formula tries to go — and on
+this fixture it tries to go somewhere it cannot legally fill. A plan-driven
+opponent is therefore a reliable way to reproduce it.
+
+**Why it matters beyond the lab.** Two of six seeds unusable is a 33% loss of
+paired data, which is why PM-10 could not report an effect at the intended n.
+A player would see the game stop during deployment.
+
+**Suggested fix.** Bound the retry loop in the deployment formula and make the
+final fallback unconditional (place legally anywhere in the zone, or into
+reserves) rather than allowing the phase to sit with no legal action. Then
+investigate why the chosen position is unfillable — the retry log lines name
+the unit (Warbikers, Wazdakka Gutsmek: 42x75mm and 92x120mm bases).
+
+**Validation gate.** A headless case that reproduces a stall on this fixture
+before the fix and completes after it, plus a re-run of the PM-10 A/B showing
+6 usable pairs.
+
+**Evidence.** `tests/bench_baselines/2026-08-11_plan_vs_formula.md`; the
+stalled games' `action_log` in the season directory.

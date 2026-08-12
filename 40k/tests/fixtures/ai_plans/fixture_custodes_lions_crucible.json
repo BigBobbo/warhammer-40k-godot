@@ -1,0 +1,339 @@
+{
+ "format": "wh40k_ai_plan",
+ "version": 1,
+ "name": "Fixture \u2014 Custodes Lions on Crucible",
+ "description": "Test fixture keyed to the mirror_custodes_2000_predeploy save's REAL identity (crucible_of_battle + take_and_hold_mirror_1), so a benchmark can measure the AI actually following a plan instead of silently falling back to the formula. Blocks are laid out inside the player-1 triangle and are legal at both seats.",
+ "author": "fixture",
+ "keys": {
+  "army_file": "custodes_lions",
+  "detachment_hint": "Lions of the Emperor",
+  "deployment_zone_id": "crucible_of_battle",
+  "terrain_layout_id": "take_and_hold_mirror_1",
+  "mission_id": ""
+ },
+ "deployment": {
+  "order": [
+   "U_BLADE_CHAMPION_A",
+   "U_CUSTODIAN_GUARD_A",
+   "U_BLADE_CHAMPION_B",
+   "U_CUSTODIAN_GUARD_B",
+   "U_BLADE_CHAMPION_C",
+   "U_CUSTODIAN_GUARD_C",
+   "U_CUSTODIAN_GUARD_D",
+   "U_CUSTODIAN_GUARD_E",
+   "U_CUSTODIAN_GUARD_F",
+   "U_ALLARUS_CUSTODIANS_A",
+   "U_PROSECUTORS_A"
+  ],
+  "placements": [
+   {
+    "unit": "U_BLADE_CHAMPION_A",
+    "unit_name": "Blade Champion",
+    "role_fallback": "character",
+    "models_inches": [
+     [
+      32.43,
+      4.99
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 4.99
+    }
+   },
+   {
+    "unit": "U_CUSTODIAN_GUARD_A",
+    "unit_name": "Custodian Guard",
+    "role_fallback": "melee",
+    "models_inches": [
+     [
+      6.59,
+      1.09
+     ],
+     [
+      8.46,
+      1.09
+     ],
+     [
+      10.34,
+      1.09
+     ],
+     [
+      12.21,
+      1.09
+     ],
+     [
+      6.59,
+      2.96
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 1.46
+    }
+   },
+   {
+    "unit": "U_BLADE_CHAMPION_B",
+    "unit_name": "Blade Champion",
+    "role_fallback": "character",
+    "models_inches": [
+     [
+      34.46,
+      4.99
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 4.99
+    }
+   },
+   {
+    "unit": "U_CUSTODIAN_GUARD_B",
+    "unit_name": "Custodian Guard",
+    "role_fallback": "melee",
+    "models_inches": [
+     [
+      14.24,
+      1.09
+     ],
+     [
+      16.11,
+      1.09
+     ],
+     [
+      17.99,
+      1.09
+     ],
+     [
+      19.86,
+      1.09
+     ],
+     [
+      14.24,
+      2.96
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 1.46
+    }
+   },
+   {
+    "unit": "U_BLADE_CHAMPION_C",
+    "unit_name": "Blade Champion",
+    "role_fallback": "character",
+    "models_inches": [
+     [
+      36.48,
+      4.99
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 4.99
+    }
+   },
+   {
+    "unit": "U_CUSTODIAN_GUARD_C",
+    "unit_name": "Custodian Guard",
+    "role_fallback": "melee",
+    "models_inches": [
+     [
+      21.89,
+      1.09
+     ],
+     [
+      23.76,
+      1.09
+     ],
+     [
+      25.63,
+      1.09
+     ],
+     [
+      27.51,
+      1.09
+     ],
+     [
+      21.89,
+      2.96
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 1.46
+    }
+   },
+   {
+    "unit": "U_CUSTODIAN_GUARD_D",
+    "unit_name": "Custodian Guard",
+    "role_fallback": "melee",
+    "models_inches": [
+     [
+      29.53,
+      1.09
+     ],
+     [
+      31.41,
+      1.09
+     ],
+     [
+      33.28,
+      1.09
+     ],
+     [
+      35.16,
+      1.09
+     ],
+     [
+      29.53,
+      2.96
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 1.46
+    }
+   },
+   {
+    "unit": "U_CUSTODIAN_GUARD_E",
+    "unit_name": "Custodian Guard",
+    "role_fallback": "melee",
+    "models_inches": [
+     [
+      37.18,
+      1.09
+     ],
+     [
+      39.06,
+      1.09
+     ],
+     [
+      40.93,
+      1.09
+     ],
+     [
+      42.81,
+      1.09
+     ],
+     [
+      37.18,
+      2.96
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 1.46
+    }
+   },
+   {
+    "unit": "U_CUSTODIAN_GUARD_F",
+    "unit_name": "Custodian Guard",
+    "role_fallback": "melee",
+    "models_inches": [
+     [
+      12.31,
+      4.99
+     ],
+     [
+      14.18,
+      4.99
+     ],
+     [
+      16.06,
+      4.99
+     ],
+     [
+      17.93,
+      4.99
+     ],
+     [
+      12.31,
+      6.86
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 5.36
+    }
+   },
+   {
+    "unit": "U_ALLARUS_CUSTODIANS_A",
+    "unit_name": "Allarus Custodians",
+    "role_fallback": "melee",
+    "models_inches": [
+     [
+      19.96,
+      4.99
+     ],
+     [
+      21.83,
+      4.99
+     ],
+     [
+      23.71,
+      4.99
+     ],
+     [
+      25.58,
+      4.99
+     ],
+     [
+      19.96,
+      6.86
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 5.36
+    }
+   },
+   {
+    "unit": "U_PROSECUTORS_A",
+    "unit_name": "Prosecutors",
+    "role_fallback": "screen",
+    "models_inches": [
+     [
+      27.45,
+      4.83
+     ],
+     [
+      29.01,
+      4.83
+     ],
+     [
+      30.57,
+      4.83
+     ],
+     [
+      27.45,
+      6.39
+     ]
+    ],
+    "anchors": {
+     "nearest_objective": "obj_home_1",
+     "depth_from_zone_edge_in": 5.22
+    }
+   }
+  ],
+  "reserves": [],
+  "embarkations": [],
+  "attachments": []
+ },
+ "earmarks": [
+  {
+   "unit": "U_PROSECUTORS_A",
+   "unit_name": "Prosecutors",
+   "verb": "SCREEN"
+  },
+  {
+   "unit": "U_ALLARUS_CUSTODIANS_A",
+   "unit_name": "Allarus Custodians",
+   "verb": "PUSH_CENTER"
+  }
+ ],
+ "profile_fragment": {
+  "parameters": {},
+  "rules": []
+ }
+}

@@ -4,6 +4,8 @@ const FixedMissionSelectionDialogScript = preload("res://dialogs/FixedMissionSel
 const WhiteDwarfThemeData = preload("res://scripts/WhiteDwarfTheme.gd")
 const TutorialPickerPanelScript = preload("res://scripts/tutorial/TutorialPickerPanel.gd")
 const TutorialNudgePanelScript = preload("res://scripts/tutorial/TutorialNudgePanel.gd")
+# PM-7a: plan listing for the per-seat AI Plan pickers.
+const PlanManagerData = preload("res://scripts/PlanManager.gd")
 
 # MainMenu - Entry point for the game, allows configuration of mission and armies
 
@@ -22,6 +24,18 @@ var player2_difficulty_dropdown: OptionButton = null
 # T7-36: AI speed dropdown (shown when any player is AI)
 var ai_speed_container: HBoxContainer = null
 var ai_speed_dropdown: OptionButton = null
+# PM-7a: per-AI-seat plan pickers. Same shape as the difficulty dropdowns —
+# created dynamically, shown only while that seat is an AI — but their CONTENTS
+# depend on the army and the deployment zone, so they are repopulated whenever
+# either changes.
+var player1_plan_container: HBoxContainer = null
+var player1_plan_dropdown: OptionButton = null
+var player2_plan_container: HBoxContainer = null
+var player2_plan_dropdown: OptionButton = null
+# Parallel to each dropdown's items: "" = Auto (best match), "none" = force the
+# formula, otherwise the plan's path.
+var _p1_plan_values: Array = []
+var _p2_plan_values: Array = []
 # P2-85: Secondary mission mode selection (Fixed vs Tactical)
 var secondary_mode_container: VBoxContainer = null
 var p1_secondary_mode_dropdown: OptionButton = null
@@ -42,6 +56,22 @@ var mission_value_label: Label = null
 var deployment_value_label: Label = null
 var _derived_displays_active: bool = false
 @onready var start_button: Button = $ScrollContainer/MenuContainer/ButtonSection/StartButton
+# PM-4: Plan Editor sandbox entry point. The editor needs its OWN deployment-zone
+# picker: in 11e the game's zone is DERIVED from the disposition matchup + terrain
+# variant (see _setup_derived_mission_displays), but a plan is keyed on
+# deployment_zone_id, so the author must be able to choose the zone they are
+# writing a plan for regardless of which variant the menu happens to have picked.
+@onready var plan_editor_button: Button = $ScrollContainer/MenuContainer/ButtonSection/PlanEditorButton
+var plan_editor_zone_container: HBoxContainer = null
+var plan_editor_zone_dropdown: OptionButton = null
+# PM-7b: the plan browser. Lives in the secondary button grid, not next to the
+# Plan Editor — browsing plans is a housekeeping action, not part of starting a
+# session.
+@onready var plan_browser_button: Button = $ScrollContainer/MenuContainer/ButtonSection/PlanBrowserButton
+# PM-9: the Battle Simulator overlay lives in an autoload (games change scene
+# underneath it), so the menu only has to open it.
+@onready var simulator_button: Button = $ScrollContainer/MenuContainer/ButtonSection/SimulatorButton
+var plan_browser_dialog: AcceptDialog = null
 @onready var multiplayer_button: Button = $ScrollContainer/MenuContainer/ButtonSection/MultiplayerButton
 @onready var load_button: Button = $ScrollContainer/MenuContainer/ButtonSection/LoadButton
 @onready var replay_button: Button = $ScrollContainer/MenuContainer/ButtonSection/ReplayButton
@@ -153,6 +183,7 @@ func _ready() -> void:
 	_base_terrain_options = terrain_options.duplicate()
 	_setup_dropdowns()
 	_connect_signals()
+	_setup_plan_editor_controls()
 	_setup_save_load_dialog()
 
 	# Set defaults
@@ -235,7 +266,8 @@ func _apply_theme() -> void:
 
 	# Buttons — Start Game is primary, rest are secondary
 	WhiteDwarfThemeData.apply_primary_button(start_button)
-	for btn in [multiplayer_button, load_button, replay_button, settings_button, quit_button]:
+	for btn in [plan_editor_button, plan_browser_button, simulator_button, multiplayer_button,
+			load_button, replay_button, settings_button, quit_button]:
 		WhiteDwarfThemeData.apply_secondary_button(btn)
 
 func _create_data_attribution_credit() -> void:
@@ -415,7 +447,8 @@ func _promote_buttons_above_fold() -> void:
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 8)
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	for btn_name in ["TutorialButton", "MultiplayerButton", "LoadButton", "ReplayButton", "SettingsButton", "QuitButton"]:
+	for btn_name in ["TutorialButton", "PlanBrowserButton", "SimulatorButton", "MultiplayerButton",
+			"LoadButton", "ReplayButton", "SettingsButton", "QuitButton"]:
 		var b = buttons.get_node_or_null(NodePath(btn_name))
 		if b != null:
 			buttons.remove_child(b)
@@ -500,7 +533,8 @@ func _update_input_mode_status() -> void:
 func _apply_theme_to_dynamic_elements() -> void:
 	# Style dynamically created dropdowns and buttons
 	for dropdown in [player1_difficulty_dropdown, player2_difficulty_dropdown, ai_speed_dropdown,
-			p1_secondary_mode_dropdown, p2_secondary_mode_dropdown, army_sort_dropdown]:
+			p1_secondary_mode_dropdown, p2_secondary_mode_dropdown, army_sort_dropdown,
+			plan_editor_zone_dropdown, player1_plan_dropdown, player2_plan_dropdown]:
 		if dropdown:
 			WhiteDwarfThemeData.apply_to_button(dropdown)
 
@@ -509,7 +543,9 @@ func _apply_theme_to_dynamic_elements() -> void:
 			WhiteDwarfThemeData.apply_to_button(btn)
 
 	# Style dynamically created labels
-	for container in [player1_difficulty_container, player2_difficulty_container, ai_speed_container, army_sort_container]:
+	for container in [player1_difficulty_container, player2_difficulty_container, ai_speed_container,
+			army_sort_container, plan_editor_zone_container,
+			player1_plan_container, player2_plan_container]:
 		if container:
 			for child in container.get_children():
 				if child is Label:
@@ -554,6 +590,7 @@ func _setup_dropdowns() -> void:
 
 	# T7-40: Create AI difficulty dropdowns
 	_create_difficulty_dropdowns()
+	_create_plan_dropdowns()
 
 	# T7-36: Create AI speed dropdown
 	_create_ai_speed_dropdown()
@@ -644,6 +681,112 @@ func _create_difficulty_dropdowns() -> void:
 
 	print("MainMenu: AI difficulty dropdowns created")
 
+func _create_plan_dropdowns() -> void:
+	"""PM-7a: an optional 'AI Plan' picker per AI seat.
+
+	Sits directly under that seat's army row, because which plans are offered
+	depends on the army (and on the deployment zone, which at 11e is derived
+	from the disposition matchup + terrain variant — hence the repopulation
+	hooks in _connect_signals rather than a listener on the invisible deployment
+	dropdown)."""
+	var army_section = $ScrollContainer/MenuContainer/ArmySection
+
+	for player in [1, 2]:
+		var container := HBoxContainer.new()
+		container.name = "Player%dPlanContainer" % player
+
+		var label := Label.new()
+		label.text = "P%d AI Plan:" % player
+		label.custom_minimum_size = Vector2(150, 0)
+		container.add_child(label)
+
+		var dropdown := OptionButton.new()
+		dropdown.name = "Player%dPlanDropdown" % player
+		dropdown.custom_minimum_size = Vector2(300, 0)
+		dropdown.tooltip_text = "A saved AI plan for this seat. 'Auto' lets the AI pick the best match for the army and zone; 'None' makes it work everything out from scratch."
+		container.add_child(dropdown)
+
+		army_section.add_child(container)
+		var army_row_idx = _get_child_index(army_section, "Player%dContainer" % player)
+		if army_row_idx >= 0:
+			army_section.move_child(container, army_row_idx + 1)
+
+		if player == 1:
+			player1_plan_container = container
+			player1_plan_dropdown = dropdown
+		else:
+			player2_plan_container = container
+			player2_plan_dropdown = dropdown
+
+	_refresh_plan_dropdowns()
+	player1_plan_container.visible = (player1_type_dropdown.selected == 1)
+	player2_plan_container.visible = (player2_type_dropdown.selected == 1)
+	print("MainMenu: AI plan dropdowns created")
+
+func _refresh_plan_dropdowns() -> void:
+	"""Rebuild both pickers from the plans on disk that match that seat's army
+	and the deployment zone currently in force.
+
+	A plan whose army_file does not match is simply not offered — assigning one
+	would have the AI degrade to the formula on every unit, which reads as the
+	plan silently not working."""
+	for player in [1, 2]:
+		var dropdown: OptionButton = player1_plan_dropdown if player == 1 else player2_plan_dropdown
+		if dropdown == null:
+			continue
+		var values: Array = []
+		var previous := _selected_plan_value(player)
+
+		dropdown.clear()
+		dropdown.add_item("Auto (best match)")
+		values.append("")
+		dropdown.add_item("None (no plan)")
+		values.append("none")
+
+		var army_id := _selected_army_id(player)
+		var zone_id := _selected_deployment_id()
+		for entry in PlanManagerData.list_plans():
+			var meta_data: Dictionary = entry.get("metadata", {})
+			if str(meta_data.get("army_file", "")) != army_id:
+				continue
+			var zone := str(meta_data.get("deployment_zone_id", ""))
+			var label := str(entry.get("name", ""))
+			if zone != zone_id:
+				# Offered, but flagged: a plan for another zone will not place
+				# legally here, so the AI would fall back to the formula.
+				label = "%s  [%s]" % [label, zone]
+			if not bool(meta_data.get("valid", false)):
+				label = "%s  (invalid)" % label
+			dropdown.add_item(label)
+			values.append(str(entry.get("path", "")))
+
+		if player == 1:
+			_p1_plan_values = values
+		else:
+			_p2_plan_values = values
+
+		var idx := values.find(previous)
+		dropdown.selected = idx if idx >= 0 else 0
+
+func _selected_army_id(player: int) -> String:
+	var dropdown: OptionButton = player1_dropdown if player == 1 else player2_dropdown
+	if dropdown == null or dropdown.selected < 0 or dropdown.selected >= army_options.size():
+		return ""
+	return str(army_options[dropdown.selected].id)
+
+func _selected_deployment_id() -> String:
+	if deployment_dropdown.selected < 0 or deployment_dropdown.selected >= deployment_options.size():
+		return ""
+	return str(deployment_options[deployment_dropdown.selected].id)
+
+func _selected_plan_value(player: int) -> String:
+	""""" = Auto, "none" = no plan, else the plan's path."""
+	var dropdown: OptionButton = player1_plan_dropdown if player == 1 else player2_plan_dropdown
+	var values: Array = _p1_plan_values if player == 1 else _p2_plan_values
+	if dropdown == null or dropdown.selected < 0 or dropdown.selected >= values.size():
+		return ""
+	return str(values[dropdown.selected])
+
 func _find_option_index(options: Array, target_id: String) -> int:
 	"""Return the index of the option with the given id, or 0 if not found."""
 	for i in range(options.size()):
@@ -664,6 +807,8 @@ func _on_player1_type_changed(index: int) -> void:
 		player1_difficulty_container.visible = (index == 1)  # 1 = AI
 		print("MainMenu: Player 1 type changed to %s, difficulty visible: %s" % [
 			"AI" if index == 1 else "Human", player1_difficulty_container.visible])
+	if player1_plan_container:
+		player1_plan_container.visible = (index == 1)
 	_update_ai_speed_visibility()
 
 func _on_player2_type_changed(index: int) -> void:
@@ -672,6 +817,8 @@ func _on_player2_type_changed(index: int) -> void:
 		player2_difficulty_container.visible = (index == 1)  # 1 = AI
 		print("MainMenu: Player 2 type changed to %s, difficulty visible: %s" % [
 			"AI" if index == 1 else "Human", player2_difficulty_container.visible])
+	if player2_plan_container:
+		player2_plan_container.visible = (index == 1)
 	_update_ai_speed_visibility()
 
 func _create_ai_speed_dropdown() -> void:
@@ -866,6 +1013,11 @@ func _setup_derived_mission_displays() -> void:
 func _refresh_derived_mission_display() -> void:
 	"""Update the read-only Primary Mission / Deployment labels to reflect the
 	current Force Dispositions and the selected terrain variant's deployment."""
+	# PM-7a: the deployment zone has just been (re)derived by the caller, so the
+	# plan pickers' "matches this zone" labelling is stale. Before the
+	# derived-mode guard, because the zone can change in the fallback mode too.
+	_refresh_plan_dropdowns()
+
 	if not _derived_displays_active:
 		return
 
@@ -1355,7 +1507,15 @@ func _is_cloud_selection(army_id: String) -> bool:
 func _connect_signals() -> void:
 	# D5: picking an official 11e layout snaps deployment to its pattern
 	terrain_dropdown.item_selected.connect(_on_terrain_layout_selected)
+	# PM-7a: which plans are on offer depends on the seat's army. The zone side
+	# is covered by _refresh_derived_mission_display, which every path that can
+	# change the derived deployment zone already routes through.
+	player1_dropdown.item_selected.connect(func(_i): _refresh_plan_dropdowns())
+	player2_dropdown.item_selected.connect(func(_i): _refresh_plan_dropdowns())
 	start_button.pressed.connect(_on_start_button_pressed)
+	plan_editor_button.pressed.connect(_on_plan_editor_button_pressed)
+	plan_browser_button.pressed.connect(_on_plan_browser_button_pressed)
+	simulator_button.pressed.connect(_on_simulator_button_pressed)
 	multiplayer_button.pressed.connect(_on_multiplayer_button_pressed)
 	load_button.pressed.connect(_on_load_button_pressed)
 	replay_button.pressed.connect(_on_replay_button_pressed)
@@ -1365,7 +1525,8 @@ func _connect_signals() -> void:
 	# UI sound cues on the menu buttons (routed to the SFX bus).
 	var mm = get_node_or_null("/root/MusicManager")
 	if mm:
-		for b in [start_button, multiplayer_button, load_button, replay_button, settings_button, quit_button]:
+		for b in [start_button, plan_editor_button, plan_browser_button, simulator_button,
+				multiplayer_button, load_button, replay_button, settings_button, quit_button]:
 			b.pressed.connect(func(): mm.play_sfx("click"))
 			b.mouse_entered.connect(func(): mm.play_sfx("hover"))
 
@@ -1440,6 +1601,10 @@ func _on_start_button_pressed() -> void:
 		"player2_disposition": _get_selected_disposition(p2_disposition_dropdown),
 		"player1_name": _p1_name_edit.text.strip_edges() if _p1_name_edit else "",
 		"player2_name": _p2_name_edit.text.strip_edges() if _p2_name_edit else "",
+		# PM-7a: "" = Auto (let the AI match), "none" = force the formula,
+		# otherwise the path of the plan to install on that seat.
+		"player1_plan": _selected_plan_value(1),
+		"player2_plan": _selected_plan_value(2),
 	}
 
 	print("MainMenu: Starting game with config: ", config)
@@ -1481,6 +1646,10 @@ func _on_cloud_army_fetched(_army_name: String, _army_data: Dictionary) -> void:
 		# All cloud armies downloaded, proceed with game start
 		start_button.text = "Start Game"
 		start_button.disabled = false
+		# PM-4: the Plan Editor borrows the same pending-config machinery.
+		if plan_editor_button:
+			plan_editor_button.text = "Plan Editor"
+			plan_editor_button.disabled = false
 
 		var config = _pending_game_config
 		_pending_game_config = {}
@@ -1495,6 +1664,9 @@ func _on_cloud_army_fetch_failed(army_name: String, error: String) -> void:
 	_pending_game_config = {}
 	start_button.text = "Start Game"
 	start_button.disabled = false
+	if plan_editor_button:
+		plan_editor_button.text = "Plan Editor"
+		plan_editor_button.disabled = false
 
 func _initialize_game_with_config(config: Dictionary) -> void:
 	print("MainMenu: Initializing game state with configuration")
@@ -1557,7 +1729,21 @@ func _initialize_game_with_config(config: Dictionary) -> void:
 	else:
 		print("MainMenu: ArmyListManager not available, using placeholder armies")
 		GameState._initialize_placeholder_armies()
-	
+
+	# PM-4: the Plan Editor is a solo sandbox. Plans are authored in the Player 1
+	# frame (the AI mirrors them for seat 2 — see PlanValidator.mirror_inches), so
+	# the target army is Player 1 and Player 2 is removed entirely after army
+	# application. No pass-AI is needed: TurnManager.check_deployment_alternation
+	# already pins the deployment turn to the only side that still has units, and
+	# TurnManager._handle_deployment_phase_start seats that side first.
+	if config.get("plan_editor", false):
+		var removed_p2 := 0
+		for unit_id in GameState.state.units.keys():
+			if int(GameState.state.units[unit_id].get("owner", 0)) == 2:
+				GameState.state.units.erase(unit_id)
+				removed_p2 += 1
+		print("MainMenu: Plan Editor — cleared %d Player 2 units (solo sandbox)" % removed_p2)
+
 	# P2-85: Initialize fixed secondary missions if selected
 	var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
 	if secondary_mgr:
@@ -1589,6 +1775,143 @@ func _initialize_game_with_config(config: Dictionary) -> void:
 		tutorial_mgr.note_real_game_started()
 
 	print("MainMenu: Game initialization complete. Total units: ", GameState.state.units.size())
+
+# ============================================================================
+# PM-4: Plan Editor sandbox
+# ============================================================================
+
+func _setup_plan_editor_controls() -> void:
+	"""Build the Plan Editor's own deployment-zone picker.
+
+	At 11th edition the *game's* deployment zone is derived from the Force
+	Disposition matchup plus the chosen terrain variant, so the Deployment
+	dropdown in the Mission section is hidden behind a read-only label
+	(_setup_derived_mission_displays). A plan, however, is keyed on
+	`deployment_zone_id` — the author has to be able to say "I am writing the
+	Hammer and Anvil plan" without hunting for a terrain variant that happens to
+	carry that pattern. Hence a separate, always-editable picker that only the
+	Plan Editor path reads."""
+	var button_section = $ScrollContainer/MenuContainer/ButtonSection
+	if button_section == null:
+		return
+
+	plan_editor_button.tooltip_text = "Set the Player 1 army up on the board with no opponent — a sandbox for writing an AI plan. Stays in Deployment when you are done."
+
+	plan_editor_zone_container = HBoxContainer.new()
+	plan_editor_zone_container.name = "PlanEditorZoneContainer"
+	plan_editor_zone_container.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	var label := Label.new()
+	label.name = "PlanEditorZoneLabel"
+	label.text = "Plan Editor Zone:"
+	label.custom_minimum_size = Vector2(150, 0)
+	plan_editor_zone_container.add_child(label)
+
+	plan_editor_zone_dropdown = OptionButton.new()
+	plan_editor_zone_dropdown.name = "PlanEditorZoneDropdown"
+	plan_editor_zone_dropdown.custom_minimum_size = Vector2(220, 0)
+	for option in deployment_options:
+		plan_editor_zone_dropdown.add_item(str(option.get("name", option.get("id", ""))))
+	plan_editor_zone_dropdown.selected = 0
+	plan_editor_zone_container.add_child(plan_editor_zone_dropdown)
+
+	button_section.add_child(plan_editor_zone_container)
+	# Sit directly under the Plan Editor button it belongs to.
+	button_section.move_child(plan_editor_zone_container, plan_editor_button.get_index() + 1)
+	print("MainMenu: Plan Editor zone picker created (%d zones)" % deployment_options.size())
+
+func _plan_editor_zone_id() -> String:
+	if plan_editor_zone_dropdown == null:
+		return "hammer_anvil"
+	var idx = plan_editor_zone_dropdown.selected
+	if idx < 0 or idx >= deployment_options.size():
+		return "hammer_anvil"
+	return str(deployment_options[idx].id)
+
+func _on_plan_editor_button_pressed() -> void:
+	"""Launch the planning sandbox: the Player 1 army, the chosen zone + terrain,
+	no opponent, held open at the end of Deployment."""
+	print("MainMenu: Plan Editor button pressed")
+
+	var army_id = str(army_options[player1_dropdown.selected].id)
+	var zone_id = _plan_editor_zone_id()
+
+	# Same shape as the Start Game config so every downstream consumer
+	# (MissionManager, TerrainManager, BoardState, Main) is unchanged; the
+	# editor-only differences are the plan_editor flag, the forced HUMAN seats
+	# and the explicit deployment zone.
+	var config = {
+		"terrain": terrain_options[terrain_dropdown.selected].id,
+		"mission": mission_options[mission_dropdown.selected].id,
+		"deployment": zone_id,
+		"player1_army": army_id,
+		# Player 2's units are cleared immediately after loading (see
+		# _initialize_game_with_config) — the editor has no opponent. Loading the
+		# same list keeps the army-loading block branch-free.
+		"player2_army": army_id,
+		"player1_type": "HUMAN",
+		"player2_type": "HUMAN",
+		"player1_difficulty": 1,
+		"player2_difficulty": 1,
+		"ai_speed": ai_speed_dropdown.selected if ai_speed_dropdown else 1,
+		"player1_secondary_mode": "tactical",
+		"player2_secondary_mode": "tactical",
+		"player1_fixed_missions": [],
+		"player2_fixed_missions": [],
+		"player1_disposition": _get_selected_disposition(p1_disposition_dropdown),
+		"player2_disposition": _get_selected_disposition(p2_disposition_dropdown),
+		"player1_name": _p1_name_edit.text.strip_edges() if _p1_name_edit else "",
+		"player2_name": "",
+		"plan_editor": true,
+	}
+
+	print("MainMenu: Starting Plan Editor with config: ", config)
+
+	if _is_cloud_selection(army_id):
+		plan_editor_button.disabled = true
+		plan_editor_button.text = "Downloading army..."
+		_pending_game_config = config
+		_cloud_fetch_count = 1
+		ArmyListManager.fetch_cloud_army(army_id, 1)
+		return
+
+	_initialize_game_with_config(config)
+	print("MainMenu: Transitioning to Main scene (Plan Editor)")
+	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+
+func _on_plan_browser_button_pressed() -> void:
+	"""PM-7b: open the AI plan browser."""
+	print("MainMenu: Plan browser button pressed")
+	if plan_browser_dialog and is_instance_valid(plan_browser_dialog):
+		# Detach before queue_free so the stable node name is immediately free
+		# for the next instance (same reason as the formations dialog).
+		if plan_browser_dialog.get_parent():
+			plan_browser_dialog.get_parent().remove_child(plan_browser_dialog)
+		plan_browser_dialog.queue_free()
+		plan_browser_dialog = null
+
+	var dialog_script = preload("res://dialogs/PlanBrowserDialog.gd")
+	plan_browser_dialog = AcceptDialog.new()
+	plan_browser_dialog.set_script(dialog_script)
+	plan_browser_dialog.name = "PlanBrowserDialog"
+	add_child(plan_browser_dialog)
+	plan_browser_dialog.setup()
+	# Deleting or renaming a plan changes what the seat pickers can offer.
+	plan_browser_dialog.visibility_changed.connect(func():
+		if plan_browser_dialog != null and not plan_browser_dialog.visible:
+			_refresh_plan_dropdowns())
+	# Explicit size — AcceptDialog otherwise sizes to the content's minimum,
+	# which for a table is "as tall as it can get".
+	plan_browser_dialog.popup_centered(Vector2i(960, 560))
+
+func _on_simulator_button_pressed() -> void:
+	"""PM-9: open the Battle Simulator overlay."""
+	print("MainMenu: Battle Simulator button pressed")
+	var sim_ui = get_node_or_null("/root/PlanSimulatorUI")
+	if sim_ui == null:
+		push_warning("MainMenu: PlanSimulatorUI autoload not available")
+		return
+	sim_ui.open()
 
 func _on_multiplayer_button_pressed() -> void:
 	print("MainMenu: Multiplayer button pressed")

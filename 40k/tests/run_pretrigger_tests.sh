@@ -22,6 +22,12 @@
 #   - TestModeHandler shooting-phase action handler dispatch (multi-peer infra)
 #   - TestModeHandler command-file double-execution race fix (in-flight set)
 #   - TestModeHandler transition_to_phase action (multi-peer boot-phase advance)
+#   - PM-0 wh40k_ai_plan schema validator (verbs, seat-2 mirror, reserves caps)
+#   - PM-1 PlanManager storage + plan-to-game matching (game_config / faction)
+#   - PM-2a AI deployment from a plan (order, seat-2 mirror, formula fallback)
+#   - PM-2b AI formations from a plan (reserves, embarkations, attachments)
+#   - PM-3 AI earmarks (hold/push/screen/hunt bias, release, fragment layering)
+#   - PM-5 deployment recorder + plan round trip (record -> consume, both seats)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -155,6 +161,12 @@ TESTS=(
     "tests/test_modifier_provenance.gd"
     "tests/test_ai_movement_coordination.gd"
     "tests/test_ai_battle_plan.gd"
+    "tests/unit/test_plan_validator.gd"
+    "tests/unit/test_plan_manager.gd"
+    "tests/unit/test_ai_plan_deployment.gd"
+    "tests/unit/test_ai_plan_formations.gd"
+    "tests/unit/test_ai_plan_earmarks.gd"
+    "tests/unit/test_plan_roundtrip.gd"
 )
 
 FAILED=0

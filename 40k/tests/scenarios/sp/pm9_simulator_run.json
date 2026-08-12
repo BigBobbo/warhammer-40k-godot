@@ -1,0 +1,261 @@
+{
+  "id": "pm9_simulator_run",
+  "covers": [
+    "ui.main_menu.simulator_button",
+    "ui.PlanSimulatorUI.configure",
+    "ui.PlanSimulatorUI.run_and_results_table",
+    "ui.PlanSimulatorUI.measured_eta",
+    "ui.PlanSimulatorUI.cancel_returns_to_menu",
+    "ui.PlanSimulatorUI.table_matches_backend_json"
+  ],
+  "disable_ai": false,
+  "description": "PM-9 Battle Simulator overlay. No fixture: from the real main menu it writes a small plan into user://ai_plans/, opens the simulator, and configures a 2-game A_C_test mirror on crucible_of_battle with the plan on player 1 and None on player 2. It runs the CANCEL path first \u2014 start, cancel, wait for the run to actually stop, and assert Close lands back on MainMenu (after a run the scene underneath the overlay is a finished battle, not the menu). Then it runs both games to completion and asserts two rows, a summary, an ETA driven by the MEASURED seconds per game rather than a guess, and \u2014 the check that matters \u2014 that every row and the summary line agree with the JSON the backend wrote to disk, so the table is a view of the results rather than a second copy of them. Finally the adherence column shows the plan/no-plan split: nonzero for the planned seat, exactly zero for the other.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar PM = load(\"res://scripts/PlanManager.gd\")\nPM.ensure_user_plans_dir()\nvar dir = DirAccess.open(\"user://ai_plans\")\ndir.list_dir_begin()\nvar f = dir.get_next()\nwhile f != \"\":\n\tif f.ends_with(\".json\"):\n\t\tdir.remove(f)\n\tf = dir.get_next()\ndir.list_dir_end()\nvar plan = PV.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_a_c_test_crucible.json\")\nvar path = \"user://ai_plans/%s.json\" % PM.slugify(str(plan.name))\nvar file = FileAccess.open(path, FileAccess.WRITE)\nfile.store_string(JSON.stringify(plan, \"\\t\"))\nfile.close()\nreturn path",
+      "equals": "user://ai_plans/fixture_a_c_test_on_crucible.json"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/SimulatorButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"PlanSimulatorUI\").is_open()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nfor i in range(ui._army_ids.size()):\n\tif str(ui._army_ids[i]) == \"A_C_test\":\n\t\tui.army1_picker.selected = i\n\t\tui.army2_picker.selected = i\nfor i in range(ui._zone_ids.size()):\n\tif str(ui._zone_ids[i]) == \"crucible_of_battle\":\n\t\tui.zone_picker.selected = i\nfor i in range(ui._layout_ids.size()):\n\tif str(ui._layout_ids[i]) == \"take_and_hold_mirror_1\":\n\t\tui.layout_picker.selected = i\nui._refresh_plan_pickers()\nui.games_spin.value = 2\n# Player 1 takes the plan, player 2 takes none \u2014 the comparison the simulator\n# exists to make.\nui.plan1_picker.selected = 1\nui.plan2_picker.selected = 0\nvar o = ui.build_run_options()\nreturn \"%s|%s|%s|%d|%s\" % [str(o.army1), str(o.zone_id), str(o.layout_id), int(o.games),\n\t\"plan\" if str(o.plan1).ends_with(\".json\") else str(o.plan1)]",
+      "equals": "A_C_test|crucible_of_battle|take_and_hold_mirror_1|2|plan"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nreturn ui.plan1_picker.get_item_text(ui.plan1_picker.selected)",
+      "equals": "Fixture \u2014 A_C_test on Crucible"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_configured"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PlanSimulatorUI/SimRoot/SimColumn/SimActions/SimRunButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return PlanSimulator.is_running()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nreturn ui.run_button.disabled and not ui.cancel_button.disabled",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PlanSimulatorUI/SimRoot/SimColumn/SimActions/SimCancelButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return PlanSimulator.cancel_requested",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nreturn ui.progress_label.text.find(\"Cancel\") >= 0",
+      "equals": true
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return PlanSimulator.is_running()",
+      "equals": false,
+      "timeout_s": 300.0,
+      "poll_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return PlanSimulator.last_summary.get(\"cancelled\", false)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return int(PlanSimulator.last_summary.get(\"games_run\", 0)) < 2",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PlanSimulatorUI/SimRoot/SimColumn/SimActions/SimCloseButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(tree.current_scene.name)",
+      "equals": "MainMenu"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"PlanSimulatorUI\").is_open()",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "02_cancelled_back_at_menu"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/SimulatorButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nfor i in range(ui._army_ids.size()):\n\tif str(ui._army_ids[i]) == \"A_C_test\":\n\t\tui.army1_picker.selected = i\n\t\tui.army2_picker.selected = i\nfor i in range(ui._zone_ids.size()):\n\tif str(ui._zone_ids[i]) == \"crucible_of_battle\":\n\t\tui.zone_picker.selected = i\nfor i in range(ui._layout_ids.size()):\n\tif str(ui._layout_ids[i]) == \"take_and_hold_mirror_1\":\n\t\tui.layout_picker.selected = i\nui._refresh_plan_pickers()\nui.games_spin.value = 2\n# Player 1 takes the plan, player 2 takes none \u2014 the comparison the simulator\n# exists to make.\nui.plan1_picker.selected = 1\nui.plan2_picker.selected = 0\nvar o = ui.build_run_options()\nreturn \"%s|%s|%s|%d|%s\" % [str(o.army1), str(o.zone_id), str(o.layout_id), int(o.games),\n\t\"plan\" if str(o.plan1).ends_with(\".json\") else str(o.plan1)]",
+      "equals": "A_C_test|crucible_of_battle|take_and_hold_mirror_1|2|plan"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PlanSimulatorUI/SimRoot/SimColumn/SimActions/SimRunButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nreturn ui.eta_label.text.find(\"unknown\") >= 0",
+      "equals": true
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return PlanSimulator.is_running()",
+      "equals": false,
+      "timeout_s": 900.0,
+      "poll_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return tree.root.get_node(\"PlanSimulatorUI\").row_count()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nvar item = ui.results_tree.get_root().get_first_child()\nvar out = []\nwhile item != null:\n\tout.append(\"%s|%s|%s\" % [item.get_text(0), item.get_text(1), item.get_text(2)])\n\titem = item.get_next()\nreturn \" ;; \".join(out)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nreturn ui.eta_label.text.find(\"Measured\") >= 0",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nreturn ui.summary_text().find(\"completed game(s)\") >= 0",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nvar path = str(PlanSimulator.last_summary.get(\"results_path\", \"\"))\nif path == \"\" or not FileAccess.file_exists(path):\n\treturn \"no results file\"\nvar f = FileAccess.open(path, FileAccess.READ)\nvar data = JSON.parse_string(f.get_as_text())\nf.close()\nvar games = data.get(\"games\", [])\nif games.size() != ui.row_count():\n\treturn \"row count %d vs file %d\" % [ui.row_count(), games.size()]\nvar item = ui.results_tree.get_root().get_first_child()\nvar i = 0\nwhile item != null:\n\tvar g = games[i]\n\tif int(item.get_text(1)) != int(g.get(\"seed\", -1)):\n\t\treturn \"row %d seed %s vs file %s\" % [i, item.get_text(1), str(g.get(\"seed\", \"\"))]\n\tif item.get_text(3) != \"%d - %d\" % [int(g.get(\"vp_p1\", 0)), int(g.get(\"vp_p2\", 0))]:\n\t\treturn \"row %d VP %s vs file %d-%d\" % [i, item.get_text(3), int(g.get(\"vp_p1\", 0)), int(g.get(\"vp_p2\", 0))]\n\titem = item.get_next()\n\ti += 1\nif str(data.get(\"summary\", {}).get(\"headline\", \"\")) != ui.summary_text():\n\treturn \"summary mismatch\"\nreturn \"matches\"",
+      "equals": "matches"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nvar item = ui.results_tree.get_root().get_first_child()\nvar p1 = 0\nvar p2 = 0\nwhile item != null:\n\tvar parts = item.get_text(5).split(\" / \")\n\tp1 += int(parts[0])\n\tp2 += int(parts[1])\n\titem = item.get_next()\nreturn \"%d,%d\" % [p1, p2]"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nvar item = ui.results_tree.get_root().get_first_child()\nvar p2 = 0\nwhile item != null:\n\tp2 += int(item.get_text(5).split(\" / \")[1])\n\titem = item.get_next()\nreturn p2",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nvar item = ui.results_tree.get_root().get_first_child()\nvar p1 = 0\nwhile item != null:\n\tp1 += int(item.get_text(5).split(\" / \")[0])\n\titem = item.get_next()\nreturn p1",
+      "expect_min": 1
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PlanSimulatorUI/SimRoot/SimColumn/SimActions/SimExportButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nreturn ui.progress_label.text.find(\"plan_sim_results\") >= 0",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ui = tree.root.get_node(\"PlanSimulatorUI\")\nreturn ui.replay_label.text.find(\"Watch Replays\") >= 0",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_results_table"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PlanSimulatorUI/SimRoot/SimColumn/SimActions/SimCloseButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(tree.current_scene.name)",
+      "equals": "MainMenu"
+    }
+  ]
+}

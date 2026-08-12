@@ -335,9 +335,777 @@ static func clear_player_profile(player: int) -> void:
 	print("AIDecisionMaker: Cleared profile for player %d" % player)
 
 static func clear_all_profiles() -> void:
-	"""Clear all player profiles."""
+	"""Clear all player profiles.
+
+	PM-2a: this ALSO clears AI plans. AIPlayer.configure() calls this once per
+	game (AIPlayer.gd:325), and a plan is per-game configuration exactly like a
+	profile — carrying one into the next game silently is worse than losing it.
+	Callers that want a plan therefore apply it AFTER configure(), the same way
+	Main.gd applies playerN_ai_profile (Main.gd:707-715)."""
 	_player_profiles.clear()
 	_active_rule_overrides.clear()
+	clear_all_plans()
+
+# ============================================================
+# AI PLANS (PM-2a) — see 40k/docs/PLAN_FORMAT.md
+# ============================================================
+# A plan is authored data describing how a specific army deploys on a specific
+# map, plus per-unit intents for the game. Consumption rules:
+#   - a plan is an INTENT with a fallback chain, never a script: any placement
+#     that will not validate is repaired, and if repair fails that one unit
+#     deploys via the normal column formula;
+#   - plan coordinates are ALWAYS in the player-1 frame, so a consumer seated
+#     as player 2 mirrors them by [x, y] -> [44 - x, 60 - y] (inches);
+#   - everything is gated on the PLANS_ENABLED parameter, so a single config
+#     flag restores pre-plan behaviour exactly.
+
+const PlanManagerScript = preload("res://scripts/PlanManager.gd")
+
+# Board dimensions in INCHES, for the seat-2 mirror. Not the same constants as
+# BOARD_WIDTH_PX / BOARD_HEIGHT_PX.
+const PLAN_BOARD_WIDTH_IN: float = 44.0
+const PLAN_BOARD_HEIGHT_IN: float = 60.0
+
+# player -> plan dictionary. Config-like: decide() never edits a plan's content.
+static var _player_plans: Dictionary = {}
+# player -> true once an auto-match has been attempted, so the plan search path
+# is scanned at most once per player per game.
+static var _plan_auto_match_attempted: Dictionary = {}
+# "<player>:<message key>" -> true, so a per-unit fallback logs once, not once
+# per decision tick.
+static var _plan_logged_once: Dictionary = {}
+
+static func set_player_plan(player: int, plan: Dictionary) -> void:
+	"""Explicitly assign a plan to a player, mirroring load_player_profile.
+
+	Apply this AFTER AIPlayer.configure() — configure() clears plans."""
+	if plan.is_empty():
+		clear_player_plan(player)
+		return
+	_player_plans[player] = plan
+	_plan_auto_match_attempted[player] = true
+	apply_plan_profile_fragment(player, plan)
+	var deployment = plan.get("deployment", {})
+	var placements = deployment.get("placements", []) if deployment is Dictionary else []
+	_plan_log("Set plan '%s' for player %d (%d placement(s), %d earmark(s))" % [
+		str(plan.get("name", "?")), player, placements.size(), plan.get("earmarks", []).size()])
+
+static func clear_player_plan(player: int) -> void:
+	_player_plans.erase(player)
+	_plan_auto_match_attempted.erase(player)
+	_plan_log("Cleared plan for player %d" % player)
+
+static func suppress_player_plan(player: int) -> void:
+	"""PM-7a's "None": this seat plays off the formula, full stop.
+
+	NOT the same as clear_player_plan() / set_player_plan(player, {}) — those
+	also clear the attempted-match flag, so `_resolve_plan_for` auto-matches a
+	plan on the very next decision and the seat silently ends up running one.
+	Burning the flag is what makes "None" mean none."""
+	_player_plans.erase(player)
+	_plan_auto_match_attempted[player] = true
+	_plan_log("Suppressed plans for player %d (no plan, no auto-match)" % player)
+
+static func clear_all_plans() -> void:
+	_player_plans.clear()
+	_plan_auto_match_attempted.clear()
+	_plan_logged_once.clear()
+	_plan_released_earmarks.clear()
+
+static func get_player_plan(player: int) -> Dictionary:
+	return _player_plans.get(player, {})
+
+static func plans_enabled() -> bool:
+	"""PLANS_ENABLED lives in the `parameters` object of data/ai_config.json.
+	Setting it to 0 restores pre-plan behaviour with no other change."""
+	return get_param("PLANS_ENABLED", 1.0) > 0.5
+
+static func _plan_log(msg: String) -> void:
+	print("AIDecisionMaker: [plan] %s" % msg)
+	_debug_log_info("[AIDecisionMaker/plan] %s" % msg)
+
+static func _plan_log_once(key: String, msg: String) -> void:
+	if _plan_logged_once.has(key):
+		return
+	_plan_logged_once[key] = true
+	_plan_log(msg)
+
+static func _resolve_plan_for(player: int, snapshot: Dictionary) -> Dictionary:
+	"""The plan in force for `player`: the explicitly set one, else a single
+	auto-match attempt against the plan search path."""
+	if not plans_enabled():
+		return {}
+	if _player_plans.has(player):
+		return _player_plans[player]
+	if bool(_plan_auto_match_attempted.get(player, false)):
+		return {}
+	_plan_auto_match_attempted[player] = true
+	var found: Dictionary = PlanManagerScript.find_plan_for(player, snapshot)
+	if not found.is_empty():
+		_player_plans[player] = found
+		apply_plan_profile_fragment(player, found)
+		_plan_log("Auto-matched plan '%s' for player %d" % [str(found.get("name", "?")), player])
+	return found
+
+# --- Deployment consumption -------------------------------------------------
+
+static func _plan_deployment_section(plan: Dictionary) -> Dictionary:
+	var deployment = plan.get("deployment", {})
+	return deployment if deployment is Dictionary else {}
+
+static func _plan_live_unit_id(plan_unit_id: String, player: int, snapshot: Dictionary) -> String:
+	"""Plan unit id -> the id this game uses, through the `_P<player>` re-key
+	ArmyListManager applies when both seats pick the same army list."""
+	return PlanManagerScript.resolve_unit_id(plan_unit_id, player, snapshot.get("units", {}))
+
+static func _plan_pick_deploy_action(plan: Dictionary, deploy_actions: Array, player: int, snapshot: Dictionary) -> Dictionary:
+	"""The DEPLOY_UNIT action for the earliest plan-order unit still undeployed.
+
+	The alternation with the opponent, defender-first and the TITANIC skips are
+	all phase-controlled and untouched — this only replaces `deploy_actions[0]`
+	on the AI's own turns. Units the plan does not mention deploy after the
+	planned ones, via the formula."""
+	var order = _plan_deployment_section(plan).get("order", [])
+	if not (order is Array):
+		return {}
+	var by_unit := {}
+	for action in deploy_actions:
+		by_unit[str(action.get("unit_id", ""))] = action
+	for plan_unit_id in order:
+		var live_id := _plan_live_unit_id(str(plan_unit_id), player, snapshot)
+		if live_id.is_empty():
+			continue
+		if by_unit.has(live_id):
+			return by_unit[live_id]
+	return {}
+
+static func _plan_placement_for(plan: Dictionary, live_unit_id: String, player: int, snapshot: Dictionary) -> Dictionary:
+	for placement in _plan_deployment_section(plan).get("placements", []):
+		if not (placement is Dictionary):
+			continue
+		if _plan_live_unit_id(str(placement.get("unit", "")), player, snapshot) == live_unit_id:
+			return placement
+	return {}
+
+static func _plan_positions_px(placement: Dictionary, model_count: int, player: int) -> Array:
+	"""models_inches -> board pixels, mirrored for seat 2. [] when the plan does
+	not cover every model of the unit."""
+	var raw = placement.get("models_inches", [])
+	if not (raw is Array) or raw.size() < model_count:
+		return []
+	var mirror := player != 1
+	var out: Array = []
+	for i in range(model_count):
+		var pair = raw[i]
+		if not (pair is Array) or pair.size() < 2:
+			return []
+		var x := float(pair[0])
+		var y := float(pair[1])
+		if mirror:
+			x = PLAN_BOARD_WIDTH_IN - x
+			y = PLAN_BOARD_HEIGHT_IN - y
+		out.append(Vector2(x * PIXELS_PER_INCH, y * PIXELS_PER_INCH))
+	return out
+
+static func _plan_shape_inside_polygon(pos: Vector2, model: Dictionary, radius_px: float, poly: PackedVector2Array) -> bool:
+	"""The phase's wholly-within-zone rule (DeploymentPhase.gd:306).
+
+	_resolve_formation_collisions only clamps to a RECTANGLE, which is wrong for
+	the triangular and stepped zones (crucible_of_battle is a triangle), so the
+	polygon has to be checked separately.
+
+	Uses the same shape-aware helper the phase does, so a plan placement is
+	rejected here exactly when the phase would reject it — no more and no less.
+	Being stricter would degrade legal edge-of-zone placements to the formula
+	for no reason; being looser would emit actions the phase then rejects, and
+	a rejected deployment action is what stalls an AI deployment."""
+	if poly.size() < 3:
+		return true  # no polygon to test against — defer to the phase
+	var measurement = _measurement()
+	if measurement and measurement.has_method("shape_wholly_in_polygon"):
+		return measurement.shape_wholly_in_polygon(pos, model, 0.0, poly)
+	# Measurement unavailable (early boot): fall back to a conservative
+	# bounding-circle approximation — centre plus eight rim points.
+	if not Geometry2D.is_point_in_polygon(pos, poly):
+		return false
+	for i in range(8):
+		var angle := (TAU * i) / 8.0
+		if not Geometry2D.is_point_in_polygon(pos + Vector2(cos(angle), sin(angle)) * radius_px, poly):
+			return false
+	return true
+
+static func _plan_shapes_overlap(pos_a: Vector2, model_a: Dictionary, pos_b: Vector2, model_b: Dictionary) -> bool:
+	"""Shape-aware overlap, mirroring DeploymentPhase._position_overlaps_existing_models_shape."""
+	var measurement = _measurement()
+	if measurement == null or not measurement.has_method("create_base_shape"):
+		return false
+	var shape_a = measurement.create_base_shape(model_a)
+	var shape_b = measurement.create_base_shape(model_b)
+	if shape_a == null or shape_b == null:
+		return false
+	return shape_a.overlaps_with(shape_b, pos_a, 0.0, pos_b, float(model_b.get("rotation", 0.0)))
+
+static func _plan_positions_legal(positions: Array, unit: Dictionary, player: int, snapshot: Dictionary,
+		zone_poly: PackedVector2Array, deployed_models: Array,
+		base_mm: int, base_type: String, base_dimensions: Dictionary) -> bool:
+	"""Pre-validate a planned placement against everything DeploymentPhase will
+	check, so a plan can never produce an illegal deployment action."""
+	var models: Array = unit.get("models", [])
+	if positions.size() != models.size():
+		return false
+	var radius := _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	var measurement = _measurement()
+	var shape_aware: bool = measurement != null and measurement.has_method("create_base_shape")
+	var unit_keywords: Array = unit.get("meta", {}).get("keywords", [])
+	for i in range(positions.size()):
+		var pos: Vector2 = positions[i]
+		var model_i: Dictionary = models[i]
+		if not _plan_shape_inside_polygon(pos, model_i, radius, zone_poly):
+			return false
+		# Against already-deployed models.
+		if shape_aware:
+			for dm in deployed_models:
+				if _plan_shapes_overlap(pos, model_i, dm.get("position", Vector2.ZERO), dm):
+					return false
+		elif _position_collides_with_deployed(pos, base_mm, deployed_models, 1.0, base_type, base_dimensions):
+			return false
+		# Against the rest of this formation.
+		for j in range(i + 1, positions.size()):
+			if shape_aware:
+				if _plan_shapes_overlap(pos, model_i, positions[j], models[j]):
+					return false
+			elif _position_collides_with_deployed(positions[j], base_mm, [{
+					"position": pos, "base_mm": base_mm,
+					"base_type": base_type, "base_dimensions": base_dimensions}],
+					1.0, base_type, base_dimensions):
+				return false
+		if measurement:
+			var test_model = model_i.duplicate()
+			test_model["position"] = pos
+			test_model["rotation"] = 0.0
+			if measurement.model_overlaps_any_wall(test_model, unit_keywords):
+				return false
+			if measurement.model_outside_board(pos, test_model):
+				return false
+	# Coherency (11e 03.03): 2" to at least one other model AND a 9" envelope to
+	# every other model in the unit. DeploymentPhase enforces this on the action
+	# (DeploymentPhase.gd:197-232) via the same helper, so a plan that spreads a
+	# unit too far has to fall back here rather than emit an action the phase
+	# will reject — that rejection is what stalls an AI deployment.
+	if positions.size() > 1 and measurement:
+		var coherency_models: Array = []
+		for i in range(positions.size()):
+			var m = models[i].duplicate()
+			m["position"] = positions[i]
+			m["rotation"] = 0.0
+			m["alive"] = true
+			coherency_models.append(m)
+		var coherency = AttackSequence.check_unit_coherency({"models": coherency_models})
+		if not coherency.get("coherent", true):
+			return false
+	return true
+
+static func _plan_deployment_action(plan: Dictionary, unit_id: String, unit: Dictionary,
+		player: int, snapshot: Dictionary, zone_bounds: Dictionary) -> Dictionary:
+	"""A DEPLOY_UNIT action built from the plan, or {} to fall back to the
+	formula for this one unit. Never returns an illegal action."""
+	var plan_name := str(plan.get("name", "?"))
+	var placement := _plan_placement_for(plan, unit_id, player, snapshot)
+	if placement.is_empty():
+		return {}
+
+	var models: Array = unit.get("models", [])
+	if models.is_empty():
+		return {}
+	var positions := _plan_positions_px(placement, models.size(), player)
+	if positions.is_empty():
+		_plan_log_once("%d:%s:models" % [player, unit_id],
+			"Plan '%s' covers %s with fewer positions than it has models — using the formula" % [plan_name, unit_id])
+		return {}
+
+	var first_model: Dictionary = models[0]
+	var base_mm: int = int(first_model.get("base_mm", 32))
+	var base_type: String = str(first_model.get("base_type", "circular"))
+	var base_dimensions: Dictionary = first_model.get("base_dimensions", {})
+	var zone_poly := _get_deployment_zone_polygon_pixels(snapshot, player)
+	var deployed_models := _get_all_deployed_model_positions(snapshot)
+
+	var repaired := false
+	if not _plan_positions_legal(positions, unit, player, snapshot, zone_poly, deployed_models,
+			base_mm, base_type, base_dimensions):
+		var candidate := _resolve_formation_collisions(positions, base_mm, deployed_models,
+			zone_bounds, base_type, base_dimensions)
+		if _plan_positions_legal(candidate, unit, player, snapshot, zone_poly, deployed_models,
+				base_mm, base_type, base_dimensions):
+			positions = candidate
+			repaired = true
+		else:
+			_plan_log_once("%d:%s:illegal" % [player, unit_id],
+				"Plan '%s' placement for %s did not validate and repair failed — using the formula" % [plan_name, unit_id])
+			return {}
+
+	var rotations: Array = []
+	for i in range(positions.size()):
+		rotations.append(0.0)
+
+	var unit_name := _dn(unit, unit_id)
+	var centroid := Vector2.ZERO
+	for p in positions:
+		centroid += p
+	centroid /= float(positions.size())
+	# One-option record: the plan chose this spot, so there is nothing it beat.
+	# The `source` field is what makes plan adherence countable per game per seat.
+	_record_choice("deployment", unit_id, unit_name, [{
+		"description": "plan '%s' placement (%.0f, %.0f)" % [plan_name, centroid.x, centroid.y],
+		"score": 1.0, "key": "0", "pos": [centroid.x, centroid.y],
+		"score_breakdown": {"plan": 1.0}}], "0",
+		{"phase": "deployment", "source": "plan:%s" % plan_name,
+			"plan_unit": str(placement.get("unit", unit_id)),
+			"seat_mirrored": player != 1, "repaired": repaired,
+			"unit_pos": [centroid.x, centroid.y]})
+
+	_plan_log("Player %d deploying %s from plan '%s'%s%s" % [
+		player, unit_id, plan_name,
+		" (seat-2 mirrored)" if player != 1 else "",
+		" (repaired)" if repaired else ""])
+
+	return {
+		"type": "DEPLOY_UNIT",
+		"unit_id": unit_id,
+		"model_positions": positions,
+		"model_rotations": rotations,
+		"_ai_description": "Deployed %s from plan '%s'%s" % [unit_name, plan_name, " (repaired)" if repaired else ""]
+	}
+
+# --- Formations consumption (PM-2b) -----------------------------------------
+
+static func _plan_owns_reserves(plan: Dictionary) -> bool:
+	"""True when the plan carries a `reserves` list — even an EMPTY one.
+
+	An empty list is a positive statement ("nothing goes into reserves"), so it
+	must suppress the formula's own reserves evaluation just as a populated one
+	does. Only a plan with no reserves key at all leaves reserves to the AI."""
+	if plan.is_empty():
+		return false
+	return _plan_deployment_section(plan).has("reserves")
+
+static func _plan_reserve_units(plan: Dictionary, snapshot: Dictionary, player: int) -> Array:
+	"""The plan's reserves as live unit ids, trimmed to the Chapter Approved
+	50% caps in PLAN ORDER so the trim is deterministic and reviewable.
+
+	Mirrors FormationsPhase.gd:400-420: the unit cap counts reserve ENTRIES; the
+	points cap includes a character the plan attaches to a reserved bodyguard
+	(FormationsPhase._get_declared_reserves_points, :802-812)."""
+	var deployment := _plan_deployment_section(plan)
+	var units: Dictionary = snapshot.get("units", {})
+
+	var total_points := 0
+	var total_units := 0
+	for unit_id in units.keys():
+		var unit = units[unit_id]
+		if not (unit is Dictionary) or int(unit.get("owner", 0)) != player:
+			continue
+		total_points += int(unit.get("meta", {}).get("points", 0))
+		total_units += 1
+	var max_points := int(total_points * 0.50)
+	var max_units := int(total_units * 0.50)
+
+	# character -> bodyguard, so a reserved bodyguard can carry its leader's points
+	var attached := {}
+	for entry in deployment.get("attachments", []):
+		if entry is Dictionary:
+			attached[str(entry.get("character", ""))] = str(entry.get("bodyguard", ""))
+
+	var chosen: Array = []
+	var used_points := 0
+	for entry in deployment.get("reserves", []):
+		if not (entry is Dictionary):
+			continue
+		var plan_uid := str(entry.get("unit", ""))
+		var live_id := _plan_live_unit_id(plan_uid, player, snapshot)
+		if live_id.is_empty():
+			continue
+		var cost := int(units[live_id].get("meta", {}).get("points", 0))
+		for char_id in attached.keys():
+			if str(attached[char_id]) != plan_uid:
+				continue
+			var live_char := _plan_live_unit_id(str(char_id), player, snapshot)
+			if not live_char.is_empty():
+				cost += int(units[live_char].get("meta", {}).get("points", 0))
+		if chosen.size() + 1 > max_units or used_points + cost > max_points:
+			_plan_log_once("%d:%s:reserve_cap" % [player, live_id],
+				"Plan '%s' reserves exceed the 50%% caps at %s (%d+%d > %d pts, or %d+1 > %d units) — trimming the rest in plan order" % [
+					str(plan.get("name", "?")), live_id, used_points, cost, max_points, chosen.size(), max_units])
+			break
+		chosen.append({"unit": live_id, "plan_unit": plan_uid, "arrival_round": int(entry.get("arrival_round", 2))})
+		used_points += cost
+	return chosen
+
+static func _plan_formations_action(plan: Dictionary, snapshot: Dictionary, player: int,
+		attachment_actions: Array, transport_actions: Array, reserves_actions: Array) -> Dictionary:
+	"""The next FORMATIONS declaration the plan asks for, or {} when the plan's
+	declarations are all made (leaving anything unspecified to existing logic).
+
+	Order matches the phase's own: attachments, then embarkations, then
+	reserves — attaching and embarking both remove units from what is still
+	declarable."""
+	var plan_name := str(plan.get("name", "?"))
+	var deployment := _plan_deployment_section(plan)
+
+	# 1. Leader attachments.
+	for entry in deployment.get("attachments", []):
+		if not (entry is Dictionary):
+			continue
+		var char_id := _plan_live_unit_id(str(entry.get("character", "")), player, snapshot)
+		var body_id := _plan_live_unit_id(str(entry.get("bodyguard", "")), player, snapshot)
+		if char_id.is_empty() or body_id.is_empty():
+			continue
+		for action in attachment_actions:
+			if str(action.get("character_id", "")) != char_id or str(action.get("bodyguard_id", "")) != body_id:
+				continue
+			var attach = action.duplicate(true)
+			attach["_ai_description"] = "Attached %s to %s from plan '%s'" % [
+				_dn(snapshot.units.get(char_id, {}), char_id),
+				_dn(snapshot.units.get(body_id, {}), body_id), plan_name]
+			_record_choice("formations", char_id, _dn(snapshot.units.get(char_id, {}), char_id), [{
+				"description": attach["_ai_description"], "score": 1.0, "key": "0",
+				"score_breakdown": {"plan": 1.0}}], "0",
+				{"phase": "formations", "declaration": "attachment",
+					"source": "plan:%s" % plan_name, "bodyguard": body_id})
+			_plan_log("Player %d attaching %s -> %s from plan '%s'" % [player, char_id, body_id, plan_name])
+			return attach
+
+	# 2. Transport embarkations, grouped per transport (the action carries one
+	#    transport and the list of units going inside it).
+	var by_transport := {}
+	var transport_order: Array = []
+	for entry in deployment.get("embarkations", []):
+		if not (entry is Dictionary):
+			continue
+		var unit_id := _plan_live_unit_id(str(entry.get("unit", "")), player, snapshot)
+		var transport_id := _plan_live_unit_id(str(entry.get("transport", "")), player, snapshot)
+		if unit_id.is_empty() or transport_id.is_empty():
+			continue
+		if not by_transport.has(transport_id):
+			by_transport[transport_id] = []
+			transport_order.append(transport_id)
+		by_transport[transport_id].append(unit_id)
+	# A transport's DECLARE_TRANSPORT_EMBARKATION stays on offer while it has ANY
+	# eligible unit left, so "the action exists" is not enough to know whether
+	# this plan embarkation is still outstanding — without a further check the
+	# plan pass would re-issue the same embarkation forever and the phase would
+	# never advance. The phase emits DECLARE_RESERVES for exactly the units that
+	# are not yet attached, embarked or reserved (FormationsPhase.gd:1217-1223),
+	# so that action list IS the "still undeclared" set. meta.formations cannot
+	# be used here: it is only written at CONFIRM time (:1062-1079).
+	var still_undeclared := {}
+	for action in reserves_actions:
+		still_undeclared[str(action.get("unit_id", ""))] = true
+	for transport_id in transport_order:
+		for action in transport_actions:
+			if str(action.get("transport_id", "")) != transport_id:
+				continue
+			var passengers: Array = []
+			for uid in by_transport[transport_id]:
+				if still_undeclared.has(str(uid)):
+					passengers.append(uid)
+			if passengers.is_empty():
+				continue  # already embarked (or otherwise declared) — plan satisfied
+			var names: Array = []
+			for uid in passengers:
+				names.append(_dn(snapshot.units.get(uid, {}), uid))
+			var embark := {
+				"type": "DECLARE_TRANSPORT_EMBARKATION",
+				"transport_id": transport_id,
+				"unit_ids": passengers,
+				"player": player,
+				"_ai_description": "Embarked %s in %s from plan '%s'" % [
+					", ".join(names), _dn(snapshot.units.get(transport_id, {}), transport_id), plan_name],
+			}
+			_record_choice("formations", transport_id, _dn(snapshot.units.get(transport_id, {}), transport_id), [{
+				"description": embark["_ai_description"], "score": 1.0, "key": "0",
+				"score_breakdown": {"plan": 1.0}}], "0",
+				{"phase": "formations", "declaration": "embarkation",
+					"source": "plan:%s" % plan_name, "passengers": passengers})
+			_plan_log("Player %d embarking %s in %s from plan '%s'" % [player, str(passengers), transport_id, plan_name])
+			return embark
+
+	# 3. Reserves. DEEP STRIKE where the unit has it (the phase offers both
+	#    reserve types for such a unit and deep strike is the stronger option);
+	#    strategic reserves otherwise.
+	for entry in _plan_reserve_units(plan, snapshot, player):
+		var unit_id: String = str(entry["unit"])
+		var preferred := {}
+		var fallback := {}
+		for action in reserves_actions:
+			if str(action.get("unit_id", "")) != unit_id:
+				continue
+			if str(action.get("reserve_type", "")) == "deep_strike":
+				preferred = action
+			else:
+				fallback = action
+		var chosen_action: Dictionary = preferred if not preferred.is_empty() else fallback
+		if chosen_action.is_empty():
+			continue
+		var reserve := chosen_action.duplicate(true)
+		reserve["_ai_description"] = "Held %s in %s from plan '%s' (arrives round %d)" % [
+			_dn(snapshot.units.get(unit_id, {}), unit_id),
+			str(reserve.get("reserve_type", "reserves")).replace("_", " "),
+			plan_name, int(entry.get("arrival_round", 2))]
+		_record_choice("formations", unit_id, _dn(snapshot.units.get(unit_id, {}), unit_id), [{
+			"description": reserve["_ai_description"], "score": 1.0, "key": "0",
+			"score_breakdown": {"plan": 1.0}}], "0",
+			{"phase": "formations", "declaration": "reserves",
+				"source": "plan:%s" % plan_name,
+				"reserve_type": str(reserve.get("reserve_type", "")),
+				"arrival_round": int(entry.get("arrival_round", 2))})
+		_plan_log("Player %d reserving %s from plan '%s' (%s)" % [
+			player, unit_id, plan_name, str(reserve.get("reserve_type", ""))])
+		return reserve
+
+	return {}
+
+static func _plan_deployment_reserve_action(plan: Dictionary, deploy_actions: Array,
+		player: int, snapshot: Dictionary) -> Dictionary:
+	"""PLACE_IN_RESERVES for a plan reserve that is still sitting undeployed.
+
+	DeploymentPhase excludes PLACE_IN_RESERVES from available_actions on
+	purpose (:1390-1394) and keeps it in validate/process "as a safety-net for
+	AI fallback" — which is exactly this case, and the phase still validates the
+	caps before accepting it."""
+	var pending := plan_post_formations_reserves(plan, snapshot, player)
+	if pending.is_empty():
+		return {}
+	var deployable := {}
+	for action in deploy_actions:
+		deployable[str(action.get("unit_id", ""))] = true
+
+	var gs = _game_state()
+	for entry in pending:
+		var unit_id: String = str(entry["unit"])
+		if not deployable.has(unit_id):
+			continue
+		var reserve_type := "strategic_reserves"
+		if gs != null and gs.has_method("unit_has_deep_strike") and gs.unit_has_deep_strike(unit_id):
+			reserve_type = "deep_strike"
+		var plan_name := str(plan.get("name", "?"))
+		var unit_name := _dn(snapshot.units.get(unit_id, {}), unit_id)
+		var description := "Held %s in %s from plan '%s' (arrives round %d)" % [
+			unit_name, reserve_type.replace("_", " "), plan_name, int(entry.get("arrival_round", 2))]
+		_record_choice("deployment", unit_id, unit_name, [{
+			"description": description, "score": 1.0, "key": "0",
+			"score_breakdown": {"plan": 1.0}}], "0",
+			{"phase": "deployment", "declaration": "reserves",
+				"source": "plan:%s" % plan_name, "reserve_type": reserve_type,
+				"arrival_round": int(entry.get("arrival_round", 2)),
+				"retrofit": true})
+		_plan_log("Player %d placing %s in %s from plan '%s' (post-formations retrofit)" % [
+			player, unit_id, reserve_type, plan_name])
+		return {
+			"type": "PLACE_IN_RESERVES",
+			"unit_id": unit_id,
+			"reserve_type": reserve_type,
+			"player": player,
+			"_ai_description": description,
+		}
+	return {}
+
+static func plan_post_formations_reserves(plan: Dictionary, snapshot: Dictionary, player: int) -> Array:
+	"""Plan reserves that are still declarable once FORMATIONS is already past.
+
+	The shipped predeploy fixtures start at DEPLOYMENT with
+	meta.formations_declared already set, so the normal declaration path never
+	runs for them; DeploymentPhase's PLACE_IN_RESERVES is the only remaining
+	way in (DeploymentPhase.gd:419-479). Embarkations and leader attachments
+	have no such retrofit — they are formations-only — so a plan that asks for
+	them in a fixture-era game logs and skips."""
+	var out: Array = []
+	if plan.is_empty() or not plans_enabled():
+		return out
+	var units: Dictionary = snapshot.get("units", {})
+	for entry in _plan_reserve_units(plan, snapshot, player):
+		var unit_id: String = str(entry["unit"])
+		# UnitStatus.UNDEPLOYED == 0: already-reserved or deployed units are done.
+		if int(units.get(unit_id, {}).get("status", -1)) != 0:
+			continue
+		out.append(entry)
+	var deployment := _plan_deployment_section(plan)
+	if not deployment.get("embarkations", []).is_empty() or not deployment.get("attachments", []).is_empty():
+		_plan_log_once("%d:post_formations_skip" % player,
+			"Plan '%s': embarkations/attachments cannot be retrofitted after FORMATIONS — skipped for player %d" % [
+				str(plan.get("name", "?")), player])
+	return out
+
+# --- Earmark consumption (PM-3) ---------------------------------------------
+# Earmarks are PRIORS, not orders: each verb biases machinery the AI already
+# has, never overrides legality, and is RELEASED once the unit is too badly
+# damaged to do the job. Default weights live next to the other tunables so a
+# profile or ai_config.json can move them.
+
+const PLAN_EARMARK_HOLD_BONUS: float = 8.0
+const PLAN_EARMARK_PUSH_BONUS: float = 6.0
+const PLAN_EARMARK_HUNT_BONUS: float = 4.0
+const PLAN_EARMARK_RELEASE_AT: float = 0.5
+
+# "<player>:<live unit id>" -> true, once a unit has dropped below the release
+# threshold. Mutable, so it is registered in the snapshot contract.
+static var _plan_released_earmarks: Dictionary = {}
+
+static func _plan_earmark_for(unit_id: String, player: int, snapshot: Dictionary) -> Dictionary:
+	"""The earmark in force for `unit_id`, or {} — gated on PLANS_ENABLED, on a
+	matching plan, and on the unit still being strong enough to carry it."""
+	var plan := _resolve_plan_for(player, snapshot)
+	if plan.is_empty():
+		return {}
+	var earmarks = plan.get("earmarks", [])
+	if not (earmarks is Array):
+		return {}
+	for entry in earmarks:
+		if not (entry is Dictionary):
+			continue
+		if _plan_live_unit_id(str(entry.get("unit", "")), player, snapshot) != unit_id:
+			continue
+		if _plan_earmark_released(unit_id, player, snapshot, plan, str(entry.get("verb", ""))):
+			return {}
+		return entry
+	return {}
+
+static func _plan_earmark_released(unit_id: String, player: int, snapshot: Dictionary,
+		plan: Dictionary, verb: String) -> bool:
+	"""True once the unit is below PLAN_EARMARK_RELEASE_AT of its starting
+	strength. A plan written for a fresh unit stops being good advice for a
+	wreck of one, so the earmark decays out and the unit rejoins normal
+	decision-making. Logged exactly once per unit."""
+	var unit: Dictionary = snapshot.get("units", {}).get(unit_id, {})
+	if unit.is_empty():
+		return false
+	var models: Array = unit.get("models", [])
+	if models.is_empty():
+		return false
+	var alive := 0
+	for model in models:
+		if model.get("alive", true):
+			alive += 1
+	var fraction := float(alive) / float(models.size())
+	if fraction >= get_param("PLAN_EARMARK_RELEASE_AT", PLAN_EARMARK_RELEASE_AT):
+		return false
+	var key := "%d:%s" % [player, unit_id]
+	if not _plan_released_earmarks.has(key):
+		_plan_released_earmarks[key] = true
+		_plan_log("Released %s's %s earmark from plan '%s' — down to %d/%d models (%.0f%%)" % [
+			unit_id, verb, str(plan.get("name", "?")), alive, models.size(), fraction * 100.0])
+	return true
+
+static func _plan_central_objective_ids(snapshot: Dictionary) -> Array:
+	"""Objective ids PUSH_CENTER should aim at: the mission's own `central`
+	designation where it exists, else whatever sits nearest the board centre."""
+	var mm = null
+	var main_loop = Engine.get_main_loop()
+	if main_loop is SceneTree and main_loop.root:
+		mm = main_loop.root.get_node_or_null("MissionManager")
+	if mm != null and mm.has_method("get_objective_ids_by_designation"):
+		var designated: Array = mm.get_objective_ids_by_designation("central")
+		if not designated.is_empty():
+			return designated
+	var centre := Vector2(BOARD_WIDTH_PX * 0.5, BOARD_HEIGHT_PX * 0.5)
+	var best_id := ""
+	var best_dist := INF
+	for obj in snapshot.get("board", {}).get("objectives", []):
+		if not (obj is Dictionary):
+			continue
+		var pos = obj.get("position", null)
+		if pos == null:
+			continue
+		var p: Vector2 = pos if pos is Vector2 else Vector2(float(pos.get("x", 0)), float(pos.get("y", 0)))
+		var d := centre.distance_to(p)
+		if d < best_dist:
+			best_dist = d
+			best_id = str(obj.get("id", ""))
+	return [best_id] if not best_id.is_empty() else []
+
+static func _plan_objective_earmark_bonus(unit_id: String, objective_id: String,
+		player: int, snapshot: Dictionary) -> Dictionary:
+	"""{bonus, earmark} for a (unit, objective) pair. HOLD_OBJECTIVE and
+	PUSH_CENTER are the same shape — an additive term the record can name."""
+	var earmark := _plan_earmark_for(unit_id, player, snapshot)
+	if earmark.is_empty():
+		return {"bonus": 0.0, "earmark": ""}
+	var verb := str(earmark.get("verb", ""))
+	if verb == "HOLD_OBJECTIVE":
+		if str(earmark.get("target", "")) == objective_id:
+			return {"bonus": get_param("PLAN_EARMARK_HOLD_BONUS", PLAN_EARMARK_HOLD_BONUS),
+				"earmark": "HOLD_OBJECTIVE:%s" % objective_id}
+	elif verb == "PUSH_CENTER":
+		if _plan_central_objective_ids(snapshot).has(objective_id):
+			return {"bonus": get_param("PLAN_EARMARK_PUSH_BONUS", PLAN_EARMARK_PUSH_BONUS),
+				"earmark": "PUSH_CENTER:%s" % objective_id}
+	return {"bonus": 0.0, "earmark": ""}
+
+static func _plan_unit_is_screening(unit_id: String, player: int, snapshot: Dictionary) -> bool:
+	"""SCREEN withholds the unit from the objective passes entirely.
+
+	There is no "offer this unit to screening first" entry point — the screening
+	pass (pass 3) only ever sees units the objective passes left unassigned — so
+	the only way to make a unit screen is to keep it out of those passes."""
+	var earmark := _plan_earmark_for(unit_id, player, snapshot)
+	return not earmark.is_empty() and str(earmark.get("verb", "")) == "SCREEN"
+
+static func _plan_hunt_bonus(attacker_unit: Dictionary, target_unit: Dictionary,
+		snapshot: Dictionary, player: int) -> float:
+	"""HUNT_CHARACTERS: an ADDITIVE term alongside the scorers' existing
+	CHARACTER handling, never a replacement for it — _score_shooting_target
+	already multiplies CHARACTER targets by 1.2, and swapping that constant out
+	would change behaviour for every unit, earmarked or not."""
+	if attacker_unit.is_empty() or target_unit.is_empty():
+		return 0.0
+	if not ("CHARACTER" in target_unit.get("meta", {}).get("keywords", [])):
+		return 0.0
+	var attacker_id := str(attacker_unit.get("id", ""))
+	if attacker_id.is_empty():
+		return 0.0
+	var seat := player if player > 0 else int(attacker_unit.get("owner", 0))
+	if seat <= 0:
+		return 0.0
+	var earmark := _plan_earmark_for(attacker_id, seat, snapshot)
+	if earmark.is_empty() or str(earmark.get("verb", "")) != "HUNT_CHARACTERS":
+		return 0.0
+	return get_param("PLAN_EARMARK_HUNT_BONUS", PLAN_EARMARK_HUNT_BONUS)
+
+static func apply_plan_profile_fragment(player: int, plan: Dictionary) -> void:
+	"""Layer a plan's `profile_fragment` in as this player's profile.
+
+	Merge order, highest first: rule overrides > an explicitly assigned
+	per-player profile > the plan's fragment > ai_config.json > code default.
+	An explicit profile therefore WINS: this only installs the fragment when the
+	player has no profile of their own, so assigning a profile is never silently
+	overwritten by a plan."""
+	if plan.is_empty() or not plans_enabled():
+		return
+	var fragment = plan.get("profile_fragment", {})
+	if not (fragment is Dictionary):
+		return
+	if fragment.get("parameters", {}).is_empty() and fragment.get("rules", []).is_empty():
+		return
+	if _player_profiles.has(player):
+		_plan_log("Player %d already has an explicit profile — plan '%s' fragment NOT applied" % [
+			player, str(plan.get("name", "?"))])
+		return
+	load_player_profile(player, fragment)
+	_plan_log("Applied plan '%s' profile_fragment for player %d" % [str(plan.get("name", "?")), player])
+
+static func _plan_earmark_context(unit_id: String, player: int, snapshot: Dictionary,
+		unit_candidates: Array) -> String:
+	"""The record's `earmark` field: "VERB" for a unit under an earmark, and
+	"VERB:objective" when the assignment it actually took was the one the
+	earmark pointed at."""
+	var earmark := _plan_earmark_for(unit_id, player, snapshot)
+	if earmark.is_empty():
+		return ""
+	var verb := str(earmark.get("verb", ""))
+	for cand in unit_candidates:
+		if cand is Dictionary and not str(cand.get("earmark", "")).is_empty():
+			return str(cand["earmark"])
+	return verb
 
 static func evaluate_rules(player: int, context: Dictionary) -> void:
 	"""Evaluate conditional rules for a player given game context.
@@ -2450,6 +3218,13 @@ static func _snapshot_planning_state() -> Dictionary:
 		"active_rule_overrides": _active_rule_overrides.duplicate(true),
 		"current_player": _current_player,
 		"current_difficulty": _current_difficulty,
+		# PM-2a: _resolve_plan_for() can auto-match and CACHE a plan during a
+		# decide(), so the human-hint preview would otherwise install a plan on
+		# the live AI as a side effect of showing a suggestion.
+		"player_plans": _player_plans.duplicate(true),
+		"plan_auto_match_attempted": _plan_auto_match_attempted.duplicate(true),
+		"plan_logged_once": _plan_logged_once.duplicate(true),
+		"plan_released_earmarks": _plan_released_earmarks.duplicate(true),
 	}
 
 static func _restore_planning_state(s: Dictionary) -> void:
@@ -2485,6 +3260,10 @@ static func _restore_planning_state(s: Dictionary) -> void:
 	_active_rule_overrides = s["active_rule_overrides"]
 	_current_player = s["current_player"]
 	_current_difficulty = s["current_difficulty"]
+	_player_plans = s["player_plans"]
+	_plan_auto_match_attempted = s["plan_auto_match_attempted"]
+	_plan_logged_once = s["plan_logged_once"]
+	_plan_released_earmarks = s["plan_released_earmarks"]
 
 # =============================================================================
 # T7-40: EASY DIFFICULTY — RANDOM VALID ACTIONS
@@ -3171,7 +3950,10 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 				 "unit_pos": [centroid.x, centroid.y] if centroid != Vector2.INF else [],
 				 "unit_oc": int(unit_candidates[0].get("unit_oc", 0)),
 				 "assigned_by": assign_pass_name,
-				 "assign_action": assign_action})
+				 "assign_action": assign_action,
+				 # PM-3: which earmark, if any, biased this assignment — the
+				 # field a run reads to count earmark adherence per seat.
+				 "earmark": _plan_earmark_context(unit_id, player, snapshot, unit_candidates)})
 			# COORD-4: whenever the assignment overrode raw scores (hold rules,
 			# redirects, backfills), SAY SO — a card that reads "chose 10.9,
 			# rejected 20.2" with no explanation looks like the AI can't compare
@@ -3227,6 +4009,17 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 			"CONFIRM_FORMATIONS":
 				has_confirm = true
 
+	# PM-2b: a matching plan drives the FORMATIONS declarations. Reserves,
+	# embarkations and leader attachments are formations-phase decisions, not
+	# deployment ones, so this is where a plan's reserves/embarkations/
+	# attachments sections are consumed.
+	var formations_plan := _resolve_plan_for(player, snapshot)
+	if not formations_plan.is_empty():
+		var planned := _plan_formations_action(formations_plan, snapshot, player,
+			attachment_actions, transport_actions, reserves_actions)
+		if not planned.is_empty():
+			return planned
+
 	# If there are attachment options, evaluate and pick the best one
 	if not attachment_actions.is_empty():
 		var best = _evaluate_best_leader_attachment(snapshot, attachment_actions, player)
@@ -3242,7 +4035,11 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 
 	# T7-34 / FORM-3: After transport embarkations, evaluate reserves declarations.
 	# Put appropriate units in Strategic Reserves or Deep Strike based on army composition.
-	if not reserves_actions.is_empty():
+	# PM-2b: a plan's `reserves` list is the SINGLE SOURCE OF TRUTH, so when a
+	# plan is active the formula must not add reserves of its own on top —
+	# otherwise "declare exactly the plan's reserves" is not what happens, and
+	# the plan's reserve budget silently changes.
+	if not reserves_actions.is_empty() and not _plan_owns_reserves(formations_plan):
 		var reserves_decision = _evaluate_reserves_declarations(snapshot, reserves_actions, undeclare_reserves_actions, player)
 		if not reserves_decision.is_empty():
 			return reserves_decision
@@ -3920,8 +4717,26 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 				return {"type": "END_DEPLOYMENT", "_ai_description": "End Deployment"}
 		return {}  # Nothing to do (opponent deploying)
 
-	# Pick first undeployed unit
+	# PM-2a: a matching plan chooses BOTH which unit goes down next and where.
+	# Everything below stays the fallback for units the plan does not cover and
+	# for placements that will not validate.
+	var plan := _resolve_plan_for(player, snapshot)
+	var plan_name := str(plan.get("name", "")) if not plan.is_empty() else ""
+
+	# PM-2b: a plan reserve that FORMATIONS never got to declare (predeploy
+	# fixtures start at DEPLOYMENT with meta.formations_declared already set)
+	# still has one way in — DeploymentPhase's PLACE_IN_RESERVES safety net.
+	if not plan.is_empty():
+		var reserve_action := _plan_deployment_reserve_action(plan, deploy_actions, player, snapshot)
+		if not reserve_action.is_empty():
+			return reserve_action
+
+	# Pick first undeployed unit (plan order first, else the phase's own order)
 	var action_template = deploy_actions[0]
+	if not plan.is_empty():
+		var planned_action := _plan_pick_deploy_action(plan, deploy_actions, player, snapshot)
+		if not planned_action.is_empty():
+			action_template = planned_action
 	var unit_id = action_template.get("unit_id", "")
 	var unit = snapshot.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
@@ -3929,6 +4744,11 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 
 	# Calculate deployment zone bounds
 	var zone_bounds = _get_deployment_zone_bounds(snapshot, player)
+
+	if not plan.is_empty():
+		var plan_action := _plan_deployment_action(plan, unit_id, unit, player, snapshot, zone_bounds)
+		if not plan_action.is_empty():
+			return plan_action
 
 	# T7-18: Classify unit role for terrain-aware deployment
 	var unit_role = _classify_deployment_role(unit)
@@ -4078,8 +4898,13 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 			"score": obj_gain + crowding, "key": str(i),
 			"pos": [pp.x, pp.y],
 			"score_breakdown": {"objective_proximity": obj_gain, "crowding": crowding}})
+	# PM-2a: `source` makes plan adherence countable per game per seat —
+	# "formula" when no plan applies at all, "formula_fallback" when a plan is
+	# active but did not cover (or could not legally place) this unit.
 	_record_choice("deployment", unit_id, unit_name, dep_scored, "0",
 		{"phase": "deployment", "role": unit_role,
+			"source": "formula_fallback" if not plan_name.is_empty() else "formula",
+			"plan": plan_name,
 			"unit_pos": [best_pos.x, best_pos.y]})
 
 	# Generate formation positions
@@ -8051,6 +8876,14 @@ static func _assign_units_to_objectives(
 		if is_engaged:
 			continue  # Engaged units handled separately
 
+		# PM-3: a SCREEN earmark keeps the unit OUT of the objective passes so it
+		# falls through to the screening pass below, which only ever considers
+		# units these passes left unassigned.
+		if _plan_unit_is_screening(unit_id, player, snapshot):
+			_plan_log_once("%d:%s:screen" % [player, unit_id],
+				"Earmark SCREEN withholds %s from the objective passes" % unit_id)
+			continue
+
 		var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
 		var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
 		var unit_keywords = unit.get("meta", {}).get("keywords", [])
@@ -8417,11 +9250,19 @@ static func _assign_units_to_objectives(
 					action = "advance"
 					reason = "advancing for extra range"
 
+			# PM-3: the plan's HOLD_OBJECTIVE / PUSH_CENTER bias, as a named
+			# additive term so it shows up in score_breakdown like every other.
+			var plan_bias := _plan_objective_earmark_bonus(unit_id, obj_id, player, snapshot)
+			var plan_earmark_label := str(plan_bias.get("earmark", ""))
+			if float(plan_bias.get("bonus", 0.0)) != 0.0:
+				score += _t_add(score_terms, "plan_earmark", float(plan_bias["bonus"]))
+
 			candidates.append({
 				"unit_id": unit_id,
 				"objective_id": obj_id,
 				"objective_pos": obj_pos,
 				"score": score,
+				"earmark": plan_earmark_label,
 				"action": action,
 				"reason": reason,
 				"distance": dist_px,
@@ -14622,6 +15463,8 @@ static func _score_charge_target(charger: Dictionary, target: Dictionary, snapsh
 	# Bonus for CHARACTER targets
 	if "CHARACTER" in target_keywords:
 		score += get_param("CHARGE_CHARACTER_BONUS", CHARGE_CHARACTER_BONUS)
+	# PM-3: HUNT_CHARACTERS adds to that bonus rather than replacing it.
+	score += _plan_hunt_bonus(charger, target, snapshot, player)
 
 	# Penalty for very tough targets we can't damage effectively
 	# Reduced from -3 to -1 because charging still locks enemies in combat,
@@ -16232,6 +17075,8 @@ static func _score_fight_target(attacker: Dictionary, target: Dictionary, expect
 	# Bonus for CHARACTER targets (high-value eliminations)
 	if "CHARACTER" in target_keywords:
 		score += get_param("FIGHT_CHARACTER_BONUS", FIGHT_CHARACTER_BONUS)
+	# PM-3: HUNT_CHARACTERS adds to that bonus rather than replacing it.
+	score += _plan_hunt_bonus(attacker, target, snapshot, player)
 
 	# Penalty for targets we can't meaningfully damage
 	if expected_damage < 1.0:
@@ -18224,11 +19069,18 @@ static func _assess_engage_on_all_fronts(units: Dictionary, player: int) -> floa
 	var alive = _count_alive_units_for_player(units, player)
 	if alive < 2:
 		return 0.05  # Can't cover enough quarters
-	# Check how many quarters we currently have units in (>6" from center)
+	# Check how many quarters we currently have units in (>6" from center).
+	# _get_covered_quarters returns an ARRAY of four bools, so iterate its
+	# values. The previous `for q in covered: if covered[q]` treated it as a
+	# dictionary: `q` was already the bool, and `covered[false]` threw
+	# "Invalid access to property or key 'false' on a base object of type
+	# 'Array'" on every call — which left covered_count permanently 0, so this
+	# assessment could never see a spread-out army and always fell through to
+	# the alive-count branches below.
 	var covered = _get_covered_quarters(units, player)
 	var covered_count = 0
-	for q in covered:
-		if covered[q]:
+	for is_covered in covered:
+		if is_covered:
 			covered_count += 1
 	if covered_count >= 3:
 		return 0.8  # Already in 3+ quarters — very achievable
@@ -20368,6 +21220,10 @@ static func _score_shooting_target(weapon: Dictionary, target_unit: Dictionary, 
 	var keywords = target_unit.get("meta", {}).get("keywords", [])
 	if "CHARACTER" in keywords:
 		expected_damage *= 1.2
+
+	# PM-3: HUNT_CHARACTERS is an ADDITIVE term alongside the x1.2 above — the
+	# multiplier applies to every shooter, earmarked or not, so it stays put.
+	expected_damage += _plan_hunt_bonus(shooter_unit, target_unit, snapshot, int(shooter_unit.get("owner", 0)))
 
 	# Apply weapon-target efficiency multiplier
 	var efficiency = _calculate_efficiency_multiplier(weapon, target_unit)

@@ -1,0 +1,75 @@
+{
+ "format": "wh40k_ai_plan",
+ "version": 1,
+ "name": "Fixture \u2014 minimal valid",
+ "description": "Smallest plan the validator accepts: one ordered placement, no earmarks.",
+ "author": "fixture",
+ "keys": {
+  "army_file": "recon_stomps",
+  "detachment_hint": "",
+  "deployment_zone_id": "hammer_anvil",
+  "terrain_layout_id": "",
+  "mission_id": ""
+ },
+ "deployment": {
+  "order": [
+   "U_GRETCHIN_A"
+  ],
+  "placements": [
+   {
+    "unit": "U_GRETCHIN_A",
+    "unit_name": "Gretchin",
+    "role_fallback": "screen",
+    "models_inches": [
+     [
+      10.0,
+      6.0
+     ],
+     [
+      11.5,
+      6.0
+     ],
+     [
+      13.0,
+      6.0
+     ],
+     [
+      14.5,
+      6.0
+     ],
+     [
+      16.0,
+      6.0
+     ],
+     [
+      17.5,
+      6.0
+     ],
+     [
+      19.0,
+      6.0
+     ],
+     [
+      20.5,
+      6.0
+     ],
+     [
+      22.0,
+      6.0
+     ],
+     [
+      23.5,
+      6.0
+     ],
+     [
+      25.0,
+      6.0
+     ]
+    ]
+   }
+  ],
+  "reserves": [],
+  "embarkations": [],
+  "attachments": []
+ }
+}

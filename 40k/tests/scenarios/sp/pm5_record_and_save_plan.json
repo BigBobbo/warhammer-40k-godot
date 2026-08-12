@@ -1,0 +1,267 @@
+{
+  "id": "pm5_record_and_save_plan",
+  "covers": [
+    "plan_editor.save_as_plan_button",
+    "ui.PlanSaveDialog.default_name",
+    "ui.PlanSaveDialog.save_and_feedback",
+    "plan_recorder.serializes_live_deployment",
+    "plan_recorder.saved_file_validates",
+    "plan_recorder.roundtrip_both_seats"
+  ],
+  "disable_ai": true,
+  "description": "PM-5 deployment recorder. No fixture: starts on the real main menu, enters the Plan Editor with recon_stomps + hammer_anvil, lays the army out (one unit by mouse, the rest in bulk), then presses Save as Plan on the banner and saves through the dialog with a real button click. Asserts the pre-filled default name, that the file lands at user://ai_plans/recon_stomps_hammer_anvil.json (deleted first, so its appearance is not a leftover), that the file re-read from disk passes PlanValidator against the live army, that every recorded model position matches the unit actually on the table, and \u2014 the claim that matters \u2014 that feeding the saved file back to the PM-2a consumer reproduces the deployment from BOTH seats within half an inch, seat 2 through the [44-x, 60-y] mirror, with no unit falling back to the formula.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar army_idx = -1\nfor i in range(m.army_options.size()):\n\tif str(m.army_options[i].id) == \"recon_stomps\":\n\t\tarmy_idx = i\nvar zone_idx = -1\nfor i in range(m.deployment_options.size()):\n\tif str(m.deployment_options[i].id) == \"hammer_anvil\":\n\t\tzone_idx = i\nif army_idx < 0 or zone_idx < 0:\n\treturn \"missing army_idx=%d zone_idx=%d\" % [army_idx, zone_idx]\nm.player1_dropdown.selected = army_idx\nm.plan_editor_zone_dropdown.selected = zone_idx\nreturn \"%s|%s\" % [str(m.army_options[army_idx].id), m._plan_editor_zone_id()]",
+      "equals": "recon_stomps|hammer_anvil"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/PlanEditorButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.game_config.plan_editor",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.current_scene._on_formations_confirm_pressed()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var path = \"user://ai_plans/recon_stomps_hammer_anvil.json\"\nif FileAccess.file_exists(path):\n\tvar dir = DirAccess.open(\"user://ai_plans\")\n\tif dir != null:\n\t\tdir.remove(path.get_file())\nreturn FileAccess.file_exists(path)",
+      "equals": false
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+      "index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "click_board_at",
+      "x": 900,
+      "y": 300
+    },
+    {
+      "act": "wait_frames",
+      "frames": 6
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Deterministic first-fit pack of every remaining Player 1 unit (same helper\n# as pm4_plan_editor_session \u2014 the point here is the RECORDING, not the layout).\nvar phase = PhaseManager.get_current_phase_instance()\nvar PX = 40.0\nvar order = []\nfor uid in GameState.state.units.keys():\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) != 1 or int(u.get(\"status\", 0)) != 0:\n\t\tcontinue\n\tvar m0 = u.get(\"models\", [])[0]\n\tvar d = m0.get(\"base_dimensions\", {})\n\tvar xw = PX * (float(d.get(\"length\", m0.get(\"base_mm\", 32))) / 25.4)\n\tvar yh = PX * (float(d.get(\"width\", m0.get(\"base_mm\", 32))) / 25.4)\n\torder.append({\"id\": uid, \"area\": xw * yh * u.get(\"models\", []).size(), \"xw\": xw, \"yh\": yh})\norder.sort_custom(func(a, b): return a.area > b.area)\nvar placed = 0\nvar failed = []\nfor entry in order:\n\tvar uid = str(entry.id)\n\tvar n = GameState.state.units[uid].get(\"models\", []).size()\n\tvar xw = float(entry.xw)\n\tvar yh = float(entry.yh)\n\tvar gap = 0.2 * PX\n\tvar cols = n\n\twhile cols > 1 and (cols - 1) * (xw + gap) > 7.5 * PX:\n\t\tcols -= 1\n\tvar block_w = cols * (xw + gap)\n\tvar block_h = int(ceil(float(n) / float(cols))) * (yh + gap)\n\tvar done = false\n\tvar gy = 0.6\n\twhile gy * PX + block_h < 18.0 * PX and not done:\n\t\tvar gx = 0.6\n\t\twhile gx * PX + block_w < 44.0 * PX and not done:\n\t\t\tvar positions = []\n\t\t\tfor i in range(n):\n\t\t\t\tpositions.append(Vector2(\n\t\t\t\t\tgx * PX + (i % cols) * (xw + gap) + xw / 2.0,\n\t\t\t\t\tgy * PX + (i / cols) * (yh + gap) + yh / 2.0))\n\t\t\tvar act = {\"type\": \"DEPLOY_UNIT\", \"unit_id\": uid, \"player\": 1, \"model_positions\": positions}\n\t\t\tif phase.validate_action(act).get(\"valid\", false):\n\t\t\t\tif phase.execute_action(act).get(\"success\", false):\n\t\t\t\t\tplaced += 1\n\t\t\t\t\tdone = true\n\t\t\tgx += 1.0\n\t\tgy += 1.0\n\tif not done:\n\t\tfailed.append(uid)\nif not failed.is_empty():\n\treturn \"FAILED:\" + str(failed)\nreturn placed",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "tree.current_scene._recreate_unit_visuals()\ntree.current_scene._update_deployment_progress()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n = 0\nfor uid in GameState.state.units.keys():\n\tif int(GameState.state.units[uid].get(\"status\", 0)) == 2:\n\t\tn += 1\nreturn n",
+      "expect_min": 2
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PlanEditorBanner/PlanEditorBannerRow/PlanEditorSaveButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/PlanSaveDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return node.get_node(\"/root/Main/PlanSaveDialog/PlanSaveRoot/PlanNameEditRow/PlanNameEdit\").text",
+      "equals": "recon_stomps \u2014 hammer_anvil"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_save_dialog_over_deployment"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "node.get_node(\"/root/Main/PlanSaveDialog/PlanSaveRoot/PlanNameEditRow/PlanNameEdit\").text = \"\"\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PlanSaveDialog/PlanSaveRoot/PlanSaveActions/PlanSaveButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return node.get_node(\"/root/Main/PlanSaveDialog/PlanSaveRoot/PlanSaveFeedback\").text.find(\"needs a name\") >= 0",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/PlanSaveDialog"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return FileAccess.file_exists(\"user://ai_plans/recon_stomps_hammer_anvil.json\")",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "02_refused_no_name"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "node.get_node(\"/root/Main/PlanSaveDialog/PlanSaveRoot/PlanNameEditRow/PlanNameEdit\").text = \"recon_stomps \u2014 hammer_anvil\"\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = node.get_node(\"/root/Main/PlanSaveDialog\")\nd.get_node(\"PlanSaveRoot/PlanDescriptionEditRow/PlanDescriptionEdit\").text = \"Recorded by pm5_record_and_save_plan\"\nd.get_node(\"PlanSaveRoot/PlanAuthorEditRow/PlanAuthorEdit\").text = \"pm5\"\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PlanSaveDialog/PlanSaveRoot/PlanSaveActions/PlanSaveButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return bool(node.get_node(\"/root/Main/PlanSaveDialog\").last_result.get(\"success\", false))",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return str(node.get_node(\"/root/Main/PlanSaveDialog\").last_result.get(\"path\", \"\"))",
+      "equals": "user://ai_plans/recon_stomps_hammer_anvil.json"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return FileAccess.file_exists(\"user://ai_plans/recon_stomps_hammer_anvil.json\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return node.get_node(\"/root/Main/PlanSaveDialog/PlanSaveRoot/PlanSaveFeedback\").text.find(\"Saved to\") >= 0",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_saved_feedback"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar REC = load(\"res://scripts/PlanRecorder.gd\")\nvar plan = PV.load_plan_file(\"user://ai_plans/recon_stomps_hammer_anvil.json\")\nvar res = PV.validate_plan(plan, REC.own_army(GameState.state, 1))\nif not res.get(\"valid\", false):\n\treturn \"INVALID: \" + str(res.get(\"errors\", []))\nreturn \"valid\"",
+      "equals": "valid"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar plan = PV.load_plan_file(\"user://ai_plans/recon_stomps_hammer_anvil.json\")\nreturn plan.get(\"deployment\", {}).get(\"placements\", []).size()",
+      "expect_min": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar plan = PV.load_plan_file(\"user://ai_plans/recon_stomps_hammer_anvil.json\")\nvar dep = plan.get(\"deployment\", {})\nreturn dep.get(\"order\", []).size() == dep.get(\"placements\", []).size()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar plan = PV.load_plan_file(\"user://ai_plans/recon_stomps_hammer_anvil.json\")\nreturn str(plan.get(\"description\", \"\"))",
+      "equals": "Recorded by pm5_record_and_save_plan"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar path = tree.current_scene.get_node(\"PlanSaveDialog\").last_result.get(\"path\", \"\")\nvar plan = PV.load_plan_file(str(path))\nvar PPI = 40.0\nvar worst = 0.0\nvar checked = 0\nfor placement in plan.get(\"deployment\", {}).get(\"placements\", []):\n\tvar uid = str(placement.get(\"unit\", \"\"))\n\tvar unit = GameState.state.units.get(uid, {})\n\tvar models = unit.get(\"models\", [])\n\tvar recorded = placement.get(\"models_inches\", [])\n\tif models.size() != recorded.size():\n\t\treturn \"MODEL COUNT MISMATCH on %s: %d live vs %d recorded\" % [uid, models.size(), recorded.size()]\n\tfor i in range(models.size()):\n\t\tvar live = models[i].get(\"position\", null)\n\t\tif live == null:\n\t\t\treturn \"live model %s[%d] has no position\" % [uid, i]\n\t\tvar live_in = (live if live is Vector2 else Vector2(live.x, live.y)) / PPI\n\t\tvar rec_in = Vector2(float(recorded[i][0]), float(recorded[i][1]))\n\t\tvar dist = live_in.distance_to(rec_in)\n\t\tif dist > worst:\n\t\t\tworst = dist\n\t\tchecked += 1\nreturn \"%d models, worst %.4fin\" % [checked, worst]"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar path = tree.current_scene.get_node(\"PlanSaveDialog\").last_result.get(\"path\", \"\")\nvar plan = PV.load_plan_file(str(path))\nvar PPI = 40.0\nvar worst = 0.0\nvar checked = 0\nfor placement in plan.get(\"deployment\", {}).get(\"placements\", []):\n\tvar uid = str(placement.get(\"unit\", \"\"))\n\tvar unit = GameState.state.units.get(uid, {})\n\tvar models = unit.get(\"models\", [])\n\tvar recorded = placement.get(\"models_inches\", [])\n\tif models.size() != recorded.size():\n\t\treturn \"MODEL COUNT MISMATCH on %s: %d live vs %d recorded\" % [uid, models.size(), recorded.size()]\n\tfor i in range(models.size()):\n\t\tvar live = models[i].get(\"position\", null)\n\t\tif live == null:\n\t\t\treturn \"live model %s[%d] has no position\" % [uid, i]\n\t\tvar live_in = (live if live is Vector2 else Vector2(live.x, live.y)) / PPI\n\t\tvar rec_in = Vector2(float(recorded[i][0]), float(recorded[i][1]))\n\t\tvar dist = live_in.distance_to(rec_in)\n\t\tif dist > worst:\n\t\t\tworst = dist\n\t\tchecked += 1\nreturn worst",
+      "expect_max": 0.02
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar AIDM = load(\"res://scripts/AIDecisionMaker.gd\")\nvar path = tree.current_scene.get_node(\"PlanSaveDialog\").last_result.get(\"path\", \"\")\nvar plan = PV.load_plan_file(str(path))\nvar PPI = 40.0\nvar worst_overall = 0.0\nvar fallbacks = []\nfor player in [1, 2]:\n\tvar snap = GameState.create_snapshot()\n\tvar units = {}\n\tfor uid in snap.units.keys():\n\t\tvar u = snap.units[uid].duplicate(true)\n\t\tif int(u.get(\"owner\", 0)) != 1:\n\t\t\tcontinue\n\t\tu[\"owner\"] = player\n\t\tu[\"status\"] = 0\n\t\tfor m in u.get(\"models\", []):\n\t\t\tm[\"position\"] = null\n\t\tunits[uid] = u\n\tsnap[\"units\"] = units\n\tsnap[\"meta\"][\"active_player\"] = player\n\tAIDM.clear_all_plans()\n\tAIDM.set_player_plan(player, plan)\n\tfor placement in plan.deployment.placements:\n\t\tvar uid = str(placement.unit)\n\t\tif not units.has(uid):\n\t\t\tcontinue\n\t\tvar action = AIDM._decide_deployment(snap, [{\"type\": \"DEPLOY_UNIT\", \"unit_id\": uid}], player)\n\t\tif action.is_empty() or str(action.get(\"type\", \"\")) != \"DEPLOY_UNIT\":\n\t\t\tfallbacks.append(\"P%d:%s\" % [player, uid])\n\t\t\tcontinue\n\t\tvar positions = action.get(\"model_positions\", [])\n\t\tfor i in range(placement.models_inches.size()):\n\t\t\tif i >= positions.size():\n\t\t\t\tfallbacks.append(\"P%d:%s:short\" % [player, uid])\n\t\t\t\tbreak\n\t\t\tvar got = positions[i] / PPI\n\t\t\tvar want = Vector2(float(placement.models_inches[i][0]), float(placement.models_inches[i][1]))\n\t\t\tif player != 1:\n\t\t\t\twant = Vector2(44.0 - want.x, 60.0 - want.y)\n\t\t\tvar dist = got.distance_to(want)\n\t\t\tif dist > worst_overall:\n\t\t\t\tworst_overall = dist\n\t\tvar live_models = snap.units[uid].models\n\t\tfor i in range(live_models.size()):\n\t\t\tif i < positions.size():\n\t\t\t\tlive_models[i][\"position\"] = positions[i]\n\t\tsnap.units[uid][\"status\"] = 2\nAIDM.clear_all_plans()\nif not fallbacks.is_empty():\n\treturn \"FELL BACK: \" + str(fallbacks)\nreturn worst_overall",
+      "expect_max": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "04_after_save"
+    }
+  ]
+}

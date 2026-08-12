@@ -1,0 +1,10 @@
+{
+  "format": "wh40k_ai_profile",
+  "version": 1,
+  "profile_name": "Plans on — the plan-following arm for PM-10",
+  "description": "Sets PLANS_ENABLED to 1, which is already the shipped default. It exists so the PM-10 paired A/B is symmetric: both arms load a profile containing exactly one parameter and differ only in its value, rather than one arm loading a profile and the other running bare. A profile that only restates a default cannot itself move the result — the a5_null_defaults arm in this directory is the same idea used as a harness self-check.",
+  "parameters": {
+    "PLANS_ENABLED": 1.0
+  },
+  "rules": []
+}

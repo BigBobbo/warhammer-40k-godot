@@ -1,0 +1,207 @@
+{
+  "id": "pm2a_ai_deploys_from_plan",
+  "covers": [
+    "ai.deployment.plan_order",
+    "ai.deployment.plan_placement",
+    "ai.deployment.plan_seat2_mirror",
+    "ai.deployment.plan_decision_records"
+  ],
+  "fixture": "mirror_custodes_2000_predeploy",
+  "edition": 11,
+  "rng_seed": 5001,
+  "description": "PM-2a: with a wh40k_ai_plan assigned to both AI seats, the AI deploys from the plan instead of its column formula. The fixture is a Custodes mirror at DEPLOYMENT on crucible_of_battle - a TRIANGULAR zone, which the AI's rectangular collision repair alone cannot honour - and its player-2 units carry the _P2 mirror re-key. Both seats are configured AI and given the SAME plan, authored in the player-1 frame, so player 2 must transform every placement by [44-x, 60-y] to deploy legally at all. Asserts (a) the plan is installed and enabled on both seats, (b) all 22 units deploy, (c) their deployed model positions match the authored ones within 0.5 inch on BOTH seats, (d) the AI's decision records carry the 'plan:<name>' source and the seat_mirrored flag that make adherence countable per seat, and (e) every seat-2 model sits inside the player-2 zone. Screenshots capture the empty board before deployment and the plan-driven formation after.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_phase",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "01_deployment_phase_before_ai"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"}, {1: 1, 2: 1})"
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer.set_ai_speed_preset(0)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var plan = PlanValidator.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_custodes_lions_crucible.json\")\nif plan.is_empty():\n\treturn \"NO_PLAN\"\nvar verdict = PlanValidator.validate_plan(plan)\nif not verdict.get(\"valid\", false):\n\treturn \"INVALID: \" + \"; \".join(verdict.get(\"errors\", []))\nAIDecisionMaker.set_player_plan(1, plan)\nAIDecisionMaker.set_player_plan(2, plan)\nreturn str(plan.get(\"name\", \"\"))",
+      "equals": "Fixture — Custodes Lions on Crucible"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p1 = AIDecisionMaker.get_player_plan(1)\nvar p2 = AIDecisionMaker.get_player_plan(2)\nreturn not p1.is_empty() and not p2.is_empty() and AIDecisionMaker.plans_enabled()",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 5.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"status\", 0)) == 0:\n\t\tcontinue\n\tif latch.has(uid):\n\t\tcontinue\n\tvar pts = []\n\tfor m in u.get(\"models\", []):\n\t\tvar p = m.get(\"position\", null)\n\t\tif p == null:\n\t\t\tpts.append(null)\n\t\telif p is Vector2:\n\t\t\tpts.append([p.x, p.y])\n\t\telse:\n\t\t\tpts.append([float(p.get(\"x\", 0.0)), float(p.get(\"y\", 0.0))])\n\tlatch[uid] = pts\nGameState.set_meta(\"pm2a_latch\", latch)\nif latch.size() >= 22 and AIPlayer.enabled:\n\t# Deployment is done. Stand the AI down so the board FREEZES on the\n\t# plan-driven formation for the screenshot below - otherwise the game\n\t# rolls on into the movement phase and the evidence shot shows units that\n\t# have already moved. Setting `enabled` directly (rather than\n\t# reconfiguring) keeps _all_decision_records, which the asserts read.\n\tAIPlayer.enabled = false\n\tprint(\"SCENARIO pm2a froze AI after deployment (%d units latched)\" % latch.size())\nreturn latch.size()",
+      "expect_min": 22
+    },
+    {
+      "act": "screenshot",
+      "label": "02_ai_deployed_from_plan"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var plan = PlanValidator.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_custodes_lions_crucible.json\")\nvar latch = GameState.get_meta(\"pm2a_latch\", {})\nvar ok = 0\nvar total = 0\nvar worst = 0.0\nfor placement in plan[\"deployment\"][\"placements\"]:\n\tvar pid = str(placement[\"unit\"])\n\tvar authored = placement[\"models_inches\"]\n\tfor player in [1, 2]:\n\t\tvar live = pid if player == 1 else pid + \"_P2\"\n\t\tif not latch.has(live):\n\t\t\tcontinue\n\t\tvar pts = latch[live]\n\t\ttotal += 1\n\t\tvar d = 0.0\n\t\tfor i in range(mini(authored.size(), pts.size())):\n\t\t\tif pts[i] == null:\n\t\t\t\td = 999.0\n\t\t\t\tbreak\n\t\t\tvar wx = float(authored[i][0])\n\t\t\tvar wy = float(authored[i][1])\n\t\t\tif player == 2:\n\t\t\t\twx = 44.0 - wx\n\t\t\t\twy = 60.0 - wy\n\t\t\tvar got = Vector2(float(pts[i][0]) / 40.0, float(pts[i][1]) / 40.0)\n\t\t\td = maxf(d, Vector2(wx, wy).distance_to(got))\n\t\tif d <= 0.5:\n\t\t\tok += 1\n\t\tworst = maxf(worst, d)\nprint(\"SCENARIO pm2a adherence %d/%d units within 0.5in, worst %.3fin\" % [ok, total, worst])\nreturn ok",
+      "expect_min": 20
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var per_seat = {1: 0, 2: 0}\nfor batch in AIPlayer._all_decision_records:\n\tvar seat = int(batch.get(\"player\", 0))\n\tfor rec in batch.get(\"records\", []):\n\t\tif str(rec.get(\"decision_type\", \"\")) != \"deployment\":\n\t\t\tcontinue\n\t\tif str(rec.get(\"context\", {}).get(\"source\", \"\")).begins_with(\"plan:\"):\n\t\t\tper_seat[seat] = int(per_seat.get(seat, 0)) + 1\nprint(\"SCENARIO pm2a plan deployment records: seat1=%d seat2=%d\" % [per_seat.get(1, 0), per_seat.get(2, 0)])\nreturn mini(int(per_seat.get(1, 0)), int(per_seat.get(2, 0)))",
+      "expect_min": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var mirrored = 0\nfor batch in AIPlayer._all_decision_records:\n\tfor rec in batch.get(\"records\", []):\n\t\tvar ctx = rec.get(\"context\", {})\n\t\tif str(rec.get(\"decision_type\", \"\")) == \"deployment\" and bool(ctx.get(\"seat_mirrored\", false)):\n\t\t\tmirrored += 1\nprint(\"SCENARIO pm2a seat-mirrored deployments: %d\" % mirrored)\nreturn mirrored",
+      "expect_min": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var latch = GameState.get_meta(\"pm2a_latch\", {})\nvar poly = PackedVector2Array()\nfor zone in GameState.state[\"board\"][\"deployment_zones\"]:\n\tif int(zone.get(\"player\", 0)) == 2:\n\t\tfor p in zone[\"poly\"]:\n\t\t\tpoly.append(Vector2(float(p[\"x\"]) * 40.0, float(p[\"y\"]) * 40.0))\n\t\tbreak\nvar outside = 0\nvar checked = 0\nfor uid in latch:\n\tif not str(uid).ends_with(\"_P2\"):\n\t\tcontinue\n\tfor p in latch[uid]:\n\t\tif p == null:\n\t\t\tcontinue\n\t\tchecked += 1\n\t\tif not Geometry2D.is_point_in_polygon(Vector2(float(p[0]), float(p[1])), poly):\n\t\t\toutside += 1\nprint(\"SCENARIO pm2a seat-2 models inside own zone: %d/%d\" % [checked - outside, checked])\nreturn outside",
+      "equals": 0
+    }
+  ]
+}
