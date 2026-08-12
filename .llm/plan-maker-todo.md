@@ -2173,7 +2173,13 @@ a more specific shipped plan still beats a vaguer plan of your own — which is
 the right way round. The test pins it, and first asserts that a shipped plan
 genuinely competes for that identity, so the check cannot pass vacuously.
 
-Suite after the fix: **`test_plan_manager.gd` 56 passed, 0 failed**.
+Suite after the fix: **`test_plan_manager.gd` 56 passed, 0 failed**, and the
+full headless suite re-run clean end to end:
+
+```
+bash 40k/tests/run_pretrigger_tests.sh
+Audit suite: 2703 passed, 0 failed across 117 tests
+```
 
 **1. `PLAN_FORMAT.md` final pass.** Adds the walkthrough the task asked for:
 ten steps, each linked to a live capture from a windowed run (14 images, every
