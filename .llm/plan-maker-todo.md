@@ -2149,6 +2149,32 @@ release note exists to explain.
 Screenshots: `pm11_plan_editor_reentry.png`, `pm11_simulator_reentry.png`,
 `pm11_version_history_in_menu.png`.
 
+**A third assumption shipping content broke — and this one was a real bug.**
+The full headless suite came back `2698 passed, 4 failed`, all in
+`test_plan_manager.gd`. Two were the same empty-directory assumption as pm7b.
+The other two were not:
+
+```
+FAIL: a plan keyed to the fixture's real identity matches the real fixture state
+FAIL: …and at seat 2 of the mirror match
+```
+
+`find_plan_match_for` broke ties by **rank, then plan name alphabetically**.
+That was harmless while nothing shipped, because a user plan was the only
+candidate at its rank. With plans on the search path, a player who writes their
+own plan for a matchup a shipped plan also covers gets the **shipped** one
+whenever its name sorts earlier — `'Orks — Recon Stomps on Crucible'` beats
+`'PM1 Real Fixture'` on `'o' < 'p'`. Silently, and with no way for the player to
+tell.
+
+Fixed in `PlanManager.find_plan_match_for`: the tie-break is now rank, then
+**source** (yours beats shipped), then name, then path. Rank still dominates, so
+a more specific shipped plan still beats a vaguer plan of your own — which is
+the right way round. The test pins it, and first asserts that a shipped plan
+genuinely competes for that identity, so the check cannot pass vacuously.
+
+Suite after the fix: **`test_plan_manager.gd` 56 passed, 0 failed**.
+
 **1. `PLAN_FORMAT.md` final pass.** Adds the walkthrough the task asked for:
 ten steps, each linked to a live capture from a windowed run (14 images, every
 one verified present). Two of them are there for what went WRONG — `HOME 1`

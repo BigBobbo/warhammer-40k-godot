@@ -431,7 +431,16 @@ static func find_plan_match_for(player: int, snapshot: Dictionary) -> Dictionary
 	(PM-2a), not matching's.
 
 	Only VALID plans are considered — a plan the validator rejects must never
-	drive the AI. Ties break deterministically: rank, then plan name, then path."""
+	drive the AI. Ties break deterministically: rank, then SOURCE (a plan you
+	wrote beats a shipped one), then plan name, then path.
+
+	The source tie-break is load-bearing, not tidiness. Before PM-10 there were
+	no shipped plans, so a user plan was always the only candidate at its rank
+	and the name comparison never had to arbitrate between the two. The moment
+	plans shipped, a player who wrote their own plan for a matchup a shipped
+	plan also covers would silently get the SHIPPED one whenever its name sorted
+	earlier — 'Orks — Recon Stomps on Crucible' beats 'PM1 Real Fixture' on 'o'
+	< 'p', which is how this was found. Your own plan wins."""
 	var identity := resolve_game_identity(player, snapshot)
 	if str(identity.get("zone_id", "")).is_empty():
 		_log("No plan for player %d: snapshot carries no meta.deployment_type" % player)
@@ -454,6 +463,7 @@ static func find_plan_match_for(player: int, snapshot: Dictionary) -> Dictionary
 			"plan": plan,
 			"path": str(entry["path"]),
 			"name": str(entry["name"]),
+			"source": str(entry.get("source", "")),
 			"rank": int(verdict["rank"]),
 			"reason": str(verdict["reason"]),
 			"warnings": validation.get("warnings", []),
@@ -469,6 +479,13 @@ static func find_plan_match_for(player: int, snapshot: Dictionary) -> Dictionary
 	candidates.sort_custom(func(a, b):
 		if a["rank"] != b["rank"]:
 			return a["rank"] < b["rank"]
+		# A plan the player wrote beats a shipped one at the same rank. Rank
+		# still dominates: a more specific shipped plan beats a vaguer one of
+		# your own, which is the right way round.
+		var a_mine: bool = str(a.get("source", "")) == "user"
+		var b_mine: bool = str(b.get("source", "")) == "user"
+		if a_mine != b_mine:
+			return a_mine
 		var an: String = str(a["name"]).to_lower()
 		var bn: String = str(b["name"]).to_lower()
 		if an != bn:

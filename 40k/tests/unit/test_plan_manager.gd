@@ -183,14 +183,25 @@ func test_fixtures_load_by_path_and_are_not_listed() -> void:
 		"minimal fixture loads by explicit path")
 	_assert(not rich.is_empty(), "rich fixture loads by explicit path")
 
-	# res://data/ai_plans/ does not exist yet — listing must survive that.
+	# This used to assert the search path was EMPTY, which held only while
+	# res://data/ai_plans/ did not exist. PM-10 ships plans there, so the test
+	# now counts what it is actually about — the user's own plans — and treats
+	# shipped content as the background it is.
 	var entries := PM.list_plans()
-	_assert(entries.is_empty(), "search path is empty to start with (got %d entries)" % entries.size())
+	var shipped_at_start := 0
+	for e in entries:
+		if str(e.get("source", "")) == "shipped":
+			shipped_at_start += 1
+	_assert(_user_plan_count(PM) == 0,
+		"no plans of your own to start with (got %d; %d shipped alongside)" % [
+			_user_plan_count(PM), shipped_at_start])
 
-	# Now put one plan on the search path and confirm ONLY it is listed.
+	# Now put one plan on the search path and confirm exactly one is YOURS.
 	PM.save_plan(_make_plan("PM1 Listing Probe", ""))
 	entries = PM.list_plans()
-	_assert(entries.size() == 1, "exactly the one saved plan is listed (got %d)" % entries.size())
+	_assert(_user_plan_count(PM) == 1,
+		"exactly the one saved plan is yours (got %d of your own, %d listed in total)" % [
+			_user_plan_count(PM), entries.size()])
 	var listed_fixture := false
 	for e in entries:
 		if str(e["path"]).find("tests/fixtures") != -1:
@@ -359,13 +370,29 @@ func test_real_predeploy_fixture_has_no_game_config() -> void:
 		"…and its player-1 faction is Orks / Speedwaaagh! (got '%s' / '%s')" % [identity["faction_name"], identity["detachment"]])
 
 	# A plan keyed to that real identity matches the real fixture state.
+	#
+	# This is also the regression test for a bug shipping content created. The
+	# shipped 'Orks — Recon Stomps on Crucible' is keyed to this very fixture,
+	# so it ties with the plan below on rank — and the tie-break used to be
+	# alphabetical, which handed the match to the SHIPPED plan ('o' < 'p'). A
+	# player who writes their own plan for a matchup a shipped plan covers must
+	# get their own. Hence the source tie-break in find_plan_match_for.
 	PM.save_plan(_make_plan("PM1 Real Fixture", "take_and_hold_mirror_1"))
+	var shipped_rival := 0
+	for e in PM.list_plans():
+		if str(e.get("source", "")) == "shipped":
+			var rank := PM.rank_plan(e["plan"], identity)
+			if int(rank["rank"]) != PM.MATCH_NONE:
+				shipped_rival += 1
+	_assert(shipped_rival >= 1,
+		"a shipped plan really does compete for this identity (%d) — otherwise the next assertion is vacuous" % shipped_rival)
 	var result := PM.find_plan_match_for(1, state)
 	_assert(str(result.get("name", "")) == "PM1 Real Fixture",
-		"a plan keyed to the fixture's real identity matches the real fixture state")
+		"your own plan beats a shipped plan at the same rank (got '%s')" % str(result.get("name", "")))
 	# And it matches at seat 2, whose units carry the _P2 mirror suffix.
 	var result2 := PM.find_plan_match_for(2, state)
-	_assert(str(result2.get("name", "")) == "PM1 Real Fixture", "…and at seat 2 of the mirror match")
+	_assert(str(result2.get("name", "")) == "PM1 Real Fixture",
+		"…and at seat 2 of the mirror match (got '%s')" % str(result2.get("name", "")))
 
 	for f in _plan_files_in(PM.USER_PLANS_DIR):
 		DirAccess.remove_absolute(PM.USER_PLANS_DIR + f)
@@ -383,3 +410,12 @@ func test_missing_identity_returns_empty() -> void:
 
 	for f in _plan_files_in(PM.USER_PLANS_DIR):
 		DirAccess.remove_absolute(PM.USER_PLANS_DIR + f)
+
+
+func _user_plan_count(PM) -> int:
+	"""Plans the player wrote. Shipped content is not the subject of this test."""
+	var n := 0
+	for e in PM.list_plans():
+		if str(e.get("source", "")) == "user":
+			n += 1
+	return n
