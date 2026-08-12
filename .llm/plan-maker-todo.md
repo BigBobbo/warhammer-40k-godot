@@ -2100,7 +2100,74 @@ Version 1.36.0.
 **Validation gate.** Batch scenario run output in Evidence; docs committed;
 version history renders in the main menu (screenshot).
 
-**Evidence.** _(fill)_
+**Evidence.** _(partial — batch run pending)_
+
+**1. `PLAN_FORMAT.md` final pass.** Adds the walkthrough the task asked for:
+ten steps, each linked to a live capture from a windowed run (14 images, every
+one verified present). Two of them are there for what went WRONG — `HOME 1`
+sitting **Uncontrolled** at the end of deployment is PM-F5 on screen. The
+five-verb table, coordinate-frame rule, matching/fallback semantics and
+fragment merge order were already present and were checked rather than
+rewritten.
+
+**2. Player-facing help.** New `40k/docs/AI_PLANS_GUIDE.md` — write a plan, say
+what units are for, hand it to a seat, measure it, manage what you have. Ends
+with a "known rough edges" section that names the transport bug (PM-F5) and the
+zone/terrain caveats instead of pretending they are not there.
+
+**3. version_history audit.** Every player-facing PM task added its entry —
+1.29.0, 1.29.1, 1.29.2, 1.30.0, 1.31.0, 1.32.0, 1.33.0, 1.34.0, 1.35.0,
+1.36.0. No gaps, so no consolidated headline entry was needed. **1.36.1 was
+added** for something the coherence pass turned up (below).
+
+**4. Coherence checks.**
+
+*`PLANS_ENABLED: 0` is inert* — `tests/spikes/pm11_plans_off_is_inert.gd`,
+**6 passed, 0 failed**. Runs the AI's real decision path four ways on one
+fixture at one seed:
+
+```
+chose nothing    PLACE_IN_RESERVES U_STORMBOYZ_C ... from plan 'Orks — Recon Stomps on Crucible'
+no plan at all   DEPLOY_UNIT U_DEFFKILLA_WARTRIKE_A first(357.28,436.89)
+plan + gate OFF  DEPLOY_UNIT U_DEFFKILLA_WARTRIKE_A first(357.28,436.89)
+plan + gate ON   PLACE_IN_RESERVES U_STORMBOYZ_C ... from plan
+```
+
+Gate OFF is byte-identical to having no plan. There is a **negative control** —
+gate ON must DIFFER — because without it the check would pass just as happily
+for a feature that does nothing at all.
+
+*The finding:* **shipping plans changed the default.** The AI auto-matches a
+shipped plan whenever army, zone and layout line up, so a player who has never
+opened the Plan Editor now gets plan-driven deployment on `recon_stomps`. That
+is what "Auto" in the picker always meant, but it had no consequences until
+this task put plans on the search path. Asserted in the spike, and written up
+for players in **1.36.1** with how to turn it off.
+
+*Re-entry* — `sp/pm11_reentry.json`, **36 passed, 0 failed**:
+
+```
+editor session          Main|true
+normal game after it    Main|false
+second editor visit     17 own units, 0 enemy   (fresh army, not leftovers)
+simulator closed        false|MainMenu
+simulator reopened      true|false              (visible, not still running)
+```
+
+*The second finding:* the `plan_editor` flag **does** survive leaving the
+editor — `meta.game_config` keeps it until something replaces it. The first
+draft of the scenario asserted it was cleared and failed. The right response
+was to ask whether it can hurt anyone: `MainMenu` replaces `meta.game_config`
+wholesale on Start, so it cannot reach a real game. The scenario now records
+the staleness and *proves* the invariant that matters by starting a normal game
+straight after the editor and asserting it is not a plan-editor session.
+
+*`--headless --import`* — clean (exit 0; only the usual exit-time RID-leak
+noise).
+
+**5. Print sweep.** Nothing to remove. The plan code logs through helpers that
+also write to the debug log (`_plan_log`, `PlanSimulator: %s`), which is the
+project convention, and CLAUDE.md forbids stripping debug logging.
 
 ---
 
