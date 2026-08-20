@@ -167,6 +167,7 @@ TESTS=(
     "tests/unit/test_ai_plan_formations.gd"
     "tests/unit/test_ai_plan_earmarks.gd"
     "tests/unit/test_plan_roundtrip.gd"
+    "tests/unit/test_plan_coherency_editions.gd"
 )
 
 FAILED=0

@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.36.3",
+      "date": "2026-08-20",
+      "summary": "Plans are now checked against the rules the game actually plays, so a plan can no longer look fine and then fall apart in a real battle.",
+      "changes": [
+        "The AI Plans screen now warns you if a plan spreads a unit too far apart to stay in coherency — the computer would have had to shuffle that unit or place it itself, and previously nothing told you.",
+        "The warning names the unit and how many of its models are the problem, and the plan still saves and still works: the computer repairs the placement where it can.",
+        "This check is always made against 11th-edition rules, which is what every game runs on."
+      ]
+    },
+    {
       "version": "1.36.2",
       "date": "2026-08-12",
       "summary": "Fixed: the computer no longer loads units into a transport when its plan puts them somewhere else.",

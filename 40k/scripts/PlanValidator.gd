@@ -254,6 +254,10 @@ static func validate_plan(data, army: Dictionary = {}) -> Dictionary:
 		if poly_p2.size() >= 3 and inside_p2 == 0:
 			errors.append("Placement '%s' does not land inside the player-2 zone after the seat-2 transform [44-x, 60-y] — a seat-2 consumer would degrade to the formula" % unit_id)
 
+		var coherency_note := _placement_coherency_note(unit_id, models, _army_units(army).get(unit_id, {}))
+		if not coherency_note.is_empty():
+			warnings.append(coherency_note)
+
 	for oid in seen_order.keys():
 		if not placed_units.has(oid):
 			warnings.append("deployment.order lists '%s' but there is no placement for it (it will deploy via the formula in that slot)" % oid)
@@ -448,6 +452,69 @@ static func _validate_reserves_caps(reserve_rounds: Dictionary, attached_chars: 
 # ============================================================
 # COVERAGE
 # ============================================================
+
+static func _placement_coherency_note(unit_id: String, models_inches: Array, army_unit: Dictionary) -> String:
+	""""" when the placement holds together under the rules the game actually
+	plays; otherwise a warning string naming the offending models.
+
+	PM-F4. Two things about this check are deliberate.
+
+	FIRST, it is pinned to edition 11 rather than to whatever the running
+	process happens to be set to. A plan is a durable artifact — authored in
+	one process and consumed in another — and every PLAYER launch runs 11e
+	(SettingsService re-asserts it at boot; the 10e pin exists only for the
+	legacy regression harness). Validating against the ambient edition is
+	exactly how PM-F4 happened: the PM-10 authoring pass ran as
+	`godot -s tests/spikes/...`, which SettingsService treats as an automated
+	harness and pins to 10e, so `DeploymentPhase.validate_action` accepted an
+	11-model Gretchin line 13.60" across. At play time — edition 11 — the
+	consumer refused that same placement and fell back to the formula, in
+	every game, on both seats, with nothing to see but a fallback log line.
+
+	SECOND, it calls `AttackSequence.check_unit_coherency` rather than
+	restating the rule. That is the same helper `DeploymentPhase` and
+	`AIDecisionMaker._plan_positions_legal` both go through, so the
+	validator's answer cannot drift from the consumer's — which was the whole
+	point of PM-F4.
+
+	Needs the army for base sizes: coherency is measured base edge to base
+	edge, so centre-to-centre distances alone would reject legal placements.
+	No army, no check."""
+	var army_models = army_unit.get("models", [])
+	if not (army_models is Array) or army_models.size() < models_inches.size() or models_inches.size() < 2:
+		return ""
+	# Loaded at call time, not preloaded: see the note at the top of this file
+	# about autoload identifiers and `godot -s`.
+	var AS = load("res://scripts/rules/AttackSequence.gd")
+	if AS == null or not AS.has_method("check_unit_coherency"):
+		return ""
+
+	var probe: Array = []
+	for i in range(models_inches.size()):
+		var raw = models_inches[i]
+		if not (raw is Array) or raw.size() < 2:
+			return ""  # malformed — already reported as an error above
+		var src: Dictionary = army_models[i] if army_models[i] is Dictionary else {}
+		probe.append({
+			"id": str(src.get("id", "m%d" % i)),
+			"alive": true,
+			"rotation": 0.0,
+			"position": Vector2(float(raw[0]) * 40.0, float(raw[1]) * 40.0),
+			"base_mm": src.get("base_mm", 32),
+			"base_type": src.get("base_type", null),
+			"base_dimensions": src.get("base_dimensions", {}),
+		})
+
+	var previous_edition = GameConstants.edition
+	GameConstants.edition = 11
+	var result: Dictionary = AS.check_unit_coherency({"models": probe})
+	GameConstants.edition = previous_edition
+
+	if bool(result.get("coherent", true)):
+		return ""
+	var offenders: Array = result.get("offenders", [])
+	return "Placement '%s': %d of %d models break 11th-edition unit coherency (03.03 — every model within 2\" of another AND within 9\" of every other model in the unit). The consumer will try to repair the placement and otherwise deploy this unit with the formula instead" % [
+		unit_id, offenders.size(), models_inches.size()]
 
 static func _army_units(army: Dictionary) -> Dictionary:
 	"""Accept an ArmyListManager army dict, a GameState snapshot, or a bare

@@ -348,23 +348,46 @@ authoring gets wrong:
 4. **It keeps every unit inside the 9" coherency envelope and refuses to write
    a plan that does not** — which the phase alone will not catch. See below.
 
-### Phase-validated is not the same as AI-accepted (the 9" envelope trap)
+### Author at the edition you play at (the 9" envelope trap)
 
-`AIDecisionMaker._plan_positions_legal` enforces 11e coherency — 2" to a
-neighbour **and 9" to every other model in the unit** — unconditionally.
-`DeploymentPhase._check_deployment_coherency` enforces it through the
-edition-aware `AttackSequence.check_unit_coherency`, and the automated harness
-pins `GameConstants.edition` to the legacy 10e baseline, which has no 9"
-envelope.
+A plan is written in one process and consumed in another, and **the rules
+edition is a global**. That is the trap, and it is not the one originally
+filed.
 
-So `phase.validate_action` will happily accept a placement the AI then throws
-away. It happened: Gretchin Alpha was authored as an 11-model line **13.60"
-across**, validated clean, and then fell back to the formula in *every*
-measured game on *both* seats with only `did not validate and repair failed` in
-the log. Seat-2 adherence was 5/11 before this was found. Filed as **PM-F4**.
+Three facts, all checked rather than assumed:
 
-If you hand-author or hand-edit a plan, check the widest pair in each unit.
-The authoring script does it for you and refuses to write the file otherwise.
+- `AIDecisionMaker._plan_positions_legal` (`:603`) and
+  `DeploymentPhase._check_deployment_coherency` (`:232`) call the **same**
+  function, `AttackSequence.check_unit_coherency`. The phase's own docstring
+  calls it "the single source of truth". They cannot disagree with each other.
+- That function is edition-aware for both callers at once: it reads
+  `GameConstants.edition` for the neighbour count and for the 9" envelope
+  (`AttackSequence.gd:238-244`). 11e core 03.03 adds the envelope; 10e has none
+  and instead wants two neighbours once a unit has 7+ models.
+- `SettingsService._is_automated_harness()` returns true for **any** `-s` run
+  and pins edition to the legacy 10e baseline (`:257-286`). Every consumer runs
+  at 11 — a player launch, and `AIBenchmarkRunner.gd:288`.
+
+So a headless authoring script validates against 10e while the game plays 11e,
+and `phase.validate_action` happily certifies a placement the game will refuse.
+It happened: Gretchin Alpha was authored as an 11-model line **13.60" across**
+— coherent under 10e, **6 of its 11 models out of coherency under 11e** — and
+fell back to the formula in *every* measured game on *both* seats with only
+`did not validate and repair failed` in the log. Filed as **PM-F4**.
+
+**What protects you now.** `PlanValidator` checks every placement's coherency
+**pinned to edition 11**, whatever the ambient setting, through that same
+helper — so validating a plan anywhere gives the answer the game will give. It
+needs the army for base sizes (coherency is measured base edge to base edge)
+and declines rather than guessing without one. An over-spread unit is a
+**warning**, not an error, because the consumer repairs it or falls back per
+unit rather than producing an illegal state; you will see it on the plan
+browser badge.
+
+If you hand-author or hand-edit a plan, still check the widest pair in each
+unit. The authoring script does it for you, refuses to write the file
+otherwise, and now runs at edition 11 — see its header before re-running it,
+because its anchors are still tuned for the 10e packing (**PM-F7**).
 
 ### The predeploy fixtures carry a stale crucible zone
 

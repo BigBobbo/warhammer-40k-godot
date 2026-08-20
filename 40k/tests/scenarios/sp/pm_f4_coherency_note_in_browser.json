@@ -1,0 +1,85 @@
+{
+	"id": "pm_f4_coherency_note_in_browser",
+	"covers": [
+		"ui.PlanBrowserDialog.coherency_note_badge",
+		"plan_validator.coherency_pinned_to_played_edition"
+	],
+	"disable_ai": true,
+	"description": "PM-F4 windowed gate. A plan whose unit is spread too far to hold together under 11th-edition coherency must SAY SO to the player, not fail silently at play time. Writes two user plans into user://ai_plans/ — the minimal fixture, whose single Gretchin mob spans 15.00\" and therefore breaks the 9\" envelope, and the rich fixture, which does not — then opens the AI Plans browser from the menu with a real click and reads the rendered rows. Asserts the over-spread plan's status column reads 'OK, 1 note(s)' in the warning colour while the well-formed one reads plain 'OK', that selecting the offending row writes the coherency sentence into the detail panel naming the unit, and that the plan is still VALID and still usable — the consumer repairs or falls back per unit, so this is a note, not a rejection. The whole point of PM-F4 is that this used to be invisible: the placement was certified by an authoring run pinned to the legacy 10e baseline, which has no envelope at all.",
+	"steps": [
+		{
+			"act": "wait_seconds",
+			"seconds": 1.5
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Two user plans: one that breaks the envelope and one that does not, so the\n# assertions below have a built-in control. fixture_minimal_valid places a\n# single 11-model Gretchin mob 15.00\" across; fixture_recon_stomps_rich's\n# widest unit is 8.13\".\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar PM = load(\"res://scripts/PlanManager.gd\")\nPM.ensure_user_plans_dir()\nvar dir = DirAccess.open(\"user://ai_plans\")\nif dir != null:\n\tdir.list_dir_begin()\n\tvar f = dir.get_next()\n\twhile f != \"\":\n\t\tif f.ends_with(\".json\"):\n\t\t\tdir.remove(f)\n\t\tf = dir.get_next()\n\tdir.list_dir_end()\nvar written = []\nfor src in [\"res://tests/fixtures/ai_plans/fixture_minimal_valid.json\", \"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\"]:\n\tvar plan = PV.load_plan_file(src)\n\tvar path = \"user://ai_plans/%s.json\" % PM.slugify(str(plan.get(\"name\", \"\")))\n\tvar file = FileAccess.open(path, FileAccess.WRITE)\n\tfile.store_string(JSON.stringify(plan, \"\\t\"))\n\tfile.close()\n\twritten.append(path.get_file())\nwritten.sort()\nreturn \",\".join(written)",
+			"equals": "fixture_minimal_valid.json,fixture_recon_stomps_rich_all_five_verbs.json"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The widest pair in each fixture, so the rest of this scenario cannot pass\n# on a fixture that quietly changed shape.\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar out = []\nfor src in [\"res://tests/fixtures/ai_plans/fixture_minimal_valid.json\", \"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\"]:\n\tvar plan = PV.load_plan_file(src)\n\tvar worst = 0.0\n\tfor p in plan.get(\"deployment\", {}).get(\"placements\", []):\n\t\tvar ms = p.get(\"models_inches\", [])\n\t\tfor i in range(ms.size()):\n\t\t\tfor j in range(i + 1, ms.size()):\n\t\t\t\tvar d = Vector2(float(ms[i][0]), float(ms[i][1])).distance_to(Vector2(float(ms[j][0]), float(ms[j][1])))\n\t\t\t\tworst = max(worst, d)\n\tout.append(\"%.2f\" % worst)\nprint(\"SCENARIO pm_f4 widest pair: minimal=%s rich=%s\" % [out[0], out[1]])\nreturn \"%s|%s\" % [out[0], out[1]]",
+			"equals": "15.00|8.13"
+		},
+		{
+			"act": "click_node",
+			"node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/PlanBrowserButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 1.0
+		},
+		{
+			"act": "expect_node_visible",
+			"node": "/root/MainMenu/PlanBrowserDialog",
+			"timeout_s": 3.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The status column the player actually reads, for BOTH rows. Rows are found\n# by name — shipped plans sit in this list too and their number is not this\n# scenario's business.\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar found = {}\nvar item = t.get_root().get_first_child()\nwhile item != null:\n\tfound[item.get_text(0)] = item.get_text(4)  # COL_STATUS\n\titem = item.get_next()\nvar over = str(found.get(\"Fixture — minimal valid\", \"MISSING\"))\nvar ok = str(found.get(\"Fixture — Recon Stomps rich (all five verbs)\", \"MISSING\"))\nprint(\"SCENARIO pm_f4 status column: over-spread='%s' well-formed='%s'\" % [over, ok])\nreturn \"%s|%s\" % [over, ok]",
+			"equals": "OK, 1 note(s)|OK"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The note is rendered in the warning colour, not the invalid colour — the\n# plan is usable, it just will not deploy exactly as drawn.\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar item = t.get_root().get_first_child()\nwhile item != null:\n\tif item.get_text(0) == \"Fixture — minimal valid\":\n\t\tvar c = item.get_custom_color(4)  # COL_STATUS\n\t\tvar dlg = node.get_node(\"/root/MainMenu/PlanBrowserDialog\")\n\t\treturn \"warn=%s invalid=%s\" % [str(c == dlg.WARN_COLOR), str(c == dlg.INVALID_COLOR)]\n\titem = item.get_next()\nreturn \"row not found\"",
+			"equals": "warn=true invalid=false"
+		},
+		{
+			"act": "screenshot",
+			"label": "01_browser_shows_the_note"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Selecting the row must put the sentence in front of the player, naming the\n# unit and the rule — a bare count would not tell them what to change.\nvar dlg = node.get_node(\"/root/MainMenu/PlanBrowserDialog\")\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar item = t.get_root().get_first_child()\nwhile item != null:\n\tif item.get_text(0) == \"Fixture — minimal valid\":\n\t\titem.select(0)\n\t\tt.item_selected.emit()\n\t\tbreak\n\titem = item.get_next()\nvar txt = str(dlg.detail_label.text)\nprint(\"SCENARIO pm_f4 detail panel: %s\" % txt)\nvar names_unit = txt.find(\"U_GRETCHIN_A\") != -1\nvar names_rule = txt.find(\"11th-edition unit coherency\") != -1\nvar names_count = txt.find(\"8 of 11 models\") != -1\nreturn \"unit=%s rule=%s count=%s\" % [str(names_unit), str(names_rule), str(names_count)]",
+			"equals": "unit=true rule=true count=true"
+		},
+		{
+			"act": "screenshot",
+			"label": "02_detail_names_the_unit"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Still VALID: a note is not a rejection. The consumer repairs the placement\n# where it can and otherwise deploys that ONE unit with the formula, so the\n# rest of the plan still applies — making this an error would refuse a plan\n# that works.\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar ALM = node.get_node(\"/root/ArmyListManager\")\nvar army = ALM.load_army_list(\"recon_stomps\", 1)\nvar plan = PV.load_plan_file(\"user://ai_plans/fixture_minimal_valid.json\")\nvar r = PV.validate_plan(plan, army)\nprint(\"SCENARIO pm_f4 validate: valid=%s errors=%d warnings=%d\" % [str(r.get(\"valid\")), r.get(\"errors\", []).size(), r.get(\"warnings\", []).size()])\nreturn \"valid=%s errors=%d\" % [str(r.get(\"valid\")), r.get(\"errors\", []).size()]",
+			"equals": "valid=true errors=0"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# PM-F4's core claim, checked live rather than in a unit test: the answer is\n# pinned to the edition the GAME plays at, not the one this process is in. A\n# windowed run matches SettingsService._is_automated_harness() as well\n# (--scenario-file=), so it BOOTS at the legacy 10e baseline — measured, not\n# assumed. Force it to 10 explicitly anyway and the note must still appear.\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar ALM = node.get_node(\"/root/ArmyListManager\")\nvar army = ALM.load_army_list(\"recon_stomps\", 1)\nvar plan = PV.load_plan_file(\"user://ai_plans/fixture_minimal_valid.json\")\nvar entry_edition = GameConstants.edition\nGameConstants.edition = 10\nvar r = PV.validate_plan(plan, army)\nvar restored = GameConstants.edition\nGameConstants.edition = entry_edition\nvar still_warns = r.get(\"warnings\", []).size() == 1\nprint(\"SCENARIO pm_f4 pinned: ambient=10 warnings=%d restored=%d entry=%d\" % [r.get(\"warnings\", []).size(), restored, entry_edition])\nreturn \"warns=%s restored=%d entry=%d\" % [str(still_warns), restored, entry_edition]",
+			"equals": "warns=true restored=10 entry=10"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# And nothing that ships carries the note, so the check is not simply firing\n# on everything.\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar ALM = node.get_node(\"/root/ArmyListManager\")\nvar army = ALM.load_army_list(\"recon_stomps\", 1)\nvar total = 0\nfor p in [\"res://data/ai_plans/orks_recon_stomps_crucible.json\", \"res://data/ai_plans/orks_recon_stomps_hammer_anvil.json\"]:\n\tvar r = PV.validate_plan(PV.load_plan_file(p), army)\n\ttotal += r.get(\"warnings\", []).size() + r.get(\"errors\", []).size()\nprint(\"SCENARIO pm_f4 shipped plans: %d errors+warnings across both\" % total)\nreturn total",
+			"equals": 0
+		}
+	]
+}

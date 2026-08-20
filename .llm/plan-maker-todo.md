@@ -2393,7 +2393,7 @@ test so this cannot silently rot again.
 
 ## PM-F4 — FOLLOW-UP: the AI's plan-legality coherency check is not edition-aware
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-2a
 **Player-facing:** yes (AI silently ignores a legal plan placement)
 
@@ -2427,7 +2427,135 @@ of the two rules.
 and illegal under 11e, and asserts the phase and `_plan_positions_legal` agree
 under each edition setting.
 
-**Evidence.** _(fill)_
+### Evidence (2026-08-20) — and the filed diagnosis was WRONG
+
+**The reported root cause does not exist.** The entry above says
+`_plan_positions_legal` "enforces the 11e coherency rule unconditionally, with
+a comment claiming DeploymentPhase enforces this via the same helper. It does
+not." Both halves of that are false:
+
+* `AIDecisionMaker.gd:603` calls `AttackSequence.check_unit_coherency` — it has
+  since PM-2a (`git log -L 590,606` shows one commit, 531c98b), so it was never
+  hardcoded.
+* `DeploymentPhase._check_deployment_coherency` calls the SAME function and its
+  own docstring says so: "the single source of truth also used by ScoringPhase
+  and DeploymentController" (`DeploymentPhase.gd:199-202, :232`).
+* That helper reads `GameConstants.edition` for BOTH the neighbour count and
+  the 9" envelope (`AttackSequence.gd:238-244`), so it is edition-aware for
+  both callers at once.
+
+The new gate proves the agreement rather than asserting it: for the exact
+13.60" Gretchin line, at edition 10 AND edition 11, the phase verdict and the
+plan-check verdict are equal in all four combinations.
+
+**What the real defect was: an edition split between AUTHORING and PLAY.**
+`SettingsService._is_automated_harness()` returns true for any `-s` run and
+pins `GameConstants.edition = 10` (`SettingsService.gd:257-286`). The PM-10
+authoring spike is exactly such a run. Every consumer runs at 11 — a player
+launch via SettingsService, and the bench via `AIBenchmarkRunner.gd:288`. So
+the spike certified placements against a ruleset nothing plays at. Measured
+directly:
+
+```
+boot edition under `godot -s`      = 10
+13.60" line, 11 models @ 25mm:  edition 10 -> coherent      (no envelope in 10e)
+                                edition 11 -> 6 offenders   (03.03 envelope)
+8.60" line:                     coherent under both
+```
+
+Six offenders out of eleven models — the "6 of 11" in the original report was
+the offender count, not a per-game placement count.
+
+**The fix.** `PlanValidator._placement_coherency_note` checks every placement's
+coherency **pinned to edition 11**, whatever the ambient setting is, and gets
+the answer from `AttackSequence.check_unit_coherency` rather than restating the
+rule — so the validator cannot drift from the consumer either. It needs the
+army for base sizes (coherency is measured base edge to base edge) and declines
+rather than guessing when there is none. It restores the ambient edition
+afterwards, which the gate asserts. Severity is WARNING, matching the
+neighbouring zone-polygon case: an over-spread unit is repaired or falls back
+to the formula, it is not an illegal game state.
+
+Surfacing: `PlanValidator.describe_result` feeds the plan browser badge, so a
+player sees "VALID with 1 warning(s): …". Version 1.36.3.
+
+**True positive and true negative, measured:** `fixture_minimal_valid.json`
+(15.00" span) now warns "8 of 11 models"; both shipped plans stay at 0 errors,
+0 warnings.
+
+**Gate — headless.** `tests/unit/test_plan_coherency_editions.gd` — 17 passed,
+0 failed, registered in `run_pretrigger_tests.sh`. It carries the control PM-F4
+asked for (the shape must actually discriminate between the editions, or the
+agreement assertions prove nothing).
+
+**Gate — windowed, and it caught a real gap the headless test could not.**
+`sp/pm_f4_coherency_note_in_browser.json` — 14 passed, 0 failed. Its FIRST run
+failed 4 steps, and two of those were the product, not the test:
+
+* **The badge never showed the note.** `PlanManager.list_plans()` validated with
+  `validate_plan(plan)` — no army. Coherency is measured base edge to base
+  edge, so with no base sizes the check declines, and the row read a clean
+  "OK" for a plan the AI will refuse to deploy as drawn. The headless test
+  passed throughout, because it passes an army. Fixed: `list_plans` now
+  resolves the army from the plan's own `keys.army_file` through a new
+  `PlanManager.army_units_for_file()` (sharing a cached `_army_json` loader
+  with `_army_faction`). **Without this the whole fix was invisible to
+  players** — and the 1.36.3 changelog entry claiming otherwise would have
+  been false.
+* The other two were my own wrong assumptions, both worth recording: the
+  status column is index 4, not 5 (5 is `Where`); and a WINDOWED run boots at
+  edition **10**, not 11 — `--scenario-file=` matches
+  `SettingsService._is_automated_harness()` just as `-s` does. Measured, then
+  asserted.
+
+**Screenshot.** `docs/evidence/pm_f4_coherency_note_in_browser.png` — the AI
+Plans browser with `Fixture — minimal valid` reading **"OK, 1 note(s)"** in the
+warning colour against three plain green "OK" rows, and the detail panel
+spelling out `Placement 'U_GRETCHIN_A': 8 of 11 models break 11th-edition unit
+coherency …`.
+
+**The authoring spike now runs at edition 11 — and that turned out to matter
+in a way worth recording.** Re-authoring at 11 rewrites `hammer_anvil`
+(deterministically; `crucible` is unchanged), moving `U_GRETCHIN_B`,
+`U_STORMBOYZ_A` and `U_STORMBOYZ_B`. Proven to be the edition and nothing else:
+pinning the spike back to 10 reproduces the committed file byte-for-byte.
+
+But the re-authored plan is **worse in play**, measured twice each on
+`sp/pm10_shipped_plan_from_menu`:
+
+| | plan records | exact of 11 | misses |
+|---|---|---|---|
+| shipped file (authored at 10e) | 11 | **10** | `U_WARBIKERS_B` off 7.17" |
+| re-authored at 11e | 10 | **9** | `U_WARBIKERS_B` off 17.43", `U_MEK_A` off 1.46" |
+
+So the shipped plans are **kept as they are** — they validate clean at edition
+11 (0 errors, 0 warnings, worst envelope 8.76") and they measure better. The
+anchors were hand-tuned against the 10e packing and want re-tuning before the
+spike's 11e output should replace shipped content; the spike header now says so
+in full, so a future run cannot quietly commit the downgrade. Filed as PM-F7.
+
+---
+
+## PM-F7 — FOLLOW-UP: the authoring spike's anchors are tuned for the 10e packing
+
+**Status:** TODO
+**Depends:** PM-F4
+**Player-facing:** no (authoring tool), but it blocks re-authoring shipped content
+
+**What was observed.** With PM-F4's fix the spike authors at edition 11, which
+is correct. Its hand-tuned `anchors` were chosen against the 10e packing,
+though, so at 11 the packer reshapes `U_GRETCHIN_B` (4 columns spanning 4.90"
+becomes 2 columns spanning 6.93") and relocates both screening Stormboyz mobs,
+which crowds out whatever is packed after them. Live adherence drops from 10 of
+11 exact to 9 of 11, with `U_WARBIKERS_B` thrown 17.43" off its planned spot.
+Both numbers reproduce exactly across two runs.
+
+**Suggested fix.** Re-tune the anchors against the 11e packing and re-measure
+adherence before replacing the shipped plans; the acceptance bar is beating the
+current 10 of 11. Worth doing together with a look at why the packer's column
+choice is edition-sensitive at all, given `COHERENCY_ENVELOPE_IN` is a constant.
+
+**Evidence.** The table in PM-F4's evidence block above; spike header comment.
 
 ---
 

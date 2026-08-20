@@ -33,6 +33,24 @@ extends SceneTree
 # model is required to sit wholly inside BOTH polygons.
 #
 # Run: godot --headless --path . -s tests/spikes/pm10_author_plans.gd
+#
+# ⚠ RUNNING THIS OVERWRITES THE SHIPPED PLANS, AND RIGHT NOW THAT IS A
+# DOWNGRADE FOR hammer_anvil. PM-F4 made this spike author at edition 11 (the
+# edition the game plays at) instead of the 10e baseline SettingsService pins a
+# `godot -s` run to. That is the correct thing to validate against — but the
+# anchors below were hand-tuned against the 10e packing, and re-packing at 11e
+# moves U_GRETCHIN_B, U_STORMBOYZ_A and U_STORMBOYZ_B, which crowds out what is
+# packed after them. Measured, twice each, on sp/pm10_shipped_plan_from_menu:
+#
+#   shipped file (authored at 10e)   adherence 10 of 11 exact, 11 plan records
+#   re-authored at 11e                adherence  9 of 11 exact, 10 plan records
+#                                     (U_WARBIKERS_B off by 17.43", U_MEK_A by 1.46")
+#
+# The shipped file is therefore KEPT as it is: it validates clean at edition 11
+# (0 errors, 0 warnings, worst envelope 8.76") and it measures better. The
+# anchors want re-tuning for the 11e packing before this spike's output should
+# replace it — filed as PM-F7. Until then, treat a diff in data/ai_plans/ after
+# running this as a result to evaluate, not one to commit.
 
 const PX := 40.0
 const GAP := 0.1   # inches between base edges. Models may touch; they may not
@@ -184,6 +202,14 @@ func _init():
 
 
 func _run() -> void:
+	# PM-F4. A plan is authored here and played somewhere else, so it must be
+	# validated against the edition it will be PLAYED at. SettingsService treats
+	# any `godot -s` run as an automated harness and pins the legacy 10e
+	# baseline (SettingsService.gd:257-286), which has no 9" coherency
+	# envelope — so without this line DeploymentPhase.validate_action below
+	# certifies layouts the game then refuses. Every player launch runs 11.
+	GameConstants.edition = 11
+	print("[pm10] authoring at rules edition %d (the edition the game plays at)" % GameConstants.edition)
 	for spec in PLANS:
 		await _author(spec)
 	print("\n=== %s ===" % ("ALL PLANS WRITTEN" if _failures == 0 else "%d PLAN(S) FAILED" % _failures))
@@ -404,13 +430,17 @@ func _fit(phase, unit_id: String, unit: Dictionary, anchor: Array) -> Array:
 	#
 	# This filter is load-bearing and was added after a measured run. 11e core
 	# 03.03 requires every model to be within 9" of every OTHER model in the
-	# unit, and AIDecisionMaker._plan_positions_legal enforces that
-	# unconditionally. DeploymentPhase enforces it too — but edition-aware, and
-	# the automated harness pins GameConstants.edition to the legacy 10e
-	# baseline, which has no 9" envelope. So `phase.validate_action` HAPPILY
-	# ACCEPTS a layout the AI will later refuse: Gretchin Alpha was authored as
-	# an 11-model line 13.6" across, passed validation here, and then fell back
-	# to the formula in every single measured game.
+	# unit. Both AIDecisionMaker._plan_positions_legal and DeploymentPhase
+	# enforce it through the SAME edition-aware helper
+	# (AttackSequence.check_unit_coherency), so they never disagree with each
+	# other — but they do answer for whatever GameConstants.edition happens to
+	# be, and SettingsService pins a `godot -s` run like this one to the legacy
+	# 10e baseline, which has no 9" envelope. Authoring therefore used to
+	# certify a layout the GAME would refuse: Gretchin Alpha was authored as an
+	# 11-model line 13.6" across, passed validation here, and then fell back to
+	# the formula in every single measured game. PM-F4 closes that split — this
+	# spike now runs at edition 11 (see _run) and PlanValidator answers for 11
+	# regardless of ambient — and this filter stays as the belt to that braces.
 	var col_options: Array = []
 	var fallback_cols := 1
 	var best_span := INF
