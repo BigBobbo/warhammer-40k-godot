@@ -1,318 +1,318 @@
 {
-  "id": "pm4_plan_editor_session",
-  "covers": [
-    "ui.main_menu.plan_editor_button",
-    "ui.main_menu.plan_editor_zone_picker",
-    "plan_editor.session_flag",
-    "plan_editor.player2_cleared",
-    "plan_editor.formations_auto_confirm_absent_opponent",
-    "plan_editor.rolloff_auto_resolved_target_defends",
-    "plan_editor.deployment_held_open",
-    "ui.Main.plan_editor_banner"
-  ],
-  "disable_ai": true,
-  "description": "PM-4 sandbox Plan Editor. No fixture: the scenario starts on the real main menu, picks recon_stomps plus the editor's own Hammer and Anvil zone picker, and presses the Plan Editor button. Asserts the whole session contract \u2014 plan_editor lands in meta.game_config, Player 2's units are gone, Formations runs for real for the target army while the absent seat is auto-confirmed, the deploy roll-off resolves without a dialog with Player 1 as Defender, and the PLAN EDITOR banner (with its Exit to Menu button) is on screen. One unit is deployed down the real player path (unit list click + board click) and the rest in bulk; with every unit deployed the phase STILL reads DEPLOYMENT, proving PhaseManager's hold-open guard suppresses all three completion emitters. The final steps clear the flag and show END_DEPLOYMENT then advances, so the hold is attributable to the flag and not to a stuck phase.",
-  "steps": [
-    {
-      "act": "wait_seconds",
-      "seconds": 1.5
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return str(tree.current_scene.name)",
-      "equals": "MainMenu"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return tree.current_scene.plan_editor_button != null",
-      "equals": true
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return tree.current_scene.plan_editor_zone_dropdown.item_count",
-      "equals": 6
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var m = tree.current_scene\nvar army_idx = -1\nfor i in range(m.army_options.size()):\n\tif str(m.army_options[i].id) == \"recon_stomps\":\n\t\tarmy_idx = i\nvar zone_idx = -1\nfor i in range(m.deployment_options.size()):\n\tif str(m.deployment_options[i].id) == \"hammer_anvil\":\n\t\tzone_idx = i\nif army_idx < 0 or zone_idx < 0:\n\treturn \"missing army_idx=%d zone_idx=%d\" % [army_idx, zone_idx]\nm.player1_dropdown.selected = army_idx\nm.plan_editor_zone_dropdown.selected = zone_idx\nreturn \"%s|%s\" % [str(m.army_options[army_idx].id), m._plan_editor_zone_id()]",
-      "equals": "recon_stomps|hammer_anvil"
-    },
-    {
-      "act": "screenshot",
-      "label": "01_menu_plan_editor_controls"
-    },
-    {
-      "act": "click_node",
-      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/PlanEditorButton",
-      "emit_pressed": true
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 3.5
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return str(tree.current_scene.name)",
-      "equals": "Main"
-    },
-    {
-      "act": "expect_state",
-      "path": "meta.game_config.plan_editor",
-      "equals": true
-    },
-    {
-      "act": "expect_state",
-      "path": "meta.game_config.deployment",
-      "equals": "hammer_anvil"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var n = 0\nfor uid in GameState.state.get(\"units\", {}).keys():\n\tif int(GameState.state.units[uid].get(\"owner\", 0)) == 2:\n\t\tn += 1\nreturn n",
-      "equals": 0
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var n = 0\nfor uid in GameState.state.get(\"units\", {}).keys():\n\tvar s = int(GameState.state.units[uid].get(\"status\", 0))\n\tif s != 2 and s != 7:\n\t\tn += 1\nreturn n",
-      "expect_min": 1
-    },
-    {
-      "act": "expect_state",
-      "path": "meta.phase",
-      "equals": 0
-    },
-    {
-      "act": "expect_node_visible",
-      "node": "/root/Main/FormationsDialog",
-      "timeout_s": 3.0
-    },
-    {
-      "act": "screenshot",
-      "label": "02_formations_target_army"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "tree.current_scene._on_formations_confirm_pressed()\nreturn true",
-      "equals": true
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 3.0
-    },
-    {
-      "act": "expect_state",
-      "path": "meta.formations_p1_confirmed",
-      "equals": true
-    },
-    {
-      "act": "expect_state",
-      "path": "meta.formations_p2_confirmed",
-      "equals": true
-    },
-    {
-      "act": "expect_state",
-      "path": "meta.defender",
-      "equals": 1
-    },
-    {
-      "act": "expect_state",
-      "path": "meta.phase",
-      "equals": 1
-    },
-    {
-      "act": "expect_node_visible",
-      "node": "/root/Main/PlanEditorBanner",
-      "timeout_s": 3.0
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return node.get_node(\"/root/Main/PlanEditorBanner/PlanEditorBannerRow/PlanEditorBannerLabel\").text",
-      "equals": "PLAN EDITOR"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return node.get_node_or_null(\"/root/Main/PlanEditorBanner/PlanEditorBannerRow/PlanEditorExitButton\") != null",
-      "equals": true
-    },
-    {
-      "act": "screenshot",
-      "label": "03_deployment_reached_with_banner"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return node.get_node(\"/root/Main/HUD_Right/VBoxContainer/UnitListPanel\").get_item_text(0).begins_with(\"Deffkilla Wartrike Alpha\")",
-      "equals": true
-    },
-    {
-      "act": "click_item_list",
-      "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
-      "index": 0
-    },
-    {
-      "act": "wait_frames",
-      "frames": 6
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var dc = tree.current_scene.deployment_controller\nreturn dc != null and str(dc.unit_id) != \"\"",
-      "equals": true
-    },
-    {
-      "act": "click_board_at",
-      "x": 900,
-      "y": 300
-    },
-    {
-      "act": "wait_frames",
-      "frames": 6
-    },
-    {
-      "act": "click_node",
-      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton",
-      "emit_pressed": true
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 1.0
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var n = 0\nfor uid in GameState.state.get(\"units\", {}).keys():\n\tif int(GameState.state.units[uid].get(\"status\", 0)) == 2:\n\t\tn += 1\nreturn n",
-      "equals": 1
-    },
-    {
-      "act": "screenshot",
-      "label": "04_first_unit_placed_by_mouse"
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "# Deploy every remaining Player 1 unit without the per-unit UI ceremony.\n# Deterministic first-fit: units are tried largest-footprint first on a 1\"\n# grid, each laid out as a compact block whose widest span stays under the\n# 9\" coherency ceiling. The single unit above already proved the real\n# click path; this is bulk scaffolding so the hold-open assertion can run\n# against a fully deployed board.\nvar phase = PhaseManager.get_current_phase_instance()\nvar PX = 40.0\nvar order = []\nfor uid in GameState.state.units.keys():\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) != 1 or int(u.get(\"status\", 0)) != 0:\n\t\tcontinue\n\tvar m0 = u.get(\"models\", [])[0]\n\tvar d = m0.get(\"base_dimensions\", {})\n\tvar xw = PX * (float(d.get(\"length\", m0.get(\"base_mm\", 32))) / 25.4)\n\tvar yh = PX * (float(d.get(\"width\", m0.get(\"base_mm\", 32))) / 25.4)\n\torder.append({\"id\": uid, \"area\": xw * yh * u.get(\"models\", []).size(), \"xw\": xw, \"yh\": yh})\norder.sort_custom(func(a, b): return a.area > b.area)\nvar placed = 0\nvar failed = []\nfor entry in order:\n\tvar uid = str(entry.id)\n\tvar n = GameState.state.units[uid].get(\"models\", []).size()\n\tvar xw = float(entry.xw)\n\tvar yh = float(entry.yh)\n\tvar gap = 0.2 * PX\n\tvar cols = n\n\twhile cols > 1 and (cols - 1) * (xw + gap) > 7.5 * PX:\n\t\tcols -= 1\n\tvar block_w = cols * (xw + gap)\n\tvar block_h = int(ceil(float(n) / float(cols))) * (yh + gap)\n\tvar done = false\n\tvar gy = 0.6\n\twhile gy * PX + block_h < 18.0 * PX and not done:\n\t\tvar gx = 0.6\n\t\twhile gx * PX + block_w < 44.0 * PX and not done:\n\t\t\tvar positions = []\n\t\t\tfor i in range(n):\n\t\t\t\tpositions.append(Vector2(\n\t\t\t\t\tgx * PX + (i % cols) * (xw + gap) + xw / 2.0,\n\t\t\t\t\tgy * PX + (i / cols) * (yh + gap) + yh / 2.0))\n\t\t\tvar act = {\"type\": \"DEPLOY_UNIT\", \"unit_id\": uid, \"player\": 1, \"model_positions\": positions}\n\t\t\tif phase.validate_action(act).get(\"valid\", false):\n\t\t\t\tif phase.execute_action(act).get(\"success\", false):\n\t\t\t\t\tplaced += 1\n\t\t\t\t\tdone = true\n\t\t\tgx += 1.0\n\t\tgy += 1.0\n\tif not done:\n\t\tfailed.append(uid)\nif not failed.is_empty():\n\treturn \"FAILED:\" + str(failed)\nreturn placed",
-      "expect_min": 1
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "tree.current_scene._recreate_unit_visuals()\ntree.current_scene._update_deployment_progress()\nreturn true",
-      "equals": true
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 2.0
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "var n = 0\nfor uid in GameState.state.get(\"units\", {}).keys():\n\tvar s = int(GameState.state.units[uid].get(\"status\", 0))\n\tif s != 2 and s != 7:\n\t\tn += 1\nreturn n",
-      "equals": 0
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return tree.current_scene.get_node(\"BoardRoot/TokenLayer\").get_child_count()",
-      "expect_min": 40
-    },
-    {
-      "act": "expect_state",
-      "path": "meta.phase",
-      "equals": 1
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 3.0
-    },
-    {
-      "act": "expect_state",
-      "path": "meta.phase",
-      "equals": 1
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return PhaseManager.is_plan_editor_session()",
-      "equals": true
-    },
-    {
-      "act": "expect_node_visible",
-      "node": "/root/Main/PlanEditorBanner"
-    },
-    {
-      "act": "screenshot",
-      "label": "05_all_deployed_phase_held_open"
-    },
-    {
-      "act": "dispatch_action",
-      "action": {
-        "type": "END_DEPLOYMENT",
-        "player": 1
-      }
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 2.0
-    },
-    {
-      "act": "expect_state",
-      "path": "meta.phase",
-      "equals": 1
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "GameState.state[\"meta\"][\"game_config\"][\"plan_editor\"] = false\nreturn PhaseManager.is_plan_editor_session()",
-      "equals": false
-    },
-    {
-      "act": "dispatch_action",
-      "action": {
-        "type": "END_DEPLOYMENT",
-        "player": 1
-      }
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 2.0
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return int(GameState.state.get(\"meta\", {}).get(\"phase\", -1)) != 1",
-      "equals": true
-    },
-    {
-      "act": "screenshot",
-      "label": "06_control_flag_off_advances"
-    },
-    {
-      "act": "click_node",
-      "node": "/root/Main/PlanEditorBanner/PlanEditorBannerRow/PlanEditorExitButton",
-      "emit_pressed": true
-    },
-    {
-      "act": "wait_seconds",
-      "seconds": 2.5
-    },
-    {
-      "act": "execute_script",
-      "multiline": true,
-      "script": "return str(tree.current_scene.name)",
-      "equals": "MainMenu"
-    },
-    {
-      "act": "screenshot",
-      "label": "07_exited_to_menu"
-    }
-  ]
+	"id": "pm4_plan_editor_session",
+	"covers": [
+		"ui.main_menu.plan_editor_button",
+		"ui.main_menu.plan_editor_zone_picker",
+		"plan_editor.session_flag",
+		"plan_editor.player2_cleared",
+		"plan_editor.formations_auto_confirm_absent_opponent",
+		"plan_editor.rolloff_auto_resolved_target_defends",
+		"plan_editor.deployment_held_open",
+		"ui.Main.plan_editor_banner"
+	],
+	"disable_ai": true,
+	"description": "PM-4 sandbox Plan Editor. No fixture: the scenario starts on the real main menu, picks recon_stomps plus the editor's own Hammer and Anvil zone picker, and presses the Plan Editor button. Asserts the whole session contract — plan_editor lands in meta.game_config, Player 2's units are gone, Formations runs for real for the target army while the absent seat is auto-confirmed, the deploy roll-off resolves without a dialog with Player 1 as Defender, and the PLAN EDITOR banner (with its Exit to Menu button) is on screen. One unit is deployed down the real player path (unit list click + board click) and the rest in bulk; with every unit deployed the phase STILL reads DEPLOYMENT, proving PhaseManager's hold-open guard suppresses all three completion emitters. The final steps clear the flag and show END_DEPLOYMENT then advances, so the hold is attributable to the flag and not to a stuck phase.",
+	"steps": [
+		{
+			"act": "wait_seconds",
+			"seconds": 1.5
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return str(tree.current_scene.name)",
+			"equals": "MainMenu"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return tree.current_scene.plan_editor_button != null",
+			"equals": true
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return tree.current_scene.plan_editor_zone_dropdown.item_count",
+			"equals": 6
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var m = tree.current_scene\nvar army_idx = -1\nfor i in range(m.army_options.size()):\n\tif str(m.army_options[i].id) == \"recon_stomps\":\n\t\tarmy_idx = i\nvar zone_idx = -1\nfor i in range(m.deployment_options.size()):\n\tif str(m.deployment_options[i].id) == \"hammer_anvil\":\n\t\tzone_idx = i\nif army_idx < 0 or zone_idx < 0:\n\treturn \"missing army_idx=%d zone_idx=%d\" % [army_idx, zone_idx]\n# The Plan Editor reads its OWN army picker, not the Player 1 seat dropdown\n# — it used to read Player 1 silently, which meant an author could not choose\n# the list they were writing for. Set both so this scenario keeps testing the\n# control the button actually uses.\nm.player1_dropdown.selected = army_idx\nm.plan_editor_army_dropdown.selected = army_idx\nm.plan_editor_zone_dropdown.selected = zone_idx\nreturn \"%s|%s\" % [m._plan_editor_army_id(), m._plan_editor_zone_id()]",
+			"equals": "recon_stomps|hammer_anvil"
+		},
+		{
+			"act": "screenshot",
+			"label": "01_menu_plan_editor_controls"
+		},
+		{
+			"act": "click_node",
+			"node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/PlanEditorButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 3.5
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return str(tree.current_scene.name)",
+			"equals": "Main"
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.game_config.plan_editor",
+			"equals": true
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.game_config.deployment",
+			"equals": "hammer_anvil"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var n = 0\nfor uid in GameState.state.get(\"units\", {}).keys():\n\tif int(GameState.state.units[uid].get(\"owner\", 0)) == 2:\n\t\tn += 1\nreturn n",
+			"equals": 0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var n = 0\nfor uid in GameState.state.get(\"units\", {}).keys():\n\tvar s = int(GameState.state.units[uid].get(\"status\", 0))\n\tif s != 2 and s != 7:\n\t\tn += 1\nreturn n",
+			"expect_min": 1
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.phase",
+			"equals": 0
+		},
+		{
+			"act": "expect_node_visible",
+			"node": "/root/Main/FormationsDialog",
+			"timeout_s": 3.0
+		},
+		{
+			"act": "screenshot",
+			"label": "02_formations_target_army"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "tree.current_scene._on_formations_confirm_pressed()\nreturn true",
+			"equals": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 3.0
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.formations_p1_confirmed",
+			"equals": true
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.formations_p2_confirmed",
+			"equals": true
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.defender",
+			"equals": 1
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.phase",
+			"equals": 1
+		},
+		{
+			"act": "expect_node_visible",
+			"node": "/root/Main/PlanEditorBanner",
+			"timeout_s": 3.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return node.get_node(\"/root/Main/PlanEditorBanner/PlanEditorBannerRow/PlanEditorBannerLabel\").text",
+			"equals": "PLAN EDITOR"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return node.get_node_or_null(\"/root/Main/PlanEditorBanner/PlanEditorBannerRow/PlanEditorExitButton\") != null",
+			"equals": true
+		},
+		{
+			"act": "screenshot",
+			"label": "03_deployment_reached_with_banner"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return node.get_node(\"/root/Main/HUD_Right/VBoxContainer/UnitListPanel\").get_item_text(0).begins_with(\"Deffkilla Wartrike Alpha\")",
+			"equals": true
+		},
+		{
+			"act": "click_item_list",
+			"node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel",
+			"index": 0
+		},
+		{
+			"act": "wait_frames",
+			"frames": 6
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var dc = tree.current_scene.deployment_controller\nreturn dc != null and str(dc.unit_id) != \"\"",
+			"equals": true
+		},
+		{
+			"act": "click_board_at",
+			"x": 900,
+			"y": 300
+		},
+		{
+			"act": "wait_frames",
+			"frames": 6
+		},
+		{
+			"act": "click_node",
+			"node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 1.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var n = 0\nfor uid in GameState.state.get(\"units\", {}).keys():\n\tif int(GameState.state.units[uid].get(\"status\", 0)) == 2:\n\t\tn += 1\nreturn n",
+			"equals": 1
+		},
+		{
+			"act": "screenshot",
+			"label": "04_first_unit_placed_by_mouse"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Deploy every remaining Player 1 unit without the per-unit UI ceremony.\n# Deterministic first-fit: units are tried largest-footprint first on a 1\"\n# grid, each laid out as a compact block whose widest span stays under the\n# 9\" coherency ceiling. The single unit above already proved the real\n# click path; this is bulk scaffolding so the hold-open assertion can run\n# against a fully deployed board.\nvar phase = PhaseManager.get_current_phase_instance()\nvar PX = 40.0\nvar order = []\nfor uid in GameState.state.units.keys():\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) != 1 or int(u.get(\"status\", 0)) != 0:\n\t\tcontinue\n\tvar m0 = u.get(\"models\", [])[0]\n\tvar d = m0.get(\"base_dimensions\", {})\n\tvar xw = PX * (float(d.get(\"length\", m0.get(\"base_mm\", 32))) / 25.4)\n\tvar yh = PX * (float(d.get(\"width\", m0.get(\"base_mm\", 32))) / 25.4)\n\torder.append({\"id\": uid, \"area\": xw * yh * u.get(\"models\", []).size(), \"xw\": xw, \"yh\": yh})\norder.sort_custom(func(a, b): return a.area > b.area)\nvar placed = 0\nvar failed = []\nfor entry in order:\n\tvar uid = str(entry.id)\n\tvar n = GameState.state.units[uid].get(\"models\", []).size()\n\tvar xw = float(entry.xw)\n\tvar yh = float(entry.yh)\n\tvar gap = 0.2 * PX\n\tvar cols = n\n\twhile cols > 1 and (cols - 1) * (xw + gap) > 7.5 * PX:\n\t\tcols -= 1\n\tvar block_w = cols * (xw + gap)\n\tvar block_h = int(ceil(float(n) / float(cols))) * (yh + gap)\n\tvar done = false\n\tvar gy = 0.6\n\twhile gy * PX + block_h < 18.0 * PX and not done:\n\t\tvar gx = 0.6\n\t\twhile gx * PX + block_w < 44.0 * PX and not done:\n\t\t\tvar positions = []\n\t\t\tfor i in range(n):\n\t\t\t\tpositions.append(Vector2(\n\t\t\t\t\tgx * PX + (i % cols) * (xw + gap) + xw / 2.0,\n\t\t\t\t\tgy * PX + (i / cols) * (yh + gap) + yh / 2.0))\n\t\t\tvar act = {\"type\": \"DEPLOY_UNIT\", \"unit_id\": uid, \"player\": 1, \"model_positions\": positions}\n\t\t\tif phase.validate_action(act).get(\"valid\", false):\n\t\t\t\tif phase.execute_action(act).get(\"success\", false):\n\t\t\t\t\tplaced += 1\n\t\t\t\t\tdone = true\n\t\t\tgx += 1.0\n\t\tgy += 1.0\n\tif not done:\n\t\tfailed.append(uid)\nif not failed.is_empty():\n\treturn \"FAILED:\" + str(failed)\nreturn placed",
+			"expect_min": 1
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "tree.current_scene._recreate_unit_visuals()\ntree.current_scene._update_deployment_progress()\nreturn true",
+			"equals": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 2.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var n = 0\nfor uid in GameState.state.get(\"units\", {}).keys():\n\tvar s = int(GameState.state.units[uid].get(\"status\", 0))\n\tif s != 2 and s != 7:\n\t\tn += 1\nreturn n",
+			"equals": 0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return tree.current_scene.get_node(\"BoardRoot/TokenLayer\").get_child_count()",
+			"expect_min": 40
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.phase",
+			"equals": 1
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 3.0
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.phase",
+			"equals": 1
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return PhaseManager.is_plan_editor_session()",
+			"equals": true
+		},
+		{
+			"act": "expect_node_visible",
+			"node": "/root/Main/PlanEditorBanner"
+		},
+		{
+			"act": "screenshot",
+			"label": "05_all_deployed_phase_held_open"
+		},
+		{
+			"act": "dispatch_action",
+			"action": {
+				"type": "END_DEPLOYMENT",
+				"player": 1
+			}
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 2.0
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.phase",
+			"equals": 1
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "GameState.state[\"meta\"][\"game_config\"][\"plan_editor\"] = false\nreturn PhaseManager.is_plan_editor_session()",
+			"equals": false
+		},
+		{
+			"act": "dispatch_action",
+			"action": {
+				"type": "END_DEPLOYMENT",
+				"player": 1
+			}
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 2.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return int(GameState.state.get(\"meta\", {}).get(\"phase\", -1)) != 1",
+			"equals": true
+		},
+		{
+			"act": "screenshot",
+			"label": "06_control_flag_off_advances"
+		},
+		{
+			"act": "click_node",
+			"node": "/root/Main/PlanEditorBanner/PlanEditorBannerRow/PlanEditorExitButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 2.5
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return str(tree.current_scene.name)",
+			"equals": "MainMenu"
+		},
+		{
+			"act": "screenshot",
+			"label": "07_exited_to_menu"
+		}
+	]
 }

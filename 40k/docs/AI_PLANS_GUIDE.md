@@ -23,13 +23,18 @@ There are four things you can do, and they build on each other:
 
 **Main menu → Plan Editor.**
 
-Next to the button there is a **Plan Editor Zone** picker. Choose the
-deployment zone you are writing the plan for. (It needs its own control because
-in a real game the zone is decided by the mission and the terrain, and a plan
-has to be written for one specific zone.)
+Under the button there are two pickers of its own — **Plan Editor Army** and
+**Plan Editor Zone**. Choose the army you are writing the plan for and the
+deployment zone it is for, then press Plan Editor.
 
-Pick the army in **Player 1 Army**, then press Plan Editor. You get a solo
-sandbox:
+Both need their own controls. The zone, because in a real game it is decided by
+the mission and the terrain, while a plan has to be written for one specific
+zone. The army, because the editor is not a game: it has one side, so borrowing
+the Player 1 seat's list made it look as though the army was fixed. The picker
+starts on whatever Player 1 is set to, so you can ignore it if that is what you
+wanted.
+
+You get a solo sandbox:
 
 * only your army is on the board — there is no opponent to wait for;
 * you go through the normal pre-battle declarations, so you can put units in

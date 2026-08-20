@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.37.0",
+      "date": "2026-08-20",
+      "summary": "The Plan Editor now has its own army picker, so you can write a plan for any army instead of always getting Player 1's.",
+      "changes": [
+        "New 'Plan Editor Army' picker sits under the Plan Editor button, next to the zone picker. Pick the army you are writing the plan for — Custodes Lions, for instance — and that is what you get.",
+        "Previously the Plan Editor quietly used whatever was in Player 1 Army, which starts on Recon Stomps, so it looked like the Ork list was the only option.",
+        "It starts on the same army as Player 1, so if that was already what you wanted, nothing changes."
+      ]
+    },
+    {
       "version": "1.36.3",
       "date": "2026-08-20",
       "summary": "Plans are now checked against the rules the game actually plays, so a plan can no longer look fine and then fall apart in a real battle.",
