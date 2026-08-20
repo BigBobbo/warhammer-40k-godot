@@ -2307,6 +2307,65 @@ path now uses, i.e. re-project or reject-and-resample candidates against
 `PLANS_ENABLED = 0` asserting ZERO `deployment failed` log lines and zero units
 forced into reserves; plus a headless test over all six shipped zones.
 
+### Partial work, 2026-08-20 — a real geometry defect fixed, the reported symptom NOT reproduced
+
+**Status stays TODO.** A guard was added and a defect measured, but the failure
+this task was filed for did not reproduce, so it is not closed.
+
+**What DID reproduce, headlessly, with a control.** Formula positions come off
+the RECTANGULAR `zone_bounds` and `_resolve_formation_collisions` clamps back to
+that rectangle, so on non-rectangular zones it generates placements outside the
+real polygon. Sampling the formula's own column grid (5 models, 32mm, 24 centres
+per seat):
+
+| zone | seat 1 | seat 2 |
+|---|---|---|
+| hammer_anvil / dawn_of_war | 0 | 0 |
+| search_and_destroy | 0 | 9 |
+| sweeping_engagement | 11 | 0 |
+| crucible_of_battle | 4 | **23 of 24** |
+| tipping_point | 0 | 12 |
+
+**Fix applied.** `_formation_inside_zone` + `_find_in_zone_formation`, called
+from `_decide_deployment` after collision resolution — the same
+wholly-within-polygon rule the plan path has used since PM-2a, judged AFTER
+resolution because that step can itself push a model back out. If 40 samples
+find nothing it emits the old placement and logs once; the phase's rejection
+plus AIPlayer's retry / reserves fallback remain the backstop. Gate
+`tests/unit/test_deployment_zone_polygon_guard.gd` — 31 passed, 0 failed, with a
+control asserting the naive grid really does leak.
+
+**What did NOT reproduce — why this stays open.** The filed symptom is
+`deployment failed … retrying` and units forced into reserves. A real AI-vs-AI
+game on the triangular crucible zone with plans off produced **zero of either —
+and zero with the guard stashed out as well**. The guard has no measured effect
+on the reported failure, and that failure is not currently reachable this way.
+
+Two dead ends, so they are not repeated:
+
+* **A predeploy-fixture run cannot test this.** The first gate loaded
+  `mirror_custodes_2000_predeploy` and passed identically with and without the
+  fix, because those fixtures bake a stale, nearly-rectangular crucible zone
+  into their board (PM-F3). The triangle is never exercised — a repro must
+  start from the menu.
+* **Counting models outside their zone after deployment measures MOVEMENT.**
+  The game runs on into round 1, so advanced units read as bad placements: 38
+  without the fix, 42 with. Noise. That assertion was deleted, not tuned.
+
+**What is left.** The original observation was on `mirror_orks_2000_predeploy`
+at Normal during the PM-10 A/B — the Ork list on the STALE fixture board, not a
+menu game. So PM-F3 may be a precondition rather than an independent defect;
+fixing it first may make this reproducible, or make it vanish. Also note
+`AIPlayer` ALREADY has a bounded retry and a reserves fallback
+(`_handle_failed_deployment` → `_fallback_to_reserves`), so PM-F6's "bound the
+retry loop" suggestion is already satisfied and the stall must come from after
+it. Unverified candidate: `PLACE_IN_RESERVES` itself being refused once the 50%
+reserves cap is hit, leaving a unit that can neither deploy nor reserve.
+
+**Regression net.** `sp/pm_f1_crucible_deploys_without_retries.json` — 13
+passed, 0 failed. Asserts the good state on a real crucible game; explicitly
+not a reproduction.
+
 **Evidence.** _(fill)_
 
 ---

@@ -1,0 +1,84 @@
+{
+	"id": "pm_f1_crucible_deploys_without_retries",
+	"covers": [
+		"ai.deployment.formula_respects_zone_polygon",
+		"ai.deployment.no_retry_storm_on_triangular_zones"
+	],
+	"disable_ai": false,
+	"description": "PM-F1 / PM-F6 REGRESSION NET — deliberately NOT a reproduction, because the reported symptom did not reproduce. A real AI-vs-AI game on the TRIANGULAR crucible_of_battle zone with plans off deploys both armies with zero 'deployment failed' retries and zero units forced into Strategic Reserves — measured identically with and without the polygon guard, so this asserts the good state rather than proving a fix. It is started from the menu rather than a predeploy fixture because the saved fixtures carry a stale, nearly-rectangular crucible zone (PM-F3) and never exercise the triangle at all. An earlier version of this scenario also counted model centres outside their deployment zone at the end of deployment; that assertion was REMOVED because the game runs straight on into movement and the count was measuring units that had legitimately advanced — it read 38 without the fix and 42 with it, which is noise, not signal.",
+	"steps": [
+		{
+			"act": "wait_seconds",
+			"seconds": 1.5
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var AIDM = load(\"res://scripts/AIDecisionMaker.gd\")\nAIDM.clear_all_plans()\nAIDM._config_overrides[\"PLANS_ENABLED\"] = 0\nreturn str(AIDM.plans_enabled())",
+			"equals": "false"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Both seats AI, both on the Custodes list, and the deployment zone forced to\n# the triangle. Start Game reads deployment_dropdown directly\n# (MainMenu._on_start_button_pressed), which is what makes this reachable.\nvar m = tree.current_scene\nvar army = -1\nfor i in range(m.army_options.size()):\n\tif str(m.army_options[i].id) == \"custodes_lions\":\n\t\tarmy = i\nvar zone = -1\nfor i in range(m.deployment_options.size()):\n\tif str(m.deployment_options[i].id) == \"crucible_of_battle\":\n\t\tzone = i\nif army < 0 or zone < 0:\n\treturn \"missing army=%d zone=%d\" % [army, zone]\nm.player1_dropdown.selected = army\nm.player2_dropdown.selected = army\nm.deployment_dropdown.selected = zone\nfor d in [m.player1_type_dropdown, m.player2_type_dropdown]:\n\tfor i in range(d.item_count):\n\t\tif d.get_item_text(i) == \"AI\":\n\t\t\td.selected = i\n\t\t\td.emit_signal(\"item_selected\", i)\nreturn \"%s|%s|%s|%s\" % [str(m.army_options[army].id), str(m.deployment_options[zone].id), m.player1_type_dropdown.get_item_text(m.player1_type_dropdown.selected), m.player2_type_dropdown.get_item_text(m.player2_type_dropdown.selected)]",
+			"equals": "custodes_lions|crucible_of_battle|AI|AI"
+		},
+		{
+			"act": "click_node",
+			"node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 3.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "return str(tree.current_scene.name)",
+			"equals": "Main"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The board really is the TRIANGLE, not a fixture's stale rectangle. Without\n# this the rest of the scenario could pass on geometry that never had the\n# defect — which is exactly what the first version of this test did.\nvar AIDM = load(\"res://scripts/AIDecisionMaker.gd\")\nvar snap = {\"board\": GameState.state.get(\"board\", {}), \"meta\": GameState.state.get(\"meta\", {})}\nvar out = []\nfor player in [1, 2]:\n\tvar poly = AIDM._get_deployment_zone_polygon_pixels(snap, player)\n\tvar bounds = AIDM._get_deployment_zone_bounds(snap, player)\n\tvar rect_area = (bounds.max_x - bounds.min_x) * (bounds.max_y - bounds.min_y)\n\tvar poly_area = 0.0\n\tfor i in range(poly.size()):\n\t\tvar a = poly[i]\n\t\tvar b = poly[(i + 1) % poly.size()]\n\t\tpoly_area += a.x * b.y - b.x * a.y\n\tpoly_area = abs(poly_area) * 0.5\n\tout.append(poly_area / max(1.0, rect_area))\nprint(\"SCENARIO pm_f1 zone: %s, polygon/rectangle area = %.2f, %.2f\" % [str(GameState.state.meta.get(\"deployment_type\", \"?\")), out[0], out[1]])\n# A triangle fills about half its bounding box; a rectangle fills all of it.\nreturn \"%s|%s\" % [str(GameState.state.meta.get(\"deployment_type\", \"?\")), str(out[0] < 0.9 and out[1] < 0.9)]",
+			"equals": "crucible_of_battle|true"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var undeployed = 0\nfor uid in GameState.state.get(\"units\", {}).keys():\n\tif int(GameState.state[\"units\"][uid].get(\"status\", 0)) == 0:\n\t\tundeployed += 1\nprint(\"SCENARIO pm_f1 undeployed at start: %d\" % undeployed)\nreturn undeployed > 0",
+			"equals": true
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "AIPlayer.set_ai_speed_preset(0)\nreturn AIPlayer.enabled",
+			"equals": true
+		},
+		{
+			"act": "wait_for_script",
+			"multiline": true,
+			"script": "# Deployment is done when nothing is left undeployed on either seat.\nvar undeployed = 0\nfor uid in GameState.state.get(\"units\", {}).keys():\n\tif int(GameState.state[\"units\"][uid].get(\"status\", 0)) == 0:\n\t\tundeployed += 1\nreturn undeployed == 0",
+			"equals": true,
+			"timeout_s": 300.0,
+			"poll_s": 2.0
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The claim. The formula may CHOOSE reserves; what it must not do is run out\n# of legal placements and get dumped there, or burn retries getting rejected.\nvar failed = 0\nvar fallback = 0\nfor e in GameState.state.get(\"phase_log\", []):\n\tvar d = str(e.get(\"description\", \"\")) + str(e.get(\"_ai_description\", \"\"))\n\tif d.find(\"deployment failed\") != -1:\n\t\tfailed += 1\n\tif d.find(\"placed in reserves (fallback)\") != -1 or d.find(\"placed in Strategic Reserves\") != -1:\n\t\tfallback += 1\nprint(\"SCENARIO pm_f1 log: deployment_failed=%d reserves_fallback=%d\" % [failed, fallback])\nreturn \"failed=%d fallback=%d\" % [failed, fallback]",
+			"equals": "failed=0 fallback=0"
+		},
+		{
+			"act": "screenshot",
+			"label": "01_crucible_deployed_without_retries"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "var AIDM = load(\"res://scripts/AIDecisionMaker.gd\")\nAIDM._config_overrides.erase(\"PLANS_ENABLED\")\nreturn true",
+			"equals": true
+		}
+	]
+}
