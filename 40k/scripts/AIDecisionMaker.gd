@@ -4029,7 +4029,7 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 	# T7-33 / FORM-2: After leader attachments, evaluate transport embarkation.
 	# Embark small/fast infantry units in transports for deployment efficiency.
 	if not transport_actions.is_empty():
-		var embark_decision = _evaluate_transport_embarkation(snapshot, transport_actions, player)
+		var embark_decision = _evaluate_transport_embarkation(snapshot, transport_actions, player, formations_plan)
 		if not embark_decision.is_empty():
 			return embark_decision
 
@@ -4214,11 +4214,26 @@ static func _score_leader_bodyguard_pairing(char_id: String, bg_id: String, all_
 # TRANSPORT EMBARKATION — FORMATIONS PHASE (T7-33 / FORM-2)
 # =============================================================================
 
-static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_actions: Array, player: int) -> Dictionary:
+static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_actions: Array, player: int,
+		plan: Dictionary = {}) -> Dictionary:
 	"""Evaluate which units should embark in available transports during formations.
 	Prioritizes embarking small/fast INFANTRY units for deployment efficiency.
-	Only embarks one transport per call (called repeatedly until no more are beneficial)."""
+	Only embarks one transport per call (called repeatedly until no more are beneficial).
+
+	PM-F5: `plan` is the plan in force for this seat, if any. A unit the plan
+	gives a PLACEMENT to is wanted ON THE BOARD at those coordinates, so the
+	formula must not put it inside a transport — an embarked unit does not
+	deploy itself and the placement is silently discarded. Units the plan does
+	not mention are still the formula's to decide, exactly as deployment order
+	already works."""
 	var all_units = snapshot.get("units", {})
+
+	# The plan's reserves AFTER the 50% trim — a trimmed-out entry is not going
+	# to be declared, so it is not claimed and the formula may still use it.
+	var plan_reserved_ids := {}
+	if not plan.is_empty():
+		for entry in _plan_reserve_units(plan, snapshot, player):
+			plan_reserved_ids[str(entry.get("unit", ""))] = true
 
 	# Build list of candidate units that could embark (not characters, not transports themselves)
 	var candidate_units = []
@@ -4256,6 +4271,23 @@ static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_acti
 		if unit_id in _bodyguards_with_leaders:
 			print("AIDecisionMaker: [FORM-2] Skipping %s for transport — has leader attached (needed on board)" % unit_id)
 			continue
+		# PM-F5: skip units the plan has already spoken for. Without this the
+		# formula's embarkation overrules the plan's own placement, and because
+		# an embarked unit never deploys, the plan's coordinates are dropped
+		# with no error — the unit is simply not where the plan put it. The same
+		# argument covers a unit the plan RESERVES: it is meant to arrive from
+		# reserves, not to start the game inside a transport.
+		if not plan.is_empty():
+			var claim := ""
+			if not _plan_placement_for(plan, unit_id, player, snapshot).is_empty():
+				claim = "places it on the board"
+			elif plan_reserved_ids.has(unit_id):
+				claim = "holds it in reserves"
+			if not claim.is_empty():
+				_plan_log_once("%d:%s:embark_suppressed" % [player, unit_id],
+					"Player %d NOT embarking %s — plan '%s' %s" % [
+						player, unit_id, str(plan.get("name", "?")), claim])
+				continue
 		candidate_units.append(unit_id)
 
 	if candidate_units.is_empty():
@@ -4940,6 +4972,27 @@ static func _decide_deployment(snapshot: Dictionary, available_actions: Array, p
 			positions = _generate_formation_positions(wall_free_center, models.size(), base_mm, zone_bounds)
 			positions = _resolve_formation_collisions(positions, base_mm, deployed_models, zone_bounds, base_type, base_dimensions)
 			print("AIDecisionMaker: Found wall-free center for %s at (%.0f, %.0f)" % [unit_name, wall_free_center.x, wall_free_center.y])
+
+	# PM-F1: everything above works off the RECTANGULAR zone_bounds, which is an
+	# over-approximation for the triangular and stepped zones — so the formula
+	# can emit a placement DeploymentPhase refuses as "not wholly within
+	# deployment zone", costing a retry and sometimes the unit itself. The plan
+	# path has had this guard since PM-2a; the formula path had none.
+	var zone_poly_guard := _get_deployment_zone_polygon_pixels(snapshot, player)
+	var guard_radius_px := _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	if not _formation_inside_zone(positions, models, guard_radius_px, zone_poly_guard):
+		var repaired: Array = _find_in_zone_formation(models, base_mm, base_type, base_dimensions,
+			zone_bounds, zone_poly_guard, deployed_models, unit_keywords)
+		if not repaired.is_empty():
+			positions = repaired
+			print("AIDecisionMaker: [PM-F1] %s reseated inside the %s zone polygon" % [
+				unit_name, str(snapshot.get("meta", {}).get("deployment_type", "?"))])
+		else:
+			# Emit it anyway: the phase's own rejection and AIPlayer's retry /
+			# reserves fallback are still the backstop, and a silent skip here
+			# would be worse than a logged failure.
+			_plan_log_once("%d:%s:zone_guard" % [player, unit_id],
+				"No in-zone formation found for %s after 40 samples — emitting the rectangle-derived placement and letting the phase decide" % unit_name)
 
 	var rotations = []
 	for i in range(models.size()):
@@ -20640,6 +20693,69 @@ static func _get_deployment_zone_polygon_pixels(snapshot: Dictionary, player: in
 				poly.append(Vector2(vx * px_per_inch, vy * px_per_inch))
 			break
 	return poly
+
+static func _formation_inside_zone(positions: Array, models: Array, radius_px: float,
+		zone_poly: PackedVector2Array) -> bool:
+	"""Every model wholly inside the zone polygon — the rule DeploymentPhase
+	actually applies (`Model must be wholly within deployment zone`)."""
+	if zone_poly.size() < 3:
+		return true  # no polygon to test against — defer to the phase
+	for i in range(positions.size()):
+		var m: Dictionary = models[i] if i < models.size() and models[i] is Dictionary else {}
+		if not _plan_shape_inside_polygon(positions[i], m, radius_px, zone_poly):
+			return false
+	return true
+
+static func _find_in_zone_formation(models: Array, base_mm: int, base_type: String,
+		base_dimensions: Dictionary, zone_bounds: Dictionary, zone_poly: PackedVector2Array,
+		deployed_models: Array, unit_keywords: Array) -> Array:
+	"""Formation positions that are wholly inside the zone POLYGON, or [] if no
+	sampled centre works.
+
+	PM-F1. `_decide_deployment` derives every position from a RECTANGULAR
+	`zone_bounds`, and `_resolve_formation_collisions` clamps back to that same
+	rectangle. For hammer_anvil and dawn_of_war the rectangle IS the zone, so
+	nothing goes wrong. For the triangular and stepped zones it is a strict
+	over-approximation and the formula emits placements the phase rejects —
+	measured across the shipped zones, up to 88% of a sampled column grid on
+	crucible_of_battle seat 2. Each rejection costs a retry and can end with
+	the unit dumped into reserves.
+
+	The candidate is judged AFTER collision resolution, because that step can
+	itself push a model back out of the polygon — checking the centre before
+	resolving would hand back positions that fail anyway."""
+	if zone_poly.size() < 3:
+		return []
+	var measurement = _measurement()
+	var radius_px := _model_bounding_radius_px(base_mm, base_type, base_dimensions)
+	var width: float = zone_bounds.max_x - zone_bounds.min_x
+	var height: float = zone_bounds.max_y - zone_bounds.min_y
+	var margin := 60.0
+
+	for sample in range(40):
+		var centre := Vector2(
+			zone_bounds.min_x + margin + ai_randf() * maxf(1.0, width - margin * 2.0),
+			zone_bounds.min_y + margin + ai_randf() * maxf(1.0, height - margin * 2.0))
+		if not Geometry2D.is_point_in_polygon(centre, zone_poly):
+			continue
+		var candidate: Array = _generate_formation_positions(centre, models.size(), base_mm, zone_bounds)
+		candidate = _resolve_formation_collisions(candidate, base_mm, deployed_models,
+			zone_bounds, base_type, base_dimensions)
+		if not _formation_inside_zone(candidate, models, radius_px, zone_poly):
+			continue
+		if measurement:
+			var walled := false
+			for i in range(candidate.size()):
+				var probe: Dictionary = (models[i] if i < models.size() and models[i] is Dictionary else {}).duplicate()
+				probe["position"] = candidate[i]
+				probe["rotation"] = 0.0
+				if measurement.model_overlaps_any_wall(probe, unit_keywords):
+					walled = true
+					break
+			if walled:
+				continue
+		return candidate
+	return []
 
 static func _find_wall_free_center(model_template: Dictionary, zone_bounds: Dictionary, zone_poly_pixels: PackedVector2Array, unit_keywords: Array = []) -> Vector2:
 	"""Sample random positions within the deployment zone to find one that doesn't overlap walls

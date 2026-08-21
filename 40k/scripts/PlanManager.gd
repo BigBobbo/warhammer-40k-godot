@@ -114,8 +114,13 @@ static func list_plans() -> Array:
 			if plan.is_empty():
 				push_warning("PlanManager: Skipping unreadable plan %s" % path)
 				continue
-			var result: Dictionary = _Validator.validate_plan(plan)
 			var keys: Dictionary = plan.get("keys", {}) if plan.get("keys", {}) is Dictionary else {}
+			# PM-F4: hand the validator the army named in the plan's own keys.
+			# Base sizes are what the coherency check needs, and without them it
+			# declines — so the badge would read a clean "OK" for a plan whose
+			# unit is too spread out for the AI to deploy as drawn.
+			var result: Dictionary = _Validator.validate_plan(plan,
+				{"units": army_units_for_file(str(keys.get("army_file", "")))})
 			entries.append({
 				"name": str(plan.get("name", path.get_file().get_basename())),
 				"path": path,
@@ -336,15 +341,16 @@ static func resolve_game_identity(player: int, snapshot: Dictionary) -> Dictiona
 	}
 
 static var _army_faction_cache: Dictionary = {}
+static var _army_json_cache: Dictionary = {}
 
-static func _army_faction(army_file: String) -> Dictionary:
-	"""faction dict of res://armies/<army_file>.json (user:// fallback, as
+static func _army_json(army_file: String) -> Dictionary:
+	"""res://armies/<army_file>.json (user:// fallback, as
 	ArmyListManager.load_army_list does). Cached; {} when unreadable."""
 	if army_file.is_empty():
 		return {}
-	if _army_faction_cache.has(army_file):
-		return _army_faction_cache[army_file]
-	var faction := {}
+	if _army_json_cache.has(army_file):
+		return _army_json_cache[army_file]
+	var data := {}
 	for path in ["res://armies/%s.json" % army_file, "user://armies/%s.json" % army_file]:
 		if not FileAccess.file_exists(path):
 			continue
@@ -354,14 +360,39 @@ static func _army_faction(army_file: String) -> Dictionary:
 		var json = JSON.new()
 		var err = json.parse(file.get_as_text())
 		file.close()
-		if err == OK and json.data is Dictionary and json.data.get("faction", {}) is Dictionary:
-			faction = json.data["faction"]
+		if err == OK and json.data is Dictionary:
+			data = json.data
 		break
+	_army_json_cache[army_file] = data
+	return data
+
+static func _army_faction(army_file: String) -> Dictionary:
+	"""faction dict of the army list. Cached; {} when unreadable."""
+	if army_file.is_empty():
+		return {}
+	if _army_faction_cache.has(army_file):
+		return _army_faction_cache[army_file]
+	var faction = _army_json(army_file).get("faction", {})
+	if not (faction is Dictionary):
+		faction = {}
 	_army_faction_cache[army_file] = faction
 	return faction
 
+static func army_units_for_file(army_file: String) -> Dictionary:
+	"""The army's units, keyed by unit id — what PlanValidator needs to check
+	anything that depends on a model's BASE, coherency included (PM-F4).
+
+	The browser badge is built from a plan file alone, with no game running, so
+	the army has to be resolved from the plan's own `keys.army_file`. Without
+	it `validate_plan` has no base sizes and declines the coherency check, and
+	the row reads a clean "OK" for a plan the AI will refuse to deploy as
+	drawn — which is exactly the silence PM-F4 was about."""
+	var units = _army_json(army_file).get("units", {})
+	return units if units is Dictionary else {}
+
 static func clear_army_faction_cache() -> void:
 	_army_faction_cache.clear()
+	_army_json_cache.clear()
 
 static func _army_matches(plan_keys: Dictionary, identity: Dictionary) -> Dictionary:
 	"""{matched: bool, reason: String}. Two paths, never mixed:

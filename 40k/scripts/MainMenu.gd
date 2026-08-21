@@ -64,6 +64,8 @@ var _derived_displays_active: bool = false
 @onready var plan_editor_button: Button = $ScrollContainer/MenuContainer/ButtonSection/PlanEditorButton
 var plan_editor_zone_container: HBoxContainer = null
 var plan_editor_zone_dropdown: OptionButton = null
+var plan_editor_army_container: HBoxContainer = null
+var plan_editor_army_dropdown: OptionButton = null
 # PM-7b: the plan browser. Lives in the secondary button grid, not next to the
 # Plan Editor — browsing plans is a housekeeping action, not part of starting a
 # session.
@@ -534,7 +536,8 @@ func _apply_theme_to_dynamic_elements() -> void:
 	# Style dynamically created dropdowns and buttons
 	for dropdown in [player1_difficulty_dropdown, player2_difficulty_dropdown, ai_speed_dropdown,
 			p1_secondary_mode_dropdown, p2_secondary_mode_dropdown, army_sort_dropdown,
-			plan_editor_zone_dropdown, player1_plan_dropdown, player2_plan_dropdown]:
+			plan_editor_zone_dropdown, plan_editor_army_dropdown,
+			player1_plan_dropdown, player2_plan_dropdown]:
 		if dropdown:
 			WhiteDwarfThemeData.apply_to_button(dropdown)
 
@@ -544,7 +547,7 @@ func _apply_theme_to_dynamic_elements() -> void:
 
 	# Style dynamically created labels
 	for container in [player1_difficulty_container, player2_difficulty_container, ai_speed_container,
-			army_sort_container, plan_editor_zone_container,
+			army_sort_container, plan_editor_zone_container, plan_editor_army_container,
 			player1_plan_container, player2_plan_container]:
 		if container:
 			for child in container.get_children():
@@ -1304,6 +1307,9 @@ func _populate_army_dropdowns() -> void:
 	for option in army_options:
 		player1_dropdown.add_item(option.display)
 		player2_dropdown.add_item(option.display)
+	# Built later than these two (_setup_plan_editor_controls runs after
+	# _setup_dropdowns), so it is null on the first pass and filled there.
+	_populate_plan_editor_army_dropdown()
 
 func _create_army_sort_dropdown() -> void:
 	"""Create a sort mode dropdown for army list ordering."""
@@ -1428,6 +1434,11 @@ func _set_default_army_selections() -> void:
 
 	player1_dropdown.selected = player1_index
 	player2_dropdown.selected = player2_index
+	# The Plan Editor starts on the same army as Player 1, so this change is
+	# additive — an author who was already getting the list they wanted still
+	# gets it without touching the new picker.
+	if plan_editor_army_dropdown != null and plan_editor_army_dropdown.item_count > player1_index:
+		plan_editor_army_dropdown.selected = player1_index
 
 	print("MainMenu: Default armies set - Player 1: ", army_options[player1_index].name, ", Player 2: ", army_options[player2_index].name)
 
@@ -1781,7 +1792,7 @@ func _initialize_game_with_config(config: Dictionary) -> void:
 # ============================================================================
 
 func _setup_plan_editor_controls() -> void:
-	"""Build the Plan Editor's own deployment-zone picker.
+	"""Build the Plan Editor's own army and deployment-zone pickers.
 
 	At 11th edition the *game's* deployment zone is derived from the Force
 	Disposition matchup plus the chosen terrain variant, so the Deployment
@@ -1790,12 +1801,41 @@ func _setup_plan_editor_controls() -> void:
 	`deployment_zone_id` — the author has to be able to say "I am writing the
 	Hammer and Anvil plan" without hunting for a terrain variant that happens to
 	carry that pattern. Hence a separate, always-editable picker that only the
-	Plan Editor path reads."""
+	Plan Editor path reads.
+
+	The ARMY picker exists for a plainer reason: the editor used to read the
+	Player 1 army dropdown silently. Player 1 defaults to Recon Stomps and
+	Player 2 to Custodes Lions (_set_default_army_selections), so a player who
+	wanted a Custodes plan saw that list sitting in the Player 2 slot, pressed
+	Plan Editor, and got Orks — with nothing on screen explaining why. Its own
+	control sits with its own button, exactly as the zone one does."""
 	var button_section = $ScrollContainer/MenuContainer/ButtonSection
 	if button_section == null:
 		return
 
-	plan_editor_button.tooltip_text = "Set the Player 1 army up on the board with no opponent — a sandbox for writing an AI plan. Stays in Deployment when you are done."
+	plan_editor_button.tooltip_text = "Set the army chosen below up on the board with no opponent — a sandbox for writing an AI plan. Stays in Deployment when you are done."
+
+	plan_editor_army_container = HBoxContainer.new()
+	plan_editor_army_container.name = "PlanEditorArmyContainer"
+	plan_editor_army_container.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	var army_label := Label.new()
+	army_label.name = "PlanEditorArmyLabel"
+	army_label.text = "Plan Editor Army:"
+	army_label.custom_minimum_size = Vector2(150, 0)
+	plan_editor_army_container.add_child(army_label)
+
+	plan_editor_army_dropdown = OptionButton.new()
+	plan_editor_army_dropdown.name = "PlanEditorArmyDropdown"
+	plan_editor_army_dropdown.custom_minimum_size = Vector2(220, 0)
+	plan_editor_army_container.add_child(plan_editor_army_dropdown)
+	_populate_plan_editor_army_dropdown()
+	# The default is applied in _set_default_army_selections(), NOT here: this
+	# function runs before it in _ready(), so Player 1 is still on index 0 at
+	# this point and copying it now picks whatever army happens to sort first.
+
+	button_section.add_child(plan_editor_army_container)
+	button_section.move_child(plan_editor_army_container, plan_editor_button.get_index() + 1)
 
 	plan_editor_zone_container = HBoxContainer.new()
 	plan_editor_zone_container.name = "PlanEditorZoneContainer"
@@ -1816,9 +1856,34 @@ func _setup_plan_editor_controls() -> void:
 	plan_editor_zone_container.add_child(plan_editor_zone_dropdown)
 
 	button_section.add_child(plan_editor_zone_container)
-	# Sit directly under the Plan Editor button it belongs to.
-	button_section.move_child(plan_editor_zone_container, plan_editor_button.get_index() + 1)
-	print("MainMenu: Plan Editor zone picker created (%d zones)" % deployment_options.size())
+	# Sit directly under the Plan Editor button it belongs to, below the army row.
+	button_section.move_child(plan_editor_zone_container, plan_editor_army_container.get_index() + 1)
+	print("MainMenu: Plan Editor pickers created (%d armies, %d zones)" % [
+		army_options.size(), deployment_options.size()])
+
+func _populate_plan_editor_army_dropdown() -> void:
+	"""(Re)fill the Plan Editor army picker from army_options, keeping the
+	author's current choice when the list is re-sorted underneath it."""
+	if plan_editor_army_dropdown == null:
+		return
+	var previous_id := _plan_editor_army_id()
+	plan_editor_army_dropdown.clear()
+	for option in army_options:
+		plan_editor_army_dropdown.add_item(option.display)
+	if not previous_id.is_empty():
+		_restore_dropdown_selection(plan_editor_army_dropdown, previous_id)
+
+func _plan_editor_army_id() -> String:
+	"""The army the Plan Editor will load, falling back to the Player 1 choice
+	if the picker is somehow absent (it is built after the army dropdowns)."""
+	if plan_editor_army_dropdown != null \
+			and plan_editor_army_dropdown.selected >= 0 \
+			and plan_editor_army_dropdown.selected < army_options.size():
+		return str(army_options[plan_editor_army_dropdown.selected].id)
+	if player1_dropdown != null and player1_dropdown.selected >= 0 \
+			and player1_dropdown.selected < army_options.size():
+		return str(army_options[player1_dropdown.selected].id)
+	return ""
 
 func _plan_editor_zone_id() -> String:
 	if plan_editor_zone_dropdown == null:
@@ -1833,7 +1898,7 @@ func _on_plan_editor_button_pressed() -> void:
 	no opponent, held open at the end of Deployment."""
 	print("MainMenu: Plan Editor button pressed")
 
-	var army_id = str(army_options[player1_dropdown.selected].id)
+	var army_id = _plan_editor_army_id()
 	var zone_id = _plan_editor_zone_id()
 
 	# Same shape as the Start Game config so every downstream consumer

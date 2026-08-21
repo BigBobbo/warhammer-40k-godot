@@ -1,0 +1,84 @@
+{
+	"id": "pm_plan_editor_army_picker",
+	"covers": [
+		"ui.main_menu.plan_editor_army_dropdown",
+		"plan_editor.honours_its_own_army_picker"
+	],
+	"disable_ai": true,
+	"description": "The Plan Editor must let the author choose which army they are writing a plan for. It used to read the Player 1 army dropdown silently, and since Player 1 defaults to Recon Stomps while Player 2 defaults to Custodes Lions, an author who wanted a Custodes plan pressed the button and got Orks with nothing on screen explaining why — reported by the project owner. This drives the real menu: it asserts the Plan Editor now has its own army picker listing every army, that it still DEFAULTS to the Player 1 choice so nothing changed for anyone who was happy, and then sets it to Custodes Lions while deliberately LEAVING Player 1 on Recon Stomps. That divergence is the whole test: pressing Plan Editor must load Custodes, so the assertion cannot pass by accident off the old code path.",
+	"steps": [
+		{
+			"act": "wait_seconds",
+			"seconds": 1.5
+		},
+		{
+			"act": "execute_script",
+			"script": "return str(tree.current_scene.name)",
+			"equals": "MainMenu",
+			"multiline": true
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The picker exists and offers the SAME armies as the seat dropdowns — an\n# author must not have fewer choices than a player.\nvar m = tree.current_scene\nif m.plan_editor_army_dropdown == null:\n\treturn \"missing\"\nvar n = m.army_options.size()\nprint(\"SCENARIO plan_editor_army counts: picker=%d armies=%d player1=%d\" % [m.plan_editor_army_dropdown.item_count, n, m.player1_dropdown.item_count])\nreturn \"same=%s nonempty=%s\" % [str(m.plan_editor_army_dropdown.item_count == n and m.player1_dropdown.item_count == n), str(n > 0)]",
+			"equals": "same=true nonempty=true"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# It DEFAULTS to the Player 1 choice, so this change is additive: anyone who\n# was already getting the army they wanted still gets it without touching the\n# new control.\nvar m = tree.current_scene\nvar p1_id = str(m.army_options[m.player1_dropdown.selected].id)\nprint(\"SCENARIO plan_editor_army default: picker=%s player1=%s\" % [m._plan_editor_army_id(), p1_id])\nreturn \"%s|%s\" % [m._plan_editor_army_id(), p1_id]",
+			"equals": "recon_stomps|recon_stomps"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Now the discriminator. Point the Plan Editor at Custodes Lions and LEAVE\n# Player 1 on Recon Stomps. Under the old code the editor read Player 1, so\n# it would load Orks and every assertion after this would fail.\nvar m = tree.current_scene\nvar custodes_idx = -1\nvar orks_idx = -1\nfor i in range(m.army_options.size()):\n\tif str(m.army_options[i].id) == \"custodes_lions\":\n\t\tcustodes_idx = i\n\tif str(m.army_options[i].id) == \"recon_stomps\":\n\t\torks_idx = i\nif custodes_idx < 0 or orks_idx < 0:\n\treturn \"missing custodes=%d orks=%d\" % [custodes_idx, orks_idx]\nm.player1_dropdown.selected = orks_idx\nm.plan_editor_army_dropdown.selected = custodes_idx\nvar zone_idx = -1\nfor i in range(m.deployment_options.size()):\n\tif str(m.deployment_options[i].id) == \"hammer_anvil\":\n\t\tzone_idx = i\nm.plan_editor_zone_dropdown.selected = zone_idx\nprint(\"SCENARIO plan_editor_army chose: picker=%s player1=%s zone=%s\" % [m._plan_editor_army_id(), str(m.army_options[m.player1_dropdown.selected].id), m._plan_editor_zone_id()])\nreturn \"%s|%s|%s\" % [m._plan_editor_army_id(), str(m.army_options[m.player1_dropdown.selected].id), m._plan_editor_zone_id()]",
+			"equals": "custodes_lions|recon_stomps|hammer_anvil"
+		},
+		{
+			"act": "screenshot",
+			"label": "01_menu_army_picker_set_to_custodes"
+		},
+		{
+			"act": "click_node",
+			"node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/PlanEditorButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 4.0
+		},
+		{
+			"act": "execute_script",
+			"script": "return str(tree.current_scene.name)",
+			"equals": "Main",
+			"multiline": true
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.game_config.plan_editor",
+			"equals": true
+		},
+		{
+			"act": "expect_state",
+			"path": "meta.game_config.player1_army",
+			"equals": "custodes_lions"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Config is one thing; what is actually ON THE BOARD is the claim. Count the\n# player-1 units that came from the Custodes list, and prove no Ork unit did.\nvar custodes = 0\nvar orks = 0\nfor uid in GameState.state.get(\"units\", {}).keys():\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"owner\", 0)) != 1:\n\t\tcontinue\n\tvar kw = u.get(\"meta\", {}).get(\"keywords\", [])\n\tif \"ADEPTUS CUSTODES\" in kw or \"CUSTODES\" in kw or str(uid).begins_with(\"U_CUSTODIAN\") or str(uid).begins_with(\"U_BLADE_CHAMPION\"):\n\t\tcustodes += 1\n\tif \"ORKS\" in kw:\n\t\torks += 1\nprint(\"SCENARIO plan_editor_army on board: custodes=%d orks=%d\" % [custodes, orks])\nreturn \"custodes>0=%s orks=%d\" % [str(custodes > 0), orks]",
+			"equals": "custodes>0=true orks=0"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The faction the game itself reports for seat 1.\nvar f = GameState.state.get(\"factions\", {}).get(\"1\", {})\nprint(\"SCENARIO plan_editor_army faction: %s / %s\" % [str(f.get(\"name\", \"\")), str(f.get(\"detachment\", \"\"))])\nreturn str(f.get(\"name\", \"\"))",
+			"equals": "Adeptus Custodes"
+		},
+		{
+			"act": "screenshot",
+			"label": "02_custodes_on_the_board"
+		}
+	]
+}

@@ -23,13 +23,18 @@ There are four things you can do, and they build on each other:
 
 **Main menu → Plan Editor.**
 
-Next to the button there is a **Plan Editor Zone** picker. Choose the
-deployment zone you are writing the plan for. (It needs its own control because
-in a real game the zone is decided by the mission and the terrain, and a plan
-has to be written for one specific zone.)
+Under the button there are two pickers of its own — **Plan Editor Army** and
+**Plan Editor Zone**. Choose the army you are writing the plan for and the
+deployment zone it is for, then press Plan Editor.
 
-Pick the army in **Player 1 Army**, then press Plan Editor. You get a solo
-sandbox:
+Both need their own controls. The zone, because in a real game it is decided by
+the mission and the terrain, while a plan has to be written for one specific
+zone. The army, because the editor is not a game: it has one side, so borrowing
+the Player 1 seat's list made it look as though the army was fixed. The picker
+starts on whatever Player 1 is set to, so you can ignore it if that is what you
+wanted.
+
+You get a solo sandbox:
 
 * only your army is on the board — there is no opponent to wait for;
 * you go through the normal pre-battle declarations, so you can put units in
@@ -121,6 +126,13 @@ more.
 **Main menu → AI Plans** lists every plan: its army, zone, terrain, where it
 came from, and whether it is still valid.
 
+The status column also carries notes worth reading: a plan whose deployment
+would break unit coherency, or one that asks for a character attachment the
+game cannot make (the wrong kind of unit, or a character with no Leader
+ability). A note is not an error — the plan still plays — but the computer
+will quietly do its own thing for that part, and the note is how you find out
+before the game does.
+
 * Plans you wrote can be **renamed** or **deleted** (deleting asks first).
 * Plans that ship with the game are read-only — you can use them and look at
   them, but not change them.
@@ -131,9 +143,6 @@ came from, and whether it is still valid.
 
 Honest list, so you are not surprised:
 
-* **The computer may load units into a transport even when the plan puts them
-  on an objective.** If your plan has a transport in it — a Stompa counts —
-  check where the passengers actually ended up. This is a known bug.
 * **A plan is written for one zone.** Used on a different one it will not
   match, and the computer falls back to its own judgement.
 * **Terrain moves.** A plan is laid out against one terrain layout; on a

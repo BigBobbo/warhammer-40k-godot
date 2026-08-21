@@ -146,6 +146,7 @@ func _run_tests() -> void:
 	test_reserves_caps()
 	test_coverage_against_real_army()
 	test_coverage_duplicate_names()
+	test_attachment_legality_notes()
 
 func test_geometry_helpers() -> void:
 	var m = PV.mirror_inches(10.0, 12.0)
@@ -472,3 +473,42 @@ func test_coverage_duplicate_names() -> void:
 	p["deployment"]["placements"][0]["role_fallback"] = ""
 	r = PV.validate_plan(p, army)
 	_assert(r["coverage"]["unmatched"].has("U_GONE"), "an ambiguous name with no role_fallback is unmatched")
+
+func test_attachment_legality_notes() -> void:
+	# PM-F2. The validator used to accept any pair of distinct ids as an
+	# attachment; the game then never offers the illegal pairing and the AI
+	# silently substitutes its own — the author sees the plan "work" while the
+	# attachment they asked for never happens. Found because the PM-0 rich
+	# fixture paired Wazdakka Gutsmek with Warbikers, and Wazdakka has no
+	# Leader ability at all.
+	var army := _load_army(RECON_STOMPS)
+	_assert(not army.is_empty(), "recon_stomps loads")
+
+	# TRUE NEGATIVE FIRST: the pairing the game genuinely allows must stay
+	# clean, or the check is just noise. Deffkilla Wartrike can_lead WARBIKERS
+	# and Warbikers carry that keyword.
+	var p := _base_plan()
+	p["deployment"]["attachments"] = [{"character": "U_DEFFKILLA_WARTRIKE_A", "bodyguard": "U_WARBIKERS_A"}]
+	var r: Dictionary = PV.validate_plan(p, army)
+	_assert(not _has_warning(r, "Attachment"), "a legal pairing (Deffkilla -> Warbikers) draws no attachment warning")
+
+	# The historical defect: Wazdakka has no leader_data at all.
+	p["deployment"]["attachments"] = [{"character": "U_WAZDAKKA_GUTSMEK_A", "bodyguard": "U_WARBIKERS_A"}]
+	r = PV.validate_plan(p, army)
+	_assert(_has_warning(r, "no Leader ability"), "Wazdakka -> Warbikers warns: no Leader ability")
+	_assert(bool(r["valid"]), "…as a WARNING, not an error — the plan is still playable (the AI falls back)")
+
+	# A leader aimed at a unit outside its can_lead list.
+	p["deployment"]["attachments"] = [{"character": "U_DEFFKILLA_WARTRIKE_A", "bodyguard": "U_GRETCHIN_A"}]
+	r = PV.validate_plan(p, army)
+	_assert(_has_warning(r, "silently not happen"), "Deffkilla -> Gretchin warns: not in can_lead")
+
+	# A bodyguard that is itself a CHARACTER.
+	p["deployment"]["attachments"] = [{"character": "U_DEFFKILLA_WARTRIKE_A", "bodyguard": "U_DEFFKILLA_WARTRIKE_B"}]
+	r = PV.validate_plan(p, army)
+	_assert(_has_warning(r, "cannot attach to characters"), "character -> character warns")
+
+	# No army supplied -> no attachment notes (nothing to check against).
+	p["deployment"]["attachments"] = [{"character": "U_WAZDAKKA_GUTSMEK_A", "bodyguard": "U_WARBIKERS_A"}]
+	r = PV.validate_plan(p)
+	_assert(not _has_warning(r, "Attachment"), "with no army supplied the check stays quiet")

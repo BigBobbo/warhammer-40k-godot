@@ -2273,7 +2273,7 @@ project convention, and CLAUDE.md forbids stripping debug logging.
 
 ## PM-F1 — FOLLOW-UP: the deployment formula fails validation on diagonal zones
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** — (pre-existing behaviour, found while gathering PM-2a evidence)
 **Player-facing:** yes (AI behaviour)
 
@@ -2307,13 +2307,72 @@ path now uses, i.e. re-project or reject-and-resample candidates against
 `PLANS_ENABLED = 0` asserting ZERO `deployment failed` log lines and zero units
 forced into reserves; plus a headless test over all six shipped zones.
 
+### Partial work, 2026-08-20 — a real geometry defect fixed, the reported symptom NOT reproduced
+
+**Status stays TODO.** A guard was added and a defect measured, but the failure
+this task was filed for did not reproduce, so it is not closed.
+
+**What DID reproduce, headlessly, with a control.** Formula positions come off
+the RECTANGULAR `zone_bounds` and `_resolve_formation_collisions` clamps back to
+that rectangle, so on non-rectangular zones it generates placements outside the
+real polygon. Sampling the formula's own column grid (5 models, 32mm, 24 centres
+per seat):
+
+| zone | seat 1 | seat 2 |
+|---|---|---|
+| hammer_anvil / dawn_of_war | 0 | 0 |
+| search_and_destroy | 0 | 9 |
+| sweeping_engagement | 11 | 0 |
+| crucible_of_battle | 4 | **23 of 24** |
+| tipping_point | 0 | 12 |
+
+**Fix applied.** `_formation_inside_zone` + `_find_in_zone_formation`, called
+from `_decide_deployment` after collision resolution — the same
+wholly-within-polygon rule the plan path has used since PM-2a, judged AFTER
+resolution because that step can itself push a model back out. If 40 samples
+find nothing it emits the old placement and logs once; the phase's rejection
+plus AIPlayer's retry / reserves fallback remain the backstop. Gate
+`tests/unit/test_deployment_zone_polygon_guard.gd` — 31 passed, 0 failed, with a
+control asserting the naive grid really does leak.
+
+**What did NOT reproduce — why this stays open.** The filed symptom is
+`deployment failed … retrying` and units forced into reserves. A real AI-vs-AI
+game on the triangular crucible zone with plans off produced **zero of either —
+and zero with the guard stashed out as well**. The guard has no measured effect
+on the reported failure, and that failure is not currently reachable this way.
+
+Two dead ends, so they are not repeated:
+
+* **A predeploy-fixture run cannot test this.** The first gate loaded
+  `mirror_custodes_2000_predeploy` and passed identically with and without the
+  fix, because those fixtures bake a stale, nearly-rectangular crucible zone
+  into their board (PM-F3). The triangle is never exercised — a repro must
+  start from the menu.
+* **Counting models outside their zone after deployment measures MOVEMENT.**
+  The game runs on into round 1, so advanced units read as bad placements: 38
+  without the fix, 42 with. Noise. That assertion was deleted, not tuned.
+
+**What is left.** The original observation was on `mirror_orks_2000_predeploy`
+at Normal during the PM-10 A/B — the Ork list on the STALE fixture board, not a
+menu game. So PM-F3 may be a precondition rather than an independent defect;
+fixing it first may make this reproducible, or make it vanish. Also note
+`AIPlayer` ALREADY has a bounded retry and a reserves fallback
+(`_handle_failed_deployment` → `_fallback_to_reserves`), so PM-F6's "bound the
+retry loop" suggestion is already satisfied and the stall must come from after
+it. Unverified candidate: `PLACE_IN_RESERVES` itself being refused once the 50%
+reserves cap is hit, leaving a unit that can neither deploy nor reserve.
+
+**Regression net.** `sp/pm_f1_crucible_deploys_without_retries.json` — 13
+passed, 0 failed. Asserts the good state on a real crucible game; explicitly
+not a reproduction.
+
 **Evidence.** _(fill)_
 
 ---
 
 ## PM-F2 — FOLLOW-UP: the validator does not check attachment legality
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-0
 **Player-facing:** no (authoring-time validation)
 
@@ -2342,9 +2401,39 @@ eligible leaders named; an unresolvable datasheet id warns instead of failing.
 
 ---
 
+### Evidence (fixed, 2026-08-21)
+
+`PlanValidator._attachment_legality_notes` mirrors the checks FormationsPhase
+applies to DECLARE_LEADER_ATTACHMENT (:183-217): CHARACTER keyword, non-empty
+`can_lead` (with the Taktikal Brigade enhancement extras), bodyguard not a
+CHARACTER, and a can_lead keyword present on the bodyguard. WARNINGS, not
+errors, matching the coherency-note precedent — the phase never offers the
+illegal pairing and the AI falls back silently, which is exactly the silence
+the warning breaks. Surfaced through the same browser badge as coherency notes.
+
+**Headless.** `tests/unit/test_plan_validator.gd` — 72 passed, 0 failed. True
+negative first (Deffkilla -> Warbikers stays clean), then the historical defect
+(Wazdakka: no Leader ability), a can_lead miss (Deffkilla -> Gretchin), a
+character bodyguard, and no-army-stays-quiet.
+
+**Windowed.** `sp/pm_f2_attachment_note_in_browser` — 11 passed, 0 failed:
+badge reads `OK, 1 note(s)` in the warning colour beside a clean control row,
+and selecting the row names the character and the rule.
+
+**A defect found while writing it, worth remembering:** a failed `load()`
+inside a static function ABORTS the function silently. The first version
+loaded `CharacterAttachmentManager.gd` for its static enhancement helper; that
+script references autoload identifiers, fails to compile under `godot -s`, and
+the load's failure silently emptied every note the helper existed to produce —
+while the identical code passed in a deferred-timer debug harness (autoloads
+resolve there). The suite's own true-positive assertions caught it; the
+enhancement extras are now inlined. Version 1.37.1.
+
+---
+
 ## PM-F3 — FOLLOW-UP: the predeploy fixtures carry a stale crucible zone
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** — (pre-existing; found while authoring the PM-10 shipped plans)
 **Player-facing:** no (benchmark asset), but it invalidates comparisons
 
@@ -2391,9 +2480,43 @@ test so this cannot silently rot again.
 
 ---
 
+### Evidence (fixed, 2026-08-21)
+
+All six 2000-point fixtures rebuilt. Root cause was the BUILDER, not the
+fixtures: `make_2000pt_fixture.gd` copied the shell save's board verbatim, so
+every rebuild re-baked the stale zone. It now refreshes
+`board.deployment_zones` from `DeploymentZoneData.get_zones` and
+`board.objectives` via `MissionManager._setup_objectives_for_deployment`
+(layout-sourced objectives keep their say, exactly like a real game), packs
+wholly inside the zone POLYGON rather than its bounding rectangle, and tries
+wider/narrower block shapes when the near-square block fits nowhere — the true
+P2 crucible triangle narrows to a point, and `asym_2000_postdeploy`'s Ork side
+failed at 45 of 77 models without that (packs clean with it; `U_GRETCHIN_B`
+goes out as 6 columns).
+
+**Rot-guard.** `tests/unit/test_fixture_boards_current.gd` applies the
+builder's own refresh to each shipped fixture and asserts it is a fixed point,
+plus wholly-inside containment for every deployed model. **12 of 24 FAILED on
+the old fixtures — including 8/36/29 deployed models outside the true zone on
+the three postdeploy boards — and 24/24 PASS on the rebuilt ones.** Registered
+in the suite. One measured trap inside the test itself: a freshly-computed
+objective carries a Vector2 while a save-restored one carries whatever
+StateSerializer round-tripped, so a stringify comparison fails on TYPE with
+every VALUE equal; the test normalises values.
+
+**Gate.** `fixture_check.py` PASS on all six; old -> new sha256s and the
+supersession note for earlier baselines are in
+`tests/bench_baselines/2026-08-21_fixture_regeneration.md`.
+
+**Preserved.** `staleboard_orks_2000_predeploy.{w40ksave,meta}` is the old ork
+predeploy board, kept byte-for-byte as the only known PM-F6 stall repro; the
+rot-guard exempts it by name.
+
+---
+
 ## PM-F4 — FOLLOW-UP: the AI's plan-legality coherency check is not edition-aware
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-2a
 **Player-facing:** yes (AI silently ignores a legal plan placement)
 
@@ -2427,13 +2550,220 @@ of the two rules.
 and illegal under 11e, and asserts the phase and `_plan_positions_legal` agree
 under each edition setting.
 
-**Evidence.** _(fill)_
+### Evidence (2026-08-20) — and the filed diagnosis was WRONG
+
+**The reported root cause does not exist.** The entry above says
+`_plan_positions_legal` "enforces the 11e coherency rule unconditionally, with
+a comment claiming DeploymentPhase enforces this via the same helper. It does
+not." Both halves of that are false:
+
+* `AIDecisionMaker.gd:603` calls `AttackSequence.check_unit_coherency` — it has
+  since PM-2a (`git log -L 590,606` shows one commit, 531c98b), so it was never
+  hardcoded.
+* `DeploymentPhase._check_deployment_coherency` calls the SAME function and its
+  own docstring says so: "the single source of truth also used by ScoringPhase
+  and DeploymentController" (`DeploymentPhase.gd:199-202, :232`).
+* That helper reads `GameConstants.edition` for BOTH the neighbour count and
+  the 9" envelope (`AttackSequence.gd:238-244`), so it is edition-aware for
+  both callers at once.
+
+The new gate proves the agreement rather than asserting it: for the exact
+13.60" Gretchin line, at edition 10 AND edition 11, the phase verdict and the
+plan-check verdict are equal in all four combinations.
+
+**What the real defect was: an edition split between AUTHORING and PLAY.**
+`SettingsService._is_automated_harness()` returns true for any `-s` run and
+pins `GameConstants.edition = 10` (`SettingsService.gd:257-286`). The PM-10
+authoring spike is exactly such a run. Every consumer runs at 11 — a player
+launch via SettingsService, and the bench via `AIBenchmarkRunner.gd:288`. So
+the spike certified placements against a ruleset nothing plays at. Measured
+directly:
+
+```
+boot edition under `godot -s`      = 10
+13.60" line, 11 models @ 25mm:  edition 10 -> coherent      (no envelope in 10e)
+                                edition 11 -> 6 offenders   (03.03 envelope)
+8.60" line:                     coherent under both
+```
+
+Six offenders out of eleven models — the "6 of 11" in the original report was
+the offender count, not a per-game placement count.
+
+**The fix.** `PlanValidator._placement_coherency_note` checks every placement's
+coherency **pinned to edition 11**, whatever the ambient setting is, and gets
+the answer from `AttackSequence.check_unit_coherency` rather than restating the
+rule — so the validator cannot drift from the consumer either. It needs the
+army for base sizes (coherency is measured base edge to base edge) and declines
+rather than guessing when there is none. It restores the ambient edition
+afterwards, which the gate asserts. Severity is WARNING, matching the
+neighbouring zone-polygon case: an over-spread unit is repaired or falls back
+to the formula, it is not an illegal game state.
+
+Surfacing: `PlanValidator.describe_result` feeds the plan browser badge, so a
+player sees "VALID with 1 warning(s): …". Version 1.36.3.
+
+**True positive and true negative, measured:** `fixture_minimal_valid.json`
+(15.00" span) now warns "8 of 11 models"; both shipped plans stay at 0 errors,
+0 warnings.
+
+**Gate — headless.** `tests/unit/test_plan_coherency_editions.gd` — 17 passed,
+0 failed, registered in `run_pretrigger_tests.sh`. It carries the control PM-F4
+asked for (the shape must actually discriminate between the editions, or the
+agreement assertions prove nothing).
+
+**Gate — windowed, and it caught a real gap the headless test could not.**
+`sp/pm_f4_coherency_note_in_browser.json` — 14 passed, 0 failed. Its FIRST run
+failed 4 steps, and two of those were the product, not the test:
+
+* **The badge never showed the note.** `PlanManager.list_plans()` validated with
+  `validate_plan(plan)` — no army. Coherency is measured base edge to base
+  edge, so with no base sizes the check declines, and the row read a clean
+  "OK" for a plan the AI will refuse to deploy as drawn. The headless test
+  passed throughout, because it passes an army. Fixed: `list_plans` now
+  resolves the army from the plan's own `keys.army_file` through a new
+  `PlanManager.army_units_for_file()` (sharing a cached `_army_json` loader
+  with `_army_faction`). **Without this the whole fix was invisible to
+  players** — and the 1.36.3 changelog entry claiming otherwise would have
+  been false.
+* The other two were my own wrong assumptions, both worth recording: the
+  status column is index 4, not 5 (5 is `Where`); and a WINDOWED run boots at
+  edition **10**, not 11 — `--scenario-file=` matches
+  `SettingsService._is_automated_harness()` just as `-s` does. Measured, then
+  asserted.
+
+**Screenshot.** `docs/evidence/pm_f4_coherency_note_in_browser.png` — the AI
+Plans browser with `Fixture — minimal valid` reading **"OK, 1 note(s)"** in the
+warning colour against three plain green "OK" rows, and the detail panel
+spelling out `Placement 'U_GRETCHIN_A': 8 of 11 models break 11th-edition unit
+coherency …`.
+
+**The authoring spike now runs at edition 11 — and that turned out to matter
+in a way worth recording.** Re-authoring at 11 rewrites `hammer_anvil`
+(deterministically; `crucible` is unchanged), moving `U_GRETCHIN_B`,
+`U_STORMBOYZ_A` and `U_STORMBOYZ_B`. Proven to be the edition and nothing else:
+pinning the spike back to 10 reproduces the committed file byte-for-byte.
+
+But the re-authored plan is **worse in play**, measured twice each on
+`sp/pm10_shipped_plan_from_menu`:
+
+| | plan records | exact of 11 | misses |
+|---|---|---|---|
+| shipped file (authored at 10e) | 11 | **10** | `U_WARBIKERS_B` off 7.17" |
+| re-authored at 11e | 10 | **9** | `U_WARBIKERS_B` off 17.43", `U_MEK_A` off 1.46" |
+
+So the shipped plans are **kept as they are** — they validate clean at edition
+11 (0 errors, 0 warnings, worst envelope 8.76") and they measure better. The
+anchors were hand-tuned against the 10e packing and want re-tuning before the
+spike's 11e output should replace shipped content; the spike header now says so
+in full, so a future run cannot quietly commit the downgrade. Filed as PM-F7.
+
+---
+
+### Evidence (fixed, 2026-08-21) — the 2x2 that closed both PM-F6 and PM-F1
+
+The 2026-08-20 partial note above said the stall did not reproduce on a menu
+crucible game and guessed the stale fixture board might be a precondition. It
+was. The stale stepped zone is itself NON-RECTANGULAR (a 44x8 band + 24x6
+step), so the formula's rectangle-derived placements land outside it, the
+phase refuses them, the retry/reserves ladder exhausts, and the game stops.
+Same defect as PM-F1's diagonal zones, different non-rectangle.
+
+**The experiment.** Exactly the two games the PM-10 A/B lost: the STALE
+`mirror_orks_2000_predeploy`, arm M1 (P1 plans OFF, P2 plans ON, same plan
+file both seats), difficulty Normal, seeds 9001 and 9005. Two builds: HEAD
+(`acb04df`, polygon guard in) and a control worktree with ONLY the guard
+commit reverted. Each cell is one full bench game:
+
+| seed | guard reverted | guard present |
+|---|---|---|
+| 9001 | **stalled** — `no progress for 90s at 1|1|41` | **completed** |
+| 9005 | **stalled** — `no progress for 90s at 1|1|42` | **completed** |
+
+The control reproduces the PM-10 signature to the action count (~41, round 1,
+deployment, plans-OFF seat), and the one-commit difference flips both seeds to
+completed full games. The guard IS the fix; nothing else changed.
+
+**Where the repro lives now.** PM-F3 rebuilt the fixtures, so the stale board
+survives as `tests/saves/staleboard_orks_2000_predeploy.{w40ksave,meta}`,
+byte-for-byte. Re-run either cell with AIBenchmarkRunner against that fixture
+to reproduce; the suite-level regression nets are
+`tests/unit/test_deployment_zone_polygon_guard.gd` (31/31, with the
+naive-grid-leaks control) and `sp/pm_f1_crucible_deploys_without_retries`
+(13/13 on a real menu triangle game).
+
+**Also resolved by measurement:** the task's "bound the retry loop" suggestion
+was already implemented before this bug was ever filed
+(`AIPlayer._handle_failed_deployment` -> `_fallback_to_reserves`); the stall
+lived a layer below it, in the formula proposing unfillable positions faster
+than the ladder could absorb them.
+
+**The loop is closed: the A/B re-ran with 6 usable pairs of 6.** 18 of 18
+games completed on the rebuilt fixture — zero stalls, zero timeouts — with
+seeds 9001 and 9005 completing in both paired arms and the A/A arm. E = +0.92
+VP/game, se 2.17, CI [−3.33, +5.16]; adherence 15 plan-sourced / 0 repaired
+per plan-seat game, twelve of twelve. Full report:
+`tests/bench_baselines/2026-08-21_plan_vs_formula_rerun.md`.
+
+---
+
+## PM-F7 — FOLLOW-UP: the authoring spike's anchors are tuned for the 10e packing
+
+**Status:** DONE
+**Depends:** PM-F4
+**Player-facing:** no (authoring tool), but it blocks re-authoring shipped content
+
+**What was observed.** With PM-F4's fix the spike authors at edition 11, which
+is correct. Its hand-tuned `anchors` were chosen against the 10e packing,
+though, so at 11 the packer reshapes `U_GRETCHIN_B` (4 columns spanning 4.90"
+becomes 2 columns spanning 6.93") and relocates both screening Stormboyz mobs,
+which crowds out whatever is packed after them. Live adherence drops from 10 of
+11 exact to 9 of 11, with `U_WARBIKERS_B` thrown 17.43" off its planned spot.
+Both numbers reproduce exactly across two runs.
+
+**Suggested fix.** Re-tune the anchors against the 11e packing and re-measure
+adherence before replacing the shipped plans; the acceptance bar is beating the
+current 10 of 11. Worth doing together with a look at why the packer's column
+choice is edition-sensitive at all, given `COHERENCY_ENVELOPE_IN` is a constant.
+
+**Evidence.** The table in PM-F4's evidence block above; spike header comment.
+
+### Evidence (fixed, 2026-08-21) — not the anchors: the authored board was not the played board
+
+**The filed diagnosis was too shallow.** Re-tuning anchors could never have
+made the plan exact, because the repair had a structural cause: the spike
+packed the two ATTACHED Deffkilla Wartrikes as free units at anchors of their
+own, but at play time an attached character never deploys at a plan
+coordinate — DeploymentPhase auto-deploys it ADJACENT to its bodyguard
+(P1-66) at a spot the authoring pass never validated anything against. The
+authored board and the played board disagreed by exactly two Wartrike-shaped
+footprints, and whichever planned unit stood on one got repaired:
+`U_WARBIKERS_B` by 7.17" from the shipped 10e file, by 17.43" from the naive
+11e re-run (9 of 11 exact, reproduced twice each — the pm10 scenario failed
+2 assertions on the naive re-run exactly as it was designed to).
+
+**Fix: the authoring session is now a REHEARSAL of the play deployment.** The
+spike declares the plan's attachments in state (the same two writes
+FormationsPhase's confirm applies), packs in PLAY order rather than big-first,
+and lets the phase's own P1-66 place the Wartrikes — logged, e.g.
+`P1-66 auto-deployed U_DEFFKILLA_WARTRIKE_B at (3.1, 10.8)"` — so every later
+placement validates against their true footprint. The Wartrikes no longer
+carry placements in the emitted file (they were dead weight the consumer
+ignored: 11 placements + 2 attachments + 4 reserves = 17 units).
+
+**Measured, the bar was 10 of 11:** `sp/pm10_shipped_plan_from_menu` now
+reports **eligible=11 exact=11 with an empty repair list, twice**, 28/28 both
+runs, and the scenario's floor is RAISED to 11 so any regression fails loudly.
+Both plans re-authored at edition 11 against the PM-F3-rebuilt boards
+(crucible: anchors moved to the true triangle, Gretchin A 0.3" from the real
+obj_home_1 at (32,14)); PlanValidator: 0 errors, 0 warnings on both. The
+crucible plan's live adherence is measured by the A/B re-run's own gate.
+Version 1.37.2.
 
 ---
 
 ## PM-F5 — FOLLOW-UP: the AI embarks plan-placed units the plan never asked to embark
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-2b
 **Player-facing:** yes — it silently defeats the plan's stated intent
 
@@ -2471,14 +2801,112 @@ PINS the wrong behaviour on purpose (`plan=0 ai=U_GRETCHIN_A->U_STOMPA_A,...`)
 so that fixing this fails the step and forces the update. After the fix, both
 Gretchin deploy from the plan and `eligible` rises from 9 to 11.
 
-**Evidence.** Debug log `debug_20260811_194852.log`; the scenario's own
-`SCENARIO pm10 PM-F5:` line.
+**Evidence (as filed).** Debug log `debug_20260811_194852.log`; the scenario's
+own `SCENARIO pm10 PM-F5:` line.
+
+---
+
+### Evidence (fixed, 2026-08-12)
+
+**Root cause.** `AIDecisionMaker._evaluate_transport_embarkation` built its
+candidate list straight off the snapshot and was never told a plan existed —
+the call site passed `snapshot, transport_actions, player` and nothing else.
+`_decide_formations` already suppressed the formula's *reserves* pass under a
+plan (`_plan_owns_reserves`, :4042) but ran the *embarkation* pass
+unconditionally two lines above it. So a plan could state where a unit goes and
+the formula would still load it into a transport, and because an embarked unit
+never deploys, the plan's coordinates were dropped with no error.
+
+**The fix.** `_evaluate_transport_embarkation` now takes the seat's plan and
+skips any unit the plan has already spoken for — a PLACEMENT ("places it on the
+board") or a post-trim RESERVE ("holds it in reserves") — logging the
+suppression once per unit via `_plan_log_once`. A unit the plan does not
+mention is untouched, exactly as deployment order already works. Reserves use
+the *trimmed* list, because an entry dropped by the 50% cap is never declared
+and so is not claimed.
+
+**FORMATIONS is the only route.** Worth stating because the fix is a single
+chokepoint: the AI never emits `COMPOSITE_DEPLOY` (the deploy-with-cargo
+action) — `DeploymentPhase.gd:704` says so in as many words, and the AI path
+sends `DEPLOY_UNIT`. There is no second way for the AI to embark anything.
+
+**Headless.** `tests/unit/test_ai_plan_formations.gd` — 35 passed, 0 failed,
+including a new `test_placed_units_are_not_embarked_by_formula`. It carries a
+NEGATIVE CONTROL, and the control is the point: with plans off the formula
+embarks `["U_GRETCHIN_A", "U_GRETCHIN_B"]` — the exact pair from the original
+bug report — and with the plan in force only `U_GRETCHIN_B`, the one the plan
+asked for, goes in. A unit the plan does not mention is still embarked.
+
+**Two things the test found out about itself** (both would have made every
+embarkation assertion in that file vacuous, and neither was obvious):
+
+* `clear_all_plans()` does NOT mean "no plan". `_resolve_plan_for` falls
+  through to an auto-match, and since PM-10 shipped a hammer_anvil Ork plan the
+  test snapshot matches one — so the first draft of the control was quietly
+  running WITH a plan. `_config_overrides["PLANS_ENABLED"] = 0` is the only
+  gate that stops every consumer, auto-match included.
+* The snapshot had no `transport_data`. `ArmyListManager` derives it from the
+  TRANSPORT ability text at load time (`ArmyListManager.gd:234`); reading
+  `armies/recon_stomps.json` directly skips that, and
+  `_evaluate_transport_embarkation` `continue`s past any transport without it.
+  The Stompa was therefore not a transport as far as the test was concerned.
+
+**Windowed gate.** `sp/pm10_shipped_plan_from_menu.json`, 28 assertions, all
+green. The step that PINNED the wrong behaviour now reads `plan=0 ai=` — the
+plan declares no embarkations and the AI makes none. Measured deltas:
+
+| | before | after |
+|---|---|---|
+| plan-sourced deployment records, seat 1 | 9 | **11** |
+| eligible placements (adherence denominator) | 9 | **11** |
+| exact within 0.05" | 8 of 9 | **10 of 11** |
+| `transport_embarkations` for seat 1 | `U_GRETCHIN_A, U_GRETCHIN_B -> U_STOMPA_A` | **empty** |
+
+The live log shows the suppression firing more widely than the filed report
+suggested — `U_WAZDAKKA_GUTSMEK_A`, `U_STORMBOYZ_A` and `U_STORMBOYZ_B` were
+also candidates the formula would have loaded into the Stompa:
+
+```
+[AIDecisionMaker/plan] Player 1 NOT embarking U_WAZDAKKA_GUTSMEK_A — plan '…' places it on the board
+[AIDecisionMaker/plan] Player 1 NOT embarking U_STORMBOYZ_A — plan '…' places it on the board
+[AIDecisionMaker/plan] Player 1 NOT embarking U_STORMBOYZ_B — plan '…' places it on the board
+SCENARIO pm10 PM-F5: plan declares 0 embarkation(s); the AI made []
+SCENARIO pm10 adherence: eligible=11 exact=10 ["U_WARBIKERS_B off by 7.17 in"]
+```
+
+**Not fixed here, and not caused here.** One placement still misses:
+`U_WARBIKERS_B` is refused by the phase (`Unit coherency broken … 3 model(s)
+out of coherency`) and repaired 7.17" away. That unit was already in the
+eligible set before this change and the floor already allowed one repair
+(8 of 9), so this is pre-existing repair behaviour, not a regression — the
+`expect_min` of 10 of 11 keeps exactly the same one-repair margin. PM-F4 is
+still open and is the likely neighbour of it.
+
+**Screenshot.** `docs/evidence/pm_f5_gretchin_deployed_not_embarked.png` —
+Gretchin Alpha and Gretchin Beta both on the board at 11/11 models, where they
+used to be inside the Stompa.
+
+**One thing the screenshot does NOT show, and must not be read as showing.**
+`HOME 1` still reads *Uncontrolled* in that capture. That is not PM-F5
+surviving: the shot is taken at the first-turn roll-off, BEFORE round 1, so
+every objective reads Uncontrolled — `NML 1` does too, with nothing near it.
+Whether the objective is actually held was checked against the plan's own
+coordinates instead: obj_home_1 sits at (22.0, 6.0) on hammer_anvil, and
+U_GRETCHIN_A's nearest model is 3.39" from the marker centre — 2.11" base-edge
+to marker-edge, inside the 3" control range. U_GRETCHIN_B is 6.68" away and is
+NOT on the objective, which is correct: it is the screening mob. The original
+report's phrasing ("both Gretchin … on obj_home_1") overstated the plan — only
+Alpha holds it. Control at a scoring point has NOT been driven end-to-end here.
+
+**Player-facing.** Version 1.36.2. The "known rough edge" naming this bug is
+removed from `docs/AI_PLANS_GUIDE.md`; `docs/PLAN_FORMAT.md` keeps the original
+PM-F5 captures as taken and says plainly that they now show the old behaviour.
 
 ---
 
 ## PM-F6 — FOLLOW-UP: the deployment formula stalls the game on the Ork predeploy fixture
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** — (pre-existing; PM-F1 is probably the same defect)
 **Player-facing:** yes — the game hangs in deployment
 

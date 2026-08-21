@@ -1,0 +1,67 @@
+{
+	"id": "pm_f2_attachment_note_in_browser",
+	"covers": [
+		"plan_validator.attachment_legality",
+		"plan_browser.warning_badge_names_the_attachment"
+	],
+	"description": "PM-F2. The validator used to accept any pair of distinct unit ids as a leader attachment. The game then never offers the illegal pairing and the AI silently substitutes its own — the author sees the plan 'work' while the attachment they asked for never happens (found because the PM-0 rich fixture originally paired Wazdakka Gutsmek, who has no Leader ability, with Warbikers). The validator now mirrors FormationsPhase's checks as WARNINGS, and this proves the note actually reaches a player: a plan with an impossible attachment shows a warning badge in the AI Plans browser, in the warning colour not the invalid colour, and selecting the row names the character and the rule. The well-formed rich fixture sits beside it as the control row.",
+	"steps": [
+		{
+			"act": "wait_seconds",
+			"seconds": 1.5
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Two user plans: the rich fixture unchanged (its Deffkilla -> Warbikers\n# attachment is legal — the control), and a copy whose only change is an\n# attachment the game cannot make: Wazdakka Gutsmek has no Leader ability.\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar PM = load(\"res://scripts/PlanManager.gd\")\nPM.ensure_user_plans_dir()\nvar dir = DirAccess.open(\"user://ai_plans\")\nif dir != null:\n\tdir.list_dir_begin()\n\tvar f = dir.get_next()\n\twhile f != \"\":\n\t\tif f.ends_with(\".json\"):\n\t\t\tdir.remove(f)\n\t\tf = dir.get_next()\n\tdir.list_dir_end()\nvar written = []\nvar plan = PV.load_plan_file(\"res://tests/fixtures/ai_plans/fixture_recon_stomps_rich.json\")\nfor spec in [[\"\", []], [\"Fixture — impossible attachment\", [{\"character\": \"U_WAZDAKKA_GUTSMEK_A\", \"bodyguard\": \"U_WARBIKERS_A\"}]]]:\n\tvar copy = plan.duplicate(true)\n\tif str(spec[0]) != \"\":\n\t\tcopy[\"name\"] = str(spec[0])\n\t\tcopy[\"deployment\"][\"attachments\"] = spec[1]\n\tvar path = \"user://ai_plans/%s.json\" % PM.slugify(str(copy.get(\"name\", \"\")))\n\tvar file = FileAccess.open(path, FileAccess.WRITE)\n\tif file != null:\n\t\tfile.store_string(JSON.stringify(copy, \"\\t\"))\n\t\tfile.close()\n\t\twritten.append(path.get_file())\nwritten.sort()\nreturn \",\".join(written)",
+			"equals": "fixture_impossible_attachment.json,fixture_recon_stomps_rich_all_five_verbs.json"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The mutated plan really does warn, and the control really does not —\n# asserted at the validator level first, so a browser failure below is a\n# BROWSER failure and not a validator one.\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar alm = node.get_node(\"/root/ArmyListManager\")\nvar army = alm.load_army_list(\"recon_stomps\", 1)\nvar out = []\nfor src in [\"user://ai_plans/fixture_recon_stomps_rich_all_five_verbs.json\", \"user://ai_plans/fixture_impossible_attachment.json\"]:\n\tvar r = PV.validate_plan(PV.load_plan_file(src), army)\n\tvar att = 0\n\tfor w in r[\"warnings\"]:\n\t\tif str(w).begins_with(\"Attachment\"):\n\t\t\tatt += 1\n\tout.append(\"%s/%d\" % [str(r[\"valid\"]), att])\nprint(\"SCENARIO pm_f2 validator: control=%s mutated=%s\" % [out[0], out[1]])\nreturn \"%s|%s\" % [out[0], out[1]]",
+			"equals": "true/0|true/1"
+		},
+		{
+			"act": "click_node",
+			"node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/PlanBrowserButton",
+			"emit_pressed": true
+		},
+		{
+			"act": "wait_seconds",
+			"seconds": 1.0
+		},
+		{
+			"act": "expect_node_visible",
+			"node": "/root/MainMenu/PlanBrowserDialog"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# The status column the player actually reads, for both rows. Rows are found\n# by name — shipped plans sit in this list too.\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar found = {}\nvar item = t.get_root().get_first_child()\nwhile item != null:\n\tfound[item.get_text(0)] = item.get_text(4)\n\titem = item.get_next()\nvar bad = str(found.get(\"Fixture — impossible attachment\", \"MISSING\"))\nvar ok = str(found.get(\"Fixture — Recon Stomps rich (all five verbs)\", \"MISSING\"))\nprint(\"SCENARIO pm_f2 status column: impossible='%s' control='%s'\" % [bad, ok])\nreturn \"%s|%s\" % [bad, ok]",
+			"equals": "OK, 1 note(s)|OK"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Warning colour, not invalid — the plan stays usable; the AI falls back.\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar item = t.get_root().get_first_child()\nwhile item != null:\n\tif item.get_text(0) == \"Fixture — impossible attachment\":\n\t\tvar c = item.get_custom_color(4)\n\t\tvar dlg = node.get_node(\"/root/MainMenu/PlanBrowserDialog\")\n\t\treturn \"warn=%s invalid=%s\" % [str(c == dlg.WARN_COLOR), str(c == dlg.INVALID_COLOR)]\n\titem = item.get_next()\nreturn \"row not found\"",
+			"equals": "warn=true invalid=false"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Selecting the row must put the sentence in front of the player, naming the\n# character and the rule — a bare count would not tell them what to change.\nvar dlg = node.get_node(\"/root/MainMenu/PlanBrowserDialog\")\nvar t = node.get_node(\"/root/MainMenu/PlanBrowserDialog/PlanBrowserRoot/PlanBrowserTree\")\nvar item = t.get_root().get_first_child()\nwhile item != null:\n\tif item.get_text(0) == \"Fixture — impossible attachment\":\n\t\titem.select(0)\n\t\tt.item_selected.emit()\n\t\tbreak\n\titem = item.get_next()\nvar detail = str(dlg.detail_label.text)\nvar has_char = detail.find(\"U_WAZDAKKA_GUTSMEK_A\") != -1\nvar has_rule = detail.find(\"no Leader ability\") != -1\nprint(\"SCENARIO pm_f2 detail: %s\" % detail.substr(0, 220))\nreturn \"char=%s rule=%s\" % [str(has_char), str(has_rule)]",
+			"equals": "char=true rule=true"
+		},
+		{
+			"act": "screenshot",
+			"label": "01_impossible_attachment_flagged"
+		},
+		{
+			"act": "execute_script",
+			"multiline": true,
+			"script": "# Clean up: the fabricated plans must not leak into later scenarios.\nvar dir = DirAccess.open(\"user://ai_plans\")\nvar removed = 0\nif dir != null:\n\tfor f in [\"fixture_impossible_attachment.json\", \"fixture_recon_stomps_rich_all_five_verbs.json\"]:\n\t\tif dir.file_exists(f):\n\t\t\tdir.remove(f)\n\t\t\tremoved += 1\nreturn removed",
+			"equals": 2
+		}
+	]
+}

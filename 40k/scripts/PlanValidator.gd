@@ -254,6 +254,10 @@ static func validate_plan(data, army: Dictionary = {}) -> Dictionary:
 		if poly_p2.size() >= 3 and inside_p2 == 0:
 			errors.append("Placement '%s' does not land inside the player-2 zone after the seat-2 transform [44-x, 60-y] — a seat-2 consumer would degrade to the formula" % unit_id)
 
+		var coherency_note := _placement_coherency_note(unit_id, models, _army_units(army).get(unit_id, {}))
+		if not coherency_note.is_empty():
+			warnings.append(coherency_note)
+
 	for oid in seen_order.keys():
 		if not placed_units.has(oid):
 			warnings.append("deployment.order lists '%s' but there is no placement for it (it will deploy via the formula in that slot)" % oid)
@@ -397,6 +401,8 @@ static func validate_plan(data, army: Dictionary = {}) -> Dictionary:
 		var cap_result := _validate_reserves_caps(reserve_rounds, attached_chars, army, cover)
 		for e in cap_result.get("errors", []):
 			errors.append(e)
+		for w in _attachment_legality_notes(attached_chars, army):
+			warnings.append(w)
 
 	return {
 		"valid": errors.is_empty(),
@@ -404,6 +410,73 @@ static func validate_plan(data, army: Dictionary = {}) -> Dictionary:
 		"warnings": warnings,
 		"coverage": cover,
 	}
+
+static func _attachment_legality_notes(attached_chars: Dictionary, army: Dictionary) -> Array:
+	"""PM-F2 — flag a leader/bodyguard pairing the game cannot make.
+
+	Mirrors the checks FormationsPhase applies to DECLARE_LEADER_ATTACHMENT
+	(:183-217): the character must have the CHARACTER keyword and a non-empty
+	`meta.leader_data.can_lead` (extended by the Taktikal Brigade enhancement
+	extras, the same static helper the phase uses), the bodyguard must not be a
+	CHARACTER, and one of the can_lead keywords must appear on the bodyguard.
+
+	WARNINGS, not errors — matching the coherency-note precedent: an impossible
+	attachment is not an illegal game state, because at play time the phase
+	never offers it and the AI silently falls back to its own pairing. That
+	silence is exactly the defect: the author sees the plan "work" while the
+	attachment they asked for never happens. The warning reaches players
+	through the plan browser badge.
+
+	Units that do not resolve in the army are left to coverage(), which
+	already reports them."""
+	var notes: Array = []
+	var units := _army_units(army)
+	for char_id in attached_chars:
+		var body_id := str(attached_chars[char_id])
+		var character: Dictionary = units.get(str(char_id), {})
+		var bodyguard: Dictionary = units.get(body_id, {})
+		if character.is_empty() or bodyguard.is_empty():
+			continue
+		var char_kw: Array = character.get("meta", {}).get("keywords", [])
+		if not ("CHARACTER" in char_kw):
+			notes.append("Attachment '%s' -> '%s': '%s' is not a CHARACTER — the game will never offer this attachment and the AI will pick its own pairing" % [char_id, body_id, char_id])
+			continue
+		var raw_can_lead = character.get("meta", {}).get("leader_data", {}).get("can_lead", [])
+		var can_lead: Array = raw_can_lead.duplicate() if raw_can_lead is Array else []
+		# Taktikal Brigade enhancement extras, INLINED from
+		# CharacterAttachmentManager.get_enhancement_can_lead_extras rather than
+		# loaded from it. load()ing that script here fails in exactly the
+		# headless `-s` harness that tests this file (it references autoload
+		# identifiers, "Compile Error: Identifier not found: GameState") — and a
+		# failed load() inside a static function ABORTS the function, which
+		# silently emptied every note this helper exists to produce. Measured,
+		# not theorised: the loop body below never ran until this was inlined.
+		for enh in character.get("meta", {}).get("enhancements", []):
+			var enh_name := str(enh.get("name", "")) if enh is Dictionary else str(enh)
+			match enh_name:
+				"Skwad Leader":
+					if not "KOMMANDOS" in can_lead:
+						can_lead.append("KOMMANDOS")
+				"Mek Kaptin":
+					if not "FLASH GITZ" in can_lead:
+						can_lead.append("FLASH GITZ")
+		if can_lead.is_empty():
+			notes.append("Attachment '%s' -> '%s': '%s' has no Leader ability (empty can_lead) — the game will never offer this attachment and the AI will pick its own pairing" % [char_id, body_id, char_id])
+			continue
+		var bg_kw_upper: Array = []
+		for kw in bodyguard.get("meta", {}).get("keywords", []):
+			bg_kw_upper.append(str(kw).to_upper())
+		if "CHARACTER" in bg_kw_upper:
+			notes.append("Attachment '%s' -> '%s': the bodyguard is itself a CHARACTER — characters cannot attach to characters" % [char_id, body_id])
+			continue
+		var leads := false
+		for kw in can_lead:
+			if str(kw).to_upper() in bg_kw_upper:
+				leads = true
+				break
+		if not leads:
+			notes.append("Attachment '%s' -> '%s': '%s' can lead %s, and '%s' has none of those keywords — the attachment will silently not happen" % [char_id, body_id, char_id, str(can_lead), body_id])
+	return notes
 
 static func _validate_reserves_caps(reserve_rounds: Dictionary, attached_chars: Dictionary, army: Dictionary, cover: Dictionary) -> Dictionary:
 	"""Mirror FormationsPhase.gd:400-420 — 50% points and 50% unit-count caps.
@@ -448,6 +521,69 @@ static func _validate_reserves_caps(reserve_rounds: Dictionary, attached_chars: 
 # ============================================================
 # COVERAGE
 # ============================================================
+
+static func _placement_coherency_note(unit_id: String, models_inches: Array, army_unit: Dictionary) -> String:
+	""""" when the placement holds together under the rules the game actually
+	plays; otherwise a warning string naming the offending models.
+
+	PM-F4. Two things about this check are deliberate.
+
+	FIRST, it is pinned to edition 11 rather than to whatever the running
+	process happens to be set to. A plan is a durable artifact — authored in
+	one process and consumed in another — and every PLAYER launch runs 11e
+	(SettingsService re-asserts it at boot; the 10e pin exists only for the
+	legacy regression harness). Validating against the ambient edition is
+	exactly how PM-F4 happened: the PM-10 authoring pass ran as
+	`godot -s tests/spikes/...`, which SettingsService treats as an automated
+	harness and pins to 10e, so `DeploymentPhase.validate_action` accepted an
+	11-model Gretchin line 13.60" across. At play time — edition 11 — the
+	consumer refused that same placement and fell back to the formula, in
+	every game, on both seats, with nothing to see but a fallback log line.
+
+	SECOND, it calls `AttackSequence.check_unit_coherency` rather than
+	restating the rule. That is the same helper `DeploymentPhase` and
+	`AIDecisionMaker._plan_positions_legal` both go through, so the
+	validator's answer cannot drift from the consumer's — which was the whole
+	point of PM-F4.
+
+	Needs the army for base sizes: coherency is measured base edge to base
+	edge, so centre-to-centre distances alone would reject legal placements.
+	No army, no check."""
+	var army_models = army_unit.get("models", [])
+	if not (army_models is Array) or army_models.size() < models_inches.size() or models_inches.size() < 2:
+		return ""
+	# Loaded at call time, not preloaded: see the note at the top of this file
+	# about autoload identifiers and `godot -s`.
+	var AS = load("res://scripts/rules/AttackSequence.gd")
+	if AS == null or not AS.has_method("check_unit_coherency"):
+		return ""
+
+	var probe: Array = []
+	for i in range(models_inches.size()):
+		var raw = models_inches[i]
+		if not (raw is Array) or raw.size() < 2:
+			return ""  # malformed — already reported as an error above
+		var src: Dictionary = army_models[i] if army_models[i] is Dictionary else {}
+		probe.append({
+			"id": str(src.get("id", "m%d" % i)),
+			"alive": true,
+			"rotation": 0.0,
+			"position": Vector2(float(raw[0]) * 40.0, float(raw[1]) * 40.0),
+			"base_mm": src.get("base_mm", 32),
+			"base_type": src.get("base_type", null),
+			"base_dimensions": src.get("base_dimensions", {}),
+		})
+
+	var previous_edition = GameConstants.edition
+	GameConstants.edition = 11
+	var result: Dictionary = AS.check_unit_coherency({"models": probe})
+	GameConstants.edition = previous_edition
+
+	if bool(result.get("coherent", true)):
+		return ""
+	var offenders: Array = result.get("offenders", [])
+	return "Placement '%s': %d of %d models break 11th-edition unit coherency (03.03 — every model within 2\" of another AND within 9\" of every other model in the unit). The consumer will try to repair the placement and otherwise deploy this unit with the formula instead" % [
+		unit_id, offenders.size(), models_inches.size()]
 
 static func _army_units(army: Dictionary) -> Dictionary:
 	"""Accept an ArmyListManager army dict, a GameState snapshot, or a bare
