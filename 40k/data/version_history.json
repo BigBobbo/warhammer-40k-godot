@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.37.2",
+      "date": "2026-08-21",
+      "summary": "The two ready-made Ork plans were re-authored and now deploy exactly as drawn — every unit, no nudges.",
+      "changes": [
+        "The Hammer and Anvil plan used to have one unit land up to 7\" from its drawn spot every game: the plan never accounted for where a Deffkilla Wartrike attached to a mob actually stands. Plans are now authored by rehearsing the real deployment, so all 11 placed units land exactly where the plan draws them.",
+        "The Crucible of Battle plan is rebuilt for the real Crucible map — the deep-on-one-side triangle with the home objective at its true position. The previous version was drawn against an outdated board layout that no game from the menu ever used.",
+        "Under the hood, the practice boards the computer's benchmarks run on were rebuilt to match the real maps too, so measured results now describe games you can actually play."
+      ]
+    },
+    {
       "version": "1.37.1",
       "date": "2026-08-21",
       "summary": "The AI Plans screen now warns when a plan asks for a character attachment the game cannot make.",

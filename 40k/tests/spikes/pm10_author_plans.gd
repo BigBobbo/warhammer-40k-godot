@@ -18,39 +18,24 @@ extends SceneTree
 #      matches whatever terrain the player rolls; per-unit repair/fallback
 #      (PM-2a) handles any piece that happens to sit under a model.
 #
-# TWO GEOMETRIES FOR THE CRUCIBLE PLAN, and it has to satisfy both:
+# THE SESSION IS A REHEARSAL (PM-F7). The pass declares the plan's leader
+# attachments in state and packs in PLAY order, so DeploymentPhase's P1-66
+# auto-deploy drops the attached Wartrikes exactly where a real game will,
+# and every later placement is validated against their footprint. Before
+# this, the Wartrikes were packed as free units at anchors of their own; the
+# authored board and the played board then disagreed by two Wartrike-shaped
+# footprints, and whichever planned unit stood on one got repaired in play —
+# U_WARBIKERS_B by 7.17" from the 10e-authored file, 17.43" from the first
+# 11e re-run. With the rehearsal in place the measured adherence on
+# sp/pm10_shipped_plan_from_menu is 11 of 11 exact, twice, and the scenario
+# pins that as its floor.
 #
-#   * the fixture's saved board carries a STEPPED crucible zone (a 44x8 band
-#     plus a 24x6 centre step) with obj_home_1 at (22, 4). That is what the
-#     deployment phase checks against during the measured bench run.
-#   * a FRESH crucible_of_battle game reads res://deployment_zones/
-#     crucible_of_battle.json, a TRIANGLE (0,0)-(44,30)-(44,0) with obj_home_1
-#     at (32, 14). That is what PlanValidator checks, and what a real game
-#     from the menu uses.
+# The crucible plan is packed against mirror_orks_2000_predeploy, which since
+# PM-F3 carries the SAME triangle + objectives as a fresh menu game — the
+# wholly-inside-the-shipped-polygon check below is belt to that braces.
 #
-# The fixture predates the JSON regeneration, so it is stale (see the PM-10
-# report). Rather than author a plan that is only legal on a stale board, every
-# model is required to sit wholly inside BOTH polygons.
-#
-# Run: godot --headless --path . -s tests/spikes/pm10_author_plans.gd
-#
-# ⚠ RUNNING THIS OVERWRITES THE SHIPPED PLANS, AND RIGHT NOW THAT IS A
-# DOWNGRADE FOR hammer_anvil. PM-F4 made this spike author at edition 11 (the
-# edition the game plays at) instead of the 10e baseline SettingsService pins a
-# `godot -s` run to. That is the correct thing to validate against — but the
-# anchors below were hand-tuned against the 10e packing, and re-packing at 11e
-# moves U_GRETCHIN_B, U_STORMBOYZ_A and U_STORMBOYZ_B, which crowds out what is
-# packed after them. Measured, twice each, on sp/pm10_shipped_plan_from_menu:
-#
-#   shipped file (authored at 10e)   adherence 10 of 11 exact, 11 plan records
-#   re-authored at 11e                adherence  9 of 11 exact, 10 plan records
-#                                     (U_WARBIKERS_B off by 17.43", U_MEK_A by 1.46")
-#
-# The shipped file is therefore KEPT as it is: it validates clean at edition 11
-# (0 errors, 0 warnings, worst envelope 8.76") and it measures better. The
-# anchors want re-tuning for the 11e packing before this spike's output should
-# replace it — filed as PM-F7. Until then, treat a diff in data/ai_plans/ after
-# running this as a result to evaluate, not one to commit.
+# Authoring runs at edition 11 (PM-F4): the edition the game plays at, not
+# the 10e baseline SettingsService pins a `godot -s` run to.
 
 const PX := 40.0
 const GAP := 0.1   # inches between base edges. Models may touch; they may not
@@ -81,20 +66,28 @@ const ORDER := [
 	"U_MEK_A",
 ]
 
-# The order the AUTHORING pass PACKS units in — most important first, because
-# whatever is packed last is what gets squeezed out on a tight board. This is a
-# packing concern only; `ORDER` is the tactical sequence, and the two are
-# independent because only POSITIONS come out of the packing pass.
+# The order the AUTHORING pass PACKS units in. PM-F7: this is now the PLAY
+# order (`ORDER`) with the attached Wartrikes removed, so the authoring
+# session is a REHEARSAL of the deployment the consumer will actually run.
+#
+# It used to be a big-first packing order with the Wartrikes packed as free
+# units at their own anchors — and that was the root cause of the persistent
+# in-play repair: at play time an ATTACHED character never deploys at a plan
+# coordinate, it is auto-deployed ADJACENT to its bodyguard by DeploymentPhase
+# (P1-66), at a spot the authoring pass never validated anything against. The
+# board the plan was authored on and the board the plan produces in play
+# disagreed by exactly two Wartrike-shaped footprints, and whichever planned
+# unit stood on one of them got repaired — U_WARBIKERS_B, 7.17" in the
+# shipped 10e-authored plan, 17.43" in the first 11e re-run, both reproduced
+# twice. Packing in play order with the attachment state declared (see
+# _author) makes the phase drop the Wartrikes exactly where play will, and
+# every later unit validates against them.
 const PACK_ORDER := [
-	"U_GRETCHIN_A",            # has to be ON the objective — nothing else gets that spot
-	"U_STOMPA_A",              # 180mm base: the hardest thing on the board to fit
-	"U_WAZDAKKA_GUTSMEK_A",
-	# Each mob is packed immediately before its Wartrike so the Wartrike takes
-	# the space next to the mob it leads rather than whatever is left over.
-	"U_WARBIKERS_C", "U_DEFFKILLA_WARTRIKE_A",
-	"U_WARBIKERS_D", "U_DEFFKILLA_WARTRIKE_B",
-	"U_GRETCHIN_B",
+	"U_GRETCHIN_A", "U_GRETCHIN_B",
 	"U_STORMBOYZ_A", "U_STORMBOYZ_B",
+	"U_STOMPA_A", "U_WAZDAKKA_GUTSMEK_A",
+	"U_WARBIKERS_C",           # Deffkilla Wartrike A auto-deploys with it
+	"U_WARBIKERS_D",           # Deffkilla Wartrike B auto-deploys with it
 	"U_WARBIKERS_A", "U_WARBIKERS_B",
 	"U_MEK_A",
 ]
@@ -141,23 +134,24 @@ const PLANS := [
 		"fixture": "mirror_orks_2000_predeploy",
 		"author_terrain": "",                       # the fixture brings its own
 		"terrain_layout_id": "take_and_hold_mirror_1",
-		# The usable region is the INTERSECTION of a 44x8 band + 24x6 step with
-		# a triangle, so the whole army does not fit and the anchors crowd the
-		# centre. Reserves take the rest.
+		# PM-F3/PM-F7: these anchors are shaped for the TRUE crucible triangle
+		# (0,0)-(44,30)-(44,0) — deep on the right, shallow on the left — with
+		# obj_home_1 at (32,14), where the regenerated zone JSON puts it. The
+		# previous anchors were tuned for the stale fixture board (a 44x8 band
+		# + 24x6 step, objective at (22,4)) that no menu game can produce; the
+		# fixture rebuild replaced that board, and every anchor moved with it.
 		"anchors": {
-			"U_GRETCHIN_A": [22.0, 4.0],            # ON the fixture's obj_home_1
-			"U_STOMPA_A": [25.0, 9.0],              # centre, straddling band into step
-			"U_WAZDAKKA_GUTSMEK_A": [32.0, 9.5],    # up with the Stompa, right of it
-			"U_WARBIKERS_C": [31.0, 12.0],          # furthest forward, right
-			"U_DEFFKILLA_WARTRIKE_A": [35.0, 6.0],  # riding with C
-			"U_WARBIKERS_D": [21.0, 11.5],          # furthest forward, left
-			"U_DEFFKILLA_WARTRIKE_B": [17.0, 6.5],  # riding with D
-			"U_GRETCHIN_B": [14.0, 4.0],            # second body, left of the objective
-			"U_STORMBOYZ_A": [10.0, 5.5],           # screen, left
-			"U_STORMBOYZ_B": [30.0, 5.0],           # screen, right
-			"U_WARBIKERS_A": [37.0, 4.0],           # right flank
-			"U_WARBIKERS_B": [40.0, 6.5],
-			"U_MEK_A": [19.0, 6.5],                 # behind the Gretchin, repairing
+			"U_GRETCHIN_A": [32.0, 14.0],           # ON obj_home_1
+			"U_STOMPA_A": [37.0, 17.0],             # spearhead, deep right
+			"U_WAZDAKKA_GUTSMEK_A": [40.0, 12.0],   # up with the Stompa
+			"U_WARBIKERS_C": [39.0, 21.0],          # furthest forward, deep right
+			"U_WARBIKERS_D": [28.0, 8.0],           # forward, left of centre
+			"U_GRETCHIN_B": [26.0, 12.0],           # second body, screening the objective
+			"U_STORMBOYZ_A": [16.0, 5.0],           # screen, shallow left
+			"U_STORMBOYZ_B": [33.0, 6.0],           # screen, centre-right
+			"U_WARBIKERS_A": [40.0, 4.0],           # right flank, shallow
+			"U_WARBIKERS_B": [35.0, 10.0],
+			"U_MEK_A": [30.0, 5.0],                 # behind the Gretchin, repairing
 		},
 	},
 	{
@@ -179,9 +173,7 @@ const PLANS := [
 			"U_STOMPA_A": [22.0, 14.0],             # spearhead, dead centre
 			"U_WAZDAKKA_GUTSMEK_A": [29.0, 14.0],
 			"U_WARBIKERS_C": [35.0, 15.0],          # forward right
-			"U_DEFFKILLA_WARTRIKE_A": [37.0, 8.0],  # riding with C
 			"U_WARBIKERS_D": [11.0, 15.0],          # forward left
-			"U_DEFFKILLA_WARTRIKE_B": [7.0, 8.0],   # riding with D
 			"U_GRETCHIN_B": [12.0, 6.0],            # second body, back left
 			"U_STORMBOYZ_A": [16.0, 16.5],          # screen, forward left
 			"U_STORMBOYZ_B": [28.0, 16.5],          # screen, forward right
@@ -267,7 +259,27 @@ func _author(spec: Dictionary) -> void:
 	var placements_by_unit: Dictionary = {}
 	var failed: Array = []
 
-	print("\npacking (most important first):")
+	# PM-F7: declare the plan's attachments in STATE, the same two writes
+	# FormationsPhase's confirm applies (:951-970), so that deploying a
+	# bodyguard below triggers DeploymentPhase's P1-66 adjacent auto-deploy —
+	# the Wartrikes land where PLAY will put them, and every later placement
+	# is validated against their real footprint instead of an anchor of ours.
+	for att in ATTACHMENTS:
+		var char_id := str(att["character"])
+		var bg_id := str(att["bodyguard"])
+		if not gs.state.units.has(char_id) or not gs.state.units.has(bg_id):
+			continue
+		gs.state.units[char_id]["attached_to"] = bg_id
+		var bg = gs.state.units[bg_id]
+		if not (bg.get("attachment_data") is Dictionary):
+			bg["attachment_data"] = {}
+		var attached: Array = bg["attachment_data"].get("attached_characters", [])
+		if not char_id in attached:
+			attached.append(char_id)
+		bg["attachment_data"]["attached_characters"] = attached
+		print("declared attachment for the rehearsal: %s -> %s" % [char_id, bg_id])
+
+	print("\npacking (play order — the session is a rehearsal of the deployment):")
 	for unit_id in PACK_ORDER:
 		# A MIRROR fixture makes TurnManager alternate the active player after
 		# every placement, and the phase then rejects a player-1 unit with
@@ -296,6 +308,15 @@ func _author(spec: Dictionary) -> void:
 			"unit_name": str(unit.get("meta", {}).get("name", unit_id)),
 			"models_inches": inches,
 		}
+		# PM-F7: if this bodyguard carried an attached character, P1-66 just
+		# auto-deployed it adjacent — print where, because that footprint is
+		# now part of the board every later unit validates against.
+		for att_id in unit.get("attachment_data", {}).get("attached_characters", []):
+			var att_unit = gs.state.units.get(str(att_id), {})
+			for m in att_unit.get("models", []):
+				var mp = m.get("position")
+				if mp != null:
+					print("    P1-66 auto-deployed %s at (%.1f, %.1f)\"" % [str(att_id), float(mp.x) / PX, float(mp.y) / PX])
 		# Drift is measured from the unit's CENTROID, not its first model: a
 		# block's first model is its top-left corner, so a first-model reading
 		# reports the block's own half-width as if the packer had wandered.

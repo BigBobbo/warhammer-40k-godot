@@ -2705,7 +2705,7 @@ re-anchored for the true board.
 
 ## PM-F7 — FOLLOW-UP: the authoring spike's anchors are tuned for the 10e packing
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-F4
 **Player-facing:** no (authoring tool), but it blocks re-authoring shipped content
 
@@ -2723,6 +2723,38 @@ current 10 of 11. Worth doing together with a look at why the packer's column
 choice is edition-sensitive at all, given `COHERENCY_ENVELOPE_IN` is a constant.
 
 **Evidence.** The table in PM-F4's evidence block above; spike header comment.
+
+### Evidence (fixed, 2026-08-21) — not the anchors: the authored board was not the played board
+
+**The filed diagnosis was too shallow.** Re-tuning anchors could never have
+made the plan exact, because the repair had a structural cause: the spike
+packed the two ATTACHED Deffkilla Wartrikes as free units at anchors of their
+own, but at play time an attached character never deploys at a plan
+coordinate — DeploymentPhase auto-deploys it ADJACENT to its bodyguard
+(P1-66) at a spot the authoring pass never validated anything against. The
+authored board and the played board disagreed by exactly two Wartrike-shaped
+footprints, and whichever planned unit stood on one got repaired:
+`U_WARBIKERS_B` by 7.17" from the shipped 10e file, by 17.43" from the naive
+11e re-run (9 of 11 exact, reproduced twice each — the pm10 scenario failed
+2 assertions on the naive re-run exactly as it was designed to).
+
+**Fix: the authoring session is now a REHEARSAL of the play deployment.** The
+spike declares the plan's attachments in state (the same two writes
+FormationsPhase's confirm applies), packs in PLAY order rather than big-first,
+and lets the phase's own P1-66 place the Wartrikes — logged, e.g.
+`P1-66 auto-deployed U_DEFFKILLA_WARTRIKE_B at (3.1, 10.8)"` — so every later
+placement validates against their true footprint. The Wartrikes no longer
+carry placements in the emitted file (they were dead weight the consumer
+ignored: 11 placements + 2 attachments + 4 reserves = 17 units).
+
+**Measured, the bar was 10 of 11:** `sp/pm10_shipped_plan_from_menu` now
+reports **eligible=11 exact=11 with an empty repair list, twice**, 28/28 both
+runs, and the scenario's floor is RAISED to 11 so any regression fails loudly.
+Both plans re-authored at edition 11 against the PM-F3-rebuilt boards
+(crucible: anchors moved to the true triangle, Gretchin A 0.3" from the real
+obj_home_1 at (32,14)); PlanValidator: 0 errors, 0 warnings on both. The
+crucible plan's live adherence is measured by the A/B re-run's own gate.
+Version 1.37.2.
 
 ---
 
