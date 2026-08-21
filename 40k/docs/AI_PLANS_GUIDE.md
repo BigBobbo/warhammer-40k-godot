@@ -126,6 +126,13 @@ more.
 **Main menu → AI Plans** lists every plan: its army, zone, terrain, where it
 came from, and whether it is still valid.
 
+The status column also carries notes worth reading: a plan whose deployment
+would break unit coherency, or one that asks for a character attachment the
+game cannot make (the wrong kind of unit, or a character with no Leader
+ability). A note is not an error — the plan still plays — but the computer
+will quietly do its own thing for that part, and the note is how you find out
+before the game does.
+
 * Plans you wrote can be **renamed** or **deleted** (deleting asks first).
 * Plans that ship with the game are read-only — you can use them and look at
   them, but not change them.

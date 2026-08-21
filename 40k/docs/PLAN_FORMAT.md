@@ -652,6 +652,14 @@ Passing `army` (an army-list dict, a GameState snapshot, or a bare
 - a placement partly outside the zone polygon (the consumer will repair or fall
   back for that unit)
 - an ordered unit with no placement, or a placement not in `order`
+- a placement that breaks 11th-edition unit coherency (checked pinned to
+  edition 11 whatever the running process is set to — see the PM-F4 note in
+  the validator source)
+- an attachment the game cannot make (PM-F2): the character is not a
+  CHARACTER, has no Leader ability, targets another CHARACTER, or none of its
+  `can_lead` keywords appear on the bodyguard. A warning rather than an error
+  because the phase simply never offers the pairing and the AI falls back to
+  its own — which is exactly the silence the warning exists to break
 - every coverage degradation listed in the section above
 
 ### CI

@@ -401,6 +401,8 @@ static func validate_plan(data, army: Dictionary = {}) -> Dictionary:
 		var cap_result := _validate_reserves_caps(reserve_rounds, attached_chars, army, cover)
 		for e in cap_result.get("errors", []):
 			errors.append(e)
+		for w in _attachment_legality_notes(attached_chars, army):
+			warnings.append(w)
 
 	return {
 		"valid": errors.is_empty(),
@@ -408,6 +410,73 @@ static func validate_plan(data, army: Dictionary = {}) -> Dictionary:
 		"warnings": warnings,
 		"coverage": cover,
 	}
+
+static func _attachment_legality_notes(attached_chars: Dictionary, army: Dictionary) -> Array:
+	"""PM-F2 — flag a leader/bodyguard pairing the game cannot make.
+
+	Mirrors the checks FormationsPhase applies to DECLARE_LEADER_ATTACHMENT
+	(:183-217): the character must have the CHARACTER keyword and a non-empty
+	`meta.leader_data.can_lead` (extended by the Taktikal Brigade enhancement
+	extras, the same static helper the phase uses), the bodyguard must not be a
+	CHARACTER, and one of the can_lead keywords must appear on the bodyguard.
+
+	WARNINGS, not errors — matching the coherency-note precedent: an impossible
+	attachment is not an illegal game state, because at play time the phase
+	never offers it and the AI silently falls back to its own pairing. That
+	silence is exactly the defect: the author sees the plan "work" while the
+	attachment they asked for never happens. The warning reaches players
+	through the plan browser badge.
+
+	Units that do not resolve in the army are left to coverage(), which
+	already reports them."""
+	var notes: Array = []
+	var units := _army_units(army)
+	for char_id in attached_chars:
+		var body_id := str(attached_chars[char_id])
+		var character: Dictionary = units.get(str(char_id), {})
+		var bodyguard: Dictionary = units.get(body_id, {})
+		if character.is_empty() or bodyguard.is_empty():
+			continue
+		var char_kw: Array = character.get("meta", {}).get("keywords", [])
+		if not ("CHARACTER" in char_kw):
+			notes.append("Attachment '%s' -> '%s': '%s' is not a CHARACTER — the game will never offer this attachment and the AI will pick its own pairing" % [char_id, body_id, char_id])
+			continue
+		var raw_can_lead = character.get("meta", {}).get("leader_data", {}).get("can_lead", [])
+		var can_lead: Array = raw_can_lead.duplicate() if raw_can_lead is Array else []
+		# Taktikal Brigade enhancement extras, INLINED from
+		# CharacterAttachmentManager.get_enhancement_can_lead_extras rather than
+		# loaded from it. load()ing that script here fails in exactly the
+		# headless `-s` harness that tests this file (it references autoload
+		# identifiers, "Compile Error: Identifier not found: GameState") — and a
+		# failed load() inside a static function ABORTS the function, which
+		# silently emptied every note this helper exists to produce. Measured,
+		# not theorised: the loop body below never ran until this was inlined.
+		for enh in character.get("meta", {}).get("enhancements", []):
+			var enh_name := str(enh.get("name", "")) if enh is Dictionary else str(enh)
+			match enh_name:
+				"Skwad Leader":
+					if not "KOMMANDOS" in can_lead:
+						can_lead.append("KOMMANDOS")
+				"Mek Kaptin":
+					if not "FLASH GITZ" in can_lead:
+						can_lead.append("FLASH GITZ")
+		if can_lead.is_empty():
+			notes.append("Attachment '%s' -> '%s': '%s' has no Leader ability (empty can_lead) — the game will never offer this attachment and the AI will pick its own pairing" % [char_id, body_id, char_id])
+			continue
+		var bg_kw_upper: Array = []
+		for kw in bodyguard.get("meta", {}).get("keywords", []):
+			bg_kw_upper.append(str(kw).to_upper())
+		if "CHARACTER" in bg_kw_upper:
+			notes.append("Attachment '%s' -> '%s': the bodyguard is itself a CHARACTER — characters cannot attach to characters" % [char_id, body_id])
+			continue
+		var leads := false
+		for kw in can_lead:
+			if str(kw).to_upper() in bg_kw_upper:
+				leads = true
+				break
+		if not leads:
+			notes.append("Attachment '%s' -> '%s': '%s' can lead %s, and '%s' has none of those keywords — the attachment will silently not happen" % [char_id, body_id, char_id, str(can_lead), body_id])
+	return notes
 
 static func _validate_reserves_caps(reserve_rounds: Dictionary, attached_chars: Dictionary, army: Dictionary, cover: Dictionary) -> Dictionary:
 	"""Mirror FormationsPhase.gd:400-420 — 50% points and 50% unit-count caps.

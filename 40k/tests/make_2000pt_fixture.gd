@@ -93,6 +93,36 @@ func _build() -> void:
 		return
 	print("[fixture] shell loaded: %s" % SHELL)
 
+	# 1b. PM-F3: do NOT trust the shell's board geometry. The shell's board is a
+	# snapshot from whenever the shell was made, and the zone JSONs have been
+	# regenerated since (crucible_of_battle went from a stepped band to a
+	# triangle). SaveLoadManager restores the stale board verbatim, so every
+	# fixture built on this shell played geometry no menu game can produce —
+	# and the PM-10 A/B was measured on it. Refresh zones and objectives from
+	# the same sources a fresh menu game uses: DeploymentZoneData.get_zones for
+	# the zones, MissionManager._setup_objectives_for_deployment for the
+	# objectives (which prefers layout-sourced objectives exactly like a real
+	# game, so the terrain layout the shell restored keeps its say).
+	var DZD = load("res://scripts/data/DeploymentZoneData.gd")
+	var mm = root.get_node_or_null("MissionManager")
+	if DZD == null or mm == null:
+		_fail("DeploymentZoneData / MissionManager unavailable for the PM-F3 board refresh")
+		return
+	var dep_type := str(GS.state.meta.get("deployment_type", ""))
+	if dep_type.is_empty():
+		_fail("shell save carries no meta.deployment_type")
+		return
+	var old_zones := JSON.stringify(GS.state.board.get("deployment_zones", []))
+	var old_objs := JSON.stringify(GS.state.board.get("objectives", []))
+	GS.state.board["deployment_zones"] = DZD.get_zones(dep_type)
+	mm._setup_objectives_for_deployment(dep_type)
+	var zones_changed := old_zones != JSON.stringify(GS.state.board.get("deployment_zones", []))
+	var objs_changed := old_objs != JSON.stringify(GS.state.board.get("objectives", []))
+	print("[fixture] PM-F3 board refresh (%s): zones %s, objectives %s" % [
+		dep_type,
+		"REPLACED (shell was stale)" if zones_changed else "already current",
+		"REPLACED (shell was stale)" if objs_changed else "already current"])
+
 	# 2. Both armies, through the real loader.
 	alm.scan_available_armies()
 	for spec in [[_p1, 1], [_p2, 2]]:
@@ -218,16 +248,41 @@ func _zone_bounds() -> Dictionary:
 	for z in GS.state.board.get("deployment_zones", []):
 		var xs := []
 		var ys := []
+		var poly := PackedVector2Array()
 		for p in z.get("poly", []):
-			xs.append(float(p.x) * PX_PER_INCH)
-			ys.append(float(p.y) * PX_PER_INCH)
+			var px := float(p.x) * PX_PER_INCH
+			var py := float(p.y) * PX_PER_INCH
+			xs.append(px)
+			ys.append(py)
+			poly.append(Vector2(px, py))
 		if xs.is_empty():
 			continue
 		out[int(z.player)] = {
 			"min_x": xs.min(), "max_x": xs.max(),
 			"min_y": ys.min(), "max_y": ys.max(),
+			# PM-F3: the polygon itself, because the bounds rectangle is a
+			# strict over-approximation for the triangular and stepped zones
+			# and a rectangle-packed fixture puts models outside the real zone.
+			"poly": poly,
 		}
 	return out
+
+
+func _wholly_inside(pt: Vector2, r: float, poly: PackedVector2Array) -> bool:
+	"""Circle of radius r around pt sits wholly inside poly — the phase's own
+	deployment rule ('Model must be wholly within deployment zone'). A zone
+	with no polygon defers, matching the pre-PM-F3 behaviour."""
+	if poly.size() < 3:
+		return true
+	if not Geometry2D.is_point_in_polygon(pt, poly):
+		return false
+	for i in range(poly.size()):
+		var a := poly[i]
+		var b := poly[(i + 1) % poly.size()]
+		var closest := Geometry2D.get_closest_point_to_segment(pt, a, b)
+		if pt.distance_to(closest) < r:
+			return false
+	return true
 
 
 func _radius_px(model: Dictionary) -> float:
@@ -306,41 +361,52 @@ func _pack(player: int, zone: Dictionary) -> int:
 		var models: Array = u.get("models", [])
 		var n: int = item.n
 		var r: float = item.r
-		var cols: int = int(ceil(sqrt(float(n))))
 		var cell: float = r * 2.0 + 2.0
-		# Row-major local offsets from the block's front-left model. Row 0 is
-		# the FRONT rank; deeper rows extend toward the back of the zone.
-		var offs: Array = []
-		for i in range(n):
-			offs.append(Vector2(float(i % cols) * cell, float(i / cols) * cell))
-		var w: float = float(cols - 1) * cell
-		var h: float = float(int(ceil(float(n) / float(cols))) - 1) * cell
 
+		# PM-F3: candidate block shapes, near-square first. One fixed
+		# ceil(sqrt(n)) shape was enough on the old (rectangular-ish) stale
+		# zones, but the true crucible triangles narrow to a point and a
+		# mid-pack unit can be unplaceable in the one shape while fitting fine
+		# as a wider or narrower block (measured: asym_2000_postdeploy's P2
+		# Orks failed at U_GRETCHIN_B, 45 of 77 models placed). Shapes beyond
+		# the first are only reached when the previous shape fits NOWHERE, so
+		# every fixture that packed before packs identically now. Each shape
+		# keeps the block diagonal inside the 11e 9" envelope; the engine's
+		# own coherency gate after packing remains the final word.
+		var col_candidates: Array = []
+		var primary: int = int(ceil(sqrt(float(n))))
+		var order: Array = [primary]
+		for c in range(primary + 1, n + 1):
+			order.append(c)
+		for c in range(primary - 1, 0, -1):
+			order.append(c)
+		for c in order:
+			var rows_c: int = int(ceil(float(n) / float(c)))
+			var diag: float = Vector2(float(c - 1) * cell, float(rows_c - 1) * cell).length()
+			if diag <= 8.8 * PX_PER_INCH:
+				col_candidates.append(c)
+		if col_candidates.is_empty():
+			col_candidates.append(primary)  # huge bases: let the engine gate decide
+
+		var cols: int = col_candidates[0]
+		var offs: Array = []
+		var w: float = 0.0
+		var h: float = 0.0
 		var spot := Vector2.INF
-		var y: float = (zone.max_y - r - 2.0) if front_is_max else (zone.min_y + r + 2.0)
-		while ((y - h >= zone.min_y + r) if front_is_max else (y + h <= zone.max_y - r)) and spot == Vector2.INF:
-			var x: float = zone.min_x + r + 2.0
-			while x + w <= zone.max_x - r:
-				var ok := true
-				for i in range(n):
-					var mx: float = x + offs[i].x
-					var my: float = (y - offs[i].y) if front_is_max else (y + offs[i].y)
-					for o in occupied:
-						var gap: float = r + o[2] + 2.0
-						var dx: float = mx - o[0]
-						if absf(dx) >= gap:
-							continue
-						var dy: float = my - o[1]
-						if dx * dx + dy * dy < gap * gap:
-							ok = false
-							break
-					if not ok:
-						break
-				if ok:
-					spot = Vector2(x, y)
-					break
-				x += STEP
-			y += (-STEP if front_is_max else STEP)
+		for cand in col_candidates:
+			cols = cand
+			# Row-major local offsets from the block's front-left model. Row 0
+			# is the FRONT rank; deeper rows extend toward the back.
+			offs = []
+			for i in range(n):
+				offs.append(Vector2(float(i % cols) * cell, float(i / cols) * cell))
+			w = float(cols - 1) * cell
+			h = float(int(ceil(float(n) / float(cols))) - 1) * cell
+			spot = _scan_for_spot(zone, w, h, r, n, offs, occupied)
+			if spot != Vector2.INF:
+				if cand != col_candidates[0]:
+					print("[fixture] %s: primary %d-col block fit nowhere; packed as %d columns" % [item.uid, col_candidates[0], cols])
+				break
 		if spot == Vector2.INF:
 			_fail("no room in P%d's zone for %s as a coherent block (%d models, cell %.0fpx; %d model(s) already placed)"
 				% [player, item.uid, n, cell, placed])
@@ -352,6 +418,47 @@ func _pack(player: int, zone: Dictionary) -> int:
 			occupied.append([mx, my, _radius_px(models[i])])
 			placed += 1
 	return placed
+
+
+func _scan_for_spot(zone: Dictionary, w: float, h: float, r: float, n: int,
+		offs: Array, occupied: Array) -> Vector2:
+	"""The original front-to-back, left-to-right scan, extracted verbatim so
+	_pack can try more than one block shape. Returns the block's front-left
+	model position, or Vector2.INF when the shape fits nowhere."""
+	const STEP := 10.0
+	var board_mid: float = float(GS.state.board.size.height) * PX_PER_INCH * 0.5
+	var front_is_max: bool = absf(zone.max_y - board_mid) < absf(zone.min_y - board_mid)
+	var y: float = (zone.max_y - r - 2.0) if front_is_max else (zone.min_y + r + 2.0)
+	while ((y - h >= zone.min_y + r) if front_is_max else (y + h <= zone.max_y - r)):
+		var x: float = zone.min_x + r + 2.0
+		while x + w <= zone.max_x - r:
+			var ok := true
+			for i in range(n):
+				var mx: float = x + offs[i].x
+				var my: float = (y - offs[i].y) if front_is_max else (y + offs[i].y)
+				# PM-F3: wholly inside the real polygon, not just the bounds
+				# rectangle — the stepped and triangular zones are smaller
+				# than their rectangle, and a model packed into the difference
+				# starts the game outside its own zone.
+				if not _wholly_inside(Vector2(mx, my), r, zone.get("poly", PackedVector2Array())):
+					ok = false
+					break
+				for o in occupied:
+					var gap: float = r + o[2] + 2.0
+					var dx: float = mx - o[0]
+					if absf(dx) >= gap:
+						continue
+					var dy: float = my - o[1]
+					if dx * dx + dy * dy < gap * gap:
+						ok = false
+						break
+				if not ok:
+					break
+			if ok:
+				return Vector2(x, y)
+			x += STEP
+		y += (-STEP if front_is_max else STEP)
+	return Vector2.INF
 
 
 func _mirror_p2_from_p1(w_px: float, h_px: float) -> int:

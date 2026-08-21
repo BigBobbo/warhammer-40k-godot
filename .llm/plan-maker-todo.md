@@ -2273,7 +2273,7 @@ project convention, and CLAUDE.md forbids stripping debug logging.
 
 ## PM-F1 — FOLLOW-UP: the deployment formula fails validation on diagonal zones
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** — (pre-existing behaviour, found while gathering PM-2a evidence)
 **Player-facing:** yes (AI behaviour)
 
@@ -2372,7 +2372,7 @@ not a reproduction.
 
 ## PM-F2 — FOLLOW-UP: the validator does not check attachment legality
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** PM-0
 **Player-facing:** no (authoring-time validation)
 
@@ -2401,9 +2401,39 @@ eligible leaders named; an unresolvable datasheet id warns instead of failing.
 
 ---
 
+### Evidence (fixed, 2026-08-21)
+
+`PlanValidator._attachment_legality_notes` mirrors the checks FormationsPhase
+applies to DECLARE_LEADER_ATTACHMENT (:183-217): CHARACTER keyword, non-empty
+`can_lead` (with the Taktikal Brigade enhancement extras), bodyguard not a
+CHARACTER, and a can_lead keyword present on the bodyguard. WARNINGS, not
+errors, matching the coherency-note precedent — the phase never offers the
+illegal pairing and the AI falls back silently, which is exactly the silence
+the warning breaks. Surfaced through the same browser badge as coherency notes.
+
+**Headless.** `tests/unit/test_plan_validator.gd` — 72 passed, 0 failed. True
+negative first (Deffkilla -> Warbikers stays clean), then the historical defect
+(Wazdakka: no Leader ability), a can_lead miss (Deffkilla -> Gretchin), a
+character bodyguard, and no-army-stays-quiet.
+
+**Windowed.** `sp/pm_f2_attachment_note_in_browser` — 11 passed, 0 failed:
+badge reads `OK, 1 note(s)` in the warning colour beside a clean control row,
+and selecting the row names the character and the rule.
+
+**A defect found while writing it, worth remembering:** a failed `load()`
+inside a static function ABORTS the function silently. The first version
+loaded `CharacterAttachmentManager.gd` for its static enhancement helper; that
+script references autoload identifiers, fails to compile under `godot -s`, and
+the load's failure silently emptied every note the helper existed to produce —
+while the identical code passed in a deferred-timer debug harness (autoloads
+resolve there). The suite's own true-positive assertions caught it; the
+enhancement extras are now inlined. Version 1.37.1.
+
+---
+
 ## PM-F3 — FOLLOW-UP: the predeploy fixtures carry a stale crucible zone
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** — (pre-existing; found while authoring the PM-10 shipped plans)
 **Player-facing:** no (benchmark asset), but it invalidates comparisons
 
@@ -2447,6 +2477,40 @@ the fixture's `board.deployment_zones` equals
 test so this cannot silently rot again.
 
 **Evidence.** _(fill)_
+
+---
+
+### Evidence (fixed, 2026-08-21)
+
+All six 2000-point fixtures rebuilt. Root cause was the BUILDER, not the
+fixtures: `make_2000pt_fixture.gd` copied the shell save's board verbatim, so
+every rebuild re-baked the stale zone. It now refreshes
+`board.deployment_zones` from `DeploymentZoneData.get_zones` and
+`board.objectives` via `MissionManager._setup_objectives_for_deployment`
+(layout-sourced objectives keep their say, exactly like a real game), packs
+wholly inside the zone POLYGON rather than its bounding rectangle, and tries
+wider/narrower block shapes when the near-square block fits nowhere — the true
+P2 crucible triangle narrows to a point, and `asym_2000_postdeploy`'s Ork side
+failed at 45 of 77 models without that (packs clean with it; `U_GRETCHIN_B`
+goes out as 6 columns).
+
+**Rot-guard.** `tests/unit/test_fixture_boards_current.gd` applies the
+builder's own refresh to each shipped fixture and asserts it is a fixed point,
+plus wholly-inside containment for every deployed model. **12 of 24 FAILED on
+the old fixtures — including 8/36/29 deployed models outside the true zone on
+the three postdeploy boards — and 24/24 PASS on the rebuilt ones.** Registered
+in the suite. One measured trap inside the test itself: a freshly-computed
+objective carries a Vector2 while a save-restored one carries whatever
+StateSerializer round-tripped, so a stringify comparison fails on TYPE with
+every VALUE equal; the test normalises values.
+
+**Gate.** `fixture_check.py` PASS on all six; old -> new sha256s and the
+supersession note for earlier baselines are in
+`tests/bench_baselines/2026-08-21_fixture_regeneration.md`.
+
+**Preserved.** `staleboard_orks_2000_predeploy.{w40ksave,meta}` is the old ork
+predeploy board, kept byte-for-byte as the only known PM-F6 stall repro; the
+rot-guard exempts it by name.
 
 ---
 
@@ -2592,6 +2656,50 @@ So the shipped plans are **kept as they are** — they validate clean at edition
 anchors were hand-tuned against the 10e packing and want re-tuning before the
 spike's 11e output should replace shipped content; the spike header now says so
 in full, so a future run cannot quietly commit the downgrade. Filed as PM-F7.
+
+---
+
+### Evidence (fixed, 2026-08-21) — the 2x2 that closed both PM-F6 and PM-F1
+
+The 2026-08-20 partial note above said the stall did not reproduce on a menu
+crucible game and guessed the stale fixture board might be a precondition. It
+was. The stale stepped zone is itself NON-RECTANGULAR (a 44x8 band + 24x6
+step), so the formula's rectangle-derived placements land outside it, the
+phase refuses them, the retry/reserves ladder exhausts, and the game stops.
+Same defect as PM-F1's diagonal zones, different non-rectangle.
+
+**The experiment.** Exactly the two games the PM-10 A/B lost: the STALE
+`mirror_orks_2000_predeploy`, arm M1 (P1 plans OFF, P2 plans ON, same plan
+file both seats), difficulty Normal, seeds 9001 and 9005. Two builds: HEAD
+(`acb04df`, polygon guard in) and a control worktree with ONLY the guard
+commit reverted. Each cell is one full bench game:
+
+| seed | guard reverted | guard present |
+|---|---|---|
+| 9001 | **stalled** — `no progress for 90s at 1|1|41` | **completed** |
+| 9005 | **stalled** — `no progress for 90s at 1|1|42` | **completed** |
+
+The control reproduces the PM-10 signature to the action count (~41, round 1,
+deployment, plans-OFF seat), and the one-commit difference flips both seeds to
+completed full games. The guard IS the fix; nothing else changed.
+
+**Where the repro lives now.** PM-F3 rebuilt the fixtures, so the stale board
+survives as `tests/saves/staleboard_orks_2000_predeploy.{w40ksave,meta}`,
+byte-for-byte. Re-run either cell with AIBenchmarkRunner against that fixture
+to reproduce; the suite-level regression nets are
+`tests/unit/test_deployment_zone_polygon_guard.gd` (31/31, with the
+naive-grid-leaks control) and `sp/pm_f1_crucible_deploys_without_retries`
+(13/13 on a real menu triangle game).
+
+**Also resolved by measurement:** the task's "bound the retry loop" suggestion
+was already implemented before this bug was ever filed
+(`AIPlayer._handle_failed_deployment` -> `_fallback_to_reserves`); the stall
+lived a layer below it, in the formula proposing unfillable positions faster
+than the ladder could absorb them.
+
+**Still owed to close the loop:** the re-run of the PM-10 A/B showing 6 usable
+pairs — queued behind the PM-F7 re-authoring, since the A/B's plan is being
+re-anchored for the true board.
 
 ---
 
@@ -2763,7 +2871,7 @@ PM-F5 captures as taken and says plainly that they now show the old behaviour.
 
 ## PM-F6 — FOLLOW-UP: the deployment formula stalls the game on the Ork predeploy fixture
 
-**Status:** TODO
+**Status:** DONE
 **Depends:** — (pre-existing; PM-F1 is probably the same defect)
 **Player-facing:** yes — the game hangs in deployment
 

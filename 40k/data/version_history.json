@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.37.1",
+      "date": "2026-08-21",
+      "summary": "The AI Plans screen now warns when a plan asks for a character attachment the game cannot make.",
+      "changes": [
+        "If a plan pairs a character with a unit it is not allowed to lead — or with another character, or with a character that has no Leader ability — the AI Plans screen shows a note naming the character and the reason, in the same place coherency notes already appear.",
+        "It is a note, not an error: the plan still loads and plays, and the computer simply picks its own pairing as it always did. Before this the plan looked fine and the attachment silently never happened."
+      ]
+    },
+    {
       "version": "1.37.0",
       "date": "2026-08-20",
       "summary": "The Plan Editor now has its own army picker, so you can write a plan for any army instead of always getting Player 1's.",
