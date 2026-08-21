@@ -2697,9 +2697,12 @@ was already implemented before this bug was ever filed
 lived a layer below it, in the formula proposing unfillable positions faster
 than the ladder could absorb them.
 
-**Still owed to close the loop:** the re-run of the PM-10 A/B showing 6 usable
-pairs — queued behind the PM-F7 re-authoring, since the A/B's plan is being
-re-anchored for the true board.
+**The loop is closed: the A/B re-ran with 6 usable pairs of 6.** 18 of 18
+games completed on the rebuilt fixture — zero stalls, zero timeouts — with
+seeds 9001 and 9005 completing in both paired arms and the A/A arm. E = +0.92
+VP/game, se 2.17, CI [−3.33, +5.16]; adherence 15 plan-sourced / 0 repaired
+per plan-seat game, twelve of twelve. Full report:
+`tests/bench_baselines/2026-08-21_plan_vs_formula_rerun.md`.
 
 ---
 
