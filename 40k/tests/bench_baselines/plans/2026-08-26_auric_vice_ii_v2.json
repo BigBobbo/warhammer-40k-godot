@@ -1,0 +1,262 @@
+{
+	"author": "Claude — played via the Plan Editor and sim-tested vs the no-plan formula; human review still wanted",
+	"deployment": {
+		"attachments": [
+			{
+				"bodyguard": "U_CUSTODIAN_GUARD_A",
+				"character": "U_BLADE_CHAMPION_A"
+			},
+			{
+				"bodyguard": "U_CUSTODIAN_GUARD_D",
+				"character": "U_BLADE_CHAMPION_B"
+			},
+			{
+				"bodyguard": "U_CUSTODIAN_GUARD_E",
+				"character": "U_BLADE_CHAMPION_C"
+			}
+		],
+		"embarkations": [],
+		"order": [
+			"U_PROSECUTORS_A",
+			"U_CUSTODIAN_GUARD_A",
+			"U_CUSTODIAN_GUARD_D",
+			"U_CUSTODIAN_GUARD_E",
+			"U_CUSTODIAN_GUARD_F",
+			"U_CUSTODIAN_GUARD_C",
+			"U_CUSTODIAN_GUARD_B"
+		],
+		"placements": [
+			{
+				"anchors": {
+					"depth_from_zone_edge_in": 1.5,
+					"nearest_objective": "obj_home_1",
+					"nearest_terrain_piece": "area-short-line-24"
+				},
+				"models_inches": [
+					[
+						15.5,
+						16.5
+					],
+					[
+						17.25,
+						16.5
+					],
+					[
+						19.0,
+						16.5
+					],
+					[
+						20.75,
+						16.5
+					],
+					[
+						22.5,
+						16.5
+					]
+				],
+				"unit": "U_CUSTODIAN_GUARD_A",
+				"unit_name": "Custodian Guard"
+			},
+			{
+				"anchors": {
+					"depth_from_zone_edge_in": 5.5,
+					"nearest_objective": "obj_home_1",
+					"nearest_terrain_piece": "area-long-line-28"
+				},
+				"models_inches": [
+					[
+						33.5,
+						12.5
+					],
+					[
+						35.25,
+						12.5
+					],
+					[
+						37.0,
+						12.5
+					],
+					[
+						38.75,
+						12.5
+					],
+					[
+						40.5,
+						12.5
+					]
+				],
+				"unit": "U_CUSTODIAN_GUARD_B",
+				"unit_name": "Custodian Guard"
+			},
+			{
+				"anchors": {
+					"depth_from_zone_edge_in": 7.0,
+					"nearest_objective": "obj_home_1",
+					"nearest_terrain_piece": "area-large-14"
+				},
+				"models_inches": [
+					[
+						24.0,
+						11.0
+					],
+					[
+						25.75,
+						11.0
+					],
+					[
+						27.5,
+						11.0
+					],
+					[
+						29.25,
+						11.0
+					],
+					[
+						31.0,
+						11.0
+					]
+				],
+				"unit": "U_CUSTODIAN_GUARD_C",
+				"unit_name": "Custodian Guard"
+			},
+			{
+				"anchors": {
+					"depth_from_zone_edge_in": 3.8,
+					"nearest_objective": "obj_home_1",
+					"nearest_terrain_piece": "area-large-14"
+				},
+				"models_inches": [
+					[
+						23.0,
+						14.2
+					],
+					[
+						24.75,
+						14.2
+					],
+					[
+						26.5,
+						14.2
+					],
+					[
+						28.25,
+						14.2
+					],
+					[
+						30.0,
+						14.2
+					]
+				],
+				"unit": "U_CUSTODIAN_GUARD_D",
+				"unit_name": "Custodian Guard"
+			},
+			{
+				"anchors": {
+					"depth_from_zone_edge_in": 3.0,
+					"nearest_objective": "obj_nml_1",
+					"nearest_terrain_piece": "corner-short-12"
+				},
+				"models_inches": [
+					[
+						9.0,
+						15.0
+					],
+					[
+						10.75,
+						15.0
+					],
+					[
+						12.5,
+						15.0
+					],
+					[
+						14.25,
+						15.0
+					],
+					[
+						16.0,
+						15.0
+					]
+				],
+				"unit": "U_CUSTODIAN_GUARD_E",
+				"unit_name": "Custodian Guard"
+			},
+			{
+				"anchors": {
+					"depth_from_zone_edge_in": 5.4,
+					"nearest_objective": "obj_home_1",
+					"nearest_terrain_piece": "corner-short-10"
+				},
+				"models_inches": [
+					[
+						15.65,
+						12.65
+					],
+					[
+						17.4,
+						12.65
+					],
+					[
+						19.15,
+						12.65
+					],
+					[
+						20.9,
+						12.65
+					],
+					[
+						22.65,
+						12.65
+					]
+				],
+				"unit": "U_CUSTODIAN_GUARD_F",
+				"unit_name": "Custodian Guard"
+			},
+			{
+				"anchors": {
+					"depth_from_zone_edge_in": 8.5,
+					"nearest_objective": "obj_home_1",
+					"nearest_terrain_piece": "area-large-14"
+				},
+				"models_inches": [
+					[
+						21.3,
+						8.8
+					],
+					[
+						22.7,
+						8.8
+					],
+					[
+						21.3,
+						10.2
+					],
+					[
+						22.7,
+						10.2
+					]
+				],
+				"unit": "U_PROSECUTORS_A",
+				"unit_name": "Prosecutors"
+			}
+		],
+		"reserves": [
+			{
+				"arrival_round": 2,
+				"unit": "U_ALLARUS_CUSTODIANS_A"
+			}
+		]
+	},
+	"description": "The concentrated version of the Vice: five Blade Champion-supported Custodian Guard squads grind straight into the centre and hold it, Prosecutors keep the home objective, one squad walks the east marker, and only the Allarus arrive from Deep Strike, dropping toward the west marker on round 2.",
+	"earmarks": [],
+	"format": "wh40k_ai_plan",
+	"keys": {
+		"army_file": "custodes_lions",
+		"deployment_zone_id": "hammer_anvil",
+		"detachment_hint": "Lions of the Emperor",
+		"mission_id": "take_and_hold",
+		"terrain_layout_id": "take_and_hold_mirror_1"
+	},
+	"name": "Auric Vice II",
+	"version": 1
+}

@@ -1,0 +1,74 @@
+{
+	"author": "t",
+	"deployment": {
+		"attachments": [
+			{
+				"bodyguard": "U_CUSTODIAN_GUARD_A",
+				"character": "U_BLADE_CHAMPION_A"
+			},
+			{
+				"bodyguard": "U_CUSTODIAN_GUARD_D",
+				"character": "U_BLADE_CHAMPION_B"
+			},
+			{
+				"bodyguard": "U_CUSTODIAN_GUARD_E",
+				"character": "U_BLADE_CHAMPION_C"
+			}
+		],
+		"embarkations": [],
+		"order": [],
+		"placements": [],
+		"reserves": [
+			{
+				"arrival_round": 2,
+				"unit": "U_ALLARUS_CUSTODIANS_A"
+			}
+		]
+	},
+	"description": "Earmarks-only probe",
+	"earmarks": [
+		{
+			"target": "obj_home_1",
+			"unit": "U_PROSECUTORS_A",
+			"verb": "HOLD_OBJECTIVE"
+		},
+		{
+			"target": "obj_center",
+			"unit": "U_CUSTODIAN_GUARD_A",
+			"verb": "HOLD_OBJECTIVE"
+		},
+		{
+			"target": "obj_center",
+			"unit": "U_CUSTODIAN_GUARD_D",
+			"verb": "HOLD_OBJECTIVE"
+		},
+		{
+			"target": "obj_nml_2",
+			"unit": "U_CUSTODIAN_GUARD_B",
+			"verb": "HOLD_OBJECTIVE"
+		},
+		{
+			"unit": "U_CUSTODIAN_GUARD_E",
+			"verb": "PUSH_CENTER"
+		},
+		{
+			"unit": "U_CUSTODIAN_GUARD_F",
+			"verb": "PUSH_CENTER"
+		},
+		{
+			"target": "obj_nml_1",
+			"unit": "U_ALLARUS_CUSTODIANS_A",
+			"verb": "HOLD_OBJECTIVE"
+		}
+	],
+	"format": "wh40k_ai_plan",
+	"keys": {
+		"army_file": "custodes_lions",
+		"deployment_zone_id": "hammer_anvil",
+		"detachment_hint": "Lions of the Emperor",
+		"mission_id": "take_and_hold",
+		"terrain_layout_id": "take_and_hold_mirror_1"
+	},
+	"name": "Auric Directives",
+	"version": 1
+}

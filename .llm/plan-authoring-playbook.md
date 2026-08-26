@@ -7,6 +7,22 @@ reading: `40k/docs/PLAN_FORMAT.md` (format), `40k/docs/AI_PLANS_GUIDE.md`
 (player view), `40k/tests/bench_baselines/2026-08-25_free_grab_grip.md`
 (the measured first run).
 
+## First: decide whether this army can profit from a plan at all
+
+Plan value is **army-dependent** — measured, not assumed. The Orks won
+11–1 because 12"-move OC could be routed down layout corridors the
+formula doesn't know. The Custodes (M5–6, 11 units) lost with every
+variant tried — dispersed, concentrated, and even earmarks-only — because
+a fixed anything gives up the formula's one real strength, reactive
+counter-deployment, and a HOLD earmark's standing +8.0 pins a slow unit
+to one objective all game (see
+`40k/tests/bench_baselines/2026-08-26_auric_vice.md`). Ask first: what
+does this army know that the formula can't? Speed + layout corridors,
+alpha-strike staging, screen geometry are real answers. "Better OC
+spreading" is not — the formula already does that dynamically. If there
+is no crisp answer, run one cheap probe (earmarks-only plan, 2×6 games
+vs the A/A anchor) before spending hours in the editor.
+
 ## The loop, in order
 
 1. **Design on paper first** — board geometry, army speed/OC table, scoring
@@ -25,8 +41,11 @@ reading: `40k/docs/PLAN_FORMAT.md` (format), `40k/docs/AI_PLANS_GUIDE.md`
 
 ## Exact UI/API entry points (all verified live)
 
-- Menu setup: `m.player1_dropdown.selected` + `emit_signal("item_selected", i)`,
-  `m.plan_editor_zone_dropdown.selected`, then
+- Menu setup: the editor reads **its own army picker**,
+  `m.plan_editor_army_dropdown` (NOT `player1_dropdown` — setting that one
+  silently loads the wrong army). Set `.selected` +
+  `emit_signal("item_selected", i)`, confirm with `m._plan_editor_army_id()`,
+  set `m.plan_editor_zone_dropdown`, then
   `PlanEditorButton.emit_signal("pressed")`. Options come from
   `m.army_options[i].id` / `m.deployment_options[i].id`.
 - FORMATIONS (phase 0): `phase.execute_action({"type":
@@ -45,6 +64,12 @@ reading: `40k/docs/PLAN_FORMAT.md` (format), `40k/docs/AI_PLANS_GUIDE.md`
 - Intents: `panel = /root/Main/IntentPainterPanel`; set
   `panel.selected_unit = "U_X"` then `panel._set_earmark({"verb": ...,
   "target": ...})` — the same call the buttons and the objective-click make.
+  **The panel spawns DEFERRED after the final deployment** — painting in the
+  same script that placed the last unit finds no node (and a bare
+  `get_node` aborts the script silently, so the failure looks like success).
+  Use `get_node_or_null`, wait a frame/second and retry, and after saving
+  **read the plan JSON back and assert the `earmarks` count** — a plan that
+  saved with 0 earmarks measures as a deployment-only ablation.
 - Save: `PlanEditorBanner/PlanEditorBannerRow/PlanEditorSaveButton` →
   dialog fields at `PlanSaveDialog/PlanSaveRoot/Plan{Name,Author,Description}EditRow/...Edit`,
   save button at **`PlanSaveRoot/PlanSaveActions/PlanSaveButton`** (NOT
@@ -102,8 +127,20 @@ stage wide mobs in clear pockets as second wave.
 ## Measurement protocol
 
 - Both seat orders (plan1/plan2 swapped), same `seed_base`, ≥6 seeds each.
-  Report the seat-cancelled margin ((arm1 + arm2)/2) and the win count;
-  check `stalls: 0, timeouts: 0` in the summary.
+  Report the seat-cancelled margin ((arm1 − arm2)/2 of the P1−P2 headline)
+  and the win count; check `stalls: 0, timeouts: 0` in the summary.
+- **Run an A/A anchor first** (`plan1:"", plan2:""`, same army both seats,
+  same seeds): the seat bias can be double-digit VP and per-game variance
+  runs sd 15–40, so single-arm numbers are uninterpretable without it.
+  Seeded games are deterministic given identical inputs, so **seed-paired
+  deltas against the anchor** are the sharpest 6-game comparison — use
+  them, not just the arm means.
+- `plan_adherence_*` counts only *deployment* records — an earmarks-only
+  plan legitimately reports 0/0; prove application via seed-paired margin
+  shifts instead.
+- The sim headline "mean margin" sign is **P1 − P2** (verified).
+- An empty plan string gives that seat the no-plan formula — the honest
+  baseline. Beating a foreign-layout shipped plan is a weaker claim.
 - The Grip's baseline: 11–1, ≈ +21 VP/game vs the generic shipped plan on
   its own layout. Part of that is domain advantage (the generic plan
   repairs on a foreign layout) — say so; the claim is "layout-tuned beats
@@ -139,3 +176,9 @@ stage wide mobs in clear pockets as second wave.
   truncating JSON parser; read the PNG from `user://test_screenshots/`.
 - The editor cannot un-place a unit: get placements right via
   validate-and-nudge, or exit and restart the session.
+- **After a simulator run the scene stays on `Main`** (phase 11), so
+  re-entering the editor fails with stale declarations. Go back first:
+  `tree.change_scene_to_file("res://scenes/MainMenu.tscn")`.
+- The scratchpad directory can revert mid-session (an old `mcp_client.py`
+  reappeared and silently printed nothing). Keep session tooling under
+  `/root/bin/` and re-check file timestamps when a tool goes quiet.
