@@ -71,8 +71,13 @@ for obj in board.get("objectives", []):
 \t\tbest_id = str(obj.get("id", ""))
 return {"central": [best_id] if best_id != "" else []}"""
 
+# context.earmark is a STRING: "VERB" (earmark active) or "VERB:objective"
+# (the chosen assignment was the earmarked one). plan_earmark is the actual
+# additive score term on a candidate.
 VERIFY_CODE = """var n := 0
 var tot := 0
+var chosen := 0
+var terms := 0
 for batch in AIPlayer._all_decision_records:
 \tif int(batch.get("player", 0)) != SEAT:
 \t\tcontinue
@@ -80,10 +85,16 @@ for batch in AIPlayer._all_decision_records:
 \t\tif str(r.get("decision_type", "")) != "movement":
 \t\t\tcontinue
 \t\ttot += 1
-\t\tvar em = r.get("context", {}).get("earmark", {})
-\t\tif em is Dictionary and not em.is_empty():
+\t\tvar em = str(r.get("context", {}).get("earmark", ""))
+\t\tif em != "":
 \t\t\tn += 1
-return {"movement_records": tot, "with_earmark": n}"""
+\t\tif ":" in em:
+\t\t\tchosen += 1
+\t\tfor c in r.get("candidates", []):
+\t\t\tvar sb = c.get("score_breakdown", {})
+\t\t\tif sb is Dictionary and abs(float(sb.get("plan_earmark", 0))) > 0.01:
+\t\t\t\tterms += 1
+return {"movement_records": tot, "with_earmark": n, "earmark_chosen": chosen, "bias_terms": terms}"""
 
 
 def call(command, params, timeout=180.0):
@@ -222,6 +233,8 @@ def run_game(seed, seat, model, jr, snapshot_code):
         "rounds_commanded": commanded_rounds,
         "movement_records": verify.get("movement_records"),
         "with_earmark": verify.get("with_earmark"),
+        "earmark_chosen": verify.get("earmark_chosen"),
+        "bias_terms": verify.get("bias_terms"),
         "results_file": os.path.basename(path or ""),
     }
     jr.log("end", **row)
