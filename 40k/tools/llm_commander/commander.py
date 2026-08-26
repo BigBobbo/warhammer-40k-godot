@@ -31,7 +31,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 BRIDGE = ("127.0.0.1", 9080)
 RESULTS_GLOB = "~/.local/share/godot/app_userdata/40k/plan_sim_results/*.json"
 TS_NORMAL = 10.0
-TS_SLOW = 1.0
+TS_SLOW = 1.0  # overridable via --ts-slow
 # GameState.Phase enum (verified live 2026-08-26)
 PH_DEPLOYMENT, PH_COMMAND, PH_MOVEMENT, PH_FIGHT = 1, 6, 7, 10
 PH_CHARGE = 9
@@ -247,7 +247,13 @@ def main():
     ap.add_argument("--seeds", default="5001-5006")
     ap.add_argument("--model", default="claude-sonnet-5")
     ap.add_argument("--label", default="run")
+    ap.add_argument("--ts-slow", type=float, default=1.0,
+                    help="slow-mo time_scale while waiting to catch the command "
+                         "phase; raise to 2.0 when a seed's quiet stretches "
+                         "trip the 90s wall watchdog under slow-mo")
     args = ap.parse_args()
+    global TS_SLOW
+    TS_SLOW = args.ts_slow
     if "-" in args.seeds:
         a, b = args.seeds.split("-")
         seeds = list(range(int(a), int(b) + 1))
