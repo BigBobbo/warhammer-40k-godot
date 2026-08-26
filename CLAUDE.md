@@ -81,6 +81,15 @@ The userdata dir is platform-specific:
 
 Never hardcode either path — resolve it at runtime with `ProjectSettings.globalize_path("user://logs/")`, or just call the MCP `get_log_path` / `read_debug_log` commands, which return the absolute path for the current machine. As the godot stdout is not always reachable, ensure all logging is also saved to this file.
 
+## Authoring AI plans for a new army — read the playbook first
+
+`.llm/plan-authoring-playbook.md` holds everything learned authoring the first
+played plan (Da Free-Grab Grip, PR #902): the exact editor/bridge entry
+points, the engine facts that shape a design (attached characters, earmark
+semantics, coherency envelope, oval-base orientation), the terrain drill, the
+both-seat-orders measurement protocol, and the shipping checklist. Following
+it should make the next army a couple of hours instead of a day.
+
 ## You CAN run the game AND screenshot the UI — even in a headless / remote container
 
 This is the single most important operational fact, and past sessions
