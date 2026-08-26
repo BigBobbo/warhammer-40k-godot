@@ -7,6 +7,22 @@ reading: `40k/docs/PLAN_FORMAT.md` (format), `40k/docs/AI_PLANS_GUIDE.md`
 (player view), `40k/tests/bench_baselines/2026-08-25_free_grab_grip.md`
 (the measured first run).
 
+## First: decide whether this army can profit from a plan at all
+
+Plan value is **army-dependent** — measured, not assumed. The Orks won
+11–1 because 12"-move OC could be routed down layout corridors the
+formula doesn't know. The Custodes (M5–6, 11 units) lost with every
+variant tried — dispersed, concentrated, and even earmarks-only — because
+a fixed anything gives up the formula's one real strength, reactive
+counter-deployment, and a HOLD earmark's standing +8.0 pins a slow unit
+to one objective all game (see
+`40k/tests/bench_baselines/2026-08-26_auric_vice.md`). Ask first: what
+does this army know that the formula can't? Speed + layout corridors,
+alpha-strike staging, screen geometry are real answers. "Better OC
+spreading" is not — the formula already does that dynamically. If there
+is no crisp answer, run one cheap probe (earmarks-only plan, 2×6 games
+vs the A/A anchor) before spending hours in the editor.
+
 ## The loop, in order
 
 1. **Design on paper first** — board geometry, army speed/OC table, scoring
@@ -116,6 +132,12 @@ stage wide mobs in clear pockets as second wave.
 - **Run an A/A anchor first** (`plan1:"", plan2:""`, same army both seats,
   same seeds): the seat bias can be double-digit VP and per-game variance
   runs sd 15–40, so single-arm numbers are uninterpretable without it.
+  Seeded games are deterministic given identical inputs, so **seed-paired
+  deltas against the anchor** are the sharpest 6-game comparison — use
+  them, not just the arm means.
+- `plan_adherence_*` counts only *deployment* records — an earmarks-only
+  plan legitimately reports 0/0; prove application via seed-paired margin
+  shifts instead.
 - The sim headline "mean margin" sign is **P1 − P2** (verified).
 - An empty plan string gives that seat the no-plan formula — the honest
   baseline. Beating a foreign-layout shipped plan is a weaker claim.
