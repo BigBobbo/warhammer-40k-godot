@@ -2,6 +2,16 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.38.0",
+      "date": "2026-08-25",
+      "summary": "A third ready-made Ork plan: Da Free-Grab Grip, built in the Plan Editor and sim-tested 11-1 against the existing Hammer and Anvil plan.",
+      "changes": [
+        "New plan 'Orks — Da Free-Grab Grip' for Recon Stomps on Hammer and Anvil, tuned to one specific terrain layout: bike columns ride the clear board edges to grab both no-man's-land objectives on the first move, Stormboyz jump the ruins to back them up, the home objective sits behind a wall of Gretchin, and the Stompa parks on the centre marker to deny it.",
+        "It was made the way you would make one — deployed in the Plan Editor, intents painted, saved, then run in the Battle Simulator against the existing plan: it won 11 of 12 games (both seat orders, same seeds, ~21 VP average margin).",
+        "It only auto-matches on its own terrain layout; on any other board the existing Hammer and Anvil plan applies exactly as before."
+      ]
+    },
+    {
       "version": "1.37.2",
       "date": "2026-08-21",
       "summary": "The two ready-made Ork plans were re-authored and now deploy exactly as drawn — every unit, no nudges.",

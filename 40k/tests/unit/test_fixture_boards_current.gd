@@ -64,8 +64,12 @@ func _run_tests() -> void:
 		return
 
 	# The fixtures live in tests/saves; SaveLoadManager reads user://saves and
-	# legacy-copies res://saves at startup. Mirror the pretrigger runner's copy
-	# so this test is self-sufficient from a fresh checkout.
+	# legacy-copies res://saves at startup. Copy the COMMITTED fixture over the
+	# user:// one whenever the bytes differ — not only when it is missing. The
+	# only-if-missing version of this block was itself the rot vector this test
+	# exists to catch: a container restored an older user-data snapshot after
+	# the 2026-08-21 rebuild, and the stale user:// boards silently outvoted
+	# the rebuilt committed ones in every fixture-loading run.
 	var user_dir := DirAccess.open("user://")
 	if user_dir != null and not user_dir.dir_exists("saves"):
 		user_dir.make_dir("saves")
@@ -73,7 +77,11 @@ func _run_tests() -> void:
 		for ext in [".w40ksave", ".meta"]:
 			var src := "res://tests/saves/%s%s" % [f, ext]
 			var dst := "user://saves/%s%s" % [f, ext]
-			if FileAccess.file_exists(src) and not FileAccess.file_exists(dst):
+			if not FileAccess.file_exists(src):
+				continue
+			var src_bytes := FileAccess.get_file_as_bytes(src)
+			var dst_bytes := FileAccess.get_file_as_bytes(dst) if FileAccess.file_exists(dst) else PackedByteArray()
+			if src_bytes != dst_bytes:
 				DirAccess.copy_absolute(ProjectSettings.globalize_path(src), ProjectSettings.globalize_path(dst))
 
 	for fixture in FIXTURES:

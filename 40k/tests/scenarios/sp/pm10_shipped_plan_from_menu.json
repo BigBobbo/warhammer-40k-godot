@@ -20,13 +20,13 @@
 			"act": "execute_script",
 			"multiline": true,
 			"script": "var PM = load(\"res://scripts/PlanManager.gd\")\nvar found = []\nfor entry in PM.list_plans():\n\tif str(entry.get(\"source\", \"\")) == \"shipped\":\n\t\tfound.append(str(entry.get(\"name\", \"?\")))\nfound.sort()\nreturn \" | \".join(found)",
-			"equals": "Orks — Recon Stomps on Crucible | Orks — Recon Stomps on Hammer and Anvil"
+			"equals": "Orks — Da Free-Grab Grip | Orks — Recon Stomps on Crucible | Orks — Recon Stomps on Hammer and Anvil"
 		},
 		{
 			"act": "execute_script",
 			"multiline": true,
-			"script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar out = []\nfor f in [\"orks_recon_stomps_crucible\", \"orks_recon_stomps_hammer_anvil\"]:\n\tvar plan = PV.load_plan_file(\"res://data/ai_plans/%s.json\" % f)\n\tvar v = PV.validate_plan(plan)\n\tout.append(\"%s:%s/%d/%d\" % [f, str(v.get(\"valid\", false)), v.get(\"errors\", []).size(), v.get(\"warnings\", []).size()])\nreturn \" \".join(out)",
-			"equals": "orks_recon_stomps_crucible:true/0/0 orks_recon_stomps_hammer_anvil:true/0/0"
+			"script": "var PV = load(\"res://scripts/PlanValidator.gd\")\nvar out = []\nfor f in [\"orks_free_grab_grip_hammer_anvil\", \"orks_recon_stomps_crucible\", \"orks_recon_stomps_hammer_anvil\"]:\n\tvar plan = PV.load_plan_file(\"res://data/ai_plans/%s.json\" % f)\n\tvar v = PV.validate_plan(plan)\n\tout.append(\"%s:%s/%d/%d\" % [f, str(v.get(\"valid\", false)), v.get(\"errors\", []).size(), v.get(\"warnings\", []).size()])\nreturn \" \".join(out)",
+			"equals": "orks_free_grab_grip_hammer_anvil:true/0/0 orks_recon_stomps_crucible:true/0/0 orks_recon_stomps_hammer_anvil:true/0/0"
 		},
 		{
 			"act": "execute_script",

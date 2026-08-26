@@ -29,9 +29,27 @@ export PATH="$HOME/bin:$PATH"
 # gitignored), but the fixtures are committed under tests/saves/. Copy any
 # that are missing so a windowed scenario can load its fixture from a fresh
 # checkout. -n never clobbers an existing (e.g. freshly generated) save.
+# Ensure committed test fixtures are present AND CURRENT where
+# SaveLoadManager.load_game resolves them. This used to be `cp -n`, which
+# never overwrites — and that is a rot vector the PM-F3 rot-guard caught in
+# the wild: after the 2026-08-21 fixture rebuild, a container restored an
+# older user-data snapshot and `cp -n` happily kept the STALE boards in
+# saves/ (and SaveLoadManager's non-destructive legacy copy kept them in
+# user://saves) while the repo held the rebuilt ones. Checksum-compare and
+# copy on difference, into BOTH resolution locations, so the committed
+# fixture always wins.
 mkdir -p saves
-cp -n tests/saves/*.w40ksave saves/ 2>/dev/null || true
-cp -n tests/saves/*.meta saves/ 2>/dev/null || true
+USER_SAVES="$HOME/.local/share/godot/app_userdata/40k/saves"
+mkdir -p "$USER_SAVES"
+for src in tests/saves/*.w40ksave tests/saves/*.meta; do
+    [ -f "$src" ] || continue
+    base="$(basename "$src")"
+    for dstdir in saves "$USER_SAVES"; do
+        if ! cmp -s "$src" "$dstdir/$base" 2>/dev/null; then
+            cp "$src" "$dstdir/$base"
+        fi
+    done
+done
 
 MODE="${1:---sp}"
 SCENARIOS=()
