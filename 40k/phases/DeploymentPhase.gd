@@ -460,8 +460,23 @@ func _validate_place_in_reserves(action: Dictionary) -> Dictionary:
 			errors.append("Unit does not have Deep Strike ability: " + unit_id)
 			return {"valid": false, "errors": errors}
 
+	# The attached characters _process_place_in_reserves (P1-66) will drag into
+	# reserves with this unit are part of what the caps have to price — the
+	# caps counted only the named unit, so a led unit put a leader's points
+	# into reserves for free.
+	var riders: Array = []
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		var char_unit = get_unit(char_id)
+		if char_unit.is_empty():
+			continue
+		if char_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
+			continue  # already counted by get_reserves_points/_unit_count
+		riders.append(char_id)
+
 	# Strategic Reserves point limit: max 50% of total army points (Chapter Approved 2025-26)
 	var unit_points = unit.get("meta", {}).get("points", 0)
+	for char_id in riders:
+		unit_points += get_unit(char_id).get("meta", {}).get("points", 0)
 	var total_points = GameState.get_total_army_points(active_player)
 	var current_reserves_points = GameState.get_reserves_points(active_player)
 	var max_reserves_points = int(total_points * 0.50)
@@ -474,9 +489,10 @@ func _validate_place_in_reserves(action: Dictionary) -> Dictionary:
 	var total_units = GameState.get_total_unit_count(active_player)
 	var current_reserves_units = GameState.get_reserves_unit_count(active_player)
 	var max_reserves_units = int(total_units * 0.50)
+	var incoming_units = 1 + riders.size()
 
-	if current_reserves_units + 1 > max_reserves_units:
-		errors.append("Exceeds 50%% reserves unit limit: %d + 1 > %d (of %d total units)" % [current_reserves_units, max_reserves_units, total_units])
+	if current_reserves_units + incoming_units > max_reserves_units:
+		errors.append("Exceeds 50%% reserves unit limit: %d + %d > %d (of %d total units)" % [current_reserves_units, incoming_units, max_reserves_units, total_units])
 		return {"valid": false, "errors": errors}
 
 	return {"valid": true, "errors": []}

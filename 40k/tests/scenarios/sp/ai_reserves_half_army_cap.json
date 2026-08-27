@@ -1,0 +1,86 @@
+{
+  "id": "ai_reserves_half_army_cap",
+  "covers": [
+    "phases.FormationsPhase.declare_reserves_cap",
+    "ai.formations.reserves_cap",
+    "rules.11e.20_01"
+  ],
+  "fixture": "audit_378_formations",
+  "transition_to_phase": 0,
+  "disable_ai": true,
+  "description": "The 50% reserves caps price the leaders that ride into reserves with a bodyguard, whoever sends the declaration. The player's formations dialog names them on the action; the AI declares straight off get_available_actions and names none, so every AI-attached leader used to leave the table uncounted (a live AI-vs-AI game put 65.5% of a Custodes army in reserves under a 50% cap) and, never being set to IN_RESERVES, was then refused entry with its own unit. This scenario sends AI-shaped DECLARE_RESERVES actions (no attached_character_ids) into the real FormationsPhase for P1's 1335-pt / 9-unit Custodes force (cap: 667 pts, 4 units) and asserts: (a) Custodian Guard B + its Blade Champion are booked as 315 pts and 2 units, not 170 and 1; (b) adding the Telemon (265) still fits at 580; (c) the Caladius (215) is REFUSED because 795 > 667 — the declaration that used to be accepted, since the Blade Champion's 145 pts were invisible; (d) after confirm both the bodyguard and its leader are IN_RESERVES, and P1's off-table share is inside both caps.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 0 },
+    { "act": "screenshot", "label": "01_formations_phase_start" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_LEADER_ATTACHMENT",
+      "character_id": "U_BLADE_CHAMPION_A",
+      "bodyguard_id": "U_CUSTODIAN_GUARD_B"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_RESERVES",
+      "unit_id": "U_CUSTODIAN_GUARD_B",
+      "reserve_type": "strategic_reserves"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance._get_declared_reserves_points(1)",
+      "equals": 315 },
+    { "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance._get_declared_reserves_count(1)",
+      "equals": 2 },
+    { "act": "screenshot", "label": "02_led_unit_declared_in_reserves" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_RESERVES",
+      "unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I",
+      "reserve_type": "strategic_reserves"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance._get_declared_reserves_points(1)",
+      "equals": 580 },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DECLARE_RESERVES",
+      "unit_id": "U_CALADIUS_GRAV-TANK_E",
+      "reserve_type": "strategic_reserves"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance._get_declared_reserves_points(1)",
+      "equals": 580 },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DESIGNATE_WARLORD",
+      "unit_id": "U_SHIELD_CAPTAIN_A"
+    }},
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_FORMATIONS" }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "DESIGNATE_WARLORD",
+      "unit_id": "U_GHAZGHKULL_THRAKA_A"
+    }},
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_FORMATIONS" }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.status", "equals": 7 },
+    { "act": "expect_state", "path": "units.U_BLADE_CHAMPION_A.status", "equals": 7 },
+    { "act": "expect_state", "path": "units.U_TELEMON_HEAVY_DREADNOUGHT_I.status", "equals": 7 },
+
+    { "act": "execute_script",
+      "script": "100.0 * float(GameState.get_reserves_points(1)) / float(GameState.get_total_army_points(1))",
+      "expect_max": 50.0 },
+    { "act": "execute_script",
+      "script": "100.0 * float(GameState.get_reserves_unit_count(1)) / float(GameState.get_total_unit_count(1))",
+      "expect_max": 50.0 },
+    { "act": "screenshot", "label": "03_reserves_within_the_half_army_cap" }
+  ]
+}

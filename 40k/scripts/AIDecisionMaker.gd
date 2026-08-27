@@ -4458,6 +4458,36 @@ static func _score_unit_for_embarkation(unit: Dictionary, unit_id: String, model
 # RESERVES DECLARATIONS — FORMATIONS PHASE (T7-34 / FORM-3)
 # =============================================================================
 
+static func _reserve_riders(action: Dictionary, all_units: Dictionary) -> Array:
+	"""The CHARACTERs that go into reserves with the action's unit.
+
+	FormationsPhase puts them on the offered DECLARE_RESERVES /
+	UNDECLARE_RESERVES action (it is the only place that knows the
+	attachments declared this phase); a live `attachment_data` is the fallback
+	for callers that build the action themselves. Units already in reserves are
+	dropped so a running total never counts them twice."""
+	var out: Array = []
+	var ids: Array = action.get("attached_character_ids", [])
+	if ids.is_empty():
+		var unit: Dictionary = all_units.get(str(action.get("unit_id", "")), {})
+		ids = unit.get("attachment_data", {}).get("attached_characters", [])
+	for char_id in ids:
+		var cid := str(char_id)
+		if cid == "" or out.has(cid):
+			continue
+		var char_unit: Dictionary = all_units.get(cid, {})
+		if char_unit.is_empty():
+			continue
+		# Saved states carry status as the enum NAME, live snapshots as the int.
+		var status_v = char_unit.get("status", -1)
+		if typeof(status_v) == TYPE_STRING:
+			if str(status_v) == "IN_RESERVES":
+				continue
+		elif int(status_v) == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		out.append(cid)
+	return out
+
 static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actions: Array,
 		undeclare_reserves_actions: Array, player: int) -> Dictionary:
 	"""Evaluate which units should be placed in reserves during formations.
@@ -4489,13 +4519,22 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 	var max_reserves_units = int(total_army_units / 2)  # Can't put more than half the army in reserves
 
 	# Calculate current reserves commitment from UNDECLARE_RESERVES actions
-	# (these represent units already declared in reserves)
+	# (these represent units already declared in reserves). A declared unit
+	# takes its attached leaders off the table with it, and the phase's caps
+	# price them (FormationsPhase._reserve_attached_characters), so the AI's
+	# own budget has to price them the same way — otherwise it keeps proposing
+	# declarations the phase rejects, and the army it fields is a third
+	# smaller than the budget it thinks it spent.
 	var current_reserves_points = 0
-	var current_reserves_count = undeclare_reserves_actions.size()
+	var current_reserves_count = 0
 	for action in undeclare_reserves_actions:
 		var uid = action.get("unit_id", "")
 		var u = all_units.get(uid, {})
 		current_reserves_points += u.get("meta", {}).get("points", 0)
+		current_reserves_count += 1
+		for char_id in _reserve_riders(action, all_units):
+			current_reserves_points += all_units.get(char_id, {}).get("meta", {}).get("points", 0)
+			current_reserves_count += 1
 
 	print("AIDecisionMaker: [FORM-3] Reserves budget: %d/%d pts used, %d/%d units used (army: %d pts, %d units)" % [
 		current_reserves_points, max_reserves_points, current_reserves_count, max_reserves_units,
@@ -4538,16 +4577,24 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 			continue
 
 		var reserve_type = action.get("reserve_type", "strategic_reserves")
+		# The whole attached unit is what leaves the table: the bodyguard plus
+		# every leader the phase says goes with it.
+		var riders := _reserve_riders(action, all_units)
 		var unit_points = unit.get("meta", {}).get("points", 0)
+		for char_id in riders:
+			unit_points += all_units.get(char_id, {}).get("meta", {}).get("points", 0)
+		var unit_slots := 1 + riders.size()
 
-		# Check if adding this unit would exceed the points cap
+		# Check if adding this unit would exceed either cap
 		if current_reserves_points + unit_points > max_reserves_points:
+			continue
+		if current_reserves_count + unit_slots > max_reserves_units:
 			continue
 
 		var score = _score_unit_for_reserves(unit, unit_id, reserve_type, snapshot, player)
 
 		var presence_penalty := 0.0
-		var board_units_after = total_army_units - current_reserves_count - 1
+		var board_units_after = total_army_units - current_reserves_count - unit_slots
 		if board_units_after < min_board_units:
 			presence_penalty += float(min_board_units - board_units_after) * 1.5
 		if reserve_type == "strategic_reserves":
