@@ -3263,7 +3263,13 @@ func _show_strategic_reserves_zone() -> void:
 		ghost_layer.add_child(_strategic_reserves_zone_visual)
 	else:
 		add_child(_strategic_reserves_zone_visual)
-	_strategic_reserves_zone_visual.show_zone()
+	# Pass the arriving unit's owner so the opponent-DZ carve-out is drawn for
+	# the right player during a Rapid Ingress (the arriving player is the
+	# NON-active one there).
+	var _band_owner := -1
+	if deployment_controller and deployment_controller.unit_id != "":
+		_band_owner = int(GameState.get_unit(deployment_controller.unit_id).get("owner", -1))
+	_strategic_reserves_zone_visual.show_zone(_band_owner)
 
 func _hide_strategic_reserves_zone() -> void:
 	"""Hide and free the Strategic Reserves valid-zone visual."""

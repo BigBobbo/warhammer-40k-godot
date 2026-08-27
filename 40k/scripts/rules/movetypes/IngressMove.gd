@@ -34,7 +34,13 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 
 ## Validate a proposed set-up: positions are px Vector2s (one per model).
 ## context: {battle_round: int, deep_strike: bool, opponent_zone:
-## PackedVector2Array, board_size_inches: Vector2}.
+## PackedVector2Array, board_size_inches: Vector2, models: Array}.
+## `models` is optional and parallel to `model_positions` — each entry is the
+## arriving model's dict (base_mm / base_type / rotation). It makes the
+## opponent-deployment-zone test base-aware: 20.04 bars models set up "within"
+## (not "wholly within") that zone, so a base straddling the zone boundary is
+## illegal even though its centre point sits outside. Without it the check falls
+## back to the centre point.
 func validate_setup(_unit_id: String, board: Dictionary, model_positions: Array, context: Dictionary) -> Dictionary:
 	var errors: Array = []
 	var m = _measurement()
@@ -45,8 +51,11 @@ func validate_setup(_unit_id: String, board: Dictionary, model_positions: Array,
 	var board_h_px = board_size.y * 40.0
 	var edge_px = m.inches_to_px(6.0)
 	var enemy_px = m.inches_to_px(8.0)
+	var models: Array = context.get("models", [])
 
+	var pos_index := -1
 	for pos in model_positions:
+		pos_index += 1
 		# 20.04: wholly within 6" of one or more battlefield edges
 		# (Deep Strike 24.09 lifts this: anywhere on the battlefield).
 		if not deep_strike:
@@ -70,14 +79,25 @@ func validate_setup(_unit_id: String, board: Dictionary, model_positions: Array,
 					break
 
 		# Before the third battle round: not within the opponent's
-		# deployment zone (applies to ingress; Deep Strike's anywhere-rule
-		# still respects this restriction for non-DS ingress only).
+		# deployment zone (applies to ingress; Deep Strike 24.09 lifts it
+		# explicitly — "even if that is within your opponent's deployment
+		# zone" — so it is checked for non-DS ingress only).
 		if battle_round < 3 and not deep_strike:
 			var zone = context.get("opponent_zone", PackedVector2Array())
-			if zone.size() >= 3 and Geometry2D.is_point_in_polygon(pos, zone):
+			if zone.size() >= 3 and _in_opponent_zone(pos, models, pos_index, zone):
 				errors.append("model at %s is inside the opponent's deployment zone before battle round 3" % str(pos))
 
 	return {"valid": errors.is_empty(), "errors": errors}
+
+## True when the model set up at [param pos] is "within" [param zone]. Uses the
+## real base shape when the caller supplied `models`, so a base overhanging the
+## zone boundary counts; falls back to the centre point when it did not.
+func _in_opponent_zone(pos: Vector2, models: Array, index: int, zone: PackedVector2Array) -> bool:
+	if index >= 0 and index < models.size() and models[index] is Dictionary:
+		var probe: Dictionary = (models[index] as Dictionary).duplicate()
+		probe["position"] = pos
+		return _measurement().model_overlaps_polygon(probe, zone)
+	return Geometry2D.is_point_in_polygon(pos, zone)
 
 func after_moving_effects(unit_id: String, _context: Dictionary) -> Array:
 	return [

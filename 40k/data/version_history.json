@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.40.1",
+      "date": "2026-08-27",
+      "summary": "Reserves can no longer walk in along your opponent's board edge on turn two — the deployment-zone ban is now enforced while you place, not only when you confirm.",
+      "changes": [
+        "Fixed: a unit arriving from Strategic Reserves could be placed anywhere in the 6\"-from-a-board-edge band, including the strip inside your opponent's deployment zone. 11th edition (20.04 Ingress Move) bars that before the third battle round, and the placement screen was not checking it — the ghost stayed green and the models dropped, and only the final Confirm rejected the whole arrival.",
+        "The valid-placement band now carves the opponent's deployment zone out of the green area and paints that slice red, labelled \"Opponent's DZ — barred until battle round 3\", so you can see where you may actually arrive before you place a single model.",
+        "Placing a model there now fails immediately with a clear message instead of after the whole unit is down.",
+        "The ban is measured against the model's base, not just its centre dot, so a base overhanging the zone boundary is caught too.",
+        "Deep Strike is unaffected: a deep-striking unit may still arrive inside your opponent's deployment zone, as 11th edition explicitly allows.",
+        "From the third battle round onwards the restriction lifts and the whole 6\" band is available again."
+      ]
+    },
+    {
       "version": "1.40.0",
       "date": "2026-08-27",
       "summary": "The tutorial now speaks plain English by default — Da Boss's Ork dialect is a setting, not the only option.",

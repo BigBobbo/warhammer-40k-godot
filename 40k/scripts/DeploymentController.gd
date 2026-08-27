@@ -3173,6 +3173,30 @@ func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary
 				_show_toast("Strategic Reserves must be within 6\" of a board edge (%.1f\")" % dist_to_edge)
 			return false
 
+		# 11e 20.04 INGRESS MOVE — "Before the Third Battle Round: while doing
+		# so, no models can be set up within your opponent's deployment zone."
+		# MovementPhase has always rejected this on confirm, but this validator
+		# did not, so the ghost stayed green, the models dropped, and the player
+		# only found out after placing the whole unit. The band along the
+		# opponent's board edge is the obvious trap: it is within 6" of a
+		# battlefield edge, so every other check here passes it.
+		#
+		# "within" (not "wholly within") — any part of the base inside the zone
+		# counts, so this is base-aware rather than a centre-point test.
+		if GameState.ingress_opponent_dz_ban_applies(GameState.get_battle_round(), false):
+			# "Your opponent" is the opponent of the ARRIVING unit's owner, which
+			# is not the active player during a Rapid Ingress (that reuses this
+			# same reinforcement mode while the other player holds the turn).
+			var arriving_owner = int(unit.get("owner", active_player))
+			var opponent_zone_px = GameState.get_deployment_zone_poly_px(3 - arriving_owner)
+			var dz_probe := model_data.duplicate()
+			dz_probe["position"] = world_pos
+			dz_probe["rotation"] = rotation
+			if Measurement.model_overlaps_polygon(dz_probe, opponent_zone_px):
+				if not silent:
+					_show_toast("Strategic Reserves cannot arrive in the opponent's deployment zone before battle round 3")
+				return false
+
 	# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
 	var omni_positions = GameState.get_omni_scrambler_positions(active_player)
 	for omni in omni_positions:
