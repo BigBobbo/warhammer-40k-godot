@@ -13,6 +13,15 @@
       ]
     },
     {
+      "version": "1.39.1",
+      "date": "2026-08-27",
+      "summary": "The first-launch \"First time 'ere?\" popup no longer blends into the menu - it now clearly reads as a deliberate popup.",
+      "changes": [
+        "The tutorial offer shown on a fresh profile used the exact same near-black background as the main menu, so it looked like a stray, accidentally rendered box. It now sits on a lighter panel with a heavier gold frame and a soft gold glow.",
+        "While the popup is up, the menu behind it dims slightly. The menu stays fully clickable - the popup is still just a suggestion you can ignore or dismiss."
+      ]
+    },
+    {
       "version": "1.39.0",
       "date": "2026-08-27",
       "summary": "AI difficulty tiers actually differ now: Hard+ AI screens against deep strikes, Competitive AI weighs point-trades; Normal plays straighter.",
