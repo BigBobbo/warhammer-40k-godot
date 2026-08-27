@@ -1,7 +1,8 @@
 {
   "id": "t2_musterin",
   "order": 2,
-  "title": "Musterin' da Boyz",
+  "title": "Mustering the Boyz",
+  "title_orky": "Musterin' da Boyz",
   "subtitle": "Formations, transports, leaders & deployment",
   "est_minutes": 6,
   "boot": {
@@ -18,8 +19,14 @@
       "ai_speed": 0,
       "player1_secondary_mode": "fixed",
       "player2_secondary_mode": "fixed",
-      "player1_fixed_missions": ["assassination", "engage_on_all_fronts"],
-      "player2_fixed_missions": ["assassination", "engage_on_all_fronts"],
+      "player1_fixed_missions": [
+        "assassination",
+        "engage_on_all_fronts"
+      ],
+      "player2_fixed_missions": [
+        "assassination",
+        "engage_on_all_fronts"
+      ],
       "player1_disposition": "take_and_hold",
       "player2_disposition": "take_and_hold"
     },
@@ -28,6 +35,15 @@
   "summary": {
     "bark": "ARMY'S MUSTERED!",
     "bullets": [
+      "Battle Formations lock in leaders, transport cargo and reserves BEFORE anyone deploys.",
+      "The roll-off dialog: roll, read the result, winner picks who deploys first.",
+      "Deploy: pick a unit row, click the board to place, [b]Confirm[/b] locks it.",
+      "Turn a vehicle BEFORE you drop it — 15° a tap: Q/E or the mouse wheel, or hold R3 and tap the bumpers on a pad.",
+      "Placed a model badly? Shift+click it (pad: L3) to pick it up and move it around before you Confirm.",
+      "Formation buttons (Single / Spread / Tight) place a whole squad quickly.",
+      "You and the enemy take turns deploying. Next lesson: Get Moving."
+    ],
+    "bullets_orky": [
       "Battle Formations lock in leaders, transport cargo an' reserves BEFORE anyone deploys.",
       "Da roll-off dialog: roll, read da result, winner picks who deploys first.",
       "Deploy: pick a unit row, click da board to place, [b]Confirm[/b] locks it.",
@@ -41,26 +57,39 @@
     {
       "id": "attach_warboss",
       "prompt": {
-        "bark": "BOSS JOINS DA BOYZ!",
-        "kbm": "Job one: [b]attach da Warboss to da Boyz[/b] — a Leader joins a mob so dey fight as one unit, wiv da Boss 'idin' among 'em. Under [b]LEADER ATTACHMENTS[/b], set da 'Warboss →' dropdown to [b]Boyz (10 models)[/b].",
-        "pad": "Job one: [b]attach da Warboss to da Boyz[/b] — a Leader joins a mob an' dey fight as one. Da pad starts on [b]Confirm Formations[/b] — {dpad} ▲ up to da 'Warboss →' dropdown, {a} opens it, ▼ onto [b]Boyz[/b], {a} again."
+        "bark": "THE BOSS JOINS THE BOYZ!",
+        "bark_orky": "BOSS JOINS DA BOYZ!",
+        "kbm": "Job one: [b]attach the Warboss to the Boyz[/b] — a Leader joins a squad so they fight as one unit, with the Boss hidden among them. Under [b]LEADER ATTACHMENTS[/b], set the 'Warboss →' dropdown to [b]Boyz (10 models)[/b].",
+        "kbm_orky": "Job one: [b]attach da Warboss to da Boyz[/b] — a Leader joins a mob so dey fight as one unit, wiv da Boss 'idin' among 'em. Under [b]LEADER ATTACHMENTS[/b], set da 'Warboss →' dropdown to [b]Boyz (10 models)[/b].",
+        "pad": "Job one: [b]attach the Warboss to the Boyz[/b] — a Leader joins a squad and they fight as one. The pad starts on [b]Confirm Formations[/b] — {dpad} ▲ up to the 'Warboss →' dropdown, {a} opens it, ▼ onto [b]Boyz[/b], {a} again.",
+        "pad_orky": "Job one: [b]attach da Warboss to da Boyz[/b] — a Leader joins a mob an' dey fight as one. Da pad starts on [b]Confirm Formations[/b] — {dpad} ▲ up to da 'Warboss →' dropdown, {a} opens it, ▼ onto [b]Boyz[/b], {a} again."
       },
-      "anchor": { "node": "/root/Main/FormationsDialog" },
+      "anchor": {
+        "node": "/root/Main/FormationsDialog"
+      },
       "spotlight": "none",
       "allow": [],
       "done": {
         "script": "var fd = tree.root.get_node_or_null(\"/root/Main/FormationsDialog\")\nif fd == null:\n\treturn false\nvar q = [fd]\nwhile not q.is_empty():\n\tvar nd = q.pop_back()\n\tif nd is OptionButton and nd.item_count > 0 and nd.get_item_text(0) == \"(Unattached)\":\n\t\treturn nd.selected == 1\n\tfor c in nd.get_children():\n\t\tq.append(c)\nreturn false"
       },
-      "hint": { "text": "Top section of da panel — da dropdown next to 'Warboss →'. Pick 'Boyz (10 models)': dat's da Boss attached to da mob." }
+      "hint": {
+        "text": "Top section of the panel — the dropdown next to 'Warboss →'. Pick 'Boyz (10 models)': that's the Boss attached to the squad.",
+        "text_orky": "Top section of da panel — da dropdown next to 'Warboss →'. Pick 'Boyz (10 models)': dat's da Boss attached to da mob."
+      }
     },
     {
       "id": "embark_boyz",
       "prompt": {
-        "bark": "GET IN DA WAGON!",
-        "kbm": "Under [b]TRANSPORT EMBARKATION[/b], tick [b]Boyz[/b] — da mob (an' da Boss wiv 'em) starts da battle inside da Battlewagon.",
-        "pad": "{dpad} ▼ walks down onto da [b]Boyz[/b] tickbox under TRANSPORT EMBARKATION — or glide {ls} onto it — den press {a}."
+        "bark": "GET IN THE WAGON!",
+        "bark_orky": "GET IN DA WAGON!",
+        "kbm": "Under [b]TRANSPORT EMBARKATION[/b], tick [b]Boyz[/b] — the squad (and the Boss with them) starts the battle inside the Battlewagon.",
+        "kbm_orky": "Under [b]TRANSPORT EMBARKATION[/b], tick [b]Boyz[/b] — da mob (an' da Boss wiv 'em) starts da battle inside da Battlewagon.",
+        "pad": "{dpad} ▼ walks down onto the [b]Boyz[/b] tickbox under TRANSPORT EMBARKATION — or glide {ls} onto it — then press {a}.",
+        "pad_orky": "{dpad} ▼ walks down onto da [b]Boyz[/b] tickbox under TRANSPORT EMBARKATION — or glide {ls} onto it — den press {a}."
       },
-      "anchor": { "button_text": "Boyz (10 models)" },
+      "anchor": {
+        "button_text": "Boyz (10 models)"
+      },
       "spotlight": "soft",
       "allow": [],
       "done": {
@@ -70,80 +99,129 @@
     {
       "id": "confirm_formations",
       "prompt": {
-        "bark": "LOCK DA MUSTER!",
-        "kbm": "Hit [b]Confirm Formations[/b] — dat sends all yer declarations at once. Da enemy declares deirs after.",
-        "pad": "{dpad} ▼ walks down past da tickboxes to da button row — dat lands ya on [b]Skip[/b] first, so tap ▶ to swap onto [b]Confirm Formations[/b] — or glide {ls} onto it — den press {a}."
+        "bark": "LOCK IN THE MUSTER!",
+        "bark_orky": "LOCK DA MUSTER!",
+        "kbm": "Hit [b]Confirm Formations[/b] — that sends all your declarations at once. The enemy declares theirs after.",
+        "kbm_orky": "Hit [b]Confirm Formations[/b] — dat sends all yer declarations at once. Da enemy declares deirs after.",
+        "pad": "{dpad} ▼ walks down past the tickboxes to the button row — that lands you on [b]Skip[/b] first, so tap ▶ to move onto [b]Confirm Formations[/b] — or glide {ls} onto it — then press {a}.",
+        "pad_orky": "{dpad} ▼ walks down past da tickboxes to da button row — dat lands ya on [b]Skip[/b] first, so tap ▶ to swap onto [b]Confirm Formations[/b] — or glide {ls} onto it — den press {a}."
       },
-      "anchor": { "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton" },
+      "anchor": {
+        "node": "/root/Main/FormationsDialog/MainVBox/ButtonBar/ConfirmButton"
+      },
       "spotlight": "soft",
-      "allow": ["DECLARE_LEADER_ATTACHMENT", "DECLARE_TRANSPORT_EMBARKATION", "DESIGNATE_WARLORD", "DECLARE_RESERVES", "CONFIRM_FORMATIONS", "END_FORMATIONS"],
-      "done": { "action": { "type": "CONFIRM_FORMATIONS" } }
+      "allow": [
+        "DECLARE_LEADER_ATTACHMENT",
+        "DECLARE_TRANSPORT_EMBARKATION",
+        "DESIGNATE_WARLORD",
+        "DECLARE_RESERVES",
+        "CONFIRM_FORMATIONS",
+        "END_FORMATIONS"
+      ],
+      "done": {
+        "action": {
+          "type": "CONFIRM_FORMATIONS"
+        }
+      }
     },
     {
       "id": "roll_off",
       "prompt": {
-        "bark": "ROLL DA BONES!",
-        "kbm": "Deployment roll-off: click [b]⚄ Roll the dice[/b] in da dialog (roll again on a tie), den [b]Continue[/b] — da winner picks who deploys first.",
-        "pad": "Da dialog's Roll button takes da pad focus — just press {a}. Re-roll ties, den {a} on Continue."
+        "bark": "ROLL THE DICE!",
+        "bark_orky": "ROLL DA BONES!",
+        "kbm": "Deployment roll-off: click [b]⚄ Roll the dice[/b] in the dialog (roll again on a tie), then [b]Continue[/b] — the winner picks who deploys first.",
+        "kbm_orky": "Deployment roll-off: click [b]⚄ Roll the dice[/b] in da dialog (roll again on a tie), den [b]Continue[/b] — da winner picks who deploys first.",
+        "pad": "The dialog's Roll button takes the pad focus — just press {a}. Re-roll ties, then {a} on Continue.",
+        "pad_orky": "Da dialog's Roll button takes da pad focus — just press {a}. Re-roll ties, den {a} on Continue."
       },
       "spotlight": "none",
-      "allow": ["ROLL_OFF_DEPLOYMENT", "CHOOSE_DEPLOYMENT"],
-      "done": { "phase": 1 },
-      "hint": { "text": "Da dialog's Roll button works too — same fing." }
+      "allow": [
+        "ROLL_OFF_DEPLOYMENT",
+        "CHOOSE_DEPLOYMENT"
+      ],
+      "done": {
+        "phase": 1
+      },
+      "hint": {
+        "text": "The dialog's Roll button works too — same thing.",
+        "text_orky": "Da dialog's Roll button works too — same fing."
+      }
     },
     {
       "id": "rotate_wagon",
       "_comment": "Was device:kbm and SKIPPED for pad players, because rotation during deployment used to be keyboard/mouse-wheel only — PadRouter reached _synth_rotate solely via carry_active, which is never set in a placement session. Pad players can rotate now: holding R3 (the rebindable Precision role) makes LB/RB rotate the ghost instead of cycling units, through PadRouter._rotating_a_placement_ghost() -> the same _synth_rotate the keys use. So the step runs on both devices and the pad prompt teaches the combo.",
       "prompt": {
-        "bark": "POINT IT DA RIGHT WAY!",
-        "kbm": "Click [b]Battlewagon[/b] in da list — a ghost follows yer mouse. It's a long ol' fing, so aim it BEFORE ya drop it: {key:rotate_left}/{key:rotate_right} (or roll da mouse wheel) turn it 15° a tap. Give it a few taps.",
-        "pad": "Tap {rb} till da [b]Battlewagon[/b] row is picked — a ghost follows {ls}. It's a long ol' fing, so aim it BEFORE ya drop it: hold {r3} an' tap {lb}/{rb} to turn it 15° a tap. Give it a few taps."
+        "bark": "POINT IT THE RIGHT WAY!",
+        "bark_orky": "POINT IT DA RIGHT WAY!",
+        "kbm": "Click [b]Battlewagon[/b] in the list — a ghost follows your mouse. It's a long vehicle, so aim it BEFORE you drop it: {key:rotate_left}/{key:rotate_right} (or roll the mouse wheel) turn it 15° a tap. Give it a few taps.",
+        "kbm_orky": "Click [b]Battlewagon[/b] in da list — a ghost follows yer mouse. It's a long ol' fing, so aim it BEFORE ya drop it: {key:rotate_left}/{key:rotate_right} (or roll da mouse wheel) turn it 15° a tap. Give it a few taps.",
+        "pad": "Tap {rb} till the [b]Battlewagon[/b] row is selected — a ghost follows {ls}. It's a long vehicle, so aim it BEFORE you drop it: hold {r3} and tap {lb}/{rb} to turn it 15° a tap. Give it a few taps.",
+        "pad_orky": "Tap {rb} till da [b]Battlewagon[/b] row is picked — a ghost follows {ls}. It's a long ol' fing, so aim it BEFORE ya drop it: hold {r3} an' tap {lb}/{rb} to turn it 15° a tap. Give it a few taps."
       },
-      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel" },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel"
+      },
       "spotlight": "soft",
       "allow": [],
-      "blocked_hint": "turn da wagon first — da rotate keys (Q an' E out da box) or da mouse wheel, or hold R3 an' tap da bumpers on a pad — den drop it an' Confirm.",
+      "blocked_hint": "turn the wagon first — the rotate keys (Q and E by default) or the mouse wheel, or hold R3 and tap the bumpers on a pad — then drop it and Confirm.",
+      "blocked_hint_orky": "turn da wagon first — da rotate keys (Q an' E out da box) or da mouse wheel, or hold R3 an' tap da bumpers on a pad — den drop it an' Confirm.",
       "done": {
         "script": "var dc = main.get(\"deployment_controller\") if main != null else null\nif dc == null or str(dc.unit_id) != \"U_BATTLEWAGON_T\":\n\treturn false\nvar wagon = GameState.get_unit(\"U_BATTLEWAGON_T\")\nvar base_face = BoardState.get_default_facing_for_player(int(wagon.get(\"owner\", 1)))\nvar rot = null\nif dc.temp_positions.size() > 0 and dc.temp_positions[0] != null and dc.temp_rotations.size() > 0:\n\trot = float(dc.temp_rotations[0])\nelif dc.ghost_sprite != null and dc.ghost_sprite.has_method(\"get_base_rotation\"):\n\trot = dc.ghost_sprite.get_base_rotation()\nif rot == null:\n\treturn false\nreturn abs(wrapf(float(rot) - base_face, -PI, PI)) > 0.5"
       },
-      "hint": { "text": "Da ghost only turns while da wagon's in yer hand an' not yet dropped. Dropped it already? Undo on da unit card picks it back up, den turn it." }
+      "hint": {
+        "text": "The ghost only turns while the wagon is in your hand and not yet dropped. Dropped it already? Undo on the unit card picks it back up, then turn it.",
+        "text_orky": "Da ghost only turns while da wagon's in yer hand an' not yet dropped. Dropped it already? Undo on da unit card picks it back up, den turn it."
+      }
     },
     {
       "id": "deploy_wagon",
       "_comment": "The wagon is ALREADY in the player's hand when this step opens — rotate_wagon can only tick once the ghost has been picked up and turned. Reported on the pad: this step used to re-open with 'Tap RB till da Battlewagon row is picked', which reads as 'you did it wrong, start again' to a player who is stood there holding the ghost. Both prompts now only teach the drop; the pick-it-back-up recovery lives in the hint, where it fires only if the player is actually stuck.",
       "prompt": {
-        "bark": "PARK DA WAGON!",
-        "kbm": "Wagon's aimed — now click inside yer glowin' deployment zone to drop it.",
-        "pad": "Wagon's aimed an' still in yer hand — droppin' it is board work, so glide {ls} into yer glowin' zone an' press {a} to drop it."
+        "bark": "PARK THE WAGON!",
+        "bark_orky": "PARK DA WAGON!",
+        "kbm": "Wagon's aimed — now click inside your glowing deployment zone to drop it.",
+        "kbm_orky": "Wagon's aimed — now click inside yer glowin' deployment zone to drop it.",
+        "pad": "Wagon's aimed and still in your hand — dropping it is board work, so glide {ls} into your glowing zone and press {a} to drop it.",
+        "pad_orky": "Wagon's aimed an' still in yer hand — droppin' it is board work, so glide {ls} into yer glowin' zone an' press {a} to drop it."
       },
-      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel" },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/UnitListPanel"
+      },
       "spotlight": "soft",
       "allow": [],
       "done": {
         "script": "var dc = main.get(\"deployment_controller\") if main != null else null\nif dc == null:\n\treturn false\nif int(GameState.state.units.U_BATTLEWAGON_T.get(\"status\", 0)) == 2:\n\treturn true\nreturn str(dc.unit_id) == \"U_BATTLEWAGON_T\" and dc.get_placed_count() >= 1"
       },
       "hint": {
-        "kbm": "Yer zone is da highlighted band at da top of da board. Don't fret about gettin' it spot on — next step shows yer how to shove it about. Nuffin' followin' yer mouse? Click da Battlewagon row an' it's back in yer hand.",
-        "pad": "Yer zone is da highlighted band at da top of da board. Don't fret about gettin' it spot on — next step shows yer how to shove it about. Nuffin' followin' da cursor? Tap da right bumper back onto da Battlewagon row an' it's in yer hand again."
+        "kbm": "Your zone is the highlighted band at the top of the board. Don't worry about getting it exactly right — the next step shows you how to reposition it. Nothing following your mouse? Click the Battlewagon row and it's back in your hand.",
+        "kbm_orky": "Yer zone is da highlighted band at da top of da board. Don't fret about gettin' it spot on — next step shows yer how to shove it about. Nuffin' followin' yer mouse? Click da Battlewagon row an' it's back in yer hand.",
+        "pad": "Your zone is the highlighted band at the top of the board. Don't worry about getting it exactly right — the next step shows you how to reposition it. Nothing following the cursor? Tap the right bumper back onto the Battlewagon row and it's in your hand again.",
+        "pad_orky": "Yer zone is da highlighted band at da top of da board. Don't fret about gettin' it spot on — next step shows yer how to shove it about. Nuffin' followin' da cursor? Tap da right bumper back onto da Battlewagon row an' it's in yer hand again."
       }
     },
     {
       "id": "nudge_wagon",
       "_comment": "Teaches repositioning an already-placed model. `allow` is empty ON PURPOSE: a reposition is only possible while the placement session is live, so letting the player Confirm here would soft-lock the checklist (it could never tick). Gating DEPLOY_UNIT keeps the session open until both boxes are ticked. reposition_commits (DeploymentController) counts only drops that passed validation, so a cancelled or refused drop correctly does not tick the second box.",
       "prompt": {
-        "bark": "SHOVE IT OVER!",
-        "kbm": "Parked a bit wonky? Yer can shift a model dat's already down: hold [b]Shift[/b] an' click da wagon to pick it up again, move da mouse, den click to drop it. Right-click puts it back.",
-        "pad": "Parked a bit wonky? Point {ls} at da wagon an' press {l3} to pick it up again, move it, den {a} to drop it. {b} puts it back where it was."
+        "bark": "MOVE IT OVER!",
+        "bark_orky": "SHOVE IT OVER!",
+        "kbm": "Parked a bit off? You can shift a model that's already down: hold [b]Shift[/b] and click the wagon to pick it up again, move the mouse, then click to drop it. Right-click puts it back.",
+        "kbm_orky": "Parked a bit wonky? Yer can shift a model dat's already down: hold [b]Shift[/b] an' click da wagon to pick it up again, move da mouse, den click to drop it. Right-click puts it back.",
+        "pad": "Parked a bit off? Point {ls} at the wagon and press {l3} to pick it up again, move it, then {a} to drop it. {b} puts it back where it was.",
+        "pad_orky": "Parked a bit wonky? Point {ls} at da wagon an' press {l3} to pick it up again, move it, den {a} to drop it. {b} puts it back where it was."
       },
       "spotlight": "none",
       "allow": [],
-      "blocked_hint": "shove da wagon about first — pick it up an' drop it somewhere better — den ya can Confirm.",
+      "blocked_hint": "reposition the wagon first — pick it up and drop it somewhere better — then you can Confirm.",
+      "blocked_hint_orky": "shove da wagon about first — pick it up an' drop it somewhere better — den ya can Confirm.",
       "checklist": {
-        "label": "Shove da wagon about:",
+        "label": "Reposition the wagon:",
+        "label_orky": "Shove da wagon about:",
         "items": [
           {
             "id": "lift_model",
-            "label": "Pick da wagon back up",
+            "label": "Pick the wagon back up",
+            "label_orky": "Pick da wagon back up",
             "script": "var dc = main.get(\"deployment_controller\") if main != null else null\nif dc == null:\n\treturn false\nreturn bool(dc.is_repositioning())"
           },
           {
@@ -156,58 +234,102 @@
       "on_enter": {
         "script": "var dc = main.get(\"deployment_controller\") if main != null else null\nif dc != null:\n\tdc.reposition_commits = 0"
       },
-      "done": { "checklist": true },
-      "hint": { "text": "Yer can only shove models of da unit yer placin' right now, an' only before yer Confirm it. A spot dat ain't legal gets refused — try a bit over." }
+      "done": {
+        "checklist": true
+      },
+      "hint": {
+        "text": "You can only reposition models of the unit you're placing right now, and only before you Confirm it. A spot that isn't legal gets refused — try a little to the side.",
+        "text_orky": "Yer can only shove models of da unit yer placin' right now, an' only before yer Confirm it. A spot dat ain't legal gets refused — try a bit over."
+      }
     },
     {
       "id": "confirm_wagon",
       "prompt": {
         "bark": "LOCK IT IN!",
-        "kbm": "Happy wiv where it sits? Hit [b]Confirm[/b] on da unit card to lock da wagon in.",
-        "pad": "Happy wiv where it sits? Press {menu} — dat IS [b]Confirm[/b] on da pad. Or {dpad} ▼ hops into da unit card an' ▼ again lands on [b]Confirm[/b], den {a}."
+        "kbm": "Happy with where it sits? Hit [b]Confirm[/b] on the unit card to lock the wagon in.",
+        "kbm_orky": "Happy wiv where it sits? Hit [b]Confirm[/b] on da unit card to lock da wagon in.",
+        "pad": "Happy with where it sits? Press {menu} — that IS [b]Confirm[/b] on the pad. Or {dpad} ▼ hops into the unit card and ▼ again lands on [b]Confirm[/b], then {a}.",
+        "pad_orky": "Happy wiv where it sits? Press {menu} — dat IS [b]Confirm[/b] on da pad. Or {dpad} ▼ hops into da unit card an' ▼ again lands on [b]Confirm[/b], den {a}."
       },
-      "anchor": { "button_text": "Confirm" },
+      "anchor": {
+        "button_text": "Confirm"
+      },
       "spotlight": "soft",
-      "allow": ["DEPLOY_UNIT", "EMBARK_UNITS_DEPLOYMENT"],
-      "done": { "state": "units.U_BATTLEWAGON_T.status", "equals": 2 },
-      "hint": { "text": "Confirm sits on da unit card, bottom right. Undo an' Reset Unit are next to it." }
+      "allow": [
+        "DEPLOY_UNIT",
+        "EMBARK_UNITS_DEPLOYMENT"
+      ],
+      "done": {
+        "state": "units.U_BATTLEWAGON_T.status",
+        "equals": 2
+      },
+      "hint": {
+        "text": "Confirm sits on the unit card, bottom right. Undo and Reset Unit are next to it.",
+        "text_orky": "Confirm sits on da unit card, bottom right. Undo an' Reset Unit are next to it."
+      }
     },
     {
       "id": "deploy_grots",
       "prompt": {
-        "bark": "GROTS IN A MOB!",
-        "kbm": "Da enemy deploys between yer units — dat's da alternation. Now: click [b]Gretchin[/b], pick da [b]Tight[/b] formation, click open ground in yer zone to lay da whole squad out, den [b]Confirm[/b].",
-        "pad": "Tap {rb} (or {lb}) till da [b]Gretchin[/b] row is picked. {dpad} ▲ slides da ▶ marker onto [b]Deploy Formation[/b], den {dpad} ▶ twice steps Single, Spread, [b]Tight[/b]. Place 'em wiv {a}, den {menu} to Confirm."
+        "bark": "GROTS IN FORMATION!",
+        "bark_orky": "GROTS IN A MOB!",
+        "kbm": "The enemy deploys between your units — that's the alternation. Now: click [b]Gretchin[/b], pick the [b]Tight[/b] formation, click open ground in your zone to lay the whole squad out, then [b]Confirm[/b].",
+        "kbm_orky": "Da enemy deploys between yer units — dat's da alternation. Now: click [b]Gretchin[/b], pick da [b]Tight[/b] formation, click open ground in yer zone to lay da whole squad out, den [b]Confirm[/b].",
+        "pad": "Tap {rb} (or {lb}) till the [b]Gretchin[/b] row is selected. {dpad} ▲ slides the ▶ marker onto [b]Deploy Formation[/b], then {dpad} ▶ twice steps Single, Spread, [b]Tight[/b]. Place them with {a}, then {menu} to Confirm.",
+        "pad_orky": "Tap {rb} (or {lb}) till da [b]Gretchin[/b] row is picked. {dpad} ▲ slides da ▶ marker onto [b]Deploy Formation[/b], den {dpad} ▶ twice steps Single, Spread, [b]Tight[/b]. Place 'em wiv {a}, den {menu} to Confirm."
       },
-      "anchor": { "button_text": "Tight" },
+      "anchor": {
+        "button_text": "Tight"
+      },
       "spotlight": "soft",
-      "allow": ["DEPLOY_UNIT", "EMBARK_UNITS_DEPLOYMENT"],
-      "done": { "state": "units.U_GRETCHIN_T.status", "equals": 2 },
-      "hint": { "text": "Formation buttons sit on da unit card — Single / Spread / Tight change how a click lays da mob down. Keep da whole blob inside da glowin' zone." }
+      "allow": [
+        "DEPLOY_UNIT",
+        "EMBARK_UNITS_DEPLOYMENT"
+      ],
+      "done": {
+        "state": "units.U_GRETCHIN_T.status",
+        "equals": 2
+      },
+      "hint": {
+        "text": "Formation buttons sit on the unit card — Single / Spread / Tight change how a click lays the squad down. Keep the whole group inside the glowing zone.",
+        "text_orky": "Formation buttons sit on da unit card — Single / Spread / Tight change how a click lays da mob down. Keep da whole blob inside da glowin' zone."
+      }
     },
     {
       "id": "first_turn_roll",
       "prompt": {
         "bark": "WHO GOES FIRST?",
-        "kbm": "Yer Boyz are already in da wagon, so muster's done. One last roll-off decides who takes da first turn — [b]Roll[/b] in da dialog (again on a tie), den [b]Continue[/b].",
-        "pad": "Da Roll button takes da pad focus — press {a}, again on a tie, den {a} on Continue."
+        "kbm": "Your Boyz are already in the wagon, so the muster is done. One last roll-off decides who takes the first turn — [b]Roll[/b] in the dialog (again on a tie), then [b]Continue[/b].",
+        "kbm_orky": "Yer Boyz are already in da wagon, so muster's done. One last roll-off decides who takes da first turn — [b]Roll[/b] in da dialog (again on a tie), den [b]Continue[/b].",
+        "pad": "The Roll button takes the pad focus — press {a}, again on a tie, then {a} on Continue.",
+        "pad_orky": "Da Roll button takes da pad focus — press {a}, again on a tie, den {a} on Continue."
       },
       "spotlight": "none",
-      "allow": ["ROLL_OFF_FIRST_TURN", "CONFIRM_FIRST_TURN", "END_DEPLOYMENT"],
+      "allow": [
+        "ROLL_OFF_FIRST_TURN",
+        "CONFIRM_FIRST_TURN",
+        "END_DEPLOYMENT"
+      ],
       "done": {
         "script": "var p = int(GameState.state.meta.get(\"phase\", -1))\nreturn p != 1 and p != 2 and p != 13 and p != 3"
       },
-      "hint": { "text": "Keep pressin' on ties — da dice settle eventually." }
+      "hint": {
+        "text": "Keep pressing on ties — the dice settle eventually.",
+        "text_orky": "Keep pressin' on ties — da dice settle eventually."
+      }
     },
     {
       "id": "wrap",
       "prompt": {
         "bark": "MUSTER COMPLETE!",
-        "text": "Army's on da table: wagon loaded, grots spread, Boss ridin' wiv his ladz. Da battle rounds start now — [b]Get Movin'[/b] teaches da movement phase."
+        "text": "Army's on the table: wagon loaded, grots spread, Boss riding with his boys. The battle rounds start now — [b]Get Moving[/b] teaches the movement phase.",
+        "text_orky": "Army's on da table: wagon loaded, grots spread, Boss ridin' wiv his ladz. Da battle rounds start now — [b]Get Movin'[/b] teaches da movement phase."
       },
       "spotlight": "none",
       "allow": [],
-      "done": { "ack": true }
+      "done": {
+        "ack": true
+      }
     }
   ]
 }

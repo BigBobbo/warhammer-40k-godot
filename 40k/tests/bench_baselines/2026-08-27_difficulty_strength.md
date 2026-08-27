@@ -72,7 +72,7 @@ that reserved screening for Hard+ and trade analysis for Competitive is
 therefore load-bearing, not a regression — provided the default sits at the
 top.
 
-**Shipped (v1.40.0):** every default is now Competitive — `AIPlayer.configure`
+**Shipped (v1.41.0):** every default is now Competitive — `AIPlayer.configure`
 and `get_difficulty`, the save/load restore path, `AIDecisionMaker`'s static
 fallback, both menu dropdowns and their fallbacks, and `PlanSimulator`'s
 `DEFAULT_DIFFICULTY` (so benchmarks measure the AI that players actually

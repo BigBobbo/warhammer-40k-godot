@@ -1,8 +1,10 @@
 {
   "id": "t4_dakka",
   "order": 4,
-  "title": "Dakka Time",
-  "subtitle": "Shooting phase: pick a shooter, aim yer guns, roll da dice",
+  "title": "Open Fire",
+  "title_orky": "Dakka Time",
+  "subtitle": "Shooting phase: pick a shooter, aim your guns, roll the dice",
+  "subtitle_orky": "Shooting phase: pick a shooter, aim yer guns, roll da dice",
   "est_minutes": 5,
   "boot": {
     "fixture": "tutorial_t4_shoot",
@@ -11,8 +13,22 @@
     "auto_assign_single_target": false
   },
   "summary": {
-    "bark": "DAKKA DAKKA DAKKA!",
+    "bark": "FIRE AT WILL!",
+    "bark_orky": "DAKKA DAKKA DAKKA!",
     "bullets": [
+      "Click a unit (board or list) to make it the shooter, then point each gun at something.",
+      "Pick a gun in the weapon list, then click the enemy — that gun is now aimed. [b]All → <enemy>[/b] does every gun left in one go.",
+      "In a real game, if only ONE enemy is in range and sight, the guns aim themselves — we switched that off here so you get the practice.",
+      "[b]Confirm (N weapons)[/b] locks the targets in and opens the dice dock.",
+      "Guns fire top-to-bottom down the dock queue — [b]▲[/b] / [b]▼[/b] on the right of each row re-orders them before the first shot.",
+      "Each gun rolls to hit, then to wound, then the defender saves — kills from one gun are gone before the next fires.",
+      "[b]Fast Roll All ⏩[/b] rolls everything; [b]Roll to Hit ▶[/b] goes step by step. [b]Done[/b] closes each save card.",
+      "[b]Complete Shooting[/b] finishes the unit — then pick the next shooter or end the phase.",
+      "The [b]Dice Log[/b] tab on the left panel keeps every roll — check it when a result looks off.",
+      "[b]Shoot All Remaining[/b] auto-fires every unit you haven't aimed yourself.",
+      "Next lesson: The Charge — charging."
+    ],
+    "bullets_orky": [
       "Click a unit (board or list) to make it da shooter, den point each gun at somefin'.",
       "Pick a gun in da weapon list, den click da enemy — dat gun's now aimed. [b]All → <enemy>[/b] does every gun left in one go.",
       "In a real game, if only ONE enemy is in range an' sight, da guns aim demselves — we switched dat off 'ere so ya get da practice.",
@@ -30,8 +46,10 @@
     {
       "id": "intro",
       "prompt": {
-        "bark": "SHOOTIN' TIME!",
-        "text": "Da Boyz are out of da wagon an' da Witchseekers are in slugga range. In da Shooting phase every unit gets one go at blastin' — let's teach yer trigger fingers."
+        "bark": "SHOOTING TIME!",
+        "bark_orky": "SHOOTIN' TIME!",
+        "text": "The Boyz are out of the wagon and the Witchseekers are in slugga range. In the Shooting phase every unit gets one go at firing — let's train your trigger fingers.",
+        "text_orky": "Da Boyz are out of da wagon an' da Witchseekers are in slugga range. In da Shooting phase every unit gets one go at blastin' — let's teach yer trigger fingers."
       },
       "spotlight": "none",
       "allow": [],
@@ -42,9 +60,12 @@
     {
       "id": "pick_da_boyz",
       "prompt": {
-        "bark": "OI, YOU LOT!",
-        "kbm": "Click yer [b]Boyz[/b] mob — on da board or in da unit list on da right. Da weapon list on da right fills up wiv every gun dey've got, all sayin' [b](Click to Select)[/b] — nuffin's aimed yet.",
-        "pad": "Tap {rb} till da [b]Boyz[/b] are da active shooter — {rb} cycles yer units, dat's da only control dat does. Da weapon list on da right shows every gun dey've got, none of 'em aimed yet."
+        "bark": "PICK YOUR SHOOTER!",
+        "bark_orky": "OI, YOU LOT!",
+        "kbm": "Click your [b]Boyz[/b] squad — on the board or in the unit list on the right. The weapon list on the right fills up with every gun they have, all saying [b](Click to Select)[/b] — nothing is aimed yet.",
+        "kbm_orky": "Click yer [b]Boyz[/b] mob — on da board or in da unit list on da right. Da weapon list on da right fills up wiv every gun dey've got, all sayin' [b](Click to Select)[/b] — nuffin's aimed yet.",
+        "pad": "Tap {rb} till the [b]Boyz[/b] are the active shooter — {rb} cycles your units, that's the only control that does. The weapon list on the right shows every gun they have, none of them aimed yet.",
+        "pad_orky": "Tap {rb} till da [b]Boyz[/b] are da active shooter — {rb} cycles yer units, dat's da only control dat does. Da weapon list on da right shows every gun dey've got, none of 'em aimed yet."
       },
       "anchor": {
         "unit": "U_BOYZ_T"
@@ -64,15 +85,18 @@
         }
       },
       "hint": {
-        "text": "Da mob of ten south of da wagon. Da Warboss shoots wiv 'em — he's attached."
+        "text": "The squad of ten south of the wagon. The Warboss shoots with them — he's attached.",
+        "text_orky": "Da mob of ten south of da wagon. Da Warboss shoots wiv 'em — he's attached."
       }
     },
     {
       "id": "aim_first_gun",
       "prompt": {
         "bark": "POINT ONE GUN!",
-        "kbm": "Time to aim. Click da [b]Slugga[/b] row in da weapon list on da right to pick dat gun, den click da [b]Witchseekers[/b] on da board. Da row swaps from [b](Click to Select)[/b] to [b]→ Witchseekers[/b] — dat's one gun aimed.",
-        "pad": "Time to aim. {dpad} ▲▼ walks yer guns — stop on da [b]Slugga[/b]. {dpad} ◀▶ walks da enemy targets. Wiv da Slugga picked an' da Witchseekers highlighted, press {a} to aim it. Da row swaps to [b]→ Witchseekers[/b]."
+        "kbm": "Time to aim. Click the [b]Slugga[/b] row in the weapon list on the right to pick that gun, then click the [b]Witchseekers[/b] on the board. The row swaps from [b](Click to Select)[/b] to [b]→ Witchseekers[/b] — that's one gun aimed.",
+        "kbm_orky": "Time to aim. Click da [b]Slugga[/b] row in da weapon list on da right to pick dat gun, den click da [b]Witchseekers[/b] on da board. Da row swaps from [b](Click to Select)[/b] to [b]→ Witchseekers[/b] — dat's one gun aimed.",
+        "pad": "Time to aim. {dpad} ▲▼ walks your guns — stop on the [b]Slugga[/b]. {dpad} ◀▶ walks the enemy targets. With the Slugga picked and the Witchseekers highlighted, press {a} to aim it. The row swaps to [b]→ Witchseekers[/b].",
+        "pad_orky": "Time to aim. {dpad} ▲▼ walks yer guns — stop on da [b]Slugga[/b]. {dpad} ◀▶ walks da enemy targets. Wiv da Slugga picked an' da Witchseekers highlighted, press {a} to aim it. Da row swaps to [b]→ Witchseekers[/b]."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/WeaponTree"
@@ -90,15 +114,19 @@
         "expect_min": 1
       },
       "hint": {
-        "text": "Da Witchseekers are da only mob in range an' sight — every other row in da target list is greyed out for a reason."
+        "text": "The Witchseekers are the only squad in range and sight — every other row in the target list is greyed out for a reason.",
+        "text_orky": "Da Witchseekers are da only mob in range an' sight — every other row in da target list is greyed out for a reason."
       }
     },
     {
       "id": "aim_da_rest",
       "prompt": {
-        "bark": "NOW DA REST!",
-        "kbm": "Da Warboss is attached, so he's got guns too — an' any row still readin' [b](Click to Select)[/b] ain't firin'. Point da lot at da same mob: hit [b]All → Witchseekers[/b] under da weapon list, or click each row an' den da Witchseekers.",
-        "pad": "Da Warboss is attached, so he's got guns too — any row still readin' [b](Click to Select)[/b] ain't firin'. {dpad} ▲▼ to da next gun, {a} to aim it at da Witchseekers, an' again till every row says [b]→ Witchseekers[/b]."
+        "bark": "NOW THE REST!",
+        "bark_orky": "NOW DA REST!",
+        "kbm": "The Warboss is attached, so he has guns too — and any row still reading [b](Click to Select)[/b] isn't firing. Point the lot at the same squad: hit [b]All → Witchseekers[/b] under the weapon list, or click each row and then the Witchseekers.",
+        "kbm_orky": "Da Warboss is attached, so he's got guns too — an' any row still readin' [b](Click to Select)[/b] ain't firin'. Point da lot at da same mob: hit [b]All → Witchseekers[/b] under da weapon list, or click each row an' den da Witchseekers.",
+        "pad": "The Warboss is attached, so he has guns too — any row still reading [b](Click to Select)[/b] isn't firing. {dpad} ▲▼ to the next gun, {a} to aim it at the Witchseekers, and again till every row says [b]→ Witchseekers[/b].",
+        "pad_orky": "Da Warboss is attached, so he's got guns too — any row still readin' [b](Click to Select)[/b] ain't firin'. {dpad} ▲▼ to da next gun, {a} to aim it at da Witchseekers, an' again till every row says [b]→ Witchseekers[/b]."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/WeaponTree"
@@ -117,15 +145,19 @@
       },
       "hint_after_s": 30,
       "hint": {
-        "text": "Aimin' a gun dat's already aimed at dat mob just tells ya so — it don't double up."
+        "text": "Aiming a gun that's already aimed at that squad just tells you so — it doesn't double up.",
+        "text_orky": "Aimin' a gun dat's already aimed at dat mob just tells ya so — it don't double up."
       }
     },
     {
       "id": "confirm_dakka",
       "prompt": {
-        "bark": "LOCK DA TARGETS!",
-        "kbm": "Every gun's pointed — now lock 'em in: click da glowin' [b]Confirm[/b] button on da right (it counts yer guns).",
-        "pad": "Every gun's pointed — now lock 'em in: press {menu}, dat's [b]Confirm Targets[/b] on da pad. Want to re-aim first? {dpad} ◀▶ walks da targets, ▲▼ walks yer guns, {a} aims da current gun."
+        "bark": "LOCK THE TARGETS!",
+        "bark_orky": "LOCK DA TARGETS!",
+        "kbm": "Every gun is pointed — now lock them in: click the glowing [b]Confirm[/b] button on the right (it counts your guns).",
+        "kbm_orky": "Every gun's pointed — now lock 'em in: click da glowin' [b]Confirm[/b] button on da right (it counts yer guns).",
+        "pad": "Every gun is pointed — now lock them in: press {menu}, that's [b]Confirm Targets[/b] on the pad. Want to re-aim first? {dpad} ◀▶ walks the targets, ▲▼ walks your guns, {a} aims the current gun.",
+        "pad_orky": "Every gun's pointed — now lock 'em in: press {menu}, dat's [b]Confirm Targets[/b] on da pad. Want to re-aim first? {dpad} ◀▶ walks da targets, ▲▼ walks yer guns, {a} aims da current gun."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
@@ -144,15 +176,19 @@
         }
       },
       "hint": {
-        "text": "Ya don't have to fire every gun — Confirm locks whatever's assigned."
+        "text": "You don't have to fire every gun — Confirm locks whatever's assigned.",
+        "text_orky": "Ya don't have to fire every gun — Confirm locks whatever's assigned."
       }
     },
     {
       "id": "roll_da_dice",
       "prompt": {
-        "bark": "LET 'EM RIP!",
-        "kbm": "Da declarin' panel's gone an' da [b]WEAPON RESOLUTION[/b] dock's took its place on da right. Each row is one gun pointed at one mob, wiv da damage we reckon it'll do, an' dey fire [b]top to bottom[/b] — one gun goes all da way frough before da next one starts.\nEvery gun rolls da same three steps: [b]hit rolls[/b] against its Ballistic Skill, den [b]wound rolls[/b] (yer Strength against deir Toughness), den da defender makes [b]savin' throws[/b] an' whatever gets frough does damage an' takes models off.\n[b]Da firin' order is yours to pick.[/b] Da [b]▲[/b] an' [b]▼[/b] buttons on da right-hand side of each row shove dat gun up or down da queue — only while it's still waitin', so sort it now. It matters: boyz killed by da first gun ain't dere to soak up da second.\nWhen yer happy: [b]Fast Roll All ⏩[/b] rolls everyfin' at once, or [b]Roll to Hit ▶[/b] walks it step by step. Enemy saves pop up a results card — click [b]Done[/b] on each. When da big button says [b]Complete Shooting[/b], click it to finish da mob's go.",
-        "pad": "Dat's da [b]WEAPON RESOLUTION[/b] dock on da right. Each row is one gun pointed at one mob, an' dey fire [b]top to bottom[/b] — one gun all da way frough ([b]hit rolls[/b] on its Ballistic Skill, den [b]wound rolls[/b] Strength against Toughness, den da defender's [b]savin' throws[/b] an' da damage) before da next one starts.\n[b]Da firin' order is yours to pick.[/b] Press {dpad} to walk da highlight up into da queue an' onto da [b]▲[/b] / [b]▼[/b] buttons on da right-hand side of each row, den {a} to shove dat gun up or down. Only works before da first shot — an' it matters: boyz killed by da first gun ain't dere to soak up da second.\nDen {dpad} back down to [b]Fast Roll All ⏩[/b] an' press {a}, {a} on each [b]Done[/b] card, den {a} on [b]Complete Shooting[/b]."
+        "bark": "OPEN FIRE!",
+        "bark_orky": "LET 'EM RIP!",
+        "kbm": "The declaration panel is gone and the [b]WEAPON RESOLUTION[/b] dock has taken its place on the right. Each row is one gun pointed at one squad, with the damage we expect it to do, and they fire [b]top to bottom[/b] — one gun goes all the way through before the next one starts.\nEvery gun rolls the same three steps: [b]hit rolls[/b] against its Ballistic Skill, then [b]wound rolls[/b] (your Strength against their Toughness), then the defender makes [b]saving throws[/b] and whatever gets through does damage and takes models off.\n[b]The firing order is yours to pick.[/b] The [b]▲[/b] and [b]▼[/b] buttons on the right-hand side of each row move that gun up or down the queue — only while it's still waiting, so sort it now. It matters: boys killed by the first gun aren't there to soak up the second.\nWhen you're happy: [b]Fast Roll All ⏩[/b] rolls everything at once, or [b]Roll to Hit ▶[/b] walks it step by step. Enemy saves pop up a results card — click [b]Done[/b] on each. When the big button says [b]Complete Shooting[/b], click it to finish the squad's turn.",
+        "kbm_orky": "Da declarin' panel's gone an' da [b]WEAPON RESOLUTION[/b] dock's took its place on da right. Each row is one gun pointed at one mob, wiv da damage we reckon it'll do, an' dey fire [b]top to bottom[/b] — one gun goes all da way frough before da next one starts.\nEvery gun rolls da same three steps: [b]hit rolls[/b] against its Ballistic Skill, den [b]wound rolls[/b] (yer Strength against deir Toughness), den da defender makes [b]savin' throws[/b] an' whatever gets frough does damage an' takes models off.\n[b]Da firin' order is yours to pick.[/b] Da [b]▲[/b] an' [b]▼[/b] buttons on da right-hand side of each row shove dat gun up or down da queue — only while it's still waitin', so sort it now. It matters: boyz killed by da first gun ain't dere to soak up da second.\nWhen yer happy: [b]Fast Roll All ⏩[/b] rolls everyfin' at once, or [b]Roll to Hit ▶[/b] walks it step by step. Enemy saves pop up a results card — click [b]Done[/b] on each. When da big button says [b]Complete Shooting[/b], click it to finish da mob's go.",
+        "pad": "That's the [b]WEAPON RESOLUTION[/b] dock on the right. Each row is one gun pointed at one squad, and they fire [b]top to bottom[/b] — one gun all the way through ([b]hit rolls[/b] on its Ballistic Skill, then [b]wound rolls[/b] Strength against Toughness, then the defender's [b]saving throws[/b] and the damage) before the next one starts.\n[b]The firing order is yours to pick.[/b] Press {dpad} to walk the highlight up into the queue and onto the [b]▲[/b] / [b]▼[/b] buttons on the right-hand side of each row, then {a} to move that gun up or down. Only works before the first shot — and it matters: boys killed by the first gun aren't there to soak up the second.\nThen {dpad} back down to [b]Fast Roll All ⏩[/b] and press {a}, {a} on each [b]Done[/b] card, then {a} on [b]Complete Shooting[/b].",
+        "pad_orky": "Dat's da [b]WEAPON RESOLUTION[/b] dock on da right. Each row is one gun pointed at one mob, an' dey fire [b]top to bottom[/b] — one gun all da way frough ([b]hit rolls[/b] on its Ballistic Skill, den [b]wound rolls[/b] Strength against Toughness, den da defender's [b]savin' throws[/b] an' da damage) before da next one starts.\n[b]Da firin' order is yours to pick.[/b] Press {dpad} to walk da highlight up into da queue an' onto da [b]▲[/b] / [b]▼[/b] buttons on da right-hand side of each row, den {a} to shove dat gun up or down. Only works before da first shot — an' it matters: boyz killed by da first gun ain't dere to soak up da second.\nDen {dpad} back down to [b]Fast Roll All ⏩[/b] an' press {a}, {a} on each [b]Done[/b] card, den {a} on [b]Complete Shooting[/b]."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock"
@@ -176,15 +212,19 @@
       },
       "hint_after_s": 35,
       "hint": {
-        "text": "Da 'Every step' dropdown picks how often da rollin' pauses. Stuck? Da big dock button always shows da next step."
+        "text": "The 'Every step' dropdown picks how often the rolling pauses. Stuck? The big dock button always shows the next step.",
+        "text_orky": "Da 'Every step' dropdown picks how often da rollin' pauses. Stuck? Da big dock button always shows da next step."
       }
     },
     {
       "id": "dice_log",
       "prompt": {
-        "bark": "CHECK DA NUMBERS!",
-        "kbm": "Every one of dem rolls got written down. Click da [b]Dice Log[/b] tab on da panel down da left — hits, wounds an' saves, da lot of it.",
-        "pad": "Every roll got written down. Da left panel ain't on da {dpad} route, so dis is cursor work: glide {ls} onto da [b]Dice Log[/b] tab an' press {a} — hits, wounds an' saves, da lot of it."
+        "bark": "CHECK THE NUMBERS!",
+        "bark_orky": "CHECK DA NUMBERS!",
+        "kbm": "Every one of those rolls got written down. Click the [b]Dice Log[/b] tab on the panel down the left — hits, wounds and saves, all of it.",
+        "kbm_orky": "Every one of dem rolls got written down. Click da [b]Dice Log[/b] tab on da panel down da left — hits, wounds an' saves, da lot of it.",
+        "pad": "Every roll got written down. The left panel isn't on the {dpad} route, so this is cursor work: glide {ls} onto the [b]Dice Log[/b] tab and press {a} — hits, wounds and saves, all of it.",
+        "pad_orky": "Every roll got written down. Da left panel ain't on da {dpad} route, so dis is cursor work: glide {ls} onto da [b]Dice Log[/b] tab an' press {a} — hits, wounds an' saves, da lot of it."
       },
       "anchor": {
         "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabDiceLog"
@@ -195,7 +235,8 @@
         "script": "var glp = tree.root.get_node_or_null(\"/root/Main/GameLogPanel\")\nreturn glp != null and str(glp.get_active_tab()) == \"dice\""
       },
       "hint": {
-        "text": "Da tab's up top of da left panel, next to [b]Game Log[/b] — it's wearin' a ● 'cos dere's rolls ya ain't read yet."
+        "text": "The tab is at the top of the left panel, next to [b]Game Log[/b] — it's wearing a ● because there are rolls you haven't read yet.",
+        "text_orky": "Da tab's up top of da left panel, next to [b]Game Log[/b] — it's wearin' a ● 'cos dere's rolls ya ain't read yet."
       },
       "comment": "This lived in T1 (Scoutin' da Field) between the datasheet steps, where it asked the player to open the Dice Log before anything had been rolled — an empty panel. It sits here instead: 'roll_da_dice' above it only completes once U_BOYZ_T.flags.has_shot is true, so by the time this step is up the shooting phase has written its hit/wound/save blocks into the shared dice log (see tests/scenarios/sp/dice_log_left_tab_shooting.json) and the tab is carrying its unread ● nudge."
     },
@@ -203,8 +244,10 @@
       "id": "end_phase",
       "prompt": {
         "bark": "CEASEFIRE!",
-        "kbm": "Da wagon an' da grots could shoot too — ([b]Shoot All Remaining[/b] does 'em all in one go) — but we're savin' da ammo. Hit da big red button, check da phase summary, den [b]End Shooting Phase[/b].",
-        "pad": "Da wagon an' grots could shoot too — we're savin' ammo. Press {menu}, den confirm [b]End Shooting Phase[/b] on da summary."
+        "kbm": "The wagon and the grots could shoot too — ([b]Shoot All Remaining[/b] does them all in one go) — but we're saving the ammo. Hit the big red button, check the phase summary, then [b]End Shooting Phase[/b].",
+        "kbm_orky": "Da wagon an' da grots could shoot too — ([b]Shoot All Remaining[/b] does 'em all in one go) — but we're savin' da ammo. Hit da big red button, check da phase summary, den [b]End Shooting Phase[/b].",
+        "pad": "The wagon and grots could shoot too — we're saving ammo. Press {menu}, then confirm [b]End Shooting Phase[/b] on the summary.",
+        "pad_orky": "Da wagon an' grots could shoot too — we're savin' ammo. Press {menu}, den confirm [b]End Shooting Phase[/b] on da summary."
       },
       "anchor": {
         "node": "/root/Main/PhaseActionButton"
@@ -226,7 +269,8 @@
         ]
       },
       "hint": {
-        "text": "Da summary counts yer hits an' casualties — Go Back if ya forgot someone."
+        "text": "The summary counts your hits and casualties — Go Back if you forgot someone.",
+        "text_orky": "Da summary counts yer hits an' casualties — Go Back if ya forgot someone."
       }
     }
   ]

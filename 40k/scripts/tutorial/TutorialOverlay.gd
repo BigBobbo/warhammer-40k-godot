@@ -129,6 +129,16 @@ func _mgr() -> Node:
 	return get_node_or_null("/root/TutorialManager")
 
 
+# Who is talking, per the Tutorial Language setting. Re-read on every
+# show_step/show_summary so a mid-session language change re-badges the card.
+func _instructor_name() -> String:
+	var svc := get_node_or_null("/root/SettingsService")
+	if svc != null and svc.has_method("get_tutorial_language") \
+			and str(svc.get_tutorial_language()) == "orky":
+		return "DA BOSS"
+	return "INSTRUCTOR"
+
+
 # ------------------------------------------------------------------ build ---
 
 func _build() -> void:
@@ -186,7 +196,7 @@ func _build() -> void:
 
 	_instructor_chip = Label.new()
 	_instructor_chip.name = "InstructorChip"
-	_instructor_chip.text = "DA BOSS"
+	_instructor_chip.text = _instructor_name()
 	_instructor_chip.add_theme_font_size_override("font_size", 16)
 	_instructor_chip.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_BLACK)
 	var chip_style := StyleBoxFlat.new()
@@ -1028,6 +1038,7 @@ func _on_exit_pressed() -> void:
 func show_step(view: Dictionary) -> void:
 	visible = true
 	set_process(true)
+	_instructor_chip.text = _instructor_name()
 	_bark_label.text = str(view.get("bark", ""))
 	_body_text.text = str(view.get("body", ""))
 	_checklist_label = str(view.get("checklist_label", ""))
@@ -1103,7 +1114,8 @@ func update_checklist(items) -> void:
 func show_summary(view: Dictionary) -> void:
 	visible = true
 	set_process(true)
-	_bark_label.text = str(view.get("bark", "PROPPA JOB!"))
+	_instructor_chip.text = _instructor_name()
+	_bark_label.text = str(view.get("bark", "PROPPA JOB!" if _instructor_name() == "DA BOSS" else "WELL DONE!"))
 	_body_text.text = str(view.get("body", ""))
 	_checklist_label = ""
 	update_checklist([])
