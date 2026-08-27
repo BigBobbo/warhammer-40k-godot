@@ -1,7 +1,8 @@
 {
   "id": "t1_basics",
   "order": 1,
-  "title": "Scoutin' da Field",
+  "title": "Scouting the Field",
+  "title_orky": "Scoutin' da Field",
   "subtitle": "Camera, selection & reading the table",
   "est_minutes": 4,
   "boot": {
@@ -10,8 +11,17 @@
     "rng_seed": 4242
   },
   "summary": {
-    "bark": "PROPPA JOB, YA GIT!",
+    "bark": "GOOD WORK, COMMANDER!",
+    "bark_orky": "PROPPA JOB, YA GIT!",
     "bullets": [
+      "Camera: pan and zoom anywhere on the table.",
+      "Units: pick them from the list or the board, datasheet for the full stats.",
+      "The left panel logs everything — Game Log for the story, Dice Log for every roll once they start.",
+      "The big red button ends the phase. The small one ends a unit's move.",
+      "Forgot a control? The pause menu (Escape, or View on a pad) lists every key under Controls and every button under Controller.",
+      "Next lesson: Mustering the Boyz — deployment, transports and leaders."
+    ],
+    "bullets_orky": [
       "Camera: pan an' zoom anywhere on da table.",
       "Units: pick 'em from da list or da board, datasheet for da full stats.",
       "Da left panel logs everyfing — Game Log for da story, Dice Log for every roll once dey start.",
@@ -24,9 +34,12 @@
     {
       "id": "welcome",
       "prompt": {
-        "bark": "OI, LISTEN UP!",
-        "kbm": "Welcome to Basic Trainin'. You know da rules of da tabletop — dis teaches how [b]da app[/b] works. Use [i]Skip Step[/i] or [i]Exit Tutorial[/i] up 'ere any time.",
-        "pad": "Welcome to Basic Trainin'. You know da rules — dis teaches how [b]da app[/b] works. Whenever dis card shows [b]Continue[/b], press {a}. [i]Skip Step[/i] an' [i]Exit Tutorial[/i] are up 'ere too."
+        "bark": "WELCOME, COMMANDER!",
+        "bark_orky": "OI, LISTEN UP!",
+        "kbm": "Welcome to Basic Training. You know the rules of the tabletop — this teaches how [b]the app[/b] works. Use [i]Skip Step[/i] or [i]Exit Tutorial[/i] up here any time.",
+        "kbm_orky": "Welcome to Basic Trainin'. You know da rules of da tabletop — dis teaches how [b]da app[/b] works. Use [i]Skip Step[/i] or [i]Exit Tutorial[/i] up 'ere any time.",
+        "pad": "Welcome to Basic Training. You know the rules — this teaches how [b]the app[/b] works. Whenever this card shows [b]Continue[/b], press {a}. [i]Skip Step[/i] and [i]Exit Tutorial[/i] are up here too.",
+        "pad_orky": "Welcome to Basic Trainin'. You know da rules — dis teaches how [b]da app[/b] works. Whenever dis card shows [b]Continue[/b], press {a}. [i]Skip Step[/i] an' [i]Exit Tutorial[/i] are up 'ere too."
       },
       "spotlight": "none",
       "allow": [],
@@ -37,9 +50,12 @@
     {
       "id": "camera",
       "prompt": {
-        "bark": "EYES ON DA FIELD!",
-        "kbm": "Look over da whole table: pan wiv da arrow keys (or {key:camera_pan_up} {key:camera_pan_left} {key:camera_pan_down} {key:camera_pan_right}), an' zoom in an' out wiv da mouse wheel. Try 'em all.",
-        "pad": "Look over da whole table: shove {rs} every way to pan, den zoom in wiv {rt} an' out wiv {lt}. Try 'em all."
+        "bark": "EYES ON THE FIELD!",
+        "bark_orky": "EYES ON DA FIELD!",
+        "kbm": "Look over the whole table: pan with the arrow keys (or {key:camera_pan_up} {key:camera_pan_left} {key:camera_pan_down} {key:camera_pan_right}), and zoom in and out with the mouse wheel. Try them all.",
+        "kbm_orky": "Look over da whole table: pan wiv da arrow keys (or {key:camera_pan_up} {key:camera_pan_left} {key:camera_pan_down} {key:camera_pan_right}), an' zoom in an' out wiv da mouse wheel. Try 'em all.",
+        "pad": "Look over the whole table: push {rs} every way to pan, then zoom in with {rt} and out with {lt}. Try them all.",
+        "pad_orky": "Look over da whole table: shove {rs} every way to pan, den zoom in wiv {rt} an' out wiv {lt}. Try 'em all."
       },
       "spotlight": "none",
       "allow": [],
@@ -91,16 +107,21 @@
         "checklist": true
       },
       "hint": {
-        "kbm": "Tick every box: pan all four ways wiv da arrow keys, den roll da wheel forward an' back. Stuck on one? [i]Skip Step[/i] up 'ere moves on.",
-        "pad": "Tick every box: push {rs} all four ways, den squeeze {rt} an' {lt}. Stuck on one? [i]Skip Step[/i] up 'ere moves on."
+        "kbm": "Tick every box: pan all four ways with the arrow keys, then roll the wheel forward and back. Stuck on one? [i]Skip Step[/i] up here moves on.",
+        "kbm_orky": "Tick every box: pan all four ways wiv da arrow keys, den roll da wheel forward an' back. Stuck on one? [i]Skip Step[/i] up 'ere moves on.",
+        "pad": "Tick every box: push {rs} all four ways, then squeeze {rt} and {lt}. Stuck on one? [i]Skip Step[/i] up here moves on.",
+        "pad_orky": "Tick every box: push {rs} all four ways, den squeeze {rt} an' {lt}. Stuck on one? [i]Skip Step[/i] up 'ere moves on."
       }
     },
     {
       "id": "select_wagon",
       "prompt": {
-        "bark": "PICK DA WAGON!",
-        "kbm": "Click [b]Battlewagon[/b] in da unit list on da right — or click its token up in your deployment zone.",
-        "pad": "Tap {rb} to cycle units until da [b]Battlewagon[/b] is picked — or point {ls} at its token on da board an' press {a}."
+        "bark": "SELECT THE WAGON!",
+        "bark_orky": "PICK DA WAGON!",
+        "kbm": "Click [b]Battlewagon[/b] in the unit list on the right — or click its token up in your deployment zone.",
+        "kbm_orky": "Click [b]Battlewagon[/b] in da unit list on da right — or click its token up in your deployment zone.",
+        "pad": "Tap {rb} to cycle units until the [b]Battlewagon[/b] is selected — or point {ls} at its token on the board and press {a}.",
+        "pad_orky": "Tap {rb} to cycle units until da [b]Battlewagon[/b] is picked — or point {ls} at its token on da board an' press {a}."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList"
@@ -113,15 +134,19 @@
         "script": "var mc = main.get(\"movement_controller\")\nreturn mc != null and str(mc.active_unit_id) == \"U_BATTLEWAGON_T\""
       },
       "hint": {
-        "text": "Da unit list is top-right — da Battlewagon row. If dat list looks empty, point at da wagon on da board an' pick it dere instead."
+        "text": "The unit list is top-right — the Battlewagon row. If that list looks empty, point at the wagon on the board and pick it there instead.",
+        "text_orky": "Da unit list is top-right — da Battlewagon row. If dat list looks empty, point at da wagon on da board an' pick it dere instead."
       }
     },
     {
       "id": "open_datasheet",
       "prompt": {
-        "bark": "KNOW YER WAGON!",
-        "kbm": "Press {key:datasheet_modal} to open da unit's full datasheet.",
-        "pad": "Press {y} to open da unit's full datasheet."
+        "bark": "KNOW YOUR WAGON!",
+        "bark_orky": "KNOW YER WAGON!",
+        "kbm": "Press {key:datasheet_modal} to open the unit's full datasheet.",
+        "kbm_orky": "Press {key:datasheet_modal} to open da unit's full datasheet.",
+        "pad": "Press {y} to open the unit's full datasheet.",
+        "pad_orky": "Press {y} to open da unit's full datasheet."
       },
       "spotlight": "none",
       "allow": [],
@@ -145,8 +170,10 @@
     {
       "id": "log_panel",
       "prompt": {
-        "bark": "DA PAPERWORK!",
-        "text": "Da panel down da left logs everyfing wot 'appens. [b]Game Log[/b] is da story so far; da [b]Dice Log[/b] tab catches every roll — nuffin's been rolled yet, so it's empty. Dakka Time puts it to work."
+        "bark": "THE PAPERWORK!",
+        "bark_orky": "DA PAPERWORK!",
+        "text": "The panel down the left logs everything that happens. [b]Game Log[/b] is the story so far; the [b]Dice Log[/b] tab catches every roll — nothing has been rolled yet, so it's empty. Open Fire puts it to work.",
+        "text_orky": "Da panel down da left logs everyfing wot 'appens. [b]Game Log[/b] is da story so far; da [b]Dice Log[/b] tab catches every roll — nuffin's been rolled yet, so it's empty. Dakka Time puts it to work."
       },
       "anchor": {
         "node": "/root/Main/GameLogPanel"
@@ -162,8 +189,10 @@
       "id": "hint_bar",
       "device": "pad",
       "prompt": {
-        "bark": "READ DA BAR!",
-        "pad": "Dat strip at da bottom always shows wot each button does [i]right now[/i]. It changes wiv da situation — when in doubt, read da bar. Right now it says {a} Continue, so squeeze {a} to carry on. No unit pickin' needed."
+        "bark": "READ THE BAR!",
+        "bark_orky": "READ DA BAR!",
+        "pad": "That strip at the bottom always shows what each button does [i]right now[/i]. It changes with the situation — when in doubt, read the bar. Right now it says {a} Continue, so press {a} to carry on. No unit selection needed.",
+        "pad_orky": "Dat strip at da bottom always shows wot each button does [i]right now[/i]. It changes wiv da situation — when in doubt, read da bar. Right now it says {a} Continue, so squeeze {a} to carry on. No unit pickin' needed."
       },
       "anchor": {
         "node": "/root/PadHintBar"
@@ -171,21 +200,26 @@
       "spotlight": "soft",
       "allow": [],
       "blocked_hint": {
-        "pad": "dis step only wants [Continue] on da card — press {a}. Pickin' anuvver unit won't move ya on."
+        "pad": "this step only wants [Continue] on the card — press {a}. Selecting another unit won't move you on.",
+        "pad_orky": "dis step only wants [Continue] on da card — press {a}. Pickin' anuvver unit won't move ya on."
       },
       "done": {
         "ack": true
       },
       "hint": {
-        "pad": "Da bar 'as da answer: press {a} to hit [b]Continue[/b]. Or point {ls} at da button an' press {a} — bofe work. Pickin' anuvver unit won't move ya on."
+        "pad": "The bar has the answer: press {a} to hit [b]Continue[/b]. Or point {ls} at the button and press {a} — both work. Selecting another unit won't move you on.",
+        "pad_orky": "Da bar 'as da answer: press {a} to hit [b]Continue[/b]. Or point {ls} at da button an' press {a} — bofe work. Pickin' anuvver unit won't move ya on."
       }
     },
     {
       "id": "controls_reference_open",
       "prompt": {
-        "bark": "DA CHEAT SHEET!",
-        "kbm": "Press {key:hotkey_help} to see every keyboard shortcut in da game.",
-        "pad": "Press {view} for da pause menu. Da [b]Controller[/b] tab lists every button ya got — an' lets ya swap 'em about."
+        "bark": "THE CHEAT SHEET!",
+        "bark_orky": "DA CHEAT SHEET!",
+        "kbm": "Press {key:hotkey_help} to see every keyboard shortcut in the game.",
+        "kbm_orky": "Press {key:hotkey_help} to see every keyboard shortcut in da game.",
+        "pad": "Press {view} for the pause menu. The [b]Controller[/b] tab lists every button you have — and lets you remap them.",
+        "pad_orky": "Press {view} for da pause menu. Da [b]Controller[/b] tab lists every button ya got — an' lets ya swap 'em about."
       },
       "spotlight": "none",
       "allow": [],
@@ -200,16 +234,20 @@
         ]
       },
       "hint": {
-        "kbm": "No keyboard handy (Steam Deck an' such)? Grab da pad: {view} opens da pause menu, an' da [b]Controller[/b] tab lists every button.",
-        "pad": "{view} is da ⧉ View/Select button — dat opens da pause menu. Da tab row is along da top: land on [b]Controller[/b] an' press {a}."
+        "kbm": "No keyboard handy (Steam Deck and such)? Grab the pad: {view} opens the pause menu, and the [b]Controller[/b] tab lists every button.",
+        "kbm_orky": "No keyboard handy (Steam Deck an' such)? Grab da pad: {view} opens da pause menu, an' da [b]Controller[/b] tab lists every button.",
+        "pad": "{view} is the ⧉ View/Select button — that opens the pause menu. The tab row is along the top: land on [b]Controller[/b] and press {a}.",
+        "pad_orky": "{view} is da ⧉ View/Select button — dat opens da pause menu. Da tab row is along da top: land on [b]Controller[/b] an' press {a}."
       }
     },
     {
       "id": "controls_reference_close",
       "prompt": {
         "bark": "BACK TO WORK!",
-        "kbm": "Press {key:hotkey_help} again to put da cheat sheet away.",
-        "pad": "Give da [b]Controller[/b] tab a butcher's, den press {b} (or {view}) to shut da menu."
+        "kbm": "Press {key:hotkey_help} again to put the cheat sheet away.",
+        "kbm_orky": "Press {key:hotkey_help} again to put da cheat sheet away.",
+        "pad": "Have a look at the [b]Controller[/b] tab, then press {b} (or {view}) to close the menu.",
+        "pad_orky": "Give da [b]Controller[/b] tab a butcher's, den press {b} (or {view}) to shut da menu."
       },
       "spotlight": "none",
       "allow": [],
@@ -227,8 +265,10 @@
     {
       "id": "end_phase_intro",
       "prompt": {
-        "bark": "SEE DAT BUTTON IN DA TOP RIGHT-HAND CORNER?",
-        "text": "Dat big red button up in da top right-hand corner ends da current phase for good. [b]Don't[/b] press it yet — first, a bit of movin'."
+        "bark": "SEE THAT BUTTON IN THE TOP RIGHT-HAND CORNER?",
+        "bark_orky": "SEE DAT BUTTON IN DA TOP RIGHT-HAND CORNER?",
+        "text": "That big red button up in the top right-hand corner ends the current phase for good. [b]Don't[/b] press it yet — first, a bit of moving.",
+        "text_orky": "Dat big red button up in da top right-hand corner ends da current phase for good. [b]Don't[/b] press it yet — first, a bit of movin'."
       },
       "anchor": {
         "node": "/root/Main/PhaseActionButton"
@@ -242,9 +282,12 @@
     {
       "id": "move_grots",
       "prompt": {
-        "bark": "MOVE DA GROTS!",
-        "kbm": "Click [b]Gretchin[/b] in da unit list. Loads of 'em, so press {key:select_all} — dat grabs [b]every[/b] grot at once. Now drag any one of 'em forward an' da whole mob shifts togevver. Much faster.",
-        "pad": "Tap {rb} until da [b]Gretchin[/b] are picked an' start da move wiv {a}. Loads of 'em, so press {dpad} ▲ — dat lifts [b]every[/b] grot at once. Glide {ls} forward an' {a} drops da lot. Much faster."
+        "bark": "MOVE THE GROTS!",
+        "bark_orky": "MOVE DA GROTS!",
+        "kbm": "Click [b]Gretchin[/b] in the unit list. There are a lot of them, so press {key:select_all} — that grabs [b]every[/b] grot at once. Now drag any one of them forward and the whole squad shifts together. Much faster.",
+        "kbm_orky": "Click [b]Gretchin[/b] in da unit list. Loads of 'em, so press {key:select_all} — dat grabs [b]every[/b] grot at once. Now drag any one of 'em forward an' da whole mob shifts togevver. Much faster.",
+        "pad": "Tap {rb} until the [b]Gretchin[/b] are selected and start the move with {a}. There are a lot of them, so press {dpad} ▲ — that lifts [b]every[/b] grot at once. Glide {ls} forward and {a} drops the lot. Much faster.",
+        "pad_orky": "Tap {rb} until da [b]Gretchin[/b] are picked an' start da move wiv {a}. Loads of 'em, so press {dpad} ▲ — dat lifts [b]every[/b] grot at once. Glide {ls} forward an' {a} drops da lot. Much faster."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList"
@@ -271,16 +314,20 @@
         ]
       },
       "hint": {
-        "kbm": "Pick da Gretchin row first, den {key:select_all} to select 'em all — one drag moves da lot. If dey don't all fit where ya drop 'em, only da ones dat fit land; da rest stay selected, so drag 'em again somewhere else.",
-        "pad": "Pick da Gretchin an' start da move first — {dpad} ▲ only grabs da whole mob once dey're movin'. If dey don't all fit where ya drop 'em, only da ones dat fit land; another {dpad} ▲ grabs whoever's still standin' about."
+        "kbm": "Pick the Gretchin row first, then {key:select_all} to select them all — one drag moves the lot. If they don't all fit where you drop them, only the ones that fit land; the rest stay selected, so drag them again somewhere else.",
+        "kbm_orky": "Pick da Gretchin row first, den {key:select_all} to select 'em all — one drag moves da lot. If dey don't all fit where ya drop 'em, only da ones dat fit land; da rest stay selected, so drag 'em again somewhere else.",
+        "pad": "Pick the Gretchin and start the move first — {dpad} ▲ only grabs the whole squad once they're moving. If they don't all fit where you drop them, only the ones that fit land; another {dpad} ▲ grabs whoever is still waiting.",
+        "pad_orky": "Pick da Gretchin an' start da move first — {dpad} ▲ only grabs da whole mob once dey're movin'. If dey don't all fit where ya drop 'em, only da ones dat fit land; another {dpad} ▲ grabs whoever's still standin' about."
       }
     },
     {
       "id": "confirm_grots",
       "prompt": {
         "bark": "LOCK IT IN!",
-        "kbm": "Grots left behind? Only da ones dat fit got placed — da rest are still selected, so drag 'em again somewhere dey fit ({key:select_all} re-grabs da lot). When every grot's down, press [b]End This Unit's Move[/b].",
-        "pad": "Grots left behind? Only da ones dat fit got placed. Press {dpad} ▲ again — it grabs every grot dat still ain't moved — den {a} drops 'em somewhere dey fit. When every grot's down, {menu} confirms da move \u2014 dat's why da big [b]End Phase[/b] button drops its {menu} while a move's on da go. {menu} only ends da phase once nuffin's mid-move."
+        "kbm": "Grots left behind? Only the ones that fit got placed — the rest are still selected, so drag them again somewhere they fit ({key:select_all} re-grabs the lot). When every grot is down, press [b]End This Unit's Move[/b].",
+        "kbm_orky": "Grots left behind? Only da ones dat fit got placed — da rest are still selected, so drag 'em again somewhere dey fit ({key:select_all} re-grabs da lot). When every grot's down, press [b]End This Unit's Move[/b].",
+        "pad": "Grots left behind? Only the ones that fit got placed. Press {dpad} ▲ again — it grabs every grot that hasn't moved yet — then {a} drops them somewhere they fit. When every grot is down, {menu} confirms the move — that's why the big [b]End Phase[/b] button drops its {menu} while a move is in progress. {menu} only ends the phase once nothing is mid-move.",
+        "pad_orky": "Grots left behind? Only da ones dat fit got placed. Press {dpad} ▲ again — it grabs every grot dat still ain't moved — den {a} drops 'em somewhere dey fit. When every grot's down, {menu} confirms da move — dat's why da big [b]End Phase[/b] button drops its {menu} while a move's on da go. {menu} only ends da phase once nuffin's mid-move."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton"
@@ -303,8 +350,10 @@
     {
       "id": "wrap",
       "prompt": {
-        "bark": "DAT'S DA BASICS!",
-        "text": "Camera, pickin' units, datasheets, logs, an' yer first move order. Da next lesson covers [b]deployment, transports an' leaders[/b]. WAAAGH!"
+        "bark": "THAT'S THE BASICS!",
+        "bark_orky": "DAT'S DA BASICS!",
+        "text": "Camera, selecting units, datasheets, logs, and your first move order. The next lesson covers [b]deployment, transports and leaders[/b].",
+        "text_orky": "Camera, pickin' units, datasheets, logs, an' yer first move order. Da next lesson covers [b]deployment, transports an' leaders[/b]. WAAAGH!"
       },
       "spotlight": "none",
       "allow": [],

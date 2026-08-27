@@ -182,6 +182,24 @@ var shooting_show_all_units: bool = false
 # games never see it. See autoloads/HandoffManager.gd.
 var hotseat_handoff_enabled: bool = true
 
+# Tutorial language — the voice the tutorial speaks in (instructor card,
+# blocked-action toasts, exit dialog, lesson picker, first-launch nudge):
+#   "standard" (default) — plain English. The Ork dialect reads as flavour but
+#                          players reported it makes instructions harder to
+#                          parse, so clarity is the default.
+#   "orky"               — Da Boss's own voice, the tutorial's original text.
+# Lesson JSONs carry both: plain-English base keys plus *_orky variants
+# (TutorialScript picks per this setting, falling back across languages so a
+# half-translated step still shows SOMETHING device-correct).
+var tutorial_language: String = "standard"
+# Runtime-only harness override, never persisted: the windowed tut_* scenarios
+# were authored against the orky text (they click "Leg it!", assert
+# "Scoutin' da Field", pin exact card bodies), so automated runs keep that
+# baseline — same carve-out idea as the 10e edition pin in _ready(). An
+# explicit set_tutorial_language() (e.g. a scenario testing the standard
+# voice) clears it for the rest of the run.
+var _tutorial_language_harness_pin: bool = false
+
 # Rules edition: 10 (10th edition) or 11 (11th edition core rules, now the
 # default for players). Applied to GameConstants.edition at startup and whenever
 # changed, so the whole rules engine plays the selected edition. Players can
@@ -225,6 +243,7 @@ signal terrain_cover_labels_changed(enabled: bool)
 signal los_debug_check_out_of_range_changed(enabled: bool)
 signal shooting_show_all_units_changed(show_all: bool)
 signal input_mode_policy_changed(policy: String)
+signal tutorial_language_changed(language: String)
 signal pad_hover_stats_card_changed(enabled: bool)
 signal drag_clamp_to_max_range_changed(enabled: bool)
 signal placement_clamp_to_exclusion_changed(enabled: bool)
@@ -284,6 +303,12 @@ func _ready() -> void:
 	if _is_automated_harness():
 		GameConstants.edition = 10
 		print("[SettingsService] Automated harness — GameConstants.edition pinned to the legacy 10e test baseline")
+		# The windowed tut_* suite was authored against the orky tutorial text
+		# (exact barks, "Leg it!", "Scoutin' da Field" progress strings). Pin
+		# the harness to that baseline WITHOUT touching the persisted player
+		# choice — see _tutorial_language_harness_pin above.
+		_tutorial_language_harness_pin = true
+		print("[SettingsService] Automated harness — tutorial language pinned to the orky test baseline")
 	else:
 		GameConstants.edition = 11
 		print("[SettingsService] Rules edition: 11 (11th edition only)")
@@ -674,6 +699,25 @@ func _apply_display_settings() -> void:
 		_:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 
+# The language every tutorial surface renders in. Read this, not the var:
+# it folds in the automated-harness pin (which must not leak into settings.cfg).
+func get_tutorial_language() -> String:
+	if _tutorial_language_harness_pin:
+		return "orky"
+	return tutorial_language
+
+func set_tutorial_language(language: String) -> void:
+	if language not in ["standard", "orky"]:
+		print("[SettingsService] Invalid tutorial language: %s" % language)
+		return
+	# An explicit choice always wins — this is also how a scenario testing the
+	# standard voice steps out from under the harness pin.
+	_tutorial_language_harness_pin = false
+	tutorial_language = language
+	tutorial_language_changed.emit(tutorial_language)
+	_save_settings()
+	print("[SettingsService] tutorial_language set to %s" % language)
+
 func get_hotseat_handoff_enabled() -> bool:
 	return hotseat_handoff_enabled
 
@@ -774,6 +818,7 @@ func _save_settings() -> void:
 	config.set_value("gameplay", "shooting_pause_policy", shooting_pause_policy)
 	config.set_value("gameplay", "shooting_show_all_units", shooting_show_all_units)
 	config.set_value("gameplay", "hotseat_handoff_enabled", hotseat_handoff_enabled)
+	config.set_value("gameplay", "tutorial_language", tutorial_language)
 
 	# Display
 	config.set_value("display", "window_mode", window_mode)
@@ -851,6 +896,9 @@ func _load_settings() -> void:
 	shooting_pause_policy = str(config.get_value("gameplay", "shooting_pause_policy", "every_step"))
 	shooting_show_all_units = config.get_value("gameplay", "shooting_show_all_units", false)
 	hotseat_handoff_enabled = bool(config.get_value("gameplay", "hotseat_handoff_enabled", true))
+	tutorial_language = str(config.get_value("gameplay", "tutorial_language", "standard"))
+	if tutorial_language not in ["standard", "orky"]:
+		tutorial_language = "standard"
 
 	# Display
 	window_mode = str(config.get_value("display", "window_mode", "fullscreen"))

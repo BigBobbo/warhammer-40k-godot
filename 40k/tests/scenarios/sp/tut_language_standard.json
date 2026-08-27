@@ -1,0 +1,111 @@
+{
+  "id": "tut_language_standard",
+  "covers": ["tutorial.language.setting", "tutorial.language.standard_default"],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "The Tutorial Language setting (Settings > Gameplay). Players reported Da Boss's Ork dialect makes the tutorial harder to parse, so every lesson string now ships in two voices: plain-English base keys (the default for real players) and *_orky twins. The automated harness pins runs to the orky baseline so the existing tut_* pins hold, which is exactly why this scenario must OPT OUT explicitly: it calls SettingsService.set_tutorial_language(\"standard\") (an explicit choice clears the pin), then proves the standard voice end to end on the real player path - picker header 'Basic Training', the T1 welcome card barking 'WELCOME, COMMANDER!' under an 'INSTRUCTOR' chip with a 'Scouting the Field' progress line, and the exit confirm asking in plain English with 'Leave Lesson' / 'Keep Playing' buttons. It then flips to orky MID-LESSON and asserts the very same card re-renders as 'OI, LISTEN UP!' under 'DA BOSS' - the language change applies live, no restart. ScenarioRunner's hermetic settings handling byte-restores settings.cfg afterwards, so the set_tutorial_language persistence never leaks off this run.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set_tutorial_language(\"standard\")\nreturn SettingsService.get_tutorial_language()",
+      "multiline": true,
+      "equals": "standard",
+      "comment": "the explicit choice steps out from under the harness orky pin"
+    },
+    {
+      "act": "execute_script",
+      "script": "var n = tree.root.get_node_or_null(\"MainMenu/TutorialNudge\")\nif n != null and n.visible:\n\tn._mark_seen()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "a fresh profile pops the first-launch nudge over the menu (z95, input-blocking) - dismiss it or it swallows the picker clicks below"
+    },
+    { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton" },
+    { "act": "expect_node_visible", "node": "/root/MainMenu/TutorialPicker", "timeout_s": 3.0 },
+    {
+      "act": "expect_node_property",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/PickerTitle",
+      "property": "text",
+      "equals": "Basic Training",
+      "comment": "picker header speaks plain English (orky says Basic Trainin')"
+    },
+    {
+      "act": "execute_script",
+      "script": "var row = tree.root.get_node(\"MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t1_basics\")\nvar found = false\nvar q = [row]\nwhile not q.is_empty():\n\tvar n = q.pop_back()\n\tif n is Label and str(n.text) == \"Scouting the Field\":\n\t\tfound = true\n\tfor c in n.get_children():\n\t\tq.append(c)\nreturn found",
+      "multiline": true,
+      "equals": true,
+      "comment": "the lesson row title resolves the standard voice from the lessons cache"
+    },
+    { "act": "screenshot", "label": "01_picker_standard" },
+    { "act": "click_node", "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t1_basics/Play_t1_basics" },
+    { "act": "wait_seconds", "seconds": 8.0 },
+    { "act": "execute_script", "script": "TutorialManager.active", "equals": true },
+    { "act": "execute_script", "script": "TutorialManager.current_step_id()", "equals": "welcome" },
+    {
+      "act": "expect_node_property",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Header/ChipPanel/InstructorChip",
+      "property": "text",
+      "equals": "INSTRUCTOR"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Header/BarkLabel",
+      "property": "text",
+      "equals": "WELCOME, COMMANDER!"
+    },
+    {
+      "act": "execute_script",
+      "script": "var b = tree.root.get_node(\"TutorialOverlay/InstructorCard/Margin/VBox/BodyText\")\nreturn (\"Basic Training\" in b.text) and not (\"Trainin'\" in b.text) and not (\" da \" in b.text)",
+      "multiline": true,
+      "equals": true,
+      "comment": "the card body is the plain-English variant with no dialect leftovers"
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = tree.root.get_node(\"TutorialOverlay/InstructorCard/Margin/VBox/Footer/ProgressLabel\")\nreturn \"Scouting the Field\" in p.text",
+      "multiline": true,
+      "equals": true
+    },
+    { "act": "screenshot", "label": "02_card_standard" },
+    { "act": "click_node", "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ExitTutorialButton" },
+    { "act": "expect_node_visible", "node": "/root/TutorialExitConfirm", "timeout_s": 3.0 },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node(\"TutorialExitConfirm\")\nreturn d.ok_button_text + \" / \" + d.cancel_button_text",
+      "multiline": true,
+      "equals": "Leave Lesson / Keep Playing",
+      "comment": "the exit confirm asks in the selected voice too (orky: Leg it! / Keep Playin')"
+    },
+    { "act": "screenshot", "label": "03_exit_confirm_standard" },
+    { "act": "click_node", "button_text": "Keep Playing" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set_tutorial_language(\"orky\")\nreturn SettingsService.get_tutorial_language()",
+      "multiline": true,
+      "equals": "orky",
+      "comment": "flip voices MID-LESSON - tutorial_language_changed re-renders the live card"
+    },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    {
+      "act": "expect_node_property",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Header/ChipPanel/InstructorChip",
+      "property": "text",
+      "equals": "DA BOSS"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Header/BarkLabel",
+      "property": "text",
+      "equals": "OI, LISTEN UP!"
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = tree.root.get_node(\"TutorialOverlay/InstructorCard/Margin/VBox/Footer/ProgressLabel\")\nreturn \"Scoutin' da Field\" in p.text",
+      "multiline": true,
+      "equals": true,
+      "comment": "same lesson, same step, Da Boss back on the card without a restart"
+    },
+    { "act": "screenshot", "label": "04_card_orky" }
+  ]
+}

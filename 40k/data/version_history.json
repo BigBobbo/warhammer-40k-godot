@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.40.0",
+      "date": "2026-08-27",
+      "summary": "The tutorial now speaks plain English by default — Da Boss's Ork dialect is a setting, not the only option.",
+      "changes": [
+        "New setting: Settings > Gameplay > Tutorial Language. 'Plain English' (the default) rewrites every lesson card, hint, blocked-action toast, exit dialog, lesson picker and first-launch offer in clear standard English; 'Orky (Da Boss)' brings back the original greenskin voice.",
+        "The change applies immediately, even mid-lesson — the instructor card re-renders in the new voice on the spot.",
+        "Lesson content, steps, controls and progress are identical in both voices; only the wording changes. Unit names (Boyz, Gretchin) and on-screen button labels like CALL DA WAAAGH! stay as they appear in the game.",
+        "Fixed a lesson-picker layout fault where the panel could size itself off-screen and its Start buttons became unclickable."
+      ]
+    },
+    {
       "version": "1.39.0",
       "date": "2026-08-27",
       "summary": "AI difficulty tiers actually differ now: Hard+ AI screens against deep strikes, Competitive AI weighs point-trades; Normal plays straighter.",

@@ -92,7 +92,7 @@ static func validate(lesson: Dictionary) -> Array:
 		# Soft guidance: keep instructions short (warning only, never fatal).
 		var prompt = step.get("prompt", {})
 		if typeof(prompt) == TYPE_DICTIONARY:
-			for k in ["kbm", "pad", "text"]:
+			for k in ["kbm", "pad", "text", "kbm_orky", "pad_orky", "text_orky"]:
 				if prompt.has(k) and str(prompt[k]).length() > BODY_LENGTH_WARN:
 					print("TutorialScript: WARNING %s (%s) '%s' body is %d chars (> %d guideline)" % [
 						tag, sid, k, str(prompt[k]).length(), BODY_LENGTH_WARN])
@@ -207,18 +207,56 @@ static func _validate_anchor_when(step: Dictionary, tag: String, sid: String) ->
 	return errors
 
 
+# ---------------------------------------------------------- language --------
+#
+# Every player-facing lesson string exists in two voices: the plain-English
+# base key ("bark", "kbm", "pad", "text", "title", "label", …) and an
+# `<key>_orky` twin carrying Da Boss's dialect — the tutorial's original text,
+# kept because players can opt back into it (Settings › Gameplay › Tutorial
+# Language) and because the windowed tut_* scenarios pin its exact wording.
+# Selection is best-effort per string: the wanted voice first, the other as
+# fallback, so a step missing one variant still reads correctly for its device.
+
+static func is_orky() -> bool:
+	# Same root-fetch as _render_token: autoload singletons are not reachable
+	# from static funcs. No SettingsService (headless -s runs) means standard.
+	var root := _root()
+	if root == null:
+		return false
+	var svc = root.get_node_or_null("SettingsService")
+	if svc == null or not svc.has_method("get_tutorial_language"):
+		return false
+	return str(svc.get_tutorial_language()) == "orky"
+
+
+# Language-aware single-field pick: d[key] / d[key + "_orky"] per the setting.
+static func field(d: Dictionary, key: String, default_value: String = "") -> String:
+	return field_lang(d, key, is_orky(), default_value)
+
+
+static func field_lang(d: Dictionary, key: String, orky: bool, default_value: String = "") -> String:
+	var candidates := [key + "_orky", key] if orky else [key, key + "_orky"]
+	for k in candidates:
+		if d.has(k):
+			return str(d[k])
+	return default_value
+
+
 # The prompt body for the active device: prompt.pad on pad (falling back to
 # prompt.text/kbm), prompt.kbm on mouse+keyboard (falling back to prompt.text).
+# Device correctness outranks voice — a pad player is better served by an orky
+# pad body than a plain-English keyboard one — so the device keys are walked in
+# priority order and the voice is resolved per key.
 static func body_for_device(step: Dictionary, pad_active: bool) -> String:
+	return body_for_device_lang(step, pad_active, is_orky())
+
+
+static func body_for_device_lang(step: Dictionary, pad_active: bool, orky: bool) -> String:
 	var prompt: Dictionary = step.get("prompt", {})
-	if pad_active:
-		for k in ["pad", "text", "kbm"]:
-			if prompt.has(k):
-				return str(prompt[k])
-	else:
-		for k in ["kbm", "text", "pad"]:
-			if prompt.has(k):
-				return str(prompt[k])
+	var device_keys := ["pad", "text", "kbm"] if pad_active else ["kbm", "text", "pad"]
+	for k in device_keys:
+		if prompt.has(k) or prompt.has(k + "_orky"):
+			return field_lang(prompt, k, orky)
 	return ""
 
 

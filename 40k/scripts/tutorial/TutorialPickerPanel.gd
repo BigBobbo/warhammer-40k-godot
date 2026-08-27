@@ -6,20 +6,34 @@ extends PanelContainer
 # open; B/Esc closes via ui_cancel).
 
 const WhiteDwarfThemeData = preload("res://scripts/WhiteDwarfTheme.gd")
+const TutorialScriptLib = preload("res://scripts/tutorial/TutorialScript.gd")
 
 var _rows_box: VBoxContainer
 var _close_button: Button
 var _first_play_button: Button = null
+var _title_label: Label
+var _subtitle_label: Label
 
+
+const PANEL_W := 680.0
 
 func _ready() -> void:
 	name = "TutorialPicker"
 	visible = false
 	WhiteDwarfThemeData.apply_to_panel(self)
 	set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
-	custom_minimum_size = Vector2(680, 0)
+	custom_minimum_size = Vector2(PANEL_W, 0)
 	z_index = 90
 	_build_ui()
+	# Same belt-and-braces as TutorialNudgePanel: whenever the panel's minimum
+	# size settles (fonts, a language change re-wrapping the subtitle), re-centre
+	# off the NEW value instead of leaving offsets baked from a stale one.
+	minimum_size_changed.connect(_on_min_size_changed)
+
+
+func _on_min_size_changed() -> void:
+	if visible:
+		call_deferred("_apply_center")
 
 
 # Re-apply centered offsets AFTER the row list has rebuilt and layout has
@@ -44,19 +58,27 @@ func _build_ui() -> void:
 	vbox.add_theme_constant_override("separation", 8)
 	margin.add_child(vbox)
 
-	var title := Label.new()
-	title.name = "PickerTitle"
-	title.text = "Basic Trainin'"
-	title.add_theme_font_size_override("font_size", 26)
-	title.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
-	vbox.add_child(title)
+	_title_label = Label.new()
+	_title_label.name = "PickerTitle"
+	_title_label.add_theme_font_size_override("font_size", 26)
+	_title_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+	vbox.add_child(_title_label)
 
-	var subtitle := Label.new()
-	subtitle.text = "You know da rules — learn da controls. Short lessons, replay any time."
-	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	subtitle.add_theme_font_size_override("font_size", 17)
-	subtitle.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
-	vbox.add_child(subtitle)
+	_subtitle_label = Label.new()
+	_subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Pin the wrap width (panel minus the 16px margins) so the very first
+	# measurement after a text change is the right one. Unpinned, an autowrap
+	# label mid-layout can report a one-word-per-line minimum height that
+	# _apply_center() then bakes into the offsets — measured live: a 680x2395
+	# picker parked at y=-657 with its Start buttons off the top of the screen,
+	# the same runaway the nudge panel documents. The language toggle made this
+	# reachable: setting a DIFFERENT subtitle on open() re-wraps, where the
+	# fixed orky string used to early-return in set_text.
+	_subtitle_label.custom_minimum_size = Vector2(PANEL_W - 32, 0)
+	_subtitle_label.add_theme_font_size_override("font_size", 17)
+	_subtitle_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	vbox.add_child(_subtitle_label)
+	_apply_language_text()
 
 	vbox.add_child(HSeparator.new())
 
@@ -83,7 +105,19 @@ func _build_ui() -> void:
 	footer.add_child(_close_button)
 
 
+# Header copy per the Tutorial Language setting — re-applied on every open()
+# so a settings change lands without rebuilding the panel.
+func _apply_language_text() -> void:
+	if TutorialScriptLib.is_orky():
+		_title_label.text = "Basic Trainin'"
+		_subtitle_label.text = "You know da rules — learn da controls. Short lessons, replay any time."
+	else:
+		_title_label.text = "Basic Training"
+		_subtitle_label.text = "You know the rules — learn the controls. Short lessons, replay any time."
+
+
 func open() -> void:
+	_apply_language_text()
 	_rebuild_rows()
 	visible = true
 	call_deferred("_apply_center")
@@ -121,7 +155,8 @@ func _rebuild_rows() -> void:
 	for lesson in lessons:
 		var lid := str(lesson.id)
 		_rows_box.add_child(_make_row(
-			lid, str(lesson.title), str(lesson.subtitle), int(lesson.est_minutes),
+			lid, TutorialScriptLib.field(lesson, "title"),
+			TutorialScriptLib.field(lesson, "subtitle"), int(lesson.est_minutes),
 			mgr.is_completed(lid), func(): _launch(mgr, lid, false)))
 
 	if lessons.is_empty():
