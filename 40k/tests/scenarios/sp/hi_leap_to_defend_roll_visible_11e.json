@@ -111,6 +111,53 @@
       "comment": "baseline: nothing about a counter-charge roll in the Game Log yet"
     },
     {
+      "act": "dispatch_action",
+      "action": {
+        "type": "USE_HEROIC_INTERVENTION",
+        "unit_id": "U_WITCHSEEKERS_C",
+        "player": 1,
+        "mode": "into_the_fray"
+      },
+      "comment": "server-side backstop: the button is disabled now, but a stale dialog, the AI or a remote client can still ask for a mode with no target"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "expect_action_result",
+      "path": "error",
+      "equals": "No eligible enemy within 6\" target (into_the_fray)",
+      "comment": "and the rejection names the mode and the condition"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/HeroicInterventionDialog",
+      "timeout_s": 3.0,
+      "comment": "the window comes back under its own name so the player can pick the other mode or decline. The replacement used to be added while the outgoing dialog was still parented, so Godot renamed it to @AcceptDialog@NNNN and this path went missing."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n = 0\nfor c in tree.root.get_children():\n\tif str(c.name).begins_with(\"@AcceptDialog\"):\n\t\tn += 1\nreturn n",
+      "equals": 0,
+      "comment": "and there is exactly one HI window, not an auto-renamed duplicate"
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "awaiting_heroic_intervention",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01b_dead_mode_reopens_named_window"
+    },
+    {
       "act": "click_node",
       "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WITCHSEEKERS_C/Leap_U_WITCHSEEKERS_C",
       "emit_pressed": true,
