@@ -1,0 +1,13 @@
+{"t": 1787788301.5, "type": "start", "seed": 5004, "seat": 2, "model": "claude-sonnet-5"}
+{"t": 1787788310.3, "type": "slow", "round": 1, "phase": 10, "active": 1}
+{"t": 1787788311.4, "type": "snapshot", "round": 1, "late": false, "snap_bytes": 3834}
+{"t": 1787788326.4, "type": "directive", "round": 1, "latency_s": 15.0, "error": null, "raw_len": 511, "earmarks": [{"unit": "U_CUSTODIAN_GUARD_A_P2", "verb": "HOLD_OBJECTIVE", "target": "obj_nml_2"}, {"unit": "U_CUSTODIAN_GUARD_B_P2", "verb": "HOLD_OBJECTIVE", "target": "obj_home_2"}, {"unit": "U_CUSTODIAN_GUARD_C_P2", "verb": "PUSH_CENTER"}, {"unit": "U_PROSECUTORS_A_P2", "verb": "HOLD_OBJECTIVE", "target": "obj_home_2"}], "dropped": [], "reasoning": "Lock down our two already-held objectives with the nearby guard squads and fragile Prosecutors while Guard Gamma starts pushing toward the contested central objective."}
+{"t": 1787788326.6, "type": "inject", "round": 1, "count": 4, "name": "llm_commander_r1", "resolved": ["U_CUSTODIAN_GUARD_A_P2", "U_CUSTODIAN_GUARD_B_P2", "U_CUSTODIAN_GUARD_C_P2", "U_PROSECUTORS_A_P2"]}
+{"t": 1787788326.7, "type": "unfreeze", "round": 1, "frozen_s": 15.5}
+{"t": 1787788337.3, "type": "slow", "round": 2, "phase": 9, "active": 1}
+{"t": 1787788359.2, "type": "snapshot", "round": 2, "late": false, "snap_bytes": 3758}
+{"t": 1787788380.9, "type": "directive", "round": 2, "latency_s": 21.7, "error": null, "raw_len": 280, "earmarks": [{"unit": "U_CUSTODIAN_GUARD_C_P2", "verb": "HOLD_OBJECTIVE", "target": "obj_home_2"}], "dropped": [], "reasoning": "Our lone surviving on-board unit is engaged near our contested home objective, so anchor it there to reclaim obj_home_2 while reinforcements are still in reserve."}
+{"t": 1787788381.1, "type": "inject", "round": 2, "count": 1, "name": "llm_commander_r2", "resolved": ["U_CUSTODIAN_GUARD_C_P2"]}
+{"t": 1787788381.2, "type": "unfreeze", "round": 2, "frozen_s": 22.2}
+{"t": 1787788402.7, "type": "slow", "round": 3, "phase": 9, "active": 1}
+{"t": 1787788512.0, "type": "end", "seed": 5004, "seat": 2, "margin": 12, "winner": 1, "vp_p1": 19, "vp_p2": 7, "status": "stalled", "stalls": 1, "timeouts": 0, "rounds_commanded": [1, 2], "movement_records": 4, "with_earmark": 4, "earmark_chosen": 4, "bias_terms": 4, "results_file": "20260826_235509.json"}

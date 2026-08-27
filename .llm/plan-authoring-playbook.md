@@ -91,6 +91,13 @@ vs the A/A anchor) before spending hours in the editor.
   `PLAN_EARMARK_HOLD_BONUS`), including no-man's-land markers.
   PUSH_CENTER is +6.0 on central objectives. SCREEN withholds the unit from
   the objective passes entirely.
+- **Earmark bonuses are sub-threshold priors, not steering** (LLM-commander
+  experiment, `2026-08-26_llm_commander.md`): with earmarks consumed in
+  10–23 movement records per game, 10 of 12 games still replayed the
+  no-plan baseline bit-for-bit — +8 rarely flips an assignment argmax for
+  an elite army. A plan's real levers are **deployment placements and
+  reserves**; treat earmarks as a tiebreaker, or raise the bonus via
+  `profile_fragment` if the plan's identity depends on them.
 - **Deep-strike arrival ignores earmarks.** Reinforcement placement scores
   proximity to ANY objective (`REINFORCE_OBJ_NEAR_BASE`); the earmark only
   steers movement after arrival. Never design "arrives AT objective X".
