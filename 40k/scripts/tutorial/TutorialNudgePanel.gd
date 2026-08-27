@@ -18,21 +18,72 @@ const PANEL_W := 560.0
 var _start_button: Button
 var _dismiss_button: Button
 var _body_label: RichTextLabel
+var _scrim: ColorRect
 
 
 func _ready() -> void:
 	name = "TutorialNudge"
 	visible = false
-	WhiteDwarfThemeData.apply_to_panel(self)
+	_apply_spotlight_style()
 	custom_minimum_size = Vector2(PANEL_W, 0)
 	z_index = 95
 	_build_ui()
+	# The scrim is a sibling (created deferred: the parent is still inside
+	# add_child while our _ready runs, so adding another child now would fail).
+	call_deferred("_ensure_scrim")
+	visibility_changed.connect(_sync_scrim)
+	tree_exiting.connect(_free_scrim)
 	# Belt and braces for the runaway-height case documented in _build_ui:
 	# whenever the panel's
 	# own minimum size settles (fonts finishing, the body re-wrapping, a UI
 	# scale change), re-centre off the NEW value instead of leaving stale
 	# offsets behind.
 	minimum_size_changed.connect(_on_min_size_changed)
+
+
+# The shared create_panel_style() background is the EXACT same near-black as
+# the main menu's $Background (both 0.1/0.09/0.07), so with only a 2px border
+# the nudge read as an accidental stray rectangle floating over the menu form.
+# Give it its own elevated look instead: a visibly lighter warm surface, a
+# heavier gold frame, and a soft gold halo (a black drop shadow is invisible
+# on a near-black menu — the glow is what sells "deliberate popup" here).
+func _apply_spotlight_style() -> void:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.18, 0.145, 0.10, 1.0)
+	style.border_color = WhiteDwarfThemeData.WH_GOLD
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(6)
+	style.shadow_color = Color(WhiteDwarfThemeData.WH_GOLD, 0.28)
+	style.shadow_size = 18
+	add_theme_stylebox_override("panel", style)
+
+
+# Full-screen dim behind the panel so the menu recedes while the nudge is up.
+# Purely visual: MOUSE_FILTER_IGNORE keeps the deliberately-non-modal design
+# intact (menu buttons stay clickable, synthetic test clicks still land) and
+# visibility is slaved to the panel's, so every open/dismiss path stays in sync.
+func _ensure_scrim() -> void:
+	if _scrim != null or get_parent() == null:
+		return
+	_scrim = ColorRect.new()
+	_scrim.name = "NudgeScrim"
+	_scrim.color = Color(0, 0, 0, 0.55)
+	_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_scrim.z_index = z_index - 1
+	_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_scrim.visible = visible
+	get_parent().add_child(_scrim)
+
+
+func _sync_scrim() -> void:
+	if _scrim != null:
+		_scrim.visible = visible
+
+
+func _free_scrim() -> void:
+	if _scrim != null and is_instance_valid(_scrim):
+		_scrim.queue_free()
+		_scrim = null
 
 
 func _build_ui() -> void:
@@ -103,6 +154,7 @@ func _build_ui() -> void:
 
 
 func open() -> void:
+	_ensure_scrim()
 	# Device-aware copy: the pad build says what a pad player will actually do.
 	var idm := get_node_or_null("/root/InputDeviceManager")
 	var pad: bool = idm != null and idm.has_method("is_pad_active") and idm.is_pad_active()

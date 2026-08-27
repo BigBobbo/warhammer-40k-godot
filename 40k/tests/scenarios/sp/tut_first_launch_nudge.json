@@ -2,7 +2,8 @@
   "id": "tut_first_launch_nudge",
   "covers": [
     "tutorial.nudge.first_launch",
-    "tutorial.nudge.shows_once"
+    "tutorial.nudge.shows_once",
+    "tutorial.nudge.visually_distinct"
   ],
   "rng_seed": 4242,
   "edition": 11,
@@ -36,6 +37,13 @@
       "timeout_s": 3.0
     },
     {
+      "act": "execute_script",
+      "script": "var mm = tree.root.get_node(\"/root/MainMenu\")\nvar scrim = mm.get_node_or_null(\"NudgeScrim\")\nif scrim == null:\n\treturn \"scrim missing\"\nif not scrim.visible:\n\treturn \"scrim hidden while nudge shown\"\nif scrim.mouse_filter != Control.MOUSE_FILTER_IGNORE:\n\treturn \"scrim intercepts mouse - nudge must stay non-modal\"\nvar panel_bg = mm.get_node(\"TutorialNudge\").get_theme_stylebox(\"panel\").bg_color\nvar menu_bg = mm.get_node(\"Background\").color\nif panel_bg.is_equal_approx(menu_bg):\n\treturn \"panel bg identical to menu bg\"\nreturn \"distinct\"",
+      "multiline": true,
+      "equals": "distinct",
+      "comment": "regression: the panel used the shared near-black style - the EXACT color of the menu background - so the nudge looked like an accidentally rendered rectangle. Assert the dim scrim is up behind it (visual only, never swallowing input) and the panel surface color actually differs from the menu background."
+    },
+    {
       "act": "screenshot",
       "label": "01_nudge_shown"
     },
@@ -67,6 +75,13 @@
       "multiline": true,
       "equals": false,
       "comment": "'Not now' hides it"
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"/root/MainMenu/NudgeScrim\").visible",
+      "multiline": true,
+      "equals": false,
+      "comment": "and the dim scrim retires with it - a lingering full-screen dim would be worse than the original bug"
     },
     {
       "act": "execute_script",
