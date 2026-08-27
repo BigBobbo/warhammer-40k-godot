@@ -6226,21 +6226,31 @@ const MOVE_RANGE_OVERLAY_COLOR: Color = Color(0.3, 0.85, 0.4, 0.55)
 # Width in board-space px. Kept thin: with a group drag there is one circle per
 # model, so a heavy stroke turns the drop zone into a wall of green.
 const MOVE_RANGE_OVERLAY_WIDTH: float = 5.0
+# Faint continuous halo marking how far the model's HULL can end up — see
+# _draw_hull_reach_circle. Deliberately far softer and thinner than the move
+# ring: it is a hint, and it must never read as the boundary the drag clamps to.
+const MOVE_HULL_REACH_COLOR: Color = Color(0.3, 0.85, 0.4, 0.22)
+const MOVE_HULL_REACH_WIDTH: float = 2.0
+# Only bases wide enough for the overhang to be worth drawing get a hull halo
+# (1" ≈ 50mm and up: dreadnoughts, vehicles, monsters). On a 32mm infantry base
+# the halo would sit almost on top of the move ring and just read as a smudge.
+const HULL_REACH_MIN_EXTENT_PX: float = 40.0
 
 func _draw_dashed_range_circle(center: Vector2, radius_px: float, label_text: String) -> void:
 	# Draws a dashed circle (with optional distance label) into move_range_visual.
 	# Shared by the per-model movement-reach overlays.
 	#
-	# radius_px is expected to already include the model's base extent (see
-	# _show_model_range_overlay): the ring marks where the model's BASE EDGE can
-	# reach, not where its centre can reach.
+	# radius_px is the model's REMAINING MOVE and nothing else (see
+	# _show_model_range_overlay): this ring is the boundary the over-range drag
+	# clamp parks the model's centre on, so anything added to it is a promise the
+	# drag will not keep.
 	if not is_instance_valid(move_range_visual) or radius_px <= 0.0:
 		return
-	# P1 (Steam Deck): on the pad the carried model's leading base edge CLAMPS
-	# exactly onto this ring (_clamp_move_to_budget clamps the centre to the
-	# budget, and the ring sits one base extent further out), so the boundary is a
-	# hard edge the player slides to — draw it brighter, thicker, and lifted above
-	# board tokens so it can't read as a faint suggestion or be occluded.
+	# P1 (Steam Deck): on the pad the carried model CLAMPS exactly onto this ring
+	# (_clamp_move_to_budget clamps the centre to the budget, which is this
+	# radius), so the boundary is a hard edge the player slides to — draw it
+	# brighter, thicker, and lifted above board tokens so it can't read as a faint
+	# suggestion or be occluded.
 	#
 	# A clamped MOUSE drag now hits that same hard edge, but the emphatic styling
 	# is deliberately NOT extended to it: a group drag paints one circle per
@@ -6297,26 +6307,40 @@ func _show_model_range_overlay(model: Dictionary, center: Vector2) -> void:
 	# it automatically reflects the Advance distance during an Advance, and shrinks
 	# to the leftover allowance when continuing a staged move.
 	#
-	# The drawn radius is the remaining move PLUS the model's base extent: the
-	# move budget is measured centre-to-centre, so a ring at the raw budget marks
-	# where the model's centre may stop and a wide base visibly overhangs it at
-	# max range. Inflating by the base extent makes the ring read as "the furthest
-	# any part of this model can end up", which is what players expect. The label
-	# still reports the movement distance, not the drawn radius.
+	# The dashed ring is drawn at the remaining move and NOTHING else, because
+	# that is exactly what the game enforces on the model: 11e measures a move
+	# "from the same point on its base at the start and end of that move", and
+	# "rotating a model does not count towards the distance it has moved" — so a
+	# move is a plain centre-to-centre translation, and _clamp_move_to_budget
+	# parks the model's centre on precisely this circle.
+	#
+	# (Player report, Battlewagon: v1.17.2 inflated this ring by
+	# Measurement.base_extent_px so a wide base would not overhang it. For a
+	# circular base that is harmless — the base extent is the same in every
+	# direction — but for the wagon's 100x180mm rectangular base the
+	# circumscribed radius is 4.05", so the ring advertised ~34% more move than
+	# the drag would give. That "furthest the hull can end up" answer is still
+	# worth showing; it is now the faint halo below, which cannot be mistaken for
+	# the drag boundary.)
 	if not is_instance_valid(move_range_visual) or model.is_empty():
 		return
 	_clear_move_range_overlay()
 	var remaining: float = _get_effective_move_cap() - _get_accumulated_distance_for_model(model)
 	if remaining <= 0.0:
 		return
-	var radius_px: float = Measurement.inches_to_px(remaining) + Measurement.base_extent_px(model)
+	var radius_px: float = Measurement.inches_to_px(remaining)
 	_draw_dashed_range_circle(center, radius_px, _format_range_label(remaining))
+	var extent_px: float = Measurement.base_extent_px(model)
+	if extent_px >= HULL_REACH_MIN_EXTENT_PX:
+		_draw_hull_reach_circle(center, radius_px + extent_px)
 
 func _show_group_range_overlay() -> void:
 	# Per-model reach circles for every model in a group drag (labels omitted to
-	# avoid clutter when several circles overlap). Each ring is inflated by ITS OWN
-	# model's base extent — a squad can mix base sizes (e.g. an attached CHARACTER
-	# on a bigger base), so one shared radius would misdraw at least one of them.
+	# avoid clutter when several circles overlap). Same radius rule as the
+	# single-model ring: each circle is that model's own remaining move, which is
+	# what the group drag clamps every member to. No hull halos here — a group
+	# drag already paints one circle per model, and doubling that is the wall of
+	# green MOVE_RANGE_OVERLAY_WIDTH exists to avoid.
 	if not is_instance_valid(move_range_visual) or selected_models.is_empty():
 		return
 	_clear_move_range_overlay()
@@ -6328,8 +6352,33 @@ func _show_group_range_overlay() -> void:
 		var remaining: float = cap - _get_accumulated_distance_for_model(model_data)
 		if remaining <= 0.0:
 			continue
-		var radius_px: float = Measurement.inches_to_px(remaining) + Measurement.base_extent_px(model_data)
+		var radius_px: float = Measurement.inches_to_px(remaining)
 		_draw_dashed_range_circle(start_pos, radius_px, "")
+
+func _draw_hull_reach_circle(center: Vector2, radius_px: float) -> void:
+	# Faint continuous halo: the furthest any part of this model's BASE can end
+	# up — the move ring plus the base's circumscribed radius
+	# (Measurement.base_extent_px). Rotation is free at 11e, so the model's facing
+	# when it stops is entirely the player's choice and the worst-case corner is
+	# the honest answer; that also keeps the halo from breathing as an oval or
+	# rectangular hull pivots under Q/E.
+	#
+	# Drawn thin, soft and unbroken so it reads as a halo around the dashed move
+	# ring rather than as a second boundary. The dashed ring is the one the drag
+	# stops on; this only answers "and how far can the hull itself end up".
+	if not is_instance_valid(move_range_visual) or radius_px <= 0.0:
+		return
+	var halo := Line2D.new()
+	halo.name = "MoveHullReach"
+	halo.width = MOVE_HULL_REACH_WIDTH
+	halo.default_color = MOVE_HULL_REACH_COLOR
+	halo.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	halo.end_cap_mode = Line2D.LINE_CAP_ROUND
+	var pts: int = 64
+	for i in range(pts + 1):
+		var theta: float = TAU * float(i) / float(pts)
+		halo.add_point(center + Vector2(cos(theta), sin(theta)) * radius_px)
+	move_range_visual.add_child(halo)
 
 func _clear_move_range_overlay() -> void:
 	if not is_instance_valid(move_range_visual):

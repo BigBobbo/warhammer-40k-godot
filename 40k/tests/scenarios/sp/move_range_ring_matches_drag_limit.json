@@ -1,0 +1,190 @@
+{
+  "id": "move_range_ring_matches_drag_limit",
+  "covers": [
+    "movement.per_model_move_range_circle",
+    "movement.range_ring_matches_drag_clamp",
+    "movement.hull_reach_halo",
+    "scripts.MovementController._show_model_range_overlay",
+    "scripts.MovementController._draw_hull_reach_circle",
+    "autoloads.Measurement.base_extent_px",
+    "phases.MovementPhase.UI.move_range_overlay"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Two player reports, one overlay. (a) v1.17.2: dragging a model to the edge of the green dashed ring left part of a wide base poking outside the dashes, because the ring marked where the model's CENTRE could stop. That was fixed by inflating the ring by Measurement.base_extent_px. (b) The Battlewagon report that undid it: the inflated ring then advertised move the drag would refuse \u2014 4.05\" of it on a 100x180mm rectangular base \u2014 because _clamp_move_to_budget stops the model's CENTRE at the remaining budget, and 11e measures a move \"from the same point on its base at the start and end of that move\" with rotation free, i.e. a plain centre-to-centre translation. The overlay now answers both with two distinct marks: the bright DASHED RING at exactly the remaining move (the boundary the drag honours), and a faint continuous HULL HALO one base extent further out (how far the hull itself can end up, worst case over every facing the free pivot allows). Driven live on U_TELEMON_HEAVY_DREADNOUGHT_I (100mm base, M8), repositioned onto verified open ground at (1280,1310) \u2014 a corridor probed live against TerrainManager: calculate_movement_terrain_penalty((1280,1310)->(1600,1310)) == 0.0 and model_overlaps_any_wall / model_outside_board are false at both ends. Real player path: click the token to begin the Normal Move, then a real mouse drag PAUSED mid-flight (release:false) exactly 8\" to the right, so the live frame can be inspected while the model sits at max range. Asserts: (1) the base extent is a visually significant ~79px; (2) the dashed ring radius equals the move cap in px EXACTLY, with no base extent added; (3) the drag really travelled the full 8\", the move is still legal, and the model's CENTRE sits ON the dashed ring \u2014 the ring is the drag limit, not a suggestion; (4) a MoveHullReach halo is drawn one base extent further out, so the furthest point of the base sits on IT rather than in empty space (report (a) still covered); (5) the halo is drawn far fainter and thinner than the ring, so it cannot be mistaken for the drag boundary; (6) the label still reports the movement distance (8\"), not a radius.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0].merge({\"position\": {\"x\": 1280.0, \"y\": 1310.0}, \"rotation\": 0.0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.update_unit_visuals(\"U_TELEMON_HEAVY_DREADNOUGHT_I\")"
+    },
+    {
+      "act": "wait_for_tweens"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Frame the whole ring: world (1440,1310) \u2014 the midpoint of the drag \u2014 at\n# screen centre, zoom 1.2. Ring radius is ~399 board px -> ~479 screen px,\n# so the whole ring clears 1920x1080.\nvar m = tree.root.get_node(\"Main\")\nm.view_zoom = 1.2\nm.view_offset = Vector2(1440.0, 1310.0) - Vector2(960.0, 540.0) / 1.2\nm.update_view_transform()\nreturn true"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_TELEMON_HEAVY_DREADNOUGHT_I"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_TELEMON_HEAVY_DREADNOUGHT_I"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.move_cap_inches",
+      "equals": 8.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_unit_selected_before_pickup"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1280.0,
+      "from_y": 1310.0,
+      "to_x": 1600.0,
+      "to_y": 1310.0,
+      "release": false
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.dragging_model",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child_count()",
+      "equals": 10,
+      "comment": "8 dash arcs + the distance label + the MoveHullReach halo"
+    },
+    {
+      "act": "execute_script",
+      "script": "Measurement.base_extent_px(main.movement_controller.selected_model)",
+      "expect_min": 70.0
+    },
+    {
+      "act": "execute_script",
+      "script": "Measurement.base_extent_px(main.movement_controller.selected_model)",
+      "expect_max": 90.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "expect_max": 1.5,
+      "script": "# THE FIX (report b). The dashed ring must be drawn at the move cap in px and\n# NOTHING else: that circle is exactly where _clamp_move_to_budget parks the\n# model's centre, so anything added to it is move the drag will not give.\nvar m = tree.root.get_node(\"Main\")\nvar mc = m.movement_controller\nvar ring = m.get_node(\"BoardRoot/MoveRangeVisual\")\nvar radius: float = ring.get_child(0).points[0].distance_to(mc.drag_start_pos)\nvar cap_px: float = Measurement.inches_to_px(mc.move_cap_inches)\nvar extent: float = Measurement.base_extent_px(mc.selected_model)\nm.set_meta(\"ring_probe\", \"ring_radius=%.1f cap_px=%.1f base_extent=%.1f overdraw=%.2f\\\"\" % [radius, cap_px, extent, (radius - cap_px) / Measurement.PX_PER_INCH])\nreturn abs(radius - cap_px)"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"ring_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "expect_max": 1.5,
+      "script": "# Regression guard the other way round: between v1.17.2 and the Battlewagon\n# report this ring was drawn a whole base extent (~79px here, 162px on a\n# Battlewagon) beyond the move cap. That overdraw must be zero.\nvar mc = tree.root.get_node(\"Main\").movement_controller\nvar ring = tree.root.get_node(\"Main\").get_node(\"BoardRoot/MoveRangeVisual\")\nvar radius: float = ring.get_child(0).points[0].distance_to(mc.drag_start_pos)\nreturn radius - Measurement.inches_to_px(mc.move_cap_inches)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "expect_max": 0.15,
+      "script": "# The paused drag really is at max range (8\").\nvar mc = tree.root.get_node(\"Main\").movement_controller\nvar moved: float = mc.current_path[1].distance_to(mc.drag_start_pos) / Measurement.PX_PER_INCH\nreturn abs(moved - mc.move_cap_inches)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.path_valid",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "expect_max": 1.5,
+      "script": "# The model's CENTRE sits ON the dashed ring at max range: ring == drag limit.\nvar m = tree.root.get_node(\"Main\")\nvar mc = m.movement_controller\nvar ring = m.get_node(\"BoardRoot/MoveRangeVisual\")\nvar radius: float = ring.get_child(0).points[0].distance_to(mc.drag_start_pos)\nvar moved: float = mc.current_path[1].distance_to(mc.drag_start_pos)\nm.set_meta(\"ghost_probe\", \"ghost_on_ring_gap=%.2fpx\" % (radius - moved))\nreturn abs(radius - moved)"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"ghost_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "expect_max": 1.5,
+      "script": "# Report (a) is still covered, by the HALO rather than the ring: the furthest\n# point of the model's base at this max-range position sits on the faint\n# MoveHullReach circle, so a wide base never trails off into empty board.\nvar m = tree.root.get_node(\"Main\")\nvar mc = m.movement_controller\nvar ring = m.get_node(\"BoardRoot/MoveRangeVisual\")\nvar halo = ring.get_node_or_null(\"MoveHullReach\")\nif halo == null:\n\treturn 9999.0\nvar halo_r: float = halo.points[0].distance_to(mc.drag_start_pos)\nvar moved: float = mc.current_path[1].distance_to(mc.drag_start_pos)\nvar extent: float = Measurement.base_extent_px(mc.selected_model)\nm.set_meta(\"halo_probe\", \"halo_radius=%.1f cap_px=%.1f extent=%.1f base_edge_vs_halo=%.2fpx\" % [halo_r, Measurement.inches_to_px(mc.move_cap_inches), extent, (moved + extent) - halo_r])\nreturn abs((moved + extent) - halo_r)"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"halo_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": "ok",
+      "script": "# ...and the halo must stay visibly subordinate to the ring, or it becomes a\n# second boundary and we are back to the Battlewagon report.\nvar ring = tree.root.get_node(\"Main\").get_node(\"BoardRoot/MoveRangeVisual\")\nvar halo = ring.get_node_or_null(\"MoveHullReach\")\nif halo == null:\n\treturn \"no MoveHullReach halo drawn\"\nvar dash = ring.get_child(0)\nif halo.width >= dash.width:\n\treturn \"halo stroke %.1f not thinner than ring %.1f\" % [halo.width, dash.width]\nif halo.default_color.a >= dash.default_color.a:\n\treturn \"halo alpha %.2f not fainter than ring %.2f\" % [halo.default_color.a, dash.default_color.a]\nreturn \"ok\""
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(8).text",
+      "equals": "8\""
+    },
+    {
+      "act": "screenshot",
+      "label": "02_ring_is_the_drag_limit_halo_holds_the_hull"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 1600.0,
+      "y": 1310.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.current_phase_instance.active_moves[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].staged_moves.size()",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "03_move_staged_after_drop"
+    }
+  ]
+}
