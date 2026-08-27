@@ -40,6 +40,9 @@ var _los_debug_out_of_range_checkbox: CheckBox
 
 var _auto_allocate_checkbox: CheckBox
 var _hotseat_handoff_checkbox: CheckBox
+var _tutorial_language_dropdown: OptionButton
+# Dropdown index -> SettingsService.tutorial_language value.
+const TUTORIAL_LANGUAGES: Array[String] = ["standard", "orky"]
 var _window_mode_dropdown: OptionButton
 var _resolution_dropdown: OptionButton
 var _vsync_checkbox: CheckBox
@@ -276,6 +279,17 @@ func _build_ui() -> void:
 	handoff_help.add_theme_font_size_override("font_size", 16)
 	handoff_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	gameplay_content.add_child(handoff_help)
+
+	_add_section_header(gameplay_content, "Tutorial")
+	_tutorial_language_dropdown = _add_dropdown_row(gameplay_content, "Tutorial Language",
+		["Plain English", "Orky (Da Boss)"], "_on_tutorial_language_selected")
+	var tutorial_lang_help = Label.new()
+	tutorial_lang_help.text = "How the tutorial instructor talks. Plain English (default) keeps the lessons easy to follow; Orky is Da Boss's own dialect for the full greenskin experience. Applies immediately, mid-lesson too."
+	tutorial_lang_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tutorial_lang_help.custom_minimum_size = Vector2(620, 0)
+	tutorial_lang_help.add_theme_font_size_override("font_size", 16)
+	tutorial_lang_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	gameplay_content.add_child(tutorial_lang_help)
 
 	_add_section_header(gameplay_content, "Auto-Save")
 	_autosave_phase_start_checkbox = _add_checkbox_row(gameplay_content, "Auto-save at the start of each phase", "_on_autosave_phase_start_toggled")
@@ -963,6 +977,11 @@ func _load_current_settings() -> void:
 		_auto_allocate_checkbox.button_pressed = SettingsService.auto_allocate_wounds
 	if _hotseat_handoff_checkbox:
 		_hotseat_handoff_checkbox.button_pressed = SettingsService.hotseat_handoff_enabled
+	if _tutorial_language_dropdown:
+		# Show what is actually in force (get_ folds in the harness pin).
+		var lang_index := TUTORIAL_LANGUAGES.find(str(SettingsService.get_tutorial_language()))
+		if lang_index >= 0:
+			_tutorial_language_dropdown.selected = lang_index
 
 	# Display
 	if _window_mode_dropdown:
@@ -1197,6 +1216,10 @@ func _on_auto_allocate_wounds_toggled(pressed: bool) -> void:
 
 func _on_hotseat_handoff_toggled(pressed: bool) -> void:
 	SettingsService.set_hotseat_handoff_enabled(pressed)
+
+func _on_tutorial_language_selected(index: int) -> void:
+	if index >= 0 and index < TUTORIAL_LANGUAGES.size():
+		SettingsService.set_tutorial_language(TUTORIAL_LANGUAGES[index])
 
 # ============================================================================
 # Display Callbacks
