@@ -73,3 +73,4 @@ research/youtube/transcripts_text.jsonl.gz
 bench_data/**
 !bench_data/**/campaign_*.json
 !bench_data/**/accepted_*.json
+.claude/worktrees/

@@ -2,6 +2,17 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.39.0",
+      "date": "2026-08-27",
+      "summary": "AI difficulty tiers actually differ now: Hard+ AI screens against deep strikes, Competitive AI weighs point-trades; Normal plays straighter.",
+      "changes": [
+        "Several difficulty switches existed in the settings but were never consulted — every non-Easy AI played the same way. They are now enforced.",
+        "Hard and Competitive AI place cheap units to deny deep-strike zones, screen valuable friendlies, and block movement corridors. Normal AI no longer does any of that — spare units simply support objectives.",
+        "Competitive AI now weighs point-trades when picking charge and melee targets (spending cheap units to hurt expensive ones). Normal and Hard ignore trade math, as intended.",
+        "The Competitive difficulty description no longer claims look-ahead planning, which was never implemented."
+      ]
+    },
+    {
       "version": "1.38.0",
       "date": "2026-08-25",
       "summary": "A third ready-made Ork plan: Da Free-Grab Grip, built in the Plan Editor and sim-tested 11-1 against the existing Hammer and Anvil plan.",

@@ -1,0 +1,20 @@
+{
+ "format": "wh40k_ai_plan",
+ "version": 1,
+ "keys": {
+  "army_file": "custodes_lions",
+  "deployment_zone_id": "hammer_anvil",
+  "terrain_layout_id": "take_and_hold_mirror_1",
+  "mission_id": "take_and_hold"
+ },
+ "deployment": {},
+ "earmarks": [],
+ "author": "E2 offline-improvement iteration 1 (2026-08-27); parameter-only candidate, measured before any adoption",
+ "name": "E2 cand: turns-away penalty 3",
+ "description": "MOVE_TURNS_AWAY_PENALTY 2->3: stronger discount on far markers; prior screen measured +3.62 VP on this mirror",
+ "profile_fragment": {
+  "parameters": {
+   "MOVE_TURNS_AWAY_PENALTY": 3.0
+  }
+ }
+}

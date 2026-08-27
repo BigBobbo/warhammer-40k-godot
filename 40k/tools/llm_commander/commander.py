@@ -127,18 +127,28 @@ def load_snapshot_code():
         return "".join(l for l in f if not l.lstrip().startswith("#"))
 
 
-def inject(seat, earmarks, round_no):
-    payload = json.dumps({"name": f"llm_commander_r{round_no}", "earmarks": earmarks},
-                         separators=(",", ":"))
+def inject(seat, earmarks, round_no, bonus=0.0):
+    plan = {"name": f"llm_commander_r{round_no}", "earmarks": earmarks}
+    if bonus > 0:
+        # threshold-hunt mode: the plan's profile fragment raises the earmark
+        # priors so directives actually bind (installed per game via
+        # apply_plan_profile_fragment; cleared with profiles between games)
+        plan["profile_fragment"] = {"parameters": {
+            "PLAN_EARMARK_HOLD_BONUS": bonus,
+            "PLAN_EARMARK_PUSH_BONUS": round(bonus * 0.75, 1),
+            "PLAN_EARMARK_HUNT_BONUS": round(bonus * 0.5, 1),
+        }}
+    payload = json.dumps(plan, separators=(",", ":"))
     assert "'" not in payload, "single quote would break GDScript embedding"
     code = f"""var plan = JSON.parse_string('{payload}')
 AIDecisionMaker.set_player_plan({seat}, plan)
+AIDecisionMaker._current_player = {seat}
 var got = AIDecisionMaker.get_player_plan({seat})
 var snap = GameState.create_snapshot(false)
 var resolved := []
 for e in got.get("earmarks", []):
 \tresolved.append(PlanManager.resolve_unit_id(str(e.get("unit", "")), {seat}, snap.get("units", {{}})))
-return {{"name": got.get("name", ""), "count": got.get("earmarks", []).size(), "resolved": resolved}}"""
+return {{"name": got.get("name", ""), "count": got.get("earmarks", []).size(), "resolved": resolved, "hold_bonus": AIDecisionMaker.get_param("PLAN_EARMARK_HOLD_BONUS", 8.0)}}"""
     return script(code)
 
 
@@ -160,7 +170,7 @@ class Journal:
         return rec
 
 
-def run_game(seed, seat, model, jr, snapshot_code):
+def run_game(seed, seat, model, jr, snapshot_code, bonus=0.0):
     opponent = 2 if seat == 1 else 1
     cfg = dict(SIM_CONFIG, seed_base=seed)
     t_start = time.time()
@@ -200,7 +210,7 @@ def run_game(seed, seat, model, jr, snapshot_code):
                 dec = brain.decide(seat, snap, central, history, model, timeout_s=60)
                 jr.log("directive", round=rnd, **dec)
                 if dec.get("earmarks"):
-                    inj = inject(seat, dec["earmarks"], rnd)
+                    inj = inject(seat, dec["earmarks"], rnd, bonus)
                     jr.log("inject", round=rnd, **inj)
                     last_directive = dec["earmarks"]
                     history.append({"round": rnd, "orders": dec["earmarks"],
@@ -247,6 +257,9 @@ def main():
     ap.add_argument("--seeds", default="5001-5006")
     ap.add_argument("--model", default="claude-sonnet-5")
     ap.add_argument("--label", default="run")
+    ap.add_argument("--earmark-bonus", type=float, default=0.0,
+                    help="raise the plan earmark priors via profile fragment "
+                         "(HOLD=x, PUSH=0.75x, HUNT=0.5x); 0 = engine defaults")
     ap.add_argument("--ts-slow", type=float, default=1.0,
                     help="slow-mo time_scale while waiting to catch the command "
                          "phase; raise to 2.0 when a seed's quiet stretches "
@@ -268,7 +281,8 @@ def main():
     for seed in seeds:
         print(f"=== seed {seed} seat {args.seat} ===", flush=True)
         try:
-            row = run_game(seed, args.seat, args.model, jr, snapshot_code)
+            row = run_game(seed, args.seat, args.model, jr, snapshot_code,
+                           args.earmark_bonus)
         except Exception as e:  # noqa: BLE001 - journal and continue to next seed
             jr.log("game_error", seed=seed, error=f"{type(e).__name__}: {e}")
             print(f"GAME ERROR seed {seed}: {e}", flush=True)

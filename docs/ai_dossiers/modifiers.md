@@ -151,3 +151,13 @@ All paths absolute; `ADM` = `/home/user/warhammer-40k-godot/40k/scripts/AIDecisi
 - Threat constants: ADM:1834-1841, 1925 (`THREAT_SAFE_MARGIN_INCHES` at 1838 is defined but unused). Threat data build + gate: ADM:6773-6775, 23893-23930. Danger weight: ADM:23932-23990. Position evaluation: ADM:23992-24078 (character ×1.5 at 24006-24007/24064; fragile ×1.3 at 24070-24071). Stay-put check: ADM:7192-7215. Safer-position search: ADM:24090-24180 (invoked ~11253-11255). Engagement range 2" (11e): `/home/user/warhammer-40k-godot/40k/scripts/rules/GameConstants.gd:31-32`.
 - Difficulty tiers: ADC:12-17 (enum), 23-124 (gates and numbers), 141-152 (descriptions). Easy random path: ADM:3046-3048, 3272+. Noise helper: ADM:2071-2077; applied ADM:6985-6986, 15086, 15415, 17236. Charge modifier helper: ADM:2079-2081, applied 15133. Multi-phase gate: ADM:3110-3112. Threat gate: ADM:6774. Counter-deployment: ADM:4848. Stratagem gates: ADM:5925, 13119, 21936; AIP:1045, 1158, 1192, 1388, 1501. Difficulty plumbing: AIP:256-294, 597-599, 666-677; ADM:2390, 2966.
 - Unwired gates (defined ADC, zero call sites repo-wide): `use_focus_fire` (:37), `use_trade_analysis` (:45), `use_look_ahead` (:49), `use_weapon_efficiency` (:53), `use_survival_assessment` (:59), `use_screening` (:63), `get_movement_iterations` (:86). Screening runs ungated at ADM:9487-9610; trade efficiency ungated at ADM:13978-13988, 15520-15524, 17132.
+
+---
+
+**ADDENDUM (2026-08-27, v1.39.0):** the unwired gates documented above were
+subsequently wired to the documented intent — screening Hard+, trade analysis
+Competitive-only, focus-fire/weapon-efficiency/survival-assessment enforced at
+Normal+ (behavior-neutral), `use_look_ahead`/`get_movement_iterations` marked
+"not yet consumed". See `40k/tests/unit/test_difficulty_gates.gd` and
+`40k/tests/bench_baselines/2026-08-27_next_steps.md`. The feature matrix above
+describes the PRE-wiring state and is kept as the historical finding.

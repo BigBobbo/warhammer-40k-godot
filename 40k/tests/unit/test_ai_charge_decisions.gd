@@ -5,6 +5,7 @@ extends SceneTree
 
 const GameStateData = preload("res://autoloads/GameState.gd")
 const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
+const AIDifficultyConfig = preload("res://scripts/AIDifficultyConfig.gd")
 
 var _pass_count: int = 0
 var _fail_count: int = 0
@@ -29,6 +30,14 @@ func _assert(condition: bool, message: String) -> void:
 		print("FAIL: %s" % message)
 
 func _run_tests():
+	# These tests call _decide_charge/_score_charge_target directly, bypassing
+	# decide() which normally stamps the difficulty. In this -s harness the
+	# static _current_difficulty initializer resolves to 0 (EASY) instead of
+	# NORMAL — AIDecisionMaker's dependency chain hits the known autoload
+	# compile quirk (see test_ai_combat_math_property.gd) — giving score noise
+	# 100.0 and a 2.0 charge threshold, a source of flaky failures here. Pin
+	# the tier the tests are written against.
+	AIDecisionMaker._current_difficulty = AIDifficultyConfig.Difficulty.NORMAL
 	test_charge_probability_guaranteed()
 	test_charge_probability_impossible()
 	test_charge_probability_seven()

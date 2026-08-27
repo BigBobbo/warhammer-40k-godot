@@ -5,9 +5,12 @@ extends RefCounted
 # T7-40: Implements Easy, Normal, Hard, and Competitive difficulty modes.
 #
 # Easy:        Random valid actions — no scoring or optimization
-# Normal:      Current tactical behavior (existing decision logic)
-# Hard:        Enhanced tactics — always considers stratagems, tighter focus fire
-# Competitive: Full look-ahead planning — optimal stratagem timing, trade analysis
+# Normal:      Tactical behavior — stratagems, focus fire, threat awareness,
+#              weapon efficiency, survival assessment; no screening, no trade analysis
+# Hard:        Enhanced tactics — adds multi-phase planning and screening /
+#              deep-strike denial / corridor blocking; lower score noise
+# Competitive: Adds trade/point-efficiency analysis; zero score noise.
+#              (Look-ahead planning is declared below but not yet implemented.)
 
 enum Difficulty {
 	EASY = 0,
@@ -46,6 +49,8 @@ static func use_trade_analysis(difficulty: int) -> bool:
 	return difficulty >= Difficulty.COMPETITIVE
 
 # Whether the AI uses look-ahead planning (predicting opponent responses)
+# NOTE: not yet consumed — no code path implements look-ahead planning. The
+# gate documents the intended tier for when the feature is built.
 static func use_look_ahead(difficulty: int) -> bool:
 	return difficulty == Difficulty.COMPETITIVE
 
@@ -83,6 +88,8 @@ static func get_score_noise(difficulty: int) -> float:
 			return 1.5
 
 # Movement optimization iterations — higher = better positioning
+# NOTE: not yet consumed — movement candidate generation does not read this.
+# Kept so the intended per-tier budget is documented for when it is wired.
 static func get_movement_iterations(difficulty: int) -> int:
 	match difficulty:
 		Difficulty.EASY:
@@ -147,7 +154,7 @@ static func difficulty_description(difficulty: int) -> String:
 		Difficulty.HARD:
 			return "Enhanced tactics — multi-phase planning, screening, tighter focus fire"
 		Difficulty.COMPETITIVE:
-			return "Optimal play with look-ahead planning and trade analysis"
+			return "Optimal play — point-trade analysis and zero scoring randomness"
 		_:
 			return ""
 
