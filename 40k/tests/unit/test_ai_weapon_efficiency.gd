@@ -10,6 +10,7 @@ extends SceneTree
 
 const GameStateData = preload("res://autoloads/GameState.gd")
 const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
+const AIDifficultyConfig = preload("res://scripts/AIDifficultyConfig.gd")
 
 var _pass_count: int = 0
 var _fail_count: int = 0
@@ -43,6 +44,11 @@ func _assert_approx(actual: float, expected: float, tolerance: float, message: S
 		print("FAIL: %s (got %.3f, expected %.3f, diff %.4f > tolerance %.4f)" % [message, actual, expected, diff, tolerance])
 
 func _run_tests():
+	# Weapon-target efficiency is difficulty-gated (use_weapon_efficiency,
+	# Normal+). These tests call _calculate_efficiency_multiplier directly,
+	# bypassing decide() which normally stamps the difficulty — pin it so the
+	# gated feature under test is enabled regardless of the static default.
+	AIDecisionMaker._current_difficulty = AIDifficultyConfig.Difficulty.NORMAL
 	# Weapon role classification
 	test_classify_lascannon_as_anti_tank()
 	test_classify_bolt_rifle_as_anti_infantry()

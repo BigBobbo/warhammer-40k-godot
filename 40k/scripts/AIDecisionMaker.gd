@@ -9538,6 +9538,11 @@ static func _assign_units_to_objectives(
 		assignments[cand.unit_id]["reason"] += " — backfilling for a unit that went hunting"
 
 	# PASS 3: Assign remaining units — screening / deep strike denial / support
+	# Difficulty gate (use_screening, Hard+): the deep-strike denial,
+	# screen-protect and corridor-block passes below only run when the gate
+	# passes. The support fallback at the end of this pass runs at every
+	# scoring tier regardless.
+	var screening_enabled = AIDifficultyConfigData.use_screening(_current_difficulty)
 	# (AI-TACTIC-3, MOV-4) Check for enemy reserves to determine screening urgency
 	var enemy_reserves = _get_enemy_reserves(snapshot, player)
 	var has_enemy_reserves = enemy_reserves.size() > 0
@@ -9555,9 +9560,9 @@ static func _assign_units_to_objectives(
 		if ac != Vector2.INF:
 			screener_positions.append(ac)
 
-	# Calculate denial positions if enemy has reserves
+	# Calculate denial positions if enemy has reserves (Hard+ only)
 	var denial_positions = []
-	if has_enemy_reserves:
+	if has_enemy_reserves and screening_enabled:
 		denial_positions = _calculate_denial_positions(
 			snapshot, objectives, obj_evaluations, friendly_units, player, screener_positions
 		)
@@ -9567,9 +9572,12 @@ static func _assign_units_to_objectives(
 				print("  pos=(%.0f,%.0f) priority=%.1f reason=%s" % [dp.position.x, dp.position.y, dp.priority, dp.reason])
 
 	# T7-42: Calculate corridor blocking positions to impede enemy approach to objectives
-	var corridor_blocking_positions = _calculate_corridor_blocking_positions(
-		snapshot, objectives, obj_evaluations, enemies, friendly_units, player, screener_positions
-	)
+	# (Hard+ only — empty list means the corridor-block assignment below never fires)
+	var corridor_blocking_positions = []
+	if screening_enabled:
+		corridor_blocking_positions = _calculate_corridor_blocking_positions(
+			snapshot, objectives, obj_evaluations, enemies, friendly_units, player, screener_positions
+		)
 	if not corridor_blocking_positions.is_empty():
 		print("AIDecisionMaker: [BLOCK] Calculated %d corridor blocking positions:" % corridor_blocking_positions.size())
 		for bp in corridor_blocking_positions:
@@ -9680,7 +9688,7 @@ static func _assign_units_to_objectives(
 
 		# --- SCREENING FALLBACK: Use _compute_screen_position for non-denial screening ---
 		# Even without enemy reserves, cheap unassigned units can screen valuable friendlies
-		if is_screen_candidate and not enemies.is_empty():
+		if screening_enabled and is_screen_candidate and not enemies.is_empty():
 			var screen_pos = _compute_screen_position(unit, unit_id, friendly_units, enemies, snapshot)
 			if screen_pos != Vector2.INF:
 				# Check spacing
@@ -9812,7 +9820,23 @@ static func _decide_engaged_unit(
 		return {}
 
 	# --- T7-27: Assess survival before making hold/fall-back decision ---
-	var survival = _assess_engaged_unit_survival(unit, unit_id, unit_name, enemies)
+	# Difficulty gate (use_survival_assessment, Normal+): with the gate off,
+	# survival is treated as safe — the pre-T7-27 behavior. (Behavior-neutral
+	# today: Easy exits via use_random_actions before this path — wired so the
+	# config gate is actually enforced.)
+	var survival: Dictionary
+	if AIDifficultyConfigData.use_survival_assessment(_current_difficulty):
+		survival = _assess_engaged_unit_survival(unit, unit_id, unit_name, enemies)
+	else:
+		survival = {
+			"expected_damage": 0.0,
+			"remaining_wounds": 0.0,
+			"damage_ratio": 0.0,
+			"is_lethal": false,
+			"is_severe": false,
+			"engaging_enemy_ids": [],
+			"recommendation": "neutral"
+		}
 
 	# Check if this unit is on an objective
 	var on_objective = false
@@ -13251,6 +13275,14 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 		# Build focus fire plan if not already built for this shooting phase.
 		# The plan coordinates weapon assignments across ALL shooting units to
 		# concentrate fire on kill thresholds rather than spreading damage.
+		# Difficulty gate (use_focus_fire, Normal+): with the gate off, the plan
+		# stays empty and every shooter uses the per-unit fallback scorer below.
+		# (Behavior-neutral today: Easy exits via use_random_actions before this
+		# path — wired so the config gate is actually enforced.)
+		if not _focus_fire_plan_built and not AIDifficultyConfigData.use_focus_fire(_current_difficulty):
+			_focus_fire_plan_built = true
+			_focus_fire_plan.clear()
+			print("AIDecisionMaker: Focus fire disabled at %s difficulty — per-unit fallback scoring" % AIDifficultyConfigData.difficulty_name(_current_difficulty))
 		if not _focus_fire_plan_built:
 			var shooter_unit_ids = []
 			for sa in action_types["SELECT_SHOOTER"]:
@@ -14032,6 +14064,10 @@ static func _get_trade_efficiency(attacker: Dictionary, target: Dictionary) -> f
 	"""T7-24: Calculate trade efficiency. Returns >1.0 for favorable trades, <1.0 for unfavorable.
 	A favorable trade is when we spend fewer points-per-wound to remove more expensive-per-wound models.
 	Example: 65pt Intercessors (6.5 ppw) shooting at 200pt Leman Russ (15.4 ppw) = favorable trade."""
+	# Difficulty gate (use_trade_analysis, Competitive): below Competitive the
+	# multiplier is neutral, so charge and fight scoring ignore point-trade math.
+	if not AIDifficultyConfigData.use_trade_analysis(_current_difficulty):
+		return 1.0
 	var attacker_ppw = _get_points_per_wound(attacker)
 	var target_ppw = _get_points_per_wound(target)
 	if attacker_ppw <= 0.0 or target_ppw <= 0.0:
@@ -21465,6 +21501,12 @@ static func _calculate_efficiency_multiplier(weapon: Dictionary, target_unit: Di
 	Considers weapon role vs target type, damage waste on low-wound models,
 	and anti-keyword special rules.
 	"""
+	# Difficulty gate (use_weapon_efficiency, Normal+): with the gate off,
+	# weapon-target role matching is neutral. (Behavior-neutral today: Easy
+	# exits via use_random_actions before any scoring path calls this — wired
+	# so the config gate is actually enforced.)
+	if not AIDifficultyConfigData.use_weapon_efficiency(_current_difficulty):
+		return EFFICIENCY_NEUTRAL
 	var weapon_role = _classify_weapon_role(weapon)
 	var target_type = _classify_target_type(target_unit)
 	var multiplier = EFFICIENCY_NEUTRAL

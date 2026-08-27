@@ -6,6 +6,7 @@ extends SceneTree
 
 const GameStateData = preload("res://autoloads/GameState.gd")
 const AIDecisionMaker = preload("res://scripts/AIDecisionMaker.gd")
+const AIDifficultyConfig = preload("res://scripts/AIDifficultyConfig.gd")
 
 var _pass_count: int = 0
 var _fail_count: int = 0
@@ -30,6 +31,11 @@ func _assert(condition: bool, message: String) -> void:
 		print("FAIL: %s" % message)
 
 func _run_tests():
+	# Survival assessment is difficulty-gated (use_survival_assessment, Normal+).
+	# These tests call _decide_movement/_assess_* directly, bypassing decide()
+	# which normally stamps the difficulty — pin it explicitly so the gated
+	# feature under test is enabled regardless of the static default.
+	AIDecisionMaker._current_difficulty = AIDifficultyConfig.Difficulty.NORMAL
 	test_survival_assessment_low_threat()
 	test_survival_assessment_lethal_threat()
 	test_survival_assessment_severe_threat()
