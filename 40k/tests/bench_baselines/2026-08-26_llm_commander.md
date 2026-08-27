@@ -25,16 +25,21 @@ The bottleneck is the actuator, not the strategy or the cadence.
   in a freeze-exercised A/A and in the commander games).
 - Commander brain: `claude -p --model claude-sonnet-5`, fresh context per
   decision, ~3.7KB board snapshot in, strict-JSON directive out.
-  Latencies 23–52s per call, all inside a `Engine.time_scale = 0.0`
+  Latencies 12–52s per call, all inside a `Engine.time_scale = 0.0`
   freeze (measured outcome-neutral; hard 90s stall watchdog respected —
-  zero stalls or timeouts in all 13 games run, pilot included).
+  zero stalls or timeouts in every valid game; the one watchdog
+  interaction, a slow-mo artifact on seed 5004/C2, is dissected below).
 - Five directives per game (rounds 1–5, caught at the seat's COMMAND
   phase every time; the `late` fallback never fired). Directives
-  journaled verbatim in `40k/tools/llm_commander/runs/`.
+  journaled verbatim in `40k/tools/llm_commander/runs/` (measured runs
+  archived beside this report in `llm_commander_runs/`).
 - Consumption proof per game: movement decision records carrying the
   earmark context and the `plan_earmark` score term (counted from
   `AIPlayer._all_decision_records`), plus live `[plan]` release lines in
   the debug log.
+- A mid-pilot frame of a commander game in play:
+  `40k/docs/evidence/llm_commander_pilot_round2.png` (round 2/5, the
+  commanded mirror match mid-charge-phase).
 
 ## Arm C1 — commander on seat 1 (P1), formula on seat 2
 
@@ -56,7 +61,36 @@ The one divergence (5005) flipped a +10 win into a −2 loss.
 
 | Seed | Margin (P1−P2) | A/A anchor | Paired Δ (P2 view) | Result | Earmarked records |
 |------|---------------|-----------|--------------------|--------|-------------------|
-| TBD | | | | | |
+| 5001 | −20 | −20 | 0 | W | 15/17 (12 chosen) |
+| 5002 | +4  | +4  | 0 | L | 12/14 (9 chosen) |
+| 5003 | +64 | +64 | 0 | L | 7/8 (7 chosen) |
+| 5004* | −17 | −22 | **−5** | W | 14/15 (14 chosen) |
+| 5005 | +10 | +10 | 0 | L | 15/16 (12 chosen) |
+| 5006 | +24 | +24 | 0 | L | 11/13 (10 chosen) |
+
+**Mean paired Δ −0.8 ± 2.0 (P2 view), wins 2–4** — the anchor's own
+seat split (P1 4–2) unchanged. Five of six valid games anchor-identical.
+
+\* Seed 5004 needed three runs. Twice it was killed as "stalled" at the
+same point — deterministically, with identical partial VP (19–7, round
+3) — because a game-time quiet stretch in P1's round-3 charge/fight
+inflates ×10 in wall time under the harness's slow-mo (time_scale 1.0)
+and crosses the engine's fixed 90s wall-clock stall watchdog
+(`DEFAULT_STALL_SECONDS`, not configurable). The commander freezes were
+13s/22s — not the cause. Re-run with slow-mo at time_scale 2.0
+(`--ts-slow 2.0`; slow-mo is outcome-neutral, established by the
+bit-identical replays), it completed with all 5 rounds commanded and
+produced the arm's one real divergence. Both killed runs are in the
+journals.
+
+## Combined verdict
+
+Seat-cancelled commander effect ≈ **−1.4 VP/game** (mean of −2.0 and
+−0.8) — indistinguishable from zero at this resolution, with a slight
+negative lean. **10 of 12 valid games reproduced the no-plan baseline
+bit-for-bit**; the two divergences were −12 (C1/5005) and −5 (C2/5004).
+Zero stalls or timeouts in the 12 valid games; 60 commander directives
+issued and consumed across them.
 
 ## What the bit-identical replays prove
 
