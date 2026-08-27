@@ -34,7 +34,11 @@ signal run_cancelled(summary: Dictionary)
 const RESULTS_DIR := "user://plan_sim_results/"
 const DEFAULT_GAMES: int = 5
 const DEFAULT_SEED_BASE: int = 1000
-const DEFAULT_DIFFICULTY: int = 1          # Normal — matches BENCH_DIFFICULTY
+const DEFAULT_DIFFICULTY: int = 3          # Competitive — the shipped default, so
+#                                          benchmarks measure the AI players face.
+#                                          NOTE: every baseline before 2026-08-27 was
+#                                          recorded at Normal (1); pass difficulty
+#                                          explicitly when comparing against those.
 const DEFAULT_TIME_SCALE: float = 10.0
 const DEFAULT_MAX_SECONDS: float = 900.0
 const DEFAULT_STALL_SECONDS: float = 90.0
@@ -160,8 +164,8 @@ func _game_config() -> Dictionary:
 		"player2_army": str(_config.army2),
 		"player1_type": "AI",
 		"player2_type": "AI",
-		"player1_difficulty": int(_config.difficulty),
-		"player2_difficulty": int(_config.difficulty),
+		"player1_difficulty": int(_config.difficulty1),
+		"player2_difficulty": int(_config.difficulty2),
 		"ai_speed": 0,
 		"player1_secondary_mode": "tactical",
 		"player2_secondary_mode": "tactical",
@@ -437,6 +441,8 @@ func _collect_result(index: int, game_seed: int, unit_count: int, watched: Dicti
 		"plan_adherence_p1": int(adherence.get(1, 0)),
 		"plan_adherence_p2": int(adherence.get(2, 0)),
 		"difficulty": int(_config.difficulty),
+		"difficulty_p1": int(_config.difficulty1),
+		"difficulty_p2": int(_config.difficulty2),
 		"wall_seconds": float(watched.get("wall_seconds", 0.0)),
 	}
 	result["headline"] = "P1 %d - %d P2 (round %d)" % [vp1, vp2, result.battle_round]
@@ -490,6 +496,8 @@ func build_summary() -> Dictionary:
 		"mean_seconds_per_game": _mean(seconds),
 		"seed_base": int(_config.get("seed_base", 0)),
 		"difficulty": int(_config.get("difficulty", DEFAULT_DIFFICULTY)),
+		"difficulty_p1": int(_config.get("difficulty1", DEFAULT_DIFFICULTY)),
+		"difficulty_p2": int(_config.get("difficulty2", DEFAULT_DIFFICULTY)),
 		"zone_id": str(_config.get("zone_id", "")),
 		"layout_id": str(_config.get("layout_id", "")),
 		"army1": str(_config.get("army1", "")),
@@ -568,6 +576,11 @@ func _normalise(options: Dictionary) -> Dictionary:
 		"games": maxi(1, int(options.get("games", DEFAULT_GAMES))),
 		"seed_base": int(options.get("seed_base", DEFAULT_SEED_BASE)),
 		"difficulty": int(options.get("difficulty", DEFAULT_DIFFICULTY)),
+		# Per-seat difficulty for cross-tier benchmarking ("is Hard actually
+		# better than Normal?"). Both default to `difficulty`, so every existing
+		# caller keeps the same-tier behaviour it had before.
+		"difficulty1": int(options.get("difficulty1", options.get("difficulty", DEFAULT_DIFFICULTY))),
+		"difficulty2": int(options.get("difficulty2", options.get("difficulty", DEFAULT_DIFFICULTY))),
 		"time_scale": float(options.get("time_scale", DEFAULT_TIME_SCALE)),
 		"max_seconds_per_game": float(options.get("max_seconds_per_game", DEFAULT_MAX_SECONDS)),
 	}
