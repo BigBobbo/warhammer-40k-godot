@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.39.2",
+      "version": "1.40.1",
       "date": "2026-08-27",
       "summary": "The green move ring now shows how far you can actually drag. On a Battlewagon it was reaching 4\" further than the game would let the hull go.",
       "changes": [
@@ -11,6 +11,17 @@
         "Cause: since 1.17.2 the ring was pushed out by the model's base size so a wide base would not overhang it. On a round base that is harmless, but a Battlewagon's rectangular base measures 4.05\" corner-to-centre, so the ring promised a third more move than the wagon had.",
         "Turning is still free, exactly as the tutorial says — 11th edition measures a move from the same point on the base at each end, and rotating costs nothing. That is why the drag limit was the correct number and the ring was not.",
         "Wide models (dreadnoughts, vehicles, monsters) now also get a faint outer halo showing how far the hull itself can end up, whichever way you turn it. It is deliberately thin and soft so it reads as a hint, not as a second boundary."
+      ]
+    },
+    {
+      "version": "1.40.0",
+      "date": "2026-08-27",
+      "summary": "The tutorial now speaks plain English by default — Da Boss's Ork dialect is a setting, not the only option.",
+      "changes": [
+        "New setting: Settings > Gameplay > Tutorial Language. 'Plain English' (the default) rewrites every lesson card, hint, blocked-action toast, exit dialog, lesson picker and first-launch offer in clear standard English; 'Orky (Da Boss)' brings back the original greenskin voice.",
+        "The change applies immediately, even mid-lesson — the instructor card re-renders in the new voice on the spot.",
+        "Lesson content, steps, controls and progress are identical in both voices; only the wording changes. Unit names (Boyz, Gretchin) and on-screen button labels like CALL DA WAAAGH! stay as they appear in the game.",
+        "Fixed a lesson-picker layout fault where the panel could size itself off-screen and its Start buttons became unclickable."
       ]
     },
     {

@@ -145,10 +145,13 @@ func _test_shipped_t3_step():
 	_check("the step carries a two-beat checklist", items.size() == 2, str(items.size()))
 	var labels := ""
 	for it in items:
-		labels += str(it.get("label", "")) + "|" + str(it.get("pad_label", "")) + "|"
+		# Both voices of each label: the Tutorial Language setting picks one at
+		# runtime, and the shift-beat reminder must exist in whichever is shown.
+		for lk in ["label", "label_orky", "pad_label", "pad_label_orky"]:
+			labels += str(it.get(lk, "")) + "|"
 	_check("a checklist box names the confirm button", labels.contains(CONFIRM_BUTTON), labels)
 	_check("the other box covers shifting the mob",
-		labels.to_lower().contains("mob"), labels)
+		labels.to_lower().contains("mob") or labels.to_lower().contains("squad"), labels)
 
 	# Remain Stationary never ticks "Shift da mob", so gating the step on the
 	# checklist would strand the player who legitimately does not move.

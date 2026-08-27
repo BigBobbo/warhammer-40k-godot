@@ -12,12 +12,14 @@ extends PanelContainer
 # windowed scenarios can address it.
 
 const WhiteDwarfThemeData = preload("res://scripts/WhiteDwarfTheme.gd")
+const TutorialScriptLib = preload("res://scripts/tutorial/TutorialScript.gd")
 
 const PANEL_W := 560.0
 
 var _start_button: Button
 var _dismiss_button: Button
 var _body_label: RichTextLabel
+var _title_label: Label
 var _scrim: ColorRect
 
 
@@ -98,12 +100,11 @@ func _build_ui() -> void:
 	vbox.add_theme_constant_override("separation", 10)
 	margin.add_child(vbox)
 
-	var title := Label.new()
-	title.name = "NudgeTitle"
-	title.text = "First time 'ere?"
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
-	vbox.add_child(title)
+	_title_label = Label.new()
+	_title_label.name = "NudgeTitle"
+	_title_label.add_theme_font_size_override("font_size", 24)
+	_title_label.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_GOLD)
+	vbox.add_child(_title_label)
 
 	_body_label = RichTextLabel.new()
 	_body_label.name = "NudgeBody"
@@ -147,7 +148,6 @@ func _build_ui() -> void:
 
 	_start_button = Button.new()
 	_start_button.name = "StartTrainingButton"
-	_start_button.text = "Show me da ropes"
 	WhiteDwarfThemeData.apply_primary_button(_start_button)
 	_start_button.pressed.connect(_on_start)
 	footer.add_child(_start_button)
@@ -156,12 +156,23 @@ func _build_ui() -> void:
 func open() -> void:
 	_ensure_scrim()
 	# Device-aware copy: the pad build says what a pad player will actually do.
+	# Voice per the Tutorial Language setting, resolved at open() time.
 	var idm := get_node_or_null("/root/InputDeviceManager")
 	var pad: bool = idm != null and idm.has_method("is_pad_active") and idm.is_pad_active()
-	var how := "Press [b]Show me da ropes[/b]" if not pad else "Pick [b]Show me da ropes[/b]"
-	_body_label.text = ("You know da rules — dis is just about da buttons. [b]Basic Trainin'[/b] is seven " \
-		+ "short lessons (about half an hour all in), an' ya can play any one on its own.\n\n" \
-		+ how + ", or grab it later from [b]Tutorial[/b] on da menu.")
+	if TutorialScriptLib.is_orky():
+		_title_label.text = "First time 'ere?"
+		_start_button.text = "Show me da ropes"
+		var how := "Press [b]Show me da ropes[/b]" if not pad else "Pick [b]Show me da ropes[/b]"
+		_body_label.text = ("You know da rules — dis is just about da buttons. [b]Basic Trainin'[/b] is seven " \
+			+ "short lessons (about half an hour all in), an' ya can play any one on its own.\n\n" \
+			+ how + ", or grab it later from [b]Tutorial[/b] on da menu.")
+	else:
+		_title_label.text = "First time here?"
+		_start_button.text = "Show me the ropes"
+		var how := "Press [b]Show me the ropes[/b]" if not pad else "Pick [b]Show me the ropes[/b]"
+		_body_label.text = ("You know the rules — this is just about the buttons. [b]Basic Training[/b] is seven " \
+			+ "short lessons (about half an hour all in), and you can play any one on its own.\n\n" \
+			+ how + ", or find it later under [b]Tutorial[/b] on the menu.")
 	visible = true
 	_apply_center()
 	call_deferred("_apply_center")

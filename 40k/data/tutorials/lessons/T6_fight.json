@@ -1,7 +1,8 @@
 {
   "id": "t6_krumpin",
   "order": 6,
-  "title": "Krumpin'",
+  "title": "Close Combat",
+  "title_orky": "Krumpin'",
   "subtitle": "Fight phase: pile in, pick a weapon, swing, take it back",
   "est_minutes": 5,
   "boot": {
@@ -10,8 +11,18 @@
     "rng_seed": 4242
   },
   "summary": {
-    "bark": "GET STUCK IN!",
+    "bark": "WELL FOUGHT!",
+    "bark_orky": "GET STUCK IN!",
     "bullets": [
+      "The Fight phase opens with [b]Pile In[/b] — pick a unit, shuffle every model up to 3\" closer, then [b]Confirm Move[/b]. Only models within 2\" of the enemy get to swing, so this is how you get the back rank into the fight. [b]End Pile In[/b] passes your half.",
+      "Click a unit in [b]UNITS THAT CAN FIGHT[/b] to activate it. Units that charged swing first — [b]all[/b] of them, before the enemy gets a turn.",
+      "A Warboss leading a squad is [b]part of that squad[/b] — one row, [b]Boyz + Warboss[/b], and they fight in the [b]same[/b] activation. He doesn't get a swing of his own.",
+      "In the attack panel each [b]group[/b] of models picks its own weapon and target — the squad's choppas, the Nob's big choppa and the [b]Warboss's Power klaw[/b], all in the one panel. Then [b]Fight![/b]",
+      "The dice dock rolls it out — [b]Fast Roll ⏩[/b] does the lot, [b]Done ✔[/b] finishes the activation.",
+      "Then the enemy activates and the dock rolls [b]their[/b] hits and wounds at you — you roll the saves and can spend a [b]Command Re-roll[/b].",
+      "You and the enemy alternate activations till everyone has swung. Last lesson: Running the Show."
+    ],
+    "bullets_orky": [
       "Da Fight phase opens wiv [b]Pile In[/b] — pick a unit, shuffle every model up to 3\" closer, den [b]Confirm Move[/b]. Only models wivin 2\" of da enemy get to swing, so dis is how ya get da back rank into da scrap. [b]End Pile In[/b] passes yer half.",
       "Click a unit in [b]UNITS THAT CAN FIGHT[/b] to activate it. Units dat charged swing first — [b]all[/b] of 'em, before da enemy gets a look in.",
       "A Warboss leadin' a mob is [b]part of dat mob[/b] — one row, [b]Boyz + Warboss[/b], an' dey krump in da [b]same[/b] activation. He don't get a swing of his own.",
@@ -26,7 +37,8 @@
       "id": "intro",
       "prompt": {
         "bark": "FIGHT PHASE!",
-        "text": "Da Boyz an' da Warboss made it in — now dey get to krump. Da boss is [b]leadin'[/b] dat mob, so dey're [b]one unit[/b]: one row in da list, one activation, an' dey all swing togevver. Every engaged unit fights once, an' units dat [b]charged[/b] all go before da enemy does. It starts wiv a [b]Pile In[/b] step."
+        "text": "The Boyz and the Warboss made it in — now they get to fight. The boss is [b]leading[/b] that squad, so they're [b]one unit[/b]: one row in the list, one activation, and they all swing together. Every engaged unit fights once, and units that [b]charged[/b] all go before the enemy does. It starts with a [b]Pile In[/b] step.",
+        "text_orky": "Da Boyz an' da Warboss made it in — now dey get to krump. Da boss is [b]leadin'[/b] dat mob, so dey're [b]one unit[/b]: one row in da list, one activation, an' dey all swing togevver. Every engaged unit fights once, an' units dat [b]charged[/b] all go before da enemy does. It starts wiv a [b]Pile In[/b] step."
       },
       "spotlight": "none",
       "allow": [],
@@ -37,9 +49,12 @@
     {
       "id": "pile_in",
       "prompt": {
-        "bark": "DA BACK RANK'S TOO FAR!",
-        "kbm": "Only models wivin 2\" of da enemy can swing — an' five of yer boyz are stuck at da back. Click da [b]Boyz + Warboss[/b] row to start deir 3\" pile in.",
-        "pad": "Only models wivin 2\" of da enemy can swing, an' five boyz are stuck at da back. {dpad} ▼ walks onto da [b]Boyz + Warboss[/b] row — den {a}."
+        "bark": "THE BACK RANK'S TOO FAR!",
+        "bark_orky": "DA BACK RANK'S TOO FAR!",
+        "kbm": "Only models within 2\" of the enemy can swing — and five of your boys are stuck at the back. Click the [b]Boyz + Warboss[/b] row to start their 3\" pile in.",
+        "kbm_orky": "Only models wivin 2\" of da enemy can swing — an' five of yer boyz are stuck at da back. Click da [b]Boyz + Warboss[/b] row to start deir 3\" pile in.",
+        "pad": "Only models within 2\" of the enemy can swing, and five boys are stuck at the back. {dpad} ▼ walks onto the [b]Boyz + Warboss[/b] row — then {a}.",
+        "pad_orky": "Only models wivin 2\" of da enemy can swing, an' five boyz are stuck at da back. {dpad} ▼ walks onto da [b]Boyz + Warboss[/b] row — den {a}."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/UnitList"
@@ -49,8 +64,10 @@
         "PILE_IN"
       ],
       "blocked_hint": {
-        "kbm": "not yet — five of yer boyz can't reach da Custodes. Click da \"Boyz + Warboss\" row an' pile 'em in first.",
-        "pad": "not yet — five of yer boyz can't reach da Custodes. Put da {dpad} on da \"Boyz + Warboss\" row, press {a}, an' pile 'em in first."
+        "kbm": "not yet — five of your boys can't reach the Custodes. Click the \"Boyz + Warboss\" row and pile them in first.",
+        "kbm_orky": "not yet — five of yer boyz can't reach da Custodes. Click da \"Boyz + Warboss\" row an' pile 'em in first.",
+        "pad": "not yet — five of your boys can't reach the Custodes. Put the {dpad} on the \"Boyz + Warboss\" row, press {a}, and pile them in first.",
+        "pad_orky": "not yet — five of yer boyz can't reach da Custodes. Put da {dpad} on da \"Boyz + Warboss\" row, press {a}, an' pile 'em in first."
       },
       "done": {
         "any": [
@@ -68,15 +85,19 @@
         ]
       },
       "hint": {
-        "text": "Da row is in da PILE IN STEP panel on da right. End Pile In would pass yer half wivout movin' anyone — dat's da one we ain't usin' yet."
+        "text": "The row is in the PILE IN STEP panel on the right. End Pile In would pass your half without moving anyone — that's the one we're not using yet.",
+        "text_orky": "Da row is in da PILE IN STEP panel on da right. End Pile In would pass yer half wivout movin' anyone — dat's da one we ain't usin' yet."
       }
     },
     {
       "id": "pile_in_move",
       "prompt": {
-        "bark": "SHUFFLE 'EM UP!",
-        "kbm": "Drag each back-rank boy up to 3\" toward da Custodes — or hit [b]Auto Pile In[/b] an' let da computer do it. Den [b]Confirm Move[/b].",
-        "pad": "Point wiv {ls} an' hold {a} to drag a boy, or glide onto [b]Auto Pile In[/b] an' press {a} for da lot. Den [b]Confirm Move[/b]."
+        "bark": "SHUFFLE THEM UP!",
+        "bark_orky": "SHUFFLE 'EM UP!",
+        "kbm": "Drag each back-rank boy up to 3\" toward the Custodes — or hit [b]Auto Pile In[/b] and let the computer do it. Then [b]Confirm Move[/b].",
+        "kbm_orky": "Drag each back-rank boy up to 3\" toward da Custodes — or hit [b]Auto Pile In[/b] an' let da computer do it. Den [b]Confirm Move[/b].",
+        "pad": "Point with {ls} and hold {a} to drag a boy, or glide onto [b]Auto Pile In[/b] and press {a} for the lot. Then [b]Confirm Move[/b].",
+        "pad_orky": "Point wiv {ls} an' hold {a} to drag a boy, or glide onto [b]Auto Pile In[/b] an' press {a} for da lot. Den [b]Confirm Move[/b]."
       },
       "anchor": {
         "node": "/root/PileInDialog/Content/Buttons/AutoButton"
@@ -112,15 +133,19 @@
       },
       "hint_after_s": 30,
       "hint": {
-        "text": "Green arrow = legal, red = not closer or too far. Da five up front show a red B2B — dey're already touchin' an' can't budge. Only da back rank has anywhere to go."
+        "text": "Green arrow = legal, red = not closer or too far. The five up front show a red B2B — they're already touching and can't move. Only the back rank has anywhere to go.",
+        "text_orky": "Green arrow = legal, red = not closer or too far. Da five up front show a red B2B — dey're already touchin' an' can't budge. Only da back rank has anywhere to go."
       }
     },
     {
       "id": "pick_fighter",
       "prompt": {
-        "bark": "BOYZ AN' BOSS!",
-        "kbm": "Click [b]Boyz + Warboss[/b] under UNITS THAT CAN FIGHT — one row, 'cos da boss leads dat mob an' dey fight as one unit. Dey charged, so dey swing before da Custodes do.",
-        "pad": "{dpad} ▼ walks da fight panel onto da [b]Boyz + Warboss[/b] row — {a} presses it. One row, 'cos da boss leads dat mob. Dey charged, so dey swing first."
+        "bark": "BOYZ AND BOSS!",
+        "bark_orky": "BOYZ AN' BOSS!",
+        "kbm": "Click [b]Boyz + Warboss[/b] under UNITS THAT CAN FIGHT — one row, because the boss leads that squad and they fight as one unit. They charged, so they swing before the Custodes do.",
+        "kbm_orky": "Click [b]Boyz + Warboss[/b] under UNITS THAT CAN FIGHT — one row, 'cos da boss leads dat mob an' dey fight as one unit. Dey charged, so dey swing before da Custodes do.",
+        "pad": "{dpad} ▼ walks the fight panel onto the [b]Boyz + Warboss[/b] row — {a} presses it. One row, because the boss leads that squad. They charged, so they swing first.",
+        "pad_orky": "{dpad} ▼ walks da fight panel onto da [b]Boyz + Warboss[/b] row — {a} presses it. One row, 'cos da boss leads dat mob. Dey charged, so dey swing first."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList"
@@ -142,15 +167,19 @@
         ]
       },
       "hint": {
-        "text": "Da list only shows units in engagement range — dat's who can fight. Da Warboss ain't listed on his own: he's part of da Boyz now."
+        "text": "The list only shows units in engagement range — that's who can fight. The Warboss isn't listed on his own: he's part of the Boyz now.",
+        "text_orky": "Da list only shows units in engagement range — dat's who can fight. Da Warboss ain't listed on his own: he's part of da Boyz now."
       }
     },
     {
       "id": "assign_attacks",
       "prompt": {
-        "bark": "PICK YER CHOPPA!",
-        "kbm": "Each group of models fights wiv [b]one[/b] melee weapon. Pick a weapon for each group, pick da target, den [b]Fight![/b] Da boss has his own row — his Power klaw swings in dis same activation.",
-        "pad": "Da attack panel takes its own controls: {dpad} ▲▼ picks da weapon in da lit-up section, ◀▶ picks da target, LB/RB hops between da [b]Boss Nob[/b] an' [b]Boy[/b] sections, den {menu} for [b]Fight![/b] Picked da wrong mob? {b} backs out to da unit list."
+        "bark": "PICK YOUR WEAPON!",
+        "bark_orky": "PICK YER CHOPPA!",
+        "kbm": "Each group of models fights with [b]one[/b] melee weapon. Pick a weapon for each group, pick the target, then [b]Fight![/b] The boss has his own row — his Power klaw swings in this same activation.",
+        "kbm_orky": "Each group of models fights wiv [b]one[/b] melee weapon. Pick a weapon for each group, pick da target, den [b]Fight![/b] Da boss has his own row — his Power klaw swings in dis same activation.",
+        "pad": "The attack panel takes its own controls: {dpad} ▲▼ picks the weapon in the lit-up section, ◀▶ picks the target, LB/RB hops between the [b]Boss Nob[/b] and [b]Boy[/b] sections, then {menu} for [b]Fight![/b] Picked the wrong squad? {b} backs out to the unit list.",
+        "pad_orky": "Da attack panel takes its own controls: {dpad} ▲▼ picks da weapon in da lit-up section, ◀▶ picks da target, LB/RB hops between da [b]Boss Nob[/b] an' [b]Boy[/b] sections, den {menu} for [b]Fight![/b] Picked da wrong mob? {b} backs out to da unit list."
       },
       "anchor": {
         "node": "/root/AttackAssignmentDialog"
@@ -176,15 +205,19 @@
         }
       },
       "hint": {
-        "text": "Da panel splits da unit by what it carries — [b]Boy[/b], [b]Boss Nob[/b] an' [b]Warboss[/b] each get deir own section, 'cos dey're all one unit now."
+        "text": "The panel splits the unit by what it carries — [b]Boy[/b], [b]Boss Nob[/b] and [b]Warboss[/b] each get their own section, because they're all one unit now.",
+        "text_orky": "Da panel splits da unit by what it carries — [b]Boy[/b], [b]Boss Nob[/b] an' [b]Warboss[/b] each get deir own section, 'cos dey're all one unit now."
       }
     },
     {
       "id": "roll_it_out",
       "prompt": {
-        "bark": "KRUMP 'EM!",
-        "kbm": "Same dice dock as shootin': [b]Fast Roll ⏩[/b] rolls hits, wounds an' saves in one go (or step frough wiv da big button) — for da mob's choppas [b]an'[/b] da boss's klaw, 'cos it's all one activation. Finish wiv [b]Done ✔[/b].",
-        "pad": "Da dock starts on [b]Roll to Wound ▶[/b] — {dpad} ▼ drops onto [b]Fast Roll ⏩[/b], den {a}. Clear any save cards, den [b]Done ✔[/b]."
+        "bark": "ROLL IT OUT!",
+        "bark_orky": "KRUMP 'EM!",
+        "kbm": "Same dice dock as shooting: [b]Fast Roll ⏩[/b] rolls hits, wounds and saves in one go (or step through with the big button) — for the squad's choppas [b]and[/b] the boss's klaw, because it's all one activation. Finish with [b]Done ✔[/b].",
+        "kbm_orky": "Same dice dock as shootin': [b]Fast Roll ⏩[/b] rolls hits, wounds an' saves in one go (or step frough wiv da big button) — for da mob's choppas [b]an'[/b] da boss's klaw, 'cos it's all one activation. Finish wiv [b]Done ✔[/b].",
+        "pad": "The dock starts on [b]Roll to Wound ▶[/b] — {dpad} ▼ drops onto [b]Fast Roll ⏩[/b], then {a}. Clear any save cards, then [b]Done ✔[/b].",
+        "pad_orky": "Da dock starts on [b]Roll to Wound ▶[/b] — {dpad} ▼ drops onto [b]Fast Roll ⏩[/b], den {a}. Clear any save cards, den [b]Done ✔[/b]."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock"
@@ -207,15 +240,19 @@
       },
       "hint_after_s": 30,
       "hint": {
-        "text": "Da big dock button always says what's next — keep pressin' it till it says Done. One activation covers da whole unit, boss an' all."
+        "text": "The big dock button always says what's next — keep pressing it till it says Done. One activation covers the whole unit, boss and all.",
+        "text_orky": "Da big dock button always says what's next — keep pressin' it till it says Done. One activation covers da whole unit, boss an' all."
       }
     },
     {
       "id": "enemy_swings",
       "prompt": {
-        "bark": "NOW DEY KRUMP BACK!",
-        "kbm": "Yer mob has swung — boss an' all, in da one activation — so it's da Custodes' turn. Dat's alternatin' activation. Da dock rolls [b]deir[/b] hits an' wounds; step frough it, den [b]Roll Saves[/b] on da card an' spend a [b]Command Re-roll[/b] if a save lets ya down.",
-        "pad": "Da Custodes swing back now. Step frough deir rolls on da dock wiv {a}. Da save card takes da {dpad} on its own an' already sits on [b]Roll Saves[/b] — just press {a}."
+        "bark": "NOW THEY SWING BACK!",
+        "bark_orky": "NOW DEY KRUMP BACK!",
+        "kbm": "Your squad has swung — boss and all, in the one activation — so it's the Custodes' turn. That's alternating activation. The dock rolls [b]their[/b] hits and wounds; step through it, then [b]Roll Saves[/b] on the card and spend a [b]Command Re-roll[/b] if a save lets you down.",
+        "kbm_orky": "Yer mob has swung — boss an' all, in da one activation — so it's da Custodes' turn. Dat's alternatin' activation. Da dock rolls [b]deir[/b] hits an' wounds; step frough it, den [b]Roll Saves[/b] on da card an' spend a [b]Command Re-roll[/b] if a save lets ya down.",
+        "pad": "The Custodes swing back now. Step through their rolls on the dock with {a}. The save card takes the {dpad} on its own and already sits on [b]Roll Saves[/b] — just press {a}.",
+        "pad_orky": "Da Custodes swing back now. Step frough deir rolls on da dock wiv {a}. Da save card takes da {dpad} on its own an' already sits on [b]Roll Saves[/b] — just press {a}."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock"
@@ -250,15 +287,19 @@
       },
       "hint_after_s": 30,
       "hint": {
-        "text": "Ya can't re-roll deir dice — but da saves are yours, an' so's da Command Re-roll on 'em."
+        "text": "You can't re-roll their dice — but the saves are yours, and so is the Command Re-roll on them.",
+        "text_orky": "Ya can't re-roll deir dice — but da saves are yours, an' so's da Command Re-roll on 'em."
       }
     },
     {
       "id": "end_phase",
       "prompt": {
-        "bark": "DAT'S ENOUGH KRUMPIN'!",
-        "kbm": "Everyone dat could swing has swung, so da phase is done — hit da big red button to end it.",
-        "pad": "Everyone's swung, so da phase is done — press {menu} to end it."
+        "bark": "THAT'S ENOUGH FIGHTING!",
+        "bark_orky": "DAT'S ENOUGH KRUMPIN'!",
+        "kbm": "Everyone that could swing has swung, so the phase is done — hit the big red button to end it.",
+        "kbm_orky": "Everyone dat could swing has swung, so da phase is done — hit da big red button to end it.",
+        "pad": "Everyone has swung, so the phase is done — press {menu} to end it.",
+        "pad_orky": "Everyone's swung, so da phase is done — press {menu} to end it."
       },
       "anchor": {
         "node": "/root/Main/PhaseActionButton"

@@ -92,6 +92,9 @@ func _ready() -> void:
 	add_child(_hint_timer)
 	PhaseManager.phase_action_taken.connect(_on_phase_action_taken)
 	InputDeviceManager.device_changed.connect(func(_mode): refresh_prompt())
+	# A language flip mid-lesson re-renders the live card the same way a device
+	# swap does (the summary guard inside refresh_prompt applies here too).
+	SettingsService.tutorial_language_changed.connect(func(_lang): refresh_prompt())
 	print("TutorialManager: ready (%d lessons found)" % get_lessons().size())
 
 
@@ -185,13 +188,6 @@ func _show_exit_confirm() -> void:
 	if _exit_confirm == null or not is_instance_valid(_exit_confirm):
 		_exit_confirm = ConfirmationDialog.new()
 		_exit_confirm.name = EXIT_CONFIRM_NAME
-		_exit_confirm.title = "Leave da tutorial?"
-		_exit_confirm.dialog_text = "Pack it in an' go back to da main menu?\n\nDis lesson won't be saved — ya can start it again any time from Tutorial on da main menu."
-		# NOT "Exit Tutorial": the button that opened this is still on screen
-		# behind it, and two live buttons with the same label are ambiguous to
-		# read and to address (windowed scenarios resolve buttons by text).
-		_exit_confirm.ok_button_text = "Leg it!"
-		_exit_confirm.cancel_button_text = "Keep Playin'"
 		# Sibling of the blocking gameplay dialog, NOT a child of it: an
 		# exclusive dialog blocks its parent viewport, so the confirm has to
 		# live at the root and float over everything. Non-exclusive so two
@@ -212,6 +208,21 @@ func _show_exit_confirm() -> void:
 		solid.set_content_margin_all(10)
 		_exit_confirm.add_theme_stylebox_override("embedded_border", solid)
 		get_tree().root.add_child(_exit_confirm)
+	# Wording set on every popup, not just at build time, so the dialog follows
+	# a mid-session Tutorial Language change. The OK button is deliberately NOT
+	# "Exit Tutorial" in either voice: the button that opened this is still on
+	# screen behind it, and two live buttons with the same label are ambiguous
+	# to read and to address (windowed scenarios resolve buttons by text).
+	if TutorialScriptLib.is_orky():
+		_exit_confirm.title = "Leave da tutorial?"
+		_exit_confirm.dialog_text = "Pack it in an' go back to da main menu?\n\nDis lesson won't be saved — ya can start it again any time from Tutorial on da main menu."
+		_exit_confirm.ok_button_text = "Leg it!"
+		_exit_confirm.cancel_button_text = "Keep Playin'"
+	else:
+		_exit_confirm.title = "Leave the tutorial?"
+		_exit_confirm.dialog_text = "Stop this lesson and go back to the main menu?\n\nYour progress in this lesson won't be saved — you can start it again any time from Tutorial on the main menu."
+		_exit_confirm.ok_button_text = "Leave Lesson"
+		_exit_confirm.cancel_button_text = "Keep Playing"
 	_exit_confirm.popup_centered(Vector2i(520, 200))
 	# The confirm is the topmost window now, so it may keep focus: whichever
 	# device the player is on, Enter / {a} answers it.
@@ -508,6 +519,11 @@ func _enter_step(index: int) -> void:
 	print("TutorialManager: step %d/%d '%s'" % [index + 1, _steps.size(), str(step.get("id", ""))])
 
 
+# The lesson's display title in the active tutorial language.
+func lesson_title() -> String:
+	return TutorialScriptLib.field(current_lesson, "title")
+
+
 func _show_current_step() -> void:
 	var overlay := get_node_or_null("/root/TutorialOverlay")
 	if overlay == null or current_step_index < 0 or current_step_index >= _steps.size():
@@ -520,13 +536,13 @@ func _show_current_step() -> void:
 	# moved onto End This Unit's Move) silently snaps back to the step's default.
 	var live_anchor: Dictionary = _live_anchor(step)
 	overlay.show_step({
-		"bark": str(step.get("prompt", {}).get("bark", "")),
+		"bark": TutorialScriptLib.field(step.get("prompt", {}), "bark"),
 		"body": body,
-		"progress": "Step %d / %d — %s" % [current_step_index + 1, _steps.size(), str(current_lesson.get("title", ""))],
+		"progress": "Step %d / %d — %s" % [current_step_index + 1, _steps.size(), lesson_title()],
 		"ack": _is_ack_step(step),
 		"anchor": live_anchor.anchor,
 		"spotlight": live_anchor.spotlight,
-		"checklist_label": str(step.get("checklist", {}).get("label", "")),
+		"checklist_label": TutorialScriptLib.field(step.get("checklist", {}), "label"),
 		"checklist": _checklist_view(),
 	})
 
@@ -613,9 +629,9 @@ func _build_checklist(step: Dictionary, preserve: Dictionary = {}) -> void:
 		var dev := str(raw.get("device", "any"))
 		if (dev == "pad" and not pad) or (dev == "kbm" and pad):
 			continue
-		var label := str(raw.get("label", ""))
-		if pad and raw.has("pad_label"):
-			label = str(raw.pad_label)
+		var label := TutorialScriptLib.field(raw, "label")
+		if pad and (raw.has("pad_label") or raw.has("pad_label_orky")):
+			label = TutorialScriptLib.field(raw, "pad_label")
 		_checklist.append({"id": iid, "label": label, "script": str(raw.get("script", ""))})
 		_checklist_done[iid] = bool(preserve.get(iid, false))
 
@@ -774,16 +790,18 @@ func _complete_lesson() -> void:
 	_progress.save(PROGRESS_PATH)
 	emit_signal("lesson_completed", lesson_id)
 	var summary: Dictionary = current_lesson.get("summary", {})
-	var bullets: Array = summary.get("bullets", [])
+	var orky := TutorialScriptLib.is_orky()
+	var bullets: Array = summary.get("bullets_orky", summary.get("bullets", [])) if orky \
+			else summary.get("bullets", summary.get("bullets_orky", []))
 	var body := ""
 	for b in bullets:
 		body += "•  %s\n" % str(b)
 	var overlay := get_node_or_null("/root/TutorialOverlay")
 	if overlay:
 		overlay.show_summary({
-			"bark": str(summary.get("bark", "PROPPA JOB!")),
+			"bark": TutorialScriptLib.field(summary, "bark", "PROPPA JOB!" if orky else "WELL DONE!"),
 			"body": body.strip_edges(),
-			"progress": "%s — complete" % str(current_lesson.get("title", "")),
+			"progress": "%s — complete" % lesson_title(),
 			"has_next": _next_lesson_id(lesson_id) != "",
 		})
 	# Stay active: the gate keeps the battle paused-in-place under the summary
@@ -1015,28 +1033,38 @@ func is_action_allowed(action: Dictionary) -> bool:
 # may spell it out with "blocked_hint"; failing that, a CLOSED ack step names its
 # Continue button, because that is literally the only way on.
 func _blocked_instruction() -> String:
+	var orky := TutorialScriptLib.is_orky()
 	if current_step_index < 0 or current_step_index >= _steps.size():
-		return "follow da current step"
+		return "follow da current step" if orky else "follow the current step"
 	var step: Dictionary = _steps[current_step_index]
 	var pad := InputDeviceManager.is_pad_active()
 	# "blocked_hint" takes either a plain string or the same {pad, kbm, text}
 	# shape prompts use, so a step can name the pad button without that token
-	# landing in a keyboard player's toast.
-	var custom = step.get("blocked_hint", "")
+	# landing in a keyboard player's toast. Either shape carries its _orky
+	# twins — beside the string (blocked_hint_orky) or inside the dict.
+	var custom = step.get("blocked_hint", step.get("blocked_hint_orky", ""))
 	if typeof(custom) == TYPE_DICTIONARY:
 		custom = TutorialScriptLib.body_for_device({"prompt": custom}, pad)
+	else:
+		custom = TutorialScriptLib.field(step, "blocked_hint")
 	if str(custom) != "":
 		return _plain_glyphs(str(custom))
 	# Only a CLOSED ack step can honestly claim Continue is the sole way on; an
 	# ack step with a live allow-list falls through to the bark-based message.
 	if _is_closed_ack_step(step):
+		if orky:
+			if pad:
+				return _plain_glyphs("dis step only wants [Continue] on da tutorial card — press {a}.")
+			return "dis step only wants [Continue] on da tutorial card."
 		if pad:
-			return _plain_glyphs("dis step only wants [Continue] on da tutorial card — press {a}.")
-		return "dis step only wants [Continue] on da tutorial card."
-	var bark := str(step.get("prompt", {}).get("bark", ""))
+			return _plain_glyphs("this step only wants [Continue] on the tutorial card — press {a}.")
+		return "this step only wants [Continue] on the tutorial card."
+	var bark := TutorialScriptLib.field(step.get("prompt", {}), "bark")
 	if bark == "":
-		return "follow da current step"
-	return "finish da step on da card first — %s" % bark
+		return "follow da current step" if orky else "follow the current step"
+	if orky:
+		return "finish da step on da card first — %s" % bark
+	return "finish the step on the card first — %s" % bark
 
 
 # Toasts are a plain Label, so the BBCode-emitting TutorialScriptLib.render_text
@@ -1069,7 +1097,9 @@ func on_action_blocked(action: Dictionary) -> void:
 	if now - _last_block_toast_ms < BLOCK_TOAST_COOLDOWN_MS:
 		return
 	_last_block_toast_ms = now
-	ToastManager.show_warning("Oi! Not dat one, ya git — %s" % _blocked_instruction())
+	var prefix := "Oi! Not dat one, ya git — %s" if TutorialScriptLib.is_orky() \
+			else "Not that one — %s"
+	ToastManager.show_warning(prefix % _blocked_instruction())
 	print("TutorialManager: blocked action '%s' at step %d" % [str(action.get("type", "")), current_step_index])
 	if overlay:
 		overlay.shake()
@@ -1085,7 +1115,8 @@ func _on_hint_timeout() -> void:
 	if typeof(hint) == TYPE_DICTIONARY:
 		text = TutorialScriptLib.body_for_device({"prompt": hint}, pad)
 	else:
-		text = str(hint)
+		# String-form hints carry their orky twin beside them (hint_orky).
+		text = TutorialScriptLib.field(step, "hint")
 	if text == "":
 		return
 	var overlay := get_node_or_null("/root/TutorialOverlay")
@@ -1145,14 +1176,21 @@ func get_lessons() -> Array:
 		if fname.ends_with(".json"):
 			var parsed = JSON.parse_string(FileAccess.get_file_as_string(LESSONS_DIR + fname))
 			if typeof(parsed) == TYPE_DICTIONARY and parsed.has("id"):
-				out.append({
+				var meta := {
 					"id": str(parsed.id),
 					"title": str(parsed.get("title", parsed.id)),
 					"subtitle": str(parsed.get("subtitle", "")),
 					"est_minutes": int(parsed.get("est_minutes", 5)),
 					"order": int(parsed.get("order", 999)),
 					"path": LESSONS_DIR + fname,
-				})
+				}
+				# Both voices ride along so the picker can render whichever the
+				# Tutorial Language setting asks for at display time (the cache
+				# outlives a language change, so it must not bake one in).
+				for variant in ["title_orky", "subtitle_orky"]:
+					if parsed.has(variant):
+						meta[variant] = str(parsed[variant])
+				out.append(meta)
 		fname = dir.get_next()
 	dir.list_dir_end()
 	out.sort_custom(func(a, b): return a.order < b.order)
