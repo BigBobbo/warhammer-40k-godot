@@ -45,8 +45,22 @@ knob-turning**, consistent with everything else measured this week.
 
 | Arm | Margin (P1 − P2) | Games |
 |---|---|---|
-| Hard (P1) vs Competitive (P2) | TBD | TBD |
-| Competitive (P1) vs Hard (P2) | TBD | TBD |
+| Hard (P1) vs Competitive (P2) | +15.8 ± 39.4 | 4–2 Hard |
+| Competitive (P1) vs Hard (P2) | +9.7 ± 42.9 | 3–3 |
+
+Per-seed margins — arm C: [−32, +16, +58, −26, +5, +74]; arm D: [−23, −19,
++58, −42, +10, +74].
+
+**Seat-cancelled: ≈ +3 VP/game to Hard — a tie.** With per-game sd near 40,
+a 3-point difference is far inside the noise floor, and games split 7–5.
+Competitive's exclusive additions (trade/point-efficiency analysis, dropping
+score noise from ±0.5 to 0) buy nothing measurable over Hard.
+
+So the strength ladder is **Easy ≪ Normal ≪ Hard ≈ Competitive**: the entire
+gain lives in the Normal → Hard step (multi-phase movement→shooting→charge
+planning, deep-strike screening, noise ±1.5 → ±0.5, charge threshold ×1.0 →
+×0.85). Resolving Hard from Competitive would need hundreds of games at this
+variance and is not worth the compute.
 
 ## Consequence for the product
 
@@ -57,6 +71,16 @@ tier gating (that would flatten a ladder which demonstrably works) but to
 that reserved screening for Hard+ and trade analysis for Competitive is
 therefore load-bearing, not a regression — provided the default sits at the
 top.
+
+**Shipped (v1.40.0):** every default is now Competitive — `AIPlayer.configure`
+and `get_difficulty`, the save/load restore path, `AIDecisionMaker`'s static
+fallback, both menu dropdowns and their fallbacks, and `PlanSimulator`'s
+`DEFAULT_DIFFICULTY` (so benchmarks measure the AI that players actually
+face). Competitive was chosen over the statistically tied Hard because the
+brief asks for the hardest and most intelligent AI in all cases and
+Competitive has strictly more machinery enabled; if a little unpredictability
+is later preferred over full determinism, Hard is a one-constant change with
+no measured strength cost.
 
 Caveat for future benchmarking: every baseline before this date was recorded
 at Normal. Comparisons across reports must match difficulty explicitly; the

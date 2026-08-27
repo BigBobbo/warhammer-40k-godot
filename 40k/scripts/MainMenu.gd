@@ -640,7 +640,7 @@ func _create_difficulty_dropdowns() -> void:
 	player1_difficulty_dropdown.add_item("Normal")
 	player1_difficulty_dropdown.add_item("Hard")
 	player1_difficulty_dropdown.add_item("Competitive")
-	player1_difficulty_dropdown.selected = 1  # Default: Normal
+	player1_difficulty_dropdown.selected = 3  # Default: Competitive (strongest measured)
 	player1_difficulty_container.add_child(player1_difficulty_dropdown)
 
 	# Insert after Player1TypeContainer
@@ -665,7 +665,7 @@ func _create_difficulty_dropdowns() -> void:
 	player2_difficulty_dropdown.add_item("Normal")
 	player2_difficulty_dropdown.add_item("Hard")
 	player2_difficulty_dropdown.add_item("Competitive")
-	player2_difficulty_dropdown.selected = 1  # Default: Normal
+	player2_difficulty_dropdown.selected = 3  # Default: Competitive (strongest measured)
 	player2_difficulty_container.add_child(player2_difficulty_dropdown)
 
 	# Insert after Player2TypeContainer
@@ -1575,8 +1575,8 @@ func _on_start_button_pressed() -> void:
 	var p1_type = "AI" if player1_type_dropdown.selected == 1 else "HUMAN"
 	var p2_type = "AI" if player2_type_dropdown.selected == 1 else "HUMAN"
 	# T7-40: Get difficulty settings (dropdown index matches AIDifficultyConfig.Difficulty enum)
-	var p1_difficulty = player1_difficulty_dropdown.selected if player1_difficulty_dropdown else 1
-	var p2_difficulty = player2_difficulty_dropdown.selected if player2_difficulty_dropdown else 1
+	var p1_difficulty = player1_difficulty_dropdown.selected if player1_difficulty_dropdown else 3
+	var p2_difficulty = player2_difficulty_dropdown.selected if player2_difficulty_dropdown else 3
 	# T7-36: Get AI speed setting (dropdown index matches AIPlayer.AISpeedPreset enum)
 	var ai_speed = ai_speed_dropdown.selected if ai_speed_dropdown else 1
 	# P2-85: Get secondary mission mode

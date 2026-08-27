@@ -34,7 +34,11 @@ signal run_cancelled(summary: Dictionary)
 const RESULTS_DIR := "user://plan_sim_results/"
 const DEFAULT_GAMES: int = 5
 const DEFAULT_SEED_BASE: int = 1000
-const DEFAULT_DIFFICULTY: int = 1          # Normal — matches BENCH_DIFFICULTY
+const DEFAULT_DIFFICULTY: int = 3          # Competitive — the shipped default, so
+#                                          benchmarks measure the AI players face.
+#                                          NOTE: every baseline before 2026-08-27 was
+#                                          recorded at Normal (1); pass difficulty
+#                                          explicitly when comparing against those.
 const DEFAULT_TIME_SCALE: float = 10.0
 const DEFAULT_MAX_SECONDS: float = 900.0
 const DEFAULT_STALL_SECONDS: float = 90.0
