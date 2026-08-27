@@ -173,6 +173,12 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 		"CONSOLIDATE":
 			if ai_desc != "":
 				return prefix + ai_desc
+			# 12.08 Objective Consolidation: name the objective the unit selected,
+			# the way the board labels it ("CENTER", "NML 1").
+			var consolidate_obj = str(action.get("chosen_objective", ""))
+			if consolidate_obj != "":
+				return prefix + "%s consolidated toward %s" % [
+					unit_name, consolidate_obj.replace("obj_", "").to_upper().replace("_", " ")]
 			return prefix + "%s consolidated" % unit_name
 		"END_DEPLOYMENT":
 			return prefix + "Ended Deployment Phase"
