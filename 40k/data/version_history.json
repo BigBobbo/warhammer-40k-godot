@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.40.1",
+      "date": "2026-08-27",
+      "summary": "Fixed: using Leap to Defend during your opponent's Charge phase looked like it did nothing — the counter-charge roll is now shown.",
+      "changes": [
+        "Fixed (reported): \"I used the Leap to Defend stratagem when it was my opponent's charge phase. It gave me the option. I clicked it, but then nothing happened. The charge phase continued without my unit even rolling a charge.\" The 2D6 counter-charge roll WAS being made — it just was never shown. The roll is now animated in the dice panel, written to the dice log, and recorded in the Game Log, so you can see the numbers you spent the CP on.",
+        "A Heroic Intervention that falls short no longer ends the Charge phase in silence: you get a message naming the roll, how far you needed, and that the 1 CP is still spent.",
+        "The \"Leap to Defend\" / \"Into the Fray\" buttons are now greyed out for a unit that has no legal target for that mode, with a tooltip saying why. Previously both were always clickable, and picking the impossible one just closed the window and did nothing.",
+        "The charge movement prompt now keeps the rolled distance on screen (\"Rolled 8\\\" — use UI to move models into engagement range\") instead of replacing it with a generic line the moment anything else updated.",
+        "Re-opening the Heroic Intervention window no longer produces a duplicate, unnamed dialog."
+      ]
+    },
+    {
       "version": "1.40.0",
       "date": "2026-08-27",
       "summary": "The tutorial now speaks plain English by default — Da Boss's Ork dialect is a setting, not the only option.",

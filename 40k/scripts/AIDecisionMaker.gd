@@ -23237,6 +23237,7 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 	var best_unit_id = ""
 	var best_unit_name = ""
 	var best_score = 0.0
+	var best_entry: Dictionary = {}
 
 	for entry in eligible_units:
 		var unit_id = entry.get("unit_id", "")
@@ -23276,6 +23277,7 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 			best_score = score
 			best_unit_id = unit_id
 			best_unit_name = unit_name
+			best_entry = entry
 
 	# Use if score is high enough to justify the CP
 	if best_score >= 2.0 and best_unit_id != "":
@@ -23312,6 +23314,15 @@ static func evaluate_heroic_intervention(defending_player: int, charging_unit_id
 					any_close = true
 				if e.get("flags", {}).get("charged_this_turn", false) and d <= 12.0:
 					charged_close = true
+			# The offer itself is authoritative about which modes can resolve:
+			# the eligibility builder measures across the whole Attached unit
+			# (19.01) while the loop above only sees best_unit's own models, so
+			# an attached leader could pick a mode the phase then rejects — a
+			# spent decision that resolves into nothing. Trust the flags when
+			# the row carries them (the 10e builder does not).
+			if best_entry.has("leap_available") or best_entry.has("fray_available"):
+				charged_close = bool(best_entry.get("leap_available", false))
+				any_close = bool(best_entry.get("fray_available", false))
 			var hi_mode = "leap_to_defend" if charged_close else ("into_the_fray" if any_close else "leap_to_defend")
 			hi_action["mode"] = hi_mode
 			_add_thinking_step("Heroic Intervention with %s: mode %s (%s)" % [

@@ -1449,7 +1449,17 @@ func _update_button_states() -> void:
 	# Update info label with clear step-by-step instructions
 	if is_instance_valid(charge_info_label):
 		if awaiting_movement:
-			charge_info_label.text = "Use UI to move models into engagement range"
+			# Keep the rolled distance in the prompt. This line runs on every
+			# affordance change and used to clobber the "Success! Rolled N\"" /
+			# "Heroic Intervention! Rolled N\"" text the roll handlers had just
+			# written, so the number the whole decision hangs on survived on
+			# screen for a fraction of a second.
+			var hi_pending := _is_heroic_intervention_move_pending()
+			if charge_distance > 0:
+				charge_info_label.text = "%sRolled %d\" — use UI to move models into engagement range" % [
+					"Heroic Intervention! " if hi_pending else "", charge_distance]
+			else:
+				charge_info_label.text = "Use UI to move models into engagement range"
 		elif awaiting_roll:
 			charge_info_label.text = "Click 'Roll 2D6' for charge distance"
 		elif has_selected_unit and not has_selected_targets:
@@ -1461,6 +1471,12 @@ func _update_button_states() -> void:
 				charge_info_label.text = "Step 3: Click 'Declare Charge' to proceed"
 		else:
 			charge_info_label.text = "Step 1: Select a unit from the list below to begin charge"
+
+func _is_heroic_intervention_move_pending() -> bool:
+	"""True while the active movement belongs to a HEROIC INTERVENTION counter-charge."""
+	if current_phase == null or active_unit_id == "":
+		return false
+	return str(current_phase.get("heroic_intervention_unit_id")) == active_unit_id
 
 func _on_unit_selected(index: int) -> void:
 	print("ChargeController: Unit selected at index ", index)
@@ -4139,8 +4155,10 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	if not is_instance_valid(dice_log_display):
 		return
 
-	# T5-V1: Trigger animated dice visualization for charge rolls
-	if dice_roll_visual and dice_data.get("context", "") == "charge_roll":
+	# T5-V1: Trigger animated dice visualization for charge rolls.
+	# A HEROIC INTERVENTION counter-charge is a 2D6 charge roll like any other
+	# and gets the same dice animation — it used to be silently skipped here.
+	if dice_roll_visual and dice_data.get("context", "") in ["charge_roll", "heroic_intervention_charge_roll"]:
 		var charge_rolls = dice_data.get("rolls", [])
 		if charge_rolls.size() == 2:
 			# P3-118: Show reroll comparison if this was a command reroll
@@ -4173,6 +4191,20 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 	var targets = dice_data.get("targets", [])
 	var charge_failed = dice_data.get("charge_failed", false)
 	var min_distance = dice_data.get("min_distance", 0.0)
+
+	# PLAYER REPORT (2026-08-27): "I used Leap to Defend during my opponent's
+	# charge phase. I clicked it, but then nothing happened. The charge phase
+	# continued without my unit even rolling a charge." The HEROIC INTERVENTION
+	# 2D6 is emitted with context "heroic_intervention_charge_roll", and every
+	# consumer below filtered on "charge_roll" — so the counter-charge roll was
+	# never animated, never written to the dice log, and a failed roll (which
+	# ends the phase immediately, CP already spent) produced no feedback at all.
+	# Render it on its own path: the HI flow does not use pending_charges, the
+	# selection state, or the arrow overlay the normal-charge branch below
+	# maintains, so it must not fall through into that branch.
+	if context == "heroic_intervention_charge_roll":
+		_render_heroic_intervention_roll(dice_data)
+		return
 
 	# Only process charge rolls
 	if context != "charge_roll" or rolls.size() != 2:
@@ -4234,6 +4266,73 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		_show_charge_distance_display(total)
 
 	_update_button_states()
+
+func _render_heroic_intervention_roll(dice_data: Dictionary) -> void:
+	"""Show the HEROIC INTERVENTION counter-charge roll to the defender.
+
+	This roll is made server-side the instant the player picks a mode in the
+	HI window, and a failed roll ends the Charge phase on the spot. Before this
+	existed the whole thing was silent: no dice, no log line, no toast — the
+	window just closed, the phase advanced, and 1 CP was gone. Both outcomes
+	are reported here; the successful one is followed by
+	_on_charge_path_tools_enabled, which puts the unit into movement mode."""
+	var unit_id = str(dice_data.get("unit_id", ""))
+	var unit_name = str(dice_data.get("unit_name", unit_id))
+	var rolls: Array = dice_data.get("rolls", [])
+	var total := int(dice_data.get("total", 0))
+	var charge_failed: bool = dice_data.get("charge_failed", false)
+	var min_distance := float(dice_data.get("min_distance", 0.0))
+	var mode := str(dice_data.get("mode", "leap_to_defend"))
+	var mode_label := "Into the Fray" if mode == "into_the_fray" else "Leap to Defend"
+
+	print("ChargeController: Heroic Intervention roll %s = %d (mode %s, failed=%s)" % [
+		str(rolls), total, mode, str(charge_failed)])
+
+	if is_instance_valid(dice_log_display):
+		DiceLogFormatter.attack_header(dice_log_display,
+			"Heroic Intervention — %s (%s)" % [unit_name, mode_label])
+		DiceLogFormatter.charge_roll(dice_log_display, unit_name, rolls, total, false)
+
+	var er_inches = GameConstants.engagement_range_inches()
+	# min_distance is INF when nothing measurable is left to charge — report the
+	# roll rather than an invented number.
+	var have_distance := not is_inf(min_distance)
+	var needed = max(0.0, min_distance - er_inches) if have_distance else 0.0
+
+	if charge_failed:
+		awaiting_movement = false
+		if is_instance_valid(dice_log_display):
+			if have_distance:
+				DiceLogFormatter.outcome(dice_log_display,
+					"Heroic Intervention FAILED! %s rolled %d\" but the nearest target is %.1f\" away (need ~%.1f\" to reach %.0f\" engagement range). The CP is still spent." % [
+						unit_name, total, min_distance, needed, er_inches], "bad")
+			else:
+				DiceLogFormatter.outcome(dice_log_display,
+					"Heroic Intervention FAILED! %s rolled %d\" and could not reach engagement range. The CP is still spent." % [
+						unit_name, total], "bad")
+		# The Charge phase ends immediately after a failed HI, so the dice log
+		# alone is easy to miss — say it where the player is already looking.
+		ToastManager.show_error("Heroic Intervention failed — %s rolled %d\"%s" % [
+			unit_name, total, " (needed ~%.1f\")" % needed if have_distance else ""])
+	else:
+		if is_instance_valid(dice_log_display):
+			DiceLogFormatter.outcome(dice_log_display,
+				"Heroic Intervention charge successful! %s rolled %d\"%s" % [
+					unit_name, total,
+					" (nearest target %.1f\" away)." % min_distance if have_distance else "."], "good")
+		ToastManager.show_info("Heroic Intervention — %s rolled %d\"! Move it into engagement range." % [
+			unit_name, total])
+
+	# After _update_button_states, never before: it rewrites charge_info_label
+	# from the (now cleared) charge state on every call, so a failure line set
+	# ahead of it would be overwritten in the same frame. On success the label
+	# is left alone — _on_charge_path_tools_enabled fires next and puts the unit
+	# into movement mode, and _update_button_states renders the move prompt with
+	# the rolled distance.
+	_update_button_states()
+	if charge_failed and is_instance_valid(charge_info_label):
+		charge_info_label.text = "Heroic Intervention failed! Rolled %d\"%s" % [
+			total, " but needed ~%.1f\" to reach engagement range" % needed if have_distance else ""]
 
 func _on_charge_resolved(unit_id: String, success: bool, result: Dictionary) -> void:
 	print("Charge resolved: ", unit_id, " success: ", success)
@@ -4841,6 +4940,19 @@ func _on_heroic_intervention_opportunity(player: int, eligible_units: Array, cha
 		push_error("Failed to load HeroicInterventionDialog.gd")
 		_on_heroic_intervention_declined(player)
 		return
+
+	# Re-opening the window (the phase re-emits the opportunity when a chosen
+	# mode turns out to have no target) used to collide with the outgoing
+	# dialog: the old node is queue_free()d only after its pressed handler
+	# returns, so it was still parented when the replacement was added and
+	# Godot silently renamed the new one to @AcceptDialog@NNNN. That loses the
+	# stable node path every windowed scenario and the player's own muscle
+	# memory rely on. Retire the stale one first.
+	var stale_dialog = get_tree().root.get_node_or_null("HeroicInterventionDialog")
+	if stale_dialog and is_instance_valid(stale_dialog):
+		print("ChargeController: freeing stale Heroic Intervention dialog before re-opening")
+		get_tree().root.remove_child(stale_dialog)
+		stale_dialog.queue_free()
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)

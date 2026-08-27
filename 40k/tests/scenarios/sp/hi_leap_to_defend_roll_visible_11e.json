@@ -1,0 +1,180 @@
+{
+  "id": "hi_leap_to_defend_roll_visible_11e",
+  "covers": [
+    "phases.ChargePhase.heroic_intervention_11e",
+    "scripts.ChargeController.heroic_intervention_roll_feedback",
+    "autoloads.StratagemManager.get_heroic_intervention_eligible_units_11e",
+    "dialogs.HeroicInterventionDialog.mode_buttons"
+  ],
+  "fixture": "counter_offensive_attached_11e",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "PLAYER REPORT (2026-08-27): 'I used the Leap to Defend stratagem, or attempted to, when it was my opponent's charge phase. It gave me the option. I clicked it, but then nothing happened. The charge phase continued without my unit even rolling a charge.' The counter-charge 2D6 IS rolled server-side the moment a mode is picked, but ChargePhase emits it with context 'heroic_intervention_charge_roll' and every UI consumer in ChargeController._on_dice_rolled filtered on context == 'charge_roll' \u2014 so the roll was never animated, never written to the dice log, and a roll that fell short (which ends the Charge phase on the spot, 1 CP already spent) produced no feedback whatsoever. This scenario parks the Witchseekers 11.5\" edge-to-edge from the Warboss that charged this turn: inside LEAP TO DEFEND's 12\" window, so the option is genuinely offered, but needing ~10.5\" when the seeded 2D6 gives 8. It clicks the REAL Leap to Defend button and asserts the player is now told what happened \u2014 the roll and the shortfall both appear in the dice log \u2014 and separately that a mode with no legal target (INTO THE FRAY, with no enemy within 6\") is rendered disabled instead of as a button that closes the window and does nothing.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 9
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2,
+      "comment": "P2 Orks are charging, so P1 Custodes is the defender offered the 15.11 window"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_WARBOSS_B\"].flags.merge({\"charged_this_turn\": true}, true)",
+      "comment": "the Warboss charged home this turn \u2014 that is what LEAP TO DEFEND reacts to"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var wbm = GameState.state.units[\"U_WARBOSS_B\"].models[0]\nvar u = GameState.state.units[\"U_WITCHSEEKERS_C\"]\nvar i = 0\nfor m in u.models:\n\tm.position = {\"x\": float(wbm.position.x) - 500.0, \"y\": float(wbm.position.y) + i * 30.0}\n\ti += 1\nvar best = 9999.0\nfor m in u.models:\n\tvar d1 = Measurement.model_to_model_distance_inches(m, wbm)\n\tif d1 < best:\n\t\tbest = d1\nvar shift = Measurement.inches_to_px(best - 11.5)\nfor m in u.models:\n\tm.position = {\"x\": float(m.position.x) + shift, \"y\": float(m.position.y)}\nbest = 9999.0\nfor m in u.models:\n\tvar d2 = Measurement.model_to_model_distance_inches(m, wbm)\n\tif d2 < best:\n\t\tbest = d2\nreturn snappedf(best, 0.01)",
+      "equals": 11.5,
+      "comment": "park the Witchseekers 11.5 inches edge-to-edge from the Warboss: inside LEAP's 12 inch window, but needing ~10.5 inches when the seeded 2D6 gives 8"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._sync_all_token_positions()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/HeroicInterventionDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "awaiting_heroic_intervention",
+      "equals": true
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "heroic_intervention_player",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WITCHSEEKERS_C/Leap_U_WITCHSEEKERS_C",
+      "property": "disabled",
+      "equals": false,
+      "comment": "LEAP TO DEFEND is live: a charged enemy sits 11.5 inches away, inside the 12 inch window"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WITCHSEEKERS_C/Fray_U_WITCHSEEKERS_C",
+      "property": "disabled",
+      "equals": true,
+      "comment": "SECOND BUG: a row is offered when EITHER mode has a target, but both mode buttons were always enabled. Nothing is within 6 inches, so INTO THE FRAY can only be rejected \u2014 it must read as unavailable, not as a button that closes the window and does nothing."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = tree.root.get_node(\"HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WITCHSEEKERS_C/Fray_U_WITCHSEEKERS_C\")\nreturn str(b.tooltip_text)",
+      "equals": "No enemy is within 6\" of this unit.",
+      "comment": "and it says why, rather than just going grey"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_hi_window_fray_disabled"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var t = \"\"\nfor e in GameEventLog.get_all_entries():\n\tt += str(e.get(\"text\", e)) + \"\\n\"\nreturn t.contains(\"Heroic Intervention (\")",
+      "equals": false,
+      "comment": "baseline: nothing about a counter-charge roll in the Game Log yet"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WITCHSEEKERS_C/Leap_U_WITCHSEEKERS_C",
+      "emit_pressed": true,
+      "comment": "the reported click \u2014 the real button a player presses"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var t = \"\"\nfor e in GameEventLog.get_all_entries():\n\tt += str(e.get(\"text\", e)) + \"\\n\"\nreturn t.contains(\"needed ~9.5\\\"\")",
+      "equals": true,
+      "comment": "and it reports the shortfall (11.5\" apart, 2\" engagement range), so the player can see the counter-charge was 1.5\" short rather than guessing the click was ignored"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var t = \"\"\nfor e in GameEventLog.get_all_entries():\n\tt += str(e.get(\"text\", e)) + \"\\n\"\nreturn t.contains(\"Heroic Intervention (\")",
+      "equals": true,
+      "comment": "baseline: nothing about a counter-charge roll in the Game Log yet"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var t = \"\"\nfor e in GameEventLog.get_all_entries():\n\tt += str(e.get(\"text\", e)) + \"\\n\"\nreturn t.contains(\"Leap to Defend\") and t.contains(\"FAILED\") and t.contains(\"2D6 = 8 (2 + 6)\")",
+      "equals": true,
+      "comment": "THE BUG: the counter-charge roll never reached the player. The Game Log now names the mode, the dice and the outcome \u2014 and it is the Game Log rather than the dice log because a failed HI ends the Charge phase immediately and the incoming phase's controller clears the shared dice log."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var t = \"\"\nfor e in GameEventLog.get_all_entries():\n\tt += str(e.get(\"text\", e)) + \"\\n\"\nreturn t.contains(\"CP still spent\")",
+      "equals": true,
+      "comment": "the 1 CP is gone whether or not the charge lands (15.11) \u2014 say so, since the phase ends immediately afterwards"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return \"cp=%d phase=%d\" % [StratagemManager.get_player_cp(1), GameState.get_current_phase()]",
+      "equals": "cp=3 phase=10",
+      "comment": "unchanged rules behaviour: the stratagem was used (4 CP -> 3) and a failed Heroic Intervention still releases the Charge phase"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nvar hits = 0\nfor n in m.game_log_panel.find_children(\"*\", \"\", true, false):\n\tvar txt = str(n.get(\"text\")) if n.get(\"text\") != null else \"\"\n\tif txt.contains(\"Heroic Intervention (\"):\n\t\thits += 1\nreturn hits",
+      "expect_min": 1,
+      "comment": "and the Game Log PANEL renders it \u2014 the entry store alone would pass on a line the player never sees"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/GameLogPanel/VBox/HeaderRow/TabGameLog",
+      "emit_pressed": true,
+      "comment": "the Game Log, not the Dice Log: the incoming phase clears the shared dice log, so this is where the outcome has to survive"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_failed_leap_reported_in_game_log"
+    }
+  ]
+}

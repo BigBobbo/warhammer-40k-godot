@@ -3102,6 +3102,27 @@ func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> floa
 
 	return min_dist
 
+func _get_hi_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:
+	"""Minimum edge-to-edge distance (inches) from the HEROIC INTERVENTION unit to any target.
+
+	19.01: an Attached unit counter-charges as one, so this measures from every
+	component's models — the same set _is_heroic_intervention_roll_sufficient
+	judges the roll against. Using the plain _get_min_distance_to_any_target here
+	would report a distance the roll was never measured against."""
+	var min_dist = INF
+	for model in _hi_group_models(unit_id):
+		if not model.get("alive", true) or model.get("position") == null:
+			continue
+		for target_id in target_ids:
+			var target_unit = get_unit(target_id)
+			if target_unit.is_empty():
+				continue
+			for target_model in target_unit.get("models", []):
+				if not target_model.get("alive", true) or target_model.get("position") == null:
+					continue
+				min_dist = min(min_dist, Measurement.model_to_model_distance_inches(model, target_model))
+	return min_dist
+
 func get_charge_distance(unit_id: String) -> int:
 	if pending_charges.has(unit_id) and pending_charges[unit_id].has("distance"):
 		return pending_charges[unit_id].distance
@@ -3524,6 +3545,12 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 		" [mode: %s]" % hi_mode if GameConstants.edition >= 11 else ""])
 	var roll_sufficient = _is_heroic_intervention_roll_sufficient(unit_id, total_distance, target_ids)
 
+	# The counter-charge roll has to be reportable, not just decidable: a failed
+	# HI ends the phase immediately, so the dice payload carries the same
+	# min_distance a normal charge roll does and the UI can say what was needed.
+	# 19.01: measured across the whole Attached unit, like the sufficiency test.
+	var hi_min_distance = _get_hi_min_distance_to_any_target(unit_id, target_ids)
+
 	var dice_result = {
 		"context": "heroic_intervention_charge_roll",
 		"unit_id": unit_id,
@@ -3532,6 +3559,8 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 		"total": total_distance,
 		"targets": target_ids,
 		"charge_failed": not roll_sufficient,
+		"min_distance": hi_min_distance,
+		"mode": hi_mode,
 	}
 	dice_log.append(dice_result)
 	emit_signal("dice_rolled", dice_result)
@@ -3540,6 +3569,16 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 		# Heroic Intervention charge failed
 		log_phase_message("HEROIC INTERVENTION charge FAILED for %s (rolled %d)" % [unit_name, total_distance])
 		DebugLogger.info(str("ChargePhase: Heroic Intervention charge roll INSUFFICIENT for %s (rolled %d)" % [unit_name, total_distance]))
+
+		# The Charge phase ends on the next line, and the incoming phase's
+		# controller CLEARS the shared dice log — so the dice-log line the
+		# defender is shown is wiped within the same frame. The Game Log
+		# survives the phase change, so the outcome is recorded there too:
+		# without it the log read "Used HEROIC INTERVENTION (1 CP)" followed
+		# straight by the next phase header, which is exactly what the player
+		# reported as "nothing happened".
+		_log_heroic_intervention_outcome(player, unit_name, rolls, total_distance,
+			hi_mode, hi_min_distance, false)
 
 		# Clean up HI state
 		heroic_intervention_unit_id = ""
@@ -3558,6 +3597,8 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 
 	# Roll sufficient — enable movement
 	DebugLogger.info(str("ChargePhase: Heroic Intervention charge roll SUFFICIENT for %s (rolled %d)" % [unit_name, total_distance]))
+	_log_heroic_intervention_outcome(player, unit_name, rolls, total_distance,
+		hi_mode, hi_min_distance, true)
 	emit_signal("charge_path_tools_enabled", unit_id, total_distance)
 
 	return create_result(true, [], "", {
@@ -3566,6 +3607,33 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 		"heroic_intervention_unit_id": unit_id,
 		"heroic_intervention_distance": total_distance,
 	})
+
+func _log_heroic_intervention_outcome(player: int, unit_name: String, rolls: Array,
+		total_distance: int, hi_mode: String, min_distance: float, succeeded: bool) -> void:
+	"""Record the counter-charge roll in the Game Log, which outlives the phase.
+
+	Logged server-side so the AI, the host and every client get the same line —
+	and so the defender can still see what their CP bought after the Charge
+	phase has handed off and the dice log has been cleared out from under it."""
+	var event_log = get_node_or_null("/root/GameEventLog")
+	if event_log == null:
+		return
+	var mode_label := "Into the Fray" if hi_mode == "into_the_fray" else "Leap to Defend"
+	var dice_text := "2D6 = %d" % total_distance
+	if rolls.size() == 2:
+		dice_text = "2D6 = %d (%d + %d)" % [total_distance, int(rolls[0]), int(rolls[1])]
+	if succeeded:
+		event_log.add_player_entry(player, "Heroic Intervention (%s): %s — charge succeeded, move into engagement range" % [
+			mode_label, dice_text])
+	elif is_inf(min_distance):
+		# No measurable target left (it died to Overwatch, say) — report the
+		# roll without inventing a distance.
+		event_log.add_player_entry(player, "Heroic Intervention (%s): %s — FAILED, %s could not reach engagement range (CP still spent)" % [
+			mode_label, dice_text, unit_name])
+	else:
+		var needed = max(0.0, min_distance - GameConstants.engagement_range_inches())
+		event_log.add_player_entry(player, "Heroic Intervention (%s): %s — FAILED, %s needed ~%.1f\" to reach engagement range (CP still spent)" % [
+			mode_label, dice_text, unit_name, needed])
 
 func _process_decline_heroic_intervention(action: Dictionary) -> Dictionary:
 	var player = action.get("player", heroic_intervention_player)

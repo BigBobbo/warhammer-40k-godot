@@ -3649,10 +3649,17 @@ func get_heroic_intervention_eligible_units_11e(player: int) -> Array:
 		# every model of the Attached unit:
 		#   any enemy within 6" (Into the Fray), OR
 		#   an enemy that charged this turn within 12" (Leap to Defend).
+		# The two modes are tracked SEPARATELY, not just OR-ed: a unit can
+		# qualify on one mode and not the other, and the HI window used to
+		# render both mode buttons enabled regardless. Clicking the mode with
+		# no target got the player a rejected action and a vanished window
+		# instead of a counter-charge, so each row now says which modes it can
+		# actually resolve and the dialog disables the rest.
 		var group_models: Array = []
 		for gid in group_ids:
 			group_models.append_array(snapshot.units.get(gid, {}).get("models", []))
-		var has_target := false
+		var leap_available := false
+		var fray_available := false
 		for other_id in snapshot.get("units", {}):
 			var other = snapshot.units[other_id]
 			if int(other.get("owner", 0)) == player:
@@ -3665,17 +3672,20 @@ func get_heroic_intervention_eligible_units_11e(player: int) -> Array:
 					if not em.get("alive", true) or em.get("position") == null:
 						continue
 					var d = Measurement.model_to_model_distance_px(m, em)
-					if d <= fray_range_px or (other_charged and d <= leap_range_px):
-						has_target = true
-						break
-				if has_target:
+					if d <= fray_range_px:
+						fray_available = true
+					if other_charged and d <= leap_range_px:
+						leap_available = true
+				if leap_available and fray_available:
 					break
-			if has_target:
+			if leap_available and fray_available:
 				break
-		if has_target:
+		if leap_available or fray_available:
 			eligible.append({
 				"unit_id": unit_id,
-				"unit_name": _attached_unit_display_name(unit_id, snapshot)
+				"unit_name": _attached_unit_display_name(unit_id, snapshot),
+				"leap_available": leap_available,
+				"fray_available": fray_available
 			})
 	return eligible
 

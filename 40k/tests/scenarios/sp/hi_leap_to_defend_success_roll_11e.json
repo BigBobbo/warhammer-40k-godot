@@ -1,0 +1,115 @@
+{
+  "id": "hi_leap_to_defend_success_roll_11e",
+  "covers": [
+    "phases.ChargePhase.heroic_intervention_11e",
+    "scripts.ChargeController.heroic_intervention_roll_feedback"
+  ],
+  "fixture": "counter_offensive_attached_11e",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "The other half of the 2026-08-27 report: a Leap to Defend whose 2D6 IS enough. The counter-charge roll was equally invisible here \u2014 ChargeController._on_dice_rolled dropped the 'heroic_intervention_charge_roll' context, so the only thing that happened on screen was the charge tools quietly turning on, with no dice and no number. This drives the real Leap to Defend button on a unit 5\" from the Warboss that charged this turn, and asserts the seeded 2D6 = 8 is reported to the player (dice log + Game Log) alongside the movement prompt it unlocks.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_WARBOSS_B\"].flags.merge({\"charged_this_turn\": true}, true)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var wbm = GameState.state.units[\"U_WARBOSS_B\"].models[0]\nvar u = GameState.state.units[\"U_WITCHSEEKERS_C\"]\nvar i = 0\nfor m in u.models:\n\tm.position = {\"x\": float(wbm.position.x) - 500.0, \"y\": float(wbm.position.y) + i * 30.0}\n\ti += 1\nvar best = 9999.0\nfor m in u.models:\n\tvar d1 = Measurement.model_to_model_distance_inches(m, wbm)\n\tif d1 < best:\n\t\tbest = d1\nvar shift = Measurement.inches_to_px(best - 5.0)\nfor m in u.models:\n\tm.position = {\"x\": float(m.position.x) + shift, \"y\": float(m.position.y)}\nbest = 9999.0\nfor m in u.models:\n\tvar d2 = Measurement.model_to_model_distance_inches(m, wbm)\n\tif d2 < best:\n\t\tbest = d2\nreturn snappedf(best, 0.01)",
+      "equals": 5.0,
+      "comment": "5 inches edge-to-edge: a seeded 2D6 = 8 comfortably clears the ~3 inch gap to engagement range"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._sync_all_token_positions()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/HeroicInterventionDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WITCHSEEKERS_C/Fray_U_WITCHSEEKERS_C",
+      "property": "disabled",
+      "equals": false,
+      "comment": "at 5 inches BOTH modes have a target, so neither button is greyed \u2014 the disable only hides modes that cannot resolve"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WITCHSEEKERS_C/Leap_U_WITCHSEEKERS_C",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "heroic_intervention_unit_id",
+      "equals": "U_WITCHSEEKERS_C",
+      "comment": "the charge stands and the phase is holding open for the counter-charge move"
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nvar t = m.charge_controller.dice_log_display.get_parsed_text()\nreturn t.contains(\"Heroic Intervention\") and t.contains(\"Leap to Defend\") and t.contains(\"8\")",
+      "equals": true,
+      "comment": "THE BUG: the counter-charge 2D6 never reached the dice log, because _on_dice_rolled dropped every context that was not 'charge_roll'. The Charge phase is still running here, so the dice log survives to be read."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var t = \"\"\nfor e in GameEventLog.get_all_entries():\n\tt += str(e.get(\"text\", e)) + \"\\n\"\nreturn t.contains(\"Heroic Intervention (Leap to Defend): 2D6 = 8 (2 + 6) \u2014 charge succeeded\")",
+      "equals": true,
+      "comment": "and the Game Log carries the same roll, so it is still readable once the phase moves on"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nreturn str(m.charge_controller.charge_info_label.text)",
+      "comment": "the movement prompt keeps the rolled distance: _update_button_states used to overwrite it with a generic line the instant any affordance changed, so the number vanished off screen",
+      "equals": "Heroic Intervention! Rolled 8\" \u2014 use UI to move models into engagement range"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_successful_leap_roll_reported"
+    }
+  ]
+}

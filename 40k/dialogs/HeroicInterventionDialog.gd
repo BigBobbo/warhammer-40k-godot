@@ -154,11 +154,24 @@ func _build_ui() -> void:
 		unit_container.add_child(name_label)
 
 		if GameConstants.edition >= 11:
-			# 15.11 mode choice per unit
+			# 15.11 mode choice per unit. A row is offered when EITHER mode has
+			# a target, so the mode that has none must be visibly dead: the
+			# eligibility builder reports leap_available / fray_available per
+			# row and the button for a mode with no target is disabled with a
+			# tooltip saying why. It used to be enabled, and clicking it got the
+			# player a rejected action and a closed window, never a charge.
+			# Older payloads (and the 10e per-charge window) omit the flags —
+			# default to enabled so nothing is hidden that used to work.
+			var leap_ok: bool = unit_info.get("leap_available", true)
+			var fray_ok: bool = unit_info.get("fray_available", true)
+
 			var leap_button = Button.new()
 			leap_button.name = "Leap_%s" % unit_info.unit_id
 			leap_button.text = "Leap to Defend (1 CP)"
 			leap_button.custom_minimum_size = Vector2(160, 30)
+			leap_button.disabled = not leap_ok
+			leap_button.tooltip_text = "2D6 charge at the closest enemy that charged this turn, within 12\"." if leap_ok \
+				else "No enemy that charged this turn is within 12\" of this unit."
 			leap_button.pressed.connect(_on_use_pressed.bind(unit_info.unit_id, "leap_to_defend"))
 			unit_container.add_child(leap_button)
 
@@ -166,6 +179,9 @@ func _build_ui() -> void:
 			fray_button.name = "Fray_%s" % unit_info.unit_id
 			fray_button.text = "Into the Fray (1 CP)"
 			fray_button.custom_minimum_size = Vector2(160, 30)
+			fray_button.disabled = not fray_ok
+			fray_button.tooltip_text = "2D6 charge (capped at 6\") at the closest enemy within 6\"." if fray_ok \
+				else "No enemy is within 6\" of this unit."
 			fray_button.pressed.connect(_on_use_pressed.bind(unit_info.unit_id, "into_the_fray"))
 			unit_container.add_child(fray_button)
 		else:

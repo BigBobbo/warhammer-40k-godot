@@ -9326,7 +9326,7 @@
     },
     {
       "id": "dialogs.AttackAssignmentDialog.auto_allocate_overkill",
-      "description": "The melee attack dialog's auto-allocation scores plans on EFFECTIVE damage, not raw expected damage: damage past a model's last wound is lost (10e/11e) and damage past the target UNIT's last wound is lost too, because it never spills onto another unit. Models are placed one at a time on marginal value, so a target stops attracting attacks once its wound pool is spent and the surplus goes to another engaged unit \u2014 only ever to a unit that section has actually reached. Reported: the suggested plan overkilled the target it named and wasted most of an activation while other units were available to pick.",
+      "description": "The melee attack dialog's auto-allocation scores plans on EFFECTIVE damage, not raw expected damage: damage past a model's last wound is lost (10e/11e) and damage past the target UNIT's last wound is lost too, because it never spills onto another unit. Models are placed one at a time on marginal value, so a target stops attracting attacks once its wound pool is spent and the surplus goes to another engaged unit — only ever to a unit that section has actually reached. Reported: the suggested plan overkilled the target it named and wasted most of an activation while other units were available to pick.",
       "scenarios": [
         "fight_auto_allocate_spillover"
       ],
@@ -9335,7 +9335,7 @@
     },
     {
       "id": "dialogs.AttackAssignmentDialog.split_across_targets",
-      "description": "A loadout section can be divided across TWO TARGETS with the same weapon, not only between the weapons it carries \u2014 the shape a uniform single-weapon squad needs to send its surplus attacks somewhere useful. Split rows are keyed by plan line (the first line of each weapon keeps the historic SplitRow_<weapon> node name), 'Split\u2026' is offered whenever a multi-model section has 2+ weapons OR 2+ targets, and the sections box is sized from the rows it actually shows so a second row is not clipped away.",
+      "description": "A loadout section can be divided across TWO TARGETS with the same weapon, not only between the weapons it carries — the shape a uniform single-weapon squad needs to send its surplus attacks somewhere useful. Split rows are keyed by plan line (the first line of each weapon keeps the historic SplitRow_<weapon> node name), 'Split…' is offered whenever a multi-model section has 2+ weapons OR 2+ targets, and the sections box is sized from the rows it actually shows so a second row is not clipped away.",
       "scenarios": [
         "fight_auto_allocate_spillover"
       ],
@@ -9344,7 +9344,7 @@
     },
     {
       "id": "ui.fight.overkill_warning",
-      "description": "The attack dialog's assignments box reports what a plan actually removes, not just what the dice produce: each line prints '\u2248X lands' when that differs from its raw E[D], the total prints landed vs thrown away, and a warning names any unit the plan has aimed more damage at than it has wounds left, saying the surplus does not carry to another unit. The warning fires only on a genuinely over-committed target.",
+      "description": "The attack dialog's assignments box reports what a plan actually removes, not just what the dice produce: each line prints '≈X lands' when that differs from its raw E[D], the total prints landed vs thrown away, and a warning names any unit the plan has aimed more damage at than it has wounds left, saying the surplus does not carry to another unit. The warning fires only on a genuinely over-committed target.",
       "scenarios": [
         "fight_auto_allocate_spillover"
       ],
@@ -9380,7 +9380,7 @@
     },
     {
       "id": "settings.los_debug_check_out_of_range",
-      "description": "Settings > Visual > \"LoS Debug: include units out of weapon range\" (default ON). Off, the LoS overlay drops any enemy no weapon in the selected unit could reach BEFORE doing line-of-sight work \u2014 the amber 'is out of range' lines disappear and the whole-board sweep gets markedly cheaper. Backed by RulesEngine.unit_within_weapon_reach, a pure distance test against the longest gun in the loadout, so it can only over-include (nothing the target list accepts is ever filtered away) and a melee-only unit is never filtered at all. Driven end to end through the real settings menu.",
+      "description": "Settings > Visual > \"LoS Debug: include units out of weapon range\" (default ON). Off, the LoS overlay drops any enemy no weapon in the selected unit could reach BEFORE doing line-of-sight work — the amber 'is out of range' lines disappear and the whole-board sweep gets markedly cheaper. Backed by RulesEngine.unit_within_weapon_reach, a pure distance test against the longest gun in the loadout, so it can only over-include (nothing the target list accepts is ever filtered away) and a melee-only unit is never filtered at all. Driven end to end through the real settings menu.",
       "scenarios": [
         "los_overlay_targetable_vs_visible"
       ],
@@ -9389,11 +9389,12 @@
     },
     {
       "id": "autoloads.StratagemManager.get_heroic_intervention_eligible_units_11e",
-      "description": "The 15.11 end-of-charge-phase Heroic Intervention window's eligibility builder folds Attached units (19.01): an attached CHARACTER never gets a row of his own, and the \"unengaged\" condition is measured across bodyguard + leader, so a squad already locked in combat is not offered a counter-charge into that same combat. Genuinely unengaged units, attached or not, are unaffected and are named \"Squad + Leader\".",
+      "description": "The 15.11 end-of-charge-phase Heroic Intervention window's eligibility builder folds Attached units (19.01): an attached CHARACTER never gets a row of his own, and the \"unengaged\" condition is measured across bodyguard + leader, so a squad already locked in combat is not offered a counter-charge into that same combat. Genuinely unengaged units, attached or not, are unaffected and are named \"Squad + Leader\". Each row also reports leap_available / fray_available separately instead of only their OR, so the window can grey out a mode that has no legal target.",
       "scenarios": [
-        "hi_attached_char_not_offered_11e"
+        "hi_attached_char_not_offered_11e",
+        "hi_leap_to_defend_roll_visible_11e"
       ],
-      "last_verified_commit": "5eb5141",
+      "last_verified_commit": "2d2310e",
       "status": "covered"
     },
     {
@@ -9407,11 +9408,33 @@
     },
     {
       "id": "phases.ChargePhase.heroic_intervention_11e",
-      "description": "_validate_use_heroic_intervention rejects a USE_HEROIC_INTERVENTION naming an attached CHARACTER (19.01) or a unit whose Attached unit is already in Engagement Range (15.11), so a stale dialog or a remote client cannot push an illegal counter-charge past the UI. The rejection names the rule rather than falling back to a generic \"Action not allowed\".",
+      "description": "_validate_use_heroic_intervention rejects a USE_HEROIC_INTERVENTION naming an attached CHARACTER (19.01) or a unit whose Attached unit is already in Engagement Range (15.11), so a stale dialog or a remote client cannot push an illegal counter-charge past the UI. The rejection names the rule rather than falling back to a generic \"Action not allowed\". The counter-charge 2D6 rolled by _process_use_heroic_intervention also carries min_distance and mode, and its outcome (either way) is written to the Game Log, which outlives the Charge phase the failed roll ends.",
       "scenarios": [
-        "hi_attached_char_not_offered_11e"
+        "hi_attached_char_not_offered_11e",
+        "hi_leap_to_defend_roll_visible_11e",
+        "hi_leap_to_defend_success_roll_11e"
       ],
-      "last_verified_commit": "5eb5141",
+      "last_verified_commit": "2d2310e",
+      "status": "covered"
+    },
+    {
+      "id": "scripts.ChargeController.heroic_intervention_roll_feedback",
+      "description": "The HEROIC INTERVENTION counter-charge roll is reported to the defender. _on_dice_rolled used to filter on context == \"charge_roll\" and drop the \"heroic_intervention_charge_roll\" context entirely, so the 2D6 was never animated, never logged, and a roll that fell short — which ends the Charge phase on the spot with the CP already spent — produced no feedback at all (reported 2026-08-27 as \"I clicked it, but then nothing happened\"). Both outcomes now render: dice animation, a dice-log block naming the mode, a toast, and the shortfall in inches on a failure. The movement prompt also keeps the rolled distance instead of _update_button_states overwriting it with a generic line.",
+      "scenarios": [
+        "hi_leap_to_defend_roll_visible_11e",
+        "hi_leap_to_defend_success_roll_11e"
+      ],
+      "last_verified_commit": "2d2310e",
+      "status": "covered"
+    },
+    {
+      "id": "dialogs.HeroicInterventionDialog.mode_buttons",
+      "description": "A 15.11 row is offered when EITHER mode has a legal target, but both mode buttons used to render enabled regardless — clicking the mode with no target got a rejected action and a closed window rather than a counter-charge. Leap to Defend / Into the Fray are now disabled per row from the builder's leap_available / fray_available flags, with a tooltip naming the missing condition.",
+      "scenarios": [
+        "hi_leap_to_defend_roll_visible_11e",
+        "hi_leap_to_defend_success_roll_11e"
+      ],
+      "last_verified_commit": "2d2310e",
       "status": "covered"
     },
     {
