@@ -75,9 +75,23 @@ var is_infiltrators_mode: bool = false
 # apart: the clamp parks the ghost exactly on one of these boundaries, so if it
 # measured a different distance from the validator it would park the model on a
 # line the click then rejects.
-const REINFORCEMENT_ENEMY_STANDOFF_INCHES: float = 9.0
+# The two enemy stand-offs are EDITION-DEPENDENT (11e dropped both from 9" to
+# 8" — 20.04 Ingress Move and 24.20 Infiltrators), so they are functions rather
+# than consts: baked in as 9.0 they silently disagreed with the validators that
+# actually judge the placement (MovementPhase / DeploymentPhase both read
+# GameConstants), and the UI spent all of 11e refusing legal 8-9" placements.
+func _reinforcement_enemy_standoff_inches() -> float:
+	return GameConstants.reinforcement_min_enemy_distance_inches()
+
+func _infiltrators_enemy_standoff_inches() -> float:
+	return GameConstants.infiltrators_min_enemy_distance_inches()
+
 const OMNI_SCRAMBLER_STANDOFF_INCHES: float = 12.0
-const INFILTRATORS_ENEMY_STANDOFF_INCHES: float = 9.0
+
+## 20.04 SET-UP DISTANCE — how far from a battlefield edge a Strategic Reserves
+## unit may arrive. "Wholly within", so it is the whole base that must fit,
+## not the centre dot (see _wholly_within_setup_distance_of_edge).
+const RESERVES_SETUP_DISTANCE_INCHES: float = 6.0
 
 # How far past the stand-off boundary a clamped ghost is parked. The boundary IS
 # the rejection threshold, so landing mathematically on it risks measuring a
@@ -2927,10 +2941,13 @@ func _placement_exclusion_bubbles(model_data: Dictionary) -> Array:
 
 	var px_per_inch: float = 40.0
 	var model_radius_inches: float = (float(model_data.get("base_mm", 32)) / 2.0) / 25.4
-	var active_player: int = GameState.get_active_player()
+	# Same trap as _validate_reinforcement_position: under Rapid Ingress the
+	# placing player is the NON-active one, and bubbles drawn around the wrong
+	# army would park the clamped ghost on a boundary the click then rejects.
+	var placing_player: int = _placement_owner()
 
-	var enemy_standoff: float = REINFORCEMENT_ENEMY_STANDOFF_INCHES if is_reinforcement_mode else INFILTRATORS_ENEMY_STANDOFF_INCHES
-	for enemy in GameState.get_enemy_model_positions(active_player):
+	var enemy_standoff: float = _reinforcement_enemy_standoff_inches() if is_reinforcement_mode else _infiltrators_enemy_standoff_inches()
+	for enemy in GameState.get_enemy_model_positions(placing_player):
 		var enemy_radius_inches: float = (float(enemy.base_mm) / 2.0) / 25.4
 		var radius_inches: float = enemy_standoff + model_radius_inches + enemy_radius_inches
 		bubbles.append(PlacementClamp.make_bubble(Vector2(enemy.x, enemy.y), radius_inches * px_per_inch))
@@ -2939,7 +2956,7 @@ func _placement_exclusion_bubbles(model_data: Dictionary) -> Array:
 	# subject to it (its validator does not check it either), so the bubble set
 	# stays a faithful mirror of whichever validator will judge the result.
 	if is_reinforcement_mode:
-		for omni in GameState.get_omni_scrambler_positions(active_player):
+		for omni in GameState.get_omni_scrambler_positions(placing_player):
 			var omni_radius_inches: float = (float(omni.base_mm) / 2.0) / 25.4
 			var radius_inches: float = OMNI_SCRAMBLER_STANDOFF_INCHES + model_radius_inches + omni_radius_inches
 			bubbles.append(PlacementClamp.make_bubble(Vector2(omni.x, omni.y), radius_inches * px_per_inch))
@@ -3121,8 +3138,69 @@ func _clamped_formation_anchor(anchor: Vector2, positions: Array, model_data_arr
 
 func _placement_clamp_label() -> String:
 	"""Caption for the tether drawn from the cursor to a held ghost."""
-	var standoff: float = REINFORCEMENT_ENEMY_STANDOFF_INCHES if is_reinforcement_mode else INFILTRATORS_ENEMY_STANDOFF_INCHES
+	var standoff: float = _reinforcement_enemy_standoff_inches() if is_reinforcement_mode else _infiltrators_enemy_standoff_inches()
 	return "held at %.0f\"" % standoff
+
+## Base radius (inches) of the model currently queued for placement — the one
+## the next click will drop. Read by StrategicReservesZoneVisual so the band it
+## paints is the region that model's CENTRE may legally occupy, and it keeps up
+## as the player switches model type mid-unit.
+func current_placement_base_radius_inches() -> float:
+	var md := current_placement_model_data()
+	return (float(md.get("base_mm", 32)) / 2.0) / 25.4
+
+## The model dict the next placement click will consume (combined-deployment
+## aware). Empty when nothing is queued.
+func current_placement_model_data() -> Dictionary:
+	if model_idx < 0:
+		return {}
+	if is_combined_deployment and model_idx < combined_models.size():
+		return combined_models[model_idx].get("model_data", {})
+	var unit_data := GameState.get_unit(unit_id)
+	var models: Array = unit_data.get("models", [])
+	if model_idx < models.size():
+		return models[model_idx]
+	return {}
+
+## The player whose unit is being placed. NOT interchangeable with
+## GameState.get_active_player(): Rapid Ingress runs this same reinforcement
+## placement mode for the NON-active player (MovementPhase sets
+## _rapid_ingress_player = defending_player), so anything that resolves
+## "enemies" or "your opponent" from the active player is measuring against the
+## wrong army there. Falls back to the active player only when the unit is
+## unknown (nothing is being placed).
+func _placement_owner() -> int:
+	var u := GameState.get_unit(unit_id)
+	if u.has("owner"):
+		return int(u.get("owner"))
+	return GameState.get_active_player()
+
+## 20.04: "Set up your unit WHOLLY within the set-up distance of one or more
+## battlefield edges". Wholly — so the whole base has to fit inside the 6" band
+## of at least one edge, not just the centre dot. Measuring the centre let a
+## base hang up to its own radius past the line (2" for a 100mm oval).
+##
+## Implemented as a containment test against each edge's band rather than as
+## "centre distance <= 6 - radius" so rotated oval and rectangular bases are
+## handled by the same shape code every other zone check uses.
+func _wholly_within_setup_distance_of_edge(world_pos: Vector2, model_data: Dictionary, rotation: float) -> bool:
+	for band in _setup_distance_bands():
+		if Measurement.shape_wholly_in_polygon(world_pos, model_data, rotation, band):
+			return true
+	return false
+
+## The four 6" edge bands, in board px. Each spans the full length of its edge,
+## so a model in a corner is simply inside two of them.
+func _setup_distance_bands() -> Array:
+	var w: float = float(GameState.state.board.size.width) * 40.0
+	var h: float = float(GameState.state.board.size.height) * 40.0
+	var b: float = RESERVES_SETUP_DISTANCE_INCHES * 40.0
+	return [
+		PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, b), Vector2(0, b)]),
+		PackedVector2Array([Vector2(0, h - b), Vector2(w, h - b), Vector2(w, h), Vector2(0, h)]),
+		PackedVector2Array([Vector2(0, 0), Vector2(b, 0), Vector2(b, h), Vector2(0, h)]),
+		PackedVector2Array([Vector2(w - b, 0), Vector2(w, 0), Vector2(w, h), Vector2(w - b, h)]),
+	]
 
 func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary, rotation: float, silent: bool = false) -> bool:
 	"""Validate a reinforcement placement position (Deep Strike / Strategic Reserves).
@@ -3140,41 +3218,70 @@ func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary
 			_show_toast("Must be on the battlefield")
 		return false
 
-	# Must be >9" from all enemy models (edge-to-edge)
-	var active_player = GameState.get_active_player()
+	# 20.04: "more than 8" horizontally from all enemy units" (11e; 9" at 10e),
+	# measured base edge to base edge.
+	var unit = GameState.get_unit(unit_id)
+	# The placing player is NOT always the active player: a Rapid Ingress reuses
+	# this same reinforcement mode while the OTHER player holds the turn, so
+	# reading get_active_player() here resolved "enemies" to the ARRIVING
+	# player's own models and measured the stand-off against the wrong army.
+	var placing_player := _placement_owner()
+	var enemy_standoff := _reinforcement_enemy_standoff_inches()
 	var model_base_mm = model_data.get("base_mm", 32)
 	var model_radius_inches = (model_base_mm / 2.0) / 25.4
 
-	var enemy_positions = GameState.get_enemy_model_positions(active_player)
+	var enemy_positions = GameState.get_enemy_model_positions(placing_player)
 	for enemy in enemy_positions:
 		var enemy_pos_px = Vector2(enemy.x, enemy.y)
 		var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
 		var dist_px = world_pos.distance_to(enemy_pos_px)
 		var dist_inches = dist_px / px_per_inch
 		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-		if edge_dist < REINFORCEMENT_ENEMY_STANDOFF_INCHES:
+		if edge_dist < enemy_standoff:
 			if not silent:
-				_show_toast("Must be >9\" from enemy models (%.1f\")" % edge_dist)
+				_show_toast("Must be >%.0f\" from enemy models (%.1f\")" % [enemy_standoff, edge_dist])
 			return false
 
-	# Strategic Reserves: must be within 6" of a battlefield edge
+	# Strategic Reserves: must be set up WHOLLY within 6" of a battlefield edge
 	# P2-80: Use reinforcement_placement_type override if set, otherwise use unit's reserve_type
-	var unit = GameState.get_unit(unit_id)
 	var reserve_type = unit.get("reserve_type", "strategic_reserves")
 	var placement_type = reinforcement_placement_type if reinforcement_placement_type != "" else reserve_type
 	if placement_type == "strategic_reserves":
-		var pos_inches_x = world_pos.x / px_per_inch
-		var pos_inches_y = world_pos.y / px_per_inch
-		var board_w = GameState.state.board.size.width
-		var board_h = GameState.state.board.size.height
-		var dist_to_edge = min(pos_inches_x, board_w - pos_inches_x, pos_inches_y, board_h - pos_inches_y)
-		if dist_to_edge > 6.0:
+		if not _wholly_within_setup_distance_of_edge(world_pos, model_data, rotation):
 			if not silent:
-				_show_toast("Strategic Reserves must be within 6\" of a board edge (%.1f\")" % dist_to_edge)
+				var pos_inches_x = world_pos.x / px_per_inch
+				var pos_inches_y = world_pos.y / px_per_inch
+				var board_w = GameState.state.board.size.width
+				var board_h = GameState.state.board.size.height
+				var centre_dist = min(pos_inches_x, board_w - pos_inches_x, pos_inches_y, board_h - pos_inches_y)
+				_show_toast("Strategic Reserves must be set up wholly within %.0f\" of a board edge (base reaches %.1f\")" % [
+					RESERVES_SETUP_DISTANCE_INCHES, centre_dist + model_radius_inches])
 			return false
 
+		# 11e 20.04 INGRESS MOVE — "Before the Third Battle Round: while doing
+		# so, no models can be set up within your opponent's deployment zone."
+		# MovementPhase has always rejected this on confirm, but this validator
+		# did not, so the ghost stayed green, the models dropped, and the player
+		# only found out after placing the whole unit. The band along the
+		# opponent's board edge is the obvious trap: it is within 6" of a
+		# battlefield edge, so every other check here passes it.
+		#
+		# "within" (not "wholly within") — any part of the base inside the zone
+		# counts, so this is base-aware rather than a centre-point test.
+		if GameState.ingress_opponent_dz_ban_applies(GameState.get_battle_round(), false):
+			# "Your opponent" is the opponent of the ARRIVING unit's owner (see
+			# _placement_owner) — again not the active player under Rapid Ingress.
+			var opponent_zone_px = GameState.get_deployment_zone_poly_px(3 - placing_player)
+			var dz_probe := model_data.duplicate()
+			dz_probe["position"] = world_pos
+			dz_probe["rotation"] = rotation
+			if Measurement.model_overlaps_polygon(dz_probe, opponent_zone_px):
+				if not silent:
+					_show_toast("Strategic Reserves cannot arrive in the opponent's deployment zone before battle round 3")
+				return false
+
 	# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
-	var omni_positions = GameState.get_omni_scrambler_positions(active_player)
+	var omni_positions = GameState.get_omni_scrambler_positions(placing_player)
 	for omni in omni_positions:
 		var omni_pos_px = Vector2(omni.x, omni.y)
 		var omni_radius_inches = (omni.base_mm / 2.0) / 25.4
@@ -3189,9 +3296,12 @@ func _validate_reinforcement_position(world_pos: Vector2, model_data: Dictionary
 	return true
 
 func _validate_infiltrators_position(world_pos: Vector2, model_data: Dictionary, rotation: float, silent: bool = false) -> bool:
-	"""Validate an Infiltrators deployment position: anywhere on the board, >9 inches from enemy deployment zone and >9 inches from enemy models.
+	"""Validate an Infiltrators deployment position (24.20): anywhere on the board
+	more than the stand-off (11e 8", 10e 9") from the enemy deployment zone and
+	from all enemy models.
 	silent=true suppresses the failure toasts for the per-frame ghost-colour check
 	(see _validate_reinforcement_position); the click path leaves it false."""
+	var infiltrate_standoff := _infiltrators_enemy_standoff_inches()
 	var px_per_inch = 40.0
 	var board_width_px = GameState.state.board.size.width * px_per_inch
 	var board_height_px = GameState.state.board.size.height * px_per_inch
@@ -3230,9 +3340,9 @@ func _validate_infiltrators_position(world_pos: Vector2, model_data: Dictionary,
 			if dist < min_dist_px:
 				min_dist_px = dist
 		var edge_dist_inches = (min_dist_px / px_per_inch) - model_radius_inches
-		if edge_dist_inches < 9.0:
+		if edge_dist_inches < infiltrate_standoff:
 			if not silent:
-				_show_toast("Infiltrators must be >9\" from enemy deployment zone (%.1f\")" % edge_dist_inches)
+				_show_toast("Infiltrators must be >%.0f\" from enemy deployment zone (%.1f\")" % [infiltrate_standoff, edge_dist_inches])
 			return false
 
 	# Must be >9" from all enemy models (edge-to-edge)
@@ -3243,9 +3353,9 @@ func _validate_infiltrators_position(world_pos: Vector2, model_data: Dictionary,
 		var dist_px = world_pos.distance_to(enemy_pos_px)
 		var dist_inches = dist_px / px_per_inch
 		var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-		if edge_dist < INFILTRATORS_ENEMY_STANDOFF_INCHES:
+		if edge_dist < infiltrate_standoff:
 			if not silent:
-				_show_toast("Infiltrators must be >9\" from enemy models (%.1f\")" % edge_dist)
+				_show_toast("Infiltrators must be >%.0f\" from enemy models (%.1f\")" % [infiltrate_standoff, edge_dist])
 			return false
 
 	return true

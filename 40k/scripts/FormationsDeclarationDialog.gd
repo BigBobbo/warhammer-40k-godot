@@ -359,9 +359,10 @@ func _build_reserves_section() -> void:
 
 	var total_points = GameState.get_total_army_points(declaring_player)
 	var max_reserves = int(total_points * 0.50)
+	var max_reserve_units = int(GameState.get_total_unit_count(declaring_player) * 0.50)
 
 	var desc_label = Label.new()
-	desc_label.text = "Place units in reserves (max 50%% of army points = %d pts):" % max_reserves
+	desc_label.text = "Place units in reserves (max 50%% of army points = %d pts, and %d unit(s)):" % [max_reserves, max_reserve_units]
 	desc_label.add_theme_font_size_override("font_size", 16)
 	desc_label.add_theme_color_override("font_color", WhiteDwarfTheme.WH_BONE)
 	desc_label.set_meta("reserves_section", true)
@@ -580,6 +581,20 @@ func _on_reserves_checkbox_toggled(toggled_on: bool, checkbox: CheckBox) -> void
 			print("FormationsDialog: Exceeds 50%% reserves points limit (%d + %d > %d)" % [current_reserves, unit_points, max_reserves])
 			return
 
+		# Check 50% unit-count limit. An attached leader leaves the table with
+		# its bodyguard, so it counts as a unit in reserves — the same maths
+		# FormationsPhase._validate_declare_reserves applies, so a box that
+		# ticks here is a declaration the phase will accept.
+		var total_units = GameState.get_total_unit_count(declaring_player)
+		var max_reserve_units = int(total_units * 0.50)
+		var current_reserve_units = _get_declared_reserves_unit_count()
+		var incoming_units = 1 + attached_char_ids.size()
+
+		if current_reserve_units + incoming_units > max_reserve_units:
+			checkbox.button_pressed = false
+			print("FormationsDialog: Exceeds 50%% reserves unit limit (%d + %d > %d)" % [current_reserve_units, incoming_units, max_reserve_units])
+			return
+
 		# Check unit isn't already assigned elsewhere
 		if _is_unit_in_use(unit_id):
 			checkbox.button_pressed = false
@@ -695,6 +710,14 @@ func _get_declared_reserves_points() -> int:
 		for char_id in entry.get("attached_character_ids", []):
 			var char_unit = GameState.get_unit(char_id)
 			total += char_unit.get("meta", {}).get("points", 0)
+	return total
+
+func _get_declared_reserves_unit_count() -> int:
+	"""Units that would actually be in reserves: each ticked unit plus the
+	leaders attached to it, which go off the table with it."""
+	var total = 0
+	for entry in reserves:
+		total += 1 + entry.get("attached_character_ids", []).size()
 	return total
 
 func _is_unit_in_use(unit_id: String) -> bool:

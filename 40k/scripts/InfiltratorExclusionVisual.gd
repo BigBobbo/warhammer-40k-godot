@@ -1,11 +1,16 @@
 extends Node2D
 
-# InfiltratorExclusionVisual - Shows the 9" exclusion boundary around the enemy
+# InfiltratorExclusionVisual - Shows the exclusion boundary around the enemy
 # deployment zone when deploying Infiltrator units. Draws a dashed line representing
 # the closest edge where Infiltrators can legally be placed.
+#
+# Edition-dependent (11e 24.20 dropped it from 9" to 8"), read from GameConstants
+# so the drawn boundary is the one DeploymentPhase actually enforces.
 
 const PX_PER_INCH: float = 40.0
-const EXCLUSION_DISTANCE_INCHES: float = 9.0
+
+static func _exclusion_distance_inches() -> float:
+	return GameConstants.infiltrators_min_enemy_distance_inches()
 
 # Dashed line style
 const DASH_LENGTH: float = 12.0
@@ -48,7 +53,7 @@ func show_exclusion(enemy_zone_poly_inches: Array) -> void:
 	if enemy_poly_px.size() < 3:
 		return
 
-	var offset_px = EXCLUSION_DISTANCE_INCHES * PX_PER_INCH
+	var offset_px = _exclusion_distance_inches() * PX_PER_INCH
 
 	# Use Geometry2D.offset_polygon to expand outward by 9 inches
 	# Positive delta = outward expansion (Godot uses CCW winding for outward)

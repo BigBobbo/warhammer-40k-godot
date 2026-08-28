@@ -440,6 +440,50 @@ func model_within_inches_of_objective(model: Dictionary, objective: Dictionary, 
 	var marker_radius_px = Measurement.inches_to_px(0.78740157)
 	return Measurement.model_edge_to_point_distance_px(model, obj_pos) <= margin_px + marker_radius_px
 
+## Terrain-aware distance (px) from a model's base EDGE to the objective, 0 when
+## it is on it. The companion measure to model_within_inches_of_objective (same
+## geometry, same radius conventions), so "distance <= 3\"" and "within 3\"" can
+## never disagree: a terrain-hosted objective (14.01) measures to the hosting
+## AREA, open ground to the 40mm marker's edge.
+##
+## 12.08 Objective Consolidation orders the selectable objectives by this, so the
+## default target is the one the unit is really nearest — for a unit standing on
+## a wide central ruin that is the ruin it is touching, not a backfield marker
+## whose dot happens to be a few inches nearer than the ruin's centre dot.
+func model_distance_to_objective_px(model: Dictionary, objective: Dictionary) -> float:
+	var host_areas: Array = []
+	if GameConstants.edition >= 11:
+		host_areas = _objective_host_areas(objective)
+	if not host_areas.is_empty():
+		var best := INF
+		for host_area in host_areas:
+			best = minf(best, _model_distance_to_polygon_px(model, host_area.get("polygon", PackedVector2Array())))
+		return best
+	var obj_pos = objective.get("position", Vector2.ZERO)
+	if obj_pos is Dictionary:
+		obj_pos = Vector2(obj_pos.x, obj_pos.y)
+	# Distance to the 40mm marker's EDGE — the thing the player measures to.
+	var marker_radius_px = Measurement.inches_to_px(0.78740157)
+	return maxf(0.0, Measurement.model_edge_to_point_distance_px(model, obj_pos) - marker_radius_px)
+
+## Base-edge -> polygon distance in px (0 when the base overlaps it). Mirrors
+## Measurement.model_within_px_of_polygon's geometry so the two agree.
+func _model_distance_to_polygon_px(model: Dictionary, polygon: PackedVector2Array) -> float:
+	if polygon.size() < 3:
+		return INF
+	if Measurement.model_overlaps_polygon(model, polygon):
+		return 0.0
+	var pos = model.get("position", Vector2.ZERO)
+	if pos is Dictionary:
+		pos = Vector2(pos.get("x", 0), pos.get("y", 0))
+	elif pos == null:
+		return INF
+	var radius_px = Measurement.base_radius_px(int(model.get("base_mm", 32)))
+	var best := INF
+	for i in range(polygon.size()):
+		best = minf(best, Measurement.point_to_line_distance(pos, polygon[i], polygon[(i + 1) % polygon.size()]))
+	return maxf(0.0, best - radius_px)
+
 ## True when the objective is actively contested — both players have models in
 ## range with equal, nonzero OC — as opposed to merely uncontrolled (nobody in
 ## range). UI labels read this to avoid claiming "CONTESTED" over an empty or

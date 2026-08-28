@@ -76,8 +76,20 @@ func before_moving(unit_id: String, board: Dictionary, _rng, context: Dictionary
 			out["targets"] = targets if not targets.is_empty() else candidates
 			out["candidates"] = candidates
 		"objective":
-			var objs = _objectives_within(unit_id, board, OBJECTIVE_WITHIN_INCHES)
+			# 12.08 BEFORE: "select ONE of those objectives" — the player's pick
+			# (context.chosen_objective) wins; the default is the objective the
+			# unit is actually CLOSEST to. It used to be the first eligible
+			# marker in board order, which on the official 11e layouts is
+			# obj_home_1 -> obj_home_2 -> obj_nml_1 -> obj_nml_2 -> obj_center:
+			# a unit within 3" of both its backfield marker and the centre was
+			# marched backwards toward the corner with no way to say otherwise.
+			var scored = objective_candidates_scored(unit_id, board)
+			var objs: Array = []
+			for entry in scored:
+				objs.append(entry.id)
 			var chosen_obj = str(context.get("chosen_objective", ""))
+			out["objective_candidates"] = objs
+			out["objective_distances_px"] = scored
 			out["objective"] = chosen_obj if chosen_obj in objs else (objs[0] if not objs.is_empty() else "")
 		_:
 			out["error"] = "no consolidation mode applies — the unit cannot move (12.08)"
@@ -177,6 +189,42 @@ func _objectives_within(unit_id: String, board: Dictionary, margin_inches: float
 	return out
 
 
+## 12.08 BEFORE (Objective mode) — every objective this unit may select, CLOSEST
+## FIRST, as [{id, distance_px}]. The rules let the player "select one of those
+## objectives"; the head of this list is the default the UI opens on, so a unit
+## sitting between two markers consolidates toward the near one instead of
+## whichever happened to be authored first in the layout file.
+##
+## `distance_px` is the terrain-aware base-edge -> objective distance (0 when the
+## model is on it), minimised over the unit's alive models — the same geometry
+## the eligibility test uses, so "closest" means what the player would measure:
+## for a terrain-hosted objective (14.01) the distance to the AREA, not to its
+## centre dot.
+func objective_candidates_scored(unit_id: String, board: Dictionary) -> Array:
+	var unit = board.get("units", {}).get(unit_id, {})
+	var scored: Array = []
+	for obj in board.get("board", {}).get("objectives", []):
+		var best := INF
+		for m in unit.get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			if not _model_within_inches_of_objective(m, obj, OBJECTIVE_WITHIN_INCHES):
+				continue
+			best = minf(best, _model_distance_to_objective_px(m, obj))
+		if best < INF:
+			scored.append({"id": str(obj.get("id", "")), "distance_px": best})
+	scored.sort_custom(func(a, b): return a.distance_px < b.distance_px)
+	return scored
+
+
+## Ids only, closest first — the selectable set for 12.08 Objective mode.
+func objective_candidates(unit_id: String, board: Dictionary) -> Array:
+	var out: Array = []
+	for entry in objective_candidates_scored(unit_id, board):
+		out.append(entry.id)
+	return out
+
+
 ## Terrain-aware "is this model within `margin_inches` of the objective?" —
 ## the Objective-mode ELIGIBILITY test (12.08 BEFORE). Defers to MissionManager
 ## so terrain objectives measure to the hosting AREA (a unit standing on, or
@@ -204,6 +252,19 @@ func _model_in_objective_range(model: Dictionary, obj: Dictionary, fallback_rang
 		return mm.model_in_objective_range(model, obj)
 	var meas = root.get_node("/root/Measurement")
 	return _model_to_objective_px(model, obj) <= meas.inches_to_px(fallback_range_inches)
+
+
+## Terrain-aware "how far is this model from the objective?" (px, 0 when on it)
+## — the ordering key behind objective_candidates_scored(). Defers to
+## MissionManager so it matches objective control and the eligibility test;
+## falls back to the open-ground marker-edge distance headless.
+func _model_distance_to_objective_px(model: Dictionary, obj: Dictionary) -> float:
+	var root = Engine.get_main_loop().root
+	var mm = root.get_node_or_null("/root/MissionManager")
+	if mm != null and mm.has_method("model_distance_to_objective_px"):
+		return mm.model_distance_to_objective_px(model, obj)
+	var meas = root.get_node("/root/Measurement")
+	return maxf(0.0, _model_to_objective_px(model, obj) - meas.inches_to_px(0.78740157))
 
 
 func _objective_by_id(board: Dictionary, obj_id: String) -> Dictionary:

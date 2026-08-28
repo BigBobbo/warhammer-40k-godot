@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.41.1",
+      "version": "1.42.4",
       "date": "2026-08-27",
       "summary": "The green move ring now shows how far you can actually drag. On a Battlewagon it was reaching 4\" further than the game would let the hull go.",
       "changes": [
@@ -11,6 +11,55 @@
         "Cause: since 1.17.2 the ring was pushed out by the model's base size so a wide base would not overhang it. On a round base that is harmless, but a Battlewagon's rectangular base measures 4.05\" corner-to-centre, so the ring promised a third more move than the wagon had.",
         "Turning is still free, exactly as the tutorial says — 11th edition measures a move from the same point on the base at each end, and rotating costs nothing. That is why the drag limit was the correct number and the ring was not.",
         "Wide models (dreadnoughts, vehicles, monsters) now also get a faint outer halo showing how far the hull itself can end up, whichever way you turn it. It is deliberately thin and soft so it reads as a hint, not as a second boundary."
+      ]
+    },
+    {
+      "version": "1.42.3",
+      "date": "2026-08-28",
+      "summary": "Reserve arrivals now use the 11th-edition distances: 8\" from enemies (not 9\"), measured base to base, and the 6\" band means the whole model, not its centre dot.",
+      "changes": [
+        "Fixed: the placement screen refused reserve arrivals between 8\" and 9\" from an enemy. 11th edition sets that distance at 8\" and the game engine already used 8\", but the placement screen still enforced the old 9\" — so the exclusion bubbles were drawn an inch too big and a model aimed at a legal spot was quietly shoved further away than the rules require. Bubbles, the ghost, the \"held at\" tether and the status text now all use 8\".",
+        "Fixed: the 6\"-from-a-board-edge rule was measured to the centre of the model, so a base could hang past the line — nearly 2\" for a big oval base. It now checks the whole base, as \"wholly within\" requires, and the green arrival band is drawn where the model's centre may actually go rather than as a flat 6\" frame.",
+        "The arrival band redraws as you switch between model types in a unit, because a bigger base has a smaller legal band.",
+        "Fixed: during a Rapid Ingress the placement screen worked out \"enemies\" from whoever's turn it was rather than from the arriving unit's owner. Because Rapid Ingress happens in your opponent's turn, that inverted it — the 8\" spacing was measured against your own army and ignored the enemy entirely. The final confirm always caught it, so nothing illegal reached the board, but the ghost and the exclusion bubbles were showing the wrong thing throughout.",
+        "Infiltrators deployment had the same 9\"-vs-8\" split between the placement screen and the engine, and is now 8\" in both."
+      ]
+    },
+    {
+      "version": "1.42.2",
+      "date": "2026-08-28",
+      "summary": "Reserves can no longer walk in along your opponent's board edge on turn two — the deployment-zone ban is now enforced while you place, not only when you confirm.",
+      "changes": [
+        "Fixed: a unit arriving from Strategic Reserves could be placed anywhere in the 6\"-from-a-board-edge band, including the strip inside your opponent's deployment zone. 11th edition (20.04 Ingress Move) bars that before the third battle round, and the placement screen was not checking it — the ghost stayed green and the models dropped, and only the final Confirm rejected the whole arrival.",
+        "The valid-placement band now carves the opponent's deployment zone out of the green area and paints that slice red, labelled \"Opponent's DZ — barred until battle round 3\", so you can see where you may actually arrive before you place a single model.",
+        "Placing a model there now fails immediately with a clear message instead of after the whole unit is down.",
+        "The ban is measured against the model's base, not just its centre dot, so a base overhanging the zone boundary is caught too.",
+        "Deep Strike is unaffected: a deep-striking unit may still arrive inside your opponent's deployment zone, as 11th edition explicitly allows.",
+        "From the third battle round onwards the restriction lifts and the whole 6\" band is available again."
+      ]
+    },
+    {
+      "version": "1.42.1",
+      "date": "2026-08-28",
+      "summary": "The AI can no longer put more than half its army in reserve — attached leaders now count against the 50% cap, and they arrive with their unit instead of vanishing.",
+      "changes": [
+        "A character attached to a bodyguard goes into reserves with it, but the AI's declarations never counted the character. That let the AI hold back far more than the rules allow — in one game 7 of 11 units and 1310 of 2000 points (65.5%) started off the table against a 50% limit.",
+        "Both reserves caps (half your points, half your units) now price the whole attached unit — leader included — no matter who declares it. The same check applies to the AI, to you, and to the deployment-phase fallback.",
+        "Leaders attached to a reserved unit are now correctly placed in reserves too. Previously they were left in limbo: off the table all game, and refused entry when their unit arrived.",
+        "Attaching a character to a unit that is already in reserves is refused if it would push you over the cap.",
+        "The formations dialog now shows the unit limit alongside the points limit, and stops you ticking a unit that would break either."
+      ]
+    },
+    {
+      "version": "1.42.0",
+      "date": "2026-08-27",
+      "summary": "Consolidating onto an objective now lets you pick WHICH objective — and defaults to the nearest one instead of marching you backwards.",
+      "changes": [
+        "Objective Consolidation (Fight phase) picked the objective for you, and it picked badly: it took the first objective in the board's internal marker order, which on the official layouts is the backfield and expansion markers before the centre. A unit within 3\" of two objectives was told to consolidate toward the far one, and every drag toward the near one was reverted.",
+        "The Consolidate dialog now has a \"Consolidate toward:\" picker listing every objective the unit is within 3\" of, named the way the board names them (CENTER, NML 1, HOME 2) with the distance to each. Switching it re-points the movement arrows, the drag rules and the confirm check at once.",
+        "The default is now the objective the unit is actually closest to. For an objective sitting on a ruin, distance is measured to the ruin itself — so a big model standing on the central ruin defaults to the centre objective, not to a corner marker whose dot happens to be nearer.",
+        "The right-hand Consolidate list names the default marker on each unit's row, e.g. \"Stompa [Objective (CENTER)]\", and the battle log records which objective a unit consolidated toward.",
+        "Auto Consolidate follows the objective you selected, and the AI now moves a bodyguard and its attached characters toward one shared objective instead of each picking their own."
       ]
     },
     {

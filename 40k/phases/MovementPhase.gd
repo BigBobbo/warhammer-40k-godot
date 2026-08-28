@@ -3816,23 +3816,25 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 				# Strategic Reserves: must be within 6" of a battlefield edge
 				# P2-80: Use placement_type for validation
 				if placement_type == "strategic_reserves":
+					# 20.04 (and 10e's identical wording): set up WHOLLY within 6"
+					# of a battlefield edge — the whole base, not the centre dot.
 					var dist_to_left = pos_inches_x
 					var dist_to_right = board_width - pos_inches_x
 					var dist_to_top = pos_inches_y
 					var dist_to_bottom = board_height - pos_inches_y
 					var min_edge_dist = min(dist_to_left, dist_to_right, dist_to_top, dist_to_bottom)
 
-					if min_edge_dist > 6.0:
-						errors.append("%sModel %d: Strategic Reserves must be within 6\" of a battlefield edge (nearest edge: %.1f\")" % [g_label, i, min_edge_dist])
+					if not _wholly_within_setup_distance(pos, model_data, g["rotations"], i, board_width, board_height):
+						errors.append("%sModel %d: Strategic Reserves must be set up wholly within 6\" of a battlefield edge (base reaches %.1f\")" % [g_label, i, min_edge_dist + model_radius_inches])
 
-					# Turn 2: cannot be in opponent's deployment zone
-					if battle_round == 2:
-						# For Rapid Ingress, "opponent" is the active player
-						var opponent = get_current_player()
-						var opponent_zone = GameState.get_deployment_zone_for_player(opponent)
-						var zone_poly = opponent_zone.get("poly", [])
-						if _point_in_deployment_zone(pos_inches_x, pos_inches_y, zone_poly):
-							errors.append("%sModel %d: Strategic Reserves cannot arrive in opponent's deployment zone during Turn 2" % [g_label, i])
+					# 20.04: before the THIRD battle round, no model may be set up
+					# within the opponent's deployment zone.
+					if GameState.ingress_opponent_dz_ban_applies(battle_round, false):
+						# For Rapid Ingress, "opponent" is the active player —
+						# the ingressing player is the one holding the stratagem.
+						var dz_probe = _dz_probe_model(model_data, pos, g["rotations"], i)
+						if Measurement.model_overlaps_polygon(dz_probe, GameState.get_deployment_zone_poly_px(get_current_player())):
+							errors.append("%sModel %d: Strategic Reserves cannot arrive in the opponent's deployment zone before battle round 3" % [g_label, i])
 
 				# Omni-scramblers: cannot be set up within 12" of enemy units with Omni-scramblers
 				var omni_positions = GameState.get_omni_scrambler_positions(player)
@@ -5363,26 +5365,42 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 	if GameConstants.edition >= 11:
 		var ingress_tmpl = MoveTypes.get_type("ingress")
 		var pos_vecs: Array = []
+		# Parallel to pos_vecs: the arriving model's own base data, so the
+		# opponent-DZ ban can be tested against the real base rather than the
+		# centre point (20.04 bars models set up "within" that zone).
+		var pos_models: Array = []
 		for g in arrival_groups:
-			for p in g["positions"]:
+			var g_models: Array = g["unit"].get("models", [])
+			var g_rotations: Array = g.get("rotations", [])
+			for pi in range(g["positions"].size()):
+				var p = g["positions"][pi]
 				if p == null:
 					continue
 				var pv = _reinforcement_pos_to_vec2(p)
 				if pv != null:
 					pos_vecs.append(pv)
-		# A12 (20.04): supply the opponent's deployment-zone polygon (converted
-		# inches→px) so the "not in opponent DZ before battle round 3" ban is
-		# actually enforced (previously omitted, leaving the check inert).
-		var _opp_zone := GameState.get_deployment_zone_for_player(3 - active_player)
-		var _opp_zone_px := PackedVector2Array()
-		for _pt in _opp_zone.get("poly", []):
-			if _pt is Dictionary and _pt.has("x"):
-				_opp_zone_px.append(Vector2(float(_pt.x) * 40.0, float(_pt.y) * 40.0))
+					var md: Dictionary = (g_models[pi] as Dictionary).duplicate() if pi < g_models.size() and g_models[pi] is Dictionary else {}
+					if pi < g_rotations.size() and g_rotations[pi] != null:
+						md["rotation"] = float(g_rotations[pi])
+					pos_models.append(md)
+		# A12 (20.04): supply the opponent's deployment-zone polygon (px) so the
+		# "not in opponent DZ before battle round 3" ban is actually enforced
+		# (previously omitted, leaving the check inert).
+		#
+		# NOTE (pre-existing, unrelated to the ban itself): the OA-27 Outflank
+		# bypass below lives only on the legacy pre-11e branch, which this early
+		# return makes unreachable — so at edition 11 an Outflank unit is NOT
+		# exempted from the opponent-DZ ban. Left as-is deliberately: the only
+		# datasheet carrying Outflank in data/40kdc/abilities.json is flagged
+		# "pre-launch-provisional", so granting the exemption at 11e is a rules
+		# call for a human, not something to infer here.
+		var _opp_zone_px := GameState.get_deployment_zone_poly_px(3 - active_player)
 		var ingress_check = ingress_tmpl.validate_setup(unit_id, GameState.state, pos_vecs, {
 			"battle_round": battle_round,
 			"deep_strike": placement_type == "deep_strike",
 			"board_size_inches": Vector2(GameState.state.board.size.width, GameState.state.board.size.height),
 			"opponent_zone": _opp_zone_px,
+			"models": pos_models,
 		})
 		if not ingress_check.valid:
 			return {"valid": false, "errors": ingress_check.errors}
@@ -5428,32 +5446,36 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 					var dist_inches = dist_px / px_per_inch
 					# Edge-to-edge distance: center distance minus both radii
 					var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-					if edge_dist < 9.0:
-						errors.append("%sModel %d: must be >9\" from enemy models (currently %.1f\")" % [g_label, i, edge_dist])
+					if edge_dist < GameConstants.reinforcement_min_enemy_distance_inches():
+						errors.append("%sModel %d: must be >%.0f\" from enemy models (currently %.1f\")" % [g_label, i, GameConstants.reinforcement_min_enemy_distance_inches(), edge_dist])
 						break
 
 				# Strategic Reserves: must be within 6" of a battlefield edge
 				# P2-80: Use placement_type (which may override reserve_type) for validation
 				if placement_type == "strategic_reserves":
+					# 20.04 (and 10e's identical wording): set up WHOLLY within 6"
+					# of a battlefield edge — the whole base, not the centre dot.
 					var dist_to_left = pos_inches_x
 					var dist_to_right = board_width - pos_inches_x
 					var dist_to_top = pos_inches_y
 					var dist_to_bottom = board_height - pos_inches_y
 					var min_edge_dist = min(dist_to_left, dist_to_right, dist_to_top, dist_to_bottom)
 
-					if min_edge_dist > 6.0:
-						errors.append("%sModel %d: Strategic Reserves must be within 6\" of a battlefield edge (nearest edge: %.1f\")" % [g_label, i, min_edge_dist])
+					if not _wholly_within_setup_distance(pos, model_data, g["rotations"], i, board_width, board_height):
+						errors.append("%sModel %d: Strategic Reserves must be set up wholly within 6\" of a battlefield edge (base reaches %.1f\")" % [g_label, i, min_edge_dist + model_radius_inches])
 
-					# Turn 2: cannot be in opponent's deployment zone (unless unit has Outflank — OA-27)
-					if battle_round == 2:
+					# 20.04: before the THIRD battle round, no model may be set up
+					# within the opponent's deployment zone (unless the unit has
+					# Outflank — OA-27). Phrased as the rule is, not as `== 2`.
+					if GameState.ingress_opponent_dz_ban_applies(battle_round, false):
 						var _ability_mgr_outflank = get_node_or_null("/root/UnitAbilityManager")
 						var _has_outflank = _ability_mgr_outflank and _ability_mgr_outflank.has_outflank(unit_id)
 						if not _has_outflank:
-							var opponent = 3 - active_player
-							var opponent_zone = GameState.get_deployment_zone_for_player(opponent)
-							var zone_poly = opponent_zone.get("poly", [])
-							if _point_in_deployment_zone(pos_inches_x, pos_inches_y, zone_poly):
-								errors.append("%sModel %d: Strategic Reserves cannot arrive in opponent's deployment zone during Turn 2" % [g_label, i])
+							# "within" (not "wholly within") the zone — a base
+							# straddling the boundary is inside it.
+							var dz_probe = _dz_probe_model(model_data, pos, g["rotations"], i)
+							if Measurement.model_overlaps_polygon(dz_probe, GameState.get_deployment_zone_poly_px(3 - active_player)):
+								errors.append("%sModel %d: Strategic Reserves cannot arrive in the opponent's deployment zone before battle round 3" % [g_label, i])
 						else:
 							DebugLogger.info(str("MovementPhase: OA-27 Outflank — unit %s bypasses opponent deployment zone restriction" % unit_id))
 
@@ -5493,15 +5515,36 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 
 	return {"valid": errors.size() == 0, "errors": errors}
 
-func _point_in_deployment_zone(x_inches: float, y_inches: float, zone_poly: Array) -> bool:
-	"""Check if a point (in inches) is within a deployment zone polygon"""
-	if zone_poly.is_empty():
-		return false
-	var packed = PackedVector2Array()
-	for coord in zone_poly:
-		if coord is Dictionary and coord.has("x") and coord.has("y"):
-			packed.append(Vector2(coord.x, coord.y))
-	return Geometry2D.is_point_in_polygon(Vector2(x_inches, y_inches), packed)
+## Build a positioned model dict for a base-aware deployment-zone test: the
+## arriving model's base data at the proposed px position, with its rotation
+## (oval/rectangular bases care). Fed to Measurement.model_overlaps_polygon.
+## 20.04: "Set up your unit WHOLLY within the set-up distance of one or more
+## battlefield edges." Tested as containment in each edge's 6" band so rotated
+## oval/rectangular bases go through the same shape code as every other zone
+## check, rather than as a centre-point distance that ignored the base entirely.
+func _wholly_within_setup_distance(pos: Vector2, model_data: Dictionary, rotations: Array, index: int, board_w_inches: float, board_h_inches: float) -> bool:
+	var probe := _dz_probe_model(model_data, pos, rotations, index)
+	var w: float = board_w_inches * 40.0
+	var h: float = board_h_inches * 40.0
+	var b: float = 6.0 * 40.0
+	var bands := [
+		PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, b), Vector2(0, b)]),
+		PackedVector2Array([Vector2(0, h - b), Vector2(w, h - b), Vector2(w, h), Vector2(0, h)]),
+		PackedVector2Array([Vector2(0, 0), Vector2(b, 0), Vector2(b, h), Vector2(0, h)]),
+		PackedVector2Array([Vector2(w - b, 0), Vector2(w, 0), Vector2(w, h), Vector2(w - b, h)]),
+	]
+	var rot: float = float(probe.get("rotation", 0.0))
+	for band in bands:
+		if Measurement.shape_wholly_in_polygon(pos, probe, rot, band):
+			return true
+	return false
+
+func _dz_probe_model(model_data: Dictionary, pos: Vector2, rotations: Array, index: int) -> Dictionary:
+	var probe: Dictionary = model_data.duplicate() if model_data is Dictionary else {}
+	probe["position"] = pos
+	if index < rotations.size() and rotations[index] != null:
+		probe["rotation"] = float(rotations[index])
+	return probe
 
 func _validate_reinforcement_setup_overlaps(groups: Array) -> Dictionary:
 	# 03.02: a unit that is SET UP (reinforcements, Rapid Ingress) is placed

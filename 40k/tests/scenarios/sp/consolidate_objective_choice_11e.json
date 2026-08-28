@@ -1,0 +1,302 @@
+{
+  "id": "consolidate_objective_choice_11e",
+  "covers": [
+    "movetypes.ConsolidationMove.objective_candidates_scored",
+    "movetypes.ConsolidationMove.before_moving",
+    "phases.FightPhase.get_consolidation_context_11e",
+    "phases.FightPhase._validate_consolidate_11e",
+    "scripts.FightController.set_consolidate_objective_11e",
+    "dialogs.ConsolidateDialog._build_objective_picker"
+  ],
+  "fixture": "stompa_fight_11e",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Regression for the 2026-08-27 report: 'when trying to consolidate this Stompa into the middle objective I'm not able to — it is forcing me to consolidate backwards to the objective in the top left-hand corner, even though I'm closer to the middle one'. 12.08 BEFORE MOVING says an Objective Consolidation SELECTS one of the objectives the unit is within 3\" of; the code selected for you, taking objs[0] — the first eligible marker in BOARD ORDER. The official 11e terrain layouts author their markers home_1, home_2, nml_1, nml_2, CENTER, so the centre objective was always considered LAST: the Stompa here stands ON the central ruin that hosts obj_center (14.01, distance 0.00\") and 1.46\" from obj_nml_1's ruin, and was handed obj_nml_1 — every drag toward the centre was reverted with 'must end within range of the objective if possible, or closer to it'. The default is now the CLOSEST selectable objective (measured terrain-aware, to the hosting AREA), and the dialog carries a real picker so the player can select any of them. This scenario drives the real Consolidate step: it asserts the board authors obj_nml_1 before obj_center (so the fix is not an accident of ordering), that the right-panel row and the dialog both default to CENTER, switches the picker to NML 1 and back through the real item_selected path (an OptionButton opens a native popup a synthetic click cannot drive), asserts the aim point and the per-model 12.08 verdict follow the selection, then drags the Stompa toward the centre with real mouse input and confirms with the real Confirm Move button.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)\nGameState.state.players[\"2\"].merge({\"cp\": 0}, true)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var main_node = tree.current_scene\nvar old_container = main_node.get_node_or_null(\"BoardRoot/Objectives\")\nif old_container != null:\n\tmain_node.get_node(\"BoardRoot\").remove_child(old_container)\n\told_container.queue_free()\nMissionManager.objectives_visual_refs.clear()\nMissionManager._setup_objectives_for_deployment(GameState.get_deployment_type())\nmain_node._setup_objectives()\nvar ids = []\nfor o in GameState.state.board.objectives:\n\tids.append(str(o.id))\nreturn ids",
+      "multiline": true,
+      "equals": [
+        "obj_home_1",
+        "obj_home_2",
+        "obj_nml_1",
+        "obj_nml_2",
+        "obj_center"
+      ]
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "for i in range(GameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models.size()):\n\tGameState.state.units[\"U_CUSTODIAN_GUARD_B\"].models[i][\"position\"] = {\"x\": 200.0 + i * 60.0, \"y\": 1800.0}\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = GameState.state.units[\"U_STOMPA_A\"].models[0]\nreturn \"%d,%d\" % [int(m.position.x), int(m.position.y)]",
+      "multiline": true,
+      "equals": "600,900"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ids = []\nfor o in GameState.state.board.objectives:\n\tids.append(str(o.id))\nreturn ids.find(\"obj_nml_1\") < ids.find(\"obj_center\")",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = GameState.state.units[\"U_STOMPA_A\"].models[0]\nvar out = {}\nfor o in GameState.state.board.objectives:\n\tout[str(o.id)] = snapped(Measurement.px_to_inches(MissionManager.model_distance_to_objective_px(m, o)), 0.01)\nreturn out.get(\"obj_center\", -1.0)",
+      "multiline": true,
+      "equals": 0.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = GameState.state.units[\"U_STOMPA_A\"].models[0]\nfor o in GameState.state.board.objectives:\n\tif str(o.id) == \"obj_nml_1\":\n\t\treturn Measurement.px_to_inches(MissionManager.model_distance_to_objective_px(m, o))\nreturn -1.0",
+      "multiline": true,
+      "expect_min": 0.5,
+      "expect_max": 3.0
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_PILE_IN",
+        "player": 2
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_PILE_IN",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "pile_in_step_11e",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "return GameState.state.units[\"U_STOMPA_A\"].get(\"flags\", {}).get(\"was_eligible_to_fight\", false)",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._begin_consolidation_step_11e()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "consolidation_step_11e",
+      "equals": 1
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "consolidating_player_11e",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList/Consolidate_U_STOMPA_A",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList/Consolidate_U_STOMPA_A\").text",
+      "multiline": true,
+      "equals": "Stompa  [Objective (CENTER)]"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/UnitList/Consolidate_U_STOMPA_A",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/ConsolidateDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/ConsolidateDialog/Content/ObjectivePicker/ObjectiveOption",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"ConsolidateDialog/Content/ObjectivePicker/ObjectiveOption\").item_count",
+      "multiline": true,
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "var ob = tree.root.get_node(\"ConsolidateDialog/Content/ObjectivePicker/ObjectiveOption\")\nreturn ob.get_item_text(ob.selected).begins_with(\"CENTER\")",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.get_node(\"FightController\").consolidate_context_11e.get(\"objective\", \"\"))",
+      "multiline": true,
+      "equals": "obj_center"
+    },
+    {
+      "act": "execute_script",
+      "script": "return \"CENTER\" in tree.root.get_node(\"ConsolidateDialog/Content/Instruction\").text",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_picker_defaults_to_centre"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ob = tree.root.get_node(\"ConsolidateDialog/Content/ObjectivePicker/ObjectiveOption\")\nob.select(1)\nob.item_selected.emit(1)\nreturn ob.get_item_text(1)",
+      "multiline": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.get_node(\"FightController\").consolidate_context_11e.get(\"objective\", \"\"))",
+      "multiline": true,
+      "equals": "obj_nml_1"
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.get_node(\"FightController\").consolidate_context_11e.get(\"objective_position\", Vector2.ZERO))",
+      "multiline": true,
+      "equals": "(260.0, 750.0)"
+    },
+    {
+      "act": "execute_script",
+      "script": "return \"NML 1\" in tree.root.get_node(\"ConsolidateDialog/Content/Instruction\").text",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var fc = tree.current_scene.get_node(\"FightController\")\nreturn PhaseManager.get_current_phase_instance().check_consolidation_model_move_11e(\"U_STOMPA_A\", \"m1\", Vector2(680, 980), fc.consolidate_context_11e).get(\"allowed\", true)",
+      "multiline": true,
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "02_picker_switched_to_nml_1"
+    },
+    {
+      "act": "execute_script",
+      "script": "var ob = tree.root.get_node(\"ConsolidateDialog/Content/ObjectivePicker/ObjectiveOption\")\nob.select(0)\nob.item_selected.emit(0)\nreturn ob.get_item_text(0)",
+      "multiline": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return str(tree.current_scene.get_node(\"FightController\").consolidate_context_11e.get(\"objective\", \"\"))",
+      "multiline": true,
+      "equals": "obj_center"
+    },
+    {
+      "act": "execute_script",
+      "script": "var fc = tree.current_scene.get_node(\"FightController\")\nreturn PhaseManager.get_current_phase_instance().check_consolidation_model_move_11e(\"U_STOMPA_A\", \"m1\", Vector2(680, 980), fc.consolidate_context_11e).get(\"allowed\", false)",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "drag_board",
+      "from_x": 600.0,
+      "from_y": 900.0,
+      "to_x": 680.0,
+      "to_y": 980.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "return float(tree.current_scene.get_node(\"FightController\").current_model_positions[\"m1\"].x)",
+      "multiline": true,
+      "expect_min": 660.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_dragged_toward_centre"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/ConsolidateDialog/Content/Buttons/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "return float(GameState.state.units[\"U_STOMPA_A\"].models[0].position.x)",
+      "multiline": true,
+      "expect_min": 660.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return float(GameState.state.units[\"U_STOMPA_A\"].models[0].position.y)",
+      "multiline": true,
+      "expect_min": 960.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return MissionManager.model_in_objective_range(GameState.state.units[\"U_STOMPA_A\"].models[0], GameState.state.board.objectives[4])",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_consolidated_toward_centre"
+    }
+  ]
+}

@@ -19,6 +19,11 @@ var model_rotations: Dictionary = {}  # model_id -> rotation (radians) for pivot
 # UI elements
 var status_label: Label = null
 var reset_button: Button = null
+# 12.08 Objective mode: the "Consolidate toward:" picker and the objective ids
+# behind its items (closest first), so the player can select any objective their
+# unit is within 3" of — not just the one the phase defaulted to.
+var objective_picker: OptionButton = null
+var objective_ids: Array = []
 
 func setup(fighter_id: String, max_dist: float, phase, controller = null) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
@@ -53,6 +58,9 @@ func _build_ui() -> void:
 	instruction.add_theme_font_size_override("font_size", 19)
 	instruction.add_theme_color_override("font_color", WhiteDwarfTheme.WH_GOLD)
 	container.add_child(instruction)
+
+	# 12.08 BEFORE — Objective Consolidation: "select ONE of those objectives".
+	_build_objective_picker(container)
 
 	# Status label to show validation feedback
 	status_label = Label.new()
@@ -240,6 +248,11 @@ func _validate_movements() -> Dictionary:
 		"movements": model_movements,
 		"rotations": model_rotations
 	}
+	# 12.08: validate against the objective this move selected, exactly as the
+	# CONSOLIDATE action the Confirm button submits will.
+	var ctx = _consolidate_context()
+	if str(ctx.get("mode", "")) == "objective" and str(ctx.get("objective", "")) != "":
+		action["chosen_objective"] = str(ctx.get("objective", ""))
 
 	# Use FightPhase validation (consolidate uses same rules as pile-in)
 	if phase_reference.has_method("_validate_consolidate"):
@@ -291,6 +304,91 @@ func _consolidate_context() -> Dictionary:
 		return phase_reference.get_consolidation_context_11e(unit_id)
 	return {}
 
+func _build_objective_picker(container: VBoxContainer) -> void:
+	"""12.08 BEFORE MOVING (Objective Consolidation): the unit selects ONE of the
+	objectives it is within 3" of. Every selectable marker is offered here,
+	closest first, named the way the board names it ("CENTER", "NML 1") with its
+	distance — previously the phase silently took the first objective in board
+	order, which on the official 11e layouts is the home/expansion markers before
+	the centre, so a unit between two objectives was marched to the wrong one
+	with no way to say otherwise."""
+	var ctx = _consolidate_context()
+	if str(ctx.get("mode", "")) != "objective":
+		return
+	var options: Array = ctx.get("objective_options", [])
+	if options.is_empty():
+		return
+
+	var row = HBoxContainer.new()
+	row.name = "ObjectivePicker"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+
+	var picker_label = Label.new()
+	picker_label.name = "ObjectivePickerLabel"
+	picker_label.text = "Consolidate toward:"
+	picker_label.add_theme_font_size_override("font_size", 16)
+	picker_label.add_theme_color_override("font_color", _NEUTRAL_STATUS)
+	row.add_child(picker_label)
+
+	objective_picker = OptionButton.new()
+	objective_picker.name = "ObjectiveOption"
+	objective_picker.custom_minimum_size = Vector2(0, 32)
+	objective_ids.clear()
+	var selected_id = str(ctx.get("objective", ""))
+	for i in range(options.size()):
+		var opt = options[i]
+		var obj_id = str(opt.get("id", ""))
+		var obj_label = str(opt.get("label", obj_id))
+		objective_picker.add_item("%s  (%.1f\" away)" % [obj_label, float(opt.get("distance_inches", 0.0))], i)
+		objective_ids.append(obj_id)
+		if obj_id == selected_id:
+			objective_picker.select(i)
+	objective_picker.disabled = options.size() < 2
+	objective_picker.tooltip_text = "Your unit must end its move within range of the SELECTED objective (12.08). Only objectives within 3\" can be selected."
+	objective_picker.item_selected.connect(_on_objective_option_selected)
+	row.add_child(objective_picker)
+
+	container.add_child(row)
+
+func _on_objective_option_selected(index: int) -> void:
+	"""Re-target the consolidation at the objective the player just picked. The
+	controller re-derives the 12.08 context from the phase, so the drag verdicts,
+	the direction arrows and CONSOLIDATE validation all follow the new marker."""
+	if index < 0 or index >= objective_ids.size():
+		return
+	var obj_id = str(objective_ids[index])
+	if controller_reference == null or not controller_reference.has_method("set_consolidate_objective_11e"):
+		return
+	var result = controller_reference.set_consolidate_objective_11e(obj_id)
+	if not result.get("ok", false):
+		# Not selectable (shouldn't happen — the list came from the phase) —
+		# snap the picker back to the objective still in force.
+		var current_id = str(_consolidate_context().get("objective", ""))
+		var current_index = objective_ids.find(current_id)
+		if current_index >= 0:
+			objective_picker.select(current_index)
+		if status_label:
+			status_label.text = "✗ %s" % str(result.get("reason", "objective not selectable"))
+			status_label.add_theme_color_override("font_color", Color.RED)
+		return
+
+	# The heading spells out the rules for the SELECTED objective — refresh it.
+	var instruction = get_node_or_null("Content/Instruction")
+	if instruction != null:
+		instruction.text = _get_consolidate_mode_text()
+
+	# Preview moves that were legal toward the old objective may not be toward
+	# the new one; the controller reverts those, so re-read what is left.
+	if controller_reference.has_method("get_pile_in_movements"):
+		model_movements = controller_reference.get_pile_in_movements()
+	var reverted: Array = result.get("reverted", [])
+	if not reverted.is_empty() and status_label:
+		status_label.text = "Target changed — %d model move(s) reset (they no longer worked toward this objective)" % reverted.size()
+		status_label.add_theme_color_override("font_color", _NEUTRAL_STATUS)
+	else:
+		_update_status()
+
 func _get_consolidate_mode_text() -> String:
 	"""Instruction text for the unit's mandatory 12.08 consolidation mode.
 
@@ -308,6 +406,8 @@ func _get_consolidate_mode_text() -> String:
 			return "Engaging Consolidation: Move up to %.1f\"\n• Each model moved must end closer to the closest selected enemy unit\n• The unit must end engaged with every selected enemy unit\n• Enemy units it engages that have not fought will be selected to fight" % max_distance
 		"objective":
 			var obj_name = str(ctx.get("objective", ""))
+			if phase_reference != null and phase_reference.has_method("consolidation_objective_label_11e"):
+				obj_name = str(phase_reference.consolidation_objective_label_11e(obj_name))
 			var obj_suffix = " (%s)" % obj_name if obj_name != "" else ""
 			return "Objective Consolidation: Move up to %.1f\" toward the objective%s\n• Each model moved must end within range of the objective, or closer to it\n• The unit must end within range of the objective\n• Must maintain Unit Coherency" % [max_distance, obj_suffix]
 		_:

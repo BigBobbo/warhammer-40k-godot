@@ -4458,6 +4458,36 @@ static func _score_unit_for_embarkation(unit: Dictionary, unit_id: String, model
 # RESERVES DECLARATIONS — FORMATIONS PHASE (T7-34 / FORM-3)
 # =============================================================================
 
+static func _reserve_riders(action: Dictionary, all_units: Dictionary) -> Array:
+	"""The CHARACTERs that go into reserves with the action's unit.
+
+	FormationsPhase puts them on the offered DECLARE_RESERVES /
+	UNDECLARE_RESERVES action (it is the only place that knows the
+	attachments declared this phase); a live `attachment_data` is the fallback
+	for callers that build the action themselves. Units already in reserves are
+	dropped so a running total never counts them twice."""
+	var out: Array = []
+	var ids: Array = action.get("attached_character_ids", [])
+	if ids.is_empty():
+		var unit: Dictionary = all_units.get(str(action.get("unit_id", "")), {})
+		ids = unit.get("attachment_data", {}).get("attached_characters", [])
+	for char_id in ids:
+		var cid := str(char_id)
+		if cid == "" or out.has(cid):
+			continue
+		var char_unit: Dictionary = all_units.get(cid, {})
+		if char_unit.is_empty():
+			continue
+		# Saved states carry status as the enum NAME, live snapshots as the int.
+		var status_v = char_unit.get("status", -1)
+		if typeof(status_v) == TYPE_STRING:
+			if str(status_v) == "IN_RESERVES":
+				continue
+		elif int(status_v) == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		out.append(cid)
+	return out
+
 static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actions: Array,
 		undeclare_reserves_actions: Array, player: int) -> Dictionary:
 	"""Evaluate which units should be placed in reserves during formations.
@@ -4489,13 +4519,22 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 	var max_reserves_units = int(total_army_units / 2)  # Can't put more than half the army in reserves
 
 	# Calculate current reserves commitment from UNDECLARE_RESERVES actions
-	# (these represent units already declared in reserves)
+	# (these represent units already declared in reserves). A declared unit
+	# takes its attached leaders off the table with it, and the phase's caps
+	# price them (FormationsPhase._reserve_attached_characters), so the AI's
+	# own budget has to price them the same way — otherwise it keeps proposing
+	# declarations the phase rejects, and the army it fields is a third
+	# smaller than the budget it thinks it spent.
 	var current_reserves_points = 0
-	var current_reserves_count = undeclare_reserves_actions.size()
+	var current_reserves_count = 0
 	for action in undeclare_reserves_actions:
 		var uid = action.get("unit_id", "")
 		var u = all_units.get(uid, {})
 		current_reserves_points += u.get("meta", {}).get("points", 0)
+		current_reserves_count += 1
+		for char_id in _reserve_riders(action, all_units):
+			current_reserves_points += all_units.get(char_id, {}).get("meta", {}).get("points", 0)
+			current_reserves_count += 1
 
 	print("AIDecisionMaker: [FORM-3] Reserves budget: %d/%d pts used, %d/%d units used (army: %d pts, %d units)" % [
 		current_reserves_points, max_reserves_points, current_reserves_count, max_reserves_units,
@@ -4538,16 +4577,24 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 			continue
 
 		var reserve_type = action.get("reserve_type", "strategic_reserves")
+		# The whole attached unit is what leaves the table: the bodyguard plus
+		# every leader the phase says goes with it.
+		var riders := _reserve_riders(action, all_units)
 		var unit_points = unit.get("meta", {}).get("points", 0)
+		for char_id in riders:
+			unit_points += all_units.get(char_id, {}).get("meta", {}).get("points", 0)
+		var unit_slots := 1 + riders.size()
 
-		# Check if adding this unit would exceed the points cap
+		# Check if adding this unit would exceed either cap
 		if current_reserves_points + unit_points > max_reserves_points:
+			continue
+		if current_reserves_count + unit_slots > max_reserves_units:
 			continue
 
 		var score = _score_unit_for_reserves(unit, unit_id, reserve_type, snapshot, player)
 
 		var presence_penalty := 0.0
-		var board_units_after = total_army_units - current_reserves_count - 1
+		var board_units_after = total_army_units - current_reserves_count - unit_slots
 		if board_units_after < min_board_units:
 			presence_penalty += float(min_board_units - board_units_after) * 1.5
 		if reserve_type == "strategic_reserves":
@@ -17537,7 +17584,7 @@ static func _fight_group_proposed_obstacles(unit: Dictionary, movements: Diction
 # bodyguard's single move. Compute each character unit's model movements too
 # and merge them into the action payload keyed "<char_unit_id>:<index>"
 # (the key form FightPhase routes to the character's own models).
-static func _merge_attached_char_fight_movements(snapshot: Dictionary, unit_id: String, player: int, movements: Dictionary, mode: String) -> Dictionary:
+static func _merge_attached_char_fight_movements(snapshot: Dictionary, unit_id: String, player: int, movements: Dictionary, mode: String, target_obj_pos: Vector2 = Vector2.INF) -> Dictionary:
 	var unit = snapshot.get("units", {}).get(unit_id, {})
 	var attached = unit.get("attachment_data", {}).get("attached_characters", [])
 	if attached.is_empty():
@@ -17554,7 +17601,9 @@ static func _merge_attached_char_fight_movements(snapshot: Dictionary, unit_id: 
 			"consolidate_engagement":
 				char_movements = _compute_consolidate_movements_engagement(snapshot, str(char_id), char_unit, player, extra_obstacles)
 			"consolidate_objective":
-				char_movements = _compute_consolidate_movements_objective(snapshot, str(char_id), char_unit, player, extra_obstacles)
+				# 19.03/12.08: the character moves toward the SAME objective its
+				# bodyguard selected, not the one nearest its own models.
+				char_movements = _compute_consolidate_movements_objective(snapshot, str(char_id), char_unit, player, extra_obstacles, target_obj_pos)
 		for key in char_movements:
 			movements["%s:%s" % [str(char_id), str(key)]] = char_movements[key]
 		extra_obstacles.append_array(_fight_group_proposed_obstacles(char_unit, char_movements))
@@ -17878,7 +17927,7 @@ static func _find_model_index_in_unit(unit: Dictionary, model_id: String) -> int
 # CONSOLIDATION MOVEMENT COMPUTATION
 # =============================================================================
 
-static func _compute_consolidate_action(snapshot: Dictionary, unit_id: String, player: int) -> Dictionary:
+static func _compute_consolidate_action(snapshot: Dictionary, unit_id: String, player: int, forced_objective_id: String = "") -> Dictionary:
 	"""Compute consolidation movements for a unit after fighting.
 	Consolidation has two modes:
 	- ENGAGEMENT: If any enemy is within 4" (3" move + 1" engagement range),
@@ -17914,29 +17963,95 @@ static func _compute_consolidate_action(snapshot: Dictionary, unit_id: String, p
 	var mode = _determine_ai_consolidate_mode(snapshot, _fold_attached_unit_for_ai(snapshot, unit_id), player)
 	var movements = {}
 
+	# 12.08 BEFORE (Objective mode): the whole unit selects ONE objective. Resolve
+	# it once here — the caller's pick when it made one, else the closest marker
+	# the unit may actually select — and drive every model (attached characters
+	# included, 19.03) toward that same one. Each sub-unit used to re-pick the
+	# marker nearest its own centroid, so a bodyguard and its character could
+	# walk to different objectives and the validator judged the move against a
+	# third.
+	var chosen_objective := {}
+	if mode == "OBJECTIVE":
+		chosen_objective = _ai_consolidate_objective_target(
+			snapshot, _fold_attached_unit_for_ai(snapshot, unit_id), forced_objective_id)
+
 	if mode == "ENGAGEMENT":
 		# Enhanced consolidation: prioritise wrapping enemies and tagging new units
 		movements = _compute_consolidate_movements_engagement(snapshot, unit_id, unit, player)
 		movements = _merge_attached_char_fight_movements(snapshot, unit_id, player, movements, "consolidate_engagement")
 	elif mode == "OBJECTIVE":
-		movements = _compute_consolidate_movements_objective(snapshot, unit_id, unit, player)
-		movements = _merge_attached_char_fight_movements(snapshot, unit_id, player, movements, "consolidate_objective")
+		var target_pos = chosen_objective.get("position", Vector2.INF)
+		movements = _compute_consolidate_movements_objective(snapshot, unit_id, unit, player, [], target_pos)
+		movements = _merge_attached_char_fight_movements(snapshot, unit_id, player, movements, "consolidate_objective", target_pos)
 
 	var description = ""
 	if movements.is_empty():
 		description = "%s consolidates (all models holding position)" % unit_name
 	else:
 		var mode_label = "toward enemy" if mode == "ENGAGEMENT" else "toward objective"
+		# Name the objective the way the board labels it ("CENTER", "NML 1") so
+		# the battle log says WHERE the unit went, not just "an objective".
+		if mode == "OBJECTIVE" and str(chosen_objective.get("id", "")) != "":
+			mode_label = "toward %s" % str(chosen_objective.id).replace("obj_", "").to_upper().replace("_", " ")
 		description = "%s consolidates %s (%d models moved)" % [unit_name, mode_label, movements.size()]
 
 	print("AIDecisionMaker: %s" % description)
 
-	return {
+	var out := {
 		"type": "CONSOLIDATE",
 		"unit_id": unit_id,
 		"movements": movements,
 		"_ai_description": description
 	}
+	# Tell FightPhase which objective this move was solved toward (12.08) so it
+	# validates the geometry the AI actually computed.
+	if mode == "OBJECTIVE" and str(chosen_objective.get("id", "")) != "":
+		out["chosen_objective"] = str(chosen_objective.id)
+	return out
+
+## 12.08 BEFORE (Objective mode) — the ONE objective this unit consolidates
+## toward: `forced_id` when the caller (the human Auto Consolidate button, or a
+## replayed plan) already selected one, otherwise the closest marker the unit is
+## allowed to select. Eligibility is the same terrain-aware "within 3\"" test
+## _determine_ai_consolidate_mode gates on, so the AI can never aim at a marker
+## FightPhase would refuse. Returns {} when the board has no selectable objective.
+static func _ai_consolidate_objective_target(snapshot: Dictionary, unit: Dictionary, forced_id: String = "") -> Dictionary:
+	var alive_models = _get_alive_models_with_positions(unit)
+	if alive_models.is_empty():
+		return {}
+	var mm = Engine.get_main_loop().root.get_node_or_null("/root/MissionManager") if Engine.get_main_loop() != null else null
+	var mm_ready = mm != null and mm.has_method("model_within_inches_of_objective")
+	var objective_range_px = 3.78740157 * PIXELS_PER_INCH
+
+	var best := {}
+	var best_dist := INF
+	for obj in snapshot.get("board", {}).get("objectives", []):
+		var obj_pos = obj.get("position", null)
+		if obj_pos == null:
+			continue
+		if not (obj_pos is Vector2):
+			obj_pos = Vector2(float(obj_pos.get("x", 0)), float(obj_pos.get("y", 0)))
+		var obj_id = str(obj.get("id", ""))
+		var closest := INF
+		for model in alive_models:
+			var mpos = _get_model_position(model)
+			if mpos == Vector2.INF:
+				continue
+			var mbr = _model_bounding_radius_px(model.get("base_mm", 32), model.get("base_type", "circular"), model.get("base_dimensions", {}))
+			var edge_px = maxf(0.0, mpos.distance_to(obj_pos) - mbr)
+			var selectable = mm.model_within_inches_of_objective(model, obj, 3.0) if mm_ready else (edge_px <= objective_range_px)
+			if selectable:
+				closest = minf(closest, edge_px)
+		if closest == INF:
+			continue
+		if forced_id != "" and obj_id == forced_id:
+			return {"id": obj_id, "position": obj_pos, "distance_px": closest}
+		if closest < best_dist:
+			best_dist = closest
+			best = {"id": obj_id, "position": obj_pos, "distance_px": closest}
+	if forced_id != "" and not best.is_empty():
+		print("AIDecisionMaker: consolidation objective %s is not selectable — falling back to closest (%s)" % [forced_id, str(best.get("id", ""))])
+	return best
 
 static func _determine_ai_consolidate_mode(snapshot: Dictionary, unit: Dictionary, player: int) -> String:
 	"""Determine which consolidation mode the AI should use. The 12.08 modes are
@@ -18397,9 +18512,10 @@ static func _angle_difference(a: float, b: float) -> float:
 		diff += 2.0 * PI
 	return diff
 
-static func _compute_consolidate_movements_objective(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int, extra_friendly_obstacles: Array = []) -> Dictionary:
-	"""Compute per-model consolidation destinations when moving toward the closest
-	objective (fallback mode when no enemy is within engagement reach).
+static func _compute_consolidate_movements_objective(snapshot: Dictionary, unit_id: String, unit: Dictionary, player: int, extra_friendly_obstacles: Array = [], target_obj_pos: Vector2 = Vector2.INF) -> Dictionary:
+	"""Compute per-model consolidation destinations for an Objective Consolidation.
+	`target_obj_pos` is the objective the unit SELECTED (12.08 BEFORE); when it is
+	not supplied the solver falls back to the marker nearest the unit centroid.
 	Returns {model_id_string: Vector2} for models that should move."""
 	var movements = {}
 	var alive_models = _get_alive_models_with_positions(unit)
@@ -18419,9 +18535,11 @@ static func _compute_consolidate_movements_objective(snapshot: Dictionary, unit_
 	# Track placed positions to avoid intra-unit collisions
 	var placed_positions = []
 
-	# Find the closest objective to the unit centroid to use as a consistent target
-	var centroid = _get_unit_centroid(unit)
-	var target_obj_pos = _nearest_objective_pos(centroid, objectives)
+	# The selected objective (12.08) drives every model; without one, fall back to
+	# the marker nearest the unit centroid.
+	if target_obj_pos == Vector2.INF:
+		var centroid = _get_unit_centroid(unit)
+		target_obj_pos = _nearest_objective_pos(centroid, objectives)
 	if target_obj_pos == Vector2.INF:
 		return movements
 

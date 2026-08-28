@@ -1,0 +1,155 @@
+{
+  "id": "reserves_opponent_dz_ban_11e",
+  "covers": [
+    "scripts.DeploymentController._validate_reinforcement_position",
+    "scripts.StrategicReservesZoneVisual",
+    "phases.MovementPhase.11e_ingress",
+    "movetypes.IngressMove",
+    "autoloads.GameState.ingress_opponent_dz_ban_applies"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "11e 20.04 INGRESS MOVE — 'Before the Third Battle Round: no models can be set up within your opponent's deployment zone.' Drives the REAL placement UI: clicks the reinforcement row in the movement unit list, then clicks the board inside the opponent's deployment zone (within 6\" of THEIR board edge, so legal by every other ingress check). Before the fix DeploymentController._validate_reinforcement_position ignored the ban — the ghost stayed green and the model dropped; only MovementPhase rejected it, after the player had placed the whole unit. Asserts (1) the click inside the opponent DZ places NOTHING, (2) a click on the arriving player's own board edge still places a model, (3) MovementPhase rejects the same set-up, and (4) Deep Strike (24.09) is exempt.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 2 },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "Deterministic hammer-and-anvil zones: P1 (the ARRIVING player's opponent) owns the top 18\", P2 the bottom 18\".",
+      "script": "GameState.state[\"board\"][\"deployment_zones\"] = [{\"player\": 1, \"poly\": [{\"x\": 0, \"y\": 0}, {\"x\": 0, \"y\": 18}, {\"x\": 44, \"y\": 18}, {\"x\": 44, \"y\": 0}]}, {\"player\": 2, \"poly\": [{\"x\": 0, \"y\": 42}, {\"x\": 0, \"y\": 60}, {\"x\": 44, \"y\": 60}, {\"x\": 44, \"y\": 42}]}]\nreturn GameState.get_deployment_zone_poly_px(1)[1].y",
+      "equals": 720.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "Park every enemy (P1) model dead centre so the 8\"/9\" enemy bubble cannot be what rejects either click.",
+      "script": "for uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"owner\", 0)) == 1:\n\t\tfor m in u.get(\"models\", []):\n\t\t\tif m.get(\"position\") != null:\n\t\t\t\tm[\"position\"] = {\"x\": 880.0, \"y\": 1200.0}\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "P2's U_STRIKE_FORCE_A goes into Strategic Reserves; battle round 2. Its abilities are cleared so clicking the reinforcement row starts placement directly instead of opening the P2-80 Deep-Strike/Strategic-Reserves choice dialog (Deep Strike is granted later, for the 24.09 step). The live phase snapshot is patched the same way the ISS-060 scenario does it — re-entering the phase would rebind the controllers the clicks below rely on.",
+      "script": "for store in [GameState.state, PhaseManager.get_current_phase_instance().game_state_snapshot]:\n\tvar u = store[\"units\"][\"U_STRIKE_FORCE_A\"]\n\tu.merge({\"status\": 7, \"reserve_type\": \"strategic_reserves\"}, true)\n\tu[\"flags\"] = {\"in_reserves\": true}\n\tu[\"meta\"][\"abilities\"] = []\n\tfor m in u[\"models\"]:\n\t\tm[\"position\"] = null\n\tstore[\"meta\"][\"battle_round\"] = 2\nreturn GameState.get_battle_round()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "No Deep Strike yet — the unit must take the plain Strategic Reserves placement path.",
+      "script": "return GameState.unit_has_deep_strike(\"U_STRIKE_FORCE_A\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "The shared rule predicate: banned before battle round 3, lifted at 3, never applied to Deep Strike (24.09).",
+      "script": "return [GameState.ingress_opponent_dz_ban_applies(2, false), GameState.ingress_opponent_dz_ban_applies(3, false), GameState.ingress_opponent_dz_ban_applies(2, true)]",
+      "equals": [true, false, false]
+    },
+
+    { "act": "execute_script", "script": "main.movement_controller._refresh_unit_list()" },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "The reinforcement row is row 1 (row 0 is the disabled REINFORCEMENTS header).",
+      "script": "var list = tree.current_scene.movement_controller.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_STRIKE_FORCE_A\":\n\t\treturn i\nreturn -1",
+      "equals": 1
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList",
+      "index": 1,
+      "description": "Click 'Arrive from Reserves' — the real player entry into placement."
+    },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.deployment_controller.is_reinforcement_mode", "equals": true },
+    { "act": "execute_script", "script": "main.deployment_controller.reinforcement_placement_type", "equals": "strategic_reserves" },
+    { "act": "screenshot", "label": "01_band_bars_opponent_dz" },
+
+    {
+      "act": "click_board_at",
+      "x": 880.0,
+      "y": 120.0,
+      "description": "(22\", 3\") — inside P1's deployment zone AND within 6\" of P1's board edge. 20.04 bars it before battle round 3."
+    },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "THE REGRESSION: nothing may be placed inside the opponent's deployment zone.",
+      "script": "return tree.current_scene.deployment_controller.placed_tokens.size()",
+      "equals": 0
+    },
+    { "act": "screenshot", "label": "02_click_in_opponent_dz_places_nothing" },
+
+    {
+      "act": "click_board_at",
+      "x": 880.0,
+      "y": 2280.0,
+      "description": "(22\", 57\") — the arriving player's OWN board edge: within 6\" of an edge, outside P1's zone. Still legal."
+    },
+    { "act": "wait_seconds", "seconds": 0.3 },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "...and the fix must not over-block: a legal own-side drop still lands.",
+      "script": "return tree.current_scene.deployment_controller.placed_tokens.size()",
+      "equals": 1
+    },
+    { "act": "screenshot", "label": "03_own_edge_placement_lands" },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "Back out of the UI placement session so the engine-side dispatches below start from a clean IN_RESERVES unit.",
+      "script": "tree.current_scene.deployment_controller.reset_unit()\nfor store in [GameState.state, PhaseManager.get_current_phase_instance().game_state_snapshot]:\n\tvar u = store[\"units\"][\"U_STRIKE_FORCE_A\"]\n\tu[\"status\"] = 7\n\tu[\"flags\"] = {\"in_reserves\": true}\n\tfor m in u[\"models\"]:\n\t\tm[\"position\"] = null\nreturn int(GameState.state[\"units\"][\"U_STRIKE_FORCE_A\"][\"status\"])",
+      "equals": 7
+    },
+    {
+      "act": "dispatch_action",
+      "description": "The engine must agree with the UI: MovementPhase rejects the same opponent-DZ set-up.",
+      "action": {
+        "type": "PLACE_REINFORCEMENT",
+        "unit_id": "U_STRIKE_FORCE_A",
+        "model_positions": [[880.0, 120.0]]
+      }
+    },
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "Rejected means the unit is still in reserves, not half-arrived.",
+      "script": "return int(GameState.state[\"units\"][\"U_STRIKE_FORCE_A\"][\"status\"])",
+      "equals": 7
+    },
+
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "Grant Deep Strike so the 24.09 exemption can be exercised on the very same spot.",
+      "script": "for store in [GameState.state, PhaseManager.get_current_phase_instance().game_state_snapshot]:\n\tstore[\"units\"][\"U_STRIKE_FORCE_A\"][\"meta\"][\"abilities\"] = [{\"name\": \"Deep Strike\"}]\nreturn GameState.unit_has_deep_strike(\"U_STRIKE_FORCE_A\")",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "description": "Deep Strike (24.09) is explicitly exempt — 'even if that is within your opponent's deployment zone'.",
+      "action": {
+        "type": "PLACE_REINFORCEMENT",
+        "unit_id": "U_STRIKE_FORCE_A",
+        "placement_type": "deep_strike",
+        "model_positions": [[880.0, 120.0]]
+      }
+    },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "expect_state", "path": "units.U_STRIKE_FORCE_A.flags.arrived_from_reserves", "equals": true },
+    { "act": "screenshot", "label": "04_deep_strike_exempt" }
+  ]
+}
