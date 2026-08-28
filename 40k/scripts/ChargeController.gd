@@ -5098,6 +5098,13 @@ const CHARGE_RANGE_OVERLAY_WIDTH: float = 12.0  # Width in board-space px (board
 const CHARGE_MODEL_RANGE_COLOR: Color = Color(0.3, 0.9, 0.45, 0.55)
 const CHARGE_MODEL_RANGE_LABEL_COLOR: Color = Color(0.45, 1.0, 0.55, 0.95)
 const CHARGE_MODEL_RANGE_WIDTH: float = 8.0  # Width in board-space px (thinner than the 12" ring)
+# Faint halo marking how far a wide model's HULL can end up on the rolled charge
+# — the reach ring plus that base's circumscribed radius. Same split as the
+# Movement phase: the bright ring is the boundary the drag honours, the halo only
+# answers "and where does the hull itself finish".
+const CHARGE_HULL_REACH_COLOR: Color = Color(0.3, 0.9, 0.45, 0.2)
+const CHARGE_HULL_REACH_WIDTH: float = 3.0
+const CHARGE_HULL_REACH_MIN_EXTENT_PX: float = 40.0  # 1"; below this it just smudges the ring
 
 func _draw_charge_dashed_circle(center: Vector2, radius_px: float, color: Color, width: float) -> void:
 	# Draw a dashed circle (alternating visible/invisible arcs) into range_visual.
@@ -5313,11 +5320,13 @@ func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void
 	# stays put as a fixed reference while the model is dragged; the panel's
 	# Used/Left readout tracks the live remaining budget.
 	#
-	# Each ring is drawn at the rolled distance PLUS that model's base extent: the
-	# charge budget is measured centre-to-centre, so a ring at the raw distance
-	# marks where the model's centre may stop and a wide base overhangs it at max
-	# range. Inflating per model makes the ring mean "the furthest any part of this
-	# model can end up" (same convention as the Movement phase reach ring).
+	# Each ring is drawn at the rolled distance and nothing else, because that is
+	# where _clamp_charge_to_budget stops the model: the charge budget is measured
+	# centre-to-centre (11e measures a move "from the same point on its base at the
+	# start and end of that move", rotation free), so the ring IS the drag limit.
+	# A wide base does overhang it at max range; how far the hull can end up is the
+	# separate faint halo drawn below (same convention as the Movement phase reach
+	# ring — see MovementController._draw_hull_reach_circle).
 	if not is_instance_valid(range_visual):
 		return
 	_clear_charge_range_circle()
@@ -5329,6 +5338,7 @@ func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void
 	var radius_px := Measurement.inches_to_px(max_distance)
 	var max_ring_radius := radius_px
 	var centers: Array = []
+	var hull_halos: Array = []
 	# Charging unit's own models, plus its attached CHARACTER models — they are
 	# draggable too (keyed "<char_unit>:<model>"), so show their reach as well.
 	var ring_units: Array = [[unit_id, unit]]
@@ -5349,9 +5359,25 @@ func _show_per_model_charge_ranges(unit_id: String, max_distance: float) -> void
 			if center == Vector2.ZERO:
 				continue
 			centers.append(center)
-			var ring_radius: float = radius_px + Measurement.base_extent_px(model)
-			max_ring_radius = maxf(max_ring_radius, ring_radius)
-			_draw_charge_dashed_circle(center, ring_radius, CHARGE_MODEL_RANGE_COLOR, CHARGE_MODEL_RANGE_WIDTH)
+			# The rolled distance and nothing else: _clamp_charge_to_budget stops
+			# the model's CENTRE there, and 11e measures the move "from the same
+			# point on its base at the start and end of that move" with rotation
+			# free. Inflating this ring by the base extent (as it did before the
+			# Battlewagon reach-ring report) advertised charge range the drag
+			# would refuse — 4"+ of it on a big rectangular hull.
+			max_ring_radius = maxf(max_ring_radius, radius_px)
+			_draw_charge_dashed_circle(center, radius_px, CHARGE_MODEL_RANGE_COLOR, CHARGE_MODEL_RANGE_WIDTH)
+			# ...and, for a base wide enough that it matters, remember where that
+			# model's hull can reach. Drawn after every ring below so the reach
+			# rings stay the first children of range_visual.
+			var extent_px: float = Measurement.base_extent_px(model)
+			if extent_px >= CHARGE_HULL_REACH_MIN_EXTENT_PX:
+				hull_halos.append([center, radius_px + extent_px])
+
+	# Hull halos last, so the dashed reach rings keep the leading child slots.
+	for halo in hull_halos:
+		max_ring_radius = maxf(max_ring_radius, float(halo[1]))
+		_draw_charge_dashed_circle(halo[0], float(halo[1]), CHARGE_HULL_REACH_COLOR, CHARGE_HULL_REACH_WIDTH)
 
 	# One summary label above the group — every model shares the same rolled reach,
 	# so a per-model number would just be the same value repeated N times.
