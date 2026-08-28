@@ -2857,7 +2857,7 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		var char_suffix = ""
 		if attached_char_names.size() > 0:
 			char_suffix = " + " + ", ".join(attached_char_names)
-		status_label.text = "Placing reinforcement: %s%s (%s) — >9\" from enemies" % [unit_name, char_suffix, type_label]
+		status_label.text = "Placing reinforcement: %s%s (%s) — >%.0f\" from enemies" % [unit_name, char_suffix, type_label, GameConstants.reinforcement_min_enemy_distance_inches()]
 		# P2-80: Show board edge constraint only for strategic reserves placement
 		if placement_type == "strategic_reserves":
 			status_label.text += " — within 6\" of board edge"
@@ -3210,12 +3210,27 @@ func _on_scout_reserves_confirmed() -> void:
 	refresh_unit_list()
 	update_ui()
 
+func _placement_arriving_owner() -> int:
+	"""The player whose unit the DeploymentController is currently placing.
+	NOT the active player during a Rapid Ingress — that runs reinforcement
+	placement for the non-active player — so every "enemy" and "your opponent"
+	the placement helpers draw has to be resolved from this, not from
+	GameState.get_active_player()."""
+	if deployment_controller and deployment_controller.unit_id != "":
+		var u := GameState.get_unit(deployment_controller.unit_id)
+		if u.has("owner"):
+			return int(u.get("owner"))
+	return GameState.get_active_player()
+
 func _show_deep_strike_exclusion() -> void:
 	"""Show placement helpers for reinforcement placement: the 9\" exclusion
 	bubbles around all enemy models, plus — when the unit is arriving from
 	Strategic Reserves — the valid 6\"-from-board-edge band it must be set up in."""
 	_hide_deep_strike_exclusion()  # Clean up any existing visual
-	var active_player = GameState.get_active_player()
+	# The bubbles belong to the ARRIVING player's enemies. Under Rapid Ingress
+	# the arriving player is the non-active one, so reading the active player
+	# here drew bubbles around the arriving player's own army.
+	var active_player = _placement_arriving_owner()
 	var enemy_positions = GameState.get_enemy_model_positions(active_player)
 	if not enemy_positions.is_empty():
 		_deep_strike_exclusion_visual = load("res://scripts/DeepStrikeExclusionVisual.gd").new()
@@ -3266,10 +3281,7 @@ func _show_strategic_reserves_zone() -> void:
 	# Pass the arriving unit's owner so the opponent-DZ carve-out is drawn for
 	# the right player during a Rapid Ingress (the arriving player is the
 	# NON-active one there).
-	var _band_owner := -1
-	if deployment_controller and deployment_controller.unit_id != "":
-		_band_owner = int(GameState.get_unit(deployment_controller.unit_id).get("owner", -1))
-	_strategic_reserves_zone_visual.show_zone(_band_owner)
+	_strategic_reserves_zone_visual.show_zone(_placement_arriving_owner(), deployment_controller)
 
 func _hide_strategic_reserves_zone() -> void:
 	"""Hide and free the Strategic Reserves valid-zone visual."""
@@ -3345,7 +3357,7 @@ func _begin_rapid_ingress_placement(unit_id: String) -> void:
 		if not deployment_controller.unit_confirmed.is_connected(_on_rapid_ingress_confirmed):
 			deployment_controller.unit_confirmed.connect(_on_rapid_ingress_confirmed)
 
-		status_label.text = "Rapid Ingress: placing %s (%s) — >9\" from enemies" % [unit_name, type_label]
+		status_label.text = "Rapid Ingress: placing %s (%s) — >%.0f\" from enemies" % [unit_name, type_label, GameConstants.reinforcement_min_enemy_distance_inches()]
 		if reserve_type == "strategic_reserves":
 			status_label.text += " — within 6\" of board edge"
 
@@ -8468,7 +8480,7 @@ func update_ui() -> void:
 					var total = deployment_controller.get_total_model_count()
 					var mode_info = ""
 					if deployment_controller.is_infiltrators_mode:
-						mode_info = " [INFILTRATORS — >9\" from enemies & enemy zone]"
+						mode_info = " [INFILTRATORS — >%.0f\" from enemies & enemy zone]" % GameConstants.infiltrators_min_enemy_distance_inches()
 					status_label.text = "Placing: %s — %d/%d models%s" % [unit_name, placed, total, mode_info]
 				else:
 					# Check if AI player is deploying

@@ -7,8 +7,12 @@ extends Node2D
 # "frame" band around the board perimeter in green ("you can deploy here"),
 # complementing the red enemy-exclusion bubbles.
 #
-# The 6" rule is measured from the model's centre to the nearest board edge, to
-# match DeploymentController._validate_reinforcement_position exactly.
+# 20.04 says "wholly within" the 6" set-up distance, so the band drawn is where
+# the model's CENTRE may legally sit: the 6" line pulled in by the base radius
+# (the far side of the base has to fit too) and the board edge pushed out by it
+# (no base may hang off the table). That inset is per-model, so the band is
+# rebuilt whenever the model being placed changes — a fixed 6" frame would go
+# back to over-promising by a base radius, which is 2" for a 100mm oval.
 #
 # 11e 20.04 also bans arriving models from the OPPONENT'S DEPLOYMENT ZONE before
 # the third battle round, and the band along the opponent's board edge sits
@@ -53,19 +57,28 @@ var _default_font: Font = null
 var _banned_polys: Array = []
 var _legal_polys: Array = []
 var _arriving_owner: int = -1
+# Base radius (inches) of the model currently being placed, and the controller
+# to re-read it from as the player works through the unit's model types.
+var _base_radius_inches: float = 0.0
+var _placement_controller: Node = null
 
 func _ready() -> void:
 	z_index = -4  # Same layer as the exclusion visuals
 	_default_font = FactionPalettes.FONT_RAJDHANI_SEMIBOLD
 	set_process(false)
 
-func show_zone(arriving_owner: int = -1) -> void:
-	"""Show the within-6\"-of-edge valid placement band. Reads the current board
+func show_zone(arriving_owner: int = -1, placement_controller: Node = null) -> void:
+	"""Show the valid Strategic Reserves placement band. Reads the current board
 	dimensions from GameState so the band always matches the real board.
 	[param arriving_owner] is the player whose unit is arriving — pass it so the
 	opponent-DZ carve-out is right during a Rapid Ingress, where the arriving
-	player is NOT the active player. Defaults to the active player."""
+	player is NOT the active player. Defaults to the active player.
+	[param placement_controller] is the DeploymentController running the
+	placement; the band re-reads the current model's base radius from it each
+	frame so it keeps matching the model actually about to be placed."""
 	_arriving_owner = arriving_owner
+	_placement_controller = placement_controller
+	_base_radius_inches = _read_base_radius_inches()
 	_resolve_board_size()
 	_resolve_banned_slice()
 	_is_active = true
@@ -105,15 +118,24 @@ func _resolve_banned_slice() -> void:
 			_banned_polys.append(part)
 
 func _band_rect_polys() -> Array:
-	"""The 6\" perimeter frame as four non-overlapping rectangles (px)."""
+	"""The legal-centre frame as four non-overlapping rectangles (px): the 6"
+	band pulled in by the base radius on the inner side (the base must fit
+	wholly inside the set-up distance) and out by it on the outer side (no base
+	may overhang the table). With a zero radius this is the plain 6" frame."""
 	var w := _board_w_px
 	var h := _board_h_px
-	var b := _band_px
+	var r: float = clamp(_base_radius_inches * PX_PER_INCH, 0.0, _band_px)
+	var outer := r                 # nearest the centre of a model can sit to the table edge
+	var b: float = _band_px - r    # furthest it can sit from that edge
+	if b <= outer:
+		# Base wider than the whole band — nothing is legal, say so honestly
+		# rather than drawing an inside-out rectangle.
+		return []
 	return [
-		PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, b), Vector2(0, b)]),
-		PackedVector2Array([Vector2(0, h - b), Vector2(w, h - b), Vector2(w, h), Vector2(0, h)]),
-		PackedVector2Array([Vector2(0, b), Vector2(b, b), Vector2(b, h - b), Vector2(0, h - b)]),
-		PackedVector2Array([Vector2(w - b, b), Vector2(w, b), Vector2(w, h - b), Vector2(w - b, h - b)]),
+		PackedVector2Array([Vector2(outer, outer), Vector2(w - outer, outer), Vector2(w - outer, b), Vector2(outer, b)]),
+		PackedVector2Array([Vector2(outer, h - b), Vector2(w - outer, h - b), Vector2(w - outer, h - outer), Vector2(outer, h - outer)]),
+		PackedVector2Array([Vector2(outer, b), Vector2(b, b), Vector2(b, h - b), Vector2(outer, h - b)]),
+		PackedVector2Array([Vector2(w - b, b), Vector2(w - outer, b), Vector2(w - outer, h - b), Vector2(w - b, h - b)]),
 	]
 
 func _draw_filled_poly(poly: PackedVector2Array, color: Color) -> void:
@@ -156,7 +178,23 @@ func _resolve_board_size() -> void:
 func _process(delta: float) -> void:
 	if _is_active:
 		_pulse_time += delta
+		# The player can switch model type mid-placement (a Runtherd's base is
+		# not a Gretchin's), which moves the legal band. Rebuild on change only.
+		var r := _read_base_radius_inches()
+		if not is_equal_approx(r, _base_radius_inches):
+			_base_radius_inches = r
+			_resolve_banned_slice()
 		queue_redraw()
+
+func _read_base_radius_inches() -> float:
+	"""Base radius of the model the controller is about to place, in inches.
+	0.0 when there is nothing to read — the band then degrades to the old
+	centre-point frame rather than disappearing."""
+	if _placement_controller == null or not is_instance_valid(_placement_controller):
+		return 0.0
+	if not _placement_controller.has_method("current_placement_base_radius_inches"):
+		return 0.0
+	return float(_placement_controller.current_placement_base_radius_inches())
 
 func _draw() -> void:
 	if not _is_active:
@@ -202,7 +240,11 @@ func _inner_boundary_runs() -> Array:
 	the barred opponent-DZ slice removed."""
 	var w := _board_w_px
 	var h := _board_h_px
-	var b := _band_px
+	# Same inset as _band_rect_polys: the boundary is where the CENTRE stops
+	# being legal, which the base radius pulls in from the bare 6" line.
+	var b: float = _band_px - clamp(_base_radius_inches * PX_PER_INCH, 0.0, _band_px)
+	if b <= 0.0 or w - b <= b or h - b <= b:
+		return []
 	var ring := PackedVector2Array([
 		Vector2(b, b), Vector2(w - b, b), Vector2(w - b, h - b), Vector2(b, h - b), Vector2(b, b),
 	])
@@ -256,7 +298,7 @@ func _draw_zone_label(pulse_alpha: float) -> void:
 	if not _default_font:
 		return
 
-	var label_text = "Reserves: within 6\" of edge"
+	var label_text = "Reserves: wholly within 6\" of edge"
 	# Centre horizontally, sit vertically in the middle of the top band.
 	_draw_band_label(label_text, Vector2(_board_w_px / 2.0, _band_px / 2.0), LINE_COLOR, pulse_alpha)
 

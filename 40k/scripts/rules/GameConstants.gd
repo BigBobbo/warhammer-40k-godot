@@ -48,6 +48,17 @@ static func barricade_engagement_range_inches() -> float:
 static func reinforcement_min_enemy_distance_inches() -> float:
 	return 8.0 if edition >= 11 else 9.0
 
+## Minimum distance an INFILTRATORS unit must be set up from the enemy
+## deployment zone and all enemy models (edge-to-edge, "more than").
+## 10e: >9". 11e (24.20 Infiltrators): >8".
+## Same value as the reserves stand-off today, but a separate rule with its own
+## errata history — kept as its own accessor so one moving does not move the
+## other. DeploymentPhase (the validator) and DeploymentController (the
+## placement UI) must both read this: they disagreed for the whole of 11e,
+## with the UI blocking legal 8-9" infiltrations the engine would have allowed.
+static func infiltrators_min_enemy_distance_inches() -> float:
+	return 8.0 if edition >= 11 else 9.0
+
 
 # ── Unit coherency ──────────────────────────────────────────────────
 ## Horizontal distance to count as "in coherency" with another model

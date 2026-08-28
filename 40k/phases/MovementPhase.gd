@@ -3816,14 +3816,16 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 				# Strategic Reserves: must be within 6" of a battlefield edge
 				# P2-80: Use placement_type for validation
 				if placement_type == "strategic_reserves":
+					# 20.04 (and 10e's identical wording): set up WHOLLY within 6"
+					# of a battlefield edge — the whole base, not the centre dot.
 					var dist_to_left = pos_inches_x
 					var dist_to_right = board_width - pos_inches_x
 					var dist_to_top = pos_inches_y
 					var dist_to_bottom = board_height - pos_inches_y
 					var min_edge_dist = min(dist_to_left, dist_to_right, dist_to_top, dist_to_bottom)
 
-					if min_edge_dist > 6.0:
-						errors.append("%sModel %d: Strategic Reserves must be within 6\" of a battlefield edge (nearest edge: %.1f\")" % [g_label, i, min_edge_dist])
+					if not _wholly_within_setup_distance(pos, model_data, g["rotations"], i, board_width, board_height):
+						errors.append("%sModel %d: Strategic Reserves must be set up wholly within 6\" of a battlefield edge (base reaches %.1f\")" % [g_label, i, min_edge_dist + model_radius_inches])
 
 					# 20.04: before the THIRD battle round, no model may be set up
 					# within the opponent's deployment zone.
@@ -5444,21 +5446,23 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 					var dist_inches = dist_px / px_per_inch
 					# Edge-to-edge distance: center distance minus both radii
 					var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-					if edge_dist < 9.0:
-						errors.append("%sModel %d: must be >9\" from enemy models (currently %.1f\")" % [g_label, i, edge_dist])
+					if edge_dist < GameConstants.reinforcement_min_enemy_distance_inches():
+						errors.append("%sModel %d: must be >%.0f\" from enemy models (currently %.1f\")" % [g_label, i, GameConstants.reinforcement_min_enemy_distance_inches(), edge_dist])
 						break
 
 				# Strategic Reserves: must be within 6" of a battlefield edge
 				# P2-80: Use placement_type (which may override reserve_type) for validation
 				if placement_type == "strategic_reserves":
+					# 20.04 (and 10e's identical wording): set up WHOLLY within 6"
+					# of a battlefield edge — the whole base, not the centre dot.
 					var dist_to_left = pos_inches_x
 					var dist_to_right = board_width - pos_inches_x
 					var dist_to_top = pos_inches_y
 					var dist_to_bottom = board_height - pos_inches_y
 					var min_edge_dist = min(dist_to_left, dist_to_right, dist_to_top, dist_to_bottom)
 
-					if min_edge_dist > 6.0:
-						errors.append("%sModel %d: Strategic Reserves must be within 6\" of a battlefield edge (nearest edge: %.1f\")" % [g_label, i, min_edge_dist])
+					if not _wholly_within_setup_distance(pos, model_data, g["rotations"], i, board_width, board_height):
+						errors.append("%sModel %d: Strategic Reserves must be set up wholly within 6\" of a battlefield edge (base reaches %.1f\")" % [g_label, i, min_edge_dist + model_radius_inches])
 
 					# 20.04: before the THIRD battle round, no model may be set up
 					# within the opponent's deployment zone (unless the unit has
@@ -5514,6 +5518,27 @@ func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 ## Build a positioned model dict for a base-aware deployment-zone test: the
 ## arriving model's base data at the proposed px position, with its rotation
 ## (oval/rectangular bases care). Fed to Measurement.model_overlaps_polygon.
+## 20.04: "Set up your unit WHOLLY within the set-up distance of one or more
+## battlefield edges." Tested as containment in each edge's 6" band so rotated
+## oval/rectangular bases go through the same shape code as every other zone
+## check, rather than as a centre-point distance that ignored the base entirely.
+func _wholly_within_setup_distance(pos: Vector2, model_data: Dictionary, rotations: Array, index: int, board_w_inches: float, board_h_inches: float) -> bool:
+	var probe := _dz_probe_model(model_data, pos, rotations, index)
+	var w: float = board_w_inches * 40.0
+	var h: float = board_h_inches * 40.0
+	var b: float = 6.0 * 40.0
+	var bands := [
+		PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, b), Vector2(0, b)]),
+		PackedVector2Array([Vector2(0, h - b), Vector2(w, h - b), Vector2(w, h), Vector2(0, h)]),
+		PackedVector2Array([Vector2(0, 0), Vector2(b, 0), Vector2(b, h), Vector2(0, h)]),
+		PackedVector2Array([Vector2(w - b, 0), Vector2(w, 0), Vector2(w, h), Vector2(w - b, h)]),
+	]
+	var rot: float = float(probe.get("rotation", 0.0))
+	for band in bands:
+		if Measurement.shape_wholly_in_polygon(pos, probe, rot, band):
+			return true
+	return false
+
 func _dz_probe_model(model_data: Dictionary, pos: Vector2, rotations: Array, index: int) -> Dictionary:
 	var probe: Dictionary = model_data.duplicate() if model_data is Dictionary else {}
 	probe["position"] = pos
