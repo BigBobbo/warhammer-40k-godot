@@ -26,6 +26,7 @@
 #   - PM-1 PlanManager storage + plan-to-game matching (game_config / faction)
 #   - PM-2a AI deployment from a plan (order, seat-2 mirror, formula fallback)
 #   - PM-2b AI formations from a plan (reserves, embarkations, attachments)
+#   - the 50% reserves caps bind the AI too (attached leaders are counted)
 #   - PM-3 AI earmarks (hold/push/screen/hunt bias, release, fragment layering)
 #   - PM-5 deployment recorder + plan round trip (record -> consume, both seats)
 #
@@ -183,6 +184,7 @@ TESTS=(
     "tests/unit/test_plan_manager.gd"
     "tests/unit/test_ai_plan_deployment.gd"
     "tests/unit/test_ai_plan_formations.gd"
+    "tests/unit/test_reserves_half_army_cap.gd"
     "tests/unit/test_ai_plan_earmarks.gd"
     "tests/unit/test_plan_roundtrip.gd"
     "tests/unit/test_plan_coherency_editions.gd"

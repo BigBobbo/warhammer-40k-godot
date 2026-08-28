@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.42.1",
+      "date": "2026-08-28",
+      "summary": "The AI can no longer put more than half its army in reserve — attached leaders now count against the 50% cap, and they arrive with their unit instead of vanishing.",
+      "changes": [
+        "A character attached to a bodyguard goes into reserves with it, but the AI's declarations never counted the character. That let the AI hold back far more than the rules allow — in one game 7 of 11 units and 1310 of 2000 points (65.5%) started off the table against a 50% limit.",
+        "Both reserves caps (half your points, half your units) now price the whole attached unit — leader included — no matter who declares it. The same check applies to the AI, to you, and to the deployment-phase fallback.",
+        "Leaders attached to a reserved unit are now correctly placed in reserves too. Previously they were left in limbo: off the table all game, and refused entry when their unit arrived.",
+        "Attaching a character to a unit that is already in reserves is refused if it would push you over the cap.",
+        "The formations dialog now shows the unit limit alongside the points limit, and stops you ticking a unit that would break either."
+      ]
+    },
+    {
       "version": "1.42.0",
       "date": "2026-08-27",
       "summary": "Consolidating onto an objective now lets you pick WHICH objective — and defaults to the nearest one instead of marching you backwards.",

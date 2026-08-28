@@ -273,6 +273,23 @@ func _validate_declare_leader_attachment(action: Dictionary) -> Dictionary:
 	if _is_unit_declared_in_reserves(character_id, player):
 		errors.append("Character is already declared as in reserves")
 
+	# Attaching to a bodyguard that is ALREADY declared in reserves sends this
+	# character off the table too, so it has to clear the same 50% caps the
+	# reserve declaration cleared — otherwise attach-after-reserve is a way
+	# around them.
+	if errors.is_empty() and _is_unit_declared_in_reserves(bodyguard_id, player):
+		var char_points = character.get("meta", {}).get("points", 0)
+		var total_points = GameState.get_total_army_points(player)
+		var max_points = int(total_points * 0.50)
+		var reserved_points = _get_declared_reserves_points(player)
+		if reserved_points + char_points > max_points:
+			errors.append("Exceeds 50%% reserves points limit: attaching to a reserved unit would put %d + %d > %d (of %d total) in reserves" % [reserved_points, char_points, max_points, total_points])
+		var total_units = GameState.get_total_unit_count(player)
+		var max_units = int(total_units * 0.50)
+		var reserved_units = _get_declared_reserves_count(player)
+		if reserved_units + 1 > max_units:
+			errors.append("Exceeds 50%% reserves unit limit: attaching to a reserved unit would put %d + 1 > %d (of %d total units) in reserves" % [reserved_units, max_units, total_units])
+
 	return {"valid": errors.size() == 0, "errors": errors}
 
 func _validate_declare_transport_embarkation(action: Dictionary) -> Dictionary:
@@ -399,8 +416,13 @@ func _validate_declare_reserves(action: Dictionary) -> Dictionary:
 
 	# Check 50% reserves point cap (Chapter Approved 2025-26)
 	var unit_points = unit.get("meta", {}).get("points", 0)
-	# Include attached character points in the calculation
-	var attached_char_ids = action.get("attached_character_ids", [])
+	# Include attached character points in the calculation. The characters are
+	# DERIVED, not taken from the action: the player's dialog names them
+	# (Main.gd:10229-10240) but the AI declares straight off
+	# get_available_actions, so trusting the payload let every AI-attached
+	# leader ride into reserves uncounted — 65% of a Custodes army off the
+	# table under a 50% cap.
+	var attached_char_ids = _reserve_attached_characters(unit_id, player, action)
 	for char_id in attached_char_ids:
 		var char_unit = get_unit(char_id)
 		unit_points += char_unit.get("meta", {}).get("points", 0)
@@ -411,13 +433,18 @@ func _validate_declare_reserves(action: Dictionary) -> Dictionary:
 	if current_reserves_points + unit_points > max_reserves_points:
 		errors.append("Exceeds 50%% reserves points limit: %d + %d > %d (of %d total)" % [current_reserves_points, unit_points, max_reserves_points, total_points])
 
-	# Check 50% reserves unit count cap (Chapter Approved 2025-26)
+	# Check 50% reserves unit count cap (Chapter Approved 2025-26).
+	# An attached leader leaves the battlefield with its bodyguard, and both
+	# GameState.get_total_unit_count and get_reserves_unit_count count it as a
+	# unit, so it has to be counted here too or the cap is measured against a
+	# denominator it never contributes to.
 	var total_units = GameState.get_total_unit_count(player)
 	var max_reserves_units = int(total_units * 0.50)
 	var current_reserves_count = _get_declared_reserves_count(player)
+	var incoming_units = 1 + attached_char_ids.size()
 
-	if current_reserves_count + 1 > max_reserves_units:
-		errors.append("Exceeds 50%% reserves unit limit: %d + 1 > %d (of %d total units)" % [current_reserves_count, max_reserves_units, total_units])
+	if current_reserves_count + incoming_units > max_reserves_units:
+		errors.append("Exceeds 50%% reserves unit limit: %d + %d > %d (of %d total units)" % [current_reserves_count, incoming_units, max_reserves_units, total_units])
 
 	return {"valid": errors.size() == 0, "errors": errors}
 
@@ -583,8 +610,12 @@ func _process_declare_transport_embarkation(action: Dictionary) -> Dictionary:
 func _process_declare_reserves(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var reserve_type = action.get("reserve_type", "strategic_reserves")
-	var attached_char_ids = action.get("attached_character_ids", [])
 	var player = int(action.get("player", get_current_player()))  # JSON actions carry floats — int keys required
+	# Derived, not read off the action: a declaration that names no characters
+	# (every AI one) still has to take its declared leaders into reserves, or
+	# they are stranded UNDEPLOYED and never arrive with their bodyguard
+	# (MovementPhase.gd:3973 skips any attached character not IN_RESERVES).
+	var attached_char_ids = _reserve_attached_characters(unit_id, player, action)
 
 	player_formations[player]["reserves"].append({
 		"unit_id": unit_id,
@@ -799,21 +830,55 @@ func _capacity_weighted_model_count(unit: Dictionary, transport: Dictionary) -> 
 			count += per_model_cost
 	return count
 
+func _reserve_attached_characters(unit_id: String, player: int, action: Dictionary = {}) -> Array:
+	"""Every CHARACTER that goes into reserves alongside `unit_id`.
+
+	Three sources, merged and de-duplicated:
+	  1. the action's own `attached_character_ids` (what the player's
+	     formations dialog sends, Main.gd:10229-10240),
+	  2. the leader attachments declared earlier in THIS phase — the AI
+	     declares attachments first and then reserves straight off
+	     get_available_actions, so this is its only source,
+	  3. attachments already live on the unit (a loaded save or a fixture that
+	     starts past FORMATIONS).
+	Source 2 is why the caps hold for the AI: without it an AI-attached leader
+	left the table with its bodyguard without ever being counted."""
+	var out: Array = []
+	for char_id in action.get("attached_character_ids", []):
+		var cid = str(char_id)
+		if cid != "" and not out.has(cid):
+			out.append(cid)
+	var attachments = player_formations.get(player, {}).get("leader_attachments", {})
+	for char_id in attachments:
+		if str(attachments[char_id]) == unit_id and not out.has(str(char_id)):
+			out.append(str(char_id))
+	var unit = get_unit(unit_id)
+	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
+		if not out.has(str(char_id)):
+			out.append(str(char_id))
+	return out
+
 func _get_declared_reserves_points(player: int) -> int:
 	var total = 0
 	var formations = player_formations.get(player, {})
 	for entry in formations.get("reserves", []):
-		var unit = get_unit(entry.get("unit_id", ""))
+		var unit_id = entry.get("unit_id", "")
+		var unit = get_unit(unit_id)
 		total += unit.get("meta", {}).get("points", 0)
 		# Include attached character points
-		for char_id in entry.get("attached_character_ids", []):
+		for char_id in _reserve_attached_characters(unit_id, player, entry):
 			var char_unit = get_unit(char_id)
 			total += char_unit.get("meta", {}).get("points", 0)
 	return total
 
 func _get_declared_reserves_count(player: int) -> int:
+	"""Units that will actually be in reserves — each declared unit plus the
+	characters attached to it, which leave the battlefield with it."""
 	var formations = player_formations.get(player, {})
-	return formations.get("reserves", []).size()
+	var count = 0
+	for entry in formations.get("reserves", []):
+		count += 1 + _reserve_attached_characters(entry.get("unit_id", ""), player, entry).size()
+	return count
 
 func _validate_warlord_designation(player: int) -> Dictionary:
 	"""Validate that exactly one CHARACTER unit is designated as Warlord for the player.
@@ -1223,12 +1288,16 @@ func get_available_actions() -> Array:
 			continue
 		var unit = units[unit_id]
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		# Surface the leaders that would go with it, so a caller reasoning
+		# about the reserves budget (the AI) prices the whole attached unit.
+		var riders = _reserve_attached_characters(unit_id, current_player)
 		if GameState.unit_has_deep_strike(unit_id):
 			actions.append({
 				"type": "DECLARE_RESERVES",
 				"unit_id": unit_id,
 				"reserve_type": "deep_strike",
 				"player": current_player,
+				"attached_character_ids": riders.duplicate(),
 				"description": "Deep Strike %s" % unit_name
 			})
 		actions.append({
@@ -1236,6 +1305,7 @@ func get_available_actions() -> Array:
 			"unit_id": unit_id,
 			"reserve_type": "strategic_reserves",
 			"player": current_player,
+			"attached_character_ids": riders.duplicate(),
 			"description": "Strategic Reserves %s" % unit_name
 		})
 
@@ -1246,6 +1316,9 @@ func get_available_actions() -> Array:
 			"type": "UNDECLARE_RESERVES",
 			"unit_id": entry["unit_id"],
 			"player": current_player,
+			# The leaders that went into reserves with it — this list is how a
+			# caller reads back what the declaration actually cost.
+			"attached_character_ids": entry.get("attached_character_ids", []).duplicate(),
 			"description": "Undo: %s reserves" % unit_name
 		})
 

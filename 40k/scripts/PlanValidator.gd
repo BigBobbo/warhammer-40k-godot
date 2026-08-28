@@ -479,11 +479,14 @@ static func _attachment_legality_notes(attached_chars: Dictionary, army: Diction
 	return notes
 
 static func _validate_reserves_caps(reserve_rounds: Dictionary, attached_chars: Dictionary, army: Dictionary, cover: Dictionary) -> Dictionary:
-	"""Mirror FormationsPhase.gd:400-420 — 50% points and 50% unit-count caps.
+	"""Mirror FormationsPhase._validate_declare_reserves — 50% points and 50%
+	unit-count caps.
 
-	Points include any character the plan attaches to a reserved bodyguard
-	(FormationsPhase._get_declared_reserves_points, :802-812). The unit-count
-	cap counts reserves ENTRIES only (:814-816)."""
+	A character the plan attaches to a reserved bodyguard goes into reserves
+	with it, so it counts against BOTH caps — points and unit count alike
+	(FormationsPhase._get_declared_reserves_points /
+	_get_declared_reserves_count, both via _reserve_attached_characters).
+	Counting entries only here would pass a plan the phase then refuses."""
 	var errors: Array[String] = []
 	var units := _army_units(army)
 	if units.is_empty():
@@ -499,23 +502,29 @@ static func _validate_reserves_caps(reserve_rounds: Dictionary, attached_chars: 
 
 	var matched: Dictionary = cover.get("matched", {})
 	var reserve_points := 0
+	# Every reserves ENTRY counts, matched or not — an entry naming a unit this
+	# army does not have is still a reserves declaration the plan is asking
+	# for. (Points stay matched-only: an unmatched unit has no points to add.)
+	var reserve_units := reserve_rounds.size()
 	for plan_uid in reserve_rounds.keys():
 		var army_uid := str(matched.get(plan_uid, plan_uid))
 		if not units.has(army_uid):
 			continue
 		reserve_points += int(units[army_uid].get("meta", {}).get("points", 0))
-		# A character attached to a reserved bodyguard goes into reserves with it.
+		# A character attached to a reserved bodyguard goes into reserves with
+		# it, so it counts against both caps.
 		for char_id in attached_chars.keys():
 			if str(attached_chars[char_id]) != plan_uid:
 				continue
 			var army_char := str(matched.get(char_id, char_id))
 			if units.has(army_char):
 				reserve_points += int(units[army_char].get("meta", {}).get("points", 0))
+				reserve_units += 1
 
 	if reserve_points > max_points:
 		errors.append("deployment.reserves exceeds the 50%% points cap: %d > %d (of %d total)" % [reserve_points, max_points, total_points])
-	if reserve_rounds.size() > max_units:
-		errors.append("deployment.reserves exceeds the 50%% unit cap: %d > %d (of %d total units)" % [reserve_rounds.size(), max_units, total_units])
+	if reserve_units > max_units:
+		errors.append("deployment.reserves exceeds the 50%% unit cap: %d > %d (of %d total units)" % [reserve_units, max_units, total_units])
 	return {"errors": errors}
 
 # ============================================================
