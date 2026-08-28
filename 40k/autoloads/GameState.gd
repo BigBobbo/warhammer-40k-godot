@@ -355,6 +355,36 @@ func get_deployment_zone_for_player(player: int) -> Dictionary:
 			return zone
 	return {}
 
+# Deployment-zone polygons are authored in INCHES (DeploymentZoneData.get_zones),
+# but every placement/validation caller works in board PIXELS. This is the single
+# conversion point — MovementPhase, DeploymentController and the reserves-band
+# visual all used to inline their own `* 40.0` loop (or, worse, compare px
+# positions against an inches polygon), which is exactly how the 11e 20.04
+# "not in the opponent's deployment zone" ban ended up enforced in some paths
+# and silently inert in others.
+func get_deployment_zone_poly_px(player: int) -> PackedVector2Array:
+	var packed := PackedVector2Array()
+	var zone := get_deployment_zone_for_player(player)
+	for pt in zone.get("poly", []):
+		if pt is Dictionary and pt.has("x") and pt.has("y"):
+			packed.append(Vector2(float(pt.x) * 40.0, float(pt.y) * 40.0))
+		elif pt is Vector2:
+			packed.append(pt)
+	return packed
+
+# 11e 20.04 (INGRESS MOVE): "Before the Third Battle Round: while doing so, no
+# models can be set up within your opponent's deployment zone." Deep Strike
+# (24.09) explicitly lifts it ("...even if that is within your opponent's
+# deployment zone"), so DEEP-STRIKING units are never caught by this.
+#
+# Reserves cannot arrive at all in battle round 1, so "before the third battle
+# round" only ever bites in round 2 — but the predicate is written as the rule
+# states it (< 3) rather than as `== 2`, so a rule that lets a unit ingress
+# earlier cannot slip past the ban. Not edition-gated: 10e carried the same
+# second-battle-round restriction.
+func ingress_opponent_dz_ban_applies(battle_round: int, is_deep_strike: bool) -> bool:
+	return battle_round < 3 and not is_deep_strike
+
 # Pre-Battle Formations Helpers
 func _get_enhancement_can_lead_extras(character: Dictionary) -> Array:
 	"""Runtime lookup for CharacterAttachmentManager.get_enhancement_can_lead_extras.

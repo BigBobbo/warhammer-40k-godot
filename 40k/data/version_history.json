@@ -2,6 +2,31 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.42.3",
+      "date": "2026-08-28",
+      "summary": "Reserve arrivals now use the 11th-edition distances: 8\" from enemies (not 9\"), measured base to base, and the 6\" band means the whole model, not its centre dot.",
+      "changes": [
+        "Fixed: the placement screen refused reserve arrivals between 8\" and 9\" from an enemy. 11th edition sets that distance at 8\" and the game engine already used 8\", but the placement screen still enforced the old 9\" — so the exclusion bubbles were drawn an inch too big and a model aimed at a legal spot was quietly shoved further away than the rules require. Bubbles, the ghost, the \"held at\" tether and the status text now all use 8\".",
+        "Fixed: the 6\"-from-a-board-edge rule was measured to the centre of the model, so a base could hang past the line — nearly 2\" for a big oval base. It now checks the whole base, as \"wholly within\" requires, and the green arrival band is drawn where the model's centre may actually go rather than as a flat 6\" frame.",
+        "The arrival band redraws as you switch between model types in a unit, because a bigger base has a smaller legal band.",
+        "Fixed: during a Rapid Ingress the placement screen worked out \"enemies\" from whoever's turn it was rather than from the arriving unit's owner. Because Rapid Ingress happens in your opponent's turn, that inverted it — the 8\" spacing was measured against your own army and ignored the enemy entirely. The final confirm always caught it, so nothing illegal reached the board, but the ghost and the exclusion bubbles were showing the wrong thing throughout.",
+        "Infiltrators deployment had the same 9\"-vs-8\" split between the placement screen and the engine, and is now 8\" in both."
+      ]
+    },
+    {
+      "version": "1.42.2",
+      "date": "2026-08-28",
+      "summary": "Reserves can no longer walk in along your opponent's board edge on turn two — the deployment-zone ban is now enforced while you place, not only when you confirm.",
+      "changes": [
+        "Fixed: a unit arriving from Strategic Reserves could be placed anywhere in the 6\"-from-a-board-edge band, including the strip inside your opponent's deployment zone. 11th edition (20.04 Ingress Move) bars that before the third battle round, and the placement screen was not checking it — the ghost stayed green and the models dropped, and only the final Confirm rejected the whole arrival.",
+        "The valid-placement band now carves the opponent's deployment zone out of the green area and paints that slice red, labelled \"Opponent's DZ — barred until battle round 3\", so you can see where you may actually arrive before you place a single model.",
+        "Placing a model there now fails immediately with a clear message instead of after the whole unit is down.",
+        "The ban is measured against the model's base, not just its centre dot, so a base overhanging the zone boundary is caught too.",
+        "Deep Strike is unaffected: a deep-striking unit may still arrive inside your opponent's deployment zone, as 11th edition explicitly allows.",
+        "From the third battle round onwards the restriction lifts and the whole 6\" band is available again."
+      ]
+    },
+    {
       "version": "1.42.1",
       "date": "2026-08-28",
       "summary": "The AI can no longer put more than half its army in reserve — attached leaders now count against the 50% cap, and they arrive with their unit instead of vanishing.",

@@ -34,7 +34,13 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 
 ## Validate a proposed set-up: positions are px Vector2s (one per model).
 ## context: {battle_round: int, deep_strike: bool, opponent_zone:
-## PackedVector2Array, board_size_inches: Vector2}.
+## PackedVector2Array, board_size_inches: Vector2, models: Array}.
+## `models` is optional and parallel to `model_positions` — each entry is the
+## arriving model's dict (base_mm / base_type / rotation). It makes the
+## opponent-deployment-zone test base-aware: 20.04 bars models set up "within"
+## (not "wholly within") that zone, so a base straddling the zone boundary is
+## illegal even though its centre point sits outside. Without it the check falls
+## back to the centre point.
 func validate_setup(_unit_id: String, board: Dictionary, model_positions: Array, context: Dictionary) -> Dictionary:
 	var errors: Array = []
 	var m = _measurement()
@@ -45,16 +51,28 @@ func validate_setup(_unit_id: String, board: Dictionary, model_positions: Array,
 	var board_h_px = board_size.y * 40.0
 	var edge_px = m.inches_to_px(6.0)
 	var enemy_px = m.inches_to_px(8.0)
+	var models: Array = context.get("models", [])
 
+	var pos_index := -1
 	for pos in model_positions:
-		# 20.04: wholly within 6" of one or more battlefield edges
-		# (Deep Strike 24.09 lifts this: anywhere on the battlefield).
-		if not deep_strike:
-			var d_edge = min(min(pos.x, board_w_px - pos.x), min(pos.y, board_h_px - pos.y))
-			if d_edge > edge_px:
-				errors.append("model at %s is more than 6\" from every battlefield edge" % str(pos))
+		pos_index += 1
+		var self_model: Dictionary = models[pos_index] if pos_index < models.size() and models[pos_index] is Dictionary else {}
+		var self_radius_px: float = m.base_radius_px(int(self_model.get("base_mm", 0))) if self_model.has("base_mm") else 0.0
 
-		# more than 8" horizontally from all enemy units
+		# 20.04: WHOLLY within 6" of one or more battlefield edges
+		# (Deep Strike 24.09 lifts this: anywhere on the battlefield).
+		# "Wholly" means the far side of the base has to fit inside the band
+		# too — measuring only the centre let a base hang its own radius past
+		# the line. Falls back to the centre point when no model data was
+		# supplied, which is all the old behaviour ever did.
+		if not deep_strike:
+			if not _wholly_within_setup_distance(pos, self_model, board_w_px, board_h_px, edge_px):
+				errors.append("model at %s is not wholly within 6\" of a battlefield edge" % str(pos))
+
+		# more than 8" horizontally from all enemy units, measured BASE EDGE to
+		# BASE EDGE like every other distance in the game. This used to compare
+		# centre points, which quietly allowed arrivals up to both base radii
+		# closer than the rule permits.
 		var owner = int(_unit(board, _unit_id).get("owner", 0))
 		for other_id in board.get("units", {}):
 			var other = board.units[other_id]
@@ -65,19 +83,49 @@ func validate_setup(_unit_id: String, board: Dictionary, model_positions: Array,
 					continue
 				var ep = em.position
 				var epv = Vector2(float(ep.x) if ep is Dictionary else ep.x, float(ep.y) if ep is Dictionary else ep.y)
-				if pos.distance_to(epv) <= enemy_px:
+				var enemy_radius_px: float = m.base_radius_px(int(em.get("base_mm", 32)))
+				if pos.distance_to(epv) - self_radius_px - enemy_radius_px < enemy_px:
 					errors.append("model at %s is within 8\" of an enemy model" % str(pos))
 					break
 
 		# Before the third battle round: not within the opponent's
-		# deployment zone (applies to ingress; Deep Strike's anywhere-rule
-		# still respects this restriction for non-DS ingress only).
+		# deployment zone (applies to ingress; Deep Strike 24.09 lifts it
+		# explicitly — "even if that is within your opponent's deployment
+		# zone" — so it is checked for non-DS ingress only).
 		if battle_round < 3 and not deep_strike:
 			var zone = context.get("opponent_zone", PackedVector2Array())
-			if zone.size() >= 3 and Geometry2D.is_point_in_polygon(pos, zone):
+			if zone.size() >= 3 and _in_opponent_zone(pos, models, pos_index, zone):
 				errors.append("model at %s is inside the opponent's deployment zone before battle round 3" % str(pos))
 
 	return {"valid": errors.is_empty(), "errors": errors}
+
+## True when the model set up at [param pos] fits WHOLLY inside the set-up
+## distance of at least one battlefield edge (20.04). Shape-aware when the
+## caller supplied the model; centre-point when it did not.
+func _wholly_within_setup_distance(pos: Vector2, model: Dictionary, board_w_px: float, board_h_px: float, edge_px: float) -> bool:
+	if model.is_empty():
+		return min(min(pos.x, board_w_px - pos.x), min(pos.y, board_h_px - pos.y)) <= edge_px
+	var bands := [
+		PackedVector2Array([Vector2(0, 0), Vector2(board_w_px, 0), Vector2(board_w_px, edge_px), Vector2(0, edge_px)]),
+		PackedVector2Array([Vector2(0, board_h_px - edge_px), Vector2(board_w_px, board_h_px - edge_px), Vector2(board_w_px, board_h_px), Vector2(0, board_h_px)]),
+		PackedVector2Array([Vector2(0, 0), Vector2(edge_px, 0), Vector2(edge_px, board_h_px), Vector2(0, board_h_px)]),
+		PackedVector2Array([Vector2(board_w_px - edge_px, 0), Vector2(board_w_px, 0), Vector2(board_w_px, board_h_px), Vector2(board_w_px - edge_px, board_h_px)]),
+	]
+	var rot: float = float(model.get("rotation", 0.0))
+	for band in bands:
+		if _measurement().shape_wholly_in_polygon(pos, model, rot, band):
+			return true
+	return false
+
+## True when the model set up at [param pos] is "within" [param zone]. Uses the
+## real base shape when the caller supplied `models`, so a base overhanging the
+## zone boundary counts; falls back to the centre point when it did not.
+func _in_opponent_zone(pos: Vector2, models: Array, index: int, zone: PackedVector2Array) -> bool:
+	if index >= 0 and index < models.size() and models[index] is Dictionary:
+		var probe: Dictionary = (models[index] as Dictionary).duplicate()
+		probe["position"] = pos
+		return _measurement().model_overlaps_polygon(probe, zone)
+	return Geometry2D.is_point_in_polygon(pos, zone)
 
 func after_moving_effects(unit_id: String, _context: Dictionary) -> Array:
 	return [

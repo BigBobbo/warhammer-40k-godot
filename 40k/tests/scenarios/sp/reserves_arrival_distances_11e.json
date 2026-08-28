@@ -1,0 +1,182 @@
+{
+  "id": "reserves_arrival_distances_11e",
+  "covers": [
+    "scripts.DeploymentController._validate_reinforcement_position",
+    "scripts.DeploymentController._placement_owner",
+    "scripts.DeploymentController._wholly_within_setup_distance_of_edge",
+    "scripts.DeepStrikeExclusionVisual",
+    "scripts.rules.GameConstants.reinforcement_min_enemy_distance_inches",
+    "movetypes.IngressMove"
+  ],
+  "fixture": "audit_374_kunnin",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "11e 20.04 INGRESS MOVE, the placement-UI side of the set-up rules. Three defects found while fixing the opponent-deployment-zone ban, all of them in DeploymentController where the player actually places models: (1) the enemy stand-off was a baked-in 9.0 while the engine read GameConstants (8\" at 11e), so the UI refused legal 8-9\" arrivals; (2) the 6\" set-up distance was measured from the model's centre although 20.04 says WHOLLY within, letting a base hang its own radius past the line; (3) 'enemies' was resolved from the active player, but a Rapid Ingress runs this same placement mode for the NON-active player, so the stand-off was measured against the arriving player's own army. Drives real clicks for (1) and (2) and reproduces the Rapid Ingress ownership shape for (3).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "Deterministic geometry: every enemy (P1) model on one spot with a 32mm base, and the arriving P2 unit on 32mm too, so every distance below is exact. Battle round 3 lifts the opponent-DZ ban so only DISTANCE is under test.",
+      "script": "GameState.state[\"meta\"][\"battle_round\"] = 3\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tif int(u.get(\"owner\", 0)) == 1:\n\t\tfor m in u.get(\"models\", []):\n\t\t\tif m.get(\"position\") != null:\n\t\t\t\tm[\"position\"] = {\"x\": 22.0 * 40.0, \"y\": 14.75 * 40.0}\n\t\t\t\tm[\"base_mm\"] = 32\n\t\t\t\tm[\"base_type\"] = \"circular\"\nfor m in GameState.state[\"units\"][\"U_STRIKE_FORCE_A\"][\"models\"]:\n\tm[\"base_mm\"] = 32\n\tm[\"base_type\"] = \"circular\"\nreturn GameState.get_battle_round()",
+      "equals": 3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "The stand-off the UI will now apply is the edition's, read from GameConstants (11e 20.04 = 8\"), not the 9.0 that used to be baked into DeploymentController.",
+      "script": "return [GameConstants.reinforcement_min_enemy_distance_inches(), GameConstants.infiltrators_min_enemy_distance_inches()]",
+      "equals": [
+        8.0,
+        8.0
+      ]
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "The exclusion bubbles drawn around enemies use that same 8\", so the picture matches the rule the click enforces.",
+      "script": "return load(\"res://scripts/DeepStrikeExclusionVisual.gd\")._exclusion_distance_inches()",
+      "equals": 8.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "Arm the placement session by clicking the reinforcement row.",
+      "script": "# reset_unit() ENDS the session and clears placed_tokens; re-selecting the row\n# without it is a documented no-op (\"re-selecting the unit being placed is a\n# no-op\"), which would leave the previous model staged and make the counts\n# below measure nothing.\nvar dc = tree.current_scene.deployment_controller\nif dc and dc.is_placing():\n\tdc.reset_unit()\nvar u = GameState.state[\"units\"][\"U_STRIKE_FORCE_A\"]\nu[\"status\"] = 7\nu[\"flags\"] = {\"in_reserves\": true}\nfor m in u[\"models\"]:\n\tm[\"position\"] = null\nvar mc = tree.current_scene.movement_controller\nmc._refresh_unit_list()\nvar list = mc.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_STRIKE_FORCE_A\":\n\t\tlist.select(i)\n\t\tlist.item_selected.emit(i)\n\t\tvar d2 = tree.current_scene.deployment_controller\n\t\treturn d2.is_placing() and d2.placed_tokens.size() == 0\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_placement_armed"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "Geometry check: a click at (22\", 5\") sits 9.75\" centre-to-centre from the enemy stack, i.e. 8.49\" base edge to base edge — inside the 8-9\" band the UI used to refuse and the engine always allowed.",
+      "script": "var r := (32.0 / 2.0) / 25.4\nvar gap := (14.75 - 5.0) - r - r\nreturn gap > 8.0 and gap < 9.0",
+      "equals": true
+    },
+    {
+      "act": "click_board_at",
+      "x": 880.0,
+      "y": 200.0,
+      "description": "(22\", 5\") — 8.49\" from the enemy. Legal at 11e; the old 9\" UI refused it."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "FLAG 1: the 8-9\" arrival lands WHERE IT WAS CLICKED. Merely counting placements does not catch this bug — the old 9\" bubbles did not refuse the click, the exclusion clamp silently shoved the model out to 9\", so a model appeared, just not where the player put it.",
+      "script": "var dc = tree.current_scene.deployment_controller\nif dc.placed_tokens.size() != 1:\n\treturn \"placed %d, expected 1\" % dc.placed_tokens.size()\nvar p: Vector2 = dc.placed_tokens[0].position\nvar drift := p.distance_to(Vector2(880.0, 200.0)) / 40.0\nif drift > 0.05:\n\treturn \"clamped %.2f inches away from the click\" % drift\nreturn \"landed on the click\"",
+      "equals": "landed on the click"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_eight_inch_standoff_accepted"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "Re-arm for the 6\"-band pair.",
+      "script": "# reset_unit() ENDS the session and clears placed_tokens; re-selecting the row\n# without it is a documented no-op (\"re-selecting the unit being placed is a\n# no-op\"), which would leave the previous model staged and make the counts\n# below measure nothing.\nvar dc = tree.current_scene.deployment_controller\nif dc and dc.is_placing():\n\tdc.reset_unit()\nvar u = GameState.state[\"units\"][\"U_STRIKE_FORCE_A\"]\nu[\"status\"] = 7\nu[\"flags\"] = {\"in_reserves\": true}\nfor m in u[\"models\"]:\n\tm[\"position\"] = null\nvar mc = tree.current_scene.movement_controller\nmc._refresh_unit_list()\nvar list = mc.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_STRIKE_FORCE_A\":\n\t\tlist.select(i)\n\t\tlist.item_selected.emit(i)\n\t\tvar d2 = tree.current_scene.deployment_controller\n\t\treturn d2.is_placing() and d2.placed_tokens.size() == 0\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_board_at",
+      "x": 220.0,
+      "y": 1200.0,
+      "description": "(5.5\", 30\") — centre inside 6\", but a 0.63\" base reaches 6.13\". 20.04 says WHOLLY within, so this is illegal. Only the left band applies at y=30\"."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "FLAG 2: a base overhanging the 6\" line places nothing (the centre used to be all that was measured, so this dropped).",
+      "script": "return tree.current_scene.deployment_controller.placed_tokens.size()",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_base_overhanging_six_inches_refused"
+    },
+    {
+      "act": "click_board_at",
+      "x": 212.0,
+      "y": 1200.0,
+      "description": "(5.3\", 30\") — base reaches 5.93\", wholly inside. Still legal."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "...and the fix does not over-block: 0.2\" further in and the same model lands.",
+      "script": "return tree.current_scene.deployment_controller.placed_tokens.size()",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "04_base_wholly_inside_lands"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "Re-arm, then reproduce the Rapid Ingress shape: the arriving unit belongs to P2 while P1 holds the turn.",
+      "script": "# reset_unit() ENDS the session and clears placed_tokens; re-selecting the row\n# without it is a documented no-op (\"re-selecting the unit being placed is a\n# no-op\"), which would leave the previous model staged and make the counts\n# below measure nothing.\nvar dc = tree.current_scene.deployment_controller\nif dc and dc.is_placing():\n\tdc.reset_unit()\nvar u = GameState.state[\"units\"][\"U_STRIKE_FORCE_A\"]\nu[\"status\"] = 7\nu[\"flags\"] = {\"in_reserves\": true}\nfor m in u[\"models\"]:\n\tm[\"position\"] = null\nvar mc = tree.current_scene.movement_controller\nmc._refresh_unit_list()\nvar list = mc.unit_list\nfor i in range(list.item_count):\n\tif str(list.get_item_metadata(i)) == \"U_STRIKE_FORCE_A\":\n\t\tlist.select(i)\n\t\tlist.item_selected.emit(i)\n\t\tvar d2 = tree.current_scene.deployment_controller\n\t\treturn d2.is_placing() and d2.placed_tokens.size() == 0\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "FLAG 3: with the OTHER player active, the placement helpers must still resolve 'enemies' from the ARRIVING unit's owner. Reading the active player (what the code used to do) hands back the arriving player's OWN army.",
+      "script": "GameState.state[\"meta\"][\"active_player\"] = 1\nvar dc = tree.current_scene.deployment_controller\nvar own := 0\nvar foe := 0\nfor uid in GameState.state[\"units\"]:\n\tvar u = GameState.state[\"units\"][uid]\n\tfor m in u.get(\"models\", []):\n\t\tif m.get(\"position\") != null and m.get(\"alive\", true):\n\t\t\tif int(u.get(\"owner\", 0)) == 2:\n\t\t\t\town += 1\n\t\t\telse:\n\t\t\t\tfoe += 1\nvar from_active := GameState.get_enemy_model_positions(GameState.get_active_player()).size()\nvar from_owner := GameState.get_enemy_model_positions(dc._placement_owner()).size()\nreturn [dc._placement_owner() == 2, from_active == own, from_owner == foe]",
+      "equals": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "description": "Put the turn back where the fixture had it.",
+      "script": "GameState.state[\"meta\"][\"active_player\"] = 2\nreturn GameState.get_active_player()",
+      "equals": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "05_placement_owner_resolved"
+    }
+  ]
+}

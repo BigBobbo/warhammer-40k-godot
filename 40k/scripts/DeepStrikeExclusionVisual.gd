@@ -1,11 +1,18 @@
 extends Node2D
 
-# DeepStrikeExclusionVisual - Shows a 9" exclusion bubble around every enemy model
-# when deploying units from Deep Strike or Strategic Reserves. Models cannot be
-# placed within 9" (edge-to-edge) of any enemy model.
+# DeepStrikeExclusionVisual - Shows the enemy exclusion bubble around every enemy
+# model when deploying units from Deep Strike or Strategic Reserves. Models
+# cannot be set up within the stand-off (edge-to-edge) of any enemy model.
+#
+# The stand-off is EDITION-DEPENDENT (11e 20.04 dropped it from 9" to 8"), so it
+# is read from GameConstants rather than baked in: a bubble drawn at a different
+# radius from the one the validator enforces is a picture of the wrong rule, and
+# at 11e it was drawing a whole inch of legal ground as forbidden.
 
 const PX_PER_INCH: float = 40.0
-const EXCLUSION_DISTANCE_INCHES: float = 9.0
+
+static func _exclusion_distance_inches() -> float:
+	return GameConstants.reinforcement_min_enemy_distance_inches()
 const CIRCLE_SEGMENTS: int = 48  # Smooth circles
 
 # Dashed line style (matches InfiltratorExclusionVisual)
@@ -45,11 +52,12 @@ func show_exclusion(enemy_positions: Array) -> void:
 		return
 
 	# Build circle data for each enemy model
-	# The 9" exclusion is edge-to-edge, so the bubble radius = 9" + enemy base radius
+	# The exclusion is edge-to-edge, so bubble radius = stand-off + enemy base radius
+	var standoff_inches := _exclusion_distance_inches()
 	for enemy in enemy_positions:
 		var center = Vector2(enemy.x, enemy.y)
 		var base_radius_inches = (enemy.base_mm / 2.0) / 25.4
-		var total_radius_inches = EXCLUSION_DISTANCE_INCHES + base_radius_inches
+		var total_radius_inches = standoff_inches + base_radius_inches
 		var radius_px = total_radius_inches * PX_PER_INCH
 		_exclusion_circles.append({ "center": center, "radius_px": radius_px })
 
