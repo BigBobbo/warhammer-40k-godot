@@ -31,6 +31,11 @@ var consolidate_active: bool = false
 # arrows and ConsolidateDialog's rules text all read it, so the board can never
 # refuse a move the phase would accept (or vice versa).
 var consolidate_context_11e: Dictionary = {}
+# 12.08 BEFORE (Objective mode): the objective the PLAYER selected for this
+# consolidation, "" while the default (the closest selectable marker) stands.
+# Rides along on the CONSOLIDATE action so the phase validates the same target
+# the dialog offered.
+var consolidate_chosen_objective_11e: String = ""
 var sweeping_advance_active: bool = false
 var acrobatic_escape_active: bool = false
 var pile_in_unit_id: String = ""
@@ -2716,6 +2721,7 @@ func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 	# once, up front, from the phase — the dialog's rules text and every drag
 	# verdict below read this instead of guessing at the mode locally.
 	consolidate_context_11e = {}
+	consolidate_chosen_objective_11e = ""
 	if current_phase and current_phase.has_method("get_consolidation_context_11e"):
 		consolidate_context_11e = current_phase.get_consolidation_context_11e(unit_id)
 	print("[FightController] Consolidate context for %s: %s" % [unit_id, str(consolidate_context_11e)])
@@ -2785,6 +2791,15 @@ func _on_consolidate_confirmed(movements: Dictionary, unit_id: String, dialog: N
 		"rotations": converted_rotations,
 		"player": action_player
 	}
+	# 12.08 BEFORE (Objective mode): tell the phase WHICH objective the player
+	# selected, so it validates the move against that marker and not against
+	# whichever one it would have defaulted to.
+	if str(consolidate_context_11e.get("mode", "")) == "objective":
+		var target_obj = consolidate_chosen_objective_11e
+		if target_obj == "":
+			target_obj = str(consolidate_context_11e.get("objective", ""))
+		if target_obj != "":
+			action["chosen_objective"] = target_obj
 	emit_signal("fight_action_requested", action)
 
 	# Clear tracking after activation complete
@@ -3013,8 +3028,12 @@ func _populate_consolidation_step_panel(data: Dictionary) -> void:
 				mode_tag = "Engaging"
 				mode_tooltip = "Engaging — enemy within 3\": may move into engagement"
 			"objective":
-				mode_tag = "Objective"
-				mode_tooltip = "Objective within 3\": may move onto it"
+				# Name the marker so the row says WHERE the unit would go — and
+				# so a wrong-looking default is visible before opening the move.
+				var obj_label = str(info.get("objective_label", ""))
+				mode_tag = "Objective (%s)" % obj_label if obj_label != "" else "Objective"
+				mode_tooltip = "Objective within 3\": may move onto %s (pick another in the dialog)" % (
+					obj_label if obj_label != "" else "it")
 			_:
 				mode_tag = "No move possible"
 				mode_tooltip = "No move possible from here"
@@ -3502,6 +3521,56 @@ func _update_coherency_visuals() -> void:
 				pile_in_visuals.add_child(line)
 				coherency_lines.append(line)
 
+func consolidate_objective_options_11e() -> Array:
+	"""The objectives the consolidating unit may select (12.08 BEFORE), closest
+	first, as [{id, label, position, distance_inches}]. Empty outside Objective
+	mode. ConsolidateDialog builds its picker from this."""
+	if str(consolidate_context_11e.get("mode", "")) != "objective":
+		return []
+	return consolidate_context_11e.get("objective_options", [])
+
+func set_consolidate_objective_11e(obj_id: String) -> Dictionary:
+	"""12.08 BEFORE — "select ONE of those objectives". Re-derives the whole move
+	context from the phase for `obj_id`, so the drag verdicts, the direction
+	arrows and CONSOLIDATE validation all judge the move against the marker the
+	player picked. Preview positions that were legal toward the old objective but
+	are not toward the new one are reverted (rather than silently failing at
+	Confirm). Returns {ok, reverted, objective}."""
+	if not consolidate_active or pile_in_unit_id == "" or current_phase == null:
+		return {"ok": false, "reason": "no consolidation move in progress"}
+	if not current_phase.has_method("get_consolidation_context_11e"):
+		return {"ok": false, "reason": "phase does not expose the 12.08 context"}
+	var ctx = current_phase.get_consolidation_context_11e(pile_in_unit_id, obj_id)
+	if str(ctx.get("mode", "")) != "objective" or str(ctx.get("objective", "")) != obj_id:
+		print("[FightController] Objective %s is not selectable for %s (12.08) — keeping %s" % [
+			obj_id, pile_in_unit_id, str(consolidate_context_11e.get("objective", ""))])
+		return {"ok": false, "reason": "%s is not within 3\" of this unit (12.08)" % obj_id}
+
+	consolidate_context_11e = ctx
+	consolidate_chosen_objective_11e = obj_id
+	print("[FightController] Consolidation objective for %s set to %s" % [pile_in_unit_id, obj_id])
+
+	# Drop preview moves the new target would refuse — the arrows are about to
+	# point somewhere else, so leaving an illegal drop on the board would only
+	# blow up at Confirm.
+	var reverted: Array = []
+	for key in current_model_positions:
+		var pos = current_model_positions[key]
+		var orig = original_model_positions.get(key, pos)
+		if pos.distance_to(orig) <= 0.01:
+			continue
+		if not current_phase.has_method("check_consolidation_model_move_11e"):
+			break
+		if not current_phase.check_consolidation_model_move_11e(pile_in_unit_id, key, pos, ctx).get("allowed", false):
+			current_model_positions[key] = orig
+			reverted.append(key)
+	if not reverted.is_empty():
+		print("[FightController] Reverted %d model preview(s) illegal toward %s: %s" % [
+			reverted.size(), obj_id, str(reverted)])
+		_apply_model_positions_to_scene()
+	_update_pile_in_visuals()
+	return {"ok": true, "reverted": reverted, "objective": obj_id}
+
 func _fight_move_aim_point(from_pos: Vector2) -> Vector2:
 	"""The point the pile-in / consolidate direction arrow points at.
 
@@ -3646,7 +3715,12 @@ func auto_consolidate_movements() -> Dictionary:
 	# _compute_consolidate_action selects ENGAGEMENT/OBJECTIVE/NONE mode and merges
 	# attached characters, returning the same index-keyed movement shape as pile-in.
 	var snapshot = GameState.create_snapshot()
-	var action = AIDecisionMaker._compute_consolidate_action(snapshot, pile_in_unit_id, owner)
+	# 12.08 Objective mode: solve toward the objective THIS move selected, not
+	# whichever marker the AI would have picked on its own.
+	var forced_objective := ""
+	if str(consolidate_context_11e.get("mode", "")) == "objective":
+		forced_objective = str(consolidate_context_11e.get("objective", ""))
+	var action = AIDecisionMaker._compute_consolidate_action(snapshot, pile_in_unit_id, owner, forced_objective)
 	var ai_movements = action.get("movements", {})
 	return _load_ai_fight_movements_into_preview(ai_movements, "consolidate")
 
