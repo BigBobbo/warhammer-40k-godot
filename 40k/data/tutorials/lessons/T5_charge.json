@@ -1,8 +1,10 @@
 {
   "id": "t5_ere_we_go",
   "order": 5,
-  "title": "'Ere We Go!",
-  "subtitle": "Charge phase: declare, roll 2D6, get stuck in",
+  "title": "The Charge",
+  "title_orky": "'Ere We Go!",
+  "subtitle": "Charge phase: declare, roll 2D6, close the distance",
+  "subtitle_orky": "Charge phase: declare, roll 2D6, get stuck in",
   "est_minutes": 4,
   "boot": {
     "fixture": "tutorial_t5_charge",
@@ -10,8 +12,17 @@
     "rng_seed": 99
   },
   "summary": {
-    "bark": "'ERE WE GO, 'ERE WE GO!",
+    "bark": "CHARGE COMPLETE!",
+    "bark_orky": "'ERE WE GO, 'ERE WE GO!",
     "bullets": [
+      "Pick the charging unit, tick the target(s) in the list, then [b]Declare Charge[/b].",
+      "[b]Roll 2D6[/b] — that's how far every model can move. Too short and the charge fails.",
+      "A [b]Command Re-roll[/b] (1 CP) gets offered on the charge roll — take it if you came up short.",
+      "[b]Snap to Contact[/b] moves the whole squad into base contact; drag them yourself if you want it tidy.",
+      "[b]Confirm Charge Moves[/b] locks it. Charging units fight first next phase.",
+      "Next lesson: Close Combat — the Fight phase."
+    ],
+    "bullets_orky": [
       "Pick da chargin' unit, tick da target(s) in da list, den [b]Declare Charge[/b].",
       "[b]Roll 2D6[/b] — dat's how far every model can move. Too short an' da charge fails.",
       "A [b]Command Re-roll[/b] (1 CP) gets offered on da charge roll — take it if ya came up short.",
@@ -25,7 +36,8 @@
       "id": "intro",
       "prompt": {
         "bark": "CHARGE PHASE!",
-        "text": "Da Boyz shot 'em up — now dey wanna get stuck in. Chargin' is three steps: [b]declare[/b] who ya want, [b]roll[/b] 2D6, den [b]move[/b] into contact. Fail da roll an' dey don't move at all."
+        "text": "The Boyz have shot them up — now they want to close in. Charging is three steps: [b]declare[/b] who you want, [b]roll[/b] 2D6, then [b]move[/b] into contact. Fail the roll and they don't move at all.",
+        "text_orky": "Da Boyz shot 'em up — now dey wanna get stuck in. Chargin' is three steps: [b]declare[/b] who ya want, [b]roll[/b] 2D6, den [b]move[/b] into contact. Fail da roll an' dey don't move at all."
       },
       "spotlight": "none",
       "allow": [],
@@ -36,9 +48,12 @@
     {
       "id": "declare",
       "prompt": {
-        "bark": "PICK YER SCRAP!",
-        "kbm": "Click da [b]Boyz[/b] in da unit list, den pick da [b]Custodian Guard[/b] — click 'em in da target list [i]or[/i] just click da gits on da board. Den hit [b]Declare Charge[/b].",
-        "pad": "Tap {rb} till da [b]Boyz[/b] are picked. {dpad} ◀▶ walks da target ring — put it on da [b]Custodian Guard[/b] an' press {a} to toggle 'em in. Den {menu} to [b]Declare Charge[/b]."
+        "bark": "PICK YOUR FIGHT!",
+        "bark_orky": "PICK YER SCRAP!",
+        "kbm": "Click the [b]Boyz[/b] in the unit list, then pick the [b]Custodian Guard[/b] — click them in the target list [i]or[/i] just click them on the board. Then hit [b]Declare Charge[/b].",
+        "kbm_orky": "Click da [b]Boyz[/b] in da unit list, den pick da [b]Custodian Guard[/b] — click 'em in da target list [i]or[/i] just click da gits on da board. Den hit [b]Declare Charge[/b].",
+        "pad": "Tap {rb} till the [b]Boyz[/b] are selected. {dpad} ◀▶ walks the target ring — put it on the [b]Custodian Guard[/b] and press {a} to toggle them in. Then {menu} to [b]Declare Charge[/b].",
+        "pad_orky": "Tap {rb} till da [b]Boyz[/b] are picked. {dpad} ◀▶ walks da target ring — put it on da [b]Custodian Guard[/b] an' press {a} to toggle 'em in. Den {menu} to [b]Declare Charge[/b]."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton"
@@ -55,15 +70,19 @@
         }
       },
       "hint": {
-        "text": "Ya can declare more dan one target — but every one of 'em gets to shoot Overwatch back."
+        "text": "You can declare more than one target — but every one of them gets to shoot Overwatch back.",
+        "text_orky": "Ya can declare more dan one target — but every one of 'em gets to shoot Overwatch back."
       }
     },
     {
       "id": "roll",
       "prompt": {
-        "bark": "ROLL DA BONES!",
-        "kbm": "Hit [b]Roll 2D6[/b]. Whatever ya roll is how many inches [i]every[/i] model in da mob gets — an' dey all gotta end up wivin engagement range for it to count.",
-        "pad": "Press {menu} — on da pad dat's [b]Roll 2D6[/b]."
+        "bark": "ROLL THE DICE!",
+        "bark_orky": "ROLL DA BONES!",
+        "kbm": "Hit [b]Roll 2D6[/b]. Whatever you roll is how many inches [i]every[/i] model in the squad gets — and they all have to end up within engagement range for it to count.",
+        "kbm_orky": "Hit [b]Roll 2D6[/b]. Whatever ya roll is how many inches [i]every[/i] model in da mob gets — an' dey all gotta end up wivin engagement range for it to count.",
+        "pad": "Press {menu} — on the pad that's [b]Roll 2D6[/b].",
+        "pad_orky": "Press {menu} — on da pad dat's [b]Roll 2D6[/b]."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/RollChargeButton"
@@ -79,15 +98,19 @@
         }
       },
       "hint": {
-        "text": "Da panel shows da rolled distance right after — dat's yer budget."
+        "text": "The panel shows the rolled distance right after — that's your budget.",
+        "text_orky": "Da panel shows da rolled distance right after — dat's yer budget."
       }
     },
     {
       "id": "keep_da_roll",
       "prompt": {
-        "bark": "GOOD ENUFF!",
-        "text": "Nine inches — plenty. Da game offers a [b]Command Re-roll[/b] on any charge roll (1 CP) in case ya come up short; we don't need it. Click [b]Keep Roll[/b].",
-        "pad": "Da re-roll offer takes its own {dpad}/{a} — pick [b]Keep Roll[/b] an' press {a}."
+        "bark": "GOOD ENOUGH!",
+        "bark_orky": "GOOD ENUFF!",
+        "text": "Nine inches — plenty. The game offers a [b]Command Re-roll[/b] on any charge roll (1 CP) in case you come up short; we don't need it. Click [b]Keep Roll[/b].",
+        "text_orky": "Nine inches — plenty. Da game offers a [b]Command Re-roll[/b] on any charge roll (1 CP) in case ya come up short; we don't need it. Click [b]Keep Roll[/b].",
+        "pad": "The re-roll offer takes its own {dpad}/{a} — pick [b]Keep Roll[/b] and press {a}.",
+        "pad_orky": "Da re-roll offer takes its own {dpad}/{a} — pick [b]Keep Roll[/b] an' press {a}."
       },
       "anchor": {
         "button_text": "Keep Roll"
@@ -105,15 +128,19 @@
         }
       },
       "hint": {
-        "text": "Keep Roll — save da CP. Ya'd only re-roll if da charge fell short."
+        "text": "Keep Roll — save the CP. You'd only re-roll if the charge fell short.",
+        "text_orky": "Keep Roll — save da CP. Ya'd only re-roll if da charge fell short."
       }
     },
     {
       "id": "move_in",
       "prompt": {
-        "bark": "INTO 'EM!",
-        "kbm": "Now shift da mob. Drag each model — or just hit [b]Snap to Contact[/b] an' da whole lot piles into base contact. Da panel counts how many still need placin'.",
-        "pad": "Press {x} — dat's [b]Snap to Contact[/b], it piles da whole mob in. ({a} grabs one model, {l3} swaps model, {b} undoes one.)"
+        "bark": "MOVE IN!",
+        "bark_orky": "INTO 'EM!",
+        "kbm": "Now move the squad. Drag each model — or just hit [b]Snap to Contact[/b] and the whole lot piles into base contact. The panel counts how many still need placing.",
+        "kbm_orky": "Now shift da mob. Drag each model — or just hit [b]Snap to Contact[/b] an' da whole lot piles into base contact. Da panel counts how many still need placin'.",
+        "pad": "Press {x} — that's [b]Snap to Contact[/b], it piles the whole squad in. ({a} grabs one model, {l3} swaps model, {b} undoes one.)",
+        "pad_orky": "Press {x} — dat's [b]Snap to Contact[/b], it piles da whole mob in. ({a} grabs one model, {l3} swaps model, {b} undoes one.)"
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/SnapToContactButton"
@@ -140,14 +167,16 @@
         ]
       },
       "hint": {
-        "text": "[b]Undo Last Model[/b] takes back one drop if ya put a boy somewhere daft."
+        "text": "[b]Undo Last Model[/b] takes back one drop if you put a model somewhere wrong.",
+        "text_orky": "[b]Undo Last Model[/b] takes back one drop if ya put a boy somewhere daft."
       }
     },
     {
       "id": "confirm",
       "prompt": {
         "bark": "LOCK IT IN!",
-        "kbm": "Hit [b]Confirm Charge Moves[/b] to finish da charge. Da mob's now [b]in engagement[/b] — an' chargin' units strike first in da Fight phase.",
+        "kbm": "Hit [b]Confirm Charge Moves[/b] to finish the charge. The squad is now [b]in engagement[/b] — and charging units strike first in the Fight phase.",
+        "kbm_orky": "Hit [b]Confirm Charge Moves[/b] to finish da charge. Da mob's now [b]in engagement[/b] — an' chargin' units strike first in da Fight phase.",
         "pad": "Press {menu} to [b]Confirm Charge[/b] once every declared target is reached."
       },
       "anchor": {
@@ -184,9 +213,12 @@
     {
       "id": "end_phase",
       "prompt": {
-        "bark": "DAT'S DA LOT!",
-        "kbm": "Da wagon an' da grots ain't chargin' today. Hit da big red button to end da Charge phase.",
-        "pad": "Da wagon an' grots ain't chargin'. Press {menu} an' confirm to end da phase."
+        "bark": "THAT'S THE LOT!",
+        "bark_orky": "DAT'S DA LOT!",
+        "kbm": "The wagon and the grots aren't charging today. Hit the big red button to end the Charge phase.",
+        "kbm_orky": "Da wagon an' da grots ain't chargin' today. Hit da big red button to end da Charge phase.",
+        "pad": "The wagon and grots aren't charging. Press {menu} and confirm to end the phase.",
+        "pad_orky": "Da wagon an' grots ain't chargin'. Press {menu} an' confirm to end da phase."
       },
       "anchor": {
         "node": "/root/Main/PhaseActionButton"

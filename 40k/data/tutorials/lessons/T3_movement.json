@@ -1,13 +1,30 @@
 {
   "id": "t3_get_movin",
   "order": 3,
-  "title": "Get Movin'",
+  "title": "Get Moving",
+  "title_orky": "Get Movin'",
   "subtitle": "Movement phase: disembark, move modes & the confirm gate",
   "est_minutes": 7,
-  "boot": { "fixture": "tutorial_postdeploy", "phase": 7, "rng_seed": 4242 },
+  "boot": {
+    "fixture": "tutorial_postdeploy",
+    "phase": 7,
+    "rng_seed": 4242
+  },
   "summary": {
-    "bark": "NOW WE'S ROLLIN'!",
+    "bark": "NOW WE'RE MOVING!",
+    "bark_orky": "NOW WE'S ROLLIN'!",
     "bullets": [
+      "Click a unit's [Embarked] row to get the boys out of a transport — place each base inside the glowing ring. An attached Warboss gets out with them, so his base gets placed too.",
+      "Boyz that disembark can still make their own move — but only if the transport hasn't moved yet. Out first, drive after.",
+      "Movement modes: pick the radio button, then [b]Confirm Movement Mode[/b] — it doesn't stick till you confirm.",
+      "Drag models (or carry them with the pad), [b]Undo Model[/b] / [b]Reset Unit[/b] fix mistakes.",
+      "Big squad? Grab the whole lot in one go — [b]Select All[/b] on the keyboard, D-pad [b]▲[/b] on the pad — and one drag shifts them all.",
+      "You don't have to spend a move in one drag — drop, grab again, the inches add up till they're gone.",
+      "Turning a model is free in 11th — it doesn't cost a single inch of the move.",
+      "[b]End This Unit's Move[/b] locks one unit. The big red button ends the whole phase.",
+      "Next lesson: Open Fire — shooting."
+    ],
+    "bullets_orky": [
       "Click a unit's [Embarked] row to get da boyz out of a transport — place each base inside da glowin' ring. An attached Warboss gets out wiv 'em, so 'is base gets placed too.",
       "Boyz dat disembark can still make their own move — but only if da transport ain't moved yet. Out first, drive after.",
       "Movement modes: pick da radio, den [b]Confirm Movement Mode[/b] — it don't stick till ya confirm.",
@@ -24,61 +41,119 @@
       "id": "intro",
       "prompt": {
         "bark": "MOVEMENT PHASE!",
-        "text": "Every unit can move once a turn. Pick 'em from da unit list on da right — we'll get da Boyz out of da wagon first."
+        "text": "Every unit can move once a turn. Pick them from the unit list on the right — we'll get the Boyz out of the wagon first.",
+        "text_orky": "Every unit can move once a turn. Pick 'em from da unit list on da right — we'll get da Boyz out of da wagon first."
       },
       "spotlight": "none",
       "allow": [],
-      "done": { "ack": true }
+      "done": {
+        "ack": true
+      }
     },
     {
       "id": "disembark_start",
       "prompt": {
         "bark": "EVERYBODY OUT!",
-        "kbm": "Click da [b]Boyz + Warboss [Embarked][/b] row in da list, den click [b]OK[/b] to start da disembark.",
-        "pad": "Tap {rb} till da [b]Boyz + Warboss [Embarked][/b] row is picked — dat pops da disembark dialog on its own — den press {a}. Unit rows are bumper work; da {dpad} drives da panels."
+        "kbm": "Click the [b]Boyz + Warboss [Embarked][/b] row in the list, then click [b]OK[/b] to start the disembark.",
+        "kbm_orky": "Click da [b]Boyz + Warboss [Embarked][/b] row in da list, den click [b]OK[/b] to start da disembark.",
+        "pad": "Tap {rb} till the [b]Boyz + Warboss [Embarked][/b] row is selected — that pops the disembark dialog on its own — then press {a}. Unit rows are bumper work; the {dpad} drives the panels.",
+        "pad_orky": "Tap {rb} till da [b]Boyz + Warboss [Embarked][/b] row is picked — dat pops da disembark dialog on its own — den press {a}. Unit rows are bumper work; da {dpad} drives da panels."
       },
-      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList" },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList"
+      },
       "spotlight": "soft",
-      "allow": ["DISEMBARK_UNIT", "CONFIRM_DISEMBARK", "BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "REMAIN_STATIONARY"],
-      "done": { "any": [
-        { "script": "var br = tree.root.get_node_or_null(\"/root/Main/BoardRoot\")\nif br == null:\n\treturn false\nfor c in br.get_children():\n\tvar scr = c.get_script()\n\tif scr != null and \"DisembarkController\" in str(scr.resource_path):\n\t\treturn true\nreturn false" },
-        { "state": "units.U_BOYZ_T.disembarked_this_phase", "equals": true }
-      ] },
-      "hint": { "text": "It's da row wiv [Embarked in Battlewagon] on it." }
+      "allow": [
+        "DISEMBARK_UNIT",
+        "CONFIRM_DISEMBARK",
+        "BEGIN_NORMAL_MOVE",
+        "BEGIN_ADVANCE",
+        "REMAIN_STATIONARY"
+      ],
+      "done": {
+        "any": [
+          {
+            "script": "var br = tree.root.get_node_or_null(\"/root/Main/BoardRoot\")\nif br == null:\n\treturn false\nfor c in br.get_children():\n\tvar scr = c.get_script()\n\tif scr != null and \"DisembarkController\" in str(scr.resource_path):\n\t\treturn true\nreturn false"
+          },
+          {
+            "state": "units.U_BOYZ_T.disembarked_this_phase",
+            "equals": true
+          }
+        ]
+      },
+      "hint": {
+        "text": "It's the row with [Embarked in Battlewagon] on it.",
+        "text_orky": "It's da row wiv [Embarked in Battlewagon] on it."
+      }
     },
     {
       "id": "disembark_place",
       "prompt": {
-        "bark": "INSIDE DA RING!",
-        "kbm": "Click a spot inside da glowin' ring for [b]each[/b] model — all [b]11[/b] of 'em: 10 Boyz, den da [b]Warboss[/b] last, 'cos he's part of da mob. Keep 'em close together an' not on top of each uvver. Da move locks in after da last one.",
-        "pad": "Glide {ls} to a spot inside da ring an' press {a} for [b]each[/b] model — all [b]11[/b]: 10 Boyz, den da [b]Warboss[/b] last. Keep 'em close, not stacked."
+        "bark": "INSIDE THE RING!",
+        "bark_orky": "INSIDE DA RING!",
+        "kbm": "Click a spot inside the glowing ring for [b]each[/b] model — all [b]11[/b] of them: 10 Boyz, then the [b]Warboss[/b] last, because he's part of the squad. Keep them close together and not on top of each other. The move locks in after the last one.",
+        "kbm_orky": "Click a spot inside da glowin' ring for [b]each[/b] model — all [b]11[/b] of 'em: 10 Boyz, den da [b]Warboss[/b] last, 'cos he's part of da mob. Keep 'em close together an' not on top of each uvver. Da move locks in after da last one.",
+        "pad": "Glide {ls} to a spot inside the ring and press {a} for [b]each[/b] model — all [b]11[/b]: 10 Boyz, then the [b]Warboss[/b] last. Keep them close, not stacked.",
+        "pad_orky": "Glide {ls} to a spot inside da ring an' press {a} for [b]each[/b] model — all [b]11[/b]: 10 Boyz, den da [b]Warboss[/b] last. Keep 'em close, not stacked."
       },
       "spotlight": "none",
-      "allow": ["DISEMBARK_UNIT", "CONFIRM_DISEMBARK"],
-      "done": { "any": [
-        { "action": { "type": "CONFIRM_DISEMBARK" } },
-        { "state": "units.U_BOYZ_T.disembarked_this_phase", "equals": true }
-      ] },
+      "allow": [
+        "DISEMBARK_UNIT",
+        "CONFIRM_DISEMBARK"
+      ],
+      "done": {
+        "any": [
+          {
+            "action": {
+              "type": "CONFIRM_DISEMBARK"
+            }
+          },
+          {
+            "state": "units.U_BOYZ_T.disembarked_this_phase",
+            "equals": true
+          }
+        ]
+      },
       "hint_after_s": 35,
-      "hint": { "text": "Da Warboss is attached to da Boyz, so he gets out wiv 'em — his base is da last one ya place. Right-click cancels if ya get stuck — den click da row again. Every base needs to be wivin 3\" of da wagon." }
+      "hint": {
+        "text": "The Warboss is attached to the Boyz, so he gets out with them — his base is the last one you place. Right-click cancels if you get stuck — then click the row again. Every base needs to be within 3\" of the wagon.",
+        "text_orky": "Da Warboss is attached to da Boyz, so he gets out wiv 'em — his base is da last one ya place. Right-click cancels if ya get stuck — den click da row again. Every base needs to be wivin 3\" of da wagon."
+      }
     },
     {
       "id": "boyz_move_after_disembark",
       "_comment": "TWO beats in one step, and the second one was easy to miss: players shifted the mob and then sat there, because droppin' models looks finished. The step now says the confirm out loud in BOTH device bodies (the pad body never mentioned it at all), carries a live checklist whose second box stays open until the move is locked in, and uses anchor_when to walk the spotlight off the mob and onto End This Unit's Move the moment any model has staged distance.",
       "prompt": {
-        "bark": "DEIR LEGS STILL WORK!",
-        "kbm": "Da wagon ain't moved yet, so da Boyz get their own move too. Press {key:select_all} to grab [b]all 11[/b], den one drag shifts da whole mob. Droppin' 'em ain't da end — click [b]End This Unit's Move[/b] to lock it in.",
-        "pad": "Da wagon ain't moved yet, so da Boyz move too. {dpad} ▲ opens da move menu — {a} takes [b]Move[/b]. ▲ again lifts [b]all 11[/b]: glide {ls} an' {a} drops da lot. Den {menu} — [b]End This Unit's Move[/b] — locks it in."
+        "bark": "THEIR LEGS STILL WORK!",
+        "bark_orky": "DEIR LEGS STILL WORK!",
+        "kbm": "The wagon hasn't moved yet, so the Boyz get their own move too. Press {key:select_all} to grab [b]all 11[/b], then one drag shifts the whole squad. Dropping them isn't the end — click [b]End This Unit's Move[/b] to lock it in.",
+        "kbm_orky": "Da wagon ain't moved yet, so da Boyz get their own move too. Press {key:select_all} to grab [b]all 11[/b], den one drag shifts da whole mob. Droppin' 'em ain't da end — click [b]End This Unit's Move[/b] to lock it in.",
+        "pad": "The wagon hasn't moved yet, so the Boyz move too. {dpad} ▲ opens the move menu — {a} takes [b]Move[/b]. ▲ again lifts [b]all 11[/b]: glide {ls} and {a} drops the lot. Then {menu} — [b]End This Unit's Move[/b] — locks it in.",
+        "pad_orky": "Da wagon ain't moved yet, so da Boyz move too. {dpad} ▲ opens da move menu — {a} takes [b]Move[/b]. ▲ again lifts [b]all 11[/b]: glide {ls} an' {a} drops da lot. Den {menu} — [b]End This Unit's Move[/b] — locks it in."
       },
-      "anchor": { "unit": "U_BOYZ_T" },
+      "anchor": {
+        "unit": "U_BOYZ_T"
+      },
       "spotlight": "soft",
-      "allow": ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "LOCK_MOVEMENT_MODE", "SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE", "RESET_UNIT_MOVE", "CONFIRM_UNIT_MOVE", "REMAIN_STATIONARY"],
+      "allow": [
+        "BEGIN_NORMAL_MOVE",
+        "BEGIN_ADVANCE",
+        "LOCK_MOVEMENT_MODE",
+        "SET_MODEL_DEST",
+        "STAGE_MODEL_MOVE",
+        "UNDO_LAST_MODEL_MOVE",
+        "RESET_UNIT_MOVE",
+        "CONFIRM_UNIT_MOVE",
+        "REMAIN_STATIONARY"
+      ],
       "checklist": {
-        "label": "Da Boyz' move:",
+        "label": "The Boyz' move:",
+        "label_orky": "Da Boyz' move:",
         "items": [
           {
             "id": "mob_shifted",
-            "label": "Shift da mob",
+            "label": "Shift the squad",
+            "label_orky": "Shift da mob",
             "script": "var pi = PhaseManager.current_phase_instance\nif pi == null or not pi.has_method(\"get_active_move_data\"):\n\treturn false\nvar md = pi.get_active_move_data(\"U_BOYZ_T\")\nif typeof(md) != TYPE_DICTIONARY:\n\treturn false\nfor d in md.get(\"model_distances\", {}).values():\n\tif float(d) > 0.01:\n\t\treturn true\nreturn false",
             "comment": "staged distance lives in the phase's active_moves until CONFIRM_UNIT_MOVE writes it through, so this reads the live move data (GameState positions do not change until the confirm this box is there to prompt)"
           },
@@ -90,77 +165,158 @@
           }
         ]
       },
-      "done": { "any": [
-        { "action": { "type": "CONFIRM_UNIT_MOVE", "actor_unit_id": "U_BOYZ_T" } },
-        { "action": { "type": "REMAIN_STATIONARY", "actor_unit_id": "U_BOYZ_T" } },
-        { "state": "units.U_BOYZ_T.flags.moved", "equals": true }
-      ] },
+      "done": {
+        "any": [
+          {
+            "action": {
+              "type": "CONFIRM_UNIT_MOVE",
+              "actor_unit_id": "U_BOYZ_T"
+            }
+          },
+          {
+            "action": {
+              "type": "REMAIN_STATIONARY",
+              "actor_unit_id": "U_BOYZ_T"
+            }
+          },
+          {
+            "state": "units.U_BOYZ_T.flags.moved",
+            "equals": true
+          }
+        ]
+      },
       "_done_comment": "The checklist is deliberately NOT the done gate: Remain Stationary is a legal way off this step and would never tick 'Shift da mob', so gating on the list would soft-lock that player. The boxes are the visible reminder, the any-tree is still the exit.",
       "anchor_when": [
         {
           "script": "var pi = PhaseManager.current_phase_instance\nif pi == null or not pi.has_method(\"get_active_move_data\"):\n\treturn false\nvar md = pi.get_active_move_data(\"U_BOYZ_T\")\nif typeof(md) != TYPE_DICTIONARY:\n\treturn false\nfor d in md.get(\"model_distances\", {}).values():\n\tif float(d) > 0.01:\n\t\treturn true\nreturn false",
-          "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton" },
+          "anchor": {
+            "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton"
+          },
           "spotlight": "soft",
           "comment": "models are down — point the ring at the button that finishes the move, the same one wagon_confirm spotlights later in the lesson"
         }
       ],
       "hint_after_s": 30,
       "hint": {
-        "kbm": "Moved 'em an' nuffin's happenin'? Da move ain't locked in till ya click [b]End This Unit's Move[/b] in da panel on da right. Dey only get dis move 'cos da wagon ain't shifted yet — out first, drive after. {key:select_all} re-grabs da whole mob any time, an' if dey don't all fit where ya drop 'em, only da ones dat fit land an' da rest stay selected.",
-        "pad": "Moved 'em an' nuffin's happenin'? Da move ain't locked in till ya press {menu} ([b]End This Unit's Move[/b]). Dey only get dis move 'cos da wagon ain't shifted yet — out first, drive after. {dpad} ▲ only grabs da whole mob once dey're movin', an' if dey don't all fit, anuvver ▲ grabs whoever's left."
+        "kbm": "Moved them and nothing's happening? The move isn't locked in till you click [b]End This Unit's Move[/b] in the panel on the right. They only get this move because the wagon hasn't shifted yet — out first, drive after. {key:select_all} re-grabs the whole squad any time, and if they don't all fit where you drop them, only the ones that fit land and the rest stay selected.",
+        "kbm_orky": "Moved 'em an' nuffin's happenin'? Da move ain't locked in till ya click [b]End This Unit's Move[/b] in da panel on da right. Dey only get dis move 'cos da wagon ain't shifted yet — out first, drive after. {key:select_all} re-grabs da whole mob any time, an' if dey don't all fit where ya drop 'em, only da ones dat fit land an' da rest stay selected.",
+        "pad": "Moved them and nothing's happening? The move isn't locked in till you press {menu} ([b]End This Unit's Move[/b]). They only get this move because the wagon hasn't shifted yet — out first, drive after. {dpad} ▲ only grabs the whole squad once they're moving, and if they don't all fit, another ▲ grabs whoever's left.",
+        "pad_orky": "Moved 'em an' nuffin's happenin'? Da move ain't locked in till ya press {menu} ([b]End This Unit's Move[/b]). Dey only get dis move 'cos da wagon ain't shifted yet — out first, drive after. {dpad} ▲ only grabs da whole mob once dey're movin', an' if dey don't all fit, anuvver ▲ grabs whoever's left."
       },
-      "blocked_hint": "move da [b]Boyz[/b] first — drag one, den [b]End This Unit's Move[/b]."
+      "blocked_hint": "move the [b]Boyz[/b] first — drag one, then [b]End This Unit's Move[/b].",
+      "blocked_hint_orky": "move da [b]Boyz[/b] first — drag one, den [b]End This Unit's Move[/b]."
     },
     {
       "id": "wagon_mode",
       "prompt": {
-        "bark": "PUT YER FOOT DOWN!",
-        "kbm": "Now da wagon: click [b]Battlewagon[/b] in da list, pick da [b]Advance[/b] radio, den hit [b]Confirm Movement Mode[/b] — da mode don't stick till ya confirm it!",
-        "pad": "Tap {rb} till da [b]Battlewagon[/b]'s picked, den {dpad} ▲ opens da move menu. ▼ onto [b]Advance[/b] an' {a} — dat locks da mode in, no Confirm button needed."
+        "bark": "PUT YOUR FOOT DOWN!",
+        "bark_orky": "PUT YER FOOT DOWN!",
+        "kbm": "Now the wagon: click [b]Battlewagon[/b] in the list, pick the [b]Advance[/b] radio button, then hit [b]Confirm Movement Mode[/b] — the mode doesn't stick till you confirm it!",
+        "kbm_orky": "Now da wagon: click [b]Battlewagon[/b] in da list, pick da [b]Advance[/b] radio, den hit [b]Confirm Movement Mode[/b] — da mode don't stick till ya confirm it!",
+        "pad": "Tap {rb} till the [b]Battlewagon[/b] is selected, then {dpad} ▲ opens the move menu. ▼ onto [b]Advance[/b] and {a} — that locks the mode in, no Confirm button needed.",
+        "pad_orky": "Tap {rb} till da [b]Battlewagon[/b]'s picked, den {dpad} ▲ opens da move menu. ▼ onto [b]Advance[/b] an' {a} — dat locks da mode in, no Confirm button needed."
       },
-      "anchor": { "button_text": "Confirm Movement Mode" },
+      "anchor": {
+        "button_text": "Confirm Movement Mode"
+      },
       "spotlight": "soft",
-      "allow": ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "LOCK_MOVEMENT_MODE"],
-      "done": { "action": { "type": "BEGIN_ADVANCE" } },
-      "hint": { "text": "Radio first, den da Confirm Movement Mode button under it. Da dice add to da wagon's move." }
+      "allow": [
+        "BEGIN_NORMAL_MOVE",
+        "BEGIN_ADVANCE",
+        "LOCK_MOVEMENT_MODE"
+      ],
+      "done": {
+        "action": {
+          "type": "BEGIN_ADVANCE"
+        }
+      },
+      "hint": {
+        "text": "Radio button first, then the Confirm Movement Mode button under it. The dice add to the wagon's move.",
+        "text_orky": "Radio first, den da Confirm Movement Mode button under it. Da dice add to da wagon's move."
+      }
     },
     {
       "id": "keep_da_roll",
       "prompt": {
-        "bark": "DA DICE SPOKE!",
-        "text": "Advance adds a D6 to da move — an' when a roll's dis important, da game offers a [b]Command Re-roll[/b] (costs 1 CP). We're keepin' it: click [b]Keep Roll[/b]."
+        "bark": "THE DICE HAVE SPOKEN!",
+        "bark_orky": "DA DICE SPOKE!",
+        "text": "Advance adds a D6 to the move — and when a roll is this important, the game offers a [b]Command Re-roll[/b] (costs 1 CP). We're keeping it: click [b]Keep Roll[/b].",
+        "text_orky": "Advance adds a D6 to da move — an' when a roll's dis important, da game offers a [b]Command Re-roll[/b] (costs 1 CP). We're keepin' it: click [b]Keep Roll[/b]."
       },
       "_comment": "LOCK_MOVEMENT_MODE is allowed here even though this step is about the re-roll offer: MovementController._on_confirm_mode_pressed emits BEGIN_ADVANCE and then LOCK_MOVEMENT_MODE from the SAME click, and BEGIN_ADVANCE is what completes the previous step (wagon_mode) — synchronously, via PhaseManager.phase_action_taken -> _check_done. So by the time the second half of that one click reaches the gate, THIS step's allow-list is the one being consulted, and an empty list rejected it with 'tutorial_locked' the instant the player confirmed Advance.",
-      "anchor": { "button_text": "Keep Roll" },
+      "anchor": {
+        "button_text": "Keep Roll"
+      },
       "spotlight": "soft",
-      "allow": ["LOCK_MOVEMENT_MODE"],
-      "done": { "action": { "type": "DECLINE_COMMAND_REROLL" } },
-      "skip_fallback": { "dispatch": { "type": "DECLINE_COMMAND_REROLL" } },
-      "hint": { "text": "Keep Roll — save da CP for somefin' bigger." }
+      "allow": [
+        "LOCK_MOVEMENT_MODE"
+      ],
+      "done": {
+        "action": {
+          "type": "DECLINE_COMMAND_REROLL"
+        }
+      },
+      "skip_fallback": {
+        "dispatch": {
+          "type": "DECLINE_COMMAND_REROLL"
+        }
+      },
+      "hint": {
+        "text": "Keep Roll — save the CP for something bigger.",
+        "text_orky": "Keep Roll — save da CP for somefin' bigger."
+      }
     },
     {
       "id": "wagon_move",
       "prompt": {
         "bark": "SHIFT IT!",
-        "kbm": "Drag da wagon's hull forward an' drop it. Ya don't gotta spend da whole move in one drag — drop it, grab it again, keep goin'. Da panel counts every inch as ya go.",
-        "pad": "Press {a} on da wagon to grab it, glide {ls} where ya want it, {a} to drop. Ya don't gotta spend it all at once — grab it again an' keep goin'. Da panel counts da inches."
+        "kbm": "Drag the wagon's hull forward and drop it. You don't have to spend the whole move in one drag — drop it, grab it again, keep going. The panel counts every inch as you go.",
+        "kbm_orky": "Drag da wagon's hull forward an' drop it. Ya don't gotta spend da whole move in one drag — drop it, grab it again, keep goin'. Da panel counts every inch as ya go.",
+        "pad": "Press {a} on the wagon to grab it, glide {ls} where you want it, {a} to drop. You don't have to spend it all at once — grab it again and keep going. The panel counts the inches.",
+        "pad_orky": "Press {a} on da wagon to grab it, glide {ls} where ya want it, {a} to drop. Ya don't gotta spend it all at once — grab it again an' keep goin'. Da panel counts da inches."
       },
-      "anchor": { "unit": "U_BATTLEWAGON_T" },
+      "anchor": {
+        "unit": "U_BATTLEWAGON_T"
+      },
       "spotlight": "soft",
-      "allow": ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE"],
-      "done": { "action": { "type": "STAGE_MODEL_MOVE", "actor_unit_id": "U_BATTLEWAGON_T" } },
-      "hint": { "text": "Grab da middle of da hull. Little hops is fine — every drop adds to da total till da move's spent. [b]Undo Model[/b] takes da last drop back." }
+      "allow": [
+        "BEGIN_NORMAL_MOVE",
+        "BEGIN_ADVANCE",
+        "SET_MODEL_DEST",
+        "STAGE_MODEL_MOVE",
+        "UNDO_LAST_MODEL_MOVE"
+      ],
+      "done": {
+        "action": {
+          "type": "STAGE_MODEL_MOVE",
+          "actor_unit_id": "U_BATTLEWAGON_T"
+        }
+      },
+      "hint": {
+        "text": "Grab the middle of the hull. Little hops are fine — every drop adds to the total till the move is spent. [b]Undo Model[/b] takes the last drop back.",
+        "text_orky": "Grab da middle of da hull. Little hops is fine — every drop adds to da total till da move's spent. [b]Undo Model[/b] takes da last drop back."
+      }
     },
     {
       "id": "wagon_turn",
       "prompt": {
         "bark": "POINT IT RIGHT!",
-        "kbm": "Da wagon ain't on a round base, so which way it points matters. Grab da hull an' [b]keep holdin'[/b] it, den tap {key:rotate_left} or {key:rotate_right} — 15° a tap. Turnin' costs no inches.",
-        "pad": "Da wagon ain't on a round base, so which way it points matters. {lb} or {rb} spins it 15° a tap — in yer hand ({a} grabs it) or sittin' where ya dropped it. Turnin' costs no inches."
+        "kbm": "The wagon isn't on a round base, so which way it points matters. Grab the hull and [b]keep holding[/b] it, then tap {key:rotate_left} or {key:rotate_right} — 15° a tap. Turning costs no inches.",
+        "kbm_orky": "Da wagon ain't on a round base, so which way it points matters. Grab da hull an' [b]keep holdin'[/b] it, den tap {key:rotate_left} or {key:rotate_right} — 15° a tap. Turnin' costs no inches.",
+        "pad": "The wagon isn't on a round base, so which way it points matters. {lb} or {rb} spins it 15° a tap — in your hand ({a} grabs it) or sitting where you dropped it. Turning costs no inches.",
+        "pad_orky": "Da wagon ain't on a round base, so which way it points matters. {lb} or {rb} spins it 15° a tap — in yer hand ({a} grabs it) or sittin' where ya dropped it. Turnin' costs no inches."
       },
-      "anchor": { "unit": "U_BATTLEWAGON_T" },
+      "anchor": {
+        "unit": "U_BATTLEWAGON_T"
+      },
       "spotlight": "soft",
-      "allow": ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE"],
+      "allow": [
+        "BEGIN_NORMAL_MOVE",
+        "BEGIN_ADVANCE",
+        "SET_MODEL_DEST",
+        "STAGE_MODEL_MOVE",
+        "UNDO_LAST_MODEL_MOVE"
+      ],
       "capture": {
         "rot0": {
           "script": "var u = GameState.get_unit(\"U_BATTLEWAGON_T\")\nvar ms = u.get(\"models\", [])\nif ms.is_empty():\n\treturn 0.0\nreturn float(ms[0].get(\"rotation\", 0.0))",
@@ -172,33 +328,69 @@
         "comment": "MovementController._apply_rotation_to_model writes the new facing straight into GameState (both Q/E and the pad's LB/RB, which PadRouter._synth_rotate turns into the same key events), so polling live state catches the turn the moment it happens — no action is dispatched for a rotation. 0.05 rad is a fifth of one 15-degree (PI/12 = 0.262 rad) tap, so a single press clears it and float noise cannot."
       },
       "hint": {
-        "kbm": "Ya have to be holdin' da model — {key:rotate_left}/{key:rotate_right} do nuffin' when nuffin's grabbed. Press an' hold on da hull first, den tap 'em, den let go to drop it.",
-        "pad": "{lb}/{rb} turn da wagon any time its move ain't locked in yet — whether it's in yer hand or parked where ya dropped it. {a} on da hull picks it back up, {a} again drops it where it's pointin'."
+        "kbm": "You have to be holding the model — {key:rotate_left}/{key:rotate_right} do nothing when nothing is grabbed. Press and hold on the hull first, then tap them, then let go to drop it.",
+        "kbm_orky": "Ya have to be holdin' da model — {key:rotate_left}/{key:rotate_right} do nuffin' when nuffin's grabbed. Press an' hold on da hull first, den tap 'em, den let go to drop it.",
+        "pad": "{lb}/{rb} turn the wagon any time its move isn't locked in yet — whether it's in your hand or parked where you dropped it. {a} on the hull picks it back up, {a} again drops it where it's pointing.",
+        "pad_orky": "{lb}/{rb} turn da wagon any time its move ain't locked in yet — whether it's in yer hand or parked where ya dropped it. {a} on da hull picks it back up, {a} again drops it where it's pointin'."
       }
     },
     {
       "id": "wagon_confirm",
       "prompt": {
         "bark": "LOCK IT IN!",
-        "kbm": "Happy? [b]End This Unit's Move[/b] locks da wagon in. ([b]Undo Model[/b] an' [b]Reset Unit[/b] are right next to it if ya ain't.)",
-        "pad": "Press {menu} — once da models are down da bar calls it [b]Confirm Move[/b], an' dat IS [b]End This Unit's Move[/b]. (Mid-move da {dpad}'s on models, not panels.)"
+        "kbm": "Happy? [b]End This Unit's Move[/b] locks the wagon in. ([b]Undo Model[/b] and [b]Reset Unit[/b] are right next to it if you're not.)",
+        "kbm_orky": "Happy? [b]End This Unit's Move[/b] locks da wagon in. ([b]Undo Model[/b] an' [b]Reset Unit[/b] are right next to it if ya ain't.)",
+        "pad": "Press {menu} — once the models are down the bar calls it [b]Confirm Move[/b], and that IS [b]End This Unit's Move[/b]. (Mid-move the {dpad} is on models, not panels.)",
+        "pad_orky": "Press {menu} — once da models are down da bar calls it [b]Confirm Move[/b], an' dat IS [b]End This Unit's Move[/b]. (Mid-move da {dpad}'s on models, not panels.)"
       },
-      "anchor": { "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton" },
+      "anchor": {
+        "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton"
+      },
       "spotlight": "soft",
-      "allow": ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE", "CONFIRM_UNIT_MOVE"],
-      "done": { "action": { "type": "CONFIRM_UNIT_MOVE", "actor_unit_id": "U_BATTLEWAGON_T" } }
+      "allow": [
+        "BEGIN_NORMAL_MOVE",
+        "BEGIN_ADVANCE",
+        "SET_MODEL_DEST",
+        "STAGE_MODEL_MOVE",
+        "UNDO_LAST_MODEL_MOVE",
+        "CONFIRM_UNIT_MOVE"
+      ],
+      "done": {
+        "action": {
+          "type": "CONFIRM_UNIT_MOVE",
+          "actor_unit_id": "U_BATTLEWAGON_T"
+        }
+      }
     },
     {
       "id": "end_phase",
       "prompt": {
-        "bark": "DONE 'ERE!",
-        "kbm": "Da grots can stay put — units don't [i]have[/i] to move. Hit da big red button to end da Movement phase.",
-        "pad": "Da grots can stay put. Press {menu} an' confirm to end da Movement phase."
+        "bark": "DONE HERE!",
+        "bark_orky": "DONE 'ERE!",
+        "kbm": "The grots can stay put — units don't [i]have[/i] to move. Hit the big red button to end the Movement phase.",
+        "kbm_orky": "Da grots can stay put — units don't [i]have[/i] to move. Hit da big red button to end da Movement phase.",
+        "pad": "The grots can stay put. Press {menu} and confirm to end the Movement phase.",
+        "pad_orky": "Da grots can stay put. Press {menu} an' confirm to end da Movement phase."
       },
-      "anchor": { "node": "/root/Main/PhaseActionButton" },
+      "anchor": {
+        "node": "/root/Main/PhaseActionButton"
+      },
       "spotlight": "strict",
-      "allow": ["END_MOVEMENT"],
-      "done": { "any": [ { "action": { "type": "END_MOVEMENT" } }, { "phase": 8 } ] }
+      "allow": [
+        "END_MOVEMENT"
+      ],
+      "done": {
+        "any": [
+          {
+            "action": {
+              "type": "END_MOVEMENT"
+            }
+          },
+          {
+            "phase": 8
+          }
+        ]
+      }
     }
   ]
 }

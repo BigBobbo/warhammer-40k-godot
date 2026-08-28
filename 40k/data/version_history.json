@@ -2,8 +2,8 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.39.2",
-      "date": "2026-08-27",
+      "version": "1.41.1",
+      "date": "2026-08-28",
       "summary": "The AI can no longer put more than half its army in reserve — attached leaders now count against the 50% cap, and they arrive with their unit instead of vanishing.",
       "changes": [
         "A character attached to a bodyguard goes into reserves with it, but the AI's declarations never counted the character. That let the AI hold back far more than the rules allow — in one game 7 of 11 units and 1310 of 2000 points (65.5%) started off the table against a 50% limit.",
@@ -11,6 +11,27 @@
         "Leaders attached to a reserved unit are now correctly placed in reserves too. Previously they were left in limbo: off the table all game, and refused entry when their unit arrived.",
         "Attaching a character to a unit that is already in reserves is refused if it would push you over the cap.",
         "The formations dialog now shows the unit limit alongside the points limit, and stops you ticking a unit that would break either."
+      ]
+    },
+    {
+      "version": "1.41.0",
+      "date": "2026-08-27",
+      "summary": "The AI now plays at its strongest setting by default. Expect a considerably tougher opponent.",
+      "changes": [
+        "New games default to the Competitive AI instead of Normal. Head-to-head testing (12 games, both sides of the table, shared dice seeds) showed the stronger setting wins by about 24 victory points per game, taking 8 of 12 - so 'Normal' was leaving a lot of skill on the table.",
+        "In practice the tougher AI plans its movement, shooting and charges together as one turn, screens against deep strikes, weighs whether a fight is a good trade, and stops second-guessing itself with random hesitation.",
+        "The difficulty dropdown still works exactly as before if you want an easier game - only the starting selection changed."
+      ]
+    },
+    {
+      "version": "1.40.0",
+      "date": "2026-08-27",
+      "summary": "The tutorial now speaks plain English by default — Da Boss's Ork dialect is a setting, not the only option.",
+      "changes": [
+        "New setting: Settings > Gameplay > Tutorial Language. 'Plain English' (the default) rewrites every lesson card, hint, blocked-action toast, exit dialog, lesson picker and first-launch offer in clear standard English; 'Orky (Da Boss)' brings back the original greenskin voice.",
+        "The change applies immediately, even mid-lesson — the instructor card re-renders in the new voice on the spot.",
+        "Lesson content, steps, controls and progress are identical in both voices; only the wording changes. Unit names (Boyz, Gretchin) and on-screen button labels like CALL DA WAAAGH! stay as they appear in the game.",
+        "Fixed a lesson-picker layout fault where the panel could size itself off-screen and its Start buttons became unclickable."
       ]
     },
     {

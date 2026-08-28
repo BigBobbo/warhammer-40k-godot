@@ -2387,7 +2387,7 @@ static var _current_player: int = 0  # Active AI player for profile lookups
 
 # T7-40: Current difficulty level for the active AI player
 # Set by AIPlayer before each decide() call, used by sub-methods
-static var _current_difficulty: int = AIDifficultyConfigData.Difficulty.NORMAL
+static var _current_difficulty: int = AIDifficultyConfigData.Difficulty.COMPETITIVE
 
 static func _get_vp_diff(snapshot: Dictionary, player: int) -> int:
 	"""Get VP differential (positive = ahead, negative = behind).

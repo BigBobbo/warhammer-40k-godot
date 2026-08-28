@@ -1,7 +1,8 @@
 {
   "id": "t7_runnin_da_show",
   "order": 7,
-  "title": "Runnin' da Show",
+  "title": "Running the Show",
+  "title_orky": "Runnin' da Show",
   "subtitle": "Command phase, secondaries, stratagems & army rules",
   "est_minutes": 5,
   "boot": {
@@ -10,8 +11,16 @@
     "rng_seed": 4242
   },
   "summary": {
-    "bark": "YOU'S DA BOSS NOW!",
+    "bark": "YOU'RE IN COMMAND NOW!",
+    "bark_orky": "YOU'S DA BOSS NOW!",
     "bullets": [
+      "Every battle round starts with the [b]Command phase[/b]: +1 CP, then your secondary missions.",
+      "The mission review shows what you're scoring for — [b]Discard[/b] one for a CP, or [b]Replace[/b] it for a CP.",
+      "Army rules live in the command panel — [b]CALL DA WAAAGH![/b] is once per battle.",
+      "[b][S] Stratagems[/b] spends CP any time it's legal; [b]Missions[/b] and [b]Roster[/b] show scoring and your army.",
+      "That's the lot — every phase, every button. Now go fight a real battle."
+    ],
+    "bullets_orky": [
       "Every battle round starts wiv da [b]Command phase[/b]: +1 CP, den yer secondary missions.",
       "Da mission review shows what yer scorin' for — [b]Discard[/b] one for a CP, or [b]Replace[/b] it for a CP.",
       "Army rules live in da command panel — [b]CALL DA WAAAGH![/b] is once per battle.",
@@ -24,8 +33,10 @@
       "id": "review_missions",
       "prompt": {
         "bark": "BATTLE ROUND TWO!",
-        "kbm": "Da Custodes had deir go — now every round opens wiv da [b]Command phase[/b]: bank a CP, sort yer secondaries, fire off army rules. Dis card lists da missions ya can score dis round an' what each pays. Ya could [b]Replace[/b] one for 1 CP — we'll keep 'em. Click [b]Continue[/b].",
-        "pad": "Every round opens wiv da [b]Command phase[/b]: a CP, yer secondaries, den army rules. Dis card lists what ya can score — {dpad} moves da highlight, {a} presses. Pick [b]Continue[/b]."
+        "kbm": "The Custodes had their turn — now every round opens with the [b]Command phase[/b]: bank a CP, sort your secondaries, fire off army rules. This card lists the missions you can score this round and what each pays. You could [b]Replace[/b] one for 1 CP — we'll keep them. Click [b]Continue[/b].",
+        "kbm_orky": "Da Custodes had deir go — now every round opens wiv da [b]Command phase[/b]: bank a CP, sort yer secondaries, fire off army rules. Dis card lists da missions ya can score dis round an' what each pays. Ya could [b]Replace[/b] one for 1 CP — we'll keep 'em. Click [b]Continue[/b].",
+        "pad": "Every round opens with the [b]Command phase[/b]: a CP, your secondaries, then army rules. This card lists what you can score — {dpad} moves the highlight, {a} presses. Pick [b]Continue[/b].",
+        "pad_orky": "Every round opens wiv da [b]Command phase[/b]: a CP, yer secondaries, den army rules. Dis card lists what ya can score — {dpad} moves da highlight, {a} presses. Pick [b]Continue[/b]."
       },
       "anchor": {
         "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
@@ -41,15 +52,19 @@
         "comment": "Continue clears the phase's newly-drawn list and frees the dialog; a bare node_hidden check would pass on the frame before the dialog pops"
       },
       "hint": {
-        "text": "Da same missions are listed down da right panel too, wiv [b]Discard (+1 CP)[/b] buttons."
+        "text": "The same missions are listed down the right panel too, with [b]Discard (+1 CP)[/b] buttons.",
+        "text_orky": "Da same missions are listed down da right panel too, wiv [b]Discard (+1 CP)[/b] buttons."
       }
     },
     {
       "id": "mission_choice",
       "prompt": {
-        "bark": "DA MISSION WANTS SOMEFIN'!",
-        "kbm": "Some missions ask ya to make a choice da moment dey're drawn. Dis one wants a guard on each objective. Ya can pick 'em yerself — or take da game's suggestion wiv [b]Keep Auto Picks[/b].",
-        "pad": "Some missions want a choice when dey're drawn — dis one wants guards on objectives. {dpad} to [b]Keep Auto Picks[/b], den {a} to take da game's suggestion."
+        "bark": "THE MISSION WANTS SOMETHING!",
+        "bark_orky": "DA MISSION WANTS SOMEFIN'!",
+        "kbm": "Some missions ask you to make a choice the moment they're drawn. This one wants a guard on each objective. You can pick them yourself — or take the game's suggestion with [b]Keep Auto Picks[/b].",
+        "kbm_orky": "Some missions ask ya to make a choice da moment dey're drawn. Dis one wants a guard on each objective. Ya can pick 'em yerself — or take da game's suggestion wiv [b]Keep Auto Picks[/b].",
+        "pad": "Some missions want a choice when they're drawn — this one wants guards on objectives. {dpad} to [b]Keep Auto Picks[/b], then {a} to take the game's suggestion.",
+        "pad_orky": "Some missions want a choice when dey're drawn — dis one wants guards on objectives. {dpad} to [b]Keep Auto Picks[/b], den {a} to take da game's suggestion."
       },
       "anchor": {
         "node": "/root/GuardSelectionDialog/Content/Actions/KeepAutoGuards"
@@ -66,15 +81,19 @@
         "comment": "gate on the mission's own pending_interaction flag as well as the dialog node: the dialog is spawned a frame or two after this step arms, so a bare node-gone check would pass instantly"
       },
       "hint": {
-        "text": "[b]Pick on board[/b] next to a row lets ya click da unit on da table instead of usin' da dropdown."
+        "text": "[b]Pick on board[/b] next to a row lets you click the unit on the table instead of using the dropdown.",
+        "text_orky": "[b]Pick on board[/b] next to a row lets ya click da unit on da table instead of usin' da dropdown."
       }
     },
     {
       "id": "waaagh",
       "prompt": {
-        "bark": "WAAAAAGH!",
-        "kbm": "Army rules sit in da command panel. Da Orks get one big 'un: hit [b]CALL DA WAAAGH![/b] — once per battle, every Ork can Advance an' still charge, hits harder in melee an' gets a 5+ invuln.",
-        "pad": "Army rules sit in da command panel. {dpad} ▼ hops in, ▼ again lands on [b]CALL DA WAAAGH![/b] — {a} calls it. Once per battle, an' every Ork gets meaner."
+        "bark": "CALL THE WAAAGH!",
+        "bark_orky": "WAAAAAGH!",
+        "kbm": "Army rules sit in the command panel. The Orks get one big one: hit [b]CALL DA WAAAGH![/b] — once per battle, every Ork can Advance and still charge, hits harder in melee and gets a 5+ invulnerable save.",
+        "kbm_orky": "Army rules sit in da command panel. Da Orks get one big 'un: hit [b]CALL DA WAAAGH![/b] — once per battle, every Ork can Advance an' still charge, hits harder in melee an' gets a 5+ invuln.",
+        "pad": "Army rules sit in the command panel. {dpad} ▼ hops in, ▼ again lands on [b]CALL DA WAAAGH![/b] — {a} calls it. Once per battle, and every Ork gets meaner.",
+        "pad_orky": "Army rules sit in da command panel. {dpad} ▼ hops in, ▼ again lands on [b]CALL DA WAAAGH![/b] — {a} calls it. Once per battle, an' every Ork gets meaner."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/CallWaaaghButton"
@@ -91,15 +110,19 @@
         }
       },
       "hint": {
-        "text": "Every faction's got its own section here — dis is where army rules get fired off."
+        "text": "Every faction has its own section here — this is where army rules get fired off.",
+        "text_orky": "Every faction's got its own section here — dis is where army rules get fired off."
       }
     },
     {
       "id": "stratagems",
       "prompt": {
-        "bark": "SPEND DA CP!",
-        "kbm": "CP buys [b]stratagems[/b]. Open da panel wiv [b][S] Stratagems[/b] at da bottom — it lists what ya can use right now, what it costs, an' greys out da rest wiv da reason why. Have a look, den hit [b]Close[/b].",
-        "pad": "CP buys [b]stratagems[/b]. Da bottom bar ain't on da {dpad} route, so glide {ls} onto [b]Stratagems[/b] an' press {a} — da panel lists what ya can use now an' greys out da rest wiv da reason why. Have a look, den [b]Close[/b]."
+        "bark": "SPEND THE CP!",
+        "bark_orky": "SPEND DA CP!",
+        "kbm": "CP buys [b]stratagems[/b]. Open the panel with [b][S] Stratagems[/b] at the bottom — it lists what you can use right now, what it costs, and greys out the rest with the reason why. Have a look, then hit [b]Close[/b].",
+        "kbm_orky": "CP buys [b]stratagems[/b]. Open da panel wiv [b][S] Stratagems[/b] at da bottom — it lists what ya can use right now, what it costs, an' greys out da rest wiv da reason why. Have a look, den hit [b]Close[/b].",
+        "pad": "CP buys [b]stratagems[/b]. The bottom bar isn't on the {dpad} route, so glide {ls} onto [b]Stratagems[/b] and press {a} — the panel lists what you can use now and greys out the rest with the reason why. Have a look, then [b]Close[/b].",
+        "pad_orky": "CP buys [b]stratagems[/b]. Da bottom bar ain't on da {dpad} route, so glide {ls} onto [b]Stratagems[/b] an' press {a} — da panel lists what ya can use now an' greys out da rest wiv da reason why. Have a look, den [b]Close[/b]."
       },
       "anchor": {
         "node": "/root/Main/HUD_Bottom/HBoxContainer/StratagemPanelButton"
@@ -114,15 +137,19 @@
         "node_visible": "/root/Main/StratagemPanel"
       },
       "hint": {
-        "text": "Da panel greys out anyfin' ya can't afford or can't use in dis phase."
+        "text": "The panel greys out anything you can't afford or can't use in this phase.",
+        "text_orky": "Da panel greys out anyfin' ya can't afford or can't use in dis phase."
       }
     },
     {
       "id": "end_command",
       "prompt": {
-        "bark": "ON WIV IT!",
-        "kbm": "Dat's da Command phase. [b]End Command Phase[/b] moves ya on to Movement — an' round two runs Movement, Shootin', Charge, Fight, Scorin', same as round one.",
-        "pad": "Press {menu} to end da Command phase an' move on to Movement."
+        "bark": "ON WITH IT!",
+        "bark_orky": "ON WIV IT!",
+        "kbm": "That's the Command phase. [b]End Command Phase[/b] moves you on to Movement — and round two runs Movement, Shooting, Charge, Fight, Scoring, same as round one.",
+        "kbm_orky": "Dat's da Command phase. [b]End Command Phase[/b] moves ya on to Movement — an' round two runs Movement, Shootin', Charge, Fight, Scorin', same as round one.",
+        "pad": "Press {menu} to end the Command phase and move on to Movement.",
+        "pad_orky": "Press {menu} to end da Command phase an' move on to Movement."
       },
       "anchor": {
         "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/EndCommandPhaseButton"
@@ -150,8 +177,10 @@
     {
       "id": "wrap",
       "prompt": {
-        "bark": "TRAININ' DONE!",
-        "text": "Dat's every phase an' every button: musterin', movin', shootin', chargin', krumpin' an' runnin' da show. Da rest is just playin'. [b]WAAAGH![/b]"
+        "bark": "TRAINING COMPLETE!",
+        "bark_orky": "TRAININ' DONE!",
+        "text": "That's every phase and every button: mustering, moving, shooting, charging, fighting and running the show. The rest is just playing. Good hunting!",
+        "text_orky": "Dat's every phase an' every button: musterin', movin', shootin', chargin', krumpin' an' runnin' da show. Da rest is just playin'. [b]WAAAGH![/b]"
       },
       "spotlight": "none",
       "allow": "*",
