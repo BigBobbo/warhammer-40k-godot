@@ -1,0 +1,149 @@
+{
+  "id": "hi_into_the_fray_roll_visible_11e",
+  "covers": [
+    "phases.ChargePhase.heroic_intervention_11e",
+    "scripts.ChargeController.heroic_intervention_roll_feedback",
+    "dialogs.HeroicInterventionDialog.mode_buttons"
+  ],
+  "fixture": "counter_offensive_attached_11e",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "The INTO THE FRAY half of the 2026-08-27 'nothing happened' report. The roll-reporting fix is mode-agnostic \u2014 ChargeController routes on the dice context, not the mode \u2014 but Into the Fray has one thing Leap to Defend does not: 15.11 caps its charge roll at 6\". The dice chips shown to the player are the RAW pair, so reporting only the capped total renders as \"[2][6] = 6\\\"\", which reads as broken arithmetic rather than as the rule working. This parks the Witchseekers 4\" from the Warboss (inside the 6\" Fray window, outside the 2\" engagement range so the unit is still eligible), drives the REAL Into the Fray button, and asserts the raw 8 and the cap to 6 are both reported \u2014 dice log, Game Log and the movement prompt, which must clamp to the capped 6\" and not the raw 8\".",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 9
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_WARBOSS_B\"].flags.merge({\"charged_this_turn\": true}, true)",
+      "comment": "not required by Into the Fray (which ignores whether the target charged), but it keeps the board identical to the Leap scenario"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var wbm = GameState.state.units[\"U_WARBOSS_B\"].models[0]\nvar u = GameState.state.units[\"U_WITCHSEEKERS_C\"]\nvar i = 0\nfor m in u.models:\n\tm.position = {\"x\": float(wbm.position.x) - 500.0, \"y\": float(wbm.position.y) + i * 30.0}\n\ti += 1\nvar best = 9999.0\nfor m in u.models:\n\tvar d1 = Measurement.model_to_model_distance_inches(m, wbm)\n\tif d1 < best:\n\t\tbest = d1\nvar shift = Measurement.inches_to_px(best - 4.0)\nfor m in u.models:\n\tm.position = {\"x\": float(m.position.x) + shift, \"y\": float(m.position.y)}\nbest = 9999.0\nfor m in u.models:\n\tvar d2 = Measurement.model_to_model_distance_inches(m, wbm)\n\tif d2 < best:\n\t\tbest = d2\nreturn snappedf(best, 0.01)",
+      "equals": 4.0,
+      "comment": "4 inches edge-to-edge: inside INTO THE FRAY's 6 inch window, and still clear of the 2 inch engagement range so 15.11's 'unengaged' condition holds"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._sync_all_token_positions()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.is_attached_unit_engaged(\"U_WITCHSEEKERS_C\", GameState.state)",
+      "equals": false,
+      "comment": "guard the setup: a unit already in engagement range is not offered the window at all, and the rest would prove nothing"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/HeroicInterventionDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WITCHSEEKERS_C/Fray_U_WITCHSEEKERS_C",
+      "property": "disabled",
+      "equals": false,
+      "comment": "an enemy is within 6 inches, so INTO THE FRAY is live for this row"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var b = tree.root.get_node(\"HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WITCHSEEKERS_C/Fray_U_WITCHSEEKERS_C\")\nreturn str(b.tooltip_text)",
+      "equals": "2D6 charge (capped at 6\") at the closest enemy within 6\".",
+      "comment": "the live tooltip states the cap up front"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_fray_enabled"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/HeroicInterventionDialog/Content/UnitScroll/UnitList/Row_U_WITCHSEEKERS_C/Fray_U_WITCHSEEKERS_C",
+      "emit_pressed": true,
+      "comment": "the other mode's real button \u2014 the half of the report never previously driven"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "heroic_intervention_unit_id",
+      "equals": "U_WITCHSEEKERS_C",
+      "comment": "the counter-charge stands and the phase holds open for the move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar pc = ph.get(\"heroic_intervention_pending_charge\")\nreturn \"mode=%s distance=%d rolls=%s\" % [str(pc.get(\"mode\")), int(pc.get(\"distance\")), str(pc.get(\"dice_rolls\"))]",
+      "equals": "mode=into_the_fray distance=6 rolls=[2, 6]",
+      "comment": "15.11's cap is applied to the effective distance (raw 2+6=8 becomes 6) while the raw pair is kept \u2014 that mismatch is what the reporting has to explain"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nvar t = m.charge_controller.dice_log_display.get_parsed_text()\nreturn t.contains(\"Into the Fray\") and t.contains(\"= 8\\\"\") and t.contains(\"caps the charge roll at 6\\\" \u2014 8\\\" becomes 6\\\"\")",
+      "equals": true,
+      "comment": "THE FIX, mode-specific half: the dice chips are the raw [2][6], so the dice log shows the raw 8\" they add up to and then names the cap. Showing \"[2][6] = 6\\\"\" with no note reads as an arithmetic bug."
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var t = \"\"\nfor e in GameEventLog.get_all_entries():\n\tt += str(e.get(\"text\", e)) + \"\\n\"\nreturn t.contains(\"Heroic Intervention (Into the Fray): 2D6 = 8 (2 + 6), capped at 6\\\" \u2014 charge succeeded\")",
+      "equals": true,
+      "comment": "and the Game Log \u2014 which outlives the Charge phase \u2014 carries the same raw roll, cap and outcome"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nreturn str(m.charge_controller.charge_info_label.text)",
+      "equals": "Heroic Intervention! Rolled 6\" \u2014 use UI to move models into engagement range",
+      "comment": "the movement prompt uses the CAPPED distance \u2014 the player must not be told they have 8\" of counter-charge move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.root.get_node(\"Main\")\nreturn m.charge_controller.charge_distance",
+      "equals": 6,
+      "comment": "and the movement budget itself is the capped 6\", not the raw roll"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_fray_roll_reported_with_cap"
+    }
+  ]
+}

@@ -3532,10 +3532,18 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 	var rng = RulesEngine.RNGService.new(rng_seed)
 	var rolls = rng.roll_d6(2)
 	var total_distance = rolls[0] + rolls[1]
-	# 11e INTO THE FRAY: "the charge roll cannot exceed 6"
+	# 11e INTO THE FRAY: "the charge roll cannot exceed 6". Keep the raw 2D6
+	# total alongside the capped one — the dice the player sees are the raw
+	# pair, so reporting only the capped total renders as "[5][6] = 6\"", which
+	# reads as broken arithmetic rather than as the rule doing its job.
+	# Explicitly typed: total_distance is an untyped sum off an untyped Array,
+	# so `:=` here is a parse error ("cannot infer the type").
+	var raw_total: int = int(total_distance)
+	var roll_was_capped: bool = false
 	if GameConstants.edition >= 11 and hi_mode == "into_the_fray" and total_distance > 6:
 		log_phase_message("[11e 15.11] INTO THE FRAY — charge roll %d capped at 6" % total_distance)
 		total_distance = 6
+		roll_was_capped = true
 
 	heroic_intervention_pending_charge.distance = total_distance
 	heroic_intervention_pending_charge.dice_rolls = rolls
@@ -3561,6 +3569,8 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 		"charge_failed": not roll_sufficient,
 		"min_distance": hi_min_distance,
 		"mode": hi_mode,
+		"raw_total": raw_total,
+		"roll_capped": roll_was_capped,
 	}
 	dice_log.append(dice_result)
 	emit_signal("dice_rolled", dice_result)
@@ -3578,7 +3588,7 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 		# straight by the next phase header, which is exactly what the player
 		# reported as "nothing happened".
 		_log_heroic_intervention_outcome(player, unit_name, rolls, total_distance,
-			hi_mode, hi_min_distance, false)
+			hi_mode, hi_min_distance, false, raw_total, roll_was_capped)
 
 		# Clean up HI state
 		heroic_intervention_unit_id = ""
@@ -3598,7 +3608,7 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 	# Roll sufficient — enable movement
 	DebugLogger.info(str("ChargePhase: Heroic Intervention charge roll SUFFICIENT for %s (rolled %d)" % [unit_name, total_distance]))
 	_log_heroic_intervention_outcome(player, unit_name, rolls, total_distance,
-		hi_mode, hi_min_distance, true)
+		hi_mode, hi_min_distance, true, raw_total, roll_was_capped)
 	emit_signal("charge_path_tools_enabled", unit_id, total_distance)
 
 	return create_result(true, [], "", {
@@ -3609,7 +3619,8 @@ func _process_use_heroic_intervention(action: Dictionary) -> Dictionary:
 	})
 
 func _log_heroic_intervention_outcome(player: int, unit_name: String, rolls: Array,
-		total_distance: int, hi_mode: String, min_distance: float, succeeded: bool) -> void:
+		total_distance: int, hi_mode: String, min_distance: float, succeeded: bool,
+		raw_total: int = -1, roll_capped: bool = false) -> void:
 	"""Record the counter-charge roll in the Game Log, which outlives the phase.
 
 	Logged server-side so the AI, the host and every client get the same line —
@@ -3619,9 +3630,14 @@ func _log_heroic_intervention_outcome(player: int, unit_name: String, rolls: Arr
 	if event_log == null:
 		return
 	var mode_label := "Into the Fray" if hi_mode == "into_the_fray" else "Leap to Defend"
-	var dice_text := "2D6 = %d" % total_distance
+	# INTO THE FRAY caps the roll at 6, so name the dice AND the cap: reporting
+	# only the capped total next to the raw pair reads as an arithmetic error.
+	var shown_total := raw_total if roll_capped and raw_total >= 0 else total_distance
+	var dice_text := "2D6 = %d" % shown_total
 	if rolls.size() == 2:
-		dice_text = "2D6 = %d (%d + %d)" % [total_distance, int(rolls[0]), int(rolls[1])]
+		dice_text = "2D6 = %d (%d + %d)" % [shown_total, int(rolls[0]), int(rolls[1])]
+	if roll_capped:
+		dice_text += ", capped at %d\"" % total_distance
 	if succeeded:
 		event_log.add_player_entry(player, "Heroic Intervention (%s): %s — charge succeeded, move into engagement range" % [
 			mode_label, dice_text])

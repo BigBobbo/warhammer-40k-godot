@@ -9412,19 +9412,21 @@
       "scenarios": [
         "hi_attached_char_not_offered_11e",
         "hi_leap_to_defend_roll_visible_11e",
-        "hi_leap_to_defend_success_roll_11e"
+        "hi_leap_to_defend_success_roll_11e",
+        "hi_into_the_fray_roll_visible_11e"
       ],
-      "last_verified_commit": "2d2310e",
+      "last_verified_commit": "6eb7689",
       "status": "covered"
     },
     {
       "id": "scripts.ChargeController.heroic_intervention_roll_feedback",
-      "description": "The HEROIC INTERVENTION counter-charge roll is reported to the defender. _on_dice_rolled used to filter on context == \"charge_roll\" and drop the \"heroic_intervention_charge_roll\" context entirely, so the 2D6 was never animated, never logged, and a roll that fell short — which ends the Charge phase on the spot with the CP already spent — produced no feedback at all (reported 2026-08-27 as \"I clicked it, but then nothing happened\"). Both outcomes now render: dice animation, a dice-log block naming the mode, a toast, and the shortfall in inches on a failure. The movement prompt also keeps the rolled distance instead of _update_button_states overwriting it with a generic line.",
+      "description": "The HEROIC INTERVENTION counter-charge roll is reported to the defender. _on_dice_rolled used to filter on context == \"charge_roll\" and drop the \"heroic_intervention_charge_roll\" context entirely, so the 2D6 was never animated, never logged, and a roll that fell short — which ends the Charge phase on the spot with the CP already spent — produced no feedback at all (reported 2026-08-27 as \"I clicked it, but then nothing happened\"). Both outcomes now render: dice animation, a dice-log block naming the mode, a toast, and the shortfall in inches on a failure. The movement prompt also keeps the rolled distance instead of _update_button_states overwriting it with a generic line. Both 15.11 modes are covered. INTO THE FRAY additionally caps the charge roll at 6\", while the dice chips shown are the raw pair — so the payload carries raw_total/roll_capped and the report names the raw total AND the cap, rather than rendering \"[2][6] = 6\\\"\" as if the arithmetic were wrong.",
       "scenarios": [
         "hi_leap_to_defend_roll_visible_11e",
-        "hi_leap_to_defend_success_roll_11e"
+        "hi_leap_to_defend_success_roll_11e",
+        "hi_into_the_fray_roll_visible_11e"
       ],
-      "last_verified_commit": "2d2310e",
+      "last_verified_commit": "6eb7689",
       "status": "covered"
     },
     {
@@ -9432,9 +9434,10 @@
       "description": "A 15.11 row is offered when EITHER mode has a legal target, but both mode buttons used to render enabled regardless — clicking the mode with no target got a rejected action and a closed window rather than a counter-charge. Leap to Defend / Into the Fray are now disabled per row from the builder's leap_available / fray_available flags, with a tooltip naming the missing condition.",
       "scenarios": [
         "hi_leap_to_defend_roll_visible_11e",
-        "hi_leap_to_defend_success_roll_11e"
+        "hi_leap_to_defend_success_roll_11e",
+        "hi_into_the_fray_roll_visible_11e"
       ],
-      "last_verified_commit": "2d2310e",
+      "last_verified_commit": "6eb7689",
       "status": "covered"
     },
     {

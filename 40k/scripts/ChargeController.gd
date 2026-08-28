@@ -4284,14 +4284,24 @@ func _render_heroic_intervention_roll(dice_data: Dictionary) -> void:
 	var min_distance := float(dice_data.get("min_distance", 0.0))
 	var mode := str(dice_data.get("mode", "leap_to_defend"))
 	var mode_label := "Into the Fray" if mode == "into_the_fray" else "Leap to Defend"
+	# INTO THE FRAY caps the charge roll at 6 (15.11), but the dice chips below
+	# show the raw pair — so render the raw total and say the cap applied.
+	# "[5][6] = 6\"" with no explanation reads as a bug, not as a rule.
+	var roll_capped: bool = dice_data.get("roll_capped", false)
+	var raw_total := int(dice_data.get("raw_total", total))
 
-	print("ChargeController: Heroic Intervention roll %s = %d (mode %s, failed=%s)" % [
-		str(rolls), total, mode, str(charge_failed)])
+	print("ChargeController: Heroic Intervention roll %s = %d%s (mode %s, failed=%s)" % [
+		str(rolls), total, " (capped from %d)" % raw_total if roll_capped else "",
+		mode, str(charge_failed)])
 
 	if is_instance_valid(dice_log_display):
 		DiceLogFormatter.attack_header(dice_log_display,
 			"Heroic Intervention — %s (%s)" % [unit_name, mode_label])
-		DiceLogFormatter.charge_roll(dice_log_display, unit_name, rolls, total, false)
+		DiceLogFormatter.charge_roll(dice_log_display, unit_name, rolls,
+			raw_total if roll_capped else total, false)
+		if roll_capped:
+			DiceLogFormatter.note(dice_log_display,
+				"Into the Fray caps the charge roll at 6\" — %d\" becomes %d\"." % [raw_total, total])
 
 	var er_inches = GameConstants.engagement_range_inches()
 	# min_distance is INF when nothing measurable is left to charge — report the
@@ -4312,16 +4322,17 @@ func _render_heroic_intervention_roll(dice_data: Dictionary) -> void:
 						unit_name, total], "bad")
 		# The Charge phase ends immediately after a failed HI, so the dice log
 		# alone is easy to miss — say it where the player is already looking.
-		ToastManager.show_error("Heroic Intervention failed — %s rolled %d\"%s" % [
-			unit_name, total, " (needed ~%.1f\")" % needed if have_distance else ""])
+		ToastManager.show_error("Heroic Intervention failed — %s rolled %d\"%s%s" % [
+			unit_name, total, " (capped from %d\")" % raw_total if roll_capped else "",
+			" (needed ~%.1f\")" % needed if have_distance else ""])
 	else:
 		if is_instance_valid(dice_log_display):
 			DiceLogFormatter.outcome(dice_log_display,
 				"Heroic Intervention charge successful! %s rolled %d\"%s" % [
 					unit_name, total,
 					" (nearest target %.1f\" away)." % min_distance if have_distance else "."], "good")
-		ToastManager.show_info("Heroic Intervention — %s rolled %d\"! Move it into engagement range." % [
-			unit_name, total])
+		ToastManager.show_info("Heroic Intervention — %s rolled %d\"%s! Move it into engagement range." % [
+			unit_name, total, " (capped from %d\")" % raw_total if roll_capped else ""])
 
 	# After _update_button_states, never before: it rewrites charge_info_label
 	# from the (now cleared) charge state on every call, so a failure line set
