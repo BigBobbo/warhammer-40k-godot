@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.41.1",
+      "version": "1.42.1",
       "date": "2026-08-28",
       "summary": "The AI can no longer put more than half its army in reserve — attached leaders now count against the 50% cap, and they arrive with their unit instead of vanishing.",
       "changes": [
@@ -11,6 +11,18 @@
         "Leaders attached to a reserved unit are now correctly placed in reserves too. Previously they were left in limbo: off the table all game, and refused entry when their unit arrived.",
         "Attaching a character to a unit that is already in reserves is refused if it would push you over the cap.",
         "The formations dialog now shows the unit limit alongside the points limit, and stops you ticking a unit that would break either."
+      ]
+    },
+    {
+      "version": "1.42.0",
+      "date": "2026-08-27",
+      "summary": "Consolidating onto an objective now lets you pick WHICH objective — and defaults to the nearest one instead of marching you backwards.",
+      "changes": [
+        "Objective Consolidation (Fight phase) picked the objective for you, and it picked badly: it took the first objective in the board's internal marker order, which on the official layouts is the backfield and expansion markers before the centre. A unit within 3\" of two objectives was told to consolidate toward the far one, and every drag toward the near one was reverted.",
+        "The Consolidate dialog now has a \"Consolidate toward:\" picker listing every objective the unit is within 3\" of, named the way the board names them (CENTER, NML 1, HOME 2) with the distance to each. Switching it re-points the movement arrows, the drag rules and the confirm check at once.",
+        "The default is now the objective the unit is actually closest to. For an objective sitting on a ruin, distance is measured to the ruin itself — so a big model standing on the central ruin defaults to the centre objective, not to a corner marker whose dot happens to be nearer.",
+        "The right-hand Consolidate list names the default marker on each unit's row, e.g. \"Stompa [Objective (CENTER)]\", and the battle log records which objective a unit consolidated toward.",
+        "Auto Consolidate follows the objective you selected, and the AI now moves a bodyguard and its attached characters toward one shared objective instead of each picking their own."
       ]
     },
     {
