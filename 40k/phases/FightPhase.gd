@@ -2828,10 +2828,13 @@ func _process_consolidate_step_11e(action: Dictionary) -> Dictionary:
 	var movements = _fight_movements_from_action(action)
 	var changes = []
 
+	# 12.08 Objective Consolidation: the objective the player (or the AI) selected.
+	var chosen_obj = str(action.get("chosen_objective", ""))
+	var toward = " toward %s" % consolidation_objective_label_11e(chosen_obj) if chosen_obj != "" else ""
 	if movements.is_empty():
-		log_phase_message("[11e 12.07] %s consolidates — no models moved" % unit_id)
+		log_phase_message("[11e 12.07] %s consolidates%s — no models moved" % [unit_id, toward])
 	else:
-		log_phase_message("[11e 12.07] %s consolidates — %d model(s) moved" % [unit_id, movements.size()])
+		log_phase_message("[11e 12.07] %s consolidates%s — %d model(s) moved" % [unit_id, toward, movements.size()])
 
 	# Keys may address the unit's own models or an attached character's
 	# ("char_unit:key") — 19.03: the Attached unit consolidates as one unit.
@@ -3907,11 +3910,20 @@ func _build_consolidation_step_data_11e(eligible: Array) -> Dictionary:
 		# 19.03: one entry for the Attached unit; the 12.08 mode is assessed
 		# on the folded board so the characters' models count as part of it.
 		var mode = ""
+		var default_objective = ""
 		if tmpl != null:
-			mode = str(tmpl.select_mode(unit_id, _fight_folded_board(unit_id, GameState.state)).mode)
+			var folded = _fight_folded_board(unit_id, GameState.state)
+			mode = str(tmpl.select_mode(unit_id, folded).mode)
+			# 12.08 Objective mode: name the marker the unit will default to
+			# (the closest selectable one) on its picker row.
+			if mode == "objective":
+				var cands = tmpl.objective_candidates(unit_id, folded)
+				default_objective = str(cands[0]) if not cands.is_empty() else ""
 		units[unit_id] = {
 			"name": _fight_attached_display_name(unit_id),
 			"mode": mode,
+			"objective": default_objective,
+			"objective_label": consolidation_objective_label_11e(default_objective),
 			"attached_characters": _fight_attached_char_ids(unit_id)
 		}
 	return {
@@ -6128,9 +6140,18 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 		return {"valid": true, "errors": []}
 	if mode == "":
 		return {"valid": false, "errors": ["no consolidation mode applies — the unit cannot move (12.08)"]}
-	var ctx = tmpl.before_moving(unit_id, folded_board, null, {"mode": mode})
+	# 12.08 BEFORE (Objective mode): the player selects ONE of the objectives
+	# within 3". The pick rides on the action so the geometry validated here is
+	# the geometry the dialog offered; an absent pick defaults to the closest.
+	var chosen_objective = str(action.get("chosen_objective", ""))
+	var ctx = tmpl.before_moving(unit_id, folded_board, null,
+		{"mode": mode, "chosen_objective": chosen_objective})
 	if ctx.has("error"):
 		return {"valid": false, "errors": [ctx.error]}
+	if mode == "objective" and chosen_objective != "" and chosen_objective != str(ctx.get("objective", "")):
+		return {"valid": false, "errors": ["%s is not within 3\" of %s — select one of: %s (12.08)" % [
+			consolidation_objective_label_11e(chosen_objective), unit_id,
+			str(ctx.get("objective_candidates", []))]]}
 	var rotations = _fight_rotations_from_action(action)
 	var errors: Array = []
 	var attached_ids = _fight_attached_char_ids(unit_id)
@@ -6190,9 +6211,12 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 # Attached unit is judged as the one unit it is. Returns
 # ConsolidationMove.before_moving()'s dict plus "mode" ("" when no mode applies)
 # and, in Objective mode, "objective_position" (board px) for the UI to draw its
-# arrows toward.
-func get_consolidation_context_11e(unit_id: String) -> Dictionary:
-	var empty := {"mode": "", "targets": [], "objective": ""}
+# arrows toward and "objective_options" (every selectable objective, closest
+# first) for the dialog's "Consolidate toward:" picker. `chosen_objective` is
+# the player's pick from that picker — 12.08 BEFORE lets them select any
+# objective the unit is within 3" of; an empty pick means "the closest".
+func get_consolidation_context_11e(unit_id: String, chosen_objective: String = "") -> Dictionary:
+	var empty := {"mode": "", "targets": [], "objective": "", "objective_options": []}
 	var tmpl: ConsolidationMove = MoveTypes.get_type("consolidation")
 	if tmpl == null or get_unit(unit_id).is_empty():
 		return empty
@@ -6200,15 +6224,43 @@ func get_consolidation_context_11e(unit_id: String) -> Dictionary:
 	var mode = str(tmpl.select_mode(unit_id, folded_board).mode)
 	if mode == "":
 		return empty
-	var ctx = tmpl.before_moving(unit_id, folded_board, null, {"mode": mode})
+	# 12.08 BEFORE: Objective mode is "select ONE of those objectives" — pass the
+	# player's pick through; an empty pick defaults to the CLOSEST one.
+	var ctx = tmpl.before_moving(unit_id, folded_board, null,
+		{"mode": mode, "chosen_objective": chosen_objective})
 	ctx["mode"] = mode
 	if mode == "objective":
 		ctx["objective_position"] = consolidation_objective_position_11e(str(ctx.get("objective", "")))
+		ctx["objective_options"] = consolidation_objective_options_11e(ctx)
 	log_phase_message("[11e 12.08] Consolidation mode for %s: %s%s" % [
 		unit_id, mode,
-		(" (objective %s)" % str(ctx.get("objective", ""))) if mode == "objective" else ""
+		(" (objective %s of %s)" % [str(ctx.get("objective", "")), str(ctx.get("objective_candidates", []))]) if mode == "objective" else ""
 	])
 	return ctx
+
+# The objectives this unit may select for its Objective Consolidation (12.08
+# BEFORE), closest first, in the shape the UI picker needs: id, the board's own
+# label for the marker ("CENTER", "NML 1" — the same text ObjectiveVisual prints
+# next to it), its board-px centre, and how far the unit is from it.
+func consolidation_objective_options_11e(ctx: Dictionary) -> Array:
+	var out: Array = []
+	for entry in ctx.get("objective_distances_px", []):
+		var obj_id = str(entry.get("id", ""))
+		out.append({
+			"id": obj_id,
+			"label": consolidation_objective_label_11e(obj_id),
+			"position": consolidation_objective_position_11e(obj_id),
+			"distance_inches": Measurement.px_to_inches(float(entry.get("distance_px", 0.0)))
+		})
+	return out
+
+# Player-facing name for an objective marker. Mirrors ObjectiveVisual's own
+# label derivation ("obj_nml_1" -> "NML 1") so the consolidation picker names
+# the marker exactly as the board does.
+func consolidation_objective_label_11e(obj_id: String) -> String:
+	if obj_id == "":
+		return ""
+	return obj_id.replace("obj_", "").to_upper().replace("_", " ")
 
 # Board-px centre of objective marker `obj_id`, or Vector2.ZERO when unknown.
 # Objective positions round-trip through saves as {x, y} dicts, so accept both.

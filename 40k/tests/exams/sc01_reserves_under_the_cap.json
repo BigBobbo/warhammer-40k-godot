@@ -9,7 +9,7 @@
   "player": 1,
   "difficulty": 2,
   "seed": 4246,
-  "rationale": "11e 20.01 caps Strategic Reserves at half the army's starting points, and the practical cap is much lower: units in reserve score nothing and contest nothing while they wait. A 950-point reserve declaration lost a benchmark game outright (docs/AI_REVIEW_2026-07-11.md 2.4). This exam runs the formations phase and checks the AI's own declaration keeps reserves at or under 50% of army points.",
+  "rationale": "11e 20.01 caps Strategic Reserves at half the army's starting points AND half its units, and the practical cap is much lower: units in reserve score nothing and contest nothing while they wait. A 950-point reserve declaration lost a benchmark game outright (docs/AI_REVIEW_2026-07-11.md 2.4). This exam runs the formations phase and checks the AI's own declaration keeps reserves at or under 50% of army points and of unit count. A CHARACTER attached to a reserved bodyguard leaves the table with it, so it counts on both measures \u2014 that leak is what put 65.5% of a Custodes army in reserves.",
   "setup": [
     "return GameState.get_battle_round()"
   ],
@@ -25,8 +25,26 @@
         "\t\tcontinue",
         "\tvar pts = float(u.get(\"meta\", {}).get(\"points\", 0))",
         "\ttotal += pts",
-        "\tif str(u.get(\"status\", \"\")) == \"IN_RESERVES\" or u.get(\"flags\", {}).get(\"in_reserves\", false):",
+        "\tif int(u.get(\"status\", 0)) == 7 or u.get(\"flags\", {}).get(\"in_reserves\", false):",
         "\t\treserved += pts",
+        "if total <= 0.0:",
+        "\treturn 0.0",
+        "return 100.0 * reserved / total"
+      ],
+      "expect_max": 50.0
+    },
+    {
+      "name": "reserved units stay within the 11e 50% cap",
+      "script": [
+        "var total = 0.0",
+        "var reserved = 0.0",
+        "for uid in GameState.state.units:",
+        "\tvar u = GameState.state.units[uid]",
+        "\tif int(u.get(\"owner\", 0)) != 1:",
+        "\t\tcontinue",
+        "\ttotal += 1.0",
+        "\tif int(u.get(\"status\", 0)) == 7 or u.get(\"flags\", {}).get(\"in_reserves\", false):",
+        "\t\treserved += 1.0",
         "if total <= 0.0:",
         "\treturn 0.0",
         "return 100.0 * reserved / total"
