@@ -2,7 +2,7 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
-      "version": "1.41.0",
+      "version": "1.42.0",
       "date": "2026-08-27",
       "summary": "Consolidating onto an objective now lets you pick WHICH objective — and defaults to the nearest one instead of marching you backwards.",
       "changes": [
@@ -11,6 +11,16 @@
         "The default is now the objective the unit is actually closest to. For an objective sitting on a ruin, distance is measured to the ruin itself — so a big model standing on the central ruin defaults to the centre objective, not to a corner marker whose dot happens to be nearer.",
         "The right-hand Consolidate list names the default marker on each unit's row, e.g. \"Stompa [Objective (CENTER)]\", and the battle log records which objective a unit consolidated toward.",
         "Auto Consolidate follows the objective you selected, and the AI now moves a bodyguard and its attached characters toward one shared objective instead of each picking their own."
+      ]
+    },
+    {
+      "version": "1.41.0",
+      "date": "2026-08-27",
+      "summary": "The AI now plays at its strongest setting by default. Expect a considerably tougher opponent.",
+      "changes": [
+        "New games default to the Competitive AI instead of Normal. Head-to-head testing (12 games, both sides of the table, shared dice seeds) showed the stronger setting wins by about 24 victory points per game, taking 8 of 12 - so 'Normal' was leaving a lot of skill on the table.",
+        "In practice the tougher AI plans its movement, shooting and charges together as one turn, screens against deep strikes, weighs whether a fight is a good trade, and stops second-guessing itself with random hesitation.",
+        "The difficulty dropdown still works exactly as before if you want an easier game - only the starting selection changed."
       ]
     },
     {

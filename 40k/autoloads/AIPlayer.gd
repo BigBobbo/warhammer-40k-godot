@@ -290,8 +290,11 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 	for player_id in player_types:
 		var pid = int(player_id)
 		ai_players[pid] = (player_types[player_id] == "AI")
-		# T7-40: Set difficulty per-player (default Normal for backwards compatibility)
-		ai_difficulty[pid] = difficulty_levels.get(pid, difficulty_levels.get(player_id, AIDifficultyConfigData.Difficulty.NORMAL))
+		# Default is the strongest measured configuration, not Normal: the AI
+		# should always play as well as it can unless a caller asks otherwise.
+		# Measured 2026-08-27 (bench_baselines/2026-08-27_difficulty_strength.md):
+		# Competitive beats Normal by ~24 VP/game seat-cancelled, 8-4 in games.
+		ai_difficulty[pid] = difficulty_levels.get(pid, difficulty_levels.get(player_id, AIDifficultyConfigData.Difficulty.COMPETITIVE))
 	enabled = ai_players.values().has(true)
 
 	# T7-55: Detect spectator mode (both players are AI)
@@ -313,8 +316,8 @@ func configure(player_types: Dictionary, difficulty_levels: Dictionary = {}) -> 
 				"key_moments": [],  # [{round, text}]
 			}
 
-	var p1_diff = AIDifficultyConfigData.difficulty_name(ai_difficulty.get(1, AIDifficultyConfigData.Difficulty.NORMAL))
-	var p2_diff = AIDifficultyConfigData.difficulty_name(ai_difficulty.get(2, AIDifficultyConfigData.Difficulty.NORMAL))
+	var p1_diff = AIDifficultyConfigData.difficulty_name(ai_difficulty.get(1, AIDifficultyConfigData.Difficulty.COMPETITIVE))
+	var p2_diff = AIDifficultyConfigData.difficulty_name(ai_difficulty.get(2, AIDifficultyConfigData.Difficulty.COMPETITIVE))
 	print("AIPlayer: Configured - P1=%s (%s), P2=%s (%s), enabled=%s, spectator=%s" % [
 		player_types.get(1, player_types.get("1", "HUMAN")), p1_diff,
 		player_types.get(2, player_types.get("2", "HUMAN")), p2_diff,
@@ -596,7 +599,7 @@ func _save_data_defender(save_data_list: Array) -> int:
 
 func get_difficulty(player: int) -> int:
 	"""T7-40: Get the difficulty level for a given player."""
-	return ai_difficulty.get(player, AIDifficultyConfigData.Difficulty.NORMAL)
+	return ai_difficulty.get(player, AIDifficultyConfigData.Difficulty.COMPETITIVE)
 
 func reset_runtime_state() -> void:
 	"""P2-92: Reset transient AI runtime state (called on game load).
@@ -666,8 +669,8 @@ func reconfigure_ai_after_load(game_config: Dictionary) -> void:
 	# Reconfigure player types and difficulty from loaded game config
 	var p1_type = game_config.get("player1_type", "HUMAN")
 	var p2_type = game_config.get("player2_type", "HUMAN")
-	var p1_difficulty = int(game_config.get("player1_difficulty", AIDifficultyConfigData.Difficulty.NORMAL))
-	var p2_difficulty = int(game_config.get("player2_difficulty", AIDifficultyConfigData.Difficulty.NORMAL))
+	var p1_difficulty = int(game_config.get("player1_difficulty", AIDifficultyConfigData.Difficulty.COMPETITIVE))
+	var p2_difficulty = int(game_config.get("player2_difficulty", AIDifficultyConfigData.Difficulty.COMPETITIVE))
 
 	ai_players.clear()
 	ai_difficulty.clear()
