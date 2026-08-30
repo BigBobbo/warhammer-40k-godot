@@ -1,0 +1,57 @@
+{
+  "id": "scout_cannot_end_on_wall",
+  "covers": ["phases.ScoutPhase.SET_SCOUT_MODEL_DEST.wall_rejected"],
+  "fixture": "audit_baseline_postdeploy",
+  "disable_ai": true,
+  "description": "Regression: a Scout move may not END overlapping a terrain wall, mirroring movement/charge/deployment. Before the fix, ScoutPhase._validate_set_scout_model_dest and _validate_confirm_scout_move never called Measurement.model_overlaps_any_wall, so scout drops onto walls were accepted server-side. Combined with the Main.gd drag handler moving the real token live, this produced a visual/state desync the player reported: the model appears on the wall but the move was not registered, so the movement phase targets the old position. This scenario injects a ruin wall at y=200 within scout range of Witchseekers C (models start at y=50, enemies are ~57\" south so the >9\" check is satisfied), then asserts SET_SCOUT_MODEL_DEST onto the wall is rejected while a clear destination is accepted.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.3 },
+
+    { "act": "execute_script",
+      "script": "GameState.state.units.U_WITCHSEEKERS_C.meta.abilities.append({'name': 'Scouts 6\"', 'type': 'Core', 'parameter': '6\"'})" },
+    { "act": "execute_script",
+      "script": "GameState.unit_has_scout('U_WITCHSEEKERS_C')",
+      "equals": true },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.transition_to_phase(4)" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "expect_phase", "equals": 4 },
+
+    { "act": "execute_script",
+      "script": "TerrainManager.terrain_features.append({\"id\": \"injected_scout_wall\", \"type\": \"ruins\", \"polygon\": PackedVector2Array([Vector2(820, 180), Vector2(1000, 180), Vector2(1000, 220), Vector2(820, 220)]), \"height_category\": \"medium\", \"position\": Vector2(910, 200), \"size\": Vector2(180, 40), \"rotation\": 0.0, \"can_move_through\": {\"INFANTRY\": true, \"VEHICLE\": false, \"MONSTER\": false}, \"walls\": [{\"id\": \"injected_scout_wall_seg\", \"type\": \"solid\", \"blocks_los\": true, \"start\": Vector2(820, 200), \"end\": Vector2(1000, 200), \"blocks_movement\": {\"INFANTRY\": false, \"VEHICLE\": true, \"MONSTER\": true}}]})"
+    },
+    { "act": "screenshot", "label": "01_scout_phase_with_injected_wall" },
+
+    { "act": "dispatch_action", "action": {
+      "type": "BEGIN_SCOUT_MOVE",
+      "unit_id": "U_WITCHSEEKERS_C"
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m1",
+      "destination": { "x": 900.0, "y": 200.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": false },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_scout_moves['U_WITCHSEEKERS_C']['staged_positions'].has('m1')",
+      "equals": false },
+
+    { "act": "dispatch_action", "action": {
+      "type": "SET_SCOUT_MODEL_DEST",
+      "unit_id": "U_WITCHSEEKERS_C",
+      "model_id": "m1",
+      "destination": { "x": 900.0, "y": 120.0 }
+    }},
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_scout_moves['U_WITCHSEEKERS_C']['staged_positions'].get('m1', {}).get('x', -1)",
+      "equals": 900.0 },
+    { "act": "screenshot", "label": "02_scout_wall_rejected_clear_accepted" }
+  ]
+}
