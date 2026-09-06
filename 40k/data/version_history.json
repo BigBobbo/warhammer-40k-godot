@@ -2,6 +2,18 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.43.0",
+      "date": "2026-09-06",
+      "summary": "New Settings \u203a Gameplay option: ignore collisions for VEHICLE models, so a Stompa-sized base can actually be deployed and moved on a crowded board.",
+      "changes": [
+        "Added \"Ignore collisions for VEHICLE models\" under Settings \u203a Gameplay \u203a Model Collision \u2014 reachable in a game from the Escape menu, and from Settings on the main menu.",
+        "Off by default. With it on, the game no longer rejects a position because a VEHICLE's base overlaps another model or a piece of terrain \u2014 in deployment, Scout, movement, redeployment, disembarking, charges and pile-in/consolidate alike.",
+        "The exemption works both ways: infantry can be placed against a parked Stompa, not just the other way round.",
+        "Everything else still applies \u2014 board edges, move and charge distances, engagement range, deployment zones and the 9\" exclusion bubble are unchanged.",
+        "Why: a Stompa's 280x210mm oval clips a neighbouring base or a ruin footprint almost anywhere on a dense board, which left it with no legal spot to stand and made the model unplayable."
+      ]
+    },
+    {
       "version": "1.42.3",
       "date": "2026-08-28",
       "summary": "Reserve arrivals now use the 11th-edition distances: 8\" from enemies (not 9\"), measured base to base, and the 6\" band means the whole model, not its centre dot.",

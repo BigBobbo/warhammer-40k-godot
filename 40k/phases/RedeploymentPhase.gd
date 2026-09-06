@@ -543,7 +543,13 @@ func _position_overlaps_other_models(pos: Vector2, base_mm: int, skip_unit_id: S
 	var model_radius_px = (base_mm / 2.0) / 25.4 * PX_PER_INCH
 	var units = game_state_snapshot.get("units", {})
 
+	# Settings › Gameplay › vehicle collision override (see SettingsService).
+	if SettingsService.unit_skips_collision(skip_unit_id):
+		return false
+
 	for unit_id in units:
+		if SettingsService.unit_skips_collision(unit_id):
+			continue
 		var unit = units[unit_id]
 		var status = unit.get("status", 0)
 		if status != GameStateData.UnitStatus.DEPLOYED and status != GameStateData.UnitStatus.MOVED:

@@ -82,6 +82,7 @@ const HERMETIC_SETTINGS: Array[String] = [
 	"shooting_pause_policy",
 	"shooting_show_all_units",
 	"hotseat_handoff_enabled",
+	"disable_vehicle_collision",
 	# Input-driven placement behaviour (where dragged/placed models land)
 	"drag_clamp_to_max_range",
 	"placement_clamp_to_exclusion",

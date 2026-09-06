@@ -4489,8 +4489,14 @@ func _validate_no_overlaps_for_movement(unit_id: String, movements: Dictionary) 
 				var check_model = model.duplicate()
 				check_model["position"] = new_pos
 
+				# Settings › Gameplay › vehicle collision override (see
+				# SettingsService): skip the pair if either side is a VEHICLE.
+				var mover_skips_collision := SettingsService.unit_skips_collision(route.unit_id)
+
 				# Check against all other models
 				for check_unit_id in all_units:
+					if mover_skips_collision or SettingsService.unit_skips_collision(check_unit_id):
+						continue
 					var check_unit = all_units[check_unit_id]
 					var check_models = check_unit.get("models", [])
 

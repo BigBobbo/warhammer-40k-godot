@@ -1915,8 +1915,14 @@ func _point_to_line_distance(point: Vector2, line_start: Vector2, line_end: Vect
 func _position_overlaps_existing_models(pos: Vector2, radius: float, current_unit_id: String) -> bool:
 	var units = game_state_snapshot.get("units", {})
 
+	# Settings › Gameplay › vehicle collision override (see SettingsService).
+	if SettingsService.unit_skips_collision(current_unit_id):
+		return false
+
 	for unit_id in units:
 		var unit = units[unit_id]
+		if SettingsService.unit_skips_collision(unit_id):
+			continue
 		if unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED:
 			var models = unit.get("models", [])
 			for model in models:
@@ -1939,10 +1945,16 @@ func _position_overlaps_existing_models_shape(pos: Vector2, model_data: Dictiona
 	if not shape:
 		return false
 
+	# Settings › Gameplay › vehicle collision override (see SettingsService).
+	if SettingsService.unit_skips_collision(current_unit_id):
+		return false
+
 	var units = game_state_snapshot.get("units", {})
 
 	for unit_id in units:
 		var unit = units[unit_id]
+		if SettingsService.unit_skips_collision(unit_id):
+			continue
 		if unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED:
 			var models = unit.get("models", [])
 			for model in models:

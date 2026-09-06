@@ -4384,9 +4384,16 @@ func _check_model_overlaps(moving_model_id: String, new_pos: Vector2) -> bool:
 		check_model["rotation"] = current_model_rotations[moving_model_id]
 
 	# Check against all other models in all units
+	# Settings › Gameplay › vehicle collision override (see SettingsService):
+	# mirrors FightPhase._validate_no_overlaps_for_movement.
+	if SettingsService.unit_skips_collision(moving_route.unit_id):
+		return false
+
 	var all_units = current_phase.game_state_snapshot.get("units", {})
 	var group_ids = _pile_in_group_unit_ids()
 	for check_unit_id in all_units:
+		if SettingsService.unit_skips_collision(check_unit_id):
+			continue
 		var check_unit = all_units[check_unit_id]
 		var check_models = check_unit.get("models", [])
 

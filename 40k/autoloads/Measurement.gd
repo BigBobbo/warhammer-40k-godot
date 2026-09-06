@@ -299,6 +299,13 @@ func model_overlaps_wall(model: Dictionary, wall: Dictionary) -> bool:
 #     height (2", 4" for SUPER-HEAVY WALKER). Pass the unit's keywords;
 #     callers that omit them get the strict (non-infantry) treatment.
 func model_overlaps_any_wall(model: Dictionary, unit_keywords: Array = []) -> bool:
+	# Settings › Gameplay › "Ignore collisions for VEHICLE models": a Stompa-sized
+	# base clips a ruin footprint almost anywhere on a dense board, leaving the
+	# player no legal endpoint at all. When the override is on, VEHICLE units are
+	# not blocked by walls or dense features at the end of a move. Callers that
+	# pass no keywords (the strict path) are unaffected.
+	if SettingsService and SettingsService.keywords_skip_collision(unit_keywords):
+		return false
 	for terrain in TerrainManager.terrain_features:
 		var walls = terrain.get("walls", [])
 		for wall in walls:

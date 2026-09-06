@@ -1,0 +1,124 @@
+{
+  "id": "vehicle_collision_drag_preview",
+  "covers": [
+    "settings.disable_vehicle_collision",
+    "movement.overlap.vehicle_override",
+    "scripts.MovementController.drag_preview"
+  ],
+  "fixture": "stompa_fight_11e",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "description": "The Settings > Gameplay 'Ignore collisions for VEHICLE models' toggle changes what a player actually sees while dragging. Selects the Stompa (VEHICLE, 180mm base) and drags it onto a Custodian Guard model with the mouse, holding the button so the live drag preview is observable. Default OFF: the movement panel reads 'Cannot overlap other models'. With the toggle on, the SAME drag to the SAME spot clears that reason label \u2014 the preview is legal. The drop itself is still refused, because in this fixture the Stompa is in engagement range and owes a Fall Back: the override relaxes collision only, and every other movement rule still applies, which the last steps assert (the Stompa has not moved). Turning the setting back off restores the collision rejection.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.disable_vehicle_collision",
+      "equals": false
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_STOMPA_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.movement_controller.active_unit_id)",
+      "equals": "U_STOMPA_A"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 600,
+      "from_y": 900,
+      "to_x": 775,
+      "to_y": 900,
+      "release": false,
+      "steps": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.illegal_reason_label.text",
+      "equals": "Cannot overlap other models"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_collision_on_drag_rejected"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 775.0,
+      "y": 900.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set_disable_vehicle_collision(true)\nreturn SettingsService.disable_vehicle_collision",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 9.0
+    },
+    {
+      "act": "drag_board",
+      "from_x": 600,
+      "from_y": 900,
+      "to_x": 775,
+      "to_y": 900,
+      "release": false,
+      "steps": 12
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.illegal_reason_label.text",
+      "equals": ""
+    },
+    {
+      "act": "screenshot",
+      "label": "02_collision_off_drag_accepted"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 775.0,
+      "y": 900.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "03_collision_off_after_drop"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# The override relaxes collision, not the rest of the rules: the engaged\n# Stompa still owes a Fall Back, so nothing committed and it has not moved.\nvar p = GameState.get_unit(\"U_STOMPA_A\")[\"models\"][0][\"position\"]\nvar v = p if p is Vector2 else Vector2(p.get(\"x\", 0), p.get(\"y\", 0))\nreturn \"%d,%d\" % [int(round(v.x)), int(round(v.y))]",
+      "equals": "600,900"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set_disable_vehicle_collision(false)\nvar phase = PhaseManager.get_current_phase_instance()\nvar stompa = GameState.get_unit(\"U_STOMPA_A\")\nreturn phase._position_overlaps_other_models(\"U_STOMPA_A\", \"m1\", Vector2(775, 900), stompa[\"models\"][0])",
+      "equals": true
+    }
+  ]
+}

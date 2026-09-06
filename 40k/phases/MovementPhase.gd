@@ -7329,8 +7329,17 @@ func _position_overlaps_other_models(unit_id: String, model_id: String, position
 	var check_model = model_data.duplicate() if not model_data.is_empty() else _get_model_in_unit(unit_id, model_id)
 	check_model["position"] = position
 
+	# Settings › Gameplay › vehicle collision override: a VEHICLE's base may
+	# overlap anything, so the mover being one clears every pair at once.
+	if SettingsService.unit_skips_collision(unit_id):
+		return false
+
 	for check_unit_id in units:
 		var unit = units[check_unit_id]
+		# The override also exempts pairs where only the OTHER model is a
+		# VEHICLE, so infantry can still be placed against a parked Stompa.
+		if SettingsService.unit_skips_collision(check_unit_id):
+			continue
 		# Check models in all units (friendly and enemy)
 		var models = unit.get("models", [])
 
