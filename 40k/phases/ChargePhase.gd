@@ -2694,8 +2694,15 @@ func _validate_no_model_overlaps(unit_id: String, per_model_paths: Dictionary) -
 		var check_model = ref.model.duplicate()
 		check_model["position"] = final_pos
 
+		# Settings › Gameplay › vehicle collision override (see SettingsService):
+		# a charging VEHICLE may end on top of anything.
+		if SettingsService.unit_skips_collision(ref.unit_id):
+			continue
+
 		# Check against all other models (both friendly and enemy)
 		for check_unit_id in all_units:
+			if SettingsService.unit_skips_collision(check_unit_id):
+				continue
 			var check_unit = all_units[check_unit_id]
 			var check_models = check_unit.get("models", [])
 

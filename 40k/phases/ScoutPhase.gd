@@ -333,8 +333,11 @@ func _validate_set_scout_model_dest(action: Dictionary) -> Dictionary:
 
 	# Check overlap against already-staged sibling models in this scout move.
 	# Without this, two models in the same unit could be dropped on the same spot.
+	# Settings › Gameplay › vehicle collision override (see SettingsService):
+	# a VEHICLE squadron's own models don't block each other either.
 	var staged_positions = move_data.get("staged_positions", {})
-	if _scout_position_overlaps_staged_siblings(dest_pos, model, model_id, staged_positions, models):
+	if not SettingsService.unit_skips_collision(unit_id) \
+			and _scout_position_overlaps_staged_siblings(dest_pos, model, model_id, staged_positions, models):
 		return {"valid": false, "errors": ["Model cannot overlap with another model in this unit"]}
 
 	return {"valid": true, "errors": []}
@@ -687,8 +690,14 @@ func _scout_position_overlaps_other_units(pos: Vector2, model_data: Dictionary, 
 	moving_model["position"] = pos
 	var units = game_state_snapshot.get("units", {})
 
+	# Settings › Gameplay › vehicle collision override (see SettingsService).
+	if SettingsService.unit_skips_collision(scout_unit_id):
+		return false
+
 	for unit_id in units:
 		if unit_id == scout_unit_id:
+			continue
+		if SettingsService.unit_skips_collision(unit_id):
 			continue
 		var unit = units[unit_id]
 		var status = unit.get("status", 0)

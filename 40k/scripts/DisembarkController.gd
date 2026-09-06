@@ -398,6 +398,10 @@ func _check_model_overlap(pos: Vector2, exclude_idx: int) -> bool:
 
 	# Check against all other deployed models
 	for check_unit_id in GameState.state.units:
+		# Settings › Gameplay › vehicle collision override (see SettingsService):
+		# disembarking models are not blocked by a VEHICLE's base.
+		if SettingsService.unit_skips_collision(check_unit_id):
+			continue
 		var check_unit = GameState.state.units[check_unit_id]
 
 		# Skip every unit in the disembarking group — their models are handled by

@@ -5014,11 +5014,17 @@ func _group_dest_overlaps_non_member(test_model: Dictionary, source_unit_id: Str
 		for staged_move in current_phase.get_active_move_data(active_unit_id).get("staged_moves", []):
 			var src := str(staged_move.get("model_source_unit_id", active_unit_id))
 			staged_dests["%s:%s" % [src, str(staged_move.get("model_id", ""))]] = staged_move.get("dest")
+	# Settings › Gameplay › vehicle collision override (see SettingsService):
+	# mirrors the phase checker so the drag preview and the drop agree.
+	if SettingsService.unit_skips_collision(source_unit_id) or SettingsService.unit_skips_collision(active_unit_id):
+		return false
 	var test_pos: Vector2 = test_model.get("position", Vector2.ZERO)
 	var test_circular: bool = test_model.get("base_type", "circular") == "circular"
 	var test_radius: float = Measurement.base_radius_px(test_model.get("base_mm", 32))
 	var units = GameState.state.get("units", {})
 	for check_unit_id in units:
+		if SettingsService.unit_skips_collision(check_unit_id):
+			continue
 		var models = units[check_unit_id].get("models", [])
 		for i in range(models.size()):
 			var other = models[i]

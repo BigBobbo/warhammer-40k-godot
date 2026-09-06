@@ -182,6 +182,25 @@ var shooting_show_all_units: bool = false
 # games never see it. See autoloads/HandoffManager.gd.
 var hotseat_handoff_enabled: bool = true
 
+# Vehicle collision override — Settings › Gameplay › "Model Collision".
+#
+# Big models (a Stompa's 280x210mm oval, Knights, Baneblades) frequently have
+# nowhere legal to stand: every candidate spot clips a neighbouring base or a
+# ruin footprint, so the player cannot deploy, move, charge or pile in with
+# them at all. Turning this ON stops the game rejecting a position because a
+# VEHICLE base overlaps something — both model-vs-model overlap (either side
+# being a VEHICLE exempts the pair) and the end-of-move wall / dense-terrain
+# endpoint check for VEHICLE units. Board edges, engagement range, movement
+# distance and every other rule are untouched.
+#
+# OFF by default: this is a deliberate rules relaxation, not the standard game.
+var disable_vehicle_collision: bool = false
+
+# Which keywords the override applies to. VEHICLE only — MONSTER models are
+# large but nowhere near as unplaceable, and widening this silently would
+# relax collisions for most Ork/Tyranid armies.
+const VEHICLE_COLLISION_KEYWORDS: Array[String] = ["VEHICLE"]
+
 # Tutorial language — the voice the tutorial speaks in (instructor card,
 # blocked-action toasts, exit dialog, lesson picker, first-launch nudge):
 #   "standard" (default) — plain English. The Ork dialect reads as flavour but
@@ -247,6 +266,7 @@ signal tutorial_language_changed(language: String)
 signal pad_hover_stats_card_changed(enabled: bool)
 signal drag_clamp_to_max_range_changed(enabled: bool)
 signal placement_clamp_to_exclusion_changed(enabled: bool)
+signal disable_vehicle_collision_changed(enabled: bool)
 
 # P3-111: Settings config file path
 const SETTINGS_FILE_PATH: String = "user://settings.cfg"
@@ -726,6 +746,50 @@ func set_hotseat_handoff_enabled(enabled: bool) -> void:
 	_save_settings()
 	print("[SettingsService] hotseat_handoff_enabled set to %s" % str(enabled))
 
+func get_disable_vehicle_collision() -> bool:
+	return disable_vehicle_collision
+
+func set_disable_vehicle_collision(enabled: bool) -> void:
+	disable_vehicle_collision = enabled
+	disable_vehicle_collision_changed.emit(disable_vehicle_collision)
+	_save_settings()
+	print("[SettingsService] disable_vehicle_collision set to %s" % str(enabled))
+
+func keywords_skip_collision(keywords) -> bool:
+	# True when the override is ON and this keyword list names a VEHICLE.
+	# Accepts anything array-like (unit meta.keywords is a plain Array).
+	if not disable_vehicle_collision:
+		return false
+	if keywords == null or not (keywords is Array):
+		return false
+	for kw in VEHICLE_COLLISION_KEYWORDS:
+		if kw in keywords:
+			return true
+	return false
+
+func unit_skips_collision(unit_id) -> bool:
+	# True when the override is ON and `unit_id` names a VEHICLE unit.
+	# Cheap no-op (a bool read) while the override is OFF, which is the path
+	# every collision check takes by default.
+	if not disable_vehicle_collision:
+		return false
+	if unit_id == null or str(unit_id) == "":
+		return false
+	var gs = get_node_or_null("/root/GameState")
+	if gs == null:
+		return false
+	var unit = gs.get_unit(str(unit_id))
+	if unit == null or not (unit is Dictionary) or unit.is_empty():
+		return false
+	return keywords_skip_collision(unit.get("meta", {}).get("keywords", []))
+
+func collision_ignored_between(unit_a_id, unit_b_id) -> bool:
+	# A model pair is exempt if EITHER side is a VEHICLE — otherwise infantry
+	# still could not be placed against the Stompa the player just parked.
+	if not disable_vehicle_collision:
+		return false
+	return unit_skips_collision(unit_a_id) or unit_skips_collision(unit_b_id)
+
 func get_auto_allocate_wounds() -> bool:
 	return auto_allocate_wounds
 
@@ -818,6 +882,7 @@ func _save_settings() -> void:
 	config.set_value("gameplay", "shooting_pause_policy", shooting_pause_policy)
 	config.set_value("gameplay", "shooting_show_all_units", shooting_show_all_units)
 	config.set_value("gameplay", "hotseat_handoff_enabled", hotseat_handoff_enabled)
+	config.set_value("gameplay", "disable_vehicle_collision", disable_vehicle_collision)
 	config.set_value("gameplay", "tutorial_language", tutorial_language)
 
 	# Display
@@ -896,6 +961,7 @@ func _load_settings() -> void:
 	shooting_pause_policy = str(config.get_value("gameplay", "shooting_pause_policy", "every_step"))
 	shooting_show_all_units = config.get_value("gameplay", "shooting_show_all_units", false)
 	hotseat_handoff_enabled = bool(config.get_value("gameplay", "hotseat_handoff_enabled", true))
+	disable_vehicle_collision = bool(config.get_value("gameplay", "disable_vehicle_collision", false))
 	tutorial_language = str(config.get_value("gameplay", "tutorial_language", "standard"))
 	if tutorial_language not in ["standard", "orky"]:
 		tutorial_language = "standard"
