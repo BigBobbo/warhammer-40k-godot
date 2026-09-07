@@ -1,0 +1,624 @@
+{
+  "id": "tut_t3_wagon_reach_ring",
+  "covers": [
+    "movement.per_model_move_range_circle",
+    "movement.range_ring_matches_drag_clamp",
+    "scripts.MovementController._show_model_range_overlay",
+    "scripts.MovementController._clamp_move_to_budget",
+    "tutorial.t3.wagon_move"
+  ],
+  "rng_seed": 4242,
+  "edition": 11,
+  "description": "PLAYER REPORT (Battlewagon, tutorial T3 'Get Movin''): \"the range circle is much further than I'm actually allowed to drag the model\". Boots the real T3 lesson from the menu, disembarks the Boyz+Warboss, puts the Battlewagon into Advance through the mode radio + Confirm Movement Mode gate, then grabs the hull and drags 23\" east - far past the 10\"+D6 Advance cap - and HOLDS it so the clamped frame can be measured. 11e core rules: a model's move is measured 'from the same point on its base at the start and end of that move', and 'rotating a model does not count towards the distance it has moved'. So the budget is a plain centre-to-centre translation and the drag clamp (which stops the model's CENTRE at the remaining budget) is correct. The ring was not: it was drawn at remaining + Measurement.base_extent_px(model), the base's circumscribed radius - for this 100x180mm rectangular base 162px (4.05\") of extra ring, i.e. the worst case over every facing the free 11e pivot allows. Asserts the base extent really is that large, that the ring is now drawn at exactly the remaining move, and that the held ghost lands ON the ring (ring - ghost == the terrain the stop point is charged, 0 on open ground).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/SecondaryButtonGrid/TutorialButton"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/MainMenu/TutorialPicker",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/MainMenu/TutorialPicker/Margin/VBox/LessonRows/Row_t3_get_movin/Play_t3_get_movin"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 8.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.active",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "intro"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_intro"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "tutorial_blocked",
+      "equals": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/TutorialOverlay/InstructorCard/Margin/VBox/Footer/ContinueButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "disembark_start"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList",
+      "index": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var dd = tree.root.get_node_or_null(\"/root/DisembarkDialog\")\nif dd == null:\n\treturn false\ndd.get_ok_button().pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "OK on the native ConfirmationDialog - its internal button has no scene path for click_node"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "disembark_place"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_placement_ring"
+    },
+    {
+      "act": "click_board_at",
+      "x": 480.0,
+      "y": 500.0
+    },
+    {
+      "act": "click_board_at",
+      "x": 544.0,
+      "y": 500.0
+    },
+    {
+      "act": "click_board_at",
+      "x": 608.0,
+      "y": 500.0
+    },
+    {
+      "act": "click_board_at",
+      "x": 672.0,
+      "y": 500.0
+    },
+    {
+      "act": "click_board_at",
+      "x": 736.0,
+      "y": 500.0
+    },
+    {
+      "act": "click_board_at",
+      "x": 808.0,
+      "y": 500.0
+    },
+    {
+      "act": "click_board_at",
+      "x": 512.0,
+      "y": 556.0
+    },
+    {
+      "act": "click_board_at",
+      "x": 576.0,
+      "y": 556.0
+    },
+    {
+      "act": "click_board_at",
+      "x": 640.0,
+      "y": 556.0
+    },
+    {
+      "act": "click_board_at",
+      "x": 704.0,
+      "y": 556.0
+    },
+    {
+      "act": "click_board_at",
+      "x": 780.0,
+      "y": 552.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "boyz_move_after_disembark"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_T.disembarked_this_phase",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WARBOSS_T.embarked_in",
+      "equals": null,
+      "comment": "19.03: the attached Warboss disembarks WITH the Boyz. Before the fix the placement only asked for the 10 Boyz, reported complete, and left the Warboss aboard."
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WARBOSS_T.disembarked_this_phase",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var wb = GameState.get_unit(\"U_WARBOSS_T\")\nvar m = wb.get(\"models\", [])\nif m.is_empty():\n\treturn false\nreturn m[0].get(\"position\", null) != null",
+      "multiline": true,
+      "equals": true,
+      "comment": "The Warboss model is actually ON THE BOARD at a placed position, not merely flagged as disembarked"
+    },
+    {
+      "act": "execute_script",
+      "script": "var wagon = GameState.get_unit(\"U_BATTLEWAGON_T\")\nreturn wagon.get(\"transport_data\", {}).get(\"embarked_units\", []).size()",
+      "multiline": true,
+      "equals": 0,
+      "comment": "Battlewagon is empty — neither the Boyz nor the Warboss are left inside"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_boyz_out"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.movement_controller.active_unit_id)",
+      "equals": "U_BOYZ_T",
+      "comment": "11e 18.04 - a tactical disembark from a transport that has NOT moved leaves the unit selected to make its own move; the new step teaches that affordance"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_T.flags.cannot_move",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MovementCoherencyVisual\").get_child_count()",
+      "equals": 0,
+      "comment": "PLAYER REPORT (Get Movin' step 4): beginning the disembarked Boyz' move used to paint one cyan 2\" coherency ring PER model - 10 overlapping ~5.3\"-wide circles on a tightly-packed mob, which players read as an unexplained engagement-range bubble. The rings are gone; the container stays (empty) so this assertion is meaningful rather than vacuous."
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.root.get_node(\"Main\")\nvar br = m.get_node(\"BoardRoot\")\nvar out = []\nfor nm in [\"MoveRangeVisual\", \"MovementERVisual\", \"MovementCoherencyVisual\"]:\n\tvar n = br.get_node_or_null(nm)\n\tout.append(-1 if n == null else n.get_child_count())\nm.set_meta(\"overlay_counts\", str(out))\nreturn out[2] == 0 and out[0] >= 0 and out[1] > 0",
+      "multiline": true,
+      "equals": true,
+      "comment": "The OTHER two movement guides must survive the removal: the red enemy engagement-range rings (MovementERVisual) are still populated on move-begin, and the per-model green reach circle container (MoveRangeVisual, filled on pickup) still exists. Only the coherency rings are zeroed."
+    },
+    {
+      "act": "screenshot",
+      "label": "03a0_no_per_model_rings_on_disembarked_mob"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 480.0,
+      "from_y": 500.0,
+      "to_x": 480.0,
+      "to_y": 380.0,
+      "release": false,
+      "comment": "Carry m1 (board 480,500) 120px (3\") straight up and HOLD it there - far enough that its nearest mate m2 at (544,500) is 136px away centre-to-centre, i.e. out of coherency once both 32mm bases are taken off. Paused with release:false so the carried-model ring can be inspected in both states, then walked back to the pickup point and dropped with zero distance so the Ctrl+A group drag below is the move that actually counts."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "# Carried out of coherency: the single ring must wear its AMBER warning colour\n# and agree with the label. Amber, not red - red circles are the enemy\n# engagement-range rings and must keep meaning only that.\nvar m = tree.root.get_node(\"Main\")\nvar coh = m.get_node(\"BoardRoot/MovementCoherencyVisual\")\nif coh.get_child_count() != 1:\n\treturn \"expected exactly 1 ring while carrying, got %d\" % coh.get_child_count()\nvar ring = coh.get_node_or_null(\"CarriedCoherencyRing\")\nif ring == null:\n\treturn \"ring is not named CarriedCoherencyRing\"\nvar lbl = m.get_node_or_null(\"BoardRoot/MovementGhostVisual/CoherencyStatusLabel\")\nif lbl == null or not lbl.text.begins_with(\"Out of coherency\"):\n\treturn \"expected a broken drop, label said '%s'\" % (\"<none>\" if lbl == null else lbl.text)\nvar c = ring.default_color\nm.set_meta(\"ring_broken_probe\", str(c))\n# Amber is high red, mid green, near-zero blue. Cyan (the OK colour) is the\n# opposite: low red, high blue. This separates them without pinning exact values.\nif c.b > 0.4:\n\treturn \"broken drop but ring is still wearing the cyan OK colour: %s\" % str(c)\nif c.r < 0.7 or c.g < 0.4:\n\treturn \"broken-coherency ring is not amber: %s\" % str(c)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "Proves the ring is live, not a static decoration: it recolours as the carry crosses out of coherency, from the same verdict that drives the label and the ghost lines."
+    },
+    {
+      "act": "screenshot",
+      "label": "03a1_carried_ring_amber_out_of_coherency"
+    },
+    {
+      "act": "hover_board_at",
+      "x": 480.0,
+      "y": 500.0,
+      "comment": "Walk the carry back to the pickup point WITHOUT releasing - MovementController._unhandled_input routes any motion to _update_model_drag while dragging_model holds, so a buttonless hover moves the live carry. The ring must follow and flip back to cyan."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "# Nothing was LOST by deleting the static rings: the P3-116 drag preview is\n# the live coherency affordance - a line from the carried ghost to every other\n# model in the unit, green when that mate is inside coherency and red when it\n# is not, plus a status label riding on the ghost.\nvar m = tree.root.get_node(\"Main\")\nvar gv = m.get_node_or_null(\"BoardRoot/MovementGhostVisual\")\nif gv == null or gv.get_child_count() == 0:\n\treturn \"no ghost\"\nvar ghost = gv.get_child(0)\nif not (\"coherency_lines_data\" in ghost):\n\treturn \"ghost has no coherency_lines_data\"\nvar lines = ghost.coherency_lines_data\nvar lbl = gv.get_node_or_null(\"CoherencyStatusLabel\")\nm.set_meta(\"coh_probe\", \"lines=%d status=%s label=%s\" % [lines.size(), str(ghost.coherency_status_text), \"<none>\" if lbl == null else lbl.text])\nif lines.size() < 9:\n\treturn \"only %d coherency lines for a 10-model mob\" % lines.size()\nvar in_range := 0\nfor l in lines:\n\tif bool(l.get(\"in_coherency\", false)):\n\t\tin_range += 1\nif in_range < 1:\n\treturn \"no mate reported in coherency\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "10-model mob -> 9 lines from the carried Boy to his mates, at least one of them green. This is the affordance that replaces the rings, so it is asserted in the same breath as their absence."
+    },
+    {
+      "act": "execute_script",
+      "script": "# The ONE carried-model coherency ring: it exists only while a model is in\n# hand, there is exactly one of it (not one per model), it is centred on the\n# ghost rather than on the pickup spot, and its radius is the carried base\n# radius + the 2\" coherency distance.\nvar m = tree.root.get_node(\"Main\")\nvar coh = m.get_node(\"BoardRoot/MovementCoherencyVisual\")\nif coh.get_child_count() != 1:\n\treturn \"expected exactly 1 ring, got %d\" % coh.get_child_count()\nvar ring = coh.get_node_or_null(\"CarriedCoherencyRing\")\nif ring == null:\n\treturn \"ring is not named CarriedCoherencyRing\"\nvar gv = m.get_node_or_null(\"BoardRoot/MovementGhostVisual\")\nif gv == null:\n\treturn \"no ghost layer\"\nif ring.position.distance_to(gv.position) > 1.0:\n\treturn \"ring at %s does not track ghost at %s\" % [str(ring.position), str(gv.position)]\n# Radius back out of the generated points (they are built around the origin).\nvar r := 0.0\nfor i in range(ring.get_point_count()):\n\tr = max(r, ring.get_point_position(i).length())\nvar want := Measurement.base_radius_px(32) + Measurement.inches_to_px(GameConstants.coherency_distance_inches())\nif abs(r - want) > 1.0:\n\treturn \"radius %.1f px, expected %.1f px (32mm base + %.1f\\\") \" % [r, want, GameConstants.coherency_distance_inches()]\nm.set_meta(\"ring_probe\", \"r=%.1f px width=%.1f colour=%s\" % [r, ring.width, str(ring.default_color)])\n# Thin, and under the ghosts (MOVE_GHOST_Z) so it cannot bury what it guides.\nif ring.width > 4.0:\n\treturn \"ring stroke %.1f px is too heavy\" % ring.width\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "Follow-up to the ring removal: coherency came back as ONE ring on the model actually being carried, instead of T-094's one-per-model. This pins the count at 1, the anchor to the ghost, and the radius to base + coherency distance so an edition change to the 2\" distance moves the ring with it."
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.root.get_node(\"Main\")\nvar ring = m.get_node(\"BoardRoot/MovementCoherencyVisual/CarriedCoherencyRing\")\nvar lbl = m.get_node_or_null(\"BoardRoot/MovementGhostVisual/CoherencyStatusLabel\")\nvar coherent: bool = lbl != null and lbl.text.begins_with(\"Coherent\")\n# The drop here keeps the mob coherent, so the ring must be wearing its OK\n# colour. Ring, lines and label all read off the same verdict.\nif not coherent:\n\treturn \"expected a coherent drop, label said '%s'\" % (\"<none>\" if lbl == null else lbl.text)\nif ring.default_color.b < 0.5:\n\treturn \"coherent drop but ring is not wearing the cyan OK colour: %s\" % str(ring.default_color)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "The ring recolours from the same verdict as the label (cyan = coherent, amber = broken). Amber deliberately, not red - red is the enemy engagement-range rings."
+    },
+    {
+      "act": "screenshot",
+      "label": "03a2_carried_ring_cyan_in_coherency"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 480.0,
+      "y": 500.0,
+      "comment": "Drop m1 back where it started - a zero-distance stage, so the 1\" group drag below is still the whole of this unit's move and the downstream distance assertions are untouched."
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MovementCoherencyVisual\").get_child_count()",
+      "equals": 0,
+      "comment": "and still no rings after the drop - the drag path must not re-introduce them either"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"Ctrl+A\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "the step must REMIND the player they can grab the whole mob at once - 11 models dragged one at a time is the slow path players fall into right after a disembark. {key:select_all} renders through KeybindingManager, so this also proves the token resolved (an unresolved token would read '{key:select_all}')."
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "A",
+      "ctrl": true,
+      "comment": "the shortcut the card now advertises"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "var mc = tree.current_scene.movement_controller\nvar want := 0\nfor uid in [\"U_BOYZ_T\", \"U_WARBOSS_T\"]:\n\tfor m in GameState.get_unit(uid).get(\"models\", []):\n\t\tif m.get(\"alive\", true):\n\t\t\twant += 1\nif mc.selected_models.size() != want:\n\treturn \"selected %d of %d\" % [mc.selected_models.size(), want]\nif str(mc.selection_mode) != \"MULTI\":\n\treturn \"selection_mode %s\" % str(mc.selection_mode)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the card's claim driven for real: Ctrl+A grabbed every alive Boy AND the attached Warboss (MovementController._select_all_unit_models walks the bodyguard plus attached characters), which is the 'all 11' the prompt promises"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "boyz_move_after_disembark",
+      "comment": "selecting the mob is not moving it - the step must not advance on a selection"
+    },
+    {
+      "act": "screenshot",
+      "label": "03a_boyz_all_selected_ctrl_a"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 480.0,
+      "from_y": 500.0,
+      "to_x": 480.0,
+      "to_y": 540.0,
+      "comment": "m1 is at board (480,500) after placement - dragging a SELECTED model shifts the WHOLE formation 40px (1\") (MovementController._start_group_movement), well inside the 6\" cap and coherency. Away from the wagon, not towards it: the Battlewagon hull spans board x 561-719 / y 178-462, so a 1\" step towards it puts the middle of the front rank inside the hull and only the two outer Boyz can be placed. PAUSED here (release:false) purely so the group carry can be inspected mid-flight for coherency rings; mouse_up_board below completes the identical drop.",
+      "release": false
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"BoardRoot/MovementCoherencyVisual\").get_child_count()",
+      "equals": 0,
+      "comment": "The original regression, pinned at its worst case: a GROUP carry of all 11 models must paint NO coherency rings. A group carry translates every selected model rigidly so the distances between them cannot change, and one ring per carried model is exactly the wall of cyan a player reported after disembarking the mob."
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 480.0,
+      "y": 540.0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "boyz_move_after_disembark",
+      "comment": "staging a model must NOT advance the step - it waits for the move to be locked in"
+    },
+    {
+      "act": "execute_script",
+      "script": "float(main.movement_controller.current_phase.get_active_move_data(\"U_BOYZ_T\").model_distances[\"U_BOYZ_T:m1\"]) > 0.5",
+      "equals": true,
+      "comment": "the Boy really moved - guards against a zero-distance stage passing for a move (staged moves only reach GameState on CONFIRM_UNIT_MOVE, so this reads the live move data)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 3.0,
+      "comment": "Let the group-drop staging pipeline drain before counting. MovementController._end_group_drag emits one STAGE_MODEL_MOVE per model with a 0.01s gap, then waits 0.1s and re-sends any straggler - for an 11-model mob that is ~2s of real time once each action's phase processing is included. The group_drop_in_flight assertion below is the actual gate; this wait just gets us there."
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.current_scene.movement_controller.group_drop_in_flight",
+      "equals": false,
+      "comment": "The staging batch has finished. Without this gate the all-11 assertion below can read model_distances mid-batch and report the last models as 'did not move' when they stage a frame later - a false failure that says nothing about the feature."
+    },
+    {
+      "act": "execute_script",
+      "script": "var md = tree.current_scene.movement_controller.current_phase.get_active_move_data(\"U_BOYZ_T\")\nvar dists = md.get(\"model_distances\", {})\nvar missed := []\nfor uid in [\"U_BOYZ_T\", \"U_WARBOSS_T\"]:\n\tvar models = GameState.get_unit(uid).get(\"models\", [])\n\tfor i in range(models.size()):\n\t\tif not models[i].get(\"alive\", true):\n\t\t\tcontinue\n\t\tvar key = \"%s:%s\" % [uid, str(models[i].get(\"id\", \"m%d\" % (i + 1)))]\n\t\tif float(dists.get(key, 0.0)) <= 0.5:\n\t\t\tmissed.append(key)\nif not missed.is_empty():\n\treturn \"did not move: %s\" % str(missed)\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "'one drag shifts da whole mob' proven end to end: ONE drag off ONE selected model staged real distance for EVERY alive Boy and the attached Warboss. This is also the regression pin for the group-drag key collision - group_drag_start_positions used to be keyed by bare model_id, so the Warboss ('m1') inherited the first Boy's start position, was sent to the BOY's destination, and the phase rejected it as 'Distance 7.5\" exceeds cap 6.0\"'. He never moved, and the two Boyz whose destinations he was still standing in were blocked behind him - 8 of 11 placed instead of 11."
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_body_text().contains(\"End This Unit's Move\")",
+      "multiline": true,
+      "equals": true,
+      "comment": "REPORTED: the step never told the player the move has to be locked in - they dropped the mob and waited. The card must NAME the button (the done-gate has always been CONFIRM_UNIT_MOVE, so a body that stops at 'drops da lot' is a dead end)."
+    },
+    {
+      "act": "execute_script",
+      "script": "var cl = TutorialManager.checklist_state()\nif not bool(cl.get(\"mob_shifted\", false)):\n\treturn \"mob_shifted did not tick after the drag\"\nif bool(cl.get(\"move_locked\", false)):\n\treturn \"move_locked ticked before the confirm\"\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "the standing reminder: box one ticks off the drag, box two stays OPEN so the outstanding confirm is visible on the card rather than only in a sentence the player already scrolled past"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nvar t = o.current_checklist_text()\nif not t.contains(\"Lock it in\"):\n\treturn \"checklist row missing the lock-it-in box: %s\" % t\nif not t.contains(\"End This Unit's Move\"):\n\treturn \"checklist row does not name the button: %s\" % t\nreturn \"ok\"",
+      "multiline": true,
+      "equals": "ok",
+      "comment": "and it is actually RENDERED - current_checklist_text() is empty when the row is hidden"
+    },
+    {
+      "act": "execute_script",
+      "script": "var o = tree.root.get_node(\"/root/TutorialOverlay\")\nreturn o.current_anchor_name()",
+      "multiline": true,
+      "equals": "ConfirmMoveButton",
+      "comment": "anchor_when: with the models down, the spotlight has walked off the mob (anchor {unit: U_BOYZ_T}) and onto the button the card is now telling the player to press. Before the fix the ring stayed on the Boyz - pointing at the thing they had already done."
+    },
+    {
+      "act": "screenshot",
+      "label": "03b_boyz_moving_after_disembark"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section4_Actions/ActionButtons/ConfirmMoveButton"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_T.flags.moved",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "abs(float(GameState.get_unit(\"U_BOYZ_T\").models[0].position.y) - 500.0) > 10.0",
+      "equals": true,
+      "comment": "confirming the move wrote the new position through to GameState"
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "wagon_mode"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section1_UnitList/MovementUnitList",
+      "index": 0
+    },
+    {
+      "act": "wait_frames",
+      "frames": 15
+    },
+    {
+      "act": "click_node",
+      "button_text": "Advance"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/ConfirmModeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "keep_da_roll"
+    },
+    {
+      "act": "execute_script",
+      "script": "var pi = PhaseManager.current_phase_instance\nvar am = pi.active_moves.get(\"U_BATTLEWAGON_T\", {})\nreturn bool(am.get(\"mode_locked\", false))",
+      "multiline": true,
+      "equals": true,
+      "comment": "REPORTED BUG ('it says tutorial_locked when I select Advance'): MovementController._on_confirm_mode_pressed emits BEGIN_ADVANCE and then LOCK_MOVEMENT_MODE from ONE click, and BEGIN_ADVANCE completes wagon_mode synchronously (phase_action_taken -> _check_done -> _advance_step). So the second half of that click is gated by keep_da_roll's allow-list, which was empty - the mode never locked and the player got a red 'tutorial_locked'. mode_locked is the observable proof the lock landed."
+    },
+    {
+      "act": "execute_script",
+      "script": "return TutorialManager.is_action_allowed({\"type\": \"LOCK_MOVEMENT_MODE\", \"actor_unit_id\": \"U_BATTLEWAGON_T\", \"player\": 1})",
+      "multiline": true,
+      "equals": true,
+      "comment": "and the gate itself allows it - so a re-confirm cannot resurrect the toast"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = null\nfor c in tree.root.get_children():\n\tif c is Window and c.visible and str(c.name).to_lower().contains(\"reroll\"):\n\t\td = c\nif d == null:\n\treturn \"NO REROLL DIALOG\"\nreturn \"%s|%s\" % [str(d.name), str(d.has_meta(\"tutorial_exit_button\"))]",
+      "multiline": true,
+      "equals": "CommandRerollDialog|false",
+      "comment": "the dice popups must be entirely the player's — an injected 'Exit Tutorial' lands in the AcceptDialog's own button bar, which is a separate focus root from its content, and on a pad that took Keep Roll / Re-roll away from the D-pad entirely. Same dialog class the charge roll uses."
+    },
+    {
+      "act": "screenshot",
+      "label": "04a_command_reroll_offer"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Keep Roll",
+      "emit_pressed": true,
+      "comment": "Keep Roll lives inside an embedded Window (AcceptDialog) - real-coordinate clicks into embedded windows are unreliable, the schema's emit_pressed escape hatch exists for this"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 20
+    },
+    {
+      "act": "execute_script",
+      "script": "TutorialManager.current_step_id()",
+      "equals": "wagon_move"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_advance_confirmed"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "expect_min": 155.0,
+      "script": "# The wagon is on a 100x180mm RECTANGULAR base. Measurement.base_extent_px is\n# its circumscribed radius (half the diagonal) ~ 162px ~ 4.05\" - the whole size\n# of the discrepancy the player reported.\nvar mc = tree.root.get_node(\"Main\").movement_controller\nreturn Measurement.base_extent_px(GameState.get_unit(\"U_BATTLEWAGON_T\").models[0])"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "expect_max": 170.0,
+      "script": "return Measurement.base_extent_px(GameState.get_unit(\"U_BATTLEWAGON_T\").models[0])"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": true,
+      "script": "# Frame the wagon and its whole reach ring for the screenshot.\nvar m = tree.root.get_node(\"Main\")\nm.view_zoom = 0.85\nm.view_offset = Vector2(460.0, 400.0) - Vector2(960.0, 540.0) / 0.85\nm.update_view_transform()\nreturn true"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "drag_board",
+      "from_x": 640.0,
+      "from_y": 320.0,
+      "to_x": 100.0,
+      "to_y": 320.0,
+      "release": false,
+      "comment": "Grab the hull and drag 13.5\" WEST - past the 11\" Advance cap (M10 + a rolled 1\") - so the over-range drag clamp (SettingsService.drag_clamp_to_max_range, on by default) parks the ghost exactly at the model's remaining budget. West rather than east because the eastward corridor runs the wagon into a ruin, and terrain the clamp charges would stop it short of the ring for a reason that has nothing to do with this fix. Held (release:false) so the live frame can be measured."
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.dragging_model",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "expect_max": 1.5,
+      "script": "# THE BUG / THE FIX. The green dashed ring the player aims at must be drawn at\n# the model's REMAINING MOVE, because that is exactly what the drag clamp\n# enforces on the model's centre. Before the fix it was drawn at\n# remaining + base_extent_px, i.e. ~162px (4.05\") further out for this wagon.\nvar m = tree.root.get_node(\"Main\")\nvar mc = m.movement_controller\nvar ring = m.get_node(\"BoardRoot/MoveRangeVisual\")\nvar radius: float = ring.get_child(0).points[0].distance_to(mc.drag_start_pos)\nvar remaining: float = mc._get_effective_move_cap() - mc._get_accumulated_distance()\nvar want: float = Measurement.inches_to_px(remaining)\nvar extent: float = Measurement.base_extent_px(mc.selected_model)\nm.set_meta(\"wagon_ring_probe\", \"ring_radius=%.1fpx remaining=%.2f\\\" want=%.1fpx base_extent=%.1fpx overdraw=%.2f\\\"\" % [radius, remaining, want, extent, (radius - want) / Measurement.PX_PER_INCH])\nreturn abs(radius - want)"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"wagon_ring_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "expect_max": 0.01,
+      "script": "# The stop point is charged no terrain, so the clamp's only constraint here is\n# the move budget itself.\nvar mc = tree.root.get_node(\"Main\").movement_controller\nreturn mc._get_terrain_penalty_for_move(mc.drag_start_pos, mc.current_path[1])"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "expect_max": 2.0,
+      "script": "# ...so the held ghost lands exactly ON the ring. THIS is what the player was\n# missing: pre-fix the wagon stopped 162px (4.05\") inside the dashes with the\n# panel already reading Left: 0.00\", which is what \"the range is much further\n# than I'm allowed to drag\" looks like from the other side of the screen.\nvar m = tree.root.get_node(\"Main\")\nvar mc = m.movement_controller\nvar ring = m.get_node(\"BoardRoot/MoveRangeVisual\")\nvar radius: float = ring.get_child(0).points[0].distance_to(mc.drag_start_pos)\nvar moved: float = mc.current_path[1].distance_to(mc.drag_start_pos)\nm.set_meta(\"wagon_gap_probe\", \"ring_radius=%.1fpx ghost_moved=%.1fpx gap=%.2f\\\"\" % [radius, moved, (radius - moved) / Measurement.PX_PER_INCH])\nreturn abs(radius - moved)"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"wagon_gap_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "expect_max": 1.5,
+      "script": "# The 'how far can the hull end up' answer the old ring was really drawing is\n# still on screen — as the faint MoveHullReach halo, one base extent (4.05\"\n# for this wagon) outside the dashed ring. That is a hint, not the boundary.\nvar m = tree.root.get_node(\"Main\")\nvar mc = m.movement_controller\nvar ring = m.get_node(\"BoardRoot/MoveRangeVisual\")\nvar halo = ring.get_node_or_null(\"MoveHullReach\")\nif halo == null:\n\treturn 9999.0\nvar halo_r: float = halo.points[0].distance_to(mc.drag_start_pos)\nvar radius: float = ring.get_child(0).points[0].distance_to(mc.drag_start_pos)\nvar extent: float = Measurement.base_extent_px(mc.selected_model)\nm.set_meta(\"wagon_halo_probe\", \"halo_radius=%.1fpx ring_radius=%.1fpx gap=%.2f\\\"\" % [halo_r, radius, (halo_r - radius) / Measurement.PX_PER_INCH])\nreturn abs(halo_r - (radius + extent))"
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.get_meta(\"wagon_halo_probe\"))",
+      "exists": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "equals": "11\"",
+      "script": "# And the label above the ring still reads the MOVE, which now matches the\n# circle it labels: 11\" of ring for 11\" of move.\nvar ring = tree.root.get_node(\"Main\").get_node(\"BoardRoot/MoveRangeVisual\")\nreturn str(ring.get_child(8).text)"
+    },
+    {
+      "act": "screenshot",
+      "label": "90_wagon_ring_vs_drag_limit"
+    },
+    {
+      "act": "mouse_up_board",
+      "x": 100.0,
+      "y": 320.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    }
+  ]
+}
