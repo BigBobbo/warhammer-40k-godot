@@ -4423,7 +4423,15 @@ func _check_position_would_overlap(model: Dictionary, new_pos: Vector2, charge_k
 		# Fallback to GameState if phase not available
 		units = GameState.state.get("units", {})
 
+	# Settings › Gameplay › vehicle collision override (see SettingsService):
+	# mirrors ChargePhase._validate_no_model_overlaps so the live preview and
+	# the submitted charge agree on what is legal.
+	if SettingsService.unit_skips_collision(self_unit_id):
+		return false
+
 	for check_unit_id in units:
+		if SettingsService.unit_skips_collision(check_unit_id):
+			continue
 		var check_unit = units[check_unit_id]
 		var check_models = check_unit.get("models", [])
 

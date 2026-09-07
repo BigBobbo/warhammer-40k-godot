@@ -1968,6 +1968,11 @@ func _overlaps_with_existing_models_shape(pos: Vector2, model_data: Dictionary, 
 	if not shape:
 		return false
 
+	# Settings › Gameplay › vehicle collision override (see SettingsService):
+	# a VEHICLE being deployed is never blocked by another base.
+	if SettingsService.unit_skips_collision(unit_id):
+		return false
+
 	# Check overlap with already placed models in current unit.
 	# Index-safe for combined placements: temp_positions is indexed by the
 	# COMBINED list (bodyguard + attached characters), which is longer than
@@ -1991,6 +1996,10 @@ func _overlaps_with_existing_models_shape(pos: Vector2, model_data: Dictionary, 
 	# Check overlap with all deployed models from all units
 	var all_units = GameState.state.get("units", {})
 	for other_unit_id in all_units:
+		# The override also exempts already-deployed VEHICLEs, so a unit can be
+		# placed against a parked Stompa.
+		if SettingsService.unit_skips_collision(other_unit_id):
+			continue
 		var other_unit = all_units[other_unit_id]
 		if other_unit["status"] == GameStateData.UnitStatus.DEPLOYED:
 			for model in other_unit["models"]:
@@ -2025,6 +2034,10 @@ func _get_shape_max_extent(model_data: Dictionary) -> float:
 	return max(bounds.size.x, bounds.size.y)
 
 func _overlaps_with_existing_models(pos: Vector2, radius: float) -> bool:
+	# Settings › Gameplay › vehicle collision override (see SettingsService).
+	if SettingsService.unit_skips_collision(unit_id):
+		return false
+
 	# Check overlap with already placed models in current unit
 	for placed_pos in temp_positions:
 		if placed_pos != null:
@@ -2036,6 +2049,8 @@ func _overlaps_with_existing_models(pos: Vector2, radius: float) -> bool:
 	# Check overlap with all deployed models from all units
 	var all_units = GameState.state.get("units", {})
 	for other_unit_id in all_units:
+		if SettingsService.unit_skips_collision(other_unit_id):
+			continue
 		var other_unit = all_units[other_unit_id]
 		if other_unit["status"] == GameStateData.UnitStatus.DEPLOYED:
 			for model in other_unit["models"]:
@@ -2772,6 +2787,10 @@ func _would_overlap_excluding_self(pos: Vector2, model_data: Dictionary, exclude
 	if not shape:
 		return false
 
+	# Settings › Gameplay › vehicle collision override (see SettingsService).
+	if SettingsService.unit_skips_collision(unit_id):
+		return false
+
 	# Check overlap with other models in current unit (excluding self)
 	var self_rotation = _reposition_rotation_for(exclude_index)
 	for i in range(temp_positions.size()):
@@ -2788,6 +2807,8 @@ func _would_overlap_excluding_self(pos: Vector2, model_data: Dictionary, exclude
 	for other_unit_id in all_units:
 		if other_unit_id == unit_id:
 			continue  # Skip current unit, already checked above
+		if SettingsService.unit_skips_collision(other_unit_id):
+			continue
 
 		var other_unit = all_units[other_unit_id]
 		if other_unit["status"] == GameStateData.UnitStatus.DEPLOYED:

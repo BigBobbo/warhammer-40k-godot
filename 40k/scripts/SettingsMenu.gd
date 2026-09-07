@@ -53,6 +53,7 @@ const WINDOW_RESOLUTIONS: Array[Vector2i] = [
 	Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3840, 2160),
 ]
 var _autosave_phase_start_checkbox: CheckBox
+var _vehicle_collision_checkbox: CheckBox
 var _controller_text_boost_checkbox: CheckBox
 var _input_mode_dropdown: OptionButton
 var _input_mode_status_label: Label
@@ -290,6 +291,16 @@ func _build_ui() -> void:
 	tutorial_lang_help.add_theme_font_size_override("font_size", 16)
 	tutorial_lang_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
 	gameplay_content.add_child(tutorial_lang_help)
+
+	_add_section_header(gameplay_content, "Model Collision")
+	_vehicle_collision_checkbox = _add_checkbox_row(gameplay_content, "Ignore collisions for VEHICLE models (Stompa, Knights, tanks)", "_on_disable_vehicle_collision_toggled")
+	var vehicle_collision_help = Label.new()
+	vehicle_collision_help.text = "Off by default. Huge bases — a Stompa is 280x210mm — often have nowhere legal to stand: every spot clips a neighbouring base or a ruin, so the model cannot be deployed, moved, charged or piled in at all. Turn this on and the game stops rejecting a position because a VEHICLE base overlaps another model or terrain, in every phase. Board edges, move distances, engagement range and all other rules still apply."
+	vehicle_collision_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vehicle_collision_help.custom_minimum_size = Vector2(620, 0)
+	vehicle_collision_help.add_theme_font_size_override("font_size", 16)
+	vehicle_collision_help.add_theme_color_override("font_color", WhiteDwarfThemeData.WH_PARCHMENT)
+	gameplay_content.add_child(vehicle_collision_help)
 
 	_add_section_header(gameplay_content, "Auto-Save")
 	_autosave_phase_start_checkbox = _add_checkbox_row(gameplay_content, "Auto-save at the start of each phase", "_on_autosave_phase_start_toggled")
@@ -977,6 +988,8 @@ func _load_current_settings() -> void:
 		_auto_allocate_checkbox.button_pressed = SettingsService.auto_allocate_wounds
 	if _hotseat_handoff_checkbox:
 		_hotseat_handoff_checkbox.button_pressed = SettingsService.hotseat_handoff_enabled
+	if _vehicle_collision_checkbox:
+		_vehicle_collision_checkbox.button_pressed = SettingsService.disable_vehicle_collision
 	if _tutorial_language_dropdown:
 		# Show what is actually in force (get_ folds in the harness pin).
 		var lang_index := TUTORIAL_LANGUAGES.find(str(SettingsService.get_tutorial_language()))
@@ -1216,6 +1229,9 @@ func _on_auto_allocate_wounds_toggled(pressed: bool) -> void:
 
 func _on_hotseat_handoff_toggled(pressed: bool) -> void:
 	SettingsService.set_hotseat_handoff_enabled(pressed)
+
+func _on_disable_vehicle_collision_toggled(pressed: bool) -> void:
+	SettingsService.set_disable_vehicle_collision(pressed)
 
 func _on_tutorial_language_selected(index: int) -> void:
 	if index >= 0 and index < TUTORIAL_LANGUAGES.size():

@@ -1,0 +1,155 @@
+{
+  "id": "vehicle_collision_toggle",
+  "covers": [
+    "scripts.SettingsMenu.gameplay_tab",
+    "scripts.Main._open_settings_menu",
+    "settings.disable_vehicle_collision",
+    "movement.overlap.vehicle_override"
+  ],
+  "fixture": "stompa_fight_11e",
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "description": "Settings UI + effect. The in-game Escape menu (Main._open_settings_menu, the exact creator the Escape key uses) exposes a Gameplay > Model Collision toggle, 'Ignore collisions for VEHICLE models'. Default OFF: the Stompa (VEHICLE, 180mm base) cannot be moved onto a Custodian Guard model, and is rejected by a wall it would end its move on. The player CLICKS the checkbox as a real Button; the setting flips and both the model-overlap check and the wall / dense-terrain endpoint check now let the Stompa through, while the same wall still blocks a non-VEHICLE keyword list and a Custodian Guard is still blocked by its own squadmate. Turning the setting back off restores the block. The wall is injected by the scenario (the fixture's own terrain is all traversable) and removed again before the run ends.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.disable_vehicle_collision",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_STOMPA_A\").get(\"meta\", {}).get(\"keywords\", []).has(\"VEHICLE\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var phase = PhaseManager.get_current_phase_instance()\nvar stompa = GameState.get_unit(\"U_STOMPA_A\")\nreturn phase._position_overlaps_other_models(\"U_STOMPA_A\", \"m1\", Vector2(775, 900), stompa[\"models\"][0])",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Inject a wall segment straight across the Stompa so the endpoint check has\n# something real to reject, then read the check on both paths.\nTerrainManager.terrain_features.append({\"id\": \"scenario_test_wall\", \"type\": \"ruins\", \"walls\": [{\"start\": Vector2(400, 900), \"end\": Vector2(800, 900)}], \"polygon\": PackedVector2Array()})\nvar stompa = GameState.get_unit(\"U_STOMPA_A\")\nvar m = stompa[\"models\"][0].duplicate(true)\nm[\"position\"] = Vector2(600, 900)\nreturn Measurement.model_overlaps_any_wall(m, stompa.get(\"meta\", {}).get(\"keywords\", []))",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._open_settings_menu()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "is_instance_valid(main._settings_menu)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._tab_buttons[2].text",
+      "equals": "Gameplay"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._on_tab_pressed(2)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "is_instance_valid(main._settings_menu._vehicle_collision_checkbox)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._vehicle_collision_checkbox.is_visible_in_tree()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._vehicle_collision_checkbox.text",
+      "equals": "Ignore collisions for VEHICLE models (Stompa, Knights, tanks)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._vehicle_collision_checkbox.button_pressed",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_gameplay_tab_toggle_off"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Ignore collisions for VEHICLE models (Stompa, Knights, tanks)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._vehicle_collision_checkbox.button_pressed",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.disable_vehicle_collision",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_gameplay_tab_toggle_on"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._settings_menu._on_close_pressed()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var phase = PhaseManager.get_current_phase_instance()\nvar stompa = GameState.get_unit(\"U_STOMPA_A\")\nreturn phase._position_overlaps_other_models(\"U_STOMPA_A\", \"m1\", Vector2(775, 900), stompa[\"models\"][0])",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "# Same injected wall, override now ON: the VEHICLE is let through, while a\n# non-VEHICLE keyword list is still rejected by the very same wall.\nvar stompa = GameState.get_unit(\"U_STOMPA_A\")\nvar m = stompa[\"models\"][0].duplicate(true)\nm[\"position\"] = Vector2(600, 900)\nvar vehicle_blocked = Measurement.model_overlaps_any_wall(m, stompa.get(\"meta\", {}).get(\"keywords\", []))\nvar other_blocked = Measurement.model_overlaps_any_wall(m, [\"ADEPTUS_CUSTODES\"])\nreturn \"vehicle=%s other=%s\" % [str(vehicle_blocked), str(other_blocked)]",
+      "equals": "vehicle=false other=true"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var kept = []\nfor t in TerrainManager.terrain_features:\n\tif str(t.get(\"id\", \"\")) != \"scenario_test_wall\":\n\t\tkept.append(t)\nTerrainManager.terrain_features = kept\nreturn TerrainManager.terrain_features.size()",
+      "not_equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var phase = PhaseManager.get_current_phase_instance()\nvar guard = GameState.get_unit(\"U_CUSTODIAN_GUARD_B\")\nreturn phase._position_overlaps_other_models(\"U_CUSTODIAN_GUARD_B\", \"m1\", Vector2(762, 985), guard[\"models\"][0])",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set_disable_vehicle_collision(false)\nvar phase = PhaseManager.get_current_phase_instance()\nvar stompa = GameState.get_unit(\"U_STOMPA_A\")\nreturn phase._position_overlaps_other_models(\"U_STOMPA_A\", \"m1\", Vector2(775, 900), stompa[\"models\"][0])",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_board_after_toggle"
+    }
+  ]
+}
