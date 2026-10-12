@@ -1646,6 +1646,28 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			if toast_mgr and not strat_info.is_empty():
 				toast_mgr.show_toast("Opponent used %s!" % str(strat_info.get("stratagem_name", "a stratagem")), Color.ORANGE, 4.0)
 
+	# STRATAGEM WINDOWS (BasePhase framework, design §3.1). The host's phase
+	# emitted stratagem_window_opened locally; mirror the pending window on the
+	# client phase (so its state matches) and re-emit the signal so Main shows
+	# the StratagemDialog on the decider's machine and the waiting overlay on
+	# the other one. A window answer clears the mirror + overlay.
+	if action_type == "USE_WINDOW_STRATAGEM" or action_type == "DECLINE_WINDOW_STRATAGEM":
+		if phase.has_method("clear_mirrored_stratagem_window"):
+			phase.clear_mirrored_stratagem_window()
+		var sw_main = SceneRefs.main()
+		if sw_main and sw_main.has_method("hide_reactive_stratagem_waiting"):
+			sw_main.hide_reactive_stratagem_waiting()
+		var sw_used = result.get("stratagem_used", {})
+		if action_type == "USE_WINDOW_STRATAGEM" and not sw_used.is_empty():
+			var sw_toast = get_node_or_null("/root/ToastManager")
+			if sw_toast and int(sw_used.get("player", 0)) != get_local_player():
+				sw_toast.show_toast("Opponent used %s!" % str(sw_used.get("stratagem_name", "a stratagem")), Color.ORANGE, 4.0)
+	if result.has("stratagem_window_opened") and phase.has_method("mirror_stratagem_window"):
+		var sw_window: Dictionary = result.get("stratagem_window_opened", {})
+		print("NetworkManager: ✅ Client mirroring stratagem window %s (decider=%d, %d offer(s))" % [
+			str(sw_window.get("window_id", "")), int(sw_window.get("player", 0)), sw_window.get("offers", []).size()])
+		phase.mirror_stratagem_window(sw_window)
+
 	# Handle fight selection dialog trigger (for multiplayer sync after CONSOLIDATE)
 	if result.get("trigger_fight_selection", false):
 		print("NetworkManager: Result has trigger_fight_selection flag")
@@ -2610,6 +2632,12 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		# turn, so turn validation must be skipped (authority still checked).
 		"USE_REACTIVE_STRATAGEM",
 		"DECLINE_REACTIVE_STRATAGEM",
+		# Generic stratagem windows (BasePhase framework, design §3.1): the
+		# decider is frequently the NON-active player (either-turn / opponent's
+		# turn windows). BasePhase validates the decider == pending window
+		# owner; authority (claimed player == sending peer) is still enforced.
+		"USE_WINDOW_STRATAGEM",
+		"DECLINE_WINDOW_STRATAGEM",
 		# End-of-turn (Scoring) reactive windows — the decider is frequently
 		# NOT the active player, so turn validation must be skipped:
 		# - 03.03 coherency removals: each incoherent unit's OWNER chooses,
@@ -2680,6 +2708,22 @@ func _validate_with_phase(action: Dictionary) -> Dictionary:
 	if phase:
 		print("NetworkManager: phase class = ", phase.get_class())
 		print("NetworkManager: phase has validate_action? ", phase.has_method("validate_action"))
+	# Stratagem windows (BasePhase framework, design §3.1): the window answers
+	# are validated by BasePhase itself (subclass validate_action() does not
+	# know them), and while a window waits for its decider every other action
+	# is refused — the same gate BasePhase.execute_action applies locally.
+	if phase and phase.has_method("_validate_window_action"):
+		var sw_type := str(action.get("type", ""))
+		if sw_type in ["USE_WINDOW_STRATAGEM", "DECLINE_WINDOW_STRATAGEM"]:
+			var sw_validation: Dictionary = phase._validate_window_action(action)
+			if not sw_validation.get("valid", false) and not sw_validation.has("reason"):
+				sw_validation["reason"] = ", ".join(sw_validation.get("errors", ["Stratagem window action refused"]))
+			print("NetworkManager: Stratagem window validation result = ", sw_validation)
+			return sw_validation
+		if phase.has_pending_stratagem_window() and not phase._window_exempt_action(sw_type):
+			var sw_wait := "Waiting for Player %d to decide on a stratagem" % phase.get_pending_stratagem_window_decider()
+			print("NetworkManager: VALIDATION FAILED - %s (%s)" % [sw_wait, sw_type])
+			return {"valid": false, "reason": sw_wait, "errors": [sw_wait]}
 	if phase and phase.has_method("validate_action"):
 		print("NetworkManager: Calling phase.validate_action()")
 		var phase_validation = phase.validate_action(action)

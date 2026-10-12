@@ -3355,6 +3355,7 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 	dialog.name = "StratagemDialog"
 
 	dialog.stratagem_selected.connect(_on_reactive_stratagem_selected)
+	dialog.stratagem_selected_with_context.connect(_on_reactive_stratagem_selected_with_context)
 	dialog.stratagem_declined.connect(_on_reactive_stratagem_declined)
 
 	get_tree().root.add_child(dialog)
@@ -3383,6 +3384,20 @@ func _on_reactive_stratagem_selected(stratagem_id: String, target_unit_id: Strin
 		"type": "USE_REACTIVE_STRATAGEM",
 		"stratagem_id": stratagem_id,
 		"target_unit_id": target_unit_id
+	})
+
+func _on_reactive_stratagem_selected_with_context(stratagem_id: String, target_unit_id: String, context: Dictionary) -> void:
+	"""Folded-in window offer with a variant (design §3.1): same action, plus
+	the dialog's choice in action.context (ShootingPhase adds the window keys)."""
+	print("ShootingController: Reactive stratagem selected: %s on %s context=%s" % [stratagem_id, target_unit_id, str(context)])
+	var main_node = SceneRefs.main()
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
+	emit_signal("shoot_action_requested", {
+		"type": "USE_REACTIVE_STRATAGEM",
+		"stratagem_id": stratagem_id,
+		"target_unit_id": target_unit_id,
+		"context": context
 	})
 
 func _on_reactive_stratagem_declined() -> void:

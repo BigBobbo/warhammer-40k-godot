@@ -175,6 +175,7 @@ TESTS=(
     "tests/test_iss074_aircraft_reserves_11e.gd"
     "tests/test_core_stratagems_11e.gd"
     "tests/test_ork_codex_11e_data.gd"
+    "tests/test_ork_codex_framework.gd"
     "tests/test_indirect_fire_band_11e.gd"
     "tests/test_t003_indirect_fire_visibility_pin.gd"
     "tests/test_terrain_area_visibility_11e.gd"

@@ -220,19 +220,27 @@ func _run() -> void:
 			tmp_rows[1]["timing"].get("windows", []) == ["a", "b"], str(tmp_rows[1]["timing"]))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(tmp))
 
-	# ---- 4. legacy name lists never mark a codex row implemented
+	# ---- 4. legacy name lists never mark a codex row implemented — only the
+	# Ork codex registry (OrkCodex11e group IMPLEMENTED sets) does.
 	var SM = root.get_node("StratagemManager")
 	var GS = root.get_node("GameState")
+	var Codex = load("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
 	var saved_factions = GS.state.get("factions", {}).duplicate(true)
 	var leaked: Array = []
+	var missing: Array = []
 	for d in cur_dets:
 		GS.state["factions"] = {"1": {"name": "Orks", "detachment": str(d["name"])}, "2": {"name": "Adeptus Custodes", "detachment": "Shield Host"}}
 		SM.load_faction_stratagems_for_player(1)
 		for s in SM.get_faction_stratagems_for_player(1):
-			if s.get("implemented", false):
+			var by_registry: bool = Codex.is_implemented(s)
+			if s.get("implemented", false) and not by_registry:
 				leaked.append("%s (%s)" % [s.get("name", ""), d["name"]])
+			elif by_registry and not s.get("implemented", false):
+				missing.append("%s (%s)" % [s.get("name", ""), d["name"]])
 	_check("no codex row is marked implemented by legacy 10e name lists (DAKKASTORM, ARMED TO DA TEEF, ...)",
 		leaked.is_empty(), str(leaked))
+	_check("every row the codex registry implements is marked implemented",
+		missing.is_empty(), str(missing))
 	_check("StratagemManager.is_ork_codex_11e_row recognises the marker",
 		SM.is_ork_codex_11e_row({"effects": [{"type": "custom:ork11e"}]}) and not SM.is_ork_codex_11e_row({"effects": [{"type": "custom:other"}]}))
 	GS.state["factions"] = saved_factions

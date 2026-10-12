@@ -10,6 +10,32 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 signal phase_completed()
 signal action_taken(action: Dictionary)
 
+# ============================================================================
+# STRATAGEM WINDOWS (design .llm/ork_codex_11e_design.md §3.1, §3.2, §6)
+# ============================================================================
+# A phase OPENS a window at a hook point (open_stratagem_window). The window
+# computes offers for one decider (StratagemManager.get_window_offers) and
+#  - resolves synchronously when there are no offers or the decider is an AI
+#    (AIDecisionMaker.decide_window_stratagem) -> returns false, caller goes on;
+#  - otherwise PAUSES the phase: stratagem_window_opened fires (Main shows the
+#    StratagemDialog on the decider's seat), every action except
+#    USE_WINDOW_STRATAGEM / DECLINE_WINDOW_STRATAGEM is rejected, and when the
+#    queue drains the phase's resume_method(ctx, window_result) continues the
+#    interrupted flow -> returns true.
+signal stratagem_window_opened(player: int, window_id: String, offers: Array, ctx: Dictionary)
+signal stratagem_window_closed(player: int, window_id: String, used: bool)
+
+const WINDOW_ACTION_TYPES: Array = ["USE_WINDOW_STRATAGEM", "DECLINE_WINDOW_STRATAGEM"]
+
+var _window_queue: Array = []            # [{player, window_id, ctx}] still to open
+var _window_pending: Dictionary = {}     # {player, window_id, offers, ctx} while a human decides
+var _window_resume_method: String = ""   # phase method called when the queue drains
+var _window_resume_ctx: Dictionary = {}  # ctx handed to the resume method
+var _window_suppressed: Dictionary = {}  # "player:window_id" -> true ("Don't offer again this phase")
+var _window_sync_diffs: Array = []       # diffs applied by synchronous (AI) uses — merged into the caller's result
+var _window_followup_pending: bool = false  # a used stratagem's follow-up paused the phase
+var _window_last_result: Dictionary = {}  # {used, player, window_id, stratagem_id, target_unit_id, diffs}
+
 # ISS-024: phases read LIVE state — this is a property view over
 # GameState.state, so phase code can never act on stale data and the
 # old hand-patching sites become idempotent writes of live values.
@@ -92,29 +118,50 @@ func execute_action(action: Dictionary) -> Dictionary:
 	DebugLogger.info(str("[BasePhase] Executing action: ", action.get("type", "UNKNOWN")))
 	DebugLogger.info(str("[BasePhase] For unit: ", action.get("unit_id", "N/A")))
 
-	# Tutorial allow-list gate (PRPs/tutorial_system.md §5.2): while a lesson is
-	# active only the step's taught actions (plus AI/P2 and DECLINE_* safety
-	# actions) pass. Every input path funnels through here — mouse, keyboard,
-	# pad, dialogs, scenario dispatch — so no per-controller surgery is needed.
-	var _tutorial = get_node_or_null("/root/TutorialManager")
-	if _tutorial != null and _tutorial.active and not _tutorial.is_action_allowed(action):
-		_tutorial.on_action_blocked(action)
-		return {"success": false, "error": "Tutorial: follow da current step",
-			"errors": ["tutorial_locked"], "tutorial_blocked": true}
-
-	var validation = validate_action(action)
-	if not validation.valid:
-		DebugLogger.info(str("[BasePhase] Action validation failed: ", validation.errors))
-		# Populate BOTH `errors` (the array, for callers that read the list) and a joined
-		# `error` string. The UI handlers in Main.gd read result.error and otherwise fall
-		# back to a generic "Unknown error", silently dropping the real rejection reason
-		# (e.g. "Cannot select fighter — the Pile In step must finish first").
-		var raw_errors = validation.get("errors", [])
-		var error_text: String = ", ".join(raw_errors) if (raw_errors is Array and not raw_errors.is_empty()) else "Action not allowed"
-		return {"success": false, "error": error_text, "errors": raw_errors}
-
+	var _action_type := str(action.get("type", ""))
 	var _perf_t0 := Time.get_ticks_usec()
-	var result = process_action(action)
+	var result: Dictionary
+	if _action_type in WINDOW_ACTION_TYPES:
+		# Stratagem-window answers are handled generically here, before any
+		# subclass validation (design §3.1) — every phase gets them for free.
+		var window_validation = _validate_window_action(action)
+		if not window_validation.valid:
+			var w_errors = window_validation.get("errors", [])
+			DebugLogger.info(str("[BasePhase] Window action validation failed: ", w_errors))
+			return {"success": false, "error": ", ".join(w_errors) if not w_errors.is_empty() else "Action not allowed", "errors": w_errors}
+		if not action.has("player"):
+			action["player"] = int(_window_pending.get("player", get_current_player()))
+		result = _process_window_action(action)
+	else:
+		# While a stratagem window waits for a human, nothing else may happen in
+		# the phase — the decider's answer resumes the interrupted flow.
+		if has_pending_stratagem_window() and not _window_exempt_action(_action_type):
+			var wait_msg := "Waiting for Player %d to decide on a stratagem" % int(_window_pending.get("player", 0))
+			DebugLogger.info("[BasePhase] %s — rejected %s" % [wait_msg, _action_type])
+			return {"success": false, "error": wait_msg, "errors": [wait_msg], "stratagem_window_pending": true}
+
+		# Tutorial allow-list gate (PRPs/tutorial_system.md §5.2): while a lesson is
+		# active only the step's taught actions (plus AI/P2 and DECLINE_* safety
+		# actions) pass. Every input path funnels through here — mouse, keyboard,
+		# pad, dialogs, scenario dispatch — so no per-controller surgery is needed.
+		var _tutorial = get_node_or_null("/root/TutorialManager")
+		if _tutorial != null and _tutorial.active and not _tutorial.is_action_allowed(action):
+			_tutorial.on_action_blocked(action)
+			return {"success": false, "error": "Tutorial: follow da current step",
+				"errors": ["tutorial_locked"], "tutorial_blocked": true}
+
+		var validation = validate_action(action)
+		if not validation.valid:
+			DebugLogger.info(str("[BasePhase] Action validation failed: ", validation.errors))
+			# Populate BOTH `errors` (the array, for callers that read the list) and a joined
+			# `error` string. The UI handlers in Main.gd read result.error and otherwise fall
+			# back to a generic "Unknown error", silently dropping the real rejection reason
+			# (e.g. "Cannot select fighter — the Pile In step must finish first").
+			var raw_errors = validation.get("errors", [])
+			var error_text: String = ", ".join(raw_errors) if (raw_errors is Array and not raw_errors.is_empty()) else "Action not allowed"
+			return {"success": false, "error": error_text, "errors": raw_errors}
+
+		result = process_action(action)
 	var _perf_ms := (Time.get_ticks_usec() - _perf_t0) / 1000.0
 	if _perf_ms >= 16.0:
 		DebugLogger.info("[PERF] BasePhase.process_action(%s) took %.1fms" % [str(action.get("type", "UNKNOWN")), _perf_ms])
@@ -136,6 +183,12 @@ func execute_action(action: Dictionary) -> Dictionary:
 		# The replay system reads these diffs from the phase_action_taken signal instead.)
 		if result.has("changes") and result.changes is Array:
 			action["_replay_diffs"] = result.changes
+
+		# A stratagem window is now waiting for a human: stamp it on the result
+		# so NetworkManager can mirror it on the client (re-emit
+		# stratagem_window_opened there, like reactive_stratagem_opportunity).
+		if has_pending_stratagem_window():
+			result["stratagem_window_opened"] = _window_pending.duplicate(true)
 
 		if not action.has("player"):
 			action["player"] = get_current_player()
@@ -243,3 +296,275 @@ func update_local_state(new_snapshot: Dictionary) -> void:
 # Log a message for this phase
 func log_phase_message(message: String, level: String = "INFO") -> void:
 	DebugLogger.info(str("[%s][%s] %s" % [str(phase_type), level, message]))
+
+
+# ============================================================================
+# STRATAGEM WINDOW FRAMEWORK (design §3.1 / §3.2 / §6)
+# ============================================================================
+
+func has_pending_stratagem_window() -> bool:
+	return not _window_pending.is_empty()
+
+func get_pending_stratagem_window() -> Dictionary:
+	return _window_pending
+
+## Owner of the pending window (0 when none) — AIPlayer idles on a human's.
+func get_pending_stratagem_window_decider() -> int:
+	return int(_window_pending.get("player", 0))
+
+## Actions that stay legal while a window is pending (debug / UI-only).
+func _window_exempt_action(action_type: String) -> bool:
+	return action_type.begins_with("DEBUG_")
+
+## Open one stratagem window for `player`. Returns true when the phase is now
+## PAUSED for a human decision (resume_method(ctx, window_result) is called
+## once the decider answers and the queue drains); false when there was
+## nothing to wait for (no offers, suppressed, or an AI decided synchronously)
+## — the caller continues its flow itself and must merge
+## consume_window_diffs() into its own result.
+func open_stratagem_window(player: int, window_id: String, ctx: Dictionary, resume_method: String) -> bool:
+	return open_stratagem_windows([{"player": player, "window_id": window_id, "ctx": ctx}], resume_method, ctx)
+
+## Active player's window first, then the non-active player's (design §3.1:
+## movement_phase_start/end, fight_phase_end).
+func open_stratagem_window_both_players(window_id: String, ctx: Dictionary, resume_method: String) -> bool:
+	var active := get_current_player()
+	var other := 2 if active == 1 else 1
+	return open_stratagem_windows([
+		{"player": active, "window_id": window_id, "ctx": ctx},
+		{"player": other, "window_id": window_id, "ctx": ctx}], resume_method, ctx)
+
+## Queue several windows at one hook; they open in order and the phase
+## resumes (resume_method) when the queue is empty.
+func open_stratagem_windows(entries: Array, resume_method: String, resume_ctx: Dictionary = {}) -> bool:
+	if has_pending_stratagem_window() or _window_followup_pending:
+		# Nested windows are not supported yet — say so loudly instead of
+		# silently clobbering the pending one.
+		_window_error("open_stratagem_windows(%s) while window %s is still pending — not opened" % [
+			str(entries.map(func(e): return e.get("window_id", "?"))), str(_window_pending.get("window_id", "followup"))])
+		return false
+	var tutorial = get_node_or_null("/root/TutorialManager")
+	if tutorial != null and tutorial.active:
+		# Scripted lessons drive one taught action at a time; an unrequested
+		# stratagem prompt would derail the step. Windows stay closed.
+		DebugLogger.info("[StratagemWindow] tutorial active — windows %s not opened" % str(entries.map(func(e): return e.get("window_id", "?"))))
+		return false
+	_window_queue.append_array(entries)
+	_window_resume_method = resume_method
+	_window_resume_ctx = resume_ctx.duplicate(true)
+	return _process_window_queue()
+
+## Diffs applied by windows that resolved synchronously (AI decider) since the
+## last call. The phase merges them into the result of the action that opened
+## the window so replay / network clients see the CP + effect changes.
+func consume_window_diffs() -> Array:
+	var d = _window_sync_diffs
+	_window_sync_diffs = []
+	return d
+
+func _is_ai_window_decider(player: int) -> bool:
+	var ai = get_node_or_null("/root/AIPlayer")
+	return ai != null and ai.has_method("is_ai_player") and ai.is_ai_player(player)
+
+func _process_window_queue() -> bool:
+	while not _window_queue.is_empty():
+		var entry: Dictionary = _window_queue.pop_front()
+		var player := int(entry.get("player", 0))
+		var window_id := str(entry.get("window_id", ""))
+		var ctx: Dictionary = entry.get("ctx", {}).duplicate(true)
+		ctx["window_id"] = window_id
+		if not ctx.has("phase"):
+			ctx["phase"] = StratagemManager._phase_to_string(GameState.get_current_phase())
+		if _window_suppressed.has("%d:%s" % [player, window_id]):
+			DebugLogger.info("[StratagemWindow] %s for P%d suppressed (\"don't offer again this phase\")" % [window_id, player])
+			continue
+		var offers: Array = StratagemManager.get_window_offers(player, window_id, ctx)
+		if offers.is_empty():
+			DebugLogger.info("[StratagemWindow] %s for P%d — no offers" % [window_id, player])
+			continue
+		if _is_ai_window_decider(player):
+			var decision: Dictionary = AIDecisionMaker.decide_window_stratagem(player, window_id, offers, ctx)
+			if decision.get("use", false):
+				var use_res = _apply_window_use(player, window_id, str(decision.get("stratagem_id", "")),
+					str(decision.get("target_unit_id", "")), decision.get("context", {}), ctx)
+				if use_res.get("success", false):
+					_window_sync_diffs.append_array(use_res.get("diffs", []))
+					DebugLogger.info("[StratagemWindow] AI P%d used %s on %s in %s" % [player, decision.get("stratagem_id", ""), decision.get("target_unit_id", ""), window_id])
+					emit_signal("stratagem_window_closed", player, window_id, true)
+					if use_res.get("paused", false):
+						return true
+					continue
+				_window_error("AI P%d decision for %s failed: %s — treated as decline" % [player, window_id, use_res.get("error", "?")])
+			DebugLogger.info("[StratagemWindow] AI P%d declined %s (%d offer(s))" % [player, window_id, offers.size()])
+			emit_signal("stratagem_window_closed", player, window_id, false)
+			continue
+		_window_pending = {"player": player, "window_id": window_id, "offers": offers, "ctx": ctx}
+		DebugLogger.info("[StratagemWindow] OPEN %s for P%d — %d offer(s): %s" % [
+			window_id, player, offers.size(), str(offers.map(func(o): return o.get("name", "?")))])
+		emit_signal("stratagem_window_opened", player, window_id, offers, ctx)
+		return true
+	return false
+
+func _apply_window_use(player: int, window_id: String, stratagem_id: String, target_unit_id: String, action_ctx, window_ctx: Dictionary) -> Dictionary:
+	var use_ctx: Dictionary = window_ctx.duplicate(true)
+	if typeof(action_ctx) == TYPE_DICTIONARY:
+		use_ctx.merge(action_ctx, true)
+	use_ctx["window_id"] = window_id
+	var res: Dictionary = StratagemManager.use_stratagem(player, stratagem_id, target_unit_id, use_ctx)
+	if not res.get("success", false):
+		return {"success": false, "error": str(res.get("error", "stratagem use failed"))}
+	_window_last_result = {"used": true, "player": player, "window_id": window_id,
+		"stratagem_id": stratagem_id, "target_unit_id": target_unit_id,
+		"stratagem_name": str(res.get("stratagem_name", stratagem_id)), "diffs": res.get("diffs", [])}
+	var paused := false
+	var followup: Dictionary = res.get("followup", {})
+	if not followup.is_empty():
+		DebugLogger.info("[StratagemWindow] %s returned follow-up %s — handing to %s" % [stratagem_id, str(followup.get("type", "?")), get_script().resource_path.get_file()])
+		paused = _execute_window_followup(player, window_id, followup, use_ctx)
+		_window_followup_pending = paused
+	return {"success": true, "diffs": res.get("diffs", []), "paused": paused, "followup": followup,
+		"stratagem_name": str(res.get("stratagem_name", stratagem_id))}
+
+func _validate_window_action(action: Dictionary) -> Dictionary:
+	if not has_pending_stratagem_window():
+		return {"valid": false, "errors": ["No stratagem window is waiting for a decision"]}
+	var decider := int(_window_pending.get("player", 0))
+	if action.has("player") and int(action.get("player", 0)) != decider:
+		return {"valid": false, "errors": ["Player %d decides this stratagem window, not Player %d" % [decider, int(action.get("player", 0))]]}
+	var window_id := str(action.get("window_id", _window_pending.get("window_id", "")))
+	if window_id != str(_window_pending.get("window_id", "")):
+		return {"valid": false, "errors": ["Window %s is not open (pending: %s)" % [window_id, _window_pending.get("window_id", "")]]}
+	if str(action.get("type", "")) == "DECLINE_WINDOW_STRATAGEM":
+		return {"valid": true, "errors": []}
+	var sid := str(action.get("stratagem_id", ""))
+	var tid := str(action.get("target_unit_id", ""))
+	var actx = action.get("context", {})
+	var variant := str(actx.get("variant_id", "")) if typeof(actx) == TYPE_DICTIONARY else ""
+	for offer in _window_pending.get("offers", []):
+		if str(offer.get("stratagem_id", "")) != sid:
+			continue
+		for t in offer.get("targets", []):
+			if str(t.get("unit_id", "")) != tid:
+				continue
+			if variant != "":
+				var variant_ok := false
+				for v in t.get("variants", []):
+					if str(v.get("id", "")) == variant:
+						variant_ok = true
+				if not variant_ok:
+					return {"valid": false, "errors": ["Variant %s is not offered for %s" % [variant, sid]]}
+			if t.has("secondary") and typeof(actx) == TYPE_DICTIONARY and str(actx.get("secondary_id", "")) == "":
+				return {"valid": false, "errors": ["%s needs a %s choice" % [offer.get("name", sid), t.secondary.get("kind", "secondary")]]}
+			return {"valid": true, "errors": []}
+		return {"valid": false, "errors": ["%s cannot target %s in this window" % [offer.get("name", sid), tid]]}
+	return {"valid": false, "errors": ["%s is not offered in window %s" % [sid, window_id]]}
+
+func _process_window_action(action: Dictionary) -> Dictionary:
+	var pending: Dictionary = _window_pending
+	var player := int(pending.get("player", 0))
+	var window_id := str(pending.get("window_id", ""))
+	var diffs: Array = []
+	var used := false
+	var used_name := ""
+	if str(action.get("type", "")) == "USE_WINDOW_STRATAGEM":
+		var use_res = _apply_window_use(player, window_id, str(action.get("stratagem_id", "")),
+			str(action.get("target_unit_id", "")), action.get("context", {}), pending.get("ctx", {}))
+		if not use_res.get("success", false):
+			# Window stays open — the decider can pick something else or decline.
+			return create_result(false, [], "Stratagem use failed: %s" % use_res.get("error", "?"))
+		diffs.append_array(use_res.get("diffs", []))
+		used = true
+		used_name = str(use_res.get("stratagem_name", ""))
+		log_phase_message("[StratagemWindow] P%d used %s on %s (%s)" % [player, used_name, action.get("target_unit_id", ""), window_id])
+	else:
+		_window_last_result = {"used": false, "player": player, "window_id": window_id}
+		if bool(action.get("dont_offer_again", false)):
+			_window_suppressed["%d:%s" % [player, window_id]] = true
+			log_phase_message("[StratagemWindow] P%d declined %s — not offered again this phase" % [player, window_id])
+		else:
+			log_phase_message("[StratagemWindow] P%d declined %s" % [player, window_id])
+	_window_pending = {}
+	emit_signal("stratagem_window_closed", player, window_id, used)
+
+	var result: Dictionary
+	if _window_followup_pending:
+		# The follow-up owns the phase now; _finish_window_followup() continues.
+		result = create_result(true, diffs)
+	else:
+		result = _continue_window_queue_or_resume(diffs)
+	result["stratagem_window_closed"] = {"player": player, "window_id": window_id, "used": used}
+	if used:
+		result["stratagem_used"] = {"stratagem_id": str(action.get("stratagem_id", "")), "stratagem_name": used_name,
+			"target_unit_id": str(action.get("target_unit_id", "")), "player": player}
+	return result
+
+## Open the next queued window, or — when the queue is empty — call the
+## phase's resume method and merge its result behind `diffs`.
+func _continue_window_queue_or_resume(diffs: Array) -> Dictionary:
+	if _process_window_queue():
+		var paused_diffs: Array = diffs.duplicate()
+		paused_diffs.append_array(consume_window_diffs())
+		return create_result(true, paused_diffs)
+	var all_diffs: Array = diffs.duplicate()
+	all_diffs.append_array(consume_window_diffs())
+	var method := _window_resume_method
+	var rctx := _window_resume_ctx
+	_window_resume_method = ""
+	_window_resume_ctx = {}
+	if method == "":
+		return create_result(true, all_diffs)
+	if not has_method(method):
+		_window_error("resume method %s() missing on %s" % [method, get_script().resource_path.get_file()])
+		return create_result(true, all_diffs)
+	var cont = call(method, rctx, _window_last_result)
+	if typeof(cont) != TYPE_DICTIONARY:
+		return create_result(true, all_diffs)
+	if not cont.get("success", false):
+		# Surface the resume failure but keep the window answer's diffs.
+		_window_error("resume %s() failed: %s" % [method, cont.get("error", "?")])
+		var failed = create_result(true, all_diffs)
+		failed["resume_error"] = cont.get("error", "")
+		return failed
+	var combined_diffs: Array = all_diffs
+	combined_diffs.append_array(cont.get("changes", []))
+	var combined = create_result(true, combined_diffs)
+	for key in cont:
+		if key != "success" and key != "changes" and key != "phase" and key != "timestamp":
+			combined[key] = cont[key]
+	return combined
+
+## A follow-up started by _execute_window_followup (that returned true) has
+## finished: continue the window queue / resume the interrupted phase flow.
+## Returns the result dictionary for the action that completed the follow-up.
+func _finish_window_followup(diffs: Array = []) -> Dictionary:
+	_window_followup_pending = false
+	return _continue_window_queue_or_resume(diffs)
+
+## Execute a follow-up returned by a stratagem handler (design §3.2). Phases
+## that support follow-ups override this; return true when the follow-up
+## pauses the phase (then call _finish_window_followup when it completes),
+## false when it resolved immediately. The default refuses LOUDLY so a missing
+## executor is a visible ERROR, never a silent no-op.
+func _execute_window_followup(player: int, window_id: String, followup: Dictionary, _ctx: Dictionary) -> bool:
+	_window_error("unsupported followup '%s' from window %s (P%d) in %s — no executor; effect skipped" % [
+		str(followup.get("type", "?")), window_id, player, get_script().resource_path.get_file()])
+	return false
+
+func _window_error(msg: String) -> void:
+	push_error("[StratagemWindow] " + msg)
+	DebugLogger.error("[StratagemWindow] " + msg, {})
+
+## Networked CLIENT: mirror the host's pending window (NetworkManager calls
+## this from the broadcast result) and re-emit the signal so Main shows the
+## dialog on the decider's machine / the waiting overlay on the other.
+func mirror_stratagem_window(window: Dictionary) -> void:
+	_window_pending = window.duplicate(true)
+	emit_signal("stratagem_window_opened", int(window.get("player", 0)), str(window.get("window_id", "")),
+		window.get("offers", []), window.get("ctx", {}))
+
+func clear_mirrored_stratagem_window() -> void:
+	var player := int(_window_pending.get("player", 0))
+	var window_id := str(_window_pending.get("window_id", ""))
+	_window_pending = {}
+	if window_id != "":
+		emit_signal("stratagem_window_closed", player, window_id, false)

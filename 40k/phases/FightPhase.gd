@@ -897,6 +897,31 @@ func _process_select_fighter(action: Dictionary) -> Dictionary:
 	emit_signal("unit_selected_for_fighting", active_fighter_id)
 	emit_signal("fighter_selected", active_fighter_id)  # Compatibility signal
 
+	# STRATAGEM WINDOW unit_selected_to_fight (design §3): "when a unit is
+	# selected to fight (either player's unit), before attacks" — the FIGHTER'S
+	# OWNER decides (HIT 'EM HARDER, MOW 'EM DOWN, UNBRIDLED CARNAGE, ARMED TO
+	# DA TEEF …). Opens before Epic Challenge / Ka'tah / Dread Foe so the
+	# chosen buff is in place for everything that follows the selection.
+	var fighter_owner := int(get_unit(active_fighter_id).get("owner", current_selecting_player))
+	var stf_ctx := {"phase": "fight", "unit_id": active_fighter_id}
+	if open_stratagem_window(fighter_owner, "unit_selected_to_fight", stf_ctx, "_resume_after_selected_to_fight_window"):
+		log_phase_message("Waiting for Player %d's unit_selected_to_fight stratagem decision for %s" % [fighter_owner, active_fighter_id])
+		return create_result(true, consume_window_diffs())
+	var after_window = _after_selected_to_fight_windows(active_fighter_id)
+	var stf_sync_diffs = consume_window_diffs()
+	if not stf_sync_diffs.is_empty():
+		stf_sync_diffs.append_array(after_window.get("changes", []))
+		after_window["changes"] = stf_sync_diffs
+	return after_window
+
+## Resume point for the unit_selected_to_fight window (BasePhase framework).
+func _resume_after_selected_to_fight_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _after_selected_to_fight_windows(str(ctx.get("unit_id", active_fighter_id)))
+
+## Everything that follows "selected to fight" once the stratagem window has
+## closed: Epic Challenge → Martial Ka'tah → Dread Foe → fight moves/attacks.
+func _after_selected_to_fight_windows(fighter_id: String) -> Dictionary:
+	active_fighter_id = fighter_id
 	# Check for Epic Challenge opportunity before pile-in
 	var epic_check = StratagemManager.is_epic_challenge_available(current_selecting_player, active_fighter_id)
 	if epic_check.available:
@@ -1989,6 +2014,15 @@ func _process_batch_fight_actions(action: Dictionary) -> Dictionary:
 			all_changes.append_array(result.get("changes", []))
 
 		last_result = result
+
+		# A sub-action opened a stratagem window that waits for a HUMAN
+		# decider: the rest of the batch depends on that answer, so stop here
+		# (the window's resume continues the activation; the AI re-plans).
+		if has_pending_stratagem_window():
+			log_phase_message("Fight batch paused after step %d (%s) — stratagem window %s pending for Player %d; %d sub-action(s) dropped" % [
+				i, sub.get("type", ""), str(get_pending_stratagem_window().get("window_id", "")),
+				get_pending_stratagem_window_decider(), sub_actions.size() - i - 1])
+			break
 
 	# Return the last result (ROLL_DICE result) with all accumulated changes
 	# This preserves metadata like trigger_consolidate, dice, save_data_list

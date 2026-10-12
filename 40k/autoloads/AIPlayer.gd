@@ -552,7 +552,12 @@ func _human_defender_window_pending() -> int:
 		return 0
 	var phase = _phase_manager_ref.current_phase_instance
 	var window_owner := 0
-	if "awaiting_reactive_stratagem" in phase and phase.awaiting_reactive_stratagem:
+	# Generic stratagem window (BasePhase framework, design §3.1): AI deciders
+	# are answered synchronously when the window opens, so a pending window is
+	# always a HUMAN's — idle until their StratagemDialog answers it.
+	if phase.has_method("get_pending_stratagem_window_decider") and phase.get_pending_stratagem_window_decider() > 0:
+		window_owner = int(phase.get_pending_stratagem_window_decider())
+	elif "awaiting_reactive_stratagem" in phase and phase.awaiting_reactive_stratagem:
 		var active = GameState.get_active_player()
 		window_owner = 2 if active == 1 else 1
 	elif "pending_save_data" in phase and not phase.pending_save_data.is_empty():

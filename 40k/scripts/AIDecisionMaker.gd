@@ -21,6 +21,8 @@ static func _dn_meta(unit_meta: Dictionary, fallback = "") -> String:
 # --- Constants ---
 const AIAbilityAnalyzerData = preload("res://scripts/AIAbilityAnalyzer.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
+# Codex: Orks (11e) stratagem dispatcher (AI hints for window offers).
+const OrkCodexDispatcher = preload("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
 const PIXELS_PER_INCH: float = 40.0
 const CHARGE_RANGE_PX: float = 480.0     # 12 inches
 # Clearance added to base-to-base placements (pile-in/consolidate). The
@@ -22225,6 +22227,10 @@ static func evaluate_proactive_faction_stratagems(snapshot: Dictionary, player: 
 	var considered: Array = []
 
 	for strat in strats:
+		# Window stratagems (timing.windows) are offered by the phase at their
+		# hook and answered by decide_window_stratagem — never proactively.
+		if not strat.get("timing", {}).get("windows", []).is_empty():
+			continue
 		var strat_name = strat.get("name", "").replace("’", "'").to_upper()
 		var strat_phase = str(strat.get("timing", {}).get("phase", ""))
 		# Phase gate (loose — can_use_stratagem re-checks authoritatively)
@@ -22734,7 +22740,14 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 			if unit.is_empty():
 				continue
 
-			var score = _score_defensive_stratagem_target(unit, strat)
+			var score: float
+			if strat_entry.has("window_id") and OrkCodexDispatcher.handles(strat):
+				# Window offer folded into the shooting reactive dialog: the
+				# codex handler scores it (its effects list is just a marker).
+				score = OrkCodexDispatcher.ai_score(strat, defending_player, unit_id,
+					str(strat_entry.get("window_id", "")), strat_entry.get("window_ctx", {}))
+			else:
+				score = _score_defensive_stratagem_target(unit, strat)
 			var u_name = _dn(unit, unit_id)
 			considered.append("%s on %s: %.1f" % [strat.get("name", strat_id), u_name, score])
 			if score > best_score:
@@ -22777,6 +22790,80 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 		"player": defending_player,
 		"_ai_description": "AI declines reactive stratagems"
 	}
+
+static func decide_window_stratagem(player: int, window_id: String, offers: Array, ctx: Dictionary) -> Dictionary:
+	"""
+	Synchronous AI answer for a stratagem WINDOW (design §3.1) — called by
+	BasePhase.open_stratagem_window when the decider is an AI, so a window can
+	never stall on the AI. Returns {use: bool, stratagem_id, target_unit_id,
+	context}. Heuristics:
+	  - "offensive" (buffs on the unit about to attack, e.g. HIT 'EM HARDER):
+	    only with >= 2 CP (keep one for reactions) and a score >= 2.0 — the
+	    codex handler scores 0 when the unit has no relevant weapons / target;
+	  - "defensive" (protect a threatened unit): score >= 1.5 x CP cost, the
+	    same bar as evaluate_reactive_stratagem;
+	  - "utility": score >= 2.0.
+	Non-codex window stratagems fall back to the defensive effects scorer.
+	"""
+	var decline := {"use": false}
+	var sm = _stratagem_manager()
+	if sm == null or offers.is_empty():
+		return decline
+	var difficulty := _current_difficulty
+	var ai_node = null
+	var main = Engine.get_main_loop()
+	if main is SceneTree and main.root:
+		ai_node = main.root.get_node_or_null("AIPlayer")
+	if ai_node and ai_node.has_method("get_difficulty"):
+		difficulty = int(ai_node.get_difficulty(player))
+	if not AIDifficultyConfigData.use_stratagems(difficulty):
+		_add_thinking_step("Stratagem window %s: declining (difficulty does not use stratagems)" % window_id)
+		return decline
+	var cp := int(sm.get_player_cp(player))
+	var gs = _game_state()
+	var units: Dictionary = gs.state.get("units", {}) if gs else {}
+	var best := {}
+	var best_score := 0.0
+	var considered: Array = []
+	for offer in offers:
+		var sid := str(offer.get("stratagem_id", ""))
+		var strat: Dictionary = sm.get_stratagem(sid)
+		var cost := int(offer.get("cp_cost", strat.get("cp_cost", 1)))
+		var is_codex: bool = OrkCodexDispatcher.handles(strat)
+		var kind := OrkCodexDispatcher.ai_kind(strat) if is_codex else "defensive"
+		for t in offer.get("targets", []):
+			var tid := str(t.get("unit_id", ""))
+			var score := 0.0
+			if is_codex:
+				score = OrkCodexDispatcher.ai_score(strat, player, tid, window_id, ctx)
+			elif units.has(tid):
+				score = _score_defensive_stratagem_target(units[tid], strat)
+			var threshold := 2.0
+			match kind:
+				"offensive":
+					if cp < 2:
+						considered.append("%s on %s: skip (CP %d < 2, keeping one for reactions)" % [offer.get("name", sid), tid, cp])
+						continue
+				"defensive":
+					threshold = 1.5 * float(max(1, cost))
+			considered.append("%s on %s: %.1f (need %.1f)" % [offer.get("name", sid), tid, score, threshold])
+			if score >= threshold and score > best_score:
+				best_score = score
+				var ctx_out := {}
+				# Secondary choice (objective / second unit): take the first
+				# legal option — the handler lists them best-first.
+				var sec = t.get("secondary", {})
+				if typeof(sec) == TYPE_DICTIONARY and not sec.get("options", []).is_empty():
+					ctx_out["secondary_id"] = str(sec.options[0].get("id", ""))
+				best = {"use": true, "stratagem_id": sid, "target_unit_id": tid, "context": ctx_out,
+					"name": str(offer.get("name", sid))}
+	for c in considered:
+		_add_thinking_step("  window %s: %s" % [window_id, c])
+	if best.is_empty():
+		_add_thinking_step("Stratagem window %s: declining (no offer worth the CP)" % window_id)
+		return decline
+	_add_thinking_step("Stratagem window %s: using %s on %s (score %.1f)" % [window_id, best.name, best.target_unit_id, best_score])
+	return best
 
 static func _score_defensive_stratagem_target(unit: Dictionary, stratagem) -> float:
 	"""

@@ -9221,6 +9221,79 @@
       ],
       "last_verified_commit": "5eb5141",
       "status": "covered"
+    },
+    {
+      "id": "stratagem.window.unit_selected_to_fight",
+      "description": "Selecting a unit to fight opens the unit_selected_to_fight stratagem window for the FIGHTER'S OWNER (design .llm/ork_codex_11e_design.md §3): FightPhase pauses before Epic Challenge / attack assignment until the decider answers.",
+      "scenarios": [
+        "ork11e_hit_em_harder_own_turn",
+        "ork11e_hit_em_harder_opponent_turn"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "CLICK"
+    },
+    {
+      "id": "stratagem.window.unit_selected_to_fight.opponent_turn",
+      "description": "The unit_selected_to_fight window opens for the NON-active player when their unit is selected in the enemy's Fight phase; the hot-seat overlay names that player as the decider.",
+      "scenarios": [
+        "ork11e_hit_em_harder_opponent_turn"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "CLICK"
+    },
+    {
+      "id": "stratagem.ork11e.hit_em_harder",
+      "description": "Codex: Orks (11e) HIT 'EM HARDER: clicking Use in the window spends 1 CP and gives the unit (and its attached CHARACTER) melee [LETHAL HITS] until the end of the phase; the resolved melee wound dice report lethal_hits_weapon.",
+      "scenarios": [
+        "ork11e_hit_em_harder_own_turn",
+        "ork11e_hit_em_harder_opponent_turn"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "CLICK"
+    },
+    {
+      "id": "dialogs.StratagemDialog.window_mode",
+      "description": "StratagemDialog window mode: header per window, Card_<sid>/Buttons/Use_<sid>_<uid> buttons, Decline and Don't-offer-again buttons, Examine Board toggle.",
+      "scenarios": [
+        "ork11e_hit_em_harder_own_turn",
+        "ork11e_hit_em_harder_opponent_turn"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "CLICK"
+    },
+    {
+      "id": "phases.BasePhase.open_stratagem_window",
+      "description": "BasePhase.open_stratagem_window pauses the phase for a human decider; every other phase action is refused ('Waiting for Player N to decide on a stratagem') until USE/DECLINE_WINDOW_STRATAGEM.",
+      "scenarios": [
+        "ork11e_hit_em_harder_own_turn"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "CLICK"
+    },
+    {
+      "id": "phases.BasePhase.use_window_stratagem",
+      "description": "USE_WINDOW_STRATAGEM from the dialog's real Use click applies the stratagem through StratagemManager.use_stratagem with the window context and resumes the interrupted flow (attack assignment).",
+      "scenarios": [
+        "ork11e_hit_em_harder_own_turn"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "CLICK"
+    },
+    {
+      "id": "ui.Main.stratagem_window_waiting_overlay",
+      "description": "Main shows the MA-42 blocking overlay naming the decider when a stratagem window belongs to the non-active player (hot-seat); it is hidden when the window is answered.",
+      "scenarios": [
+        "ork11e_hit_em_harder_opponent_turn"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "CLICK"
     }
   ]
 }

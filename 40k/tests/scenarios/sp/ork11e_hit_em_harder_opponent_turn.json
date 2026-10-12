@@ -1,0 +1,67 @@
+{
+  "id": "ork11e_hit_em_harder_opponent_turn",
+  "covers": [
+    "stratagem.window.unit_selected_to_fight.opponent_turn",
+    "stratagem.ork11e.hit_em_harder",
+    "dialogs.StratagemDialog.window_mode",
+    "ui.Main.stratagem_window_waiting_overlay"
+  ],
+  "fixture": "ork11e_orks_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) HIT 'EM HARDER (either player's turn) in the ENEMY's Fight phase through the real stratagem window (design §3). Fixture ork11e_orks_reactive: P1 Custodes ACTIVE, P2 Orks (War Horde, 6 CP) non-active; Boyz B (+ attached Warboss) engaged with Custodian Guard A. Setup-only privilege: the Boyz are given Fights First so the 12.04 alternation hands the NON-active Ork player the first pick (step 1: the active player has no Fights First unit, so the other player selects) without scripting a whole Custodes activation through Martial Ka'tah. The Ork player clicks the Boyz in the fighter picker; the unit_selected_to_fight window opens for PLAYER 2 (the fighter's owner, not the active player): the StratagemDialog shows HIT 'EM HARDER with an enabled Use button and the hot-seat blocking overlay names Player 2 as the decider. A real click on Use spends P2's CP, puts melee [LETHAL HITS] on the Boyz and the attached Warboss, and resumes the activation into attack assignment.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "expect_state", "path": "factions.2.detachment", "equals": "War Horde" },
+    { "act": "execute_script", "script": "SettingsService.set(\"auto_allocate_wounds\", true)" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BOYZ_B\")[\"flags\"].merge({\"fights_first\": true}, true)", "comment": "setup privilege: Fights First on the Ork Boyz, set during the Custodes' Charge phase so the Fight phase starts with it" },
+    { "act": "dispatch_action", "action": { "type": "END_CHARGE", "player": 1 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "click_if_visible", "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton", "emit_pressed": true, "comment": "end-of-Charge 11e Heroic Intervention window for the Orks — not under test, declined" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_phase", "equals": 10 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "click_if_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().current_selecting_player", "equals": 2 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_B", "timeout_s": 5.0 },
+    { "act": "screenshot", "label": "01_ork_pick_in_enemy_fight_phase" },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_B" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 2 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"StratagemDialog\").defending_player", "equals": 2 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text", "equals": "Boyz has been selected to fight" },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_war_horde_hit_em_harder/Buttons/Use_faction_ork_war_horde_hit_em_harder_U_BOYZ_B", "property": "disabled", "equals": false },
+    { "act": "execute_script", "script": "main._reactive_stratagem_pending", "equals": true },
+    { "act": "execute_script", "script": "main._reactive_stratagem_overlay_label.text.contains(\"Player 2\")", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "END_FIGHT", "player": 1 } },
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "screenshot", "label": "02_window_for_non_active_ork_player" },
+
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_war_horde_hit_em_harder/Buttons/Use_faction_ork_war_horde_hit_em_harder_U_BOYZ_B" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_cp", "player": 2, "delta_from_start": -1 },
+    { "act": "expect_cp", "player": 1, "delta_from_start": 0 },
+    { "act": "expect_state", "path": "units.U_BOYZ_B.flags.effect_lethal_hits_melee", "equals": true },
+    { "act": "expect_state", "path": "units.U_WARBOSS_A.flags.effect_lethal_hits_melee", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()", "equals": false },
+    { "act": "execute_script", "script": "main._reactive_stratagem_pending", "equals": false },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"HIT 'EM HARDER\")", "expect_min": 1 },
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_fighter_id", "equals": "U_BOYZ_B" },
+    { "act": "screenshot", "label": "03_used_in_enemy_turn_attack_dialog" }
+  ]
+}

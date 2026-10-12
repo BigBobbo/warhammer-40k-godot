@@ -1392,7 +1392,7 @@ func _setup_reactive_stratagem_overlay() -> void:
 
 	print("Main: MA-42 Reactive stratagem blocking overlay created")
 
-func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem") -> void:
+func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem", decider_player: int = 0) -> void:
 	# MA-42: Show blocking overlay to the active player while opponent decides
 	if not _reactive_stratagem_overlay:
 		return
@@ -1400,10 +1400,12 @@ func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem") -> vo
 	# Every reactive window (saves, Overwatch, Heroic Intervention,
 	# Counter-Offensive, Rapid Ingress) belongs to the NON-active player. In
 	# play-and-pass both players share the screen, so "opponent" is wrong —
-	# name the person whose decision it is.
+	# name the person whose decision it is. Generic stratagem windows pass the
+	# decider explicitly (it can be the active player's opponent OR, for an
+	# either-turn window, a non-active fighter's owner).
 	var handoff_mgr = get_node_or_null("/root/HandoffManager")
 	if handoff_mgr and handoff_mgr.is_local_hotseat():
-		var decider: int = 3 - GameState.get_active_player()
+		var decider: int = decider_player if decider_player > 0 else 3 - GameState.get_active_player()
 		var decider_name: String = GameState.get_player_display_name(decider)
 		_reactive_stratagem_overlay_label.text = "%s (%s) — %s decision" % [
 			decider_name, GameState.get_faction_name(decider), stratagem_name]
@@ -5534,6 +5536,10 @@ func setup_phase_controllers() -> void:
 	# CRITICAL: Unlock semaphore when done
 	_setting_up_controllers = false
 	print("Main: setup_phase_controllers() COMPLETE (semaphore unlocked)")
+
+	# Stratagem windows (design §3.1): follow the CURRENT phase instance — a
+	# new instance is created on every phase change.
+	_connect_stratagem_window_signal()
 
 func setup_deployment_controller() -> void:
 	print("[Main] setup_deployment_controller() called")
@@ -15433,6 +15439,168 @@ func _show_stratagem_pick_dialog(title_text: String, unit_ids: Array, on_pick: C
 	get_tree().root.add_child(dialog)
 	DialogUtils.popup_at_bottom(dialog)
 
+
+# =============================================================================
+# STRATAGEM WINDOWS (design .llm/ork_codex_11e_design.md §3.1)
+# =============================================================================
+# BasePhase.open_stratagem_window emits stratagem_window_opened when a HUMAN
+# must decide. Main shows the single StratagemDialog (window mode) on the
+# decider's seat only, routes the answer as USE_/DECLINE_WINDOW_STRATAGEM
+# through NetworkIntegration, and shows the waiting overlay on the other seat
+# (networked) or over the board (hot-seat, decider != active player). An AI
+# decider never sees a dialog — the phase answered for it synchronously.
+
+var _stratagem_window_phase: Object = null
+
+func _connect_stratagem_window_signal() -> void:
+	var phase = PhaseManager.get_current_phase_instance() if PhaseManager else null
+	if phase == null or not phase.has_signal("stratagem_window_opened"):
+		return
+	if _stratagem_window_phase == phase:
+		return
+	_stratagem_window_phase = phase
+	var cb := Callable(self, "_on_stratagem_window_opened")
+	if not phase.stratagem_window_opened.is_connected(cb):
+		phase.stratagem_window_opened.connect(cb)
+	print("Main: stratagem_window_opened connected on %s" % phase.get_script().resource_path.get_file())
+	# A window the phase opened before we connected (e.g. at phase start, or a
+	# mirrored window on reconnect) is shown now.
+	if phase.has_method("has_pending_stratagem_window") and phase.has_pending_stratagem_window():
+		var w: Dictionary = phase.get_pending_stratagem_window()
+		call_deferred("_on_stratagem_window_opened", int(w.get("player", 0)), str(w.get("window_id", "")),
+			w.get("offers", []), w.get("ctx", {}))
+
+func _on_stratagem_window_opened(player: int, window_id: String, offers: Array, ctx: Dictionary) -> void:
+	print("Main: stratagem window %s opened for Player %d (%d offer(s))" % [window_id, player, offers.size()])
+	var ai_node = get_node_or_null("/root/AIPlayer")
+	if ai_node and ai_node.is_ai_player(player):
+		print("Main: window %s belongs to AI Player %d — no dialog" % [window_id, player])
+		return
+	if NetworkManager.is_networked() and NetworkManager.get_local_player() != player:
+		# The other seat decides: block this board until their answer arrives
+		# (NetworkManager hides the overlay on USE/DECLINE_WINDOW_STRATAGEM).
+		show_reactive_stratagem_waiting("stratagem", player)
+		return
+	_show_stratagem_window_dialog(player, window_id, offers, ctx)
+	if not NetworkManager.is_networked() and player != GameState.get_active_player():
+		show_reactive_stratagem_waiting("stratagem", player)
+
+func _show_stratagem_window_dialog(player: int, window_id: String, offers: Array, ctx: Dictionary) -> void:
+	var stale = get_tree().root.get_node_or_null("StratagemDialog")
+	if stale:
+		stale.name = "StratagemDialog_stale"
+		if "window_mode" in stale and stale.window_mode:
+			stale.queue_free()
+	var dialog = preload("res://dialogs/StratagemDialog.gd").new()
+	dialog.name = "StratagemDialog"
+	dialog.window_stratagem_selected.connect(_on_window_stratagem_selected.bind(player, window_id, offers, ctx))
+	dialog.window_declined.connect(_on_window_stratagem_declined.bind(player, window_id))
+	get_tree().root.add_child(dialog)
+	dialog.setup_window(player, window_id, offers, ctx)
+	DialogUtils.popup_at_bottom(dialog)
+
+func _window_offer_target(offers: Array, sid: String, uid: String) -> Dictionary:
+	for offer in offers:
+		if str(offer.get("stratagem_id", "")) != sid:
+			continue
+		for t in offer.get("targets", []):
+			if str(t.get("unit_id", "")) == uid:
+				return t
+	return {}
+
+func _on_window_stratagem_selected(sid: String, uid: String, variant_id: String, player: int, window_id: String, offers: Array, ctx: Dictionary) -> void:
+	var action_ctx := {}
+	if variant_id != "":
+		action_ctx["variant_id"] = variant_id
+	var target: Dictionary = _window_offer_target(offers, sid, uid)
+	var secondary = target.get("secondary", {})
+	if typeof(secondary) == TYPE_DICTIONARY and not secondary.get("options", []).is_empty():
+		# Secondary pick (second unit / objective) — StratagemTargetDialog
+		# Pick_<id> for units, StratagemChoiceDialog Choice_<id> otherwise.
+		# Cancel re-opens the window so the decider is never stranded.
+		_show_window_secondary_dialog(secondary,
+			func(secondary_id: String):
+				var ctx2 := action_ctx.duplicate()
+				ctx2["secondary_id"] = secondary_id
+				_dispatch_window_action({"type": "USE_WINDOW_STRATAGEM", "player": player, "window_id": window_id,
+					"stratagem_id": sid, "target_unit_id": uid, "context": ctx2}, player, window_id, offers, ctx),
+			func():
+				_show_stratagem_window_dialog(player, window_id, offers, ctx))
+		return
+	_dispatch_window_action({"type": "USE_WINDOW_STRATAGEM", "player": player, "window_id": window_id,
+		"stratagem_id": sid, "target_unit_id": uid, "context": action_ctx}, player, window_id, offers, ctx)
+
+func _on_window_stratagem_declined(dont_offer_again: bool, player: int, window_id: String) -> void:
+	_dispatch_window_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": player, "window_id": window_id,
+		"dont_offer_again": dont_offer_again}, player, window_id, [], {})
+
+func _show_window_secondary_dialog(secondary: Dictionary, on_pick: Callable, on_cancel: Callable) -> void:
+	var is_unit := str(secondary.get("kind", "unit")) == "unit"
+	var dialog = AcceptDialog.new()
+	dialog.name = "StratagemTargetDialog" if is_unit else "StratagemChoiceDialog"
+	dialog.title = str(secondary.get("prompt", "Choose"))
+	dialog.get_ok_button().text = "Cancel"
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 6)
+	var picked := [false]
+	for opt in secondary.get("options", []):
+		var oid := str(opt.get("id", ""))
+		var btn = Button.new()
+		btn.name = ("Pick_%s" if is_unit else "Choice_%s") % oid.validate_node_name()
+		btn.text = str(opt.get("label", GameState.get_unit_display_name(oid) if is_unit else oid))
+		btn.pressed.connect(func():
+			picked[0] = true
+			dialog.name = "StratagemSecondaryDialogClosing"
+			dialog.queue_free()
+			on_pick.call(oid))
+		content.add_child(btn)
+	dialog.add_child(content)
+	var cancel_cb := func():
+		if not picked[0]:
+			picked[0] = true
+			dialog.name = "StratagemSecondaryDialogClosing"
+			dialog.queue_free()
+			on_cancel.call()
+	dialog.confirmed.connect(cancel_cb)
+	dialog.canceled.connect(cancel_cb)
+	get_tree().root.add_child(dialog)
+	DialogUtils.popup_at_bottom(dialog)
+
+func _dispatch_window_action(action: Dictionary, player: int, window_id: String, offers: Array, ctx: Dictionary) -> void:
+	print("Main: stratagem window action %s (P%d, %s) %s" % [action.get("type", ""), player, window_id, str(action.get("stratagem_id", ""))])
+	hide_reactive_stratagem_waiting()
+	var result = NetworkIntegration.route_action(action)
+	if not result.get("success", false):
+		var err := str(result.get("error", "Unknown error"))
+		print("Main: stratagem window action failed: %s" % err)
+		ToastManager.show_error("Stratagem: %s" % err)
+		# Still pending (e.g. the stratagem failed validation) — re-open it.
+		var phase = PhaseManager.get_current_phase_instance()
+		if phase and phase.has_method("has_pending_stratagem_window") and phase.has_pending_stratagem_window() \
+				and not offers.is_empty():
+			_show_stratagem_window_dialog(player, window_id, offers, ctx)
+		return
+	if result.get("pending", false):
+		return
+	var used = result.get("stratagem_used", {})
+	if not used.is_empty():
+		ToastManager.show_toast("Player %d used %s" % [player, str(used.get("stratagem_name", "a stratagem"))], Color.ORANGE, 3.0)
+	_refresh_after_window_action()
+
+func _refresh_after_window_action() -> void:
+	match current_phase:
+		GameStateData.Phase.FIGHT:
+			update_after_fight_action()
+		GameStateData.Phase.SHOOTING:
+			update_after_shooting_action()
+		GameStateData.Phase.CHARGE:
+			update_after_charge_action()
+		GameStateData.Phase.COMMAND:
+			update_after_command_action()
+		_:
+			refresh_unit_list()
+			update_ui()
 
 func _on_army_panel_closed() -> void:
 	_army_panel = null

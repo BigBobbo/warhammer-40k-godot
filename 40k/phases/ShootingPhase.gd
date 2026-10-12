@@ -4594,8 +4594,10 @@ func _check_reactive_stratagems() -> Dictionary:
 	if target_unit_ids.is_empty():
 		return {"has_opportunities": false}
 
-	# Ask StratagemManager for available reactive stratagems
-	var available = StratagemManager.get_reactive_stratagems_for_shooting(defending_player, target_unit_ids)
+	# Ask StratagemManager for available reactive stratagems (core + legacy
+	# faction reactives + the enemy_targets_unit_shooting window offers)
+	var available = StratagemManager.get_reactive_stratagems_for_shooting(defending_player, target_unit_ids,
+		{"attacker_unit_id": active_shooter_id})
 
 	if available.is_empty():
 		DebugLogger.info(str("ShootingPhase: No reactive stratagems available for defender (player %d)" % defending_player))
@@ -4628,7 +4630,8 @@ func _validate_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 	# Validate through StratagemManager
 	var active_player = get_current_player()
 	var defending_player = 2 if active_player == 1 else 1
-	var validation = StratagemManager.can_use_stratagem(defending_player, stratagem_id, target_unit_id)
+	var validation = StratagemManager.can_use_stratagem(defending_player, stratagem_id, target_unit_id,
+		_reactive_window_context(action))
 
 	if not validation.can_use:
 		return {"valid": false, "errors": [validation.reason]}
@@ -4641,6 +4644,30 @@ func _validate_decline_reactive_stratagem(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Not waiting for reactive stratagem decision"]}
 	return {"valid": true, "errors": []}
 
+func _reactive_window_context(action: Dictionary) -> Dictionary:
+	"""Context for a USE_REACTIVE_STRATAGEM. Window stratagems folded into the
+	defender's dialog (timing.windows has enemy_targets_unit_shooting — design
+	§3.1) need context.window_id plus the window keys; the action may carry the
+	dialog's variant/secondary picks in action.context. Core / legacy reactive
+	stratagems get the same empty context as before."""
+	var ctx: Dictionary = {}
+	var action_ctx = action.get("context", {})
+	if typeof(action_ctx) == TYPE_DICTIONARY:
+		ctx = action_ctx.duplicate(true)
+	var strat = StratagemManager.get_stratagem(str(action.get("stratagem_id", "")))
+	var windows = strat.get("timing", {}).get("windows", [])
+	if "enemy_targets_unit_shooting" in windows:
+		var target_ids: Array = []
+		for assignment in confirmed_assignments:
+			var tid = str(assignment.get("target_unit_id", ""))
+			if tid != "" and not tid in target_ids:
+				target_ids.append(tid)
+		ctx["window_id"] = "enemy_targets_unit_shooting"
+		ctx["phase"] = "shooting"
+		ctx["attacker_unit_id"] = active_shooter_id
+		ctx["target_unit_ids"] = target_ids
+	return ctx
+
 func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 	"""Process the defender using a reactive stratagem (Go to Ground / Smokescreen)."""
 	var stratagem_id = action.get("stratagem_id", "")
@@ -4649,7 +4676,8 @@ func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 	var defending_player = 2 if active_player == 1 else 1
 
 	# Use the stratagem via StratagemManager (deducts CP, records usage, applies effects)
-	var result = StratagemManager.use_stratagem(defending_player, stratagem_id, target_unit_id)
+	var result = StratagemManager.use_stratagem(defending_player, stratagem_id, target_unit_id,
+		_reactive_window_context(action))
 
 	if not result.success:
 		return create_result(false, [], result.get("error", "Stratagem use failed"))

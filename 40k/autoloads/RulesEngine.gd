@@ -12741,12 +12741,13 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		sustained_data = {"value": katah_sh_value, "is_dice": false}
 		print("RulesEngine:   SUSTAINED HITS %d granted by unit effect flag (e.g., Martial Ka'tah Dacatarai stance)" % katah_sh_value)
 
-	# FIGHT PROPPA (Taktikal Brigade): melee-scoped grants — the player chose
-	# [SUSTAINED HITS 1] or [LETHAL HITS] for this unit's melee weapons this
-	# phase. These flags are read ONLY here, never in shooting resolution.
+	# FIGHT PROPPA (Taktikal Brigade, 10e) and HIT 'EM HARDER (Codex: Orks 11e,
+	# OrkCodexFight.gd): melee-scoped grants — [SUSTAINED HITS 1] or
+	# [LETHAL HITS] for this unit's melee weapons this phase. These flags are
+	# read ONLY here, never in shooting resolution.
 	if not weapon_has_lethal_hits and attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_LETHAL_HITS_MELEE, false):
 		weapon_has_lethal_hits = true
-		print("RulesEngine:   LETHAL HITS granted by melee effect flag (Fight Proppa)")
+		print("RulesEngine:   LETHAL HITS granted by melee effect flag (melee-scoped stratagem: HIT 'EM HARDER / Fight Proppa)")
 	if sustained_data.value == 0 and attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE, false):
 		sustained_data = {"value": 1, "is_dice": false}
 		print("RulesEngine:   SUSTAINED HITS 1 granted by melee effect flag (Fight Proppa)")
