@@ -164,8 +164,16 @@ peers.
 
 ## Validation run (2026-10-12, this branch)
 
-- Headless audit suite `40k/tests/run_pretrigger_tests.sh`: **2888 passed,
-  0 failed across 123 tests** (includes the two new/rewritten test files).
+Head 92294b1 unless stated. "Base" = e28e4f7 run on the same machine.
+
+- Headless audit suite `40k/tests/run_pretrigger_tests.sh`: **2907 passed,
+  0 failed across 123 tests** (47a41a0: 2901 / 0; 7822198: 2888 / 0). The
+  suite greps its output, so every test was also re-run with full logs: 14
+  tests log compile-time `SCRIPT ERROR`s, all a cascade from autoload names in
+  `FactionPalettes.gd`, `DeploymentZoneData.gd`, `AttackSequence.gd` and
+  `UnitAbilityManager.gd` under `-s`; the error locations are identical on
+  base for all 14 and none originates in a file this branch changes (the
+  7822198 `FightSequencer` -> `Measurement` error is gone).
 - New windowed scenarios — all pass: `end_fight_mandatory_fights_11e` 38/38,
   `fight_pass_unable_to_fight_11e` 39/39,
   `end_movement_unselected_remain_stationary_11e` 19/19,
@@ -185,9 +193,86 @@ peers.
 - Live MCP bridge gate (`verify_delivery`) in the Fight step: END_FIGHT and
   SKIP_UNIT on an owed fight both rejected server-side, no ERROR log lines —
   verdict PASS.
-- Not run: the full 500-scenario sweep, full-game AI benchmark, two-process
-  multiplayer (the multiplayer END_FIGHT / END_MOVEMENT paths were changed but
-  only exercised single-player).
+- Two-process multiplayer (`40k/tests/mp_two_process_core_rules.py`): **67
+  passed, 0 failed** — see the multiplayer section above for what it covers
+  and how e28e4f7 / 7822198 fail it.
+- Multi-peer GUT suite (`40k/tests/run_multiplayer_tests.sh`, the CI
+  "Multi-peer integration" job), run locally 3x per tree: base 9 / 11 / 11 and
+  this branch 10 / 9 / 11 failing out of 39. The same 8 tests fail in every run
+  on both trees (deployment single unit / outside zone / undo, client
+  disconnect, the three `load_save(shooting_phase)` timeouts, the
+  `sbid-` helper); the rest rotate on both trees (a harness race: the host
+  re-enters Formations after the test's first deploy). Not caused here.
+- AI full-game benchmark (`run_ai_benchmark.sh`, 5 games x 2 seat orders,
+  `audit_baseline_postdeploy[_p2first]`, seeds 1001-1005 / 2001-2005): base,
+  7822198 and 92294b1 all **10/10 completed, 0 stalls**; 92294b1 is
+  identical to 7822198 game-for-game (same VP, rounds and action counts).
+  The p2first fixture fails the benchmark's own fixture check (a "Strike
+  Force" header row imported as a unit) — pre-existing data issue.
+- Full windowed sweep, all 505 `tests/scenarios/sp/*.json`, 3 parallel
+  shards: 7822198 **426 passed / 79 failed**; 47a41a0 **426 / 79**. The union
+  of both failure sets plus the 9 scenarios started during a 1-minute window
+  in which the sweep checkout was briefly edited (90 total) was re-run with
+  ONE shard per tree, base and 92294b1 side by side under the same load:
+  12 pass on both, 70 fail on both with identical counts, 5 fail on both with
+  different counts (`iss064j` — its setup changed here — and 4 pad/tutorial
+  scenarios), 1 fails only on base (`pad_m0_camera`), 2 fail only here:
+  `pad_box_multi_select` (then 3/3 passes on BOTH trees run alone) and
+  `tut_t3_get_movin_pad` (154/0 twice run alone). The 3-shard failures that
+  pass alone are load-sensitive (pad input timing, tutorial steps, an AI
+  charge finishing before the scenario's first assertion).
+- Fight / game-log scenarios (90 that load the Fight phase or touch
+  FightPhase / FightController / the game log) on 92294b1: **83 passed,
+  7 failed** — all 7 also fail on base (`374_headwoppa_devastating_wounds`,
+  `game_log_step_replay`, `iss064j_mission_action_sabotage_11e`,
+  `pad_fight_attack_reticle`, `stompa_gets_to_fight_11e`,
+  `tut_t6_krumpin_pad`, `tut_t6_wrong_fighter_backout`).
+- Live MCP bridge gate (`verify_delivery`) in the Fight step: END_FIGHT and
+  SKIP_UNIT on an owed fight both rejected server-side, no ERROR log lines —
+  verdict PASS.
+- CI on 92294b1: headless audit, GUT suite, code quality, coverage, AI damage
+  math and reachability green. The windowed-scenario job is cancelled by its
+  30-minute timeout (as on main); multi-peer integration fails as above;
+  `loop-prefilter.yml` fails at 0 s on every push, main included.
+
+Scenarios failing on BOTH base and this branch in that side-by-side run (75 —
+pre-existing, or load-sensitive on both trees):
+`374_headwoppa_devastating_wounds`, `374_panoptispex_ignores_cover`,
+`374_supa_cybork_fnp`, `387_waaagh_energy_eadbanger`,
+`85b_rolloff_dramatic`, `85d_rolloff_vs_ai`, `85e_first_turn_rolloff`,
+`85f_first_turn_vs_ai`, `auto_allocate_wounds_settings_ui`,
+`charge_base_contact_enforced`, `charge_cannot_end_on_wall`,
+`charge_hover_stats_dwell`, `charge_infantry_through_ruins`,
+`charge_over_ruin_corner_succeeds`, `charge_reroll_keep_default_button`,
+`click_select_shooter_shooting`, `custodian_charge_congested_ovals`,
+`disembark_rotated_border_stale_controller`,
+`engaged_vehicle_confirm_split_11e`, `game_log_step_replay`,
+`game_log_switch_step_no_escape`, `grenade_unit_picker_display_names`,
+`infantry_enters_ruin_wall`, `infantry_tall_ruin_traversal`,
+`iss047c_ability_choice_prompts_11e`, `iss048_shooting_types_11e`,
+`iss052b_gone_to_ground_11e`, `iss064b_primary_disposition_11e`,
+`iss064d_triangulate_prompt_11e`, `iss064e_decoy_prompt_11e`,
+`iss064f_condemn_prompt_11e`, `iss064h_card_action_visibility_11e`,
+`iss064i_relic_setup_prompt_11e`, `iss064j_mission_action_sabotage_11e`,
+`iss065b_plunder_action_11e`, `iss067_scout_reserves_deploy_11e`,
+`iss074_aircraft_reserve_cycle_11e`, `iss15_hidden_shot_stamp_11e`,
+`iss15_indirect_band_11e`, `move_ghosts_above_range_circles`,
+`movement_auto_confirm`, `movement_embarked_select_pans_to_transport`,
+`pad_charge_snap_cursor_active`, `pad_deploy_reposition_placed_model`,
+`pad_deploy_reposition_rotate_model`, `pad_fight_attack_reticle`,
+`pad_group_move_all`, `pad_group_move_fall_back`, `pad_m0_menu_nav`,
+`pad_m2_shooting_native`, `pad_m2_unit_cycle`, `pad_m3_carry_deploy`,
+`pad_m3_carry_move`, `pad_move_carry_hop_swap`,
+`pad_reinforcement_formation_row`, `pad_reinforcement_no_move_menu`,
+`reinforcement_no_overlap`, `scout_drag_then_end_phase_persists`,
+`scout_end_phase_action_commits_staged`,
+`scout_invalid_move_snaps_back_nested`, `split_fire_per_model`,
+`split_fire_spinbox_commit`, `stompa_gets_to_fight_11e`,
+`terrain_11e_layouts`, `tut_full_course_chain_pad`, `tut_t1_basics`,
+`tut_t1_basics_pad`, `tut_t1_lock_it_in_start_glyph`,
+`tut_t1_pad_ack_button`, `tut_t4_dakka_pad`, `tut_t4_dakka_reassign_pad`,
+`tut_t5_ere_we_go_pad`, `tut_t6_krumpin_pad`,
+`tut_t6_wrong_fighter_backout`, `tut_t7_runnin_da_show_pad`.
 
 ## Residual risk / not done
 
@@ -200,3 +285,8 @@ peers.
   cleverer packing could fit more models in very cramped spaces.
 - Not addressed here: CI fail-closed work, full-game AI/multiplayer gates,
   content-support manifest, Surveil scoring, embark-after-Remain-Stationary.
+- Pre-existing, found while validating, not fixed here: the lazy loadout
+  cache behind the multiplayer `DESYNC DETECTED` log in the Fight phase (see
+  the multiplayer section), the 8 always-failing multi-peer GUT tests, the
+  75 scenarios above, the broken `loop-prefilter.yml`, and the CI windowed
+  job's 30-minute timeout (it never reaches this branch's scenarios).
