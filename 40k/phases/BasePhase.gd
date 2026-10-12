@@ -36,6 +36,19 @@ var _window_sync_diffs: Array = []       # diffs applied by synchronous (AI) use
 var _window_followup_pending: bool = false  # a used stratagem's follow-up paused the phase
 var _window_last_result: Dictionary = {}  # {used, player, window_id, stratagem_id, target_unit_id, diffs}
 
+# Cross-phase EVENT windows (unit_battle_shocked, unit_destroyed,
+# enemy_unit_has_attacked — design §3): raised by comparing unit state before
+# and after each action, queued in _ev_deferred and opened as soon as nothing
+# else is pending (end of the action, or when the current window closes).
+var _ev_baseline: Dictionary = {}        # {"alive": {uid: true}, "shocked": {uid: true}} at the last detection
+var _ev_deferred: Array = []             # [{player, window_id, ctx}] raised by events, not yet opened
+var _ev_attacks: Dictionary = {}         # attacker_unit_id -> Array of enemy unit ids destroyed during its attacks
+var _ev_destroyed_open: Dictionary = {}  # unit_id -> true while its unit_destroyed window is queued/open
+var _ev_dd_held: Dictionary = {}         # unit_id -> true: Deadly Demise waits for its unit_destroyed window
+var _ev_dd_released: Array = []          # unit ids whose held Deadly Demise was resolved (log / tests)
+var _ev_action_attacker: String = ""     # unit making attacks in the action being executed
+var _ev_depth: int = 0                   # execute_action nesting (events are flushed at depth 0)
+
 # ISS-024: phases read LIVE state — this is a property view over
 # GameState.state, so phase code can never act on stale data and the
 # old hand-patching sites become idempotent writes of live values.
@@ -52,7 +65,10 @@ var phase_type: GameStateData.Phase
 # Abstract methods that must be implemented by concrete phases
 func enter_phase(state_snapshot: Dictionary) -> void:
 	game_state_snapshot = state_snapshot
+	_ev_baseline = _ev_snapshot()
 	_on_phase_enter()
+	# Units destroyed / battle-shocked by phase-start rules (e.g. Big Gob).
+	_window_events_flush({})
 
 func exit_phase() -> void:
 	_on_phase_exit()
@@ -131,6 +147,7 @@ func execute_action(action: Dictionary) -> Dictionary:
 			return {"success": false, "error": ", ".join(w_errors) if not w_errors.is_empty() else "Action not allowed", "errors": w_errors}
 		if not action.has("player"):
 			action["player"] = int(_window_pending.get("player", get_current_player()))
+		_window_events_begin(action)
 		result = _process_window_action(action)
 	else:
 		# While a stratagem window waits for a human, nothing else may happen in
@@ -161,7 +178,10 @@ func execute_action(action: Dictionary) -> Dictionary:
 			var error_text: String = ", ".join(raw_errors) if (raw_errors is Array and not raw_errors.is_empty()) else "Action not allowed"
 			return {"success": false, "error": error_text, "errors": raw_errors}
 
+		_window_events_begin(action)
 		result = process_action(action)
+	_ev_depth -= 1
+	var _ev_outer := _ev_depth == 0
 	var _perf_ms := (Time.get_ticks_usec() - _perf_t0) / 1000.0
 	if _perf_ms >= 16.0:
 		DebugLogger.info("[PERF] BasePhase.process_action(%s) took %.1fms" % [str(action.get("type", "UNKNOWN")), _perf_ms])
@@ -173,6 +193,12 @@ func execute_action(action: Dictionary) -> Dictionary:
 
 			# ISS-024: no refresh needed — the snapshot property reads
 			# live state.
+
+		# Units this action destroyed / battle-shocked open their event
+		# windows now (design §3: unit_destroyed, unit_battle_shocked,
+		# enemy_unit_has_attacked) — before the action is recorded.
+		if _ev_outer:
+			_window_events_flush(result)
 
 		# Attach human-readable log_text from result to the action dict
 		if result.has("log_text") and result.log_text != "":
@@ -338,8 +364,16 @@ func open_stratagem_window_both_players(window_id: String, ctx: Dictionary, resu
 ## resumes (resume_method) when the queue is empty.
 func open_stratagem_windows(entries: Array, resume_method: String, resume_ctx: Dictionary = {}) -> bool:
 	if has_pending_stratagem_window() or _window_followup_pending:
-		# Nested windows are not supported yet — say so loudly instead of
-		# silently clobbering the pending one.
+		if resume_method == "":
+			# A resume-less (event) window nests: queue it and open it as soon
+			# as the current window / follow-up closes — never lost, never
+			# clobbering the pending one.
+			_ev_deferred.append_array(entries)
+			DebugLogger.info("[StratagemWindow] %s queued behind pending window %s" % [
+				str(entries.map(func(e): return e.get("window_id", "?"))), str(_window_pending.get("window_id", "followup"))])
+			return false
+		# Nested hook windows (with a resume method) are not supported — say
+		# so loudly instead of silently clobbering the pending one.
 		_window_error("open_stratagem_windows(%s) while window %s is still pending — not opened" % [
 			str(entries.map(func(e): return e.get("window_id", "?"))), str(_window_pending.get("window_id", "followup"))])
 		return false
@@ -367,6 +401,7 @@ func _is_ai_window_decider(player: int) -> bool:
 	return ai != null and ai.has_method("is_ai_player") and ai.is_ai_player(player)
 
 func _process_window_queue() -> bool:
+	_window_events_pull_deferred()
 	while not _window_queue.is_empty():
 		var entry: Dictionary = _window_queue.pop_front()
 		var player := int(entry.get("player", 0))
@@ -377,10 +412,12 @@ func _process_window_queue() -> bool:
 			ctx["phase"] = StratagemManager._phase_to_string(GameState.get_current_phase())
 		if _window_suppressed.has("%d:%s" % [player, window_id]):
 			DebugLogger.info("[StratagemWindow] %s for P%d suppressed (\"don't offer again this phase\")" % [window_id, player])
+			_window_event_closed(window_id, ctx, false)
 			continue
 		var offers: Array = StratagemManager.get_window_offers(player, window_id, ctx)
 		if offers.is_empty():
 			DebugLogger.info("[StratagemWindow] %s for P%d — no offers" % [window_id, player])
+			_window_event_closed(window_id, ctx, false)
 			continue
 		if _is_ai_window_decider(player):
 			var decision: Dictionary = AIDecisionMaker.decide_window_stratagem(player, window_id, offers, ctx)
@@ -391,12 +428,20 @@ func _process_window_queue() -> bool:
 					_window_sync_diffs.append_array(use_res.get("diffs", []))
 					DebugLogger.info("[StratagemWindow] AI P%d used %s on %s in %s" % [player, decision.get("stratagem_id", ""), decision.get("target_unit_id", ""), window_id])
 					emit_signal("stratagem_window_closed", player, window_id, true)
+					_window_event_closed(window_id, ctx, true)
 					if use_res.get("paused", false):
 						return true
+					# Events the stratagem caused (units it destroyed / battle-shocked)
+					# open their windows next, before the rest of the queue.
+					_window_events_detect()
+					_window_events_pull_deferred()
 					continue
 				_window_error("AI P%d decision for %s failed: %s — treated as decline" % [player, window_id, use_res.get("error", "?")])
 			DebugLogger.info("[StratagemWindow] AI P%d declined %s (%d offer(s))" % [player, window_id, offers.size()])
 			emit_signal("stratagem_window_closed", player, window_id, false)
+			_window_event_closed(window_id, ctx, false)
+			_window_events_detect()
+			_window_events_pull_deferred()
 			continue
 		_window_pending = {"player": player, "window_id": window_id, "offers": offers, "ctx": ctx}
 		DebugLogger.info("[StratagemWindow] OPEN %s for P%d — %d offer(s): %s" % [
@@ -418,11 +463,20 @@ func _apply_window_use(player: int, window_id: String, stratagem_id: String, tar
 		"stratagem_name": str(res.get("stratagem_name", stratagem_id)), "diffs": res.get("diffs", [])}
 	var paused := false
 	var followup: Dictionary = res.get("followup", {})
+	var use_diffs: Array = res.get("diffs", [])
 	if not followup.is_empty():
 		DebugLogger.info("[StratagemWindow] %s returned follow-up %s — handing to %s" % [stratagem_id, str(followup.get("type", "?")), get_script().resource_path.get_file()])
-		paused = _execute_window_followup(player, window_id, followup, use_ctx)
-		_window_followup_pending = paused
-	return {"success": true, "diffs": res.get("diffs", []), "paused": paused, "followup": followup,
+		# Follow-ups that need no phase interaction run here in every phase
+		# (new_reserve_unit — INFESTED WAR ZONE); the rest go to the phase.
+		var generic: Dictionary = _execute_generic_window_followup(player, window_id, followup, use_ctx)
+		if generic.get("handled", false):
+			use_diffs = use_diffs.duplicate()
+			use_diffs.append_array(generic.get("diffs", []))
+			_window_last_result["diffs"] = use_diffs
+		else:
+			paused = _execute_window_followup(player, window_id, followup, use_ctx)
+			_window_followup_pending = paused
+	return {"success": true, "diffs": use_diffs, "paused": paused, "followup": followup,
 		"stratagem_name": str(res.get("stratagem_name", stratagem_id))}
 
 func _validate_window_action(action: Dictionary) -> Dictionary:
@@ -485,6 +539,7 @@ func _process_window_action(action: Dictionary) -> Dictionary:
 			log_phase_message("[StratagemWindow] P%d declined %s" % [player, window_id])
 	_window_pending = {}
 	emit_signal("stratagem_window_closed", player, window_id, used)
+	_window_event_closed(window_id, pending.get("ctx", {}), used)
 
 	var result: Dictionary
 	if _window_followup_pending:
@@ -501,6 +556,9 @@ func _process_window_action(action: Dictionary) -> Dictionary:
 ## Open the next queued window, or — when the queue is empty — call the
 ## phase's resume method and merge its result behind `diffs`.
 func _continue_window_queue_or_resume(diffs: Array) -> Dictionary:
+	# Units the answered window's stratagem destroyed / battle-shocked open
+	# their own windows first (nested events, design §3) — then the queue.
+	_window_events_detect()
 	if _process_window_queue():
 		var paused_diffs: Array = diffs.duplicate()
 		paused_diffs.append_array(consume_window_diffs())
@@ -549,6 +607,251 @@ func _execute_window_followup(player: int, window_id: String, followup: Dictiona
 	_window_error("unsupported followup '%s' from window %s (P%d) in %s — no executor; effect skipped" % [
 		str(followup.get("type", "?")), window_id, player, get_script().resource_path.get_file()])
 	return false
+
+## Follow-ups that need no phase-specific interaction run here, in every phase
+## (design §3.2). Returns {handled: bool, diffs: Array (already applied)}.
+func _execute_generic_window_followup(player: int, window_id: String, followup: Dictionary, _ctx: Dictionary) -> Dictionary:
+	match str(followup.get("type", "")):
+		"new_reserve_unit":
+			var diffs := _followup_new_reserve_unit(player, followup)
+			if not diffs.is_empty():
+				PhaseManager.apply_state_changes(diffs)
+			DebugLogger.info("[StratagemWindow] follow-up new_reserve_unit (%s, P%d) resolved: %d diff(s)" % [window_id, player, diffs.size()])
+			return {"handled": true, "diffs": diffs}
+	return {"handled": false, "diffs": []}
+
+## new_reserve_unit {source_unit_id} (INFESTED WAR ZONE): add a NEW unit to
+## `player`'s army identical to the (destroyed) source unit — same datasheet,
+## wargear and meta — in Strategic Reserves, at its starting strength with
+## full wounds. It gets a fresh unit id (the destroyed unit stays destroyed
+## for scoring / kill tracking) and arrives through the normal reserves flow.
+func _followup_new_reserve_unit(player: int, followup: Dictionary) -> Array:
+	var src_id := str(followup.get("source_unit_id", ""))
+	var src: Dictionary = GameState.get_unit(src_id)
+	if src.is_empty():
+		_window_error("new_reserve_unit: source unit '%s' not found — no unit added" % src_id)
+		return []
+	var units: Dictionary = GameState.state.get("units", {})
+	var n := 2
+	var new_id := "%s_R%d" % [src_id, n]
+	while units.has(new_id):
+		n += 1
+		new_id = "%s_R%d" % [src_id, n]
+	var unit: Dictionary = src.duplicate(true)
+	unit["id"] = new_id
+	unit["owner"] = player
+	if unit.has("squad_id"):
+		unit["squad_id"] = new_id
+	unit["status"] = GameStateData.UnitStatus.IN_RESERVES
+	unit["reserve_type"] = "strategic_reserves"
+	unit["flags"] = {}
+	unit["attached_to"] = null
+	unit["attachment_data"] = {"attached_characters": []}
+	unit["embarked_in"] = null
+	unit["disembarked_this_phase"] = false
+	var meta: Dictionary = unit.get("meta", {})
+	var base_name := str(meta.get("display_name", meta.get("name", src_id)))
+	meta["display_name"] = "%s #%d" % [base_name, n]
+	unit["meta"] = meta
+	var default_wounds = meta.get("stats", {}).get("wounds", 1)
+	for m in unit.get("models", []):
+		m["alive"] = true
+		m["current_wounds"] = m.get("wounds", default_wounds)
+		m["position"] = null
+		m["status_effects"] = []
+	DebugLogger.info("[StratagemWindow] new_reserve_unit: %s (%s) added to P%d's army in Strategic Reserves — %d model(s) at full wounds (copy of destroyed %s)" % [
+		new_id, meta["display_name"], player, unit.get("models", []).size(), src_id])
+	return [{"op": "set", "path": "units.%s" % new_id, "value": unit}]
+
+# ----------------------------------------------------------------------------
+# Cross-phase EVENT windows (design §3): unit_battle_shocked, unit_destroyed
+# (before Deadly Demise), enemy_unit_has_attacked. Raised generically by
+# comparing unit state before and after every action (and phase start), so
+# every place a unit is destroyed or becomes battle-shocked — test, forced
+# roll, emergency disembark, mortal wounds, attacks — opens its window without
+# a per-site hook. Event windows are queued (_ev_deferred) and open as soon as
+# nothing else is pending: at the end of the action, or when the current
+# window / follow-up closes (nested events never deadlock or get lost).
+# ----------------------------------------------------------------------------
+
+## Unit whose attacks are being resolved right now (enemy_unit_has_attacked
+## attribution). Shooting / Fight override with their active shooter/fighter.
+func _window_attacking_unit_id() -> String:
+	return ""
+
+## Attacker of an action that resolves a whole attack in one go (Fire
+## Overwatch, the atomic SHOOT) — nothing is "active" before or after it.
+func _window_action_attacker_id(action: Dictionary) -> String:
+	match str(action.get("type", "")):
+		"USE_FIRE_OVERWATCH", "SHOOT":
+			return str(action.get("unit_id", action.get("actor_unit_id", "")))
+	return ""
+
+func _ev_snapshot() -> Dictionary:
+	var alive := {}
+	var shocked := {}
+	var units: Dictionary = GameState.state.get("units", {})
+	for uid in units:
+		var u = units[uid]
+		if typeof(u) != TYPE_DICTIONARY or _is_unit_destroyed_check(u):
+			continue
+		alive[uid] = true
+		if u.get("flags", {}).get("battle_shocked", false):
+			shocked[uid] = true
+	return {"alive": alive, "shocked": shocked}
+
+## Outermost execute_action: fresh baseline + the action's attacker.
+func _window_events_begin(action: Dictionary) -> void:
+	_ev_depth += 1
+	if _ev_depth != 1:
+		return
+	_ev_baseline = _ev_snapshot()
+	_ev_action_attacker = _window_attacking_unit_id()
+	if _ev_action_attacker == "":
+		_ev_action_attacker = _window_action_attacker_id(action)
+
+## Compare unit state with the baseline and queue the event windows.
+func _window_events_detect() -> void:
+	if _ev_baseline.is_empty():
+		_ev_baseline = _ev_snapshot()
+		return
+	var now := _ev_snapshot()
+	var units: Dictionary = GameState.state.get("units", {})
+	var attacker := _ev_action_attacker if _ev_action_attacker != "" else _window_attacking_unit_id()
+	var attacker_owner := int(units.get(attacker, {}).get("owner", 0)) if attacker != "" else 0
+	for uid in _ev_baseline.get("alive", {}):
+		if now.alive.has(uid) or not units.has(uid):
+			continue
+		var owner := int(units[uid].get("owner", 0))
+		var by_enemy := attacker_owner != 0 and attacker_owner != owner
+		_ev_destroyed_open[uid] = true
+		_ev_deferred.append({"player": owner, "window_id": "unit_destroyed",
+			"ctx": {"unit_id": uid, "attacker_unit_id": attacker if by_enemy else ""}})
+		DebugLogger.info("[StratagemWindow] event: %s destroyed (P%d)%s" % [uid, owner, (" by the attacks of %s" % attacker) if by_enemy else ""])
+		if by_enemy:
+			if not _ev_attacks.has(attacker):
+				_ev_attacks[attacker] = []
+			_ev_attacks[attacker].append(uid)
+	var shocked_raised := {}
+	for uid in now.get("shocked", {}):
+		if _ev_baseline.get("shocked", {}).has(uid):
+			continue
+		# An Attached unit becomes battle-shocked as one unit: one window, keyed
+		# by the unit its components resolve to.
+		var head := str(RulesEngine.attached_unit_target_id(uid, GameState.state))
+		if shocked_raised.has(head) or (head != uid and _ev_baseline.get("shocked", {}).has(head)):
+			continue
+		shocked_raised[head] = true
+		var s_owner := int(units.get(head, {}).get("owner", 0))
+		_ev_deferred.append({"player": s_owner, "window_id": "unit_battle_shocked", "ctx": {"unit_id": head}})
+		DebugLogger.info("[StratagemWindow] event: %s became battle-shocked (P%d)" % [head, s_owner])
+	_ev_baseline = now
+	# An attacking unit whose attacks are over: enemy_unit_has_attacked for the
+	# owner(s) of the units destroyed during those attacks.
+	var still_attacking := _window_attacking_unit_id()
+	for atk in _ev_attacks.keys():
+		if atk == still_attacking:
+			continue
+		var by_owner := {}
+		for d in _ev_attacks[atk]:
+			var p := int(units.get(d, {}).get("owner", 0))
+			if not by_owner.has(p):
+				by_owner[p] = []
+			by_owner[p].append(d)
+		for p in by_owner:
+			_ev_deferred.append({"player": p, "window_id": "enemy_unit_has_attacked",
+				"ctx": {"attacker_unit_id": atk, "destroyed_unit_ids": by_owner[p]}})
+			DebugLogger.info("[StratagemWindow] event: %s has attacked — destroyed %s (P%d)" % [atk, str(by_owner[p]), p])
+		_ev_attacks.erase(atk)
+
+## Move queued event windows to the FRONT of the window queue (they were
+## caused by what just happened, so they resolve before older entries).
+func _window_events_pull_deferred() -> void:
+	if _ev_deferred.is_empty():
+		return
+	var entries: Array = _ev_deferred
+	_ev_deferred = []
+	entries.append_array(_window_queue)
+	_window_queue = entries
+
+## Detect events and open their windows if nothing else is pending. `result`
+## (the action's result, or {}) receives the synchronous AI diffs and the
+## stratagem_window_opened stamp for the network mirror.
+func _window_events_flush(result) -> void:
+	_window_events_detect()
+	if _ev_deferred.is_empty():
+		return
+	var pm = get_node_or_null("/root/PhaseManager")
+	if pm != null and pm.current_phase_instance != null and pm.current_phase_instance != self:
+		# The action ended this phase: the windows open in the next phase.
+		var nxt = pm.current_phase_instance
+		var handed: Array = _ev_deferred
+		_ev_deferred = []
+		DebugLogger.info("[StratagemWindow] phase ended — handing %d event window(s) to %s" % [handed.size(), nxt.get_script().resource_path.get_file()])
+		if nxt.has_method("_window_events_adopt"):
+			nxt._window_events_adopt(handed)
+			if typeof(result) == TYPE_DICTIONARY and nxt.has_pending_stratagem_window():
+				result["stratagem_window_opened"] = nxt.get_pending_stratagem_window().duplicate(true)
+		return
+	if has_pending_stratagem_window() or _window_followup_pending:
+		return  # opened by _continue_window_queue_or_resume when it closes
+	var entries: Array = _ev_deferred
+	_ev_deferred = []
+	open_stratagem_windows(entries, "", {})
+	var sync := consume_window_diffs()
+	if typeof(result) != TYPE_DICTIONARY:
+		return
+	if not sync.is_empty():
+		if result.get("changes", null) is Array:
+			result.changes.append_array(sync)
+		elif result.get("success", false):
+			result["changes"] = sync
+	if has_pending_stratagem_window():
+		result["stratagem_window_opened"] = _window_pending.duplicate(true)
+
+## Event windows handed over by the previous phase instance.
+func _window_events_adopt(entries: Array) -> void:
+	_ev_baseline = _ev_snapshot()
+	for e in entries:
+		if str(e.get("window_id", "")) == "unit_destroyed":
+			_ev_destroyed_open[str(e.get("ctx", {}).get("unit_id", ""))] = true
+	_ev_deferred.append_array(entries)
+	_window_events_flush({})
+
+## Called whenever a window closes (answered, declined, no offers, suppressed).
+func _window_event_closed(window_id: String, ctx: Dictionary, used: bool) -> void:
+	if window_id != "unit_destroyed":
+		return
+	var uid := str(ctx.get("unit_id", ""))
+	_ev_destroyed_open.erase(uid)
+	if _ev_dd_held.has(uid):
+		_ev_dd_held.erase(uid)
+		_ev_dd_released.append(uid)
+		DebugLogger.info("[StratagemWindow] unit_destroyed window for %s closed (used=%s) — resolving its held Deadly Demise" % [uid, str(used)])
+		if has_method("_resolve_deadly_demise_if_applicable"):
+			call("_resolve_deadly_demise_if_applicable", uid)
+
+## Deadly Demise sites call this first (design §3 unit_destroyed: the window
+## opens BEFORE Deadly Demise is rolled). True = hold the roll until the
+## unit's window closes (_window_event_closed resolves it then, unless a
+## stratagem such as FLYIN' HEADBUTT removed the ability).
+func _window_hold_deadly_demise(unit_id: String) -> bool:
+	# Destroyed inside this very kill chain (e.g. by another unit's Deadly
+	# Demise) and not detected yet: raise its unit_destroyed window now.
+	if not _ev_destroyed_open.has(unit_id) and _ev_baseline.get("alive", {}).has(unit_id) \
+			and _is_unit_destroyed_check(GameState.get_unit(unit_id)):
+		_window_events_detect()
+	if not _ev_destroyed_open.has(unit_id):
+		return false
+	# Only hold when the owner actually has something to offer — otherwise
+	# Deadly Demise resolves exactly as before (same order, same dice).
+	var owner := int(GameState.get_unit(unit_id).get("owner", 0))
+	var dd_ctx := {"unit_id": unit_id, "phase": StratagemManager._phase_to_string(GameState.get_current_phase())}
+	if StratagemManager.get_window_offers(owner, "unit_destroyed", dd_ctx).is_empty():
+		return false
+	_ev_dd_held[unit_id] = true
+	DebugLogger.info("[StratagemWindow] Deadly Demise of %s held until its unit_destroyed window closes" % unit_id)
+	return true
 
 func _window_error(msg: String) -> void:
 	push_error("[StratagemWindow] " + msg)

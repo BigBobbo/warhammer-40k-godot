@@ -2814,15 +2814,32 @@ func force_battle_shock_test(unit_id: String, roll_modifier: int = 0, source: St
 		return {"success": false, "error": "unit not found"}
 	var CommandPhaseScript = load("res://phases/CommandPhase.gd")
 	var ld = CommandPhaseScript._get_effective_leadership(unit_id)
+	# MOB MENTALITY (Codex: Orks 11e): "That unit's battle-shock rolls are
+	# automatically successful" for the rest of the phase.
+	if unit.get("flags", {}).get("ork11e_mob_mentality", false):
+		print("FactionAbilityManager: %s — forced Battle-shock test for %s AUTO-PASSED (MOB MENTALITY)" % [source, unit_id])
+		return {"success": true, "passed": true, "auto_passed": true, "total": 0, "leadership": ld, "dice": [], "diffs": []}
 	var rng = RulesEngine.make_rng()
 	var d1 = rng.rng.randi_range(1, 6)
 	var d2 = rng.rng.randi_range(1, 6)
 	var total = d1 + d2 + roll_modifier
 	var passed = total >= ld
+	# State diffs of the result (applied here as before; returned so callers
+	# that build an action result can record them for replay / network).
+	var shock_diffs: Array = []
 	if not passed:
 		if not unit.has("flags"):
 			unit["flags"] = {}
 		unit["flags"]["battle_shocked"] = true
+		shock_diffs.append({"op": "set", "path": "units.%s.flags.battle_shocked" % unit_id, "value": true})
+		# An Attached unit is battle-shocked as one unit (its characters too).
+		for char_id in GameState.get_attached_characters(unit_id):
+			var char_unit = GameState.state.get("units", {}).get(char_id, {})
+			if not char_unit.is_empty():
+				if not char_unit.has("flags"):
+					char_unit["flags"] = {}
+				char_unit["flags"]["battle_shocked"] = true
+				shock_diffs.append({"op": "set", "path": "units.%s.flags.battle_shocked" % char_id, "value": true})
 	print("FactionAbilityManager: %s — forced Battle-shock test for %s: %d+%d%+d=%d vs Ld %d -> %s" % [
 		source if source != "" else "Forced test", unit_id, d1, d2, roll_modifier, total, ld,
 		"PASSED" if passed else "FAILED (battle-shocked)"])
@@ -2832,7 +2849,7 @@ func force_battle_shock_test(unit_id: String, roll_modifier: int = 0, source: St
 		game_event_log.add_player_entry(int(unit.get("owner", 0)),
 			"%s: %s takes a Battle-shock test (%d vs Ld %d) — %s" % [
 				source, unit_name, total, ld, "passed" if passed else "FAILED"])
-	return {"success": true, "passed": passed, "total": total, "leadership": ld, "dice": [d1, d2]}
+	return {"success": true, "passed": passed, "total": total, "leadership": ld, "dice": [d1, d2], "diffs": shock_diffs}
 
 func process_big_gob(player: int) -> void:
 	"""Big Gob (Bully Boyz): at the start of the Fight phase, one enemy unit

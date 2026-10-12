@@ -163,6 +163,26 @@ func _on_phase_enter() -> void:
 	else:
 		DebugLogger.info(str("CommandPhase: %d unit(s) need battle-shock tests" % _units_needing_test.size()))
 
+	# Stratagem window battle_shock_step_start (design §3): the start-of-phase
+	# and Core CP steps above are done — the Battle-shock step starts now,
+	# before any battle-shock roll (MOB MENTALITY).
+	_open_battle_shock_step_window()
+
+## Opens the active player's battle_shock_step_start window. No resume step:
+## a human answers through the StratagemDialog, then rolls the tests as usual.
+func _open_battle_shock_step_window() -> void:
+	var player := get_current_player()
+	var queued: Array = []
+	for unit_id in _units_needing_test:
+		if not unit_id in _units_tested:
+			queued.append(unit_id)
+	var bss_ctx := {"phase": "command", "units_needing_test": queued}
+	if open_stratagem_window(player, "battle_shock_step_start", bss_ctx, ""):
+		DebugLogger.info("CommandPhase: waiting for Player %d's battle_shock_step_start stratagem decision" % player)
+	else:
+		# No action result at phase start: an AI use is already applied.
+		consume_window_diffs()
+
 func _generate_command_points(active_player: int) -> void:
 	# Issue #382: per current Wahapedia 10e, BOTH players gain 1 CP at the
 	# start of each Command phase. The per-round cap (bonus_cp_gained_this_round)
@@ -300,7 +320,7 @@ func _identify_units_needing_tests() -> void:
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
 			DebugLogger.info(str("CommandPhase: %s (%s) needs battle-shock test (below_half=%s at_half=%s shocked=%s)" % [unit_name, unit_id, below_half, at_half, is_shocked]))
 
-func _has_battle_shock_immunity(keywords: Array, abilities: Array) -> bool:
+static func _has_battle_shock_immunity(keywords: Array, abilities: Array) -> bool:
 	"""Check if a unit has FEARLESS or And They Shall Know No Fear keyword/ability,
 	which grants automatic immunity to battle-shock tests."""
 	# Check keywords
@@ -898,6 +918,10 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	# MOB MENTALITY (Codex: Orks 11e): "That unit's battle-shock rolls are
+	# automatically successful" until the end of the phase — no dice.
+	if unit.get("flags", {}).get("ork11e_mob_mentality", false):
+		return _apply_battle_shock_auto_success(unit_id, "MOB MENTALITY")
 	# Issue #369: use effective leadership (best of attached unit's models),
 	# not just the bodyguard's stat block.
 	var leadership = _get_effective_leadership(unit_id)
@@ -934,8 +958,10 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 	else:
 		log_phase_message("Battle-shock test for %s: 2D6 = %d (%d + %d) vs Ld %d" % [unit_name, roll_total, die1, die2, leadership])
 
-	# Check if Command Re-roll is available (only offer on failed tests)
-	if not test_passed and not action.has("dice_roll"):
+	# Check if Command Re-roll is available (only offer on failed tests).
+	# Not for the END_COMMAND auto-resolve: the phase ends in that same action,
+	# so a paused re-roll decision would strand the test unresolved.
+	if not test_passed and not action.has("dice_roll") and not action.get("auto_resolve", false):
 		var current_player = get_current_player()
 		var strat_manager = get_node_or_null("/root/StratagemManager")
 		if strat_manager:
@@ -1305,6 +1331,51 @@ func _apply_insane_bravery(unit_id: String, strat_result: Dictionary) -> Diction
 	emit_signal("battle_shock_test_resolved", ib_result)
 
 	return ib_result
+
+func _apply_battle_shock_auto_success(unit_id: String, source: String) -> Dictionary:
+	"""A battle-shock roll that is automatically successful (MOB MENTALITY):
+	no dice. 11e 08.03: a unit that was battle-shocked at the start of the step
+	and whose roll succeeds is no longer battle-shocked."""
+	var unit = GameState.state.get("units", {}).get(unit_id, {})
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+	var leadership = _get_effective_leadership(unit_id)
+	if unit_id not in _units_tested:
+		_units_tested.append(unit_id)
+	if unit_id not in _units_auto_passed:
+		_units_auto_passed.append(unit_id)
+	var changes: Array = []
+	var was_shocked: bool = unit.get("flags", {}).get("battle_shocked", false)
+	if was_shocked and GameConstants.edition >= 11:
+		changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % unit_id, "value": false})
+		for char_id in GameState.get_attached_characters(unit_id):
+			if not GameState.state.get("units", {}).get(char_id, {}).is_empty():
+				changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % char_id, "value": false})
+	DebugLogger.info(str("CommandPhase: %s AUTO-PASSED battle-shock test via %s%s" % [unit_name, source, " — recovered (11e 08.03)" if not changes.is_empty() else ""]))
+	GameState.add_action_to_phase_log({
+		"type": "BATTLE_SHOCK_TEST", "unit_id": unit_id, "die1": 0, "die2": 0, "roll_total": 0,
+		"leadership": leadership, "passed": true, "auto_passed": true, "source": source,
+		"turn": GameState.get_battle_round()})
+	var game_event_log = get_node_or_null("/root/GameEventLog")
+	if game_event_log:
+		game_event_log.add_player_entry(int(unit.get("owner", 0)),
+			"%s's Battle-shock test is automatically passed (%s)" % [unit_name, source])
+	var auto_result = {
+		"success": true,
+		"changes": changes,
+		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"die1": 0,
+		"die2": 0,
+		"roll_total": 0,
+		"leadership": leadership,
+		"test_passed": true,
+		"battle_shocked": false,
+		"auto_passed": true,
+		"auto_pass_source": source,
+		"message": "%s AUTO-PASSED battle-shock test (%s)" % [unit_name, source]
+	}
+	emit_signal("battle_shock_test_resolved", auto_result)
+	return auto_result
 
 # ============================================================================
 # FACTION ABILITIES — WAAAGH! (Orks)
@@ -2698,10 +2769,14 @@ func _handle_end_command() -> Dictionary:
 
 	# Auto-resolve any remaining battle-shock tests
 	var auto_resolved = []
+	# Their battle-shocked flag diffs ride in this action's result — they were
+	# previously dropped (the auto-resolved failures never became battle-shocked).
+	var auto_changes: Array = []
 	for unit_id in _units_needing_test:
 		if unit_id not in _units_tested:
-			var auto_result = _handle_battle_shock_test({"unit_id": unit_id})
+			var auto_result = _handle_battle_shock_test({"unit_id": unit_id, "auto_resolve": true})
 			auto_resolved.append(auto_result)
+			auto_changes.append_array(auto_result.get("changes", []))
 
 	if auto_resolved.size() > 0:
 		DebugLogger.info(str("CommandPhase: Auto-resolved %d remaining battle-shock test(s)" % auto_resolved.size()))
@@ -2764,6 +2839,7 @@ func _handle_end_command() -> Dictionary:
 
 	return {
 		"success": true,
+		"changes": auto_changes,
 		"message": "Command phase ended, objectives scored",
 		"auto_resolved_tests": auto_resolved
 	}

@@ -4848,6 +4848,20 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 				unit_id, {"mode": str(move_data.get("fall_back_mode", ""))})
 			changes.append_array(mt_fx)
 			log_phase_message("[11e] Applied %s template AFTER effects for %s (%d ops)" % [mt_map_11e[move_data.mode], unit_id, mt_fx.size()])
+			# 09.07 AFTER MOVING (desperate escape): "If your unit is not
+			# battle-shocked, you must make a battle-shock roll" — resolve the
+			# template's pending_battleshock_roll with the engine's out-of-
+			# Command-phase roll (a failure makes the unit battle-shocked, which
+			# opens its unit_battle_shocked stratagem window).
+			if move_data.mode == "FALL_BACK" and str(move_data.get("fall_back_mode", "")) == "desperate_escape":
+				var de_shocked: bool = GameState.get_unit(unit_id).get("flags", {}).get("battle_shocked", false)
+				if not de_shocked and has_node("/root/FactionAbilityManager"):
+					var de_roll: Dictionary = get_node("/root/FactionAbilityManager").force_battle_shock_test(unit_id, 0, "Desperate Escape")
+					changes.append_array(de_roll.get("diffs", []))
+					log_phase_message("[11e 09.07] Desperate escape battle-shock roll for %s: %s = %d vs Ld %d — %s" % [
+						unit_id, str(de_roll.get("dice", [])), int(de_roll.get("total", 0)), int(de_roll.get("leadership", 0)),
+						"passed" if de_roll.get("passed", true) else "battle-shocked"])
+				changes.append({"op": "set", "path": "units.%s.flags.pending_battleshock_roll" % unit_id, "value": false})
 
 	# ISS-073 (11e 24.35): a SUPER-HEAVY WALKER that opted its models into MOBILE
 	# for this move (to cross dense/difficult terrain) gambles at move end: roll

@@ -316,8 +316,16 @@ func execute_action(action: Dictionary) -> Dictionary:
 	# Kill hook: after diffs are applied, scan for alive=false changes
 	if result.get("success", false) and result.has("changes"):
 		_check_kill_diffs(result.changes)
+		# Units destroyed / battle-shocked by Deadly Demise or emergency
+		# disembarks above open their stratagem windows too (design §3).
+		if _ev_depth == 0:
+			_window_events_flush(result)
 
 	return result
+
+## Stratagem-window attribution (enemy_unit_has_attacked): the active fighter.
+func _window_attacking_unit_id() -> String:
+	return active_fighter_id
 
 func _check_kill_diffs(changes: Array) -> void:
 	"""Scan state-change diffs for models set to alive=false, then report unit destruction."""
@@ -438,6 +446,10 @@ func _record_superior_creation_if_applicable(destroyed_unit_id: String) -> void:
 
 func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 	"""P1-13: Check if a destroyed unit has Deadly Demise and resolve it."""
+	# Stratagem window unit_destroyed opens BEFORE Deadly Demise (design §3,
+	# FLYIN' HEADBUTT): hold the roll until that window closes.
+	if _window_hold_deadly_demise(destroyed_unit_id):
+		return
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if not ability_mgr:
 		return

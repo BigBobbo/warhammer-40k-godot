@@ -497,10 +497,15 @@ func _render_result() -> void:
 	if auto_passed:
 		# No dice were rolled — hide them rather than showing a meaningless pair.
 		_dice_row.visible = false
-		_verdict.text = "[center][color=#FFD966][b]AUTO-PASSED — INSANE BRAVERY[/b][/color][/center]"
+		# auto_pass_source: MOB MENTALITY (Codex: Orks 11e) also auto-passes.
+		var auto_source := str(_result.get("auto_pass_source", "INSANE BRAVERY"))
+		_verdict.text = "[center][color=#FFD966][b]AUTO-PASSED — %s[/b][/color][/center]" % auto_source
 		_effects_label.visible = true
 		_effects_label.add_theme_color_override("font_color", Color(0.85, 0.8, 0.55))
-		_effects_label.text = "1 CP spent. The test is passed automatically — no dice rolled."
+		if _result.has("auto_pass_source"):
+			_effects_label.text = "%s: this unit's battle-shock rolls are automatically successful — no dice rolled." % auto_source
+		else:
+			_effects_label.text = "1 CP spent. The test is passed automatically — no dice rolled."
 	else:
 		_dice_row.visible = true
 		_render_dice_total()

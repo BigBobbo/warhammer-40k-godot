@@ -163,11 +163,12 @@ func _section_registry() -> void:
 	for s in SM.get_faction_stratagems_for_player(1):
 		impl[str(s.get("csv_id", ""))] = bool(s.get("implemented", false))
 	_check("War Horde: HIT 'EM HARDER implemented", impl.get(HIT_CSV, false) == true, str(impl))
-	var others_off := true
+	# Every other row's flag follows the registry (groups add ids in parallel).
+	var others_follow_registry := true
 	for k in impl:
-		if k != HIT_CSV and impl[k]:
-			others_off = false
-	_check("War Horde: the other five rows stay unimplemented", others_off and impl.size() == 6, str(impl))
+		if impl[k] != (k in _impl):
+			others_follow_registry = false
+	_check("War Horde: the six rows' implemented flags follow the registry", others_follow_registry and impl.size() == 6, str(impl))
 	var ontb = SM.find_faction_stratagem_by_name(1, "ORKS IS NEVER BEATEN")
 	var r = SM.can_use_stratagem(1, ontb, "U_BOYZ_B", {"window_id": "enemy_targets_unit_fight"})
 	_check("unimplemented codex row: 'not yet mechanically implemented'", not r.can_use and "not yet mechanically implemented" in str(r.reason), str(r))
