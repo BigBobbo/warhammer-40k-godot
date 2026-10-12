@@ -712,6 +712,52 @@ func _section_fod_edges() -> void:
 	SM.on_phase_end(PHASE_FIGHT)
 	_restore_unit_state()
 
+	# Interactive defender path: the AllocationGroupOverlay rolls the Fight On
+	# Death D6s BEFORE applying its batch (bodyguard / destroyed checks see the
+	# kept models) and its APPLY_MELEE_SAVES summary carries marked diffs.
+	phase = _fresh_fight()
+	for uid in ["U_BOYZ_B", "U_WARBOSS_A"]:
+		_flags(uid)["ork11e_fod_mode"] = "riled_up"
+		_flags(uid)["waaagh_active"] = true
+	var Ovl = load("res://scripts/AllocationGroupOverlay.gd")
+	var ov = Ovl.new()
+	root.add_child(ov)
+	var summary := {}
+	ov.allocation_complete.connect(func(s): summary.merge(s, true))
+	var rolls_before: int = phase.dice_log.size()
+	ov.setup({"target_unit_id": "U_BOYZ_B", "target_unit_name": "Boyz", "shooter_unit_id": "U_CUSTODIAN_GUARD_A",
+		"weapon_name": "Guardian spear", "wounds_to_save": 14, "total_wounds": 14, "ap": -3, "damage": 2, "damage_raw": "2",
+		"base_save": 6, "is_psychic": false, "has_devastating_wounds": false, "devastating_wounds": 0, "melta_bonus": 0}, 1)
+	# auto_mode (computer allocates) resolves inside setup(); otherwise drive
+	# the confirm the same way.
+	if not ov.resolved:
+		ov.auto_mode = true
+		ov._on_confirm_pressed()
+	var ov_rolls: Array = phase.dice_log.slice(rolls_before).filter(func(d): return typeof(d) == TYPE_DICTIONARY and str(d.get("context", "")) == "ork11e_fight_on_death")
+	var ov_kept: int = ov_rolls.filter(func(d): return d.get("kept", false)).size()
+	var zero_alive := 0
+	for m in _unit("U_BOYZ_B").models:
+		if m.get("alive", true) and int(m.get("current_wounds", 1)) <= 0:
+			zero_alive += 1
+	print("    overlay batch: casualties=%d rolls=%d kept=%d" % [int(ov.batch_result.get("casualties", 0)), ov_rolls.size(), ov_kept])
+	_check("overlay: one D6 per model its batch destroyed", ov_rolls.size() > 0 and ov_rolls.size() == int(ov.batch_result.get("casualties", 0)), "%d rolls vs %d casualties" % [ov_rolls.size(), int(ov.batch_result.get("casualties", 0))])
+	_check("overlay: kept models applied as alive with 0 wounds", zero_alive == ov_kept)
+	ov._on_done_pressed()
+	var marked_all := true
+	var has_pending_diff := false
+	for d in summary.get("diffs", []):
+		if str(d.get("path", "")).ends_with(".alive") and not d.get("ork11e_fod_rolled", false):
+			marked_all = false
+		if str(d.get("path", "")) == "units.U_BOYZ_B.flags.ork11e_fod_pending":
+			has_pending_diff = true
+	_check("overlay summary: every destroyed-model diff marked as rolled", marked_all and not summary.get("diffs", []).is_empty())
+	_check("overlay summary: carries the pending list", has_pending_diff == (ov_kept > 0))
+	var n_after: int = phase.dice_log.size()
+	phase._ork11e_fod_intercept(summary.get("diffs", []))
+	_check("APPLY_MELEE_SAVES pass never re-rolls the overlay's models", phase.dice_log.size() == n_after)
+	SM.on_phase_end(PHASE_FIGHT)
+	_restore_unit_state()
+
 	# Phase left another way (transition): kept models still removed on exit.
 	phase = _fresh_fight()
 	_flags("U_DEFF_DREAD_A")["ork11e_fod_mode"] = "deff_dread"
