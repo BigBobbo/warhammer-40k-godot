@@ -4480,6 +4480,9 @@ func _check_position_would_overlap(model: Dictionary, new_pos: Vector2, charge_k
 	var charger_keywords: Array = []
 	if self_unit_id != "":
 		charger_keywords = GameState.get_unit(self_unit_id).get("meta", {}).get("keywords", [])
+		# Codex: Orks (11e) STOMPING JUGGERNAUT: "Your unit has MOBILE" (13.06).
+		if GameState.get_unit(self_unit_id).get("flags", {}).get("ork11e_mobile", false):
+			charger_keywords = charger_keywords + ["MOBILE"]
 	if Measurement.model_overlaps_any_wall(test_model, charger_keywords):
 		return true
 

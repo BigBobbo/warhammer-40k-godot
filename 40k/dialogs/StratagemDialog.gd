@@ -136,6 +136,12 @@ func _window_header_text() -> String:
 		"enemy_ended_move":
 			if enemy_name != "":
 				return "%s has ended a move" % enemy_name
+		"enemy_selected_to_fall_back":
+			if enemy_name != "":
+				return "%s has been selected to fall back" % enemy_name
+		"unit_ended_normal_move":
+			if u_name != "":
+				return "%s has ended a normal move" % u_name
 		"unit_destroyed":
 			if u_name != "":
 				return "%s has been destroyed" % u_name

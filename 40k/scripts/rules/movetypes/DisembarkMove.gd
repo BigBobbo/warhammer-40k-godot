@@ -1,6 +1,12 @@
 class_name DisembarkMove
 extends MoveType
 
+# Codex: Orks (11e) READIED BRAWLERS consumer (18.06 assault disembark mode).
+# Loaded at call time, not preloaded: OrkCodexMovement depends on autoloads,
+# and MoveTypes is compiled before the autoloads exist in `--script` runs.
+static func _ork_codex_movement():
+	return load("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
+
 ## 18.04 DISEMBARK MOVE (11e) — ELIGIBLE IF: embarked, did not embark
 ## this phase, and the TRANSPORT has NOT made an advance or fall-back
 ## move this phase (those bar disembarking entirely). Modes are then
@@ -45,7 +51,7 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 	return {"eligible": true, "reasons": []}
 
 func mode_ids() -> Array:
-	return ["rapid", "tactical", "combat"]
+	return ["rapid", "tactical", "combat", "assault"]
 
 ## Mode selection per 18.04's ordered, mandatory-if-applicable rules,
 ## driven by the transport's move history this phase.
@@ -54,6 +60,11 @@ func select_mode(unit_id: String, board: Dictionary, context: Dictionary = {}) -
 	var embarked_raw = unit.get("embarked_in", null)
 	var transport = _unit(board, str(embarked_raw) if embarked_raw != null else "")
 	var tf = transport.get("flags", {})
+	# Codex: Orks (11e) READIED BRAWLERS: units embarked in the WAGON make an
+	# ASSAULT DISEMBARK MOVE (18.06) instead — set-up 3", no AFTER MOVING
+	# restriction (eligibility is the same as 18.04's, checked above).
+	if _ork_codex_movement().transport_grants_assault_disembark(transport):
+		return {"mode": "assault", "mandatory": true, "available": ["assault"]}
 	if tf.get("moved_this_phase", false):
 		# normal or ingress move this phase (advance/fall-back are barred
 		# by eligibility before mode selection is reached)
