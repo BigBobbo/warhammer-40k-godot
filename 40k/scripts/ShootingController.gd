@@ -4385,6 +4385,13 @@ func _execute_auto_shoot(plan: Array) -> void:
 
 func _dispatch_next_auto_shoot() -> void:
 	"""Dispatch the next SHOOT action in the auto-shoot queue."""
+	# A stratagem window (e.g. unit_selected_to_shoot) paused the previous SHOOT
+	# for the player's decision: wait — dispatching now would be refused and
+	# silently drop that unit from the queue. The answer resumes that SHOOT.
+	if current_phase and current_phase.has_method("has_pending_stratagem_window") \
+			and current_phase.has_pending_stratagem_window():
+		get_tree().create_timer(0.3).timeout.connect(_dispatch_next_auto_shoot)
+		return
 	if _auto_shoot_queue.is_empty():
 		_finish_auto_shoot()
 		return
@@ -7106,6 +7113,11 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 
 	# Rapid Fire: +X attacks at half range (assume in rapid fire range for preview)
 	var rapid_fire_val = RulesEngine.get_rapid_fire_value(weapon_id)
+	# CLOSE-RANGE DAKKA (Codex: Orks 11e): [RAPID FIRE 1] / +1 to an existing RAPID FIRE
+	var fc_crd_rf = RulesEngine.ork11e_rapid_fire_bonus(attacker_unit, weapon_profile)
+	if fc_crd_rf > 0:
+		rapid_fire_val += fc_crd_rf
+		active_tags.append("Close-Range Dakka")
 	if rapid_fire_val > 0:
 		total_attacks += rapid_fire_val * model_count
 		active_tags.append("Rapid Fire %d" % rapid_fire_val)
@@ -7150,6 +7162,26 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 		if remained_stationary:
 			hit_modifier += 1
 			active_tags.append("Heavy")
+
+	# DRIVE-BY BUSTIN' (Codex: Orks 11e): +1 to hit when this weapon is one
+	# selected for the Firing Deck ability (every bearer a Firing Deck loan).
+	if RulesEngine.ork11e_drive_by_bustin_active(attacker_unit):
+		var fc_fd_bearers := 0
+		var fc_all_bearers := 0
+		var fc_unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+		for fc_mid in fc_unit_weapons:
+			if weapon_id in fc_unit_weapons[fc_mid]:
+				fc_all_bearers += 1
+				if RulesEngine.ork11e_is_firing_deck_bearer(fc_mid):
+					fc_fd_bearers += 1
+		if fc_all_bearers > 0 and fc_fd_bearers == fc_all_bearers:
+			hit_modifier += 1
+			active_tags.append("Drive-by Bustin'")
+
+	# LONG, UNCONTROLLED BURSTS (Codex: Orks 11e): re-roll hit rolls vs a FLY target
+	if RulesEngine.ork11e_long_uncontrolled_bursts_reroll(attacker_unit, target_unit):
+		hit_reroll_type = max(hit_reroll_type, 2)
+		active_tags.append("Uncontrolled Bursts")
 
 	# Damaged profile: -1 to hit
 	if RulesEngine.is_damaged_profile_active(attacker_unit):
@@ -7238,7 +7270,9 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 	var sustained_value = 0
 	var has_sustained = false
 	var sh_data = RulesEngine.get_sustained_hits_value(weapon_id)
-	if sh_data.get("value", 0) > 0 or EffectPrimitivesData.has_effect_sustained_hits(attacker_unit):
+	# NEVER ENOUGH DAKKA / DAKKASTORM / VINDICTIVE ARTILLERISTS (Codex: Orks 11e): ranged SH1
+	if sh_data.get("value", 0) > 0 or EffectPrimitivesData.has_effect_sustained_hits(attacker_unit) \
+			or RulesEngine.ork11e_ranged_sustained_hits(attacker_unit) > 0:
 		has_sustained = true
 		sustained_value = sh_data.get("value", 1)
 		if sustained_value == 0:
@@ -7246,6 +7280,9 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 
 	# Lethal Hits: crits auto-wound (skip wound roll)
 	var has_lethal = RulesEngine.has_lethal_hits(weapon_id) or EffectPrimitivesData.has_effect_lethal_hits(attacker_unit)
+	# Ranged-only LETHAL HITS grant (VINDICTIVE ARTILLERISTS, BLITZA FIRE)
+	if attacker_unit.get("flags", {}).get("effect_lethal_hits_ranged", false):
+		has_lethal = true
 
 	# Calculate expected hits including sustained bonus
 	var expected_normal_hits = total_attacks * non_crit_hit_prob
@@ -7291,6 +7328,11 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 		wound_reroll_type = max(wound_reroll_type, 1)
 	elif fc_wound_rr_scope == "failed" or fc_wound_rr_scope == "all":
 		wound_reroll_type = max(wound_reroll_type, 2)
+
+	# KUSTOM DAKKA (Codex: Orks 11e): +1 to wound vs a non-MONSTER/VEHICLE target
+	if RulesEngine.ork11e_kustom_dakka_wound_bonus(attacker_unit, target_unit) > 0:
+		wound_modifier += 1
+		active_tags.append("Kustom Dakka")
 
 	# Lance: +1 to wound if charged this turn
 	if RulesEngine.is_lance_weapon(weapon_id):
@@ -7351,6 +7393,12 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 
 	# === SAVE PROBABILITY ===
 	var ap = weapon_profile.get("ap", 0)
+
+	# GLOWIN' DAKKA (Codex: Orks 11e): +1 AP vs a target within 9"
+	var fc_glowin_ap = RulesEngine.ork11e_glowin_dakka_ap_bonus(attacker_unit, target_unit, GameState.state)
+	if fc_glowin_ap > 0:
+		ap = RulesEngine.ork11e_improve_ap(int(ap), fc_glowin_ap)
+		active_tags.append("Glowin' Dakka")
 
 	# Target defensive: Worsen AP (e.g. Ramshackle)
 	var worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)

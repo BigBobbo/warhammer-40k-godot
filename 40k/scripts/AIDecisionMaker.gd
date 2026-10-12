@@ -22855,6 +22855,16 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 				var sec = t.get("secondary", {})
 				if typeof(sec) == TYPE_DICTIONARY and not sec.get("options", []).is_empty():
 					ctx_out["secondary_id"] = str(sec.options[0].get("id", ""))
+				# A stratagem with no plain use (require_variant): take the
+				# handler's ai_variant hint when it is still offered, else the
+				# first (affordable) variant.
+				var t_variants: Array = t.get("variants", [])
+				if bool(t.get("require_variant", false)) and not t_variants.is_empty():
+					var pick := str(t_variants[0].get("id", ""))
+					for v in t_variants:
+						if str(v.get("id", "")) == str(t.get("ai_variant", "")):
+							pick = str(v.get("id", ""))
+					ctx_out["variant_id"] = pick
 				best = {"use": true, "stratagem_id": sid, "target_unit_id": tid, "context": ctx_out,
 					"name": str(offer.get("name", sid))}
 	for c in considered:

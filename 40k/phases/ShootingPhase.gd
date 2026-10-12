@@ -76,6 +76,14 @@ var swift_as_eagle_pending_strat: String = "SWIFT AS THE EAGLE"
 # is unengaged it may make a 6" Normal move but cannot charge this turn.
 var wazblasta_pending_unit: String = ""
 var awaiting_wazblasta: bool = false
+# Stratagem window unit_selected_to_shoot (design .llm/ork_codex_11e_design.md
+# §3): the unit the window has already been opened for in the CURRENT
+# selection, so re-entrant select calls (resume, Throat Slittas decline, the
+# atomic SHOOT's inner select) never offer it twice for one selection.
+var _sts_window_handled_unit: String = ""
+# AI (synchronous) window diffs produced inside the atomic SHOOT's inner
+# select — merged into the SHOOT result so replay / network see the CP spend.
+var _sts_carry_diffs: Array = []
 
 # PERF-LOS: per-snapshot eligible-target cache. get_eligible_targets() runs a
 # base-aware line-of-sight sweep over every enemy unit × weapon × model-pair —
@@ -619,7 +627,7 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_end_shooting(action)
 		"SHOOT":  # Full shooting action
 			DebugLogger.info("ShootingPhase: Matched SHOOT")
-			return _process_shoot(action)
+			return _merge_sts_carry_diffs(_process_shoot(action))
 		"APPLY_SAVES":  # Interactive save resolution
 			DebugLogger.info("ShootingPhase: Matched APPLY_SAVES")
 			return _process_apply_saves(action)
@@ -983,6 +991,28 @@ func _validate_resolve_weapon_sequence(action: Dictionary) -> Dictionary:
 
 func _process_select_shooter(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
+	# Stratagem window unit_selected_to_shoot (design §3): the unit has been
+	# selected to shoot — before any target is confirmed or attack rolled, the
+	# active player may use a "when … is selected to shoot" stratagem. Opened
+	# once per selection; the resume re-enters this function (guard set).
+	if _sts_window_handled_unit != unit_id:
+		_sts_window_handled_unit = unit_id
+		var sts = _open_selected_to_shoot_window(unit_id, action)
+		if sts.get("paused", false):
+			active_shooter_id = unit_id
+			return create_result(true, sts.get("diffs", []), "", {"stratagem_window_pending": true})
+		var sts_diffs: Array = sts.get("diffs", [])
+		if not sts_diffs.is_empty():
+			var sts_cont = _process_select_shooter(action)
+			if action.get("payload", {}).has("_sts_atomic_action"):
+				# Atomic SHOOT: _process_shoot drops the select result's
+				# changes — carry the AI's CP/effect diffs to its result.
+				_sts_carry_diffs.append_array(sts_diffs)
+				return sts_cont
+			var sts_merged: Array = sts_diffs.duplicate()
+			sts_merged.append_array(sts_cont.get("changes", []))
+			sts_cont["changes"] = sts_merged
+			return sts_cont
 	active_shooter_id = unit_id
 	pending_assignments.clear()
 	confirmed_assignments.clear()
@@ -1137,6 +1167,64 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 	log_phase_message("Selected %s for shooting" % unit.get("meta", {}).get("name", unit_id))
 
 	return create_result(true, [])
+
+## Open the unit_selected_to_shoot stratagem window (design §3, §6.2) for the
+## active player. Returns {paused: bool, diffs: Array}: paused = a human must
+## answer (the resume re-enters the selection, or the atomic SHOOT when the
+## selection came from one); diffs = window diffs to merge into the result
+## (AI uses are applied synchronously).
+func _open_selected_to_shoot_window(unit_id: String, action: Dictionary) -> Dictionary:
+	var payload: Dictionary = action.get("payload", {})
+	var atomic_action = payload.get("_sts_atomic_action", {})
+	var sts_ctx := {"phase": "shooting", "unit_id": unit_id}
+	if typeof(atomic_action) == TYPE_DICTIONARY and not atomic_action.is_empty():
+		# AI / auto-shoot: the planned targets are already known — the AI's
+		# stratagem scoring may read them (humans pick targets afterwards).
+		var planned: Array = []
+		var planned_bearers: Array = []
+		for a in atomic_action.get("payload", {}).get("assignments", []):
+			var tid := str(a.get("target_unit_id", ""))
+			if tid != "" and not tid in planned:
+				planned.append(tid)
+			for mid in a.get("model_ids", []):
+				if not str(mid) in planned_bearers:
+					planned_bearers.append(str(mid))
+		sts_ctx["planned_target_unit_ids"] = planned
+		sts_ctx["planned_bearer_ids"] = planned_bearers
+	var resume_ctx := {"unit_id": unit_id, "select_action": action.duplicate(true)}
+	if typeof(atomic_action) == TYPE_DICTIONARY and not atomic_action.is_empty():
+		resume_ctx["atomic_action"] = atomic_action.duplicate(true)
+	var decider := get_current_player()
+	if open_stratagem_windows([{"player": decider, "window_id": "unit_selected_to_shoot", "ctx": sts_ctx}],
+			"_resume_after_selected_to_shoot_window", resume_ctx):
+		log_phase_message("Waiting for Player %d's unit_selected_to_shoot stratagem decision for %s" % [decider, unit_id])
+		return {"paused": true, "diffs": consume_window_diffs()}
+	return {"paused": false, "diffs": consume_window_diffs()}
+
+## Resume point for the unit_selected_to_shoot window (BasePhase framework):
+## continue the interrupted selection — or the whole atomic SHOOT.
+func _resume_after_selected_to_shoot_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	var unit_id := str(ctx.get("unit_id", ""))
+	_sts_window_handled_unit = unit_id
+	var atomic_action = ctx.get("atomic_action", {})
+	if typeof(atomic_action) == TYPE_DICTIONARY and not atomic_action.is_empty():
+		return _merge_sts_carry_diffs(_process_shoot(atomic_action))
+	var select_action = ctx.get("select_action", {})
+	if typeof(select_action) != TYPE_DICTIONARY or select_action.is_empty():
+		select_action = {"type": "SELECT_SHOOTER", "actor_unit_id": unit_id}
+	return _process_select_shooter(select_action)
+
+## Prepend the AI window diffs carried out of the atomic SHOOT's inner select.
+func _merge_sts_carry_diffs(result: Dictionary) -> Dictionary:
+	if _sts_carry_diffs.is_empty():
+		return result
+	var carried: Array = _sts_carry_diffs
+	_sts_carry_diffs = []
+	if result.get("success", false):
+		var merged: Array = carried.duplicate()
+		merged.append_array(result.get("changes", []))
+		result["changes"] = merged
+	return result
 
 func _process_assign_target(action: Dictionary) -> Dictionary:
 	var payload = action.get("payload", {})
@@ -2540,8 +2628,12 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Step 1: Select shooter (skip Throat Slittas prompt for AI — handle automatically)
-	var select_result = _process_select_shooter({"actor_unit_id": unit_id, "payload": {"skip_throat_slittas_check": true}})
+	var select_result = _process_select_shooter({"actor_unit_id": unit_id, "payload": {"skip_throat_slittas_check": true, "_sts_atomic_action": action}})
 	if not select_result.success:
+		return select_result
+	# unit_selected_to_shoot window waiting for a HUMAN decider (e.g. "Shoot
+	# All Remaining"): stop here — the resume re-enters _process_shoot(action).
+	if select_result.get("stratagem_window_pending", false):
 		return select_result
 
 	# P1-12: AI auto-resolve Throat Slittas if applicable

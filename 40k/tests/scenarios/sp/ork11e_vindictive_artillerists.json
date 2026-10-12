@@ -1,0 +1,326 @@
+{
+  "id": "ork11e_vindictive_artillerists",
+  "covers": [
+    "stratagem.window.unit_selected_to_shoot",
+    "stratagem.ork11e.vindictive_artillerists",
+    "dialogs.StratagemDialog.window_mode",
+    "phases.ShootingPhase.select_shooter_window",
+    "dialogs.StratagemDialog.require_variant",
+    "rules.hazardous.granted"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) VINDICTIVE ARTILLERISTS (Madcap Meks) through the real unit_selected_to_shoot WINDOW. Setup-only: P1's detachment is switched to Madcap Meks (fixture army is War Horde), Custodian Guard C is moved unengaged in front of the Ork rank with inflated wounds, and the defender auto-allocates. A real click on the Mek Gunz token opens the StratagemDialog with the VINDICTIVE ARTILLERISTS card showing ONLY the three option buttons ([LETHAL HITS] / [SUSTAINED HITS 1] / [HAZARDOUS]+[LETHAL HITS]+[SUSTAINED HITS 1]), all enabled; there is no plain Use button. A real click on the overcharged option spends 1 CP and gives the Mek Gunz ranged LETHAL HITS, SUSTAINED HITS 1 and HAZARDOUS for the phase. The shot is declared and resolved through Quick-Assign, Confirm, the dock's Fast button and the save overlay's Done: the hit roll carries LETHAL + SUSTAINED HITS 1 and a hazard roll follows the attacks.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.factions[\"1\"][\"detachment\"] = \"Madcap Meks\"\nStratagemManager.load_faction_stratagems_for_player(1)\nvar s = StratagemManager.get_stratagem(\"faction_ork_madcap_meks_vindictive_artillerists\")\nreturn s.get(\"implemented\", false) and s.get(\"csv_id\", \"\") == \"vindictive-artillerists-madcap-meks\"",
+      "equals": true,
+      "comment": "setup: the fixture army is War Horde — switch P1 to the Madcap Meks detachment and reload its stratagems"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var xs = [2.0, 4.0, 6.0, 8.0, 10.0]\nvar ms = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models\nfor i in range(ms.size()):\n\tms[i][\"position\"] = {\"x\": xs[i] * 40.0, \"y\": 21.0 * 40.0}\n\tms[i][\"wounds\"] = 99\n\tms[i][\"current_wounds\"] = 99\nreturn true",
+      "equals": true,
+      "comment": "setup: Custodian Guard C stands unengaged in front of the Ork rank (wounds inflated so it survives)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "script": "StratagemManager.can_use_stratagem(1, \"faction_ork_madcap_meks_vindictive_artillerists\", \"U_MEK_GUNZ_A\").reason",
+      "equals": "Offered automatically when one of your units is selected to shoot"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_MEK_GUNZ_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text",
+      "equals": "Mek Gunz has been selected to shoot"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_madcap_meks_vindictive_artillerists",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_madcap_meks_vindictive_artillerists/Buttons/Use_faction_ork_madcap_meks_vindictive_artillerists_U_MEK_GUNZ_A\") == null",
+      "equals": true,
+      "comment": "no plain Use button — one of the three options must be chosen"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_madcap_meks_vindictive_artillerists/Buttons/Use_faction_ork_madcap_meks_vindictive_artillerists_U_MEK_GUNZ_A_lethal_hits",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_madcap_meks_vindictive_artillerists/Buttons/Use_faction_ork_madcap_meks_vindictive_artillerists_U_MEK_GUNZ_A_lethal_hits",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_madcap_meks_vindictive_artillerists/Buttons/Use_faction_ork_madcap_meks_vindictive_artillerists_U_MEK_GUNZ_A_sustained_hits",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_madcap_meks_vindictive_artillerists/Buttons/Use_faction_ork_madcap_meks_vindictive_artillerists_U_MEK_GUNZ_A_sustained_hits",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_madcap_meks_vindictive_artillerists/Buttons/Use_faction_ork_madcap_meks_vindictive_artillerists_U_MEK_GUNZ_A_overcharge",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_madcap_meks_vindictive_artillerists/Buttons/Use_faction_ork_madcap_meks_vindictive_artillerists_U_MEK_GUNZ_A_overcharge",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_SHOOTING",
+        "player": 1
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/StratScroll\").ensure_control_visible(main.get_tree().root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_madcap_meks_vindictive_artillerists/Buttons/Use_faction_ork_madcap_meks_vindictive_artillerists_U_MEK_GUNZ_A_overcharge\"))"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_vindictive_artillerists_window_dialog"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_madcap_meks_vindictive_artillerists/Buttons/Use_faction_ork_madcap_meks_vindictive_artillerists_U_MEK_GUNZ_A_overcharge"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_MEK_GUNZ_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"VINDICTIVE ARTILLERISTS\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_MEK_GUNZ_A.flags.ork11e_vindictive_artillerists",
+      "equals": "overcharge"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_MEK_GUNZ_A.flags.effect_lethal_hits_ranged",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_MEK_GUNZ_A.flags.effect_grant_hazardous",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nvar fc = c._calc_weapon_expected_damage(\"smasha_gun_ranged\", \"U_CUSTODIAN_GUARD_C\")\nreturn (\"Lethal\" in fc.get(\"active_tags\", [])) and (\"SH 1\" in fc.get(\"active_tags\", []))",
+      "equals": true,
+      "comment": "forecast shows [LETHAL HITS] and [SUSTAINED HITS 1] on the smasha gun"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller.eligible_targets.has(\"U_CUSTODIAN_GUARD_C\")",
+      "equals": true,
+      "comment": "the selection resumed: Custodian Guard C is offered as a target"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_vindictive_artillerists_used_forecast"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_CUSTODIAN_GUARD_C",
+      "comment": "Quick-Assign (hidden when the only eligible target is auto-assigned)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_assignments.size()",
+      "expect_min": 1
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and (str(d.get(\"context\", \"\")) == \"to_hit\" and d.get(\"lethal_hits_weapon\", false) and int(d.get(\"sustained_hits_value\", 0)) == 1):\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "the smasha gun's hit roll had [LETHAL HITS] and [SUSTAINED HITS 1]"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_vindictive_artillerists_resolved_effect"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and (str(d.get(\"context\", \"\")) == \"hazardous_check\" and int(d.get(\"models_checked\", 0)) >= 1):\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "the granted [HAZARDOUS] made a hazard roll after the attacks (11e 24.15)"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_vindictive_artillerists_after_saves"
+    }
+  ]
+}

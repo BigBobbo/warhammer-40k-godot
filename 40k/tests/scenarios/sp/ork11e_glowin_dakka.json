@@ -1,0 +1,291 @@
+{
+  "id": "ork11e_glowin_dakka",
+  "covers": [
+    "stratagem.window.unit_selected_to_shoot",
+    "stratagem.ork11e.glowin_dakka",
+    "dialogs.StratagemDialog.window_mode",
+    "phases.ShootingPhase.select_shooter_window"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) GLOWIN' DAKKA (Shoota Boyz) through the real unit_selected_to_shoot WINDOW. Setup-only: P1 switched to Shoota Boyz, the Prosecutors (T3, Sv3+, no invulnerable save) moved unengaged ~8\" (inside 9\") in front of Gretchin D with inflated wounds, defender auto-allocates. A real click on the Gretchin token opens the StratagemDialog offering all three Shoota Boyz stratagems, with an enabled 'Use on Gretchin Beta' on GLOWIN' DAKKA. A real click spends 1 CP; the forecast shows Glowin' Dakka. Confirm + Fast + Done resolve the grot blastas (AP0): the Prosecutors' saves are rolled against AP-1 — 3+ armour becomes 4+ (11e 02.02.06: improving AP 0 by 1 gives AP-1).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.factions[\"1\"][\"detachment\"] = \"Shoota Boyz\"\nStratagemManager.load_faction_stratagems_for_player(1)\nvar s = StratagemManager.get_stratagem(\"faction_ork_shoota_boyz_glowin_dakka\")\nreturn s.get(\"implemented\", false) and s.get(\"csv_id\", \"\") == \"glowin-dakka-shoota-boyz\"",
+      "equals": true,
+      "comment": "setup: the fixture army is War Horde — switch P1 to the Shoota Boyz detachment and reload its stratagems"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var xs = [2.0, 4.0, 6.0, 8.0, 10.0]\nvar ms = GameState.state.units[\"U_PROSECUTORS_A\"].models\nfor i in range(ms.size()):\n\tms[i][\"position\"] = {\"x\": xs[i] * 40.0, \"y\": 21.0 * 40.0}\n\tms[i][\"wounds\"] = 99\n\tms[i][\"current_wounds\"] = 99\nreturn true",
+      "equals": true,
+      "comment": "setup: Custodian Guard C stands unengaged in front of the Ork rank (wounds inflated so it survives)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "script": "StratagemManager.can_use_stratagem(1, \"faction_ork_shoota_boyz_glowin_dakka\", \"U_GRETCHIN_D\").reason",
+      "equals": "Offered automatically when one of your units is selected to shoot"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GRETCHIN_D"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text",
+      "equals": "Gretchin Beta has been selected to shoot"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_shoota_boyz_glowin_dakka",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_shoota_boyz_glowin_dakka/Buttons/Use_faction_ork_shoota_boyz_glowin_dakka_U_GRETCHIN_D",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_shoota_boyz_glowin_dakka/Buttons/Use_faction_ork_shoota_boyz_glowin_dakka_U_GRETCHIN_D",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_SHOOTING",
+        "player": 1
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_glowin_dakka_window_dialog"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_shoota_boyz_glowin_dakka/Buttons/Use_faction_ork_shoota_boyz_glowin_dakka_U_GRETCHIN_D"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_GRETCHIN_D"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"GLOWIN' DAKKA\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_GRETCHIN_D.flags.ork11e_glowin_dakka",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.ork11e_glowin_dakka_ap_bonus(GameState.state.units[\"U_GRETCHIN_D\"], GameState.state.units[\"U_PROSECUTORS_A\"], GameState.state)",
+      "equals": 1,
+      "comment": "the target is within 9\" of the Gretchin"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nvar fc = c._calc_weapon_expected_damage(\"grot_blasta_ranged\", \"U_PROSECUTORS_A\")\nreturn \"Glowin' Dakka\" in fc.get(\"active_tags\", [])",
+      "equals": true,
+      "comment": "forecast: +1 AP vs the target within 9\""
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller.eligible_targets.has(\"U_PROSECUTORS_A\")",
+      "equals": true,
+      "comment": "the selection resumed: Custodian Guard C is offered as a target"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_glowin_dakka_used_forecast"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_PROSECUTORS_A",
+      "comment": "Quick-Assign (hidden when the only eligible target is auto-assigned)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_assignments.size()",
+      "expect_min": 1
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor sd in p.pending_save_data:\n\tif int(sd.get(\"ap\", 0)) == -1:\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "the saves the Prosecutors must make are at AP-1 (grot blasta AP0 improved by 1)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and (str(d.get(\"context\", \"\")) == \"to_hit\"):\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "the grot blastas rolled to hit"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_glowin_dakka_resolved_effect"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and (str(d.get(\"context\", \"\")) == \"save_roll\" and str(d.get(\"threshold\", \"\")) == \"4+\"):\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "the Prosecutors' saves (Sv3+) were rolled needing 4+ (AP-1) in the game's dice log"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_glowin_dakka_after_saves"
+    }
+  ]
+}

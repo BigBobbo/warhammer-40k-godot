@@ -453,6 +453,8 @@ func _validate_window_action(action: Dictionary) -> Dictionary:
 						variant_ok = true
 				if not variant_ok:
 					return {"valid": false, "errors": ["Variant %s is not offered for %s" % [variant, sid]]}
+			elif bool(t.get("require_variant", false)) and not t.get("variants", []).is_empty():
+				return {"valid": false, "errors": ["%s needs one of its options to be chosen" % offer.get("name", sid)]}
 			if t.has("secondary") and typeof(actx) == TYPE_DICTIONARY and str(actx.get("secondary_id", "")) == "":
 				return {"valid": false, "errors": ["%s needs a %s choice" % [offer.get("name", sid), t.secondary.get("kind", "secondary")]]}
 			return {"valid": true, "errors": []}
