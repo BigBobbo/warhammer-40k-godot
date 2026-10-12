@@ -77,4 +77,4 @@ behaviour, pinned on ONLY IN DEATH DOES DUTY END since CAREEN! is gone).
 | file | status |
 |---|---|
 | `bully_boyz_armed_to_da_teef.json` | 11 passed / 5 failed: asserts the 10e S-panel flow (`get_implemented_faction_stratagems_for_player == 6`, target picker, `effect_reroll_hits == ones`). The codex ARMED TO DA TEEF is a `unit_selected_to_shoot/fight` window stratagem and is not implemented yet (custom:ork11e). Needs rewriting as `ork11e_armed_to_da_teef`. |
-| `kult_of_speed_speediest_freeks.json` | 13 passed / 6 failed: same — 10e panel flow + 5+ invuln effect; the codex SPEEDIEST FREEKS is an `enemy_targets_unit_shooting` window stratagem ("fail on unmodified 1-3"). Needs rewriting as `ork11e_speediest_freeks`. |
+| `kult_of_speed_speediest_freeks.json` | DELETED — rewritten as `ork11e_speediest_freeks.json` (enemy_targets_unit_shooting fold-in, unmodified hit rolls of 1-3 fail). |

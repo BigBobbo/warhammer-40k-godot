@@ -63,6 +63,11 @@ var _in_resync: bool = false
 # site — emitting mid-loop caused use-after-free on the tree's items).
 var _pending_auto_assigns: Array = []
 var save_dialog_showing: bool = false  # Prevent multiple dialogs
+var _last_reactive_opportunity: Array = []  # [defending_player, available_stratagems, target_unit_ids] of the open reactive dialog
+var _ork11e_move_active: bool = false  # Codex: Orks (11e) reactive move in progress (move panel up)
+var _ork11e_move_info: Dictionary = {}
+var _ork11e_drag_start = null  # board px where the left button went down
+var _ork11e_drag_on_unit: bool = false
 var current_save_context: Dictionary = {}  # Track what we're showing dialog for (weapon, target)
 var active_allocation_overlay: Control = null  # WoundAllocationOverlay (10e) or AllocationGroupOverlay (11e)
 var processing_saves_signal: bool = false  # Flag to prevent re-entrant signal calls
@@ -914,6 +919,10 @@ func phase_signal_map() -> Dictionary:
 		"distraction_grot_available": _on_distraction_grot_available,  # audit P0: human defender UI
 		"shooty_power_trip_available": _on_shooty_power_trip_available,  # audit P1: human UI
 		"pulsa_rokkit_available": _on_pulsa_rokkit_available,  # audit P1: human UI
+		# Codex: Orks (11e) reactive move follow-ups (GRAB IT / GOADED INTO ACTION)
+		"ork11e_reactive_move_started": _on_ork11e_reactive_move_started,
+		"ork11e_reactive_move_updated": _on_ork11e_reactive_move_updated,
+		"ork11e_reactive_move_ended": _on_ork11e_reactive_move_ended,
 	}
 
 func set_phase(phase: BasePhase) -> void:
@@ -3357,6 +3366,10 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 	dialog.stratagem_selected.connect(_on_reactive_stratagem_selected)
 	dialog.stratagem_selected_with_context.connect(_on_reactive_stratagem_selected_with_context)
 	dialog.stratagem_declined.connect(_on_reactive_stratagem_declined)
+	dialog.stratagem_declined_dont_offer_again.connect(_on_reactive_stratagem_declined.bind(true))
+	# Kept so a cancelled secondary pick (GROT SHIELDS' shielded unit) can
+	# re-open the same dialog.
+	_last_reactive_opportunity = [defending_player, available_stratagems, target_unit_ids]
 
 	get_tree().root.add_child(dialog)
 	dialog.setup(defending_player, available_stratagems, target_unit_ids)
@@ -3388,9 +3401,27 @@ func _on_reactive_stratagem_selected(stratagem_id: String, target_unit_id: Strin
 
 func _on_reactive_stratagem_selected_with_context(stratagem_id: String, target_unit_id: String, context: Dictionary) -> void:
 	"""Folded-in window offer with a variant (design §3.1): same action, plus
-	the dialog's choice in action.context (ShootingPhase adds the window keys)."""
+	the dialog's choice in action.context (ShootingPhase adds the window keys).
+	A target entry with a secondary pick (context._secondary, e.g. GROT
+	SHIELDS: which ORKS INFANTRY unit to shield) asks for it first through the
+	same StratagemTargetDialog/StratagemChoiceDialog as window mode
+	(Pick_<id> / Choice_<id>); Cancel re-opens the reactive dialog."""
 	print("ShootingController: Reactive stratagem selected: %s on %s context=%s" % [stratagem_id, target_unit_id, str(context)])
 	var main_node = SceneRefs.main()
+	var secondary = context.get("_secondary", {})
+	if typeof(secondary) == TYPE_DICTIONARY and not secondary.get("options", []).is_empty() \
+			and main_node and main_node.has_method("_show_window_secondary_dialog"):
+		var base_ctx: Dictionary = context.duplicate()
+		base_ctx.erase("_secondary")
+		main_node._show_window_secondary_dialog(secondary,
+			func(secondary_id: String):
+				var ctx2: Dictionary = base_ctx.duplicate()
+				ctx2["secondary_id"] = secondary_id
+				_on_reactive_stratagem_selected_with_context(stratagem_id, target_unit_id, ctx2),
+			func():
+				if _last_reactive_opportunity.size() == 3:
+					_on_reactive_stratagem_opportunity(int(_last_reactive_opportunity[0]), _last_reactive_opportunity[1], _last_reactive_opportunity[2]))
+		return
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("shoot_action_requested", {
@@ -3400,16 +3431,128 @@ func _on_reactive_stratagem_selected_with_context(stratagem_id: String, target_u
 		"context": context
 	})
 
-func _on_reactive_stratagem_declined() -> void:
+func _on_reactive_stratagem_declined(dont_offer_again: bool = false) -> void:
 	"""Handle defender declining all reactive stratagems."""
-	print("ShootingController: Reactive stratagems declined")
+	print("ShootingController: Reactive stratagems declined%s" % (" (don't offer again this phase)" if dont_offer_again else ""))
 	# MA-42: Hide blocking overlay
 	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
-	emit_signal("shoot_action_requested", {
-		"type": "DECLINE_REACTIVE_STRATAGEM"
-	})
+	var decline_action := {"type": "DECLINE_REACTIVE_STRATAGEM"}
+	if dont_offer_again:
+		decline_action["dont_offer_again"] = true
+	emit_signal("shoot_action_requested", decline_action)
+
+# --- Codex: Orks (11e) reactive move follow-ups (GRAB IT / GOADED INTO ACTION) ---
+# ShootingPhase pauses on the move and emits ork11e_reactive_move_started for a
+# HUMAN decider; the move panel (Ork11eReactiveMovePanel) holds the buttons and
+# this controller turns board drags into ORK11E_REACTIVE_MOVE_STAGE.
+
+func _on_ork11e_reactive_move_started(info: Dictionary) -> void:
+	var player := int(info.get("player", 0))
+	print("ShootingController: Ork11e reactive move started — %s %s (P%d, up to %.0f\")" % [
+		info.get("source", "?"), info.get("unit_id", "?"), player, float(info.get("max_inches", 0))])
+	var ai_node = get_node_or_null("/root/AIPlayer")
+	if ai_node and ai_node.is_ai_player(player):
+		return
+	if NetworkManager.is_networked() and NetworkManager.get_local_player() != player:
+		return
+	_ork11e_move_active = true
+	_ork11e_move_info = info
+	_ork11e_drag_start = null
+	var stale = get_tree().root.get_node_or_null("Ork11eReactiveMovePanel")
+	if stale:
+		stale.name = "Ork11eReactiveMovePanel_stale"
+		stale.queue_free()
+	var panel = preload("res://scripts/Ork11eReactiveMovePanel.gd").new()
+	panel.name = "Ork11eReactiveMovePanel"
+	get_tree().root.add_child(panel)
+	panel.setup(info, self)
+	DialogUtils.popup_at_bottom(panel)
+
+func _on_ork11e_reactive_move_updated(info: Dictionary) -> void:
+	_ork11e_move_info = info
+	var panel = get_tree().root.get_node_or_null("Ork11eReactiveMovePanel")
+	if panel and panel.has_method("refresh"):
+		panel.refresh(info)
+
+func _on_ork11e_reactive_move_ended(info: Dictionary) -> void:
+	print("ShootingController: Ork11e reactive move ended — %s" % str(info))
+	_ork11e_move_active = false
+	_ork11e_move_info = {}
+	_ork11e_drag_start = null
+	var panel = get_tree().root.get_node_or_null("Ork11eReactiveMovePanel")
+	if panel:
+		panel.name = "Ork11eReactiveMovePanelClosing"
+		panel.hide()
+		panel.queue_free()
+
+## Move panel buttons and board drags land here (player = the move's decider —
+## frequently NOT the active player, e.g. GOADED INTO ACTION).
+func ork11e_dispatch_reactive_move_action(action: Dictionary) -> void:
+	print("ShootingController: Ork11e reactive move action %s" % str(action.get("type", "")))
+	var result = NetworkIntegration.route_action(action)
+	if not result.get("success", false) and not result.get("pending", false):
+		var err := str(result.get("error", "Move refused"))
+		print("ShootingController: Ork11e reactive move action failed: %s" % err)
+		var toast = get_node_or_null("/root/ToastManager")
+		if toast:
+			toast.show_error(err)
+	var main_node = SceneRefs.main()
+	if main_node and main_node.has_method("update_after_shooting_action"):
+		main_node.update_after_shooting_action()
+
+func _ork11e_board_mouse() -> Vector2:
+	var board_root = SceneRefs.board_root()
+	return board_root.get_local_mouse_position() if board_root else get_global_mouse_position()
+
+## Left press + release on the board: dragging FROM one of the moving unit's
+## models moves the whole unit by the drag vector; a click elsewhere moves the
+## unit's centre to that point. The phase clamps to the maximum distance.
+func _ork11e_handle_move_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton) or event.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if get_viewport().gui_get_hovered_control() != null:
+		return
+	var pos := _ork11e_board_mouse()
+	var phase = current_phase
+	if phase == null or not phase.has_method("ork11e_reactive_move_info"):
+		return
+	var fu: Dictionary = phase._ork11e_followup
+	if fu.is_empty():
+		return
+	if event.pressed:
+		_ork11e_drag_start = pos
+		_ork11e_drag_on_unit = false
+		for key in fu.get("origin", {}):
+			var parts = str(key).rsplit(":", true, 1)
+			var m = GameState.get_unit(parts[0]).get("models", [])[int(parts[1])]
+			var mp = m.get("position", null)
+			var mv: Vector2 = Vector2(float(mp.x), float(mp.y)) if mp is Dictionary else (mp if mp is Vector2 else Vector2.INF)
+			if mv != Vector2.INF and mv.distance_to(pos) <= Measurement.base_radius_px(int(m.get("base_mm", 32))) + 4.0:
+				_ork11e_drag_on_unit = true
+				break
+		get_viewport().set_input_as_handled()
+		return
+	if _ork11e_drag_start == null:
+		return
+	var start: Vector2 = _ork11e_drag_start
+	_ork11e_drag_start = null
+	var current_t: Vector2 = fu.get("translation", Vector2.ZERO)
+	var new_t: Vector2
+	if _ork11e_drag_on_unit:
+		new_t = current_t + (pos - start)
+	else:
+		var centroid := Vector2.ZERO
+		var origin: Dictionary = fu.get("origin", {})
+		for key in origin:
+			centroid += origin[key]
+		if not origin.is_empty():
+			centroid /= float(origin.size())
+		new_t = pos - centroid
+	get_viewport().set_input_as_handled()
+	ork11e_dispatch_reactive_move_action({"type": "ORK11E_REACTIVE_MOVE_STAGE", "player": int(fu.get("player", 0)),
+		"payload": {"translation": {"x": new_t.x, "y": new_t.y}}})
 
 func _on_show_weapon_order_from_next_weapon_dialog(remaining_weapons: Array, fast_roll: bool) -> void:
 	"""Show WeaponOrderDialog after NextWeaponDialog's Continue button is pressed"""
@@ -4822,6 +4965,12 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if not current_phase or not current_phase is ShootingPhase:
+		return
+
+	# Codex: Orks (11e) reactive move in progress (GRAB IT / GOADED INTO
+	# ACTION): the board's left button drives that move and nothing else.
+	if _ork11e_move_active:
+		_ork11e_handle_move_input(event)
 		return
 
 	# In multiplayer, block keyboard shortcuts if it's not your turn
@@ -7205,6 +7354,11 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 	else:
 		var effective_bs = bs + cover_bs_worsen - hit_modifier  # Lower BS = better (e.g. 3+ is better than 4+)
 		effective_bs = clampi(effective_bs, 2, 6)  # 1 always misses (natural 1), 2+ is best possible
+		# SPEEDIEST FREEKS (Codex: Orks 11e): unmodified 1-3 fail against the target.
+		var fc_band: int = RulesEngine.ork11e_ranged_hit_fail_band(target_unit, 1)
+		if fc_band >= 3:
+			effective_bs = maxi(effective_bs, fc_band + 1)
+			active_tags.append("Speediest Freeks")
 		hit_prob = max(0.0, (7.0 - effective_bs) / 6.0)
 
 		# Apply rerolls
@@ -7298,6 +7452,11 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 		if unit_charged:
 			wound_modifier += 1
 			active_tags.append("Lance")
+
+	# HULKING BRUTES (Codex: Orks 11e): -1 to wound vs the target (S > T, or all).
+	if RulesEngine.ork11e_ranged_wound_penalty(target_unit, int(strength), int(toughness)):
+		wound_modifier -= 1
+		active_tags.append("Hulking Brutes")
 
 	# Cap modifier to ±1
 	wound_modifier = clampi(wound_modifier, -1, 1)

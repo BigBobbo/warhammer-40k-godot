@@ -1737,6 +1737,10 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 	# Adrenaline Junkies) can override.
 	if flags.get("turbo_boosted", false):
 		return false
+	# GRAB IT (Codex: Orks 11e): "not eligible to declare a charge until the
+	# end of the turn" — a hard lock, not overridable by advance-and-charge.
+	if flags.get("ork11e_grab_it_no_charge", false):
+		return false
 
 	# Check restriction flags
 	# cannot_charge is set by both Advance and Fall Back moves, but abilities like

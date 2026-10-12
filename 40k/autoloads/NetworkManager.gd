@@ -1635,11 +1635,14 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 	# The defender's reactive decision arrived — clear the waiting overlay
 	# shown on the attacker's machine and the client-side awaiting flag.
 	if action_type == "USE_REACTIVE_STRATAGEM" or action_type == "DECLINE_REACTIVE_STRATAGEM":
-		if "awaiting_reactive_stratagem" in phase:
-			phase.awaiting_reactive_stratagem = false
-		var rso_main = SceneRefs.main()
-		if rso_main and rso_main.has_method("hide_reactive_stratagem_waiting"):
-			rso_main.hide_reactive_stratagem_waiting()
+		# A use that RE-OPENED the defender's window (another stratagem is still
+		# usable on this targeting) keeps the awaiting flag + overlay set above.
+		if not result.get("reactive_stratagem_opportunity", false):
+			if "awaiting_reactive_stratagem" in phase:
+				phase.awaiting_reactive_stratagem = false
+			var rso_main = SceneRefs.main()
+			if rso_main and rso_main.has_method("hide_reactive_stratagem_waiting"):
+				rso_main.hide_reactive_stratagem_waiting()
 		if action_type == "USE_REACTIVE_STRATAGEM":
 			var strat_info = result.get("stratagem_used", {})
 			var toast_mgr = get_node_or_null("/root/ToastManager")
@@ -2638,6 +2641,15 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		# owner; authority (claimed player == sending peer) is still enforced.
 		"USE_WINDOW_STRATAGEM",
 		"DECLINE_WINDOW_STRATAGEM",
+		# Codex: Orks (11e) reactive-move follow-ups in the Shooting phase (GOADED
+		# INTO ACTION is made by the NON-active player); ShootingPhase validates
+		# the mover == the follow-up's decider.
+		"ORK11E_REACTIVE_MOVE_STAGE",
+		"ORK11E_REACTIVE_MOVE_AUTO",
+		"ORK11E_REACTIVE_MOVE_RESET",
+		"ORK11E_REACTIVE_MOVE_REROLL",
+		"ORK11E_REACTIVE_MOVE_CONFIRM",
+		"ORK11E_REACTIVE_MOVE_SKIP",
 		# End-of-turn (Scoring) reactive windows — the decider is frequently
 		# NOT the active player, so turn validation must be skipped:
 		# - 03.03 coherency removals: each incoherent unit's OWNER chooses,

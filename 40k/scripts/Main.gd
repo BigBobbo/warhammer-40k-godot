@@ -15567,6 +15567,7 @@ func _show_window_secondary_dialog(secondary: Dictionary, on_pick: Callable, on_
 		btn.pressed.connect(func():
 			picked[0] = true
 			dialog.name = "StratagemSecondaryDialogClosing"
+			dialog.hide()  # release the exclusive slot before the follow-up dialog opens
 			dialog.queue_free()
 			on_pick.call(oid))
 		content.add_child(btn)
@@ -15575,6 +15576,7 @@ func _show_window_secondary_dialog(secondary: Dictionary, on_pick: Callable, on_
 		if not picked[0]:
 			picked[0] = true
 			dialog.name = "StratagemSecondaryDialogClosing"
+			dialog.hide()
 			dialog.queue_free()
 			on_cancel.call()
 	dialog.confirmed.connect(cancel_cb)
