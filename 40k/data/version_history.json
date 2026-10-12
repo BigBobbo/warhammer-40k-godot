@@ -10,6 +10,8 @@
         "Fixed (Multiplayer, p.74): the guest player can now \"Pass (Unable to Fight)\" too. The host checks the 5\" rule, and the pass hands the pick over without losing the fight.",
         "Fixed (Multiplayer, 12.04): if the host refuses one of your actions (for example \"End Fight Phase\" while a unit still has to fight) you now see a message saying why, instead of nothing happening.",
         "Fixed (Multiplayer): while your opponent is picking a unit to fight, your phase button tells you you're waiting for them instead of offering their pass.",
+      "Fixed (Multiplayer): the guest's phase button now follows the Fight phase's steps (\"End Fight Phase\", then \"Finish Consolidations\") instead of saying \"Finish Pile Ins\" for the whole phase.",
+      "Fixed (Fight): the game log now says what the button actually did \u2014 \"Finished Pile In\", \"Passed\" (p.74), \"Ended the Fight step\" or \"Finished Consolidation\" \u2014 instead of \"Ended Fight Phase\" every time.",
         "Fixed (Multiplayer turn timer): running out of time in the Fight step no longer forfeits fights. The timeout is charged to the player the game is actually waiting on (the one picking a fighter), and the timer keeps running after a Pile In or Consolidate half ends.",
         "Fixed (Multiplayer, Movement 09.02): the Remain Stationary results of \"End Movement\" reach the guest before the Shooting phase starts, so the game no longer logs a false out-of-sync warning there."
       ]

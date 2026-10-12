@@ -189,6 +189,11 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 		"END_CHARGE":
 			return prefix + "Ended Charge Phase"
 		"END_FIGHT":
+			# FightPhase names the step END_FIGHT actually ended (Pile In,
+			# Fight, Consolidate) or the p.74 pass; only the last one ends the phase.
+			var end_fight_text = str(action.get("_log_text", ""))
+			if end_fight_text != "":
+				return prefix + end_fight_text
 			return prefix + "Ended Fight Phase"
 		"END_TURN":
 			return prefix + "Ended Turn"

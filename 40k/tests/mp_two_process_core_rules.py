@@ -228,7 +228,11 @@ if fp == null or not fp.has_method("get_fight_step_11e"):
 return {"phase": GameState.get_current_phase(), "step": fp.get_fight_step_11e(), "pile_in": fp.pile_in_step_11e,
 	"piling": fp.piling_in_player_11e, "cons": fp.consolidation_step_11e, "selecting": fp.current_selecting_player,
 	"warboss_eligible": fp.sequencer_11e.eligible_to_fight("U_WARBOSS_B", GameState.state) if fp.sequencer_11e != null else null,
-	"passed": fp.sequencer_11e.passed.keys() if fp.sequencer_11e != null else null}""")
+	"passed": fp.sequencer_11e.get("passed").keys() if fp.sequencer_11e != null and fp.sequencer_11e.get("passed") != null else null}""")
+
+
+def button_text(peer):
+    return peer.ex('var b = tree.current_scene.get_node_or_null("PhaseActionButton")\nreturn b.text if b != null else null')
 
 
 def toasts(peer):
@@ -274,6 +278,8 @@ def scenario_fight():
               r is True and hs.get("phase") == 10 and hs.get("selecting") == 2, hs)
         r = wait_until(lambda: fight_state(client).get("step") == "FIGHT", timeout=15)
         check("[fight] client sees the Fight step too", r is True, fight_state(client))
+        r = wait_until(lambda: str(button_text(client)).endswith("End Fight Phase"), timeout=10)
+        check("[fight] client's phase button left 'Finish Pile Ins' for the Fight step", r is True, button_text(client))
 
         # A2: host (not selecting) END_FIGHT -> rejected, nothing forfeited
         host.ex("NetworkManager.stop_turn_timer()\nreturn true")
@@ -284,7 +290,8 @@ def scenario_fight():
               hs.get("step") == "FIGHT" and hs.get("warboss_eligible") is True and hs.get("phase") == 10, hs)
 
         # A3: the client's Pass button is driven by the host's data
-        pb = client.ex('var b = tree.current_scene.get_node_or_null("HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/PassButton")\nreturn b != null and b.is_visible_in_tree()')
+        pb_probe = 'var b = tree.current_scene.get_node_or_null("HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/PassButton")\nreturn b != null and b.is_visible_in_tree()'
+        pb = wait_until(lambda: client.ex(pb_probe) is True, timeout=5)
         check("[fight] client's Pass (Unable to Fight) button is visible (host says P2 may pass)", pb is True, pb)
         client.shot("mp_fight_client_pass_button")
         host.shot("mp_fight_host_waiting")
@@ -298,7 +305,7 @@ def scenario_fight():
         hashes_equal(host, client, "after the client's pass")
 
         # A4: host passes too -> both passed in succession -> Consolidate step
-        host_pb = host.ex('var b = tree.current_scene.get_node_or_null("HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/PassButton")\nreturn b != null and b.is_visible_in_tree()')
+        host_pb = wait_until(lambda: host.ex(pb_probe) is True, timeout=5)
         check("[fight] host's Pass button visible for P1", host_pb is True, host_pb)
         host.ex('var b = tree.current_scene.get_node("HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/PassButton")\nb.pressed.emit()\nreturn true')
         r = wait_until(lambda: fight_state(host).get("step") in ("CONSOLIDATE",) or fight_state(host).get("phase") != 10, timeout=15)
@@ -307,6 +314,10 @@ def scenario_fight():
               hs.get("phase") == 10 and hs.get("step") == "CONSOLIDATE", hs)
         r = wait_until(lambda: fight_state(client).get("step") == "CONSOLIDATE", timeout=15)
         check("[fight] client enters the Consolidate step too", r is True, fight_state(client))
+        r = wait_until(lambda: str(button_text(client)).endswith("Finish Consolidations")
+                       and str(button_text(host)).endswith("Finish Consolidations"), timeout=10)
+        check("[fight] both phase buttons read 'Finish Consolidations' in the Consolidate step", r is True,
+              [button_text(host), button_text(client)])
         hashes_equal(host, client, "entering Consolidate")
         client.shot("mp_fight_client_consolidate")
 

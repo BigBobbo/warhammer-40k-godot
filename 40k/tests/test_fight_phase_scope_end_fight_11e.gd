@@ -239,6 +239,37 @@ func _run_tests():
 	var r_pre = fp.execute_action({"type": "END_FIGHT", "player": 1})
 	_check("END_FIGHT rejected before the Pile In step", not r_pre.get("success", false), str(r_pre))
 
+	print("\n-- J: the game log names what END_FIGHT ended (not always \"Ended Fight Phase\") --")
+	var gel = root.get_node("GameEventLog")
+	gs.state["units"] = {
+		"U_CHG": _unit("U_CHG", 1, 200, 200, {"charged_this_turn": true}),
+		"U_HI": _unit("U_HI", 2, 1200, 1200, {"charged_this_turn": true}),
+	}
+	gs.state["meta"]["active_player"] = 1
+	gs.state["meta"]["phase"] = 10
+	pm.transition_to_phase(10)
+	fp = pm.get_current_phase_instance()
+	var a_pi1 = {"type": "END_FIGHT", "player": 1}
+	fp.execute_action(a_pi1)
+	var t_pi1: String = gel._format_action(a_pi1, "END_FIGHT", 1)
+	_check("Pile In half logged as \"Finished Pile In (12.02)\"", t_pi1.ends_with("Finished Pile In (12.02)"), t_pi1)
+	fp.execute_action({"type": "END_FIGHT", "player": 2})
+	var a_pass1 = {"type": "END_FIGHT", "player": 1}
+	fp.execute_action(a_pass1)
+	var t_pass1: String = gel._format_action(a_pass1, "END_FIGHT", 1)
+	_check("p.74 pass logged as a pass", t_pass1.find("Passed") >= 0 and t_pass1.find("p.74") >= 0, t_pass1)
+	var a_pass2 = {"type": "END_FIGHT", "player": 2}
+	fp.execute_action(a_pass2)
+	_check("second pass (ends the Fight step) also logged as a pass",
+		gel._format_action(a_pass2, "END_FIGHT", 2).find("Passed") >= 0, gel._format_action(a_pass2, "END_FIGHT", 2))
+	_check("Consolidate step running", fp.consolidation_step_11e == fp.ConsolidationStep11e.ACTIVE, str(fp.consolidation_step_11e))
+	var a_c1 = {"type": "END_FIGHT", "player": 1}
+	fp.execute_action(a_c1)
+	var t_c1: String = gel._format_action(a_c1, "END_FIGHT", 1)
+	_check("Consolidate half logged as \"Finished Consolidation (12.07)\"", t_c1.ends_with("Finished Consolidation (12.07)"), t_c1)
+	_check("an END_FIGHT without step text still reads \"Ended Fight Phase\"",
+		gel._format_action({"type": "END_FIGHT", "player": 1}, "END_FIGHT", 1).ends_with("Ended Fight Phase"))
+
 	# Restore
 	GameConstants.edition = prev_edition
 	gs.state = prev_state

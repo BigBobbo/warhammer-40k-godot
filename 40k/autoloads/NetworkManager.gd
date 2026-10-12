@@ -1346,6 +1346,20 @@ func _broadcast_result(result: Dictionary) -> void:
 
 	print("NetworkManager: Client finished applying result")
 
+func _emit_client_fight_step_transition(phase, from_step: String) -> String:
+	"""Client only: re-emit FightPhase.subphase_transition when the synced
+	step fields moved the Fight phase to another step (Pile In 12.02 / Fight
+	12.04 / Consolidate 12.07). Returns the current step for chaining."""
+	if from_step == "" or not phase.has_method("get_fight_step_11e") or not phase.has_signal("subphase_transition"):
+		return from_step
+	var to_step: String = phase.get_fight_step_11e()
+	if to_step != from_step:
+		# The Pile In step only ever opens the phase — name it as the host does.
+		var from_label: String = "START_OF_FIGHT_PHASE" if to_step == "PILE_IN" else from_step
+		print("NetworkManager: Client Fight step %s -> %s — re-emitting subphase_transition" % [from_label, to_step])
+		phase.emit_signal("subphase_transition", from_label, to_step)
+	return to_step
+
 func _emit_client_visual_updates(result: Dictionary) -> void:
 	"""Emit phase-specific signals on client after applying result for visual updates"""
 	print("NetworkManager: _emit_client_visual_updates START")
@@ -1651,6 +1665,15 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			if toast_mgr and not strat_info.is_empty():
 				toast_mgr.show_toast("Opponent used %s!" % str(strat_info.get("stratagem_name", "a stratagem")), Color.ORANGE, 4.0)
 
+	# The client's Fight-phase step (Pile In / Fight / Consolidate) is synced
+	# by the trigger blocks below, which write the step fields directly — so
+	# FightPhase.subphase_transition never fired here and the client's phase
+	# button kept saying "Finish Pile Ins". Each block re-emits it (via
+	# _emit_client_fight_step_transition) right after its field update and
+	# BEFORE its *_required signal, the host's order: FightController hides
+	# the step panels on the transition and the *_required signal shows them.
+	var fight_step_before: String = phase.get_fight_step_11e() if phase.has_method("get_fight_step_11e") else ""
+
 	# Handle fight selection dialog trigger (for multiplayer sync after CONSOLIDATE)
 	if result.get("trigger_fight_selection", false):
 		print("NetworkManager: Result has trigger_fight_selection flag")
@@ -1674,6 +1697,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			if "pile_in_step_11e" in phase and phase.pile_in_step_11e == phase.PileInStep11e.ACTIVE:
 				phase.pile_in_step_11e = phase.PileInStep11e.DONE
 				print("NetworkManager: Client pile_in_step_11e -> DONE (fight selection began)")
+			fight_step_before = _emit_client_fight_step_transition(phase, fight_step_before)
 
 			# Emit the signal with the host's dialog data
 			phase.emit_signal("fight_selection_required", dialog_data)
@@ -1748,6 +1772,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 					phase.current_selecting_player = pi_data["piling_in_player"]
 			if "pile_in_step_11e" in phase:
 				phase.pile_in_step_11e = phase.PileInStep11e.ACTIVE
+			fight_step_before = _emit_client_fight_step_transition(phase, fight_step_before)
 			print("NetworkManager: Client re-emitting pile_in_step_required for player %d" % pi_data.get("piling_in_player", -1))
 			phase.emit_signal("pile_in_step_required", pi_data)
 		else:
@@ -1766,6 +1791,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 					phase.current_selecting_player = cons_data["consolidating_player"]
 			if "consolidation_step_11e" in phase:
 				phase.consolidation_step_11e = phase.ConsolidationStep11e.ACTIVE
+			fight_step_before = _emit_client_fight_step_transition(phase, fight_step_before)
 			print("NetworkManager: Client re-emitting consolidation_step_required for player %d" % cons_data.get("consolidating_player", -1))
 			phase.emit_signal("consolidation_step_required", cons_data)
 		else:

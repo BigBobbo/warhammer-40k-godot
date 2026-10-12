@@ -15,7 +15,7 @@
   "rng_seed": 42,
   "transition_to_phase": 10,
   "disable_ai": true,
-  "description": "Core rules p.74 'Eligible to fight, but unable to fight' (with 12.04). The charging Warboss (P2) is moved more than 5\" from every enemy unit during the Pile In step, so in the Fight step every eligible unit on BOTH sides is more than 5\" from all enemies. The selecting player (P2, active) sees a 'Pass (Unable to Fight)' button in the fighter-selection panel; clicking it hands the selection to P1 WITHOUT marking the Warboss as fought. P1 (Custodes, also >5\" from all enemies) passes too, this time through the top-right phase button ('Pass (Unable to Fight)') and its confirmation dialog \u2014 both players passed in succession, so the Fight step ends and the Consolidate step begins. Setup-only privileges: CP zeroed to suppress stratagem prompts; the Warboss is teleported (execute_script) to create the out-of-range state.",
+  "description": "Core rules p.74 'Eligible to fight, but unable to fight' (with 12.04). The charging Warboss (P2) is moved more than 5\" from every enemy unit during the Pile In step, so in the Fight step every eligible unit on BOTH sides is more than 5\" from all enemies. The selecting player (P2, active) sees a 'Pass (Unable to Fight)' button in the fighter-selection panel; clicking it hands the selection to P1 WITHOUT marking the Warboss as fought. P1 (Custodes, also >5\" from all enemies) passes too, this time through the top-right phase button ('Pass (Unable to Fight)') and its confirmation dialog \u2014 both players passed in succession, so the Fight step ends and the Consolidate step begins. The game log records each pass as a pass (p.74), never as \"Ended Fight Phase\". Setup-only privileges: CP zeroed to suppress stratagem prompts; the Warboss is teleported (execute_script) to create the out-of-range state.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -143,6 +143,12 @@
       "timeout_s": 3.0
     },
     {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n = 0\nfor e in GameEventLog.entries:\n\tvar t = str(e.get(\"text\", \"\"))\n\tif t.find(\"Passed\") >= 0 and t.find(\"p.74\") >= 0:\n\t\tn += 1\nreturn n",
+      "equals": 1
+    },
+    {
       "act": "screenshot",
       "label": "02_p1_custodes_selecting_may_pass"
     },
@@ -192,6 +198,18 @@
       "act": "execute_script",
       "script": "GameState.state.units[\"U_WARBOSS_B\"].get(\"flags\", {}).get(\"has_fought\", false)",
       "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n = 0\nfor e in GameEventLog.entries:\n\tvar t = str(e.get(\"text\", \"\"))\n\tif t.find(\"Passed\") >= 0 and t.find(\"p.74\") >= 0:\n\t\tn += 1\nreturn n",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n = 0\nfor e in GameEventLog.entries:\n\tif str(e.get(\"text\", \"\")).ends_with(\"Ended Fight Phase\"):\n\t\tn += 1\nreturn n",
+      "equals": 0
     },
     {
       "act": "screenshot",

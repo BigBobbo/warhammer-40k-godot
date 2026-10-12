@@ -5147,7 +5147,7 @@ func _process_end_fight(action: Dictionary) -> Dictionary:
 	if pile_in_step_11e == PileInStep11e.ACTIVE:
 		pile_in_done_players_11e[piling_in_player_11e] = true
 		log_phase_message("[11e 12.02] Player %d ends their pile-in half via END_FIGHT" % piling_in_player_11e)
-		return _advance_pile_in_step_11e(create_result(true, []))
+		return _end_fight_log(_advance_pile_in_step_11e(create_result(true, [])), "Finished Pile In (12.02)")
 	if consolidation_step_11e == ConsolidationStep11e.NOT_STARTED:
 		# The validator only lets END_FIGHT through in the Fight step when the
 		# step is over, or as the selecting player's PASS (p.74 "Eligible to
@@ -5163,17 +5163,27 @@ func _process_end_fight(action: Dictionary) -> Dictionary:
 			var step_ends: bool = sequencer_11e.pass_selection(GameState.state, passing_player)
 			log_phase_message("[11e p.74] Player %d passes — every eligible unit is more than 5\" from all enemy units%s" % [
 				passing_player, " — the Fight step ends" if step_ends else ""])
+			var pass_text := "Passed: every eligible unit is more than 5\" from all enemy units (p.74)"
 			if not step_ends:
-				return _resume_fight_step_after_end_11e(create_result(true, []))
-		return _begin_consolidation_step_11e()
+				return _end_fight_log(_resume_fight_step_after_end_11e(create_result(true, [])), pass_text)
+			return _end_fight_log(_begin_consolidation_step_11e(), pass_text)
+		return _end_fight_log(_begin_consolidation_step_11e(), "Ended the Fight step (12.04)")
 	if consolidation_step_11e == ConsolidationStep11e.ACTIVE:
 		# (12.08 forced fights can't be skipped — the validator rejects
 		# END_FIGHT while any are pending.)
 		consolidation_done_players_11e[consolidating_player_11e] = true
 		log_phase_message("[11e 12.07] Player %d ends their consolidation half via END_FIGHT" % consolidating_player_11e)
-		return _advance_consolidation_step_11e(create_result(true, []))
+		return _end_fight_log(_advance_consolidation_step_11e(create_result(true, [])), "Finished Consolidation (12.07)")
 
 	return _run_end_of_fight_triggers(create_result(true, []))
+
+# END_FIGHT ends whichever Fight-phase step is running (or is a p.74 pass);
+# give the game log that outcome instead of a blanket "Ended Fight Phase"
+# (BasePhase copies result.log_text onto the action for GameEventLog).
+func _end_fight_log(result: Dictionary, text: String) -> Dictionary:
+	if result.get("success", false) and str(result.get("log_text", "")) == "":
+		result["log_text"] = text
+	return result
 
 # After the selecting player passes (p.74), hand the Fight step over to the
 # opponent (12.04) and emit the next fight-selection request. Mirrors

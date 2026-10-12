@@ -36,8 +36,9 @@ that existed at e28e4f7, so it runs on both trees:
     `GameManager.process_end_fight` path (a pass is delegated to the phase
     instead of ending the phase).
   - `SKIP_UNIT` in the Fight phase only ends the ACTIVE fighter's activation.
-- **Evidence**: `tests/test_fight_phase_scope_end_fight_11e.gd` (34/34),
-  scenarios `end_fight_mandatory_fights_11e`, `fight_pass_unable_to_fight_11e`.
+- **Evidence**: `tests/test_fight_phase_scope_end_fight_11e.gd` (47/47),
+  scenarios `end_fight_mandatory_fights_11e`, `fight_pass_unable_to_fight_11e`,
+  two-process multiplayer run (below).
 
 ## P1-5 — Every unit selected before the Move Units step ends (09.02)
 
@@ -96,6 +97,71 @@ that existed at e28e4f7, so it runs on both trees:
 - **Evidence**: audit test section P1-4 (corner + wall + enemy screen, and a
   no-legal-spot case); scenario `emergency_disembark_legal_placement_11e`.
 
+## Multiplayer follow-up (1.44.1) — validated with two real processes
+
+`40k/tests/mp_two_process_core_rules.py` launches an ENet HOST and CLIENT
+Godot process (separate `user://`, separate MCP bridge), loads a fixture on
+the host, drives each peer through its own bridge (`NetworkIntegration.
+route_action`, real button `pressed` signals) and compares the two peers'
+GameState key-by-key after every step.
+
+| Check (fixture) | e28e4f7 | 7822198 | this branch |
+|---|---|---|---|
+| Client "Finish Pile Ins" (END_FIGHT in 12.02) ends only its half (`co_pretrigger`) | phase skipped to Scoring | phase skipped to Scoring | PASS |
+| Host END_FIGHT while the client must select is refused, nothing forfeited | — | phase already over | PASS |
+| Client sees the Pass button from host data; client pass hands the pick over without forfeiting | — | FAIL | PASS |
+| Host pass -> both passed -> Consolidate step (12.07) on both peers | — | FAIL | PASS |
+| Client END_FIGHT with an owed fight: refused AND the client is told why | owed fight forfeited, phase ended | refused, no message | PASS |
+| AFK timeout in the Fight step: no forfeit, timer re-armed, 2nd timeout charged to the selecting player | n/a | timer not re-armed | PASS |
+| END_MOVEMENT by host / by client: Remain Stationary on both peers, states identical | — | PASS | PASS |
+| Host and client GameState identical after load, pass, Consolidate, phase end, END_MOVEMENT | — | — | PASS |
+| Client phase button follows the steps ("End Fight Phase" -> "Finish Consolidations") | — | stuck on "Finish Pile Ins" (screenshot) | PASS |
+
+Root causes fixed:
+
+- `GameManager.process_end_fight` short-circuited END_FIGHT to "phase
+  complete" on the host's multiplayer path, so any END_FIGHT — including
+  "Finish Pile Ins" — skipped every fight, the Consolidate step and the
+  12.09 triggers. It now always delegates to `FightPhase`.
+- A client's `FightSequencer` never sees the host's `mark_fought`, so it kept
+  offering units that had fought. The host now stamps a turn-scoped
+  `flags.fight_done_turn` (synced by diffs) that `eligible_to_fight` honours
+  (`has_fought` is only cleared for the player whose turn starts, so it leaks
+  into the opponent's turn and cannot be used).
+- END_MOVEMENT / END_FIGHT were "deterministic" optimistic relay actions
+  although host-only phase state decides them.
+- The turn timer auto-sent END_FIGHT (now refused while fights are owed) and
+  then sat stopped; it also charged the ACTIVE player when the opponent was
+  the one selecting. It now submits only a legal p.74 pass, otherwise
+  re-arms, and charges the selecting player.
+- A host rejection of a client action was only logged; it is now toasted.
+- The Remain Stationary diffs are shipped before the Shooting phase-enter
+  sync, removing a false DESYNC report there.
+- The client's FightPhase step fields are synced by NetworkManager directly,
+  so `subphase_transition` never fired there and the client's phase button
+  said "Finish Pile Ins" for the whole phase. NetworkManager now re-emits it
+  right after each step-field update and before the matching `*_required`
+  signal (the host's order — FightController hides the step panels on the
+  transition and the `*_required` signal re-shows them; emitting it after
+  hid the client's Fight-selection panel, caught by the two-process run).
+- Game log: END_FIGHT was always logged "Ended Fight Phase", including a
+  Pile In / Consolidate half and the p.74 pass. FightPhase now returns a
+  step-specific `log_text` ("Finished Pile In (12.02)", "Passed: ... (p.74)",
+  "Ended the Fight step (12.04)", "Finished Consolidation (12.07)") that
+  GameEventLog and the replay log use. Single-player too; covered by
+  test section J and `fight_pass_unable_to_fight_11e`.
+
+Pre-existing, NOT fixed here (reproduces identically on e28e4f7):
+`RulesEngine._ensure_loadout_resolved` lazily writes `_loadout_checked`,
+`_loadout_version` and per-model `melee_loadout` / `ranged_loadout` into
+GameState outside the diff stream, the first time a peer resolves a unit's
+weapons. The host does so when the Fight step starts, so the client's ISS-015
+hash check logs `DESYNC DETECTED` for the rest of the phase. The values are
+derived deterministically from synced data (the client computes the same ones
+when it needs them), so play is unaffected; the fix is to exclude those keys
+from `compute_state_hash` or resolve loadouts for every unit at load on both
+peers.
+
 ## Validation run (2026-10-12, this branch)
 
 - Headless audit suite `40k/tests/run_pretrigger_tests.sh`: **2888 passed,
@@ -127,8 +193,9 @@ that existed at e28e4f7, so it runs on both trees:
 
 - The p.74 pass marks passed units as not having fought once the Fight step
   ends; a 12.08 forced fight against such a unit is not re-offered.
-- Turn-timer expiry in the Fight phase sends END_FIGHT, which is now refused
-  while fights are owed (by design — a timer cannot forfeit mandatory fights).
+- Turn-timer expiry in the Fight step submits only a legal p.74 pass; while
+  fights are owed it submits nothing and re-arms (a timer cannot forfeit
+  mandatory fights) — the second consecutive timeout ends the game.
 - Emergency-disembark placement is greedy (nearest-first per model); a
   cleverer packing could fit more models in very cramped spaces.
 - Not addressed here: CI fail-closed work, full-game AI/multiplayer gates,
