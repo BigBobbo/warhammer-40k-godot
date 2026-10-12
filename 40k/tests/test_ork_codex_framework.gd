@@ -127,13 +127,24 @@ func _section_registry() -> void:
 	_check("no csv id registered twice", uniq.size() == ids.size())
 	var groups := {
 		"res://scripts/stratagems/ork_codex/OrkCodexFight.gd": 9,
-		"res://scripts/stratagems/ork_codex/OrkCodexShooting.gd": 14,
+		"res://scripts/stratagems/ork_codex/OrkCodexShooting.gd": 8,
+		"res://scripts/stratagems/ork_codex/OrkCodexShootingReactive.gd": 6,
 		"res://scripts/stratagems/ork_codex/OrkCodexMovement.gd": 12,
 		"res://scripts/stratagems/ork_codex/OrkCodexOther.gd": 5,
 	}
 	for path in groups:
 		_check("%s owns %d ids" % [path.get_file(), groups[path]], load(path).IDS.size() == groups[path], str(load(path).IDS.size()))
-	_check("only HIT 'EM HARDER is implemented in this step", Codex.all_implemented_ids() == [HIT_CSV], str(Codex.all_implemented_ids()))
+	# Implemented = registry only: every implemented id must be registered, and
+	# HIT 'EM HARDER (the framework's worked example) must stay implemented.
+	# (Compare against the registry, not a fixed list, so each implementation
+	# group can add ids without editing this check.)
+	var _impl: Array = Codex.all_implemented_ids()
+	var _unregistered_impl: Array = []
+	for _iid in _impl:
+		if not (_iid in ids):
+			_unregistered_impl.append(_iid)
+	_check("every implemented id is registered", _unregistered_impl.is_empty(), str(_unregistered_impl))
+	_check("HIT 'EM HARDER is implemented", HIT_CSV in _impl, str(_impl))
 
 	# Every Ork CSV row (all detachments) maps to a group.
 	var rows: Array = SM._faction_loader.load_faction_stratagems("Orks", "")

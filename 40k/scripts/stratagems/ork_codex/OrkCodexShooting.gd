@@ -1,7 +1,8 @@
 extends RefCounted
 
 ## OrkCodexShooting — Codex: Orks (11e) stratagems of the SHOOTING group:
-## Shooting-phase stratagems (own-turn selected/has-shot windows and the opponent-Shooting reactive windows).
+## own-turn Shooting-phase stratagems offered when a unit is selected to shoot.
+## (The has-shot and opponent-Shooting reactive ones live in OrkCodexShootingReactive.gd.)
 ##
 ## Contract: .llm/ork_codex_11e_design.md §3–§4 (and §6 "how to add a hook").
 ## The dispatcher OrkCodex11e.gd routes every csv_id in IDS here. A stratagem
@@ -33,12 +34,6 @@ const IDS: Array = [
 	"never-enough-dakka-shoota-boyz",
 	"long-uncontrolled-bursts-flyboyz",
 	"dakkastorm-kult-of-speed",
-	"grab-it-wreckas",
-	"grot-shields-runt-swarm",
-	"hulking-brutes-bully-boyz",
-	"speediest-freeks-kult-of-speed",
-	"gun-crazy-show-offs-wreckas",
-	"goaded-into-action-da-big-hunt",
 ]
 
 ## csv_ids whose handler is complete and validated. Empty until the group's

@@ -15259,6 +15259,17 @@ func _toggle_stratagem_panel() -> void:
 
 
 func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
+	# A stratagem window is waiting for a decision: the S panel must not let a
+	# stratagem slip past the window's action gate (BasePhase refuses every other
+	# action while a window is pending; the panel calls StratagemManager
+	# directly, so it has to check here).
+	var _pm_node = get_node_or_null("/root/PhaseManager")
+	var _phase_inst = _pm_node.get_current_phase_instance() if _pm_node else null
+	if _phase_inst and _phase_inst.has_method("has_pending_stratagem_window") and _phase_inst.has_pending_stratagem_window():
+		var _decider: int = _phase_inst.get_pending_stratagem_window_decider()
+		print("Main: S panel use of %s refused — a stratagem window is pending for Player %d" % [stratagem_id, _decider])
+		_show_toast("Finish the open stratagem decision first (Player %d)" % _decider)
+		return
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager == null:
 		return
@@ -15482,7 +15493,11 @@ func _on_stratagem_window_opened(player: int, window_id: String, offers: Array, 
 		show_reactive_stratagem_waiting("stratagem", player)
 		return
 	_show_stratagem_window_dialog(player, window_id, offers, ctx)
-	if not NetworkManager.is_networked() and player != GameState.get_active_player():
+	# Play-and-pass only: block the board for the active player while the other
+	# seat decides. Against the AI the human IS the decider, so the "waiting for
+	# your opponent" overlay would be wrong (foundation review defect 2).
+	var active_is_ai: bool = ai_node != null and ai_node.is_ai_player(GameState.get_active_player())
+	if not NetworkManager.is_networked() and player != GameState.get_active_player() and not active_is_ai:
 		show_reactive_stratagem_waiting("stratagem", player)
 
 func _show_stratagem_window_dialog(player: int, window_id: String, offers: Array, ctx: Dictionary) -> void:

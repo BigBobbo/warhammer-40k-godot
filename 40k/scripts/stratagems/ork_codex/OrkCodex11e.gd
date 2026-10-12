@@ -19,12 +19,14 @@ class_name OrkCodex11e
 ## loudly and does nothing, rather than falling through to a 10e handler.
 ##
 ## Group scripts (one per implementation group, edited in parallel):
-##   OrkCodexFight.gd, OrkCodexShooting.gd, OrkCodexMovement.gd, OrkCodexOther.gd
+##   OrkCodexFight.gd, OrkCodexShooting.gd, OrkCodexShootingReactive.gd,
+##   OrkCodexMovement.gd, OrkCodexOther.gd
 ## Each lists its csv_ids in IDS and the finished ones in IMPLEMENTED.
 
 const Common = preload("res://scripts/stratagems/ork_codex/OrkCodexCommon.gd")
 const GroupFight = preload("res://scripts/stratagems/ork_codex/OrkCodexFight.gd")
 const GroupShooting = preload("res://scripts/stratagems/ork_codex/OrkCodexShooting.gd")
+const GroupShootingReactive = preload("res://scripts/stratagems/ork_codex/OrkCodexShootingReactive.gd")
 const GroupMovement = preload("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
 const GroupOther = preload("res://scripts/stratagems/ork_codex/OrkCodexOther.gd")
 
@@ -32,7 +34,7 @@ const MARKER_EFFECT := "custom:ork11e"
 
 
 static func _groups() -> Array:
-	return [GroupFight, GroupShooting, GroupMovement, GroupOther]
+	return [GroupFight, GroupShooting, GroupShootingReactive, GroupMovement, GroupOther]
 
 
 ## True for every Codex: Orks (11e) row (effects_json marker), registered or not.

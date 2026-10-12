@@ -852,8 +852,12 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 		var current_turn_11e = GameState.get_battle_round()
 		var current_phase_11e = GameState.get_current_phase()
 		var current_active_11e = GameState.get_active_player()
+		# An attached unit (bodyguard + its leaders) is ONE unit for 15.01, so a
+		# stratagem on the bodyguard id blocks one on an attached character's id
+		# and vice versa (foundation review defect 4).
+		var same_unit_ids_11e: Array = _attached_unit_member_ids(target_unit_id)
 		for usage in _usage_history.get(str(player), []):
-			if usage.get("target_unit_id", "") == target_unit_id \
+			if str(usage.get("target_unit_id", "")) in same_unit_ids_11e \
 					and usage.get("turn", -1) == current_turn_11e \
 					and usage.get("phase", -1) == current_phase_11e \
 					and int(usage.get("active_player", current_active_11e)) == current_active_11e:
@@ -983,6 +987,27 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 				return {"can_use": false, "reason": "%s can only be used during the %s phase" % [strat.get("name", stratagem_id), strat_phase.replace("_or_", " or ").replace("_", " ")]}
 
 	return {"can_use": true, "reason": ""}
+
+## Every unit id that forms one attached unit with `unit_id` (the bodyguard
+## plus all attached characters), including `unit_id` itself. A unit that is
+## not part of an attached unit returns [unit_id].
+func _attached_unit_member_ids(unit_id: String) -> Array:
+	var ids: Array = [unit_id]
+	var unit = GameState.get_unit(unit_id)
+	if unit == null or unit.is_empty():
+		return ids
+	var bodyguard_id := unit_id
+	var attached_to = unit.get("attached_to", null)
+	if attached_to != null and str(attached_to) != "":
+		bodyguard_id = str(attached_to)
+		if not (bodyguard_id in ids):
+			ids.append(bodyguard_id)
+	var bodyguard = GameState.get_unit(bodyguard_id)
+	if bodyguard != null and not bodyguard.is_empty():
+		for char_id in bodyguard.get("attachment_data", {}).get("attached_characters", []):
+			if not (str(char_id) in ids):
+				ids.append(str(char_id))
+	return ids
 
 func _check_usage_restriction(player: int, stratagem_id: String, strat: Dictionary) -> Dictionary:
 	"""Check once-per restrictions for a stratagem."""

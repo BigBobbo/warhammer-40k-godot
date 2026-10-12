@@ -7,7 +7,7 @@ touching code. Where this doc and older code comments disagree, this doc wins.
 ## 0. Goal
 
 1. Move the game's data to `@alpaca-software/40kdc-data` **1.4.5** (from 1.0.19).
-2. Ship all **43** stratagems of the 11th-edition Codex: Orks (15 detachments) with
+2. Ship all **40** stratagems of the 11th-edition Codex: Orks (15 detachments) with
    rules text taken from Wahapedia (verified copy:
    `scripts/40kdc/curated/orks_codex_11e.json`, see §2).
 3. Every one of them must be usable by a **human** player, offered **in the correct
@@ -53,7 +53,7 @@ mirror-match (same faction + same detachment on both sides) id collisions.
   `factionRuleAbility()` for `faction_rule_ids[]` (1.4.5 schema change) so the web
   builder keeps army rules.
 
-## 2. The 43 stratagems (source of truth: `scripts/40kdc/curated/orks_codex_11e.json`)
+## 2. The 40 stratagems (source of truth: `scripts/40kdc/curated/orks_codex_11e.json`)
 
 CSV `id` (= `csv_id` in game) | display name | detachment | CP | turn | phase | window(s)
 
@@ -102,7 +102,7 @@ CSV `id` (= `csv_id` in game) | display name | detachment | CP | turn | phase | 
 
 (War Horde 6, Madcap Meks 1, Runt Swarm 3, Wreckas 3, Bully Boyz 3, Da Big Hunt 3,
 Dread Mob 3, Shoota Boyz 3, Flyboyz 3, Kult of Speed 3, Blitz Brigade 3, Green Tide 3,
-Taktikal Brigade 3, Wurrband 0, Brute Bosses 0 = 43.)
+Taktikal Brigade 3, Wurrband 0, Brute Bosses 0 = 40.)
 
 Names in the CSV use straight apostrophes (`'`) so ids and node paths are stable.
 `Detachments.csv` Ork rows = the 15 codex detachments (removed: More Dakka!, Freebooter
@@ -225,7 +225,8 @@ Some effects need more than flags. A handler's `apply` may return
   `apply(strat, target_unit_id, ctx) -> Variant` (Array of diffs or `{diffs, followup}`),
   `clear(strat, unit_id) -> void`.
 - Group scripts (one per implementation group, so parallel work does not collide):
-  `OrkCodexFight.gd`, `OrkCodexShooting.gd`, `OrkCodexMovement.gd`,
+  `OrkCodexFight.gd`, `OrkCodexShooting.gd` (own-turn selected-to-shoot),
+  `OrkCodexShootingReactive.gd` (GRAB IT + opponent-Shooting windows), `OrkCodexMovement.gd`,
   `OrkCodexOther.gd` (Command / Charge / any-phase).
 - StratagemManager calls the dispatcher **first** (before the legacy name-keyed
   handlers) in `_apply_stratagem_effects`, `_clear_stratagem_flags`, implemented
