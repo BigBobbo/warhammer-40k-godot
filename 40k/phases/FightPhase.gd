@@ -2741,6 +2741,7 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	if sequencer_11e != null:
 		for member_id in group_ids:
 			sequencer_11e.mark_fought(member_id)
+	changes.append_array(_fight_done_changes_11e(unit_id))
 	final_result["changes"] = changes
 	active_fighter_id = ""
 	confirmed_attacks.clear()
@@ -2942,6 +2943,11 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 	# client via diffs (clear_katah_stance mutates live state directly).
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	var katah_remove_changes: Array = []
+	# The activation is over: record it for every component (synced to a
+	# multiplayer client, whose FightSequencer reads fight_done_turn).
+	for member_id in _fight_group_ids(str(action.unit_id)):
+		katah_remove_changes.append({"op": "set", "path": "units.%s.flags.has_fought" % member_id, "value": true})
+	katah_remove_changes.append_array(_fight_done_changes_11e(str(action.unit_id)))
 	if faction_mgr:
 		var sk_flags = GameState.state.get("units", {}).get(action.unit_id, {}).get("flags", {})
 		for katah_flag in ["effect_sustained_hits", "effect_lethal_hits", "katah_stance", "katah_sustained_hits_value"]:
@@ -3887,17 +3893,21 @@ func _begin_consolidation_step_11e() -> Dictionary:
 	# passed units did not fight — mark them so the sequencer doesn't re-offer
 	# them as 12.08 forced fights mid-consolidation, and clear the passes so a
 	# 12.08 forced fight can still be selected by its owner.
+	var passed_done_changes: Array = []
 	if sequencer_11e != null:
 		for unit_id in GameState.state.get("units", {}):
 			if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
 				log_phase_message("[11e 12.07] %s did not fight (its player passed, p.74)" % unit_id)
 				sequencer_11e.mark_fought(unit_id)
+				passed_done_changes.append_array(_fight_done_changes_11e(unit_id, false))
 		sequencer_11e.passed = {}
+	if not passed_done_changes.is_empty():
+		PhaseManager.apply_state_changes(passed_done_changes)
 
 	consolidating_player_11e = GameState.get_active_player()
 	log_phase_message("[11e 12.07] CONSOLIDATE step begins — Player %d (active) first" % consolidating_player_11e)
 	emit_signal("subphase_transition", _subphase_string_11e(), "CONSOLIDATE")
-	return _advance_consolidation_step_11e(create_result(true, []))
+	return _advance_consolidation_step_11e(create_result(true, passed_done_changes))
 
 # Drive the Consolidate step forward: offer the current player their
 # remaining eligible units, auto-pass a player with none left, and when
@@ -5030,6 +5040,8 @@ func _validate_end_fight(action: Dictionary) -> Dictionary:
 		return {"valid": true, "errors": []}
 	if consolidation_step_11e == ConsolidationStep11e.DONE or sequencer_11e == null:
 		return {"valid": true, "errors": []}
+	if pile_in_step_11e == PileInStep11e.NOT_STARTED:
+		return {"valid": false, "errors": ["Resolve the start-of-phase choices (e.g. Moment Shackle) first — the Pile In step (12.02) has not begun"]}
 
 	# The Fight step (12.04): "Players resolve the following sequence until
 	# all eligible units have been selected to fight and their attacks have
@@ -5057,11 +5069,28 @@ func _validate_end_fight(action: Dictionary) -> Dictionary:
 ##   can_pass         — selecting player may pass: all of their eligible
 ##                      units are more than 5" from every enemy unit
 ##   owed_units       — the selecting player's units that must still fight
+## Diffs stamping FightSequencer.FIGHT_DONE_FLAG (this turn's key) on the
+## Attached unit headed by unit_id (or just unit_id with group=false) — the
+## synced "this unit's fight is over this turn" record a multiplayer client's
+## sequencer reads.
+func _fight_done_changes_11e(unit_id: String, group: bool = true) -> Array:
+	var key := FightSequencer.turn_key(GameState.state)
+	var ids: Array = _fight_group_ids(unit_id) if group else [unit_id]
+	var out: Array = []
+	for member_id in ids:
+		out.append({"op": "set", "path": "units.%s.flags.%s" % [member_id, FightSequencer.FIGHT_DONE_FLAG], "value": key})
+	return out
+
 func get_end_fight_status() -> Dictionary:
 	var status := {"step_over": true, "selecting_player": 0, "can_pass": false, "owed_units": []}
 	if sequencer_11e == null or pile_in_step_11e == PileInStep11e.ACTIVE \
 			or consolidation_step_11e != ConsolidationStep11e.NOT_STARTED:
 		return status
+	# Before the global Pile In step has started (a start-of-phase choice such
+	# as the Blade Champion's Moment Shackle is pending) the Fight step has not
+	# begun: nothing can end, and nobody can pass yet.
+	if pile_in_step_11e == PileInStep11e.NOT_STARTED:
+		return {"step_over": false, "selecting_player": 0, "can_pass": false, "owed_units": [], "pre_pile_in": true}
 	var sel = sequencer_11e.peek_selection(GameState.state)
 	if sel.done:
 		return status

@@ -183,6 +183,62 @@ func _run_tests():
 	var r9 = fp.execute_action({"type": "END_FIGHT", "player": 1})
 	_check("END_FIGHT rejected", not r9.get("success", false), str(r9))
 
+	print("\n-- G: the turn-scoped fight-done stamp keeps a (client) sequencer in sync --")
+	# Simulates a multiplayer client: its FightSequencer never sees the host's
+	# mark_fought calls, only the synced unit flags.
+	gs.state["meta"]["battle_round"] = 2
+	fp = _start_fight_step(gs, pm, {
+		"U_ORK": _unit("U_ORK", 1, 500, 500),
+		"U_PROS": _unit("U_PROS", 2, 560, 500),
+	})
+	var r_sel = fp.execute_action({"type": "SELECT_FIGHTER", "unit_id": "U_ORK", "player": 1})
+	_check("U_ORK selected to fight", r_sel.get("success", false), str(r_sel))
+	var r_skip = fp.execute_action({"type": "SKIP_UNIT", "unit_id": "U_ORK", "player": 1})
+	_check("U_ORK's activation ends", r_skip.get("success", false), str(r_skip))
+	var key = FightSequencer.turn_key(gs.state)
+	_check("fight_done_turn stamped with this turn's key (%s)" % key,
+		str(gs.state.units["U_ORK"].flags.get(FightSequencer.FIGHT_DONE_FLAG, "")) == key,
+		str(gs.state.units["U_ORK"].flags))
+	var client_seq = FightSequencer.new()
+	client_seq.begin(gs.state, 1)
+	_check("a fresh (client) sequencer sees U_ORK as done", not client_seq.eligible_to_fight("U_ORK", gs.state))
+	_check("... and U_PROS still owed its fight", client_seq.eligible_to_fight("U_PROS", gs.state))
+	gs.state.units["U_PROS"].flags[FightSequencer.FIGHT_DONE_FLAG] = "1:2"
+	_check("a stamp from ANOTHER turn does not block a fight", client_seq.eligible_to_fight("U_PROS", gs.state))
+	gs.state.units["U_PROS"].flags["has_fought"] = true
+	_check("a leftover has_fought (only cleared for the player whose turn starts) does not block either",
+		client_seq.eligible_to_fight("U_PROS", gs.state))
+
+	print("\n-- H: GameManager (multiplayer host path) delegates END_FIGHT to the FightPhase --")
+	gs.state["units"] = {
+		"U_ORK": _unit("U_ORK", 1, 500, 500),
+		"U_PROS": _unit("U_PROS", 2, 560, 500),
+	}
+	gs.state["meta"]["active_player"] = 1
+	gs.state["meta"]["phase"] = 10
+	pm.transition_to_phase(10)
+	fp = pm.get_current_phase_instance()
+	var gm = root.get_node("GameManager")
+	_check("Pile In step running", fp.pile_in_step_11e == fp.PileInStep11e.ACTIVE)
+	var r_gm1 = gm.process_action({"type": "END_FIGHT", "player": 1})
+	_check("GameManager END_FIGHT during Pile In only ends that half (phase stays FIGHT)",
+		r_gm1.get("success", false) and gs.get_current_phase() == 10 and fp.pile_in_step_11e == fp.PileInStep11e.ACTIVE \
+			and fp.piling_in_player_11e == 2, "%s step=%d piling=%d phase=%d" % [str(r_gm1.get("success")), fp.pile_in_step_11e, fp.piling_in_player_11e, gs.get_current_phase()])
+	gm.process_action({"type": "END_FIGHT", "player": 2})
+	_check("both halves ended -> the Fight step runs", fp.pile_in_step_11e == fp.PileInStep11e.DONE and gs.get_current_phase() == 10)
+	var r_gm2 = gm.process_action({"type": "END_FIGHT", "player": 1})
+	_check("GameManager END_FIGHT while fights are owed is REJECTED (not a phase end)",
+		not r_gm2.get("success", false) and gs.get_current_phase() == 10, str(r_gm2))
+
+	print("\n-- I: no END_FIGHT before the Pile In step starts (Moment Shackle pending) --")
+	fp._moment_shackle_pending_units = ["U_ORK"]
+	fp.pile_in_step_11e = fp.PileInStep11e.NOT_STARTED
+	var st_pre = fp.get_end_fight_status()
+	_check("status reports pre_pile_in, nothing can end, nobody can pass",
+		st_pre.get("pre_pile_in", false) and not st_pre.step_over and not st_pre.can_pass, str(st_pre))
+	var r_pre = fp.execute_action({"type": "END_FIGHT", "player": 1})
+	_check("END_FIGHT rejected before the Pile In step", not r_pre.get("success", false), str(r_pre))
+
 	# Restore
 	GameConstants.edition = prev_edition
 	gs.state = prev_state

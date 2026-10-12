@@ -678,6 +678,17 @@ func process_end_movement(action: Dictionary) -> Dictionary:
 		diffs.append_array(movement_phase.get_end_movement_remain_stationary_changes(player))
 		if not diffs.is_empty() and phase_mgr.has_method("apply_state_changes"):
 			phase_mgr.apply_state_changes(diffs)
+			# Multiplayer: ship the Remain Stationary diffs to the client BEFORE
+			# the phase change broadcast — otherwise the client enters Shooting
+			# without them and its post-transition state hash reports a false
+			# desync (same pattern as PhaseManager's Superior Creation revivals).
+			var nm = get_node_or_null("/root/NetworkManager")
+			if nm and nm.is_networked() and nm.is_host():
+				nm._broadcast_result_from_phase_manager({
+					"success": true,
+					"diffs": diffs.duplicate(true),
+					"action_type": "END_MOVEMENT_REMAIN_STATIONARY"
+				})
 	_trigger_phase_completion()
 	diffs.append({"op": "set", "path": "meta.phase", "value": next_phase})
 	return {"success": true, "diffs": diffs}
@@ -739,15 +750,19 @@ func process_end_charge(action: Dictionary) -> Dictionary:
 
 func process_end_fight(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_FIGHT action")
-	# 12.04 / p.74: while units are still eligible to fight, END_FIGHT can only
-	# be the selecting player's PASS (the phase validator rejects anything
-	# else). A pass hands the selection to the opponent — it must NOT end the
-	# phase, so let the FightPhase process it like single-player does.
+	# The 11e Fight phase has three steps — global Pile In (12.02), the Fight
+	# step (12.04, where END_FIGHT can only be a p.74 PASS while units are owed
+	# a fight) and global Consolidate (12.07) — followed by the 12.09 triggers.
+	# FightPhase._process_end_fight walks all of them and emits phase_completed
+	# itself, exactly as in single-player. Multiplayer used to short-circuit
+	# here (phase_completed + meta.phase), which skipped every fight on
+	# "Finish Pile Ins", the Consolidate step and Sweeping Advance / Acrobatic
+	# Escape. The host broadcasts the eventual phase change
+	# (PhaseManager.transition_to_phase).
 	var phase_mgr = _get_phase_manager()
 	var fight_phase = phase_mgr.get_current_phase_instance() if phase_mgr else null
-	if fight_phase and fight_phase.has_method("get_end_fight_status") \
-			and not fight_phase.get_end_fight_status().step_over:
-		print("GameManager: END_FIGHT is a p.74 pass — delegating to FightPhase")
+	if fight_phase and fight_phase.has_method("get_end_fight_status"):
+		print("GameManager: END_FIGHT delegated to FightPhase (step: %s)" % (fight_phase.get_fight_step_11e() if fight_phase.has_method("get_fight_step_11e") else "?"))
 		return _delegate_to_current_phase(action)
 	var next_phase = _get_next_phase(GameStateData.Phase.FIGHT)
 	_trigger_phase_completion()

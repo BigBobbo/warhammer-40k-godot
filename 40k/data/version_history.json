@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.44.1",
+      "date": "2026-10-12",
+      "summary": "Online games now follow the 1.44.0 Fight-phase rules: Finish Pile Ins no longer skips the whole Fight phase, the guest can pass, refused actions say why, and the turn timer can't throw away fights.",
+      "changes": [
+        "Fixed (Multiplayer, Fight 12.02-12.07): in an online game, \"Finish Pile Ins\" ended the entire Fight phase \u2014 every fight, the Consolidate step and end-of-phase abilities were skipped. It now only ends your half of the Pile In step, then the Fight and Consolidate steps run exactly as in single-player.",
+        "Fixed (Multiplayer, p.74): the guest player can now \"Pass (Unable to Fight)\" too. The host checks the 5\" rule, and the pass hands the pick over without losing the fight.",
+        "Fixed (Multiplayer, 12.04): if the host refuses one of your actions (for example \"End Fight Phase\" while a unit still has to fight) you now see a message saying why, instead of nothing happening.",
+        "Fixed (Multiplayer): while your opponent is picking a unit to fight, your phase button tells you you're waiting for them instead of offering their pass.",
+        "Fixed (Multiplayer turn timer): running out of time in the Fight step no longer forfeits fights. The timeout is charged to the player the game is actually waiting on (the one picking a fighter), and the timer keeps running after a Pile In or Consolidate half ends.",
+        "Fixed (Multiplayer, Movement 09.02): the Remain Stationary results of \"End Movement\" reach the guest before the Shooting phase starts, so the game no longer logs a false out-of-sync warning there."
+      ]
+    },
+    {
       "version": "1.44.0",
       "date": "2026-10-12",
       "summary": "Five core-rules fixes: fights are mandatory (with the 5\" pass rule), unmoved units remain stationary, the Indirect Shooting you pick is the one resolved, auto-rolled saves stack damage on a wounded model, and emergency disembark only places models legally.",

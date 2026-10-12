@@ -6588,7 +6588,10 @@ func _phase_action_needs_confirm() -> bool:
 			if fp and fp.has_method("get_fight_step_11e") and fp.get_fight_step_11e() != "FIGHT":
 				return false
 			# In the Fight step proper, ending is only possible once nobody is
-			# left to select (12.04); the p.74 pass has its own dialog.
+			# left to select (12.04); the p.74 pass has its own dialog. A
+			# multiplayer client defers to the host (plain confirm, host judges).
+			if NetworkManager.is_networked() and not NetworkManager.is_host():
+				return true
 			if fp and fp.has_method("get_end_fight_status"):
 				return fp.get_end_fight_status().step_over
 			return true
@@ -12235,10 +12238,15 @@ func _get_fight_phase_action_label() -> String:
 			"PILE_IN": return "Finish Pile Ins"
 			"CONSOLIDATE": return "Finish Consolidations"
 	# p.74: while units are still owed a fight the button can only PASS (and
-	# only when every eligible unit is >5" from all enemies).
-	if fp and fp.has_method("get_end_fight_status"):
+	# only when every eligible unit is >5" from all enemies) — and only the
+	# selecting player's own button says so. A multiplayer client's local
+	# sequencer is not authoritative, so it keeps the plain label (its Pass
+	# button in the fighter-selection panel is driven by the host's data).
+	var label_client := NetworkManager.is_networked() and not NetworkManager.is_host()
+	if fp and fp.has_method("get_end_fight_status") and not label_client:
 		var status = fp.get_end_fight_status()
-		if not status.step_over and status.can_pass:
+		var mine := not NetworkManager.is_networked() or int(status.selecting_player) == NetworkManager.get_local_player()
+		if not status.step_over and status.can_pass and mine:
 			return "Pass (Unable to Fight)"
 	return "End Fight Phase"
 
@@ -12436,13 +12444,26 @@ func _on_phase_action_pressed() -> void:
 			var fight_step := "FIGHT"
 			if fight_phase_instance and fight_phase_instance.has_method("get_fight_step_11e"):
 				fight_step = fight_phase_instance.get_fight_step_11e()
-			if fight_step == "FIGHT" and fight_phase_instance and fight_phase_instance.has_method("get_end_fight_status"):
+			# Multiplayer client: the host's FightPhase is the rules authority —
+			# this peer's FightSequencer is not synced (passes, picker), so
+			# don't pre-judge from it. Send END_FIGHT for the local player and
+			# let the host accept or refuse it (a refusal comes back as a toast).
+			var fight_client_defers := NetworkManager.is_networked() and not NetworkManager.is_host()
+			if fight_step == "FIGHT" and not fight_client_defers and fight_phase_instance and fight_phase_instance.has_method("get_end_fight_status"):
 				# 12.04: fighting is mandatory — the Fight step only ends once
 				# every eligible unit has been selected to fight. The one
 				# exception is the p.74 pass ("Eligible to fight, but unable to
 				# fight"): the SELECTING player may pass when all of their
 				# eligible units are more than 5" from every enemy unit.
 				var status = fight_phase_instance.get_end_fight_status()
+				if status.get("pre_pile_in", false):
+					ToastManager.show_info("Resolve the start-of-phase choices (e.g. Moment Shackle) before the Pile In step")
+					return
+				if not status.step_over and NetworkManager.is_networked() \
+						and int(status.selecting_player) != NetworkManager.get_local_player():
+					# Never offer (or send) the OPPONENT's pass / owed fights.
+					ToastManager.show_info("Waiting for Player %d to select a unit to fight (12.04)" % int(status.selecting_player))
+					return
 				if not status.step_over:
 					if status.can_pass:
 						print("Main: p.74: Player %d may pass (%d unit(s) unable to fight), showing confirmation dialog" % [status.selecting_player, status.owed_units.size()])
@@ -12454,7 +12475,10 @@ func _on_phase_action_pressed() -> void:
 					print("Main: 12.04: END_FIGHT blocked — Player %d still owes fights: %s" % [status.selecting_player, str(owed_names)])
 					ToastManager.show_error("Every eligible unit must fight (12.04). Player %d still to fight: %s" % [status.selecting_player, ", ".join(owed_names)])
 					return
-			action = {"type": "END_FIGHT", "player": active_player}
+			# Networked: the action is this peer's (authority check is
+			# claimed player == sender), even when it is not the active turn.
+			var end_fight_player: int = NetworkManager.get_local_player() if NetworkManager.is_networked() else active_player
+			action = {"type": "END_FIGHT", "player": end_fight_player}
 		GameStateData.Phase.SCORING:
 			if GameState.is_game_complete():
 				print("Main: Game is complete, cannot advance phase")

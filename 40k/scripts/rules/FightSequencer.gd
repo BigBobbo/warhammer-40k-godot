@@ -44,9 +44,24 @@ var passed: Dictionary = {}
 ## The pass rule's distance: more than this many inches from ALL enemy units.
 const UNABLE_TO_FIGHT_DISTANCE_INCHES := 5.0
 
+## Unit flag holding the turn_key() of the turn in which the unit's fight
+## was resolved (fought, skipped, or ended by passes) — see eligible_to_fight.
+const FIGHT_DONE_FLAG := "fight_done_turn"
+
+## "<battle round>:<active player>" — identifies one player turn.
+static func turn_key(board: Dictionary) -> String:
+	var meta: Dictionary = board.get("meta", {})
+	return "%d:%d" % [int(meta.get("battle_round", 0)), int(meta.get("active_player", 0))]
+
 
 static func _rules() -> Node:
 	return Engine.get_main_loop().root.get_node("/root/RulesEngine")
+
+
+# Autoloads are looked up at call time (not referenced by name) so this
+# class_name script compiles even before the autoloads exist.
+static func _measurement() -> Node:
+	return Engine.get_main_loop().root.get_node("/root/Measurement")
 
 
 ## Snapshot engagement state at the start of the Fight step (12.04's
@@ -74,6 +89,15 @@ func eligible_to_fight(unit_id: String, board: Dictionary) -> bool:
 		return false
 	var unit = board.get("units", {}).get(unit_id, {})
 	if unit.is_empty() or not _any_alive(unit):
+		return false
+	# flags.fight_done_turn is the synced record that this unit's fight is
+	# over THIS turn (the host stamps it when an activation resolves or is
+	# skipped, and when the Fight step ends with passed units). A multiplayer
+	# client's sequencer never sees the host's mark_fought calls, so it reads
+	# the stamp instead. Turn-scoped on purpose: flags.has_fought is only
+	# cleared for the player whose turn starts, so it leaks into the
+	# opponent's Fight phase and cannot be used here.
+	if str(unit.get("flags", {}).get(FIGHT_DONE_FLAG, "")) == turn_key(board):
 		return false
 	if _rules().is_unit_engaged(unit_id, board):
 		return true
@@ -178,7 +202,7 @@ func within_distance_of_enemy(unit_id: String, board: Dictionary, inches: float)
 				for enemy_model in other.get("models", []):
 					if not enemy_model.get("alive", true) or enemy_model.get("position", null) == null:
 						continue
-					if Measurement.model_to_model_distance_inches(model, enemy_model) <= inches:
+					if _measurement().model_to_model_distance_inches(model, enemy_model) <= inches:
 						return true
 	return false
 

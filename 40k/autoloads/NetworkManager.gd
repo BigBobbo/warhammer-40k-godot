@@ -58,8 +58,13 @@ const LOAD_SYNC_TIMEOUT_SECONDS: float = 10.0  # Timeout waiting for client ackn
 # Optimistic execution — deterministic actions that can be applied client-side immediately
 const DETERMINISTIC_ACTIONS: Array[String] = [
 	# Phase transitions
-	"END_COMMAND", "END_DEPLOYMENT", "END_MOVEMENT", "END_SHOOTING",
-	"END_FIGHT", "END_SCORING", "END_CHARGE", "END_MORALE", "END_PHASE",
+	# END_MOVEMENT and END_FIGHT are NOT here: their outcome depends on
+	# host-only phase state (END_MOVEMENT resolves every unselected unit as
+	# Remain Stationary from the MovementPhase's active moves, 09.02; END_FIGHT
+	# is a Pile In / Consolidate half-end or a p.74 pass judged by the host's
+	# FightSequencer, 12.04), so a client must not run them optimistically.
+	"END_COMMAND", "END_DEPLOYMENT", "END_SHOOTING",
+	"END_SCORING", "END_CHARGE", "END_MORALE", "END_PHASE",
 	# Deployment
 	"DEPLOY_UNIT", "COMPOSITE_DEPLOY", "EMBARK_UNITS_DEPLOYMENT", "ATTACH_CHARACTER_DEPLOYMENT",
 	# Strategic Reserves / Deep Strike
@@ -2634,7 +2639,13 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		# Fight Phase actions: cross-turn actions where players alternate activating units during active player's turn
 		#   - Once a player selects a unit, ALL subsequent actions for that activation occur during opponent's turn
 
-		# Still validate player authority (that the peer is who they claim to be)
+		# Still validate player authority (that the peer is who they claim to be).
+		# An action without a "player" key is attributed to the sender — the
+		# phase validators read action.player (e.g. END_FIGHT's p.74 pass is
+		# judged for that player), so a missing key must not slip past the
+		# authority check as "whoever is selecting".
+		if not action.has("player") and peer_to_player_map.has(peer_id):
+			action["player"] = peer_to_player_map[peer_id]
 		if action.has("player"):
 			var claimed_player = action.get("player", -1)
 			var peer_player = peer_to_player_map.get(peer_id, -1)
@@ -2696,6 +2707,11 @@ func _reject_action(action_type: String, reason: String) -> void:
 	push_error("NetworkManager: Action rejected: %s - %s" % [action_type, reason])
 	# Emit signal so UI can display rejection reason to player
 	action_rejected.emit(action_type, reason)
+	# Tell the player why (the host's own rejections already toast). E.g. an
+	# END_FIGHT refused because units still have to fight (12.04).
+	var main = get_node_or_null("/root/Main")
+	if main and main.has_method("show_error_toast"):
+		main.call_deferred("show_error_toast", "%s rejected: %s" % [action_type, reason])
 	print("NetworkManager: Emitted action_rejected signal - type=%s, reason=%s" % [action_type, reason])
 
 # ============================================================================
@@ -2763,8 +2779,11 @@ func _on_turn_timeout() -> void:
 		return
 
 	consecutive_timeout_count += 1
-	var current_player = game_state.get_active_player()
 	var current_phase = game_state.get_current_phase()
+	# The player who is holding the game up. Usually the active player, but in
+	# the Fight step (12.04) players alternate — whoever must select the next
+	# fighter (or pass) is the one being waited on.
+	var current_player = _afk_player_for_current_phase()
 	var phase_name = GameStateData.Phase.keys()[current_phase] if current_phase < GameStateData.Phase.size() else "UNKNOWN"
 	print("NetworkManager: Turn timeout! Player %d in %s phase (consecutive: %d/%d)" % [current_player, phase_name, consecutive_timeout_count, MAX_CONSECUTIVE_TIMEOUTS])
 
@@ -2776,7 +2795,7 @@ func _on_turn_timeout() -> void:
 
 	if consecutive_timeout_count >= MAX_CONSECUTIVE_TIMEOUTS:
 		# Player has been AFK for multiple consecutive phases — game over
-		var winner = 3 - current_player  # Other player wins (1->2, 2->1)
+		var winner = 3 - current_player  # Other player wins (1->2, 2->1) — current_player is the AFK one
 		print("NetworkManager: %d consecutive timeouts — ending game" % consecutive_timeout_count)
 		_broadcast_game_over.rpc(winner, "turn_timeout")
 	else:
@@ -2808,8 +2827,44 @@ func _auto_end_current_phase() -> void:
 		"player": game_state.get_active_player(),
 		"auto_timeout": true
 	}
+	# 12.04: fighting is mandatory — a timeout cannot forfeit owed fights.
+	# While units are still owed a fight the only legal auto action is the
+	# selecting player's p.74 pass (all of their eligible units are >5" from
+	# every enemy); otherwise nothing is submitted and the timer re-arms, so
+	# the next consecutive timeout ends the game against the AFK player.
+	if current_phase == GameStateData.Phase.FIGHT:
+		var fp = phase_manager_ref.get_current_phase_instance() if phase_manager_ref.has_method("get_current_phase_instance") else null
+		if fp and fp.has_method("get_end_fight_status"):
+			var status = fp.get_end_fight_status()
+			if not status.step_over:
+				if status.can_pass:
+					action["player"] = int(status.selecting_player)
+					action["pass"] = true
+				else:
+					print("NetworkManager: Fight step timeout — Player %d still owes fights (12.04); no auto action, timer re-armed" % int(status.selecting_player))
+					start_turn_timer()
+					return
 	print("NetworkManager: Auto-submitting %s for AFK timeout" % end_action_type)
 	submit_action(action)
+	# An END_* that only finished a sub-step (a Fight-phase Pile In /
+	# Consolidate half, a p.74 pass) or was rejected leaves the phase in
+	# place — keep the AFK timer running instead of leaving it stopped.
+	if game_state.get_current_phase() == current_phase and not (phase_manager_ref.get("game_ended") == true):
+		start_turn_timer()
+
+func _afk_player_for_current_phase() -> int:
+	"""The player the turn timer is waiting on: the active player, except in
+	the Fight step (12.04) where the player who must select the next fighter
+	(or pass) is the one holding the game up."""
+	var active := game_state.get_active_player()
+	if game_state.get_current_phase() != GameStateData.Phase.FIGHT or not phase_manager_ref:
+		return active
+	var fp = phase_manager_ref.get_current_phase_instance() if phase_manager_ref.has_method("get_current_phase_instance") else null
+	if fp and fp.has_method("get_end_fight_status"):
+		var status = fp.get_end_fight_status()
+		if not status.step_over and int(status.selecting_player) > 0:
+			return int(status.selecting_player)
+	return active
 
 func _auto_deploy_remaining_units_on_timeout() -> void:
 	"""P2-42: Auto-place remaining undeployed units into Strategic Reserves on deployment timeout.
