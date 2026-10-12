@@ -75,7 +75,7 @@ func _base_plan() -> Dictionary:
 		"author": "test",
 		"keys": {
 			"army_file": "recon_stomps",
-			"detachment_hint": "Speedwaaagh!",
+			"detachment_hint": "Kult of Speed",
 			"deployment_zone_id": "hammer_anvil",
 			"terrain_layout_id": "",
 			"mission_id": "",
@@ -109,7 +109,7 @@ func _base_plan() -> Dictionary:
 func _tiny_army() -> Dictionary:
 	# 2 units, 200 points -> reserves caps are 100 points / 1 unit.
 	return {
-		"faction": {"name": "Orks", "detachment": "Speedwaaagh!"},
+		"faction": {"name": "Orks", "detachment": "Kult of Speed"},
 		"units": {
 			"U_A": {"meta": {"name": "Alpha", "points": 100}, "models": []},
 			"U_B": {"meta": {"name": "Beta", "points": 100}, "models": []},

@@ -114,7 +114,7 @@ func _make_snapshot(zone_id: String, army_path: String, player: int) -> Dictiona
 			"objectives": [],
 			"terrain_features": [],
 		},
-		"factions": {str(player): {"name": "Orks", "detachment": "Speedwaaagh!"}},
+		"factions": {str(player): {"name": "Orks", "detachment": "Kult of Speed"}},
 		"units": units,
 	}
 
@@ -363,7 +363,7 @@ func test_real_predeploy_fixture_both_seats() -> void:
 	var plan := {
 		"format": "wh40k_ai_plan", "version": 1,
 		"name": "PM2a Real Fixture", "description": "", "author": "test",
-		"keys": {"army_file": "recon_stomps", "detachment_hint": "Speedwaaagh!",
+		"keys": {"army_file": "recon_stomps", "detachment_hint": "Kult of Speed",
 			"deployment_zone_id": "crucible_of_battle",
 			"terrain_layout_id": "take_and_hold_mirror_1", "mission_id": ""},
 		"deployment": {

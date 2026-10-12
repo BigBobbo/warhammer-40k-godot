@@ -7235,9 +7235,12 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 		datasheet_slugs[UnitLoadoutResolver.slugify(n)] = true
 		datasheet_slugs[UnitLoadoutResolver.slugify(UnitLoadoutResolver.base_weapon_name(n))] = true
 
-	# Role per model, then its default kit.
+	# Role per model, then its default kit. Kits are looked up under the
+	# unit's datasheet key: its own name, or "<name> [1.0.19]" for a roster
+	# built on a pre-codex datasheet (UnitLoadoutResolver.datasheet_key).
+	var ds_key = UnitLoadoutResolver.datasheet_key(unit)
 	var model_profiles = meta.get("model_profiles", {})
-	var positional = _positional_roles(uname, models.size())
+	var positional = _positional_roles(ds_key, models.size())
 	var role_of: Array = []
 	var kits: Array = []
 	for i in range(models.size()):
@@ -7251,11 +7254,11 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 					role_names.append(label)
 		if i < positional.size():
 			role_names.append(str(positional[i]))  # last resort, least specific
-		var role = UnitLoadoutResolver.match_model_role(uname, role_names)
+		var role = UnitLoadoutResolver.match_model_role(ds_key, role_names)
 		if role == "":
 			print("[MA-LOADOUT] %s: model %d's role could not be matched to the datasheet composition — left unresolved" % [uname, i])
 			return []
-		var kit = UnitLoadoutResolver.get_role_default_weapon_slugs(uname, role)
+		var kit = UnitLoadoutResolver.get_role_default_weapon_slugs(ds_key, role)
 		if kit.is_empty():
 			print("[MA-LOADOUT] %s: no default kit for role '%s' — left unresolved" % [uname, role])
 			return []
@@ -7293,7 +7296,7 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 	# AND the Boss Nob's kombi swap all hand out a close combat weapon, so a
 	# roster line of "9x Close combat weapon" says nothing about which was taken.
 	# Only a weapon unique to ONE swap is evidence.
-	var options = UnitLoadoutResolver.get_wargear_options(uname)
+	var options = UnitLoadoutResolver.get_wargear_options(ds_key)
 	var grant_counts := {}
 	for option in options:
 		for bundle in option.get("bundles", []):

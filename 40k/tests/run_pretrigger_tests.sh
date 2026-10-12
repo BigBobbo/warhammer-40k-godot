@@ -29,6 +29,8 @@
 #   - the 50% reserves caps bind the AI too (attached leaders are counted)
 #   - PM-3 AI earmarks (hold/push/screen/hunt bias, release, fragment layering)
 #   - PM-5 deployment recorder + plan round trip (record -> consume, both seats)
+#   - Codex: Orks (11e) data layer (curated stratagem rows, window column,
+#     apostrophe-folded detachment match, legacy 1.0.19 datasheet kits)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -172,6 +174,7 @@ TESTS=(
     "tests/test_iss073_shw_mobile_gamble.gd"
     "tests/test_iss074_aircraft_reserves_11e.gd"
     "tests/test_core_stratagems_11e.gd"
+    "tests/test_ork_codex_11e_data.gd"
     "tests/test_indirect_fire_band_11e.gd"
     "tests/test_t003_indirect_fire_visibility_pin.gd"
     "tests/test_terrain_area_visibility_11e.gd"

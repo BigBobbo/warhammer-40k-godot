@@ -31,6 +31,98 @@
   }
  },
  {
+  "id": "pain-token-pool",
+  "name": "Pain Token Pool",
+  "faction_id": "drukhari",
+  "pool_type": "counter",
+  "generation": [
+   {
+    "condition": {
+     "type": "timing-is",
+     "parameters": {
+      "timing": "start-of-command-phase"
+     }
+    },
+    "amount": 1
+   },
+   {
+    "condition": {
+     "type": "timing-is",
+     "parameters": {
+      "timing": "enemy-unit-destroyed"
+     }
+    },
+    "amount": 1
+   },
+   {
+    "condition": {
+     "type": "timing-is",
+     "parameters": {
+      "timing": "enemy-unit-fails-battle-shock"
+     }
+    },
+    "amount": 1
+   }
+  ],
+  "max_size": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "yp-pool",
+  "name": "Yield Point Pool",
+  "faction_id": "leagues-of-votann",
+  "pool_type": "counter",
+  "generation": [
+   {
+    "condition": {
+     "type": "controls-objective",
+     "parameters": {
+      "count_min": 1,
+      "scope": "your-territory"
+     }
+    },
+    "amount": 1
+   },
+   {
+    "condition": {
+     "type": "controls-objective",
+     "parameters": {
+      "count_min": 1,
+      "exclude": "home"
+     }
+    },
+    "amount": 1
+   },
+   {
+    "condition": {
+     "type": "controls-objective",
+     "parameters": {
+      "count_min": 2,
+      "exclude": "home"
+     }
+    },
+    "amount": 1
+   },
+   {
+    "condition": {
+     "type": "objective-majority",
+     "parameters": {
+      "relative_to": "opponent"
+     }
+    },
+    "amount": 1
+   }
+  ],
+  "max_size": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
   "id": "blessings-of-khorne-pool",
   "name": "Blessings of Khorne Dice Pool",
   "faction_id": "world-eaters",
@@ -44,6 +136,50 @@
      }
     },
     "amount": 8
+   }
+  ],
+  "max_size": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "bloodshed-point",
+  "name": "Bloodshed Point",
+  "faction_id": "world-eaters",
+  "pool_type": "counter",
+  "generation": [
+   {
+    "condition": {
+     "type": "timing-is",
+     "parameters": {
+      "timing": "enemy-unit-destroyed"
+     }
+    },
+    "amount": 1
+   }
+  ],
+  "max_size": null,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
+ },
+ {
+  "id": "blood-tithe-pool",
+  "name": "Blood Tithe Pool",
+  "faction_id": "world-eaters",
+  "pool_type": "counter",
+  "generation": [
+   {
+    "condition": {
+     "type": "timing-is",
+     "parameters": {
+      "timing": "enemy-unit-destroyed"
+     }
+    },
+    "amount": 1
    }
   ],
   "max_size": null,

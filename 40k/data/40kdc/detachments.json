@@ -24,10 +24,16 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "take-and-hold"
+   "purge-the-foe"
   ],
   "detachment_rule_ids": [
    "desperate-for-redemption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "530ae43e-f733-4100-afdf-19d165fb9983"
+   }
   ]
  },
  {
@@ -59,6 +65,12 @@
   ],
   "detachment_rule_ids": [
    "the-blood-of-martyrs"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5e3bb5a9-1e75-455e-a87d-13e59948be68"
+   }
   ]
  },
  {
@@ -84,12 +96,18 @@
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
   },
-  "detachment_points": 3,
+  "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
   ],
   "detachment_rule_ids": [
    "fervent-purgation"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c0a5cd98-3a84-4074-ad62-b4d848d2bcf6"
+   }
   ]
  },
  {
@@ -121,6 +139,15 @@
   ],
   "detachment_rule_ids": [
    "righteous-purpose"
+  ],
+  "tags": [
+   "reverend"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c1eaf854-a425-4cc8-b29e-557b8b89f8c1"
+   }
   ]
  },
  {
@@ -152,6 +179,12 @@
   ],
   "detachment_rule_ids": [
    "sacred-rites"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f3dbfd5c-d553-436f-9617-4c8269cb5b09"
+   }
   ]
  },
  {
@@ -161,7 +194,7 @@
   "detachment_rule_id": "angelic-judgement",
   "enhancement_ids": [
    "clarion-of-urgency-chorus-of-condemnation",
-   "symphonic-payload-chorus-of-condemnation"
+   "symphonic-payload-upgrade-chorus-of-condemnation"
   ],
   "stratagem_ids": [
    "inspirational-battle-canticles-chorus-of-condemnation",
@@ -176,11 +209,15 @@
   "force_dispositions": [
    "reconnaissance"
   ],
-  "tags": [
-   "reverend"
-  ],
+  "tags": [],
   "detachment_rule_ids": [
    "angelic-judgement"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "730c8f71-c997-4071-98f0-8aa377e762f3"
+   }
   ]
  },
  {
@@ -189,7 +226,7 @@
   "faction_id": "adepta-sororitas",
   "detachment_rule_id": "holy-quest",
   "enhancement_ids": [
-   "writ-of-compunction-sacred-champions",
+   "writ-of-compunction-upgrade-sacred-champions",
    "perfervid-haste-sacred-champions"
   ],
   "stratagem_ids": [
@@ -210,6 +247,12 @@
   ],
   "detachment_rule_ids": [
    "holy-quest"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d8dfdc5f-4e0b-4233-8f2f-2ee703664afb"
+   }
   ]
  },
  {
@@ -218,7 +261,7 @@
   "faction_id": "adepta-sororitas",
   "detachment_rule_id": "hymns-of-battle",
   "enhancement_ids": [
-   "hagiomnifex-sanctified-orators"
+   "hagiomnifex-upgrade-sanctified-orators"
   ],
   "stratagem_ids": [],
   "game_version": {
@@ -227,10 +270,42 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "disruption"
   ],
   "detachment_rule_ids": [
    "hymns-of-battle"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7cf2f061-bc54-4c2f-be17-2959cf840fdf"
+   }
+  ]
+ },
+ {
+  "id": "sanctuary-guardians",
+  "name": "Sanctuary Guardians",
+  "faction_id": "adepta-sororitas",
+  "enhancement_ids": [
+   "divine-miracle-sanctuary-guardians",
+   "righteous-fervour-sanctuary-guardians"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9da49913-6ad9-4bfe-85dc-771f1c9758d4"
+   }
   ]
  },
  {
@@ -258,7 +333,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
+   }
   ]
  },
  {
@@ -287,6 +368,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
+   }
   ]
  },
  {
@@ -315,6 +402,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0854459d-3909-4621-8073-46d54d1a0464"
+   }
   ]
  },
  {
@@ -337,6 +430,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
+   }
   ]
  },
  {
@@ -365,6 +464,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
+   }
   ]
  },
  {
@@ -392,6 +497,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
+   }
   ]
  },
  {
@@ -420,6 +531,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
+   }
   ]
  },
  {
@@ -447,7 +564,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
+   }
   ]
  },
  {
@@ -475,7 +598,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
+   }
   ]
  },
  {
@@ -484,8 +613,8 @@
   "faction_id": "adeptus-astartes",
   "detachment_rule_id": "skystrike",
   "enhancement_ids": [
-   "bellicose-weapon-spirits-fulguris-task-force",
-   "raptorial-cogitator-core-fulguris-task-force"
+   "bellicose-weapon-spirits-upgrade-fulguris-task-force",
+   "raptorial-cogitator-core-upgrade-fulguris-task-force"
   ],
   "stratagem_ids": [
    "data-link-augury-fulguris-task-force",
@@ -498,7 +627,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
+   }
   ]
  },
  {
@@ -508,7 +643,7 @@
   "detachment_rule_id": null,
   "enhancement_ids": [
    "shroud-field-subversion-assets",
-   "death-in-the-dark-subversion-assets"
+   "death-in-the-dark-upgrade-subversion-assets"
   ],
   "stratagem_ids": [
    "adaptive-operations-subversion-assets",
@@ -521,7 +656,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
+   }
   ]
  },
  {
@@ -550,6 +691,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
+   }
   ]
  },
  {
@@ -578,6 +725,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
+   }
   ]
  },
  {
@@ -588,7 +741,8 @@
   "enhancement_ids": [
    "honour-indefatigable-ceramite-sentinels",
    "castellum-omnivox-ceramite-sentinels",
-   "defensive-mastery-ceramite-sentinels"
+   "defensive-mastery-ceramite-sentinels",
+   "spy-skull-data-link-ceramite-sentinels"
   ],
   "stratagem_ids": [
    "unyielding-might-ceramite-sentinels",
@@ -605,6 +759,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3f2130dc-e858-45a7-b42c-4cd5953b9b43"
+   }
   ]
  },
  {
@@ -633,6 +793,61 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
+   }
+  ]
+ },
+ {
+  "id": "assault-force",
+  "name": "Assault Force",
+  "faction_id": "adeptus-astartes",
+  "enhancement_ids": [
+   "battle-line-veterans-assault-force",
+   "blade-masters-assault-force"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c6d78179-7038-46dd-8d4a-9c1f9383fd8b"
+   }
+  ]
+ },
+ {
+  "id": "vengeful-hosts",
+  "name": "Vengeful Hosts",
+  "faction_id": "adeptus-astartes",
+  "enhancement_ids": [
+   "avenging-angel-vengeful-hosts",
+   "orksbane-vengeful-hosts"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "63c87e85-fd1a-4dc3-8bc9-226db3e966d6"
+   }
   ]
  },
  {
@@ -658,9 +873,18 @@
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
   },
-  "detachment_points": 2,
+  "detachment_points": 3,
   "force_dispositions": [
-   "disruption"
+   "take-and-hold"
+  ],
+  "tags": [
+   "lions"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "16f0256d-a6ba-4d12-963f-2b8874eb17a5"
+   }
   ]
  },
  {
@@ -689,6 +913,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2ed9481a-9f80-4e78-8931-b8070fef82e3"
+   }
   ]
  },
  {
@@ -721,6 +951,15 @@
   "detachment_rule_ids": [
    "auric-armour",
    "moritoi-ancients"
+  ],
+  "tags": [
+   "armoury"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3cb02267-28e0-4dab-9ff3-976caa1b7a31"
+   }
   ]
  },
  {
@@ -749,6 +988,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "71a22085-3750-4339-bd18-7b7511e831ee"
+   }
   ]
  },
  {
@@ -777,6 +1022,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b70a6b14-333a-4f04-a3c3-b3341e48c08c"
+   }
   ]
  },
  {
@@ -805,6 +1056,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f0e490e7-c6e3-4c51-9162-93dca988eee5"
+   }
   ]
  },
  {
@@ -813,8 +1070,8 @@
   "faction_id": "adeptus-custodes",
   "detachment_rule_id": "march-of-the-honoured-dead",
   "enhancement_ids": [
-   "interred-expertise-might-of-the-moritoi",
-   "auramite-sarcophagus-might-of-the-moritoi"
+   "interred-expertise-upgrade-might-of-the-moritoi",
+   "auramite-sarcophagus-upgrade-might-of-the-moritoi"
   ],
   "stratagem_ids": [
    "flawless-construction-might-of-the-moritoi",
@@ -827,10 +1084,16 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
   ],
   "tags": [
    "armoury"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4edac749-d510-4161-b3c3-1fd31e91cfcf"
+   }
   ]
  },
  {
@@ -840,7 +1103,7 @@
   "detachment_rule_id": "skin-crawling-disorientation",
   "enhancement_ids": [
    "encircling-hunter-silent-hunters",
-   "psyk-out-grenades-silent-hunters"
+   "psyk-out-grenades-upgrade-silent-hunters"
   ],
   "stratagem_ids": [
    "deathsong-scythes-silent-hunters",
@@ -854,6 +1117,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "58dd1c38-27e6-4ccf-a7f5-53068e61b838"
+   }
   ]
  },
  {
@@ -876,10 +1145,42 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "priority-assets"
+   "disruption"
   ],
   "tags": [
    "lions"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "92ae3afb-c5d5-41a9-80da-8db33c91ed41"
+   }
+  ]
+ },
+ {
+  "id": "tristraens-gilded-blades",
+  "name": "Tristraen’s Gilded Blades",
+  "faction_id": "adeptus-custodes",
+  "enhancement_ids": [
+   "comrades-in-wrath-tristraens-gilded-blades",
+   "shattering-charge-tristraens-gilded-blades"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9c579f51-d8f2-461a-8a99-ec7deace8303"
+   }
   ]
  },
  {
@@ -907,7 +1208,13 @@
   },
   "detachment_points": 3,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "1f88f9ac-0833-4f98-8c7c-81d0fe96b6c1"
+   }
   ]
  },
  {
@@ -936,6 +1243,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8affc9e3-5c18-407d-9221-78bb107b7bd5"
+   }
   ]
  },
  {
@@ -964,6 +1277,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a3be11dc-9a25-4d6b-90a2-1828e6d2d10b"
+   }
   ]
  },
  {
@@ -995,6 +1314,12 @@
   ],
   "tags": [
    "data-psalm"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a6cedc66-4c91-4957-b8c3-fa1b30fd8f5a"
+   }
   ]
  },
  {
@@ -1023,6 +1348,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "cdf5ae0a-7913-4ebc-b7c8-949f48e869f8"
+   }
   ]
  },
  {
@@ -1051,6 +1382,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e00b5962-4b5a-4857-bb5d-d1372e762d2f"
+   }
   ]
  },
  {
@@ -1060,7 +1397,7 @@
   "detachment_rule_id": "noospheric-recon",
   "enhancement_ids": [
    "explorator-dispensation-cohort-acquisitus",
-   "stealth-screened-cybercanids-cohort-acquisitus"
+   "stealth-screened-cybercanids-upgrade-cohort-acquisitus"
   ],
   "stratagem_ids": [
    "defect-scrutiny-cohort-acquisitus",
@@ -1074,6 +1411,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b8fe0260-4813-45c4-996b-1622ae022223"
+   }
   ]
  },
  {
@@ -1098,8 +1441,12 @@
   "force_dispositions": [
    "priority-assets"
   ],
-  "tags": [
-   "data-psalm"
+  "tags": [],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8a1e297b-d845-493b-9371-1e245b85b98a"
+   }
   ]
  },
  {
@@ -1126,6 +1473,12 @@
   ],
   "tags": [
    "data-psalm"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "40fdf203-095d-45f2-9678-3a0e7c30346d"
+   }
   ]
  },
  {
@@ -1154,6 +1507,38 @@
   "detachment_points": 3,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "ef26ded5-b525-47c9-8329-deaab91c2c74"
+   }
+  ]
+ },
+ {
+  "id": "purge-corps-deltic-9",
+  "name": "Purge Corps Deltic-9",
+  "faction_id": "adeptus-mechanicus",
+  "enhancement_ids": [
+   "empowered-mechanisms-purge-corps-deltic-9",
+   "miniaturised-autosimulacra-purge-corps-deltic-9"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "13aa8e3b-3095-4a81-9597-c186a14a2318"
+   }
   ]
  },
  {
@@ -1182,6 +1567,15 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "tags": [
+   "acrobatic"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "06936a21-a084-45d1-b358-5386ce9c3c47"
+   }
   ]
  },
  {
@@ -1210,6 +1604,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "116e5e49-e39e-4e06-9b10-c7d7d77defdb"
+   }
   ]
  },
  {
@@ -1238,6 +1638,15 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "tags": [
+   "acrobatic"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2651d2ae-b43a-4576-9e58-6d5275c89350"
+   }
   ]
  },
  {
@@ -1249,7 +1658,8 @@
    "light-of-clarity-spirit-conclave",
    "stave-of-kurnos-spirit-conclave",
    "rune-of-mists-spirit-conclave",
-   "higher-duty-spirit-conclave"
+   "higher-duty-spirit-conclave",
+   "stave-of-kurnous-spirit-conclave"
   ],
   "stratagem_ids": [
    "crushing-strides-spirit-conclave",
@@ -1266,6 +1676,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "33492cd0-2688-4ce1-b174-2f5a7b31a54b"
+   }
   ]
  },
  {
@@ -1294,6 +1710,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3b0ed811-f339-4f72-ba0b-532a04a18089"
+   }
   ]
  },
  {
@@ -1322,6 +1744,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "43121bed-ff37-44a9-8c6c-44f29cf2c858"
+   }
   ]
  },
  {
@@ -1350,6 +1778,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b58e871b-db2a-47e2-a6cb-38e6db200209"
+   }
   ]
  },
  {
@@ -1382,6 +1816,12 @@
   "detachment_rule_ids": [
    "relentless-raiders",
    "veterans-of-the-void"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "6fe9602c-f133-4a56-9d82-c9137a9ecc10"
+   }
   ]
  },
  {
@@ -1409,11 +1849,17 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "disruption"
+   "purge-the-foe"
   ],
   "detachment_rule_ids": [
    "yriels-own",
    "veterans-of-the-void"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9915f243-6846-46c2-a616-701659f50a8e"
+   }
   ]
  },
  {
@@ -1442,6 +1888,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b5d7418d-8a4d-42c8-86d8-b8a0c5c788aa"
+   }
   ]
  },
  {
@@ -1469,7 +1921,13 @@
   },
   "detachment_points": 3,
   "force_dispositions": [
-   "purge-the-foe"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "df808d6f-3013-4a9b-8a6f-0b68785891d0"
+   }
   ]
  },
  {
@@ -1497,7 +1955,13 @@
   },
   "detachment_points": 3,
   "force_dispositions": [
-   "disruption"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fc9dead1-222d-4925-bf9c-ba18c4121f50"
+   }
   ]
  },
  {
@@ -1506,7 +1970,8 @@
   "faction_id": "aeldari",
   "detachment_rule_id": "far-reaching-doom",
   "enhancement_ids": [
-   "camouflaged-snipers-path-of-the-outcast"
+   "camouflaged-snipers-upgrade-path-of-the-outcast",
+   "assassins-eye-upgrade-path-of-the-outcast"
   ],
   "stratagem_ids": [
    "eldritch-suppression-path-of-the-outcast",
@@ -1520,6 +1985,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "ab0126f1-e344-469a-8125-2838fdcefe8d"
+   }
   ]
  },
  {
@@ -1546,6 +2017,12 @@
   ],
   "tags": [
    "acrobatic"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "28ea8bf8-1cb6-4ae3-b0c7-2a171e5dc29f"
+   }
   ]
  },
  {
@@ -1554,7 +2031,7 @@
   "faction_id": "aeldari",
   "detachment_rule_id": "dance-of-distortion",
   "enhancement_ids": [
-   "shadowfall-masks-twilight-flickers",
+   "shadowfall-masks-upgrade-twilight-flickers",
    "prelude-performer-twilight-flickers"
   ],
   "stratagem_ids": [
@@ -1572,6 +2049,38 @@
   ],
   "tags": [
    "acrobatic"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "366e2930-9de3-4494-bcee-e6fed3c3ad1e"
+   }
+  ]
+ },
+ {
+  "id": "kygharils-protectors",
+  "name": "Kygharil's Protectors",
+  "faction_id": "aeldari",
+  "enhancement_ids": [
+   "guided-jump-kygharils-protectors",
+   "seers-hand-kygharils-protectors"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e2abadaf-e69a-46af-aa29-a58999f1626e"
+   }
   ]
  },
  {
@@ -1597,9 +2106,15 @@
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
   },
-  "detachment_points": 3,
+  "detachment_points": 2,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4a6a098b-92a6-44f1-8b4f-a7ba168ba049"
+   }
   ]
  },
  {
@@ -1625,9 +2140,15 @@
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
   },
-  "detachment_points": 3,
+  "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "6a6e3903-1b61-4706-8fc7-e48729a9880d"
+   }
   ]
  },
  {
@@ -1635,7 +2156,12 @@
   "name": "Veiled Blade Elimination Force",
   "faction_id": "agents-of-the-imperium",
   "detachment_rule_id": "extremis-sanction",
-  "enhancement_ids": [],
+  "enhancement_ids": [
+   "intraneural-biotech-veiled-blade-elimination-force",
+   "decoy-targets-veiled-blade-elimination-force",
+   "esoteric-explosives-veiled-blade-elimination-force",
+   "micromelta-rounds-veiled-blade-elimination-force"
+  ],
   "stratagem_ids": [
    "prime-target-veiled-blade-elimination-force",
    "hyperstimms-veiled-blade-elimination-force",
@@ -1648,9 +2174,15 @@
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
   },
-  "detachment_points": 3,
+  "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "be6ba720-81c6-4dbc-8a37-1d61b4564f60"
+   }
   ]
  },
  {
@@ -1676,9 +2208,15 @@
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
   },
-  "detachment_points": 3,
+  "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e072fa96-aa3e-4a5f-ba03-376879f16c7f"
+   }
   ]
  },
  {
@@ -1704,9 +2242,41 @@
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
   },
-  "detachment_points": 3,
+  "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e89bc216-2de7-4cf9-a640-2dcbfde06b56"
+   }
+  ]
+ },
+ {
+  "id": "inquisitors-hand",
+  "name": "Inquisitor’s Hand",
+  "faction_id": "agents-of-the-imperium",
+  "enhancement_ids": [
+   "killer-reflexes-inquisitors-hand",
+   "sanctic-slayers-inquisitors-hand"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b43cf4e2-b7be-491a-809a-5c2e9ae36723"
+   }
   ]
  },
  {
@@ -1732,12 +2302,18 @@
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
   },
-  "detachment_points": 3,
+  "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
   ],
   "tags": [
    "recon"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3062acc0-d72e-471a-bbd1-26598bc30ec4"
+   }
   ]
  },
  {
@@ -1766,6 +2342,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4fa424ac-a7aa-4830-b497-45c89aae7fbb"
+   }
   ]
  },
  {
@@ -1791,9 +2373,15 @@
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
   },
-  "detachment_points": 3,
+  "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "6ae8f235-c8b0-4485-8e18-505b6926f1b2"
+   }
   ]
  },
  {
@@ -1822,6 +2410,15 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "tags": [
+   "abhuman"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8f29b4e9-92c8-450f-8d35-5561c49e8803"
+   }
   ]
  },
  {
@@ -1845,6 +2442,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "aae77907-0898-4c11-8a9e-a866a3e67456"
+   }
   ]
  },
  {
@@ -1872,7 +2475,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c3170734-b810-4e24-8244-0371f715ff9c"
+   }
   ]
  },
  {
@@ -1901,6 +2510,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f284cddb-5060-44ff-abbb-a2876dedcf18"
+   }
   ]
  },
  {
@@ -1910,7 +2525,8 @@
   "detachment_rule_id": "absolutist-principles",
   "enhancement_ids": [
    "sharp-eyes-light-fingers-abhuman-auxiliaries",
-   "exemplar-of-duty-abhuman-auxiliaries"
+   "exemplar-of-duty-upgrade-abhuman-auxiliaries",
+   "sharp-eyes-upgrade-abhuman-auxiliaries"
   ],
   "stratagem_ids": [
    "thick-skulled-obdurance-abhuman-auxiliaries",
@@ -1927,6 +2543,12 @@
   ],
   "tags": [
    "abhuman"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7b0fe28b-5a8e-48cd-bbe7-699babfbd463"
+   }
   ]
  },
  {
@@ -1935,8 +2557,8 @@
   "faction_id": "astra-militarum",
   "detachment_rule_id": "designated-targets",
   "enhancement_ids": [
-   "long-range-scout-designation-force",
-   "recon-star-designation-force"
+   "long-range-scout-upgrade-designation-force",
+   "recon-star-upgrade-designation-force"
   ],
   "stratagem_ids": [
    "close-range-detection-designation-force",
@@ -1953,6 +2575,12 @@
   ],
   "tags": [
    "recon"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7c12acc3-f2ae-4fa7-b80b-03dae96b72da"
+   }
   ]
  },
  {
@@ -1981,6 +2609,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "660a5970-862e-4ea0-8365-1901adb404be"
+   }
   ]
  },
  {
@@ -1991,7 +2625,7 @@
   "enhancement_ids": [
    "exemplary-officer-armoured-infantry",
    "master-manoeuvrist-armoured-infantry",
-   "omnissian-unguents-armoured-infantry",
+   "omnissian-unguents-aura-armoured-infantry",
    "grand-strategist-armoured-infantry"
   ],
   "stratagem_ids": [
@@ -2017,6 +2651,38 @@
      "Astra Militarum Squadron"
     ]
    }
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "1fe960ed-2abc-4e1d-82f4-b0770b8cd2d8"
+   }
+  ]
+ },
+ {
+  "id": "draydens-lance",
+  "name": "Drayden’s Lance",
+  "faction_id": "astra-militarum",
+  "enhancement_ids": [
+   "call-up-the-reserves-draydens-lance",
+   "draydens-drill-draydens-lance"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "1c9a0b9b-a1c2-449f-a79f-c054fd9b6908"
+   }
   ]
  },
  {
@@ -2028,7 +2694,8 @@
    "incendiary-animus-companions-of-vehemence",
    "oathbound-examplar-companions-of-vehemence",
    "merciless-denunciation-companions-of-vehemence",
-   "zealous-vanguard-companions-of-vehemence"
+   "zealous-vanguard-companions-of-vehemence",
+   "oathbound-exemplar-companions-of-vehemence"
   ],
   "stratagem_ids": [
    "devout-push-companions-of-vehemence",
@@ -2045,6 +2712,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "88882c56-6492-4cd0-8b73-34e1c80e55ae"
+   }
   ]
  },
  {
@@ -2073,6 +2746,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b22f1234-d890-401a-b6cb-cf03bc1b5505"
+   }
   ]
  },
  {
@@ -2096,6 +2775,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "aab75a4c-d486-47e0-b800-caf0028b62c8"
+   }
   ]
  },
  {
@@ -2123,7 +2808,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "disruption"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d8ec92c4-5d86-4e48-a27e-fab751c097ac"
+   }
   ]
  },
  {
@@ -2132,8 +2823,8 @@
   "faction_id": "black-templars",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "fervent-exemplars-marshals-household",
-   "inheritors-of-sigismund-marshals-household"
+   "fervent-exemplars-upgrade-marshals-household",
+   "inheritors-of-sigismund-upgrade-marshals-household"
   ],
   "stratagem_ids": [
    "blade-of-detestation-marshals-household",
@@ -2147,6 +2838,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b78cbc68-a012-494f-bd72-91873b382204"
+   }
   ]
  },
  {
@@ -2164,7 +2861,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "287d753d-cc67-40da-a7f4-9d2db2abdb67"
+   }
   ]
  },
  {
@@ -2192,7 +2895,7 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
   ]
  },
  {
@@ -2221,6 +2924,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
+   }
   ]
  },
  {
@@ -2249,6 +2958,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0854459d-3909-4621-8073-46d54d1a0464"
+   }
   ]
  },
  {
@@ -2299,6 +3014,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
+   }
   ]
  },
  {
@@ -2326,6 +3047,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
+   }
   ]
  },
  {
@@ -2354,6 +3081,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
+   }
   ]
  },
  {
@@ -2381,7 +3114,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
+   }
   ]
  },
  {
@@ -2409,7 +3148,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
+   }
   ]
  },
  {
@@ -2418,8 +3163,8 @@
   "faction_id": "black-templars",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "bellicose-weapon-spirits-fulguris-task-force",
-   "raptorial-cogitator-core-fulguris-task-force"
+   "bellicose-weapon-spirits-upgrade-fulguris-task-force",
+   "raptorial-cogitator-core-upgrade-fulguris-task-force"
   ],
   "stratagem_ids": [
    "data-link-augury-fulguris-task-force",
@@ -2432,7 +3177,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
+   }
   ]
  },
  {
@@ -2442,7 +3193,7 @@
   "detachment_rule_id": null,
   "enhancement_ids": [
    "shroud-field-subversion-assets",
-   "death-in-the-dark-subversion-assets"
+   "death-in-the-dark-upgrade-subversion-assets"
   ],
   "stratagem_ids": [
    "adaptive-operations-subversion-assets",
@@ -2455,7 +3206,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
+   }
   ]
  },
  {
@@ -2484,6 +3241,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
+   }
   ]
  },
  {
@@ -2512,6 +3275,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
+   }
   ]
  },
  {
@@ -2539,6 +3308,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3f2130dc-e858-45a7-b42c-4cd5953b9b43"
+   }
   ]
  },
  {
@@ -2567,6 +3342,58 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
+   }
+  ]
+ },
+ {
+  "id": "vow-sworn-of-vedrenn",
+  "name": "Vow-Sworn of Vedrenn",
+  "faction_id": "black-templars",
+  "enhancement_ids": [
+   "divine-endurance-vow-sworn-of-vedrenn",
+   "divine-protection-vow-sworn-of-vedrenn"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e7953cf2-eb05-483d-a194-62a4abb73764"
+   }
+  ]
+ },
+ {
+  "id": "vengeful-hosts",
+  "name": "Vengeful Hosts",
+  "faction_id": "black-templars",
+  "enhancement_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "63c87e85-fd1a-4dc3-8bc9-226db3e966d6"
+   }
   ]
  },
  {
@@ -2595,6 +3422,15 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "tags": [
+   "doomed"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0002bcde-4fd1-4bcc-99ea-7edbd5809792"
+   }
   ]
  },
  {
@@ -2623,6 +3459,15 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "tags": [
+   "grace"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2de2e2bc-8c9a-415e-ad61-11a8c2704590"
+   }
   ]
  },
  {
@@ -2651,6 +3496,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8351fbfa-edd6-4db9-a21d-400c05f1e9f1"
+   }
   ]
  },
  {
@@ -2679,6 +3530,15 @@
   "detachment_points": 3,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "tags": [
+   "doomed"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "98d89ce1-bf5b-49f5-bbcc-cba5e32659e5"
+   }
   ]
  },
  {
@@ -2702,6 +3562,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "ce2408b7-6810-4219-9f28-3c20499f0e13"
+   }
   ]
  },
  {
@@ -2727,6 +3593,12 @@
   ],
   "tags": [
    "grace"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "6c2b0c94-4bce-40ba-b6cc-8effe9e5efff"
+   }
   ]
  },
  {
@@ -2735,7 +3607,8 @@
   "faction_id": "blood-angels",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "instinctive-interception-wrath-of-the-doomed"
+   "instinctive-interception-wrath-of-the-doomed",
+   "on-the-archtraitors-bridge-wrath-of-the-doomed"
   ],
   "stratagem_ids": [
    "no-barrier-to-retribution-wrath-of-the-doomed",
@@ -2751,6 +3624,12 @@
   ],
   "tags": [
    "doomed"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b5a5858b-3187-44f3-95af-e34dfe7eb7c9"
+   }
   ]
  },
  {
@@ -2779,6 +3658,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5f032619-a925-4e61-8d52-5d2e5f81311f"
+   }
   ]
  },
  {
@@ -2806,7 +3691,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
+   }
   ]
  },
  {
@@ -2835,6 +3726,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
+   }
   ]
  },
  {
@@ -2863,6 +3760,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0854459d-3909-4621-8073-46d54d1a0464"
+   }
   ]
  },
  {
@@ -2885,6 +3788,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
+   }
   ]
  },
  {
@@ -2913,6 +3822,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
+   }
   ]
  },
  {
@@ -2940,6 +3855,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
+   }
   ]
  },
  {
@@ -2968,6 +3889,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
+   }
   ]
  },
  {
@@ -2995,7 +3922,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
+   }
   ]
  },
  {
@@ -3023,7 +3956,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
+   }
   ]
  },
  {
@@ -3032,8 +3971,8 @@
   "faction_id": "blood-angels",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "bellicose-weapon-spirits-fulguris-task-force",
-   "raptorial-cogitator-core-fulguris-task-force"
+   "bellicose-weapon-spirits-upgrade-fulguris-task-force",
+   "raptorial-cogitator-core-upgrade-fulguris-task-force"
   ],
   "stratagem_ids": [
    "data-link-augury-fulguris-task-force",
@@ -3046,7 +3985,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
+   }
   ]
  },
  {
@@ -3056,7 +4001,7 @@
   "detachment_rule_id": null,
   "enhancement_ids": [
    "shroud-field-subversion-assets",
-   "death-in-the-dark-subversion-assets"
+   "death-in-the-dark-upgrade-subversion-assets"
   ],
   "stratagem_ids": [
    "adaptive-operations-subversion-assets",
@@ -3069,7 +4014,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
+   }
   ]
  },
  {
@@ -3098,6 +4049,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
+   }
   ]
  },
  {
@@ -3126,6 +4083,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
+   }
   ]
  },
  {
@@ -3153,6 +4116,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3f2130dc-e858-45a7-b42c-4cd5953b9b43"
+   }
   ]
  },
  {
@@ -3181,6 +4150,58 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
+   }
+  ]
+ },
+ {
+  "id": "sanguinary-spearhead",
+  "name": "Sanguinary Spearhead",
+  "faction_id": "blood-angels",
+  "enhancement_ids": [
+   "masterful-fighter-sanguinary-spearhead",
+   "overwhelming-charge-sanguinary-spearhead"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3aa71320-ed3a-4168-ad83-22f520718198"
+   }
+  ]
+ },
+ {
+  "id": "vengeful-hosts",
+  "name": "Vengeful Hosts",
+  "faction_id": "blood-angels",
+  "enhancement_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "63c87e85-fd1a-4dc3-8bc9-226db3e966d6"
+   }
   ]
  },
  {
@@ -3213,6 +4234,12 @@
   "detachment_rule_ids": [
    "murdercall",
    "blood-tainted"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4489023b-fe35-46d6-9653-4b9f6718aa40"
+   }
   ]
  },
  {
@@ -3240,7 +4267,13 @@
   },
   "detachment_points": 3,
   "force_dispositions": [
-   "disruption"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5357f63c-7c70-459e-aa3b-1ea9c4ef48bb"
+   }
   ]
  },
  {
@@ -3269,6 +4302,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "778d3486-9f71-4253-90b9-c7ca150fc011"
+   }
   ]
  },
  {
@@ -3297,6 +4336,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "95dd7e2e-5318-4271-b9dc-38592794539f"
+   }
   ]
  },
  {
@@ -3325,6 +4370,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d7d52d0d-d7af-4bc4-9a77-6ca0250a1d2c"
+   }
   ]
  },
  {
@@ -3357,6 +4408,12 @@
   "detachment_rule_ids": [
    "beguiling-aura",
    "seductive-gambit"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e64491c2-1e38-485c-959c-2b0bdf2cffaa"
+   }
   ]
  },
  {
@@ -3365,8 +4422,8 @@
   "faction_id": "chaos-daemons",
   "detachment_rule_id": "unholy-avalanche",
   "enhancement_ids": [
-   "apocalyptic-steeds-cavalcade-of-chaos",
-   "soul-shattering-charge-cavalcade-of-chaos"
+   "apocalyptic-steeds-upgrade-cavalcade-of-chaos",
+   "soul-shattering-charge-upgrade-cavalcade-of-chaos"
   ],
   "stratagem_ids": [
    "from-beyond-the-veil-cavalcade-of-chaos",
@@ -3380,6 +4437,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b3ac1391-84a9-4f8b-8755-d75eccfa5b70"
+   }
   ]
  },
  {
@@ -3388,7 +4451,7 @@
   "faction_id": "chaos-daemons",
   "detachment_rule_id": "loci-of-power",
   "enhancement_ids": [
-   "swollen-with-power-lords-of-the-warp"
+   "swollen-with-power-upgrade-lords-of-the-warp"
   ],
   "stratagem_ids": [
    "carnival-of-excess-lords-of-the-warp",
@@ -3402,7 +4465,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe916344-deef-4c81-99ed-2adae0a8c296"
+   }
   ]
  },
  {
@@ -3411,8 +4480,8 @@
   "faction_id": "chaos-daemons",
   "detachment_rule_id": "shudderblink",
   "enhancement_ids": [
-   "bane-forged-weapons-warptide",
-   "soul-hungry-slaughterers-warptide"
+   "bane-forged-weapons-upgrade-warptide",
+   "soul-hungry-slaughterers-upgrade-warptide"
   ],
   "stratagem_ids": [
    "daemonic-infestation-warptide",
@@ -3426,6 +4495,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "bdbd5d64-bccf-4d77-bcac-2e19815d1516"
+   }
   ]
  },
  {
@@ -3434,8 +4509,8 @@
   "faction_id": "chaos-knights",
   "detachment_rule_id": "wretched-thralls",
   "enhancement_ids": [
-   "cruel-lashmaster-iconoclast-fiefdom",
-   "iconoclast-idol-iconoclast-fiefdom"
+   "cruel-lashmaster-aura-iconoclast-fiefdom",
+   "iconoclast-idol-aura-iconoclast-fiefdom"
   ],
   "stratagem_ids": [
    "avenge-the-masters-iconoclast-fiefdom",
@@ -3449,6 +4524,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c7d24ce3-acdf-414d-af2a-81c602983045"
+   }
   ]
  },
  {
@@ -3478,7 +4559,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "355721a8-7f31-4a55-94e0-cbc895fb2397"
+   }
   ]
  },
  {
@@ -3506,7 +4593,13 @@
   },
   "detachment_points": 3,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "86620542-e27d-4e99-a70e-da69a673c9fb"
+   }
   ]
  },
  {
@@ -3556,6 +4649,13 @@
     "keyword": "War Dog",
     "min": 3
    }
+  ],
+  "tags": [],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a634e475-384b-40cd-957d-cd99201ab3e4"
+   }
   ]
  },
  {
@@ -3584,6 +4684,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b40710c8-474d-402d-bb22-9903e280dcff"
+   }
   ]
  },
  {
@@ -3606,7 +4712,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "993e9b23-3ade-4fb1-bb27-f9270de48978"
+   }
   ]
  },
  {
@@ -3615,8 +4727,8 @@
   "faction_id": "chaos-knights",
   "detachment_rule_id": "scenting-fear",
   "enhancement_ids": [
-   "soul-spoor-auspicator-hunting-warpack",
-   "snarling-rivalry-hunting-warpack"
+   "soul-spoor-auspicator-upgrade-hunting-warpack",
+   "snarling-rivalry-upgrade-hunting-warpack"
   ],
   "stratagem_ids": [
    "insensate-bloodthirst-hunting-warpack",
@@ -3631,8 +4743,12 @@
   "force_dispositions": [
    "reconnaissance"
   ],
-  "tags": [
-   "war-dogs"
+  "tags": [],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e2637679-6163-4ea2-93cb-8c5a263ecc33"
+   }
   ]
  },
  {
@@ -3661,6 +4777,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9bef33d0-15fa-49f8-ac91-42496470641d"
+   }
   ]
  },
  {
@@ -3688,7 +4810,13 @@
   },
   "detachment_points": 3,
   "force_dispositions": [
-   "disruption"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "12492ec7-0f2c-46fa-822a-80b0c2e8bfd6"
+   }
   ]
  },
  {
@@ -3712,6 +4840,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "cbb28bd5-40ae-4d3e-8dbd-3b3e1591a89a"
+   }
   ]
  },
  {
@@ -3740,6 +4874,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "1a658734-6ba0-4fe7-8f05-ddf084cc694d"
+   }
   ]
  },
  {
@@ -3768,6 +4908,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3fe68451-1e4f-41e0-85a9-ecaf0d20e60c"
+   }
   ]
  },
  {
@@ -3796,6 +4942,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "41e763bc-5f5c-4e65-be45-9c168c962033"
+   }
   ]
  },
  {
@@ -3823,7 +4975,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "807aa974-ca16-4d8a-8958-68c1a32f9c86"
+   }
   ]
  },
  {
@@ -3852,6 +5010,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8f4e4263-86bf-426d-b235-6d760ffe8584"
+   }
   ]
  },
  {
@@ -3880,6 +5044,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "92401979-2a38-4cbd-9781-d3d53d6ad2e0"
+   }
   ]
  },
  {
@@ -3908,6 +5078,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "93ea6b6a-690f-4a73-bb76-638cc4da5641"
+   }
   ]
  },
  {
@@ -3936,6 +5112,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a0d2bc8f-ba0c-4ea6-8ee1-42dccb8fbc4d"
+   }
   ]
  },
  {
@@ -3964,6 +5146,15 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "tags": [
+   "nightmare"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b7654c2c-0922-444c-a98a-f49438d4f22c"
+   }
   ]
  },
  {
@@ -3992,6 +5183,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b7c5bcb7-eecb-4ae5-a18b-b96143c34fa8"
+   }
   ]
  },
  {
@@ -4020,6 +5217,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d730df46-12ec-4dff-80cf-60aeea5eefcd"
+   }
   ]
  },
  {
@@ -4044,8 +5247,12 @@
   "force_dispositions": [
    "priority-assets"
   ],
-  "tags": [
-   "nightmare"
+  "tags": [],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "802cf206-9418-4fa8-9b4a-3ac3d2b9d01d"
+   }
   ]
  },
  {
@@ -4068,10 +5275,16 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "reconnaissance"
   ],
   "tags": [
    "nightmare"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "64363c88-2015-4700-9f88-ac03407213db"
+   }
   ]
  },
  {
@@ -4100,6 +5313,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b7baa3d5-a100-40d8-9e84-44ec95a8dcfc"
+   }
   ]
  },
  {
@@ -4128,6 +5347,38 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c61a7add-d879-4bb6-a61e-dfa1c621e203"
+   }
+  ]
+ },
+ {
+  "id": "zarkans-daemonkin",
+  "name": "Zarkan’s Daemonkin",
+  "faction_id": "chaos-space-marines",
+  "enhancement_ids": [
+   "infernal-infusion-zarkans-daemonkin",
+   "prey-on-the-weak-zarkans-daemonkin"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dac96ed0-397c-4309-86fc-250a71b82842"
+   }
   ]
  },
  {
@@ -4142,7 +5393,6 @@
    "iron-resolve-1st-company-task-force"
   ],
   "stratagem_ids": [
-   "armour-of-contempt-liberator-assault-group",
    "heroes-of-the-chapter-1st-company-task-force",
    "legendary-fortitude-1st-company-task-force",
    "terrifying-proficiency-1st-company-task-force",
@@ -4155,7 +5405,7 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
   ]
  },
  {
@@ -4170,7 +5420,6 @@
    "fire-discipline-gladius-task-force"
   ],
   "stratagem_ids": [
-   "armour-of-contempt-liberator-assault-group",
    "honour-the-chapter-gladius-task-force",
    "storm-of-fire-gladius-task-force",
    "only-in-death-does-duty-end-gladius-task-force",
@@ -4198,7 +5447,6 @@
    "hunters-instincts-stormlance-task-force"
   ],
   "stratagem_ids": [
-   "armour-of-contempt-liberator-assault-group",
    "blitzing-fusillade-stormlance-task-force",
    "shock-assault-stormlance-task-force",
    "ride-hard-ride-fast-stormlance-task-force",
@@ -4248,7 +5496,6 @@
    "shadow-war-veteran-vanguard-spearhead"
   ],
   "stratagem_ids": [
-   "armour-of-contempt-liberator-assault-group",
    "strike-from-the-shadows-vanguard-spearhead",
    "surgical-strikes-vanguard-spearhead",
    "calculated-feint-vanguard-spearhead",
@@ -4304,7 +5551,6 @@
   ],
   "stratagem_ids": [
    "battle-drill-recall-anvil-siege-force",
-   "armour-of-contempt-liberator-assault-group",
    "no-threat-too-great-anvil-siege-force",
    "rigid-discipline-anvil-siege-force",
    "not-one-backwards-step-anvil-siege-force",
@@ -4331,7 +5577,6 @@
    "adamantine-mantle-firestorm-assault-force"
   ],
   "stratagem_ids": [
-   "armour-of-contempt-liberator-assault-group",
    "crucible-of-battle-firestorm-assault-force",
    "onslaught-of-fire-firestorm-assault-force",
    "burning-vengeance-firestorm-assault-force",
@@ -4344,7 +5589,7 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
   ]
  },
  {
@@ -4360,7 +5605,6 @@
   ],
   "stratagem_ids": [
    "unbowed-conviction-ironstorm-spearhead",
-   "armour-of-contempt-liberator-assault-group",
    "mercy-is-weakness-ironstorm-spearhead",
    "vengeful-animus-ironstorm-spearhead",
    "ancient-fury-ironstorm-spearhead",
@@ -4372,7 +5616,7 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
   ]
  },
  {
@@ -4381,8 +5625,8 @@
   "faction_id": "crimson-fists",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "bellicose-weapon-spirits-fulguris-task-force",
-   "raptorial-cogitator-core-fulguris-task-force"
+   "bellicose-weapon-spirits-upgrade-fulguris-task-force",
+   "raptorial-cogitator-core-upgrade-fulguris-task-force"
   ],
   "stratagem_ids": [
    "data-link-augury-fulguris-task-force",
@@ -4395,7 +5639,7 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
   ]
  },
  {
@@ -4405,7 +5649,7 @@
   "detachment_rule_id": null,
   "enhancement_ids": [
    "shroud-field-subversion-assets",
-   "death-in-the-dark-subversion-assets"
+   "death-in-the-dark-upgrade-subversion-assets"
   ],
   "stratagem_ids": [
    "adaptive-operations-subversion-assets",
@@ -4418,7 +5662,7 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
   ]
  },
  {
@@ -4436,7 +5680,6 @@
    "machine-wrath-armoured-speartip",
    "ceramite-sledgehammer-armoured-speartip",
    "advanced-deployment-armoured-speartip",
-   "armour-of-contempt-liberator-assault-group",
    "purgation-doctrine-armoured-speartip",
    "rapid-embarkation-firestorm-assault-force"
   ],
@@ -4492,7 +5735,6 @@
    "stand-to-the-end-ceramite-sentinels",
    "priority-strike-ceramite-sentinels",
    "augmented-targeting-ceramite-sentinels",
-   "armour-of-contempt-liberator-assault-group",
    "evasive-repositioning-ceramite-sentinels"
   ],
   "game_version": {
@@ -4516,7 +5758,6 @@
    "astartes-tank-ace-aura-headhunter-task-force"
   ],
   "stratagem_ids": [
-   "armour-of-contempt-liberator-assault-group",
    "rapid-gunnery-headhunter-task-force",
    "reactive-repositioning-headhunter-task-force",
    "target-weak-point-headhunter-task-force",
@@ -4558,6 +5799,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0843e2f3-27e5-4bc2-90ac-0ad099c66d3e"
+   }
   ]
  },
  {
@@ -4586,6 +5833,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "410ea102-b63f-4b3e-b901-05c2c869c298"
+   }
   ]
  },
  {
@@ -4614,6 +5867,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "6040c18f-09c2-4708-8e85-912f88949221"
+   }
   ]
  },
  {
@@ -4625,7 +5884,8 @@
    "tempered-in-battle-aura-wrath-of-the-rock",
    "ancient-weapons-wrath-of-the-rock",
    "deathwing-assault-inner-circle-task-force",
-   "lord-of-the-ravenwing-wrath-of-the-rock"
+   "lord-of-the-ravenwing-wrath-of-the-rock",
+   "deathwing-assault-wrath-of-the-rock"
   ],
   "stratagem_ids": [
    "inescapable-justice-wrath-of-the-rock",
@@ -4642,6 +5902,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e5a06319-a071-4bb4-aaa6-07c98c07abc6"
+   }
   ]
  },
  {
@@ -4650,8 +5916,8 @@
   "faction_id": "dark-angels",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "petition-of-stability-dark-age-arsenal",
-   "entreaty-of-perpetual-ardour-dark-age-arsenal"
+   "petition-of-stability-upgrade-dark-age-arsenal",
+   "entreaty-of-perpetual-ardour-upgrade-dark-age-arsenal"
   ],
   "stratagem_ids": [
    "searing-bursts-dark-age-arsenal",
@@ -4665,6 +5931,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2e1dbbe3-13ef-42cd-b3d8-6daae893ae82"
+   }
   ]
  },
  {
@@ -4673,8 +5945,8 @@
   "faction_id": "dark-angels",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "thundercowl-turbines-darkflight-pursuit",
-   "nightforged-battery-darkflight-pursuit"
+   "thundercowl-turbines-upgrade-darkflight-pursuit",
+   "nightforged-battery-upgrade-darkflight-pursuit"
   ],
   "stratagem_ids": [
    "skyborne-surveillance-darkflight-pursuit",
@@ -4688,6 +5960,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0b44b0ad-420b-4b4c-af5a-27f0a735042e"
+   }
   ]
  },
  {
@@ -4710,7 +5988,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2a38def8-f0d2-4f28-aeca-bc2b555172bb"
+   }
   ]
  },
  {
@@ -4739,6 +6023,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "88060204-d25c-4ed9-95c7-a4b58d530320"
+   }
   ]
  },
  {
@@ -4766,7 +6056,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
+   }
   ]
  },
  {
@@ -4795,6 +6091,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
+   }
   ]
  },
  {
@@ -4823,6 +6125,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0854459d-3909-4621-8073-46d54d1a0464"
+   }
   ]
  },
  {
@@ -4845,6 +6153,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
+   }
   ]
  },
  {
@@ -4873,6 +6187,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
+   }
   ]
  },
  {
@@ -4900,6 +6220,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
+   }
   ]
  },
  {
@@ -4928,6 +6254,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
+   }
   ]
  },
  {
@@ -4955,7 +6287,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
+   }
   ]
  },
  {
@@ -4983,7 +6321,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
+   }
   ]
  },
  {
@@ -4992,8 +6336,8 @@
   "faction_id": "dark-angels",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "bellicose-weapon-spirits-fulguris-task-force",
-   "raptorial-cogitator-core-fulguris-task-force"
+   "bellicose-weapon-spirits-upgrade-fulguris-task-force",
+   "raptorial-cogitator-core-upgrade-fulguris-task-force"
   ],
   "stratagem_ids": [
    "data-link-augury-fulguris-task-force",
@@ -5006,7 +6350,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
+   }
   ]
  },
  {
@@ -5016,7 +6366,7 @@
   "detachment_rule_id": null,
   "enhancement_ids": [
    "shroud-field-subversion-assets",
-   "death-in-the-dark-subversion-assets"
+   "death-in-the-dark-upgrade-subversion-assets"
   ],
   "stratagem_ids": [
    "adaptive-operations-subversion-assets",
@@ -5029,7 +6379,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
+   }
   ]
  },
  {
@@ -5058,6 +6414,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
+   }
   ]
  },
  {
@@ -5086,6 +6448,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
+   }
   ]
  },
  {
@@ -5113,6 +6481,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3f2130dc-e858-45a7-b42c-4cd5953b9b43"
+   }
   ]
  },
  {
@@ -5141,6 +6515,58 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
+   }
+  ]
+ },
+ {
+  "id": "the-vengeful-brethren",
+  "name": "The Vengeful Brethren",
+  "faction_id": "dark-angels",
+  "enhancement_ids": [
+   "dutiful-defenders-the-vengeful-brethren",
+   "supreme-combatant-the-vengeful-brethren"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4514bd9f-e01e-464e-b861-2341b7b493e4"
+   }
+  ]
+ },
+ {
+  "id": "vengeful-hosts",
+  "name": "Vengeful Hosts",
+  "faction_id": "dark-angels",
+  "enhancement_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "63c87e85-fd1a-4dc3-8bc9-226db3e966d6"
+   }
   ]
  },
  {
@@ -5169,6 +6595,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "51470653-e741-468c-a4c5-efc6110e46d0"
+   }
   ]
  },
  {
@@ -5177,8 +6609,8 @@
   "faction_id": "death-guard",
   "detachment_rule_id": "verminous-haze",
   "enhancement_ids": [
-   "insectile-murmuration-flyblown-host",
-   "plagueveil-flyblown-host"
+   "insectile-murmuration-upgrade-flyblown-host",
+   "plagueveil-upgrade-flyblown-host"
   ],
   "stratagem_ids": [
    "nauseating-paroxysms-flyblown-host",
@@ -5193,8 +6625,12 @@
   "force_dispositions": [
    "reconnaissance"
   ],
-  "tags": [
-   "flyblown"
+  "tags": [],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9a41d668-c9ee-41c8-81e7-58585d6d8efb"
+   }
   ]
  },
  {
@@ -5223,6 +6659,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "73927182-408b-4119-a045-e3b21d35cc36"
+   }
   ]
  },
  {
@@ -5251,6 +6693,13 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "tags": [],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "ac958d83-3ee2-4279-8115-2b164658da08"
+   }
   ]
  },
  {
@@ -5279,6 +6728,13 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "tags": [],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b3a2a4b5-40a0-4875-8017-bc455d657040"
+   }
   ]
  },
  {
@@ -5307,6 +6763,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "bd9bf924-b054-47bf-9df6-a301a62b41c5"
+   }
   ]
  },
  {
@@ -5335,6 +6797,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "db1b2621-c7fc-4c1f-91ba-3f75779123b8"
+   }
   ]
  },
  {
@@ -5343,8 +6811,8 @@
   "faction_id": "death-guard",
   "detachment_rule_id": "warped-and-rusted-animus",
   "enhancement_ids": [
-   "parasitic-woe-reaper-contagion-engines",
-   "lancet-of-the-worldsore-contagion-engines"
+   "parasitic-woe-reaper-upgrade-contagion-engines",
+   "lancet-of-the-worldsore-upgrade-contagion-engines"
   ],
   "stratagem_ids": [
    "fresh-vectors-contagion-engines",
@@ -5357,10 +6825,14 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "reconnaissance"
   ],
-  "tags": [
-   "engines"
+  "tags": [],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "80f1f5cf-8331-4b71-87fa-fe4caaa92633"
+   }
   ]
  },
  {
@@ -5384,6 +6856,38 @@
   "detachment_points": 1,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "39484a39-656d-4552-9eff-acbd524e4f5e"
+   }
+  ]
+ },
+ {
+  "id": "maggot-lords",
+  "name": "Maggot Lords",
+  "faction_id": "death-guard",
+  "enhancement_ids": [
+   "bountiful-regeneration-maggot-lords",
+   "noisome-veil-maggot-lords"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "23c14859-d404-4a9e-88cb-ae67386a4551"
+   }
   ]
  },
  {
@@ -5411,7 +6915,13 @@
   },
   "detachment_points": 3,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "cb3cd2ee-9410-46ce-9abd-80b05cdfb4ba"
+   }
   ]
  },
  {
@@ -5439,7 +6949,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
+   }
   ]
  },
  {
@@ -5468,6 +6984,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
+   }
   ]
  },
  {
@@ -5496,6 +7018,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0854459d-3909-4621-8073-46d54d1a0464"
+   }
   ]
  },
  {
@@ -5518,6 +7046,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
+   }
   ]
  },
  {
@@ -5546,6 +7080,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
+   }
   ]
  },
  {
@@ -5573,6 +7113,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
+   }
   ]
  },
  {
@@ -5601,6 +7147,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
+   }
   ]
  },
  {
@@ -5628,7 +7180,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
+   }
   ]
  },
  {
@@ -5656,7 +7214,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
+   }
   ]
  },
  {
@@ -5665,8 +7229,8 @@
   "faction_id": "deathwatch",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "bellicose-weapon-spirits-fulguris-task-force",
-   "raptorial-cogitator-core-fulguris-task-force"
+   "bellicose-weapon-spirits-upgrade-fulguris-task-force",
+   "raptorial-cogitator-core-upgrade-fulguris-task-force"
   ],
   "stratagem_ids": [
    "data-link-augury-fulguris-task-force",
@@ -5679,7 +7243,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
+   }
   ]
  },
  {
@@ -5689,7 +7259,7 @@
   "detachment_rule_id": null,
   "enhancement_ids": [
    "shroud-field-subversion-assets",
-   "death-in-the-dark-subversion-assets"
+   "death-in-the-dark-upgrade-subversion-assets"
   ],
   "stratagem_ids": [
    "adaptive-operations-subversion-assets",
@@ -5702,7 +7272,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
+   }
   ]
  },
  {
@@ -5731,6 +7307,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
+   }
   ]
  },
  {
@@ -5759,6 +7341,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
+   }
   ]
  },
  {
@@ -5786,6 +7374,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3f2130dc-e858-45a7-b42c-4cd5953b9b43"
+   }
   ]
  },
  {
@@ -5814,6 +7408,32 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
+   }
+  ]
+ },
+ {
+  "id": "vengeful-hosts",
+  "name": "Vengeful Hosts",
+  "faction_id": "deathwatch",
+  "enhancement_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "63c87e85-fd1a-4dc3-8bc9-226db3e966d6"
+   }
   ]
  },
  {
@@ -5842,6 +7462,15 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "tags": [
+   "wych-cult"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "07ecddab-2a2f-4eeb-b505-fff5138e729f"
+   }
   ]
  },
  {
@@ -5873,6 +7502,12 @@
   ],
   "tags": [
    "kabal"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "6693dc93-0d9b-4364-8e5a-4882debb529b"
+   }
   ]
  },
  {
@@ -5901,6 +7536,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "6b2f4fd1-8411-4c4a-92f0-110bfe87ebb5"
+   }
   ]
  },
  {
@@ -5929,6 +7570,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8205608c-1f2e-465f-854d-d6b99d455143"
+   }
   ]
  },
  {
@@ -5957,6 +7604,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "bad361ab-6952-46ab-97f5-921e8d8984a0"
+   }
   ]
  },
  {
@@ -5984,10 +7637,16 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
   ],
   "tags": [
    "covens"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "eaf6ced2-c21b-42fa-b442-ee7437cc3430"
+   }
   ]
  },
  {
@@ -6010,10 +7669,16 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
   ],
   "tags": [
    "wych-cult"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "ebd949cd-20a6-46be-929e-17421b92e77d"
+   }
   ]
  },
  {
@@ -6036,10 +7701,16 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "disruption"
   ],
   "tags": [
    "kabal"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "091a9dfa-59b6-43e9-957a-a211981c684e"
+   }
   ]
  },
  {
@@ -6049,7 +7720,7 @@
   "detachment_rule_id": "darkest-artifice",
   "enhancement_ids": [
    "gnarlskin-experimentor-tools-of-torment",
-   "elixir-of-the-corpse-courts-tools-of-torment"
+   "elixir-of-the-corpse-courts-upgrade-tools-of-torment"
   ],
   "stratagem_ids": [
    "salting-the-wound-tools-of-torment",
@@ -6066,6 +7737,38 @@
   ],
   "tags": [
    "covens"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "cbe64aa9-4b35-42c6-8674-4d841cc6fcf9"
+   }
+  ]
+ },
+ {
+  "id": "coven-of-agonies",
+  "name": "Coven of Agonies",
+  "faction_id": "drukhari",
+  "enhancement_ids": [
+   "superior-soulcraft-coven-of-agonies",
+   "toxin-laced-blades-coven-of-agonies"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "36b5f175-31ab-4b69-bc7f-af93606adbbe"
+   }
   ]
  },
  {
@@ -6094,6 +7797,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "046a17d6-1408-4e06-b8b7-55a367a74c97"
+   }
   ]
  },
  {
@@ -6121,7 +7830,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "31349652-6a08-46a0-a5ec-5d4533f0a8ae"
+   }
   ]
  },
  {
@@ -6150,6 +7865,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "af3fd326-fe1e-4023-a354-ed0f546ae6ff"
+   }
   ]
  },
  {
@@ -6178,6 +7899,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b89874ea-c08b-40c4-891d-dcdd2277595d"
+   }
   ]
  },
  {
@@ -6206,6 +7933,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "bea6576c-a423-4a9d-b9c9-6b3a10703a99"
+   }
   ]
  },
  {
@@ -6238,6 +7971,12 @@
   "detachment_rule_ids": [
    "sensational-performance",
    "master-of-the-pageant"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e3a3d467-28af-4e25-938b-42f48c64e8f5"
+   }
   ]
  },
  {
@@ -6249,7 +7988,8 @@
    "pledge-to-eternal-servitude-coterie-of-the-conceited",
    "pledge-of-dark-glory-coterie-of-the-conceited",
    "pledge-of-mortal-pain-coterie-of-the-conceited",
-   "pledge-of-unholy-fortune-coterie-of-the-conceited"
+   "pledge-of-unholy-fortune-coterie-of-the-conceited",
+   "pledge-of-eternal-servitude-coterie-of-the-conceited"
   ],
   "stratagem_ids": [
    "martial-perfection-coterie-of-the-conceited",
@@ -6265,7 +8005,13 @@
   },
   "detachment_points": 3,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f4f83a5e-36a7-49fd-950b-0ceb188b5c94"
+   }
   ]
  },
  {
@@ -6275,7 +8021,7 @@
   "detachment_rule_id": "eager-to-kill",
   "enhancement_ids": [
    "cacophonic-accompaniment-elegant-brutes",
-   "frenzied-ferocity-elegant-brutes"
+   "frenzied-ferocity-upgrade-elegant-brutes"
   ],
   "stratagem_ids": [
    "delight-in-agony-elegant-brutes",
@@ -6290,8 +8036,12 @@
   "force_dispositions": [
    "take-and-hold"
   ],
-  "tags": [
-   "host"
+  "tags": [],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3b9f3326-5025-4194-9a40-dec121410c32"
+   }
   ]
  },
  {
@@ -6314,10 +8064,14 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
   ],
-  "tags": [
-   "host"
+  "tags": [],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "235629e4-405f-40db-b393-9f71e1c6e3ea"
+   }
   ]
  },
  {
@@ -6326,8 +8080,8 @@
   "faction_id": "emperors-children",
   "detachment_rule_id": "entitled-to-victory",
   "enhancement_ids": [
-   "eager-patrons-spectacle-of-slaughter",
-   "beguiling-grotesquerie-spectacle-of-slaughter"
+   "eager-patrons-upgrade-spectacle-of-slaughter",
+   "beguiling-grotesquerie-upgrade-spectacle-of-slaughter"
   ],
   "stratagem_ids": [
    "honour-is-for-fools-spectacle-of-slaughter",
@@ -6340,7 +8094,39 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "29bc9dbe-2bac-48f6-a496-955ee9c377df"
+   }
+  ]
+ },
+ {
+  "id": "callous-blades",
+  "name": "Callous Blades",
+  "faction_id": "emperors-children",
+  "enhancement_ids": [
+   "invigorating-agonies-callous-blades",
+   "martial-perfection-callous-blades"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3228b035-5ffb-4238-9a53-ae82e643e2fe"
+   }
   ]
  },
  {
@@ -6373,6 +8159,12 @@
   "detachment_rule_ids": [
    "integrated-tactics",
    "brood-brothers"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "16c40129-6e3f-4714-871a-e1da94934ba7"
+   }
   ]
  },
  {
@@ -6401,6 +8193,15 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "tags": [
+   "purestrain"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "37b534f4-135f-4d14-bfcb-3fa7ccf9469d"
+   }
   ]
  },
  {
@@ -6429,6 +8230,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4448633e-99cf-4ada-8651-76dbf12b61c6"
+   }
   ]
  },
  {
@@ -6457,6 +8264,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "68478a72-0983-4fef-8cdb-e4536134d56e"
+   }
   ]
  },
  {
@@ -6485,6 +8298,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "71b5d36d-cfd6-48ee-b883-fbc73eac91cc"
+   }
   ]
  },
  {
@@ -6516,6 +8335,12 @@
   ],
   "tags": [
    "hosts"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f8ab87bf-ffeb-4dae-8708-5e04ed4d45c6"
+   }
   ]
  },
  {
@@ -6538,7 +8363,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e0e6a94f-b219-43ec-95d0-f694f701df09"
+   }
   ]
  },
  {
@@ -6547,7 +8378,7 @@
   "faction_id": "genestealer-cults",
   "detachment_rule_id": "enemy-within",
   "enhancement_ids": [
-   "mark-of-the-star-children-purestrain-broodswarm",
+   "mark-of-the-star-children-upgrade-purestrain-broodswarm",
    "talons-of-the-sire-purestrain-broodswarm"
   ],
   "stratagem_ids": [
@@ -6565,6 +8396,12 @@
   ],
   "tags": [
    "purestrain"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "23ea0315-37ef-410f-a0a2-a6cf622e609f"
+   }
   ]
  },
  {
@@ -6574,7 +8411,7 @@
   "detachment_rule_id": "hordes-of-the-faithful",
   "enhancement_ids": [
    "inspired-to-greatness-xenocult-masses",
-   "devious-disguises-xenocult-masses"
+   "devious-disguises-upgrade-xenocult-masses"
   ],
   "stratagem_ids": [
    "eyes-of-the-cult-xenocult-masses",
@@ -6587,10 +8424,42 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
   ],
   "tags": [
    "hosts"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "ef54b4ca-adca-4e8f-9427-ea1cd0e42ed5"
+   }
+  ]
+ },
+ {
+  "id": "claw-of-ascension",
+  "name": "Claw of Ascension",
+  "faction_id": "genestealer-cults",
+  "enhancement_ids": [
+   "heavy-munitions-claw-of-ascension",
+   "practiced-eye-claw-of-ascension"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "cb4afa4e-8fe8-454b-b168-9255b69cebf6"
+   }
   ]
  },
  {
@@ -6619,6 +8488,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5442a079-724c-4f27-a87f-461cdf5b75bf"
+   }
   ]
  },
  {
@@ -6647,6 +8522,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a756d7e9-6264-4d9f-9b2a-dd81e2aba304"
+   }
   ]
  },
  {
@@ -6674,7 +8555,13 @@
   },
   "detachment_points": 3,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b2c8df0c-e202-4230-a44b-5e9e23df9737"
+   }
   ]
  },
  {
@@ -6703,6 +8590,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b7be5d8d-321e-4043-888f-83a09d1bf1ac"
+   }
   ]
  },
  {
@@ -6714,7 +8607,8 @@
    "eye-of-the-augurim-hallowed-conclave",
    "inescapable-judgement-psychic-hallowed-conclave",
    "sanctic-reaper-hallowed-conclave",
-   "nemesis-rounds-hallowed-conclave"
+   "nemesis-rounds-hallowed-conclave",
+   "eye-of-the-augurium-hallowed-conclave"
   ],
   "stratagem_ids": [
    "giants-of-the-battlefield-hallowed-conclave",
@@ -6731,6 +8625,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c82ee909-80d7-408a-9f67-a83e78b7d1a8"
+   }
   ]
  },
  {
@@ -6759,6 +8659,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f225bc7e-c854-4487-81ed-d18d5b12c2ad"
+   }
   ]
  },
  {
@@ -6781,7 +8687,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "eced4532-3d3c-43ec-9c30-d2bf278514d0"
+   }
   ]
  },
  {
@@ -6790,8 +8702,8 @@
   "faction_id": "grey-knights",
   "detachment_rule_id": "searing-soulflame",
   "enhancement_ids": [
-   "precognicient-volleys-fires-of-purgation",
-   "boons-of-deimos-fires-of-purgation"
+   "precognicient-volleys-upgrade-fires-of-purgation",
+   "boons-of-deimos-upgrade-fires-of-purgation"
   ],
   "stratagem_ids": [
    "soul-locked-fires-of-purgation",
@@ -6805,6 +8717,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "6043077b-0e2f-4e4f-a0d7-8ebcec480131"
+   }
   ]
  },
  {
@@ -6813,8 +8731,8 @@
   "faction_id": "grey-knights",
   "detachment_rule_id": "echojump",
   "enhancement_ids": [
-   "predestined-coordinates-immaterial-interdiction",
-   "astral-overlap-immaterial-interdiction"
+   "predestined-coordinates-upgrade-immaterial-interdiction",
+   "astral-overlap-upgrade-immaterial-interdiction"
   ],
   "stratagem_ids": [
    "blades-from-the-beyond-immaterial-interdiction",
@@ -6827,7 +8745,39 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "ad206ac1-4a33-4d1e-8b4e-2c21118303d9"
+   }
+  ]
+ },
+ {
+  "id": "crowes-sanctifiers",
+  "name": "Crowe’s Sanctifiers",
+  "faction_id": "grey-knights",
+  "enhancement_ids": [
+   "purifying-force-crowes-sanctifiers",
+   "sanctified-auspexes-crowes-sanctifiers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d29cc3d4-6517-455e-a577-4dffc1e50004"
+   }
   ]
  },
  {
@@ -6855,7 +8805,18 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "restrictions": {
+   "required_keywords": [
+    "Imperial Fists"
+   ]
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5e6fedf7-bfb7-4042-84ce-7644be942167"
+   }
   ]
  },
  {
@@ -6883,7 +8844,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
+   }
   ]
  },
  {
@@ -6912,6 +8879,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
+   }
   ]
  },
  {
@@ -6940,6 +8913,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0854459d-3909-4621-8073-46d54d1a0464"
+   }
   ]
  },
  {
@@ -6962,6 +8941,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
+   }
   ]
  },
  {
@@ -6990,6 +8975,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
+   }
   ]
  },
  {
@@ -7017,6 +9008,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
+   }
   ]
  },
  {
@@ -7045,6 +9042,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
+   }
   ]
  },
  {
@@ -7072,7 +9075,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
+   }
   ]
  },
  {
@@ -7100,7 +9109,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
+   }
   ]
  },
  {
@@ -7109,8 +9124,8 @@
   "faction_id": "imperial-fists",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "bellicose-weapon-spirits-fulguris-task-force",
-   "raptorial-cogitator-core-fulguris-task-force"
+   "bellicose-weapon-spirits-upgrade-fulguris-task-force",
+   "raptorial-cogitator-core-upgrade-fulguris-task-force"
   ],
   "stratagem_ids": [
    "data-link-augury-fulguris-task-force",
@@ -7123,7 +9138,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
+   }
   ]
  },
  {
@@ -7133,7 +9154,7 @@
   "detachment_rule_id": null,
   "enhancement_ids": [
    "shroud-field-subversion-assets",
-   "death-in-the-dark-subversion-assets"
+   "death-in-the-dark-upgrade-subversion-assets"
   ],
   "stratagem_ids": [
    "adaptive-operations-subversion-assets",
@@ -7146,7 +9167,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
+   }
   ]
  },
  {
@@ -7175,6 +9202,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
+   }
   ]
  },
  {
@@ -7203,6 +9236,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
+   }
   ]
  },
  {
@@ -7230,6 +9269,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3f2130dc-e858-45a7-b42c-4cd5953b9b43"
+   }
   ]
  },
  {
@@ -7258,6 +9303,32 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
+   }
+  ]
+ },
+ {
+  "id": "vengeful-hosts",
+  "name": "Vengeful Hosts",
+  "faction_id": "imperial-fists",
+  "enhancement_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "63c87e85-fd1a-4dc3-8bc9-226db3e966d6"
+   }
   ]
  },
  {
@@ -7286,6 +9357,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "00b6b732-e65e-4176-88d9-35e542ee81dc"
+   }
   ]
  },
  {
@@ -7295,7 +9372,7 @@
   "detachment_rule_id": "cogbound-alliance",
   "enhancement_ids": [
    "omnissian-champion-questor-forgepact",
-   "knight-of-the-opus-machina-questor-forgepact",
+   "knight-of-the-opus-machina-aura-questor-forgepact",
    "magos-questoris-questor-forgepact",
    "vocifer-magnificat-aura-questor-forgepact"
   ],
@@ -7314,6 +9391,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "05240064-5412-4911-a60b-229ff34c78c3"
+   }
   ]
  },
  {
@@ -7341,7 +9424,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "44cad685-2a76-4309-b842-3e356f75219d"
+   }
   ]
  },
  {
@@ -7370,6 +9459,15 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "tags": [
+   "armigers"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9634aebe-95e3-412b-a881-e33a334ae495"
+   }
   ]
  },
  {
@@ -7402,6 +9500,12 @@
   "detachment_rule_ids": [
    "heroes-of-legend",
    "valours-reward"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9c41ff78-125e-402f-a9df-f408825e940b"
+   }
   ]
  },
  {
@@ -7424,7 +9528,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "bf191d4b-5ac6-4e24-a6f6-d962c1a7b068"
+   }
   ]
  },
  {
@@ -7433,8 +9543,8 @@
   "faction_id": "imperial-knights",
   "detachment_rule_id": "driven-from-their-lairs",
   "enhancement_ids": [
-   "gyro-optimised-actuators-throne-bonded-outriders",
-   "ancestral-overbleed-throne-bonded-outriders"
+   "gyro-optimised-actuators-upgrade-throne-bonded-outriders",
+   "ancestral-overbleed-upgrade-throne-bonded-outriders"
   ],
   "stratagem_ids": [
    "neural-lash-throne-bonded-outriders",
@@ -7451,6 +9561,12 @@
   ],
   "tags": [
    "armigers"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a6ada922-2612-4ef6-b7ad-6020954ae038"
+   }
   ]
  },
  {
@@ -7478,7 +9594,13 @@
   },
   "detachment_points": 3,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c6d159b0-4062-4a44-944c-8e00ee4a7edc"
+   }
   ]
  },
  {
@@ -7506,7 +9628,18 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "restrictions": {
+   "required_keywords": [
+    "Iron Hands"
+   ]
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "1ca178a4-0e04-4f18-ae3a-ecd0336131a6"
+   }
   ]
  },
  {
@@ -7534,7 +9667,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
+   }
   ]
  },
  {
@@ -7563,6 +9702,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
+   }
   ]
  },
  {
@@ -7591,6 +9736,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0854459d-3909-4621-8073-46d54d1a0464"
+   }
   ]
  },
  {
@@ -7613,6 +9764,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
+   }
   ]
  },
  {
@@ -7641,6 +9798,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
+   }
   ]
  },
  {
@@ -7668,6 +9831,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
+   }
   ]
  },
  {
@@ -7696,6 +9865,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
+   }
   ]
  },
  {
@@ -7723,7 +9898,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
+   }
   ]
  },
  {
@@ -7751,7 +9932,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
+   }
   ]
  },
  {
@@ -7760,8 +9947,8 @@
   "faction_id": "iron-hands",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "bellicose-weapon-spirits-fulguris-task-force",
-   "raptorial-cogitator-core-fulguris-task-force"
+   "bellicose-weapon-spirits-upgrade-fulguris-task-force",
+   "raptorial-cogitator-core-upgrade-fulguris-task-force"
   ],
   "stratagem_ids": [
    "data-link-augury-fulguris-task-force",
@@ -7774,7 +9961,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
+   }
   ]
  },
  {
@@ -7784,7 +9977,7 @@
   "detachment_rule_id": null,
   "enhancement_ids": [
    "shroud-field-subversion-assets",
-   "death-in-the-dark-subversion-assets"
+   "death-in-the-dark-upgrade-subversion-assets"
   ],
   "stratagem_ids": [
    "adaptive-operations-subversion-assets",
@@ -7797,7 +9990,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
+   }
   ]
  },
  {
@@ -7826,6 +10025,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
+   }
   ]
  },
  {
@@ -7854,6 +10059,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
+   }
   ]
  },
  {
@@ -7881,6 +10092,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3f2130dc-e858-45a7-b42c-4cd5953b9b43"
+   }
   ]
  },
  {
@@ -7909,6 +10126,32 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
+   }
+  ]
+ },
+ {
+  "id": "vengeful-hosts",
+  "name": "Vengeful Hosts",
+  "faction_id": "iron-hands",
+  "enhancement_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "63c87e85-fd1a-4dc3-8bc9-226db3e966d6"
+   }
   ]
  },
  {
@@ -7920,7 +10163,8 @@
    "farstryder-node-hearthfyre-arsenal",
    "calculated-tenacity-hearthfyre-arsenal",
    "mantle-of-elders-hearthfyre-arsenal",
-   "graviton-vault-hearthfyre-arsenal"
+   "graviton-vault-hearthfyre-arsenal",
+   "farstrydr-node-hearthfyre-arsenal"
   ],
   "stratagem_ids": [
    "wall-of-steel-hearthfyre-arsenal",
@@ -7937,6 +10181,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2ddd7e9d-950f-4e3e-a709-8eb4beb83bd7"
+   }
   ]
  },
  {
@@ -7965,6 +10215,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2fd1ea69-ba73-4a60-b09b-672cefd4d6f2"
+   }
   ]
  },
  {
@@ -7993,6 +10249,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "36ff5ede-1c67-4cdd-9a51-f81eb47e4626"
+   }
   ]
  },
  {
@@ -8021,6 +10283,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "38b6d9b5-8bee-4832-ac4b-79eb7f43e4a7"
+   }
   ]
  },
  {
@@ -8049,6 +10317,15 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "tags": [
+   "hearthband"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8698abd9-3176-4792-85f4-abdd6ad5b311"
+   }
   ]
  },
  {
@@ -8077,6 +10354,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "bd5bc3a7-76dd-4a49-a1ec-a9a8f25dfdd9"
+   }
   ]
  },
  {
@@ -8105,6 +10388,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f36a7d83-dd08-461a-b4a1-58179deb7d96"
+   }
   ]
  },
  {
@@ -8113,8 +10402,8 @@
   "faction_id": "leagues-of-votann",
   "detachment_rule_id": "sagitaur-spearhead",
   "enhancement_ids": [
-   "saturation-rounds-armoured-trailblazers",
-   "optimised-attack-lines-armoured-trailblazers"
+   "saturation-rounds-upgrade-armoured-trailblazers",
+   "optimised-attack-lines-upgrade-armoured-trailblazers"
   ],
   "stratagem_ids": [
    "coordinated-crossfire-armoured-trailblazers",
@@ -8128,6 +10417,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a752a222-2540-4e3b-9d70-423595d238e7"
+   }
   ]
  },
  {
@@ -8136,7 +10431,8 @@
   "faction_id": "leagues-of-votann",
   "detachment_rule_id": "eye-of-the-hunt",
   "enhancement_ids": [
-   "pan-spectral-lockons-farseekers"
+   "pan-spectral-lockons-upgrade-farseekers",
+   "shroudwerke-talismans-upgrade-farseekers"
   ],
   "stratagem_ids": [
    "no-shot-wasted-farseekers",
@@ -8150,6 +10446,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "513877e1-893c-41ab-b19b-7f84927ea8ed"
+   }
   ]
  },
  {
@@ -8158,7 +10460,8 @@
   "faction_id": "leagues-of-votann",
   "detachment_rule_id": "avatars-of-the-ancestors",
   "enhancement_ids": [
-   "ironskein-hearthguard-covenant"
+   "ironskein-hearthguard-covenant",
+   "high-kahl-hearthguard-covenant"
   ],
   "stratagem_ids": [
    "fury-of-the-hearth-hearthguard-covenant",
@@ -8173,7 +10476,39 @@
    "priority-assets"
   ],
   "tags": [
-   "hearthguard"
+   "hearthband"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9e7516ff-e16f-4ad9-8e43-861ca9a6d955"
+   }
+  ]
+ },
+ {
+  "id": "bane-slayers-bulwark",
+  "name": "Bane-slayer’s Bulwark",
+  "faction_id": "leagues-of-votann",
+  "enhancement_ids": [
+   "brokhyr-barrage-bane-slayers-bulwark",
+   "indomitable-exemplar-bane-slayers-bulwark"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f76d8bcd-47a6-4d62-98c5-8afb522864e2"
+   }
   ]
  },
  {
@@ -8202,6 +10537,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "115f16a7-2641-415c-967c-cb8a370eb229"
+   }
   ]
  },
  {
@@ -8230,6 +10571,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "225b9e9c-7ebe-413f-a079-087bc98f380a"
+   }
   ]
  },
  {
@@ -8240,8 +10587,8 @@
   "enhancement_ids": [
    "destroyer-ankh-cursed-legion",
    "murdermind-cursed-legion",
-   "mask-of-the-nekrosor-cursed-legion",
-   "cursed-circlet-cursed-legion"
+   "cursed-circlet-cursed-legion",
+   "mark-of-the-nekrosor-cursed-legion"
   ],
   "stratagem_ids": [
    "methodical-murder-cursed-legion",
@@ -8258,6 +10605,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "412b33ad-7e6f-45a3-8638-ae880be94b9f"
+   }
   ]
  },
  {
@@ -8286,6 +10639,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4694ac41-4340-4e85-8824-5c47555f8c12"
+   }
   ]
  },
  {
@@ -8317,6 +10676,12 @@
   ],
   "tags": [
    "hypercrypt"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "489fc222-d9a1-4220-9ef2-9747c2fea283"
+   }
   ]
  },
  {
@@ -8324,7 +10689,12 @@
   "name": "Pantheon of Woe",
   "faction_id": "necrons",
   "detachment_rule_id": "cosmic-distortion",
-  "enhancement_ids": [],
+  "enhancement_ids": [
+   "singularity-matrix-pantheon-of-woe",
+   "quantum-goad-pantheon-of-woe",
+   "animus-damper-pantheon-of-woe",
+   "reletavistic-tether-pantheon-of-woe"
+  ],
   "stratagem_ids": [
    "entrophasic-aura-targeting-pantheon-of-woe",
    "chronodistortion-pantheon-of-woe",
@@ -8339,7 +10709,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a7ec286c-a305-435b-b402-91140c67d809"
+   }
   ]
  },
  {
@@ -8368,6 +10744,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "df0e5858-2c4a-486b-b693-8971f837388d"
+   }
   ]
  },
  {
@@ -8396,6 +10778,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e40617a8-ec95-44e2-bc46-956a6fac4538"
+   }
   ]
  },
  {
@@ -8427,6 +10815,12 @@
   ],
   "tags": [
    "dynasty"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "ef55259d-3884-4b3b-b215-08ab337d4a24"
+   }
   ]
  },
  {
@@ -8435,8 +10829,8 @@
   "faction_id": "necrons",
   "detachment_rule_id": "hypermotility-protocols",
   "enhancement_ids": [
-   "enlivened-sentinels-hand-of-the-dynasty",
-   "tools-of-dominion-hand-of-the-dynasty"
+   "enlivened-sentinels-upgrade-hand-of-the-dynasty",
+   "tools-of-dominion-upgrade-hand-of-the-dynasty"
   ],
   "stratagem_ids": [
    "dominance-protocols-hand-of-the-dynasty",
@@ -8453,6 +10847,12 @@
   ],
   "tags": [
    "dynasty"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8e281a27-1d5a-415b-8b92-34cd0ed53b63"
+   }
   ]
  },
  {
@@ -8461,8 +10861,8 @@
   "faction_id": "necrons",
   "detachment_rule_id": "transdimensional-deployment",
   "enhancement_ids": [
-   "recursive-reanimation-skyshroud-spearhead",
-   "deepening-madness-skyshroud-spearhead"
+   "recursive-reanimation-upgrade-skyshroud-spearhead",
+   "deepening-madness-upgrade-skyshroud-spearhead"
   ],
   "stratagem_ids": [
    "omnilocked-strafing-skyshroud-spearhead",
@@ -8476,6 +10876,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "cd5f7a63-6d73-4094-9977-e8b7530d1a8f"
+   }
   ]
  },
  {
@@ -8485,7 +10891,8 @@
   "detachment_rule_id": "empowered-engines",
   "enhancement_ids": [
    "prelocational-optimiser-the-phaerons-armoury",
-   "mortality-shroud-aura-the-phaerons-armoury"
+   "mortality-shroud-aura-the-phaerons-armoury",
+   "mortality-shroud-aura-upgrade-the-phaerons-armoury"
   ],
   "stratagem_ids": [
    "subsurface-quantumweave-the-phaerons-armoury",
@@ -8502,74 +10909,52 @@
   ],
   "tags": [
    "hypercrypt"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3818a5e4-5d1a-410b-a63f-9a850b923635"
+   }
   ]
  },
  {
-  "id": "kult-of-speed",
-  "name": "Kult of Speed",
-  "faction_id": "orks",
-  "detachment_rule_id": "adrenaline-junkies",
+  "id": "amonhotekhs-guard",
+  "name": "Amonhotekh’s Guard",
+  "faction_id": "necrons",
   "enhancement_ids": [
-   "wazblasta-kult-of-speed",
-   "fasta-than-yooz-kult-of-speed",
-   "squig-hide-tyres-kult-of-speed",
-   "speed-makes-right-kult-of-speed"
-  ],
-  "stratagem_ids": [
-   "dakkastorm-kult-of-speed",
-   "blitza-fire-kult-of-speed",
-   "full-throttle-kult-of-speed",
-   "speediest-freeks-kult-of-speed",
-   "squig-flingin-kult-of-speed",
-   "more-gitz-over-ere-kult-of-speed"
+   "metalline-might-amonhotekhs-guard",
+   "unblemished-legions-amonhotekhs-guard"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "launch"
   },
-  "detachment_points": 2,
-  "force_dispositions": [
-   "disruption"
-  ]
- },
- {
-  "id": "da-big-hunt",
-  "name": "Da Big Hunt",
-  "faction_id": "orks",
-  "detachment_rule_id": "da-hunt-is-on",
-  "enhancement_ids": [
-   "glory-hog-da-big-hunt",
-   "skrag-every-stash-da-big-hunt",
-   "proper-killy-da-big-hunt",
-   "surly-as-a-squiggoth-da-big-hunt"
+  "game_modes": [
+   "combat-patrol"
   ],
-  "stratagem_ids": [
-   "stalkin-taktiks-da-big-hunt",
-   "drag-it-down-da-big-hunt",
-   "where-dya-fink-youre-going-da-big-hunt",
-   "instinctive-hunters-da-big-hunt",
-   "unstoppable-momentum-da-big-hunt",
-   "dat-ones-even-bigga-da-big-hunt"
-  ],
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "pre-launch-provisional"
-  },
-  "detachment_points": 2,
+  "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4077647f-9af3-4900-a123-2b7fabb66454"
+   }
   ]
  },
  {
   "id": "dread-mob",
   "name": "Dread Mob",
   "faction_id": "orks",
-  "detachment_rule_id": "try-dat-button",
+  "detachment_rule_id": "try-dat-button-dread-mob",
   "enhancement_ids": [
    "smoky-gubbinz-dread-mob",
    "supa-glowy-fing-dread-mob",
    "press-it-fasta-dread-mob",
-   "gitfinder-gogglez-dread-mob"
+   "gitfinder-gogglez-dread-mob",
+   "dreadherder-dread-mob",
+   "cybork-boosta-dread-mob"
   ],
   "stratagem_ids": [
    "klankin-klaws-dread-mob",
@@ -8581,209 +10966,20 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
-  },
-  "detachment_points": 2,
-  "force_dispositions": [
-   "purge-the-foe"
-  ]
- },
- {
-  "id": "war-horde",
-  "name": "War Horde",
-  "faction_id": "orks",
-  "detachment_rule_id": "get-stuck-in",
-  "enhancement_ids": [
-   "follow-me-ladz-war-horde",
-   "headwoppas-killchoppa-war-horde",
-   "kunnin-but-brutal-war-horde",
-   "supa-cybork-body-war-horde"
-  ],
-  "stratagem_ids": [
-   "unbridled-carnage-war-horde",
-   "ard-as-nails-war-horde",
-   "mob-rule-war-horde",
-   "ere-we-go-war-horde",
-   "careen-war-horde",
-   "orks-is-never-beaten-war-horde"
-  ],
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "pre-launch-provisional"
-  },
-  "detachment_points": 3,
-  "force_dispositions": [
-   "take-and-hold"
-  ]
- },
- {
-  "id": "bully-boyz",
-  "name": "Bully Boyz",
-  "faction_id": "orks",
-  "detachment_rule_id": "da-boss-is-watchin",
-  "enhancement_ids": [
-   "tellyporta-bully-boyz",
-   "big-gob-bully-boyz",
-   "da-biggest-boss-bully-boyz",
-   "eadstompa-bully-boyz"
-  ],
-  "stratagem_ids": [
-   "armed-to-da-teef-bully-boyz",
-   "cut-em-down-bully-boyz",
-   "hulking-brutes-bully-boyz",
-   "crushing-impact-bully-boyz",
-   "too-arrogant-to-die-bully-boyz",
-   "always-lookin-fer-a-fight-bully-boyz"
-  ],
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "pre-launch-provisional"
-  },
-  "detachment_points": 2,
-  "force_dispositions": [
-   "purge-the-foe"
-  ]
- },
- {
-  "id": "green-tide",
-  "name": "Green Tide",
-  "faction_id": "orks",
-  "detachment_rule_id": "mob-mentality",
-  "enhancement_ids": [
-   "ferocious-show-off-green-tide",
-   "brutal-but-kunnin-green-tide",
-   "bloodthirsty-belligerence-green-tide",
-   "raucous-warcaller-green-tide"
-  ],
-  "stratagem_ids": [
-   "competitive-streak-green-tide",
-   "bulldozer-brutality-green-tide",
-   "tide-of-muscle-green-tide",
-   "braggin-rights-green-tide",
-   "come-on-ladz-green-tide",
-   "go-get-em-green-tide"
-  ],
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "pre-launch-provisional"
-  },
-  "detachment_points": 2,
-  "force_dispositions": [
-   "take-and-hold"
-  ]
- },
- {
-  "id": "taktikal-brigade",
-  "name": "Taktikal Brigade",
-  "faction_id": "orks",
-  "detachment_rule_id": "lissen-ere",
-  "enhancement_ids": [
-   "skwad-leader-taktikal-brigade",
-   "mek-kaptin-taktikal-brigade",
-   "morks-kunnin-taktikal-brigade",
-   "gob-boomer-taktikal-brigade"
-  ],
-  "stratagem_ids": [
-   "fight-proppa-taktikal-brigade",
-   "krunchin-descent-taktikal-brigade",
-   "dats-ours-taktikal-brigade",
-   "taktikal-retreat-taktikal-brigade",
-   "on-to-da-next-taktikal-brigade",
-   "ded-sneaky-taktikal-brigade"
-  ],
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "pre-launch-provisional"
-  },
-  "detachment_points": 1,
-  "force_dispositions": [
-   "disruption"
-  ]
- },
- {
-  "id": "more-dakka",
-  "name": "More Dakka!",
-  "faction_id": "orks",
-  "detachment_rule_id": "dakka-dakka-dakka-more-dakka",
-  "enhancement_ids": [
-   "da-gobshot-thunderbuss-more-dakka",
-   "dead-shiny-shootas-more-dakka",
-   "targetin-squigs-more-dakka",
-   "zog-off-and-eat-dakka-more-dakka"
-  ],
-  "stratagem_ids": [
-   "orks-is-still-orks-more-dakka",
-   "long-uncontrolled-bursts-more-dakka",
-   "huge-show-offs-more-dakka",
-   "get-stuck-in-ladz-more-dakka",
-   "call-dat-dakka-more-dakka",
-   "speshul-shells-more-dakka"
-  ],
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex-orks"
   },
   "detachment_points": 1,
   "force_dispositions": [
    "purge-the-foe"
-  ]
- },
- {
-  "id": "freebooter-krew",
-  "name": "Freebooter Krew",
-  "faction_id": "orks",
-  "detachment_rule_id": "here-be-loot",
-  "enhancement_ids": [
-   "da-kaptin-freebooter-krew",
-   "git-spotter-squig-freebooter-krew",
-   "bionik-workshop-freebooter-krew",
-   "razgits-magik-map-freebooter-krew"
   ],
-  "stratagem_ids": [
-   "bash-and-grab-freebooter-krew",
-   "boardin-rush-freebooter-krew",
-   "grab-and-bash-freebooter-krew",
-   "deck-fraggers-freebooter-krew",
-   "rolling-loot-heap-freebooter-krew",
-   "krump-and-run-freebooter-krew"
+  "detachment_rule_ids": [
+   "try-dat-button-dread-mob"
   ],
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "pre-launch-provisional"
-  },
-  "detachment_points": 2,
-  "force_dispositions": [
-   "take-and-hold"
-  ]
- },
- {
-  "id": "rollin-deff",
-  "name": "Rollin’ Deff",
-  "faction_id": "orks",
-  "detachment_rule_id": "thundering-wagons",
-  "enhancement_ids": [
-   "boarding-ramps-rollin-deff",
-   "targetin-gizmos-rollin-deff",
-   "dead-shiny-shootas-rollin-deff",
-   "da-gobshot-thunderbuss-rollin-deff"
-  ],
-  "stratagem_ids": [
-   "brutal-broadside-rollin-deff",
-   "impending-crunch-rollin-deff",
-   "devastating-drift-rollin-deff",
-   "long-uncontrolled-bursts-rollin-deff",
-   "speshul-shells-rollin-deff"
-  ],
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "pre-launch-provisional"
-  },
-  "detachment_points": 1,
-  "force_dispositions": [
-   "priority-assets"
-  ],
-  "tags": [
-   "wagons"
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4fa77afa-6086-4703-b2e6-0f61e2b07a04"
+   }
   ]
  },
  {
@@ -8795,7 +10991,9 @@
    "runnin-boots-blitz-brigade",
    "blitzkaptin-blitz-brigade",
    "supercharged-squig-oil-blitz-brigade",
-   "tuff-git-blitz-brigade"
+   "tuff-git-blitz-brigade",
+   "boss-boomer-upgrade-blitz-brigade",
+   "targetin-gizmos-upgrade-blitz-brigade"
   ],
   "stratagem_ids": [
    "mount-up-ladz-blitz-brigade",
@@ -8807,32 +11005,416 @@
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex-orks"
   },
-  "detachment_points": 2,
+  "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "take-and-hold"
+  ],
+  "tags": [],
+  "detachment_rule_ids": [
+   "eager-for-the-fight"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "28be3515-baa7-41c1-9a46-81b27c97d722"
+   }
   ]
  },
  {
-  "id": "speedwaaagh",
-  "name": "Speedwaaagh!",
+  "id": "kult-of-speed",
+  "name": "Kult of Speed",
   "faction_id": "orks",
-  "detachment_rule_id": "turbo-boostas",
+  "detachment_rule_id": "adrenaline-junkies-kult-of-speed",
   "enhancement_ids": [
-   "kustom-shokk-box-speedwaaagh",
-   "dakkamek-speedwaaagh",
-   "supa-burny-fuel-speedwaaagh",
-   "master-meknologist-speedwaaagh"
+   "competitive-streak-kult-of-speed",
+   "smoky-gubbinz-upgrade-kult-of-speed",
+   "speed-makes-right-kult-of-speed",
+   "squig-hide-tyres-kult-of-speed",
+   "wazblasta-kult-of-speed",
+   "fasta-than-yooz-kult-of-speed"
+  ],
+  "stratagem_ids": [
+   "dakkastorm-kult-of-speed",
+   "delicious-eating-squigs-kult-of-speed",
+   "speediest-freeks-kult-of-speed"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "reconnaissance"
+  ],
+  "detachment_rule_ids": [
+   "adrenaline-junkies-kult-of-speed"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "41229cb5-ce01-4126-acdc-c658ecb9fe7e"
+   }
+  ]
+ },
+ {
+  "id": "da-big-hunt",
+  "name": "Da Big Hunt",
+  "faction_id": "orks",
+  "detachment_rule_id": "da-hunt-is-on-da-big-hunt",
+  "enhancement_ids": [
+   "glory-hog-da-big-hunt",
+   "it-came-from-da-drops-da-big-hunt",
+   "surly-as-a-squiggoth-da-big-hunt",
+   "proper-killy-da-big-hunt",
+   "skrag-every-stash-da-big-hunt"
+  ],
+  "stratagem_ids": [
+   "gooped-into-action-da-big-hunt",
+   "instinctive-hunters-da-big-hunt",
+   "where-dya-fink-youre-going-da-big-hunt"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "detachment_rule_ids": [
+   "da-hunt-is-on-da-big-hunt"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "495f699c-39b1-4ad2-9e31-624efbf8ff9a"
+   }
+  ]
+ },
+ {
+  "id": "war-horde",
+  "name": "War Horde",
+  "faction_id": "orks",
+  "detachment_rule_id": "get-stuck-in-war-horde",
+  "enhancement_ids": [
+   "da-boss-is-watchin-war-horde",
+   "follow-me-ladz-war-horde",
+   "headwoppas-killchoppa-war-horde",
+   "kunnin-but-brutal-war-horde",
+   "supa-cybork-body-war-horde"
+  ],
+  "stratagem_ids": [
+   "breakin-heads-war-horde",
+   "close-range-dakka-war-horde",
+   "fungus-fuel-injection-war-horde",
+   "hit-em-harder-war-horde",
+   "mow-em-down-war-horde",
+   "orks-is-never-beaten-war-horde"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "detachment_points": 3,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "detachment_rule_ids": [
+   "get-stuck-in-war-horde"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7100d457-ec86-46aa-b323-934394530a9e"
+   }
+  ]
+ },
+ {
+  "id": "bully-boyz",
+  "name": "Bully Boyz",
+  "faction_id": "orks",
+  "detachment_rule_id": "displays-of-savagery-bully-boyz",
+  "enhancement_ids": [
+   "tellyporta-boss-bully-boyz",
+   "wimp-kickaz-upgrade-bully-boyz",
+   "tellyporta-bully-boyz",
+   "big-gob-bully-boyz",
+   "eadstompa-bully-boyz",
+   "da-biggest-boss-bully-boyz"
+  ],
+  "stratagem_ids": [
+   "armed-to-da-teef-bully-boyz",
+   "hulking-brutes-bully-boyz",
+   "too-arrogant-to-die-bully-boyz"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "detachment_rule_ids": [
+   "displays-of-savagery-bully-boyz"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "87313610-665a-4302-ac99-cd4b37608172"
+   }
+  ]
+ },
+ {
+  "id": "green-tide",
+  "name": "Green Tide",
+  "faction_id": "orks",
+  "detachment_rule_id": "mob-handed-brutality-green-tide",
+  "enhancement_ids": [
+   "ard-boyz-green-tide",
+   "ferocious-show-off-green-tide",
+   "brutal-but-kunnin-green-tide",
+   "raucous-warcaller-green-tide",
+   "bloodthirsty-belligerence-green-tide",
+   "ardboyz-upgrade-green-tide"
+  ],
+  "stratagem_ids": [
+   "ere-we-go-green-tide",
+   "mob-mentality-green-tide",
+   "unbridled-carnage-green-tide"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "detachment_rule_ids": [
+   "mob-handed-brutality-green-tide"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "953d5dae-75e4-4f1c-a13d-9ec75a528187"
+   }
+  ]
+ },
+ {
+  "id": "taktikal-brigade",
+  "name": "Taktikal Brigade",
+  "faction_id": "orks",
+  "detachment_rule_id": "suspiciously-well-organised-taktikal-brigade",
+  "enhancement_ids": [
+   "kill-kommando-taktikal-brigade",
+   "throat-slittas-upgrade-taktikal-brigade",
+   "slippery-git-taktikal-brigade",
+   "morks-kunnin-taktikal-brigade",
+   "kill-kommanda-taktikal-brigade"
+  ],
+  "stratagem_ids": [
+   "dubious-restraint-taktikal-brigade",
+   "mind-mostly-on-the-mission-taktikal-brigade",
+   "while-their-backs-are-turned-taktikal-brigade"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "detachment_rule_ids": [
+   "suspiciously-well-organised-taktikal-brigade"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "50193e18-32f4-42d3-b64b-9dd2395d39c2"
+   }
+  ]
+ },
+ {
+  "id": "brute-bosses",
+  "name": "Brute Bosses",
+  "faction_id": "orks",
+  "detachment_rule_id": "ard-as-nails-brute-bosses",
+  "enhancement_ids": [
+   "blitzboss-brute-bosses",
+   "brutal-but-kunnin-brute-bosses",
+   "da-gobshot-thunderbuss-brute-bosses",
+   "morgogs-finkin-cap-brute-bosses",
+   "proper-killy-brute-bosses",
+   "surly-as-a-squiggoth-brute-bosses"
   ],
   "stratagem_ids": [],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex-orks"
   },
-  "detachment_points": 2,
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "detachment_rule_ids": [
+   "ard-as-nails-brute-bosses"
+  ]
+ },
+ {
+  "id": "flyboyz",
+  "name": "Flyboyz",
+  "faction_id": "orks",
+  "detachment_rule_id": "skyborne-loons-flyboyz",
+  "enhancement_ids": [
+   "flyboss-upgrade-flyboyz",
+   "impulsive-recon-upgrade-flyboyz"
+  ],
+  "stratagem_ids": [
+   "flyin-headbutt-flyboyz",
+   "long-uncontrolled-bursts-flyboyz",
+   "whirligig-evasion-flyboyz"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "detachment_rule_ids": [
+   "skyborne-loons-flyboyz"
+  ]
+ },
+ {
+  "id": "madcap-meks",
+  "name": "Madcap Meks",
+  "faction_id": "orks",
+  "detachment_rule_id": "try-dat-button-madcap-meks",
+  "enhancement_ids": [
+   "enhanced-runt-maw-upgrade-madcap-meks",
+   "mekwaaagh-mastermind-madcap-meks",
+   "temperamental-shokka-upgrade-madcap-meks"
+  ],
+  "stratagem_ids": [
+   "vindictive-artillerists-madcap-meks"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "disruption"
+  ],
+  "detachment_rule_ids": [
+   "try-dat-button-madcap-meks",
+   "unpredictable-genius-madcap-meks"
+  ]
+ },
+ {
+  "id": "runt-swarm",
+  "name": "Runt Swarm",
+  "faction_id": "orks",
+  "detachment_rule_id": "sneaky-little-gitz-runt-swarm",
+  "enhancement_ids": [
+   "extra-sneaky-upgrade-runt-swarm",
+   "minefield-detail-upgrade-runt-swarm"
+  ],
+  "stratagem_ids": [
+   "grot-shields-runt-swarm",
+   "infested-war-zone-runt-swarm",
+   "scarper-runt-swarm"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "priority-assets"
+  ],
+  "detachment_rule_ids": [
+   "sneaky-little-gitz-runt-swarm"
+  ]
+ },
+ {
+  "id": "shoota-boyz",
+  "name": "Shoota Boyz",
+  "faction_id": "orks",
+  "detachment_rule_id": "dakka-dakka-dakka-shoota-boyz",
+  "enhancement_ids": [
+   "supa-glowy-fing-shoota-boyz",
+   "targetin-squigs-shoota-boyz"
+  ],
+  "stratagem_ids": [
+   "clownin-dakka-shoota-boyz",
+   "kustom-dakka-shoota-boyz",
+   "never-enough-dakka-shoota-boyz"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "detachment_rule_ids": [
+   "dakka-dakka-dakka-shoota-boyz"
+  ]
+ },
+ {
+  "id": "wreckas",
+  "name": "Wreckas",
+  "faction_id": "orks",
+  "detachment_rule_id": "wreckin-and-lootin-wreckas",
+  "enhancement_ids": [
+   "kaptins-hat-wreckas",
+   "supa-snazz-dakka-upgrade-wreckas"
+  ],
+  "stratagem_ids": [
+   "drive-by-bustin-wreckas",
+   "grab-it-wreckas",
+   "gun-crazy-show-offs-wreckas"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "priority-assets"
+  ],
+  "detachment_rule_ids": [
+   "wreckin-and-lootin-wreckas"
+  ]
+ },
+ {
+  "id": "wurrband",
+  "name": "Wurrband",
+  "faction_id": "orks",
+  "detachment_rule_id": "powers-of-da-waaagh-wurrband",
+  "enhancement_ids": [
+   "da-krunch-wurrband",
+   "eadbanger-wurrband",
+   "warphead-wurrband"
+  ],
+  "stratagem_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex-orks"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "disruption"
+  ],
+  "detachment_rule_ids": [
+   "powers-of-da-waaagh-wurrband"
   ]
  },
  {
@@ -8862,6 +11444,17 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "restrictions": {
+   "required_keywords": [
+    "Raven Guard"
+   ]
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b91b5421-b1fe-4b75-b088-f2615683410e"
+   }
   ]
  },
  {
@@ -8889,7 +11482,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
+   }
   ]
  },
  {
@@ -8918,6 +11517,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
+   }
   ]
  },
  {
@@ -8946,6 +11551,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0854459d-3909-4621-8073-46d54d1a0464"
+   }
   ]
  },
  {
@@ -8968,6 +11579,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
+   }
   ]
  },
  {
@@ -8996,6 +11613,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
+   }
   ]
  },
  {
@@ -9023,6 +11646,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
+   }
   ]
  },
  {
@@ -9051,6 +11680,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
+   }
   ]
  },
  {
@@ -9078,7 +11713,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
+   }
   ]
  },
  {
@@ -9106,7 +11747,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
+   }
   ]
  },
  {
@@ -9115,8 +11762,8 @@
   "faction_id": "raven-guard",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "bellicose-weapon-spirits-fulguris-task-force",
-   "raptorial-cogitator-core-fulguris-task-force"
+   "bellicose-weapon-spirits-upgrade-fulguris-task-force",
+   "raptorial-cogitator-core-upgrade-fulguris-task-force"
   ],
   "stratagem_ids": [
    "data-link-augury-fulguris-task-force",
@@ -9129,7 +11776,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
+   }
   ]
  },
  {
@@ -9139,7 +11792,7 @@
   "detachment_rule_id": null,
   "enhancement_ids": [
    "shroud-field-subversion-assets",
-   "death-in-the-dark-subversion-assets"
+   "death-in-the-dark-upgrade-subversion-assets"
   ],
   "stratagem_ids": [
    "adaptive-operations-subversion-assets",
@@ -9152,7 +11805,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
+   }
   ]
  },
  {
@@ -9181,6 +11840,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
+   }
   ]
  },
  {
@@ -9209,6 +11874,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
+   }
   ]
  },
  {
@@ -9236,6 +11907,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3f2130dc-e858-45a7-b42c-4cd5953b9b43"
+   }
   ]
  },
  {
@@ -9264,6 +11941,32 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
+   }
+  ]
+ },
+ {
+  "id": "vengeful-hosts",
+  "name": "Vengeful Hosts",
+  "faction_id": "raven-guard",
+  "enhancement_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "63c87e85-fd1a-4dc3-8bc9-226db3e966d6"
+   }
   ]
  },
  {
@@ -9291,7 +11994,18 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "restrictions": {
+   "required_keywords": [
+    "Salamanders"
+   ]
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9c26c287-1ec3-4580-9106-82b7b054ce98"
+   }
   ]
  },
  {
@@ -9319,7 +12033,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
+   }
   ]
  },
  {
@@ -9348,6 +12068,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
+   }
   ]
  },
  {
@@ -9376,6 +12102,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0854459d-3909-4621-8073-46d54d1a0464"
+   }
   ]
  },
  {
@@ -9398,6 +12130,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
+   }
   ]
  },
  {
@@ -9426,6 +12164,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
+   }
   ]
  },
  {
@@ -9453,6 +12197,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
+   }
   ]
  },
  {
@@ -9481,6 +12231,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
+   }
   ]
  },
  {
@@ -9508,7 +12264,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
+   }
   ]
  },
  {
@@ -9536,7 +12298,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
+   }
   ]
  },
  {
@@ -9545,8 +12313,8 @@
   "faction_id": "salamanders",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "bellicose-weapon-spirits-fulguris-task-force",
-   "raptorial-cogitator-core-fulguris-task-force"
+   "bellicose-weapon-spirits-upgrade-fulguris-task-force",
+   "raptorial-cogitator-core-upgrade-fulguris-task-force"
   ],
   "stratagem_ids": [
    "data-link-augury-fulguris-task-force",
@@ -9559,7 +12327,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
+   }
   ]
  },
  {
@@ -9569,7 +12343,7 @@
   "detachment_rule_id": null,
   "enhancement_ids": [
    "shroud-field-subversion-assets",
-   "death-in-the-dark-subversion-assets"
+   "death-in-the-dark-upgrade-subversion-assets"
   ],
   "stratagem_ids": [
    "adaptive-operations-subversion-assets",
@@ -9582,7 +12356,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
+   }
   ]
  },
  {
@@ -9611,6 +12391,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
+   }
   ]
  },
  {
@@ -9639,6 +12425,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
+   }
   ]
  },
  {
@@ -9666,6 +12458,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3f2130dc-e858-45a7-b42c-4cd5953b9b43"
+   }
   ]
  },
  {
@@ -9694,6 +12492,32 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
+   }
+  ]
+ },
+ {
+  "id": "vengeful-hosts",
+  "name": "Vengeful Hosts",
+  "faction_id": "salamanders",
+  "enhancement_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "63c87e85-fd1a-4dc3-8bc9-226db3e966d6"
+   }
   ]
  },
  {
@@ -9722,6 +12546,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "41547c19-336b-4ea9-8161-bdbc8cb68343"
+   }
   ]
  },
  {
@@ -9744,7 +12574,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "cbfdd62b-fa52-4689-835b-0b881bb978fb"
+   }
   ]
  },
  {
@@ -9773,6 +12609,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a6359296-90bd-4ec0-a70d-87813eaf9da9"
+   }
   ]
  },
  {
@@ -9802,6 +12644,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d8b12845-85b4-48db-8565-4771287a2fa7"
+   }
   ]
  },
  {
@@ -9830,6 +12678,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fc3194f8-b96f-4158-9380-693ae00db4db"
+   }
   ]
  },
  {
@@ -9838,8 +12692,8 @@
   "faction_id": "space-wolves",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "thirst-for-glory-legends-of-saga-and-song",
-   "fierce-example-legends-of-saga-and-song"
+   "thirst-for-glory-upgrade-legends-of-saga-and-song",
+   "fierce-example-upgrade-legends-of-saga-and-song"
   ],
   "stratagem_ids": [
    "fangs-of-the-pack-legends-of-saga-and-song",
@@ -9853,6 +12707,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0bb425be-1dff-4825-96ba-704523da27c4"
+   }
   ]
  },
  {
@@ -9876,6 +12736,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "74c4b04a-de7a-41a5-b015-97803080bf87"
+   }
   ]
  },
  {
@@ -9903,7 +12769,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
+   }
   ]
  },
  {
@@ -9932,6 +12804,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
+   }
   ]
  },
  {
@@ -9960,6 +12838,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0854459d-3909-4621-8073-46d54d1a0464"
+   }
   ]
  },
  {
@@ -9982,6 +12866,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
+   }
   ]
  },
  {
@@ -10010,6 +12900,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
+   }
   ]
  },
  {
@@ -10037,6 +12933,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
+   }
   ]
  },
  {
@@ -10065,6 +12967,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
+   }
   ]
  },
  {
@@ -10092,7 +13000,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
+   }
   ]
  },
  {
@@ -10120,7 +13034,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
+   }
   ]
  },
  {
@@ -10129,8 +13049,8 @@
   "faction_id": "space-wolves",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "bellicose-weapon-spirits-fulguris-task-force",
-   "raptorial-cogitator-core-fulguris-task-force"
+   "bellicose-weapon-spirits-upgrade-fulguris-task-force",
+   "raptorial-cogitator-core-upgrade-fulguris-task-force"
   ],
   "stratagem_ids": [
    "data-link-augury-fulguris-task-force",
@@ -10143,7 +13063,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
+   }
   ]
  },
  {
@@ -10153,7 +13079,7 @@
   "detachment_rule_id": null,
   "enhancement_ids": [
    "shroud-field-subversion-assets",
-   "death-in-the-dark-subversion-assets"
+   "death-in-the-dark-upgrade-subversion-assets"
   ],
   "stratagem_ids": [
    "adaptive-operations-subversion-assets",
@@ -10166,7 +13092,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
+   }
   ]
  },
  {
@@ -10195,6 +13127,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
+   }
   ]
  },
  {
@@ -10223,6 +13161,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
+   }
   ]
  },
  {
@@ -10250,6 +13194,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3f2130dc-e858-45a7-b42c-4cd5953b9b43"
+   }
   ]
  },
  {
@@ -10278,6 +13228,58 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
+   }
+  ]
+ },
+ {
+  "id": "askars-wolfpack",
+  "name": "Askar’s Wolfpack",
+  "faction_id": "space-wolves",
+  "enhancement_ids": [
+   "aggressive-response-askars-wolfpack",
+   "lone-hunter-askars-wolfpack"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a10b4bf6-495d-4dd1-969c-d3a27709ea27"
+   }
+  ]
+ },
+ {
+  "id": "vengeful-hosts",
+  "name": "Vengeful Hosts",
+  "faction_id": "space-wolves",
+  "enhancement_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "63c87e85-fd1a-4dc3-8bc9-226db3e966d6"
+   }
   ]
  },
  {
@@ -10303,12 +13305,18 @@
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
   },
-  "detachment_points": 2,
+  "detachment_points": 3,
   "force_dispositions": [
    "purge-the-foe"
   ],
   "tags": [
-   "retaliation"
+   "battlesuit"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0e473cae-5f5c-4f69-8134-b2bd70df0569"
+   }
   ]
  },
  {
@@ -10336,7 +13344,13 @@
   },
   "detachment_points": 3,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "24deeda2-032e-4f18-a7ce-d206044a1bd1"
+   }
   ]
  },
  {
@@ -10369,6 +13383,15 @@
   "detachment_rule_ids": [
    "hunters-instincts",
    "skirmish-fighters"
+  ],
+  "tags": [
+   "auxiliary"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5f9bd941-4904-4e4c-b880-35543f704f17"
+   }
   ]
  },
  {
@@ -10399,7 +13422,13 @@
    "priority-assets"
   ],
   "tags": [
-   "retaliation"
+   "battlesuit"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c20f90be-bf55-4d26-97af-7bb642836256"
+   }
   ]
  },
  {
@@ -10427,7 +13456,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e1b3fdde-652c-40a6-953d-e34e4af44fe5"
+   }
   ]
  },
  {
@@ -10458,7 +13493,13 @@
    "disruption"
   ],
   "tags": [
-   "auxiliaries"
+   "auxiliary"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5bdc7f35-d1cc-4c58-9888-81ee3f0ee8ab"
+   }
   ]
  },
  {
@@ -10467,8 +13508,8 @@
   "faction_id": "tau-empire",
   "detachment_rule_id": "expert-fieldcraft",
   "enhancement_ids": [
-   "negation-emitters-advanced-acquisition-cadre",
-   "unmasking-suite-advanced-acquisition-cadre"
+   "negation-emitters-upgrade-advanced-acquisition-cadre",
+   "unmasking-suite-upgrade-advanced-acquisition-cadre"
   ],
   "stratagem_ids": [
    "marker-beacon-advanced-acquisition-cadre",
@@ -10482,6 +13523,38 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a45bd323-7d95-41b8-82ff-eba352aba663"
+   }
+  ]
+ },
+ {
+  "id": "sudden-dawn-cadre",
+  "name": "Sudden Dawn Cadre",
+  "faction_id": "tau-empire",
+  "enhancement_ids": [
+   "earth-caste-modifications-sudden-dawn-cadre",
+   "proximity-scanners-sudden-dawn-cadre"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2663b47b-9e46-4b63-8258-7c21f66ac03d"
+   }
   ]
  },
  {
@@ -10510,6 +13583,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "6bc12e9e-73c2-46aa-8876-1bf10e95677a"
+   }
   ]
  },
  {
@@ -10537,7 +13616,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "disruption"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "baf498d8-40c2-4536-869c-0432cf6ec054"
+   }
   ]
  },
  {
@@ -10563,9 +13648,15 @@
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
   },
-  "detachment_points": 2,
+  "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c4040e42-40b2-4df2-ba73-83a17dfe3e72"
+   }
   ]
  },
  {
@@ -10594,6 +13685,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d7f54185-ca1d-4300-981d-84a28641ce14"
+   }
   ]
  },
  {
@@ -10622,6 +13719,15 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "tags": [
+   "mutant"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d8a383c5-a6a0-445a-b1ad-5a4858bc6265"
+   }
   ]
  },
  {
@@ -10650,6 +13756,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "da4b1448-5954-4083-a820-bc98d08b6672"
+   }
   ]
  },
  {
@@ -10672,7 +13784,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8703803f-2be2-4862-8622-c729c12babca"
+   }
   ]
  },
  {
@@ -10695,10 +13813,14 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "priority-assets"
+   "disruption"
   ],
-  "tags": [
-   "mutant"
+  "tags": [],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9b8af121-ddff-4e4e-9928-37050a67b0a8"
+   }
   ]
  },
  {
@@ -10708,7 +13830,7 @@
   "detachment_rule_id": "all-seeing-mutant-hordes",
   "enhancement_ids": [
    "unravelled-fates-servants-of-change",
-   "thicket-of-bladed-bone-servants-of-change"
+   "thicket-of-bladed-bone-upgrade-servants-of-change"
   ],
   "stratagem_ids": [
    "prismatic-displacement-servants-of-change",
@@ -10732,6 +13854,38 @@
     "to_keywords": [
      "Tzaangors"
     ]
+   }
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "6bfd15ec-5723-410f-853c-092d82919512"
+   }
+  ]
+ },
+ {
+  "id": "prism-of-zadophon",
+  "name": "Prism of Zadophon",
+  "faction_id": "thousand-sons",
+  "enhancement_ids": [
+   "foresight-of-the-changer-prism-of-zadophon",
+   "warp-tainted-shells-prism-of-zadophon"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7f2a8706-db85-4fe3-837b-f8e95980f4a7"
    }
   ]
  },
@@ -10761,6 +13915,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "00c96306-e64e-4084-b09b-37b1f1af7b8a"
+   }
   ]
  },
  {
@@ -10789,6 +13949,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "1589d16c-5e24-4e72-b352-b674041fdc84"
+   }
   ]
  },
  {
@@ -10817,6 +13983,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dd488d53-7bfa-4778-8ff1-2a7468860747"
+   }
   ]
  },
  {
@@ -10845,6 +14017,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "75814c70-8935-4305-8507-01c8f8b0d119"
+   }
   ]
  },
  {
@@ -10873,6 +14051,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7bba616f-e032-443b-8e27-55370028348c"
+   }
   ]
  },
  {
@@ -10905,6 +14089,12 @@
   "detachment_rule_ids": [
    "questing-tendrils",
    "vanguard-prime"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c8d42dc3-5901-4e96-90e8-254a8af33252"
+   }
   ]
  },
  {
@@ -10916,7 +14106,8 @@
    "alien-cunning-invasion-fleet",
    "perfectly-adapted-invasion-fleet",
    "synaptic-lynchpin-invasion-fleet",
-   "adaptive-biology-invasion-fleet"
+   "adaptive-biology-invasion-fleet",
+   "synaptic-linchpin-invasion-fleet"
   ],
   "stratagem_ids": [
    "rapid-regeneration-invasion-fleet",
@@ -10933,6 +14124,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f018a051-11c7-4aaf-a873-16acb8c4c38d"
+   }
   ]
  },
  {
@@ -10961,6 +14158,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f88d7c8d-3766-4623-9192-ff35ed729622"
+   }
   ]
  },
  {
@@ -10969,8 +14172,8 @@
   "faction_id": "tyranids",
   "detachment_rule_id": "mindhunger",
   "enhancement_ids": [
-   "encircling-horrors-ambush-predators",
-   "cryptophotaic-camouflage-ambush-predators"
+   "encircling-horrors-upgrade-ambush-predators",
+   "cryptophotaic-camouflage-upgrade-ambush-predators"
   ],
   "stratagem_ids": [
    "counterpredation-ambush-predators",
@@ -10984,6 +14187,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0d13e327-3ae5-4e76-8d7d-749ffe5e6476"
+   }
   ]
  },
  {
@@ -10992,8 +14201,8 @@
   "faction_id": "tyranids",
   "detachment_rule_id": "higher-imperatives",
   "enhancement_ids": [
-   "destabilising-predation-talons-of-the-norn-queen",
-   "synaptoprescience-talons-of-the-norn-queen"
+   "destabilising-predation-upgrade-talons-of-the-norn-queen",
+   "synaptoprescience-upgrade-talons-of-the-norn-queen"
   ],
   "stratagem_ids": [
    "catalytic-biofortification-talons-of-the-norn-queen",
@@ -11007,6 +14216,38 @@
   "detachment_points": 1,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c44ad21f-ef34-4d29-befb-3202706563f9"
+   }
+  ]
+ },
+ {
+  "id": "the-vardenghast-swarm",
+  "name": "The Vardenghast Swarm",
+  "faction_id": "tyranids",
+  "enhancement_ids": [
+   "adapted-organism-the-vardenghast-swarm",
+   "psychoclastic-overload-the-vardenghast-swarm"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f8ac8c58-dd54-4a01-93a2-afee8fd1b55a"
+   }
   ]
  },
  {
@@ -11035,6 +14276,17 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "restrictions": {
+   "required_keywords": [
+    "Ultramarines"
+   ]
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "114f009f-63b2-40bc-922a-83363eab24cc"
+   }
   ]
  },
  {
@@ -11063,6 +14315,17 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "restrictions": {
+   "required_keywords": [
+    "Ultramarines"
+   ]
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f6429de4-1567-4ee9-8570-8c3d405e93f9"
+   }
   ]
  },
  {
@@ -11090,7 +14353,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
+   }
   ]
  },
  {
@@ -11119,6 +14388,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
+   }
   ]
  },
  {
@@ -11147,6 +14422,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0854459d-3909-4621-8073-46d54d1a0464"
+   }
   ]
  },
  {
@@ -11169,6 +14450,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
+   }
   ]
  },
  {
@@ -11197,6 +14484,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
+   }
   ]
  },
  {
@@ -11224,6 +14517,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
+   }
   ]
  },
  {
@@ -11252,6 +14551,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
+   }
   ]
  },
  {
@@ -11279,7 +14584,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
+   }
   ]
  },
  {
@@ -11307,7 +14618,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
+   }
   ]
  },
  {
@@ -11316,8 +14633,8 @@
   "faction_id": "ultramarines",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "bellicose-weapon-spirits-fulguris-task-force",
-   "raptorial-cogitator-core-fulguris-task-force"
+   "bellicose-weapon-spirits-upgrade-fulguris-task-force",
+   "raptorial-cogitator-core-upgrade-fulguris-task-force"
   ],
   "stratagem_ids": [
    "data-link-augury-fulguris-task-force",
@@ -11330,7 +14647,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
+   }
   ]
  },
  {
@@ -11340,7 +14663,7 @@
   "detachment_rule_id": null,
   "enhancement_ids": [
    "shroud-field-subversion-assets",
-   "death-in-the-dark-subversion-assets"
+   "death-in-the-dark-upgrade-subversion-assets"
   ],
   "stratagem_ids": [
    "adaptive-operations-subversion-assets",
@@ -11353,7 +14676,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
+   }
   ]
  },
  {
@@ -11382,6 +14711,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
+   }
   ]
  },
  {
@@ -11410,6 +14745,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
+   }
   ]
  },
  {
@@ -11437,6 +14778,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3f2130dc-e858-45a7-b42c-4cd5953b9b43"
+   }
   ]
  },
  {
@@ -11465,6 +14812,32 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
+   }
+  ]
+ },
+ {
+  "id": "vengeful-hosts",
+  "name": "Vengeful Hosts",
+  "faction_id": "ultramarines",
+  "enhancement_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "63c87e85-fd1a-4dc3-8bc9-226db3e966d6"
+   }
   ]
  },
  {
@@ -11493,6 +14866,17 @@
   "detachment_points": 2,
   "force_dispositions": [
    "disruption"
+  ],
+  "restrictions": {
+   "required_keywords": [
+    "White Scars"
+   ]
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2975ba73-73c1-4866-bbd9-c9ae1f66de97"
+   }
   ]
  },
  {
@@ -11520,7 +14904,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "01c7258d-72a9-4df9-bea2-b4f7bfdaebb8"
+   }
   ]
  },
  {
@@ -11549,6 +14939,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "047e97fc-2e78-4db6-b401-1f8bb65d9162"
+   }
   ]
  },
  {
@@ -11577,6 +14973,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0854459d-3909-4621-8073-46d54d1a0464"
+   }
   ]
  },
  {
@@ -11599,6 +15001,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9492c5aa-1baf-49d0-a587-c332d6119d10"
+   }
   ]
  },
  {
@@ -11627,6 +15035,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "720ee5b2-2412-43f4-b145-bec27a90b6d5"
+   }
   ]
  },
  {
@@ -11654,6 +15068,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dd0c31ee-65db-4143-b1f9-60aaea303b1c"
+   }
   ]
  },
  {
@@ -11682,6 +15102,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e544168f-0535-4b58-ac04-c5f3793ea56b"
+   }
   ]
  },
  {
@@ -11709,7 +15135,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fcc5de05-5825-4af5-9484-38af6358ff2b"
+   }
   ]
  },
  {
@@ -11737,7 +15169,13 @@
   },
   "detachment_points": 2,
   "force_dispositions": [
-   "purge-the-foe"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe7ac957-dfdf-4025-bd77-c387cd6c62a5"
+   }
   ]
  },
  {
@@ -11746,8 +15184,8 @@
   "faction_id": "white-scars",
   "detachment_rule_id": null,
   "enhancement_ids": [
-   "bellicose-weapon-spirits-fulguris-task-force",
-   "raptorial-cogitator-core-fulguris-task-force"
+   "bellicose-weapon-spirits-upgrade-fulguris-task-force",
+   "raptorial-cogitator-core-upgrade-fulguris-task-force"
   ],
   "stratagem_ids": [
    "data-link-augury-fulguris-task-force",
@@ -11760,7 +15198,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a65dba8d-ae69-4e3e-a72e-afeb748a98ca"
+   }
   ]
  },
  {
@@ -11770,7 +15214,7 @@
   "detachment_rule_id": null,
   "enhancement_ids": [
    "shroud-field-subversion-assets",
-   "death-in-the-dark-subversion-assets"
+   "death-in-the-dark-upgrade-subversion-assets"
   ],
   "stratagem_ids": [
    "adaptive-operations-subversion-assets",
@@ -11783,7 +15227,13 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b87e2dfa-d598-4fbb-a4ac-e08fdba03391"
+   }
   ]
  },
  {
@@ -11812,6 +15262,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2816281c-0f5d-4c0c-a63b-9be13599e674"
+   }
   ]
  },
  {
@@ -11840,6 +15296,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0cdcaeb-2e58-46e3-83c5-a1ece9ad4e66"
+   }
   ]
  },
  {
@@ -11867,6 +15329,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3f2130dc-e858-45a7-b42c-4cd5953b9b43"
+   }
   ]
  },
  {
@@ -11895,6 +15363,32 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a5da316c-604e-4aca-b5ac-53517dcd01b3"
+   }
+  ]
+ },
+ {
+  "id": "vengeful-hosts",
+  "name": "Vengeful Hosts",
+  "faction_id": "white-scars",
+  "enhancement_ids": [],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "63c87e85-fd1a-4dc3-8bc9-226db3e966d6"
+   }
   ]
  },
  {
@@ -11923,6 +15417,12 @@
   "detachment_points": 3,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0a5d7ebb-ce39-4751-a90c-889883517b66"
+   }
   ]
  },
  {
@@ -11951,6 +15451,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "11575a4f-0e5c-46e2-9085-392f11226cab"
+   }
   ]
  },
  {
@@ -11974,6 +15480,12 @@
   "detachment_points": 1,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e8136aea-8e9c-470a-aa7b-a33dfa33c9ea"
+   }
   ]
  },
  {
@@ -12002,6 +15514,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "reconnaissance"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "960c7ecf-3cc0-4d10-8d0c-5839273ea651"
+   }
   ]
  },
  {
@@ -12030,6 +15548,12 @@
   "detachment_points": 2,
   "force_dispositions": [
    "priority-assets"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "ae5e755c-230d-46a9-ad1a-d3afaf3633ca"
+   }
   ]
  },
  {
@@ -12058,6 +15582,13 @@
   "detachment_points": 2,
   "force_dispositions": [
    "take-and-hold"
+  ],
+  "tags": [],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b21e5072-38d5-42b5-9143-9aabcbf499d8"
+   }
   ]
  },
  {
@@ -12066,8 +15597,8 @@
   "faction_id": "world-eaters",
   "detachment_rule_id": "rampaging-terrors",
   "enhancement_ids": [
-   "talons-of-butchery-brazen-engines",
-   "murder-forged-entity-brazen-engines"
+   "talons-of-butchery-upgrade-brazen-engines",
+   "murder-forged-entity-upgrade-brazen-engines"
   ],
   "stratagem_ids": [
    "apoplectic-clarity-brazen-engines",
@@ -12080,10 +15611,14 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "purge-the-foe"
+   "disruption"
   ],
-  "tags": [
-   "onslaught"
+  "tags": [],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b316e2f6-0b93-4805-9b5e-38f050875ad3"
+   }
   ]
  },
  {
@@ -12092,8 +15627,8 @@
   "faction_id": "world-eaters",
   "detachment_rule_id": "adamantine-avalanche",
   "enhancement_ids": [
-   "sanctified-in-slaughter-butchers-of-khorne",
-   "gore-stained-veterans-butchers-of-khorne"
+   "sanctified-in-slaughter-upgrade-butchers-of-khorne",
+   "gore-stained-veterans-upgrade-butchers-of-khorne"
   ],
   "stratagem_ids": [
    "focused-ferocity-butchers-of-khorne",
@@ -12106,7 +15641,39 @@
   },
   "detachment_points": 1,
   "force_dispositions": [
-   "disruption"
+   "take-and-hold"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "16d7618b-880a-4f47-97e2-385df44bc860"
+   }
+  ]
+ },
+ {
+  "id": "frenzied-reavers",
+  "name": "Frenzied Reavers",
+  "faction_id": "world-eaters",
+  "enhancement_ids": [
+   "bane-of-the-craven-frenzied-reavers",
+   "fearsome-presence-frenzied-reavers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "game_modes": [
+   "combat-patrol"
+  ],
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b05a886f-004a-4c1d-87a5-30d92a81a35d"
+   }
   ]
  }
 ]

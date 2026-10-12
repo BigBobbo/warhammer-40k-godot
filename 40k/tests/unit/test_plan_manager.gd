@@ -105,7 +105,7 @@ func _make_plan(plan_name: String, layout_id: String) -> Dictionary:
 		"author": "test",
 		"keys": {
 			"army_file": "recon_stomps",
-			"detachment_hint": "Speedwaaagh!",
+			"detachment_hint": "Kult of Speed",
 			"deployment_zone_id": "crucible_of_battle",
 			"terrain_layout_id": layout_id,
 			"mission_id": "",
@@ -134,7 +134,7 @@ func _make_unit(unit_id: String, owner: int, unit_name: String, points: int) -> 
 		"models": [],
 	}
 
-func _make_snapshot(game_config, faction_name: String = "Orks", detachment: String = "Speedwaaagh!") -> Dictionary:
+func _make_snapshot(game_config, faction_name: String = "Orks", detachment: String = "Kult of Speed") -> Dictionary:
 	var meta := {"deployment_type": "crucible_of_battle"}
 	if game_config != null:
 		meta["game_config"] = game_config
@@ -366,8 +366,8 @@ func test_real_predeploy_fixture_has_no_game_config() -> void:
 		"…its deployment zone really is crucible_of_battle (got '%s')" % identity["zone_id"])
 	_assert(str(identity["layout_id"]) == "take_and_hold_mirror_1",
 		"…its terrain layout really is take_and_hold_mirror_1 (got '%s')" % identity["layout_id"])
-	_assert(str(identity["faction_name"]) == "Orks" and str(identity["detachment"]) == "Speedwaaagh!",
-		"…and its player-1 faction is Orks / Speedwaaagh! (got '%s' / '%s')" % [identity["faction_name"], identity["detachment"]])
+	_assert(str(identity["faction_name"]) == "Orks" and str(identity["detachment"]) == "Kult of Speed",
+		"…and its player-1 faction is Orks / Kult of Speed (got '%s' / '%s')" % [identity["faction_name"], identity["detachment"]])
 
 	# A plan keyed to that real identity matches the real fixture state.
 	#

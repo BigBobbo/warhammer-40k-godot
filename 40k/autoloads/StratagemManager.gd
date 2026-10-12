@@ -502,6 +502,15 @@ func load_faction_stratagems_for_player(player: int) -> void:
 
 	print("StratagemManager: Loaded %d faction stratagems for player %d (%d mechanically implemented)" % [loaded_count, player, implemented_count])
 
+## True for a Codex: Orks (11e) stratagem row — its effects_json is the single
+## marker {"type": "custom:ork11e"} (scripts/40kdc/curated/orks_codex_11e.json).
+static func is_ork_codex_11e_row(strat: Dictionary) -> bool:
+	var effects = strat.get("effects", [])
+	if typeof(effects) != TYPE_ARRAY or effects.is_empty():
+		return false
+	var first = effects[0]
+	return typeof(first) == TYPE_DICTIONARY and str(first.get("type", "")) == "custom:ork11e"
+
 func _mark_custom_implemented_stratagems(player: int) -> void:
 	"""Mark stratagems with custom implementations as 'implemented'.
 	These are stratagems whose CSV effect text can't be auto-parsed by FactionStratagemLoader
@@ -511,6 +520,14 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if not stratagems.has(strat_id):
 			continue
 		var strat = stratagems[strat_id]
+		# Codex: Orks (11e) rows (effects_json [{"type":"custom:ork11e"}]) are
+		# marked implemented by the Ork codex registry only — never by the
+		# legacy 10e name lists below. Six codex names collide with those lists
+		# (ARMED TO DA TEEF, TOO ARROGANT TO DIE, INSTINCTIVE HUNTERS,
+		# WHERE D'YA FINK YOU'RE GOING?, SPEEDIEST FREEKS, DAKKASTORM) and the
+		# 10e handlers behind them do not implement the codex rules.
+		if is_ork_codex_11e_row(strat):
+			continue
 		# Data sources use typographic apostrophes (BOARDIN’ RUSH) — normalize
 		# so the straight-quoted handler names below keep matching.
 		var name_upper = strat.get("name", "").replace("’", "'").to_upper()
