@@ -149,6 +149,20 @@ func _window_header_text() -> String:
 		"unit_destroyed":
 			if u_name != "":
 				return "%s has been destroyed" % u_name
+		"unit_battle_shocked":
+			if u_name != "":
+				return "%s has become battle-shocked" % u_name
+		"battle_shock_step_start":
+			return "Your Battle-shock step is starting"
+		"unit_declares_charge":
+			if u_name != "":
+				return "%s has declared a charge" % u_name
+		"unit_ended_charge_move":
+			if u_name != "":
+				return "%s has ended a charge move" % u_name
+		"enemy_unit_has_attacked":
+			if enemy_name != "":
+				return "%s has finished its attacks" % enemy_name
 	var when := StratagemManager.window_when_text(window_id)
 	return "Stratagem opportunity: %s" % when
 

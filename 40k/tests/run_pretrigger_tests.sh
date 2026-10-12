@@ -33,6 +33,8 @@
 #     apostrophe-folded detachment match, legacy 1.0.19 datasheet kits)
 #   - Codex: Orks (11e) movement stratagems (movement windows, reactive /
 #     assault-disembark follow-ups, MOBILE, desperate escape, objectives)
+#   - Codex: Orks (11e) OTHER group (MOB MENTALITY, BREAKIN' HEADS, IMPENDING
+#     KRUNCH, FLYIN' HEADBUTT, INFESTED WAR ZONE + their window hooks)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -182,6 +184,7 @@ TESTS=(
     "tests/test_ork_codex_shooting.gd"
     "tests/test_ork_codex_shooting_reactive.gd"
     "tests/test_ork_codex_movement.gd"
+    "tests/test_ork_codex_other.gd"
     "tests/test_indirect_fire_band_11e.gd"
     "tests/test_t003_indirect_fire_visibility_pin.gd"
     "tests/test_terrain_area_visibility_11e.gd"

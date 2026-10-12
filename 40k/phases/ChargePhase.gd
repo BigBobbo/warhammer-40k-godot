@@ -546,6 +546,31 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 		var owner = int(unit.get("owner", 0))
 		game_event_log.add_player_entry(owner, "%s declares charge against %s" % [unit_name, ", ".join(target_names)])
 
+	# Stratagem window unit_declares_charge (design §3): the charging player's
+	# stratagems (e.g. STOMPING JUGGERNAUT) come first — before the charge roll
+	# and before the defender's Fire Overwatch reaction.
+	var udc_owner := int(unit.get("owner", get_current_player()))
+	var udc_ctx := {"phase": "charge", "unit_id": unit_id, "target_unit_ids": target_ids.duplicate()}
+	if open_stratagem_window(udc_owner, "unit_declares_charge", udc_ctx, "_resume_after_declares_charge_window"):
+		log_phase_message("Waiting for Player %d's unit_declares_charge stratagem decision for %s" % [udc_owner, unit_id])
+		return create_result(true, consume_window_diffs())
+	var udc_diffs = consume_window_diffs()
+	var after_udc = _after_declares_charge_windows(unit_id)
+	if not udc_diffs.is_empty():
+		udc_diffs.append_array(after_udc.get("changes", []))
+		after_udc["changes"] = udc_diffs
+	return after_udc
+
+## Resume point for the unit_declares_charge window (BasePhase framework).
+func _resume_after_declares_charge_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _after_declares_charge_windows(str(ctx.get("unit_id", "")))
+
+## Everything that follows a charge declaration once its window has closed:
+## the defender's Fire Overwatch opportunity.
+func _after_declares_charge_windows(unit_id: String) -> Dictionary:
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
 	# T3-11: Check for Fire Overwatch opportunity for the defending player
 	# Per 10e rules: After a charge is declared, the defending player may use
 	# Fire Overwatch (1CP) to shoot at the charging unit (only hits on unmodified 6s)
@@ -1385,6 +1410,29 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	# OA-36: Piston-driven Brutality — after Charge move, auto-resolve mortal wounds
 	_resolve_piston_driven_brutality_after_charge(unit_id, changes, apply_seed)
 
+	# Stratagem window unit_ended_charge_move (design §3, e.g. IMPENDING
+	# KRUNCH). The move is applied to GameState first so the window sees the
+	# post-charge positions ("engaged with your unit"); the same set-diffs stay
+	# in the result (idempotent when BasePhase applies them again).
+	PhaseManager.apply_state_changes(changes)
+	var uecm_owner := int(get_unit(unit_id).get("owner", get_current_player()))
+	var uecm_ctx := {"phase": "charge", "unit_id": unit_id}
+	if open_stratagem_window(uecm_owner, "unit_ended_charge_move", uecm_ctx, "_resume_after_ended_charge_move_window"):
+		log_phase_message("Waiting for Player %d's unit_ended_charge_move stratagem decision for %s" % [uecm_owner, unit_id])
+		var paused_changes: Array = changes.duplicate()
+		paused_changes.append_array(consume_window_diffs())
+		return create_result(true, paused_changes)
+	changes.append_array(consume_window_diffs())
+	return _after_ended_charge_move_windows(unit_id, changes)
+
+## Resume point for the unit_ended_charge_move window (BasePhase framework).
+## The charge move itself was returned (and applied) with the paused action.
+func _resume_after_ended_charge_move_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _after_ended_charge_move_windows(str(ctx.get("unit_id", "")), [])
+
+## Everything that follows a successful charge move once its window has
+## closed: Tank Shock for the charging player, then (10e) Heroic Intervention.
+func _after_ended_charge_move_windows(unit_id: String, changes: Array) -> Dictionary:
 	# Check if Tank Shock is available for the charging player
 	# Per 10e rules: "just after a VEHICLE unit ends a Charge move"
 	var charging_unit = get_unit(unit_id)

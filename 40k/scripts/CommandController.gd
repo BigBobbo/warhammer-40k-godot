@@ -1134,6 +1134,13 @@ func _on_bs_auto_resolve_requested() -> void:
 				"type": "DECLINE_COMMAND_REROLL",
 				"unit_id": unit_id,
 			})
+		# A failed test opened a stratagem window (e.g. BREAKIN' HEADS on a
+		# unit that just became battle-shocked): the phase now waits for that
+		# decision — stop here; the remaining tests stay in the roll call.
+		if current_phase and current_phase.has_method("has_pending_stratagem_window") \
+				and current_phase.has_pending_stratagem_window():
+			print("CommandController: Battle-shock auto-resolve paused — a stratagem window is waiting for a decision")
+			break
 	_bs_index = _bs_order.size()
 	_bs_finish()
 

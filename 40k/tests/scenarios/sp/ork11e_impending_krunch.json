@@ -1,0 +1,60 @@
+{
+  "id": "ork11e_impending_krunch",
+  "covers": [
+    "stratagem.window.unit_ended_charge_move",
+    "stratagem.ork11e.impending_krunch",
+    "dialogs.StratagemDialog.window_mode",
+    "phases.ChargePhase.unit_ended_charge_move_hook",
+    "autoloads.FactionAbilityManager.force_battle_shock_test"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) IMPENDING KRUNCH (Blitz Brigade, 1 CP, your Charge phase) through the real unit_ended_charge_move window (design §3). Fixture ork11e_orks_active, moved straight to the Orks' Charge phase. Setup privileges: P1's detachment is switched to Blitz Brigade; Custodian Guard E is placed alone in the open and the Battlewagon (a WAGON) ~4\" in front of it; P1 has 4 CP, P2 0 CP (no Fire Overwatch interlude). The charge is driven with the phase actions the charge UI sends: DECLARE_CHARGE, CHARGE_ROLL (seeded 2D6 = 5; the WAGON re-roll and Command Re-roll offers are declined) and the APPLY_CHARGE_MOVE the charge tools build (computed by the engine's charge-move solver, the same geometry the validator applies). When the charge move is applied the window opens for the charging player: the StratagemDialog offers IMPENDING KRUNCH on the Battlewagon with an enabled Use button. A real click on Use spends 1 CP and every enemy unit engaged with the Battlewagon (Custodian Guard E) makes a battle-shock roll with -1; a failed roll leaves it battle-shocked.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 9 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "comment": "setup privileges (see description)", "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Blitz Brigade\"\nStratagemManager.load_faction_stratagems_for_player(1)\nvar spots = {\"U_CUSTODIAN_GUARD_E\": Vector2(40, 52), \"U_BATTLEWAGON_A\": Vector2(40, 44.5)}\nfor uid in spots:\n\tvar u = GameState.state[\"units\"][uid]\n\tvar c = Vector2.ZERO\n\tfor m in u[\"models\"]:\n\t\tc += Vector2(float(m[\"position\"][\"x\"]), float(m[\"position\"][\"y\"]))\n\tc /= u[\"models\"].size()\n\tvar d = spots[uid] * 40.0 - c\n\tfor m in u[\"models\"]:\n\t\tm[\"position\"] = {\"x\": float(m[\"position\"][\"x\"]) + d.x, \"y\": float(m[\"position\"][\"y\"]) + d.y}\nGameState.state[\"players\"][\"1\"][\"cp\"] = 4\nGameState.state[\"players\"][\"2\"][\"cp\"] = 0\nSceneRefs.main()._recreate_unit_visuals()\nreturn StratagemManager.find_faction_stratagem_by_name(1, \"IMPENDING KRUNCH\")", "equals": "faction_ork_blitz_brigade_impending_krunch" },
+    { "act": "execute_script", "script": "RulesEngine.is_unit_engaged(\"U_BATTLEWAGON_A\", GameState.state)", "equals": false },
+    { "act": "execute_script", "multiline": true, "script": "for c in tree.root.get_children():\n\tif c is Window and c != tree.root:\n\t\tc.hide()\n\t\tc.queue_free()\nreturn true", "equals": true },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "screenshot", "label": "01_battlewagon_before_charge" },
+
+    { "act": "dispatch_action", "action": { "type": "DECLARE_CHARGE", "actor_unit_id": "U_BATTLEWAGON_A", "player": 1, "payload": { "target_unit_ids": ["U_CUSTODIAN_GUARD_E"] } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()", "equals": false, "comment": "unit_declares_charge: no Blitz Brigade stratagem uses it" },
+    { "act": "dispatch_action", "action": { "type": "CHARGE_ROLL", "actor_unit_id": "U_BATTLEWAGON_A", "player": 1, "payload": { "rng_seed": 11 } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "execute_script", "multiline": true, "comment": "decline the WAGON re-roll (Unstoppable Momentum) and the Command Re-roll — not under test", "script": "var ph = PhaseManager.get_current_phase_instance()\nif ph.awaiting_ability_reroll:\n\tph.execute_action({\"type\": \"DECLINE_ABILITY_REROLL\", \"actor_unit_id\": \"U_BATTLEWAGON_A\", \"player\": 1})\nif ph.awaiting_reroll_decision:\n\tph.execute_action({\"type\": \"DECLINE_COMMAND_REROLL\", \"actor_unit_id\": \"U_BATTLEWAGON_A\", \"player\": 1})\nfor c in tree.root.get_children():\n\tif c is Window and c != tree.root:\n\t\tc.hide()\n\t\tc.queue_free()\nreturn int(ph.pending_charges[\"U_BATTLEWAGON_A\"][\"distance\"])", "equals": 5 },
+    { "act": "execute_script", "multiline": true, "comment": "the APPLY_CHARGE_MOVE the charge tools send (engine charge-move solver)", "script": "var ph = PhaseManager.get_current_phase_instance()\nvar mv = AIDecisionMaker._compute_charge_move(GameState.create_snapshot(), \"U_BATTLEWAGON_A\", 5, [\"U_CUSTODIAN_GUARD_E\"], 1)\nif str(mv.get(\"type\", \"\")) != \"APPLY_CHARGE_MOVE\":\n\treturn \"NO_MOVE\"\nmv[\"player\"] = 1\nvar r = NetworkIntegration.route_action(mv)\nreturn r.get(\"success\", false)", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "RulesEngine.check_units_in_engagement_range(GameState.get_unit(\"U_BATTLEWAGON_A\"), GameState.get_unit(\"U_CUSTODIAN_GUARD_E\"), GameState.state)", "equals": true },
+    { "act": "expect_state", "path": "units.U_BATTLEWAGON_A.flags.charged_this_turn", "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window()[\"window_id\"]", "equals": "unit_ended_charge_move" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 1 },
+    { "act": "execute_script", "script": "tree.root.get_node(\"StratagemDialog/Content/Header\").text", "equals": "Battlewagon has ended a charge move" },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_blitz_brigade_impending_krunch/Buttons/Use_faction_ork_blitz_brigade_impending_krunch_U_BATTLEWAGON_A", "property": "disabled", "equals": false },
+    { "act": "expect_cp", "player": 1, "equals": 4 },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_E.flags.battle_shocked", "not_equals": true },
+    { "act": "screenshot", "label": "02_impending_krunch_window_after_charge" },
+
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_blitz_brigade_impending_krunch/Buttons/Use_faction_ork_blitz_brigade_impending_krunch_U_BATTLEWAGON_A" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_cp", "player": 1, "equals": 3 },
+    { "act": "expect_cp", "player": 2, "equals": 0 },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BATTLEWAGON_A\")[\"flags\"][\"ork11e_impending_krunch\"].size()", "equals": 1 },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_BATTLEWAGON_A\")[\"flags\"][\"ork11e_impending_krunch\"][0][\"unit_id\"]", "equals": "U_CUSTODIAN_GUARD_E" },
+    { "act": "execute_script", "multiline": true, "comment": "the roll is 2D6 - 1 vs the unit's Ld; a failure left Custodian Guard E battle-shocked, a pass did not", "script": "var r = GameState.get_unit(\"U_BATTLEWAGON_A\")[\"flags\"][\"ork11e_impending_krunch\"][0]\nvar d = r[\"dice\"]\nif int(r[\"total\"]) != int(d[0]) + int(d[1]) - 1:\n\treturn \"MODIFIER_MISSING\"\nvar shocked = bool(GameState.get_unit(\"U_CUSTODIAN_GUARD_E\")[\"flags\"].get(\"battle_shocked\", false))\nreturn shocked == (not bool(r[\"passed\"]))", "equals": true },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"IMPENDING KRUNCH\")", "expect_min": 1 },
+    { "act": "click_if_visible", "node": "/root/TankShockDialog/Content/Buttons/DeclineButton", "emit_pressed": true, "comment": "core Tank Shock offer after a VEHICLE charge (not under test)" },
+    { "act": "execute_script", "multiline": true, "script": "for c in tree.root.get_children():\n\tif c is Window and c != tree.root:\n\t\tc.hide()\n\t\tc.queue_free()\nSceneRefs.main()._recreate_unit_visuals()\nreturn true", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "screenshot", "label": "03_impending_krunch_battle_shock_roll" }
+  ]
+}
