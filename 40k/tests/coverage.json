@@ -2591,15 +2591,6 @@
       "status": "covered"
     },
     {
-      "id": "stratagems.war_horde.ere_we_go",
-      "description": "'ERE WE GO activates via USE_STRATAGEM with the curated 11e effects: effect_plus_charge=2 and 1 CP spent.",
-      "scenarios": [
-        "fullauto_movement_stratagems"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered"
-    },
-    {
       "id": "movement.da_jump.canonical_name",
       "description": "Da Jump works end-to-end from the current roster under its canonicalized ability name (USE_DA_JUMP flow).",
       "scenarios": [
@@ -2610,39 +2601,17 @@
     },
     {
       "id": "autoloads.FactionStratagemLoader.curated_effects",
-      "description": "FactionStratagemLoader's curated 11e stratagem effects wire into the engine (movement-phase package).",
-      "scenarios": [
-        "fullauto_movement_stratagems"
-      ],
+      "description": "FactionStratagemLoader's curated 11e stratagem effects wire into the engine (movement-phase package). [Coverage lost 2026-10-12: its only backing scenario exercised 10e Ork content that Codex: Orks (11e) removed and was retired — see .llm/ork_codex_11e_retired_tests.md.]",
+      "scenarios": [],
       "last_verified_commit": "HEAD",
-      "status": "covered"
-    },
-    {
-      "id": "stratagems.war_horde.unbridled_carnage",
-      "description": "UNBRIDLED CARNAGE (crit on 5+ melee) activates via USE_STRATAGEM, sets its engine flag, and deducts CP.",
-      "scenarios": [
-        "fullauto_fight_stratagems"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered"
-    },
-    {
-      "id": "stratagems.war_horde.ard_as_nails",
-      "description": "'ARD AS NAILS (defender-side -1 to wound) activates via USE_STRATAGEM, sets its engine flag, and deducts CP.",
-      "scenarios": [
-        "fullauto_fight_stratagems"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered"
+      "status": "uncovered"
     },
     {
       "id": "autoloads.EffectPrimitives.minus_one_wound_defense",
-      "description": "EffectPrimitives minus-one-to-wound defensive effect applies from the fight-phase stratagem package.",
-      "scenarios": [
-        "fullauto_fight_stratagems"
-      ],
+      "description": "EffectPrimitives minus-one-to-wound defensive effect applies from the fight-phase stratagem package. [Coverage lost 2026-10-12: its only backing scenario exercised 10e Ork content that Codex: Orks (11e) removed and was retired — see .llm/ork_codex_11e_retired_tests.md.]",
+      "scenarios": [],
       "last_verified_commit": "HEAD",
-      "status": "covered"
+      "status": "uncovered"
     },
     {
       "id": "charge.range_overlay_cleanup",
@@ -3802,12 +3771,10 @@
     },
     {
       "id": "autoloads.StratagemManager.target_condition_enforcement",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: taktikal_retreat_panel.",
-      "scenarios": [
-        "taktikal_retreat_panel"
-      ],
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: taktikal_retreat_panel. [Coverage lost 2026-10-12: its only backing scenario exercised 10e Ork content that Codex: Orks (11e) removed and was retired — see .llm/ork_codex_11e_retired_tests.md.]",
+      "scenarios": [],
       "last_verified_commit": "HEAD",
-      "status": "covered",
+      "status": "uncovered",
       "fidelity": "DECLARED"
     },
     {
@@ -4099,16 +4066,6 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: charge_over_ruin_corner_succeeds.",
       "scenarios": [
         "charge_over_ruin_corner_succeeds"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "charge.turbo_boosted_hard_lock",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: speedwaaagh_turbo_boostas.",
-      "scenarios": [
-        "speedwaaagh_turbo_boostas"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -5849,30 +5806,10 @@
       "fidelity": "DECLARED"
     },
     {
-      "id": "faction.da_big_hunt.prey_selection",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: da_big_hunt_drag_it_down.",
-      "scenarios": [
-        "da_big_hunt_drag_it_down"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
       "id": "faction.dread_mob.button_effect_roll",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: dread_mob_try_dat_button.",
       "scenarios": [
         "dread_mob_try_dat_button"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "faction.speedwaaagh.turbo_advance_no_roll",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: speedwaaagh_turbo_boostas.",
-      "scenarios": [
-        "speedwaaagh_turbo_boostas"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -5933,66 +5870,6 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: bully_boyz_armed_to_da_teef.",
       "scenarios": [
         "bully_boyz_armed_to_da_teef"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "fight.stratagem.competitive_streak",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: green_tide_competitive_streak.",
-      "scenarios": [
-        "green_tide_competitive_streak"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "fight.stratagem.devastating_drift",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: rollin_deff_devastating_drift.",
-      "scenarios": [
-        "rollin_deff_devastating_drift"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "fight.stratagem.drag_it_down",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: da_big_hunt_drag_it_down.",
-      "scenarios": [
-        "da_big_hunt_drag_it_down"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "fight.stratagem.fight_proppa",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_proppa_choice.",
-      "scenarios": [
-        "fight_proppa_choice"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "fight.stratagem.klankin_klaws",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: dread_mob_klankin_klaws.",
-      "scenarios": [
-        "dread_mob_klankin_klaws"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "fight.stratagem.mount_up_ladz",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: blitz_brigade_mount_up_ladz.",
-      "scenarios": [
-        "blitz_brigade_mount_up_ladz"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -6219,16 +6096,6 @@
       "fidelity": "DECLARED"
     },
     {
-      "id": "movement.detachment_rule.turbo_boostas",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: speedwaaagh_turbo_boostas.",
-      "scenarios": [
-        "speedwaaagh_turbo_boostas"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
       "id": "movement.engagement_range.ring_matches_rule_11e",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: movement_er_ring_matches_check_11e.",
       "scenarios": [
@@ -6243,16 +6110,6 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: take_to_skies_mid_move_11e.",
       "scenarios": [
         "take_to_skies_mid_move_11e"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "movement.stratagem.taktikal_retreat",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: taktikal_retreat_panel.",
-      "scenarios": [
-        "taktikal_retreat_panel"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -6652,12 +6509,10 @@
     },
     {
       "id": "rules.melee_scoped_lethal_hits",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_proppa_choice.",
-      "scenarios": [
-        "fight_proppa_choice"
-      ],
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_proppa_choice. [Coverage lost 2026-10-12: its only backing scenario exercised 10e Ork content that Codex: Orks (11e) removed and was retired — see .llm/ork_codex_11e_retired_tests.md.]",
+      "scenarios": [],
       "last_verified_commit": "HEAD",
-      "status": "covered",
+      "status": "uncovered",
       "fidelity": "DECLARED"
     },
     {
@@ -7638,16 +7493,6 @@
       "fidelity": "DECLARED"
     },
     {
-      "id": "shooting.stratagem.long_uncontrolled_bursts",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: more_dakka_bursts.",
-      "scenarios": [
-        "more_dakka_bursts"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
       "id": "shooting.wound_reroll_annotation",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: cover_hit_label_wound_reroll_11e.",
       "scenarios": [
@@ -7659,12 +7504,10 @@
     },
     {
       "id": "stratagems.blitz_brigade.loading",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: blitz_brigade_mount_up_ladz.",
-      "scenarios": [
-        "blitz_brigade_mount_up_ladz"
-      ],
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: blitz_brigade_mount_up_ladz. [Coverage lost 2026-10-12: its only backing scenario exercised 10e Ork content that Codex: Orks (11e) removed and was retired — see .llm/ork_codex_11e_retired_tests.md.]",
+      "scenarios": [],
       "last_verified_commit": "HEAD",
-      "status": "covered",
+      "status": "uncovered",
       "fidelity": "DECLARED"
     },
     {
@@ -7679,32 +7522,26 @@
     },
     {
       "id": "stratagems.da_big_hunt.loading",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: da_big_hunt_drag_it_down.",
-      "scenarios": [
-        "da_big_hunt_drag_it_down"
-      ],
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: da_big_hunt_drag_it_down. [Coverage lost 2026-10-12: its only backing scenario exercised 10e Ork content that Codex: Orks (11e) removed and was retired — see .llm/ork_codex_11e_retired_tests.md.]",
+      "scenarios": [],
       "last_verified_commit": "HEAD",
-      "status": "covered",
+      "status": "uncovered",
       "fidelity": "DECLARED"
     },
     {
       "id": "stratagems.dread_mob.loading",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: dread_mob_klankin_klaws.",
-      "scenarios": [
-        "dread_mob_klankin_klaws"
-      ],
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: dread_mob_klankin_klaws. [Coverage lost 2026-10-12: its only backing scenario exercised 10e Ork content that Codex: Orks (11e) removed and was retired — see .llm/ork_codex_11e_retired_tests.md.]",
+      "scenarios": [],
       "last_verified_commit": "HEAD",
-      "status": "covered",
+      "status": "uncovered",
       "fidelity": "DECLARED"
     },
     {
       "id": "stratagems.green_tide.loading",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: green_tide_competitive_streak.",
-      "scenarios": [
-        "green_tide_competitive_streak"
-      ],
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: green_tide_competitive_streak. [Coverage lost 2026-10-12: its only backing scenario exercised 10e Ork content that Codex: Orks (11e) removed and was retired — see .llm/ork_codex_11e_retired_tests.md.]",
+      "scenarios": [],
       "last_verified_commit": "HEAD",
-      "status": "covered",
+      "status": "uncovered",
       "fidelity": "DECLARED"
     },
     {
@@ -7748,26 +7585,6 @@
       "fidelity": "DECLARED"
     },
     {
-      "id": "stratagems.more_dakka.loading",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: more_dakka_bursts.",
-      "scenarios": [
-        "more_dakka_bursts"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "stratagems.rollin_deff.loading",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: rollin_deff_devastating_drift.",
-      "scenarios": [
-        "rollin_deff_devastating_drift"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
       "id": "stratagems.silent_hunters.synchronised_inferno",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: custodes_silent_hunters_stratagems.",
       "scenarios": [
@@ -7789,13 +7606,10 @@
     },
     {
       "id": "stratagems.taktikal_brigade.loading",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_proppa_choice, taktikal_retreat_panel.",
-      "scenarios": [
-        "fight_proppa_choice",
-        "taktikal_retreat_panel"
-      ],
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_proppa_choice, taktikal_retreat_panel. [Coverage lost 2026-10-12: its only backing scenario exercised 10e Ork content that Codex: Orks (11e) removed and was retired — see .llm/ork_codex_11e_retired_tests.md.]",
+      "scenarios": [],
       "last_verified_commit": "HEAD",
-      "status": "covered",
+      "status": "uncovered",
       "fidelity": "DECLARED"
     },
     {
@@ -7880,12 +7694,10 @@
     },
     {
       "id": "transport.embark_via_stratagem",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: blitz_brigade_mount_up_ladz.",
-      "scenarios": [
-        "blitz_brigade_mount_up_ladz"
-      ],
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: blitz_brigade_mount_up_ladz. [Coverage lost 2026-10-12: its only backing scenario exercised 10e Ork content that Codex: Orks (11e) removed and was retired — see .llm/ork_codex_11e_retired_tests.md.]",
+      "scenarios": [],
       "last_verified_commit": "HEAD",
-      "status": "covered",
+      "status": "uncovered",
       "fidelity": "DECLARED"
     },
     {
@@ -8032,12 +7844,10 @@
     },
     {
       "id": "ui.Main.stratagem_choice_dialog",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_proppa_choice.",
-      "scenarios": [
-        "fight_proppa_choice"
-      ],
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_proppa_choice. [Coverage lost 2026-10-12: its only backing scenario exercised 10e Ork content that Codex: Orks (11e) removed and was retired — see .llm/ork_codex_11e_retired_tests.md.]",
+      "scenarios": [],
       "last_verified_commit": "HEAD",
-      "status": "covered",
+      "status": "uncovered",
       "fidelity": "DECLARED"
     },
     {
@@ -8051,29 +7861,11 @@
       "fidelity": "DECLARED"
     },
     {
-      "id": "ui.StratagemChoiceDialog.push_it",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: dread_mob_klankin_klaws.",
-      "scenarios": [
-        "dread_mob_klankin_klaws"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
       "id": "ui.StratagemPanel.faction_rows",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: blitz_brigade_mount_up_ladz, bully_boyz_armed_to_da_teef, da_big_hunt_drag_it_down, dread_mob_klankin_klaws, fight_proppa_choice, green_tide_competitive_streak, kult_of_speed_speediest_freeks, more_dakka_bursts, rollin_deff_devastating_drift, taktikal_retreat_panel.",
       "scenarios": [
-        "blitz_brigade_mount_up_ladz",
         "bully_boyz_armed_to_da_teef",
-        "da_big_hunt_drag_it_down",
-        "dread_mob_klankin_klaws",
-        "fight_proppa_choice",
-        "green_tide_competitive_streak",
-        "kult_of_speed_speediest_freeks",
-        "more_dakka_bursts",
-        "rollin_deff_devastating_drift",
-        "taktikal_retreat_panel"
+        "kult_of_speed_speediest_freeks"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -8081,12 +7873,10 @@
     },
     {
       "id": "ui.StratagemPanel.friendly_target_picker",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: taktikal_retreat_panel.",
-      "scenarios": [
-        "taktikal_retreat_panel"
-      ],
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: taktikal_retreat_panel. [Coverage lost 2026-10-12: its only backing scenario exercised 10e Ork content that Codex: Orks (11e) removed and was retired — see .llm/ork_codex_11e_retired_tests.md.]",
+      "scenarios": [],
       "last_verified_commit": "HEAD",
-      "status": "covered",
+      "status": "uncovered",
       "fidelity": "DECLARED"
     },
     {
@@ -9326,7 +9116,7 @@
     },
     {
       "id": "dialogs.AttackAssignmentDialog.auto_allocate_overkill",
-      "description": "The melee attack dialog's auto-allocation scores plans on EFFECTIVE damage, not raw expected damage: damage past a model's last wound is lost (10e/11e) and damage past the target UNIT's last wound is lost too, because it never spills onto another unit. Models are placed one at a time on marginal value, so a target stops attracting attacks once its wound pool is spent and the surplus goes to another engaged unit \u2014 only ever to a unit that section has actually reached. Reported: the suggested plan overkilled the target it named and wasted most of an activation while other units were available to pick.",
+      "description": "The melee attack dialog's auto-allocation scores plans on EFFECTIVE damage, not raw expected damage: damage past a model's last wound is lost (10e/11e) and damage past the target UNIT's last wound is lost too, because it never spills onto another unit. Models are placed one at a time on marginal value, so a target stops attracting attacks once its wound pool is spent and the surplus goes to another engaged unit — only ever to a unit that section has actually reached. Reported: the suggested plan overkilled the target it named and wasted most of an activation while other units were available to pick.",
       "scenarios": [
         "fight_auto_allocate_spillover"
       ],
@@ -9335,7 +9125,7 @@
     },
     {
       "id": "dialogs.AttackAssignmentDialog.split_across_targets",
-      "description": "A loadout section can be divided across TWO TARGETS with the same weapon, not only between the weapons it carries \u2014 the shape a uniform single-weapon squad needs to send its surplus attacks somewhere useful. Split rows are keyed by plan line (the first line of each weapon keeps the historic SplitRow_<weapon> node name), 'Split\u2026' is offered whenever a multi-model section has 2+ weapons OR 2+ targets, and the sections box is sized from the rows it actually shows so a second row is not clipped away.",
+      "description": "A loadout section can be divided across TWO TARGETS with the same weapon, not only between the weapons it carries — the shape a uniform single-weapon squad needs to send its surplus attacks somewhere useful. Split rows are keyed by plan line (the first line of each weapon keeps the historic SplitRow_<weapon> node name), 'Split…' is offered whenever a multi-model section has 2+ weapons OR 2+ targets, and the sections box is sized from the rows it actually shows so a second row is not clipped away.",
       "scenarios": [
         "fight_auto_allocate_spillover"
       ],
@@ -9344,7 +9134,7 @@
     },
     {
       "id": "ui.fight.overkill_warning",
-      "description": "The attack dialog's assignments box reports what a plan actually removes, not just what the dice produce: each line prints '\u2248X lands' when that differs from its raw E[D], the total prints landed vs thrown away, and a warning names any unit the plan has aimed more damage at than it has wounds left, saying the surplus does not carry to another unit. The warning fires only on a genuinely over-committed target.",
+      "description": "The attack dialog's assignments box reports what a plan actually removes, not just what the dice produce: each line prints '≈X lands' when that differs from its raw E[D], the total prints landed vs thrown away, and a warning names any unit the plan has aimed more damage at than it has wounds left, saying the surplus does not carry to another unit. The warning fires only on a genuinely over-committed target.",
       "scenarios": [
         "fight_auto_allocate_spillover"
       ],
@@ -9380,7 +9170,7 @@
     },
     {
       "id": "settings.los_debug_check_out_of_range",
-      "description": "Settings > Visual > \"LoS Debug: include units out of weapon range\" (default ON). Off, the LoS overlay drops any enemy no weapon in the selected unit could reach BEFORE doing line-of-sight work \u2014 the amber 'is out of range' lines disappear and the whole-board sweep gets markedly cheaper. Backed by RulesEngine.unit_within_weapon_reach, a pure distance test against the longest gun in the loadout, so it can only over-include (nothing the target list accepts is ever filtered away) and a melee-only unit is never filtered at all. Driven end to end through the real settings menu.",
+      "description": "Settings > Visual > \"LoS Debug: include units out of weapon range\" (default ON). Off, the LoS overlay drops any enemy no weapon in the selected unit could reach BEFORE doing line-of-sight work — the amber 'is out of range' lines disappear and the whole-board sweep gets markedly cheaper. Backed by RulesEngine.unit_within_weapon_reach, a pure distance test against the longest gun in the loadout, so it can only over-include (nothing the target list accepts is ever filtered away) and a melee-only unit is never filtered at all. Driven end to end through the real settings menu.",
       "scenarios": [
         "los_overlay_targetable_vs_visible"
       ],
