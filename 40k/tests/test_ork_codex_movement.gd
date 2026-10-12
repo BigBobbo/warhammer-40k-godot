@@ -658,6 +658,23 @@ func _section_scarper() -> void:
 	var u2 = _use(p2, 2, "enemy_ended_move", sid, "U_GRETCHIN_C")
 	_check("attached Gretchin + Runtherd: normal move up to 6\" (no roll)", u2.get("success", false) and absf(float(p2.active_moves.get("U_GRETCHIN_C", {}).get("move_cap_inches", 0.0)) - 6.0) < 0.01, str(u2.get("error", "")))
 	_check("the Runtherd moves with its unit (original positions tracked)", str(p2.active_moves.get("U_GRETCHIN_C", {}).get("original_positions", {}).keys()).contains("U_RUNTHERD_A"), str(p2.active_moves.get("U_GRETCHIN_C", {}).get("original_positions", {}).keys()))
+	# "Skip Overwatch" declines INSIDE the CONFIRM action (the controller answers
+	# the fire_overwatch_opportunity signal synchronously), before BasePhase has
+	# applied the move: the window must still see the Custodes where they ended.
+	_load(REACTIVE, 2, "Runt Swarm")
+	_place_row("U_CUSTODIAN_GUARD_C", 35.0, 37.0, 1.8)
+	var pn = _movement()
+	_drain_start_window(pn)
+	var auto_decline := func(player: int, _units: Array, _enemy: String) -> void:
+		pn.execute_action({"type": "DECLINE_FIRE_OVERWATCH", "player": player})
+	pn.fire_overwatch_opportunity.connect(auto_decline)
+	pn.execute_action({"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "U_CUSTODIAN_GUARD_C"})
+	var nmv = _move_unit(pn, "U_CUSTODIAN_GUARD_C", Vector2(0, 3.0))
+	pn.fire_overwatch_opportunity.disconnect(auto_decline)
+	_check("nested auto-decline: move confirmed", nmv.get("success", false), str(nmv.get("error", "")))
+	_check("nested auto-decline: enemy_ended_move offers Gretchin C (8\" measured from the END position)",
+		_pending_id(pn) == "enemy_ended_move" and "U_GRETCHIN_C" in _offer_targets(pn.get_pending_stratagem_window().get("offers", []), sid), _pending_id(pn))
+	_check("nested auto-decline: GameState holds the applied move afterwards", absf(_pos(GS.state.units.U_CUSTODIAN_GUARD_C.models[0]).y - 40.0 * PX) < 1.0, str(_pos(GS.state.units.U_CUSTODIAN_GUARD_C.models[0])))
 	# engaged -> not offered
 	_load(REACTIVE, 2, "Runt Swarm")
 	var ge := _pos(GS.state.units.U_GRETCHIN_C.models[0])

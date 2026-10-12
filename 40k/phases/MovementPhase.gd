@@ -132,6 +132,7 @@ var _ork11e_reactive_move: Dictionary = {}      # {player, unit_id, max_inches, 
 var _ork11e_auto_moving: bool = false           # an AI reactive normal move is being resolved synchronously
 var _ork11e_assault_disembark: Dictionary = {}  # {player, transport_id, remaining}: READIED BRAWLERS follow-up in progress
 var _ork11e_phase_end_windows_done: bool = false
+var _ork11e_pending_move_changes: Array = []    # the ended move's diffs while its CONFIRM is still being processed (see _post_move_prompts)
 
 # Kunnin' Infiltrator state tracking (OA-24)
 var _kunnin_infiltrator_pending: bool = false       # Waiting for redeployment placement
@@ -313,6 +314,7 @@ func _on_phase_enter() -> void:
 	_ork11e_auto_moving = false
 	_ork11e_assault_disembark = {}
 	_ork11e_phase_end_windows_done = false
+	_ork11e_pending_move_changes = []
 
 	# OA-8: Snapshot engagement state at phase start for Krump and Run eligibility
 	_engagement_at_phase_start = _compute_engagement_snapshot()
@@ -1875,11 +1877,14 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 	})
 
 	# Show toast notification with reroll result
-	var new_total_move = int(move_inches) + new_advance
+	# ('ERE WE GO's +2 is a modifier on the re-rolled value - include it.)
+	var rr_ewg := int(get_unit(unit_id).get("flags", {}).get(Ork11eMovement.FLAG_ERE_WE_GO, 0))
+	var new_total_move = int(move_inches) + new_advance + rr_ewg
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr:
 		toast_mgr.show_toast(
-			"COMMAND RE-ROLL (1 CP): %s advance %d → %d (Move: %d\")" % [unit_name, old_roll, new_advance, new_total_move],
+			"COMMAND RE-ROLL (1 CP): %s advance %d → %d%s (Move: %d\")" % [unit_name, old_roll, new_advance,
+				(" %+d 'ERE WE GO" % rr_ewg) if rr_ewg != 0 else "", new_total_move],
 			Color.GOLD
 		)
 
@@ -1896,7 +1901,9 @@ func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
 	var advance_roll = old_data.get("advance_roll", 0)
 	var unit_name = old_data.get("unit_name", unit_id)
 	var move_inches = old_data.get("move_inches", 0)
-	var total_move = int(move_inches) + advance_roll
+	# 'ERE WE GO's +2 modifies the kept roll - include it in the toast.
+	var kept_ewg := int(get_unit(unit_id).get("flags", {}).get(Ork11eMovement.FLAG_ERE_WE_GO, 0))
+	var total_move = int(move_inches) + advance_roll + kept_ewg
 
 	DebugLogger.info(str("MovementPhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id))
 
@@ -1904,7 +1911,8 @@ func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr:
 		toast_mgr.show_toast(
-			"%s advance roll: %d (Move: %d\")" % [unit_name, advance_roll, total_move],
+			"%s advance roll: %d%s (Move: %d\")" % [unit_name, advance_roll,
+				(" %+d 'ERE WE GO" % kept_ewg) if kept_ewg != 0 else "", total_move],
 			Color.WHITE
 		)
 
@@ -5190,6 +5198,11 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 ## post-move abilities (_post_move_active_abilities). Split out of
 ## _process_confirm_unit_move so the unit_ended_normal_move window can resume it.
 func _post_move_prompts(unit_id: String, move_data: Dictionary, changes: Array, additional_dice: Array) -> Dictionary:
+	# Codex: Orks (11e): the prompts below can be answered INSIDE this action
+	# (e.g. "Skip Overwatch" auto-declines synchronously, and that nested
+	# DECLINE opens enemy_ended_move) before BasePhase has applied `changes`.
+	# Keep them so that window sees the moved models where they ended.
+	_ork11e_pending_move_changes = changes.duplicate()
 	# T3-11 / P2-88: Check for Fire Overwatch opportunity for the defending player
 	# Balance Dataslate timing: "when an enemy unit ends a Normal, Advance or Fall Back move"
 	# Build a temporary snapshot with the new positions applied for range checks
@@ -5240,9 +5253,7 @@ func _post_move_prompts(unit_id: String, move_data: Dictionary, changes: Array, 
 
 	# Codex: Orks (11e) enemy_ended_move window (the opponent), after the
 	# overwatch / Krump and Run / Scatter! prompts above.
-	var eem_staged := _ork11e_stage_move_positions(changes)
 	var eem := _ork11e_try_enemy_ended_move_window(true)
-	_ork11e_restore_move_positions(eem_staged)
 	if eem.paused:
 		var eem_paused: Array = changes.duplicate()
 		eem_paused.append_array(eem.diffs)
@@ -6921,7 +6932,14 @@ func _ork11e_try_enemy_ended_move_window(continue_active_abilities: bool) -> Dic
 	var defender := 2 if get_current_player() == 1 else 1
 	var ctx := {"phase": "movement", "enemy_unit_id": trigger_id, "move_type": str(pending.get("move_type", "")),
 		"continue_active_abilities": continue_active_abilities}
-	if open_stratagem_window(defender, "enemy_ended_move", ctx, "_resume_after_enemy_ended_move"):
+	# Offers (SCARPER!'s 8" gate, ...) and AI follow-ups must see the moved
+	# unit where it ended, even when this runs inside its CONFIRM action.
+	# Staging is a no-op once BasePhase has applied the move.
+	var eem_staged := _ork11e_stage_move_positions(_ork11e_pending_move_changes)
+	_ork11e_pending_move_changes = []
+	var eem_opened := open_stratagem_window(defender, "enemy_ended_move", ctx, "_resume_after_enemy_ended_move")
+	_ork11e_restore_move_positions(eem_staged)
+	if eem_opened:
 		log_phase_message("Waiting for Player %d's enemy_ended_move stratagem decision (%s ended a %s move)" % [
 			defender, trigger_id, str(pending.get("move_type", ""))])
 		return {"paused": true, "diffs": consume_window_diffs()}

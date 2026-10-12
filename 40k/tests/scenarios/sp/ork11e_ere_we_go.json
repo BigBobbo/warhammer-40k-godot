@@ -1,0 +1,61 @@
+{
+  "id": "ork11e_ere_we_go",
+  "covers": [
+    "stratagem.window.unit_selected_to_move.advance",
+    "stratagem.ork11e.ere_we_go",
+    "phases.MovementPhase.resolve_advance_roll.ere_we_go",
+    "movementcontroller.deferred_mode_lock"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) 'ERE WE GO (Green Tide, 1 CP) through the real unit_selected_to_move window. Ruling: in the Movement phase it is offered only when the unit is selected for an ADVANCE move (its +2 modifies advance rolls). The player clicks the Boyz (+ attached Warboss): the default normal move opens NO window. Picking Advance + Confirm Movement Mode re-selects the unit for an advance move: the window opens before the advance roll, with an enabled 'Use on Boyz + Warboss' button. A real click on Use spends 1 CP and flags the Boyz and the Warboss; the advance is then rolled (Command Re-roll prompt: Keep Roll) and the cap is M6 + D6 + 2, the modifier shown in the dice log. The mob advances 4\" west (Ctrl+A group drag) and the move is locked in. Setup-only privileges: the fixture's Ork detachment is flipped to Green Tide (stratagems reloaded) and Custodian Guard A is moved out of engagement with the Boyz so they can advance.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "script": "GameState.state[\"factions\"][\"1\"].merge({\"detachment\": \"Green Tide\"}, true)\nStratagemManager.load_faction_stratagems_for_player(1)\nvar i := 0\nfor m in GameState.state.units[\"U_CUSTODIAN_GUARD_A\"].models:\n\tm[\"position\"] = {\"x\": 808.0 + (i % 3) * 72.0, \"y\": 1420.0 + int(i / 3) * 72.0}\n\ti += 1\ntree.current_scene._recreate_unit_visuals()\nreturn StratagemManager.get_stratagem(\"faction_ork_green_tide_ere_we_go\").get(\"implemented\", false)", "equals": true, "comment": "setup privilege: Green Tide detachment; Custodian Guard A moved 7\" south, out of engagement" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "click_unit", "unit_id": "U_BOYZ_B" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_BOYZ_B" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()", "equals": false, "comment": "normal move: 'ERE WE GO is not offered" },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node_or_null(\"StratagemDialog\") == null", "equals": true },
+
+    { "act": "click_node", "button_text": "Advance" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "click_node", "button_text": "Confirm Movement Mode" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().ctx.move_type", "equals": "advance" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves.get(\"U_BOYZ_B\", {}).get(\"mode\", \"\") == \"ADVANCE\"", "equals": false, "comment": "the advance is not rolled while the window waits" },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_green_tide_ere_we_go/Buttons/Use_faction_ork_green_tide_ere_we_go_U_BOYZ_B", "property": "disabled", "equals": false },
+    { "act": "screenshot", "label": "01_window_on_advance" },
+
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_green_tide_ere_we_go/Buttons/Use_faction_ork_green_tide_ere_we_go_U_BOYZ_B" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_cp", "player": 1, "delta_from_start": -1 },
+    { "act": "expect_state", "path": "units.U_BOYZ_B.flags.ork11e_ere_we_go", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_WARBOSS_A.flags.ork11e_ere_we_go", "equals": 2 },
+    { "act": "expect_node_visible", "node": "/root/CommandRerollDialog", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "02_advance_roll_reroll_prompt" },
+    { "act": "click_node", "button_text": "Keep Roll", "emit_pressed": true, "comment": "Keep Roll lives inside an embedded AcceptDialog (precedent: tut_t3_get_movin)" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "multiline": true, "script": "var p = PhaseManager.get_current_phase_instance()\nvar raw := -1\nfor d in p.dice_log:\n\tif str(d.get(\"type\", \"\")) == \"'ERE WE GO\":\n\t\traw = int(d.get(\"roll\", -1))\nvar am = p.active_moves.get(\"U_BOYZ_B\", {})\nif raw < 1:\n\treturn \"no 'ERE WE GO dice-log entry\"\nif int(am.get(\"advance_roll\", -1)) != raw + 2:\n\treturn \"advance roll %s, raw %d\" % [str(am.get(\"advance_roll\")), raw]\nif absf(float(am.get(\"move_cap_inches\", 0.0)) - (6.0 + raw + 2)) > 0.01:\n\treturn \"cap %s\" % str(am.get(\"move_cap_inches\"))\nreturn \"ok\"", "equals": "ok", "comment": "advance cap = M6 + D6 + 2" },
+    { "act": "execute_script", "script": "bool(PhaseManager.get_current_phase_instance().active_moves[\"U_BOYZ_B\"].get(\"mode_locked\", false))", "equals": true, "comment": "the mode lock deferred while the window waited landed after the resume" },
+    { "act": "screenshot", "label": "03_advance_cap_plus_2" },
+
+    { "act": "simulate_key", "keycode": "A", "ctrl": true },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "drag_board", "from_x": 759.2, "from_y": 1154.8, "to_x": 599.2, "to_y": 1154.8 },
+    { "act": "wait_seconds", "seconds": 2.5 },
+    { "act": "click_node", "button_text": "End This Unit's Move" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "units.U_BOYZ_B.flags.advanced", "equals": true },
+    { "act": "execute_script", "script": "abs(float(GameState.get_unit(\"U_BOYZ_B\").models[0].position.x) - 599.2) < 4.0", "equals": true },
+    { "act": "screenshot", "label": "04_advanced" }
+  ]
+}

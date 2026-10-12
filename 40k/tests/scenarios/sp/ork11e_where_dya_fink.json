@@ -1,0 +1,47 @@
+{
+  "id": "ork11e_where_dya_fink",
+  "covers": [
+    "stratagem.window.enemy_selected_to_fall_back",
+    "stratagem.ork11e.where_dya_fink_youre_going",
+    "movetypes.FallBackMove.forced_desperate_escape"
+  ],
+  "fixture": "ork11e_orks_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) WHERE D'YA FINK YOU'RE GOING? (Da Big Hunt, 1 CP) in the ENEMY's Movement phase through the real enemy_selected_to_fall_back window. Fixture ork11e_orks_reactive: P1 Custodes active; the Allarus Custodians are engaged with the Beast Snagga Boyz. The Custodes player clicks the Allarus and picks Fall Back: the window opens for PLAYER 2 before the fall-back is set up, with an enabled 'Use on Beast Snagga Boyz' button (the only BEAST SNAGGA unit engaged with the Allarus). A real click on Use spends P2's CP; the fall-back resumes and the Allarus MUST use the Desperate Escape mode (one hazard roll per model, shown in the dice log) instead of choosing an Ordered Retreat. The legacy (10e) Krump-and-Run path does not pick up the codex row. Setup-only privilege: P2's detachment flipped to Da Big Hunt (stratagems reloaded).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Da Big Hunt\"}, true)\nStratagemManager.load_faction_stratagems_for_player(2)\nvar M = load(\"res://scripts/stratagems/ork_codex/OrkCodexMovement.gd\")\nreturn M.units_engaged_with_each_other(\"U_BEAST_SNAGGA_BOYZ_A\", \"U_ALLARUS_CUSTODIANS_A\")", "equals": true, "comment": "setup privilege: Da Big Hunt for P2; the fixture's Allarus are engaged with the Beast Snagga Boyz" },
+
+    { "act": "click_unit", "unit_id": "U_ALLARUS_CUSTODIANS_A" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_ALLARUS_CUSTODIANS_A" },
+    { "act": "screenshot", "label": "01_engaged_allarus_selected" },
+    { "act": "click_node", "button_text": "Fall Back" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id", "equals": "enemy_selected_to_fall_back" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 2 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text", "equals": "Allarus Custodians has been selected to fall back" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves.get(\"U_ALLARUS_CUSTODIANS_A\", {}).get(\"mode\", \"\") == \"FALL_BACK\"", "equals": false, "comment": "the fall-back is not set up while the window waits" },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_da_big_hunt_where_dya_fink_youre_going?/Buttons/Use_faction_ork_da_big_hunt_where_dya_fink_youre_going?_U_BEAST_SNAGGA_BOYZ_A", "property": "disabled", "equals": false },
+    { "act": "execute_script", "script": "main._reactive_stratagem_pending", "equals": true },
+    { "act": "screenshot", "label": "02_window_for_ork_player" },
+
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_da_big_hunt_where_dya_fink_youre_going?/Buttons/Use_faction_ork_da_big_hunt_where_dya_fink_youre_going?_U_BEAST_SNAGGA_BOYZ_A" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_cp", "player": 2, "delta_from_start": -1 },
+    { "act": "expect_cp", "player": 1, "delta_from_start": 0 },
+    { "act": "expect_state", "path": "units.U_BEAST_SNAGGA_BOYZ_A.flags.ork11e_where_dya_fink", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_ALLARUS_CUSTODIANS_A\"].get(\"fall_back_mode\", \"\")", "equals": "desperate_escape", "comment": "the Allarus must make a desperate escape" },
+    { "act": "execute_script", "multiline": true, "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif str(d.get(\"type\", \"\")).begins_with(\"Desperate escape (WHERE D'YA FINK?)\"):\n\t\treturn d.get(\"rolls\", []).size()\nreturn -1", "equals": 5, "comment": "one hazard roll per Allarus model (not MONSTER/VEHICLE: no extra rolls)" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._awaiting_krump_and_run", "equals": false },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"WHERE D'YA FINK\")", "expect_min": 1 },
+    { "act": "screenshot", "label": "03_forced_desperate_escape" }
+  ]
+}

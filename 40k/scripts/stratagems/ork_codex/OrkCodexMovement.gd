@@ -596,7 +596,24 @@ static func objective_label(obj_id: String) -> String:
 	var desig := ""
 	if mm and mm.has_method("get_objective_designation"):
 		desig = str(mm.get_objective_designation(obj_id))
-	return "%s (%s)" % [obj_id, desig] if desig != "" else obj_id
+	# Where it is on the board, so the player can tell the markers apart.
+	var where := ""
+	var gs = Common.autoload("GameState")
+	if gs:
+		for obj in gs.state.get("board", {}).get("objectives", []):
+			if str(obj.get("id", "")) == obj_id:
+				var p = obj.get("position", null)
+				if p is Dictionary:
+					where = "%d\", %d\"" % [roundi(float(p.get("x", 0)) / 40.0), roundi(float(p.get("y", 0)) / 40.0)]
+				elif p is Vector2:
+					where = "%d\", %d\"" % [roundi(p.x / 40.0), roundi(p.y / 40.0)]
+				break
+	var label := "Objective %s" % obj_id
+	if desig != "":
+		label += " (%s)" % desig
+	if where != "":
+		label += " at %s" % where
+	return label
 
 static func _dubious_restraint_apply(unit_id: String, player: int, ctx: Dictionary) -> Array:
 	var objs := controlled_objectives(unit_id, player)
@@ -612,7 +629,7 @@ static func _dubious_restraint_apply(unit_id: String, player: int, ctx: Dictiona
 	# end of a phase, even if this unit leaves or dies.
 	mm.secure_objective(obj_id, player, "")
 	Common.log_info("OrkCodexMovement: DUBIOUS RESTRAINT — %s secures %s for player %d" % [unit_id, obj_id, player])
-	_event_log(player, "DUBIOUS RESTRAINT: %s secures objective %s" % [Common.unit_name(unit_id), objective_label(obj_id)])
+	_event_log(player, "DUBIOUS RESTRAINT: %s secures %s" % [Common.unit_name(unit_id), objective_label(obj_id)])
 	return Common.set_flag_diffs([unit_id], FLAG_DUBIOUS_RESTRAINT, obj_id)
 
 
