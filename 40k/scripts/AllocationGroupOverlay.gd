@@ -1126,6 +1126,16 @@ func _end_pick_mode() -> void:
 # ── Finalize: apply the batch to GameState and show results ────────────
 
 func _finalize_batch() -> void:
+	# Codex: Orks (11e) Fight On Death (FightPhase._ork11e_fod_intercept): a
+	# model of a unit under ORKS IS NEVER BEATEN / TOO ARROGANT TO DIE / CRAZED
+	# RAMPAGE destroyed by this batch rolls to stay on the battlefield BEFORE
+	# the outcome is applied and the bodyguard / destroyed-unit checks below
+	# run. The rewritten diffs ride the APPLY_MELEE_SAVES summary (marked, so
+	# the phase never rolls twice).
+	var fod_pm = get_node_or_null("/root/PhaseManager")
+	var fod_phase = fod_pm.get_current_phase_instance() if fod_pm != null and fod_pm.has_method("get_current_phase_instance") else null
+	if fod_phase != null and fod_phase.has_method("_ork11e_fod_intercept") and batch_result.get("diffs", null) is Array:
+		fod_phase._ork11e_fod_intercept(batch_result.diffs)
 	_apply_diffs_to_gamestate(batch_result.get("diffs", []))
 	var target_unit_id = str(save_data.get("target_unit_id", ""))
 	if batch_result.get("casualties", 0) > 0:

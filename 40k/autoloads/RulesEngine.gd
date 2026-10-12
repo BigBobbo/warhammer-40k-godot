@@ -10171,7 +10171,8 @@ static func _find_hazardous_allocation_target(models: Array, hazardous_weapon_id
 	var candidates = []
 	for i in range(models.size()):
 		var model = models[i]
-		if not model.get("alive", true):
+		# Destroyed-but-not-removed models (05.04.05) take no further damage.
+		if not model_can_be_allocated(model):
 			continue
 
 		var has_hazardous = _model_has_hazardous_weapon(model, board)
@@ -12548,6 +12549,18 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 					ws_per_attack.append(melee_default_ws)
 				print("RulesEngine: [MA-29] Ability +%d Attacks for '%s' (melee) → +%d total (%d models × %d)" % [melee_bonus_value, weapon_name, melee_ability_bonus, model_count, melee_bonus_value])
 
+	# UNBRIDLED CARNAGE (Codex: Orks 11e, Green Tide): "Your unit's melee
+	# attacks have +1 A" — +N to the A characteristic of every melee weapon of
+	# each swinging model (OrkCodexFight writes ork11e_plus_attacks_melee).
+	var ork11e_melee_a_bonus := int(attacker_unit.get("flags", {}).get("ork11e_plus_attacks_melee", 0))
+	if model_count > 0 and ork11e_melee_a_bonus > 0 and not is_extra_attacks_weapon:
+		var uc_total = ork11e_melee_a_bonus * model_count
+		total_attacks += uc_total
+		var uc_ws = weapon_profile.get("ws", 4)
+		for _j in range(uc_total):
+			ws_per_attack.append(uc_ws)
+		print("RulesEngine: UNBRIDLED CARNAGE — +%d A for '%s' (melee) → +%d total (%d models)" % [ork11e_melee_a_bonus, weapon_name, uc_total, model_count])
+
 	# DEATHSONG SCYTHES (Silent Hunters): +X melee Attacks, but only while the
 	# attack targets a PSYKER unit.
 	if model_count > 0 and not is_extra_attacks_weapon:
@@ -12583,6 +12596,12 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		if attacker_unit.get("flags", {}).get("effect_grant_cleave_1", false):
 			cleave_x = maxi(cleave_x, 1)
 			print("RulesEngine: DEVASTATING DRIFT — melee weapon %s gains CLEAVE 1" % weapon_id)
+		# MOW 'EM DOWN (Codex: Orks 11e, War Horde): melee attacks have
+		# [CLEAVE 1], or +1 to the value of a [CLEAVE] they already have.
+		if attacker_unit.get("flags", {}).get("ork11e_mow_em_down", false):
+			var mow_before = cleave_x
+			cleave_x = cleave_x + 1 if cleave_x > 0 else 1
+			print("RulesEngine: MOW 'EM DOWN — melee weapon %s [CLEAVE %d] -> [CLEAVE %d]" % [weapon_id, mow_before, cleave_x])
 		if cleave_x > 0:
 			var cleave_extra = AbilityRegistry.cleave_bonus_dice(cleave_x, count_alive_models(target_unit), true)
 			if cleave_extra > 0:
@@ -15036,16 +15055,27 @@ static func _apply_damage_to_character_models(target_unit_id: String, total_dama
 
 	return result
 
+# 05.04.05 Fight On Death (Codex: Orks 11e ORKS IS NEVER BEATEN / TOO
+# ARROGANT TO DIE / CRAZED RAMPAGE): a model that was destroyed but is "not
+# removed from the battlefield" until its unit has fought stays alive=true with
+# 0 wounds left (FightPhase._ork11e_fod_intercept). It is still destroyed, so
+# no further attack or mortal wound can be allocated to it.
+static func model_can_be_allocated(model: Dictionary) -> bool:
+	if not model.get("alive", true):
+		return false
+	return int(model.get("current_wounds", model.get("wounds", 1))) > 0
+
 # DEVASTATING WOUNDS (PRP-012): Find model to allocate damage to (wounded first)
 static func _find_allocation_target_model(models: Array, preferred: Array = []) -> int:
 	"""Find next model to allocate damage to: wounded models first, then any alive.
 	`preferred` (optional) is a die-first order of model indices from
 	CasualtyPreference — it only picks WHICH un-wounded model soaks next
-	(the 05.04 wounded-first rule always wins)."""
+	(the 05.04 wounded-first rule always wins). Destroyed-but-not-removed
+	models (0 wounds, see model_can_be_allocated) are never picked."""
 	# First, look for wounded alive models
 	for i in range(models.size()):
 		var model = models[i]
-		if model.get("alive", true):
+		if model_can_be_allocated(model):
 			var current = model.get("current_wounds", model.get("wounds", 1))
 			var max_wounds = model.get("wounds", 1)
 			if current < max_wounds:
@@ -15054,12 +15084,12 @@ static func _find_allocation_target_model(models: Array, preferred: Array = []) 
 	# No wounded models — honour the defender's die-first preference
 	for p in preferred:
 		var pi = int(p)
-		if pi >= 0 and pi < models.size() and models[pi].get("alive", true):
+		if pi >= 0 and pi < models.size() and model_can_be_allocated(models[pi]):
 			return pi
 
 	# No preference (or preference exhausted), return first alive model
 	for i in range(models.size()):
-		if models[i].get("alive", true):
+		if model_can_be_allocated(models[i]):
 			return i
 
 	return -1  # No alive models

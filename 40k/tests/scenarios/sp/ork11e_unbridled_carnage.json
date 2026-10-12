@@ -1,0 +1,63 @@
+{
+  "id": "ork11e_unbridled_carnage",
+  "covers": [
+    "stratagem.window.unit_selected_to_fight",
+    "stratagem.ork11e.unbridled_carnage",
+    "phases.FightPhase.unit_selected_to_fight",
+    "dialogs.StratagemDialog.window_mode"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) UNBRIDLED CARNAGE (Green Tide) through the real unit_selected_to_fight window on the Orks' own turn. Fixture ork11e_orks_active (P1 Orks active), detachment switched to Green Tide (setup privilege, stratagems reloaded). Setup-only privileges during the Orks' Charge phase: Boyz B (+ attached Warboss) are marked as having made a charge move (charged_this_turn + Fights First); Custodian Guard A's wounds inflated; auto wound allocation for the defender. The Ork player clicks the Boyz in the fighter picker; the window shows UNBRIDLED CARNAGE with an enabled Use button; a real click spends 1 CP and gives the Boyz AND the attached Warboss +1 A on their melee weapons; the fight then resolves through the attack dialog + dock. The +1 A is proven on the live board: the melee resolver's attack count for the Boyz' Choppa is exactly one die per swinging model higher with the stratagem than without (same seed, same board).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 9 },
+    { "act": "execute_script", "script": "GameState.state[\"factions\"][\"1\"].merge({\"detachment\": \"Green Tide\"}, true)" },
+    { "act": "execute_script", "script": "StratagemManager.load_faction_stratagems_for_player(1)" },
+    { "act": "execute_script", "script": "StratagemManager.get_stratagem(\"faction_ork_green_tide_unbridled_carnage\").get(\"implemented\", false)", "equals": true },
+    { "act": "execute_script", "script": "SettingsService.set(\"auto_allocate_wounds\", true)" },
+    { "act": "execute_script", "multiline": true, "script": "for uid in [\"U_BOYZ_B\", \"U_WARBOSS_A\"]:\n\tGameState.get_unit(uid)[\"flags\"].merge({\"charged_this_turn\": true, \"fights_first\": true}, true)\nfor m in GameState.get_unit(\"U_CUSTODIAN_GUARD_A\").models:\n\tm[\"wounds\"] = 99\n\tm[\"current_wounds\"] = 99\nreturn true", "equals": true, "comment": "setup privilege: the Boyz made a charge move this turn" },
+    { "act": "dispatch_action", "action": { "type": "END_CHARGE", "player": 1 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "click_if_visible", "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_phase", "equals": 10 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "click_if_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_B", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_B" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text", "equals": "Boyz has been selected to fight" },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_green_tide_unbridled_carnage/Buttons/Use_faction_ork_green_tide_unbridled_carnage_U_BOYZ_B", "timeout_s": 2.0 },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_green_tide_unbridled_carnage/Buttons/Use_faction_ork_green_tide_unbridled_carnage_U_BOYZ_B", "property": "disabled", "equals": false },
+    { "act": "screenshot", "label": "01_unbridled_carnage_window" },
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_green_tide_unbridled_carnage/Buttons/Use_faction_ork_green_tide_unbridled_carnage_U_BOYZ_B" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_cp", "player": 1, "delta_from_start": -1 },
+    { "act": "expect_state", "path": "units.U_BOYZ_B.flags.ork11e_plus_attacks_melee", "equals": 1 },
+    { "act": "expect_state", "path": "units.U_WARBOSS_A.flags.ork11e_plus_attacks_melee", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "script": "var b = GameState.state.duplicate(true)\nvar a = {\"attacker\": \"U_BOYZ_B\", \"target\": \"U_CUSTODIAN_GUARD_A\", \"weapon\": \"Choppa\"}\nvar on = RulesEngine._resolve_melee_assignment_hits(a, \"U_BOYZ_B\", b, RulesEngine.RNGService.new(5))\nvar swingers = int(on.hit_context.model_count)\nb.units.U_BOYZ_B.flags.erase(\"ork11e_plus_attacks_melee\")\nvar off = RulesEngine._resolve_melee_assignment_hits(a, \"U_BOYZ_B\", b, RulesEngine.RNGService.new(5))\nprint(\"UC scenario: Choppa attacks with=%d without=%d swinging models=%d\" % [int(on.hit_context.total_attacks), int(off.hit_context.total_attacks), swingers])\nreturn swingers > 0 and int(on.hit_context.total_attacks) - int(off.hit_context.total_attacks) == swingers", "equals": true, "comment": "+1 A per swinging model on the live board (same seed)" },
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "click_if_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "\"U_BOYZ_B\" in PhaseManager.get_current_phase_instance().units_that_fought", "equals": true },
+    { "act": "screenshot", "label": "02_boyz_fought_with_plus_one_attack" }
+  ]
+}

@@ -138,6 +138,17 @@ var overrun_pile_in_unit_11e: String = ""        # unit granted the 12.06 additi
 # missed while connecting (the step starts during phase entry).
 var _pending_pile_in_step_data: Dictionary = {}
 
+# Codex: Orks (11e) FIGHT group hooks (design .llm/ork_codex_11e_design.md
+# §3, §3.2, §6.2): enemy_targets_unit_fight / fight_phase_end windows, the
+# embark / strategic_reserves follow-ups and the shared 05.04.05 Fight On
+# Death mechanic of ORKS IS NEVER BEATEN / TOO ARROGANT TO DIE / CRAZED RAMPAGE.
+const OrkCodexFight = preload("res://scripts/stratagems/ork_codex/OrkCodexFight.gd")
+var _ork11e_selected_to_fight: Dictionary = {}   # unit_id -> true once selected to fight this phase
+var _ork11e_fod_rolled: Dictionary = {}          # "unit_id:model_index" -> true (D6 rolled, or a removal)
+var _window_deferred_batch: Dictionary = {}      # {window_id, player, actions}: BATCH sub-actions held while a window waits
+var _fight_phase_end_window_opened: bool = false # the fight_phase_end window opens once per phase
+var _kill_reported_units: Dictionary = {}        # unit_id -> true once _check_kill_diffs processed its destruction
+
 func _init():
 	phase_type = GameStateData.Phase.FIGHT
 
@@ -176,6 +187,11 @@ func _on_phase_enter() -> void:
 	pile_in_done_players_11e.clear()
 	overrun_pile_in_unit_11e = ""
 	_pending_pile_in_step_data = {}
+	_ork11e_selected_to_fight.clear()
+	_ork11e_fod_rolled.clear()
+	_window_deferred_batch = {}
+	_fight_phase_end_window_opened = false
+	_kill_reported_units.clear()
 	# Clear stale eligibility stamps from a previous fight phase (e.g. a
 	# loaded save) before this phase re-stamps them.
 	_clear_fight_eligibility_stamps_11e()
@@ -208,6 +224,14 @@ func _on_phase_enter() -> void:
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Fight Phase")
+
+	# Codex: Orks (11e) Fight On Death: a model kept on the battlefield is
+	# removed at the end of the phase at the latest. Normally done by
+	# _run_end_of_fight_triggers; this covers a phase left any other way.
+	var fod_exit_diffs = _ork11e_fod_remove_all("the end of the Fight phase")
+	if not fod_exit_diffs.is_empty():
+		PhaseManager.apply_state_changes(fod_exit_diffs)
+		_check_kill_diffs(fod_exit_diffs)
 
 	# TRY DAT BUTTON! (Dread Mob): Button Effects last until end of phase
 	var fam_tdb_exit = get_node_or_null("/root/FactionAbilityManager")
@@ -346,8 +370,20 @@ func _check_kill_diffs(changes: Array) -> void:
 					if model.get("alive", true):
 						all_dead = false
 						break
+				# A unit's destruction is processed ONCE per phase: the same
+				# alive=false diffs can reach this hook twice (applied early by
+				# a flow, then again from the action result — e.g. the Fight On
+				# Death removal at the end of the phase), and a second pass would
+				# double-count the kill and re-roll Deadly Demise.
+				if all_dead and _kill_reported_units.has(unit_id):
+					continue
 				if all_dead:
-					var destroyed_by = get_current_player()
+					_kill_reported_units[unit_id] = true
+					# Credit the destroyed unit's OPPONENT: in the Fight phase both
+					# players destroy units, so the active player is not
+					# necessarily the one who destroyed it.
+					var _kd_owner = int(unit.get("owner", 0))
+					var destroyed_by = (2 if _kd_owner == 1 else 1) if _kd_owner in [1, 2] else get_current_player()
 					MissionManager.record_unit_destroyed(destroyed_by)
 					# T7-57: Track unit kills/losses for AI performance summary
 					var destroyed_owner = unit.get("owner", 0)
@@ -457,6 +493,9 @@ func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 	if dd_result.get("triggered", false):
 		# Apply the mortal wound diffs
 		var diffs = dd_result.get("diffs", [])
+		# Codex: Orks (11e) Fight On Death: models these mortal wounds destroy
+		# roll to stay on the battlefield like any other destroyed model.
+		_ork11e_fod_intercept(diffs)
 		if not diffs.is_empty():
 			PhaseManager.apply_state_changes(diffs)
 			log_phase_message("Deadly Demise %s: %d mortal wound(s) dealt to %d unit(s)" % [
@@ -545,6 +584,16 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
 func process_action(action: Dictionary) -> Dictionary:
+	var result = _process_fight_action(action)
+	# Codex: Orks (11e) Fight On Death: every model destroyed by this action
+	# (attacks, hazard rolls, mortal wounds…) of a unit under ORKS IS NEVER
+	# BEATEN / TOO ARROGANT TO DIE / CRAZED RAMPAGE rolls its D6 BEFORE the
+	# diffs are applied (BasePhase applies result.changes after this returns).
+	if typeof(result) == TYPE_DICTIONARY and result.get("success", false) and result.get("changes", null) is Array:
+		_ork11e_fod_intercept(result.changes)
+	return result
+
+func _process_fight_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
 
 	match action_type:
@@ -871,6 +920,10 @@ func _validate_skip_unit(action: Dictionary) -> Dictionary:
 # Action processing methods
 func _process_select_fighter(action: Dictionary) -> Dictionary:
 	active_fighter_id = action.unit_id
+	# Codex: Orks (11e) Fight On Death gate: "if your unit has not been
+	# selected to fight this phase" — the whole Attached unit is now selected.
+	for _fod_sel_id in _fight_group_ids(active_fighter_id):
+		_ork11e_selected_to_fight[_fod_sel_id] = true
 
 	# 12.04: commit the selection in the sequencer and surface the
 	# available fight types (NORMAL 12.05 / OVERRUN 12.06).
@@ -977,6 +1030,8 @@ func _process_cancel_fighter_selection(action: Dictionary) -> Dictionary:
 
 	# Drop everything the (never-completed) activation staged.
 	active_fighter_id = ""
+	for _fod_sel_id in _fight_group_ids(unit_id):
+		_ork11e_selected_to_fight.erase(_fod_sel_id)  # the selection never happened
 	selected_weapon_id = ""
 	pending_attacks.clear()
 	confirmed_attacks.clear()
@@ -1226,6 +1281,50 @@ func _process_confirm_and_resolve_attacks(action: Dictionary) -> Dictionary:
 		])
 
 	log_phase_message("Attack assignments confirmed for %s - ready to roll dice!" % active_fighter_id)
+
+	# STRATAGEM WINDOW enemy_targets_unit_fight (design §3): "after an enemy
+	# fighter's targets are known, before any attack is rolled" — the OWNER of
+	# the targeted unit(s) decides (ORKS IS NEVER BEATEN, TOO ARROGANT TO DIE,
+	# CRAZED RAMPAGE). The dice are rolled by the next action (ROLL_DICE, or the
+	# rest of the UI's BATCH_FIGHT_ACTIONS, which the resume replays).
+	var etf_targets: Array = _enemy_targets_unit_fight_targets()
+	if not etf_targets.is_empty():
+		var etf_fighter_owner := int(get_unit(active_fighter_id).get("owner", current_selecting_player))
+		var etf_decider := 2 if etf_fighter_owner == 1 else 1
+		var etf_ctx := {"phase": "fight", "attacker_unit_id": active_fighter_id, "target_unit_ids": etf_targets}
+		if open_stratagem_window(etf_decider, "enemy_targets_unit_fight", etf_ctx, "_resume_after_enemy_targets_fight_window"):
+			log_phase_message("Waiting for Player %d's enemy_targets_unit_fight stratagem decision (%s attacks %s)" % [etf_decider, active_fighter_id, str(etf_targets)])
+			return create_result(true, consume_window_diffs())
+	return create_result(true, consume_window_diffs())
+
+## The units the active fighter's confirmed attacks target, Attached units
+## folded to their bodyguard (one entry per unit) — the window's ctx.
+func _enemy_targets_unit_fight_targets() -> Array:
+	var out: Array = []
+	var fighter_owner := int(get_unit(active_fighter_id).get("owner", 0))
+	for attack in confirmed_attacks:
+		var tid := str(attack.get("target", ""))
+		if tid == "" or get_unit(tid).is_empty():
+			continue
+		var head := str(RulesEngine.attached_unit_target_id(tid, GameState.state))
+		if int(get_unit(head).get("owner", 0)) == fighter_owner:
+			continue
+		if not head in out:
+			out.append(head)
+	return out
+
+## Resume point for the enemy_targets_unit_fight window: the attacker's
+## activation continues — if the UI's batch was held back at CONFIRM, its
+## remaining sub-actions (ROLL_DICE) run now; otherwise the attacker sends
+## ROLL_DICE next (the AI does so on its own).
+func _resume_after_enemy_targets_fight_window(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	var deferred: Dictionary = _window_deferred_batch
+	_window_deferred_batch = {}
+	var actions: Array = deferred.get("actions", [])
+	if str(deferred.get("window_id", "")) == "enemy_targets_unit_fight" and not actions.is_empty():
+		log_phase_message("enemy_targets_unit_fight answered — resuming the held fight batch (%d sub-action(s))" % actions.size())
+		return _process_batch_fight_actions({"type": "BATCH_FIGHT_ACTIONS", "sub_actions": actions,
+			"player": int(deferred.get("player", 0))})
 	return create_result(true, [])
 
 func _validate_roll_dice(action: Dictionary) -> Dictionary:
@@ -1973,6 +2072,7 @@ func _process_batch_fight_actions(action: Dictionary) -> Dictionary:
 	var sub_actions = action.get("sub_actions", [])
 	var all_changes = []
 	var last_result = {}
+	_window_deferred_batch = {}
 
 	DebugLogger.info(str("[FightPhase] Processing BATCH_FIGHT_ACTIONS with %d sub-actions" % sub_actions.size()))
 
@@ -2022,6 +2122,14 @@ func _process_batch_fight_actions(action: Dictionary) -> Dictionary:
 			log_phase_message("Fight batch paused after step %d (%s) — stratagem window %s pending for Player %d; %d sub-action(s) dropped" % [
 				i, sub.get("type", ""), str(get_pending_stratagem_window().get("window_id", "")),
 				get_pending_stratagem_window_decider(), sub_actions.size() - i - 1])
+			# enemy_targets_unit_fight opens at CONFIRM: the attacker's dice
+			# (ROLL_DICE) are held and replayed by the window's resume, so the
+			# human attacker's one-click "Confirm" still rolls once answered.
+			var paused_window_id := str(get_pending_stratagem_window().get("window_id", ""))
+			if paused_window_id == "enemy_targets_unit_fight" and i + 1 < sub_actions.size():
+				_window_deferred_batch = {"window_id": paused_window_id, "player": int(action.get("player", 0)),
+					"actions": sub_actions.slice(i + 1)}
+				log_phase_message("Fight batch: %d sub-action(s) held until the enemy_targets_unit_fight window is answered" % (sub_actions.size() - i - 1))
 			break
 
 	# Return the last result (ROLL_DICE result) with all accumulated changes
@@ -2742,6 +2850,15 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	var unit_id = active_fighter_id
 	var changes: Array = final_result.get("changes", [])
 
+	# Codex: Orks (11e) Fight On Death (05.04.05) — BEFORE the early apply
+	# below decides the next fighter from the post-attack board: (1) models of
+	# a unit under ORKS IS NEVER BEATEN / TOO ARROGANT TO DIE / CRAZED RAMPAGE
+	# destroyed by this activation roll to stay on the battlefield; (2) this
+	# unit has now fought, so the models IT kept that way are removed.
+	_ork11e_fod_intercept(changes)
+	changes.append_array(_ork11e_fod_remove(_fight_group_ids(unit_id), "has fought"))
+	final_result["changes"] = changes
+
 	# The attack-resolution diffs are normally applied by execute_action
 	# AFTER process returns — but the next-selection / Counter-Offensive /
 	# Consolidate-step decisions below must see the post-attack board
@@ -2851,6 +2968,143 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 		return _advance_consolidation_step_11e(final_result)
 	log_phase_message("[11e] Fight step complete — waiting for END_FIGHT to enter the Consolidate step (12.07)")
 	return final_result
+
+# ============================================================================
+# Codex: Orks (11e) — FIGHT ON DEATH (core 05.04.05) for ORKS IS NEVER BEATEN,
+# TOO ARROGANT TO DIE and CRAZED RAMPAGE (OrkCodexFight marks the unit with
+# FLAG_FOD_MODE). "When a model in your unit is destroyed, if your unit has not
+# been selected to fight this phase, roll one D6 (+mod): on a 4+, do not remove
+# that model from the battlefield. When your unit has fought, or at the end of
+# the phase (whichever comes first), that model is removed."
+#
+# A kept model is DESTROYED but on the battlefield: alive=true, 0 wounds left,
+# its index listed in the unit's FLAG_FOD_PENDING. It still fights with its
+# unit (fight eligibility / attack resolution read alive models) and nothing
+# can be allocated to it any more (RulesEngine.model_can_be_allocated,
+# Allocation.build_groups). Rules triggered by its destruction (kill / VP
+# accounting, Deadly Demise…) resolve when it is removed (_check_kill_diffs on
+# the removal diffs) — 05.04.05: "Any rules triggered by those models being
+# destroyed are resolved, and then those destroyed models are removed."
+# ============================================================================
+
+func _ork11e_group_selected_to_fight(unit_id: String) -> bool:
+	for gid in _fight_group_ids(unit_id):
+		if _ork11e_selected_to_fight.has(gid) or gid in units_that_fought:
+			return true
+	return false
+
+## Roll for every model destroyed by `changes` (alive=false set diffs) whose
+## unit is under a Fight On Death stratagem and has not been selected to fight
+## this phase. A pass rewrites that diff to alive=true (in place — the caller
+## applies `changes` afterwards; set ops are idempotent, so a board the
+## RulesEngine already mutated in place is restored too) and appends the
+## unit's updated FLAG_FOD_PENDING list. Each model is rolled for once.
+func _ork11e_fod_intercept(changes: Array) -> void:
+	if changes.is_empty():
+		return
+	var units: Dictionary = GameState.state.get("units", {})
+	var new_pending: Dictionary = {}  # unit_id -> Array[int]
+	for diff in changes:
+		if typeof(diff) != TYPE_DICTIONARY or str(diff.get("op", "")) != "set":
+			continue
+		var path := str(diff.get("path", ""))
+		if not path.ends_with(".alive") or diff.get("value", true) != false:
+			continue
+		var parts := path.split(".")
+		if parts.size() != 5 or parts[0] != "units" or parts[2] != "models":
+			continue
+		var uid := parts[1]
+		var unit: Dictionary = units.get(uid, {})
+		var uflags: Dictionary = unit.get("flags", {})
+		var mode := str(uflags.get(OrkCodexFight.FLAG_FOD_MODE, ""))
+		if mode == "":
+			continue
+		var idx := int(parts[3])
+		var key := "%s:%d" % [uid, idx]
+		if _ork11e_fod_rolled.has(key) or diff.get("ork11e_fod_rolled", false):
+			continue
+		var live_pending: Array = uflags.get(OrkCodexFight.FLAG_FOD_PENDING, [])
+		if idx in live_pending:
+			continue  # the removal of a model this mechanic kept — not a new destruction
+		_ork11e_fod_rolled[key] = true
+		# The marker travels with the diff (APPLY_MELEE_SAVES summary from the
+		# defender's AllocationGroupOverlay, network relay) so no other peer or
+		# later pass rolls for this model again.
+		diff["ork11e_fod_rolled"] = true
+		var source := str(uflags.get(OrkCodexFight.FLAG_FOD_SOURCE, "Fight On Death"))
+		var models: Array = unit.get("models", [])
+		var label := str(unit.get("meta", {}).get("name", uid))
+		if idx >= 0 and idx < models.size() and models.size() > 1:
+			label = "%s of %s" % [RulesEngine.get_model_display_label(models[idx], unit), label]
+		if _ork11e_group_selected_to_fight(uid):
+			log_phase_message("%s: %s destroyed — its unit has already been selected to fight this phase, so no roll (removed)" % [source, label])
+			continue
+		var rng = RulesEngine.make_rng()
+		var roll: int = int(rng.roll_d6(1)[0])
+		var mod_info: Dictionary = OrkCodexFight.fod_roll_modifier(uid)
+		var mod := int(mod_info.get("mod", 0))
+		var total := roll + mod
+		var kept := total >= OrkCodexFight.FOD_PASS
+		var msg := "%s: %s destroyed — D6 %d%s = %d (%d+ needed): %s" % [
+			source, label, roll, (" %s" % str(mod_info.get("note", ""))) if mod != 0 else "", total, OrkCodexFight.FOD_PASS,
+			"NOT REMOVED — it stays on the battlefield until its unit has fought or the end of the phase" if kept else "removed"]
+		log_phase_message(msg)
+		print("FightPhase: [ork11e FOD] " + msg)
+		var raw_needed := clampi(OrkCodexFight.FOD_PASS - mod, 1, 7)
+		var dice_block := {"context": "ork11e_fight_on_death", "stratagem": source, "unit_id": uid, "model_index": idx,
+			"rolls_raw": [roll], "rolls_modified": [total], "modifier": mod, "threshold": "%d+" % raw_needed,
+			"successes": 1 if kept else 0, "kept": kept, "message": msg}
+		dice_log.append(dice_block)
+		emit_signal("dice_rolled", dice_block)
+		var gel = get_node_or_null("/root/GameEventLog")
+		if gel:
+			gel.add_combat_result("  " + msg)
+		if kept:
+			diff["value"] = true
+			var plist: Array = new_pending.get(uid, live_pending.duplicate())
+			if not idx in plist:
+				plist.append(idx)
+			new_pending[uid] = plist
+	for uid in new_pending:
+		changes.append({"op": "set", "path": "units.%s.flags.%s" % [uid, OrkCodexFight.FLAG_FOD_PENDING], "value": new_pending[uid]})
+
+## Removal diffs for the models kept by Fight On Death in `unit_ids` (and
+## their pending lists cleared). Returns [] when there is nothing to remove.
+func _ork11e_fod_remove(unit_ids: Array, reason: String) -> Array:
+	var diffs: Array = []
+	var units: Dictionary = GameState.state.get("units", {})
+	for uid_raw in unit_ids:
+		var uid := str(uid_raw)
+		var unit: Dictionary = units.get(uid, {})
+		var pending: Array = unit.get("flags", {}).get(OrkCodexFight.FLAG_FOD_PENDING, [])
+		if pending.is_empty():
+			continue
+		var models: Array = unit.get("models", [])
+		var labels: Array = []
+		for idx_raw in pending:
+			var idx := int(idx_raw)
+			if idx < 0 or idx >= models.size():
+				continue
+			_ork11e_fod_rolled["%s:%d" % [uid, idx]] = true
+			diffs.append({"op": "set", "path": "units.%s.models.%d.alive" % [uid, idx], "value": false})
+			labels.append(RulesEngine.get_model_display_label(models[idx], unit))
+		diffs.append({"op": "set", "path": "units.%s.flags.%s" % [uid, OrkCodexFight.FLAG_FOD_PENDING], "value": []})
+		var source := str(unit.get("flags", {}).get(OrkCodexFight.FLAG_FOD_SOURCE, "Fight On Death"))
+		var msg := "%s: %d model(s) of %s removed from the battlefield (%s): %s" % [
+			source, labels.size(), unit.get("meta", {}).get("name", uid), reason, ", ".join(labels)]
+		log_phase_message(msg)
+		var gel = get_node_or_null("/root/GameEventLog")
+		if gel:
+			gel.add_combat_result("  " + msg)
+	return diffs
+
+## End of the phase: every model still kept by Fight On Death is removed.
+func _ork11e_fod_remove_all(reason: String) -> Array:
+	var ids: Array = []
+	for uid in GameState.state.get("units", {}):
+		if not GameState.state.units[uid].get("flags", {}).get(OrkCodexFight.FLAG_FOD_PENDING, []).is_empty():
+			ids.append(str(uid))
+	return _ork11e_fod_remove(ids, reason)
 
 # 11e 12.07-12.08: one consolidation move during the global Consolidate
 # step. Applies the movement, marks the unit's single move used, and —
@@ -4713,6 +4967,7 @@ func _resolve_dread_foe_then_pile_in(unit_id: String) -> Dictionary:
 
 			# Apply state changes if mortal wounds were dealt
 			var dread_foe_diffs = dread_foe_result.get("diffs", [])
+			_ork11e_fod_intercept(dread_foe_diffs)  # Codex: Orks (11e) Fight On Death
 			if not dread_foe_diffs.is_empty():
 				PhaseManager.apply_state_changes(dread_foe_diffs)
 				# Also update our snapshot
@@ -5151,6 +5406,35 @@ func _resume_fight_step_after_end_11e(result: Dictionary) -> Dictionary:
 # Escape, then phase completion. At edition >= 11 this runs only after the
 # global Consolidate step is DONE; at edition 10 it is END_FIGHT's tail.
 func _run_end_of_fight_triggers(result: Dictionary) -> Dictionary:
+	# Codex: Orks (11e) Fight On Death: models still kept on the battlefield
+	# are removed at the end of the phase ("whichever comes first"). Applied
+	# and kill-processed NOW so the end-of-phase window, objective control and
+	# Deadly Demise see the board without them; the diffs also ride the result
+	# (replay / network — _check_kill_diffs processes a destruction once).
+	var fod_end_diffs = _ork11e_fod_remove_all("the end of the Fight phase")
+	if not fod_end_diffs.is_empty():
+		PhaseManager.apply_state_changes(fod_end_diffs)
+		_check_kill_diffs(fod_end_diffs)
+		var fod_changes: Array = result.get("changes", [])
+		fod_changes.append_array(fod_end_diffs)
+		result["changes"] = fod_changes
+
+	# STRATAGEM WINDOW fight_phase_end (design §3): "end of the Fight phase,
+	# before it actually ends" — active player first, then the non-active one
+	# (KEEP IT RUNNIN' either turn, INSTINCTIVE HUNTERS opponent's turn). Opens
+	# once; the resume re-enters here for the remaining end-of-phase triggers.
+	if not _fight_phase_end_window_opened:
+		_fight_phase_end_window_opened = true
+		var fpe_paused := open_stratagem_window_both_players("fight_phase_end", {"phase": "fight"}, "_resume_after_fight_phase_end_window")
+		var fpe_diffs: Array = consume_window_diffs()
+		if not fpe_diffs.is_empty():
+			var fpe_changes: Array = result.get("changes", [])
+			fpe_changes.append_array(fpe_diffs)
+			result["changes"] = fpe_changes
+		if fpe_paused:
+			log_phase_message("Waiting for a fight_phase_end stratagem decision before the Fight phase ends")
+			return result
+
 	# Check for Sweeping Advance eligibility before ending the phase
 	var sa_eligible = _get_sweeping_advance_eligible_units()
 	if not sa_eligible.is_empty() and not awaiting_sweeping_advance:
@@ -5177,6 +5461,81 @@ func _run_end_of_fight_triggers(result: Dictionary) -> Dictionary:
 	log_phase_message("Fight phase ended")
 	emit_signal("phase_completed")
 	return result
+
+## Resume point for the fight_phase_end window(s): carry on with the rest of
+## the end-of-phase triggers (Sweeping Advance, Acrobatic Escape, completion).
+func _resume_after_fight_phase_end_window(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _run_end_of_fight_triggers(create_result(true, []))
+
+## Follow-ups returned by FIGHT-group stratagems (design §3.2):
+##   embark {unit_id, transport_id}  — KEEP IT RUNNIN'
+##   strategic_reserves {unit_id}    — INSTINCTIVE HUNTERS
+## Both resolve immediately (no player interaction): the diffs are applied now
+## and handed to the window flow (_window_sync_diffs, merged into the result of
+## the action that answered the window — human USE or the AI's synchronous use).
+func _execute_window_followup(player: int, window_id: String, followup: Dictionary, ctx: Dictionary) -> bool:
+	var diffs: Array = []
+	match str(followup.get("type", "")):
+		"embark":
+			diffs = _ork11e_embark_followup_diffs(str(followup.get("unit_id", "")), str(followup.get("transport_id", "")))
+		"strategic_reserves":
+			diffs = _ork11e_strategic_reserves_followup_diffs(str(followup.get("unit_id", "")))
+		_:
+			return super._execute_window_followup(player, window_id, followup, ctx)
+	if not diffs.is_empty():
+		PhaseManager.apply_state_changes(diffs)
+		_window_sync_diffs.append_array(diffs)
+	return false
+
+## 18.02 embark, same diffs as MovementPhase._process_embark_unit: the unit and
+## every CHARACTER attached to it board together and leave the battlefield.
+## TransportManager.can_embark (capacity, keywords, not set up this turn) is
+## re-checked at resolution.
+func _ork11e_embark_followup_diffs(unit_id: String, transport_id: String) -> Array:
+	var check: Dictionary = TransportManager.can_embark(unit_id, transport_id)
+	if not check.get("valid", false):
+		_window_error("embark follow-up: %s cannot embark within %s — %s" % [unit_id, transport_id, str(check.get("reason", "?"))])
+		return []
+	var transport = get_unit(transport_id)
+	var embarked: Array = transport.get("transport_data", {}).get("embarked_units", []).duplicate()
+	var diffs: Array = []
+	for gid in TransportManager.get_attached_unit_group(unit_id, GameState.state):
+		diffs.append({"op": "set", "path": "units.%s.embarked_in" % gid, "value": transport_id})
+		if not gid in embarked:
+			embarked.append(gid)
+		var g_models = get_unit(gid).get("models", [])
+		for i in range(g_models.size()):
+			diffs.append({"op": "set", "path": "units.%s.models.%d.position" % [gid, i], "value": null})
+	diffs.append({"op": "set", "path": "units.%s.transport_data.embarked_units" % transport_id, "value": embarked})
+	var msg := "KEEP IT RUNNIN': %s embarks within %s" % [get_unit(unit_id).get("meta", {}).get("name", unit_id),
+		transport.get("meta", {}).get("name", transport_id)]
+	log_phase_message(msg)
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_combat_result("  " + msg)
+	return diffs
+
+## 20.02 repositioned unit: removed from the battlefield into strategic
+## reserves (the existing reserves path: status IN_RESERVES +
+## reserve_type strategic_reserves — EVASIVE MANOOVA / DED SNEAKY pattern), the
+## whole Attached unit together. `repositioned_to_reserves` exempts it from the
+## end-of-round-3 destruction of reserves (20.04 exception).
+func _ork11e_strategic_reserves_followup_diffs(unit_id: String) -> Array:
+	var u = get_unit(unit_id)
+	if u.is_empty():
+		_window_error("strategic_reserves follow-up: unknown unit %s" % unit_id)
+		return []
+	var diffs: Array = []
+	for gid in TransportManager.get_attached_unit_group(unit_id, GameState.state):
+		diffs.append({"op": "set", "path": "units.%s.status" % gid, "value": GameStateData.UnitStatus.IN_RESERVES})
+		diffs.append({"op": "set", "path": "units.%s.reserve_type" % gid, "value": "strategic_reserves"})
+		diffs.append({"op": "set", "path": "units.%s.flags.repositioned_to_reserves" % gid, "value": true})
+	var msg := "INSTINCTIVE HUNTERS: %s is placed in strategic reserves" % u.get("meta", {}).get("name", unit_id)
+	log_phase_message(msg)
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_combat_result("  " + msg)
+	return diffs
 
 # ============================================================================
 # SWEEPING ADVANCE
