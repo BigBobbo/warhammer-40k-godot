@@ -777,6 +777,11 @@ func _create_flag_reset_changes(player: int) -> Array:
 		# entries on the multiplayer path in `GameManager.process_end_scoring`.
 		"da_jump_used_this_turn", "awaiting_da_jump_placement",
 		"heroic_intervention",
+		# 16.01 action lock from an advance / fall-back move or a shooting type
+		# ("until the end of the turn / phase") — it was never cleared, so a unit
+		# that advanced once could never start an action again (found with the
+		# Codex: Orks (11e) MIND MOSTLY ON THE MISSION work).
+		"cannot_start_action",
 	]
 
 	for unit_id in units:

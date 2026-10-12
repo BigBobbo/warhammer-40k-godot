@@ -2766,6 +2766,9 @@ func _validate_no_wall_overlaps(unit_id: String, per_model_paths: Dictionary) ->
 		# not) — taken from the model's OWN unit so an attached character is
 		# judged by its own datasheet keywords.
 		var model_keywords = get_unit(ref.unit_id).get("meta", {}).get("keywords", [])
+		# Codex: Orks (11e) STOMPING JUGGERNAUT: "Your unit has MOBILE" (13.06).
+		if get_unit(ref.unit_id).get("flags", {}).get("ork11e_mobile", false):
+			model_keywords = model_keywords + ["MOBILE"]
 		if Measurement.model_overlaps_any_wall(check_model, model_keywords):
 			errors.append("Model %s would end its charge overlapping a wall" % path_key)
 
@@ -2791,6 +2794,9 @@ func _validate_no_solid_terrain_on_paths(unit_id: String, per_model_paths: Dicti
 		# An attached character sweeps with its own datasheet keywords
 		var model_keywords = unit_keywords if ref.unit_id == unit_id \
 			else get_unit(ref.unit_id).get("meta", {}).get("keywords", [])
+		# Codex: Orks (11e) STOMPING JUGGERNAUT: "Your unit has MOBILE" (13.06).
+		if get_unit(ref.unit_id).get("flags", {}).get("ork11e_mobile", false):
+			model_keywords = model_keywords + ["MOBILE"]
 		for i in range(path.size() - 1):
 			var seg_from = Vector2(path[i][0], path[i][1])
 			var seg_to = Vector2(path[i + 1][0], path[i + 1][1])

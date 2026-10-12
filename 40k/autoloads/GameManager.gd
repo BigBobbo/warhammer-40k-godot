@@ -1197,6 +1197,8 @@ func _create_flag_reset_diffs(player: int) -> Array:
 		# the unit in placement-pending state across a turn boundary.
 		"da_jump_used_this_turn", "awaiting_da_jump_placement",
 		"heroic_intervention",
+		# 16.01 action lock (advance / fall-back / shooting) — mirror of ScoringPhase.
+		"cannot_start_action",
 	]
 
 	for unit_id in units:

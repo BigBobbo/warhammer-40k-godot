@@ -135,6 +135,11 @@ var setting_radio_programmatically: bool = false
 # CONFIRM_UNIT_MOVE runs (it fires unit_move_confirmed → _auto_select_next_unmoved).
 var _auto_confirming_pending_move: bool = false
 
+# Codex: Orks (11e): {unit_id, mode} — the LOCK_MOVEMENT_MODE "Confirm Movement
+# Mode" would send while a unit_selected_to_move window paused BEGIN_*; sent
+# from _on_unit_move_begun once the window is answered.
+var _ork11e_deferred_mode_lock: Dictionary = {}
+
 # OA-24: PopupMenu for special movement actions (e.g. Kunnin' Infiltrator)
 var _movement_action_popup: PopupMenu = null
 var _popup_pending_unit_id: String = ""  # Unit awaiting action choice from popup
@@ -163,6 +168,11 @@ func get_unit_movement(unit: Dictionary) -> float:
 		var old_movement = movement
 		movement += 6.0
 		print("MovementController: Special Dose — movement %d → %d (+6\")" % [int(old_movement), int(movement)])
+
+	# Codex: Orks (11e) FUNGUS-FUEL INJECTION: +2" M (mirrors MovementPhase.get_unit_movement).
+	var ffi_move = int(unit.get("flags", {}).get("ork11e_plus_move", 0))
+	if ffi_move > 0:
+		movement += float(ffi_move)
 
 	return movement
 
@@ -880,6 +890,10 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 			if phase.has_signal("kunnin_infiltrator_available"):
 				if not phase.kunnin_infiltrator_available.is_connected(_on_kunnin_infiltrator_available):
 					phase.kunnin_infiltrator_available.connect(_on_kunnin_infiltrator_available)
+			# Codex: Orks (11e) READIED BRAWLERS follow-up — assault disembark UI.
+			if phase.has_signal("ork11e_assault_disembark_requested"):
+				if not phase.ork11e_assault_disembark_requested.is_connected(_on_ork11e_assault_disembark_requested):
+					phase.ork11e_assault_disembark_requested.connect(_on_ork11e_assault_disembark_requested)
 			if phase.has_signal("scatter_opportunity"):
 				if not phase.scatter_opportunity.is_connected(_on_scatter_opportunity):
 					phase.scatter_opportunity.connect(_on_scatter_opportunity)
@@ -1523,6 +1537,16 @@ func _on_confirm_mode_pressed() -> void:
 			if unit_list:
 				call_deferred("_populate_unit_list")
 
+	# Codex: Orks (11e): BEGIN_* may have opened a unit_selected_to_move window
+	# (the phase is paused until it is answered) — lock the mode once the move
+	# has actually begun (_on_unit_move_begun) instead of being refused now.
+	if selected_mode in ["NORMAL", "ADVANCE"] and current_phase \
+			and current_phase.has_method("has_pending_stratagem_window") and current_phase.has_pending_stratagem_window():
+		_ork11e_deferred_mode_lock = {"unit_id": active_unit_id, "mode": selected_mode}
+		print("MovementController: mode lock for %s deferred until the stratagem window is answered" % active_unit_id)
+		_update_mode_buttons_state(false)
+		return
+
 	# Lock the mode
 	emit_signal("move_action_requested", {
 		"type": "LOCK_MOVEMENT_MODE",
@@ -1872,6 +1896,17 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 	active_mode = mode
 	_update_selected_unit_display()
 
+	# Codex: Orks (11e): the mode lock deferred while a stratagem window was
+	# open (_on_confirm_mode_pressed) is sent now that the move has begun.
+	if str(_ork11e_deferred_mode_lock.get("unit_id", "")) == unit_id:
+		var lock_mode := str(_ork11e_deferred_mode_lock.get("mode", mode))
+		_ork11e_deferred_mode_lock = {}
+		emit_signal("move_action_requested", {
+			"type": "LOCK_MOVEMENT_MODE",
+			"actor_unit_id": unit_id,
+			"payload": {"mode": lock_mode}
+		})
+
 	# Trigger move animation on all models in the unit
 	_trigger_unit_animation(unit_id, "move")
 
@@ -1922,6 +1957,13 @@ func _on_unit_move_begun(unit_id: String, mode: String) -> void:
 		_update_movement_display()
 	else:
 		print("ERROR: No current phase set!")
+
+	# Codex: Orks (11e) reactive move follow-ups roll their maximum distance
+	# (D6") — show it in the dice log like an advance roll.
+	if mode != "ADVANCE" and current_phase and current_phase.has_method("get_active_move_data") \
+			and current_phase.get_active_move_data(unit_id).get("reactive_source", "") == "ork11e" \
+			and current_phase.has_method("get_dice_log"):
+		_update_dice_log_display(current_phase.get_dice_log())
 
 	# Update dice log and advance roll display if it was an advance
 	if mode == "ADVANCE" and current_phase:
@@ -2005,9 +2047,26 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 	# Skip when this confirm was auto-triggered by the player switching units or
 	# ending the phase — they already chose what happens next, and re-selecting
 	# here would fight that choice (and could spawn a stray active move).
+	# Deferred: unit_move_confirmed fires in the MIDDLE of CONFIRM_UNIT_MOVE,
+	# before its post-move prompts — a synchronous auto-select would begin the
+	# next unit's move inside that action, ahead of the stratagem windows /
+	# follow-ups it may still open (Codex: Orks (11e)).
 	if not _auto_confirming_pending_move:
-		_auto_select_next_unmoved()
+		call_deferred("_auto_select_next_unmoved_when_idle")
 
+
+## Deferred auto-select (see _on_unit_move_confirmed): skipped while a
+## stratagem window or a stratagem follow-up holds the phase, or another unit
+## is already moving (the player — or a follow-up — picked what happens next).
+func _auto_select_next_unmoved_when_idle() -> void:
+	if not current_phase or not is_instance_valid(current_phase):
+		return
+	if current_phase.has_method("get_pending_stratagem_window_decider") and current_phase.get_pending_stratagem_window_decider() > 0:
+		print("MovementController: auto-select skipped — a stratagem decision / follow-up is pending")
+		return
+	if active_unit_id != "":
+		return
+	_auto_select_next_unmoved()
 
 func _auto_select_next_unmoved() -> void:
 	if not unit_list or not is_instance_valid(unit_list):
@@ -3084,6 +3143,29 @@ func _on_disembark_canceled(unit_id: String) -> void:
 	active_unit_id = ""
 	_update_selected_unit_display()
 
+	# Codex: Orks (11e) READIED BRAWLERS: "Stay Embarked" (or a cancelled
+	# placement) declines that unit's assault disembark move.
+	if current_phase and current_phase.has_method("is_ork11e_assault_disembark_pending") \
+			and current_phase.is_ork11e_assault_disembark_pending(unit_id):
+		emit_signal("move_action_requested", {
+			"type": "SKIP_ASSAULT_DISEMBARK",
+			"actor_unit_id": unit_id,
+			"payload": {"unit_id": unit_id}
+		})
+
+## Codex: Orks (11e) READIED BRAWLERS follow-up: the phase asks the owner to
+## make an assault disembark move (18.06) with `unit_id` — the normal disembark
+## dialog + placement flow (DisembarkMove selects the assault mode while the
+## WAGON carries READIED BRAWLERS). Network: only the owner's seat answers.
+func _on_ork11e_assault_disembark_requested(player: int, transport_id: String, unit_id: String) -> void:
+	print("MovementController: READIED BRAWLERS — Player %d may assault disembark %s from %s" % [player, unit_id, transport_id])
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(player):
+		return
+	if NetworkManager and NetworkManager.is_networked() and NetworkManager.get_local_player() != player:
+		return
+	_handle_embarked_unit_selected(unit_id)
+
 func _should_snap_to_grid() -> bool:
 	# Check settings for grid snap
 	return Input.is_key_pressed(KEY_CTRL)
@@ -3856,6 +3938,11 @@ func _update_model_token_visual(model: Dictionary) -> void:
 func _get_active_unit_keywords() -> Array:
 	if active_unit_id == "":
 		return []
+	# Per-move keyword grants (24.35 MOBILE gamble, Codex: Orks (11e) STOMPING
+	# JUGGERNAUT's MOBILE, Clankin'/Stompin' Forward step-over) — the SAME list the
+	# phase validates drops with, so the client-side wall gate agrees with it.
+	if current_phase and current_phase.has_method("_terrain_rule_keywords") and current_phase.has_method("get_active_move_data"):
+		return current_phase._terrain_rule_keywords(active_unit_id, current_phase.get_active_move_data(active_unit_id))
 	var unit = GameState.get_unit(active_unit_id)
 	return unit.get("meta", {}).get("keywords", [])
 

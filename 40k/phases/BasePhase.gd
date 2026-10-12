@@ -385,10 +385,17 @@ func _process_window_queue() -> bool:
 		if _is_ai_window_decider(player):
 			var decision: Dictionary = AIDecisionMaker.decide_window_stratagem(player, window_id, offers, ctx)
 			if decision.get("use", false):
+				var sync_mark := _window_sync_diffs.size()
 				var use_res = _apply_window_use(player, window_id, str(decision.get("stratagem_id", "")),
 					str(decision.get("target_unit_id", "")), decision.get("context", {}), ctx)
 				if use_res.get("success", false):
+					# Replay order: the use's own diffs (CP, effect flags) come before
+					# whatever its follow-up already appended synchronously (e.g. a
+					# follow-up that clears the flag the use set).
+					var followup_diffs: Array = _window_sync_diffs.slice(sync_mark)
+					_window_sync_diffs = _window_sync_diffs.slice(0, sync_mark)
 					_window_sync_diffs.append_array(use_res.get("diffs", []))
+					_window_sync_diffs.append_array(followup_diffs)
 					DebugLogger.info("[StratagemWindow] AI P%d used %s on %s in %s" % [player, decision.get("stratagem_id", ""), decision.get("target_unit_id", ""), window_id])
 					emit_signal("stratagem_window_closed", player, window_id, true)
 					if use_res.get("paused", false):

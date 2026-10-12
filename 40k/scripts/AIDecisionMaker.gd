@@ -22291,6 +22291,17 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 	"""Named heuristics for the implemented detachment stratagems of the shipped
 	armies (War Horde, Shield Host, Lions), plus an effects-based fallback.
 	Returns {unit_id, unit_name, score, reason, context} or {} when no target."""
+	# Codex: Orks (11e) S-panel stratagems (no window — DREAD POWER, DELICIOUS
+	# EATING SQUIGS): the codex handler scores each friendly target (keyed by
+	# csv_id, so a 10e name-keyed heuristic below can never claim a codex row).
+	if OrkCodexDispatcher.handles(strat):
+		var cbest := {}
+		for cuid in friendly_units:
+			var cscore := OrkCodexDispatcher.ai_score(strat, player, str(cuid), "", {"phase": phase_name})
+			if cscore > float(cbest.get("score", 0.0)) and _faction_stratagem_usable(player, strat, str(cuid)):
+				cbest = {"unit_id": str(cuid), "unit_name": _dn(friendly_units[cuid], str(cuid)), "score": cscore,
+					"reason": "codex heuristic (%.1f)" % cscore}
+		return cbest
 	match strat_name:
 		"'ERE WE GO":
 			# +2 to Advance and Charge rolls — best on a melee unit that plans

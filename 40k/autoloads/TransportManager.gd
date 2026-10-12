@@ -281,6 +281,11 @@ func disembark_unit(unit_id: String, positions: Array) -> void:
 		if transport.get("flags", {}).get("effect_mekanised_brutality", false):
 			unit.flags["cannot_charge"] = false
 			print("Mekanised Brutality - transport has moved but disembarked unit remains eligible to charge")
+		elif transport.get("flags", {}).get("ork11e_readied_brawlers", false):
+			# Codex: Orks (11e) READIED BRAWLERS: an ASSAULT disembark move
+			# (18.06) has no "not eligible to declare a charge" rider.
+			unit.flags["cannot_charge"] = false
+			print("READIED BRAWLERS - assault disembark: disembarked unit remains eligible to charge")
 		elif fam_tm != null and fam_tm._unit_or_attached_has_enhancement(unit, "Fasta Than Yooz", GameState.state.get("units", {})):
 			unit.flags["cannot_charge"] = false
 			print("Fasta Than Yooz - transport has moved but disembarked unit remains eligible to charge")

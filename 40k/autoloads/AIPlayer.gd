@@ -1602,6 +1602,9 @@ func _execute_pending_advance_move(player: int, decision: Dictionary, unit_id: S
 	var unit = GameState.get_unit(unit_id)
 	var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
 	var estimated_move = move_inches + 2.0  # Original estimate used by AIDecisionMaker
+	# A normal / fall-back move deferred by a stratagem window was planned at M.
+	if str(decision.get("type", "")) != "BEGIN_ADVANCE":
+		estimated_move = move_inches
 	var actual_differs = abs(actual_move_cap - estimated_move) > 0.1
 
 	if actual_differs:
@@ -2415,10 +2418,14 @@ func _execute_next_action(player: int) -> void:
 
 		# Handle multi-step movement: BEGIN_NORMAL_MOVE, BEGIN_ADVANCE, or BEGIN_FALL_BACK with pre-computed destinations
 		elif decision.get("type") in ["BEGIN_NORMAL_MOVE", "BEGIN_ADVANCE", "BEGIN_FALL_BACK"] and decision.has("_ai_model_destinations"):
-			# Check if advance is awaiting reroll — active_moves won't exist yet
-			if result.get("awaiting_reroll", false):
+			# Check if advance is awaiting reroll — active_moves won't exist yet.
+			# Codex: Orks (11e): a human opponent's stratagem window
+			# (enemy_selected_to_fall_back) can also pause BEGIN_* before the move
+			# exists — stage once unit_move_begun fires after their answer.
+			if result.get("awaiting_reroll", false) or result.has("stratagem_window_opened"):
 				var unit_id = decision.get("actor_unit_id", "")
-				print("AIPlayer: Advance for %s awaiting reroll — deferring movement staging" % unit_id)
+				print("AIPlayer: %s for %s paused (%s) — deferring movement staging" % [decision.get("type", ""), unit_id,
+					"stratagem window" if result.has("stratagem_window_opened") else "awaiting reroll"])
 				_pending_advance_moves[unit_id] = {"decision": decision, "player": player}
 			else:
 				_execute_ai_movement(player, decision)
