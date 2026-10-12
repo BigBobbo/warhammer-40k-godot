@@ -1,0 +1,267 @@
+{
+  "id": "ork11e_never_enough_dakka",
+  "covers": [
+    "stratagem.window.unit_selected_to_shoot",
+    "stratagem.ork11e.never_enough_dakka",
+    "dialogs.StratagemDialog.window_mode",
+    "phases.ShootingPhase.select_shooter_window"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) NEVER ENOUGH DAKKA (Shoota Boyz) through the real unit_selected_to_shoot WINDOW. Setup-only: P1 switched to Shoota Boyz, Custodian Guard C moved unengaged in front of Gretchin D with inflated wounds, defender auto-allocates. A real click on the Gretchin token opens the StratagemDialog with an enabled 'Use on Gretchin'. A real click spends 1 CP; the forecast shows SH 1. Quick-Assign + Confirm + Fast resolve the grot blastas: the hit roll carries [SUSTAINED HITS 1] with one bonus hit per critical hit.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.factions[\"1\"][\"detachment\"] = \"Shoota Boyz\"\nStratagemManager.load_faction_stratagems_for_player(1)\nvar s = StratagemManager.get_stratagem(\"faction_ork_shoota_boyz_never_enough_dakka\")\nreturn s.get(\"implemented\", false) and s.get(\"csv_id\", \"\") == \"never-enough-dakka-shoota-boyz\"",
+      "equals": true,
+      "comment": "setup: the fixture army is War Horde — switch P1 to the Shoota Boyz detachment and reload its stratagems"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var xs = [2.0, 4.0, 6.0, 8.0, 10.0]\nvar ms = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models\nfor i in range(ms.size()):\n\tms[i][\"position\"] = {\"x\": xs[i] * 40.0, \"y\": 21.0 * 40.0}\n\tms[i][\"wounds\"] = 99\n\tms[i][\"current_wounds\"] = 99\nreturn true",
+      "equals": true,
+      "comment": "setup: Custodian Guard C stands unengaged in front of the Ork rank (wounds inflated so it survives)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "script": "StratagemManager.can_use_stratagem(1, \"faction_ork_shoota_boyz_never_enough_dakka\", \"U_GRETCHIN_D\").reason",
+      "equals": "Offered automatically when one of your units is selected to shoot"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GRETCHIN_D"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text",
+      "equals": "Gretchin Beta has been selected to shoot"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_shoota_boyz_never_enough_dakka",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_shoota_boyz_never_enough_dakka/Buttons/Use_faction_ork_shoota_boyz_never_enough_dakka_U_GRETCHIN_D",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_shoota_boyz_never_enough_dakka/Buttons/Use_faction_ork_shoota_boyz_never_enough_dakka_U_GRETCHIN_D",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_SHOOTING",
+        "player": 1
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_never_enough_dakka_window_dialog"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_shoota_boyz_never_enough_dakka/Buttons/Use_faction_ork_shoota_boyz_never_enough_dakka_U_GRETCHIN_D"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_GRETCHIN_D"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"NEVER ENOUGH DAKKA\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_GRETCHIN_D.flags.ork11e_never_enough_dakka",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nvar fc = c._calc_weapon_expected_damage(\"grot_blasta_ranged\", \"U_CUSTODIAN_GUARD_C\")\nreturn \"SH 1\" in fc.get(\"active_tags\", [])",
+      "equals": true,
+      "comment": "forecast: [SUSTAINED HITS 1]"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller.eligible_targets.has(\"U_CUSTODIAN_GUARD_C\")",
+      "equals": true,
+      "comment": "the selection resumed: Custodian Guard C is offered as a target"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_never_enough_dakka_used_forecast"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_CUSTODIAN_GUARD_C",
+      "comment": "Quick-Assign (hidden when the only eligible target is auto-assigned)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_assignments.size()",
+      "expect_min": 1
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and (str(d.get(\"context\", \"\")) == \"to_hit\" and int(d.get(\"sustained_hits_value\", 0)) == 1 and int(d.get(\"sustained_bonus_hits\", -1)) == int(d.get(\"critical_hits\", -2))):\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "the hit roll had [SUSTAINED HITS 1]: one bonus hit per critical hit"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_never_enough_dakka_resolved_effect"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    }
+  ]
+}

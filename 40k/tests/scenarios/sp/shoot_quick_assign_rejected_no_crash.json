@@ -19,9 +19,10 @@
     },
     {
       "act": "execute_script",
-      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nvar r = pi.execute_action({\"type\": \"SELECT_SHOOTER\", \"actor_unit_id\": \"U_BOYZ_T\"})\nreturn r.get(\"success\", false)",
+      "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nvar r = pi.execute_action({\"type\": \"SELECT_SHOOTER\", \"actor_unit_id\": \"U_BOYZ_T\"})\nif r.get(\"success\", false) and r.get(\"stratagem_window_pending\", false):\n\tr = pi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": 1})\nreturn r.get(\"success\", false)",
       "multiline": true,
-      "equals": true
+      "equals": true,
+      "comment": "the fixture's War Horde Boyz open the Codex: Orks unit_selected_to_shoot window (CLOSE-RANGE DAKKA) when selected outside an active tutorial; decline it so the selection completes"
     },
     {
       "act": "wait_seconds",

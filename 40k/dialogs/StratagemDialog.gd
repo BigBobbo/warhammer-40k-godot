@@ -333,12 +333,16 @@ func _create_offer_card(offer: Dictionary, legacy_fold: bool) -> VBoxContainer:
 		var uid := str(t.get("unit_id", ""))
 		var uid_part := uid if uid != "" else "none"
 		var label := str(t.get("label", GameState.get_unit_display_name(uid) if uid != "" else "Use"))
-		var use_button = Button.new()
-		use_button.name = "Use_%s_%s" % [safe, uid_part]
-		use_button.text = ("Use on %s" % label) if uid != "" else "Use"
-		use_button.custom_minimum_size = Vector2(150, 30)
-		use_button.pressed.connect(_on_offer_use_pressed.bind(sid, uid, "", legacy_fold))
-		button_container.add_child(use_button)
+		# require_variant: the stratagem has no plain use — the player must pick
+		# one of its variants (e.g. VINDICTIVE ARTILLERISTS' three options).
+		var variant_only: bool = bool(t.get("require_variant", false)) and not t.get("variants", []).is_empty()
+		if not variant_only:
+			var use_button = Button.new()
+			use_button.name = "Use_%s_%s" % [safe, uid_part]
+			use_button.text = ("Use on %s" % label) if uid != "" else "Use"
+			use_button.custom_minimum_size = Vector2(150, 30)
+			use_button.pressed.connect(_on_offer_use_pressed.bind(sid, uid, "", legacy_fold))
+			button_container.add_child(use_button)
 		for v in t.get("variants", []):
 			var vid := str(v.get("id", ""))
 			if vid == "":
