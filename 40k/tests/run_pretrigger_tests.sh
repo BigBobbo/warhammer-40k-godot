@@ -178,6 +178,7 @@ TESTS=(
     "tests/test_ork_codex_framework.gd"
     "tests/test_ork_codex_fight.gd"
     "tests/test_ork_codex_shooting.gd"
+    "tests/test_ork_codex_shooting_reactive.gd"
     "tests/test_indirect_fire_band_11e.gd"
     "tests/test_t003_indirect_fire_visibility_pin.gd"
     "tests/test_terrain_area_visibility_11e.gd"

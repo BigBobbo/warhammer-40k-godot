@@ -27,6 +27,10 @@ class_name StratagemDialog
 signal stratagem_selected(stratagem_id: String, target_unit_id: String)
 signal stratagem_selected_with_context(stratagem_id: String, target_unit_id: String, context: Dictionary)
 signal stratagem_declined()
+# Legacy reactive mode: "Decline — don't offer again this phase" (same meaning
+# as the window-mode button; ShootingController sends DECLINE_REACTIVE_STRATAGEM
+# with dont_offer_again).
+signal stratagem_declined_dont_offer_again()
 signal window_stratagem_selected(stratagem_id: String, target_unit_id: String, variant_id: String)
 signal window_declined(dont_offer_again: bool)
 
@@ -205,6 +209,16 @@ func _build_ui() -> void:
 	decline_button.pressed.connect(_on_decline_pressed)
 	main_container.add_child(decline_button)
 
+	# Same affordance as window mode: skip the defender prompt for the rest of
+	# the phase (enemy_targets_unit_shooting suppression).
+	var dont_again = Button.new()
+	dont_again.name = "DontOfferAgainButton"
+	dont_again.text = "Decline — don't offer again this phase"
+	dont_again.tooltip_text = "Skip this kind of stratagem prompt for the rest of the phase."
+	dont_again.custom_minimum_size = Vector2(480, 35)
+	dont_again.pressed.connect(_on_decline_dont_offer_again_pressed)
+	main_container.add_child(dont_again)
+
 	# Defender-control hint: the window stays open until the defender acts.
 	_countdown_label = Label.new()
 	_countdown_label.name = "WindowHint"
@@ -333,6 +347,12 @@ func _create_offer_card(offer: Dictionary, legacy_fold: bool) -> VBoxContainer:
 		var uid := str(t.get("unit_id", ""))
 		var uid_part := uid if uid != "" else "none"
 		var label := str(t.get("label", GameState.get_unit_display_name(uid) if uid != "" else "Use"))
+		# A secondary pick (second unit / objective, e.g. GROT SHIELDS' shielded
+		# unit) rides along so the legacy (folded-in) mode can ask for it too —
+		# window mode asks in Main from the offer itself.
+		var secondary = t.get("secondary", {})
+		if typeof(secondary) != TYPE_DICTIONARY:
+			secondary = {}
 		# require_variant: the stratagem has no plain use — the player must pick
 		# one of its variants (e.g. VINDICTIVE ARTILLERISTS' three options).
 		var variant_only: bool = bool(t.get("require_variant", false)) and not t.get("variants", []).is_empty()
@@ -341,7 +361,7 @@ func _create_offer_card(offer: Dictionary, legacy_fold: bool) -> VBoxContainer:
 			use_button.name = "Use_%s_%s" % [safe, uid_part]
 			use_button.text = ("Use on %s" % label) if uid != "" else "Use"
 			use_button.custom_minimum_size = Vector2(150, 30)
-			use_button.pressed.connect(_on_offer_use_pressed.bind(sid, uid, "", legacy_fold))
+			use_button.pressed.connect(_on_offer_use_pressed.bind(sid, uid, "", legacy_fold, secondary))
 			button_container.add_child(use_button)
 		for v in t.get("variants", []):
 			var vid := str(v.get("id", ""))
@@ -351,7 +371,7 @@ func _create_offer_card(offer: Dictionary, legacy_fold: bool) -> VBoxContainer:
 			vb.name = "Use_%s_%s_%s" % [safe, uid_part, vid.validate_node_name()]
 			vb.text = "%s (%d CP)" % [str(v.get("label", vid)), int(v.get("cp_cost", offer.get("cp_cost", 1)))]
 			vb.custom_minimum_size = Vector2(150, 30)
-			vb.pressed.connect(_on_offer_use_pressed.bind(sid, uid, vid, legacy_fold))
+			vb.pressed.connect(_on_offer_use_pressed.bind(sid, uid, vid, legacy_fold, secondary))
 			button_container.add_child(vb)
 	card.add_child(button_container)
 	return card
@@ -424,8 +444,11 @@ func _on_use_pressed(stratagem_id: String, target_unit_id: String) -> void:
 	selected_stratagem_id = stratagem_id
 	selected_target_unit_id = target_unit_id
 	print("StratagemDialog: Player %d selected %s on %s" % [defending_player, stratagem_id, target_unit_id])
-	emit_signal("stratagem_selected", stratagem_id, target_unit_id)
+	# Free the node path + exclusive slot first: a use that leaves another
+	# reactive stratagem usable re-opens the dialog from inside this signal.
+	name = "StratagemDialogClosing"
 	hide()
+	emit_signal("stratagem_selected", stratagem_id, target_unit_id)
 	queue_free()
 
 func _on_window_closed_by_player() -> void:
@@ -434,7 +457,7 @@ func _on_window_closed_by_player() -> void:
 	print("StratagemDialog: window %s closed by Player %d (Escape / ✕) — declining" % [window_id, defending_player])
 	_on_window_decline_pressed(false)
 
-func _on_offer_use_pressed(stratagem_id: String, target_unit_id: String, variant_id: String, legacy_fold: bool) -> void:
+func _on_offer_use_pressed(stratagem_id: String, target_unit_id: String, variant_id: String, legacy_fold: bool, secondary: Dictionary = {}) -> void:
 	if _window_answered:
 		return
 	if window_mode:
@@ -445,22 +468,38 @@ func _on_offer_use_pressed(stratagem_id: String, target_unit_id: String, variant
 		defending_player, stratagem_id, target_unit_id,
 		(" variant " + variant_id) if variant_id != "" else "", window_id if window_mode else "reactive"])
 	ReactiveDecisionUI.stop_examining(self)
+	# Release the stable node path AND the exclusive-window slot BEFORE
+	# emitting: the handlers open the follow-up dialog synchronously (secondary
+	# pick, the re-opened reactive dialog when another stratagem is still
+	# usable, or the next queued window).
+	name = "StratagemDialogClosing"
+	hide()
 	if legacy_fold:
+		var fold_ctx := {}
 		if variant_id != "":
-			emit_signal("stratagem_selected_with_context", stratagem_id, target_unit_id, {"variant_id": variant_id})
+			fold_ctx["variant_id"] = variant_id
+		if not secondary.get("options", []).is_empty():
+			# ShootingController asks for the secondary pick, then sends the
+			# USE_REACTIVE_STRATAGEM with context.secondary_id.
+			fold_ctx["_secondary"] = secondary
+		if not fold_ctx.is_empty():
+			emit_signal("stratagem_selected_with_context", stratagem_id, target_unit_id, fold_ctx)
 		else:
 			emit_signal("stratagem_selected", stratagem_id, target_unit_id)
 	else:
 		emit_signal("window_stratagem_selected", stratagem_id, target_unit_id, variant_id)
-	# Release the stable node path immediately so a follow-up dialog (secondary
-	# pick, or the next queued window) can claim /root/StratagemDialog.
-	name = "StratagemDialogClosing"
-	hide()
 	queue_free()
 
 func _on_decline_pressed() -> void:
 	print("StratagemDialog: Player %d declined all reactive stratagems" % defending_player)
 	emit_signal("stratagem_declined")
+	hide()
+	queue_free()
+
+func _on_decline_dont_offer_again_pressed() -> void:
+	print("StratagemDialog: Player %d declined all reactive stratagems (don't offer again this phase)" % defending_player)
+	emit_signal("stratagem_declined_dont_offer_again")
+	name = "StratagemDialogClosing"
 	hide()
 	queue_free()
 

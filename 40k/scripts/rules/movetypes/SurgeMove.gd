@@ -42,9 +42,18 @@ func before_moving(unit_id: String, board: Dictionary, _rng, _context: Dictionar
 	var m = _measurement()
 	var best_id := ""
 	var best_dist := INF
+	# 23.02: unless the surging unit can FLY, AIRCRAFT are ignored when
+	# selecting the closest enemy unit for a surge move.
+	var can_fly: bool = "FLY" in unit.get("meta", {}).get("keywords", [])
 	for other_id in board.get("units", {}):
 		var other = board.units[other_id]
 		if int(other.get("owner", 0)) == owner:
+			continue
+		# Only units on the battlefield can be the surge target (an embarked or
+		# reserve unit may still carry a stale position).
+		if not _on_battlefield(other) or other.get("embarked_in", null) != null:
+			continue
+		if not can_fly and "AIRCRAFT" in other.get("meta", {}).get("keywords", []):
 			continue
 		for um in unit.get("models", []):
 			if not um.get("alive", true) or um.get("position") == null:

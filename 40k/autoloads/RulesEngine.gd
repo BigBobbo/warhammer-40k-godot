@@ -876,6 +876,16 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 		if assignment_result.has("save_data") and assignment_result.save_data.get("success", false):
 			result.save_data_list.append(assignment_result.save_data)
 
+		# GROT SHIELDS (Codex: Orks 11e): the Gretchin unit's mortal-wound diffs
+		# travel in the one_shot_diffs channel — the diffs every ShootingPhase
+		# resolution path already merges into the action's changes — and are
+		# mirrored onto the local board so later weapons see the casualties.
+		for gs_d in assignment_result.get("grot_shields_diffs", []):
+			if not result.has("one_shot_diffs"):
+				result["one_shot_diffs"] = []
+			result["one_shot_diffs"].append(gs_d)
+			_apply_diff_to_board(board, gs_d)
+
 		# HAZARDOUS (T2-3): Track hazardous weapons for post-save resolution
 		var weapon_id = assignment.get("weapon_id", "")
 		if is_hazardous_weapon(weapon_id, board) or actor_unit.get("flags", {}).get("effect_grant_hazardous", false):
@@ -973,6 +983,12 @@ static func resolve_shoot_wounds(hit_context: Dictionary, board: Dictionary, rng
 		result["save_data_list"] = [w["save_data"]]
 	if w.has("wound_context"):
 		result["wound_context"] = w["wound_context"]
+	# GROT SHIELDS (Codex: Orks 11e): same one_shot_diffs channel as
+	# resolve_shoot_until_wounds — ShootingPhase merges it into the changes.
+	if w.has("grot_shields_diffs"):
+		result["one_shot_diffs"] = w["grot_shields_diffs"]
+		for gs_d in w["grot_shields_diffs"]:
+			_apply_diff_to_board(board, gs_d)
 	return result
 
 # COMMAND RE-ROLL — re-roll a single hit die and recompute totals in place.
@@ -1037,6 +1053,7 @@ static func reroll_hit_die(hit_context: Dictionary, die_index: int, rng_service:
 		"rolls_modified": hit_context["modified_rolls"],
 		"rerolls": hit_context.get("reroll_data", []),
 		"successes": hits,
+		"target_unit_id": str(hit_context.get("target_unit_id", "")),  # enemy_has_shot window
 		"critical_hits": crits,
 		"sustained_bonus_hits": int(hit_context.get("sustained_bonus_hits", 0)),
 		"total_hits_for_wounds": hit_context["total_hits_for_wounds"],
@@ -1338,8 +1355,10 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		var bs_str = str(weapon_profile.get("ballistic_skill", "6"))
 		ow_threshold = int(bs_str) if bs_str.is_valid_int() else 6
 
+	# SPEEDIEST FREEKS (Codex: Orks 11e): unmodified hit rolls of 1-3 fail.
+	var ow_fail_band := ork11e_ranged_hit_fail_band(target_unit, 1)
 	for roll in hit_rolls:
-		if roll >= ow_threshold and roll > 1:  # unmodified; 1s always fail
+		if roll >= ow_threshold and roll > ow_fail_band:  # unmodified; 1s always fail
 			hits += 1
 
 	result.dice.append({
@@ -1351,6 +1370,16 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		"successes": hits,
 		"overwatch": true
 	})
+
+	# GROT SHIELDS (Codex: Orks 11e): overwatch hits carry no crit tracking —
+	# every intercepted hit is a normal hit.
+	var ow_gs = ork11e_grot_shields_intercept(shooter_unit_id, target_unit, 0, hits, 0, {"value": 0, "is_dice": false}, false, board, rng)
+	if ow_gs.active and ow_gs.intercepted > 0:
+		hits = ow_gs.regular_hits
+		result.diffs.append_array(ow_gs.diffs)
+		result.dice.append({"context": "grot_shields", "message": ow_gs.log_text,
+			"intercepted": ow_gs.intercepted, "gretchin_unit_id": ow_gs.gretchin_unit_id,
+			"target_unit_id": target_unit_id})
 
 	result.hits = hits
 
@@ -1415,6 +1444,10 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
 		ow_wound_modifier = -1
 		print("RulesEngine: Defender effect -1 to wound (overwatch attacks vs %s)" % target_unit_id)
+	# HULKING BRUTES (Codex: Orks 11e): -1 to wound for ranged attacks that target the unit.
+	if ork11e_ranged_wound_penalty(target_unit, strength, toughness):
+		ow_wound_modifier = -1
+		print("RulesEngine: HULKING BRUTES (overwatch) — -1 to wound for attacks against %s" % target_unit_id)
 	# PYROMANIAKS (OA-14): Check for wound re-rolls with Torrent weapons vs enemies within 6" (Overwatch)
 	var ow_pyromaniaks_scope = get_pyromaniaks_reroll_scope(shooter_unit, target_unit, weapon_id, board)
 	if ow_pyromaniaks_scope == "failed":
@@ -1733,6 +1766,8 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	result.log_text = w.get("log_text", result.log_text)
 	if w.has("save_data"):
 		result["save_data"] = w["save_data"]
+	if w.has("grot_shields_diffs"):
+		result["grot_shields_diffs"] = w["grot_shields_diffs"]
 	return result
 
 static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
@@ -2046,6 +2081,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			"torrent_weapon": true,
 			"total_attacks": total_attacks,
 			"successes": hits,
+			"target_unit_id": target_unit_id,  # enemy_has_shot window: which units were hit
 			"message": "Torrent: %d automatic hits" % hits,
 			# Variable attacks tracking
 			"variable_attacks": attacks_roll_log.size() > 0,
@@ -2360,6 +2396,9 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		var ork11e_fd_mixed: bool = ork11e_drive_by_bustin_active(actor_unit) and ork11e_fd_attack.has(true) and ork11e_fd_attack.has(false)
 		if ork11e_fd_mixed:
 			ModifierLedger.note(hit_mod_ledger, "Drive-by Bustin'", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "Firing Deck weapons' attacks only")
+		# SPEEDIEST FREEKS (Codex: Orks 11e): ranged attacks that target the
+		# unit fail on an unmodified hit roll of 1-3.
+		hit_fail_band = ork11e_ranged_hit_fail_band(target_unit, hit_fail_band)
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			# MA-10: Use per-model BS for this attack's threshold
@@ -2465,6 +2504,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			"models_in_half_range": models_in_half_range,
 			"base_attacks": base_attacks,
 			"successes": hits,
+			"target_unit_id": target_unit_id,  # enemy_has_shot window: which units were hit
 			# CRITICAL HIT TRACKING (PRP-031)
 			"critical_hits": critical_hits,
 			"regular_hits": regular_hits,
@@ -2578,6 +2618,20 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	var hit_modifiers = hit_context["hit_modifiers"]
 	var critical_hit_threshold = hit_context["critical_hit_threshold"]
 	var sustained_data = hit_context["sustained_data"]
+	# GROT SHIELDS (Codex: Orks 11e): hits on the shielded unit end their attack
+	# sequence and become mortal wounds on the Gretchin unit. The diffs ride
+	# out in result.grot_shields_diffs (merged into the action's changes).
+	var gs_res = ork11e_grot_shields_intercept(actor_unit_id, target_unit, critical_hits, regular_hits, sustained_bonus_hits, sustained_data, is_torrent, board, rng)
+	if gs_res.active and gs_res.intercepted > 0:
+		critical_hits = gs_res.critical_hits
+		regular_hits = gs_res.regular_hits
+		sustained_bonus_hits = gs_res.sustained_bonus_hits
+		hits = critical_hits + regular_hits
+		total_hits_for_wounds = hits + sustained_bonus_hits
+		result["grot_shields_diffs"] = gs_res.diffs
+		result.dice.append({"context": "grot_shields", "message": gs_res.log_text,
+			"intercepted": gs_res.intercepted, "gretchin_unit_id": gs_res.gretchin_unit_id,
+			"target_unit_id": target_unit_id})
 	# Roll to wound - LETHAL HITS (PRP-010) + SUSTAINED HITS (PRP-011) + DEVASTATING WOUNDS (PRP-012)
 	# TORRENT (PRP-014): Torrent weapons skip hit roll but still roll to wound normally
 	var strength = weapon_profile.get("strength", 4)
@@ -2751,6 +2805,12 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		wound_modifiers |= sgt_mod
 		ModifierLedger.note(wound_mod_ledger, "Surly as a Squiggoth", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: S>T wound penalty — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
+	# HULKING BRUTES (Codex: Orks 11e): -1 to wound for ranged attacks that
+	# target the unit (S > T only, or every attack with the +1CP upgrade).
+	if ork11e_ranged_wound_penalty(target_unit, strength, toughness):
+		wound_modifiers |= WoundModifier.MINUS_ONE
+		ModifierLedger.note(wound_mod_ledger, "Hulking Brutes", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "Codex: Orks stratagem on the target")
+		print("RulesEngine: HULKING BRUTES — -1 to wound for ranged attacks against %s (S %d, T %d, mode %s)" % [target_unit_id, strength, toughness, str(target_unit.get("flags", {}).get("ork11e_hulking_brutes", ""))])
 	# BIGGER SHELLS FOR BIGGER GITZ (Dread Mob): +1 to wound vs MONSTER/VEHICLE
 	if get_bigger_shells_wound_bonus(actor_unit, target_unit) > 0:
 		wound_modifiers |= WoundModifier.PLUS_ONE
@@ -4391,6 +4451,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var ork11e_fd_mixed: bool = ork11e_drive_by_bustin_active(actor_unit) and ork11e_fd_attack.has(true) and ork11e_fd_attack.has(false)
 		if ork11e_fd_mixed:
 			ModifierLedger.note(hit_mod_ledger, "Drive-by Bustin'", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "Firing Deck weapons' attacks only")
+		# SPEEDIEST FREEKS (Codex: Orks 11e): unmodified hit rolls of 1-3 fail.
+		hit_fail_band = ork11e_ranged_hit_fail_band(target_unit, hit_fail_band)
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			# MA-10: Use per-model BS for this attack's threshold
@@ -4529,6 +4591,25 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			ar_miss_log += " [%s] vs %s" % [", ".join(hit_rolls.map(func(r): return str(r))), hit_threshold_display]
 		result.log_text = ar_miss_log
 		return result
+
+	# GROT SHIELDS (Codex: Orks 11e): intercepted hits end their attack sequence;
+	# the Gretchin unit's mortal wounds join this assignment's diffs.
+	var ar_gs = ork11e_grot_shields_intercept(actor_unit_id, target_unit, critical_hits, regular_hits, sustained_bonus_hits, sustained_data, is_torrent, board, rng)
+	if ar_gs.active and ar_gs.intercepted > 0:
+		critical_hits = ar_gs.critical_hits
+		regular_hits = ar_gs.regular_hits
+		sustained_bonus_hits = ar_gs.sustained_bonus_hits
+		hits = critical_hits + regular_hits
+		total_hits_for_wounds = hits + sustained_bonus_hits
+		result.diffs.append_array(ar_gs.diffs)
+		for ar_gs_d in ar_gs.diffs:
+			_apply_diff_to_board(board, ar_gs_d)
+		result.dice.append({"context": "grot_shields", "message": ar_gs.log_text,
+			"intercepted": ar_gs.intercepted, "gretchin_unit_id": ar_gs.gretchin_unit_id,
+			"target_unit_id": target_unit_id})
+		if total_hits_for_wounds <= 0:
+			result.log_text = ar_gs.log_text
+			return result
 
 	# Roll to wound - LETHAL HITS (PRP-010) + SUSTAINED HITS (PRP-011)
 	# TORRENT (PRP-014): Torrent weapons skip hit roll but still roll to wound normally
@@ -4690,6 +4771,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		ar_wound_modifiers |= ar_sgt_mod
 		ModifierLedger.note(ar_wound_mod_ledger, "Surly as a Squiggoth", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: S>T wound penalty (auto-resolve) — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
+	# HULKING BRUTES (Codex: Orks 11e): -1 to wound for ranged attacks that target the unit.
+	if ork11e_ranged_wound_penalty(target_unit, strength, toughness):
+		ar_wound_modifiers |= WoundModifier.MINUS_ONE
+		ModifierLedger.note(ar_wound_mod_ledger, "Hulking Brutes", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "Codex: Orks stratagem on the target")
+		print("RulesEngine: HULKING BRUTES (auto-resolve) — -1 to wound for ranged attacks against %s (S %d, T %d)" % [target_unit_id, strength, toughness])
 	# BIGGER SHELLS FOR BIGGER GITZ (Dread Mob): +1 to wound vs MONSTER/VEHICLE
 	if get_bigger_shells_wound_bonus(actor_unit, target_unit) > 0:
 		ar_wound_modifiers |= WoundModifier.PLUS_ONE
@@ -9644,6 +9730,100 @@ static func get_s_gt_t_wound_penalty(target_unit: Dictionary, board: Dictionary,
 		return WoundModifier.NONE
 	return WoundModifier.MINUS_ONE
 
+# ── Codex: Orks (11e) defensive stratagems used in the opponent's Shooting
+# phase (OrkCodexShootingReactive.gd). The handlers write ork11e_* flags on
+# every component of the targeted (Attached) unit; these helpers are called
+# from EVERY ranged resolver path (interactive hit/wound stages, the auto
+# _resolve_assignment path, overwatch) — never from melee.
+
+# HULKING BRUTES: flags.ork11e_hulking_brutes = "s_gt_t" (ranged attacks with
+# S greater than the unit's T have -1 to wound) or "all" (+1CP upgrade: every
+# ranged attack that targets the unit has -1 to wound).
+static func ork11e_ranged_wound_penalty(target_unit: Dictionary, strength: int, toughness: int) -> bool:
+	var mode := str(target_unit.get("flags", {}).get("ork11e_hulking_brutes", ""))
+	if mode == "all":
+		return true
+	if mode == "s_gt_t" and strength > toughness:
+		return true
+	return false
+
+# SPEEDIEST FREEKS: flags.ork11e_speediest_freeks — ranged attacks that target
+# the unit fail on an unmodified hit roll of 1-3 (the same unmodified fail-band
+# mechanism INDIRECT FIRE uses; the larger band wins).
+static func ork11e_ranged_hit_fail_band(target_unit: Dictionary, band: int) -> int:
+	if target_unit.get("flags", {}).get("ork11e_speediest_freeks", false):
+		return maxi(band, 3)
+	return band
+
+# GROT SHIELDS: flags.ork11e_grot_shields = {gretchin_unit_id, attacker_unit_ids}
+# on the shielded ORKS INFANTRY unit. Each time a hit roll of one of those
+# enemy units' ranged attacks that target the shielded unit results in a hit,
+# while a model of the Gretchin unit is on the battlefield, that attack's
+# sequence ends (no wound roll, no [LETHAL HITS] auto-wound, no [SUSTAINED
+# HITS] extra hits of that attack) and the Gretchin unit suffers 1 mortal
+# wound. Torrent attacks make no hit roll, so they are never intercepted.
+# Ruling: the Ork player sequences the simultaneous triggers, so critical hits
+# are intercepted before normal hits. Called at the start of the wound stage,
+# so a hit die changed by a Command Re-roll is judged on its final result.
+# Returns the adjusted hit counts plus the Gretchin's mortal-wound diffs (the
+# caller merges them into the action's changes — nothing is applied here).
+static func ork11e_grot_shields_intercept(actor_unit_id: String, target_unit: Dictionary, critical_hits: int, regular_hits: int, sustained_bonus_hits: int, sustained_data: Dictionary, is_torrent: bool, board: Dictionary, rng) -> Dictionary:
+	var out := {"active": false, "intercepted": 0, "crit_intercepted": 0,
+		"critical_hits": critical_hits, "regular_hits": regular_hits,
+		"sustained_bonus_hits": sustained_bonus_hits, "diffs": [], "casualties": 0,
+		"gretchin_unit_id": "", "log_text": ""}
+	var gs_flag = target_unit.get("flags", {}).get("ork11e_grot_shields", null)
+	if typeof(gs_flag) != TYPE_DICTIONARY or is_torrent:
+		return out
+	if not actor_unit_id in gs_flag.get("attacker_unit_ids", []):
+		return out
+	var gid := str(gs_flag.get("gretchin_unit_id", ""))
+	var units: Dictionary = board.get("units", {})
+	if gid == "" or not units.has(gid):
+		return out
+	out.gretchin_unit_id = gid
+	out.active = true
+	# Private copy of the Gretchin unit: the mortal wounds are simulated one
+	# at a time so "a model of your GRETCHIN unit is on the battlefield" is
+	# re-checked before every interception.
+	var sim_units: Dictionary = units.duplicate(false)
+	sim_units[gid] = units[gid].duplicate(true)
+	var sim_board: Dictionary = board.duplicate(false)
+	sim_board["units"] = sim_units
+	var crit_left := critical_hits
+	var reg_left := regular_hits
+	while crit_left + reg_left > 0:
+		if count_alive_models(sim_units[gid]) <= 0:
+			break
+		if crit_left > 0:
+			crit_left -= 1
+			out.crit_intercepted += 1
+		else:
+			reg_left -= 1
+		out.intercepted += 1
+		var mw = apply_mortal_wounds(gid, 1, sim_board, rng)
+		for d in mw.get("diffs", []):
+			out.diffs.append(d)
+			_apply_diff_to_board(sim_board, d)
+		out.casualties += int(mw.get("casualties", 0))
+	out.critical_hits = crit_left
+	out.regular_hits = reg_left
+	# The intercepted critical hits' [SUSTAINED HITS] extra hits belong to the
+	# attacks whose sequence ended.
+	if out.crit_intercepted > 0 and sustained_bonus_hits > 0 and critical_hits > 0:
+		if not bool(sustained_data.get("is_dice", false)):
+			out.sustained_bonus_hits = maxi(0, sustained_bonus_hits - out.crit_intercepted * int(sustained_data.get("value", 0)))
+		else:
+			out.sustained_bonus_hits = int(floor(float(sustained_bonus_hits) * float(crit_left) / float(critical_hits)))
+	var g_name = units[gid].get("meta", {}).get("display_name", units[gid].get("meta", {}).get("name", gid))
+	if out.intercepted > 0:
+		out.log_text = "GROT SHIELDS: %d hit(s) intercepted by %s — %d mortal wound(s), %d model(s) slain" % [
+			out.intercepted, g_name, out.intercepted, out.casualties]
+	else:
+		out.log_text = "GROT SHIELDS: %s has no model left on the battlefield — hits proceed" % g_name
+	print("RulesEngine: %s (attacker %s; %d crit / %d normal hit(s) left)" % [out.log_text, actor_unit_id, crit_left, reg_left])
+	return out
+
 # WALL OF DAKKA (OA-50): Check if a unit has the "Wall of Dakka" ability (Bonebreaka).
 # +1 to Hit rolls for ranged attacks when target is within half the weapon's range.
 static func has_wall_of_dakka(unit: Dictionary) -> bool:
@@ -10780,6 +10960,10 @@ static func eligible_to_charge(unit_id: String, board: Dictionary) -> bool:
 			status == GameStateData.UnitStatus.SHOT):
 		return false
 	
+	# GRAB IT (Codex: Orks 11e): hard charge lock until the end of the turn.
+	if flags.get("ork11e_grab_it_no_charge", false):
+		return false
+
 	# Check restriction flags
 	# cannot_charge is set by Advance and Fall Back moves, but abilities like
 	# Waaagh! (advance_and_charge) or Full Throttle (fall_back_and_charge) can override it.
