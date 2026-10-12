@@ -1429,7 +1429,11 @@ func _validate_end_movement(action: Dictionary) -> Dictionary:
 			log_phase_message("=== END_MOVEMENT VALIDATION FAILED ===")
 			return {"valid": false, "errors": ["There are active moves that need to be confirmed or reset"]}
 
-	# Player can always choose to end the phase
+	# 09.02: units still unselected are resolved as Remain Stationary by
+	# _process_end_movement (09.04: any unit is eligible), so they do not block.
+	var unselected = get_units_requiring_selection(current_player)
+	if not unselected.is_empty():
+		log_phase_message("%d unit(s) not yet selected — END_MOVEMENT will resolve them as Remain Stationary (09.02/09.04): %s" % [unselected.size(), str(unselected)])
 	log_phase_message("=== END_MOVEMENT VALIDATION PASSED ===")
 	return {"valid": true, "errors": []}
 
@@ -5165,7 +5169,45 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 func _process_remain_stationary(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
+	var is_disembarked = unit.get("disembarked_this_phase", false)
+	var changes = _remain_stationary_changes(unit_id, unit)
 
+	if is_disembarked:
+		log_phase_message("%s remained stationary (disembarked this phase — no Heavy bonus)" % unit.get("meta", {}).get("name", unit_id))
+	else:
+		log_phase_message("%s remained stationary" % unit.get("meta", {}).get("name", unit_id))
+	
+	# Mark unit as completed in active_moves
+	if active_moves.has(unit_id):
+		active_moves[unit_id]["completed"] = true
+	else:
+		active_moves[unit_id] = {
+			"mode": "REMAIN_STATIONARY",
+			"mode_locked": true,
+			"completed": true,
+			"move_cap_inches": 0,
+			"advance_roll": 0,
+			"model_moves": [],
+			"staged_moves": [],
+			"original_positions": {},
+			"original_rotations": {},
+			"model_distances": {},
+			"dice_rolls": [],
+			# Multi-selection group movement support
+			"group_moves": [],  # Track group movement operations
+			"group_selection": [],  # Current multi-selected models
+			"group_formation": {}  # Relative positions within group
+		}
+	
+	emit_signal("unit_move_confirmed", unit_id, {"mode": "REMAIN_STATIONARY", "distance": 0})
+	
+	return create_result(true, changes)
+
+## The state diffs of a Remain Stationary move (09.04) for unit_id (and its
+## attached characters). Shared by the REMAIN_STATIONARY action and by
+## END_MOVEMENT, which resolves every still-unselected unit as Remain
+## Stationary (09.02 — see get_units_requiring_selection).
+func _remain_stationary_changes(unit_id: String, unit: Dictionary) -> Array:
 	# T3-15: Disembarked units do not count as Remained Stationary per 10e rules.
 	# They don't get Heavy weapon bonus even if they choose not to move after disembarking.
 	var is_disembarked = unit.get("disembarked_this_phase", false)
@@ -5203,37 +5245,61 @@ func _process_remain_stationary(action: Dictionary) -> Dictionary:
 			"value": not is_disembarked
 		})
 		DebugLogger.info(str("[MovementPhase] Propagated remain stationary flags to attached character %s" % char_id))
+	return changes
 
-	if is_disembarked:
-		log_phase_message("%s remained stationary (disembarked this phase — no Heavy bonus)" % unit.get("meta", {}).get("name", unit_id))
-	else:
-		log_phase_message("%s remained stationary" % unit.get("meta", {}).get("name", unit_id))
-	
-	# Mark unit as completed in active_moves
-	if active_moves.has(unit_id):
-		active_moves[unit_id]["completed"] = true
-	else:
-		active_moves[unit_id] = {
-			"mode": "REMAIN_STATIONARY",
-			"mode_locked": true,
-			"completed": true,
-			"move_cap_inches": 0,
-			"advance_roll": 0,
-			"model_moves": [],
-			"staged_moves": [],
-			"original_positions": {},
-			"original_rotations": {},
-			"model_distances": {},
-			"dice_rolls": [],
-			# Multi-selection group movement support
-			"group_moves": [],  # Track group movement operations
-			"group_selection": [],  # Current multi-selected models
-			"group_formation": {}  # Relative positions within group
-		}
-	
-	emit_signal("unit_move_confirmed", unit_id, {"mode": "REMAIN_STATIONARY", "distance": 0})
-	
-	return create_result(true, changes)
+## 09.02 MOVE UNITS: "When the Move Units step ends, the active player must
+## have selected all of their units to make a move with ... every unit in
+## their army will have been selected to make a move, even if it is to remain
+## stationary." The ONE authoritative list of the player's units that have not
+## been selected to move this phase — used by END_MOVEMENT (which resolves
+## each of them as Remain Stationary, 09.04: ELIGIBLE IF any unit), the
+## end-of-phase UI hint, and the multiplayer END_MOVEMENT path.
+##
+## Covers alive units ON THE BATTLEFIELD (deployed, not embarked) with no
+## flags.moved and no move in progress. Excluded:
+##   - attached CHARACTERs — they move with (and inherit the flags of) their
+##     bodyguard;
+##   - AIRCRAFT — only eligible to make an ingress move (23.02), never to
+##     remain stationary;
+##   - units in strategic reserves / embarked — selecting them to remain
+##     stationary leaves them where they are and changes no state.
+func get_units_requiring_selection(player: int) -> Array:
+	var out: Array = []
+	var units: Dictionary = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		if _is_unit_destroyed_check(unit):
+			continue
+		if int(unit.get("status", 0)) != GameStateData.UnitStatus.DEPLOYED:
+			continue
+		if unit.get("embarked_in", null) != null:
+			continue
+		var attached_to = unit.get("attached_to", null)
+		if attached_to != null and str(attached_to) != "":
+			continue
+		if "AIRCRAFT" in unit.get("meta", {}).get("keywords", []):
+			continue
+		var flags: Dictionary = unit.get("flags", {})
+		if flags.get("moved", false) or flags.get("movement_active", false):
+			continue
+		if active_moves.has(unit_id):
+			continue
+		out.append(unit_id)
+	return out
+
+## The diffs END_MOVEMENT applies so that every unit still requiring selection
+## (09.02) is selected and makes a Remain Stationary move (09.04) — e.g. so an
+## untouched unit keeps its [HEAVY] / indirect-fire stationary benefits, which
+## it lost while it was simply left unselected.
+func get_end_movement_remain_stationary_changes(player: int) -> Array:
+	var changes: Array = []
+	for unit_id in get_units_requiring_selection(player):
+		var unit = GameState.state.units[unit_id]
+		log_phase_message("[09.02] %s was not selected to move — it remains stationary (09.04)" % unit.get("meta", {}).get("name", unit_id))
+		changes.append_array(_remain_stationary_changes(unit_id, unit))
+	return changes
 
 func _validate_lock_movement_mode(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -5918,6 +5984,14 @@ func _process_end_movement(action: Dictionary) -> Dictionary:
 	# Clean up any stale movement_active flags (safety net for T2-12)
 	var changes = []
 	var current_player = get_current_player()
+	# 09.02: the Move Units step may only end once every unit has been
+	# selected to move. Every unit the player has not selected is selected
+	# now and remains stationary (09.04) — the state reflects that move
+	# instead of leaving the unit unselected.
+	var rs_changes = get_end_movement_remain_stationary_changes(current_player)
+	if not rs_changes.is_empty():
+		PhaseManager.apply_state_changes(rs_changes)
+		changes.append_array(rs_changes)
 	var all_units = get_units_for_player(current_player)
 	for unit_id in all_units:
 		var unit = all_units[unit_id]

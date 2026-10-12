@@ -764,6 +764,17 @@ func _build_fight_selection_panel() -> VBoxContainer:
 	instructions.add_theme_color_override("font_color", Color.YELLOW)
 	panel.add_child(instructions)
 
+	# p.74 "Eligible to fight, but unable to fight": shown only when ALL of the
+	# selecting player's eligible units are more than 5" from every enemy unit.
+	# Otherwise there is no way to decline — every eligible unit fights (12.04).
+	var pass_button = Button.new()
+	pass_button.name = "PassButton"
+	pass_button.text = "Pass (Unable to Fight)"
+	pass_button.tooltip_text = "All of your eligible units are more than 5\" from every enemy unit — pass the selection to your opponent (core rules p.74)"
+	pass_button.visible = false
+	pass_button.pressed.connect(_on_fight_selection_pass_pressed)
+	panel.add_child(pass_button)
+
 	_add_fight_gold_separator(panel)
 	return panel
 
@@ -1905,6 +1916,13 @@ func _populate_fight_selection_panel(data: Dictionary) -> void:
 		_add_selection_subphase_units(unit_list, data, "FIGHTS_LAST", data.fights_last_units)
 
 	fight_selection_panel.get_node("Instructions").text = _selection_instructions_text(data)
+	var pass_button: Button = fight_selection_panel.get_node_or_null("PassButton")
+	if pass_button:
+		var is_local_pick := true
+		if NetworkManager and NetworkManager.is_networked():
+			is_local_pick = (NetworkManager.get_local_player() == selecting_player)
+		pass_button.visible = bool(data.get("can_pass", false)) and is_local_pick
+		pass_button.set_meta("selecting_player", selecting_player)
 	fight_selection_panel.visible = true
 
 func _add_selection_subphase_units(container: VBoxContainer, data: Dictionary, subphase_name: String, units_by_player: Dictionary) -> void:
@@ -2070,6 +2088,16 @@ func _pad_fight_action_buttons() -> Array:
 			for c in n.get_children():
 				q.append(c)
 	return out
+
+func _on_fight_selection_pass_pressed() -> void:
+	"""p.74: the selecting player passes — END_FIGHT tagged with THEIR player
+	id. The phase validates the >5\" condition and hands the selection over."""
+	var pass_button: Button = fight_selection_panel.get_node_or_null("PassButton") if fight_selection_panel else null
+	var player_id := int(pass_button.get_meta("selecting_player", 0)) if pass_button else 0
+	print("[FightController] p.74: Player %d passes the fight selection" % player_id)
+	if fight_selection_panel and is_instance_valid(fight_selection_panel):
+		fight_selection_panel.visible = false
+	emit_signal("fight_action_requested", {"type": "END_FIGHT", "player": player_id, "pass": true})
 
 func _on_fight_selection_unit_chosen(unit_id: String) -> void:
 	"""Submit SELECT_FIGHTER when a unit button is picked (single click)"""

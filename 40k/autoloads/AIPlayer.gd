@@ -503,10 +503,23 @@ func _fight_step_over() -> bool:
 	if not _phase_manager_ref or not _phase_manager_ref.current_phase_instance:
 		return true
 	var phase = _phase_manager_ref.current_phase_instance
-	# The FightSequencer (12.04) is the authority on "everyone has fought".
+	# The FightSequencer (12.04) is the authority on "everyone has fought"
+	# (or the remaining units' owners have passed — p.74).
 	if "sequencer_11e" in phase and phase.sequencer_11e != null:
-		return not phase.sequencer_11e.has_eligible(GameState.state)
+		return phase.sequencer_11e.step_over(GameState.state)
 	return true
+
+func _fight_pass_available(player: int) -> bool:
+	"""p.74: true when `player` is the one selecting and may PASS because every
+	eligible unit of theirs is more than 5\" from all enemy units. END_FIGHT is
+	rejected otherwise while fights are owed (12.04 — fighting is mandatory)."""
+	if not _phase_manager_ref or not _phase_manager_ref.current_phase_instance:
+		return false
+	var phase = _phase_manager_ref.current_phase_instance
+	if not phase.has_method("get_end_fight_status"):
+		return false
+	var status = phase.get_end_fight_status()
+	return not status.step_over and status.can_pass and int(status.selecting_player) == player
 
 func _get_pending_reactive_window_player() -> int:
 	"""Owner of the reactive decision window the current phase is blocked on,
@@ -2150,7 +2163,16 @@ func _execute_next_action(player: int) -> void:
 			var failed_unit_id = decision.get("unit_id", "")
 			var fight_unit_name = _get_unit_name(failed_unit_id)
 			_select_fighter_retry_count += 1
-			if not _fight_step_over() and _select_fighter_retry_count <= 3:
+			# 12.04: END_FIGHT can no longer forfeit owed fights — the phase
+			# rejects it unless the step is over or this is a legal p.74 pass.
+			# Keep re-evaluating against fresh offers instead.
+			if not _fight_step_over() and not _fight_pass_available(player):
+				print("AIPlayer: SELECT_FIGHTER failed for %s (%s) — fights are mandatory (12.04), re-evaluating (attempt %d)" % [
+					failed_unit_id, str(error_msg), _select_fighter_retry_count])
+				_log_ai_event(player, "%s selection rejected (%s) — re-checking fight order" % [
+					fight_unit_name, _format_error_concise(error_msg)])
+				_request_evaluation()
+			elif not _fight_step_over() and _select_fighter_retry_count <= 3:
 				print("AIPlayer: SELECT_FIGHTER failed for %s (%s) — re-evaluating (retry %d/3)" % [
 					failed_unit_id, str(error_msg), _select_fighter_retry_count])
 				_log_ai_event(player, "%s selection rejected (%s) — re-checking fight order" % [
@@ -2163,11 +2185,14 @@ func _execute_next_action(player: int) -> void:
 				_log_ai_event(player, "%s could not be selected (%s) — ending fight" % [
 					fight_unit_name, _format_error_concise(error_msg)])
 				_current_phase_actions += 1
-				NetworkIntegration.route_action({
+				var end_fight_result = NetworkIntegration.route_action({
 					"type": "END_FIGHT",
 					"player": player,
 					"_ai_description": "End fight — %s could not be selected" % fight_unit_name
 				})
+				if end_fight_result is Dictionary and not end_fight_result.get("success", false):
+					print("AIPlayer: fallback END_FIGHT rejected (%s) — re-evaluating" % str(end_fight_result.get("error", end_fight_result.get("errors", "?"))))
+					_request_evaluation()
 
 		# Handle failed deployment specifically
 		elif decision.get("type") == "DEPLOY_UNIT":

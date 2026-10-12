@@ -1,0 +1,61 @@
+{
+  "id": "end_fight_mandatory_fights_11e",
+  "covers": [
+    "phases.FightPhase._validate_end_fight",
+    "phases.FightPhase.get_end_fight_status",
+    "phases.FightPhase._process_end_fight",
+    "scripts.Main._on_phase_action_pressed",
+    "scripts.FightController._populate_fight_selection_panel"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Core-rules audit e28e4f7 P0-2 (12.04: 'Players resolve the following sequence until all eligible units have been selected to fight'). The active (P2, Orks) player clicks 'End Fight Phase' at the start of the Fight step while their charging Warboss and the engaged Custodes are all still owed a fight. Before the fix this opened a confirm dialog and END_FIGHT forfeited the Warboss's fight. Now: no dialog, an error toast names the unit that must fight, the server rejects a dispatched END_FIGHT for both players, nobody is marked fought, the Fight step keeps running, the fighter-selection panel still offers the Warboss and shows NO Pass button (the Warboss is engaged, so the p.74 pass is not available). Setup-only privileges: CP zeroed to suppress stratagem prompts; model wounds inflated so no unit dies.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 2 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_phase_property", "property": "piling_in_player_11e", "equals": 1 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().current_selecting_player", "equals": 2 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_B", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "main.get_node(\"HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/PassButton\").visible", "equals": false },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_end_fight_status().can_pass", "equals": false },
+    { "act": "execute_script", "multiline": true, "script": "for a in PhaseManager.get_current_phase_instance().get_available_actions():\n\tif a.get(\"type\", \"\") == \"END_FIGHT\":\n\t\treturn true\nreturn false", "equals": false },
+
+    { "act": "execute_script", "multiline": true, "script": "for t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tt.queue_free()\nToastManager.active_toasts.clear()\nreturn true", "equals": true },
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node_or_null(\"EndFightConfirmationDialog\") == null", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "for toast in ToastManager.active_toasts:\n\tif not is_instance_valid(toast):\n\t\tcontinue\n\tfor c in toast.find_children(\"*\", \"Label\", true, false):\n\t\tif \"must fight\" in c.text and \"Warboss\" in c.text:\n\t\t\treturn true\nreturn false", "equals": true },
+    { "act": "screenshot", "label": "01_end_fight_blocked_warboss_must_fight" },
+
+    { "act": "dispatch_action", "action": { "type": "END_FIGHT", "player": 2 } },
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "dispatch_action", "action": { "type": "END_FIGHT", "player": 1 } },
+    { "act": "expect_action_result", "path": "success", "equals": false },
+
+    { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.eligible_to_fight(\"U_WARBOSS_B\", GameState.state)", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.eligible_to_fight(\"U_CUSTODIAN_GUARD_B\", GameState.state)", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().sequencer_11e.eligible_to_fight(\"U_TELEMON_HEAVY_DREADNOUGHT_I\", GameState.state)", "equals": true },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_B\"].get(\"flags\", {}).get(\"has_fought\", false)", "equals": false },
+    { "act": "expect_phase", "equals": 10 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_B", "timeout_s": 3.0 },
+    { "act": "screenshot", "label": "02_fight_step_still_running_warboss_offered" }
+  ]
+}

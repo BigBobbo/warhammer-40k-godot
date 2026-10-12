@@ -12,7 +12,7 @@
   "rng_seed": 42,
   "transition_to_phase": 10,
   "disable_ai": true,
-  "description": "New feature (consolidate half): the Consolidate dialog has an 'Auto Consolidate' button that moves every model toward the closest enemy for the player (reusing the AI's consolidate solver), instead of dragging each model. Setup walks the fight phase to the global Consolidate step (12.07) via END_PILE_IN/END_FIGHT, then places the Contemptor Dreadnought (the only consolidate-eligible unit for P1) and one Ork Boy in open space with a ~0.8\" gap (engaged, ongoing-mode, but not yet in base contact). Player path: click the Dreadnought's Consolidate step entry to open the ConsolidateDialog, then click 'Auto Consolidate'. The Dreadnought is moved toward the Boy automatically (get_pile_in_movements() becomes non-empty). Confirm submits ONE legal CONSOLIDATE that moves it closer (y increases toward the Boy) and records the unit as consolidated — all with no manual dragging.",
+  "description": "New feature (consolidate half): the Consolidate dialog has an 'Auto Consolidate' button that moves every model toward the closest enemy for the player (reusing the AI's consolidate solver), instead of dragging each model. Setup walks the fight phase to the global Consolidate step (12.07) via END_PILE_IN, marks the owed fights resolved (setup privilege — END_FIGHT can no longer skip mandatory fights, 12.04) and END_FIGHT, then places the Contemptor Dreadnought (the only consolidate-eligible unit for P1) and one Ork Boy in open space with a ~0.8\" gap (engaged, ongoing-mode, but not yet in base contact). Player path: click the Dreadnought's Consolidate step entry to open the ConsolidateDialog, then click 'Auto Consolidate'. The Dreadnought is moved toward the Boy automatically (get_pile_in_movements() becomes non-empty). Confirm submits ONE legal CONSOLIDATE that moves it closer (y increases toward the Boy) and records the unit as consolidated — all with no manual dragging.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 10 },
@@ -22,8 +22,9 @@
 
     { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 1 } },
     { "act": "dispatch_action", "action": { "type": "END_PILE_IN", "player": 2 } },
+    { "act": "execute_script", "multiline": true, "script": "# Setup privilege: this scenario is about the Consolidate step, so the\n# Fight step's owed fights are marked resolved (no attacks) instead of\n# being fought. END_FIGHT can no longer skip them (12.04).\nvar fp = PhaseManager.get_current_phase_instance()\nfor uid in GameState.state.units:\n\tif fp.sequencer_11e.eligible_to_fight(uid, GameState.state):\n\t\tfp.sequencer_11e.mark_fought(uid, GameState.state)\nreturn fp.get_end_fight_status().step_over", "equals": true },
     { "act": "dispatch_action", "action": { "type": "END_FIGHT", "player": 1 } },
-    { "act": "dispatch_action", "action": { "type": "END_FIGHT", "player": 2 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
 
     { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel", "timeout_s": 5.0 },
     { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 1 },

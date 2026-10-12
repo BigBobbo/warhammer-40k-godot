@@ -2307,7 +2307,8 @@
       "id": "shootingtypes.IndirectShooting.live_resolve",
       "description": "INDIRECT shooting drives live play end-to-end: the unseen target is assignable under the indirect type (_check_target_visibility bypass), CONFIRM_TARGETS resolves through the real path, and the recorded to_hit block obeys the seed-independent band invariant (successes == count of unmodified 6s after the unit moved).",
       "scenarios": [
-        "iss15_indirect_band_11e"
+        "iss15_indirect_band_11e",
+        "indirect_selected_visible_target_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -5769,10 +5770,10 @@
     },
     {
       "id": "dialogs.EndFightConfirmationDialog",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_fight_scope_opponent_still_fights_11e, pile_in_button_label_bv8yue.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_pass_unable_to_fight_11e, pile_in_button_label_bv8yue.",
       "scenarios": [
-        "end_fight_scope_opponent_still_fights_11e",
-        "pile_in_button_label_bv8yue"
+        "pile_in_button_label_bv8yue",
+        "fight_pass_unable_to_fight_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -6369,20 +6370,11 @@
       "fidelity": "DECLARED"
     },
     {
-      "id": "phases.FightPhase._forfeit_player_fights_11e",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_fight_scope_opponent_still_fights_11e.",
-      "scenarios": [
-        "end_fight_scope_opponent_still_fights_11e"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
       "id": "phases.FightPhase._process_end_fight",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_fight_scope_opponent_still_fights_11e.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_fight_mandatory_fights_11e.",
       "scenarios": [
-        "end_fight_scope_opponent_still_fights_11e"
+        "end_fight_mandatory_fights_11e",
+        "fight_pass_unable_to_fight_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -6410,9 +6402,9 @@
     },
     {
       "id": "phases.FightPhase._resume_fight_step_after_end_11e",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_fight_scope_opponent_still_fights_11e.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_pass_unable_to_fight_11e.",
       "scenarios": [
-        "end_fight_scope_opponent_still_fights_11e"
+        "fight_pass_unable_to_fight_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -6461,9 +6453,9 @@
     },
     {
       "id": "phases.FightPhase.get_unfought_eligible_units",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_fight_scope_opponent_still_fights_11e.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_fight_mandatory_fights_11e.",
       "scenarios": [
-        "end_fight_scope_opponent_still_fights_11e"
+        "end_fight_mandatory_fights_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -7149,7 +7141,8 @@
       "id": "scripts.Main._on_phase_action_pressed",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pile_in_button_label_bv8yue.",
       "scenarios": [
-        "pile_in_button_label_bv8yue"
+        "pile_in_button_label_bv8yue",
+        "end_fight_mandatory_fights_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -7167,9 +7160,9 @@
     },
     {
       "id": "scripts.Main._show_end_fight_confirmation_dialog",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_fight_scope_opponent_still_fights_11e.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_pass_unable_to_fight_11e.",
       "scenarios": [
-        "end_fight_scope_opponent_still_fights_11e"
+        "fight_pass_unable_to_fight_11e"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -9431,6 +9424,157 @@
       ],
       "last_verified_commit": "5eb5141",
       "status": "covered"
+    },
+    {
+      "id": "phases.FightPhase._validate_end_fight",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_fight_mandatory_fights_11e.",
+      "scenarios": [
+        "end_fight_mandatory_fights_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "phases.FightPhase.get_end_fight_status",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_fight_mandatory_fights_11e, fight_pass_unable_to_fight_11e.",
+      "scenarios": [
+        "end_fight_mandatory_fights_11e",
+        "fight_pass_unable_to_fight_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "scripts.FightController._populate_fight_selection_panel",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_fight_mandatory_fights_11e.",
+      "scenarios": [
+        "end_fight_mandatory_fights_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.FightSequencer.can_pass",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_pass_unable_to_fight_11e.",
+      "scenarios": [
+        "fight_pass_unable_to_fight_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.FightSequencer.pass_selection",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_pass_unable_to_fight_11e.",
+      "scenarios": [
+        "fight_pass_unable_to_fight_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "scripts.FightController._on_fight_selection_pass_pressed",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_pass_unable_to_fight_11e.",
+      "scenarios": [
+        "fight_pass_unable_to_fight_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "phases.MovementPhase.get_units_requiring_selection",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_movement_unselected_remain_stationary_11e.",
+      "scenarios": [
+        "end_movement_unselected_remain_stationary_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "phases.MovementPhase.get_end_movement_remain_stationary_changes",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_movement_unselected_remain_stationary_11e.",
+      "scenarios": [
+        "end_movement_unselected_remain_stationary_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "phases.MovementPhase._process_end_movement",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_movement_unselected_remain_stationary_11e.",
+      "scenarios": [
+        "end_movement_unselected_remain_stationary_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "scripts.Main._phase_end_hint_text",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: end_movement_unselected_remain_stationary_11e.",
+      "scenarios": [
+        "end_movement_unselected_remain_stationary_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.RulesEngine._indirect_consequences_apply",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: indirect_selected_visible_target_11e.",
+      "scenarios": [
+        "indirect_selected_visible_target_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "phases.ShootingPhase.shooting_type_payload",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: indirect_selected_visible_target_11e.",
+      "scenarios": [
+        "indirect_selected_visible_target_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.RulesEngine.resolve_transport_destruction",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: emergency_disembark_legal_placement_11e.",
+      "scenarios": [
+        "emergency_disembark_legal_placement_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "rules.RulesEngine._emergency_disembark_placements",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: emergency_disembark_legal_placement_11e.",
+      "scenarios": [
+        "emergency_disembark_legal_placement_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "phases.ShootingPhase._resolve_transport_destruction_if_applicable",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: emergency_disembark_legal_placement_11e.",
+      "scenarios": [
+        "emergency_disembark_legal_placement_11e"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
     }
   ]
 }

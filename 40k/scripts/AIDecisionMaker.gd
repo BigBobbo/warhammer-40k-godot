@@ -16964,8 +16964,12 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 		var ae_move_distance = ae_action.get("move_distance", 3.0)
 		return _compute_acrobatic_escape_action(snapshot, ae_unit_id, player, ae_move_distance)
 
-	# Step 7: End fight phase
+	# Step 7: End fight phase — or, while fights are still owed, the p.74 pass
+	# (offered only when every eligible unit is >5" from all enemy units).
 	if action_types.has("END_FIGHT"):
+		var ef = action_types["END_FIGHT"][0]
+		if ef.get("pass", false):
+			return {"type": "END_FIGHT", "player": ef.get("player", player), "_ai_description": "Pass — eligible units are more than 5\" from every enemy (p.74)"}
 		return {"type": "END_FIGHT", "_ai_description": "End Fight Phase"}
 
 	return {}

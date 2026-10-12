@@ -13,7 +13,7 @@
   "rng_seed": 42,
   "transition_to_phase": 10,
   "disable_ai": true,
-  "description": "Reported bug: during the global Pile In step (12.02) the top-right phase-action button read 'End Fight Phase' and, when clicked, popped the misleading 'units haven't fought' warning (nothing is forfeited during Pile In — the units still fight). This drives the REAL player path with clicks. At fight-phase open (Pile In step, P2 Orks active) the button now reads '[Enter] Finish Pile Ins'. Clicking the TOP-RIGHT button (the reported path) advances the Pile In step to P1's half WITHOUT any EndFightConfirmationDialog and leaves the label unchanged. After both halves the Fight step (12.04) begins and the button reverts to '[Enter] End Fight Phase' via the subphase transition; clicking it there DOES pop the confirmation, proving the warning still fires where it belongs. CP zeroed to suppress stratagem prompts; the Warboss wounds are inflated so nothing dies.",
+  "description": "Reported bug: during the global Pile In step (12.02) the top-right phase-action button read 'End Fight Phase' and, when clicked, popped the misleading 'units haven't fought' warning (nothing is forfeited during Pile In — the units still fight). This drives the REAL player path with clicks. At fight-phase open (Pile In step, P2 Orks active) the button now reads '[Enter] Finish Pile Ins'. Clicking the TOP-RIGHT button (the reported path) advances the Pile In step to P1's half WITHOUT any EndFightConfirmationDialog and leaves the label unchanged. After both halves the Fight step (12.04) begins and the button reverts to '[Enter] End Fight Phase' via the subphase transition; clicking it there with the Warboss still owed a fight is refused with a 'must fight' error (12.04 — fights are mandatory; core-rules audit e28e4f7 P0-2), and no confirmation dialog opens. CP zeroed to suppress stratagem prompts; the Warboss wounds are inflated so nothing dies.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 10 },
@@ -48,9 +48,12 @@
     { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel", "timeout_s": 5.0 },
     { "act": "screenshot", "label": "03_fight_step_button_reverts_to_end_fight_phase" },
 
+    { "act": "execute_script", "multiline": true, "script": "for t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tt.queue_free()\nToastManager.active_toasts.clear()\nreturn true", "equals": true },
     { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
     { "act": "wait_seconds", "seconds": 0.6 },
-    { "act": "expect_node_visible", "node": "/root/EndFightConfirmationDialog", "timeout_s": 5.0 },
-    { "act": "screenshot", "label": "04_fight_step_warning_still_fires" }
+    { "act": "execute_script", "script": "main.get_tree().root.has_node(\"EndFightConfirmationDialog\")", "equals": false },
+    { "act": "execute_script", "multiline": true, "script": "for toast in ToastManager.active_toasts:\n\tif not is_instance_valid(toast):\n\t\tcontinue\n\tfor c in toast.find_children(\"*\", \"Label\", true, false):\n\t\tif \"must fight\" in c.text:\n\t\t\treturn true\nreturn false", "equals": true },
+    { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 0 },
+    { "act": "screenshot", "label": "04_fight_step_end_blocked_units_must_fight" }
   ]
 }

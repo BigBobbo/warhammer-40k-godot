@@ -2,6 +2,19 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.44.0",
+      "date": "2026-10-12",
+      "summary": "Five core-rules fixes: fights are mandatory (with the 5\" pass rule), unmoved units remain stationary, the Indirect Shooting you pick is the one resolved, auto-rolled saves stack damage on a wounded model, and emergency disembark only places models legally.",
+      "changes": [
+        "Fixed (Fight, 12.04): \"End Fight Phase\" can no longer skip fights. While any unit is still eligible to fight the button shows an error naming the units that must fight, and the game refuses the action \u2014 previously confirming the warning silently threw away your remaining fights.",
+        "New (Fight, p.74 \"Eligible to fight, but unable to fight\"): when every eligible unit of the player selecting is more than 5\" from all enemy units, a \"Pass (Unable to Fight)\" button appears. Passing hands the pick to your opponent without losing the fight; if both players pass in a row, or your opponent has nothing left to fight with, the Fight step ends.",
+        "Fixed (Movement, 09.02): every unit you didn't select now remains stationary when you end the Movement phase, as the rules require. Those units now correctly count as having remained stationary for [HEAVY] and indirect fire later in the turn.",
+        "Fixed (Shooting, 10.07): choosing Indirect Shooting now always applies its rules \u2014 target in cover, no hit re-rolls, unmodified 1-5 fail (1-3 if you remained stationary) \u2014 even when the target is visible. Before, a visible target was resolved as ordinary shooting. The hit-roll display now shows the real number needed (e.g. \"6+ (indirect, cover)\").",
+        "Fixed (Saves, 05.04): when the computer rolls saves for a defender (AI, or \"computer allocates wounds\"), damage now goes onto an already-wounded model first. Two failed saves against two 2-wound models now kill one model instead of wounding both.",
+        "Fixed (Transports, 18.05): when a transport is destroyed, surviving passengers are set up as close as possible to it, wholly within 6\", on the board, not on top of other models or impassable terrain, out of engagement range, and in coherency. Any model with no legal spot is destroyed, as the rules say. Previously they were dropped in a fixed ring that could overlap the wreck, other models or the enemy."
+      ]
+    },
+    {
       "version": "1.43.0",
       "date": "2026-09-06",
       "summary": "New Settings \u203a Gameplay option: ignore collisions for VEHICLE models, so a Stompa-sized base can actually be deployed and moved on a crowded board.",

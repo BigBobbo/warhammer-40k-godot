@@ -250,6 +250,9 @@
    "act": "wait_seconds",
    "seconds": 0.8
   },
+  { "act": "execute_script", "multiline": true,
+    "script": "# Setup privilege: this scenario is about mission actions, not fights. The\n# owed fights are marked resolved (no attacks) — END_FIGHT can no longer\n# forfeit mandatory fights (12.04; core-rules audit e28e4f7 P0-2).\nvar fp = PhaseManager.get_current_phase_instance()\nfor uid in GameState.state.units:\n\tif fp.sequencer_11e.eligible_to_fight(uid, GameState.state):\n\t\tfp.sequencer_11e.mark_fought(uid, GameState.state)\nreturn fp.get_end_fight_status().step_over",
+    "equals": true },
   {
    "act": "click_node",
    "node": "/root/Main/PhaseActionButton",
@@ -259,16 +262,6 @@
     "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
     "equals": true },
   { "act": "wait_seconds", "seconds": 0.8 },
-  {
-   "act": "expect_node_visible",
-   "node": "/root/EndFightConfirmationDialog",
-   "timeout_s": 3.0
-  },
-  {
-   "act": "click_node",
-   "node": "/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight",
-   "emit_pressed": true
-  },
   {
    "act": "wait_seconds",
    "seconds": 0.8

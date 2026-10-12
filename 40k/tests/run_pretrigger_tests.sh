@@ -29,6 +29,10 @@
 #   - the 50% reserves caps bind the AI too (attached leaders are counted)
 #   - PM-3 AI earmarks (hold/push/screen/hunt bias, release, fragment layering)
 #   - PM-5 deployment recorder + plan round trip (record -> consume, both seats)
+#   - core-rules audit e28e4f7: mandatory fights / p.74 pass (12.04), every
+#     unit selected in Movement (09.02), selected indirect shooting type
+#     (10.07), automatic 11e save allocation (05.04), emergency disembark
+#     placement (18.05)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -190,6 +194,8 @@ TESTS=(
     "tests/unit/test_plan_coherency_editions.gd"
     "tests/unit/test_deployment_zone_polygon_guard.gd"
     "tests/unit/test_fixture_boards_current.gd"
+    "tests/test_core_rules_audit_e28e4f7.gd"
+    "tests/test_fight_phase_scope_end_fight_11e.gd"
 )
 
 FAILED=0

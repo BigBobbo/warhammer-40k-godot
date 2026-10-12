@@ -6529,7 +6529,7 @@ func _phase_end_hint_text() -> String:
 		GameStateData.Phase.COMMAND:
 			return "You won't be able to spend Command points on this phase's abilities again. Next: the Movement phase."
 		GameStateData.Phase.MOVEMENT:
-			return "Any unit you haven't moved stays where it is for this turn. Next: the Shooting phase."
+			return "Any unit you haven't selected remains stationary (09.02). Next: the Shooting phase."
 		GameStateData.Phase.SHOOTING:
 			return "Any unit you haven't shot with won't get to shoot this turn. Next: the Charge phase."
 		GameStateData.Phase.CHARGE:
@@ -6540,7 +6540,7 @@ func _phase_end_hint_text() -> String:
 			var fp = PhaseManager.get_current_phase_instance()
 			if fp and fp.has_method("get_fight_step_11e") and fp.get_fight_step_11e() != "FIGHT":
 				return ""
-			return "Any unit you haven't fought with won't get to fight this turn. Next: scoring your objectives."
+			return "Every eligible unit must fight before the Fight step can end (12.04). Next: scoring your objectives."
 		GameStateData.Phase.SCORING:
 			return "This ends your whole turn and hands over to your opponent."
 		GameStateData.Phase.DEPLOYMENT:
@@ -6587,10 +6587,10 @@ func _phase_action_needs_confirm() -> bool:
 			var fp = PhaseManager.get_current_phase_instance()
 			if fp and fp.has_method("get_fight_step_11e") and fp.get_fight_step_11e() != "FIGHT":
 				return false
-			# In the Fight step proper, the "units haven't fought" warning is
-			# the confirmation whenever it fires.
-			if fp and fp.has_method("get_unfought_eligible_units"):
-				return fp.get_unfought_eligible_units(GameState.get_active_player()).is_empty()
+			# In the Fight step proper, ending is only possible once nobody is
+			# left to select (12.04); the p.74 pass has its own dialog.
+			if fp and fp.has_method("get_end_fight_status"):
+				return fp.get_end_fight_status().step_over
 			return true
 		GameStateData.Phase.SCORING:
 			if GameState.is_game_complete():
@@ -12234,6 +12234,12 @@ func _get_fight_phase_action_label() -> String:
 		match fp.get_fight_step_11e():
 			"PILE_IN": return "Finish Pile Ins"
 			"CONSOLIDATE": return "Finish Consolidations"
+	# p.74: while units are still owed a fight the button can only PASS (and
+	# only when every eligible unit is >5" from all enemies).
+	if fp and fp.has_method("get_end_fight_status"):
+		var status = fp.get_end_fight_status()
+		if not status.step_over and status.can_pass:
+			return "Pass (Unable to Fight)"
 	return "End Fight Phase"
 
 func _get_phase_button_tooltip(phase: GameStateData.Phase) -> String:
@@ -12430,14 +12436,23 @@ func _on_phase_action_pressed() -> void:
 			var fight_step := "FIGHT"
 			if fight_phase_instance and fight_phase_instance.has_method("get_fight_step_11e"):
 				fight_step = fight_phase_instance.get_fight_step_11e()
-			if fight_step == "FIGHT" and fight_phase_instance and fight_phase_instance.has_method("get_unfought_eligible_units"):
-				# Only warn about the active player's OWN unfought units — ending
-				# your fights no longer forfeits the opponent's (12.04), so the
-				# opponent's units must not be listed as "won't fight".
-				var unfought = fight_phase_instance.get_unfought_eligible_units(active_player)
-				if unfought.size() > 0:
-					print("Main: T5-UX7: %d unfought units remain, showing confirmation dialog" % unfought.size())
-					_show_end_fight_confirmation_dialog(unfought, active_player)
+			if fight_step == "FIGHT" and fight_phase_instance and fight_phase_instance.has_method("get_end_fight_status"):
+				# 12.04: fighting is mandatory — the Fight step only ends once
+				# every eligible unit has been selected to fight. The one
+				# exception is the p.74 pass ("Eligible to fight, but unable to
+				# fight"): the SELECTING player may pass when all of their
+				# eligible units are more than 5" from every enemy unit.
+				var status = fight_phase_instance.get_end_fight_status()
+				if not status.step_over:
+					if status.can_pass:
+						print("Main: p.74: Player %d may pass (%d unit(s) unable to fight), showing confirmation dialog" % [status.selecting_player, status.owed_units.size()])
+						_show_end_fight_confirmation_dialog(status.owed_units, int(status.selecting_player))
+						return
+					var owed_names: Array = []
+					for entry in status.owed_units:
+						owed_names.append(entry.unit_name)
+					print("Main: 12.04: END_FIGHT blocked — Player %d still owes fights: %s" % [status.selecting_player, str(owed_names)])
+					ToastManager.show_error("Every eligible unit must fight (12.04). Player %d still to fight: %s" % [status.selecting_player, ", ".join(owed_names)])
 					return
 			action = {"type": "END_FIGHT", "player": active_player}
 		GameStateData.Phase.SCORING:
@@ -13033,7 +13048,11 @@ func _on_fight_action_requested(action: Dictionary) -> void:
 		print("Main: Unexpected result from fight action")
 
 func _show_end_fight_confirmation_dialog(unfought_units: Array, active_player: int) -> void:
-	"""T5-UX7: Show confirmation dialog before ending fight phase with unfought units"""
+	"""p.74: confirm the selecting player's PASS ("Eligible to fight, but unable
+	to fight") — every listed unit is more than 5" from all enemy units. The
+	units are not forfeited: the sequence returns to the opponent and the
+	passing player selects again once the opponent has selected a unit.
+	`active_player` is the PASSING (selecting) player."""
 	# Skip dialog for AI players — AI always confirms ending fight
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(active_player):

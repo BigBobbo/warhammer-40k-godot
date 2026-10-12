@@ -1,0 +1,201 @@
+{
+  "id": "fight_pass_unable_to_fight_11e",
+  "covers": [
+    "dialogs.EndFightConfirmationDialog",
+    "phases.FightPhase._process_end_fight",
+    "phases.FightPhase._resume_fight_step_after_end_11e",
+    "phases.FightPhase.get_end_fight_status",
+    "rules.FightSequencer.can_pass",
+    "rules.FightSequencer.pass_selection",
+    "scripts.FightController._on_fight_selection_pass_pressed",
+    "scripts.Main._show_end_fight_confirmation_dialog"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Core rules p.74 'Eligible to fight, but unable to fight' (with 12.04). The charging Warboss (P2) is moved more than 5\" from every enemy unit during the Pile In step, so in the Fight step every eligible unit on BOTH sides is more than 5\" from all enemies. The selecting player (P2, active) sees a 'Pass (Unable to Fight)' button in the fighter-selection panel; clicking it hands the selection to P1 WITHOUT marking the Warboss as fought. P1 (Custodes, also >5\" from all enemies) passes too, this time through the top-right phase button ('Pass (Unable to Fight)') and its confirmation dialog \u2014 both players passed in succession, so the Fight step ends and the Consolidate step begins. Setup-only privileges: CP zeroed to suppress stratagem prompts; the Warboss is teleported (execute_script) to create the out-of-range state.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"position\": {\"x\": 1000.0, \"y\": 1200.0}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._sync_all_token_positions()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "pile_in_step_11e",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().current_selecting_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().sequencer_11e.eligible_to_fight(\"U_WARBOSS_B\", GameState.state)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_end_fight_status().can_pass",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/PassButton",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"PhaseActionButton\").text.ends_with(\"Pass (Unable to Fight)\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_p2_pass_button_warboss_out_of_range"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/PassButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "consolidation_step_11e",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().current_selecting_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().sequencer_11e.fought.has(\"U_WARBOSS_B\")",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().sequencer_11e.eligible_to_fight(\"U_WARBOSS_B\", GameState.state)",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/PassButton",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_p1_custodes_selecting_may_pass"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/EndFightConfirmationDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"EndFightConfirmationDialog\").title",
+      "equals": "Pass?"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"EndFightConfirmationDialog\").unfought_units.size() > 0",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02b_p1_pass_confirm_dialog"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().consolidation_step_11e != 0",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_WARBOSS_B\"].get(\"flags\", {}).get(\"has_fought\", false)",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "03_both_passed_fight_step_over"
+    }
+  ]
+}

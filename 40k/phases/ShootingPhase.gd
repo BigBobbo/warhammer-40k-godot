@@ -369,12 +369,16 @@ func _resolve_transport_destruction_if_applicable(destroyed_unit_id: String) -> 
 			var mw = unit_info.get("mortal_wounds", 0)
 			var destroyed_models = unit_info.get("models_destroyed", 0)
 			var unit_name = unit_info.get("unit_name", "Unknown")
+			var unplaceable = int(unit_info.get("models_unplaceable", 0))
 			if mw > 0:
 				var _mw_label = "mortal wound" if mw == 1 else "mortal wounds"
 				var _md_label = "model" if destroyed_models == 1 else "models"
 				log_phase_message("  %s: %d %s, %d %s destroyed" % [unit_name, mw, _mw_label, destroyed_models, _md_label])
-			else:
+			elif unplaceable == 0:
 				log_phase_message("  %s: disembarked safely" % unit_name)
+			if unplaceable > 0:
+				# 18.05: "Each model that cannot be set up in this way is destroyed."
+				log_phase_message("  %s: %d model(s) could not be set up wholly within 6\" of the transport and were destroyed (18.05)" % [unit_name, unplaceable])
 
 		# Recursively check if transport destruction casualties caused further deaths
 		_check_kill_diffs(result.all_diffs)
@@ -1494,7 +1498,9 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 		"actor_unit_id": active_shooter_id,
 		"payload": {
 			"assignments": confirmed_assignments,
-			"rng_seed": rs_seed
+			"rng_seed": rs_seed,
+			# 10.02/10.07: the SELECTED shooting type drives per-attack consequences
+			"shooting_type": active_shooting_type
 		}
 	}
 
@@ -2747,7 +2753,9 @@ func _resolve_ai_shoot(action: Dictionary) -> Dictionary:
 		"actor_unit_id": active_shooter_id,
 		"payload": {
 			"assignments": confirmed_assignments,
-			"rng_seed": ps_seed
+			"rng_seed": ps_seed,
+			# 10.02/10.07: the SELECTED shooting type drives per-attack consequences
+			"shooting_type": active_shooting_type
 		}
 	}
 
@@ -3182,6 +3190,12 @@ func _process_apply_saves_ai_atomic(action: Dictionary) -> Dictionary:
 func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 	# Auto-roll saves for AI - no UI interaction needed
 	# Returns: {changes: [], casualties: int, dice_blocks: []}
+	# 11e (05.03-05.04): the computer allocates for the defender through the
+	# SAME grouped allocation engine the interactive AllocationGroupOverlay
+	# uses — never the legacy per-wound round-robin below, which spread failed
+	# saves across models (two failed D1 saves on two W2 models killed nobody).
+	if GameConstants.edition >= 11:
+		return _auto_roll_saves_11e(save_data_list)
 	var all_changes = []
 	var total_casualties = 0
 	var all_dice_blocks = []
@@ -3401,6 +3415,81 @@ func _auto_roll_saves(save_data_list: Array) -> Dictionary:
 		_emit_verbose_combat_log(active_shooter_id, [], all_dice_blocks, damage_result.casualties, "shooting_saves")
 
 	return {"changes": all_changes, "casualties": total_casualties, "dice_blocks": all_dice_blocks}
+
+# 11e automatic save resolution for the defender (AI defender, or a human
+# who delegated allocation to the computer): one allocation batch per
+# save_data via RulesEngine.resolve_allocation_batch_11e — 05.03 groups in a
+# legal default order, the batch rolled, damage applied lowest roll first
+# onto the current group's wounded model before any other (05.04), devastating
+# crits as per-crit mortal wounds, attached characters reached last. The
+# casualty choice inside a group uses the same CasualtyPreference ordering as
+# the overlay's auto mode. Batches against the same unit see the previous
+# batches' damage (a working copy of the board carries it forward).
+func _auto_roll_saves_11e(save_data_list: Array) -> Dictionary:
+	var all_changes: Array = []
+	var total_casualties := 0
+	var all_dice_blocks: Array = []
+	var work_board: Dictionary = game_state_snapshot.duplicate(true)
+	for save_data in save_data_list:
+		var target_unit_id := str(save_data.get("target_unit_id", ""))
+		var wounds_to_save := int(save_data.get("wounds_to_save", 0))
+		var dev_wounds := int(save_data.get("devastating_wounds", 0))
+		if wounds_to_save <= 0 and dev_wounds <= 0:
+			continue
+		var live_target: Dictionary = work_board.get("units", {}).get(target_unit_id, {})
+		var any_alive := false
+		for m in live_target.get("models", []):
+			if m.get("alive", true):
+				any_alive = true
+				break
+		if not any_alive:
+			log_phase_message("Skipped %s — target %s destroyed" % [save_data.get("weapon_name", "Unknown"), save_data.get("target_unit_name", target_unit_id)])
+			continue
+
+		var virtual_unit: Dictionary = RulesEngine.build_attached_allocation_unit_11e(target_unit_id, work_board).unit
+		var defender := int(live_target.get("owner", 0))
+		var preferred: Array = CasualtyPreference.compute_preferred_targets(virtual_unit, work_board, {"defender_player": defender})
+		var batch = RulesEngine.resolve_allocation_batch_11e(save_data, [], work_board, RulesEngine.make_rng(), {
+			"preferred_targets": preferred,
+		})
+		var diffs: Array = batch.get("diffs", [])
+		all_changes.append_array(diffs)
+		_apply_set_diffs_to_board(work_board, diffs)
+		var casualties := int(batch.get("casualties", 0))
+		total_casualties += casualties
+		if casualties > 0 and target_unit_id != "":
+			CharacterAttachmentManager.check_bodyguard_destroyed(target_unit_id)
+
+		for blk in RulesEngine.normalize_allocation_11e_dice(batch, {
+				"target_unit_name": save_data.get("target_unit_name", ""),
+				"weapon_name": save_data.get("weapon_name", "")}):
+			if blk.get("context", "") in ["save_roll", "feel_no_pain"]:
+				dice_log.append(blk)
+				emit_signal("dice_rolled", blk)
+			all_dice_blocks.append(blk)
+
+		log_phase_message("AI saves (11e allocation, order %s): %s - %d passed, %d failed → %d casualties" % [
+			str(batch.get("order_used", [])), save_data.get("target_unit_name", "Unknown"),
+			int(batch.get("saves_passed", 0)), int(batch.get("saves_failed", 0)), casualties])
+		_emit_verbose_combat_log(active_shooter_id, [], all_dice_blocks, casualties, "shooting_saves")
+
+	return {"changes": all_changes, "casualties": total_casualties, "dice_blocks": all_dice_blocks}
+
+# Apply `set` diffs on "units.<id>.models.<i>.<field>" paths to a board copy
+# (the shape resolve_allocation_batch_11e emits) so later batches in the
+# same activation see earlier casualties.
+static func _apply_set_diffs_to_board(board: Dictionary, diffs: Array) -> void:
+	for diff in diffs:
+		if str(diff.get("op", "")) != "set":
+			continue
+		var parts = str(diff.get("path", "")).split(".")
+		if parts.size() != 5 or parts[0] != "units" or parts[2] != "models":
+			continue
+		var unit = board.get("units", {}).get(parts[1], {})
+		var models: Array = unit.get("models", [])
+		var mi := int(parts[3])
+		if mi >= 0 and mi < models.size():
+			models[mi][parts[4]] = diff.get("value")
 
 func _process_resolve_weapon_sequence(action: Dictionary) -> Dictionary:
 	"""Process weapon sequence resolution - either fast roll or sequential"""
@@ -3662,7 +3751,8 @@ func _resolve_next_weapon() -> Dictionary:
 		"type": "SHOOT",
 		"actor_unit_id": active_shooter_id,
 		"payload": {
-			"assignments": [current_assignment]  # Only this weapon
+			"assignments": [current_assignment],  # Only this weapon
+			"shooting_type": active_shooting_type  # 10.07 consequences follow the selected type
 		}
 	}
 
@@ -4055,7 +4145,7 @@ func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, curren
 	emit_signal("dice_rolled", progress)
 
 	# Roll ONLY the hit roll for this weapon.
-	var shoot_action = {"type": "SHOOT", "actor_unit_id": active_shooter_id, "payload": {"assignments": [current_assignment]}}
+	var shoot_action = {"type": "SHOOT", "actor_unit_id": active_shooter_id, "payload": {"assignments": [current_assignment], "shooting_type": active_shooting_type}}
 	var rng = RulesEngine.make_rng()
 	var hres = RulesEngine.resolve_shoot_hits(shoot_action, game_state_snapshot, rng)
 	if not hres.get("success", false):
@@ -4091,7 +4181,8 @@ func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, curren
 		return _staged_continue_to_wounds(false)
 
 	var hc = hres.get("hit_context", {})
-	var can_reroll = _shooting_reroll_available() and not hc.get("is_torrent", false) and not (hc.get("hit_rolls", []) as Array).is_empty()
+	var can_reroll = _shooting_reroll_available() and not hc.get("is_torrent", false) \
+			and not hc.get("no_hit_rerolls", false) and not (hc.get("hit_rolls", []) as Array).is_empty()
 
 	# Tell the attacker's dialog we are paused after the hit roll (show a
 	# "Roll to Wound" button + optional per-die Command Re-roll).
@@ -4104,7 +4195,7 @@ func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, curren
 		"hit_rolls": hc.get("hit_rolls", []),
 		"modified_rolls": hc.get("modified_rolls", []),
 		"hits": hc.get("hits", 0),
-		"threshold": str(hc.get("bs", 4)) + "+",
+		"threshold": str(hc.get("hit_threshold_display", str(hc.get("bs", 4)) + "+")),  # effective need (cover / indirect band)
 		# Named provenance for every hit modifier that applied — the dock lists
 		# these so a shifted threshold is traceable to the rule behind it.
 		"modifier_ledger": hc.get("modifier_ledger", [])

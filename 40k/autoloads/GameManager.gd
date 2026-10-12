@@ -666,8 +666,21 @@ func process_set_advance_bonus(action: Dictionary) -> Dictionary:
 func process_end_movement(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_MOVEMENT action")
 	var next_phase = _get_next_phase(GameStateData.Phase.MOVEMENT)
+	# 09.02: every unit must have been selected to move before the step ends —
+	# the ones the player left unselected remain stationary (09.04). Same
+	# diffs MovementPhase._process_end_movement applies in single-player, so
+	# both peers record the move (and its [HEAVY] eligibility) identically.
+	var diffs: Array = []
+	var phase_mgr = _get_phase_manager()
+	var movement_phase = phase_mgr.get_current_phase_instance() if phase_mgr else null
+	if movement_phase and movement_phase.has_method("get_end_movement_remain_stationary_changes"):
+		var player := int(action.get("player", GameState.get_active_player()))
+		diffs.append_array(movement_phase.get_end_movement_remain_stationary_changes(player))
+		if not diffs.is_empty() and phase_mgr.has_method("apply_state_changes"):
+			phase_mgr.apply_state_changes(diffs)
 	_trigger_phase_completion()
-	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
+	diffs.append({"op": "set", "path": "meta.phase", "value": next_phase})
+	return {"success": true, "diffs": diffs}
 
 func process_disembark(action: Dictionary) -> Dictionary:
 	return _delegate_to_current_phase(action)
@@ -726,6 +739,16 @@ func process_end_charge(action: Dictionary) -> Dictionary:
 
 func process_end_fight(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_FIGHT action")
+	# 12.04 / p.74: while units are still eligible to fight, END_FIGHT can only
+	# be the selecting player's PASS (the phase validator rejects anything
+	# else). A pass hands the selection to the opponent — it must NOT end the
+	# phase, so let the FightPhase process it like single-player does.
+	var phase_mgr = _get_phase_manager()
+	var fight_phase = phase_mgr.get_current_phase_instance() if phase_mgr else null
+	if fight_phase and fight_phase.has_method("get_end_fight_status") \
+			and not fight_phase.get_end_fight_status().step_over:
+		print("GameManager: END_FIGHT is a p.74 pass — delegating to FightPhase")
+		return _delegate_to_current_phase(action)
 	var next_phase = _get_next_phase(GameStateData.Phase.FIGHT)
 	_trigger_phase_completion()
 	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}

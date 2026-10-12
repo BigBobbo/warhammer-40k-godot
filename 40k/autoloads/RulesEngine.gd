@@ -759,7 +759,8 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 	}
 
 	var actor_unit_id = action.get("actor_unit_id", "")
-	var assignments = action.get("payload", {}).get("assignments", [])
+	# 10.02: the selected shooting type rides on every assignment (10.07).
+	var assignments = _stamp_shooting_type(action.get("payload", {}).get("assignments", []), action)
 
 	if assignments.is_empty():
 		result.success = false
@@ -843,7 +844,8 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 	}
 
 	var actor_unit_id = action.get("actor_unit_id", "")
-	var assignments = action.get("payload", {}).get("assignments", [])
+	# 10.02: the selected shooting type rides on every assignment (10.07).
+	var assignments = _stamp_shooting_type(action.get("payload", {}).get("assignments", []), action)
 
 	if assignments.is_empty():
 		result.success = false
@@ -919,7 +921,8 @@ static func resolve_shoot_hits(action: Dictionary, board: Dictionary, rng_servic
 		rng_service = make_rng()
 	var result = {"success": true, "phase": "SHOOTING", "dice": [], "log_text": "", "no_hits": true}
 	var actor_unit_id = action.get("actor_unit_id", "")
-	var assignments = action.get("payload", {}).get("assignments", [])
+	# 10.02: the selected shooting type rides on every assignment (10.07).
+	var assignments = _stamp_shooting_type(action.get("payload", {}).get("assignments", []), action)
 	if assignments.is_empty():
 		result.success = false
 		result.log_text = "No weapon assignments provided"
@@ -986,6 +989,8 @@ static func reroll_hit_die(hit_context: Dictionary, die_index: int, rng_service:
 		rng_service = make_rng()
 	if hit_context.get("is_torrent", false):
 		return {"success": false, "error": "Torrent weapons make no hit roll to re-roll"}
+	if hit_context.get("no_hit_rerolls", false):
+		return {"success": false, "error": "Indirect shooting: hit rolls cannot be re-rolled (10.07)"}
 	var evals = hit_context.get("hit_evals", [])
 	if die_index < 0 or die_index >= evals.size():
 		return {"success": false, "error": "Invalid hit die index %d" % die_index}
@@ -1688,7 +1693,7 @@ static func _apply_diff_to_board(board: Dictionary, diff: Dictionary) -> void:
 # with a "mixed" note. The suffix must stay digit-free: consumers parse the
 # number back out with String.to_int(), which concatenates EVERY digit in
 # the string ("2+/3+" would read back as 23).
-static func _hit_threshold_display(base_bs: int, bs_per_attack: Array, cover_worsened_attacks: int = 0) -> String:
+static func _hit_threshold_display(base_bs: int, bs_per_attack: Array, cover_worsened_attacks: int = 0, fail_band: int = 1) -> String:
 	var shown := base_bs
 	var mixed := false
 	if not bs_per_attack.is_empty():
@@ -1703,6 +1708,11 @@ static func _hit_threshold_display(base_bs: int, bs_per_attack: Array, cover_wor
 	# An unmodified 1 always fails — a modifier-improved "1+" still reads 2+.
 	shown = maxi(shown, 2)
 	var notes: Array = []
+	# 10.07 indirect shooting: an unmodified 1-5 (or 1-3) fails whatever the
+	# BS — show the roll the die actually needed, so a 5 is not drawn as a hit.
+	if fail_band > 1 and fail_band + 1 > shown:
+		shown = fail_band + 1
+		notes.append("indirect")
 	if cover_worsened_attacks > 0:
 		notes.append("cover")
 	if mixed:
@@ -1989,6 +1999,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 	var heavy_bonus_applied = false
 	var bgnt_penalty_applied = false
 	var indirect_fire_applied = false
+	var indirect_consequences: bool = false  # 11e 10.07 — set in the hit branch below
 	var hit_rolls = []
 	var modified_rolls = []
 	var reroll_data = []
@@ -2135,6 +2146,13 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		# Issue #371: per 10e RAW, the -1 penalty + Benefit of Cover only apply
 		# when the target is NOT visible to any model in the firing unit.
 		var indirect_target_visible = is_indirect_fire and _has_los_to_target_unit(actor_unit_id, target_unit_id, board)
+		# 11e (10.07): the WHILE SHOOTING consequences (cover, no hit re-rolls,
+		# the 1-5 / 1-3 fail band) follow the shooting type the player SELECTED
+		# for the unit, not whether the target happens to be visible. Callers
+		# stamp it on the assignment (_stamp_shooting_type); without it (legacy
+		# callers) fall back to "unseen target ⇒ indirect" — the only legal way
+		# to shoot an unseen target.
+		indirect_consequences = _indirect_consequences_apply(is_indirect_fire, indirect_target_visible, assignment)
 		# 11e (10.07): the indirect penalty is a harsh UNMODIFIED fail band (see
 		# hit_fail_band below), not a -1 modifier — gate the 10e -1 off at e11.
 		if is_indirect_fire and not indirect_target_visible and GameConstants.edition < 11:
@@ -2277,7 +2295,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 					# has the benefit of cover per attack, regardless of terrain
 					# — at 11e that worsens the attacker's BS here (13.08), not
 					# the save.
-					var pa_indirect_cover: bool = is_indirect_fire and not indirect_target_visible
+					var pa_indirect_cover: bool = indirect_consequences
 					var pa_fallback: Dictionary = ms_firing_models[0] if not ms_firing_models.is_empty() else {}
 					var pa_cover_cache: Dictionary = {}
 					var pa_covered_count := 0
@@ -2312,16 +2330,17 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		# fail band (#371, unseen targets only) and CONVERSION's crit
 		# threshold (T4-16) are parameters.
 		hit_fail_band = 1
-		if is_indirect_fire and not indirect_target_visible:
+		if indirect_consequences:
 			# 11e (10.07): unmodified 1-5 fails (need a 6), unless the firing unit
 			# remained stationary AND the target is visible to a friendly unit, in
 			# which case 1-3 fails (need 4+). 10e: 1-3 fails (4+).
 			hit_fail_band = _indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3
-			# 11e (10.07): "hit rolls cannot be re-rolled" while shooting
-			# indirect at an unseen target.
+			print("RulesEngine: [10.07] INDIRECT shooting — unmodified 1-%d fails (target visible to shooter: %s, type: %s)" % [hit_fail_band, str(indirect_target_visible), str(assignment.get("shooting_type", "inferred"))])
+			# 11e (10.07): "You cannot re-roll hit rolls" for every attack an
+			# [INDIRECT FIRE] weapon makes while the unit shoots indirect.
 			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)):
 				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)
-				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed (unseen target)")
+				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed")
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			# MA-10: Use per-model BS for this attack's threshold
@@ -2401,7 +2420,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 
 		# The displayed target must match what each die was judged against —
 		# bs_per_attack carries the effective (cover/plunging-adjusted) BS.
-		hit_threshold_display = _hit_threshold_display(bs, bs_per_attack, cover_worsened_attacks)
+		hit_threshold_display = _hit_threshold_display(bs, bs_per_attack, cover_worsened_attacks, hit_fail_band)
 		result.dice.append({
 			"context": "to_hit",
 			"threshold": hit_threshold_display,
@@ -2464,6 +2483,9 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		"total_hits_for_wounds": total_hits_for_wounds,
 		"weapon_has_lethal_hits": weapon_has_lethal_hits,
 		"is_torrent": is_torrent,
+		# 11e 10.07: indirect shooting — "You cannot re-roll hit rolls" (also
+		# blocks the staged Command Re-roll of a hit die).
+		"no_hit_rerolls": indirect_consequences and GameConstants.edition >= 11,
 		"hit_rolls": hit_rolls,
 		"modified_rolls": modified_rolls,
 		"hit_evals": hit_evals,
@@ -3992,6 +4014,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var heavy_bonus_applied = false
 	var bgnt_penalty_applied = false
 	var indirect_fire_applied = false
+	var indirect_consequences: bool = false  # 11e 10.07 — set in the hit branch below
 	var hit_rolls = []
 	var modified_rolls = []
 	var reroll_data = []
@@ -4129,6 +4152,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# Issue #371: per 10e RAW, the -1 penalty + Benefit of Cover only apply
 		# when the target is NOT visible to any model in the firing unit.
 		var indirect_target_visible = is_indirect_fire and _has_los_to_target_unit(actor_unit_id, target_unit_id, board)
+		# 11e (10.07): the WHILE SHOOTING consequences (cover, no hit re-rolls,
+		# the 1-5 / 1-3 fail band) follow the shooting type the player SELECTED
+		# for the unit, not whether the target happens to be visible. Callers
+		# stamp it on the assignment (_stamp_shooting_type); without it (legacy
+		# callers) fall back to "unseen target ⇒ indirect" — the only legal way
+		# to shoot an unseen target.
+		indirect_consequences = _indirect_consequences_apply(is_indirect_fire, indirect_target_visible, assignment)
 		# 11e (10.07): the indirect penalty is a harsh UNMODIFIED fail band (see
 		# hit_fail_band below), not a -1 modifier — gate the 10e -1 off at e11.
 		if is_indirect_fire and not indirect_target_visible and GameConstants.edition < 11:
@@ -4258,7 +4288,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 					# has the benefit of cover per attack, regardless of terrain
 					# — at 11e that worsens the attacker's BS here (13.08), not
 					# the save.
-					var pa_indirect_cover: bool = is_indirect_fire and not indirect_target_visible
+					var pa_indirect_cover: bool = indirect_consequences
 					var pa_fallback: Dictionary = ms_firing_models[0] if not ms_firing_models.is_empty() else {}
 					var pa_cover_cache: Dictionary = {}
 					var pa_covered_count := 0
@@ -4293,16 +4323,17 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# fail band (#371, unseen targets only) and CONVERSION's crit
 		# threshold (T4-16) are parameters.
 		var hit_fail_band = 1
-		if is_indirect_fire and not indirect_target_visible:
+		if indirect_consequences:
 			# 11e (10.07): unmodified 1-5 fails (need a 6), unless the firing unit
 			# remained stationary AND the target is visible to a friendly unit, in
 			# which case 1-3 fails (need 4+). 10e: 1-3 fails (4+).
 			hit_fail_band = _indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3
-			# 11e (10.07): "hit rolls cannot be re-rolled" while shooting
-			# indirect at an unseen target.
+			print("RulesEngine: [10.07] INDIRECT shooting — unmodified 1-%d fails (target visible to shooter: %s, type: %s)" % [hit_fail_band, str(indirect_target_visible), str(assignment.get("shooting_type", "inferred"))])
+			# 11e (10.07): "You cannot re-roll hit rolls" for every attack an
+			# [INDIRECT FIRE] weapon makes while the unit shoots indirect.
 			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)):
 				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)
-				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed (unseen target)")
+				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed")
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			# MA-10: Use per-model BS for this attack's threshold
@@ -4381,7 +4412,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# The displayed target must match what each die was judged against —
 		# bs_per_attack carries the effective (cover/plunging-adjusted) BS.
-		hit_threshold_display = _hit_threshold_display(bs, bs_per_attack, cover_worsened_attacks)
+		hit_threshold_display = _hit_threshold_display(bs, bs_per_attack, cover_worsened_attacks, hit_fail_band)
 		result.dice.append({
 			"context": "to_hit",
 			"threshold": hit_threshold_display,
@@ -5734,6 +5765,43 @@ static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, inv
 		"use_invuln": use_invuln,
 		"cap_applied": improvement > 1
 	}
+
+## 11e (10.07): do an [INDIRECT FIRE] weapon's indirect-shooting WHILE
+## SHOOTING consequences apply to this attack? At 11e they follow the shooting
+## type the player SELECTED for the unit (assignment.shooting_type, stamped by
+## _stamp_shooting_type): "indirect" ⇒ yes even against a VISIBLE target; any
+## other selected type ⇒ no. An unstamped assignment (overwatch, Mathhammer,
+## legacy callers) falls back to "unseen target ⇒ indirect" — at 11e an unseen
+## target can only be shot by selecting indirect shooting. 10e keeps the
+## visibility rule (#371).
+static func _indirect_consequences_apply(is_indirect_fire: bool, target_visible: bool, assignment: Dictionary) -> bool:
+	if not is_indirect_fire:
+		return false
+	if GameConstants.edition >= 11:
+		var st := str(assignment.get("shooting_type", ""))
+		if st == "indirect":
+			return true
+		if st != "":
+			return false
+	return not target_visible
+
+## 10.02: the shooting type selected for the unit applies to every attack it
+## makes. Copy action.payload.shooting_type onto each assignment (without
+## mutating the caller's dicts) so per-attack resolution reads the selected
+## type instead of inferring it.
+static func _stamp_shooting_type(assignments: Array, action: Dictionary) -> Array:
+	var st := str(action.get("payload", {}).get("shooting_type", ""))
+	if st == "":
+		return assignments
+	var out: Array = []
+	for a in assignments:
+		if a is Dictionary and not a.has("shooting_type"):
+			var stamped: Dictionary = a.duplicate()
+			stamped["shooting_type"] = st
+			out.append(stamped)
+		else:
+			out.append(a)
+	return out
 
 ## 11e (10.07): the unmodified hit-roll fail band for INDIRECT shooting at a
 ## non-visible target. 1-5 fail (need 6); 1-3 fail (need 4+) only if the firing
@@ -15598,10 +15666,7 @@ static func resolve_transport_destruction(transport_unit_id: String, board: Dict
 	var per_unit: Array = []
 	var total_mortal_wounds: int = 0
 	var total_models_destroyed: int = 0
-	# Shared placement counter across ALL disembarking units — per-unit angle
-	# counters restarted at 0 for every unit, stacking the first model of each
-	# unit on the exact same point.
-	var global_place_idx: int = 0
+	var to_place: Array = []  # [{unit_id, unit_name, model_indices, result_index}] — placed after all hazard rolls
 
 	for embarked_id in embarked_unit_ids:
 		var embarked_unit = units.get(embarked_id, {})
@@ -15703,38 +15768,52 @@ static func resolve_transport_destruction(transport_unit_id: String, board: Dict
 			"value": true
 		})
 
-		# Position surviving models near the destroyed transport
-		var transport_models = transport.get("models", [])
-		var transport_pos = null
-		if not transport_models.is_empty():
-			transport_pos = transport_models[0].get("position", null)
-
-		if transport_pos != null:
-			var model_index = 0
-			for i in range(models.size()):
-				if models[i].get("alive", true):
-					# Place surviving models in expanding rings around the
-					# transport position. The shared global_place_idx keeps
-					# models of DIFFERENT units from stacking on one point;
-					# 12 slots per ring, ring radius grows 1.5" → 2.5" → 3.5"
-					# (18.05 allows set-up within 6" of the destroyed transport).
-					var ring = global_place_idx / 12
-					var slot = global_place_idx % 12
-					var angle = (2.0 * PI * slot) / 12.0 + ring * (PI / 12.0)
-					var offset_px = Measurement.inches_to_px(1.5 + 1.0 * ring)
-					var new_x = transport_pos.get("x", 0) + cos(angle) * offset_px
-					var new_y = transport_pos.get("y", 0) + sin(angle) * offset_px
-					unit_result["diffs"].append({
-						"op": "set",
-						"path": "units.%s.models.%d.position" % [embarked_id, i],
-						"value": {"x": new_x, "y": new_y}
-					})
-					model_index += 1
-					global_place_idx += 1
-			print("║   Positioned %d surviving model(s) around the destroyed transport" % model_index)
+		# 18.05 WHILE MOVING: models are set up after the hazard rolls — note
+		# which models those mortal wounds destroyed (the diffs are not applied
+		# to `board` here) so only survivors are placed.
+		var hazard_dead: Dictionary = {}
+		for d in unit_result["diffs"]:
+			var dp = str(d.get("path", "")).split(".")
+			if dp.size() == 5 and dp[0] == "units" and dp[1] == embarked_id and dp[2] == "models" \
+					and dp[4] == "alive" and d.get("value") == false:
+				hazard_dead[int(dp[3])] = true
+		var survivors: Array = []
+		for i in range(models.size()):
+			if models[i].get("alive", true) and not hazard_dead.has(i):
+				survivors.append(i)
+		to_place.append({"unit_id": embarked_id, "unit_name": unit_name, "model_indices": survivors,
+			"result_index": per_unit.size()})
 
 		all_diffs.append_array(unit_result["diffs"])
 		per_unit.append(unit_result)
+
+	# 18.05 WHILE MOVING: set up every surviving model wholly within 6" of
+	# the destroyed TRANSPORT and as close as possible to it, as a legal set
+	# up (03.02: on the battlefield, not overlapping models or terrain it
+	# cannot stand in, unengaged, in coherency). "Each model that cannot be set
+	# up in this way is destroyed."
+	var placement = _emergency_disembark_placements(transport, to_place, board)
+	for entry in to_place:
+		var uid: String = entry.unit_id
+		var ur: Dictionary = per_unit[int(entry.result_index)]
+		var placed: Dictionary = placement.placed.get(uid, {})
+		var unplaced: Array = placement.destroyed.get(uid, [])
+		for mi in placed:
+			var pos: Vector2 = placed[mi]
+			ur["diffs"].append({"op": "set", "path": "units.%s.models.%d.position" % [uid, int(mi)],
+				"value": {"x": pos.x, "y": pos.y}})
+			all_diffs.append(ur["diffs"][-1])
+		for mi in unplaced:
+			for d in [{"op": "set", "path": "units.%s.models.%d.current_wounds" % [uid, int(mi)], "value": 0},
+					{"op": "set", "path": "units.%s.models.%d.alive" % [uid, int(mi)], "value": false}]:
+				ur["diffs"].append(d)
+				all_diffs.append(d)
+		ur["models_placed"] = placed.size()
+		ur["models_unplaceable"] = unplaced.size()
+		ur["models_destroyed"] = int(ur.get("models_destroyed", 0)) + unplaced.size()
+		total_models_destroyed += unplaced.size()
+		print("║   %s: %d model(s) set up within 6\" (nearest first), %d could not be set up legally and are destroyed (18.05)" % [
+			entry.unit_name, placed.size(), unplaced.size()])
 
 	# Clear the transport's embarked_units list
 	all_diffs.append({
@@ -15757,6 +15836,178 @@ static func resolve_transport_destruction(transport_unit_id: String, board: Dict
 		"total_models_destroyed": total_models_destroyed,
 		"all_diffs": all_diffs
 	}
+
+# 18.05 emergency disembark placement. Pure (does not mutate `board`).
+# `to_place`: [{unit_id, model_indices}] in the order to set up. Returns
+# {placed: {unit_id: {model_index: Vector2}}, destroyed: {unit_id: [model_index]},
+#  rejected: {reason: count}} where `rejected` tallies why candidate spots
+# were illegal (for the log / tests).
+#
+# Search: candidate centres on a 0.5" grid around the transport, filtered per
+# base size by the static set-up rules — wholly within 6" of the transport
+# hull, not overlapping the transport or any other model, on the battlefield,
+# not overlapping walls / dense terrain the unit cannot stand in, and outside
+# engagement range of every enemy model (03.02 "unengaged") — then sorted
+# nearest-first (edge-to-edge distance to the transport; ties broken by y, x
+# so the result is deterministic). Each model takes the nearest remaining
+# candidate that does not overlap a model already placed by this disembark and
+# keeps its unit in coherency (03.03); a model with no such spot is destroyed.
+const EMERGENCY_DISEMBARK_GRID_INCHES := 0.5
+
+static func _emergency_disembark_placements(transport: Dictionary, to_place: Array, board: Dictionary) -> Dictionary:
+	var out = {"placed": {}, "destroyed": {}, "rejected": {}}
+	var units: Dictionary = board.get("units", {})
+	var transport_model: Dictionary = {}
+	for tm in transport.get("models", []):
+		if tm.get("position", null) != null:
+			transport_model = tm.duplicate()
+			break
+	if transport_model.is_empty():
+		# No footprint to measure from — nothing can be set up within 6".
+		for entry in to_place:
+			out.destroyed[entry.unit_id] = entry.model_indices.duplicate()
+		return out
+	transport_model["alive"] = true  # its footprint still blocks set up
+	var t_pos: Vector2 = _get_model_position(transport_model)
+	var t_extent: float = Measurement.base_extent_px(transport_model)
+	var setup_px: float = Measurement.inches_to_px(6.0)
+	var er_px: float = Measurement.inches_to_px(GameConstants.engagement_range_inches())
+	var owner := int(transport.get("owner", 0))
+
+	# Units whose models are being set up must not block themselves (embarked
+	# models can carry stale positions).
+	var placing_ids: Dictionary = {}
+	for entry in to_place:
+		placing_ids[entry.unit_id] = true
+	# Other on-table models near the transport (cheap centre-distance prefilter).
+	var reach: float = t_extent + setup_px + er_px + Measurement.inches_to_px(4.0)
+	var blockers: Array = []  # [{model, enemy: bool, extent}]
+	for uid in units:
+		if placing_ids.has(uid) or uid == str(transport.get("id", "")):
+			continue
+		var u = units[uid]
+		if u.get("embarked_in", null) != null:
+			continue
+		# Off-table units (undeployed / in strategic reserves) can carry stale
+		# positions — they occupy no ground.
+		if int(u.get("status", GameStateData.UnitStatus.DEPLOYED)) in [GameStateData.UnitStatus.UNDEPLOYED,
+				GameStateData.UnitStatus.DEPLOYING, GameStateData.UnitStatus.IN_RESERVES]:
+			continue
+		for m in u.get("models", []):
+			if not m.get("alive", true) or m.get("position", null) == null:
+				continue
+			var mp: Vector2 = _get_model_position(m)
+			if mp.distance_to(t_pos) > reach:
+				continue
+			blockers.append({"model": m, "enemy": int(u.get("owner", 0)) != owner, "extent": Measurement.base_extent_px(m)})
+
+	var grid_px: float = Measurement.inches_to_px(EMERGENCY_DISEMBARK_GRID_INCHES)
+	var span: float = t_extent + setup_px
+	var steps: int = int(ceil(span / grid_px))
+	var candidates_by_sig: Dictionary = {}
+	var placed_models: Array = []  # [{model, group}] models set up by this disembark
+	var group_members: Dictionary = {}  # coherency group -> [model dicts]
+
+	for entry in to_place:
+		var uid: String = entry.unit_id
+		var unit: Dictionary = units.get(uid, {})
+		var keywords: Array = unit.get("meta", {}).get("keywords", [])
+		var group_id: String = attached_unit_target_id(uid, board)
+		out.placed[uid] = {}
+		out.destroyed[uid] = []
+		for mi in entry.model_indices:
+			var model: Dictionary = unit.get("models", [])[int(mi)]
+			var sig := "%s|%s|%s|%s|%s" % [str(model.get("base_type", "circular")), str(model.get("base_mm", 32)),
+				str(model.get("base_dimensions", {})), str(model.get("rotation", 0.0)), ",".join(PackedStringArray(keywords))]
+			if not candidates_by_sig.has(sig):
+				candidates_by_sig[sig] = _emergency_disembark_candidates(model, keywords, transport_model, t_pos,
+					setup_px, steps, grid_px, blockers, out.rejected)
+			var chosen = null
+			for cand in candidates_by_sig[sig]:
+				var test_model: Dictionary = model.duplicate()
+				test_model["position"] = cand.pos
+				test_model["alive"] = true
+				var clash := false
+				for pm in placed_models:
+					if Measurement.models_overlap(test_model, pm):
+						clash = true
+						break
+				if clash:
+					out.rejected["overlaps a disembarking model"] = int(out.rejected.get("overlaps a disembarking model", 0)) + 1
+					continue
+				var members: Array = group_members.get(group_id, [])
+				if not members.is_empty():
+					var near_one := false
+					var within_nine := true
+					for other in members:
+						var d_in: float = Measurement.model_to_model_distance_inches(test_model, other)
+						if d_in <= 2.0 + 0.01:
+							near_one = true
+						if d_in > 9.0 + 0.01:
+							within_nine = false
+					if not near_one or not within_nine:
+						out.rejected["breaks coherency"] = int(out.rejected.get("breaks coherency", 0)) + 1
+						continue
+				chosen = test_model
+				break
+			if chosen == null:
+				out.destroyed[uid].append(int(mi))
+				continue
+			out.placed[uid][int(mi)] = _get_model_position(chosen)
+			placed_models.append(chosen)
+			if not group_members.has(group_id):
+				group_members[group_id] = []
+			group_members[group_id].append(chosen)
+	return out
+
+# Statically legal set-up spots for one base size, nearest-first (see above).
+static func _emergency_disembark_candidates(model: Dictionary, keywords: Array, transport_model: Dictionary, t_pos: Vector2, setup_px: float, steps: int, grid_px: float, blockers: Array, rejected: Dictionary) -> Array:
+	var cands: Array = []
+	var extent: float = Measurement.base_extent_px(model)
+	var er_px: float = Measurement.inches_to_px(GameConstants.engagement_range_inches())
+	for gy in range(-steps, steps + 1):
+		for gx in range(-steps, steps + 1):
+			var pos := t_pos + Vector2(gx * grid_px, gy * grid_px)
+			var test_model: Dictionary = model.duplicate()
+			test_model["position"] = pos
+			test_model["alive"] = true
+			# Wholly within 6" of the TRANSPORT: the farthest point of this
+			# base is within 6" of the transport hull.
+			if Measurement.model_edge_to_point_distance_px(transport_model, pos) + extent > setup_px + 0.5:
+				rejected["not wholly within 6\""] = int(rejected.get("not wholly within 6\"", 0)) + 1
+				continue
+			if Measurement.models_overlap(test_model, transport_model):
+				rejected["overlaps the transport"] = int(rejected.get("overlaps the transport", 0)) + 1
+				continue
+			if Measurement.model_outside_board(pos, test_model):
+				rejected["off the battlefield"] = int(rejected.get("off the battlefield", 0)) + 1
+				continue
+			if Measurement.model_overlaps_any_wall(test_model, keywords):
+				rejected["terrain"] = int(rejected.get("terrain", 0)) + 1
+				continue
+			var illegal := ""
+			for b in blockers:
+				var bp: Vector2 = _get_model_position(b.model)
+				var centre: float = bp.distance_to(pos)
+				if centre > extent + float(b.extent) + er_px + 1.0:
+					continue
+				if Measurement.models_overlap(test_model, b.model):
+					illegal = "overlaps a model"
+					break
+				if b.enemy and Measurement.is_in_engagement_range_shape_aware(test_model, b.model):
+					illegal = "within engagement range of an enemy"
+					break
+			if illegal != "":
+				rejected[illegal] = int(rejected.get(illegal, 0)) + 1
+				continue
+			cands.append({"pos": pos, "dist": Measurement.model_to_model_distance_px(test_model, transport_model)})
+	cands.sort_custom(func(a, b):
+		if not is_equal_approx(a.dist, b.dist):
+			return a.dist < b.dist
+		if not is_equal_approx(a.pos.y, b.pos.y):
+			return a.pos.y < b.pos.y
+		return a.pos.x < b.pos.x)
+	return cands
 
 # ==========================================
 # DREAD FOE (P1-17)
@@ -16187,6 +16438,13 @@ static func roll_hold_still_mortal_wounds(hit_context: Dictionary, all_critical_
 ## damage-application result (diffs, casualties).
 static func apply_damage_to_unit_pool(target_unit_id: String, total_damage: int, models: Array, board: Dictionary) -> Dictionary:
 	return _apply_damage_to_unit_pool(target_unit_id, total_damage, models, board)
+
+## 19.03 + 05.03: the Attached unit headed by target_unit_id folded into one
+## virtual unit for allocation ({unit, sources}) — what
+## resolve_allocation_batch_11e allocates against (attached CHARACTERs become
+## per-model CHARACTER groups reached last).
+static func build_attached_allocation_unit_11e(target_unit_id: String, board: Dictionary) -> Dictionary:
+	return _build_attached_allocation_unit_11e(target_unit_id, board)
 
 ## Model dict lookup by id within a unit ({} if absent).
 static func get_model_by_id(unit: Dictionary, model_id: String) -> Dictionary:
