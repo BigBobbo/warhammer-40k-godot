@@ -830,6 +830,11 @@ func _destroy_remaining_reserves() -> Array:
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.get("status", -1) == GameStateData.UnitStatus.IN_RESERVES:
+			# 11e 20.04 exception: repositioned units (20.02 — removed from the
+			# battlefield into strategic reserves during the battle, e.g.
+			# INSTINCTIVE HUNTERS) are not destroyed.
+			if unit.get("flags", {}).get("repositioned_to_reserves", false):
+				continue
 			reserves_unit_ids.append(unit_id)
 
 	# Second pass: also find units embarked in a reserves transport

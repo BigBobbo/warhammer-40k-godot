@@ -15614,6 +15614,10 @@ func _refresh_after_window_action() -> void:
 		GameStateData.Phase.COMMAND:
 			update_after_command_action()
 		_:
+			# The answer may have completed the phase (e.g. a fight_phase_end
+			# follow-up embarked a unit / sent it to strategic reserves, then the
+			# phase ended): redraw the tokens so the board matches the state.
+			_recreate_unit_visuals()
 			refresh_unit_list()
 			update_ui()
 

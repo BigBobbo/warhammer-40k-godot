@@ -163,14 +163,27 @@ func _section_registry() -> void:
 	for s in SM.get_faction_stratagems_for_player(1):
 		impl[str(s.get("csv_id", ""))] = bool(s.get("implemented", false))
 	_check("War Horde: HIT 'EM HARDER implemented", impl.get(HIT_CSV, false) == true, str(impl))
-	var others_off := true
+	# The other rows' implemented flag follows the registry (implementation
+	# groups add ids to their IMPLEMENTED; nothing else may mark a row).
+	var others_match := true
+	var unimpl_csv := ""
 	for k in impl:
-		if k != HIT_CSV and impl[k]:
-			others_off = false
-	_check("War Horde: the other five rows stay unimplemented", others_off and impl.size() == 6, str(impl))
-	var ontb = SM.find_faction_stratagem_by_name(1, "ORKS IS NEVER BEATEN")
-	var r = SM.can_use_stratagem(1, ontb, "U_BOYZ_B", {"window_id": "enemy_targets_unit_fight"})
-	_check("unimplemented codex row: 'not yet mechanically implemented'", not r.can_use and "not yet mechanically implemented" in str(r.reason), str(r))
+		if impl[k] != (k in _impl):
+			others_match = false
+		if not impl[k] and unimpl_csv == "":
+			unimpl_csv = k
+	_check("War Horde: implemented flags = the registry (6 rows)", others_match and impl.size() == 6, str(impl))
+	if unimpl_csv != "":
+		var unimpl_sid := ""
+		var unimpl_windows: Array = []
+		for s in SM.get_faction_stratagems_for_player(1):
+			if str(s.get("csv_id", "")) == unimpl_csv:
+				unimpl_sid = str(s.id)
+				unimpl_windows = s.get("timing", {}).get("windows", [])
+		var r = SM.can_use_stratagem(1, unimpl_sid, "U_BOYZ_B", {"window_id": str(unimpl_windows[0]) if not unimpl_windows.is_empty() else ""})
+		_check("unimplemented codex row: 'not yet mechanically implemented'", not r.can_use and "not yet mechanically implemented" in str(r.reason), str(r))
+	else:
+		print("  (every War Horde row is implemented — unimplemented-row check skipped)")
 
 
 func _section_gating(sid: String) -> void:
