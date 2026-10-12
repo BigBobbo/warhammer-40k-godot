@@ -1,0 +1,290 @@
+{
+  "id": "ork11e_grab_it_last_shooter",
+  "covers": [
+    "stratagem.window.unit_has_shot",
+    "stratagem.ork11e.grab_it",
+    "phases.BasePhase.phase_completion_deferred",
+    "stratagem.followup.reactive_normal_move",
+    "ui.Main.stratagem_panel_refused_during_followup"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "F1 regression: the Shooting phase must not complete while a stratagem window or its follow-up is pending. Fixture ork11e_orks_active (P1 Orks active). Setup privileges: P1's detachment is Wreckas; every other P1 unit is marked as having shot, so the Flash Gitz are the LAST shooter. The Flash Gitz shoot Custodian Guard C through the interactive flow (Fast Roll, Complete Shooting): every unit has now shot, yet the phase stays in Shooting because the unit_has_shot window (GRAB IT) is open. Use GRAB IT (1 CP) -> the reactive move panel opens and the phase still waits; drag the unit toward obj_nml_1 and Confirm move -> only now does the Shooting phase complete and the game moves to Charge. While the move is pending the S panel's Use path is refused too (F14).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"factions\"][\"1\"].merge({\"detachment\": \"Wreckas\"}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "StratagemManager.load_faction_stratagems_for_player(1)"
+    },
+    {
+      "act": "execute_script",
+      "script": "StratagemManager.find_faction_stratagem_by_name(1, \"GRAB IT\")",
+      "equals": "faction_ork_wreckas_grab_it"
+    },
+    {
+      "act": "execute_script",
+      "script": "ResourceLoader.load(\"res://scripts/rules/ReactiveMove11e.gd\").group_within_objective_range(GameState.state, \"U_FLASH_GITZ_A\")",
+      "equals": false
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_FLASH_GITZ_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_FLASH_GITZ_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").active_shooter_id",
+      "equals": "U_FLASH_GITZ_A"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privilege: every other P1 unit has already shot -> the Flash Gitz are the LAST shooter",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar n = 0\nfor uid in GameState.state[\"units\"]:\n\tif int(GameState.state[\"units\"][uid].get(\"owner\", 0)) == 1 and str(uid) != \"U_FLASH_GITZ_A\" and not str(uid) in ph.units_that_shot:\n\t\tph.units_that_shot.append(str(uid))\n\t\tn += 1\nreturn n"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "DECLINE_AMMO_RUNT",
+        "actor_unit_id": "U_FLASH_GITZ_A"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_FLASH_GITZ_A",
+        "payload": {
+          "weapon_id": "snazzgun___kill_shot_ranged",
+          "target_unit_id": "U_CUSTODIAN_GUARD_C",
+          "model_ids": [
+            "m1",
+            "m2",
+            "m3",
+            "m4",
+            "m5"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_node",
+      "button_text": "Fast Roll ⏩"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/ConfirmRemovalButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_node",
+      "button_text": "Complete Shooting"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "screenshot",
+      "label": "01_after_last_shooter_completed"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_current_phase()",
+      "equals": 8,
+      "comment": "phase must still be SHOOTING while the GRAB IT window is pending"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._should_complete_phase()",
+      "equals": true,
+      "comment": "every unit has shot: only the pending window keeps the phase open"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")",
+      "equals": "unit_has_shot"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_wreckas_grab_it/Buttons/Use_faction_ork_wreckas_grab_it_U_FLASH_GITZ_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Ork11eReactiveMovePanel",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_current_phase()",
+      "equals": 8,
+      "comment": "the GRAB IT move (follow-up) still owns the phase"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "F14: the S panel's Use path (Main._on_stratagem_panel_use_requested) is refused while the GRAB IT follow-up owns the phase — no target picker opens, no CP is spent",
+      "script": "var cp = int(GameState.state[\"players\"][\"1\"][\"cp\"])\nSceneRefs.main()._on_stratagem_panel_use_requested(\"explosives\")\nreturn \"%s/%d\" % [str(tree.root.get_node_or_null(\"StratagemTargetDialog\") == null), int(GameState.state[\"players\"][\"1\"][\"cp\"]) - cp]",
+      "equals": "true/0"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_grab_it_move_pending_phase_still_shooting"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 160.0,
+      "from_y": 628.4,
+      "to_x": 240.0,
+      "to_y": 808.4,
+      "steps": 10
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Ork11eReactiveMovePanel/Content/Buttons/ConfirmButton",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Ork11eReactiveMovePanel/Content/Buttons/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_current_phase()",
+      "equals": 9,
+      "comment": "the move finished: the Shooting phase completes and the game moves to Charge"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_FLASH_GITZ_A.flags.ork11e_grab_it_no_charge",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_charge_phase_after_grab_it_move"
+    }
+  ]
+}

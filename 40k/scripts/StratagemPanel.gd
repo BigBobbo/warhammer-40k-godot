@@ -117,6 +117,10 @@ func populate(player: int, phase_id: int = -1) -> void:
 				var owner_id = strat_manager.get_stratagem_owner(sid)
 				if owner_id != 0 and owner_id != player:
 					continue
+				# F5 / LIVE-4: an owner-less faction stratagem (stale definition
+				# no army loaded) is nobody's — hide it from both players.
+				if owner_id == 0 and strat_manager.has_method("is_faction_stratagem") and strat_manager.is_faction_stratagem(sid):
+					continue
 			_list_container.add_child(_build_row(strat_manager, sid, strat, cp))
 
 

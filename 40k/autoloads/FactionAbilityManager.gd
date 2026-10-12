@@ -2845,7 +2845,11 @@ func force_battle_shock_test(unit_id: String, roll_modifier: int = 0, source: St
 		"PASSED" if passed else "FAILED (battle-shocked)"])
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if game_event_log:
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		# LIVE-10: the unique display name ("Custodian Guard Epsilon"), not the
+		# datasheet name — two units of the same datasheet must be told apart.
+		var unit_name = GameState.get_unit_display_name(unit_id)
+		if unit_name == "":
+			unit_name = unit.get("meta", {}).get("name", unit_id)
 		game_event_log.add_player_entry(int(unit.get("owner", 0)),
 			"%s: %s takes a Battle-shock test (%d vs Ld %d) — %s" % [
 				source, unit_name, total, ld, "passed" if passed else "FAILED"])

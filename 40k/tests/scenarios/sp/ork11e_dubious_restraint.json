@@ -35,6 +35,8 @@
     { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_taktikal_brigade_dubious_restraint/Buttons/Use_faction_ork_taktikal_brigade_dubious_restraint_U_KOMMANDOS_A" },
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "expect_node_visible", "node": "/root/StratagemChoiceDialog", "timeout_s": 3.0 },
+    {"act": "execute_script", "multiline": true, "script": "var d = tree.root.get_node(\"StratagemChoiceDialog\")\nreturn [d.title, d.get_node(\"Content/Prompt\").text.begins_with(\"Select the objective to secure\"), d.size.x >= 520]", "equals": ["DUBIOUS RESTRAINT", true, true], "comment": "r6:DR-2: the objective picker's instruction is in the body, not a truncated title"},
+    {"act": "execute_script", "multiline": true, "script": "var c = tree.root.get_node(\"StratagemChoiceDialog/Content\")\nreturn [c.get_node(\"Choice_obj_nml_1\").text.begins_with(\"NML 1 [\"), c.get_node(\"Choice_obj_center\").text.begins_with(\"CENTER [\"), c.get_node(\"Choice_obj_center\").text.contains(\"obj_\")]", "equals": [true, true, false], "comment": "r6:DR-2: objectives are named the way the board marker and the HUD objective panel name them (CENTER [NML], NML 1 [NML]), not by internal id"},
     { "act": "expect_node_visible", "node": "/root/StratagemChoiceDialog/Content/Choice_obj_nml_1" },
     { "act": "expect_node_visible", "node": "/root/StratagemChoiceDialog/Content/Choice_obj_center" },
     { "act": "expect_cp", "player": 1, "delta_from_start": 0, "comment": "nothing spent until the objective is picked" },

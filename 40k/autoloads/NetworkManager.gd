@@ -128,6 +128,139 @@ func _attach_manager_sync(result: Dictionary) -> void:
 	if game_state:
 		sync["players"] = game_state.state.get("players", {}).duplicate(true)
 	result["_manager_sync"] = sync
+	# Every host broadcast also carries the phase's stratagem follow-up state
+	# (F3: the client must see a follow-up start / end — see
+	# _followup_mirror_snapshot / _apply_followup_mirror).
+	result["_ork11e_followup"] = _followup_mirror_snapshot()
+
+# ============================================================================
+# STRATAGEM FOLLOW-UP MIRROR (Codex: Orks 11e, design §3.2) — F3
+# ============================================================================
+# A used stratagem's human follow-up (SCARPER! / WHIRLIGIG EVASION / WHILE
+# THEIR BACKS ARE TURNED reactive normal move, READIED BRAWLERS assault
+# disembark, GRAB IT / GOADED INTO ACTION shooting-phase move) is started by
+# the HOST's phase (_execute_window_followup) and its start signal
+# (unit_move_begun / ork11e_assault_disembark_requested /
+# ork11e_reactive_move_started) fired only there. The host now ships the
+# follow-up state with every result; the client copies it into its own phase
+# (so its validation and follow-up gate match the host's) and re-emits the
+# start signal — the decider's machine then shows the move / disembark UI.
+
+## Host: serializable snapshot of the current phase's pending follow-up ({}
+## when none).
+func _followup_mirror_snapshot() -> Dictionary:
+	var phase = _current_phase_for_validation()
+	if phase == null:
+		return {}
+	if "_ork11e_reactive_move" in phase and not phase._ork11e_reactive_move.is_empty():
+		return {"kind": "movement_reactive_move", "data": _sanitize_for_json(phase._ork11e_reactive_move)}
+	if "_ork11e_assault_disembark" in phase and not phase._ork11e_assault_disembark.is_empty():
+		return {"kind": "movement_assault_disembark", "data": _sanitize_for_json(phase._ork11e_assault_disembark)}
+	if "_ork11e_followup" in phase and not phase._ork11e_followup.is_empty():
+		return {"kind": "shooting_reactive_move", "data": _sanitize_for_json(phase._ork11e_followup)}
+	return {}
+
+## Client: adopt the host's follow-up state (`mirror` = _followup_mirror_snapshot
+## of the host, {} when it has none) and emit the start / end signals.
+## `local_player` = this machine's seat (the decider's machine gets the UI).
+func _apply_followup_mirror(phase, mirror: Dictionary, local_player: int, result: Dictionary = {}) -> void:
+	if phase == null:
+		return
+	var kind := str(mirror.get("kind", ""))
+	var data = _desanitize_from_json(mirror.get("data", {}))
+	if typeof(data) != TYPE_DICTIONARY:
+		data = {}
+	# Movement: reactive normal move (SCARPER! & co.)
+	if "_ork11e_reactive_move" in phase:
+		var had_rm: Dictionary = phase._ork11e_reactive_move
+		if kind == "movement_reactive_move":
+			var rm_uid := str(data.get("unit_id", ""))
+			if str(had_rm.get("unit_id", "")) != rm_uid:
+				var rm_player := int(data.get("player", 0))
+				phase._ork11e_reactive_move = data.duplicate(true)
+				phase._reactive_move_owner = rm_player
+				if phase.has_method("_ork11e_setup_reactive_active_move"):
+					phase._ork11e_setup_reactive_active_move(rm_uid, float(data.get("max_inches", 0.0)), str(data.get("source", "")))
+				print("NetworkManager: F3 mirrored %s reactive move of %s (P%d)" % [str(data.get("source", "")), rm_uid, rm_player])
+				if rm_player == local_player and phase.has_signal("unit_move_begun"):
+					phase.emit_signal("unit_move_begun", rm_uid, "NORMAL")
+		elif not had_rm.is_empty():
+			var done_uid := str(had_rm.get("unit_id", ""))
+			phase._ork11e_reactive_move = {}
+			phase._reactive_move_owner = 0
+			if "active_moves" in phase and phase.active_moves.has(done_uid) \
+					and str(phase.active_moves[done_uid].get("reactive_source", "")) == "ork11e":
+				phase.active_moves[done_uid]["completed"] = true
+			print("NetworkManager: F3 host finished the reactive move of %s — mirror cleared" % done_uid)
+	# Movement: READIED BRAWLERS assault disembark
+	if "_ork11e_assault_disembark" in phase:
+		var had_ad: Dictionary = phase._ork11e_assault_disembark
+		if kind == "movement_assault_disembark":
+			var remaining: Array = data.get("remaining", [])
+			var next_uid := str(remaining[0]) if not remaining.is_empty() else ""
+			var had_rem: Array = had_ad.get("remaining", [])
+			var had_next := str(had_rem[0]) if not had_rem.is_empty() else ""
+			phase._ork11e_assault_disembark = data.duplicate(true)
+			if next_uid != "" and next_uid != had_next and phase.has_signal("ork11e_assault_disembark_requested"):
+				print("NetworkManager: F3 re-emitting READIED BRAWLERS assault disembark request for %s" % next_uid)
+				phase.emit_signal("ork11e_assault_disembark_requested", int(data.get("player", 0)), str(data.get("transport_id", "")), next_uid)
+		elif not had_ad.is_empty():
+			phase._ork11e_assault_disembark = {}
+	# Shooting: GRAB IT / GOADED INTO ACTION reactive move
+	if "_ork11e_followup" in phase:
+		var had_fu: Dictionary = phase._ork11e_followup
+		if kind == "shooting_reactive_move":
+			var started: bool = had_fu.is_empty() or str(had_fu.get("unit_id", "")) != str(data.get("unit_id", ""))
+			phase._ork11e_followup = data.duplicate(true)
+			if phase.has_method("ork11e_reactive_move_info"):
+				var info: Dictionary = phase.ork11e_reactive_move_info()
+				if started:
+					print("NetworkManager: F3 re-emitting ork11e_reactive_move_started (%s, P%d)" % [str(data.get("unit_id", "")), int(data.get("player", 0))])
+					phase.emit_signal("ork11e_reactive_move_started", info)
+				else:
+					phase.emit_signal("ork11e_reactive_move_updated", info)
+		elif not had_fu.is_empty():
+			var ended: Dictionary = result.get("ork11e_reactive_move_ended", {})
+			if ended.is_empty():
+				ended = {"player": int(had_fu.get("player", 0)), "unit_id": str(had_fu.get("unit_id", "")), "source": str(had_fu.get("source", ""))}
+			phase._ork11e_followup = {}
+			print("NetworkManager: F3 host finished the %s move — re-emitting ork11e_reactive_move_ended" % str(had_fu.get("source", "")))
+			if phase.has_signal("ork11e_reactive_move_ended"):
+				phase.emit_signal("ork11e_reactive_move_ended", ended)
+
+## Phase-ending actions whose host-side processing opens a both-players
+## stratagem window first (movement_phase_end / fight_phase_end). F4: the
+## client opens no window itself, so executing one of these OPTIMISTICALLY
+## would end the phase on the client while the host waits on the window.
+const _WINDOW_PHASE_END_ACTIONS: Array = ["END_MOVEMENT", "END_FIGHT"]
+
+func _optimistic_blocked_by_windows(action_type: String) -> bool:
+	if not action_type in _WINDOW_PHASE_END_ACTIONS:
+		return false
+	var sm = get_node_or_null("/root/StratagemManager")
+	if sm == null or not sm.has_method("get_faction_stratagems_for_player"):
+		return false
+	for p in [1, 2]:
+		for s in sm.get_faction_stratagems_for_player(p):
+			if typeof(s) == TYPE_DICTIONARY and not s.get("timing", {}).get("windows", []).is_empty():
+				return true
+	return false
+
+## Client: everything the host stamps about stratagem windows / follow-ups on a
+## result (also for results that only CONFIRM an optimistic action — those skip
+## _emit_client_visual_updates, but the host may have paused on a window there:
+## F4, the client never opens windows itself).
+func _mirror_host_window_state(phase, result: Dictionary) -> void:
+	if phase == null:
+		return
+	if result.has("stratagem_window_opened") and phase.has_method("mirror_stratagem_window"):
+		var sw_window: Dictionary = result.get("stratagem_window_opened", {})
+		if not sw_window.is_empty():
+			print("NetworkManager: ✅ Client mirroring stratagem window %s (decider=%d, %d offer(s))" % [
+				str(sw_window.get("window_id", "")), int(sw_window.get("player", 0)), sw_window.get("offers", []).size()])
+			phase.mirror_stratagem_window(sw_window)
+	if result.has("_ork11e_followup"):
+		_apply_followup_mirror(phase, result.get("_ork11e_followup", {}), get_local_player(), result)
 
 func _maybe_resume_end_turn_after_remote_gate_clear(action: Dictionary, result: Dictionary) -> void:
 	"""Host-side: a remote player's 03.03 coherency removal just cleared the
@@ -732,6 +865,12 @@ func _handle_relayed_result(result: Dictionary) -> void:
 			# the desync check for this confirmation too.
 			_apply_manager_sync(result)
 			_check_relayed_state_hash(result)
+			# F4: the client ran this action without opening any stratagem
+			# window; if the HOST paused on one (or started a follow-up), adopt it.
+			if phase_manager_ref == null:
+				phase_manager_ref = get_node_or_null("/root/PhaseManager")
+			if phase_manager_ref and phase_manager_ref.current_phase_instance:
+				_mirror_host_window_state(phase_manager_ref.current_phase_instance, result)
 			return
 
 	# Not optimistic (or non-deterministic action) — apply normally
@@ -812,6 +951,12 @@ func broadcast_phase_enter_sync() -> void:
 		"diffs": diffs,
 		"action_type": "PHASE_ENTER_SYNC",
 	}
+	# F4: a window the HOST opened on phase entry (movement_phase_start,
+	# battle_shock_step_start, event windows handed over by the previous
+	# phase) — the client opens none itself, it mirrors this stamp.
+	var entered = _current_phase_for_validation()
+	if entered and entered.has_method("has_pending_stratagem_window") and entered.has_pending_stratagem_window():
+		result["stratagem_window_opened"] = entered.get_pending_stratagem_window().duplicate(true)
 	_attach_manager_sync(result)
 	result["_state_hash"] = compute_state_hash()
 	if web_relay_mode:
@@ -1149,7 +1294,9 @@ func _submit_action_via_relay(action: Dictionary) -> void:
 	else:
 		# Client path — check if we can apply optimistically
 		var action_type = action.get("type", "")
-		if action_type in DETERMINISTIC_ACTIONS:
+		if action_type in DETERMINISTIC_ACTIONS and _optimistic_blocked_by_windows(action_type):
+			print("NetworkManager: Client (relay) - %s NOT optimistic: the host may pause the phase end on a stratagem window (F4)" % action_type)
+		if action_type in DETERMINISTIC_ACTIONS and not _optimistic_blocked_by_windows(action_type):
 			print("NetworkManager: Client (relay) - OPTIMISTIC execution for: ", action_type)
 
 			# Step 1: Validate locally (as player 2)
@@ -1665,11 +1812,8 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			var sw_toast = get_node_or_null("/root/ToastManager")
 			if sw_toast and int(sw_used.get("player", 0)) != get_local_player():
 				sw_toast.show_toast("Opponent used %s!" % str(sw_used.get("stratagem_name", "a stratagem")), Color.ORANGE, 4.0)
-	if result.has("stratagem_window_opened") and phase.has_method("mirror_stratagem_window"):
-		var sw_window: Dictionary = result.get("stratagem_window_opened", {})
-		print("NetworkManager: ✅ Client mirroring stratagem window %s (decider=%d, %d offer(s))" % [
-			str(sw_window.get("window_id", "")), int(sw_window.get("player", 0)), sw_window.get("offers", []).size()])
-		phase.mirror_stratagem_window(sw_window)
+	# Window stamp + follow-up state (F3 / F4).
+	_mirror_host_window_state(phase, result)
 
 	# Handle fight selection dialog trigger (for multiplayer sync after CONSOLIDATE)
 	if result.get("trigger_fight_selection", false):
@@ -2696,11 +2840,27 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		var active_player = game_state.get_active_player()
 		print("NetworkManager: active_player=%d" % active_player)
 		if claimed_player != active_player:
-			print("NetworkManager: VALIDATION FAILED - not player's turn")
-			return {"valid": false, "reason": "Not your turn"}
+			# F3 / AI-04: the NON-active player's own stratagem follow-up (the
+			# SCARPER! / WHIRLIGIG EVASION / WHILE THEIR BACKS ARE TURNED reactive
+			# normal move, made with the ordinary movement actions) or reactive
+			# move (Krump and Run / Scatter!) — the phase vouches for it and its
+			# follow-up gate still decides which actions / units are legal.
+			var cross_phase = _current_phase_for_validation()
+			if cross_phase and cross_phase.has_method("allows_cross_turn_action") and cross_phase.allows_cross_turn_action(action):
+				print("NetworkManager: '%s' by non-active Player %d allowed — they own the pending follow-up / reactive move" % [action_type, claimed_player])
+			else:
+				print("NetworkManager: VALIDATION FAILED - not player's turn")
+				return {"valid": false, "reason": "Not your turn"}
 
 	# Layer 4: Game rules validation (delegate to phase)
 	return _validate_with_phase(action)
+
+func _current_phase_for_validation():
+	if not phase_manager_ref:
+		phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	if not phase_manager_ref:
+		return null
+	return phase_manager_ref.get_current_phase_instance()
 
 func _validate_with_phase(action: Dictionary) -> Dictionary:
 	"""Layer 4 of validate_action: delegate game-rules validation to the

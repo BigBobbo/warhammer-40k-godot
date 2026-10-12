@@ -811,7 +811,11 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# Check player ownership for faction stratagems
 	if is_faction_stratagem(stratagem_id):
 		var owner = get_stratagem_owner(stratagem_id)
-		if owner != 0 and owner != player:
+		if owner == 0:
+			# F5 / LIVE-4: a faction stratagem no army has loaded (a stale
+			# definition left behind) belongs to nobody — never "both".
+			return {"can_use": false, "reason": "%s is not a stratagem of either army" % strat.get("name", stratagem_id)}
+		if owner != player:
 			return {"can_use": false, "reason": "This stratagem belongs to player %d" % owner}
 		# Check if stratagem is mechanically implemented
 		if not strat.get("implemented", false):
@@ -1157,6 +1161,13 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		var log_msg = "Used %s (%s)" % [strat.name, cost_msg]
 		if target_display != "":
 			log_msg += " on %s" % target_display
+		# LIVE-10: say which option was bought (window variants pass their label).
+		var variant_label := str(context.get("variant_label", "")).strip_edges()
+		if variant_label != "":
+			var re := RegEx.new()
+			re.compile("^\\s*\\+\\s*\\d+\\s*CP\\s*:\\s*")
+			var clean := re.sub(variant_label, "", false).strip_edges()
+			log_msg += " — %s" % (clean if clean != "" else variant_label)
 		game_event_log.add_player_entry(player, log_msg)
 
 	# Log to phase log
@@ -4445,6 +4456,14 @@ func load_state(data: Dictionary) -> void:
 	"""Restore state from save data. Defaults match initial values for old saves."""
 	_usage_history = data.get("usage_history", {"1": [], "2": []})
 	active_effects = data.get("active_effects", [])
+	# F5 / LIVE-4: drop the definitions registered for the CURRENT (e.g. boot-
+	# time default) armies BEFORE the saved id lists replace them — clearing
+	# after the replace erased the saved ids instead and left the boot army's
+	# stratagems in `stratagems` with no owner (owner 0 = shown to and usable
+	# by both players, e.g. Kult of Speed's DELICIOUS EATING SQUIGS in a War
+	# Horde game).
+	for stale_player_key in _player_faction_stratagems.keys():
+		_clear_player_faction_stratagems(int(stale_player_key))
 	_player_faction_stratagems = data.get("player_faction_stratagems", {"1": [], "2": []})
 	# Rebuild the faction stratagem DEFINITIONS for the loaded armies. Only the
 	# per-player id lists are serialized; on a fresh process the boot-time

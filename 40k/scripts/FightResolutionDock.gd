@@ -93,12 +93,62 @@ func activate(p_assignments: Array, p_phase, p_controller, fighter_id: String, p
 	_clear_modifiers()
 	_clear_reroll_chips()
 	_rebuild_queue()
+	# LIVE-10: the enemy_targets_unit_fight stratagem window opens AFTER
+	# fighting_begun (same CONFIRM action), before any die is rolled — while it
+	# waits the dock must say so instead of "Rolling to hit…".
+	if phase != null and phase.has_signal("stratagem_window_opened"):
+		if not phase.is_connected("stratagem_window_opened", _on_phase_window_opened):
+			phase.connect("stratagem_window_opened", _on_phase_window_opened)
+		if not phase.is_connected("stratagem_window_closed", _on_phase_window_closed):
+			phase.connect("stratagem_window_closed", _on_phase_window_closed)
+	call_deferred("_sync_window_wait")
 
 func deactivate() -> void:
+	if phase != null and phase.has_signal("stratagem_window_opened"):
+		if phase.is_connected("stratagem_window_opened", _on_phase_window_opened):
+			phase.disconnect("stratagem_window_opened", _on_phase_window_opened)
+		if phase.is_connected("stratagem_window_closed", _on_phase_window_closed):
+			phase.disconnect("stratagem_window_closed", _on_phase_window_closed)
+	_window_wait_shown = false
 	active_fighter_id = ""
 	spectating = false
 	_tallies = {}
 	super.deactivate()
+
+# ---------------------------------------------------------------------------
+# Stratagem window wait (LIVE-10)
+# ---------------------------------------------------------------------------
+
+var _window_wait_shown: bool = false
+
+func _on_phase_window_opened(_player: int, _window_id: String, _offers: Array, _ctx: Dictionary) -> void:
+	_sync_window_wait()
+
+func _on_phase_window_closed(_player: int, _window_id: String, _used: bool) -> void:
+	_sync_window_wait()
+
+## While a stratagem window (or its follow-up) holds this activation before the
+## hit roll, show who is deciding; restore the rolling text once it resolves
+## (the first staged pause then overwrites both lines as usual).
+func _sync_window_wait() -> void:
+	if state != "rolling" or phase == null or not is_instance_valid(phase):
+		return
+	var decider := 0
+	if phase.has_method("get_pending_stratagem_window_decider"):
+		decider = int(phase.get_pending_stratagem_window_decider())
+	if decider > 0:
+		_window_wait_shown = true
+		primary_button.disabled = true
+		primary_button.text = "Waiting for stratagem decision…"
+		status_label.text = "Waiting for Player %d's stratagem decision — no dice rolled yet." % decider
+		DebugLogger.info("[FightResolutionDock] holding '%s' — Player %d is deciding on a stratagem before the hit roll" % [active_fighter_id, decider])
+	elif _window_wait_shown:
+		_window_wait_shown = false
+		primary_button.text = "Rolling to hit…"
+		if spectating:
+			status_label.text = "%s is attacking — step through their rolls." % _unit_display_name(active_fighter_id)
+		else:
+			status_label.text = "Resolving melee attacks…"
 
 # Revealing the enemy's dice: the player is not the one rolling, so the button
 # says what it shows rather than what it rolls.

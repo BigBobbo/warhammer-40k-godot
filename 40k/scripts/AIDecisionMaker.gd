@@ -21,8 +21,12 @@ static func _dn_meta(unit_meta: Dictionary, fallback = "") -> String:
 # --- Constants ---
 const AIAbilityAnalyzerData = preload("res://scripts/AIAbilityAnalyzer.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
-# Codex: Orks (11e) stratagem dispatcher (AI hints for window offers).
-const OrkCodexDispatcher = preload("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
+# Codex: Orks (11e) stratagem dispatcher (AI hints for window offers) — loaded
+# on first use (_ork_codex()): a const preload pulled the dispatcher, and
+# through OrkCodexCommon GameState.gd, into every `godot -s` compile of this
+# file, adding "Failed to compile depended scripts" SCRIPT ERROR lines to the
+# headless tests that reference AIDecisionMaker (RG-F6).
+static var _ork_codex_dispatcher = null
 const PIXELS_PER_INCH: float = 40.0
 const CHARGE_RANGE_PX: float = 480.0     # 12 inches
 # Clearance added to base-to-base placements (pile-in/consolidate). The
@@ -6195,6 +6199,17 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 		if action.get("type") == "USE_UNLEASH_THE_LIONS":
 			var utl_round = snapshot.get("meta", {}).get("battle_round", 1)
 			var utl_cp = _get_player_cp_from_snapshot(snapshot, player)
+			# AI-07: the offer is built from a target-less can_use_stratagem, so a
+			# unit already targeted by a stratagem this phase (11e 15.01 — e.g. by
+			# a Command Re-roll on its battle-shock test) is still listed; the use
+			# is then refused and the AI re-picked it 200 times. Ask for THIS unit.
+			var utl_sm = _stratagem_manager()
+			if utl_sm != null:
+				var utl_sid := str(utl_sm.find_faction_stratagem_by_name(player, "UNLEASH THE LIONS"))
+				if utl_sid != "" and not utl_sm.can_use_stratagem(player, utl_sid, str(action.get("unit_id", ""))).get("can_use", false):
+					_add_thinking_step("Unleash the Lions not usable on %s right now (%s)" % [str(action.get("unit_id", "")),
+						str(utl_sm.can_use_stratagem(player, utl_sid, str(action.get("unit_id", ""))).get("reason", ""))])
+					continue
 			if utl_round >= 2 and utl_cp >= 2:
 				_add_thinking_step("Unleash the Lions (round %d, %d CP): splitting into single models to cover more objectives" % [utl_round, utl_cp])
 				return {
@@ -21941,6 +21956,12 @@ static func _score_grenade_target(target_unit: Dictionary) -> float:
 # PROACTIVE STRATAGEM USE (11e core set + implemented faction stratagems)
 # =============================================================================
 
+## The Codex: Orks (11e) dispatcher script (OrkCodex11e.gd), loaded on first use.
+static func _ork_codex():
+	if _ork_codex_dispatcher == null:
+		_ork_codex_dispatcher = load("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
+	return _ork_codex_dispatcher
+
 static func _stratagem_manager():
 	"""Access the StratagemManager autoload from static context (may be null headless)."""
 	var main_loop = Engine.get_main_loop()
@@ -22294,10 +22315,10 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 	# Codex: Orks (11e) S-panel stratagems (no window — DREAD POWER, DELICIOUS
 	# EATING SQUIGS): the codex handler scores each friendly target (keyed by
 	# csv_id, so a 10e name-keyed heuristic below can never claim a codex row).
-	if OrkCodexDispatcher.handles(strat):
+	if _ork_codex().handles(strat):
 		var cbest := {}
 		for cuid in friendly_units:
-			var cscore := OrkCodexDispatcher.ai_score(strat, player, str(cuid), "", {"phase": phase_name})
+			var cscore: float = _ork_codex().ai_score(strat, player, str(cuid), "", {"phase": phase_name})
 			if cscore > float(cbest.get("score", 0.0)) and _faction_stratagem_usable(player, strat, str(cuid)):
 				cbest = {"unit_id": str(cuid), "unit_name": _dn(friendly_units[cuid], str(cuid)), "score": cscore,
 					"reason": "codex heuristic (%.1f)" % cscore}
@@ -22752,10 +22773,10 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 				continue
 
 			var score: float
-			if strat_entry.has("window_id") and OrkCodexDispatcher.handles(strat):
+			if strat_entry.has("window_id") and _ork_codex().handles(strat):
 				# Window offer folded into the shooting reactive dialog: the
 				# codex handler scores it (its effects list is just a marker).
-				score = OrkCodexDispatcher.ai_score(strat, defending_player, unit_id,
+				score = _ork_codex().ai_score(strat, defending_player, unit_id,
 					str(strat_entry.get("window_id", "")), strat_entry.get("window_ctx", {}))
 			else:
 				score = _score_defensive_stratagem_target(unit, strat)
@@ -22840,13 +22861,13 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 		var sid := str(offer.get("stratagem_id", ""))
 		var strat: Dictionary = sm.get_stratagem(sid)
 		var cost := int(offer.get("cp_cost", strat.get("cp_cost", 1)))
-		var is_codex: bool = OrkCodexDispatcher.handles(strat)
-		var kind := OrkCodexDispatcher.ai_kind(strat) if is_codex else "defensive"
+		var is_codex: bool = _ork_codex().handles(strat)
+		var kind: String = str(_ork_codex().ai_kind(strat)) if is_codex else "defensive"
 		for t in offer.get("targets", []):
 			var tid := str(t.get("unit_id", ""))
 			var score := 0.0
 			if is_codex:
-				score = OrkCodexDispatcher.ai_score(strat, player, tid, window_id, ctx)
+				score = _ork_codex().ai_score(strat, player, tid, window_id, ctx)
 			elif units.has(tid):
 				score = _score_defensive_stratagem_target(units[tid], strat)
 			var threshold := 2.0
