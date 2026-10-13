@@ -84,6 +84,12 @@ var _sts_window_handled_unit: String = ""
 # AI (synchronous) window diffs produced inside the atomic SHOOT's inner
 # select — merged into the SHOOT result so replay / network see the CP spend.
 var _sts_carry_diffs: Array = []
+# unit_id -> true once _check_kill_diffs processed its destruction this phase
+# (framework F12): the same alive=false diffs can reach the kill hook twice —
+# e.g. the AI-atomic interactive-saves flow returns the ACCUMULATED changes of
+# every APPLY_SAVES — and a second pass double-counts the kill and re-rolls
+# Deadly Demise. Same guard as FightPhase._kill_reported_units.
+var _kill_reported_units: Dictionary = {}
 
 # PERF-LOS: per-snapshot eligible-target cache. get_eligible_targets() runs a
 # base-aware line-of-sight sweep over every enemy unit × weapon × model-pair —
@@ -218,6 +224,7 @@ func _on_phase_enter() -> void:
 	wazblasta_pending_unit = ""
 	awaiting_wazblasta = false
 	_targets_hit_by_shooter.clear()
+	_kill_reported_units.clear()
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -313,8 +320,24 @@ func _check_kill_diffs(changes: Array) -> void:
 					if model.get("alive", true):
 						all_dead = false
 						break
+				# A unit's destruction is processed ONCE per phase (F12) — a
+				# repeated alive=false diff must not double-count the kill or
+				# re-roll Deadly Demise. A unit that is alive again (returned
+				# to the battlefield) may be reported anew.
+				if not all_dead:
+					_kill_reported_units.erase(unit_id)
+				elif _kill_reported_units.has(unit_id):
+					DebugLogger.info("ShootingPhase: kill of %s already processed this phase — skipping repeat (no second kill credit / Deadly Demise)" % unit_id)
+					continue
 				if all_dead:
-					var destroyed_by = get_current_player()
+					_kill_reported_units[unit_id] = true
+					# Credit the destroyed unit's OPPONENT (r4:WS-3, r5:F4,
+					# framework F9): out-of-turn attacks (GUN-CRAZY SHOW-OFFS'
+					# shot back, FLYIN' HEADBUTT's mortal wounds) destroy units
+					# of the ACTIVE player, so get_current_player() would credit
+					# the victim. Same rule as FightPhase._check_kill_diffs.
+					var _kd_owner = int(unit.get("owner", 0))
+					var destroyed_by = (2 if _kd_owner == 1 else 1) if _kd_owner in [1, 2] else get_current_player()
 					MissionManager.record_unit_destroyed(destroyed_by)
 					# T7-57: Track unit kills/losses for AI performance summary
 					var destroyed_owner = unit.get("owner", 0)
@@ -2963,6 +2986,7 @@ func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_d
 	var total_wounds = 0
 	var total_saves_passed = 0
 	var total_saves_failed = 0
+	var grot_shield_msgs: Array = []
 	for db in all_dice:
 		var ctx = db.get("context", "")
 		if ctx == "to_hit" or ctx == "hit_roll" or ctx == "auto_hit":
@@ -2972,6 +2996,8 @@ func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_d
 		elif ctx == "save_roll":
 			total_saves_passed += db.get("successes", 0)
 			total_saves_failed += db.get("failed", 0)
+		elif ctx == "grot_shields" and str(db.get("message", "")) != "":
+			grot_shield_msgs.append(str(db.get("message", "")))
 
 	var target_text = ", ".join(target_names)
 	var attack_summary = "%s → %s: %d hits, %d wounds" % [actor_name, target_text, total_hits, total_wounds]
@@ -2979,6 +3005,9 @@ func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_d
 		attack_summary += ", %d saved, %d failed" % [total_saves_passed, total_saves_failed]
 	if total_casualties > 0:
 		attack_summary += " → %d slain" % total_casualties
+	# GROT SHIELDS interceptions explain where those hits went (r3:F6).
+	if not grot_shield_msgs.is_empty():
+		attack_summary += " [%s]" % "; ".join(grot_shield_msgs)
 
 	# T7-38: Emit AI shooting visual signals BEFORE clearing state
 	# Collect unique targets with weapon names for targeting line visualization
@@ -4270,12 +4299,19 @@ func _staged_continue_to_wounds(pause: bool = true) -> Dictionary:
 	_ork11e_note_hits(str(hit_context.get("target_unit_id", "")), int(hit_context.get("hits", 0)))
 
 	var dice_data = (resolution_state.get("staged_dice", []) as Array).duplicate()
+	var gs_blocks: Array = []
 	for db in wres.get("dice", []):
 		dice_log.append(db)
 		emit_signal("dice_rolled", db)
 		dice_data.append(db)
+		if str(db.get("context", "")) == "grot_shields":
+			gs_blocks.append(db)
 	resolution_state.staged_dice = dice_data
 	log_phase_message(wres.get("log_text", ""))
+	# GROT SHIELDS intercepts at the wound stage: the staged (dock) flow logged
+	# only the hit roll, so say in the Game Log where those hits went (r3:F6).
+	if not gs_blocks.is_empty():
+		_emit_verbose_combat_log(active_shooter_id, gs_blocks, [], 0, "sequential_wounds")
 
 	var save_data_list = wres.get("save_data_list", [])
 	resolution_state.staged_wound_context = wres.get("wound_context", {})
@@ -4352,6 +4388,11 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 	var expected = "hits_pending" if stage == "hits" else ("wounds_pending" if stage == "wounds" else "")
 	if expected == "" or resolution_state.get("stage", "") != expected:
 		return create_result(false, [], "No re-roll available at this stage")
+	# A die that was already re-rolled (e.g. by LONG, UNCONTROLLED BURSTS) can
+	# never be re-rolled again — refuse BEFORE the CP is spent (r5:F7).
+	var rr_ctx: Dictionary = resolution_state.get("staged_hit_context", {}) if stage == "hits" else resolution_state.get("staged_wound_context", {})
+	if RulesEngine.staged_die_already_rerolled(rr_ctx, stage, die_index):
+		return create_result(false, [], "That die has already been re-rolled — a dice can never be re-rolled more than once")
 
 	# Spend the CP + record the once-per-phase Command Re-roll usage.
 	var sm = get_node_or_null("/root/StratagemManager")
@@ -5083,6 +5124,20 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 func _ork11e_resume_after_post_shot_windows(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
 	return _ork11e_run_post_shot_windows(create_result(true, []))
 
+## USE/DECLINE_WINDOW_STRATAGEM bypass process_action (BasePhase handles them
+## before subclass dispatch), but answering a window can complete a unit's
+## shooting: a held atomic SHOOT (AI / "Shoot All Remaining") resumes inside
+## the unit_selected_to_shoot window action. Queue + open the post-shot
+## windows (unit_has_shot / enemy_has_shot) for it exactly as process_action
+## does for every other action (framework F7).
+func _process_window_action(action: Dictionary) -> Dictionary:
+	var shot_before := units_that_shot.size()
+	var result: Dictionary = super._process_window_action(action)
+	if result.get("success", false):
+		_ork11e_queue_post_shot(str(action.get("type", "")), shot_before, result)
+		result = _ork11e_run_post_shot_windows(result)
+	return result
+
 ## A human's reactive move keeps the AI attacker idle (AIPlayer reads this).
 func get_pending_stratagem_window_decider() -> int:
 	var decider := super.get_pending_stratagem_window_decider()
@@ -5321,22 +5376,51 @@ func _ork11e_profile_value(weapon_id: String, target_id: String, board: Dictiona
 	return _ork11e_avg_value(prof.get("attacks_raw", prof.get("attacks", 1))) * p_wound \
 		* _ork11e_avg_value(prof.get("damage_raw", prof.get("damage", 1))) * (1.0 + 0.15 * ap)
 
+## [CLOSE-QUARTERS] weapon (11e 24.07; [PISTOL] is identical for all rules
+## purposes, 24.27) — the same predicate the 11e shooting types use.
+func _ork11e_is_close_quarters_weapon(weapon_id: String, board: Dictionary) -> bool:
+	if RulesEngine.is_pistol_weapon(weapon_id, board):
+		return true
+	var abilities: Array = AbilityRegistry.from_weapon(RulesEngine.get_weapon_profile(weapon_id, board))
+	return AbilityRegistry.has_ability(abilities, "close_quarters") or AbilityRegistry.has_ability(abilities, "pistol")
+
 func _ork11e_forced_shoot_assignments(unit_id: String, target_id: String, board: Dictionary) -> Array:
+	# weapons_in_range already drops Hunter profiles the target cannot be
+	# targeted by (04.01.03 — RulesEngine.weapon_profile_can_target).
 	var in_range: Array = RulesEngine.get_eligible_targets(unit_id, board).get(target_id, {}).get("weapons_in_range", [])
 	if in_range.is_empty():
 		return []
 	var unit_weapons: Dictionary = RulesEngine.get_unit_weapons(unit_id, board)
+	var shooter_is_mv := RulesEngine.is_monster_or_vehicle(board.get("units", {}).get(unit_id, {}))
 	var models_for := {}  # weapon_id -> [model ids]
 	for model_id in unit_weapons:
-		var best_per_base := {}  # base name -> weapon id (this model's best in-range profile)
+		# Per weapon (base name), this model's best in-range profile (04.01.03:
+		# one profile per weapon), kept separately for its [CLOSE-QUARTERS]
+		# weapons and its other ranged weapons.
+		var best_cq := {}     # base name -> weapon id
+		var best_other := {}  # base name -> weapon id
 		for wid in unit_weapons[model_id]:
 			if not wid in in_range:
 				continue
 			var base := _ork11e_weapon_base_name(wid, board)
-			if not best_per_base.has(base) or _ork11e_profile_value(wid, target_id, board) > _ork11e_profile_value(best_per_base[base], target_id, board):
-				best_per_base[base] = wid
-		for base in best_per_base:
-			var chosen: String = best_per_base[base]
+			var bucket: Dictionary = best_cq if _ork11e_is_close_quarters_weapon(wid, board) else best_other
+			if not bucket.has(base) or _ork11e_profile_value(wid, target_id, board) > _ork11e_profile_value(bucket[base], target_id, board):
+				bucket[base] = wid
+		var chosen_ids: Array = []
+		if shooter_is_mv:
+			chosen_ids = best_cq.values() + best_other.values()
+		else:
+			# 24.07: a non-MONSTER/VEHICLE model using normal shooting fires
+			# EITHER its [CLOSE-QUARTERS] weapons OR its other ranged weapons —
+			# take whichever set is worth more against this target.
+			var cq_value := 0.0
+			for w in best_cq.values():
+				cq_value += _ork11e_profile_value(w, target_id, board)
+			var other_value := 0.0
+			for w in best_other.values():
+				other_value += _ork11e_profile_value(w, target_id, board)
+			chosen_ids = best_other.values() if other_value >= cq_value and not best_other.is_empty() else best_cq.values()
+		for chosen in chosen_ids:
 			if not models_for.has(chosen):
 				models_for[chosen] = []
 			models_for[chosen].append(model_id)
@@ -5391,8 +5475,19 @@ func _ork11e_forced_shoot(player: int, followup: Dictionary) -> void:
 		if path.begins_with("units.%s." % target_id) and path.ends_with(".alive") and d.get("value", true) == false:
 			casualties += 1
 	if not diffs.is_empty():
+		# Event attribution (framework F9): these are the forced shooter's
+		# attacks, not the active shooter's. Settle anything detected so far
+		# against the previous attacker, apply the shot with the forced
+		# shooter as the attacker (unit_destroyed gets its attacker_unit_id,
+		# enemy_unit_has_attacked opens for the owner of what it destroyed —
+		# e.g. INFESTED WAR ZONE), then restore the attribution.
+		_window_events_detect()
+		var prev_attacker := _ev_action_attacker
+		_ev_action_attacker = unit_id
 		PhaseManager.apply_state_changes(diffs)
 		_window_sync_diffs.append_array(diffs)
+		_window_events_detect()
+		_ev_action_attacker = prev_attacker
 	emit_signal("ai_shooting_visual", unit_id, [{"target_unit_id": target_id, "weapon_names": weapon_names}],
 		{"hits": hits, "wounds": wounds, "saves_passed": 0, "saves_failed": 0, "casualties": casualties})
 	if not damage_diffs.is_empty():
@@ -8397,6 +8492,10 @@ func _emit_verbose_combat_log(shooter_id: String, dice_data: Array, save_dice_bl
 			_emit_torrent_detail_log(shooter_name, dice_block, player)
 		elif context == "to_wound" or context == "wound_roll":
 			_emit_wound_detail_log(dice_block, player)
+		elif context == "grot_shields" and str(dice_block.get("message", "")) != "":
+			# GROT SHIELDS (Codex: Orks 11e): say in the Game Log why those hits
+			# never reached the wound roll (r3:F6).
+			GameEventLog.add_combat_result("  " + str(dice_block.get("message", "")))
 
 	# Save dice blocks ("save" is the engine-internal 11e context; the
 	# normalized blocks use "save_roll")

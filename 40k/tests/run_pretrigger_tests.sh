@@ -183,6 +183,7 @@ TESTS=(
     "tests/test_ork_codex_fight.gd"
     "tests/test_ork_codex_shooting.gd"
     "tests/test_ork_codex_shooting_reactive.gd"
+    "tests/test_ork_codex_shooting_fixes.gd"
     "tests/test_ork_codex_movement.gd"
     "tests/test_ork_codex_other.gd"
     "tests/test_ork_codex_framework_fixes.gd"

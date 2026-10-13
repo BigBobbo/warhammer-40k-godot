@@ -115,8 +115,34 @@ static func eligible_targets(strat: Dictionary, player: int, window_id: String, 
 		"goaded-into-action-da-big-hunt":
 			if window_id != "enemy_has_shot":
 				return []
-			return _post_shot_entries(strat, player, ctx, ctx.get("wounded_unit_ids", []))
+			return _goaded_entries(_post_shot_entries(strat, player, ctx, ctx.get("wounded_unit_ids", [])))
 	return []
+
+## GOADED INTO ACTION on a unit that casualties left OUT OF COHERENCY (LIVE-7):
+## the surge, like every move, must end in coherency (03.03), so it is offered
+## only when a coherent surge end exists at the maximum D6 (6"), and the button
+## warns that the move has to restore coherency.
+static func _goaded_entries(entries: Array) -> Array:
+	var out: Array = []
+	var lib = load("res://scripts/rules/ReactiveMove11e.gd")
+	for e in entries:
+		var uid := str(e.get("unit_id", ""))
+		if lib == null or uid == "":
+			out.append(e)
+			continue
+		var board := Common.state()
+		if lib.group_coherent(uid, board):
+			out.append(e)
+			continue
+		var origin: Dictionary = lib.current_positions(uid, board)
+		var target := str(lib.surge_target(uid, board))
+		var best: Dictionary = lib.solve("surge", uid, origin, 6.0, {"surge_target": target}, board) if target != "" else {}
+		if best.is_empty():
+			Common.log_info("OrkCodexShootingReactive: GOADED INTO ACTION not offered for %s — out of coherency and no surge of up to 6\" can restore it" % uid)
+			continue
+		e["label"] = "%s (out of coherency — the surge must restore it)" % Common.unit_name(uid)
+		out.append(e)
+	return out
 
 
 static func validate(strat: Dictionary, player: int, target_unit_id: String, ctx: Dictionary) -> Dictionary:
@@ -331,9 +357,20 @@ static func _grot_shields_candidates(player: int, gretchin_id: String, ctx: Dict
 			continue
 		if not _is_shieldable(Common.unit(pid), player):
 			continue
-		if Common.within_inches(gretchin_id, pid, GROT_SHIELDS_RANGE_INCHES):
+		if _attached_within(gretchin_id, pid, GROT_SHIELDS_RANGE_INCHES):
 			out.append(pid)
 	return out
+
+## Group-aware "within N inches": every component of either Attached unit
+## counts (19.03 — an attached Warboss is part of "that ORKS INFANTRY unit",
+## an attached Runtherd part of the GRETCHIN unit; r3:F3). Same measure as
+## OrkCodexMovement._attached_within (groups do not preload each other).
+static func _attached_within(a_id: String, b_id: String, inches: float) -> bool:
+	for ga in Common.attached_group_ids(a_id):
+		for gb in Common.attached_group_ids(b_id):
+			if Common.within_inches(str(ga), str(gb), inches):
+				return true
+	return false
 
 static func _grot_shields_targets(player: int, ctx: Dictionary) -> Array:
 	var out: Array = []
@@ -412,28 +449,31 @@ static func _grot_shields_apply(gretchin_id: String, ctx: Dictionary) -> Array:
 #   within range of an objective. Your unit is not eligible to declare a charge
 #   until the end of the turn.
 # Ruling: offered only when an objective is reachable (some model's base is
-# within 6" + 3" of an objective), since a move that cannot end within range
-# of an objective cannot be made.
+# within 6" of being within range of an objective), since a move that cannot
+# end within range of an objective cannot be made. "Within range" is the
+# engine's own terrain-aware predicate (MissionManager.model_in_objective_range,
+# the one ReactiveMove11e.validate judges the move with): a terrain-hosted
+# objective (14.01/14.02) is in range only while a base overlaps its hosting
+# area, open ground within 3" of the marker (r4:WS-1).
 # ---------------------------------------------------------------------------
 
 static func _objectives() -> Array:
 	return Common.state().get("board", {}).get("objectives", [])
 
-## Smallest base-edge distance (inches) from any alive model of the unit (and
-## its attached characters) to any objective's range (0 = within range).
+## Smallest distance (inches) any alive model of the unit (and its attached
+## characters) still has to cover to be within range of an objective (0 =
+## already within range) — MissionManager.model_gap_to_objective_range_px.
 static func objective_range_gap_inches(unit_id: String) -> float:
 	var mm = Common.autoload("MissionManager")
+	if mm == null or not mm.has_method("model_gap_to_objective_range_px"):
+		return INF
 	var best := INF
 	for gid in Common.attached_group_ids(unit_id):
 		for m in Common.unit(str(gid)).get("models", []):
 			if not m.get("alive", true) or m.get("position", null) == null:
 				continue
 			for obj in _objectives():
-				var d_px := INF
-				if mm and mm.has_method("model_distance_to_objective_px"):
-					d_px = float(mm.model_distance_to_objective_px(m, obj))
-				var gap := maxf(0.0, d_px / Common.PX_PER_INCH - 3.0)
-				best = minf(best, gap)
+				best = minf(best, float(mm.model_gap_to_objective_range_px(m, obj)) / Common.PX_PER_INCH)
 	return best
 
 static func _grab_it_validate(player: int, target_unit_id: String, ctx: Dictionary) -> Dictionary:
@@ -576,7 +616,45 @@ static func _hulking_brutes_score(unit_id: String, ctx: Dictionary) -> float:
 static func _speediest_freeks_score(unit_id: String, ctx: Dictionary) -> float:
 	if _attacker_ranged_strengths(str(ctx.get("attacker_unit_id", ""))).is_empty():
 		return 0.0
-	return 1.0 + _unit_value(unit_id) / 80.0
+	# r5:F8: "unmodified hit rolls of 1-3 fail" only costs the attacker hits it
+	# would otherwise score — rolls of 2-3 at BS 2+, 3 at BS 3+, nothing at
+	# BS 4+ or worse, nothing for [TORRENT] (no hit roll). Scale by the share
+	# of the attacker's hits it removes (BS 3+ = the baseline 1/4).
+	var lost := _speediest_freeks_lost_hit_share(str(ctx.get("attacker_unit_id", "")))
+	if lost <= 0.0:
+		return 0.0
+	return (1.0 + _unit_value(unit_id) / 80.0) * minf(1.5, lost / 0.25)
+
+## Weighted (by attacks) share of the attacker's expected ranged hits that
+## SPEEDIEST FREEKS turns into misses: per weapon, P(unmodified roll in
+## [BS..3]) / P(roll >= BS); torrent and BS 4+ weapons lose nothing.
+static func _speediest_freeks_lost_hit_share(attacker_id: String) -> float:
+	var re = Common.rules()
+	if re == null or attacker_id == "":
+		return 0.0
+	var board := Common.state()
+	var total_attacks := 0.0
+	var lost_weighted := 0.0
+	for gid in Common.attached_group_ids(attacker_id):
+		var uw: Dictionary = re.get_unit_weapons(str(gid), board) if re.has_method("get_unit_weapons") else {}
+		for mid in uw:
+			for wid in uw[mid]:
+				var prof = re.get_weapon_profile(str(wid), board)
+				if prof.is_empty() or str(prof.get("type", "Ranged")).to_lower() == "melee":
+					continue
+				var attacks := _avg_value(prof.get("attacks_raw", prof.get("attacks", 1)))
+				total_attacks += attacks
+				if re.has_method("is_torrent_weapon") and re.is_torrent_weapon(str(wid), board):
+					continue
+				var bs := clampi(int(prof.get("bs", 4)), 2, 7)
+				if bs > 3:
+					continue
+				var p_hit := float(7 - bs) / 6.0
+				var p_lost := float(4 - bs) / 6.0  # unmodified BS..3
+				lost_weighted += attacks * (p_lost / p_hit)
+	if total_attacks <= 0.0:
+		return 0.0
+	return lost_weighted / total_attacks
 
 static func _grot_shields_score(gretchin_id: String, ctx: Dictionary) -> float:
 	var g = Common.unit(gretchin_id)
@@ -592,7 +670,95 @@ static func _grab_it_score(unit_id: String) -> float:
 	var gap := objective_range_gap_inches(unit_id)
 	if gap <= 0.0 or gap > GRAB_IT_MOVE_INCHES:
 		return 0.0  # already within range (no gain) or unreachable
+	# The cost (r4:WS-7): "not eligible to declare a charge until the end of
+	# the turn" — a melee-minded unit with an enemy in charge range keeps its
+	# charge instead.
+	if _grab_it_forfeits_charge(unit_id):
+		Common.log_info("OrkCodexShootingReactive: GRAB IT AI score 0 for %s — melee unit with an enemy within %.0f\" would lose its charge" % [unit_id, GRAB_IT_CHARGE_THREAT_INCHES])
+		return 0.0
+	# The AI's move is the auto-placement: only pay the CP when it can
+	# actually end within range of an objective (r4:WS-1).
+	if not _grab_it_auto_move_reaches(unit_id):
+		Common.log_info("OrkCodexShootingReactive: GRAB IT AI score 0 for %s — the auto-move finds no legal placement within range of an objective" % unit_id)
+		return 0.0
 	return 2.5
+
+const GRAB_IT_CHARGE_THREAT_INCHES := 12.0
+
+## True when ReactiveMove11e (the AI decider's auto-move) finds a 6" normal
+## move that ends within range of an objective. Loaded late (not preloaded) so
+## the dispatcher's preload chain stays free of the rules libraries.
+static func _grab_it_auto_move_reaches(unit_id: String) -> bool:
+	var lib = load("res://scripts/rules/ReactiveMove11e.gd")
+	if lib == null:
+		return true
+	var board := Common.state()
+	var origin: Dictionary = lib.current_positions(unit_id, board)
+	if origin.is_empty():
+		return false
+	var placed: Dictionary = lib.solve("normal", unit_id, origin, GRAB_IT_MOVE_INCHES,
+		{"end_condition": "within_objective_range"}, board)
+	return not placed.is_empty()
+
+## Average of a dice/number characteristic ("3", "D6", "D3+2", "2D6").
+static func _avg_value(v) -> float:
+	var s := str(v).to_upper().replace(" ", "")
+	if s.is_valid_float():
+		return float(s)
+	var plus := 0.0
+	if "+" in s:
+		var p := s.split("+")
+		s = p[0]
+		plus = float(p[1]) if p[1].is_valid_float() else 0.0
+	var d := s.find("D")
+	if d < 0:
+		return plus
+	var n := 1.0 if d == 0 else (float(s.substr(0, d)) if s.substr(0, d).is_valid_float() else 1.0)
+	var faces := float(s.substr(d + 1)) if s.substr(d + 1).is_valid_float() else 6.0
+	return n * (faces + 1.0) / 2.0 + plus
+
+## Crude output (attacks x damage) of the unit's best melee vs best ranged
+## weapon per alive model; true when an enemy unit on the battlefield is within
+## a plausible charge distance AND the unit's melee output beats its shooting.
+static func _grab_it_forfeits_charge(unit_id: String) -> bool:
+	var u = Common.unit(unit_id)
+	if u.is_empty():
+		return false
+	var owner := int(u.get("owner", 0))
+	var near := false
+	for eid in Common.state().get("units", {}):
+		var e = Common.unit(str(eid))
+		if int(e.get("owner", 0)) == owner or not Common.is_on_battlefield(e):
+			continue
+		if Common.unit_distance_inches(unit_id, str(eid)) <= GRAB_IT_CHARGE_THREAT_INCHES:
+			near = true
+			break
+	if not near:
+		return false
+	var re = Common.rules()
+	if re == null:
+		return false
+	var board := Common.state()
+	var by_name := {}
+	for w in u.get("meta", {}).get("weapons", []):
+		by_name[str(w.get("name", ""))] = w
+	var ranged: Dictionary = re.get_unit_weapons(unit_id, board) if re.has_method("get_unit_weapons") else {}
+	var melee: Dictionary = re.get_unit_melee_weapons(unit_id, board) if re.has_method("get_unit_melee_weapons") else {}
+	var ranged_out := 0.0
+	var melee_out := 0.0
+	for mid in ranged:
+		var best := 0.0
+		for wid in ranged[mid]:
+			var prof = re.get_weapon_profile(str(wid), board)
+			best = maxf(best, _avg_value(prof.get("attacks_raw", prof.get("attacks", 1))) * _avg_value(prof.get("damage_raw", prof.get("damage", 1))))
+		ranged_out += best
+	for mid in melee:
+		var best_m := 0.0
+		for wname in melee[mid]:
+			var w = by_name.get(str(wname), {})
+			best_m = maxf(best_m, _avg_value(w.get("attacks", 1)) * _avg_value(w.get("damage", 1)))
+		melee_out += best_m
+	return melee_out > ranged_out
 
 static func _gun_crazy_score(unit_id: String, ctx: Dictionary) -> float:
 	var attacker := _head_id(str(ctx.get("attacker_unit_id", "")))

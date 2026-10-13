@@ -86,6 +86,19 @@ static func current_positions(unit_id: String, board: Dictionary) -> Dictionary:
 			out["%s:%d" % [gid, i]] = p
 	return out
 
+## Is the unit (with its attached characters) in coherency right now (03.03)?
+static func group_coherent(unit_id: String, board: Dictionary) -> bool:
+	return bool(AttackSequence.check_unit_coherency(folded_group(board, unit_id)).get("coherent", true))
+
+## Player-facing label of a position key "<unit_id>:<model_index>" for the
+## move panel ("Beast Snagga Boyz model 1" — never the raw engine id; LIVE-6).
+static func model_label(key: String, board: Dictionary) -> String:
+	var parts := _split_key(key)
+	var u = board.get("units", {}).get(str(parts[0]), {})
+	var meta = u.get("meta", {}) if u is Dictionary else {}
+	var name := str(meta.get("display_name", meta.get("name", parts[0])))
+	return "%s model %d" % [name, int(parts[1]) + 1]
+
 static func _split_key(key: String) -> Array:
 	var idx := key.rfind(":")
 	return [key.substr(0, idx), int(key.substr(idx + 1))]
@@ -143,12 +156,21 @@ static func surge_target(unit_id: String, board: Dictionary) -> String:
 		return ""
 	return str(tmpl.before_moving(unit_id, board, null, {}).get("surge_target", ""))
 
+## Every model of the target unit — for an Attached unit, its leaders' models
+## too (19.03: one unit; r3:F2).
+static func target_models(target_id: String, board: Dictionary) -> Array:
+	var re = _n("RulesEngine")
+	if re == null:
+		return board.get("units", {}).get(target_id, {}).get("models", [])
+	var head := str(re.attached_unit_target_id(target_id, board))
+	return re.attached_unit_models(head, board)
+
 ## Edge-to-edge distance (inches) from a model dict to the closest alive
-## model of `target_id` on `board`.
+## model of `target_id` (the whole Attached unit) on `board`.
 static func model_to_unit_inches(m: Dictionary, target_id: String, board: Dictionary) -> float:
 	var meas = _n("Measurement")
 	var best := INF
-	for tm in board.get("units", {}).get(target_id, {}).get("models", []):
+	for tm in target_models(target_id, board):
 		if not tm.get("alive", true) or _pos(tm) == Vector2.INF:
 			continue
 		var d := INF
@@ -200,12 +222,12 @@ static func validate(kind: String, unit_id: String, origin: Dictionary, proposed
 		var dest := _pos(m)
 		var moved_px := start.distance_to(dest)
 		if moved_px > max_px + tol_px:
-			violations.append("%s moved %.1f\" (max %.1f\")" % [key, moved_px / PX_PER_INCH, max_inches])
+			violations.append("%s moved %.1f\" (max %.1f\")" % [model_label(str(key), board), moved_px / PX_PER_INCH, max_inches])
 		if moved_px > 0.01 and meas:
 			if meas.has_method("model_outside_board") and meas.model_outside_board(dest, m):
-				violations.append("%s would leave the battlefield" % key)
+				violations.append("%s would leave the battlefield" % model_label(str(key), board))
 			if meas.has_method("model_overlaps_any_wall") and meas.model_overlaps_any_wall(m, u.get("meta", {}).get("keywords", [])):
-				violations.append("%s would end inside impassable terrain" % key)
+				violations.append("%s would end inside impassable terrain" % model_label(str(key), board))
 		moved_models.append(m)
 	if meas and meas.has_method("models_overlap"):
 		for i in range(moved_models.size()):
@@ -260,7 +282,7 @@ static func validate(kind: String, unit_id: String, origin: Dictionary, proposed
 				if d_prop <= er + 0.05:
 					continue
 				if d_prop > d_ref + 0.5:
-					violations.append("%s must end engaged with (or as close as possible to) the surge target" % key)
+					violations.append("%s must end engaged with (or as close as possible to) the surge target" % model_label(str(key), board))
 					break
 	return {"ok": violations.is_empty(), "violations": violations}
 
@@ -324,7 +346,10 @@ static func _solve_normal_to_objective(unit_id: String, origin: Dictionary, max_
 		for key in origin:
 			var parts := _split_key(str(key))
 			var m = units.get(parts[0], {}).get("models", [])[parts[1]]
-			var gap := maxf(0.0, float(mm.model_distance_to_objective_px(m, obj)) / PX_PER_INCH - 3.0)
+			# Terrain-aware gap to being WITHIN RANGE (a terrain-hosted
+			# objective needs the base on its area, not within 3" — r4:WS-1),
+			# the same predicate validate()'s end condition uses.
+			var gap := float(mm.model_gap_to_objective_range_px(m, obj)) / PX_PER_INCH
 			if gap < best_gap:
 				best_gap = gap
 				best_pos = origin[key]
@@ -355,11 +380,11 @@ static func _solve_surge(unit_id: String, origin: Dictionary, max_inches: float,
 	if target == "" or max_inches <= 0.0:
 		return {}
 	var units: Dictionary = board.get("units", {})
-	var target_models: Array = []
-	for tm in units.get(target, {}).get("models", []):
+	var t_models: Array = []
+	for tm in target_models(target, board):
 		if tm.get("alive", true) and _pos(tm) != Vector2.INF:
-			target_models.append(tm)
-	if target_models.is_empty():
+			t_models.append(tm)
+	if t_models.is_empty():
 		return {}
 	var max_px := max_inches * PX_PER_INCH
 	# closest target model per group model
@@ -369,7 +394,7 @@ static func _solve_surge(unit_id: String, origin: Dictionary, max_inches: float,
 		var m = units.get(parts[0], {}).get("models", [])[parts[1]]
 		var best_d := INF
 		var best_tm = null
-		for tm in target_models:
+		for tm in t_models:
 			var d: float = (origin[key] as Vector2).distance_to(_pos(tm)) - _radius_px(m) - _radius_px(tm)
 			if d < best_d:
 				best_d = d

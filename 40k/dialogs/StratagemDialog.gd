@@ -526,7 +526,7 @@ func _create_offer_card(offer: Dictionary, legacy_fold: bool) -> VBoxContainer:
 	if all_variant_only:
 		var targets: Array = offer.get("targets", [])
 		var only_uid := str(targets[0].get("unit_id", "")) if targets.size() == 1 else ""
-		units_label.text = ("Choose one (%s):" % GameState.get_unit_display_name(only_uid)) if only_uid != "" else "Choose one:"
+		units_label.text = ("Choose one (%s):" % GameState.get_unit_display_name(only_uid)) if only_uid != "" else "Choose an option:"
 	units_label.add_theme_font_size_override("font_size", 16)
 	units_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	card.add_child(units_label)

@@ -143,6 +143,18 @@ static func cp_cost_for(strat: Dictionary, ctx: Dictionary) -> int:
 	return v if v >= 0 else base
 
 
+## Player-facing label of a chosen variant (ctx.variant_id) for the game log —
+## "" when there is none or the group does not label its variants (optional
+## group API: variant_label(strat, variant_id) -> String).
+static func variant_label(strat: Dictionary, variant_id: String) -> String:
+	if variant_id == "":
+		return ""
+	var g = group_for(strat)
+	if g == null or not g.has_method("variant_label"):
+		return ""
+	return str(g.variant_label(strat, variant_id))
+
+
 static func allows_battle_shocked_target(strat: Dictionary, ctx: Dictionary) -> bool:
 	var g = group_for(strat)
 	if g == null or not is_implemented(strat):

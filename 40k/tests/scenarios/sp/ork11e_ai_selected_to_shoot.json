@@ -15,6 +15,9 @@
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_phase", "equals": 8 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_shooter_id != \"\" and PhaseManager.get_current_phase_instance().active_shooter_id == main.shooting_controller.active_shooter_id", "equals": true, "comment": "phase entry auto-selects the first eligible shooter as a REAL SELECT_SHOOTER (r5:F3): the phase and the panel agree on the active shooter" },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton", "comment": "that selection opens the unit_selected_to_shoot window for the auto-selected unit (War Horde CLOSE-RANGE DAKKA) - decline it before the scenario picks its own shooter" },
+    { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
     { "act": "execute_script", "script": "SettingsService.set(\"auto_allocate_wounds\", true)" },
     { "act": "execute_script", "multiline": true, "script": "var xs = [2.0, 4.0, 6.0, 8.0, 10.0]\nvar ms = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models\nfor i in range(ms.size()):\n\tms[i][\"position\"] = {\"x\": xs[i] * 40.0, \"y\": 21.0 * 40.0}\n\tms[i][\"wounds\"] = 99\n\tms[i][\"current_wounds\"] = 99\nreturn true", "equals": true, "comment": "setup: an unengaged target inside half range of the Ork rank's guns" },

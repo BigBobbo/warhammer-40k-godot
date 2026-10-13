@@ -85,7 +85,7 @@ static func weapon_header(rtl: RichTextLabel, text: String) -> void:
 ## column, dice icons + summary in the right column. Chips align vertically
 ## across rows because every step renders as a single-row 2-column table with
 ## the same chip column width.
-static func step(rtl: RichTextLabel, kind: String, threshold_text: String, rolls: Array, threshold_num: int, crit_threshold: int, summary_bbcode: String, modified: Array = [], numbered: bool = true) -> void:
+static func step(rtl: RichTextLabel, kind: String, threshold_text: String, rolls: Array, threshold_num: int, crit_threshold: int, summary_bbcode: String, modified: Array = [], numbered: bool = true, fail_band: int = 1) -> void:
 	if rtl == null:
 		return
 	var style: Dictionary = CHIP_STYLES.get(kind, CHIP_STYLES["generic"])
@@ -135,7 +135,7 @@ static func step(rtl: RichTextLabel, kind: String, threshold_text: String, rolls
 		if not rolls.is_empty():
 			rtl.append_text("   ")
 	if not rolls.is_empty():
-		append_dice(rtl, rolls, threshold_num, crit_threshold, modified)
+		append_dice(rtl, rolls, threshold_num, crit_threshold, modified, fail_band)
 	rtl.pop()  # cell
 	rtl.pop()  # table
 	# Tables render as inline blocks — without this newline the next appended
@@ -178,7 +178,7 @@ static func info(rtl: RichTextLabel, text: String, color: String = COLOR_NOTE) -
 ## an "xN" count — same grouping the shooting log used, now shared everywhere.
 ## Colors: crit gold (>= crit_threshold), pass green / fail red vs threshold
 ## (checked against the MODIFIED value when provided), neutral blue otherwise.
-static func append_dice(rtl: RichTextLabel, rolls: Array, threshold_num: int, crit_threshold: int = 7, modified: Array = []) -> void:
+static func append_dice(rtl: RichTextLabel, rolls: Array, threshold_num: int, crit_threshold: int = 7, modified: Array = [], fail_band: int = 1) -> void:
 	if rtl == null:
 		return
 	if rolls.is_empty():
@@ -196,7 +196,7 @@ static func append_dice(rtl: RichTextLabel, rolls: Array, threshold_num: int, cr
 	for idx in range(values.size()):
 		var v := int(values[idx])
 		var count := int(counts[v])
-		var bg := _die_color(v, int(mod_for[v]), threshold_num, crit_threshold)
+		var bg := _die_color(v, int(mod_for[v]), threshold_num, crit_threshold, fail_band)
 		rtl.add_image(DiceFaceIcons.get_face(v, bg), DIE_PX, DIE_PX, Color.WHITE, INLINE_ALIGNMENT_CENTER)
 		if count > 1:
 			rtl.append_text(" [color=#cfd6dd]x%d[/color]" % count)
@@ -204,9 +204,13 @@ static func append_dice(rtl: RichTextLabel, rolls: Array, threshold_num: int, cr
 			rtl.append_text("  ")
 
 
-static func _die_color(raw: int, mod: int, threshold_num: int, crit_threshold: int) -> Color:
+static func _die_color(raw: int, mod: int, threshold_num: int, crit_threshold: int, fail_band: int = 1) -> Color:
 	if raw >= crit_threshold:
 		return DiceFaceIcons.COLOR_CRITICAL
+	# An unmodified roll inside the fail band fails whatever the BS / modified
+	# value (INDIRECT FIRE, SPEEDIEST FREEKS: unmodified 1-3 fail — r5:F10).
+	if threshold_num > 0 and fail_band > 1 and raw <= fail_band:
+		return DiceFaceIcons.COLOR_FAIL
 	if threshold_num > 0:
 		return DiceFaceIcons.COLOR_SUCCESS if mod >= threshold_num else DiceFaceIcons.COLOR_FAIL
 	return DiceFaceIcons.COLOR_NEUTRAL
@@ -407,6 +411,11 @@ static func _format_generic_roll(rtl: RichTextLabel, dice_data: Dictionary, cont
 	var display_kind := kind
 	if kind == "save" and dice_data.get("using_invuln", false):
 		chip_threshold = "%s inv" % threshold
+	# A hit-roll fail band (unmodified 1-N fail regardless of BS) is part of
+	# the target the dice were judged against — show it (r5:F10).
+	var fail_band := int(dice_data.get("hit_fail_band", 1)) if kind == "hit" else 1
+	if fail_band > 1 and threshold != "":
+		chip_threshold = "%s, unmodified 1-%d fail" % [threshold, fail_band]
 
 	# Save rolls belong to the DEFENDER — name them so the flip of perspective
 	# is visible in the log.
@@ -422,7 +431,7 @@ static func _format_generic_roll(rtl: RichTextLabel, dice_data: Dictionary, cont
 	if kind == "generic" and context != "":
 		# Unknown context — keep its name visible rather than a bare ROLL chip.
 		summary = "[color=%s]%s[/color]  %s" % [COLOR_NOTE, context.capitalize().replace("_", " "), summary]
-	step(rtl, display_kind, chip_threshold, show_rolls, threshold_num, effective_crit, summary, check_rolls)
+	step(rtl, display_kind, chip_threshold, show_rolls, threshold_num, effective_crit, summary, check_rolls, true, fail_band)
 
 	# --- Post-roll notes ---
 	var sustained_bonus_hits := int(dice_data.get("sustained_bonus_hits", 0))

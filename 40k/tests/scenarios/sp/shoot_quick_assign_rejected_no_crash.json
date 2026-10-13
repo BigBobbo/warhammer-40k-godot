@@ -18,6 +18,15 @@
       "equals": 8
     },
     {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "phase entry auto-selects the first eligible shooter as a REAL SELECT_SHOOTER (r5:F3); decline the unit_selected_to_shoot window it opens before selecting the Boyz"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
       "act": "execute_script",
       "script": "var pi = tree.root.get_node(\"/root/PhaseManager\").current_phase_instance\nvar r = pi.execute_action({\"type\": \"SELECT_SHOOTER\", \"actor_unit_id\": \"U_BOYZ_T\"})\nif r.get(\"success\", false) and r.get(\"stratagem_window_pending\", false):\n\tr = pi.execute_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": 1})\nreturn r.get(\"success\", false)",
       "multiline": true,

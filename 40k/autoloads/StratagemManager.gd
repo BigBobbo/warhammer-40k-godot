@@ -1161,13 +1161,21 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		var log_msg = "Used %s (%s)" % [strat.name, cost_msg]
 		if target_display != "":
 			log_msg += " on %s" % target_display
-		# LIVE-10: say which option was bought (window variants pass their label).
-		var variant_label := str(context.get("variant_label", "")).strip_edges()
-		if variant_label != "":
-			var re := RegEx.new()
-			re.compile("^\\s*\\+\\s*\\d+\\s*CP\\s*:\\s*")
-			var clean := re.sub(variant_label, "", false).strip_edges()
-			log_msg += " — %s" % (clean if clean != "" else variant_label)
+		# Say which option was bought: the codex handler's own label for the
+		# variant (VINDICTIVE ARTILLERISTS' three options — r3:F8), else the
+		# label the window/dialog passed (LIVE-10), minus any "+N CP:" prefix.
+		var variant_note := ""
+		if OrkCodex.handles(strat):
+			variant_note = OrkCodex.variant_label(strat, str(context.get("variant_id", "")))
+		if variant_note == "":
+			var variant_label := str(context.get("variant_label", "")).strip_edges()
+			if variant_label != "":
+				var re := RegEx.new()
+				re.compile("^\\s*\\+\\s*\\d+\\s*CP\\s*:\\s*")
+				var clean := re.sub(variant_label, "", false).strip_edges()
+				variant_note = clean if clean != "" else variant_label
+		if variant_note != "":
+			log_msg += " — %s" % variant_note
 		game_event_log.add_player_entry(player, log_msg)
 
 	# Log to phase log

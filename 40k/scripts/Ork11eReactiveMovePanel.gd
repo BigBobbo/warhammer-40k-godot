@@ -109,6 +109,12 @@ func refresh(p_info: Dictionary) -> void:
 	if valid:
 		_status.text = "Moved %.1f\" of %.0f\" — legal: Confirm to finish the move." % [moved, max_in]
 		_status.add_theme_color_override("font_color", Color(0.55, 1.0, 0.55))
+	elif moved < 0.05 and not violations.has("the unit would not be in coherency"):
+		# Nothing staged yet: a neutral hint, not a red rule violation for a
+		# move the player has not made (LIVE-6). A unit that is out of
+		# coherency before moving still sees that, as it decides the move.
+		_status.text = "Not moved yet — use Auto-move or drag the unit, then Confirm (up to %.0f\")." % max_in
+		_status.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
 	else:
 		_status.text = "Moved %.1f\" of %.0f\" — %s" % [moved, max_in, "; ".join(violations) if not violations.is_empty() else "not legal yet"]
 		_status.add_theme_color_override("font_color", Color(1.0, 0.6, 0.45))

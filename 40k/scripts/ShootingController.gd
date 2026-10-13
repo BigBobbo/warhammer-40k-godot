@@ -129,6 +129,7 @@ var start_action_button: Button  # B1 (11e): start a generic 11e action
 var burn_objective_button: Button  # Scorched Earth burn objective button
 var _auto_shoot_queue: Array = []  # T5-UX3: Queue of SHOOT actions to dispatch sequentially
 var _auto_shoot_in_progress: bool = false  # T5-UX3: Whether auto-shoot sequence is active
+var _auto_select_in_flight: bool = false  # _refresh_unit_list's auto-selection is dispatching (re-entrancy guard)
 var damage_feedback: DamageFeedbackVisual = null  # T7-53: Floating damage numbers for shooting
 
 # T5-MP3: Remote player visual feedback
@@ -1152,8 +1153,30 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 			var active_player = current_phase.get_current_player() if current_phase else -1
 			should_auto_select = (local_player == active_player)
 		else:
-			# In single-player: Always auto-select
-			should_auto_select = true
+			# In single-player: auto-select for a human active player only.
+			# The auto-selection is a REAL SELECT_SHOOTER (it reaches the phase
+			# and opens the unit_selected_to_shoot window), so it must never
+			# pick a unit for the AI — the AI selects its own shooters and would
+			# otherwise answer a window (and maybe spend CP) for a unit it does
+			# not go on to shoot with.
+			var auto_ai_node = get_node_or_null("/root/AIPlayer")
+			var auto_active_player = current_phase.get_current_player() if current_phase else -1
+			should_auto_select = not (auto_ai_node and auto_active_player > 0 and auto_ai_node.is_ai_player(auto_active_player))
+
+		# A pending stratagem window (or a stratagem follow-up a player is still
+		# making, e.g. the GRAB IT move) blocks every other action: the phase
+		# would reject the SELECT_SHOOTER and the controller would show a
+		# shooter the phase never accepted (r4:WS-5). Shoot All Remaining picks
+		# its own shooters. Leave the selection to the player / the queue.
+		if should_auto_select and current_phase and current_phase.has_method("has_pending_stratagem_window") \
+				and (current_phase.has_pending_stratagem_window() \
+					or (current_phase.has_method("get_pending_stratagem_window_decider") \
+						and int(current_phase.get_pending_stratagem_window_decider()) > 0)):
+			print("ShootingController: auto-select skipped — a stratagem window / follow-up is pending")
+			should_auto_select = false
+		if should_auto_select and _auto_shoot_in_progress:
+			print("ShootingController: auto-select skipped — Shoot All Remaining is running")
+			should_auto_select = false
 
 		if should_auto_select:
 			# Pick the first unit the phase would actually ACCEPT, not blindly
@@ -1175,9 +1198,18 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 					continue
 				auto_idx = i
 				break
-			if auto_idx >= 0:
+			if auto_idx >= 0 and _auto_select_in_flight:
+				# Re-entered from inside our own auto-selection: the SELECT_SHOOTER
+				# is routed synchronously and Main refreshes this list on success
+				# BEFORE active_shooter_id is set (always when the phase answers
+				# with a prompt — Pulsa Rokkit, Ammo Runt, Firing Deck dialog …).
+				# Auto-selecting again here recursed until the stack overflowed.
+				print("ShootingController: auto-select skipped — re-entered during an auto-selection")
+			elif auto_idx >= 0:
 				unit_selector.select(auto_idx)
+				_auto_select_in_flight = true
 				_on_unit_selected(auto_idx)
+				_auto_select_in_flight = false
 				# Steam Deck: the auto-armed shooter can be anywhere on the
 				# board and a pad player has no mouse to go find it — frame it
 				# so the phase never opens (or hands over to the next shooter)
@@ -1361,8 +1393,10 @@ func _refresh_weapon_tree() -> void:
 			bonus_hints.append("BLAST")
 		if is_heavy and shooter_unit.get("flags", {}).get("remained_stationary", false):
 			bonus_hints.append("+1 hit")
-		if rapid_fire_value > 0:
-			bonus_hints.append("RF%d" % rapid_fire_value)
+		# Granted RAPID FIRE (CLOSE-RANGE DAKKA) shows in the row too (r1:WH-9).
+		var row_rf_value = rapid_fire_value + RulesEngine.ork11e_rapid_fire_bonus(shooter_unit, weapon_profile)
+		if row_rf_value > 0:
+			bonus_hints.append("RF%d" % row_rf_value)
 		if has_lethal_hits:
 			bonus_hints.append("LETHAL")
 		if has_devastating_wounds:
@@ -1987,8 +2021,10 @@ func _show_range_indicators() -> void:
 		circle.setup(range_px, weapon_display_name)
 		range_visual.add_child(circle)
 
-		# RAPID FIRE: Add dashed half-range circle (orange) for bonus attacks
-		var rapid_fire_value = RulesEngine.get_rapid_fire_value(weapon_id)
+		# RAPID FIRE: Add dashed half-range circle (orange) for bonus attacks —
+		# including a RAPID FIRE a rule grants (CLOSE-RANGE DAKKA, r1:WH-9).
+		var rapid_fire_value = RulesEngine.get_rapid_fire_value(weapon_id) \
+			+ RulesEngine.ork11e_rapid_fire_bonus(shooter_unit, weapon_profile)
 		if rapid_fire_value > 0:
 			var half_range_px = range_px / 2.0
 			var half_range_circle = preload("res://scripts/RangeCircle.gd").new()
@@ -4531,8 +4567,15 @@ func _dispatch_next_auto_shoot() -> void:
 	# A stratagem window (e.g. unit_selected_to_shoot) paused the previous SHOOT
 	# for the player's decision: wait — dispatching now would be refused and
 	# silently drop that unit from the queue. The answer resumes that SHOOT.
+	# The same goes for a stratagem follow-up a human is still making (e.g. the
+	# GRAB IT normal move): get_pending_stratagem_window_decider() is > 0 while
+	# ShootingPhase waits for that move, and a SHOOT dispatched now would be
+	# refused ("Waiting for Player N to finish the normal move") and lost
+	# (framework F8).
 	if current_phase and current_phase.has_method("has_pending_stratagem_window") \
-			and current_phase.has_pending_stratagem_window():
+			and (current_phase.has_pending_stratagem_window() \
+				or (current_phase.has_method("get_pending_stratagem_window_decider") \
+					and int(current_phase.get_pending_stratagem_window_decider()) > 0)):
 		get_tree().create_timer(0.3).timeout.connect(_dispatch_next_auto_shoot)
 		return
 	if _auto_shoot_queue.is_empty():
@@ -5304,8 +5347,19 @@ func _try_click_select_shooter() -> bool:
 	var board_pos: Vector2 = board_root.get_local_mouse_position() if board_root else get_global_mouse_position()
 
 	var clicked_unit_id = _get_friendly_unit_at_position(board_pos)
-	if clicked_unit_id == "" or clicked_unit_id == active_shooter_id:
+	if clicked_unit_id == "":
 		return false
+	if clicked_unit_id == active_shooter_id:
+		# Already the active shooter — a no-op, unless the panel and the phase
+		# disagree (the panel highlights a unit the phase never received a
+		# SELECT_SHOOTER for): then the click re-sends the selection so the
+		# player is never stuck on a dead "[ACTIVE]" row (r4:WS-5).
+		var phase_shooter = str(current_phase.get("active_shooter_id")) if current_phase else ""
+		if phase_shooter == active_shooter_id:
+			return false
+		print("ShootingController: Click on highlighted %s re-sends SELECT_SHOOTER (phase active shooter is '%s')" % [clicked_unit_id, phase_shooter])
+		_select_shooter_in_list_by_id(clicked_unit_id)
+		return true
 
 	# Only units that can still shoot are click-selectable
 	var units_shot = current_phase.get_units_that_shot() if current_phase.has_method("get_units_that_shot") else []
@@ -7260,7 +7314,8 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 		if blast_bonus > 0:
 			active_tags.append("Blast+%d" % blast_bonus)
 
-	# Rapid Fire: +X attacks at half range (assume in rapid fire range for preview)
+	# Rapid Fire: +X attacks for each bearer within half range of THIS target
+	# (r1:WH-9 — the forecast used to assume every bearer was in half range).
 	var rapid_fire_val = RulesEngine.get_rapid_fire_value(weapon_id)
 	# CLOSE-RANGE DAKKA (Codex: Orks 11e): [RAPID FIRE 1] / +1 to an existing RAPID FIRE
 	var fc_crd_rf = RulesEngine.ork11e_rapid_fire_bonus(attacker_unit, weapon_profile)
@@ -7268,8 +7323,20 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 		rapid_fire_val += fc_crd_rf
 		active_tags.append("Close-Range Dakka")
 	if rapid_fire_val > 0:
-		total_attacks += rapid_fire_val * model_count
-		active_tags.append("Rapid Fire %d" % rapid_fire_val)
+		var rf_bearers: Array = []
+		var rf_unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+		for rf_mid in rf_unit_weapons:
+			if weapon_id in rf_unit_weapons[rf_mid]:
+				rf_bearers.append(rf_mid)
+		var rf_in_half: int = RulesEngine.count_models_in_half_range(attacker_unit, target_unit, weapon_id, rf_bearers, GameState.state)
+		var rf_models: int = mini(rf_in_half, model_count)
+		total_attacks += rapid_fire_val * rf_models
+		if rf_models >= model_count:
+			active_tags.append("Rapid Fire %d" % rapid_fire_val)
+		elif rf_models > 0:
+			active_tags.append("Rapid Fire %d (%d/%d in half range)" % [rapid_fire_val, rf_models, model_count])
+		else:
+			active_tags.append("Rapid Fire %d (out of half range)" % rapid_fire_val)
 
 	# === HIT PROBABILITY ===
 	var bs = weapon_profile.get("bs", 4)
@@ -7549,6 +7616,11 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 		expected_regular_wounds = 0
 
 	var expected_wounds = expected_regular_wounds + expected_crit_wounds + lethal_auto_wounds
+
+	# [HAZARDOUS] — native, or granted (VINDICTIVE ARTILLERISTS' overcharged
+	# option, r3:F8): show the self-damage risk in the forecast.
+	if RulesEngine.weapon_is_hazardous_for(active_shooter_id, weapon_id, GameState.state):
+		active_tags.append("Hazardous")
 
 	# === SAVE PROBABILITY ===
 	var ap = weapon_profile.get("ap", 0)

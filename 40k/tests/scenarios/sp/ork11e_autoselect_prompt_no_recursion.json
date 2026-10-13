@@ -1,0 +1,92 @@
+{
+  "id": "ork11e_autoselect_prompt_no_recursion",
+  "covers": [
+    "ui.ShootingController.auto_select_shooter",
+    "phases.ShootingPhase.pulsa_rokkit",
+    "stratagem.window.unit_selected_to_shoot"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Regression for the auto-selected shooter now being a REAL SELECT_SHOOTER (r5:F3 / r4:WS-5): when the phase answers the selection with a prompt (here the Tankbustas' unused Pulsa Rokkit) it returns success before the controller records the shooter, Main refreshes the shooter list and the list auto-selected the same unit again - recursing until the stack overflowed. Setup-only: P1 switched to Wreckas (no unit_selected_to_shoot offer for the Tankbustas); every P1 unit except the Tankbustas marked as having shot; Custodian Guard C moved unengaged in front of the Ork rank; no active shooter. The list refresh auto-selects the Tankbustas exactly once: phase and panel agree, the Pulsa Rokkit dialog is shown, and a real click on Decline continues to the weapon panel.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "phase entry auto-selects the first eligible shooter - decline its War Horde CLOSE-RANGE DAKKA offer"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Wreckas\"\nStratagemManager.load_faction_stratagems_for_player(1)\nvar ph = PhaseManager.get_current_phase_instance()\nfor uid in GameState.state[\"units\"]:\n\tif int(GameState.state[\"units\"][uid].get(\"owner\", 0)) == 1 and str(uid) != \"U_TANKBUSTAS_A\" and not str(uid) in ph.units_that_shot:\n\t\tph.units_that_shot.append(str(uid))\n\t\tGameState.state[\"units\"][uid][\"flags\"][\"has_shot\"] = true\nvar xs = [2.0, 4.0, 6.0, 8.0, 10.0]\nvar ms = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models\nfor i in range(ms.size()):\n\tms[i][\"position\"] = {\"x\": xs[i] * 40.0, \"y\": 21.0 * 40.0}\nph.active_shooter_id = \"\"\nvar sc = tree.root.get_node(\"Main\").shooting_controller\nsc.active_shooter_id = \"\"\nreturn UnitAbilityManager.has_pulsa_rokkit(\"U_TANKBUSTAS_A\")",
+      "equals": true,
+      "comment": "setup: only the Tankbustas (unused Pulsa Rokkit) can still shoot; no active shooter anywhere"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main\").shooting_controller\nsc._refresh_unit_list()\nvar ph = PhaseManager.get_current_phase_instance()\nreturn str(ph.active_shooter_id) + \"|\" + str(sc.active_shooter_id) + \"|\" + str(ph.awaiting_pulsa_rokkit)",
+      "equals": "U_TANKBUSTAS_A|U_TANKBUSTAS_A|true",
+      "comment": "the list refresh auto-selects the Tankbustas ONCE (before the guard this recursed into a stack overflow); phase and panel agree; the Pulsa Rokkit prompt is pending"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"PulsaRokkitDialog\")\nif d == null or not d.visible:\n\treturn false\nvar b = d.find_child(\"DeclineButton\", true, false)\nif b == null:\n\treturn false\nb.get_parent().name = \"PulsaButtons\"\nb.get_parent().get_parent().name = \"PulsaContent\"\nreturn true",
+      "equals": true,
+      "comment": "the Pulsa Rokkit dialog is shown for the auto-selected unit; give its button row a stable path so Decline can be clicked for real"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_autoselected_tankbustas_pulsa_prompt"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/PulsaRokkitDialog/PulsaContent/PulsaButtons/DeclineButton",
+      "comment": "real click: Decline the Pulsa Rokkit"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 10
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar sc = tree.root.get_node(\"Main\").shooting_controller\nreturn str(ph.awaiting_pulsa_rokkit) + \"|\" + str(ph.active_shooter_id) + \"|\" + str(sc.active_shooter_id)",
+      "equals": "false|U_TANKBUSTAS_A|U_TANKBUSTAS_A",
+      "comment": "declined: the Tankbustas stay the active shooter in both the phase and the panel"
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"Main\").shooting_controller.eligible_targets.has(\"U_CUSTODIAN_GUARD_C\")",
+      "equals": true,
+      "comment": "the weapon panel is populated with the Tankbustas' targets"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_tankbustas_weapon_panel_after_decline"
+    }
+  ]
+}

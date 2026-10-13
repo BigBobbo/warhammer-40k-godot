@@ -130,6 +130,14 @@ static func eligible_targets(strat: Dictionary, player: int, window_id: String, 
 	var check = _validate_selected_unit(strat, spec, player, uid, ctx)
 	if not check.ok:
 		return []
+	if str(strat.get("csv_id", "")) == "drive-by-bustin-wreckas" and not _drive_by_can_matter(uid):
+		# Ruling (r4:WS-4): the effect only touches "weapons selected for the
+		# Firing Deck ability" — on a transport without Firing Deck, or with no
+		# embarked unit that can still shoot, no weapon can be selected for it,
+		# so the stratagem is not offered (using it would be a wasted CP).
+		Common.log_info("OrkCodexShooting: DRIVE-BY BUSTIN' not offered for %s — no Firing Deck weapon can be selected (firing deck %d, embarked units able to shoot: none)" % [
+			uid, int(Common.unit(uid).get("transport_data", {}).get("firing_deck", 0))])
+		return []
 	if str(strat.get("csv_id", "")) == "vindictive-artillerists-madcap-meks":
 		var cost := int(strat.get("cp_cost", 1))
 		var variants: Array = []
@@ -153,6 +161,20 @@ static func validate(strat: Dictionary, player: int, target_unit_id: String, ctx
 			return {"ok": false, "reason": "VINDICTIVE ARTILLERISTS: unknown option '%s'" % variant}
 	return {"ok": true, "reason": ""}
 
+
+## DRIVE-BY BUSTIN' can only matter when the transport has Firing Deck and at
+## least one embarked unit has not shot yet — the same test
+## ShootingPhase._process_select_shooter uses before its Firing Deck step.
+static func _drive_by_can_matter(transport_id: String) -> bool:
+	var t = Common.unit(transport_id)
+	var td: Dictionary = t.get("transport_data", {})
+	if int(td.get("firing_deck", 0)) <= 0:
+		return false
+	for eid in td.get("embarked_units", []):
+		var e = Common.unit(str(eid))
+		if not e.is_empty() and not e.get("flags", {}).get("has_shot", false):
+			return true
+	return false
 
 ## The rule checks shared by every stratagem of the group: WHEN "Your Shooting
 ## phase, when a friendly <KEYWORDS> unit is selected to shoot" / TARGET "That
@@ -227,6 +249,13 @@ static func clear(strat: Dictionary, unit_id: String) -> void:
 static func ai_kind(strat: Dictionary) -> String:
 	return str(AI_KIND.get(str(strat.get("csv_id", "")), "utility"))
 
+
+## Label of a chosen variant for the game log (r3:F8: say which VINDICTIVE
+## ARTILLERISTS option was chosen).
+static func variant_label(strat: Dictionary, variant_id: String) -> String:
+	if str(strat.get("csv_id", "")) == "vindictive-artillerists-madcap-meks":
+		return _va_label(variant_id)
+	return ""
 
 ## CP cost of a variant offered in a target entry's `variants`. VINDICTIVE
 ## ARTILLERISTS' three options all cost the stratagem's base CP.

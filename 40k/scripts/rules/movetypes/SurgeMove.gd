@@ -65,18 +65,41 @@ func before_moving(unit_id: String, board: Dictionary, _rng, _context: Dictionar
 				if d < best_dist:
 					best_dist = d
 					best_id = other_id
+	# An Attached unit is ONE unit (19.03): whichever component's model is
+	# closest, the surge target is the whole Attached unit, identified by its
+	# head (the bodyguard) — r3:F2.
+	if best_id != "":
+		best_id = str(_rules().attached_unit_target_id(best_id, board))
 	return {"surge_target": best_id}
+
+## Every component unit id of the surge target's Attached unit (the target
+## itself when it is not part of one).
+static func target_group_ids(target_id: String, board: Dictionary) -> Array:
+	if target_id == "":
+		return []
+	var rules = Engine.get_main_loop().root.get_node_or_null("/root/RulesEngine")
+	if rules == null:
+		return [target_id]
+	var head := str(rules.attached_unit_target_id(target_id, board))
+	var out: Array = []
+	for cid in rules.attached_unit_component_ids(head, board):
+		out.append(str(cid))
+	if not target_id in out:
+		out.append(target_id)
+	return out
 
 func after_moving_conditions(unit_id: String, board: Dictionary, context: Dictionary) -> Dictionary:
 	var base = super.after_moving_conditions(unit_id, board, context)
 	if not base.ok:
 		return base
 	# 21.02 AFTER: cannot be engaged with enemies that were not the target.
+	# Every component of an Attached surge target IS the target (19.03).
 	var target_id = str(context.get("surge_target", ""))
+	var target_group := target_group_ids(target_id, board)
 	var unit = _unit(board, unit_id)
 	var owner = int(unit.get("owner", 0))
 	for other_id in board.get("units", {}):
-		if other_id == unit_id or str(other_id) == target_id:
+		if other_id == unit_id or str(other_id) in target_group:
 			continue
 		var other = board.units[other_id]
 		if int(other.get("owner", 0)) == owner:

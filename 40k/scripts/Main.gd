@@ -6087,7 +6087,22 @@ func setup_shooting_controller() -> void:
 	shooting_controller = preload("res://scripts/ShootingController.gd").new()
 	shooting_controller.name = "ShootingController"
 	add_child(shooting_controller)
-	
+
+	# Connect the controller's action signals BEFORE set_phase(): set_phase()
+	# auto-selects the first eligible shooter, which emits SELECT_SHOOTER. With
+	# the connection made afterwards that first selection never reached the
+	# phase (r5:F3 / r4:WS-5) — the panel showed "[ACTIVE]" while the phase had
+	# no active shooter, so Quick-Assign / Confirm did nothing and the
+	# unit_selected_to_shoot stratagem window never opened for that unit. A
+	# window the selection opens is shown by _connect_stratagem_window_signal()
+	# at the end of setup_phase_controllers() (it re-shows a pending window).
+	if not shooting_controller.shoot_action_requested.is_connected(_on_shooting_action_requested):
+		shooting_controller.shoot_action_requested.connect(_on_shooting_action_requested)
+		print("Connected shoot_action_requested signal")
+	if not shooting_controller.ui_update_requested.is_connected(_on_shooting_ui_update_requested):
+		shooting_controller.ui_update_requested.connect(_on_shooting_ui_update_requested)
+		print("Connected ui_update_requested signal")
+
 	# Get the current phase instance from PhaseManager
 	var phase_instance = PhaseManager.get_current_phase_instance()
 	if phase_instance:
@@ -6109,14 +6124,6 @@ func setup_shooting_controller() -> void:
 			print("WARNING: Phase instance is not a ShootingPhase, skipping signal connections")
 	else:
 		print("WARNING: No phase instance found!")
-	
-	# Connect shooting controller signals
-	if not shooting_controller.shoot_action_requested.is_connected(_on_shooting_action_requested):
-		shooting_controller.shoot_action_requested.connect(_on_shooting_action_requested)
-		print("Connected shoot_action_requested signal")
-	if not shooting_controller.ui_update_requested.is_connected(_on_shooting_ui_update_requested):
-		shooting_controller.ui_update_requested.connect(_on_shooting_ui_update_requested)
-		print("Connected ui_update_requested signal")
 
 func setup_charge_controller() -> void:
 	print("Setting up ChargeController...")
