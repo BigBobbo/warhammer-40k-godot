@@ -81,6 +81,8 @@
     { "act": "execute_script", "multiline": true,
       "script": "var log = PhaseManager.get_current_phase_instance().dice_log\nfor i in range(log.size() - 1, -1, -1):\n\tif str(log[i].get(\"context\", \"\")) == \"to_wound\":\n\t\treturn int(log[i].get(\"wound_modifier_net\", 0))\nreturn 99",
       "equals": -1 },
+    { "act": "execute_script", "multiline": true, "script": "var labels = tree.current_scene.game_log_panel.last_combat_card_dice_labels()\nfor l in labels:\n\tif l.begins_with(\"Wound (\") and l.contains(\"-1 to wound\"):\n\t\treturn true\nreturn str(labels)", "equals": true, "comment": "LV-4: the Game Log wound row names the net -1 to wound (was 'Wound (5+):' with no modifier)" },
+    { "act": "execute_script", "multiline": true, "script": "var log = PhaseManager.get_current_phase_instance().dice_log\nfor i in range(log.size() - 1, -1, -1):\n\tif str(log[i].get(\"context\", \"\")) == \"to_wound\":\n\t\tvar drv = tree.current_scene.shooting_controller.dice_roll_visual\n\t\tdrv.show_dice_roll(log[i])\n\t\treturn drv._context_label.ends_with(\", -1 to wound)\")\nreturn false", "equals": true, "comment": "LV-4: the dice tray header for that wound roll reads 'Wound Rolls (need N+, -1 to wound)'" },
     { "act": "screenshot", "label": "03_wound_roll_minus_one_vs_nobz" },
     { "act": "click_node", "button_text": "Complete Shooting" },
     { "act": "wait_seconds", "seconds": 1.0 },

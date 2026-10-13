@@ -8605,6 +8605,11 @@ func update_ui() -> void:
 				status_label.text = "Phase: " + GameStateData.Phase.keys()[current_phase]
 			phase_action_button.disabled = false
 
+	# The tooltip must carry the text just set (the mirror above runs before
+	# the phase branch, so it lagged one refresh behind — LV-5).
+	if status_label:
+		status_label.tooltip_text = status_label.text
+
 # ═══════════════════════════════════════════════════════
 # T5-UX11: DEPLOYMENT UNIT HOVER PREVIEW
 # ═══════════════════════════════════════════════════════
@@ -8977,7 +8982,14 @@ func _show_token_hover(unit_id: String, screen_pos: Vector2, model_id: String = 
 		var val_text = "?" if val == null else "%d%s" % [int(val), def[2]]
 		stat_parts.append("[color=#D49761]%s[/color]:%s" % [def[1], val_text])
 	var invuln = int(stats.get("invuln", stats.get("invulnerable_save", 0)))
-	if invuln > 0:
+	# LV-3: show the EFFECTIVE invulnerable save — RulesEngine uses the better
+	# of the datasheet value and an effect-granted one (DREAD POWER, Waaagh!,
+	# Da Boss Iz Watchin' …), so the card must not keep showing the datasheet's.
+	var eff_invuln := int(unit.get("flags", {}).get("effect_invuln", 0))
+	if eff_invuln > 0 and (invuln == 0 or eff_invuln < invuln):
+		var inv_src := str(unit.get("flags", {}).get("effect_invuln_source", ""))
+		stat_parts.append("[color=#D49761]Inv[/color]:%d++ [color=#888888](%s)[/color]" % [eff_invuln, inv_src if inv_src != "" else "effect"])
+	elif invuln > 0:
 		stat_parts.append("[color=#D49761]Inv[/color]:%d++" % invuln)
 	var models = unit.get("models", [])
 	var alive = 0
@@ -9119,6 +9131,13 @@ func _build_status_marker_hover_text(unit: Dictionary, unit_id: String = "") -> 
 		lines.append("[color=#CC9A93]Failed a Battle-shock test (Below Half-strength) or was shocked by an effect (e.g. emergency disembark).[/color]")
 		lines.append("[color=#CC9A93]OC 0 — cannot hold objectives; cannot use Stratagems; cannot start Actions; Desperate Escape tests fail on 1-3.[/color]")
 		lines.append("[color=#CC9A93]Tests again at the start of its next Command phase.[/color]")
+	# LV-3: a riled-up Ork unit (11e Waaagh! / DREAD POWER) — otherwise only the
+	# Game Log said so, and the player could not tell the stratagem took effect.
+	if flags.get("ork11e_riled_up", false) or flags.get("waaagh_active", false):
+		var fam_rl = get_node_or_null("/root/FactionAbilityManager")
+		var rl_summary: String = str(fam_rl.waaagh_effects_summary()) if fam_rl != null else "riled up"
+		var rl_title := "Riled up" if GameConstants.edition >= 11 else "Waaagh!"
+		lines.append("[color=#7FD13B][b]%s[/b][/color] [color=#AAAAAA]— %s[/color]" % [rl_title, rl_summary])
 	# Fought overlay (dim + green check) supersedes the engaged badge on the token.
 	if flags.get("has_fought", false):
 		lines.append("[color=#6FBF6F][b]Fought[/b][/color] [color=#888888](green check)[/color] [color=#AAAAAA]— has fought this turn[/color]")
@@ -11471,9 +11490,36 @@ func _reactive_move_status_text() -> String:
 			continue
 		var owner := int(GameState.get_unit(str(uid)).get("owner", 0))
 		var src: String = MovementController.reactive_move_source(md)
-		return "Player %d: %s move — drag %s up to %s\", then End This Unit's Move" % [
-			owner, src, GameState.get_unit_display_name(str(uid)), MovementController._fmt_inches(float(md.get("move_cap_inches", 0.0)))]
+		var uname := GameState.get_unit_display_name(str(uid))
+		var cap := MovementController._fmt_inches(float(md.get("move_cap_inches", 0.0)))
+		# LV-5: the long form ("Player 2: SCARPER! move — drag … then End This
+		# Unit's Move") lost its instruction to the ellipsis at 1920 px. Use the
+		# most detailed form that FITS the top bar; the unit and the rule are also
+		# on the right panel, so they are dropped first.
+		return _first_fitting_status_text([
+			"P%d %s: drag %s ≤%s\", then End This Unit's Move" % [owner, src, uname, cap],
+			"P%d %s: drag ≤%s\", then End This Unit's Move" % [owner, src, cap],
+			"P%d: drag %s ≤%s\", then End This Unit's Move" % [owner, uname, cap],
+			"P%d: drag ≤%s\", then End This Unit's Move" % [owner, cap],
+		])
 	return ""
+
+
+## The first of `candidates` that fits the top-bar status label without the
+## ellipsis (the last one when none does, or when the label is not laid out).
+func _first_fitting_status_text(candidates: Array) -> String:
+	if candidates.is_empty():
+		return ""
+	if status_label == null or not is_instance_valid(status_label) or status_label.size.x <= 0.0:
+		return str(candidates[0])
+	var font: Font = status_label.get_theme_font("font")
+	var fsize: int = status_label.get_theme_font_size("font_size")
+	if font == null:
+		return str(candidates[0])
+	for c in candidates:
+		if font.get_string_size(str(c), HORIZONTAL_ALIGNMENT_LEFT, -1, fsize).x <= status_label.size.x:
+			return str(c)
+	return str(candidates[candidates.size() - 1])
 
 
 func _on_stratagem_used_update_display(_player: int, _stratagem_id: String, _target_unit_id: String) -> void:
@@ -12871,6 +12917,17 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 					if movement_controller:
 						movement_controller.active_unit_id = ""
 						movement_controller.active_mode = ""
+						# LV-1: a finished move (notably a reactive SCARPER! /
+						# WHIRLIGIG / WTBT move by the NON-active player) must
+						# not leave its unit, mode and End button on the right
+						# panel for the next player.
+						movement_controller._update_selected_unit_display()
+						if movement_controller.has_method("_apply_reactive_move_panel_state"):
+							movement_controller._apply_reactive_move_panel_state()
+					# LV-1: update_movement_card_buttons() returns early in the
+					# Movement phase, so nothing refreshed the top-bar status —
+					# the reactive move's "Player 2: SCARPER! …" stayed up.
+					update_ui()
 				"CONFIRM_DISEMBARK":
 					print("Main: Disembark confirmed for unit: ", action.actor_unit_id)
 					# Refresh board visuals to show the disembarked models
@@ -15413,23 +15470,12 @@ func _prompt_friendly_target_then_use(sid: String, player: int) -> void:
 	if friendly.is_empty():
 		print("Main: %s — no eligible friendly unit" % display_name)
 		return
-	# r5:F12: DELICIOUS EATING SQUIGS heals every ORKS INFANTRY unit within 3"
-	# of the picked unit automatically — say which ones on each button.
-	var details := {}
-	var prompt := "%s — select your unit" % display_name.to_upper()
-	if str(strat_manager.get_stratagem(sid).get("csv_id", "")) == "delicious-eating-squigs-kult-of-speed":
-		var okm = load("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
-		for fid in friendly:
-			var healed: Array = okm.delicious_squigs_targets(str(fid), player)
-			var names: Array = healed.map(func(h): return GameState.get_unit_display_name(str(h)))
-			details[str(fid)] = "heals %s" % (", ".join(PackedStringArray(names)) if not names.is_empty() else "no unit")
-		prompt = "%s — select your unit: every ORKS INFANTRY unit within 3\" of it heals 3 wounds" % display_name.to_upper()
-	_show_stratagem_pick_dialog(prompt, friendly,
+	_show_stratagem_pick_dialog("%s — select your unit" % display_name.to_upper(), friendly,
 		func(fid: String):
 			var result = strat_manager.use_stratagem(player, sid, fid)
 			print("Main: %s on %s -> %s" % [display_name, fid, str(result)])
 			if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
-				_stratagem_panel.populate(player, current_phase), details)
+				_stratagem_panel.populate(player, current_phase))
 
 
 ## DELICIOUS EATING SQUIGS (Codex: Orks 11e): pick the Rukkatrukk
@@ -15443,7 +15489,16 @@ func _prompt_delicious_squigs(sid: String, player: int) -> void:
 	if friendly.is_empty():
 		print("Main: DELICIOUS EATING SQUIGS — no eligible friendly unit")
 		return
-	_show_stratagem_pick_dialog("DELICIOUS EATING SQUIGS — select your unit", friendly,
+	# r5:F12 / R3 / RV-3: the stratagem heals EVERY ORKS INFANTRY unit within
+	# 3" of the picked unit automatically — say which ones on each button and
+	# what happens in the prompt (lost in the merge when DES moved here).
+	var mv_names = load("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
+	var details := {}
+	for f in friendly:
+		var healed: Array = mv_names.delicious_squigs_targets(str(f), player)
+		var names: Array = healed.map(func(h): return GameState.get_unit_display_name(str(h)))
+		details[str(f)] = "heals %s" % (", ".join(PackedStringArray(names)) if not names.is_empty() else "no unit")
+	_show_stratagem_pick_dialog("DELICIOUS EATING SQUIGS — select your unit: every ORKS INFANTRY unit within 3\" of it heals 3 wounds", friendly,
 		func(fid: String):
 			var use_now := func():
 				var result = strat_manager.use_stratagem(player, sid, fid)
@@ -15460,7 +15515,7 @@ func _prompt_delicious_squigs(sid: String, player: int) -> void:
 			if revived == 0 and lost == 0:
 				use_now.call()
 				return
-			_show_revive_setup_confirm(preview, use_now))
+			_show_revive_setup_confirm(preview, use_now), details)
 
 
 ## Confirmation for an auto-placed revive set-up: rings on the board at each

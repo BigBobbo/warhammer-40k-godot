@@ -370,6 +370,11 @@ func show_dice_roll(dice_data: Dictionary) -> void:
 			_context_label = "Hit Rolls (need %s)" % threshold_str
 		"to_wound":
 			_context_label = "Wound Rolls (need %s)" % threshold_str
+			# LV-4: a net wound modifier (e.g. HULKING BRUTES' -1) changed which
+			# dice wound — say so, otherwise the tray looks unmodified.
+			var wm_net := int(dice_data.get("wound_modifier_net", 0))
+			if wm_net != 0:
+				_context_label = "Wound Rolls (need %s, %+d to wound)" % [threshold_str, wm_net]
 		"save_roll":
 			_context_label = "Save Rolls (need %s)" % threshold_str
 		"feel_no_pain":

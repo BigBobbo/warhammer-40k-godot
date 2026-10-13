@@ -52,7 +52,9 @@
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 2, "comment": "the reactive move owns the phase" },
     { "act": "execute_script", "script": "main.movement_controller.normal_radio.get_parent().get_parent().visible", "equals": false, "comment": "r3:F7/r5:F11: the mode chooser (Advance / Remain Still / Confirm Movement Mode) is hidden during the reactive move" },
     { "act": "execute_script", "script": "main.movement_controller.unit_mode_label.text.contains(\"SCARPER!\")", "equals": true, "comment": "the panel names the fixed mode: Normal Move — SCARPER! (up to N\")" },
-    { "act": "execute_script", "script": "main.status_label.text.begins_with(\"Player 2: SCARPER! move — drag Gretchin Alpha up to\")", "equals": true, "comment": "LIVE-8: the HUD names the player making the reactive move" },
+    { "act": "execute_script", "script": "main.status_label.text.begins_with(\"P2 \") and main.status_label.text.contains(\"drag \") and main.status_label.text.ends_with(\"then End This Unit's Move\")", "equals": true, "comment": "LIVE-8: the HUD names the player making the reactive move (LV-5: the most detailed short form that fits)" },
+    { "act": "execute_script", "multiline": true, "script": "var l = tree.current_scene.status_label\nvar f = l.get_theme_font(\"font\")\nvar fs = l.get_theme_font_size(\"font_size\")\nreturn f.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x <= l.size.x + 1.0", "equals": true, "comment": "LV-5: the whole instruction fits the top bar at 1920 px (the long form was cut before 'then End This Unit's Move')" },
+    { "act": "execute_script", "script": "main.status_label.tooltip_text == main.status_label.text", "equals": true, "comment": "LV-5: the tooltip carries the current status text" },
     { "act": "execute_script", "script": "main.movement_controller._mode_hint_label.text.begins_with(\"Drag the models (up to\") and main.movement_controller._mode_hint_label.text.ends_with(\"then End This Unit's Move\")", "equals": true, "comment": "the hint no longer points at the hidden mode chooser" },
     { "act": "screenshot", "label": "02_gretchin_may_scarper" },
 
@@ -68,6 +70,8 @@
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 0, "comment": "the Custodes player has the phase back" },
     { "act": "execute_script", "script": "main.movement_controller.normal_radio.get_parent().get_parent().visible", "equals": true, "comment": "the mode chooser is back once the reactive move is done" },
     { "act": "execute_script", "script": "main.movement_controller._mode_hint_label.text", "equals": "Drag models to move, or select a different mode below", "comment": "and so is the default hint" },
+    { "act": "execute_script", "script": "main.status_label.text.contains(\"SCARPER\")", "equals": false, "comment": "LV-1: the top bar no longer tells Player 2 to make the (finished) reactive move" },
+    { "act": "execute_script", "script": "main.movement_controller.selected_unit_label.text.contains(\"Gretchin\") or main.movement_controller.unit_mode_label.text.contains(\"SCARPER\")", "equals": false, "comment": "LV-1: the right panel no longer shows Player 2's Gretchin / the SCARPER! mode" },
     { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"SCARPER!\")", "expect_min": 1 },
     { "act": "screenshot", "label": "03_gretchin_scarpered" }
   ]

@@ -561,6 +561,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	
 	# Create radio buttons (CheckBox with ButtonGroup for radio behavior)
 	normal_radio = CheckBox.new()
+	normal_radio.name = "NormalRadio"  # stable path for windowed scenarios
 	normal_radio.text = "Normal Move"
 	normal_radio.toggle_mode = true
 	normal_radio.button_group = mode_button_group
@@ -572,6 +573,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	button_container.add_child(normal_radio)
 
 	advance_radio = CheckBox.new()
+	advance_radio.name = "AdvanceRadio"  # stable path for windowed scenarios
 	advance_radio.text = "Advance"
 	advance_radio.toggle_mode = true
 	advance_radio.button_group = mode_button_group
@@ -583,6 +585,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	button_container.add_child(advance_radio)
 
 	fall_back_radio = CheckBox.new()
+	fall_back_radio.name = "FallBackRadio"  # stable path for windowed scenarios
 	fall_back_radio.text = "Fall Back"
 	fall_back_radio.toggle_mode = true
 	fall_back_radio.button_group = mode_button_group
@@ -594,6 +597,7 @@ func _create_section3_mode_selection(parent: VBoxContainer) -> void:
 	button_container.add_child(fall_back_radio)
 
 	stationary_radio = CheckBox.new()
+	stationary_radio.name = "StationaryRadio"  # stable path for windowed scenarios
 	stationary_radio.text = "Remain Still"
 	stationary_radio.toggle_mode = true
 	stationary_radio.button_group = mode_button_group
