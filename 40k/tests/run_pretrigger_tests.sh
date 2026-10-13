@@ -186,6 +186,7 @@ TESTS=(
     "tests/test_iss066_fight_phase_wiring.gd"
     "tests/test_global_consolidation_11e.gd"
     "tests/test_global_consolidation_ai_11e.gd"
+    "tests/test_ai_fight_selecting_player_11e.gd"
     "tests/test_global_pile_in_11e.gd"
     "tests/test_iss067_scouts_11e.gd"
     "tests/test_scout_detection_and_visibility.gd"

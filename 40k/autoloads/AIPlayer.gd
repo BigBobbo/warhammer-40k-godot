@@ -426,6 +426,19 @@ func _get_fight_phase_selecting_player() -> int:
 		if int(fight_phase.pile_in_step_11e) == int(fight_phase.PileInStep11e.ACTIVE) \
 				and int(fight_phase.piling_in_player_11e) > 0:
 			return int(fight_phase.piling_in_player_11e)
+	# AIR-1: the 12.04 FightSequencer is the selection AUTHORITY —
+	# FightPhase.get_available_actions offers exactly its candidates, tagged
+	# with its picker (also while a 12.08 forced fight interrupts the
+	# Consolidate step). current_selecting_player can lag behind it (after a
+	# COUNTER-OFFENSIVE, or a forced fight mid-consolidation): the AI was then
+	# asked to decide for the wrong player, made no decision and the game
+	# stalled until the max-actions fallback (seen with UNLEASH THE LIONS split
+	# units). Same authority _human_fight_turn_pending() already uses.
+	if "sequencer_11e" in fight_phase and fight_phase.sequencer_11e != null \
+			and "active_fighter_id" in fight_phase and str(fight_phase.active_fighter_id) == "":
+		var sel = fight_phase.sequencer_11e.peek_selection(GameState.state)
+		if not sel.get("done", true) and int(sel.get("player", 0)) > 0:
+			return int(sel.get("player", 0))
 	if "current_selecting_player" in fight_phase:
 		return fight_phase.current_selecting_player
 	return -1
