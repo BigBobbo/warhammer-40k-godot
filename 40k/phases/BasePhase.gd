@@ -47,6 +47,7 @@ var _ev_destroyed_open: Dictionary = {}  # unit_id -> true while its unit_destro
 var _ev_dd_held: Dictionary = {}         # unit_id -> true: Deadly Demise waits for its unit_destroyed window
 var _ev_dd_released: Array = []          # unit ids whose held Deadly Demise was resolved (log / tests)
 var _ev_action_attacker: String = ""     # unit making attacks in the action being executed
+var _ev_destroyed_by: Dictionary = {}    # unit_id -> attacker whose attacks destroyed it earlier (removal deferred, e.g. Fight On Death); consumed by the next detection
 var _ev_depth: int = 0                   # execute_action nesting (events are flushed at depth 0)
 
 # ISS-024: phases read LIVE state — this is a property view over
@@ -821,15 +822,31 @@ func _window_events_detect() -> void:
 		if now.alive.has(uid) or not units.has(uid):
 			continue
 		var owner := int(units[uid].get("owner", 0))
-		var by_enemy := attacker_owner != 0 and attacker_owner != owner
+		# A unit whose destroyed models were only removed now (Fight On Death
+		# keeps them until the unit has fought / the phase ends) is credited to
+		# the enemy whose attacks destroyed them, not to whoever acts now.
+		var unit_attacker := str(_ev_destroyed_by.get(uid, attacker))
+		var unit_attacker_owner := attacker_owner
+		if unit_attacker != attacker:
+			unit_attacker_owner = int(units.get(unit_attacker, {}).get("owner", 0)) if unit_attacker != "" else 0
+		var by_enemy := unit_attacker_owner != 0 and unit_attacker_owner != owner
 		_ev_destroyed_open[uid] = true
-		_ev_deferred.append({"player": owner, "window_id": "unit_destroyed",
-			"ctx": {"unit_id": uid, "attacker_unit_id": attacker if by_enemy else ""}})
-		DebugLogger.info("[StratagemWindow] event: %s destroyed (P%d)%s" % [uid, owner, (" by the attacks of %s" % attacker) if by_enemy else ""])
+		var ud_ctx := {"unit_id": uid, "attacker_unit_id": unit_attacker if by_enemy else ""}
+		# Phases without their own kill pipeline (Movement, Charge, Command, ...)
+		# resolve Deadly Demise here: held until the unit_destroyed window closes
+		# (design §3 — the window opens BEFORE Deadly Demise), then
+		# _window_event_closed -> _resolve_deadly_demise_if_applicable. Shooting
+		# and Fight resolve it from their own _check_kill_diffs.
+		if not _phase_resolves_deadly_demise() and _unit_has_deadly_demise(uid):
+			_ev_dd_held[uid] = true
+			ud_ctx["hold_deadly_demise"] = true
+		_ev_deferred.append({"player": owner, "window_id": "unit_destroyed", "ctx": ud_ctx})
+		DebugLogger.info("[StratagemWindow] event: %s destroyed (P%d)%s" % [uid, owner, (" by the attacks of %s" % unit_attacker) if by_enemy else ""])
 		if by_enemy:
-			if not _ev_attacks.has(attacker):
-				_ev_attacks[attacker] = []
-			_ev_attacks[attacker].append(uid)
+			if not _ev_attacks.has(unit_attacker):
+				_ev_attacks[unit_attacker] = []
+			_ev_attacks[unit_attacker].append(uid)
+	_ev_destroyed_by.clear()
 	var shocked_raised := {}
 	for uid in now.get("shocked", {}):
 		if _ev_baseline.get("shocked", {}).has(uid):
@@ -912,7 +929,12 @@ func _window_events_adopt(entries: Array) -> void:
 	_ev_baseline = _ev_snapshot()
 	for e in entries:
 		if str(e.get("window_id", "")) == "unit_destroyed":
-			_ev_destroyed_open[str(e.get("ctx", {}).get("unit_id", ""))] = true
+			var adopted_uid := str(e.get("ctx", {}).get("unit_id", ""))
+			_ev_destroyed_open[adopted_uid] = true
+			# A Deadly Demise held by the previous phase instance moves with
+			# its window, so it still resolves when the window closes here.
+			if bool(e.get("ctx", {}).get("hold_deadly_demise", false)):
+				_ev_dd_held[adopted_uid] = true
 	_ev_deferred.append_array(entries)
 	_window_events_flush({})
 
@@ -928,6 +950,55 @@ func _window_event_closed(window_id: String, ctx: Dictionary, used: bool) -> voi
 		DebugLogger.info("[StratagemWindow] unit_destroyed window for %s closed (used=%s) — resolving its held Deadly Demise" % [uid, str(used)])
 		if has_method("_resolve_deadly_demise_if_applicable"):
 			call("_resolve_deadly_demise_if_applicable", uid)
+
+## True for phases that resolve Deadly Demise from their own kill detection
+## (ShootingPhase / FightPhase _check_kill_diffs). Every other phase relies on
+## the generic event detection above (_window_events_detect).
+func _phase_resolves_deadly_demise() -> bool:
+	return false
+
+func _unit_has_deadly_demise(unit_id: String) -> bool:
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr == null or not ability_mgr.has_deadly_demise(unit_id):
+		return false
+	# Only a unit destroyed ON the battlefield (e.g. not a reserve unit culled
+	# at the end of round 3) has models whose Deadly Demise can hit anything.
+	for m in GameState.get_unit(unit_id).get("models", []):
+		if m.get("position", null) != null:
+			return true
+	return false
+
+## Generic Deadly Demise resolution (phases without their own kill pipeline —
+## a FLYIN' HEADBUTT or other mortal wounds in the Movement / Charge / Command
+## phase used to destroy vehicles with no Deadly Demise roll at all).
+## ShootingPhase and FightPhase override this with their own version.
+func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
+	if _window_hold_deadly_demise(destroyed_unit_id):
+		return
+	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
+	if ability_mgr == null or not ability_mgr.has_deadly_demise(destroyed_unit_id):
+		return
+	var dd_value = ability_mgr.get_deadly_demise_value(destroyed_unit_id)
+	if dd_value == "":
+		return
+	var dd_meta = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {})
+	var unit_name = dd_meta.get("display_name", dd_meta.get("name", destroyed_unit_id))
+	DebugLogger.info(str("%s: Deadly Demise detected on destroyed unit %s (%s) — value: %s" % [get_script().resource_path.get_file(), unit_name, destroyed_unit_id, dd_value]))
+	log_phase_message("Deadly Demise %s triggered for %s!" % [dd_value, unit_name])
+	var dd_result = RulesEngine.resolve_deadly_demise(destroyed_unit_id, dd_value, GameState.state)
+	if dd_result.get("triggered", false):
+		var diffs = dd_result.get("diffs", [])
+		if not diffs.is_empty():
+			PhaseManager.apply_state_changes(diffs)
+			log_phase_message("Deadly Demise %s: %d mortal wound(s) dealt to %d unit(s)" % [
+				dd_value, dd_result.get("total_mortal_wounds", 0), dd_result.get("per_target", []).size()])
+			# Units its mortal wounds destroyed raise their own windows (and
+			# Deadly Demise) next.
+			_window_events_detect()
+			_window_events_pull_deferred()
+	else:
+		log_phase_message("Deadly Demise %s: roll of %d — did not trigger (needed 6)" % [
+			dd_value, dd_result.get("trigger_roll", 0)])
 
 ## Deadly Demise sites call this first (design §3 unit_destroyed: the window
 ## opens BEFORE Deadly Demise is rolled). True = hold the roll until the

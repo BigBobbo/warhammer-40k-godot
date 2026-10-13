@@ -187,6 +187,7 @@ TESTS=(
     "tests/test_ork_codex_movement.gd"
     "tests/test_ork_codex_other.gd"
     "tests/test_ork_codex_framework_fixes.gd"
+    "tests/test_ork_codex_turn_flow_fixes.gd"
     "tests/test_indirect_fire_band_11e.gd"
     "tests/test_t003_indirect_fire_visibility_pin.gd"
     "tests/test_terrain_area_visibility_11e.gd"

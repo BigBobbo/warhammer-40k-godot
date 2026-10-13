@@ -430,6 +430,11 @@ func _record_superior_creation_if_applicable(destroyed_unit_id: String) -> void:
 	var _sc_meta = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {})
 	log_phase_message("Superior Creation: %s destroyed — revival roll (2+) at end of phase" % _sc_meta.get("name", destroyed_unit_id))
 
+## Deadly Demise is resolved by this phase's own kill detection
+## (_check_kill_diffs), not by the BasePhase generic event path.
+func _phase_resolves_deadly_demise() -> bool:
+	return true
+
 func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 	"""P1-13: Check if a destroyed unit has Deadly Demise and resolve it."""
 	# Stratagem window unit_destroyed opens BEFORE Deadly Demise (design §3,
@@ -4157,7 +4162,7 @@ func _shooting_reroll_available() -> bool:
 	var sm = get_node_or_null("/root/StratagemManager")
 	if sm == null or not sm.has_method("is_command_reroll_available"):
 		return false
-	var chk = sm.is_command_reroll_available(get_current_player())
+	var chk = sm.is_command_reroll_available(get_current_player(), active_shooter_id)
 	return chk.get("available", false)
 
 func _extract_staged_hit_wound(dice_data: Array) -> Array:

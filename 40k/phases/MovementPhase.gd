@@ -1689,8 +1689,10 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	var reroll_available = false
 	if strat_manager:
-		var reroll_check = strat_manager.is_command_reroll_available(current_player)
+		var reroll_check = strat_manager.is_command_reroll_available(current_player, unit_id)
 		reroll_available = reroll_check.available
+		if not reroll_available:
+			DebugLogger.info(str("MovementPhase: Command Re-roll not offered for %s advance — %s" % [unit_name, str(reroll_check.get("reason", ""))]))
 
 	if reroll_available:
 		# Pause — store roll and offer Command Re-roll
@@ -1703,7 +1705,11 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 			"unit_name": unit_name,
 		}
 
+		# Codex: Orks (11e) 'ERE WE GO's +2 applies after any re-roll — show it.
+		var ctx_bonus := int(unit.get("flags", {}).get(Ork11eMovement.FLAG_ERE_WE_GO, 0)) if tw_override == 0 else 0
 		var context_text = "Advance roll: %d (M %d\" + %d\" = %d\" total)" % [advance_roll, int(move_inches), advance_roll, int(move_inches + advance_roll)]
+		if ctx_bonus != 0:
+			context_text = "Advance roll: %d %+d (M %d\" + %d\" = %d\" total)" % [advance_roll, ctx_bonus, int(move_inches), advance_roll + ctx_bonus, int(move_inches + advance_roll + ctx_bonus)]
 		var roll_context = {
 			"roll_type": "advance_roll",
 			"original_rolls": [advance_roll],
@@ -5124,7 +5130,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		move_data["completed"] = true
 		emit_signal("unit_move_confirmed", unit_id, {"mode": "NORMAL", "models_moved": move_data.model_moves.size()})
 		if MissionManager:
-			MissionManager.call_deferred("check_all_objectives")
+			MissionManager.call_deferred("check_all_objectives", false)
 		return _ork11e_with_enemy_ended_move(create_result(true, changes))
 
 	# OA-42: If this was a Scatter! reactive move, clear the reactive state
@@ -5142,7 +5148,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		move_data["completed"] = true
 		emit_signal("unit_move_confirmed", unit_id, {"mode": "NORMAL", "models_moved": move_data.model_moves.size()})
 		if MissionManager:
-			MissionManager.call_deferred("check_all_objectives")
+			MissionManager.call_deferred("check_all_objectives", false)
 		return _ork11e_with_enemy_ended_move(create_result(true, changes))
 
 	# Codex: Orks (11e) reactive normal move (SCARPER! / WHIRLIGIG EVASION /
@@ -5163,7 +5169,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			rm_log.add_player_entry(rm_player, "%s: %s made a normal move of %.1f\"" % [rm_source, get_unit(unit_id).get("meta", {}).get("name", unit_id), rm_max])
 		emit_signal("unit_move_confirmed", unit_id, {"mode": "NORMAL", "models_moved": move_data.model_moves.size()})
 		if MissionManager:
-			MissionManager.call_deferred("check_all_objectives")
+			MissionManager.call_deferred("check_all_objectives", false)
 		if _ork11e_auto_moving:
 			return create_result(true, changes)
 		return _finish_window_followup(changes)
@@ -5180,7 +5186,7 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	# T7-39: Recheck objective control after movement so flashes trigger in real-time
 	# Uses call_deferred so it runs after GameManager.apply_result() applies the position diffs
 	if MissionManager:
-		MissionManager.call_deferred("check_all_objectives")
+		MissionManager.call_deferred("check_all_objectives", false)
 
 	# Check for embark opportunity after movement
 	if not unit.get("disembarked_this_phase", false):
@@ -6099,7 +6105,7 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 
 	# T7-39: Recheck objective control after reinforcement placement
 	if MissionManager:
-		MissionManager.call_deferred("check_all_objectives")
+		MissionManager.call_deferred("check_all_objectives", false)
 
 	# P2-88: Check for Fire Overwatch opportunity after reinforcement is set up
 	# Balance Dataslate timing: "just after an enemy unit is set up"
@@ -9398,7 +9404,8 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 			DebugLogger.info(str("DEBUG MovementPhase: Edge-to-edge distance (inches): ", range_result.distance_inches))
 
 			if not range_result.within_range:
-				return {"valid": false, "errors": ["Model must be placed within %0.0f\" of transport (%.1f\" from edge)" % [setup_range_inches, range_result.distance_inches]]}
+				# 18.04 / 18.06: each model is set up WHOLLY within the set-up distance.
+				return {"valid": false, "errors": ["Model must be set up wholly within %0.0f\" of transport (its base reaches %.1f\" from the hull)" % [setup_range_inches, float(range_result.get("farthest_inches", range_result.distance_inches))]]}
 
 			# Build model_at_pos for engagement range and board edge checks
 			var model_at_pos = g_unit.models[i].duplicate()
@@ -9971,6 +9978,14 @@ func _process_embark_unit(action: Dictionary) -> Dictionary:
 			"op": "set",
 			"path": "units.%s.embarked_in" % gid,
 			"value": transport_id
+		})
+		# 18.04 / 18.06 ELIGIBLE IF "did not embark within that TRANSPORT this
+		# phase" (DisembarkMove.eligible, READIED BRAWLERS' assault-disembark
+		# candidates). Cleared by PhaseManager when the phase ends.
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.embarked_this_phase" % gid,
+			"value": true
 		})
 
 		if gid not in current_embarked:

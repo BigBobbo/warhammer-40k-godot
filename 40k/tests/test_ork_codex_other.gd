@@ -316,8 +316,15 @@ func _section_mob_mentality() -> void:
 	phase = _phase()
 	var cp_start := _cp(1)
 	_check("Command phase start: +1 CP (%d -> %d)" % [cp0, cp_start], cp_start == cp0 + 1)
+	# LIVE-3 / MM-1: the window does NOT open at phase entry (on top of the
+	# Command step's exclusive prompts) — it opens when the Battle-shock step
+	# starts (the roll call sends BEGIN_BATTLE_SHOCK_STEP).
+	_check("phase entry: battle_shock_step_start not opened yet (Command-step prompts first)", not phase.has_pending_stratagem_window() and not phase.battle_shock_step_window_opened(), str(_pending_window(phase).get("window_id", "")))
+	var begin = phase.execute_action({"type": "BEGIN_BATTLE_SHOCK_STEP", "player": 1})
+	_check("BEGIN_BATTLE_SHOCK_STEP succeeds", begin.get("success", false), str(begin.get("error", "")))
 	var w := _pending_window(phase)
 	_check("battle_shock_step_start window pending for P1", str(w.get("window_id", "")) == "battle_shock_step_start" and int(w.get("player", 0)) == 1, str(w.get("window_id", "")))
+	_check("BEGIN result stamped with the opened window (network mirror)", begin.has("stratagem_window_opened"))
 	var offer := _offers_for(w.get("offers", []), sid)
 	_check("MOB MENTALITY offered on Boyz B", _target_ids(offer) == ["U_BOYZ_B"], str(_target_ids(offer)))
 	var opts := _secondary_ids(offer, "U_BOYZ_B")
@@ -376,6 +383,7 @@ func _section_mob_mentality() -> void:
 		m["alive"] = true
 		m["current_wounds"] = m.get("wounds", 1)
 	PM.transition_to_phase(PHASE_COMMAND)
+	_phase().execute_action({"type": "BEGIN_BATTLE_SHOCK_STEP", "player": 1})
 	_check("no unit must test: no battle_shock_step_start window", not _phase().has_pending_stratagem_window())
 
 	# AI decider: answered synchronously at the start of the step.
@@ -384,15 +392,42 @@ func _section_mob_mentality() -> void:
 	SM._usage_history = {"1": [], "2": []}
 	PM.transition_to_phase(PHASE_COMMAND)
 	phase = _phase()
-	if phase.has_pending_stratagem_window():
-		phase.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1, "window_id": "battle_shock_step_start"})
+	_check("AI turn: no window at phase entry either", not phase.has_pending_stratagem_window())
 	var cp_ai := _cp(1)
 	_ai_on(1)
-	phase._open_battle_shock_step_window()
+	# The AI's own first battle-shock action starts the step: the window is
+	# answered synchronously, then the test itself runs in the same action.
+	var ai_test = phase.execute_action({"type": "BATTLE_SHOCK_TEST", "unit_id": "U_BEAST_SNAGGA_BOYZ_A", "player": 1})
 	_ai_off()
 	_check("AI decider: no pending window", not phase.has_pending_stratagem_window())
 	_check("AI used MOB MENTALITY (CP -1, flag on the Beast Snagga Boyz)", _cp(1) == cp_ai - 1 and bool(_unit("U_BEAST_SNAGGA_BOYZ_A").flags.get("ork11e_mob_mentality", false)), "cp %d -> %d" % [cp_ai, _cp(1)])
+	_check("AI: the test that started the step ran after the decision (auto-passed)", ai_test.get("success", false) and ai_test.get("auto_passed", false), str(ai_test))
+	_check("AI: the window diffs ride in that action's result", ai_test.get("changes", []).size() > 0)
 	PM.transition_to_phase(PHASE_MOVEMENT)
+
+	# Human: a direct BATTLE_SHOCK_TEST / END_COMMAND before the roll call also
+	# starts the step — the window opens first and the action resumes after.
+	SM._usage_history = {"1": [], "2": []}
+	GS.state.units.U_BEAST_SNAGGA_BOYZ_A.meta.stats["leadership"] = 13
+	PM.transition_to_phase(PHASE_COMMAND)
+	phase = _phase()
+	var deferred_test = phase.execute_action({"type": "BATTLE_SHOCK_TEST", "unit_id": "U_BEAST_SNAGGA_BOYZ_A", "player": 1, "dice_roll": [1, 1]})
+	_check("direct BATTLE_SHOCK_TEST opens the battle_shock_step_start window first", deferred_test.get("success", false) and str(_pending_window(phase).get("window_id", "")) == "battle_shock_step_start", str(deferred_test))
+	_check("the test has not been rolled yet", not "U_BEAST_SNAGGA_BOYZ_A" in phase._units_tested)
+	var dec_t = phase.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1, "window_id": "battle_shock_step_start"})
+	_check("decline -> the deferred test runs (failed at Ld 13)", dec_t.get("success", false) and "U_BEAST_SNAGGA_BOYZ_A" in phase._units_tested and bool(_unit("U_BEAST_SNAGGA_BOYZ_A").flags.get("battle_shocked", false)), str(dec_t))
+	_check("BEGIN after the step started is a no-op", phase.execute_action({"type": "BEGIN_BATTLE_SHOCK_STEP", "player": 1}).get("success", false) and not phase.has_pending_stratagem_window())
+	PM.transition_to_phase(PHASE_MOVEMENT)
+	GS.state.units.U_BEAST_SNAGGA_BOYZ_A.flags["battle_shocked"] = false
+	SM._usage_history = {"1": [], "2": []}
+	PM.transition_to_phase(PHASE_COMMAND)
+	phase = _phase()
+	var deferred_end = phase.execute_action({"type": "END_COMMAND", "player": 1})
+	_check("END_COMMAND before the roll call opens the window and keeps the phase", deferred_end.get("success", false) and GS.get_current_phase() == PHASE_COMMAND and str(_pending_window(phase).get("window_id", "")) == "battle_shock_step_start", str(deferred_end.get("message", "")))
+	var cp_end := _cp(1)
+	var use_end = phase.execute_action({"type": "USE_WINDOW_STRATAGEM", "player": 1, "window_id": "battle_shock_step_start", "stratagem_id": sid, "target_unit_id": "U_BOYZ_B", "context": {"secondary_id": "U_BEAST_SNAGGA_BOYZ_A"}})
+	_check("USE -> END_COMMAND resumes: the selected unit auto-passed and the phase ended", use_end.get("success", false) and _cp(1) == cp_end - 1 and GS.get_current_phase() == PHASE_MOVEMENT and not bool(_unit("U_BEAST_SNAGGA_BOYZ_A").flags.get("battle_shocked", false)), "phase=%d %s" % [GS.get_current_phase(), str(use_end.get("error", ""))])
+	GS.state.units.U_BEAST_SNAGGA_BOYZ_A.meta.stats["leadership"] = 7
 
 	# Opponent's turn: the Orks are not the active player — never offered.
 	_check("fixture ork11e_orks_reactive loads", _load("ork11e_orks_reactive"))
@@ -854,13 +889,15 @@ func _section_end_command_auto_resolve() -> void:
 	_check("END_COMMAND succeeds (CP available: no stranded Command Re-roll)", res.get("success", false))
 	_check("auto-resolved failure: Nobz battle-shocked", bool(_unit("U_NOBZ_A").flags.get("battle_shocked", false)))
 	_check("auto-resolved failure: Boyz + Warboss battle-shocked", bool(_unit("U_BOYZ_B").flags.get("battle_shocked", false)) and bool(_unit("U_WARBOSS_A").flags.get("battle_shocked", false)))
-	var nxt = _phase()
-	_check("the phase ended (Movement)", GS.get_current_phase() == PHASE_MOVEMENT and nxt != phase)
-	var w := _pending_window(nxt)
-	_check("the Boyz' unit_battle_shocked window was handed to the next phase", str(w.get("window_id", "")) == "unit_battle_shocked" and str(w.get("ctx", {}).get("unit_id", "")) == "U_BOYZ_B", str(w.get("window_id", "")))
-	_check("END_COMMAND result stamped with the handed-over window", res.has("stratagem_window_opened"))
-	if nxt.has_pending_stratagem_window():
-		nxt.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1, "window_id": "unit_battle_shocked"})
+	# WH-6: the window opens "when it becomes battle-shocked" — in the Command
+	# phase; END_COMMAND finishes ending the phase once it closes.
+	_check("the Command phase waits (same instance)", GS.get_current_phase() == PHASE_COMMAND and _phase() == phase)
+	var w := _pending_window(phase)
+	_check("the Boyz' unit_battle_shocked window opens in the Command phase", str(w.get("window_id", "")) == "unit_battle_shocked" and str(w.get("ctx", {}).get("unit_id", "")) == "U_BOYZ_B", str(w.get("window_id", "")))
+	_check("END_COMMAND result stamped with the opened window", res.has("stratagem_window_opened"))
+	var dec = phase.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1, "window_id": "unit_battle_shocked"})
+	_check("decline -> the Command phase ends (Movement)", dec.get("success", false) and GS.get_current_phase() == PHASE_MOVEMENT and _phase() != phase, str(dec.get("error", "")))
+	_check("no window handed to the Movement phase", not _phase().has_pending_stratagem_window())
 
 
 # ---------------------------------------------------------------------------

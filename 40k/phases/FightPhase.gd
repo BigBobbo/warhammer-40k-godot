@@ -145,6 +145,7 @@ var _pending_pile_in_step_data: Dictionary = {}
 const OrkCodexFight = preload("res://scripts/stratagems/ork_codex/OrkCodexFight.gd")
 var _ork11e_selected_to_fight: Dictionary = {}   # unit_id -> true once selected to fight this phase
 var _ork11e_fod_rolled: Dictionary = {}          # "unit_id:model_index" -> true (D6 rolled, or a removal)
+var _ork11e_fod_destroyer: Dictionary = {}       # unit_id -> enemy fighter whose attacks destroyed its kept models (event attribution)
 var _window_deferred_batch: Dictionary = {}      # {window_id, player, actions}: BATCH sub-actions held while a window waits
 var _fight_phase_end_window_opened: bool = false # the fight_phase_end window opens once per phase
 var _kill_reported_units: Dictionary = {}        # unit_id -> true once _check_kill_diffs processed its destruction
@@ -189,6 +190,7 @@ func _on_phase_enter() -> void:
 	_pending_pile_in_step_data = {}
 	_ork11e_selected_to_fight.clear()
 	_ork11e_fod_rolled.clear()
+	_ork11e_fod_destroyer.clear()
 	_window_deferred_batch = {}
 	_fight_phase_end_window_opened = false
 	_kill_reported_units.clear()
@@ -479,6 +481,11 @@ func _record_superior_creation_if_applicable(destroyed_unit_id: String) -> void:
 		PhaseManager.apply_state_changes(diffs)
 	var _sc_meta = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {})
 	log_phase_message("Superior Creation: %s destroyed — revival roll (2+) at end of phase" % _sc_meta.get("name", destroyed_unit_id))
+
+## Deadly Demise is resolved by this phase's own kill detection
+## (_check_kill_diffs), not by the BasePhase generic event path.
+func _phase_resolves_deadly_demise() -> bool:
+	return true
 
 func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 	"""P1-13: Check if a destroyed unit has Deadly Demise and resolve it."""
@@ -1656,7 +1663,7 @@ func _fight_reroll_available() -> bool:
 	if sm == null or not sm.has_method("is_command_reroll_available"):
 		return false
 	var fighter_owner = get_unit(active_fighter_id).get("owner", get_current_player())
-	var chk = sm.is_command_reroll_available(fighter_owner)
+	var chk = sm.is_command_reroll_available(fighter_owner, active_fighter_id)
 	return chk.get("available", false)
 
 func _staged_fight_begin(interactive_saves: bool) -> Dictionary:
@@ -3066,7 +3073,7 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 			source, label, roll, (" %s" % str(mod_info.get("note", ""))) if mod != 0 else "", total, OrkCodexFight.FOD_PASS,
 			"NOT REMOVED — it stays on the battlefield until its unit has fought or the end of the phase" if kept else "removed"]
 		log_phase_message(msg)
-		print("FightPhase: [ork11e FOD] " + msg)
+		DebugLogger.info(str("FightPhase: [ork11e FOD] " + msg))
 		var raw_needed := clampi(OrkCodexFight.FOD_PASS - mod, 1, 7)
 		var dice_block := {"context": "ork11e_fight_on_death", "stratagem": source, "unit_id": uid, "model_index": idx,
 			"rolls_raw": [roll], "rolls_modified": [total], "modifier": mod, "threshold": "%d+" % raw_needed,
@@ -3078,6 +3085,11 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 			gel.add_combat_result("  " + msg)
 		if kept:
 			diff["value"] = true
+			# Remember whose attacks destroyed it: the removal happens later (in
+			# this unit's own activation or at the end of the phase), and the
+			# unit_destroyed / enemy_unit_has_attacked events must credit them.
+			if active_fighter_id != "" and int(get_unit(active_fighter_id).get("owner", 0)) != int(unit.get("owner", 0)):
+				_ork11e_fod_destroyer[uid] = active_fighter_id
 			var plist: Array = new_pending.get(uid, live_pending.duplicate())
 			if not idx in plist:
 				plist.append(idx)
@@ -3106,6 +3118,8 @@ func _ork11e_fod_remove(unit_ids: Array, reason: String) -> Array:
 			diffs.append({"op": "set", "path": "units.%s.models.%d.alive" % [uid, idx], "value": false})
 			labels.append(RulesEngine.get_model_display_label(models[idx], unit))
 		diffs.append({"op": "set", "path": "units.%s.flags.%s" % [uid, OrkCodexFight.FLAG_FOD_PENDING], "value": []})
+		if _ork11e_fod_destroyer.has(uid):
+			_ev_destroyed_by[uid] = str(_ork11e_fod_destroyer[uid])
 		var source := str(unit.get("flags", {}).get(OrkCodexFight.FLAG_FOD_SOURCE, "Fight On Death"))
 		var msg := "%s: %d model(s) of %s removed from the battlefield (%s): %s" % [
 			source, labels.size(), unit.get("meta", {}).get("name", uid), reason, ", ".join(labels)]
@@ -5518,6 +5532,9 @@ func _ork11e_embark_followup_diffs(unit_id: String, transport_id: String) -> Arr
 	var diffs: Array = []
 	for gid in TransportManager.get_attached_unit_group(unit_id, GameState.state):
 		diffs.append({"op": "set", "path": "units.%s.embarked_in" % gid, "value": transport_id})
+		# 18.04 / 18.06 "did not embark within that TRANSPORT this phase" —
+		# same marker as MovementPhase._process_embark_unit (PhaseManager clears it).
+		diffs.append({"op": "set", "path": "units.%s.flags.embarked_this_phase" % gid, "value": true})
 		if not gid in embarked:
 			embarked.append(gid)
 		var g_models = get_unit(gid).get("models", [])
@@ -5547,6 +5564,14 @@ func _ork11e_strategic_reserves_followup_diffs(unit_id: String) -> Array:
 		diffs.append({"op": "set", "path": "units.%s.status" % gid, "value": GameStateData.UnitStatus.IN_RESERVES})
 		diffs.append({"op": "set", "path": "units.%s.reserve_type" % gid, "value": "strategic_reserves"})
 		diffs.append({"op": "set", "path": "units.%s.flags.repositioned_to_reserves" % gid, "value": true})
+		# The unit leaves the battlefield: wipe every model's position (as the
+		# KEEP IT RUNNIN' embark follow-up and the INFESTED WAR ZONE clone do).
+		# Targeting, engagement, objective control and collision read model
+		# positions, not the IN_RESERVES status, so a positioned reserve unit
+		# stayed on the table as an invisible ghost until it arrived.
+		var g_models = get_unit(gid).get("models", [])
+		for i in range(g_models.size()):
+			diffs.append({"op": "set", "path": "units.%s.models.%d.position" % [gid, i], "value": null})
 	var msg := "INSTINCTIVE HUNTERS: %s is placed in strategic reserves" % u.get("meta", {}).get("name", unit_id)
 	log_phase_message(msg)
 	var gel = get_node_or_null("/root/GameEventLog")

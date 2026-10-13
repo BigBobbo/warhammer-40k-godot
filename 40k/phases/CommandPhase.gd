@@ -35,6 +35,11 @@ var _reroll_pending_roll: Dictionary = {}  # Stores {die1, die2, unit_id, leader
 var _newly_drawn_missions: Array = []  # Missions drawn this phase, for review dialog
 var _fix_dat_armour_up_used: Array = []  # Units that used Fix Dat Armour Up this command phase
 
+# battle_shock_step_start window (MOB MENTALITY): opened once, at the start of
+# the Battle-shock step (see _start_battle_shock_step).
+var _bss_window_opened: bool = false
+var _bss_deferred_action: Dictionary = {}
+
 func _init():
 	# Issue #329: route through RNGService so static test_mode_seed applies
 	_rng = RulesEngine.make_rng()
@@ -163,25 +168,70 @@ func _on_phase_enter() -> void:
 	else:
 		DebugLogger.info(str("CommandPhase: %d unit(s) need battle-shock tests" % _units_needing_test.size()))
 
-	# Stratagem window battle_shock_step_start (design §3): the start-of-phase
-	# and Core CP steps above are done — the Battle-shock step starts now,
-	# before any battle-shock roll (MOB MENTALITY).
-	_open_battle_shock_step_window()
+	# Stratagem window battle_shock_step_start (design §3) is NOT opened here:
+	# the Command step's own prompts (drawn secondary missions, A Tempting
+	# Target, New Orders, ...) come first and are exclusive dialogs. It opens at
+	# the start of the Battle-shock step — the first BEGIN_BATTLE_SHOCK_STEP
+	# (the roll call), BATTLE_SHOCK_TEST or END_COMMAND, before any roll
+	# (_start_battle_shock_step).
+	_bss_window_opened = false
+	_bss_deferred_action = {}
 
-## Opens the active player's battle_shock_step_start window. No resume step:
-## a human answers through the StratagemDialog, then rolls the tests as usual.
-func _open_battle_shock_step_window() -> void:
+## True once this phase's battle_shock_step_start window has been opened
+## (answered or still pending) — the UI asks before starting the roll call.
+func battle_shock_step_window_opened() -> bool:
+	return _bss_window_opened
+
+## The Battle-shock step starts: open the active player's
+## battle_shock_step_start window (MOB MENTALITY) once per phase, before any
+## battle-shock roll. `deferred` is the action that started the step
+## (BATTLE_SHOCK_TEST / END_COMMAND, {} for BEGIN_BATTLE_SHOCK_STEP); it runs
+## once the window closes (_resume_after_battle_shock_step_window).
+## Returns {paused: bool, result: Dictionary (when paused), diffs: Array (AI
+## use / nothing to wait for — merge into the caller's result)}.
+func _start_battle_shock_step(deferred: Dictionary) -> Dictionary:
+	if _bss_window_opened:
+		return {"paused": false, "diffs": []}
+	_bss_window_opened = true
 	var player := get_current_player()
 	var queued: Array = []
 	for unit_id in _units_needing_test:
 		if not unit_id in _units_tested:
 			queued.append(unit_id)
 	var bss_ctx := {"phase": "command", "units_needing_test": queued}
-	if open_stratagem_window(player, "battle_shock_step_start", bss_ctx, ""):
-		DebugLogger.info("CommandPhase: waiting for Player %d's battle_shock_step_start stratagem decision" % player)
-	else:
-		# No action result at phase start: an AI use is already applied.
-		consume_window_diffs()
+	_bss_deferred_action = deferred.duplicate(true)
+	if open_stratagem_window(player, "battle_shock_step_start", bss_ctx, "_resume_after_battle_shock_step_window"):
+		DebugLogger.info("CommandPhase: Battle-shock step starts — waiting for Player %d's battle_shock_step_start stratagem decision (then %s)" % [
+			player, str(deferred.get("type", "the roll call"))])
+		var paused = create_result(true, consume_window_diffs())
+		paused["message"] = "Battle-shock step: waiting for Player %d's stratagem decision" % player
+		return {"paused": true, "result": paused}
+	_bss_deferred_action = {}
+	return {"paused": false, "diffs": consume_window_diffs()}
+
+## Resume point of the battle_shock_step_start window: run the action that
+## started the Battle-shock step (if any).
+func _resume_after_battle_shock_step_window(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	var deferred: Dictionary = _bss_deferred_action
+	_bss_deferred_action = {}
+	match str(deferred.get("type", "")):
+		"END_COMMAND":
+			return _handle_end_command()
+		"BATTLE_SHOCK_TEST":
+			var errs := _validate_battle_shock_test(deferred)
+			if not errs.is_empty():
+				DebugLogger.info("CommandPhase: deferred BATTLE_SHOCK_TEST no longer valid after the window — %s" % str(errs))
+				return create_result(true, [])
+			return _handle_battle_shock_test(deferred)
+	return create_result(true, [])
+
+func _prepend_changes(result: Dictionary, diffs: Array) -> Dictionary:
+	if diffs.is_empty() or typeof(result) != TYPE_DICTIONARY:
+		return result
+	var merged: Array = diffs.duplicate()
+	merged.append_array(result.get("changes", []))
+	result["changes"] = merged
+	return result
 
 func _generate_command_points(active_player: int) -> void:
 	# Issue #382: per current Wahapedia 10e, BOTH players gain 1 CP at the
@@ -708,6 +758,9 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"END_COMMAND":
 			# END_COMMAND is always valid in command phase
 			pass
+		"BEGIN_BATTLE_SHOCK_STEP":
+			# Idempotent: the roll call (UI) starts the Battle-shock step.
+			pass
 		"END_SCORING", "END_TURN":
 			# Idempotent no-op: previous phase auto-advanced before END_SCORING was dispatched.
 			pass
@@ -830,11 +883,22 @@ func _validate_battle_shock_test(action: Dictionary) -> Array:
 func process_action(action: Dictionary) -> Dictionary:
 	match action.get("type", ""):
 		"END_COMMAND":
-			return _handle_end_command()
+			var bss_end := _start_battle_shock_step(action)
+			if bss_end.paused:
+				return bss_end.result
+			return _prepend_changes(_handle_end_command(), bss_end.diffs)
+		"BEGIN_BATTLE_SHOCK_STEP":
+			var bss_begin := _start_battle_shock_step({})
+			if bss_begin.paused:
+				return bss_begin.result
+			return create_result(true, bss_begin.diffs)
 		"END_SCORING", "END_TURN":
 			return {"success": true, "changes": []}
 		"BATTLE_SHOCK_TEST":
-			return _handle_battle_shock_test(action)
+			var bss_test := _start_battle_shock_step(action)
+			if bss_test.paused:
+				return bss_test.result
+			return _prepend_changes(_handle_battle_shock_test(action), bss_test.diffs)
 		"USE_STRATAGEM":
 			return _handle_use_stratagem(action)
 		"USE_COMMAND_REROLL":
@@ -965,7 +1029,7 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 		var current_player = get_current_player()
 		var strat_manager = get_node_or_null("/root/StratagemManager")
 		if strat_manager:
-			var reroll_check = strat_manager.is_command_reroll_available(current_player)
+			var reroll_check = strat_manager.is_command_reroll_available(current_player, unit_id)
 			if reroll_check.available:
 				# Pause — offer Command Re-roll
 				_awaiting_reroll_decision = true
@@ -2765,8 +2829,6 @@ func get_untested_battle_shock_units() -> Array:
 	return untested
 
 func _handle_end_command() -> Dictionary:
-	var current_player = get_current_player()
-
 	# Auto-resolve any remaining battle-shock tests
 	var auto_resolved = []
 	# Their battle-shocked flag diffs ride in this action's result — they were
@@ -2780,6 +2842,34 @@ func _handle_end_command() -> Dictionary:
 
 	if auto_resolved.size() > 0:
 		DebugLogger.info(str("CommandPhase: Auto-resolved %d remaining battle-shock test(s)" % auto_resolved.size()))
+
+	# A unit the auto-resolve just made battle-shocked opens its
+	# unit_battle_shocked window (BREAKIN' HEADS) "when it becomes
+	# battle-shocked" — in THIS phase, not handed to the Movement phase. Apply
+	# the results now (execute_action's re-apply is idempotent), detect, and
+	# finish ending the phase once those windows close.
+	if GameConstants.edition >= 11 and not auto_changes.is_empty():
+		PhaseManager.apply_state_changes(auto_changes)
+		_window_events_detect()
+		if not _ev_deferred.is_empty():
+			var ev_entries: Array = _ev_deferred
+			_ev_deferred = []
+			if open_stratagem_windows(ev_entries, "_resume_end_command_after_event_windows"):
+				DebugLogger.info("CommandPhase: END_COMMAND waits for %d event window(s) raised by the auto-resolved battle-shock tests" % ev_entries.size())
+				var waiting = create_result(true, auto_changes + consume_window_diffs())
+				waiting["message"] = "Battle-shock tests resolved — waiting for Player %d's stratagem decision before the Command phase ends" % get_pending_stratagem_window_decider()
+				waiting["auto_resolved_tests"] = auto_resolved
+				return waiting
+			auto_changes.append_array(consume_window_diffs())
+	return _finish_end_command(auto_changes, auto_resolved)
+
+## The END_COMMAND remainder once the event windows raised by its
+## auto-resolved battle-shock tests have closed.
+func _resume_end_command_after_event_windows(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _finish_end_command([], [])
+
+func _finish_end_command(auto_changes: Array, auto_resolved: Array) -> Dictionary:
+	var current_player = get_current_player()
 
 	# Auto-resolve faction abilities (Oath of Moment target selection)
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")

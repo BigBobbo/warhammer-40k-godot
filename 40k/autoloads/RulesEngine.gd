@@ -651,6 +651,7 @@ enum HitModifier {
 	PLUS_ONE = 2,       # +1 to hit
 	MINUS_ONE = 4,      # -1 to hit (cover, moved, etc.)
 	REROLL_FAILED = 8,  # Re-roll all failed hit rolls
+	REROLL_NON_CRIT = 16,  # Re-roll every hit roll that is not a critical hit (fishing for crits)
 }
 
 # Apply hit modifiers to a single roll
@@ -692,6 +693,13 @@ static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService, hit_
 		result.rerolled = true
 		result.reroll_value = reroll_result
 		result.modified_roll = reroll_result
+	elif (modifiers & HitModifier.REROLL_NON_CRIT) and roll < crit_threshold:
+		# "Re-roll hit rolls" used to fish for critical hits: every roll that is
+		# not a critical hit (failed AND successful non-critical) is re-rolled.
+		var reroll_result = rng.roll_d6(1)[0]
+		result.rerolled = true
+		result.reroll_value = reroll_result
+		result.modified_roll = reroll_result
 
 	# Step 2: Then apply numeric modifiers (capped at net +1/-1)
 	var net_modifier = 0
@@ -707,6 +715,27 @@ static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService, hit_
 	result.modified_roll += net_modifier
 
 	return result
+
+## effect_reroll_hits scope written by a "re-roll hit rolls" grant whose
+## controller chose to fish for critical hits (Codex: Orks (11e) ARMED TO DA
+## TEEF while riled up, "re-roll hit rolls" variant): failed hits are always
+## re-rolled; successful NON-critical hits are re-rolled too for every weapon
+## whose critical hits are worth more than a normal hit ([LETHAL HITS] /
+## [SUSTAINED HITS], from the weapon or a granted effect). Weapons without a
+## critical-hit payoff keep their successes (re-rolling them can only hurt).
+const REROLL_HITS_SCOPE_NON_CRIT := "non_crit"
+
+static func _non_crit_hit_reroll_bits(attacker_unit: Dictionary, weapon_id: String, board: Dictionary, is_melee: bool) -> int:
+	var flags: Dictionary = attacker_unit.get("flags", {})
+	var payoff := has_lethal_hits(weapon_id, board) or has_sustained_hits(weapon_id, board)
+	if not payoff:
+		if is_melee:
+			payoff = bool(flags.get(EffectPrimitivesData.FLAG_LETHAL_HITS_MELEE, false)) or bool(flags.get(EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE, false))
+		else:
+			payoff = bool(flags.get(EffectPrimitivesData.FLAG_LETHAL_HITS, false)) or bool(flags.get(EffectPrimitivesData.FLAG_SUSTAINED_HITS, false))
+	if payoff:
+		return HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT
+	return HitModifier.REROLL_FAILED
 
 # Wound modifier flags (can be combined with bitwise OR)
 # Per 10e rules: wound roll modifiers are capped at net +1/-1
@@ -1036,7 +1065,7 @@ static func reroll_hit_die(hit_context: Dictionary, die_index: int, rng_service:
 	var old_crits = int(hit_context.get("critical_hits", 0))
 	var bs_per_attack = hit_context.get("bs_per_attack", [])
 	var attack_bs = int(bs_per_attack[die_index]) if die_index < bs_per_attack.size() else int(hit_context.get("bs", 4))
-	var mods_no_reroll = int(hit_context.get("hit_modifiers", 0)) & ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)
+	var mods_no_reroll = int(hit_context.get("hit_modifiers", 0)) & ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
 	# DRIVE-BY BUSTIN' (Codex: Orks 11e): this die is a Firing Deck attack of a mixed batch
 	var ork11e_fd_mask = hit_context.get("ork11e_fd_plus_one", [])
 	if die_index < ork11e_fd_mask.size() and ork11e_fd_mask[die_index]:
@@ -2180,6 +2209,10 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			hit_modifiers |= HitModifier.REROLL_FAILED
 			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "re-roll all hit rolls")
 			print("RulesEngine: Effect re-roll all hits applied for %s" % actor_unit_id)
+		elif reroll_hits_scope == REROLL_HITS_SCOPE_NON_CRIT:
+			hit_modifiers |= _non_crit_hit_reroll_bits(actor_unit, weapon_id, board, false)
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "re-roll hit rolls (non-critical hits too, for critical-hit weapons)")
+			print("RulesEngine: Effect re-roll hit rolls (fishing for crits where they matter) applied for %s / %s" % [actor_unit_id, weapon_id])
 
 		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
 		if is_damaged_profile_active(actor_unit):
@@ -2421,8 +2454,8 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			hit_fail_band = _indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3
 			# 11e (10.07): "hit rolls cannot be re-rolled" while shooting
 			# indirect at an unseen target.
-			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)):
-				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)
+			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)):
+				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
 				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed (unseen target)")
 		# DRIVE-BY BUSTIN': a batch mixing Firing Deck and the transport's own
 		# weapons gets the +1 only on its Firing Deck attacks.
@@ -4258,6 +4291,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_modifiers |= HitModifier.REROLL_FAILED
 			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "granted by an ability or Stratagem")
 			print("RulesEngine: Effect re-roll hits (auto-resolve) applied for %s" % actor_unit_id)
+		elif reroll_hits_scope_ar == REROLL_HITS_SCOPE_NON_CRIT:
+			hit_modifiers |= _non_crit_hit_reroll_bits(actor_unit, weapon_id, board, false)
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "re-roll hit rolls (non-critical hits too, for critical-hit weapons)")
+			print("RulesEngine: Effect re-roll hit rolls (auto-resolve, fishing for crits where they matter) applied for %s / %s" % [actor_unit_id, weapon_id])
 
 		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
 		if is_damaged_profile_active(actor_unit):
@@ -4485,8 +4522,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_fail_band = _indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3
 			# 11e (10.07): "hit rolls cannot be re-rolled" while shooting
 			# indirect at an unseen target.
-			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)):
-				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)
+			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)):
+				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
 				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed (unseen target)")
 		# DRIVE-BY BUSTIN': a batch mixing Firing Deck and the transport's own
 		# weapons gets the +1 only on its Firing Deck attacks.
@@ -10278,6 +10315,16 @@ static func is_blast_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
 	return false
 
 # Count alive models in a target unit
+## Alive models of the whole Attached unit (bodyguard + attached CHARACTERs —
+## 19.01: one unit) that `unit_id` belongs to; a plain unit counts itself.
+static func attached_unit_alive_model_count(unit_id: String, board: Dictionary) -> int:
+	var head := str(attached_unit_target_id(unit_id, board))
+	var units: Dictionary = board.get("units", {})
+	var n := 0
+	for gid in attached_unit_component_ids(head, board):
+		n += count_alive_models(units.get(str(gid), {}))
+	return n
+
 static func count_alive_models(target_unit: Dictionary) -> int:
 	var model_count = 0
 	for model in target_unit.get("models", []):
@@ -13162,13 +13209,16 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			cleave_x = cleave_x + 1 if cleave_x > 0 else 1
 			print("RulesEngine: MOW 'EM DOWN — melee weapon %s [CLEAVE %d] -> [CLEAVE %d]" % [weapon_id, mow_before, cleave_x])
 		if cleave_x > 0:
-			var cleave_extra = AbilityRegistry.cleave_bonus_dice(cleave_x, count_alive_models(target_unit), true)
+			# 19.01: an Attached unit is ONE unit — its leaders' models count
+			# toward "every 5 models in the target" as well as the bodyguard's.
+			var cleave_models = attached_unit_alive_model_count(target_id, board)
+			var cleave_extra = AbilityRegistry.cleave_bonus_dice(cleave_x, cleave_models, true)
 			if cleave_extra > 0:
 				total_attacks += cleave_extra
 				var cleave_ws = weapon_profile.get("ws", 4)
 				for _j in range(cleave_extra):
 					ws_per_attack.append(cleave_ws)
-				print("RulesEngine: [CLEAVE %d] +%d dice vs %d-model target (melee)" % [cleave_x, cleave_extra, count_alive_models(target_unit)])
+				print("RulesEngine: [CLEAVE %d] +%d dice vs %d-model target (melee)" % [cleave_x, cleave_extra, cleave_models])
 
 	if model_count < total_alive_models:
 		print("RulesEngine: Melee eligibility filter: %d/%d alive models eligible to fight" % [model_count, total_alive_models])
@@ -13468,6 +13518,10 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			melee_hit_modifiers |= HitModifier.REROLL_FAILED
 			ModifierLedger.note(melee_hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "granted by an ability or Stratagem")
 			print("RulesEngine: Effect re-roll hits (melee) applied for %s" % attacker_id)
+		elif melee_reroll_hits_scope == REROLL_HITS_SCOPE_NON_CRIT:
+			melee_hit_modifiers |= _non_crit_hit_reroll_bits(attacker_unit, weapon_id, board, true)
+			ModifierLedger.note(melee_hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "re-roll hit rolls (non-critical hits too, for critical-hit weapons)")
+			print("RulesEngine: Effect re-roll hit rolls (melee, fishing for crits where they matter) applied for %s / %s" % [attacker_id, weapon_id])
 
 		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
 		if is_damaged_profile_active(attacker_unit):

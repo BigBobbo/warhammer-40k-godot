@@ -8400,10 +8400,12 @@ static func _compute_disembark_positions(unit: Dictionary, transport: Dictionary
 
 	var unit_radius_px = (unit_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
 
-	# Max distance from transport center: transport edge + 3" + model edge
-	# Uses the minimum edge radius for rectangular transports to guarantee
-	# all models pass shape-aware edge-to-edge validation regardless of direction.
-	var max_center_dist_px = transport_edge_radius_px + disembark_range_px + unit_radius_px - 10.0
+	# Max distance from transport center: transport edge + 3" - model radius, so
+	# the WHOLE base is within 3" of the hull (18.04 / 18.06 "wholly within";
+	# TransportManager.is_position_within_disembark_range judges the base's
+	# farthest point). Uses the minimum edge radius for rectangular transports to
+	# guarantee all models pass the shape-aware validation regardless of direction.
+	var max_center_dist_px = transport_edge_radius_px + disembark_range_px - unit_radius_px - 10.0
 
 	# Build list of occupied positions (to avoid overlaps)
 	var occupied_positions = []

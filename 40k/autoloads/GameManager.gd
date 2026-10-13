@@ -790,6 +790,11 @@ func process_end_scoring(action: Dictionary) -> Dictionary:
 
 	# Reset unit flags for the player whose turn is starting
 	var diffs = _create_flag_reset_diffs(next_player)
+	# ...and the charge / fight "this turn" flags of the player whose turn just
+	# ended (mirror of ScoringPhase._create_ended_turn_flag_reset_changes).
+	diffs.append_array(_create_ended_turn_flag_reset_diffs(current_player))
+	# ...and every unit's disembark markers (18.02: only THIS turn blocks embarking).
+	diffs.append_array(_create_disembark_marker_reset_diffs())
 
 	# Scoring wrote the host's players.* totals directly — mirror them into
 	# the broadcast diffs so clients converge (idempotent set ops).
@@ -1236,4 +1241,45 @@ func _create_flag_reset_diffs(player: int) -> Array:
 	else:
 		print("GameManager: No flags to reset for player %d units" % player)
 
+	return diffs
+
+## Charge / fight "this turn" flags cleared for the player whose turn ENDED
+## (they are read during the opponent's turn: Fights First, eligibility to
+## fight, made-a-charge-move stratagem gates). Mirror of
+## ScoringPhase.ENDED_TURN_FLAGS / _create_ended_turn_flag_reset_changes —
+## whenever you change one list, change the other. Embarked units included.
+const ENDED_TURN_FLAGS := [
+	"charged_this_turn", "fights_first", "heroic_intervention",
+	"has_been_charged", "has_fought",
+]
+
+func _create_ended_turn_flag_reset_diffs(player: int) -> Array:
+	var diffs: Array = []
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		var flags = unit.get("flags", {})
+		var cleared: Array = []
+		for flag in ENDED_TURN_FLAGS:
+			if flags.has(flag):
+				diffs.append({"op": "remove", "path": "units.%s.flags.%s" % [unit_id, flag]})
+				cleared.append(flag)
+		if not cleared.is_empty():
+			print("GameManager:   End of P%d's turn — cleared %s on %s" % [player, cleared, unit_id])
+	return diffs
+
+## Mirror of ScoringPhase._create_disembark_marker_reset_changes: clear every
+## unit's disembarked_this_phase / flags.disembarked_this_turn at the end of
+## each turn (18.02 only forbids embarking in the turn the unit was set up).
+func _create_disembark_marker_reset_diffs() -> Array:
+	var diffs: Array = []
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("disembarked_this_phase", false):
+			diffs.append({"op": "set", "path": "units.%s.disembarked_this_phase" % unit_id, "value": false})
+		if unit.get("flags", {}).has("disembarked_this_turn"):
+			diffs.append({"op": "remove", "path": "units.%s.flags.disembarked_this_turn" % unit_id})
 	return diffs
