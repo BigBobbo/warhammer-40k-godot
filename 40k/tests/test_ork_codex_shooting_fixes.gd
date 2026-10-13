@@ -29,6 +29,9 @@ extends SceneTree
 #   O. ai:AIR-2  the AI shooting planner never assigns a Hunter profile to a
 #                      non-MONSTER/VEHICLE target; every SHOOT it emits passes
 #                      validate_shoot (bearers, Pistol either/or) and is executed
+#   P. ai:AIR-3  RulesEngine._resolve_assignment_hits' early returns (target
+#                      gone / unknown weapon / SPLIT-FIRE dropped every model)
+#                      are "no hits" results — no SCRIPT ERROR downstream
 #
 # Usage: godot --headless --path 40k --script tests/test_ork_codex_shooting_fixes.gd
 
@@ -282,6 +285,7 @@ func _run() -> void:
 	_section_m_rerolls()
 	_section_n_deferred_selected_to_shoot()
 	_section_o_ai_hunter_planner()
+	_section_p_resolve_early_returns()
 
 
 # ---------------------------------------------------------------------------
@@ -1273,3 +1277,25 @@ func _section_o_ai_hunter_planner() -> void:
 	_check("vs VEHICLE: no model fires both Busta Rokkit Launcha profiles (04.01.03)", two_profiles.is_empty(), str(per_model))
 	_check("vs VEHICLE: no model fires its [CLOSE-QUARTERS] Rokkit Pistol AND another ranged weapon (24.07)", cq_and_other.is_empty(), str(per_model))
 
+
+# ---------------------------------------------------------------------------
+func _section_p_resolve_early_returns() -> void:
+	print("\n-- P. ai:AIR-3 _resolve_assignment_hits early returns --")
+	_check("fixture loads", _load("ork11e_orks_active"))
+	var board: Dictionary = GS.create_snapshot()
+	var tb_models: Array = []
+	for m in board.units.U_TANKBUSTAS_A.models:
+		tb_models.append(str(m.id))
+	var far_target := "U_CUSTODIAN_GUARD_F"  # ~28" away: every Rokkit Pistol (12") is dropped
+	var cases := [
+		["target not found", {"weapon_id": "rokkit_pistol_ranged", "target_unit_id": "U_NO_SUCH_UNIT", "model_ids": tb_models}],
+		["unknown weapon", {"weapon_id": "no_such_weapon_ranged", "target_unit_id": far_target, "model_ids": tb_models}],
+		["SPLIT-FIRE dropped every model", {"weapon_id": "rokkit_pistol_ranged", "target_unit_id": far_target, "model_ids": tb_models}],
+	]
+	for c in cases:
+		var h = RE._resolve_assignment_hits(c[1], "U_TANKBUSTAS_A", board, RE.make_rng())
+		_check("%s: a 'no hits' result with an (empty) hit_context" % c[0],
+			typeof(h) == TYPE_DICTIONARY and bool(h.get("no_hits", false)) and h.has("hit_context") and h.dice.is_empty(), str(h))
+		var w = RE._resolve_assignment_until_wounds(c[1], "U_TANKBUSTAS_A", board, RE.make_rng())
+		_check("%s: _resolve_assignment_until_wounds returns cleanly (was: an invalid hit_context access)" % c[0],
+			typeof(w) == TYPE_DICTIONARY and w.get("dice", [1]).is_empty() and str(w.get("log_text", "")) != "", str(w))

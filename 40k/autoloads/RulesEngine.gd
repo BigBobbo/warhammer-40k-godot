@@ -1831,9 +1831,16 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 
 static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
 	var hit_fail_band := 1
+	# AIR-3: every early return below (target gone, unknown weapon, SPLIT-FIRE
+	# dropped every model) is a "no hits" result. Callers branch on no_hits and
+	# otherwise index hit_context — without these defaults
+	# _resolve_assignment_until_wounds raised "Invalid access to property or
+	# key 'hit_context'" and the assignment was lost mid-resolution.
 	var result = {
 		"dice": [],
-		"log_text": ""
+		"log_text": "",
+		"no_hits": true,
+		"hit_context": {}
 	}
 
 	var model_ids = assignment.get("model_ids", [])
