@@ -2487,6 +2487,25 @@ static func _faction_ability_manager():
 		return main.root.get_node_or_null("FactionAbilityManager")
 	return null
 
+# Late-bound wrappers for the FactionAbilityManager Waaagh! helpers. A bare
+# `FactionAbilityManager.x()` reference makes this script fail to compile under
+# `godot -s` (autoload names are not registered yet), which silently turned
+# every test that preloads AIDecisionMaker into a 0-check run (R5 / RV-6).
+static func _waaagh_melee_bonus_applies(unit: Dictionary) -> bool:
+	var fam = _faction_ability_manager()
+	if fam != null:
+		return bool(fam.waaagh_melee_bonus_applies(unit))
+	# Same predicate as FactionAbilityManager.waaagh_melee_bonus_applies (10e only).
+	return GameConstants.edition < 11 and bool(unit.get("flags", {}).get("waaagh_active", false))
+
+static func _waaagh_effects_summary() -> String:
+	var fam = _faction_ability_manager()
+	if fam != null:
+		return str(fam.waaagh_effects_summary())
+	if GameConstants.edition >= 11:
+		return "riled up: 5+ invuln, ranged [ASSAULT], advance and charge"
+	return "advance and charge, +1 S/A melee, 5+ invuln"
+
 static func _aao_isolated_now(unit: Dictionary, snapshot: Dictionary) -> bool:
 	"""'Buff is active right now' check (detachment + keywords + no other
 	friendly within 6\" of the unit's CURRENT model positions). Uses the
@@ -6099,8 +6118,8 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 				reason = "round 1, %d units in range (alpha strike)" % units_in_range
 
 			if should_waaagh:
-				_add_thinking_step("Calling WAAAGH! — %s (%s for the army)" % [reason, FactionAbilityManager.waaagh_effects_summary()])
-				print("AIDecisionMaker: [WAAAGH] Calling WAAAGH! (%s) — %s" % [reason, FactionAbilityManager.waaagh_effects_summary()])
+				_add_thinking_step("Calling WAAAGH! — %s (%s for the army)" % [reason, _waaagh_effects_summary()])
+				print("AIDecisionMaker: [WAAAGH] Calling WAAAGH! (%s) — %s" % [reason, _waaagh_effects_summary()])
 				return {
 					"type": "CALL_WAAAGH",
 					"_ai_description": "WAAAGH! — %s" % reason
@@ -15988,7 +16007,7 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 	# Check for WAAAGH! active on attacker — +1 Strength, +1 Attacks to melee weapons
 	# (10e only: FactionAbilityManager.waaagh_melee_bonus_applies gates the bonus)
 	var waaagh_active = attacker.get("flags", {}).get("waaagh_active", false)
-	var waaagh_melee_bonus = FactionAbilityManager.waaagh_melee_bonus_applies(attacker)
+	var waaagh_melee_bonus = _waaagh_melee_bonus_applies(attacker)
 	# Check for Da Biggest and Da Best (Warboss) — +4 Attacks while WAAAGH active
 	var has_da_biggest = false
 	# Check for Dead Brutal (Warboss in Mega Armour) — damage becomes 3 while WAAAGH active
@@ -17063,7 +17082,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	var waaagh_buffs = {}
 	var waaagh_active = unit.get("flags", {}).get("waaagh_active", false)
 	# +1 S / +1 A is the 10e Waaagh! only (FactionAbilityManager.waaagh_melee_bonus_applies)
-	var waaagh_melee_bonus = FactionAbilityManager.waaagh_melee_bonus_applies(unit)
+	var waaagh_melee_bonus = _waaagh_melee_bonus_applies(unit)
 	if waaagh_active:
 		waaagh_buffs["active"] = true
 		waaagh_buffs["melee_bonus"] = waaagh_melee_bonus

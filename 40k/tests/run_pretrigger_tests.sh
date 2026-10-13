@@ -38,6 +38,25 @@
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
+#
+# A test file also counts as FAILED (not just "M failed > 0") when:
+#   - it reports "0 passed, 0 failed" — it ran no checks at all. This is how a
+#     preloaded dependency that failed to compile shows up: every check that
+#     calls into it aborts with a SCRIPT ERROR before reaching _check()
+#     (R5: tests/test_ai_battle_plan.gd ran 0 of its 15 checks and still passed
+#     the old gate). No gated file legitimately reports 0/0 (checked 2026-10-13).
+#   - it hits "Invalid call. Nonexistent function '<f>' in base 'GDScript'" —
+#     the runtime signature of calling a function on a preloaded script that
+#     failed to compile.
+#   - it has a GDScript Parse Error, or a Compile Error that is NOT the expected
+#     pre-autoload noise. Under `godot -s` the test script (and everything it
+#     preloads) is compiled once before the autoloads are registered, so
+#     "Identifier not found: <AutoloadName>" (+ the "Failed to compile depended
+#     scripts" lines it cascades into) is printed by many healthy tests that go
+#     on to run every check (12 gated files on 2026-10-13: FactionPalettes ->
+#     GameState, DeploymentZoneData -> Measurement, PadRouter ->
+#     InputDeviceManager, ...). Any other compile error (an unknown identifier
+#     that is not an autoload, a type error, ...) is a real defect and fails.
 
 set -e
 
@@ -212,6 +231,13 @@ TESTS=(
 FAILED=0
 TOTAL_PASSED=0
 TOTAL_FAILED=0
+FAILED_FILES=()
+
+# Autoload names (project.godot [autoload]) — "Identifier not found: <one of
+# these>" during the pre-autoload compile of a `godot -s` run is expected noise.
+AUTOLOAD_NAMES=$(sed -n '/^\[autoload\]/,/^\[/p' project.godot | grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' | tr -d '=' | tr '\n' ' ')
+FULL_LOG=$(mktemp)
+trap 'rm -f "$FULL_LOG"' EXIT
 
 for test in "${TESTS[@]}"; do
     echo ""
@@ -219,10 +245,12 @@ for test in "${TESTS[@]}"; do
     echo "Running: $test"
     echo "================================================"
 
-    # Capture output, filter for test result lines. Summary formats vary:
-    # "=== Result: N passed, M failed ===", "=== Results: ...", and bare
-    # "=== N passed, M failed ===" — match on the counts, not the prefix.
-    OUTPUT=$(timeout 180 godot --headless --path . -s "$test" 2>&1 | grep -E "PASS|FAIL|Result|[0-9]+ passed, [0-9]+ failed|=== test" || true)
+    # Keep the full output (for the compile/no-checks gates below), print only
+    # the result lines. Summary formats vary: "=== Result: N passed, M failed ===",
+    # "=== Results: ...", and bare "=== N passed, M failed ===" — match on the
+    # counts, not the prefix.
+    timeout 180 godot --headless --path . -s "$test" > "$FULL_LOG" 2>&1 || true
+    OUTPUT=$(grep -E "PASS|FAIL|Result|[0-9]+ passed, [0-9]+ failed|=== test" "$FULL_LOG" || true)
     echo "$OUTPUT"
 
     # Extract the final result line and parse pass/fail counts
@@ -230,6 +258,7 @@ for test in "${TESTS[@]}"; do
     if [ -z "$RESULT_LINE" ]; then
         echo "  ERROR: no result line found for $test"
         FAILED=$((FAILED + 1))
+        FAILED_FILES+=("$test (no result line)")
         continue
     fi
 
@@ -238,14 +267,48 @@ for test in "${TESTS[@]}"; do
     TOTAL_PASSED=$((TOTAL_PASSED + PASS))
     TOTAL_FAILED=$((TOTAL_FAILED + FAIL))
 
+    REASON=""
     if [ "$FAIL" -gt 0 ]; then
+        REASON="$FAIL check(s) failed"
+    elif [ "$PASS" -eq 0 ]; then
+        REASON="ran no checks (0 passed, 0 failed) - a preloaded script probably failed to compile"
+    fi
+    if [ -z "$REASON" ] && grep -qE "Nonexistent function '[^']*' in base 'GDScript'" "$FULL_LOG"; then
+        REASON="called into a script that failed to compile ($(grep -m1 -oE "Nonexistent function '[^']*' in base 'GDScript'" "$FULL_LOG"))"
+    fi
+    if [ -z "$REASON" ] && grep -q "Parse Error" "$FULL_LOG"; then
+        REASON="GDScript parse error: $(grep -m1 "Parse Error" "$FULL_LOG")"
+    fi
+    if [ -z "$REASON" ]; then
+        # Compile errors other than "Failed to compile depended scripts" and
+        # "Identifier not found: <autoload>" are real defects.
+        while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            ident=$(echo "$line" | sed -nE 's/.*Identifier not found: ([A-Za-z_][A-Za-z0-9_]*).*/\1/p')
+            if [ -n "$ident" ] && [[ " $AUTOLOAD_NAMES " == *" $ident "* ]]; then
+                continue
+            fi
+            REASON="compile error: $line"
+            break
+        done < <(grep -E "Compile Error" "$FULL_LOG" | grep -v "Failed to compile depended scripts" || true)
+    fi
+
+    if [ -n "$REASON" ]; then
+        echo "  FAILED: $test — $REASON"
         FAILED=$((FAILED + 1))
+        FAILED_FILES+=("$test ($REASON)")
     fi
 done
 
 echo ""
 echo "================================================"
 echo "Audit suite: $TOTAL_PASSED passed, $TOTAL_FAILED failed across ${#TESTS[@]} tests"
+if [ "$FAILED" -gt 0 ]; then
+    echo "Failed files ($FAILED):"
+    for f in "${FAILED_FILES[@]}"; do
+        echo "  - $f"
+    done
+fi
 echo "================================================"
 
 exit $([ "$FAILED" -eq 0 ] && echo 0 || echo 1)
