@@ -367,6 +367,11 @@ func _is_any_ai_player_active() -> bool:
 	# sees it (the reported "Player 1 always goes first / no roll-off shown" bug).
 	if _ai_suppressed_for_roll_off():
 		return false
+	# AI-01: an AI seat owes a pending stratagem window / reactive window /
+	# follow-up (e.g. it was taken over mid-decision) — it must act even when
+	# the active player is human.
+	if _ai_owned_pending_item() > 0:
+		return true
 	# A human owns the current Fight-phase interaction (their half of a global
 	# Pile In/Consolidate step, or their turn to select/activate a fighter) —
 	# the AI idles even on its own turn, so the watchdog must not treat it as
@@ -875,6 +880,7 @@ func _on_phase_action_taken(_action: Dictionary) -> void:
 	# when the phase was in a sub-state with no END_* action available
 	# (Sawbonez window, fight selection), the AI froze for the rest of the game.
 	_current_phase_actions = 0
+	_ai01_answer = {}  # AI-01: progress — the next pending item gets a fresh answer
 	# After any phase action, check if AI should act next
 	# This is the primary trigger in single-player mode
 	DebugLogger.info("AIPlayer._on_phase_action_taken - scheduling evaluation", {"action_type": _action.get("type", "?"), "enabled": enabled})
@@ -1742,6 +1748,9 @@ func _execute_reactive_action_deferred(player: int, decision: Dictionary) -> voi
 		push_error("AIPlayer: Reactive action route_action returned null: %s" % decision.get("type", "?"))
 		return
 
+	if decision.get("_ai01", false):
+		_ai01_answer["inflight"] = false  # AI-01: the answer ran (a refusal is retried with the fallback)
+
 	if not result.get("success", false):
 		var error_msg = result.get("error", result.get("errors", "Unknown error"))
 		push_error("AIPlayer: Reactive action failed: %s - Error: %s" % [decision.get("type", "?"), error_msg])
@@ -1750,6 +1759,159 @@ func _execute_reactive_action_deferred(player: int, decision: Dictionary) -> voi
 
 	# After reactive action, trigger re-evaluation for next action
 	_request_evaluation()
+
+# --- AI-01: windows / follow-ups owned by an AI seat taken over mid-decision ---
+
+## The pending item the AI last answered: {sig, inflight, attempts}. inflight
+## is cleared when the deferred action ran (_execute_reactive_action_deferred);
+## any successful phase action resets the whole record (_on_phase_action_taken).
+var _ai01_answer: Dictionary = {}
+var _ai01_followup_step: Dictionary = {}  # shooting follow-up unit_id -> next step ("auto", "confirm", "skip")
+
+## Submit the owner's answer to a pending window / reactive window / follow-up
+## that belongs to an AI player. Returns true while the AI is answering it (the
+## deferred action re-requests evaluation). Windows are normally answered
+## synchronously when they open (BasePhase._process_window_queue, the
+## reactive_stratagem_opportunity handler); this covers a seat that became an
+## AI while its window / move was already waiting (Main
+## _on_disconnect_continue_single_player), which nothing else ever answered:
+## the game deadlocked or the opponent ended the owner's move (AI-01 / AI-05).
+func _answer_ai_owned_pending_window() -> bool:
+	if not _phase_manager_ref:
+		_phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	if not _phase_manager_ref or not _phase_manager_ref.current_phase_instance:
+		return false
+	var phase = _phase_manager_ref.current_phase_instance
+	# 1. Generic stratagem window (BasePhase framework)
+	if phase.has_method("has_pending_stratagem_window") and phase.has_pending_stratagem_window():
+		var w: Dictionary = phase.get_pending_stratagem_window()
+		var decider := int(w.get("player", 0))
+		if decider <= 0 or not is_ai_player(decider):
+			return false
+		var wid := str(w.get("window_id", ""))
+		var wctx: Dictionary = w.get("ctx", {})
+		var sig := "window:%d:%s:%s" % [decider, wid, str(wctx.get("unit_id", wctx.get("attacker_unit_id", "")))]
+		var attempt := _ai01_attempt(sig)
+		if attempt < 0:
+			return attempt == -1  # -1: in flight; -2: given up
+		var action: Dictionary = {"type": "DECLINE_WINDOW_STRATAGEM", "player": decider, "window_id": wid,
+			"_ai_description": "AI (took over Player %d) declines the %s stratagem window" % [decider, wid]}
+		if attempt == 0:
+			var decision: Dictionary = AIDecisionMaker.decide_window_stratagem(decider, wid, w.get("offers", []), wctx)
+			if decision.get("use", false):
+				action = {"type": "USE_WINDOW_STRATAGEM", "player": decider, "window_id": wid,
+					"stratagem_id": str(decision.get("stratagem_id", "")), "target_unit_id": str(decision.get("target_unit_id", "")),
+					"context": decision.get("context", {}),
+					"_ai_description": "AI (took over Player %d) uses %s in %s" % [decider, str(decision.get("stratagem_id", "")), wid]}
+		print("AIPlayer: AI-01 answering Player %d's pending %s window (seat is now AI, attempt %d): %s" % [decider, wid, attempt + 1, action.type])
+		_ai01_submit(sig, decider, action)
+		return true
+	# 2. Shooting-phase reactive window (enemy_targets_unit_shooting fold-in)
+	if "awaiting_reactive_stratagem" in phase and phase.awaiting_reactive_stratagem and phase.has_method("_check_reactive_stratagems"):
+		var active := int(GameState.get_active_player())
+		var defender := 2 if active == 1 else 1
+		if not is_ai_player(defender):
+			return false
+		var rsig := "reactive:%d:%s" % [defender, str(phase.get("active_shooter_id"))]
+		var r_attempt := _ai01_attempt(rsig)
+		if r_attempt < 0:
+			return r_attempt == -1
+		var opp: Dictionary = phase._check_reactive_stratagems()
+		print("AIPlayer: AI-01 answering Player %d's pending reactive stratagem window (seat is now AI, attempt %d)" % [defender, r_attempt + 1])
+		var r_action: Dictionary = {"type": "DECLINE_REACTIVE_STRATAGEM", "player": defender,
+			"_ai_description": "AI (took over Player %d) declines reactive stratagems" % defender}
+		if r_attempt == 0 and opp.get("has_opportunities", false) and AIDifficultyConfigData.use_stratagems(get_difficulty(defender)):
+			var decision = AIDecisionMaker.evaluate_reactive_stratagem(defender, opp.get("available_stratagems", []),
+				opp.get("target_unit_ids", []), GameState.create_snapshot(false))
+			if not decision.is_empty():
+				r_action = decision
+				r_action["player"] = defender
+		_ai01_submit(rsig, defender, r_action)
+		return true
+	# 3. A used stratagem's follow-up still waiting for its (now AI) owner
+	if not phase.has_method("get_pending_stratagem_window_decider"):
+		return false
+	var owner := int(phase.get_pending_stratagem_window_decider())
+	if owner <= 0 or not is_ai_player(owner):
+		return false
+	var fu_action: Dictionary = {}
+	var fsig := ""
+	if "_ork11e_reactive_move" in phase and not phase._ork11e_reactive_move.is_empty():
+		# Movement reactive normal move (SCARPER! & co.): the AI owner ends it
+		# where the unit stands (a normal move "of up to" X — 0" is legal).
+		var rm_uid := str(phase._ork11e_reactive_move.get("unit_id", ""))
+		fsig = "followup:%d:move:%s" % [owner, rm_uid]
+		fu_action = {"type": "CONFIRM_UNIT_MOVE", "player": owner, "actor_unit_id": rm_uid, "payload": {},
+			"_ai_description": "AI (took over Player %d) ends the %s move" % [owner, str(phase._ork11e_reactive_move.get("source", "reactive"))]}
+	elif "_ork11e_assault_disembark" in phase and not phase._ork11e_assault_disembark.is_empty():
+		var remaining: Array = phase._ork11e_assault_disembark.get("remaining", [])
+		if remaining.is_empty():
+			return false
+		fsig = "followup:%d:disembark:%s" % [owner, str(remaining[0])]
+		fu_action = {"type": "SKIP_ASSAULT_DISEMBARK", "player": owner, "actor_unit_id": str(remaining[0]),
+			"_ai_description": "AI (took over Player %d) keeps %s embarked (READIED BRAWLERS)" % [owner, str(remaining[0])]}
+	elif "_ork11e_followup" in phase and not phase._ork11e_followup.is_empty():
+		# Shooting reactive / surge move: the phase's solver places it, then
+		# confirm; if either fails, the unit does not move (SKIP).
+		# Steps: AUTO -> CONFIRM, and SKIP once a step is refused.
+		var fu_uid := str(phase._ork11e_followup.get("unit_id", ""))
+		var step := str(_ai01_followup_step.get(fu_uid, "auto"))
+		fsig = "followup:%d:shoot_move:%s:%s" % [owner, fu_uid, step]
+		var fu_attempt := _ai01_attempt(fsig)
+		if fu_attempt == -1:
+			return true
+		if fu_attempt != 0:
+			if step == "skip":
+				return false
+			step = "skip"
+			fsig = "followup:%d:shoot_move:%s:%s" % [owner, fu_uid, step]
+		_ai01_followup_step[fu_uid] = "confirm" if step == "auto" else "skip"
+		var next_type := "ORK11E_REACTIVE_MOVE_%s" % step.to_upper()
+		fu_action = {"type": next_type, "player": owner,
+			"_ai_description": "AI (took over Player %d) %s the %s move" % [owner, step, str(phase._ork11e_followup.get("source", "reactive"))]}
+		print("AIPlayer: AI-01 finishing Player %d's pending follow-up (seat is now AI): %s" % [owner, next_type])
+		_ai01_submit(fsig, owner, fu_action)
+		return true
+	if fu_action.is_empty():
+		return false
+	var f_attempt := _ai01_attempt(fsig)
+	if f_attempt < 0:
+		return f_attempt == -1
+	print("AIPlayer: AI-01 finishing Player %d's pending follow-up (seat is now AI, attempt %d): %s" % [owner, f_attempt + 1, str(fu_action.get("type", ""))])
+	_ai01_submit(fsig, owner, fu_action)
+	return true
+
+## AI player that owes the current phase's pending stratagem window, shooting
+## reactive window or follow-up (0 = none / owned by a human).
+func _ai_owned_pending_item() -> int:
+	if not _phase_manager_ref:
+		_phase_manager_ref = get_node_or_null("/root/PhaseManager")
+	if not _phase_manager_ref or not _phase_manager_ref.current_phase_instance:
+		return 0
+	var phase = _phase_manager_ref.current_phase_instance
+	var owner := 0
+	if phase.has_method("get_pending_stratagem_window_decider"):
+		owner = int(phase.get_pending_stratagem_window_decider())
+	if owner <= 0 and "awaiting_reactive_stratagem" in phase and phase.awaiting_reactive_stratagem:
+		owner = 2 if int(GameState.get_active_player()) == 1 else 1
+	return owner if owner > 0 and is_ai_player(owner) else 0
+
+## Attempt number for answering `sig`: 0 = first, 1 = the previous answer was
+## refused (retry with the fallback), -1 = an answer is in flight, -2 = gave up
+## (two refusals — leave it to the normal loop / max-actions escape).
+func _ai01_attempt(sig: String) -> int:
+	if str(_ai01_answer.get("sig", "")) != sig:
+		return 0
+	if bool(_ai01_answer.get("inflight", false)):
+		return -1
+	var n := int(_ai01_answer.get("attempts", 0))
+	return n if n < 2 else -2
+
+func _ai01_submit(sig: String, player: int, action: Dictionary) -> void:
+	var prev := int(_ai01_answer.get("attempts", 0)) if str(_ai01_answer.get("sig", "")) == sig else 0
+	_ai01_answer = {"sig": sig, "inflight": true, "attempts": prev + 1}
+	action["_ai01"] = true
+	_submit_reactive_action(player, action)
 
 # --- Core AI loop ---
 
@@ -1770,6 +1932,14 @@ func _evaluate_and_act() -> void:
 		return
 
 	var active_player = GameState.get_active_player()
+
+	# AI-01: a stratagem window / shooting reactive window / follow-up whose
+	# owner is an AI that nothing will answer — the seat was handed to the AI
+	# AFTER it opened (disconnect -> continue vs AI), so the open-time
+	# synchronous AI path never ran. Answer it now, as its owner.
+	if _answer_ai_owned_pending_window():
+		_end_ai_thinking()
+		return
 
 	# In fight phase, the selecting player (who picks the next fighter in alternating
 	# activation, or whose half of a global pile-in/consolidate step it is) may
@@ -2946,6 +3116,15 @@ func _note_gate_block(reason: String, detail: String) -> void:
 	var held_sec := (now - _gate_since_msec) / 1000.0
 	if held_sec < GATE_WARN_SEC:
 		return
+	# AI-03: a human who is simply taking their time on a decision that is ON
+	# SCREEN (a stratagem window waits by design — nothing is declined
+	# automatically) is not a stall: no warning, no ERROR, nothing to reopen.
+	if reason == "defender_window" and _defender_dialog_on_screen():
+		if _gate_recoveries == 0:
+			print("AIPlayer: waiting %.0fs on '%s' (%s) — the human's decision is on screen" % [held_sec, reason, detail])
+			DebugLogger.info("AIPlayer: gate held, human deciding on screen", {"gate": reason, "detail": detail, "held_sec": held_sec})
+			_gate_recoveries = 1
+		return
 	if _gate_recoveries == 0:
 		push_warning("AIPlayer: waiting %.0fs on '%s' (%s) — no AI action possible until it resolves" % [held_sec, reason, detail])
 		print("AIPlayer: ⚠ STALL WATCH — held %.0fs on gate '%s' (%s)" % [held_sec, reason, detail])
@@ -2980,7 +3159,20 @@ func _attempt_gate_recovery(reason: String) -> void:
 			if _defender_dialog_on_screen():
 				print("AIPlayer: stall recovery skipped — the defender's dialog IS on screen (human still deciding)")
 				return
-			if "pending_save_data" in phase and not phase.pending_save_data.is_empty() \
+			# AI-03: a stratagem window with no dialog behind it — put it back.
+			if phase.has_method("has_pending_stratagem_window") and phase.has_pending_stratagem_window():
+				var w: Dictionary = phase.get_pending_stratagem_window()
+				print("AIPlayer: stall recovery — re-emitting stratagem_window_opened (%s, P%d)" % [str(w.get("window_id", "")), int(w.get("player", 0))])
+				phase.emit_signal("stratagem_window_opened", int(w.get("player", 0)), str(w.get("window_id", "")),
+					w.get("offers", []), w.get("ctx", {}))
+			elif "awaiting_reactive_stratagem" in phase and phase.awaiting_reactive_stratagem \
+					and phase.has_method("_check_reactive_stratagems") and phase.has_signal("reactive_stratagem_opportunity"):
+				var opp: Dictionary = phase._check_reactive_stratagems()
+				if opp.get("has_opportunities", false):
+					print("AIPlayer: stall recovery — re-emitting reactive_stratagem_opportunity for P%d" % int(opp.get("defending_player", 0)))
+					phase.emit_signal("reactive_stratagem_opportunity", int(opp.get("defending_player", 0)),
+						opp.get("available_stratagems", []), opp.get("target_unit_ids", []))
+			elif "pending_save_data" in phase and not phase.pending_save_data.is_empty() \
 					and phase.has_signal("saves_required"):
 				print("AIPlayer: stall recovery — re-emitting saves_required for %d pending batch(es)" % phase.pending_save_data.size())
 				phase.emit_signal("saves_required", [_recovery_batch(phase.pending_save_data[0])])
@@ -3012,10 +3204,28 @@ func _recovery_batch(save_data: Dictionary) -> Dictionary:
 
 func _defender_dialog_on_screen() -> bool:
 	"""True when a wound/casualty allocation overlay is actually mounted, i.e.
-	the human really is mid-decision and the gate is legitimate."""
+	the human really is mid-decision and the gate is legitimate. AI-03: a
+	stratagem decision counts too — the StratagemDialog (window or shooting
+	reactive mode) is up, the player is examining the board with it parked,
+	or a stratagem follow-up move is in progress (its UI is the board / the
+	reactive move panel)."""
+	var root = get_tree().root if is_inside_tree() else null
+	if root:
+		var sd = root.get_node_or_null("StratagemDialog")
+		if sd and is_instance_valid(sd) and sd.visible:
+			return true
+		if root.get_node_or_null("Ork11eReactiveMovePanel") != null:
+			return true
 	var main = get_node_or_null("/root/Main")
 	if not main:
 		return false
+	if main.has_method("is_board_examining") and main.is_board_examining():
+		return true
+	var pm = get_node_or_null("/root/PhaseManager")
+	var ph = pm.current_phase_instance if pm else null
+	if ph and ph.has_method("has_pending_stratagem_window") and not ph.has_pending_stratagem_window() \
+			and ph.has_method("get_pending_stratagem_window_decider") and ph.get_pending_stratagem_window_decider() > 0:
+		return true  # a human follow-up move in progress (made on the board)
 	for child in main.get_children():
 		var script = child.get_script()
 		if script == null:

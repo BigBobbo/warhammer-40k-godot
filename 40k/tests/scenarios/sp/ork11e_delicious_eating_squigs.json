@@ -27,6 +27,7 @@
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_node_visible", "node": "/root/StratagemTargetDialog", "timeout_s": 3.0 },
     { "act": "expect_node_visible", "node": "/root/StratagemTargetDialog/Content/Pick_U_RUKKATRUKK_SQUIGBUGGIES_A" },
+    {"act": "execute_script", "multiline": true, "script": "var d = tree.root.get_node(\"StratagemTargetDialog\")\nvar t = d.get_node(\"Content/Pick_U_RUKKATRUKK_SQUIGBUGGIES_A\").text\nreturn [d.title, d.get_node(\"Content/Prompt\").text.contains(\"within 3\\\" of it heals 3 wounds\"), t.contains(\"heals \"), t.contains(\"Tankbustas\"), t.contains(\"Kommandos\"), t.contains(\"Breaka\")]", "equals": ["DELICIOUS EATING SQUIGS", true, true, true, true, false], "comment": "r5:F12: the picker says which ORKS INFANTRY units the stratagem will heal (all within 3\" are selected automatically)"},
     { "act": "screenshot", "label": "02_trukk_picker" },
     { "act": "click_node", "node": "/root/StratagemTargetDialog/Content/Pick_U_RUKKATRUKK_SQUIGBUGGIES_A" },
     { "act": "wait_seconds", "seconds": 0.6 },

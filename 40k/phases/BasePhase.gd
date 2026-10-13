@@ -230,7 +230,15 @@ func execute_action(action: Dictionary) -> Dictionary:
 		var pm = get_node_or_null("/root/PhaseManager")
 		var still_current: bool = pm == null or pm.current_phase_instance == self
 		if still_current and _should_complete_phase():
-			emit_signal("phase_completed")
+			if _window_blocks_phase_completion():
+				# F1: a stratagem window / follow-up opened by this very action
+				# (e.g. the last shooter's unit_has_shot / unit_destroyed window)
+				# still waits for a decision. The action that answers it runs
+				# this check again, so the phase completes then — never with
+				# the window left on a dead phase instance.
+				DebugLogger.info("[StratagemWindow] phase would complete, but a stratagem window / follow-up is pending (P%d) — completion deferred until it is answered" % get_pending_stratagem_window_decider())
+			else:
+				emit_signal("phase_completed")
 	else:
 		DebugLogger.info("[BasePhase] Action processing failed")
 
@@ -338,6 +346,32 @@ func get_pending_stratagem_window() -> Dictionary:
 func get_pending_stratagem_window_decider() -> int:
 	return int(_window_pending.get("player", 0))
 
+## True while a stratagem window or a used stratagem's follow-up still waits
+## for a decision (the phase-specific follow-ups report their owner through
+## get_pending_stratagem_window_decider) — the phase must not complete then.
+func _window_blocks_phase_completion() -> bool:
+	return has_pending_stratagem_window() or _window_followup_pending or get_pending_stratagem_window_decider() > 0
+
+## Network turn layer (NetworkManager.validate_action): an action by the
+## NON-active player that belongs to the follow-up they own (e.g. the SCARPER!
+## reactive normal move, made with the ordinary movement actions during the
+## opponent's turn) is not refused with "Not your turn". Authority (claimed
+## player == sending peer) is still checked there, and the phase's own
+## follow-up gate still decides which actions / units are legal.
+func allows_cross_turn_action(action: Dictionary) -> bool:
+	var claimed := int(action.get("player", -1))
+	return claimed > 0 and get_pending_stratagem_window_decider() == claimed
+
+## F4: on a networked CLIENT no window is ever opened locally — the HOST opens
+## it, stamps stratagem_window_opened on its result and NetworkManager mirrors
+## it here (mirror_stratagem_window). Opening one locally as well (from an
+## optimistically executed action or the client's own phase entry) built a
+## second, stale queue / resume state beside the mirror.
+func _is_network_client() -> bool:
+	var nm = get_node_or_null("/root/NetworkManager")
+	return nm != null and nm.has_method("is_networked") and nm.is_networked() \
+		and nm.has_method("is_host") and not nm.is_host()
+
 ## Actions that stay legal while a window is pending (debug / UI-only).
 func _window_exempt_action(action_type: String) -> bool:
 	return action_type.begins_with("DEBUG_")
@@ -363,6 +397,9 @@ func open_stratagem_window_both_players(window_id: String, ctx: Dictionary, resu
 ## Queue several windows at one hook; they open in order and the phase
 ## resumes (resume_method) when the queue is empty.
 func open_stratagem_windows(entries: Array, resume_method: String, resume_ctx: Dictionary = {}) -> bool:
+	if _is_network_client():
+		DebugLogger.info("[StratagemWindow] network client — %s not opened locally (the host opens it; its result is mirrored)" % str(entries.map(func(e): return e.get("window_id", "?"))))
+		return false
 	if has_pending_stratagem_window() or _window_followup_pending:
 		if resume_method == "":
 			# A resume-less (event) window nests: queue it and open it as soon
@@ -383,6 +420,13 @@ func open_stratagem_windows(entries: Array, resume_method: String, resume_ctx: D
 		# stratagem prompt would derail the step. Windows stay closed.
 		DebugLogger.info("[StratagemWindow] tutorial active — windows %s not opened" % str(entries.map(func(e): return e.get("window_id", "?"))))
 		return false
+	if resume_method != "" and _ev_depth > 0:
+		# F10: a hook opened mid-action (e.g. the post-shot unit_has_shot /
+		# enemy_has_shot windows, after the shot's damage is applied) comes
+		# AFTER the events that action already caused: units destroyed by the
+		# shot raise unit_destroyed (before Deadly Demise) / enemy_unit_has_attacked
+		# now, and _process_window_queue puts them at the front of the queue.
+		_window_events_detect()
 	_window_queue.append_array(entries)
 	_window_resume_method = resume_method
 	_window_resume_ctx = resume_ctx.duplicate(true)
@@ -424,7 +468,7 @@ func _process_window_queue() -> bool:
 			if decision.get("use", false):
 				var sync_mark := _window_sync_diffs.size()
 				var use_res = _apply_window_use(player, window_id, str(decision.get("stratagem_id", "")),
-					str(decision.get("target_unit_id", "")), decision.get("context", {}), ctx)
+					str(decision.get("target_unit_id", "")), decision.get("context", {}), ctx, offers)
 				if use_res.get("success", false):
 					# Replay order: the use's own diffs (CP, effect flags) come before
 					# whatever its follow-up already appended synchronously (e.g. a
@@ -457,11 +501,16 @@ func _process_window_queue() -> bool:
 		return true
 	return false
 
-func _apply_window_use(player: int, window_id: String, stratagem_id: String, target_unit_id: String, action_ctx, window_ctx: Dictionary) -> Dictionary:
+func _apply_window_use(player: int, window_id: String, stratagem_id: String, target_unit_id: String, action_ctx, window_ctx: Dictionary, offers: Array = []) -> Dictionary:
 	var use_ctx: Dictionary = window_ctx.duplicate(true)
 	if typeof(action_ctx) == TYPE_DICTIONARY:
 		use_ctx.merge(action_ctx, true)
 	use_ctx["window_id"] = window_id
+	# LIVE-10: name the chosen option (HULKING BRUTES' upgrade, VINDICTIVE
+	# ARTILLERISTS' profile) in the player-visible "Used ..." log line.
+	var variant_label := _window_variant_label(offers, stratagem_id, target_unit_id, str(use_ctx.get("variant_id", "")))
+	if variant_label != "":
+		use_ctx["variant_label"] = variant_label
 	var res: Dictionary = StratagemManager.use_stratagem(player, stratagem_id, target_unit_id, use_ctx)
 	if not res.get("success", false):
 		return {"success": false, "error": str(res.get("error", "stratagem use failed"))}
@@ -522,6 +571,22 @@ func _validate_window_action(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["%s cannot target %s in this window" % [offer.get("name", sid), tid]]}
 	return {"valid": false, "errors": ["%s is not offered in window %s" % [sid, window_id]]}
 
+## The offered label of `variant_id` on (stratagem_id, target) in `offers`
+## ("" when there is no variant or it is not in the offers).
+func _window_variant_label(offers: Array, stratagem_id: String, target_unit_id: String, variant_id: String) -> String:
+	if variant_id == "":
+		return ""
+	for offer in offers:
+		if str(offer.get("stratagem_id", "")) != stratagem_id:
+			continue
+		for t in offer.get("targets", []):
+			if str(t.get("unit_id", "")) != target_unit_id:
+				continue
+			for v in t.get("variants", []):
+				if str(v.get("id", "")) == variant_id:
+					return str(v.get("label", variant_id))
+	return variant_id
+
 func _process_window_action(action: Dictionary) -> Dictionary:
 	var pending: Dictionary = _window_pending
 	var player := int(pending.get("player", 0))
@@ -531,7 +596,7 @@ func _process_window_action(action: Dictionary) -> Dictionary:
 	var used_name := ""
 	if str(action.get("type", "")) == "USE_WINDOW_STRATAGEM":
 		var use_res = _apply_window_use(player, window_id, str(action.get("stratagem_id", "")),
-			str(action.get("target_unit_id", "")), action.get("context", {}), pending.get("ctx", {}))
+			str(action.get("target_unit_id", "")), action.get("context", {}), pending.get("ctx", {}), pending.get("offers", []))
 		if not use_res.get("success", false):
 			# Window stays open — the decider can pick something else or decline.
 			return create_result(false, [], "Stratagem use failed: %s" % use_res.get("error", "?"))
@@ -709,19 +774,36 @@ func _ev_snapshot() -> Dictionary:
 			shocked[uid] = true
 	return {"alive": alive, "shocked": shocked}
 
+## Save-resolution actions whose casualties the defender's save overlay
+## (AllocationGroupOverlay 11e / WoundAllocationOverlay 10e) has ALREADY
+## written into GameState before the action is sent (the overlay applies its
+## batch on the defending peer, then Done sends the action with the same
+## idempotent diffs).
+const _EV_PREAPPLIED_ACTIONS: Array = ["APPLY_SAVES", "APPLY_MELEE_SAVES"]
+
 ## Outermost execute_action: fresh baseline + the action's attacker.
 func _window_events_begin(action: Dictionary) -> void:
 	_ev_depth += 1
 	if _ev_depth != 1:
 		return
-	_ev_baseline = _ev_snapshot()
 	_ev_action_attacker = _window_attacking_unit_id()
 	if _ev_action_attacker == "":
 		_ev_action_attacker = _window_action_attacker_id(action)
+	if str(action.get("type", "")) in _EV_PREAPPLIED_ACTIONS and not _ev_baseline.is_empty():
+		# The overlay killed / battle-shocked units BETWEEN the previous action
+		# and this one: compare against the previous action's baseline (credited
+		# to this action's attacker) so their unit_destroyed /
+		# enemy_unit_has_attacked windows are raised and Deadly Demise is held —
+		# re-snapshotting first would hide those deaths (LIVE-1 / F2).
+		# _window_events_detect() takes the fresh baseline itself.
+		_window_events_detect()
+		return
+	_ev_baseline = _ev_snapshot()
 
 ## Compare unit state with the baseline and queue the event windows.
 func _window_events_detect() -> void:
-	if _ev_baseline.is_empty():
+	if _ev_baseline.is_empty() or _is_network_client():
+		# (F4: a network client raises no event windows — the host does.)
 		_ev_baseline = _ev_snapshot()
 		return
 	var now := _ev_snapshot()
@@ -845,6 +927,8 @@ func _window_event_closed(window_id: String, ctx: Dictionary, used: bool) -> voi
 ## unit's window closes (_window_event_closed resolves it then, unless a
 ## stratagem such as FLYIN' HEADBUTT removed the ability).
 func _window_hold_deadly_demise(unit_id: String) -> bool:
+	if _is_network_client():
+		return false  # F4: the host holds (and resolves) Deadly Demise
 	# Destroyed inside this very kill chain (e.g. by another unit's Deadly
 	# Demise) and not detected yet: raise its unit_destroyed window now.
 	if not _ev_destroyed_open.has(unit_id) and _ev_baseline.get("alive", {}).has(unit_id) \

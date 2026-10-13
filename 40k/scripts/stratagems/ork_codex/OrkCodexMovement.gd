@@ -598,17 +598,27 @@ static func objective_label(obj_id: String) -> String:
 		desig = str(mm.get_objective_designation(obj_id))
 	# Where it is on the board, so the player can tell the markers apart.
 	var where := ""
+	var zone := ""
 	var gs = Common.autoload("GameState")
 	if gs:
 		for obj in gs.state.get("board", {}).get("objectives", []):
 			if str(obj.get("id", "")) == obj_id:
+				zone = str(obj.get("zone", ""))
 				var p = obj.get("position", null)
 				if p is Dictionary:
 					where = "%d\", %d\"" % [roundi(float(p.get("x", 0)) / 40.0), roundi(float(p.get("y", 0)) / 40.0)]
 				elif p is Vector2:
 					where = "%d\", %d\"" % [roundi(p.x / 40.0), roundi(p.y / 40.0)]
 				break
-	var label := "Objective %s" % obj_id
+	# DR-2: the same name the board marker and the HUD objective panel show
+	# ("CENTER [NML]", "NML 1 [NML]") instead of the internal id.
+	var label := obj_id.replace("obj_", "").to_upper().replace("_", " ")
+	match zone:
+		"player1": label += " [P1]"
+		"player2": label += " [P2]"
+		"no_mans_land": label += " [NML]"
+		"": pass
+		_: label += " [%s]" % zone
 	if desig != "":
 		label += " (%s)" % desig
 	if where != "":

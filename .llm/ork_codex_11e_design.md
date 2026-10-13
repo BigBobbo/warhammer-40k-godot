@@ -462,3 +462,53 @@ U_CUSTODIAN_GUARD_E x36 (front y=38), U_BLADE_CHAMPION_B x15 / U_BLADE_CHAMPION_
 (charge range), 13–25" from the Ork rear ranks (shooting range).
 Reposition with `execute_script` (e.g. move a unit's `models[i].position`) when a test
 needs a different geometry.
+
+### 6.7 Framework rules added by the fix pass (cluster A) and known limitations
+
+Regression checks: `tests/test_ork_codex_framework_fixes.gd` (one section per finding).
+
+- **Phase completion waits for windows (F1).** `BasePhase.execute_action` does not emit
+  `phase_completed` while `_window_blocks_phase_completion()` (a pending window, a queued
+  window, `_window_followup_pending`, or `get_pending_stratagem_window_decider() > 0`); the
+  phase completes on the action that answers the last of them (e.g. GRAB IT after the last
+  shooter). The S panel's Use path is refused during a window *or* a follow-up (F14).
+- **Who may act during a window (F3 / AI-04 / AI-05).** `BasePhase.allows_cross_turn_action`
+  lets the window decider (or follow-up owner) pass NetworkManager's "Not your turn" layer;
+  `MovementPhase` additionally allows the reactive-move owner's move actions on that unit.
+  The follow-up gate refuses any other player ("Player N is making this … move"). In
+  hot-seat `NetworkIntegration.route_action` stamps `action.player` with the decider.
+- **Networking (F4).** Windows and event detection are host-only: a client never opens a
+  window, snapshots an event baseline or holds Deadly Demise. The host's state reaches the
+  client in the action result (`stratagem_window_opened`, `_ork11e_followup` → mirrored
+  by `NetworkManager._mirror_host_window_state` / `_apply_followup_mirror`). When either
+  army has window stratagems, `END_MOVEMENT` / `END_FIGHT` are not executed optimistically
+  on the client (they may open a window instead of ending the phase).
+- **Pre-applied save casualties (LIVE-1 / F2).** The save overlay writes casualties into
+  GameState before `APPLY_SAVES` / `APPLY_MELEE_SAVES` arrives; those two actions diff
+  against the baseline taken before the overlay (`_EV_PREAPPLIED_ACTIONS`), so
+  `unit_destroyed`, held Deadly Demise and `enemy_unit_has_attacked` still open. The
+  overlay refuses "Roll Saves" for a further batch while a window is pending.
+- **Event order (F10).** A post-shot window (`unit_has_shot`, …) first runs event
+  detection, so the windows of units the shot destroyed open before it.
+- **AI seats (AI-01 … AI-07).** `AIPlayer` answers a window or follow-up owned by an AI
+  seat even when that seat was taken over mid-decision (disconnect → "continue vs AI");
+  the watchdog counts such a seat as active. A human defender's dialog that is on screen
+  (or being examined) is not a stall.
+- **Save / load (F11) — limitation.** Window state is *not* saved: `_window_pending`,
+  `_window_queue`, `_window_followup_pending` / the follow-up dicts, `_window_suppressed`
+  ("don't offer again") and a held Deadly Demise live on the phase instance only. Loading
+  a save made while a window or follow-up was open builds a fresh phase instance with
+  nothing pending, so the game is never stuck (test section L). A window whose trigger was
+  not committed (e.g. `unit_selected_to_fight` before the fighter was locked in) is
+  offered again when the action is repeated; a follow-up that started after its CP was
+  paid (GRAB IT / SCARPER! move, READIED BRAWLERS disembark, …) is lost — the CP stays spent.
+- **UI.** The StratagemDialog grows its card list to the content (up to the room under the
+  top HUD) and scrolls the first Use button into view when it still has to scroll
+  (`first_use_button()`, `use_buttons_visibility()`); a "+1CP Or:" upgrade is printed as
+  its own "Upgrade (+1 CP) — instead: …" line and its button names unit and cost;
+  variant-only cards say "Choose one"; the game log names the chosen variant. Secondary
+  pickers (`StratagemTargetDialog` / `StratagemChoiceDialog`) show their instruction as
+  `Content/Prompt` (title = stratagem name) and objectives by their board names
+  ("CENTER [NML]"). The hot-seat waiting banner sits under the top HUD strip; the fight
+  dock says "Waiting for Player N's stratagem decision" while an
+  `enemy_targets_unit_fight` window holds the hit roll.

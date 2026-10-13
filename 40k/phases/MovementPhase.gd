@@ -7072,15 +7072,38 @@ func get_pending_stratagem_window_decider() -> int:
 		return int(_ork11e_assault_disembark.get("player", 0))
 	return 0
 
-## While a human follow-up owns the phase only its own actions are accepted.
+## Movement actions a reactive normal move (codex follow-up, Krump and Run,
+## Scatter!) is made with.
+const _REACTIVE_MOVE_ACTIONS := ["SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE", "RESET_UNIT_MOVE",
+	"CONFIRM_UNIT_MOVE", "APPLY_PIVOT_COST", "SET_TAKE_TO_SKIES", "LOCK_MOVEMENT_MODE"]
+
+## Network turn layer (F3 / AI-04): the follow-up owner (BasePhase), and the
+## owner of a pre-existing reactive move (Krump and Run / Scatter!) moving
+## THAT unit, may act during the opponent's turn.
+func allows_cross_turn_action(action: Dictionary) -> bool:
+	if super(action):
+		return true
+	var claimed := int(action.get("player", -1))
+	var uid := str(action.get("actor_unit_id", ""))
+	var move_data: Dictionary = active_moves.get(uid, {})
+	return claimed > 0 and _reactive_move_owner == claimed and str(action.get("type", "")) in _REACTIVE_MOVE_ACTIONS \
+		and bool(move_data.get("is_reactive_move", false)) and not bool(move_data.get("completed", false)) \
+		and int(get_unit(uid).get("owner", 0)) == claimed
+
+## While a human follow-up owns the phase only its own actions are accepted —
+## and only from the player who owns it (AI-05: the opponent, e.g. an AI that
+## sees the unit in active_moves, must not stage or end the owner's move).
 func _ork11e_followup_gate(action: Dictionary) -> Dictionary:
 	var t := str(action.get("type", ""))
 	if t.begins_with("DEBUG_"):
 		return {}
 	if not _ork11e_reactive_move.is_empty():
 		var rm_uid := str(_ork11e_reactive_move.get("unit_id", ""))
-		if t in ["SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE", "RESET_UNIT_MOVE", "CONFIRM_UNIT_MOVE",
-				"APPLY_PIVOT_COST", "SET_TAKE_TO_SKIES", "LOCK_MOVEMENT_MODE"] and str(action.get("actor_unit_id", "")) == rm_uid:
+		var rm_owner := int(_ork11e_reactive_move.get("player", 0))
+		if t in _REACTIVE_MOVE_ACTIONS and str(action.get("actor_unit_id", "")) == rm_uid:
+			if action.has("player") and int(action.get("player", 0)) != rm_owner:
+				return {"valid": false, "errors": ["Player %d is making this %s move, not Player %d" % [
+					rm_owner, str(_ork11e_reactive_move.get("source", "reactive")), int(action.get("player", 0))]]}
 			return {}
 		var rm_msg := "Finish %s's %s move first" % [get_unit(rm_uid).get("meta", {}).get("name", rm_uid), str(_ork11e_reactive_move.get("source", "reactive"))]
 		return {"valid": false, "errors": [rm_msg]}
@@ -7090,6 +7113,10 @@ func _ork11e_followup_gate(action: Dictionary) -> Dictionary:
 		if ad_uid == "":
 			ad_uid = str(action.get("payload", {}).get("unit_id", ""))
 		if t in ["DISEMBARK_UNIT", "CONFIRM_DISEMBARK", "SKIP_ASSAULT_DISEMBARK"] and ad_uid in remaining:
+			var ad_owner := int(_ork11e_assault_disembark.get("player", 0))
+			if action.has("player") and int(action.get("player", 0)) != ad_owner:
+				return {"valid": false, "errors": ["Player %d makes this READIED BRAWLERS assault disembark, not Player %d" % [
+					ad_owner, int(action.get("player", 0))]]}
 			return {}
 		var ad_msg := "Finish READIED BRAWLERS first: assault disembark (or stay embarked) with %s" % ", ".join(PackedStringArray(remaining))
 		return {"valid": false, "errors": [ad_msg]}

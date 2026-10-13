@@ -55,6 +55,7 @@
     { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_runt_swarm_grot_shields/Buttons/Use_faction_ork_runt_swarm_grot_shields_U_GRETCHIN_C" },
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "expect_node_visible", "node": "/root/StratagemTargetDialog", "timeout_s": 3.0 },
+    {"act": "execute_script", "multiline": true, "script": "var d = tree.root.get_node(\"StratagemTargetDialog\")\nreturn [d.title, d.get_node(\"Content/Prompt\").text.begins_with(\"Which ORKS INFANTRY unit do the Gretchin shield?\"), d.size.x >= 520]", "equals": ["GROT SHIELDS", true, true], "comment": "r3:F5: the shielded-unit picker shows its question in the body and is wide enough to read (the title used to be truncated to 'GROT S...')"},
     { "act": "expect_node_property", "node": "/root/StratagemTargetDialog/Content/Pick_U_FLASH_GITZ_A", "property": "disabled", "equals": false },
     { "act": "expect_node_property", "node": "/root/StratagemTargetDialog/Content/Pick_U_TANKBUSTAS_A", "property": "disabled", "equals": false },
     { "act": "expect_cp", "player": 2, "delta_from_start": 0 },

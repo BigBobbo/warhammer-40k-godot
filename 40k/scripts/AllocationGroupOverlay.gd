@@ -706,6 +706,21 @@ func _run_batch(preferred_targets: Array) -> Dictionary:
 	})
 
 
+## Player whose stratagem window is pending on the current phase (0 = none).
+## A save batch must not be rolled while one waits: this overlay writes its
+## casualties into GameState before Done sends APPLY_SAVES /
+## APPLY_MELEE_SAVES, and the phase refuses that action until the window is
+## answered — the batch would be applied but never recorded (stall). E.g. the
+## previous batch destroyed a unit and its unit_destroyed window is open while
+## the next batch's overlay is already up (reachable via Examine Board).
+func _pending_window_decider() -> int:
+	var pm = Engine.get_main_loop().root.get_node_or_null("PhaseManager")
+	var phase = pm.get_current_phase_instance() if pm != null and pm.has_method("get_current_phase_instance") else null
+	if phase == null or not phase.has_method("has_pending_stratagem_window") or not phase.has_pending_stratagem_window():
+		return 0
+	return int(phase.get_pending_stratagem_window_decider())
+
+
 func _on_confirm_pressed() -> void:
 	if resolved:
 		return
@@ -713,6 +728,13 @@ func _on_confirm_pressed() -> void:
 	if not check.valid:
 		print("AllocationGroupOverlay: confirm blocked — illegal order %s" % str(order))
 		return
+	var window_decider := _pending_window_decider() if not auto_mode else 0
+	if window_decider > 0:
+		error_label.text = "Player %d is deciding on a stratagem — answer that first, then roll these saves." % window_decider
+		print("AllocationGroupOverlay: confirm blocked — stratagem window pending for Player %d" % window_decider)
+		return
+	if error_label.text.begins_with("Player ") and error_label.text.contains("deciding on a stratagem"):
+		error_label.text = ""
 	resolved = true
 	confirm_button.disabled = true
 	# 24.28: carry the attacker's PRECISION promotion pick (or explicit
