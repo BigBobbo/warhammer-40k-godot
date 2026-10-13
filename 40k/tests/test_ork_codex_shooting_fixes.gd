@@ -26,6 +26,9 @@ extends SceneTree
 #                      unit_selected_to_shoot window to the player's first action
 #                      with that unit; explicit re-selection after a plain Decline
 #                      is offered again; "Don't offer again" still suppresses it
+#   O. ai:AIR-2  the AI shooting planner never assigns a Hunter profile to a
+#                      non-MONSTER/VEHICLE target; every SHOOT it emits passes
+#                      validate_shoot (bearers, Pistol either/or) and is executed
 #
 # Usage: godot --headless --path 40k --script tests/test_ork_codex_shooting_fixes.gd
 
@@ -278,6 +281,7 @@ func _run() -> void:
 	_section_l_speediest_freeks_ai()
 	_section_m_rerolls()
 	_section_n_deferred_selected_to_shoot()
+	_section_o_ai_hunter_planner()
 
 
 # ---------------------------------------------------------------------------
@@ -1160,4 +1164,112 @@ func _section_n_deferred_selected_to_shoot() -> void:
 		shoot.get("success", false) and str(_pending(ph).get("window_id", "")) == "unit_selected_to_shoot" and not uid in ph.units_that_shot, str(_pending(ph)))
 	var dec4 = ph.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1, "window_id": "unit_selected_to_shoot"})
 	_check("declining resumes the SHOOT", dec4.get("success", false) and uid in ph.units_that_shot, str(dec4.get("error", "")))
+
+
+# ---------------------------------------------------------------------------
+## Mark every other P1 unit as having shot this phase (phase + flags).
+func _only_shooter(ph, shooter: String) -> void:
+	for uid in GS.state.units:
+		var u = GS.state.units[uid]
+		if int(u.get("owner", 0)) == 1 and uid != shooter:
+			u.flags["has_shot"] = true
+			if not uid in ph.units_that_shot:
+				ph.units_that_shot.append(uid)
+
+
+## The AI's shooting decision for P1 when only `shooter` can still shoot.
+func _ai_shoot_decision(ph, shooter: String) -> Dictionary:
+	var AIDM = load("res://scripts/AIDecisionMaker.gd")
+	AIDM.reset_caches()
+	AIDM._focus_fire_plan_built = false
+	AIDM._focus_fire_plan.clear()
+	return AIDM.decide(PHASE_SHOOTING, GS.create_snapshot(), ph.get_available_actions(), 1)
+
+
+func _section_o_ai_hunter_planner() -> void:
+	print("\n-- O. ai:AIR-2 AI shooting planner vs Hunter profiles --")
+	_check("fixture loads", _load("ork11e_orks_active"))
+	_set_det(1, "Wreckas")
+	var hunter := "busta_rokkit_launcha___hunter_ranged"
+	var tb := "U_TANKBUSTAS_A"
+	# Every enemy far away except the one target under test.
+	for uid in GS.state.units:
+		if int(GS.state.units[uid].get("owner", 0)) == 2:
+			_park(uid)
+	var c := _centroid(tb) / PX
+	# (a) INFANTRY target only: Custodian Guard C 9" in front of the Tankbustas.
+	var cgm: Array = _unit("U_CUSTODIAN_GUARD_C").models
+	for i in range(cgm.size()):
+		cgm[i]["position"] = {"x": (c.x - 4.0 + i * 2.0) * PX, "y": (c.y + 9.0) * PX}
+	var ph = _shooting()
+	_only_shooter(ph, tb)
+	var elig: Dictionary = RE.get_eligible_targets(tb, GS.create_snapshot())
+	_check("set-up: Custodian Guard C is the Tankbustas' eligible target", elig.has("U_CUSTODIAN_GUARD_C"), str(elig.keys()))
+	var d1: Dictionary = _ai_shoot_decision(ph, tb)
+	var a1: Array = d1.get("payload", {}).get("assignments", [])
+	var hunter_at_inf := false
+	for a in a1:
+		if str(a.get("weapon_id", "")) == hunter:
+			hunter_at_inf = true
+	_check("vs INFANTRY: the AI SHOOTs with the Tankbustas", str(d1.get("type", "")) == "SHOOT" and str(d1.get("actor_unit_id", "")) == tb and not a1.is_empty(), str(d1))
+	_check("vs INFANTRY: no Hunter profile assigned (04.01.03)", not hunter_at_inf, str(a1))
+	var v1 = RE.validate_shoot(d1, GS.create_snapshot())
+	_check("vs INFANTRY: the AI's SHOOT passes validate_shoot (bearers, Pistol either/or, Hunter)", v1.get("valid", false), str(v1.get("errors", [])))
+	var ai = root.get_node("AIPlayer")
+	ai.enabled = true
+	ai.ai_players = {1: true, 2: false}
+	d1["player"] = 1
+	var r1 = ph.execute_action(d1)
+	ai.enabled = false
+	ai.ai_players = {1: false, 2: false}
+	_check("vs INFANTRY: the SHOOT is executed (not rejected -> no SKIP_UNIT)", r1.get("success", false) and tb in ph.units_that_shot, str(r1.get("error", "")))
+	# (b) VEHICLE target only: an enemy Battlewagon.
+	_check("fixture reloads", _load("ork11e_orks_active"))
+	_set_det(1, "Wreckas")
+	for uid in GS.state.units:
+		if int(GS.state.units[uid].get("owner", 0)) == 2:
+			_park(uid)
+	GS.state.units["U_BATTLEWAGON_A"]["owner"] = 2
+	_move_to("U_BATTLEWAGON_A", Vector2(c.x, c.y + 12.0))
+	ph = _shooting()
+	_only_shooter(ph, tb)
+	elig = RE.get_eligible_targets(tb, GS.create_snapshot())
+	_check("set-up: the (enemy) Battlewagon is the Tankbustas' eligible target", elig.has("U_BATTLEWAGON_A") and hunter in elig.get("U_BATTLEWAGON_A", {}).get("weapons_in_range", []), str(elig))
+	var d2: Dictionary = _ai_shoot_decision(ph, tb)
+	var a2: Array = d2.get("payload", {}).get("assignments", [])
+	var hunter_at_veh := false
+	for a in a2:
+		if str(a.get("weapon_id", "")) == hunter and str(a.get("target_unit_id", "")) == "U_BATTLEWAGON_A":
+			hunter_at_veh = true
+	_check("vs VEHICLE: the AI SHOOTs at the Battlewagon", str(d2.get("type", "")) == "SHOOT" and not a2.is_empty(), str(d2))
+	_check("vs VEHICLE: the Hunter profile is still used against a VEHICLE", hunter_at_veh, str(a2))
+	var v2 = RE.validate_shoot(d2, GS.create_snapshot())
+	_check("vs VEHICLE: the AI's SHOOT passes validate_shoot", v2.get("valid", false), str(v2.get("errors", [])))
+	# 04.01.03 one profile per weapon + 24.07 [CLOSE-QUARTERS] either/or, per model.
+	var per_model := {}
+	for a in a2:
+		for mid in a.get("model_ids", []):
+			if not per_model.has(mid):
+				per_model[mid] = []
+			per_model[mid].append(str(a.weapon_id))
+	var two_profiles: Array = []
+	var cq_and_other: Array = []
+	var bboard: Dictionary = GS.create_snapshot()
+	for mid in per_model:
+		var launcha := 0
+		var has_cq := false
+		var has_other := false
+		for wid in per_model[mid]:
+			if wid.begins_with("busta_rokkit_launcha"):
+				launcha += 1
+			if ph._ork11e_is_close_quarters_weapon(wid, bboard):
+				has_cq = true
+			else:
+				has_other = true
+		if launcha > 1:
+			two_profiles.append(mid)
+		if has_cq and has_other:
+			cq_and_other.append(mid)
+	_check("vs VEHICLE: no model fires both Busta Rokkit Launcha profiles (04.01.03)", two_profiles.is_empty(), str(per_model))
+	_check("vs VEHICLE: no model fires its [CLOSE-QUARTERS] Rokkit Pistol AND another ranged weapon (24.07)", cq_and_other.is_empty(), str(per_model))
 

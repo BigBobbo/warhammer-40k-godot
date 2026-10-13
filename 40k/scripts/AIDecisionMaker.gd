@@ -110,6 +110,134 @@ static func _can_shooter_see_target(shooter_unit_id: String, target_unit_id: Str
 		return result.get("visible", true)
 	return true  # Optimistic fallback if RulesEngine unavailable
 
+# AIR-2: Hunter profiles (11e 04.01.03) can only target units with their
+# keywords (MONSTER/VEHICLE in the shipped catalogue). Same predicate the SHOOT
+# validator uses (RulesEngine.validate_shoot -> weapon_profile_can_target), so
+# the planner never assigns a pair the engine rejects (which cost the unit its
+# whole activation: SHOOT rejected -> SKIP_UNIT).
+static func _ai_weapon_can_target(weapon_id: String, target_unit: Dictionary, snapshot: Dictionary) -> bool:
+	var re = _rules_engine()
+	if re and re.has_method("weapon_profile_can_target"):
+		return bool(re.weapon_profile_can_target(weapon_id, target_unit, snapshot))
+	return true
+
+## AIR-2 safety net, applied to every SHOOT the planner emits: keep only the
+## assignments the engine's own eligibility accepts (get_eligible_targets ->
+## weapons_in_range: range, line of sight, Hunter profiles, targets engaged with
+## friendlies ...), give each one the models that actually CARRY the weapon
+## (the plan used every alive model — "Model 'Boss Nob' does not have weapon
+## ..."), let each model fire one profile per weapon (04.01.03), and apply the
+## per-model either/or (validator MA-25 for PISTOLs, 11e 24.07 for every
+## [CLOSE-QUARTERS] weapon): a non-MONSTER/VEHICLE model fires its Pistol /
+## [CLOSE-QUARTERS] weapons OR its other ranged weapons, never both (the other
+## weapons win). Returns the cleaned list (possibly empty).
+static func _sanitize_shoot_assignments(unit_id: String, assignments: Array, snapshot: Dictionary) -> Array:
+	var re = _rules_engine()
+	if re == null or not re.has_method("get_eligible_targets") or not re.has_method("get_unit_weapons"):
+		return assignments
+	var units: Dictionary = snapshot.get("units", {})
+	var unit: Dictionary = units.get(unit_id, {})
+	var unit_name := _dn(unit, unit_id)
+	var eligible: Dictionary = re.get_eligible_targets(unit_id, snapshot)
+	var unit_weapons: Dictionary = re.get_unit_weapons(unit_id, snapshot)
+	var out: Array = []
+	for a in assignments:
+		var wid := str(a.get("weapon_id", ""))
+		var tid := str(a.get("target_unit_id", ""))
+		var target: Dictionary = units.get(tid, {})
+		if not _ai_weapon_can_target(wid, target, snapshot):
+			print("AIDecisionMaker: [AIR-2] %s: dropping %s -> %s (Hunter profile cannot target it, 04.01.03)" % [unit_name, wid, _dn(target, tid)])
+			continue
+		if not eligible.has(tid) or not wid in eligible[tid].get("weapons_in_range", []):
+			print("AIDecisionMaker: [AIR-2] %s: dropping %s -> %s (not an eligible target for that weapon)" % [unit_name, wid, _dn(target, tid)])
+			continue
+		var bearers: Array = []
+		var asked: Array = a.get("model_ids", [])
+		for mid in unit_weapons:
+			if wid in unit_weapons[mid] and (asked.is_empty() or mid in asked):
+				bearers.append(mid)
+		if bearers.is_empty():
+			print("AIDecisionMaker: [AIR-2] %s: dropping %s -> %s (no model carries it)" % [unit_name, wid, _dn(target, tid)])
+			continue
+		var clean: Dictionary = a.duplicate(true)
+		clean["model_ids"] = bearers
+		out.append(clean)
+	# 04.01.03: a model attacks with ONE profile of a multi-profile weapon
+	# (Busta Rokkit Launcha – Hunter / – Standard): per model, keep the profile
+	# worth most against its assigned target, drop the model from the others.
+	var values: Array = []
+	for a in out:
+		var wd := _ai_weapon_dict(unit, str(a.weapon_id))
+		var tgt: Dictionary = units.get(str(a.target_unit_id), {})
+		values.append(_estimate_weapon_damage(wd, tgt, snapshot, unit) if not wd.is_empty() else 0.0)
+	var best_for := {}  # "model|base" -> assignment index
+	for i in range(out.size()):
+		var base := _ai_weapon_base_name(str(out[i].weapon_id), snapshot)
+		for mid in out[i].model_ids:
+			var key := "%s|%s" % [mid, base]
+			if not best_for.has(key) or float(values[i]) > float(values[best_for[key]]):
+				best_for[key] = i
+	for i in range(out.size()):
+		var base := _ai_weapon_base_name(str(out[i].weapon_id), snapshot)
+		var keep_p: Array = out[i].model_ids.filter(func(m): return int(best_for.get("%s|%s" % [m, base], i)) == i)
+		if keep_p.size() != out[i].model_ids.size():
+			print("AIDecisionMaker: [AIR-2] %s: %d model(s) fire another profile of %s instead of %s (one profile per weapon)" % [
+				unit_name, out[i].model_ids.size() - keep_p.size(), base, str(out[i].weapon_id)])
+		out[i]["model_ids"] = keep_p
+	out = out.filter(func(a): return not a.model_ids.is_empty())
+	if not re.has_method("is_monster_or_vehicle") or re.is_monster_or_vehicle(unit):
+		return out
+	# Per-model either/or (MA-25 validator for PISTOLs; 11e 24.07 for every
+	# [CLOSE-QUARTERS] weapon): models assigned both categories keep their other
+	# ranged weapons and drop the close-quarters ones.
+	var has_other := {}
+	for a in out:
+		if not _ai_is_close_quarters(str(a.weapon_id), snapshot):
+			for mid in a.model_ids:
+				has_other[mid] = true
+	var final_out: Array = []
+	for a in out:
+		if _ai_is_close_quarters(str(a.weapon_id), snapshot):
+			var keep: Array = a.model_ids.filter(func(m): return not has_other.has(m))
+			if keep.size() != a.model_ids.size():
+				print("AIDecisionMaker: [AIR-2] %s: %d model(s) keep their other ranged weapons instead of %s (Pistol / [CLOSE-QUARTERS] either/or)" % [
+					unit_name, a.model_ids.size() - keep.size(), str(a.weapon_id)])
+			if keep.is_empty():
+				continue
+			a["model_ids"] = keep
+		final_out.append(a)
+	return final_out
+
+## The unit's weapon dict (meta.weapons entry) whose generated id is weapon_id.
+static func _ai_weapon_dict(unit: Dictionary, weapon_id: String) -> Dictionary:
+	for w in unit.get("meta", {}).get("weapons", []):
+		if _generate_weapon_id(str(w.get("name", "")), str(w.get("type", ""))) == weapon_id:
+			return w
+	return {}
+
+## "Busta Rokkit Launcha – Hunter" -> "Busta Rokkit Launcha" (profiles of one weapon).
+static func _ai_weapon_base_name(weapon_id: String, snapshot: Dictionary) -> String:
+	var re = _rules_engine()
+	var wname := weapon_id
+	if re != null:
+		wname = str(re.get_weapon_profile(weapon_id, snapshot).get("name", weapon_id))
+	for sep in [" – ", " — ", " - "]:
+		var idx := wname.find(sep)
+		if idx > 0:
+			return wname.substr(0, idx)
+	return wname
+
+## Pistol (keyword) or [CLOSE-QUARTERS] (11e 24.07) — same test as the
+## GUN-CRAZY forced picker (ShootingPhase._ork11e_is_close_quarters_weapon).
+static func _ai_is_close_quarters(weapon_id: String, snapshot: Dictionary) -> bool:
+	var re = _rules_engine()
+	if re == null:
+		return false
+	if re.is_pistol_weapon(weapon_id, snapshot):
+		return true
+	var abilities: Array = AbilityRegistry.from_weapon(re.get_weapon_profile(weapon_id, snapshot))
+	return AbilityRegistry.has_ability(abilities, "close_quarters") or AbilityRegistry.has_ability(abilities, "pistol")
+
 # Focus fire plan cache — built once per shooting phase, consumed per-unit
 # Stores {unit_id: [{weapon_id, target_unit_id}]} mapping
 static var _focus_fire_plan: Dictionary = {}
@@ -3531,7 +3659,8 @@ static func _decide_random_shooting(snapshot: Dictionary, available_actions: Arr
 			for tid in enemy_ids:
 				var single_target = {}
 				single_target[tid] = enemies[tid]
-				var assignments = _build_unit_assignments_fallback(shooter, ranged_weapons, single_target, snapshot, shooter_id)
+				var assignments = _sanitize_shoot_assignments(shooter_id,
+					_build_unit_assignments_fallback(shooter, ranged_weapons, single_target, snapshot, shooter_id), snapshot)
 				if not assignments.is_empty():
 					var tname = _dn(enemies[tid], tid)
 					return {
@@ -13526,6 +13655,15 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			assignments = _build_unit_assignments_fallback(unit, ranged_weapons, fallback_enemies, snapshot, selected_unit_id)
 			print("AIDecisionMaker: Using fallback scoring for %s (%d assignments)" % [unit_name, assignments.size()])
 
+		# AIR-2: only engine-valid assignments reach the SHOOT (a single invalid
+		# pair rejects the whole action and the unit loses its activation).
+		var sanitized: Array = _sanitize_shoot_assignments(selected_unit_id, assignments, snapshot)
+		if sanitized.is_empty() and not assignments.is_empty() and not fallback_enemies.is_empty():
+			sanitized = _sanitize_shoot_assignments(selected_unit_id,
+				_build_unit_assignments_fallback(unit, ranged_weapons, fallback_enemies, snapshot, selected_unit_id), snapshot)
+			print("AIDecisionMaker: [AIR-2] %s: planned assignments were all invalid — fallback gives %d" % [unit_name, sanitized.size()])
+		assignments = sanitized
+
 		if assignments.is_empty():
 			return {
 				"type": "SKIP_UNIT",
@@ -13916,6 +14054,11 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 				if er_dist > 1.0:
 					dmg_row[enemy_id] = 0.0
 					continue
+
+			# AIR-2: Hunter profiles only target their keyword units (04.01.03).
+			if not _ai_weapon_can_target(weapon_id, enemy, snapshot):
+				dmg_row[enemy_id] = 0.0
+				continue
 
 			# T7-11: Lone Operative targeting restriction — cannot target with ranged attacks
 			# from >12" away. Set damage to 0 if the shooter is too far.
@@ -14876,6 +15019,9 @@ static func _build_unit_assignments_fallback(unit: Dictionary, ranged_weapons: A
 		var fb_scored: Array = []  # A1: the field, not just the winner
 		for enemy_id in enemies:
 			var enemy = enemies[enemy_id]
+			# AIR-2: a Hunter profile only targets its keyword units (04.01.03).
+			if not _ai_weapon_can_target(weapon_id, enemy, snapshot):
+				continue
 			var score = _score_shooting_target(weapon, enemy, snapshot, unit)
 			if score > 0.0:
 				fb_scored.append({
