@@ -19,6 +19,9 @@ extends SceneTree
 #   J. WHERE D'YA FINK YOU'RE GOING? — enemy_selected_to_fall_back, desperate escape
 #      forced, extra MONSTER/VEHICLE hazard rolls (-1 battle-shocked), no legacy 10e path
 #   K. WHILE THEIR BACKS ARE TURNED — movement_phase_end (opponent), engaged at start
+#   K2. reverify:RV-2 — the same through the networked HOST path
+#      (GameManager.apply_action END_MOVEMENT): the window opens, the result
+#      carries the stratagem_window_opened stamp, the decision ends the phase
 #   L. DREAD POWER — S panel, riled-up grants, expiry at the start of your next turn
 #   M. DELICIOUS EATING SQUIGS — S panel, heal 3 per 02.02.04 within 3"
 #   N. AI decision paths (scores + synchronous windows)
@@ -219,6 +222,7 @@ func _run() -> void:
 	await _section_whirligig()
 	await _section_where_dya_fink()
 	await _section_while_their_backs()
+	await _section_while_their_backs_host_path()
 	await _section_dread_power()
 	await _section_delicious_squigs()
 	await _section_ai()
@@ -900,6 +904,70 @@ func _section_while_their_backs() -> void:
 	var bmv = _move_unit(phase, "U_BOYZ_B", Vector2(0, 1.0))
 	_check("Boyz reactive move confirmed", bmv.get("success", false), str(bmv))
 	_check("then the Movement phase ends (Shooting)", GS.get_current_phase() == PHASE_SHOOTING, str(GS.get_current_phase()))
+
+
+# ---------------------------------------------------------------------------
+## WTBT set-up shared by K2: Taktikal Brigade P2, Custodian Guard A falls back
+## from the Boyz so they are offered WHILE THEIR BACKS ARE TURNED at the end.
+func _wtbt_setup() -> Node:
+	_load(REACTIVE, 2, "Taktikal Brigade")
+	var phase = _movement()
+	_drain_start_window(phase)
+	phase.execute_action({"type": "BEGIN_FALL_BACK", "actor_unit_id": "U_CUSTODIAN_GUARD_A"})
+	while phase.has_pending_stratagem_window():
+		_decline(phase, int(phase.get_pending_stratagem_window().player), _pending_id(phase))
+	_move_unit(phase, "U_CUSTODIAN_GUARD_A", Vector2(0, -4.0))
+	while phase.has_pending_stratagem_window() and _pending_id(phase) == "enemy_ended_move":
+		_decline(phase, 2, "enemy_ended_move")
+	return phase
+
+
+func _section_while_their_backs_host_path() -> void:
+	print("\n-- K2. reverify:RV-2 networked host path: GameManager END_MOVEMENT --")
+	var GM = root.get_node("GameManager")
+	var sid := _sid(2, "while-their-backs-are-turned-taktikal-brigade")
+	# (a) USE: the window opens on the host path and its follow-up ends the phase.
+	var phase = _wtbt_setup()
+	var mctx := {"phase": "movement", "engaged_at_phase_start": phase._engagement_at_phase_start.keys()}
+	_check("WTBT offered on Boyz B at the end of this phase", "U_BOYZ_B" in _offer_targets(SM.get_window_offers(2, "movement_phase_end", mctx), sid))
+	var cp2 := _cp(2)
+	var res = GM.apply_action({"type": "END_MOVEMENT", "player": 1})
+	_check("GameManager END_MOVEMENT succeeds", res.get("success", false), str(res.get("error", "")))
+	_check("the phase did NOT end: movement_phase_end pending for P2", _pending_id(phase) == "movement_phase_end"
+		and phase.get_pending_stratagem_window_decider() == 2 and GS.get_current_phase() == PHASE_MOVEMENT and PM.get_current_phase_instance() == phase,
+		"pending=%s phase=%d" % [_pending_id(phase), GS.get_current_phase()])
+	var stamp: Dictionary = res.get("stratagem_window_opened", {})
+	_check("the result carries the window stamp for the client mirror", str(stamp.get("window_id", "")) == "movement_phase_end" and int(stamp.get("player", 0)) == 2, str(stamp))
+	var phase_diff := false
+	for d in res.get("diffs", res.get("changes", [])):
+		if str(d.get("path", "")) == "meta.phase":
+			phase_diff = true
+	_check("no meta.phase diff while the window waits", not phase_diff)
+	var use = GM.apply_action({"type": "USE_WINDOW_STRATAGEM", "player": 2, "window_id": "movement_phase_end", "stratagem_id": sid, "target_unit_id": "U_BOYZ_B", "context": {}})
+	_check("USE through GameManager succeeds, P2 CP -1", use.get("success", false) and _cp(2) == cp2 - 1, str(use.get("error", "")))
+	_check("the reactive move holds the phase", GS.get_current_phase() == PHASE_MOVEMENT and phase.active_moves.has("U_BOYZ_B"))
+	var bmv = _move_unit(phase, "U_BOYZ_B", Vector2(0, 1.0))
+	_check("Boyz reactive move confirmed", bmv.get("success", false), str(bmv))
+	_check("then the Movement phase ends (Shooting)", GS.get_current_phase() == PHASE_SHOOTING, str(GS.get_current_phase()))
+	# (b) DECLINE: the decision completes the phase.
+	phase = _wtbt_setup()
+	res = GM.apply_action({"type": "END_MOVEMENT", "player": 1})
+	_check("(decline) END_MOVEMENT holds the phase for the window", res.get("success", false) and _pending_id(phase) == "movement_phase_end" and GS.get_current_phase() == PHASE_MOVEMENT)
+	var dec = GM.apply_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 2, "window_id": "movement_phase_end"})
+	_check("(decline) DECLINE through GameManager ends the Movement phase", dec.get("success", false) and GS.get_current_phase() == PHASE_SHOOTING,
+		"%s phase=%d" % [str(dec.get("error", "")), GS.get_current_phase()])
+	# (c) No offers: END_MOVEMENT through GameManager still ends the phase at once,
+	# with the meta.phase diff the client transitions from.
+	_load(ACTIVE, 1, "War Horde")
+	phase = _movement()
+	_drain_start_window(phase)
+	res = GM.apply_action({"type": "END_MOVEMENT", "player": 1})
+	var to_phase := -1
+	for d in res.get("diffs", res.get("changes", [])):
+		if str(d.get("path", "")) == "meta.phase":
+			to_phase = int(d.get("value", -1))
+	_check("no window: GameManager END_MOVEMENT ends the phase with a meta.phase diff", res.get("success", false) and GS.get_current_phase() == PHASE_SHOOTING and to_phase == PHASE_SHOOTING,
+		"phase=%d diff=%d" % [GS.get_current_phase(), to_phase])
 
 
 # ---------------------------------------------------------------------------

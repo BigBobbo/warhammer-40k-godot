@@ -229,10 +229,12 @@ func _apply_followup_mirror(phase, mirror: Dictionary, local_player: int, result
 				phase.emit_signal("ork11e_reactive_move_ended", ended)
 
 ## Phase-ending actions whose host-side processing opens a both-players
-## stratagem window first (movement_phase_end / fight_phase_end). F4: the
+## stratagem window first (movement_phase_end / fight_phase_end, and the
+## Command phase's battle_shock_step_start / unit_battle_shocked windows —
+## GameManager delegates all three to the phase on the host, RV-2). F4: the
 ## client opens no window itself, so executing one of these OPTIMISTICALLY
 ## would end the phase on the client while the host waits on the window.
-const _WINDOW_PHASE_END_ACTIONS: Array = ["END_MOVEMENT", "END_FIGHT"]
+const _WINDOW_PHASE_END_ACTIONS: Array = ["END_MOVEMENT", "END_FIGHT", "END_COMMAND"]
 
 func _optimistic_blocked_by_windows(action_type: String) -> bool:
 	if not action_type in _WINDOW_PHASE_END_ACTIONS:

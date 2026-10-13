@@ -665,6 +665,9 @@ func process_set_advance_bonus(action: Dictionary) -> Dictionary:
 
 func process_end_movement(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_MOVEMENT action")
+	var via_phase := _end_phase_via_phase(action, GameStateData.Phase.MOVEMENT)
+	if not via_phase.is_empty():
+		return via_phase
 	var next_phase = _get_next_phase(GameStateData.Phase.MOVEMENT)
 	_trigger_phase_completion()
 	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
@@ -726,6 +729,9 @@ func process_end_charge(action: Dictionary) -> Dictionary:
 
 func process_end_fight(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_FIGHT action")
+	var via_phase := _end_phase_via_phase(action, GameStateData.Phase.FIGHT)
+	if not via_phase.is_empty():
+		return via_phase
 	var next_phase = _get_next_phase(GameStateData.Phase.FIGHT)
 	_trigger_phase_completion()
 	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
@@ -741,6 +747,9 @@ func process_use_stratagem(action: Dictionary) -> Dictionary:
 
 func process_end_command(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_COMMAND action")
+	var via_phase := _end_phase_via_phase(action, GameStateData.Phase.COMMAND)
+	if not via_phase.is_empty():
+		return via_phase
 
 	# Calculate next phase
 	var next_phase = _get_next_phase(GameStateData.Phase.COMMAND)
@@ -920,6 +929,60 @@ func _delegate_to_current_phase(action: Dictionary) -> Dictionary:
 
 	# Execute the action on the phase
 	return current_phase.execute_action(action)
+
+## RV-2: END_MOVEMENT / END_FIGHT / END_COMMAND on the HOST (and offline
+## callers of apply_action) go through the phase's own end handling, so the
+## phase-end stratagem windows open (movement_phase_end, fight_phase_end, the
+## Command phase's battle_shock_step_start / unit_battle_shocked) exactly as in
+## single-player — which reaches the phase directly — and the result carries
+## BasePhase's stratagem_window_opened stamp for the client mirror. The window
+## decision (USE/DECLINE_WINDOW_STRATAGEM, delegated) then completes the phase.
+## The Fight phase is trusted as it is in single-player: its END_FIGHT walks
+## the 11e Pile In / Consolidate steps and the network layer already mirrors
+## those (trigger_pile_in_selection / trigger_consolidation_selection,
+## END_PILE_IN / END_CONSOLIDATION are exempt cross-turn actions). Movement and
+## Command keep the previous network semantics: when the phase did not complete
+## and nothing holds it (an end-of-movement prompt the network path always
+## skipped — Sawbonez, Mekaniak, Rapid Ingress ...) it is completed here as
+## before. A phase that REJECTS the action without a pending window is also
+## completed as before (the old path never validated).
+## Returns {} when the caller should use the legacy path (a CLIENT's
+## optimistic run — clients never open windows, F4 — or no matching phase).
+func _end_phase_via_phase(action: Dictionary, phase_enum: int) -> Dictionary:
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm != null and nm.has_method("is_networked") and nm.is_networked() and not nm.is_host():
+		return {}
+	var pm = _get_phase_manager()
+	var inst = pm.get_current_phase_instance() if pm else null
+	if inst == null or not inst.has_method("execute_action") or not "phase_type" in inst or int(inst.phase_type) != phase_enum:
+		return {}
+	var res: Dictionary = inst.execute_action(action)
+	var holds_phase := func() -> bool:
+		return is_instance_valid(inst) and inst.has_method("_window_blocks_phase_completion") and bool(inst._window_blocks_phase_completion())
+	if not res.get("success", false):
+		if holds_phase.call():
+			# e.g. END_MOVEMENT while a WHILE THEIR BACKS ARE TURNED move is in
+			# progress — the window/follow-up must finish first (F1).
+			return res
+		print("GameManager: %s rejected by the phase (%s) — completing the phase as before" % [str(action.get("type", "")), str(res.get("error", ""))])
+		return {}
+	if pm.get_current_phase_instance() == inst:
+		if holds_phase.call():
+			print("GameManager: %s — the phase waits for a stratagem window / follow-up (P%d) before it ends" % [
+				str(action.get("type", "")), int(inst.get_pending_stratagem_window_decider()) if inst.has_method("get_pending_stratagem_window_decider") else 0])
+			return res
+		if phase_enum == GameStateData.Phase.FIGHT:
+			# 11e Pile In / Consolidate / opponent's remaining fights — the
+			# phase continues exactly as in single-player.
+			return res
+		print("GameManager: %s handled by the phase without completing it — completing it now (previous network behaviour)" % str(action.get("type", "")))
+		_trigger_phase_completion()
+	var changes: Array = res.get("changes", res.get("diffs", [])).duplicate()
+	var now_phase := int(GameState.get_current_phase())
+	changes.append({"op": "set", "path": "meta.phase", "value": now_phase if now_phase != phase_enum else _get_next_phase(phase_enum)})
+	res["changes"] = changes
+	res.erase("diffs")
+	return res
 
 func _trigger_phase_completion() -> void:
 	"""

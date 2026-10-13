@@ -17,6 +17,8 @@ extends SceneTree
 #      CRAZED RAMPAGE +3 (DEFF DREAD), end-of-phase removal + kill accounting once
 #   G. TOO ARROGANT TO DIE / CRAZED RAMPAGE / ORKS IS NEVER BEATEN target gates
 #   H. fight_phase_end hook + KEEP IT RUNNIN' (embark follow-up)
+#   H2. reverify:RV-2 — the same through the networked HOST path
+#      (GameManager.apply_action END_FIGHT): the 11e walk, the window, its stamp
 #   I. INSTINCTIVE HUNTERS (opponent's Fight phase only, strategic_reserves follow-up)
 #   J. AI decider paths
 #   K. ScoringPhase: repositioned units survive the end-of-round-3 reserves cull
@@ -285,6 +287,7 @@ func _run() -> void:
 	_section_fod_edges()
 	_section_fod_target_gates()
 	_section_keep_it_runnin()
+	_section_keep_it_runnin_host_path()
 	_section_instinctive_hunters()
 	_section_ai()
 	_section_scoring_repositioned()
@@ -892,6 +895,46 @@ func _section_keep_it_runnin() -> void:
 	ai.ai_players = {1: false, 2: false}
 	_check("AI decider used KEEP IT RUNNIN' synchronously (enemies within 12\")", str(_unit("U_BOYZ_B").get("embarked_in", "")) == "U_TRUKK_A" and _cp(1) == cp0 - 1, "embarked_in=%s cp %d->%d" % [str(_unit("U_BOYZ_B").get("embarked_in", "")), cp0, _cp(1)])
 	_check("…and the phase completed (no stall)", _phase_done)
+	_restore_unit_state()
+
+
+# ---------------------------------------------------------------------------
+func _section_keep_it_runnin_host_path() -> void:
+	print("\n-- H2. reverify:RV-2 networked host path: GameManager END_FIGHT --")
+	var GM = root.get_node("GameManager")
+	_set_detachment(1, "Blitz Brigade")
+	var sid := _sid(1, CSV_KIR)
+	var phase = _fresh_fight()
+	_boyz_by_trukk()
+	_check("KIR offered on the Boyz", "U_BOYZ_B" in _offer_targets(SM.get_window_offers(1, "fight_phase_end", {"phase": "fight"}), sid))
+	var cp0 := _cp(1)
+	_window_events.clear()
+	# The host runs every END_FIGHT through GameManager.apply_action — it must
+	# walk the phase (12.07 Consolidate step) exactly like single-player instead
+	# of emitting phase_completed straight away (before the fix: completed at
+	# once, no fight_phase_end window).
+	var last := {}
+	for _i in range(8):
+		if phase.has_pending_stratagem_window() or _phase_done:
+			break
+		var who := int(GS.get_active_player())
+		if int(phase.consolidation_step_11e) == int(phase.ConsolidationStep11e.ACTIVE):
+			who = int(phase.consolidating_player_11e)
+		last = GM.apply_action({"type": "END_FIGHT", "player": who})
+	_check("GameManager END_FIGHT reaches the fight_phase_end window (phase not completed)",
+		phase.has_pending_stratagem_window() and str(phase.get_pending_stratagem_window().get("window_id", "")) == "fight_phase_end" and not _phase_done,
+		"pending=%s done=%s" % [str(phase.get_pending_stratagem_window()), str(_phase_done)])
+	var stamp: Dictionary = last.get("stratagem_window_opened", {})
+	_check("the END_FIGHT result carries the window stamp for the client mirror", str(stamp.get("window_id", "")) == "fight_phase_end" and int(stamp.get("player", 0)) == 1, str(stamp))
+	var use = GM.apply_action({"type": "USE_WINDOW_STRATAGEM", "player": 1, "window_id": "fight_phase_end", "stratagem_id": sid, "target_unit_id": "U_BOYZ_B", "context": {}})
+	_check("USE through GameManager succeeds, CP -1, Boyz embarked", use.get("success", false) and _cp(1) == cp0 - 1 and str(_unit("U_BOYZ_B").get("embarked_in", "")) == "U_TRUKK_A",
+		"%s cp %d->%d" % [str(use.get("error", "")), cp0, _cp(1)])
+	for _i in range(3):
+		if not phase.has_pending_stratagem_window():
+			break
+		var w: Dictionary = phase.get_pending_stratagem_window()
+		GM.apply_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": int(w.get("player", 0)), "window_id": str(w.get("window_id", ""))})
+	_check("the window decisions complete the Fight phase", _phase_done and not phase.has_pending_stratagem_window())
 	_restore_unit_state()
 
 
