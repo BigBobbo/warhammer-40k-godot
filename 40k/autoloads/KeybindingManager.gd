@@ -224,6 +224,13 @@ func is_action_pressed(action_id: String) -> bool:
 		return false
 	if b.get("meta", false) and not Input.is_key_pressed(KEY_META):
 		return false
+	# A Ctrl/Cmd chord is a different shortcut: holding Ctrl+A (select all
+	# models) must not also pan the camera left through the bare-A binding
+	# (LIVE-13 — the board jumped ~330 px under the dragged models).
+	if not b.ctrl and Input.is_key_pressed(KEY_CTRL):
+		return false
+	if not b.get("meta", false) and Input.is_key_pressed(KEY_META):
+		return false
 	# Check primary or alt key
 	if Input.is_key_pressed(b.key):
 		return true

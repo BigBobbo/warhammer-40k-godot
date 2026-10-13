@@ -44,6 +44,7 @@
     { "act": "screenshot", "label": "02_advance_rolled_no_reroll_prompt" },
     { "act": "execute_script", "multiline": true, "script": "var p = PhaseManager.get_current_phase_instance()\nvar raw := -1\nfor d in p.dice_log:\n\tif str(d.get(\"type\", \"\")) == \"'ERE WE GO\":\n\t\traw = int(d.get(\"roll\", -1))\nvar am = p.active_moves.get(\"U_BOYZ_B\", {})\nif raw < 1:\n\treturn \"no 'ERE WE GO dice-log entry\"\nif int(am.get(\"advance_roll\", -1)) != raw + 2:\n\treturn \"advance roll %s, raw %d\" % [str(am.get(\"advance_roll\")), raw]\nif absf(float(am.get(\"move_cap_inches\", 0.0)) - (6.0 + raw + 2)) > 0.01:\n\treturn \"cap %s\" % str(am.get(\"move_cap_inches\"))\nreturn \"ok\"", "equals": "ok", "comment": "advance cap = M6 + D6 + 2" },
     { "act": "execute_script", "script": "bool(PhaseManager.get_current_phase_instance().active_moves[\"U_BOYZ_B\"].get(\"mode_locked\", false))", "equals": true, "comment": "the mode lock deferred while the window waited landed after the resume" },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"('ERE WE GO) =\")", "expect_min": 1, "comment": "EWG-2: the game log shows the die as rolled plus the +2 ('rolled [N] +2 ('ERE WE GO) = N+2'), not a die glyph for the modified value" },
     { "act": "screenshot", "label": "03_advance_cap_plus_2" },
     { "act": "simulate_key", "keycode": "A", "ctrl": true },
     { "act": "wait_frames", "frames": 3 },

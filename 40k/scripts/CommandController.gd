@@ -749,7 +749,11 @@ func _setup_waaagh_subsection(section: VBoxContainer, faction_mgr, current_playe
 	section.add_child(header)
 
 	var desc = Label.new()
-	desc.text = "Once per battle. All Ork units gain: Advance and Charge, +1 Strength and +1 Attack (melee), 5+ invulnerable save."
+	desc.name = "WaaaghDescription"  # stable for windowed scenarios
+	if GameConstants.edition >= 11:
+		desc.text = "Once per battle. All Ork units with the Waaagh! ability are riled up until the end of the next turn: 5+ invulnerable save, ranged attacks have [ASSAULT], advancing does not prevent charging."
+	else:
+		desc.text = "Once per battle. All Ork units gain: Advance and Charge, +1 Strength and +1 Attack (melee), 5+ invulnerable save."
 	desc.add_theme_font_size_override("font_size", 16)
 	desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -770,7 +774,7 @@ func _setup_waaagh_subsection(section: VBoxContainer, faction_mgr, current_playe
 		btn.add_theme_font_size_override("font_size", 17)
 		_WhiteDwarfTheme.apply_to_button(btn)
 		btn.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
-		btn.tooltip_text = "Declare a Waaagh! — all Ork units gain advance+charge, +1 S/A melee, 5+ invuln this turn"
+		btn.tooltip_text = "Declare a Waaagh! — all Ork units gain %s" % FactionAbilityManager.waaagh_effects_summary()
 		btn.pressed.connect(_on_call_waaagh_pressed)
 		section.add_child(btn)
 	elif faction_mgr.has_method("is_boss_watchin_waaagh_available") and faction_mgr.is_boss_watchin_waaagh_available(current_player):

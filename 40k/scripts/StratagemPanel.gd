@@ -63,6 +63,10 @@ func populate(player: int, phase_id: int = -1) -> void:
 	for child in _list_container.get_children():
 		if child == _empty_label:
 			continue
+		# Detach before freeing: queue_free() alone leaves the old row in the
+		# tree until the frame ends, so the rebuilt row's stable name
+		# (Strat_<sid>) collided and was auto-renamed on every re-open.
+		_list_container.remove_child(child)
 		child.queue_free()
 
 	var strat_manager = get_node_or_null("/root/StratagemManager")

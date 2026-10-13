@@ -105,6 +105,8 @@ var dice_roll_visual: DiceRollVisual  # P3-118: Dice roll visualization for rero
 # New UI elements for 4-section layout
 var selected_unit_label: Label
 var unit_mode_label: Label
+var _mode_hint_label: Label = null
+const MODE_HINT_DEFAULT := "Drag models to move, or select a different mode below"
 var mode_button_group: ButtonGroup
 var normal_radio: CheckBox
 var advance_radio: CheckBox
@@ -517,15 +519,20 @@ func _create_section2_unit_details(parent: VBoxContainer) -> void:
 
 	unit_mode_label = Label.new()
 	unit_mode_label.text = "Mode: Normal Move (Default)"
+	# Long modes ("Fall Back — Desperate Escape (forced by WHERE D'YA FINK
+	# YOU'RE GOING?)", reactive-move sources) wrap instead of being clipped.
+	unit_mode_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	unit_mode_label.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
 	section.add_child(unit_mode_label)
 
 	# Add helpful hint
 	var hint_label = Label.new()
-	hint_label.text = "Drag models to move, or select a different mode below"
+	hint_label.name = "ModeHintLabel"
+	hint_label.text = MODE_HINT_DEFAULT
 	hint_label.add_theme_font_size_override("font_size", 16)
 	hint_label.add_theme_color_override("font_color", Color(0.5, 0.48, 0.4))
 	section.add_child(hint_label)
+	_mode_hint_label = hint_label
 
 	parent.add_child(section)
 
@@ -821,17 +828,64 @@ func _update_selected_unit_display() -> void:
 		
 	if unit_mode_label:
 		var mode_text = "Mode: "
-		if active_mode == "NORMAL" or active_mode == "":
+		var amd: Dictionary = _active_move_data_for(active_unit_id)
+		if amd.get("is_reactive_move", false) and not amd.get("completed", false):
+			# A reactive normal move (SCARPER!, WHIRLIGIG EVASION, ...): the mode
+			# and its maximum distance are fixed by the rule that granted it.
+			mode_text += "Normal Move — %s (up to %s\")" % [reactive_move_source(amd), _fmt_inches(float(amd.get("move_cap_inches", 0.0)))]
+		elif active_mode == "NORMAL" or active_mode == "":
 			mode_text += "Normal Move (Default)"
 		elif active_mode == "ADVANCE":
 			mode_text += "Advance"
 		elif active_mode == "FALL_BACK":
 			mode_text += "Fall Back"
+			# 11e fall-back modes (09.07): say which one is in effect — and when a
+			# rule forced it (WHERE D'YA FINK YOU'RE GOING?), say so (r3:F12).
+			var fbm := str(amd.get("fall_back_mode", ""))
+			if fbm == "desperate_escape":
+				mode_text += " — Desperate Escape"
+				var forced_by := str(amd.get("fall_back_mode_forced_by", ""))
+				if forced_by != "":
+					mode_text += " (forced by %s)" % forced_by
+			elif fbm == "ordered_retreat":
+				mode_text += " — Ordered Retreat"
 		elif active_mode == "REMAIN_STATIONARY":
 			mode_text += "Remain Stationary"
 		else:
 			mode_text += active_mode
 		unit_mode_label.text = mode_text
+	_apply_reactive_move_panel_state()
+
+## The phase's active-move record for a unit ({} when none / no phase).
+func _active_move_data_for(unit_id: String) -> Dictionary:
+	if unit_id == "" or current_phase == null or not current_phase.has_method("get_active_move_data"):
+		return {}
+	return current_phase.get_active_move_data(unit_id)
+
+## Display name of the rule that granted a reactive normal move.
+static func reactive_move_source(move_data: Dictionary) -> String:
+	var src := str(move_data.get("ork11e_source", ""))
+	if src == "":
+		src = "Reactive move"
+	return src
+
+static func _fmt_inches(v: float) -> String:
+	return str(int(v)) if absf(v - round(v)) < 0.05 else "%.1f" % v
+
+## r3:F7 / r5:F11: during a reactive normal move the movement mode is locked
+## (Normal Move, rolled distance) — Advance / Fall Back / Remain Still and
+## Confirm Movement Mode are not legal, so the mode chooser is hidden while it
+## lasts and restored afterwards.
+func _apply_reactive_move_panel_state() -> void:
+	var section: Node = normal_radio.get_parent().get_parent() if normal_radio and normal_radio.get_parent() else null
+	if section == null or not is_instance_valid(section):
+		return
+	var amd: Dictionary = _active_move_data_for(active_unit_id)
+	var reactive: bool = amd.get("is_reactive_move", false) and not amd.get("completed", false)
+	section.visible = not reactive
+	# The hint must not point at the (hidden) mode chooser either.
+	if _mode_hint_label and is_instance_valid(_mode_hint_label):
+		_mode_hint_label.text = ("Drag the models (up to %s\"), then End This Unit's Move" % _fmt_inches(float(amd.get("move_cap_inches", 0.0)))) if reactive else MODE_HINT_DEFAULT
 
 func set_phase(phase) -> void:  # Remove type hint to accept any phase
 	# Only set if it's actually a MovementPhase
@@ -1188,8 +1242,15 @@ func _on_unit_selected(index: int) -> void:
 		# If so, show a popup to let the player choose instead of auto-starting Normal Move
 		if current_phase:
 			var special_actions = _get_special_movement_actions(unit_id)
+			var engaged_unit: bool = current_phase.has_method("_is_unit_engaged") and current_phase._is_unit_engaged(unit_id)
 			if special_actions.size() > 0:
 				_show_movement_action_popup(unit_id, special_actions)
+			elif engaged_unit:
+				# An engaged unit cannot make a normal move — it falls back or
+				# remains stationary. Wait for that choice instead of auto-starting
+				# a Normal Move the phase refuses with a red "unit is engaged"
+				# error (r3:F12).
+				print("MovementController: %s is engaged — waiting for Fall Back / Remain Stationary (no auto Normal Move)" % unit_id)
 			else:
 				# No special actions — proceed with Normal Move as before
 				var action = {
@@ -1202,6 +1263,15 @@ func _on_unit_selected(index: int) -> void:
 	_update_selected_unit_display()  # NEW: Update section 2
 	_update_fall_back_visibility()  # NEW: Update Fall Back visibility based on engagement
 	_reset_mode_selection_for_new_unit(unit_id)  # NEW: Reset mode selection for new unit
+	if not has_existing_move and current_phase and current_phase.has_method("_is_unit_engaged") and current_phase._is_unit_engaged(unit_id):
+		# No Normal Move pre-selected for an engaged unit (r3:F12).
+		active_mode = ""
+		if normal_radio:
+			setting_radio_programmatically = true
+			normal_radio.button_pressed = false
+			setting_radio_programmatically = false
+		if unit_mode_label:
+			unit_mode_label.text = "Mode: Engaged — choose Fall Back or Remain Still"
 	emit_signal("ui_update_requested")
 
 # This function has been moved below to avoid duplication
@@ -2041,6 +2111,7 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 
 	_update_movement_display()
 	_refresh_unit_list()
+	_apply_reactive_move_panel_state()  # a finished reactive move restores the mode chooser
 	emit_signal("ui_update_requested")
 
 	# T-094: auto-select next unmoved unit in the list.

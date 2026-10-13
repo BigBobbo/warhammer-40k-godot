@@ -215,6 +215,7 @@ func _run() -> void:
 	await _section_dubious_restraint()
 	await _section_readied_brawlers()
 	await _section_scarper()
+	await _section_eem_disembark_ingress()
 	await _section_whirligig()
 	await _section_where_dya_fink()
 	await _section_while_their_backs()
@@ -713,6 +714,59 @@ func _section_scarper() -> void:
 
 
 # ---------------------------------------------------------------------------
+## r3:F4 / r5:F5 — 11e disembark (18.04) and ingress (20.04) are moves: the
+## opponent's enemy_ended_move window opens once each has ended (the Custodes
+## fixture has no transport, so the active player borrows the Ork Trukk —
+## setup privilege — with Custodian Guard C embarked; the ingress arrival is a
+## special-rule set-up within 8", resolved through _process_place_reinforcement
+## because a normal ingress must end more than 8" from every enemy).
+func _section_eem_disembark_ingress() -> void:
+	print("\n-- H2. enemy_ended_move after a disembark / ingress move --")
+	_load(REACTIVE, 2, "Runt Swarm")
+	var sid := _sid(2, "scarper-runt-swarm")
+	var trukk: Dictionary = GS.state.units.U_TRUKK_A
+	trukk["owner"] = 1
+	var tpos := _pos(trukk.models[0])
+	var cg: Dictionary = GS.state.units.U_CUSTODIAN_GUARD_C
+	cg["embarked_in"] = "U_TRUKK_A"
+	for m in cg.models:
+		m["position"] = null
+	trukk["transport_data"] = trukk.get("transport_data", {})
+	trukk.transport_data["embarked_units"] = ["U_CUSTODIAN_GUARD_C"]
+	# Gretchin C 6-7" from the Trukk, clear of everything else.
+	_place_row("U_GRETCHIN_C", tpos.x / PX - 4.0, tpos.y / PX - 9.0, 1.2)
+	var phase = _movement()
+	_drain_start_window(phase)
+	var payload: Dictionary = phase._ork11e_greedy_disembark_payload("U_CUSTODIAN_GUARD_C", ["U_CUSTODIAN_GUARD_C"], "U_TRUKK_A", 1)
+	_check("setup: a legal disembark set-up exists", not payload.is_empty())
+	var dres = phase.execute_action({"type": "CONFIRM_DISEMBARK", "actor_unit_id": "U_CUSTODIAN_GUARD_C", "player": 1, "payload": payload})
+	_check("CONFIRM_DISEMBARK succeeds", dres.get("success", false), str(dres.get("error", "")))
+	var near: bool = Movement._attached_within("U_CUSTODIAN_GUARD_C", "U_GRETCHIN_C", 8.0)
+	_check("the disembarked unit ended within 8\" of Gretchin C", near)
+	_check("disembark move ended -> enemy_ended_move pending for P2", _pending_id(phase) == "enemy_ended_move" and phase.get_pending_stratagem_window_decider() == 2, _pending_id(phase))
+	_check("window ctx: move_type disembark, enemy = Custodian Guard C", str(_win_ctx(phase).get("move_type", "")) == "disembark" and str(_win_ctx(phase).get("enemy_unit_id", "")) == "U_CUSTODIAN_GUARD_C", str(_win_ctx(phase)))
+	var offers: Array = phase.get_pending_stratagem_window().get("offers", []) if phase.has_pending_stratagem_window() else []
+	_check("SCARPER! offered on Gretchin C", "U_GRETCHIN_C" in _offer_targets(offers, sid), str(_offer_names(offers)))
+	_decline(phase, 2, "enemy_ended_move")
+	_check("declined: no second window for the same move", not phase.has_pending_stratagem_window() and phase._ork11e_eem_pending.is_empty())
+	# Ingress: Custodian Guard D arrives from reserves 5" from the Gretchin.
+	_load(REACTIVE, 2, "Runt Swarm")
+	var cgd: Dictionary = GS.state.units.U_CUSTODIAN_GUARD_D
+	cgd["status"] = GS.UnitStatus.IN_RESERVES
+	var gpos := _pos(GS.state.units.U_GRETCHIN_C.models[0])
+	phase = _movement()
+	_drain_start_window(phase)
+	var mps: Array = []
+	for i in range(cgd.models.size()):
+		mps.append(Vector2(gpos.x + (i * 1.8 - 3.6) * PX, gpos.y - 5.5 * PX))
+	var ires: Dictionary = phase._process_place_reinforcement({"type": "PLACE_REINFORCEMENT", "unit_id": "U_CUSTODIAN_GUARD_D", "model_positions": mps})
+	_check("reinforcement placed", ires.get("success", false), str(ires.get("error", "")))
+	_settle(phase)
+	_check("ingress move ended -> enemy_ended_move pending for P2", _pending_id(phase) == "enemy_ended_move" and str(_win_ctx(phase).get("move_type", "")) == "ingress", "%s %s" % [_pending_id(phase), str(_win_ctx(phase))])
+	if phase.has_pending_stratagem_window():
+		_decline(phase, 2, "enemy_ended_move")
+
+
 func _section_whirligig() -> void:
 	print("\n-- I. WHIRLIGIG EVASION (Flyboyz) --")
 	for riled in [false, true]:
@@ -871,6 +925,27 @@ func _section_dread_power() -> void:
 	_check("5+ invulnerable save", int(u.flags.get("effect_invuln", 0)) == 5 and str(u.flags.get("effect_invuln_source", "")) == "Dread Power")
 	_check("advance and charge + ranged [ASSAULT]", u.flags.get("effect_advance_and_charge", false) and u.flags.get("effect_advance_and_shoot", false))
 	_check("Waaagh! state flag for the engine's Waaagh! consumers", u.flags.get("waaagh_active", false))
+	# r2:F1 — riled up (11e) gives NO melee bonus: the +1 A / +1 S is the 10e
+	# Waaagh! only. Same seed A/B: Dread Klaws vs the engaged Prosecutors.
+	var dp_board: Dictionary = GS.create_snapshot()
+	var dp_plain: Dictionary = dp_board.duplicate(true)
+	for k in ["waaagh_active", "ork11e_riled_up", "ork11e_dread_power", "effect_invuln", "effect_invuln_source",
+			"effect_advance_and_charge", "effect_advance_and_shoot", "ork11e_dread_power_assault"]:
+		dp_plain.units.U_DEFF_DREAD_A.flags.erase(k)
+	var dp_with: Dictionary = _dread_klaws_ab(dp_board)
+	var dp_without: Dictionary = _dread_klaws_ab(dp_plain)
+	_check("11e riled up: no +1 A (same number of melee hit dice, seed 555)", dp_with.hits > 0 and dp_with.hits == dp_without.hits, "with=%s without=%s" % [str(dp_with), str(dp_without)])
+	_check("11e riled up: no +1 S (same wound-roll Strength)", dp_with.s > 0 and dp_with.s == dp_without.s, "with=%s without=%s" % [str(dp_with), str(dp_without)])
+	_check("FactionAbilityManager.waaagh_melee_bonus_applies is false at 11e", not root.get_node("FactionAbilityManager").waaagh_melee_bonus_applies(u))
+	# 10e engagement range is 1": close the fixture's 1" gap for the control.
+	for bb in [dp_board, dp_plain]:
+		for pm in bb.units.U_PROSECUTORS_A.models:
+			pm.position = {"x": float(pm.position.x), "y": float(pm.position.y) - 0.6 * PX}
+	GameConstants.edition = 10
+	var dp_with10: Dictionary = _dread_klaws_ab(dp_board)
+	var dp_without10: Dictionary = _dread_klaws_ab(dp_plain)
+	GameConstants.edition = 11
+	_check("10e control: the Waaagh! state still adds +1 A / +1 S", dp_with10.hits == dp_without10.hits + 1 and dp_with10.s == dp_without10.s + 1, "with=%s without=%s" % [str(dp_with10), str(dp_without10)])
 	var eff = SM.active_effects.filter(func(e): return str(e.stratagem_id) == sid)
 	_check("lasts until the start of your next Command phase", eff.size() == 1 and str(eff[0].expires) == "next_own_command_phase", str(eff))
 	SM.on_phase_end(PHASE_MOVEMENT)
@@ -878,6 +953,78 @@ func _section_dread_power() -> void:
 	_check("still riled up in the opponent's turn", u.flags.get("ork11e_riled_up", false) and int(u.flags.get("effect_invuln", 0)) == 5)
 	SM.on_turn_start(1)
 	_check("cleared at the start of your next turn", not u.flags.get("ork11e_riled_up", false) and not u.flags.has("effect_invuln") and not u.flags.get("waaagh_active", false))
+	await _section_army_waaagh_11e()
+
+
+## Deff Dread Dread Klaws vs Prosecutors with seed 555 -> {hits, s}.
+func _dread_klaws_ab(board: Dictionary) -> Dictionary:
+	var act := {"type": "FIGHT", "actor_unit_id": "U_DEFF_DREAD_A", "payload": {"assignments": [
+		{"attacker": "U_DEFF_DREAD_A", "target": "U_PROSECUTORS_A", "weapon": "Dread Klaws"}]}}
+	RE.set_test_seed(555)
+	var res_m = RE.resolve_melee_attacks(act, board.duplicate(true), RE.RNGService.new())
+	var out := {"hits": -1, "s": -1}
+	for dd in res_m.get("dice", []):
+		var ctx_name := str(dd.get("context", ""))
+		if ctx_name == "hit_roll_melee":
+			out.hits = (dd.get("rolls_raw", dd.get("rolls", [])) as Array).size()
+		elif ctx_name in ["wound_roll_melee", "to_wound_melee", "wound_roll"]:
+			out.s = int(dd.get("strength", -1))
+	return out
+
+
+## r2:F1 — the army Waaagh! (War Cry) at 11e: riled-up benefits only (5+ InSv,
+## ranged [ASSAULT], advance-and-charge), no +1 A / +1 S, plus the Waaagh!
+## ability's advance re-roll; the log text names the 11e benefits.
+func _section_army_waaagh_11e() -> void:
+	print("\n-- L2. army Waaagh! at 11e (riled up, no 10e melee bonus) --")
+	_load(ACTIVE)
+	var fam = root.get_node("FactionAbilityManager")
+	fam._waaagh_used = {"1": false, "2": false}
+	fam._waaagh_active = {"1": false, "2": false}
+	fam.detect_faction_abilities(1)
+	var boyz = GS.state.units.U_BOYZ_B
+	boyz.flags.erase("effect_advance_and_shoot")
+	var act = fam.activate_waaagh(1)
+	_check("army Waaagh! called", act.get("success", false), str(act))
+	var msg := str(act.get("message", ""))
+	_check("Waaagh! message names the 11e benefits, not +1 S/A", "[ASSAULT]" in msg and not "+1 S/A" in msg, msg)
+	_check("riled up: waaagh_active + 5+ invuln + advance-and-charge", boyz.flags.get("waaagh_active", false) and int(boyz.flags.get("effect_invuln", 0)) == 5 and boyz.flags.get("effect_advance_and_charge", false), str(boyz.flags))
+	_check("riled up: ranged [ASSAULT] (effect_advance_and_shoot)", boyz.flags.get("effect_advance_and_shoot", false))
+	_check("no 10e melee bonus at 11e", not fam.waaagh_melee_bonus_applies(boyz))
+	GameConstants.edition = 10
+	_check("10e: melee bonus applies", fam.waaagh_melee_bonus_applies(boyz))
+	GameConstants.edition = 11
+	fam.deactivate_waaagh(1)
+	_check("Waaagh! over: the [ASSAULT] it granted is removed", not boyz.flags.get("effect_advance_and_shoot", false) and not boyz.flags.has(fam.WAAAGH_ASSAULT_MARKER), str(boyz.flags))
+	# A unit whose [ASSAULT] came from elsewhere keeps it when the Waaagh! ends.
+	fam._waaagh_used = {"1": false, "2": false}
+	boyz.flags["effect_advance_and_shoot"] = true
+	fam.activate_waaagh(1)
+	fam.deactivate_waaagh(1)
+	_check("other-source [ASSAULT] survives the Waaagh! clear", boyz.flags.get("effect_advance_and_shoot", false))
+	boyz.flags.erase("effect_advance_and_shoot")
+	# Real Movement phase: the Waaagh! ability's optional advance re-roll is
+	# NOT applied automatically (deferred — it would replace the Command
+	# Re-roll offer the T3 tutorial teaches): a 1-3 advance roll is kept as
+	# rolled and the Command Re-roll is offered.
+	var seed_low := -1
+	var first_low := -1
+	for seed_v in range(1, 200):
+		var rng_probe = RE.RNGService.new(seed_v)
+		var first_die: int = int(rng_probe.roll_d6(1)[0])
+		if first_die <= 3:
+			seed_low = seed_v
+			first_low = first_die
+			break
+	var phase = _movement()
+	_drain_start_window(phase)
+	var r = phase.execute_action({"type": "BEGIN_ADVANCE", "actor_unit_id": "U_TANKBUSTAS_A", "payload": {"rng_seed": seed_low}})
+	while phase.has_pending_stratagem_window():
+		r = _decline(phase, int(phase.get_pending_stratagem_window().player), _pending_id(phase))
+	_check("BEGIN_ADVANCE with a low first die succeeds", r.get("success", false) and seed_low > 0, str(r.get("error", "")))
+	_check("low advance roll kept as rolled, Command Re-roll offered (no automatic Waaagh! re-roll)",
+		phase._awaiting_reroll_decision and int(phase._reroll_pending_data.get("advance_roll", -1)) == first_low,
+		"seed=%d first=%d pending=%s" % [seed_low, first_low, str(phase._reroll_pending_data)])
 
 
 # ---------------------------------------------------------------------------
@@ -912,9 +1059,173 @@ func _section_delicious_squigs() -> void:
 	_check("units beyond 3\" untouched", int(GS.state.units.U_BREAKA_BOYZ_A.models[0].current_wounds) == 1)
 	var hd: Dictionary = Movement.heal_unit_diffs("U_WARBOSS_A", 3)
 	_check("heal never exceeds starting wounds / revives no CHARACTER model", hd.healed == 0 and hd.revived == 0, str(hd))
+	await _section_delicious_squigs_placement()
+
+
+## r5:F1 — 01.02.03: a revived model is SET UP in coherency with models that
+## started the phase on the battlefield (not where it died after its unit
+## moved), never overlapping a model, never engaging a new enemy unit; with no
+## legal spot it is not revived.
+func _section_delicious_squigs_placement() -> void:
+	print("\n-- M2. DELICIOUS EATING SQUIGS revive set-up (01.02.03) --")
+	var AS = load("res://scripts/rules/AttackSequence.gd")
+	var meas = root.get_node("Measurement")
+	_load(ACTIVE, 1, "Kult of Speed")
+	var sid := _sid(1, "delicious-eating-squigs-kult-of-speed")
+	var phase = _movement()
+	_drain_start_window(phase)
+	var bm: Array = GS.state.units.U_RUKKATRUKK_SQUIGBUGGIES_A.models
+	for i in range(bm.size()):
+		bm[i]["position"] = {"x": (6.0 + i * 3.5) * PX, "y": 57.5 * PX}
+	var ko: Array = GS.state.units.U_KOMMANDOS_A.models
+	for i in range(ko.size()):
+		ko[i]["position"] = {"x": (2.0 + (i % 5) * 1.4) * PX, "y": (49.0 - int(i / 5) * 1.4) * PX}
+	var last: int = ko.size() - 1
+	ko[last]["alive"] = false
+	ko[last]["current_wounds"] = 0
+	var death := _pos(ko[last])
+	phase.game_state_snapshot = GS.create_snapshot()
+	# The survivors make a REAL 4" normal move towards the buggies; the dead model stays behind.
+	var bg = phase.execute_action({"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "U_KOMMANDOS_A"})
+	_check("BEGIN_NORMAL_MOVE Kommandos", bg.get("success", false), str(bg.get("error", bg.get("errors", ""))))
+	while phase.has_pending_stratagem_window():
+		_decline(phase, int(phase.get_pending_stratagem_window().player), _pending_id(phase))
+	var mv = _move_unit(phase, "U_KOMMANDOS_A", Vector2(0, 4.0))
+	_settle(phase)
+	while phase.has_pending_stratagem_window():
+		_decline(phase, int(phase.get_pending_stratagem_window().player), _pending_id(phase))
+	_check("survivors moved 4\" (real BEGIN/STAGE/CONFIRM)", mv.get("success", false), str(mv.get("error", "")))
+	_check("Kommandos now within 3\" of the buggies", "U_KOMMANDOS_A" in Movement.delicious_squigs_targets("U_RUKKATRUKK_SQUIGBUGGIES_A", 1))
+	# Then an unengaged enemy steps in behind the moved unit (setup), between it
+	# and where the model died: the nearest spots behind the rear rank would
+	# engage a NEW enemy unit (01.02.03), so the set-up must avoid them.
+	var cg: Array = GS.state.units.U_CUSTODIAN_GUARD_E.models
+	for i in range(cg.size()):
+		cg[i]["position"] = {"x": (4.0 + i * 1.7) * PX, "y": 47.4 * PX}
+	_check("setup: the Custodian Guard is not engaged with the Kommandos", not root.get_node("RulesEngine").is_unit_engaged("U_KOMMANDOS_A", GS.state) if root.get_node("RulesEngine").has_method("is_unit_engaged") else true)
+	var preview: Array = Movement.delicious_squigs_preview("U_RUKKATRUKK_SQUIGBUGGIES_A", 1)
+	var pv_pos = null
+	for e in preview:
+		if str(e.unit_id) == "U_KOMMANDOS_A" and not (e.placements as Array).is_empty():
+			pv_pos = e.placements[0].position
+	_check("preview: one Kommando revived with a set-up position", pv_pos != null, str(preview))
+	var res = phase.execute_action({"type": "USE_STRATAGEM", "stratagem_id": sid, "target_unit_id": "U_RUKKATRUKK_SQUIGBUGGIES_A"})
+	_check("DES used", res.get("success", false), str(res.get("error", "")))
+	var rv: Dictionary = ko[last]
+	var rv_pos := _pos(rv)
+	_check("revived model is alive with 1 wound", rv.get("alive", false) and int(rv.get("current_wounds", 0)) == 1)
+	_check("revived model was set up (not left where it died, 4\" behind its unit)", rv_pos.distance_to(death) > 1.0, "death=%s now=%s" % [str(death / PX), str(rv_pos / PX)])
+	_check("set-up position = the preview shown to the player", pv_pos != null and rv_pos.distance_to(pv_pos) < 0.5, "%s vs %s" % [str(rv_pos), str(pv_pos)])
+	var coh = AS.check_attached_unit_coherency("U_KOMMANDOS_A", GS.state.units)
+	_check("unit coherent after DES (no End-of-Turn removal)", coh.coherent, str(coh.get("merged_offenders", [])))
+	var overlap := false
+	var engages_new := false
+	for uid in GS.state.units:
+		for m in GS.state.units[uid].models:
+			if m == rv or not m.get("alive", true) or m.get("position") == null:
+				continue
+			if meas.models_overlap(rv, m):
+				overlap = true
+			if uid == "U_CUSTODIAN_GUARD_E" and meas.is_in_engagement_range_shape_aware(rv, m):
+				engages_new = true
+	_check("revived model overlaps no model", not overlap)
+	_check("revived model is not within Engagement Range of the unengaged Custodian Guard", not engages_new)
+	# No legal spot: a unit set up this phase (disembarked) has no model that
+	# started the phase on the battlefield -> nothing to set up against.
+	_load(ACTIVE, 1, "Kult of Speed")
+	phase = _movement()
+	_drain_start_window(phase)
+	ko = GS.state.units.U_KOMMANDOS_A.models
+	ko[0]["alive"] = false
+	ko[0]["current_wounds"] = 0
+	GS.state.units.U_KOMMANDOS_A["disembarked_this_phase"] = true
+	var hd: Dictionary = Movement.heal_unit_diffs("U_KOMMANDOS_A", 3)
+	_check("no model started the phase on the battlefield -> revive skipped (no legal spot)", hd.revived == 0 and hd.no_room >= 1 and not ko[0].get("alive", true), str(hd))
+	GS.state.units.U_KOMMANDOS_A.erase("disembarked_this_phase")
 
 
 # ---------------------------------------------------------------------------
+## Place every enemy (P2) unit in a row `dist` inches from `uid`'s first model
+## (along whichever y direction stays on the board), nudging until the closest
+## base-to-base gap is between lo and hi inches (OrkCodexMovement._enemy_within).
+func _enemies_at_gap(Mv, uid: String, lo: float, hi: float) -> bool:
+	var wb := _pos(GS.state.units[uid].models[0]) / PX
+	var dir := 1.0 if wb.y < 30.0 else -1.0
+	var dist := (lo + hi) * 0.5 + 2.0
+	for _i in range(24):
+		var row_y := wb.y + dir * dist
+		for eid in GS.state.units:
+			if int(GS.state.units[eid].get("owner", 0)) == 2:
+				_place_row(str(eid), clampf(wb.x - 2.0, 2.0, 38.0), row_y, 0.0)
+		var near: bool = Mv._enemy_within(uid, 1, lo)
+		var far_ok: bool = Mv._enemy_within(uid, 1, hi)
+		if not near and far_ok:
+			return true
+		dist += 0.25 if near else -0.25
+	return false
+
+## ai:AI-08 — movement-group ai_score: FUNGUS-FUEL INJECTION on a Normal move
+## only when the extra 2" brings charge range (for a unit with charge-worthy
+## melee) or an objective into reach; SCARPER! only when the enemy that ended
+## its move could still charge.
+func _section_ai_08_movement_scores(ADM, ffi: String) -> void:
+	var Mv = load("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
+	var Codex = load("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
+	var dd := "U_DEFF_DREAD_A"
+	var ctx_n := {"unit_id": dd, "move_type": "normal"}
+	var m := float(GS.state.units[dd].meta.stats.move)
+	_check("AI-08 precondition: Deff Dread (Dread Klaws S12) has charge-worthy melee and M > 0", m > 0.0 and Mv._charge_worthy_melee(dd), str(m))
+	_check("AI-08: Mek Gunz (S2 A1 shivs) are not charge-worthy melee", not Mv._charge_worthy_melee("U_MEK_GUNZ_A"))
+	_check("AI-08: Warbikers (S4 A2 close combat weapon) are not charge-worthy melee", not Mv._charge_worthy_melee("U_WARBIKERS_A"))
+	# Closest enemy at M+7 < gap <= M+9: only the FFI +2" puts it in charge range.
+	var placed := _enemies_at_gap(Mv, dd, m + 7.0 + 0.2, m + 9.0 - 0.2)
+	var obj_gain: bool = Mv._uncontrolled_objective_within(dd, 1, m + 5.0) and not Mv._uncontrolled_objective_within(dd, 1, m + 3.0)
+	_check("AI-08 setup: closest enemy between M+7\" and M+9\" of the Deff Dread", placed, "obj_gain=%s" % obj_gain)
+	var s := float(Codex.ai_score(SM.get_stratagem(ffi), 1, dd, "unit_selected_to_move", ctx_n))
+	_check("AI-08: FFI normal-move score 2.5 when +2\" reaches charge range", absf(s - 2.5) < 0.01, str(s))
+	var o = SM.get_window_offers(1, "unit_selected_to_move", ctx_n)
+	var d = ADM.decide_window_stratagem(1, "unit_selected_to_move", o, ctx_n)
+	_check("AI-08: AI uses FFI on that normal move", d.get("use", false) and str(d.get("stratagem_id", "")) == ffi, str(d))
+	# Closest enemy already within M+7: the bonus is wasted.
+	placed = _enemies_at_gap(Mv, dd, m + 3.0, m + 6.5)
+	obj_gain = Mv._uncontrolled_objective_within(dd, 1, m + 5.0) and not Mv._uncontrolled_objective_within(dd, 1, m + 3.0)
+	_check("AI-08 setup: enemy already in reach without the bonus (no objective gain)", placed and not obj_gain, "placed=%s obj_gain=%s" % [placed, obj_gain])
+	s = float(Codex.ai_score(SM.get_stratagem(ffi), 1, dd, "unit_selected_to_move", ctx_n))
+	_check("AI-08: FFI normal-move score 0 when the enemy is already in reach", s == 0.0, str(s))
+	# Same charge-range gap for the Warbikers: no charge-worthy melee -> no CP.
+	var wctx := {"unit_id": "U_WARBIKERS_A", "move_type": "normal"}
+	var wm := float(GS.state.units.U_WARBIKERS_A.meta.stats.move)
+	placed = _enemies_at_gap(Mv, "U_WARBIKERS_A", wm + 7.0 + 0.2, wm + 9.0 - 0.2)
+	obj_gain = Mv._uncontrolled_objective_within("U_WARBIKERS_A", 1, wm + 5.0) and not Mv._uncontrolled_objective_within("U_WARBIKERS_A", 1, wm + 3.0)
+	s = float(Codex.ai_score(SM.get_stratagem(ffi), 1, "U_WARBIKERS_A", "unit_selected_to_move", wctx))
+	_check("AI-08: Warbikers at the same gap (no objective gain) -> FFI score 0", placed and not obj_gain and s == 0.0, "placed=%s obj_gain=%s s=%s" % [placed, obj_gain, s])
+	# SCARPER!: the enemy Custodian Guard C ended ~7" from Gretchin C and is
+	# not engaged (Tankbustas / Flash Gitz sit at y ~44.3").
+	_load(REACTIVE, 2, "Runt Swarm")
+	_place_row("U_CUSTODIAN_GUARD_C", 35.0, 39.5, 1.8)
+	PM.transition_to_phase(PHASE_MOVEMENT)
+	var sc := _sid(2, "scarper-runt-swarm")
+	var sctx := {"phase": "movement", "enemy_unit_id": "U_CUSTODIAN_GUARD_C", "move_type": "normal"}
+	_check("AI-08 precondition: Gretchin C not on an objective", not Mv._unit_in_range_of_any_objective("U_GRETCHIN_C"))
+	s = float(Codex.ai_score(SM.get_stratagem(sc), 2, "U_GRETCHIN_C", "enemy_ended_move", sctx))
+	_check("AI-08: SCARPER! score 2.0 when the enemy can still charge", absf(s - 2.0) < 0.01,
+		"%s eligible=%s within12=%s status=%s flags=%s" % [s, RE.eligible_to_charge("U_CUSTODIAN_GUARD_C", GS.state), Mv._attached_within("U_CUSTODIAN_GUARD_C", "U_GRETCHIN_C", 12.0), GS.state.units.U_CUSTODIAN_GUARD_C.get("status"), GS.state.units.U_CUSTODIAN_GUARD_C.get("flags")])
+	o = SM.get_window_offers(2, "enemy_ended_move", sctx)
+	d = ADM.decide_window_stratagem(2, "enemy_ended_move", o, sctx)
+	_check("AI-08: AI scarpers from a charge threat", d.get("use", false) and str(d.get("stratagem_id", "")) == sc, str(d))
+	var cf: Dictionary = GS.state.units.U_CUSTODIAN_GUARD_C.flags
+	cf["advanced"] = true
+	cf["cannot_charge"] = true
+	s = float(Codex.ai_score(SM.get_stratagem(sc), 2, "U_GRETCHIN_C", "enemy_ended_move", sctx))
+	_check("AI-08: SCARPER! score 0 when the enemy advanced (cannot charge)", s == 0.0, str(s))
+	o = SM.get_window_offers(2, "enemy_ended_move", sctx)
+	d = ADM.decide_window_stratagem(2, "enemy_ended_move", o, sctx)
+	_check("AI-08: AI keeps its CP when there is no charge threat", not d.get("use", true), str(d))
+	cf.erase("advanced")
+	cf.erase("cannot_charge")
+	_load(ACTIVE, 1, "War Horde")
+	PM.transition_to_phase(PHASE_MOVEMENT)
+
 func _section_ai() -> void:
 	print("\n-- N. AI decision paths --")
 	var ADM = load("res://scripts/AIDecisionMaker.gd")
@@ -926,7 +1237,8 @@ func _section_ai() -> void:
 	_check("AI uses FFI for an advance", d.get("use", false) and str(d.get("stratagem_id", "")) == ffi, str(d))
 	o = SM.get_window_offers(1, "unit_selected_to_move", {"unit_id": "U_WARBIKERS_A", "move_type": "normal"})
 	d = ADM.decide_window_stratagem(1, "unit_selected_to_move", o, {"unit_id": "U_WARBIKERS_A", "move_type": "normal"})
-	_check("AI declines FFI for a pre-planned normal move", not d.get("use", true), str(d))
+	_check("AI declines FFI for a normal move when +2\" changes nothing (fixture positions)", not d.get("use", true), str(d))
+	_section_ai_08_movement_scores(ADM, ffi)
 	# DUBIOUS RESTRAINT at the end of the phase.
 	_load(ACTIVE, 1, "Taktikal Brigade")
 	MM._sticky_objectives.clear()

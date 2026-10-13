@@ -489,7 +489,7 @@ func get_available_actions() -> Array:
 	if faction_mgr and faction_mgr.is_waaagh_available(current_player):
 		actions.append({
 			"type": "CALL_WAAAGH",
-			"description": "WAAAGH! — Advance+Charge, +1 S/A melee, 5+ invuln (once per battle)",
+			"description": "WAAAGH! — %s (once per battle)" % FactionAbilityManager.waaagh_effects_summary(),
 			"player": current_player
 		})
 	elif faction_mgr and faction_mgr.is_boss_watchin_waaagh_available(current_player):
