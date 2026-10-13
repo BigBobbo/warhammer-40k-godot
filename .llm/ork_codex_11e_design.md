@@ -482,8 +482,15 @@ Regression checks: `tests/test_ork_codex_framework_fixes.gd` (one section per fi
   window, snapshots an event baseline or holds Deadly Demise. The host's state reaches the
   client in the action result (`stratagem_window_opened`, `_ork11e_followup` → mirrored
   by `NetworkManager._mirror_host_window_state` / `_apply_followup_mirror`). When either
-  army has window stratagems, `END_MOVEMENT` / `END_FIGHT` are not executed optimistically
-  on the client (they may open a window instead of ending the phase).
+  army has window stratagems, `END_MOVEMENT` / `END_FIGHT` / `END_COMMAND` are not executed
+  optimistically on the client (they may open a window instead of ending the phase).
+  The host runs those three through the phase's own end handling
+  (`GameManager._end_phase_via_phase`, RV-2): the phase-end windows open there and the
+  result carries the `stratagem_window_opened` stamp; the window decision ends the phase.
+  Movement / Command keep the old network behaviour when nothing holds the phase (a
+  phase that did not complete — an end-of-movement prompt the network path never
+  surfaced — is completed by GameManager as before); the Fight phase is trusted as in
+  single-player (the 11e Pile In / Consolidate walk is mirrored already).
 - **Pre-applied save casualties (LIVE-1 / F2).** The save overlay writes casualties into
   GameState before `APPLY_SAVES` / `APPLY_MELEE_SAVES` arrives; those two actions diff
   against the baseline taken before the overlay (`_EV_PREAPPLIED_ACTIONS`), so
@@ -578,6 +585,17 @@ Framework-wide:
 - Window order: the active player's window first, then the opponent's (phase start /
   end, post-shot). A `unit_selected_to_*` window is offered again when the player
   selects another unit and comes back; an uncommitted trigger re-offers its window.
+- `unit_selected_to_shoot` is offered once per selection, for selections the PLAYER
+  made (LV-2 / RV-4): the shooter the panel picks automatically (phase entry / next
+  shooter, `payload.auto_selected`) gets no window until the player's first action
+  with it (ASSIGN_TARGET / CONFIRM_TARGETS / RESOLVE_SHOOTING, or the atomic SHOOT's
+  inner select), which opens it before that action is applied (the action is held and
+  applied by the resume; further ASSIGN_TARGETs of the same burst are held too). The
+  controller's own single-target auto-assign (`payload.auto_assigned`) is not a player
+  action, and it waits while any window is pending (re-run when the window closes).
+  An explicit re-selection of a unit whose window was plain-declined is a new
+  selection and offers it again; a window that was used is not re-offered; "Don't
+  offer again this phase" still suppresses it.
 - Windows stay closed while a tutorial lesson is active or loading.
 - Codex windows open ahead of the legacy Swift as the Eagle / Go Get 'Em! / Wazblasta
   prompts, which wait behind them.
@@ -675,8 +693,12 @@ Per stratagem:
 
 - **Two-peer network play is not validated live.** Windows, follow-ups and the
   reactive moves are host-only and mirrored to the client (§6.7), covered headless
-  only; the client still runs some other actions ahead of the host and can briefly
-  show stale state (e.g. CP).
+  only (incl. the host path of END_MOVEMENT / END_FIGHT through
+  `GameManager.apply_action`, test_ork_codex_movement K2 / test_ork_codex_fight H2);
+  the client still runs some other actions ahead of the host and can briefly show
+  stale state (e.g. CP). An assignment burst that opens a deferred
+  `unit_selected_to_shoot` window is held on the host but applied optimistically on
+  the client until the host's result arrives.
 - **Mirror match, same detachment:** stratagem ids are faction + detachment scoped
   and `get_stratagem_owner` returns the first player listing an id, so only P1 can
   use codex stratagems (P2 gets no offers, rows or AI uses; no error, no stall).
@@ -693,7 +715,8 @@ Per stratagem:
 - **Non-Ork 1.4.5 stratagem changes are not applied** (CSV splices are ORK-only, §1).
 - **The web builder is still on the 1.0.19 bundle** (`server/public/js/vendor/40kdc-data.mjs`):
   the server round-trip test reports mismatches for the migrated armies and
-  `ork11e_codex_test.json` (RG-F5) until `bundle-browser` is re-run for 1.4.5.
+  `ork11e_codex_test.json` (RG-F5, carried as regression:F5-carried) until
+  `bundle-browser` is re-run for 1.4.5.
 - **The AI uses only some codex stratagems.** In 28 AI-vs-AI games it used 14 of the
   40 (AI-08); after the movement tuning FUNGUS-FUEL INJECTION is used and SCARPER! /
   WHIRLIGIG EVASION only against units that can still charge. STOMPING JUGGERNAUT and
@@ -702,14 +725,37 @@ Per stratagem:
   Several follow-ups (GOADED surge, READIED BRAWLERS, INFESTED WAR ZONE, KEEP IT
   RUNNIN', INSTINCTIVE HUNTERS) are exercised for the AI headless only.
 - Smaller items: overwatch has no codex consumers (ruling above); ordinary shooting
-  still does not enforce the 24.07 close-quarters either/or (only GUN-CRAZY's forced
-  picker does); an already re-rolled die still looks clickable (the re-roll is
+  still does not enforce the 24.07 close-quarters either/or (GUN-CRAZY's forced
+  picker and the AI planner do); an already re-rolled die still looks clickable (the re-roll is
   refused before CP is spent); the round-base vs curved-hull "wholly within" check can
   slightly over-estimate; secured objectives and the Ammo Runt / Swift as the Eagle /
   Wazblasta prompts are pre-existing gaps; the multiplayer GUT harness race in
   `TestModeHandler._check_for_commands` (RG-F7) is unfixed; the legacy 10e Ork
   handlers are still in StratagemManager but no codex row can reach them (dispatch is
   by csv_id).
+- **GRAB IT auto-move solver (reverify:RV-5).** The offer gate and the gap are exact,
+  but the AI value and the human "Auto-move" button use a solver that only translates
+  the whole formation (±45° offsets): with friendly models in the straight path a
+  unit 1.8"–3.6" outside an objective area gets no solution (AI score 0) although a
+  human can drag it there.
+- **AI fight targets use a circular-base approximation (ai:AIR-4).** The AI's fight
+  target list is a centre-distance + circular-radius estimate, not the validator's
+  shape-aware engagement check; with oval bases (Warbikers, Deffkilla Wartrike) an
+  ASSIGN_ATTACKS is occasionally rejected and the fighter skips (5 in 28 games).
+- **Engine ERROR lines in some flows (live:LV-6, pre-existing).** Auto-allocated
+  shooting logs ~139 "Main: ⚠ Token not found" while the TokenLayer is rebuilt; the
+  MOB MENTALITY roll call logs "process_frame is already connected to
+  _reanchor_bottom"; the From Golden Light redeploy dialog over MissionDiscardDialog
+  logs "Attempting to make child window exclusive". No SCRIPT ERRORs; the same lines
+  appear on the base commit; `verify_delivery` reads only the DebugLogger file.
+- **Fight log prefix (live:LV-7, likely pre-existing).** Some fight / melee-resolved
+  Game Log lines are prefixed with the active player instead of the fighting unit's
+  owner (e.g. "P1: Boyz fights …" for P2's Boyz in P1's turn).
+- **The SHOOT validator does not reject two profiles of one weapon for the same
+  model** (04.01.03), nor a [CLOSE-QUARTERS] weapon without the PISTOL keyword (e.g.
+  the Rokkit Pistol) fired together with another ranged weapon (24.07). Since AIR-2 the
+  AI planner applies both rules itself (and the Hunter / bearer / eligibility checks)
+  before it submits a SHOOT; the human weapon tree is unchanged (pre-existing).
 - Coverage: `autoloads.FactionStratagemLoader.curated_effects` and
   `autoloads.EffectPrimitives.minus_one_wound_defense` stay `uncovered` (no ork11e
   scenario exercises them; see the retired-tests doc).
@@ -718,24 +764,26 @@ Per stratagem:
 
 Headless (`40k/tests/`, all in `run_pretrigger_tests.sh`, `GameState.set_edition(11)`):
 
-| file | covers | passed/failed (2026-10-13 pretrigger run: 4393/0 over 132 files) |
+| file | covers | passed/failed (2026-10-13 pretrigger run after the final fixes: 4478/0 over 133 files; an earlier run hit turn_flow_fixes' random FLYIN' HEADBUTT 8D6 check — no 4+, p = 1/256 — which passed on 5 re-runs) |
 |---|---|---|
 | `test_ork_codex_11e_data.gd` | curated rows, window column, detachment match, legacy kits, keyword patches | 94/0 |
 | `test_ork_codex_framework.gd` | window framework + HIT 'EM HARDER | 105/0 |
 | `test_ork_codex_framework_fixes.gd` | cluster A fixes (overlay deaths, cross-turn actions, network mirror, phase completion, save/load, AI takeover, stale boot stratagems) | 108/0 |
-| `test_ork_codex_fight.gd` | Fight group + Fight On Death + fight windows/follow-ups | 196/0 |
+| `test_ork_codex_fight.gd` | Fight group + Fight On Death + fight windows/follow-ups (H2: END_FIGHT through `GameManager.apply_action`) | 201/0 |
 | `test_ork_codex_shooting.gd` | own-turn Shooting group + `unit_selected_to_shoot` | 237/0 |
 | `test_ork_codex_shooting_reactive.gd` | reactive Shooting group, post-shot windows, follow-ups | 156/0 |
-| `test_ork_codex_shooting_fixes.gd` | cluster B fixes (auto-select, kill credit, AP sign, Rapid Fire, GROT SHIELDS, re-rolls) | 110/0 |
-| `test_ork_codex_movement.gd` | Movement group, movement windows, follow-ups, MOBILE, Waaagh! at 11e, DES revive | 285/0 |
+| `test_ork_codex_shooting_fixes.gd` | cluster B fixes (auto-select, kill credit, AP sign, Rapid Fire, GROT SHIELDS, re-rolls) + N deferred `unit_selected_to_shoot` window (LV-2/RV-4), O AI Hunter / profile / close-quarters planner (AIR-2), P no-hit assignment results (AIR-3) | 153/0 |
+| `test_ork_codex_movement.gd` | Movement group, movement windows, follow-ups, MOBILE, Waaagh! at 11e, DES revive (K2: END_MOVEMENT through `GameManager.apply_action`) | 297/0 |
 | `test_ork_codex_other.gd` | Command / Charge / any-phase group + event windows | 197/0 |
 | `test_ork_codex_turn_flow_fixes.gd` | cluster C fixes (charge flags, MOBILE charge, reserves ghost, disembark, fight/command stratagems) | 108/0 |
+| `test_ai_fight_selecting_player_11e.gd` | AI acts for the FightSequencer's picker (AIR-1 stall) | 10/0 |
 | `test_keybinding_chord_no_pan.gd` | Ctrl+A does not pan | 8/0 |
 | `test_fullauto_faction_rules.gd` (rewritten) | War Horde codex rows | 42/0 |
 
 Outside the pretrigger list: `test_ork_detachments_sweep.gd` (codex row load per
 detachment + the surviving detachment-rule / enhancement checks, 194/0) and the GUT
-`unit/test_faction_stratagems.gd` (War Horde rows, Epic Deed timing column). Fixture
+`unit/test_faction_stratagems.gd` (War Horde rows, Epic Deed timing column). `test_dice_roll_visual.gd` (25/0) pins the net wound modifier in the dice
+tray header (LV-4). Fixture
 generator: `tests/helpers/gen_ork11e_fixtures.gd`.
 
 Windowed scenarios (`40k/tests/scenarios/sp/`, 63, real clicks):
@@ -772,4 +820,7 @@ Windowed scenarios (`40k/tests/scenarios/sp/`, 63, real clicks):
   `fullauto_movement_stratagems`, `recon_stomps_base_army`,
   `taktikal_enhancements_load`, `iss058_disembark_11e`, `tut_t3_get_movin(_pad)`, and
   (RG-F1) `aao_lions_isolated_plus_one`, `cover_hit_label_wound_reroll_11e`,
-  `game_log_armour_saves_11e`, `game_log_armour_saves_no_kill_11e`.
+  `game_log_armour_saves_11e`, `game_log_armour_saves_no_kill_11e`;
+  after LV-2 (no auto-selected `unit_selected_to_shoot` window) the ork11e shooting
+  scenarios, `attached_char_untargetable_11e` and `datasheet_key_all_phases`; after
+  R4 `vehicle_collision_drag_preview` (Fall Back radio).

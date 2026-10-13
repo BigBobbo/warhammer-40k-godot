@@ -2,6 +2,22 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.44.1",
+      "date": "2026-10-13",
+      "summary": "Codex: Orks (11e) follow-up fixes: no stratagem prompt for a shooter you did not pick, phase-end stratagems in multiplayer, clearer cards and dice, and AI fixes.",
+      "changes": [
+        "The Shooting phase no longer opens a 'has been selected to shoot' stratagem prompt for the unit the panel picks for you at the start of the phase. The prompt now opens when you actually choose a unit, or when you first act with the pre-selected one (assign a target, confirm, shoot), before that action happens. Declining it and then choosing the unit again offers it again; 'Don't offer again this phase' still turns it off.",
+        "No more red 'Shooting action rejected: Waiting for Player N to decide on a stratagem' message when a unit with a single target is selected while a stratagem prompt is open. Its target is assigned automatically once you answer the prompt.",
+        "Multiplayer: the end-of-Movement, end-of-Fight and Command-phase stratagems (DUBIOUS RESTRAINT, WHILE THEIR BACKS ARE TURNED, KEEP IT RUNNIN', INSTINCTIVE HUNTERS, MOB MENTALITY, BREAKIN' HEADS) are now offered in network games. Before, the host skipped them and ended the phase.",
+        "DELICIOUS EATING SQUIGS: the unit picker again lists which units each choice heals and explains that every ORKS INFANTRY unit within 3\" heals 3 wounds.",
+        "After a SCARPER!, WHIRLIGIG EVASION or WHILE THEIR BACKS ARE TURNED move ends, the top bar and the right panel no longer keep showing that move's instructions. The instruction is also shorter, so it fits the top bar at 1920 px.",
+        "The unit hover card shows the invulnerable save that actually applies (e.g. 5++ from DREAD POWER instead of the datasheet's 6++) and marks Riled up / Waaagh! units.",
+        "The dice tray and Game Log now show the net wound modifier (e.g. 'need 5+, -1 to wound' from HULKING BRUTES).",
+        "AI: it no longer shoots Hunter profiles (e.g. Busta Rokkit Launcha – Hunter) at infantry, both profiles of one gun, a Rokkit Pistol together with other guns, or guns a model does not carry. Those shots were refused, and the unit then lost its whole shooting activation.",
+        "AI: fixed a stall in the Fight phase when a unit had to fight during the Consolidate step (e.g. after UNLEASH THE LIONS split a unit). The AI now acts for the player who is actually selecting."
+      ]
+    },
+    {
       "version": "1.44.0",
       "date": "2026-10-13",
       "summary": "Codex: Orks (11th edition): all 40 detachment stratagems are in, offered to you at the exact moment the rules allow them, in your turn and your opponent's.",
