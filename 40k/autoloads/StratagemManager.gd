@@ -1157,6 +1157,12 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		var log_msg = "Used %s (%s)" % [strat.name, cost_msg]
 		if target_display != "":
 			log_msg += " on %s" % target_display
+		# The option a variant stratagem was used with (e.g. VINDICTIVE
+		# ARTILLERISTS' three options — r3:F8).
+		if OrkCodex.handles(strat):
+			var vlabel: String = OrkCodex.variant_label(strat, str(context.get("variant_id", "")))
+			if vlabel != "":
+				log_msg += " — %s" % vlabel
 		game_event_log.add_player_entry(player, log_msg)
 
 	# Log to phase log

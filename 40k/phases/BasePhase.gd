@@ -378,7 +378,10 @@ func open_stratagem_windows(entries: Array, resume_method: String, resume_ctx: D
 			str(entries.map(func(e): return e.get("window_id", "?"))), str(_window_pending.get("window_id", "followup"))])
 		return false
 	var tutorial = get_node_or_null("/root/TutorialManager")
-	if tutorial != null and tutorial.active:
+	# meta.tutorial is set while a lesson BOOTS into its phase, before
+	# TutorialManager.active: the shooting panel's real phase-entry
+	# auto-selection (r5:F3) must not open a window there either.
+	if tutorial != null and (tutorial.active or bool(GameState.state.get("meta", {}).get("tutorial", false))):
 		# Scripted lessons drive one taught action at a time; an unrequested
 		# stratagem prompt would derail the step. Windows stay closed.
 		DebugLogger.info("[StratagemWindow] tutorial active — windows %s not opened" % str(entries.map(func(e): return e.get("window_id", "?"))))
@@ -715,9 +718,13 @@ func _window_events_begin(action: Dictionary) -> void:
 	if _ev_depth != 1:
 		return
 	_ev_baseline = _ev_snapshot()
-	_ev_action_attacker = _window_attacking_unit_id()
+	# An action that names its own attacker (atomic SHOOT, Fire Overwatch)
+	# wins over the phase's selected unit: a unit can be selected (e.g. the
+	# shooting panel's auto-selected shooter) while another unit's atomic
+	# SHOOT resolves — its kills are that unit's attacks (framework F9).
+	_ev_action_attacker = _window_action_attacker_id(action)
 	if _ev_action_attacker == "":
-		_ev_action_attacker = _window_action_attacker_id(action)
+		_ev_action_attacker = _window_attacking_unit_id()
 
 ## Compare unit state with the baseline and queue the event windows.
 func _window_events_detect() -> void:

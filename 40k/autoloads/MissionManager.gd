@@ -440,6 +440,22 @@ func model_within_inches_of_objective(model: Dictionary, objective: Dictionary, 
 	var marker_radius_px = Measurement.inches_to_px(0.78740157)
 	return Measurement.model_edge_to_point_distance_px(model, obj_pos) <= margin_px + marker_radius_px
 
+## Terrain-aware distance (px) a model's base still has to cover to be WITHIN
+## RANGE of the objective — 0 exactly when model_in_objective_range() is true.
+## Terrain-hosted (11e 14.01/14.02): a model is in range only while its base
+## overlaps a hosting AREA, so the gap is the distance to that area. Open
+## ground: in range within 3" of the 40mm marker, so the gap is the distance
+## to the marker's edge less 3". (GRAB IT's "must end within range of an
+## objective" offer / AI score / auto-move all measure with this.)
+func model_gap_to_objective_range_px(model: Dictionary, objective: Dictionary) -> float:
+	var host_areas: Array = []
+	if GameConstants.edition >= 11:
+		host_areas = _objective_host_areas(objective)
+	var d_px := model_distance_to_objective_px(model, objective)
+	if not host_areas.is_empty():
+		return d_px
+	return maxf(0.0, d_px - Measurement.inches_to_px(3.0))
+
 ## Terrain-aware distance (px) from a model's base EDGE to the objective, 0 when
 ## it is on it. The companion measure to model_within_inches_of_objective (same
 ## geometry, same radius conventions), so "distance <= 3\"" and "within 3\"" can

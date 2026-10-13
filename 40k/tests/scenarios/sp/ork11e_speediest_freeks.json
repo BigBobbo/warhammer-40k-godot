@@ -61,6 +61,7 @@
     { "act": "execute_script", "multiline": true, "comment": "hits = dice that rolled 4+ (unmodified 1-3 fail), and at least one 2-3 was rolled so the band mattered",
       "script": "for b in PhaseManager.get_current_phase_instance().dice_log:\n\tif str(b.get(\"context\", \"\")) == \"to_hit\" and str(b.get(\"target_unit_id\", \"\")) == \"U_WARBIKERS_A\":\n\t\tvar rolls: Array = b.get(\"rolls_modified\", b.get(\"rolls_raw\", []))\n\t\tvar four_plus := 0\n\t\tvar two_three := 0\n\t\tfor r in rolls:\n\t\t\tif int(r) >= 4:\n\t\t\t\tfour_plus += 1\n\t\t\telif int(r) >= 2:\n\t\t\t\ttwo_three += 1\n\t\treturn int(b.get(\"successes\", -1)) == four_plus and two_three > 0\nreturn false",
       "equals": true },
+    { "act": "execute_script", "script": "main.shooting_controller.dice_log_display.get_parsed_text().contains(\"unmodified 1-3 fail\")", "equals": true, "comment": "r5:F10: the dice log's hit step names the SPEEDIEST FREEKS band (the 2s and 3s are coloured as fails)" },
     { "act": "screenshot", "label": "02_hits_only_on_4_plus" },
     { "act": "click_node", "button_text": "Complete Shooting" },
     { "act": "wait_seconds", "seconds": 1.0 },

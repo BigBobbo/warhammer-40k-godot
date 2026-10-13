@@ -22,6 +22,21 @@
       "equals": 8
     },
     {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id != \"\" and PhaseManager.get_current_phase_instance().active_shooter_id == main.shooting_controller.active_shooter_id",
+      "equals": true,
+      "comment": "phase entry auto-selects the first eligible shooter as a REAL SELECT_SHOOTER (r5:F3): the phase and the panel agree on the active shooter"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "that selection opens the unit_selected_to_shoot window for the auto-selected unit (War Horde CLOSE-RANGE DAKKA) - decline it before the scenario picks its own shooter"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
       "act": "expect_state",
       "path": "meta.active_player",
       "equals": 1
@@ -151,6 +166,27 @@
       "multiline": true,
       "script": "var fc = tree.root.get_node(\"Main\").shooting_controller._calc_weapon_expected_damage(\"dual_big_shoota_ranged\", \"U_CUSTODIAN_GUARD_C\")\nreturn (\"Close-Range Dakka\" in fc.get(\"active_tags\", [])) and (\"Rapid Fire 5\" in fc.get(\"active_tags\", []))",
       "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nvar r = c.weapon_tree.get_root()\nvar it = r.get_first_child() if r else null\nwhile it:\n\tvar st = it.get_first_child()\n\twhile st:\n\t\tif \"RF5\" in st.get_text(0):\n\t\t\treturn true\n\t\tst = st.get_next()\n\tit = it.get_next()\nreturn false",
+      "equals": true,
+      "comment": "r1:WH-9: the weapon row shows the granted RAPID FIRE (RF5 = its own RAPID FIRE 4 + 1), not RF4"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nfor ch in c.range_visual.get_children():\n\tif \"(Rapid Fire 5)\" in str(ch.get(\"weapon_name\")):\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "r1:WH-9: the dashed half-range circle carries the granted RAPID FIRE too"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nfor tid in c.eligible_targets:\n\tvar fc = c._calc_weapon_expected_damage(\"dual_big_shoota_ranged\", tid)\n\tif \"Rapid Fire 5 (out of half range)\" in fc.get(\"active_tags\", []):\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "r1:WH-9: against a target beyond half range the forecast no longer counts the RAPID FIRE attacks (tagged 'out of half range')"
     },
     {
       "act": "expect_node_visible",

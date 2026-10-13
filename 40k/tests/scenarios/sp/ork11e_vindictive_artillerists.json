@@ -24,6 +24,21 @@
       "equals": 8
     },
     {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id != \"\" and PhaseManager.get_current_phase_instance().active_shooter_id == main.shooting_controller.active_shooter_id",
+      "equals": true,
+      "comment": "phase entry auto-selects the first eligible shooter as a REAL SELECT_SHOOTER (r5:F3): the phase and the panel agree on the active shooter"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "that selection opens the unit_selected_to_shoot window for the auto-selected unit (War Horde CLOSE-RANGE DAKKA) - decline it before the scenario picks its own shooter"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
       "act": "expect_state",
       "path": "meta.active_player",
       "equals": 1
@@ -203,6 +218,19 @@
       "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nvar fc = c._calc_weapon_expected_damage(\"smasha_gun_ranged\", \"U_CUSTODIAN_GUARD_C\")\nreturn (\"Lethal\" in fc.get(\"active_tags\", [])) and (\"SH 1\" in fc.get(\"active_tags\", []))",
       "equals": true,
       "comment": "forecast shows [LETHAL HITS] and [SUSTAINED HITS 1] on the smasha gun"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nvar fc = c._calc_weapon_expected_damage(\"smasha_gun_ranged\", \"U_CUSTODIAN_GUARD_C\")\nreturn \"Hazardous\" in fc.get(\"active_tags\", [])",
+      "equals": true,
+      "comment": "r3:F8: the overcharged option's granted [HAZARDOUS] shows in the forecast"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Used VINDICTIVE ARTILLERISTS (1 CP) on Mek Gunz — [HAZARDOUS] + [LETHAL HITS] + [SUSTAINED HITS 1]\")",
+      "equals": 1,
+      "comment": "r3:F8: the Game Log names the option chosen"
     },
     {
       "act": "execute_script",

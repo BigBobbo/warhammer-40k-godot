@@ -357,6 +357,14 @@ func _create_offer_card(offer: Dictionary, legacy_fold: bool) -> VBoxContainer:
 
 	var units_label = Label.new()
 	units_label.text = "Select target:"
+	# Variant-only offers (e.g. VINDICTIVE ARTILLERISTS) list options, not
+	# targets (r3:F8).
+	var all_variant_only: bool = not offer.get("targets", []).is_empty()
+	for vt in offer.get("targets", []):
+		if not (bool(vt.get("require_variant", false)) and not vt.get("variants", []).is_empty()):
+			all_variant_only = false
+	if all_variant_only:
+		units_label.text = "Choose an option:"
 	units_label.add_theme_font_size_override("font_size", 16)
 	units_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
 	card.add_child(units_label)

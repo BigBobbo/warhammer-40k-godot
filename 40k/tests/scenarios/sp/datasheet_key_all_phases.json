@@ -16,6 +16,8 @@
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_phase", "equals": 8 },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton", "comment": "phase entry auto-selects the first eligible shooter as a REAL SELECT_SHOOTER (r5:F3); decline the unit_selected_to_shoot window it opens before the scenario selects its own shooter" },
+    { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_token_visible", "unit_id": "U_BATTLEWAGON_G" },
 
     { "act": "execute_script",

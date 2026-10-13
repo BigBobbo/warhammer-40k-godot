@@ -98,6 +98,8 @@
       "script": "for m in GameState.get_unit(\"U_FLASH_GITZ_A\").models:\n\tif not m.get(\"alive\", true) or float(m.get(\"current_wounds\", 0)) < float(m.get(\"wounds\", 1)):\n\t\treturn false\nreturn true",
       "equals": true },
     { "act": "execute_script", "multiline": true, "script": "var n := 0\nfor m in GameState.get_unit(\"U_GRETCHIN_C\").models:\n\tif m.get(\"alive\", true):\n\t\tn += 1\nreturn n", "expect_max": 9 },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"hit(s) intercepted by\")", "expect_min": 1,
+      "comment": "r3:F6: the Game Log says the hits were intercepted by the Gretchin (not only the dice panel)" },
     { "act": "screenshot", "label": "04_hits_on_flash_gitz_intercepted" },
     { "act": "click_node", "button_text": "Next Weapon ▶" },
     { "act": "wait_seconds", "seconds": 1.2 },

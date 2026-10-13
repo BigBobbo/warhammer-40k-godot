@@ -58,7 +58,9 @@ const FLAG := {
 const GATES := {
 	CRD: [["U_TANKBUSTAS_A", "U_BATTLEWAGON_A", "U_GRETCHIN_C"], []],
 	VA: [["U_MEK_GUNZ_A"], ["U_TANKBUSTAS_A", "U_KILLA_KANS_A"]],
-	DBB: [["U_TRUKK_A", "U_BATTLEWAGON_A"], ["U_DEFF_DREAD_A", "U_RUKKATRUKK_SQUIGBUGGIES_A", "U_TANKBUSTAS_A"]],
+	# The fixture Battlewagon has 'Ard Case (no Firing Deck): DRIVE-BY BUSTIN'
+	# is not offered for it (r4:WS-4) — checked separately in _section_gates.
+	DBB: [["U_TRUKK_A"], ["U_DEFF_DREAD_A", "U_RUKKATRUKK_SQUIGBUGGIES_A", "U_TANKBUSTAS_A"]],
 	KD: [["U_TANKBUSTAS_A", "U_FLASH_GITZ_A", "U_STORMBOYZ_A"], ["U_DEFF_DREAD_A", "U_MEK_GUNZ_A", "U_WARBIKERS_A"]],
 	GD: [["U_TANKBUSTAS_A", "U_KOMMANDOS_A"], ["U_KILLA_KANS_A", "U_DAKKAJET_A"]],
 	NED: [["U_FLASH_GITZ_A", "U_GRETCHIN_D"], ["U_BATTLEWAGON_A", "U_DEFFKOPTAS_A"]],
@@ -217,6 +219,14 @@ func _section_gates() -> void:
 	_check("in the Shooting phase, P1 active", GS.get_current_phase() == PHASE_SHOOTING and int(GS.state.meta.active_player) == 1)
 	for csv in [CRD, VA, DBB, KD, GD, NED, LUB, DS]:
 		var sid := _sid(csv)
+		# DRIVE-BY BUSTIN' is only offered when a passenger can fire through
+		# the Firing Deck (r4:WS-4) — give the eligible transports one.
+		var dbb_saved := {}
+		if csv == DBB:
+			for tid in GATES[csv][0]:
+				var td: Dictionary = GS.state.units[tid].get("transport_data", {})
+				dbb_saved[tid] = td.get("embarked_units", []).duplicate()
+				td["embarked_units"] = ["U_KOMMANDOS_A"]
 		for uid in GATES[csv][0]:
 			var offers = SM.get_window_offers(1, WINDOW, {"phase": "shooting", "unit_id": uid})
 			var hit := false
@@ -224,6 +234,22 @@ func _section_gates() -> void:
 				if str(o.stratagem_id) == sid and o.targets.size() == 1 and str(o.targets[0].unit_id) == uid:
 					hit = true
 			_check("%s offered when %s is selected" % [csv, uid], hit, str(offers.map(func(o): return o.name)))
+		for tid in dbb_saved:
+			GS.state.units[tid]["transport_data"]["embarked_units"] = dbb_saved[tid]
+		if csv == DBB:
+			# r4:WS-4: an 'Ard Case Battlewagon has no Firing Deck, so no weapon
+			# can be selected for it — not offered even with a passenger.
+			var bw_td: Dictionary = GS.state.units["U_BATTLEWAGON_A"].get("transport_data", {})
+			var bw_saved: Array = bw_td.get("embarked_units", []).duplicate()
+			bw_td["embarked_units"] = ["U_KOMMANDOS_A"]
+			var bw_offers = SM.get_window_offers(1, WINDOW, {"phase": "shooting", "unit_id": "U_BATTLEWAGON_A"})
+			var bw_hit := false
+			for o in bw_offers:
+				if str(o.stratagem_id) == sid:
+					bw_hit = true
+			_check("%s NOT offered for the 'Ard Case U_BATTLEWAGON_A (firing deck %d)" % [csv, int(bw_td.get("firing_deck", 0))],
+				not bw_hit and int(bw_td.get("firing_deck", 0)) == 0, str(bw_offers.map(func(o): return o.name)))
+			bw_td["embarked_units"] = bw_saved
 		for uid in GATES[csv][1]:
 			var offers2 = SM.get_window_offers(1, WINDOW, {"phase": "shooting", "unit_id": uid})
 			var none := true

@@ -1964,6 +1964,11 @@ func _process_use_fight_reroll(action: Dictionary) -> Dictionary:
 	var expected = "hits_pending" if stage == "hits" else ("wounds_pending" if stage == "wounds" else "")
 	if expected == "" or staged_fight_state.get("stage", "") != expected:
 		return create_result(false, [], "No re-roll available at this stage")
+	# Never re-roll a dice more than once — refuse before spending the CP
+	# (RulesEngine.reroll_hit_die / reroll_wound_die refuse it too; r5:F7).
+	var rr_ctx: Dictionary = staged_fight_state.get("hit_context", {}) if stage == "hits" else staged_fight_state.get("wound_context", {})
+	if RulesEngine.staged_die_already_rerolled(rr_ctx, stage, die_index):
+		return create_result(false, [], "That die has already been re-rolled — a dice can never be re-rolled more than once")
 
 	# Spend the CP + record the once-per-phase Command Re-roll usage (attacker).
 	var sm = get_node_or_null("/root/StratagemManager")
