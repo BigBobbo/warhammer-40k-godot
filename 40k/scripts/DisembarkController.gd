@@ -330,7 +330,8 @@ func _validate_disembark_position(pos: Vector2, slot_idx: int) -> Dictionary:
 	var range_result = TransportManager.is_position_within_disembark_range(pos, model, transport_data, setup_range_inches)
 
 	if not range_result.within_range:
-		return {"valid": false, "reason": "Must be within %0.0f\" of transport (%.1f\" away)" % [setup_range_inches, range_result.distance_inches]}
+		# 18.04 / 18.06: the whole base must be within the set-up distance.
+		return {"valid": false, "reason": "Must be wholly within %0.0f\" of transport (base reaches %.1f\")" % [setup_range_inches, float(range_result.get("farthest_inches", range_result.distance_inches))]}
 
 	# Cannot be in engagement range of enemies — except Combat Disembark
 	# (11e 18.04): models may be set up engaged with enemy units the

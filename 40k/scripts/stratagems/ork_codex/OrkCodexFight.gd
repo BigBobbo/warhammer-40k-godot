@@ -102,6 +102,18 @@ const FLAG_UNBRIDLED_CARNAGE := "ork11e_unbridled_carnage"
 # better existing re-roll) so clear() only removes its own grant.
 const FLAG_REROLL_HITS := "effect_reroll_hits"
 const FLAG_ARMED_TO_DA_TEEF := "ork11e_armed_to_da_teef"
+# The weaker re-roll scope another source held when ARMED TO DA TEEF upgraded
+# it — restored by clear() so that source is not cut short.
+const FLAG_ARMED_TO_DA_TEEF_PREV := "ork11e_armed_to_da_teef_prev"
+# Riled up = "re-roll hit rolls" (any of them). Plain use: every FAILED hit roll
+# is re-rolled. This variant: the controller also re-rolls successful
+# NON-critical hits to fish for critical hits — applied by the engine to the
+# weapons whose critical hits matter ([LETHAL HITS] / [SUSTAINED HITS]);
+# RulesEngine.REROLL_HITS_SCOPE_NON_CRIT.
+const ATDT_VARIANT_NON_CRIT := "non_crit"
+const REROLL_SCOPE_NON_CRIT := "non_crit"  # == RulesEngine.REROLL_HITS_SCOPE_NON_CRIT
+# Re-roll scopes from weakest to strongest (never downgrade an existing grant).
+const _REROLL_RANK := {"": 0, "ones": 1, "failed": 2, "all": 2, "non_crit": 3}
 # Fight On Death (ORKS IS NEVER BEATEN / TOO ARROGANT TO DIE / CRAZED RAMPAGE)
 const FLAG_FOD_MODE := "ork11e_fod_mode"        # "riled_up" (+1 if riled up) | "deff_dread" (+3 if DEFF DREAD)
 const FLAG_FOD_SOURCE := "ork11e_fod_source"    # stratagem name, for the logs
@@ -123,7 +135,7 @@ static func eligible_targets(strat: Dictionary, player: int, window_id: String, 
 		"armed-to-da-teef-bully-boyz":
 			if window_id != "unit_selected_to_fight" and window_id != "unit_selected_to_shoot":
 				return []
-			return _selected_unit_targets(strat, player, ctx)
+			return _armed_to_da_teef_targets(strat, player, window_id, ctx)
 		"orks-is-never-beaten-war-horde", "too-arrogant-to-die-bully-boyz", "crazed-rampage-dread-mob":
 			if window_id != "enemy_targets_unit_fight":
 				return []
@@ -167,7 +179,7 @@ static func apply(strat: Dictionary, target_unit_id: String, ctx: Dictionary) ->
 		"unbridled-carnage-green-tide":
 			return _unbridled_carnage_apply(target_unit_id)
 		"armed-to-da-teef-bully-boyz":
-			return _armed_to_da_teef_apply(target_unit_id)
+			return _armed_to_da_teef_apply(target_unit_id, ctx)
 		"orks-is-never-beaten-war-horde", "too-arrogant-to-die-bully-boyz", "crazed-rampage-dread-mob":
 			return _fod_apply(strat, target_unit_id)
 		"keep-it-runnin-blitz-brigade":
@@ -201,8 +213,15 @@ static func clear(strat: Dictionary, unit_id: String) -> void:
 					continue
 				var written := str(flags.get(FLAG_ARMED_TO_DA_TEEF, ""))
 				if written != "" and str(flags.get(FLAG_REROLL_HITS, "")) == written:
-					flags.erase(FLAG_REROLL_HITS)
+					# Hand back the weaker re-roll another source granted before
+					# this one upgraded it (e.g. 'ones' that outlasts the phase).
+					var prev := str(flags.get(FLAG_ARMED_TO_DA_TEEF_PREV, ""))
+					if prev != "":
+						flags[FLAG_REROLL_HITS] = prev
+					else:
+						flags.erase(FLAG_REROLL_HITS)
 				flags.erase(FLAG_ARMED_TO_DA_TEEF)
+				flags.erase(FLAG_ARMED_TO_DA_TEEF_PREV)
 			Common.log_info("OrkCodexFight: ARMED TO DA TEEF expired — cleared hit re-rolls on %s" % str(atdt_group))
 		"orks-is-never-beaten-war-horde", "too-arrogant-to-die-bully-boyz", "crazed-rampage-dread-mob":
 			# The kept models themselves (FLAG_FOD_PENDING) are removed by the
@@ -280,9 +299,27 @@ static func _targeted_unit_targets(strat: Dictionary, player: int, ctx: Dictiona
 			continue
 		seen[tid] = true
 		var check = validate(strat, player, tid, ctx)
-		if check.ok:
-			out.append(Common.target_entry(tid))
+		if not check.ok:
+			continue
+		# "if your unit has not been selected to fight this phase": once it
+		# has been, the effect can never apply — do not offer it (a human
+		# would spend 1 CP for nothing). validate() stays permissive (RAW the
+		# stratagem may still be used).
+		if _group_selected_to_fight_this_phase(tid):
+			Common.log_info("OrkCodexFight: %s not offered on %s — it has already been selected to fight this phase" % [strat.get("name", "?"), tid])
+			continue
+		out.append(Common.target_entry(tid))
 	return out
+
+
+## The Attached unit has been selected to fight in the current Fight phase
+## (FightPhase tracks selections; has_fought is the fallback outside it).
+static func _group_selected_to_fight_this_phase(unit_id: String) -> bool:
+	var pm = Common.autoload("PhaseManager")
+	var phase = pm.get("current_phase_instance") if pm != null else null
+	if phase != null and phase.has_method("_ork11e_group_selected_to_fight"):
+		return bool(phase._ork11e_group_selected_to_fight(unit_id))
+	return _group_has_flag(unit_id, "has_fought")
 
 
 ## The Attached unit's bodyguard id (the unit itself when not attached).
@@ -477,20 +514,70 @@ static func _armed_to_da_teef_validate(player: int, target_unit_id: String, ctx:
 	return {"ok": true, "reason": ""}
 
 
-static func _armed_to_da_teef_apply(target_unit_id: String) -> Array:
+## Target entry for the selected MEGANOBZ/NOBZ unit. While it is riled up
+## ("re-roll hit rolls" — any hit roll) and the attacks of this window
+## (melee in the Fight phase, ranged when selected to shoot) include a weapon
+## whose critical hits matter, a variant lets the player also re-roll
+## successful non-critical hits to fish for critical hits; the plain Use
+## re-rolls every failed hit roll.
+static func _armed_to_da_teef_targets(strat: Dictionary, player: int, window_id: String, ctx: Dictionary) -> Array:
+	var uid = str(ctx.get("unit_id", ""))
+	if uid == "" or not validate(strat, player, uid, ctx).ok:
+		return []
+	var extra := {}
+	if _group_riled_up(uid) and _group_has_crit_hit_payoff(uid, window_id == "unit_selected_to_fight"):
+		extra["variants"] = [{"id": ATDT_VARIANT_NON_CRIT,
+			"label": "Re-roll non-critical hits too (fish for 6s)",
+			"cp_cost": int(strat.get("cp_cost", 1))}]
+	return [Common.target_entry(uid, extra)]
+
+
+## True when a weapon of the given kind (melee / ranged) in the Attached unit
+## has [LETHAL HITS] or [SUSTAINED HITS], or the unit holds a granted
+## Lethal / Sustained Hits effect for those attacks.
+static func _group_has_crit_hit_payoff(unit_id: String, melee: bool) -> bool:
+	for gid in Common.attached_group_ids(unit_id):
+		var u = Common.unit(str(gid))
+		var flags: Dictionary = u.get("flags", {})
+		if melee and (bool(flags.get("effect_lethal_hits_melee", false)) or bool(flags.get("effect_sustained_hits_melee", false))):
+			return true
+		if not melee and (bool(flags.get("effect_lethal_hits", false)) or bool(flags.get("effect_sustained_hits", false))):
+			return true
+		for w in u.get("meta", {}).get("weapons", []):
+			var is_melee_w := str(w.get("type", "")).to_lower() == "melee"
+			if is_melee_w != melee:
+				continue
+			var txt := (str(w.get("special_rules", "")) + " " + str(w.get("abilities", ""))).to_lower()
+			if "lethal hits" in txt or "sustained hits" in txt:
+				return true
+	return false
+
+
+static func _armed_to_da_teef_apply(target_unit_id: String, ctx: Dictionary = {}) -> Array:
 	var group = Common.attached_group_ids(target_unit_id)
-	var scope := "all" if _group_riled_up(target_unit_id) else "ones"
+	var riled := _group_riled_up(target_unit_id)
+	var scope := "ones"
+	if riled:
+		scope = REROLL_SCOPE_NON_CRIT if str(ctx.get("variant_id", "")) == ATDT_VARIANT_NON_CRIT else "all"
 	var diffs: Array = []
 	for gid in group:
 		var existing := str(Common.unit(str(gid)).get("flags", {}).get(FLAG_REROLL_HITS, ""))
 		var written := ""
-		# Never downgrade a better re-roll the unit already has.
-		if not (scope == "ones" and (existing == "failed" or existing == "all")):
+		# Never downgrade a better re-roll the unit already has, and only claim
+		# the grant (written != "") when this handler actually changed it — so
+		# clear() never erases a re-roll another source gave.
+		if existing != scope and int(_REROLL_RANK.get(scope, 0)) > int(_REROLL_RANK.get(existing, 0)):
 			written = scope
 			diffs.append({"op": "set", "path": "units.%s.flags.%s" % [str(gid), FLAG_REROLL_HITS], "value": scope})
+			if existing != "":
+				diffs.append({"op": "set", "path": "units.%s.flags.%s" % [str(gid), FLAG_ARMED_TO_DA_TEEF_PREV], "value": existing})
 		diffs.append({"op": "set", "path": "units.%s.flags.%s" % [str(gid), FLAG_ARMED_TO_DA_TEEF], "value": written})
-	Common.log_info("OrkCodexFight: ARMED TO DA TEEF — %s re-roll %s until the end of the phase" % [
-		str(group), "ALL hit rolls (riled up)" if scope == "all" else "hit rolls of 1"])
+	var what := "hit rolls of 1"
+	if scope == "all":
+		what = "every failed hit roll (riled up)"
+	elif scope == REROLL_SCOPE_NON_CRIT:
+		what = "every non-critical hit roll of its critical-hit weapons and every failed hit roll (riled up, fishing for 6s)"
+	Common.log_info("OrkCodexFight: ARMED TO DA TEEF — %s re-roll %s until the end of the phase" % [str(group), what])
 	return diffs
 
 
@@ -896,6 +983,10 @@ static func _num(v, fallback: float) -> float:
 ## KEEP IT RUNNIN' / INSTINCTIVE HUNTERS: pull an exposed unit off the board
 ## when enemies are close; otherwise keep the CP.
 static func _reposition_utility_score(unit_id: String, player: int) -> float:
+	# Never pull a unit off an objective its player controls or contests:
+	# embarking / going into reserves gives up that level of control.
+	if _unit_holds_objective(unit_id, player):
+		return 0.0
 	var units = Common.state().get("units", {})
 	for oid in units:
 		var o = units[oid]
@@ -904,3 +995,27 @@ static func _reposition_utility_score(unit_id: String, player: int) -> float:
 		if Common.within_inches(unit_id, str(oid), 12.0):
 			return 2.5
 	return 0.5
+
+
+## True when a model of the (Attached) unit is within range of an objective
+## that `player` controls or that is contested (MissionManager's last
+## level-of-control determination).
+static func _unit_holds_objective(unit_id: String, player: int) -> bool:
+	var mm = Common.autoload("MissionManager")
+	if mm == null or not mm.has_method("model_in_objective_range"):
+		return false
+	for obj in Common.state().get("board", {}).get("objectives", []):
+		var oid := str(obj.get("id", ""))
+		if oid == "":
+			continue
+		var controller := int(mm.objective_control_state.get(oid, 0))
+		var contested: bool = mm.has_method("is_objective_contested") and bool(mm.is_objective_contested(oid))
+		if controller != player and not contested:
+			continue
+		for gid in Common.attached_group_ids(unit_id):
+			for m in Common.unit(str(gid)).get("models", []):
+				if not m.get("alive", true) or m.get("position", null) == null:
+					continue
+				if mm.model_in_objective_range(m, obj):
+					return true
+	return false

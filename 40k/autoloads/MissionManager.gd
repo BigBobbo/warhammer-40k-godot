@@ -300,7 +300,25 @@ func get_objective_ids_by_designation(designation: String) -> Array:
 # OBJECTIVE CONTROL (shared by all missions)
 # ============================================================
 
-func check_all_objectives() -> void:
+## `phase_end` (default true): this is a level-of-control determination at the
+## END of a phase / turn (14.02), the only time a greater enemy level of control
+## breaks a secured objective (14.03) or a sticky-objective lock. Mid-phase
+## display refreshes (after each move / charge / reinforcement) pass false: they
+## still compute who is ahead for the board labels, but leave the locks alone —
+## otherwise an enemy that stepped in mid-phase and died before the phase ended
+## (e.g. to Overwatch) still cost the securing player the objective.
+var _secured_lock_break_enabled: bool = true
+
+func check_all_objectives(phase_end: bool = true) -> void:
+	_secured_lock_break_enabled = phase_end
+	_check_all_objectives_impl()
+	_secured_lock_break_enabled = true
+
+## Mid-phase display refresh — see check_all_objectives(phase_end).
+func refresh_objective_control_display() -> void:
+	check_all_objectives(false)
+
+func _check_all_objectives_impl() -> void:
 	var objectives = GameState.state.board.get("objectives", [])
 
 	# If objectives are missing, reinitialize them
@@ -618,6 +636,12 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 	if oc_controller > 0:
 		# If the opponent now controls via OC, clear any sticky lock
 		var obj_id = objective.get("id", "")
+		if not _secured_lock_break_enabled:
+			# Mid-phase refresh: report who is ahead, keep every lock (14.03 —
+			# only the END-of-phase determination can break it).
+			if _sticky_objectives.has(obj_id) and _sticky_objectives[obj_id].player != oc_controller:
+				print("MissionManager: %s — Player %d ahead mid-phase; Player %d's secured lock holds until the end of the phase (14.03)" % [obj_id, oc_controller, _sticky_objectives[obj_id].player])
+			return oc_controller
 		if _sticky_objectives.has(obj_id) and _sticky_objectives[obj_id].player != oc_controller:
 			print("MissionManager: Sticky lock on %s broken — Player %d now controls via OC" % [obj_id, oc_controller])
 			_sticky_objectives.erase(obj_id)

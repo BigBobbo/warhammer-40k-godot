@@ -502,7 +502,8 @@ func calculate_charge_terrain_penalty(from_pos: Vector2, to_pos: Vector2, has_fl
 		if not crosses_edge and not starts_inside and not ends_inside:
 			continue
 
-		var unit_can_traverse = can_unit_move_through_terrain(unit_keywords, terrain)
+		var unit_can_traverse = can_unit_move_through_terrain(unit_keywords, terrain) \
+			or _passes_dense_feature_11e(unit_keywords, terrain)
 
 		# A segment wholly inside one footprint crosses no wall — ground-floor
 		# movement within the same ruin pays no climb (matches movement phase).
@@ -1225,6 +1226,18 @@ func _upper_keywords(model_keywords: Array, extra_keywords: Array) -> Array:
 	for k in extra_keywords:
 		kws.append(str(k).to_upper())
 	return kws
+
+## 13.06 for the charge climb penalty: INFANTRY / BEASTS / SWARM / MOBILE
+## models move horizontally through DENSE terrain, so crossing a dense piece
+## costs them no vertical movement. The legacy can_move_through map only
+## lists INFANTRY, which left e.g. a MOBILE walker (STOMPING JUGGERNAUT)
+## paying height x2 for a wall it walks straight through. 11e only.
+func _passes_dense_feature_11e(unit_keywords: Array, terrain_piece: Dictionary) -> bool:
+	if GameConstants.edition < 11 or unit_keywords.is_empty():
+		return false
+	if category_of(terrain_piece) != CATEGORY_DENSE:
+		return false
+	return _passes_dense_11e(_upper_keywords(unit_keywords, []))
 
 ## 13.06: these keywords traverse dense terrain freely.
 func _passes_dense_11e(upper_kws: Array) -> bool:

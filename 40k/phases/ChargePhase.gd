@@ -714,7 +714,7 @@ func _check_command_reroll_or_resolve(unit_id: String) -> Dictionary:
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	var reroll_available = false
 	if strat_manager:
-		var reroll_check = strat_manager.is_command_reroll_available(current_player)
+		var reroll_check = strat_manager.is_command_reroll_available(current_player, unit_id)
 		reroll_available = reroll_check.available
 
 	if reroll_available:
@@ -1398,7 +1398,7 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 
 	# T7-39: Recheck objective control after charge movement
 	if MissionManager:
-		MissionManager.call_deferred("check_all_objectives")
+		MissionManager.call_deferred("check_all_objectives", false)
 
 	# SPIKED RAM (OA-50): After charge move, deal mortal wounds to a charge target.
 	# "Each time this model ends a Charge move, select one enemy unit within Engagement Range
@@ -2008,7 +2008,7 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 
 	# Check if unit has FLY keyword (for terrain penalty calculation)
 	var unit = get_unit(unit_id)
-	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var unit_keywords = _charge_terrain_keywords(unit_id)
 	var has_fly = "FLY" in unit_keywords
 
 	# 0. Every path key must resolve to a model of the charging unit or one of
@@ -2405,6 +2405,18 @@ func _validate_charge_direction_constraint(unit_id: String, per_model_paths: Dic
 			DebugLogger.info(str("ChargePhase: Direction constraint - %s" % err))
 
 	return {"valid": errors.is_empty(), "errors": errors}
+
+## Keywords that feed the charge terrain penalty / traversal checks: the
+## unit's datasheet keywords plus MOBILE while Codex: Orks (11e) STOMPING
+## JUGGERNAUT is active ("Your unit has MOBILE" — 13.06: MOBILE models move
+## horizontally through dense terrain, so they pay no climb cost either).
+## The solid-terrain sweep and wall-overlap checks already honour the flag.
+func _charge_terrain_keywords(unit_id: String) -> Array:
+	var unit = get_unit(unit_id)
+	var kws: Array = unit.get("meta", {}).get("keywords", [])
+	if unit.get("flags", {}).get("ork11e_mobile", false) and not "MOBILE" in kws:
+		kws = kws + ["MOBILE"]
+	return kws
 
 ## Calculate the total terrain penalty for a charge path.
 ## Units always stay on ground floor — no height penalty. Only difficult ground applies.
@@ -2940,7 +2952,7 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 		return false
 
 	# T2-8: Check FLY keyword for terrain penalty calculation
-	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var unit_keywords = _charge_terrain_keywords(unit_id)
 	var has_fly = "FLY" in unit_keywords
 
 	# Pass 1 (cheap): straight approach, stopping at engagement range.
@@ -3006,7 +3018,7 @@ func _per_target_charge_requirements(unit_id: String, target_ids: Array, rolled_
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return out
-	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var unit_keywords = _charge_terrain_keywords(unit_id)
 	var has_fly = "FLY" in unit_keywords
 
 	for target_id in target_ids:
@@ -3849,7 +3861,7 @@ func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: i
 		return false
 
 	# P2-77: Check FLY keyword for terrain penalty calculation
-	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var unit_keywords = _charge_terrain_keywords(unit_id)
 	var has_fly = "FLY" in unit_keywords
 
 	for model in _hi_group_models(unit_id):

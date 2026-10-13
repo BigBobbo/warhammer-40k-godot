@@ -3262,12 +3262,16 @@ func is_epic_challenge_available(player: int, unit_id: String) -> Dictionary:
 
 	return {"available": true, "reason": ""}
 
-func is_command_reroll_available(player: int) -> Dictionary:
+func is_command_reroll_available(player: int, unit_id: String = "") -> Dictionary:
 	"""
 	Check if Command Re-roll is available for a player in the current phase.
+	Pass the unit whose roll would be re-rolled: COMMAND RE-ROLL targets that
+	unit, so the per-unit checks execute_command_reroll applies (11e 15.01 — a
+	unit already targeted by a stratagem this phase) must hide the offer too,
+	instead of offering an enabled Re-roll that is then refused.
 	Returns { available: bool, reason: String }
 	"""
-	var validation = can_use_stratagem(player, "command_re_roll")
+	var validation = can_use_stratagem(player, "command_re_roll", unit_id)
 	if not validation.can_use:
 		return {"available": false, "reason": validation.reason}
 	return {"available": true, "reason": ""}

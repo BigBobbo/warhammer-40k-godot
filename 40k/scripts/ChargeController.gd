@@ -4503,6 +4503,10 @@ func _calculate_terrain_penalty_for_path(from_pos: Vector2, to_pos: Vector2) -> 
 		var unit = GameState.get_unit(active_unit_id)
 		keywords = unit.get("meta", {}).get("keywords", [])
 		has_fly = "FLY" in keywords
+		# Codex: Orks (11e) STOMPING JUGGERNAUT: "Your unit has MOBILE" (13.06) —
+		# same keywords ChargePhase._charge_terrain_keywords feeds the validator.
+		if unit.get("flags", {}).get("ork11e_mobile", false) and not "MOBILE" in keywords:
+			keywords = keywords + ["MOBILE"]
 
 	return terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly, keywords)
 

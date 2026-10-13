@@ -329,6 +329,20 @@ func show_summary(passed: Array, failed: Array, auto_passed: Array) -> void:
 	_refresh()
 
 
+## A rule changed the tested unit after its verdict was shown — e.g. Codex:
+## Orks (11e) BREAKIN' HEADS (no longer battle-shocked, D3 mortal wounds).
+## Re-render the card with that outcome and the unit's fresh strength
+## (`entry_updates` merges into the shown queue row) instead of leaving the
+## stale "FAILED — BATTLE-SHOCKED / N models remaining" card up.
+func show_post_test_update(entry_updates: Dictionary, verdict_bbcode: String, effects_text: String) -> void:
+	_entry.merge(entry_updates, true)
+	_result["post_test_verdict"] = verdict_bbcode
+	_result["post_test_effects"] = effects_text
+	if _mode != Mode.SUMMARY:
+		_mode = Mode.SHOWING_RESULT
+	_refresh()
+
+
 func is_rolling() -> bool:
 	return _mode == Mode.ROLLING
 
@@ -493,6 +507,18 @@ func _render_result() -> void:
 	var auto_passed: bool = bool(_result.get("auto_passed", false))
 	var ld := int(_entry.get("leadership", _result.get("leadership", 7)))
 	var effective := int(_result.get("effective_roll", _result.get("roll_total", 0)))
+
+	if _result.has("post_test_verdict"):
+		# The verdict was overtaken by a rule applied afterwards (BREAKIN' HEADS).
+		_dice_row.visible = not auto_passed
+		if not auto_passed:
+			_render_dice_total()
+		_verdict.text = str(_result.get("post_test_verdict", ""))
+		_effects_label.visible = true
+		_effects_label.add_theme_color_override("font_color", Color(0.85, 0.8, 0.55))
+		_effects_label.text = str(_result.get("post_test_effects", ""))
+		_add_result_buttons()
+		return
 
 	if auto_passed:
 		# No dice were rolled — hide them rather than showing a meaningless pair.
