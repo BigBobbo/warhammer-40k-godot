@@ -81,6 +81,23 @@ var awaiting_wazblasta: bool = false
 # selection, so re-entrant select calls (resume, Throat Slittas decline, the
 # atomic SHOOT's inner select) never offer it twice for one selection.
 var _sts_window_handled_unit: String = ""
+# LV-2 / RV-4: a unit the ShootingController selected AUTOMATICALLY (phase
+# entry / next shooter, payload.auto_selected) has not been chosen by the
+# player yet, so its unit_selected_to_shoot window is deferred: it opens before
+# the first action the player takes with that shooter (_STS_DEFERRED_TRIGGERS,
+# or the atomic SHOOT's inner select) and that action is applied once the
+# window closes. Only one offer per selection; "Don't offer again" still wins.
+var _sts_window_deferred_unit: String = ""
+# The unit whose selected-to-shoot window was answered with a USED stratagem in
+# the current selection — an explicit re-selection of a unit whose window was
+# merely declined is a new selection and is offered again; a used one is not.
+var _sts_window_used_unit: String = ""
+const _STS_DEFERRED_TRIGGERS := ["ASSIGN_TARGET", "CONFIRM_TARGETS", "RESOLVE_SHOOTING"]
+# The rest of a burst of player assignments (quick-assign ALL, Apply to All …)
+# whose FIRST ASSIGN_TARGET opened the deferred window: held while it is
+# pending (instead of "Waiting for … to decide" rejections) and applied, in
+# order, right after the held first action once the window closes.
+var _sts_held_actions: Array = []
 # AI (synchronous) window diffs produced inside the atomic SHOOT's inner
 # select — merged into the SHOOT result so replay / network see the CP spend.
 var _sts_carry_diffs: Array = []
@@ -641,10 +658,38 @@ func validate_action(action: Dictionary) -> Dictionary:
 ## The dispatch itself is unchanged (_process_action_dispatch).
 func process_action(action: Dictionary) -> Dictionary:
 	var a_type := str(action.get("type", ""))
+	if a_type == "ASSIGN_TARGET" and _sts_deferred_hold_active():
+		_sts_held_actions.append(action.duplicate(true))
+		log_phase_message("[StratagemWindow] ASSIGN_TARGET held until the unit_selected_to_shoot decision (%d held)" % _sts_held_actions.size())
+		return create_result(true, [], "", {"stratagem_window_pending": true})
 	if a_type.begins_with("ORK11E_REACTIVE_MOVE_"):
 		return _ork11e_process_reactive_move_action(action)
 	if a_type == "SELECT_SHOOTER" or a_type == "SHOOT":
 		_ork11e_begin_shot_tracking(str(action.get("actor_unit_id", "")))
+	if a_type == "SELECT_SHOOTER":
+		_sts_note_selection(action)
+	elif a_type in _STS_DEFERRED_TRIGGERS and _sts_deferred_window_due(action):
+		# The auto-selected shooter's first real action: offer its
+		# unit_selected_to_shoot window BEFORE applying the action.
+		var sts_unit := _sts_window_deferred_unit
+		_sts_window_deferred_unit = ""
+		_sts_window_handled_unit = sts_unit
+		log_phase_message("[StratagemWindow] %s was auto-selected — unit_selected_to_shoot opens before the player's first %s" % [sts_unit, a_type])
+		var sts = _open_selected_to_shoot_window(sts_unit, {"type": "SELECT_SHOOTER", "actor_unit_id": sts_unit}, action)
+		var sts_diffs: Array = sts.get("diffs", [])
+		if sts.get("paused", false):
+			return create_result(true, sts_diffs, "", {"stratagem_window_pending": true})
+		if not sts_diffs.is_empty():
+			_sts_window_used_unit = sts_unit
+			var sts_shot_before := units_that_shot.size()
+			var sts_result: Dictionary = _process_action_dispatch(action)
+			if sts_result.get("success", false):
+				var sts_merged: Array = sts_diffs.duplicate()
+				sts_merged.append_array(sts_result.get("changes", []))
+				sts_result["changes"] = sts_merged
+				_ork11e_queue_post_shot(a_type, sts_shot_before, sts_result)
+				sts_result = _ork11e_run_post_shot_windows(sts_result)
+			return sts_result
 	var shot_before := units_that_shot.size()
 	var result: Dictionary = _process_action_dispatch(action)
 	if result.get("success", false):
@@ -1058,14 +1103,19 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 	# selected to shoot — before any target is confirmed or attack rolled, the
 	# active player may use a "when … is selected to shoot" stratagem. Opened
 	# once per selection; the resume re-enters this function (guard set).
-	if _sts_window_handled_unit != unit_id:
+	# An AUTOMATIC selection (ShootingController auto-select) defers it to the
+	# player's first action with the unit (_sts_note_selection, LV-2).
+	var sts_auto_selected := bool(action.get("payload", {}).get("auto_selected", false))
+	if _sts_window_handled_unit != unit_id and not (sts_auto_selected and _sts_window_deferred_unit == unit_id):
 		_sts_window_handled_unit = unit_id
+		_sts_window_deferred_unit = ""
 		var sts = _open_selected_to_shoot_window(unit_id, action)
 		if sts.get("paused", false):
 			active_shooter_id = unit_id
 			return create_result(true, sts.get("diffs", []), "", {"stratagem_window_pending": true})
 		var sts_diffs: Array = sts.get("diffs", [])
 		if not sts_diffs.is_empty():
+			_sts_window_used_unit = unit_id
 			var sts_cont = _process_select_shooter(action)
 			if action.get("payload", {}).has("_sts_atomic_action"):
 				# Atomic SHOOT: _process_shoot drops the select result's
@@ -1236,7 +1286,7 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 ## answer (the resume re-enters the selection, or the atomic SHOOT when the
 ## selection came from one); diffs = window diffs to merge into the result
 ## (AI uses are applied synchronously).
-func _open_selected_to_shoot_window(unit_id: String, action: Dictionary) -> Dictionary:
+func _open_selected_to_shoot_window(unit_id: String, action: Dictionary, deferred_action: Dictionary = {}) -> Dictionary:
 	var payload: Dictionary = action.get("payload", {})
 	var atomic_action = payload.get("_sts_atomic_action", {})
 	var sts_ctx := {"phase": "shooting", "unit_id": unit_id}
@@ -1257,6 +1307,10 @@ func _open_selected_to_shoot_window(unit_id: String, action: Dictionary) -> Dict
 	var resume_ctx := {"unit_id": unit_id, "select_action": action.duplicate(true)}
 	if typeof(atomic_action) == TYPE_DICTIONARY and not atomic_action.is_empty():
 		resume_ctx["atomic_action"] = atomic_action.duplicate(true)
+	if not deferred_action.is_empty():
+		# Auto-selected shooter: the window was opened by the player's first
+		# action with it — the resume applies that action (LV-2).
+		resume_ctx["deferred_action"] = deferred_action.duplicate(true)
 	var decider := get_current_player()
 	if open_stratagem_windows([{"player": decider, "window_id": "unit_selected_to_shoot", "ctx": sts_ctx}],
 			"_resume_after_selected_to_shoot_window", resume_ctx):
@@ -1269,6 +1323,35 @@ func _open_selected_to_shoot_window(unit_id: String, action: Dictionary) -> Dict
 func _resume_after_selected_to_shoot_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
 	var unit_id := str(ctx.get("unit_id", ""))
 	_sts_window_handled_unit = unit_id
+	_sts_window_deferred_unit = ""
+	if bool(_window_result.get("used", false)):
+		_sts_window_used_unit = unit_id
+	var deferred_action = ctx.get("deferred_action", {})
+	if typeof(deferred_action) == TYPE_DICTIONARY and not deferred_action.is_empty():
+		# The auto-selected shooter's first action, held while the window was
+		# open: re-validate (the stratagem may have changed the state) and apply.
+		var dv: Dictionary = validate_action(deferred_action)
+		if not dv.get("valid", false):
+			var derrs: Array = dv.get("errors", [])
+			return create_result(false, [], "%s after the stratagem window: %s" % [
+				str(deferred_action.get("type", "")), ", ".join(derrs) if not derrs.is_empty() else "not allowed"])
+		log_phase_message("[StratagemWindow] unit_selected_to_shoot closed — applying the held %s for %s" % [str(deferred_action.get("type", "")), unit_id])
+		var dres: Dictionary = _process_action_dispatch(deferred_action)
+		var held: Array = _sts_held_actions
+		_sts_held_actions = []
+		for h in held:
+			if not dres.get("success", false):
+				break
+			var hv: Dictionary = validate_action(h)
+			if not hv.get("valid", false):
+				log_phase_message("[StratagemWindow] held %s dropped after the window: %s" % [str(h.get("type", "")), str(hv.get("errors", []))])
+				continue
+			var hres: Dictionary = _process_action_dispatch(h)
+			if hres.get("success", false):
+				var hchanges: Array = dres.get("changes", [])
+				hchanges.append_array(hres.get("changes", []))
+				dres["changes"] = hchanges
+		return dres
 	var atomic_action = ctx.get("atomic_action", {})
 	if typeof(atomic_action) == TYPE_DICTIONARY and not atomic_action.is_empty():
 		return _merge_sts_carry_diffs(_process_shoot(atomic_action))
@@ -1276,6 +1359,54 @@ func _resume_after_selected_to_shoot_window(ctx: Dictionary, _window_result: Dic
 	if typeof(select_action) != TYPE_DICTIONARY or select_action.is_empty():
 		select_action = {"type": "SELECT_SHOOTER", "actor_unit_id": unit_id}
 	return _process_select_shooter(select_action)
+
+## True while the pending window is an auto-selected shooter's deferred
+## unit_selected_to_shoot (opened by the player's first action with it).
+func _sts_deferred_hold_active() -> bool:
+	if not has_pending_stratagem_window():
+		return false
+	if str(get_pending_stratagem_window().get("window_id", "")) != "unit_selected_to_shoot":
+		return false
+	var rctx = _window_resume_ctx
+	return typeof(rctx) == TYPE_DICTIONARY and rctx.has("deferred_action")
+
+## A burst of player assignments may continue while its first action's
+## deferred window is pending (held, see _sts_held_actions).
+func _window_exempt_action(action_type: String) -> bool:
+	if action_type == "ASSIGN_TARGET" and _sts_deferred_hold_active():
+		return true
+	return super._window_exempt_action(action_type)
+
+## SELECT_SHOOTER bookkeeping for the deferred unit_selected_to_shoot window
+## (LV-2 / RV-4). An automatic selection defers the window; an explicit
+## (re-)selection of a unit whose window was only declined is a new selection
+## and is offered again ("Don't offer again this phase" still suppresses it).
+func _sts_note_selection(action: Dictionary) -> void:
+	var sel_uid := str(action.get("actor_unit_id", ""))
+	if bool(action.get("payload", {}).get("auto_selected", false)):
+		_sts_window_deferred_unit = sel_uid if _sts_window_handled_unit != sel_uid else ""
+		if _sts_window_deferred_unit != "":
+			log_phase_message("[StratagemWindow] %s auto-selected — unit_selected_to_shoot deferred to the player's first action with it" % sel_uid)
+		return
+	_sts_window_deferred_unit = ""
+	if sel_uid != "" and _sts_window_handled_unit == sel_uid and _sts_window_used_unit != sel_uid \
+			and active_shooter_id == sel_uid:
+		_sts_window_handled_unit = ""
+	if _sts_window_used_unit != sel_uid:
+		_sts_window_used_unit = ""
+
+## True when `action` is the first real action of an auto-selected shooter
+## whose unit_selected_to_shoot window has not been offered yet.
+func _sts_deferred_window_due(action: Dictionary) -> bool:
+	if _sts_window_deferred_unit == "":
+		return false
+	if active_shooter_id != _sts_window_deferred_unit or _sts_window_handled_unit == _sts_window_deferred_unit:
+		_sts_window_deferred_unit = ""
+		return false
+	# The controller's own single-target auto-assign is not a player action.
+	if str(action.get("type", "")) == "ASSIGN_TARGET" and bool(action.get("payload", {}).get("auto_assigned", false)):
+		return false
+	return true
 
 ## Prepend the AI window diffs carried out of the atomic SHOOT's inner select.
 func _merge_sts_carry_diffs(result: Dictionary) -> Dictionary:

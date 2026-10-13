@@ -924,6 +924,8 @@ func phase_signal_map() -> Dictionary:
 		"ork11e_reactive_move_started": _on_ork11e_reactive_move_started,
 		"ork11e_reactive_move_updated": _on_ork11e_reactive_move_updated,
 		"ork11e_reactive_move_ended": _on_ork11e_reactive_move_ended,
+		# RV-4: flush single-target auto-assigns held while a window was open
+		"stratagem_window_closed": _on_phase_stratagem_window_closed,
 	}
 
 func set_phase(phase: BasePhase) -> void:
@@ -4011,11 +4013,18 @@ func _select_shooter_by_unit_id(unit_id: String) -> void:
 	# Fresh explicit selection: allow the no-targets report to fire again.
 	_no_targets_reported_unit = ""
 
-	# Emit action request - visualization will be triggered when action is confirmed
-	emit_signal("shoot_action_requested", {
+	# Emit action request - visualization will be triggered when action is confirmed.
+	# LV-2: an automatic selection (_refresh_unit_list's phase-entry / next-
+	# shooter auto-select) is flagged so the phase does not open the
+	# unit_selected_to_shoot window for a unit the player never picked — it
+	# opens before the player's first action with that shooter instead.
+	var select_action := {
 		"type": "SELECT_SHOOTER",
 		"actor_unit_id": unit_id
-	})
+	}
+	if _auto_select_in_flight:
+		select_action["payload"] = {"auto_selected": true}
+	emit_signal("shoot_action_requested", select_action)
 
 	# DON'T call _on_unit_selected_for_shooting() here in multiplayer.
 	# The phase emits unit_selected_for_shooting after processing the action.
@@ -6370,12 +6379,39 @@ func _flush_pending_auto_assigns() -> void:
 	"""Deferred worker for the auto-assigns queued during _refresh_weapon_tree.
 	Runs on idle with the render loop long finished — each ASSIGN_TARGET gets a
 	clean stack and any UI refresh it triggers cannot free live TreeItems."""
+	# RV-4: while a stratagem window (e.g. the explicitly selected shooter's
+	# unit_selected_to_shoot) or a follow-up is pending, the phase rejects every
+	# other action — dispatching now only produced a red "Shooting action
+	# rejected: Waiting for Player N to decide on a stratagem" toast and lost
+	# the auto-assignment. Keep the entries queued; the window-closed handler
+	# (_on_phase_stratagem_window_closed) flushes them again.
+	if _phase_window_blocks_actions():
+		if not _pending_auto_assigns.is_empty():
+			print("ShootingController: %d auto-assign(s) held — a stratagem window is pending" % _pending_auto_assigns.size())
+		return
 	var entries = _pending_auto_assigns
 	_pending_auto_assigns = []
 	for e in entries:
 		if e.size() < 3 or str(e[2]) != active_shooter_id:
 			continue  # Shooter changed since the refresh that queued this
 		_auto_assign_target(str(e[0]), str(e[1]))
+
+## True while the phase holds every other action for a stratagem window or a
+## used stratagem's follow-up (BasePhase rejects them with "Waiting for …").
+func _phase_window_blocks_actions() -> bool:
+	if current_phase == null or not current_phase.has_method("has_pending_stratagem_window"):
+		return false
+	if current_phase.has_pending_stratagem_window():
+		return true
+	return current_phase.has_method("get_pending_stratagem_window_decider") \
+		and int(current_phase.get_pending_stratagem_window_decider()) > 0
+
+## Phase signal: a stratagem window closed. Re-run the single-target
+## auto-assigns that were held while it was open (deferred: the phase is still
+## inside the window action's resume when this fires).
+func _on_phase_stratagem_window_closed(_player: int, _window_id: String, _used: bool) -> void:
+	if not _pending_auto_assigns.is_empty():
+		call_deferred("_flush_pending_auto_assigns")
 
 # LOS-VISIBILITY (2026-08): the subset of `model_ids` that can legally fire
 # `weapon_id` at `target_id` right now — in range AND with line of sight.
@@ -6440,7 +6476,10 @@ func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 	var payload = {
 		"weapon_id": weapon_id,
 		"target_unit_id": target_id,
-		"model_ids": eligible_ids
+		"model_ids": eligible_ids,
+		# Not a player action: does not open an auto-selected shooter's
+		# deferred unit_selected_to_shoot window (LV-2).
+		"auto_assigned": true
 	}
 
 	# F4: skip quietly if the engine would reject this (previously the tree was

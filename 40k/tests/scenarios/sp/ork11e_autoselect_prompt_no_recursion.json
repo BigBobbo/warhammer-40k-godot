@@ -21,9 +21,10 @@
       "equals": 8
     },
     {
-      "act": "click_if_visible",
-      "node": "/root/StratagemDialog/Content/DeclineButton",
-      "comment": "phase entry auto-selects the first eligible shooter - decline its War Horde CLOSE-RANGE DAKKA offer"
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 0,
+      "comment": "LV-2: the phase-entry auto-selection is not a player choice, so it opens NO unit_selected_to_shoot window (it opens before the player's first action with that shooter instead) - nothing to decline before the scenario picks its own shooter"
     },
     {
       "act": "wait_seconds",

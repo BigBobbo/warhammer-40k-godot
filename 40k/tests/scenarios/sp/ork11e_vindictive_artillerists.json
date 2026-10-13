@@ -30,9 +30,10 @@
       "comment": "phase entry auto-selects the first eligible shooter as a REAL SELECT_SHOOTER (r5:F3): the phase and the panel agree on the active shooter"
     },
     {
-      "act": "click_if_visible",
-      "node": "/root/StratagemDialog/Content/DeclineButton",
-      "comment": "that selection opens the unit_selected_to_shoot window for the auto-selected unit (War Horde CLOSE-RANGE DAKKA) - decline it before the scenario picks its own shooter"
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 0,
+      "comment": "LV-2: the phase-entry auto-selection is not a player choice, so it opens NO unit_selected_to_shoot window (it opens before the player's first action with that shooter instead) - nothing to decline before the scenario picks its own shooter"
     },
     {
       "act": "wait_seconds",

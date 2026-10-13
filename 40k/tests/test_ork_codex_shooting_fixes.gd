@@ -22,6 +22,10 @@ extends SceneTree
 #   L. r5:F8  SPEEDIEST FREEKS AI score follows the attacker's BS / TORRENT
 #   M. r5:F7 / r5:F6 / r5:F9  re-roll a dice at most once; re-roll decision
 #                      uses modifiers and fail bands
+#   N. live:LV-2 / reverify:RV-4  an AUTOMATIC shooter selection defers the
+#                      unit_selected_to_shoot window to the player's first action
+#                      with that unit; explicit re-selection after a plain Decline
+#                      is offered again; "Don't offer again" still suppresses it
 #
 # Usage: godot --headless --path 40k --script tests/test_ork_codex_shooting_fixes.gd
 
@@ -273,6 +277,7 @@ func _run() -> void:
 	_section_k_goaded_coherency()
 	_section_l_speediest_freeks_ai()
 	_section_m_rerolls()
+	_section_n_deferred_selected_to_shoot()
 
 
 # ---------------------------------------------------------------------------
@@ -1017,3 +1022,142 @@ func _section_m_rerolls() -> void:
 			refused = not RE.reroll_hit_die(hc, marked, RE.RNGService.new(1)).get("success", true)
 			break
 	_check("F7: a die LONG, UNCONTROLLED BURSTS re-rolled is marked, and a Command Re-roll on it is refused", marked >= 0 and refused, "marked %d" % marked)
+
+
+# ---------------------------------------------------------------------------
+func _first_target(shooter: String) -> String:
+	var targets: Dictionary = RE.get_eligible_targets(shooter, GS.create_snapshot())
+	for tid in targets:
+		if not targets[tid].get("weapons_in_range", []).is_empty():
+			return str(tid)
+	return ""
+
+
+func _section_n_deferred_selected_to_shoot() -> void:
+	print("\n-- N. live:LV-2 / reverify:RV-4 deferred unit_selected_to_shoot --")
+	_check("fixture loads", _load("ork11e_orks_active"))
+	_set_det(1, "War Horde")
+	var uid := "U_BATTLEWAGON_A"
+	var ph = _shooting()
+	var tid := _first_target(uid)
+	_check("the Battlewagon has an eligible target", tid != "", str(RE.get_eligible_targets(uid, GS.create_snapshot()).keys()))
+	if tid == "":
+		return
+	var asg: Array = _ranged_assignments(uid, tid)
+	_check("the Battlewagon has an assignable ranged weapon", not asg.is_empty())
+	if asg.is_empty():
+		return
+	# 1) Explicit baseline: a player's selection offers the window at once.
+	var sel = ph.execute_action({"type": "SELECT_SHOOTER", "actor_unit_id": uid, "player": 1})
+	_check("explicit SELECT_SHOOTER opens unit_selected_to_shoot (CLOSE-RANGE DAKKA)",
+		sel.get("success", false) and str(_pending(ph).get("window_id", "")) == "unit_selected_to_shoot" and "CLOSE-RANGE DAKKA" in _offer_names(_pending(ph)),
+		"%s %s" % [str(sel.get("error", "")), str(_pending(ph))])
+	var dec = ph.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1, "window_id": "unit_selected_to_shoot"})
+	_check("plain Decline closes it", dec.get("success", false) and not ph.has_pending_stratagem_window(), str(dec.get("error", "")))
+	var a0: Dictionary = asg[0].duplicate(true)
+	var asn = ph.execute_action({"type": "ASSIGN_TARGET", "player": 1, "payload": a0})
+	_check("after the decline the same selection's actions are not re-offered", asn.get("success", false) and not ph.has_pending_stratagem_window(), str(asn.get("error", "")))
+	var resel = ph.execute_action({"type": "SELECT_SHOOTER", "actor_unit_id": uid, "player": 1})
+	_check("an explicit RE-selection of the declined unit is a new selection: offered again",
+		resel.get("success", false) and str(_pending(ph).get("window_id", "")) == "unit_selected_to_shoot", str(_pending(ph)))
+	ph.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1, "window_id": "unit_selected_to_shoot", "dont_offer_again": true})
+	ph.execute_action({"type": "SELECT_SHOOTER", "actor_unit_id": uid, "player": 1})
+	_check("'Don't offer again this phase' still suppresses a re-selection", not ph.has_pending_stratagem_window(), str(_pending(ph)))
+
+	# 2) Automatic selection (fresh phase): no window until the player acts.
+	ph = _shooting()
+	_window_events.clear()
+	var auto_sel = ph.execute_action({"type": "SELECT_SHOOTER", "actor_unit_id": uid, "player": 1, "payload": {"auto_selected": true}})
+	_check("auto-selected SELECT_SHOOTER succeeds and the phase has the shooter", auto_sel.get("success", false) and str(ph.active_shooter_id) == uid, str(auto_sel.get("error", "")))
+	_check("auto-selection opens NO window (LV-2)", not ph.has_pending_stratagem_window() and _window_events.is_empty(), str(_window_events))
+	var auto_asn: Dictionary = asg[0].duplicate(true)
+	auto_asn["auto_assigned"] = true
+	var aa = ph.execute_action({"type": "ASSIGN_TARGET", "player": 1, "payload": auto_asn})
+	_check("the controller's single-target auto-assign is applied without opening the window",
+		aa.get("success", false) and not ph.has_pending_stratagem_window() and ph.pending_assignments.size() == 1, "%s %s" % [str(aa.get("error", "")), str(ph.pending_assignments.size())])
+	var conf = ph.execute_action({"type": "CONFIRM_TARGETS", "player": 1})
+	_check("the player's first action (CONFIRM_TARGETS) opens unit_selected_to_shoot first",
+		conf.get("success", false) and str(_pending(ph).get("window_id", "")) == "unit_selected_to_shoot" and "CLOSE-RANGE DAKKA" in _offer_names(_pending(ph)),
+		"%s %s" % [str(conf.get("error", "")), str(_pending(ph))])
+	_check("... and holds the action until the window closes (targets not confirmed yet)",
+		ph.confirmed_assignments.is_empty() and ph.pending_assignments.size() == 1, "%d confirmed / %d pending" % [ph.confirmed_assignments.size(), ph.pending_assignments.size()])
+	var blocked = ph.execute_action({"type": "CLEAR_ALL_ASSIGNMENTS", "player": 1})
+	_check("other actions wait for the decision", not blocked.get("success", false) and "Waiting for Player 1" in str(blocked.get("error", "")), str(blocked))
+	var cp_before := int(GS.state.players["1"]["cp"])
+	var crd := ""
+	for o in _pending(ph).get("offers", []):
+		if str(o.get("name", "")) == "CLOSE-RANGE DAKKA":
+			crd = str(o.get("stratagem_id", ""))
+	var use = ph.execute_action({"type": "USE_WINDOW_STRATAGEM", "player": 1, "window_id": "unit_selected_to_shoot", "stratagem_id": crd, "target_unit_id": uid})
+	_check("USE CLOSE-RANGE DAKKA succeeds and spends 1 CP", use.get("success", false) and int(GS.state.players["1"]["cp"]) == cp_before - 1,
+		"%s cp %d -> %d" % [str(use.get("error", "")), cp_before, int(GS.state.players["1"]["cp"])])
+	_check("the held CONFIRM_TARGETS is applied after the window (targets confirmed)",
+		not ph.confirmed_assignments.is_empty() or uid in ph.units_that_shot, "%d confirmed, shot=%s" % [ph.confirmed_assignments.size(), str(uid in ph.units_that_shot)])
+	var resel2 = ph.execute_action({"type": "SELECT_SHOOTER", "actor_unit_id": uid, "player": 1})
+	_check("a USED window is not offered again on re-selection (once per selection)", not ph.has_pending_stratagem_window() or not resel2.get("success", false), str(_pending(ph)))
+
+	# 3) Auto-selected, then the player explicitly selects the same unit: offered.
+	# (CLOSE-RANGE DAKKA was used above — clear the once-per-phase usage.)
+	SM._usage_history = {"1": [], "2": []}
+	SM.active_effects = []
+	ph = _shooting()
+	ph.execute_action({"type": "SELECT_SHOOTER", "actor_unit_id": uid, "player": 1, "payload": {"auto_selected": true}})
+	var expl = ph.execute_action({"type": "SELECT_SHOOTER", "actor_unit_id": uid, "player": 1})
+	_check("explicitly selecting the auto-selected unit opens its window", expl.get("success", false) and str(_pending(ph).get("window_id", "")) == "unit_selected_to_shoot", str(_pending(ph)))
+	ph.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1, "window_id": "unit_selected_to_shoot"})
+	var asn3 = ph.execute_action({"type": "ASSIGN_TARGET", "player": 1, "payload": asg[0].duplicate(true)})
+	_check("... once: the next action is not offered again", asn3.get("success", false) and not ph.has_pending_stratagem_window(), str(_pending(ph)))
+
+	# 3b) A burst of player assignments (quick-assign ALL): the first opens the
+	# deferred window, the rest are held (not rejected) and applied after it.
+	SM._usage_history = {"1": [], "2": []}
+	ph = _shooting()
+	var buid := ""
+	var basg: Array = []
+	for cand in ["U_FLASH_GITZ_A", "U_TANKBUSTAS_A", "U_KOMMANDOS_A", "U_BREAKA_BOYZ_A", "U_DEFFKOPTAS_A", "U_TRUKK_A", "U_MEK_GUNZ_A"]:
+		var ct := _first_target(cand)
+		if ct == "":
+			continue
+		var ca: Array = _ranged_assignments(cand, ct)
+		if ca.size() >= 2:
+			buid = cand
+			basg = ca
+			break
+		# One weapon carried by several models: split it (SPLIT-FIRE) into two
+		# assignments — two clicks' worth of ASSIGN_TARGETs.
+		if ca.size() == 1 and ca[0].model_ids.size() >= 2:
+			var half: int = ca[0].model_ids.size() / 2
+			var p1: Dictionary = ca[0].duplicate(true)
+			var p2: Dictionary = ca[0].duplicate(true)
+			p1["model_ids"] = ca[0].model_ids.slice(0, half)
+			p2["model_ids"] = ca[0].model_ids.slice(half)
+			buid = cand
+			basg = [p1, p2]
+			break
+	ph.execute_action({"type": "SELECT_SHOOTER", "actor_unit_id": buid, "player": 1, "payload": {"auto_selected": true}})
+	if basg.size() >= 2:
+		var b1 = ph.execute_action({"type": "ASSIGN_TARGET", "player": 1, "payload": basg[0].duplicate(true)})
+		var b2 = ph.execute_action({"type": "ASSIGN_TARGET", "player": 1, "payload": basg[1].duplicate(true)})
+		_check("burst: the first ASSIGN_TARGET opens the window, the second is held (not rejected)",
+			b1.get("success", false) and b2.get("success", false) and str(_pending(ph).get("window_id", "")) == "unit_selected_to_shoot" and ph.pending_assignments.is_empty(),
+			"%s / %s pending=%d" % [str(b1.get("error", "")), str(b2.get("error", "")), ph.pending_assignments.size()])
+		var bd = ph.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1, "window_id": "unit_selected_to_shoot"})
+		var want: int = basg[0].model_ids.size() + basg[1].model_ids.size()
+		var got := 0
+		for pa in ph.pending_assignments:
+			got += pa.get("model_ids", []).size()
+		_check("burst (%s): after the decision both assignments are applied (%d bearers)" % [buid, want],
+			bd.get("success", false) and got == want, str(ph.pending_assignments))
+	else:
+		_check("burst: a unit with two assignable weapons exists", false)
+
+	# 4) The AI / Shoot All Remaining path (atomic SHOOT) still gets its window.
+	SM._usage_history = {"1": [], "2": []}
+	ph = _shooting()
+	ph.execute_action({"type": "SELECT_SHOOTER", "actor_unit_id": uid, "player": 1, "payload": {"auto_selected": true}})
+	var shoot = ph.execute_action({"type": "SHOOT", "actor_unit_id": uid, "player": 1, "payload": {"assignments": asg}})
+	_check("atomic SHOOT of an auto-selected unit opens the (human) window before it fires",
+		shoot.get("success", false) and str(_pending(ph).get("window_id", "")) == "unit_selected_to_shoot" and not uid in ph.units_that_shot, str(_pending(ph)))
+	var dec4 = ph.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1, "window_id": "unit_selected_to_shoot"})
+	_check("declining resumes the SHOOT", dec4.get("success", false) and uid in ph.units_that_shot, str(dec4.get("error", "")))
+
