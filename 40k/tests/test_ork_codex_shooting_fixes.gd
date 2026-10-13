@@ -32,6 +32,13 @@ extends SceneTree
 #   P. ai:AIR-3  RulesEngine._resolve_assignment_hits' early returns (target
 #                      gone / unknown weapon / SPLIT-FIRE dropped every model)
 #                      are "no hits" results — no SCRIPT ERROR downstream
+#   Q. ai:LAST-1  the AI never fires a [BLAST] weapon at a unit in Engagement
+#                      Range of its own units (a VEHICLE stays an eligible target
+#                      for its other weapons): sanitizer + fallback use the
+#                      validator's validate_blast_targeting
+#   R. live:LV2-G1  every [HAZARDOUS] roll (granted or native) has a Game Log
+#                      line ("Hazardous: <unit> (<weapon>) rolled 2 — failed
+#                      (1-2): 3 mortal wounds"); 11e wording; Dice History rows
 #
 # Usage: godot --headless --path 40k --script tests/test_ork_codex_shooting_fixes.gd
 
@@ -286,6 +293,8 @@ func _run() -> void:
 	_section_n_deferred_selected_to_shoot()
 	_section_o_ai_hunter_planner()
 	_section_p_resolve_early_returns()
+	_section_q_ai_blast_vs_friendly_engaged()
+	_section_r_hazard_game_log()
 
 
 # ---------------------------------------------------------------------------
@@ -1299,3 +1308,182 @@ func _section_p_resolve_early_returns() -> void:
 		var w = RE._resolve_assignment_until_wounds(c[1], "U_TANKBUSTAS_A", board, RE.make_rng())
 		_check("%s: _resolve_assignment_until_wounds returns cleanly (was: an invalid hit_context access)" % c[0],
 			typeof(w) == TYPE_DICTIONARY and w.get("dice", [1]).is_empty() and str(w.get("log_text", "")) != "", str(w))
+
+
+# ---------------------------------------------------------------------------
+## The Mek Gunz' [BLAST] ranged weapon ids (all of its guns are Blast).
+func _blast_weapons(uid: String) -> Array:
+	var out: Array = []
+	var uw: Dictionary = RE.get_unit_weapons(uid, GS.create_snapshot())
+	for mid in uw:
+		for wid in uw[mid]:
+			if RE.is_blast_weapon(str(wid), GS.state) and not str(wid) in out:
+				out.append(str(wid))
+	return out
+
+
+func _section_q_ai_blast_vs_friendly_engaged() -> void:
+	print("\n-- Q. ai:LAST-1 AI planner vs [BLAST] at a unit engaged with friendlies --")
+	_check("fixture loads", _load("ork11e_orks_active"))
+	var mg := "U_MEK_GUNZ_A"
+	var bw := "U_BATTLEWAGON_A"
+	# No other enemy in play (a parked unit is still inside the 48" guns' range).
+	for uid in GS.state.units:
+		if int(GS.state.units[uid].get("owner", 0)) == 2 and uid != "U_CUSTODIAN_GUARD_C":
+			_kill(uid, 99)
+	_park("U_CUSTODIAN_GUARD_C")
+	_kill("U_CUSTODIAN_GUARD_C", 99)
+	# An ENEMY Battlewagon 14" in front of the Mek Gunz, fought by the Orks'
+	# own Trukk (moved right behind it, so the two hulls are engaged).
+	GS.state.units[bw]["owner"] = 2
+	var c := _centroid(mg) / PX
+	_move_to(bw, Vector2(c.x, c.y + 14.0))
+	var bwc := _centroid(bw) / PX
+	var engaged := false
+	for k in range(20):
+		_move_to("U_TRUKK_A", Vector2(bwc.x + 9.0 - k * 0.5, bwc.y))  # beside it, away from the open ground below
+		if RE._check_units_in_engagement_range(GS.state.units.U_TRUKK_A, GS.state.units[bw], GS.state):
+			engaged = true
+			break
+	_check("set-up: the friendly Trukk is in Engagement Range of the enemy Battlewagon", engaged)
+	var ph = _shooting()
+	_only_shooter(ph, mg)
+	var snap: Dictionary = GS.create_snapshot()
+	var elig: Dictionary = RE.get_eligible_targets(mg, snap)
+	var blast: Array = _blast_weapons(mg)
+	var in_range: Array = elig.get(bw, {}).get("weapons_in_range", [])
+	var blast_in_range: Array = blast.filter(func(w): return w in in_range)
+	_check("set-up: the engaged VEHICLE stays an eligible target for the Mek Gunz' [BLAST] guns (get_eligible_targets, Big Guns Never Tire)",
+		not blast_in_range.is_empty(), "blast=%s in_range=%s" % [str(blast), str(in_range)])
+	if blast_in_range.is_empty():
+		return
+	var bwid: String = blast_in_range[0]
+	_check("set-up: validate_blast_targeting rejects that pair", not RE.validate_blast_targeting(mg, bw, bwid, snap).get("valid", true))
+	var mids: Array = []
+	var uw: Dictionary = RE.get_unit_weapons(mg, snap)
+	for mid in uw:
+		if bwid in uw[mid]:
+			mids.append(mid)
+	var AIDM = load("res://scripts/AIDecisionMaker.gd")
+	var s_out: Array = AIDM._sanitize_shoot_assignments(mg, [{"weapon_id": bwid, "target_unit_id": bw, "model_ids": mids}], snap)
+	_check("sanitizer: a [BLAST] weapon -> a unit engaged with friendlies is dropped (same predicate as validate_shoot)", s_out.is_empty(), str(s_out))
+	var fb: Array = AIDM._build_unit_assignments_fallback(snap.units[mg], snap.units[mg].meta.weapons.filter(func(w): return str(w.get("type", "")).to_lower() == "ranged"),
+		{bw: snap.units[bw]}, snap, mg)
+	var fb_blast_at_bw := false
+	for a in fb:
+		if str(a.get("target_unit_id", "")) == bw and RE.is_blast_weapon(str(a.get("weapon_id", "")), snap):
+			fb_blast_at_bw = true
+	_check("fallback planner: never picks that pair", not fb_blast_at_bw, str(fb))
+	# Only the engaged Battlewagon is in view: the AI must not submit a SHOOT
+	# the validator rejects (that cost the unit its whole activation).
+	var d1: Dictionary = _ai_shoot_decision(ph, mg)
+	var v1 = RE.validate_shoot(d1, GS.create_snapshot()) if str(d1.get("type", "")) == "SHOOT" else {"valid": true}
+	_check("AI decision with only the engaged VEHICLE in view: no rejected SHOOT (SKIP or a valid SHOOT)",
+		str(d1.get("actor_unit_id", "")) == mg and v1.get("valid", false), "%s %s" % [str(d1), str(v1.get("errors", []))])
+	# An unengaged INFANTRY target is also in view: the AI shoots it instead.
+	var cgm: Array = _unit("U_CUSTODIAN_GUARD_C").models
+	for i in range(cgm.size()):
+		cgm[i]["position"] = {"x": (c.x - 12.0 + i * 2.0) * PX, "y": 37.0 * PX}  # open ground, > 6" from the Ork line
+		cgm[i]["alive"] = true
+		cgm[i]["wounds"] = 99
+		cgm[i]["current_wounds"] = 99
+	_check("set-up: Custodian Guard C is a legal [BLAST] target", RE.get_eligible_targets(mg, GS.create_snapshot()).has("U_CUSTODIAN_GUARD_C")
+		and RE.validate_blast_targeting(mg, "U_CUSTODIAN_GUARD_C", bwid, GS.create_snapshot()).get("valid", false))
+	var d2: Dictionary = _ai_shoot_decision(ph, mg)
+	var a2: Array = d2.get("payload", {}).get("assignments", [])
+	var blast_at_bw := false
+	for a in a2:
+		if str(a.get("target_unit_id", "")) == bw and RE.is_blast_weapon(str(a.get("weapon_id", "")), GS.state):
+			blast_at_bw = true
+	_check("AI decision with a legal target too: SHOOTs, no [BLAST] -> engaged VEHICLE", str(d2.get("type", "")) == "SHOOT" and not a2.is_empty() and not blast_at_bw, str(d2))
+	var v2 = RE.validate_shoot(d2, GS.create_snapshot())
+	_check("AI decision with a legal target too: the SHOOT passes validate_shoot", v2.get("valid", false), str(v2.get("errors", [])))
+	var ai = root.get_node("AIPlayer")
+	ai.enabled = true
+	ai.ai_players = {1: true, 2: false}
+	d2["player"] = 1
+	var r2 = ph.execute_action(d2)
+	ai.enabled = false
+	ai.ai_players = {1: false, 2: false}
+	_check("the SHOOT is executed (not rejected -> no SKIP_UNIT)", str(d2.get("type", "")) == "SHOOT" and r2.get("success", false) and mg in ph.units_that_shot, str(r2.get("error", r2.get("errors", ""))))
+
+
+# ---------------------------------------------------------------------------
+## First seed whose single D6 is in (lo..hi).
+func _seed_with_d6(lo: int, hi: int) -> int:
+	for sd in range(1, 400):
+		var r: Array = RE.RNGService.new(sd).roll_d6(1)
+		if int(r[0]) >= lo and int(r[0]) <= hi:
+			return sd
+	return -1
+
+
+func _hazard_entries() -> Array:
+	return root.get_node("GameEventLog").get_all_entries().filter(func(e): return str(e.get("text", "")).contains("Hazardous:"))
+
+
+func _section_r_hazard_game_log() -> void:
+	print("\n-- R. live:LV2-G1 hazard rolls in the Game Log --")
+	_check("fixture loads", _load("ork11e_orks_active"))
+	var mg := "U_MEK_GUNZ_A"
+	# The fixture's Mek Gunz model carries the (plain) Smasha Gun; the unit's
+	# datasheet also lists the natively [HAZARDOUS] Kustom Mega-kannon.
+	var plain := "smasha_gun_ranged"
+	var native := "kustom_mega_kannon_ranged"
+	_check("set-up: Smasha Gun is not [HAZARDOUS], Kustom Mega-kannon is", not RE.is_hazardous_weapon(plain, GS.state) and RE.is_hazardous_weapon(native, GS.state))
+	GS.state.units[mg].flags["effect_grant_hazardous"] = true  # VINDICTIVE ARTILLERISTS overcharge
+	var fail_seed := _seed_with_d6(2, 2)
+	var safe_seed := _seed_with_d6(5, 6)
+	var granted = RE.resolve_hazardous_check(mg, plain, 1, GS.state.duplicate(true), RE.RNGService.new(fail_seed))
+	var g_line := str(granted.get("game_log_text", ""))
+	_check("granted [HAZARDOUS] rolled 2 (11e: fails on 1-2): triggered", granted.get("hazardous_triggered", false), str(granted))
+	_check("granted: Game Log text names unit, weapon, roll, band and the mortal wounds",
+		g_line.begins_with("Hazardous: Mek Gunz (") and g_line.contains("rolled 2") and g_line.contains("failed (1-2)") and g_line.contains("mortal wound"), g_line)
+	var chk: Dictionary = granted.dice[0] if not granted.dice.is_empty() else {}
+	_check("11e dice message says 'failed (1-2)', not '1 ones'", str(chk.get("message", "")).contains("1 failed (1-2)") and not str(chk.get("message", "")).contains("ones"), str(chk.get("message", "")))
+	_check("hazardous_check block names the unit + fail threshold 2", str(chk.get("unit_name", "")) == "Mek Gunz" and int(chk.get("fail_threshold", 0)) == 2, str(chk))
+	var nat_safe = RE.resolve_hazardous_check(mg, native, 1, GS.state.duplicate(true), RE.RNGService.new(safe_seed))
+	_check("native [HAZARDOUS] safe roll: 'passed (fails on 1-2)' line", str(nat_safe.get("game_log_text", "")).contains("passed (fails on 1-2)") and str(nat_safe.get("game_log_text", "")).begins_with("Hazardous: Mek Gunz ("), str(nat_safe.get("game_log_text", "")))
+	var nat_fail = RE.resolve_hazardous_check(mg, native, 1, GS.state.duplicate(true), RE.RNGService.new(fail_seed))
+	_check("native and granted failed rolls read the same (only the weapon differs)",
+		str(nat_fail.get("game_log_text", "")).replace(str(nat_fail.dice[0].weapon_name), "W") == g_line.replace(str(granted.dice[0].weapon_name), "W"),
+		"%s | %s" % [str(nat_fail.get("game_log_text", "")), g_line])
+	# The shooting phase's Game Log hook (sequential APPLY_SAVES / miss path).
+	var ph = _shooting()
+	ph.active_shooter_id = mg
+	var n0 := _hazard_entries().size()
+	ph._log_hazard_to_game_log(granted)
+	var ents := _hazard_entries()
+	_check("ShootingPhase._log_hazard_to_game_log adds 'P1: Hazardous: …' as a P1 entry",
+		ents.size() == n0 + 1 and str(ents[-1].get("text", "")).begins_with("P1: Hazardous: Mek Gunz (") and str(ents[-1].get("type", ents[-1].get("entry_type", ""))) == "p1_action", str(ents.back() if not ents.is_empty() else {}))
+	# AI atomic SHOOT: the hazard line rides on the shot's Game Log text.
+	_check("fixture reloads", _load("ork11e_orks_active"))
+	for uid in GS.state.units:
+		if int(GS.state.units[uid].get("owner", 0)) == 2 and uid != "U_CUSTODIAN_GUARD_C":
+			_kill(uid, 99)
+	var c := _centroid(mg) / PX
+	var cgm: Array = _unit("U_CUSTODIAN_GUARD_C").models
+	for i in range(cgm.size()):
+		cgm[i]["position"] = {"x": (c.x - 4.0 + i * 2.0) * PX, "y": 36.0 * PX}
+		cgm[i]["wounds"] = 99
+		cgm[i]["current_wounds"] = 99
+	ph = _shooting()
+	_only_shooter(ph, mg)
+	GS.state.units[mg].flags["effect_grant_hazardous"] = true  # set after the phase transitions (they expire effects)
+	var ai = root.get_node("AIPlayer")
+	ai.enabled = true
+	ai.ai_players = {1: true, 2: false}
+	var r = ph.execute_action({"type": "SHOOT", "actor_unit_id": mg, "player": 1,
+		"payload": {"assignments": _ranged_assignments(mg, "U_CUSTODIAN_GUARD_C"), "rng_seed": 11}})
+	ai.enabled = false
+	ai.ai_players = {1: false, 2: false}
+	_check("AI atomic SHOOT with granted [HAZARDOUS]: its Game Log text carries the hazard roll(s)",
+		r.get("success", false) and str(r.get("log_text", "")).contains("Hazardous: Mek Gunz ("), str(r.get("log_text", r.get("error", ""))))
+	# Dice History rows (were "Hazardous Check: 2" and an empty "Hazardous Damage:").
+	var DHP = root.get_node_or_null("DiceHistoryPanel")
+	if DHP != null:
+		var hc: String = DHP.format_entry_bbcode({"data": granted.dice[0], "phase": "Shooting", "round": 2, "player": 1})
+		var hd: String = DHP.format_entry_bbcode({"data": granted.dice[1] if granted.dice.size() > 1 else {}, "phase": "Shooting", "round": 2, "player": 1})
+		_check("Dice History: hazard check row names the weapon and the 1-2 band", hc.contains("Hazardous") and hc.contains("fails on 1-2") and hc.contains("failed"), hc)
+		_check("Dice History: hazard damage row shows the mortal wounds", hd.contains("mortal wound") and hd.contains("Mek Gunz"), hd)
+

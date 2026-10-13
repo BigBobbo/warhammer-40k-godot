@@ -1370,6 +1370,20 @@ func _sts_deferred_hold_active() -> bool:
 	var rctx = _window_resume_ctx
 	return typeof(rctx) == TYPE_DICTIONARY and rctx.has("deferred_action")
 
+## LV2-B1: the type of the player's action the closing unit_selected_to_shoot
+## window will apply on resume ("" when it holds none). The deferred window of
+## an auto-selected shooter holds that action (and the rest of its assignment
+## burst); the ShootingController reads this from the stratagem_window_closed
+## signal — emitted before the resume runs — to refresh its panel from the
+## phase once the held ASSIGN_TARGET(s) have been applied.
+func sts_window_held_action_type() -> String:
+	if typeof(_window_resume_ctx) != TYPE_DICTIONARY:
+		return ""
+	var held = _window_resume_ctx.get("deferred_action", {})
+	if typeof(held) != TYPE_DICTIONARY or held.is_empty():
+		return ""
+	return str(held.get("type", ""))
+
 ## A burst of player assignments may continue while its first action's
 ## deferred window is pending (held, see _sts_held_actions).
 func _window_exempt_action(action_type: String) -> bool:
@@ -1881,6 +1895,7 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 					dice_data.append(haz_dice)
 				if haz_result.log_text:
 					log_phase_message(haz_result.log_text)
+				_log_hazard_to_game_log(haz_result)  # LV2-G1
 
 		# Check if this is single weapon mode (not sequential)
 		var mode = resolution_state.get("mode", "")
@@ -3085,6 +3100,7 @@ func _resolve_ai_shoot(action: Dictionary) -> Dictionary:
 # cleanup. Called by the auto-resolve path directly and by the interactive
 # defender-saves path once the last APPLY_SAVES lands.
 func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_dice: Array, total_casualties: int, save_data_list: Array, hazardous_weapons: Array, one_shot_diffs: Array, skip_damage_signal: bool = false) -> Dictionary:
+	var ai_hazard_lines: Array = []  # LV2-G1: Game Log text of each hazard roll
 	# HAZARDOUS (T2-3): Process Hazardous self-damage after saves resolve (AI path)
 	if not hazardous_weapons.is_empty():
 		DebugLogger.info(str("║ AI SHOOT: Processing %d hazardous weapon check(s)" % hazardous_weapons.size()))
@@ -3102,6 +3118,10 @@ func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_d
 			all_dice.append_array(haz_result.dice)
 			if haz_result.log_text:
 				log_phase_message(haz_result.log_text)
+			# LV2-G1: the attack summary below is this SHOOT's Game Log line —
+			# carry the hazard roll in it (it was only in the debug log).
+			if str(haz_result.get("game_log_text", "")) != "":
+				ai_hazard_lines.append(str(haz_result.get("game_log_text", "")))
 
 	# ONE SHOT (T4-2): Include one-shot diffs in AI path
 	var ai_one_shot_diffs = one_shot_diffs
@@ -3144,6 +3164,9 @@ func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_d
 	# GROT SHIELDS interceptions explain where those hits went (r3:F6).
 	if not grot_shield_msgs.is_empty():
 		attack_summary += " [%s]" % "; ".join(grot_shield_msgs)
+	# LV2-G1: the shooter's own [HAZARDOUS] rolls (native or granted).
+	if not ai_hazard_lines.is_empty():
+		attack_summary += " [%s]" % "; ".join(ai_hazard_lines)
 
 	# T7-38: Emit AI shooting visual signals BEFORE clearing state
 	# Collect unique targets with weapon names for targeting line visualization
@@ -5629,6 +5652,16 @@ func _ork11e_forced_shoot(player: int, followup: Dictionary) -> void:
 	if not damage_diffs.is_empty():
 		emit_signal("shooting_damage_applied", unit_id, damage_diffs)
 	var summary := "%s: %s → %s: %d hit(s), %d wound(s), %d model(s) slain" % [source, unit_name, target_name, hits, wounds, casualties]
+	# LV2-G1: the forced shooter's own [HAZARDOUS] roll(s).
+	var res_dice: Array = res.get("dice", [])
+	var gc_haz_lines: Array = []
+	for hi in range(res_dice.size()):
+		if str(res_dice[hi].get("context", "")) == "hazardous_check":
+			var gc_haz := RulesEngine.hazard_game_log_line(res_dice.slice(hi, hi + 2))
+			if gc_haz != "":
+				gc_haz_lines.append(gc_haz)
+	if not gc_haz_lines.is_empty():
+		summary += " [%s]" % "; ".join(gc_haz_lines)
 	log_phase_message(summary)
 	GameEventLog.add_combat_result("  " + summary)
 	GameEventLog.add_player_entry(player, summary)
@@ -8057,6 +8090,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				DebugLogger.info(str("ShootingPhase: Emitted feel_no_pain dice block from overlay - %d prevented / %d total" % [total_prevented, fnp_rolls_from_overlay.size()]))
 
 	# HAZARDOUS (T2-3): Process Hazardous self-damage after saves resolve
+	var hazard_results_for_log: Array = []
 	if not pending_hazardous_weapons.is_empty():
 		DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
 		DebugLogger.info(str("║ HAZARDOUS CHECK — Processing %d hazardous weapon(s)" % pending_hazardous_weapons.size()))
@@ -8080,6 +8114,8 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				emit_signal("dice_rolled", haz_dice)
 			if haz_result.log_text:
 				log_phase_message(haz_result.log_text)
+			# LV2-G1: logged after this weapon's combat card (below).
+			hazard_results_for_log.append(haz_result)
 		pending_hazardous_weapons.clear()
 
 	# ONE SHOT (T4-2): Include one-shot diffs in save result changes
@@ -8099,6 +8135,10 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 
 	# VERBOSE COMBAT LOG: Emit save and result details
 	_emit_verbose_combat_log(active_shooter_id, [], save_dice_blocks, total_casualties, "shooting_saves")
+	# LV2-G1: the shooter's [HAZARDOUS] roll(s) follow the shot's combat card —
+	# before, a failed roll's mortal wounds never reached the Game Log.
+	for haz_logged in hazard_results_for_log:
+		_log_hazard_to_game_log(haz_logged)
 
 	# Check if we're in sequential weapon resolution mode.
 	# CRITICAL: "sequential_staged" (the non-networked hit→wound→saves staged flow)
@@ -8608,6 +8648,19 @@ func _process_continue_sequence(action: Dictionary) -> Dictionary:
 # ============================================================================
 # VERBOSE COMBAT LOG — Detailed dice breakdown for Game Event Log
 # ============================================================================
+
+## LV2-G1: a [HAZARDOUS] roll (native or granted, e.g. VINDICTIVE ARTILLERISTS'
+## overcharge) gets its own Game Log line, attributed to the shooter's owner:
+## "P1: Hazardous: Mek Gunz (Smasha Gun) rolled 2 — failed (1-2): 3 mortal wounds".
+## Before, it reached only the debug log, so a failed roll's mortal wounds
+## were invisible to the player.
+func _log_hazard_to_game_log(haz_result: Dictionary) -> void:
+	var line := str(haz_result.get("game_log_text", ""))
+	if line == "":
+		return
+	var haz_owner := int(get_unit(active_shooter_id).get("owner", get_current_player()))
+	GameEventLog.add_player_entry(haz_owner, line)
+	log_phase_message("[LV2-G1] Game Log: P%d: %s" % [haz_owner, line])
 
 func _emit_verbose_combat_log(shooter_id: String, dice_data: Array, save_dice_blocks: Array, casualties: int, phase_type: String) -> void:
 	"""Emit detailed combat log entries to GameEventLog from dice_data and save results.

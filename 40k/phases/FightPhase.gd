@@ -1932,6 +1932,10 @@ func _staged_fight_assignment_complete(changes: Array) -> Dictionary:
 				emit_signal("dice_rolled", db)
 			if hazard.get("log_text", "") != "":
 				log_phase_message(hazard.get("log_text", ""))
+			# LV2-G1: show the hazard roll in the Game Log (after this weapon's
+			# combat card), as the shooting phase does.
+			if str(hazard.get("game_log_text", "")) != "":
+				GameEventLog.add_player_entry(int(fighter_unit.get("owner", get_current_player())), str(hazard.get("game_log_text", "")))
 		staged_fight_state.completed.append(assignment)
 	staged_fight_state.current_index = idx + 1
 	return _staged_fight_roll_hits(changes)

@@ -10,10 +10,10 @@
   ],
   "fixture": "ork11e_orks_active",
   "edition": 11,
-  "rng_seed": 42,
+  "rng_seed": 3,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "Codex: Orks (11e) VINDICTIVE ARTILLERISTS (Madcap Meks) through the real unit_selected_to_shoot WINDOW. Setup-only: P1's detachment is switched to Madcap Meks (fixture army is War Horde), Custodian Guard C is moved unengaged in front of the Ork rank with inflated wounds, and the defender auto-allocates. A real click on the Mek Gunz token opens the StratagemDialog with the VINDICTIVE ARTILLERISTS card showing ONLY the three option buttons ([LETHAL HITS] / [SUSTAINED HITS 1] / [HAZARDOUS]+[LETHAL HITS]+[SUSTAINED HITS 1]), all enabled; there is no plain Use button. A real click on the overcharged option spends 1 CP and gives the Mek Gunz ranged LETHAL HITS, SUSTAINED HITS 1 and HAZARDOUS for the phase. The shot is declared and resolved through Quick-Assign, Confirm, the dock's Fast button and the save overlay's Done: the hit roll carries LETHAL + SUSTAINED HITS 1 and a hazard roll follows the attacks.",
+  "description": "Codex: Orks (11e) VINDICTIVE ARTILLERISTS (Madcap Meks) through the real unit_selected_to_shoot WINDOW. Setup-only: P1's detachment is switched to Madcap Meks (fixture army is War Horde), Custodian Guard C is moved unengaged in front of the Ork rank with inflated wounds, and the defender auto-allocates. A real click on the Mek Gunz token opens the StratagemDialog with the VINDICTIVE ARTILLERISTS card showing ONLY the three option buttons ([LETHAL HITS] / [SUSTAINED HITS 1] / [HAZARDOUS]+[LETHAL HITS]+[SUSTAINED HITS 1]), all enabled; there is no plain Use button. A real click on the overcharged option spends 1 CP and gives the Mek Gunz ranged LETHAL HITS, SUSTAINED HITS 1 and HAZARDOUS for the phase. The shot is declared and resolved through Quick-Assign, Confirm, the dock's Fast button and the save overlay's Done: the hit roll carries LETHAL + SUSTAINED HITS 1 and a hazard roll follows the attacks; with seed 3 it fails (a 1), the Mek Gunz take 3 mortal wounds and the Game Log says so: 'P1: Hazardous: Mek Gunz (Smasha Gun) rolled 1 — failed (1-2): 3 mortal wounds' (LV2-G1).",
   "steps": [
     {
       "act": "wait_seconds",
@@ -355,6 +355,26 @@
       "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and (str(d.get(\"context\", \"\")) == \"hazardous_check\" and int(d.get(\"models_checked\", 0)) >= 1):\n\t\treturn true\nreturn false",
       "equals": true,
       "comment": "the granted [HAZARDOUS] made a hazard roll after the attacks (11e 24.15)"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Hazardous: Mek Gunz (Smasha Gun) rolled 1 — failed (1-2): 3 mortal wounds\")",
+      "equals": 1,
+      "comment": "LV2-G1: the failed granted [HAZARDOUS] roll (seed 3: a 1) has its own Game Log line naming unit, weapon, roll, the 1-2 band and the mortal wounds - before, it was only in the debug log"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = GameState.get_unit(\"U_MEK_GUNZ_A\").models[0]\nreturn int(m.get(\"wounds\", 0)) - int(m.get(\"current_wounds\", 0))",
+      "equals": 3,
+      "comment": "the 3 mortal wounds the Game Log reports were applied to the Mek Gunz"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"hazardous_check\":\n\t\treturn str(d.get(\"message\", \"\")).contains(\"(1-2)\") and not str(d.get(\"message\", \"\")).contains(\" ones\")\nreturn false",
+      "equals": true,
+      "comment": "LV2-G1: 11e wording - a hazard roll fails on 1-2 ('N failed (1-2)', not 'N ones')"
     },
     {
       "act": "screenshot",

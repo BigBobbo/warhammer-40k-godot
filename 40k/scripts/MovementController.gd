@@ -98,6 +98,9 @@ var move_cap_label: Label
 var inches_used_label: Label
 var inches_left_label: Label
 var illegal_reason_label: Label
+# LV2-C1: the per-unit move buttons (Undo Model / Reset Unit / End This Unit's
+# Move) — disabled while no unit is being moved (_sync_unit_move_controls).
+var _unit_move_buttons: Array = []
 var unit_list: ItemList
 var dice_log_display: RichTextLabel
 var dice_roll_visual: DiceRollVisual  # P3-118: Dice roll visualization for reroll comparisons
@@ -769,9 +772,11 @@ func _create_section4_actions(parent: VBoxContainer) -> void:
 	confirm_button.pressed.connect(_on_confirm_move_pressed)
 	_WhiteDwarfTheme.apply_primary_button(confirm_button)
 	button_container.add_child(confirm_button)
-	
+	_unit_move_buttons = [undo_button, reset_button, confirm_button]
+
 	section.add_child(button_container)
 	parent.add_child(section)
+	_sync_unit_move_controls()
 
 func _add_movement_gold_separator(parent: VBoxContainer) -> void:
 	var spacer_top = Control.new()
@@ -859,6 +864,25 @@ func _update_selected_unit_display() -> void:
 			mode_text += active_mode
 		unit_mode_label.text = mode_text
 	_apply_reactive_move_panel_state()
+	_sync_unit_move_controls()
+
+## LV2-C1: the drag hint ("9 of 10 models can be placed here", "Exceeds movement
+## cap" …) and the Undo Model / Reset Unit / End This Unit's Move buttons belong
+## to the unit being moved. With none (its move — e.g. a reactive SCARPER! /
+## WHIRLIGIG / WTBT move — was just ended) the hint is cleared and the buttons
+## are disabled instead of lingering on the panel; selecting / beginning a move
+## (this runs from _update_selected_unit_display and _update_movement_display)
+## enables them again.
+func _sync_unit_move_controls() -> void:
+	var has_unit := active_unit_id != ""
+	if not has_unit and illegal_reason_label and is_instance_valid(illegal_reason_label) \
+			and illegal_reason_label.text != "":
+		print("MovementController: LV2-C1 clearing stale move hint '%s' (no unit is moving)" % illegal_reason_label.text)
+		illegal_reason_label.text = ""
+		illegal_reason_label.modulate = Color.WHITE
+	for b in _unit_move_buttons:
+		if b and is_instance_valid(b):
+			b.disabled = not has_unit
 
 ## The phase's active-move record for a unit ({} when none / no phase).
 func _active_move_data_for(unit_id: String) -> Dictionary:
@@ -2116,6 +2140,7 @@ func _on_unit_move_confirmed(unit_id: String, result_summary: Dictionary) -> voi
 	_update_movement_display()
 	_refresh_unit_list()
 	_apply_reactive_move_panel_state()  # a finished reactive move restores the mode chooser
+	_sync_unit_move_controls()  # LV2-C1: no stale drag hint / per-unit buttons
 	emit_signal("ui_update_requested")
 
 	# T-094: auto-select next unmoved unit in the list.
@@ -3547,6 +3572,7 @@ func _update_movement_display() -> void:
 			inches_used_label.text = "Staged: -"
 		if inches_left_label:
 			inches_left_label.text = "Left: -"
+	_sync_unit_move_controls()  # LV2-C1
 
 func _get_model_accumulated_distance(model_id: String, source_unit_id: String = "") -> float:
 	"""Get accumulated distance for a specific model"""

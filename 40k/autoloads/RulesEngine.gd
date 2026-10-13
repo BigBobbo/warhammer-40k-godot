@@ -856,8 +856,11 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 			if hazardous_result.hazardous_triggered:
 				result.diffs.append_array(hazardous_result.diffs)
 			result.dice.append_array(hazardous_result.dice)
-			if hazardous_result.log_text:
-				result.log_text += hazardous_result.log_text + "\n"
+			# LV2-G1: the player-facing hazard line (this log_text can reach the
+			# Game Log as the action's text) — same wording on every path.
+			var haz_line := str(hazardous_result.get("game_log_text", hazardous_result.log_text))
+			if haz_line != "":
+				result.log_text += haz_line + "\n"
 
 		# ONE SHOT (T4-2): Mark one-shot weapon as fired for each model
 		if is_one_shot_weapon(weapon_id, board):
@@ -10656,24 +10659,36 @@ static func resolve_hazardous_check(
 
 	var weapon_profile = get_weapon_profile(weapon_id, board)
 	var weapon_name = weapon_profile.get("name", weapon_id)
+	# LV2-G1: name the unit and the fail band in the dice blocks, so the Game Log
+	# / Dice History can say WHO rolled and what failed ("1-2" at 11e).
+	var haz_unit: Dictionary = board.get("units", {}).get(actor_unit_id, {})
+	var haz_unit_name := str(haz_unit.get("meta", {}).get("display_name", haz_unit.get("meta", {}).get("name", actor_unit_id)))
+	var fail_band := "1" if hazard_fail_threshold <= 1 else "1-%d" % hazard_fail_threshold
+	# 10e wording ("N ones") is kept; at 11e a 2 fails too, so "ones" was wrong.
+	var fail_count_text := ("%d ones" % ones_rolled) if hazard_fail_threshold <= 1 else ("%d failed (%s)" % [ones_rolled, fail_band])
 
-	print("RulesEngine: [HAZARDOUS] %s — rolled %s, ones: %d" % [weapon_name, str(rolls), ones_rolled])
+	print("RulesEngine: [HAZARDOUS] %s — rolled %s, failed (%s): %d" % [weapon_name, str(rolls), fail_band, ones_rolled])
 
 	# Build dice log entry
 	result.dice.append({
 		"context": "hazardous_check",
 		"weapon_id": weapon_id,
 		"weapon_name": weapon_name,
+		"unit_id": actor_unit_id,
+		"unit_name": haz_unit_name,
+		"owner": int(haz_unit.get("owner", 0)),
 		"rolls": rolls,
 		"ones_rolled": ones_rolled,
+		"fail_threshold": hazard_fail_threshold,
 		"models_checked": models_that_fired,
 		"triggered": ones_rolled > 0,
-		"message": "Hazardous check for %s: rolled %s — %d ones" % [weapon_name, str(rolls), ones_rolled]
+		"message": "Hazardous check for %s: rolled %s — %s" % [weapon_name, str(rolls), fail_count_text]
 	})
 
 	if ones_rolled == 0:
 		result.log_text = "Hazardous check: %s safe (%s)" % [weapon_name, str(rolls)]
-		print("RulesEngine: [HAZARDOUS] No ones rolled — safe")
+		result["game_log_text"] = hazard_game_log_line(result.dice)
+		print("RulesEngine: [HAZARDOUS] No failed hazard roll — safe")
 		return result
 
 	result.hazardous_triggered = true
@@ -10745,13 +10760,17 @@ static func resolve_hazardous_check(
 
 		# MA-22: Use model display label in hazardous log text
 		var haz_display = get_model_display_label(target_model, actor_unit)
-		result.log_text = "HAZARDOUS! %s: %d ones → %d mortal wounds to %s (%d wounds applied)" % [
-			weapon_name, ones_rolled, total_mw, haz_display, damage_to_apply
+		result.log_text = "HAZARDOUS! %s: %s → %d mortal wounds to %s (%d wounds applied)" % [
+			weapon_name, fail_count_text, total_mw, haz_display, damage_to_apply
 		]
 
 		result.dice.append({
 			"context": "hazardous_damage",
 			"damage_type": "mortal_wounds",
+			"unit_id": actor_unit_id,
+			"unit_name": haz_unit_name,
+			"weapon_name": weapon_name,
+			"model_label": haz_display,
 			"mortal_wounds": total_mw,
 			"wounds_applied": damage_to_apply,
 			"casualties": casualties,
@@ -10761,11 +10780,54 @@ static func resolve_hazardous_check(
 		})
 	else:
 		# No alive models at all
-		result.log_text = "HAZARDOUS! %s: %d ones → no alive models to allocate to" % [weapon_name, ones_rolled]
+		result.log_text = "HAZARDOUS! %s: %s → no alive models to allocate to" % [weapon_name, fail_count_text]
 		print("RulesEngine: [HAZARDOUS] No alive models to allocate mortal wounds to")
 
+	result["game_log_text"] = hazard_game_log_line(result.dice)
 	print("RulesEngine: [HAZARDOUS] Result: %s" % result.log_text)
 	return result
+
+## LV2-G1: the player-facing Game Log line for ONE hazard check — its
+## hazardous_check block, optionally followed by its hazardous_damage block
+## (the dice resolve_hazardous_check returns), e.g.
+##   "Hazardous: Mek Gunz (Smasha Gun) rolled 2 — failed (1-2): 3 mortal wounds"
+##   "Hazardous: Mek Gunz (Kustom Mega-kannon) rolled 5 — passed (fails on 1-2)"
+## Every caller that logs a hazard roll (shooting, overwatch, melee) uses it,
+## so native and granted [HAZARDOUS] read the same.
+static func hazard_game_log_line(haz_dice: Array) -> String:
+	var check: Dictionary = {}
+	var damage: Dictionary = {}
+	for d in haz_dice:
+		if typeof(d) != TYPE_DICTIONARY:
+			continue
+		var ctx := str(d.get("context", ""))
+		if ctx == "hazardous_check" and check.is_empty():
+			check = d
+		elif ctx == "hazardous_damage" and not check.is_empty() and damage.is_empty():
+			damage = d
+	if check.is_empty():
+		return ""
+	var thr := int(check.get("fail_threshold", 1))
+	var band := "1" if thr <= 1 else "1-%d" % thr
+	var rolls: Array = check.get("rolls", [])
+	var rolled := ", ".join(PackedStringArray(rolls.map(func(r): return str(r))))
+	var unit_name := str(check.get("unit_name", ""))
+	var weapon := str(check.get("weapon_name", check.get("weapon_id", "")))
+	var who := ("%s (%s)" % [unit_name, weapon]) if unit_name != "" else weapon
+	var failed := int(check.get("ones_rolled", 0))
+	if failed <= 0:
+		return "Hazardous: %s rolled %s — passed (fails on %s)" % [who, rolled, band]
+	var line := "Hazardous: %s rolled %s — %s (%s)" % [who, rolled, "failed" if failed == 1 else "%d failed" % failed, band]
+	if damage.is_empty():
+		return line + ": no model left to take the mortal wounds"
+	var mw := int(damage.get("mortal_wounds", 0))
+	var applied := int(damage.get("wounds_applied", mw))
+	line += ": %d mortal wound%s" % [mw, "" if mw == 1 else "s"]
+	if applied != mw:
+		line += " (%d wound%s lost)" % [applied, "" if applied == 1 else "s"]
+	if int(damage.get("casualties", 0)) > 0:
+		line += " — %s destroyed" % str(damage.get("model_label", "1 model"))
+	return line
 
 # Balance Dataslate v3.3 Hazardous allocation priority:
 #   (1) wounded model with Hazardous weapon
@@ -12471,8 +12533,11 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 			if hazardous_result.hazardous_triggered:
 				result.diffs.append_array(hazardous_result.diffs)
 			result.dice.append_array(hazardous_result.dice)
-			if hazardous_result.log_text:
-				result.log_text += hazardous_result.log_text + "\n"
+			# LV2-G1: the player-facing hazard line (this log_text can reach the
+			# Game Log as the action's text) — same wording on every path.
+			var haz_line := str(hazardous_result.get("game_log_text", hazardous_result.log_text))
+			if haz_line != "":
+				result.log_text += haz_line + "\n"
 
 	return result
 
@@ -12687,8 +12752,11 @@ static func resolve_melee_attacks_interactive(action: Dictionary, board: Diction
 			if hazardous_result.hazardous_triggered:
 				result.diffs.append_array(hazardous_result.diffs)
 			result.dice.append_array(hazardous_result.dice)
-			if hazardous_result.log_text:
-				result.log_text += hazardous_result.log_text + "\n"
+			# LV2-G1: the player-facing hazard line (this log_text can reach the
+			# Game Log as the action's text) — same wording on every path.
+			var haz_line := str(hazardous_result.get("game_log_text", hazardous_result.log_text))
+			if haz_line != "":
+				result.log_text += haz_line + "\n"
 
 	return result
 

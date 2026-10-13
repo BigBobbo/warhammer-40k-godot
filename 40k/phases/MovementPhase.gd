@@ -4241,6 +4241,14 @@ func _log_overwatch_results_to_game_log(game_event_log, ow_result: Dictionary, s
 			game_event_log.add_overwatch_entry("  Save roll: [%s] vs %s (%s)" % [
 				rolls_str, str(sv), "failed!" if fails > 0 else "saved"])
 
+	# LV2-G1: the overwatching unit's own [HAZARDOUS] roll(s), same wording as
+	# the Shooting phase's Game Log line.
+	for hi in range(dice_entries.size()):
+		if str(dice_entries[hi].get("context", "")) == "hazardous_check":
+			var haz_line: String = RulesEngine.hazard_game_log_line(dice_entries.slice(hi, hi + 2))
+			if haz_line != "":
+				game_event_log.add_overwatch_entry("  " + haz_line)
+
 	# Count casualties from diffs (models set to alive=false)
 	var total_casualties = 0
 	for diff in ow_result.get("diffs", []):

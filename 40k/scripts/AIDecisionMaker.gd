@@ -121,6 +121,18 @@ static func _ai_weapon_can_target(weapon_id: String, target_unit: Dictionary, sn
 		return bool(re.weapon_profile_can_target(weapon_id, target_unit, snapshot))
 	return true
 
+## LAST-1: a [BLAST] weapon cannot target a unit within Engagement Range of
+## one of the shooter's own units. get_eligible_targets keeps such a target
+## when it is a MONSTER/VEHICLE (Big Guns Never Tire — other weapons may still
+## shoot it), so this is checked separately with the SAME predicate the SHOOT
+## validator calls (RulesEngine.validate_shoot -> validate_blast_targeting,
+## which also covers granted BLAST: Deck Fraggers, SYNCHRONISED INFERNO).
+static func _ai_blast_target_allowed(unit_id: String, weapon_id: String, target_id: String, snapshot: Dictionary) -> bool:
+	var re = _rules_engine()
+	if re == null or not re.has_method("validate_blast_targeting") or unit_id == "" or target_id == "":
+		return true
+	return bool(re.validate_blast_targeting(unit_id, target_id, weapon_id, snapshot).get("valid", true))
+
 ## AIR-2 safety net, applied to every SHOOT the planner emits: keep only the
 ## assignments the engine's own eligibility accepts (get_eligible_targets ->
 ## weapons_in_range: range, line of sight, Hunter profiles, targets engaged with
@@ -150,6 +162,9 @@ static func _sanitize_shoot_assignments(unit_id: String, assignments: Array, sna
 			continue
 		if not eligible.has(tid) or not wid in eligible[tid].get("weapons_in_range", []):
 			print("AIDecisionMaker: [AIR-2] %s: dropping %s -> %s (not an eligible target for that weapon)" % [unit_name, wid, _dn(target, tid)])
+			continue
+		if not _ai_blast_target_allowed(unit_id, wid, tid, snapshot):
+			print("AIDecisionMaker: [LAST-1] %s: dropping %s -> %s ([BLAST] at a unit in Engagement Range of a friendly unit)" % [unit_name, wid, _dn(target, tid)])
 			continue
 		var bearers: Array = []
 		var asked: Array = a.get("model_ids", [])
@@ -15017,10 +15032,14 @@ static func _build_unit_assignments_fallback(unit: Dictionary, ranged_weapons: A
 		var best_target_id = ""
 		var best_score = -1.0
 		var fb_scored: Array = []  # A1: the field, not just the winner
+		var fb_actor_id: String = unit_id_hint if unit_id_hint != "" else str(unit.get("id", ""))
 		for enemy_id in enemies:
 			var enemy = enemies[enemy_id]
 			# AIR-2: a Hunter profile only targets its keyword units (04.01.03).
 			if not _ai_weapon_can_target(weapon_id, enemy, snapshot):
+				continue
+			# LAST-1: no [BLAST] at a unit engaged with the shooter's own units.
+			if not _ai_blast_target_allowed(fb_actor_id, weapon_id, str(enemy_id), snapshot):
 				continue
 			var score = _score_shooting_target(weapon, enemy, snapshot, unit)
 			if score > 0.0:

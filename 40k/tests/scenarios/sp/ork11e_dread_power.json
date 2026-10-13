@@ -51,6 +51,7 @@
     { "act": "execute_script", "script": "main._token_hover_unit_id", "equals": "U_DEFF_DREAD_A" },
     { "act": "execute_script", "script": "main._token_hover_label.get_parsed_text().contains(\"Inv:5++ (Dread Power)\") and not main._token_hover_label.get_parsed_text().contains(\"Inv:6++\")", "equals": true, "comment": "LV-3: the card shows the EFFECTIVE 5+ invulnerable save (better of datasheet 6++ and DREAD POWER's 5+), not the datasheet's" },
     { "act": "execute_script", "script": "main._token_hover_label.get_parsed_text().contains(\"Riled up\")", "equals": true, "comment": "LV-3: the card says the walker is riled up" },
+    { "act": "execute_script", "script": "main._token_hover_label.get_parsed_text().contains(\"Riled up — 5+ invuln, ranged [ASSAULT], advance and charge\") and not main._token_hover_label.get_parsed_text().to_lower().contains(\"riled up — riled up\")", "equals": true, "comment": "LV2-E1: 'Riled up — <effects>', not 'Riled up — riled up: <effects>'" },
     { "act": "screenshot", "label": "04_hover_card_effective_invuln_riled_up" }
   ]
 }

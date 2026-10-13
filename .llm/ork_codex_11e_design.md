@@ -772,7 +772,7 @@ Headless (`40k/tests/`, all in `run_pretrigger_tests.sh`, `GameState.set_edition
 | `test_ork_codex_fight.gd` | Fight group + Fight On Death + fight windows/follow-ups (H2: END_FIGHT through `GameManager.apply_action`) | 201/0 |
 | `test_ork_codex_shooting.gd` | own-turn Shooting group + `unit_selected_to_shoot` | 237/0 |
 | `test_ork_codex_shooting_reactive.gd` | reactive Shooting group, post-shot windows, follow-ups | 156/0 |
-| `test_ork_codex_shooting_fixes.gd` | cluster B fixes (auto-select, kill credit, AP sign, Rapid Fire, GROT SHIELDS, re-rolls) + N deferred `unit_selected_to_shoot` window (LV-2/RV-4), O AI Hunter / profile / close-quarters planner (AIR-2), P no-hit assignment results (AIR-3) | 153/0 |
+| `test_ork_codex_shooting_fixes.gd` | cluster B fixes (auto-select, kill credit, AP sign, Rapid Fire, GROT SHIELDS, re-rolls) + N deferred `unit_selected_to_shoot` window (LV-2/RV-4), O AI Hunter / profile / close-quarters planner (AIR-2), P no-hit assignment results (AIR-3), Q AI never fires [BLAST] at a unit engaged with its own units (LAST-1), R hazard rolls in the Game Log / Dice History (LV2-G1) | 177/0 |
 | `test_ork_codex_movement.gd` | Movement group, movement windows, follow-ups, MOBILE, Waaagh! at 11e, DES revive (K2: END_MOVEMENT through `GameManager.apply_action`) | 297/0 |
 | `test_ork_codex_other.gd` | Command / Charge / any-phase group + event windows | 197/0 |
 | `test_ork_codex_turn_flow_fixes.gd` | cluster C fixes (charge flags, MOBILE charge, reserves ghost, disembark, fight/command stratagems) | 108/0 |
@@ -786,7 +786,7 @@ detachment + the surviving detachment-rule / enhancement checks, 194/0) and the 
 tray header (LV-4). Fixture
 generator: `tests/helpers/gen_ork11e_fixtures.gd`.
 
-Windowed scenarios (`40k/tests/scenarios/sp/`, 63, real clicks):
+Windowed scenarios (`40k/tests/scenarios/sp/`, 65, real clicks):
 - One or more per stratagem: `ork11e_hit_em_harder_own_turn`,
   `ork11e_hit_em_harder_opponent_turn`, `ork11e_mow_em_down`,
   `ork11e_unbridled_carnage`, `ork11e_armed_to_da_teef`, `ork11e_orks_is_never_beaten`,
@@ -813,7 +813,9 @@ Windowed scenarios (`40k/tests/scenarios/sp/`, 63, real clicks):
   `ork11e_reactive_dont_offer_again`, `ork11e_ai_selected_to_shoot`,
   `ork11e_ai_attacker_reactive_dialog_shown`, `ork11e_ai_takeover_pending_window`,
   `ork11e_ai_takeover_pending_followup`, `ork11e_autoselect_first_shooter`,
-  `ork11e_autoselect_prompt_no_recursion`, `ork11e_no_stale_boot_stratagems`,
+  `ork11e_autoselect_prompt_no_recursion`, `ork11e_deferred_window_panel_refresh` (LV2-B1: the
+  panel shows the held assignments after the deferred window), `ork11e_scarper_drag_hint_cleared`
+  (LV2-C1), `ork11e_no_stale_boot_stratagems`,
   `ork11e_charge_flags_end_of_turn`, `ork11e_waaagh_riled_up_11e`,
   `ork11e_ctrl_a_select_all_no_pan`.
 - Existing scenarios adapted: `shoot_quick_assign_rejected_no_crash`,

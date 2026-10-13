@@ -14,7 +14,8 @@
         "The unit hover card shows the invulnerable save that actually applies (e.g. 5++ from DREAD POWER instead of the datasheet's 6++) and marks Riled up / Waaagh! units.",
         "The dice tray and Game Log now show the net wound modifier (e.g. 'need 5+, -1 to wound' from HULKING BRUTES).",
         "AI: it no longer shoots Hunter profiles (e.g. Busta Rokkit Launcha – Hunter) at infantry, both profiles of one gun, a Rokkit Pistol together with other guns, or guns a model does not carry. Those shots were refused, and the unit then lost its whole shooting activation.",
-        "AI: fixed a stall in the Fight phase when a unit had to fight during the Consolidate step (e.g. after UNLEASH THE LIONS split a unit). The AI now acts for the player who is actually selecting."
+        "AI: fixed a stall in the Fight phase when a unit had to fight during the Consolidate step (e.g. after UNLEASH THE LIONS split a unit). The AI now acts for the player who is actually selecting.",
+        "More polish: after a 'selected to shoot' prompt the Shooting panel shows the targets you assigned (and a used stratagem's effect, e.g. CLOSE-RANGE DAKKA's Rapid Fire); [HAZARDOUS] rolls (native or from VINDICTIVE ARTILLERISTS) now appear in the Game Log and Dice history with the mortal wounds they cause; the Movement panel clears its drag hint and greys out Undo / Reset / End This Unit's Move after a SCARPER!-style move; the hover card no longer reads 'Riled up — riled up:'; the AI no longer fires Blast weapons at a unit fighting its own models."
       ]
     },
     {

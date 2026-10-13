@@ -9135,9 +9135,17 @@ func _build_status_marker_hover_text(unit: Dictionary, unit_id: String = "") -> 
 	# Game Log said so, and the player could not tell the stratagem took effect.
 	if flags.get("ork11e_riled_up", false) or flags.get("waaagh_active", false):
 		var fam_rl = get_node_or_null("/root/FactionAbilityManager")
-		var rl_summary: String = str(fam_rl.waaagh_effects_summary()) if fam_rl != null else "riled up"
+		var rl_summary: String = str(fam_rl.waaagh_effects_summary()) if fam_rl != null else ""
+		# LV2-E1: the 11e summary starts with "riled up:" — under the "Riled up"
+		# title that read "Riled up — riled up: 5+ invuln, …". Keep the effects.
+		for rl_prefix in ["riled up:", "waaagh!:"]:
+			if rl_summary.to_lower().begins_with(rl_prefix):
+				rl_summary = rl_summary.substr(rl_prefix.length()).strip_edges()
 		var rl_title := "Riled up" if GameConstants.edition >= 11 else "Waaagh!"
-		lines.append("[color=#7FD13B][b]%s[/b][/color] [color=#AAAAAA]— %s[/color]" % [rl_title, rl_summary])
+		if rl_summary == "":
+			lines.append("[color=#7FD13B][b]%s[/b][/color]" % rl_title)
+		else:
+			lines.append("[color=#7FD13B][b]%s[/b][/color] [color=#AAAAAA]— %s[/color]" % [rl_title, rl_summary])
 	# Fought overlay (dim + green check) supersedes the engaged badge on the token.
 	if flags.get("has_fought", false):
 		lines.append("[color=#6FBF6F][b]Fought[/b][/color] [color=#888888](green check)[/color] [color=#AAAAAA]— has fought this turn[/color]")

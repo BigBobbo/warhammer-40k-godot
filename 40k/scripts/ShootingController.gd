@@ -6409,9 +6409,45 @@ func _phase_window_blocks_actions() -> bool:
 ## Phase signal: a stratagem window closed. Re-run the single-target
 ## auto-assigns that were held while it was open (deferred: the phase is still
 ## inside the window action's resume when this fires).
-func _on_phase_stratagem_window_closed(_player: int, _window_id: String, _used: bool) -> void:
+func _on_phase_stratagem_window_closed(_player: int, window_id: String, _used: bool) -> void:
 	if not _pending_auto_assigns.is_empty():
 		call_deferred("_flush_pending_auto_assigns")
+	# LV2-B1: the auto-selected shooter's deferred unit_selected_to_shoot window
+	# held the player's ASSIGN_TARGET burst (Quick-Assign, a target click …);
+	# the phase applies it in the resume, which runs right after this signal.
+	# Nothing routed that result back here, so the weapon rows kept
+	# "(Click to Select)", Confirm kept "N unassigned" and the stat line / forecast
+	# missed a used stratagem's change (CLOSE-RANGE DAKKA's RAPID FIRE +1).
+	# Re-read the panel from the phase once the resume has run (deferred).
+	if window_id == "unit_selected_to_shoot" and current_phase != null \
+			and current_phase.has_method("sts_window_held_action_type") \
+			and current_phase.sts_window_held_action_type() == "ASSIGN_TARGET":
+		print("ShootingController: LV2-B1 unit_selected_to_shoot closed with held assignment(s) — panel resync queued")
+		call_deferred("_resync_after_held_assignments")
+
+## LV2-B1: deferred worker of _on_phase_stratagem_window_closed — rebuild the
+## declaration panel (weapon rows + target column, stat lines, quick-assign,
+## CURRENT TARGETS, Confirm label, forecast) from the phase's pending
+## assignments now that the held ASSIGN_TARGET(s) are applied. Skipped when the
+## phase moved on (another window, a resolution in progress, no shooter) or an
+## auto-assign is still queued (a rebuild would drop it).
+func _resync_after_held_assignments() -> void:
+	if current_phase == null or not is_instance_valid(current_phase) or not current_phase is ShootingPhase:
+		return
+	if _phase_window_blocks_actions():
+		print("ShootingController: LV2-B1 resync skipped — another stratagem window / follow-up is pending")
+		return
+	if str(current_phase.active_shooter_id) == "" or not current_phase.resolution_state.is_empty() \
+			or not current_phase.confirmed_assignments.is_empty():
+		print("ShootingController: LV2-B1 resync skipped — no declaration in progress")
+		return
+	if not _pending_auto_assigns.is_empty():
+		print("ShootingController: LV2-B1 resync skipped — %d auto-assign(s) still queued" % _pending_auto_assigns.size())
+		return
+	resync_from_phase()
+	_update_aggregate_damage_preview()
+	print("ShootingController: LV2-B1 panel resynced — %d pending assignment(s), Confirm '%s'" % [
+		current_phase.pending_assignments.size(), confirm_button.text if confirm_button else ""])
 
 # LOS-VISIBILITY (2026-08): the subset of `model_ids` that can legally fire
 # `weapon_id` at `target_id` right now — in range AND with line of sight.
