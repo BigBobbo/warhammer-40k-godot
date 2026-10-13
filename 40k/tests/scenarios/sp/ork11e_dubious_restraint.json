@@ -4,7 +4,8 @@
     "stratagem.window.movement_phase_start",
     "stratagem.ork11e.dubious_restraint",
     "stratagem.window.secondary_pick.objective",
-    "autoloads.MissionManager.secure_objective"
+    "autoloads.MissionManager.secure_objective",
+    "ui.Main.stratagem_choice_dialog"
   ],
   "fixture": "ork11e_orks_active",
   "edition": 11,

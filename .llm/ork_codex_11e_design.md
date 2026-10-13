@@ -1,6 +1,7 @@
 # Codex: Orks (11th edition) stratagems — design contract
 
-Status: design for branch `claude/bold-pasteur-45wgjz` (2026-10-11).
+Status: shipped on branch `claude/bold-pasteur-45wgjz` (design 2026-10-11; final
+state, rulings, limitations and test inventory in §7, 2026-10-13).
 Audience: every agent implementing or validating this work. Read it all before
 touching code. Where this doc and older code comments disagree, this doc wins.
 
@@ -129,7 +130,7 @@ the human decides.
 | movement_phase_end | END_MOVEMENT, before the phase actually ends (after Rapid Ingress etc.) | active, then non-active | `engaged_at_phase_start: Array[unit_id]` |
 | unit_selected_to_move | BEGIN_NORMAL_MOVE / BEGIN_ADVANCE / BEGIN_FALL_BACK, **before** any roll or cap is computed | active (unit owner) | `unit_id`, `move_type` (normal/advance/fall_back) |
 | unit_ended_normal_move | after CONFIRM_UNIT_MOVE of a *normal* move | active | `unit_id` |
-| enemy_ended_move | after CONFIRM_UNIT_MOVE of any move by the active player's unit (after overwatch/other existing reactive prompts) | non-active | `enemy_unit_id`, `move_type` |
+| enemy_ended_move | after CONFIRM_UNIT_MOVE of any move by the active player's unit, and after a disembark move or a reinforcement (ingress) set-up (after overwatch/other existing reactive prompts) | non-active | `enemy_unit_id`, `move_type` |
 | enemy_selected_to_fall_back | BEGIN_FALL_BACK, before the fall-back mode/move is set up | non-active | `enemy_unit_id` |
 | unit_selected_to_shoot | when a shooter is selected (before targets are confirmed / attacks rolled) | active | `unit_id` |
 | unit_has_shot | after a unit's shooting has fully resolved | active | `unit_id` |
@@ -264,13 +265,13 @@ and the four group scripts, `StratagemManager` wiring, the `BasePhase` window
 framework, `AIDecisionMaker.decide_window_stratagem`, network plumbing, the window
 mode of `StratagemDialog`, the hook points `unit_selected_to_fight` (FightPhase) and
 `enemy_targets_unit_shooting` (fold-in), **HIT 'EM HARDER** end to end, and the two
-fixtures. Every other hook point and stratagem is for the group agents.
+fixtures. The group steps then added every other hook point and stratagem (§7).
 
 ### 6.1 Files
 
 | file | role |
 |---|---|
-| `40k/scripts/stratagems/ork_codex/OrkCodex11e.gd` | dispatcher (`class_name OrkCodex11e`, static); StratagemManager / AIDecisionMaker **preload** it (no class-cache dependency) |
+| `40k/scripts/stratagems/ork_codex/OrkCodex11e.gd` | dispatcher (`class_name OrkCodex11e`, static); StratagemManager **preloads** it (no class-cache dependency); AIDecisionMaker loads it on first use (`_ork_codex()`, RG-F6: a const preload extended the `godot -s` compile cascade) |
 | `…/OrkCodexCommon.gd` | shared helpers (late-bound autoloads, `is_riled_up`, `has_keyword`, `attached_group_ids`, `unit_distance_inches`, `set_flag_diffs`, `erase_flags`, `target_entry`). Groups preload ONLY this file, never each other or the dispatcher |
 | `…/OrkCodexFight.gd`, `…Shooting.gd`, `…Movement.gd`, `…Other.gd` | one group each: `IDS` (registry, the full csv ids — e.g. `hit-em-harder-war-horde`), `IMPLEMENTED` (the ONLY source of "implemented"), `AI_KIND`, and the handler API below |
 | `40k/phases/BasePhase.gd` | window framework (bottom of the file) |
@@ -512,3 +513,263 @@ Regression checks: `tests/test_ork_codex_framework_fixes.gd` (one section per fi
   ("CENTER [NML]"). The hot-seat waiting banner sits under the top HUD strip; the fight
   dock says "Waiting for Player N's stratagem decision" while an
   `enemy_targets_unit_fight` window holds the hit roll.
+
+## 7. Final state (2026-10-13)
+
+### 7.1 What shipped
+
+- **Data:** `@alpaca-software/40kdc-data` 1.4.5 with ORK-only CSV splices (§1). The
+  40 Ork stratagem rows come from `scripts/40kdc/curated/orks_codex_11e.json`, carry
+  `effects_json = [{"type":"custom:ork11e"}]` and the `window` column, and belong to
+  the 15 codex detachments. More Dakka!, Freebooter Krew, Rollin' Deff and
+  Speedwaaagh! are gone; army files, AI plans and test saves were migrated
+  (`.llm/ork_codex_11e_retired_tests.md`). Local keyword patches
+  (`scripts/40kdc/local-patches.mjs` patch 4): Trukk gains SPEED FREEKS, Deffkoptas
+  VEHICLE → MOUNTED, Big Mek Dakkarig gains VEHICLE, Mozrog Skragbad and Beastboss on
+  Squigosaur MOUNTED → MONSTER.
+- **All 40 codex stratagems are implemented** (the group scripts' `IMPLEMENTED`
+  lists): Fight 9 (HIT 'EM HARDER, MOW 'EM DOWN, UNBRIDLED CARNAGE, ARMED TO DA TEEF,
+  ORKS IS NEVER BEATEN, TOO ARROGANT TO DIE, CRAZED RAMPAGE, KEEP IT RUNNIN',
+  INSTINCTIVE HUNTERS); Shooting 8 (CLOSE-RANGE DAKKA, VINDICTIVE ARTILLERISTS,
+  DRIVE-BY BUSTIN', KUSTOM DAKKA, GLOWIN' DAKKA, NEVER ENOUGH DAKKA, LONG UNCONTROLLED
+  BURSTS, DAKKASTORM); Shooting-reactive 6 (GRAB IT, GROT SHIELDS, HULKING BRUTES,
+  SPEEDIEST FREEKS, GUN-CRAZY SHOW-OFFS, GOADED INTO ACTION); Movement 12
+  (FUNGUS-FUEL INJECTION, 'ERE WE GO, STOMPING JUGGERNAUT, MIND MOSTLY ON THE MISSION,
+  DUBIOUS RESTRAINT, READIED BRAWLERS, SCARPER!, WHIRLIGIG EVASION, WHERE D'YA FINK
+  YOU'RE GOING?, WHILE THEIR BACKS ARE TURNED, DREAD POWER, DELICIOUS EATING SQUIGS);
+  Other 5 (MOB MENTALITY, BREAKIN' HEADS, IMPENDING KRUNCH, FLYIN' HEADBUTT, INFESTED
+  WAR ZONE). 38 are offered in their windows; DREAD POWER and DELICIOUS EATING SQUIGS
+  are S-panel stratagems with a friendly-target picker.
+- **Windows (all 19 of §3 are hooked):** `battle_shock_step_start` (CommandPhase),
+  `unit_battle_shocked` / `unit_destroyed` / `enemy_unit_has_attacked` (BasePhase
+  event detection around each outermost action; Deadly Demise held while the owner
+  has a `unit_destroyed` offer), `movement_phase_start`, `movement_phase_end`,
+  `unit_selected_to_move`, `unit_ended_normal_move`, `enemy_ended_move`,
+  `enemy_selected_to_fall_back` (MovementPhase), `unit_selected_to_shoot`,
+  `unit_has_shot`, `enemy_has_shot` and the `enemy_targets_unit_shooting` fold-in
+  (ShootingPhase), `unit_declares_charge`, `unit_ended_charge_move` (ChargePhase),
+  `unit_selected_to_fight`, `enemy_targets_unit_fight`, `fight_phase_end`
+  (FightPhase).
+- **Follow-ups (all 7 of §3.2):** `reactive_normal_move` (MovementPhase for SCARPER! /
+  WHIRLIGIG EVASION / WHILE THEIR BACKS ARE TURNED; ShootingPhase for GRAB IT, with
+  `Ork11eReactiveMovePanel`), `surge_move` (GOADED INTO ACTION), `shoot` (GUN-CRAZY
+  SHOW-OFFS, auto-resolved), `embark` (KEEP IT RUNNIN'), `assault_disembark` (READIED
+  BRAWLERS, plus `SKIP_ASSAULT_DISEMBARK`), `strategic_reserves` (INSTINCTIVE HUNTERS),
+  `new_reserve_unit` (INFESTED WAR ZONE, `BasePhase._followup_new_reserve_unit`).
+  Plus the Fight On Death mechanic (ORKS IS NEVER BEATEN / TOO ARROGANT TO DIE /
+  CRAZED RAMPAGE) in FightPhase + AllocationGroupOverlay.
+- **Framework:** BasePhase windows + queue + follow-ups, `USE/DECLINE_WINDOW_STRATAGEM`,
+  "Don't offer again this phase", AI decider (`AIDecisionMaker.decide_window_stratagem`,
+  synchronous), AI takeover of a pending window/follow-up, network plumbing
+  (host-only windows, mirrored to the client), StratagemDialog window mode (§6.4),
+  the fix-pass rules of §6.7.
+- **Engine fixes made on the way** (outside the codex but needed by it): granted
+  [HAZARDOUS] now rolls; signed 11e AP for every "+N AP" site (`improve_ap` /
+  `worsen_ap`); per-turn charge flags reset at END_SCORING for the player whose turn
+  ended; MOBILE honoured by the charge climb penalty (13.06); disembark "wholly
+  within 3""; kill credit to the destroyed unit's opponent; Deadly Demise in the
+  Movement/Charge/Command phases; Command Re-roll checked per unit (15.01); the 10e
+  Waaagh! +1 A / +1 S melee bonus gated to edition < 11; Ctrl+A no longer pans the
+  camera.
+
+### 7.2 Rulings made by the implementers
+
+Framework-wide:
+- Window order: the active player's window first, then the opponent's (phase start /
+  end, post-shot). A `unit_selected_to_*` window is offered again when the player
+  selects another unit and comes back; an uncommitted trigger re-offers its window.
+- Windows stay closed while a tutorial lesson is active or loading.
+- Codex windows open ahead of the legacy Swift as the Eagle / Go Get 'Em! / Wazblasta
+  prompts, which wait behind them.
+- Reactive moves set no persistent "has moved" flags.
+- Keyword checks look at the whole Attached unit; TITANIC is excluded wherever the
+  text says so.
+- Sustained Hits 1 from a stratagem applies only when the weapon has no Sustained
+  Hits of its own (11e duplicates do not stack).
+- Overwatch: no codex consumers (snap-shot hits are never critical and get no
+  re-rolls; the effects expire at the end of your own Shooting phase).
+- Kill credit goes to the destroyed unit's opponent; a Fight On Death removal is
+  credited to the destroying attacker; a unit destroyed by its own Hazardous roll
+  credits the opponent (not checked against an official ruling).
+- Fight On Death: "selected to fight" = SELECT_FIGHTER (cancelling undoes it); "has
+  fought" = its activation finished; kept models are alive at 0 W, still fight, take
+  no further allocation, and are removed when the unit has fought or at the end of
+  the phase (before `fight_phase_end`); destruction-triggered rules (kill credit,
+  Deadly Demise) resolve at removal.
+
+Per stratagem:
+- **HIT 'EM HARDER:** melee [LETHAL HITS] on every component of an Attached unit.
+- **MOW 'EM DOWN:** a weapon without [CLEAVE] gains CLEAVE 1, otherwise +1; kept Fight
+  On Death models still count for the Cleave target count; [CLEAVE] counts the whole
+  attached target unit.
+- **UNBRIDLED CARNAGE / MOW 'EM DOWN:** "made a charge move this turn" reads
+  `charged_this_turn`, which is now reset when the turn ends.
+- **ARMED TO DA TEEF:** offered in both the shoot and fight windows; riled up = re-roll
+  failed hits, with an optional "non-critical hits too" variant (re-roll any
+  non-critical hit) only for weapons with lethal/sustained hits; never downgrades an
+  existing re-roll and restores it on expiry; riled-up status is read at use.
+- **ORKS IS NEVER BEATEN / TOO ARROGANT TO DIE:** +1 to the Fight On Death roll if
+  riled up; not offered for a unit already selected to fight this phase.
+- **CRAZED RAMPAGE:** +3 for a DEFF DREAD, no riled-up bonus.
+- **KEEP IT RUNNIN':** "able to embark" = the 18.02 conditions minus the 3"; "wholly
+  within 6"" = edge distance + base size; with 2+ eligible Trukks the player picks one;
+  writes `embarked_this_phase`; the AI does not use it on a unit holding an objective.
+- **INSTINCTIVE HUNTERS:** every model's position is cleared; the unit is spared by the
+  end-of-battle-round-3 reserves cull (`repositioned_to_reserves`).
+- **CLOSE-RANGE DAKKA:** the +1 applies after other Rapid Fire grants (0 → 1); half
+  range counts attached leaders.
+- **VINDICTIVE ARTILLERISTS:** one of the three options must be picked (no plain Use).
+- **DRIVE-BY BUSTIN':** +1 to hit per attack in mixed hull / Firing Deck batches; not
+  offered when no Firing Deck weapon can be selected.
+- **GLOWIN' DAKKA:** 9" measured unit to unit (closest models), Attached units as a
+  whole; the AP improvement is signed (0 → −1).
+- **LONG, UNCONTROLLED BURSTS:** re-roll failed hits against FLY targets only.
+- **GROT SHIELDS:** targets the Gretchin unit (15.01 / battle-shock); the shielded unit
+  is a secondary pick (most valuable candidate when none is picked or the AI
+  decides); 3" is group-aware; critical hits are intercepted first, Sustained extras
+  of intercepted hits are dropped, Torrent is never intercepted.
+- **GRAB IT:** offered only with an objective (including terrain-hosted objective
+  areas) within 6"; its charge lock cannot be overridden.
+- **GUN-CRAZY SHOW-OFFS:** offered only if a weapon can target the attacker; resolved
+  automatically (every eligible ranged weapon fires, best profile per weapon, saves
+  auto-rolled); the unit is not marked as having shot; Hunter profiles fall back to
+  MONSTER/VEHICLE targets.
+- **GOADED INTO ACTION:** the surge target must be on the battlefield and not embarked;
+  AIRCRAFT are ignored unless the unit can FLY; an out-of-coherency unit is offered it
+  only if a 6" surge can restore coherency.
+- **HULKING BRUTES:** "+1CP Or" is a variant button (2 CP).
+- **'ERE WE GO:** offered only for advance moves. **MIND MOSTLY ON THE MISSION:** only
+  for advance and fall-back moves.
+- **DUBIOUS RESTRAINT:** lists only objectives the unit controls that its army has not
+  already secured; only end-of-phase objective checks can break a secured objective.
+- **DELICIOUS EATING SQUIGS:** heals EVERY eligible ORKS INFANTRY unit within 3"
+  (needs at least one); 02.02.04 revives dead non-CHARACTER models, set up in
+  coherency (01.02.03) after a Confirm/Cancel preview.
+- **READIED BRAWLERS:** needs at least one embarked unit eligible to disembark; units
+  disembark at once, one at a time.
+- **SCARPER! / WHIRLIGIG EVASION:** the 6" alternative is used whenever its condition
+  holds, otherwise one D6.
+- **WHERE D'YA FINK YOU'RE GOING?:** forces desperate escape; three extra hazard rolls
+  per engaged BEAST SNAGGA unit, the −1 applies to those extra rolls only.
+- **DREAD POWER:** riled up until the Orks' next Command phase = Waaagh! state, 5+
+  invulnerable save, advance-and-charge, ranged [ASSAULT].
+- **STOMPING JUGGERNAUT:** MOBILE is honoured by the Movement and Charge terrain checks
+  (no climb cost through dense terrain, 13.06).
+- **`enemy_ended_move`** fires after CONFIRM_UNIT_MOVE, a disembark move and a
+  reinforcement set-up; **`unit_ended_normal_move`** opens before Overwatch (01.03.02).
+- **MOB MENTALITY:** Attached models count towards 13+; the selected unit may be the
+  target itself; only units that must take a battle-shock roll this step are listed;
+  the window opens when the Battle-shock step starts (roll call, first test or End
+  Command).
+- **BREAKIN' HEADS:** "attached" = has a living attached CHARACTER; also offered after
+  End Command auto-resolves a failed test.
+- **IMPENDING KRUNCH:** uses the out-of-Command-phase battle-shock roll (2D6 vs
+  effective Ld, −1); a failure opens the owner's `unit_battle_shocked` window (nested).
+- **FLYIN' HEADBUTT:** 12" is measured from the destroyed models; usable with no enemy
+  within 12" (removes Deadly Demise, no dice).
+- **INFESTED WAR ZONE:** "just destroyed" = destroyed by that enemy unit's attacks; only
+  the GRETCHIN unit is copied (not an attached CHARACTER), as a fresh unit at full
+  strength in Strategic Reserves.
+
+### 7.3 Known limitations / deferred
+
+- **Two-peer network play is not validated live.** Windows, follow-ups and the
+  reactive moves are host-only and mirrored to the client (§6.7), covered headless
+  only; the client still runs some other actions ahead of the host and can briefly
+  show stale state (e.g. CP).
+- **Mirror match, same detachment:** stratagem ids are faction + detachment scoped
+  and `get_stratagem_owner` returns the first player listing an id, so only P1 can
+  use codex stratagems (P2 gets no offers, rows or AI uses; no error, no stall).
+  Reloading one player's detachment also erases definitions the other still lists.
+- **Waaagh! optional advance re-roll is not offered** (r2:F1 part deferred): an
+  automatic re-roll broke the T3 tutorial's Command Re-roll lesson; the correct form
+  is an optional free re-roll in the advance dialog.
+- **Pending window / follow-up state is not saved** (§6.7 F11): loading drops it; a
+  follow-up that started after its CP was paid is lost and the CP stays spent.
+- **Detachment rules and enhancements of the new detachments are not implemented.**
+  The 10e rule/enhancement code still runs for the names it knows; the More Dakka! /
+  Rollin' Deff / Speedwaaagh! helpers stay in the code but no shipped detachment
+  reaches them.
+- **Non-Ork 1.4.5 stratagem changes are not applied** (CSV splices are ORK-only, §1).
+- **The web builder is still on the 1.0.19 bundle** (`server/public/js/vendor/40kdc-data.mjs`):
+  the server round-trip test reports mismatches for the migrated armies and
+  `ork11e_codex_test.json` (RG-F5) until `bundle-browser` is re-run for 1.4.5.
+- **The AI uses only some codex stratagems.** In 28 AI-vs-AI games it used 14 of the
+  40 (AI-08); after the movement tuning FUNGUS-FUEL INJECTION is used and SCARPER! /
+  WHIRLIGIG EVASION only against units that can still charge. STOMPING JUGGERNAUT and
+  MIND MOSTLY ON THE MISSION score 0 by design; DRIVE-BY BUSTIN' is dead for the AI
+  (it does not plan Firing Deck weapons); the HULKING BRUTES upgrade is never picked.
+  Several follow-ups (GOADED surge, READIED BRAWLERS, INFESTED WAR ZONE, KEEP IT
+  RUNNIN', INSTINCTIVE HUNTERS) are exercised for the AI headless only.
+- Smaller items: overwatch has no codex consumers (ruling above); ordinary shooting
+  still does not enforce the 24.07 close-quarters either/or (only GUN-CRAZY's forced
+  picker does); an already re-rolled die still looks clickable (the re-roll is
+  refused before CP is spent); the round-base vs curved-hull "wholly within" check can
+  slightly over-estimate; secured objectives and the Ammo Runt / Swift as the Eagle /
+  Wazblasta prompts are pre-existing gaps; the multiplayer GUT harness race in
+  `TestModeHandler._check_for_commands` (RG-F7) is unfixed; the legacy 10e Ork
+  handlers are still in StratagemManager but no codex row can reach them (dispatch is
+  by csv_id).
+- Coverage: `autoloads.FactionStratagemLoader.curated_effects` and
+  `autoloads.EffectPrimitives.minus_one_wound_defense` stay `uncovered` (no ork11e
+  scenario exercises them; see the retired-tests doc).
+
+### 7.4 Test inventory
+
+Headless (`40k/tests/`, all in `run_pretrigger_tests.sh`, `GameState.set_edition(11)`):
+
+| file | covers | passed/failed (2026-10-13 pretrigger run: 4393/0 over 132 files) |
+|---|---|---|
+| `test_ork_codex_11e_data.gd` | curated rows, window column, detachment match, legacy kits, keyword patches | 94/0 |
+| `test_ork_codex_framework.gd` | window framework + HIT 'EM HARDER | 105/0 |
+| `test_ork_codex_framework_fixes.gd` | cluster A fixes (overlay deaths, cross-turn actions, network mirror, phase completion, save/load, AI takeover, stale boot stratagems) | 108/0 |
+| `test_ork_codex_fight.gd` | Fight group + Fight On Death + fight windows/follow-ups | 196/0 |
+| `test_ork_codex_shooting.gd` | own-turn Shooting group + `unit_selected_to_shoot` | 237/0 |
+| `test_ork_codex_shooting_reactive.gd` | reactive Shooting group, post-shot windows, follow-ups | 156/0 |
+| `test_ork_codex_shooting_fixes.gd` | cluster B fixes (auto-select, kill credit, AP sign, Rapid Fire, GROT SHIELDS, re-rolls) | 110/0 |
+| `test_ork_codex_movement.gd` | Movement group, movement windows, follow-ups, MOBILE, Waaagh! at 11e, DES revive | 285/0 |
+| `test_ork_codex_other.gd` | Command / Charge / any-phase group + event windows | 197/0 |
+| `test_ork_codex_turn_flow_fixes.gd` | cluster C fixes (charge flags, MOBILE charge, reserves ghost, disembark, fight/command stratagems) | 108/0 |
+| `test_keybinding_chord_no_pan.gd` | Ctrl+A does not pan | 8/0 |
+| `test_fullauto_faction_rules.gd` (rewritten) | War Horde codex rows | 42/0 |
+
+Outside the pretrigger list: `test_ork_detachments_sweep.gd` (codex row load per
+detachment + the surviving detachment-rule / enhancement checks, 194/0) and the GUT
+`unit/test_faction_stratagems.gd` (War Horde rows, Epic Deed timing column). Fixture
+generator: `tests/helpers/gen_ork11e_fixtures.gd`.
+
+Windowed scenarios (`40k/tests/scenarios/sp/`, 63, real clicks):
+- One or more per stratagem: `ork11e_hit_em_harder_own_turn`,
+  `ork11e_hit_em_harder_opponent_turn`, `ork11e_mow_em_down`,
+  `ork11e_unbridled_carnage`, `ork11e_armed_to_da_teef`, `ork11e_orks_is_never_beaten`,
+  `ork11e_too_arrogant_to_die`, `ork11e_crazed_rampage`, `ork11e_keep_it_runnin`,
+  `ork11e_instinctive_hunters`, `ork11e_close_range_dakka`,
+  `ork11e_vindictive_artillerists`, `ork11e_drive_by_bustin`, `ork11e_kustom_dakka`,
+  `ork11e_glowin_dakka`, `ork11e_never_enough_dakka`, `ork11e_long_uncontrolled_bursts`,
+  `ork11e_dakkastorm`, `ork11e_dakkastorm_trukk`, `ork11e_grab_it`,
+  `ork11e_grab_it_last_shooter`, `ork11e_auto_shoot_grab_it`, `ork11e_hulking_brutes`,
+  `ork11e_speediest_freeks`, `ork11e_grot_shields`, `ork11e_gun_crazy_show_offs`,
+  `ork11e_goaded_into_action`, `ork11e_fungus_fuel_injection`, `ork11e_ere_we_go`,
+  `ork11e_stomping_juggernaut`, `ork11e_stomping_juggernaut_charge`,
+  `ork11e_mind_mostly_on_the_mission`, `ork11e_dubious_restraint`,
+  `ork11e_readied_brawlers`, `ork11e_scarper`, `ork11e_scarper_after_disembark`,
+  `ork11e_whirligig_evasion`, `ork11e_where_dya_fink`,
+  `ork11e_while_their_backs_are_turned`, `ork11e_dread_power`,
+  `ork11e_delicious_eating_squigs`, `ork11e_delicious_eating_squigs_after_move`,
+  `ork11e_mob_mentality`, `ork11e_breakin_heads`, `ork11e_impending_krunch`,
+  `ork11e_flyin_headbutt`, `ork11e_flyin_headbutt_defender_saves`,
+  `ork11e_flyin_headbutt_ai_attacker_defender_saves`, `ork11e_infested_war_zone`,
+  `ork11e_infested_war_zone_defender_saves`,
+  `ork11e_infested_war_zone_melee_defender_saves`.
+- Framework / AI / UI: `ork11e_reactive_core_then_codex`,
+  `ork11e_reactive_dont_offer_again`, `ork11e_ai_selected_to_shoot`,
+  `ork11e_ai_attacker_reactive_dialog_shown`, `ork11e_ai_takeover_pending_window`,
+  `ork11e_ai_takeover_pending_followup`, `ork11e_autoselect_first_shooter`,
+  `ork11e_autoselect_prompt_no_recursion`, `ork11e_no_stale_boot_stratagems`,
+  `ork11e_charge_flags_end_of_turn`, `ork11e_waaagh_riled_up_11e`,
+  `ork11e_ctrl_a_select_all_no_pan`.
+- Existing scenarios adapted: `shoot_quick_assign_rejected_no_crash`,
+  `fullauto_movement_stratagems`, `recon_stomps_base_army`,
+  `taktikal_enhancements_load`, `iss058_disembark_11e`, `tut_t3_get_movin(_pad)`, and
+  (RG-F1) `aao_lions_isolated_plus_one`, `cover_hit_label_wound_reroll_11e`,
+  `game_log_armour_saves_11e`, `game_log_armour_saves_no_kill_11e`.

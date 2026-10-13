@@ -6,7 +6,8 @@
     "stratagems.bully_boyz.loading",
     "phases.FightPhase.unit_selected_to_fight",
     "dialogs.StratagemDialog.window_mode",
-    "ui.StratagemPanel.faction_rows"
+    "ui.StratagemPanel.faction_rows",
+    "fight.stratagem.armed_to_da_teef"
   ],
   "fixture": "ork11e_orks_active",
   "edition": 11,

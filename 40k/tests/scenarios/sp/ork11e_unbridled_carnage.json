@@ -4,7 +4,8 @@
     "stratagem.window.unit_selected_to_fight",
     "stratagem.ork11e.unbridled_carnage",
     "phases.FightPhase.unit_selected_to_fight",
-    "dialogs.StratagemDialog.window_mode"
+    "dialogs.StratagemDialog.window_mode",
+    "stratagems.green_tide.loading"
   ],
   "fixture": "ork11e_orks_active",
   "edition": 11,

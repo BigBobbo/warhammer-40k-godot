@@ -12,7 +12,7 @@
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "ARMOUR SAVES IN THE GAME LOG. The 11e allocation-group flow resolves the whole save batch inside AllocationGroupOverlay, so nothing in ShootingPhase._process_apply_saves ever emitted a save dice block: the game log's combat card showed 'Hit (2+)' and 'Wound (5+)' and then jumped straight to 'No models destroyed', with the armour saves that were the REASON nothing died reaching only the Dice Log. This drives a real shot end to end through the player path — select shooter, assign the Guardian spear to the Boyz, confirm, decline the reactive stratagem, then press the resolution dock's real primary button three times (Roll to Hit -> Roll to Wound -> Continue to Saving Throws) — and then drives the defender's own AllocationGroupOverlay (Roll Saves, Keep Rolls / Auto-pick when those steps appear, Done). Asserts the finished combat card carries a third inline dice row labelled 'Save (N+)' alongside Hit and Wound, that its 'Show details' section holds the textual armour-save line naming the threshold and the AP, and that the closing result line reports the save tally so the casualty count explains itself. Also asserts the AP is printed once — this path newly exposed a '(AP --1)' double-minus in the save detail line.",
+  "description": "ARMOUR SAVES IN THE GAME LOG. The 11e allocation-group flow resolves the whole save batch inside AllocationGroupOverlay, so nothing in ShootingPhase._process_apply_saves ever emitted a save dice block: the game log's combat card showed 'Hit (2+)' and 'Wound (5+)' and then jumped straight to 'No models destroyed', with the armour saves that were the REASON nothing died reaching only the Dice Log. This drives a real shot end to end through the player path — select shooter, assign the Guardian spear to the Boyz, confirm, decline the reactive stratagem if one is offered, then press the resolution dock's real primary button three times (Roll to Hit -> Roll to Wound -> Continue to Saving Throws) — and then drives the defender's own AllocationGroupOverlay (Roll Saves, Keep Rolls / Auto-pick when those steps appear, Done). Asserts the finished combat card carries a third inline dice row labelled 'Save (N+)' alongside Hit and Wound, that its 'Show details' section holds the textual armour-save line naming the threshold and the AP, and that the closing result line reports the save tally so the casualty count explains itself. Also asserts the AP is printed once — this path newly exposed a '(AP --1)' double-minus in the save detail line.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -99,14 +99,10 @@
       "equals": true
     },
     {
-      "act": "dispatch_action",
-      "action": {
-        "type": "DECLINE_REACTIVE_STRATAGEM"
-      }
-    },
-    {
-      "act": "expect_action_result",
-      "path": "success",
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "RG-F1: decline the defender's reactive stratagem window only if one opened. The fixture's War Horde Orks lost the 10e 'ARD AS NAILS stopgap (Codex: Orks 11e has no War Horde stratagem in the enemy_targets_unit_shooting window), so normally none opens and resolution starts straight after CONFIRM_TARGETS.",
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nif pi.awaiting_reactive_stratagem:\n\treturn pi.execute_action({\"type\": \"DECLINE_REACTIVE_STRATAGEM\"}).get(\"success\", false)\nreturn true",
       "equals": true
     },
     {

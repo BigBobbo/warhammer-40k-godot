@@ -7,7 +7,8 @@
     "phases.FightPhase.fight_phase_end",
     "phases.FightPhase.execute_window_followup",
     "dialogs.StratagemDialog.window_mode",
-    "ui.Main.stratagem_window_waiting_overlay"
+    "ui.Main.stratagem_window_waiting_overlay",
+    "stratagems.da_big_hunt.loading"
   ],
   "fixture": "ork11e_orks_reactive",
   "edition": 11,

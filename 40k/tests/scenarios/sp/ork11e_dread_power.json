@@ -3,7 +3,9 @@
   "covers": [
     "stratagem.ork11e.dread_power",
     "ui.StratagemPanel.codex_row",
-    "ui.Main.stratagem_target_picker"
+    "ui.Main.stratagem_target_picker",
+    "ui.StratagemPanel.friendly_target_picker",
+    "autoloads.StratagemManager.target_condition_enforcement"
   ],
   "fixture": "ork11e_orks_active",
   "edition": 11,

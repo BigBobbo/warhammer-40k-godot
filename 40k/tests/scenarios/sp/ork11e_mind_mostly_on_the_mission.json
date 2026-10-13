@@ -3,7 +3,8 @@
   "covers": [
     "stratagem.window.unit_selected_to_move.advance",
     "stratagem.ork11e.mind_mostly_on_the_mission",
-    "rules.ActionsManager.can_start_action.mind_on_mission"
+    "rules.ActionsManager.can_start_action.mind_on_mission",
+    "stratagems.taktikal_brigade.loading"
   ],
   "fixture": "ork11e_orks_active",
   "edition": 11,

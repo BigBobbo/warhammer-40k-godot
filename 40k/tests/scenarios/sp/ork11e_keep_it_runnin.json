@@ -6,7 +6,9 @@
     "stratagem.followup.embark",
     "phases.FightPhase.fight_phase_end",
     "phases.FightPhase.execute_window_followup",
-    "dialogs.StratagemDialog.window_mode"
+    "dialogs.StratagemDialog.window_mode",
+    "stratagems.blitz_brigade.loading",
+    "transport.embark_via_stratagem"
   ],
   "fixture": "ork11e_orks_active",
   "edition": 11,

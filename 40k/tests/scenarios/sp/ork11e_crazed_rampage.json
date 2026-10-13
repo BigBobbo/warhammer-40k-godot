@@ -5,7 +5,8 @@
     "stratagem.ork11e.crazed_rampage",
     "phases.FightPhase.enemy_targets_unit_fight",
     "phases.FightPhase.fight_on_death_11e",
-    "dialogs.StratagemDialog.window_mode"
+    "dialogs.StratagemDialog.window_mode",
+    "stratagems.dread_mob.loading"
   ],
   "fixture": "ork11e_orks_reactive",
   "edition": 11,

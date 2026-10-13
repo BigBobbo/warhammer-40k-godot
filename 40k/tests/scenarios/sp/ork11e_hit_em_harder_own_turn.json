@@ -5,7 +5,8 @@
     "stratagem.ork11e.hit_em_harder",
     "dialogs.StratagemDialog.window_mode",
     "phases.BasePhase.open_stratagem_window",
-    "phases.BasePhase.use_window_stratagem"
+    "phases.BasePhase.use_window_stratagem",
+    "rules.melee_scoped_lethal_hits"
   ],
   "fixture": "ork11e_orks_active",
   "edition": 11,

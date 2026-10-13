@@ -4,7 +4,8 @@
     "stratagem.window.enemy_targets_unit_shooting",
     "stratagem.ork11e.speediest_freeks",
     "stratagems.kult_of_speed.loading",
-    "dialogs.StratagemDialog.legacy_fold_in"
+    "dialogs.StratagemDialog.legacy_fold_in",
+    "fight.stratagem.speediest_freeks"
   ],
   "fixture": "ork11e_orks_reactive",
   "edition": 11,

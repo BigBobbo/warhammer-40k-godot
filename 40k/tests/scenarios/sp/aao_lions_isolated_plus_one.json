@@ -109,14 +109,10 @@
       "equals": true
     },
     {
-      "act": "dispatch_action",
-      "action": {
-        "type": "DECLINE_REACTIVE_STRATAGEM"
-      }
-    },
-    {
-      "act": "expect_action_result",
-      "path": "success",
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "RG-F1: decline the defender's reactive stratagem window only if one opened. The fixture's War Horde Orks lost the 10e 'ARD AS NAILS stopgap (Codex: Orks 11e has no War Horde stratagem in the enemy_targets_unit_shooting window), so normally none opens and resolution starts straight after CONFIRM_TARGETS.",
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nif pi.awaiting_reactive_stratagem:\n\treturn pi.execute_action({\"type\": \"DECLINE_REACTIVE_STRATAGEM\"}).get(\"success\", false)\nreturn true",
       "equals": true
     },
     {
