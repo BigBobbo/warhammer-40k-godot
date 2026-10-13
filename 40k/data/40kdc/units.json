@@ -73421,7 +73421,7 @@
    }
   ],
   "keywords": [
-   "Vehicle",
+   "Mounted",
    "Fly",
    "Grenades",
    "Speed Freeks",
@@ -74884,7 +74884,8 @@
    "Vehicle",
    "Transport",
    "Dedicated Transport",
-   "Trukk"
+   "Trukk",
+   "Speed Freeks"
   ],
   "faction_keywords": [
    "Orks"
@@ -76016,7 +76017,7 @@
    }
   ],
   "keywords": [
-   "Mounted",
+   "Monster",
    "Character",
    "Beast Snagga",
    "Epic Hero",
@@ -76531,7 +76532,7 @@
    }
   ],
   "keywords": [
-   "Mounted",
+   "Monster",
    "Character",
    "Beast Snagga",
    "Warboss",
@@ -77045,7 +77046,8 @@
   "keywords": [
    "Walker",
    "Big Mek",
-   "Dakkarig"
+   "Dakkarig",
+   "Vehicle"
   ],
   "faction_keywords": [
    "Orks"

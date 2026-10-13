@@ -1641,6 +1641,21 @@ func _execute_pending_advance_move(player: int, decision: Dictionary, unit_id: S
 
 	_execute_ai_movement(player, decision)
 
+## True when the unit's just-begun Normal move has a higher cap than the
+## datasheet M its destinations were planned at (e.g. FUNGUS-FUEL INJECTION).
+func _normal_move_cap_raised(unit_id: String) -> bool:
+	var phase = _phase_manager_ref.current_phase_instance if _phase_manager_ref else null
+	if unit_id == "" or phase == null or not ("active_moves" in phase):
+		return false
+	var unit: Dictionary = GameState.get_unit(unit_id)
+	# Only the codex +M (FUNGUS-FUEL INJECTION's ork11e_plus_move): other M
+	# modifiers keep their existing planning.
+	if int(unit.get("flags", {}).get("ork11e_plus_move", 0)) <= 0:
+		return false
+	var cap := float(phase.active_moves.get(unit_id, {}).get("move_cap_inches", 0.0))
+	var m := float(unit.get("meta", {}).get("stats", {}).get("move", 0))
+	return m > 0.0 and cap > m + 0.1
+
 func _get_enemies_for_recompute(player: int, snapshot: Dictionary) -> Dictionary:
 	"""Build enemies dictionary for AIDecisionMaker recomputation."""
 	var enemies: Dictionary = {}
@@ -2427,6 +2442,12 @@ func _execute_next_action(player: int) -> void:
 				print("AIPlayer: %s for %s paused (%s) — deferring movement staging" % [decision.get("type", ""), unit_id,
 					"stratagem window" if result.has("stratagem_window_opened") else "awaiting reroll"])
 				_pending_advance_moves[unit_id] = {"decision": decision, "player": player}
+			elif str(decision.get("type", "")) == "BEGIN_NORMAL_MOVE" and _normal_move_cap_raised(str(decision.get("actor_unit_id", ""))):
+				# Codex: Orks (11e) FUNGUS-FUEL INJECTION, used by the AI in its own
+				# unit_selected_to_move window, raised the cap above the datasheet M
+				# the destinations were planned at — re-plan with the real cap
+				# (same path as a window-deferred move) so the +2" is used (AI-08).
+				_execute_pending_advance_move(player, decision, str(decision.get("actor_unit_id", "")))
 			else:
 				_execute_ai_movement(player, decision)
 

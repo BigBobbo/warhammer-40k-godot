@@ -274,10 +274,16 @@ static func ai_score(strat: Dictionary, player: int, target_unit_id: String, win
 	match csv:
 		"fungus-fuel-injection-war-horde", "ere-we-go-green-tide":
 			# The AI re-plans an Advance from the real move cap (AIPlayer
-			# _execute_pending_advance_move), so the bonus is used there; its
-			# Normal moves are pre-planned from the datasheet M (wasted CP).
-			if str(ctx.get("move_type", "")) == "advance" and cp >= 2:
+			# _execute_pending_advance_move), so the bonus is used there.
+			if cp < 2:
+				return 0.0
+			if str(ctx.get("move_type", "")) == "advance":
 				return 2.5
+			# A Normal move is pre-planned from the datasheet M, but AIPlayer
+			# re-plans it when the cap came out higher (FUNGUS-FUEL INJECTION).
+			# Spend the CP only when the extra 2" is what matters (AI-08).
+			if csv == "fungus-fuel-injection-war-horde" and str(ctx.get("move_type", "")) == "normal":
+				return 2.5 if _ffi_normal_move_gain(target_unit_id, player) else 0.0
 			return 0.0
 		"stomping-juggernaut-dread-mob", "mind-mostly-on-the-mission-taktikal-brigade":
 			# The AI movement planner does not path through dense terrain, and it
@@ -292,8 +298,13 @@ static func ai_score(strat: Dictionary, player: int, target_unit_id: String, win
 				return 0.0
 			return 2.5 if _enemy_within(target_unit_id, player, 12.0) else 0.0
 		"scarper-runt-swarm", "whirligig-evasion-flyboyz":
-			# Evade the threat unless the unit is holding an objective.
-			return 0.0 if _unit_in_range_of_any_objective(target_unit_id) else 2.0
+			# Evade the threat unless the unit is holding an objective — and only
+			# when there is a threat: the enemy that ended its move could still
+			# charge this unit this turn (AI-08: don't spend CP running from a
+			# unit that advanced / fell back / is out of 2D6 range).
+			if _unit_in_range_of_any_objective(target_unit_id):
+				return 0.0
+			return 2.0 if _charge_threat(str(ctx.get("enemy_unit_id", "")), target_unit_id) else 0.0
 		"where-dya-fink-youre-going-da-big-hunt":
 			return _where_dya_fink_score(str(ctx.get("enemy_unit_id", "")), target_unit_id)
 		"while-their-backs-are-turned-taktikal-brigade":
@@ -513,6 +524,65 @@ static func units_engaged_with_each_other(a_id: String, b_id: String, board: Dic
 			if re.check_units_in_engagement_range(ua, ub, st):
 				return true
 	return false
+
+## AI (FUNGUS-FUEL INJECTION on a Normal move): true when the extra 2" is what
+## puts an objective its army does not control within control range (3"), or
+## an enemy within an average (7") charge of a unit with melee weapons — the
+## re-planned move (AIPlayer) can then use it. False otherwise (wasted CP).
+static func _ffi_normal_move_gain(unit_id: String, player: int) -> bool:
+	var u := Common.unit(unit_id)
+	if u.is_empty() or Common.is_engaged(unit_id):
+		return false
+	var m := float(u.get("meta", {}).get("stats", {}).get("move", 0))
+	if m <= 0.0:
+		return false
+	var oc := int(u.get("meta", {}).get("stats", {}).get("objective_control", 0))
+	if oc > 0 and _uncontrolled_objective_within(unit_id, player, m + 2.0 + 3.0) \
+			and not _uncontrolled_objective_within(unit_id, player, m + 3.0):
+		return true
+	if _charge_worthy_melee(unit_id) and _enemy_within(unit_id, player, m + 2.0 + 7.0) \
+			and not _enemy_within(unit_id, player, m + 7.0):
+		return true
+	return false
+
+## AI (FUNGUS-FUEL INJECTION): does the unit fight with a melee weapon worth
+## charging with (S5+ or 3+ attacks)? A Mek Gunz crew's S2 A1 shivs or a bare
+## S4 A2 close combat weapon is not a reason to spend CP on charge range.
+static func _charge_worthy_melee(unit_id: String) -> bool:
+	var re = Common.rules()
+	var u := Common.unit(unit_id)
+	if re == null or u.is_empty() or not re.has_method("get_unit_melee_weapons"):
+		return false
+	var profiles := {}
+	for w in u.get("meta", {}).get("weapons", []):
+		if str(w.get("type", "")).to_lower() == "melee":
+			profiles[str(w.get("name", ""))] = w
+	for names in re.get_unit_melee_weapons(unit_id, Common.state()).values():
+		for wname in names:
+			var w: Dictionary = profiles.get(str(wname), {})
+			if w.is_empty():
+				continue
+			var s_str := str(w.get("strength", "0"))
+			var a_str := str(w.get("attacks", "0")).to_upper()
+			var a := int(a_str) if a_str.is_valid_int() else (2 if a_str == "D3" else 3)
+			if (s_str.is_valid_int() and int(s_str) >= 5) or a >= 3:
+				return true
+	return false
+
+## AI (SCARPER! / WHIRLIGIG EVASION): can the enemy unit that just ended its
+## move still charge `unit_id` this turn — eligible to declare a charge
+## (RulesEngine: not advanced / fell back without a rule allowing it, ...) and
+## within 12" (the 2D6 maximum)? Unknown enemy -> true (old behaviour).
+static func _charge_threat(enemy_id: String, unit_id: String) -> bool:
+	if enemy_id == "":
+		return true
+	var e := Common.unit(enemy_id)
+	if e.is_empty() or not Common.is_on_battlefield(e):
+		return false
+	var re = Common.rules()
+	if re != null and re.has_method("eligible_to_charge") and not re.eligible_to_charge(enemy_id, Common.state()):
+		return false
+	return _attached_within(enemy_id, unit_id, 12.0)
 
 static func _enemy_within(unit_id: String, player: int, inches: float) -> bool:
 	var units = Common.state().get("units", {})
@@ -835,10 +905,27 @@ static func _delicious_squigs_apply(buggies_id: String, player: int) -> Array:
 	for uid in delicious_squigs_targets(buggies_id, player):
 		var res := heal_unit_diffs(str(uid), 3)
 		diffs.append_array(res.diffs)
-		summary.append("%s %d" % [Common.unit_name(str(uid)), int(res.healed) + int(res.revived)])
-		Common.log_info("OrkCodexMovement: DELICIOUS EATING SQUIGS — %s heals %d wound(s), revives %d model(s)" % [uid, int(res.healed), int(res.revived)])
+		var part := "%s %d" % [Common.unit_name(str(uid)), int(res.healed) + int(res.revived)]
+		if int(res.revived) > 0:
+			part += " (%d model(s) revived, set up in coherency)" % int(res.revived)
+		if int(res.no_room) > 0:
+			part += " (%d revive(s) lost: no legal set-up spot)" % int(res.no_room)
+		summary.append(part)
+		Common.log_info("OrkCodexMovement: DELICIOUS EATING SQUIGS — %s heals %d wound(s), revives %d model(s) at %s, %d revive(s) without a legal spot" % [uid, int(res.healed), int(res.revived), str(res.placements), int(res.no_room)])
 	_event_log(player, "DELICIOUS EATING SQUIGS (%s): units heal 3 wounds — %s" % [Common.unit_name(buggies_id), ", ".join(PackedStringArray(summary)) if not summary.is_empty() else "none"])
 	return diffs
+
+## What DELICIOUS EATING SQUIGS would do right now, without changing state:
+## [{unit_id, healed, revived, no_room, placements: [{unit_id, model_id, position: Vector2}]}].
+## Main shows it to a human before the stratagem is used (the revived models
+## are auto-placed; apply recomputes the same placement deterministically).
+static func delicious_squigs_preview(buggies_id: String, player: int) -> Array:
+	var out: Array = []
+	for uid in delicious_squigs_targets(buggies_id, player):
+		var res := heal_unit_diffs(str(uid), 3)
+		out.append({"unit_id": str(uid), "healed": int(res.healed), "revived": int(res.revived),
+			"no_room": int(res.no_room), "placements": res.placements})
+	return out
 
 ## Wounds the unit could regain (lost wounds + revivable non-CHARACTER models).
 static func _healable_wounds(unit_id: String) -> int:
@@ -849,16 +936,24 @@ static func _healable_wounds(unit_id: String) -> int:
 		for m in g.get("models", []):
 			if m.get("alive", true):
 				n += maxi(0, int(m.get("wounds", 1)) - int(m.get("current_wounds", m.get("wounds", 1))))
-			elif not is_char and m.get("position", null) != null:
+			elif not is_char:
 				n += 1
 	return n
 
 ## 02.02.04: for each wound — a wounded model regains one wound; if every model
 ## is at full wounds, a destroyed non-CHARACTER model is revived with 1 wound;
-## excess is lost. Returns {diffs, healed, revived} (state is not mutated).
+## excess is lost. 01.02.03: a revived model is SET UP in coherency with models
+## of its unit that started the phase on the battlefield, not overlapping any
+## model, on the battlefield, and engaged only with enemy units that were
+## already engaged with its unit — it does not reappear where it died (the
+## survivors may have moved since). The set-up spot is chosen automatically
+## (_revive_position); a model with no legal spot is not revived and the next
+## destroyed model is tried, else the wound is lost.
+## Returns {diffs, healed, revived, no_room, placements} (state is not mutated).
 static func heal_unit_diffs(unit_id: String, amount: int) -> Dictionary:
-	var sim: Array = []   # [{uid, idx, alive, cur, max, char, has_pos}]
-	for gid in Common.attached_group_ids(unit_id):
+	var sim: Array = []   # [{uid, idx, alive, cur, max, char, touched, pos, unplaceable}]
+	var group: Array = Common.attached_group_ids(unit_id)
+	for gid in group:
 		var g := Common.unit(str(gid))
 		var is_char := Common.has_keyword(g, "CHARACTER")
 		var models: Array = g.get("models", [])
@@ -866,9 +961,12 @@ static func heal_unit_diffs(unit_id: String, amount: int) -> Dictionary:
 			var m = models[i]
 			sim.append({"uid": str(gid), "idx": i, "alive": bool(m.get("alive", true)),
 				"cur": int(m.get("current_wounds", m.get("wounds", 1))), "max": int(m.get("wounds", 1)),
-				"char": is_char, "has_pos": m.get("position", null) != null, "touched": false})
+				"char": is_char, "touched": false, "pos": null, "unplaceable": false})
 	var healed := 0
 	var revived := 0
+	var no_room := 0
+	var placed: Array = []    # revived models already set up by this heal: [{uid, idx, pos}]
+	var placements: Array = []
 	for _i in range(amount):
 		var done := false
 		for s in sim:
@@ -880,23 +978,181 @@ static func heal_unit_diffs(unit_id: String, amount: int) -> Dictionary:
 				break
 		if done:
 			continue
+		var had_candidate := false
 		for s in sim:
-			if not s.alive and not s.char and s.has_pos:
-				s.alive = true
-				s.cur = 1
-				s.touched = true
-				revived += 1
-				done = true
-				break
+			if s.alive or s.char or s.unplaceable:
+				continue
+			had_candidate = true
+			var spot = _revive_position(group, str(s.uid), int(s.idx), placed)
+			if spot == null:
+				s.unplaceable = true
+				no_room += 1
+				Common.log_info("OrkCodexMovement: revive — no legal set-up spot for %s model %d (01.02.03); not revived" % [s.uid, int(s.idx)])
+				continue
+			s.alive = true
+			s.cur = 1
+			s.touched = true
+			s.pos = spot
+			placed.append({"uid": s.uid, "idx": s.idx, "pos": spot})
+			var mdl: Dictionary = Common.unit(str(s.uid)).get("models", [])[int(s.idx)]
+			placements.append({"unit_id": str(s.uid), "model_id": str(mdl.get("id", s.idx)), "position": spot})
+			revived += 1
+			done = true
+			break
 		if not done:
+			if had_candidate:
+				continue   # this wound found no placeable model; the next wound has none either
 			break
 	var diffs: Array = []
 	for s in sim:
 		if not s.touched:
 			continue
 		diffs.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [s.uid, s.idx], "value": s.cur})
+		if s.pos != null:
+			var p: Vector2 = s.pos
+			diffs.append({"op": "set", "path": "units.%s.models.%d.position" % [s.uid, s.idx], "value": {"x": p.x, "y": p.y}})
 		diffs.append({"op": "set", "path": "units.%s.models.%d.alive" % [s.uid, s.idx], "value": s.alive})
-	return {"diffs": diffs, "healed": healed, "revived": revived}
+	return {"diffs": diffs, "healed": healed, "revived": revived, "no_room": no_room, "placements": placements}
+
+## 01.02.03 set-up spot for a revived model (Vector2 px) or null when there is
+## no legal one. Candidates: the spot where it died first (if it is still
+## legal), then rings around each anchor model (alive models of its unit that
+## started the phase on the battlefield), nearest to where it died first.
+## A candidate must: be on the battlefield, not overlap any model or a wall,
+## be within coherency range of an anchor, keep the whole Attached unit in
+## coherency (2" + the 11e 9" envelope, AttackSequence's End-of-Turn verdict),
+## and not be within Engagement Range of an enemy unit that is not already
+## engaged with the unit.
+static func _revive_position(group: Array, uid: String, idx: int, placed: Array):
+	var meas = Common.autoload("Measurement")
+	if meas == null:
+		return null
+	var units: Dictionary = Common.state().get("units", {})
+	var model: Dictionary = (units.get(uid, {}).get("models", [])[idx] as Dictionary).duplicate(true)
+	var kws: Array = units.get(uid, {}).get("meta", {}).get("keywords", [])
+	var anchors: Array = []
+	for gid in group:
+		var gu: Dictionary = units.get(str(gid), {})
+		if not Common.is_on_battlefield(gu) or not _started_phase_on_battlefield(gu):
+			continue
+		for m in gu.get("models", []):
+			if m.get("alive", true) and m.get("position", null) != null:
+				anchors.append(m)
+	if anchors.is_empty():
+		return null
+	# Every other model on the battlefield (overlap) and the enemy models
+	# (engagement), split by whether their unit is already engaged with ours.
+	var others: Array = []
+	var enemy_free: Array = []
+	var my_owner := int(units.get(uid, {}).get("owner", 0))
+	for ouid in units:
+		var ou: Dictionary = units[ouid]
+		if not Common.is_on_battlefield(ou):
+			continue
+		var is_enemy := int(ou.get("owner", 0)) != my_owner
+		var engaged_already := false
+		if is_enemy:
+			for em in ou.get("models", []):
+				if not em.get("alive", true) or em.get("position", null) == null:
+					continue
+				for am in anchors:
+					if meas.is_in_engagement_range_shape_aware(am, em):
+						engaged_already = true
+						break
+				if engaged_already:
+					break
+		for om in ou.get("models", []):
+			if om.get("alive", true) and om.get("position", null) != null:
+				others.append(om)
+				if is_enemy and not engaged_already:
+					enemy_free.append(om)
+	for p in placed:
+		var pm: Dictionary = (units.get(str(p.uid), {}).get("models", [])[int(p.idx)] as Dictionary).duplicate(true)
+		pm["position"] = p.pos
+		pm["alive"] = true
+		others.append(pm)
+	var death_pos = _model_pos_or_null(model)
+	var ref: Vector2 = death_pos if death_pos != null else Common._pos(anchors[0])
+	var r_m := float(meas.base_extent_px(model))
+	# Where it died first; then rings around the anchors, tightest ring first
+	# (keeps the unit compact), each ring nearest to where the model died.
+	var candidates: Array = []
+	if death_pos != null:
+		candidates.append(death_pos)
+	for gap_in in [0.3, 0.9, 1.5]:
+		var ring: Array = []
+		for am in anchors:
+			var c: Vector2 = Common._pos(am)
+			var r_a := float(meas.base_extent_px(am))
+			var dist: float = r_a + r_m + float(meas.inches_to_px(gap_in))
+			for k in range(24):
+				var ang := TAU * float(k) / 24.0
+				ring.append(c + Vector2(cos(ang), sin(ang)) * dist)
+		ring.sort_custom(func(a, b): return a.distance_squared_to(ref) < b.distance_squared_to(ref))
+		candidates.append_array(ring)
+	var AttackSeq = load("res://scripts/rules/AttackSequence.gd")
+	for cand in candidates:
+		var test := model.duplicate(true)
+		test["position"] = cand
+		test["alive"] = true
+		if meas.model_outside_board(cand, test):
+			continue
+		if meas.model_overlaps_any(test, others):
+			continue
+		if meas.has_method("model_overlaps_any_wall") and meas.model_overlaps_any_wall(test, kws):
+			continue
+		var near_anchor := false
+		for am in anchors:
+			if meas.is_within_coherency(test, am):
+				near_anchor = true
+				break
+		if not near_anchor:
+			continue
+		var engages_new := false
+		for em in enemy_free:
+			if meas.is_in_engagement_range_shape_aware(test, em):
+				engages_new = true
+				break
+		if engages_new:
+			continue
+		# Whole Attached unit coherent with the model (and earlier revives) set up.
+		var components: Array = []
+		for gid in group:
+			var ms: Array = (units.get(str(gid), {}).get("models", []) as Array).duplicate(true)
+			for p in placed:
+				if str(p.uid) == str(gid):
+					ms[int(p.idx)]["position"] = p.pos
+					ms[int(p.idx)]["alive"] = true
+			if str(gid) == uid:
+				ms[idx] = test
+			components.append({"unit_id": str(gid), "models": ms})
+		if AttackSeq != null and not bool(AttackSeq.attached_coherency_offenders(components).get("coherent", true)):
+			continue
+		return cand
+	return null
+
+## False for a unit that was set up on the battlefield during this Movement
+## phase (disembarked, or arrived from reserves this battle round): its models
+## did not start the phase on the battlefield (01.02.03 anchor rule).
+static func _started_phase_on_battlefield(u: Dictionary) -> bool:
+	if bool(u.get("disembarked_this_phase", false)):
+		return false
+	var gs = Common.game_state()
+	var arrived := int(u.get("arrived_from_reserves_turn", -1))
+	if arrived > 0 and gs != null and gs.has_method("get_battle_round") and arrived == int(gs.get_battle_round()) \
+			and gs.has_method("get_current_phase") and int(gs.get_current_phase()) == int(GameStateData.Phase.MOVEMENT):
+		return false
+	return true
+
+static func _model_pos_or_null(m: Dictionary):
+	var p = m.get("position", null)
+	if p == null:
+		return null
+	if p is Dictionary:
+		return Vector2(float(p.get("x", 0.0)), float(p.get("y", 0.0)))
+	if p is Vector2:
+		return p
+	return null
 
 
 # ---------------------------------------------------------------------------

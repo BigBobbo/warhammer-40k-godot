@@ -240,6 +240,8 @@ func _section_targeting_offers() -> void:
 	_check("SPEEDIEST FREEKS loaded", sf != "")
 	_check("SF offered on Warbikers (SPEED FREEKS)", not _offer_for(SM.get_reactive_stratagems_for_shooting(2, ["U_WARBIKERS_A"], {"attacker_unit_id": "U_CUSTODIAN_GUARD_C"}), sf).is_empty())
 	_check("SF not offered on Boyz", _offer_for(SM.get_reactive_stratagems_for_shooting(2, ["U_BOYZ_B"], {"attacker_unit_id": "U_CUSTODIAN_GUARD_C"}), sf).is_empty())
+	# r5:F2 — the Trukk is a SPEED FREEKS datasheet in the codex (data patch).
+	_check("SF offered on the Trukk (SPEED FREEKS per the codex)", not _offer_for(SM.get_reactive_stratagems_for_shooting(2, ["U_TRUKK_A"], {"attacker_unit_id": "U_CUSTODIAN_GUARD_C"}), sf).is_empty())
 
 	# GROT SHIELDS (Runt Swarm)
 	_set_detachment(2, "Runt Swarm")

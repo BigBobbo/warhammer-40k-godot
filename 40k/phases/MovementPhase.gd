@@ -1800,9 +1800,16 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int, is_roll: bool = t
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if game_event_log:
 		var owner = int(unit.get("owner", 0))
-		game_event_log.add_player_entry(owner,
-			"%s advances: rolled [%d] — total move = %d\" (M %d\" + %d\")" % [
-				unit_name, advance_roll, total_move, int(move_inches), advance_roll])
+		if ewg_bonus != 0 and is_roll:
+			# A modified roll: log the die as rolled ([N] renders as a die face)
+			# plus the modifier — a [7] has no die face (EWG-2).
+			game_event_log.add_player_entry(owner,
+				"%s advances: rolled [%d] %+d ('ERE WE GO) = %d — total move = %d\" (M %d\" + %d\")" % [
+					unit_name, advance_roll - ewg_bonus, ewg_bonus, advance_roll, total_move, int(move_inches), advance_roll])
+		else:
+			game_event_log.add_player_entry(owner,
+				"%s advances: rolled [%d] — total move = %d\" (M %d\" + %d\")" % [
+					unit_name, advance_roll, total_move, int(move_inches), advance_roll])
 
 	return create_result(true, [
 		{
@@ -4309,7 +4316,6 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 		"group_formation": {}  # Relative positions within group
 	}
 	
-	emit_signal("unit_move_begun", unit_id, "FALL_BACK")
 	log_phase_message("Beginning fall back for %s (M: %d\")" % [unit.get("meta", {}).get("name", unit_id), move_inches])
 
 	# ISS-040 step 2 (11e 09.07): fall-back MODES via the template —
@@ -4334,6 +4340,7 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 			# escape (FallBackMove.select_mode) — surface the hazard rolls, including
 			# the extra MONSTER/VEHICLE rolls (FallBackMove.before_moving).
 			if Ork11eMovement.where_dya_fink_forces_desperate_escape(unit_id, GameState.state):
+				active_moves[unit_id]["fall_back_mode_forced_by"] = "WHERE D'YA FINK YOU'RE GOING?"
 				_ork11e_log_where_dya_fink_hazards(unit_id, hz)
 			# 06.03: each failure destroys a model (3 MW each instead for
 			# an all-MONSTER/VEHICLE unit, via the 06.02 allocation).
@@ -4346,6 +4353,10 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 				for di in out.models_destroyed:
 					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.alive" % [unit_id, int(di)], "value": false})
 					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, int(di)], "value": 0})
+
+	# Emitted once the 11e fall-back mode is known, so the movement panel can
+	# show it (Desperate Escape, and that it was forced — r3:F12).
+	emit_signal("unit_move_begun", unit_id, "FALL_BACK")
 
 	var begin_changes = [
 		{
@@ -6101,6 +6112,13 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 	if MissionManager:
 		MissionManager.call_deferred("check_all_objectives")
 
+	# Codex: Orks (11e) enemy_ended_move: the arrival is an ingress move
+	# (20.04). The opponent's window opens once the Fire Overwatch prompt
+	# below has resolved (its decline / use paths open it), else right away.
+	if GameConstants.edition >= 11:
+		_ork11e_eem_pending = {"unit_id": unit_id, "move_type": "ingress"}
+		_ork11e_pending_move_changes = []
+
 	# P2-88: Check for Fire Overwatch opportunity after reinforcement is set up
 	# Balance Dataslate timing: "just after an enemy unit is set up"
 	var ow_result = _check_fire_overwatch_opportunity(unit_id, "reinforcement set up")
@@ -6109,7 +6127,7 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 		result.merge(ow_result.result_extra)
 		return result
 
-	return create_result(true, changes)
+	return _ork11e_with_enemy_ended_move(create_result(true, changes))
 
 func _process_end_movement(action: Dictionary) -> Dictionary:
 	log_phase_message("=== PROCESSING END_MOVEMENT ===")
@@ -9877,7 +9895,17 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 		if dis_mode == "assault":
 			log_phase_message("[11e] Assault disembark (18.06) — %s set up within 3\" of the transport; still eligible to charge" % unit_id)
 		# Codex: Orks (11e) READIED BRAWLERS: continue / finish the follow-up.
-		return _ork11e_after_assault_disembark(unit_id, dis_changes)
+		var dis_result := _ork11e_after_assault_disembark(unit_id, dis_changes)
+		# Codex: Orks (11e) enemy_ended_move: a disembark move is a move (18.04),
+		# so the opponent's window opens once it has ended (a tactical
+		# disembark's follow-up normal/advance move opens its own). Not for an
+		# assault disembark run inside a stratagem follow-up (READIED BRAWLERS):
+		# that window flow is still in progress.
+		if dis_mode != "assault" and not _window_followup_pending:
+			_ork11e_eem_pending = {"unit_id": unit_id, "move_type": "disembark"}
+			_ork11e_pending_move_changes = []
+			return _ork11e_with_enemy_ended_move(dis_result)
+		return dis_result
 	# Post-disembark: offer movement if the transport hadn't already moved
 	if unit and not unit.get("flags", {}).get("cannot_move", false):
 		log_phase_message("Unit %s can move after disembark" % unit.meta.get("name", unit_id))

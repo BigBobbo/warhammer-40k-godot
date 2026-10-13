@@ -25,6 +25,21 @@
 //      is Hunta Rig, Kill Rig, Battlewagon, Gunwagon, Kill Tank, Lifta Wagon;
 //      1.4.5 tags only the Gunwagon. Blitz Brigade stratagems (READIED
 //      BRAWLERS, IMPENDING KRUNCH) and enhancements target WAGON units.
+//   4. Codex keyword lists vs 1.4.5 for the keywords the 40 codex stratagems
+//      gate on (Wahapedia "The X keyword is used in the following Orks
+//      datasheets", Codex: Orks 11e, checked Oct 2026 for AIRCRAFT, BEAST
+//      SNAGGA, GROTS, INFANTRY, MOUNTED, SPEED FREEKS, TRANSPORT, VEHICLE,
+//      WAGON, WALKER):
+//        - Trukk: + SPEED FREEKS (listed under Dedicated Transports) —
+//          DAKKASTORM / SPEEDIEST FREEKS target SPEED FREEKS units.
+//        - Deffkoptas: MOUNTED, not VEHICLE (listed under Mounted in the
+//          MOUNTED and SPEED FREEKS lists, absent from the VEHICLE list) —
+//          MOW 'EM DOWN targets ORKS VEHICLE, FUNGUS-FUEL INJECTION MOUNTED/VEHICLE.
+//        - Big Mek Dakkarig: + VEHICLE (listed under Vehicle Character).
+//        - Mozrog Skragbad, Beastboss on Squigosaur: MONSTER, not MOUNTED
+//          (listed under Monster Epic Hero / Monster Character, absent from
+//          the MOUNTED list) — FUNGUS-FUEL INJECTION targets MOUNTED/VEHICLE.
+//      A replaced keyword keeps its position in the list.
 //
 // Dropped (no longer applicable): the four Speedwaaagh! enhancements that were
 // hand-added to detachments.json / enhancements.json under 1.0.19 — the
@@ -96,6 +111,51 @@ let changed = 0;
     }
   }
   if (kwChanged) { save('units', units); changed += kwChanged; }
+}
+
+// 4. Codex keyword-list corrections (stratagem gates). `replace` swaps a wrong
+// keyword in place; `add` appends a missing one.
+{
+  const KEYWORD_FIXES = {
+    'trukk': { add: ['Speed Freeks'] },
+    'deffkoptas': { replace: { Vehicle: 'Mounted' } },
+    'big-mek-dakkarig': { add: ['Vehicle'] },
+    'mozrog-skragbad': { replace: { Mounted: 'Monster' } },
+    'beastboss-on-squigosaur': { replace: { Mounted: 'Monster' } },
+  };
+  const units = load('units');
+  const norm = k => String(k).replace(/’/g, "'").toLowerCase();
+  let fixChanged = 0;
+  const seen = new Set();
+  for (const u of units) {
+    if (u.faction_id !== 'orks' || !(u.id in KEYWORD_FIXES) || !Array.isArray(u.keywords)) continue;
+    seen.add(u.id);
+    const fix = KEYWORD_FIXES[u.id];
+    for (const [from, to] of Object.entries(fix.replace || {})) {
+      const i = u.keywords.findIndex(k => norm(k) === norm(from));
+      const hasTo = u.keywords.some(k => norm(k) === norm(to));
+      if (i >= 0 && !hasTo) {
+        u.keywords[i] = to;
+        fixChanged++;
+        console.log(`patched units.json: orks/${u.id} keyword "${from}" -> "${to}"`);
+      } else if (i >= 0 && hasTo) {
+        u.keywords.splice(i, 1);
+        fixChanged++;
+        console.log(`patched units.json: orks/${u.id} - keyword "${from}" ("${to}" already present)`);
+      }
+    }
+    for (const kw of fix.add || []) {
+      if (!u.keywords.some(k => norm(k) === norm(kw))) {
+        u.keywords.push(kw);
+        fixChanged++;
+        console.log(`patched units.json: orks/${u.id} + keyword "${kw}"`);
+      }
+    }
+  }
+  for (const id of Object.keys(KEYWORD_FIXES)) {
+    if (!seen.has(id)) console.warn(`WARN: orks/${id} not found in units.json — patch 4 skipped for it`);
+  }
+  if (fixChanged) { save('units', units); changed += fixChanged; }
 }
 
 console.log(`local-patches: ${changed} change(s) applied`);

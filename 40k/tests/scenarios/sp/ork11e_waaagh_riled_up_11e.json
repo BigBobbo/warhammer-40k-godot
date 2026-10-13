@@ -1,0 +1,134 @@
+{
+  "id": "ork11e_waaagh_riled_up_11e",
+  "covers": [
+    "ui.CommandController.waaagh",
+    "autoloads.FactionAbilityManager.waaagh_melee_bonus_applies",
+    "autoloads.RulesEngine.melee_waaagh_bonus",
+    "stratagem.ork11e.dread_power"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "r2:F1 (11e Waaagh! = riled up, no 10e melee bonus). Orks' Command phase at 11e: the Waaagh! panel describes the 11e army rule (5+ invulnerable save, ranged [ASSAULT], advancing does not prevent charging) and never '+1 Strength / +1 Attack'. A real click on CALL DA WAAAGH! makes the Ork units riled up: waaagh_active, 5+ invuln, advance-and-charge AND ranged [ASSAULT] (effect_advance_and_shoot) \u2014 and the game log line names the 11e benefits. The engine's 10e +1 A / +1 S gate (FactionAbilityManager.waaagh_melee_bonus_applies) is false for a riled-up unit, and the same-seed melee A/B for the riled-up Deff Dread (Dread Klaws vs the engaged Prosecutors) rolls the same number of hit dice at the same Strength as without the Waaagh!.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "comment": "dismiss the new-secondaries review popup"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/CallWaaaghButton",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"HUD_Right/VBoxContainer/CommandScrollContainer\").ensure_control_visible(main.get_node(\"HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/CallWaaaghButton\"))"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "execute_script",
+      "script": "\"[ASSAULT]\" in main.get_node(\"HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/WaaaghDescription\").text",
+      "equals": true,
+      "comment": "11e army-rule text"
+    },
+    {
+      "act": "execute_script",
+      "script": "\"+1 Strength\" in main.get_node(\"HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/WaaaghDescription\").text",
+      "equals": false,
+      "comment": "no 10e melee bonus text"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_waaagh_panel_11e_text"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/CommandScrollContainer/CommandPanel/FactionAbilitiesSection/CallWaaaghButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "FactionAbilityManager.is_waaagh_active(1)",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_B.flags.waaagh_active",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_B.flags.effect_invuln",
+      "equals": 5
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_B.flags.effect_advance_and_charge",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_B.flags.effect_advance_and_shoot",
+      "equals": true,
+      "comment": "11e riled up: ranged [ASSAULT]"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "return FactionAbilityManager.waaagh_melee_bonus_applies(GameState.state[\"units\"][\"U_DEFF_DREAD_A\"])",
+      "equals": false,
+      "comment": "the 10e +1 A / +1 S gate is closed at 11e"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var board: Dictionary = GameState.create_snapshot()\nvar plain: Dictionary = board.duplicate(true)\nfor k in [\"waaagh_active\", \"effect_invuln\", \"effect_invuln_source\", \"effect_advance_and_charge\", \"effect_advance_and_shoot\", \"waaagh_assault_granted\"]:\n\tplain.units.U_DEFF_DREAD_A.flags.erase(k)\nvar act := {\"type\": \"FIGHT\", \"actor_unit_id\": \"U_DEFF_DREAD_A\", \"payload\": {\"assignments\": [{\"attacker\": \"U_DEFF_DREAD_A\", \"target\": \"U_PROSECUTORS_A\", \"weapon\": \"Dread Klaws\"}]}}\nvar out := []\nfor b in [board, plain]:\n\tRulesEngine.set_test_seed(555)\n\tvar res = RulesEngine.resolve_melee_attacks(act, b.duplicate(true), RulesEngine.RNGService.new())\n\tvar hits := -1\n\tvar s := -1\n\tfor d in res.get(\"dice\", []):\n\t\tif str(d.get(\"context\", \"\")) == \"hit_roll_melee\":\n\t\t\thits = (d.get(\"rolls_raw\", d.get(\"rolls\", [])) as Array).size()\n\t\telif str(d.get(\"context\", \"\")) in [\"wound_roll_melee\", \"to_wound_melee\", \"wound_roll\"]:\n\t\t\ts = int(d.get(\"strength\", -1))\n\tout.append([hits, s])\nreturn out[0] == out[1] and out[0][0] > 0",
+      "equals": true,
+      "comment": "same seed A/B: riled-up Deff Dread melee = plain Deff Dread melee (no +1 A / +1 S)"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"[ASSAULT]\")",
+      "expect_min": 1,
+      "comment": "the game log names the 11e benefits"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"+1 S/A\")",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_waaagh_called_riled_up"
+    }
+  ]
+}

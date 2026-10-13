@@ -8511,7 +8511,12 @@ func update_ui() -> void:
 
 		GameStateData.Phase.MOVEMENT:
 			var ai_move = get_node_or_null("/root/AIPlayer")
-			if ai_move and ai_move.is_ai_player(active_player):
+			var reactive_status := _reactive_move_status_text()
+			if reactive_status != "":
+				# LIVE-8: a reactive normal move (SCARPER!, ...) belongs to the
+				# unit's owner, not the active player — say whose move it is.
+				status_label.text = reactive_status
+			elif ai_move and ai_move.is_ai_player(active_player):
 				status_label.text = "AI Player %d is moving..." % active_player
 			elif movement_controller and movement_controller.active_unit_id != "":
 				if movement_controller.active_mode != "":
@@ -11416,8 +11421,33 @@ func _on_secondary_score_changed(_player: int, _vp: int, _mission_id: String) ->
 	_update_score_display()
 
 # P3-120: Update CP display immediately when a stratagem is used
+## HUD status line for an in-progress reactive normal move (SCARPER!,
+## WHIRLIGIG EVASION, WHILE THEIR BACKS ARE TURNED, ...): "Player 2: SCARPER!
+## move — drag Gretchin Alpha up to 3", then End This Unit's Move". "" when no
+## reactive move is in progress (LIVE-8).
+func _reactive_move_status_text() -> String:
+	var phase = PhaseManager.get_current_phase_instance() if PhaseManager else null
+	if phase == null or not ("active_moves" in phase):
+		return ""
+	for uid in phase.active_moves:
+		var md: Dictionary = phase.active_moves[uid]
+		if not md.get("is_reactive_move", false) or md.get("completed", false):
+			continue
+		var owner := int(GameState.get_unit(str(uid)).get("owner", 0))
+		var src: String = MovementController.reactive_move_source(md)
+		return "Player %d: %s move — drag %s up to %s\", then End This Unit's Move" % [
+			owner, src, GameState.get_unit_display_name(str(uid)), MovementController._fmt_inches(float(md.get("move_cap_inches", 0.0)))]
+	return ""
+
+
 func _on_stratagem_used_update_display(_player: int, _stratagem_id: String, _target_unit_id: String) -> void:
 	_update_score_display()
+	# DELICIOUS EATING SQUIGS revives destroyed models at a new set-up spot
+	# (01.02.03): rebuild the tokens so the revived models appear (human S-panel
+	# use and AI use alike).
+	var sm = get_node_or_null("/root/StratagemManager")
+	if sm and str(sm.get_stratagem(_stratagem_id).get("csv_id", "")) == "delicious-eating-squigs-kult-of-speed":
+		call_deferred("_recreate_unit_visuals")
 
 # Multiplayer sync handler
 func _on_network_result_applied(result: Dictionary) -> void:
@@ -15298,6 +15328,11 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	if strat_name in ["BIGGER SHELLS FOR BIGGER GITZ", "DAKKA! DAKKA! DAKKA!", "KLANKIN' KLAWS"]:
 		_prompt_push_it_stratagem(sid_resolved, active_player)
 		return
+	# DELICIOUS EATING SQUIGS (Codex: Orks 11e, Kult of Speed): pick the
+	# buggies, then confirm where the revived models are set up (01.02.03).
+	if str(strat.get("csv_id", "")) == "delicious-eating-squigs-kult-of-speed":
+		_prompt_delicious_squigs(sid_resolved, active_player)
+		return
 	# Unit-targeted faction stratagems (SPESHUL AMMO, DUST TRAILS, DAT'S OURS,
 	# TAKTIKAL RETREAT, DED SNEAKY, ...): prompt for the friendly target
 	# instead of firing target-less, which would no-op the unit-flag effect.
@@ -15340,6 +15375,116 @@ func _prompt_friendly_target_then_use(sid: String, player: int) -> void:
 			print("Main: %s on %s -> %s" % [display_name, fid, str(result)])
 			if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
 				_stratagem_panel.populate(player, current_phase))
+
+
+## DELICIOUS EATING SQUIGS (Codex: Orks 11e): pick the Rukkatrukk
+## Squigbuggies, then — when the heal revives destroyed models — show where each
+## revived model will be set up (auto-placed in coherency with its unit, 01.02.03;
+## rings on the board) and use the stratagem only when the player confirms.
+## A revive with no legal set-up spot is listed as lost.
+func _prompt_delicious_squigs(sid: String, player: int) -> void:
+	var strat_manager = get_node("/root/StratagemManager")
+	var friendly := _eligible_friendly_stratagem_targets(sid, player)
+	if friendly.is_empty():
+		print("Main: DELICIOUS EATING SQUIGS — no eligible friendly unit")
+		return
+	_show_stratagem_pick_dialog("DELICIOUS EATING SQUIGS — select your unit", friendly,
+		func(fid: String):
+			var use_now := func():
+				var result = strat_manager.use_stratagem(player, sid, fid)
+				print("Main: DELICIOUS EATING SQUIGS on %s -> %s" % [fid, str(result)])
+				if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
+					_stratagem_panel.populate(player, current_phase)
+			var mv_script = load("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
+			var preview: Array = mv_script.delicious_squigs_preview(fid, player)
+			var revived := 0
+			var lost := 0
+			for e in preview:
+				revived += int(e.get("revived", 0))
+				lost += int(e.get("no_room", 0))
+			if revived == 0 and lost == 0:
+				use_now.call()
+				return
+			_show_revive_setup_confirm(preview, use_now))
+
+
+## Confirmation for an auto-placed revive set-up: rings on the board at each
+## spot plus a dialog listing the units; Confirm uses the stratagem, Cancel
+## spends nothing. Node paths are stable for windowed scenarios:
+## /root/ReviveSetupDialog/Content/{Header,Unit_<uid>,ConfirmButton,CancelButton}.
+func _show_revive_setup_confirm(preview: Array, on_confirm: Callable) -> void:
+	var meas = get_node_or_null("/root/Measurement")
+	var markers: Array = []
+	for e in preview:
+		for pl in e.get("placements", []):
+			var model: Dictionary = {}
+			for m in GameState.get_unit(str(pl.unit_id)).get("models", []):
+				if str(m.get("id", "")) == str(pl.model_id):
+					model = m
+			var r := 20.0
+			if meas and not model.is_empty():
+				r = float(meas.base_extent_px(model))
+			markers.append({"position": pl.position, "radius": r})
+	var overlay = load("res://scripts/ReviveSetupPreview.gd").new()
+	overlay.name = "ReviveSetupPreview"
+	if ghost_layer:
+		ghost_layer.add_child(overlay)
+	overlay.set_markers(markers)
+	# Let the player see the marked spots: close the Stratagem panel (it covers
+	# the board) and frame the first spot above the bottom-docked dialog.
+	if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
+		_toggle_stratagem_panel()
+	if not markers.is_empty():
+		focus_on_world_point(markers[0].position, false, Vector2(0.5, 0.32))
+	var dialog = AcceptDialog.new()
+	dialog.name = "ReviveSetupDialog"
+	dialog.title = "DELICIOUS EATING SQUIGS — set up revived models"
+	dialog.get_ok_button().hide()
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 6)
+	var header = Label.new()
+	header.name = "Header"
+	header.text = "Revived models are set up in coherency with their unit (marked on the board):"
+	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	header.custom_minimum_size = Vector2(420, 0)
+	content.add_child(header)
+	for e in preview:
+		var uid := str(e.get("unit_id", ""))
+		var line = Label.new()
+		line.name = "Unit_%s" % uid
+		var parts: Array = []
+		if int(e.get("healed", 0)) > 0:
+			parts.append("%d wound(s) healed" % int(e.healed))
+		if int(e.get("revived", 0)) > 0:
+			parts.append("%d model(s) revived" % int(e.revived))
+		if int(e.get("no_room", 0)) > 0:
+			parts.append("%d revive(s) lost — no legal set-up spot" % int(e.no_room))
+		line.text = "%s: %s" % [GameState.get_unit_display_name(uid), ", ".join(PackedStringArray(parts)) if not parts.is_empty() else "no change"]
+		content.add_child(line)
+	var close := func():
+		if is_instance_valid(overlay):
+			overlay.queue_free()
+		dialog.name = "ReviveSetupDialogClosing"
+		dialog.queue_free()
+	var confirm_btn = Button.new()
+	confirm_btn.name = "ConfirmButton"
+	confirm_btn.text = "Confirm — use DELICIOUS EATING SQUIGS"
+	confirm_btn.pressed.connect(func():
+		close.call()
+		on_confirm.call())
+	content.add_child(confirm_btn)
+	var cancel_btn = Button.new()
+	cancel_btn.name = "CancelButton"
+	cancel_btn.text = "Cancel"
+	cancel_btn.pressed.connect(func():
+		print("Main: DELICIOUS EATING SQUIGS revive set-up cancelled — stratagem not used")
+		close.call())
+	content.add_child(cancel_btn)
+	dialog.close_requested.connect(func(): close.call())
+	dialog.add_child(content)
+	get_tree().root.add_child(dialog)
+	DialogUtils.popup_at_bottom(dialog)
 
 
 ## FIGHT PROPPA (Taktikal Brigade): pick the friendly unit, then pick which

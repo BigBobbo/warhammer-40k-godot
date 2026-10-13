@@ -6095,8 +6095,8 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 				reason = "round 1, %d units in range (alpha strike)" % units_in_range
 
 			if should_waaagh:
-				_add_thinking_step("Calling WAAAGH! — %s (advance+charge, +1 S/A melee, 5+ invuln for the army)" % reason)
-				print("AIDecisionMaker: [WAAAGH] Calling WAAAGH! (%s) — advance+charge, +1 S/A melee, 5+ invuln" % reason)
+				_add_thinking_step("Calling WAAAGH! — %s (%s for the army)" % [reason, FactionAbilityManager.waaagh_effects_summary()])
+				print("AIDecisionMaker: [WAAAGH] Calling WAAAGH! (%s) — %s" % [reason, FactionAbilityManager.waaagh_effects_summary()])
 				return {
 					"type": "CALL_WAAAGH",
 					"_ai_description": "WAAAGH! — %s" % reason
@@ -15969,7 +15969,9 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 		aao_bonus = _aao_isolated_now(attacker, snapshot)
 
 	# Check for WAAAGH! active on attacker — +1 Strength, +1 Attacks to melee weapons
+	# (10e only: FactionAbilityManager.waaagh_melee_bonus_applies gates the bonus)
 	var waaagh_active = attacker.get("flags", {}).get("waaagh_active", false)
+	var waaagh_melee_bonus = FactionAbilityManager.waaagh_melee_bonus_applies(attacker)
 	# Check for Da Biggest and Da Best (Warboss) — +4 Attacks while WAAAGH active
 	var has_da_biggest = false
 	# Check for Dead Brutal (Warboss in Mega Armour) — damage becomes 3 while WAAAGH active
@@ -16011,10 +16013,11 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 		var damage_str = w.get("damage", "1")
 		var damage = _parse_average_damage(str(damage_str))
 
-		# WAAAGH! buffs: +1 Strength, +1 Attacks per model
-		if waaagh_active:
+		# WAAAGH! buffs: +1 Strength, +1 Attacks per model (10e only)
+		if waaagh_melee_bonus:
 			strength += 1
 			attacks += 1.0
+		if waaagh_active:
 			# Da Biggest and da Best: +4 additional attacks (Warboss only)
 			if has_da_biggest:
 				attacks += 4.0
@@ -16075,9 +16078,9 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 	# Fallback: close combat weapon (S=user, AP0, D1, 1 attack)
 	if best_damage == 0.0 and alive_attackers > 0:
 		var charger_strength = int(attacker.get("meta", {}).get("stats", {}).get("strength", 4))
-		# WAAAGH! also buffs fallback melee (+1S, +1A)
+		# WAAAGH! also buffs fallback melee (+1S, +1A) — 10e only
 		var fallback_attacks = 1.0
-		if waaagh_active:
+		if waaagh_melee_bonus:
 			charger_strength += 1
 			fallback_attacks += 1.0
 		var p_hit = _hit_probability(4)  # WS4+ default
@@ -17042,8 +17045,11 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	# Build WAAAGH! buffs dict for damage estimation (matches RulesEngine behavior)
 	var waaagh_buffs = {}
 	var waaagh_active = unit.get("flags", {}).get("waaagh_active", false)
+	# +1 S / +1 A is the 10e Waaagh! only (FactionAbilityManager.waaagh_melee_bonus_applies)
+	var waaagh_melee_bonus = FactionAbilityManager.waaagh_melee_bonus_applies(unit)
 	if waaagh_active:
 		waaagh_buffs["active"] = true
+		waaagh_buffs["melee_bonus"] = waaagh_melee_bonus
 		var attacker_abilities = unit.get("meta", {}).get("abilities", [])
 		for ab in attacker_abilities:
 			var ab_name = ""
@@ -17095,7 +17101,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		# Also evaluate default close combat weapon (S=user, AP0, D1, A1, WS4+)
 		var ccw_str = unit_strength
 		var ccw_attacks = 1.0
-		if waaagh_active:
+		if waaagh_melee_bonus:
 			ccw_str += 1
 			ccw_attacks += 1.0
 		var ccw_p_hit = _hit_probability(4)
@@ -17530,10 +17536,11 @@ static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: i
 	var damage_str = str(weapon.get("damage", "1"))
 	var damage = _parse_average_damage(damage_str)
 
-	# Apply WAAAGH! buffs if active
+	# Apply WAAAGH! buffs if active (+1 S / +1 A only for the 10e Waaagh!)
 	if waaagh_buffs.get("active", false):
-		strength += 1
-		attacks += 1.0
+		if waaagh_buffs.get("melee_bonus", GameConstants.edition < 11):
+			strength += 1
+			attacks += 1.0
 		if waaagh_buffs.get("da_biggest", false):
 			attacks += 4.0
 		if waaagh_buffs.get("dead_brutal", false):

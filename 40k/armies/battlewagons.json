@@ -1585,9 +1585,9 @@
      "DEFFKOPTAS",
      "FLY",
      "GRENADES",
+     "MOUNTED",
      "ORKS",
-     "SPEED FREEKS",
-     "VEHICLE"
+     "SPEED FREEKS"
     ],
     "stats": {
      "move": 12,
@@ -1733,9 +1733,9 @@
      "DEFFKOPTAS",
      "FLY",
      "GRENADES",
+     "MOUNTED",
      "ORKS",
-     "SPEED FREEKS",
-     "VEHICLE"
+     "SPEED FREEKS"
     ],
     "stats": {
      "move": 12,

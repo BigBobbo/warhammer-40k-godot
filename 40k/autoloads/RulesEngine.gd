@@ -12857,6 +12857,9 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 
 	# WAAAGH! CHECK: Detect if Waaagh! is active for the attacker
 	var waaagh_active = FactionAbilityManager.is_waaagh_active_for_unit(attacker_unit)
+	# The +1 A / +1 S melee bonus is the 10e Waaagh! only — at 11e a riled-up
+	# unit gets 5+ InSv / [ASSAULT] / advance-and-charge, no melee bonus.
+	var waaagh_melee_bonus = FactionAbilityManager.waaagh_melee_bonus_applies(attacker_unit)
 	# DA BIGGEST AND DA BEST: Check if attacker has this ability (Warboss — +4 attacks while Waaagh!)
 	var has_da_biggest = false
 	# DEAD BRUTAL: Check if attacker has this ability (Warboss in Mega Armour — damage=3 while Waaagh!)
@@ -12913,9 +12916,9 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 
 		# WAAAGH! BONUS: +1 Attack to melee weapons
 		# BALANCE DATASLATE (P2-75): Skip for Extra Attacks weapons — Waaagh! doesn't name specific weapons
-		if waaagh_active and not is_extra_attacks_weapon:
+		if waaagh_melee_bonus and not is_extra_attacks_weapon:
 			model_attacks += 1
-		elif waaagh_active and is_extra_attacks_weapon:
+		elif waaagh_melee_bonus and is_extra_attacks_weapon:
 			print("RulesEngine: Waaagh! +1 attack BLOCKED for Extra Attacks weapon '%s' (Balance Dataslate)" % weapon_name)
 
 		# DA BIGGEST AND DA BEST: +4 Attacks to this model's melee weapons while Waaagh! active
@@ -13040,8 +13043,8 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		strength += 3
 		print("RulesEngine: ADMONIMORTIS — melee strength %d → %d (+3)" % [strength - 3, strength])
 
-	# WAAAGH! BONUS: +1 Strength to melee weapons
-	if waaagh_active:
+	# WAAAGH! BONUS: +1 Strength to melee weapons (10e only — see waaagh_melee_bonus_applies)
+	if waaagh_melee_bonus:
 		strength += 1
 		print("RulesEngine: Waaagh! active — melee strength %d → %d (+1)" % [strength - 1, strength])
 

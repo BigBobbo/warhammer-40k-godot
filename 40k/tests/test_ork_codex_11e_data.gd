@@ -324,6 +324,36 @@ func _check_legacy_kits() -> void:
 	var cg := {"meta": {"name": "Custodian Guard", "weapons": [_w("Guardian spear", "Melee")]}, "models": [_model(0)]}
 	_check("non-Ork datasheet never resolves via a legacy kit", UnitLoadoutResolver.datasheet_key(cg) == "Custodian Guard")
 
+## The committed dataset (data/40kdc/units.json) carries the local-patches.mjs
+## patch-4 keyword corrections, so the web army builder and future army
+## generation produce the codex keywords.
+func _check_dataset_keyword_patches() -> void:
+	var f := FileAccess.open("res://data/40kdc/units.json", FileAccess.READ)
+	_check("data/40kdc/units.json readable", f != null)
+	if f == null:
+		return
+	var parsed = JSON.parse_string(f.get_as_text())
+	var by_id := {}
+	for u in (parsed if parsed is Array else []):
+		if str(u.get("faction_id", "")) == "orks":
+			by_id[str(u.get("id", ""))] = (u.get("keywords", []) as Array).map(func(k): return str(k).to_upper())
+	var want := {
+		"trukk": {"has": ["SPEED FREEKS"], "not": []},
+		"deffkoptas": {"has": ["MOUNTED"], "not": ["VEHICLE"]},
+		"big-mek-dakkarig": {"has": ["VEHICLE"], "not": []},
+		"mozrog-skragbad": {"has": ["MONSTER"], "not": ["MOUNTED"]},
+		"beastboss-on-squigosaur": {"has": ["MONSTER"], "not": ["MOUNTED"]},
+	}
+	for id in want:
+		var kws: Array = by_id.get(id, [])
+		var ok := not kws.is_empty()
+		for k in want[id].has:
+			ok = ok and k in kws
+		for k in want[id]["not"]:
+			ok = ok and not k in kws
+		_check("units.json %s keywords match the codex list (%s)" % [id, str(want[id])], ok, str(kws))
+
+
 func _check_test_army() -> void:
 	var ALM = root.get_node("ArmyListManager")
 	var army: Dictionary = ALM.load_army_list("ork11e_codex_test", 1)
@@ -380,6 +410,14 @@ func _check_test_army() -> void:
 		if not uid in kw_units.get("WALKER", []) and not uid in kw_units.get("AIRCRAFT", []):
 			plain_vehicle = true
 	_check("test army has a non-walker ORKS VEHICLE", plain_vehicle)
+	# r5:F2 — codex keyword lists (scripts/40kdc/local-patches.mjs patch 4):
+	# the Trukk is SPEED FREEKS (DAKKASTORM / SPEEDIEST FREEKS), Deffkoptas are
+	# MOUNTED and not VEHICLE (MOW 'EM DOWN / FUNGUS-FUEL INJECTION gates).
+	var trukk_kw: Array = units.get("U_TRUKK_A", {}).get("meta", {}).get("keywords", [])
+	_check("Trukk carries SPEED FREEKS (codex keyword list)", "SPEED FREEKS" in trukk_kw, str(trukk_kw))
+	var kopta_kw: Array = units.get("U_DEFFKOPTAS_A", {}).get("meta", {}).get("keywords", [])
+	_check("Deffkoptas are MOUNTED, not VEHICLE (codex keyword lists)", "MOUNTED" in kopta_kw and not "VEHICLE" in kopta_kw, str(kopta_kw))
+	_check_dataset_keyword_patches()
 	var jet: Dictionary = units.get("U_DAKKAJET_A", {})
 	var jet_dd := false
 	for ab in jet.get("meta", {}).get("abilities", []):
