@@ -63,6 +63,11 @@ var _in_resync: bool = false
 # site — emitting mid-loop caused use-after-free on the tree's items).
 var _pending_auto_assigns: Array = []
 var save_dialog_showing: bool = false  # Prevent multiple dialogs
+var _last_reactive_opportunity: Array = []  # [defending_player, available_stratagems, target_unit_ids] of the open reactive dialog
+var _ork11e_move_active: bool = false  # Codex: Orks (11e) reactive move in progress (move panel up)
+var _ork11e_move_info: Dictionary = {}
+var _ork11e_drag_start = null  # board px where the left button went down
+var _ork11e_drag_on_unit: bool = false
 var current_save_context: Dictionary = {}  # Track what we're showing dialog for (weapon, target)
 var active_allocation_overlay: Control = null  # WoundAllocationOverlay (10e) or AllocationGroupOverlay (11e)
 var processing_saves_signal: bool = false  # Flag to prevent re-entrant signal calls
@@ -124,6 +129,7 @@ var start_action_button: Button  # B1 (11e): start a generic 11e action
 var burn_objective_button: Button  # Scorched Earth burn objective button
 var _auto_shoot_queue: Array = []  # T5-UX3: Queue of SHOOT actions to dispatch sequentially
 var _auto_shoot_in_progress: bool = false  # T5-UX3: Whether auto-shoot sequence is active
+var _auto_select_in_flight: bool = false  # _refresh_unit_list's auto-selection is dispatching (re-entrancy guard)
 var damage_feedback: DamageFeedbackVisual = null  # T7-53: Floating damage numbers for shooting
 
 # T5-MP3: Remote player visual feedback
@@ -914,6 +920,12 @@ func phase_signal_map() -> Dictionary:
 		"distraction_grot_available": _on_distraction_grot_available,  # audit P0: human defender UI
 		"shooty_power_trip_available": _on_shooty_power_trip_available,  # audit P1: human UI
 		"pulsa_rokkit_available": _on_pulsa_rokkit_available,  # audit P1: human UI
+		# Codex: Orks (11e) reactive move follow-ups (GRAB IT / GOADED INTO ACTION)
+		"ork11e_reactive_move_started": _on_ork11e_reactive_move_started,
+		"ork11e_reactive_move_updated": _on_ork11e_reactive_move_updated,
+		"ork11e_reactive_move_ended": _on_ork11e_reactive_move_ended,
+		# RV-4: flush single-target auto-assigns held while a window was open
+		"stratagem_window_closed": _on_phase_stratagem_window_closed,
 	}
 
 func set_phase(phase: BasePhase) -> void:
@@ -1143,8 +1155,30 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 			var active_player = current_phase.get_current_player() if current_phase else -1
 			should_auto_select = (local_player == active_player)
 		else:
-			# In single-player: Always auto-select
-			should_auto_select = true
+			# In single-player: auto-select for a human active player only.
+			# The auto-selection is a REAL SELECT_SHOOTER (it reaches the phase
+			# and opens the unit_selected_to_shoot window), so it must never
+			# pick a unit for the AI — the AI selects its own shooters and would
+			# otherwise answer a window (and maybe spend CP) for a unit it does
+			# not go on to shoot with.
+			var auto_ai_node = get_node_or_null("/root/AIPlayer")
+			var auto_active_player = current_phase.get_current_player() if current_phase else -1
+			should_auto_select = not (auto_ai_node and auto_active_player > 0 and auto_ai_node.is_ai_player(auto_active_player))
+
+		# A pending stratagem window (or a stratagem follow-up a player is still
+		# making, e.g. the GRAB IT move) blocks every other action: the phase
+		# would reject the SELECT_SHOOTER and the controller would show a
+		# shooter the phase never accepted (r4:WS-5). Shoot All Remaining picks
+		# its own shooters. Leave the selection to the player / the queue.
+		if should_auto_select and current_phase and current_phase.has_method("has_pending_stratagem_window") \
+				and (current_phase.has_pending_stratagem_window() \
+					or (current_phase.has_method("get_pending_stratagem_window_decider") \
+						and int(current_phase.get_pending_stratagem_window_decider()) > 0)):
+			print("ShootingController: auto-select skipped — a stratagem window / follow-up is pending")
+			should_auto_select = false
+		if should_auto_select and _auto_shoot_in_progress:
+			print("ShootingController: auto-select skipped — Shoot All Remaining is running")
+			should_auto_select = false
 
 		if should_auto_select:
 			# Pick the first unit the phase would actually ACCEPT, not blindly
@@ -1166,9 +1200,18 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 					continue
 				auto_idx = i
 				break
-			if auto_idx >= 0:
+			if auto_idx >= 0 and _auto_select_in_flight:
+				# Re-entered from inside our own auto-selection: the SELECT_SHOOTER
+				# is routed synchronously and Main refreshes this list on success
+				# BEFORE active_shooter_id is set (always when the phase answers
+				# with a prompt — Pulsa Rokkit, Ammo Runt, Firing Deck dialog …).
+				# Auto-selecting again here recursed until the stack overflowed.
+				print("ShootingController: auto-select skipped — re-entered during an auto-selection")
+			elif auto_idx >= 0:
 				unit_selector.select(auto_idx)
+				_auto_select_in_flight = true
 				_on_unit_selected(auto_idx)
+				_auto_select_in_flight = false
 				# Steam Deck: the auto-armed shooter can be anywhere on the
 				# board and a pad player has no mouse to go find it — frame it
 				# so the phase never opens (or hands over to the next shooter)
@@ -1352,8 +1395,10 @@ func _refresh_weapon_tree() -> void:
 			bonus_hints.append("BLAST")
 		if is_heavy and shooter_unit.get("flags", {}).get("remained_stationary", false):
 			bonus_hints.append("+1 hit")
-		if rapid_fire_value > 0:
-			bonus_hints.append("RF%d" % rapid_fire_value)
+		# Granted RAPID FIRE (CLOSE-RANGE DAKKA) shows in the row too (r1:WH-9).
+		var row_rf_value = rapid_fire_value + RulesEngine.ork11e_rapid_fire_bonus(shooter_unit, weapon_profile)
+		if row_rf_value > 0:
+			bonus_hints.append("RF%d" % row_rf_value)
 		if has_lethal_hits:
 			bonus_hints.append("LETHAL")
 		if has_devastating_wounds:
@@ -1978,8 +2023,10 @@ func _show_range_indicators() -> void:
 		circle.setup(range_px, weapon_display_name)
 		range_visual.add_child(circle)
 
-		# RAPID FIRE: Add dashed half-range circle (orange) for bonus attacks
-		var rapid_fire_value = RulesEngine.get_rapid_fire_value(weapon_id)
+		# RAPID FIRE: Add dashed half-range circle (orange) for bonus attacks —
+		# including a RAPID FIRE a rule grants (CLOSE-RANGE DAKKA, r1:WH-9).
+		var rapid_fire_value = RulesEngine.get_rapid_fire_value(weapon_id) \
+			+ RulesEngine.ork11e_rapid_fire_bonus(shooter_unit, weapon_profile)
 		if rapid_fire_value > 0:
 			var half_range_px = range_px / 2.0
 			var half_range_circle = preload("res://scripts/RangeCircle.gd").new()
@@ -3355,7 +3402,12 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 	dialog.name = "StratagemDialog"
 
 	dialog.stratagem_selected.connect(_on_reactive_stratagem_selected)
+	dialog.stratagem_selected_with_context.connect(_on_reactive_stratagem_selected_with_context)
 	dialog.stratagem_declined.connect(_on_reactive_stratagem_declined)
+	dialog.stratagem_declined_dont_offer_again.connect(_on_reactive_stratagem_declined.bind(true))
+	# Kept so a cancelled secondary pick (GROT SHIELDS' shielded unit) can
+	# re-open the same dialog.
+	_last_reactive_opportunity = [defending_player, available_stratagems, target_unit_ids]
 
 	get_tree().root.add_child(dialog)
 	dialog.setup(defending_player, available_stratagems, target_unit_ids)
@@ -3385,16 +3437,160 @@ func _on_reactive_stratagem_selected(stratagem_id: String, target_unit_id: Strin
 		"target_unit_id": target_unit_id
 	})
 
-func _on_reactive_stratagem_declined() -> void:
+func _on_reactive_stratagem_selected_with_context(stratagem_id: String, target_unit_id: String, context: Dictionary) -> void:
+	"""Folded-in window offer with a variant (design §3.1): same action, plus
+	the dialog's choice in action.context (ShootingPhase adds the window keys).
+	A target entry with a secondary pick (context._secondary, e.g. GROT
+	SHIELDS: which ORKS INFANTRY unit to shield) asks for it first through the
+	same StratagemTargetDialog/StratagemChoiceDialog as window mode
+	(Pick_<id> / Choice_<id>); Cancel re-opens the reactive dialog."""
+	print("ShootingController: Reactive stratagem selected: %s on %s context=%s" % [stratagem_id, target_unit_id, str(context)])
+	var main_node = SceneRefs.main()
+	var secondary = context.get("_secondary", {})
+	if typeof(secondary) == TYPE_DICTIONARY and not secondary.get("options", []).is_empty() \
+			and main_node and main_node.has_method("_show_window_secondary_dialog"):
+		var base_ctx: Dictionary = context.duplicate()
+		base_ctx.erase("_secondary")
+		main_node._show_window_secondary_dialog(secondary,
+			func(secondary_id: String):
+				var ctx2: Dictionary = base_ctx.duplicate()
+				ctx2["secondary_id"] = secondary_id
+				_on_reactive_stratagem_selected_with_context(stratagem_id, target_unit_id, ctx2),
+			func():
+				if _last_reactive_opportunity.size() == 3:
+					_on_reactive_stratagem_opportunity(int(_last_reactive_opportunity[0]), _last_reactive_opportunity[1], _last_reactive_opportunity[2]))
+		return
+	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
+		main_node.hide_reactive_stratagem_waiting()
+	emit_signal("shoot_action_requested", {
+		"type": "USE_REACTIVE_STRATAGEM",
+		"stratagem_id": stratagem_id,
+		"target_unit_id": target_unit_id,
+		"context": context
+	})
+
+func _on_reactive_stratagem_declined(dont_offer_again: bool = false) -> void:
 	"""Handle defender declining all reactive stratagems."""
-	print("ShootingController: Reactive stratagems declined")
+	print("ShootingController: Reactive stratagems declined%s" % (" (don't offer again this phase)" if dont_offer_again else ""))
 	# MA-42: Hide blocking overlay
 	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
-	emit_signal("shoot_action_requested", {
-		"type": "DECLINE_REACTIVE_STRATAGEM"
-	})
+	var decline_action := {"type": "DECLINE_REACTIVE_STRATAGEM"}
+	if dont_offer_again:
+		decline_action["dont_offer_again"] = true
+	emit_signal("shoot_action_requested", decline_action)
+
+# --- Codex: Orks (11e) reactive move follow-ups (GRAB IT / GOADED INTO ACTION) ---
+# ShootingPhase pauses on the move and emits ork11e_reactive_move_started for a
+# HUMAN decider; the move panel (Ork11eReactiveMovePanel) holds the buttons and
+# this controller turns board drags into ORK11E_REACTIVE_MOVE_STAGE.
+
+func _on_ork11e_reactive_move_started(info: Dictionary) -> void:
+	var player := int(info.get("player", 0))
+	print("ShootingController: Ork11e reactive move started — %s %s (P%d, up to %.0f\")" % [
+		info.get("source", "?"), info.get("unit_id", "?"), player, float(info.get("max_inches", 0))])
+	var ai_node = get_node_or_null("/root/AIPlayer")
+	if ai_node and ai_node.is_ai_player(player):
+		return
+	if NetworkManager.is_networked() and NetworkManager.get_local_player() != player:
+		return
+	_ork11e_move_active = true
+	_ork11e_move_info = info
+	_ork11e_drag_start = null
+	var stale = get_tree().root.get_node_or_null("Ork11eReactiveMovePanel")
+	if stale:
+		stale.name = "Ork11eReactiveMovePanel_stale"
+		stale.queue_free()
+	var panel = preload("res://scripts/Ork11eReactiveMovePanel.gd").new()
+	panel.name = "Ork11eReactiveMovePanel"
+	get_tree().root.add_child(panel)
+	panel.setup(info, self)
+	DialogUtils.popup_at_bottom(panel)
+
+func _on_ork11e_reactive_move_updated(info: Dictionary) -> void:
+	_ork11e_move_info = info
+	var panel = get_tree().root.get_node_or_null("Ork11eReactiveMovePanel")
+	if panel and panel.has_method("refresh"):
+		panel.refresh(info)
+
+func _on_ork11e_reactive_move_ended(info: Dictionary) -> void:
+	print("ShootingController: Ork11e reactive move ended — %s" % str(info))
+	_ork11e_move_active = false
+	_ork11e_move_info = {}
+	_ork11e_drag_start = null
+	var panel = get_tree().root.get_node_or_null("Ork11eReactiveMovePanel")
+	if panel:
+		panel.name = "Ork11eReactiveMovePanelClosing"
+		panel.hide()
+		panel.queue_free()
+
+## Move panel buttons and board drags land here (player = the move's decider —
+## frequently NOT the active player, e.g. GOADED INTO ACTION).
+func ork11e_dispatch_reactive_move_action(action: Dictionary) -> void:
+	print("ShootingController: Ork11e reactive move action %s" % str(action.get("type", "")))
+	var result = NetworkIntegration.route_action(action)
+	if not result.get("success", false) and not result.get("pending", false):
+		var err := str(result.get("error", "Move refused"))
+		print("ShootingController: Ork11e reactive move action failed: %s" % err)
+		var toast = get_node_or_null("/root/ToastManager")
+		if toast:
+			toast.show_error(err)
+	var main_node = SceneRefs.main()
+	if main_node and main_node.has_method("update_after_shooting_action"):
+		main_node.update_after_shooting_action()
+
+func _ork11e_board_mouse() -> Vector2:
+	var board_root = SceneRefs.board_root()
+	return board_root.get_local_mouse_position() if board_root else get_global_mouse_position()
+
+## Left press + release on the board: dragging FROM one of the moving unit's
+## models moves the whole unit by the drag vector; a click elsewhere moves the
+## unit's centre to that point. The phase clamps to the maximum distance.
+func _ork11e_handle_move_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton) or event.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if get_viewport().gui_get_hovered_control() != null:
+		return
+	var pos := _ork11e_board_mouse()
+	var phase = current_phase
+	if phase == null or not phase.has_method("ork11e_reactive_move_info"):
+		return
+	var fu: Dictionary = phase._ork11e_followup
+	if fu.is_empty():
+		return
+	if event.pressed:
+		_ork11e_drag_start = pos
+		_ork11e_drag_on_unit = false
+		for key in fu.get("origin", {}):
+			var parts = str(key).rsplit(":", true, 1)
+			var m = GameState.get_unit(parts[0]).get("models", [])[int(parts[1])]
+			var mp = m.get("position", null)
+			var mv: Vector2 = Vector2(float(mp.x), float(mp.y)) if mp is Dictionary else (mp if mp is Vector2 else Vector2.INF)
+			if mv != Vector2.INF and mv.distance_to(pos) <= Measurement.base_radius_px(int(m.get("base_mm", 32))) + 4.0:
+				_ork11e_drag_on_unit = true
+				break
+		get_viewport().set_input_as_handled()
+		return
+	if _ork11e_drag_start == null:
+		return
+	var start: Vector2 = _ork11e_drag_start
+	_ork11e_drag_start = null
+	var current_t: Vector2 = fu.get("translation", Vector2.ZERO)
+	var new_t: Vector2
+	if _ork11e_drag_on_unit:
+		new_t = current_t + (pos - start)
+	else:
+		var centroid := Vector2.ZERO
+		var origin: Dictionary = fu.get("origin", {})
+		for key in origin:
+			centroid += origin[key]
+		if not origin.is_empty():
+			centroid /= float(origin.size())
+		new_t = pos - centroid
+	get_viewport().set_input_as_handled()
+	ork11e_dispatch_reactive_move_action({"type": "ORK11E_REACTIVE_MOVE_STAGE", "player": int(fu.get("player", 0)),
+		"payload": {"translation": {"x": new_t.x, "y": new_t.y}}})
 
 func _on_show_weapon_order_from_next_weapon_dialog(remaining_weapons: Array, fast_roll: bool) -> void:
 	"""Show WeaponOrderDialog after NextWeaponDialog's Continue button is pressed"""
@@ -3817,11 +4013,18 @@ func _select_shooter_by_unit_id(unit_id: String) -> void:
 	# Fresh explicit selection: allow the no-targets report to fire again.
 	_no_targets_reported_unit = ""
 
-	# Emit action request - visualization will be triggered when action is confirmed
-	emit_signal("shoot_action_requested", {
+	# Emit action request - visualization will be triggered when action is confirmed.
+	# LV-2: an automatic selection (_refresh_unit_list's phase-entry / next-
+	# shooter auto-select) is flagged so the phase does not open the
+	# unit_selected_to_shoot window for a unit the player never picked — it
+	# opens before the player's first action with that shooter instead.
+	var select_action := {
 		"type": "SELECT_SHOOTER",
 		"actor_unit_id": unit_id
-	})
+	}
+	if _auto_select_in_flight:
+		select_action["payload"] = {"auto_selected": true}
+	emit_signal("shoot_action_requested", select_action)
 
 	# DON'T call _on_unit_selected_for_shooting() here in multiplayer.
 	# The phase emits unit_selected_for_shooting after processing the action.
@@ -4370,6 +4573,20 @@ func _execute_auto_shoot(plan: Array) -> void:
 
 func _dispatch_next_auto_shoot() -> void:
 	"""Dispatch the next SHOOT action in the auto-shoot queue."""
+	# A stratagem window (e.g. unit_selected_to_shoot) paused the previous SHOOT
+	# for the player's decision: wait — dispatching now would be refused and
+	# silently drop that unit from the queue. The answer resumes that SHOOT.
+	# The same goes for a stratagem follow-up a human is still making (e.g. the
+	# GRAB IT normal move): get_pending_stratagem_window_decider() is > 0 while
+	# ShootingPhase waits for that move, and a SHOOT dispatched now would be
+	# refused ("Waiting for Player N to finish the normal move") and lost
+	# (framework F8).
+	if current_phase and current_phase.has_method("has_pending_stratagem_window") \
+			and (current_phase.has_pending_stratagem_window() \
+				or (current_phase.has_method("get_pending_stratagem_window_decider") \
+					and int(current_phase.get_pending_stratagem_window_decider()) > 0)):
+		get_tree().create_timer(0.3).timeout.connect(_dispatch_next_auto_shoot)
+		return
 	if _auto_shoot_queue.is_empty():
 		_finish_auto_shoot()
 		return
@@ -4809,6 +5026,12 @@ func _input(event: InputEvent) -> void:
 	if not current_phase or not current_phase is ShootingPhase:
 		return
 
+	# Codex: Orks (11e) reactive move in progress (GRAB IT / GOADED INTO
+	# ACTION): the board's left button drives that move and nothing else.
+	if _ork11e_move_active:
+		_ork11e_handle_move_input(event)
+		return
+
 	# In multiplayer, block keyboard shortcuts if it's not your turn
 	var network_manager = get_node_or_null("/root/NetworkManager")
 	if network_manager and network_manager.is_networked() and not network_manager.is_local_player_turn():
@@ -5133,8 +5356,19 @@ func _try_click_select_shooter() -> bool:
 	var board_pos: Vector2 = board_root.get_local_mouse_position() if board_root else get_global_mouse_position()
 
 	var clicked_unit_id = _get_friendly_unit_at_position(board_pos)
-	if clicked_unit_id == "" or clicked_unit_id == active_shooter_id:
+	if clicked_unit_id == "":
 		return false
+	if clicked_unit_id == active_shooter_id:
+		# Already the active shooter — a no-op, unless the panel and the phase
+		# disagree (the panel highlights a unit the phase never received a
+		# SELECT_SHOOTER for): then the click re-sends the selection so the
+		# player is never stuck on a dead "[ACTIVE]" row (r4:WS-5).
+		var phase_shooter = str(current_phase.get("active_shooter_id")) if current_phase else ""
+		if phase_shooter == active_shooter_id:
+			return false
+		print("ShootingController: Click on highlighted %s re-sends SELECT_SHOOTER (phase active shooter is '%s')" % [clicked_unit_id, phase_shooter])
+		_select_shooter_in_list_by_id(clicked_unit_id)
+		return true
 
 	# Only units that can still shoot are click-selectable
 	var units_shot = current_phase.get_units_that_shot() if current_phase.has_method("get_units_that_shot") else []
@@ -6145,12 +6379,75 @@ func _flush_pending_auto_assigns() -> void:
 	"""Deferred worker for the auto-assigns queued during _refresh_weapon_tree.
 	Runs on idle with the render loop long finished — each ASSIGN_TARGET gets a
 	clean stack and any UI refresh it triggers cannot free live TreeItems."""
+	# RV-4: while a stratagem window (e.g. the explicitly selected shooter's
+	# unit_selected_to_shoot) or a follow-up is pending, the phase rejects every
+	# other action — dispatching now only produced a red "Shooting action
+	# rejected: Waiting for Player N to decide on a stratagem" toast and lost
+	# the auto-assignment. Keep the entries queued; the window-closed handler
+	# (_on_phase_stratagem_window_closed) flushes them again.
+	if _phase_window_blocks_actions():
+		if not _pending_auto_assigns.is_empty():
+			print("ShootingController: %d auto-assign(s) held — a stratagem window is pending" % _pending_auto_assigns.size())
+		return
 	var entries = _pending_auto_assigns
 	_pending_auto_assigns = []
 	for e in entries:
 		if e.size() < 3 or str(e[2]) != active_shooter_id:
 			continue  # Shooter changed since the refresh that queued this
 		_auto_assign_target(str(e[0]), str(e[1]))
+
+## True while the phase holds every other action for a stratagem window or a
+## used stratagem's follow-up (BasePhase rejects them with "Waiting for …").
+func _phase_window_blocks_actions() -> bool:
+	if current_phase == null or not current_phase.has_method("has_pending_stratagem_window"):
+		return false
+	if current_phase.has_pending_stratagem_window():
+		return true
+	return current_phase.has_method("get_pending_stratagem_window_decider") \
+		and int(current_phase.get_pending_stratagem_window_decider()) > 0
+
+## Phase signal: a stratagem window closed. Re-run the single-target
+## auto-assigns that were held while it was open (deferred: the phase is still
+## inside the window action's resume when this fires).
+func _on_phase_stratagem_window_closed(_player: int, window_id: String, _used: bool) -> void:
+	if not _pending_auto_assigns.is_empty():
+		call_deferred("_flush_pending_auto_assigns")
+	# LV2-B1: the auto-selected shooter's deferred unit_selected_to_shoot window
+	# held the player's ASSIGN_TARGET burst (Quick-Assign, a target click …);
+	# the phase applies it in the resume, which runs right after this signal.
+	# Nothing routed that result back here, so the weapon rows kept
+	# "(Click to Select)", Confirm kept "N unassigned" and the stat line / forecast
+	# missed a used stratagem's change (CLOSE-RANGE DAKKA's RAPID FIRE +1).
+	# Re-read the panel from the phase once the resume has run (deferred).
+	if window_id == "unit_selected_to_shoot" and current_phase != null \
+			and current_phase.has_method("sts_window_held_action_type") \
+			and current_phase.sts_window_held_action_type() == "ASSIGN_TARGET":
+		print("ShootingController: LV2-B1 unit_selected_to_shoot closed with held assignment(s) — panel resync queued")
+		call_deferred("_resync_after_held_assignments")
+
+## LV2-B1: deferred worker of _on_phase_stratagem_window_closed — rebuild the
+## declaration panel (weapon rows + target column, stat lines, quick-assign,
+## CURRENT TARGETS, Confirm label, forecast) from the phase's pending
+## assignments now that the held ASSIGN_TARGET(s) are applied. Skipped when the
+## phase moved on (another window, a resolution in progress, no shooter) or an
+## auto-assign is still queued (a rebuild would drop it).
+func _resync_after_held_assignments() -> void:
+	if current_phase == null or not is_instance_valid(current_phase) or not current_phase is ShootingPhase:
+		return
+	if _phase_window_blocks_actions():
+		print("ShootingController: LV2-B1 resync skipped — another stratagem window / follow-up is pending")
+		return
+	if str(current_phase.active_shooter_id) == "" or not current_phase.resolution_state.is_empty() \
+			or not current_phase.confirmed_assignments.is_empty():
+		print("ShootingController: LV2-B1 resync skipped — no declaration in progress")
+		return
+	if not _pending_auto_assigns.is_empty():
+		print("ShootingController: LV2-B1 resync skipped — %d auto-assign(s) still queued" % _pending_auto_assigns.size())
+		return
+	resync_from_phase()
+	_update_aggregate_damage_preview()
+	print("ShootingController: LV2-B1 panel resynced — %d pending assignment(s), Confirm '%s'" % [
+		current_phase.pending_assignments.size(), confirm_button.text if confirm_button else ""])
 
 # LOS-VISIBILITY (2026-08): the subset of `model_ids` that can legally fire
 # `weapon_id` at `target_id` right now — in range AND with line of sight.
@@ -6215,7 +6512,10 @@ func _auto_assign_target(weapon_id: String, target_id: String) -> void:
 	var payload = {
 		"weapon_id": weapon_id,
 		"target_unit_id": target_id,
-		"model_ids": eligible_ids
+		"model_ids": eligible_ids,
+		# Not a player action: does not open an auto-selected shooter's
+		# deferred unit_selected_to_shoot window (LV-2).
+		"auto_assigned": true
 	}
 
 	# F4: skip quietly if the engine would reject this (previously the tree was
@@ -7089,11 +7389,29 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 		if blast_bonus > 0:
 			active_tags.append("Blast+%d" % blast_bonus)
 
-	# Rapid Fire: +X attacks at half range (assume in rapid fire range for preview)
+	# Rapid Fire: +X attacks for each bearer within half range of THIS target
+	# (r1:WH-9 — the forecast used to assume every bearer was in half range).
 	var rapid_fire_val = RulesEngine.get_rapid_fire_value(weapon_id)
+	# CLOSE-RANGE DAKKA (Codex: Orks 11e): [RAPID FIRE 1] / +1 to an existing RAPID FIRE
+	var fc_crd_rf = RulesEngine.ork11e_rapid_fire_bonus(attacker_unit, weapon_profile)
+	if fc_crd_rf > 0:
+		rapid_fire_val += fc_crd_rf
+		active_tags.append("Close-Range Dakka")
 	if rapid_fire_val > 0:
-		total_attacks += rapid_fire_val * model_count
-		active_tags.append("Rapid Fire %d" % rapid_fire_val)
+		var rf_bearers: Array = []
+		var rf_unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+		for rf_mid in rf_unit_weapons:
+			if weapon_id in rf_unit_weapons[rf_mid]:
+				rf_bearers.append(rf_mid)
+		var rf_in_half: int = RulesEngine.count_models_in_half_range(attacker_unit, target_unit, weapon_id, rf_bearers, GameState.state)
+		var rf_models: int = mini(rf_in_half, model_count)
+		total_attacks += rapid_fire_val * rf_models
+		if rf_models >= model_count:
+			active_tags.append("Rapid Fire %d" % rapid_fire_val)
+		elif rf_models > 0:
+			active_tags.append("Rapid Fire %d (%d/%d in half range)" % [rapid_fire_val, rf_models, model_count])
+		else:
+			active_tags.append("Rapid Fire %d (out of half range)" % rapid_fire_val)
 
 	# === HIT PROBABILITY ===
 	var bs = weapon_profile.get("bs", 4)
@@ -7135,6 +7453,26 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 		if remained_stationary:
 			hit_modifier += 1
 			active_tags.append("Heavy")
+
+	# DRIVE-BY BUSTIN' (Codex: Orks 11e): +1 to hit when this weapon is one
+	# selected for the Firing Deck ability (every bearer a Firing Deck loan).
+	if RulesEngine.ork11e_drive_by_bustin_active(attacker_unit):
+		var fc_fd_bearers := 0
+		var fc_all_bearers := 0
+		var fc_unit_weapons = RulesEngine.get_unit_weapons(active_shooter_id)
+		for fc_mid in fc_unit_weapons:
+			if weapon_id in fc_unit_weapons[fc_mid]:
+				fc_all_bearers += 1
+				if RulesEngine.ork11e_is_firing_deck_bearer(fc_mid):
+					fc_fd_bearers += 1
+		if fc_all_bearers > 0 and fc_fd_bearers == fc_all_bearers:
+			hit_modifier += 1
+			active_tags.append("Drive-by Bustin'")
+
+	# LONG, UNCONTROLLED BURSTS (Codex: Orks 11e): re-roll hit rolls vs a FLY target
+	if RulesEngine.ork11e_long_uncontrolled_bursts_reroll(attacker_unit, target_unit):
+		hit_reroll_type = max(hit_reroll_type, 2)
+		active_tags.append("Uncontrolled Bursts")
 
 	# Damaged profile: -1 to hit
 	if RulesEngine.is_damaged_profile_active(attacker_unit):
@@ -7190,6 +7528,11 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 	else:
 		var effective_bs = bs + cover_bs_worsen - hit_modifier  # Lower BS = better (e.g. 3+ is better than 4+)
 		effective_bs = clampi(effective_bs, 2, 6)  # 1 always misses (natural 1), 2+ is best possible
+		# SPEEDIEST FREEKS (Codex: Orks 11e): unmodified 1-3 fail against the target.
+		var fc_band: int = RulesEngine.ork11e_ranged_hit_fail_band(target_unit, 1)
+		if fc_band >= 3:
+			effective_bs = maxi(effective_bs, fc_band + 1)
+			active_tags.append("Speediest Freeks")
 		hit_prob = max(0.0, (7.0 - effective_bs) / 6.0)
 
 		# Apply rerolls
@@ -7223,7 +7566,9 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 	var sustained_value = 0
 	var has_sustained = false
 	var sh_data = RulesEngine.get_sustained_hits_value(weapon_id)
-	if sh_data.get("value", 0) > 0 or EffectPrimitivesData.has_effect_sustained_hits(attacker_unit):
+	# NEVER ENOUGH DAKKA / DAKKASTORM / VINDICTIVE ARTILLERISTS (Codex: Orks 11e): ranged SH1
+	if sh_data.get("value", 0) > 0 or EffectPrimitivesData.has_effect_sustained_hits(attacker_unit) \
+			or RulesEngine.ork11e_ranged_sustained_hits(attacker_unit) > 0:
 		has_sustained = true
 		sustained_value = sh_data.get("value", 1)
 		if sustained_value == 0:
@@ -7231,6 +7576,9 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 
 	# Lethal Hits: crits auto-wound (skip wound roll)
 	var has_lethal = RulesEngine.has_lethal_hits(weapon_id) or EffectPrimitivesData.has_effect_lethal_hits(attacker_unit)
+	# Ranged-only LETHAL HITS grant (VINDICTIVE ARTILLERISTS, BLITZA FIRE)
+	if attacker_unit.get("flags", {}).get("effect_lethal_hits_ranged", false):
+		has_lethal = true
 
 	# Calculate expected hits including sustained bonus
 	var expected_normal_hits = total_attacks * non_crit_hit_prob
@@ -7277,12 +7625,22 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 	elif fc_wound_rr_scope == "failed" or fc_wound_rr_scope == "all":
 		wound_reroll_type = max(wound_reroll_type, 2)
 
+	# KUSTOM DAKKA (Codex: Orks 11e): +1 to wound vs a non-MONSTER/VEHICLE target
+	if RulesEngine.ork11e_kustom_dakka_wound_bonus(attacker_unit, target_unit) > 0:
+		wound_modifier += 1
+		active_tags.append("Kustom Dakka")
+
 	# Lance: +1 to wound if charged this turn
 	if RulesEngine.is_lance_weapon(weapon_id):
 		var unit_charged = attacker_unit.get("flags", {}).get("charged_this_turn", false)
 		if unit_charged:
 			wound_modifier += 1
 			active_tags.append("Lance")
+
+	# HULKING BRUTES (Codex: Orks 11e): -1 to wound vs the target (S > T, or all).
+	if RulesEngine.ork11e_ranged_wound_penalty(target_unit, int(strength), int(toughness)):
+		wound_modifier -= 1
+		active_tags.append("Hulking Brutes")
 
 	# Cap modifier to ±1
 	wound_modifier = clampi(wound_modifier, -1, 1)
@@ -7334,8 +7692,19 @@ func _calc_weapon_expected_damage(weapon_id: String, target_id: String, model_co
 
 	var expected_wounds = expected_regular_wounds + expected_crit_wounds + lethal_auto_wounds
 
+	# [HAZARDOUS] — native, or granted (VINDICTIVE ARTILLERISTS' overcharged
+	# option, r3:F8): show the self-damage risk in the forecast.
+	if RulesEngine.weapon_is_hazardous_for(active_shooter_id, weapon_id, GameState.state):
+		active_tags.append("Hazardous")
+
 	# === SAVE PROBABILITY ===
 	var ap = weapon_profile.get("ap", 0)
+
+	# GLOWIN' DAKKA (Codex: Orks 11e): +1 AP vs a target within 9"
+	var fc_glowin_ap = RulesEngine.ork11e_glowin_dakka_ap_bonus(attacker_unit, target_unit, GameState.state)
+	if fc_glowin_ap > 0:
+		ap = RulesEngine.ork11e_improve_ap(int(ap), fc_glowin_ap)
+		active_tags.append("Glowin' Dakka")
 
 	# Target defensive: Worsen AP (e.g. Ramshackle)
 	var worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)

@@ -95,8 +95,18 @@ static func route_action(action: Dictionary) -> Dictionary:
 			action["player"] = network_manager.get_local_player()
 			print("[NetworkIntegration] Using local player ID for action: player=%d" % action["player"])
 		else:
-			# Single-player: Use active player (current turn)
+			# Single-player: Use active player (current turn) — unless a
+			# stratagem window / follow-up owned by a player is pending: then
+			# every legal action is that player's (hot-seat: the NON-active
+			# player's SCARPER! reactive move is made with the ordinary movement
+			# actions, and the phase refuses them from anyone but the owner).
 			action["player"] = GameState.get_active_player()
+			var pm_for_player = _find_autoload("PhaseManager")
+			var phase_for_player = pm_for_player.current_phase_instance if pm_for_player else null
+			if phase_for_player and phase_for_player.has_method("get_pending_stratagem_window_decider"):
+				var decider := int(phase_for_player.get_pending_stratagem_window_decider())
+				if decider > 0:
+					action["player"] = decider
 	if not action.has("timestamp"):
 		action["timestamp"] = Time.get_unix_time_from_system()
 

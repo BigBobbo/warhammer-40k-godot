@@ -12,8 +12,20 @@
    "Adepta Sororitas"
   ],
   "aliases": [],
-  "faction_rule_id": "acts-of-faith",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/adepta-sororitas.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/adepta-sororitas.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "aee1b46d-3461-4d5d-a612-0efd05dd843d"
+   },
+   {
+    "namespace": "mfm",
+    "id": "aee1b46d-3461-4d5d-a612-0efd05dd843d"
+   }
+  ],
+  "faction_rule_ids": [
+   "acts-of-faith"
+  ]
  },
  {
   "id": "adeptus-astartes",
@@ -27,9 +39,23 @@
    "Imperium",
    "Adeptus Astartes"
   ],
-  "aliases": [],
-  "faction_rule_id": "oath-of-moment",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/adeptus-astartes.svg"
+  "aliases": [
+   "Space Marines"
+  ],
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/adeptus-astartes.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "01623188-9470-4441-96b0-e06eb2572bb5"
+   },
+   {
+    "namespace": "mfm",
+    "id": "01623188-9470-4441-96b0-e06eb2572bb5"
+   }
+  ],
+  "faction_rule_ids": [
+   "oath-of-moment"
+  ]
  },
  {
   "id": "adeptus-custodes",
@@ -44,8 +70,20 @@
    "Adeptus Custodes"
   ],
   "aliases": [],
-  "faction_rule_id": "martial-katah",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/adeptus-custodes.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/adeptus-custodes.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "6cc4ee5e-3bc6-4142-8147-2e1a9fb6e82c"
+   },
+   {
+    "namespace": "mfm",
+    "id": "6cc4ee5e-3bc6-4142-8147-2e1a9fb6e82c"
+   }
+  ],
+  "faction_rule_ids": [
+   "martial-ka-tah"
+  ]
  },
  {
   "id": "adeptus-mechanicus",
@@ -60,8 +98,20 @@
    "Adeptus Mechanicus"
   ],
   "aliases": [],
-  "faction_rule_id": "doctrina-imperatives",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/adeptus-mechanicus.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/adeptus-mechanicus.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "60ecf26b-0c2b-4ea3-8a29-5f06bd02f6d8"
+   },
+   {
+    "namespace": "mfm",
+    "id": "60ecf26b-0c2b-4ea3-8a29-5f06bd02f6d8"
+   }
+  ],
+  "faction_rule_ids": [
+   "doctrina-imperatives"
+  ]
  },
  {
   "id": "aeldari",
@@ -76,8 +126,20 @@
    "Asuryani"
   ],
   "aliases": [],
-  "faction_rule_id": "strands-of-fate",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/eldar/craftworld-eldar.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/eldar/craftworld-eldar.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "2cb72f92-bfc7-4d2c-a183-b2bff6b26bfc"
+   },
+   {
+    "namespace": "mfm",
+    "id": "ac535854-d25c-4bc3-aacf-129ab0ae75d7"
+   }
+  ],
+  "faction_rule_ids": [
+   "strands-of-fate"
+  ]
  },
  {
   "id": "agents-of-the-imperium",
@@ -91,9 +153,23 @@
    "Imperium",
    "Agents of the Imperium"
   ],
-  "aliases": [],
-  "faction_rule_id": "assigned-agents",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/imperial-aquila.svg"
+  "aliases": [
+   "Imperial Agents"
+  ],
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/imperial-aquila.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "2f81671f-3164-4ab0-93c0-4a99746b5996"
+   },
+   {
+    "namespace": "mfm",
+    "id": "2f81671f-3164-4ab0-93c0-4a99746b5996"
+   }
+  ],
+  "faction_rule_ids": [
+   "assigned-agents"
+  ]
  },
  {
   "id": "astra-militarum",
@@ -108,8 +184,20 @@
    "Astra Militarum"
   ],
   "aliases": [],
-  "faction_rule_id": "voice-of-command",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astra-militarum.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astra-militarum.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "9b847488-9663-48dc-b819-08ab93ac4382"
+   },
+   {
+    "namespace": "mfm",
+    "id": "9b847488-9663-48dc-b819-08ab93ac4382"
+   }
+  ],
+  "faction_rule_ids": [
+   "voice-of-command"
+  ]
  },
  {
   "id": "black-templars",
@@ -125,8 +213,20 @@
    "Black Templars"
   ],
   "aliases": [],
-  "faction_rule_id": "templar-vows",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_chapters/black-templars.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_chapters/black-templars.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "28162de0-fd36-450b-87ee-39e973ead32d"
+   },
+   {
+    "namespace": "mfm",
+    "id": "28162de0-fd36-450b-87ee-39e973ead32d"
+   }
+  ],
+  "faction_rule_ids": [
+   "templar-vows"
+  ]
  },
  {
   "id": "blood-angels",
@@ -142,8 +242,20 @@
    "Blood Angels"
   ],
   "aliases": [],
-  "faction_rule_id": "the-red-thirst",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/blood-angels.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/blood-angels.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "864734c9-d6c7-4486-92de-9b8271a6a1e5"
+   },
+   {
+    "namespace": "mfm",
+    "id": "864734c9-d6c7-4486-92de-9b8271a6a1e5"
+   }
+  ],
+  "faction_rule_ids": [
+   "oath-of-moment"
+  ]
  },
  {
   "id": "chaos-daemons",
@@ -159,8 +271,16 @@
    "Legiones Daemonica"
   ],
   "aliases": [],
-  "faction_rule_id": "the-shadow-of-chaos",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/chaos-daemons.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/chaos-daemons.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "40a70c91-675a-4ac5-aa97-daedb9cb6f11"
+   }
+  ],
+  "faction_rule_ids": [
+   "the-shadow-of-chaos"
+  ]
  },
  {
   "id": "chaos-knights",
@@ -175,8 +295,20 @@
    "Chaos Knights"
   ],
   "aliases": [],
-  "faction_rule_id": "harbingers-of-dread",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/questor-traitoris.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/questor-traitoris.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "2e79f9cd-94dc-48ca-bddf-6d5e877609c5"
+   },
+   {
+    "namespace": "mfm",
+    "id": "2e79f9cd-94dc-48ca-bddf-6d5e877609c5"
+   }
+  ],
+  "faction_rule_ids": [
+   "harbingers-of-dread"
+  ]
  },
  {
   "id": "chaos-space-marines",
@@ -191,8 +323,16 @@
    "Heretic Astartes"
   ],
   "aliases": [],
-  "faction_rule_id": "dark-pacts",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/heretic-astartes.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/heretic-astartes.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "d4162ab7-8356-4e4e-adb3-5e3b631d47e6"
+   }
+  ],
+  "faction_rule_ids": [
+   "dark-pacts"
+  ]
  },
  {
   "id": "crimson-fists",
@@ -208,8 +348,10 @@
    "Crimson Fists"
   ],
   "aliases": [],
-  "faction_rule_id": "oath-of-moment",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_chapters/crimson-fists.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_chapters/crimson-fists.svg",
+  "faction_rule_ids": [
+   "oath-of-moment"
+  ]
  },
  {
   "id": "dark-angels",
@@ -225,8 +367,20 @@
    "Dark Angels"
   ],
   "aliases": [],
-  "faction_rule_id": "oath-of-moment",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/dark-angels.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/dark-angels.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "fa0e86ef-b5da-4510-9a9f-8cd86267bb6a"
+   },
+   {
+    "namespace": "mfm",
+    "id": "fa0e86ef-b5da-4510-9a9f-8cd86267bb6a"
+   }
+  ],
+  "faction_rule_ids": [
+   "oath-of-moment"
+  ]
  },
  {
   "id": "death-guard",
@@ -242,8 +396,20 @@
    "Death Guard"
   ],
   "aliases": [],
-  "faction_rule_id": "nurgles-gift",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/legions/death-guard.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/legions/death-guard.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "19176137-2faa-4d6e-adb4-2572510032b7"
+   },
+   {
+    "namespace": "mfm",
+    "id": "19176137-2faa-4d6e-adb4-2572510032b7"
+   }
+  ],
+  "faction_rule_ids": [
+   "nurgle-s-gift-aura"
+  ]
  },
  {
   "id": "deathwatch",
@@ -259,8 +425,20 @@
    "Deathwatch"
   ],
   "aliases": [],
-  "faction_rule_id": "mission-tactics",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_chapters/deathwatch.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_chapters/deathwatch.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "51ac31b0-93ff-4c94-a9a5-5c1a97fbbb75"
+   },
+   {
+    "namespace": "mfm",
+    "id": "51ac31b0-93ff-4c94-a9a5-5c1a97fbbb75"
+   }
+  ],
+  "faction_rule_ids": [
+   "mission-tactics"
+  ]
  },
  {
   "id": "drukhari",
@@ -275,8 +453,20 @@
    "Drukhari"
   ],
   "aliases": [],
-  "faction_rule_id": "power-from-pain",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/durhkari/drukhari-2.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/durhkari/drukhari-2.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "43bbfe97-4c14-47be-be2b-90de3e6756b1"
+   },
+   {
+    "namespace": "mfm",
+    "id": "43bbfe97-4c14-47be-be2b-90de3e6756b1"
+   }
+  ],
+  "faction_rule_ids": [
+   "power-from-pain"
+  ]
  },
  {
   "id": "emperors-children",
@@ -292,8 +482,20 @@
    "Emperor’s Children"
   ],
   "aliases": [],
-  "faction_rule_id": "thrill-seekers",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/legions/emperors-children-1.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/legions/emperors-children-1.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "b63a417d-63ea-4d20-b7f0-85c66c56979e"
+   },
+   {
+    "namespace": "mfm",
+    "id": "b63a417d-63ea-4d20-b7f0-85c66c56979e"
+   }
+  ],
+  "faction_rule_ids": [
+   "thrill-seekers"
+  ]
  },
  {
   "id": "genestealer-cults",
@@ -307,8 +509,20 @@
    "Genestealer Cults"
   ],
   "aliases": [],
-  "faction_rule_id": "cult-ambush",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/genestealer_cult/genestealer-cults.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/genestealer_cult/genestealer-cults.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "800c0387-5033-47da-bad0-f42e53b37453"
+   },
+   {
+    "namespace": "mfm",
+    "id": "800c0387-5033-47da-bad0-f42e53b37453"
+   }
+  ],
+  "faction_rule_ids": [
+   "cult-ambush"
+  ]
  },
  {
   "id": "grey-knights",
@@ -324,8 +538,20 @@
    "Grey Knights"
   ],
   "aliases": [],
-  "faction_rule_id": "gate-of-infinity",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_chapters/grey-knights.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_chapters/grey-knights.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "93423323-3abb-4a72-a51e-b8ac54f2f98d"
+   },
+   {
+    "namespace": "mfm",
+    "id": "93423323-3abb-4a72-a51e-b8ac54f2f98d"
+   }
+  ],
+  "faction_rule_ids": [
+   "gate-of-infinity"
+  ]
  },
  {
   "id": "imperial-fists",
@@ -341,8 +567,16 @@
    "Imperial Fists"
   ],
   "aliases": [],
-  "faction_rule_id": "oath-of-moment",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/imperial-fists.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/imperial-fists.svg",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "cd8dd346-3b5a-489d-8e47-22711922098d"
+   }
+  ],
+  "faction_rule_ids": [
+   "oath-of-moment"
+  ]
  },
  {
   "id": "imperial-knights",
@@ -357,8 +591,20 @@
    "Imperial Knights"
   ],
   "aliases": [],
-  "faction_rule_id": "code-chivalric",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/imperial-knights.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/imperial-knights.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "5737b3b6-1c33-4cb3-828c-08b6909197aa"
+   },
+   {
+    "namespace": "mfm",
+    "id": "5737b3b6-1c33-4cb3-828c-08b6909197aa"
+   }
+  ],
+  "faction_rule_ids": [
+   "code-chivalric"
+  ]
  },
  {
   "id": "iron-hands",
@@ -374,8 +620,16 @@
    "Iron Hands"
   ],
   "aliases": [],
-  "faction_rule_id": "oath-of-moment",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/iron-hands.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/iron-hands.svg",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "780aa838-ed0f-44b7-bca3-ff54d357a07b"
+   }
+  ],
+  "faction_rule_ids": [
+   "oath-of-moment"
+  ]
  },
  {
   "id": "leagues-of-votann",
@@ -389,8 +643,20 @@
    "Leagues of Votann"
   ],
   "aliases": [],
-  "faction_rule_id": "prioritised-efficiency",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/leagues-of-votann.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/leagues-of-votann.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "a42808ab-f00b-4664-aed5-8d9341b96e36"
+   },
+   {
+    "namespace": "mfm",
+    "id": "a42808ab-f00b-4664-aed5-8d9341b96e36"
+   }
+  ],
+  "faction_rule_ids": [
+   "prioritised-efficiency"
+  ]
  },
  {
   "id": "necrons",
@@ -404,8 +670,20 @@
    "Necrons"
   ],
   "aliases": [],
-  "faction_rule_id": "reanimation-protocols",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/necrons/necrons.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/necrons/necrons.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "47670bc3-64b8-4c2d-9154-7391f132688b"
+   },
+   {
+    "namespace": "mfm",
+    "id": "47670bc3-64b8-4c2d-9154-7391f132688b"
+   }
+  ],
+  "faction_rule_ids": [
+   "reanimation-protocols"
+  ]
  },
  {
   "id": "orks",
@@ -419,8 +697,20 @@
    "Orks"
   ],
   "aliases": [],
-  "faction_rule_id": "waaagh",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/orks/orks.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/orks/orks.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "0b30f1e3-1e5c-4823-afa1-07951433a270"
+   },
+   {
+    "namespace": "mfm",
+    "id": "0b30f1e3-1e5c-4823-afa1-07951433a270"
+   }
+  ],
+  "faction_rule_ids": [
+   "waaagh"
+  ]
  },
  {
   "id": "raven-guard",
@@ -436,8 +726,16 @@
    "Raven Guard"
   ],
   "aliases": [],
-  "faction_rule_id": "oath-of-moment",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/raven-guard.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/raven-guard.svg",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8d74ba46-ac06-4c05-a90c-5d25282b2c94"
+   }
+  ],
+  "faction_rule_ids": [
+   "oath-of-moment"
+  ]
  },
  {
   "id": "salamanders",
@@ -453,8 +751,16 @@
    "Salamanders"
   ],
   "aliases": [],
-  "faction_rule_id": "oath-of-moment",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/salamanders.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/salamanders.svg",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4db683fe-87a0-4138-9b53-4b326c8e8521"
+   }
+  ],
+  "faction_rule_ids": [
+   "oath-of-moment"
+  ]
  },
  {
   "id": "space-wolves",
@@ -470,8 +776,20 @@
    "Space Wolves"
   ],
   "aliases": [],
-  "faction_rule_id": "oath-of-moment",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/space-wolves.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/space-wolves.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "bc367514-36b7-47c6-bd3f-ffbf85f5cfd9"
+   },
+   {
+    "namespace": "mfm",
+    "id": "bc367514-36b7-47c6-bd3f-ffbf85f5cfd9"
+   }
+  ],
+  "faction_rule_ids": [
+   "oath-of-moment"
+  ]
  },
  {
   "id": "tau-empire",
@@ -485,8 +803,20 @@
    "T’au Empire"
   ],
   "aliases": [],
-  "faction_rule_id": "for-the-greater-good",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/tau_empire/tau-sept.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/tau_empire/tau-sept.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "1a241f8e-2d79-47c4-82b1-f6faea353970"
+   },
+   {
+    "namespace": "mfm",
+    "id": "1a241f8e-2d79-47c4-82b1-f6faea353970"
+   }
+  ],
+  "faction_rule_ids": [
+   "for-the-greater-good"
+  ]
  },
  {
   "id": "thousand-sons",
@@ -502,8 +832,20 @@
    "Thousand Sons"
   ],
   "aliases": [],
-  "faction_rule_id": "cabal-of-sorcerers",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/legions/thousand-sons.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/legions/thousand-sons.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "25d2c58f-59b5-4a4f-b597-495ba322ce07"
+   },
+   {
+    "namespace": "mfm",
+    "id": "25d2c58f-59b5-4a4f-b597-495ba322ce07"
+   }
+  ],
+  "faction_rule_ids": [
+   "cabal-of-sorcerers"
+  ]
  },
  {
   "id": "tyranids",
@@ -517,8 +859,21 @@
    "Tyranids"
   ],
   "aliases": [],
-  "faction_rule_id": "shadow-in-the-warp",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/tyranids.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/xenos/tyranids.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "b30b3258-9140-46b8-9c9e-113be9008ea9"
+   },
+   {
+    "namespace": "mfm",
+    "id": "b30b3258-9140-46b8-9c9e-113be9008ea9"
+   }
+  ],
+  "faction_rule_ids": [
+   "shadow-in-the-warp",
+   "synapse"
+  ]
  },
  {
   "id": "ultramarines",
@@ -534,8 +889,16 @@
    "Ultramarines"
   ],
   "aliases": [],
-  "faction_rule_id": "oath-of-moment",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/ultramarines.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/ultramarines.svg",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b7d67027-cf56-4cd1-8127-9e7658de4ef5"
+   }
+  ],
+  "faction_rule_ids": [
+   "oath-of-moment"
+  ]
  },
  {
   "id": "white-scars",
@@ -551,8 +914,16 @@
    "White Scars"
   ],
   "aliases": [],
-  "faction_rule_id": "oath-of-moment",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/white-scars.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/human_imperium/astartes_legion/white-scars.svg",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a65e110c-2b80-4887-8b2f-1f335b4dd450"
+   }
+  ],
+  "faction_rule_ids": [
+   "oath-of-moment"
+  ]
  },
  {
   "id": "world-eaters",
@@ -568,7 +939,19 @@
    "World Eaters"
   ],
   "aliases": [],
-  "faction_rule_id": "blessings-of-khorne",
-  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/legions/world-eaters-1.svg"
+  "logo_url": "https://cdn.jsdelivr.net/gh/Certseeds/wh40k-icon@be230023ff0755d19ffb1a1762658c711c2887f9/src/svgs/chaos/legions/world-eaters-1.svg",
+  "external_refs": [
+   {
+    "namespace": "game-datacards",
+    "id": "8bd4c67d-4aba-4502-8561-7c6c6faae51d"
+   },
+   {
+    "namespace": "mfm",
+    "id": "8bd4c67d-4aba-4502-8561-7c6c6faae51d"
+   }
+  ],
+  "faction_rule_ids": [
+   "blessings-of-khorne"
+  ]
  }
 ]

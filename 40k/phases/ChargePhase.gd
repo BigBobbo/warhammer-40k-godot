@@ -546,6 +546,31 @@ func _process_declare_charge(action: Dictionary) -> Dictionary:
 		var owner = int(unit.get("owner", 0))
 		game_event_log.add_player_entry(owner, "%s declares charge against %s" % [unit_name, ", ".join(target_names)])
 
+	# Stratagem window unit_declares_charge (design §3): the charging player's
+	# stratagems (e.g. STOMPING JUGGERNAUT) come first — before the charge roll
+	# and before the defender's Fire Overwatch reaction.
+	var udc_owner := int(unit.get("owner", get_current_player()))
+	var udc_ctx := {"phase": "charge", "unit_id": unit_id, "target_unit_ids": target_ids.duplicate()}
+	if open_stratagem_window(udc_owner, "unit_declares_charge", udc_ctx, "_resume_after_declares_charge_window"):
+		log_phase_message("Waiting for Player %d's unit_declares_charge stratagem decision for %s" % [udc_owner, unit_id])
+		return create_result(true, consume_window_diffs())
+	var udc_diffs = consume_window_diffs()
+	var after_udc = _after_declares_charge_windows(unit_id)
+	if not udc_diffs.is_empty():
+		udc_diffs.append_array(after_udc.get("changes", []))
+		after_udc["changes"] = udc_diffs
+	return after_udc
+
+## Resume point for the unit_declares_charge window (BasePhase framework).
+func _resume_after_declares_charge_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _after_declares_charge_windows(str(ctx.get("unit_id", "")))
+
+## Everything that follows a charge declaration once its window has closed:
+## the defender's Fire Overwatch opportunity.
+func _after_declares_charge_windows(unit_id: String) -> Dictionary:
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
 	# T3-11: Check for Fire Overwatch opportunity for the defending player
 	# Per 10e rules: After a charge is declared, the defending player may use
 	# Fire Overwatch (1CP) to shoot at the charging unit (only hits on unmodified 6s)
@@ -689,7 +714,7 @@ func _check_command_reroll_or_resolve(unit_id: String) -> Dictionary:
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	var reroll_available = false
 	if strat_manager:
-		var reroll_check = strat_manager.is_command_reroll_available(current_player)
+		var reroll_check = strat_manager.is_command_reroll_available(current_player, unit_id)
 		reroll_available = reroll_check.available
 
 	if reroll_available:
@@ -1373,7 +1398,7 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 
 	# T7-39: Recheck objective control after charge movement
 	if MissionManager:
-		MissionManager.call_deferred("check_all_objectives")
+		MissionManager.call_deferred("check_all_objectives", false)
 
 	# SPIKED RAM (OA-50): After charge move, deal mortal wounds to a charge target.
 	# "Each time this model ends a Charge move, select one enemy unit within Engagement Range
@@ -1385,6 +1410,29 @@ func _process_apply_charge_move(action: Dictionary) -> Dictionary:
 	# OA-36: Piston-driven Brutality — after Charge move, auto-resolve mortal wounds
 	_resolve_piston_driven_brutality_after_charge(unit_id, changes, apply_seed)
 
+	# Stratagem window unit_ended_charge_move (design §3, e.g. IMPENDING
+	# KRUNCH). The move is applied to GameState first so the window sees the
+	# post-charge positions ("engaged with your unit"); the same set-diffs stay
+	# in the result (idempotent when BasePhase applies them again).
+	PhaseManager.apply_state_changes(changes)
+	var uecm_owner := int(get_unit(unit_id).get("owner", get_current_player()))
+	var uecm_ctx := {"phase": "charge", "unit_id": unit_id}
+	if open_stratagem_window(uecm_owner, "unit_ended_charge_move", uecm_ctx, "_resume_after_ended_charge_move_window"):
+		log_phase_message("Waiting for Player %d's unit_ended_charge_move stratagem decision for %s" % [uecm_owner, unit_id])
+		var paused_changes: Array = changes.duplicate()
+		paused_changes.append_array(consume_window_diffs())
+		return create_result(true, paused_changes)
+	changes.append_array(consume_window_diffs())
+	return _after_ended_charge_move_windows(unit_id, changes)
+
+## Resume point for the unit_ended_charge_move window (BasePhase framework).
+## The charge move itself was returned (and applied) with the paused action.
+func _resume_after_ended_charge_move_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _after_ended_charge_move_windows(str(ctx.get("unit_id", "")), [])
+
+## Everything that follows a successful charge move once its window has
+## closed: Tank Shock for the charging player, then (10e) Heroic Intervention.
+func _after_ended_charge_move_windows(unit_id: String, changes: Array) -> Dictionary:
 	# Check if Tank Shock is available for the charging player
 	# Per 10e rules: "just after a VEHICLE unit ends a Charge move"
 	var charging_unit = get_unit(unit_id)
@@ -1737,6 +1785,10 @@ func _can_unit_charge(unit: Dictionary) -> bool:
 	# Adrenaline Junkies) can override.
 	if flags.get("turbo_boosted", false):
 		return false
+	# GRAB IT (Codex: Orks 11e): "not eligible to declare a charge until the
+	# end of the turn" — a hard lock, not overridable by advance-and-charge.
+	if flags.get("ork11e_grab_it_no_charge", false):
+		return false
 
 	# Check restriction flags
 	# cannot_charge is set by both Advance and Fall Back moves, but abilities like
@@ -1956,7 +2008,7 @@ func _validate_charge_movement_constraints(unit_id: String, per_model_paths: Dic
 
 	# Check if unit has FLY keyword (for terrain penalty calculation)
 	var unit = get_unit(unit_id)
-	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var unit_keywords = _charge_terrain_keywords(unit_id)
 	var has_fly = "FLY" in unit_keywords
 
 	# 0. Every path key must resolve to a model of the charging unit or one of
@@ -2353,6 +2405,18 @@ func _validate_charge_direction_constraint(unit_id: String, per_model_paths: Dic
 			DebugLogger.info(str("ChargePhase: Direction constraint - %s" % err))
 
 	return {"valid": errors.is_empty(), "errors": errors}
+
+## Keywords that feed the charge terrain penalty / traversal checks: the
+## unit's datasheet keywords plus MOBILE while Codex: Orks (11e) STOMPING
+## JUGGERNAUT is active ("Your unit has MOBILE" — 13.06: MOBILE models move
+## horizontally through dense terrain, so they pay no climb cost either).
+## The solid-terrain sweep and wall-overlap checks already honour the flag.
+func _charge_terrain_keywords(unit_id: String) -> Array:
+	var unit = get_unit(unit_id)
+	var kws: Array = unit.get("meta", {}).get("keywords", [])
+	if unit.get("flags", {}).get("ork11e_mobile", false) and not "MOBILE" in kws:
+		kws = kws + ["MOBILE"]
+	return kws
 
 ## Calculate the total terrain penalty for a charge path.
 ## Units always stay on ground floor — no height penalty. Only difficult ground applies.
@@ -2762,6 +2826,9 @@ func _validate_no_wall_overlaps(unit_id: String, per_model_paths: Dictionary) ->
 		# not) — taken from the model's OWN unit so an attached character is
 		# judged by its own datasheet keywords.
 		var model_keywords = get_unit(ref.unit_id).get("meta", {}).get("keywords", [])
+		# Codex: Orks (11e) STOMPING JUGGERNAUT: "Your unit has MOBILE" (13.06).
+		if get_unit(ref.unit_id).get("flags", {}).get("ork11e_mobile", false):
+			model_keywords = model_keywords + ["MOBILE"]
 		if Measurement.model_overlaps_any_wall(check_model, model_keywords):
 			errors.append("Model %s would end its charge overlapping a wall" % path_key)
 
@@ -2787,6 +2854,9 @@ func _validate_no_solid_terrain_on_paths(unit_id: String, per_model_paths: Dicti
 		# An attached character sweeps with its own datasheet keywords
 		var model_keywords = unit_keywords if ref.unit_id == unit_id \
 			else get_unit(ref.unit_id).get("meta", {}).get("keywords", [])
+		# Codex: Orks (11e) STOMPING JUGGERNAUT: "Your unit has MOBILE" (13.06).
+		if get_unit(ref.unit_id).get("flags", {}).get("ork11e_mobile", false):
+			model_keywords = model_keywords + ["MOBILE"]
 		for i in range(path.size() - 1):
 			var seg_from = Vector2(path[i][0], path[i][1])
 			var seg_to = Vector2(path[i + 1][0], path[i + 1][1])
@@ -2882,7 +2952,7 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 		return false
 
 	# T2-8: Check FLY keyword for terrain penalty calculation
-	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var unit_keywords = _charge_terrain_keywords(unit_id)
 	var has_fly = "FLY" in unit_keywords
 
 	# Pass 1 (cheap): straight approach, stopping at engagement range.
@@ -2948,7 +3018,7 @@ func _per_target_charge_requirements(unit_id: String, target_ids: Array, rolled_
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return out
-	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var unit_keywords = _charge_terrain_keywords(unit_id)
 	var has_fly = "FLY" in unit_keywords
 
 	for target_id in target_ids:
@@ -3336,6 +3406,14 @@ func _log_overwatch_results_to_game_log(game_event_log, ow_result: Dictionary, s
 			var sv = dice_entry.get("sv", str(threshold))
 			game_event_log.add_overwatch_entry("  Save roll: [%s] vs %s (%s)" % [
 				rolls_str, str(sv), "failed!" if fails > 0 else "saved"])
+
+	# LV2-G1: the overwatching unit's own [HAZARDOUS] roll(s), same wording as
+	# the Shooting phase's Game Log line.
+	for hi in range(dice_entries.size()):
+		if str(dice_entries[hi].get("context", "")) == "hazardous_check":
+			var haz_line: String = RulesEngine.hazard_game_log_line(dice_entries.slice(hi, hi + 2))
+			if haz_line != "":
+				game_event_log.add_overwatch_entry("  " + haz_line)
 
 	# Count casualties from diffs (models set to alive=false)
 	var total_casualties = 0
@@ -3791,7 +3869,7 @@ func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: i
 		return false
 
 	# P2-77: Check FLY keyword for terrain penalty calculation
-	var unit_keywords = unit.get("meta", {}).get("keywords", [])
+	var unit_keywords = _charge_terrain_keywords(unit_id)
 	var has_fly = "FLY" in unit_keywords
 
 	for model in _hi_group_models(unit_id):

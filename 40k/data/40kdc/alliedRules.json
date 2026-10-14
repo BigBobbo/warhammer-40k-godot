@@ -162,18 +162,7 @@
     "max_count": 3
    }
   ],
-  "warlord_datasheet_ids": [
-   "inquisitor",
-   "inquisitor-coteaz",
-   "inquisitor-draxus",
-   "inquisitor-greyfax",
-   "inquisitor-kroyle",
-   "ministorum-priest",
-   "navigator",
-   "rogue-trader-entourage",
-   "watch-captain-artemis",
-   "watch-master"
-  ],
+  "cannot_be_warlord": true,
   "cannot_take_enhancements": true
  },
  {
@@ -261,16 +250,7 @@
     "max_count": 3
    }
   ],
-  "warlord_datasheet_ids": [
-   "inquisitor",
-   "inquisitor-coteaz",
-   "inquisitor-draxus",
-   "inquisitor-greyfax",
-   "inquisitor-kroyle",
-   "ministorum-priest",
-   "navigator",
-   "rogue-trader-entourage"
-  ],
+  "cannot_be_warlord": true,
   "cannot_take_enhancements": true
  },
  {
@@ -414,18 +394,7 @@
     "max_points": 1500
    }
   ],
-  "warlord_datasheet_ids": [
-   "chaos-lord",
-   "chaos-lord-in-terminator-armour",
-   "chaos-lord-with-jump-pack",
-   "cultist-firebrand",
-   "dark-apostle",
-   "dark-commune",
-   "master-of-possession",
-   "sorcerer",
-   "sorcerer-in-terminator-armour",
-   "traitor-enforcer"
-  ]
+  "cannot_be_warlord": true
  },
  {
   "id": "chaos-knights-allies",
@@ -514,13 +483,16 @@
    "Heretic Astartes"
   ],
   "detachment_ids": [
+   "cabal-of-chaos",
    "chaos-cult",
    "creations-of-bile",
    "cult-of-the-arkifane",
    "deceptors",
+   "devotees-of-destruction",
    "dread-talons",
    "fellhammer-siege-host",
    "hurons-marauders",
+   "murdertalon-raiders",
    "nightmare-hunt",
    "pactbound-zealots",
    "renegade-raiders",
@@ -696,10 +668,13 @@
   ],
   "detachment_ids": [
    "covenite-coterie",
+   "exhibition-of-slaughter",
+   "kabalite-agonysts",
    "kabalite-cartel",
    "realspace-raiders",
    "skysplinter-assault",
-   "spectacle-of-spite"
+   "spectacle-of-spite",
+   "tools-of-torment"
   ],
   "source_faction_id": "aeldari",
   "source_datasheet_ids": [
@@ -842,7 +817,7 @@
   "points_limits": [
    {
     "battle_size": "incursion",
-    "max_points": 250
+    "max_points": 500
    },
    {
     "battle_size": "strike-force",
@@ -850,7 +825,7 @@
    },
    {
     "battle_size": "onslaught",
-    "max_points": 750
+    "max_points": 500
    }
   ],
   "cannot_be_warlord": true
@@ -969,7 +944,7 @@
   "points_limits": [
    {
     "battle_size": "incursion",
-    "max_points": 250
+    "max_points": 500
    },
    {
     "battle_size": "strike-force",
@@ -977,7 +952,7 @@
    },
    {
     "battle_size": "onslaught",
-    "max_points": 750
+    "max_points": 500
    }
   ],
   "cannot_be_warlord": true

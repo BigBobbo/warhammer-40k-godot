@@ -1,0 +1,974 @@
+{
+  "_comment": [
+    "Codex: Orks (11th edition) stratagems + detachment rules. Source of truth for the",
+    "ORK rows of 40k/data/Stratagems.csv and Detachments.csv (scripts/40kdc/generate-stratagems.mjs).",
+    "when/target/effect/restrictions and detachment rule_text are copied verbatim from",
+    "https://wahapedia.ru/wh40k11ed/factions/orks/ (Orks App, 11th ed, v2.7.1, last update",
+    "October 2026), double-checked word for word against the page. Do not paraphrase them.",
+    "Game metadata (csv_id, turn, phase, windows) follows .llm/ork_codex_11e_design.md section 2.",
+    "duration_phrase is an EDITORIAL addition (not codex text): the generator appends it to the",
+    "CSV EFFECT text as '(Duration: <phrase>.)' so StratagemManager.use_stratagem picks the right",
+    "expiry where the codex leaves the duration implicit. null = instant effect or duration already",
+    "stated by the codex text.",
+    "restrictions: none of these stratagems prints a RESTRICTIONS line (core rules 15.01 still apply).",
+    "Counts: 15 detachments, 40 stratagems (Wurrband and Brute Bosses have none)."
+  ],
+  "source": {
+    "url": "https://wahapedia.ru/wh40k11ed/factions/orks/",
+    "book": "Orks App (11th ed) v2.7.1, last update October 2026",
+    "verified": "2026-10-11"
+  },
+  "detachments": [
+    {
+      "name": "War Horde",
+      "id": "war-horde",
+      "rule_name": "Get Stuck In",
+      "rule_text": "Get Stuck In\nJoyously anarchic and recklessly destructive, all Orks eagerly get stuck in to every fight.\nFriendly ORKS units’ melee attacks have [Sustained Hits 1].",
+      "stratagem_count": 6
+    },
+    {
+      "name": "Madcap Meks",
+      "id": "madcap-meks",
+      "rule_name": "Unpredictable Genius",
+      "rule_text": "Unpredictable Genius\nMeks haul all manner of weird bullets, unstable power cells and kustomised extras to battle.\nIn your Shooting phase, when all of a friendly BIG MEK/MEK GUNZ/MORKANAUT/WAZBOM BLASTAJET unit’s ranged attacks target a single enemy unit, roll one D6:\nUNPREDICTABLE GENIUS table (D6 | RESULT):\n1: Dat’s Weird: The target unit has 4+ InSv until your unit has shot.\n2-3: Hop Splat: Select one other enemy unit within 3\" of the target. That unit suffers D3 mortal wounds.\n4: Seekerz: Those attacks have +1 to hit rolls.\n5: Lifted: The target unit has FLY, and cannot have the benefit of cover, until your unit has shot.\n6: Runtified: The target unit has -1 T until your unit has shot.",
+      "stratagem_count": 1
+    },
+    {
+      "name": "Wurrband",
+      "id": "wurrband",
+      "rule_name": "Powers of da Waaagh!",
+      "rule_text": "Powers of da Waaagh!\nSurrounded by mobs of excitable Orks, Weirdboyz’ shamanic powers build to spectacular phenomena.\nFriendly ORKS PSYKER models’ [Psychic] attacks have:\n• +1 S.\n• +1 S for every 5 models in this unit (or embarked within this model).\nFriendly ORKS PSYKER models have the following psychic abilities:\nRoar of Mork (psychic level 1): In your Movement phase, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• Select one enemy unit (excluding MONSTER/VEHICLE units) within 12\" of this unit. That enemy unit makes a battle-shock roll, with -1 from that battle-shock roll for every 10 models in this unit.\nVisions of Violence (psychic level 1): At the start of the Fight phase, if this unit is not battle-shocked, you can make a psychic roll for this unit by rolling one D6. If you do:\n• On a 1, this unit is battle-shocked.\n• This unit has Fights First.",
+      "stratagem_count": 0
+    },
+    {
+      "name": "Runt Swarm",
+      "id": "runt-swarm",
+      "rule_name": "Sneaky Little Gitz",
+      "rule_text": "Sneaky Little Gitz\nGiven no position of importance, Grots find their niche as sneaks, thieves and mischief-makers.\n• Friendly GRETCHIN units have BATTLELINE.\n• When a friendly GRETCHIN unit is selected to make an advance/fall-back move, that move does not prevent this unit from being eligible to start an action.",
+      "stratagem_count": 3
+    },
+    {
+      "name": "Wreckas",
+      "id": "wreckas",
+      "rule_name": "Wreckin’ and Lootin’",
+      "rule_text": "Wreckin’ and Lootin’\nWhether piratical or merely larcenous, Orks with an eye for loot react forcefully to rival claims.\nIn your Shooting phase, when a friendly BREAKA BOYZ/FLASH GITZ/TANKBUSTAS unit is selected to shoot, if any of the following apply, that unit’s attacks can re-roll hit rolls of 1:\n• That unit is within range of an objective.\n• The target of that attack is within range of an objective.",
+      "stratagem_count": 3
+    },
+    {
+      "name": "Brute Bosses",
+      "id": "brute-bosses",
+      "rule_name": "’Ard as Nails",
+      "rule_text": "’Ard as Nails\nThe largest Orks have risen to their position through strength, savagery and being harder than anyone else.\nWhen a friendly WARBOSS model is destroyed, if this unit has not been selected to fight this phase, roll one D6, with +1 to the roll if your unit is riled up:\n• On a 3+, do not remove this WARBOSS model from the battlefield. When this unit has fought, or at the end of the phase (whichever comes first), this WARBOSS model is removed from the battlefield.",
+      "stratagem_count": 0
+    },
+    {
+      "name": "Bully Boyz",
+      "id": "bully-boyz",
+      "rule_name": "Displays of Savagery",
+      "rule_text": "Displays of Savagery\nNobz have a position of dominance to maintain, and do so in vicious eruptions of violence.\nFriendly MEGANOBZ/NOBZ units’ melee attacks have [Sustained Hits 1].",
+      "stratagem_count": 3
+    },
+    {
+      "name": "Da Big Hunt",
+      "id": "da-big-hunt",
+      "rule_name": "Da Hunt is On",
+      "rule_text": "Da Hunt is On\nBeast Snaggas fanatically hunt the biggest targets and are experts in finding their weak spots.\nFriendly BEAST SNAGGA units’ attacks that target a MONSTER/VEHICLE unit have +1 AP.",
+      "stratagem_count": 3
+    },
+    {
+      "name": "Dread Mob",
+      "id": "dread-mob",
+      "rule_name": "Try Dat Button!",
+      "rule_text": "Try Dat Button!\nInviting Mek-wired buttons offer varied and erratic lethality.\nIn your Shooting phase or the Fight phase, when a friendly ORKS WALKER unit (excluding TITANIC units) is selected to attack, you can use this ability. If you do, roll either one D6 or two D6 (keep re-rolling duplicate results). This unit’s attacks have the relevant rule(s):\nTRY DAT BUTTON! table — D6 | RESULT\n• 1-2: +1 A\n• 3-4: +2 S\n• 5-6: +1 AP\nIf you rolled two D6, when this unit has attacked, this unit makes one hazard roll.",
+      "stratagem_count": 3
+    },
+    {
+      "name": "Shoota Boyz",
+      "id": "shoota-boyz",
+      "rule_name": "Dakka! Dakka! Dakka!",
+      "rule_text": "Dakka! Dakka! Dakka!\nAlways hunting for something to kill, when Orks spot a target they saturate it with dakka.\nFriendly ORKS INFANTRY units’ ranged attacks have:\n• [Assault].\n• While this unit is riled up, +3\" R.",
+      "stratagem_count": 3
+    },
+    {
+      "name": "Flyboyz",
+      "id": "flyboyz",
+      "rule_name": "Skyborne Loons",
+      "rule_text": "Skyborne Loons\nWhen attacking en masse, crazed and excitable Flyboyz unleash torrential quantities of dakka.\n• Friendly ORKS AIRCRAFT units do not count towards the combined points value of your strategic reserves units.\n• While a friendly ORKS AIRCRAFT/DEFFKOPTAS unit is riled up, this unit’s ranged attacks have +1 to hit rolls.",
+      "stratagem_count": 3
+    },
+    {
+      "name": "Kult of Speed",
+      "id": "kult-of-speed",
+      "rule_name": "Adrenaline Junkies",
+      "rule_text": "Adrenaline Junkies\nAfter smashing into the foe at full tilt, a Speed Freek will pull hairpin turns to do it all again.\n• Friendly WARBIKERS units have BATTLELINE.\n• When a friendly SPEED FREEKS unit is selected to make an advance/fall-back move:\n  ◦ That unit’s ranged attacks have [Assault] until the end of the turn.\n  ◦ That move does not prevent that unit from being eligible to declare a charge.",
+      "stratagem_count": 3
+    },
+    {
+      "name": "Blitz Brigade",
+      "id": "blitz-brigade",
+      "rule_name": "Unstoppable Momentum",
+      "rule_text": "Unstoppable Momentum\nLike mobile armoured fortresses, little can stop the crushing impetus of the Orks’ hulking wagons.\n• Friendly WAGON units can re-roll charge rolls.\n• When a friendly WAGON unit is selected to make an advance move, that unit can change advance rolls to a 6.",
+      "stratagem_count": 3
+    },
+    {
+      "name": "Green Tide",
+      "id": "green-tide",
+      "rule_name": "Mob-handed Brutality",
+      "rule_text": "Mob-handed Brutality\nIn the massive fights that Orks enjoy, the only way to ensure a slice of the action is to fight harder.\n• Friendly BOYZ units’ melee attacks have [Sustained Hits 1].\n• If a friendly ORKS INFANTRY unit made a charge move this turn, that unit’s melee attacks have [Lethal Hits: non-Monster/Vehicle].",
+      "stratagem_count": 3
+    },
+    {
+      "name": "Taktikal Brigade",
+      "id": "taktikal-brigade",
+      "rule_name": "Suspiciously Well Organised",
+      "rule_text": "Suspiciously Well Organised\nAn un-Orky compulsion for discipline can wrongfoot enemies expecting anarchic disorder.\n• Friendly STORMBOYZ units have BATTLELINE.\n• When a friendly BOYZ/KOMMANDOS/STORMBOYZ unit is selected to make a fall-back move, that fall-back move does not prevent that unit from being eligible to declare a charge.",
+      "stratagem_count": 3
+    }
+  ],
+  "stratagems": [
+    {
+      "csv_id": "breakin-heads-war-horde",
+      "name": "BREAKIN' HEADS",
+      "printed_name": "Breakin' Heads",
+      "detachment": "War Horde",
+      "detachment_id": "war-horde",
+      "cp_cost": 1,
+      "turn": "either",
+      "phase": "any",
+      "turn_column": "Either player's turn",
+      "phase_column": "Any phase",
+      "windows": [
+        "unit_battle_shocked"
+      ],
+      "when": "Any phase, when a friendly attached ORKS INFANTRY unit becomes battle-shocked.",
+      "target": "That ORKS INFANTRY unit. You can target that unit with this stratagem even though it is battle-shocked.",
+      "effect": "Roll one D3:\n• Your unit suffers a number of mortal wounds equal to the result.\n• Your unit is no longer battle-shocked.",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#BREAKIN-HEADS (printed name 'BREAKIN' HEADS'; Codex Orks app v2.7.1, Oct 2026). Flavour: Sometimes even the most enthusiastic Orks need a little ‘encouragement’ to stay in the fight."
+    },
+    {
+      "csv_id": "hit-em-harder-war-horde",
+      "name": "HIT 'EM HARDER",
+      "printed_name": "Hit 'Em Harder",
+      "detachment": "War Horde",
+      "detachment_id": "war-horde",
+      "cp_cost": 1,
+      "turn": "either",
+      "phase": "fight",
+      "turn_column": "Either player's turn",
+      "phase_column": "Fight phase",
+      "windows": [
+        "unit_selected_to_fight"
+      ],
+      "when": "Fight phase, when a friendly ORKS unit is selected to fight.",
+      "target": "That ORKS unit.",
+      "effect": "Your unit’s melee attacks have [Lethal Hits].",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#HIT-EM-HARDER (printed name 'HIT 'EM HARDER'; Codex Orks app v2.7.1, Oct 2026). Flavour: Even the weediest Orks possess great strength, and need little persuasion to bring it to bear."
+    },
+    {
+      "csv_id": "orks-is-never-beaten-war-horde",
+      "name": "ORKS IS NEVER BEATEN",
+      "printed_name": "Orks Is Never Beaten",
+      "detachment": "War Horde",
+      "detachment_id": "war-horde",
+      "cp_cost": 1,
+      "turn": "either",
+      "phase": "fight",
+      "turn_column": "Either player's turn",
+      "phase_column": "Fight phase",
+      "windows": [
+        "enemy_targets_unit_fight"
+      ],
+      "when": "Fight phase, when an enemy unit targets a friendly ORKS unit (excluding TITANIC units).",
+      "target": "That ORKS unit.",
+      "effect": "When a model in your unit is destroyed, if your unit has not been selected to fight this phase, roll one D6, with +1 to that roll if your unit is riled up:\n• On a 4+, do not remove that model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), that model is removed from the battlefield.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#ORKS-IS-NEVER-BEATEN (printed name 'ORKS IS NEVER BEATEN'; Codex Orks app v2.7.1, Oct 2026). Flavour: So resilient is Ork physiology - and so slow are Orks on the uptake - even death can take time to register."
+    },
+    {
+      "csv_id": "mow-em-down-war-horde",
+      "name": "MOW 'EM DOWN",
+      "printed_name": "Mow 'Em Down",
+      "detachment": "War Horde",
+      "detachment_id": "war-horde",
+      "cp_cost": 1,
+      "turn": "either",
+      "phase": "fight",
+      "turn_column": "Either player's turn",
+      "phase_column": "Fight phase",
+      "windows": [
+        "unit_selected_to_fight"
+      ],
+      "when": "Fight phase, when a friendly ORKS VEHICLE unit (excluding WALKER units) that made a charge move this turn is selected to fight.",
+      "target": "That ORKS VEHICLE unit.",
+      "effect": "Your unit’s melee attacks have:\n• [Cleave 1].\n• Or: If that attack already has [CLEAVE], +1 to the value of that [CLEAVE] (e.g. [CLEAVE 1] becomes [CLEAVE 2]).",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#MOW-EM-DOWN (printed name 'MOW 'EM DOWN'; Codex Orks app v2.7.1, Oct 2026). Flavour: Spiked rams, deff rollas and glyph-heavy dozer blades are more than just stylish statements for the crew of Ork vehicles."
+    },
+    {
+      "csv_id": "fungus-fuel-injection-war-horde",
+      "name": "FUNGUS-FUEL INJECTION",
+      "printed_name": "Fungus-Fuel Injection",
+      "detachment": "War Horde",
+      "detachment_id": "war-horde",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "movement",
+      "turn_column": "Your turn",
+      "phase_column": "Movement phase",
+      "windows": [
+        "unit_selected_to_move"
+      ],
+      "when": "Your Movement phase, when a friendly ORKS MOUNTED/VEHICLE unit is selected to move.",
+      "target": "That ORKS MOUNTED/VEHICLE unit.",
+      "effect": "Your unit has +2\" M.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#FUNGUS-FUEL-INJECTION (printed name 'FUNGUS-FUEL INJECTION'; Codex Orks app v2.7.1, Oct 2026). Flavour: Fermented through entirely unstable processes, just a drop of these potent additives can supercharge any Mek-built engine."
+    },
+    {
+      "csv_id": "close-range-dakka-war-horde",
+      "name": "CLOSE-RANGE DAKKA",
+      "printed_name": "Close-Range Dakka",
+      "detachment": "War Horde",
+      "detachment_id": "war-horde",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "shooting",
+      "turn_column": "Your turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "unit_selected_to_shoot"
+      ],
+      "when": "Your Shooting phase, when a friendly ORKS unit is selected to shoot.",
+      "target": "That ORKS unit.",
+      "effect": "Your unit’s ranged attacks have:\n• [Rapid Fire 1].\n• Or: If that attack already has [RAPID FIRE], +1 to the value of that [RAPID FIRE] (e.g. [RAPID FIRE 1] becomes [RAPID FIRE 2]).",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#CLOSE-RANGE-DAKKA (printed name 'CLOSE-RANGE DAKKA'; Codex Orks app v2.7.1, Oct 2026). Flavour: Many Orks think it’s a waste of time blazing away at long range, when it’s more fun to see the effects of potent dakka up close."
+    },
+    {
+      "csv_id": "vindictive-artillerists-madcap-meks",
+      "name": "VINDICTIVE ARTILLERISTS",
+      "printed_name": "Vindictive Artillerists",
+      "detachment": "Madcap Meks",
+      "detachment_id": "madcap-meks",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "shooting",
+      "turn_column": "Your turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "unit_selected_to_shoot"
+      ],
+      "when": "Your Shooting phase, when a friendly MEK GUNZ unit is selected to shoot.",
+      "target": "That MEK GUNZ unit.",
+      "effect": "Your unit’s ranged attacks have:\n• [Lethal Hits].\n• Or: [Sustained Hits 1].\n• Or: [Hazardous], [Lethal Hits], [Sustained Hits 1].",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#VINDICTIVE-ARTILLERISTS (printed name 'VINDICTIVE ARTILLERISTS' - spelled with an s, not 'Artilleristz'; Codex Orks app v2.7.1, Oct 2026). Flavour: Though cowardly, Grot artillery crews will dare to overcharge their weapons in acts of spectacular spite."
+    },
+    {
+      "csv_id": "infested-war-zone-runt-swarm",
+      "name": "INFESTED WAR ZONE",
+      "printed_name": "Infested War Zone",
+      "detachment": "Runt Swarm",
+      "detachment_id": "runt-swarm",
+      "cp_cost": 2,
+      "turn": "either",
+      "phase": "any",
+      "turn_column": "Either player's turn",
+      "phase_column": "Any phase",
+      "windows": [
+        "enemy_unit_has_attacked"
+      ],
+      "when": "Any phase, when an enemy unit has attacked.",
+      "target": "One friendly GRETCHIN unit that was just destroyed. You can target that unit with this stratagem even though that unit was just destroyed.",
+      "effect": "Add a new GRETCHIN unit to your army identical to your destroyed unit, in strategic reserves, at its starting strength, with its full wounds remaining.",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#INFESTED-WAR-ZONE (printed name 'INFESTED WAR ZONE'; Codex Orks app v2.7.1, Oct 2026). Flavour: Short, scrawny and skilled at hiding, there are usually a lot more Gretchin about than meets the eye."
+    },
+    {
+      "csv_id": "scarper-runt-swarm",
+      "name": "SCARPER!",
+      "printed_name": "Scarper!",
+      "detachment": "Runt Swarm",
+      "detachment_id": "runt-swarm",
+      "cp_cost": 1,
+      "turn": "opponent",
+      "phase": "movement",
+      "turn_column": "Opponent's turn",
+      "phase_column": "Movement phase",
+      "windows": [
+        "enemy_ended_move"
+      ],
+      "when": "Your opponent’s Movement phase, when an enemy unit ends a move within 8\" of a friendly unengaged GRETCHIN unit.",
+      "target": "That GRETCHIN unit.",
+      "effect": "Your unit can make a normal move of:\n• Up to D6\".\n• Or: Up to 6\" instead if your unit is an attached unit.",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#SCARPER- (printed name 'SCARPER!'; Codex Orks app v2.7.1, Oct 2026). Flavour: Through natural cowardice or a Runtherd’s threats, Grots’ agile reactions can leave foes flat-footed."
+    },
+    {
+      "csv_id": "grot-shields-runt-swarm",
+      "name": "GROT SHIELDS",
+      "printed_name": "Grot Shields",
+      "detachment": "Runt Swarm",
+      "detachment_id": "runt-swarm",
+      "cp_cost": 1,
+      "turn": "opponent",
+      "phase": "shooting",
+      "turn_column": "Opponent's turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "enemy_targets_unit_shooting"
+      ],
+      "when": "Your opponent’s Shooting phase, when an enemy unit targets a friendly ORKS INFANTRY unit (excluding GRETCHIN units).",
+      "target": "One friendly GRETCHIN unit within 3\" of that ORKS INFANTRY unit.",
+      "effect": "When a hit roll for that enemy unit’s ranged attacks that target that ORKS unit results in a hit, if a model in your GRETCHIN unit is on the battlefield, end the attack sequence for that attack and your GRETCHIN unit suffers 1 mortal wound.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#GROT-SHIELDS (printed name 'GROT SHIELDS'; Codex Orks app v2.7.1, Oct 2026). Flavour: Despite their protestations, Gretchin make surprisingly effective bullet shields."
+    },
+    {
+      "csv_id": "drive-by-bustin-wreckas",
+      "name": "DRIVE-BY BUSTIN'",
+      "printed_name": "Drive-By Bustin'",
+      "detachment": "Wreckas",
+      "detachment_id": "wreckas",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "shooting",
+      "turn_column": "Your turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "unit_selected_to_shoot"
+      ],
+      "when": "Your Shooting phase, when a friendly ORKS TRANSPORT unit is selected to shoot.",
+      "target": "That ORKS TRANSPORT unit.",
+      "effect": "Your unit’s ranged attacks with weapons selected for the Firing Deck ability have +1 to hit rolls.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#DRIVE-BY-BUSTIN- (printed name 'DRIVE-BY BUSTIN''; Codex Orks app v2.7.1, Oct 2026). Flavour: Ork transports are not the smoothest of rides. However, the best loot-hunters have honed their drive-by volleys of armour-cracking firepower to the point of deadly accuracy."
+    },
+    {
+      "csv_id": "grab-it-wreckas",
+      "name": "GRAB IT",
+      "printed_name": "Grab It",
+      "detachment": "Wreckas",
+      "detachment_id": "wreckas",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "shooting",
+      "turn_column": "Your turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "unit_has_shot"
+      ],
+      "when": "Your Shooting phase, when a friendly unengaged BREAKA BOYZ/FLASH GITZ/TANKBUSTAS unit has shot.",
+      "target": "That BREAKA BOYZ/FLASH GITZ/TANKBUSTAS unit.",
+      "effect": "• Your unit can make a normal move of up to 6\", and must end that move within range of an objective.\n• Your unit is not eligible to declare a charge until the end of the turn.",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#GRAB-IT (printed name 'GRAB IT'; Codex Orks app v2.7.1, Oct 2026). Flavour: Wreckin’ some gitz is all well and good, but getting the drop on them and then grabbing an opportunity for some loot is even better."
+    },
+    {
+      "csv_id": "gun-crazy-show-offs-wreckas",
+      "name": "GUN-CRAZY SHOW-OFFS",
+      "printed_name": "Gun-Crazy Show-Offs",
+      "detachment": "Wreckas",
+      "detachment_id": "wreckas",
+      "cp_cost": 1,
+      "turn": "opponent",
+      "phase": "shooting",
+      "turn_column": "Opponent's turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "enemy_has_shot"
+      ],
+      "when": "Your opponent’s Shooting phase, when an enemy unit has shot.",
+      "target": "One friendly FLASH GITZ/TANKBUSTAS unit hit by those attacks.",
+      "effect": "Your unit shoots using normal shooting, but while doing so your unit can only target that enemy unit.",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#GUN-CRAZY-SHOW-OFFS (printed name 'GUN-CRAZY SHOW-OFFS'; Codex Orks app v2.7.1, Oct 2026). Flavour: With a snort of contempt, these Orks decide to show the gitz who just shot at them what real guns are capable of."
+    },
+    {
+      "csv_id": "too-arrogant-to-die-bully-boyz",
+      "name": "TOO ARROGANT TO DIE",
+      "printed_name": "Too Arrogant to Die",
+      "detachment": "Bully Boyz",
+      "detachment_id": "bully-boyz",
+      "cp_cost": 1,
+      "turn": "either",
+      "phase": "fight",
+      "turn_column": "Either player's turn",
+      "phase_column": "Fight phase",
+      "windows": [
+        "enemy_targets_unit_fight"
+      ],
+      "when": "Fight phase, when an enemy unit targets a friendly MEGANOBZ/NOBZ unit.",
+      "target": "That MEGANOBZ/NOBZ unit.",
+      "effect": "When a model in your unit is destroyed, if your unit has not been selected to fight this phase, roll one D6, with +1 to that roll if your unit is riled up:\n• On a 4+, do not remove that model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), that model is removed from the battlefield.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#TOO-ARROGANT-TO-DIE (printed name 'TOO ARROGANT TO DIE'; Codex Orks app v2.7.1, Oct 2026). Flavour: With bone-headed arrogance, Nobz will carry on killing before their deaths finally dawn on them. 'Riled up' comes from the Orks Waaagh! army rule. Note the +1 modifier applies to the D6 roll; destroyed model fights on until the unit has fought / end of phase."
+    },
+    {
+      "csv_id": "armed-to-da-teef-bully-boyz",
+      "name": "ARMED TO DA TEEF",
+      "printed_name": "Armed to da Teef",
+      "detachment": "Bully Boyz",
+      "detachment_id": "bully-boyz",
+      "cp_cost": 1,
+      "turn": "either",
+      "phase": "shooting_or_fight",
+      "turn_column": "Either player's turn",
+      "phase_column": "Shooting or Fight phase",
+      "windows": [
+        "unit_selected_to_shoot",
+        "unit_selected_to_fight"
+      ],
+      "when": "Your Shooting phase or the Fight phase, when a friendly MEGANOBZ/NOBZ unit is selected to attack.",
+      "target": "That MEGANOBZ/NOBZ unit.",
+      "effect": "Your unit’s attacks can:\n• Re-roll hit rolls of 1.\n• If your unit is riled up, re-roll hit rolls.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#ARMED-TO-DA-TEEF (printed name 'ARMED TO DA TEEF'; Codex Orks app v2.7.1, Oct 2026). Flavour: Nobz load themselves with all manner of weapons in shows of wealth and influence. Second bullet (full hit re-rolls) only applies while the unit is riled up (Waaagh! army rule)."
+    },
+    {
+      "csv_id": "hulking-brutes-bully-boyz",
+      "name": "HULKING BRUTES",
+      "printed_name": "Hulking Brutes",
+      "detachment": "Bully Boyz",
+      "detachment_id": "bully-boyz",
+      "cp_cost": 1,
+      "turn": "opponent",
+      "phase": "shooting",
+      "turn_column": "Opponent's turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "enemy_targets_unit_shooting"
+      ],
+      "when": "Your opponent’s Shooting phase, when an enemy unit targets a friendly MEGANOBZ/NOBZ unit.",
+      "target": "That MEGANOBZ/NOBZ unit.",
+      "effect": "Ranged attacks that target your unit with a S greater than your unit’s T have -1 to wound rolls.\n+1CP Or: Ranged attacks that target your unit have -1 to wound rolls.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#HULKING-BRUTES (printed name 'HULKING BRUTES'; Codex Orks app v2.7.1, Oct 2026). Flavour: The thick armour and thicker skulls of Nobz make them a daunting prospect to gun down. Optional '+1CP' section: per core rule 15.01 you may pay 1 additional CP (2CP total) to use the 'Or:' effect (all ranged attacks targeting the unit get -1 to wound, regardless of S vs T) instead of the base effect.",
+      "cp_upgrade": {
+        "extra_cp": 1,
+        "variant_id": "upgrade",
+        "text": "Or: Ranged attacks that target your unit have -1 to wound rolls."
+      }
+    },
+    {
+      "csv_id": "where-dya-fink-youre-going-da-big-hunt",
+      "name": "WHERE D'YA FINK YOU'RE GOING?",
+      "printed_name": "Where D'ya Fink You're Going?",
+      "detachment": "Da Big Hunt",
+      "detachment_id": "da-big-hunt",
+      "cp_cost": 1,
+      "turn": "opponent",
+      "phase": "movement",
+      "turn_column": "Opponent's turn",
+      "phase_column": "Movement phase",
+      "windows": [
+        "enemy_selected_to_fall_back"
+      ],
+      "when": "Your opponent’s Movement phase, when an enemy unit is selected to make a fall-back move, if that enemy unit is engaged with a friendly BEAST SNAGGA unit.",
+      "target": "That BEAST SNAGGA unit.",
+      "effect": "When an enemy unit engaged with your unit is selected to make a fall-back move, that enemy unit must use the desperate escape mode. If that enemy unit is a MONSTER/VEHICLE unit, that enemy unit makes three additional hazard rolls for each BEAST SNAGGA unit it is engaged with, with -1 from those hazard rolls if that enemy unit is battle-shocked.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#WHERE-D-YA-FINK-YOU-RE-GOING- (printed name 'WHERE D'YA FINK YOU'RE GOING?'; Codex Orks app v2.7.1, Oct 2026). Flavour: Beast Snagga victims often make a break for it before the Orks have tired of fighting. Hooked, impaled or ridden down, few survive such flight. Desperate escape (core 09.07): the falling-back unit makes a hazard roll for each model (06.03: 1-2 fails = 1 MW, or 3 MW if each model in that unit is MONSTER/VEHICLE). After moving, a desperate-escape unit that is not battle-shocked must also make a battle-shock roll (09.07). Core 09.07.01: abilities that subtract from a Desperate Escape test subtract from those hazard rolls. This stratagem adds three more hazard rolls per engaged BEAST SNAGGA unit vs MONSTER/VEHICLE units. Page prints '-1 from those hazard rolls' (sic: 'from', not 'to')."
+    },
+    {
+      "csv_id": "goaded-into-action-da-big-hunt",
+      "name": "GOADED INTO ACTION",
+      "printed_name": "Goaded into Action",
+      "detachment": "Da Big Hunt",
+      "detachment_id": "da-big-hunt",
+      "cp_cost": 1,
+      "turn": "opponent",
+      "phase": "shooting",
+      "turn_column": "Opponent's turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "enemy_has_shot"
+      ],
+      "when": "Your opponent’s Shooting phase, when an enemy unit has shot.",
+      "target": "One friendly unengaged BEAST SNAGGA unit that lost a wound as a result of those attacks.",
+      "effect": "Your unit can make a surge move of up to D6\". If your unit is riled up, it can re-roll that D6.",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#GOADED-INTO-ACTION (printed name 'GOADED INTO ACTION'; Codex Orks app v2.7.1, Oct 2026). Flavour: Should attempts to obliterate the Beast Snaggas from afar fail, it is often the foe’s last mistake as the hunters turn their baleful attention on them. Surge move rules (core 21.02): unit must not be battle-shocked, must be unengaged, must not have moved this phase; it moves toward the closest enemy unit (surge target)."
+    },
+    {
+      "csv_id": "instinctive-hunters-da-big-hunt",
+      "name": "INSTINCTIVE HUNTERS",
+      "printed_name": "Instinctive Hunters",
+      "detachment": "Da Big Hunt",
+      "detachment_id": "da-big-hunt",
+      "cp_cost": 1,
+      "turn": "opponent",
+      "phase": "fight",
+      "turn_column": "Opponent's turn",
+      "phase_column": "Fight phase",
+      "windows": [
+        "fight_phase_end"
+      ],
+      "when": "End of your opponent’s Fight phase.",
+      "target": "One friendly unengaged BEAST SNAGGA unit within 6\" of a battlefield edge.",
+      "effect": "Place your unit in strategic reserves.",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#INSTINCTIVE-HUNTERS (printed name 'INSTINCTIVE HUNTERS'; Codex Orks app v2.7.1, Oct 2026). Flavour: With a keen eye for tracking their prey, Beast Snaggas will circle around to ambush the luckless gitz from another angle."
+    },
+    {
+      "csv_id": "crazed-rampage-dread-mob",
+      "name": "CRAZED RAMPAGE",
+      "printed_name": "Crazed Rampage",
+      "detachment": "Dread Mob",
+      "detachment_id": "dread-mob",
+      "cp_cost": 1,
+      "turn": "either",
+      "phase": "fight",
+      "turn_column": "Either player's turn",
+      "phase_column": "Fight phase",
+      "windows": [
+        "enemy_targets_unit_fight"
+      ],
+      "when": "Fight phase, when an enemy unit targets a friendly ORKS WALKER unit (excluding TITANIC units).",
+      "target": "That ORKS WALKER unit.",
+      "effect": "When a model in your unit is destroyed, if your unit has not been selected to fight this phase, roll one D6, with +3 to the result if your unit has DEFF DREAD:\n• On a 4+, do not remove that model from the battlefield. When your unit has fought, or at the end of the phase (whichever comes first), that model is removed from the battlefield.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#CRAZED-RAMPAGE (printed name 'CRAZED RAMPAGE'; Codex Orks app v2.7.1, Oct 2026). Flavour: Even horrific damage will not prevent many Ork combat walkers from crunching and stomping their enemies in a final fugue of psychotic aggression. If your unit has DEFF DREAD, the +3 means even a roll of 1 becomes 4, which meets 4+. On the core rules page, the 'unmodified roll fails' rows appear only in the hit/wound/save tables, not for generic D6 rolls like this one. The body of core 02.02.01 Modifiers is not rendered on Wahapedia, so a general modifier cap could not be ruled out from the page."
+    },
+    {
+      "csv_id": "dread-power-dread-mob",
+      "name": "DREAD POWER",
+      "printed_name": "Dread Power",
+      "detachment": "Dread Mob",
+      "detachment_id": "dread-mob",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "movement",
+      "turn_column": "Your turn",
+      "phase_column": "Movement phase",
+      "windows": [],
+      "when": "Your Movement phase.",
+      "target": "One friendly ORKS WALKER unit.",
+      "effect": "Your unit is riled up until the start of your next turn.",
+      "restrictions": "",
+      "duration_phrase": "until the start of your next Command phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#DREAD-POWER (printed name 'DREAD POWER'; Codex Orks app v2.7.1, Oct 2026). Flavour: Fuelled by the pilot’s obsession or psychosis - and powered up by varied erratic gubbinz - it is little wonder that a Kan’s stomping rampages are constantly reignited. Riled up (Waaagh! army rule): 5+ InSv, ranged attacks have [ASSAULT], advance doesn't prevent declaring a charge. Lasts until the start of your next turn."
+    },
+    {
+      "csv_id": "stomping-juggernaut-dread-mob",
+      "name": "STOMPING JUGGERNAUT",
+      "printed_name": "Stomping Juggernaut",
+      "detachment": "Dread Mob",
+      "detachment_id": "dread-mob",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "movement_or_charge",
+      "turn_column": "Your turn",
+      "phase_column": "Movement or Charge phase",
+      "windows": [
+        "unit_selected_to_move",
+        "unit_declares_charge"
+      ],
+      "when": "Your Movement/Charge phase, when a friendly ORKS WALKER unit is selected to move or declares a charge.",
+      "target": "That ORKS WALKER unit.",
+      "effect": "Your unit has MOBILE.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#STOMPING-JUGGERNAUT (printed name 'STOMPING JUGGERNAUT'; Codex Orks app v2.7.1, Oct 2026). Flavour: A pilot’s single-mindedness and his walker’s durable form mean few obstacles can impede its relentless stomping advance. MOBILE keyword lets models move horizontally through dense terrain features (core 13.06). The page gives no stated duration beyond 'Your unit has MOBILE'."
+    },
+    {
+      "csv_id": "kustom-dakka-shoota-boyz",
+      "name": "KUSTOM DAKKA",
+      "printed_name": "Kustom Dakka",
+      "detachment": "Shoota Boyz",
+      "detachment_id": "shoota-boyz",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "shooting",
+      "turn_column": "Your turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "unit_selected_to_shoot"
+      ],
+      "when": "Your Shooting phase, when a friendly ORKS INFANTRY unit is selected to shoot.",
+      "target": "That ORKS INFANTRY unit.",
+      "effect": "Your unit’s ranged attacks that target a unit (excluding MONSTER/VEHICLE units) have +1 to wound rolls.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#KUSTOM-DAKKA (printed name 'KUSTOM DAKKA'; Codex Orks app v2.7.1, Oct 2026). Flavour: Extra speshul ammunition is hoarded by those Orks obsessed with dakka, ready for the ideal target when it is splurged in an impressively killy display."
+    },
+    {
+      "csv_id": "glowin-dakka-shoota-boyz",
+      "name": "GLOWIN' DAKKA",
+      "printed_name": "Glowin' Dakka",
+      "detachment": "Shoota Boyz",
+      "detachment_id": "shoota-boyz",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "shooting",
+      "turn_column": "Your turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "unit_selected_to_shoot"
+      ],
+      "when": "Your Shooting phase, when a friendly ORKS INFANTRY unit is selected to shoot.",
+      "target": "That ORKS INFANTRY unit.",
+      "effect": "Your unit’s ranged attacks that target a unit within 9\" have +1 AP.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#GLOWIN-DAKKA (printed name 'GLOWIN' DAKKA'; Codex Orks app v2.7.1, Oct 2026). Flavour: Semi-molten or radioactive slugs; frazzle bullets; shokktastik shells; Orks will try anything they can afford to crack open enemy armour in style."
+    },
+    {
+      "csv_id": "never-enough-dakka-shoota-boyz",
+      "name": "NEVER ENOUGH DAKKA",
+      "printed_name": "Never Enough Dakka",
+      "detachment": "Shoota Boyz",
+      "detachment_id": "shoota-boyz",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "shooting",
+      "turn_column": "Your turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "unit_selected_to_shoot"
+      ],
+      "when": "Your Shooting phase, when a friendly ORKS INFANTRY unit is selected to shoot.",
+      "target": "That ORKS INFANTRY unit.",
+      "effect": "Your unit’s ranged attacks have [Sustained Hits 1].",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#NEVER-ENOUGH-DAKKA (printed name 'NEVER ENOUGH DAKKA'; Codex Orks app v2.7.1, Oct 2026). Flavour: Squeezing the trigger until their weapon stops firing or falls apart in their hands is a standard tactic for many Orks, and their horrifically wild bursts eventually find their mark."
+    },
+    {
+      "csv_id": "flyin-headbutt-flyboyz",
+      "name": "FLYIN' HEADBUTT",
+      "printed_name": "Flyin' Headbutt",
+      "detachment": "Flyboyz",
+      "detachment_id": "flyboyz",
+      "cp_cost": 1,
+      "turn": "either",
+      "phase": "any",
+      "turn_column": "Either player's turn",
+      "phase_column": "Any phase",
+      "windows": [
+        "unit_destroyed"
+      ],
+      "when": "Any phase, when a friendly ORKS AIRCRAFT unit is destroyed, before rolling for any Deadly Demise.",
+      "target": "That ORKS unit.",
+      "effect": "Your unit does not have the Deadly Demise ability. Select one enemy unit within 12\" of your unit and roll eight D6:\n• For each 4+, that enemy unit suffers 1 mortal wound.\nThen remove your unit from the battlefield.",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#FLYIN-HEADBUTT (printed name 'FLYIN' HEADBUTT', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: Some Ork pilots, out of bullets and out of luck, brighten up considerably when they realise their own aircraft is a deadly weapon in its own right. ORKS AIRCRAFT datasheets on the page: Blitza-bommer, Burna-bommer, Dakkajet, Wazbom Blastajet. Used in either player's turn, any phase; the unit loses Deadly Demise, so roll 8D6 (each 4+ = 1 mortal wound) on ONE enemy unit within 12\" instead, then remove the aircraft."
+    },
+    {
+      "csv_id": "long-uncontrolled-bursts-flyboyz",
+      "name": "LONG, UNCONTROLLED BURSTS",
+      "printed_name": "Long, Uncontrolled Bursts",
+      "detachment": "Flyboyz",
+      "detachment_id": "flyboyz",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "shooting",
+      "turn_column": "Your turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "unit_selected_to_shoot"
+      ],
+      "when": "Your Shooting phase, when a friendly ORKS AIRCRAFT/DEFFKOPTAS unit is selected to shoot.",
+      "target": "That ORKS AIRCRAFT/DEFFKOPTAS unit.",
+      "effect": "When your unit’s ranged attacks target a FLY unit, those attacks can re-roll hit rolls.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#LONG-UNCONTROLLED-BURSTS (printed name 'LONG, UNCONTROLLED BURSTS', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: Ork Flyboyz will fill the skies with dakka in an attempt to down any enemy they think is muscling in on their aerial turf. Re-roll applies only to hit rolls of ranged attacks that target a FLY unit (full re-roll, not just 1s)."
+    },
+    {
+      "csv_id": "whirligig-evasion-flyboyz",
+      "name": "WHIRLIGIG EVASION",
+      "printed_name": "Whirligig Evasion",
+      "detachment": "Flyboyz",
+      "detachment_id": "flyboyz",
+      "cp_cost": 1,
+      "turn": "opponent",
+      "phase": "movement",
+      "turn_column": "Opponent's turn",
+      "phase_column": "Movement phase",
+      "windows": [
+        "enemy_ended_move"
+      ],
+      "when": "Your opponent’s Movement phase, when an enemy unit ends a move.",
+      "target": "One friendly unengaged DEFFKOPTAS unit within 8\" of that enemy unit.",
+      "effect": "Your unit can make a normal move of:\n• Up to D6\".\n• Or: If your unit is riled up, up to 6\".",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#WHIRLIGIG-EVASION (printed name 'WHIRLIGIG EVASION', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: Enemy attempts to hunt Deffkoptas down can be stymied by nimble aerial evasion, usually accompanied by a crude hand gesture in the foe’s direction. The 'Or:' bullet replaces the D6\" option when the unit is riled up (fixed 6\"). Normal move core rule 09.05: unit must be on the battlefield and unengaged, and must end unengaged."
+    },
+    {
+      "csv_id": "delicious-eating-squigs-kult-of-speed",
+      "name": "DELICIOUS EATING SQUIGS",
+      "printed_name": "Delicious Eating Squigs",
+      "detachment": "Kult of Speed",
+      "detachment_id": "kult-of-speed",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "movement",
+      "turn_column": "Your turn",
+      "phase_column": "Movement phase",
+      "windows": [],
+      "when": "Your Movement phase.",
+      "target": "One friendly RUKKATRUKK SQUIGBUGGIES unit.",
+      "effect": "Select any number of friendly ORKS INFANTRY units within 3\" of your unit. Each selected unit heals 3 wounds.",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#DELICIOUS-EATING-SQUIGS (printed name 'DELICIOUS EATING SQUIGS', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: Besides more dangerous fare, Squig-lobbing buggies fire edible Squigs for a price, guaranteed to enliven any Ork if he can eat it before it eats him. Heal = core 02.02.04: regain lost wounds, and once all models are at full wounds, revive destroyed non-CHARACTER models with 1 wound."
+    },
+    {
+      "csv_id": "dakkastorm-kult-of-speed",
+      "name": "DAKKASTORM",
+      "printed_name": "Dakkastorm",
+      "detachment": "Kult of Speed",
+      "detachment_id": "kult-of-speed",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "shooting",
+      "turn_column": "Your turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "unit_selected_to_shoot"
+      ],
+      "when": "Your Shooting phase, when a friendly SPEED FREEKS unit is selected to shoot.",
+      "target": "That SPEED FREEKS unit.",
+      "effect": "Your unit’s ranged attacks have [Sustained Hits 1].",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#DAKKASTORM (printed name 'DAKKASTORM', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: Often all an enemy will see of a Kult of Speed is a dust cloud as they speed by, all guns blazing. SPEED FREEKS datasheets on the page: Wazdakka Gutsmek, Deffkilla Wartrike, Warboss on Warbike, Trukk, Blitza-bommer, Burna-bommer, Dakkajet, Wazbom Blastajet, Deffkoptas, Warbikers, Wartrakks, Rukkatrukk Squigbuggies, Warbuggies."
+    },
+    {
+      "csv_id": "speediest-freeks-kult-of-speed",
+      "name": "SPEEDIEST FREEKS",
+      "printed_name": "Speediest Freeks",
+      "detachment": "Kult of Speed",
+      "detachment_id": "kult-of-speed",
+      "cp_cost": 1,
+      "turn": "opponent",
+      "phase": "shooting",
+      "turn_column": "Opponent's turn",
+      "phase_column": "Shooting phase",
+      "windows": [
+        "enemy_targets_unit_shooting"
+      ],
+      "when": "Your opponent’s Shooting phase, when an enemy unit targets a friendly SPEED FREEKS unit.",
+      "target": "That SPEED FREEKS unit.",
+      "effect": "Ranged attacks that target your unit fail on an unmodified hit roll of 1-3.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#SPEEDIEST-FREEKS (printed name 'SPEEDIEST FREEKS', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: Speed Freeks are often just blurs of vehicular mayhem that prove difficult to land a blow on. Unmodified hit rolls of 1-3 always fail against this unit, whatever the modifiers. The attacker still needs to meet its BS as normal."
+    },
+    {
+      "csv_id": "keep-it-runnin-blitz-brigade",
+      "name": "KEEP IT RUNNIN'",
+      "printed_name": "Keep It Runnin'",
+      "detachment": "Blitz Brigade",
+      "detachment_id": "blitz-brigade",
+      "cp_cost": 1,
+      "turn": "either",
+      "phase": "fight",
+      "turn_column": "Either player's turn",
+      "phase_column": "Fight phase",
+      "windows": [
+        "fight_phase_end"
+      ],
+      "when": "End of the Fight phase.",
+      "target": "One friendly unengaged ORKS INFANTRY unit that was eligible to fight this phase and is wholly within 6\" of a friendly TRANSPORT unit that INFANTRY unit is able to embark within.",
+      "effect": "Your INFANTRY unit embarks within that TRANSPORT unit.",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#KEEP-IT-RUNNIN- (printed name 'KEEP IT RUNNIN'', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: The crews of the Orks’ hulking transports maintain a high level of readiness for when the ladz get bored and rapidly clamber back on board to look for a new fight. Page icons are Fight + either player's turn. 'Able to embark' = rules appendix 18.02.01 (all Embarking 18.02 conditions are met). The INFANTRY unit must be unengaged, must have been eligible to fight this phase, and must be WHOLLY within 6\" of the TRANSPORT."
+    },
+    {
+      "csv_id": "readied-brawlers-blitz-brigade",
+      "name": "READIED BRAWLERS",
+      "printed_name": "Readied Brawlers",
+      "detachment": "Blitz Brigade",
+      "detachment_id": "blitz-brigade",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "movement",
+      "turn_column": "Your turn",
+      "phase_column": "Movement phase",
+      "windows": [
+        "unit_ended_normal_move"
+      ],
+      "when": "Your Movement phase, when a friendly WAGON unit ends a normal move.",
+      "target": "That WAGON unit.",
+      "effect": "Units embarked within your unit can make an assault disembark move.",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#READIED-BRAWLERS (printed name 'READIED BRAWLERS', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: Bursting from assault hatches, pounding down boarding ramps or leaping from handholds, this thuggish transport’s fighters are quick to pile out. WAGON datasheets: Hunta Rig, Kill Rig, Battlewagon, Gunwagon, Kill Tank, Lifta Wagon. Assault disembark move (core 18.06): set-up distance 3\". Eligible only if embarked within a TRANSPORT on the battlefield, did not embark this phase, and the TRANSPORT has not made an advance/fall-back move this phase. Set each model up wholly within 3\" of the TRANSPORT."
+    },
+    {
+      "csv_id": "impending-krunch-blitz-brigade",
+      "name": "IMPENDING KRUNCH",
+      "printed_name": "Impending Krunch",
+      "detachment": "Blitz Brigade",
+      "detachment_id": "blitz-brigade",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "charge",
+      "turn_column": "Your turn",
+      "phase_column": "Charge phase",
+      "windows": [
+        "unit_ended_charge_move"
+      ],
+      "when": "Your Charge phase, when a friendly WAGON unit ends a charge move.",
+      "target": "That WAGON unit.",
+      "effect": "Each enemy unit engaged with your unit makes a battle-shock roll, with -1 to that battle-shock roll.",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#IMPENDING-KRUNCH (printed name 'IMPENDING KRUNCH', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: Having several tons of metal covered in blood, rust and spikes bearing down on them can shake the resolve of the most stoic warriors. Battle-shock roll (core 01.07) = a leadership roll. On a fail the unit is battle-shocked: OC becomes '-', it cannot be targeted by its controller's stratagems, and it cannot start or complete actions."
+    },
+    {
+      "csv_id": "unbridled-carnage-green-tide",
+      "name": "UNBRIDLED CARNAGE",
+      "printed_name": "Unbridled Carnage",
+      "detachment": "Green Tide",
+      "detachment_id": "green-tide",
+      "cp_cost": 1,
+      "turn": "either",
+      "phase": "fight",
+      "turn_column": "Either player's turn",
+      "phase_column": "Fight phase",
+      "windows": [
+        "unit_selected_to_fight"
+      ],
+      "when": "Fight phase, when a friendly BOYZ unit that made a charge move this turn is selected to fight.",
+      "target": "That BOYZ unit.",
+      "effect": "Your unit’s melee attacks have +1 A.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#UNBRIDLED-CARNAGE (printed name 'UNBRIDLED CARNAGE', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: When da Boyz get stuck into the foe, the carnage is wonderful to behold, at least for all their mates. The page shows Charge AND Fight phase icons, but the WHEN text says Fight phase. Either player's turn (any Fight phase, if the BOYZ unit made a charge move this turn)."
+    },
+    {
+      "csv_id": "mob-mentality-green-tide",
+      "name": "MOB MENTALITY",
+      "printed_name": "Mob Mentality",
+      "detachment": "Green Tide",
+      "detachment_id": "green-tide",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "command",
+      "turn_column": "Your turn",
+      "phase_column": "Command phase",
+      "windows": [
+        "battle_shock_step_start"
+      ],
+      "when": "Start of the Battle-shock step of your Command phase.",
+      "target": "One friendly ORKS INFANTRY unit of 13+ models.",
+      "effect": "Select one visible friendly ORKS unit within 12\" of your unit. That unit’s battle-shock rolls are automatically successful.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#MOB-MENTALITY (printed name 'MOB MENTALITY', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: With volleys of wagers, threats, insults, dung and the occasional rock, large mobs bolster the spirits of others in the most Orky ways possible. TARGET needs a unit of 13+ models. The selected ORKS unit must be visible to and within 12\" of the 13+ model unit. 'Automatically successful' (01.05.01): no dice are rolled."
+    },
+    {
+      "csv_id": "ere-we-go-green-tide",
+      "name": "'ERE WE GO",
+      "printed_name": "'Ere We Go",
+      "detachment": "Green Tide",
+      "detachment_id": "green-tide",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "movement",
+      "turn_column": "Your turn",
+      "phase_column": "Movement phase",
+      "windows": [
+        "unit_selected_to_move"
+      ],
+      "when": "Your Movement phase, when a friendly BEAST SNAGGA BOYZ/BOYZ unit is selected to move.",
+      "target": "That BEAST SNAGGA BOYZ/BOYZ unit.",
+      "effect": "Your unit has +2 to advance rolls.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the phase",
+      "source": "Wahapedia wh40k11ed/factions/orks/#ERE-WE-GO (printed name ''ERE WE GO', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: Orks can put on a surprising turn of speed when the promise of a good face-to-face fight is in the offing. +2 to advance rolls. Core advance move 09.06: max distance = advance roll (D6) + M. Can be combined with the Waaagh! army rule's re-roll of advance rolls."
+    },
+    {
+      "csv_id": "dubious-restraint-taktikal-brigade",
+      "name": "DUBIOUS RESTRAINT",
+      "printed_name": "Dubious Restraint",
+      "detachment": "Taktikal Brigade",
+      "detachment_id": "taktikal-brigade",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "movement",
+      "turn_column": "Your turn",
+      "phase_column": "Movement phase",
+      "windows": [
+        "movement_phase_start",
+        "movement_phase_end"
+      ],
+      "when": "Start/end of your Movement phase.",
+      "target": "One friendly BOYZ/KOMMANDOS/STORMBOYZ unit.",
+      "effect": "Select one objective your unit is controlling. That objective is secured.",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#DUBIOUS-RESTRAINT (printed name 'DUBIOUS RESTRAINT', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: A few Orks, particularly those of a rebelliously disciplined outlook, can resist their destructive urges just long enough to prioritise strategic gains. Secured objective (core 14.03): it stays under your control even with no units in range, until the opponent's level of control is greater than yours at the end of a phase. WHEN can be the start OR the end of your Movement phase."
+    },
+    {
+      "csv_id": "mind-mostly-on-the-mission-taktikal-brigade",
+      "name": "MIND MOSTLY ON THE MISSION",
+      "printed_name": "Mind Mostly on the Mission",
+      "detachment": "Taktikal Brigade",
+      "detachment_id": "taktikal-brigade",
+      "cp_cost": 1,
+      "turn": "your",
+      "phase": "movement",
+      "turn_column": "Your turn",
+      "phase_column": "Movement phase",
+      "windows": [
+        "unit_selected_to_move"
+      ],
+      "when": "Your Movement phase, when a friendly BOYZ/KOMMANDOS/STORMBOYZ unit is selected to make an advance/fall-back move.",
+      "target": "That BOYZ/KOMMANDOS/STORMBOYZ unit.",
+      "effect": "That move does not prevent your unit from being eligible to start an action.",
+      "restrictions": "",
+      "duration_phrase": "until the end of the turn",
+      "source": "Wahapedia wh40k11ed/factions/orks/#MIND-MOSTLY-ON-THE-MISSION (printed name 'MIND MOSTLY ON THE MISSION', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: When there’s a dirty job needs doing, Orks with strange compulsions get a kick out of causing such trouble sneakily or swiftly. Core 09.06/09.07: after an advance or fall-back move a unit is not eligible to start an action until the end of the turn. This stratagem removes only the action restriction. It does not lift the charge restriction (the Taktikal detachment rule does that for fall-back), and it does not let a unit shoot after falling back."
+    },
+    {
+      "csv_id": "while-their-backs-are-turned-taktikal-brigade",
+      "name": "WHILE THEIR BACKS ARE TURNED",
+      "printed_name": "While Their Backs Are Turned",
+      "detachment": "Taktikal Brigade",
+      "detachment_id": "taktikal-brigade",
+      "cp_cost": 1,
+      "turn": "opponent",
+      "phase": "movement",
+      "turn_column": "Opponent's turn",
+      "phase_column": "Movement phase",
+      "windows": [
+        "movement_phase_end"
+      ],
+      "when": "End of your opponent’s Movement phase.",
+      "target": "One friendly unengaged BOYZ/KOMMANDOS/STORMBOYZ unit that was engaged at the start of the phase.",
+      "effect": "Your unit can make a normal move of up to 6\".",
+      "restrictions": "",
+      "duration_phrase": null,
+      "source": "Wahapedia wh40k11ed/factions/orks/#WHILE-THEIR-BACKS-ARE-TURNED (printed name 'WHILE THEIR BACKS ARE TURNED', 1CP; Orks App (11th ed) v2.7.1, last update October 2026). Flavour: With the gitz they were fighting having scarpered, mobs with a plan exploit the sudden lull to press towards whatever target has next caught their eye. Opponent's turn. The unit must have been engaged at the start of the opponent's Movement phase and be unengaged at its end. Normal move capped at 6\" (not M)."
+    }
+  ]
+}

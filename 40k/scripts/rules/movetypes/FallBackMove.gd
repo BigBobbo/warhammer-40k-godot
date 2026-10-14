@@ -1,6 +1,12 @@
 class_name FallBackMove
 extends MoveType
 
+# Codex: Orks (11e) WHERE D'YA FINK YOU'RE GOING? consumers (select_mode / before_moving).
+# Loaded at call time, not preloaded: OrkCodexMovement depends on autoloads,
+# and MoveTypes is compiled before the autoloads exist in `--script` runs.
+static func _ork_codex_movement():
+	return load("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
+
 ## 09.07 FALL-BACK MOVE — eligible if ENGAGED; max distance M; must end
 ## unengaged; afterwards not eligible to shoot/charge (and 11e: start an
 ## action) until end of turn.
@@ -40,7 +46,10 @@ func select_mode(unit_id: String, board: Dictionary, _context: Dictionary = {}) 
 	var shocked: bool = unit.get("flags", {}).get("battle_shocked", false)
 	# CUT' EM DOWN (Bully Boyz): the marked enemy unit must take Desperate
 	# Escape tests for all models when it Falls Back.
-	if shocked or unit.get("flags", {}).get("effect_cut_em_down", false):
+	# Codex: Orks (11e) WHERE D'YA FINK YOU'RE GOING?: an enemy unit engaged
+	# with the stratagem's BEAST SNAGGA unit must use the desperate escape mode.
+	if shocked or unit.get("flags", {}).get("effect_cut_em_down", false) \
+			or _ork_codex_movement().where_dya_fink_forces_desperate_escape(unit_id, board):
 		# 09.07: "Otherwise, you must select this mode."
 		return {"mode": "desperate_escape", "mandatory": true, "available": ["desperate_escape"]}
 	# Ordered retreat is selectable but NOT mandatory (sidebar): the player
@@ -60,6 +69,19 @@ func before_moving(unit_id: String, board: Dictionary, rng, context: Dictionary)
 	# for the Nobz/Meganobz unit when the stratagem was used.
 	var cut_mod: int = -1 if unit.get("flags", {}).get("effect_cut_em_down_minus1", false) else 0
 	var hz = AttackSequence.hazard_rolls(unit, alive, rng, cut_mod)
+	# Codex: Orks (11e) WHERE D'YA FINK YOU'RE GOING?: a MONSTER/VEHICLE unit
+	# makes three ADDITIONAL hazard rolls per BEAST SNAGGA unit it is engaged
+	# with, -1 to those rolls while it is battle-shocked. All rolls are made
+	# simultaneously (06.03); the extra ones are reported separately.
+	var wdyf: Dictionary = _ork_codex_movement().where_dya_fink_extra_hazard(unit_id, board)
+	if int(wdyf.get("count", 0)) > 0:
+		var extra = AttackSequence.hazard_rolls(unit, int(wdyf.count), rng, int(wdyf.modifier) + cut_mod)
+		hz["extra_rolls"] = extra.rolls
+		hz["extra_failures"] = extra.failures
+		hz["extra_modifier"] = int(wdyf.modifier)
+		hz.rolls = hz.rolls + extra.rolls
+		hz.failures = int(hz.failures) + int(extra.failures)
+		hz.mortal_wounds = int(hz.mortal_wounds) + int(extra.mortal_wounds)
 	return {
 		"hazard": hz,
 		"mortal_wounds": hz.mortal_wounds,

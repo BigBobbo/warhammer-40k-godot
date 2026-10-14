@@ -1,0 +1,27 @@
+{
+  "id": "ork11e_no_stale_boot_stratagems",
+  "covers": [
+    "ui.StratagemPanel.faction_rows",
+    "stratagems.load_state.faction_reload"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "F5 / LIVE-4 regression: the boot-time default army (recon_stomps, Kult of Speed) registers its faction stratagems; loading a save of another detachment (fixture ork11e_orks_active: War Horde vs Adeptus Custodes) used to leave those definitions behind with NO owner — StratagemPanel listed them for BOTH players and DELICIOUS EATING SQUIGS could be used by the War Horde player. After the fix the stale definitions are dropped when the save is loaded, owner-less faction stratagems are refused and hidden. Opens the real S panel (HUD button) for Player 1 in their Movement phase and asserts no Kult of Speed row is listed while the War Horde rows are.",
+  "steps": [
+    {"act": "wait_seconds", "seconds": 0.8},
+    {"act": "expect_phase", "equals": 7},
+    {"act": "expect_state", "path": "meta.active_player", "equals": 1},
+    {"act": "expect_state", "path": "factions.1.detachment", "equals": "War Horde"},
+    {"act": "execute_script", "multiline": true, "comment": "no faction stratagem in the registry is owner-less", "script": "var orphans = []\nfor sid in StratagemManager.stratagems:\n\tif StratagemManager.is_faction_stratagem(str(sid)) and StratagemManager.get_stratagem_owner(str(sid)) == 0:\n\t\torphans.append(sid)\nreturn orphans", "equals": []},
+    {"act": "execute_script", "script": "StratagemManager.stratagems.has(\"faction_ork_kult_of_speed_delicious_eating_squigs\")", "equals": false},
+    {"act": "click_node", "node": "/root/Main/HUD_Bottom/HBoxContainer/StratagemPanelButton"},
+    {"act": "expect_node_visible", "node": "/root/Main/StratagemPanel", "timeout_s": 3.0},
+    {"act": "wait_frames", "frames": 3},
+    {"act": "execute_script", "multiline": true, "comment": "rows the panel lists", "script": "var rows = []\nfor c in tree.root.get_node(\"Main/StratagemPanel/Scroll/List\").get_children():\n\tif str(c.name).begins_with(\"Strat_\"):\n\t\trows.append(str(c.name))\nvar kos = rows.filter(func(r): return r.contains(\"kult_of_speed\"))\nvar wh = rows.filter(func(r): return r.contains(\"war_horde\"))\nreturn \"kult_of_speed=%d war_horde=%d\" % [kos.size(), wh.size()]", "equals": "kult_of_speed=0 war_horde=6"},
+    {"act": "execute_script", "script": "main.get_node_or_null(\"StratagemPanel/Scroll/List/Strat_faction_ork_kult_of_speed_delicious_eating_squigs\") == null", "equals": true},
+    {"act": "screenshot", "label": "01_s_panel_war_horde_only"}
+  ]
+}

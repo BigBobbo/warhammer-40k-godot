@@ -1,0 +1,58 @@
+{
+  "id": "ork11e_dubious_restraint",
+  "covers": [
+    "stratagem.window.movement_phase_start",
+    "stratagem.ork11e.dubious_restraint",
+    "stratagem.window.secondary_pick.objective",
+    "autoloads.MissionManager.secure_objective",
+    "ui.Main.stratagem_choice_dialog"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) DUBIOUS RESTRAINT (Taktikal Brigade, 1 CP) through the real movement_phase_start window, including the objective pick. The save loads into the Orks' Command phase; setup lines the Kommandos up between obj_nml_1 and obj_center so the unit controls BOTH. Ending the Command phase starts the Movement phase, which opens the movement_phase_start window for the Ork player: the StratagemDialog shows DUBIOUS RESTRAINT with an enabled 'Use on Kommandos' button. A real click on Use opens the objective picker (the unit controls two); a real click on obj_nml_1 spends 1 CP and secures that objective (14.03) — and only that one. With every Kommando then taken out of range, the secured objective stays under Ork control. Setup-only privileges: Taktikal Brigade detachment (stratagems reloaded); Kommandos repositioned; Boyz B, Custodian Guard A and the Prosecutors moved off the two objectives so the Kommandos alone control them.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 6 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "script": "GameState.state[\"factions\"][\"1\"].merge({\"detachment\": \"Taktikal Brigade\"}, true)\nStratagemManager.load_faction_stratagems_for_player(1)\nvar u = GameState.state.units\nvar ko: Array = u[\"U_KOMMANDOS_A\"].models\nfor i in range(ko.size()):\n\tvar t := float(i) / float(ko.size() - 1)\n\tko[i][\"position\"] = {\"x\": lerpf(11.0, 20.8, t) * 40.0, \"y\": lerpf(22.8, 29.2, t) * 40.0}\nfor uid in [\"U_BOYZ_B\", \"U_WARBOSS_A\"]:\n\tfor m in u[uid].models:\n\t\tm[\"position\"] = {\"x\": float(m.position.x), \"y\": float(m.position.y) - 320.0}\nvar i := 0\nfor m in u[\"U_CUSTODIAN_GUARD_A\"].models:\n\tm[\"position\"] = {\"x\": 1040.0 + i * 72.0, \"y\": 1760.0}\n\ti += 1\ni = 0\nfor m in u[\"U_PROSECUTORS_A\"].models:\n\tm[\"position\"] = {\"x\": 1080.0 + i * 56.0, \"y\": 2000.0}\n\ti += 1\ntree.current_scene._recreate_unit_visuals()\nMissionManager.check_all_objectives()\nreturn \"%s|%s\" % [str(MissionManager.objective_control_state.get(\"obj_nml_1\", 0)), str(MissionManager.objective_control_state.get(\"obj_center\", 0))]", "equals": "1|1", "comment": "setup privilege: Taktikal Brigade; the Kommandos line up from obj_nml_1 to obj_center and control both" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "screenshot", "label": "01_kommandos_on_two_objectives" },
+
+    { "act": "dispatch_action", "action": { "type": "END_COMMAND", "player": 1 } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id", "equals": "movement_phase_start" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 1 },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_taktikal_brigade_dubious_restraint/Buttons/Use_faction_ork_taktikal_brigade_dubious_restraint_U_KOMMANDOS_A", "property": "disabled", "equals": false },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_taktikal_brigade_dubious_restraint/Buttons/Use_faction_ork_taktikal_brigade_dubious_restraint_U_BOYZ_B\") == null", "equals": true, "comment": "the Boyz control no objective now — not offered" },
+    { "act": "dispatch_action", "action": { "type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "U_BOYZ_B", "player": 1 } },
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "screenshot", "label": "02_movement_phase_start_window" },
+
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_taktikal_brigade_dubious_restraint/Buttons/Use_faction_ork_taktikal_brigade_dubious_restraint_U_KOMMANDOS_A" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "expect_node_visible", "node": "/root/StratagemChoiceDialog", "timeout_s": 3.0 },
+    {"act": "execute_script", "multiline": true, "script": "var d = tree.root.get_node(\"StratagemChoiceDialog\")\nreturn [d.title, d.get_node(\"Content/Prompt\").text.begins_with(\"Select the objective to secure\"), d.size.x >= 520]", "equals": ["DUBIOUS RESTRAINT", true, true], "comment": "r6:DR-2: the objective picker's instruction is in the body, not a truncated title"},
+    {"act": "execute_script", "multiline": true, "script": "var c = tree.root.get_node(\"StratagemChoiceDialog/Content\")\nreturn [c.get_node(\"Choice_obj_nml_1\").text.begins_with(\"NML 1 [\"), c.get_node(\"Choice_obj_center\").text.begins_with(\"CENTER [\"), c.get_node(\"Choice_obj_center\").text.contains(\"obj_\")]", "equals": [true, true, false], "comment": "r6:DR-2: objectives are named the way the board marker and the HUD objective panel name them (CENTER [NML], NML 1 [NML]), not by internal id"},
+    { "act": "expect_node_visible", "node": "/root/StratagemChoiceDialog/Content/Choice_obj_nml_1" },
+    { "act": "expect_node_visible", "node": "/root/StratagemChoiceDialog/Content/Choice_obj_center" },
+    { "act": "expect_cp", "player": 1, "delta_from_start": 0, "comment": "nothing spent until the objective is picked" },
+    { "act": "screenshot", "label": "03_objective_picker" },
+    { "act": "click_node", "node": "/root/StratagemChoiceDialog/Content/Choice_obj_nml_1" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_cp", "player": 1, "delta_from_start": -1 },
+    { "act": "execute_script", "script": "MissionManager.is_objective_secured(\"obj_nml_1\").secured", "equals": true },
+    { "act": "execute_script", "script": "int(MissionManager.is_objective_secured(\"obj_nml_1\").player)", "equals": 1 },
+    { "act": "execute_script", "script": "MissionManager.is_objective_secured(\"obj_center\").secured", "equals": false, "comment": "only the picked objective" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()", "equals": false },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"DUBIOUS RESTRAINT\")", "expect_min": 1 },
+
+    { "act": "execute_script", "multiline": true, "script": "var ko: Array = GameState.state.units[\"U_KOMMANDOS_A\"].models\nfor i in range(ko.size()):\n\tko[i][\"position\"] = {\"x\": 760.0 + i * 52.0, \"y\": 640.0}\ntree.current_scene._recreate_unit_visuals()\nMissionManager.check_all_objectives()\nreturn \"%s|%s\" % [str(MissionManager.objective_control_state.get(\"obj_nml_1\", 0)), str(MissionManager.objective_control_state.get(\"obj_center\", 0))]", "equals": "1|0", "comment": "14.03: with no Kommando in range any more, the secured obj_nml_1 stays Ork-controlled; obj_center does not" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "screenshot", "label": "04_secured_objective_held" }
+  ]
+}

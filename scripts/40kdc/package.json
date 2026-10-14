@@ -8,7 +8,7 @@
     "bundle": "node bundle-browser.mjs"
   },
   "dependencies": {
-    "@alpaca-software/40kdc-data": "1.0.19"
+    "@alpaca-software/40kdc-data": "1.4.5"
   },
   "devDependencies": {
     "esbuild": "^0.28.1"

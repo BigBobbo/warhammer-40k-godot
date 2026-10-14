@@ -97,7 +97,7 @@ func _make_snapshot(player: int = 1) -> Dictionary:
 	return {
 		"meta": {"deployment_type": "hammer_anvil", "battle_round": 1, "phase": 0},
 		"board": {"size": {"width": 44, "height": 60}, "deployment_zones": [], "terrain_features": []},
-		"factions": {str(player): {"name": "Orks", "detachment": "Speedwaaagh!"}},
+		"factions": {str(player): {"name": "Orks", "detachment": "Kult of Speed"}},
 		"units": units,
 	}
 

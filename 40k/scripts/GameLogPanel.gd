@@ -849,8 +849,11 @@ func _build_realtime_dice_row(data: Dictionary, context: String) -> Control:
 		"to_wound":
 			var successes = data.get("successes", 0)
 			var total = rolls_raw.size()
+			# LV-4: show a non-zero net wound modifier next to the target number.
+			var wm_net := int(data.get("wound_modifier_net", 0))
+			var wm_text := (", %+d to wound" % wm_net) if wm_net != 0 else ""
 			return _make_dice_row(
-				"[color=#EEAA77][b]Wound[/b] (%s):[/color]" % threshold_str,
+				"[color=#EEAA77][b]Wound[/b] (%s%s):[/color]" % [threshold_str, wm_text],
 				rolls_raw, threshold_int, true,
 				"[color=#EEAA77]— %d/%d[/color]" % [successes, total]
 			)

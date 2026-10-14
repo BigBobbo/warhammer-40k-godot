@@ -39,6 +39,22 @@ class_name UnitLoadoutResolver
 const COMPOSITIONS_PATH := "res://data/40kdc/unitCompositions.json"
 const WARGEAR_OPTIONS_PATH := "res://data/40kdc/wargearOptions.json"
 
+# Legacy (pre-codex) datasheet kits, frozen by scripts/40kdc/legacy-kits.mjs:
+# the 1.0.19 composition + wargear-option records of every Ork datasheet that
+# Codex: Orks (dataset 1.4.5) rewrote or removed. Rosters built on the old
+# datasheets (army files, save fixtures, players' saves, web-builder exports —
+# the browser bundle is still 1.0.19) carry the OLD weapon names ("Tracks and
+# wheels", a Boss Nob's "Big choppa", "Grot crew"), which no longer match the
+# codex kits, so without these they lost per-model loadout resolution.
+# datasheet_key() decides per unit which kit applies.
+const LEGACY_COMPOSITIONS_PATH := "res://data/40kdc/legacy/unitCompositions_1.0.19.json"
+const LEGACY_WARGEAR_OPTIONS_PATH := "res://data/40kdc/legacy/wargearOptions_1.0.19.json"
+## Appended to a datasheet name to address its legacy kit: "Boyz" ->
+## "Boyz [1.0.19]" (slug "boyz-1-0-19"). Every public API that takes a unit
+## name accepts it.
+const LEGACY_NAME_SUFFIX := " [1.0.19]"
+const LEGACY_SLUG_SUFFIX := "-1-0-19"
+
 # Profile-split separators used in weapon names ("Kannon – Frag", "Guardian
 # spear – Melee"). The wargear entry only ever names the base weapon.
 const PROFILE_SEPARATORS := [" – ", " — ", " - "]
@@ -65,6 +81,47 @@ static var _compositions_loaded: bool = false
 # rather than the choppa he started with.
 static var _options_by_unit: Dictionary = {}
 static var _options_loaded: bool = false
+# Datasheet slugs already logged as resolving via the legacy kit (log once).
+static var _legacy_logged: Dictionary = {}
+
+
+## The datasheet name to look this unit's kit up under — pass it wherever a
+## resolver API takes a unit name. Normally the unit's own name; "<name>
+## [1.0.19]" when the unit was built from the pre-codex datasheet, i.e. a
+## frozen legacy kit exists for it, the CURRENT kit's default weapons are not
+## all on the unit's weapon menu, the LEGACY kit's are, and the menu carries
+## none of the weapons only the current kit has (a codex-built Boyz mob lists
+## the codex "Kustom Choppa" — and also the old "Big Choppa", so the legacy kit
+## alone would fit it too). A unit built from the current datasheet therefore
+## never switches.
+static func datasheet_key(unit: Dictionary) -> String:
+	var meta: Dictionary = unit.get("meta", {}) if typeof(unit.get("meta", {})) == TYPE_DICTIONARY else {}
+	var name := str(meta.get("name", ""))
+	var unit_slug := _slug(name)
+	if unit_slug == "":
+		return name
+	_ensure_compositions_loaded()
+	var legacy_slug := unit_slug + LEGACY_SLUG_SUFFIX
+	if not _defaults_by_unit.has(legacy_slug):
+		return name
+	var menu := _menu_slugs(meta.get("weapons", unit.get("weapons", [])))
+	if menu.is_empty():
+		return name
+	if _kit_fits_menu(unit_slug, menu):
+		return name
+	if _kit_fits_menu(legacy_slug, menu):
+		var legacy_kit := {}
+		for id in _defaults_by_unit.get(legacy_slug, []):
+			legacy_kit[_strip_unit_suffix(str(id), legacy_slug)] = true
+		for id in _defaults_by_unit.get(unit_slug, []):
+			var s := _strip_unit_suffix(str(id), unit_slug)
+			if menu.has(s) and not legacy_kit.has(s):
+				return name  # carries a codex-only weapon: built from the current datasheet
+		if not _legacy_logged.has(unit_slug):
+			_legacy_logged[unit_slug] = true
+			print("[LOADOUT-UI] %s: roster uses the pre-codex datasheet kit — resolving against the legacy 1.0.19 kit" % name)
+		return name + LEGACY_NAME_SUFFIX
+	return name
 
 
 ## The subset of the unit's datasheet weapons it is actually equipped with.
@@ -235,7 +292,7 @@ static func _parse_wargear_slugs(wargear) -> Array:
 # The 40kdc default weapon ids for this datasheet, minus any that the roster's
 # wargear clearly REPLACED.
 static func _base_kit_slugs(unit: Dictionary, meta: Dictionary, weapons: Array, selected: Dictionary) -> Array:
-	var unit_slug := _slug(str(meta.get("name", "")))
+	var unit_slug := _slug(datasheet_key(unit))
 	if unit_slug == "":
 		return []
 	_ensure_compositions_loaded()
@@ -304,25 +361,45 @@ static func _ensure_compositions_loaded() -> void:
 	if _compositions_loaded:
 		return
 	_compositions_loaded = true
-	if not FileAccess.file_exists(COMPOSITIONS_PATH):
-		print("[LOADOUT-UI] %s not found — base-kit weapons unavailable" % COMPOSITIONS_PATH)
-		return
-	var f := FileAccess.open(COMPOSITIONS_PATH, FileAccess.READ)
+	var parsed = _read_json_array(COMPOSITIONS_PATH, "base-kit weapons")
+	if parsed != null:
+		_ingest_compositions(parsed, "")
+	var legacy = _read_json_array(LEGACY_COMPOSITIONS_PATH, "legacy (1.0.19) base kits")
+	if legacy != null:
+		_ingest_compositions(legacy, LEGACY_SLUG_SUFFIX)
+	print("[LOADOUT-UI] base kits loaded for %d datasheets (%d with per-model roles; incl. %d legacy 1.0.19 kits)" % [
+		_defaults_by_unit.size(), _defaults_by_unit_model.size(),
+		(legacy.size() if legacy != null else 0)])
+
+
+# Parse a JSON array file; null (and a log line) when missing / unreadable.
+static func _read_json_array(path: String, what: String):
+	if not FileAccess.file_exists(path):
+		print("[LOADOUT-UI] %s not found — %s unavailable" % [path, what])
+		return null
+	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null:
-		print("[LOADOUT-UI] cannot open %s (err %d)" % [COMPOSITIONS_PATH, FileAccess.get_open_error()])
-		return
+		print("[LOADOUT-UI] cannot open %s (err %d)" % [path, FileAccess.get_open_error()])
+		return null
 	var text := f.get_as_text()
 	f.close()
 	var parsed = JSON.parse_string(text)
 	if typeof(parsed) != TYPE_ARRAY:
-		print("[LOADOUT-UI] %s did not parse to an array — base-kit weapons unavailable" % COMPOSITIONS_PATH)
-		return
+		print("[LOADOUT-UI] %s did not parse to an array — %s unavailable" % [path, what])
+		return null
+	return parsed
+
+
+# Store composition records under unit_id + slug_suffix ("" = current data,
+# LEGACY_SLUG_SUFFIX = frozen legacy kits).
+static func _ingest_compositions(parsed: Array, slug_suffix: String) -> void:
 	for entry in parsed:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var uid := str(entry.get("unit_id", ""))
 		if uid == "":
 			continue
+		uid += slug_suffix
 		var ids: Array = _defaults_by_unit.get(uid, [])
 		# 31 unit_ids appear more than once (datasheet variants sharing a slug).
 		# The flattened base kit above merges them — that only ever widens a
@@ -361,34 +438,58 @@ static func _ensure_compositions_loaded() -> void:
 				_defaults_by_unit_model[uid] = per_model
 			if not roles.is_empty():
 				_roles_by_unit[uid] = roles
-	print("[LOADOUT-UI] base kits loaded for %d datasheets (%d with per-model roles)" % [
-		_defaults_by_unit.size(), _defaults_by_unit_model.size()])
+
+
+# Every slug a weapon menu answers to (full AND base names).
+static func _menu_slugs(weapons) -> Dictionary:
+	var out := {}
+	if typeof(weapons) != TYPE_ARRAY:
+		return out
+	for w in weapons:
+		if typeof(w) != TYPE_DICTIONARY:
+			continue
+		var wname := str(w.get("name", ""))
+		if wname == "":
+			continue
+		out[_slug(wname)] = true
+		out[_slug(_base_name(wname))] = true
+	return out
+
+
+# True when every default weapon of the datasheet kit stored under `uid_slug`
+# (all roles) is on the weapon menu.
+static func _kit_fits_menu(uid_slug: String, menu: Dictionary) -> bool:
+	var raw = _defaults_by_unit.get(uid_slug, null)
+	if typeof(raw) != TYPE_ARRAY or raw.is_empty():
+		return false
+	for id in raw:
+		var s := _strip_unit_suffix(str(id), uid_slug)
+		if s != "" and not menu.has(s):
+			return false
+	return true
 
 
 static func _ensure_options_loaded() -> void:
 	if _options_loaded:
 		return
 	_options_loaded = true
-	if not FileAccess.file_exists(WARGEAR_OPTIONS_PATH):
-		print("[LOADOUT-UI] %s not found — wargear options unavailable" % WARGEAR_OPTIONS_PATH)
-		return
-	var f := FileAccess.open(WARGEAR_OPTIONS_PATH, FileAccess.READ)
-	if f == null:
-		print("[LOADOUT-UI] cannot open %s (err %d)" % [WARGEAR_OPTIONS_PATH, FileAccess.get_open_error()])
-		return
-	var text := f.get_as_text()
-	f.close()
-	var parsed = JSON.parse_string(text)
-	if typeof(parsed) != TYPE_ARRAY:
-		print("[LOADOUT-UI] %s did not parse to an array — wargear options unavailable" % WARGEAR_OPTIONS_PATH)
-		return
+	var parsed = _read_json_array(WARGEAR_OPTIONS_PATH, "wargear options")
+	if parsed != null:
+		_ingest_options(parsed, "")
+	var legacy = _read_json_array(LEGACY_WARGEAR_OPTIONS_PATH, "legacy (1.0.19) wargear options")
+	if legacy != null:
+		_ingest_options(legacy, LEGACY_SLUG_SUFFIX)
+	print("[LOADOUT-UI] wargear options loaded for %d datasheets" % _options_by_unit.size())
 
+
+static func _ingest_options(parsed: Array, slug_suffix: String) -> void:
 	for entry in parsed:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var uid := str(entry.get("unit_id", ""))
 		if uid == "":
 			continue
+		uid += slug_suffix
 
 		# A swap grants EITHER a single fixed bundle ("replacement") or one of
 		# several ("replacement_choice"). Normalise both to a list of bundles so
@@ -418,7 +519,6 @@ static func _ensure_options_loaded() -> void:
 			"per_n_models": int(constraint.get("per_n_models", -1)),
 		})
 		_options_by_unit[uid] = options
-	print("[LOADOUT-UI] wargear options loaded for %d datasheets" % _options_by_unit.size())
 
 
 # 40kdc weapon ids, slugified and stripped of the disambiguating unit suffix.
@@ -439,8 +539,10 @@ static func _slug_list(ids, unit_slug: String) -> Array:
 ## unit slug ("choppa-tankbustas", "big-shoota-warboss-in-mega-armour"). Strip it
 ## back off so the id matches the datasheet's plain weapon name.
 static func _strip_unit_suffix(id: String, unit_slug: String) -> String:
-	if unit_slug != "" and id.ends_with("-" + unit_slug):
-		return id.substr(0, id.length() - unit_slug.length() - 1)
+	# A legacy key ("boyz-1-0-19") strips the real datasheet slug ("-boyz").
+	var base_slug := unit_slug.trim_suffix(LEGACY_SLUG_SUFFIX)
+	if base_slug != "" and id.ends_with("-" + base_slug):
+		return id.substr(0, id.length() - base_slug.length() - 1)
 	return id
 
 

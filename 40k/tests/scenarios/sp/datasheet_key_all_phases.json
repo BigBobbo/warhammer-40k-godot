@@ -16,6 +16,8 @@
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_phase", "equals": 8 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 0, "comment": "LV-2: the phase-entry auto-selection is not a player choice, so it opens NO unit_selected_to_shoot window (it opens before the player's first action with that shooter instead) - nothing to decline before the scenario picks its own shooter" },
+    { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "expect_token_visible", "unit_id": "U_BATTLEWAGON_G" },
 
     { "act": "execute_script",
@@ -23,6 +25,8 @@
       "equals": false },
 
     { "act": "click_unit", "unit_id": "U_BATTLEWAGON_G" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton", "comment": "LV-2: the click is the player's first action with the auto-selected Battlewagon (its board click quick-assigns), so its deferred unit_selected_to_shoot window (War Horde CLOSE-RANGE DAKKA) opens now - decline it" },
     { "act": "wait_seconds", "seconds": 0.5 },
     { "act": "execute_script",
       "script": "main.shooting_controller.active_shooter_id",

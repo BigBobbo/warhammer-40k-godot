@@ -1,0 +1,60 @@
+{
+  "id": "ork11e_armed_to_da_teef",
+  "covers": [
+    "stratagem.window.unit_selected_to_fight",
+    "stratagem.ork11e.armed_to_da_teef",
+    "stratagems.bully_boyz.loading",
+    "phases.FightPhase.unit_selected_to_fight",
+    "dialogs.StratagemDialog.window_mode",
+    "ui.StratagemPanel.faction_rows",
+    "fight.stratagem.armed_to_da_teef"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) ARMED TO DA TEEF (Bully Boyz) through the real unit_selected_to_fight window (replaces the retired 10e bully_boyz_armed_to_da_teef scenario, which used the S panel at an arbitrary moment). Fixture ork11e_orks_active (P1 Orks active), detachment switched to Bully Boyz (setup privilege, stratagems reloaded — the three codex Bully Boyz stratagems load as implemented). The S panel refuses ARMED TO DA TEEF outside its window. The Ork player clicks the Nobz (engaged with Custodian Guard B) in the fighter picker; the window shows ARMED TO DA TEEF with an enabled Use button; a real click spends 1 CP and gives the Nobz 're-roll hit rolls of 1' (not riled up). The fight resolves through the attack dialog + dock and every Nobz melee hit roll carries the re-roll-1s provenance. (The Shooting-phase window of this stratagem is covered headless in test_ork_codex_fight.gd — its unit_selected_to_shoot hook belongs to the Shooting group.) Setup-only privileges: auto wound allocation for the Custodes defender, Custodian Guard B's wounds inflated.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 10 },
+    { "act": "execute_script", "script": "GameState.state[\"factions\"][\"1\"].merge({\"detachment\": \"Bully Boyz\"}, true)" },
+    { "act": "execute_script", "script": "StratagemManager.load_faction_stratagems_for_player(1)" },
+    { "act": "execute_script", "script": "StratagemManager.get_implemented_faction_stratagems_for_player(1).size()", "expect_min": 2, "comment": "TOO ARROGANT TO DIE + ARMED TO DA TEEF (HULKING BRUTES belongs to the shooting-reactive group)" },
+    { "act": "execute_script", "script": "SettingsService.set(\"auto_allocate_wounds\", true)" },
+    { "act": "execute_script", "multiline": true, "script": "for m in GameState.get_unit(\"U_CUSTODIAN_GUARD_B\").models:\n\tm[\"wounds\"] = 99\n\tm[\"current_wounds\"] = 99\nreturn true", "equals": true },
+    { "act": "execute_script", "script": "StratagemManager.can_use_stratagem(1, \"faction_ork_bully_boyz_armed_to_da_teef\", \"U_NOBZ_A\").reason", "equals": "Offered automatically when one of your units is selected to shoot or one of your units is selected to fight" },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "click_if_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_NOBZ_A", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_NOBZ_A" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text", "equals": "Nobz has been selected to fight" },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_bully_boyz_armed_to_da_teef/Buttons/Use_faction_ork_bully_boyz_armed_to_da_teef_U_NOBZ_A", "timeout_s": 2.0 },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_bully_boyz_armed_to_da_teef/Buttons/Use_faction_ork_bully_boyz_armed_to_da_teef_U_NOBZ_A", "property": "disabled", "equals": false },
+    { "act": "screenshot", "label": "01_armed_to_da_teef_window" },
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_bully_boyz_armed_to_da_teef/Buttons/Use_faction_ork_bully_boyz_armed_to_da_teef_U_NOBZ_A" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_cp", "player": 1, "delta_from_start": -1 },
+    { "act": "expect_state", "path": "units.U_NOBZ_A.flags.effect_reroll_hits", "equals": "ones" },
+    { "act": "expect_node_visible", "node": "/root/AttackAssignmentDialog", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton", "emit_pressed": true },
+    { "act": "click_node", "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)" },
+    { "act": "wait_frames", "frames": 4 },
+    { "act": "click_if_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "\"U_NOBZ_A\" in PhaseManager.get_current_phase_instance().units_that_fought", "equals": true },
+    { "act": "execute_script", "multiline": true, "script": "var p = PhaseManager.get_current_phase_instance()\nvar n = 0\nvar ok = true\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"hit_roll_melee\":\n\t\tn += 1\n\t\tif not str(d.get(\"modifier_ledger\", [])).contains(\"reroll_ones\"):\n\t\t\tok = false\nreturn n > 0 and ok", "equals": true, "comment": "every Nobz melee hit roll was made with 're-roll 1s'" },
+    { "act": "screenshot", "label": "02_nobz_fought_with_reroll_ones" }
+  ]
+}

@@ -41,6 +41,9 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 	# effect can override.
 	if flags.get("turbo_boosted", false):
 		return {"eligible": false, "reasons": ["turbo boost locks charging this turn"]}
+	# GRAB IT (Codex: Orks 11e): hard charge lock until the end of the turn.
+	if flags.get("ork11e_grab_it_no_charge", false):
+		return {"eligible": false, "reasons": ["GRAB IT: not eligible to declare a charge this turn"]}
 	# Adrenaline Junkies does NOT override other charge locks (e.g.
 	# Wazblasta's post-shooting move).
 	var adrenaline = _has_adrenaline_junkies(unit) and not flags.get("wazblasta_no_charge", false)

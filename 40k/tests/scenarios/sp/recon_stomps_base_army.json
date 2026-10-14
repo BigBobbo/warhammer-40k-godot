@@ -10,7 +10,7 @@
  "edition": 11,
  "rng_seed": 42,
  "disable_ai": true,
- "description": "Player path for the Recon Stomps base list: boots to the real MainMenu (no fixture), asserts the army scan offers 'recon_stomps' and that Player 1 defaults to it, explicitly switches Player 2 to Recon Stomps as well (OptionButton.select — the army dropdowns have no item_selected handler; Start Game reads .selected directly), real-clicks Start Game, and asserts the battle starts with both players fielding the full 17-unit list (2000 pts, Orks / Speedwaaagh!) — player 2's copy re-keyed with the _P2 suffix so the shared unit ids from the same file do not collide.",
+ "description": "Player path for the Recon Stomps base list: boots to the real MainMenu (no fixture), asserts the army scan offers 'recon_stomps' and that Player 1 defaults to it, explicitly switches Player 2 to Recon Stomps as well (OptionButton.select — the army dropdowns have no item_selected handler; Start Game reads .selected directly), real-clicks Start Game, and asserts the battle starts with both players fielding the full 17-unit list (1975 pts after the Codex: Orks migration, Orks / Kult of Speed) — player 2's copy re-keyed with the _P2 suffix so the shared unit ids from the same file do not collide.",
  "steps": [
   { "act": "wait_seconds", "seconds": 1.5 },
   { "act": "execute_script", "script": "ArmyListManager.get_available_armies().has(\"recon_stomps\")", "equals": true },
@@ -27,13 +27,13 @@
   { "act": "execute_script", "script": "GameState.get_units_for_player(2).size()", "equals": 17 },
   { "act": "execute_script", "script": "GameState.state[\"factions\"][\"1\"][\"name\"]", "equals": "Orks" },
   { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"][\"name\"]", "equals": "Orks" },
-  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"]", "equals": "Speedwaaagh!" },
+  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"]", "equals": "Kult of Speed" },
   { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_STOMPA_A\"][\"owner\"]", "equals": 1 },
   { "act": "execute_script", "script": "GameState.state[\"units\"].has(\"U_STOMPA_A_P2\")", "equals": true },
   { "act": "execute_script", "script": "GameState.state[\"units\"][\"U_STOMPA_A_P2\"][\"owner\"]", "equals": 2 },
   { "act": "execute_script", "script": "GameState.get_unit(\"U_WAZDAKKA_GUTSMEK_A\")[\"meta\"][\"is_warlord\"]", "equals": true },
-  { "act": "execute_script", "script": "GameState.get_unit(\"U_DEFFKILLA_WARTRIKE_A\")[\"meta\"][\"enhancements\"].has(\"Kustom Shokk Box\")", "equals": true },
-  { "act": "execute_script", "script": "GameState.get_unit(\"U_MEK_A_P2\")[\"meta\"][\"enhancements\"].has(\"Dakkamek\")", "equals": true },
+  { "act": "execute_script", "script": "GameState.get_unit(\"U_DEFFKILLA_WARTRIKE_A\")[\"meta\"][\"enhancements\"].has(\"Smoky Gubbinz\")", "equals": true },
+  { "act": "execute_script", "script": "GameState.get_unit(\"U_MEK_A_P2\")[\"meta\"][\"enhancements\"].is_empty()", "equals": true },
   { "act": "screenshot", "label": "02_game_started_both_recon_stomps" }
  ]
 }

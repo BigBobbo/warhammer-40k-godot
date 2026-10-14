@@ -148,6 +148,10 @@ func transition_to_phase(new_phase: GameStateData.Phase) -> void:
 			for sc_line in sc_result.get("log_lines", []):
 				print("[PhaseManager] %s" % sc_line)
 
+		# "This phase" unit markers end with the phase. Deterministic, so it
+		# runs on every peer (transition_to_phase runs on host and client).
+		_clear_phase_scoped_unit_flags()
+
 	# Update game state to new phase
 	GameState.set_phase(new_phase)
 
@@ -482,6 +486,22 @@ func get_game_state_snapshot() -> Dictionary:
 ## call GameState.apply_state_changes directly.
 func apply_state_changes(changes: Array) -> void:
 	GameState.apply_state_changes(changes)
+
+## Unit flags whose meaning is "this phase" and that no phase instance owns:
+##   embarked_this_phase — 18.04 / 18.06 "did not embark within that TRANSPORT
+##   this phase" (set by the Movement-phase embark and KEEP IT RUNNIN').
+const PHASE_SCOPED_UNIT_FLAGS := ["embarked_this_phase"]
+
+func _clear_phase_scoped_unit_flags() -> void:
+	var changes: Array = []
+	for unit_id in GameState.state.get("units", {}):
+		var flags = GameState.state.units[unit_id].get("flags", {})
+		for flag in PHASE_SCOPED_UNIT_FLAGS:
+			if flags.has(flag):
+				changes.append({"op": "remove", "path": "units.%s.flags.%s" % [unit_id, flag]})
+	if not changes.is_empty():
+		print("[PhaseManager] Phase ended — cleared %d phase-scoped unit flag(s) %s" % [changes.size(), str(PHASE_SCOPED_UNIT_FLAGS)])
+		apply_state_changes(changes)
 
 # Method for phases to validate their actions
 func validate_phase_action(action: Dictionary) -> Dictionary:

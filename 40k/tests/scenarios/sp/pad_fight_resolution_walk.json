@@ -27,6 +27,8 @@
     { "act": "wait_seconds", "seconds": 1.5 },
 
     { "act": "execute_script", "multiline": true, "script": "var dlg = null\nfor n in tree.root.get_children():\n\tif n is AcceptDialog and n.visible:\n\t\tdlg = n\nif dlg == null:\n\treturn \"no epic\"\nvar btn = null\nvar q = [dlg]\nwhile not q.is_empty():\n\tvar x = q.pop_front()\n\tif x is Button and str(x.text).to_lower().find(\"decline\") != -1:\n\t\tbtn = x\n\tfor c in x.get_children():\n\t\tq.append(c)\nif btn != null:\n\tbtn.emit_signal(\"pressed\")\n\treturn \"declined\"\nreturn \"no decline\"", "equals": "declined" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "multiline": true, "script": "var dlg = null\nfor n in tree.root.get_children():\n\tif n is AcceptDialog and n.visible:\n\t\tdlg = n\nif dlg == null:\n\treturn \"no epic\"\nvar btn = null\nvar q = [dlg]\nwhile not q.is_empty():\n\tvar x = q.pop_front()\n\tif x is Button and str(x.text).to_lower().find(\"decline\") != -1:\n\t\tbtn = x\n\tfor c in x.get_children():\n\t\tq.append(c)\nif btn != null:\n\tbtn.emit_signal(\"pressed\")\n\treturn \"declined\"\nreturn \"no decline\"", "equals": "declined", "comment": "Codex: Orks (11e) stratagem window: selecting the Warboss now opens the unit_selected_to_fight window (HIT 'EM HARDER, War Horde) first; once it is declined the Epic Challenge prompt follows — decline both selection-time prompts." },
     { "act": "wait_seconds", "seconds": 2.0 },
 
     { "act": "execute_script", "script": "tree.root.get_node_or_null(\"AttackAssignmentDialog\") != null", "equals": true },

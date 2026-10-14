@@ -118,6 +118,10 @@ func format_entry_bbcode(entry: Dictionary) -> String:
 			text += _format_auto_hit(data)
 		"variable_damage":
 			text += _format_variable_damage(data)
+		"hazardous_check":
+			text += _format_hazardous_check(data)
+		"hazardous_damage":
+			text += _format_hazardous_damage(data)
 		_:
 			text += _format_generic_roll(data, context)
 
@@ -240,6 +244,31 @@ func _format_variable_damage(data: Dictionary) -> String:
 	for r in dmg_rolls:
 		roll_values.append(str(r.get("value", 0)))
 	return "[b]Damage[/b] (%s): [%s] = %d" % [notation, ", ".join(roll_values), total_dmg]
+
+## LV2-G1: a [HAZARDOUS] roll — which weapon, the dice, the fail band
+## (1-2 at 11e) and the outcome. The generic row printed only "Hazardous Check: 2".
+func _format_hazardous_check(data: Dictionary) -> String:
+	var rolls: Array = data.get("rolls", [])
+	var thr := int(data.get("fail_threshold", 1))
+	var text := "[b]Hazardous[/b] (%s): " % str(data.get("weapon_name", data.get("weapon_id", "?")))
+	for r in rolls:
+		text += ("[color=red]%d[/color] " % int(r)) if int(r) <= thr else ("[color=green]%d[/color] " % int(r))
+	text += "fails on %s — " % ("1" if thr <= 1 else "1-%d" % thr)
+	var failed := int(data.get("ones_rolled", 0))
+	text += "[color=red]%d failed[/color]" % failed if failed > 0 else "[color=green]passed[/color]"
+	return text
+
+## LV2-G1: the mortal wounds a failed hazard roll inflicted (the generic row
+## printed an empty "Hazardous Damage:" — the block has no dice).
+func _format_hazardous_damage(data: Dictionary) -> String:
+	var mw := int(data.get("mortal_wounds", 0))
+	var text := "[b]Hazardous damage[/b]: [color=red]%d mortal wound%s[/color] to %s" % [
+		mw, "" if mw == 1 else "s", str(data.get("unit_name", data.get("model_label", "the unit")))]
+	if int(data.get("wounds_applied", mw)) != mw:
+		text += " (%d lost)" % int(data.get("wounds_applied", mw))
+	if int(data.get("casualties", 0)) > 0:
+		text += " — %s destroyed" % str(data.get("model_label", "1 model"))
+	return text
 
 func _format_generic_roll(data: Dictionary, context: String) -> String:
 	var rolls_raw = data.get("rolls_raw", data.get("rolls", []))

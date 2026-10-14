@@ -101,7 +101,7 @@ func _snapshot() -> Dictionary:
 				{"id": "obj_center", "position": {"x": 880.0, "y": 1200.0}, "designation": "central"},
 			],
 		},
-		"factions": {"1": {"name": "Orks", "detachment": "Speedwaaagh!"}},
+		"factions": {"1": {"name": "Orks", "detachment": "Kult of Speed"}},
 		"units": units,
 	}
 
@@ -109,7 +109,7 @@ func _plan(earmarks: Array) -> Dictionary:
 	return {
 		"format": "wh40k_ai_plan", "version": 1, "name": "PM3 Test Plan",
 		"description": "", "author": "test",
-		"keys": {"army_file": "recon_stomps", "detachment_hint": "Speedwaaagh!",
+		"keys": {"army_file": "recon_stomps", "detachment_hint": "Kult of Speed",
 			"deployment_zone_id": "hammer_anvil", "terrain_layout_id": "", "mission_id": ""},
 		"deployment": {"order": [], "placements": [], "reserves": [], "embarkations": [], "attachments": []},
 		"earmarks": earmarks,

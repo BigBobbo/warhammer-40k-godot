@@ -21,6 +21,12 @@ static func _dn_meta(unit_meta: Dictionary, fallback = "") -> String:
 # --- Constants ---
 const AIAbilityAnalyzerData = preload("res://scripts/AIAbilityAnalyzer.gd")
 const AIDifficultyConfigData = preload("res://scripts/AIDifficultyConfig.gd")
+# Codex: Orks (11e) stratagem dispatcher (AI hints for window offers) — loaded
+# on first use (_ork_codex()): a const preload pulled the dispatcher, and
+# through OrkCodexCommon GameState.gd, into every `godot -s` compile of this
+# file, adding "Failed to compile depended scripts" SCRIPT ERROR lines to the
+# headless tests that reference AIDecisionMaker (RG-F6).
+static var _ork_codex_dispatcher = null
 const PIXELS_PER_INCH: float = 40.0
 const CHARGE_RANGE_PX: float = 480.0     # 12 inches
 # Clearance added to base-to-base placements (pile-in/consolidate). The
@@ -103,6 +109,149 @@ static func _can_shooter_see_target(shooter_unit_id: String, target_unit_id: Str
 		var result = re._check_target_visibility(shooter_unit_id, target_unit_id, weapon_id, snapshot)
 		return result.get("visible", true)
 	return true  # Optimistic fallback if RulesEngine unavailable
+
+# AIR-2: Hunter profiles (11e 04.01.03) can only target units with their
+# keywords (MONSTER/VEHICLE in the shipped catalogue). Same predicate the SHOOT
+# validator uses (RulesEngine.validate_shoot -> weapon_profile_can_target), so
+# the planner never assigns a pair the engine rejects (which cost the unit its
+# whole activation: SHOOT rejected -> SKIP_UNIT).
+static func _ai_weapon_can_target(weapon_id: String, target_unit: Dictionary, snapshot: Dictionary) -> bool:
+	var re = _rules_engine()
+	if re and re.has_method("weapon_profile_can_target"):
+		return bool(re.weapon_profile_can_target(weapon_id, target_unit, snapshot))
+	return true
+
+## LAST-1: a [BLAST] weapon cannot target a unit within Engagement Range of
+## one of the shooter's own units. get_eligible_targets keeps such a target
+## when it is a MONSTER/VEHICLE (Big Guns Never Tire — other weapons may still
+## shoot it), so this is checked separately with the SAME predicate the SHOOT
+## validator calls (RulesEngine.validate_shoot -> validate_blast_targeting,
+## which also covers granted BLAST: Deck Fraggers, SYNCHRONISED INFERNO).
+static func _ai_blast_target_allowed(unit_id: String, weapon_id: String, target_id: String, snapshot: Dictionary) -> bool:
+	var re = _rules_engine()
+	if re == null or not re.has_method("validate_blast_targeting") or unit_id == "" or target_id == "":
+		return true
+	return bool(re.validate_blast_targeting(unit_id, target_id, weapon_id, snapshot).get("valid", true))
+
+## AIR-2 safety net, applied to every SHOOT the planner emits: keep only the
+## assignments the engine's own eligibility accepts (get_eligible_targets ->
+## weapons_in_range: range, line of sight, Hunter profiles, targets engaged with
+## friendlies ...), give each one the models that actually CARRY the weapon
+## (the plan used every alive model — "Model 'Boss Nob' does not have weapon
+## ..."), let each model fire one profile per weapon (04.01.03), and apply the
+## per-model either/or (validator MA-25 for PISTOLs, 11e 24.07 for every
+## [CLOSE-QUARTERS] weapon): a non-MONSTER/VEHICLE model fires its Pistol /
+## [CLOSE-QUARTERS] weapons OR its other ranged weapons, never both (the other
+## weapons win). Returns the cleaned list (possibly empty).
+static func _sanitize_shoot_assignments(unit_id: String, assignments: Array, snapshot: Dictionary) -> Array:
+	var re = _rules_engine()
+	if re == null or not re.has_method("get_eligible_targets") or not re.has_method("get_unit_weapons"):
+		return assignments
+	var units: Dictionary = snapshot.get("units", {})
+	var unit: Dictionary = units.get(unit_id, {})
+	var unit_name := _dn(unit, unit_id)
+	var eligible: Dictionary = re.get_eligible_targets(unit_id, snapshot)
+	var unit_weapons: Dictionary = re.get_unit_weapons(unit_id, snapshot)
+	var out: Array = []
+	for a in assignments:
+		var wid := str(a.get("weapon_id", ""))
+		var tid := str(a.get("target_unit_id", ""))
+		var target: Dictionary = units.get(tid, {})
+		if not _ai_weapon_can_target(wid, target, snapshot):
+			print("AIDecisionMaker: [AIR-2] %s: dropping %s -> %s (Hunter profile cannot target it, 04.01.03)" % [unit_name, wid, _dn(target, tid)])
+			continue
+		if not eligible.has(tid) or not wid in eligible[tid].get("weapons_in_range", []):
+			print("AIDecisionMaker: [AIR-2] %s: dropping %s -> %s (not an eligible target for that weapon)" % [unit_name, wid, _dn(target, tid)])
+			continue
+		if not _ai_blast_target_allowed(unit_id, wid, tid, snapshot):
+			print("AIDecisionMaker: [LAST-1] %s: dropping %s -> %s ([BLAST] at a unit in Engagement Range of a friendly unit)" % [unit_name, wid, _dn(target, tid)])
+			continue
+		var bearers: Array = []
+		var asked: Array = a.get("model_ids", [])
+		for mid in unit_weapons:
+			if wid in unit_weapons[mid] and (asked.is_empty() or mid in asked):
+				bearers.append(mid)
+		if bearers.is_empty():
+			print("AIDecisionMaker: [AIR-2] %s: dropping %s -> %s (no model carries it)" % [unit_name, wid, _dn(target, tid)])
+			continue
+		var clean: Dictionary = a.duplicate(true)
+		clean["model_ids"] = bearers
+		out.append(clean)
+	# 04.01.03: a model attacks with ONE profile of a multi-profile weapon
+	# (Busta Rokkit Launcha – Hunter / – Standard): per model, keep the profile
+	# worth most against its assigned target, drop the model from the others.
+	var values: Array = []
+	for a in out:
+		var wd := _ai_weapon_dict(unit, str(a.weapon_id))
+		var tgt: Dictionary = units.get(str(a.target_unit_id), {})
+		values.append(_estimate_weapon_damage(wd, tgt, snapshot, unit) if not wd.is_empty() else 0.0)
+	var best_for := {}  # "model|base" -> assignment index
+	for i in range(out.size()):
+		var base := _ai_weapon_base_name(str(out[i].weapon_id), snapshot)
+		for mid in out[i].model_ids:
+			var key := "%s|%s" % [mid, base]
+			if not best_for.has(key) or float(values[i]) > float(values[best_for[key]]):
+				best_for[key] = i
+	for i in range(out.size()):
+		var base := _ai_weapon_base_name(str(out[i].weapon_id), snapshot)
+		var keep_p: Array = out[i].model_ids.filter(func(m): return int(best_for.get("%s|%s" % [m, base], i)) == i)
+		if keep_p.size() != out[i].model_ids.size():
+			print("AIDecisionMaker: [AIR-2] %s: %d model(s) fire another profile of %s instead of %s (one profile per weapon)" % [
+				unit_name, out[i].model_ids.size() - keep_p.size(), base, str(out[i].weapon_id)])
+		out[i]["model_ids"] = keep_p
+	out = out.filter(func(a): return not a.model_ids.is_empty())
+	if not re.has_method("is_monster_or_vehicle") or re.is_monster_or_vehicle(unit):
+		return out
+	# Per-model either/or (MA-25 validator for PISTOLs; 11e 24.07 for every
+	# [CLOSE-QUARTERS] weapon): models assigned both categories keep their other
+	# ranged weapons and drop the close-quarters ones.
+	var has_other := {}
+	for a in out:
+		if not _ai_is_close_quarters(str(a.weapon_id), snapshot):
+			for mid in a.model_ids:
+				has_other[mid] = true
+	var final_out: Array = []
+	for a in out:
+		if _ai_is_close_quarters(str(a.weapon_id), snapshot):
+			var keep: Array = a.model_ids.filter(func(m): return not has_other.has(m))
+			if keep.size() != a.model_ids.size():
+				print("AIDecisionMaker: [AIR-2] %s: %d model(s) keep their other ranged weapons instead of %s (Pistol / [CLOSE-QUARTERS] either/or)" % [
+					unit_name, a.model_ids.size() - keep.size(), str(a.weapon_id)])
+			if keep.is_empty():
+				continue
+			a["model_ids"] = keep
+		final_out.append(a)
+	return final_out
+
+## The unit's weapon dict (meta.weapons entry) whose generated id is weapon_id.
+static func _ai_weapon_dict(unit: Dictionary, weapon_id: String) -> Dictionary:
+	for w in unit.get("meta", {}).get("weapons", []):
+		if _generate_weapon_id(str(w.get("name", "")), str(w.get("type", ""))) == weapon_id:
+			return w
+	return {}
+
+## "Busta Rokkit Launcha – Hunter" -> "Busta Rokkit Launcha" (profiles of one weapon).
+static func _ai_weapon_base_name(weapon_id: String, snapshot: Dictionary) -> String:
+	var re = _rules_engine()
+	var wname := weapon_id
+	if re != null:
+		wname = str(re.get_weapon_profile(weapon_id, snapshot).get("name", weapon_id))
+	for sep in [" – ", " — ", " - "]:
+		var idx := wname.find(sep)
+		if idx > 0:
+			return wname.substr(0, idx)
+	return wname
+
+## Pistol (keyword) or [CLOSE-QUARTERS] (11e 24.07) — same test as the
+## GUN-CRAZY forced picker (ShootingPhase._ork11e_is_close_quarters_weapon).
+static func _ai_is_close_quarters(weapon_id: String, snapshot: Dictionary) -> bool:
+	var re = _rules_engine()
+	if re == null:
+		return false
+	if re.is_pistol_weapon(weapon_id, snapshot):
+		return true
+	var abilities: Array = AbilityRegistry.from_weapon(re.get_weapon_profile(weapon_id, snapshot))
+	return AbilityRegistry.has_ability(abilities, "close_quarters") or AbilityRegistry.has_ability(abilities, "pistol")
 
 # Focus fire plan cache — built once per shooting phase, consumed per-unit
 # Stores {unit_id: [{weapon_id, target_unit_id}]} mapping
@@ -2481,6 +2630,25 @@ static func _faction_ability_manager():
 		return main.root.get_node_or_null("FactionAbilityManager")
 	return null
 
+# Late-bound wrappers for the FactionAbilityManager Waaagh! helpers. A bare
+# `FactionAbilityManager.x()` reference makes this script fail to compile under
+# `godot -s` (autoload names are not registered yet), which silently turned
+# every test that preloads AIDecisionMaker into a 0-check run (R5 / RV-6).
+static func _waaagh_melee_bonus_applies(unit: Dictionary) -> bool:
+	var fam = _faction_ability_manager()
+	if fam != null:
+		return bool(fam.waaagh_melee_bonus_applies(unit))
+	# Same predicate as FactionAbilityManager.waaagh_melee_bonus_applies (10e only).
+	return GameConstants.edition < 11 and bool(unit.get("flags", {}).get("waaagh_active", false))
+
+static func _waaagh_effects_summary() -> String:
+	var fam = _faction_ability_manager()
+	if fam != null:
+		return str(fam.waaagh_effects_summary())
+	if GameConstants.edition >= 11:
+		return "riled up: 5+ invuln, ranged [ASSAULT], advance and charge"
+	return "advance and charge, +1 S/A melee, 5+ invuln"
+
 static func _aao_isolated_now(unit: Dictionary, snapshot: Dictionary) -> bool:
 	"""'Buff is active right now' check (detachment + keywords + no other
 	friendly within 6\" of the unit's CURRENT model positions). Uses the
@@ -3506,7 +3674,8 @@ static func _decide_random_shooting(snapshot: Dictionary, available_actions: Arr
 			for tid in enemy_ids:
 				var single_target = {}
 				single_target[tid] = enemies[tid]
-				var assignments = _build_unit_assignments_fallback(shooter, ranged_weapons, single_target, snapshot, shooter_id)
+				var assignments = _sanitize_shoot_assignments(shooter_id,
+					_build_unit_assignments_fallback(shooter, ranged_weapons, single_target, snapshot, shooter_id), snapshot)
 				if not assignments.is_empty():
 					var tname = _dn(enemies[tid], tid)
 					return {
@@ -6093,8 +6262,8 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 				reason = "round 1, %d units in range (alpha strike)" % units_in_range
 
 			if should_waaagh:
-				_add_thinking_step("Calling WAAAGH! — %s (advance+charge, +1 S/A melee, 5+ invuln for the army)" % reason)
-				print("AIDecisionMaker: [WAAAGH] Calling WAAAGH! (%s) — advance+charge, +1 S/A melee, 5+ invuln" % reason)
+				_add_thinking_step("Calling WAAAGH! — %s (%s for the army)" % [reason, _waaagh_effects_summary()])
+				print("AIDecisionMaker: [WAAAGH] Calling WAAAGH! (%s) — %s" % [reason, _waaagh_effects_summary()])
 				return {
 					"type": "CALL_WAAAGH",
 					"_ai_description": "WAAAGH! — %s" % reason
@@ -6193,6 +6362,17 @@ static func _decide_command(snapshot: Dictionary, available_actions: Array, play
 		if action.get("type") == "USE_UNLEASH_THE_LIONS":
 			var utl_round = snapshot.get("meta", {}).get("battle_round", 1)
 			var utl_cp = _get_player_cp_from_snapshot(snapshot, player)
+			# AI-07: the offer is built from a target-less can_use_stratagem, so a
+			# unit already targeted by a stratagem this phase (11e 15.01 — e.g. by
+			# a Command Re-roll on its battle-shock test) is still listed; the use
+			# is then refused and the AI re-picked it 200 times. Ask for THIS unit.
+			var utl_sm = _stratagem_manager()
+			if utl_sm != null:
+				var utl_sid := str(utl_sm.find_faction_stratagem_by_name(player, "UNLEASH THE LIONS"))
+				if utl_sid != "" and not utl_sm.can_use_stratagem(player, utl_sid, str(action.get("unit_id", ""))).get("can_use", false):
+					_add_thinking_step("Unleash the Lions not usable on %s right now (%s)" % [str(action.get("unit_id", "")),
+						str(utl_sm.can_use_stratagem(player, utl_sid, str(action.get("unit_id", ""))).get("reason", ""))])
+					continue
 			if utl_round >= 2 and utl_cp >= 2:
 				_add_thinking_step("Unleash the Lions (round %d, %d CP): splitting into single models to cover more objectives" % [utl_round, utl_cp])
 				return {
@@ -8383,10 +8563,12 @@ static func _compute_disembark_positions(unit: Dictionary, transport: Dictionary
 
 	var unit_radius_px = (unit_base_mm / 2.0) * (PIXELS_PER_INCH / 25.4)
 
-	# Max distance from transport center: transport edge + 3" + model edge
-	# Uses the minimum edge radius for rectangular transports to guarantee
-	# all models pass shape-aware edge-to-edge validation regardless of direction.
-	var max_center_dist_px = transport_edge_radius_px + disembark_range_px + unit_radius_px - 10.0
+	# Max distance from transport center: transport edge + 3" - model radius, so
+	# the WHOLE base is within 3" of the hull (18.04 / 18.06 "wholly within";
+	# TransportManager.is_position_within_disembark_range judges the base's
+	# farthest point). Uses the minimum edge radius for rectangular transports to
+	# guarantee all models pass the shape-aware validation regardless of direction.
+	var max_center_dist_px = transport_edge_radius_px + disembark_range_px - unit_radius_px - 10.0
 
 	# Build list of occupied positions (to avoid overlaps)
 	var occupied_positions = []
@@ -13488,6 +13670,15 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			assignments = _build_unit_assignments_fallback(unit, ranged_weapons, fallback_enemies, snapshot, selected_unit_id)
 			print("AIDecisionMaker: Using fallback scoring for %s (%d assignments)" % [unit_name, assignments.size()])
 
+		# AIR-2: only engine-valid assignments reach the SHOOT (a single invalid
+		# pair rejects the whole action and the unit loses its activation).
+		var sanitized: Array = _sanitize_shoot_assignments(selected_unit_id, assignments, snapshot)
+		if sanitized.is_empty() and not assignments.is_empty() and not fallback_enemies.is_empty():
+			sanitized = _sanitize_shoot_assignments(selected_unit_id,
+				_build_unit_assignments_fallback(unit, ranged_weapons, fallback_enemies, snapshot, selected_unit_id), snapshot)
+			print("AIDecisionMaker: [AIR-2] %s: planned assignments were all invalid — fallback gives %d" % [unit_name, sanitized.size()])
+		assignments = sanitized
+
 		if assignments.is_empty():
 			return {
 				"type": "SKIP_UNIT",
@@ -13878,6 +14069,11 @@ static func _build_focus_fire_plan(snapshot: Dictionary, shooter_unit_ids: Array
 				if er_dist > 1.0:
 					dmg_row[enemy_id] = 0.0
 					continue
+
+			# AIR-2: Hunter profiles only target their keyword units (04.01.03).
+			if not _ai_weapon_can_target(weapon_id, enemy, snapshot):
+				dmg_row[enemy_id] = 0.0
+				continue
 
 			# T7-11: Lone Operative targeting restriction — cannot target with ranged attacks
 			# from >12" away. Set damage to 0 if the shooter is too far.
@@ -14836,8 +15032,15 @@ static func _build_unit_assignments_fallback(unit: Dictionary, ranged_weapons: A
 		var best_target_id = ""
 		var best_score = -1.0
 		var fb_scored: Array = []  # A1: the field, not just the winner
+		var fb_actor_id: String = unit_id_hint if unit_id_hint != "" else str(unit.get("id", ""))
 		for enemy_id in enemies:
 			var enemy = enemies[enemy_id]
+			# AIR-2: a Hunter profile only targets its keyword units (04.01.03).
+			if not _ai_weapon_can_target(weapon_id, enemy, snapshot):
+				continue
+			# LAST-1: no [BLAST] at a unit engaged with the shooter's own units.
+			if not _ai_blast_target_allowed(fb_actor_id, weapon_id, str(enemy_id), snapshot):
+				continue
 			var score = _score_shooting_target(weapon, enemy, snapshot, unit)
 			if score > 0.0:
 				fb_scored.append({
@@ -15967,7 +16170,9 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 		aao_bonus = _aao_isolated_now(attacker, snapshot)
 
 	# Check for WAAAGH! active on attacker — +1 Strength, +1 Attacks to melee weapons
+	# (10e only: FactionAbilityManager.waaagh_melee_bonus_applies gates the bonus)
 	var waaagh_active = attacker.get("flags", {}).get("waaagh_active", false)
+	var waaagh_melee_bonus = _waaagh_melee_bonus_applies(attacker)
 	# Check for Da Biggest and Da Best (Warboss) — +4 Attacks while WAAAGH active
 	var has_da_biggest = false
 	# Check for Dead Brutal (Warboss in Mega Armour) — damage becomes 3 while WAAAGH active
@@ -16009,10 +16214,11 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 		var damage_str = w.get("damage", "1")
 		var damage = _parse_average_damage(str(damage_str))
 
-		# WAAAGH! buffs: +1 Strength, +1 Attacks per model
-		if waaagh_active:
+		# WAAAGH! buffs: +1 Strength, +1 Attacks per model (10e only)
+		if waaagh_melee_bonus:
 			strength += 1
 			attacks += 1.0
+		if waaagh_active:
 			# Da Biggest and da Best: +4 additional attacks (Warboss only)
 			if has_da_biggest:
 				attacks += 4.0
@@ -16073,9 +16279,9 @@ static func _estimate_melee_damage(attacker: Dictionary, defender: Dictionary, s
 	# Fallback: close combat weapon (S=user, AP0, D1, 1 attack)
 	if best_damage == 0.0 and alive_attackers > 0:
 		var charger_strength = int(attacker.get("meta", {}).get("stats", {}).get("strength", 4))
-		# WAAAGH! also buffs fallback melee (+1S, +1A)
+		# WAAAGH! also buffs fallback melee (+1S, +1A) — 10e only
 		var fallback_attacks = 1.0
-		if waaagh_active:
+		if waaagh_melee_bonus:
 			charger_strength += 1
 			fallback_attacks += 1.0
 		var p_hit = _hit_probability(4)  # WS4+ default
@@ -17040,8 +17246,11 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 	# Build WAAAGH! buffs dict for damage estimation (matches RulesEngine behavior)
 	var waaagh_buffs = {}
 	var waaagh_active = unit.get("flags", {}).get("waaagh_active", false)
+	# +1 S / +1 A is the 10e Waaagh! only (FactionAbilityManager.waaagh_melee_bonus_applies)
+	var waaagh_melee_bonus = _waaagh_melee_bonus_applies(unit)
 	if waaagh_active:
 		waaagh_buffs["active"] = true
+		waaagh_buffs["melee_bonus"] = waaagh_melee_bonus
 		var attacker_abilities = unit.get("meta", {}).get("abilities", [])
 		for ab in attacker_abilities:
 			var ab_name = ""
@@ -17093,7 +17302,7 @@ static func _assign_fight_attacks(snapshot: Dictionary, unit_id: String, player:
 		# Also evaluate default close combat weapon (S=user, AP0, D1, A1, WS4+)
 		var ccw_str = unit_strength
 		var ccw_attacks = 1.0
-		if waaagh_active:
+		if waaagh_melee_bonus:
 			ccw_str += 1
 			ccw_attacks += 1.0
 		var ccw_p_hit = _hit_probability(4)
@@ -17528,10 +17737,11 @@ static func _evaluate_melee_weapon_damage(weapon: Dictionary, alive_attackers: i
 	var damage_str = str(weapon.get("damage", "1"))
 	var damage = _parse_average_damage(damage_str)
 
-	# Apply WAAAGH! buffs if active
+	# Apply WAAAGH! buffs if active (+1 S / +1 A only for the 10e Waaagh!)
 	if waaagh_buffs.get("active", false):
-		strength += 1
-		attacks += 1.0
+		if waaagh_buffs.get("melee_bonus", GameConstants.edition < 11):
+			strength += 1
+			attacks += 1.0
 		if waaagh_buffs.get("da_biggest", false):
 			attacks += 4.0
 		if waaagh_buffs.get("dead_brutal", false):
@@ -21939,6 +22149,12 @@ static func _score_grenade_target(target_unit: Dictionary) -> float:
 # PROACTIVE STRATAGEM USE (11e core set + implemented faction stratagems)
 # =============================================================================
 
+## The Codex: Orks (11e) dispatcher script (OrkCodex11e.gd), loaded on first use.
+static func _ork_codex():
+	if _ork_codex_dispatcher == null:
+		_ork_codex_dispatcher = load("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
+	return _ork_codex_dispatcher
+
 static func _stratagem_manager():
 	"""Access the StratagemManager autoload from static context (may be null headless)."""
 	var main_loop = Engine.get_main_loop()
@@ -22225,6 +22441,10 @@ static func evaluate_proactive_faction_stratagems(snapshot: Dictionary, player: 
 	var considered: Array = []
 
 	for strat in strats:
+		# Window stratagems (timing.windows) are offered by the phase at their
+		# hook and answered by decide_window_stratagem — never proactively.
+		if not strat.get("timing", {}).get("windows", []).is_empty():
+			continue
 		var strat_name = strat.get("name", "").replace("’", "'").to_upper()
 		var strat_phase = str(strat.get("timing", {}).get("phase", ""))
 		# Phase gate (loose — can_use_stratagem re-checks authoritatively)
@@ -22285,6 +22505,17 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 	"""Named heuristics for the implemented detachment stratagems of the shipped
 	armies (War Horde, Shield Host, Lions), plus an effects-based fallback.
 	Returns {unit_id, unit_name, score, reason, context} or {} when no target."""
+	# Codex: Orks (11e) S-panel stratagems (no window — DREAD POWER, DELICIOUS
+	# EATING SQUIGS): the codex handler scores each friendly target (keyed by
+	# csv_id, so a 10e name-keyed heuristic below can never claim a codex row).
+	if _ork_codex().handles(strat):
+		var cbest := {}
+		for cuid in friendly_units:
+			var cscore: float = _ork_codex().ai_score(strat, player, str(cuid), "", {"phase": phase_name})
+			if cscore > float(cbest.get("score", 0.0)) and _faction_stratagem_usable(player, strat, str(cuid)):
+				cbest = {"unit_id": str(cuid), "unit_name": _dn(friendly_units[cuid], str(cuid)), "score": cscore,
+					"reason": "codex heuristic (%.1f)" % cscore}
+		return cbest
 	match strat_name:
 		"'ERE WE GO":
 			# +2 to Advance and Charge rolls — best on a melee unit that plans
@@ -22734,7 +22965,14 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 			if unit.is_empty():
 				continue
 
-			var score = _score_defensive_stratagem_target(unit, strat)
+			var score: float
+			if strat_entry.has("window_id") and _ork_codex().handles(strat):
+				# Window offer folded into the shooting reactive dialog: the
+				# codex handler scores it (its effects list is just a marker).
+				score = _ork_codex().ai_score(strat, defending_player, unit_id,
+					str(strat_entry.get("window_id", "")), strat_entry.get("window_ctx", {}))
+			else:
+				score = _score_defensive_stratagem_target(unit, strat)
 			var u_name = _dn(unit, unit_id)
 			considered.append("%s on %s: %.1f" % [strat.get("name", strat_id), u_name, score])
 			if score > best_score:
@@ -22777,6 +23015,90 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 		"player": defending_player,
 		"_ai_description": "AI declines reactive stratagems"
 	}
+
+static func decide_window_stratagem(player: int, window_id: String, offers: Array, ctx: Dictionary) -> Dictionary:
+	"""
+	Synchronous AI answer for a stratagem WINDOW (design §3.1) — called by
+	BasePhase.open_stratagem_window when the decider is an AI, so a window can
+	never stall on the AI. Returns {use: bool, stratagem_id, target_unit_id,
+	context}. Heuristics:
+	  - "offensive" (buffs on the unit about to attack, e.g. HIT 'EM HARDER):
+	    only with >= 2 CP (keep one for reactions) and a score >= 2.0 — the
+	    codex handler scores 0 when the unit has no relevant weapons / target;
+	  - "defensive" (protect a threatened unit): score >= 1.5 x CP cost, the
+	    same bar as evaluate_reactive_stratagem;
+	  - "utility": score >= 2.0.
+	Non-codex window stratagems fall back to the defensive effects scorer.
+	"""
+	var decline := {"use": false}
+	var sm = _stratagem_manager()
+	if sm == null or offers.is_empty():
+		return decline
+	var difficulty := _current_difficulty
+	var ai_node = null
+	var main = Engine.get_main_loop()
+	if main is SceneTree and main.root:
+		ai_node = main.root.get_node_or_null("AIPlayer")
+	if ai_node and ai_node.has_method("get_difficulty"):
+		difficulty = int(ai_node.get_difficulty(player))
+	if not AIDifficultyConfigData.use_stratagems(difficulty):
+		_add_thinking_step("Stratagem window %s: declining (difficulty does not use stratagems)" % window_id)
+		return decline
+	var cp := int(sm.get_player_cp(player))
+	var gs = _game_state()
+	var units: Dictionary = gs.state.get("units", {}) if gs else {}
+	var best := {}
+	var best_score := 0.0
+	var considered: Array = []
+	for offer in offers:
+		var sid := str(offer.get("stratagem_id", ""))
+		var strat: Dictionary = sm.get_stratagem(sid)
+		var cost := int(offer.get("cp_cost", strat.get("cp_cost", 1)))
+		var is_codex: bool = _ork_codex().handles(strat)
+		var kind: String = str(_ork_codex().ai_kind(strat)) if is_codex else "defensive"
+		for t in offer.get("targets", []):
+			var tid := str(t.get("unit_id", ""))
+			var score := 0.0
+			if is_codex:
+				score = _ork_codex().ai_score(strat, player, tid, window_id, ctx)
+			elif units.has(tid):
+				score = _score_defensive_stratagem_target(units[tid], strat)
+			var threshold := 2.0
+			match kind:
+				"offensive":
+					if cp < 2:
+						considered.append("%s on %s: skip (CP %d < 2, keeping one for reactions)" % [offer.get("name", sid), tid, cp])
+						continue
+				"defensive":
+					threshold = 1.5 * float(max(1, cost))
+			considered.append("%s on %s: %.1f (need %.1f)" % [offer.get("name", sid), tid, score, threshold])
+			if score >= threshold and score > best_score:
+				best_score = score
+				var ctx_out := {}
+				# Secondary choice (objective / second unit): take the first
+				# legal option — the handler lists them best-first.
+				var sec = t.get("secondary", {})
+				if typeof(sec) == TYPE_DICTIONARY and not sec.get("options", []).is_empty():
+					ctx_out["secondary_id"] = str(sec.options[0].get("id", ""))
+				# A stratagem with no plain use (require_variant): take the
+				# handler's ai_variant hint when it is still offered, else the
+				# first (affordable) variant.
+				var t_variants: Array = t.get("variants", [])
+				if bool(t.get("require_variant", false)) and not t_variants.is_empty():
+					var pick := str(t_variants[0].get("id", ""))
+					for v in t_variants:
+						if str(v.get("id", "")) == str(t.get("ai_variant", "")):
+							pick = str(v.get("id", ""))
+					ctx_out["variant_id"] = pick
+				best = {"use": true, "stratagem_id": sid, "target_unit_id": tid, "context": ctx_out,
+					"name": str(offer.get("name", sid))}
+	for c in considered:
+		_add_thinking_step("  window %s: %s" % [window_id, c])
+	if best.is_empty():
+		_add_thinking_step("Stratagem window %s: declining (no offer worth the CP)" % window_id)
+		return decline
+	_add_thinking_step("Stratagem window %s: using %s on %s (score %.1f)" % [window_id, best.name, best.target_unit_id, best_score])
+	return best
 
 static func _score_defensive_stratagem_target(unit: Dictionary, stratagem) -> float:
 	"""

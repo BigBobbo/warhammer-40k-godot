@@ -9,7 +9,7 @@
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
-  "description": "The exact reading that was reported: a shot lands wounds and NOTHING dies, and the log has to say why. Custodian Guard Alpha (Guardian spear, S4 AP-1 D2) fires into a Battlewagon moved into its range — a 16-wound vehicle whose Ramshackle worsens incoming AP, so wounds get through, saves get rolled and no model can be destroyed. Drives the whole player path (select, assign, confirm, decline the reactive stratagem, then the resolution dock's Roll to Hit -> Roll to Wound -> Continue to Saving Throws) and the defender's AllocationGroupOverlay. Asserts the combat card shows a Save row next to Hit and Wound and that the result line reads 'No models destroyed (N/M saves passed)' rather than the bare 'No models destroyed' that started this. (The reactive-stratagem decline is dispatched unconditionally and not asserted: a VEHICLE target opens no reactive window for the Orks, so it is a legal no-op on this path.)",
+  "description": "The exact reading that was reported: a shot lands wounds and NOTHING dies, and the log has to say why. Custodian Guard Alpha (Guardian spear, S4 AP-1 D2) fires into a Battlewagon moved into its range — a 16-wound vehicle whose Ramshackle worsens incoming AP, so wounds get through, saves get rolled and no model can be destroyed. Drives the whole player path (select, assign, confirm, decline the reactive stratagem if one is offered, then the resolution dock's Roll to Hit -> Roll to Wound -> Continue to Saving Throws) and the defender's AllocationGroupOverlay. Asserts the combat card shows a Save row next to Hit and Wound and that the result line reads 'No models destroyed (N/M saves passed)' rather than the bare 'No models destroyed' that started this. (The reactive-stratagem decline is dispatched unconditionally and not asserted: a VEHICLE target opens no reactive window for the Orks, so it is a legal no-op on this path.)",
   "steps": [
     {
       "act": "wait_seconds",
@@ -91,10 +91,11 @@
       "equals": true
     },
     {
-      "act": "dispatch_action",
-      "action": {
-        "type": "DECLINE_REACTIVE_STRATAGEM"
-      }
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "RG-F1: decline the defender's reactive stratagem window only if one opened. The fixture's War Horde Orks lost the 10e 'ARD AS NAILS stopgap (Codex: Orks 11e has no War Horde stratagem in the enemy_targets_unit_shooting window), so normally none opens and resolution starts straight after CONFIRM_TARGETS.",
+      "script": "var pi = PhaseManager.get_current_phase_instance()\nif pi.awaiting_reactive_stratagem:\n\treturn pi.execute_action({\"type\": \"DECLINE_REACTIVE_STRATAGEM\"}).get(\"success\", false)\nreturn true",
+      "equals": true
     },
     {
       "act": "wait_seconds",

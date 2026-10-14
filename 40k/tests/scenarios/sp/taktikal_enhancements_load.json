@@ -15,7 +15,7 @@
   { "act": "wait_seconds", "seconds": 0.8 },
   { "act": "execute_script", "script": "ArmyListManager.apply_army_to_game_state(ArmyListManager.load_army_list(\"orks_taktikal\", 2), 2)" },
   { "act": "execute_script", "script": "StratagemManager.load_faction_stratagems_for_player(2)" },
-  { "act": "execute_script", "script": "StratagemManager.get_implemented_faction_stratagems_for_player(2).size()", "equals": 6 },
+  { "act": "execute_script", "script": "StratagemManager.get_faction_stratagems_for_player(2).size()", "equals": 3 },
   { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"][\"detachment\"]", "equals": "Taktikal Brigade" },
   { "act": "execute_script", "script": "GameState.get_unit(\"U_WARBOSS_B\")[\"meta\"][\"enhancements\"].has(\"Skwad Leader\")", "equals": true },
   { "act": "execute_script", "script": "CharacterAttachmentManager.can_attach(\"U_WARBOSS_B\", \"U_KOMMANDOS_H\")[\"valid\"]", "equals": true },

@@ -512,7 +512,7 @@
 	"keys": {
 		"army_file": "recon_stomps",
 		"deployment_zone_id": "hammer_anvil",
-		"detachment_hint": "Speedwaaagh!",
+		"detachment_hint": "Kult of Speed",
 		"mission_id": "take_and_hold",
 		"terrain_layout_id": "take_and_hold_mirror_1"
 	},

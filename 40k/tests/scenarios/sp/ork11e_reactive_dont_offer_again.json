@@ -1,0 +1,52 @@
+{
+  "id": "ork11e_reactive_dont_offer_again",
+  "covers": [
+    "stratagem.window.enemy_targets_unit_shooting.dont_offer_again",
+    "dialogs.StratagemDialog.legacy_fold_in"
+  ],
+  "fixture": "ork11e_orks_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "The defender's legacy reactive StratagemDialog (enemy_targets_unit_shooting fold-in) now carries the same 'Decline — don't offer again this phase' affordance as window mode. Fixture ork11e_orks_reactive: P1 Custodes ACTIVE, P2 Orks. Setup-only privileges: P2's detachment is flipped to Kult of Speed and its stratagems reloaded; the Warbikers (SPEED FREEKS) are moved within Custodian Guard C's range. Custodian Guard C (selected by clicking its token) targets the Warbikers; the Ork player's dialog offers SPEEDIEST FREEKS, and a real click on 'Decline — don't offer again this phase' closes it without spending CP, resumes the attack and suppresses the defender prompt for the rest of the phase (the same targeting re-checked offers nothing), while the stratagem itself stays usable later (suppression is per prompt, not a use).",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 8 },
+    { "act": "execute_script", "script": "SettingsService.set(\"auto_allocate_wounds\", true)" },
+    { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Kult of Speed\"}, true)" },
+    { "act": "execute_script", "script": "StratagemManager.load_faction_stratagems_for_player(2)" },
+    { "act": "execute_script", "multiline": true, "comment": "setup privilege: the Warbikers move within Custodian Guard C's range, clear of every enemy",
+      "script": "var ms = GameState.get_unit(\"U_WARBIKERS_A\").models\nfor i in range(ms.size()):\n\tms[i][\"position\"] = {\"x\": 42.0 * 40.0, \"y\": (34.0 + 3.2 * i) * 40.0}\nvar ph = PhaseManager.get_current_phase_instance()\nph.game_state_snapshot = GameState.create_snapshot()\nph._compute_engagement_flags()\ntree.root.get_node(\"Main\")._recreate_unit_visuals()\nreturn RulesEngine.is_unit_engaged(\"U_WARBIKERS_A\", GameState.state)",
+      "equals": false },
+
+    { "act": "click_unit", "unit_id": "U_CUSTODIAN_GUARD_D", "comment": "the panel auto-highlights a shooter on phase entry; picking another unit first makes the Custodian Guard C token click a real selection" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "click_unit", "unit_id": "U_CUSTODIAN_GUARD_C" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_shooter_id", "equals": "U_CUSTODIAN_GUARD_C" },
+    { "act": "dispatch_action", "action": { "type": "ASSIGN_TARGET", "actor_unit_id": "U_CUSTODIAN_GUARD_C",
+      "payload": { "weapon_id": "guardian_spear___ranged_ranged", "target_unit_id": "U_WARBIKERS_A", "model_ids": ["m1", "m2", "m3", "m4", "m5"] } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_kult_of_speed_speediest_freeks/Buttons/Use_faction_ork_kult_of_speed_speediest_freeks_U_WARBIKERS_A", "property": "disabled", "equals": false },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/DontOfferAgainButton", "property": "disabled", "equals": false },
+    { "act": "screenshot", "label": "01_dont_offer_again_button" },
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/DontOfferAgainButton" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+
+    { "act": "expect_cp", "player": 2, "delta_from_start": 0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().awaiting_reactive_stratagem", "equals": false },
+    { "act": "execute_script", "script": "main._reactive_stratagem_pending", "equals": false },
+    { "act": "execute_script", "multiline": true,
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nreturn d == null or not d.visible",
+      "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._check_reactive_stratagems().get(\"has_opportunities\", true)", "equals": false },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_WARBIKERS_A\").flags.has(\"ork11e_speediest_freeks\")", "equals": false },
+    { "act": "execute_script", "script": "main.get_node(\"ShootingController\").resolution_dock.is_active()", "equals": true },
+    { "act": "screenshot", "label": "02_declined_attack_resumes" }
+  ]
+}

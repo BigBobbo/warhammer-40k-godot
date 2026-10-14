@@ -1,0 +1,359 @@
+{
+  "id": "ork11e_deferred_window_panel_refresh",
+  "covers": [
+    "stratagem.window.unit_selected_to_shoot",
+    "stratagem.ork11e.close_range_dakka",
+    "phases.ShootingPhase.select_shooter_window",
+    "ui.ShootingController.auto_select_first_shooter",
+    "ui.ShootingController.quick_assign"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "LV2-B1: the auto-selected shooter's deferred unit_selected_to_shoot window holds the player's first Quick-Assign (one ASSIGN_TARGET, or a burst of them); when the window closes the phase applies the held assignment(s), and the Shooting panel must show them. Before the fix the weapon rows kept '(Click to Select)', Confirm read 'Confirm (N weapons, N unassigned)', CURRENT TARGETS was empty and the stat line missed CLOSE-RANGE DAKKA's +1 RAPID FIRE. Part 1 (Decline, one weapon): phase entry auto-selects the Battlewagon (no window); a real click on Quick-Assign 'All -> Blade Champion Beta' opens the window first; a real Decline applies the held assignment and the panel shows '1->[A] Blade Champion Beta', 'Confirm (1 weapons)' and one CURRENT TARGETS row; Confirm / Fast / Done / Complete Shooting resolve the shot. Part 2 (Use, burst): the next auto-selected shooter (Dakkajet) is skipped with the real N key; the auto-selected Deff Dread's Quick-Assign 'All -> Prosecutors' sends two ASSIGN_TARGETs - the first opens the window, the second is held; a real click on 'Use on Deff Dread' (CLOSE-RANGE DAKKA, 1 CP) applies both and the panel shows both rows aimed at Prosecutors, 'Confirm (2 weapons)', two CURRENT TARGETS rows and the big shoota's [RF3] (RAPID FIRE 2 +1); the burst then resolves with rapid_fire_value 3.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_BATTLEWAGON_A",
+      "comment": "phase entry auto-selected the Battlewagon"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller.active_shooter_id",
+      "equals": "U_BATTLEWAGON_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 0,
+      "comment": "LV-2: no window for the automatic selection"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_BLADE_CHAMPION_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_BLADE_CHAMPION_B",
+      "comment": "the player's first action with the auto-selected shooter"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text",
+      "equals": "Battlewagon has been selected to shoot"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_assignments.size()",
+      "equals": 0,
+      "comment": "the Quick-Assign is held until the decision"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_window_opened_by_quick_assign"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0,
+      "comment": "declined: no CP"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nreturn p.pending_assignments.size() == 1 and str(p.pending_assignments[0].get(\"target_unit_id\", \"\")) == \"U_BLADE_CHAMPION_B\" and not p.has_pending_stratagem_window()",
+      "equals": true,
+      "comment": "the engine applied the held assignment when the window closed"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nvar rows = []\nvar it = c.weapon_tree.get_root().get_first_child()\nwhile it:\n\trows.append(str(it.get_text(1)))\n\tit = it.get_next()\nif rows.size() != 1:\n\treturn str(rows)\nfor r in rows:\n\tif not r.contains(\"Blade Champion Beta\"):\n\t\treturn str(rows)\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "LV2-B1: the weapon row's target column shows the assigned target (was '(Click to Select)')"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton",
+      "property": "text",
+      "equals": "Confirm (1 weapons)",
+      "comment": "LV2-B1: was 'Confirm (1 weapons, 1 unassigned)'"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nreturn c.target_basket.item_count == 1 and c.target_basket.get_item_text(0).contains(\"Blade Champion Beta\")",
+      "equals": true,
+      "comment": "LV2-B1: CURRENT TARGETS lists the applied assignment"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_panel_shows_assigned_target_after_decline"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "only if a defender reaction is offered"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "comment": "Complete Shooting"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().units_that_shot.has(\"U_BATTLEWAGON_A\")",
+      "equals": true,
+      "comment": "the Battlewagon shot at the declined window's held target"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_DAKKAJET_A",
+      "comment": "the next shooter (Dakkajet) is auto-selected"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "N",
+      "comment": "real N: skip the Dakkajet"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_DEFF_DREAD_A",
+      "comment": "the Deff Dread is auto-selected (deferred window)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_PROSECUTORS_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_PROSECUTORS_A",
+      "comment": "a burst of two ASSIGN_TARGETs (big shoota + skorcha)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text",
+      "equals": "Deff Dread has been selected to shoot"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._sts_held_actions.size()",
+      "equals": 1,
+      "comment": "the burst's second ASSIGN_TARGET is held too"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_burst_window_opened"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_war_horde_close_range_dakka/Buttons/Use_faction_ork_war_horde_close_range_dakka_U_DEFF_DREAD_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1,
+      "comment": "1 CP spent on CLOSE-RANGE DAKKA"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_DEFF_DREAD_A.flags.ork11e_close_range_dakka",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nif p.pending_assignments.size() != 2:\n\treturn \"pending %d\" % p.pending_assignments.size()\nfor a in p.pending_assignments:\n\tif str(a.get(\"target_unit_id\", \"\")) != \"U_PROSECUTORS_A\":\n\t\treturn str(a)\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "both held assignments applied after Use"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nvar rows = []\nvar it = c.weapon_tree.get_root().get_first_child()\nwhile it:\n\trows.append(str(it.get_text(1)))\n\tit = it.get_next()\nif rows.size() != 2:\n\treturn str(rows)\nfor r in rows:\n\tif not r.contains(\"Prosecutors\"):\n\t\treturn str(rows)\nreturn \"ok\"",
+      "equals": "ok",
+      "comment": "LV2-B1: both weapon rows show Prosecutors (were '(Click to Select)')"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton",
+      "property": "text",
+      "equals": "Confirm (2 weapons)",
+      "comment": "LV2-B1: was 'Confirm (2 weapons, 2 unassigned)'"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller.target_basket.item_count",
+      "equals": 2,
+      "comment": "LV2-B1: CURRENT TARGETS lists both"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nvar it = c.weapon_tree.get_root().get_first_child()\nwhile it:\n\tif str(it.get_metadata(0)) == \"big_shoota_ranged\":\n\t\tvar st = str(it.get_first_child().get_text(0))\n\t\treturn \"ok\" if st.contains(\"RF3\") else st\n\tit = it.get_next()\nreturn \"no big shoota row\"",
+      "equals": "ok",
+      "comment": "LV2-B1: the stat line shows CLOSE-RANGE DAKKA's RAPID FIRE +1 (big shoota RF2 -> RF3)"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_burst_panel_after_use"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "only if a defender reaction is offered"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockPrimaryButton",
+      "comment": "Complete Shooting"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().units_that_shot.has(\"U_DEFF_DREAD_A\")",
+      "equals": true,
+      "comment": "the Deff Dread's burst resolved"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"to_hit\" and str(d.get(\"target_unit_id\", \"\")) == \"U_PROSECUTORS_A\" and int(d.get(\"rapid_fire_value\", 0)) == 3:\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "the big shoota hit roll used RAPID FIRE 3"
+    },
+    {
+      "act": "screenshot",
+      "label": "05_burst_resolved"
+    }
+  ]
+}
