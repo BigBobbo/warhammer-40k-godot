@@ -29,6 +29,14 @@ signal deff_from_above_result(unit_id: String, results: Dictionary)
 signal scatter_opportunity(player: int, eligible_units: Array, trigger_unit_id: String)
 signal grot_oiler_available(unit_id: String, player: int, eligible_targets: Array)
 signal grot_oiler_result(unit_id: String, results: Dictionary)
+# Codex: Orks (11e) READIED BRAWLERS follow-up: ask the (human) owner to make an
+# assault disembark move with `unit_id` from `transport_id` (MovementController
+# shows the disembark dialog / placement; SKIP_ASSAULT_DISEMBARK declines it).
+signal ork11e_assault_disembark_requested(player: int, transport_id: String, unit_id: String)
+
+# Codex: Orks (11e) movement-group stratagem handlers (consumer helpers) + dispatcher.
+const Ork11eMovement = preload("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
+const Ork11eCodex = preload("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
 
 # ISS-002: engagement range comes from GameConstants.engagement_range_inches()
 # (edition-dependent). Do not re-declare it as a local constant.
@@ -116,6 +124,15 @@ var _krump_and_run_strat_id: String = ""          # Resolved stratagem id (Krump
 var _krump_and_run_strat_name: String = "Krump and Run"  # Display name for logs/dialog
 var _engagement_at_phase_start: Dictionary = {}   # unit_id -> [enemy_unit_ids] at phase start
 var _reactive_move_owner: int = 0                 # Override player for engagement checks during reactive moves
+
+# Codex: Orks (11e) stratagem windows + follow-ups (design .llm/ork_codex_11e_design.md §3, §6)
+var _ork11e_stm_opened: Dictionary = {}         # "unit_id:move_type" -> true: selected-to-move windows already opened this phase
+var _ork11e_eem_pending: Dictionary = {}        # {unit_id, move_type}: an active-player move ended, enemy_ended_move not yet opened
+var _ork11e_reactive_move: Dictionary = {}      # {player, unit_id, max_inches, source}: a HUMAN reactive normal move in progress
+var _ork11e_auto_moving: bool = false           # an AI reactive normal move is being resolved synchronously
+var _ork11e_assault_disembark: Dictionary = {}  # {player, transport_id, remaining}: READIED BRAWLERS follow-up in progress
+var _ork11e_phase_end_windows_done: bool = false
+var _ork11e_pending_move_changes: Array = []    # the ended move's diffs while its CONFIRM is still being processed (see _post_move_prompts)
 
 # Kunnin' Infiltrator state tracking (OA-24)
 var _kunnin_infiltrator_pending: bool = false       # Waiting for redeployment placement
@@ -236,6 +253,13 @@ func get_unit_movement(unit: Dictionary) -> float:
 		movement += float(plus_move)
 		DebugLogger.info(str("MovementPhase: effect_plus_move — movement %d → %d (+%d\") for %s" % [int(old_move), int(movement), plus_move, unit.get("meta", {}).get("name", "?")]))
 
+	# Codex: Orks (11e) FUNGUS-FUEL INJECTION: "+2\" M" until the end of the phase
+	# (own flag, so it never clobbers an enhancement's effect_plus_move).
+	var ffi_move = int(unit.get("flags", {}).get(Ork11eMovement.FLAG_PLUS_MOVE, 0))
+	if ffi_move > 0:
+		movement += float(ffi_move)
+		DebugLogger.info(str("MovementPhase: FUNGUS-FUEL INJECTION — movement %d → %d (+%d\") for %s" % [int(movement - ffi_move), int(movement), ffi_move, unit.get("meta", {}).get("name", "?")]))
+
 	return movement
 
 func _init():
@@ -284,6 +308,13 @@ func _on_phase_enter() -> void:
 	_scatter_pending_trigger_id = ""
 	_scatter_pending_changes = []
 	_scatter_pending_dice = []
+	_ork11e_stm_opened.clear()
+	_ork11e_eem_pending = {}
+	_ork11e_reactive_move = {}
+	_ork11e_auto_moving = false
+	_ork11e_assault_disembark = {}
+	_ork11e_phase_end_windows_done = false
+	_ork11e_pending_move_changes = []
 
 	# OA-8: Snapshot engagement state at phase start for Krump and Run eligibility
 	_engagement_at_phase_start = _compute_engagement_snapshot()
@@ -325,6 +356,10 @@ func _on_phase_enter() -> void:
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if game_event_log:
 		game_event_log.entry_added.connect(_on_phase_header_logged, CONNECT_ONE_SHOT)
+
+	# Codex: Orks (11e) movement_phase_start window (09.01 Start of Movement
+	# Phase, after the phase-start bookkeeping above): active player first.
+	_ork11e_open_movement_phase_start_windows()
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Movement Phase")
@@ -625,6 +660,13 @@ func validate_action(action: Dictionary) -> Dictionary:
 	if not base_validation.get("valid", true):
 		return base_validation
 
+	# Codex: Orks (11e): while a stratagem follow-up owns the phase (a human
+	# reactive normal move, a READIED BRAWLERS assault disembark) only the
+	# actions that complete it are accepted.
+	var ork11e_gate := _ork11e_followup_gate(action)
+	if not ork11e_gate.is_empty():
+		return ork11e_gate
+
 	match action_type:
 		"BEGIN_NORMAL_MOVE":
 			return _validate_begin_normal_move(action)
@@ -751,6 +793,8 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return {"valid": true}
 		"PLACE_DA_JUMP":
 			return {"valid": true}
+		"SKIP_ASSAULT_DISEMBARK":
+			return _validate_skip_assault_disembark(action)
 		"DEBUG_MOVE":
 			# Already validated by base class
 			return {"valid": true}
@@ -860,6 +904,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_da_jump(action)
 		"PLACE_DA_JUMP":
 			return _process_place_da_jump(action)
+		"SKIP_ASSAULT_DISEMBARK":
+			return _process_skip_assault_disembark(action)
 		"END_COMMAND":
 			return create_result(true, [], "")
 		_:
@@ -1436,6 +1482,15 @@ func _validate_end_movement(action: Dictionary) -> Dictionary:
 # Processing Methods
 
 func _process_begin_normal_move(action: Dictionary) -> Dictionary:
+	# Codex: Orks (11e) unit_selected_to_move window — before the move cap is computed.
+	var stm := _ork11e_open_selected_to_move_windows(action, "normal")
+	if stm.paused:
+		return create_result(true, stm.diffs)
+	return _ork11e_merge_diffs(_process_begin_normal_move_after_windows(action), stm.diffs)
+
+## Everything that follows "selected to make a normal move" once the
+## Codex: Orks (11e) windows have closed.
+func _process_begin_normal_move_after_windows(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
@@ -1514,6 +1569,15 @@ func _process_begin_normal_move(action: Dictionary) -> Dictionary:
 	return create_result(true, begin_changes)
 
 func _process_begin_advance(action: Dictionary) -> Dictionary:
+	# Codex: Orks (11e) unit_selected_to_move window — before the advance roll.
+	var stm := _ork11e_open_selected_to_move_windows(action, "advance")
+	if stm.paused:
+		return create_result(true, stm.diffs)
+	return _ork11e_merge_diffs(_process_begin_advance_after_windows(action), stm.diffs)
+
+## Everything that follows "selected to make an advance move" once the
+## Codex: Orks (11e) windows have closed.
+func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
@@ -1555,7 +1619,7 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 		if gel_tb:
 			gel_tb.add_player_entry(int(unit.get("owner", 0)),
 				"%s turbo-boosts (Speedwaaagh!): 24\" move, ranged weapons gain ASSAULT, cannot charge" % tb_name)
-		return _resolve_advance_roll(unit_id, 0)
+		return _resolve_advance_roll(unit_id, 0, false)
 
 	# OA-5: Boardin' Rush — skip advance roll, add flat 6" to Move instead
 	var flags = unit.get("flags", {})
@@ -1570,7 +1634,7 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 			game_event_log.add_player_entry(owner,
 				"%s advances (Boardin' Rush): +6\", total move = %d\" (M %d\" + 6\")" % [
 					unit_name, int(move_inches + 6), int(move_inches)])
-		return _resolve_advance_roll(unit_id, 6)
+		return _resolve_advance_roll(unit_id, 6, false)
 
 	# Turbo-boost / Fuel-mixa Grot / High-octane Fuel — skip advance roll, auto +6" to Move
 	if EffectPrimitivesData.has_effect_flat_advance(unit) or EffectPrimitivesData.has_effect_auto_advance_6(unit):
@@ -1583,7 +1647,7 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 			game_event_log.add_player_entry(owner,
 				"%s advances (auto +6\"): total move = %d\" (M %d\" + 6\")" % [
 					unit_name, int(move_inches + 6), int(move_inches)])
-		return _resolve_advance_roll(unit_id, 6)
+		return _resolve_advance_roll(unit_id, 6, false)
 
 	# Roll D6 for advance (with deterministic seed for multiplayer)
 	# T5-MP9: Read seed from action payload (embedded by NetworkManager.submit_action)
@@ -1625,8 +1689,10 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	var reroll_available = false
 	if strat_manager:
-		var reroll_check = strat_manager.is_command_reroll_available(current_player)
+		var reroll_check = strat_manager.is_command_reroll_available(current_player, unit_id)
 		reroll_available = reroll_check.available
+		if not reroll_available:
+			DebugLogger.info(str("MovementPhase: Command Re-roll not offered for %s advance — %s" % [unit_name, str(reroll_check.get("reason", ""))]))
 
 	if reroll_available:
 		# Pause — store roll and offer Command Re-roll
@@ -1639,7 +1705,11 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 			"unit_name": unit_name,
 		}
 
+		# Codex: Orks (11e) 'ERE WE GO's +2 applies after any re-roll — show it.
+		var ctx_bonus := int(unit.get("flags", {}).get(Ork11eMovement.FLAG_ERE_WE_GO, 0)) if tw_override == 0 else 0
 		var context_text = "Advance roll: %d (M %d\" + %d\" = %d\" total)" % [advance_roll, int(move_inches), advance_roll, int(move_inches + advance_roll)]
+		if ctx_bonus != 0:
+			context_text = "Advance roll: %d %+d (M %d\" + %d\" = %d\" total)" % [advance_roll, ctx_bonus, int(move_inches), advance_roll + ctx_bonus, int(move_inches + advance_roll + ctx_bonus)]
 		var roll_context = {
 			"roll_type": "advance_roll",
 			"original_rolls": [advance_roll],
@@ -1660,8 +1730,10 @@ func _process_begin_advance(action: Dictionary) -> Dictionary:
 	# No reroll available — resolve immediately
 	return _resolve_advance_roll(unit_id, advance_roll)
 
-func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
-	"""Resolve an advance roll with the given die value."""
+func _resolve_advance_roll(unit_id: String, advance_roll: int, is_roll: bool = true) -> Dictionary:
+	"""Resolve an advance roll with the given die value. is_roll = false for the
+	flat Advance values that replace the roll (Turbo Boostas, Boardin' Rush,
+	auto-advance 6) — roll modifiers do not apply to those."""
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
 	# ISS-061 (11e 21.03/24.17): apply the recorded take-to-the-skies cap.
@@ -1680,6 +1752,15 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 	if turbo_boost:
 		move_inches = 24.0
 		log_phase_message("[Speedwaaagh!] %s turbo-boosts: Move = flat 24\" this phase" % unit_id)
+	# Codex: Orks (11e) 'ERE WE GO: "+2 to advance rolls" — a modifier, applied
+	# after any re-roll (01.05.03) and only when an advance roll was made.
+	var ewg_bonus := int(unit.get("flags", {}).get(Ork11eMovement.FLAG_ERE_WE_GO, 0))
+	if ewg_bonus != 0 and is_roll:
+		var ewg_raw := advance_roll
+		advance_roll += ewg_bonus
+		log_phase_message("'ERE WE GO: %s advance roll %d %+d = %d" % [unit_id, ewg_raw, ewg_bonus, advance_roll])
+		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
+			"type": "'ERE WE GO", "roll": ewg_raw, "result": "Advance roll %d %+d = %d" % [ewg_raw, ewg_bonus, advance_roll]})
 	var total_move = move_inches + advance_roll
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
@@ -1725,9 +1806,16 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int) -> Dictionary:
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if game_event_log:
 		var owner = int(unit.get("owner", 0))
-		game_event_log.add_player_entry(owner,
-			"%s advances: rolled [%d] — total move = %d\" (M %d\" + %d\")" % [
-				unit_name, advance_roll, total_move, int(move_inches), advance_roll])
+		if ewg_bonus != 0 and is_roll:
+			# A modified roll: log the die as rolled ([N] renders as a die face)
+			# plus the modifier — a [7] has no die face (EWG-2).
+			game_event_log.add_player_entry(owner,
+				"%s advances: rolled [%d] %+d ('ERE WE GO) = %d — total move = %d\" (M %d\" + %d\")" % [
+					unit_name, advance_roll - ewg_bonus, ewg_bonus, advance_roll, total_move, int(move_inches), advance_roll])
+		else:
+			game_event_log.add_player_entry(owner,
+				"%s advances: rolled [%d] — total move = %d\" (M %d\" + %d\")" % [
+					unit_name, advance_roll, total_move, int(move_inches), advance_roll])
 
 	return create_result(true, [
 		{
@@ -1802,11 +1890,14 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 	})
 
 	# Show toast notification with reroll result
-	var new_total_move = int(move_inches) + new_advance
+	# ('ERE WE GO's +2 is a modifier on the re-rolled value - include it.)
+	var rr_ewg := int(get_unit(unit_id).get("flags", {}).get(Ork11eMovement.FLAG_ERE_WE_GO, 0))
+	var new_total_move = int(move_inches) + new_advance + rr_ewg
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr:
 		toast_mgr.show_toast(
-			"COMMAND RE-ROLL (1 CP): %s advance %d → %d (Move: %d\")" % [unit_name, old_roll, new_advance, new_total_move],
+			"COMMAND RE-ROLL (1 CP): %s advance %d → %d%s (Move: %d\")" % [unit_name, old_roll, new_advance,
+				(" %+d 'ERE WE GO" % rr_ewg) if rr_ewg != 0 else "", new_total_move],
 			Color.GOLD
 		)
 
@@ -1823,7 +1914,9 @@ func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
 	var advance_roll = old_data.get("advance_roll", 0)
 	var unit_name = old_data.get("unit_name", unit_id)
 	var move_inches = old_data.get("move_inches", 0)
-	var total_move = int(move_inches) + advance_roll
+	# 'ERE WE GO's +2 modifies the kept roll - include it in the toast.
+	var kept_ewg := int(get_unit(unit_id).get("flags", {}).get(Ork11eMovement.FLAG_ERE_WE_GO, 0))
+	var total_move = int(move_inches) + advance_roll + kept_ewg
 
 	DebugLogger.info(str("MovementPhase: Command Re-roll DECLINED for %s — resolving with original roll" % unit_id))
 
@@ -1831,7 +1924,8 @@ func _process_decline_command_reroll(action: Dictionary) -> Dictionary:
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr:
 		toast_mgr.show_toast(
-			"%s advance roll: %d (Move: %d\")" % [unit_name, advance_roll, total_move],
+			"%s advance roll: %d%s (Move: %d\")" % [unit_name, advance_roll,
+				(" %+d 'ERE WE GO" % kept_ewg) if kept_ewg != 0 else "", total_move],
 			Color.WHITE
 		)
 
@@ -2007,10 +2101,12 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 	emit_signal("overwatch_result", unit_id, enemy_unit_id, ow_shooting_result)
 
 	# P2-88: If overwatch was triggered after Rapid Ingress, complete the phase now
+	# (through the Codex: Orks (11e) movement_phase_end windows).
+	var ri_end_changes: Array = []
 	if _rapid_ingress_pending_phase_complete:
 		_rapid_ingress_pending_phase_complete = false
 		log_phase_message("Ending Movement Phase (after Rapid Ingress + Overwatch) - emitting phase_completed signal")
-		emit_signal("phase_completed")
+		ri_end_changes = _complete_movement_phase([]).get("changes", [])
 		log_phase_message("=== END_MOVEMENT COMPLETE (post-Rapid Ingress + Overwatch) ===")
 
 	# OA-8: Check for pending Krump and Run after overwatch used
@@ -2065,7 +2161,7 @@ func _process_use_fire_overwatch(action: Dictionary) -> Dictionary:
 		result["dice"] = ow_shooting_result.dice
 	if ow_shooting_result.has("log_text"):
 		result["log_text"] = ow_shooting_result.log_text
-	return result
+	return _ork11e_with_enemy_ended_move(_ork11e_merge_diffs(result, ri_end_changes))
 
 func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 	var player = action.get("player", _fire_overwatch_player)
@@ -2081,10 +2177,12 @@ func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 	_overwatch_moved_unit_id = ""
 
 	# P2-88: If overwatch was triggered after Rapid Ingress, complete the phase now
+	# (through the Codex: Orks (11e) movement_phase_end windows).
+	var ri_end_changes: Array = []
 	if _rapid_ingress_pending_phase_complete:
 		_rapid_ingress_pending_phase_complete = false
 		log_phase_message("Ending Movement Phase (after Rapid Ingress + Overwatch declined) - emitting phase_completed signal")
-		emit_signal("phase_completed")
+		ri_end_changes = _complete_movement_phase([]).get("changes", [])
 		log_phase_message("=== END_MOVEMENT COMPLETE (post-Rapid Ingress + Overwatch declined) ===")
 
 	# OA-8: Check for pending Krump and Run after overwatch declined
@@ -2113,7 +2211,7 @@ func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 			result.merge(sct_result.result_extra)
 			return result
 
-	return create_result(true, [])
+	return _ork11e_with_enemy_ended_move(create_result(true, ri_end_changes))
 
 # ============================================================================
 # BOMB SQUIGS (P2-25)
@@ -3474,9 +3572,9 @@ func _continue_end_movement_after_grot_oiler(changes: Array) -> Dictionary:
 
 	log_phase_message("Ending Movement Phase (post-abilities) - emitting phase_completed signal")
 	log_phase_message("Ending Movement Phase - emitting phase_completed signal")
-	emit_signal("phase_completed")
+	var end_result := _complete_movement_phase(changes)
 	log_phase_message("=== END_MOVEMENT COMPLETE ===")
-	return create_result(true, changes)
+	return end_result
 
 func _get_bomb_squigs_targets(unit_id: String) -> Array:
 	"""Find enemy units within 12\" of the unit (and visible).
@@ -3911,9 +4009,9 @@ func _process_decline_rapid_ingress(action: Dictionary) -> Dictionary:
 
 	# Now actually end the movement phase
 	log_phase_message("Ending Movement Phase (after Rapid Ingress declined) - emitting phase_completed signal")
-	emit_signal("phase_completed")
+	var end_result := _complete_movement_phase([])
 	log_phase_message("=== END_MOVEMENT COMPLETE (post-Rapid Ingress decline) ===")
-	return create_result(true, [])
+	return end_result
 
 func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionary:
 	"""Process placing a reserve unit via Rapid Ingress onto the battlefield."""
@@ -4044,9 +4142,9 @@ func _process_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictionar
 
 	# Now actually end the movement phase
 	log_phase_message("Ending Movement Phase (after Rapid Ingress placement) - emitting phase_completed signal")
-	emit_signal("phase_completed")
+	var end_result := _complete_movement_phase(changes)
 	log_phase_message("=== END_MOVEMENT COMPLETE (post-Rapid Ingress) ===")
-	return create_result(true, changes)
+	return end_result
 
 func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: String, player: int, rng_seed: int = -1) -> Dictionary:
 	"""
@@ -4143,6 +4241,14 @@ func _log_overwatch_results_to_game_log(game_event_log, ow_result: Dictionary, s
 			game_event_log.add_overwatch_entry("  Save roll: [%s] vs %s (%s)" % [
 				rolls_str, str(sv), "failed!" if fails > 0 else "saved"])
 
+	# LV2-G1: the overwatching unit's own [HAZARDOUS] roll(s), same wording as
+	# the Shooting phase's Game Log line.
+	for hi in range(dice_entries.size()):
+		if str(dice_entries[hi].get("context", "")) == "hazardous_check":
+			var haz_line: String = RulesEngine.hazard_game_log_line(dice_entries.slice(hi, hi + 2))
+			if haz_line != "":
+				game_event_log.add_overwatch_entry("  " + haz_line)
+
 	# Count casualties from diffs (models set to alive=false)
 	var total_casualties = 0
 	for diff in ow_result.get("diffs", []):
@@ -4163,6 +4269,17 @@ func _log_overwatch_results_to_game_log(game_event_log, ow_result: Dictionary, s
 
 
 func _process_begin_fall_back(action: Dictionary) -> Dictionary:
+	# Codex: Orks (11e) windows — the active player's unit_selected_to_move,
+	# then the opponent's enemy_selected_to_fall_back (01.03.02) — before the
+	# fall-back mode and move are set up.
+	var stm := _ork11e_open_selected_to_move_windows(action, "fall_back")
+	if stm.paused:
+		return create_result(true, stm.diffs)
+	return _ork11e_merge_diffs(_process_begin_fall_back_after_windows(action), stm.diffs)
+
+## Everything that follows "selected to make a fall-back move" once the
+## Codex: Orks (11e) windows have closed.
+func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
 	var unit = get_unit(unit_id)
 	var move_inches = get_unit_movement(unit)
@@ -4213,7 +4330,6 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 		"group_formation": {}  # Relative positions within group
 	}
 	
-	emit_signal("unit_move_begun", unit_id, "FALL_BACK")
 	log_phase_message("Beginning fall back for %s (M: %d\")" % [unit.get("meta", {}).get("name", unit_id), move_inches])
 
 	# ISS-040 step 2 (11e 09.07): fall-back MODES via the template —
@@ -4234,6 +4350,12 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 			active_moves[unit_id]["desperate_escape_ctx"] = fb_ctx
 			var hz = fb_ctx.get("hazard", {})
 			log_phase_message("[11e] Desperate escape hazard rolls for %s: %s (%d failure(s))" % [unit_id, str(hz.get("rolls", [])), int(hz.get("failures", 0))])
+			# Codex: Orks (11e) WHERE D'YA FINK YOU'RE GOING? forced this desperate
+			# escape (FallBackMove.select_mode) — surface the hazard rolls, including
+			# the extra MONSTER/VEHICLE rolls (FallBackMove.before_moving).
+			if Ork11eMovement.where_dya_fink_forces_desperate_escape(unit_id, GameState.state):
+				active_moves[unit_id]["fall_back_mode_forced_by"] = "WHERE D'YA FINK YOU'RE GOING?"
+				_ork11e_log_where_dya_fink_hazards(unit_id, hz)
 			# 06.03: each failure destroys a model (3 MW each instead for
 			# an all-MONSTER/VEHICLE unit, via the 06.02 allocation).
 			if int(hz.get("failures", 0)) > 0:
@@ -4245,6 +4367,10 @@ func _process_begin_fall_back(action: Dictionary) -> Dictionary:
 				for di in out.models_destroyed:
 					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.alive" % [unit_id, int(di)], "value": false})
 					fb_hazard_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, int(di)], "value": 0})
+
+	# Emitted once the 11e fall-back mode is known, so the movement panel can
+	# show it (Desperate Escape, and that it was forced — r3:F12).
+	emit_signal("unit_move_begun", unit_id, "FALL_BACK")
 
 	var begin_changes = [
 		{
@@ -4650,6 +4776,12 @@ func _process_reset_unit_move(action: Dictionary) -> Dictionary:
 
 	emit_signal("unit_move_reset", unit_id)
 
+	# Codex: Orks (11e): resetting a reactive follow-up move keeps that move
+	# available (same maximum distance) — the stratagem has been paid for.
+	if str(_ork11e_reactive_move.get("unit_id", "")) == unit_id:
+		_ork11e_setup_reactive_active_move(unit_id, float(_ork11e_reactive_move.get("max_inches", 0.0)), str(_ork11e_reactive_move.get("source", "")))
+		emit_signal("unit_move_begun", unit_id, "NORMAL")
+
 	return create_result(true, changes)
 
 func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
@@ -4846,8 +4978,30 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		if mt_map_11e.has(move_data.mode):
 			var mt_fx = MoveTypes.get_type(mt_map_11e[move_data.mode]).after_moving_effects(
 				unit_id, {"mode": str(move_data.get("fall_back_mode", ""))})
+			# Codex: Orks (11e) MIND MOSTLY ON THE MISSION: "That move does not
+			# prevent your unit from being eligible to start an action" — drop the
+			# advance / fall-back 16.01 action lock (ActionsManager also ignores
+			# the advanced / fell_back flags for this unit).
+			if move_data.mode in ["ADVANCE", "FALL_BACK"] \
+					and get_unit(unit_id).get("flags", {}).get(Ork11eMovement.FLAG_MIND_ON_MISSION, false):
+				mt_fx = mt_fx.filter(func(fx): return not str(fx.get("path", "")).ends_with(".cannot_start_action"))
+				log_phase_message("[11e] MIND MOSTLY ON THE MISSION — %s's %s move leaves it eligible to start an action" % [unit_id, move_data.mode])
 			changes.append_array(mt_fx)
 			log_phase_message("[11e] Applied %s template AFTER effects for %s (%d ops)" % [mt_map_11e[move_data.mode], unit_id, mt_fx.size()])
+			# 09.07 AFTER MOVING (desperate escape): "If your unit is not
+			# battle-shocked, you must make a battle-shock roll" — resolve the
+			# template's pending_battleshock_roll with the engine's out-of-
+			# Command-phase roll (a failure makes the unit battle-shocked, which
+			# opens its unit_battle_shocked stratagem window).
+			if move_data.mode == "FALL_BACK" and str(move_data.get("fall_back_mode", "")) == "desperate_escape":
+				var de_shocked: bool = GameState.get_unit(unit_id).get("flags", {}).get("battle_shocked", false)
+				if not de_shocked and has_node("/root/FactionAbilityManager"):
+					var de_roll: Dictionary = get_node("/root/FactionAbilityManager").force_battle_shock_test(unit_id, 0, "Desperate Escape")
+					changes.append_array(de_roll.get("diffs", []))
+					log_phase_message("[11e 09.07] Desperate escape battle-shock roll for %s: %s = %d vs Ld %d — %s" % [
+						unit_id, str(de_roll.get("dice", [])), int(de_roll.get("total", 0)), int(de_roll.get("leadership", 0)),
+						"passed" if de_roll.get("passed", true) else "battle-shocked"])
+				changes.append({"op": "set", "path": "units.%s.flags.pending_battleshock_roll" % unit_id, "value": false})
 
 	# ISS-073 (11e 24.35): a SUPER-HEAVY WALKER that opted its models into MOBILE
 	# for this move (to cross dense/difficult terrain) gambles at move end: roll
@@ -4995,8 +5149,8 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		move_data["completed"] = true
 		emit_signal("unit_move_confirmed", unit_id, {"mode": "NORMAL", "models_moved": move_data.model_moves.size()})
 		if MissionManager:
-			MissionManager.call_deferred("check_all_objectives")
-		return create_result(true, changes)
+			MissionManager.call_deferred("check_all_objectives", false)
+		return _ork11e_with_enemy_ended_move(create_result(true, changes))
 
 	# OA-42: If this was a Scatter! reactive move, clear the reactive state
 	if move_data.get("is_reactive_move", false) and move_data.get("reactive_source", "") == "scatter":
@@ -5013,8 +5167,31 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		move_data["completed"] = true
 		emit_signal("unit_move_confirmed", unit_id, {"mode": "NORMAL", "models_moved": move_data.model_moves.size()})
 		if MissionManager:
-			MissionManager.call_deferred("check_all_objectives")
-		return create_result(true, changes)
+			MissionManager.call_deferred("check_all_objectives", false)
+		return _ork11e_with_enemy_ended_move(create_result(true, changes))
+
+	# Codex: Orks (11e) reactive normal move (SCARPER! / WHIRLIGIG EVASION /
+	# WHILE THEIR BACKS ARE TURNED follow-up, design §3.2): clear the reactive
+	# state and continue the stratagem-window flow the follow-up paused.
+	if move_data.get("is_reactive_move", false) and move_data.get("reactive_source", "") == "ork11e":
+		_reactive_move_owner = 0
+		var rm_source := str(move_data.get("ork11e_source", "reactive move"))
+		var rm_player := int(_ork11e_reactive_move.get("player", get_unit(unit_id).get("owner", 0)))
+		_ork11e_reactive_move = {}
+		move_data["completed"] = true
+		var rm_max := 0.0
+		for d in move_data.model_distances.values():
+			rm_max = max(rm_max, float(d))
+		log_phase_message("%s: reactive normal move completed for %s (%.1f\" of %.1f\")" % [rm_source, unit_id, rm_max, float(move_data.move_cap_inches)])
+		var rm_log = get_node_or_null("/root/GameEventLog")
+		if rm_log and not _ork11e_auto_moving:
+			rm_log.add_player_entry(rm_player, "%s: %s made a normal move of %.1f\"" % [rm_source, get_unit(unit_id).get("meta", {}).get("name", unit_id), rm_max])
+		emit_signal("unit_move_confirmed", unit_id, {"mode": "NORMAL", "models_moved": move_data.model_moves.size()})
+		if MissionManager:
+			MissionManager.call_deferred("check_all_objectives", false)
+		if _ork11e_auto_moving:
+			return create_result(true, changes)
+		return _finish_window_followup(changes)
 
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
@@ -5028,12 +5205,43 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	# T7-39: Recheck objective control after movement so flashes trigger in real-time
 	# Uses call_deferred so it runs after GameManager.apply_result() applies the position diffs
 	if MissionManager:
-		MissionManager.call_deferred("check_all_objectives")
+		MissionManager.call_deferred("check_all_objectives", false)
 
 	# Check for embark opportunity after movement
 	if not unit.get("disembarked_this_phase", false):
 		call_deferred("_check_embark_opportunity", unit_id)
 
+	# Codex: Orks (11e): remember the move that just ended - the opponent's
+	# enemy_ended_move window opens once the overwatch / Krump and Run /
+	# Scatter! prompts below have resolved (_ork11e_try_enemy_ended_move_window).
+	_ork11e_eem_pending = {"unit_id": unit_id, "move_type": _ork11e_move_type(str(move_data.mode))}
+
+	# Codex: Orks (11e) unit_ended_normal_move window (active player). 01.03.02:
+	# the active player's rules resolve before the opponent's (overwatch, ...).
+	if move_data.mode == "NORMAL" and GameConstants.edition >= 11:
+		var uenm_ctx := {"phase": "movement", "unit_id": unit_id}
+		var uenm_staged := _ork11e_stage_move_positions(changes)
+		var uenm_opened := open_stratagem_window(get_current_player(), "unit_ended_normal_move", uenm_ctx, "_resume_after_unit_ended_normal_move")
+		_ork11e_restore_move_positions(uenm_staged)
+		if uenm_opened:
+			log_phase_message("Waiting for Player %d's unit_ended_normal_move stratagem decision for %s" % [get_current_player(), unit_id])
+			var uenm_paused: Array = changes.duplicate()
+			uenm_paused.append_array(consume_window_diffs())
+			return create_result(true, uenm_paused, "", {"dice": additional_dice})
+		changes.append_array(consume_window_diffs())
+
+	return _post_move_prompts(unit_id, move_data, changes, additional_dice)
+
+## Prompts after a confirmed move: Fire Overwatch, Krump and Run, Scatter!, then
+## the Codex: Orks (11e) enemy_ended_move window, then the moving unit's own
+## post-move abilities (_post_move_active_abilities). Split out of
+## _process_confirm_unit_move so the unit_ended_normal_move window can resume it.
+func _post_move_prompts(unit_id: String, move_data: Dictionary, changes: Array, additional_dice: Array) -> Dictionary:
+	# Codex: Orks (11e): the prompts below can be answered INSIDE this action
+	# (e.g. "Skip Overwatch" auto-declines synchronously, and that nested
+	# DECLINE opens enemy_ended_move) before BasePhase has applied `changes`.
+	# Keep them so that window sees the moved models where they ended.
+	_ork11e_pending_move_changes = changes.duplicate()
 	# T3-11 / P2-88: Check for Fire Overwatch opportunity for the defending player
 	# Balance Dataslate timing: "when an enemy unit ends a Normal, Advance or Fall Back move"
 	# Build a temporary snapshot with the new positions applied for range checks
@@ -5081,6 +5289,22 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 		var result = create_result(true, changes, "", {"dice": additional_dice})
 		result.merge(scatter_result.result_extra)
 		return result
+
+	# Codex: Orks (11e) enemy_ended_move window (the opponent), after the
+	# overwatch / Krump and Run / Scatter! prompts above.
+	var eem := _ork11e_try_enemy_ended_move_window(true)
+	if eem.paused:
+		var eem_paused: Array = changes.duplicate()
+		eem_paused.append_array(eem.diffs)
+		return create_result(true, eem_paused, "", {"dice": additional_dice})
+	changes.append_array(eem.diffs)
+	return _post_move_active_abilities(unit_id, move_data, changes, additional_dice)
+
+## The moving unit's own post-move abilities (Bomb Squigs, Deff from Above,
+## Quicksilver Execution) - resumed after the enemy_ended_move window.
+func _post_move_active_abilities(unit_id: String, move_data: Dictionary, changes: Array, additional_dice: Array) -> Dictionary:
+	var unit = get_unit(unit_id)
+	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
 	# P2-25: Check for Bomb Squigs after Normal move
 	var _ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -5900,7 +6124,14 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 
 	# T7-39: Recheck objective control after reinforcement placement
 	if MissionManager:
-		MissionManager.call_deferred("check_all_objectives")
+		MissionManager.call_deferred("check_all_objectives", false)
+
+	# Codex: Orks (11e) enemy_ended_move: the arrival is an ingress move
+	# (20.04). The opponent's window opens once the Fire Overwatch prompt
+	# below has resolved (its decline / use paths open it), else right away.
+	if GameConstants.edition >= 11:
+		_ork11e_eem_pending = {"unit_id": unit_id, "move_type": "ingress"}
+		_ork11e_pending_move_changes = []
 
 	# P2-88: Check for Fire Overwatch opportunity after reinforcement is set up
 	# Balance Dataslate timing: "just after an enemy unit is set up"
@@ -5910,7 +6141,7 @@ func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 		result.merge(ow_result.result_extra)
 		return result
 
-	return create_result(true, changes)
+	return _ork11e_with_enemy_ended_move(create_result(true, changes))
 
 func _process_end_movement(action: Dictionary) -> Dictionary:
 	log_phase_message("=== PROCESSING END_MOVEMENT ===")
@@ -6194,6 +6425,12 @@ func _check_krump_and_run_opportunity(fell_back_unit_id: String, snapshot_overri
 	var kar_strat_name = "Krump and Run"
 	for candidate in ["Krump and Run", "On to da Next", "Where D'ya Fink You're Going?"]:
 		kar_strat_id = strat_manager.find_faction_stratagem_by_name(defending_player, candidate)
+		# Codex: Orks (11e) WHERE D'YA FINK YOU'RE GOING? is NOT the old 10e
+		# reactive 6" move — it is offered in the enemy_selected_to_fall_back
+		# window (OrkCodexMovement). Skip every codex row here.
+		if kar_strat_id != "" and Ork11eCodex.handles(strat_manager.get_stratagem(kar_strat_id)):
+			kar_strat_id = ""
+			continue
 		if kar_strat_id != "":
 			kar_strat_name = candidate
 			break
@@ -6386,7 +6623,7 @@ func _process_decline_krump_and_run(action: Dictionary) -> Dictionary:
 	_krump_and_run_unit_id = ""
 	_krump_and_run_strat_id = ""
 
-	return create_result(true, [])
+	return _ork11e_with_enemy_ended_move(create_result(true, []))
 
 # ============================================================================
 # OA-42: SCATTER! — GROT TANKS REACTIVE MOVE
@@ -6634,7 +6871,744 @@ func _process_decline_scatter(action: Dictionary) -> Dictionary:
 	_scatter_trigger_unit_id = ""
 	_scatter_unit_id = ""
 
+	return _ork11e_with_enemy_ended_move(create_result(true, []))
+
+# ============================================================================
+# CODEX: ORKS (11e) — STRATAGEM WINDOWS + FOLLOW-UPS
+# (design .llm/ork_codex_11e_design.md §3, §3.2, §6; handlers in
+# scripts/stratagems/ork_codex/OrkCodexMovement.gd)
+# ============================================================================
+#   unit_selected_to_move       BEGIN_NORMAL_MOVE / BEGIN_ADVANCE / BEGIN_FALL_BACK,
+#                               before any roll or move cap (active player)
+#   enemy_selected_to_fall_back BEGIN_FALL_BACK, queued after the above (opponent)
+#   unit_ended_normal_move      CONFIRM_UNIT_MOVE of a normal move (active player)
+#   enemy_ended_move            CONFIRM_UNIT_MOVE of the active player's unit, after
+#                               the overwatch / Krump and Run / Scatter! prompts (opponent)
+#   movement_phase_start / _end phase entry / END_MOVEMENT (active player first)
+# Follow-ups: reactive_normal_move (human: drag + End This Unit's Move; AI:
+# auto-move) and assault_disembark (human: disembark dialog + placement; AI:
+# auto-placement).
+
+func _ork11e_move_type(mode: String) -> String:
+	match mode:
+		"NORMAL":
+			return "normal"
+		"ADVANCE":
+			return "advance"
+		"FALL_BACK":
+			return "fall_back"
+		"SURGE":
+			return "surge"
+	return mode.to_lower()
+
+## Append window diffs (CP + effects of synchronous/AI uses) to a result.
+func _ork11e_merge_diffs(result: Dictionary, diffs: Array) -> Dictionary:
+	if diffs.is_empty():
+		return result
+	var merged: Array = result.get("changes", []).duplicate()
+	merged.append_array(diffs)
+	result["changes"] = merged
+	return result
+
+## unit_selected_to_move (+ enemy_selected_to_fall_back for a fall-back move),
+## before any roll or cap is computed. Each window opens once per unit and move
+## type per phase: the drag UI re-sends BEGIN_NORMAL_MOVE on selection AND on
+## "Confirm Movement Mode", and a player may switch Normal -> Advance (the
+## Advance window then offers the advance-only stratagems). Returns {paused, diffs}.
+func _ork11e_open_selected_to_move_windows(action: Dictionary, move_type: String) -> Dictionary:
+	var none := {"paused": false, "diffs": []}
+	if GameConstants.edition < 11:
+		return none
+	var unit_id := str(action.get("actor_unit_id", ""))
+	if unit_id == "":
+		return none
+	var key := "%s:%s" % [unit_id, move_type]
+	if _ork11e_stm_opened.has(key):
+		return none
+	_ork11e_stm_opened[key] = true
+	var active := get_current_player()
+	var entries: Array = [{"player": active, "window_id": "unit_selected_to_move",
+		"ctx": {"phase": "movement", "unit_id": unit_id, "move_type": move_type}}]
+	if move_type == "fall_back":
+		entries.append({"player": 2 if active == 1 else 1, "window_id": "enemy_selected_to_fall_back",
+			"ctx": {"phase": "movement", "enemy_unit_id": unit_id}})
+	var resume_ctx := {"phase": "movement", "unit_id": unit_id, "move_type": move_type, "action": action.duplicate(true)}
+	if open_stratagem_windows(entries, "_resume_after_selected_to_move", resume_ctx):
+		log_phase_message("Waiting for Player %d's stratagem decision: %s selected to make a %s move" % [
+			get_pending_stratagem_window_decider(), unit_id, move_type])
+		return {"paused": true, "diffs": consume_window_diffs()}
+	return {"paused": false, "diffs": consume_window_diffs()}
+
+## Resume point for the selected-to-move windows (BasePhase framework).
+func _resume_after_selected_to_move(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	var action: Dictionary = ctx.get("action", {})
+	match str(ctx.get("move_type", "")):
+		"normal":
+			return _process_begin_normal_move_after_windows(action)
+		"advance":
+			return _process_begin_advance_after_windows(action)
+		"fall_back":
+			return _process_begin_fall_back_after_windows(action)
 	return create_result(true, [])
+
+## Resume point for unit_ended_normal_move: the remaining post-move prompts.
+func _resume_after_unit_ended_normal_move(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	var unit_id := str(ctx.get("unit_id", ""))
+	return _post_move_prompts(unit_id, active_moves.get(unit_id, {"mode": "NORMAL"}), [], [])
+
+## Opens the opponent's enemy_ended_move window for the move recorded in
+## _ork11e_eem_pending — only once no other post-move prompt (overwatch,
+## Krump and Run, Scatter! and their reactive moves) is outstanding.
+## continue_active_abilities: resume the moving unit's own post-move
+## abilities afterwards (the inline confirm path). Returns {paused, diffs}.
+func _ork11e_try_enemy_ended_move_window(continue_active_abilities: bool) -> Dictionary:
+	var none := {"paused": false, "diffs": []}
+	if _ork11e_eem_pending.is_empty() or GameConstants.edition < 11:
+		return none
+	if _awaiting_fire_overwatch or _awaiting_overwatch_decision or _awaiting_krump_and_run or _awaiting_scatter \
+			or _krump_and_run_unit_id != "" or _scatter_unit_id != "" \
+			or has_pending_stratagem_window() or _window_followup_pending:
+		return none
+	var pending := _ork11e_eem_pending
+	_ork11e_eem_pending = {}
+	var trigger_id := str(pending.get("unit_id", ""))
+	var trigger := get_unit(trigger_id)
+	if trigger.is_empty() or int(trigger.get("owner", 0)) != get_current_player():
+		return none
+	var defender := 2 if get_current_player() == 1 else 1
+	var ctx := {"phase": "movement", "enemy_unit_id": trigger_id, "move_type": str(pending.get("move_type", "")),
+		"continue_active_abilities": continue_active_abilities}
+	# Offers (SCARPER!'s 8" gate, ...) and AI follow-ups must see the moved
+	# unit where it ended, even when this runs inside its CONFIRM action.
+	# Staging is a no-op once BasePhase has applied the move.
+	var eem_staged := _ork11e_stage_move_positions(_ork11e_pending_move_changes)
+	_ork11e_pending_move_changes = []
+	var eem_opened := open_stratagem_window(defender, "enemy_ended_move", ctx, "_resume_after_enemy_ended_move")
+	_ork11e_restore_move_positions(eem_staged)
+	if eem_opened:
+		log_phase_message("Waiting for Player %d's enemy_ended_move stratagem decision (%s ended a %s move)" % [
+			defender, trigger_id, str(pending.get("move_type", ""))])
+		return {"paused": true, "diffs": consume_window_diffs()}
+	return {"paused": false, "diffs": consume_window_diffs()}
+
+## Windows opened inside CONFIRM_UNIT_MOVE run before BasePhase applies the
+## move's `changes` to GameState, yet window offers (SCARPER!'s 8" gate, ...)
+## and AI follow-ups (auto reactive move, assault disembark set-up) read
+## GameState (and this phase's game_state_snapshot, which validation such as
+## CONFIRM_DISEMBARK reads). Put the moved models at their new position /
+## rotation in both for the window, then restore them
+## (_ork11e_restore_move_positions) so the action's own diff application - and
+## the reverse diffs captured for it - are unchanged.
+func _ork11e_stage_move_positions(changes: Array) -> Dictionary:
+	var saved := {}
+	var stores: Array = [GameState.state]
+	if not is_same(game_state_snapshot, GameState.state):
+		stores.append(game_state_snapshot)
+	for c in changes:
+		if not c is Dictionary or str(c.get("op", "")) != "set":
+			continue
+		var parts: PackedStringArray = str(c.get("path", "")).split(".")
+		if parts.size() != 5 or parts[0] != "units" or parts[2] != "models" or not parts[4] in ["position", "rotation"]:
+			continue
+		var idx := int(parts[3])
+		for si in range(stores.size()):
+			var models: Array = stores[si].get("units", {}).get(parts[1], {}).get("models", [])
+			if idx < 0 or idx >= models.size():
+				continue
+			var key := "%d|%s|%d|%s" % [si, parts[1], idx, parts[4]]
+			if not saved.has(key):
+				saved[key] = {"store": stores[si], "had": models[idx].has(parts[4]), "value": models[idx].get(parts[4])}
+			models[idx][parts[4]] = c.get("value")
+	return saved
+
+func _ork11e_restore_move_positions(saved: Dictionary) -> void:
+	for key in saved:
+		var parts: PackedStringArray = str(key).split("|")
+		var models: Array = saved[key].store.get("units", {}).get(parts[1], {}).get("models", [])
+		var idx := int(parts[2])
+		if idx < 0 or idx >= models.size():
+			continue
+		if saved[key].had:
+			models[idx][parts[3]] = saved[key].value
+		else:
+			models[idx].erase(parts[3])
+
+## Deferred post-move prompt points (overwatch / Krump and Run / Scatter!
+## resolved): open enemy_ended_move and merge its synchronous diffs.
+func _ork11e_with_enemy_ended_move(result: Dictionary) -> Dictionary:
+	if not result.get("success", false):
+		return result
+	var eem := _ork11e_try_enemy_ended_move_window(false)
+	return _ork11e_merge_diffs(result, eem.diffs)
+
+## Resume point for enemy_ended_move.
+func _resume_after_enemy_ended_move(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	if bool(ctx.get("continue_active_abilities", false)):
+		var uid := str(ctx.get("enemy_unit_id", ""))
+		return _post_move_active_abilities(uid, active_moves.get(uid, {"mode": ""}), [], [])
+	return create_result(true, [])
+
+## movement_phase_start (09.01): opened from _on_phase_enter. AI uses are
+## applied by StratagemManager immediately (there is no action result to
+## carry their diffs at phase entry).
+func _ork11e_open_movement_phase_start_windows() -> void:
+	if GameConstants.edition < 11:
+		return
+	var pm = get_node_or_null("/root/PhaseManager")
+	if pm != null and pm.current_phase_instance != self:
+		return  # the phase already completed (no unit could move)
+	if open_stratagem_window_both_players("movement_phase_start", {"phase": "movement"}, "_resume_after_movement_phase_start"):
+		log_phase_message("Waiting for Player %d's movement_phase_start stratagem decision" % get_pending_stratagem_window_decider())
+	var start_diffs := consume_window_diffs()
+	if not start_diffs.is_empty():
+		log_phase_message("movement_phase_start: %d stratagem diff(s) applied by an AI decision at phase entry" % start_diffs.size())
+
+func _resume_after_movement_phase_start(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return create_result(true, [])
+
+## Every path that ends the Movement phase comes here: the Codex: Orks (11e)
+## movement_phase_end windows (active player, then the opponent — after Rapid
+## Ingress etc., design §3), then phase_completed. 14.02.01: objective control
+## is determined first, so DUBIOUS RESTRAINT sees this phase's moves.
+func _complete_movement_phase(changes: Array) -> Dictionary:
+	var out: Array = changes.duplicate()
+	if GameConstants.edition >= 11 and not _ork11e_phase_end_windows_done:
+		_ork11e_phase_end_windows_done = true
+		var mm = get_node_or_null("/root/MissionManager")
+		if mm != null and mm.has_method("check_all_objectives"):
+			mm.check_all_objectives()
+		var ctx := {"phase": "movement", "engaged_at_phase_start": _engagement_at_phase_start.keys()}
+		if open_stratagem_window_both_players("movement_phase_end", ctx, "_resume_after_movement_phase_end"):
+			log_phase_message("Movement phase end waits for Player %d's movement_phase_end stratagem decision" % get_pending_stratagem_window_decider())
+			out.append_array(consume_window_diffs())
+			return create_result(true, out)
+		out.append_array(consume_window_diffs())
+	emit_signal("phase_completed")
+	return create_result(true, out)
+
+func _resume_after_movement_phase_end(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	log_phase_message("movement_phase_end windows answered — ending the Movement phase")
+	emit_signal("phase_completed")
+	return create_result(true, [])
+
+## A HUMAN-driven follow-up (reactive move / assault disembark) holds the
+## phase like a pending window: report its owner so AIPlayer idles until it
+## completes. (BasePhase's own gate only knows _window_pending.)
+func get_pending_stratagem_window_decider() -> int:
+	var decider := super()
+	if decider > 0:
+		return decider
+	if not _ork11e_reactive_move.is_empty():
+		return int(_ork11e_reactive_move.get("player", 0))
+	if not _ork11e_assault_disembark.is_empty():
+		return int(_ork11e_assault_disembark.get("player", 0))
+	return 0
+
+## Movement actions a reactive normal move (codex follow-up, Krump and Run,
+## Scatter!) is made with.
+const _REACTIVE_MOVE_ACTIONS := ["SET_MODEL_DEST", "STAGE_MODEL_MOVE", "UNDO_LAST_MODEL_MOVE", "RESET_UNIT_MOVE",
+	"CONFIRM_UNIT_MOVE", "APPLY_PIVOT_COST", "SET_TAKE_TO_SKIES", "LOCK_MOVEMENT_MODE"]
+
+## Network turn layer (F3 / AI-04): the follow-up owner (BasePhase), and the
+## owner of a pre-existing reactive move (Krump and Run / Scatter!) moving
+## THAT unit, may act during the opponent's turn.
+func allows_cross_turn_action(action: Dictionary) -> bool:
+	if super(action):
+		return true
+	var claimed := int(action.get("player", -1))
+	var uid := str(action.get("actor_unit_id", ""))
+	var move_data: Dictionary = active_moves.get(uid, {})
+	return claimed > 0 and _reactive_move_owner == claimed and str(action.get("type", "")) in _REACTIVE_MOVE_ACTIONS \
+		and bool(move_data.get("is_reactive_move", false)) and not bool(move_data.get("completed", false)) \
+		and int(get_unit(uid).get("owner", 0)) == claimed
+
+## While a human follow-up owns the phase only its own actions are accepted —
+## and only from the player who owns it (AI-05: the opponent, e.g. an AI that
+## sees the unit in active_moves, must not stage or end the owner's move).
+func _ork11e_followup_gate(action: Dictionary) -> Dictionary:
+	var t := str(action.get("type", ""))
+	if t.begins_with("DEBUG_"):
+		return {}
+	if not _ork11e_reactive_move.is_empty():
+		var rm_uid := str(_ork11e_reactive_move.get("unit_id", ""))
+		var rm_owner := int(_ork11e_reactive_move.get("player", 0))
+		if t in _REACTIVE_MOVE_ACTIONS and str(action.get("actor_unit_id", "")) == rm_uid:
+			if action.has("player") and int(action.get("player", 0)) != rm_owner:
+				return {"valid": false, "errors": ["Player %d is making this %s move, not Player %d" % [
+					rm_owner, str(_ork11e_reactive_move.get("source", "reactive")), int(action.get("player", 0))]]}
+			return {}
+		var rm_msg := "Finish %s's %s move first" % [get_unit(rm_uid).get("meta", {}).get("name", rm_uid), str(_ork11e_reactive_move.get("source", "reactive"))]
+		return {"valid": false, "errors": [rm_msg]}
+	if not _ork11e_assault_disembark.is_empty():
+		var remaining: Array = _ork11e_assault_disembark.get("remaining", [])
+		var ad_uid := str(action.get("actor_unit_id", action.get("payload", {}).get("unit_id", "")))
+		if ad_uid == "":
+			ad_uid = str(action.get("payload", {}).get("unit_id", ""))
+		if t in ["DISEMBARK_UNIT", "CONFIRM_DISEMBARK", "SKIP_ASSAULT_DISEMBARK"] and ad_uid in remaining:
+			var ad_owner := int(_ork11e_assault_disembark.get("player", 0))
+			if action.has("player") and int(action.get("player", 0)) != ad_owner:
+				return {"valid": false, "errors": ["Player %d makes this READIED BRAWLERS assault disembark, not Player %d" % [
+					ad_owner, int(action.get("player", 0))]]}
+			return {}
+		var ad_msg := "Finish READIED BRAWLERS first: assault disembark (or stay embarked) with %s" % ", ".join(PackedStringArray(remaining))
+		return {"valid": false, "errors": [ad_msg]}
+	return {}
+
+## Follow-up executor (design §3.2).
+func _execute_window_followup(player: int, window_id: String, followup: Dictionary, ctx: Dictionary) -> bool:
+	match str(followup.get("type", "")):
+		"reactive_normal_move":
+			return _ork11e_begin_reactive_normal_move(player, followup)
+		"assault_disembark":
+			return _ork11e_begin_assault_disembark(player, followup)
+	return super(player, window_id, followup, ctx)
+
+## active_moves entry for a reactive normal move (the Krump and Run / Scatter!
+## shape) — the unit's owner, not the active player, makes it.
+func _ork11e_setup_reactive_active_move(unit_id: String, max_inches: float, source: String) -> void:
+	active_moves[unit_id] = {
+		"mode": "NORMAL",
+		"mode_locked": true,
+		"completed": false,
+		"took_to_skies": false,
+		"shw_mobile": false,
+		"move_cap_inches": max_inches,
+		"advance_roll": 0,
+		"model_moves": [],
+		"staged_moves": [],
+		"original_positions": {},
+		"original_rotations": {},
+		"model_distances": {},
+		"dice_rolls": [],
+		"battle_shocked": false,
+		"pivot_value": get_pivot_value_for_unit(unit_id),
+		"pivot_cost_applied": false,
+		"group_moves": [],
+		"group_selection": [],
+		"group_formation": {},
+		"is_reactive_move": true,
+		"reactive_source": "ork11e",
+		"ork11e_source": source,
+	}
+	var unit := get_unit(unit_id)
+	var group: Array = [unit_id]
+	for cid in unit.get("attachment_data", {}).get("attached_characters", []):
+		group.append(str(cid))
+	for gid in group:
+		for model in get_unit(gid).get("models", []):
+			if not model.get("alive", true):
+				continue
+			var key := "%s:%s" % [gid, str(model.get("id", ""))]
+			active_moves[unit_id]["original_positions"][key] = _get_model_position(model)
+			active_moves[unit_id]["original_rotations"][key] = model.get("rotation", 0.0)
+
+## reactive_normal_move follow-up: "Your unit can make a normal move of up to
+## X" (SCARPER!, WHIRLIGIG EVASION, WHILE THEIR BACKS ARE TURNED). Normal-move
+## rules apply (max distance, end unengaged, no moving through enemy models,
+## coherency at confirm). Human: paused until End This Unit's Move; AI: moved now.
+func _ork11e_begin_reactive_normal_move(player: int, followup: Dictionary) -> bool:
+	var unit_id := str(followup.get("unit_id", ""))
+	var cap := float(followup.get("max_inches", 0.0))
+	var source := str(followup.get("source", "reactive move"))
+	var unit := get_unit(unit_id)
+	if unit.is_empty() or _is_unit_destroyed_check(unit) or cap <= 0.0:
+		log_phase_message("%s: no reactive move for %s (unit gone or 0\")" % [source, unit_id])
+		return false
+	var unit_name := str(unit.get("meta", {}).get("name", unit_id))
+	var roll := int(followup.get("roll", 0))
+	dice_log.append({"unit_id": unit_id, "unit_name": unit_name, "type": source,
+		"roll": roll, "result": ("D6 = %d — normal move up to %d\"" % [roll, roll]) if roll > 0 else "normal move up to %.0f\"" % cap})
+	if _is_ai_window_decider(player):
+		var ai_diffs := _ork11e_auto_reactive_move(player, unit_id, cap, source, followup)
+		_window_sync_diffs.append_array(ai_diffs)
+		return false
+	_ork11e_reactive_move = {"player": player, "unit_id": unit_id, "max_inches": cap, "source": source}
+	_reactive_move_owner = player
+	_ork11e_setup_reactive_active_move(unit_id, cap, source)
+	log_phase_message("%s: Player %d's %s makes a normal move of up to %.1f\" — waiting for the move" % [source, player, unit_id, cap])
+	emit_signal("unit_move_begun", unit_id, "NORMAL")
+	return true
+
+## AI reactive normal move: translate the whole (Attached) unit rigidly —
+## away from the enemy that triggered it, or towards the nearest objective
+## the player does not control — trying shorter distances / other headings
+## until every model's destination passes the normal-move checks. Returns the
+## applied diffs ([] = no legal move found; the unit stays where it is).
+func _ork11e_auto_reactive_move(player: int, unit_id: String, cap: float, source: String, followup: Dictionary) -> Array:
+	_reactive_move_owner = player
+	_ork11e_setup_reactive_active_move(unit_id, cap, source)
+	var move_data: Dictionary = active_moves[unit_id]
+	var entries: Array = []
+	var group_ids: Dictionary = {}
+	for key in move_data.original_positions:
+		var parts: PackedStringArray = str(key).split(":")
+		var gid := parts[0]
+		var mid := parts[parts.size() - 1]
+		var model := _get_model_in_unit(gid, mid)
+		var pos = move_data.original_positions[key]
+		if model.is_empty() or pos == null:
+			continue
+		entries.append({"uid": gid, "model": model, "pos": pos})
+		group_ids[gid] = true
+	if entries.is_empty():
+		active_moves.erase(unit_id)
+		_reactive_move_owner = 0
+		return []
+	var centroid := Vector2.ZERO
+	for e in entries:
+		centroid += e.pos
+	centroid /= float(entries.size())
+	var target := _ork11e_auto_move_target(player, unit_id, centroid, followup)
+	var dir := (target - centroid).normalized() if target != Vector2.INF and (target - centroid).length() > 1.0 else Vector2(0, -1 if player == 1 else 1)
+	var max_px := Measurement.inches_to_px(maxf(0.0, cap - 0.05))
+	if target != Vector2.INF and str(followup.get("goal", "")) != "away":
+		max_px = minf(max_px, maxf(Measurement.inches_to_px(0.5), (target - centroid).length() - Measurement.inches_to_px(1.0)))
+	var chosen := Vector2.INF
+	for frac in [1.0, 0.75, 0.5, 0.25]:
+		for ang in [0, 30, -30, 60, -60, 90, -90, 135, -135, 180]:
+			var v: Vector2 = dir.rotated(deg_to_rad(float(ang))) * max_px * float(frac)
+			if _ork11e_translation_legal(unit_id, move_data, entries, group_ids, v, cap):
+				chosen = v
+				break
+		if chosen != Vector2.INF:
+			break
+	if chosen == Vector2.INF:
+		log_phase_message("%s: AI found no legal normal move for %s — it stays where it is" % [source, unit_id])
+		active_moves.erase(unit_id)
+		_reactive_move_owner = 0
+		return []
+	var moved_in := Measurement.px_to_inches(chosen.length())
+	for e in entries:
+		var dest: Vector2 = e.pos + chosen
+		move_data.staged_moves.append({"model_id": str(e.model.get("id", "")), "model_source_unit_id": e.uid,
+			"from": e.pos, "dest": dest, "rotation": e.model.get("rotation", 0.0),
+			"distance": moved_in, "total_distance": moved_in, "crosses_enemy": false})
+		move_data.model_distances["%s:%s" % [e.uid, str(e.model.get("id", ""))]] = moved_in
+	_ork11e_auto_moving = true
+	var res := _process_confirm_unit_move({"type": "CONFIRM_UNIT_MOVE", "actor_unit_id": unit_id, "payload": {}})
+	_ork11e_auto_moving = false
+	var diffs: Array = res.get("changes", [])
+	PhaseManager.apply_state_changes(diffs)
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_player_entry(player, "%s: %s made a normal move of %.1f\"" % [source, get_unit(unit_id).get("meta", {}).get("name", unit_id), moved_in])
+	log_phase_message("%s: AI moved %s %.1f\" (cap %.1f\")" % [source, unit_id, moved_in, cap])
+	call_deferred("_ork11e_refresh_board_visuals")
+	return diffs
+
+func _ork11e_auto_move_target(player: int, unit_id: String, centroid: Vector2, followup: Dictionary) -> Vector2:
+	var away_id := str(followup.get("away_from_unit_id", ""))
+	if str(followup.get("goal", "")) == "away" and away_id != "":
+		var ec = _get_unit_center(get_unit(away_id))
+		if ec != null and (centroid - ec).length() > 1.0:
+			return centroid + (centroid - ec).normalized() * Measurement.inches_to_px(24.0)
+	var best := Vector2.INF
+	var best_d := INF
+	var mm = get_node_or_null("/root/MissionManager")
+	for obj in GameState.state.get("board", {}).get("objectives", []):
+		if mm != null and int(mm.objective_control_state.get(str(obj.get("id", "")), 0)) == player:
+			continue
+		var op = obj.get("position", null)
+		if op == null:
+			continue
+		var opv := Vector2(float(op.x), float(op.y)) if op is Vector2 else Vector2(float(op.get("x", 0)), float(op.get("y", 0)))
+		if centroid.distance_to(opv) < best_d:
+			best_d = centroid.distance_to(opv)
+			best = opv
+	if best != Vector2.INF:
+		return best
+	for eid in GameState.state.get("units", {}):
+		var e = GameState.state.units[eid]
+		if int(e.get("owner", 0)) == player or _is_unit_destroyed_check(e):
+			continue
+		var ec2 = _get_unit_center(e)
+		if ec2 != null and centroid.distance_to(ec2) < best_d:
+			best_d = centroid.distance_to(ec2)
+			best = ec2
+	return best
+
+## Normal-move legality of a rigid translation `v` of every model in `entries`
+## (the same checks STAGE_MODEL_MOVE runs, minus overlaps inside the moving
+## unit — a rigid translation keeps its models apart and in coherency).
+func _ork11e_translation_legal(unit_id: String, move_data: Dictionary, entries: Array, group_ids: Dictionary, v: Vector2, cap: float) -> bool:
+	var fly := _unit_has_fly_keyword(unit_id)
+	var kws := _terrain_rule_keywords(unit_id, move_data)
+	for e in entries:
+		var model: Dictionary = e.model
+		var from: Vector2 = e.pos
+		var dest: Vector2 = from + v
+		var dist := Measurement.distance_inches(from, dest) + _get_movement_terrain_penalty(from, dest, unit_id, false)
+		if dist > cap + MOVEMENT_CAP_EPSILON:
+			return false
+		if not _check_dense_terrain_gate(unit_id, move_data, from, dest, model).valid:
+			return false
+		if not _check_engagement_range_at_position(e.uid, str(model.get("id", "")), dest, "NORMAL").valid:
+			return false
+		if not fly and _path_crosses_enemy_bases(from, dest, unit_id, model):
+			return false
+		if not fly and _path_crosses_monster_vehicle_bases(from, dest, unit_id, model):
+			return false
+		if _position_intersects_terrain(dest, model):
+			return false
+		if _position_outside_board_bounds(dest, model):
+			return false
+		var at_dest: Dictionary = model.duplicate(true)
+		at_dest["position"] = dest
+		if Measurement.model_overlaps_any_wall(at_dest, kws):
+			return false
+		for oid in GameState.state.get("units", {}):
+			if group_ids.has(oid):
+				continue
+			for om in GameState.state.units[oid].get("models", []):
+				if not om.get("alive", true) or om.get("position", null) == null:
+					continue
+				if Measurement.models_overlap(at_dest, om) and not _is_touching_within_tolerance(at_dest, om):
+					return false
+	return true
+
+func _ork11e_refresh_board_visuals() -> void:
+	if not is_inside_tree():
+		return
+	var main = get_tree().current_scene
+	if main != null and main.has_method("_recreate_unit_visuals"):
+		main._recreate_unit_visuals()
+
+## assault_disembark follow-up (READIED BRAWLERS): every unit embarked within
+## the WAGON may make an assault disembark move (18.06), one at a time.
+## Human: paused — MovementController shows the disembark dialog + placement
+## for each unit (CONFIRM_DISEMBARK, or SKIP_ASSAULT_DISEMBARK to stay
+## embarked). AI: every eligible unit is auto-placed now.
+func _ork11e_begin_assault_disembark(player: int, followup: Dictionary) -> bool:
+	var transport_id := str(followup.get("transport_id", ""))
+	var units: Array = Ork11eMovement.assault_disembark_candidates(transport_id)
+	if units.is_empty():
+		_window_sync_diffs.append_array(_ork11e_readied_brawlers_off(transport_id))
+		return false
+	if _is_ai_window_decider(player):
+		var ai_diffs: Array = []
+		for uid in units:
+			var ai_payload := _ork11e_ai_assault_disembark_payload(str(uid), transport_id, player)
+			if ai_payload.is_empty():
+				log_phase_message("READIED BRAWLERS: AI found no assault disembark set-up for %s — it stays embarked" % uid)
+				continue
+			var res := _process_confirm_disembark({"type": "CONFIRM_DISEMBARK", "actor_unit_id": uid, "player": player,
+				"payload": ai_payload})
+			if not res.get("success", false):
+				log_phase_message("READIED BRAWLERS: AI assault disembark of %s refused: %s" % [uid, str(res.get("error", ""))])
+				continue
+			PhaseManager.apply_state_changes(res.get("changes", []))
+			ai_diffs.append_array(res.get("changes", []))
+		ai_diffs.append_array(_ork11e_readied_brawlers_off(transport_id))
+		_window_sync_diffs.append_array(ai_diffs)
+		call_deferred("_ork11e_refresh_board_visuals")
+		return false
+	_ork11e_assault_disembark = {"player": player, "transport_id": transport_id, "remaining": units.duplicate()}
+	log_phase_message("READIED BRAWLERS: Player %d may assault disembark %s from %s" % [player, str(units), transport_id])
+	emit_signal("ork11e_assault_disembark_requested", player, transport_id, str(units[0]))
+	return true
+
+## READIED BRAWLERS (AI decider): a CONFIRM_DISEMBARK payload for `uid`'s
+## assault disembark, or {} when no legal set-up exists. Tries the AI's own
+## AIDecisionMaker._compute_disembark_positions first; its circular model of
+## the hull misplaces models beside long rectangular WAGON hulls, so when that
+## set-up fails validation (or the unit has an attached CHARACTER, which it does
+## not place) a greedy shape-aware placement is used instead.
+func _ork11e_ai_assault_disembark_payload(uid: String, transport_id: String, player: int) -> Dictionary:
+	var group: Array = [uid]
+	for c in get_unit(uid).get("attachment_data", {}).get("attached_characters", []):
+		if str(get_unit(str(c)).get("embarked_in", "")) == transport_id:
+			group.append(str(c))
+	if group.size() == 1:
+		var ADM = load("res://scripts/AIDecisionMaker.gd")
+		var positions: Array = ADM._compute_disembark_positions(GameState.get_unit(uid), GameState.get_unit(transport_id),
+			GameState.state.get("units", {}), player, GameState.state)
+		if not positions.is_empty():
+			var payload := {"positions": positions}
+			var v := _validate_confirm_disembark({"type": "CONFIRM_DISEMBARK", "actor_unit_id": uid, "payload": payload})
+			if v.get("valid", false):
+				return payload
+			log_phase_message("READIED BRAWLERS: AI default disembark set-up for %s rejected (%s) — using shape-aware placement" % [uid, str(v.get("errors", []))])
+	return _ork11e_greedy_disembark_payload(uid, group, transport_id, player)
+
+## Greedy placement on a 0.5" grid around the hull: every candidate honours the
+## checks _validate_confirm_disembark makes (within 3" of the hull, no overlap,
+## outside engagement range, on the board). The first model takes the legal
+## spot nearest the enemy (the point of an assault disembark is to charge);
+## the rest pack around the models already placed so the unit stays coherent.
+func _ork11e_greedy_disembark_payload(uid: String, group: Array, transport_id: String, player: int) -> Dictionary:
+	var transport := get_unit(transport_id)
+	var tmodels: Array = transport.get("models", [])
+	if tmodels.is_empty() or tmodels[0].get("position") == null:
+		return {}
+	var tp = tmodels[0].position
+	var tpos := Vector2(float(tp.x), float(tp.y)) if tp is Dictionary else Vector2(tp)
+	var px_in := Measurement.inches_to_px(1.0)
+	var to_place: Array = []
+	var max_r := 0.0
+	for gid in group:
+		var gm: Array = get_unit(str(gid)).get("models", [])
+		for i in range(gm.size()):
+			if gm[i].get("alive", true):
+				to_place.append([str(gid), i, gm[i]])
+				max_r = maxf(max_r, Measurement.base_extent_px(gm[i]))
+	if to_place.is_empty():
+		return {}
+	var reach := Measurement.base_extent_px(tmodels[0]) + 3.0 * px_in + 2.0 * max_r
+	# Obstacles near the hull (every other on-board model) and enemy models.
+	var obstacles: Array = []
+	var enemies: Array = []
+	for oid in game_state_snapshot.get("units", {}):
+		if oid in group:
+			continue
+		var ou: Dictionary = game_state_snapshot.units[oid]
+		if ou.get("embarked_in", null) != null:
+			continue
+		for om in ou.get("models", []):
+			if not om.get("alive", true) or om.get("position") == null:
+				continue
+			var op = om.position
+			var opos := Vector2(float(op.x), float(op.y)) if op is Dictionary else Vector2(op)
+			if int(ou.get("owner", 0)) != player:
+				enemies.append(opos)
+			if opos.distance_to(tpos) <= reach + 4.0 * px_in:
+				obstacles.append(om)
+	var cands: Array = []
+	var step := 0.5 * px_in
+	var n := int(ceil(reach / step))
+	for gx in range(-n, n + 1):
+		for gy in range(-n, n + 1):
+			var c := tpos + Vector2(gx * step, gy * step)
+			var near := INF
+			for e in enemies:
+				near = minf(near, c.distance_to(e))
+			cands.append({"pos": c, "enemy": near})
+	cands.sort_custom(func(a, b): return a.enemy < b.enemy)
+	var placed: Array = []
+	var out := {}
+	for entry in to_place:
+		var gid: String = entry[0]
+		var model: Dictionary = entry[2]
+		var order: Array = cands
+		if not placed.is_empty():
+			var centroid := Vector2.ZERO
+			for pm in placed:
+				centroid += Vector2(float(pm.position.x), float(pm.position.y))
+			centroid /= float(placed.size())
+			order = cands.duplicate()
+			order.sort_custom(func(a, b): return a.pos.distance_squared_to(centroid) < b.pos.distance_squared_to(centroid))
+		var chosen := {}
+		for cand in order:
+			var pos: Vector2 = cand.pos
+			var at: Dictionary = model.duplicate()
+			at["position"] = {"x": pos.x, "y": pos.y}
+			if not TransportManager.is_position_within_disembark_range(pos, model, transport, 3.0).get("within_range", false):
+				continue
+			if _position_outside_board_bounds(pos, at):
+				continue
+			var clash := false
+			for other in placed:
+				if Measurement.models_overlap(at, other):
+					clash = true
+					break
+			if clash:
+				continue
+			if not placed.is_empty():
+				var coherent := false
+				for other in placed:
+					if Measurement.is_within_coherency(at, other):
+						coherent = true
+						break
+				if not coherent:
+					continue
+			for other in obstacles:
+				if Measurement.models_overlap(at, other):
+					clash = true
+					break
+			if clash or _model_in_engagement_range(at, int(get_unit(gid).get("owner", player))):
+				continue
+			chosen = at
+			break
+		if chosen.is_empty():
+			return {}
+		placed.append(chosen)
+		if not out.has(gid):
+			out[gid] = []
+		out[gid].append({"x": float(chosen.position.x), "y": float(chosen.position.y)})
+	var payload := {"positions": out.get(uid, [])}
+	if group.size() > 1:
+		payload["group_positions"] = out
+	var v := _validate_confirm_disembark({"type": "CONFIRM_DISEMBARK", "actor_unit_id": uid, "payload": payload})
+	if not v.get("valid", false):
+		log_phase_message("READIED BRAWLERS: AI shape-aware set-up for %s failed validation: %s" % [uid, str(v.get("errors", []))])
+		return {}
+	return payload
+
+## READIED BRAWLERS lasts for this follow-up only: later disembarks from the
+## WAGON this phase use the normal 18.04 modes again.
+func _ork11e_readied_brawlers_off(transport_id: String) -> Array:
+	var t := get_unit(transport_id)
+	if not t.is_empty():
+		t.get("flags", {}).erase(Ork11eMovement.FLAG_READIED_BRAWLERS)
+	return [{"op": "remove", "path": "units.%s.flags.%s" % [transport_id, Ork11eMovement.FLAG_READIED_BRAWLERS]}]
+
+## CONFIRM_DISEMBARK tail: when the READIED BRAWLERS follow-up is running,
+## move on to the next embarked unit, or finish the follow-up.
+func _ork11e_after_assault_disembark(unit_id: String, dis_changes: Array) -> Dictionary:
+	if _ork11e_assault_disembark.is_empty() or not unit_id in _ork11e_assault_disembark.get("remaining", []):
+		return create_result(true, dis_changes)
+	_ork11e_assault_disembark["remaining"].erase(unit_id)
+	return _ork11e_assault_disembark_next(dis_changes)
+
+func _ork11e_assault_disembark_next(changes: Array) -> Dictionary:
+	var tid := str(_ork11e_assault_disembark.get("transport_id", ""))
+	var eligible: Array = Ork11eMovement.assault_disembark_candidates(tid)
+	var still: Array = []
+	for uid in _ork11e_assault_disembark.get("remaining", []):
+		if uid in eligible:
+			still.append(uid)
+	_ork11e_assault_disembark["remaining"] = still
+	if not still.is_empty():
+		emit_signal("ork11e_assault_disembark_requested", int(_ork11e_assault_disembark.get("player", 0)), tid, str(still[0]))
+		return create_result(true, changes)
+	_ork11e_assault_disembark = {}
+	var out: Array = changes.duplicate()
+	out.append_array(_ork11e_readied_brawlers_off(tid))
+	log_phase_message("READIED BRAWLERS: assault disembark follow-up complete for %s" % tid)
+	return _finish_window_followup(out)
+
+func _validate_skip_assault_disembark(action: Dictionary) -> Dictionary:
+	if _ork11e_assault_disembark.is_empty():
+		return {"valid": false, "errors": ["No READIED BRAWLERS assault disembark is pending"]}
+	var uid := str(action.get("payload", {}).get("unit_id", action.get("actor_unit_id", "")))
+	if not uid in _ork11e_assault_disembark.get("remaining", []):
+		return {"valid": false, "errors": ["%s is not waiting to assault disembark" % uid]}
+	return {"valid": true, "errors": []}
+
+func _process_skip_assault_disembark(action: Dictionary) -> Dictionary:
+	var uid := str(action.get("payload", {}).get("unit_id", action.get("actor_unit_id", "")))
+	_ork11e_assault_disembark["remaining"].erase(uid)
+	log_phase_message("READIED BRAWLERS: %s stays embarked" % uid)
+	return _ork11e_assault_disembark_next([])
+
+## Is `unit_id` waiting for its READIED BRAWLERS assault disembark? (UI)
+func is_ork11e_assault_disembark_pending(unit_id: String) -> bool:
+	return not _ork11e_assault_disembark.is_empty() and unit_id in _ork11e_assault_disembark.get("remaining", [])
+
+## WHERE D'YA FINK YOU'RE GOING? forced a desperate escape: show the rolls.
+func _ork11e_log_where_dya_fink_hazards(unit_id: String, hz: Dictionary) -> void:
+	var u := get_unit(unit_id)
+	var uname := str(u.get("meta", {}).get("name", unit_id))
+	var text := "WHERE D'YA FINK YOU'RE GOING?: %s must make a desperate escape — hazard rolls %s" % [uname, str(hz.get("rolls", []))]
+	if hz.has("extra_rolls"):
+		text += " (incl. %d extra MONSTER/VEHICLE roll(s) %s%s)" % [hz.extra_rolls.size(), str(hz.extra_rolls),
+			(", -1 battle-shocked" if int(hz.get("extra_modifier", 0)) < 0 else "")]
+	text += " — %d failed, %d mortal wound(s)" % [int(hz.get("failures", 0)), int(hz.get("mortal_wounds", 0))]
+	log_phase_message(text)
+	dice_log.append({"unit_id": unit_id, "unit_name": uname, "type": "Desperate escape (WHERE D'YA FINK?)",
+		"rolls": hz.get("rolls", []), "result": "%d failed — %d mortal wound(s)" % [int(hz.get("failures", 0)), int(hz.get("mortal_wounds", 0))]})
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_player_entry(int(u.get("owner", 0)), text)
 
 # ============================================================================
 # SURGE MOVE VALIDATION AND PROCESSING (P2-71)
@@ -6941,6 +7915,9 @@ func _terrain_rule_keywords(unit_id: String, move_data: Dictionary) -> Array:
 	var kws: Array = get_unit(unit_id).get("meta", {}).get("keywords", []).duplicate()
 	if move_data.get("shw_mobile", false):
 		kws.append("MOBILE")
+	# Codex: Orks (11e) STOMPING JUGGERNAUT: "Your unit has MOBILE" (this phase).
+	if get_unit(unit_id).get("flags", {}).get(Ork11eMovement.FLAG_MOBILE, false) and not "MOBILE" in kws:
+		kws.append("MOBILE")
 	if _unit_has_stompin_forward(unit_id) or _unit_has_clankin_forward(unit_id):
 		kws.append("SUPER-HEAVY WALKER")
 	return kws
@@ -7212,7 +8189,9 @@ func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, mode
 	# Only Fall Back and FLY units may move through enemy models.
 	# This checks base-to-base overlap only — moving *near* enemies is fine,
 	# moving *through* their bases is not.
-	var current_player = get_current_player()
+	# Reactive moves (Krump and Run, Scatter!, Codex: Orks (11e) follow-ups) are
+	# made by the NON-active player's unit: its enemies are the active player's.
+	var current_player = _reactive_move_owner if _reactive_move_owner > 0 else get_current_player()
 	var units = game_state_snapshot.get("units", {})
 
 	# Build a reference model for path sampling
@@ -8451,7 +9430,8 @@ func _validate_confirm_disembark(action: Dictionary) -> Dictionary:
 			DebugLogger.info(str("DEBUG MovementPhase: Edge-to-edge distance (inches): ", range_result.distance_inches))
 
 			if not range_result.within_range:
-				return {"valid": false, "errors": ["Model must be placed within %0.0f\" of transport (%.1f\" from edge)" % [setup_range_inches, range_result.distance_inches]]}
+				# 18.04 / 18.06: each model is set up WHOLLY within the set-up distance.
+				return {"valid": false, "errors": ["Model must be set up wholly within %0.0f\" of transport (its base reaches %.1f\" from the hull)" % [setup_range_inches, float(range_result.get("farthest_inches", range_result.distance_inches))]]}
 
 			# Build model_at_pos for engagement range and board edge checks
 			var model_at_pos = g_unit.models[i].duplicate()
@@ -8954,7 +9934,20 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 			call_deferred("_initialize_movement_for_disembarked_unit", unit_id)
 		elif dis_mode == "tactical":
 			log_phase_message("[11e] Tactical disembark — %s cannot move (transport moved this turn)" % unit_id)
-		return create_result(true, dis_changes)
+		if dis_mode == "assault":
+			log_phase_message("[11e] Assault disembark (18.06) — %s set up within 3\" of the transport; still eligible to charge" % unit_id)
+		# Codex: Orks (11e) READIED BRAWLERS: continue / finish the follow-up.
+		var dis_result := _ork11e_after_assault_disembark(unit_id, dis_changes)
+		# Codex: Orks (11e) enemy_ended_move: a disembark move is a move (18.04),
+		# so the opponent's window opens once it has ended (a tactical
+		# disembark's follow-up normal/advance move opens its own). Not for an
+		# assault disembark run inside a stratagem follow-up (READIED BRAWLERS):
+		# that window flow is still in progress.
+		if dis_mode != "assault" and not _window_followup_pending:
+			_ork11e_eem_pending = {"unit_id": unit_id, "move_type": "disembark"}
+			_ork11e_pending_move_changes = []
+			return _ork11e_with_enemy_ended_move(dis_result)
+		return dis_result
 	# Post-disembark: offer movement if the transport hadn't already moved
 	if unit and not unit.get("flags", {}).get("cannot_move", false):
 		log_phase_message("Unit %s can move after disembark" % unit.meta.get("name", unit_id))
@@ -9021,6 +10014,14 @@ func _process_embark_unit(action: Dictionary) -> Dictionary:
 			"op": "set",
 			"path": "units.%s.embarked_in" % gid,
 			"value": transport_id
+		})
+		# 18.04 / 18.06 ELIGIBLE IF "did not embark within that TRANSPORT this
+		# phase" (DisembarkMove.eligible, READIED BRAWLERS' assault-disembark
+		# candidates). Cleared by PhaseManager when the phase ends.
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.embarked_this_phase" % gid,
+			"value": true
 		})
 
 		if gid not in current_embarked:

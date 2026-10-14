@@ -561,24 +561,28 @@ func test_p0_rows_display_only_without_curated_effects():
 			assert_false(s.implemented, "%s should be display-only (not implemented)" % pair[1])
 
 func test_shipped_detachment_stratagems_fully_implemented():
-	"""War Horde and Shield Host (the detachments the game ships armies for)
-	carry curated effects_json — every stratagem must load mechanically
-	implemented with the expected primitive."""
+	"""Shield Host carries curated effects_json — every stratagem must load
+	mechanically implemented with the expected primitive. War Horde is now the
+	Codex: Orks (11e) set: six rows carrying the custom:ork11e marker, whose
+	implementation is owned by the Ork codex registry (not effects_json), so they
+	load NOT implemented at parse time."""
 	_loader.load_faction_codes()
 	var war_horde = _loader.load_faction_stratagems("Orks", "War Horde")
 	var shield_host = _loader.load_faction_stratagems("Adeptus Custodes", "Shield Host")
 	assert_eq(war_horde.size(), 6, "War Horde should have 6 stratagems")
 	assert_eq(shield_host.size(), 6, "Shield Host should have 6 stratagems")
-	for s in war_horde + shield_host:
+	for s in shield_host:
 		assert_true(s.get("implemented", false), "%s should be implemented" % s.get("name", "?"))
+	for s in war_horde:
+		var effs: Array = s.get("effects", [])
+		assert_true(effs.size() == 1 and str(effs[0].get("type", "")) == "custom:ork11e",
+			"%s should carry the custom:ork11e marker (got %s)" % [s.get("name", "?"), str(effs)])
+		assert_false(s.get("implemented", false), "%s is implemented by the Ork codex registry, not at parse time" % s.get("name", "?"))
+	for name in ["BREAKIN' HEADS", "HIT 'EM HARDER", "ORKS IS NEVER BEATEN", "MOW 'EM DOWN",
+			"FUNGUS-FUEL INJECTION", "CLOSE-RANGE DAKKA"]:
+		assert_not_null(_find_strat(war_horde, name), "War Horde should contain %s" % name)
 
 	var expected_effects = {
-		"UNBRIDLED CARNAGE": "crit_hit_on",
-		"ARD AS NAILS": "minus_one_wound_defense",
-		"MOB RULE": "remove_battle_shock",
-		"ERE WE GO": "plus_charge",
-		"CAREEN": "deadly_demise_move",
-		"ORKS IS NEVER BEATEN": "swing_back_before_remove",
 		"ARCANE GENETIC ALCHEMY": "grant_fnp_psychic_mortal",
 		"AVENGE THE FALLEN": "plus_attacks",
 		"UNWAVERING SENTINELS": "minus_one_hit_defense_melee",
@@ -587,8 +591,7 @@ func test_shipped_detachment_stratagems_fully_implemented():
 		"ARCHEOTECH MUNITIONS": "grant_lethal_hits",
 	}
 	for name in expected_effects:
-		var pool = war_horde if _find_strat(war_horde, name) != null else shield_host
-		var s = _find_strat(pool, name)
+		var s = _find_strat(shield_host, name)
 		assert_not_null(s, "Should find %s" % name)
 		if s:
 			var types := []
@@ -597,17 +600,18 @@ func test_shipped_detachment_stratagems_fully_implemented():
 			assert_true(expected_effects[name] in types,
 				"%s should carry effect %s (got %s)" % [name, expected_effects[name], str(types)])
 
-func test_careen_timing_column_overrides_epic_deed_default():
-	"""CAREEN! (ORK War Horde) is an Epic Deed Stratagem, but the 11e
-	timing column says once-per-phase — the timing column must win over
-	the legacy 'Epic Deed => once per battle' text default."""
+func test_epic_deed_timing_column_overrides_once_per_battle_default():
+	"""An Epic Deed Stratagem whose 11e timing column says once-per-phase: the
+	timing column must win over the legacy 'Epic Deed => once per battle' text
+	default. (Used to pin CAREEN!, which Codex: Orks removed; ONLY IN DEATH DOES
+	DUTY END — Gladius Task Force — is the same shape.)"""
 	_loader.load_faction_codes()
-	var strats = _loader.load_faction_stratagems("Orks", "War Horde")
-	var careen = _find_strat(strats, "CAREEN")
-	assert_not_null(careen, "Should find CAREEN!")
-	if careen:
-		assert_true("Epic Deed" in careen.type, "CAREEN! should still be typed as an Epic Deed Stratagem")
-		assert_eq(careen.restrictions.once_per, "phase",
+	var strats = _loader.load_faction_stratagems("Space Marines", "Gladius Task Force")
+	var oidde = _find_strat(strats, "ONLY IN DEATH DOES DUTY END")
+	assert_not_null(oidde, "Should find ONLY IN DEATH DOES DUTY END")
+	if oidde:
+		assert_true("Epic Deed" in oidde.type, "ONLY IN DEATH DOES DUTY END should be typed as an Epic Deed Stratagem")
+		assert_eq(oidde.restrictions.once_per, "phase",
 			"timing column (once-per-phase) should override the Epic Deed once-per-battle default")
 
 

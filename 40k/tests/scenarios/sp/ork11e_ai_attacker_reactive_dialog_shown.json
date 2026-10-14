@@ -1,0 +1,93 @@
+{
+  "id": "ork11e_ai_attacker_reactive_dialog_shown",
+  "covers": [
+    "ai.AIPlayer.defender_window",
+    "stratagem.window.enemy_targets_unit_shooting",
+    "ui.Main.reshow_pending_shooting_reactive_window",
+    "dialogs.StratagemDialog.reactive_mode"
+  ],
+  "fixture": "ork11e_orks_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "AI-02 regression: in human-vs-AI play the human defender must get the shooting reactive dialog (enemy_targets_unit_shooting fold-in: Go to Ground / Smokescreen / codex offers) even when the AI's first atomic SHOOT of its Shooting phase runs before Main has attached the new ShootingController (setup_phase_controllers awaits). Before the fix the one-shot reactive_stratagem_opportunity reached nobody: no dialog, the AI idled on 'defender_window' forever. Fixture ork11e_orks_reactive, starting in the Custodes' Movement phase. Setup privileges: P2's detachment is Runt Swarm (GROT SHIELDS answers the Custodes' shooting) and its enemy_ended_move window (SCARPER!) is suppressed for this Movement phase — as if the player had clicked \"Don't offer again this phase\"; Player 1 (Custodes) becomes the AI, Player 2 stays human. The AI plays its Movement phase and moves into Shooting; when its first attack is declared the dialog must be on screen for Player 2, who declines it for the rest of the phase; the AI then carries on.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privileges (see description)",
+      "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Runt Swarm\"}, true)\nStratagemManager.load_faction_stratagems_for_player(2)\nPhaseManager.get_current_phase_instance()._window_suppressed[\"2:enemy_ended_move\"] = true\nvar gc = GameState.state.meta.get(\"game_config\", {})\ngc[\"player1_type\"] = \"AI\"\ngc[\"player2_type\"] = \"HUMAN\"\nGameState.state.meta[\"game_config\"] = gc\nAIPlayer.configure({1: \"AI\", 2: \"HUMAN\"}, {1: 1, 2: 1})\nAIPlayer.set_ai_speed_preset(0)\nAIPlayer._request_evaluation()\nreturn AIPlayer.enabled and AIPlayer.is_ai_player(1) and not AIPlayer.is_ai_player(2)",
+      "equals": true
+    },
+    {
+      "act": "wait_for_script",
+      "timeout_s": 240,
+      "poll_s": 0.5,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nreturn GameState.get_current_phase() == 8 and \"awaiting_reactive_stratagem\" in p and p.awaiting_reactive_stratagem",
+      "comment": "the AI moves, enters Shooting and declares its first attack against the Orks"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog\").defending_player",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "AIPlayer._defender_dialog_on_screen()",
+      "equals": true,
+      "comment": "AI-03: the AI recognises the human's decision is on screen"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_reactive_dialog_for_human_defender"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DontOfferAgainButton"
+    },
+    {
+      "act": "wait_for_script",
+      "timeout_s": 30,
+      "poll_s": 0.5,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nreturn not (\"awaiting_reactive_stratagem\" in p and p.awaiting_reactive_stratagem) or GameState.get_current_phase() != 8",
+      "comment": "the decline reaches the phase and the AI resolves its attack"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_after_decline_ai_continues"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIPlayer.enabled = false\nreturn true",
+      "equals": true
+    }
+  ]
+}

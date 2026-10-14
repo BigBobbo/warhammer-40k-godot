@@ -4297,6 +4297,10 @@ func has_deadly_demise(unit_id: String) -> bool:
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
 		return false
+	# FLYIN' HEADBUTT (Codex: Orks 11e): "Your unit does not have the Deadly
+	# Demise ability."
+	if unit.get("flags", {}).get("ork11e_no_deadly_demise", false):
+		return false
 
 	var abilities = unit.get("meta", {}).get("abilities", [])
 	for ability in abilities:

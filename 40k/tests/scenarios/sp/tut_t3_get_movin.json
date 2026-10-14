@@ -107,7 +107,8 @@
     {
       "act": "click_board_at",
       "x": 480.0,
-      "y": 500.0
+      "y": 500.0,
+      "comment": "RB-2: a disembarking model is set up WHOLLY within 3\" of the wagon (its whole base inside the ring) — the corner clicks (808,500) (512,556) (780,552) poked out of the ring; the 10th Boy and the Warboss go beside the wagon's right side instead."
     },
     {
       "act": "click_board_at",
@@ -131,13 +132,8 @@
     },
     {
       "act": "click_board_at",
-      "x": 808.0,
+      "x": 790.0,
       "y": 500.0
-    },
-    {
-      "act": "click_board_at",
-      "x": 512.0,
-      "y": 556.0
     },
     {
       "act": "click_board_at",
@@ -156,8 +152,13 @@
     },
     {
       "act": "click_board_at",
-      "x": 780.0,
-      "y": 552.0
+      "x": 775.0,
+      "y": 440.0
+    },
+    {
+      "act": "click_board_at",
+      "x": 775.0,
+      "y": 375.0
     },
     {
       "act": "wait_seconds",

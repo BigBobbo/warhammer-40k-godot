@@ -147,7 +147,13 @@ static func can_start_action(unit_id: String, board: Dictionary) -> Dictionary:
 	if not titanic and rules.is_unit_engaged(unit_id, board):
 		reasons.append("engaged units cannot start actions (unless TITANIC)")
 
-	if flags.get("advanced", false) or flags.get("fell_back", false) or flags.get("cannot_start_action", false):
+	# Codex: Orks (11e) MIND MOSTLY ON THE MISSION: "That move does not prevent
+	# your unit from being eligible to start an action" — the advance /
+	# fall-back move made under it no longer bars the unit (MovementPhase also
+	# skips that move's cannot_start_action lock).
+	var mind_on_mission: bool = flags.get("ork11e_mind_on_mission", false)
+	if ((flags.get("advanced", false) or flags.get("fell_back", false)) and not mind_on_mission) \
+			or flags.get("cannot_start_action", false):
 		reasons.append("made an advance or fall-back move this turn")
 
 	if flags.get("performing_action", "") != "":

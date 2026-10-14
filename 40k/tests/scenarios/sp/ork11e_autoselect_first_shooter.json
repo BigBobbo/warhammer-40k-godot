@@ -1,0 +1,244 @@
+{
+  "id": "ork11e_autoselect_first_shooter",
+  "covers": [
+    "stratagem.window.unit_selected_to_shoot",
+    "stratagem.ork11e.dakkastorm",
+    "phases.ShootingPhase.select_shooter_window",
+    "ui.ShootingController.auto_select_first_shooter"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 7,
+  "disable_ai": true,
+  "description": "Regression for r5:F3 / r4:WS-5 and LV-2 / RV-4: on Shooting-phase entry the panel auto-selects the first eligible shooter; that selection is a REAL SELECT_SHOOTER the phase receives (Main connects the controller's action signal before set_phase), but — because the player has not chosen the unit — it does NOT open the unit_selected_to_shoot window (LV-2). The controller's single-target auto-assign reaches the phase without opening it either; the player's first real action with the shooter (Confirm Targets, or Quick-Assign when shown) opens it BEFORE that action is applied. Setup-only: P1 switched to Kult of Speed, every P1 unit except the Deffkoptas marked has_shot, Custodian Guard C moved unengaged in front of the Ork rank with inflated wounds. Real END_COMMAND + END_MOVEMENT transitions reach the Shooting phase; no prompt at phase entry; a real Confirm click opens the DAKKASTORM window; a real click on Use spends 1 CP and the held Confirm then resolves; Fast finishes the Deffkoptas' shooting with DAKKASTORM's [SUSTAINED HITS 1].",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.factions[\"1\"][\"detachment\"] = \"Kult of Speed\"\nStratagemManager.load_faction_stratagems_for_player(1)\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.owner) == 1 and uid != \"U_DEFFKOPTAS_A\":\n\t\tu.flags[\"has_shot\"] = true\nvar xs = [2.0, 4.0, 6.0, 8.0, 10.0]\nvar ms = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models\nfor i in range(ms.size()):\n\tms[i][\"position\"] = {\"x\": xs[i] * 40.0, \"y\": 21.0 * 40.0}\n\tms[i][\"wounds\"] = 99\n\tms[i][\"current_wounds\"] = 99\nreturn true",
+      "equals": true,
+      "comment": "setup: Kult of Speed; only the Deffkoptas can still shoot; Custodian Guard C stands unengaged in front of the Ork rank (wounds inflated so it survives)"
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_COMMAND",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+      "equals": false,
+      "comment": "no Movement-phase-start window in this setup"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller.active_shooter_id",
+      "equals": "U_DEFFKOPTAS_A",
+      "comment": "the panel auto-selected the Deffkoptas (the only unit that can still shoot)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_DEFFKOPTAS_A",
+      "comment": "the PHASE received the auto-selection (before the fix: '')"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 0,
+      "comment": "LV-2: NO unit_selected_to_shoot window for an automatic selection — the player has not chosen this unit yet"
+    },
+    {
+      "act": "execute_script",
+      "script": "var dlg = tree.root.get_node_or_null(\"StratagemDialog\")\nreturn dlg == null or not dlg.visible",
+      "equals": true,
+      "comment": "no stratagem prompt at phase entry",
+      "multiline": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_CUSTODIAN_GUARD_C",
+      "comment": "Quick-Assign (hidden when the only eligible target is auto-assigned) — the player's first action opens the window when shown"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nif p.has_pending_stratagem_window():\n\treturn true\nreturn p.pending_assignments.size() >= 1",
+      "equals": true,
+      "comment": "the controller's single-target auto-assign reached the phase WITHOUT opening the window (it is not a player action) — or Quick-Assign opened it"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_auto_selected_no_window_at_phase_entry"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton",
+      "comment": "Confirm Targets = the player's first action with the auto-selected shooter (when Quick-Assign did not already open the window)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1,
+      "comment": "the deferred unit_selected_to_shoot window opened before that action was applied"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text",
+      "equals": "Deffkoptas has been selected to shoot"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_kult_of_speed_dakkastorm/Buttons/Use_faction_ork_kult_of_speed_dakkastorm_U_DEFFKOPTAS_A",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_kult_of_speed_dakkastorm/Buttons/Use_faction_ork_kult_of_speed_dakkastorm_U_DEFFKOPTAS_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "02_window_opened_by_first_action"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_kult_of_speed_dakkastorm/Buttons/Use_faction_ork_kult_of_speed_dakkastorm_U_DEFFKOPTAS_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1,
+      "comment": "1 CP spent on DAKKASTORM"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_DEFFKOPTAS_A.flags.ork11e_dakkastorm",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+      "equals": false
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton",
+      "comment": "only needed when Quick-Assign (not Confirm) opened the window"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"to_hit\" and int(d.get(\"sustained_hits_value\", 0)) == 1:\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "the auto-selected Deffkoptas actually shot, with DAKKASTORM's [SUSTAINED HITS 1]"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_auto_selected_shooter_resolved"
+    }
+  ]
+}

@@ -14,6 +14,42 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 signal stratagem_used(player: int, stratagem_id: String, target_unit_id: String)
 signal stratagem_available(player: int, stratagem_id: String, trigger: String)
 
+# Codex: Orks (11e) dispatcher (design .llm/ork_codex_11e_design.md §4). Called
+# FIRST — before every legacy name-keyed handler — in can_use_stratagem,
+# _apply_stratagem_effects, _clear_stratagem_flags, implemented marking and
+# get_window_offers. Preloaded (not referenced by class_name) so headless
+# --script tests resolve it without a rebuilt global class cache.
+const OrkCodex = preload("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
+
+# Stratagem WINDOWS (design §3): the game event at which a stratagem with
+# timing.windows is offered automatically. The phrase completes
+# "Offered automatically when …" (S-panel reason) and the dialog header.
+const WINDOW_WHEN_TEXT: Dictionary = {
+	"battle_shock_step_start": "the battle-shock step of your Command phase starts",
+	"unit_battle_shocked": "one of your units becomes battle-shocked",
+	"movement_phase_start": "the Movement phase starts",
+	"movement_phase_end": "the Movement phase ends",
+	"unit_selected_to_move": "one of your units is selected to move",
+	"unit_ended_normal_move": "one of your units ends a Normal move",
+	"enemy_ended_move": "an enemy unit ends a move",
+	"enemy_selected_to_fall_back": "an enemy unit is selected to Fall Back",
+	"unit_selected_to_shoot": "one of your units is selected to shoot",
+	"unit_has_shot": "one of your units has shot",
+	"enemy_targets_unit_shooting": "an enemy unit targets one of your units with ranged attacks",
+	"enemy_has_shot": "an enemy unit has shot",
+	"unit_declares_charge": "one of your units declares a charge",
+	"unit_ended_charge_move": "one of your units ends a Charge move",
+	"unit_selected_to_fight": "one of your units is selected to fight",
+	"enemy_targets_unit_fight": "an enemy unit targets one of your units in melee",
+	"fight_phase_end": "the Fight phase ends",
+	"unit_destroyed": "one of your units is destroyed",
+	"enemy_unit_has_attacked": "an enemy unit has made its attacks",
+}
+
+# Follow-up returned by the last codex apply() (design §3.2); use_stratagem
+# hands it to the caller in its result as "followup".
+var _last_codex_followup: Dictionary = {}
+
 # ============================================================================
 # STRATAGEM DATA MODEL
 # ============================================================================
@@ -502,6 +538,15 @@ func load_faction_stratagems_for_player(player: int) -> void:
 
 	print("StratagemManager: Loaded %d faction stratagems for player %d (%d mechanically implemented)" % [loaded_count, player, implemented_count])
 
+## True for a Codex: Orks (11e) stratagem row — its effects_json is the single
+## marker {"type": "custom:ork11e"} (scripts/40kdc/curated/orks_codex_11e.json).
+static func is_ork_codex_11e_row(strat: Dictionary) -> bool:
+	var effects = strat.get("effects", [])
+	if typeof(effects) != TYPE_ARRAY or effects.is_empty():
+		return false
+	var first = effects[0]
+	return typeof(first) == TYPE_DICTIONARY and str(first.get("type", "")) == "custom:ork11e"
+
 func _mark_custom_implemented_stratagems(player: int) -> void:
 	"""Mark stratagems with custom implementations as 'implemented'.
 	These are stratagems whose CSV effect text can't be auto-parsed by FactionStratagemLoader
@@ -511,6 +556,17 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 		if not stratagems.has(strat_id):
 			continue
 		var strat = stratagems[strat_id]
+		# Codex: Orks (11e) rows (effects_json [{"type":"custom:ork11e"}]) are
+		# marked implemented by the Ork codex registry only — never by the
+		# legacy 10e name lists below. Six codex names collide with those lists
+		# (ARMED TO DA TEEF, TOO ARROGANT TO DIE, INSTINCTIVE HUNTERS,
+		# WHERE D'YA FINK YOU'RE GOING?, SPEEDIEST FREEKS, DAKKASTORM) and the
+		# 10e handlers behind them do not implement the codex rules.
+		if is_ork_codex_11e_row(strat):
+			strat["implemented"] = OrkCodex.is_implemented(strat)
+			if strat["implemented"]:
+				print("StratagemManager: Marked '%s' (%s) as implemented (Ork codex registry)" % [strat.get("name", ""), strat.get("csv_id", "")])
+			continue
 		# Data sources use typographic apostrophes (BOARDIN’ RUSH) — normalize
 		# so the straight-quoted handler names below keep matching.
 		var name_upper = strat.get("name", "").replace("’", "'").to_upper()
@@ -755,14 +811,28 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# Check player ownership for faction stratagems
 	if is_faction_stratagem(stratagem_id):
 		var owner = get_stratagem_owner(stratagem_id)
-		if owner != 0 and owner != player:
+		if owner == 0:
+			# F5 / LIVE-4: a faction stratagem no army has loaded (a stale
+			# definition left behind) belongs to nobody — never "both".
+			return {"can_use": false, "reason": "%s is not a stratagem of either army" % strat.get("name", stratagem_id)}
+		if owner != player:
 			return {"can_use": false, "reason": "This stratagem belongs to player %d" % owner}
 		# Check if stratagem is mechanically implemented
 		if not strat.get("implemented", false):
 			return {"can_use": false, "reason": "%s is not yet mechanically implemented" % strat.name}
 
+	# Stratagem WINDOWS (design §3): a stratagem with timing.windows can only be
+	# used inside one of its windows — the phase that opens the window passes
+	# context.window_id. Outside a window (S panel, stray USE_STRATAGEM) the
+	# reason tells the player when it will be offered.
+	var strat_windows = strat.get("timing", {}).get("windows", [])
+	if not strat_windows.is_empty():
+		var ctx_window := str(context.get("window_id", ""))
+		if ctx_window == "" or not ctx_window in strat_windows:
+			return {"can_use": false, "reason": "Offered automatically when %s" % window_when_text(strat_windows)}
+
 	# Check CP (account for possible Strategic Mastery discount and Lord of Deceit increase)
-	var effective_cost = strat.cp_cost
+	var effective_cost = _base_cp_cost(strat, context)
 	if target_unit_id != "" and effective_cost > 0:
 		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 		if ability_mgr and ability_mgr.has_strategic_mastery(target_unit_id):
@@ -786,8 +856,12 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 		var current_turn_11e = GameState.get_battle_round()
 		var current_phase_11e = GameState.get_current_phase()
 		var current_active_11e = GameState.get_active_player()
+		# An attached unit (bodyguard + its leaders) is ONE unit for 15.01, so a
+		# stratagem on the bodyguard id blocks one on an attached character's id
+		# and vice versa (foundation review defect 4).
+		var same_unit_ids_11e: Array = _attached_unit_member_ids(target_unit_id)
 		for usage in _usage_history.get(str(player), []):
-			if usage.get("target_unit_id", "") == target_unit_id \
+			if str(usage.get("target_unit_id", "")) in same_unit_ids_11e \
 					and usage.get("turn", -1) == current_turn_11e \
 					and usage.get("phase", -1) == current_phase_11e \
 					and int(usage.get("active_player", current_active_11e)) == current_active_11e:
@@ -805,8 +879,10 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 				return {"can_use": false, "reason": "Cannot use %s during an out-of-phase action (e.g. Fire Overwatch)" % strat.get("name", stratagem_id)}
 
 	# Check battle-shocked (battle-shocked units can't be affected by stratagems)
-	# Exception: Insane Bravery explicitly allows targeting battle-shocked units
-	if target_unit_id != "" and stratagem_id != "insane_bravery":
+	# Exception: Insane Bravery explicitly allows targeting battle-shocked units,
+	# and so may a codex stratagem whose rule says so (BREAKIN' HEADS).
+	var codex_allows_shocked: bool = OrkCodex.handles(strat) and OrkCodex.allows_battle_shocked_target(strat, context)
+	if target_unit_id != "" and stratagem_id != "insane_bravery" and not codex_allows_shocked:
 		var unit = GameState.get_unit(target_unit_id)
 		if not unit.is_empty() and unit.get("flags", {}).get("battle_shocked", false):
 			return {"can_use": false, "reason": "Battle-shocked units cannot be targeted by Stratagems"}
@@ -864,7 +940,13 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# charged_this_turn / engagement-range conditions). Engagement-range is
 	# computed live here because flags.in_engagement is only refreshed at the
 	# start of the Shooting phase and is stale in every other phase.
-	if target_unit_id != "" and is_faction_stratagem(stratagem_id):
+	# Codex: Orks (11e) rows: the dispatcher's rule-specific validation is the
+	# authority (design §4) — the CSV-parsed TARGET conditions are skipped.
+	if OrkCodex.handles(strat):
+		var codex_check: Dictionary = OrkCodex.validate(strat, player, target_unit_id, context)
+		if not codex_check.get("ok", false):
+			return {"can_use": false, "reason": str(codex_check.get("reason", "%s cannot be used now" % strat.get("name", stratagem_id)))}
+	elif target_unit_id != "" and is_faction_stratagem(stratagem_id):
 		var cond_target: Dictionary = strat.get("target", {})
 		var conditions: Array = cond_target.get("conditions", [])
 		var cond_unit = GameState.get_unit(target_unit_id)
@@ -909,6 +991,27 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 				return {"can_use": false, "reason": "%s can only be used during the %s phase" % [strat.get("name", stratagem_id), strat_phase.replace("_or_", " or ").replace("_", " ")]}
 
 	return {"can_use": true, "reason": ""}
+
+## Every unit id that forms one attached unit with `unit_id` (the bodyguard
+## plus all attached characters), including `unit_id` itself. A unit that is
+## not part of an attached unit returns [unit_id].
+func _attached_unit_member_ids(unit_id: String) -> Array:
+	var ids: Array = [unit_id]
+	var unit = GameState.get_unit(unit_id)
+	if unit == null or unit.is_empty():
+		return ids
+	var bodyguard_id := unit_id
+	var attached_to = unit.get("attached_to", null)
+	if attached_to != null and str(attached_to) != "":
+		bodyguard_id = str(attached_to)
+		if not (bodyguard_id in ids):
+			ids.append(bodyguard_id)
+	var bodyguard = GameState.get_unit(bodyguard_id)
+	if bodyguard != null and not bodyguard.is_empty():
+		for char_id in bodyguard.get("attachment_data", {}).get("attached_characters", []):
+			if not (str(char_id) in ids):
+				ids.append(str(char_id))
+	return ids
 
 func _check_usage_restriction(player: int, stratagem_id: String, strat: Dictionary) -> Dictionary:
 	"""Check once-per restrictions for a stratagem."""
@@ -998,7 +1101,7 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	var diffs = []
 
 	# Calculate effective CP cost (check for Strategic Mastery discount and Lord of Deceit increase)
-	var effective_cp_cost = strat.cp_cost
+	var effective_cp_cost = _base_cp_cost(strat, context)
 	var strategic_mastery_applied = false
 	if target_unit_id != "" and effective_cp_cost > 0:
 		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -1058,6 +1161,21 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		var log_msg = "Used %s (%s)" % [strat.name, cost_msg]
 		if target_display != "":
 			log_msg += " on %s" % target_display
+		# Say which option was bought: the codex handler's own label for the
+		# variant (VINDICTIVE ARTILLERISTS' three options — r3:F8), else the
+		# label the window/dialog passed (LIVE-10), minus any "+N CP:" prefix.
+		var variant_note := ""
+		if OrkCodex.handles(strat):
+			variant_note = OrkCodex.variant_label(strat, str(context.get("variant_id", "")))
+		if variant_note == "":
+			var variant_label := str(context.get("variant_label", "")).strip_edges()
+			if variant_label != "":
+				var re := RegEx.new()
+				re.compile("^\\s*\\+\\s*\\d+\\s*CP\\s*:\\s*")
+				var clean := re.sub(variant_label, "", false).strip_edges()
+				variant_note = clean if clean != "" else variant_label
+		if variant_note != "":
+			log_msg += " — %s" % variant_note
 		game_event_log.add_player_entry(player, log_msg)
 
 	# Log to phase log
@@ -1074,7 +1192,10 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	})
 
 	# Apply stratagem-specific effects to game state (unit flags for RulesEngine)
+	_last_codex_followup = {}
 	var effect_diffs = _apply_stratagem_effects(stratagem_id, target_unit_id, strat, context)
+	var followup: Dictionary = _last_codex_followup
+	_last_codex_followup = {}
 	if not effect_diffs.is_empty():
 		_safe_apply_state_changes(effect_diffs)
 		diffs.append_array(effect_diffs)
@@ -1115,12 +1236,19 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	# Emit signal
 	emit_signal("stratagem_used", player, stratagem_id, target_unit_id)
 
-	return {
+	var use_result = {
 		"success": true,
 		"effects": strat.effects,
 		"diffs": diffs,
-		"message": "Used %s" % strat.name
+		"message": "Used %s" % strat.name,
+		"stratagem_name": strat.name,
+		"cp_cost": effective_cp_cost
 	}
+	# Design §3.2: a codex handler may hand the opening phase a follow-up
+	# (reactive move, out-of-phase shot, …) to execute.
+	if not followup.is_empty():
+		use_result["followup"] = followup
+	return use_result
 
 # ============================================================================
 # QUERIES
@@ -1193,6 +1321,104 @@ func find_faction_stratagem_by_name(player: int, stratagem_name: String) -> Stri
 func get_player_cp(player: int) -> int:
 	"""Public accessor for player CP."""
 	return _get_player_cp(player)
+
+# ============================================================================
+# STRATAGEM WINDOWS (design .llm/ork_codex_11e_design.md §3, §3.1)
+# ============================================================================
+
+func _base_cp_cost(strat: Dictionary, context: Dictionary) -> int:
+	"""CP cost before Strategic Mastery / Lord of Deceit. A codex stratagem may
+	price a chosen variant differently (context.variant_id, e.g. HULKING
+	BRUTES' upgrade)."""
+	if OrkCodex.handles(strat):
+		return OrkCodex.cp_cost_for(strat, context if typeof(context) == TYPE_DICTIONARY else {})
+	return int(strat.get("cp_cost", 1))
+
+func window_when_text(windows) -> String:
+	"""Human phrase for one window id or a list of them ("… or …")."""
+	var ids: Array = []
+	if typeof(windows) == TYPE_STRING:
+		ids = [windows]
+	else:
+		for w in windows:
+			ids.append(str(w))
+	var parts: Array = []
+	for w in ids:
+		parts.append(str(WINDOW_WHEN_TEXT.get(w, w.replace("_", " "))))
+	return " or ".join(parts)
+
+func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> Array:
+	"""
+	Stratagems `player` can use in window `window_id` right now, with their
+	eligible targets. Returns
+	  [{stratagem_id, name, cp_cost, effect_text, type,
+	    targets: [{unit_id, label, variants?: [{id, label, cp_cost}],
+	               secondary?: {kind: "unit"|"objective", prompt, options: [{id, label}]}}]}]
+	Only stratagems whose timing.windows contains window_id are considered.
+	Codex rows ask OrkCodex11e.eligible_targets for candidates; other rows use
+	the ctx candidate units (ctx.unit_id / ctx.target_unit_ids owned by the
+	player). Every candidate is re-checked with can_use_stratagem (CP,
+	once-per-phase, 15.01, battle-shock, turn/phase, window, codex validate),
+	so an offer is only made when the player can afford it and has >= 1 target.
+	"""
+	var offers: Array = []
+	var wctx: Dictionary = ctx.duplicate(true)
+	wctx["window_id"] = window_id
+	var player_cp := _get_player_cp(player)
+	for strat_id in _player_faction_stratagems.get(str(player), []):
+		if not stratagems.has(strat_id):
+			continue
+		var strat: Dictionary = stratagems[strat_id]
+		var windows = strat.get("timing", {}).get("windows", [])
+		if windows.is_empty() or not window_id in windows:
+			continue
+		if not strat.get("implemented", false):
+			continue
+		var candidates: Array = []
+		if OrkCodex.handles(strat):
+			candidates = OrkCodex.eligible_targets(strat, player, window_id, wctx)
+		else:
+			var cand_ids: Array = []
+			if str(wctx.get("unit_id", "")) != "":
+				cand_ids.append(str(wctx.get("unit_id", "")))
+			for tid in wctx.get("target_unit_ids", []):
+				if not str(tid) in cand_ids:
+					cand_ids.append(str(tid))
+			for cid in cand_ids:
+				var cu = GameState.get_unit(cid)
+				if not cu.is_empty() and int(cu.get("owner", 0)) == player:
+					candidates.append({"unit_id": cid, "label": GameState.get_unit_display_name(cid)})
+		var targets: Array = []
+		for cand in candidates:
+			if typeof(cand) != TYPE_DICTIONARY:
+				continue
+			var tid := str(cand.get("unit_id", ""))
+			var check = can_use_stratagem(player, strat_id, tid, wctx)
+			if not check.can_use:
+				print("StratagemManager: window %s — %s not offered on %s: %s" % [window_id, strat.get("name", strat_id), tid, check.reason])
+				continue
+			var entry: Dictionary = cand.duplicate(true)
+			if entry.has("variants"):
+				var affordable: Array = []
+				for v in entry.get("variants", []):
+					if player_cp >= int(v.get("cp_cost", strat.get("cp_cost", 1))):
+						affordable.append(v)
+				entry["variants"] = affordable
+			targets.append(entry)
+		if targets.is_empty():
+			continue
+		offers.append({
+			"stratagem_id": strat_id,
+			"name": str(strat.get("name", strat_id)),
+			"cp_cost": int(strat.get("cp_cost", 1)),
+			"effect_text": str(strat.get("effect_text", strat.get("description", ""))),
+			"type": str(strat.get("type", "")),
+			"targets": targets,
+		})
+	print("StratagemManager: get_window_offers(P%d, %s) -> %d offer(s)%s" % [
+		player, window_id, offers.size(),
+		"" if offers.is_empty() else " " + str(offers.map(func(o): return o.name))])
+	return offers
 
 # ============================================================================
 # TURN/PHASE LIFECYCLE
@@ -1318,6 +1544,15 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 	Returns an array of diffs that set the appropriate flags.
 	These flags are read by RulesEngine during combat resolution.
 	"""
+	# Codex: Orks (11e) rows go to the dispatcher FIRST (design §4), keyed by
+	# csv_id — the legacy name-keyed handlers below must never see them.
+	if OrkCodex.handles(strat):
+		var codex_result = OrkCodex.apply(strat, target_unit_id, context if typeof(context) == TYPE_DICTIONARY else {})
+		if typeof(codex_result) == TYPE_DICTIONARY:
+			_last_codex_followup = codex_result.get("followup", {})
+			return codex_result.get("diffs", [])
+		return codex_result if typeof(codex_result) == TYPE_ARRAY else []
+
 	# ── A4: 11e core stratagem effects (15.02-15.12). The 10e core entries are
 	# retired at edition 11 (edition_max), so these structured-effect handlers
 	# only fire for the *_11e definitions. Effects that map to a concrete unit
@@ -1684,6 +1919,12 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 
 	var flags = unit.get("flags", {})
 	var strat = stratagems.get(stratagem_id, {})
+
+	# Codex: Orks (11e) rows: the dispatcher owns expiry (design §4).
+	if OrkCodex.handles(strat):
+		OrkCodex.clear(strat, unit_id)
+		print("StratagemManager: Cleared %s flags from %s (Ork codex)" % [stratagem_id, unit_id])
+		return
 
 	# A4/11e core set: the structured-effect handlers in
 	# _apply_stratagem_effects set flags EffectPrimitives doesn't know
@@ -3040,12 +3281,16 @@ func is_epic_challenge_available(player: int, unit_id: String) -> Dictionary:
 
 	return {"available": true, "reason": ""}
 
-func is_command_reroll_available(player: int) -> Dictionary:
+func is_command_reroll_available(player: int, unit_id: String = "") -> Dictionary:
 	"""
 	Check if Command Re-roll is available for a player in the current phase.
+	Pass the unit whose roll would be re-rolled: COMMAND RE-ROLL targets that
+	unit, so the per-unit checks execute_command_reroll applies (11e 15.01 — a
+	unit already targeted by a stratagem this phase) must hide the offer too,
+	instead of offering an enabled Re-roll that is then refused.
 	Returns { available: bool, reason: String }
 	"""
-	var validation = can_use_stratagem(player, "command_re_roll")
+	var validation = can_use_stratagem(player, "command_re_roll", unit_id)
 	if not validation.can_use:
 		return {"available": false, "reason": validation.reason}
 	return {"available": true, "reason": ""}
@@ -3817,12 +4062,17 @@ func _unit_within_distance_of_unit(unit1: Dictionary, unit2: Dictionary, distanc
 
 	return false
 
-func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids: Array) -> Array:
+func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids: Array, window_ctx: Dictionary = {}) -> Array:
 	"""
 	Get reactive stratagems available to the defending player during opponent's shooting.
 	Checks both Core stratagems (Go to Ground, Smokescreen) and faction stratagems
 	that trigger on after_target_selected during opponent's shooting phase.
-	Returns array of { stratagem: Dictionary, eligible_units: Array[String] }
+	Also folds in the `enemy_targets_unit_shooting` WINDOW offers (design §3.1):
+	those entries carry `window_id` and the window `offer` (variants/secondary)
+	so the same StratagemDialog renders them with the same button names, and
+	USE_REACTIVE_STRATAGEM threads the window context into use_stratagem.
+	window_ctx: extra window context (attacker_unit_id) from the phase.
+	Returns array of { stratagem: Dictionary, eligible_units: Array[String] [, window_id, offer] }
 	"""
 	var results = []
 
@@ -3880,6 +4130,24 @@ func get_reactive_stratagems_for_shooting(defending_player: int, target_unit_ids
 
 	# Check faction stratagems that trigger on after_target_selected in shooting phase
 	results.append_array(_get_faction_reactive_stratagems(defending_player, target_unit_ids, "after_target_selected", "shooting"))
+
+	# Window offers (codex rows with timing.windows = enemy_targets_unit_shooting).
+	# Their timing.trigger is the window id, so _get_faction_reactive_stratagems
+	# above never lists them twice.
+	var wctx: Dictionary = window_ctx.duplicate(true)
+	wctx["phase"] = "shooting"
+	wctx["target_unit_ids"] = target_unit_ids.duplicate()
+	for offer in get_window_offers(defending_player, "enemy_targets_unit_shooting", wctx):
+		var w_units: Array = []
+		for t in offer.get("targets", []):
+			w_units.append(str(t.get("unit_id", "")))
+		results.append({
+			"stratagem": stratagems.get(offer.stratagem_id, {}),
+			"eligible_units": w_units,
+			"window_id": "enemy_targets_unit_shooting",
+			"window_ctx": wctx,
+			"offer": offer
+		})
 
 	return results
 
@@ -4200,6 +4468,14 @@ func load_state(data: Dictionary) -> void:
 	"""Restore state from save data. Defaults match initial values for old saves."""
 	_usage_history = data.get("usage_history", {"1": [], "2": []})
 	active_effects = data.get("active_effects", [])
+	# F5 / LIVE-4: drop the definitions registered for the CURRENT (e.g. boot-
+	# time default) armies BEFORE the saved id lists replace them — clearing
+	# after the replace erased the saved ids instead and left the boot army's
+	# stratagems in `stratagems` with no owner (owner 0 = shown to and usable
+	# by both players, e.g. Kult of Speed's DELICIOUS EATING SQUIGS in a War
+	# Horde game).
+	for stale_player_key in _player_faction_stratagems.keys():
+		_clear_player_faction_stratagems(int(stale_player_key))
 	_player_faction_stratagems = data.get("player_faction_stratagems", {"1": [], "2": []})
 	# Rebuild the faction stratagem DEFINITIONS for the loaded armies. Only the
 	# per-player id lists are serialized; on a fresh process the boot-time

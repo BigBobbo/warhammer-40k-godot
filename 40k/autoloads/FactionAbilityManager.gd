@@ -505,11 +505,11 @@ func activate_waaagh(player: int) -> Dictionary:
 	# Log Waaagh! activation to GameEventLog
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if game_event_log:
-		game_event_log.add_player_entry(player, "WAAAGH! Called — +1 S/A melee, 5+ invuln, advance and charge!")
+		game_event_log.add_player_entry(player, "WAAAGH! Called — %s!" % waaagh_effects_summary())
 
 	return {
 		"success": true,
-		"message": "WAAAGH! Called — advance and charge, +1 S/A melee, 5+ invuln active!"
+		"message": "WAAAGH! Called — %s active!" % waaagh_effects_summary()
 	}
 
 func deactivate_waaagh(player: int) -> void:
@@ -651,6 +651,12 @@ func _apply_waaagh_effects(player: int, keyword_scope: Array = []) -> void:
 		unit["flags"]["effect_invuln_source"] = "Waaagh!"
 		# Advance and charge eligibility
 		unit["flags"]["effect_advance_and_charge"] = true
+		# 11e (Codex: Orks army rule): while riled up, the unit's ranged attacks
+		# have [ASSAULT]. WAAAGH_ASSAULT_MARKER records that the Waaagh! set it so
+		# the clear never strips an [ASSAULT] grant from another source.
+		if GameConstants.edition >= 11 and not unit["flags"].get("effect_advance_and_shoot", false):
+			unit["flags"]["effect_advance_and_shoot"] = true
+			unit["flags"][WAAAGH_ASSAULT_MARKER] = true
 
 		# OA-17: Krumpin' Time — FNP 5+ while Waaagh! active (Meganobz)
 		if _unit_has_ability(unit, "Krumpin' Time"):
@@ -709,7 +715,7 @@ func _apply_waaagh_effects(player: int, keyword_scope: Array = []) -> void:
 				break
 
 		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		print("FactionAbilityManager: Waaagh! effects applied to %s (%s) — 5+ invuln, advance+charge" % [unit_name, unit_id])
+		print("FactionAbilityManager: Waaagh! effects applied to %s (%s) — %s" % [unit_name, unit_id, waaagh_effects_summary()])
 
 func _clear_waaagh_effects(player: int) -> void:
 	"""Clear Waaagh! flags from all Ork units."""
@@ -724,6 +730,10 @@ func _clear_waaagh_effects(player: int) -> void:
 		if flags.get("waaagh_active", false):
 			flags.erase("waaagh_active")
 			flags.erase("effect_advance_and_charge")
+			# 11e riled-up [ASSAULT]: only when the Waaagh! granted it.
+			if flags.get(WAAAGH_ASSAULT_MARKER, false):
+				flags.erase("effect_advance_and_shoot")
+			flags.erase(WAAAGH_ASSAULT_MARKER)
 			# Clear invuln if it was from Waaagh! effects (5+ base or 4+ from Da Boss Iz Watchin')
 			# Use source-based check to avoid clobbering other invuln sources
 			if flags.get("effect_invuln_source", "") in ["Waaagh!", "Da Boss Iz Watchin'"]:
@@ -785,6 +795,24 @@ func _unit_has_ability(unit: Dictionary, target_ability_name: String) -> bool:
 static func is_waaagh_active_for_unit(unit: Dictionary) -> bool:
 	"""Static query: Check if a unit currently has Waaagh! active (for RulesEngine)."""
 	return unit.get("flags", {}).get("waaagh_active", false)
+
+# Marker (no effect_ prefix, so phase-end effect wipes leave it alone): the
+# army Waaagh! set effect_advance_and_shoot (11e riled-up [ASSAULT]).
+const WAAAGH_ASSAULT_MARKER := "waaagh_assault_granted"
+
+static func waaagh_melee_bonus_applies(unit: Dictionary) -> bool:
+	"""The 10e Waaagh! adds 1 to the Strength and Attacks of melee weapons. The
+	11e Waaagh! has no such bonus: a riled-up unit gets a 5+ invulnerable save,
+	[ASSAULT] on its ranged attacks and may charge after advancing (Codex: Orks
+	army rule). Every melee consumer (RulesEngine, AI estimates) goes through
+	this gate so the 10e bonus can never leak into an 11e game."""
+	return GameConstants.edition < 11 and is_waaagh_active_for_unit(unit)
+
+static func waaagh_effects_summary() -> String:
+	"""Player-facing list of what a Waaagh! grants, for logs and tooltips."""
+	if GameConstants.edition >= 11:
+		return "riled up: 5+ invuln, ranged [ASSAULT], advance and charge"
+	return "advance and charge, +1 S/A melee, 5+ invuln"
 
 # ============================================================================
 # PLANT THE WAAAGH! BANNER (OA-46) — Nob with Waaagh! Banner
@@ -2814,25 +2842,46 @@ func force_battle_shock_test(unit_id: String, roll_modifier: int = 0, source: St
 		return {"success": false, "error": "unit not found"}
 	var CommandPhaseScript = load("res://phases/CommandPhase.gd")
 	var ld = CommandPhaseScript._get_effective_leadership(unit_id)
+	# MOB MENTALITY (Codex: Orks 11e): "That unit's battle-shock rolls are
+	# automatically successful" for the rest of the phase.
+	if unit.get("flags", {}).get("ork11e_mob_mentality", false):
+		print("FactionAbilityManager: %s — forced Battle-shock test for %s AUTO-PASSED (MOB MENTALITY)" % [source, unit_id])
+		return {"success": true, "passed": true, "auto_passed": true, "total": 0, "leadership": ld, "dice": [], "diffs": []}
 	var rng = RulesEngine.make_rng()
 	var d1 = rng.rng.randi_range(1, 6)
 	var d2 = rng.rng.randi_range(1, 6)
 	var total = d1 + d2 + roll_modifier
 	var passed = total >= ld
+	# State diffs of the result (applied here as before; returned so callers
+	# that build an action result can record them for replay / network).
+	var shock_diffs: Array = []
 	if not passed:
 		if not unit.has("flags"):
 			unit["flags"] = {}
 		unit["flags"]["battle_shocked"] = true
+		shock_diffs.append({"op": "set", "path": "units.%s.flags.battle_shocked" % unit_id, "value": true})
+		# An Attached unit is battle-shocked as one unit (its characters too).
+		for char_id in GameState.get_attached_characters(unit_id):
+			var char_unit = GameState.state.get("units", {}).get(char_id, {})
+			if not char_unit.is_empty():
+				if not char_unit.has("flags"):
+					char_unit["flags"] = {}
+				char_unit["flags"]["battle_shocked"] = true
+				shock_diffs.append({"op": "set", "path": "units.%s.flags.battle_shocked" % char_id, "value": true})
 	print("FactionAbilityManager: %s — forced Battle-shock test for %s: %d+%d%+d=%d vs Ld %d -> %s" % [
 		source if source != "" else "Forced test", unit_id, d1, d2, roll_modifier, total, ld,
 		"PASSED" if passed else "FAILED (battle-shocked)"])
 	var game_event_log = get_node_or_null("/root/GameEventLog")
 	if game_event_log:
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
+		# LIVE-10: the unique display name ("Custodian Guard Epsilon"), not the
+		# datasheet name — two units of the same datasheet must be told apart.
+		var unit_name = GameState.get_unit_display_name(unit_id)
+		if unit_name == "":
+			unit_name = unit.get("meta", {}).get("name", unit_id)
 		game_event_log.add_player_entry(int(unit.get("owner", 0)),
 			"%s: %s takes a Battle-shock test (%d vs Ld %d) — %s" % [
 				source, unit_name, total, ld, "passed" if passed else "FAILED"])
-	return {"success": true, "passed": passed, "total": total, "leadership": ld, "dice": [d1, d2]}
+	return {"success": true, "passed": passed, "total": total, "leadership": ld, "dice": [d1, d2], "diffs": shock_diffs}
 
 func process_big_gob(player: int) -> void:
 	"""Big Gob (Bully Boyz): at the start of the Fight phase, one enemy unit

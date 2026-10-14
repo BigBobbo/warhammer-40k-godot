@@ -651,12 +651,13 @@ enum HitModifier {
 	PLUS_ONE = 2,       # +1 to hit
 	MINUS_ONE = 4,      # -1 to hit (cover, moved, etc.)
 	REROLL_FAILED = 8,  # Re-roll all failed hit rolls
+	REROLL_NON_CRIT = 16,  # Re-roll every hit roll that is not a critical hit (fishing for crits)
 }
 
 # Apply hit modifiers to a single roll
 # Returns the modified roll value and any re-roll that occurred
 # hit_threshold: the BS/WS value needed to hit (e.g. 3 for 3+); required for REROLL_FAILED
-static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService, hit_threshold: int = 0) -> Dictionary:
+static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService, hit_threshold: int = 0, fail_band: int = 1, crit_threshold: int = 6) -> Dictionary:
 	var result = {
 		"original_roll": roll,
 		"modified_roll": roll,
@@ -665,6 +666,20 @@ static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService, hit_
 		"modifier_applied": 0
 	}
 
+	# Net numeric modifier (capped at +1/-1) — known before the re-roll
+	# decision even though it is applied after it.
+	var pre_net := 0
+	if modifiers & HitModifier.PLUS_ONE:
+		pre_net += 1
+	if modifiers & HitModifier.MINUS_ONE:
+		pre_net -= 1
+	pre_net = clampi(pre_net, -1, 1)
+	# r5:F6/F9: "re-roll failed hits" re-rolls exactly the dice that would
+	# FAIL once modifiers and any unmodified-fail band (INDIRECT FIRE,
+	# SPEEDIEST FREEKS) are taken into account — never a die that would hit
+	# (an unmodified critical always hits). The old test was raw < BS.
+	var would_fail: bool = roll <= fail_band or (roll < crit_threshold and roll + pre_net < hit_threshold)
+
 	# Step 1: Apply re-rolls FIRST (before modifiers per 10e rules)
 	# Re-roll ones takes priority check first
 	if (modifiers & HitModifier.REROLL_ONES) and roll == 1:
@@ -672,8 +687,15 @@ static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService, hit_
 		result.rerolled = true
 		result.reroll_value = reroll_result
 		result.modified_roll = reroll_result
-	elif (modifiers & HitModifier.REROLL_FAILED) and hit_threshold > 0 and roll < hit_threshold:
+	elif (modifiers & HitModifier.REROLL_FAILED) and hit_threshold > 0 and would_fail:
 		# Re-roll all failed hit rolls (roll below BS/WS threshold)
+		var reroll_result = rng.roll_d6(1)[0]
+		result.rerolled = true
+		result.reroll_value = reroll_result
+		result.modified_roll = reroll_result
+	elif (modifiers & HitModifier.REROLL_NON_CRIT) and roll < crit_threshold:
+		# "Re-roll hit rolls" used to fish for critical hits: every roll that is
+		# not a critical hit (failed AND successful non-critical) is re-rolled.
 		var reroll_result = rng.roll_d6(1)[0]
 		result.rerolled = true
 		result.reroll_value = reroll_result
@@ -693,6 +715,27 @@ static func apply_hit_modifiers(roll: int, modifiers: int, rng: RNGService, hit_
 	result.modified_roll += net_modifier
 
 	return result
+
+## effect_reroll_hits scope written by a "re-roll hit rolls" grant whose
+## controller chose to fish for critical hits (Codex: Orks (11e) ARMED TO DA
+## TEEF while riled up, "re-roll hit rolls" variant): failed hits are always
+## re-rolled; successful NON-critical hits are re-rolled too for every weapon
+## whose critical hits are worth more than a normal hit ([LETHAL HITS] /
+## [SUSTAINED HITS], from the weapon or a granted effect). Weapons without a
+## critical-hit payoff keep their successes (re-rolling them can only hurt).
+const REROLL_HITS_SCOPE_NON_CRIT := "non_crit"
+
+static func _non_crit_hit_reroll_bits(attacker_unit: Dictionary, weapon_id: String, board: Dictionary, is_melee: bool) -> int:
+	var flags: Dictionary = attacker_unit.get("flags", {})
+	var payoff := has_lethal_hits(weapon_id, board) or has_sustained_hits(weapon_id, board)
+	if not payoff:
+		if is_melee:
+			payoff = bool(flags.get(EffectPrimitivesData.FLAG_LETHAL_HITS_MELEE, false)) or bool(flags.get(EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE, false))
+		else:
+			payoff = bool(flags.get(EffectPrimitivesData.FLAG_LETHAL_HITS, false)) or bool(flags.get(EffectPrimitivesData.FLAG_SUSTAINED_HITS, false))
+	if payoff:
+		return HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT
+	return HitModifier.REROLL_FAILED
 
 # Wound modifier flags (can be combined with bitwise OR)
 # Per 10e rules: wound roll modifiers are capped at net +1/-1
@@ -813,8 +856,11 @@ static func resolve_shoot(action: Dictionary, board: Dictionary, rng_service: RN
 			if hazardous_result.hazardous_triggered:
 				result.diffs.append_array(hazardous_result.diffs)
 			result.dice.append_array(hazardous_result.dice)
-			if hazardous_result.log_text:
-				result.log_text += hazardous_result.log_text + "\n"
+			# LV2-G1: the player-facing hazard line (this log_text can reach the
+			# Game Log as the action's text) — same wording on every path.
+			var haz_line := str(hazardous_result.get("game_log_text", hazardous_result.log_text))
+			if haz_line != "":
+				result.log_text += haz_line + "\n"
 
 		# ONE SHOT (T4-2): Mark one-shot weapon as fired for each model
 		if is_one_shot_weapon(weapon_id, board):
@@ -875,6 +921,16 @@ static func resolve_shoot_until_wounds(action: Dictionary, board: Dictionary, rn
 		# If wounds were caused, add save data
 		if assignment_result.has("save_data") and assignment_result.save_data.get("success", false):
 			result.save_data_list.append(assignment_result.save_data)
+
+		# GROT SHIELDS (Codex: Orks 11e): the Gretchin unit's mortal-wound diffs
+		# travel in the one_shot_diffs channel — the diffs every ShootingPhase
+		# resolution path already merges into the action's changes — and are
+		# mirrored onto the local board so later weapons see the casualties.
+		for gs_d in assignment_result.get("grot_shields_diffs", []):
+			if not result.has("one_shot_diffs"):
+				result["one_shot_diffs"] = []
+			result["one_shot_diffs"].append(gs_d)
+			_apply_diff_to_board(board, gs_d)
 
 		# HAZARDOUS (T2-3): Track hazardous weapons for post-save resolution
 		var weapon_id = assignment.get("weapon_id", "")
@@ -973,6 +1029,12 @@ static func resolve_shoot_wounds(hit_context: Dictionary, board: Dictionary, rng
 		result["save_data_list"] = [w["save_data"]]
 	if w.has("wound_context"):
 		result["wound_context"] = w["wound_context"]
+	# GROT SHIELDS (Codex: Orks 11e): same one_shot_diffs channel as
+	# resolve_shoot_until_wounds — ShootingPhase merges it into the changes.
+	if w.has("grot_shields_diffs"):
+		result["one_shot_diffs"] = w["grot_shields_diffs"]
+		for gs_d in w["grot_shields_diffs"]:
+			_apply_diff_to_board(board, gs_d)
 	return result
 
 # COMMAND RE-ROLL — re-roll a single hit die and recompute totals in place.
@@ -981,6 +1043,15 @@ static func resolve_shoot_wounds(hit_context: Dictionary, board: Dictionary, rng
 # dice can only be re-rolled once). Returns an updated to_hit display block.
 # Works for BOTH ranged and melee hit contexts (melee stores WS under "bs" and
 # sets is_melee, which routes the display block context + skips DAKKASTORM).
+## True when the staged die (stage "hits" -> hit_evals, "wounds" ->
+## wound_evals) was already re-rolled — callers check this BEFORE spending
+## the Command Re-roll CP (r5:F7: "never re-roll a dice more than once").
+static func staged_die_already_rerolled(context: Dictionary, stage: String, die_index: int) -> bool:
+	var evals: Array = context.get("hit_evals" if stage == "hits" else "wound_evals", [])
+	if die_index < 0 or die_index >= evals.size():
+		return false
+	return bool(evals[die_index].get("rerolled", false))
+
 static func reroll_hit_die(hit_context: Dictionary, die_index: int, rng_service: RNGService = null) -> Dictionary:
 	if not rng_service:
 		rng_service = make_rng()
@@ -989,14 +1060,23 @@ static func reroll_hit_die(hit_context: Dictionary, die_index: int, rng_service:
 	var evals = hit_context.get("hit_evals", [])
 	if die_index < 0 or die_index >= evals.size():
 		return {"success": false, "error": "Invalid hit die index %d" % die_index}
+	# Core rules: "you can never re-roll a dice more than once" — a die an
+	# automatic re-roll (e.g. LONG, UNCONTROLLED BURSTS) or an earlier
+	# Command Re-roll already re-rolled cannot be re-rolled again (r5:F7).
+	if bool(evals[die_index].get("rerolled", false)):
+		return {"success": false, "error": "That hit die has already been re-rolled — a dice can never be re-rolled more than once"}
 	var old_crits = int(hit_context.get("critical_hits", 0))
 	var bs_per_attack = hit_context.get("bs_per_attack", [])
 	var attack_bs = int(bs_per_attack[die_index]) if die_index < bs_per_attack.size() else int(hit_context.get("bs", 4))
-	var mods_no_reroll = int(hit_context.get("hit_modifiers", 0)) & ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)
+	var mods_no_reroll = int(hit_context.get("hit_modifiers", 0)) & ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
+	# DRIVE-BY BUSTIN' (Codex: Orks 11e): this die is a Firing Deck attack of a mixed batch
+	var ork11e_fd_mask = hit_context.get("ork11e_fd_plus_one", [])
+	if die_index < ork11e_fd_mask.size() and ork11e_fd_mask[die_index]:
+		mods_no_reroll |= HitModifier.PLUS_ONE
 	var new_raw = rng_service.roll_d6(1)[0]
 	var ev = AttackSequence.evaluate_hit_roll(new_raw, attack_bs, mods_no_reroll, int(hit_context.get("critical_hit_threshold", 6)), rng_service, int(hit_context.get("hit_fail_band", 1)))
 	var old_eval = evals[die_index]
-	evals[die_index] = {"raw": new_raw, "final": ev.final_roll, "is_hit": ev.is_hit, "is_crit": ev.is_crit}
+	evals[die_index] = {"raw": new_raw, "final": ev.final_roll, "is_hit": ev.is_hit, "is_crit": ev.is_crit, "rerolled": true}
 	hit_context["hit_rolls"][die_index] = new_raw
 	hit_context["modified_rolls"][die_index] = ev.final_roll
 
@@ -1033,6 +1113,7 @@ static func reroll_hit_die(hit_context: Dictionary, die_index: int, rng_service:
 		"rolls_modified": hit_context["modified_rolls"],
 		"rerolls": hit_context.get("reroll_data", []),
 		"successes": hits,
+		"target_unit_id": str(hit_context.get("target_unit_id", "")),  # enemy_has_shot window
 		"critical_hits": crits,
 		"sustained_bonus_hits": int(hit_context.get("sustained_bonus_hits", 0)),
 		"total_hits_for_wounds": hit_context["total_hits_for_wounds"],
@@ -1060,11 +1141,13 @@ static func reroll_wound_die(wound_context: Dictionary, die_index: int, board: D
 	var evals = wound_context.get("wound_evals", [])
 	if die_index < 0 or die_index >= evals.size():
 		return {"success": false, "error": "Invalid wound die index %d" % die_index}
+	if bool(evals[die_index].get("rerolled", false)):
+		return {"success": false, "error": "That wound die has already been re-rolled — a dice can never be re-rolled more than once"}
 	var mods_no_reroll = int(wound_context.get("wound_modifiers", 0)) & ~(WoundModifier.REROLL_ONES | WoundModifier.REROLL_FAILED)
 	var new_raw = rng_service.roll_d6(1)[0]
 	var ev = AttackSequence.evaluate_wound_roll(new_raw, mods_no_reroll, int(wound_context.get("wound_threshold", 4)), int(wound_context.get("critical_wound_threshold", 6)), rng_service)
 	var old_eval = evals[die_index]
-	evals[die_index] = {"raw": new_raw, "is_wound": ev.is_wound, "is_crit": ev.is_crit, "auto_fail": ev.auto_fail}
+	evals[die_index] = {"raw": new_raw, "is_wound": ev.is_wound, "is_crit": ev.is_crit, "auto_fail": ev.auto_fail, "rerolled": true}
 	wound_context["wound_rolls"][die_index] = new_raw
 
 	var has_dev = bool(wound_context.get("weapon_has_devastating_wounds", false))
@@ -1334,8 +1417,10 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		var bs_str = str(weapon_profile.get("ballistic_skill", "6"))
 		ow_threshold = int(bs_str) if bs_str.is_valid_int() else 6
 
+	# SPEEDIEST FREEKS (Codex: Orks 11e): unmodified hit rolls of 1-3 fail.
+	var ow_fail_band := ork11e_ranged_hit_fail_band(target_unit, 1)
 	for roll in hit_rolls:
-		if roll >= ow_threshold and roll > 1:  # unmodified; 1s always fail
+		if roll >= ow_threshold and roll > ow_fail_band:  # unmodified; 1s always fail
 			hits += 1
 
 	result.dice.append({
@@ -1347,6 +1432,16 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		"successes": hits,
 		"overwatch": true
 	})
+
+	# GROT SHIELDS (Codex: Orks 11e): overwatch hits carry no crit tracking —
+	# every intercepted hit is a normal hit.
+	var ow_gs = ork11e_grot_shields_intercept(shooter_unit_id, target_unit, 0, hits, 0, {"value": 0, "is_dice": false}, false, board, rng)
+	if ow_gs.active and ow_gs.intercepted > 0:
+		hits = ow_gs.regular_hits
+		result.diffs.append_array(ow_gs.diffs)
+		result.dice.append({"context": "grot_shields", "message": ow_gs.log_text,
+			"intercepted": ow_gs.intercepted, "gretchin_unit_id": ow_gs.gretchin_unit_id,
+			"target_unit_id": target_unit_id})
 
 	result.hits = hits
 
@@ -1411,6 +1506,10 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	if EffectPrimitivesData.has_effect_minus_one_wound_defense(target_unit):
 		ow_wound_modifier = -1
 		print("RulesEngine: Defender effect -1 to wound (overwatch attacks vs %s)" % target_unit_id)
+	# HULKING BRUTES (Codex: Orks 11e): -1 to wound for ranged attacks that target the unit.
+	if ork11e_ranged_wound_penalty(target_unit, strength, toughness):
+		ow_wound_modifier = -1
+		print("RulesEngine: HULKING BRUTES (overwatch) — -1 to wound for attacks against %s" % target_unit_id)
 	# PYROMANIAKS (OA-14): Check for wound re-rolls with Torrent weapons vs enemies within 6" (Overwatch)
 	var ow_pyromaniaks_scope = get_pyromaniaks_reroll_scope(shooter_unit, target_unit, weapon_id, board)
 	if ow_pyromaniaks_scope == "failed":
@@ -1463,34 +1562,34 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	# PULSA ROKKIT (OA-31): +1 AP to ranged weapons for the phase
 	if shooter_unit.get("flags", {}).get("effect_pulsa_rokkit_active", false):
 		var pre_ap_pr = ap
-		ap = ap + 1
+		ap = improve_ap(ap, 1)
 		print("RulesEngine: Pulsa Rokkit (Overwatch) — ranged AP %d → %d (+1)" % [pre_ap_pr, ap])
 	# DRIVE-BY DAKKA (OA-13): Improve AP by 1 for ranged attacks vs targets within 9"
 	var ow_dbd_bonus = get_drive_by_dakka_ap_bonus(shooter_unit, target_unit)
 	if ow_dbd_bonus > 0:
 		var pre_ap_dbd = ap
-		ap = ap + ow_dbd_bonus
+		ap = improve_ap(ap, ow_dbd_bonus)
 		print("RulesEngine: Drive-by Dakka (Overwatch) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, ow_dbd_bonus])
 	# IMPROVE AP: effect-granted AP improvement (Umbral Prosecution ranged AP +1 etc.)
 	var ow_improve_ap = EffectPrimitivesData.get_effect_improve_ap_scoped(shooter_unit, "ranged")
 	if ow_improve_ap > 0:
 		var pre_ap_imp = ap
-		ap = ap + ow_improve_ap
+		ap = improve_ap(ap, ow_improve_ap)
 		print("RulesEngine: Improve AP (Overwatch) — AP %d → %d (improve by %d)" % [pre_ap_imp, ap, ow_improve_ap])
 	# SPESHUL SHELLS (More Dakka!): +1 AP vs targets within 18"
 	var ow_ss_bonus = get_speshul_shells_ap_bonus(shooter_unit, target_unit)
 	if ow_ss_bonus > 0:
-		ap = ap + ow_ss_bonus
+		ap = improve_ap(ap, ow_ss_bonus)
 		print("RulesEngine: SPESHUL SHELLS (Overwatch) — AP improved by %d (target within 18\")" % ow_ss_bonus)
 	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
 	var ow_prey_bonus = get_prey_ap_bonus(shooter_unit, target_unit)
 	if ow_prey_bonus > 0:
-		ap = ap + ow_prey_bonus
+		ap = improve_ap(ap, ow_prey_bonus)
 		print("RulesEngine: PREY (Overwatch) — AP improved by %d (target is Prey)" % ow_prey_bonus)	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var ow_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
-	if ow_worsen_ap > 0 and ap > 0:
+	if ow_worsen_ap > 0 and ap != 0:
 		var pre_ap = ap
-		ap = max(0, ap - ow_worsen_ap)
+		ap = worsen_ap(ap, ow_worsen_ap)
 		print("RulesEngine: Worsen AP (Overwatch) — AP %d → %d (worsen by %d)" % [pre_ap, ap, ow_worsen_ap])
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
@@ -1729,13 +1828,22 @@ static func _resolve_assignment_until_wounds(assignment: Dictionary, actor_unit_
 	result.log_text = w.get("log_text", result.log_text)
 	if w.has("save_data"):
 		result["save_data"] = w["save_data"]
+	if w.has("grot_shields_diffs"):
+		result["grot_shields_diffs"] = w["grot_shields_diffs"]
 	return result
 
 static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: String, board: Dictionary, rng: RNGService) -> Dictionary:
 	var hit_fail_band := 1
+	# AIR-3: every early return below (target gone, unknown weapon, SPLIT-FIRE
+	# dropped every model) is a "no hits" result. Callers branch on no_hits and
+	# otherwise index hit_context — without these defaults
+	# _resolve_assignment_until_wounds raised "Invalid access to property or
+	# key 'hit_context'" and the assignment was lost mid-resolution.
 	var result = {
 		"dice": [],
-		"log_text": ""
+		"log_text": "",
+		"no_hits": true,
+		"hit_context": {}
 	}
 
 	var model_ids = assignment.get("model_ids", [])
@@ -1811,6 +1919,9 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 	# SHOOTY POWER TRIP (OA-37): +1 Attacks to ranged weapons for the phase (D6 roll 5-6)
 	var spt_attacks_bonus = 1 if actor_unit.get("flags", {}).get("effect_shooty_power_trip_attacks", false) else 0
 
+	# DRIVE-BY BUSTIN' (Codex: Orks 11e): per-attack record of whether the
+	# attack is made with a weapon selected for the Firing Deck ability.
+	var ork11e_fd_attack: Array = []
 	for model_id in model_ids:
 		# ATTACHED CHARACTERS: model_ids can carry composite "<char_unit>:<model>"
 		# bearers. Resolve BOTH the model and the unit its stat overrides live on
@@ -1844,6 +1955,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		for _j in range(model_attacks):
 			bs_per_attack.append(model_bs)
 			cover_model_per_attack.append(model)
+			ork11e_fd_attack.append(ork11e_is_firing_deck_bearer(model_id))
 		if attacks_result.rolled:
 			attacks_roll_log.append(attacks_result)
 
@@ -1883,6 +1995,12 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			print("RulesEngine: BRUTAL BROADSIDE — [RAPID FIRE %d] on %s (X = Attacks)" % [rapid_fire_value, weapon_id])
 		else:
 			print("RulesEngine: BRUTAL BROADSIDE — %s has dice-valued Attacks (%s), rapid fire grant skipped" % [weapon_id, bb_attacks_raw])
+	# CLOSE-RANGE DAKKA (Codex: Orks 11e): [RAPID FIRE 1], or +1 to the value of
+	# an existing [RAPID FIRE] (applied after every other RAPID FIRE grant).
+	var ork11e_crd_bonus = ork11e_rapid_fire_bonus(actor_unit, weapon_profile)
+	if ork11e_crd_bonus > 0:
+		rapid_fire_value += ork11e_crd_bonus
+		print("RulesEngine: CLOSE-RANGE DAKKA — %s now [RAPID FIRE %d]" % [weapon_id, rapid_fire_value])
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
@@ -1897,7 +2015,10 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			if rf_model.is_empty() or not rf_model.get("alive", true):
 				continue
 			var closest_distance_inches = INF
-			for target_model in target_unit.get("models", []):
+			# Half range is measured to the whole TARGET unit — for an
+			# Attached unit that includes its leaders (19.03), not only the
+			# bodyguard models (r1:WH-3).
+			for target_model in attached_unit_models(target_unit_id, board):
 				if not target_model.get("alive", true):
 					continue
 				var edge_distance_px = Measurement.model_to_model_distance_px(rf_model, target_model)
@@ -1908,6 +2029,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 				var rf_model_bs = _get_model_effective_bs(rf_model, actor_unit, weapon_profile)
 				for _j in range(rapid_fire_value):
 					bs_per_attack.append(rf_model_bs)
+					ork11e_fd_attack.append(ork11e_is_firing_deck_bearer(model_id))
 		rapid_fire_attacks = models_in_half_range * rapid_fire_value
 		print("RulesEngine: [MA-14] Rapid Fire %d — %d/%d assigned models in half range (+%d attacks)" % [rapid_fire_value, models_in_half_range, model_ids.size(), rapid_fire_attacks])
 
@@ -1922,8 +2044,10 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 	var target_model_count = count_alive_models(target_unit)
 	# MA-10: Blast bonus attacks use weapon's default BS (not model-specific)
 	var default_bs = weapon_profile.get("bs", 4)
+	var ork11e_fd_blast: int = blast_bonus_per_model * model_ids.filter(func(m): return ork11e_is_firing_deck_bearer(m)).size()
 	for _j in range(blast_bonus_attacks):
 		bs_per_attack.append(default_bs)
+		ork11e_fd_attack.append(_j < ork11e_fd_blast)
 
 	var total_attacks = base_attacks + rapid_fire_attacks + blast_bonus_attacks
 	if assignment.has("attacks_override") and assignment.attacks_override != null:
@@ -1932,8 +2056,10 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		blast_bonus_attacks = 0  # Override disables the blast bonus tracking
 		# MA-10: Rebuild bs_per_attack with default BS when attacks are overridden
 		bs_per_attack.clear()
+		ork11e_fd_attack.clear()
 		for _j in range(total_attacks):
 			bs_per_attack.append(default_bs)
+			ork11e_fd_attack.append(not model_ids.is_empty() and model_ids.all(func(m): return ork11e_is_firing_deck_bearer(m)))
 
 	# MA-29: ABILITY ATTACK BONUS — Check for weapon-targeted +X Attacks from abilities
 	var ability_attack_bonus = 0
@@ -1948,6 +2074,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 				var bonus_bs = _get_model_effective_bs(bonus_model, resolve_bearer_unit(actor_unit, ab_model_id, board), weapon_profile)
 				for _j in range(bonus_value):
 					bs_per_attack.append(bonus_bs)
+					ork11e_fd_attack.append(ork11e_is_firing_deck_bearer(ab_model_id))
 			print("RulesEngine: [MA-29] Ability +%d Attacks for '%s' → +%d total (%d models × %d)" % [bonus_value, weapon_name, ability_attack_bonus, model_ids.size(), bonus_value])
 		else:
 			print("RulesEngine: [MA-29] Ability +%d Attacks exists but does not apply to '%s' (weapon filter active)" % [bonus_value, weapon_name])
@@ -2026,6 +2153,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			"torrent_weapon": true,
 			"total_attacks": total_attacks,
 			"successes": hits,
+			"target_unit_id": target_unit_id,  # enemy_has_shot window: which units were hit
 			"message": "Torrent: %d automatic hits" % hits,
 			# Variable attacks tracking
 			"variable_attacks": attacks_roll_log.size() > 0,
@@ -2091,6 +2219,10 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			hit_modifiers |= HitModifier.REROLL_FAILED
 			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "re-roll all hit rolls")
 			print("RulesEngine: Effect re-roll all hits applied for %s" % actor_unit_id)
+		elif reroll_hits_scope == REROLL_HITS_SCOPE_NON_CRIT:
+			hit_modifiers |= _non_crit_hit_reroll_bits(actor_unit, weapon_id, board, false)
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "re-roll hit rolls (non-critical hits too, for critical-hit weapons)")
+			print("RulesEngine: Effect re-roll hit rolls (fishing for crits where they matter) applied for %s / %s" % [actor_unit_id, weapon_id])
 
 		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
 		if is_damaged_profile_active(actor_unit):
@@ -2180,6 +2312,19 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			ModifierLedger.note(hit_mod_ledger, "Armoured Duellists", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "target is a MONSTER or VEHICLE")
 			print("RulesEngine: ARMOURED DUELLISTS — +1 to hit vs %s (MONSTER/VEHICLE)" % target_unit_id)
 
+		# LONG, UNCONTROLLED BURSTS (Codex: Orks 11e): ranged attacks that target a
+		# FLY unit can re-roll the hit roll.
+		if ork11e_long_uncontrolled_bursts_reroll(actor_unit, target_unit):
+			hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(hit_mod_ledger, "Long, Uncontrolled Bursts", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "target has FLY")
+			print("RulesEngine: LONG, UNCONTROLLED BURSTS — re-roll hit rolls vs FLY target %s" % target_unit_id)
+		# DRIVE-BY BUSTIN' (Codex: Orks 11e): +1 to hit for weapons selected for the
+		# Firing Deck ability — the whole batch when every attack is a Firing Deck
+		# one, otherwise per attack in the hit roll loop below.
+		if ork11e_drive_by_bustin_active(actor_unit) and not ork11e_fd_attack.is_empty() and not ork11e_fd_attack.has(false):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Drive-by Bustin'", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "weapon selected for the Firing Deck ability")
+			print("RulesEngine: DRIVE-BY BUSTIN' — +1 to hit for Firing Deck weapon %s" % weapon_id)
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
 		# full Hit re-roll if target is within range of any objective marker.
 		var dats_our_loot_scope = get_dats_our_loot_reroll_scope(actor_unit, target_unit, board)
@@ -2319,16 +2464,27 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			hit_fail_band = _indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3
 			# 11e (10.07): "hit rolls cannot be re-rolled" while shooting
 			# indirect at an unseen target.
-			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)):
-				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)
+			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)):
+				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
 				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed (unseen target)")
+		# DRIVE-BY BUSTIN': a batch mixing Firing Deck and the transport's own
+		# weapons gets the +1 only on its Firing Deck attacks.
+		var ork11e_fd_mixed: bool = ork11e_drive_by_bustin_active(actor_unit) and ork11e_fd_attack.has(true) and ork11e_fd_attack.has(false)
+		if ork11e_fd_mixed:
+			ModifierLedger.note(hit_mod_ledger, "Drive-by Bustin'", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "Firing Deck weapons' attacks only")
+		# SPEEDIEST FREEKS (Codex: Orks 11e): ranged attacks that target the
+		# unit fail on an unmodified hit roll of 1-3.
+		hit_fail_band = ork11e_ranged_hit_fail_band(target_unit, hit_fail_band)
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			# MA-10: Use per-model BS for this attack's threshold
 			var attack_bs = bs_per_attack[i] if i < bs_per_attack.size() else bs
-			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_bs, hit_modifiers, critical_hit_threshold, rng, hit_fail_band)
+			var ork11e_attack_mods: int = hit_modifiers
+			if ork11e_fd_mixed and i < ork11e_fd_attack.size() and ork11e_fd_attack[i]:
+				ork11e_attack_mods |= HitModifier.PLUS_ONE
+			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_bs, ork11e_attack_mods, critical_hit_threshold, rng, hit_fail_band)
 			modified_rolls.append(hit_eval.final_roll)
-			hit_evals.append({"raw": roll, "final": hit_eval.final_roll, "is_hit": hit_eval.is_hit, "is_crit": hit_eval.is_crit})
+			hit_evals.append({"raw": roll, "final": hit_eval.final_roll, "is_hit": hit_eval.is_hit, "is_crit": hit_eval.is_crit, "rerolled": hit_eval.rerolled})
 			if hit_eval.rerolled:
 				reroll_data.append({
 					"original": hit_eval.reroll_from,
@@ -2391,6 +2547,12 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		if int(sustained_data.value) == 0 and actor_unit.get("flags", {}).get("effect_try_dat_sustained_ranged", false):
 			sustained_data = {"value": 1, "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS 1 granted by TRY DAT BUTTON! (Dread Mob)")
+		# NEVER ENOUGH DAKKA / DAKKASTORM / VINDICTIVE ARTILLERISTS (Codex: Orks 11e):
+		# ranged [SUSTAINED HITS 1] (a weapon's own SUSTAINED HITS X is kept).
+		var ork11e_sh_val = ork11e_ranged_sustained_hits(actor_unit)
+		if int(sustained_data.value) == 0 and ork11e_sh_val > 0:
+			sustained_data = {"value": ork11e_sh_val, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS %d granted by a Codex: Orks (11e) stratagem" % ork11e_sh_val)
 
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
@@ -2418,6 +2580,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			"models_in_half_range": models_in_half_range,
 			"base_attacks": base_attacks,
 			"successes": hits,
+			"target_unit_id": target_unit_id,  # enemy_has_shot window: which units were hit
 			# CRITICAL HIT TRACKING (PRP-031)
 			"critical_hits": critical_hits,
 			"regular_hits": regular_hits,
@@ -2444,6 +2607,12 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			# DAKKASTORM (OA-16)
 			"dakkastorm_active": has_dakkastorm(actor_unit)
 		})
+		# Unmodified rolls up to this value fail regardless of BS (INDIRECT
+		# FIRE 10.07, SPEEDIEST FREEKS) — the dice log shows the band (r5:F10).
+		# Only written when wider than the core unmodified-1 fail, so every
+		# other dice block is unchanged (ISS-012 attack goldens).
+		if hit_fail_band > 1:
+			result.dice[-1]["hit_fail_band"] = hit_fail_band
 
 	# Build the hit context up-front so it is available even on a full miss —
 	# the staged shooting path may Command Re-roll a MISSED die (turning it into
@@ -2482,6 +2651,8 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		"critical_hit_threshold": critical_hit_threshold,
 		"hit_fail_band": hit_fail_band,
 		"sustained_data": sustained_data,
+		# DRIVE-BY BUSTIN': per-attack +1 for a batch mixing Firing Deck weapons
+		"ork11e_fd_plus_one": ork11e_fd_attack if (ork11e_drive_by_bustin_active(actor_unit) and ork11e_fd_attack.has(true) and ork11e_fd_attack.has(false)) else [],
 	}
 	result["hit_context"] = hit_context
 
@@ -2529,6 +2700,20 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	var hit_modifiers = hit_context["hit_modifiers"]
 	var critical_hit_threshold = hit_context["critical_hit_threshold"]
 	var sustained_data = hit_context["sustained_data"]
+	# GROT SHIELDS (Codex: Orks 11e): hits on the shielded unit end their attack
+	# sequence and become mortal wounds on the Gretchin unit. The diffs ride
+	# out in result.grot_shields_diffs (merged into the action's changes).
+	var gs_res = ork11e_grot_shields_intercept(actor_unit_id, target_unit, critical_hits, regular_hits, sustained_bonus_hits, sustained_data, is_torrent, board, rng)
+	if gs_res.active and gs_res.intercepted > 0:
+		critical_hits = gs_res.critical_hits
+		regular_hits = gs_res.regular_hits
+		sustained_bonus_hits = gs_res.sustained_bonus_hits
+		hits = critical_hits + regular_hits
+		total_hits_for_wounds = hits + sustained_bonus_hits
+		result["grot_shields_diffs"] = gs_res.diffs
+		result.dice.append({"context": "grot_shields", "message": gs_res.log_text,
+			"intercepted": gs_res.intercepted, "gretchin_unit_id": gs_res.gretchin_unit_id,
+			"target_unit_id": target_unit_id})
 	# Roll to wound - LETHAL HITS (PRP-010) + SUSTAINED HITS (PRP-011) + DEVASTATING WOUNDS (PRP-012)
 	# TORRENT (PRP-014): Torrent weapons skip hit roll but still roll to wound normally
 	var strength = weapon_profile.get("strength", 4)
@@ -2702,6 +2887,12 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		wound_modifiers |= sgt_mod
 		ModifierLedger.note(wound_mod_ledger, "Surly as a Squiggoth", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: S>T wound penalty — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
+	# HULKING BRUTES (Codex: Orks 11e): -1 to wound for ranged attacks that
+	# target the unit (S > T only, or every attack with the +1CP upgrade).
+	if ork11e_ranged_wound_penalty(target_unit, strength, toughness):
+		wound_modifiers |= WoundModifier.MINUS_ONE
+		ModifierLedger.note(wound_mod_ledger, "Hulking Brutes", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "Codex: Orks stratagem on the target")
+		print("RulesEngine: HULKING BRUTES — -1 to wound for ranged attacks against %s (S %d, T %d, mode %s)" % [target_unit_id, strength, toughness, str(target_unit.get("flags", {}).get("ork11e_hulking_brutes", ""))])
 	# BIGGER SHELLS FOR BIGGER GITZ (Dread Mob): +1 to wound vs MONSTER/VEHICLE
 	if get_bigger_shells_wound_bonus(actor_unit, target_unit) > 0:
 		wound_modifiers |= WoundModifier.PLUS_ONE
@@ -2736,6 +2927,11 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		ModifierLedger.note(wound_mod_ledger, "Against All Odds", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
 		print("RulesEngine: AGAINST ALL ODDS — +1 to wound for %s (no friendlies within 6\")" % actor_unit_id)
 
+	# KUSTOM DAKKA (Codex: Orks 11e): +1 to wound vs a target that is not a MONSTER/VEHICLE unit
+	if ork11e_kustom_dakka_wound_bonus(actor_unit, target_unit) > 0:
+		wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(wound_mod_ledger, "Kustom Dakka", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is not a MONSTER or VEHICLE")
+		print("RulesEngine: KUSTOM DAKKA — +1 to wound vs %s" % target_unit_id)
 	var wound_modifier_net = 0
 	if wound_modifiers & WoundModifier.PLUS_ONE:
 		wound_modifier_net += 1
@@ -2779,7 +2975,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 			for roll in wound_rolls:
 				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 				var wound_eval = AttackSequence.evaluate_wound_roll(roll, wound_modifiers, wound_threshold, critical_wound_threshold, rng)
-				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail})
+				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled})
 				if wound_eval.rerolled:
 					wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 				if wound_eval.auto_fail:
@@ -2799,7 +2995,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		for roll in wound_rolls:
 			# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 			var wound_eval = AttackSequence.evaluate_wound_roll(roll, wound_modifiers, wound_threshold, critical_wound_threshold, rng)
-			wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail})
+			wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled})
 			if wound_eval.rerolled:
 				wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 			if wound_eval.auto_fail:
@@ -3818,6 +4014,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# SHOOTY POWER TRIP (OA-37): +1 Attacks to ranged weapons for the phase (D6 roll 5-6)
 	var ar_spt_attacks_bonus = 1 if actor_unit.get("flags", {}).get("effect_shooty_power_trip_attacks", false) else 0
 
+	# DRIVE-BY BUSTIN' (Codex: Orks 11e): per-attack record of whether the
+	# attack is made with a weapon selected for the Firing Deck ability.
+	var ork11e_fd_attack: Array = []
 	for model_id in model_ids:
 		# ATTACHED CHARACTERS: see the same block in _resolve_assignment_hits.
 		var model = resolve_bearer_model(actor_unit, model_id, board)
@@ -3848,6 +4047,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		for _j in range(model_attacks):
 			bs_per_attack.append(model_bs)
 			cover_model_per_attack.append(model)
+			ork11e_fd_attack.append(ork11e_is_firing_deck_bearer(model_id))
 		if attacks_result.rolled:
 			attacks_roll_log.append(attacks_result)
 
@@ -3887,6 +4087,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			print("RulesEngine: BRUTAL BROADSIDE — [RAPID FIRE %d] on %s (X = Attacks)" % [rapid_fire_value, weapon_id])
 		else:
 			print("RulesEngine: BRUTAL BROADSIDE — %s has dice-valued Attacks (%s), rapid fire grant skipped" % [weapon_id, bb_attacks_raw])
+	# CLOSE-RANGE DAKKA (Codex: Orks 11e): [RAPID FIRE 1], or +1 to the value of
+	# an existing [RAPID FIRE] (applied after every other RAPID FIRE grant).
+	var ork11e_crd_bonus = ork11e_rapid_fire_bonus(actor_unit, weapon_profile)
+	if ork11e_crd_bonus > 0:
+		rapid_fire_value += ork11e_crd_bonus
+		print("RulesEngine: CLOSE-RANGE DAKKA (auto-resolve) — %s now [RAPID FIRE %d]" % [weapon_id, rapid_fire_value])
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
@@ -3901,7 +4107,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			if rf_model.is_empty() or not rf_model.get("alive", true):
 				continue
 			var closest_distance_inches = INF
-			for target_model in target_unit.get("models", []):
+			# Half range is measured to the whole TARGET unit — for an
+			# Attached unit that includes its leaders (19.03), not only the
+			# bodyguard models (r1:WH-3).
+			for target_model in attached_unit_models(target_unit_id, board):
 				if not target_model.get("alive", true):
 					continue
 				var edge_distance_px = Measurement.model_to_model_distance_px(rf_model, target_model)
@@ -3912,6 +4121,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				var rf_model_bs = _get_model_effective_bs(rf_model, actor_unit, weapon_profile)
 				for _j in range(rapid_fire_value):
 					bs_per_attack.append(rf_model_bs)
+					ork11e_fd_attack.append(ork11e_is_firing_deck_bearer(model_id))
 		rapid_fire_attacks = models_in_half_range * rapid_fire_value
 		print("RulesEngine: [MA-14][auto-resolve] Rapid Fire %d — %d/%d assigned models in half range (+%d attacks)" % [rapid_fire_value, models_in_half_range, model_ids.size(), rapid_fire_attacks])
 
@@ -3926,8 +4136,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var target_model_count = count_alive_models(target_unit)
 	# MA-10: Blast bonus attacks use weapon's default BS (not model-specific)
 	var default_bs = weapon_profile.get("bs", 4)
+	var ork11e_fd_blast: int = blast_bonus_per_model * model_ids.filter(func(m): return ork11e_is_firing_deck_bearer(m)).size()
 	for _j in range(blast_bonus_attacks):
 		bs_per_attack.append(default_bs)
+		ork11e_fd_attack.append(_j < ork11e_fd_blast)
 
 	var total_attacks = base_attacks + rapid_fire_attacks + blast_bonus_attacks
 	if assignment.has("attacks_override") and assignment.attacks_override != null:
@@ -3936,8 +4148,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		blast_bonus_attacks = 0  # Override disables the blast bonus tracking
 		# MA-10: Rebuild bs_per_attack with default BS when attacks are overridden
 		bs_per_attack.clear()
+		ork11e_fd_attack.clear()
 		for _j in range(total_attacks):
 			bs_per_attack.append(default_bs)
+			ork11e_fd_attack.append(not model_ids.is_empty() and model_ids.all(func(m): return ork11e_is_firing_deck_bearer(m)))
 
 	# MA-29: ABILITY ATTACK BONUS — Check for weapon-targeted +X Attacks from abilities (auto-resolve)
 	var ar_weapon_name = weapon_profile.get("name", weapon_id)
@@ -3953,6 +4167,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				var ar_bonus_bs = _get_model_effective_bs(ar_bonus_model, resolve_bearer_unit(actor_unit, ar_model_id, board), weapon_profile)
 				for _j in range(ar_bonus_value):
 					bs_per_attack.append(ar_bonus_bs)
+					ork11e_fd_attack.append(ork11e_is_firing_deck_bearer(ar_model_id))
 			print("RulesEngine: [MA-29][auto-resolve] Ability +%d Attacks for '%s' → +%d total (%d models × %d)" % [ar_bonus_value, ar_weapon_name, ar_ability_attack_bonus, model_ids.size(), ar_bonus_value])
 		else:
 			print("RulesEngine: [MA-29][auto-resolve] Ability +%d Attacks exists but does not apply to '%s' (weapon filter active)" % [ar_bonus_value, ar_weapon_name])
@@ -4086,6 +4301,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_modifiers |= HitModifier.REROLL_FAILED
 			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "granted by an ability or Stratagem")
 			print("RulesEngine: Effect re-roll hits (auto-resolve) applied for %s" % actor_unit_id)
+		elif reroll_hits_scope_ar == REROLL_HITS_SCOPE_NON_CRIT:
+			hit_modifiers |= _non_crit_hit_reroll_bits(actor_unit, weapon_id, board, false)
+			ModifierLedger.note(hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "re-roll hit rolls (non-critical hits too, for critical-hit weapons)")
+			print("RulesEngine: Effect re-roll hit rolls (auto-resolve, fishing for crits where they matter) applied for %s / %s" % [actor_unit_id, weapon_id])
 
 		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
 		if is_damaged_profile_active(actor_unit):
@@ -4174,6 +4393,19 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			ModifierLedger.note(hit_mod_ledger, "Armoured Duellists", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "target is a MONSTER or VEHICLE")
 			print("RulesEngine: ARMOURED DUELLISTS (auto-resolve) — +1 to hit vs %s (MONSTER/VEHICLE)" % target_unit_id)
 
+		# LONG, UNCONTROLLED BURSTS (Codex: Orks 11e): ranged attacks that target a
+		# FLY unit can re-roll the hit roll.
+		if ork11e_long_uncontrolled_bursts_reroll(actor_unit, target_unit):
+			hit_modifiers |= HitModifier.REROLL_FAILED
+			ModifierLedger.note(hit_mod_ledger, "Long, Uncontrolled Bursts", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "target has FLY")
+			print("RulesEngine: LONG, UNCONTROLLED BURSTS (auto-resolve) — re-roll hit rolls vs FLY target %s" % target_unit_id)
+		# DRIVE-BY BUSTIN' (Codex: Orks 11e): +1 to hit for weapons selected for the
+		# Firing Deck ability — the whole batch when every attack is a Firing Deck
+		# one, otherwise per attack in the hit roll loop below.
+		if ork11e_drive_by_bustin_active(actor_unit) and not ork11e_fd_attack.is_empty() and not ork11e_fd_attack.has(false):
+			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Drive-by Bustin'", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "weapon selected for the Firing Deck ability")
+			print("RulesEngine: DRIVE-BY BUSTIN' (auto-resolve) — +1 to hit for Firing Deck weapon %s" % weapon_id)
 		# DAT'S OUR LOOT! (OA-12): Re-roll Hit rolls of 1 on ranged attacks;
 		# full Hit re-roll if target is within range of any objective marker (auto-resolve).
 		var dats_our_loot_scope_ar = get_dats_our_loot_reroll_scope(actor_unit, target_unit, board)
@@ -4300,14 +4532,24 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_fail_band = _indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3
 			# 11e (10.07): "hit rolls cannot be re-rolled" while shooting
 			# indirect at an unseen target.
-			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)):
-				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED)
+			if GameConstants.edition >= 11 and (hit_modifiers & (HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)):
+				hit_modifiers &= ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
 				print("RulesEngine: [11e 10.07] INDIRECT — hit re-rolls suppressed (unseen target)")
+		# DRIVE-BY BUSTIN': a batch mixing Firing Deck and the transport's own
+		# weapons gets the +1 only on its Firing Deck attacks.
+		var ork11e_fd_mixed: bool = ork11e_drive_by_bustin_active(actor_unit) and ork11e_fd_attack.has(true) and ork11e_fd_attack.has(false)
+		if ork11e_fd_mixed:
+			ModifierLedger.note(hit_mod_ledger, "Drive-by Bustin'", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "Firing Deck weapons' attacks only")
+		# SPEEDIEST FREEKS (Codex: Orks 11e): unmodified hit rolls of 1-3 fail.
+		hit_fail_band = ork11e_ranged_hit_fail_band(target_unit, hit_fail_band)
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			# MA-10: Use per-model BS for this attack's threshold
 			var attack_bs = bs_per_attack[i] if i < bs_per_attack.size() else bs
-			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_bs, hit_modifiers, critical_hit_threshold, rng, hit_fail_band)
+			var ork11e_attack_mods: int = hit_modifiers
+			if ork11e_fd_mixed and i < ork11e_fd_attack.size() and ork11e_fd_attack[i]:
+				ork11e_attack_mods |= HitModifier.PLUS_ONE
+			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_bs, ork11e_attack_mods, critical_hit_threshold, rng, hit_fail_band)
 			modified_rolls.append(hit_eval.final_roll)
 			if hit_eval.rerolled:
 				reroll_data.append({
@@ -4371,6 +4613,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		if int(sustained_data.value) == 0 and actor_unit.get("flags", {}).get("effect_try_dat_sustained_ranged", false):
 			sustained_data = {"value": 1, "is_dice": false}
 			print("RulesEngine:   SUSTAINED HITS 1 granted by TRY DAT BUTTON! (Dread Mob)")
+		# NEVER ENOUGH DAKKA / DAKKASTORM / VINDICTIVE ARTILLERISTS (Codex: Orks 11e):
+		# ranged [SUSTAINED HITS 1] (a weapon's own SUSTAINED HITS X is kept).
+		var ork11e_sh_val = ork11e_ranged_sustained_hits(actor_unit)
+		if int(sustained_data.value) == 0 and ork11e_sh_val > 0:
+			sustained_data = {"value": ork11e_sh_val, "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS %d granted by a Codex: Orks (11e) stratagem" % ork11e_sh_val)
 
 		sustained_result = roll_sustained_hits(critical_hits, sustained_data, rng)
 		sustained_bonus_hits = sustained_result.bonus_hits
@@ -4424,6 +4672,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			# DAKKASTORM (OA-16)
 			"dakkastorm_active": has_dakkastorm(actor_unit)
 		})
+		# Unmodified rolls up to this value fail regardless of BS (INDIRECT
+		# FIRE 10.07, SPEEDIEST FREEKS) — the dice log shows the band (r5:F10).
+		# Only written when wider than the core unmodified-1 fail, so every
+		# other dice block is unchanged (ISS-012 attack goldens).
+		if hit_fail_band > 1:
+			result.dice[-1]["hit_fail_band"] = hit_fail_band
 
 	if hits == 0 and sustained_bonus_hits == 0:
 		var ar_miss_weapon_name = weapon_profile.get("name", weapon_id)
@@ -4432,6 +4686,25 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			ar_miss_log += " [%s] vs %s" % [", ".join(hit_rolls.map(func(r): return str(r))), hit_threshold_display]
 		result.log_text = ar_miss_log
 		return result
+
+	# GROT SHIELDS (Codex: Orks 11e): intercepted hits end their attack sequence;
+	# the Gretchin unit's mortal wounds join this assignment's diffs.
+	var ar_gs = ork11e_grot_shields_intercept(actor_unit_id, target_unit, critical_hits, regular_hits, sustained_bonus_hits, sustained_data, is_torrent, board, rng)
+	if ar_gs.active and ar_gs.intercepted > 0:
+		critical_hits = ar_gs.critical_hits
+		regular_hits = ar_gs.regular_hits
+		sustained_bonus_hits = ar_gs.sustained_bonus_hits
+		hits = critical_hits + regular_hits
+		total_hits_for_wounds = hits + sustained_bonus_hits
+		result.diffs.append_array(ar_gs.diffs)
+		for ar_gs_d in ar_gs.diffs:
+			_apply_diff_to_board(board, ar_gs_d)
+		result.dice.append({"context": "grot_shields", "message": ar_gs.log_text,
+			"intercepted": ar_gs.intercepted, "gretchin_unit_id": ar_gs.gretchin_unit_id,
+			"target_unit_id": target_unit_id})
+		if total_hits_for_wounds <= 0:
+			result.log_text = ar_gs.log_text
+			return result
 
 	# Roll to wound - LETHAL HITS (PRP-010) + SUSTAINED HITS (PRP-011)
 	# TORRENT (PRP-014): Torrent weapons skip hit roll but still roll to wound normally
@@ -4593,6 +4866,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		ar_wound_modifiers |= ar_sgt_mod
 		ModifierLedger.note(ar_wound_mod_ledger, "Surly as a Squiggoth", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "attack's Strength exceeds the target's Toughness")
 		print("RulesEngine: S>T wound penalty (auto-resolve) — -1 to wound for attacks against %s (S %d > T %d)" % [target_unit_id, strength, toughness])
+	# HULKING BRUTES (Codex: Orks 11e): -1 to wound for ranged attacks that target the unit.
+	if ork11e_ranged_wound_penalty(target_unit, strength, toughness):
+		ar_wound_modifiers |= WoundModifier.MINUS_ONE
+		ModifierLedger.note(ar_wound_mod_ledger, "Hulking Brutes", ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, "Codex: Orks stratagem on the target")
+		print("RulesEngine: HULKING BRUTES (auto-resolve) — -1 to wound for ranged attacks against %s (S %d, T %d)" % [target_unit_id, strength, toughness])
 	# BIGGER SHELLS FOR BIGGER GITZ (Dread Mob): +1 to wound vs MONSTER/VEHICLE
 	if get_bigger_shells_wound_bonus(actor_unit, target_unit) > 0:
 		ar_wound_modifiers |= WoundModifier.PLUS_ONE
@@ -4621,6 +4899,11 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		ModifierLedger.note(ar_wound_mod_ledger, "Against All Odds", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
 		print("RulesEngine: AGAINST ALL ODDS (auto-resolve) — +1 to wound for %s (no friendlies within 6\")" % actor_unit_id)
 
+	# KUSTOM DAKKA (Codex: Orks 11e): +1 to wound vs a target that is not a MONSTER/VEHICLE unit
+	if ork11e_kustom_dakka_wound_bonus(actor_unit, target_unit) > 0:
+		ar_wound_modifiers |= WoundModifier.PLUS_ONE
+		ModifierLedger.note(ar_wound_mod_ledger, "Kustom Dakka", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is not a MONSTER or VEHICLE")
+		print("RulesEngine: KUSTOM DAKKA (auto-resolve) — +1 to wound vs %s" % target_unit_id)
 	var ar_wound_modifier_net = 0
 	if ar_wound_modifiers & WoundModifier.PLUS_ONE:
 		ar_wound_modifier_net += 1
@@ -4750,38 +5033,43 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# PULSA ROKKIT (OA-31): +1 AP to ranged weapons for the phase
 	if actor_unit.get("flags", {}).get("effect_pulsa_rokkit_active", false):
 		var pre_ap_pr = ap
-		ap = ap + 1
+		ap = improve_ap(ap, 1)
 		print("RulesEngine: Pulsa Rokkit (auto-resolve) — ranged AP %d → %d (+1)" % [pre_ap_pr, ap])
 	# DRIVE-BY DAKKA (OA-13): Improve AP by 1 for ranged attacks vs targets within 9"
 	var ar_dbd_bonus = get_drive_by_dakka_ap_bonus(actor_unit, target_unit)
 	if ar_dbd_bonus > 0:
 		var pre_ap_dbd = ap
-		ap = ap + ar_dbd_bonus
+		ap = improve_ap(ap, ar_dbd_bonus)
 		print("RulesEngine: Drive-by Dakka (auto-resolve) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, ar_dbd_bonus])
 	# IMPROVE AP: effect-granted AP improvement (Umbral Prosecution ranged AP +1 etc.)
 	var ar_improve_ap = EffectPrimitivesData.get_effect_improve_ap_scoped(actor_unit, "ranged")
 	if ar_improve_ap > 0:
 		var pre_ap_imp = ap
-		ap = ap + ar_improve_ap
+		ap = improve_ap(ap, ar_improve_ap)
 		print("RulesEngine: Improve AP (auto-resolve) — AP %d → %d (improve by %d)" % [pre_ap_imp, ap, ar_improve_ap])
 	# SPESHUL SHELLS (More Dakka!): +1 AP vs targets within 18"
 	var ar_ss_bonus = get_speshul_shells_ap_bonus(actor_unit, target_unit)
 	if ar_ss_bonus > 0:
-		ap = ap + ar_ss_bonus
+		ap = improve_ap(ap, ar_ss_bonus)
 		print("RulesEngine: SPESHUL SHELLS (auto-resolve) — AP improved by %d (target within 18\")" % ar_ss_bonus)
 	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
 	var ar_prey_bonus = get_prey_ap_bonus(actor_unit, target_unit)
 	if ar_prey_bonus > 0:
-		ap = ap + ar_prey_bonus
+		ap = improve_ap(ap, ar_prey_bonus)
 		print("RulesEngine: PREY (auto-resolve) — AP improved by %d (target is Prey)" % ar_prey_bonus)
 	# TRY DAT BUTTON! (Dread Mob, 5-6): +2 AP (40kdc flatten of the Critical Wound rider)
 	if actor_unit.get("flags", {}).get("effect_try_dat_ap2", false):
-		ap = ap + 2
+		ap = improve_ap(ap, 2)
 		print("RulesEngine: TRY DAT BUTTON! (auto-resolve) — AP improved by 2")	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
+	# GLOWIN' DAKKA (Codex: Orks 11e): +1 AP vs a target within 9"
+	var ar_glowin_ap = ork11e_glowin_dakka_ap_bonus(actor_unit, target_unit, board)
+	if ar_glowin_ap > 0:
+		ap = ork11e_improve_ap(ap, ar_glowin_ap)
+		print("RulesEngine: GLOWIN' DAKKA (auto-resolve) — AP improved by %d (target within 9\")" % ar_glowin_ap)
 	var ar_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
-	if ar_worsen_ap > 0 and ap > 0:
+	if ar_worsen_ap > 0 and ap != 0:
 		var pre_ap = ap
-		ap = max(0, ap - ar_worsen_ap)
+		ap = worsen_ap(ap, ar_worsen_ap)
 		print("RulesEngine: Worsen AP (auto-resolve) — AP %d → %d (worsen by %d)" % [pre_ap, ap, ar_worsen_ap])
 	var damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
 	var casualties = 0
@@ -5312,6 +5600,12 @@ static func validate_shoot(action: Dictionary, board: Dictionary) -> Dictionary:
 			var target_unit = units[target_unit_id]
 			if target_unit.get("owner", 0) == actor_unit.get("owner", 0):
 				errors.append("Cannot target friendly units")
+
+			# HUNTER PROFILES (11e 04.01.03): "Hunter profiles can only target
+			# units with the specified keywords."
+			if weapon_id != "" and not weapon_profile_can_target(weapon_id, target_unit, board):
+				var hp_name = get_weapon_profile(weapon_id, board).get("name", weapon_id)
+				errors.append("Hunter profile '%s' can only target %s units" % [hp_name, "/".join(hunter_profile_target_keywords(weapon_id, board))])
 
 			# ATTACHED CHARACTER (19.02): while a CHARACTER is attached to a
 			# bodyguard the combined Attached unit is ONE unit — the character
@@ -6390,6 +6684,11 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary, first
 					continue
 				checked_weapons[weapon_id] = true
 
+				# HUNTER PROFILES (11e 04.01.03): only units with the
+				# specified keywords can be targeted by that profile.
+				if not weapon_profile_can_target(weapon_id, target_unit, board):
+					continue
+
 				var is_pistol = is_pistol_weapon(weapon_id, board)
 
 				# ENGAGEMENT RANGE WEAPON RULES:
@@ -7235,9 +7534,12 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 		datasheet_slugs[UnitLoadoutResolver.slugify(n)] = true
 		datasheet_slugs[UnitLoadoutResolver.slugify(UnitLoadoutResolver.base_weapon_name(n))] = true
 
-	# Role per model, then its default kit.
+	# Role per model, then its default kit. Kits are looked up under the
+	# unit's datasheet key: its own name, or "<name> [1.0.19]" for a roster
+	# built on a pre-codex datasheet (UnitLoadoutResolver.datasheet_key).
+	var ds_key = UnitLoadoutResolver.datasheet_key(unit)
 	var model_profiles = meta.get("model_profiles", {})
-	var positional = _positional_roles(uname, models.size())
+	var positional = _positional_roles(ds_key, models.size())
 	var role_of: Array = []
 	var kits: Array = []
 	for i in range(models.size()):
@@ -7251,11 +7553,11 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 					role_names.append(label)
 		if i < positional.size():
 			role_names.append(str(positional[i]))  # last resort, least specific
-		var role = UnitLoadoutResolver.match_model_role(uname, role_names)
+		var role = UnitLoadoutResolver.match_model_role(ds_key, role_names)
 		if role == "":
 			print("[MA-LOADOUT] %s: model %d's role could not be matched to the datasheet composition — left unresolved" % [uname, i])
 			return []
-		var kit = UnitLoadoutResolver.get_role_default_weapon_slugs(uname, role)
+		var kit = UnitLoadoutResolver.get_role_default_weapon_slugs(ds_key, role)
 		if kit.is_empty():
 			print("[MA-LOADOUT] %s: no default kit for role '%s' — left unresolved" % [uname, role])
 			return []
@@ -7293,7 +7595,7 @@ static func _datasheet_model_kits(unit: Dictionary) -> Array:
 	# AND the Boss Nob's kombi swap all hand out a close combat weapon, so a
 	# roster line of "9x Close combat weapon" says nothing about which was taken.
 	# Only a weapon unique to ONE swap is evidence.
-	var options = UnitLoadoutResolver.get_wargear_options(uname)
+	var options = UnitLoadoutResolver.get_wargear_options(ds_key)
 	var grant_counts := {}
 	for option in options:
 		for bundle in option.get("bundles", []):
@@ -7831,6 +8133,68 @@ static func is_pistol_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
 	var keywords = profile.get("keywords", [])
 	for keyword in keywords:
 		if keyword.to_upper() == "PISTOL":
+			return true
+	return false
+
+## Hunter profiles (11e 04.01.03): "Hunter profiles can only target units with
+## the specified keywords." Returns the keywords (upper case, any-of) a Hunter
+## profile requires of its target, or [] when the profile is not a Hunter
+## profile. Structured data wins (profile.target_restrictions.required_keywords_any,
+## or an abilities entry {"id": "hunter", "keywords"/"keyword": …}); army files
+## built by the current converter only carry the legacy "hunter" token in
+## special_rules (the keyword parameters are dropped), so a bare Hunter token
+## falls back to MONSTER/VEHICLE — the restriction of every Hunter profile in
+## the shipped 11e catalogue (data/40kdc/weapons.json: 8/8 profiles).
+const HUNTER_FALLBACK_TARGET_KEYWORDS: Array = ["MONSTER", "VEHICLE"]
+
+static func hunter_profile_target_keywords(weapon_id: String, board: Dictionary = {}) -> Array:
+	var profile = get_weapon_profile(weapon_id, board)
+	if profile.is_empty():
+		return []
+	var out: Array = []
+	var tr = profile.get("target_restrictions", null)
+	if tr is Dictionary and tr.get("required_keywords_any", []) is Array:
+		for k in tr.get("required_keywords_any", []):
+			if not str(k).to_upper() in out:
+				out.append(str(k).to_upper())
+	var is_hunter := not out.is_empty()
+	var abilities = profile.get("abilities", [])
+	if abilities is Array:
+		for ab in abilities:
+			if typeof(ab) == TYPE_DICTIONARY and str(ab.get("id", "")) == "hunter":
+				is_hunter = true
+				var kws = ab.get("keywords", ab.get("keyword", []))
+				if typeof(kws) == TYPE_STRING:
+					kws = [kws]
+				if kws is Array:
+					for k in kws:
+						if not str(k).to_upper() in out:
+							out.append(str(k).to_upper())
+	if not is_hunter:
+		for tok in str(profile.get("special_rules", "")).split(","):
+			if tok.strip_edges().to_lower() == "hunter":
+				is_hunter = true
+				break
+	if not is_hunter:
+		return []
+	return out if not out.is_empty() else HUNTER_FALLBACK_TARGET_KEYWORDS.duplicate()
+
+## Can `weapon_id`'s profile target `target_unit`? False only for a Hunter
+## profile whose required keywords the target (or a character attached to it)
+## lacks (04.01.03).
+static func weapon_profile_can_target(weapon_id: String, target_unit: Dictionary, board: Dictionary = {}) -> bool:
+	var required := hunter_profile_target_keywords(weapon_id, board)
+	if required.is_empty():
+		return true
+	var kws: Array = []
+	for k in target_unit.get("meta", {}).get("keywords", []):
+		kws.append(str(k).to_upper())
+	var units: Dictionary = board.get("units", {}) if not board.is_empty() else GameState.state.get("units", {})
+	for cid in target_unit.get("attachment_data", {}).get("attached_characters", []):
+		for k in units.get(str(cid), {}).get("meta", {}).get("keywords", []):
+			kws.append(str(k).to_upper())
+	for r in required:
+		if r in kws:
 			return true
 	return false
 
@@ -9351,6 +9715,129 @@ static func get_dakkastorm_sustained_value(actor_unit: Dictionary, target_unit: 
 		return 0
 	return 2 if is_target_within_range_inches(actor_unit, target_unit, 9.0) else 1
 
+# ---------------------------------------------------------------------------
+# Codex: Orks (11e) — "when a unit is selected to shoot" stratagems
+# (scripts/stratagems/ork_codex/OrkCodexShooting.gd). The handler writes these
+# flags on the shooter and every component of its Attached unit until the end
+# of the phase; each helper below is read from EVERY ranged resolver path
+# (interactive _resolve_assignment_hits / _resolve_assignment_wounds /
+# prepare_save_resolution, auto _resolve_assignment, the single-die Command
+# Re-roll) and from the ShootingController forecast. Per-target conditions are
+# evaluated against the target of each attack. VINDICTIVE ARTILLERISTS'
+# [LETHAL HITS] / [HAZARDOUS] reuse the ranged-only effect_lethal_hits_ranged /
+# effect_grant_hazardous flags, whose consumers match the rule exactly.
+# ---------------------------------------------------------------------------
+const ORK11E_FLAG_CLOSE_RANGE_DAKKA := "ork11e_close_range_dakka"
+const ORK11E_FLAG_VINDICTIVE_ARTILLERISTS := "ork11e_vindictive_artillerists"  # = chosen variant id
+const ORK11E_FLAG_DRIVE_BY_BUSTIN := "ork11e_drive_by_bustin"
+const ORK11E_FLAG_KUSTOM_DAKKA := "ork11e_kustom_dakka"
+const ORK11E_FLAG_GLOWIN_DAKKA := "ork11e_glowin_dakka"
+const ORK11E_FLAG_NEVER_ENOUGH_DAKKA := "ork11e_never_enough_dakka"
+const ORK11E_FLAG_LONG_UNCONTROLLED_BURSTS := "ork11e_long_uncontrolled_bursts"
+const ORK11E_FLAG_DAKKASTORM := "ork11e_dakkastorm"
+
+# CLOSE-RANGE DAKKA: ranged attacks have [RAPID FIRE 1], or +1 to the value of
+# an existing [RAPID FIRE] — either way the attack's RAPID FIRE value rises by
+# 1 (0 -> 1). Applied after every other RAPID FIRE grant ("already has").
+static func ork11e_rapid_fire_bonus(actor_unit: Dictionary, weapon_profile: Dictionary) -> int:
+	if not actor_unit.get("flags", {}).get(ORK11E_FLAG_CLOSE_RANGE_DAKKA, false):
+		return 0
+	if str(weapon_profile.get("type", "Ranged")).to_lower() == "melee":
+		return 0
+	return 1
+
+# NEVER ENOUGH DAKKA / DAKKASTORM / VINDICTIVE ARTILLERISTS (Sustained Hits or
+# the overcharged variant): ranged [SUSTAINED HITS 1]. Callers apply it only
+# when the weapon has no SUSTAINED HITS of its own — duplicates are not
+# cumulative and the controlling player picks the better instance (core rules,
+# weapon abilities), and SUSTAINED HITS 1 is never better than an existing X.
+static func ork11e_ranged_sustained_hits(actor_unit: Dictionary) -> int:
+	var flags = actor_unit.get("flags", {})
+	if flags.get(ORK11E_FLAG_NEVER_ENOUGH_DAKKA, false) or flags.get(ORK11E_FLAG_DAKKASTORM, false):
+		return 1
+	if str(flags.get(ORK11E_FLAG_VINDICTIVE_ARTILLERISTS, "")) in ["sustained_hits", "overcharge"]:
+		return 1
+	return 0
+
+# DRIVE-BY BUSTIN': +1 to hit rolls for ranged attacks made with weapons
+# selected for the Firing Deck ability. Firing Deck loans are bearer ids
+# "<hull>@fd<i>" (get_unit_weapons), so the bonus is decided per bearer.
+static func ork11e_drive_by_bustin_active(actor_unit: Dictionary) -> bool:
+	return bool(actor_unit.get("flags", {}).get(ORK11E_FLAG_DRIVE_BY_BUSTIN, false))
+
+static func ork11e_is_firing_deck_bearer(bearer_id) -> bool:
+	return str(bearer_id).find("@fd") != -1
+
+# KUSTOM DAKKA: +1 to wound for ranged attacks that target a unit that is not
+# a MONSTER or VEHICLE unit.
+static func ork11e_kustom_dakka_wound_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	if not actor_unit.get("flags", {}).get(ORK11E_FLAG_KUSTOM_DAKKA, false):
+		return 0
+	if target_unit.is_empty() or unit_has_keyword(target_unit, "MONSTER") or unit_has_keyword(target_unit, "VEHICLE"):
+		return 0
+	return 1
+
+# GLOWIN' DAKKA: +1 AP for ranged attacks that target a unit within 9" of the
+# attacking unit (closest models, edge to edge; both Attached units whole).
+static func ork11e_glowin_dakka_ap_bonus(actor_unit: Dictionary, target_unit: Dictionary, board: Dictionary = {}) -> int:
+	if not actor_unit.get("flags", {}).get(ORK11E_FLAG_GLOWIN_DAKKA, false):
+		return 0
+	if target_unit.is_empty():
+		return 0
+	var a_models: Array = actor_unit.get("models", [])
+	var t_models: Array = target_unit.get("models", [])
+	if not board.is_empty():
+		if str(actor_unit.get("id", "")) != "":
+			a_models = attached_unit_models(str(actor_unit.get("id", "")), board)
+		if str(target_unit.get("id", "")) != "":
+			t_models = attached_unit_models(str(target_unit.get("id", "")), board)
+	for am in a_models:
+		if not am.get("alive", true) or am.get("position", null) == null:
+			continue
+		for tm in t_models:
+			if not tm.get("alive", true) or tm.get("position", null) == null:
+				continue
+			if Measurement.model_to_model_distance_inches(am, tm) <= 9.0:
+				return 1
+	return 0
+
+# Improve an AP value by `by` (02.02.06: "improving an AP of 0 by 1 would
+# result in an AP of -1"). Army weapon profiles carry AP as the signed value
+# (-1 for AP-1, see get_weapon_profile) and the 11e save step reads it signed
+# (Allocation.apply_save_rolls: armour needed = Sv - ap), so improving makes
+# the value more negative — AP 0 becomes -1. Only a value already stored as a
+# positive magnitude (the legacy WEAPON_PROFILES table) grows upwards instead.
+static func ork11e_improve_ap(ap: int, by: int) -> int:
+	return improve_ap(ap, by)
+
+## AP SIGN CONVENTION (r4:WS-6). Army weapon profiles store AP signed (-2 for
+## AP-2; get_weapon_profile / _parse_ap_value), and the 11e save step reads it
+## signed (Allocation.apply_save_rolls: armour needed = Sv - ap); the legacy
+## _calculate_save_needed takes |ap|. Only the legacy WEAPON_PROFILES table
+## still stores a positive magnitude (2 for AP-2). EVERY AP modifier must go
+## through these two helpers so "+1 AP" always makes the save WORSE:
+##   improve_ap — signed / zero: ap - by (AP 0 -> -1, 02.02.06); legacy
+##                positive magnitude: ap + by. Never pushes a signed value
+##                positive, so the sign test stays unambiguous.
+##   worsen_ap  — reduce the AP toward 0 (never past it): signed min(0, ap + by);
+##                legacy positive magnitude max(0, ap - by).
+static func improve_ap(ap: int, by: int) -> int:
+	if by <= 0:
+		return ap
+	return ap + by if ap > 0 else ap - by
+
+static func worsen_ap(ap: int, by: int) -> int:
+	if by <= 0 or ap == 0:
+		return ap
+	return maxi(0, ap - by) if ap > 0 else mini(0, ap + by)
+
+# LONG, UNCONTROLLED BURSTS: ranged attacks that target a FLY unit can re-roll
+# the hit roll (the engine re-rolls failed hits — the "all" convention).
+static func ork11e_long_uncontrolled_bursts_reroll(actor_unit: Dictionary, target_unit: Dictionary) -> bool:
+	if not actor_unit.get("flags", {}).get(ORK11E_FLAG_LONG_UNCONTROLLED_BURSTS, false):
+		return false
+	return not target_unit.is_empty() and unit_has_keyword(target_unit, "FLY")
+
 # BIGGER SHELLS FOR BIGGER GITZ (Dread Mob): +1 to Wound vs MONSTER/VEHICLE;
 # when pushed, +1 Damage against those targets as well.
 static func get_bigger_shells_wound_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
@@ -9429,6 +9916,100 @@ static func get_s_gt_t_wound_penalty(target_unit: Dictionary, board: Dictionary,
 	if not FactionAbilityManager.unit_has_s_gt_t_wound_penalty(target_unit, board.get("units", {})):
 		return WoundModifier.NONE
 	return WoundModifier.MINUS_ONE
+
+# ── Codex: Orks (11e) defensive stratagems used in the opponent's Shooting
+# phase (OrkCodexShootingReactive.gd). The handlers write ork11e_* flags on
+# every component of the targeted (Attached) unit; these helpers are called
+# from EVERY ranged resolver path (interactive hit/wound stages, the auto
+# _resolve_assignment path, overwatch) — never from melee.
+
+# HULKING BRUTES: flags.ork11e_hulking_brutes = "s_gt_t" (ranged attacks with
+# S greater than the unit's T have -1 to wound) or "all" (+1CP upgrade: every
+# ranged attack that targets the unit has -1 to wound).
+static func ork11e_ranged_wound_penalty(target_unit: Dictionary, strength: int, toughness: int) -> bool:
+	var mode := str(target_unit.get("flags", {}).get("ork11e_hulking_brutes", ""))
+	if mode == "all":
+		return true
+	if mode == "s_gt_t" and strength > toughness:
+		return true
+	return false
+
+# SPEEDIEST FREEKS: flags.ork11e_speediest_freeks — ranged attacks that target
+# the unit fail on an unmodified hit roll of 1-3 (the same unmodified fail-band
+# mechanism INDIRECT FIRE uses; the larger band wins).
+static func ork11e_ranged_hit_fail_band(target_unit: Dictionary, band: int) -> int:
+	if target_unit.get("flags", {}).get("ork11e_speediest_freeks", false):
+		return maxi(band, 3)
+	return band
+
+# GROT SHIELDS: flags.ork11e_grot_shields = {gretchin_unit_id, attacker_unit_ids}
+# on the shielded ORKS INFANTRY unit. Each time a hit roll of one of those
+# enemy units' ranged attacks that target the shielded unit results in a hit,
+# while a model of the Gretchin unit is on the battlefield, that attack's
+# sequence ends (no wound roll, no [LETHAL HITS] auto-wound, no [SUSTAINED
+# HITS] extra hits of that attack) and the Gretchin unit suffers 1 mortal
+# wound. Torrent attacks make no hit roll, so they are never intercepted.
+# Ruling: the Ork player sequences the simultaneous triggers, so critical hits
+# are intercepted before normal hits. Called at the start of the wound stage,
+# so a hit die changed by a Command Re-roll is judged on its final result.
+# Returns the adjusted hit counts plus the Gretchin's mortal-wound diffs (the
+# caller merges them into the action's changes — nothing is applied here).
+static func ork11e_grot_shields_intercept(actor_unit_id: String, target_unit: Dictionary, critical_hits: int, regular_hits: int, sustained_bonus_hits: int, sustained_data: Dictionary, is_torrent: bool, board: Dictionary, rng) -> Dictionary:
+	var out := {"active": false, "intercepted": 0, "crit_intercepted": 0,
+		"critical_hits": critical_hits, "regular_hits": regular_hits,
+		"sustained_bonus_hits": sustained_bonus_hits, "diffs": [], "casualties": 0,
+		"gretchin_unit_id": "", "log_text": ""}
+	var gs_flag = target_unit.get("flags", {}).get("ork11e_grot_shields", null)
+	if typeof(gs_flag) != TYPE_DICTIONARY or is_torrent:
+		return out
+	if not actor_unit_id in gs_flag.get("attacker_unit_ids", []):
+		return out
+	var gid := str(gs_flag.get("gretchin_unit_id", ""))
+	var units: Dictionary = board.get("units", {})
+	if gid == "" or not units.has(gid):
+		return out
+	out.gretchin_unit_id = gid
+	out.active = true
+	# Private copy of the Gretchin unit: the mortal wounds are simulated one
+	# at a time so "a model of your GRETCHIN unit is on the battlefield" is
+	# re-checked before every interception.
+	var sim_units: Dictionary = units.duplicate(false)
+	sim_units[gid] = units[gid].duplicate(true)
+	var sim_board: Dictionary = board.duplicate(false)
+	sim_board["units"] = sim_units
+	var crit_left := critical_hits
+	var reg_left := regular_hits
+	while crit_left + reg_left > 0:
+		if count_alive_models(sim_units[gid]) <= 0:
+			break
+		if crit_left > 0:
+			crit_left -= 1
+			out.crit_intercepted += 1
+		else:
+			reg_left -= 1
+		out.intercepted += 1
+		var mw = apply_mortal_wounds(gid, 1, sim_board, rng)
+		for d in mw.get("diffs", []):
+			out.diffs.append(d)
+			_apply_diff_to_board(sim_board, d)
+		out.casualties += int(mw.get("casualties", 0))
+	out.critical_hits = crit_left
+	out.regular_hits = reg_left
+	# The intercepted critical hits' [SUSTAINED HITS] extra hits belong to the
+	# attacks whose sequence ended.
+	if out.crit_intercepted > 0 and sustained_bonus_hits > 0 and critical_hits > 0:
+		if not bool(sustained_data.get("is_dice", false)):
+			out.sustained_bonus_hits = maxi(0, sustained_bonus_hits - out.crit_intercepted * int(sustained_data.get("value", 0)))
+		else:
+			out.sustained_bonus_hits = int(floor(float(sustained_bonus_hits) * float(crit_left) / float(critical_hits)))
+	var g_name = units[gid].get("meta", {}).get("display_name", units[gid].get("meta", {}).get("name", gid))
+	if out.intercepted > 0:
+		out.log_text = "GROT SHIELDS: %d hit(s) intercepted by %s — %d mortal wound(s), %d model(s) slain" % [
+			out.intercepted, g_name, out.intercepted, out.casualties]
+	else:
+		out.log_text = "GROT SHIELDS: %s has no model left on the battlefield — hits proceed" % g_name
+	print("RulesEngine: %s (attacker %s; %d crit / %d normal hit(s) left)" % [out.log_text, actor_unit_id, crit_left, reg_left])
+	return out
 
 # WALL OF DAKKA (OA-50): Check if a unit has the "Wall of Dakka" ability (Bonebreaka).
 # +1 to Hit rolls for ranged attacks when target is within half the weapon's range.
@@ -9744,6 +10325,16 @@ static func is_blast_weapon(weapon_id: String, board: Dictionary = {}) -> bool:
 	return false
 
 # Count alive models in a target unit
+## Alive models of the whole Attached unit (bodyguard + attached CHARACTERs —
+## 19.01: one unit) that `unit_id` belongs to; a plain unit counts itself.
+static func attached_unit_alive_model_count(unit_id: String, board: Dictionary) -> int:
+	var head := str(attached_unit_target_id(unit_id, board))
+	var units: Dictionary = board.get("units", {})
+	var n := 0
+	for gid in attached_unit_component_ids(head, board):
+		n += count_alive_models(units.get(str(gid), {}))
+	return n
+
 static func count_alive_models(target_unit: Dictionary) -> int:
 	var model_count = 0
 	for model in target_unit.get("models", []):
@@ -10009,6 +10600,22 @@ static func is_hazardous_weapon(weapon_id: String, board: Dictionary = {}) -> bo
 
 	return false
 
+# True when the unit's flags grant [HAZARDOUS] to this weapon: the ranged-only
+# effect_grant_hazardous to a ranged weapon, effect_grant_hazardous_melee to a
+# melee weapon.
+static func _weapon_hazardous_by_grant(actor_unit_id: String, weapon_id: String, board: Dictionary) -> bool:
+	var flags = board.get("units", {}).get(actor_unit_id, {}).get("flags", {})
+	var is_melee := str(get_weapon_profile(weapon_id, board).get("type", "Ranged")).to_lower() == "melee"
+	if is_melee:
+		return bool(flags.get("effect_grant_hazardous_melee", false))
+	return bool(flags.get(EffectPrimitivesData.FLAG_GRANT_HAZARDOUS, false))
+
+## Public: is `weapon_id` [HAZARDOUS] when `actor_unit_id` fires it — natively
+## or by a granted [HAZARDOUS] (e.g. VINDICTIVE ARTILLERISTS' overcharged
+## option). The shooting forecast reads this (r3:F8).
+static func weapon_is_hazardous_for(actor_unit_id: String, weapon_id: String, board: Dictionary) -> bool:
+	return is_hazardous_weapon(weapon_id, board) or _weapon_hazardous_by_grant(actor_unit_id, weapon_id, board)
+
 # Resolve Hazardous self-damage check after a weapon has fired
 # Per Balance Dataslate v3.3: Roll D6 per Hazardous weapon fired. On a 1:
 #   - Unit suffers 3 mortal wounds allocated to a selected model (no spillover)
@@ -10031,7 +10638,11 @@ static func resolve_hazardous_check(
 		"log_text": ""
 	}
 
-	if not is_hazardous_weapon(weapon_id, board):
+	# A weapon can also be [HAZARDOUS] by a granted ability (unit flag
+	# effect_grant_hazardous for ranged weapons, effect_grant_hazardous_melee
+	# for melee — e.g. VINDICTIVE ARTILLERISTS). The callers already count such
+	# weapons; without this the check silently rolled nothing for them.
+	if not is_hazardous_weapon(weapon_id, board) and not _weapon_hazardous_by_grant(actor_unit_id, weapon_id, board):
 		return result
 
 	# Roll D6 for each model that fired this Hazardous weapon
@@ -10048,24 +10659,36 @@ static func resolve_hazardous_check(
 
 	var weapon_profile = get_weapon_profile(weapon_id, board)
 	var weapon_name = weapon_profile.get("name", weapon_id)
+	# LV2-G1: name the unit and the fail band in the dice blocks, so the Game Log
+	# / Dice History can say WHO rolled and what failed ("1-2" at 11e).
+	var haz_unit: Dictionary = board.get("units", {}).get(actor_unit_id, {})
+	var haz_unit_name := str(haz_unit.get("meta", {}).get("display_name", haz_unit.get("meta", {}).get("name", actor_unit_id)))
+	var fail_band := "1" if hazard_fail_threshold <= 1 else "1-%d" % hazard_fail_threshold
+	# 10e wording ("N ones") is kept; at 11e a 2 fails too, so "ones" was wrong.
+	var fail_count_text := ("%d ones" % ones_rolled) if hazard_fail_threshold <= 1 else ("%d failed (%s)" % [ones_rolled, fail_band])
 
-	print("RulesEngine: [HAZARDOUS] %s — rolled %s, ones: %d" % [weapon_name, str(rolls), ones_rolled])
+	print("RulesEngine: [HAZARDOUS] %s — rolled %s, failed (%s): %d" % [weapon_name, str(rolls), fail_band, ones_rolled])
 
 	# Build dice log entry
 	result.dice.append({
 		"context": "hazardous_check",
 		"weapon_id": weapon_id,
 		"weapon_name": weapon_name,
+		"unit_id": actor_unit_id,
+		"unit_name": haz_unit_name,
+		"owner": int(haz_unit.get("owner", 0)),
 		"rolls": rolls,
 		"ones_rolled": ones_rolled,
+		"fail_threshold": hazard_fail_threshold,
 		"models_checked": models_that_fired,
 		"triggered": ones_rolled > 0,
-		"message": "Hazardous check for %s: rolled %s — %d ones" % [weapon_name, str(rolls), ones_rolled]
+		"message": "Hazardous check for %s: rolled %s — %s" % [weapon_name, str(rolls), fail_count_text]
 	})
 
 	if ones_rolled == 0:
 		result.log_text = "Hazardous check: %s safe (%s)" % [weapon_name, str(rolls)]
-		print("RulesEngine: [HAZARDOUS] No ones rolled — safe")
+		result["game_log_text"] = hazard_game_log_line(result.dice)
+		print("RulesEngine: [HAZARDOUS] No failed hazard roll — safe")
 		return result
 
 	result.hazardous_triggered = true
@@ -10137,13 +10760,17 @@ static func resolve_hazardous_check(
 
 		# MA-22: Use model display label in hazardous log text
 		var haz_display = get_model_display_label(target_model, actor_unit)
-		result.log_text = "HAZARDOUS! %s: %d ones → %d mortal wounds to %s (%d wounds applied)" % [
-			weapon_name, ones_rolled, total_mw, haz_display, damage_to_apply
+		result.log_text = "HAZARDOUS! %s: %s → %d mortal wounds to %s (%d wounds applied)" % [
+			weapon_name, fail_count_text, total_mw, haz_display, damage_to_apply
 		]
 
 		result.dice.append({
 			"context": "hazardous_damage",
 			"damage_type": "mortal_wounds",
+			"unit_id": actor_unit_id,
+			"unit_name": haz_unit_name,
+			"weapon_name": weapon_name,
+			"model_label": haz_display,
 			"mortal_wounds": total_mw,
 			"wounds_applied": damage_to_apply,
 			"casualties": casualties,
@@ -10153,11 +10780,54 @@ static func resolve_hazardous_check(
 		})
 	else:
 		# No alive models at all
-		result.log_text = "HAZARDOUS! %s: %d ones → no alive models to allocate to" % [weapon_name, ones_rolled]
+		result.log_text = "HAZARDOUS! %s: %s → no alive models to allocate to" % [weapon_name, fail_count_text]
 		print("RulesEngine: [HAZARDOUS] No alive models to allocate mortal wounds to")
 
+	result["game_log_text"] = hazard_game_log_line(result.dice)
 	print("RulesEngine: [HAZARDOUS] Result: %s" % result.log_text)
 	return result
+
+## LV2-G1: the player-facing Game Log line for ONE hazard check — its
+## hazardous_check block, optionally followed by its hazardous_damage block
+## (the dice resolve_hazardous_check returns), e.g.
+##   "Hazardous: Mek Gunz (Smasha Gun) rolled 2 — failed (1-2): 3 mortal wounds"
+##   "Hazardous: Mek Gunz (Kustom Mega-kannon) rolled 5 — passed (fails on 1-2)"
+## Every caller that logs a hazard roll (shooting, overwatch, melee) uses it,
+## so native and granted [HAZARDOUS] read the same.
+static func hazard_game_log_line(haz_dice: Array) -> String:
+	var check: Dictionary = {}
+	var damage: Dictionary = {}
+	for d in haz_dice:
+		if typeof(d) != TYPE_DICTIONARY:
+			continue
+		var ctx := str(d.get("context", ""))
+		if ctx == "hazardous_check" and check.is_empty():
+			check = d
+		elif ctx == "hazardous_damage" and not check.is_empty() and damage.is_empty():
+			damage = d
+	if check.is_empty():
+		return ""
+	var thr := int(check.get("fail_threshold", 1))
+	var band := "1" if thr <= 1 else "1-%d" % thr
+	var rolls: Array = check.get("rolls", [])
+	var rolled := ", ".join(PackedStringArray(rolls.map(func(r): return str(r))))
+	var unit_name := str(check.get("unit_name", ""))
+	var weapon := str(check.get("weapon_name", check.get("weapon_id", "")))
+	var who := ("%s (%s)" % [unit_name, weapon]) if unit_name != "" else weapon
+	var failed := int(check.get("ones_rolled", 0))
+	if failed <= 0:
+		return "Hazardous: %s rolled %s — passed (fails on %s)" % [who, rolled, band]
+	var line := "Hazardous: %s rolled %s — %s (%s)" % [who, rolled, "failed" if failed == 1 else "%d failed" % failed, band]
+	if damage.is_empty():
+		return line + ": no model left to take the mortal wounds"
+	var mw := int(damage.get("mortal_wounds", 0))
+	var applied := int(damage.get("wounds_applied", mw))
+	line += ": %d mortal wound%s" % [mw, "" if mw == 1 else "s"]
+	if applied != mw:
+		line += " (%d wound%s lost)" % [applied, "" if applied == 1 else "s"]
+	if int(damage.get("casualties", 0)) > 0:
+		line += " — %s destroyed" % str(damage.get("model_label", "1 model"))
+	return line
 
 # Balance Dataslate v3.3 Hazardous allocation priority:
 #   (1) wounded model with Hazardous weapon
@@ -10168,7 +10838,8 @@ static func _find_hazardous_allocation_target(models: Array, hazardous_weapon_id
 	var candidates = []
 	for i in range(models.size()):
 		var model = models[i]
-		if not model.get("alive", true):
+		# Destroyed-but-not-removed models (05.04.05) take no further damage.
+		if not model_can_be_allocated(model):
 			continue
 
 		var has_hazardous = _model_has_hazardous_weapon(model, board)
@@ -10327,9 +10998,13 @@ static func count_models_in_half_range(
 		if not model or not model.get("alive", true):
 			continue
 
-		# Check distance to closest target model (edge-to-edge)
+		# Check distance to closest target model (edge-to-edge) — every model
+		# of the target unit, including an Attached unit's leaders (19.03).
 		var closest_distance_inches = INF
-		for target_model in target_unit.get("models", []):
+		var hr_target_id := str(target_unit.get("id", ""))
+		var hr_target_models: Array = attached_unit_models(hr_target_id, board) \
+			if hr_target_id != "" and board.get("units", {}).has(hr_target_id) else target_unit.get("models", [])
+		for target_model in hr_target_models:
 			if not target_model.get("alive", true):
 				continue
 
@@ -10551,6 +11226,10 @@ static func eligible_to_charge(unit_id: String, board: Dictionary) -> bool:
 			status == GameStateData.UnitStatus.SHOT):
 		return false
 	
+	# GRAB IT (Codex: Orks 11e): hard charge lock until the end of the turn.
+	if flags.get("ork11e_grab_it_no_charge", false):
+		return false
+
 	# Check restriction flags
 	# cannot_charge is set by Advance and Fall Back moves, but abilities like
 	# Waaagh! (advance_and_charge) or Full Throttle (fall_back_and_charge) can override it.
@@ -11854,8 +12533,11 @@ static func resolve_melee_attacks(action: Dictionary, board: Dictionary, rng_ser
 			if hazardous_result.hazardous_triggered:
 				result.diffs.append_array(hazardous_result.diffs)
 			result.dice.append_array(hazardous_result.dice)
-			if hazardous_result.log_text:
-				result.log_text += hazardous_result.log_text + "\n"
+			# LV2-G1: the player-facing hazard line (this log_text can reach the
+			# Game Log as the action's text) — same wording on every path.
+			var haz_line := str(hazardous_result.get("game_log_text", hazardous_result.log_text))
+			if haz_line != "":
+				result.log_text += haz_line + "\n"
 
 	return result
 
@@ -12070,8 +12752,11 @@ static func resolve_melee_attacks_interactive(action: Dictionary, board: Diction
 			if hazardous_result.hazardous_triggered:
 				result.diffs.append_array(hazardous_result.diffs)
 			result.dice.append_array(hazardous_result.dice)
-			if hazardous_result.log_text:
-				result.log_text += hazardous_result.log_text + "\n"
+			# LV2-G1: the player-facing hazard line (this log_text can reach the
+			# Game Log as the action's text) — same wording on every path.
+			var haz_line := str(hazardous_result.get("game_log_text", hazardous_result.log_text))
+			if haz_line != "":
+				result.log_text += haz_line + "\n"
 
 	return result
 
@@ -12444,6 +13129,9 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 
 	# WAAAGH! CHECK: Detect if Waaagh! is active for the attacker
 	var waaagh_active = FactionAbilityManager.is_waaagh_active_for_unit(attacker_unit)
+	# The +1 A / +1 S melee bonus is the 10e Waaagh! only — at 11e a riled-up
+	# unit gets 5+ InSv / [ASSAULT] / advance-and-charge, no melee bonus.
+	var waaagh_melee_bonus = FactionAbilityManager.waaagh_melee_bonus_applies(attacker_unit)
 	# DA BIGGEST AND DA BEST: Check if attacker has this ability (Warboss — +4 attacks while Waaagh!)
 	var has_da_biggest = false
 	# DEAD BRUTAL: Check if attacker has this ability (Warboss in Mega Armour — damage=3 while Waaagh!)
@@ -12500,9 +13188,9 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 
 		# WAAAGH! BONUS: +1 Attack to melee weapons
 		# BALANCE DATASLATE (P2-75): Skip for Extra Attacks weapons — Waaagh! doesn't name specific weapons
-		if waaagh_active and not is_extra_attacks_weapon:
+		if waaagh_melee_bonus and not is_extra_attacks_weapon:
 			model_attacks += 1
-		elif waaagh_active and is_extra_attacks_weapon:
+		elif waaagh_melee_bonus and is_extra_attacks_weapon:
 			print("RulesEngine: Waaagh! +1 attack BLOCKED for Extra Attacks weapon '%s' (Balance Dataslate)" % weapon_name)
 
 		# DA BIGGEST AND DA BEST: +4 Attacks to this model's melee weapons while Waaagh! active
@@ -12545,6 +13233,18 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 					ws_per_attack.append(melee_default_ws)
 				print("RulesEngine: [MA-29] Ability +%d Attacks for '%s' (melee) → +%d total (%d models × %d)" % [melee_bonus_value, weapon_name, melee_ability_bonus, model_count, melee_bonus_value])
 
+	# UNBRIDLED CARNAGE (Codex: Orks 11e, Green Tide): "Your unit's melee
+	# attacks have +1 A" — +N to the A characteristic of every melee weapon of
+	# each swinging model (OrkCodexFight writes ork11e_plus_attacks_melee).
+	var ork11e_melee_a_bonus := int(attacker_unit.get("flags", {}).get("ork11e_plus_attacks_melee", 0))
+	if model_count > 0 and ork11e_melee_a_bonus > 0 and not is_extra_attacks_weapon:
+		var uc_total = ork11e_melee_a_bonus * model_count
+		total_attacks += uc_total
+		var uc_ws = weapon_profile.get("ws", 4)
+		for _j in range(uc_total):
+			ws_per_attack.append(uc_ws)
+		print("RulesEngine: UNBRIDLED CARNAGE — +%d A for '%s' (melee) → +%d total (%d models)" % [ork11e_melee_a_bonus, weapon_name, uc_total, model_count])
+
 	# DEATHSONG SCYTHES (Silent Hunters): +X melee Attacks, but only while the
 	# attack targets a PSYKER unit.
 	if model_count > 0 and not is_extra_attacks_weapon:
@@ -12580,14 +13280,23 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		if attacker_unit.get("flags", {}).get("effect_grant_cleave_1", false):
 			cleave_x = maxi(cleave_x, 1)
 			print("RulesEngine: DEVASTATING DRIFT — melee weapon %s gains CLEAVE 1" % weapon_id)
+		# MOW 'EM DOWN (Codex: Orks 11e, War Horde): melee attacks have
+		# [CLEAVE 1], or +1 to the value of a [CLEAVE] they already have.
+		if attacker_unit.get("flags", {}).get("ork11e_mow_em_down", false):
+			var mow_before = cleave_x
+			cleave_x = cleave_x + 1 if cleave_x > 0 else 1
+			print("RulesEngine: MOW 'EM DOWN — melee weapon %s [CLEAVE %d] -> [CLEAVE %d]" % [weapon_id, mow_before, cleave_x])
 		if cleave_x > 0:
-			var cleave_extra = AbilityRegistry.cleave_bonus_dice(cleave_x, count_alive_models(target_unit), true)
+			# 19.01: an Attached unit is ONE unit — its leaders' models count
+			# toward "every 5 models in the target" as well as the bodyguard's.
+			var cleave_models = attached_unit_alive_model_count(target_id, board)
+			var cleave_extra = AbilityRegistry.cleave_bonus_dice(cleave_x, cleave_models, true)
 			if cleave_extra > 0:
 				total_attacks += cleave_extra
 				var cleave_ws = weapon_profile.get("ws", 4)
 				for _j in range(cleave_extra):
 					ws_per_attack.append(cleave_ws)
-				print("RulesEngine: [CLEAVE %d] +%d dice vs %d-model target (melee)" % [cleave_x, cleave_extra, count_alive_models(target_unit)])
+				print("RulesEngine: [CLEAVE %d] +%d dice vs %d-model target (melee)" % [cleave_x, cleave_extra, cleave_models])
 
 	if model_count < total_alive_models:
 		print("RulesEngine: Melee eligibility filter: %d/%d alive models eligible to fight" % [model_count, total_alive_models])
@@ -12609,8 +13318,8 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		strength += 3
 		print("RulesEngine: ADMONIMORTIS — melee strength %d → %d (+3)" % [strength - 3, strength])
 
-	# WAAAGH! BONUS: +1 Strength to melee weapons
-	if waaagh_active:
+	# WAAAGH! BONUS: +1 Strength to melee weapons (10e only — see waaagh_melee_bonus_applies)
+	if waaagh_melee_bonus:
 		strength += 1
 		print("RulesEngine: Waaagh! active — melee strength %d → %d (+1)" % [strength - 1, strength])
 
@@ -12669,31 +13378,31 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 	var melee_attacker_flags = attacker_unit.get("flags", {})
 	if melee_attacker_flags.get("martial_mastery_improve_ap", false):
 		var pre_ap_mm = ap
-		ap = ap + 1
+		ap = improve_ap(ap, 1)
 		print("RulesEngine: Martial Mastery (Improve AP) — melee AP %d → %d" % [pre_ap_mm, ap])
 	# IMPROVE AP: effect-granted AP improvement (melee scope)
 	var melee_improve_ap = EffectPrimitivesData.get_effect_improve_ap_scoped(attacker_unit, "melee")
 	if melee_improve_ap > 0:
 		var pre_ap_imp = ap
-		ap = ap + melee_improve_ap
+		ap = improve_ap(ap, melee_improve_ap)
 		print("RulesEngine: Improve AP (melee) — AP %d → %d (improve by %d)" % [pre_ap_imp, ap, melee_improve_ap])
 	# ADMONIMORTIS (Lions enhancement, 10e stopgap): +1 AP on the bearer's melee weapons
 	if has_admonimortis(attacker_unit):
-		ap += 1
-		print("RulesEngine: ADMONIMORTIS — melee AP %d → %d (+1)" % [ap - 1, ap])
+		ap = improve_ap(ap, 1)
+		print("RulesEngine: ADMONIMORTIS — melee AP improved by 1 → %d" % ap)
 	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
 	var melee_prey_bonus = get_prey_ap_bonus(attacker_unit, target_unit)
 	if melee_prey_bonus > 0:
-		ap = ap + melee_prey_bonus
+		ap = improve_ap(ap, melee_prey_bonus)
 		print("RulesEngine: PREY (melee) — AP improved by %d (target is Prey)" % melee_prey_bonus)
 	# TRY DAT BUTTON! (Dread Mob, 5-6): +2 AP (40kdc flatten of the Critical Wound rider)
 	if attacker_unit.get("flags", {}).get("effect_try_dat_ap2", false):
-		ap = ap + 2
+		ap = improve_ap(ap, 2)
 		print("RulesEngine: TRY DAT BUTTON! (melee) — AP improved by 2")	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var melee_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
-	if melee_worsen_ap > 0 and ap > 0:
+	if melee_worsen_ap > 0 and ap != 0:
 		var pre_ap = ap
-		ap = max(0, ap - melee_worsen_ap)
+		ap = worsen_ap(ap, melee_worsen_ap)
 		print("RulesEngine: Worsen AP (melee) — AP %d → %d (worsen by %d)" % [pre_ap, ap, melee_worsen_ap])
 	var damage = weapon_profile.get("damage", 1)
 
@@ -12738,12 +13447,13 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		sustained_data = {"value": katah_sh_value, "is_dice": false}
 		print("RulesEngine:   SUSTAINED HITS %d granted by unit effect flag (e.g., Martial Ka'tah Dacatarai stance)" % katah_sh_value)
 
-	# FIGHT PROPPA (Taktikal Brigade): melee-scoped grants — the player chose
-	# [SUSTAINED HITS 1] or [LETHAL HITS] for this unit's melee weapons this
-	# phase. These flags are read ONLY here, never in shooting resolution.
+	# FIGHT PROPPA (Taktikal Brigade, 10e) and HIT 'EM HARDER (Codex: Orks 11e,
+	# OrkCodexFight.gd): melee-scoped grants — [SUSTAINED HITS 1] or
+	# [LETHAL HITS] for this unit's melee weapons this phase. These flags are
+	# read ONLY here, never in shooting resolution.
 	if not weapon_has_lethal_hits and attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_LETHAL_HITS_MELEE, false):
 		weapon_has_lethal_hits = true
-		print("RulesEngine:   LETHAL HITS granted by melee effect flag (Fight Proppa)")
+		print("RulesEngine:   LETHAL HITS granted by melee effect flag (melee-scoped stratagem: HIT 'EM HARDER / Fight Proppa)")
 	if sustained_data.value == 0 and attacker_unit.get("flags", {}).get(EffectPrimitivesData.FLAG_SUSTAINED_HITS_MELEE, false):
 		sustained_data = {"value": 1, "is_dice": false}
 		print("RulesEngine:   SUSTAINED HITS 1 granted by melee effect flag (Fight Proppa)")
@@ -12886,6 +13596,10 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			melee_hit_modifiers |= HitModifier.REROLL_FAILED
 			ModifierLedger.note(melee_hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "granted by an ability or Stratagem")
 			print("RulesEngine: Effect re-roll hits (melee) applied for %s" % attacker_id)
+		elif melee_reroll_hits_scope == REROLL_HITS_SCOPE_NON_CRIT:
+			melee_hit_modifiers |= _non_crit_hit_reroll_bits(attacker_unit, weapon_id, board, true)
+			ModifierLedger.note(melee_hit_mod_ledger, "Ability effect", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "re-roll hit rolls (non-critical hits too, for critical-hit weapons)")
+			print("RulesEngine: Effect re-roll hit rolls (melee, fishing for crits where they matter) applied for %s / %s" % [attacker_id, weapon_id])
 
 		# DAMAGED PROFILE (P1-14): Check if attacker has Damaged profile active
 		if is_damaged_profile_active(attacker_unit):
@@ -12948,7 +13662,7 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			var attack_ws = ws_per_attack[i] if i < ws_per_attack.size() else ws
 			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_ws, melee_hit_modifiers, melee_crit_threshold, rng)
 			modified_rolls.append(hit_eval.final_roll)
-			hit_evals.append({"raw": roll, "final": hit_eval.final_roll, "is_hit": hit_eval.is_hit, "is_crit": hit_eval.is_crit})
+			hit_evals.append({"raw": roll, "final": hit_eval.final_roll, "is_hit": hit_eval.is_hit, "is_crit": hit_eval.is_crit, "rerolled": hit_eval.rerolled})
 			if hit_eval.rerolled:
 				melee_hit_reroll_data.append({
 					"original": hit_eval.reroll_from,
@@ -13268,7 +13982,7 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 			for roll in wound_rolls:
 				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 				var wound_eval = AttackSequence.evaluate_wound_roll(roll, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng)
-				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail})
+				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled})
 				if wound_eval.rerolled:
 					melee_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 				if wound_eval.auto_fail:
@@ -13292,7 +14006,7 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 			for roll in wound_rolls:
 				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 				var wound_eval = AttackSequence.evaluate_wound_roll(roll, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng)
-				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail})
+				wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled})
 				if wound_eval.rerolled:
 					melee_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 				if wound_eval.auto_fail:
@@ -14093,38 +14807,43 @@ static func prepare_save_resolution(
 	var shooter_unit = units.get(shooter_unit_id, {})
 	if shooter_unit.get("flags", {}).get("effect_pulsa_rokkit_active", false):
 		var pre_ap_pr = ap
-		ap = ap + 1
+		ap = improve_ap(ap, 1)
 		print("RulesEngine: Pulsa Rokkit (interactive) — ranged AP %d → %d (+1)" % [pre_ap_pr, ap])
 	# DRIVE-BY DAKKA (OA-13): Improve AP by 1 for ranged attacks vs targets within 9"
 	var int_dbd_bonus = get_drive_by_dakka_ap_bonus(shooter_unit, target_unit)
 	if int_dbd_bonus > 0:
 		var pre_ap_dbd = ap
-		ap = ap + int_dbd_bonus
+		ap = improve_ap(ap, int_dbd_bonus)
 		print("RulesEngine: Drive-by Dakka (interactive) — AP %d → %d (improve by %d, target within 9\")" % [pre_ap_dbd, ap, int_dbd_bonus])
 	# IMPROVE AP: effect-granted AP improvement (Umbral Prosecution ranged AP +1 etc.)
 	var int_improve_ap = EffectPrimitivesData.get_effect_improve_ap_scoped(shooter_unit, "ranged")
 	if int_improve_ap > 0:
 		var pre_ap_imp = ap
-		ap = ap + int_improve_ap
+		ap = improve_ap(ap, int_improve_ap)
 		print("RulesEngine: Improve AP (interactive) — AP %d → %d (improve by %d)" % [pre_ap_imp, ap, int_improve_ap])
 	# SPESHUL SHELLS (More Dakka!): +1 AP vs targets within 18"
 	var int_ss_bonus = get_speshul_shells_ap_bonus(shooter_unit, target_unit)
 	if int_ss_bonus > 0:
-		ap = ap + int_ss_bonus
+		ap = improve_ap(ap, int_ss_bonus)
 		print("RulesEngine: SPESHUL SHELLS (interactive) — AP improved by %d (target within 18\")" % int_ss_bonus)
 	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
 	var int_prey_bonus = get_prey_ap_bonus(shooter_unit, target_unit)
 	if int_prey_bonus > 0:
-		ap = ap + int_prey_bonus
+		ap = improve_ap(ap, int_prey_bonus)
 		print("RulesEngine: PREY (interactive) — AP improved by %d (target is Prey)" % int_prey_bonus)
 	# TRY DAT BUTTON! (Dread Mob, 5-6): +2 AP (40kdc flatten of the Critical Wound rider)
 	if shooter_unit.get("flags", {}).get("effect_try_dat_ap2", false):
-		ap = ap + 2
+		ap = improve_ap(ap, 2)
 		print("RulesEngine: TRY DAT BUTTON! (interactive) — AP improved by 2")	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
+	# GLOWIN' DAKKA (Codex: Orks 11e): +1 AP vs a target within 9"
+	var int_glowin_ap = ork11e_glowin_dakka_ap_bonus(shooter_unit, target_unit, board)
+	if int_glowin_ap > 0:
+		ap = ork11e_improve_ap(ap, int_glowin_ap)
+		print("RulesEngine: GLOWIN' DAKKA (interactive) — AP improved by %d (target within 9\")" % int_glowin_ap)
 	var int_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
-	if int_worsen_ap > 0 and ap > 0:
+	if int_worsen_ap > 0 and ap != 0:
 		var pre_ap = ap
-		ap = max(0, ap - int_worsen_ap)
+		ap = worsen_ap(ap, int_worsen_ap)
 		print("RulesEngine: Worsen AP (interactive) — AP %d → %d (worsen by %d)" % [pre_ap, ap, int_worsen_ap])
 	var damage = weapon_profile.get("damage", 1)
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
@@ -14300,40 +15019,41 @@ static func prepare_melee_save_resolution(
 
 	var ap = weapon_profile.get("ap", 0)
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
-	var worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
-	if worsen_ap > 0 and ap > 0:
+	# (local named mi_worsen_ap so it does not shadow the static worsen_ap())
+	var mi_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
+	if mi_worsen_ap > 0 and ap != 0:
 		var pre_ap = ap
-		ap = max(0, ap - worsen_ap)
-		print("RulesEngine: Worsen AP (melee interactive) — AP %d → %d (worsen by %d)" % [pre_ap, ap, worsen_ap])
+		ap = worsen_ap(ap, mi_worsen_ap)
+		print("RulesEngine: Worsen AP (melee interactive) — AP %d → %d (worsen by %d)" % [pre_ap, ap, mi_worsen_ap])
 
 	# MARTIAL MASTERY — IMPROVE AP (P2-27): Shield Host detachment
 	var attacker_unit = units.get(attacker_unit_id, {})
 	var attacker_flags = attacker_unit.get("flags", {})
 	if attacker_flags.get("martial_mastery_improve_ap", false):
 		var pre_ap_mm = ap
-		ap = ap + 1
+		ap = improve_ap(ap, 1)
 		print("RulesEngine: Martial Mastery (Improve AP) — melee interactive AP %d → %d" % [pre_ap_mm, ap])
 	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
 	var mi_prey_bonus = get_prey_ap_bonus(attacker_unit, target_unit)
 	if mi_prey_bonus > 0:
-		ap = ap + mi_prey_bonus
+		ap = improve_ap(ap, mi_prey_bonus)
 		print("RulesEngine: PREY (melee interactive) — AP improved by %d (target is Prey)" % mi_prey_bonus)
 	# TRY DAT BUTTON! (Dread Mob, 5-6): +2 AP (40kdc flatten of the Critical Wound rider)
 	if attacker_unit.get("flags", {}).get("effect_try_dat_ap2", false):
-		ap = ap + 2
+		ap = improve_ap(ap, 2)
 		print("RulesEngine: TRY DAT BUTTON! (melee interactive) — AP improved by 2")
 
 	# IMPROVE AP: effect-granted AP improvement (melee scope)
 	var mi_improve_ap = EffectPrimitivesData.get_effect_improve_ap_scoped(attacker_unit, "melee")
 	if mi_improve_ap > 0:
 		var pre_ap_imp = ap
-		ap = ap + mi_improve_ap
+		ap = improve_ap(ap, mi_improve_ap)
 		print("RulesEngine: Improve AP (melee interactive) — AP %d → %d (improve by %d)" % [pre_ap_imp, ap, mi_improve_ap])
 
 	# ADMONIMORTIS (Lions enhancement, 10e stopgap): +1 AP on the bearer's melee weapons
 	if has_admonimortis(attacker_unit):
-		ap += 1
-		print("RulesEngine: ADMONIMORTIS — melee interactive AP %d → %d (+1)" % [ap - 1, ap])
+		ap = improve_ap(ap, 1)
+		print("RulesEngine: ADMONIMORTIS — melee interactive AP improved by 1 → %d" % ap)
 
 	var damage = weapon_profile.get("damage", 1)
 
@@ -15032,16 +15752,27 @@ static func _apply_damage_to_character_models(target_unit_id: String, total_dama
 
 	return result
 
+# 05.04.05 Fight On Death (Codex: Orks 11e ORKS IS NEVER BEATEN / TOO
+# ARROGANT TO DIE / CRAZED RAMPAGE): a model that was destroyed but is "not
+# removed from the battlefield" until its unit has fought stays alive=true with
+# 0 wounds left (FightPhase._ork11e_fod_intercept). It is still destroyed, so
+# no further attack or mortal wound can be allocated to it.
+static func model_can_be_allocated(model: Dictionary) -> bool:
+	if not model.get("alive", true):
+		return false
+	return int(model.get("current_wounds", model.get("wounds", 1))) > 0
+
 # DEVASTATING WOUNDS (PRP-012): Find model to allocate damage to (wounded first)
 static func _find_allocation_target_model(models: Array, preferred: Array = []) -> int:
 	"""Find next model to allocate damage to: wounded models first, then any alive.
 	`preferred` (optional) is a die-first order of model indices from
 	CasualtyPreference — it only picks WHICH un-wounded model soaks next
-	(the 05.04 wounded-first rule always wins)."""
+	(the 05.04 wounded-first rule always wins). Destroyed-but-not-removed
+	models (0 wounds, see model_can_be_allocated) are never picked."""
 	# First, look for wounded alive models
 	for i in range(models.size()):
 		var model = models[i]
-		if model.get("alive", true):
+		if model_can_be_allocated(model):
 			var current = model.get("current_wounds", model.get("wounds", 1))
 			var max_wounds = model.get("wounds", 1)
 			if current < max_wounds:
@@ -15050,12 +15781,12 @@ static func _find_allocation_target_model(models: Array, preferred: Array = []) 
 	# No wounded models — honour the defender's die-first preference
 	for p in preferred:
 		var pi = int(p)
-		if pi >= 0 and pi < models.size() and models[pi].get("alive", true):
+		if pi >= 0 and pi < models.size() and model_can_be_allocated(models[pi]):
 			return pi
 
 	# No preference (or preference exhausted), return first alive model
 	for i in range(models.size()):
-		if models[i].get("alive", true):
+		if model_can_be_allocated(models[i]):
 			return i
 
 	return -1  # No alive models

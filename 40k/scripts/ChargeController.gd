@@ -4480,6 +4480,9 @@ func _check_position_would_overlap(model: Dictionary, new_pos: Vector2, charge_k
 	var charger_keywords: Array = []
 	if self_unit_id != "":
 		charger_keywords = GameState.get_unit(self_unit_id).get("meta", {}).get("keywords", [])
+		# Codex: Orks (11e) STOMPING JUGGERNAUT: "Your unit has MOBILE" (13.06).
+		if GameState.get_unit(self_unit_id).get("flags", {}).get("ork11e_mobile", false):
+			charger_keywords = charger_keywords + ["MOBILE"]
 	if Measurement.model_overlaps_any_wall(test_model, charger_keywords):
 		return true
 
@@ -4500,6 +4503,10 @@ func _calculate_terrain_penalty_for_path(from_pos: Vector2, to_pos: Vector2) -> 
 		var unit = GameState.get_unit(active_unit_id)
 		keywords = unit.get("meta", {}).get("keywords", [])
 		has_fly = "FLY" in keywords
+		# Codex: Orks (11e) STOMPING JUGGERNAUT: "Your unit has MOBILE" (13.06) —
+		# same keywords ChargePhase._charge_terrain_keywords feeds the validator.
+		if unit.get("flags", {}).get("ork11e_mobile", false) and not "MOBILE" in keywords:
+			keywords = keywords + ["MOBILE"]
 
 	return terrain_manager.calculate_charge_terrain_penalty(from_pos, to_pos, has_fly, keywords)
 

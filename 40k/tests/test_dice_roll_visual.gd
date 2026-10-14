@@ -143,6 +143,22 @@ func _init():
 		print("FAIL: Wound roll label wrong: '%s'" % visual._context_label)
 		fail_count += 1
 
+	# LV-4: a net wound modifier is shown in the header
+	var wound_mod_data = {
+		"context": "to_wound",
+		"rolls_raw": [4, 3, 6, 6],
+		"threshold": "5+",
+		"successes": 2,
+		"wound_modifier_net": -1,
+	}
+	visual.show_dice_roll(wound_mod_data)
+	if visual._context_label == "Wound Rolls (need 5+, -1 to wound)":
+		print("PASS: Wound roll label names the net modifier")
+		pass_count += 1
+	else:
+		print("FAIL: Wound roll modifier label wrong: '%s'" % visual._context_label)
+		fail_count += 1
+
 	if visual._threshold == 5:
 		print("PASS: Wound threshold correct (5)")
 		pass_count += 1

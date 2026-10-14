@@ -2,6 +2,37 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.44.1",
+      "date": "2026-10-13",
+      "summary": "Codex: Orks (11e) follow-up fixes: no stratagem prompt for a shooter you did not pick, phase-end stratagems in multiplayer, clearer cards and dice, and AI fixes.",
+      "changes": [
+        "The Shooting phase no longer opens a 'has been selected to shoot' stratagem prompt for the unit the panel picks for you at the start of the phase. The prompt now opens when you actually choose a unit, or when you first act with the pre-selected one (assign a target, confirm, shoot), before that action happens. Declining it and then choosing the unit again offers it again; 'Don't offer again this phase' still turns it off.",
+        "No more red 'Shooting action rejected: Waiting for Player N to decide on a stratagem' message when a unit with a single target is selected while a stratagem prompt is open. Its target is assigned automatically once you answer the prompt.",
+        "Multiplayer: the end-of-Movement, end-of-Fight and Command-phase stratagems (DUBIOUS RESTRAINT, WHILE THEIR BACKS ARE TURNED, KEEP IT RUNNIN', INSTINCTIVE HUNTERS, MOB MENTALITY, BREAKIN' HEADS) are now offered in network games. Before, the host skipped them and ended the phase.",
+        "DELICIOUS EATING SQUIGS: the unit picker again lists which units each choice heals and explains that every ORKS INFANTRY unit within 3\" heals 3 wounds.",
+        "After a SCARPER!, WHIRLIGIG EVASION or WHILE THEIR BACKS ARE TURNED move ends, the top bar and the right panel no longer keep showing that move's instructions. The instruction is also shorter, so it fits the top bar at 1920 px.",
+        "The unit hover card shows the invulnerable save that actually applies (e.g. 5++ from DREAD POWER instead of the datasheet's 6++) and marks Riled up / Waaagh! units.",
+        "The dice tray and Game Log now show the net wound modifier (e.g. 'need 5+, -1 to wound' from HULKING BRUTES).",
+        "AI: it no longer shoots Hunter profiles (e.g. Busta Rokkit Launcha – Hunter) at infantry, both profiles of one gun, a Rokkit Pistol together with other guns, or guns a model does not carry. Those shots were refused, and the unit then lost its whole shooting activation.",
+        "AI: fixed a stall in the Fight phase when a unit had to fight during the Consolidate step (e.g. after UNLEASH THE LIONS split a unit). The AI now acts for the player who is actually selecting.",
+        "More polish: after a 'selected to shoot' prompt the Shooting panel shows the targets you assigned (and a used stratagem's effect, e.g. CLOSE-RANGE DAKKA's Rapid Fire); [HAZARDOUS] rolls (native or from VINDICTIVE ARTILLERISTS) now appear in the Game Log and Dice history with the mortal wounds they cause; the Movement panel clears its drag hint and greys out Undo / Reset / End This Unit's Move after a SCARPER!-style move; the hover card no longer reads 'Riled up — riled up:'; the AI no longer fires Blast weapons at a unit fighting its own models."
+      ]
+    },
+    {
+      "version": "1.44.0",
+      "date": "2026-10-13",
+      "summary": "Codex: Orks (11th edition): all 40 detachment stratagems are in, offered to you at the exact moment the rules allow them, in your turn and your opponent's.",
+      "changes": [
+        "Game data updated to 40kdc-data 1.4.5, with the 15 Codex: Orks detachments. More Dakka!, Freebooter Krew, Rollin' Deff and Speedwaaagh! are gone (the Battlewagons army now uses Blitz Brigade, Recon Stomps uses Kult of Speed).",
+        "All 40 codex stratagems are playable: War Horde, Madcap Meks, Runt Swarm, Wreckas, Bully Boyz, Da Big Hunt, Dread Mob, Shoota Boyz, Flyboyz, Kult of Speed, Blitz Brigade, Green Tide and Taktikal Brigade (Wurrband and Brute Bosses have none).",
+        "New stratagem prompt: when one of your stratagems can be used (a unit selected to move, shoot or fight, an enemy targeting or attacking your unit, an enemy ending a move, a unit destroyed, start/end of a phase...), a dialog offers it with Use, Decline and 'Don't offer again this phase' \u2014 including during your opponent's turn.",
+        "Reactive moves, surge moves, shooting back, embarking, assault disembarks, strategic reserves and new Gretchin units from these stratagems are all driven through the normal game UI.",
+        "The S panel shows when each window stratagem will be offered; DREAD POWER and DELICIOUS EATING SQUIGS are used from the S panel.",
+        "The AI uses or declines these stratagems on the spot, so it never stalls waiting.",
+        "Rules fixes found along the way: 11th-edition Waaagh! no longer gives the old +1 Strength/+1 Attack in melee; '+1 AP' effects now worsen the target's save; units that charged no longer count as 'charged this turn' in the opponent's turn; MOBILE units cross dense terrain when charging; units that disembarked can embark again in a later turn."
+      ]
+    },
+    {
       "version": "1.43.0",
       "date": "2026-09-06",
       "summary": "New Settings \u203a Gameplay option: ignore collisions for VEHICLE models, so a Stompa-sized base can actually be deployed and moved on a crowded board.",

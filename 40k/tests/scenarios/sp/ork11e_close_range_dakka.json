@@ -1,0 +1,249 @@
+{
+  "id": "ork11e_close_range_dakka",
+  "covers": [
+    "stratagem.window.unit_selected_to_shoot",
+    "stratagem.ork11e.close_range_dakka",
+    "dialogs.StratagemDialog.window_mode",
+    "phases.ShootingPhase.select_shooter_window"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) CLOSE-RANGE DAKKA (War Horde) through the real unit_selected_to_shoot WINDOW. Fixture ork11e_orks_active (P1 Orks War Horde active). Setup-only: Custodian Guard C is moved ~15\" in front of the Trukk (inside half range of its 36\" dual big shoota) and the Custodes defender auto-allocates wounds. A real click on the Trukk's token selects it to shoot; the StratagemDialog opens with the CLOSE-RANGE DAKKA card and an enabled 'Use on Trukk' button while every other phase action is refused. A real click on Use spends 1 CP, flags the Trukk and resumes the selection; the forecast now shows [RAPID FIRE 5] (the dual big shoota's own RAPID FIRE 4 +1). The shot is then declared and resolved through the real Quick-Assign, Confirm and dock Fast buttons, and the hit roll in the dice log reports rapid_fire_value 5 with +5 attack dice (one bearer in half range).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id != \"\" and PhaseManager.get_current_phase_instance().active_shooter_id == main.shooting_controller.active_shooter_id",
+      "equals": true,
+      "comment": "phase entry auto-selects the first eligible shooter as a REAL SELECT_SHOOTER (r5:F3): the phase and the panel agree on the active shooter"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 0,
+      "comment": "LV-2: the phase-entry auto-selection is not a player choice, so it opens NO unit_selected_to_shoot window (it opens before the player's first action with that shooter instead) - nothing to decline before the scenario picks its own shooter"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var xs = [2.0, 4.0, 6.0, 8.0, 10.0]\nvar ms = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models\nfor i in range(ms.size()):\n\tms[i][\"position\"] = {\"x\": xs[i] * 40.0, \"y\": 21.0 * 40.0}\nfor m in GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models:\n\tm[\"wounds\"] = 99\n\tm[\"current_wounds\"] = 99\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var s = StratagemManager.get_stratagem(\"faction_ork_war_horde_close_range_dakka\")\nreturn s.get(\"implemented\", false) and s.get(\"csv_id\", \"\") == \"close-range-dakka-war-horde\"",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "StratagemManager.can_use_stratagem(1, \"faction_ork_war_horde_close_range_dakka\", \"U_TRUKK_A\").reason",
+      "equals": "Offered automatically when one of your units is selected to shoot"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "00_shooting_phase_before_selection"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_TRUKK_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text",
+      "equals": "Trukk has been selected to shoot"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_war_horde_close_range_dakka/Buttons/Use_faction_ork_war_horde_close_range_dakka_U_TRUKK_A",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_war_horde_close_range_dakka/Buttons/Use_faction_ork_war_horde_close_range_dakka_U_TRUKK_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_SHOOTING",
+        "player": 1
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_close_range_dakka_window_dialog"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_war_horde_close_range_dakka/Buttons/Use_faction_ork_war_horde_close_range_dakka_U_TRUKK_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_TRUKK_A.flags.ork11e_close_range_dakka",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_TRUKK_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"CLOSE-RANGE DAKKA\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var fc = tree.root.get_node(\"Main\").shooting_controller._calc_weapon_expected_damage(\"dual_big_shoota_ranged\", \"U_CUSTODIAN_GUARD_C\")\nreturn (\"Close-Range Dakka\" in fc.get(\"active_tags\", [])) and (\"Rapid Fire 5\" in fc.get(\"active_tags\", []))",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nvar r = c.weapon_tree.get_root()\nvar it = r.get_first_child() if r else null\nwhile it:\n\tvar st = it.get_first_child()\n\twhile st:\n\t\tif \"RF5\" in st.get_text(0):\n\t\t\treturn true\n\t\tst = st.get_next()\n\tit = it.get_next()\nreturn false",
+      "equals": true,
+      "comment": "r1:WH-9: the weapon row shows the granted RAPID FIRE (RF5 = its own RAPID FIRE 4 + 1), not RF4"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nfor ch in c.range_visual.get_children():\n\tif \"(Rapid Fire 5)\" in str(ch.get(\"weapon_name\")):\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "r1:WH-9: the dashed half-range circle carries the granted RAPID FIRE too"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var c = tree.root.get_node(\"Main\").shooting_controller\nfor tid in c.eligible_targets:\n\tvar fc = c._calc_weapon_expected_damage(\"dual_big_shoota_ranged\", tid)\n\tif \"Rapid Fire 5 (out of half range)\" in fc.get(\"active_tags\", []):\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "r1:WH-9: against a target beyond half range the forecast no longer counts the RAPID FIRE attacks (tagged 'out of half range')"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_CUSTODIAN_GUARD_C",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_used_selection_resumed_forecast"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_CUSTODIAN_GUARD_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_assignments.size()",
+      "expect_min": 1
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"to_hit\" and int(d.get(\"rapid_fire_value\", 0)) == 5 and int(d.get(\"rapid_fire_bonus\", 0)) == 5:\n\t\treturn true\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_resolved_rapid_fire_5_in_dice_log"
+    }
+  ]
+}

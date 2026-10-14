@@ -4,11 +4,21 @@
 // header-name-keyed contract that 40k/autoloads/FactionStratagemLoader.gd
 // parses.
 //
-//   node generate-stratagems.mjs
+//   node generate-stratagems.mjs                     # every faction
+//   node generate-stratagems.mjs --only-faction ORK  # splice ONLY the ORK rows
+//
+// --only-faction <CODE>: regenerate everything in memory, then rewrite the
+// committed Stratagems.csv / Detachments.csv replacing only the rows of that
+// faction code; every other faction's rows stay byte-identical (same text,
+// same order) and Factions.csv is left untouched. Used for the Codex: Orks
+// (11e) refresh so the 1.4.5 dataset bump does not drag ~400 unreviewed
+// non-Ork stratagem changes along (.llm/ork_codex_11e_design.md §1).
+// --base-dir / --out-dir <dir>: read the old CSVs from / write to another
+// directory (default 40k/data for both) — handy for diffing a dry run.
 //
 // Contract preserved (see FactionStratagemLoader.gd):
 //   Stratagems.csv  faction_id|name|id|type|cp_cost|turn|phase|detachment|
-//                   detachment_id|description|timing|effects_json
+//                   detachment_id|description|timing|effects_json|window
 //     - one physical line per record (newlines and pipes stripped from text)
 //     - turn: "Your turn" / "Opponent's turn" / "Either player's turn"
 //       (straight apostrophe — _parse_timing matches these literally)
@@ -21,6 +31,17 @@
 //     - effects_json (NEW, optional): JSON array of EffectPrimitives-shaped
 //       effect dicts compiled from the 40kdc ability DSL where the mapping is
 //       obvious; empty for display-only rows
+//     - window (NEW, optional): comma-separated stratagem-window ids
+//       (unit_selected_to_fight, enemy_has_shot, ...) at which the game offers
+//       the stratagem automatically; empty = S-panel stratagem. Rows spliced in
+//       from before the column existed simply have one field fewer —
+//       FactionStratagemLoader.parse_csv_file only maps the fields a row has.
+//
+// Curated factions (CURATED_FACTION_FILES): for a faction with a curated
+// rules file (Orks: curated/orks_codex_11e.json, verbatim Wahapedia codex
+// text) the faction's stratagem AND detachment rows come from that file, not
+// from the dataset metadata (1.4.5 is stale for Dread Mob / Blitz Brigade and
+// misspells three names).
 //   Factions.csv    id|name|link — faction codes REUSED from the old file
 //                   (SM, AC, ORK, CSM, ...) matched by name; new 11e factions
 //                   (SM chapters) get new codes mirrored in
@@ -32,11 +53,19 @@
 // one get a stub EFFECT sentence and an empty effects_json (display-only).
 
 import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { describeAbility } from '@alpaca-software/40kdc-data';
-import { loadCollection, normName } from './lib.mjs';
+import { loadCollection, normName, spliceCsvRows, argValue } from './lib.mjs';
 
-const OUT_DIR = join(new URL('.', import.meta.url).pathname, '..', '..', '40k', 'data');
+const HERE = new URL('.', import.meta.url).pathname;
+const DEFAULT_DATA_DIR = join(HERE, '..', '..', '40k', 'data');
+// Where the OLD CSVs are read from (faction codes, splice base) ...
+const BASE_DIR = resolve(argValue('base-dir') || DEFAULT_DATA_DIR);
+// ... and where the generated CSVs are written.
+const OUT_DIR = resolve(argValue('out-dir') || DEFAULT_DATA_DIR);
+// Faction code whose rows alone are spliced into the committed CSVs (null =
+// write every faction).
+const ONLY_FACTION = argValue('only-faction');
 
 // ---------------------------------------------------------------------------
 // Faction codes
@@ -48,7 +77,7 @@ function loadOldFactionCodes() {
   const byName = new Map(); // normName -> code
   let text = '';
   try {
-    text = readFileSync(join(OUT_DIR, 'Factions.csv'), 'utf8');
+    text = readFileSync(join(BASE_DIR, 'Factions.csv'), 'utf8');
   } catch {
     return byName;
   }
@@ -103,12 +132,19 @@ function sanitize(s) {
     .trim();
 }
 
+// Dataslate precedence when the same id appears more than once:
+// a codex release ("codex-orks", ...) > "launch" > anything else
+// ("pre-launch-provisional"). Before 1.4.5 only "launch" existed, so codex
+// copies used to tie with provisional ones.
 function dataslateRank(rec) {
-  return rec?.game_version?.dataslate === 'launch' ? 1 : 0;
+  const ds = String(rec?.game_version?.dataslate ?? '');
+  if (ds.startsWith('codex-')) return 2;
+  if (ds === 'launch') return 1;
+  return 0;
 }
 
-// Dedupe an array of records by id, preferring dataslate "launch" over
-// "pre-launch-provisional"; optionally a tie-break scorer.
+// Dedupe an array of records by id, preferring dataslate codex-* over "launch"
+// over "pre-launch-provisional"; optionally a tie-break scorer.
 function dedupeById(records, idOf, score = () => 0) {
   const best = new Map();
   for (const r of records) {
@@ -419,48 +455,9 @@ function compileAbility(ability) {
 //     effects_json, which marks the stratagem mechanically implemented.
 // Keys are 40kdc stratagem ids.
 const CURATED_STRATAGEMS = {
-  // ── Orks — War Horde ──────────────────────────────────────────────────
-  'unbridled-carnage-war-horde': {
-    stopgap: true, // 10e wording — no 11e payload in the dataset yet
-    target: 'One ORKS unit from your army that has not been selected to fight this phase.',
-    effect: 'Until the end of the phase, each time a model in your unit makes a melee attack, an unmodified Hit roll of 5+ scores a Critical Hit.',
-    effects: [{ type: 'crit_hit_on', value: 5 }],
-  },
-  'ard-as-nails-war-horde': {
-    stopgap: true, // 10e wording — no 11e payload in the dataset yet
-    when: "Your opponent's Shooting phase or the Fight phase, just after an enemy unit has selected its targets.",
-    target: "One ORKS unit from your army (excluding GROTS, MONSTER and VEHICLE units) that was selected as the target of one or more of the attacking unit's attacks.",
-    effect: 'Until the end of the phase, each time an attack targets your unit, subtract 1 from the Wound roll.',
-    effects: [{ type: 'minus_one_wound_defense' }],
-  },
-  'mob-rule-war-horde': {
-    stopgap: true, // 10e wording — no 11e payload in the dataset yet
-    when: 'End of your Command phase.',
-    target: 'One MOB unit from your army that contains 10 or more models and is not Below Half-strength.',
-    effect: 'Select one friendly Battle-shocked ORKS INFANTRY unit within 6" of that MOB unit. That ORKS INFANTRY unit is no longer Battle-shocked.',
-    effects: [{ type: 'remove_battle_shock' }],
-  },
-  'ere-we-go-war-horde': {
-    stopgap: true, // 10e wording — no 11e payload in the dataset yet
-    when: 'Start of your Movement phase.',
-    target: 'One ORKS INFANTRY unit from your army.',
-    effect: 'Until the end of the turn, add 2 to Advance and Charge rolls made for your unit.',
-    effects: [{ type: 'plus_charge', value: 2 }],
-  },
-  'careen-war-horde': {
-    stopgap: true, // 10e wording — no 11e payload in the dataset yet
-    when: 'Any phase, just after an ORKS VEHICLE unit from your army with the Deadly Demise ability is destroyed.',
-    target: 'That destroyed ORKS VEHICLE unit. You can use this Stratagem on that unit even though it was just destroyed.',
-    effect: 'Your unit can make a Normal or Fall Back move before its Deadly Demise ability is resolved. When making this move, your unit can move over enemy units (excluding MONSTER and VEHICLE units) as if they were not there.',
-    effects: [{ type: 'deadly_demise_move' }],
-  },
-  'orks-is-never-beaten-war-horde': {
-    stopgap: true, // 10e wording — no 11e payload in the dataset yet
-    when: 'Fight phase, just after an enemy unit has selected its targets.',
-    target: "One ORKS unit from your army that was selected as the target of one or more of the attacking unit's attacks.",
-    effect: "Until the end of the phase, each time a model in your unit is destroyed, if that model has not fought this phase, do not remove it from play. The destroyed model can fight after the attacking model's unit has finished making attacks, and is then removed from play.",
-    effects: [{ type: 'swing_back_before_remove' }],
-  },
+  // (Orks: no entries here — every ORK stratagem row is emitted from the
+  // curated codex file, see CURATED_FACTION_FILES. The old War Horde 10e
+  // stopgaps were removed with the Codex: Orks (11e) refresh.)
   // ── Adeptus Custodes — Shield Host ────────────────────────────────────
   'arcane-genetic-alchemy-shield-host': {
     stopgap: true, // 10e wording — no 11e payload in the dataset yet
@@ -579,6 +576,91 @@ const CURATED_STRATAGEMS = {
 };
 
 // ---------------------------------------------------------------------------
+// Curated faction rules files
+// ---------------------------------------------------------------------------
+// A faction listed here gets ALL of its Stratagems.csv + Detachments.csv rows
+// from the curated file instead of the dataset: verbatim codex WHEN/TARGET/
+// EFFECT text plus the game metadata (turn/phase columns, stratagem windows).
+// `effects` is what every row's effects_json carries — for Orks a single
+// custom marker; whether a row is mechanically implemented is decided by the
+// game's Ork codex registry (OrkCodex11e.gd), never by name lists.
+const CURATED_FACTION_FILES = {
+  ORK: {
+    factionId: 'orks',
+    file: 'curated/orks_codex_11e.json',
+    effects: [{ type: 'custom:ork11e' }],
+  },
+};
+
+// Stratagem window ids the game knows (.llm/ork_codex_11e_design.md §3) —
+// a typo in a curated file must fail the run, not silently never offer.
+const KNOWN_WINDOWS = new Set([
+  'battle_shock_step_start', 'unit_battle_shocked', 'movement_phase_start',
+  'movement_phase_end', 'unit_selected_to_move', 'unit_ended_normal_move',
+  'enemy_ended_move', 'enemy_selected_to_fall_back', 'unit_selected_to_shoot',
+  'unit_has_shot', 'enemy_targets_unit_shooting', 'enemy_has_shot',
+  'unit_declares_charge', 'unit_ended_charge_move', 'unit_selected_to_fight',
+  'enemy_targets_unit_fight', 'fight_phase_end', 'unit_destroyed',
+  'enemy_unit_has_attacked',
+]);
+const KNOWN_TURN_COLUMNS = new Set(['Your turn', "Opponent's turn", "Either player's turn"]);
+
+function loadCuratedFactions() {
+  const out = new Map(); // faction code -> { factionId, detachments, stratagems, effects }
+  for (const [code, cfg] of Object.entries(CURATED_FACTION_FILES)) {
+    const doc = JSON.parse(readFileSync(join(HERE, cfg.file), 'utf8'));
+    const detNames = new Set(doc.detachments.map(d => d.name));
+    const seenIds = new Set();
+    for (const st of doc.stratagems) {
+      const where = `${cfg.file}: ${st.csv_id}`;
+      if (!detNames.has(st.detachment)) throw new Error(`${where}: unknown detachment "${st.detachment}"`);
+      if (seenIds.has(st.csv_id)) throw new Error(`${where}: duplicate csv_id`);
+      seenIds.add(st.csv_id);
+      if (/[\u2018\u2019]/.test(st.name)) throw new Error(`${where}: name must use straight apostrophes`);
+      if (!KNOWN_TURN_COLUMNS.has(st.turn_column)) throw new Error(`${where}: bad turn_column "${st.turn_column}"`);
+      for (const w of st.windows || []) {
+        if (!KNOWN_WINDOWS.has(w)) throw new Error(`${where}: unknown window "${w}"`);
+      }
+      if (!Number.isInteger(st.cp_cost)) throw new Error(`${where}: non-integer cp_cost`);
+    }
+    out.set(code, { factionId: cfg.factionId, effects: cfg.effects, file: cfg.file,
+      detachments: doc.detachments, stratagems: doc.stratagems });
+  }
+  return out;
+}
+
+function curatedStratagemRow(code, cur, st) {
+  // duration_phrase is an editorial addition (not codex text) that makes the
+  // implicit duration explicit for StratagemManager.use_stratagem's expiry
+  // (it reads "until the end of the turn" / "...your next Command phase").
+  const effect = st.duration_phrase
+    ? `${st.effect} (Duration: ${st.duration_phrase}.)`
+    : st.effect;
+  let description =
+    `<b>WHEN:</b> ${st.when}<br><br>` +
+    `<b>TARGET:</b> ${st.target}<br><br>` +
+    `<b>EFFECT:</b> ${effect}`;
+  if (st.restrictions) description += `<br><br><b>RESTRICTIONS:</b> ${st.restrictions}`;
+  const effectsJson = JSON.stringify(cur.effects);
+  if (effectsJson.includes('|')) throw new Error(`effects_json for ${st.csv_id} contains a pipe`);
+  return [
+    code,
+    sanitize(st.name),
+    sanitize(st.csv_id),
+    sanitize(`${st.detachment} Stratagem`),
+    String(st.cp_cost),
+    st.turn_column,
+    st.phase_column,
+    sanitize(st.detachment),
+    sanitize(st.detachment_id),
+    sanitize(description),
+    'once-per-phase',
+    effectsJson,
+    (st.windows || []).join(','),
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -588,6 +670,7 @@ function main() {
     console.warn('WARN: old Factions.csv not found/empty — existing codes cannot be reused');
   }
 
+  const curatedFactions = loadCuratedFactions();
   const factions = loadCollection('factions');
   const rawDetachments = loadCollection('detachments');
   const rawStratagems = loadCollection('stratagems');
@@ -627,17 +710,49 @@ function main() {
   const stratagemById = dedupeById(rawStratagems, s => s.id);
   const abilityById = dedupeById(rawAbilities, a => a.ability_id);
 
+  // --- curated factions: cross-check the curated detachment list against
+  // the dataset (warn only — the curated file is the source of truth) ---
+  for (const [code, cur] of curatedFactions) {
+    const dsDets = detachments.filter(d => d.faction_id === cur.factionId &&
+      !(Array.isArray(d.game_modes) && d.game_modes.includes('combat-patrol')));
+    const dsIds = new Set(dsDets.map(d => d.id));
+    const curIds = new Set(cur.detachments.map(d => d.id));
+    for (const d of cur.detachments) {
+      if (!dsIds.has(d.id)) console.warn(`WARN: curated ${code} detachment ${d.id} is not in the dataset`);
+    }
+    for (const d of dsDets) {
+      if (!curIds.has(d.id)) console.warn(`WARN: dataset ${code} detachment ${d.id} is missing from ${cur.file}`);
+    }
+  }
+
   // --- Stratagems.csv: one row per detachment stratagem ---
   const stratHeader = ['faction_id', 'name', 'id', 'type', 'cp_cost', 'turn', 'phase',
-    'detachment', 'detachment_id', 'description', 'timing', 'effects_json'];
+    'detachment', 'detachment_id', 'description', 'timing', 'effects_json', 'window'];
   const stratRows = [];
   let withEffects = 0;
   let withAbilityText = 0;
   let missingRefs = 0;
+  let curatedRowCount = 0;
+  const curatedEmitted = new Set();
   for (const det of detachments) {
     const facCode = factionCode.get(det.faction_id);
     if (!facCode) {
       console.warn(`WARN: detachment ${det.id} references unknown faction ${det.faction_id}`);
+      continue;
+    }
+    if (curatedFactions.has(facCode)) {
+      // Whole faction comes from the curated file, emitted once at the
+      // position of the faction's first dataset detachment.
+      if (!curatedEmitted.has(facCode)) {
+        curatedEmitted.add(facCode);
+        const cur = curatedFactions.get(facCode);
+        for (const st of cur.stratagems) {
+          stratRows.push(curatedStratagemRow(facCode, cur, st));
+          curatedRowCount++;
+          withEffects++;
+          withAbilityText++;
+        }
+      }
       continue;
     }
     for (const sid of det.stratagem_ids || []) {
@@ -692,18 +807,56 @@ function main() {
         sanitize(description),
         sanitize(s.timing || ''),
         effectsJson,
+        '', // window: dataset rows are S-panel / legacy-trigger stratagems
       ]);
     }
   }
 
   // --- Detachments.csv (reference data; nothing parses it) ---
+  // Curated factions: the curated detachment list replaces the dataset's, at
+  // the position of the faction's first dataset detachment.
   const detHeader = ['id', 'faction_id', 'name', 'legend', 'type'];
-  const detRows = detachments.map(d => [
-    sanitize(d.id), factionCode.get(d.faction_id) || '', sanitize(d.name), '', '',
-  ]);
+  const detRows = [];
+  const curatedDetsEmitted = new Set();
+  for (const d of detachments) {
+    const code = factionCode.get(d.faction_id) || '';
+    if (curatedFactions.has(code)) {
+      if (!curatedDetsEmitted.has(code)) {
+        curatedDetsEmitted.add(code);
+        for (const cd of curatedFactions.get(code).detachments) {
+          detRows.push([sanitize(cd.id), code, sanitize(cd.name), '', '']);
+        }
+      }
+      continue;
+    }
+    detRows.push([sanitize(d.id), code, sanitize(d.name), '', '']);
+  }
 
+  const line = r => r.join('|');
   const csv = (header, rows) =>
-    [header.join('|'), ...rows.map(r => r.join('|'))].join('\n') + '\n';
+    [header.join('|'), ...rows.map(line)].join('\n') + '\n';
+
+  if (ONLY_FACTION) {
+    if (!factionRows.some(r => r[0] === ONLY_FACTION)) {
+      throw new Error(`--only-faction ${ONLY_FACTION}: no such faction code`);
+    }
+    const strat = spliceCsvRows(join(BASE_DIR, 'Stratagems.csv'), {
+      header: stratHeader.join('|'),
+      isTarget: l => l.split('|')[0] === ONLY_FACTION,
+      newRows: stratRows.filter(r => r[0] === ONLY_FACTION).map(line),
+    });
+    const dets = spliceCsvRows(join(BASE_DIR, 'Detachments.csv'), {
+      isTarget: l => l.split('|')[1] === ONLY_FACTION,
+      newRows: detRows.filter(r => r[1] === ONLY_FACTION).map(line),
+    });
+    writeFileSync(join(OUT_DIR, 'Stratagems.csv'), strat.text);
+    writeFileSync(join(OUT_DIR, 'Detachments.csv'), dets.text);
+    console.log(`--only-faction ${ONLY_FACTION}: Factions.csv left untouched`);
+    console.log(`Stratagems.csv:  ${ONLY_FACTION} rows ${strat.removed} -> ${strat.inserted} ` +
+      `(other factions byte-identical; header now ends in |window)`);
+    console.log(`Detachments.csv: ${ONLY_FACTION} rows ${dets.removed} -> ${dets.inserted} (other factions byte-identical)`);
+    return;
+  }
 
   writeFileSync(join(OUT_DIR, 'Stratagems.csv'), csv(stratHeader, stratRows));
   writeFileSync(join(OUT_DIR, 'Factions.csv'), csv(['id', 'name', 'link'], factionRows));
@@ -713,7 +866,8 @@ function main() {
   console.log(`Detachments.csv: ${detRows.length} rows`);
   console.log(`Stratagems.csv:  ${stratRows.length} rows ` +
     `(${withEffects} with compiled effects_json, ${withAbilityText} with ability-DSL effect text, ` +
-    `${stratRows.length - withAbilityText} stub-effect display rows, ${missingRefs} missing refs skipped)`);
+    `${stratRows.length - withAbilityText} stub-effect display rows, ${missingRefs} missing refs skipped; ` +
+    `${curatedRowCount} from curated faction files)`);
 }
 
 main();

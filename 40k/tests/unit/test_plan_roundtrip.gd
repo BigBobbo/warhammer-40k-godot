@@ -141,7 +141,7 @@ func _state() -> Dictionary:
 			"U_ENEMY_A": enemy,
 		},
 		"factions": {
-			"1": {"name": "Orks", "detachment": "Speedwaaagh!"},
+			"1": {"name": "Orks", "detachment": "Kult of Speed"},
 			"2": {"name": "Adeptus Custodes", "detachment": "Shield Host"},
 		},
 		"board": {
@@ -279,7 +279,7 @@ func test_keys_and_layout_guard() -> void:
 		"army_file from game_config (got '%s')" % str(keys["army_file"]))
 	_assert(str(keys["deployment_zone_id"]) == "hammer_anvil",
 		"deployment_zone_id from meta.deployment_type (got '%s')" % str(keys["deployment_zone_id"]))
-	_assert(str(keys["detachment_hint"]) == "Speedwaaagh!",
+	_assert(str(keys["detachment_hint"]) == "Kult of Speed",
 		"detachment_hint from state.factions (got '%s')" % str(keys["detachment_hint"]))
 	_assert(str(keys["mission_id"]) == "take_and_hold",
 		"mission_id from game_config (got '%s')" % str(keys["mission_id"]))

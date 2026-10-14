@@ -203,7 +203,7 @@ function convertFile(path) {
       created_date: army.faction?.created_date ?? '',
       schema: 2,
       edition: 11,
-      data_source: '40kdc-data 1.0.19 (11th edition, launch)',
+      data_source: '40kdc-data 1.4.5 (11th edition, launch + Codex: Orks)',
     },
     units: outUnits,
   };

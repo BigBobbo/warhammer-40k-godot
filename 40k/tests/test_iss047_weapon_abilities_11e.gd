@@ -264,11 +264,13 @@ func _run_tests():
 		t_cw == 16, "current_wounds=%d" % t_cw)
 
 	print("\n-- E5: [EXTRA ATTACKS] modifiable at e11 (audit #14) --")
-	# Waaagh! grants +1 melee attack. 10e Balance Dataslate suppressed it on
-	# EXTRA ATTACKS weapons; 11e removes the restriction. Count hit rolls.
+	# A generic ability "+1 Attacks" (effect_plus_attacks). 10e Balance Dataslate
+	# suppressed it on EXTRA ATTACKS weapons; 11e removes the restriction. Count
+	# hit rolls. (This used the Waaagh! +1 A until 2026-10: that bonus is 10e-only
+	# — the 11e Waaagh! has no melee bonus — so it can no longer carry the 11e check.)
 	var ea_maker = func() -> Dictionary:
 		return {"units": {
-			"U_EA": {"id": "U_EA", "owner": 1, "flags": {"waaagh_active": true},
+			"U_EA": {"id": "U_EA", "owner": 1, "flags": {"effect_plus_attacks": 1},
 				"meta": {"name": "EA", "keywords": ["INFANTRY", "ORKS"],
 					"stats": {"toughness": 4, "save": 3, "wounds": 2},
 					"weapons": [{"name": "Tusks", "type": "Melee", "range": "Melee", "attacks": "2",
@@ -294,7 +296,7 @@ func _run_tests():
 	GameConstants.edition = 11
 	var ea_res11 = rules.resolve_melee_attacks(ea_action, ea_maker.call(), rules.RNGService.new(7))
 	var ea_n11 = ea_hit_count.call(ea_res11)
-	_check("10e: Waaagh +1A suppressed on EXTRA ATTACKS (2 hit rolls)", ea_n10 == 2, "got %d" % ea_n10)
+	_check("10e: ability +1A suppressed on EXTRA ATTACKS (2 hit rolls)", ea_n10 == 2, "got %d" % ea_n10)
 	_check("11e: EXTRA ATTACKS takes the modifier (3 hit rolls)", ea_n11 == 3, "got %d" % ea_n11)
 
 	print("\n-- E6: benefit of cover PER ATTACKING MODEL (13.08, audit #7) --")

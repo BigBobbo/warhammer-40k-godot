@@ -116,8 +116,8 @@
       },
       "hint_after_s": 35,
       "hint": {
-        "text": "The Warboss is attached to the Boyz, so he gets out with them — his base is the last one you place. Right-click cancels if you get stuck — then click the row again. Every base needs to be within 3\" of the wagon.",
-        "text_orky": "Da Warboss is attached to da Boyz, so he gets out wiv 'em — his base is da last one ya place. Right-click cancels if ya get stuck — den click da row again. Every base needs to be wivin 3\" of da wagon."
+        "text": "The Warboss is attached to the Boyz, so he gets out with them — his base is the last one you place. Right-click cancels if you get stuck — then click the row again. Every base needs to be wholly within 3\" of the wagon — keep the whole base inside the ring.",
+        "text_orky": "Da Warboss is attached to da Boyz, so he gets out wiv 'em — his base is da last one ya place. Right-click cancels if ya get stuck — den click da row again. Every base needs to be wholly wivin 3\" of da wagon — keep da whole base inside da ring."
       }
     },
     {

@@ -749,7 +749,11 @@ func _setup_waaagh_subsection(section: VBoxContainer, faction_mgr, current_playe
 	section.add_child(header)
 
 	var desc = Label.new()
-	desc.text = "Once per battle. All Ork units gain: Advance and Charge, +1 Strength and +1 Attack (melee), 5+ invulnerable save."
+	desc.name = "WaaaghDescription"  # stable for windowed scenarios
+	if GameConstants.edition >= 11:
+		desc.text = "Once per battle. All Ork units with the Waaagh! ability are riled up until the end of the next turn: 5+ invulnerable save, ranged attacks have [ASSAULT], advancing does not prevent charging."
+	else:
+		desc.text = "Once per battle. All Ork units gain: Advance and Charge, +1 Strength and +1 Attack (melee), 5+ invulnerable save."
 	desc.add_theme_font_size_override("font_size", 16)
 	desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -770,7 +774,7 @@ func _setup_waaagh_subsection(section: VBoxContainer, faction_mgr, current_playe
 		btn.add_theme_font_size_override("font_size", 17)
 		_WhiteDwarfTheme.apply_to_button(btn)
 		btn.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
-		btn.tooltip_text = "Declare a Waaagh! — all Ork units gain advance+charge, +1 S/A melee, 5+ invuln this turn"
+		btn.tooltip_text = "Declare a Waaagh! — all Ork units gain %s" % FactionAbilityManager.waaagh_effects_summary()
 		btn.pressed.connect(_on_call_waaagh_pressed)
 		section.add_child(btn)
 	elif faction_mgr.has_method("is_boss_watchin_waaagh_available") and faction_mgr.is_boss_watchin_waaagh_available(current_player):
@@ -965,6 +969,21 @@ func start_battle_shock_sequence(start_unit_id: String = "", end_phase_after: bo
 		print("CommandController: Battle-shock is P%d's roll call — local seat waits" % player)
 		return false
 
+	# The roll call IS the start of the Battle-shock step: its start-of-step
+	# stratagem window (battle_shock_step_start — MOB MENTALITY) opens first,
+	# after the Command step's own prompts, never on top of them. When that
+	# window waits for the player, the roll call opens once it has closed.
+	if current_phase.has_method("battle_shock_step_window_opened") \
+			and not current_phase.battle_shock_step_window_opened():
+		emit_signal("command_action_requested", {"type": "BEGIN_BATTLE_SHOCK_STEP"})
+		if current_phase.has_method("has_pending_stratagem_window") and current_phase.has_pending_stratagem_window() \
+				and current_phase.has_signal("stratagem_window_closed"):
+			print("CommandController: Battle-shock step started — roll call opens after the stratagem decision")
+			var reopen := func(_p, _w, _u):
+				call_deferred("start_battle_shock_sequence", start_unit_id, end_phase_after)
+			current_phase.stratagem_window_closed.connect(reopen, CONNECT_ONE_SHOT)
+			return true
+
 	_bs_order.clear()
 	for entry in queue:
 		_bs_order.append(str(entry.get("unit_id", "")))
@@ -1134,11 +1153,53 @@ func _on_bs_auto_resolve_requested() -> void:
 				"type": "DECLINE_COMMAND_REROLL",
 				"unit_id": unit_id,
 			})
+		# A failed test opened a stratagem window (e.g. BREAKIN' HEADS on a
+		# unit that just became battle-shocked): the phase now waits for that
+		# decision — stop here; the remaining tests stay in the roll call.
+		if current_phase and current_phase.has_method("has_pending_stratagem_window") \
+				and current_phase.has_pending_stratagem_window():
+			print("CommandController: Battle-shock auto-resolve paused — a stratagem window is waiting for a decision")
+			break
 	_bs_index = _bs_order.size()
 	_bs_finish()
 
 func _on_bs_closed() -> void:
 	_bs_teardown()
+
+func _on_phase_stratagem_window_closed(_player: int, window_id: String, used: bool) -> void:
+	# The stratagem's diffs land when the window action finishes — refresh the
+	# card on the next frame, from the applied state.
+	if window_id == "unit_battle_shocked" and used and _bs_active:
+		call_deferred("_bs_refresh_after_unit_battle_shocked_stratagem")
+
+func _bs_refresh_after_unit_battle_shocked_stratagem() -> void:
+	"""BREAKIN' HEADS (Codex: Orks 11e) was used on the unit whose FAILED card is
+	showing: it is no longer battle-shocked and lost D3 models — say so instead
+	of leaving the stale 'FAILED — BATTLE-SHOCKED' verdict and model count."""
+	if not _bs_active or not _bs_dialog or not is_instance_valid(_bs_dialog):
+		return
+	var uid: String = _bs_dialog.current_unit_id()
+	var unit: Dictionary = GameState.get_unit(uid)
+	if unit.is_empty() or unit.get("flags", {}).get("battle_shocked", false):
+		return
+	var bh = unit.get("flags", {}).get("ork11e_breakin_heads", {})
+	if typeof(bh) != TYPE_DICTIONARY or bh.is_empty():
+		return
+	var updates := {}
+	if current_phase and current_phase.has_method("get_battle_shock_queue"):
+		for row in current_phase.get_battle_shock_queue(true):
+			if str(row.get("unit_id", "")) == uid:
+				updates = {"strength_text": row.get("strength_text", ""), "alive": row.get("alive", 0), "total": row.get("total", 0)}
+				break
+	var d3 := int(bh.get("d3", 0))
+	_bs_dialog.show_post_test_update(updates,
+		"[center][color=#FFD966][b]BREAKIN' HEADS — NO LONGER BATTLE-SHOCKED[/b][/color][/center]",
+		"Failed the test, then BREAKIN' HEADS: D3 = %d mortal wound%s; the unit is no longer Battle-shocked." % [d3, "" if d3 == 1 else "s"])
+	var uname := str(unit.get("meta", {}).get("name", uid))
+	if uname in _bs_failed:
+		_bs_failed.erase(uname)
+		_bs_passed.append("%s (BREAKIN' HEADS)" % uname)
+	print("CommandController: roll-call card refreshed — %s no longer battle-shocked after BREAKIN' HEADS (D3 = %d)" % [uid, d3])
 
 func _on_battle_shock_test_resolved(result: Dictionary) -> void:
 	"""Phase seam: a test has FINALLY settled (after any re-roll decision)."""
@@ -1439,6 +1500,11 @@ func set_phase(phase: BasePhase) -> void:
 		if phase.has_signal("battle_shock_test_resolved"):
 			if not phase.battle_shock_test_resolved.is_connected(_on_battle_shock_test_resolved):
 				phase.battle_shock_test_resolved.connect(_on_battle_shock_test_resolved)
+		# Roll call: a stratagem used on the unit that just became battle-shocked
+		# (Codex: Orks 11e BREAKIN' HEADS) changes the card's verdict.
+		if phase.has_signal("stratagem_window_closed"):
+			if not phase.stratagem_window_closed.is_connected(_on_phase_stratagem_window_closed):
+				phase.stratagem_window_closed.connect(_on_phase_stratagem_window_closed)
 
 		# Connect SecondaryMissionManager signals for reactive UI updates
 		var secondary_mgr = get_node_or_null("/root/SecondaryMissionManager")
