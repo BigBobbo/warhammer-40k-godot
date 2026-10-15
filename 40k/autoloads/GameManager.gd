@@ -671,6 +671,9 @@ func process_end_movement(action: Dictionary) -> Dictionary:
 	var via_phase := _end_phase_via_phase(action, GameStateData.Phase.MOVEMENT)
 	if not via_phase.is_empty():
 		return via_phase
+	var stale := _stale_end_phase_result(action, GameStateData.Phase.MOVEMENT)
+	if not stale.is_empty():
+		return stale
 	var next_phase = _get_next_phase(GameStateData.Phase.MOVEMENT)
 	# 09.02: every unit must have been selected to move before the step ends —
 	# the ones the player left unselected remain stationary (09.04). Same
@@ -759,6 +762,9 @@ func process_end_fight(action: Dictionary) -> Dictionary:
 	var via_phase := _end_phase_via_phase(action, GameStateData.Phase.FIGHT)
 	if not via_phase.is_empty():
 		return via_phase
+	var stale := _stale_end_phase_result(action, GameStateData.Phase.FIGHT)
+	if not stale.is_empty():
+		return stale
 	# The 11e Fight phase has three steps — global Pile In (12.02), the Fight
 	# step (12.04, where END_FIGHT can only be a p.74 PASS while units are owed
 	# a fight) and global Consolidate (12.07) — followed by the 12.09 triggers.
@@ -791,6 +797,9 @@ func process_end_command(action: Dictionary) -> Dictionary:
 	var via_phase := _end_phase_via_phase(action, GameStateData.Phase.COMMAND)
 	if not via_phase.is_empty():
 		return via_phase
+	var stale := _stale_end_phase_result(action, GameStateData.Phase.COMMAND)
+	if not stale.is_empty():
+		return stale
 
 	# Calculate next phase
 	var next_phase = _get_next_phase(GameStateData.Phase.COMMAND)
@@ -970,6 +979,21 @@ func _delegate_to_current_phase(action: Dictionary) -> Dictionary:
 
 	# Execute the action on the phase
 	return current_phase.execute_action(action)
+
+## A stale END_MOVEMENT / END_FIGHT / END_COMMAND (a guest's double-click or
+## a press racing the host's own phase end / AFK auto-end) that arrives once
+## that phase is over must not complete WHATEVER phase is current now — the
+## legacy tail would e.g. end Scoring without END_SCORING (no turn switch).
+## Returns {} when the action's phase is current (or no phase instance exists:
+## legacy callers), otherwise a no-op success.
+func _stale_end_phase_result(action: Dictionary, phase_enum: int) -> Dictionary:
+	var pm = _get_phase_manager()
+	var inst = pm.get_current_phase_instance() if pm else null
+	if inst == null or not "phase_type" in inst or int(inst.phase_type) == phase_enum:
+		return {}
+	print("GameManager: stale %s ignored — the current phase is %s, not %s" % [
+		str(action.get("type", "")), str(int(inst.phase_type)), str(phase_enum)])
+	return {"success": true, "diffs": []}
 
 ## RV-2: END_MOVEMENT / END_FIGHT / END_COMMAND on the HOST (and offline
 ## callers of apply_action) go through the phase's own end handling, so the

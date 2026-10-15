@@ -12579,6 +12579,14 @@ func _on_phase_action_pressed() -> void:
 			# don't pre-judge from it. Send END_FIGHT for the local player and
 			# let the host accept or refuse it (a refusal comes back as a toast).
 			var fight_client_defers := NetworkManager.is_networked() and not NetworkManager.is_host()
+			# 12.02 / 12.07: online, this button only ends YOUR half of the
+			# Pile In / Consolidate step (the host refuses anything else).
+			if NetworkManager.is_networked() and fight_phase_instance and (fight_step == "PILE_IN" or fight_step == "CONSOLIDATE"):
+				var half_owner: int = int(fight_phase_instance.piling_in_player_11e) if fight_step == "PILE_IN" else int(fight_phase_instance.consolidating_player_11e)
+				if half_owner > 0 and half_owner != NetworkManager.get_local_player():
+					ToastManager.show_info("Waiting for Player %d to finish their %s (%s)" % [
+						half_owner, "pile-ins" if fight_step == "PILE_IN" else "consolidations", "12.02" if fight_step == "PILE_IN" else "12.07"])
+					return
 			if fight_step == "FIGHT" and not fight_client_defers and fight_phase_instance and fight_phase_instance.has_method("get_end_fight_status"):
 				# 12.04: fighting is mandatory — the Fight step only ends once
 				# every eligible unit has been selected to fight. The one

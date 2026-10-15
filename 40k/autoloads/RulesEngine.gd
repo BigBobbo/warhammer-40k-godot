@@ -1792,7 +1792,7 @@ static func _apply_diff_to_board(board: Dictionary, diff: Dictionary) -> void:
 # with a "mixed" note. The suffix must stay digit-free: consumers parse the
 # number back out with String.to_int(), which concatenates EVERY digit in
 # the string ("2+/3+" would read back as 23).
-static func _hit_threshold_display(base_bs: int, bs_per_attack: Array, cover_worsened_attacks: int = 0, fail_band: int = 1) -> String:
+static func _hit_threshold_display(base_bs: int, bs_per_attack: Array, cover_worsened_attacks: int = 0, fail_band: int = 1, fail_band_note: String = "indirect") -> String:
 	var shown := base_bs
 	var mixed := false
 	if not bs_per_attack.is_empty():
@@ -1811,7 +1811,7 @@ static func _hit_threshold_display(base_bs: int, bs_per_attack: Array, cover_wor
 	# BS — show the roll the die actually needed, so a 5 is not drawn as a hit.
 	if fail_band > 1 and fail_band + 1 > shown:
 		shown = fail_band + 1
-		notes.append("indirect")
+		notes.append(fail_band_note)
 	if cover_worsened_attacks > 0:
 		notes.append("cover")
 	if mixed:
@@ -2582,7 +2582,10 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 
 		# The displayed target must match what each die was judged against —
 		# bs_per_attack carries the effective (cover/plunging-adjusted) BS.
-		hit_threshold_display = _hit_threshold_display(bs, bs_per_attack, cover_worsened_attacks, hit_fail_band)
+		# The fail band's source: 10.07 indirect shooting, or only SPEEDIEST
+		# FREEKS (Codex: Orks 11e) on an ordinary shot — don't call that "indirect".
+		hit_threshold_display = _hit_threshold_display(bs, bs_per_attack, cover_worsened_attacks, hit_fail_band,
+			"indirect" if indirect_consequences else "fails on 1-%d" % hit_fail_band)
 		result.dice.append({
 			"context": "to_hit",
 			"threshold": hit_threshold_display,
@@ -4660,7 +4663,10 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 
 		# The displayed target must match what each die was judged against —
 		# bs_per_attack carries the effective (cover/plunging-adjusted) BS.
-		hit_threshold_display = _hit_threshold_display(bs, bs_per_attack, cover_worsened_attacks, hit_fail_band)
+		# The fail band's source: 10.07 indirect shooting, or only SPEEDIEST
+		# FREEKS (Codex: Orks 11e) on an ordinary shot — don't call that "indirect".
+		hit_threshold_display = _hit_threshold_display(bs, bs_per_attack, cover_worsened_attacks, hit_fail_band,
+			"indirect" if indirect_consequences else "fails on 1-%d" % hit_fail_band)
 		result.dice.append({
 			"context": "to_hit",
 			"threshold": hit_threshold_display,
@@ -6063,20 +6069,18 @@ static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, inv
 ## 11e (10.07): do an [INDIRECT FIRE] weapon's indirect-shooting WHILE
 ## SHOOTING consequences apply to this attack? At 11e they follow the shooting
 ## type the player SELECTED for the unit (assignment.shooting_type, stamped by
-## _stamp_shooting_type): "indirect" ⇒ yes even against a VISIBLE target; any
-## other selected type ⇒ no. An unstamped assignment (overwatch, Mathhammer,
-## legacy callers) falls back to "unseen target ⇒ indirect" — at 11e an unseen
-## target can only be shot by selecting indirect shooting. 10e keeps the
+## _stamp_shooting_type): "indirect" ⇒ yes even against a VISIBLE target. An
+## UNSEEN target can only be shot by selecting indirect shooting, so it always
+## gets them — whatever type was stamped: no UI or AI path picks a shooting
+## type yet, so SELECT_SHOOTER defaults the unit to "normal" and a stamped
+## "normal" must not switch 10.07 off for a hidden target (merge review
+## SHOOT-1). A visible target shot with any other type ⇒ no. 10e keeps the
 ## visibility rule (#371).
 static func _indirect_consequences_apply(is_indirect_fire: bool, target_visible: bool, assignment: Dictionary) -> bool:
 	if not is_indirect_fire:
 		return false
-	if GameConstants.edition >= 11:
-		var st := str(assignment.get("shooting_type", ""))
-		if st == "indirect":
-			return true
-		if st != "":
-			return false
+	if GameConstants.edition >= 11 and str(assignment.get("shooting_type", "")) == "indirect":
+		return true
 	return not target_visible
 
 ## 10.02: the shooting type selected for the unit applies to every attack it

@@ -3271,6 +3271,15 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 	for member_id in _fight_group_ids(str(action.unit_id)):
 		katah_remove_changes.append({"op": "set", "path": "units.%s.flags.has_fought" % member_id, "value": true})
 	katah_remove_changes.append_array(_fight_done_changes_11e(str(action.unit_id)))
+	# Codex: Orks (11e) Fight On Death: an activation ended by SKIP_UNIT still
+	# means the unit has fought (#916: has_fought / fight_done above), so the
+	# models it kept on the battlefield are removed now — the same point as
+	# _finish_fight_activation_11e. Applied early so the next selection, the
+	# p.74 pass check and the Consolidate step see the board without them.
+	var sk_fod_changes := _ork11e_fod_remove(_fight_group_ids(str(action.unit_id)), "has fought")
+	if not sk_fod_changes.is_empty():
+		PhaseManager.apply_state_changes(sk_fod_changes)
+		katah_remove_changes.append_array(sk_fod_changes)
 	if faction_mgr:
 		var sk_flags = GameState.state.get("units", {}).get(action.unit_id, {}).get("flags", {})
 		for katah_flag in ["effect_sustained_hits", "effect_lethal_hits", "katah_stance", "katah_sustained_hits_value"]:
@@ -5352,15 +5361,29 @@ func _process_decline_counter_offensive(action: Dictionary) -> Dictionary:
 		return _advance_consolidation_step_11e(result)
 	return result
 
+func _end_fight_half_is_scoped() -> bool:
+	var nm = get_node_or_null("/root/NetworkManager")
+	return nm != null and nm.has_method("is_networked") and nm.is_networked()
+
 func _validate_end_fight(action: Dictionary) -> Dictionary:
 	# 12.02 / 12.07: during the global Pile In and Consolidate steps END_FIGHT
 	# ends the current player's half — both moves are optional per unit.
+	# In multiplayer each peer sends END_FIGHT for itself (Main: player =
+	# local player), so the half being ended must be the sender's own — the
+	# waiting player's button must not end the OPPONENT's pile-in /
+	# consolidation half (the scoped END_PILE_IN / END_CONSOLIDATION refuse
+	# that too). Hot-seat / AI keep the unscoped behaviour.
+	var half_scoped: bool = action.has("player") and _end_fight_half_is_scoped()
 	if pile_in_step_11e == PileInStep11e.ACTIVE:
+		if half_scoped and int(action.player) != piling_in_player_11e:
+			return {"valid": false, "errors": ["Not your half of the Pile In step — Player %d is piling in (12.02)" % piling_in_player_11e]}
 		return {"valid": true, "errors": []}
 	if consolidation_step_11e == ConsolidationStep11e.ACTIVE:
 		# 12.08 AFTER MOVING: "your opponent MUST select each of those units".
 		if _forced_fights_pending_11e():
 			return {"valid": false, "errors": ["Fights forced by an Engaging Consolidation must be resolved first (12.08)"]}
+		if half_scoped and int(action.player) != consolidating_player_11e:
+			return {"valid": false, "errors": ["Not your half of the Consolidate step — Player %d is consolidating (12.07)" % consolidating_player_11e]}
 		return {"valid": true, "errors": []}
 	if consolidation_step_11e == ConsolidationStep11e.DONE or sequencer_11e == null:
 		return {"valid": true, "errors": []}

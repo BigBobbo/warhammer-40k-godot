@@ -3764,7 +3764,11 @@ func _auto_roll_saves_11e(save_data_list: Array) -> Dictionary:
 		var virtual_unit: Dictionary = RulesEngine.build_attached_allocation_unit_11e(target_unit_id, work_board).unit
 		var defender := int(live_target.get("owner", 0))
 		var preferred: Array = CasualtyPreference.compute_preferred_targets(virtual_unit, work_board, {"defender_player": defender})
-		var batch = RulesEngine.resolve_allocation_batch_11e(save_data, [], work_board, RulesEngine.make_rng(), {
+		# 05.03: the defender also chooses the GROUP order — follow the same
+		# preference (the engine's default model-index order could kill a
+		# protected Nob's group first and strand the survivors).
+		var group_order: Array = CasualtyPreference.group_order_for(Allocation.build_groups(virtual_unit), preferred)
+		var batch = RulesEngine.resolve_allocation_batch_11e(save_data, group_order, work_board, RulesEngine.make_rng(), {
 			"preferred_targets": preferred,
 		})
 		var diffs: Array = batch.get("diffs", [])
@@ -4643,6 +4647,13 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 	var rr_ctx: Dictionary = resolution_state.get("staged_hit_context", {}) if stage == "hits" else resolution_state.get("staged_wound_context", {})
 	if RulesEngine.staged_die_already_rerolled(rr_ctx, stage, die_index):
 		return create_result(false, [], "That die has already been re-rolled — a dice can never be re-rolled more than once")
+	# Hit dice that cannot be re-rolled at all (10.07 indirect shooting, a
+	# [TORRENT] weapon) — RulesEngine.reroll_hit_die refuses them, but only
+	# after the CP / once-per-phase Command Re-roll would already be spent.
+	if stage == "hits" and rr_ctx.get("is_torrent", false):
+		return create_result(false, [], "Torrent weapons make no hit roll to re-roll")
+	if stage == "hits" and rr_ctx.get("no_hit_rerolls", false):
+		return create_result(false, [], "Indirect shooting: hit rolls cannot be re-rolled (10.07)")
 
 	# Spend the CP + record the once-per-phase Command Re-roll usage.
 	var sm = get_node_or_null("/root/StratagemManager")

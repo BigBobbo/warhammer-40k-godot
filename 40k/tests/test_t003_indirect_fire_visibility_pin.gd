@@ -92,6 +92,11 @@ func _test_one_three_fail_gated() -> void:
 		not rules._indirect_consequences_apply(true, true, {"shooting_type": "normal"}))
 	_check("11e: no type passed, unseen target -> inferred indirect",
 		rules._indirect_consequences_apply(true, false, {}))
+	# Merge review SHOOT-1: SELECT_SHOOTER without a type defaults the unit to
+	# "normal" (no UI / AI path picks a type), and #916 stamps it on the shot —
+	# an UNSEEN target can only be shot indirectly at 11e, so 10.07 must apply.
+	_check("11e: \"normal\" stamped, UNSEEN target -> consequences still apply (only indirect can target it)",
+		rules._indirect_consequences_apply(true, false, {"shooting_type": "normal"}))
 	_check("non-[INDIRECT FIRE] weapon -> never",
 		not rules._indirect_consequences_apply(false, false, {"shooting_type": "indirect"}))
 	GameConstants.edition = prev

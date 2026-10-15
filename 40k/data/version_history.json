@@ -2,6 +2,21 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.45.2",
+      "date": "2026-10-15",
+      "summary": "Fixes from combining the Codex: Orks update with the core-rules fixes: indirect fire at hidden targets, smarter computer casualty picks, Fight On Death, and several online-game fixes.",
+      "changes": [
+        "Fixed (Shooting, 10.07): shooting an [INDIRECT FIRE] weapon at a target you can't see applies the indirect rules again (unmodified 1-5 fails, or 1-3 if you remained stationary; no hit re-rolls; the target has cover). 1.45.0 resolved those shots as ordinary shooting.",
+        "Fixed (Saves the computer allocates): the computer now chooses the order of allocation groups to match its casualty plan, so it removes Boyz before their Nob and the survivors stay in coherency more often.",
+        "Fixed (Codex: Orks, Fight On Death): models kept on the battlefield by ORKS IS NEVER BEATEN, TOO ARROGANT TO DIE or CRAZED RAMPAGE are now removed when their unit's fight ends, even if it had nothing to attack.",
+        "Fixed (Multiplayer turn timer): the timer now waits on the right player (the one deciding a stratagem prompt, or whose unit is mid-fight). A stratagem prompt that times out is declined automatically, and the game is no longer awarded to the player who went AFK.",
+        "Fixed (Multiplayer, Fight 12.02 / 12.07): your phase button can no longer end your opponent's half of the Pile In or Consolidate step. It tells you that you're waiting for them.",
+        "Fixed (Multiplayer): a late End Fight / End Movement / End Command click that arrives after that phase is over no longer skips the Scoring phase and the turn change.",
+        "Fixed (Multiplayer): the guest's \"Finish Consolidations\" button and panel close when the end-of-Fight stratagem prompt opens, and online (relay) guests now see why an action was refused.",
+        "Fixed: a Command Re-roll on an indirect-fire hit die is refused before any CP is spent, and the dice display no longer calls SPEEDIEST FREEKS' 1-3 fail band \"indirect\"."
+      ]
+    },
+    {
       "version": "1.45.1",
       "date": "2026-10-15",
       "summary": "Online games now follow the 1.45.0 Fight-phase rules: Finish Pile Ins no longer skips the whole Fight phase, the guest can pass, refused actions say why, and the turn timer can't throw away fights.",

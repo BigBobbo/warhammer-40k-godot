@@ -691,6 +691,13 @@ func _on_web_relay_message(data: Dictionary) -> void:
 			# If we have pending optimistic actions, roll them ALL back
 			if _pending_optimistic_actions.size() > 0:
 				_rollback_all_optimistic_actions(action_type, reason)
+			else:
+				# A non-optimistic action (END_FIGHT / END_MOVEMENT since #916,
+				# window answers ...) has no rollback toast — tell the player
+				# why, as the ENet path (_reject_action) does.
+				var rj_main = get_node_or_null("/root/Main")
+				if rj_main and rj_main.has_method("show_error_toast"):
+					rj_main.call_deferred("show_error_toast", "%s rejected: %s" % [action_type, reason])
 
 			action_rejected.emit(action_type, reason)
 
@@ -1844,6 +1851,16 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 	# BEFORE its *_required signal, the host's order: FightController hides
 	# the step panels on the transition and the *_required signal shows them.
 	var fight_step_before: String = phase.get_fight_step_11e() if phase.has_method("get_fight_step_11e") else ""
+	# The host's last consolidation half ended and it opened the fight_phase_end
+	# window (Codex: Orks 11e): that result carries only the window stamp, no
+	# trigger_* block, so the client's Consolidate step would stay ACTIVE (its
+	# button still "Finish Consolidations", the step panel up) while the host
+	# holds the phase. Close the step here, as the host did.
+	var fpe_window: Dictionary = result.get("stratagem_window_opened", {})
+	if str(fpe_window.get("window_id", "")) == "fight_phase_end" and "consolidation_step_11e" in phase \
+			and int(phase.consolidation_step_11e) == int(phase.ConsolidationStep11e.ACTIVE):
+		phase.consolidation_step_11e = phase.ConsolidationStep11e.DONE
+		fight_step_before = _emit_client_fight_step_transition(phase, fight_step_before)
 
 	# Handle fight selection dialog trigger (for multiplayer sync after CONSOLIDATE)
 	if result.get("trigger_fight_selection", false):
@@ -3065,6 +3082,29 @@ func _auto_end_current_phase() -> void:
 		phase_manager_ref.advance_to_next_phase()
 		return
 
+	# A pending stratagem window (Codex: Orks 11e) blocks every END_* action:
+	# the timed-out decider declines it instead, and the timer re-arms so the
+	# phase gets its own timeout. A human follow-up (reactive / surge move,
+	# assault disembark) has no generic answer — re-arm; the next consecutive
+	# timeout is charged to its owner (_afk_player_for_current_phase).
+	var cur_inst = phase_manager_ref.get_current_phase_instance() if phase_manager_ref.has_method("get_current_phase_instance") else null
+	if cur_inst and cur_inst.has_method("has_pending_stratagem_window") and cur_inst.has_pending_stratagem_window():
+		var pw: Dictionary = cur_inst.get_pending_stratagem_window()
+		var decline := {
+			"type": "DECLINE_WINDOW_STRATAGEM",
+			"player": int(cur_inst.get_pending_stratagem_window_decider()),
+			"window_id": str(pw.get("window_id", "")),
+			"auto_timeout": true
+		}
+		print("NetworkManager: timeout with a pending %s stratagem window — auto-declining for Player %d" % [decline.window_id, decline.player])
+		submit_action(decline)
+		start_turn_timer()
+		return
+	if cur_inst and cur_inst.has_method("get_pending_stratagem_window_decider") and int(cur_inst.get_pending_stratagem_window_decider()) > 0:
+		print("NetworkManager: timeout during Player %d's stratagem follow-up — no auto action, timer re-armed" % int(cur_inst.get_pending_stratagem_window_decider()))
+		start_turn_timer()
+		return
+
 	# Submit the auto-end action through the normal pipeline (host-side)
 	var action = {
 		"type": end_action_type,
@@ -3078,6 +3118,18 @@ func _auto_end_current_phase() -> void:
 	# the next consecutive timeout ends the game against the AFK player.
 	if current_phase == GameStateData.Phase.FIGHT:
 		var fp = phase_manager_ref.get_current_phase_instance() if phase_manager_ref.has_method("get_current_phase_instance") else null
+		# Mid-activation an END_FIGHT is refused ("X is still fighting"): no
+		# auto action; the next timeout is charged to the fighter's owner.
+		if fp and "active_fighter_id" in fp and str(fp.active_fighter_id) != "":
+			print("NetworkManager: Fight step timeout — %s is mid-activation; no auto action, timer re-armed" % str(fp.active_fighter_id))
+			start_turn_timer()
+			return
+		# 12.02 / 12.07: the Pile In / Consolidate half being timed out is the
+		# piling-in / consolidating player's, not necessarily the active one's.
+		if fp and "pile_in_step_11e" in fp and int(fp.pile_in_step_11e) == int(fp.PileInStep11e.ACTIVE):
+			action["player"] = int(fp.piling_in_player_11e)
+		elif fp and "consolidation_step_11e" in fp and int(fp.consolidation_step_11e) == int(fp.ConsolidationStep11e.ACTIVE):
+			action["player"] = int(fp.consolidating_player_11e)
 		if fp and fp.has_method("get_end_fight_status"):
 			var status = fp.get_end_fight_status()
 			if not status.step_over:
@@ -3097,13 +3149,33 @@ func _auto_end_current_phase() -> void:
 		start_turn_timer()
 
 func _afk_player_for_current_phase() -> int:
-	"""The player the turn timer is waiting on: the active player, except in
-	the Fight step (12.04) where the player who must select the next fighter
-	(or pass) is the one holding the game up."""
+	"""The player the turn timer is waiting on, in this order:
+	- the decider of a pending stratagem window / human follow-up (Codex: Orks
+	  11e windows can wait on either player, in either player's turn);
+	- in the Fight phase: the owner of the unit that is fighting right now
+	  (FightSequencer.select_to_fight already points peek_selection at the
+	  NEXT picker mid-activation), the player whose Pile In / Consolidate half
+	  it is, then the player who must select the next fighter or pass (12.04);
+	- otherwise the active player."""
 	var active := game_state.get_active_player()
-	if game_state.get_current_phase() != GameStateData.Phase.FIGHT or not phase_manager_ref:
+	if not phase_manager_ref:
 		return active
-	var fp = phase_manager_ref.get_current_phase_instance() if phase_manager_ref.has_method("get_current_phase_instance") else null
+	var inst = phase_manager_ref.get_current_phase_instance() if phase_manager_ref.has_method("get_current_phase_instance") else null
+	if inst and inst.has_method("get_pending_stratagem_window_decider"):
+		var decider := int(inst.get_pending_stratagem_window_decider())
+		if decider > 0:
+			return decider
+	if game_state.get_current_phase() != GameStateData.Phase.FIGHT:
+		return active
+	var fp = inst
+	if fp and "active_fighter_id" in fp and str(fp.active_fighter_id) != "":
+		var fighter = game_state.get_unit(str(fp.active_fighter_id)) if game_state.has_method("get_unit") else {}
+		if not fighter.is_empty():
+			return int(fighter.get("owner", active))
+	if fp and "pile_in_step_11e" in fp and int(fp.pile_in_step_11e) == int(fp.PileInStep11e.ACTIVE):
+		return int(fp.piling_in_player_11e)
+	if fp and "consolidation_step_11e" in fp and int(fp.consolidation_step_11e) == int(fp.ConsolidationStep11e.ACTIVE):
+		return int(fp.consolidating_player_11e)
 	if fp and fp.has_method("get_end_fight_status"):
 		var status = fp.get_end_fight_status()
 		if not status.step_over and int(status.selecting_player) > 0:
