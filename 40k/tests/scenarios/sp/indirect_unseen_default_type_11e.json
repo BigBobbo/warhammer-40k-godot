@@ -24,7 +24,7 @@
     { "act": "execute_script", "script": "RulesEngine._has_los_to_target_unit(\"U_WITCHSEEKERS_D\", \"U_BOYZ_E\", GameState.state)", "equals": false, "comment": "the Boyz are not visible to the mortar" },
     { "act": "execute_script", "script": "RulesEngine._check_target_visibility(\"U_WITCHSEEKERS_D\", \"U_BOYZ_E\", \"Siege Mortar\", GameState.state)[\"visible\"]", "equals": true, "comment": "but targetable — the [INDIRECT FIRE] affordance" },
 
-    { "act": "execute_script", "multiline": true, "script": "main.shooting_controller._select_shooter_by_unit_id(\"U_WITCHSEEKERS_D\")\nreturn true", "equals": true, "comment": "the Shooting panel's own selection path (list row / token click)" },
+    { "act": "execute_script", "multiline": true, "script": "tree.current_scene.shooting_controller._select_shooter_by_unit_id(\"U_WITCHSEEKERS_D\")\nreturn true", "equals": true, "comment": "the Shooting panel's own selection path (list row / token click)" },
     { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_shooter_id", "equals": "U_WITCHSEEKERS_D" },
     { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_shooting_type", "equals": "normal", "comment": "no UI picks a shooting type — the unit defaults to normal shooting" },
