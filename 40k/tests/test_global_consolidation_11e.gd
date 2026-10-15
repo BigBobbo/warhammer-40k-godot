@@ -174,8 +174,15 @@ func _run_tests():
 	_check("END_CONSOLIDATION is blocked while the forced fight is unresolved (12.08)",
 		not v_pass_mid.valid and str(v_pass_mid.errors).contains("12.08"), str(v_pass_mid))
 
-	# Resolve the forced fight (skip = forfeits its attacks but completes
-	# the selection; the windowed scenario covers a real forced attack).
+	# 12.08: an unselected forced fight cannot be skipped — it must be
+	# selected to fight (12.04) first (core-rules audit e28e4f7, P0-2).
+	var r_skip_unselected = fp.execute_action({"type": "SKIP_UNIT", "unit_id": "U_D", "player": 2})
+	_check("an unselected forced fight cannot be skipped (12.04/12.08)",
+		not r_skip_unselected.get("success", false), str(r_skip_unselected))
+	# Resolve the forced fight: select it, then end the activation without
+	# attacks (the windowed scenario covers a real forced attack).
+	var r_sel_d = fp.execute_action({"type": "SELECT_FIGHTER", "unit_id": "U_D", "player": 2})
+	_check("forced unit selected to fight", r_sel_d.get("success", false), str(r_sel_d))
 	var r_skip = fp.execute_action({"type": "SKIP_UNIT", "unit_id": "U_D", "player": 2})
 	_check("forced unit's fight resolves (skipped)", r_skip.get("success", false), str(r_skip))
 	_check("step resumed and passed to Player 2 (P1 had no units left)",

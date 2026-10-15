@@ -1,0 +1,166 @@
+{
+  "id": "indirect_selected_visible_target_11e",
+  "covers": [
+    "rules.RulesEngine._indirect_consequences_apply",
+    "phases.ShootingPhase.shooting_type_payload",
+    "shootingtypes.IndirectShooting.live_resolve"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Core-rules audit e28e4f7 P0-1 (10.07: 'Each time an [INDIRECT FIRE] weapon makes an attack: the target has the benefit of cover ... You cannot re-roll hit rolls ... An unmodified hit roll of 1-5 fails, unless your unit remained stationary'). Same setup as iss15_indirect_band_11e but with NO wall: the Boyz are VISIBLE to the Witchseekers. The player selects INDIRECT shooting for the unit (which moved this turn). Before the fix the selected type was dropped before attack resolution and RulesEngine re-derived 'indirect' from visibility, so a visible target was resolved as normal shooting (BS 4+). Now the SELECTED type rides into the resolver: only unmodified 6s hit. Shooter-side actions use dispatch (committed precedent); any defender reactive-stratagem offer is declined by clicking the real dialog's Decline button. The Boyz are repositioned (setup-only, execute_script) to the first spot the Witchseekers can SEE.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shooting_phase_edition_11"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"meta\"][\"weapons\"].append({\"name\": \"Siege Mortar\", \"type\": \"Ranged\", \"range\": \"48\", \"attacks\": \"6\", \"ballistic_skill\": \"4\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"indirect fire\"})"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][1].merge({\"position\": {\"x\": 823.4, \"y\": 407.4}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][2].merge({\"position\": {\"x\": 823.4, \"y\": 407.4}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][3].merge({\"position\": {\"x\": 823.4, \"y\": 407.4}}, true)"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"flags\"].merge({\"remained_stationary\": false, \"moved\": true}, true)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var u = GameState.state.units[\"U_BOYZ_E\"]\nvar alive = []\nfor i in range(u.models.size()):\n\tif u.models[i].get(\"alive\", true):\n\t\talive.append(i)\nfor dy in range(6, 24, 2):\n\tfor dx in range(-12, 13, 3):\n\t\tvar c = Vector2(823.4 + dx * 40.0, 407.4 + dy * 40.0)\n\t\tfor k in range(alive.size()):\n\t\t\tu.models[alive[k]].position = {\"x\": c.x + (k % 5) * 40.0, \"y\": c.y + (k / 5) * 40.0}\n\t\tif RulesEngine._has_los_to_target_unit(\"U_WITCHSEEKERS_D\", \"U_BOYZ_E\", GameState.state):\n\t\t\ttree.current_scene._sync_all_token_positions()\n\t\t\treturn true\nreturn false",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine._has_los_to_target_unit(\"U_WITCHSEEKERS_D\", \"U_BOYZ_E\", GameState.state)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine._check_target_visibility(\"U_WITCHSEEKERS_D\", \"U_BOYZ_E\", \"Siege Mortar\", GameState.state)[\"visible\"]",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine._indirect_hit_fail_band_11e(\"U_WITCHSEEKERS_D\", \"U_BOYZ_E\", GameState.create_snapshot())",
+      "equals": 5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_WITCHSEEKERS_D",
+        "payload": {
+          "shooting_type": "indirect"
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooting_type",
+      "equals": "indirect"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_WITCHSEEKERS_D",
+        "payload": {
+          "weapon_id": "Siege Mortar",
+          "target_unit_id": "U_BOYZ_E",
+          "model_ids": [
+            "m1"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_indirect_assigned_visible_target"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().dice_log[0][\"context\"]",
+      "equals": "to_hit"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().dice_log[0][\"successes\"] == PhaseManager.get_current_phase_instance().dice_log[0][\"rolls_raw\"].count(6)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().dice_log[0][\"indirect_fire_applied\"]",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "03_band5_only_sixes_hit"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().dice_log[0][\"rolls_raw\"].count(4) + PhaseManager.get_current_phase_instance().dice_log[0][\"rolls_raw\"].count(5) > 0",
+      "equals": true
+    }
+  ]
+}

@@ -8,6 +8,12 @@ extends SceneTree
 # Pre-#371 the engine applied the penalties unconditionally. Fix gates
 # all three on `_has_los_to_target_unit` returning false.
 #
+# 11e update (core-rules audit e28e4f7, P0-1): at 11e the 10.07 consequences
+# (cover, no hit re-rolls, the 1-5 / 1-3 fail band) follow the SELECTED
+# indirect shooting type — they apply against a VISIBLE target too. The
+# visibility gate remains the 10e rule and the fallback for callers that do
+# not pass a shooting type (RulesEngine._indirect_consequences_apply).
+#
 # This pin verifies the gate is in place at all three call sites:
 #   A) -1 to hit modifier (line ~1613)
 #   B) Unmodified 1-3 always fail (line ~1691)
@@ -57,21 +63,43 @@ func _test_hit_minus_one_gated() -> void:
 	_check("indirect_target_visible computed via _has_los_to_target_unit",
 		"_has_los_to_target_unit(actor_unit_id, target_unit_id, board)" in src
 			and "indirect_target_visible" in src)
-	_check("-1 hit only when target NOT visible",
-		"if is_indirect_fire and not indirect_target_visible:" in src,
+	_check("-1 hit only when target NOT visible (10e only)",
+		"if is_indirect_fire and not indirect_target_visible and GameConstants.edition < 11:" in src,
 		"would apply -1 even when target is visible (silent rule break)")
 
 func _test_one_three_fail_gated() -> void:
-	print("\n-- B: unmodified fail band gated on `not visible` --")
-	# ba768da refactored the inline `unmodified_roll <= 3` check into the
-	# hit_fail_band parameter of AttackSequence.evaluate_hit_roll: band 3 at
-	# 10e, _indirect_hit_fail_band_11e (5, or 3 with stationary+spotter) at 11e
-	# — still selected ONLY inside the `not indirect_target_visible` branch.
+	print("\n-- B: unmodified fail band: visibility at 10e, selected type at 11e --")
+	# The band (10e: 3; 11e: _indirect_hit_fail_band_11e) is applied inside
+	# `if indirect_consequences:` — decided by _indirect_consequences_apply.
 	var src = _read("res://autoloads/RulesEngine.gd")
-	_check("fail band selected only when target NOT visible (10e: 3; 11e: band helper)",
-		"if is_indirect_fire and not indirect_target_visible:" in src
-			and "_indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3" in src,
-		"would force the fail band even with line of sight (NOT RAW in either edition)")
+	_check("fail band selected inside the indirect_consequences branch",
+		"if indirect_consequences:" in src
+			and "_indirect_hit_fail_band_11e(actor_unit_id, target_unit_id, board) if GameConstants.edition >= 11 else 3" in src)
+	var rules = root.get_node_or_null("RulesEngine")
+	if rules == null:
+		_check("RulesEngine autoload reachable", false)
+		return
+	var prev = GameConstants.edition
+	GameConstants.edition = 10
+	_check("10e: visible target -> no indirect consequences",
+		not rules._indirect_consequences_apply(true, true, {}))
+	_check("10e: unseen target -> indirect consequences",
+		rules._indirect_consequences_apply(true, false, {}))
+	GameConstants.edition = 11
+	_check("11e: indirect SELECTED, visible target -> consequences apply (10.07)",
+		rules._indirect_consequences_apply(true, true, {"shooting_type": "indirect"}))
+	_check("11e: normal shooting selected -> no indirect consequences",
+		not rules._indirect_consequences_apply(true, true, {"shooting_type": "normal"}))
+	_check("11e: no type passed, unseen target -> inferred indirect",
+		rules._indirect_consequences_apply(true, false, {}))
+	# Merge review SHOOT-1: SELECT_SHOOTER without a type defaults the unit to
+	# "normal" (no UI / AI path picks a type), and #916 stamps it on the shot —
+	# an UNSEEN target can only be shot indirectly at 11e, so 10.07 must apply.
+	_check("11e: \"normal\" stamped, UNSEEN target -> consequences still apply (only indirect can target it)",
+		rules._indirect_consequences_apply(true, false, {"shooting_type": "normal"}))
+	_check("non-[INDIRECT FIRE] weapon -> never",
+		not rules._indirect_consequences_apply(false, false, {"shooting_type": "indirect"}))
+	GameConstants.edition = prev
 
 func _test_cover_gated() -> void:
 	print("\n-- C: Indirect cover bonus gated on `not visible` --")

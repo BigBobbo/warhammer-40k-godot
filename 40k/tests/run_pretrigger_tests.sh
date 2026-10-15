@@ -35,6 +35,13 @@
 #     assault-disembark follow-ups, MOBILE, desperate escape, objectives)
 #   - Codex: Orks (11e) OTHER group (MOB MENTALITY, BREAKIN' HEADS, IMPENDING
 #     KRUNCH, FLYIN' HEADBUTT, INFESTED WAR ZONE + their window hooks)
+#   - core-rules audit e28e4f7: mandatory fights / p.74 pass (12.04), every
+#     unit selected in Movement (09.02), selected indirect shooting type
+#     (10.07), automatic 11e save allocation (05.04), emergency disembark
+#     placement (18.05)
+#   - #916 x #917 merge interactions: Fight On Death on SKIP_UNIT, stale
+#     END_* no-ops, online Pile In / Consolidate half ownership, AFK timer vs
+#     stratagem windows / mid-activation, client Consolidate step close
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -227,6 +234,9 @@ TESTS=(
     "tests/unit/test_plan_coherency_editions.gd"
     "tests/unit/test_deployment_zone_polygon_guard.gd"
     "tests/unit/test_fixture_boards_current.gd"
+    "tests/test_core_rules_audit_e28e4f7.gd"
+    "tests/test_merge_916_917_interactions.gd"
+    "tests/test_fight_phase_scope_end_fight_11e.gd"
 )
 
 FAILED=0

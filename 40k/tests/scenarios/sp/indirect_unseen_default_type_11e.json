@@ -1,0 +1,46 @@
+{
+  "id": "indirect_unseen_default_type_11e",
+  "covers": [
+    "rules.RulesEngine._indirect_consequences_apply",
+    "phases.ShootingPhase.shooting_type_payload",
+    "scripts.ShootingController._select_shooter_by_unit_id"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "10.07 (11e) through the player's own path (merge review SHOOT-1): the Witchseekers get a Siege Mortar ([INDIRECT FIRE]) and a tall wall hides the Boyz from them. The shooter is selected the way the Shooting panel does it (ShootingController._select_shooter_by_unit_id), which sends SELECT_SHOOTER WITHOUT a shooting type, so the phase defaults the unit to 'normal' and #916 stamps 'normal' on the shot. An unseen target can only be shot indirectly, so the resolved to_hit block must still obey 10.07: the unit moved, so only unmodified 6s hit (successes == rolls_raw.count(6)), and the shown need reads 'indirect'. Before the fix the stamped 'normal' switched 10.07 off: the shot hit on the normal BS.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"meta\"][\"weapons\"].append({\"name\": \"Siege Mortar\", \"type\": \"Ranged\", \"range\": \"48\", \"attacks\": \"6\", \"ballistic_skill\": \"4\", \"strength\": \"5\", \"ap\": \"0\", \"damage\": \"1\", \"special_rules\": \"indirect fire\"})" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][1].merge({\"position\": {\"x\": 823.4, \"y\": 407.4}}, true)" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][2].merge({\"position\": {\"x\": 823.4, \"y\": 407.4}}, true)" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"models\"][3].merge({\"position\": {\"x\": 823.4, \"y\": 407.4}}, true)" },
+    { "act": "execute_script", "script": "GameState.get_unit(\"U_WITCHSEEKERS_D\")[\"flags\"].merge({\"remained_stationary\": false, \"moved\": true}, true)" },
+    { "act": "execute_script", "script": "TerrainManager.terrain_features.append({\"id\": \"indirect_default_wall\", \"type\": \"ruins\", \"height_category\": \"tall\", \"polygon\": PackedVector2Array([Vector2(500, 890), Vector2(1500, 890), Vector2(1500, 910), Vector2(500, 910)])})" },
+    { "act": "execute_script", "script": "RulesEngine._has_los_to_target_unit(\"U_WITCHSEEKERS_D\", \"U_BOYZ_E\", GameState.state)", "equals": false, "comment": "the Boyz are not visible to the mortar" },
+    { "act": "execute_script", "script": "RulesEngine._check_target_visibility(\"U_WITCHSEEKERS_D\", \"U_BOYZ_E\", \"Siege Mortar\", GameState.state)[\"visible\"]", "equals": true, "comment": "but targetable — the [INDIRECT FIRE] affordance" },
+
+    { "act": "execute_script", "multiline": true, "script": "tree.current_scene.shooting_controller._select_shooter_by_unit_id(\"U_WITCHSEEKERS_D\")\nreturn true", "equals": true, "comment": "the Shooting panel's own selection path (list row / token click)" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_shooter_id", "equals": "U_WITCHSEEKERS_D" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_shooting_type", "equals": "normal", "comment": "no UI picks a shooting type — the unit defaults to normal shooting" },
+    { "act": "dispatch_action", "action": { "type": "ASSIGN_TARGET", "actor_unit_id": "U_WITCHSEEKERS_D", "payload": { "weapon_id": "Siege Mortar", "target_unit_id": "U_BOYZ_E", "model_ids": ["m1"] } } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "screenshot", "label": "01_mortar_assigned_unseen_boyz" },
+    { "act": "dispatch_action", "action": { "type": "CONFIRM_TARGETS" } },
+    { "act": "expect_action_result", "path": "success", "equals": true },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().dice_log[0][\"context\"]", "equals": "to_hit" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().dice_log[0][\"successes\"] == PhaseManager.get_current_phase_instance().dice_log[0][\"rolls_raw\"].count(6)", "equals": true, "comment": "10.07: the unit moved — unmodified 1-5 fail, only 6s hit" },
+    { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance().dice_log[0][\"threshold\"]).contains(\"indirect\")", "equals": true, "comment": "the shown need is the indirect one (e.g. '6+ (indirect, cover)')" },
+    { "act": "execute_script", "script": "str(PhaseManager.get_current_phase_instance().dice_log[0][\"threshold\"]).begins_with(\"6+\")", "equals": true, "comment": "only a 6 is shown as a hit" },
+    { "act": "screenshot", "label": "02_only_sixes_hit_indirect_threshold" },
+    { "act": "execute_script", "script": "TerrainManager.terrain_features.pop_back()" }
+  ]
+}

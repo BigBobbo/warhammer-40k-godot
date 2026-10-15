@@ -674,13 +674,19 @@ func _section_goaded() -> void:
 	_check("refused when the unit lost no wound", not r.can_use, str(r))
 	r = SM.can_use_stratagem(2, ga, "U_BOYZ_B", {"window_id": "enemy_has_shot", "attacker_unit_id": "U_ALLARUS_CUSTODIANS_A", "wounded_unit_ids": ["U_BOYZ_B"]})
 	_check("refused for a non-BEAST SNAGGA unit", not r.can_use, str(r))
-	RE.set_test_seed(11)
+	# Seed 3: the Allarus volley costs the Boyz 6 wounds and leaves the Nob and
+	# 3 Boyz in coherency. (Since #916, computer-rolled saves go through the 11e
+	# grouped allocation; with the casualty preference's group order the
+	# survivors stay coherent here — the precondition below pins that, since a
+	# unit out of coherency cannot make the surge.)
+	RE.set_test_seed(3)
 	var w_before := _unit_wounds("U_BEAST_SNAGGA_BOYZ_A")
 	_window_events.clear()
 	var res = _shoot(phase, "U_ALLARUS_CUSTODIANS_A", "U_BEAST_SNAGGA_BOYZ_A")
 	_check("Allarus SHOOT at the Beast Snagga Boyz succeeds", res.get("success", false), str(res.get("error", "")))
 	var lost := _unit_wounds("U_BEAST_SNAGGA_BOYZ_A") < w_before
 	_check("Beast Snagga Boyz lost a wound (seeded precondition)", lost, "%d -> %d" % [w_before, _unit_wounds("U_BEAST_SNAGGA_BOYZ_A")])
+	_check("…and the survivors are still in coherency (seeded precondition)", AttackSequence.check_unit_coherency(GS.state.units.U_BEAST_SNAGGA_BOYZ_A).coherent)
 	var w = phase.get_pending_stratagem_window()
 	_check("enemy_has_shot pending for P2 with the wounded unit in ctx", str(w.get("window_id", "")) == "enemy_has_shot" and "U_BEAST_SNAGGA_BOYZ_A" in w.get("ctx", {}).get("wounded_unit_ids", []), str(w.get("ctx", {})))
 	GS.state.units.U_BEAST_SNAGGA_BOYZ_A.flags["ork11e_riled_up"] = true
@@ -727,7 +733,7 @@ func _section_goaded() -> void:
 	_set_detachment(2, "Da Big Hunt")
 	_move_unit("U_BEAST_SNAGGA_BOYZ_A", 0.0, 3.0)
 	phase = _shooting_phase()
-	RE.set_test_seed(11)
+	RE.set_test_seed(3)
 	var ai = root.get_node("AIPlayer")
 	ai.enabled = true
 	ai.ai_players = {1: false, 2: true}

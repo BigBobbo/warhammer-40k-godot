@@ -460,12 +460,16 @@ func _resolve_transport_destruction_if_applicable(destroyed_unit_id: String) -> 
 			var mw = unit_info.get("mortal_wounds", 0)
 			var destroyed_models = unit_info.get("models_destroyed", 0)
 			var unit_name = unit_info.get("unit_name", "Unknown")
+			var unplaceable = int(unit_info.get("models_unplaceable", 0))
 			if mw > 0:
 				var _mw_label = "mortal wound" if mw == 1 else "mortal wounds"
 				var _md_label = "model" if destroyed_models == 1 else "models"
 				log_phase_message("  %s: %d %s, %d %s destroyed" % [unit_name, mw, _mw_label, destroyed_models, _md_label])
-			else:
+			elif unplaceable == 0:
 				log_phase_message("  %s: disembarked safely" % unit_name)
+			if unplaceable > 0:
+				# 18.05: "Each model that cannot be set up in this way is destroyed."
+				log_phase_message("  %s: %d model(s) could not be set up wholly within 6\" of the transport and were destroyed (18.05)" % [unit_name, unplaceable])
 
 		# Recursively check if transport destruction casualties caused further deaths
 		_check_kill_diffs(result.all_diffs)
@@ -927,13 +931,19 @@ func _validate_skip_unit(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", "")
 	var errors = []
 
-	# 11e: the sequencer governs order — SKIP_UNIT is valid for the active
-	# fighter (aborting its activation) or any unit still owed a fight.
+	# 11e: SKIP_UNIT only ends the ACTIVE fighter's activation — the unit has
+	# already been selected to fight (12.04) and e.g. has no target it can
+	# attack. It can no longer be used on a unit that has not been selected:
+	# every eligible unit must be selected to fight (12.04), so skipping one
+	# would forfeit a mandatory fight (core-rules audit e28e4f7, P0-2).
 	if sequencer_11e == null:
 		return {"valid": false, "errors": ["Fight sequencer not initialized"]}
-	if unit_id == active_fighter_id or sequencer_11e.eligible_to_fight(unit_id, GameState.state):
+	if unit_id != "" and unit_id == active_fighter_id:
 		return {"valid": true, "errors": []}
-	errors.append("Unit %s has no fight to skip" % unit_id)
+	if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
+		errors.append("%s must be selected to fight — eligible units cannot be skipped (12.04)" % get_unit(unit_id).get("meta", {}).get("name", unit_id))
+	else:
+		errors.append("Unit %s has no fight to skip" % unit_id)
 	return {"valid": false, "errors": errors}
 
 # Action processing methods
@@ -2910,6 +2920,7 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	if sequencer_11e != null:
 		for member_id in group_ids:
 			sequencer_11e.mark_fought(member_id)
+	changes.append_array(_fight_done_changes_11e(unit_id))
 	final_result["changes"] = changes
 	active_fighter_id = ""
 	confirmed_attacks.clear()
@@ -3255,6 +3266,20 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 	# client via diffs (clear_katah_stance mutates live state directly).
 	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
 	var katah_remove_changes: Array = []
+	# The activation is over: record it for every component (synced to a
+	# multiplayer client, whose FightSequencer reads fight_done_turn).
+	for member_id in _fight_group_ids(str(action.unit_id)):
+		katah_remove_changes.append({"op": "set", "path": "units.%s.flags.has_fought" % member_id, "value": true})
+	katah_remove_changes.append_array(_fight_done_changes_11e(str(action.unit_id)))
+	# Codex: Orks (11e) Fight On Death: an activation ended by SKIP_UNIT still
+	# means the unit has fought (#916: has_fought / fight_done above), so the
+	# models it kept on the battlefield are removed now — the same point as
+	# _finish_fight_activation_11e. Applied early so the next selection, the
+	# p.74 pass check and the Consolidate step see the board without them.
+	var sk_fod_changes := _ork11e_fod_remove(_fight_group_ids(str(action.unit_id)), "has fought")
+	if not sk_fod_changes.is_empty():
+		PhaseManager.apply_state_changes(sk_fod_changes)
+		katah_remove_changes.append_array(sk_fod_changes)
 	if faction_mgr:
 		var sk_flags = GameState.state.get("units", {}).get(action.unit_id, {}).get("flags", {})
 		for katah_flag in ["effect_sustained_hits", "effect_lethal_hits", "katah_stance", "katah_sustained_hits_value"]:
@@ -3412,7 +3437,11 @@ func _build_fight_selection_dialog_data_internal() -> Dictionary:
 		"fights_first_units": _fights_first_units_11e(),
 		"remaining_units": _remaining_units_11e(),
 		"fights_last_units": {"1": [], "2": []},
-		"units_that_fought": units_that_fought
+		"units_that_fought": units_that_fought,
+		# p.74 "Eligible to fight, but unable to fight": the selecting player
+		# may pass only when every eligible unit of theirs is >5" from all
+		# enemy units. The selection panel shows a Pass button off this flag.
+		"can_pass": sequencer_11e != null and sequencer_11e.can_pass(GameState.state, current_selecting_player)
 	}
 
 	log_phase_message("Emitting fight_selection_required signal")
@@ -3455,7 +3484,11 @@ func _build_fight_selection_dialog_data() -> Dictionary:
 		"fights_first_units": _fights_first_units_11e(),
 		"remaining_units": _remaining_units_11e(),
 		"fights_last_units": {"1": [], "2": []},
-		"units_that_fought": units_that_fought
+		"units_that_fought": units_that_fought,
+		# p.74 "Eligible to fight, but unable to fight": the selecting player
+		# may pass only when every eligible unit of theirs is >5" from all
+		# enemy units. The selection panel shows a Pass button off this flag.
+		"can_pass": sequencer_11e != null and sequencer_11e.can_pass(GameState.state, current_selecting_player)
 	}
 
 	log_phase_message("Emitting fight_selection_required signal")
@@ -3488,7 +3521,9 @@ func _get_eligible_units_for_selection() -> Dictionary:
 	if sequencer_11e == null:
 		return eligible
 	var only_ff = sequencer_11e.step == "fights_first"
-	for unit_id in sequencer_11e.eligible_units(GameState.state, current_selecting_player, only_ff):
+	# selectable_units: a player who has passed (p.74) is not offered their
+	# units again until the sequence returns to them.
+	for unit_id in sequencer_11e.selectable_units(GameState.state, current_selecting_player, only_ff):
 		var unit = get_unit(unit_id)
 		if not unit.is_empty():
 			# 19.03: ONE row for the whole Attached unit — "Boyz + Warboss",
@@ -4184,20 +4219,27 @@ func _begin_consolidation_step_11e() -> Dictionary:
 	units_that_consolidated_11e = {}
 	_stamp_fight_eligibility_11e()
 
-	# END_FIGHT is an always-valid escape hatch (T5-UX7): if the player
-	# ended the phase with fights still owed, those units forfeit their
-	# fight — mark them fought so the sequencer doesn't re-offer them as
-	# 12.08 forced fights mid-consolidation.
+	# END_FIGHT only reaches here once the Fight step is over (12.04): every
+	# eligible unit has fought, or the units still eligible belong to players
+	# who passed under "Eligible to fight, but unable to fight" (p.74). Those
+	# passed units did not fight — mark them so the sequencer doesn't re-offer
+	# them as 12.08 forced fights mid-consolidation, and clear the passes so a
+	# 12.08 forced fight can still be selected by its owner.
+	var passed_done_changes: Array = []
 	if sequencer_11e != null:
 		for unit_id in GameState.state.get("units", {}):
 			if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
-				log_phase_message("[11e 12.07] %s forfeits its fight (phase ended early)" % unit_id)
+				log_phase_message("[11e 12.07] %s did not fight (its player passed, p.74)" % unit_id)
 				sequencer_11e.mark_fought(unit_id)
+				passed_done_changes.append_array(_fight_done_changes_11e(unit_id, false))
+		sequencer_11e.passed = {}
+	if not passed_done_changes.is_empty():
+		PhaseManager.apply_state_changes(passed_done_changes)
 
 	consolidating_player_11e = GameState.get_active_player()
 	log_phase_message("[11e 12.07] CONSOLIDATE step begins — Player %d (active) first" % consolidating_player_11e)
 	emit_signal("subphase_transition", _subphase_string_11e(), "CONSOLIDATE")
-	return _advance_consolidation_step_11e(create_result(true, []))
+	return _advance_consolidation_step_11e(create_result(true, passed_done_changes))
 
 # Drive the Consolidate step forward: offer the current player their
 # remaining eligible units, auto-pass a player with none left, and when
@@ -4427,22 +4469,29 @@ func get_available_actions() -> Array:
 			"description": "Roll dice"
 		})
 	
-	# Add END_FIGHT action when appropriate
-	# The END_FIGHT button should ALWAYS be available to the active player
-	# This allows them to end the fight phase even if there are eligible units
-	var can_end_fight = false
-
-	# 12.04: the FightSequencer is the authority on "everyone has fought".
-	if sequencer_11e != null:
-		if active_fighter_id == "" and not sequencer_11e.has_eligible(GameState.state):
-			can_end_fight = true
+	# END_FIGHT in the Fight step (12.04) is offered ONLY when it is legal:
+	#  - the step is over (every eligible unit has been selected to fight, or
+	#    the rest belong to players who passed), or
+	#  - the selecting player may PASS because every one of their eligible
+	#    units is more than 5" from all enemy units (p.74 "Eligible to fight,
+	#    but unable to fight").
+	# Fighting is mandatory — a player can never decline an eligible fight.
+	var end_fight_status = get_end_fight_status()
+	if active_fighter_id == "" and not awaiting_sweeping_advance and not awaiting_acrobatic_escape:
+		if end_fight_status.step_over:
 			log_phase_message("Adding END_FIGHT action - fight step complete (11e sequencer)")
-
-	if can_end_fight and not awaiting_sweeping_advance and not awaiting_acrobatic_escape:
-		actions.append({
-			"type": "END_FIGHT",
-			"description": "End Fight Phase"
-		})
+			actions.append({
+				"type": "END_FIGHT",
+				"description": "End Fight Phase"
+			})
+		elif end_fight_status.can_pass:
+			log_phase_message("Adding END_FIGHT (pass) for Player %d - all eligible units >5\" from enemies (p.74)" % end_fight_status.selecting_player)
+			actions.append({
+				"type": "END_FIGHT",
+				"player": end_fight_status.selecting_player,
+				"pass": true,
+				"description": "Pass — every eligible unit is more than 5\" from all enemy units"
+			})
 
 	# Sweeping Advance actions when awaiting
 	if awaiting_sweeping_advance and not sweeping_advance_pending_units.is_empty():
@@ -5312,9 +5361,91 @@ func _process_decline_counter_offensive(action: Dictionary) -> Dictionary:
 		return _advance_consolidation_step_11e(result)
 	return result
 
+func _end_fight_half_is_scoped() -> bool:
+	var nm = get_node_or_null("/root/NetworkManager")
+	return nm != null and nm.has_method("is_networked") and nm.is_networked()
+
 func _validate_end_fight(action: Dictionary) -> Dictionary:
-	# END_FIGHT is always valid - it's the manual way to end the fight phase
-	return {"valid": true, "errors": []}
+	# 12.02 / 12.07: during the global Pile In and Consolidate steps END_FIGHT
+	# ends the current player's half — both moves are optional per unit.
+	# In multiplayer each peer sends END_FIGHT for itself (Main: player =
+	# local player), so the half being ended must be the sender's own — the
+	# waiting player's button must not end the OPPONENT's pile-in /
+	# consolidation half (the scoped END_PILE_IN / END_CONSOLIDATION refuse
+	# that too). Hot-seat / AI keep the unscoped behaviour.
+	var half_scoped: bool = action.has("player") and _end_fight_half_is_scoped()
+	if pile_in_step_11e == PileInStep11e.ACTIVE:
+		if half_scoped and int(action.player) != piling_in_player_11e:
+			return {"valid": false, "errors": ["Not your half of the Pile In step — Player %d is piling in (12.02)" % piling_in_player_11e]}
+		return {"valid": true, "errors": []}
+	if consolidation_step_11e == ConsolidationStep11e.ACTIVE:
+		# 12.08 AFTER MOVING: "your opponent MUST select each of those units".
+		if _forced_fights_pending_11e():
+			return {"valid": false, "errors": ["Fights forced by an Engaging Consolidation must be resolved first (12.08)"]}
+		if half_scoped and int(action.player) != consolidating_player_11e:
+			return {"valid": false, "errors": ["Not your half of the Consolidate step — Player %d is consolidating (12.07)" % consolidating_player_11e]}
+		return {"valid": true, "errors": []}
+	if consolidation_step_11e == ConsolidationStep11e.DONE or sequencer_11e == null:
+		return {"valid": true, "errors": []}
+	if pile_in_step_11e == PileInStep11e.NOT_STARTED:
+		return {"valid": false, "errors": ["Resolve the start-of-phase choices (e.g. Moment Shackle) first — the Pile In step (12.02) has not begun"]}
+
+	# The Fight step (12.04): "Players resolve the following sequence until
+	# all eligible units have been selected to fight and their attacks have
+	# been resolved." Ending it early is not a player choice.
+	if active_fighter_id != "":
+		return {"valid": false, "errors": ["%s is still fighting — finish its fight first (12.04)" % _fight_attached_display_name(active_fighter_id)]}
+	var status = get_end_fight_status()
+	if status.step_over:
+		return {"valid": true, "errors": []}
+	var player := int(action.get("player", status.selecting_player))
+	if player != int(status.selecting_player):
+		return {"valid": false, "errors": ["Player %d must select a unit to fight next — the Fight step cannot end while eligible units remain (12.04)" % status.selecting_player]}
+	if status.can_pass:
+		return {"valid": true, "errors": []}
+	var names: Array = []
+	for entry in status.owed_units:
+		names.append(entry.unit_name)
+	return {"valid": false, "errors": [
+		"Every eligible unit must fight (12.04). Still to fight: %s. You may only pass when all of your eligible units are more than 5\" from every enemy unit." % ", ".join(names)]}
+
+## The one authority the UI, AI and validator share for "can the Fight step
+## (12.04) end, or can the selecting player pass (p.74)?". Returns:
+##   step_over        — nobody is left to select (END_FIGHT moves on)
+##   selecting_player — who selects next (0 when step_over)
+##   can_pass         — selecting player may pass: all of their eligible
+##                      units are more than 5" from every enemy unit
+##   owed_units       — the selecting player's units that must still fight
+## Diffs stamping FightSequencer.FIGHT_DONE_FLAG (this turn's key) on the
+## Attached unit headed by unit_id (or just unit_id with group=false) — the
+## synced "this unit's fight is over this turn" record a multiplayer client's
+## sequencer reads.
+func _fight_done_changes_11e(unit_id: String, group: bool = true) -> Array:
+	var key := FightSequencer.turn_key(GameState.state)
+	var ids: Array = _fight_group_ids(unit_id) if group else [unit_id]
+	var out: Array = []
+	for member_id in ids:
+		out.append({"op": "set", "path": "units.%s.flags.%s" % [member_id, FightSequencer.FIGHT_DONE_FLAG], "value": key})
+	return out
+
+func get_end_fight_status() -> Dictionary:
+	var status := {"step_over": true, "selecting_player": 0, "can_pass": false, "owed_units": []}
+	if sequencer_11e == null or pile_in_step_11e == PileInStep11e.ACTIVE \
+			or consolidation_step_11e != ConsolidationStep11e.NOT_STARTED:
+		return status
+	# Before the global Pile In step has started (a start-of-phase choice such
+	# as the Blade Champion's Moment Shackle is pending) the Fight step has not
+	# begun: nothing can end, and nobody can pass yet.
+	if pile_in_step_11e == PileInStep11e.NOT_STARTED:
+		return {"step_over": false, "selecting_player": 0, "can_pass": false, "owed_units": [], "pre_pile_in": true}
+	var sel = sequencer_11e.peek_selection(GameState.state)
+	if sel.done:
+		return status
+	status.step_over = false
+	status.selecting_player = int(sel.player)
+	status.can_pass = sequencer_11e.can_pass(GameState.state, int(sel.player))
+	status.owed_units = get_unfought_eligible_units(int(sel.player))
+	return status
 
 # 11e 12.02: the piling-in player passes — ends their half of the global
 # Pile In step (any units they didn't move forfeit their pile-in; it is
@@ -5363,67 +5494,46 @@ func _process_end_fight(action: Dictionary) -> Dictionary:
 	if pile_in_step_11e == PileInStep11e.ACTIVE:
 		pile_in_done_players_11e[piling_in_player_11e] = true
 		log_phase_message("[11e 12.02] Player %d ends their pile-in half via END_FIGHT" % piling_in_player_11e)
-		return _advance_pile_in_step_11e(create_result(true, []))
+		return _end_fight_log(_advance_pile_in_step_11e(create_result(true, [])), "Finished Pile In (12.02)")
 	if consolidation_step_11e == ConsolidationStep11e.NOT_STARTED:
-		# Fight-phase scope fix: "End Fight Phase" ends only the ENDING
-		# player's own fights. Per 12.04, when one player stops selecting,
-		# the OTHER player still fights all of their remaining eligible
-		# units — so if the opponent is owed a fight, hand the Fight step
-		# over to them instead of forfeiting everyone and jumping to the
-		# Consolidate step (the previous behaviour, which wrongly cut the
-		# opponent's units out of the phase).
-		var ending_player := int(action.get("player", GameState.get_active_player()))
-		var opponent := 2 if ending_player == 1 else 1
-		if sequencer_11e != null \
-				and _player_has_eligible_fights_11e(ending_player) \
-				and _player_has_eligible_fights_11e(opponent):
-			_forfeit_player_fights_11e(ending_player)
-			log_phase_message("[11e 12.04] Player %d ended their fights — Player %d still fights their remaining units" % [ending_player, opponent])
-			return _resume_fight_step_after_end_11e(create_result(true, []))
-		return _begin_consolidation_step_11e()
+		# The validator only lets END_FIGHT through in the Fight step when the
+		# step is over, or as the selecting player's PASS (p.74 "Eligible to
+		# fight, but unable to fight" — all of their eligible units are more
+		# than 5" from every enemy unit). A pass is not a forfeit: the
+		# sequence returns to the opponent, and the passing player's units are
+		# offered again once the opponent selects a unit. The Fight step ends
+		# if both players pass in succession, or the opponent has nothing left
+		# to select.
+		var status = get_end_fight_status()
+		if sequencer_11e != null and not status.step_over:
+			var passing_player := int(action.get("player", status.selecting_player))
+			var step_ends: bool = sequencer_11e.pass_selection(GameState.state, passing_player)
+			log_phase_message("[11e p.74] Player %d passes — every eligible unit is more than 5\" from all enemy units%s" % [
+				passing_player, " — the Fight step ends" if step_ends else ""])
+			var pass_text := "Passed: every eligible unit is more than 5\" from all enemy units (p.74)"
+			if not step_ends:
+				return _end_fight_log(_resume_fight_step_after_end_11e(create_result(true, [])), pass_text)
+			return _end_fight_log(_begin_consolidation_step_11e(), pass_text)
+		return _end_fight_log(_begin_consolidation_step_11e(), "Ended the Fight step (12.04)")
 	if consolidation_step_11e == ConsolidationStep11e.ACTIVE:
-		if sequencer_11e != null:
-			for uid in GameState.state.get("units", {}):
-				if sequencer_11e.eligible_to_fight(uid, GameState.state):
-					log_phase_message("[11e 12.08] %s forfeits its forced fight (END_FIGHT during Consolidate step)" % uid)
-					sequencer_11e.mark_fought(uid)
+		# (12.08 forced fights can't be skipped — the validator rejects
+		# END_FIGHT while any are pending.)
 		consolidation_done_players_11e[consolidating_player_11e] = true
 		log_phase_message("[11e 12.07] Player %d ends their consolidation half via END_FIGHT" % consolidating_player_11e)
-		return _advance_consolidation_step_11e(create_result(true, []))
+		return _end_fight_log(_advance_consolidation_step_11e(create_result(true, [])), "Finished Consolidation (12.07)")
 
 	return _run_end_of_fight_triggers(create_result(true, []))
 
-# True while `player` still owns at least one unit the sequencer would offer
-# a fight to. Used by END_FIGHT to decide whether the opponent still gets to
-# fight (12.04) before the phase moves on to the Consolidate step.
-func _player_has_eligible_fights_11e(player: int) -> bool:
-	if sequencer_11e == null:
-		return false
-	for unit_id in GameState.state.get("units", {}):
-		var unit = GameState.state.units[unit_id]
-		if int(unit.get("owner", 0)) != player:
-			continue
-		if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
-			return true
-	return false
+# END_FIGHT ends whichever Fight-phase step is running (or is a p.74 pass);
+# give the game log that outcome instead of a blanket "Ended Fight Phase"
+# (BasePhase copies result.log_text onto the action for GameEventLog).
+func _end_fight_log(result: Dictionary, text: String) -> Dictionary:
+	if result.get("success", false) and str(result.get("log_text", "")) == "":
+		result["log_text"] = text
+	return result
 
-# Mark every remaining eligible fight owned by `player` as fought — they
-# forfeit those fights because the player chose to end their fighting. Only
-# this player's units are touched; the opponent's stay eligible so they still
-# get to fight (12.04).
-func _forfeit_player_fights_11e(player: int) -> void:
-	if sequencer_11e == null:
-		return
-	for unit_id in GameState.state.get("units", {}):
-		var unit = GameState.state.units[unit_id]
-		if int(unit.get("owner", 0)) != player:
-			continue
-		if sequencer_11e.eligible_to_fight(unit_id, GameState.state):
-			log_phase_message("[11e 12.04] %s forfeits its fight (Player %d ended their fights)" % [unit_id, player])
-			sequencer_11e.mark_fought(unit_id)
-
-# After the ending player forfeits their own fights, hand the Fight step over
-# to the opponent (12.04) and emit the next fight-selection request. Mirrors
+# After the selecting player passes (p.74), hand the Fight step over to the
+# opponent (12.04) and emit the next fight-selection request. Mirrors
 # _finish_fight_activation_11e's hand-off so the AI / controller / network
 # sync all pick it up the same way. If the sequencer unexpectedly reports no
 # one left, fall through to the Consolidate step instead of stalling.

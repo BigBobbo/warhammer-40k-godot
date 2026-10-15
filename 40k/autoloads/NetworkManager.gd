@@ -58,8 +58,13 @@ const LOAD_SYNC_TIMEOUT_SECONDS: float = 10.0  # Timeout waiting for client ackn
 # Optimistic execution — deterministic actions that can be applied client-side immediately
 const DETERMINISTIC_ACTIONS: Array[String] = [
 	# Phase transitions
-	"END_COMMAND", "END_DEPLOYMENT", "END_MOVEMENT", "END_SHOOTING",
-	"END_FIGHT", "END_SCORING", "END_CHARGE", "END_MORALE", "END_PHASE",
+	# END_MOVEMENT and END_FIGHT are NOT here: their outcome depends on
+	# host-only phase state (END_MOVEMENT resolves every unselected unit as
+	# Remain Stationary from the MovementPhase's active moves, 09.02; END_FIGHT
+	# is a Pile In / Consolidate half-end or a p.74 pass judged by the host's
+	# FightSequencer, 12.04), so a client must not run them optimistically.
+	"END_COMMAND", "END_DEPLOYMENT", "END_SHOOTING",
+	"END_SCORING", "END_CHARGE", "END_MORALE", "END_PHASE",
 	# Deployment
 	"DEPLOY_UNIT", "COMPOSITE_DEPLOY", "EMBARK_UNITS_DEPLOYMENT", "ATTACH_CHARACTER_DEPLOYMENT",
 	# Strategic Reserves / Deep Strike
@@ -686,6 +691,13 @@ func _on_web_relay_message(data: Dictionary) -> void:
 			# If we have pending optimistic actions, roll them ALL back
 			if _pending_optimistic_actions.size() > 0:
 				_rollback_all_optimistic_actions(action_type, reason)
+			else:
+				# A non-optimistic action (END_FIGHT / END_MOVEMENT since #916,
+				# window answers ...) has no rollback toast — tell the player
+				# why, as the ENet path (_reject_action) does.
+				var rj_main = get_node_or_null("/root/Main")
+				if rj_main and rj_main.has_method("show_error_toast"):
+					rj_main.call_deferred("show_error_toast", "%s rejected: %s" % [action_type, reason])
 
 			action_rejected.emit(action_type, reason)
 
@@ -1490,6 +1502,20 @@ func _broadcast_result(result: Dictionary) -> void:
 
 	print("NetworkManager: Client finished applying result")
 
+func _emit_client_fight_step_transition(phase, from_step: String) -> String:
+	"""Client only: re-emit FightPhase.subphase_transition when the synced
+	step fields moved the Fight phase to another step (Pile In 12.02 / Fight
+	12.04 / Consolidate 12.07). Returns the current step for chaining."""
+	if from_step == "" or not phase.has_method("get_fight_step_11e") or not phase.has_signal("subphase_transition"):
+		return from_step
+	var to_step: String = phase.get_fight_step_11e()
+	if to_step != from_step:
+		# The Pile In step only ever opens the phase — name it as the host does.
+		var from_label: String = "START_OF_FIGHT_PHASE" if to_step == "PILE_IN" else from_step
+		print("NetworkManager: Client Fight step %s -> %s — re-emitting subphase_transition" % [from_label, to_step])
+		phase.emit_signal("subphase_transition", from_label, to_step)
+	return to_step
+
 func _emit_client_visual_updates(result: Dictionary) -> void:
 	"""Emit phase-specific signals on client after applying result for visual updates"""
 	print("NetworkManager: _emit_client_visual_updates START")
@@ -1817,6 +1843,25 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 	# Window stamp + follow-up state (F3 / F4).
 	_mirror_host_window_state(phase, result)
 
+	# The client's Fight-phase step (Pile In / Fight / Consolidate) is synced
+	# by the trigger blocks below, which write the step fields directly — so
+	# FightPhase.subphase_transition never fired here and the client's phase
+	# button kept saying "Finish Pile Ins". Each block re-emits it (via
+	# _emit_client_fight_step_transition) right after its field update and
+	# BEFORE its *_required signal, the host's order: FightController hides
+	# the step panels on the transition and the *_required signal shows them.
+	var fight_step_before: String = phase.get_fight_step_11e() if phase.has_method("get_fight_step_11e") else ""
+	# The host's last consolidation half ended and it opened the fight_phase_end
+	# window (Codex: Orks 11e): that result carries only the window stamp, no
+	# trigger_* block, so the client's Consolidate step would stay ACTIVE (its
+	# button still "Finish Consolidations", the step panel up) while the host
+	# holds the phase. Close the step here, as the host did.
+	var fpe_window: Dictionary = result.get("stratagem_window_opened", {})
+	if str(fpe_window.get("window_id", "")) == "fight_phase_end" and "consolidation_step_11e" in phase \
+			and int(phase.consolidation_step_11e) == int(phase.ConsolidationStep11e.ACTIVE):
+		phase.consolidation_step_11e = phase.ConsolidationStep11e.DONE
+		fight_step_before = _emit_client_fight_step_transition(phase, fight_step_before)
+
 	# Handle fight selection dialog trigger (for multiplayer sync after CONSOLIDATE)
 	if result.get("trigger_fight_selection", false):
 		print("NetworkManager: Result has trigger_fight_selection flag")
@@ -1840,6 +1885,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 			if "pile_in_step_11e" in phase and phase.pile_in_step_11e == phase.PileInStep11e.ACTIVE:
 				phase.pile_in_step_11e = phase.PileInStep11e.DONE
 				print("NetworkManager: Client pile_in_step_11e -> DONE (fight selection began)")
+			fight_step_before = _emit_client_fight_step_transition(phase, fight_step_before)
 
 			# Emit the signal with the host's dialog data
 			phase.emit_signal("fight_selection_required", dialog_data)
@@ -1914,6 +1960,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 					phase.current_selecting_player = pi_data["piling_in_player"]
 			if "pile_in_step_11e" in phase:
 				phase.pile_in_step_11e = phase.PileInStep11e.ACTIVE
+			fight_step_before = _emit_client_fight_step_transition(phase, fight_step_before)
 			print("NetworkManager: Client re-emitting pile_in_step_required for player %d" % pi_data.get("piling_in_player", -1))
 			phase.emit_signal("pile_in_step_required", pi_data)
 		else:
@@ -1932,6 +1979,7 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 					phase.current_selecting_player = cons_data["consolidating_player"]
 			if "consolidation_step_11e" in phase:
 				phase.consolidation_step_11e = phase.ConsolidationStep11e.ACTIVE
+			fight_step_before = _emit_client_fight_step_transition(phase, fight_step_before)
 			print("NetworkManager: Client re-emitting consolidation_step_required for player %d" % cons_data.get("consolidating_player", -1))
 			phase.emit_signal("consolidation_step_required", cons_data)
 		else:
@@ -2820,7 +2868,13 @@ func validate_action(action: Dictionary, peer_id: int) -> Dictionary:
 		# Fight Phase actions: cross-turn actions where players alternate activating units during active player's turn
 		#   - Once a player selects a unit, ALL subsequent actions for that activation occur during opponent's turn
 
-		# Still validate player authority (that the peer is who they claim to be)
+		# Still validate player authority (that the peer is who they claim to be).
+		# An action without a "player" key is attributed to the sender — the
+		# phase validators read action.player (e.g. END_FIGHT's p.74 pass is
+		# judged for that player), so a missing key must not slip past the
+		# authority check as "whoever is selecting".
+		if not action.has("player") and peer_to_player_map.has(peer_id):
+			action["player"] = peer_to_player_map[peer_id]
 		if action.has("player"):
 			var claimed_player = action.get("player", -1)
 			var peer_player = peer_to_player_map.get(peer_id, -1)
@@ -2914,6 +2968,11 @@ func _reject_action(action_type: String, reason: String) -> void:
 	push_error("NetworkManager: Action rejected: %s - %s" % [action_type, reason])
 	# Emit signal so UI can display rejection reason to player
 	action_rejected.emit(action_type, reason)
+	# Tell the player why (the host's own rejections already toast). E.g. an
+	# END_FIGHT refused because units still have to fight (12.04).
+	var main = get_node_or_null("/root/Main")
+	if main and main.has_method("show_error_toast"):
+		main.call_deferred("show_error_toast", "%s rejected: %s" % [action_type, reason])
 	print("NetworkManager: Emitted action_rejected signal - type=%s, reason=%s" % [action_type, reason])
 
 # ============================================================================
@@ -2981,8 +3040,11 @@ func _on_turn_timeout() -> void:
 		return
 
 	consecutive_timeout_count += 1
-	var current_player = game_state.get_active_player()
 	var current_phase = game_state.get_current_phase()
+	# The player who is holding the game up. Usually the active player, but in
+	# the Fight step (12.04) players alternate — whoever must select the next
+	# fighter (or pass) is the one being waited on.
+	var current_player = _afk_player_for_current_phase()
 	var phase_name = GameStateData.Phase.keys()[current_phase] if current_phase < GameStateData.Phase.size() else "UNKNOWN"
 	print("NetworkManager: Turn timeout! Player %d in %s phase (consecutive: %d/%d)" % [current_player, phase_name, consecutive_timeout_count, MAX_CONSECUTIVE_TIMEOUTS])
 
@@ -2994,7 +3056,7 @@ func _on_turn_timeout() -> void:
 
 	if consecutive_timeout_count >= MAX_CONSECUTIVE_TIMEOUTS:
 		# Player has been AFK for multiple consecutive phases — game over
-		var winner = 3 - current_player  # Other player wins (1->2, 2->1)
+		var winner = 3 - current_player  # Other player wins (1->2, 2->1) — current_player is the AFK one
 		print("NetworkManager: %d consecutive timeouts — ending game" % consecutive_timeout_count)
 		_broadcast_game_over.rpc(winner, "turn_timeout")
 	else:
@@ -3020,14 +3082,105 @@ func _auto_end_current_phase() -> void:
 		phase_manager_ref.advance_to_next_phase()
 		return
 
+	# A pending stratagem window (Codex: Orks 11e) blocks every END_* action:
+	# the timed-out decider declines it instead, and the timer re-arms so the
+	# phase gets its own timeout. A human follow-up (reactive / surge move,
+	# assault disembark) has no generic answer — re-arm; the next consecutive
+	# timeout is charged to its owner (_afk_player_for_current_phase).
+	var cur_inst = phase_manager_ref.get_current_phase_instance() if phase_manager_ref.has_method("get_current_phase_instance") else null
+	if cur_inst and cur_inst.has_method("has_pending_stratagem_window") and cur_inst.has_pending_stratagem_window():
+		var pw: Dictionary = cur_inst.get_pending_stratagem_window()
+		var decline := {
+			"type": "DECLINE_WINDOW_STRATAGEM",
+			"player": int(cur_inst.get_pending_stratagem_window_decider()),
+			"window_id": str(pw.get("window_id", "")),
+			"auto_timeout": true
+		}
+		print("NetworkManager: timeout with a pending %s stratagem window — auto-declining for Player %d" % [decline.window_id, decline.player])
+		submit_action(decline)
+		start_turn_timer()
+		return
+	if cur_inst and cur_inst.has_method("get_pending_stratagem_window_decider") and int(cur_inst.get_pending_stratagem_window_decider()) > 0:
+		print("NetworkManager: timeout during Player %d's stratagem follow-up — no auto action, timer re-armed" % int(cur_inst.get_pending_stratagem_window_decider()))
+		start_turn_timer()
+		return
+
 	# Submit the auto-end action through the normal pipeline (host-side)
 	var action = {
 		"type": end_action_type,
 		"player": game_state.get_active_player(),
 		"auto_timeout": true
 	}
+	# 12.04: fighting is mandatory — a timeout cannot forfeit owed fights.
+	# While units are still owed a fight the only legal auto action is the
+	# selecting player's p.74 pass (all of their eligible units are >5" from
+	# every enemy); otherwise nothing is submitted and the timer re-arms, so
+	# the next consecutive timeout ends the game against the AFK player.
+	if current_phase == GameStateData.Phase.FIGHT:
+		var fp = phase_manager_ref.get_current_phase_instance() if phase_manager_ref.has_method("get_current_phase_instance") else null
+		# Mid-activation an END_FIGHT is refused ("X is still fighting"): no
+		# auto action; the next timeout is charged to the fighter's owner.
+		if fp and "active_fighter_id" in fp and str(fp.active_fighter_id) != "":
+			print("NetworkManager: Fight step timeout — %s is mid-activation; no auto action, timer re-armed" % str(fp.active_fighter_id))
+			start_turn_timer()
+			return
+		# 12.02 / 12.07: the Pile In / Consolidate half being timed out is the
+		# piling-in / consolidating player's, not necessarily the active one's.
+		if fp and "pile_in_step_11e" in fp and int(fp.pile_in_step_11e) == int(fp.PileInStep11e.ACTIVE):
+			action["player"] = int(fp.piling_in_player_11e)
+		elif fp and "consolidation_step_11e" in fp and int(fp.consolidation_step_11e) == int(fp.ConsolidationStep11e.ACTIVE):
+			action["player"] = int(fp.consolidating_player_11e)
+		if fp and fp.has_method("get_end_fight_status"):
+			var status = fp.get_end_fight_status()
+			if not status.step_over:
+				if status.can_pass:
+					action["player"] = int(status.selecting_player)
+					action["pass"] = true
+				else:
+					print("NetworkManager: Fight step timeout — Player %d still owes fights (12.04); no auto action, timer re-armed" % int(status.selecting_player))
+					start_turn_timer()
+					return
 	print("NetworkManager: Auto-submitting %s for AFK timeout" % end_action_type)
 	submit_action(action)
+	# An END_* that only finished a sub-step (a Fight-phase Pile In /
+	# Consolidate half, a p.74 pass) or was rejected leaves the phase in
+	# place — keep the AFK timer running instead of leaving it stopped.
+	if game_state.get_current_phase() == current_phase and not (phase_manager_ref.get("game_ended") == true):
+		start_turn_timer()
+
+func _afk_player_for_current_phase() -> int:
+	"""The player the turn timer is waiting on, in this order:
+	- the decider of a pending stratagem window / human follow-up (Codex: Orks
+	  11e windows can wait on either player, in either player's turn);
+	- in the Fight phase: the owner of the unit that is fighting right now
+	  (FightSequencer.select_to_fight already points peek_selection at the
+	  NEXT picker mid-activation), the player whose Pile In / Consolidate half
+	  it is, then the player who must select the next fighter or pass (12.04);
+	- otherwise the active player."""
+	var active := game_state.get_active_player()
+	if not phase_manager_ref:
+		return active
+	var inst = phase_manager_ref.get_current_phase_instance() if phase_manager_ref.has_method("get_current_phase_instance") else null
+	if inst and inst.has_method("get_pending_stratagem_window_decider"):
+		var decider := int(inst.get_pending_stratagem_window_decider())
+		if decider > 0:
+			return decider
+	if game_state.get_current_phase() != GameStateData.Phase.FIGHT:
+		return active
+	var fp = inst
+	if fp and "active_fighter_id" in fp and str(fp.active_fighter_id) != "":
+		var fighter = game_state.get_unit(str(fp.active_fighter_id)) if game_state.has_method("get_unit") else {}
+		if not fighter.is_empty():
+			return int(fighter.get("owner", active))
+	if fp and "pile_in_step_11e" in fp and int(fp.pile_in_step_11e) == int(fp.PileInStep11e.ACTIVE):
+		return int(fp.piling_in_player_11e)
+	if fp and "consolidation_step_11e" in fp and int(fp.consolidation_step_11e) == int(fp.ConsolidationStep11e.ACTIVE):
+		return int(fp.consolidating_player_11e)
+	if fp and fp.has_method("get_end_fight_status"):
+		var status = fp.get_end_fight_status()
+		if not status.step_over and int(status.selecting_player) > 0:
+			return int(status.selecting_player)
+	return active
 
 func _auto_deploy_remaining_units_on_timeout() -> void:
 	"""P2-42: Auto-place remaining undeployed units into Strategic Reserves on deployment timeout.
