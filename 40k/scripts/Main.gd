@@ -6571,7 +6571,7 @@ func _phase_end_hint_text() -> String:
 		GameStateData.Phase.COMMAND:
 			return "You won't be able to spend Command points on this phase's abilities again. Next: the Movement phase."
 		GameStateData.Phase.MOVEMENT:
-			return "Any unit you haven't moved stays where it is for this turn. Next: the Shooting phase."
+			return "Any unit you haven't selected remains stationary (09.02). Next: the Shooting phase."
 		GameStateData.Phase.SHOOTING:
 			return "Any unit you haven't shot with won't get to shoot this turn. Next: the Charge phase."
 		GameStateData.Phase.CHARGE:
@@ -6582,7 +6582,7 @@ func _phase_end_hint_text() -> String:
 			var fp = PhaseManager.get_current_phase_instance()
 			if fp and fp.has_method("get_fight_step_11e") and fp.get_fight_step_11e() != "FIGHT":
 				return ""
-			return "Any unit you haven't fought with won't get to fight this turn. Next: scoring your objectives."
+			return "Every eligible unit must fight before the Fight step can end (12.04). Next: scoring your objectives."
 		GameStateData.Phase.SCORING:
 			return "This ends your whole turn and hands over to your opponent."
 		GameStateData.Phase.DEPLOYMENT:
@@ -6629,10 +6629,13 @@ func _phase_action_needs_confirm() -> bool:
 			var fp = PhaseManager.get_current_phase_instance()
 			if fp and fp.has_method("get_fight_step_11e") and fp.get_fight_step_11e() != "FIGHT":
 				return false
-			# In the Fight step proper, the "units haven't fought" warning is
-			# the confirmation whenever it fires.
-			if fp and fp.has_method("get_unfought_eligible_units"):
-				return fp.get_unfought_eligible_units(GameState.get_active_player()).is_empty()
+			# In the Fight step proper, ending is only possible once nobody is
+			# left to select (12.04); the p.74 pass has its own dialog. A
+			# multiplayer client defers to the host (plain confirm, host judges).
+			if NetworkManager.is_networked() and not NetworkManager.is_host():
+				return true
+			if fp and fp.has_method("get_end_fight_status"):
+				return fp.get_end_fight_status().step_over
 			return true
 		GameStateData.Phase.SCORING:
 			if GameState.is_game_complete():
@@ -12364,6 +12367,17 @@ func _get_fight_phase_action_label() -> String:
 		match fp.get_fight_step_11e():
 			"PILE_IN": return "Finish Pile Ins"
 			"CONSOLIDATE": return "Finish Consolidations"
+	# p.74: while units are still owed a fight the button can only PASS (and
+	# only when every eligible unit is >5" from all enemies) — and only the
+	# selecting player's own button says so. A multiplayer client's local
+	# sequencer is not authoritative, so it keeps the plain label (its Pass
+	# button in the fighter-selection panel is driven by the host's data).
+	var label_client := NetworkManager.is_networked() and not NetworkManager.is_host()
+	if fp and fp.has_method("get_end_fight_status") and not label_client:
+		var status = fp.get_end_fight_status()
+		var mine := not NetworkManager.is_networked() or int(status.selecting_player) == NetworkManager.get_local_player()
+		if not status.step_over and status.can_pass and mine:
+			return "Pass (Unable to Fight)"
 	return "End Fight Phase"
 
 func _get_phase_button_tooltip(phase: GameStateData.Phase) -> String:
@@ -12560,16 +12574,49 @@ func _on_phase_action_pressed() -> void:
 			var fight_step := "FIGHT"
 			if fight_phase_instance and fight_phase_instance.has_method("get_fight_step_11e"):
 				fight_step = fight_phase_instance.get_fight_step_11e()
-			if fight_step == "FIGHT" and fight_phase_instance and fight_phase_instance.has_method("get_unfought_eligible_units"):
-				# Only warn about the active player's OWN unfought units — ending
-				# your fights no longer forfeits the opponent's (12.04), so the
-				# opponent's units must not be listed as "won't fight".
-				var unfought = fight_phase_instance.get_unfought_eligible_units(active_player)
-				if unfought.size() > 0:
-					print("Main: T5-UX7: %d unfought units remain, showing confirmation dialog" % unfought.size())
-					_show_end_fight_confirmation_dialog(unfought, active_player)
+			# Multiplayer client: the host's FightPhase is the rules authority —
+			# this peer's FightSequencer is not synced (passes, picker), so
+			# don't pre-judge from it. Send END_FIGHT for the local player and
+			# let the host accept or refuse it (a refusal comes back as a toast).
+			var fight_client_defers := NetworkManager.is_networked() and not NetworkManager.is_host()
+			# 12.02 / 12.07: online, this button only ends YOUR half of the
+			# Pile In / Consolidate step (the host refuses anything else).
+			if NetworkManager.is_networked() and fight_phase_instance and (fight_step == "PILE_IN" or fight_step == "CONSOLIDATE"):
+				var half_owner: int = int(fight_phase_instance.piling_in_player_11e) if fight_step == "PILE_IN" else int(fight_phase_instance.consolidating_player_11e)
+				if half_owner > 0 and half_owner != NetworkManager.get_local_player():
+					ToastManager.show_info("Waiting for Player %d to finish their %s (%s)" % [
+						half_owner, "pile-ins" if fight_step == "PILE_IN" else "consolidations", "12.02" if fight_step == "PILE_IN" else "12.07"])
 					return
-			action = {"type": "END_FIGHT", "player": active_player}
+			if fight_step == "FIGHT" and not fight_client_defers and fight_phase_instance and fight_phase_instance.has_method("get_end_fight_status"):
+				# 12.04: fighting is mandatory — the Fight step only ends once
+				# every eligible unit has been selected to fight. The one
+				# exception is the p.74 pass ("Eligible to fight, but unable to
+				# fight"): the SELECTING player may pass when all of their
+				# eligible units are more than 5" from every enemy unit.
+				var status = fight_phase_instance.get_end_fight_status()
+				if status.get("pre_pile_in", false):
+					ToastManager.show_info("Resolve the start-of-phase choices (e.g. Moment Shackle) before the Pile In step")
+					return
+				if not status.step_over and NetworkManager.is_networked() \
+						and int(status.selecting_player) != NetworkManager.get_local_player():
+					# Never offer (or send) the OPPONENT's pass / owed fights.
+					ToastManager.show_info("Waiting for Player %d to select a unit to fight (12.04)" % int(status.selecting_player))
+					return
+				if not status.step_over:
+					if status.can_pass:
+						print("Main: p.74: Player %d may pass (%d unit(s) unable to fight), showing confirmation dialog" % [status.selecting_player, status.owed_units.size()])
+						_show_end_fight_confirmation_dialog(status.owed_units, int(status.selecting_player))
+						return
+					var owed_names: Array = []
+					for entry in status.owed_units:
+						owed_names.append(entry.unit_name)
+					print("Main: 12.04: END_FIGHT blocked — Player %d still owes fights: %s" % [status.selecting_player, str(owed_names)])
+					ToastManager.show_error("Every eligible unit must fight (12.04). Player %d still to fight: %s" % [status.selecting_player, ", ".join(owed_names)])
+					return
+			# Networked: the action is this peer's (authority check is
+			# claimed player == sender), even when it is not the active turn.
+			var end_fight_player: int = NetworkManager.get_local_player() if NetworkManager.is_networked() else active_player
+			action = {"type": "END_FIGHT", "player": end_fight_player}
 		GameStateData.Phase.SCORING:
 			if GameState.is_game_complete():
 				print("Main: Game is complete, cannot advance phase")
@@ -12616,6 +12663,14 @@ func _on_phase_action_pressed() -> void:
 			var scout_errors = result.get("errors", [result.get("error", "Cannot end scout phase")])
 			if has_node("/root/ToastManager") and not scout_errors.is_empty():
 				get_node("/root/ToastManager").show_toast(str(scout_errors[0]), "error")
+			return
+		# A RULES refusal must not be overridden by a forced advance: END_FIGHT
+		# is refused while a unit is still mid-fight, a 12.08 forced fight is
+		# pending or units are owed a fight (12.04); any END_* is refused while
+		# a stratagem window / follow-up holds the phase. Advancing anyway
+		# skipped the remaining fights, the Consolidate step and the
+		# fight_phase_end window (merge review AIUI-1) — say why instead.
+		if _end_phase_refusal_stands(action, result):
 			return
 		# If network routing fails, try local advance as fallback for single player
 		if not NetworkManager.is_networked():
@@ -13174,7 +13229,11 @@ func _on_fight_action_requested(action: Dictionary) -> void:
 		print("Main: Unexpected result from fight action")
 
 func _show_end_fight_confirmation_dialog(unfought_units: Array, active_player: int) -> void:
-	"""T5-UX7: Show confirmation dialog before ending fight phase with unfought units"""
+	"""p.74: confirm the selecting player's PASS ("Eligible to fight, but unable
+	to fight") — every listed unit is more than 5" from all enemy units. The
+	units are not forfeited: the sequence returns to the opponent and the
+	passing player selects again once the opponent has selected a unit.
+	`active_player` is the PASSING (selecting) player."""
 	# Skip dialog for AI players — AI always confirms ending fight
 	var ai_player_node = get_node_or_null("/root/AIPlayer")
 	if ai_player_node and ai_player_node.is_ai_player(active_player):
@@ -13202,6 +13261,25 @@ func _show_end_fight_confirmation_dialog(unfought_units: Array, active_player: i
 	DialogUtils.popup_phase_end_prompt(dialog)
 	print("Main: T5-UX7: End fight confirmation dialog shown")
 
+## True when a refused END_* action is a rules refusal the phase-advance
+## fallback must not override: every END_FIGHT refusal (12.04 owed fights /
+## p.74, 12.08 forced fights, a unit still fighting), and any END_* refused
+## while the phase is held by a stratagem window or follow-up. Shows the
+## reason as a toast.
+func _end_phase_refusal_stands(action: Dictionary, result: Dictionary) -> bool:
+	if result.get("pending", false):
+		return false
+	var phase = PhaseManager.get_current_phase_instance()
+	var held: bool = phase != null and phase.has_method("get_pending_stratagem_window_decider") \
+		and int(phase.get_pending_stratagem_window_decider()) > 0
+	if str(action.get("type", "")) != "END_FIGHT" and not held:
+		return false
+	var errs = result.get("errors", [])
+	var reason := str(errs[0]) if errs is Array and not errs.is_empty() else str(result.get("error", "the phase cannot end yet"))
+	print("Main: %s refused (%s) — not advancing the phase" % [str(action.get("type", "")), reason])
+	ToastManager.show_error(reason)
+	return true
+
 func _on_end_fight_confirmed(active_player: int) -> void:
 	"""T5-UX7: Player confirmed ending fight phase despite unfought units"""
 	print("Main: T5-UX7: Player confirmed end fight phase")
@@ -13209,6 +13287,8 @@ func _on_end_fight_confirmed(active_player: int) -> void:
 	var result = NetworkIntegration.route_action(action)
 	if not result.get("success", false):
 		print("Main: T5-UX7: Failed to end fight phase: ", result.get("error", "Unknown error"))
+		if _end_phase_refusal_stands(action, result):
+			return
 		if not NetworkManager.is_networked():
 			print("Main: T5-UX7: Falling back to local phase advance")
 			PhaseManager.advance_to_next_phase()
@@ -13603,7 +13683,13 @@ func update_after_fight_action() -> void:
 	_recreate_unit_visuals()  # This should handle dead model removal
 	refresh_unit_list()
 	update_ui()
-	
+	# The Fight-phase button label depends on live state — the p.74 pass
+	# becoming legal / no longer legal, the Consolidate step ending — not only
+	# on subphase transitions; re-derive it after every fight action.
+	if phase_action_button and is_instance_valid(phase_action_button) and current_phase == GameStateData.Phase.FIGHT:
+		phase_action_button.text = _get_phase_button_text(current_phase)
+		phase_action_button.tooltip_text = _get_phase_button_tooltip(current_phase)
+
 	# Update fight controller state (_refresh_fight_sequence was removed from
 	# FightController — guard so every fight action doesn't SCRIPT ERROR)
 	if fight_controller and fight_controller.has_method("_refresh_fight_sequence"):

@@ -665,12 +665,42 @@ func process_set_advance_bonus(action: Dictionary) -> Dictionary:
 
 func process_end_movement(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_MOVEMENT action")
+	# RV-2: the host runs MovementPhase._process_end_movement, which applies
+	# the 09.02 Remain Stationary diffs and broadcasts them before the phase
+	# change (see there). The block below is the legacy path only.
 	var via_phase := _end_phase_via_phase(action, GameStateData.Phase.MOVEMENT)
 	if not via_phase.is_empty():
 		return via_phase
+	var stale := _stale_end_phase_result(action, GameStateData.Phase.MOVEMENT)
+	if not stale.is_empty():
+		return stale
 	var next_phase = _get_next_phase(GameStateData.Phase.MOVEMENT)
+	# 09.02: every unit must have been selected to move before the step ends —
+	# the ones the player left unselected remain stationary (09.04). Same
+	# diffs MovementPhase._process_end_movement applies in single-player, so
+	# both peers record the move (and its [HEAVY] eligibility) identically.
+	var diffs: Array = []
+	var phase_mgr = _get_phase_manager()
+	var movement_phase = phase_mgr.get_current_phase_instance() if phase_mgr else null
+	if movement_phase and movement_phase.has_method("get_end_movement_remain_stationary_changes"):
+		var player := int(action.get("player", GameState.get_active_player()))
+		diffs.append_array(movement_phase.get_end_movement_remain_stationary_changes(player))
+		if not diffs.is_empty() and phase_mgr.has_method("apply_state_changes"):
+			phase_mgr.apply_state_changes(diffs)
+			# Multiplayer: ship the Remain Stationary diffs to the client BEFORE
+			# the phase change broadcast — otherwise the client enters Shooting
+			# without them and its post-transition state hash reports a false
+			# desync (same pattern as PhaseManager's Superior Creation revivals).
+			var nm = get_node_or_null("/root/NetworkManager")
+			if nm and nm.is_networked() and nm.is_host():
+				nm._broadcast_result_from_phase_manager({
+					"success": true,
+					"diffs": diffs.duplicate(true),
+					"action_type": "END_MOVEMENT_REMAIN_STATIONARY"
+				})
 	_trigger_phase_completion()
-	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
+	diffs.append({"op": "set", "path": "meta.phase", "value": next_phase})
+	return {"success": true, "diffs": diffs}
 
 func process_disembark(action: Dictionary) -> Dictionary:
 	return _delegate_to_current_phase(action)
@@ -732,6 +762,23 @@ func process_end_fight(action: Dictionary) -> Dictionary:
 	var via_phase := _end_phase_via_phase(action, GameStateData.Phase.FIGHT)
 	if not via_phase.is_empty():
 		return via_phase
+	var stale := _stale_end_phase_result(action, GameStateData.Phase.FIGHT)
+	if not stale.is_empty():
+		return stale
+	# The 11e Fight phase has three steps — global Pile In (12.02), the Fight
+	# step (12.04, where END_FIGHT can only be a p.74 PASS while units are owed
+	# a fight) and global Consolidate (12.07) — followed by the 12.09 triggers.
+	# FightPhase._process_end_fight walks all of them and emits phase_completed
+	# itself, exactly as in single-player. Multiplayer used to short-circuit
+	# here (phase_completed + meta.phase), which skipped every fight on
+	# "Finish Pile Ins", the Consolidate step and Sweeping Advance / Acrobatic
+	# Escape. The host broadcasts the eventual phase change
+	# (PhaseManager.transition_to_phase).
+	var phase_mgr = _get_phase_manager()
+	var fight_phase = phase_mgr.get_current_phase_instance() if phase_mgr else null
+	if fight_phase and fight_phase.has_method("get_end_fight_status"):
+		print("GameManager: END_FIGHT delegated to FightPhase (step: %s)" % (fight_phase.get_fight_step_11e() if fight_phase.has_method("get_fight_step_11e") else "?"))
+		return _delegate_to_current_phase(action)
 	var next_phase = _get_next_phase(GameStateData.Phase.FIGHT)
 	_trigger_phase_completion()
 	return {"success": true, "diffs": [{"op": "set", "path": "meta.phase", "value": next_phase}]}
@@ -750,6 +797,9 @@ func process_end_command(action: Dictionary) -> Dictionary:
 	var via_phase := _end_phase_via_phase(action, GameStateData.Phase.COMMAND)
 	if not via_phase.is_empty():
 		return via_phase
+	var stale := _stale_end_phase_result(action, GameStateData.Phase.COMMAND)
+	if not stale.is_empty():
+		return stale
 
 	# Calculate next phase
 	var next_phase = _get_next_phase(GameStateData.Phase.COMMAND)
@@ -930,6 +980,21 @@ func _delegate_to_current_phase(action: Dictionary) -> Dictionary:
 	# Execute the action on the phase
 	return current_phase.execute_action(action)
 
+## A stale END_MOVEMENT / END_FIGHT / END_COMMAND (a guest's double-click or
+## a press racing the host's own phase end / AFK auto-end) that arrives once
+## that phase is over must not complete WHATEVER phase is current now — the
+## legacy tail would e.g. end Scoring without END_SCORING (no turn switch).
+## Returns {} when the action's phase is current (or no phase instance exists:
+## legacy callers), otherwise a no-op success.
+func _stale_end_phase_result(action: Dictionary, phase_enum: int) -> Dictionary:
+	var pm = _get_phase_manager()
+	var inst = pm.get_current_phase_instance() if pm else null
+	if inst == null or not "phase_type" in inst or int(inst.phase_type) == phase_enum:
+		return {}
+	print("GameManager: stale %s ignored — the current phase is %s, not %s" % [
+		str(action.get("type", "")), str(int(inst.phase_type)), str(phase_enum)])
+	return {"success": true, "diffs": []}
+
 ## RV-2: END_MOVEMENT / END_FIGHT / END_COMMAND on the HOST (and offline
 ## callers of apply_action) go through the phase's own end handling, so the
 ## phase-end stratagem windows open (movement_phase_end, fight_phase_end, the
@@ -945,7 +1010,9 @@ func _delegate_to_current_phase(action: Dictionary) -> Dictionary:
 ## and nothing holds it (an end-of-movement prompt the network path always
 ## skipped — Sawbonez, Mekaniak, Rapid Ingress ...) it is completed here as
 ## before. A phase that REJECTS the action without a pending window is also
-## completed as before (the old path never validated).
+## completed as before (the old path never validated) — except END_FIGHT,
+## whose 12.04 rejection (units still owed a fight, no legal p.74 pass)
+## stands, exactly as in single-player.
 ## Returns {} when the caller should use the legacy path (a CLIENT's
 ## optimistic run — clients never open windows, F4 — or no matching phase).
 func _end_phase_via_phase(action: Dictionary, phase_enum: int) -> Dictionary:
@@ -963,6 +1030,12 @@ func _end_phase_via_phase(action: Dictionary, phase_enum: int) -> Dictionary:
 		if holds_phase.call():
 			# e.g. END_MOVEMENT while a WHILE THEIR BACKS ARE TURNED move is in
 			# progress — the window/follow-up must finish first (F1).
+			return res
+		if phase_enum == GameStateData.Phase.FIGHT and inst.has_method("get_end_fight_status"):
+			# 12.04: END_FIGHT is rejected while units are still owed a fight
+			# (only the selecting player's p.74 pass is legal) — the rejection
+			# stands; completing the phase here would forfeit those fights.
+			print("GameManager: END_FIGHT rejected by the Fight phase (%s) — the phase continues" % str(res.get("error", res.get("errors", ""))))
 			return res
 		print("GameManager: %s rejected by the phase (%s) — completing the phase as before" % [str(action.get("type", "")), str(res.get("error", ""))])
 		return {}

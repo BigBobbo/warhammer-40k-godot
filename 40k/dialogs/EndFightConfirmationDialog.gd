@@ -1,10 +1,13 @@
 extends AcceptDialog
 
-# EndFightConfirmationDialog - T5-UX7: Confirmation before ending the Fight phase
+# EndFightConfirmationDialog - confirmation for the p.74 PASS ("Eligible to
+# fight, but unable to fight").
 #
-# Shows a warning when the player attempts to end the Fight phase while there
-# are eligible units that haven't fought yet. Lists the unfought units and
-# asks for confirmation.
+# Fighting is mandatory (12.04): the Fight step cannot be ended while units are
+# still eligible. The one exception is a pass — when ALL of the selecting
+# player's eligible units are more than 5" from every enemy unit they may pass
+# the selection back to their opponent. This dialog lists those units and asks
+# the player to confirm the pass. (Node/button names kept for scenarios.)
 
 signal end_fight_confirmed()
 signal end_fight_cancelled()
@@ -15,7 +18,7 @@ func setup(p_unfought_units: Array) -> void:
 	WhiteDwarfTheme.apply_to_dialog(self)
 	unfought_units = p_unfought_units
 
-	title = "End Fight Phase?"
+	title = "Pass?"
 	min_size = DialogConstants.SMALL
 
 	# Disable default OK button - we use custom buttons
@@ -30,7 +33,7 @@ func _build_ui() -> void:
 
 	# Warning header
 	var header = Label.new()
-	header.text = "WARNING"
+	header.text = "UNABLE TO FIGHT"
 	header.add_theme_font_size_override("font_size", 23)
 	header.add_theme_color_override("font_color", Color.ORANGE)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -40,7 +43,7 @@ func _build_ui() -> void:
 
 	# Warning message
 	var warning_label = Label.new()
-	warning_label.text = "%d unit(s) have not yet fought. Are you sure you want to end the Fight Phase?" % unfought_units.size()
+	warning_label.text = "%d unit(s) are eligible to fight but more than 5\" from every enemy unit. Pass the selection to your opponent? If both players pass, or your opponent has no units left to fight, the Fight step ends and these units do not fight." % unfought_units.size()
 	warning_label.add_theme_font_size_override("font_size", 18)
 	warning_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	warning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -50,7 +53,7 @@ func _build_ui() -> void:
 
 	# Unfought units list (scrollable)
 	var units_header = Label.new()
-	units_header.text = "Units that haven't fought:"
+	units_header.text = "Units unable to fight:"
 	units_header.add_theme_font_size_override("font_size", 17)
 	units_header.add_theme_color_override("font_color", Color.YELLOW)
 	main_container.add_child(units_header)
@@ -90,7 +93,7 @@ func _build_ui() -> void:
 
 	var confirm_button = Button.new()
 	confirm_button.name = "ConfirmEndFight"
-	confirm_button.text = "End Fight Phase"
+	confirm_button.text = "Pass"
 	confirm_button.custom_minimum_size = Vector2(150, 40)
 	confirm_button.add_theme_color_override("font_color", Color.ORANGE)
 	confirm_button.pressed.connect(_on_confirm_pressed)

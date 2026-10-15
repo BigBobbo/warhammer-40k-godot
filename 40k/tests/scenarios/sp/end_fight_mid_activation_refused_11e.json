@@ -1,0 +1,46 @@
+{
+  "id": "end_fight_mid_activation_refused_11e",
+  "covers": [
+    "scripts.Main._on_phase_action_pressed",
+    "scripts.Main._end_phase_refusal_stands",
+    "phases.FightPhase._validate_end_fight"
+  ],
+  "fixture": "co_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Merge review AIUI-1 (12.04). The Warboss is the LAST unit owed a fight; the player selects it through the fighter-selection panel, so the sequencer already reports the Fight step as over, and then clicks 'End Fight Phase' while the Warboss is still mid-activation. The phase refuses END_FIGHT ('still fighting'); before the fix single-player Main fell back to PhaseManager.advance_to_next_phase() on that refusal, so one click skipped the Warboss's attacks, the Consolidate step and the end-of-Fight triggers and jumped to Scoring. Now the refusal stands: the phase stays in the Fight step, the Warboss is still the active fighter and an error toast says why. Setup-only privileges: CP zeroed (no stratagem prompts), model wounds raised, and every OTHER owed fight marked resolved so the Warboss is the last one.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 10 },
+    { "act": "execute_script", "script": "GameState.state.players[\"1\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.players[\"2\"].merge({\"cp\": 0}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_WARBOSS_B\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].models[0].merge({\"wounds\": 99, \"current_wounds\": 99}, true)" },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel", "timeout_s": 5.0 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_phase_property", "property": "pile_in_step_11e", "equals": 2 },
+    { "act": "expect_node_visible", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_B", "timeout_s": 5.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().current_selecting_player", "equals": 2 },
+    { "act": "execute_script", "multiline": true, "script": "var fp = PhaseManager.get_current_phase_instance()\nfor uid in GameState.state.units:\n\tif uid != \"U_WARBOSS_B\" and fp.sequencer_11e.eligible_to_fight(uid, GameState.state):\n\t\tfp.sequencer_11e.mark_fought(uid, GameState.state)\nreturn fp.sequencer_11e.eligible_to_fight(\"U_WARBOSS_B\", GameState.state)", "equals": true, "comment": "setup privilege: every OTHER owed fight is marked resolved — the Warboss is the last unit owed a fight" },
+
+    { "act": "click_node", "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_B", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_fighter_id", "equals": "U_WARBOSS_B", "comment": "the Warboss is mid-activation" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_end_fight_status().step_over", "equals": true, "comment": "the trap: nobody is left to SELECT, so Main's 12.04 pre-check lets the click through" },
+    { "act": "execute_script", "multiline": true, "script": "for t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tt.queue_free()\nToastManager.active_toasts.clear()\nreturn true", "equals": true },
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "execute_script", "multiline": true, "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true", "equals": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 10, "comment": "still the Fight phase — before the fix the refusal fell back to advance_to_next_phase (Scoring)" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_fighter_id", "equals": "U_WARBOSS_B", "comment": "the Warboss's fight is not thrown away" },
+    { "act": "expect_phase_property", "property": "consolidation_step_11e", "equals": 0 },
+    { "act": "execute_script", "multiline": true, "script": "for toast in ToastManager.active_toasts:\n\tif not is_instance_valid(toast):\n\t\tcontinue\n\tfor c in toast.find_children(\"*\", \"Label\", true, false):\n\t\tif \"still fighting\" in c.text:\n\t\t\treturn true\nreturn false", "equals": true, "comment": "an error toast says why" },
+    { "act": "screenshot", "label": "01_end_fight_refused_warboss_still_fighting" }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "id": "end_movement_unselected_remain_stationary_11e",
+  "covers": [
+    "phases.MovementPhase.get_units_requiring_selection",
+    "phases.MovementPhase.get_end_movement_remain_stationary_changes",
+    "phases.MovementPhase._process_end_movement",
+    "scripts.Main._phase_end_hint_text"
+  ],
+  "fixture": "audit_baseline_postdeploy",
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "rng_seed": 42,
+  "description": "Core-rules audit e28e4f7 P1-5 (09.02: 'When the Move Units step ends, the active player must have selected all of their units to make a move with ... even if it is to remain stationary'). The Custodes player moves nothing and ends the Movement phase with the real phase button. Before the fix the Move Units step ended with every unit still unselected: no unit was recorded as having remained stationary, so e.g. [HEAVY] (24.16) and the indirect-fire stationary band were lost. Now the END_MOVEMENT confirm says unselected units remain stationary (09.02), and after confirming, every deployed Custodes unit (attached characters via their bodyguard) has been selected and made a Remain Stationary move (09.04): flags.moved, flags.remained_stationary, moved_max_inches 0 — and [HEAVY] qualifies. The Ork (inactive) units are untouched.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "multiline": true,
+      "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nreturn InputDeviceManager.is_pad_active()", "equals": false },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_units_requiring_selection(1).size() > 0", "equals": true },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].get(\"flags\", {}).get(\"remained_stationary\", false)", "equals": false },
+
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "main._phase_end_confirm != null and main._phase_end_confirm.visible", "equals": true },
+    { "act": "execute_script", "script": "main._phase_end_confirm.get_node(\"Content/Hint\").text.contains(\"remains stationary (09.02)\")", "equals": true },
+    { "act": "screenshot", "label": "01_end_movement_confirm_unselected_remain_stationary" },
+
+    { "act": "execute_script", "script": "main._phase_end_confirm.get_ok_button().pressed.emit()" },
+    { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+
+    { "act": "execute_script", "multiline": true,
+      "script": "var bad = []\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) != 1 or int(u.get(\"status\", 0)) != GameStateData.UnitStatus.DEPLOYED:\n\t\tcontinue\n\tvar f = u.get(\"flags\", {})\n\tif not (f.get(\"moved\", false) and f.get(\"remained_stationary\", false)):\n\t\tbad.append(uid)\nreturn bad.size()", "equals": 0 },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_TELEMON_HEAVY_DREADNOUGHT_I\"].flags.get(\"moved_max_inches\", -1.0)", "equals": 0.0 },
+    { "act": "execute_script", "multiline": true, "script": "var ms = load(\"res://scripts/rules/ModifierStack.gd\")\nreturn ms.heavy_applies_11e(GameState.state.units[\"U_CUSTODIAN_GUARD_B\"], GameState.state)", "equals": true },
+    { "act": "execute_script", "multiline": true,
+      "script": "var touched = 0\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) == 2 and u.get(\"flags\", {}).get(\"remained_stationary\", false):\n\t\ttouched += 1\nreturn touched", "equals": 0 },
+    { "act": "screenshot", "label": "02_shooting_phase_all_units_remained_stationary" }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "id": "emergency_disembark_legal_placement_11e",
+  "covers": [
+    "rules.RulesEngine.resolve_transport_destruction",
+    "rules.RulesEngine._emergency_disembark_placements",
+    "phases.ShootingPhase._resolve_transport_destruction_if_applicable"
+  ],
+  "fixture": "audit_370_bgnt_shoot",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Core-rules audit e28e4f7 P1-4 (18.05 EMERGENCY DISEMBARK: 'Set up each model in your unit wholly within the set-up distance [6\"] of that TRANSPORT, and as close as possible to that TRANSPORT. Each model that cannot be set up in this way is destroyed.' + 03.02 Set Up: in coherency, unengaged, all other restrictions met). The Ork Battlewagon (embarking 10 Kommandos) sits ~6\" from the bottom board edge; a Custodes unit is moved to 3\" from its left side as an enemy screen. The Battlewagon is destroyed and the LIVE ShootingPhase transport-destruction hook resolves the emergency disembark. Before the fix the Kommandos were dropped in a fixed ring around the hull centre \u2014 on top of the 180x110mm hull, each other and the enemy. Now every surviving Kommando is on the board, off the wreck and other bases, wholly within 6\" of the hull, outside engagement range of the Custodes, in coherency, with the nearest one touching distance of the hull. Setup-only privileges: all 10 Kommandos revived to full strength so the whole squad has to fit; the screen is teleported and the Battlewagon's model is marked destroyed via execute_script (the shot itself is not the subject).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_BATTLEWAGON_G\"].transport_data.embarked_units.has(\"U_KOMMANDOS_H\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for m in GameState.state.units[\"U_KOMMANDOS_H\"].models:\n\tm[\"alive\"] = true\n\tm[\"current_wounds\"] = 1\nreturn GameState.state.units[\"U_KOMMANDOS_H\"].models.size()",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var w = GameState.state.units[\"U_WITCHSEEKERS_C\"]\nfor i in range(w.models.size()):\n\tw.models[i].position = {\"x\": 760.0, \"y\": 2050.0 + i * 45.0}\ntree.current_scene._sync_all_token_positions()\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.current_scene\nm.focus_on_world_point(Vector2(900, 2150), false)\nvar c = m.get_viewport().get_visible_rect().size / 2\nfor i in range(2):\n\tm.zoom_camera_notch(true, c)\nreturn true",
+      "equals": true,
+      "multiline": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "01_battlewagon_with_kommandos_embarked_custodes_screen"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var bw = GameState.state.units[\"U_BATTLEWAGON_G\"]\nbw.models[0].alive = false\nbw.models[0].current_wounds = 0\nPhaseManager.get_current_phase_instance()._resolve_transport_destruction_if_applicable(\"U_BATTLEWAGON_G\")\ntree.current_scene._recreate_unit_visuals()\nreturn GameState.state.units[\"U_KOMMANDOS_H\"].get(\"embarked_in\", null) == null",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var st = GameState.state\nvar bad = []\nvar t = st.units[\"U_BATTLEWAGON_G\"].models[0].duplicate()\nt[\"alive\"] = true\nvar placed = []\nfor m in st.units[\"U_KOMMANDOS_H\"].models:\n\tif not m.get(\"alive\", true):\n\t\tcontinue\n\tif m.get(\"position\", null) == null:\n\t\tbad.append(\"unplaced survivor\")\n\t\tcontinue\n\tvar mm = m.duplicate()\n\tmm[\"position\"] = Vector2(float(m.position.x), float(m.position.y))\n\tplaced.append(mm)\nvar enemies = []\nfor m in st.units[\"U_WITCHSEEKERS_C\"].models:\n\tvar e = m.duplicate()\n\te[\"position\"] = Vector2(float(m.position.x), float(m.position.y))\n\tenemies.append(e)\nfor i in range(placed.size()):\n\tvar m = placed[i]\n\tif Measurement.model_outside_board(m.position, m):\n\t\tbad.append(\"off board\")\n\tif Measurement.models_overlap(m, t):\n\t\tbad.append(\"on the wreck\")\n\tif Measurement.model_edge_to_point_distance_px(t, m.position) + Measurement.base_extent_px(m) > Measurement.inches_to_px(6.0) + 0.5:\n\t\tbad.append(\"not wholly within 6\")\n\tfor j in range(i + 1, placed.size()):\n\t\tif Measurement.models_overlap(m, placed[j]):\n\t\t\tbad.append(\"overlap\")\n\tfor e in enemies:\n\t\tif Measurement.is_in_engagement_range_shape_aware(m, e):\n\t\t\tbad.append(\"engaged\")\n\tvar linked = placed.size() == 1\n\tfor j in range(placed.size()):\n\t\tif j != i and Measurement.model_to_model_distance_inches(m, placed[j]) <= 2.01:\n\t\t\tlinked = true\n\tif not linked:\n\t\tbad.append(\"coherency\")\nprint(\"[P1-4] \" + str(placed.size()) + \" Kommandos set up; violations=\" + str(bad))\nreturn bad.size()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var t = GameState.state.units[\"U_BATTLEWAGON_G\"].models[0].duplicate()\nt[\"alive\"] = true\nvar best = 999.0\nfor m in GameState.state.units[\"U_KOMMANDOS_H\"].models:\n\tif m.get(\"alive\", true) and m.get(\"position\", null) != null:\n\t\tvar mm = m.duplicate()\n\t\tmm[\"position\"] = Vector2(float(m.position.x), float(m.position.y))\n\t\tbest = min(best, Measurement.model_to_model_distance_inches(mm, t))\nreturn best",
+      "expect_max": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.units[\"U_KOMMANDOS_H\"].flags.get(\"battle_shocked\", false)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = tree.current_scene\nm.focus_on_world_point(Vector2(900, 2150), false)\nvar c = m.get_viewport().get_visible_rect().size / 2\nfor i in range(2):\n\tm.zoom_camera_notch(true, c)\nreturn true",
+      "equals": true,
+      "multiline": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "screenshot",
+      "label": "02_kommandos_set_up_legally_around_wreck"
+    }
+  ]
+}

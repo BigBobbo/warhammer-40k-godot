@@ -56,11 +56,10 @@
     { "act": "execute_script", "script": "main.phase_action_button.text.begins_with(\"[\")", "equals": true, "comment": "the top-right button re-claims its '[☰] ' prefix" },
     { "act": "screenshot", "label": "03_fight_step_start_is_end_phase_again" },
 
+    { "act": "execute_script", "multiline": true, "script": "var fp = PhaseManager.get_current_phase_instance()\nfor uid in GameState.state.units:\n\tif fp.sequencer_11e.eligible_to_fight(uid, GameState.state):\n\t\tfp.sequencer_11e.mark_fought(uid, GameState.state)\nreturn fp.get_end_fight_status().step_over", "equals": true, "comment": "setup privilege: the owed fights are marked resolved — END_FIGHT can no longer skip mandatory fights (12.04); this scenario is about the pad Start mapping, not the fights" },
     { "act": "dispatch_action", "action": { "type": "END_FIGHT", "player": 2 } },
-    { "act": "wait_seconds", "seconds": 1.0 },
-    { "act": "dispatch_action", "action": { "type": "END_FIGHT", "player": 1 } },
     { "act": "wait_seconds", "seconds": 1.5 },
-    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_fight_step_11e()", "equals": "CONSOLIDATE", "comment": "both players stopped fighting -> the global Consolidate step (12.07) opens" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_fight_step_11e()", "equals": "CONSOLIDATE", "comment": "every fight resolved -> END_FIGHT opens the global Consolidate step (12.07)" },
     { "act": "execute_script", "script": "main.fight_controller.consolidation_step_panel.visible", "equals": true },
 
     { "act": "execute_script", "multiline": true, "script": "var f = tree.root.gui_get_focus_owner()\nif f != null:\n\tf.release_focus()\nPadRouter.refresh_hints()\nreturn \"released\"", "equals": "released" },

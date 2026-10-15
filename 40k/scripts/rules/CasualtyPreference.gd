@@ -129,6 +129,40 @@ static func compute_preferred_targets(unit: Dictionary, state: Dictionary, opts:
 	return order
 
 
+## The 05.03 allocation ORDER that realises a die-first `preferred` order:
+## groups ranked by the earliest position any of their models takes in
+## `preferred`, then kept within the 05.03 constraints exactly as
+## Allocation.default_order builds them (a wounded non-CHARACTER group first,
+## CHARACTER groups last, wounded before unwounded). Without it the engine's
+## default order (model-index order) can allocate to a group the preference
+## protects — e.g. a W2 Nob's group before the W1 Boyz — so the Nob dies
+## first and the coherency-aware picks made assuming he survives strand the
+## remaining Boyz (merge review SHOOT-2).
+static func group_order_for(groups: Array, preferred: Array) -> Array:
+	var rank: Dictionary = {}
+	for g in groups:
+		var best: int = preferred.size()
+		for idx in g.get("model_indices", []):
+			var pos: int = preferred.find(int(idx))
+			if pos >= 0 and pos < best:
+				best = pos
+		rank[g.id] = best
+	var by_rank := func(a, b) -> bool:
+		return int(rank[a]) < int(rank[b])
+	var wounded_nc: Array = []
+	var nc: Array = []
+	var wounded_c: Array = []
+	var c: Array = []
+	for g in groups:
+		if g.character:
+			(wounded_c if g.has_wounded else c).append(g.id)
+		else:
+			(wounded_nc if g.has_wounded else nc).append(g.id)
+	for bucket in [wounded_nc, nc, wounded_c, c]:
+		bucket.sort_custom(by_rank)
+	return wounded_nc + nc + wounded_c + c
+
+
 ## print() + mirror into the persistent debug log (stdout isn't always
 ## reachable — see CLAUDE.md).
 static func _log(line: String) -> void:

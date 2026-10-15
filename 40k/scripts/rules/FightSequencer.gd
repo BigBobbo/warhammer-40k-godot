@@ -33,10 +33,35 @@ var picker: int = 1
 var step: String = "fights_first"
 var fought: Dictionary = {}                 # unit_id -> true
 var engaged_at_step_start: Dictionary = {}  # unit_id -> bool
+# "Eligible to fight, but unable to fight" (core rules p.74): a player whose
+# eligible units are ALL more than 5" from every enemy unit may PASS instead
+# of selecting. player -> true while that pass stands — it is cleared when the
+# sequence returns to them (their opponent selects a unit). If both players
+# pass in succession, or one passes while the opponent has nothing eligible,
+# the Fight step ends (next_selection reports done).
+var passed: Dictionary = {}
+
+## The pass rule's distance: more than this many inches from ALL enemy units.
+const UNABLE_TO_FIGHT_DISTANCE_INCHES := 5.0
+
+## Unit flag holding the turn_key() of the turn in which the unit's fight
+## was resolved (fought, skipped, or ended by passes) — see eligible_to_fight.
+const FIGHT_DONE_FLAG := "fight_done_turn"
+
+## "<battle round>:<active player>" — identifies one player turn.
+static func turn_key(board: Dictionary) -> String:
+	var meta: Dictionary = board.get("meta", {})
+	return "%d:%d" % [int(meta.get("battle_round", 0)), int(meta.get("active_player", 0))]
 
 
 static func _rules() -> Node:
 	return Engine.get_main_loop().root.get_node("/root/RulesEngine")
+
+
+# Autoloads are looked up at call time (not referenced by name) so this
+# class_name script compiles even before the autoloads exist.
+static func _measurement() -> Node:
+	return Engine.get_main_loop().root.get_node("/root/Measurement")
 
 
 ## Snapshot engagement state at the start of the Fight step (12.04's
@@ -47,6 +72,7 @@ func begin(board: Dictionary, p_active_player: int) -> void:
 	step = "fights_first"
 	fought = {}
 	engaged_at_step_start = {}
+	passed = {}
 	var rules = _rules()
 	for unit_id in board.get("units", {}):
 		engaged_at_step_start[unit_id] = rules.is_unit_engaged(unit_id, board)
@@ -63,6 +89,15 @@ func eligible_to_fight(unit_id: String, board: Dictionary) -> bool:
 		return false
 	var unit = board.get("units", {}).get(unit_id, {})
 	if unit.is_empty() or not _any_alive(unit):
+		return false
+	# flags.fight_done_turn is the synced record that this unit's fight is
+	# over THIS turn (the host stamps it when an activation resolves or is
+	# skipped, and when the Fight step ends with passed units). A multiplayer
+	# client's sequencer never sees the host's mark_fought calls, so it reads
+	# the stamp instead. Turn-scoped on purpose: flags.has_fought is only
+	# cleared for the player whose turn starts, so it leaks into the
+	# opponent's Fight phase and cannot be used here.
+	if str(unit.get("flags", {}).get(FIGHT_DONE_FLAG, "")) == turn_key(board):
 		return false
 	if _rules().is_unit_engaged(unit_id, board):
 		return true
@@ -128,16 +163,76 @@ func eligible_units(board: Dictionary, player: int, only_fights_first: bool) -> 
 	return out
 
 
+## The units `player` may actually be asked to select from: their eligible
+## units, unless they have passed and the sequence has not come back to them.
+func selectable_units(board: Dictionary, player: int, only_fights_first: bool) -> Array:
+	if passed.get(player, false):
+		return []
+	return eligible_units(board, player, only_fights_first)
+
+
+## "Eligible to fight, but unable to fight" (core rules p.74): true when
+## `player` has at least one eligible unit and EVERY one of them is more than
+## 5" from all enemy units. Only then may the player pass instead of
+## selecting a unit — every other eligible unit MUST be selected (12.04).
+func can_pass(board: Dictionary, player: int) -> bool:
+	var mine = eligible_units(board, player, false)
+	if mine.is_empty():
+		return false
+	for unit_id in mine:
+		if within_distance_of_enemy(unit_id, board, UNABLE_TO_FIGHT_DISTANCE_INCHES):
+			return false
+	return true
+
+
+## True when any model of the Attached unit headed by unit_id is within
+## `inches` (edge to edge, shape aware) of any alive, on-table enemy model.
+func within_distance_of_enemy(unit_id: String, board: Dictionary, inches: float) -> bool:
+	var units: Dictionary = board.get("units", {})
+	var owner := int(units.get(unit_id, {}).get("owner", 0))
+	for member_id in group_ids(unit_id, board):
+		var member = units.get(member_id, {})
+		for model in member.get("models", []):
+			if not model.get("alive", true) or model.get("position", null) == null:
+				continue
+			for other_id in units:
+				var other = units[other_id]
+				if int(other.get("owner", 0)) == owner:
+					continue
+				for enemy_model in other.get("models", []):
+					if not enemy_model.get("alive", true) or enemy_model.get("position", null) == null:
+						continue
+					if _measurement().model_to_model_distance_inches(model, enemy_model) <= inches:
+						return true
+	return false
+
+
+## `player` passes their selection (see can_pass — the caller validates).
+## The sequence returns to their opponent; the pass stands until the
+## opponent selects a unit. Returns true when this pass ends the Fight step
+## (both players passed in succession, or the opponent has nothing eligible).
+func pass_selection(board: Dictionary, player: int) -> bool:
+	passed[player] = true
+	picker = _other(player)
+	return peek_selection(board).done
+
+
+## True once the Fight step is over: nobody is left to select (everyone has
+## fought, or the remaining units' owners have all passed — p.74).
+func step_over(board: Dictionary) -> bool:
+	return peek_selection(board).done
+
+
 ## Who selects next, and from which candidates. Returns
 ## {done: bool, player, step, candidates} — call select_to_fight with
 ## one of the candidates, resolve the fight, then call this again.
 func next_selection(board: Dictionary) -> Dictionary:
 	while true:
 		if step == "fights_first":
-			var mine = eligible_units(board, picker, true)
+			var mine = selectable_units(board, picker, true)
 			if not mine.is_empty():
 				return {"done": false, "player": picker, "step": step, "candidates": mine}
-			var theirs = eligible_units(board, _other(picker), true)
+			var theirs = selectable_units(board, _other(picker), true)
 			if not theirs.is_empty():
 				picker = _other(picker)
 				return {"done": false, "player": picker, "step": step, "candidates": theirs}
@@ -145,10 +240,10 @@ func next_selection(board: Dictionary) -> Dictionary:
 			# next in the remaining-combats step (12.04 step 1).
 			step = "remaining"
 		else:
-			var mine = eligible_units(board, picker, false)
+			var mine = selectable_units(board, picker, false)
 			if not mine.is_empty():
 				return {"done": false, "player": picker, "step": step, "candidates": mine}
-			var theirs = eligible_units(board, _other(picker), false)
+			var theirs = selectable_units(board, _other(picker), false)
 			if not theirs.is_empty():
 				picker = _other(picker)
 				return {"done": false, "player": picker, "step": step, "candidates": theirs}
@@ -166,18 +261,18 @@ func peek_selection(board: Dictionary) -> Dictionary:
 	var s := step
 	while true:
 		if s == "fights_first":
-			var mine = eligible_units(board, p, true)
+			var mine = selectable_units(board, p, true)
 			if not mine.is_empty():
 				return {"done": false, "player": p, "step": s, "candidates": mine}
-			var theirs = eligible_units(board, _other(p), true)
+			var theirs = selectable_units(board, _other(p), true)
 			if not theirs.is_empty():
 				return {"done": false, "player": _other(p), "step": s, "candidates": theirs}
 			s = "remaining"
 		else:
-			var mine = eligible_units(board, p, false)
+			var mine = selectable_units(board, p, false)
 			if not mine.is_empty():
 				return {"done": false, "player": p, "step": s, "candidates": mine}
-			var theirs = eligible_units(board, _other(p), false)
+			var theirs = selectable_units(board, _other(p), false)
 			if not theirs.is_empty():
 				return {"done": false, "player": _other(p), "step": s, "candidates": theirs}
 			return {"done": true, "player": 0, "step": s, "candidates": []}
@@ -195,6 +290,9 @@ func select_to_fight(unit_id: String, board: Dictionary) -> Dictionary:
 		fought[member_id] = true
 	var unit = board.get("units", {}).get(unit_id, {})
 	picker = _other(int(unit.get("owner", 0)))
+	# The sequence now returns to the other player — a pass they made earlier
+	# no longer stands (p.74: "when the sequence returns to a player").
+	passed.erase(picker)
 	var types: Array = []
 	# Engagement is the Attached unit's: the Leader's model counts as this
 	# unit's, so a bodyguard engaged only through him fights normally.
@@ -247,8 +345,8 @@ func has_eligible(board: Dictionary) -> bool:
 	return false
 
 
-## Mark a unit as fought without a real selection — used when a player
-## forfeits remaining fights (END_FIGHT escape hatch) or skips a unit, so
+## Mark a unit as fought without a real selection — used when the Fight
+## step ends with passed units still eligible (p.74) or a unit is skipped, so
 ## the sequencer's candidate list stays consistent (a skipped unit must
 ## not be offered forever).
 ## Pass `board` to spend the whole ATTACHED unit's fight (19.03) — without it
