@@ -1,0 +1,309 @@
+{
+  "id": "ork11e_drive_by_bustin",
+  "covers": [
+    "stratagem.window.unit_selected_to_shoot",
+    "stratagem.ork11e.drive_by_bustin",
+    "dialogs.StratagemDialog.window_mode",
+    "phases.ShootingPhase.select_shooter_window",
+    "rules.firing_deck.plus_one_hit"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) DRIVE-BY BUSTIN' (Wreckas) through the real unit_selected_to_shoot WINDOW. Setup-only: P1 switched to Wreckas, the Tankbustas embarked in the Trukk (Firing Deck 12), Custodian Guard C moved unengaged in front of the Ork rank with inflated wounds, defender auto-allocates. A real click on the Trukk token opens the window (before the Firing Deck step) with an enabled 'Use on Trukk'. A real click spends 1 CP; the selection resumes into Firing Deck (the Tankbustas' guns are loaned to the Trukk) and the forecast shows +1 to hit on those guns only. Quick-Assign + Confirm + Fast + Done resolve both weapons: the Firing Deck gun's hit roll carries the Drive-by Bustin' +1, the Trukk's own dual big shoota does not.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id != \"\" and PhaseManager.get_current_phase_instance().active_shooter_id == main.shooting_controller.active_shooter_id",
+      "equals": true,
+      "comment": "phase entry auto-selects the first eligible shooter as a REAL SELECT_SHOOTER (r5:F3): the phase and the panel agree on the active shooter"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 0,
+      "comment": "LV-2: the phase-entry auto-selection is not a player choice, so it opens NO unit_selected_to_shoot window (it opens before the player's first action with that shooter instead) - nothing to decline before the scenario picks its own shooter"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state.factions[\"1\"][\"detachment\"] = \"Wreckas\"\nStratagemManager.load_faction_stratagems_for_player(1)\nvar s = StratagemManager.get_stratagem(\"faction_ork_wreckas_drive_by_bustin\")\nreturn s.get(\"implemented\", false) and s.get(\"csv_id\", \"\") == \"drive-by-bustin-wreckas\"",
+      "equals": true,
+      "comment": "setup: the fixture army is War Horde — switch P1 to the Wreckas detachment and reload its stratagems"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var xs = [2.0, 4.0, 6.0, 8.0, 10.0]\nvar ms = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models\nfor i in range(ms.size()):\n\tms[i][\"position\"] = {\"x\": xs[i] * 40.0, \"y\": 21.0 * 40.0}\n\tms[i][\"wounds\"] = 99\n\tms[i][\"current_wounds\"] = 99\nreturn true",
+      "equals": true,
+      "comment": "setup: Custodian Guard C stands unengaged in front of the Ork rank (wounds inflated so it survives)"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var t = GameState.state.units[\"U_TANKBUSTAS_A\"]\nt[\"embarked_in\"] = \"U_TRUKK_A\"\nfor m in t.models:\n\tm[\"position\"] = null\nvar tr = GameState.state.units[\"U_TRUKK_A\"]\nif not tr.transport_data.has(\"embarked_units\"):\n\ttr.transport_data[\"embarked_units\"] = []\ntr.transport_data.embarked_units.append(\"U_TANKBUSTAS_A\")\nreturn int(tr.transport_data.get(\"firing_deck\", 0))",
+      "equals": 12,
+      "comment": "setup: the Tankbustas are embarked in the Trukk (Firing Deck 12)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "script": "StratagemManager.can_use_stratagem(1, \"faction_ork_wreckas_drive_by_bustin\", \"U_TRUKK_A\").reason",
+      "equals": "Offered automatically when one of your units is selected to shoot"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_TRUKK_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text",
+      "equals": "Trukk has been selected to shoot"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_wreckas_drive_by_bustin",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_wreckas_drive_by_bustin/Buttons/Use_faction_ork_wreckas_drive_by_bustin_U_TRUKK_A",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_wreckas_drive_by_bustin/Buttons/Use_faction_ork_wreckas_drive_by_bustin_U_TRUKK_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_SHOOTING",
+        "player": 1
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_drive_by_bustin_window_dialog"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_wreckas_drive_by_bustin/Buttons/Use_faction_ork_wreckas_drive_by_bustin_U_TRUKK_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_TRUKK_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"DRIVE-BY BUSTIN'\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_TRUKK_A.flags.ork11e_drive_by_bustin",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var tr = GameState.state.units[\"U_TRUKK_A\"]\nreturn tr.get(\"flags\", {}).get(\"firing_deck_weapons\", []).size()",
+      "expect_min": 1,
+      "comment": "the selection resumed into the Firing Deck step: Tankbustas' guns are loaned to the Trukk"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var w = RulesEngine.get_unit_weapons(\"U_TRUKK_A\", GameState.state)\nvar fd = \"\"\nfor mid in w:\n\tif RulesEngine.ork11e_is_firing_deck_bearer(mid):\n\t\tfd = str(w[mid][0])\nvar c = tree.root.get_node(\"Main\").shooting_controller\nvar fc = c._calc_weapon_expected_damage(fd, \"U_CUSTODIAN_GUARD_C\")\nvar own = c._calc_weapon_expected_damage(\"dual_big_shoota_ranged\", \"U_CUSTODIAN_GUARD_C\")\nreturn fd != \"\" and (\"Drive-by Bustin'\" in fc.get(\"active_tags\", [])) and not (\"Drive-by Bustin'\" in own.get(\"active_tags\", []))",
+      "equals": true,
+      "comment": "forecast: +1 to hit on the Firing Deck guns only"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller.eligible_targets.has(\"U_CUSTODIAN_GUARD_C\")",
+      "equals": true,
+      "comment": "the selection resumed: Custodian Guard C is offered as a target"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_drive_by_bustin_used_forecast"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/QuickAssignContainer/QuickAssign_U_CUSTODIAN_GUARD_C",
+      "comment": "Quick-Assign (hidden when the only eligible target is auto-assigned)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_assignments.size()",
+      "expect_min": 1
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/TargetButtonRow/ConfirmTargetsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and (str(d.get(\"context\", \"\")) == \"to_hit\" and not (\"Drive-by Bustin\" in str(d.get(\"modifier_ledger\", [])))):\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "weapon 1 (the Trukk's own dual big shoota) rolled to hit with no Drive-by Bustin' bonus"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_drive_by_bustin_resolved_effect"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/ResolutionDock/DockFastButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and (str(d.get(\"context\", \"\")) == \"to_hit\" and \"Drive-by Bustin\" in str(d.get(\"modifier_ledger\", [])) and (int(d.get(\"modifiers_applied\", 0)) & int(RulesEngine.HitModifier.PLUS_ONE)) != 0):\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "weapon 2 (the Tankbustas' rokkits fired through the Firing Deck) rolled to hit at +1 (Drive-by Bustin')"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_drive_by_bustin_after_saves"
+    }
+  ]
+}

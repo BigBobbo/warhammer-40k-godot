@@ -117,7 +117,8 @@
     {
       "act": "pad_cursor_glide",
       "x": 480.0,
-      "y": 500.0
+      "y": 500.0,
+      "comment": "RB-2: a disembarking model is set up WHOLLY within 3\" of the wagon (its whole base inside the ring) — the corner clicks (808,500) (512,556) (780,552) poked out of the ring; the 10th Boy and the Warboss go beside the wagon's right side instead."
     },
     {
       "act": "simulate_joy_button",
@@ -161,17 +162,8 @@
     },
     {
       "act": "pad_cursor_glide",
-      "x": 808.0,
+      "x": 790.0,
       "y": 500.0
-    },
-    {
-      "act": "simulate_joy_button",
-      "button_index": 0
-    },
-    {
-      "act": "pad_cursor_glide",
-      "x": 512.0,
-      "y": 556.0
     },
     {
       "act": "simulate_joy_button",
@@ -206,8 +198,17 @@
     },
     {
       "act": "pad_cursor_glide",
-      "x": 780.0,
-      "y": 552.0
+      "x": 775.0,
+      "y": 440.0
+    },
+    {
+      "act": "simulate_joy_button",
+      "button_index": 0
+    },
+    {
+      "act": "pad_cursor_glide",
+      "x": 775.0,
+      "y": 375.0
     },
     {
       "act": "simulate_joy_button",
@@ -344,9 +345,9 @@
     },
     {
       "act": "pad_cursor_glide",
-      "x": 640.0,
-      "y": 596.0,
-      "comment": "The group carry warps the cursor onto the member nearest the formation centroid (MovementController.pad_group_anchor_world_pos) - m9 at board (640, 555.8) - so gliding to (640, 596) translates the WHOLE formation 40px (1\") away from the wagon. Away, not towards: the Battlewagon hull spans board x 561-719 / y 178-462, so a 1\" step towards it puts the middle of the front rank inside the hull and only the two outer Boyz can be placed."
+      "x": 672.0,
+      "y": 540.0,
+      "comment": "The group carry warps the cursor onto the member nearest the formation centroid (MovementController.pad_group_anchor_world_pos) - with the wholly-within-3\" placement (RB-2: the 10th Boy and the Warboss stand beside the wagon's right side) that is m4 at board (672, 500) - so gliding to (672, 540) translates the WHOLE formation 40px (1\") straight away from the wagon. Away, not towards: the Battlewagon hull spans board x 561-719 / y 178-462, so a step towards it puts the middle of the front rank inside the hull and only the outer Boyz can be placed."
     },
     {
       "act": "simulate_joy_button",

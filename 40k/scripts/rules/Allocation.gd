@@ -30,6 +30,11 @@ static func build_groups(unit: Dictionary) -> Array:
 			continue
 		var w = int(m.get("wounds", unit_stats.get("wounds", 1)))
 		var cur_w = int(m.get("current_wounds", w))
+		# 05.04.05 Fight On Death: a destroyed model kept on the battlefield
+		# until its unit has fought (alive, 0 wounds left) is not in any
+		# allocation group — attacks can no longer be allocated to it.
+		if cur_w <= 0:
+			continue
 		var sv = int(m.get("save", unit_stats.get("save", 7)))
 		var insv = int(m.get("invuln", unit_stats.get("invuln", 0)))
 		var is_char = "CHARACTER" in m.get("keywords", []) or ("CHARACTER" in unit_keywords and models.size() == 1)

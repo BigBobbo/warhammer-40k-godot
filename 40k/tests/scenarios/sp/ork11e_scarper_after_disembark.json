@@ -1,0 +1,40 @@
+{
+  "id": "ork11e_scarper_after_disembark",
+  "covers": [
+    "stratagem.window.enemy_ended_move",
+    "stratagem.ork11e.scarper",
+    "phases.MovementPhase.confirm_disembark"
+  ],
+  "fixture": "ork11e_orks_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "r3:F4 / r5:F5 — an 11e disembark move (18.04) is a move, so when the enemy unit's disembark ends within 8\" of the Gretchin the opponent's enemy_ended_move window (SCARPER!) must open, as it does after a normal move. Fixture ork11e_orks_reactive (P1 Custodes active, P2 Orks / Runt Swarm). Setup-only privilege (the Custodes list has no transport): the Custodes borrow the Ork Trukk with Custodian Guard Gamma embarked; Gretchin Alpha stands ~9\" north of the Trukk. The Custodes confirm a tactical disembark (the CONFIRM_DISEMBARK action the disembark UI sends, positions from the engine's shape-aware placement): the StratagemDialog opens for PLAYER 2 with 'Custodian Guard Gamma has ended a move', an enabled SCARPER! 'Use on Gretchin Alpha', the window context names a disembark move, and the hot-seat overlay names Player 2. Declining closes it without opening a second window for the same move.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Runt Swarm\"}, true)\nStratagemManager.load_faction_stratagems_for_player(2)\nvar u = GameState.state.units\nvar trukk = u[\"U_TRUKK_A\"]\ntrukk[\"owner\"] = 1\nvar tp = trukk.models[0].position\nvar cg = u[\"U_CUSTODIAN_GUARD_C\"]\ncg[\"embarked_in\"] = \"U_TRUKK_A\"\nfor m in cg.models:\n\tm[\"position\"] = null\nif not trukk.has(\"transport_data\"):\n\ttrukk[\"transport_data\"] = {}\ntrukk.transport_data[\"embarked_units\"] = [\"U_CUSTODIAN_GUARD_C\"]\nvar i := 0\nfor m in u[\"U_GRETCHIN_C\"].models:\n\tif m.get(\"alive\", true):\n\t\tm[\"position\"] = {\"x\": float(tp.x) + (-4.0 + i * 1.2) * 40.0, \"y\": float(tp.y) - 9.0 * 40.0}\n\t\ti += 1\nPhaseManager.get_current_phase_instance().game_state_snapshot = GameState.create_snapshot()\ntree.current_scene._recreate_unit_visuals()\nreturn StratagemManager.get_stratagem(\"faction_ork_runt_swarm_scarper\").get(\"implemented\", false)", "equals": true, "comment": "setup privilege: Runt Swarm for P2; the Custodes borrow the Ork Trukk with Custodian Guard Gamma embarked; Gretchin Alpha ~9\" north of the Trukk" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "execute_script", "multiline": true, "script": "var p = PhaseManager.get_current_phase_instance()\nvar payload: Dictionary = p._ork11e_greedy_disembark_payload(\"U_CUSTODIAN_GUARD_C\", [\"U_CUSTODIAN_GUARD_C\"], \"U_TRUKK_A\", 1)\nif payload.is_empty():\n\treturn \"no set-up\"\nvar r = p.execute_action({\"type\": \"CONFIRM_DISEMBARK\", \"actor_unit_id\": \"U_CUSTODIAN_GUARD_C\", \"player\": 1, \"payload\": payload})\nreturn r.get(\"success\", false)", "equals": true, "comment": "the Custodes confirm the disembark (CONFIRM_DISEMBARK, the action the disembark UI sends)" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "main._recreate_unit_visuals()" },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_C.embarked_in", "equals": null },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id", "equals": "enemy_ended_move" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 2 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().ctx.move_type", "equals": "disembark" },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text", "equals": "Custodian Guard Gamma has ended a move" },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_runt_swarm_scarper/Buttons/Use_faction_ork_runt_swarm_scarper_U_GRETCHIN_C", "property": "disabled", "equals": false },
+    { "act": "execute_script", "script": "main._reactive_stratagem_overlay_label.text.contains(\"Player 2\")", "equals": true },
+    { "act": "expect_cp", "player": 2, "delta_from_start": 0 },
+    { "act": "screenshot", "label": "01_scarper_offered_after_disembark" },
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/DeclineButton" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()", "equals": false, "comment": "one window per move — no second window for the same disembark" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._ork11e_eem_pending.is_empty()", "equals": true },
+    { "act": "expect_cp", "player": 2, "delta_from_start": 0 },
+    { "act": "screenshot", "label": "02_declined_custodes_continue" }
+  ]
+}

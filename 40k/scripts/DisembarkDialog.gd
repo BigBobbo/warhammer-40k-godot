@@ -98,6 +98,12 @@ func _build_dialog_text() -> void:
 		# Disable OK button
 		get_ok_button().disabled = true
 
+	elif GameState.get_unit(transport_id).get("flags", {}).get("ork11e_readied_brawlers", false):
+		# Codex: Orks (11e) READIED BRAWLERS: assault disembark move (18.06).
+		text += "\n\nREADIED BRAWLERS — Assault Disembark (18.06)"
+		text += "\n• The disembarked unit cannot move further this phase"
+		text += "\n• The disembarked unit CAN still declare a charge"
+
 	elif transport_moved:
 		text += "\n\nWARNING: Movement Restrictions"
 		text += "\nThe transport has already moved this turn."

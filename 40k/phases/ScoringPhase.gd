@@ -482,6 +482,15 @@ func _handle_end_turn() -> Dictionary:
 
 	# Reset unit flags for the player whose turn is starting
 	var changes = _create_flag_reset_changes(next_player)
+	# ...and the charge / fight "this turn" flags of the player whose turn just
+	# ENDED, so they do not survive into the opponent's turn (a unit that
+	# charged in its own turn was still Fights First, eligible to fight while
+	# unengaged, and offered MOW 'EM DOWN / UNBRIDLED CARNAGE / KEEP IT RUNNIN'
+	# in the opponent's Fight phase).
+	changes.append_array(_create_ended_turn_flag_reset_changes(current_player))
+	# ...and every unit's disembark markers: a disembark only blocks embarking
+	# for the rest of THAT turn (18.02: set up on the battlefield this turn).
+	changes.append_array(_create_disembark_marker_reset_changes())
 
 	# Create state changes to switch player
 	changes.append({
@@ -777,6 +786,11 @@ func _create_flag_reset_changes(player: int) -> Array:
 		# entries on the multiplayer path in `GameManager.process_end_scoring`.
 		"da_jump_used_this_turn", "awaiting_da_jump_placement",
 		"heroic_intervention",
+		# 16.01 action lock from an advance / fall-back move or a shooting type
+		# ("until the end of the turn / phase") — it was never cleared, so a unit
+		# that advanced once could never start an action again (found with the
+		# Codex: Orks (11e) MIND MOSTLY ON THE MISSION work).
+		"cannot_start_action",
 	]
 
 	for unit_id in units:
@@ -816,6 +830,64 @@ func _create_flag_reset_changes(player: int) -> Array:
 
 	return changes
 
+## Charge / fight flags that mean "this turn" and are read during the
+## OPPONENT's turn too (FightSequencer eligibility + Fights First,
+## made-a-charge-move stratagem gates, "has not fought" conditions). They are
+## cleared for the player whose turn ENDED; _create_flag_reset_changes only
+## covers the player whose turn is starting, so these used to survive the
+## opponent's whole turn. Embarked units are included on purpose: a unit that
+## charged and then embarked (KEEP IT RUNNIN') must not disembark next turn
+## still "charged". Mirror: GameManager._create_ended_turn_flag_reset_diffs.
+const ENDED_TURN_FLAGS := [
+	"charged_this_turn", "fights_first", "heroic_intervention",
+	"has_been_charged", "has_fought",
+]
+
+func _create_ended_turn_flag_reset_changes(player: int) -> Array:
+	var changes: Array = []
+	var units = game_state_snapshot.get("units", {})
+	var cleared := 0
+	for unit_id in units:
+		var unit = units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		var flags = unit.get("flags", {})
+		if flags.is_empty():
+			continue
+		var cleared_for_unit: Array = []
+		for flag in ENDED_TURN_FLAGS:
+			if flags.has(flag):
+				changes.append({"op": "remove", "path": "units.%s.flags.%s" % [unit_id, flag]})
+				cleared_for_unit.append(flag)
+		if not cleared_for_unit.is_empty():
+			cleared += 1
+			DebugLogger.info(str("ScoringPhase:   End of P%d's turn — cleared %s on %s" % [player, cleared_for_unit, unit_id]))
+	if cleared > 0:
+		DebugLogger.info(str("ScoringPhase: Cleared end-of-turn charge/fight flags on %d unit(s) of player %d" % [cleared, player]))
+	return changes
+
+## A unit that disembarked (normal, emergency or assault) was "set up on the
+## battlefield this turn" and cannot embark again THIS turn (18.02); the
+## Blitz Brigade / Rollin' Deff "disembarked this turn" charge and advance
+## bonuses read the same marker. Nothing ever cleared the top-level
+## disembarked_this_phase field (TransportManager.reset_disembark_flags has no
+## caller), so KEEP IT RUNNIN' and the normal Movement-phase embark refused
+## the unit for the rest of the game. Cleared for ALL units at the end of every
+## turn (an emergency disembark can happen in the opponent's turn), together
+## with the 11e flags.disembarked_this_turn marker. Mirror:
+## GameManager._create_disembark_marker_reset_diffs.
+func _create_disembark_marker_reset_changes() -> Array:
+	var changes: Array = []
+	var units = game_state_snapshot.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("disembarked_this_phase", false):
+			changes.append({"op": "set", "path": "units.%s.disembarked_this_phase" % unit_id, "value": false})
+			DebugLogger.info(str("ScoringPhase:   End of turn — %s may embark again (disembark marker cleared)" % unit_id))
+		if unit.get("flags", {}).has("disembarked_this_turn"):
+			changes.append({"op": "remove", "path": "units.%s.flags.disembarked_this_turn" % unit_id})
+	return changes
+
 func _destroy_remaining_reserves() -> Array:
 	"""P1-37: At end of Round 3, destroy any units still IN_RESERVES.
 	Per 10th Edition rules, reserves units not on the battlefield by end of
@@ -830,6 +902,11 @@ func _destroy_remaining_reserves() -> Array:
 	for unit_id in units:
 		var unit = units[unit_id]
 		if unit.get("status", -1) == GameStateData.UnitStatus.IN_RESERVES:
+			# 11e 20.04 exception: repositioned units (20.02 — removed from the
+			# battlefield into strategic reserves during the battle, e.g.
+			# INSTINCTIVE HUNTERS) are not destroyed.
+			if unit.get("flags", {}).get("repositioned_to_reserves", false):
+				continue
 			reserves_unit_ids.append(unit_id)
 
 	# Second pass: also find units embarked in a reserves transport

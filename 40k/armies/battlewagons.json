@@ -2,13 +2,13 @@
  "faction": {
   "name": "Orks",
   "points": 2000,
-  "detachment": "Rollin' Deff",
+  "detachment": "Blitz Brigade",
   "player_name": "",
   "team_name": "",
   "created_date": "2026-07-14",
   "schema": 2,
   "edition": 11,
-  "data_source": "40kdc-data 1.0.19 (11th edition, launch)"
+  "data_source": "40kdc-data 1.0.19 (11th edition, launch); detachment + enhancements hand-migrated to Codex: Orks (40kdc-data 1.4.5)"
  },
  "units": {
   "U_BIG_MEK_A": {
@@ -362,11 +362,9 @@
      "leadership": 7,
      "objective_control": 1
     },
-    "points": 70,
+    "points": 45,
     "is_warlord": false,
-    "enhancements": [
-     "Dakkamek"
-    ],
+    "enhancements": [],
     "wargear": [
      "1x Close combat weapon",
      "1x Kustom mega-slugga"
@@ -684,7 +682,8 @@
      "BATTLEWAGON",
      "ORKS",
      "TRANSPORT",
-     "VEHICLE"
+     "VEHICLE",
+     "WAGON"
     ],
     "stats": {
      "move": 10,
@@ -695,7 +694,7 @@
      "objective_control": 5,
      "invuln": 6
     },
-    "points": 160,
+    "points": 170,
     "is_warlord": false,
     "enhancements": [
      "Targetin' Gizmos"
@@ -878,7 +877,8 @@
      "BATTLEWAGON",
      "ORKS",
      "TRANSPORT",
-     "VEHICLE"
+     "VEHICLE",
+     "WAGON"
     ],
     "stats": {
      "move": 10,
@@ -889,7 +889,7 @@
      "objective_control": 5,
      "invuln": 6
     },
-    "points": 160,
+    "points": 170,
     "is_warlord": false,
     "enhancements": [
      "Targetin' Gizmos"
@@ -1072,7 +1072,8 @@
      "BATTLEWAGON",
      "ORKS",
      "TRANSPORT",
-     "VEHICLE"
+     "VEHICLE",
+     "WAGON"
     ],
     "stats": {
      "move": 10,
@@ -1083,11 +1084,9 @@
      "objective_control": 5,
      "invuln": 6
     },
-    "points": 160,
+    "points": 145,
     "is_warlord": false,
-    "enhancements": [
-     "Targetin' Gizmos"
-    ],
+    "enhancements": [],
     "wargear": [
      "4x Big shoota",
      "1x Deff rolla",
@@ -1586,9 +1585,9 @@
      "DEFFKOPTAS",
      "FLY",
      "GRENADES",
+     "MOUNTED",
      "ORKS",
-     "SPEED FREEKS",
-     "VEHICLE"
+     "SPEED FREEKS"
     ],
     "stats": {
      "move": 12,
@@ -1734,9 +1733,9 @@
      "DEFFKOPTAS",
      "FLY",
      "GRENADES",
+     "MOUNTED",
      "ORKS",
-     "SPEED FREEKS",
-     "VEHICLE"
+     "SPEED FREEKS"
     ],
     "stats": {
      "move": 12,

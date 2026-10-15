@@ -1086,5 +1086,45 @@
    "edition": "11th",
    "dataslate": "pre-launch-provisional"
   }
+ },
+ {
+  "id": "kotc-colosseum",
+  "name": "KOTC Colosseum (9\" edges)",
+  "source": "kotc",
+  "description": "King of the Colosseum: deploy within 9\" of your board edge (36×36 board).",
+  "zones": [
+   {
+    "player": "attacker",
+    "name": "Attacker",
+    "shape": {
+     "type": "rectangle",
+     "width": 36,
+     "height": 9
+    },
+    "position": {
+     "x": 0,
+     "y": 27
+    },
+    "color": "#3b82f6"
+   },
+   {
+    "player": "defender",
+    "name": "Defender",
+    "shape": {
+     "type": "rectangle",
+     "width": 36,
+     "height": 9
+    },
+    "position": {
+     "x": 0,
+     "y": 0
+    },
+    "color": "#ef4444"
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  }
  }
 ]

@@ -97,7 +97,7 @@ that existed at e28e4f7, so it runs on both trees:
 - **Evidence**: audit test section P1-4 (corner + wall + enemy screen, and a
   no-legal-spot case); scenario `emergency_disembark_legal_placement_11e`.
 
-## Multiplayer follow-up (1.44.1) — validated with two real processes
+## Multiplayer follow-up (1.45.1) — validated with two real processes
 
 `40k/tests/mp_two_process_core_rules.py` launches an ENet HOST and CLIENT
 Godot process (separate `user://`, separate MCP bridge), loads a fixture on

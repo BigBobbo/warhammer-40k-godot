@@ -29,7 +29,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "39197f69-843b-4723-b6d6-69a3d43ae15e"
+   }
+  ]
  },
  {
   "id": "ancients-banner",
@@ -38,7 +44,13 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "standard"
+  "category": "standard",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "314a4643-59ab-4fd8-a1a8-d05172bb2070"
+   }
+  ]
  },
  {
   "id": "null-rod",
@@ -46,7 +58,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c1a366d8-b7f6-485e-99ac-6a52311d640c"
+   }
+  ]
  },
  {
   "id": "sacred-banner",
@@ -55,7 +73,13 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "standard"
+  "category": "standard",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "689f116f-9d44-4ee4-95cc-3c32ac68a1d0"
+   }
+  ]
  },
  {
   "id": "anchorite-sarcophagus",
@@ -63,7 +87,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fb07a984-f0d8-42d6-b044-08298622c911"
+   }
+  ]
  },
  {
   "id": "simulacrum-imperialis",
@@ -71,7 +101,21 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "34c3c209-6c20-4bfd-941b-5cf6224c3011"
+   },
+   {
+    "namespace": "mfm",
+    "id": "71cb8c3f-a928-4586-8d1f-5d3a52146dd8"
+   },
+   {
+    "namespace": "mfm",
+    "id": "dc05597d-b7aa-4dd2-9f74-88aa1f5e5d0f"
+   }
+  ]
  },
  {
   "id": "denuncia-oratory",
@@ -79,7 +123,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5564a284-0e81-4537-a11d-85d8539c7f18"
+   }
+  ]
  },
  {
   "id": "rod-of-office",
@@ -87,7 +137,27 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e53fd2b5-3c21-4452-80c2-4f6a71ed547f"
+   }
+  ]
+ },
+ {
+  "id": "salvationist-medikit",
+  "name": "Salvationist Medikit",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0c5864c-a235-476f-8196-133c6e07e5d5"
+   }
+  ]
  },
  {
   "id": "relic-shield",
@@ -95,7 +165,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5bbcf921-b6c6-400c-bf8e-9b0104322b21"
+   }
+  ]
  },
  {
   "id": "storm-shield",
@@ -103,7 +179,21 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "007d6307-976c-424b-871a-c3324c4f8b6d"
+   },
+   {
+    "namespace": "mfm",
+    "id": "7b6f34d2-cadf-4b4b-83ca-343026d55249"
+   },
+   {
+    "namespace": "mfm",
+    "id": "f6eb2ceb-969b-4268-a7c0-4dd6bd428a35"
+   }
+  ]
  },
  {
   "id": "helix-gauntlet",
@@ -111,7 +201,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a19b0acf-cd48-425a-bd2c-395d84944116"
+   }
+  ]
  },
  {
   "id": "infiltrator-comms-array",
@@ -119,7 +215,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "02858fda-32d0-4a51-8767-2aeb9b10e1a4"
+   }
+  ]
  },
  {
   "id": "thunderhawk-cluster-bombs",
@@ -127,7 +229,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "cddccdf8-164b-4a11-aa55-e39e8d7befe3"
+   }
+  ]
  },
  {
   "id": "sanguinary-banner",
@@ -136,7 +244,13 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "standard"
+  "category": "standard",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "98e6a22b-537f-48df-a078-327ce3569a5a"
+   }
+  ]
  },
  {
   "id": "watcher-in-the-dark",
@@ -144,7 +258,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b2bf043f-39ca-4ae5-83e4-dd5dab3a3bb1"
+   }
+  ]
  },
  {
   "id": "auspex-array",
@@ -152,7 +272,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f7579dbf-b927-430a-8da6-c82b100cc0ba"
+   }
+  ]
  },
  {
   "id": "infernum-halo-launcher",
@@ -160,7 +286,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d5028f22-7248-4d7e-8550-23ebbf37c0a5"
+   }
+  ]
  },
  {
   "id": "haywire-mine",
@@ -168,7 +300,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d3047056-15d9-427e-bfaa-896ecf79d487"
+   }
+  ]
  },
  {
   "id": "astartes-shield",
@@ -176,7 +314,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "bd82612d-1cc5-4408-bcdb-43affb04b068"
+   }
+  ]
  },
  {
   "id": "orbital-comms-array",
@@ -192,7 +336,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4376131c-0673-4ce5-84e3-6bda75cd6fd6"
+   }
+  ]
  },
  {
   "id": "reiver-grav-chute",
@@ -200,7 +350,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2e184848-e984-48fd-88e8-743cdea21eb9"
+   }
+  ]
  },
  {
   "id": "grapnel-launcher",
@@ -208,7 +364,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "61ecc1d4-5467-481d-bb48-5400a995c157"
+   }
+  ]
  },
  {
   "id": "blizzard-shield",
@@ -216,7 +378,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "dbc80516-c93e-476a-8b61-f86f5be11ee8"
+   }
+  ]
  },
  {
   "id": "master-of-the-ravenwing",
@@ -227,12 +395,177 @@
   }
  },
  {
+  "id": "death-totem",
+  "name": "death totem",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "992338e2-057a-4b7a-90ef-164c360d1da4"
+   }
+  ]
+ },
+ {
+  "id": "banner-of-macragge",
+  "name": "Banner of Macragge",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0e2ebc8-9362-401b-86f4-0b59b4f57752"
+   }
+  ]
+ },
+ {
+  "id": "centurion-assault-launcher",
+  "name": "Centurion assault launcher",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9c41682e-4ea0-4fdf-810b-c3a9d4d822a3"
+   }
+  ]
+ },
+ {
+  "id": "orbital-comms-array-aura",
+  "name": "Orbital Comms Array (Aura)",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c757aef1-9641-496f-ba93-c1bac9f7c7fa"
+   }
+  ]
+ },
+ {
+  "id": "terminator-storm-shield",
+  "name": "Terminator Storm Shield",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8a57b803-6122-4d63-a1a8-526e49b73adf"
+   }
+  ]
+ },
+ {
+  "id": "refractor-field",
+  "name": "Refractor Field",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b1c5d835-f70f-439c-9449-aa447771540a"
+   }
+  ]
+ },
+ {
+  "id": "the-lion-helm",
+  "name": "The Lion Helm",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "940380dd-af82-403b-ba52-1583f553b446"
+   }
+  ]
+ },
+ {
+  "id": "book-of-salvation",
+  "name": "Book of Salvation",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a298ee2e-4181-43e7-81a7-158bdc457d53"
+   }
+  ]
+ },
+ {
+  "id": "vexilla",
+  "name": "Vexilla",
+  "category": "banner",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a953553a-11dd-4105-a141-50667ddb666b"
+   }
+  ]
+ },
+ {
+  "id": "praesidium-shield",
+  "name": "Praesidium Shield",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "1aa2c464-883e-489a-81ea-9ea8895ccb75"
+   },
+   {
+    "namespace": "mfm",
+    "id": "bb155c10-9ce7-495e-9e1f-22970e181d82"
+   }
+  ]
+ },
+ {
+  "id": "tarsis-buckler",
+  "name": "Tarsis buckler",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "ae8d3318-35f9-417c-ace7-01eaf3bb87d7"
+   }
+  ]
+ },
+ {
   "id": "enhanced-data-tether",
   "name": "enhanced data-tether",
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "eb8f3ffb-1615-4e78-8542-4dd08e1e5565"
+   }
+  ]
  },
  {
   "id": "omnispex",
@@ -240,7 +573,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3970cd7b-a8ee-4429-96e1-99d8a57709a2"
+   }
+  ]
  },
  {
   "id": "broad-spectrum-data-tether",
@@ -248,7 +587,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a4d27db4-6684-4443-ae55-796578445cf3"
+   }
+  ]
  },
  {
   "id": "command-uplink",
@@ -256,7 +601,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2f6b9dab-4791-470a-948f-d4fb34c59ce8"
+   }
+  ]
  },
  {
   "id": "chaff-launcher",
@@ -264,7 +615,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8356be94-9f5e-422d-ae18-98ce1bd89810"
+   }
+  ]
  },
  {
   "id": "tome-skull",
@@ -272,7 +629,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "01a92b41-30bf-4441-8e6a-dce861919eec"
+   }
+  ]
  },
  {
   "id": "plasma-pistol",
@@ -320,7 +683,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "1471d478-16f0-4ae5-8e10-b81d96a07945"
+   }
+  ]
  },
  {
   "id": "aspect-shrine-token",
@@ -329,7 +698,13 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "token"
+  "category": "token",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c0abcfea-ada7-44a9-8760-6e38969cc70a"
+   }
+  ]
  },
  {
   "id": "soul-trap",
@@ -337,7 +712,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "13df0ce0-d27d-4004-a370-1611de3526db"
+   }
+  ]
  },
  {
   "id": "master-crafted-power-weapon",
@@ -362,7 +743,13 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "icon"
+  "category": "icon",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "49a47f0e-f2f3-49f4-9089-b4c164174287"
+   }
+  ]
  },
  {
   "id": "phantasm-grenade-launcher",
@@ -370,7 +757,21 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "69fe633d-fa89-4a70-9de3-9bfccbf68a09"
+   },
+   {
+    "namespace": "mfm",
+    "id": "79bfd4a0-3952-454b-95db-bee1f1f23580"
+   },
+   {
+    "namespace": "mfm",
+    "id": "a27f1572-67ff-4f06-89a5-0c3147bdb33b"
+   }
+  ]
  },
  {
   "id": "gladiatorial-weapons",
@@ -387,7 +788,13 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "token"
+  "category": "token",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7a5cde45-5a87-4a49-a0d3-8e035b99c93e"
+   }
+  ]
  },
  {
   "id": "cluster-caltrops",
@@ -395,7 +802,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4c13862a-8646-4675-8660-92e80d1ed9b6"
+   }
+  ]
  },
  {
   "id": "grav-talon",
@@ -403,7 +816,17 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "6d7b527c-2b1a-44b6-b72a-e035011627a4"
+   },
+   {
+    "namespace": "mfm",
+    "id": "f4d519e6-ad5f-48f7-9e96-c9b8168322c2"
+   }
+  ]
  },
  {
   "id": "mistshield",
@@ -411,7 +834,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2169123d-6e3f-4f28-a135-c8d388172eab"
+   }
+  ]
  },
  {
   "id": "scattershield",
@@ -419,7 +848,111 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "88c4b502-3037-48b4-bd44-937d14a7c999"
+   }
+  ]
+ },
+ {
+  "id": "flip-belt",
+  "name": "Flip Belt",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f8c591a9-b2f0-409c-95bc-c75e92d9813c"
+   }
+  ]
+ },
+ {
+  "id": "serpent-shield",
+  "name": "Serpent shield",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "23aebc71-e6d1-4ccd-bbc6-7344e8c3f89d"
+   }
+  ]
+ },
+ {
+  "id": "faolchu",
+  "name": "Faolchú",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "00cd87c9-1c81-4922-91fc-e8c993814efb"
+   }
+  ]
+ },
+ {
+  "id": "channeller-stones",
+  "name": "Channeller Stones",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "18c4bfb4-b13e-4b82-96fd-6aad896046dc"
+   }
+  ]
+ },
+ {
+  "id": "forceshield",
+  "name": "Forceshield",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c763e3a3-a9ea-48c5-947e-bbbe7ae67d83"
+   }
+  ]
+ },
+ {
+  "id": "shadow-field",
+  "name": "Shadow Field",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "569c1f3b-3654-4e93-86a9-477b7bff5e12"
+   }
+  ]
+ },
+ {
+  "id": "drakolithe-once-per-battle-per-token",
+  "name": "Drakolithe (Once per battle, per token)",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f3fc6ea0-ce76-4274-8437-18f049576e97"
+   }
+  ]
  },
  {
   "id": "auspex-array",
@@ -427,7 +960,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f7579dbf-b927-430a-8da6-c82b100cc0ba"
+   }
+  ]
  },
  {
   "id": "infernum-halo-launcher",
@@ -435,7 +974,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d5028f22-7248-4d7e-8550-23ebbf37c0a5"
+   }
+  ]
  },
  {
   "id": "blessed-wardings",
@@ -443,7 +988,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4c0dbe01-e4a8-4fd5-992b-f35d5ef423a4"
+   }
+  ]
  },
  {
   "id": "psychic-gifts",
@@ -451,7 +1002,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a49e2a76-e166-4227-965c-ad9b4ef36f1f"
+   }
+  ]
  },
  {
   "id": "nuncio-aquila",
@@ -515,7 +1072,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "bd82612d-1cc5-4408-bcdb-43affb04b068"
+   }
+  ]
  },
  {
   "id": "narthecium",
@@ -523,7 +1086,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c3abf29a-8fb8-4d61-b6de-0a2af9c0ca24"
+   }
+  ]
  },
  {
   "id": "simulacrum-imperialis",
@@ -531,7 +1100,21 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "34c3c209-6c20-4bfd-941b-5cf6224c3011"
+   },
+   {
+    "namespace": "mfm",
+    "id": "71cb8c3f-a928-4586-8d1f-5d3a52146dd8"
+   },
+   {
+    "namespace": "mfm",
+    "id": "dc05597d-b7aa-4dd2-9f74-88aa1f5e5d0f"
+   }
+  ]
  },
  {
   "id": "tome-skull",
@@ -539,16 +1122,126 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "01a92b41-30bf-4441-8e6a-dce861919eec"
+   }
+  ]
  },
  {
   "id": "ancients-banner",
-  "name": "Ancient's Banner",
+  "name": "Ancient's banner",
   "category": "standard",
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "314a4643-59ab-4fd8-a1a8-d05172bb2070"
+   }
+  ]
+ },
+ {
+  "id": "healing-serum",
+  "name": "Healing serum",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8941002e-c863-4d3b-9b19-fb22e4dc39ef"
+   }
+  ]
+ },
+ {
+  "id": "endurant-shield",
+  "name": "Endurant Shield",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "074ac92a-0ebc-4951-8e67-e459cb11bae3"
+   }
+  ]
+ },
+ {
+  "id": "glovodan-psyber-eagle",
+  "name": "Glovodan Psyber‐eagle",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0b3c1002-9a3a-4d85-8e2f-b89a95d397ba"
+   }
+  ]
+ },
+ {
+  "id": "soulguilt-scanner",
+  "name": "Soulguilt Scanner",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "bde4aec2-30a1-4d29-a294-e5c220d4c16b"
+   }
+  ]
+ },
+ {
+  "id": "arbites-medi-kit",
+  "name": "Arbites Medi-kit",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "691d82c9-a9a1-4a77-ab9d-be35abde0bd6"
+   }
+  ]
+ },
+ {
+  "id": "nuncio-acquila",
+  "name": "Nuncio-acquila",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "50541de4-6171-47b9-84d3-8184f3c155db"
+   }
+  ]
+ },
+ {
+  "id": "salvationist-medikit",
+  "name": "Salvationist Medikit",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b0c5864c-a235-476f-8196-133c6e07e5d5"
+   }
+  ]
  },
  {
   "id": "master-vox",
@@ -556,7 +1249,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "68be430c-4aab-441a-8c68-6e0cf3c0424d"
+   }
+  ]
  },
  {
   "id": "command-rod",
@@ -564,7 +1263,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a43490ff-20ec-4169-a6f5-c4df0106f19a"
+   }
+  ]
  },
  {
   "id": "demolition-gear",
@@ -572,7 +1277,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "bfac6bb6-bcd7-42ef-a2fa-a13960d7f9cf"
+   }
+  ]
  },
  {
   "id": "brute-shield",
@@ -580,7 +1291,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "150b107a-a9ed-4c7e-b696-45ec389a0bdf"
+   }
+  ]
  },
  {
   "id": "slabshield",
@@ -588,7 +1305,17 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0538f546-232d-4070-9200-e13f335f1c33"
+   },
+   {
+    "namespace": "mfm",
+    "id": "6fa6c35b-da60-40aa-8bfe-2f213147c014"
+   }
+  ]
  },
  {
   "id": "regimental-standard",
@@ -597,7 +1324,13 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "standard"
+  "category": "standard",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "bd18f68e-60d7-4e24-aba4-9b56dd43c8aa"
+   }
+  ]
  },
  {
   "id": "vox-caster",
@@ -605,7 +1338,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "fe0bcc66-1a2f-4ab3-8eb3-ea429e3f2d00"
+   }
+  ]
  },
  {
   "id": "ratling-battlemutt",
@@ -613,7 +1352,129 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "2ed95431-ef55-48db-8e8b-d100d3a3b193"
+   }
+  ]
+ },
+ {
+  "id": "medi-pack",
+  "name": "Medi-pack",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "77111ca2-4ef4-4674-b172-58211dcf6952"
+   },
+   {
+    "namespace": "mfm",
+    "id": "8b67ff71-14f7-4c45-82ac-a401fe9375eb"
+   }
+  ]
+ },
+ {
+  "id": "death-korps-medi-pack",
+  "name": "Death Korps Medi-pack",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0381c354-7671-406a-885a-c9b2ad32403b"
+   }
+  ]
+ },
+ {
+  "id": "melta-mine",
+  "name": "Melta Mine",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "637ff365-6b4a-467f-8d20-cae7a178889e"
+   }
+  ]
+ },
+ {
+  "id": "aquiline-prow",
+  "name": "Aquiline Prow",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e9b63fe6-aeaf-4f06-80a0-57bd0718b395"
+   }
+  ]
+ },
+ {
+  "id": "vox-relay-beacon",
+  "name": "Vox‑relay Beacon",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "1cde1e91-1a31-417c-bda6-ca1c8a270cac"
+   }
+  ]
+ },
+ {
+  "id": "remote-mine",
+  "name": "Remote Mine",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e509c0a5-6da1-4912-9ddb-de7f12f328e1"
+   }
+  ]
+ },
+ {
+  "id": "servo-scribes",
+  "name": "Servo-scribes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "be1820fa-9b07-48bc-8f4e-1e544206dae6"
+   }
+  ]
+ },
+ {
+  "id": "alchemyk-counteragents",
+  "name": "Alchemyk Counteragents",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "264530a8-a2ae-4fe3-8776-022de8bbddf7"
+   }
+  ]
  },
  {
   "id": "daemonic-icon",
@@ -622,7 +1483,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "79b389ec-f1c4-42b1-833d-4e1b86817377"
+   }
+  ]
  },
  {
   "id": "instrument-of-chaos",
@@ -630,7 +1497,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e77cb7d8-d6cd-472a-a771-91fee3e48bcd"
+   }
+  ]
  },
  {
   "id": "shining-aegis",
@@ -638,7 +1511,41 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5579aa57-632e-42a7-a12a-7ebc8c69e24d"
+   }
+  ]
+ },
+ {
+  "id": "collar-of-khorne",
+  "name": "Collar of Khorne",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "80a80408-8489-4694-a5f4-72cf40036349"
+   }
+  ]
+ },
+ {
+  "id": "brass-collar-of-bloody-vengeance",
+  "name": "Brass Collar of Bloody Vengeance",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e6a45e83-838d-4449-8bde-44b7e2c3e4ec"
+   }
+  ]
  },
  {
   "id": "inferno-combi-bolter",
@@ -662,7 +1569,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "89ef95a3-482f-4e6e-ab2a-92b88687d1c8"
+   }
+  ]
  },
  {
   "id": "grenade-launcher",
@@ -679,7 +1592,13 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "icon"
+  "category": "icon",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7f01bd2c-668f-4252-98ff-4bbea2b70125"
+   }
+  ]
  },
  {
   "id": "twin-inferno-heavy-bolter",
@@ -735,7 +1654,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "cddccdf8-164b-4a11-aa55-e39e8d7befe3"
+   }
+  ]
  },
  {
   "id": "warp-stalker",
@@ -810,13 +1735,33 @@
   }
  },
  {
+  "id": "voice-eater",
+  "name": "Voice Eater",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "23d79c01-40d5-4613-8a6d-b43d3d49fed9"
+   }
+  ]
+ },
+ {
   "id": "chaos-icon",
   "name": "Chaos icon",
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "icon"
+  "category": "icon",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7f01bd2c-668f-4252-98ff-4bbea2b70125"
+   }
+  ]
  },
  {
   "id": "helbrute-plasma-cannon",
@@ -876,12 +1821,32 @@
   "category": "icon"
  },
  {
+  "id": "icon-of-despair-aura",
+  "name": "Icon of Despair (Aura)",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5028ed26-8ff1-4fc8-b844-168659f516ac"
+   }
+  ]
+ },
+ {
   "id": "soul-trap",
   "name": "soul trap",
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "13df0ce0-d27d-4004-a370-1611de3526db"
+   }
+  ]
  },
  {
   "id": "sybarite-weapon",
@@ -898,7 +1863,13 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "icon"
+  "category": "icon",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "49a47f0e-f2f3-49f4-9089-b4c164174287"
+   }
+  ]
  },
  {
   "id": "phantasm-grenade-launcher",
@@ -906,7 +1877,21 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "69fe633d-fa89-4a70-9de3-9bfccbf68a09"
+   },
+   {
+    "namespace": "mfm",
+    "id": "79bfd4a0-3952-454b-95db-bee1f1f23580"
+   },
+   {
+    "namespace": "mfm",
+    "id": "a27f1572-67ff-4f06-89a5-0c3147bdb33b"
+   }
+  ]
  },
  {
   "id": "incubi-shrine-token",
@@ -915,7 +1900,13 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "token"
+  "category": "token",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7a5cde45-5a87-4a49-a0d3-8e035b99c93e"
+   }
+  ]
  },
  {
   "id": "cluster-caltrops",
@@ -923,7 +1914,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "4c13862a-8646-4675-8660-92e80d1ed9b6"
+   }
+  ]
  },
  {
   "id": "grav-talon",
@@ -931,7 +1928,45 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "6d7b527c-2b1a-44b6-b72a-e035011627a4"
+   },
+   {
+    "namespace": "mfm",
+    "id": "f4d519e6-ad5f-48f7-9e96-c9b8168322c2"
+   }
+  ]
+ },
+ {
+  "id": "stimm-needler",
+  "name": "Stimm-needler",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c867b290-f746-47f5-998b-788c25e7406e"
+   }
+  ]
+ },
+ {
+  "id": "shadowfield",
+  "name": "Shadowfield",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d60de8f2-5774-4d65-965d-ff4072102b76"
+   }
+  ]
  },
  {
   "id": "inferno-combi-weapon",
@@ -996,7 +2031,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d97fc83f-63b4-4659-a975-f57a35b322b7"
+   }
+  ]
  },
  {
   "id": "cult-icon",
@@ -1005,7 +2046,17 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "icon"
+  "category": "icon",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b42dc91c-b394-4be6-8fb0-aa4e65ef7daa"
+   },
+   {
+    "namespace": "mfm",
+    "id": "fed5c916-2d8b-4686-844c-0378d90f6d9c"
+   }
+  ]
  },
  {
   "id": "flare-launcher",
@@ -1013,7 +2064,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "61c63ee8-1c41-4e6c-b0e8-5451c154c896"
+   }
+  ]
  },
  {
   "id": "spotter",
@@ -1021,7 +2078,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "ea265349-dc8b-491b-a164-16e0ef1e0a55"
+   }
+  ]
  },
  {
   "id": "survey-augur",
@@ -1029,7 +2092,27 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d47b0a50-f539-4af2-b886-e08f4ef8c786"
+   }
+  ]
+ },
+ {
+  "id": "alchemicus-familiar",
+  "name": "Alchemicus Familiar",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "8315877d-349f-4db7-8f6d-2122795cdb93"
+   }
+  ]
  },
  {
   "id": "twin-autocannon",
@@ -1069,7 +2152,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "39197f69-843b-4723-b6d6-69a3d43ae15e"
+   }
+  ]
  },
  {
   "id": "ancients-banner",
@@ -1078,7 +2167,13 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "standard"
+  "category": "standard",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "314a4643-59ab-4fd8-a1a8-d05172bb2070"
+   }
+  ]
  },
  {
   "id": "thunderhawk-cluster-bombs",
@@ -1086,7 +2181,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "cddccdf8-164b-4a11-aa55-e39e8d7befe3"
+   }
+  ]
  },
  {
   "id": "rampart-crest",
@@ -1094,7 +2195,17 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3e828a03-5cad-42d0-b529-d1ac1e551753"
+   },
+   {
+    "namespace": "mfm",
+    "id": "8f2926c4-dbed-4488-8da1-8ea590acf469"
+   }
+  ]
  },
  {
   "id": "teleport-crest",
@@ -1102,7 +2213,21 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "6ed75f65-8944-4116-a103-4c6e5ae5e068"
+   },
+   {
+    "namespace": "mfm",
+    "id": "6f7e40a4-2f84-495d-8a2c-c756c603b08e"
+   },
+   {
+    "namespace": "mfm",
+    "id": "ea178566-f956-496f-ae25-27f82360b663"
+   }
+  ]
  },
  {
   "id": "weavefield-crest",
@@ -1110,7 +2235,17 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "94bb2d5a-b2ef-4286-869d-71867445cca2"
+   },
+   {
+    "namespace": "mfm",
+    "id": "c2bf69d8-7326-4933-84ae-58539abb44df"
+   }
+  ]
  },
  {
   "id": "smoke-launcher",
@@ -1118,7 +2253,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e8a7d080-698c-40a8-ae09-8be318dd6859"
+   }
+  ]
  },
  {
   "id": "pan-spectral-scanner",
@@ -1129,12 +2270,78 @@
   }
  },
  {
+  "id": "panspectral-scanner",
+  "name": "Panspectral Scanner",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "74c5cbce-6f88-4d0f-bde3-ec851f02a4e1"
+   }
+  ]
+ },
+ {
+  "id": "rollbar-searchlight",
+  "name": "Rollbar Searchlight",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0ef22491-bc8c-459f-9208-08d361f2da73"
+   }
+  ]
+ },
+ {
+  "id": "multiwave-comms-array",
+  "name": "Multiwave Comms Array",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9633f4f9-42ce-4547-a885-ccba9c4ce220"
+   }
+  ]
+ },
+ {
+  "id": "preymark-crest",
+  "name": "Preymark Crest",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "1204f755-51f8-4f35-8126-4da29de988c1"
+   }
+  ]
+ },
+ {
   "id": "resurrection-orb",
   "name": "resurrection orb",
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "22dc3b6e-d429-4499-a2da-498da8077982"
+   },
+   {
+    "namespace": "mfm",
+    "id": "35c788e0-4388-40e8-bdf0-879c51af5835"
+   }
+  ]
  },
  {
   "id": "dispersion-shield",
@@ -1142,7 +2349,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "73c896ab-3e82-4c6c-8cd3-2490c776c67b"
+   }
+  ]
  },
  {
   "id": "shieldvanes",
@@ -1150,7 +2363,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "106ffa9b-ad87-4845-a297-a73bceed0b02"
+   }
+  ]
  },
  {
   "id": "nebuloscope",
@@ -1158,7 +2377,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "04af9b1c-d69e-4d55-a73f-1594f009207f"
+   }
+  ]
  },
  {
   "id": "shadowloom",
@@ -1166,7 +2391,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0d59e1f0-4cca-4797-9810-89f34da9ac5a"
+   }
+  ]
  },
  {
   "id": "fabricator-claw-array",
@@ -1190,7 +2421,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f6a5f8a4-40f5-498d-a806-d6d77283329d"
+   }
+  ]
  },
  {
   "id": "nanoscarab-amulet",
@@ -1198,7 +2435,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "c0da2d15-20c2-4da9-a9df-a0ce62051918"
+   }
+  ]
  },
  {
   "id": "accelerator-mandible",
@@ -1206,7 +2449,69 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f8700f44-a5d3-43d0-b34f-c2b09a6b504b"
+   }
+  ]
+ },
+ {
+  "id": "nanoscarab-projector",
+  "name": "Nanoscarab Projector",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3d8f77b6-4a7b-4a37-9914-cc47a35ec847"
+   }
+  ]
+ },
+ {
+  "id": "fabricator-claw-array-aura",
+  "name": "Fabricator Claw Array (Aura)",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "ea2d4f7d-612f-41a0-980f-c538a5dc020d"
+   }
+  ]
+ },
+ {
+  "id": "gloom-prism-aura",
+  "name": "Gloom Prism (Aura)",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5084d88f-827f-4b35-90c6-86d8f84d6863"
+   }
+  ]
+ },
+ {
+  "id": "nullstone-field-generator-aura",
+  "name": "Nullstone Field Generator (Aura)",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d0064c2e-8a21-4d58-bf03-02e6370585bb"
+   }
+  ]
  },
  {
   "id": "kustom-force-field",
@@ -1214,15 +2519,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
- },
- {
-  "id": "wrench",
-  "name": "wrench",
-  "game_version": {
-   "edition": "10th",
-   "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "aee34635-59e6-4c77-9f7c-6334aff37fb3"
+   }
+  ]
  },
  {
   "id": "grot-orderly",
@@ -1230,7 +2533,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "06deb955-d375-426c-8b27-560cb55f5dde"
+   }
+  ]
  },
  {
   "id": "ammo-runt",
@@ -1238,7 +2547,17 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0549dd4b-5a1a-4609-9244-415205cad4a6"
+   },
+   {
+    "namespace": "mfm",
+    "id": "07baa154-aeea-43b1-a515-8fb140376b9f"
+   }
+  ]
  },
  {
   "id": "blastajet-force-field",
@@ -1246,7 +2565,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "b64d38b3-82f0-49af-8259-d35ae3f6c065"
+   }
+  ]
  },
  {
   "id": "distraction-grot",
@@ -1254,7 +2579,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0abec0dc-14e8-4ac0-8c7a-976412670343"
+   }
+  ]
  },
  {
   "id": "ard-case",
@@ -1262,6 +2593,82 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7527971e-395b-4f7d-a2c1-876d8ad6a7d6"
+   }
+  ]
+ },
+ {
+  "id": "bomb-squig",
+  "name": "Bomb Squig",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5bdb3f40-f7cc-4737-9814-1a37577a7df6"
+   }
+  ]
+ },
+ {
+  "id": "grot-oiler",
+  "name": "Grot Oiler",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "64d7f6de-ee4d-413a-a33c-bbe7b83d3603"
+   }
+  ]
+ },
+ {
+  "id": "pulsa-rokkit",
+  "name": "Pulsa Rokkit",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7ecf9be2-3858-40d3-9f14-9bdcd9a2d04b"
+   }
+  ]
+ },
+ {
+  "id": "grot-assistant",
+  "name": "Grot Assistant",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0cd172a5-bd3e-42fd-891d-41eeb8ef18b1"
+   }
+  ]
+ },
+ {
+  "id": "paired-krumpas",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "5a04b2c9-6f01-4bb8-820e-0102c0ba3ac2"
+   }
+  ],
+  "name": "Paired Krumpas",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
   }
  },
  {
@@ -1270,7 +2677,17 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "57877a6a-37ff-49e4-b5bd-29739d83968b"
+   },
+   {
+    "namespace": "mfm",
+    "id": "933c3cb8-bb80-4d7e-86d5-ed9339e1d7a1"
+   }
+  ]
  },
  {
   "id": "shield-generator",
@@ -1278,7 +2695,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "1b501ea3-5061-4bc0-ac92-4b88f0e9126c"
+   }
+  ]
  },
  {
   "id": "weapon-support-system",
@@ -1286,7 +2709,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "0def39a7-6bda-453d-bf1c-3f0ea7a57a3f"
+   }
+  ]
  },
  {
   "id": "gun-drone",
@@ -1294,7 +2723,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7b869f23-60c0-4d2a-8d4d-b6dbe9fff367"
+   }
+  ]
  },
  {
   "id": "marker-drone",
@@ -1302,7 +2737,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3491e144-63d5-48f6-906d-bc5bdfdeb9a9"
+   }
+  ]
  },
  {
   "id": "homing-beacon",
@@ -1310,7 +2751,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "03ed9a1d-98d7-4793-849d-5387bd694ba6"
+   }
+  ]
  },
  {
   "id": "grav-inhibitor-drone",
@@ -1318,7 +2765,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "81d52711-a40e-40d5-9ca0-6daba2d82247"
+   }
+  ]
  },
  {
   "id": "pulse-accelerator-drone",
@@ -1326,7 +2779,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "38da8799-fc2a-4fc2-9ffe-1e9643007c20"
+   }
+  ]
  },
  {
   "id": "recon-drone",
@@ -1334,7 +2793,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e63aac10-6f51-4d7d-afff-4ef394b32978"
+   }
+  ]
  },
  {
   "id": "tidewall-defence-platform",
@@ -1350,7 +2815,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "83b098fb-38a3-45f2-93d4-14cc224ddcdc"
+   }
+  ]
  },
  {
   "id": "guardian-drone",
@@ -1358,7 +2829,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "3b68b1a8-23f1-4e2a-90bf-8b6f082117c2"
+   }
+  ]
  },
  {
   "id": "oversight-drone",
@@ -1366,7 +2843,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "d6249dda-04d3-4c57-b3a8-849e8085e5c2"
+   }
+  ]
  },
  {
   "id": "transport-bay",
@@ -1374,7 +2857,97 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "f2084e6a-6326-4635-b658-250fac0a9ce5"
+   }
+  ]
+ },
+ {
+  "id": "pechra",
+  "name": "Pech’ra",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a7dcf8ec-6f67-443a-a77f-51c50f42e2e3"
+   }
+  ]
+ },
+ {
+  "id": "missile-drone",
+  "name": "Missile Drone",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "21d80668-7582-4409-af0a-dd65c1292ff9"
+   }
+  ]
+ },
+ {
+  "id": "hover-drone",
+  "name": "Hover Drone",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "e3f13656-b541-4d93-9b59-2713e85638f0"
+   }
+  ]
+ },
+ {
+  "id": "command-link-drone-aura",
+  "name": "Command-link Drone (Aura)",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "25a18835-7b27-4803-b9ff-905e2d3b0756"
+   }
+  ]
+ },
+ {
+  "id": "advanced-guardian-drone",
+  "name": "Advanced Guardian Drone",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "a5eb2f5e-4663-4dc2-ab36-f290dcb54251"
+   }
+  ]
+ },
+ {
+  "id": "mv15-gun-drone",
+  "name": "MV15 Gun Drone",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "189ee391-f402-4ad1-a044-2106662c7948"
+   }
+  ]
  },
  {
   "id": "combi-bolter",
@@ -1398,7 +2971,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "89ef95a3-482f-4e6e-ab2a-92b88687d1c8"
+   }
+  ]
  },
  {
   "id": "twin-heavy-bolter",
@@ -1455,7 +3034,13 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "icon"
+  "category": "icon",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "7c1b90fb-5b4b-499f-8f6b-52b98f115efa"
+   }
+  ]
  },
  {
   "id": "brayhorn",
@@ -1463,7 +3048,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "ca845520-e9c5-4191-a605-0505035a64e6"
+   }
+  ]
  },
  {
   "id": "herd-banner",
@@ -1472,7 +3063,13 @@
   "game_version": {
    "edition": "10th",
    "dataslate": "2025-q3"
-  }
+  },
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "9e660f68-928e-43a7-8af4-915cb722ac9c"
+   }
+  ]
  },
  {
   "id": "helbrute-plasma-cannon",
@@ -1545,6 +3142,12 @@
    "edition": "10th",
    "dataslate": "2025-q3"
   },
-  "category": "icon"
+  "category": "icon",
+  "external_refs": [
+   {
+    "namespace": "mfm",
+    "id": "1da7917a-f89a-4123-92b2-9127f85da662"
+   }
+  ]
  }
 ]

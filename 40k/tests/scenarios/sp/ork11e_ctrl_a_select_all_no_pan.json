@@ -1,0 +1,35 @@
+{
+  "id": "ork11e_ctrl_a_select_all_no_pan",
+  "covers": [
+    "KeybindingManager.is_action_pressed",
+    "camera.pan.keyboard",
+    "movement.select_all_ctrl_a"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "live:LIVE-13 — Ctrl+A (select every model of the active unit) shares the A key with the polled camera_pan_left binding, so holding Ctrl+A also panned the board ~330 px left under the models the player was about to drag. The player clicks the Kommandos, holds Ctrl (a real KEY_CTRL press, as the OS sends before the A) and Ctrl+A for 0.6 s: all 10 Kommandos are selected and the camera does not move. Control: a bare A held afterwards still pans the camera, so the polled pan path is live in this run.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "script": "var ko: Array = GameState.state.units[\"U_KOMMANDOS_A\"].models\nfor i in range(ko.size()):\n\tko[i][\"position\"] = {\"x\": (2.0 + (i % 5) * 1.4) * 40.0, \"y\": (49.0 - int(i / 5) * 1.4) * 40.0}\nPhaseManager.get_current_phase_instance().game_state_snapshot = GameState.create_snapshot()\ntree.current_scene._recreate_unit_visuals()\nreturn ko.size()", "equals": 10, "comment": "setup privilege: Kommandos in the open bottom-left corner" },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "click_unit", "unit_id": "U_KOMMANDOS_A" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_KOMMANDOS_A" },
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nm.set_meta(\"cam0\", m.view_offset)\nvar ev = InputEventKey.new()\nev.keycode = KEY_CTRL\nev.physical_keycode = KEY_CTRL\nev.ctrl_pressed = true\nev.pressed = true\nInput.parse_input_event(ev)\nreturn true", "equals": true, "comment": "Ctrl goes down first, as on a real keyboard" },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "simulate_key", "keycode": "A", "ctrl": true, "hold_s": 0.6 },
+    { "act": "execute_script", "script": "main.movement_controller.selected_models.size()", "equals": 10, "comment": "Ctrl+A selected every Kommando" },
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nreturn m.view_offset.distance_to(m.get_meta(\"cam0\")) < 1.0", "equals": true, "comment": "the camera did not pan while Ctrl+A was held" },
+    { "act": "screenshot", "label": "01_ctrl_a_all_selected_board_still" },
+    { "act": "execute_script", "multiline": true, "script": "var ev = InputEventKey.new()\nev.keycode = KEY_CTRL\nev.physical_keycode = KEY_CTRL\nev.pressed = false\nInput.parse_input_event(ev)\nreturn true", "equals": true },
+    { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nm.set_meta(\"cam1\", m.view_offset)\nreturn true", "equals": true },
+    { "act": "simulate_key", "keycode": "A", "hold_s": 0.3 },
+    { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nreturn m.view_offset.distance_to(m.get_meta(\"cam1\")) > 20.0", "equals": true, "comment": "control: a bare A still pans the camera" }
+  ]
+}

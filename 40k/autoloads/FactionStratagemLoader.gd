@@ -63,15 +63,17 @@ static func parse_csv_file(file_path: String, delimiter: String = "|") -> Array:
 	return results
 
 # Normalise a detachment name for comparison: lowercase, replace non-breaking
-# space (U+00A0) with regular space, strip surrounding whitespace. Roster JSONs
+# space (U+00A0) with regular space, fold typographic apostrophes (U+2019 /
+# U+2018) to the straight one, strip surrounding whitespace. Roster JSONs
 # may have been hand-edited and contain NBSP characters (issue #366); without
 # this normalisation a string compare fails silently and all detachment-gated
-# stratagems are dropped.
+# stratagems are dropped. The apostrophe fold fixes the same silent drop for
+# "Rollin' Deff" (army file) vs "Rollin’ Deff" (CSV) style mismatches.
 static func _normalise_detachment_name(s: String) -> String:
 	if s == "":
 		return ""
 	# U+00A0 is encoded as the multi-byte sequence " " in GDScript strings.
-	return s.replace(" ", " ").strip_edges().to_lower()
+	return s.replace(" ", " ").replace("’", "'").replace("‘", "'").strip_edges().to_lower()
 
 # ============================================================================
 # FACTION CODE LOADING
@@ -262,6 +264,13 @@ func _parse_stratagem_row(row: Dictionary, faction_code: String) -> Dictionary:
 	# Optional 11e (40kdc) columns — absent in legacy CSVs.
 	var csv_timing = row.get("timing", "").strip_edges()
 	var csv_effects_json = row.get("effects_json", "").strip_edges()
+	# Optional stratagem-window column (Ork codex 11e, see
+	# .llm/ork_codex_11e_design.md §3): comma-separated window ids at which the
+	# stratagem is offered automatically. Rows written before the column existed
+	# (one field fewer than the header — parse_csv_file only maps the fields a
+	# row has) and rows with an empty value get NO "windows" key, so they parse
+	# exactly as before. Read it with strat.timing.get("windows", []).
+	var csv_windows: Array[String] = _parse_window_column(row.get("window", ""))
 
 	if csv_name == "":
 		return {}
@@ -271,6 +280,14 @@ func _parse_stratagem_row(row: Dictionary, faction_code: String) -> Dictionary:
 
 	# Parse timing
 	var timing = _parse_timing(csv_turn, csv_phase, csv_description)
+	if not csv_windows.is_empty():
+		timing["windows"] = csv_windows
+		# Window rows are offered by the stratagem-window framework, never by the
+		# legacy trigger-keyed paths (get_reactive_stratagems_for_shooting filters
+		# on trigger == "after_target_selected", ...). Text inference would also
+		# scan the EFFECT text ("until the end of the phase" -> fight_phase_end),
+		# so pin the trigger to the first window id instead.
+		timing["trigger"] = csv_windows[0]
 
 	# Parse description into structured components
 	var parsed_desc = _parse_description(csv_description)
@@ -313,6 +330,17 @@ func _parse_stratagem_row(row: Dictionary, faction_code: String) -> Dictionary:
 		"detachment": csv_detachment,
 		"implemented": implemented,
 	}
+
+static func _parse_window_column(raw) -> Array[String]:
+	"""Split the optional `window` column ("a,b") into window ids. "" -> []."""
+	var out: Array[String] = []
+	if raw == null:
+		return out
+	for part in str(raw).split(","):
+		var w := str(part).strip_edges()
+		if w != "" and not out.has(w):
+			out.append(w)
+	return out
 
 func _generate_stratagem_id(faction_code: String, detachment: String, name: String) -> String:
 	"""Generate a unique stratagem ID from faction, detachment, and name."""

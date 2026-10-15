@@ -665,6 +665,12 @@ func process_set_advance_bonus(action: Dictionary) -> Dictionary:
 
 func process_end_movement(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_MOVEMENT action")
+	# RV-2: the host runs MovementPhase._process_end_movement, which applies
+	# the 09.02 Remain Stationary diffs and broadcasts them before the phase
+	# change (see there). The block below is the legacy path only.
+	var via_phase := _end_phase_via_phase(action, GameStateData.Phase.MOVEMENT)
+	if not via_phase.is_empty():
+		return via_phase
 	var next_phase = _get_next_phase(GameStateData.Phase.MOVEMENT)
 	# 09.02: every unit must have been selected to move before the step ends —
 	# the ones the player left unselected remain stationary (09.04). Same
@@ -750,6 +756,9 @@ func process_end_charge(action: Dictionary) -> Dictionary:
 
 func process_end_fight(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_FIGHT action")
+	var via_phase := _end_phase_via_phase(action, GameStateData.Phase.FIGHT)
+	if not via_phase.is_empty():
+		return via_phase
 	# The 11e Fight phase has three steps — global Pile In (12.02), the Fight
 	# step (12.04, where END_FIGHT can only be a p.74 PASS while units are owed
 	# a fight) and global Consolidate (12.07) — followed by the 12.09 triggers.
@@ -779,6 +788,9 @@ func process_use_stratagem(action: Dictionary) -> Dictionary:
 
 func process_end_command(action: Dictionary) -> Dictionary:
 	print("GameManager: Processing END_COMMAND action")
+	var via_phase := _end_phase_via_phase(action, GameStateData.Phase.COMMAND)
+	if not via_phase.is_empty():
+		return via_phase
 
 	# Calculate next phase
 	var next_phase = _get_next_phase(GameStateData.Phase.COMMAND)
@@ -828,6 +840,11 @@ func process_end_scoring(action: Dictionary) -> Dictionary:
 
 	# Reset unit flags for the player whose turn is starting
 	var diffs = _create_flag_reset_diffs(next_player)
+	# ...and the charge / fight "this turn" flags of the player whose turn just
+	# ended (mirror of ScoringPhase._create_ended_turn_flag_reset_changes).
+	diffs.append_array(_create_ended_turn_flag_reset_diffs(current_player))
+	# ...and every unit's disembark markers (18.02: only THIS turn blocks embarking).
+	diffs.append_array(_create_disembark_marker_reset_diffs())
 
 	# Scoring wrote the host's players.* totals directly — mirror them into
 	# the broadcast diffs so clients converge (idempotent set ops).
@@ -953,6 +970,68 @@ func _delegate_to_current_phase(action: Dictionary) -> Dictionary:
 
 	# Execute the action on the phase
 	return current_phase.execute_action(action)
+
+## RV-2: END_MOVEMENT / END_FIGHT / END_COMMAND on the HOST (and offline
+## callers of apply_action) go through the phase's own end handling, so the
+## phase-end stratagem windows open (movement_phase_end, fight_phase_end, the
+## Command phase's battle_shock_step_start / unit_battle_shocked) exactly as in
+## single-player — which reaches the phase directly — and the result carries
+## BasePhase's stratagem_window_opened stamp for the client mirror. The window
+## decision (USE/DECLINE_WINDOW_STRATAGEM, delegated) then completes the phase.
+## The Fight phase is trusted as it is in single-player: its END_FIGHT walks
+## the 11e Pile In / Consolidate steps and the network layer already mirrors
+## those (trigger_pile_in_selection / trigger_consolidation_selection,
+## END_PILE_IN / END_CONSOLIDATION are exempt cross-turn actions). Movement and
+## Command keep the previous network semantics: when the phase did not complete
+## and nothing holds it (an end-of-movement prompt the network path always
+## skipped — Sawbonez, Mekaniak, Rapid Ingress ...) it is completed here as
+## before. A phase that REJECTS the action without a pending window is also
+## completed as before (the old path never validated) — except END_FIGHT,
+## whose 12.04 rejection (units still owed a fight, no legal p.74 pass)
+## stands, exactly as in single-player.
+## Returns {} when the caller should use the legacy path (a CLIENT's
+## optimistic run — clients never open windows, F4 — or no matching phase).
+func _end_phase_via_phase(action: Dictionary, phase_enum: int) -> Dictionary:
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm != null and nm.has_method("is_networked") and nm.is_networked() and not nm.is_host():
+		return {}
+	var pm = _get_phase_manager()
+	var inst = pm.get_current_phase_instance() if pm else null
+	if inst == null or not inst.has_method("execute_action") or not "phase_type" in inst or int(inst.phase_type) != phase_enum:
+		return {}
+	var res: Dictionary = inst.execute_action(action)
+	var holds_phase := func() -> bool:
+		return is_instance_valid(inst) and inst.has_method("_window_blocks_phase_completion") and bool(inst._window_blocks_phase_completion())
+	if not res.get("success", false):
+		if holds_phase.call():
+			# e.g. END_MOVEMENT while a WHILE THEIR BACKS ARE TURNED move is in
+			# progress — the window/follow-up must finish first (F1).
+			return res
+		if phase_enum == GameStateData.Phase.FIGHT and inst.has_method("get_end_fight_status"):
+			# 12.04: END_FIGHT is rejected while units are still owed a fight
+			# (only the selecting player's p.74 pass is legal) — the rejection
+			# stands; completing the phase here would forfeit those fights.
+			print("GameManager: END_FIGHT rejected by the Fight phase (%s) — the phase continues" % str(res.get("error", res.get("errors", ""))))
+			return res
+		print("GameManager: %s rejected by the phase (%s) — completing the phase as before" % [str(action.get("type", "")), str(res.get("error", ""))])
+		return {}
+	if pm.get_current_phase_instance() == inst:
+		if holds_phase.call():
+			print("GameManager: %s — the phase waits for a stratagem window / follow-up (P%d) before it ends" % [
+				str(action.get("type", "")), int(inst.get_pending_stratagem_window_decider()) if inst.has_method("get_pending_stratagem_window_decider") else 0])
+			return res
+		if phase_enum == GameStateData.Phase.FIGHT:
+			# 11e Pile In / Consolidate / opponent's remaining fights — the
+			# phase continues exactly as in single-player.
+			return res
+		print("GameManager: %s handled by the phase without completing it — completing it now (previous network behaviour)" % str(action.get("type", "")))
+		_trigger_phase_completion()
+	var changes: Array = res.get("changes", res.get("diffs", [])).duplicate()
+	var now_phase := int(GameState.get_current_phase())
+	changes.append({"op": "set", "path": "meta.phase", "value": now_phase if now_phase != phase_enum else _get_next_phase(phase_enum)})
+	res["changes"] = changes
+	res.erase("diffs")
+	return res
 
 func _trigger_phase_completion() -> void:
 	"""
@@ -1235,6 +1314,8 @@ func _create_flag_reset_diffs(player: int) -> Array:
 		# the unit in placement-pending state across a turn boundary.
 		"da_jump_used_this_turn", "awaiting_da_jump_placement",
 		"heroic_intervention",
+		# 16.01 action lock (advance / fall-back / shooting) — mirror of ScoringPhase.
+		"cannot_start_action",
 	]
 
 	for unit_id in units:
@@ -1272,4 +1353,45 @@ func _create_flag_reset_diffs(player: int) -> Array:
 	else:
 		print("GameManager: No flags to reset for player %d units" % player)
 
+	return diffs
+
+## Charge / fight "this turn" flags cleared for the player whose turn ENDED
+## (they are read during the opponent's turn: Fights First, eligibility to
+## fight, made-a-charge-move stratagem gates). Mirror of
+## ScoringPhase.ENDED_TURN_FLAGS / _create_ended_turn_flag_reset_changes —
+## whenever you change one list, change the other. Embarked units included.
+const ENDED_TURN_FLAGS := [
+	"charged_this_turn", "fights_first", "heroic_intervention",
+	"has_been_charged", "has_fought",
+]
+
+func _create_ended_turn_flag_reset_diffs(player: int) -> Array:
+	var diffs: Array = []
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		var flags = unit.get("flags", {})
+		var cleared: Array = []
+		for flag in ENDED_TURN_FLAGS:
+			if flags.has(flag):
+				diffs.append({"op": "remove", "path": "units.%s.flags.%s" % [unit_id, flag]})
+				cleared.append(flag)
+		if not cleared.is_empty():
+			print("GameManager:   End of P%d's turn — cleared %s on %s" % [player, cleared, unit_id])
+	return diffs
+
+## Mirror of ScoringPhase._create_disembark_marker_reset_changes: clear every
+## unit's disembarked_this_phase / flags.disembarked_this_turn at the end of
+## each turn (18.02 only forbids embarking in the turn the unit was set up).
+func _create_disembark_marker_reset_diffs() -> Array:
+	var diffs: Array = []
+	var units = GameState.state.get("units", {})
+	for unit_id in units:
+		var unit = units[unit_id]
+		if unit.get("disembarked_this_phase", false):
+			diffs.append({"op": "set", "path": "units.%s.disembarked_this_phase" % unit_id, "value": false})
+		if unit.get("flags", {}).has("disembarked_this_turn"):
+			diffs.append({"op": "remove", "path": "units.%s.flags.disembarked_this_turn" % unit_id})
 	return diffs

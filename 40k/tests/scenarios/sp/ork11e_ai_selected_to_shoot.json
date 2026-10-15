@@ -1,0 +1,37 @@
+{
+  "id": "ork11e_ai_selected_to_shoot",
+  "covers": [
+    "stratagem.window.unit_selected_to_shoot.ai_decider",
+    "stratagem.ork11e.close_range_dakka",
+    "ai.decide_window_stratagem",
+    "phases.ShootingPhase.atomic_shoot_window"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) unit_selected_to_shoot window with an AI decider, in the live game: the Orks (War Horde, active, 7 CP) are handed to the AI in their own Shooting phase (both seats AI so no human save overlay interrupts). Setup-only: Custodian Guard C stands unengaged ~4-8\" in front of the Ork rank with inflated wounds. The AI shoots through its atomic SHOOT actions; each selection opens the window synchronously inside the SHOOT, so the AI must answer it without a dialog and without stalling. The scenario waits until the AI has used CLOSE-RANGE DAKKA and fired, then checks: the game log names the stratagem use, the AI's shots resolved, no StratagemDialog was ever shown, and P1 spent CP.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 8 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().active_shooter_id != \"\" and PhaseManager.get_current_phase_instance().active_shooter_id == main.shooting_controller.active_shooter_id", "equals": true, "comment": "phase entry auto-selects the first eligible shooter as a REAL SELECT_SHOOTER (r5:F3): the phase and the panel agree on the active shooter" },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 0, "comment": "LV-2: the phase-entry auto-selection is not a player choice, so it opens NO unit_selected_to_shoot window (it opens before the player's first action with that shooter instead) - nothing to decline before the scenario picks its own shooter" },
+    { "act": "wait_seconds", "seconds": 0.5 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "script": "SettingsService.set(\"auto_allocate_wounds\", true)" },
+    { "act": "execute_script", "multiline": true, "script": "var xs = [2.0, 4.0, 6.0, 8.0, 10.0]\nvar ms = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models\nfor i in range(ms.size()):\n\tms[i][\"position\"] = {\"x\": xs[i] * 40.0, \"y\": 21.0 * 40.0}\n\tms[i][\"wounds\"] = 99\n\tms[i][\"current_wounds\"] = 99\nreturn true", "equals": true, "comment": "setup: an unengaged target inside half range of the Ork rank's guns" },
+    { "act": "execute_script", "script": "main._recreate_unit_visuals()" },
+    { "act": "execute_script", "script": "StratagemManager.get_player_cp(1)", "equals": 7 },
+    { "act": "screenshot", "label": "00_before_ai_shooting" },
+    { "act": "execute_script", "multiline": true, "script": "AIPlayer.configure({1: \"AI\", 2: \"AI\"})\nreturn AIPlayer.enabled", "equals": true, "comment": "hand both seats to the AI (spectator mode) for the Orks' Shooting phase" },
+    { "act": "wait_for_script", "script": "return ScenarioRunner.event_log_count_containing(\"Used CLOSE-RANGE DAKKA\") >= 1 and ScenarioRunner.event_log_count_containing(\" → \") >= 1", "equals": true, "timeout_s": 150, "poll_s": 0.5 },
+    { "act": "execute_script", "multiline": true, "script": "AIPlayer.enabled = false\nreturn true", "equals": true, "comment": "stop the AI once the evidence is in" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"Used CLOSE-RANGE DAKKA\")", "expect_min": 1 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node_or_null(\"StratagemDialog\") == null", "equals": true, "comment": "an AI decider never sees the window dialog" },
+    { "act": "execute_script", "script": "StratagemManager.get_player_cp(1)", "expect_max": 6 },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\" → \")", "expect_min": 1, "comment": "the AI's shooting resolved (attack lines in the game log)" },
+    { "act": "screenshot", "label": "01_ai_used_close_range_dakka_and_shot" }
+  ]
+}

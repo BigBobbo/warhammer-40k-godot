@@ -1335,14 +1335,18 @@ func _setup_reactive_stratagem_overlay() -> void:
 	_reactive_stratagem_overlay.gui_input.connect(_on_reactive_overlay_gui_input)
 	add_child(_reactive_stratagem_overlay)
 
-	# Centered banner panel
+	# Banner panel, docked just under the top HUD strip (LIVE-9): it used to sit
+	# across the middle of the board (anchor 0.35) and hid exactly the units the
+	# stratagem decision is about. Same slot as the Examine Board bar, which
+	# replaces it while the decider looks around.
 	_reactive_stratagem_overlay_panel = PanelContainer.new()
+	_reactive_stratagem_overlay_panel.name = "ReactiveStratagemBanner"
 	_reactive_stratagem_overlay_panel.anchor_left = 0.25
 	_reactive_stratagem_overlay_panel.anchor_right = 0.75
-	_reactive_stratagem_overlay_panel.anchor_top = 0.35
-	_reactive_stratagem_overlay_panel.anchor_bottom = 0.35
-	_reactive_stratagem_overlay_panel.offset_top = 0
-	_reactive_stratagem_overlay_panel.offset_bottom = 120
+	_reactive_stratagem_overlay_panel.anchor_top = 0.0
+	_reactive_stratagem_overlay_panel.anchor_bottom = 0.0
+	_reactive_stratagem_overlay_panel.offset_top = DialogConstants.TOP_HUD_CLEARANCE + 12
+	_reactive_stratagem_overlay_panel.offset_bottom = DialogConstants.TOP_HUD_CLEARANCE + 12 + 96
 	_reactive_stratagem_overlay_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var banner_style = StyleBoxFlat.new()
@@ -1392,7 +1396,7 @@ func _setup_reactive_stratagem_overlay() -> void:
 
 	print("Main: MA-42 Reactive stratagem blocking overlay created")
 
-func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem") -> void:
+func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem", decider_player: int = 0) -> void:
 	# MA-42: Show blocking overlay to the active player while opponent decides
 	if not _reactive_stratagem_overlay:
 		return
@@ -1400,10 +1404,12 @@ func show_reactive_stratagem_waiting(stratagem_name: String = "stratagem") -> vo
 	# Every reactive window (saves, Overwatch, Heroic Intervention,
 	# Counter-Offensive, Rapid Ingress) belongs to the NON-active player. In
 	# play-and-pass both players share the screen, so "opponent" is wrong —
-	# name the person whose decision it is.
+	# name the person whose decision it is. Generic stratagem windows pass the
+	# decider explicitly (it can be the active player's opponent OR, for an
+	# either-turn window, a non-active fighter's owner).
 	var handoff_mgr = get_node_or_null("/root/HandoffManager")
 	if handoff_mgr and handoff_mgr.is_local_hotseat():
-		var decider: int = 3 - GameState.get_active_player()
+		var decider: int = decider_player if decider_player > 0 else 3 - GameState.get_active_player()
 		var decider_name: String = GameState.get_player_display_name(decider)
 		_reactive_stratagem_overlay_label.text = "%s (%s) — %s decision" % [
 			decider_name, GameState.get_faction_name(decider), stratagem_name]
@@ -5535,6 +5541,35 @@ func setup_phase_controllers() -> void:
 	_setting_up_controllers = false
 	print("Main: setup_phase_controllers() COMPLETE (semaphore unlocked)")
 
+	# Stratagem windows (design §3.1): follow the CURRENT phase instance — a
+	# new instance is created on every phase change.
+	_connect_stratagem_window_signal()
+	# AI-02: the shooting reactive window (enemy_targets_unit_shooting fold-in)
+	# may have opened BEFORE the ShootingController above was attached — this
+	# function awaits, and the AI's first atomic SHOOT of the phase can run in
+	# between. Its one-shot reactive_stratagem_opportunity then reached nobody
+	# and the human defender never saw the dialog. Re-emit it now.
+	if current_phase == GameStateData.Phase.SHOOTING:
+		_reshow_pending_shooting_reactive_window()
+
+func _reshow_pending_shooting_reactive_window() -> void:
+	var phase = PhaseManager.get_current_phase_instance() if PhaseManager else null
+	if phase == null or not ("awaiting_reactive_stratagem" in phase) or not phase.awaiting_reactive_stratagem:
+		return
+	if not phase.has_method("_check_reactive_stratagems") or not phase.has_signal("reactive_stratagem_opportunity"):
+		return
+	if NetworkManager.is_networked() and not NetworkManager.is_host():
+		return  # clients get it from the host's result (NetworkManager re-emits)
+	var shown = get_tree().root.get_node_or_null("StratagemDialog")
+	if shown and is_instance_valid(shown) and shown.visible:
+		return
+	var opp: Dictionary = phase._check_reactive_stratagems()
+	if not opp.get("has_opportunities", false):
+		return
+	print("Main: AI-02 re-showing the pending shooting reactive window for P%d (opened before the ShootingController attached)" % int(opp.get("defending_player", 0)))
+	phase.emit_signal("reactive_stratagem_opportunity", int(opp.get("defending_player", 0)),
+		opp.get("available_stratagems", []), opp.get("target_unit_ids", []))
+
 func setup_deployment_controller() -> void:
 	print("[Main] setup_deployment_controller() called")
 	print("[Main] token_layer is null: ", token_layer == null)
@@ -6052,7 +6087,22 @@ func setup_shooting_controller() -> void:
 	shooting_controller = preload("res://scripts/ShootingController.gd").new()
 	shooting_controller.name = "ShootingController"
 	add_child(shooting_controller)
-	
+
+	# Connect the controller's action signals BEFORE set_phase(): set_phase()
+	# auto-selects the first eligible shooter, which emits SELECT_SHOOTER. With
+	# the connection made afterwards that first selection never reached the
+	# phase (r5:F3 / r4:WS-5) — the panel showed "[ACTIVE]" while the phase had
+	# no active shooter, so Quick-Assign / Confirm did nothing and the
+	# unit_selected_to_shoot stratagem window never opened for that unit. A
+	# window the selection opens is shown by _connect_stratagem_window_signal()
+	# at the end of setup_phase_controllers() (it re-shows a pending window).
+	if not shooting_controller.shoot_action_requested.is_connected(_on_shooting_action_requested):
+		shooting_controller.shoot_action_requested.connect(_on_shooting_action_requested)
+		print("Connected shoot_action_requested signal")
+	if not shooting_controller.ui_update_requested.is_connected(_on_shooting_ui_update_requested):
+		shooting_controller.ui_update_requested.connect(_on_shooting_ui_update_requested)
+		print("Connected ui_update_requested signal")
+
 	# Get the current phase instance from PhaseManager
 	var phase_instance = PhaseManager.get_current_phase_instance()
 	if phase_instance:
@@ -6074,14 +6124,6 @@ func setup_shooting_controller() -> void:
 			print("WARNING: Phase instance is not a ShootingPhase, skipping signal connections")
 	else:
 		print("WARNING: No phase instance found!")
-	
-	# Connect shooting controller signals
-	if not shooting_controller.shoot_action_requested.is_connected(_on_shooting_action_requested):
-		shooting_controller.shoot_action_requested.connect(_on_shooting_action_requested)
-		print("Connected shoot_action_requested signal")
-	if not shooting_controller.ui_update_requested.is_connected(_on_shooting_ui_update_requested):
-		shooting_controller.ui_update_requested.connect(_on_shooting_ui_update_requested)
-		print("Connected ui_update_requested signal")
 
 func setup_charge_controller() -> void:
 	print("Setting up ChargeController...")
@@ -8508,7 +8550,12 @@ func update_ui() -> void:
 
 		GameStateData.Phase.MOVEMENT:
 			var ai_move = get_node_or_null("/root/AIPlayer")
-			if ai_move and ai_move.is_ai_player(active_player):
+			var reactive_status := _reactive_move_status_text()
+			if reactive_status != "":
+				# LIVE-8: a reactive normal move (SCARPER!, ...) belongs to the
+				# unit's owner, not the active player — say whose move it is.
+				status_label.text = reactive_status
+			elif ai_move and ai_move.is_ai_player(active_player):
 				status_label.text = "AI Player %d is moving..." % active_player
 			elif movement_controller and movement_controller.active_unit_id != "":
 				if movement_controller.active_mode != "":
@@ -8560,6 +8607,11 @@ func update_ui() -> void:
 			else:
 				status_label.text = "Phase: " + GameStateData.Phase.keys()[current_phase]
 			phase_action_button.disabled = false
+
+	# The tooltip must carry the text just set (the mirror above runs before
+	# the phase branch, so it lagged one refresh behind — LV-5).
+	if status_label:
+		status_label.tooltip_text = status_label.text
 
 # ═══════════════════════════════════════════════════════
 # T5-UX11: DEPLOYMENT UNIT HOVER PREVIEW
@@ -8933,7 +8985,14 @@ func _show_token_hover(unit_id: String, screen_pos: Vector2, model_id: String = 
 		var val_text = "?" if val == null else "%d%s" % [int(val), def[2]]
 		stat_parts.append("[color=#D49761]%s[/color]:%s" % [def[1], val_text])
 	var invuln = int(stats.get("invuln", stats.get("invulnerable_save", 0)))
-	if invuln > 0:
+	# LV-3: show the EFFECTIVE invulnerable save — RulesEngine uses the better
+	# of the datasheet value and an effect-granted one (DREAD POWER, Waaagh!,
+	# Da Boss Iz Watchin' …), so the card must not keep showing the datasheet's.
+	var eff_invuln := int(unit.get("flags", {}).get("effect_invuln", 0))
+	if eff_invuln > 0 and (invuln == 0 or eff_invuln < invuln):
+		var inv_src := str(unit.get("flags", {}).get("effect_invuln_source", ""))
+		stat_parts.append("[color=#D49761]Inv[/color]:%d++ [color=#888888](%s)[/color]" % [eff_invuln, inv_src if inv_src != "" else "effect"])
+	elif invuln > 0:
 		stat_parts.append("[color=#D49761]Inv[/color]:%d++" % invuln)
 	var models = unit.get("models", [])
 	var alive = 0
@@ -9075,6 +9134,21 @@ func _build_status_marker_hover_text(unit: Dictionary, unit_id: String = "") -> 
 		lines.append("[color=#CC9A93]Failed a Battle-shock test (Below Half-strength) or was shocked by an effect (e.g. emergency disembark).[/color]")
 		lines.append("[color=#CC9A93]OC 0 — cannot hold objectives; cannot use Stratagems; cannot start Actions; Desperate Escape tests fail on 1-3.[/color]")
 		lines.append("[color=#CC9A93]Tests again at the start of its next Command phase.[/color]")
+	# LV-3: a riled-up Ork unit (11e Waaagh! / DREAD POWER) — otherwise only the
+	# Game Log said so, and the player could not tell the stratagem took effect.
+	if flags.get("ork11e_riled_up", false) or flags.get("waaagh_active", false):
+		var fam_rl = get_node_or_null("/root/FactionAbilityManager")
+		var rl_summary: String = str(fam_rl.waaagh_effects_summary()) if fam_rl != null else ""
+		# LV2-E1: the 11e summary starts with "riled up:" — under the "Riled up"
+		# title that read "Riled up — riled up: 5+ invuln, …". Keep the effects.
+		for rl_prefix in ["riled up:", "waaagh!:"]:
+			if rl_summary.to_lower().begins_with(rl_prefix):
+				rl_summary = rl_summary.substr(rl_prefix.length()).strip_edges()
+		var rl_title := "Riled up" if GameConstants.edition >= 11 else "Waaagh!"
+		if rl_summary == "":
+			lines.append("[color=#7FD13B][b]%s[/b][/color]" % rl_title)
+		else:
+			lines.append("[color=#7FD13B][b]%s[/b][/color] [color=#AAAAAA]— %s[/color]" % [rl_title, rl_summary])
 	# Fought overlay (dim + green check) supersedes the engaged badge on the token.
 	if flags.get("has_fought", false):
 		lines.append("[color=#6FBF6F][b]Fought[/b][/color] [color=#888888](green check)[/color] [color=#AAAAAA]— has fought this turn[/color]")
@@ -11413,8 +11487,60 @@ func _on_secondary_score_changed(_player: int, _vp: int, _mission_id: String) ->
 	_update_score_display()
 
 # P3-120: Update CP display immediately when a stratagem is used
+## HUD status line for an in-progress reactive normal move (SCARPER!,
+## WHIRLIGIG EVASION, WHILE THEIR BACKS ARE TURNED, ...): "Player 2: SCARPER!
+## move — drag Gretchin Alpha up to 3", then End This Unit's Move". "" when no
+## reactive move is in progress (LIVE-8).
+func _reactive_move_status_text() -> String:
+	var phase = PhaseManager.get_current_phase_instance() if PhaseManager else null
+	if phase == null or not ("active_moves" in phase):
+		return ""
+	for uid in phase.active_moves:
+		var md: Dictionary = phase.active_moves[uid]
+		if not md.get("is_reactive_move", false) or md.get("completed", false):
+			continue
+		var owner := int(GameState.get_unit(str(uid)).get("owner", 0))
+		var src: String = MovementController.reactive_move_source(md)
+		var uname := GameState.get_unit_display_name(str(uid))
+		var cap := MovementController._fmt_inches(float(md.get("move_cap_inches", 0.0)))
+		# LV-5: the long form ("Player 2: SCARPER! move — drag … then End This
+		# Unit's Move") lost its instruction to the ellipsis at 1920 px. Use the
+		# most detailed form that FITS the top bar; the unit and the rule are also
+		# on the right panel, so they are dropped first.
+		return _first_fitting_status_text([
+			"P%d %s: drag %s ≤%s\", then End This Unit's Move" % [owner, src, uname, cap],
+			"P%d %s: drag ≤%s\", then End This Unit's Move" % [owner, src, cap],
+			"P%d: drag %s ≤%s\", then End This Unit's Move" % [owner, uname, cap],
+			"P%d: drag ≤%s\", then End This Unit's Move" % [owner, cap],
+		])
+	return ""
+
+
+## The first of `candidates` that fits the top-bar status label without the
+## ellipsis (the last one when none does, or when the label is not laid out).
+func _first_fitting_status_text(candidates: Array) -> String:
+	if candidates.is_empty():
+		return ""
+	if status_label == null or not is_instance_valid(status_label) or status_label.size.x <= 0.0:
+		return str(candidates[0])
+	var font: Font = status_label.get_theme_font("font")
+	var fsize: int = status_label.get_theme_font_size("font_size")
+	if font == null:
+		return str(candidates[0])
+	for c in candidates:
+		if font.get_string_size(str(c), HORIZONTAL_ALIGNMENT_LEFT, -1, fsize).x <= status_label.size.x:
+			return str(c)
+	return str(candidates[candidates.size() - 1])
+
+
 func _on_stratagem_used_update_display(_player: int, _stratagem_id: String, _target_unit_id: String) -> void:
 	_update_score_display()
+	# DELICIOUS EATING SQUIGS revives destroyed models at a new set-up spot
+	# (01.02.03): rebuild the tokens so the revived models appear (human S-panel
+	# use and AI use alike).
+	var sm = get_node_or_null("/root/StratagemManager")
+	if sm and str(sm.get_stratagem(_stratagem_id).get("csv_id", "")) == "delicious-eating-squigs-kult-of-speed":
+		call_deferred("_recreate_unit_visuals")
 
 # Multiplayer sync handler
 func _on_network_result_applied(result: Dictionary) -> void:
@@ -12064,6 +12190,10 @@ func _on_disconnect_continue_single_player(disconnected_player: int) -> void:
 		AIPlayer.ai_difficulty[disconnected_player] = AIDifficultyConfigData.Difficulty.NORMAL
 		AIPlayer.enabled = true
 		print("Main: AI enabled for Player %d (Normal difficulty)" % disconnected_player)
+		# AI-01: the departed player may owe a pending stratagem window /
+		# reactive decision / follow-up move — let the AI answer it now (the
+		# watchdog alone only runs while an AI is the active player).
+		AIPlayer._request_evaluation()
 	if ToastManager:
 		ToastManager.show_info("Continuing in single-player — Player %d is now AI" % disconnected_player)
 
@@ -12834,6 +12964,17 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 					if movement_controller:
 						movement_controller.active_unit_id = ""
 						movement_controller.active_mode = ""
+						# LV-1: a finished move (notably a reactive SCARPER! /
+						# WHIRLIGIG / WTBT move by the NON-active player) must
+						# not leave its unit, mode and End button on the right
+						# panel for the next player.
+						movement_controller._update_selected_unit_display()
+						if movement_controller.has_method("_apply_reactive_move_panel_state"):
+							movement_controller._apply_reactive_move_panel_state()
+					# LV-1: update_movement_card_buttons() returns early in the
+					# Movement phase, so nothing refreshed the top-bar status —
+					# the reactive move's "Player 2: SCARPER! …" stayed up.
+					update_ui()
 				"CONFIRM_DISEMBARK":
 					print("Main: Disembark confirmed for unit: ", action.actor_unit_id)
 					# Refresh board visuals to show the disembarked models
@@ -15296,6 +15437,21 @@ func _toggle_stratagem_panel() -> void:
 
 
 func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
+	# A stratagem window is waiting for a decision: the S panel must not let a
+	# stratagem slip past the window's action gate (BasePhase refuses every other
+	# action while a window is pending; the panel calls StratagemManager
+	# directly, so it has to check here).
+	# F14: a used stratagem's follow-up (GRAB IT / GOADED move, READIED
+	# BRAWLERS disembark, SCARPER! move) owns the phase the same way — the
+	# decider covers both (get_pending_stratagem_window_decider > 0).
+	var _pm_node = get_node_or_null("/root/PhaseManager")
+	var _phase_inst = _pm_node.get_current_phase_instance() if _pm_node else null
+	if _phase_inst and _phase_inst.has_method("get_pending_stratagem_window_decider") and _phase_inst.get_pending_stratagem_window_decider() > 0:
+		var _decider: int = _phase_inst.get_pending_stratagem_window_decider()
+		var _what := "a stratagem window" if _phase_inst.has_pending_stratagem_window() else "a stratagem follow-up move"
+		print("Main: S panel use of %s refused — %s is pending for Player %d" % [stratagem_id, _what, _decider])
+		_show_toast("Finish the open stratagem decision first (Player %d)" % _decider)
+		return
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager == null:
 		return
@@ -15323,6 +15479,11 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	# whether to push it (bigger effect + HAZARDOUS weapons).
 	if strat_name in ["BIGGER SHELLS FOR BIGGER GITZ", "DAKKA! DAKKA! DAKKA!", "KLANKIN' KLAWS"]:
 		_prompt_push_it_stratagem(sid_resolved, active_player)
+		return
+	# DELICIOUS EATING SQUIGS (Codex: Orks 11e, Kult of Speed): pick the
+	# buggies, then confirm where the revived models are set up (01.02.03).
+	if str(strat.get("csv_id", "")) == "delicious-eating-squigs-kult-of-speed":
+		_prompt_delicious_squigs(sid_resolved, active_player)
 		return
 	# Unit-targeted faction stratagems (SPESHUL AMMO, DUST TRAILS, DAT'S OURS,
 	# TAKTIKAL RETREAT, DED SNEAKY, ...): prompt for the friendly target
@@ -15368,6 +15529,125 @@ func _prompt_friendly_target_then_use(sid: String, player: int) -> void:
 				_stratagem_panel.populate(player, current_phase))
 
 
+## DELICIOUS EATING SQUIGS (Codex: Orks 11e): pick the Rukkatrukk
+## Squigbuggies, then — when the heal revives destroyed models — show where each
+## revived model will be set up (auto-placed in coherency with its unit, 01.02.03;
+## rings on the board) and use the stratagem only when the player confirms.
+## A revive with no legal set-up spot is listed as lost.
+func _prompt_delicious_squigs(sid: String, player: int) -> void:
+	var strat_manager = get_node("/root/StratagemManager")
+	var friendly := _eligible_friendly_stratagem_targets(sid, player)
+	if friendly.is_empty():
+		print("Main: DELICIOUS EATING SQUIGS — no eligible friendly unit")
+		return
+	# r5:F12 / R3 / RV-3: the stratagem heals EVERY ORKS INFANTRY unit within
+	# 3" of the picked unit automatically — say which ones on each button and
+	# what happens in the prompt (lost in the merge when DES moved here).
+	var mv_names = load("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
+	var details := {}
+	for f in friendly:
+		var healed: Array = mv_names.delicious_squigs_targets(str(f), player)
+		var names: Array = healed.map(func(h): return GameState.get_unit_display_name(str(h)))
+		details[str(f)] = "heals %s" % (", ".join(PackedStringArray(names)) if not names.is_empty() else "no unit")
+	_show_stratagem_pick_dialog("DELICIOUS EATING SQUIGS — select your unit: every ORKS INFANTRY unit within 3\" of it heals 3 wounds", friendly,
+		func(fid: String):
+			var use_now := func():
+				var result = strat_manager.use_stratagem(player, sid, fid)
+				print("Main: DELICIOUS EATING SQUIGS on %s -> %s" % [fid, str(result)])
+				if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
+					_stratagem_panel.populate(player, current_phase)
+			var mv_script = load("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
+			var preview: Array = mv_script.delicious_squigs_preview(fid, player)
+			var revived := 0
+			var lost := 0
+			for e in preview:
+				revived += int(e.get("revived", 0))
+				lost += int(e.get("no_room", 0))
+			if revived == 0 and lost == 0:
+				use_now.call()
+				return
+			_show_revive_setup_confirm(preview, use_now), details)
+
+
+## Confirmation for an auto-placed revive set-up: rings on the board at each
+## spot plus a dialog listing the units; Confirm uses the stratagem, Cancel
+## spends nothing. Node paths are stable for windowed scenarios:
+## /root/ReviveSetupDialog/Content/{Header,Unit_<uid>,ConfirmButton,CancelButton}.
+func _show_revive_setup_confirm(preview: Array, on_confirm: Callable) -> void:
+	var meas = get_node_or_null("/root/Measurement")
+	var markers: Array = []
+	for e in preview:
+		for pl in e.get("placements", []):
+			var model: Dictionary = {}
+			for m in GameState.get_unit(str(pl.unit_id)).get("models", []):
+				if str(m.get("id", "")) == str(pl.model_id):
+					model = m
+			var r := 20.0
+			if meas and not model.is_empty():
+				r = float(meas.base_extent_px(model))
+			markers.append({"position": pl.position, "radius": r})
+	var overlay = load("res://scripts/ReviveSetupPreview.gd").new()
+	overlay.name = "ReviveSetupPreview"
+	if ghost_layer:
+		ghost_layer.add_child(overlay)
+	overlay.set_markers(markers)
+	# Let the player see the marked spots: close the Stratagem panel (it covers
+	# the board) and frame the first spot above the bottom-docked dialog.
+	if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
+		_toggle_stratagem_panel()
+	if not markers.is_empty():
+		focus_on_world_point(markers[0].position, false, Vector2(0.5, 0.32))
+	var dialog = AcceptDialog.new()
+	dialog.name = "ReviveSetupDialog"
+	dialog.title = "DELICIOUS EATING SQUIGS — set up revived models"
+	dialog.get_ok_button().hide()
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 6)
+	var header = Label.new()
+	header.name = "Header"
+	header.text = "Revived models are set up in coherency with their unit (marked on the board):"
+	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	header.custom_minimum_size = Vector2(420, 0)
+	content.add_child(header)
+	for e in preview:
+		var uid := str(e.get("unit_id", ""))
+		var line = Label.new()
+		line.name = "Unit_%s" % uid
+		var parts: Array = []
+		if int(e.get("healed", 0)) > 0:
+			parts.append("%d wound(s) healed" % int(e.healed))
+		if int(e.get("revived", 0)) > 0:
+			parts.append("%d model(s) revived" % int(e.revived))
+		if int(e.get("no_room", 0)) > 0:
+			parts.append("%d revive(s) lost — no legal set-up spot" % int(e.no_room))
+		line.text = "%s: %s" % [GameState.get_unit_display_name(uid), ", ".join(PackedStringArray(parts)) if not parts.is_empty() else "no change"]
+		content.add_child(line)
+	var close := func():
+		if is_instance_valid(overlay):
+			overlay.queue_free()
+		dialog.name = "ReviveSetupDialogClosing"
+		dialog.queue_free()
+	var confirm_btn = Button.new()
+	confirm_btn.name = "ConfirmButton"
+	confirm_btn.text = "Confirm — use DELICIOUS EATING SQUIGS"
+	confirm_btn.pressed.connect(func():
+		close.call()
+		on_confirm.call())
+	content.add_child(confirm_btn)
+	var cancel_btn = Button.new()
+	cancel_btn.name = "CancelButton"
+	cancel_btn.text = "Cancel"
+	cancel_btn.pressed.connect(func():
+		print("Main: DELICIOUS EATING SQUIGS revive set-up cancelled — stratagem not used")
+		close.call())
+	content.add_child(cancel_btn)
+	dialog.close_requested.connect(func(): close.call())
+	dialog.add_child(content)
+	get_tree().root.add_child(dialog)
+	DialogUtils.popup_at_bottom(dialog)
+
+
 ## FIGHT PROPPA (Taktikal Brigade): pick the friendly unit, then pick which
 ## melee ability it gains until end of phase.
 func _prompt_fight_proppa(sid: String, player: int) -> void:
@@ -15411,11 +15691,11 @@ func _prompt_push_it_stratagem(sid: String, player: int) -> void:
 func _show_stratagem_choice_dialog(title_text: String, options: Array, on_pick: Callable) -> void:
 	var dialog = AcceptDialog.new()
 	dialog.name = "StratagemChoiceDialog"
-	dialog.title = title_text
 	dialog.get_ok_button().text = "Cancel"
 	var content = VBoxContainer.new()
 	content.name = "Content"
 	content.add_theme_constant_override("separation", 6)
+	_add_picker_prompt(dialog, content, title_text)
 	for opt in options:
 		var value := str(opt[1])
 		var btn = Button.new()
@@ -15451,20 +15731,22 @@ func _prompt_stratagem_targets(sid: String, player: int) -> void:
 					if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
 						_stratagem_panel.populate(player, current_phase)))
 
-func _show_stratagem_pick_dialog(title_text: String, unit_ids: Array, on_pick: Callable) -> void:
+func _show_stratagem_pick_dialog(title_text: String, unit_ids: Array, on_pick: Callable, details: Dictionary = {}) -> void:
 	var dialog = AcceptDialog.new()
 	dialog.name = "StratagemTargetDialog"
-	dialog.title = title_text
 	dialog.get_ok_button().text = "Cancel"
 	var content = VBoxContainer.new()
 	content.name = "Content"
 	content.add_theme_constant_override("separation", 6)
+	_add_picker_prompt(dialog, content, title_text)
 	for uid_raw in unit_ids:
 		var uid := str(uid_raw)
 		var unit = GameState.get_unit(uid)
 		var btn = Button.new()
 		btn.name = "Pick_%s" % uid
 		btn.text = GameState.get_unit_display_name(uid)
+		if details.has(uid):
+			btn.text += " — %s" % str(details[uid])
 		btn.pressed.connect(func():
 			# queue_free is deferred — release the node NAME immediately so a
 			# follow-up picker can claim the stable path this frame.
@@ -15476,6 +15758,242 @@ func _show_stratagem_pick_dialog(title_text: String, unit_ids: Array, on_pick: C
 	get_tree().root.add_child(dialog)
 	DialogUtils.popup_at_bottom(dialog)
 
+
+# =============================================================================
+# STRATAGEM WINDOWS (design .llm/ork_codex_11e_design.md §3.1)
+# =============================================================================
+# BasePhase.open_stratagem_window emits stratagem_window_opened when a HUMAN
+# must decide. Main shows the single StratagemDialog (window mode) on the
+# decider's seat only, routes the answer as USE_/DECLINE_WINDOW_STRATAGEM
+# through NetworkIntegration, and shows the waiting overlay on the other seat
+# (networked) or over the board (hot-seat, decider != active player). An AI
+# decider never sees a dialog — the phase answered for it synchronously.
+
+var _stratagem_window_phase: Object = null
+
+func _connect_stratagem_window_signal() -> void:
+	var phase = PhaseManager.get_current_phase_instance() if PhaseManager else null
+	if phase == null or not phase.has_signal("stratagem_window_opened"):
+		return
+	if _stratagem_window_phase == phase:
+		return
+	_stratagem_window_phase = phase
+	var cb := Callable(self, "_on_stratagem_window_opened")
+	if not phase.stratagem_window_opened.is_connected(cb):
+		phase.stratagem_window_opened.connect(cb)
+	var close_cb := Callable(self, "_on_stratagem_window_closed")
+	if phase.has_signal("stratagem_window_closed") and not phase.stratagem_window_closed.is_connected(close_cb):
+		phase.stratagem_window_closed.connect(close_cb)
+	print("Main: stratagem_window_opened connected on %s" % phase.get_script().resource_path.get_file())
+	# A window the phase opened before we connected (e.g. at phase start, or a
+	# mirrored window on reconnect) is shown now.
+	if phase.has_method("has_pending_stratagem_window") and phase.has_pending_stratagem_window():
+		var w: Dictionary = phase.get_pending_stratagem_window()
+		call_deferred("_on_stratagem_window_opened", int(w.get("player", 0)), str(w.get("window_id", "")),
+			w.get("offers", []), w.get("ctx", {}))
+
+func _on_stratagem_window_opened(player: int, window_id: String, offers: Array, ctx: Dictionary) -> void:
+	print("Main: stratagem window %s opened for Player %d (%d offer(s))" % [window_id, player, offers.size()])
+	var ai_node = get_node_or_null("/root/AIPlayer")
+	if ai_node and ai_node.is_ai_player(player):
+		print("Main: window %s belongs to AI Player %d — no dialog" % [window_id, player])
+		return
+	if NetworkManager.is_networked() and NetworkManager.get_local_player() != player:
+		# The other seat decides: block this board until their answer arrives
+		# (NetworkManager hides the overlay on USE/DECLINE_WINDOW_STRATAGEM).
+		show_reactive_stratagem_waiting("stratagem", player)
+		return
+	_show_stratagem_window_dialog(player, window_id, offers, ctx)
+	# Play-and-pass only: block the board for the active player while the other
+	# seat decides. Against the AI the human IS the decider, so the "waiting for
+	# your opponent" overlay would be wrong (foundation review defect 2).
+	var active_is_ai: bool = ai_node != null and ai_node.is_ai_player(GameState.get_active_player())
+	if not NetworkManager.is_networked() and player != GameState.get_active_player() and not active_is_ai:
+		show_reactive_stratagem_waiting("stratagem", player)
+
+## A window closed WITHOUT this machine's dialog answering it — e.g. the AI
+## took the decider's seat over and answered it (AI-01), or the network
+## mirror was cleared: drop a still-open window-mode dialog for that window
+## (clicking it would only produce "No stratagem window is waiting") and the
+## waiting overlay. A dialog that answered has already renamed itself
+## "StratagemDialogClosing", so this never touches the next window's dialog
+## (the next window opens after this signal).
+func _on_stratagem_window_closed(player: int, window_id: String, _used: bool) -> void:
+	var open_dialog = get_tree().root.get_node_or_null("StratagemDialog")
+	if open_dialog and "window_mode" in open_dialog and open_dialog.window_mode \
+			and str(open_dialog.window_id) == window_id and int(open_dialog.defending_player) == player:
+		print("Main: window %s (P%d) closed elsewhere — removing its open dialog" % [window_id, player])
+		if open_dialog.has_method("close_without_answer"):
+			open_dialog.close_without_answer()
+		else:
+			open_dialog.name = "StratagemDialog_stale"
+			open_dialog.hide()
+			open_dialog.queue_free()
+	if _reactive_stratagem_pending:
+		hide_reactive_stratagem_waiting()
+
+func _show_stratagem_window_dialog(player: int, window_id: String, offers: Array, ctx: Dictionary) -> void:
+	var stale = get_tree().root.get_node_or_null("StratagemDialog")
+	if stale:
+		stale.name = "StratagemDialog_stale"
+		if "window_mode" in stale and stale.window_mode:
+			stale.queue_free()
+	var dialog = preload("res://dialogs/StratagemDialog.gd").new()
+	dialog.name = "StratagemDialog"
+	dialog.window_stratagem_selected.connect(_on_window_stratagem_selected.bind(player, window_id, offers, ctx))
+	dialog.window_declined.connect(_on_window_stratagem_declined.bind(player, window_id))
+	get_tree().root.add_child(dialog)
+	dialog.setup_window(player, window_id, offers, ctx)
+	DialogUtils.popup_at_bottom(dialog)
+
+func _window_offer_target(offers: Array, sid: String, uid: String) -> Dictionary:
+	for offer in offers:
+		if str(offer.get("stratagem_id", "")) != sid:
+			continue
+		for t in offer.get("targets", []):
+			if str(t.get("unit_id", "")) == uid:
+				return t
+	return {}
+
+func _on_window_stratagem_selected(sid: String, uid: String, variant_id: String, player: int, window_id: String, offers: Array, ctx: Dictionary) -> void:
+	var action_ctx := {}
+	if variant_id != "":
+		action_ctx["variant_id"] = variant_id
+	var target: Dictionary = _window_offer_target(offers, sid, uid)
+	var secondary = target.get("secondary", {})
+	if typeof(secondary) == TYPE_DICTIONARY and not secondary.get("options", []).is_empty():
+		# Secondary pick (second unit / objective) — StratagemTargetDialog
+		# Pick_<id> for units, StratagemChoiceDialog Choice_<id> otherwise.
+		# Cancel re-opens the window so the decider is never stranded.
+		_show_window_secondary_dialog(secondary,
+			func(secondary_id: String):
+				var ctx2 := action_ctx.duplicate()
+				ctx2["secondary_id"] = secondary_id
+				_dispatch_window_action({"type": "USE_WINDOW_STRATAGEM", "player": player, "window_id": window_id,
+					"stratagem_id": sid, "target_unit_id": uid, "context": ctx2}, player, window_id, offers, ctx),
+			func():
+				_show_stratagem_window_dialog(player, window_id, offers, ctx))
+		return
+	_dispatch_window_action({"type": "USE_WINDOW_STRATAGEM", "player": player, "window_id": window_id,
+		"stratagem_id": sid, "target_unit_id": uid, "context": action_ctx}, player, window_id, offers, ctx)
+
+func _on_window_stratagem_declined(dont_offer_again: bool, player: int, window_id: String) -> void:
+	_dispatch_window_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": player, "window_id": window_id,
+		"dont_offer_again": dont_offer_again}, player, window_id, [], {})
+
+## LIVE-5 / r3:F5 / r5:F12 / r6:DR-2: the stratagem pickers carried their
+## instruction only in the window title, which the narrow popup truncated
+## ("GROT S…", "MOB MENTALITY: select one visibl…", "DUBIOUS RESTRAINT — selec…").
+## The title now keeps just the stratagem name (text before the first ":" or
+## " — "), the full instruction is a wrapped Label at the top of the body, and
+## the window gets a readable minimum width.
+const _PICKER_MIN_W := 520
+
+func _add_picker_prompt(dialog: AcceptDialog, content: VBoxContainer, prompt: String) -> void:
+	# Split at the earliest ":" or " — ": "<NAME>: <instruction>".
+	var cut := -1
+	var cut_len := 0
+	for sep in [":", " — "]:
+		var at := prompt.find(sep)
+		if at > 0 and (cut < 0 or at < cut):
+			cut = at
+			cut_len = sep.length()
+	var title_text := prompt.substr(0, cut).strip_edges() if cut > 0 else ""
+	var body := prompt.substr(cut + cut_len).strip_edges() if cut > 0 else prompt
+	if body != "":
+		body = body.substr(0, 1).to_upper() + body.substr(1)
+	dialog.title = title_text if title_text != "" else "Choose"
+	var lbl := Label.new()
+	lbl.name = "Prompt"
+	lbl.text = body if body != "" else prompt
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.custom_minimum_size = Vector2(_PICKER_MIN_W - 40, 0)
+	lbl.add_theme_font_size_override("font_size", 17)
+	lbl.add_theme_color_override("font_color", _WhiteDwarfTheme.WH_PARCHMENT)
+	content.add_child(lbl)
+	content.move_child(lbl, 0)
+	content.custom_minimum_size.x = _PICKER_MIN_W - 40
+	dialog.min_size = Vector2i(_PICKER_MIN_W, 0)
+	# r5:F12: a picker opened from the S panel used to log the engine ERROR
+	# "Attempting to make child window exclusive, but the parent window already
+	# has another exclusive child" — the panel still holds the root's exclusive
+	# slot. Only one window may; the picker opens on top of the panel anyway.
+	if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible and _stratagem_panel.exclusive:
+		dialog.exclusive = false
+
+func _show_window_secondary_dialog(secondary: Dictionary, on_pick: Callable, on_cancel: Callable) -> void:
+	var is_unit := str(secondary.get("kind", "unit")) == "unit"
+	var dialog = AcceptDialog.new()
+	dialog.name = "StratagemTargetDialog" if is_unit else "StratagemChoiceDialog"
+	dialog.get_ok_button().text = "Cancel"
+	var content = VBoxContainer.new()
+	content.name = "Content"
+	content.add_theme_constant_override("separation", 6)
+	_add_picker_prompt(dialog, content, str(secondary.get("prompt", "Choose")))
+	var picked := [false]
+	for opt in secondary.get("options", []):
+		var oid := str(opt.get("id", ""))
+		var btn = Button.new()
+		btn.name = ("Pick_%s" if is_unit else "Choice_%s") % oid.validate_node_name()
+		btn.text = str(opt.get("label", GameState.get_unit_display_name(oid) if is_unit else oid))
+		btn.pressed.connect(func():
+			picked[0] = true
+			dialog.name = "StratagemSecondaryDialogClosing"
+			dialog.hide()  # release the exclusive slot before the follow-up dialog opens
+			dialog.queue_free()
+			on_pick.call(oid))
+		content.add_child(btn)
+	dialog.add_child(content)
+	var cancel_cb := func():
+		if not picked[0]:
+			picked[0] = true
+			dialog.name = "StratagemSecondaryDialogClosing"
+			dialog.hide()
+			dialog.queue_free()
+			on_cancel.call()
+	dialog.confirmed.connect(cancel_cb)
+	dialog.canceled.connect(cancel_cb)
+	get_tree().root.add_child(dialog)
+	DialogUtils.popup_at_bottom(dialog)
+
+func _dispatch_window_action(action: Dictionary, player: int, window_id: String, offers: Array, ctx: Dictionary) -> void:
+	print("Main: stratagem window action %s (P%d, %s) %s" % [action.get("type", ""), player, window_id, str(action.get("stratagem_id", ""))])
+	hide_reactive_stratagem_waiting()
+	var result = NetworkIntegration.route_action(action)
+	if not result.get("success", false):
+		var err := str(result.get("error", "Unknown error"))
+		print("Main: stratagem window action failed: %s" % err)
+		ToastManager.show_error("Stratagem: %s" % err)
+		# Still pending (e.g. the stratagem failed validation) — re-open it.
+		var phase = PhaseManager.get_current_phase_instance()
+		if phase and phase.has_method("has_pending_stratagem_window") and phase.has_pending_stratagem_window() \
+				and not offers.is_empty():
+			_show_stratagem_window_dialog(player, window_id, offers, ctx)
+		return
+	if result.get("pending", false):
+		return
+	var used = result.get("stratagem_used", {})
+	if not used.is_empty():
+		ToastManager.show_toast("Player %d used %s" % [player, str(used.get("stratagem_name", "a stratagem"))], Color.ORANGE, 3.0)
+	_refresh_after_window_action()
+
+func _refresh_after_window_action() -> void:
+	match current_phase:
+		GameStateData.Phase.FIGHT:
+			update_after_fight_action()
+		GameStateData.Phase.SHOOTING:
+			update_after_shooting_action()
+		GameStateData.Phase.CHARGE:
+			update_after_charge_action()
+		GameStateData.Phase.COMMAND:
+			update_after_command_action()
+		_:
+			# The answer may have completed the phase (e.g. a fight_phase_end
+			# follow-up embarked a unit / sent it to strategic reserves, then the
+			# phase ended): redraw the tokens so the board matches the state.
+			_recreate_unit_visuals()
+			refresh_unit_list()
+			update_ui()
 
 func _on_army_panel_closed() -> void:
 	_army_panel = null

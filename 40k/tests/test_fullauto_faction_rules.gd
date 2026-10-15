@@ -7,8 +7,10 @@ extends SceneTree
 #   1. Army load pipeline: wargear stat bonuses apply from type "Datasheet"
 #      abilities ('Ard Case +2T / Firing Deck removal, Praesidium Shield +1W)
 #      and renamed 11e abilities are canonicalized (Da Jump, Ramshackle).
-#   2. Faction stratagems: all 6 War Horde + all 6 Shield Host stratagems load
-#      mechanically implemented from the curated effects_json.
+#   2. Faction stratagems: all 6 Shield Host stratagems load mechanically
+#      implemented from the curated effects_json; the 6 War Horde stratagems
+#      load as the Codex: Orks (11e) rows (custom:ork11e marker — their
+#      implementation is owned by the Ork codex registry, not effects_json).
 #   3. Defender-side modifiers: 'ARD AS NAILS (-1 wound vs the flagged unit,
 #      ranged + melee) and UNWAVERING SENTINELS (-1 hit vs the flagged unit,
 #      melee only — must NOT leak into ranged).
@@ -176,7 +178,7 @@ func _test_army_load_pipeline() -> void:
 	_check("all Custodian Guard models W4", all_w4)
 
 func _test_faction_stratagems_implemented() -> void:
-	print("\n-- Faction stratagems: 6/6 War Horde + 6/6 Shield Host implemented --")
+	print("\n-- Faction stratagems: 6 codex War Horde rows + 6/6 Shield Host implemented --")
 	var alm = root.get_node("ArmyListManager")
 	var sm = root.get_node("StratagemManager")
 
@@ -189,6 +191,17 @@ func _test_faction_stratagems_implemented() -> void:
 	for player in [1, 2]:
 		var strats = sm.get_faction_stratagems_for_player(player)
 		_check("player %d has 6 faction stratagems" % player, strats.size() == 6, "got %d" % strats.size())
+		if player == 1:
+			# Codex: Orks (11e) War Horde: BREAKIN' HEADS, HIT 'EM HARDER, ORKS IS
+			# NEVER BEATEN, MOW 'EM DOWN, FUNGUS-FUEL INJECTION, CLOSE-RANGE DAKKA.
+			# The 10e stopgaps this test used to spot-check (UNBRIDLED CARNAGE,
+			# MOB RULE, ...) no longer exist in the codex.
+			var codex := 0
+			for s in strats:
+				if sm.is_ork_codex_11e_row(s):
+					codex += 1
+			_check("player 1: all 6 War Horde rows are Codex: Orks 11e rows (custom:ork11e)", codex == 6, "%d/6" % codex)
+			continue
 		var impl := 0
 		for s in strats:
 			if s.get("implemented", false):
@@ -199,9 +212,6 @@ func _test_faction_stratagems_implemented() -> void:
 
 	# Spot-check curated effect types survived the loader round-trip
 	var expect := {
-		"UNBRIDLED CARNAGE": "crit_hit_on",
-		"MOB RULE": "remove_battle_shock",
-		"ORKS IS NEVER BEATEN": "swing_back_before_remove",
 		"AVENGE THE FALLEN": "plus_attacks",
 		"MULTIPOTENTIALITY": "fall_back_and_shoot",
 		"VIGILANCE ETERNAL": "sticky_objective_control",

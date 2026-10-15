@@ -1,0 +1,7 @@
+{
+  "id": "test_open_field",
+  "name": "Test: open field (no terrain)",
+  "description": "TEST-ONLY layout with no terrain pieces. Not listed in index_11e.json, so it is never offered in menus. Used by the Codex: Orks (11e) stratagem fixtures (tests/helpers/gen_ork11e_fixtures.gd) so ranges, line of sight and engagement are predictable; scenarios that need cover add it explicitly.",
+  "source": "test",
+  "pieces": []
+}

@@ -1,0 +1,228 @@
+{
+  "id": "ork11e_ai_takeover_pending_followup",
+  "covers": [
+    "ai.AIPlayer.takeover_pending_followup",
+    "stratagem.followup.reactive_normal_move",
+    "stratagem.ork11e.scarper"
+  ],
+  "fixture": "ork11e_orks_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "AI-01 / AI-05 regression: the AI takes over a seat whose stratagem FOLLOW-UP is in progress. Same set-up as ork11e_scarper: Player 2 (Runt Swarm, human) uses SCARPER! on the Gretchin and the reactive normal move starts. Then Main._on_disconnect_continue_single_player(2) hands Player 2 to the AI. Before the fix the follow-up hung (or the opposing AI ended the Ork player's move); now Player 2's AI ends the move itself and the human Custodes player gets the phase back.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Runt Swarm\"}, true)\nStratagemManager.load_faction_stratagems_for_player(2)\nvar i := 0\nfor m in GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models:\n\tm[\"position\"] = {\"x\": 1400.0 + i * 72.0, \"y\": 1480.0}\n\ti += 1\nGameState.state.units[\"U_RUNTHERD_A\"].models[0][\"position\"] = {\"x\": 1720.0, \"y\": 2120.0}\ntree.current_scene._recreate_unit_visuals()\nreturn StratagemManager.get_stratagem(\"faction_ork_runt_swarm_scarper\").get(\"implemented\", false)",
+      "equals": true,
+      "comment": "setup privilege: Runt Swarm for P2; Custodian Guard Gamma 11\" north of Gretchin Alpha; Runtherd moved aside"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch",
+      "property": "button_pressed",
+      "equals": true,
+      "comment": "Skip Overwatch is on (harness default) — Fire Overwatch is not under test"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_CUSTODIAN_GUARD_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_CUSTODIAN_GUARD_C"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "A",
+      "ctrl": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1400.0,
+      "from_y": 1480.0,
+      "to_x": 1400.0,
+      "to_y": 1600.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_CUSTODIAN_GUARD_C.flags.moved",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "enemy_ended_move"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text",
+      "equals": "Custodian Guard Gamma has ended a move"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_runt_swarm_scarper/Buttons/Use_faction_ork_runt_swarm_scarper_U_GRETCHIN_C",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "main._reactive_stratagem_pending",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._reactive_stratagem_overlay_label.text.contains(\"Player 2\")",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 1
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_window_for_ork_player"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_runt_swarm_scarper/Buttons/Use_faction_ork_runt_swarm_scarper_U_GRETCHIN_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._ork11e_reactive_move.get(\"unit_id\", \"\")",
+      "equals": "U_GRETCHIN_C"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 2
+    },
+    {
+      "act": "screenshot",
+      "label": "02_scarper_move_pending_before_takeover"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the real takeover path: the Ork player's seat goes to the AI (Main._on_disconnect_continue_single_player)",
+      "script": "SceneRefs.main()._on_disconnect_continue_single_player(2)\nreturn AIPlayer.enabled and AIPlayer.is_ai_player(2) and not AIPlayer.is_ai_player(1)",
+      "equals": true
+    },
+    {
+      "act": "wait_for_script",
+      "timeout_s": 30,
+      "poll_s": 0.5,
+      "script": "var p = PhaseManager.get_current_phase_instance()\nreturn p._ork11e_reactive_move.is_empty() and p.get_pending_stratagem_window_decider() == 0",
+      "comment": "the AI (now Player 2) ends the Gretchin's SCARPER! move"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"took over Player 2\")",
+      "expect_min": 1,
+      "comment": "ended by Player 2's (AI) seat, not by the Custodes"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_GRETCHIN_C.flags.moved",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_current_phase()",
+      "equals": 7
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 1
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "03_after_ai_finished_the_move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "AIPlayer.enabled = false\nreturn true",
+      "equals": true
+    }
+  ]
+}

@@ -145,9 +145,11 @@ func can_embark(unit_id: String, transport_id: String) -> Dictionary:
 		if not _has_required_keywords(unit, transport.transport_data.capacity_keywords):
 			return {"valid": false, "reason": "Unit type cannot embark (requires %s keywords)" % str(transport.transport_data.capacity_keywords)}
 
-	# Check if already disembarked this phase
+	# A unit that disembarked was set up on the battlefield this turn (18.02 +
+	# FAQ): no embarking again until the turn ends. The marker is cleared at the
+	# end of every turn (ScoringPhase / GameManager END_SCORING).
 	if unit.get("disembarked_this_phase", false):
-		return {"valid": false, "reason": "Unit already disembarked this phase"}
+		return {"valid": false, "reason": "Unit already disembarked this turn (18.02: set up on the battlefield this turn)"}
 
 	# ISS-058 (11e 18.02): a unit set up on the battlefield this turn
 	# cannot embark.
@@ -281,6 +283,11 @@ func disembark_unit(unit_id: String, positions: Array) -> void:
 		if transport.get("flags", {}).get("effect_mekanised_brutality", false):
 			unit.flags["cannot_charge"] = false
 			print("Mekanised Brutality - transport has moved but disembarked unit remains eligible to charge")
+		elif transport.get("flags", {}).get("ork11e_readied_brawlers", false):
+			# Codex: Orks (11e) READIED BRAWLERS: an ASSAULT disembark move
+			# (18.06) has no "not eligible to declare a charge" rider.
+			unit.flags["cannot_charge"] = false
+			print("READIED BRAWLERS - assault disembark: disembarked unit remains eligible to charge")
 		elif fam_tm != null and fam_tm._unit_or_attached_has_enhancement(unit, "Fasta Than Yooz", GameState.state.get("units", {})):
 			unit.flags["cannot_charge"] = false
 			print("Fasta Than Yooz - transport has moved but disembarked unit remains eligible to charge")
@@ -737,16 +744,55 @@ func is_unit_within_embark_range(unit: Dictionary, transport: Dictionary, range_
 			return {"within_range": false, "reason": "Model is %.1f\" from transport (max %.1f\")" % [dist_inches, range_inches]}
 	return {"within_range": true}
 
-# Check if a model placed at a given position would be within disembark range (3") of a transport
-# Creates a temporary model dict with the proposed position for shape-aware measurement
+# Check if a model placed at a given position would be set up WHOLLY within the
+# disembark set-up distance (3"/6") of a transport (18.04 / 18.05 / 18.06: "Set up
+# each model ... wholly within the set-up distance of that TRANSPORT").
+# Creates a temporary model dict with the proposed position for shape-aware measurement.
+# `distance_inches` is the near-edge gap (unchanged, for messages / callers that
+# want it); `farthest_inches` is the distance from the hull to the FARTHEST point
+# of the model's base, which is what "wholly within" is judged on. Checking only
+# the near edge let a model stand up to one base diameter further out.
+const DISEMBARK_WHOLLY_EPSILON_INCHES := 0.01
+
 func is_position_within_disembark_range(pos: Vector2, model: Dictionary, transport: Dictionary, range_inches: float = 3.0) -> Dictionary:
 	if transport.models.size() == 0:
-		return {"within_range": false, "distance_inches": INF}
+		return {"within_range": false, "distance_inches": INF, "farthest_inches": INF}
 	var transport_model = transport.models[0]
 	var model_at_pos = model.duplicate()
 	model_at_pos["position"] = {"x": pos.x, "y": pos.y}
 	var dist_inches = Measurement.model_to_model_distance_inches(model_at_pos, transport_model)
-	return {"within_range": dist_inches <= range_inches, "distance_inches": dist_inches}
+	var far_inches = _farthest_base_point_distance_inches(model_at_pos, transport_model, dist_inches)
+	return {"within_range": far_inches <= range_inches + DISEMBARK_WHOLLY_EPSILON_INCHES,
+		"distance_inches": dist_inches, "farthest_inches": far_inches}
+
+# Distance (inches) from the transport's hull to the farthest point of the
+# model's base. Circular base: near-edge gap + base diameter (exact for a convex
+# hull — the far point lies on the same normal). Oval / rectangular bases: the
+# outline is sampled (ray-cast from the base centre) and each sample measured to
+# the hull with the shape-aware point distance.
+func _farthest_base_point_distance_inches(model_at_pos: Dictionary, transport_model: Dictionary, near_inches: float) -> float:
+	var shape = Measurement.create_base_shape(model_at_pos)
+	if shape == null or shape.get_type() == "circular":
+		var diameter_in = Measurement.px_to_inches(Measurement.base_radius_px(int(model_at_pos.get("base_mm", 32))) * 2.0)
+		if shape != null:
+			diameter_in = Measurement.px_to_inches(maxf(shape.get_bounds().size.x, shape.get_bounds().size.y))
+		return near_inches + diameter_in
+	var p = model_at_pos.get("position")
+	var centre := Vector2(float(p.x), float(p.y)) if p is Dictionary else Vector2(p)
+	var rot := float(model_at_pos.get("rotation", 0.0))
+	var samples: Array = []
+	if shape.get_type() == "rectangular" and shape.has_method("_get_world_corners"):
+		# The farthest point of a convex polygon is one of its corners.
+		samples = shape._get_world_corners(centre, rot)
+	else:
+		var reach_px := Measurement.base_extent_px(model_at_pos) * 4.0 + 10.0
+		for i in range(32):
+			var dir := Vector2.RIGHT.rotated(TAU * float(i) / 32.0)
+			samples.append(shape.get_edge_point(centre, centre + dir * reach_px, centre, rot))
+	var far_px := 0.0
+	for edge in samples:
+		far_px = maxf(far_px, Measurement.model_edge_to_point_distance_px(transport_model, edge))
+	return Measurement.px_to_inches(far_px)
 
 # P1-60: Check if a destroyed unit is a transport with embarked units
 func is_transport_with_embarked_units(unit_id: String) -> bool:

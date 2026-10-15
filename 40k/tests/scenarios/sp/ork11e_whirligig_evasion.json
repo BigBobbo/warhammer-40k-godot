@@ -1,0 +1,62 @@
+{
+  "id": "ork11e_whirligig_evasion",
+  "covers": [
+    "stratagem.window.enemy_ended_move.opponent_turn",
+    "stratagem.ork11e.whirligig_evasion",
+    "stratagem.followup.reactive_normal_move"
+  ],
+  "fixture": "ork11e_orks_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) WHIRLIGIG EVASION (Flyboyz, 1 CP) in the ENEMY's Movement phase through the real enemy_ended_move window. Fixture ork11e_orks_reactive: P1 Custodes active, P2 Orks. The Custodes player drags Custodian Guard Zeta 3\" towards the Deffkoptas and locks the move in: the enemy unit ended within 8\" of the DEFFKOPTAS, so the window opens for Player 2 with an enabled 'Use on Deffkoptas' button. A real click on Use spends P2's CP; the Deffkoptas are not riled up, so the D6 is rolled and caps the normal move. The Ork player drags the Deffkoptas 0.95\" away and locks the move in; the Custodes player then has the phase back. Setup-only privileges: P2's detachment flipped to Flyboyz (stratagems reloaded); the Deffkoptas placed east of Custodian Guard Zeta.",
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
+    { "act": "execute_script", "multiline": true, "script": "GameState.state[\"factions\"][\"2\"].merge({\"detachment\": \"Flyboyz\"}, true)\nStratagemManager.load_faction_stratagems_for_player(2)\nvar i := 0\nfor m in GameState.state.units[\"U_DEFFKOPTAS_A\"].models:\n\tm[\"position\"] = {\"x\": 1140.0 + i * 128.0, \"y\": 560.0}\n\ti += 1\ntree.current_scene._recreate_unit_visuals()\nreturn StratagemManager.get_stratagem(\"faction_ork_flyboyz_whirligig_evasion\").get(\"implemented\", false)", "equals": true, "comment": "setup privilege: Flyboyz for P2; Deffkoptas placed east of Custodian Guard Zeta" },
+    { "act": "expect_node_property", "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch", "property": "button_pressed", "equals": true, "comment": "Skip Overwatch is on (harness default) — Fire Overwatch is not under test" },
+    { "act": "wait_frames", "frames": 3 },
+
+    { "act": "click_unit", "unit_id": "U_CUSTODIAN_GUARD_F" },
+    { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_CUSTODIAN_GUARD_F" },
+    { "act": "simulate_key", "keycode": "A", "ctrl": true },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "drag_board", "from_x": 952.99, "from_y": 568.5, "to_x": 952.99, "to_y": 688.5 },
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "click_node", "button_text": "End This Unit's Move" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_F.flags.moved", "equals": true },
+
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 3.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 2 },
+    { "act": "execute_script", "script": "main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text", "equals": "Custodian Guard Zeta has ended a move" },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_flyboyz_whirligig_evasion/Buttons/Use_faction_ork_flyboyz_whirligig_evasion_U_DEFFKOPTAS_A", "property": "disabled", "equals": false },
+    { "act": "dispatch_action", "action": { "type": "END_MOVEMENT", "player": 1 } },
+    { "act": "expect_action_result", "path": "success", "equals": false },
+    { "act": "screenshot", "label": "01_window_for_ork_player" },
+
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_flyboyz_whirligig_evasion/Buttons/Use_faction_ork_flyboyz_whirligig_evasion_U_DEFFKOPTAS_A" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_cp", "player": 2, "delta_from_start": -1 },
+    { "act": "expect_cp", "player": 1, "delta_from_start": 0 },
+    { "act": "execute_script", "multiline": true, "script": "var p = PhaseManager.get_current_phase_instance()\nvar roll := -1\nfor d in p.dice_log:\n\tif str(d.get(\"type\", \"\")) == \"WHIRLIGIG EVASION\":\n\t\troll = int(d.get(\"roll\", -1))\nvar cap := float(p.active_moves.get(\"U_DEFFKOPTAS_A\", {}).get(\"move_cap_inches\", -1.0))\nif roll < 1 or roll > 6:\n\treturn \"no D6 in the dice log (riled up?)\"\nif absf(cap - roll) > 0.01:\n\treturn \"cap %s vs roll %d\" % [str(cap), roll]\nreturn \"ok\"", "equals": "ok", "comment": "not riled up: up to D6\"" },
+    { "act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_DEFFKOPTAS_A" },
+    { "act": "screenshot", "label": "02_deffkoptas_may_evade" },
+
+    { "act": "simulate_key", "keycode": "A", "ctrl": true },
+    { "act": "wait_frames", "frames": 3 },
+    { "act": "drag_board", "from_x": 1140.0, "from_y": 560.0, "to_x": 1178.0, "to_y": 560.0 },
+    { "act": "wait_seconds", "seconds": 1.5 },
+    { "act": "click_node", "button_text": "End This Unit's Move" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "execute_script", "script": "float(GameState.get_unit(\"U_DEFFKOPTAS_A\").models[0].position.x) > 1170.0", "equals": true, "comment": "the Deffkoptas evaded east" },
+    { "act": "expect_state", "path": "units.U_DEFFKOPTAS_A.flags.moved", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance()._ork11e_reactive_move.is_empty()", "equals": true },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 0 },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"WHIRLIGIG EVASION\")", "expect_min": 1 },
+    { "act": "screenshot", "label": "03_deffkoptas_evaded" }
+  ]
+}

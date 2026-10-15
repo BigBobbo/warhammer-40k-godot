@@ -70,6 +70,15 @@ func _raw_ranged_total(unit: Dictionary) -> int:
 			total += 1
 	return total
 
+# Army files kept OUT of the Task C ratchet counts below (every per-unit
+# invariant still runs on them). ork11e_codex_test.json is the Codex: Orks (11e)
+# stratagem test army built from dataset 1.4.5 datasheets; its Flash Gitz /
+# Killa Kans / Tankbustas carry multi-profile guns (Snazzgun, Kan Blasta, Busta
+# Rokkit Launcha) that are data-limited over-counters by this test's own
+# definition, and counting them would make the legacy-roster ratchet move for
+# reasons unrelated to the resolver.
+const RATCHET_EXCLUDED_FILES := ["ork11e_codex_test.json"]
+
 func _run():
 	if passed > 0 or failed > 0:
 		return
@@ -132,7 +141,8 @@ func _run():
 					_check("single-model-ranged-subset %s/%s" % [fname, uid],
 						_loadout_is_menu_subset(unit, models[0], "Ranged", "ranged_loadout"), "")
 			if got_resolved:
-				resolved_units += 1
+				if not fname in RATCHET_EXCLUDED_FILES:
+					resolved_units += 1
 				# INVARIANT 2 (generalized for Task C): every resolved model reports
 				# the SAME number k of ranged guns (k>=1) — a uniform loadout size.
 				# This still catches over-counting but allows legit multi-gun models
@@ -169,7 +179,7 @@ func _run():
 						var ok2 = (str(wname) in allowed2) if use_prof else meta_ranged.has(str(wname))
 						_check("resolved-gun-allowed %s/%s" % [fname, uid], ok2,
 							"'%s' not allowed for model_type '%s'" % [str(wname), mt2])
-			elif models.size() >= 2 and worst > 1:
+			elif models.size() >= 2 and worst > 1 and not fname in RATCHET_EXCLUDED_FILES:
 				unresolved_multimodel.append("%s/%s(%s)" % [fname, uid, str(unit.get("meta", {}).get("name", ""))])
 
 			# Task B: collect special-weapon models (minority resolved gun). Also

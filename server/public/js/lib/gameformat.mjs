@@ -86,6 +86,10 @@ export const ALLIED_FACTIONS = {
   'adeptus-astartes': ['agents-of-the-imperium'],
 };
 
+// Describes the dataset the browser builder converts from: the vendored bundle
+// server/public/js/vendor/40kdc-data.mjs, which is still 1.0.19 (bundle-browser
+// was not re-run for the Codex: Orks refresh — the Godot data and
+// scripts/40kdc/generate-armies.mjs are on 1.4.5 and pass their own string).
 export const DEFAULT_DATA_SOURCE = '40kdc-data 1.0.19 (11th edition, launch)';
 
 // ---------------------------------------------------------------------------
@@ -237,18 +241,40 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
   // the faction carries it in meta.abilities; FactionAbilityManager detects it
   // by exact name. Some faction_rule_id slugs dangle (e.g. `martial-katah` vs
   // ability `martial-ka-tah`), so fall back to a loose-slug scan.
-  function factionRuleAbility(factionId) {
-    const f = factions.find(x => x.id === factionId);
-    if (!f?.faction_rule_id) return null;
-    let rule = abilities.find(a => a.ability_id === f.faction_rule_id);
+  // Dataset 1.4.x replaced `faction_rule_id` (string) with `faction_rule_ids`
+  // (array; Tyranids carry two rules) — read both shapes so army rules are not
+  // silently dropped from converted rosters.
+  function factionRuleIds(f) {
+    if (Array.isArray(f?.faction_rule_ids)) return f.faction_rule_ids.filter(Boolean);
+    return f?.faction_rule_id ? [f.faction_rule_id] : [];
+  }
+
+  function resolveFactionRule(factionId, ruleId) {
+    let rule = abilities.find(a => a.ability_id === ruleId);
     if (!rule) {
-      const want = f.faction_rule_id.replace(/-/g, '');
+      const want = ruleId.replace(/-/g, '');
       rule = abilities.find(a =>
         a.ability_type === 'faction' &&
         (a.faction_id === factionId || !a.faction_id) &&
         a.ability_id.replace(/-/g, '') === want);
     }
     return rule ?? null;
+  }
+
+  // Every army rule of the faction, in dataset order (unresolvable ids skipped).
+  function factionRuleAbilities(factionId) {
+    const f = factions.find(x => x.id === factionId);
+    const out = [];
+    for (const rid of factionRuleIds(f)) {
+      const rule = resolveFactionRule(factionId, rid);
+      if (rule && !out.includes(rule)) out.push(rule);
+    }
+    return out;
+  }
+
+  // First army rule (back-compat single-rule API).
+  function factionRuleAbility(factionId) {
+    return factionRuleAbilities(factionId)[0] ?? null;
   }
 
   function safeDescribe(a) {
@@ -424,8 +450,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
   // --- abilities (faction army rule first, mirroring the existing files)
   function unitAbilities(dcUnit, factionId, factionName, warnings) {
     const abilitiesOut = [];
-    const rule = factionRuleAbility(factionId);
-    if (rule) {
+    for (const rule of factionRuleAbilities(factionId)) {
       abilitiesOut.push({ name: canonicalName(rule.name), type: 'Faction', description: safeDescribe(rule) });
     }
     for (const aid of dcUnit.ability_ids ?? []) {
@@ -898,6 +923,7 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
     convertAbility,
     transportAbility,
     factionRuleAbility,
+    factionRuleAbilities,
     unitKeywords,
     unitStats,
     compositionLines,

@@ -76,6 +76,37 @@ var swift_as_eagle_pending_strat: String = "SWIFT AS THE EAGLE"
 # is unengaged it may make a 6" Normal move but cannot charge this turn.
 var wazblasta_pending_unit: String = ""
 var awaiting_wazblasta: bool = false
+# Stratagem window unit_selected_to_shoot (design .llm/ork_codex_11e_design.md
+# §3): the unit the window has already been opened for in the CURRENT
+# selection, so re-entrant select calls (resume, Throat Slittas decline, the
+# atomic SHOOT's inner select) never offer it twice for one selection.
+var _sts_window_handled_unit: String = ""
+# LV-2 / RV-4: a unit the ShootingController selected AUTOMATICALLY (phase
+# entry / next shooter, payload.auto_selected) has not been chosen by the
+# player yet, so its unit_selected_to_shoot window is deferred: it opens before
+# the first action the player takes with that shooter (_STS_DEFERRED_TRIGGERS,
+# or the atomic SHOOT's inner select) and that action is applied once the
+# window closes. Only one offer per selection; "Don't offer again" still wins.
+var _sts_window_deferred_unit: String = ""
+# The unit whose selected-to-shoot window was answered with a USED stratagem in
+# the current selection — an explicit re-selection of a unit whose window was
+# merely declined is a new selection and is offered again; a used one is not.
+var _sts_window_used_unit: String = ""
+const _STS_DEFERRED_TRIGGERS := ["ASSIGN_TARGET", "CONFIRM_TARGETS", "RESOLVE_SHOOTING"]
+# The rest of a burst of player assignments (quick-assign ALL, Apply to All …)
+# whose FIRST ASSIGN_TARGET opened the deferred window: held while it is
+# pending (instead of "Waiting for … to decide" rejections) and applied, in
+# order, right after the held first action once the window closes.
+var _sts_held_actions: Array = []
+# AI (synchronous) window diffs produced inside the atomic SHOOT's inner
+# select — merged into the SHOOT result so replay / network see the CP spend.
+var _sts_carry_diffs: Array = []
+# unit_id -> true once _check_kill_diffs processed its destruction this phase
+# (framework F12): the same alive=false diffs can reach the kill hook twice —
+# e.g. the AI-atomic interactive-saves flow returns the ACCUMULATED changes of
+# every APPLY_SAVES — and a second pass double-counts the kill and re-rolls
+# Deadly Demise. Same guard as FightPhase._kill_reported_units.
+var _kill_reported_units: Dictionary = {}
 
 # PERF-LOS: per-snapshot eligible-target cache. get_eligible_targets() runs a
 # base-aware line-of-sight sweep over every enemy unit × weapon × model-pair —
@@ -210,6 +241,7 @@ func _on_phase_enter() -> void:
 	wazblasta_pending_unit = ""
 	awaiting_wazblasta = false
 	_targets_hit_by_shooter.clear()
+	_kill_reported_units.clear()
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -267,8 +299,16 @@ func execute_action(action: Dictionary) -> Dictionary:
 	# Kill hook: after diffs are applied, scan for alive=false changes
 	if result.get("success", false) and result.has("changes"):
 		_check_kill_diffs(result.changes)
+		# Units destroyed / battle-shocked by Deadly Demise or emergency
+		# disembarks above open their stratagem windows too (design §3).
+		if _ev_depth == 0:
+			_window_events_flush(result)
 
 	return result
+
+## Stratagem-window attribution (enemy_unit_has_attacked): the active shooter.
+func _window_attacking_unit_id() -> String:
+	return active_shooter_id
 
 func _check_kill_diffs(changes: Array) -> void:
 	"""Scan state-change diffs for models set to alive=false, then report unit destruction."""
@@ -297,8 +337,24 @@ func _check_kill_diffs(changes: Array) -> void:
 					if model.get("alive", true):
 						all_dead = false
 						break
+				# A unit's destruction is processed ONCE per phase (F12) — a
+				# repeated alive=false diff must not double-count the kill or
+				# re-roll Deadly Demise. A unit that is alive again (returned
+				# to the battlefield) may be reported anew.
+				if not all_dead:
+					_kill_reported_units.erase(unit_id)
+				elif _kill_reported_units.has(unit_id):
+					DebugLogger.info("ShootingPhase: kill of %s already processed this phase — skipping repeat (no second kill credit / Deadly Demise)" % unit_id)
+					continue
 				if all_dead:
-					var destroyed_by = get_current_player()
+					_kill_reported_units[unit_id] = true
+					# Credit the destroyed unit's OPPONENT (r4:WS-3, r5:F4,
+					# framework F9): out-of-turn attacks (GUN-CRAZY SHOW-OFFS'
+					# shot back, FLYIN' HEADBUTT's mortal wounds) destroy units
+					# of the ACTIVE player, so get_current_player() would credit
+					# the victim. Same rule as FightPhase._check_kill_diffs.
+					var _kd_owner = int(unit.get("owner", 0))
+					var destroyed_by = (2 if _kd_owner == 1 else 1) if _kd_owner in [1, 2] else get_current_player()
 					MissionManager.record_unit_destroyed(destroyed_by)
 					# T7-57: Track unit kills/losses for AI performance summary
 					var destroyed_owner = unit.get("owner", 0)
@@ -395,8 +451,17 @@ func _record_superior_creation_if_applicable(destroyed_unit_id: String) -> void:
 	var _sc_meta = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {})
 	log_phase_message("Superior Creation: %s destroyed — revival roll (2+) at end of phase" % _sc_meta.get("name", destroyed_unit_id))
 
+## Deadly Demise is resolved by this phase's own kill detection
+## (_check_kill_diffs), not by the BasePhase generic event path.
+func _phase_resolves_deadly_demise() -> bool:
+	return true
+
 func _resolve_deadly_demise_if_applicable(destroyed_unit_id: String) -> void:
 	"""P1-13: Check if a destroyed unit has Deadly Demise and resolve it."""
+	# Stratagem window unit_destroyed opens BEFORE Deadly Demise (design §3,
+	# FLYIN' HEADBUTT): hold the roll until that window closes.
+	if _window_hold_deadly_demise(destroyed_unit_id):
+		return
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if not ability_mgr:
 		return
@@ -490,6 +555,12 @@ const _SAVE_LOCKED_ACTIONS := [
 
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
+
+	# Codex: Orks (11e) reactive move follow-up (GRAB IT / GOADED INTO ACTION):
+	# its own actions, and nothing else while it is in progress.
+	var ork11e_gate := _ork11e_validate_reactive_move_gate(action)
+	if not ork11e_gate.is_empty():
+		return ork11e_gate
 
 	if not pending_save_data.is_empty() and action_type in _SAVE_LOCKED_ACTIONS:
 		var locked_target = str(pending_save_data[0].get("target_unit_name", pending_save_data[0].get("target_unit_id", "the target")))
@@ -585,7 +656,52 @@ func validate_action(action: Dictionary) -> Dictionary:
 		_:
 			return {"valid": false, "errors": ["Unknown action type: " + action_type]}
 
+## Codex: Orks (11e) post-shot hook wrapper (design §3 unit_has_shot /
+## enemy_has_shot): runs the phase's own action dispatch, then — when that
+## action completed a unit's shooting — opens the post-shot stratagem windows.
+## The dispatch itself is unchanged (_process_action_dispatch).
 func process_action(action: Dictionary) -> Dictionary:
+	var a_type := str(action.get("type", ""))
+	if a_type == "ASSIGN_TARGET" and _sts_deferred_hold_active():
+		_sts_held_actions.append(action.duplicate(true))
+		log_phase_message("[StratagemWindow] ASSIGN_TARGET held until the unit_selected_to_shoot decision (%d held)" % _sts_held_actions.size())
+		return create_result(true, [], "", {"stratagem_window_pending": true})
+	if a_type.begins_with("ORK11E_REACTIVE_MOVE_"):
+		return _ork11e_process_reactive_move_action(action)
+	if a_type == "SELECT_SHOOTER" or a_type == "SHOOT":
+		_ork11e_begin_shot_tracking(str(action.get("actor_unit_id", "")))
+	if a_type == "SELECT_SHOOTER":
+		_sts_note_selection(action)
+	elif a_type in _STS_DEFERRED_TRIGGERS and _sts_deferred_window_due(action):
+		# The auto-selected shooter's first real action: offer its
+		# unit_selected_to_shoot window BEFORE applying the action.
+		var sts_unit := _sts_window_deferred_unit
+		_sts_window_deferred_unit = ""
+		_sts_window_handled_unit = sts_unit
+		log_phase_message("[StratagemWindow] %s was auto-selected — unit_selected_to_shoot opens before the player's first %s" % [sts_unit, a_type])
+		var sts = _open_selected_to_shoot_window(sts_unit, {"type": "SELECT_SHOOTER", "actor_unit_id": sts_unit}, action)
+		var sts_diffs: Array = sts.get("diffs", [])
+		if sts.get("paused", false):
+			return create_result(true, sts_diffs, "", {"stratagem_window_pending": true})
+		if not sts_diffs.is_empty():
+			_sts_window_used_unit = sts_unit
+			var sts_shot_before := units_that_shot.size()
+			var sts_result: Dictionary = _process_action_dispatch(action)
+			if sts_result.get("success", false):
+				var sts_merged: Array = sts_diffs.duplicate()
+				sts_merged.append_array(sts_result.get("changes", []))
+				sts_result["changes"] = sts_merged
+				_ork11e_queue_post_shot(a_type, sts_shot_before, sts_result)
+				sts_result = _ork11e_run_post_shot_windows(sts_result)
+			return sts_result
+	var shot_before := units_that_shot.size()
+	var result: Dictionary = _process_action_dispatch(action)
+	if result.get("success", false):
+		_ork11e_queue_post_shot(a_type, shot_before, result)
+		result = _ork11e_run_post_shot_windows(result)
+	return result
+
+func _process_action_dispatch(action: Dictionary) -> Dictionary:
 	DebugLogger.info("========================================")
 	DebugLogger.info("ShootingPhase: process_action CALLED")
 	DebugLogger.info(str("ShootingPhase: action = ", action))
@@ -623,7 +739,7 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_end_shooting(action)
 		"SHOOT":  # Full shooting action
 			DebugLogger.info("ShootingPhase: Matched SHOOT")
-			return _process_shoot(action)
+			return _merge_sts_carry_diffs(_process_shoot(action))
 		"APPLY_SAVES":  # Interactive save resolution
 			DebugLogger.info("ShootingPhase: Matched APPLY_SAVES")
 			return _process_apply_saves(action)
@@ -987,6 +1103,33 @@ func _validate_resolve_weapon_sequence(action: Dictionary) -> Dictionary:
 
 func _process_select_shooter(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
+	# Stratagem window unit_selected_to_shoot (design §3): the unit has been
+	# selected to shoot — before any target is confirmed or attack rolled, the
+	# active player may use a "when … is selected to shoot" stratagem. Opened
+	# once per selection; the resume re-enters this function (guard set).
+	# An AUTOMATIC selection (ShootingController auto-select) defers it to the
+	# player's first action with the unit (_sts_note_selection, LV-2).
+	var sts_auto_selected := bool(action.get("payload", {}).get("auto_selected", false))
+	if _sts_window_handled_unit != unit_id and not (sts_auto_selected and _sts_window_deferred_unit == unit_id):
+		_sts_window_handled_unit = unit_id
+		_sts_window_deferred_unit = ""
+		var sts = _open_selected_to_shoot_window(unit_id, action)
+		if sts.get("paused", false):
+			active_shooter_id = unit_id
+			return create_result(true, sts.get("diffs", []), "", {"stratagem_window_pending": true})
+		var sts_diffs: Array = sts.get("diffs", [])
+		if not sts_diffs.is_empty():
+			_sts_window_used_unit = unit_id
+			var sts_cont = _process_select_shooter(action)
+			if action.get("payload", {}).has("_sts_atomic_action"):
+				# Atomic SHOOT: _process_shoot drops the select result's
+				# changes — carry the AI's CP/effect diffs to its result.
+				_sts_carry_diffs.append_array(sts_diffs)
+				return sts_cont
+			var sts_merged: Array = sts_diffs.duplicate()
+			sts_merged.append_array(sts_cont.get("changes", []))
+			sts_cont["changes"] = sts_merged
+			return sts_cont
 	active_shooter_id = unit_id
 	pending_assignments.clear()
 	confirmed_assignments.clear()
@@ -1141,6 +1284,159 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 	log_phase_message("Selected %s for shooting" % unit.get("meta", {}).get("name", unit_id))
 
 	return create_result(true, [])
+
+## Open the unit_selected_to_shoot stratagem window (design §3, §6.2) for the
+## active player. Returns {paused: bool, diffs: Array}: paused = a human must
+## answer (the resume re-enters the selection, or the atomic SHOOT when the
+## selection came from one); diffs = window diffs to merge into the result
+## (AI uses are applied synchronously).
+func _open_selected_to_shoot_window(unit_id: String, action: Dictionary, deferred_action: Dictionary = {}) -> Dictionary:
+	var payload: Dictionary = action.get("payload", {})
+	var atomic_action = payload.get("_sts_atomic_action", {})
+	var sts_ctx := {"phase": "shooting", "unit_id": unit_id}
+	if typeof(atomic_action) == TYPE_DICTIONARY and not atomic_action.is_empty():
+		# AI / auto-shoot: the planned targets are already known — the AI's
+		# stratagem scoring may read them (humans pick targets afterwards).
+		var planned: Array = []
+		var planned_bearers: Array = []
+		for a in atomic_action.get("payload", {}).get("assignments", []):
+			var tid := str(a.get("target_unit_id", ""))
+			if tid != "" and not tid in planned:
+				planned.append(tid)
+			for mid in a.get("model_ids", []):
+				if not str(mid) in planned_bearers:
+					planned_bearers.append(str(mid))
+		sts_ctx["planned_target_unit_ids"] = planned
+		sts_ctx["planned_bearer_ids"] = planned_bearers
+	var resume_ctx := {"unit_id": unit_id, "select_action": action.duplicate(true)}
+	if typeof(atomic_action) == TYPE_DICTIONARY and not atomic_action.is_empty():
+		resume_ctx["atomic_action"] = atomic_action.duplicate(true)
+	if not deferred_action.is_empty():
+		# Auto-selected shooter: the window was opened by the player's first
+		# action with it — the resume applies that action (LV-2).
+		resume_ctx["deferred_action"] = deferred_action.duplicate(true)
+	var decider := get_current_player()
+	if open_stratagem_windows([{"player": decider, "window_id": "unit_selected_to_shoot", "ctx": sts_ctx}],
+			"_resume_after_selected_to_shoot_window", resume_ctx):
+		log_phase_message("Waiting for Player %d's unit_selected_to_shoot stratagem decision for %s" % [decider, unit_id])
+		return {"paused": true, "diffs": consume_window_diffs()}
+	return {"paused": false, "diffs": consume_window_diffs()}
+
+## Resume point for the unit_selected_to_shoot window (BasePhase framework):
+## continue the interrupted selection — or the whole atomic SHOOT.
+func _resume_after_selected_to_shoot_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	var unit_id := str(ctx.get("unit_id", ""))
+	_sts_window_handled_unit = unit_id
+	_sts_window_deferred_unit = ""
+	if bool(_window_result.get("used", false)):
+		_sts_window_used_unit = unit_id
+	var deferred_action = ctx.get("deferred_action", {})
+	if typeof(deferred_action) == TYPE_DICTIONARY and not deferred_action.is_empty():
+		# The auto-selected shooter's first action, held while the window was
+		# open: re-validate (the stratagem may have changed the state) and apply.
+		var dv: Dictionary = validate_action(deferred_action)
+		if not dv.get("valid", false):
+			var derrs: Array = dv.get("errors", [])
+			return create_result(false, [], "%s after the stratagem window: %s" % [
+				str(deferred_action.get("type", "")), ", ".join(derrs) if not derrs.is_empty() else "not allowed"])
+		log_phase_message("[StratagemWindow] unit_selected_to_shoot closed — applying the held %s for %s" % [str(deferred_action.get("type", "")), unit_id])
+		var dres: Dictionary = _process_action_dispatch(deferred_action)
+		var held: Array = _sts_held_actions
+		_sts_held_actions = []
+		for h in held:
+			if not dres.get("success", false):
+				break
+			var hv: Dictionary = validate_action(h)
+			if not hv.get("valid", false):
+				log_phase_message("[StratagemWindow] held %s dropped after the window: %s" % [str(h.get("type", "")), str(hv.get("errors", []))])
+				continue
+			var hres: Dictionary = _process_action_dispatch(h)
+			if hres.get("success", false):
+				var hchanges: Array = dres.get("changes", [])
+				hchanges.append_array(hres.get("changes", []))
+				dres["changes"] = hchanges
+		return dres
+	var atomic_action = ctx.get("atomic_action", {})
+	if typeof(atomic_action) == TYPE_DICTIONARY and not atomic_action.is_empty():
+		return _merge_sts_carry_diffs(_process_shoot(atomic_action))
+	var select_action = ctx.get("select_action", {})
+	if typeof(select_action) != TYPE_DICTIONARY or select_action.is_empty():
+		select_action = {"type": "SELECT_SHOOTER", "actor_unit_id": unit_id}
+	return _process_select_shooter(select_action)
+
+## True while the pending window is an auto-selected shooter's deferred
+## unit_selected_to_shoot (opened by the player's first action with it).
+func _sts_deferred_hold_active() -> bool:
+	if not has_pending_stratagem_window():
+		return false
+	if str(get_pending_stratagem_window().get("window_id", "")) != "unit_selected_to_shoot":
+		return false
+	var rctx = _window_resume_ctx
+	return typeof(rctx) == TYPE_DICTIONARY and rctx.has("deferred_action")
+
+## LV2-B1: the type of the player's action the closing unit_selected_to_shoot
+## window will apply on resume ("" when it holds none). The deferred window of
+## an auto-selected shooter holds that action (and the rest of its assignment
+## burst); the ShootingController reads this from the stratagem_window_closed
+## signal — emitted before the resume runs — to refresh its panel from the
+## phase once the held ASSIGN_TARGET(s) have been applied.
+func sts_window_held_action_type() -> String:
+	if typeof(_window_resume_ctx) != TYPE_DICTIONARY:
+		return ""
+	var held = _window_resume_ctx.get("deferred_action", {})
+	if typeof(held) != TYPE_DICTIONARY or held.is_empty():
+		return ""
+	return str(held.get("type", ""))
+
+## A burst of player assignments may continue while its first action's
+## deferred window is pending (held, see _sts_held_actions).
+func _window_exempt_action(action_type: String) -> bool:
+	if action_type == "ASSIGN_TARGET" and _sts_deferred_hold_active():
+		return true
+	return super._window_exempt_action(action_type)
+
+## SELECT_SHOOTER bookkeeping for the deferred unit_selected_to_shoot window
+## (LV-2 / RV-4). An automatic selection defers the window; an explicit
+## (re-)selection of a unit whose window was only declined is a new selection
+## and is offered again ("Don't offer again this phase" still suppresses it).
+func _sts_note_selection(action: Dictionary) -> void:
+	var sel_uid := str(action.get("actor_unit_id", ""))
+	if bool(action.get("payload", {}).get("auto_selected", false)):
+		_sts_window_deferred_unit = sel_uid if _sts_window_handled_unit != sel_uid else ""
+		if _sts_window_deferred_unit != "":
+			log_phase_message("[StratagemWindow] %s auto-selected — unit_selected_to_shoot deferred to the player's first action with it" % sel_uid)
+		return
+	_sts_window_deferred_unit = ""
+	if sel_uid != "" and _sts_window_handled_unit == sel_uid and _sts_window_used_unit != sel_uid \
+			and active_shooter_id == sel_uid:
+		_sts_window_handled_unit = ""
+	if _sts_window_used_unit != sel_uid:
+		_sts_window_used_unit = ""
+
+## True when `action` is the first real action of an auto-selected shooter
+## whose unit_selected_to_shoot window has not been offered yet.
+func _sts_deferred_window_due(action: Dictionary) -> bool:
+	if _sts_window_deferred_unit == "":
+		return false
+	if active_shooter_id != _sts_window_deferred_unit or _sts_window_handled_unit == _sts_window_deferred_unit:
+		_sts_window_deferred_unit = ""
+		return false
+	# The controller's own single-target auto-assign is not a player action.
+	if str(action.get("type", "")) == "ASSIGN_TARGET" and bool(action.get("payload", {}).get("auto_assigned", false)):
+		return false
+	return true
+
+## Prepend the AI window diffs carried out of the atomic SHOOT's inner select.
+func _merge_sts_carry_diffs(result: Dictionary) -> Dictionary:
+	if _sts_carry_diffs.is_empty():
+		return result
+	var carried: Array = _sts_carry_diffs
+	_sts_carry_diffs = []
+	if result.get("success", false):
+		var merged: Array = carried.duplicate()
+		merged.append_array(result.get("changes", []))
+		result["changes"] = merged
+	return result
 
 func _process_assign_target(action: Dictionary) -> Dictionary:
 	var payload = action.get("payload", {})
@@ -1605,6 +1901,7 @@ func _process_resolve_shooting(action: Dictionary) -> Dictionary:
 					dice_data.append(haz_dice)
 				if haz_result.log_text:
 					log_phase_message(haz_result.log_text)
+				_log_hazard_to_game_log(haz_result)  # LV2-G1
 
 		# Check if this is single weapon mode (not sequential)
 		var mode = resolution_state.get("mode", "")
@@ -2546,8 +2843,12 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
 
 	# Step 1: Select shooter (skip Throat Slittas prompt for AI — handle automatically)
-	var select_result = _process_select_shooter({"actor_unit_id": unit_id, "payload": {"skip_throat_slittas_check": true}})
+	var select_result = _process_select_shooter({"actor_unit_id": unit_id, "payload": {"skip_throat_slittas_check": true, "_sts_atomic_action": action}})
 	if not select_result.success:
+		return select_result
+	# unit_selected_to_shoot window waiting for a HUMAN decider (e.g. "Shoot
+	# All Remaining"): stop here — the resume re-enters _process_shoot(action).
+	if select_result.get("stratagem_window_pending", false):
 		return select_result
 
 	# P1-12: AI auto-resolve Throat Slittas if applicable
@@ -2807,6 +3108,7 @@ func _resolve_ai_shoot(action: Dictionary) -> Dictionary:
 # cleanup. Called by the auto-resolve path directly and by the interactive
 # defender-saves path once the last APPLY_SAVES lands.
 func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_dice: Array, total_casualties: int, save_data_list: Array, hazardous_weapons: Array, one_shot_diffs: Array, skip_damage_signal: bool = false) -> Dictionary:
+	var ai_hazard_lines: Array = []  # LV2-G1: Game Log text of each hazard roll
 	# HAZARDOUS (T2-3): Process Hazardous self-damage after saves resolve (AI path)
 	if not hazardous_weapons.is_empty():
 		DebugLogger.info(str("║ AI SHOOT: Processing %d hazardous weapon check(s)" % hazardous_weapons.size()))
@@ -2824,6 +3126,10 @@ func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_d
 			all_dice.append_array(haz_result.dice)
 			if haz_result.log_text:
 				log_phase_message(haz_result.log_text)
+			# LV2-G1: the attack summary below is this SHOOT's Game Log line —
+			# carry the hazard roll in it (it was only in the debug log).
+			if str(haz_result.get("game_log_text", "")) != "":
+				ai_hazard_lines.append(str(haz_result.get("game_log_text", "")))
 
 	# ONE SHOT (T4-2): Include one-shot diffs in AI path
 	var ai_one_shot_diffs = one_shot_diffs
@@ -2844,6 +3150,7 @@ func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_d
 	var total_wounds = 0
 	var total_saves_passed = 0
 	var total_saves_failed = 0
+	var grot_shield_msgs: Array = []
 	for db in all_dice:
 		var ctx = db.get("context", "")
 		if ctx == "to_hit" or ctx == "hit_roll" or ctx == "auto_hit":
@@ -2853,6 +3160,8 @@ func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_d
 		elif ctx == "save_roll":
 			total_saves_passed += db.get("successes", 0)
 			total_saves_failed += db.get("failed", 0)
+		elif ctx == "grot_shields" and str(db.get("message", "")) != "":
+			grot_shield_msgs.append(str(db.get("message", "")))
 
 	var target_text = ", ".join(target_names)
 	var attack_summary = "%s → %s: %d hits, %d wounds" % [actor_name, target_text, total_hits, total_wounds]
@@ -2860,6 +3169,12 @@ func _finalize_ai_shoot(unit_id: String, ps_seed: int, all_changes: Array, all_d
 		attack_summary += ", %d saved, %d failed" % [total_saves_passed, total_saves_failed]
 	if total_casualties > 0:
 		attack_summary += " → %d slain" % total_casualties
+	# GROT SHIELDS interceptions explain where those hits went (r3:F6).
+	if not grot_shield_msgs.is_empty():
+		attack_summary += " [%s]" % "; ".join(grot_shield_msgs)
+	# LV2-G1: the shooter's own [HAZARDOUS] rolls (native or granted).
+	if not ai_hazard_lines.is_empty():
+		attack_summary += " [%s]" % "; ".join(ai_hazard_lines)
 
 	# T7-38: Emit AI shooting visual signals BEFORE clearing state
 	# Collect unique targets with weapon names for targeting line visualization
@@ -4091,7 +4406,7 @@ func _shooting_reroll_available() -> bool:
 	var sm = get_node_or_null("/root/StratagemManager")
 	if sm == null or not sm.has_method("is_command_reroll_available"):
 		return false
-	var chk = sm.is_command_reroll_available(get_current_player())
+	var chk = sm.is_command_reroll_available(get_current_player(), active_shooter_id)
 	return chk.get("available", false)
 
 func _extract_staged_hit_wound(dice_data: Array) -> Array:
@@ -4228,14 +4543,25 @@ func _staged_continue_to_wounds(pause: bool = true) -> Dictionary:
 
 	var rng = RulesEngine.make_rng()
 	var wres = RulesEngine.resolve_shoot_wounds(hit_context, game_state_snapshot, rng)
+	# GROT SHIELDS (Codex: Orks 11e): Gretchin mortal-wound diffs from the wound stage.
+	pending_one_shot_diffs.append_array(wres.get("one_shot_diffs", []))
+	# enemy_has_shot window: the final hit count (after any Command Re-roll).
+	_ork11e_note_hits(str(hit_context.get("target_unit_id", "")), int(hit_context.get("hits", 0)))
 
 	var dice_data = (resolution_state.get("staged_dice", []) as Array).duplicate()
+	var gs_blocks: Array = []
 	for db in wres.get("dice", []):
 		dice_log.append(db)
 		emit_signal("dice_rolled", db)
 		dice_data.append(db)
+		if str(db.get("context", "")) == "grot_shields":
+			gs_blocks.append(db)
 	resolution_state.staged_dice = dice_data
 	log_phase_message(wres.get("log_text", ""))
+	# GROT SHIELDS intercepts at the wound stage: the staged (dock) flow logged
+	# only the hit roll, so say in the Game Log where those hits went (r3:F6).
+	if not gs_blocks.is_empty():
+		_emit_verbose_combat_log(active_shooter_id, gs_blocks, [], 0, "sequential_wounds")
 
 	var save_data_list = wres.get("save_data_list", [])
 	resolution_state.staged_wound_context = wres.get("wound_context", {})
@@ -4312,6 +4638,11 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 	var expected = "hits_pending" if stage == "hits" else ("wounds_pending" if stage == "wounds" else "")
 	if expected == "" or resolution_state.get("stage", "") != expected:
 		return create_result(false, [], "No re-roll available at this stage")
+	# A die that was already re-rolled (e.g. by LONG, UNCONTROLLED BURSTS) can
+	# never be re-rolled again — refuse BEFORE the CP is spent (r5:F7).
+	var rr_ctx: Dictionary = resolution_state.get("staged_hit_context", {}) if stage == "hits" else resolution_state.get("staged_wound_context", {})
+	if RulesEngine.staged_die_already_rerolled(rr_ctx, stage, die_index):
+		return create_result(false, [], "That die has already been re-rolled — a dice can never be re-rolled more than once")
 
 	# Spend the CP + record the once-per-phase Command Re-roll usage.
 	var sm = get_node_or_null("/root/StratagemManager")
@@ -4685,8 +5016,18 @@ func _check_reactive_stratagems() -> Dictionary:
 	if target_unit_ids.is_empty():
 		return {"has_opportunities": false}
 
-	# Ask StratagemManager for available reactive stratagems
-	var available = StratagemManager.get_reactive_stratagems_for_shooting(defending_player, target_unit_ids)
+	# "Decline — don't offer again this phase" (design §3.1): the defender's
+	# reactive dialog IS the enemy_targets_unit_shooting window, so it honours
+	# the same per-phase suppression as every BasePhase window.
+	if _window_suppressed.has("%d:enemy_targets_unit_shooting" % defending_player):
+		DebugLogger.info("ShootingPhase: reactive stratagems for P%d suppressed (\"don't offer again this phase\")" % defending_player)
+		return {"has_opportunities": false}
+
+	# Ask StratagemManager for available reactive stratagems (core + legacy
+	# faction reactives + the enemy_targets_unit_shooting window offers)
+	var available = StratagemManager.get_reactive_stratagems_for_shooting(defending_player, target_unit_ids,
+		{"attacker_unit_id": active_shooter_id})
+	available = _filter_reactive_entries_usable(defending_player, available)
 
 	if available.is_empty():
 		DebugLogger.info(str("ShootingPhase: No reactive stratagems available for defender (player %d)" % defending_player))
@@ -4702,6 +5043,52 @@ func _check_reactive_stratagems() -> Dictionary:
 		"available_stratagems": available,
 		"target_unit_ids": target_unit_ids
 	}
+
+## Drop reactive entries / eligible units the defender cannot actually use
+## right now: the core list is built with a target-less can_use_stratagem, so
+## a unit already targeted by a stratagem this phase (11e 15.01), a
+## battle-shocked unit, or a stratagem already used this phase (once per
+## phase) would otherwise be offered and then refused on click. This is what
+## lets the dialog re-open after a use with only what is still legal (a core
+## AND a codex stratagem on the same targeting, each on a different unit).
+func _filter_reactive_entries_usable(defending_player: int, available: Array) -> Array:
+	var out: Array = []
+	for entry in available:
+		var sid := str(entry.get("stratagem", {}).get("id", ""))
+		if entry.has("window_id"):
+			# Window offers were already re-checked unit by unit with their
+			# window context by StratagemManager.get_window_offers.
+			out.append(entry)
+			continue
+		var units: Array = []
+		for uid in entry.get("eligible_units", []):
+			if StratagemManager.can_use_stratagem(defending_player, sid, str(uid)).get("can_use", false):
+				units.append(uid)
+		if units.is_empty():
+			continue
+		var kept: Dictionary = entry.duplicate()
+		kept["eligible_units"] = units
+		out.append(kept)
+	return out
+
+## After a reactive stratagem was used: re-open the defender's dialog when
+## another stratagem is still usable on this targeting (each stratagem once
+## per phase, each on a different unit — 15.01). Returns the paused result
+## (stamped like CONFIRM_TARGETS so NetworkManager mirrors it), or {} when
+## nothing is left and the attack should resolve.
+func _reopen_reactive_window_if_offers(prefix_diffs: Array) -> Dictionary:
+	var again = _check_reactive_stratagems()
+	if not again.get("has_opportunities", false):
+		return {}
+	awaiting_reactive_stratagem = true
+	log_phase_message("Defender may use another reactive stratagem (%d still available)" % again.available_stratagems.size())
+	emit_signal("reactive_stratagem_opportunity", again.defending_player, again.available_stratagems, again.target_unit_ids)
+	return create_result(true, prefix_diffs, "Awaiting defender stratagem decision", {
+		"reactive_stratagem_opportunity": true,
+		"defending_player": again.defending_player,
+		"available_stratagems": again.available_stratagems,
+		"target_unit_ids": again.target_unit_ids
+	})
 
 func _validate_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 	"""Validate using a reactive stratagem during opponent's shooting."""
@@ -4719,7 +5106,8 @@ func _validate_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 	# Validate through StratagemManager
 	var active_player = get_current_player()
 	var defending_player = 2 if active_player == 1 else 1
-	var validation = StratagemManager.can_use_stratagem(defending_player, stratagem_id, target_unit_id)
+	var validation = StratagemManager.can_use_stratagem(defending_player, stratagem_id, target_unit_id,
+		_reactive_window_context(action))
 
 	if not validation.can_use:
 		return {"valid": false, "errors": [validation.reason]}
@@ -4732,6 +5120,30 @@ func _validate_decline_reactive_stratagem(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Not waiting for reactive stratagem decision"]}
 	return {"valid": true, "errors": []}
 
+func _reactive_window_context(action: Dictionary) -> Dictionary:
+	"""Context for a USE_REACTIVE_STRATAGEM. Window stratagems folded into the
+	defender's dialog (timing.windows has enemy_targets_unit_shooting — design
+	§3.1) need context.window_id plus the window keys; the action may carry the
+	dialog's variant/secondary picks in action.context. Core / legacy reactive
+	stratagems get the same empty context as before."""
+	var ctx: Dictionary = {}
+	var action_ctx = action.get("context", {})
+	if typeof(action_ctx) == TYPE_DICTIONARY:
+		ctx = action_ctx.duplicate(true)
+	var strat = StratagemManager.get_stratagem(str(action.get("stratagem_id", "")))
+	var windows = strat.get("timing", {}).get("windows", [])
+	if "enemy_targets_unit_shooting" in windows:
+		var target_ids: Array = []
+		for assignment in confirmed_assignments:
+			var tid = str(assignment.get("target_unit_id", ""))
+			if tid != "" and not tid in target_ids:
+				target_ids.append(tid)
+		ctx["window_id"] = "enemy_targets_unit_shooting"
+		ctx["phase"] = "shooting"
+		ctx["attacker_unit_id"] = active_shooter_id
+		ctx["target_unit_ids"] = target_ids
+	return ctx
+
 func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 	"""Process the defender using a reactive stratagem (Go to Ground / Smokescreen)."""
 	var stratagem_id = action.get("stratagem_id", "")
@@ -4740,7 +5152,8 @@ func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 	var defending_player = 2 if active_player == 1 else 1
 
 	# Use the stratagem via StratagemManager (deducts CP, records usage, applies effects)
-	var result = StratagemManager.use_stratagem(defending_player, stratagem_id, target_unit_id)
+	var result = StratagemManager.use_stratagem(defending_player, stratagem_id, target_unit_id,
+		_reactive_window_context(action))
 
 	if not result.success:
 		return create_result(false, [], result.get("error", "Stratagem use failed"))
@@ -4751,6 +5164,19 @@ func _process_use_reactive_stratagem(action: Dictionary) -> Dictionary:
 	# Clear awaiting state and continue to resolution
 	awaiting_reactive_stratagem = false
 	log_phase_message("Player %d used %s on %s" % [defending_player, StratagemManager.get_stratagem(stratagem_id).name, target_unit_id])
+
+	# More than one reactive stratagem per targeting (e.g. a core one AND a
+	# codex one): while another is still usable, the defender's dialog
+	# re-opens and the attack waits (resolution_state is kept as is).
+	var reopened := _reopen_reactive_window_if_offers(result.get("diffs", []))
+	if not reopened.is_empty():
+		reopened["stratagem_used"] = {
+			"stratagem_id": stratagem_id,
+			"stratagem_name": StratagemManager.get_stratagem(stratagem_id).name,
+			"target_unit_id": target_unit_id,
+			"player": defending_player
+		}
+		return reopened
 
 	# Continue shooting resolution (AI atomic attacks resume their own path)
 	var continue_result: Dictionary
@@ -4786,6 +5212,12 @@ func _process_decline_reactive_stratagem(action: Dictionary) -> Dictionary:
 	"""Process the defender declining to use any reactive stratagem."""
 	awaiting_reactive_stratagem = false
 	log_phase_message("Defender declined reactive stratagems")
+	# "Decline — don't offer again this phase": same suppression key as the
+	# BasePhase window of the same id (enemy_targets_unit_shooting).
+	if bool(action.get("dont_offer_again", false)):
+		var dont_player := 2 if get_current_player() == 1 else 1
+		_window_suppressed["%d:enemy_targets_unit_shooting" % dont_player] = true
+		log_phase_message("[StratagemWindow] P%d declined enemy_targets_unit_shooting — not offered again this phase" % dont_player)
 
 	# Continue shooting resolution (AI atomic attacks resume their own path)
 	if resolution_state.get("ai_atomic", false):
@@ -4793,6 +5225,537 @@ func _process_decline_reactive_stratagem(action: Dictionary) -> Dictionary:
 		resolution_state = {}
 		return _resolve_ai_shoot(stored_ai_action)
 	return _continue_after_reactive_stratagems()
+
+# ============================================================================
+# CODEX: ORKS (11e) — post-shot windows + opponent-Shooting follow-ups
+# (design .llm/ork_codex_11e_design.md §3 / §3.2; OrkCodexShootingReactive.gd)
+# ============================================================================
+#  unit_has_shot  — decider: active player; ctx {unit_id}
+#  enemy_has_shot — decider: non-active player; ctx {attacker_unit_id,
+#                   hit_unit_ids, wounded_unit_ids (lost >= 1 wound)}
+# Both open (active player's first — 01.03.02 rules sequencing) from
+# process_action() after ANY action that completed a shooter's activation
+# (single weapon / sequential / staged / atomic AI SHOOT / Sentinel Storm
+# decline …) — one hook instead of one per completion branch. They wait while
+# the Sentinel Storm shoot-again prompt, a reactive window or a save batch is
+# still open, and open once it resolves. They do NOT wait for the legacy
+# Swift as the Eagle / Go Get 'Em! / Wazblasta prompts (AI-only, no human UI):
+# the window opens first (01.03.02 — the active player's triggers resolve
+# first) and blocks every other action, and the legacy prompt stays pending
+# behind it.
+# Follow-ups (design §3.2) executed here:
+#  reactive_normal_move (GRAB IT) / surge_move (GOADED INTO ACTION) — judged by
+#    ReactiveMove11e (09.05 / 21.02 with the engine's SurgeMove template). A
+#    human decider stages the move through the ORK11E_REACTIVE_MOVE_* actions
+#    (ShootingController's move panel: drag the unit / Auto-move / Re-roll /
+#    Reset / Don't move / Confirm); an AI decider is auto-placed synchronously.
+#  shoot (GUN-CRAZY SHOW-OFFS) — AUTO-RESOLVED normal shooting: every ranged
+#    weapon of the unit that can target the forced enemy unit (one profile per
+#    weapon, the best one against that target) fires at it through
+#    RulesEngine.resolve_shoot; saves are rolled automatically (no
+#    weapon-assignment UI for a shooter that is not the active player's).
+
+const ReactiveMove11eLib = preload("res://scripts/rules/ReactiveMove11e.gd")
+
+signal ork11e_reactive_move_started(info: Dictionary)
+signal ork11e_reactive_move_updated(info: Dictionary)
+signal ork11e_reactive_move_ended(info: Dictionary)
+
+## Actions that add the unit to units_that_shot WITHOUT it having shot.
+const _ORK11E_NOT_SHOOTING_ACTIONS := ["SKIP_UNIT", "PERFORM_SECONDARY_ACTION", "START_ACTION",
+	"BURN_OBJECTIVE", "PERFORM_RITUAL_ACTION", "PERFORM_TERRAFORM_ACTION",
+	"USE_THROAT_SLITTAS", "USE_GRENADE_STRATAGEM", "END_SHOOTING"]
+
+var _ork11e_pre_shot_wounds: Dictionary = {}  # enemy unit_id -> wounds left when the shooter was selected
+var _ork11e_shot_dice_start: int = 0          # dice_log index when the shooter was selected
+var _ork11e_shot_hits: Dictionary = {}        # target_unit_id -> hits (staged path, after re-rolls)
+var _ork11e_post_shot_queue: Array = []       # shooters whose post-shot windows are still to open
+var _ork11e_followup: Dictionary = {}         # human reactive move in progress (see _ork11e_start_reactive_move)
+
+func _ork11e_unit_wounds(unit: Dictionary) -> int:
+	var total := 0
+	for m in unit.get("models", []):
+		if m.get("alive", true):
+			total += int(m.get("current_wounds", m.get("wounds", 1)))
+	return total
+
+func _ork11e_begin_shot_tracking(shooter_id: String) -> void:
+	_ork11e_shot_dice_start = dice_log.size()
+	_ork11e_shot_hits.clear()
+	_ork11e_pre_shot_wounds.clear()
+	var shooter_owner := int(get_unit(shooter_id).get("owner", get_current_player()))
+	var units: Dictionary = GameState.state.get("units", {})
+	for uid in units:
+		if int(units[uid].get("owner", 0)) != shooter_owner:
+			_ork11e_pre_shot_wounds[uid] = _ork11e_unit_wounds(units[uid])
+
+func _ork11e_note_hits(target_unit_id: String, hits: int) -> void:
+	if target_unit_id != "" and hits > 0:
+		_ork11e_shot_hits[target_unit_id] = int(_ork11e_shot_hits.get(target_unit_id, 0)) + hits
+
+## hit_unit_ids: every unit a hit roll of those attacks hit (dice blocks carry
+## target_unit_id); wounded_unit_ids: every enemy unit with fewer wounds left
+## than when the shooter was selected.
+func _ork11e_post_shot_ctx(shooter_id: String) -> Dictionary:
+	var hit := {}
+	for i in range(mini(_ork11e_shot_dice_start, dice_log.size()), dice_log.size()):
+		var db = dice_log[i]
+		if typeof(db) != TYPE_DICTIONARY:
+			continue
+		var c := str(db.get("context", ""))
+		if (c == "to_hit" or c == "hit_roll" or c == "auto_hit") and int(db.get("successes", 0)) > 0:
+			var tid := str(db.get("target_unit_id", ""))
+			if tid != "":
+				hit[tid] = true
+	for tid in _ork11e_shot_hits:
+		hit[tid] = true
+	var wounded: Array = []
+	for uid in _ork11e_pre_shot_wounds:
+		var u = GameState.get_unit(uid)
+		if not u.is_empty() and _ork11e_unit_wounds(u) < int(_ork11e_pre_shot_wounds[uid]):
+			wounded.append(uid)
+	return {"hit_unit_ids": hit.keys(), "wounded_unit_ids": wounded}
+
+func _ork11e_queue_post_shot(a_type: String, shot_before: int, result: Dictionary) -> void:
+	if a_type in _ORK11E_NOT_SHOOTING_ACTIONS or result.get("throat_slittas", false):
+		return
+	if units_that_shot.size() <= shot_before:
+		return
+	var active := get_current_player()
+	for i in range(shot_before, units_that_shot.size()):
+		var sid := str(units_that_shot[i])
+		if int(get_unit(sid).get("owner", 0)) == active and not sid in _ork11e_post_shot_queue:
+			_ork11e_post_shot_queue.append(sid)
+			DebugLogger.info("ShootingPhase: [StratagemWindow] %s completed its shooting (%s) — post-shot windows queued" % [sid, a_type])
+
+func _ork11e_post_shot_blocked() -> bool:
+	return has_pending_stratagem_window() or _window_followup_pending or not _ork11e_followup.is_empty() \
+		or awaiting_reactive_stratagem or not pending_save_data.is_empty() \
+		or sentinel_storm_pending_unit != "" or awaiting_distraction_grot
+
+## Open the post-shot windows for every queued shooter (result = the result of
+## the action that completed the activation; window/AI diffs are merged in).
+func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
+	if _ork11e_post_shot_queue.is_empty():
+		return result
+	if _ork11e_post_shot_blocked():
+		DebugLogger.info("ShootingPhase: [StratagemWindow] post-shot windows for %s deferred (window=%s followup=%s/%s reactive=%s saves=%d sentinel='%s' dgrot=%s)" % [
+			str(_ork11e_post_shot_queue), str(has_pending_stratagem_window()), str(_window_followup_pending),
+			str(not _ork11e_followup.is_empty()), str(awaiting_reactive_stratagem), pending_save_data.size(),
+			sentinel_storm_pending_unit, str(awaiting_distraction_grot)])
+		return result
+	# Offers (wounds lost, unengaged, still on the battlefield …) are judged on
+	# the state AFTER this action: apply its changes now — idempotent 'set'
+	# diffs, the same early apply Swift as the Eagle / Wazblasta rely on.
+	var changes: Array = result.get("changes", [])
+	if not changes.is_empty():
+		PhaseManager.apply_state_changes(changes)
+	var merged: Array = changes.duplicate()
+	while not _ork11e_post_shot_queue.is_empty():
+		var shooter_id := str(_ork11e_post_shot_queue.pop_front())
+		var shot := _ork11e_post_shot_ctx(shooter_id)
+		var active := get_current_player()
+		var other := 2 if active == 1 else 1
+		log_phase_message("[StratagemWindow] %s has shot — unit_has_shot (P%d) then enemy_has_shot (P%d); hit=%s wounded=%s" % [
+			shooter_id, active, other, str(shot.hit_unit_ids), str(shot.wounded_unit_ids)])
+		var paused := open_stratagem_windows([
+			{"player": active, "window_id": "unit_has_shot", "ctx": {"phase": "shooting", "unit_id": shooter_id}},
+			{"player": other, "window_id": "enemy_has_shot", "ctx": {"phase": "shooting", "attacker_unit_id": shooter_id,
+				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids}}],
+			"_ork11e_resume_after_post_shot_windows", {"unit_id": shooter_id})
+		merged.append_array(consume_window_diffs())
+		if paused:
+			break
+	result["changes"] = merged
+	return result
+
+## Resume point of the post-shot windows (BasePhase framework): nothing else
+## of the completed activation is left — open the next queued shooter's.
+func _ork11e_resume_after_post_shot_windows(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _ork11e_run_post_shot_windows(create_result(true, []))
+
+## USE/DECLINE_WINDOW_STRATAGEM bypass process_action (BasePhase handles them
+## before subclass dispatch), but answering a window can complete a unit's
+## shooting: a held atomic SHOOT (AI / "Shoot All Remaining") resumes inside
+## the unit_selected_to_shoot window action. Queue + open the post-shot
+## windows (unit_has_shot / enemy_has_shot) for it exactly as process_action
+## does for every other action (framework F7).
+func _process_window_action(action: Dictionary) -> Dictionary:
+	var shot_before := units_that_shot.size()
+	var result: Dictionary = super._process_window_action(action)
+	if result.get("success", false):
+		_ork11e_queue_post_shot(str(action.get("type", "")), shot_before, result)
+		result = _ork11e_run_post_shot_windows(result)
+	return result
+
+## A human's reactive move keeps the AI attacker idle (AIPlayer reads this).
+func get_pending_stratagem_window_decider() -> int:
+	var decider := super.get_pending_stratagem_window_decider()
+	if decider == 0 and not _ork11e_followup.is_empty():
+		return int(_ork11e_followup.get("player", 0))
+	return decider
+
+func _execute_window_followup(player: int, window_id: String, followup: Dictionary, ctx: Dictionary) -> bool:
+	match str(followup.get("type", "")):
+		"reactive_normal_move":
+			return _ork11e_start_reactive_move(player, "normal", followup)
+		"surge_move":
+			return _ork11e_start_reactive_move(player, "surge", followup)
+		"shoot":
+			_ork11e_forced_shoot(player, followup)
+			return false
+	return super._execute_window_followup(player, window_id, followup, ctx)
+
+# --- reactive moves (GRAB IT / GOADED INTO ACTION) ---------------------------
+
+func _ork11e_roll_d6() -> int:
+	return int(RulesEngine.make_rng().roll_d6(1)[0])
+
+func _ork11e_move_opts(fu: Dictionary) -> Dictionary:
+	return {"end_condition": str(fu.get("end_condition", "")), "surge_target": str(fu.get("surge_target", "")),
+		"reference": fu.get("reference", {})}
+
+## Inches a surging unit needs to end engaged with its surge target.
+func _ork11e_surge_needed_inches(fu: Dictionary) -> float:
+	var best := INF
+	for key in fu.get("origin", {}):
+		var parts = str(key).rsplit(":", true, 1)
+		var m = GameState.get_unit(parts[0]).get("models", [])[int(parts[1])]
+		best = minf(best, ReactiveMove11eLib.model_to_unit_inches(m, str(fu.get("surge_target", "")), GameState.state))
+	return maxf(0.0, best - GameConstants.engagement_range_inches())
+
+func _ork11e_start_reactive_move(player: int, kind: String, followup: Dictionary) -> bool:
+	var unit_id := str(followup.get("unit_id", ""))
+	var fu := {"player": player, "kind": kind, "unit_id": unit_id, "source": str(followup.get("source", "Stratagem")),
+		"origin": ReactiveMove11eLib.current_positions(unit_id, GameState.state),
+		"max_inches": float(followup.get("max_inches", 0.0)), "end_condition": str(followup.get("end_condition", "")),
+		"surge_target": "", "roll": 0, "reroll_allowed": bool(followup.get("reroll_allowed", false)),
+		"rerolled": false, "reference": {}}
+	var unit_name := GameState.get_unit_display_name(unit_id)
+	if kind == "surge":
+		fu.surge_target = ReactiveMove11eLib.surge_target(unit_id, GameState.state)
+		fu.roll = _ork11e_roll_d6()
+		fu.max_inches = float(fu.roll)
+		var msg := "%s: %s rolls D6 = %d — surge move of up to %d\" toward %s" % [fu.source, unit_name, fu.roll, fu.roll,
+			GameState.get_unit_display_name(fu.surge_target) if fu.surge_target != "" else "(no enemy unit)"]
+		log_phase_message(msg)
+		GameEventLog.add_player_entry(player, msg)
+		if fu.surge_target == "":
+			log_phase_message("%s: no surge target on the battlefield — no move" % fu.source)
+			return false
+	if _is_ai_window_decider(player):
+		# AI: a riled-up unit re-rolls a surge roll too short to end engaged.
+		if kind == "surge" and fu.reroll_allowed and float(fu.roll) < _ork11e_surge_needed_inches(fu):
+			fu.roll = _ork11e_roll_d6()
+			fu.max_inches = float(fu.roll)
+			fu.rerolled = true
+			var rmsg := "%s: %s is riled up — re-rolled the D6: %d" % [fu.source, unit_name, fu.roll]
+			log_phase_message(rmsg)
+			GameEventLog.add_player_entry(player, rmsg)
+		var proposed := ReactiveMove11eLib.solve(kind, unit_id, fu.origin, fu.max_inches, _ork11e_move_opts(fu), GameState.state)
+		if proposed.is_empty():
+			log_phase_message("%s: %s — no legal placement found, the unit does not move" % [fu.source, unit_name])
+			return false
+		var ai_diffs := ReactiveMove11eLib.position_diffs(proposed)
+		PhaseManager.apply_state_changes(ai_diffs)
+		_window_sync_diffs.append_array(ai_diffs)
+		var done_msg := "%s: %s made a %s move (up to %.0f\")" % [fu.source, unit_name, "surge" if kind == "surge" else "normal", fu.max_inches]
+		log_phase_message(done_msg)
+		GameEventLog.add_player_entry(player, done_msg)
+		return false
+	if kind == "surge":
+		fu.reference = ReactiveMove11eLib.solve("surge", unit_id, fu.origin, fu.max_inches, {"surge_target": fu.surge_target}, GameState.state)
+	_ork11e_followup = fu
+	log_phase_message("%s: waiting for Player %d to make %s's %s move (up to %.0f\")" % [fu.source, player, unit_name, kind, fu.max_inches])
+	emit_signal("ork11e_reactive_move_started", ork11e_reactive_move_info())
+	return true
+
+## The human's move in progress, for the move panel and scenarios.
+func ork11e_reactive_move_info(positions: Dictionary = {}) -> Dictionary:
+	if _ork11e_followup.is_empty():
+		return {}
+	var fu := _ork11e_followup
+	var current: Dictionary = positions if not positions.is_empty() else ReactiveMove11eLib.current_positions(fu.unit_id, GameState.state)
+	var moved := 0.0
+	for key in fu.origin:
+		if current.has(key):
+			moved = maxf(moved, fu.origin[key].distance_to(current[key]) / 40.0)
+	var check := ReactiveMove11eLib.validate(fu.kind, fu.unit_id, fu.origin, current, fu.max_inches, _ork11e_move_opts(fu), GameState.state)
+	return {"player": fu.player, "kind": fu.kind, "unit_id": fu.unit_id,
+		"unit_name": GameState.get_unit_display_name(fu.unit_id), "source": fu.source,
+		"max_inches": fu.max_inches, "moved_inches": moved, "roll": fu.roll,
+		"reroll_available": fu.kind == "surge" and fu.reroll_allowed and not fu.rerolled,
+		"surge_target": fu.surge_target,
+		"surge_target_name": GameState.get_unit_display_name(fu.surge_target) if fu.surge_target != "" else "",
+		"end_condition": fu.end_condition, "valid": check.ok, "violations": check.violations,
+		"translation": {"x": fu.translation.x, "y": fu.translation.y} if fu.has("translation") else {"x": 0.0, "y": 0.0}}
+
+func _ork11e_validate_reactive_move_gate(action: Dictionary) -> Dictionary:
+	var t := str(action.get("type", ""))
+	if t.begins_with("ORK11E_REACTIVE_MOVE_"):
+		if _ork11e_followup.is_empty():
+			return {"valid": false, "errors": ["No reactive move is in progress"]}
+		if action.has("player") and int(action.get("player", 0)) != int(_ork11e_followup.player):
+			return {"valid": false, "errors": ["Player %d is making this move, not Player %d" % [int(_ork11e_followup.player), int(action.get("player", 0))]]}
+		if t == "ORK11E_REACTIVE_MOVE_REROLL" and not (_ork11e_followup.kind == "surge" and _ork11e_followup.reroll_allowed and not _ork11e_followup.rerolled):
+			return {"valid": false, "errors": ["The D6 cannot be re-rolled"]}
+		if not t in ["ORK11E_REACTIVE_MOVE_STAGE", "ORK11E_REACTIVE_MOVE_AUTO", "ORK11E_REACTIVE_MOVE_RESET",
+				"ORK11E_REACTIVE_MOVE_REROLL", "ORK11E_REACTIVE_MOVE_CONFIRM", "ORK11E_REACTIVE_MOVE_SKIP"]:
+			return {"valid": false, "errors": ["Unknown action type: " + t]}
+		return {"valid": true, "errors": []}
+	if not _ork11e_followup.is_empty() and not t.begins_with("DEBUG_"):
+		return {"valid": false, "errors": ["Waiting for Player %d to finish the %s move (%s)" % [
+			int(_ork11e_followup.player), str(_ork11e_followup.kind), str(_ork11e_followup.source)]]}
+	return {}
+
+func _ork11e_positions_from(origin: Dictionary, translation: Vector2) -> Dictionary:
+	var out := {}
+	for key in origin:
+		out[key] = origin[key] + translation
+	return out
+
+func _ork11e_process_reactive_move_action(action: Dictionary) -> Dictionary:
+	var fu := _ork11e_followup
+	var t := str(action.get("type", ""))
+	var positions: Dictionary = {}
+	match t:
+		"ORK11E_REACTIVE_MOVE_STAGE":
+			# Whole-unit drag: the formation is kept, the translation is
+			# measured from where the unit started this move and clamped to the
+			# maximum distance. (payload.model_positions stages per model.)
+			var payload = action.get("payload", {})
+			if payload.has("model_positions"):
+				positions = fu.origin.duplicate()
+				for key in payload.model_positions:
+					if positions.has(key):
+						var p = payload.model_positions[key]
+						positions[key] = Vector2(float(p.get("x", 0)), float(p.get("y", 0)))
+			else:
+				var tr = payload.get("translation", {})
+				var v := Vector2(float(tr.get("x", 0.0)), float(tr.get("y", 0.0)))
+				var max_px := float(fu.max_inches) * 40.0
+				if v.length() > max_px:
+					v = v.normalized() * max_px
+				fu.translation = v
+				positions = _ork11e_positions_from(fu.origin, v)
+		"ORK11E_REACTIVE_MOVE_AUTO":
+			positions = ReactiveMove11eLib.solve(fu.kind, fu.unit_id, fu.origin, fu.max_inches, _ork11e_move_opts(fu), GameState.state)
+			if positions.is_empty():
+				return create_result(false, [], "%s: no legal placement found for %s — move it by hand or choose Don't move" % [fu.source, GameState.get_unit_display_name(fu.unit_id)])
+		"ORK11E_REACTIVE_MOVE_RESET":
+			fu.translation = Vector2.ZERO
+			positions = fu.origin.duplicate()
+		"ORK11E_REACTIVE_MOVE_REROLL":
+			fu.roll = _ork11e_roll_d6()
+			fu.max_inches = float(fu.roll)
+			fu.rerolled = true
+			fu.translation = Vector2.ZERO
+			fu.reference = ReactiveMove11eLib.solve("surge", fu.unit_id, fu.origin, fu.max_inches, {"surge_target": fu.surge_target}, GameState.state)
+			positions = fu.origin.duplicate()
+			var rmsg := "%s: %s is riled up — re-rolled the D6: %d" % [fu.source, GameState.get_unit_display_name(fu.unit_id), fu.roll]
+			log_phase_message(rmsg)
+			GameEventLog.add_player_entry(int(fu.player), rmsg)
+		"ORK11E_REACTIVE_MOVE_CONFIRM":
+			var current := ReactiveMove11eLib.current_positions(fu.unit_id, GameState.state)
+			var check := ReactiveMove11eLib.validate(fu.kind, fu.unit_id, fu.origin, current, fu.max_inches, _ork11e_move_opts(fu), GameState.state)
+			if not check.ok:
+				return create_result(false, [], "%s: %s" % [fu.source, "; ".join(check.violations)])
+			return _ork11e_finish_reactive_move(ReactiveMove11eLib.position_diffs(current), true)
+		"ORK11E_REACTIVE_MOVE_SKIP":
+			return _ork11e_finish_reactive_move(ReactiveMove11eLib.position_diffs(fu.origin), false)
+	var diffs := ReactiveMove11eLib.position_diffs(positions)
+	var info := ork11e_reactive_move_info(positions)
+	emit_signal("ork11e_reactive_move_updated", info)
+	return create_result(true, diffs, "", {"ork11e_reactive_move": info})
+
+func _ork11e_finish_reactive_move(diffs: Array, moved: bool) -> Dictionary:
+	var fu := _ork11e_followup
+	var unit_name := GameState.get_unit_display_name(fu.unit_id)
+	var msg := "%s: %s %s" % [fu.source, unit_name, ("made its %s move" % fu.kind) if moved else "did not move"]
+	log_phase_message(msg)
+	GameEventLog.add_player_entry(int(fu.player), msg)
+	var ended := {"player": fu.player, "unit_id": fu.unit_id, "source": fu.source, "moved": moved}
+	_ork11e_followup = {}
+	emit_signal("ork11e_reactive_move_ended", ended)
+	var result := _finish_window_followup(diffs)
+	result["ork11e_reactive_move_ended"] = ended
+	return result
+
+# --- GUN-CRAZY SHOW-OFFS: auto-resolved normal shooting at the forced target ---
+
+func _ork11e_weapon_base_name(weapon_id: String, board: Dictionary) -> String:
+	var wname := str(RulesEngine.get_weapon_profile(weapon_id, board).get("name", weapon_id))
+	for sep in [" – ", " — ", " - "]:
+		var idx := wname.find(sep)
+		if idx > 0:
+			return wname.substr(0, idx)
+	return wname
+
+func _ork11e_avg_value(v) -> float:
+	var s := str(v).to_upper().replace(" ", "")
+	if s.is_valid_float():
+		return float(s)
+	var plus := 0.0
+	if "+" in s:
+		var p := s.split("+")
+		s = p[0]
+		plus = float(p[1]) if p[1].is_valid_float() else 0.0
+	var d := s.find("D")
+	if d < 0:
+		return plus
+	var n := 1.0 if d == 0 else (float(s.substr(0, d)) if s.substr(0, d).is_valid_float() else 1.0)
+	var faces := float(s.substr(d + 1)) if s.substr(d + 1).is_valid_float() else 6.0
+	return n * (faces + 1.0) / 2.0 + plus
+
+## Rough expected damage of one model firing `weapon_id` at the target — used
+## only to pick ONE profile per weapon (e.g. Snazzgun – Cutta / Kill Shot).
+func _ork11e_profile_value(weapon_id: String, target_id: String, board: Dictionary) -> float:
+	var prof = RulesEngine.get_weapon_profile(weapon_id, board)
+	var t := float(str(board.get("units", {}).get(target_id, {}).get("meta", {}).get("stats", {}).get("toughness", 4)))
+	var s := float(str(prof.get("strength", 4))) if str(prof.get("strength", 4)).is_valid_float() else 4.0
+	var p_wound := 3.0 / 6.0
+	if s >= 2.0 * t:
+		p_wound = 5.0 / 6.0
+	elif s > t:
+		p_wound = 4.0 / 6.0
+	elif s * 2.0 <= t:
+		p_wound = 1.0 / 6.0
+	elif s < t:
+		p_wound = 2.0 / 6.0
+	var ap := absf(float(str(prof.get("ap", 0)))) if str(prof.get("ap", 0)).is_valid_float() else 0.0
+	return _ork11e_avg_value(prof.get("attacks_raw", prof.get("attacks", 1))) * p_wound \
+		* _ork11e_avg_value(prof.get("damage_raw", prof.get("damage", 1))) * (1.0 + 0.15 * ap)
+
+## [CLOSE-QUARTERS] weapon (11e 24.07; [PISTOL] is identical for all rules
+## purposes, 24.27) — the same predicate the 11e shooting types use.
+func _ork11e_is_close_quarters_weapon(weapon_id: String, board: Dictionary) -> bool:
+	if RulesEngine.is_pistol_weapon(weapon_id, board):
+		return true
+	var abilities: Array = AbilityRegistry.from_weapon(RulesEngine.get_weapon_profile(weapon_id, board))
+	return AbilityRegistry.has_ability(abilities, "close_quarters") or AbilityRegistry.has_ability(abilities, "pistol")
+
+func _ork11e_forced_shoot_assignments(unit_id: String, target_id: String, board: Dictionary) -> Array:
+	# weapons_in_range already drops Hunter profiles the target cannot be
+	# targeted by (04.01.03 — RulesEngine.weapon_profile_can_target).
+	var in_range: Array = RulesEngine.get_eligible_targets(unit_id, board).get(target_id, {}).get("weapons_in_range", [])
+	if in_range.is_empty():
+		return []
+	var unit_weapons: Dictionary = RulesEngine.get_unit_weapons(unit_id, board)
+	var shooter_is_mv := RulesEngine.is_monster_or_vehicle(board.get("units", {}).get(unit_id, {}))
+	var models_for := {}  # weapon_id -> [model ids]
+	for model_id in unit_weapons:
+		# Per weapon (base name), this model's best in-range profile (04.01.03:
+		# one profile per weapon), kept separately for its [CLOSE-QUARTERS]
+		# weapons and its other ranged weapons.
+		var best_cq := {}     # base name -> weapon id
+		var best_other := {}  # base name -> weapon id
+		for wid in unit_weapons[model_id]:
+			if not wid in in_range:
+				continue
+			var base := _ork11e_weapon_base_name(wid, board)
+			var bucket: Dictionary = best_cq if _ork11e_is_close_quarters_weapon(wid, board) else best_other
+			if not bucket.has(base) or _ork11e_profile_value(wid, target_id, board) > _ork11e_profile_value(bucket[base], target_id, board):
+				bucket[base] = wid
+		var chosen_ids: Array = []
+		if shooter_is_mv:
+			chosen_ids = best_cq.values() + best_other.values()
+		else:
+			# 24.07: a non-MONSTER/VEHICLE model using normal shooting fires
+			# EITHER its [CLOSE-QUARTERS] weapons OR its other ranged weapons —
+			# take whichever set is worth more against this target.
+			var cq_value := 0.0
+			for w in best_cq.values():
+				cq_value += _ork11e_profile_value(w, target_id, board)
+			var other_value := 0.0
+			for w in best_other.values():
+				other_value += _ork11e_profile_value(w, target_id, board)
+			chosen_ids = best_other.values() if other_value >= cq_value and not best_other.is_empty() else best_cq.values()
+		for chosen in chosen_ids:
+			if not models_for.has(chosen):
+				models_for[chosen] = []
+			models_for[chosen].append(model_id)
+	var assignments: Array = []
+	for wid in models_for:
+		assignments.append({"weapon_id": wid, "target_unit_id": target_id, "model_ids": models_for[wid]})
+	return assignments
+
+func _ork11e_forced_shoot(player: int, followup: Dictionary) -> void:
+	var unit_id := str(followup.get("unit_id", ""))
+	var target_id := str(followup.get("forced_target_id", ""))
+	var source := str(followup.get("source", "Stratagem"))
+	var unit_name := GameState.get_unit_display_name(unit_id)
+	var target_name := GameState.get_unit_display_name(target_id)
+	var board := GameState.create_snapshot()
+	var assignments := _ork11e_forced_shoot_assignments(unit_id, target_id, board)
+	if assignments.is_empty():
+		var none_msg := "%s: %s has no ranged weapon that can target %s — no attacks" % [source, unit_name, target_name]
+		log_phase_message(none_msg)
+		GameEventLog.add_player_entry(player, none_msg)
+		return
+	var weapon_names: Array = []
+	for a in assignments:
+		weapon_names.append(str(RulesEngine.get_weapon_profile(a.weapon_id, board).get("name", a.weapon_id)))
+	var header := "%s: %s shoots %s (normal shooting, auto-resolved) with %s" % [source, unit_name, target_name, ", ".join(weapon_names)]
+	log_phase_message(header)
+	GameEventLog.add_combat_header("P%d: %s" % [player, header])
+	var res = RulesEngine.resolve_shoot({"type": "SHOOT", "actor_unit_id": unit_id,
+		"payload": {"assignments": assignments}}, board, RulesEngine.make_rng())
+	var diffs: Array = res.get("diffs", [])
+	var hits := 0
+	var wounds := 0
+	for db in res.get("dice", []):
+		var c := str(db.get("context", ""))
+		# Every attack here is against the forced target; tag the attack dice
+		# with it (the auto path's blocks carry no target id — pinned by the
+		# ISS-012 golden corpus).
+		if c in ["to_hit", "auto_hit", "to_wound"] and not db.has("target_unit_id"):
+			db["target_unit_id"] = target_id
+		dice_log.append(db)
+		emit_signal("dice_rolled", db)
+		if c == "to_hit" or c == "auto_hit":
+			hits += int(db.get("successes", 0))
+		elif c == "to_wound":
+			wounds += int(db.get("successes", 0))
+	var casualties := 0
+	var damage_diffs: Array = []
+	for d in diffs:
+		var path := str(d.get("path", ""))
+		if ".models." in path and (path.ends_with(".alive") or path.ends_with(".current_wounds")):
+			damage_diffs.append(d)
+		if path.begins_with("units.%s." % target_id) and path.ends_with(".alive") and d.get("value", true) == false:
+			casualties += 1
+	if not diffs.is_empty():
+		# Event attribution (framework F9): these are the forced shooter's
+		# attacks, not the active shooter's. Settle anything detected so far
+		# against the previous attacker, apply the shot with the forced
+		# shooter as the attacker (unit_destroyed gets its attacker_unit_id,
+		# enemy_unit_has_attacked opens for the owner of what it destroyed —
+		# e.g. INFESTED WAR ZONE), then restore the attribution.
+		_window_events_detect()
+		var prev_attacker := _ev_action_attacker
+		_ev_action_attacker = unit_id
+		PhaseManager.apply_state_changes(diffs)
+		_window_sync_diffs.append_array(diffs)
+		_window_events_detect()
+		_ev_action_attacker = prev_attacker
+	emit_signal("ai_shooting_visual", unit_id, [{"target_unit_id": target_id, "weapon_names": weapon_names}],
+		{"hits": hits, "wounds": wounds, "saves_passed": 0, "saves_failed": 0, "casualties": casualties})
+	if not damage_diffs.is_empty():
+		emit_signal("shooting_damage_applied", unit_id, damage_diffs)
+	var summary := "%s: %s → %s: %d hit(s), %d wound(s), %d model(s) slain" % [source, unit_name, target_name, hits, wounds, casualties]
+	# LV2-G1: the forced shooter's own [HAZARDOUS] roll(s).
+	var res_dice: Array = res.get("dice", [])
+	var gc_haz_lines: Array = []
+	for hi in range(res_dice.size()):
+		if str(res_dice[hi].get("context", "")) == "hazardous_check":
+			var gc_haz := RulesEngine.hazard_game_log_line(res_dice.slice(hi, hi + 2))
+			if gc_haz != "":
+				gc_haz_lines.append(gc_haz)
+	if not gc_haz_lines.is_empty():
+		summary += " [%s]" % "; ".join(gc_haz_lines)
+	log_phase_message(summary)
+	GameEventLog.add_combat_result("  " + summary)
+	GameEventLog.add_player_entry(player, summary)
 
 # ============================================================================
 # GRENADE STRATAGEM SUPPORT
@@ -7218,6 +8181,7 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				DebugLogger.info(str("ShootingPhase: Emitted feel_no_pain dice block from overlay - %d prevented / %d total" % [total_prevented, fnp_rolls_from_overlay.size()]))
 
 	# HAZARDOUS (T2-3): Process Hazardous self-damage after saves resolve
+	var hazard_results_for_log: Array = []
 	if not pending_hazardous_weapons.is_empty():
 		DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
 		DebugLogger.info(str("║ HAZARDOUS CHECK — Processing %d hazardous weapon(s)" % pending_hazardous_weapons.size()))
@@ -7241,6 +8205,8 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 				emit_signal("dice_rolled", haz_dice)
 			if haz_result.log_text:
 				log_phase_message(haz_result.log_text)
+			# LV2-G1: logged after this weapon's combat card (below).
+			hazard_results_for_log.append(haz_result)
 		pending_hazardous_weapons.clear()
 
 	# ONE SHOT (T4-2): Include one-shot diffs in save result changes
@@ -7260,6 +8226,10 @@ func _process_apply_saves(action: Dictionary) -> Dictionary:
 
 	# VERBOSE COMBAT LOG: Emit save and result details
 	_emit_verbose_combat_log(active_shooter_id, [], save_dice_blocks, total_casualties, "shooting_saves")
+	# LV2-G1: the shooter's [HAZARDOUS] roll(s) follow the shot's combat card —
+	# before, a failed roll's mortal wounds never reached the Game Log.
+	for haz_logged in hazard_results_for_log:
+		_log_hazard_to_game_log(haz_logged)
 
 	# Check if we're in sequential weapon resolution mode.
 	# CRITICAL: "sequential_staged" (the non-networked hit→wound→saves staged flow)
@@ -7770,6 +8740,19 @@ func _process_continue_sequence(action: Dictionary) -> Dictionary:
 # VERBOSE COMBAT LOG — Detailed dice breakdown for Game Event Log
 # ============================================================================
 
+## LV2-G1: a [HAZARDOUS] roll (native or granted, e.g. VINDICTIVE ARTILLERISTS'
+## overcharge) gets its own Game Log line, attributed to the shooter's owner:
+## "P1: Hazardous: Mek Gunz (Smasha Gun) rolled 2 — failed (1-2): 3 mortal wounds".
+## Before, it reached only the debug log, so a failed roll's mortal wounds
+## were invisible to the player.
+func _log_hazard_to_game_log(haz_result: Dictionary) -> void:
+	var line := str(haz_result.get("game_log_text", ""))
+	if line == "":
+		return
+	var haz_owner := int(get_unit(active_shooter_id).get("owner", get_current_player()))
+	GameEventLog.add_player_entry(haz_owner, line)
+	log_phase_message("[LV2-G1] Game Log: P%d: %s" % [haz_owner, line])
+
 func _emit_verbose_combat_log(shooter_id: String, dice_data: Array, save_dice_blocks: Array, casualties: int, phase_type: String) -> void:
 	"""Emit detailed combat log entries to GameEventLog from dice_data and save results.
 	Called after combat resolution completes (hits+wounds+saves all done)."""
@@ -7789,6 +8772,10 @@ func _emit_verbose_combat_log(shooter_id: String, dice_data: Array, save_dice_bl
 			_emit_torrent_detail_log(shooter_name, dice_block, player)
 		elif context == "to_wound" or context == "wound_roll":
 			_emit_wound_detail_log(dice_block, player)
+		elif context == "grot_shields" and str(dice_block.get("message", "")) != "":
+			# GROT SHIELDS (Codex: Orks 11e): say in the Game Log why those hits
+			# never reached the wound roll (r3:F6).
+			GameEventLog.add_combat_result("  " + str(dice_block.get("message", "")))
 
 	# Save dice blocks ("save" is the engine-internal 11e context; the
 	# normalized blocks use "save_roll")

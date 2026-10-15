@@ -25,6 +25,8 @@
     { "act": "execute_script", "script": "PhaseManager.transition_to_phase(8)" },
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.phase", "equals": 8 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()", "equals": 0, "comment": "LV-2: the phase-entry auto-selection is not a player choice, so it opens NO unit_selected_to_shoot window (it opens before the player's first action with that shooter instead) - nothing to decline before the scenario picks its own shooter" },
+    { "act": "wait_seconds", "seconds": 0.5 },
 
     { "act": "execute_script", "script": "RulesEngine.get_eligible_targets(\"U_BATTLEWAGON_G\", GameState.create_snapshot()).has(\"U_BLADE_CHAMPION_B\")", "equals": false },
     { "act": "execute_script", "script": "RulesEngine.get_eligible_targets(\"U_BATTLEWAGON_G\", GameState.create_snapshot()).has(\"U_CUSTODIAN_GUARD_B\")", "equals": true },

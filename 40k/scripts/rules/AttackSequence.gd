@@ -36,7 +36,7 @@ static func _measurement() -> Node:
 
 
 static func evaluate_hit_roll(raw_roll: int, threshold: int, modifiers: int, crit_threshold: int, rng, fail_unmodified_at_or_below: int = 1) -> Dictionary:
-	var mod = _rules().apply_hit_modifiers(raw_roll, modifiers, rng, threshold)
+	var mod = _rules().apply_hit_modifiers(raw_roll, modifiers, rng, threshold, fail_unmodified_at_or_below, crit_threshold)
 	var unmodified: int = mod.reroll_value if mod.rerolled else raw_roll
 	var out := {
 		"final_roll": mod.modified_roll,

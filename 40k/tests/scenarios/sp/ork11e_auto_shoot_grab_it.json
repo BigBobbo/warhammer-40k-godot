@@ -1,0 +1,187 @@
+{
+  "id": "ork11e_auto_shoot_grab_it",
+  "covers": [
+    "stratagem.window.unit_has_shot",
+    "stratagem.ork11e.grab_it",
+    "ui.ShootingController.shoot_all_remaining",
+    "phases.ShootingPhase.reactive_normal_move"
+  ],
+  "fixture": "ork11e_orks_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "description": "Regression for framework F8: Shoot All Remaining must WAIT while the human makes a GRAB IT normal move, not dispatch (and lose) the next queued SHOOT. Setup-only: P1 switched to Wreckas; every P1 unit except the Flash Gitz and the Tankbustas is marked as having shot; Custodian Guard C moved unengaged in front of the Ork rank with inflated wounds; defender auto-allocates. Real clicks: Shoot All Remaining -> Shoot All; the first unit shoots and the unit_has_shot window offers GRAB IT; Use opens the reactive-move panel. While the move is in progress the auto-shoot queue still holds the other unit's SHOOT (before the fix it was dispatched, refused and dropped). Don't move answers the move; the queue then resumes, the second unit shoots and the sequence completes with both units having shot (the phase then ends on its own).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 0,
+      "comment": "LV-2: the phase-entry auto-selection is not a player choice, so it opens NO unit_selected_to_shoot window (it opens before the player's first action with that shooter instead) - nothing to decline before the scenario picks its own shooter"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Wreckas\"\nStratagemManager.load_faction_stratagems_for_player(1)\nvar ph = PhaseManager.get_current_phase_instance()\nvar keep = [\"U_TANKBUSTAS_A\", \"U_FLASH_GITZ_A\"]\nfor uid in GameState.state[\"units\"]:\n\tif int(GameState.state[\"units\"][uid].get(\"owner\", 0)) == 1 and not str(uid) in keep and not str(uid) in ph.units_that_shot:\n\t\tph.units_that_shot.append(str(uid))\n\t\tGameState.state[\"units\"][uid][\"flags\"][\"has_shot\"] = true\nvar xs = [2.0, 4.0, 6.0, 8.0, 10.0]\nvar ms = GameState.state.units[\"U_CUSTODIAN_GUARD_C\"].models\nfor i in range(ms.size()):\n\tms[i][\"position\"] = {\"x\": xs[i] * 40.0, \"y\": 21.0 * 40.0}\n\tms[i][\"wounds\"] = 99\n\tms[i][\"current_wounds\"] = 99\nreturn StratagemManager.find_faction_stratagem_by_name(1, \"GRAB IT\")",
+      "equals": "faction_ork_wreckas_grab_it",
+      "comment": "setup: Wreckas; only the Flash Gitz and Tankbustas still to shoot; Custodian Guard C unengaged in front of the Ork rank with inflated wounds"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var sc = tree.root.get_node(\"Main\").shooting_controller\nsc._refresh_unit_list(false)\nreturn sc._build_auto_shoot_plan().size()",
+      "equals": 2,
+      "comment": "both remaining units have a plan entry"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ShootingScrollContainer/ShootingPanel/DeclarationBox/ShootAllRemainingButton",
+      "comment": "real click: Shoot All Remaining"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "for c in tree.root.get_children():\n\tif c is ConfirmationDialog and c.title == \"Shoot All Remaining\" and c.visible:\n\t\tc.name = \"ShootAllConfirm\"\n\t\tc.get_ok_button().get_parent().name = \"ShootAllButtons\"\n\t\tc.get_ok_button().name = \"ShootAllOk\"\n\t\treturn true\nreturn false",
+      "equals": true,
+      "comment": "the confirmation dialog is shown; give its OK button a stable name so it can be clicked for real"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_shoot_all_confirm"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/ShootAllConfirm/ShootAllButtons/ShootAllOk",
+      "comment": "real click: Shoot All"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")",
+      "equals": "unit_has_shot"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var w = PhaseManager.get_current_phase_instance().get_pending_stratagem_window()\nreturn str(w.get(\"ctx\", {}).get(\"unit_id\", \"\"))",
+      "not_equals": "",
+      "comment": "the first auto-shot unit has shot; GRAB IT is offered for it"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var w = PhaseManager.get_current_phase_instance().get_pending_stratagem_window()\nvar uid = str(w.get(\"ctx\", {}).get(\"unit_id\", \"\"))\nvar d = tree.root.get_node(\"StratagemDialog\")\nvar b = d.get_node_or_null(\"Content/StratScroll/StratList/Card_faction_ork_wreckas_grab_it/Buttons/Use_faction_ork_wreckas_grab_it_\" + uid)\nif b == null:\n\treturn \"\"\nb.name = \"UseGrabItFirst\"\nreturn uid",
+      "not_equals": "",
+      "comment": "the Use button for the first shooter (renamed so the next step can click it whichever unit the plan put first)"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_grab_it_window_during_auto_shoot"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_wreckas_grab_it/Buttons/UseGrabItFirst",
+      "comment": "real click: Use GRAB IT"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Ork11eReactiveMovePanel",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.0,
+      "comment": "the auto-shoot timer fires several times during the move"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller._auto_shoot_in_progress",
+      "equals": true,
+      "comment": "Shoot All Remaining is still running"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.shooting_controller._auto_shoot_queue.size()",
+      "equals": 1,
+      "comment": "the second unit's SHOOT is still queued (before the fix: dispatched, refused, dropped -> 0)"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1,
+      "comment": "the human GRAB IT move is in progress"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_queue_waits_during_grab_it_move"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Ork11eReactiveMovePanel/Content/Buttons/SkipButton",
+      "comment": "real click: Don't move - answers the GRAB IT move (this crowded fixture leaves the auto-move no legal placement; the move itself is covered by ork11e_grab_it)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return ScenarioRunner.event_log_count_containing(\"P1: Tankbustas →\") >= 1",
+      "equals": true,
+      "timeout_s": 10,
+      "poll_s": 0.5,
+      "comment": "the queue resumed after the GRAB IT move was answered: the second queued SHOOT was dispatched and resolved (before the fix it was refused and dropped)"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"P1: Flash Gitz →\") + ScenarioRunner.event_log_count_containing(\"P1: Tankbustas →\")",
+      "expect_min": 2,
+      "comment": "both queued units shot"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Used GRAB IT (1 CP)\")",
+      "equals": 1
+    },
+    {
+      "act": "wait_for_script",
+      "script": "return GameState.get_current_phase()",
+      "equals": 9,
+      "timeout_s": 10,
+      "poll_s": 0.5,
+      "comment": "no shooter left: the Shooting phase completed on its own (Charge)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "04_both_units_shot_phase_advanced"
+    }
+  ]
+}
