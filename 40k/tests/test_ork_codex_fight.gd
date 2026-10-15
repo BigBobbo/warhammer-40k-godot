@@ -210,9 +210,21 @@ func _fresh_fight(prep: Callable = Callable()):
 	return phase
 
 
+## 12.04 (PR #916): END_FIGHT is rejected while any unit is still owed a
+## fight. These fixtures test what happens AFTER the fights (end-of-phase
+## windows, fight-on-death removal), so every owed fight is marked resolved
+## first — the state a real game reaches once both players have fought.
+func _settle_owed_fights(phase) -> void:
+	if phase.sequencer_11e == null:
+		return
+	for entry in phase.get_unfought_eligible_units():
+		phase.sequencer_11e.mark_fought(str(entry.get("unit_id", "")), GS.state)
+
+
 ## Walk the phase to its end (Fight step -> Consolidate step -> end-of-phase
 ## triggers) until a window pends or the phase completes.
 func _drive_to_phase_end(phase) -> void:
+	_settle_owed_fights(phase)
 	for _i in range(8):
 		if phase.has_pending_stratagem_window() or _phase_done:
 			return
@@ -914,6 +926,7 @@ func _section_keep_it_runnin_host_path() -> void:
 	# of emitting phase_completed straight away (before the fix: completed at
 	# once, no fight_phase_end window).
 	var last := {}
+	_settle_owed_fights(phase)
 	for _i in range(8):
 		if phase.has_pending_stratagem_window() or _phase_done:
 			break
