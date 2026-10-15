@@ -31,17 +31,22 @@ func base_extent_px(model: Dictionary) -> float:
 	# Greatest distance from a model's base CENTRE to any point on its base
 	# outline, in board px — the circumscribed radius of the base.
 	#
-	# Movement/charge budgets are measured centre-to-centre, so a reach ring drawn
-	# at "remaining inches" marks where the model's CENTRE may end up, not where
-	# its base may end up. A wide base then visibly pokes past the ring at max
-	# range, which reads as a bug. Inflating the ring by this value makes the ring
-	# mean "no part of this model's base can end up outside here", which is what
-	# players actually read off it.
+	# Movement/charge budgets are measured centre-to-centre (11e measures a move
+	# "from the same point on its base at the start and end of that move", and
+	# rotating costs nothing), so a reach ring drawn at "remaining inches" marks
+	# where the model's CENTRE may end up. Adding this value to it instead answers
+	# "no part of this model's base can end up outside here" — the hull-reach halo
+	# the movement and charge overlays draw OUTSIDE their reach ring.
+	#
+	# It is not the reach ring itself: the drag clamps the centre, so a ring drawn
+	# one of these further out promises move the drag refuses — 4.05" of it on a
+	# Battlewagon's 100x180mm base, which is exactly what a player reported.
 	#
 	# Deliberately rotation-invariant: using the extent along the direction of
-	# travel would make the ring breathe as an oval/rectangular model pivots. The
-	# circumscribed radius is slightly generous for a non-circular base moving
-	# across its narrow axis, but it is stable and never under-draws.
+	# travel would make the halo breathe as an oval/rectangular model pivots, and
+	# a free 11e pivot means the facing at the end of the move is the player's
+	# choice anyway. The circumscribed radius is slightly generous for a
+	# non-circular base moving across its narrow axis, but it never under-draws.
 	var shape = create_base_shape(model)
 	if shape == null:
 		return base_radius_px(int(model.get("base_mm", 32)))

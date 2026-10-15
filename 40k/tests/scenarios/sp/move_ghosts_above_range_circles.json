@@ -6,7 +6,7 @@
     "movement.per_model_move_range_circle",
     "movement.pad_carry_reach_ring_under_ghost",
     "phases.MovementPhase.UI.move_range_overlay",
-    "movement.range_ring_includes_base_extent"
+    "movement.range_ring_matches_drag_clamp"
   ],
   "fixture": "audit_baseline_postdeploy",
   "transition_to_phase": 7,
@@ -125,7 +125,7 @@
       "act": "execute_script",
       "multiline": true,
       "expect_max": 1.5,
-      "script": "# Every per-model ring in a GROUP drag must be inflated by that model's own\n# base extent, not drawn at the raw move cap \u2014 the same fix as the single-model\n# reach ring (see move_range_ring_includes_base). Each dash's arc_idx-0 point is\n# centre + (radius, 0), so match each dash against the closest pickup origin and\n# report the worst deviation from cap_px + base extent.\nvar m = tree.root.get_node(\"Main\")\nvar mc = m.movement_controller\nvar want: float = Measurement.inches_to_px(mc.move_cap_inches) + Measurement.base_extent_px(mc.selected_models[0])\nvar worst := 0.0\nfor c in m.get_node(\"BoardRoot/MoveRangeVisual\").get_children():\n\tif not (c is Line2D):\n\t\tcontinue\n\tvar best := 1.0e9\n\tfor k in mc.group_drag_start_positions:\n\t\tvar sp = mc.group_drag_start_positions[k]\n\t\tbest = min(best, abs((c as Line2D).points[0].distance_to(sp) - want))\n\tworst = max(worst, best)\nm.set_meta(\"group_ring_probe\", \"want=%.1f worst_dev=%.2f\" % [want, worst])\nreturn worst"
+      "script": "# Every per-model ring in a GROUP drag is drawn at that model's own remaining\n# move and nothing else \u2014 the same rule as the single-model reach ring (see\n# move_range_ring_matches_drag_limit): it is the boundary the drag clamps to. Each dash's arc_idx-0 point is\n# centre + (radius, 0), so match each dash against the closest pickup origin and\n# report the worst deviation from cap_px + base extent.\nvar m = tree.root.get_node(\"Main\")\nvar mc = m.movement_controller\nvar want: float = Measurement.inches_to_px(mc.move_cap_inches)\nvar worst := 0.0\nfor c in m.get_node(\"BoardRoot/MoveRangeVisual\").get_children():\n\tif not (c is Line2D):\n\t\tcontinue\n\tvar best := 1.0e9\n\tfor k in mc.group_drag_start_positions:\n\t\tvar sp = mc.group_drag_start_positions[k]\n\t\tbest = min(best, abs((c as Line2D).points[0].distance_to(sp) - want))\n\tworst = max(worst, best)\nm.set_meta(\"group_ring_probe\", \"want=%.1f worst_dev=%.2f\" % [want, worst])\nreturn worst"
     },
     {
       "act": "execute_script",

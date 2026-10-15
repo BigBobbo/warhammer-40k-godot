@@ -44,7 +44,7 @@
       "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child_count()",
       "expect_min": 9 },
     { "act": "execute_script",
-      "script": "abs(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0,0)) - Measurement.inches_to_px(float(PhaseManager.get_current_phase_instance().active_moves[\"U_BLADE_CHAMPION_A\"][\"move_cap_inches\"])) - Measurement.base_extent_px(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0]))",
+      "script": "abs(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0,0)) - Measurement.inches_to_px(float(PhaseManager.get_current_phase_instance().active_moves[\"U_BLADE_CHAMPION_A\"][\"move_cap_inches\"])))",
       "expect_max": 1.5 },
     { "act": "execute_script",
       "script": "(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0,0)) / Measurement.PX_PER_INCH) > 6.5",

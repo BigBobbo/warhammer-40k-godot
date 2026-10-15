@@ -37,7 +37,7 @@
       "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child_count()",
       "equals": 9 },
     { "act": "execute_script",
-      "script": "abs(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0, 0)) - Measurement.inches_to_px(6.0) - Measurement.base_extent_px(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0]))",
+      "script": "abs(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0, 0)) - Measurement.inches_to_px(6.0))",
       "expect_max": 1.5 },
     { "act": "execute_script",
       "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(8).text",
@@ -51,7 +51,7 @@
     { "act": "wait_frames", "frames": 2 },
 
     { "act": "execute_script",
-      "script": "abs(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0, 0)) - Measurement.inches_to_px(10.0) - Measurement.base_extent_px(GameState.get_unit(\"U_BLADE_CHAMPION_A\").models[0]))",
+      "script": "abs(main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(0).points[0].distance_to(Vector2(0, 0)) - Measurement.inches_to_px(10.0))",
       "expect_max": 1.5 },
     { "act": "execute_script",
       "script": "main.get_node(\"BoardRoot/MoveRangeVisual\").get_child(8).text",
