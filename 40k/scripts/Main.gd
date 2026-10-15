@@ -12664,6 +12664,14 @@ func _on_phase_action_pressed() -> void:
 			if has_node("/root/ToastManager") and not scout_errors.is_empty():
 				get_node("/root/ToastManager").show_toast(str(scout_errors[0]), "error")
 			return
+		# A RULES refusal must not be overridden by a forced advance: END_FIGHT
+		# is refused while a unit is still mid-fight, a 12.08 forced fight is
+		# pending or units are owed a fight (12.04); any END_* is refused while
+		# a stratagem window / follow-up holds the phase. Advancing anyway
+		# skipped the remaining fights, the Consolidate step and the
+		# fight_phase_end window (merge review AIUI-1) — say why instead.
+		if _end_phase_refusal_stands(action, result):
+			return
 		# If network routing fails, try local advance as fallback for single player
 		if not NetworkManager.is_networked():
 			print("Main: Falling back to local phase advance")
@@ -13253,6 +13261,25 @@ func _show_end_fight_confirmation_dialog(unfought_units: Array, active_player: i
 	DialogUtils.popup_phase_end_prompt(dialog)
 	print("Main: T5-UX7: End fight confirmation dialog shown")
 
+## True when a refused END_* action is a rules refusal the phase-advance
+## fallback must not override: every END_FIGHT refusal (12.04 owed fights /
+## p.74, 12.08 forced fights, a unit still fighting), and any END_* refused
+## while the phase is held by a stratagem window or follow-up. Shows the
+## reason as a toast.
+func _end_phase_refusal_stands(action: Dictionary, result: Dictionary) -> bool:
+	if result.get("pending", false):
+		return false
+	var phase = PhaseManager.get_current_phase_instance()
+	var held: bool = phase != null and phase.has_method("get_pending_stratagem_window_decider") \
+		and int(phase.get_pending_stratagem_window_decider()) > 0
+	if str(action.get("type", "")) != "END_FIGHT" and not held:
+		return false
+	var errs = result.get("errors", [])
+	var reason := str(errs[0]) if errs is Array and not errs.is_empty() else str(result.get("error", "the phase cannot end yet"))
+	print("Main: %s refused (%s) — not advancing the phase" % [str(action.get("type", "")), reason])
+	ToastManager.show_error(reason)
+	return true
+
 func _on_end_fight_confirmed(active_player: int) -> void:
 	"""T5-UX7: Player confirmed ending fight phase despite unfought units"""
 	print("Main: T5-UX7: Player confirmed end fight phase")
@@ -13260,6 +13287,8 @@ func _on_end_fight_confirmed(active_player: int) -> void:
 	var result = NetworkIntegration.route_action(action)
 	if not result.get("success", false):
 		print("Main: T5-UX7: Failed to end fight phase: ", result.get("error", "Unknown error"))
+		if _end_phase_refusal_stands(action, result):
+			return
 		if not NetworkManager.is_networked():
 			print("Main: T5-UX7: Falling back to local phase advance")
 			PhaseManager.advance_to_next_phase()
@@ -13654,7 +13683,13 @@ func update_after_fight_action() -> void:
 	_recreate_unit_visuals()  # This should handle dead model removal
 	refresh_unit_list()
 	update_ui()
-	
+	# The Fight-phase button label depends on live state — the p.74 pass
+	# becoming legal / no longer legal, the Consolidate step ending — not only
+	# on subphase transitions; re-derive it after every fight action.
+	if phase_action_button and is_instance_valid(phase_action_button) and current_phase == GameStateData.Phase.FIGHT:
+		phase_action_button.text = _get_phase_button_text(current_phase)
+		phase_action_button.tooltip_text = _get_phase_button_tooltip(current_phase)
+
 	# Update fight controller state (_refresh_fight_sequence was removed from
 	# FightController — guard so every fight action doesn't SCRIPT ERROR)
 	if fight_controller and fight_controller.has_method("_refresh_fight_sequence"):

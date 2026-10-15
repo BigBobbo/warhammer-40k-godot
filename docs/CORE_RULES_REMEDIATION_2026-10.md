@@ -290,3 +290,47 @@ pre-existing, or load-sensitive on both trees):
   the multiplayer section), the 8 always-failing multi-peer GUT tests, the
   75 scenarios above, the broken `loop-prefilter.yml`, and the CI windowed
   job's 30-minute timeout (it never reaches this branch's scenarios).
+
+## Merge with main (#917, Codex: Orks 11e) — 2026-10-15
+
+Main (PR #917: 40 Codex: Orks stratagems + the BasePhase stratagem-window
+framework) was merged into this branch (`2fc5460`), then reviewed for
+interaction defects by five independent lenses (Fight, multiplayer/turn
+timer, Movement, Shooting/saves/transports, AI/UI/tests) with a skeptic
+re-checking every blocker/major finding.
+
+**Conflict resolutions** (merge commit message has the detail): END_FIGHT
+on the host goes through main's RV-2 `_end_phase_via_phase` first, and an
+11e Fight-phase rejection now stands (the old "complete the phase as
+before" fallback would have forfeited owed fights online); the 09.02 Remain
+Stationary broadcast moved into `MovementPhase._process_end_movement` (the
+host now runs it there); versions renumbered 1.45.0 / 1.45.1.
+
+**Interaction fixes** (`44c3772` + follow-up, version 1.45.2):
+
+| id | fix |
+|---|---|
+| SHOOT-1 (blocker) | An [INDIRECT FIRE] attack at an UNSEEN target always gets 10.07 — SELECT_SHOOTER defaults the unit to "normal" (no UI/AI path picks a type) and the stamped "normal" had switched 10.07 off |
+| SHOOT-2 | Computer-allocated saves use the 05.03 group order implied by the casualty preference (Nob after the Boyz), not model-index order |
+| SHOOT-3 / SHOOT-4 | Command Re-roll on an indirect/torrent hit die refused before the CP is spent; SPEEDIEST FREEKS' band no longer labelled "indirect" |
+| FC-2 | Fight On Death models removed when the activation ends with SKIP_UNIT |
+| AIUI-1 | Single-player Main no longer force-advances the phase when END_FIGHT is refused (mid-activation, 12.08 forced fight, owed fights) |
+| AIUI-2 | Fight-phase button label re-derived after every fight action |
+| MPGM-1/2, FC-3 | AFK timer charges the window decider / active fighter's owner / half owner; a timed-out window is auto-declined |
+| MPGM-3 | Online END_FIGHT in Pile In / Consolidate only ends the sender's own half |
+| MPGM-4 | Stale END_FIGHT / END_MOVEMENT / END_COMMAND after its phase is a no-op (no longer completes Scoring) |
+| MPGM-5 / MPGM-6 | Relay guests see refusals; the client closes its Consolidate step when the host opens fight_phase_end |
+| FC-1 + tests | KEEP IT RUNNIN' / INSTINCTIVE HUNTERS scenarios and test_ork_codex_fight settle owed fights first; GOADED test re-seeded with a coherency precondition |
+
+**New tests**: `tests/test_merge_916_917_interactions.gd` (pretrigger),
+scenarios `indirect_unseen_default_type_11e` (SHOOT-1, real panel
+selection) and `end_fight_mid_activation_refused_11e` (AIUI-1).
+
+**Found, verified real, NOT fixed here** (pre-existing or #917-only gaps,
+outside this merge): COUNTER-OFFENSIVE resolved out of sequence (FC-4);
+ingress flags `arrived_from_reserves` / `no_moves_until_charge_phase` never
+cleared (MV-1); online END_MOVEMENT with a Sawbonez / Mekaniak prompt skips
+the movement_phase_end windows (MV-2); transports destroyed outside the
+Shooting/Fight phases never emergency-disembark (TRANS-1); passed (p.74)
+units cannot be forced by a 12.08 Engaging Consolidation (FC-5); 10e
+harness gives reserve arrivals remained_stationary (MV-3).
