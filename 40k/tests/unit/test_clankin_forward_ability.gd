@@ -17,12 +17,44 @@ extends "res://addons/gut/test.gd"
 #   32mm base radius_px ≈ 25.2 px  (32mm / 25.4 * 40 / 2)
 #   170mm base (Morkanaut) radius_px ≈ 134 px (170mm / 25.4 * 40 / 2)
 #   PX_PER_INCH = 40.0
+#   Engagement range = 2" = 80 px at 11e (1" = 40 px at 10e)
+#
+# 11e migration (harness default edition 11): 11e 03.04 "A model's engagement
+# range is the area of the battlefield within 2" horizontally and 5"
+# vertically of it"; 09.05 NORMAL MOVE "ELIGIBLE IF: Your unit is on the
+# battlefield and unengaged." / "AFTER MOVING: Your unit must be unengaged."
+# The enemy-infantry crossing test and the no-ability infantry test were laid
+# out for the 10e 1" range and started engaged at 11e; their geometry now
+# keeps >2" edge-to-edge at start and destination (see each test).
+# 11e basis for the model-crossing checks: core 17.01 "Each time you make a
+# normal or advance move with a unit, MONSTER/VEHICLE models in that unit can
+# be moved through friendly and enemy models (excluding other MONSTER/VEHICLE
+# models)" and 03.01 "Its base cannot be moved through enemy models". The 11e
+# datasheet text of Clankin' Forward is NOT available locally
+# (40k/data/40kdc/abilities.json "clankin-forward" carries only
+# {"passthrough": ["all-terrain"]}; scripts/40kdc/curated/orks_codex_11e.json
+# has no datasheet abilities), so the ability wording above is the 10e text.
+#
+# Terrain isolation: TerrainManager loads the default layout
+# (take_and_hold_mirror_1) at startup; its area-medium-7 / corner-short-10
+# pieces added difficult-ground + climb penalties (up to 8") that blew the 10"
+# cap at BOTH editions. These tests only passed in a full-suite run because an
+# earlier test happened to clear terrain_features. before_each now saves and
+# clears the features and after_each restores them. The terrain sections
+# therefore exercise only the legacy board.terrain "impassable" endpoint
+# check (runs at both editions); the 11e 13.06 dense-terrain gate with the
+# 4" step-over granted to Clankin'/Stompin' Forward
+# (MovementPhase._terrain_rule_keywords) is covered for the Stompa by
+# tests/test_solid_terrain_movement_11e.gd T1/T7 — no Morkanaut-specific 11e
+# 13.06 test exists (gap).
 
 const MovementPhaseScript = preload("res://phases/MovementPhase.gd")
 const GameStateData = preload("res://autoloads/GameState.gd")
 
 var phase: Node
 var game_state_node: Node
+var terrain_manager: Node
+var _saved_terrain_features: Array = []
 
 func before_each():
 	if not AutoloadHelper.verify_autoloads_available():
@@ -30,11 +62,20 @@ func before_each():
 		return
 	game_state_node = AutoloadHelper.get_game_state()
 	assert_not_null(game_state_node, "GameState autoload must be available")
+	# Isolate from the default terrain layout (see header): save + clear.
+	terrain_manager = AutoloadHelper.get_terrain_manager()
+	assert_not_null(terrain_manager, "TerrainManager autoload must be available")
+	if terrain_manager:
+		_saved_terrain_features = terrain_manager.terrain_features.duplicate(true)
+		terrain_manager.terrain_features.clear()
 
 func after_each():
 	if phase:
 		phase.queue_free()
 		phase = null
+	if terrain_manager:
+		terrain_manager.terrain_features = _saved_terrain_features
+		_saved_terrain_features = []
 
 # ==========================================
 # Helpers
@@ -107,13 +148,19 @@ func _create_morkanaut(id: String, owner: int, pos: Vector2) -> Dictionary:
 
 func test_clankin_forward_can_cross_enemy_infantry():
 	"""Morkanaut with Clankin' Forward should move over enemy Infantry"""
-	# 170mm base radius ≈ 134 px, 32mm base radius ≈ 25 px
+	# 170mm base radius ≈ 134 px, 32mm base radius ≈ 25 px → combined 159.1 px
 	# Enemy offset laterally so path crosses its base but destination doesn't overlap.
-	# At y=400, morkanaut base (radius 134) at x=600 extends to x=734 — overlaps enemy at x=700.
-	# At dest (600,550), distance to enemy (700,400) = sqrt(100²+150²)=180 > 159 — no overlap.
+	# At y=395, morkanaut base (radius 134) at x=600 extends to x=734 — overlaps enemy at x=745
+	# (lateral 145 < 159.1).
+	# 11e migration: enemy moved (700,400) -> (745,395). With the old spot the
+	# start gap was 1.61" and the destination gap 1.39" — both inside the 11e
+	# 2" engagement range (03.04), so 09.05 refused BEGIN_NORMAL_MOVE ("unit is
+	# engaged") and the destination would also fail "AFTER MOVING: Your unit
+	# must be unengaged". Now start/dest → enemy = sqrt(145²+195²) = 243.0 px,
+	# a 2.10" gap (> 239.1 px ER threshold).
 	var units = {
 		"morkanaut": _create_morkanaut("morkanaut", 1, Vector2(600, 200)),
-		"enemy_infantry": _create_unit("enemy_infantry", 2, Vector2(700, 400), ["INFANTRY"]),
+		"enemy_infantry": _create_unit("enemy_infantry", 2, Vector2(745, 395), ["INFANTRY"]),
 	}
 	var state = _create_state(units)
 	_setup_phase(state)
@@ -124,7 +171,7 @@ func test_clankin_forward_can_cross_enemy_infantry():
 
 	# Move from y=200 to y=590 (390 px = 9.75", within 10" move)
 	# Path crosses enemy infantry base (lateral overlap due to 170mm base width)
-	# At dest (600,590), distance to enemy (700,400) = ~214 px > 199 px (ER+bases), no ER violation
+	# At dest (600,590), distance to enemy (745,395) = 243.0 px > 239.1 px (2" ER + bases), no ER violation
 	var stage = {
 		"type": "STAGE_MODEL_MOVE",
 		"actor_unit_id": "morkanaut",
@@ -146,6 +193,12 @@ func test_clankin_forward_blocked_by_enemy_monster():
 	# 170mm base (134 px) + 80mm base (63 px): combined radii ≈ 197 px
 	# Path from (600,200) to (600,550) crosses enemy monster at (700,400)
 	# At y=400, morkanaut base extends to x=734, enemy at x=700 extends to x=763 → overlap
+	# NOTE (2026-10-17 triage, not changed): start → enemy = 223.6 px vs 196.9 px
+	# combined radii = 0.67" gap, inside engagement range at BOTH editions (1"
+	# and 2"), so BEGIN_NORMAL_MOVE is refused and this assert_false (and the
+	# VEHICLE twin below) passes vacuously via "No active move". With M10 a
+	# straight path that overlaps an 80mm base and starts/ends >2" away needs
+	# ≥9.7", so a non-vacuous 11e layout needs a geometry/M rework.
 	var units = {
 		"morkanaut": _create_morkanaut("morkanaut", 1, Vector2(600, 200)),
 		"enemy_monster": _create_unit("enemy_monster", 2, Vector2(700, 400), ["MONSTER"], 80),
@@ -313,9 +366,16 @@ func test_clankin_forward_blocked_by_tall_terrain():
 
 func test_normal_unit_still_blocked_by_enemy_infantry():
 	"""A unit without Clankin' Forward should still be blocked by enemy models during Normal Move"""
+	# 11e migration: enemy (400,300) -> (400,340) and dest (400,400) -> (400,480).
+	# The old 1.24" start gap is engaged under the 11e 2" engagement range
+	# (03.04), so BEGIN_NORMAL_MOVE was refused (09.05) and the assert_false
+	# below passed only vacuously. Now: start/dest gaps = 140 - 50.4 = 89.6px
+	# (2.24") and the 7" straight path runs through the enemy base, so the
+	# block comes from 11e 03.01 "Its base cannot be moved through enemy
+	# models" (17.01 does not apply — the mover is INFANTRY).
 	var units = {
 		"infantry": _create_unit("infantry", 1, Vector2(400, 200), ["INFANTRY"]),
-		"enemy_infantry": _create_unit("enemy_infantry", 2, Vector2(400, 300), ["INFANTRY"]),
+		"enemy_infantry": _create_unit("enemy_infantry", 2, Vector2(400, 340), ["INFANTRY"]),
 	}
 	var state = _create_state(units)
 	_setup_phase(state)
@@ -328,7 +388,7 @@ func test_normal_unit_still_blocked_by_enemy_infantry():
 		"actor_unit_id": "infantry",
 		"payload": {
 			"model_id": "infantry_m1",
-			"dest": [400.0, 400.0],
+			"dest": [400.0, 480.0],
 			"rotation": 0.0
 		}
 	}

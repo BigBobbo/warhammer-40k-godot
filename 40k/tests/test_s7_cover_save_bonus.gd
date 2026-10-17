@@ -9,6 +9,11 @@ extends SceneTree
 #   - Save cap of 2+ (cover never produces a better-than-2+ save)
 #   - Net improvement capped at +1 total
 #
+# EDITION: cover-improves-the-save is a 10e-only rule. The cover sections
+# below are pinned to GameConstants.edition = 10 (legacy regression); the
+# edition-neutral AP / invuln checks run at the harness edition; the final
+# "11e 13.08" section pins edition 11 and asserts cover never moves the save.
+#
 # Tests the static helper directly.
 #
 # Usage: godot --headless --path . -s tests/test_s7_cover_save_bonus.gd
@@ -37,6 +42,23 @@ func _run_tests():
 		return
 	print("\n=== test_s7_cover_save_bonus ===\n")
 	var rules = root.get_node("RulesEngine")
+	var harness_edition: int = GameConstants.edition
+
+	# Legacy 10e regression: Benefit of Cover improves the armour save by 1
+	# (+ the 10e "3+ or better vs AP0" and 2+ caveats) — 11e 13.08 replaced it
+	# ("Each time a ranged attack targets a unit that has the benefit of cover
+	# against it, worsen the BS characteristic of that attack by 1."), and 11e
+	# 05.04 judges the save only on "After modifying the result by the attacking
+	# weapon's AP characteristic, it is equal to or greater than the Sv
+	# characteristic"; 11e coverage: the "11e 13.08" section at the end of this
+	# file (cover never changes the save), tests/test_iss016_modifier_stack.gd
+	# ("STEALTH target grants benefit of cover -> BS worsened by 1"),
+	# tests/test_iss053_cover_plunging_11e.gd (13.08 qualification).
+	# Set here, after the re-entry guard — SettingsService applies the harness
+	# edition in _ready, so a write in _init would be overwritten.
+	GameConstants.edition = 10
+	_check("Legacy 10e pin: GameConstants.edition == 10",
+		GameConstants.edition == 10, "got %d" % GameConstants.edition)
 
 	# Sv4+ baseline
 	_check("Sv4+, AP0, no cover → 4+",
@@ -76,6 +98,10 @@ func _run_tests():
 	# via cover alone (cover only provides -1 to required save). The 2+ floor
 	# (max(2, ...)) is the practical guard verified above for Sv2+ cases.
 
+	# End of the legacy 10e cover sections — the invuln / AP-sign checks below
+	# are edition-neutral and run at the harness edition.
+	GameConstants.edition = harness_edition
+
 	# Invuln-better takes precedence
 	var inv_better = rules._calculate_save_needed(6, 3, false, 4)
 	_check("Sv6+ AP3 invuln4+: use_invuln=true",
@@ -94,10 +120,45 @@ func _run_tests():
 		_calc(rules, 3, -1, false) == 4, "got %d" % _calc(rules, 3, -1, false))
 	_check("Sv3+, AP-3 (neg form), no cover → 6+",
 		_calc(rules, 3, -3, false) == 6, "got %d" % _calc(rules, 3, -3, false))
+
+	# Legacy 10e regression: these two AP-sign checks also exercise the 10e
+	# cover-improves-save rule (see the pin comment above) — 11e 13.08 replaced
+	# it; 11e coverage: the "11e 13.08" section below (AP-1 neg form, cover).
+	GameConstants.edition = 10
+	_check("Legacy 10e pin (AP-sign cover checks): GameConstants.edition == 10",
+		GameConstants.edition == 10, "got %d" % GameConstants.edition)
 	_check("Sv4+, AP-1 (neg form), cover → 4+ (cover negates AP)",
 		_calc(rules, 4, -1, true) == 4, "got %d" % _calc(rules, 4, -1, true))
 	_check("Sv2+, AP-1 (neg form), cover → 2+ (cover negates AP, floored at cap)",
 		_calc(rules, 2, -1, true) == 2, "got %d" % _calc(rules, 2, -1, true))
+	GameConstants.edition = harness_edition
+
+	# 11e 13.08: "Each time a ranged attack targets a unit that has the benefit
+	# of cover against it, worsen the BS characteristic of that attack by 1." —
+	# cover is hit-side only, so the save must be identical with and without
+	# cover. 05.04: the save fails when "After modifying the result by the
+	# attacking weapon's AP characteristic, it is equal to or greater than the
+	# Sv characteristic" ⇒ the roll needed is Sv + |AP| (7 = no armour save).
+	# _calculate_save_needed is still reached at 11e by the overwatch and
+	# auto-allocate save paths, so a cover leak here would double-count cover
+	# (BS worsened AND save improved).
+	GameConstants.edition = 11
+	_check("11e pin: GameConstants.edition == 11",
+		GameConstants.edition == 11, "got %d" % GameConstants.edition)
+	var e11_cases := [
+		[4, 0, 4], [4, 1, 5], [4, 2, 6],
+		[3, 0, 3], [3, 1, 4],
+		[2, 0, 2], [2, 1, 3], [2, 2, 4],
+		[6, 1, 7],
+		[4, -1, 5], [2, -1, 3],
+	]
+	for c in e11_cases:
+		var with_cover := _calc(rules, c[0], c[1], true)
+		var without_cover := _calc(rules, c[0], c[1], false)
+		_check("11e: Sv%d+, AP%d, cover → %d+ (13.08: cover worsens BS, never the save)" % [c[0], c[1], c[2]],
+			with_cover == c[2] and with_cover == without_cover,
+			"cover=%d no_cover=%d expected=%d" % [with_cover, without_cover, c[2]])
+	GameConstants.edition = harness_edition
 
 	_finish()
 

@@ -60,6 +60,12 @@ func _run_tests():
 	var cp_before = game_state.state["players"]["1"]["cp"]
 
 	# Dispatch END_MOVEMENT — should fire RI trigger for P1 (defender)
+	# Edition-neutral: both editions offer RAPID INGRESS here — 10e "End of your
+	# opponent's Movement phase." and 11e 15.07 "WHEN: End of your opponent's
+	# Movement phase." (docs/rules/40k_11th_edition_core_rules.txt). Round 2, so
+	# the 11e restriction "cannot use this stratagem during the first battle
+	# round" does not apply, and the Caladius (VEHICLE, not AIRCRAFT) is in
+	# strategic reserves (11e TARGET: "in strategic reserves (excluding AIRCRAFT)").
 	var end_result = phase.execute_action({"type": "END_MOVEMENT"})
 
 	_check("END_MOVEMENT returned trigger_rapid_ingress",

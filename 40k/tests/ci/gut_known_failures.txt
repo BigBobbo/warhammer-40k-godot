@@ -37,7 +37,6 @@ tests/unit/test_heroic_intervention.gd::test_no_eligible_units_when_all_excluded
 tests/unit/test_heroic_intervention.gd::test_walker_vehicle_is_eligible  # fails at 10e and 11e (pre-existing)
 tests/unit/test_indirect_fire_keyword.gd::test_indirect_fire_applies_minus_one_to_hit  # fails at 10e and 11e (pre-existing)
 tests/unit/test_indirect_fire_keyword.gd::test_indirect_fire_grants_cover_interactive  # fails at 10e and 11e (pre-existing)
-tests/unit/test_insane_bravery_stratagem.gd::test_insane_bravery_deducts_1_cp  # fails at 10e and 11e (pre-existing)
 tests/unit/test_lance_keyword.gd::test_lance_shooting_auto_resolve_charged  # fails at 10e and 11e (pre-existing)
 tests/unit/test_mathhammer_blast_bonus.gd::test_blast_bonus_10_models  # fails at 10e and 11e (pre-existing)
 tests/unit/test_mathhammer_blast_bonus.gd::test_blast_no_bonus_small_unit  # fails at 10e and 11e (pre-existing)
@@ -61,6 +60,17 @@ tests/unit/test_terrain_charge_interaction.gd::test_rules_engine_charge_paths_wi
 tests/unit/test_terrain_charge_interaction.gd::test_rules_engine_fly_vs_non_fly_terrain_penalty  # fails at 10e and 11e (pre-existing)
 tests/unit/test_unit_ability_manager.gd::test_get_implemented_abilities  # fails at 10e and 11e (pre-existing)
 tests/unit/test_unit_ability_manager.gd::test_is_ability_implemented  # fails at 10e and 11e (pre-existing)
+
+# --- tests/unit: fail at 11e only — tracked 11e engine bugs / undecidable (2026-10-17 triage) ---
+tests/unit/test_barricade_engagement_range.gd::test_charge_without_barricade_requires_1_inch  # BUG-11: 11.04 "within 1"" charge obligation not enforced at 11e (RulesEngine.validate_base_to_base_possible_rules uses the 2" ER)
+tests/unit/test_base_contact_enforcement.gd::test_model_could_reach_within_1in_but_didnt  # BUG-11: same 11.04 within-1" obligation
+tests/unit/test_extra_attacks_keyword.gd::test_regular_weapon_modified_by_da_biggest  # 11e only: same as above
+tests/unit/test_extra_attacks_keyword.gd::test_regular_weapon_still_modified_by_waaagh  # 11e only: no verbatim 11e Waaagh!/Da Biggest text locally to decide expected attacks (triage OTHER)
+tests/unit/test_hold_still_ability.gd::test_mortal_wounds_on_critical_wound_with_urty_syringe  # BUG-11 (suspected): 11e auto melee save path returns before the Hold Still mortal-wound block
+
+# --- intermittent (pass or fail run to run, in both editions; root cause not isolated) ---
+? tests/unit/test_insane_bravery_stratagem.gd::test_command_phase_rejects_insane_bravery_for_already_tested_unit  # flips between runs of the same tree; CommandPhase battle_shock_step_start window opening depends on shared autoload state — follow-up
+? tests/unit/test_insane_bravery_stratagem.gd::test_insane_bravery_deducts_1_cp  # flips between runs of the same tree; CommandPhase battle_shock_step_start window opening depends on shared autoload state — follow-up
 
 # --- tests/integration (single-process): fail at 10e and 11e ---
 tests/integration/test_e2e_workflow.gd::test_battle_shock_in_command_phase  # fails at 10e and 11e (pre-existing)

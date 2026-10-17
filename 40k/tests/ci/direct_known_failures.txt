@@ -38,3 +38,14 @@ tests/unit/test_battlewagon_base_shape.gd  # 27/2 at 10e and 11e (exits 0 despit
 tests/unit/test_deadly_demise.gd  # 26/2 at 10e and 11e
 tests/unit/test_reroll_support.gd  # hangs (>240 s) at 10e and 11e
 tests/integration/test_escape_main_menu.gd  # 4/1 at 10e and 11e
+
+# --- fail at 11e only: tracked 11e ENGINE bugs (2026-10-17 triage; the test
+# --- asserts the 11e rule and stays unweakened until the engine is fixed) ---
+tests/test_ri_pretrigger.gd  # BUG-11: rapid_ingress_11e is defined on the Shooting phase; 15.07 WHEN "End of your opponent's Movement phase" (Diff 4 fixes)
+tests/test_374_enhancement_resolution_398.gd  # BUG-11: 11e melee allocation path drops attacker +Damage modifiers (Hall of Armouries etc.; RulesEngine 11e branch of _resolve_melee_assignment)
+tests/test_custodes_lions_silent_hunters.gd  # BUG-11: legacy WEAPON_PROFILES store AP as a positive magnitude and the 11e allocation path adds it to the save (test-fixture weapons only; army data uses signed AP)
+tests/test_b2b_rules_standalone_check.gd  # BUG-11: 11.04 "within 1\"" charge obligation not enforced at 11e (validate_base_to_base_possible_rules uses the 2\" ER)
+tests/unit/test_reserves_half_army_cap.gd  # BUG-11: FormationsPhase offers a Bodyguard second leader at 11e, then its 11e validator rejects it
+
+# --- fail at both editions, stale expectations (triage: needs sign-off to change) ---
+tests/test_ma14_rapid_fire_per_weapon.gd  # Tests 2/3: the resolve-time bearer filter correctly cuts a 10-model bolt-rifle assignment to its 5 bearers (04.01)

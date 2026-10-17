@@ -25,8 +25,32 @@ extends "res://addons/gut/test.gd"
 # 8. RulesEngine respects stealth (-1 to hit) from Smokescreen
 # 9. Reactive stratagem detection for defending player
 # 10. ShootingPhase action handlers for USE/DECLINE_REACTIVE_STRATAGEM
+#
+# EDITION: both stratagems above are the 10e core versions. 11e (15.02-15.12)
+# has no GO TO GROUND, and its SMOKESCREEN (15.10) is a start-of-phase
+# benefit-of-cover aura with no Stealth. 11e also replaced the 10e
+# cover-improves-the-save rule (13.08: cover worsens the attack's BS). Every
+# testcase that exercises one of those 10e-only rules calls _pin_legacy_10e()
+# (GameConstants.edition = 10 for that testcase only; after_each restores the
+# harness edition). Unpinned testcases run at the harness edition: the
+# definition-data checks, the 11e-valid SMOKESCREEN checks (SMOKE target,
+# 1 CP), the stealth-flag / no-offer checks, and the AP/invuln save-math
+# checks. test_invuln_save_applied_via_save_calculation,
+# test_invuln_save_helps_against_high_ap, test_cover_with_ap and
+# test_prepare_save_resolution_with_smokescreen_cover are left untouched:
+# they fail at BOTH editions (stale "AP sign bug" expectations — the engine
+# now applies |AP|) and are tracked in tests/ci/gut_known_failures.txt.
 
 const GameStateData = preload("res://autoloads/GameState.gd")
+
+var _prev_edition: int = 11
+
+func _pin_legacy_10e() -> void:
+	# Set inside the test body (GUT runs it after before_each), never in _init —
+	# SettingsService applies the harness edition after the first frame and
+	# would overwrite an earlier write. after_each restores _prev_edition.
+	GameConstants.edition = 10
+	assert_eq(GameConstants.edition, 10, "Legacy 10e pin: GameConstants.edition == 10")
 
 
 # ==========================================
@@ -97,9 +121,14 @@ func _setup_shooting_scenario() -> void:
 	StratagemManager.reset_for_new_game()
 
 func before_each():
+	# Save the harness edition so a testcase's _pin_legacy_10e() never leaks.
+	_prev_edition = GameConstants.edition
 	# Clear game state units before each test
 	GameState.state.units.clear()
 	StratagemManager.reset_for_new_game()
+
+func after_each():
+	GameConstants.edition = _prev_edition
 
 
 # ==========================================
@@ -165,6 +194,11 @@ func test_smokescreen_effects():
 
 func test_can_use_go_to_ground_with_cp():
 	"""Player 2 (defender) should be able to use Go to Ground during opponent's shooting."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	var result = StratagemManager.can_use_stratagem(2, "go_to_ground", "U_DEFENDER_INF")
@@ -172,6 +206,11 @@ func test_can_use_go_to_ground_with_cp():
 
 func test_cannot_use_go_to_ground_with_zero_cp():
 	"""Cannot use Go to Ground with 0 CP."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 	GameState.state.players["2"]["cp"] = 0
 
@@ -181,6 +220,11 @@ func test_cannot_use_go_to_ground_with_zero_cp():
 
 func test_cannot_use_go_to_ground_twice_per_phase():
 	"""Go to Ground once-per-phase restriction."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	# First use should succeed
@@ -193,6 +237,13 @@ func test_cannot_use_go_to_ground_twice_per_phase():
 
 func test_cannot_use_go_to_ground_on_battle_shocked_unit():
 	"""Battle-shocked units cannot be targeted by stratagems."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	# (At 11e this testcase passed only because GO TO GROUND is retired — "was retired — use
+	# the 11e core set" — not because of the rule it names.)
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 	GameState.state.units["U_DEFENDER_INF"]["flags"]["battle_shocked"] = true
 
@@ -213,6 +264,11 @@ func test_can_use_smokescreen_on_smoke_unit():
 
 func test_go_to_ground_sets_invuln_flag():
 	"""Using Go to Ground should set effect_invuln flag on the target unit."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	var result = StratagemManager.use_stratagem(2, "go_to_ground", "U_DEFENDER_INF")
@@ -225,6 +281,11 @@ func test_go_to_ground_sets_invuln_flag():
 
 func test_go_to_ground_deducts_cp():
 	"""Using Go to Ground should deduct 1 CP."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	StratagemManager.use_stratagem(2, "go_to_ground", "U_DEFENDER_INF")
@@ -232,6 +293,13 @@ func test_go_to_ground_deducts_cp():
 
 func test_smokescreen_sets_cover_and_stealth_flags():
 	"""Using Smokescreen should set effect_cover and effect_stealth flags."""
+	# Legacy 10e regression: SMOKESCREEN 10e (after target selection; Benefit of Cover AND
+	# Stealth) — 11e 15.10 replaced it ("WHEN: Start of your opponent's Shooting phase." …
+	# "EFFECT: Until the end of the phase, each time an attack targets either your SMOKE unit,
+	# or a unit that is not fully visible to the attacking model because of one or more models
+	# in your SMOKE unit, the target has the benefit of cover against that attack (13.08)." —
+	# no Stealth); 11e coverage: tests/test_core_stratagems_11e.gd ("SMOKESCREEN (15.10)").
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	var result = StratagemManager.use_stratagem(2, "smokescreen", "U_DEFENDER_SMOKE")
@@ -251,6 +319,11 @@ func test_smokescreen_deducts_cp():
 
 func test_active_effects_tracked():
 	"""StratagemManager should track active effects for the unit."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	StratagemManager.use_stratagem(2, "go_to_ground", "U_DEFENDER_INF")
@@ -261,6 +334,11 @@ func test_active_effects_tracked():
 
 func test_has_active_effect_query():
 	"""has_active_effect should return true for applied effects."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	StratagemManager.use_stratagem(2, "go_to_ground", "U_DEFENDER_INF")
@@ -276,6 +354,11 @@ func test_has_active_effect_query():
 
 func test_reactive_stratagems_for_infantry_target():
 	"""Should detect Go to Ground opportunity for INFANTRY targets."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	var results = StratagemManager.get_reactive_stratagems_for_shooting(2, ["U_DEFENDER_INF"])
@@ -290,6 +373,17 @@ func test_reactive_stratagems_for_infantry_target():
 
 func test_reactive_stratagems_for_smoke_target():
 	"""Should detect Smokescreen opportunity for SMOKE targets."""
+	# Legacy 10e regression: SMOKESCREEN 10e (after target selection; Benefit of Cover AND
+	# Stealth) — 11e 15.10 replaced it ("WHEN: Start of your opponent's Shooting phase." …
+	# "EFFECT: Until the end of the phase, each time an attack targets either your SMOKE unit,
+	# or a unit that is not fully visible to the attacking model because of one or more models
+	# in your SMOKE unit, the target has the benefit of cover against that attack (13.08)." —
+	# no Stealth); 11e coverage: tests/test_core_stratagems_11e.gd ("SMOKESCREEN (15.10)").
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	var results = StratagemManager.get_reactive_stratagems_for_shooting(2, ["U_DEFENDER_SMOKE"])
@@ -359,6 +453,13 @@ func test_invuln_save_helps_against_high_ap():
 
 func test_cover_improves_save():
 	"""Cover should improve armour save by 1."""
+	# Legacy 10e regression: Benefit of Cover improves the armour save by 1 — 11e 13.08
+	# replaced it ("Each time a ranged attack targets a unit that has the benefit of cover
+	# against it, worsen the BS characteristic of that attack by 1."; 05.04 checks the save
+	# only "After modifying the result by the attacking weapon's AP characteristic"); 11e
+	# coverage: tests/test_iss016_modifier_stack.gd ("STEALTH target grants benefit of cover
+	# -> BS worsened by 1 (24.33/13.08)").
+	_pin_legacy_10e()
 	# 4+ save with cover → 3+ save (improved by 1)
 	var result = RulesEngine._calculate_save_needed(4, 0, true, 0)
 	assert_eq(result.armour, 3, "Save should be improved by cover")
@@ -397,6 +498,11 @@ func test_stealth_applies_minus_one_to_hit():
 
 func test_effects_cleared_on_phase_end():
 	"""Stratagem effects should be cleared when the phase ends."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	StratagemManager.use_stratagem(2, "go_to_ground", "U_DEFENDER_INF")
@@ -418,6 +524,13 @@ func test_effects_cleared_on_phase_end():
 
 func test_smokescreen_effects_cleared_on_phase_end():
 	"""Smokescreen effects should be cleared when the phase ends."""
+	# Legacy 10e regression: SMOKESCREEN 10e (after target selection; Benefit of Cover AND
+	# Stealth) — 11e 15.10 replaced it ("WHEN: Start of your opponent's Shooting phase." …
+	# "EFFECT: Until the end of the phase, each time an attack targets either your SMOKE unit,
+	# or a unit that is not fully visible to the attacking model because of one or more models
+	# in your SMOKE unit, the target has the benefit of cover against that attack (13.08)." —
+	# no Stealth); 11e coverage: tests/test_core_stratagems_11e.gd ("SMOKESCREEN (15.10)").
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	StratagemManager.use_stratagem(2, "smokescreen", "U_DEFENDER_SMOKE")
@@ -443,6 +556,13 @@ func test_smokescreen_effects_cleared_on_phase_end():
 
 func test_usage_recorded_in_history():
 	"""Stratagem usage should be recorded in StratagemManager history."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	# (At 11e this testcase passed only because GO TO GROUND is retired — "was retired — use
+	# the 11e core set" — not because of the rule it names.)
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	StratagemManager.use_stratagem(2, "go_to_ground", "U_DEFENDER_INF")
@@ -453,6 +573,11 @@ func test_usage_recorded_in_history():
 
 func test_usage_log_contains_stratagem_entry():
 	"""Phase log should contain the stratagem usage entry."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	StratagemManager.use_stratagem(2, "go_to_ground", "U_DEFENDER_INF")
@@ -476,6 +601,11 @@ func test_usage_log_contains_stratagem_entry():
 
 func test_prepare_save_resolution_with_go_to_ground():
 	"""prepare_save_resolution should include stratagem invuln and cover in save profiles."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	# Apply Go to Ground
@@ -520,6 +650,11 @@ func test_prepare_save_resolution_with_go_to_ground():
 
 func test_prepare_save_resolution_invuln_used_against_high_ap():
 	"""Go to Ground invuln should be used when AP makes armour save impossible."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	# Apply Go to Ground
@@ -597,6 +732,11 @@ func test_prepare_save_resolution_with_smokescreen_cover():
 func test_both_stratagems_cannot_be_used_in_same_phase():
 	"""Both Go to Ground and Smokescreen are once-per-phase, but are different stratagems.
 	They can each be used once per phase (on different units)."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	# Use Go to Ground on one unit
@@ -609,6 +749,13 @@ func test_both_stratagems_cannot_be_used_in_same_phase():
 
 func test_go_to_ground_does_not_affect_other_units():
 	"""Go to Ground on one unit should not affect other units."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	# (At 11e this testcase passed only because GO TO GROUND is retired — "was retired — use
+	# the 11e core set" — not because of the rule it names.)
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	StratagemManager.use_stratagem(2, "go_to_ground", "U_DEFENDER_INF")
@@ -620,6 +767,11 @@ func test_go_to_ground_does_not_affect_other_units():
 
 func test_reset_clears_all_stratagem_tracking():
 	"""reset_for_new_game should clear all stratagem usage and active effects."""
+	# Legacy 10e regression: GO TO GROUND (6+ invuln + Benefit of Cover once selected as a
+	# target) — 11e 15.01 replaced the core set ("All players can use core stratagems (see
+	# overleaf)"; that list, 15.02 COMMAND RE-ROLL to 15.12 COUNTEROFFENSIVE, has no GO TO
+	# GROUND); 11e coverage: gap (no test asserts GO TO GROUND is unusable at 11e).
+	_pin_legacy_10e()
 	_setup_shooting_scenario()
 
 	StratagemManager.use_stratagem(2, "go_to_ground", "U_DEFENDER_INF")
