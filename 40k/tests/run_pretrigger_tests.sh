@@ -45,8 +45,17 @@
 #   - secondary deck draw terminates when only round-1 shuffle-back cards are
 #     left (was an infinite loop)
 #
-# Usage: ./tests/run_pretrigger_tests.sh
+# Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
+#        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
+#            tests/test_*.gd plus the `extends SceneTree` scripts under
+#            tests/unit and tests/integration (most never ran anywhere)
 # Exits 0 if all tests pass, 1 otherwise.
+#
+# Known failures: tests/ci/direct_known_failures.txt lists test FILES that are
+# known to fail (each with a reason: a tracked 11e engine bug, or a failure
+# that reproduces at both editions). A listed file that fails is XFAIL and
+# does not fail the run; a listed file that PASSES fails the run until it is
+# delisted (the list may only shrink). Everything else must pass.
 #
 # A test file also counts as FAILED (not just "M failed > 0") when:
 #   - it reports "0 passed, 0 failed" — it ran no checks at all. This is how a
@@ -242,6 +251,21 @@ TESTS=(
     "tests/test_secondary_draw_shuffle_back_terminates.gd"
 )
 
+if [ "${1:-}" = "--all" ]; then
+    mapfile -t TESTS < <( { ls tests/test_*.gd; grep -l '^extends SceneTree' tests/unit/test_*.gd tests/integration/test_*.gd; } | sort -u )
+    echo "--all: ${#TESTS[@]} direct SceneTree test(s)"
+    # A few ungated scripts report through their exit code only (e.g.
+    # "[OK] all #372 validations passed") — accept exit 0 for those.
+    ALLOW_NO_RESULT_LINE=1
+fi
+
+KNOWN_FILE="${DIRECT_KNOWN_FAILURES:-tests/ci/direct_known_failures.txt}"
+KNOWN_TESTS=" "
+if [ -f "$KNOWN_FILE" ]; then
+    KNOWN_TESTS=" $(sed -e 's/#.*//' -e 's/[[:space:]]//g' "$KNOWN_FILE" | grep -v '^$' | tr '\n' ' ') "
+fi
+XFAIL_FILES=()
+
 # Rules edition. The harness defaults to 11e (the edition players get);
 # WH40K_TEST_EDITION=10 is the explicit legacy opt-in. Tests that set the
 # edition themselves are unaffected either way.
@@ -302,9 +326,16 @@ for test in "${TESTS[@]}"; do
     # Extract the final result line and parse pass/fail counts
     RESULT_LINE=$(echo "$OUTPUT" | grep -E "[0-9]+ passed, [0-9]+ failed" | tail -1)
     if [ -z "$RESULT_LINE" ]; then
-        echo "  ERROR: no result line found for $test (exit $RC)"
-        FAILED=$((FAILED + 1))
-        FAILED_FILES+=("$test (no result line, exit $RC)")
+        if [[ "$KNOWN_TESTS" == *" $test "* ]]; then
+            echo "  XFAIL: $test — no result line, exit $RC (known failure, $KNOWN_FILE)"
+            XFAIL_FILES+=("$test (no result line, exit $RC)")
+        elif [ "$RC" -eq 0 ] && [ "${ALLOW_NO_RESULT_LINE:-0}" = "1" ]; then
+            echo "  (no 'N passed, M failed' line; exit 0 accepted under --all)"
+        else
+            echo "  ERROR: no result line found for $test (exit $RC)"
+            FAILED=$((FAILED + 1))
+            FAILED_FILES+=("$test (no result line, exit $RC)")
+        fi
         continue
     fi
 
@@ -343,7 +374,16 @@ for test in "${TESTS[@]}"; do
         done < <(grep -E "Compile Error" "$FULL_LOG" | grep -v "Failed to compile depended scripts" || true)
     fi
 
-    if [ -n "$REASON" ]; then
+    if [[ "$KNOWN_TESTS" == *" $test "* ]]; then
+        if [ -n "$REASON" ]; then
+            echo "  XFAIL: $test — $REASON (known failure, $KNOWN_FILE)"
+            XFAIL_FILES+=("$test ($REASON)")
+        else
+            echo "  XPASS: $test passes but is listed in $KNOWN_FILE — delist it"
+            FAILED=$((FAILED + 1))
+            FAILED_FILES+=("$test (XPASS: listed as a known failure but passes — delist it)")
+        fi
+    elif [ -n "$REASON" ]; then
         echo "  FAILED: $test — $REASON"
         FAILED=$((FAILED + 1))
         FAILED_FILES+=("$test ($REASON)")
@@ -353,6 +393,12 @@ done
 echo ""
 echo "================================================"
 echo "Audit suite: $TOTAL_PASSED passed, $TOTAL_FAILED failed across ${#TESTS[@]} tests"
+if [ ${#XFAIL_FILES[@]} -gt 0 ]; then
+    echo "Known failures ($KNOWN_FILE): ${#XFAIL_FILES[@]} XFAIL"
+    for f in "${XFAIL_FILES[@]}"; do
+        echo "  ~ $f"
+    done
+fi
 if [ "$FAILED" -gt 0 ]; then
     echo "Failed files ($FAILED):"
     for f in "${FAILED_FILES[@]}"; do

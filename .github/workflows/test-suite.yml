@@ -112,6 +112,48 @@ jobs:
           40k/*_test_results.xml
         if-no-files-found: error
 
+  direct-tests:
+    runs-on: ubuntu-latest
+    name: Direct-script tests — all (shard ${{ matrix.shard }}/4)
+    # Every `godot -s` test (tests/test_*.gd + SceneTree scripts under
+    # tests/unit and tests/integration). Before 2026-10-17 only the ~140 in
+    # run_pretrigger_tests.sh's gated list ever ran; the rest never ran
+    # anywhere. Known failures: tests/ci/direct_known_failures.txt.
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [ 0, 1, 2, 3 ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+
+    - name: Setup Godot
+      uses: chickensoft-games/setup-godot@v2
+      with:
+        version: ${{ env.GODOT_VERSION }}
+        use-dotnet: false
+
+    - name: Import project
+      run: |
+        cd 40k
+        for pass in 1 2; do
+          rc=0
+          timeout 240 godot --headless --import || rc=$?
+          echo "import pass $pass exit $rc"
+          [ "$rc" -ne 124 ] || { echo "::error::godot --import timed out (pass $pass)"; exit 1; }
+        done
+        [ -s .godot/global_script_class_cache.cfg ] || { echo "::error::import left no .godot/global_script_class_cache.cfg"; exit 1; }
+
+    - name: Run every direct-script test
+      env:
+        AUDIT_SHARD: "${{ matrix.shard }}/4"
+      run: |
+        bash 40k/tests/run_pretrigger_tests.sh --all
+
   build-verification:
     runs-on: ubuntu-latest
     name: Build Verification
@@ -202,7 +244,7 @@ jobs:
   notification:
     runs-on: ubuntu-latest
     name: Test Results Notification
-    needs: [test, code-quality]
+    needs: [test, direct-tests, code-quality]
     if: always()
 
     steps:
@@ -212,6 +254,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Job Results:" >> $GITHUB_STEP_SUMMARY
         echo "- Tests: ${{ needs.test.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Direct-script tests: ${{ needs.direct-tests.result }}" >> $GITHUB_STEP_SUMMARY
         echo "- Code Quality: ${{ needs.code-quality.result }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "For detailed results, check the individual job logs and artifacts." >> $GITHUB_STEP_SUMMARY
