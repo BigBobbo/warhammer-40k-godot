@@ -38,9 +38,8 @@
     "is_warlord": true,
     "enhancements": [],
     "wargear": [
-     "1x Kombi-weapon",
-     "1x Power klaw",
-     "1x Twin sluggas"
+     "1x Kustom Choppa",
+     "1x Kustom shoota"
     ],
     "weapons": [
      {
@@ -178,9 +177,8 @@
      "Mork's Kunnin'"
     ],
     "wargear": [
-     "1x Kombi-weapon",
-     "1x Power klaw",
-     "1x Twin sluggas"
+     "1x Kustom Choppa",
+     "1x Kustom shoota"
     ],
     "weapons": [
      {
@@ -436,8 +434,11 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "9x Slugga",
-     "1x Slugga"
+     "1x Kustom Choppa",
+     "1x Kombi-skorcha",
+     "19x Choppa",
+     "19x Shoota",
+     "19x Slugga"
     ],
     "weapons": [
      {
@@ -855,8 +856,11 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "9x Slugga",
-     "1x Slugga"
+     "1x Kustom Choppa",
+     "1x Kombi-skorcha",
+     "19x Choppa",
+     "19x Shoota",
+     "19x Slugga"
     ],
     "weapons": [
      {
@@ -1274,12 +1278,9 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Deff rolla",
-     "1x Grabbin' klaw",
-     "1x Kannon",
-     "1x Lobba",
-     "1x Wreckin' ball",
-     "1x 'Ard Case"
+     "1x Crushin' Bulk",
+     "1x Grabbin' Klaw",
+     "1x Wreckin' Ball"
     ],
     "weapons": [
      {
@@ -1741,8 +1742,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x 'Eadbanger",
-     "1x Weirdboy staff"
+     "1x Power Vomit",
+     "1x Copper Staff"
     ],
     "weapons": [
      {
@@ -1876,8 +1877,11 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "9x Slugga",
-     "1x Slugga"
+     "1x Kustom Choppa",
+     "1x Kombi-skorcha",
+     "9x Choppa",
+     "9x Shoota",
+     "9x Slugga"
     ],
     "weapons": [
      {
@@ -2634,7 +2638,11 @@
     "points": 215,
     "is_warlord": false,
     "enhancements": [],
-    "wargear": [],
+    "wargear": [
+     "1x Armoured Impact",
+     "1x Smasha gun",
+     "1x Dual Wazbom Mega-kannon"
+    ],
     "weapons": [
      {
       "name": "Dual Wazbom Mega-kannon",
@@ -2757,9 +2765,9 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
+     "1x Adamantine 'Eadbutt",
      "1x Gork's Klaw",
-     "1x Mork's Roar",
-     "1x Makari's Stabba"
+     "1x Mork's Roar"
     ],
     "weapons": [
      {
@@ -2929,8 +2937,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Kustom shoota",
-     "1x Waaagh! banner"
+     "1x Shoota",
+     "1x Kustom Choppa"
     ],
     "weapons": [
      {

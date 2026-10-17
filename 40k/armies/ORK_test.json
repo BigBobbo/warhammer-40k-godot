@@ -38,9 +38,8 @@
     "is_warlord": true,
     "enhancements": [],
     "wargear": [
-     "1x Kombi-weapon",
-     "1x Power klaw",
-     "1x Twin sluggas"
+     "1x Kustom Choppa",
+     "1x Kustom shoota"
     ],
     "weapons": [
      {
@@ -296,12 +295,9 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Deff rolla",
-     "1x Grabbin' klaw",
-     "1x Kannon",
-     "1x Lobba",
-     "1x Wreckin' ball",
-     "1x 'Ard Case"
+     "1x Crushin' Bulk",
+     "1x Grabbin' Klaw",
+     "1x Wreckin' Ball"
     ],
     "weapons": [
      {

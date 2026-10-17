@@ -20,6 +20,7 @@
     "name": "Blade Champion",
     "keywords": [
      "ADEPTUS CUSTODES",
+     "BLADE CHAMPION",
      "CHARACTER",
      "IMPERIUM",
      "INFANTRY"
@@ -164,6 +165,7 @@
     "name": "Blade Champion",
     "keywords": [
      "ADEPTUS CUSTODES",
+     "BLADE CHAMPION",
      "CHARACTER",
      "IMPERIUM",
      "INFANTRY"
@@ -312,7 +314,8 @@
      "FLY",
      "IMPERIUM",
      "MOUNTED",
-     "SHIELD-CAPTAIN"
+     "SHIELD-CAPTAIN",
+     "SHIELD-CAPTAIN ON DAWNEAGLE JETBIKE"
     ],
     "stats": {
      "move": 12,
@@ -438,7 +441,8 @@
      "CHARACTER",
      "EPIC HERO",
      "IMPERIUM",
-     "INFANTRY"
+     "INFANTRY",
+     "TRAJANN VALORIS"
     ],
     "stats": {
      "move": 8,
@@ -584,6 +588,7 @@
     "keywords": [
      "ADEPTUS CUSTODES",
      "BATTLELINE",
+     "CUSTODIAN GUARD SODALITY",
      "IMPERIUM",
      "INFANTRY",
      "TRUSTED SENTINEL"
@@ -706,6 +711,7 @@
     "keywords": [
      "ADEPTUS CUSTODES",
      "BATTLELINE",
+     "CUSTODIAN GUARD SODALITY",
      "IMPERIUM",
      "INFANTRY",
      "TRUSTED SENTINEL"
@@ -828,6 +834,7 @@
     "keywords": [
      "ADEPTUS CUSTODES",
      "BATTLELINE",
+     "CUSTODIAN GUARD SODALITY",
      "IMPERIUM",
      "INFANTRY",
      "TRUSTED SENTINEL"
@@ -950,6 +957,7 @@
     "keywords": [
      "ADEPTUS CUSTODES",
      "BATTLELINE",
+     "CUSTODIAN GUARD SODALITY",
      "IMPERIUM",
      "INFANTRY",
      "TRUSTED SENTINEL"
@@ -1072,6 +1080,7 @@
     "keywords": [
      "ADEPTUS CUSTODES",
      "BATTLELINE",
+     "CUSTODIAN GUARD SODALITY",
      "IMPERIUM",
      "INFANTRY",
      "TRUSTED SENTINEL"
@@ -1200,6 +1209,7 @@
     "name": "Allarus Custodians",
     "keywords": [
      "ADEPTUS CUSTODES",
+     "ALLARUS CUSTODIANS",
      "IMPERIUM",
      "INFANTRY",
      "TERMINATOR"
@@ -1362,7 +1372,8 @@
      "ADEPTUS CUSTODES",
      "ANATHEMA PSYKANA",
      "IMPERIUM",
-     "INFANTRY"
+     "INFANTRY",
+     "PROSECUTOR SQUAD"
     ],
     "stats": {
      "move": 7,
@@ -1490,7 +1501,8 @@
      "ADEPTUS CUSTODES",
      "FLY",
      "IMPERIUM",
-     "MOUNTED"
+     "MOUNTED",
+     "VERTUS PRAETORS"
     ],
     "stats": {
      "move": 12,
@@ -1607,7 +1619,8 @@
      "ADEPTUS CUSTODES",
      "ANATHEMA PSYKANA",
      "IMPERIUM",
-     "INFANTRY"
+     "INFANTRY",
+     "WITCHSEEKER SQUAD"
     ],
     "stats": {
      "move": 7,
@@ -1742,7 +1755,8 @@
      "ADEPTUS CUSTODES",
      "ANATHEMA PSYKANA",
      "IMPERIUM",
-     "INFANTRY"
+     "INFANTRY",
+     "WITCHSEEKER SQUAD"
     ],
     "stats": {
      "move": 7,

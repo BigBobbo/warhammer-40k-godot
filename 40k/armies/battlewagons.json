@@ -254,8 +254,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Close combat weapon",
-     "1x Kustom mega-slugga"
+     "1x Kustom Mega-Slugga",
+     "1x Mek's Toolz"
     ],
     "weapons": [
      {
@@ -363,8 +363,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Close combat weapon",
-     "1x Kustom mega-slugga"
+     "1x Kustom Mega-Slugga",
+     "1x Mek's Toolz"
     ],
     "weapons": [
      {
@@ -472,8 +472,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Close combat weapon",
-     "1x Kustom mega-slugga"
+     "1x Kustom Mega-Slugga",
+     "1x Mek's Toolz"
     ],
     "weapons": [
      {
@@ -579,16 +579,16 @@
      "objective_control": 5,
      "invuln": 6
     },
-    "points": 160,
+    "points": 170,
     "is_warlord": false,
-    "enhancements": [],
+    "enhancements": [
+     "Targetin' Gizmos"
+    ],
     "wargear": [
-     "1x Big shoota",
-     "1x Deff rolla",
-     "1x Grabbin' klaw",
-     "1x Lobba",
-     "1x Wreckin' ball",
-     "1x Zzap gun"
+     "1x Crushin' Bulk",
+     "4x Big shoota",
+     "1x Grabbin' Klaw",
+     "1x Wreckin' Ball"
     ],
     "weapons": [
      {
@@ -739,16 +739,16 @@
      "objective_control": 5,
      "invuln": 6
     },
-    "points": 160,
+    "points": 170,
     "is_warlord": false,
-    "enhancements": [],
+    "enhancements": [
+     "Targetin' Gizmos"
+    ],
     "wargear": [
-     "1x Big shoota",
-     "1x Deff rolla",
-     "1x Grabbin' klaw",
-     "1x Lobba",
-     "1x Wreckin' ball",
-     "1x Zzap gun"
+     "1x Crushin' Bulk",
+     "4x Big shoota",
+     "1x Grabbin' Klaw",
+     "1x Wreckin' Ball"
     ],
     "weapons": [
      {
@@ -903,12 +903,10 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Big shoota",
-     "1x Deff rolla",
-     "1x Grabbin' klaw",
-     "1x Lobba",
-     "1x Wreckin' ball",
-     "1x Zzap gun"
+     "1x Crushin' Bulk",
+     "4x Big shoota",
+     "1x Grabbin' Klaw",
+     "1x Wreckin' Ball"
     ],
     "weapons": [
      {
@@ -1384,7 +1382,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "3x Kopta rokkits",
+     "3x Choppa",
+     "3x Rokkit Launcha",
      "3x Slugga",
      "3x Spinnin' blades"
     ],
@@ -1573,7 +1572,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "3x Kopta rokkits",
+     "3x Choppa",
+     "3x Rokkit Launcha",
      "3x Slugga",
      "3x Spinnin' blades"
     ],
@@ -1759,10 +1759,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "10x Close combat weapon",
-     "10x Grot blasta",
-     "1x Runtherd tools",
-     "1x Slugga"
+     "10x Grot Blasta",
+     "10x Scavenged Shivs"
     ],
     "weapons": [
      {
@@ -1934,10 +1932,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "10x Close combat weapon",
-     "10x Grot blasta",
-     "1x Runtherd tools",
-     "1x Slugga"
+     "10x Grot Blasta",
+     "10x Scavenged Shivs"
     ],
     "weapons": [
      {
@@ -2109,10 +2105,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "10x Close combat weapon",
-     "10x Grot blasta",
-     "1x Runtherd tools",
-     "1x Slugga"
+     "10x Grot Blasta",
+     "10x Scavenged Shivs"
     ],
     "weapons": [
      {

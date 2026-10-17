@@ -23,10 +23,15 @@ extends SceneTree
 #
 # Usage: godot --headless --path . -s tests/test_wahapedia_11e_import_data.gd
 
+# tutorial_orks / tutorial_custodes stay on their pre-codex rosters: the
+# tutorial's later lessons load frozen save fixtures (data/tutorials/fixtures)
+# built from them and the lesson text names those units ("Witchseekers"), so
+# converting only the army files would change the roster mid-course. Rebuilding
+# the tutorial for the codex is a tracked follow-up (PLAN.md).
 const CUSTODES_FILES := ["A_C_test", "Adeptus_Custodes_1995_Mar_7", "adeptus_custodes",
-	"custodes_lions", "custodes_web_built_repro", "tutorial_custodes"]
+	"custodes_lions", "custodes_web_built_repro"]
 const ORK_FILES := ["ORK_test", "Orks_2000", "Orks_2000_upload", "Orks_Upload_Mar7", "battlewagons",
-	"ork11e_codex_test", "orks", "orks_taktikal", "recon_stomps", "tutorial_orks"]
+	"ork11e_codex_test", "orks", "orks_taktikal", "recon_stomps"]
 const SOURCE_PREFIX := "wahapedia-11e@"
 
 var passed := 0
@@ -75,6 +80,13 @@ func _run() -> void:
 		_check_army(f, orks)
 	_check_spot_values()
 	_check_custodes_stratagems()
+	# Codex renames keep the old datasheet's bundled token art.
+	var sr = root.get_node("SpriteResolver")
+	_check("Custodian Guard Sodality token uses the Custodian Guard art",
+		sr.resolve_sprite("Custodian Guard Sodality", "Adeptus Custodes", "INFANTRY") == sr.resolve_sprite("Custodian Guard", "Adeptus Custodes", "INFANTRY")
+		and sr.resolve_sprite("Custodian Guard", "Adeptus Custodes", "INFANTRY") != null)
+	_check("Prosecutor Squad token uses the Prosecutors art",
+		sr.resolve_sprite("Prosecutor Squad", "Adeptus Custodes", "INFANTRY") != null)
 	_check_legacy_roster()
 
 # int() of a JSON value that may be null / missing.
@@ -93,6 +105,7 @@ func _check_army(file: String, codex: Dictionary) -> void:
 	var bad_points: Array = []
 	var no_weapons: Array = []
 	var legacy_keyed: Array = []
+	var no_name_kw: Array = []
 	var codex_units := 0
 	for uid in army.get("units", {}):
 		var u: Dictionary = army["units"][uid]
@@ -145,6 +158,12 @@ func _check_army(file: String, codex: Dictionary) -> void:
 				break
 		if UnitLoadoutResolver.datasheet_key(u) != str(meta.get("name", "")):
 			legacy_keyed.append(uid)
+		# Leader pairing matches can_lead names against bodyguard keywords:
+		# every datasheet must carry its own name keyword (Wahapedia's export
+		# omits it).
+		var kws: Array = meta.get("keywords", []).map(func(k): return str(k).to_upper())
+		if not str(meta.get("name", "")).to_upper() in kws:
+			no_name_kw.append(uid)
 	_check("%s: has codex-datasheet units" % file, codex_units > 0)
 	_check("%s: codex characteristics in meta.stats" % file, bad_stats.is_empty(), str(bad_stats))
 	_check("%s: model counts inside the codex range" % file, bad_count.is_empty(), str(bad_count))
@@ -152,6 +171,7 @@ func _check_army(file: String, codex: Dictionary) -> void:
 	_check("%s: points match a codex tier" % file, bad_points.is_empty(), str(bad_points))
 	_check("%s: every codex unit resolves weapons (display + engine)" % file, no_weapons.is_empty(), str(no_weapons))
 	_check("%s: codex units resolve against the current kits" % file, legacy_keyed.is_empty(), str(legacy_keyed))
+	_check("%s: every codex unit carries its own datasheet-name keyword" % file, no_name_kw.is_empty(), str(no_name_kw))
 
 func _unit_by_name(file: String, name: String) -> Dictionary:
 	var army: Dictionary = root.get_node("ArmyListManager").load_army_list(file, 1)
@@ -192,7 +212,13 @@ func _check_spot_values() -> void:
 	_check("Guardian Spear (ranged): 24\" A2 BS2+ S5 AP-1 D2, Assault, Rapid Fire 2",
 		str(spear.get("range", "")) == "24" and str(spear.get("strength", "")) == "5" and
 		str(spear.get("special_rules", "")).contains("rapid fire 2"), str(spear))
-	var bw := _unit_by_name("tutorial_orks", "Battlewagon")
+	var bc := _unit_by_name("custodes_lions", "Blade Champion")
+	var cgs := _unit_by_name("custodes_lions", "Custodian Guard Sodality")
+	_check("Blade Champion can lead Custodian Guard Sodality (can_lead name is a bodyguard keyword)",
+		"CUSTODIAN GUARD SODALITY" in bc.get("meta", {}).get("leader_data", {}).get("can_lead", []) and
+		"CUSTODIAN GUARD SODALITY" in cgs.get("meta", {}).get("keywords", []),
+		"%s / %s" % [str(bc.get("meta", {}).get("leader_data", {})), str(cgs.get("meta", {}).get("keywords", []))])
+	var bw := _unit_by_name("ORK_test", "Battlewagon")
 	var bs: Dictionary = bw.get("meta", {}).get("stats", {})
 	_check("Battlewagon: T11 W16, 160 pts (first copy)",
 		int(bs.get("toughness", 0)) == 11 and int(bs.get("wounds", 0)) == 16 and int(bw.get("meta", {}).get("points", 0)) == 160,
