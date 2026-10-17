@@ -5,6 +5,7 @@
 		"plan_validator.coherency_pinned_to_played_edition"
 	],
 	"disable_ai": true,
+	"edition": 11,
 	"description": "PM-F4 windowed gate. A plan whose unit is spread too far to hold together under 11th-edition coherency must SAY SO to the player, not fail silently at play time. Writes two user plans into user://ai_plans/ — the minimal fixture, whose single Gretchin mob spans 15.00\" and therefore breaks the 9\" envelope, and the rich fixture, which does not — then opens the AI Plans browser from the menu with a real click and reads the rendered rows. Asserts the over-spread plan's status column reads 'OK, 1 note(s)' in the warning colour while the well-formed one reads plain 'OK', that selecting the offending row writes the coherency sentence into the detail panel naming the unit, and that the plan is still VALID and still usable — the consumer repairs or falls back per unit, so this is a note, not a rejection. The whole point of PM-F4 is that this used to be invisible: the placement was certified by an authoring run pinned to the legacy 10e baseline, which has no envelope at all.",
 	"steps": [
 		{
@@ -72,8 +73,9 @@
 		{
 			"act": "execute_script",
 			"multiline": true,
-			"script": "# PM-F4's core claim, checked live rather than in a unit test: the answer is\n# pinned to the edition the GAME plays at, not the one this process is in. A\n# windowed run matches SettingsService._is_automated_harness() as well\n# (--scenario-file=), so it BOOTS at the legacy 10e baseline — measured, not\n# assumed. Force it to 10 explicitly anyway and the note must still appear.\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar ALM = node.get_node(\"/root/ArmyListManager\")\nvar army = ALM.load_army_list(\"recon_stomps\", 1)\nvar plan = PV.load_plan_file(\"user://ai_plans/fixture_minimal_valid.json\")\nvar entry_edition = GameConstants.edition\nGameConstants.edition = 10\nvar r = PV.validate_plan(plan, army)\nvar restored = GameConstants.edition\nGameConstants.edition = entry_edition\nvar still_warns = r.get(\"warnings\", []).size() == 1\nprint(\"SCENARIO pm_f4 pinned: ambient=10 warnings=%d restored=%d entry=%d\" % [r.get(\"warnings\", []).size(), restored, entry_edition])\nreturn \"warns=%s restored=%d entry=%d\" % [str(still_warns), restored, entry_edition]",
-			"equals": "warns=true restored=10 entry=10"
+			"script": "# PM-F4's core claim, checked live rather than in a unit test: the answer is\n# pinned to the edition the GAME plays at, not the one this process is in. This\n# scenario plays at 11 (its \"edition\" field; also the harness default now), so\n# it ENTERS at 11 — measured, not assumed. Force the ambient edition to the\n# legacy 10 anyway and the note must still appear.\nvar PV = load(\"res://scripts/PlanValidator.gd\")\nvar ALM = node.get_node(\"/root/ArmyListManager\")\nvar army = ALM.load_army_list(\"recon_stomps\", 1)\nvar plan = PV.load_plan_file(\"user://ai_plans/fixture_minimal_valid.json\")\nvar entry_edition = GameConstants.edition\nGameConstants.edition = 10\nvar r = PV.validate_plan(plan, army)\nvar restored = GameConstants.edition\nGameConstants.edition = entry_edition\nvar still_warns = r.get(\"warnings\", []).size() == 1\nprint(\"SCENARIO pm_f4 pinned: ambient=10 warnings=%d restored=%d entry=%d\" % [r.get(\"warnings\", []).size(), restored, entry_edition])\nreturn \"warns=%s restored=%d entry=%d\" % [str(still_warns), restored, entry_edition]",
+			"comment": "11e 03.03 coherency ('Within 9\" horizontally and 5\" vertically of every other model in that unit') is what the note checks, pinned to 11 inside PlanValidator._placement_coherency_note. entry=10 recorded the OLD harness baseline (10e default); the game now enters at 11, and the ambient-10 probe must still warn.",
+			"equals": "warns=true restored=10 entry=11"
 		},
 		{
 			"act": "execute_script",

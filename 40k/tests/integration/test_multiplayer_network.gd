@@ -180,24 +180,47 @@ func test_latency_simulation_basic():
 	simulated_jitter_ms = 0
 	simulated_packet_loss_pct = 0.0
 
-	var baseline_rtt = await get_action_round_trip_time_ms(host_instance, "get_game_state", {})
-	assert_true(baseline_rtt >= 0, "Baseline RTT measurement should succeed")
-	print("[TEST] Baseline RTT: %.0fms" % baseline_rtt)
+	# One sample per condition was not a measurement. RTTs sit on the 100ms
+	# polling grid (TestModeHandler's command scan + the result poll): baseline
+	# ~100 or ~200ms, with 200ms simulated ~300 or ~400ms, plus handler time —
+	# a 238ms baseline vs a 301ms latency sample failed a 100ms bar (CI
+	# 2026-10-17), and even medians of 5 landed at 99ms. Polling noise only
+	# ever ADDS time, so: (1) the deterministic part — the harness waits the
+	# full simulated latency before writing the command, so every sample is at
+	# least that long; (2) fastest-vs-fastest must still differ clearly
+	# (catches a baseline that wrongly includes the delay).
+	var baseline_samples: Array = []
+	for i in range(5):
+		var rtt = await get_action_round_trip_time_ms(host_instance, "get_game_state", {})
+		if rtt >= 0:
+			baseline_samples.append(rtt)
+	assert_true(baseline_samples.size() >= 3,
+		"Baseline RTT measurement should succeed (got %d of 5 samples)" % baseline_samples.size())
+	var baseline_rtt := _median(baseline_samples)
+	print("[TEST] Baseline RTT median: %.0fms of %s" % [baseline_rtt, str(baseline_samples)])
 
 	# Enable latency simulation (200ms)
 	simulated_latency_ms = 200
 	simulated_jitter_ms = 0
 
-	var latency_rtt = await get_action_round_trip_time_ms(host_instance, "get_game_state", {})
-	assert_true(latency_rtt >= 0, "Latency RTT measurement should succeed")
-	print("[TEST] Latency RTT (200ms sim): %.0fms" % latency_rtt)
+	var latency_samples: Array = []
+	for i in range(5):
+		var rtt = await get_action_round_trip_time_ms(host_instance, "get_game_state", {})
+		if rtt >= 0:
+			latency_samples.append(rtt)
+	assert_true(latency_samples.size() >= 3,
+		"Latency RTT measurement should succeed (got %d of 5 samples)" % latency_samples.size())
+	var latency_rtt := _median(latency_samples)
+	print("[TEST] Latency RTT median (200ms sim): %.0fms of %s" % [latency_rtt, str(latency_samples)])
 
-	# The latency-simulated action should take at least ~150ms longer than baseline
-	# (using a conservative threshold to account for timing variance)
-	var rtt_difference = latency_rtt - baseline_rtt
-	print("[TEST] RTT difference: %.0fms" % rtt_difference)
-	assert_true(rtt_difference >= 100,
-		"Simulated 200ms latency should add at least 100ms to RTT (got %.0fms difference)" % rtt_difference)
+	for rtt in latency_samples:
+		assert_true(rtt >= simulated_latency_ms,
+			"Every latency sample includes the full %dms simulated delay (got %.0fms)" % [simulated_latency_ms, rtt])
+
+	var min_difference: float = latency_samples.min() - baseline_samples.min()
+	print("[TEST] RTT median difference: %.0fms; fastest-vs-fastest: %.0fms" % [latency_rtt - baseline_rtt, min_difference])
+	assert_true(min_difference >= 50,
+		"Simulated 200ms latency should make even the fastest round trip clearly slower (got %.0fms)" % min_difference)
 
 	# Reset latency
 	simulated_latency_ms = 0
@@ -538,3 +561,10 @@ func test_latency_plus_disconnect():
 	simulated_latency_ms = 0
 	simulated_jitter_ms = 0
 	print("[TEST] PASSED: Disconnect handled correctly under simulated latency")
+
+func _median(samples: Array) -> float:
+	var sorted_samples := samples.duplicate()
+	sorted_samples.sort()
+	if sorted_samples.is_empty():
+		return -1.0
+	return float(sorted_samples[sorted_samples.size() / 2])

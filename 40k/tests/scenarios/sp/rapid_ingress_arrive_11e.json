@@ -1,0 +1,288 @@
+{
+  "id": "rapid_ingress_arrive_11e",
+  "covers": [
+    "movement.stratagem.rapid_ingress",
+    "stratagem.core.rapid_ingress_11e",
+    "scripts.MovementController._on_rapid_ingress_used",
+    "Main._begin_rapid_ingress_placement",
+    "Main._on_rapid_ingress_confirmed",
+    "phases.MovementPhase._process_place_rapid_ingress_reinforcement",
+    "dialogs.RapidIngressDialog.effect_text_20_04"
+  ],
+  "fixture": "ri_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "11e RAPID INGRESS (15.07) 'Arrive' through the real UI, through to the completed ingress move (20.04). Fixture ri_pretrigger: P2 active in battle round 2; P1's Caladius Grav-tank is in strategic reserves. P2 ends the Movement phase with the phase button; the Rapid Ingress dialog opens for PLAYER 1 (the non-active player) and its effect text carries the 20.04 'Before the Third Battle Round' clause (no models in the opponent's deployment zone). A real click on 'Arrive (1 CP)' for the Caladius spends P1's CP and starts the ingress set-up (reinforcement placement) while the Movement phase holds. A real board click sets the Caladius up wholly within 6\" of P1's own (top) edge, more than 8\" from every enemy unit; a real click on Reset Unit restarts the set-up as a RAPID INGRESS set-up (it used to restart it as an ordinary reinforcement, wiring a second confirm handler), the Caladius is set up again, and a real click on the unit card's Confirm sends PLACE_RAPID_INGRESS_REINFORCEMENT: the tank is DEPLOYED where it was clicked, a toast says it arrived, and the Movement phase then ends (the movement_phase_end window has no FIRE OVERWATCH row for P1 \u2014 the Caladius was already targeted by a stratagem this phase (15.01) and nothing else of P1's is within 24\" of an enemy). Before this fix the Arrive click was refused ('No unit specified for Rapid Ingress').",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 2
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_CALADIUS_GRAV-TANK_E.status",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "return GameConstants.edition",
+      "equals": 11,
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nreturn InputDeviceManager.is_pad_active()",
+      "equals": false
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch",
+      "property": "button_pressed",
+      "equals": true,
+      "comment": "Skip Overwatch ON (default)"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._phase_end_confirm != null and main._phase_end_confirm.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._phase_end_confirm.get_ok_button().pressed.emit()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7,
+      "comment": "the phase waits for the Rapid Ingress decision"
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "_awaiting_rapid_ingress",
+      "equals": true
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "_rapid_ingress_player",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/RapidIngressDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/RapidIngressDialog/Content/UnitScroll/UnitList/Row_U_CALADIUS_GRAV-TANK_E/Use_U_CALADIUS_GRAV-TANK_E"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node(\"RapidIngressDialog/Content/EffectText\").text.contains(\"Before the third battle round, no models can be set up within your opponent's deployment zone\")",
+      "equals": true,
+      "comment": "20.04 WHILE MOVING: 'Before the Third Battle Round: ... no models can be set up within your opponent's deployment zone' (battle round 2)"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_rapid_ingress_offer"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/RapidIngressDialog/Content/UnitScroll/UnitList/Row_U_CALADIUS_GRAV-TANK_E/Use_U_CALADIUS_GRAV-TANK_E"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1,
+      "comment": "the NON-active player paid 1 CP (the action now names the unit and the deciding player)"
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": 0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7,
+      "comment": "the Movement phase holds for the ingress set-up"
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "_rapid_ingress_unit_id",
+      "equals": "U_CALADIUS_GRAV-TANK_E"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.is_placing() and main.deployment_controller.is_reinforcement_mode",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "str(main.deployment_controller.unit_id)",
+      "equals": "U_CALADIUS_GRAV-TANK_E"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_end_of_phase_prompt()",
+      "equals": true,
+      "comment": "online, GameManager's END_MOVEMENT would not force the phase past this set-up"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_ingress_setup_begins"
+    },
+    {
+      "act": "click_board_at",
+      "x": 700.0,
+      "y": 100.0,
+      "comment": "P1's own (top) edge: wholly within 6\", > 8\" from the Orks, clear of P1's models"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.get_placed_count()",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "03a_caladius_placed_before_reset"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ResetButton",
+      "comment": "Reset Unit mid-set-up: the Rapid Ingress set-up must restart as a Rapid Ingress set-up"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.get_placed_count()",
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var m = tree.current_scene\nvar dc = m.deployment_controller\nreturn [str(m._rapid_ingress_unit_id), dc.is_reinforcement_mode, dc.is_placing(), dc.unit_confirmed.is_connected(m._on_rapid_ingress_confirmed), dc.unit_confirmed.is_connected(m._on_reinforcement_confirmed)]",
+      "equals": [
+        "U_CALADIUS_GRAV-TANK_E",
+        true,
+        true,
+        true,
+        false
+      ],
+      "comment": "still the Rapid Ingress set-up; the ordinary reinforcement confirm handler is NOT connected (it used to be, so Confirm also sent PLACE_REINFORCEMENT)"
+    },
+    {
+      "act": "click_board_at",
+      "x": 700.0,
+      "y": 100.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.deployment_controller.get_placed_count()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_caladius_placed_before_confirm"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/UnitCard/ButtonContainer/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var out = []\nfor t in ToastManager.active_toasts:\n\tif is_instance_valid(t):\n\t\tfor c in t.find_children(\"*\", \"Label\", true, false):\n\t\t\tout.append(c.text)\nreturn \" | \".join(out).contains(\"Rapid Ingress: Caladius Grav-tank arrived!\")",
+      "equals": true,
+      "comment": "the player is told the unit arrived"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.7
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_CALADIUS_GRAV-TANK_E.status",
+      "equals": 2,
+      "comment": "DEPLOYED via the ingress move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var p = GameState.get_unit(\"U_CALADIUS_GRAV-TANK_E\").models[0].position\nreturn absf(float(p.x) - 700.0) < 2.0 and absf(float(p.y) - 100.0) < 2.0",
+      "equals": true,
+      "comment": "set up where the player clicked"
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1,
+      "comment": "still exactly 1 CP for the whole RAPID INGRESS"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8,
+      "comment": "the Movement phase ended after the ingress move"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._rapid_ingress_unit_id",
+      "equals": "",
+      "comment": "the placement session is closed"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_caladius_arrived_shooting_phase"
+    }
+  ]
+}

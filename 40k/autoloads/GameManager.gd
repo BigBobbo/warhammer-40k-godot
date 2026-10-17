@@ -1025,7 +1025,18 @@ func _end_phase_via_phase(action: Dictionary, phase_enum: int) -> Dictionary:
 		return {}
 	var res: Dictionary = inst.execute_action(action)
 	var holds_phase := func() -> bool:
-		return is_instance_valid(inst) and inst.has_method("_window_blocks_phase_completion") and bool(inst._window_blocks_phase_completion())
+		if not is_instance_valid(inst):
+			return false
+		if inst.has_method("_window_blocks_phase_completion") and bool(inst._window_blocks_phase_completion()):
+			return true
+		# 11e: the end-of-Movement RAPID INGRESS prompt (15.07 decision, then
+		# the 20.04 ingress set-up — MovementPhase.has_pending_end_of_phase_prompt)
+		# also holds the phase: completing it "as before" skipped that prompt
+		# AND the movement_phase_end window behind it (FIRE OVERWATCH 15.08)
+		# online. Only prompts the deciding peer can answer count (SAWBONEZ /
+		# MEKANIAK / GROT OILER have no dialog or client mirror and still lapse
+		# as before); 10e keeps the previous network behaviour.
+		return GameConstants.edition >= 11 and inst.has_method("has_pending_end_of_phase_prompt") and bool(inst.has_pending_end_of_phase_prompt())
 	if not res.get("success", false):
 		if holds_phase.call():
 			# e.g. END_MOVEMENT while a WHILE THEIR BACKS ARE TURNED move is in
@@ -1041,7 +1052,7 @@ func _end_phase_via_phase(action: Dictionary, phase_enum: int) -> Dictionary:
 		return {}
 	if pm.get_current_phase_instance() == inst:
 		if holds_phase.call():
-			print("GameManager: %s — the phase waits for a stratagem window / follow-up (P%d) before it ends" % [
+			print("GameManager: %s — the phase waits for a stratagem window / follow-up / end-of-phase prompt (P%d) before it ends" % [
 				str(action.get("type", "")), int(inst.get_pending_stratagem_window_decider()) if inst.has_method("get_pending_stratagem_window_decider") else 0])
 			return res
 		if phase_enum == GameStateData.Phase.FIGHT:
@@ -1113,6 +1124,27 @@ func _get_next_phase(current: int) -> int:
 		_:
 			return GameStateData.Phase.DEPLOYMENT
 
+## DEPLOY_UNIT action for the test-mode deploy helpers: every model at
+## `position` (test simplification). {} when the unit is missing or empty.
+func build_test_deploy_action(unit_id: String, position: Vector2) -> Dictionary:
+	var unit = GameState.get_unit(unit_id)
+	if not unit:
+		return {}
+	var models = unit.get("models", [])
+	if models.is_empty():
+		return {}
+	var model_positions = []
+	var model_rotations = []
+	for i in range(models.size()):
+		model_positions.append(position)
+		model_rotations.append(0.0)
+	return {
+		"type": "DEPLOY_UNIT",
+		"unit_id": unit_id,
+		"model_positions": model_positions,
+		"model_rotations": model_rotations
+	}
+
 func deploy_unit(unit_id: String, position: Vector2) -> bool:
 	"""
 	Simplified deployment method for test mode.
@@ -1132,29 +1164,10 @@ func deploy_unit(unit_id: String, position: Vector2) -> bool:
 		push_error("GameManager: Available units: %s" % str(all_units.keys()))
 		return false
 
-	var models = unit.get("models", [])
-	if models.is_empty():
+	var action := build_test_deploy_action(unit_id, position)
+	if action.is_empty():
 		push_error("GameManager: Unit %s has no models" % unit_id)
 		return false
-
-	# For simplified test mode, place all models at the specified position
-	# In real game, models would be spread out in formation
-	var model_positions = []
-	var model_rotations = []
-
-	for i in range(models.size()):
-		# Place all models at same position for now (test mode simplification)
-		# In production, would use proper formation spacing
-		model_positions.append(position)
-		model_rotations.append(0.0)
-
-	# Create the proper action dictionary
-	var action = {
-		"type": "DEPLOY_UNIT",
-		"unit_id": unit_id,
-		"model_positions": model_positions,
-		"model_rotations": model_rotations
-	}
 
 	# Process the action through the standard action system
 	var result = apply_action(action)

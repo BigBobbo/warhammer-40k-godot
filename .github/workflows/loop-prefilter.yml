@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
-          fetch-depth: 2  # need HEAD + base for `git diff`
+          fetch-depth: 0  # `git diff BASE...HEAD` needs the merge base
 
       - name: Install Xvfb + GL stack
         run: |
@@ -113,8 +113,12 @@ jobs:
 
       - name: Run loop prefilter on affected scenarios
         id: prefilter
+        # ONE env block: this step used to declare `env:` twice (here and after
+        # `run:`), which is invalid YAML — the workflow failed at 0 s on every
+        # push without running anything.
         env:
           LOOP_SKIP_PREFLIGHT: "1"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ANY_DRIFT=0
           mkdir -p /tmp/loop_artefacts
@@ -144,8 +148,6 @@ jobs:
               || echo "  post-comment failed (non-fatal)"
           done <<< "${{ steps.pick.outputs.scenarios }}"
           echo "any_drift=$ANY_DRIFT" >> $GITHUB_OUTPUT
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artefacts
         if: always()

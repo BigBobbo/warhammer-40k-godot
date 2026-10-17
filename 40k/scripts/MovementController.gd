@@ -966,6 +966,10 @@ func set_phase(phase) -> void:  # Remove type hint to accept any phase
 			if phase.has_signal("rapid_ingress_opportunity"):
 				if not phase.rapid_ingress_opportunity.is_connected(_on_rapid_ingress_opportunity):
 					phase.rapid_ingress_opportunity.connect(_on_rapid_ingress_opportunity)
+			# 11e FIRE OVERWATCH: the defender allocates the snap shot's wounds (05.03).
+			if phase.has_signal("saves_required"):
+				if not phase.saves_required.is_connected(_on_snap_saves_required):
+					phase.saves_required.connect(_on_snap_saves_required)
 			if phase.has_signal("krump_and_run_opportunity"):
 				if not phase.krump_and_run_opportunity.is_connected(_on_krump_and_run_opportunity):
 					phase.krump_and_run_opportunity.connect(_on_krump_and_run_opportunity)
@@ -5572,6 +5576,7 @@ func _on_rapid_ingress_opportunity(player: int, eligible_units: Array) -> void:
 
 	var dialog = AcceptDialog.new()
 	dialog.set_script(dialog_script)
+	dialog.name = "RapidIngressDialog"
 	dialog.setup(player, eligible_units)
 	dialog.rapid_ingress_used.connect(_on_rapid_ingress_used)
 	dialog.rapid_ingress_declined.connect(_on_rapid_ingress_declined)
@@ -5584,6 +5589,53 @@ func _on_rapid_ingress_opportunity(player: int, eligible_units: Array) -> void:
 	if main_node and main_node.has_method("show_reactive_stratagem_waiting"):
 		main_node.show_reactive_stratagem_waiting("Rapid Ingress")
 
+# ===================================================
+# 11e FIRE OVERWATCH — defender save allocation (05.03)
+# ===================================================
+
+var _snap_alloc_overlay: Control = null
+
+## The snap shot (15.09) wounded the active player's unit: its owner orders the
+## allocation groups and rolls the saves in the same AllocationGroupOverlay the
+## Shooting phase uses; the summary goes back as APPLY_SAVES.
+func _on_snap_saves_required(save_data_list: Array) -> void:
+	if save_data_list.is_empty() or GameConstants.edition < 11:
+		return
+	var save_data: Dictionary = save_data_list[0]
+	var target_id := str(save_data.get("target_unit_id", ""))
+	var defender := int(GameState.get_unit(target_id).get("owner", 0))
+	print("MovementController: FIRE OVERWATCH saves required — Player %d allocates %d wound(s) on %s" % [
+		defender, int(save_data.get("wounds_to_save", 0)), target_id])
+	var ai_player_node = get_node_or_null("/root/AIPlayer")
+	if ai_player_node and ai_player_node.is_ai_player(defender):
+		return
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_networked() and network_manager.get_local_player() != defender:
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_toast("Waiting for Player %d to allocate the Fire Overwatch wounds..." % defender, Color.DODGER_BLUE, 5.0)
+		return
+	if _snap_alloc_overlay != null and is_instance_valid(_snap_alloc_overlay):
+		print("MovementController: FIRE OVERWATCH allocation overlay already open — ignoring duplicate saves_required")
+		return
+	# The overlay names itself "AllocationGroupOverlay" in _ready.
+	var overlay = AllocationGroupOverlay.new()
+	_snap_alloc_overlay = overlay
+	overlay.allocation_complete.connect(func(summary):
+		_snap_alloc_overlay = null
+		print("MovementController: FIRE OVERWATCH allocation complete — submitting APPLY_SAVES for Player %d" % defender)
+		emit_signal("move_action_requested", {"type": "APPLY_SAVES", "player": defender,
+			"payload": {"save_results_list": [summary]}}))
+	var main = SceneRefs.main()
+	if main == null:
+		push_error("MovementController: /root/Main not found — cannot show the Fire Overwatch save overlay")
+		_snap_alloc_overlay = null
+		return
+	main.add_child(overlay)
+	await get_tree().process_frame
+	if is_instance_valid(overlay):
+		overlay.setup(save_data, defender)
+
 func _on_rapid_ingress_used(unit_id: String, player: int) -> void:
 	"""Handle player choosing to use Rapid Ingress."""
 	print("MovementController: Rapid Ingress USED — unit %s by player %d" % [unit_id, player])
@@ -5591,8 +5643,13 @@ func _on_rapid_ingress_used(unit_id: String, player: int) -> void:
 	var main_node = SceneRefs.main()
 	if main_node and main_node.has_method("hide_reactive_stratagem_waiting"):
 		main_node.hide_reactive_stratagem_waiting()
+	# The phase reads action.unit_id and the deciding player: RAPID INGRESS is
+	# used by the NON-active player (15.07), so without "player" single-player
+	# routing stamped the active player and the stratagem was refused.
 	emit_signal("move_action_requested", {
 		"type": "USE_RAPID_INGRESS",
+		"unit_id": unit_id,
+		"player": player,
 		"actor_unit_id": unit_id,
 		"payload": {
 			"unit_id": unit_id
@@ -5608,6 +5665,7 @@ func _on_rapid_ingress_declined(player: int) -> void:
 		main_node.hide_reactive_stratagem_waiting()
 	emit_signal("move_action_requested", {
 		"type": "DECLINE_RAPID_INGRESS",
+		"player": player,
 		"actor_unit_id": "",
 	})
 

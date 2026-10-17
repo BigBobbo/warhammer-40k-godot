@@ -1538,6 +1538,17 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 	print("NetworkManager:   phase = ", phase)
 	print("NetworkManager:   phase has saves_required signal: ", phase.has_signal("saves_required"))
 
+	# 11e FIRE OVERWATCH (15.08): the host resolved the snap shot and wrote its
+	# Game Log lines locally (MovementPhase._snap_game_log) — GameEventLog is
+	# per-peer, so replay them into this client's Game Log.
+	var fo_log_lines = result.get("fire_overwatch_log_lines", [])
+	if typeof(fo_log_lines) == TYPE_ARRAY and not fo_log_lines.is_empty():
+		var fo_gel = get_node_or_null("/root/GameEventLog")
+		if fo_gel and fo_gel.has_method("add_overwatch_entry"):
+			print("NetworkManager: Client replaying %d FIRE OVERWATCH Game Log line(s) from the host" % fo_log_lines.size())
+			for fo_line in fo_log_lines:
+				fo_gel.add_overwatch_entry(str(fo_line))
+
 	# Handle movement phase visual updates
 	if action_type == "STAGE_MODEL_MOVE":
 		if phase.has_signal("model_drop_committed"):
@@ -1736,7 +1747,11 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 
 	# Check for both shooting and fight phase action types (the reactive
 	# stratagem decisions can resume straight into save resolution)
-	var is_shooting_action = action_type in ["CONFIRM_TARGETS", "RESOLVE_SHOOTING", "RESOLVE_WEAPON_SEQUENCE", "APPLY_SAVES", "USE_REACTIVE_STRATAGEM", "DECLINE_REACTIVE_STRATAGEM"]
+	# USE_WINDOW_STRATAGEM / END_MOVEMENT: an 11e FIRE OVERWATCH snap shot
+	# (15.08) resolved in the movement_phase_end window hands its wound batch to
+	# the defender (05.03) — by the human decider's answer, or by the END_MOVEMENT
+	# whose window an AI answered synchronously.
+	var is_shooting_action = action_type in ["CONFIRM_TARGETS", "RESOLVE_SHOOTING", "RESOLVE_WEAPON_SEQUENCE", "APPLY_SAVES", "USE_REACTIVE_STRATAGEM", "DECLINE_REACTIVE_STRATAGEM", "USE_WINDOW_STRATAGEM", "END_MOVEMENT"]
 	# BATCH_FIGHT_ACTIONS: the attack-assignment dialog submits assign+resolve
 	# as one batch — its result carries save_data_list exactly like
 	# CONFIRM_AND_RESOLVE_ATTACKS, and without it here the remote DEFENDER
@@ -2053,6 +2068,15 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 				var total = dice_block.get("total", 0)
 				var rolls = dice_block.get("rolls", [])
 				if rolls.size() == 2:
+					# 11e 11.04: mirror the host's post-roll selectable list (and
+					# the kept targets) BEFORE re-emitting charge_roll_made, so the
+					# client's ChargeController reads the filtered list — the
+					# DECLARE_CHARGE mirror above still holds the pre-roll targets.
+					if not charge_failed and result.has("selectable_targets") \
+							and "pending_charges" in phase and phase.pending_charges.has(unit_id):
+						phase.pending_charges[unit_id]["selectable_targets"] = result.get("selectable_targets", []).duplicate()
+						phase.pending_charges[unit_id]["targets"] = dice_block.get("targets", phase.pending_charges[unit_id].get("targets", [])).duplicate()
+						print("NetworkManager: Client mirrored 11e selectable charge targets for %s: %s" % [unit_id, str(result.get("selectable_targets", []))])
 					# Always re-emit charge_roll_made so dice log updates
 					if phase.has_signal("charge_roll_made"):
 						print("NetworkManager: Client re-emitting charge_roll_made for %s (distance=%d, dice=%s)" % [unit_id, total, str(rolls)])

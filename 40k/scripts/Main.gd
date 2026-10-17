@@ -1224,6 +1224,11 @@ func _update_waiting_for_opponent_overlay() -> void:
 	if is_my_turn:
 		_hide_waiting_overlay()
 		return
+	# The local (non-active) player is making a RAPID INGRESS set-up (15.07) —
+	# it is their decision now, not the opponent's.
+	if _rapid_ingress_unit_id != "":
+		_hide_waiting_overlay()
+		return
 
 	# It's opponent's turn — show the overlay with phase-appropriate text
 	var active_player = GameState.get_active_player()
@@ -3359,6 +3364,18 @@ func _begin_rapid_ingress_placement(unit_id: String) -> void:
 		# Store that we're in rapid ingress placement mode
 		_rapid_ingress_unit_id = unit_id
 
+		# Online the ingress set-up is made by the NON-active player (15.07,
+		# end of the opponent's Movement phase): exempt this placement from the
+		# deployment controller's "not your turn" input gate, and drop the
+		# "Waiting for Player N" banner while the local player sets up.
+		deployment_controller.cross_turn_placement_player = 0
+		var ri_nm = get_node_or_null("/root/NetworkManager")
+		if ri_nm and ri_nm.is_networked() and not ri_nm.is_local_player_turn() \
+				and int(unit.get("owner", 0)) == int(ri_nm.get_local_player()):
+			deployment_controller.cross_turn_placement_player = int(ri_nm.get_local_player())
+			_hide_waiting_overlay()
+			print("Main: Rapid Ingress set-up by the non-active local Player %d — cross-turn placement enabled" % deployment_controller.cross_turn_placement_player)
+
 		# Connect to confirm signal for rapid ingress completion
 		if not deployment_controller.unit_confirmed.is_connected(_on_rapid_ingress_confirmed):
 			deployment_controller.unit_confirmed.connect(_on_rapid_ingress_confirmed)
@@ -3372,6 +3389,36 @@ func _begin_rapid_ingress_placement(unit_id: String) -> void:
 
 		unit_list.visible = false
 		show_unit_card(unit_id)
+
+## 15.07 RAPID INGRESS online: USE_RAPID_INGRESS runs on the host and its
+## result reaches BOTH peers here (GameManager.result_applied). The deciding
+## player's own route_action only answered "pending", so the set-up branch of
+## _on_movement_action_requested never ran there and the CP was spent with no
+## placement UI while the host held the Movement phase for it. Start the 20.04
+## ingress set-up on the deciding player's machine (host or client); the other
+## peer is told who is setting up. Single-player never comes through here —
+## route_action returns the phase result directly (no result_applied).
+func _maybe_begin_networked_rapid_ingress(result: Dictionary) -> void:
+	if str(result.get("action_type", "")) != "USE_RAPID_INGRESS" or not result.get("rapid_ingress_used", false):
+		return
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm == null or not nm.has_method("is_networked") or not nm.is_networked():
+		return
+	var ri_unit_id := str(result.get("rapid_ingress_unit_id", ""))
+	var ri_player := int(result.get("rapid_ingress_player", 0))
+	if ri_player <= 0:
+		ri_player = int(result.get("action_data", {}).get("player", 0))
+	if ri_unit_id == "":
+		return
+	var unit_name := str(GameState.get_unit(ri_unit_id).get("meta", {}).get("name", ri_unit_id))
+	if ri_player != int(nm.get_local_player()):
+		print("Main: Rapid Ingress used online by Player %d (%s) — the set-up is made on their machine" % [ri_player, ri_unit_id])
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_toast("Player %d used RAPID INGRESS — setting up %s..." % [ri_player, unit_name], Color.DODGER_BLUE, 5.0)
+		return
+	print("Main: Rapid Ingress used online by local Player %d — starting the ingress set-up for %s" % [ri_player, ri_unit_id])
+	call_deferred("_begin_rapid_ingress_placement", ri_unit_id)
 
 func _on_rapid_ingress_confirmed() -> void:
 	"""Handle Rapid Ingress placement completion."""
@@ -3440,6 +3487,8 @@ func _on_rapid_ingress_confirmed() -> void:
 	# Reset reinforcement mode
 	if deployment_controller:
 		deployment_controller.is_reinforcement_mode = false
+		deployment_controller.cross_turn_placement_player = 0
+	_update_waiting_for_opponent_overlay()
 
 	# Disconnect rapid ingress signal
 	if deployment_controller.unit_confirmed.is_connected(_on_rapid_ingress_confirmed):
@@ -9765,7 +9814,14 @@ func _on_reset_pressed() -> void:
 			if deployment_controller and deployment_controller.is_reinforcement_mode and deployment_controller.is_placing():
 				var reset_unit_id = deployment_controller.unit_id
 				deployment_controller.reset_unit()
-				if reset_unit_id != "":
+				if reset_unit_id != "" and reset_unit_id == _rapid_ingress_unit_id:
+					# 15.07: a Rapid Ingress set-up restarts AS a Rapid Ingress
+					# set-up — restarting it as an ordinary reinforcement also
+					# connected _on_reinforcement_confirmed, so Confirm then sent
+					# PLACE_REINFORCEMENT alongside the Rapid Ingress placement.
+					print("Main: Reset during the Rapid Ingress set-up of %s — restarting it" % reset_unit_id)
+					_begin_rapid_ingress_placement(reset_unit_id)
+				elif reset_unit_id != "":
 					_begin_reinforcement_placement(reset_unit_id)
 				update_unit_card_buttons()
 				update_ui()
@@ -11545,6 +11601,8 @@ func _on_stratagem_used_update_display(_player: int, _stratagem_id: String, _tar
 # Multiplayer sync handler
 func _on_network_result_applied(result: Dictionary) -> void:
 	print("Main: Network result applied, recreating visuals")
+	_show_fire_overwatch_summary(result)
+	_maybe_begin_networked_rapid_ingress(result)
 
 	# Check if phase changed
 	var diffs = result.get("diffs", [])
@@ -12653,6 +12711,12 @@ func _on_phase_action_pressed() -> void:
 	# Route through NetworkIntegration for multiplayer sync
 	print("Main: Routing phase end action through network: ", action.type)
 	var result = NetworkIntegration.route_action(action)
+	# 11e FIRE OVERWATCH (15.08): an AI defender answers the movement_phase_end
+	# window inside this END_MOVEMENT (BasePhase decides AI windows
+	# synchronously), so a snap shot that needs no human allocation is already
+	# resolved and its summary rides this result. (Online the result is only
+	# "pending"; _on_network_result_applied shows it.)
+	_show_fire_overwatch_summary(result)
 
 	if not result.get("success", false):
 		print("Main: Failed to end phase: ", result.get("error", "Unknown error"))
@@ -12765,6 +12829,11 @@ func update_ui_for_phase() -> void:
 	# Only show auto-decline overwatch during phases where overwatch is relevant
 	if auto_decline_overwatch:
 		var overwatch_phases = [GameStateData.Phase.MOVEMENT, GameStateData.Phase.SHOOTING, GameStateData.Phase.CHARGE]
+		# 11e 15.08: FIRE OVERWATCH has one timing — the end of the opponent's
+		# Movement phase (no Charge-phase overwatch), so the toggle only
+		# matters in the Movement phase.
+		if GameConstants.edition >= 11:
+			overwatch_phases = [GameStateData.Phase.MOVEMENT]
 		auto_decline_overwatch.visible = current_phase in overwatch_phases
 
 	# Show/hide waiting-for-opponent overlay based on phase (T5-MP6 + T5-MP8)
@@ -12934,6 +13003,8 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 	# Route through NetworkIntegration (handles multiplayer and single-player)
 	var result = NetworkIntegration.route_action(action)
 	print("Main: Action result: ", result)
+	# 11e FIRE OVERWATCH: the defender's last APPLY_SAVES finishes the snap shot.
+	_show_fire_overwatch_summary(result)
 
 	if result.get("success", false):
 		if result.get("pending", false):
@@ -15846,6 +15917,20 @@ func _on_stratagem_window_opened(player: int, window_id: String, offers: Array, 
 		# (NetworkManager hides the overlay on USE/DECLINE_WINDOW_STRATAGEM).
 		show_reactive_stratagem_waiting("stratagem", player)
 		return
+	# "Skip Overwatch" (HUD toggle, ON by default): at 11e FIRE OVERWATCH is a
+	# movement_phase_end window offer (15.08) — drop it while the toggle is ON.
+	# When nothing else is offered the window is declined for the player, so
+	# no prompt appears at all (the old per-move dialog was auto-declined the
+	# same way, MovementController._on_overwatch_opportunity).
+	if auto_decline_overwatch and auto_decline_overwatch.button_pressed:
+		var kept: Array = offers.filter(func(o): return str(o.get("stratagem_id", "")) != "fire_overwatch_11e")
+		if kept.size() != offers.size():
+			print("Main: Skip Overwatch is ON — FIRE OVERWATCH dropped from window %s for Player %d (%d other offer(s))" % [window_id, player, kept.size()])
+			if kept.is_empty():
+				call_deferred("_dispatch_window_action", {"type": "DECLINE_WINDOW_STRATAGEM", "player": player,
+					"window_id": window_id}, player, window_id, [], {})
+				return
+			offers = kept
 	_show_stratagem_window_dialog(player, window_id, offers, ctx)
 	# Play-and-pass only: block the board for the active player while the other
 	# seat decides. Against the AI the human IS the decider, so the "waiting for
@@ -16018,7 +16103,18 @@ func _dispatch_window_action(action: Dictionary, player: int, window_id: String,
 	var used = result.get("stratagem_used", {})
 	if not used.is_empty():
 		ToastManager.show_toast("Player %d used %s" % [player, str(used.get("stratagem_name", "a stratagem"))], Color.ORANGE, 3.0)
+	_show_fire_overwatch_summary(result)
 	_refresh_after_window_action()
+
+## 11e FIRE OVERWATCH (15.08): the snap shot resolves inside the window answer
+## — tell both players what it did (hits / wounds / models destroyed); the
+## per-roll detail is in the Game Log's overwatch lines.
+func _show_fire_overwatch_summary(result: Dictionary) -> void:
+	var fo_summary := str(result.get("fire_overwatch_summary", ""))
+	if fo_summary == "":
+		return
+	print("Main: %s" % fo_summary)
+	ToastManager.show_toast(fo_summary, Color.ORANGE_RED, 5.0)
 
 func _refresh_after_window_action() -> void:
 	match current_phase:

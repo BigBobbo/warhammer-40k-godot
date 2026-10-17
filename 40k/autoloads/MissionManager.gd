@@ -525,13 +525,187 @@ func _model_distance_to_polygon_px(model: Dictionary, polygon: PackedVector2Arra
 func is_objective_contested(obj_id: String) -> bool:
 	return objective_control_state.get(obj_id, 0) == 0 and objective_contested_state.get(obj_id, false)
 
-func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
+## 14.02 LEVEL OF CONTROL: "add together the OC characteristics of all the
+## models in that player's army that are within range of that objective". This
+## is ONE model's OC characteristic, battle-shock aside (a battle-shocked unit's
+## models all have OC '-' — _unit_oc_in_range zeroes the whole unit).
+## - Base: the model's own profile. RulesEngine.get_model_effective_stats merges
+##   meta.model_profiles[model_type].stats_override over meta.stats, so a
+##   mixed-OC unit (e.g. Kroot Hounds 0 beside Farstalkers 1) adds each
+##   model's own value. Models without a model_type read meta.stats directly.
+## - flags.effect_oc_override SETS it — OA-46 Da Boss Iz Watchin': "this model
+##   ... has an Objective Control characteristic of 5". Applies to the models
+##   of the unit dict carrying the flag (the Banner Nob's own dict, so not to
+##   the Boyz he leads — 19.04 single-model ability).
+## - flags.effect_plus_oc ADDS to it, per model — HUGE SHOW-OFFS / DAT'S OURS
+##   (Taktikal Brigade): "add 1 to the Objective Control characteristic of
+##   models in your unit". A base OC of 0 still controls nothing (unchanged
+##   order: set, then add only when > 0).
+## Vexilla's +1 is baked into meta.stats at army load (ArmyListManager), so it
+## reaches every model through the base read.
+func model_oc(unit: Dictionary, model: Dictionary) -> int:
+	var flags = unit.get("flags", {})
+	var oc := int(flags.get("effect_oc_override", 0))
+	if oc == 0:
+		if str(model.get("model_type", "")) == "":
+			oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
+		else:
+			oc = int(RulesEngine.get_model_effective_stats(unit, model).get("objective_control", 0))
+	if oc > 0:
+		oc += int(flags.get(EffectPrimitivesData.FLAG_PLUS_OC, 0))
+	return maxi(oc, 0)
+
+## 01.07 / 19.01: battle-shocked models have OC '-'. Group-aware — an Attached
+## unit is a single unit, so a battle_shocked flag on ANY component zeroes every
+## component's models. Reads `units` (not GameState) so snapshot and test
+## callers that pass their own unit dicts get the same answer.
+func _oc_unit_battle_shocked(unit_id: String, units: Dictionary) -> bool:
+	return AttackSequence.group_battle_shocked(unit_id, units)
+
+## Highest model_oc among the unit's alive models (the statline value when none
+## is alive): the "has this unit any OC at all" gate, and the OC the per-unit
+## debug line prints.
+func _unit_peak_model_oc(unit: Dictionary) -> int:
+	var best := -1
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			best = maxi(best, model_oc(unit, model))
+	return best if best >= 0 else model_oc(unit, {})
+
+## 14.02: the OC one unit dict adds to its owner's level of control over
+## `objective` — model_oc summed over its alive models within range of it (an
+## attached unit's components are separate dicts, each visited by the callers'
+## unit loop, so their sums add up to the attached unit's total). 0 for a unit
+## with no OC, a battle-shocked (group-aware) unit, an undeployed one, or one
+## in Reserves (stale positions of a unit sent back to Reserves don't count).
+## `host_areas` are the 14.01 hosting areas (empty = open-ground marker).
+## `verbose` keeps _check_objective_control's per-unit / per-model debug lines;
+## the other callers (LLM snapshot) pass false so they don't flood the log.
+func _unit_oc_in_range(unit_id: String, unit: Dictionary, objective: Dictionary, host_areas: Array, units: Dictionary, verbose: bool = false) -> int:
+	var owner = unit.get("owner", 0)
+
+	# Skip if unit has no OC value (no alive model with OC 1+)
+	var oc_value := _unit_peak_model_oc(unit)
+	if oc_value <= 0:
+		if verbose:
+			print("  Skipping %s - no OC value (OC: %d)" % [unit_id, oc_value])
+		return 0
+
+	# Check if unit is battle-shocked (any component of its attached unit)
+	if _oc_unit_battle_shocked(unit_id, units):
+		if verbose:
+			print("  Skipping %s - battle shocked" % unit_id)
+		return 0
+
+	# Check if unit has deployed status
+	var status = unit.get("status", GameStateData.UnitStatus.UNDEPLOYED)
+	if status == GameStateData.UnitStatus.UNDEPLOYED:
+		if verbose:
+			print("  Skipping %s - not deployed (status: %d)" % [unit_id, status])
+		return 0
+	# A unit in Reserves is not on the battlefield, so none of its models is
+	# "within range" (14.02). DED SNEAKY / EVASIVE MANOOVA / INSTINCTIVE
+	# HUNTERS set IN_RESERVES without wiping model positions — without this
+	# the unit kept adding its per-model OC at the spot it left.
+	if status == GameStateData.UnitStatus.IN_RESERVES:
+		if verbose:
+			print("  Skipping %s - in reserves, not on the battlefield (status: %d)" % [unit_id, status])
+		return 0
+
+	if verbose:
+		print("  Checking unit %s (Player %d, OC: %d, %d models)" % [
+			unit_id, owner, oc_value, unit.get("models", []).size()
+		])
+
 	# Control radius is 3" + 20mm (radius of objective marker)
 	# 20mm = 0.78740157 inches, so total is 3.78740157 inches
 	var control_radius = Measurement.inches_to_px(3.78740157)
-	var obj_pos = objective.position
+	var obj_pos = objective.get("position", Vector2.ZERO)
+	if obj_pos is Dictionary:
+		obj_pos = Vector2(obj_pos.x, obj_pos.y)
 
+	# Check each model in the unit — 14.02 adds EVERY model in range, not the
+	# unit once.
+	var unit_total := 0
+	var models_in_range := 0
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+
+		var model_pos = model.get("position")
+		if model_pos == null:
+			continue
+
+		# Convert position if needed
+		if model_pos is Dictionary:
+			model_pos = Vector2(model_pos.x, model_pos.y)
+
+		var m_oc := model_oc(unit, model)
+
+		# A model is within range of an objective if any part of its base
+		# is within the control radius. Use shape-aware distance to correctly
+		# handle oval and rectangular bases (not just circular).
+		# ISS-055 (11e 14.01/14.02): if terrain area(s) host the
+		# objective, those AREAS are the objective — a model is in range
+		# while WITHIN any of them (not the marker radius). "Within" is
+		# any part of the base overlapping the area (shape-aware), NOT the
+		# centre point — a base half on the area counts (mek-contested
+		# bug). The linked centre pair of the official layouts spans two
+		# areas that count as one objective (source_pieces). Falls through
+		# to the marker radius on open ground.
+		if not host_areas.is_empty():
+			if _model_in_objective_range(model, objective, host_areas):
+				unit_total += m_oc
+				models_in_range += 1
+				if verbose:
+					print("    -> Base overlaps the TERRAIN OBJECTIVE area (14.01)! Adding OC: %d for Player %d at %s" % [m_oc, owner, model_pos])
+			continue
+
+		var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
+		var edge_distance_inches = Measurement.px_to_inches(edge_distance)
+
+		# Debug log for each model checked
+		if verbose:
+			print("  Model from %s at %s, edge_distance: %.1f\" (%.1fpx), control_radius: %.1fpx, base_type: %s from %s at %s" % [
+				unit_id, model_pos, edge_distance_inches, edge_distance, control_radius, model.get("base_type", "circular"), objective.get("id", ""), obj_pos
+			])
+
+		if edge_distance <= control_radius:
+			unit_total += m_oc
+			models_in_range += 1
+			if verbose:
+				print("    -> Within control range! Adding OC: %d for Player %d" % [m_oc, owner])
+
+	if verbose and models_in_range > 0:
+		print("    = %s adds OC %d from %d model(s) in range of %s (14.02 per-model sum)" % [unit_id, unit_total, models_in_range, objective.get("id", "")])
+	return unit_total
+
+## 14.02: each player's level of control over `objective` — {1: int, 2: int},
+## the OC of every model of that player's army within range of it. The SAME
+## sum _check_objective_control decides control with, for callers that only
+## need the totals (LLM commander snapshot, tests). Empty `units` reads
+## GameState. 14.01 hosting areas apply at 11e only, as in control.
+func get_level_of_control(objective: Dictionary, units: Dictionary = {}) -> Dictionary:
+	if units.is_empty():
+		units = GameState.state.get("units", {})
+	var host_areas: Array = []
+	if GameConstants.edition >= 11:
+		host_areas = _objective_host_areas(objective)
+	var totals := {1: 0, 2: 0}
+	for unit_id in units:
+		var unit = units[unit_id]
+		var owner = int(unit.get("owner", 0))
+		if owner != 1 and owner != 2:
+			continue
+		totals[owner] += _unit_oc_in_range(str(unit_id), unit, objective, host_areas, units)
+	return totals
+
+func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 	# 14.01: hoisted per-objective — the hosting terrain area(s), if any.
+	# Only the 11e terrain-objective geometry is edition-gated; the 14.02
+	# per-model sum applies to both editions (the 10e path shared the same
+	# count-the-unit-once loop; its Level of Control rule likewise adds the OC
+	# of every model in range — the repo carries only the 11e rules text).
 	var host_areas_11e: Array = []
 	if GameConstants.edition >= 11:
 		host_areas_11e = _objective_host_areas(objective)
@@ -543,90 +717,14 @@ func _check_objective_control(objective: Dictionary, units: Dictionary) -> int:
 	for unit_id in units:
 		var unit = units[unit_id]
 		var owner = unit.get("owner", 0)
-
-		# Skip if unit has no OC value
-		# OA-46: Check for OC override (Da Boss Iz Watchin' during Waaagh!)
-		var oc_value = unit.get("flags", {}).get("effect_oc_override", 0)
-		if oc_value == 0:
-			oc_value = unit.get("meta", {}).get("stats", {}).get("objective_control", 0)
-		# DAT'S OURS (Taktikal Brigade): additive OC bonus, applied on top of the
-		# statline/override value (a base OC of 0 still controls nothing).
-		if oc_value > 0:
-			oc_value += int(unit.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_OC, 0))
-		if oc_value <= 0:
-			print("  Skipping %s - no OC value (OC: %d)" % [unit_id, oc_value])
+		var unit_oc = _unit_oc_in_range(str(unit_id), unit, objective, host_areas_11e, units, true)
+		if unit_oc <= 0:
 			continue
-
-		# Check if unit is battle-shocked
-		if unit.get("flags", {}).get("battle_shocked", false):
-			print("  Skipping %s - battle shocked" % unit_id)
-			continue
-
-		# Check if unit has deployed status
-		var status = unit.get("status", GameStateData.UnitStatus.UNDEPLOYED)
-		if status == GameStateData.UnitStatus.UNDEPLOYED:
-			print("  Skipping %s - not deployed (status: %d)" % [unit_id, status])
-			continue
-
-		print("  Checking unit %s (Player %d, OC: %d, %d models)" % [
-			unit_id, owner, oc_value, unit.get("models", []).size()
-		])
-
-		# Check each model in the unit
-		var unit_counted = false
-		for model in unit.get("models", []):
-			if unit_counted:
-				break
-
-			if not model.get("alive", true):
-				continue
-
-			var model_pos = model.get("position")
-			if model_pos == null:
-				continue
-
-			# Convert position if needed
-			if model_pos is Dictionary:
-				model_pos = Vector2(model_pos.x, model_pos.y)
-
-			# A model is within range of an objective if any part of its base
-			# is within the control radius. Use shape-aware distance to correctly
-			# handle oval and rectangular bases (not just circular).
-			# ISS-055 (11e 14.01/14.02): if terrain area(s) host the
-			# objective, those AREAS are the objective — a model is in range
-			# while WITHIN any of them (not the marker radius). "Within" is
-			# any part of the base overlapping the area (shape-aware), NOT the
-			# centre point — a base half on the area counts (mek-contested
-			# bug). The linked centre pair of the official layouts spans two
-			# areas that count as one objective (source_pieces). Falls through
-			# to the marker radius on open ground.
-			if GameConstants.edition >= 11 and not host_areas_11e.is_empty():
-				if _model_in_objective_range(model, objective, host_areas_11e):
-					units_in_range.append("%s (Player %d, OC: %d, terrain objective)" % [unit_id, owner, oc_value])
-					if owner == 1:
-						player1_oc += oc_value
-					elif owner == 2:
-						player2_oc += oc_value
-					unit_counted = true
-					print("    -> Base overlaps the TERRAIN OBJECTIVE area (14.01)! Adding OC: %d for Player %d at %s" % [oc_value, owner, model_pos])
-				continue
-
-			var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
-			var edge_distance_inches = Measurement.px_to_inches(edge_distance)
-
-			# Debug log for each model checked
-			print("  Model from %s at %s, edge_distance: %.1f\" (%.1fpx), control_radius: %.1fpx, base_type: %s from %s at %s" % [
-				unit_id, model_pos, edge_distance_inches, edge_distance, control_radius, model.get("base_type", "circular"), objective.id, obj_pos
-			])
-
-			if edge_distance <= control_radius:
-				units_in_range.append("%s (Player %d, OC: %d)" % [unit_id, owner, oc_value])
-				if owner == 1:
-					player1_oc += oc_value
-				elif owner == 2:
-					player2_oc += oc_value
-				unit_counted = true  # Only count unit once
-				print("    -> Within control range! Adding OC: %d for Player %d" % [oc_value, owner])
+		units_in_range.append("%s (Player %d, OC: %d%s)" % [unit_id, owner, unit_oc, ", terrain objective" if not host_areas_11e.is_empty() else ""])
+		if owner == 1:
+			player1_oc += unit_oc
+		elif owner == 2:
+			player2_oc += unit_oc
 
 	# Log units in range if any
 	if units_in_range.size() > 0:

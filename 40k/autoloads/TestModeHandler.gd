@@ -17,6 +17,24 @@ enum TestMode {
 }
 
 var current_test_mode: TestMode = TestMode.NONE
+## Set when the AUTO_HOST start sequence (lobby -> game start -> optional
+## auto-load) has finished; see harness_ready in get_game_state.
+var auto_host_start_complete: bool = false
+## Ticks (ms) when the AUTO_HOST auto-load reported load_completed; 0 = not yet.
+var _auto_load_completed_msec: int = 0
+const AUTO_LOAD_SETTLE_MSEC := 3000
+
+func _on_auto_load_completed(_file_path = "", _metadata = {}) -> void:
+	_auto_load_completed_msec = Time.get_ticks_msec()
+	print("TestModeHandler: auto-load completed (%s) — harness_ready in %d ms" % [str(_file_path), AUTO_LOAD_SETTLE_MSEC])
+
+## A failed auto-load settles too: the instance carries on from the started
+## game. (_auto_load_save resolves "x.w40ksave" to user://saves/tests_saves_
+## x.w40ksave.w40ksave, which never exists — tests that need the fixture load
+## it explicitly with the load_save command.)
+func _on_auto_load_failed(error = "") -> void:
+	_auto_load_completed_msec = Time.get_ticks_msec()
+	print("TestModeHandler: auto-load FAILED (%s) — continuing from the started game; harness_ready in %d ms" % [str(error), AUTO_LOAD_SETTLE_MSEC])
 
 # Command simulation system
 var _command_dir: String = ""
@@ -266,31 +284,55 @@ func _schedule_auto_host():
 			var retry_count = 0
 			while retry_count < max_retries:
 				var current_phase = _gs().get_current_phase()
-				if current_phase == GameStateData.Phase.DEPLOYMENT:
-					print("TestModeHandler: Game successfully in Deployment phase")
+				# A new game starts in FORMATIONS (10e and 11e); older builds
+				# started in DEPLOYMENT. Waiting for DEPLOYMENT only burned
+				# max_retries * 0.5s and logged a bogus ERROR every 11e run.
+				if current_phase == GameStateData.Phase.FORMATIONS or current_phase == GameStateData.Phase.DEPLOYMENT:
+					print("TestModeHandler: Game successfully in start phase %s" % GameStateData.Phase.keys()[current_phase])
 
 					# IMPORTANT: Ensure PhaseManager has a phase instance
 					var phase_mgr_check = get_node_or_null("/root/PhaseManager")
 					if phase_mgr_check and not phase_mgr_check.current_phase_instance:
-						print("TestModeHandler: PhaseManager has no instance - initializing deployment phase")
-						phase_mgr_check.transition_to_phase(GameStateData.Phase.DEPLOYMENT)
+						print("TestModeHandler: PhaseManager has no instance - initializing %s phase" % GameStateData.Phase.keys()[current_phase])
+						phase_mgr_check.transition_to_phase(current_phase)
 						await get_tree().process_frame  # Let the phase initialize
 					elif phase_mgr_check and phase_mgr_check.current_phase_instance:
 						print("TestModeHandler: PhaseManager already has phase instance")
 
 					break
 
-				print("TestModeHandler: Waiting for Deployment phase (attempt %d/%d) - current phase: %d" % [retry_count+1, max_retries, current_phase])
+				print("TestModeHandler: Waiting for the start phase (attempt %d/%d) - current phase: %d" % [retry_count+1, max_retries, current_phase])
 				await get_tree().create_timer(0.5).timeout
 				retry_count += 1
 
 			if retry_count >= max_retries:
-				push_error("TestModeHandler: Game failed to enter Deployment phase after %d attempts" % max_retries)
+				push_error("TestModeHandler: Game failed to enter its start phase after %d attempts" % max_retries)
 
 			# If we have a save to auto-load, schedule it
 			if test_config.has("auto_load_save"):
 				await get_tree().create_timer(2.0).timeout
+				# The load completes asynchronously (observed 10-40 s later) and
+				# Main is then rebuilt, so readiness keys off SaveLoadManager's
+				# load_completed / load_failed instead of a fixed settle (see
+				# _harness_ready).
+				var slm = get_node_or_null("/root/SaveLoadManager")
+				if slm and slm.has_signal("load_completed"):
+					if not slm.load_completed.is_connected(_on_auto_load_completed):
+						slm.load_completed.connect(_on_auto_load_completed)
+					if slm.has_signal("load_failed") and not slm.load_failed.is_connected(_on_auto_load_failed):
+						slm.load_failed.connect(_on_auto_load_failed)
+				else:
+					_auto_load_completed_msec = Time.get_ticks_msec()  # cannot observe it; don't block readiness
 				_auto_load_save(test_config["auto_load_save"])
+				await get_tree().create_timer(1.0).timeout
+
+			# From here on a test may drive the game: get_game_state reports
+			# harness_ready (MultiplayerIntegrationTest.wait_for_connection
+			# waits for it). Acting earlier raced this sequence — the game
+			# start (Main._ready -> FORMATIONS) or the auto-load landed AFTER a
+			# test's own phase change and silently undid it.
+			auto_host_start_complete = true
+			print("TestModeHandler: Auto-host start sequence complete")
 		else:
 			print("TestModeHandler: ERROR - Lobby scene doesn't have _on_host_button_pressed method")
 
@@ -471,11 +513,67 @@ func _check_for_commands():
 			if _commands_in_flight.has(file_name):
 				file_name = dir.get_next()
 				continue
-			print("TestModeHandler: Processing command file ", file_name)
+			if not _command_is_for_this_instance(file_name):
+				file_name = dir.get_next()
+				continue
+			print("TestModeHandler[%s]: Processing command file %s" % [_instance_tag(), file_name])
 			_execute_command_file(file_name)
 		file_name = dir.get_next()
 
 	dir.list_dir_end()
+
+## MultiplayerIntegrationTest names command files "<role>_<pid>_cmd_<seq>.json"
+## (role = host | client) and BOTH instances poll the same res:// command dir.
+## A file is only deleted after its handler returns, so without this gate the
+## other peer's 100ms scan picked it up too: the client ran host commands
+## (load_save, select_shooter, ...) and the host ran client ones, both wrote
+## the same result file, and the test read whichever landed — the source of
+## the multi-peer suite's run-to-run failures (instance-tagged log, 2026-10-17:
+## Client executed host_26156_cmd_002/_006, Host executed client_26201_cmd_001).
+## Files without a role prefix (single-instance tools/tests) run anywhere.
+var _skipped_foreign_commands: Dictionary = {}
+
+func _command_is_for_this_instance(file_name: String) -> bool:
+	var for_role := ""
+	if file_name.begins_with("host_"):
+		for_role = "host"
+	elif file_name.begins_with("client_"):
+		for_role = "client"
+	else:
+		return true
+	var mine := true
+	if current_test_mode == TestMode.AUTO_HOST:
+		mine = for_role == "host"
+	elif current_test_mode == TestMode.AUTO_JOIN:
+		mine = for_role == "client"
+	if not mine and not _skipped_foreign_commands.has(file_name):
+		_skipped_foreign_commands[file_name] = true
+		print("TestModeHandler[%s]: Skipping %s (addressed to the %s instance)" % [_instance_tag(), file_name, for_role])
+	return mine
+
+## True once a test may drive this instance: it is in the game scene with a
+## live phase instance and (host) its auto-start sequence has finished.
+func _harness_ready() -> bool:
+	var scene = get_tree().current_scene
+	var phase_mgr = get_node_or_null("/root/PhaseManager")
+	var in_game: bool = scene != null and str(scene.name) == "Main" \
+		and phase_mgr != null and phase_mgr.current_phase_instance != null
+	match current_test_mode:
+		TestMode.AUTO_HOST:
+			# With an auto-load, wait until it completed and Main has had time
+			# to rebuild for it (SAVE-4 runs on the old Main, then a new Main).
+			var load_settled: bool = not test_config.has("auto_load_save") or (
+				_auto_load_completed_msec > 0 and Time.get_ticks_msec() - _auto_load_completed_msec >= AUTO_LOAD_SETTLE_MSEC)
+			return in_game and auto_host_start_complete and load_settled
+		TestMode.AUTO_JOIN:
+			return in_game
+		_:
+			return true
+
+## "<instance_name>/<mode>/pid" for command-log lines: host and client share
+## user://logs/godot.log, so untagged lines cannot be attributed.
+func _instance_tag() -> String:
+	return "%s/%s/%d" % [get_test_instance_name(), TestMode.keys()[current_test_mode], OS.get_process_id()]
 
 func _execute_command_file(file_name: String):
 	# Mark this command as in-flight BEFORE any await or early-return paths so
@@ -534,7 +632,7 @@ func _execute_command(command: Dictionary) -> Dictionary:
 		"load_save":
 			return await _handle_load_save(params)
 		"deploy_unit":
-			return _handle_deploy_unit(params)
+			return await _handle_deploy_unit(params)
 		"undo_deployment":
 			return _handle_undo_deployment(params)
 		"complete_deployment":
@@ -584,7 +682,7 @@ func _write_result(command_file: String, sequence: int, result: Dictionary, exec
 	if file:
 		file.store_string(JSON.stringify(result_data, "\t"))
 		file.close()
-		print("TestModeHandler: Result written to: ", result_file_name)
+		print("TestModeHandler[%s]: Result written to: %s" % [_instance_tag(), result_file_name])
 	else:
 		push_error("TestModeHandler: Failed to write result file: " + result_path)
 
@@ -795,7 +893,35 @@ func _handle_deploy_unit(params: Dictionary) -> Dictionary:
 
 	# Try to deploy the unit
 	var pos_vector = Vector2(position["x"], position["y"])
-	var success = game_manager.deploy_unit(unit_id, pos_vector)
+	var success := false
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_networked():
+		# Networked: route like a player's action so the host validates,
+		# applies AND broadcasts. GameManager.deploy_unit -> apply_action is
+		# local only — the client never saw the deployment or the turn
+		# hand-over (host P2 / client P1), which the suite only missed while
+		# the client was also executing host-addressed commands itself.
+		var action: Dictionary = game_manager.build_test_deploy_action(unit_id, pos_vector)
+		if action.is_empty():
+			return {"success": false, "message": "Unit %s not found or has no models" % unit_id, "error": "UNIT_NOT_FOUND"}
+		# Same entry point as DeploymentController: route_action stamps this
+		# peer's own player (the host rejects a mismatched claim) and submits.
+		action["phase"] = GameStateData.Phase.DEPLOYMENT
+		NetworkIntegration.route_action(action)
+		# Host: applied synchronously. Client: wait for the host's broadcast.
+		var waited := 0.0
+		while true:
+			var u = game_state.get_unit(unit_id) if game_state else null
+			if u and int(u.get("status", -1)) == GameStateData.UnitStatus.DEPLOYED:
+				success = true
+				break
+			if network_manager.is_host() or waited >= 3.0:
+				break
+			await get_tree().create_timer(0.1).timeout
+			waited += 0.1
+		print("TestModeHandler[%s]: deploy_unit %s via NetworkIntegration.route_action -> deployed=%s" % [_instance_tag(), unit_id, success])
+	else:
+		success = game_manager.deploy_unit(unit_id, pos_vector)
 
 	if success:
 		return {
@@ -859,6 +985,22 @@ func _handle_complete_deployment(params: Dictionary) -> Dictionary:
 			"message": "GameManager not found",
 			"error": "GAME_MANAGER_NOT_FOUND"
 		}
+
+	# Networked: end deployment the way the UI does (Main routes END_DEPLOYMENT
+	# through NetworkIntegration). GameManager.complete_deployment applies it
+	# locally — on the client that set its own meta.phase, and a later stale
+	# local value pulled it back to REDEPLOYMENT after the host had moved on.
+	var network_manager = get_node_or_null("/root/NetworkManager")
+	if network_manager and network_manager.is_networked():
+		var routed: Dictionary = NetworkIntegration.route_action({"type": "END_DEPLOYMENT"})
+		print("TestModeHandler[%s]: complete_deployment via NetworkIntegration.route_action -> %s" % [_instance_tag(), str(routed)])
+		if routed.get("success", false):
+			return {
+				"success": true,
+				"message": "Player %d deployment complete (submitted)" % player_id,
+				"data": {"player_id": player_id, "deployment_complete": true}
+			}
+		return {"success": false, "message": "END_DEPLOYMENT refused: %s" % str(routed.get("error", routed)), "error": "COMPLETION_FAILED"}
 
 	# Mark deployment as complete
 	if game_manager.has_method("complete_deployment"):
@@ -970,6 +1112,21 @@ func _handle_get_game_state(params: Dictionary) -> Dictionary:
 	# Try to get unit information from GameState directly
 	if game_state and game_state.state.has("units"):
 		state_data["units"] = game_state.state.get("units", {})
+
+	# Remote peers this instance's MultiplayerAPI is connected to. Lets the
+	# multi-peer harness wait for a REAL host<->client connection instead of
+	# "the host answers a command" (MultiplayerIntegrationTest.wait_for_connection).
+	var peers := PackedInt32Array()
+	if multiplayer != null and multiplayer.has_multiplayer_peer():
+		peers = multiplayer.get_peers()
+	state_data["connected_peer_count"] = peers.size()
+	state_data["harness_ready"] = _harness_ready()
+	var cur_scene = get_tree().current_scene
+	var pm_state = get_node_or_null("/root/PhaseManager")
+	state_data["harness_detail"] = "scene=%s phase_instance=%s start_complete=%s auto_load_completed_msec=%d now=%d" % [
+		str(cur_scene.name) if cur_scene != null else "<null>",
+		pm_state != null and pm_state.current_phase_instance != null,
+		auto_host_start_complete, _auto_load_completed_msec, Time.get_ticks_msec()]
 
 	# Expose ShootingPhase.active_shooter_id when the active phase is a
 	# ShootingPhase. Multi-peer integration tests use this to verify a

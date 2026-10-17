@@ -1970,7 +1970,15 @@ const WEIGHT_OC_EFFICIENCY: float = 2.0
 # COORD-5: cap on EXTRA OC committed to an objective because of projected
 # (next-move) enemy pressure, on top of the live-contest need. Keeps the AI
 # from dogpiling its whole army onto one threatened marker.
+# Tuned when every unit counted its statline OC once; since needs and
+# capacities became 14.02 per-model sums it is applied at the army's own
+# models-per-unit scale (_army_per_model_oc_scale), i.e. it still means
+# "about two typical units' worth", not two models'.
 const PROJECTED_NEED_CAP: int = 4
+# 14.02: an enemy hold this small (per-model level of control) always reads
+# "enemy_weak" — any unit that arrives out-OCs it. Larger holds are weak only
+# when the OC we can bring within two moves beats them (_reachable_contest_oc).
+const ENEMY_WEAK_OC_FLOOR: int = 4
 # COORD-4: score penalty per friendly unit already committed to an objective
 # when assigning leftover "support" units — diminishing returns stop every
 # spare unit from independently picking the same most-attractive marker.
@@ -3963,7 +3971,9 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 	if unit.is_empty():
 		return
 	var unit_name = _dn(unit, unit_id)
-	var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
+	# 14.02: the OC this unit brings is every alive model's OC (the COORD-2
+	# incoming-OC credit subtracts it from the per-model objective need).
+	var unit_oc = _unit_alive_oc(unit)
 	var centroid = _get_unit_centroid(unit)
 
 	# Destination: mean of the planned model destinations, else current position
@@ -8852,7 +8862,8 @@ static func _evaluate_all_objectives(
 			var e_status = e_unit.get("status", 0)
 			if e_status == GameStateData.UnitStatus.UNDEPLOYED or e_status == GameStateData.UnitStatus.IN_RESERVES:
 				continue
-			var e_oc = int(e_unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
+			# 14.02: every model the unit brings into range adds its own OC.
+			var e_oc = _unit_alive_oc(e_unit, 0)
 			if e_oc <= 0:
 				continue
 			var e_centroid = _get_unit_centroid(e_unit)
@@ -8866,6 +8877,14 @@ static func _evaluate_all_objectives(
 				projected_enemy_oc += e_oc
 				projected_names.append(_dn(e_unit, e_uid))
 
+		# 14.02 CONTEST CAPACITY — the OC we can stand in range with soon, in the
+		# same per-model units as enemy_oc: every alive model's OC of each of our
+		# units that can reach control range within our next two moves (one in
+		# the last battle round), COORD-5's M + ~2" slack per move.
+		var contest_oc = _reachable_contest_oc(obj_pos, friendly_units,
+				1 if battle_round >= MAX_BATTLE_ROUNDS_AI else 2)
+		contest_oc = maxi(contest_oc, friendly_oc)
+
 		# Classify the objective state
 		var state = "uncontrolled"
 		if friendly_oc > 0 and friendly_oc > enemy_oc:
@@ -8874,7 +8893,12 @@ static func _evaluate_all_objectives(
 			else:
 				state = "held_safe"
 		elif enemy_oc > 0 and enemy_oc > friendly_oc:
-			if enemy_oc <= 4:  # Reasonable to contest
+			# Reasonable to contest: we can bring MORE OC than they hold (14.02
+			# needs a strictly higher level), or the hold is tiny. The bare
+			# `enemy_oc <= 4` cut-off was tuned when each unit counted its OC
+			# once; per model an ordinary 3 x OC2 squad already reads 6, so a
+			# constant alone made almost every squad-held objective "strong".
+			if enemy_oc <= ENEMY_WEAK_OC_FLOOR or enemy_oc < contest_oc:
 				state = "enemy_weak"
 			else:
 				state = "enemy_strong"
@@ -9011,6 +9035,8 @@ static func _evaluate_all_objectives(
 			vp_stake_notes.append({"id": obj_id, "vp": vp_value, "sources": vp_result.sources})
 
 		print("AIDecisionMaker: Objective %s: state=%s, friendly_oc=%d, enemy_oc=%d, priority=%.1f (tempo=%.2f, vp=%.1f)" % [obj_id, state, friendly_oc, enemy_oc, priority, tempo_mod, vp_value])
+		if state in ["enemy_weak", "enemy_strong"]:
+			print("AIDecisionMaker:   %s contest capacity: we can bring OC %d within reach vs their %d (14.02 per-model)" % [obj_id, contest_oc, enemy_oc])
 
 		evaluations.append({
 			"index": i,
@@ -9028,6 +9054,7 @@ static func _evaluate_all_objectives(
 			"vp_value": vp_value,
 			"vp_sources": vp_result.sources,
 			"oc_needed": max(0, enemy_oc - friendly_oc + 1),  # OC we need to add to flip control
+			"contest_oc": contest_oc,  # 14.02: OC we can stand in range with within our next two moves
 			"projected_enemy_oc": projected_enemy_oc,  # COORD-5: enemy OC one move away
 			"projected_names": projected_names
 		})
@@ -9054,15 +9081,8 @@ static func _evaluate_all_objectives(
 # UNIT-TO-OBJECTIVE ASSIGNMENT (Task 1 + Task 2 + Task 3 + Task 6)
 # =============================================================================
 
-static func _assign_units_to_objectives(
-	snapshot: Dictionary, movable_units: Dictionary, obj_evaluations: Array,
-	objectives: Array, enemies: Dictionary, friendly_units: Dictionary,
-	player: int, battle_round: int, threat_data: Array = []
-) -> Dictionary:
-	# Returns: {unit_id: {objective_id, objective_pos, action, score, reason, distance}}
-	# Uses a greedy assignment algorithm: score all (unit, objective) pairs, assign best first
-
-	var assignments = {}  # unit_id -> assignment dict
+## COORD-5 need ledger — objective_id -> how much more OC is still needed there.
+static func _initial_objective_oc_needs(obj_evaluations: Array, friendly_units: Dictionary) -> Dictionary:
 	var obj_oc_remaining = {}  # objective_id -> how much more OC is still needed there
 
 	# Initialize OC needs per objective
@@ -9070,7 +9090,11 @@ static func _assign_units_to_objectives(
 	# already standing in control range — an empty objective one move from two
 	# enemy squads needs enough OC to survive the flip attempt, and committing
 	# a second unit there is deliberate reinforcement (narrated), not stacking.
-	var projected_need_cap = get_param_int("PROJECTED_NEED_CAP", PROJECTED_NEED_CAP)
+	# 14.02: needs and capacities are per-model OC sums, so the cap (tuned in
+	# per-unit statline OC) is converted at this army's models-per-unit scale.
+	# held_threatened's base need (enemy_oc) and oc_needed need no rescale —
+	# they compare per-model enemy OC with per-model unit capacities.
+	var projected_need_cap = int(round(float(get_param_int("PROJECTED_NEED_CAP", PROJECTED_NEED_CAP)) * _army_per_model_oc_scale(friendly_units)))
 	for eval in obj_evaluations:
 		var obj_id = eval.id
 		var base_need := 0
@@ -9090,6 +9114,18 @@ static func _assign_units_to_objectives(
 					obj_id, base_need, base_need + projected_extra, eval.projected_enemy_oc,
 					", ".join(eval.get("projected_names", []).slice(0, 3))])
 		obj_oc_remaining[obj_id] = base_need + projected_extra
+	return obj_oc_remaining
+
+static func _assign_units_to_objectives(
+	snapshot: Dictionary, movable_units: Dictionary, obj_evaluations: Array,
+	objectives: Array, enemies: Dictionary, friendly_units: Dictionary,
+	player: int, battle_round: int, threat_data: Array = []
+) -> Dictionary:
+	# Returns: {unit_id: {objective_id, objective_pos, action, score, reason, distance}}
+	# Uses a greedy assignment algorithm: score all (unit, objective) pairs, assign best first
+
+	var assignments = {}  # unit_id -> assignment dict
+	var obj_oc_remaining = _initial_objective_oc_needs(obj_evaluations, friendly_units)  # objective_id -> how much more OC is still needed there
 
 	# =========================================================================
 	# COORD-2: INCOMING OC — account for friendly units that already took their
@@ -9166,7 +9202,9 @@ static func _assign_units_to_objectives(
 				"Earmark SCREEN withholds %s from the objective passes" % unit_id)
 			continue
 
-		var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
+		# 14.02: capacity = every alive model's OC, the unit of the per-model
+		# oc_needed it is measured against (oc_efficiency / oc_consumed).
+		var unit_oc = _unit_alive_oc(unit)
 		var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
 		var unit_keywords = unit.get("meta", {}).get("keywords", [])
 		var has_ranged = _unit_has_ranged_weapons(unit)
@@ -10106,6 +10144,9 @@ static func _decide_engaged_unit(
 		var enemy_oc_here = _get_oc_at_position(
 			centroid, enemies, player, false
 		)
+		# 14.02: what falling back removes is THIS unit's in-range models' OC
+		# (friendly_oc_here sums per model), measured at the same point.
+		unit_oc = _unit_oc_at_position(centroid, unit_id, unit, friendly_units)
 
 		# T7-43: In rounds 4-5, units on objectives are biased toward holding
 		# even if survival is at risk — objective control is paramount
@@ -10754,31 +10795,118 @@ static func _should_unit_advance(
 # MOVEMENT HELPERS (Enhanced)
 # =============================================================================
 
+## Level of control (14.02) the AI reads at `pos`: "add together the OC
+## characteristics of all the models in that player's army that are within
+## range" — every in-range model's own OC, not each unit's OC once. Owner
+## filter: `is_friendly` sums `player`'s units, otherwise everyone else's (the
+## filter was previously ignored, so callers handing in the whole snapshot —
+## Against All Odds standoff, Burden of Trust, VIGILANCE ETERNAL — counted both
+## armies as one). Range is the AI's usual centre-distance approximation.
 static func _get_oc_at_position(pos: Vector2, units: Dictionary, player: int, is_friendly: bool) -> int:
-	# Sum up OC values of all units within control range of a position
+	# Sum up OC values of all models within control range of a position
 	var total_oc = 0
 	for uid in units:
 		var unit = units[uid]
-		# Skip battle-shocked units (they have 0 effective OC)
+		if (int(unit.get("owner", 0)) == player) != is_friendly:
+			continue
+		total_oc += _unit_oc_at_position(pos, str(uid), unit, units)
+	return total_oc
+
+## One model's OC (14.02) — MissionManager.model_oc (per-model profile, Da Boss
+## override, +OC per model), the same value objective control sums; statline
+## fallback when the autoload is unreachable.
+static func _ai_model_oc(unit: Dictionary, model: Dictionary) -> int:
+	var mm = _mission_manager()
+	if mm != null and mm.has_method("model_oc"):
+		return int(mm.model_oc(unit, model))
+	return maxi(0, int(unit.get("meta", {}).get("stats", {}).get("objective_control", 0)))
+
+## OC this unit adds at `pos` now: its alive models within control range, each
+## with its own OC (14.02). 0 when battle-shocked (any component of its
+## Attached unit — 19.01) or not on the battlefield.
+static func _unit_oc_at_position(pos: Vector2, unit_id: String, unit: Dictionary, units: Dictionary) -> int:
+	# Skip battle-shocked units (they have 0 effective OC)
+	if unit.get("flags", {}).get("battle_shocked", false):
+		return 0
+	var attachment = unit.get("attachment_data", {})
+	var in_attached_unit: bool = unit.get("attached_to", null) != null \
+			or (attachment is Dictionary and not attachment.get("attached_characters", []).is_empty())
+	if in_attached_unit and AttackSequence.group_battle_shocked(unit_id, units):
+		return 0
+	var status = unit.get("status", 0)
+	if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+		return 0
+	var total_oc = 0
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
+			continue
+		var mpos = _get_model_position(model)
+		if mpos == Vector2.INF:
+			continue
+		if mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			total_oc += _ai_model_oc(unit, model)
+	return total_oc
+
+## The OC a unit brings once its models stand in range — every alive model's
+## own OC (14.02), the planner's capacity for "how much of an objective's need
+## does this unit cover". A unit with no OC stat at all keeps the planner's
+## historical default (`missing_default`, per unit).
+static func _unit_alive_oc(unit: Dictionary, missing_default: int = 1) -> int:
+	if not unit.get("meta", {}).get("stats", {}).has("objective_control"):
+		return missing_default
+	var total_oc = 0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			total_oc += _ai_model_oc(unit, model)
+	return total_oc
+
+## 14.02 contest capacity at `pos`: the per-model OC (_unit_alive_oc) of every
+## unit in `units` that can stand within control range of it within `moves`
+## moves — centroid within moves x (M + 2" slack, COORD-5's cautious advance)
+## + control range. Battle-shocked (OC '-'), undeployed and reserve units add
+## nothing. Same units as the per-model enemy level of control it is weighed
+## against in _evaluate_all_objectives.
+static func _reachable_contest_oc(pos: Vector2, units: Dictionary, moves: int) -> int:
+	var total_oc = 0
+	for uid in units:
+		var unit = units[uid]
 		if unit.get("flags", {}).get("battle_shocked", false):
 			continue
 		var status = unit.get("status", 0)
 		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
 			continue
-		var oc_val = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
-		if oc_val <= 0:
+		var u_oc = _unit_alive_oc(unit, 0)
+		if u_oc <= 0:
 			continue
-		# Check if any alive model is within control range
-		for model in unit.get("models", []):
-			if not model.get("alive", true):
-				continue
-			var mpos = _get_model_position(model)
-			if mpos == Vector2.INF:
-				continue
-			if mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-				total_oc += oc_val
-				break  # Count unit once
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+		var u_move = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+		if centroid.distance_to(pos) <= float(moves) * (u_move + 2.0) * PIXELS_PER_INCH + OBJECTIVE_CONTROL_RANGE_PX:
+			total_oc += u_oc
 	return total_oc
+
+## How many times larger the army's 14.02 per-model OC is than its per-unit
+## statline OC: sum of _unit_alive_oc / sum of statline OC over the units with
+## OC 1+ and a model alive (1.0 for an army of single-model units, ~5 for
+## five-model squads, never below 1). Converts OC constants that were tuned
+## when each unit counted its OC once (PROJECTED_NEED_CAP) into per-model OC.
+static func _army_per_model_oc_scale(units: Dictionary) -> float:
+	var statline_sum := 0
+	var per_model_sum := 0
+	for uid in units:
+		var unit = units[uid]
+		var statline = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
+		if statline <= 0:
+			continue
+		var alive_oc = _unit_alive_oc(unit, 0)
+		if alive_oc <= 0:
+			continue
+		statline_sum += statline
+		per_model_sum += alive_oc
+	if statline_sum <= 0:
+		return 1.0
+	return maxf(1.0, float(per_model_sum) / float(statline_sum))
 
 static func _count_units_near_position(pos: Vector2, units: Dictionary, range_px: float) -> int:
 	var count = 0
@@ -15364,7 +15492,10 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var target_pos_for_terrain = pair_info.pos_b
 			var terrain_penalty = _estimate_charge_terrain_penalty(charger_pos_for_terrain, target_pos_for_terrain, has_fly, unit_keywords)
 			var er_inches = GameConstants.engagement_range_inches()  # 2" at 11e, 1" at 10e
-			var charge_distance_needed = max(0.0, dist - er_inches) + terrain_penalty
+			# Roll needed (11e: the target must be within the roll itself,
+			# 11.04 — see _charge_roll_needed). The 3% skip and the short-charge
+			# multipliers below key on this roll-needed value.
+			var charge_distance_needed = _charge_roll_needed(dist, terrain_penalty)
 			if terrain_penalty > 0.0:
 				print("AIDecisionMaker: [CHARGE-TERRAIN] %s -> %s: raw=%.1f\" terrain_penalty=+%.1f\" effective=%.1f\"" % [
 					unit_name, target_name, dist - er_inches, terrain_penalty, charge_distance_needed])
@@ -15526,7 +15657,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var t_dist = target_info.distance_inches
 			# Find the scored entry for this target
 			var t_score = 0.0
-			var t_prob = _charge_success_probability(max(0.0, t_dist - GameConstants.engagement_range_inches()))
+			var t_prob = _charge_success_probability(_charge_roll_needed(t_dist))
 			var t_melee = _estimate_melee_damage(charge_unit, t_unit, {},
 				1 if _aao_charge_keeps_isolation(charge_unit, t_unit, snapshot, player) else 0) if not t_unit.is_empty() else 0.0
 			var t_hp = _calculate_kill_threshold(t_unit) if not t_unit.is_empty() else 0.0
@@ -15575,6 +15706,28 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			dtid, _charge_coordination[dtid].charger_ids.size(), _charge_coordination[dtid].total_expected_dmg])
 
 	return result
+
+# The 2D6 result a charge against a target `edge_in` inches away (base to base)
+# needs, with `terrain_pen` inches of terrain penalty on the approach.
+#   11e: max(edge_in, move) — Core 11.04 BEFORE MOVING: a charge target must be
+#        within 12" AND within the charge roll itself (pg-37 example B: a unit
+#        more than 7" away cannot be selected on a 7, even though the charger
+#        could end within 2" of it), AND the move must still reach engagement
+#        range around any terrain.
+#        Less ChargeMove11e.WITHIN_TOLERANCE_INCHES (0.02"), the phase's
+#        inclusive "within" tolerance — shape-aware distances at an exact whole
+#        inch come back a few millionths high (7.0000015"), and the ceil in
+#        _charge_success_probability would otherwise demand an 8 for a target
+#        the phase accepts on a 7 (the same correction AIPlayer's re-roll
+#        decisions and the UI's "Min roll" apply).
+#   10e: move = max(0, edge_in - ER) + terrain_pen (the roll only has to close
+#        the gap to engagement range).
+# Feed the result to _charge_success_probability.
+static func _charge_roll_needed(edge_in: float, terrain_pen: float = 0.0) -> float:
+	var move = max(0.0, edge_in - GameConstants.engagement_range_inches()) + terrain_pen
+	if GameConstants.edition >= 11:
+		return max(0.0, max(edge_in, move) - ChargeMove11e.WITHIN_TOLERANCE_INCHES)
+	return move
 
 static func _charge_success_probability(distance_needed: float) -> float:
 	"""Calculate the probability that 2D6 >= distance_needed.
@@ -15685,7 +15838,9 @@ static func _score_multi_target_combo(
 		if t.dist > max_dist:
 			max_dist = t.dist
 
-	var charge_distance_needed = max(0.0, max_dist - GameConstants.engagement_range_inches())
+	# Every target must be within the roll at 11e (11.04), so the farthest one
+	# sets the roll needed — see _charge_roll_needed.
+	var charge_distance_needed = _charge_roll_needed(max_dist)
 	var charge_prob = _charge_success_probability(charge_distance_needed)
 
 	# Skip if the multi-target charge has very low probability
@@ -22281,7 +22436,9 @@ static func _battle_shock_flip_value(
 
 		var friendly_oc = _get_oc_at_position(obj_pos, friendly_units, player, true)
 		var enemy_oc = _get_oc_at_position(obj_pos, enemy_units, player, false)
-		var enemy_oc_after = maxi(0, enemy_oc - target_oc)
+		# 14.02: battle-shock zeroes every one of the target's in-range models,
+		# which is exactly the OC it adds here (enemy_oc sums per model).
+		var enemy_oc_after = maxi(0, enemy_oc - _unit_oc_at_position(obj_pos, target_id, target_unit, enemy_units))
 		# 14.02/14.03: control needs STRICTLY higher level, and a tie leaves an
 		# objective uncontrolled (or secured to its previous holder). Zeroing
 		# their OC only wins us the objective if we have OC of our own there.
@@ -23058,6 +23215,16 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 		var sid := str(offer.get("stratagem_id", ""))
 		var strat: Dictionary = sm.get_stratagem(sid)
 		var cost := int(offer.get("cp_cost", strat.get("cp_cost", 1)))
+		if sid == "fire_overwatch_11e":
+			# 11e FIRE OVERWATCH (15.08) in movement_phase_end: score each
+			# (shooter, snap target) pair by its expected damage on 6s.
+			var fo := _decide_fire_overwatch_window_11e(offer, cp, difficulty)
+			considered.append_array(fo.considered)
+			if fo.use and float(fo.score) > best_score:
+				best_score = float(fo.score)
+				best = {"use": true, "stratagem_id": sid, "target_unit_id": str(fo.target_unit_id),
+					"context": {"secondary_id": str(fo.secondary_id)}, "name": str(offer.get("name", sid))}
+			continue
 		var is_codex: bool = _ork_codex().handles(strat)
 		var kind: String = str(_ork_codex().ai_kind(strat)) if is_codex else "defensive"
 		for t in offer.get("targets", []):
@@ -23227,6 +23394,84 @@ static func _score_defensive_effects(effects: Array, unit: Dictionary) -> float:
 				# Unknown defensive effect — assume mild value
 				score += 0.5
 	return score
+
+# --- FIRE OVERWATCH 11e (15.08 — end of the opponent's Movement phase window) ---
+
+## Minimum expected damage (wounds) one snap-shooting FIRE OVERWATCH must buy
+## for the 1 CP: snap shots hit only on an unmodified 6 (15.09), so a small
+## unit almost never earns it back.
+const FO_11E_MIN_EXPECTED_DAMAGE: float = 1.0
+## Same "is this enemy worth shooting at" bar as evaluate_fire_overwatch.
+const FO_11E_MIN_TARGET_VALUE: float = 2.0
+
+## Expected damage of `shooter_id`'s snap shot at `target_id` (15.09): the
+## exact attacks RulesEngine.build_snap_assignments_11e would make (per-weapon
+## range / visibility, attached leader's guns), each hitting only on a 6
+## ([TORRENT] auto-hits, as the overwatch machinery resolves it), no re-rolls.
+static func _snap_expected_damage_11e(shooter_id: String, target_id: String, board: Dictionary) -> float:
+	var re = _rules_engine()
+	if re == null:
+		return 0.0
+	var target: Dictionary = board.get("units", {}).get(target_id, {})
+	if target.is_empty():
+		return 0.0
+	var stats: Dictionary = target.get("meta", {}).get("stats", {})
+	var toughness := int(stats.get("toughness", 4))
+	var save := int(stats.get("save", 4))
+	var invuln := _get_target_invulnerable_save(target)
+	var wounds_per_model := maxf(1.0, float(stats.get("wounds", 1)))
+	var total := 0.0
+	for a in re.build_snap_assignments_11e(shooter_id, target_id, board):
+		var prof: Dictionary = re.get_weapon_profile(str(a.get("weapon_id", "")), board)
+		if prof.is_empty():
+			continue
+		var attacks := _parse_average_damage(str(prof.get("attacks_raw", prof.get("attacks", "1"))))
+		var p_hit := 1.0 if re.is_torrent_weapon(str(a.get("weapon_id", "")), board) else 1.0 / 6.0
+		var strength := int(str(prof.get("strength", 4))) if str(prof.get("strength", 4)).is_valid_int() else 4
+		var ap := absi(int(str(prof.get("ap", 0)))) if str(prof.get("ap", 0)).is_valid_int() else 0
+		var dmg := minf(_parse_average_damage(str(prof.get("damage_raw", prof.get("damage", "1")))), wounds_per_model)
+		var p_wound := _wound_probability(strength, toughness)
+		var p_unsaved := 1.0 - _save_probability(save, ap, invuln)
+		total += attacks * float(a.get("model_ids", []).size()) * p_hit * p_wound * p_unsaved * dmg
+	return total
+
+## AI answer for a FIRE OVERWATCH offer in the movement_phase_end window:
+## the best (shooter, snap target) pair by expected damage, used only when the
+## AI keeps a CP in hand (CP >= 2, like evaluate_fire_overwatch), the shot is
+## worth >= FO_11E_MIN_EXPECTED_DAMAGE and the target >= FO_11E_MIN_TARGET_VALUE.
+static func _decide_fire_overwatch_window_11e(offer: Dictionary, cp: int, difficulty: int) -> Dictionary:
+	var out := {"use": false, "score": 0.0, "target_unit_id": "", "secondary_id": "", "considered": []}
+	var fo_name := str(offer.get("name", "FIRE OVERWATCH"))
+	if not AIDifficultyConfigData.use_overwatch(difficulty):
+		out.considered.append("%s: skip (difficulty does not use overwatch)" % fo_name)
+		return out
+	if cp < 2:
+		out.considered.append("%s: skip (CP %d < 2 — snap shots hit only on unmodified 6s; keeping the CP)" % [fo_name, cp])
+		return out
+	var gs = _game_state()
+	if gs == null:
+		return out
+	var board: Dictionary = gs.create_snapshot()
+	var units: Dictionary = board.get("units", {})
+	for t in offer.get("targets", []):
+		var shooter_id := str(t.get("unit_id", ""))
+		var sec = t.get("secondary", {})
+		if typeof(sec) != TYPE_DICTIONARY:
+			continue
+		for opt in sec.get("options", []):
+			var enemy_id := str(opt.get("id", ""))
+			var dmg := _snap_expected_damage_11e(shooter_id, enemy_id, board)
+			var value := _estimate_unit_value(units.get(enemy_id, {}))
+			out.considered.append("%s: %s -> %s: %.2f expected damage on 6s (target value %.1f; need %.1f / %.1f)" % [
+				fo_name, shooter_id, enemy_id, dmg, value, FO_11E_MIN_EXPECTED_DAMAGE, FO_11E_MIN_TARGET_VALUE])
+			if dmg >= FO_11E_MIN_EXPECTED_DAMAGE and value >= FO_11E_MIN_TARGET_VALUE and dmg > float(out.score):
+				out.score = dmg
+				out.target_unit_id = shooter_id
+				out.secondary_id = enemy_id
+	out.use = out.target_unit_id != ""
+	if out.use:
+		_add_thinking_step("Fire Overwatch (11e): %s snap-shoots %s — %.2f expected damage for 1 CP" % [out.target_unit_id, out.secondary_id, float(out.score)])
+	return out
 
 # --- FIRE OVERWATCH (Reactive — during opponent's movement/charge) ---
 

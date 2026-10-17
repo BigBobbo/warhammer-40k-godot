@@ -360,12 +360,25 @@ func _test_sneaky_gitz_overwatch() -> void:
 	# or Charge phase) — put the live state there, not just the snapshot.
 	gs.state["meta"] = {"phase": 7, "active_player": 1, "battle_round": 1, "turn_number": 1}
 	var snapshot = {"units": units, "meta": {"phase": 7, "active_player": 1, "battle_round": 1}}
+	# 11e (migrated): FIRE OVERWATCH 15.08 is offered at the end of the
+	# opponent's Movement phase; its target eligibility is
+	# fire_overwatch_shooter_reason_11e ("" = may be targeted). The per-move
+	# helper below is the 10e Balance Dataslate path and is closed outside the
+	# movement_phase_end window at 11e.
+	var boyz_reason: String = sm.fire_overwatch_shooter_reason_11e(2, "U_BOYZ", snapshot)
+	var kommandos_reason: String = sm.fire_overwatch_shooter_reason_11e(2, "U_KOMMANDOS", snapshot)
+	_check("11e: Boyz eligible for overwatch", boyz_reason == "", boyz_reason)
+	_check("11e: Kommandos (Sneaky Gitz) NOT eligible", "Sneaky Gitz" in kommandos_reason, kommandos_reason)
+	# 10e per-move helper, pinned explicitly.
+	var prev_edition = GameConstants.edition
+	GameConstants.edition = 10
 	var eligible = sm.get_fire_overwatch_eligible_units(2, "U_ENEMY", snapshot)
+	GameConstants.edition = prev_edition
 	var ids := []
 	for e in eligible:
 		ids.append(e.get("unit_id", ""))
-	_check("Boyz eligible for overwatch", "U_BOYZ" in ids, str(ids))
-	_check("Kommandos (Sneaky Gitz) NOT eligible", not ("U_KOMMANDOS" in ids), str(ids))
+	_check("10e: Boyz eligible for overwatch", "U_BOYZ" in ids, str(ids))
+	_check("10e: Kommandos (Sneaky Gitz) NOT eligible", not ("U_KOMMANDOS" in ids), str(ids))
 
 func _test_bodyguard_extra_leader() -> void:
 	print("\n-- Bodyguard: second leader-role attach allowed, third rejected --")

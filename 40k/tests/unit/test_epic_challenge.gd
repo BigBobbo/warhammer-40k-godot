@@ -217,7 +217,11 @@ func test_epic_challenge_active_effect_tracked():
 
 	var effects = StratagemManager.get_active_effects_for_unit("U_CHARACTER")
 	assert_eq(effects.size(), 1, "Should have 1 active effect")
-	assert_eq(effects[0].stratagem_id, "epic_challenge")
+	# At edition 11 the live definition is the 15.03 EPIC CHALLENGE entry
+	# (StratagemManager._resolve_core_id maps the retired 10e "epic_challenge"
+	# to "epic_challenge_11e"), so the active effect is recorded under that id.
+	var expected_id = "epic_challenge_11e" if GameConstants.edition >= 11 else "epic_challenge"
+	assert_eq(effects[0].stratagem_id, expected_id)
 
 func test_epic_challenge_has_active_effect():
 	"""has_active_effect should return true for grant_keyword effect."""
@@ -225,7 +229,14 @@ func test_epic_challenge_has_active_effect():
 
 	StratagemManager.use_stratagem(1, "epic_challenge", "U_CHARACTER")
 
-	assert_true(StratagemManager.has_active_effect("U_CHARACTER", "grant_keyword"), "Should detect grant_keyword effect")
+	# 11e 15.03 EFFECT: "Select one CHARACTER model in your unit. Until the end
+	# of the phase, that model's melee weapons have the [PRECISION] ability." —
+	# a WEAPON ability, which the 11e definition models as
+	# {"type": "grant_weapon_ability", "ability": "precision", "scope": "melee"}.
+	# The 10e entry ("all melee attacks made by that model have the [PRECISION]
+	# ability") used {"type": "grant_keyword", "keyword": "PRECISION"}.
+	var expected_effect_type = "grant_weapon_ability" if GameConstants.edition >= 11 else "grant_keyword"
+	assert_true(StratagemManager.has_active_effect("U_CHARACTER", expected_effect_type), "Should detect %s effect" % expected_effect_type)
 
 
 # ==========================================

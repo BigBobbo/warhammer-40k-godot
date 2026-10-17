@@ -64,6 +64,12 @@ var is_combined_deployment: bool = false
 
 # Reinforcement mode (Deep Strike / Strategic Reserves arrival)
 var is_reinforcement_mode: bool = false
+# 15.07 RAPID INGRESS online: the ingress set-up is made by the NON-active
+# player at the end of the opponent's Movement phase. Main sets this to the
+# local seat when it starts that set-up on the deciding peer, so the
+# multiplayer "not your turn" input gate does not swallow its clicks
+# (0 = no exemption; the host still validates the PLACE action).
+var cross_turn_placement_player: int = 0
 # P2-80: Override placement type (when DS unit from SR chooses DS rules)
 var reinforcement_placement_type: String = ""
 
@@ -157,10 +163,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not is_placing():
 		return
 
-	# In multiplayer, block all input if it's not your turn
+	# In multiplayer, block all input if it's not your turn — except a Rapid
+	# Ingress set-up the local (non-active) player is making (15.07).
 	var network_manager = get_node_or_null("/root/NetworkManager")
 	if network_manager and network_manager.is_networked() and not network_manager.is_local_player_turn():
-		return
+		if not (is_reinforcement_mode and cross_turn_placement_player > 0 \
+				and cross_turn_placement_player == int(network_manager.get_local_player())):
+			return
 
 	# Check if we have ghosts to work with (unless repositioning).
 	# A ghost is NOT required for the session to be interactive: once every model

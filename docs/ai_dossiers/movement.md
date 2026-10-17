@@ -149,7 +149,8 @@ radius, const at line 41), count units within 12", and compute **projected enemy
 enemy units whose Move + 2" slack could put them in control range next turn (8564-8585).
 Classify the marker (8587-8602):
 - `held_safe` (we control, no enemy within 12"), `held_threatened` (we control, enemy
-  near), `enemy_weak` (they control with OC ≤ 4), `enemy_strong` (OC > 4), `contested`
+  near), `enemy_weak` (they control with a per-model OC ≤ 4, or less than the OC we can bring
+  within two moves — `contest_oc`), `enemy_strong` (otherwise), `contested`
   (both present, tied), `uncontrolled`.
 Then build the priority score (table 1 below), narrate the top-3 "VP stakes" line
 (8757-8765) and return per-marker evaluations including `oc_needed = enemy_oc −
@@ -158,7 +159,7 @@ friendly_oc + 1` (8748).
 ### E. Unit assignment — `_assign_units_to_objectives`, AIDecisionMaker.gd:8775-9744
 1. **OC needs ledger**: per marker, base need (0 if held_safe; max(1, enemy_oc) if
    held_threatened; else max(1, oc_needed)) plus projected-pressure extra, capped at
-   PROJECTED_NEED_CAP = 4 (8791-8810).
+   PROJECTED_NEED_CAP = 4, applied at the army's per-model/per-unit OC scale (8791-8810).
 2. **Incoming OC (COORD-2)**: OC of friendly units that already moved toward a marker
    this phase reduces its need, so later units don't stack onto it (8819-8854); a unit
    whose best marker was blocked this way gets a narrated **redirect note** ("obj_2 is
@@ -255,8 +256,8 @@ Decided **outside** the battle plan, first in the act order:
 | WEIGHT_UNCONTROLLED_OBJ | **10.0** | Base value of a marker nobody controls | 1813, 8612 |
 | WEIGHT_CONTESTED_OBJ | **8.0** | Base value of a marker both sides stand on | 1814, 8614 |
 | held_threatened base | **6.4** | 0.8 × contested weight — reinforce a hold under threat | 8622 |
-| WEIGHT_ENEMY_WEAK_OBJ | **7.0** | Enemy holds it with OC ≤ 4 — worth flipping | 1815, 8616 |
-| WEIGHT_ENEMY_STRONG_OBJ | **−5.0** | Enemy holds it with OC > 4 — usually not worth it | 1817, 8618 |
+| WEIGHT_ENEMY_WEAK_OBJ | **7.0** | Enemy holds it with per-model OC ≤ 4 or below our reachable OC — worth flipping | 1815, 8616 |
+| WEIGHT_ENEMY_STRONG_OBJ | **−5.0** | Enemy holds it with more OC than we can bring — usually not worth it | 1817, 8618 |
 | WEIGHT_ALREADY_HELD_OBJ | **−3.0** | Safely held — most units should go elsewhere | 1818, 8620 |
 | WEIGHT_HOME_UNDEFENDED | **+9.0** | Own home marker with zero friendly OC on it | 1816, 8626 |
 | WEIGHT_SCORING_URGENCY (R1) | **+3.0** | Round-1 rush — scoring starts round 2 | 1819, 8631 |
@@ -313,7 +314,7 @@ VP when the marker matches. Secondary hints add their VP for matching zones (188
 | Term | Default | Meaning | Line |
 |---|---|---|---|
 | OBJECTIVE_CONTROL_RANGE_PX | **151.5 px = 3.79"** | "On the marker" = within 3" + 20mm marker radius | 41 |
-| PROJECTED_NEED_CAP | **4** | Max extra OC committed because of projected enemy pressure | 1824, 8791 |
+| PROJECTED_NEED_CAP | **4** | Max extra OC committed because of projected enemy pressure (× the army's models-per-unit OC scale) | 1824, 8791 |
 | SUPPORT_STACK_PENALTY | **3.5 per committed unit** | Diminishing returns for leftover units picking the same marker | 1828, 11116 |
 | SCREEN_SCORE_BASE | **8.0** | Base priority of a screening job (comparable to a marker) | 1924, 9592 |
 | SCREEN_CHEAP_UNIT_POINTS | **100 pts** | At/below this cost a unit is an eligible screener (never CHARACTERs) | 1923, 11648-11656 |

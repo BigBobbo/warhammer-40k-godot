@@ -70,8 +70,8 @@
         }
       },
       "hint": {
-        "text": "You can declare more than one target — but every one of them gets to shoot Overwatch back.",
-        "text_orky": "Ya can declare more dan one target — but every one of 'em gets to shoot Overwatch back."
+        "text": "You can declare more than one target — but your unit must end its charge move engaged with all of them.",
+        "text_orky": "Ya can declare more dan one target — but ya gotta end up stuck into every one of 'em."
       }
     },
     {

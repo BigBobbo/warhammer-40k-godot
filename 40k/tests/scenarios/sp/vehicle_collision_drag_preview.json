@@ -6,6 +6,7 @@
     "scripts.MovementController.drag_preview"
   ],
   "fixture": "stompa_fight_11e",
+  "edition": 11,
   "rng_seed": 42,
   "transition_to_phase": 7,
   "description": "The Settings > Gameplay 'Ignore collisions for VEHICLE models' toggle changes what a player actually sees while dragging. Selects the Stompa (VEHICLE, 180mm base), picks Fall Back (it is engaged, so selecting it no longer auto-starts a Normal Move) and drags it onto a Custodian Guard model with the mouse, holding the button so the live drag preview is observable. Default OFF: the movement panel reads 'Cannot overlap other models'. With the toggle on, the SAME drag to the SAME spot clears that reason label \u2014 the preview is legal. The drop itself is still refused, because the Fall Back still has to end out of engagement range: the override relaxes collision only, and every other movement rule still applies, which the last steps assert (the Stompa has not moved). Turning the setting back off restores the collision rejection.",
@@ -36,6 +37,21 @@
       "act": "click_node",
       "node": "/root/Main/HUD_Right/VBoxContainer/MovementScrollContainer/MovementPanel/Section3_ModeSelection/ModeButtons/FallBackRadio",
       "comment": "the Stompa is engaged: selecting it no longer auto-starts a Normal Move (r3:F12), so pick Fall Back - the move the drag preview is checked against"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0,
+      "comment": "11e 09.02 'Select Unit: ... That unit is selected to move.' + 15.01 'WHEN: When it can be used.': BEGIN_FALL_BACK for the War Horde Stompa opens the Codex: Orks (11e) unit_selected_to_move window (FUNGUS-FUEL INJECTION: 'when a friendly ORKS MOUNTED/VEHICLE unit is selected to move'); the fall-back move is only set up once it closes"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline the stratagem offer - not under test"
     },
     {
       "act": "wait_seconds",

@@ -42,9 +42,23 @@
 #   - #916 x #917 merge interactions: Fight On Death on SKIP_UNIT, stale
 #     END_* no-ops, online Pile In / Consolidate half ownership, AFK timer vs
 #     stratagem windows / mid-activation, client Consolidate step close
+#   - secondary deck draw terminates when only round-1 shuffle-back cards are
+#     left (was an infinite loop)
+#   - 14.02 per-model Objective Control (every model in range adds its OC;
+#     attached-unit battle-shock zeroes the group; 14.03 secured tie/break)
+#   - 11e charge targets within 12" AND within the roll (11.04 / 15.11)
 #
-# Usage: ./tests/run_pretrigger_tests.sh
+# Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
+#        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
+#            tests/test_*.gd plus the `extends SceneTree` scripts under
+#            tests/unit and tests/integration (most never ran anywhere)
 # Exits 0 if all tests pass, 1 otherwise.
+#
+# Known failures: tests/ci/direct_known_failures.txt lists test FILES that are
+# known to fail (each with a reason: a tracked 11e engine bug, or a failure
+# that reproduces at both editions). A listed file that fails is XFAIL and
+# does not fail the run; a listed file that PASSES fails the run until it is
+# delisted (the list may only shrink). Everything else must pass.
 #
 # A test file also counts as FAILED (not just "M failed > 0") when:
 #   - it reports "0 passed, 0 failed" — it ran no checks at all. This is how a
@@ -164,12 +178,14 @@ TESTS=(
     "tests/test_iss052_hidden_11e.gd"
     "tests/test_iss053_cover_plunging_11e.gd"
     "tests/test_iss055_objectives_11e.gd"
+    "tests/test_oc_per_model_14_02.gd"
     "tests/test_iss060_ingress_11e.gd"
     "tests/test_iss061_surge_fly_11e.gd"
     "tests/test_iss057_actions_11e.gd"
     "tests/test_iss058_disembark_11e.gd"
     "tests/test_iss049_charge_11e.gd"
     "tests/test_charge_phase_fixes.gd"
+    "tests/test_charge_target_within_roll_11e.gd"
     "tests/test_iss041b_resolution_11e.gd"
     "tests/test_casualty_preference.gd"
     "tests/test_iss016_modifier_stack.gd"
@@ -205,6 +221,8 @@ TESTS=(
     "tests/test_iss073_shw_mobile_gamble.gd"
     "tests/test_iss074_aircraft_reserves_11e.gd"
     "tests/test_core_stratagems_11e.gd"
+    "tests/test_fire_overwatch_15_08_11e.gd"
+    "tests/test_command_phase_start_once.gd"
     "tests/test_ork_codex_11e_data.gd"
     "tests/test_ork_codex_framework.gd"
     "tests/test_ork_codex_fight.gd"
@@ -237,7 +255,52 @@ TESTS=(
     "tests/test_core_rules_audit_e28e4f7.gd"
     "tests/test_merge_916_917_interactions.gd"
     "tests/test_fight_phase_scope_end_fight_11e.gd"
+    "tests/test_secondary_draw_shuffle_back_terminates.gd"
 )
+
+if [ "${1:-}" = "--all" ]; then
+    mapfile -t TESTS < <( { ls tests/test_*.gd; grep -l '^extends SceneTree' tests/unit/test_*.gd tests/integration/test_*.gd; } | sort -u )
+    echo "--all: ${#TESTS[@]} direct SceneTree test(s)"
+    # A few ungated scripts report through their exit code only (e.g.
+    # "[OK] all #372 validations passed") — accept exit 0 for those.
+    ALLOW_NO_RESULT_LINE=1
+fi
+
+KNOWN_FILE="${DIRECT_KNOWN_FAILURES:-tests/ci/direct_known_failures.txt}"
+KNOWN_TESTS=" "
+if [ -f "$KNOWN_FILE" ]; then
+    KNOWN_TESTS=" $(sed -e 's/#.*//' -e 's/[[:space:]]//g' "$KNOWN_FILE" | grep -v '^$' | tr '\n' ' ') "
+fi
+XFAIL_FILES=()
+
+# Rules edition. The harness defaults to 11e (the edition players get);
+# WH40K_TEST_EDITION=10 is the explicit legacy opt-in. Tests that set the
+# edition themselves are unaffected either way.
+if [ -n "${WH40K_TEST_EDITION:-}" ] && ! [[ "$WH40K_TEST_EDITION" =~ ^1[01]$ ]]; then
+    echo "WH40K_TEST_EDITION must be 10 or 11 (got '$WH40K_TEST_EDITION')"
+    exit 2
+fi
+echo "Rules edition: ${WH40K_TEST_EDITION:-11 (harness default)}"
+command -v godot >/dev/null || { echo "godot not on PATH"; exit 2; }
+
+# CI sharding: AUDIT_SHARD=i/n keeps every n-th test starting at index i, so
+# the suite can be split across parallel jobs (each with its own user://).
+if [ -n "${AUDIT_SHARD:-}" ]; then
+    if ! [[ "$AUDIT_SHARD" =~ ^[0-9]+/[0-9]+$ ]]; then
+        echo "AUDIT_SHARD must look like i/n (got '$AUDIT_SHARD')"
+        exit 2
+    fi
+    SHARD_I=${AUDIT_SHARD%/*}
+    SHARD_N=${AUDIT_SHARD#*/}
+    SELECTED=()
+    for i in "${!TESTS[@]}"; do
+        if [ $((i % SHARD_N)) -eq "$SHARD_I" ]; then
+            SELECTED+=("${TESTS[$i]}")
+        fi
+    done
+    TESTS=("${SELECTED[@]}")
+    echo "Shard $AUDIT_SHARD: ${#TESTS[@]} test(s)"
+fi
 
 FAILED=0
 TOTAL_PASSED=0
@@ -260,16 +323,26 @@ for test in "${TESTS[@]}"; do
     # the result lines. Summary formats vary: "=== Result: N passed, M failed ===",
     # "=== Results: ...", and bare "=== N passed, M failed ===" — match on the
     # counts, not the prefix.
-    timeout 180 godot --headless --path . -s "$test" > "$FULL_LOG" 2>&1 || true
+    # Keep the exit status: a test that prints its result line and THEN hangs
+    # (timeout -> 124) or crashes (>=128) used to count as a pass.
+    RC=0
+    timeout 180 godot --headless --path . -s "$test" > "$FULL_LOG" 2>&1 || RC=$?
     OUTPUT=$(grep -E "PASS|FAIL|Result|[0-9]+ passed, [0-9]+ failed|=== test" "$FULL_LOG" || true)
     echo "$OUTPUT"
 
     # Extract the final result line and parse pass/fail counts
     RESULT_LINE=$(echo "$OUTPUT" | grep -E "[0-9]+ passed, [0-9]+ failed" | tail -1)
     if [ -z "$RESULT_LINE" ]; then
-        echo "  ERROR: no result line found for $test"
-        FAILED=$((FAILED + 1))
-        FAILED_FILES+=("$test (no result line)")
+        if [[ "$KNOWN_TESTS" == *" $test "* ]]; then
+            echo "  XFAIL: $test — no result line, exit $RC (known failure, $KNOWN_FILE)"
+            XFAIL_FILES+=("$test (no result line, exit $RC)")
+        elif [ "$RC" -eq 0 ] && [ "${ALLOW_NO_RESULT_LINE:-0}" = "1" ]; then
+            echo "  (no 'N passed, M failed' line; exit 0 accepted under --all)"
+        else
+            echo "  ERROR: no result line found for $test (exit $RC)"
+            FAILED=$((FAILED + 1))
+            FAILED_FILES+=("$test (no result line, exit $RC)")
+        fi
         continue
     fi
 
@@ -279,7 +352,11 @@ for test in "${TESTS[@]}"; do
     TOTAL_FAILED=$((TOTAL_FAILED + FAIL))
 
     REASON=""
-    if [ "$FAIL" -gt 0 ]; then
+    if [ "$RC" -eq 124 ]; then
+        REASON="timed out after 180s (hang)"
+    elif [ "$RC" -ge 128 ]; then
+        REASON="crashed (exit $RC)"
+    elif [ "$FAIL" -gt 0 ]; then
         REASON="$FAIL check(s) failed"
     elif [ "$PASS" -eq 0 ]; then
         REASON="ran no checks (0 passed, 0 failed) - a preloaded script probably failed to compile"
@@ -287,7 +364,10 @@ for test in "${TESTS[@]}"; do
     if [ -z "$REASON" ] && grep -qE "Nonexistent function '[^']*' in base 'GDScript'" "$FULL_LOG"; then
         REASON="called into a script that failed to compile ($(grep -m1 -oE "Nonexistent function '[^']*' in base 'GDScript'" "$FULL_LOG"))"
     fi
-    if [ -z "$REASON" ] && grep -q "Parse Error" "$FULL_LOG"; then
+    # A test that deliberately compiles invalid code (e.g. the MCP bridge's
+    # "parse error surfaced" check) declares it with the marker comment
+    # "# audit-runner: expects-parse-error" and is exempt from this gate.
+    if [ -z "$REASON" ] && grep -q "Parse Error" "$FULL_LOG" && ! grep -q "audit-runner: expects-parse-error" "$test"; then
         REASON="GDScript parse error: $(grep -m1 "Parse Error" "$FULL_LOG")"
     fi
     if [ -z "$REASON" ]; then
@@ -304,7 +384,16 @@ for test in "${TESTS[@]}"; do
         done < <(grep -E "Compile Error" "$FULL_LOG" | grep -v "Failed to compile depended scripts" || true)
     fi
 
-    if [ -n "$REASON" ]; then
+    if [[ "$KNOWN_TESTS" == *" $test "* ]]; then
+        if [ -n "$REASON" ]; then
+            echo "  XFAIL: $test — $REASON (known failure, $KNOWN_FILE)"
+            XFAIL_FILES+=("$test ($REASON)")
+        else
+            echo "  XPASS: $test passes but is listed in $KNOWN_FILE — delist it"
+            FAILED=$((FAILED + 1))
+            FAILED_FILES+=("$test (XPASS: listed as a known failure but passes — delist it)")
+        fi
+    elif [ -n "$REASON" ]; then
         echo "  FAILED: $test — $REASON"
         FAILED=$((FAILED + 1))
         FAILED_FILES+=("$test ($REASON)")
@@ -314,6 +403,12 @@ done
 echo ""
 echo "================================================"
 echo "Audit suite: $TOTAL_PASSED passed, $TOTAL_FAILED failed across ${#TESTS[@]} tests"
+if [ ${#XFAIL_FILES[@]} -gt 0 ]; then
+    echo "Known failures ($KNOWN_FILE): ${#XFAIL_FILES[@]} XFAIL"
+    for f in "${XFAIL_FILES[@]}"; do
+        echo "  ~ $f"
+    done
+fi
 if [ "$FAILED" -gt 0 ]; then
     echo "Failed files ($FAILED):"
     for f in "${FAILED_FILES[@]}"; do

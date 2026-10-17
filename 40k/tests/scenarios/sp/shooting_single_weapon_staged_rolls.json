@@ -5,6 +5,7 @@
     "scripts.ShootingResolutionDock.auto_start"
   ],
   "fixture": "shooting_phase",
+  "edition": 11,
   "rng_seed": 42,
   "transition_to_phase": 8,
   "disable_ai": true,
@@ -61,15 +62,10 @@
       "equals": true
     },
     {
-      "act": "dispatch_action",
-      "action": {
-        "type": "DECLINE_REACTIVE_STRATAGEM"
-      }
-    },
-    {
-      "act": "expect_action_result",
-      "path": "success",
-      "equals": true
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().awaiting_reactive_stratagem",
+      "equals": false,
+      "comment": "11e: no reactive window opens for the Blade Champion — the 10e Go to Ground offer (INFANTRY target) is gone: 11e core stratagems are 15.02 Command Re-roll through 15.12 Counteroffensive with no Go to Ground, and 15.10 Smokescreen is 'WHEN: Start of your opponent's Shooting phase', so there is nothing to decline and the dock starts directly"
     },
     {
       "act": "wait_seconds",

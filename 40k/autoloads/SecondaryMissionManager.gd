@@ -230,6 +230,11 @@ func draw_missions_to_hand(player: int, draw_count: int = 0) -> Array:
 	# 11e (GDM 2026): draw TWO cards each turn with NO hand limit;
 	# 10e: fill the hand up to MAX_ACTIVE_MISSIONS.
 	var draws_remaining_11e := CARDS_DRAWN_PER_TURN_11E if draw_count <= 0 else draw_count
+	# Consecutive "shuffle back and draw another" results. Once every card left
+	# in the deck has been shuffled back in a row, no other card can be drawn
+	# this time — stop instead of looping forever (a round-1 deck reduced to
+	# shuffle-back cards spun at 25M iterations/5 min: test_e2e_workflow hang).
+	var consecutive_shuffle_backs := 0
 	while ((draw_count > 0 and draws_remaining_11e > 0)
 			or (draw_count <= 0 and GameConstants.edition >= 11 and draws_remaining_11e > 0)
 			or (draw_count <= 0 and GameConstants.edition < 11 and state["active"].size() < MAX_ACTIVE_MISSIONS)) \
@@ -243,12 +248,18 @@ func draw_missions_to_hand(player: int, draw_count: int = 0) -> Array:
 
 		# Check "When Drawn" conditions
 		var when_drawn_result = _handle_when_drawn(player, mission_data)
+		if when_drawn_result["action"] != "shuffle_back":
+			consecutive_shuffle_backs = 0
 
 		if when_drawn_result["action"] == "shuffle_back":
 			# Put it back in the deck and shuffle
 			state["deck"].append(mission_id)
 			_shuffle_array(state["deck"])
 			print("SecondaryMissionManager: Player %d shuffled %s back into deck" % [player, mission_data["name"]])
+			consecutive_shuffle_backs += 1
+			if consecutive_shuffle_backs >= state["deck"].size() and _deck_is_all_shuffle_back(player, state["deck"]):
+				print("SecondaryMissionManager: Player %d — every card left in the deck (%d) must be shuffled back this round; no other card can be drawn, draw ends" % [player, state["deck"].size()])
+				break
 			# Draw another card instead
 			continue
 		elif when_drawn_result["action"] == "discard_and_draw":
@@ -291,6 +302,17 @@ func draw_missions_to_hand(player: int, draw_count: int = 0) -> Array:
 		print("SecondaryMissionManager: Player %d deck is depleted!" % player)
 
 	return drawn
+
+## True when every card id in `deck` would be shuffled straight back if drawn
+## now (e.g. round-1 mandatory shuffle-back cards) — the draw loop's stop test.
+func _deck_is_all_shuffle_back(player: int, deck: Array) -> bool:
+	for mid in deck:
+		var md = SecondaryMissionData.get_mission_by_id(mid)
+		if md.is_empty():
+			return false
+		if _handle_when_drawn(player, md).get("action", "") != "shuffle_back":
+			return false
+	return true
 
 func _handle_when_drawn(player: int, mission_data: Dictionary) -> Dictionary:
 	"""Process when-drawn conditions. Returns action to take.

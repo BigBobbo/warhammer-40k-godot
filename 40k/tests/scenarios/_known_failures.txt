@@ -1,0 +1,77 @@
+# Windowed scenarios known to fail — honoured by tests/run_scenarios.sh.
+# A listed scenario that fails is XFAIL (does not fail the batch); one that
+# passes is XPASS (warning; a failure with SCENARIO_STRICT_XPASS=1) and should
+# be delisted. One scenario id per line, "# reason" after it.
+#
+# Baseline 2026-10-17: full CI sweeps of all 563 sp scenarios, once at the
+# 11e harness default (run 39019047448, 6f8b42d) and once with fieldless
+# scenarios opted into 10e (run 39024595364, 2e08841). Every entry below
+# failed in BOTH sweeps, so it is not an edition artefact; 57 of them are
+# also in the 75-scenario pre-existing list of docs/CORE_RULES_REMEDIATION_
+# 2026-10.md. Listed for triage, not accepted as correct.
+
+374_headwoppa_devastating_wounds  # fails at 10e and 11e (11e 12/1, 10e 12/1 steps passed/failed)
+374_supa_cybork_fnp  # fails at 10e and 11e (11e 8/1, 10e 8/1 steps passed/failed)
+85b_rolloff_dramatic  # fails at 10e and 11e (11e 10/3, 10e 10/3 steps passed/failed)
+85d_rolloff_vs_ai  # fails at 10e and 11e (11e 15/5, 10e 15/5 steps passed/failed)
+85e_first_turn_rolloff  # fails at 10e and 11e (11e 12/2, 10e 12/2 steps passed/failed)
+85f_first_turn_vs_ai  # fails at 10e and 11e (11e 16/2, 10e 16/2 steps passed/failed)
+army_builder_menu_link  # fails at 10e and 11e (11e , 10e  steps passed/failed); hangs (600 s timeout) at step 5 click_node
+auto_allocate_wounds_settings_ui  # fails at 10e and 11e (11e 14/1, 10e 14/1 steps passed/failed)
+charge_base_contact_enforced  # fails at 10e and 11e (11e 25/4, 10e 25/4 steps passed/failed)
+charge_over_ruin_corner_succeeds  # fails at 10e and 11e (11e 24/3, 10e 24/3 steps passed/failed)
+charge_reroll_keep_default_button  # fails at 10e and 11e (11e 24/2, 10e 24/2 steps passed/failed)
+click_select_shooter_shooting  # fails at 10e and 11e (11e 44/12, 10e 44/12 steps passed/failed)
+disembark_rotated_border_stale_controller  # fails at 10e and 11e (11e 38/3, 10e 38/3 steps passed/failed)
+engaged_vehicle_confirm_split_11e  # fails at 10e and 11e (11e 18/2, 10e 18/2 steps passed/failed)
+game_log_step_replay  # fails at 10e and 11e (11e 36/5, 10e 36/5 steps passed/failed)
+game_log_switch_step_no_escape  # fails at 10e and 11e (11e 36/11, 10e 36/11 steps passed/failed)
+grenade_unit_picker_display_names  # fails at 10e and 11e (11e 8/12, 10e 8/12 steps passed/failed)
+infantry_enters_ruin_wall  # fails at 10e and 11e (11e 9/7, 10e 9/7 steps passed/failed)
+infantry_tall_ruin_traversal  # fails at 10e and 11e (11e 10/1, 10e 10/1 steps passed/failed)
+iss047c_ability_choice_prompts_11e  # fails at 10e and 11e (11e 22/1, 10e 22/1 steps passed/failed)
+iss048_shooting_types_11e  # fails at 10e and 11e (11e 24/1, 10e 24/1 steps passed/failed)
+iss052b_gone_to_ground_11e  # fails at 10e and 11e (11e 41/5, 10e 41/5 steps passed/failed)
+iss064d_triangulate_prompt_11e  # fails at 10e and 11e (11e 31/1, 10e 31/1 steps passed/failed)
+iss064e_decoy_prompt_11e  # fails at 10e and 11e (11e 26/7, 10e 26/7 steps passed/failed)
+iss064f_condemn_prompt_11e  # fails at 10e and 11e (11e 27/3, 10e 27/3 steps passed/failed)
+iss064h_card_action_visibility_11e  # fails at 10e and 11e (11e 32/3, 10e 32/3 steps passed/failed)
+iss064i_relic_setup_prompt_11e  # fails at 10e and 11e (11e 20/11, 10e 20/11 steps passed/failed)
+iss064j_mission_action_sabotage_11e  # fails at 10e and 11e (11e 64/11, 10e 64/11 steps passed/failed)
+iss065b_plunder_action_11e  # fails at 10e and 11e (11e 22/8, 10e 22/8 steps passed/failed)
+iss067_scout_reserves_deploy_11e  # fails at 10e and 11e (11e 27/4, 10e 27/4 steps passed/failed)
+iss074_aircraft_reserve_cycle_11e  # fails at 10e and 11e (11e 26/2, 10e 26/2 steps passed/failed)
+iss15_hidden_shot_stamp_11e  # fails at 10e and 11e (11e 26/9, 10e 26/9 steps passed/failed)
+iss15_indirect_band_11e  # fails at 10e and 11e (11e 30/2, 10e 30/2 steps passed/failed)
+movement_auto_confirm  # fails at 10e and 11e (11e 20/2, 10e 20/2 steps passed/failed)
+movement_embarked_select_pans_to_transport  # fails at 10e and 11e (11e 20/2, 10e 20/2 steps passed/failed)
+pad_fight_attack_reticle  # fails at 10e and 11e (11e 35/4, 10e 35/4 steps passed/failed)
+pad_m0_menu_nav  # fails at 10e and 11e (11e 15/8, 10e 15/8 steps passed/failed)
+pad_m2_shooting_native  # fails at 10e and 11e (11e 42/2, 10e 43/1 steps passed/failed)
+pad_reinforcement_formation_row  # fails at 10e and 11e (11e 32/3, 10e 32/3 steps passed/failed)
+pad_reinforcement_no_move_menu  # fails at 10e and 11e (11e 51/6, 10e 51/6 steps passed/failed)
+reinforcement_no_overlap  # fails at 10e and 11e (11e 19/2, 10e 19/2 steps passed/failed)
+scout_drag_then_end_phase_persists  # fails at 10e and 11e (11e 48/5, 10e 48/5 steps passed/failed)
+scout_end_phase_action_commits_staged  # fails at 10e and 11e (11e 38/1, 10e 38/1 steps passed/failed)
+scout_invalid_move_snaps_back_nested  # fails at 10e and 11e (11e 30/6, 10e 30/6 steps passed/failed)
+shoot_quick_assign_rejected_no_crash  # fails at 10e and 11e (11e , 10e  steps passed/failed); fixture tutorial_t4_shoot fails to load (exit 2)
+split_fire_per_model  # fails at 10e and 11e (11e 26/10, 10e 26/10 steps passed/failed)
+split_fire_spinbox_commit  # fails at 10e and 11e (11e 24/12, 10e 24/12 steps passed/failed)
+stompa_gets_to_fight_11e  # fails at 10e and 11e (11e 51/1, 10e 51/1 steps passed/failed)
+terrain_11e_layouts  # fails at 10e and 11e (11e 34/1, 10e 34/1 steps passed/failed)
+tut_full_course_chain_pad  # fails at 10e and 11e (11e 22/8, 10e 22/8 steps passed/failed)
+tut_t1_basics  # fails at 10e and 11e (11e 106/1, 10e 106/1 steps passed/failed)
+tut_t1_lock_it_in_start_glyph  # fails at 10e and 11e (11e 54/28, 10e 54/28 steps passed/failed)
+tut_t1_pad_ack_button  # fails at 10e and 11e (11e 67/32, 10e 67/32 steps passed/failed)
+tut_t4_dakka_pad  # fails at 10e and 11e (11e 64/32, 10e 64/32 steps passed/failed)
+tut_t4_dakka_reassign_pad  # fails at 10e and 11e (11e 68/2, 10e 68/2 steps passed/failed)
+tut_t5_ere_we_go_pad  # fails at 10e and 11e (11e 42/23, 10e 42/23 steps passed/failed)
+tut_t6_krumpin_pad  # fails at 10e and 11e (11e 85/6, 10e 85/6 steps passed/failed)
+tut_t6_wrong_fighter_backout  # fails at 10e and 11e (11e 52/18, 10e 52/18 steps passed/failed)
+tut_t7_runnin_da_show_pad  # fails at 10e and 11e (11e 34/21, 10e 34/21 steps passed/failed)
+
+# --- fail at 11e only: tracked 11e ENGINE bugs (2026-10-17 scenario triage) ---
+fullauto_formations_rules  # BUG-11: FormationsPhase's 11e validator ignores the Bodyguard 'Extra Leader Attachment' grant that its own offer and CharacterAttachmentManager honour (same bug as tests/unit/test_reserves_half_army_cap.gd)
+
+# --- visual/ scenarios (not in the sp/mp full sweep; surfaced by the changed-scenario job) ---
+T45_final_audit  # step 6 asserts /root/Main/EndPhaseButton — no such node has ever existed in scripts/ or scenes/ (git log -S finds none); stale design-audit check, fails on every commit

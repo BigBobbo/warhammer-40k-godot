@@ -223,7 +223,7 @@ func _draw_min_roll_summary() -> void:
 	# Position summary label above the charger unit center
 	var label_pos = _charger_center + Vector2(-40, -50)
 
-	var roll_needed = ceili(_min_charge_needed)
+	var roll_needed = min_roll_needed()
 	var label_text: String
 	if _min_charge_needed <= 1.0:
 		label_text = "Min roll: 2 (auto)"
@@ -287,6 +287,17 @@ func update_trajectories(trajectories: Array, min_charge_inches: float, charger_
 		visible = true
 
 	queue_redraw()
+
+func min_roll_needed() -> int:
+	"""The whole-inch 2D6 result the 'Min roll' label asks for.
+	11e 11.04: a target is within the roll when its distance is <= roll +
+	ChargeMove11e.WITHIN_TOLERANCE_INCHES (the phase's inclusive 'within').
+	Shape-aware distances at an exact whole inch come back a few millionths
+	high (7.0000015"), so a bare ceil asked for an 8 where the phase accepts a
+	7 — subtract the same tolerance first. 10e: unchanged."""
+	if GameConstants.edition >= 11:
+		return ceili(_min_charge_needed - ChargeMove11e.WITHIN_TOLERANCE_INCHES)
+	return ceili(_min_charge_needed)
 
 func clear_now() -> void:
 	"""Immediately clear the preview."""

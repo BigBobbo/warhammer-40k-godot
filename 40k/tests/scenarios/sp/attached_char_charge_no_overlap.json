@@ -5,6 +5,7 @@
     "charge.leader_rides_without_stacking"
   ],
   "fixture": "attached_char_charge_overlap",
+  "edition": 11,
   "rng_seed": 42,
   "transition_to_phase": 9,
   "disable_ai": true,
@@ -15,6 +16,12 @@
     { "act": "expect_token_visible", "unit_id": "U_CUSTODIAN_GUARD_B", "timeout_s": 3.0 },
     { "act": "expect_token_visible", "unit_id": "U_BLADE_CHAMPION_A", "timeout_s": 3.0 },
     { "act": "expect_state", "path": "units.U_CUSTODIAN_GUARD_B.attachment_data.attached_characters.0", "equals": "U_BLADE_CHAMPION_A" },
+    { "act": "execute_script", "script": "GameState.state.units[\"U_ENEMY_BOYZ_X\"].models[0][\"position\"] = {\"x\": 600.0, \"y\": 572.0}\nreturn true", "multiline": true, "equals": true,
+      "comment": "11e geometry: 03.04 \"A model's engagement range is the area of the battlefield within 2\" horizontally\" and 11.02 makes a unit that \"is engaged\" ineligible to declare a charge. The stock fixture's Boyz (600, 592) sit 1.78\" from m3 (unengaged only at the 10e 1\" range), so move them 20px north to (600, 572): m3 is 2.28\" away. Every charge path end below moves 20px north too, so m1's ride-along delta (0, -170) still lands the champion exactly on m3's end point (600, 630)." },
+    { "act": "execute_script", "script": "main._sync_all_token_positions()" },
+    { "act": "execute_script", "script": "main.charge_controller._refresh_ui()" },
+    { "act": "execute_script", "script": "self.min_edge_distance_between_units(\"U_CUSTODIAN_GUARD_B\", \"U_ENEMY_BOYZ_X\")", "expect_min": 2.0,
+      "comment": "11.02: the charging unit must start unengaged (outside the 2\" engagement range, 03.04)" },
     { "act": "screenshot", "label": "01_before_charge" },
 
     { "act": "dispatch_action", "action": { "type": "DECLARE_CHARGE", "actor_unit_id": "U_CUSTODIAN_GUARD_B", "payload": { "target_unit_ids": ["U_ENEMY_BOYZ_X"] } } },
@@ -23,9 +30,9 @@
     { "act": "expect_action_result", "path": "success", "equals": true },
 
     { "act": "dispatch_action", "action": { "type": "APPLY_CHARGE_MOVE", "actor_unit_id": "U_CUSTODIAN_GUARD_B", "payload": { "per_model_paths": {
-      "m1": [[520, 800], [520, 650]],
-      "m2": [[680, 800], [680, 650]],
-      "m3": [[600, 720], [600, 650]]
+      "m1": [[520, 800], [520, 630]],
+      "m2": [[680, 800], [680, 630]],
+      "m3": [[600, 720], [600, 630]]
     } } } },
     { "act": "expect_action_result", "path": "success", "equals": true },
     { "act": "wait_for_tweens", "timeout_s": 5.0 },

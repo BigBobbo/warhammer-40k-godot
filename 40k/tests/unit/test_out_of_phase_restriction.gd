@@ -82,10 +82,18 @@ func _setup_basic_state() -> void:
 
 	StratagemManager.reset_for_new_game()
 
+# Edition the harness started this test with; a test that pins
+# GameConstants.edition gets it restored by after_each.
+var _prev_edition := 11
+
 func before_each():
+	_prev_edition = GameConstants.edition
 	_setup_basic_state()
 	# Ensure out-of-phase flag is clear
 	StratagemManager.set_out_of_phase_active(false)
+
+func after_each():
+	GameConstants.edition = _prev_edition
 
 
 # ==========================================
@@ -151,6 +159,9 @@ func test_command_reroll_allowed_during_out_of_phase():
 
 func test_fire_overwatch_not_blocked_by_own_flag():
 	"""Fire Overwatch stratagem itself should not be blocked by the out-of-phase flag."""
+	# Legacy 10e regression: out-of-phase rules restriction (10e core: "you cannot use any other rules that are normally triggered in that phase", P1-59) exempting the stratagem that started it — 11e removed it: docs/rules/40k_11th_edition_core_rules.txt has no out-of-phase rule (no "out-of-phase"/"as if it were" text); FIRE OVERWATCH 15.08 is now "WHEN: End of your opponent's Movement phase ... EFFECT: Your unit shoots using snap shooting", limited only by 15.09 and 15.01 ("Each player cannot use the same stratagem more than once in the same phase"); 11e coverage: gap
+	GameConstants.edition = 10
+	assert_eq(GameConstants.edition, 10, "Legacy 10e regression must run at edition 10")
 	StratagemManager.set_out_of_phase_active(true, 2, "U_SHOOTER")
 
 	var result = StratagemManager.can_use_stratagem(2, "fire_overwatch")

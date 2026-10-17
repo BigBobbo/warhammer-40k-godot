@@ -8,7 +8,7 @@
   "fixture": "audit_baseline_postdeploy",
   "edition": 11,
   "rng_seed": 4242,
-  "description": "THE reported bug: the player paid 1 CP in their Command phase to replace A Tempting Target. The card left their hand, but 'TEMPTING TARGET (P1)' stayed burned onto the objective for the rest of the game, so the board kept claiming they still held it. This drives the real player path — enter P1's Command phase with A Tempting Target stacked on top of the deck, let the opponent's pick resolve, then click the review dialog's 'Replace this mission (1 CP)' button — and asserts the objective label comes down with the card. Also asserts the Missions panel names whose hand each block is, so the opponent's cards can no longer read as your own.",
+  "description": "THE reported bug: the player paid 1 CP in their Command phase to replace A Tempting Target. The card left their hand, but 'TEMPTING TARGET (P1)' stayed burned onto the objective for the rest of the game, so the board kept claiming they still held it. This drives the real player path — enter P1's Command phase with A Tempting Target stacked on top of the deck, let the opponent's pick resolve, then click the review dialog's 'Replace this mission (1 CP)' button — and asserts the objective label comes down with the card. Also asserts the Missions panel names whose hand each block is, so the opponent's cards can no longer read as your own. The fixture is a capture of P1's Command phase after its start steps (meta.command_start_resolved = R1P1); since this scenario rebuilds the deck and re-enters that phase, it clears the once-per-turn marker first so the re-entry is a fresh Command-phase start that draws.",
   "steps": [
     { "act": "wait_seconds", "seconds": 0.8 },
     { "act": "expect_state", "path": "meta.active_player", "equals": 1 },
@@ -26,6 +26,7 @@
     { "act": "execute_script", "script": "AIPlayer.set(\"enabled\", true)" },
     { "act": "execute_script", "script": "AIPlayer.is_ai_player(2)", "equals": true },
 
+    { "act": "execute_script", "script": "GameState.state[\"meta\"].erase(\"command_start_resolved\")\nreturn GameState.state[\"meta\"].has(\"command_start_resolved\")", "multiline": true, "equals": false },
     { "act": "execute_script", "script": "PhaseManager.transition_to_phase(6)" },
     { "act": "wait_seconds", "seconds": 1.2 },
     { "act": "expect_state", "path": "meta.phase", "equals": 6 },

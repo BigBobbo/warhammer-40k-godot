@@ -2,6 +2,56 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.45.6",
+      "date": "2026-10-17",
+      "summary": "Loading a save made during the Command phase no longer hands out extra Command Points or secondary cards.",
+      "changes": [
+        "Fixed: reloading (or rejoining) a game saved during the Command phase re-ran the start-of-turn steps \u2014 both players gained another CP and, in 11th edition, you drew two more secondary mission cards every time. The start-of-Command steps now run once per player turn.",
+        "Saves made from this version on remember that the turn's start steps already happened. A Command-phase save from an earlier version still gets them once more the first time it is loaded (tutorial saves rely on this to deal your missions)."
+      ]
+    },
+    {
+      "version": "1.45.5",
+      "date": "2026-10-17",
+      "summary": "Fire Overwatch and Rapid Ingress follow the 11th-edition timing: both are offered once, at the end of your opponent's Movement phase, offline and online.",
+      "changes": [
+        "Fixed (Fire Overwatch, 15.08/15.09): it now happens once, at the end of your opponent's Movement phase \u2014 no more pop-up after every enemy move. Pick one of your unengaged units and one visible enemy unit within 24\"; the shots hit only on unmodified 6s and can't re-roll hits.",
+        "Fire Overwatch can't target an engaged enemy Monster or Vehicle (that is only allowed in your own Shooting phase, 17.03).",
+        "When Fire Overwatch wounds your unit, you allocate those wounds and roll the saves yourself in the normal allocation panel.",
+        "Fixed (Rapid Ingress, 15.07): it is offered again, at the end of your opponent's Movement phase, offline and online. 'Arrive' lets you set the unit up during your opponent's turn, and the dialog reminds you that before battle round 3 you can't set up in your opponent's deployment zone.",
+        "The 'Skip Overwatch' toggle auto-declines the end-of-Movement Fire Overwatch offer and only appears in the Movement phase.",
+        "Objective control updates after Fire Overwatch kills models at the end of the Movement phase.",
+        "Online: the non-active player gets the Fire Overwatch and Rapid Ingress prompts and can complete both; both players' Game Logs show the Fire Overwatch dice.",
+        "The computer opponent uses Fire Overwatch at the end of your Movement phase when the shot is worth the CP; you see the result in a toast and in its turn summary."
+      ]
+    },
+    {
+      "version": "1.45.4",
+      "date": "2026-10-17",
+      "summary": "Charges follow the 11th-edition rule again: after the roll you can only pick enemy units within 12\" AND within the rolled distance. This reverses 0.18.4, which wrongly let a 9\" roll charge a unit 9.6\" away.",
+      "changes": [
+        "Fixed (Charge, 11.04): after the charge roll you can only select enemy units within 12\" and within the rolled distance. A 7\" roll no longer charges a unit 8.9\" away just because a model could end within 2\" of it (the rulebook's example B), and an unmodified roll of 2 always fails.",
+        "Reverted 0.18.4's 'roll + engagement range' target ceiling: under the 11th edition rules a target 9.6\" away is beyond a 9\" roll.",
+        "Heroic Intervention (15.11) follows the same rule in both Leap to Defend and Into the Fray: the target must be within the charge roll.",
+        "Attached units: the leader's models now count when the game checks which enemies are within 12\" and within the roll, and whether the charge succeeded.",
+        "Charge panel: the pre-roll hint and 'Min roll' ask for a roll equal to the distance; after the roll, a declared target the roll left behind is tagged 'beyond roll', its arrow shows FAILED, and Snap to Contact ignores it. Failure messages explain whether the target was beyond the roll or the models could not reach engagement range.",
+        "The computer opponent's charge odds and its charge re-roll decisions use the same rule."
+      ]
+    },
+    {
+      "version": "1.45.3",
+      "date": "2026-10-17",
+      "summary": "Objective Control now adds up every model in range, as the rules say, so a horde on an objective beats a couple of elite models.",
+      "changes": [
+        "Fixed (Objectives, 14.02): every model in range now adds its own Objective Control. A 10-model unit of OC 2 adds 20, not 2. Previously each unit counted once, which could hand an objective to the wrong player (e.g. 10 OC2 models lost to 2 OC3 models).",
+        "Battle-shock on any part of an attached unit (leader or bodyguard) drops the whole unit's Objective Control to '-'. MOB RULE, Tuff Git, Da Kaptin and a passed battle-shock test now clear battle-shock from the whole attached unit.",
+        "Units in Reserves no longer count towards objectives from their last board position.",
+        "Computer-chosen casualties (the AI defender, or the 'Computer allocates wounds' setting) now protect the specific model whose own OC is keeping an objective under control.",
+        "The computer opponent reads objective control per model and no longer counts both armies together when checking for enemy presence.",
+        "Fixed: the secondary-mission draw could freeze the game if every card left in the deck had to be shuffled back in battle round 1; the draw now stops."
+      ]
+    },
+    {
       "version": "1.45.2",
       "date": "2026-10-15",
       "summary": "Fixes from combining the Codex: Orks update with the core-rules fixes: indirect fire at hidden targets, smarter computer casualty picks, Fight On Death, and several online-game fixes.",

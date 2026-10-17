@@ -41,6 +41,10 @@
       "equals": true },
     { "act": "execute_script",
       "script": "main.charge_controller.charge_requirement_label.visible", "equals": true },
+    { "act": "execute_script", "multiline": true,
+      "comment": "11e 11.04: a charge target must be within the roll itself, so the roll needed IS the base-to-base distance (not distance - 2\" ER)",
+      "script": "var cc = tree.current_scene.charge_controller\nvar d = float(cc.eligible_targets[\"U_SHIELD_CAPTAIN_A\"].distance)\nvar t: String = cc.charge_requirement_label.text\nreturn t.find(\"needs roll ≥ %.1f\\\"\" % d) != -1 and t.find(\"needs roll ≥ %.1f\\\"\" % (d - 2.0)) == -1 and t.find(\"Needs 2D6 ≥ %.1f\\\"\" % d) != -1",
+      "equals": true },
     { "act": "screenshot", "label": "01_requirement_hint_two_targets" }
   ]
 }
