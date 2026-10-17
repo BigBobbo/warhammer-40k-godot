@@ -362,7 +362,10 @@ for test in "${TESTS[@]}"; do
     if [ -z "$REASON" ] && grep -qE "Nonexistent function '[^']*' in base 'GDScript'" "$FULL_LOG"; then
         REASON="called into a script that failed to compile ($(grep -m1 -oE "Nonexistent function '[^']*' in base 'GDScript'" "$FULL_LOG"))"
     fi
-    if [ -z "$REASON" ] && grep -q "Parse Error" "$FULL_LOG"; then
+    # A test that deliberately compiles invalid code (e.g. the MCP bridge's
+    # "parse error surfaced" check) declares it with the marker comment
+    # "# audit-runner: expects-parse-error" and is exempt from this gate.
+    if [ -z "$REASON" ] && grep -q "Parse Error" "$FULL_LOG" && ! grep -q "audit-runner: expects-parse-error" "$test"; then
         REASON="GDScript parse error: $(grep -m1 "Parse Error" "$FULL_LOG")"
     fi
     if [ -z "$REASON" ]; then

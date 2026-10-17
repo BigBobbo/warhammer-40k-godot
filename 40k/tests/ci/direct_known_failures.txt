@@ -25,6 +25,7 @@ tests/test_t008_p0_enhancements_pin.gd  # 30/2 at 10e and 11e
 tests/test_t015_leader_pairings_loader_pin.gd  # 11/2 at 10e and 11e
 tests/test_t023_stratagem_panel_pin.gd  # 17/2 at 10e and 11e
 tests/test_t082_path_summed_distance.gd  # 5/1 at 10e and 11e
+tests/test_secondary_missions.gd  # 374/0 printed, but test_new_orders_stratagem_definition aborts: load("res://autoloads/StratagemManager.gd").new() compiles before the autoloads under -s ("Nonexistent function 'new'"), so that check never runs (both editions)
 
 # --- tests/unit + tests/integration SceneTree scripts (ungated) ---
 tests/unit/test_ai_ability_awareness.gd  # 81/1 at 10e and 11e
