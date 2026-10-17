@@ -22,7 +22,7 @@ var visual_debugging: bool = true
 var capture_screenshots_on_failure: bool = true
 var capture_screenshots_on_success: bool = false  # Optional: capture on all tests
 var save_state_on_completion: bool = true  # Save game state after each test
-var connection_timeout: float = 15.0
+var connection_timeout: float = 90.0  # covers TestModeHandler's auto-host start sequence incl. an auto-load's Main rebuild (see wait_for_connection)
 var sync_timeout: float = 10.0
 
 # Latency simulation configuration
@@ -127,12 +127,30 @@ func wait_for_connection() -> bool:
 		# Wait a bit for connection to establish
 		await wait_for_seconds(1.0)
 
-		# Try to get game state from host - if we can communicate, connection is working
+		# Both peers must answer AND see each other. "The host answers a
+		# command" alone returned before the client had joined, so a host-side
+		# phase change made right after was never broadcast — tests only got
+		# past it because the client used to execute host-addressed commands
+		# too (TestModeHandler._command_is_for_this_instance).
 		var test_result = await simulate_host_action("get_game_state", {})
 
 		if test_result.get("success", false):
-			print("[Test] Connection verified - action simulation working!")
-			return true
+			var client_result = await simulate_client_action("get_game_state", {})
+			var host_data: Dictionary = test_result.get("data", {})
+			var client_data: Dictionary = client_result.get("data", {})
+			var host_peers := int(host_data.get("connected_peer_count", -1))
+			var client_peers := int(client_data.get("connected_peer_count", -1))
+			# ...and both must have finished their auto-start (game scene up,
+			# host's optional auto-load done) — see TestModeHandler._harness_ready.
+			var host_ready := bool(host_data.get("harness_ready", false))
+			var client_ready := bool(client_data.get("harness_ready", false))
+			if client_result.get("success", false) and host_peers >= 1 and client_peers >= 1 \
+					and host_ready and client_ready:
+				print("[Test] Connection verified - host sees %d peer(s), client sees %d; both harness-ready" % [host_peers, client_peers])
+				return true
+			print("[Test] Waiting for connection... host_peers=%d client_peers=%d host_ready=%s client_ready=%s (client: %s) host[%s] client[%s]" % [
+				host_peers, client_peers, host_ready, client_ready, client_result.get("message", ""),
+				host_data.get("harness_detail", ""), client_data.get("harness_detail", "")])
 		else:
 			print("[Test] Waiting for connection... (got error: %s)" % test_result.get("message", "unknown"))
 

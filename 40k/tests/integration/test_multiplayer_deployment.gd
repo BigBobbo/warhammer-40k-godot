@@ -154,7 +154,7 @@ func test_deployment_single_unit():
 	# Player 1 zone is y=0 to y=480, need to account for model base radius (~51px for 32mm base)
 	var result = await simulate_host_action("deploy_unit", {
 		"unit_id": test_unit_id,
-		"position": {"x": 100.0, "y": 100.0}  # Safely within deployment zone
+		"position": {"x": 200.0, "y": 200.0}  # inside P1's zone (the host rejects (100,100): "Model must be wholly within deployment zone")
 	})
 
 	# Verify deployment succeeded
@@ -272,7 +272,7 @@ func test_deployment_alternating_turns():
 	# Deploy unit as current player
 	var deploy_result = await simulate_host_action("deploy_unit", {
 		"unit_id": test_unit_id,
-		"position": {"x": 100.0, "y": 100.0}  # Safely within deployment zone
+		"position": {"x": 200.0, "y": 200.0}  # inside P1's zone (the host rejects (100,100): "Model must be wholly within deployment zone")
 	})
 
 	assert_true(deploy_result.get("success", false),
@@ -623,10 +623,19 @@ func test_deployment_completion_both_players():
 	assert_ne(phase2, "Deployment",
 		"Phase should advance away from Deployment once both players complete")
 
-	# And both host and client should agree on the new phase
+	# And both host and client should agree on the new phase. The host can
+	# auto-advance through phases with nothing to do (Redeployment ->
+	# First-Turn Roll-Off) and the client follows by broadcast, so poll for
+	# agreement (a real desync still fails after the deadline).
 	var client_state = await simulate_client_action("get_game_state", {})
 	assert_true(client_state.get("success", false), "Client should return game state")
 	var client_phase = client_state.get("data", {}).get("current_phase", "")
+	var agree_deadline = Time.get_ticks_msec() + 10000
+	while phase2 != client_phase and Time.get_ticks_msec() < agree_deadline:
+		print("[TEST] Awaiting phase agreement: host='%s', client='%s'" % [phase2, client_phase])
+		await wait_for_seconds(0.5)
+		phase2 = (await simulate_host_action("get_game_state", {})).get("data", {}).get("current_phase", "")
+		client_phase = (await simulate_client_action("get_game_state", {})).get("data", {}).get("current_phase", "")
 	assert_eq(phase2, client_phase,
 		"Host and client should agree on phase after deployment complete (host='%s', client='%s')" % [phase2, client_phase])
 
@@ -670,7 +679,7 @@ func test_deployment_undo_action():
 	# Deploy unit
 	var deploy_result = await simulate_host_action("deploy_unit", {
 		"unit_id": test_unit_id,
-		"position": {"x": 100.0, "y": 100.0}  # Safely within deployment zone
+		"position": {"x": 200.0, "y": 200.0}  # inside P1's zone (the host rejects (100,100): "Model must be wholly within deployment zone")
 	})
 
 	assert_true(deploy_result.get("success", false), "Unit should deploy successfully")
@@ -721,14 +730,16 @@ func assert_unit_deployed(unit_id: String):
 	assert_true(unit_id in host_units, "Unit %s should exist on host" % unit_id)
 	if unit_id in host_units:
 		var host_unit = host_units[unit_id]
-		assert_true(host_unit.get("deployed", false), "Unit %s should be deployed on host" % unit_id)
+		# Unit dicts carry "status" (GameStateData.UnitStatus), not a "deployed"
+		# flag — the old check could never pass.
+		assert_eq(int(host_unit.get("status", -1)), GameStateData.UnitStatus.DEPLOYED, "Unit %s should be deployed on host" % unit_id)
 
 	# Check client instance for unit state
 	var client_units = client_result.get("data", {}).get("units", {})
 	assert_true(unit_id in client_units, "Unit %s should exist on client" % unit_id)
 	if unit_id in client_units:
 		var client_unit = client_units[unit_id]
-		assert_true(client_unit.get("deployed", false), "Unit %s should be deployed on client" % unit_id)
+		assert_eq(int(client_unit.get("status", -1)), GameStateData.UnitStatus.DEPLOYED, "Unit %s should be deployed on client" % unit_id)
 
 	# Assert positions match between host and client
 	if unit_id in host_units and unit_id in client_units:
@@ -764,14 +775,14 @@ func assert_unit_not_deployed(unit_id: String):
 	var host_units = host_result.get("data", {}).get("units", {})
 	if unit_id in host_units:
 		var host_unit = host_units[unit_id]
-		assert_false(host_unit.get("deployed", false),
+		assert_ne(int(host_unit.get("status", -1)), GameStateData.UnitStatus.DEPLOYED,
 			"Unit %s should NOT be deployed on host" % unit_id)
 
 	# Check client instance - unit should not be deployed
 	var client_units = client_result.get("data", {}).get("units", {})
 	if unit_id in client_units:
 		var client_unit = client_units[unit_id]
-		assert_false(client_unit.get("deployed", false),
+		assert_ne(int(client_unit.get("status", -1)), GameStateData.UnitStatus.DEPLOYED,
 			"Unit %s should NOT be deployed on client" % unit_id)
 
 	print("[TEST] assert_unit_not_deployed passed for unit: %s" % unit_id)

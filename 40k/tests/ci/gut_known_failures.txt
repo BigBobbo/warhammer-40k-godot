@@ -86,12 +86,7 @@ tests/integration/test_heavy_keyword_integration.gd::test_heavy_bonus_not_applie
 # --- tests/integration test_multiplayer_* (multi-peer job under Xvfb, CI runs
 # --- 39006607074 and 39007989791 on this branch, 2026-10-17; this suite never
 # --- ran in CI before — it was gated behind the always-timing-out audit) ---
-tests/integration/test_multiplayer_deployment.gd::test_deployment_single_unit  # fails in both CI runs (pre-existing; docs/CORE_RULES_REMEDIATION_2026-10.md)
-tests/integration/test_multiplayer_deployment.gd::test_deployment_outside_zone  # fails in both CI runs (pre-existing)
-? tests/integration/test_multiplayer_deployment.gd::test_deployment_blocked_by_terrain  # failed in 2 of 3 CI runs (passed on 6f8b42d) — intermittent
-tests/integration/test_multiplayer_deployment.gd::test_deployment_undo_action  # fails in both CI runs (pre-existing)
-tests/integration/test_multiplayer_network.gd::test_action_after_client_disconnect  # fails in both CI runs (pre-existing)
+tests/integration/test_multiplayer_deployment.gd::test_deployment_undo_action  # harness undo (GameManager.undo_last_action) is host-local and never broadcast — the client keeps the unit (was masked while the client executed host commands)
 tests/integration/test_multiplayer_save_dialog_retry.gd::test_save_dialog_retry_broadcast_id_helpers_present  # fails in both CI runs (pre-existing 'sbid-' helper)
-? tests/integration/test_multiplayer_deployment.gd::test_deployment_unit_coherency  # failed in 1 of 2 CI runs — harness race (host re-enters Formations after the first deploy)
-? tests/integration/test_multiplayer_deployment.gd::test_deployment_completion_both_players  # failed in 1 of 2 CI runs — same race
+tests/integration/test_multiplayer_deployment.gd::test_deployment_completion_both_players  # the test ends deployment with most units undeployed; the host (correctly) refuses END_DEPLOYMENT — the old harness applied it locally, skipping validation
 ? tests/integration/test_multiplayer_save_dialog_retry.gd::test_save_dialog_retry_basic_broadcast_end_to_end  # failed in 1 of 2 CI runs

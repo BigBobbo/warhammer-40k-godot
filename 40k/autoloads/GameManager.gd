@@ -1124,6 +1124,27 @@ func _get_next_phase(current: int) -> int:
 		_:
 			return GameStateData.Phase.DEPLOYMENT
 
+## DEPLOY_UNIT action for the test-mode deploy helpers: every model at
+## `position` (test simplification). {} when the unit is missing or empty.
+func build_test_deploy_action(unit_id: String, position: Vector2) -> Dictionary:
+	var unit = GameState.get_unit(unit_id)
+	if not unit:
+		return {}
+	var models = unit.get("models", [])
+	if models.is_empty():
+		return {}
+	var model_positions = []
+	var model_rotations = []
+	for i in range(models.size()):
+		model_positions.append(position)
+		model_rotations.append(0.0)
+	return {
+		"type": "DEPLOY_UNIT",
+		"unit_id": unit_id,
+		"model_positions": model_positions,
+		"model_rotations": model_rotations
+	}
+
 func deploy_unit(unit_id: String, position: Vector2) -> bool:
 	"""
 	Simplified deployment method for test mode.
@@ -1143,29 +1164,10 @@ func deploy_unit(unit_id: String, position: Vector2) -> bool:
 		push_error("GameManager: Available units: %s" % str(all_units.keys()))
 		return false
 
-	var models = unit.get("models", [])
-	if models.is_empty():
+	var action := build_test_deploy_action(unit_id, position)
+	if action.is_empty():
 		push_error("GameManager: Unit %s has no models" % unit_id)
 		return false
-
-	# For simplified test mode, place all models at the specified position
-	# In real game, models would be spread out in formation
-	var model_positions = []
-	var model_rotations = []
-
-	for i in range(models.size()):
-		# Place all models at same position for now (test mode simplification)
-		# In production, would use proper formation spacing
-		model_positions.append(position)
-		model_rotations.append(0.0)
-
-	# Create the proper action dictionary
-	var action = {
-		"type": "DEPLOY_UNIT",
-		"unit_id": unit_id,
-		"model_positions": model_positions,
-		"model_rotations": model_rotations
-	}
 
 	# Process the action through the standard action system
 	var result = apply_action(action)
