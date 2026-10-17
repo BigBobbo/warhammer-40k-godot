@@ -2,6 +2,15 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.45.6",
+      "date": "2026-10-17",
+      "summary": "Loading a save made during the Command phase no longer hands out extra Command Points or secondary cards.",
+      "changes": [
+        "Fixed: reloading (or rejoining) a game saved during the Command phase re-ran the start-of-turn steps \u2014 both players gained another CP and, in 11th edition, you drew two more secondary mission cards every time. The start-of-Command steps now run once per player turn.",
+        "Saves made before this fix that were taken in the Command phase load with that turn's steps treated as already done."
+      ]
+    },
+    {
       "version": "1.45.5",
       "date": "2026-10-17",
       "summary": "Fire Overwatch and Rapid Ingress follow the 11th-edition timing: both are offered once, at the end of your opponent's Movement phase, offline and online.",

@@ -1635,6 +1635,14 @@ func _restore_terrain_types(terrain_features: Array) -> Array:
 		restored.append(f)
 	return restored
 
+## meta key recording which player turn's start-of-Command steps have been
+## applied ("R<round>P<player>"), so re-entering that Command phase (a restored
+## save, a reconnect, a scripted re-entry) does not apply them twice.
+const COMMAND_START_RESOLVED_KEY := "command_start_resolved"
+
+static func command_start_key(battle_round: int, player: int) -> String:
+	return "R%dP%d" % [battle_round, player]
+
 # Load state from a snapshot
 func load_from_snapshot(snapshot: Dictionary) -> void:
 	state = _deep_copy_dict(snapshot)
@@ -1657,6 +1665,20 @@ func load_from_snapshot(snapshot: Dictionary) -> void:
 			if a is Dictionary:
 				for k in _PHASE_LOG_STRIP_KEYS:
 					a.erase(k)
+
+	# A state captured during a Command phase was captured AFTER that phase's
+	# start-of-Command steps (CP gain, secondary draw, battle-shock clear): saves
+	# are only ever written once enter_phase has returned (the phase-change
+	# autosave fires on phase_changed, after enter_phase). Saves written before
+	# the "command_start_resolved" marker existed lack it, and re-entering the
+	# restored Command phase re-ran those steps — +1 CP for both players and, at
+	# 11e, two more secondary cards on every reload. Stamp the marker for them.
+	if state.has("meta") and int(state["meta"].get("phase", -1)) == Phase.COMMAND \
+			and not state["meta"].has(COMMAND_START_RESOLVED_KEY):
+		state["meta"][COMMAND_START_RESOLVED_KEY] = command_start_key(
+			int(state["meta"].get("battle_round", 1)), int(state["meta"].get("active_player", 1)))
+		print("[GameState] Restored Command-phase state has no %s — marking %s as already resolved" % [
+			COMMAND_START_RESOLVED_KEY, state["meta"][COMMAND_START_RESOLVED_KEY]])
 
 	# SAVE/LOAD FIX: Ensure formation metadata exists for backwards compatibility with old saves.
 	# If the saved phase is past FORMATIONS and formation flags are missing, infer they were completed.

@@ -16,6 +16,8 @@ Continues the zero-context handoff pinned to `a6368a60` (Objective Control,
 | 11.04 charge targets | min(12, roll); Attached unit measured as one unit; HI 15.11 same; UI/AI/network parity. Reverts 0.18.4. | `test_charge_target_within_roll_11e` 123/0; 2 windowed scenarios |
 | 15.08/15.07 Overwatch + Rapid Ingress | Once, end of the opponent's Movement phase, non-active player, snap shooting 15.09; RI fixed (was on the Shooting phase); online prompts work. | `test_fire_overwatch_15_08_11e` 140/0; 4 scenarios; two-process MP fo_host 19/19, fo_client 20/20, ri_client 16/16 |
 | AI damage oracle (ai-lab D1) | 61 "divergences" were harness artefacts (duel inside ruins + engaged); 10e catalogue was calibrated to them. Two-sided ratchet, sensitivity gate that can fail, profile keys, catalogue regenerated at 11e with isolated causes. | 213 agree / 37 catalogued / 0 new |
+| Command-phase reload | Loading/rejoining a game saved in the Command phase re-ran the start-of-turn steps: +1 CP for both players and (11e) 2 more secondary cards per reload. Steps now run once per player turn (`meta.command_start_resolved`); pre-fix saves are stamped on load. | `test_command_phase_start_once` 14/0 (8/14 fail on the unfixed tree) |
+| Scenario triage | The 23 windowed scenarios failing only at 11e: 3 PIN-10, 11 MIGRATE-11 (cited), 1 BUG-11 listed, 8 were this reload bug and now pass unmodified. | commit "Triage the windowed scenarios…" |
 
 ## Open — 11e engine bugs found by the oracle (tests kept unweakened, listed as known failures)
 
@@ -35,6 +37,9 @@ Continues the zero-context handoff pinned to `a6368a60` (Objective Control,
 - OC: Vexilla +1 baked into the bodyguard's statline; `FLAG_PLUS_OC` on the bodyguard dict misses the leader; sticky objectives tied to the source unit; 40kdc generator emits no per-model OC overrides.
 - Overwatch: TORRENT auto-hits during snap shooting (needs a rules call); `movement_phase_end` allows one decision per player; AI `_estimate_overwatch_risk` still models 10e; online Sawbonez/Mekaniak/Grot Oiler prompts still force-complete the phase.
 - 11e cover/visibility reads the `TerrainManager` singleton, not the board argument — any simulation must keep both in sync.
+- Secondary review dialog: closing it with B/Escape only hides it — `review_completed` never fires and the opponent's pick is auto-resolved.
+- Battle-shock: `CommandPhase._units_tested` is phase-local and not saved, so a reload mid-Command phase can offer a unit's test again.
+- Hand-built Command-phase fixtures (`custodian_guard_dupes`, `fullauto_pretrigger`: CP 3/3, secondaries uninitialised) now load as saved — they no longer pick up +1 CP on load.
 - Test infra: two insane-bravery GUT cases and 4 multi-peer cases are intermittent (`?` in the allowlist); `test_save_load_ai` and `unit/test_reroll_support` hang; fixture `tutorial_t4_shoot` is missing; `army_builder_menu_link` hangs.
 
 ## Not started (handoff priorities still open)

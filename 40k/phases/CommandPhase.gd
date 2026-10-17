@@ -54,6 +54,18 @@ func _on_phase_enter() -> void:
 	# Reset per-command-phase tracking
 	_fix_dat_armour_up_used = []
 
+	# The start-of-Command steps below that CHANGE the game (round resets, CP
+	# gain, battle-shock clear, turn-start snapshots, the secondary draw) run
+	# once per player turn. Re-entering the same turn's Command phase — loading
+	# a save made during it, or a scripted re-entry — used to apply them again:
+	# +1 CP to both players and, at 11e (draw 2 per turn, no hand limit), two
+	# more secondary cards on every reload.
+	var start_key := GameState.command_start_key(battle_round, current_player)
+	var start_already_resolved: bool = str(GameState.state.get("meta", {}).get(
+		GameState.COMMAND_START_RESOLVED_KEY, "")) == start_key
+	if start_already_resolved:
+		DebugLogger.info("CommandPhase: start-of-Command steps for %s already resolved (restored save / re-entry) — not re-applying CP gain, battle-shock clear, turn-start snapshots or the secondary draw" % start_key)
+
 	# Clear Psychic Veil flags from previous turn
 	var all_units_pv_clear = GameState.state.get("units", {})
 	for uid in all_units_pv_clear:
@@ -70,7 +82,7 @@ func _on_phase_enter() -> void:
 	# first-turn roll-off gives Player 2 the first turn, the round begins on P2's
 	# turn, so the per-round resets (round kills, bonus-CP cap, battle-round
 	# stratagem expiry) must fire then, not on P1's (second) turn.
-	if current_player == GameState.get_first_turn_player():
+	if current_player == GameState.get_first_turn_player() and not start_already_resolved:
 		if MissionManager:
 			MissionManager.reset_round_kills()
 		# Reset bonus CP tracking — per core rules FAQ, each player can only gain 1 bonus CP per battle round
@@ -102,10 +114,13 @@ func _on_phase_enter() -> void:
 	# the start of every Command phase (subject to the per-round cap). The
 	# round-1 first-turn-player skip from #336 is removed; that interpretation
 	# was based on stale rules text.
-	_generate_command_points(current_player)
+	if not start_already_resolved:
+		_generate_command_points(current_player)
 
 	# Step 2: Clear all battle_shocked flags for the current player's units
-	_clear_battle_shocked_flags()
+	# (on re-entry the flags are this phase's own battle-shock results — keep them)
+	if not start_already_resolved:
+		_clear_battle_shocked_flags()
 
 	# Step 3: Identify units below half-strength that need battle-shock tests
 	_identify_units_needing_tests()
@@ -113,7 +128,7 @@ func _on_phase_enter() -> void:
 	# Step 4: Snapshot objective control BEFORE checking objectives this turn
 	# This is critical for secondary missions like "Storm Hostile Objective" that compare
 	# start-of-turn vs current control. Snapshot must happen BEFORE check_all_objectives().
-	if secondary_mgr and secondary_mgr.is_initialized(current_player):
+	if secondary_mgr and secondary_mgr.is_initialized(current_player) and not start_already_resolved:
 		secondary_mgr.on_turn_start(current_player)
 
 	# Step 5: Check objectives at start of command phase (AFTER snapshot)
@@ -123,12 +138,14 @@ func _on_phase_enter() -> void:
 		MissionManager.snapshot_alive_units()
 		# 11e GDM: open the active player's 15-VP-per-turn primary window and
 		# snapshot start-of-turn control for "hold new objective" conditions.
-		MissionManager.on_turn_start_11e(current_player)
+		if not start_already_resolved:
+			MissionManager.on_turn_start_11e(current_player)
 
 	# Step 6: Draw secondary mission cards (tactical mode only — fixed mode skips drawing)
 	_newly_drawn_missions = []
 	var game_event_log = get_node_or_null("/root/GameEventLog")
-	if secondary_mgr and secondary_mgr.is_initialized(current_player) and not secondary_mgr.is_fixed_mode(current_player):
+	if secondary_mgr and secondary_mgr.is_initialized(current_player) and not secondary_mgr.is_fixed_mode(current_player) \
+			and not start_already_resolved:
 		var drawn = secondary_mgr.draw_missions_to_hand(current_player)
 		if drawn.size() > 0:
 			_newly_drawn_missions = drawn.duplicate()
@@ -137,6 +154,12 @@ func _on_phase_enter() -> void:
 				DebugLogger.info(str("  - %s" % card["name"]))
 				if game_event_log:
 					game_event_log.add_player_entry(current_player, "Drew secondary mission: %s" % card["name"])
+
+	# Record that this player turn's start-of-Command steps are applied (saved
+	# with the game and synced like the CP change) — see start_already_resolved.
+	if not start_already_resolved:
+		PhaseManager.apply_state_changes([{"op": "set",
+			"path": "meta.%s" % GameState.COMMAND_START_RESOLVED_KEY, "value": start_key}])
 
 	# Log active secondary missions for both players
 	if game_event_log and secondary_mgr:
