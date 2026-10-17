@@ -62,7 +62,11 @@ func _run_tests() -> void:
 
 	print("\n===== Custodes Lions of the Emperor + Silent Hunters tests =====")
 
-	_test_stratagem_loading()
+	# _test_stratagem_loading / _test_gilded_champion retired with Codex:
+	# Adeptus Custodes (11e): the 10e Lions of the Emperor stratagems and the
+	# Silent Hunters detachment no longer exist; the codex Lions / Auric
+	# Champions stratagems are WP-C5's (.llm/codex_11e_wahapedia/RETIRED_TESTS.md).
+	# The remaining groups exercise 10e engine code that WP-C46 replaces.
 	_test_against_all_odds()
 	_test_effect_lance()
 	_test_plus_attacks_vs_psyker()
@@ -75,7 +79,6 @@ func _run_tests() -> void:
 	_test_admonimortis_stopgap()
 	_test_encircling_hunter()
 	_test_skin_crawling_disorientation()
-	_test_gilded_champion()
 
 	print("\n=== Result: %d passed, %d failed ===" % [passed, failed])
 	quit(1 if failed > 0 else 0)

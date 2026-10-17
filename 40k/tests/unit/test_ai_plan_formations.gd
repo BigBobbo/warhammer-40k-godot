@@ -222,7 +222,7 @@ func test_plan_owns_reserves() -> void:
 func test_over_cap_reserves_are_trimmed() -> void:
 	var snapshot := _make_snapshot(1)
 	var plan := _read_json(FIXTURE_RICH)
-	# recon_stomps is 2000 pts over 17 units -> caps are 1000 pts / 8 units.
+	# recon_stomps: 17 units -> caps are half its points / 8 units.
 	# The Stompa alone is 600; adding the 140-pt Deffkoptas and both 120-pt
 	# Warbiker squads pushes past the points cap partway through the list.
 	plan["deployment"]["reserves"] = [
@@ -239,7 +239,14 @@ func test_over_cap_reserves_are_trimmed() -> void:
 	var points := 0
 	for entry in chosen:
 		points += int(snapshot["units"][str(entry["unit"])]["meta"]["points"])
-	_assert(points <= 1000, "trimmed reserves stay inside the 50%% points cap (%d <= 1000)" % points)
+	# The cap is half the army's points (Codex: Orks points put recon_stomps
+	# at 2270, so it is no longer a flat 1000).
+	var army_points := 0
+	for uid in snapshot["units"]:
+		if int(snapshot["units"][uid].get("owner", 0)) == 1:
+			army_points += int(snapshot["units"][uid].get("meta", {}).get("points", 0))
+	var cap := army_points / 2
+	_assert(points <= cap, "trimmed reserves stay inside the 50%% points cap (%d <= %d)" % [points, cap])
 	_assert(chosen.size() < 5, "…by dropping entries, not by keeping them all (%d of 5)" % chosen.size())
 	_assert(chosen.size() > 0, "…while still reserving what fits")
 	var order_ok := true

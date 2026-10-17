@@ -4198,7 +4198,7 @@ static func _decide_formations(snapshot: Dictionary, available_actions: Array, p
 	# T7-33 / FORM-2: After leader attachments, evaluate transport embarkation.
 	# Embark small/fast infantry units in transports for deployment efficiency.
 	if not transport_actions.is_empty():
-		var embark_decision = _evaluate_transport_embarkation(snapshot, transport_actions, player, formations_plan)
+		var embark_decision = _evaluate_transport_embarkation(snapshot, transport_actions, player, formations_plan, reserves_actions)
 		if not embark_decision.is_empty():
 			return embark_decision
 
@@ -4384,7 +4384,7 @@ static func _score_leader_bodyguard_pairing(char_id: String, bg_id: String, all_
 # =============================================================================
 
 static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_actions: Array, player: int,
-		plan: Dictionary = {}) -> Dictionary:
+		plan: Dictionary = {}, reserves_actions: Array = []) -> Dictionary:
 	"""Evaluate which units should embark in available transports during formations.
 	Prioritizes embarking small/fast INFANTRY units for deployment efficiency.
 	Only embarks one transport per call (called repeatedly until no more are beneficial).
@@ -4404,11 +4404,28 @@ static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_acti
 		for entry in _plan_reserve_units(plan, snapshot, player):
 			plan_reserved_ids[str(entry.get("unit", ""))] = true
 
+	# Formation declarations are only written to the units at CONFIRM, so
+	# `embarked_in` is still empty for a unit declared aboard a moment ago. The
+	# phase offers DECLARE_RESERVES for exactly the units that are not yet
+	# attached / embarked / reserved — that list is the "still undeclared" set
+	# (same signal the plan pass uses, _plan_formations_action).
+	var still_undeclared := {}
+	for action in reserves_actions:
+		still_undeclared[str(action.get("unit_id", ""))] = true
+	var declared_aboard := {}
+	for action in transport_actions:
+		for uid in action.get("declared_unit_ids", []):
+			declared_aboard[str(uid)] = true
+
 	# Build list of candidate units that could embark (not characters, not transports themselves)
 	var candidate_units = []
 	for unit_id in all_units:
 		var unit = all_units[unit_id]
 		if unit.get("owner", 0) != player:
+			continue
+		if declared_aboard.has(str(unit_id)):
+			continue
+		if not reserves_actions.is_empty() and not still_undeclared.has(str(unit_id)):
 			continue
 		# Skip transports themselves
 		if unit.has("transport_data"):
@@ -4473,7 +4490,11 @@ static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_acti
 
 		var capacity = transport.get("transport_data", {}).get("capacity", 0)
 		var capacity_keywords = transport.get("transport_data", {}).get("capacity_keywords", [])
-		var already_embarked = transport.get("transport_data", {}).get("embarked_units", [])
+		var already_embarked = transport.get("transport_data", {}).get("embarked_units", []).duplicate()
+		# ...plus the passengers declared this Formations phase (not yet on the unit).
+		for uid in action.get("declared_unit_ids", []):
+			if not uid in already_embarked:
+				already_embarked.append(uid)
 
 		# Count already-embarked models
 		var embarked_model_count = 0
@@ -4493,14 +4514,17 @@ static func _evaluate_transport_embarkation(snapshot: Dictionary, transport_acti
 			var unit = all_units.get(unit_id, {})
 			var unit_keywords = unit.get("meta", {}).get("keywords", [])
 
-			# Check keyword compatibility
+			# Check keyword compatibility — ALL capacity keywords, exactly as
+			# FormationsPhase / TransportManager validate ("22 ORKS INFANTRY
+			# models" = ORKS *and* INFANTRY). The old any-match proposed an
+			# ORKS AIRCRAFT (Wazbom Blastajet) and the phase rejected it.
 			if capacity_keywords.size() > 0:
-				var has_keyword = false
+				var has_all_keywords = true
 				for kw in capacity_keywords:
-					if kw in unit_keywords:
-						has_keyword = true
+					if not kw in unit_keywords:
+						has_all_keywords = false
 						break
-				if not has_keyword:
+				if not has_all_keywords:
 					continue
 
 			# Count alive models

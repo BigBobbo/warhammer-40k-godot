@@ -20,6 +20,7 @@
     "name": "Blade Champion",
     "keywords": [
      "ADEPTUS CUSTODES",
+     "BLADE CHAMPION",
      "CHARACTER",
      "IMPERIUM",
      "INFANTRY"
@@ -164,7 +165,8 @@
      "ADEPTUS CUSTODES",
      "ANATHEMA PSYKANA",
      "IMPERIUM",
-     "INFANTRY"
+     "INFANTRY",
+     "WITCHSEEKER SQUAD"
     ],
     "stats": {
      "move": 7,
@@ -298,6 +300,7 @@
     "keywords": [
      "ADEPTUS CUSTODES",
      "CALADIUS",
+     "CALADIUS GRAV-TANK",
      "FLY",
      "FRAME",
      "GRAV-ASSAULT",

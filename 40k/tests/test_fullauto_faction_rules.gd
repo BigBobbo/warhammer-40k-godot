@@ -4,13 +4,17 @@ extends SceneTree
 #
 # Covers the engine half of the "every Ork/Custodes rule is mechanically
 # implemented" work:
-#   1. Army load pipeline: wargear stat bonuses apply from type "Datasheet"
-#      abilities ('Ard Case +2T / Firing Deck removal, Praesidium Shield +1W)
-#      and renamed 11e abilities are canonicalized (Da Jump, Ramshackle).
-#   2. Faction stratagems: all 6 Shield Host stratagems load mechanically
-#      implemented from the curated effects_json; the 6 War Horde stratagems
-#      load as the Codex: Orks (11e) rows (custom:ork11e marker — their
-#      implementation is owned by the Ork codex registry, not effects_json).
+#   1. Army load pipeline: codex characteristics survive the load pipeline
+#      (Codex: Orks Battlewagon T11 with Firing Deck 11 and Damaged 6 — no
+#      'Ard Case any more; Codex: Adeptus Custodes Praesidium Shield is no
+#      longer a +1W stat bonus) and renamed 11e abilities are canonicalized
+#      (Da Jump).
+#   2. Faction stratagems: the 6 War Horde stratagems load as the Codex: Orks
+#      (11e) rows (custom:ork11e marker) and the 6 Guardians of the Throne
+#      stratagems as Codex: Adeptus Custodes rows (custom:custodes11e marker —
+#      their implementation is owned by the Custodes codex registry, WP-C5).
+#      The Shield Host stopgap checks were retired with the codex
+#      (.llm/codex_11e_wahapedia/RETIRED_TESTS.md).
 #   3. Defender-side modifiers: 'ARD AS NAILS (-1 wound vs the flagged unit,
 #      ranged + melee) and UNWAVERING SENTINELS (-1 hit vs the flagged unit,
 #      melee only — must NOT leak into ranged).
@@ -152,14 +156,16 @@ func _test_army_load_pipeline() -> void:
 	var orks = alm.load_army_list("orks", 1)
 	_check("orks army loads", not orks.is_empty())
 	var bw = orks.get("units", {}).get("U_BATTLEWAGON_G", {})
-	_check("Battlewagon T12 ('Ard Case +2)", int(bw.get("meta", {}).get("stats", {}).get("toughness", 0)) == 12,
+	# Codex: Orks Battlewagon: T11, Firing Deck 11, Damaged 6; no 'Ard Case.
+	_check("Battlewagon T11 (codex; no 'Ard Case)", int(bw.get("meta", {}).get("stats", {}).get("toughness", 0)) == 11,
 		"got %s" % str(bw.get("meta", {}).get("stats", {}).get("toughness")))
-	_check("Battlewagon Firing Deck removed", int(bw.get("transport_data", {}).get("firing_deck", -1)) == 0)
+	_check("Battlewagon keeps its Firing Deck (11)", int(bw.get("transport_data", {}).get("firing_deck", -1)) == 11,
+		str(bw.get("transport_data", {})))
 	var bw_ability_names := []
 	for ab in bw.get("meta", {}).get("abilities", []):
 		bw_ability_names.append(ab.get("name", "") if ab is Dictionary else str(ab))
-	_check("Battlewagon has canonical 'Ramshackle'", "Ramshackle" in bw_ability_names, str(bw_ability_names))
-	_check("Battlewagon 'Firing Deck 11' ability stripped", not ("Firing Deck 11" in bw_ability_names))
+	_check("Battlewagon lists 'Firing Deck 11' and 'Damaged: 1-6 Wounds Remaining'",
+		"Firing Deck 11" in bw_ability_names and "Damaged: 1-6 Wounds Remaining" in bw_ability_names, str(bw_ability_names))
 
 	var wb = orks.get("units", {}).get("U_WEIRDBOY_J", {})
 	var wb_names := []
@@ -170,15 +176,18 @@ func _test_army_load_pipeline() -> void:
 	var cust = alm.load_army_list("adeptus_custodes", 2)
 	_check("custodes army loads", not cust.is_empty())
 	var cg = cust.get("units", {}).get("U_CUSTODIAN_GUARD_B", {})
-	_check("Custodian Guard W4 (Praesidium Shield +1)", int(cg.get("meta", {}).get("stats", {}).get("wounds", 0)) == 4)
-	var all_w4 := true
+	# Codex: Custodian Guard Sodality W5; a rostered Praesidium Shield is no
+	# longer +1W (codex: -1 D to attacks allocated to the bearer).
+	_check("Custodian Guard Sodality W5 (codex; no Praesidium +1W)", int(cg.get("meta", {}).get("stats", {}).get("wounds", 0)) == 5,
+		str(cg.get("meta", {}).get("stats", {})))
+	var all_w5 := true
 	for m in cg.get("models", []):
-		if int(m.get("wounds", 0)) != 4:
-			all_w4 = false
-	_check("all Custodian Guard models W4", all_w4)
+		if int(m.get("wounds", 0)) != 5:
+			all_w5 = false
+	_check("all Custodian Guard Sodality models W5", all_w5)
 
 func _test_faction_stratagems_implemented() -> void:
-	print("\n-- Faction stratagems: 6 codex War Horde rows + 6/6 Shield Host implemented --")
+	print("\n-- Faction stratagems: 6 codex War Horde rows + 6 codex Guardians of the Throne rows --")
 	var alm = root.get_node("ArmyListManager")
 	var sm = root.get_node("StratagemManager")
 
@@ -202,29 +211,15 @@ func _test_faction_stratagems_implemented() -> void:
 					codex += 1
 			_check("player 1: all 6 War Horde rows are Codex: Orks 11e rows (custom:ork11e)", codex == 6, "%d/6" % codex)
 			continue
-		var impl := 0
+		# Codex: Adeptus Custodes (11e) Guardians of the Throne: 6 codex rows.
+		var codex_ac := 0
 		for s in strats:
-			if s.get("implemented", false):
-				impl += 1
-			else:
-				print("    unimplemented: %s" % s.get("name", "?"))
-		_check("player %d: all 6 mechanically implemented" % player, impl == 6, "%d/6" % impl)
-
-	# Spot-check curated effect types survived the loader round-trip
-	var expect := {
-		"AVENGE THE FALLEN": "plus_attacks",
-		"MULTIPOTENTIALITY": "fall_back_and_shoot",
-		"VIGILANCE ETERNAL": "sticky_objective_control",
-	}
-	var seen := {}
-	for player in [1, 2]:
-		for s in sm.get_faction_stratagems_for_player(player):
-			var nm = str(s.get("name", "")).replace("’", "'").to_upper()
 			for e in s.get("effects", []):
-				if nm in expect and str(e.get("type", "")) == expect[nm]:
-					seen[nm] = true
-	for nm in expect:
-		_check("%s carries effect '%s'" % [nm, expect[nm]], seen.get(nm, false))
+				if typeof(e) == TYPE_DICTIONARY and str(e.get("type", "")) == "custom:custodes11e":
+					codex_ac += 1
+					break
+		_check("player %d: all 6 Guardians of the Throne rows are Codex: Adeptus Custodes rows (custom:custodes11e)" % player,
+			codex_ac == 6, "%d/6" % codex_ac)
 
 func _test_defender_minus_one_wound() -> void:
 	print("\n-- 'ARD AS NAILS: defender-side -1 to wound (ranged + melee) --")

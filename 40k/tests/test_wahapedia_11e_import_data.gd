@@ -93,6 +93,7 @@ func _check_army(file: String, codex: Dictionary) -> void:
 	var bad_points: Array = []
 	var no_weapons: Array = []
 	var legacy_keyed: Array = []
+	var no_name_kw: Array = []
 	var codex_units := 0
 	for uid in army.get("units", {}):
 		var u: Dictionary = army["units"][uid]
@@ -145,6 +146,12 @@ func _check_army(file: String, codex: Dictionary) -> void:
 				break
 		if UnitLoadoutResolver.datasheet_key(u) != str(meta.get("name", "")):
 			legacy_keyed.append(uid)
+		# Leader pairing matches can_lead names against bodyguard keywords:
+		# every datasheet must carry its own name keyword (Wahapedia's export
+		# omits it).
+		var kws: Array = meta.get("keywords", []).map(func(k): return str(k).to_upper())
+		if not str(meta.get("name", "")).to_upper() in kws:
+			no_name_kw.append(uid)
 	_check("%s: has codex-datasheet units" % file, codex_units > 0)
 	_check("%s: codex characteristics in meta.stats" % file, bad_stats.is_empty(), str(bad_stats))
 	_check("%s: model counts inside the codex range" % file, bad_count.is_empty(), str(bad_count))
@@ -152,6 +159,7 @@ func _check_army(file: String, codex: Dictionary) -> void:
 	_check("%s: points match a codex tier" % file, bad_points.is_empty(), str(bad_points))
 	_check("%s: every codex unit resolves weapons (display + engine)" % file, no_weapons.is_empty(), str(no_weapons))
 	_check("%s: codex units resolve against the current kits" % file, legacy_keyed.is_empty(), str(legacy_keyed))
+	_check("%s: every codex unit carries its own datasheet-name keyword" % file, no_name_kw.is_empty(), str(no_name_kw))
 
 func _unit_by_name(file: String, name: String) -> Dictionary:
 	var army: Dictionary = root.get_node("ArmyListManager").load_army_list(file, 1)
@@ -192,6 +200,12 @@ func _check_spot_values() -> void:
 	_check("Guardian Spear (ranged): 24\" A2 BS2+ S5 AP-1 D2, Assault, Rapid Fire 2",
 		str(spear.get("range", "")) == "24" and str(spear.get("strength", "")) == "5" and
 		str(spear.get("special_rules", "")).contains("rapid fire 2"), str(spear))
+	var bc := _unit_by_name("custodes_lions", "Blade Champion")
+	var cgs := _unit_by_name("custodes_lions", "Custodian Guard Sodality")
+	_check("Blade Champion can lead Custodian Guard Sodality (can_lead name is a bodyguard keyword)",
+		"CUSTODIAN GUARD SODALITY" in bc.get("meta", {}).get("leader_data", {}).get("can_lead", []) and
+		"CUSTODIAN GUARD SODALITY" in cgs.get("meta", {}).get("keywords", []),
+		"%s / %s" % [str(bc.get("meta", {}).get("leader_data", {})), str(cgs.get("meta", {}).get("keywords", []))])
 	var bw := _unit_by_name("tutorial_orks", "Battlewagon")
 	var bs: Dictionary = bw.get("meta", {}).get("stats", {})
 	_check("Battlewagon: T11 W16, 160 pts (first copy)",

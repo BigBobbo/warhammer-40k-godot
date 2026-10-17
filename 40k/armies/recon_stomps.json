@@ -1789,9 +1789,426 @@
     }
    ]
   },
+  "U_WARBIKERS_D": {
+   "id": "U_WARBIKERS_D",
+   "squad_id": "U_WARBIKERS_D",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Warbikers",
+    "keywords": [
+     "GRENADES",
+     "MOUNTED",
+     "ORKS",
+     "SPEED FREEKS",
+     "WARBIKERS"
+    ],
+    "stats": {
+     "move": 12,
+     "toughness": 6,
+     "save": 4,
+     "wounds": 3,
+     "leadership": 7,
+     "objective_control": 2,
+     "invuln": 6
+    },
+    "points": 140,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "1x Power klaw",
+     "5x Close combat weapon",
+     "5x Twin dakkagun"
+    ],
+    "weapons": [
+     {
+      "name": "Twin dakkagun",
+      "type": "Ranged",
+      "range": "18",
+      "attacks": "3",
+      "ballistic_skill": "5",
+      "strength": "5",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "assault, rapid fire 2, twin linked",
+      "abilities": [
+       {
+        "id": "assault"
+       },
+       {
+        "id": "rapid_fire",
+        "x": 2
+       },
+       {
+        "id": "twin_linked"
+       }
+      ]
+     },
+     {
+      "name": "Close combat weapon",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "2",
+      "weapon_skill": "3",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1"
+     },
+     {
+      "name": "Power Klaw",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "3",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "2"
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
+     },
+     {
+      "name": "High-speed Carnage",
+      "type": "Datasheet",
+      "description": "If this unit made a charge move this turn, this unit's melee attacks have:\n• +1 S and D."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "1 Boss Nob on Warbike",
+      "line": 1
+     },
+     {
+      "description": "2-5 Warbiker",
+      "line": 2
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 75,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 42,
+      "width": 75
+     }
+    },
+    {
+     "id": "m2",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 75,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 42,
+      "width": 75
+     }
+    },
+    {
+     "id": "m3",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 75,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 42,
+      "width": 75
+     }
+    },
+    {
+     "id": "m4",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 75,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 42,
+      "width": 75
+     }
+    },
+    {
+     "id": "m5",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 75,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 42,
+      "width": 75
+     }
+    },
+    {
+     "id": "m6",
+     "wounds": 3,
+     "current_wounds": 3,
+     "base_mm": 75,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 42,
+      "width": 75
+     }
+    }
+   ]
+  },
   "U_DEFFKOPTAS_A": {
    "id": "U_DEFFKOPTAS_A",
    "squad_id": "U_DEFFKOPTAS_A",
+   "owner": 1,
+   "status": "UNDEPLOYED",
+   "meta": {
+    "name": "Deffkoptas",
+    "keywords": [
+     "DEFFKOPTAS",
+     "FLY",
+     "GRENADES",
+     "MOUNTED",
+     "ORKS",
+     "SPEED FREEKS"
+    ],
+    "stats": {
+     "move": 12,
+     "toughness": 6,
+     "save": 4,
+     "wounds": 4,
+     "leadership": 7,
+     "objective_control": 2,
+     "invuln": 6
+    },
+    "points": 170,
+    "is_warlord": false,
+    "enhancements": [],
+    "wargear": [
+     "6x Kopta rokkits",
+     "6x Slugga",
+     "6x Spinnin' blades"
+    ],
+    "weapons": [
+     {
+      "name": "Rokkit Launcha – Blasta",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "blast",
+      "abilities": [
+       {
+        "id": "blast"
+       }
+      ]
+     },
+     {
+      "name": "Rokkit Launcha – Busta",
+      "type": "Ranged",
+      "range": "24",
+      "attacks": "2",
+      "ballistic_skill": "5",
+      "strength": "10",
+      "ap": "-2",
+      "damage": "3",
+      "special_rules": "lethal hits",
+      "abilities": [
+       {
+        "id": "lethal_hits"
+       }
+      ]
+     },
+     {
+      "name": "Slugga",
+      "type": "Ranged",
+      "range": "12",
+      "attacks": "1",
+      "ballistic_skill": "5",
+      "strength": "4",
+      "ap": "0",
+      "damage": "1",
+      "special_rules": "close quarters, lethal hits",
+      "abilities": [
+       {
+        "id": "close_quarters"
+       },
+       {
+        "id": "lethal_hits"
+       }
+      ]
+     },
+     {
+      "name": "Choppa",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "3",
+      "weapon_skill": "4",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1"
+     },
+     {
+      "name": "Spinnin' blades",
+      "type": "Melee",
+      "range": "Melee",
+      "attacks": "4",
+      "weapon_skill": "3",
+      "strength": "5",
+      "ap": "-1",
+      "damage": "1",
+      "special_rules": "cleave 1, hazardous",
+      "abilities": [
+       {
+        "id": "cleave",
+        "x": 1
+       },
+       {
+        "id": "hazardous"
+       }
+      ]
+     }
+    ],
+    "abilities": [
+     {
+      "name": "Waaagh!",
+      "type": "Faction",
+      "description": "Friendly ORKS units with this ability can:\n• Re-roll advance rolls.\n• Become riled up, as stated in other rules.\nWhile a unit is riled up:\n• That unit has 5+ InSv.\n• That unit's ranged attacks have [ASSAULT].\n• When that unit is selected to make an advance move, that advance move does not prevent that unit from being eligible to declare a charge.\nWar Cry (Once per battle, per army): At the start of the Command phase, you can use this ability. If you do, friendly ORKS units with the Waaagh! ability are riled up until the end of the next turn."
+     },
+     {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
+      "name": "Deff from Above",
+      "type": "Datasheet",
+      "description": "In your Shooting phase, if this unit made an ingress move this turn, this unit's ranged attacks have +1 to hit rolls."
+     },
+     {
+      "name": "Aerial Manoover",
+      "type": "Datasheet",
+      "description": "At the end of your opponent's Fight phase, if this unit is unengaged, you can place this unit in strategic reserves."
+     }
+    ],
+    "unit_composition": [
+     {
+      "description": "3-6 Deffkopta",
+      "line": 1
+     }
+    ]
+   },
+   "models": [
+    {
+     "id": "m1",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 75,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 42,
+      "width": 75
+     }
+    },
+    {
+     "id": "m2",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 75,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 42,
+      "width": 75
+     }
+    },
+    {
+     "id": "m3",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 75,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 42,
+      "width": 75
+     }
+    },
+    {
+     "id": "m4",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 75,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 42,
+      "width": 75
+     }
+    },
+    {
+     "id": "m5",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 75,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 42,
+      "width": 75
+     }
+    },
+    {
+     "id": "m6",
+     "wounds": 4,
+     "current_wounds": 4,
+     "base_mm": 75,
+     "position": null,
+     "alive": true,
+     "status_effects": [],
+     "base_type": "oval",
+     "base_dimensions": {
+      "length": 42,
+      "width": 75
+     }
+    }
+   ]
+  },
+  "U_DEFFKOPTAS_B": {
+   "id": "U_DEFFKOPTAS_B",
+   "squad_id": "U_DEFFKOPTAS_B",
    "owner": 1,
    "status": "UNDEPLOYED",
    "meta": {
