@@ -754,8 +754,11 @@ func request_evaluation_after_load() -> void:
 ## windows synchronously (AIDecisionMaker.decide_window_stratagem — e.g. the
 ## 11e FIRE OVERWATCH at the end of the opponent's Movement phase), so no AI
 ## action is ever submitted for it: log it here as USE_WINDOW_STRATAGEM so the
-## turn summary / action log count it like any other stratagem.
-func record_window_stratagem_use(player: int, window_id: String, stratagem_id: String, stratagem_name: String, target_unit_id: String, secondary_id: String = "") -> void:
+## turn summary / action log count it like any other stratagem. `cp_spent` is
+## what StratagemManager.use_stratagem actually deducted (after Strategic
+## Mastery / Lord of Deceit) — recorded in the AI's CP stats (T7-57) like the
+## reactive and RAPID INGRESS paths do.
+func record_window_stratagem_use(player: int, window_id: String, stratagem_id: String, stratagem_name: String, target_unit_id: String, secondary_id: String = "", cp_spent: int = 0) -> void:
 	var target_name := GameState.get_unit_display_name(target_unit_id) if target_unit_id != "" else ""
 	var desc := "AI uses %s" % stratagem_name
 	if target_name != "":
@@ -775,7 +778,9 @@ func record_window_stratagem_use(player: int, window_id: String, stratagem_id: S
 		_track_action_for_summary(player, "USE_WINDOW_STRATAGEM", phase)
 	_log_ai_event(player, desc)
 	record_ai_key_moment(player, desc)
-	print("AIPlayer: recorded window stratagem use — P%d %s (%s)" % [player, desc, window_id])
+	if cp_spent > 0:
+		record_ai_cp_spent(player, cp_spent)
+	print("AIPlayer: recorded window stratagem use — P%d %s (%s, %d CP)" % [player, desc, window_id, cp_spent])
 
 func get_action_log() -> Array:
 	return _action_log.duplicate()

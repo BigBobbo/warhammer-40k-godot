@@ -1029,11 +1029,14 @@ func _end_phase_via_phase(action: Dictionary, phase_enum: int) -> Dictionary:
 			return false
 		if inst.has_method("_window_blocks_phase_completion") and bool(inst._window_blocks_phase_completion()):
 			return true
-		# A bespoke end-of-phase prompt (MovementPhase: SAWBONEZ / MEKANIAK /
-		# GROT OILER / RAPID INGRESS selection or placement) also holds the
-		# phase: completing it "as before" skipped that prompt AND the
-		# movement_phase_end window behind it (11e FIRE OVERWATCH 15.08) online.
-		return inst.has_method("has_pending_end_of_phase_prompt") and bool(inst.has_pending_end_of_phase_prompt())
+		# 11e: the end-of-Movement RAPID INGRESS prompt (15.07 decision, then
+		# the 20.04 ingress set-up — MovementPhase.has_pending_end_of_phase_prompt)
+		# also holds the phase: completing it "as before" skipped that prompt
+		# AND the movement_phase_end window behind it (FIRE OVERWATCH 15.08)
+		# online. Only prompts the deciding peer can answer count (SAWBONEZ /
+		# MEKANIAK / GROT OILER have no dialog or client mirror and still lapse
+		# as before); 10e keeps the previous network behaviour.
+		return GameConstants.edition >= 11 and inst.has_method("has_pending_end_of_phase_prompt") and bool(inst.has_pending_end_of_phase_prompt())
 	if not res.get("success", false):
 		if holds_phase.call():
 			# e.g. END_MOVEMENT while a WHILE THEIR BACKS ARE TURNED move is in

@@ -3880,7 +3880,11 @@ func _unit_has_ranged_weapons(unit: Dictionary) -> bool:
 # component (same shape as get_heroic_intervention_eligible_units_11e). The
 # unit must be on the battlefield (not in reserves, not embarked) with a
 # ranged weapon. Returns "" when `unit_id` may be targeted, else the reason.
-func fire_overwatch_shooter_reason_11e(player: int, unit_id: String, board: Dictionary = {}) -> String:
+# cheap_only (PERF, the offer builder): skip the two scans — the live
+# engagement check (every enemy model) and the ranged-weapon check — so the
+# quick refusals (battle-shock, TITANIC, Sneaky Gitz, off the battlefield) run
+# before the snap-target search; the builder asks the full question after.
+func fire_overwatch_shooter_reason_11e(player: int, unit_id: String, board: Dictionary = {}, cheap_only: bool = false) -> String:
 	if board.is_empty():
 		board = GameState.create_snapshot()
 	var units: Dictionary = board.get("units", {})
@@ -3914,6 +3918,8 @@ func fire_overwatch_shooter_reason_11e(player: int, unit_id: String, board: Dict
 			break
 	if not on_board:
 		return "the unit has no models on the battlefield"
+	if cheap_only:
+		return ""
 	if RulesEngine.is_attached_unit_engaged(unit_id, board):
 		return "engaged units cannot be targeted (15.08: one friendly UNENGAGED unit)"
 	var has_ranged := false
@@ -3934,18 +3940,33 @@ func fire_overwatch_shooter_reason_11e(player: int, unit_id: String, board: Dict
 ## snap-shooting target (15.09, RulesEngine.snap_shooting_targets_11e). Each
 ## row carries the target pick as its secondary ({kind: "unit"}), nearest
 ## enemy first. 15.08 does not require the enemy to have moved this phase.
+## PERF (every 11e END_MOVEMENT builds this): the quick TARGET refusals run
+## first, then the snap-target search — with no enemy unit within 24" it is a
+## few bounding-circle checks (enemy model positions measured once, shared
+## pts_cache) — and the full TARGET check, whose engagement scan walks every
+## enemy model, only runs for a unit that has a target. Same rows either way:
+## a row needs both.
 func get_fire_overwatch_offer_targets_11e(player: int) -> Array:
 	var rows: Array = []
 	var board: Dictionary = GameState.create_snapshot()
+	var pts_cache: Dictionary = {}
 	for unit_id in board.get("units", {}):
-		var reason := fire_overwatch_shooter_reason_11e(player, unit_id, board)
-		if reason != "":
+		var unit: Dictionary = board.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		var quick_reason := fire_overwatch_shooter_reason_11e(player, unit_id, board, true)
+		if quick_reason != "":
+			print("StratagemManager: FIRE OVERWATCH — %s cannot be targeted: %s" % [unit_id, quick_reason])
 			continue
 		var options: Array = []
-		for t in RulesEngine.snap_shooting_targets_11e(unit_id, board):
+		for t in RulesEngine.snap_shooting_targets_11e(unit_id, board, pts_cache):
 			options.append({"id": str(t.unit_id), "label": "%s (%.1f\")" % [str(t.label), float(t.distance_inches)]})
 		if options.is_empty():
 			print("StratagemManager: FIRE OVERWATCH — %s has no visible eligible enemy unit within 24\"" % unit_id)
+			continue
+		var reason := fire_overwatch_shooter_reason_11e(player, unit_id, board)
+		if reason != "":
+			print("StratagemManager: FIRE OVERWATCH — %s cannot be targeted: %s" % [unit_id, reason])
 			continue
 		rows.append({"unit_id": unit_id, "label": _attached_unit_display_name(unit_id, board),
 			"secondary": {"kind": "unit", "prompt": "FIRE OVERWATCH: select one visible enemy unit within 24\" for snap shooting (only unmodified 6s hit)",

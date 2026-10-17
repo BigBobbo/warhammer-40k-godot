@@ -1538,6 +1538,17 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 	print("NetworkManager:   phase = ", phase)
 	print("NetworkManager:   phase has saves_required signal: ", phase.has_signal("saves_required"))
 
+	# 11e FIRE OVERWATCH (15.08): the host resolved the snap shot and wrote its
+	# Game Log lines locally (MovementPhase._snap_game_log) — GameEventLog is
+	# per-peer, so replay them into this client's Game Log.
+	var fo_log_lines = result.get("fire_overwatch_log_lines", [])
+	if typeof(fo_log_lines) == TYPE_ARRAY and not fo_log_lines.is_empty():
+		var fo_gel = get_node_or_null("/root/GameEventLog")
+		if fo_gel and fo_gel.has_method("add_overwatch_entry"):
+			print("NetworkManager: Client replaying %d FIRE OVERWATCH Game Log line(s) from the host" % fo_log_lines.size())
+			for fo_line in fo_log_lines:
+				fo_gel.add_overwatch_entry(str(fo_line))
+
 	# Handle movement phase visual updates
 	if action_type == "STAGE_MODEL_MOVE":
 		if phase.has_signal("model_drop_committed"):

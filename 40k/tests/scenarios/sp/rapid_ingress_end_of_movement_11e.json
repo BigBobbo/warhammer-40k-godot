@@ -13,7 +13,7 @@
   "rng_seed": 42,
   "transition_to_phase": 7,
   "disable_ai": true,
-  "description": "11e RAPID INGRESS (15.07: 'WHEN: End of your opponent's Movement phase. TARGET: One friendly unit that is in strategic reserves (excluding AIRCRAFT)') through the real UI, followed by the FIRE OVERWATCH window at the same point. Fixture ri_pretrigger: P2 active in battle round 2; P1's Caladius Grav-tank is in strategic reserves. P2 ends the Movement phase with the phase button: the Rapid Ingress dialog opens for PLAYER 1 (the non-active player) listing the Caladius — before 11e's fix rapid_ingress_11e was timed for the Shooting phase and was never offered. A real click on Decline closes it without spending CP; the movement_phase_end window follows for P1, and with 'Skip Overwatch' ON (the default) its FIRE OVERWATCH offer is auto-declined — no dialog, no CP — so the Movement phase ends (Shooting).",
+  "description": "11e RAPID INGRESS (15.07: 'WHEN: End of your opponent's Movement phase. TARGET: One friendly unit that is in strategic reserves (excluding AIRCRAFT)') through the real UI, followed by the FIRE OVERWATCH window at the same point. Fixture ri_pretrigger: P2 active in battle round 2; P1's Caladius Grav-tank is in strategic reserves. P2 ends the Movement phase with the phase button: the Rapid Ingress dialog opens for PLAYER 1 (the non-active player) listing the Caladius \u2014 before 11e's fix rapid_ingress_11e was timed for the Shooting phase and was never offered. A real click on Decline closes it without spending CP; the movement_phase_end windows follow, and P1 has NO FIRE OVERWATCH row in this fixture (none of its units is within 24\" of an enemy, asserted before the decline) \u2014 no dialog, no CP \u2014 so the Movement phase ends (Shooting). The 'Skip Overwatch' auto-decline of a REAL offer is covered by fire_overwatch_skip_toggle_auto_decline_11e.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -107,6 +107,12 @@
       "label": "01_rapid_ingress_offer_for_non_active_player"
     },
     {
+      "act": "execute_script",
+      "script": "StratagemManager.get_fire_overwatch_offer_targets_11e(1).size()",
+      "equals": 0,
+      "comment": "P1 has no FIRE OVERWATCH row here (no unit within 24\" of an enemy) \u2014 so no FO prompt can follow"
+    },
+    {
       "act": "click_node",
       "node": "/root/RapidIngressDialog/Content/Buttons/DeclineButton"
     },
@@ -123,7 +129,7 @@
     {
       "act": "expect_phase",
       "equals": 8,
-      "comment": "Skip Overwatch auto-declined P1's FIRE OVERWATCH window — the Movement phase ended"
+      "comment": "the movement_phase_end window had nothing to offer P1 \u2014 the Movement phase ended"
     },
     {
       "act": "execute_script",

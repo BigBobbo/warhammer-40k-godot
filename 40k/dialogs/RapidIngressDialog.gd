@@ -98,6 +98,8 @@ func _build_ui() -> void:
 	# Subheader
 	var subheader = Label.new()
 	subheader.text = "Core - Strategic Ploy Stratagem"
+	if GameConstants.edition >= 11:
+		subheader.text = "Core Stratagem (15.07)"  # 11e cards carry no Strategic Ploy category
 	subheader.add_theme_font_size_override("font_size", 16)
 	subheader.add_theme_color_override("font_color", Color.GRAY)
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -122,6 +124,12 @@ func _build_ui() -> void:
 	if GameConstants.edition >= 11:
 		# 11e 15.07: "EFFECT: Your unit makes an ingress move (20.04)."
 		effect_label.text = "Your opponent's Movement phase is ending. Select one of your strategic reserves units (not AIRCRAFT) to make an ingress move: set it up wholly within 6\" of a battlefield edge and more than 8\" from all enemy units (20.04)."
+		# 20.04 WHILE MOVING — "Before the Third Battle Round: While doing so,
+		# no models can be set up within your opponent's deployment zone."
+		# (MovementPhase._validate_place_rapid_ingress_reinforcement enforces it.)
+		if GameState.ingress_opponent_dz_ban_applies(GameState.get_battle_round(), false):
+			effect_label.text += " Before the third battle round, no models can be set up within your opponent's deployment zone."
+	effect_label.name = "EffectText"
 	effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	effect_label.add_theme_font_size_override("font_size", 17)
 	main_container.add_child(effect_label)

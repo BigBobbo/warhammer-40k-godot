@@ -27,6 +27,12 @@ extends SceneTree
 #     a player's level of control over an objective ...".
 #   SAVE ROLLS 05.03 — "The opposing player resolves the following sequence:
 #     1. Create Groups ... 2. Allocation Order ... 3. Make Save Rolls".
+#   SELECT TARGETS 04.02 — "WHILE SHOOTING ... Unless otherwise stated, each
+#     target must be: ▪ Visible ... ▪ Within range of that weapon.
+#     ▪ Unengaged."
+#   SHOOTING AT ENGAGED MONSTERS AND VEHICLES 17.03 — "In your Shooting phase,
+#     enemy MONSTER/VEHICLE units that are engaged can be selected as targets
+#     of ranged attacks." (snap shooting is in the OPPONENT's Movement phase)
 #
 # Board: ork11e_orks_reactive (round 2, P1 Custodes active, P2 Orks), trimmed
 # to the units each case needs and repositioned. Everything goes through the
@@ -214,6 +220,10 @@ func _run_tests():
 	_test_ai_defender()
 	_test_defender_allocates_saves()
 	_test_summary_counts_target_casualties()
+	_test_engaged_monster_vehicle_not_a_snap_target()
+	_test_interactive_path_crit_clamp()
+	_test_end_of_phase_prompt_hold_scope()
+	_test_snap_target_prefilter_equivalence()
 	_test_10e_unchanged()
 
 	RE.set_test_seed(-1)
@@ -253,8 +263,10 @@ func _test_window_offer_non_active_only() -> void:
 	_check("END_MOVEMENT succeeded and the phase is still MOVEMENT (waiting)",
 		em.end.get("success", false) and GS.get_current_phase() == GameStateData.Phase.MOVEMENT, str(em.end.get("error", "")))
 	_check("the pending window is P2's movement_phase_end", int(win.get("player", 0)) == 2 and str(win.get("window_id", "")) == W_END, str(win.keys()))
-	_check("the END_MOVEMENT result stamps the window for the network mirror",
-		em.end.has("stratagem_window_opened") or phase.has_pending_stratagem_window())
+	var stamp: Dictionary = em.end.get("stratagem_window_opened", {})
+	_check("the END_MOVEMENT result stamps P2's movement_phase_end window for the network mirror",
+		str(stamp.get("window_id", "")) == W_END and int(stamp.get("player", 0)) == 2
+		and not _fo_offer(stamp).is_empty(), str(em.end.keys()))
 	var offer := _fo_offer(win)
 	_check("P2's window offers FIRE OVERWATCH (1 CP)", not offer.is_empty() and int(offer.get("cp_cost", 0)) == 1, str(win.get("offers", []).map(func(o): return o.stratagem_id)))
 	var g := _row(offer, "U_GRETCHIN_C")
@@ -439,6 +451,16 @@ func _test_use_spends_cp_and_resolves() -> void:
 	_check("the snap hit rolls ride the result (dice for the log / network)", not hit_blocks.is_empty(), str(res.get("dice", []).map(func(d): return d.get("context", ""))))
 	_check("a player-facing summary line is in the result", "snap-shot" in str(res.get("fire_overwatch_summary", "")), str(res.get("fire_overwatch_summary", "")))
 	_check("Game Log carries the >>> FIRE OVERWATCH <<< lines", _log_has(">>> FIRE OVERWATCH <<<") and _log_has("only unmodified 6s hit"))
+	# GameEventLog is per-peer: the lines ride the result so the network client
+	# replays them (NetworkManager._emit_client_visual_updates).
+	var lines: Array = res.get("fire_overwatch_log_lines", [])
+	_check("the result carries the Game Log lines for the network client (header + hit rolls + result)",
+		lines.size() >= 3 and str(lines[0]) == ">>> FIRE OVERWATCH <<<"
+		and lines.any(func(l): return "Hit rolls" in str(l)) and lines.any(func(l): return "Result:" in str(l) or "destroyed" in str(l)), str(lines))
+	var gel_texts: Array = root.get_node("GameEventLog").entries.map(func(e): return str(e.get("text", "")))
+	var hdr_at: int = gel_texts.rfind(">>> FIRE OVERWATCH <<<")
+	var gel_run: Array = gel_texts.slice(hdr_at, hdr_at + lines.size()) if hdr_at >= 0 else []
+	_check("…exactly the lines the host's own Game Log got, in order", gel_run == lines.map(func(l): return str(l)), "%s vs %s" % [str(gel_run), str(lines)])
 	var used: Array = SM._usage_history.get("2", []).filter(func(u): return str(u.stratagem_id) == FO)
 	_check("usage recorded once for P2 (target = the shooter)", used.size() == 1 and str(used[0].target_unit_id) == "U_GRETCHIN_C", str(used))
 	_check("the window answer completed the phase: now SHOOTING", GS.get_current_phase() == GameStateData.Phase.SHOOTING, str(GS.get_current_phase()))
@@ -644,6 +666,8 @@ func _test_ai_defender() -> void:
 		m["invuln"] = 0
 	AI.enabled = true
 	AI.ai_players = {1: false, 2: true}
+	# T7-57 per-game stats (AIPlayer.configure() creates this row in a game).
+	AI._game_performance[2] = {"cp_spent": 0, "units_lost": 0, "units_killed": 0, "objectives_per_round": {}, "key_moments": []}
 	var log_before: int = AI.get_action_log().size()
 	phase = _movement()
 	var end_res: Dictionary = phase.execute_action({"type": "END_MOVEMENT", "player": 1})
@@ -655,6 +679,9 @@ func _test_ai_defender() -> void:
 	_check("AI turn summary / action log counts it as USE_WINDOW_STRATAGEM",
 		new_entries.any(func(e): return str(e.get("action_type", "")) == "USE_WINDOW_STRATAGEM"), str(new_entries))
 	_check("…and categorises it as a stratagem", AI._categorize_action("USE_WINDOW_STRATAGEM") == "stratagems_used")
+	_check("…and the AI's CP stats count the 1 CP it spent (T7-57, like RAPID INGRESS)",
+		int(AI._game_performance.get(2, {}).get("cp_spent", -1)) == 1, str(AI._game_performance.get(2, {})))
+	AI._game_performance.erase(2)
 	# Low CP: the AI keeps its last CP.
 	var offer := {"stratagem_id": FO, "name": "FIRE OVERWATCH", "cp_cost": 1,
 		"targets": [{"unit_id": "U_GRETCHIN_C", "secondary": {"kind": "unit", "options": [{"id": "U_CUSTODIAN_GUARD_A"}]}}]}
@@ -717,6 +744,8 @@ func _test_defender_allocates_saves() -> void:
 	_check("…the phase holds (MOVEMENT) and the decider is now P1, the defender",
 		GS.get_current_phase() == GameStateData.Phase.MOVEMENT and phase.get_pending_stratagem_window_decider() == 1)
 	_check("…P2's 1 CP is already spent", int(GS.state.players["2"]["cp"]) == 5)
+	_check("…the USE result already carries the header Game Log lines for the client",
+		res.get("fire_overwatch_log_lines", []).has(">>> FIRE OVERWATCH <<<"), str(res.get("fire_overwatch_log_lines", [])))
 	var blocked: Dictionary = phase.execute_action({"type": "END_MOVEMENT", "player": 1})
 	_check("other actions are refused while P1 allocates", not blocked.get("success", true) and "allocate the FIRE OVERWATCH wounds" in str(blocked.get("error", "")), str(blocked))
 	var batch: Dictionary = phase.pending_save_data[0]
@@ -738,6 +767,8 @@ func _test_defender_allocates_saves() -> void:
 	_check("the allocation's damage landed on the target (T1, no save: %d -> %d models)" % [alive_before, alive_after], alive_after < alive_before or
 		GS.state.units["U_CUSTODIAN_GUARD_A"].models.any(func(m): return int(m.get("current_wounds", 3)) < 3))
 	_check("…the final result carries the snap-shot summary", "snap-shot" in str(fin.get("fire_overwatch_summary", "")), str(fin.keys()))
+	_check("…and the result Game Log lines (save rolls) for the client",
+		fin.get("fire_overwatch_log_lines", []).any(func(l): return "Save roll" in str(l)), str(fin.get("fire_overwatch_log_lines", [])))
 	# AI attacker, human defender: the AI's synchronous window answer pauses
 	# END_MOVEMENT for P1's allocation instead of resolving it for them.
 	seed_used = -1
@@ -798,6 +829,184 @@ func _test_summary_counts_target_casualties() -> void:
 		text += str(e.get("text", "")) + "\n"
 	_check("Game Log save line shows the roll needed (4+ after AP -2)", "Save roll: [3] vs 4+ (failed!)" in text, text)
 	_check("…and does not announce the shooter's own [HAZARDOUS] loss as destroyed", not ("destroyed!" in text) and "1 failed save" in text, text)
+
+# ── (n) 04.02 / 17.03: an ENGAGED MONSTER/VEHICLE is not a snap target ────
+
+func _test_engaged_monster_vehicle_not_a_snap_target() -> void:
+	print("\n-- (n) 04.02 + 17.03: an engaged enemy MONSTER/VEHICLE is not a snap-shooting target --")
+	_load(["U_CUSTODIAN_GUARD_A", "U_CUSTODIAN_GUARD_B", "U_GRETCHIN_C", "U_GRETCHIN_D"])
+	# Custodian Guard B is made a VEHICLE and locked in combat with Gretchin D.
+	GS.state.units["U_CUSTODIAN_GUARD_B"].meta.keywords.append("VEHICLE")
+	_place("U_CUSTODIAN_GUARD_B", 8.0, 24.0)
+	_place("U_GRETCHIN_D", 8.0, 25.6, 1.4)          # base-to-base -> engaged
+	_place("U_CUSTODIAN_GUARD_A", 24.0, 22.0)
+	_place("U_GRETCHIN_C", 12.0, 30.0, 1.4)         # unengaged, within 12" of both Custodian units
+	var board = GS.create_snapshot()
+	_check("(setup) Custodian Guard B is a VEHICLE and engaged; Gretchin C is unengaged",
+		RE.is_monster_or_vehicle(board.units["U_CUSTODIAN_GUARD_B"]) and RE.is_attached_unit_engaged("U_CUSTODIAN_GUARD_B", board)
+		and not RE.is_attached_unit_engaged("U_GRETCHIN_C", board))
+	_check("(control) 17.03 in the SHOOTING phase: the engaged VEHICLE IS an eligible target for normal shooting",
+		RE.get_eligible_targets("U_GRETCHIN_C", board).has("U_CUSTODIAN_GUARD_B"), str(RE.get_eligible_targets("U_GRETCHIN_C", board).keys()))
+	var ids := _snap_ids("U_GRETCHIN_C")
+	_check("snap shooting (opponent's Movement phase): the engaged VEHICLE is NOT a target", not ("U_CUSTODIAN_GUARD_B" in ids), str(ids))
+	_check("…the unengaged Custodian Guard A still is", "U_CUSTODIAN_GUARD_A" in ids, str(ids))
+	var phase = _movement()
+	var offer := _fo_offer(_end_movement(phase).window)
+	var g := _row(offer, "U_GRETCHIN_C")
+	_check("the FIRE OVERWATCH row of Gretchin C does not offer the engaged VEHICLE", not g.is_empty() and not ("U_CUSTODIAN_GUARD_B" in _option_ids(g)), str(_option_ids(g)))
+	var v: Dictionary = SM.can_use_stratagem(2, FO, "U_GRETCHIN_C", {"window_id": W_END, "secondary_id": "U_CUSTODIAN_GUARD_B"})
+	_check("server-side: can_use_stratagem refuses the engaged VEHICLE as the snap target", not v.can_use and "snap-shooting target" in str(v.reason), str(v))
+	var r := _use_fo(phase, "U_GRETCHIN_C", "U_CUSTODIAN_GUARD_B")
+	_check("USE naming it is refused and nothing is spent", not r.get("success", true) and int(GS.state.players["2"]["cp"]) == 6, str(r))
+	# An engaged SHOOTER has no snap shot at all (15.08 TARGET: unengaged) —
+	# even with a stale flags.in_engagement = false.
+	GS.state.units["U_GRETCHIN_D"].flags["in_engagement"] = false
+	_check("the engaged Gretchin D has no snap targets (stale in_engagement flag ignored)", _snap_ids("U_GRETCHIN_D").is_empty(), str(_snap_ids("U_GRETCHIN_D")))
+	phase.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 2, "window_id": W_END})
+
+# ── (o) 15.09 crit clamp on the interactive (human-defender) path ─────
+
+func _test_interactive_path_crit_clamp() -> void:
+	print("\n-- (o) 15.09 on the human-defender path (resolve_shoot_until_wounds): unmodified 6s only, no re-rolls --")
+	_load(["U_CUSTODIAN_GUARD_A", "U_GRETCHIN_C"])
+	_place("U_CUSTODIAN_GUARD_A", 8.0, 30.0)
+	_place("U_GRETCHIN_C", 6.0, 36.0, 1.4)          # within 9" -> BLITZA FIRE crits on 5+
+	var gf: Dictionary = GS.state.units["U_GRETCHIN_C"].flags
+	gf["effect_blitza_fire"] = true
+	gf[EffectPrimitivesData.FLAG_REROLL_HITS] = "all"
+	var asg: Array = RE.build_snap_assignments_11e("U_GRETCHIN_C", "U_CUSTODIAN_GUARD_A", GS.create_snapshot())
+	_check("snap assignments built for the Gretchin", not asg.is_empty(), str(asg))
+	var sixes := 0
+	var fives := 0
+	var hits := 0
+	var rerolls := 0
+	var crit_seen := []
+	for seed in [11, 12, 13, 14, 15, 16]:
+		var uw: Dictionary = RE.resolve_shoot_until_wounds({"type": "SHOOT", "actor_unit_id": "U_GRETCHIN_C",
+			"payload": {"assignments": asg, "overwatch": true, "shooting_type": "snap"}}, GS.create_snapshot(), RE.RNGService.new(seed))
+		for db in uw.get("dice", []):
+			if str(db.get("context", "")) != "to_hit":
+				continue
+			for r in db.get("rolls_raw", []):
+				if int(r) == 6:
+					sixes += 1
+				elif int(r) == 5:
+					fives += 1
+			hits += int(db.get("successes", 0))
+			rerolls += db.get("rerolls", []).size()
+			crit_seen.append(int(db.get("critical_hit_threshold", 0)))
+	_check("(the seeds rolled some 5s — BLITZA FIRE would have made them crits)", fives > 0, "fives=%d" % fives)
+	_check("interactive path: hits == unmodified 6s only (5+ critical threshold clamped)", hits == sixes, "hits=%d sixes=%d fives=%d" % [hits, sixes, fives])
+	_check("interactive path: critical hit threshold reported as 6", not crit_seen.is_empty() and crit_seen.all(func(c): return c == 6), str(crit_seen))
+	_check("interactive path: no hit re-rolls", rerolls == 0, "rerolls=%d" % rerolls)
+	# Control: the same flags crit on 5+ through this path when not snap shooting.
+	var normal_asg: Array = []
+	for a in asg:
+		var c: Dictionary = a.duplicate()
+		c.erase("overwatch")
+		c.erase("shooting_type")
+		normal_asg.append(c)
+	var n_crit := []
+	for seed in [11, 12]:
+		var nuw: Dictionary = RE.resolve_shoot_until_wounds({"type": "SHOOT", "actor_unit_id": "U_GRETCHIN_C",
+			"payload": {"assignments": normal_asg}}, GS.create_snapshot(), RE.RNGService.new(seed))
+		for db in nuw.get("dice", []):
+			if str(db.get("context", "")) == "to_hit":
+				n_crit.append(int(db.get("critical_hit_threshold", 0)))
+	_check("control: a normal shot through the same path crits on 5+", not n_crit.is_empty() and n_crit.all(func(c): return c == 5), str(n_crit))
+
+# ── (p) which end-of-Movement prompts hold the phase online ───────────
+
+func _test_end_of_phase_prompt_hold_scope() -> void:
+	print("\n-- (p) the network phase hold covers RAPID INGRESS only, at 11e only --")
+	_std_board()
+	var phase = _movement()
+	_check("no prompt: nothing holds", not phase.has_pending_end_of_phase_prompt())
+	phase._awaiting_mekaniak = true
+	phase._awaiting_sawbonez = true
+	phase._awaiting_grot_oiler = true
+	_check("SAWBONEZ / MEKANIAK / GROT OILER (no dialog, no client mirror) do NOT hold the phase", not phase.has_pending_end_of_phase_prompt())
+	phase._awaiting_mekaniak = false
+	phase._awaiting_sawbonez = false
+	phase._awaiting_grot_oiler = false
+	phase._awaiting_rapid_ingress = true
+	_check("a RAPID INGRESS decision holds it", phase.has_pending_end_of_phase_prompt())
+	phase._awaiting_rapid_ingress = false
+	phase._rapid_ingress_unit_id = "U_STORMBOYZ_A"
+	_check("…and so does a RAPID INGRESS set-up in progress", phase.has_pending_end_of_phase_prompt())
+	phase._rapid_ingress_unit_id = ""
+	# A real MEKANIAK prompt through GameManager's host END_MOVEMENT: the phase
+	# completes as before (it used to hang online after the previous change).
+	_load(["U_CUSTODIAN_GUARD_A", "U_BATTLEWAGON_A", "U_RUNTHERD_A"])
+	GS.state.meta["active_player"] = 2
+	_place("U_CUSTODIAN_GUARD_A", 5.0, 5.0, 2.0)
+	GS.state.units["U_BATTLEWAGON_A"].models[0]["position"] = {"x": 30.0 * PX, "y": 40.0 * PX}
+	var rh: Dictionary = GS.state.units["U_RUNTHERD_A"]
+	rh.meta["abilities"] = rh.meta.get("abilities", []) + [{"name": "Mekaniak"}]
+	var i := 0
+	for m in rh.models:
+		# UnitAbilityManager's Mekaniak range check compares PIXELS to 3.0 (a
+		# pre-existing bug) — stand the Runtherd 2 px from the Battlewagon.
+		m["position"] = {"x": 30.0 * PX + 2.0 + i * 60.0, "y": 40.0 * PX}
+		i += 1
+	phase = _movement()
+	var mek_targets: Array = root.get_node("UnitAbilityManager").get_mekaniak_targets("U_RUNTHERD_A")
+	_check("(setup) the Runtherd has a MEKANIAK target", not mek_targets.is_empty())
+	var gm = root.get_node("GameManager")
+	var res: Dictionary = gm._end_phase_via_phase({"type": "END_MOVEMENT", "player": 2}, GameStateData.Phase.MOVEMENT)
+	_check("END_MOVEMENT raised the MEKANIAK prompt", res.get("trigger_mekaniak", false), str(res.keys()))
+	_check("…and GameManager still completed the phase (no online stall on a prompt nobody can answer)",
+		res.get("changes", []).any(func(d): return str(d.get("path", "")) == "meta.phase" and int(d.get("value", 0)) == GameStateData.Phase.SHOOTING), str(res.get("changes", [])))
+	# 10e: the RAPID INGRESS prompt keeps the previous network behaviour.
+	_ri_board(2)
+	GameConstants.edition = 10
+	_check("edition pinned to 10 for this case", GameConstants.edition == 10)
+	SM._usage_history = {"1": [], "2": []}
+	phase = _movement()
+	res = gm._end_phase_via_phase({"type": "END_MOVEMENT", "player": 1}, GameStateData.Phase.MOVEMENT)
+	_check("10e: a RAPID INGRESS prompt does not hold GameManager's END_MOVEMENT (previous behaviour)",
+		res.get("trigger_rapid_ingress", false) and res.get("changes", []).any(func(d): return str(d.get("path", "")) == "meta.phase"),
+		str(res.keys()))
+	GameConstants.edition = 11
+	_check("edition back to 11", GameConstants.edition == 11)
+
+# ── (q) PERF: the 24" pre-filter returns the same targets ─────────────
+
+func _test_snap_target_prefilter_equivalence() -> void:
+	print("\n-- (q) the 24\" pre-filter (get_eligible_targets only_target_ids) changes no answer --")
+	var slm = root.get_node("SaveLoadManager")
+	slm.load_game_from_file_path(FIXTURE)
+	GameConstants.edition = 11
+	GS.state.meta["battle_round"] = 2
+	GS.state.meta["active_player"] = 1
+	var board = GS.create_snapshot()
+	var mismatches: Array = []
+	var compared := 0
+	for uid in board.units:
+		if int(board.units[uid].get("owner", 0)) != 2 or board.units[uid].get("attached_to", null) != null:
+			continue
+		var full: Dictionary = RE.get_eligible_targets(uid, board)
+		var near: Dictionary = {}
+		for tid in full:
+			near[tid] = true
+		if near.is_empty():
+			continue
+		var filtered: Dictionary = RE.get_eligible_targets(uid, board, false, near)
+		compared += 1
+		if filtered.keys() != full.keys():
+			mismatches.append("%s: %s vs %s" % [uid, str(filtered.keys()), str(full.keys())])
+		var one: String = str(full.keys()[0])
+		var only_one: Dictionary = RE.get_eligible_targets(uid, board, false, {one: true})
+		if only_one.keys() != [one] or only_one[one].weapons_in_range != full[one].weapons_in_range:
+			mismatches.append("%s restricted to %s: %s" % [uid, one, str(only_one)])
+	_check("only_target_ids returns exactly the unfiltered answer for the listed targets (%d units compared)" % compared,
+		compared > 0 and mismatches.is_empty(), str(mismatches))
+	var t0 := Time.get_ticks_msec()
+	var rows: Array = SM.get_fire_overwatch_offer_targets_11e(2)
+	print("  info: FIRE OVERWATCH offer on the full ork11e_orks_reactive board: %d ms (%d rows)" % [Time.get_ticks_msec() - t0, rows.size()])
+	var row_ids: Array = rows.map(func(r): return str(r.unit_id))
+	_check("the full board's offer rows are Flash Gitz + Tankbustas (same as before the pre-filter)",
+		row_ids.size() == 2 and "U_FLASH_GITZ_A" in row_ids and "U_TANKBUSTAS_A" in row_ids, str(row_ids))
 
 func _test_10e_unchanged() -> void:
 	print("\n-- (k) edition 10: the per-move Balance Dataslate offer is unchanged --")

@@ -1396,14 +1396,41 @@ static func _snap_board_unengaged(board: Dictionary, component_ids: Array) -> Di
 	b["units"] = units
 	return b
 
-## Closest edge-to-edge distance (inches) between any alive, positioned model
-## of the shooter's Attached unit and any of the target's Attached unit.
-static func _snap_min_distance_inches(shooter_components: Array, target_components: Array, board: Dictionary) -> float:
+## The alive, positioned models of `component_ids` with their centre (px) and
+## circumscribed base radius (px, Measurement.base_extent_px) — the input of
+## _snap_min_distance_pts. Models without a position (reserves, embarked) are
+## left out (_get_min_distance_to_target_rules would read them as (0, 0)).
+static func _snap_model_points(component_ids: Array, board: Dictionary) -> Array:
+	var pts: Array = []
+	var units: Dictionary = board.get("units", {})
+	for cid in component_ids:
+		for m in units.get(cid, {}).get("models", []):
+			if not m.get("alive", true) or m.get("position") == null:
+				continue
+			var pos = m.get("position")
+			var c: Vector2 = pos if pos is Vector2 else Vector2(float(pos.get("x", 0.0)), float(pos.get("y", 0.0)))
+			pts.append({"m": m, "c": c, "r": Measurement.base_extent_px(m)})
+	return pts
+
+## Closest edge-to-edge distance (inches) between two model sets from
+## _snap_model_points, or INF when it is more than `cutoff_inches` (or either
+## set is empty). PERF: a pair whose bounding circles are already farther apart
+## than the cutoff / the best pair so far skips the shape-aware measurement.
+static func _snap_min_distance_pts(a_pts: Array, b_pts: Array, cutoff_inches: float = INF) -> float:
 	var best := INF
-	for sid in shooter_components:
-		for tid in target_components:
-			best = minf(best, _get_min_distance_to_target_rules(sid, tid, board))
-	return best
+	for a in a_pts:
+		for t in b_pts:
+			var lower_in: float = (a.c.distance_to(t.c) - float(a.r) - float(t.r)) / Measurement.PX_PER_INCH
+			if lower_in > cutoff_inches or lower_in >= best:
+				continue
+			best = minf(best, Measurement.model_to_model_distance_inches(a.m, t.m))
+	return best if best <= cutoff_inches else INF
+
+## Closest edge-to-edge distance (inches) between any alive, positioned model
+## of the shooter's Attached unit and any of the target's Attached unit (INF
+## when either side has none on the battlefield).
+static func _snap_min_distance_inches(shooter_components: Array, target_components: Array, board: Dictionary) -> float:
+	return _snap_min_distance_pts(_snap_model_points(shooter_components, board), _snap_model_points(target_components, board))
 
 ## 15.09 "visible": at least one model of the shooter's Attached unit can see
 ## at least one model of the target's Attached unit (the same 11e visibility
@@ -1416,13 +1443,22 @@ static func _snap_unit_visible(shooter_components: Array, target_components: Arr
 	return false
 
 ## The legal SNAP-shooting targets of `shooter_unit_id`'s (Attached) unit:
-## enemy units that are an eligible target (RulesEngine.get_eligible_targets —
-## 17.03 engaged targets, Lone Operative X", Psychic Veil, Hunter profiles,
-## >= 1 weapon in range and visible — asked of every component of the
-## Attached unit), visible to the unit and within 24" of it. Sneaky Surprise
-## units cannot be targeted by Fire Overwatch (datasheet ability). Returns
-## [{unit_id, label, distance_inches}], nearest first.
-static func snap_shooting_targets_11e(shooter_unit_id: String, board: Dictionary) -> Array:
+## enemy units within 24" of it (measured first — it is the cheapest test, and
+## only those units go through the LoS-heavy eligibility scan), that are an
+## eligible target (RulesEngine.get_eligible_targets — Lone Operative X",
+## Psychic Veil, Hunter profiles, >= 1 weapon in range and visible — asked of
+## every component of the Attached unit), UNENGAGED, and visible to the unit.
+## 04.02: "Unless otherwise stated, each target must be: ... Unengaged."
+## 17.03 lifts that for MONSTER/VEHICLE targets only "In your Shooting phase";
+## snap shooting happens in the opponent's Movement phase, so an engaged
+## MONSTER/VEHICLE (which get_eligible_targets lets through for the Shooting
+## phase) is dropped here — and so is a target whose attached CHARACTER is
+## engaged (19.01: one unit). Sneaky Surprise units cannot be targeted by Fire
+## Overwatch (datasheet ability). Returns [{unit_id, label, distance_inches}],
+## nearest first. `pts_cache` (optional, PERF): unit id -> _snap_model_points
+## of its Attached unit, shared by a caller that asks about many shooters on the
+## same board (the FIRE OVERWATCH offer) so each enemy unit is measured once.
+static func snap_shooting_targets_11e(shooter_unit_id: String, board: Dictionary, pts_cache: Dictionary = {}) -> Array:
 	var out: Array = []
 	var units: Dictionary = board.get("units", {})
 	var shooter: Dictionary = units.get(shooter_unit_id, {})
@@ -1431,10 +1467,41 @@ static func snap_shooting_targets_11e(shooter_unit_id: String, board: Dictionary
 	var owner := int(shooter.get("owner", 0))
 	var head := attached_unit_target_id(shooter_unit_id, board)
 	var components: Array = attached_unit_component_ids(head, board)
+	# 15.09 "within 24" of your unit": enemy units (a bodyguard heads its
+	# Attached unit — an attached CHARACTER is targeted through it, and
+	# embarked units are not on the battlefield).
+	var near: Dictionary = {}  # target id -> closest distance (inches)
+	var shooter_pts: Array = _snap_model_points(components, board)
+	if shooter_pts.is_empty():
+		return out
+	for tid in units:
+		var target_u: Dictionary = units[tid]
+		if int(target_u.get("owner", 0)) == owner:
+			continue
+		if target_u.get("attached_to", null) != null or target_u.get("embarked_in", null) != null:
+			continue
+		if not pts_cache.has(tid):
+			pts_cache[tid] = _snap_model_points(attached_unit_component_ids(tid, board), board)
+		var dist := _snap_min_distance_pts(shooter_pts, pts_cache[tid], 24.0)
+		if dist <= 24.0:
+			near[tid] = dist
+	if near.is_empty():
+		return out
+	# 15.08 TARGET "One friendly unengaged unit": an engaged unit has no snap
+	# shot at all. Engagement range is at most 2" horizontally (barricades,
+	# T3-9), so only a unit with an enemy model that close needs the (live,
+	# whole-Attached-unit) engagement check — not the stale flags.in_engagement.
+	var nearest := INF
+	for tid in near:
+		nearest = minf(nearest, float(near[tid]))
+	if nearest <= maxf(GameConstants.engagement_range_inches(), GameConstants.barricade_engagement_range_inches()) + 1.0 \
+			and is_attached_unit_engaged(head, board):
+		print("RulesEngine: [15.08] SNAP — %s is engaged: no snap shooting" % head)
+		return out
 	var b := _snap_board_unengaged(board, components)
 	var candidate_ids: Dictionary = {}
 	for cid in components:
-		var et: Dictionary = get_eligible_targets(cid, b)
+		var et: Dictionary = get_eligible_targets(cid, b, false, near)
 		for tid in et:
 			candidate_ids[tid] = true
 	var ability_mgr = Engine.get_main_loop().root.get_node_or_null("UnitAbilityManager")
@@ -1445,14 +1512,14 @@ static func snap_shooting_targets_11e(shooter_unit_id: String, board: Dictionary
 		if ability_mgr != null and ability_mgr.has_method("has_sneaky_surprise") and ability_mgr.has_sneaky_surprise(tid):
 			print("RulesEngine: [15.09] SNAP — %s has Sneaky Surprise (cannot be targeted by Fire Overwatch)" % tid)
 			continue
-		var target_components: Array = attached_unit_component_ids(tid, board)
-		var dist := _snap_min_distance_inches(components, target_components, board)
-		if dist > 24.0:
+		if is_attached_unit_engaged(tid, board):
+			print("RulesEngine: [15.09/04.02] SNAP — %s is engaged: not an eligible target outside your Shooting phase (17.03)" % tid)
 			continue
+		var target_components: Array = attached_unit_component_ids(tid, board)
 		if not _snap_unit_visible(components, target_components, board):
 			continue
 		var meta: Dictionary = target.get("meta", {})
-		out.append({"unit_id": tid, "label": str(meta.get("display_name", meta.get("name", tid))), "distance_inches": dist})
+		out.append({"unit_id": tid, "label": str(meta.get("display_name", meta.get("name", tid))), "distance_inches": float(near.get(tid, INF))})
 	out.sort_custom(func(a, c): return float(a.distance_inches) < float(c.distance_inches))
 	return out
 
@@ -6304,16 +6371,6 @@ static func _calculate_save_needed(base_save: int, ap: int, has_cover: bool, inv
 		"cap_applied": improvement > 1
 	}
 
-## 11e (10.07): do an [INDIRECT FIRE] weapon's indirect-shooting WHILE
-## SHOOTING consequences apply to this attack? At 11e they follow the shooting
-## type the player SELECTED for the unit (assignment.shooting_type, stamped by
-## _stamp_shooting_type): "indirect" ⇒ yes even against a VISIBLE target. An
-## UNSEEN target can only be shot by selecting indirect shooting, so it always
-## gets them — whatever type was stamped: no UI or AI path picks a shooting
-## type yet, so SELECT_SHOOTER defaults the unit to "normal" and a stamped
-## "normal" must not switch 10.07 off for a hidden target (merge review
-## SHOOT-1). A visible target shot with any other type ⇒ no. 10e keeps the
-## visibility rule (#371).
 ## 11e 15.09 SNAP SHOOTING: "Each attack only hits on an unmodified hit roll
 ## of 6 (irrespective of the attacking weapon's BS characteristic or any
 ## modifiers)". Overwatch forces BS 7, which stops BS/hit modifiers — but a
@@ -6327,6 +6384,16 @@ static func _snap_critical_hit_threshold_11e(critical_hit_threshold: int) -> int
 		return 6
 	return critical_hit_threshold
 
+## 11e (10.07): do an [INDIRECT FIRE] weapon's indirect-shooting WHILE
+## SHOOTING consequences apply to this attack? At 11e they follow the shooting
+## type the player SELECTED for the unit (assignment.shooting_type, stamped by
+## _stamp_shooting_type): "indirect" ⇒ yes even against a VISIBLE target. An
+## UNSEEN target can only be shot by selecting indirect shooting, so it always
+## gets them — whatever type was stamped: no UI or AI path picks a shooting
+## type yet, so SELECT_SHOOTER defaults the unit to "normal" and a stamped
+## "normal" must not switch 10.07 off for a hidden target (merge review
+## SHOOT-1). A visible target shot with any other type ⇒ no. 10e keeps the
+## visibility rule (#371).
 static func _indirect_consequences_apply(is_indirect_fire: bool, target_visible: bool, assignment: Dictionary) -> bool:
 	if not is_indirect_fire:
 		return false
@@ -6895,7 +6962,11 @@ static func _get_model_position(model: Dictionary) -> Vector2:
 # list filter only needs a yes/no, so it passes true and skips the rest of the
 # (expensive, LoS-heavy) enemy scan. The default false path builds the full map
 # the target-selection UI needs.
-static func get_eligible_targets(actor_unit_id: String, board: Dictionary, first_match_only: bool = false) -> Dictionary:
+# only_target_ids (PERF, 15.09 snap shooting): when non-empty, only the enemy
+# units whose ids are keys of it are considered — a caller that has already
+# ruled the rest out on a cheaper test (snap shooting: "within 24"") skips
+# their LoS / engagement scans. Every check on a considered unit is unchanged.
+static func get_eligible_targets(actor_unit_id: String, board: Dictionary, first_match_only: bool = false, only_target_ids: Dictionary = {}) -> Dictionary:
 	var eligible = {}
 	var units = board.get("units", {})
 	var actor_unit = units.get(actor_unit_id, {})
@@ -6917,6 +6988,8 @@ static func get_eligible_targets(actor_unit_id: String, board: Dictionary, first
 
 	# Check each potential target unit
 	for target_unit_id in units:
+		if not only_target_ids.is_empty() and not only_target_ids.has(target_unit_id):
+			continue
 		var target_unit = units[target_unit_id]
 
 		# Skip friendly units

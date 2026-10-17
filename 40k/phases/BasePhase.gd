@@ -499,7 +499,8 @@ func _process_window_queue() -> bool:
 					if ai_node and ai_node.has_method("record_window_stratagem_use"):
 						ai_node.record_window_stratagem_use(player, window_id, str(decision.get("stratagem_id", "")),
 							str(use_res.get("stratagem_name", decision.get("stratagem_id", ""))), str(decision.get("target_unit_id", "")),
-							str(decision.get("context", {}).get("secondary_id", "")) if typeof(decision.get("context", {})) == TYPE_DICTIONARY else "")
+							str(decision.get("context", {}).get("secondary_id", "")) if typeof(decision.get("context", {})) == TYPE_DICTIONARY else "",
+							int(use_res.get("cp_cost", 0)))
 					emit_signal("stratagem_window_closed", player, window_id, true)
 					_window_event_closed(window_id, ctx, true)
 					if use_res.get("paused", false):
@@ -555,7 +556,7 @@ func _apply_window_use(player: int, window_id: String, stratagem_id: String, tar
 			paused = _execute_window_followup(player, window_id, followup, use_ctx)
 			_window_followup_pending = paused
 	return {"success": true, "diffs": use_diffs, "paused": paused, "followup": followup,
-		"stratagem_name": str(res.get("stratagem_name", stratagem_id))}
+		"stratagem_name": str(res.get("stratagem_name", stratagem_id)), "cp_cost": int(res.get("cp_cost", 0))}
 
 func _validate_window_action(action: Dictionary) -> Dictionary:
 	if not has_pending_stratagem_window():

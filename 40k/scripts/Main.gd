@@ -1224,6 +1224,11 @@ func _update_waiting_for_opponent_overlay() -> void:
 	if is_my_turn:
 		_hide_waiting_overlay()
 		return
+	# The local (non-active) player is making a RAPID INGRESS set-up (15.07) —
+	# it is their decision now, not the opponent's.
+	if _rapid_ingress_unit_id != "":
+		_hide_waiting_overlay()
+		return
 
 	# It's opponent's turn — show the overlay with phase-appropriate text
 	var active_player = GameState.get_active_player()
@@ -3359,6 +3364,18 @@ func _begin_rapid_ingress_placement(unit_id: String) -> void:
 		# Store that we're in rapid ingress placement mode
 		_rapid_ingress_unit_id = unit_id
 
+		# Online the ingress set-up is made by the NON-active player (15.07,
+		# end of the opponent's Movement phase): exempt this placement from the
+		# deployment controller's "not your turn" input gate, and drop the
+		# "Waiting for Player N" banner while the local player sets up.
+		deployment_controller.cross_turn_placement_player = 0
+		var ri_nm = get_node_or_null("/root/NetworkManager")
+		if ri_nm and ri_nm.is_networked() and not ri_nm.is_local_player_turn() \
+				and int(unit.get("owner", 0)) == int(ri_nm.get_local_player()):
+			deployment_controller.cross_turn_placement_player = int(ri_nm.get_local_player())
+			_hide_waiting_overlay()
+			print("Main: Rapid Ingress set-up by the non-active local Player %d — cross-turn placement enabled" % deployment_controller.cross_turn_placement_player)
+
 		# Connect to confirm signal for rapid ingress completion
 		if not deployment_controller.unit_confirmed.is_connected(_on_rapid_ingress_confirmed):
 			deployment_controller.unit_confirmed.connect(_on_rapid_ingress_confirmed)
@@ -3372,6 +3389,36 @@ func _begin_rapid_ingress_placement(unit_id: String) -> void:
 
 		unit_list.visible = false
 		show_unit_card(unit_id)
+
+## 15.07 RAPID INGRESS online: USE_RAPID_INGRESS runs on the host and its
+## result reaches BOTH peers here (GameManager.result_applied). The deciding
+## player's own route_action only answered "pending", so the set-up branch of
+## _on_movement_action_requested never ran there and the CP was spent with no
+## placement UI while the host held the Movement phase for it. Start the 20.04
+## ingress set-up on the deciding player's machine (host or client); the other
+## peer is told who is setting up. Single-player never comes through here —
+## route_action returns the phase result directly (no result_applied).
+func _maybe_begin_networked_rapid_ingress(result: Dictionary) -> void:
+	if str(result.get("action_type", "")) != "USE_RAPID_INGRESS" or not result.get("rapid_ingress_used", false):
+		return
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm == null or not nm.has_method("is_networked") or not nm.is_networked():
+		return
+	var ri_unit_id := str(result.get("rapid_ingress_unit_id", ""))
+	var ri_player := int(result.get("rapid_ingress_player", 0))
+	if ri_player <= 0:
+		ri_player = int(result.get("action_data", {}).get("player", 0))
+	if ri_unit_id == "":
+		return
+	var unit_name := str(GameState.get_unit(ri_unit_id).get("meta", {}).get("name", ri_unit_id))
+	if ri_player != int(nm.get_local_player()):
+		print("Main: Rapid Ingress used online by Player %d (%s) — the set-up is made on their machine" % [ri_player, ri_unit_id])
+		var toast_mgr = get_node_or_null("/root/ToastManager")
+		if toast_mgr:
+			toast_mgr.show_toast("Player %d used RAPID INGRESS — setting up %s..." % [ri_player, unit_name], Color.DODGER_BLUE, 5.0)
+		return
+	print("Main: Rapid Ingress used online by local Player %d — starting the ingress set-up for %s" % [ri_player, ri_unit_id])
+	call_deferred("_begin_rapid_ingress_placement", ri_unit_id)
 
 func _on_rapid_ingress_confirmed() -> void:
 	"""Handle Rapid Ingress placement completion."""
@@ -3440,6 +3487,8 @@ func _on_rapid_ingress_confirmed() -> void:
 	# Reset reinforcement mode
 	if deployment_controller:
 		deployment_controller.is_reinforcement_mode = false
+		deployment_controller.cross_turn_placement_player = 0
+	_update_waiting_for_opponent_overlay()
 
 	# Disconnect rapid ingress signal
 	if deployment_controller.unit_confirmed.is_connected(_on_rapid_ingress_confirmed):
@@ -9765,7 +9814,14 @@ func _on_reset_pressed() -> void:
 			if deployment_controller and deployment_controller.is_reinforcement_mode and deployment_controller.is_placing():
 				var reset_unit_id = deployment_controller.unit_id
 				deployment_controller.reset_unit()
-				if reset_unit_id != "":
+				if reset_unit_id != "" and reset_unit_id == _rapid_ingress_unit_id:
+					# 15.07: a Rapid Ingress set-up restarts AS a Rapid Ingress
+					# set-up — restarting it as an ordinary reinforcement also
+					# connected _on_reinforcement_confirmed, so Confirm then sent
+					# PLACE_REINFORCEMENT alongside the Rapid Ingress placement.
+					print("Main: Reset during the Rapid Ingress set-up of %s — restarting it" % reset_unit_id)
+					_begin_rapid_ingress_placement(reset_unit_id)
+				elif reset_unit_id != "":
 					_begin_reinforcement_placement(reset_unit_id)
 				update_unit_card_buttons()
 				update_ui()
@@ -11546,6 +11602,7 @@ func _on_stratagem_used_update_display(_player: int, _stratagem_id: String, _tar
 func _on_network_result_applied(result: Dictionary) -> void:
 	print("Main: Network result applied, recreating visuals")
 	_show_fire_overwatch_summary(result)
+	_maybe_begin_networked_rapid_ingress(result)
 
 	# Check if phase changed
 	var diffs = result.get("diffs", [])
@@ -12654,6 +12711,12 @@ func _on_phase_action_pressed() -> void:
 	# Route through NetworkIntegration for multiplayer sync
 	print("Main: Routing phase end action through network: ", action.type)
 	var result = NetworkIntegration.route_action(action)
+	# 11e FIRE OVERWATCH (15.08): an AI defender answers the movement_phase_end
+	# window inside this END_MOVEMENT (BasePhase decides AI windows
+	# synchronously), so a snap shot that needs no human allocation is already
+	# resolved and its summary rides this result. (Online the result is only
+	# "pending"; _on_network_result_applied shows it.)
+	_show_fire_overwatch_summary(result)
 
 	if not result.get("success", false):
 		print("Main: Failed to end phase: ", result.get("error", "Unknown error"))

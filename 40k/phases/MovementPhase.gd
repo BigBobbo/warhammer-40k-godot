@@ -7301,15 +7301,18 @@ func _snap_end_of_phase_cleanup() -> Array:
 		log_phase_message("[11e 15.09] end of phase — snap shooters may start actions again (%d unit(s))" % diffs.size())
 	return diffs
 
-## True while a bespoke end-of-Movement prompt (SAWBONEZ, MEKANIAK, GROT
-## OILER, RAPID INGRESS selection / placement) waits for its player. The
-## phase must not be force-completed then: GameManager._end_phase_via_phase
-## (the host's END_MOVEMENT online) used to complete it "as before", which
-## silently skipped these prompts AND the movement_phase_end window behind
-## them (FIRE OVERWATCH) in multiplayer.
+## True while the end-of-Movement RAPID INGRESS prompt waits for its player
+## (15.07: the decision, then the 20.04 ingress set-up). Both are answerable
+## on the deciding peer online — NetworkManager re-emits the prompt there and
+## Main starts the set-up from the mirrored USE_RAPID_INGRESS result — so at
+## 11e GameManager._end_phase_via_phase (the host's END_MOVEMENT online) must
+## not force-complete the phase: it used to, which skipped the prompt AND the
+## movement_phase_end window behind it (FIRE OVERWATCH 15.08).
+## SAWBONEZ / MEKANIAK / GROT OILER are deliberately NOT included: they have
+## no human dialog and no client mirror, so holding the phase on them would
+## stall an online game (they keep the previous network behaviour).
 func has_pending_end_of_phase_prompt() -> bool:
-	return _awaiting_rapid_ingress or _rapid_ingress_unit_id != "" or _awaiting_sawbonez \
-		or _awaiting_mekaniak or _awaiting_grot_oiler
+	return _awaiting_rapid_ingress or _rapid_ingress_unit_id != ""
 
 ## A HUMAN-driven follow-up (reactive move / assault disembark) holds the
 ## phase like a pending window: report its owner so AIPlayer idles until it
@@ -7426,20 +7429,17 @@ func _resolve_snap_shooting_followup(player: int, followup: Dictionary) -> bool:
 	var shooter_name := GameState.get_unit_display_name(shooter_id)
 	var target_name := GameState.get_unit_display_name(target_id)
 	var assignments: Array = RulesEngine.build_snap_assignments_11e(shooter_id, target_id, board)
-	var gel = get_node_or_null("/root/GameEventLog")
 	if assignments.is_empty():
 		var none_msg := "%s: %s has no weapon that can see %s and has it in range — no attacks" % [source, shooter_name, target_name]
 		log_phase_message(none_msg)
-		if gel:
-			gel.add_overwatch_entry(none_msg)
+		_snap_game_log(none_msg)
 		return false
 	var weapon_names: Array = []
 	for a in assignments:
 		weapon_names.append("%s x%d" % [str(RulesEngine.get_weapon_profile(str(a.weapon_id), board).get("name", a.weapon_id)), a.model_ids.size()])
 	log_phase_message("[11e 15.09] %s: P%d %s snap-shoots %s with %s" % [source, player, shooter_name, target_name, ", ".join(weapon_names)])
-	if gel:
-		gel.add_overwatch_entry(">>> FIRE OVERWATCH <<<")
-		gel.add_overwatch_entry("P%d: %s fires at %s (snap shooting — only unmodified 6s hit, no hit re-rolls)" % [player, shooter_name, target_name])
+	_snap_game_log(">>> FIRE OVERWATCH <<<")
+	_snap_game_log("P%d: %s fires at %s (snap shooting — only unmodified 6s hit, no hit re-rolls)" % [player, shooter_name, target_name])
 	var head_id := RulesEngine.attached_unit_target_id(shooter_id, board)
 	var defender := int(GameState.get_unit(target_id).get("owner", 0))
 	_snap_saves = {"player": player, "defender": defender, "shooter_id": shooter_id, "head_id": head_id,
@@ -7489,6 +7489,28 @@ func _resolve_snap_shooting_followup(player: int, followup: Dictionary) -> bool:
 	_snap_finish()
 	return false
 
+## One FIRE OVERWATCH Game Log line: written here (the peer that resolves the
+## snap shot — the host online) and queued on the result as
+## fire_overwatch_log_lines, which NetworkManager replays into the network
+## client's Game Log (GameEventLog is local to each peer and is not synced).
+func _snap_game_log(text: String) -> void:
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_overwatch_entry(text)
+	var lines: Array = _window_result_extra.get("fire_overwatch_log_lines", [])
+	lines.append(text)
+	_window_result_extra["fire_overwatch_log_lines"] = lines
+
+## Stands in for GameEventLog in _log_overwatch_results_to_game_log (which only
+## calls add_overwatch_entry) so the snap shot's result lines go through
+## _snap_game_log.
+class _SnapLogRecorder extends RefCounted:
+	var _sink: Callable
+	func _init(sink: Callable) -> void:
+		_sink = sink
+	func add_overwatch_entry(text: String) -> void:
+		_sink.call(text)
+
 ## Whether the defender allocates the snap shot's wounds itself (05.03) — the
 ## same rule as ShootingPhase._should_pause_for_human_saves: a human defender
 ## at 11e who has not delegated allocation to the computer (and ALWAYS a
@@ -7537,10 +7559,10 @@ func _snap_finish() -> Array:
 	var res_like := {"dice": dice, "diffs": all_diffs, "log_text": str(st.get("log_text", ""))}
 	var shooter_id := str(st.get("shooter_id", ""))
 	var target_id := str(st.get("target_id", ""))
-	var gel = get_node_or_null("/root/GameEventLog")
-	if gel:
-		_log_overwatch_results_to_game_log(gel, res_like, str(st.get("shooter_name", "")), str(st.get("target_name", "")), int(st.get("player", 0)),
-			st.get("components", []))
+	# Through the recorder: every line also rides the result to the network
+	# client's Game Log (_snap_game_log).
+	_log_overwatch_results_to_game_log(_SnapLogRecorder.new(_snap_game_log), res_like, str(st.get("shooter_name", "")), str(st.get("target_name", "")), int(st.get("player", 0)),
+		st.get("components", []))
 	var summary := _snap_shooting_summary(str(st.get("source", "FIRE OVERWATCH")), str(st.get("shooter_name", "")), str(st.get("target_name", "")), res_like,
 		target_id, st.get("components", []))
 	log_phase_message(summary)
