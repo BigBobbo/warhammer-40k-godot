@@ -123,15 +123,6 @@
       }
     },
     {
-      "act": "dispatch_action",
-      "action": {
-        "type": "SELECT_KATAH_STANCE",
-        "unit_id": "U_CUSTODIAN_GUARD_B",
-        "stance": "dacatarai",
-        "player": 1
-      }
-    },
-    {
       "act": "wait_seconds",
       "seconds": 1.5
     },

@@ -72,10 +72,11 @@ const ENGAGED_PAIRS := [
 	["U_MEGANOBZ_A", "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"],
 ]
 
-# No Attached units: the codex data gives Custodian Guard Sodality no
-# "CUSTODIAN GUARD SODALITY" keyword, so CharacterAttachmentManager.can_attach
-# (keyword match on Leader can_lead) refuses the Shield-Captain — reported in
-# WP-C3's report. Attached-unit ka'tah behaviour is covered headless.
+# No Attached units: every Custodes unit stays its own unit so each ka'tah /
+# Master of Ka'tahs check is independent. (When this fixture was written the
+# codex Sodality also lacked its datasheet-name keyword — fixed upstream in
+# ad244cd.) Attached-unit ka'tah behaviour is covered headless by attaching
+# the Shield-Captain in test_custodes_army_rules_11e.gd (Master of Ka'tahs).
 const ATTACHMENTS := []
 
 var GS = null

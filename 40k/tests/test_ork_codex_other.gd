@@ -184,6 +184,21 @@ func _move_near(uid: String, anchor_uid: String, offset_in: Vector2) -> void:
 ## Move a unit so its centroid sits at `at` (inches). Open-field spots used by
 ## this test (no enemy within engagement range): active orientation
 ## (40, 44.5) / (40, 52); reactive orientation (41, 24) / (41, 35).
+## Codex: Adeptus Custodes (11e, WP-C3): the Custodes Command phase readies
+## every Martial Ka'tah unit, so selecting Custodian Guard F to shoot / fight
+## would first open a ka'tah window (Salvus / Dacatarai ...) for the human P1.
+## The ka'tahs are not under test here (test_custodes_army_rules_11e.gd covers
+## them): un-ready the Custodes and spend Master of Ka'tahs for the round.
+func _cus11e_unready() -> void:
+	var rnd: int = int(GS.get_battle_round())
+	for uid in GS.state.units:
+		var u: Dictionary = GS.state.units[uid]
+		if not (u.get("flags", null) is Dictionary):
+			u["flags"] = {}
+		u.flags.erase("cus11e_readied")
+		u.flags["cus11e_master_of_katahs_round"] = rnd
+
+
 func _move_to(uid: String, at: Vector2) -> void:
 	var d: Vector2 = (at * PX - _centroid(uid)) / PX
 	_translate(uid, d.x, d.y)
@@ -674,6 +689,7 @@ func _setup_flyboyz_shooting() -> String:
 	jet.meta.stats["toughness"] = 2
 	jet.meta.stats["save"] = 7
 	PM.transition_to_phase(PHASE_COMMAND)
+	_cus11e_unready()
 	PM.transition_to_phase(PHASE_SHOOTING)
 	return _sid(2, "flyin-headbutt-flyboyz")
 
@@ -758,6 +774,7 @@ func _setup_runt_swarm_shooting(alive_left: int = 1) -> String:
 	_move_to("U_CUSTODIAN_GUARD_F", Vector2(41, 24))
 	_kill("U_GRETCHIN_C", 10 - alive_left)
 	PM.transition_to_phase(PHASE_COMMAND)
+	_cus11e_unready()
 	PM.transition_to_phase(PHASE_SHOOTING)
 	return _sid(2, "infested-war-zone-runt-swarm")
 
@@ -965,6 +982,7 @@ func _section_infested_fight() -> void:
 	_translate("U_CUSTODIAN_GUARD_F", dx / PX, dy / PX)
 	_check("setup: Custodian Guard F engaged with Gretchin C", RE.check_units_in_engagement_range(_unit("U_CUSTODIAN_GUARD_F"), _unit("U_GRETCHIN_C"), GS.state))
 	PM.transition_to_phase(PHASE_COMMAND)
+	_cus11e_unready()
 	PM.transition_to_phase(PHASE_FIGHT)
 	var phase = _phase()
 	for p in [1, 2]:

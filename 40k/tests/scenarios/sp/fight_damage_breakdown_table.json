@@ -227,16 +227,6 @@
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/KatahStanceDialog",
-      "timeout_s": 5.0
-    },
-    {
-      "act": "click_node",
-      "node": "/root/KatahStanceDialog/Content/Buttons/DacataraiButton",
-      "emit_pressed": true
-    },
-    {
-      "act": "expect_node_visible",
       "node": "/root/AttackAssignmentDialog",
       "timeout_s": 5.0
     },

@@ -73,7 +73,7 @@
     { "act": "execute_script", "script": "GameEventLog._on_action_taken({'type':'PLACE_REINFORCEMENT','player':1,'unit_id':'U_SHIELD_CAPTAIN_A'})" },
     { "act": "execute_script", "script": "str(GameEventLog.entries.back().get('text','')).contains('Reserves')", "equals": true },
 
-    { "act": "execute_script", "script": "GameEventLog._on_action_taken({'type':'SELECT_KATAH_STANCE','player':1,'unit_id':'U_SHIELD_CAPTAIN_A','stance':'aggressive'})" },
+    { "act": "execute_script", "multiline": true, "comment": "Codex: Adeptus Custodes 11e (WP-C3): the 10e SELECT_KATAH_STANCE action is gone; the Martial Ka'tah readied step (start of the Custodes Command phase) is what the log reports now", "script": "load(\"res://scripts/codex/custodes/CustodesKatah.gd\").on_command_phase_start(1)\nreturn true", "equals": true },
     { "act": "execute_script", "script": "str(GameEventLog.entries.back().get('text','')).contains('Ka')", "equals": true },
 
     { "act": "execute_script", "script": "GameEventLog._on_action_taken({'type':'PERFORM_SECONDARY_ACTION','player':1,'actor_unit_id':'U_SHIELD_CAPTAIN_A','payload':{'action_name':'Cleanse'}})" },

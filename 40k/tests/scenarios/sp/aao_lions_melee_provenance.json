@@ -47,6 +47,7 @@
       "script": "# Isolate the Custodian Guard mid-board and park the Boyz in engagement\n# range (~0.5\" edge-to-edge; 32mm bases are ~25.2px in radius at 40px/inch).\nvar g = GameState.state[\"units\"][\"U_CUSTODIAN_GUARD_A\"]\nfor i in range(g[\"models\"].size()):\n\tg[\"models\"][i][\"position\"] = {\"x\": 300.0 + float(i) * 36.0, \"y\": 1200.0}\nvar b = GameState.state[\"units\"][\"U_BOYZ_K\"]\nfor i in range(b[\"models\"].size()):\n\tb[\"models\"][i][\"position\"] = {\"x\": 300.0 + float(i) * 36.0, \"y\": 1270.0}\n\tb[\"models\"][i][\"wounds\"] = 99\n\tb[\"models\"][i][\"current_wounds\"] = 99\nreturn true",
       "equals": true
     },
+    { "act": "execute_script", "multiline": true, "comment": "Codex: Adeptus Custodes 11e (WP-C3): loading this Command-phase fixture readied the Custodes (Martial Ka'tah), which would open ka'tah windows (fight_phase_start / unit_selected_to_fight). Not under test here (the cus11e_* scenarios cover them): un-ready the Custodes - replaces the old 'click the Dacatarai stance' step.", "script": "for uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif u.get(\"flags\", null) is Dictionary:\n\t\tu.flags.erase(\"cus11e_readied\")\nreturn true", "equals": true },
     {
       "act": "execute_script",
       "script": "main._recreate_unit_visuals()"
@@ -196,16 +197,6 @@
     {
       "act": "wait_seconds",
       "seconds": 0.6
-    },
-    {
-      "act": "expect_node_visible",
-      "node": "/root/KatahStanceDialog",
-      "timeout_s": 8.0
-    },
-    {
-      "act": "click_node",
-      "node": "/root/KatahStanceDialog/Content/Buttons/DacataraiButton",
-      "emit_pressed": true
     },
     {
       "act": "wait_seconds",
