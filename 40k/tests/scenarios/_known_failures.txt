@@ -72,3 +72,6 @@ tut_t7_runnin_da_show_pad  # fails at 10e and 11e (11e 34/21, 10e 34/21 steps pa
 
 # --- fail at 11e only: tracked 11e ENGINE bugs (2026-10-17 scenario triage) ---
 fullauto_formations_rules  # BUG-11: FormationsPhase's 11e validator ignores the Bodyguard 'Extra Leader Attachment' grant that its own offer and CharacterAttachmentManager honour (same bug as tests/unit/test_reserves_half_army_cap.gd)
+
+# --- visual/ scenarios (not in the sp/mp full sweep; surfaced by the changed-scenario job) ---
+T45_final_audit  # step 6 asserts /root/Main/EndPhaseButton — no such node has ever existed in scripts/ or scenes/ (git log -S finds none); stale design-audit check, fails on every commit

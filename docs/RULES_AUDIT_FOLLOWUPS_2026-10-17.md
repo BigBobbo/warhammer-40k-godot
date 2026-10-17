@@ -40,6 +40,8 @@ Continues the zero-context handoff pinned to `a6368a60` (Objective Control,
 - Secondary review dialog: closing it with B/Escape only hides it — `review_completed` never fires and the opponent's pick is auto-resolved.
 - Battle-shock: `CommandPhase._units_tested` is phase-local and not saved, so a reload mid-Command phase can offer a unit's test again.
 - A Command-phase save from a build before 1.45.6 still gets that turn's start steps once more on its first load (indistinguishable from an authored tutorial save). Fixtures that are genuine post-start captures now carry the marker (`audit_baseline_postdeploy`, `los_terrain_area_11e_far/near`).
+- `ork11e_ai_attacker_reactive_dialog_shown` fails in CI only (passes locally on the same tree): `click_node` aimed at (960,871) while the visible "Decline — don't offer again" button sat at y≈504, and the click toggled "Examine Board" instead. Its embedded-Window coordinate mapping for `StratagemDialog` is off; the dialog was not changed this session.
+- `T45_final_audit` (visual/) asserts `/root/Main/EndPhaseButton`, a node that has never existed; listed in `_known_failures.txt`.
 - Test infra: two insane-bravery GUT cases and 4 multi-peer cases are intermittent (`?` in the allowlist); `test_save_load_ai` and `unit/test_reroll_support` hang; fixture `tutorial_t4_shoot` is missing; `army_builder_menu_link` hangs.
 
 ## Not started (handoff priorities still open)
