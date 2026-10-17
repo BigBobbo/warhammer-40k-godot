@@ -1,0 +1,74 @@
+# GUT known failures — the ONLY failing testcases CI tolerates.
+#
+# Checked by tests/ci/check_junit.py in test-suite.yml / scenarios.yml. A
+# failure not listed here fails CI; a listed test that now PASSES also fails
+# CI (delist it — this list may only shrink). Format: suite::testcase, or
+# suite::* for a whole file; '?' prefix = documented intermittent failure.
+#
+# Baseline 2026-10-17 (d1d24a9 + df98ded): every entry below failed under
+# BOTH the 11e harness default and WH40K_TEST_EDITION=10, i.e. it is not an
+# edition artefact. Each needs triage (product bug vs stale test); none is
+# accepted as correct behaviour by being listed.
+#
+# tests/unit/test_battle_shock.gd does not parse ("Could not find type
+# MoralePhase") so GUT never runs it.
+tests/unit/test_battle_shock.gd::*  # parse error: MoralePhase type no longer exists
+
+# --- tests/unit: fail at 10e and 11e ---
+tests/unit/test_blast_keyword.gd::test_calculate_blast_bonus_small_unit  # fails at 10e and 11e (pre-existing)
+tests/unit/test_command_reroll_stratagem.gd::test_can_use_command_reroll_with_sufficient_cp  # fails at 10e and 11e (pre-existing)
+tests/unit/test_command_reroll_stratagem.gd::test_is_command_reroll_available_returns_dict  # fails at 10e and 11e (pre-existing)
+tests/unit/test_faction_stratagems.gd::test_p0_rows_display_only_without_curated_effects  # fails at 10e and 11e (pre-existing)
+tests/unit/test_fire_overwatch.gd::test_fire_overwatch_deducts_1_cp  # fails at 10e and 11e (pre-existing)
+tests/unit/test_fire_overwatch.gd::test_fire_overwatch_eligible_units_within_24  # fails at 10e and 11e (pre-existing)
+tests/unit/test_fire_overwatch.gd::test_overwatch_wounds_resolve_normally  # fails at 10e and 11e (pre-existing)
+tests/unit/test_formations_phase.gd::test_designate_warlord_action  # fails at 10e and 11e (pre-existing)
+tests/unit/test_formations_phase.gd::test_designate_warlord_clears_previous  # fails at 10e and 11e (pre-existing)
+tests/unit/test_formations_phase.gd::test_warlord_auto_designate_single_character  # fails at 10e and 11e (pre-existing)
+tests/unit/test_go_to_ground_smokescreen.gd::test_cover_with_ap  # fails at 10e and 11e (pre-existing)
+tests/unit/test_go_to_ground_smokescreen.gd::test_invuln_save_applied_via_save_calculation  # fails at 10e and 11e (pre-existing)
+tests/unit/test_go_to_ground_smokescreen.gd::test_invuln_save_helps_against_high_ap  # fails at 10e and 11e (pre-existing)
+tests/unit/test_go_to_ground_smokescreen.gd::test_prepare_save_resolution_with_smokescreen_cover  # fails at 10e and 11e (pre-existing)
+tests/unit/test_grenade_stratagem.gd::test_apply_mortal_wounds_to_destroyed_unit  # fails at 10e and 11e (pre-existing)
+tests/unit/test_heroic_intervention.gd::test_dead_unit_not_eligible  # fails at 10e and 11e (pre-existing)
+tests/unit/test_heroic_intervention.gd::test_eligible_units_within_6_inches  # fails at 10e and 11e (pre-existing)
+tests/unit/test_heroic_intervention.gd::test_heroic_intervention_deducts_1_cp  # fails at 10e and 11e (pre-existing)
+tests/unit/test_heroic_intervention.gd::test_no_eligible_units_when_all_excluded  # fails at 10e and 11e (pre-existing)
+tests/unit/test_heroic_intervention.gd::test_walker_vehicle_is_eligible  # fails at 10e and 11e (pre-existing)
+tests/unit/test_indirect_fire_keyword.gd::test_indirect_fire_applies_minus_one_to_hit  # fails at 10e and 11e (pre-existing)
+tests/unit/test_indirect_fire_keyword.gd::test_indirect_fire_grants_cover_interactive  # fails at 10e and 11e (pre-existing)
+tests/unit/test_insane_bravery_stratagem.gd::test_insane_bravery_deducts_1_cp  # fails at 10e and 11e (pre-existing)
+tests/unit/test_lance_keyword.gd::test_lance_shooting_auto_resolve_charged  # fails at 10e and 11e (pre-existing)
+tests/unit/test_mathhammer_blast_bonus.gd::test_blast_bonus_10_models  # fails at 10e and 11e (pre-existing)
+tests/unit/test_mathhammer_blast_bonus.gd::test_blast_no_bonus_small_unit  # fails at 10e and 11e (pre-existing)
+tests/unit/test_mathhammer_blast_bonus.gd::test_blast_plus_rapid_fire  # fails at 10e and 11e (pre-existing)
+tests/unit/test_mission_selection.gd::test_mission_data_get_unknown_returns_empty  # fails at 10e and 11e (pre-existing)
+tests/unit/test_pile_in_base_contact_locked.gd::test_model_in_base_contact_detected  # fails at 10e and 11e (pre-existing)
+tests/unit/test_pile_in_base_contact_locked.gd::test_model_within_tolerance_detected  # fails at 10e and 11e (pre-existing)
+tests/unit/test_pile_in_base_contact_locked.gd::test_pile_in_allows_movement_of_non_b2b_model  # fails at 10e and 11e (pre-existing)
+tests/unit/test_pile_in_base_contact_locked.gd::test_pile_in_b2b_model_with_zero_movement_is_ok  # fails at 10e and 11e (pre-existing)
+tests/unit/test_pile_in_base_contact_locked.gd::test_pile_in_mixed_b2b_and_non_b2b  # fails at 10e and 11e (pre-existing)
+tests/unit/test_pile_in_base_contact_locked.gd::test_pile_in_rejects_movement_of_b2b_model  # fails at 10e and 11e (pre-existing)
+tests/unit/test_pivot_cost.gd::test_reset_unit_move_restores_rotation  # fails at 10e and 11e (pre-existing)
+tests/unit/test_pivot_cost.gd::test_undo_last_model_restores_rotation  # fails at 10e and 11e (pre-existing)
+tests/unit/test_precision_keyword.gd::test_has_precision_returns_true_for_precision_weapon  # fails at 10e and 11e (pre-existing)
+tests/unit/test_save19_export_import.gd::test_export_file_contains_valid_game_data  # fails at 10e and 11e (pre-existing)
+tests/unit/test_save19_export_import.gd::test_import_exported_file  # fails at 10e and 11e (pre-existing)
+tests/unit/test_save_load_dialog_main_menu.gd::test_main_menu_button_exists  # fails at 10e and 11e (pre-existing)
+tests/unit/test_skip_attacks_target_destroyed.gd::test_overwatch_skips_weapons_after_target_destroyed  # fails at 10e and 11e (pre-existing)
+tests/unit/test_tank_shock.gd::test_both_players_can_use_separately  # fails at 10e and 11e (pre-existing)
+tests/unit/test_terrain_charge_interaction.gd::test_rules_engine_charge_paths_with_terrain_penalty  # fails at 10e and 11e (pre-existing)
+tests/unit/test_terrain_charge_interaction.gd::test_rules_engine_fly_vs_non_fly_terrain_penalty  # fails at 10e and 11e (pre-existing)
+tests/unit/test_unit_ability_manager.gd::test_get_implemented_abilities  # fails at 10e and 11e (pre-existing)
+tests/unit/test_unit_ability_manager.gd::test_is_ability_implemented  # fails at 10e and 11e (pre-existing)
+
+# --- tests/integration (single-process): fail at 10e and 11e ---
+tests/integration/test_e2e_workflow.gd::test_battle_shock_in_command_phase  # fails at 10e and 11e (pre-existing)
+tests/integration/test_e2e_workflow.gd::test_full_single_turn_workflow  # fails at 10e and 11e (pre-existing)
+tests/integration/test_e2e_workflow.gd::test_multi_turn_game_simulation  # fails at 10e and 11e (pre-existing)
+tests/integration/test_e2e_workflow.gd::test_shooting_with_resolution  # fails at 10e and 11e (pre-existing)
+tests/integration/test_full_gameplay_sequence.gd::test_camera_controls_during_gameplay  # fails at 10e and 11e (pre-existing)
+tests/integration/test_full_gameplay_sequence.gd::test_complete_deployment_phase  # fails at 10e and 11e (pre-existing)
+tests/integration/test_full_gameplay_sequence.gd::test_complete_turn_sequence  # fails at 10e and 11e (pre-existing)
+tests/integration/test_heavy_keyword_integration.gd::test_heavy_bonus_applied_when_unit_remained_stationary  # fails at 10e and 11e (pre-existing)
+tests/integration/test_heavy_keyword_integration.gd::test_heavy_bonus_not_applied_to_non_heavy_weapon  # fails at 10e and 11e (pre-existing)

@@ -78,8 +78,10 @@ jobs:
         TESTS=$(ls tests/integration/test_*.gd | grep -v '/test_multiplayer_' | sed 's#^#res://#' | paste -sd, -)
         [ -n "$TESTS" ] || { echo "::error::no integration tests found"; exit 1; }
         rc=0
+        # -gconfig= : without it GUT ADDS .gutconfig.json's dirs (unit,
+        # integration, network) to -gtest, so the multiplayer tests ran too.
         timeout 420 godot --headless --script addons/gut/gut_cmdln.gd \
-          -gtest="$TESTS" -glog=1 \
+          -gconfig= -gtest="$TESTS" -glog=1 \
           -gjunit_xml_file=integration_test_results.xml \
           -gexit || rc=$?
         echo "GUT integration exit $rc"
