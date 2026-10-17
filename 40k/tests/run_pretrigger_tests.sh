@@ -42,6 +42,8 @@
 #   - #916 x #917 merge interactions: Fight On Death on SKIP_UNIT, stale
 #     END_* no-ops, online Pile In / Consolidate half ownership, AFK timer vs
 #     stratagem windows / mid-activation, client Consolidate step close
+#   - secondary deck draw terminates when only round-1 shuffle-back cards are
+#     left (was an infinite loop)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -237,7 +239,37 @@ TESTS=(
     "tests/test_core_rules_audit_e28e4f7.gd"
     "tests/test_merge_916_917_interactions.gd"
     "tests/test_fight_phase_scope_end_fight_11e.gd"
+    "tests/test_secondary_draw_shuffle_back_terminates.gd"
 )
+
+# Rules edition. The harness defaults to 11e (the edition players get);
+# WH40K_TEST_EDITION=10 is the explicit legacy opt-in. Tests that set the
+# edition themselves are unaffected either way.
+if [ -n "${WH40K_TEST_EDITION:-}" ] && ! [[ "$WH40K_TEST_EDITION" =~ ^1[01]$ ]]; then
+    echo "WH40K_TEST_EDITION must be 10 or 11 (got '$WH40K_TEST_EDITION')"
+    exit 2
+fi
+echo "Rules edition: ${WH40K_TEST_EDITION:-11 (harness default)}"
+command -v godot >/dev/null || { echo "godot not on PATH"; exit 2; }
+
+# CI sharding: AUDIT_SHARD=i/n keeps every n-th test starting at index i, so
+# the suite can be split across parallel jobs (each with its own user://).
+if [ -n "${AUDIT_SHARD:-}" ]; then
+    if ! [[ "$AUDIT_SHARD" =~ ^[0-9]+/[0-9]+$ ]]; then
+        echo "AUDIT_SHARD must look like i/n (got '$AUDIT_SHARD')"
+        exit 2
+    fi
+    SHARD_I=${AUDIT_SHARD%/*}
+    SHARD_N=${AUDIT_SHARD#*/}
+    SELECTED=()
+    for i in "${!TESTS[@]}"; do
+        if [ $((i % SHARD_N)) -eq "$SHARD_I" ]; then
+            SELECTED+=("${TESTS[$i]}")
+        fi
+    done
+    TESTS=("${SELECTED[@]}")
+    echo "Shard $AUDIT_SHARD: ${#TESTS[@]} test(s)"
+fi
 
 FAILED=0
 TOTAL_PASSED=0
@@ -260,16 +292,19 @@ for test in "${TESTS[@]}"; do
     # the result lines. Summary formats vary: "=== Result: N passed, M failed ===",
     # "=== Results: ...", and bare "=== N passed, M failed ===" — match on the
     # counts, not the prefix.
-    timeout 180 godot --headless --path . -s "$test" > "$FULL_LOG" 2>&1 || true
+    # Keep the exit status: a test that prints its result line and THEN hangs
+    # (timeout -> 124) or crashes (>=128) used to count as a pass.
+    RC=0
+    timeout 180 godot --headless --path . -s "$test" > "$FULL_LOG" 2>&1 || RC=$?
     OUTPUT=$(grep -E "PASS|FAIL|Result|[0-9]+ passed, [0-9]+ failed|=== test" "$FULL_LOG" || true)
     echo "$OUTPUT"
 
     # Extract the final result line and parse pass/fail counts
     RESULT_LINE=$(echo "$OUTPUT" | grep -E "[0-9]+ passed, [0-9]+ failed" | tail -1)
     if [ -z "$RESULT_LINE" ]; then
-        echo "  ERROR: no result line found for $test"
+        echo "  ERROR: no result line found for $test (exit $RC)"
         FAILED=$((FAILED + 1))
-        FAILED_FILES+=("$test (no result line)")
+        FAILED_FILES+=("$test (no result line, exit $RC)")
         continue
     fi
 
@@ -279,7 +314,11 @@ for test in "${TESTS[@]}"; do
     TOTAL_FAILED=$((TOTAL_FAILED + FAIL))
 
     REASON=""
-    if [ "$FAIL" -gt 0 ]; then
+    if [ "$RC" -eq 124 ]; then
+        REASON="timed out after 180s (hang)"
+    elif [ "$RC" -ge 128 ]; then
+        REASON="crashed (exit $RC)"
+    elif [ "$FAIL" -gt 0 ]; then
         REASON="$FAIL check(s) failed"
     elif [ "$PASS" -eq 0 ]; then
         REASON="ran no checks (0 passed, 0 failed) - a preloaded script probably failed to compile"

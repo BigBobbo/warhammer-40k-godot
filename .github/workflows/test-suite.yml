@@ -10,12 +10,22 @@ on:
 env:
   GODOT_VERSION: "4.4.1"
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   test:
     runs-on: ubuntu-latest
     name: Run GUT Test Suite
-    timeout-minutes: 15
+    timeout-minutes: 25
 
+    # Fail closed (2026-10 rules audit 9.3): every step's exit status counts.
+    # A GUT hang (timeout 124), crash, missing/empty JUnit file, a GUT test file
+    # that silently failed to parse, or a failing testcase that is not in
+    # tests/ci/gut_known_failures.txt fails the job. Known failures are listed
+    # explicitly so the list can only shrink (a fixed test must be delisted).
+    # The harness runs 11e by default — the edition players get.
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -29,45 +39,67 @@ jobs:
         use-dotnet: false
 
     - name: Verify Godot installation
-      run: godot --version
+      run: |
+        command -v godot >/dev/null || { echo "::error::godot not on PATH after setup-godot"; exit 1; }
+        godot --version
 
     - name: Import project
       run: |
         cd 40k
-        timeout 120 godot --headless --import || true
+        # --import exits non-zero on benign warnings, so its exit code is not
+        # the signal; a hang on ANY pass, or a missing class cache, is.
+        for pass in 1 2; do
+          rc=0
+          timeout 240 godot --headless --import || rc=$?
+          echo "import pass $pass exit $rc"
+          [ "$rc" -ne 124 ] || { echo "::error::godot --import timed out (pass $pass)"; exit 1; }
+        done
+        [ -s .godot/global_script_class_cache.cfg ] || { echo "::error::import left no .godot/global_script_class_cache.cfg"; exit 1; }
 
     - name: Run Unit Tests
       run: |
         cd 40k
-        timeout 180 godot --headless --script addons/gut/gut_cmdln.gd \
-          -gdir=res://tests/unit -glog=2 \
+        rc=0
+        timeout 420 godot --headless --script addons/gut/gut_cmdln.gd \
+          -gdir=res://tests/unit -glog=1 \
           -gjunit_xml_file=unit_test_results.xml \
-          -gexit || true
+          -gexit || rc=$?
+        echo "GUT unit exit $rc"
+        [ "$rc" -ne 124 ] || { echo "::error::GUT unit suite hung (timeout)"; exit 1; }
+        [ "$rc" -le 1 ] || { echo "::error::GUT unit suite crashed (exit $rc)"; exit 1; }
+        python3 tests/ci/check_junit.py --xml unit_test_results.xml --dir tests/unit
 
-    - name: Run Integration Tests
+    - name: Run Integration Tests (single-process)
+      if: success() || failure()
       run: |
         cd 40k
-        timeout 180 godot --headless --script addons/gut/gut_cmdln.gd \
-          -gdir=res://tests/integration -glog=2 \
+        # test_multiplayer_* spawn host/client peers that need a display; they
+        # run in scenarios.yml's multi-peer job under Xvfb.
+        TESTS=$(ls tests/integration/test_*.gd | grep -v '/test_multiplayer_' | sed 's#^#res://#' | paste -sd, -)
+        [ -n "$TESTS" ] || { echo "::error::no integration tests found"; exit 1; }
+        rc=0
+        timeout 420 godot --headless --script addons/gut/gut_cmdln.gd \
+          -gtest="$TESTS" -glog=1 \
           -gjunit_xml_file=integration_test_results.xml \
-          -gexit || true
+          -gexit || rc=$?
+        echo "GUT integration exit $rc"
+        [ "$rc" -ne 124 ] || { echo "::error::GUT integration suite hung (timeout)"; exit 1; }
+        [ "$rc" -le 1 ] || { echo "::error::GUT integration suite crashed (exit $rc)"; exit 1; }
+        python3 tests/ci/check_junit.py --xml integration_test_results.xml --dir tests/integration --exclude-prefix test_multiplayer_
 
     - name: Run Network Tests
+      if: success() || failure()
       run: |
         cd 40k
-        timeout 180 godot --headless --script addons/gut/gut_cmdln.gd \
-          -gdir=res://tests/network -glog=2 \
-          -gjunit_xml_file=network_test_results.xml \
-          -gexit || true
-
-    - name: Run All Tests Combined
-      run: |
-        cd 40k
+        rc=0
         timeout 300 godot --headless --script addons/gut/gut_cmdln.gd \
-          -glog=1 \
-          -gjunit_xml_file=all_test_results.xml \
-          -gexit
-      continue-on-error: true
+          -gdir=res://tests/network -glog=1 \
+          -gjunit_xml_file=network_test_results.xml \
+          -gexit || rc=$?
+        echo "GUT network exit $rc"
+        [ "$rc" -ne 124 ] || { echo "::error::GUT network suite hung (timeout)"; exit 1; }
+        [ "$rc" -le 1 ] || { echo "::error::GUT network suite crashed (exit $rc)"; exit 1; }
+        python3 tests/ci/check_junit.py --xml network_test_results.xml --dir tests/network
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
@@ -76,32 +108,7 @@ jobs:
         name: test-results
         path: |
           40k/*_test_results.xml
-
-    - name: Check for test failures
-      if: always()
-      run: |
-        cd 40k
-        echo "--- Test Result Files ---"
-        ls -la *_test_results.xml 2>/dev/null || echo "No result files found"
-
-        # Check combined results first
-        if [ -f "all_test_results.xml" ]; then
-          failures=$(grep -o 'failures="[0-9]*"' all_test_results.xml | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
-          errors=$(grep -o 'errors="[0-9]*"' all_test_results.xml | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
-          tests=$(grep -o 'tests="[0-9]*"' all_test_results.xml | grep -o '[0-9]*' | awk '{s+=$1} END {print s+0}')
-
-          echo "Total tests: $tests"
-          echo "Failures: $failures"
-          echo "Errors: $errors"
-
-          if [ "$failures" -gt 0 ] || [ "$errors" -gt 0 ]; then
-            echo "::warning::Tests had $failures failures and $errors errors out of $tests tests"
-          else
-            echo "All $tests tests passed!"
-          fi
-        else
-          echo "::warning::Combined test results file not generated"
-        fi
+        if-no-files-found: error
 
   build-verification:
     runs-on: ubuntu-latest
@@ -121,28 +128,30 @@ jobs:
       with:
         version: ${{ env.GODOT_VERSION }}
         use-dotnet: false
+        include-templates: true
 
     - name: Import project
       run: |
         cd 40k
-        timeout 120 godot --headless --import || true
+        for pass in 1 2; do
+          rc=0
+          timeout 240 godot --headless --import || rc=$?
+          echo "import pass $pass exit $rc"
+          [ "$rc" -ne 124 ] || { echo "::error::godot --import timed out (pass $pass)"; exit 1; }
+        done
+        [ -s .godot/global_script_class_cache.cfg ] || { echo "::error::import left no .godot/global_script_class_cache.cfg"; exit 1; }
 
-    - name: Export project (Linux/X11)
+    - name: Export project (Linux preset)
       run: |
         cd 40k
         mkdir -p build/linux
-        timeout 180 godot --headless --export-release "Linux/X11" build/linux/40k-game.x86_64
-      continue-on-error: true
+        timeout 300 godot --headless --export-release "Linux" build/linux/40k-game.x86_64
 
     - name: Verify build artifacts
       run: |
         cd 40k
-        if [ -f "build/linux/40k-game.x86_64" ]; then
-          echo "Linux build successful"
-          ls -la build/linux/
-        else
-          echo "::warning::Linux build did not produce artifacts (export templates may not be configured)"
-        fi
+        [ -s "build/linux/40k-game.x86_64" ] || { echo "::error::Linux export produced no build/linux/40k-game.x86_64"; exit 1; }
+        ls -la build/linux/
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -150,6 +159,7 @@ jobs:
       with:
         name: linux-build
         path: 40k/build/linux/
+        if-no-files-found: error
 
   code-quality:
     runs-on: ubuntu-latest

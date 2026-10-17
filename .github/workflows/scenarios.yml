@@ -5,11 +5,20 @@ name: Windowed Scenario Suite
 # real rendering pipeline executes — sidesteps macOS backgrounded-window
 # stale-frame issues.
 #
-# Four jobs:
-#   1. headless-audit       — run_pretrigger_tests.sh (fast logic gate).
+# Fail closed (2026-10 rules audit 9.3). Jobs are INDEPENDENT — a red or hung
+# headless audit no longer suppresses the multi-peer and windowed evidence:
+#   1. headless-audit       — run_pretrigger_tests.sh, 4 parallel shards.
 #   2. coverage-validation  — check_coverage.py (sub-second sanity check).
-#   3. multipeer-tests      — run_multiplayer_tests.sh (host/client sync).
-#   4. windowed-scenarios   — run_scenarios.sh under Xvfb (UI gate).
+#   3. multipeer-tests      — run_multiplayer_tests.sh (host/client sync), JUnit
+#                             checked against tests/ci/gut_known_failures.txt.
+#   4. windowed-changed     — push / PR: scenarios touched by the change
+#                             (run_scenarios.sh --changed-since), 4 shards.
+#   5. windowed-full        — nightly + manual: the whole suite, 8 shards.
+#   6. scenarios-gate       — the one check to require: fails if any job above
+#                             failed or was cancelled (a timeout is a failure).
+# Windowed known failures live in tests/scenarios/_known_failures.txt (XFAIL);
+# any other failing scenario fails its shard. The harness runs 11e by default;
+# the manual dispatch can opt fieldless scenarios into legacy 10e.
 
 on:
   push:
@@ -21,7 +30,20 @@ on:
     branches: [ main, develop ]
     paths:
       - '40k/**'
+  schedule:
+    - cron: '17 5 * * *'   # nightly full windowed sweep
   workflow_dispatch:
+    inputs:
+      selection:
+        description: 'Windowed scenarios to run (full sweep job)'
+        type: choice
+        options: [ sp, all, e11, visual ]
+        default: sp
+      edition:
+        description: 'Rules edition for scenarios WITHOUT an "edition" field (blank = harness default 11)'
+        type: choice
+        options: [ '', '10', '11' ]
+        default: ''
 
 env:
   # Pinned to match the existing test-suite.yml. Local dev is on 4.6.stable;
@@ -30,11 +52,21 @@ env:
   # consistent.
   GODOT_VERSION: "4.4.1"
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   headless-audit:
-    name: Headless audit suite
+    name: Headless audit suite (shard ${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # ~140 serial Godot boots at ~11 s each is ~25 min; four shards on separate
+    # runners (each with its own user://) keep every shard well inside this.
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [ 0, 1, 2, 3 ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,10 +85,19 @@ jobs:
       - name: Import project
         run: |
           cd 40k
-          timeout 180 godot --headless --import || true
-          timeout 180 godot --headless --import || true
+          # --import exits non-zero on benign warnings, so its exit code is not
+          # the signal; a hang on ANY pass, or a missing class cache, is.
+          for pass in 1 2; do
+            rc=0
+            timeout 240 godot --headless --import || rc=$?
+            echo "import pass $pass exit $rc"
+            [ "$rc" -ne 124 ] || { echo "::error::godot --import timed out (pass $pass)"; exit 1; }
+          done
+          [ -s .godot/global_script_class_cache.cfg ] || { echo "::error::import left no .godot/global_script_class_cache.cfg"; exit 1; }
 
       - name: Run audit suite
+        env:
+          AUDIT_SHARD: "${{ matrix.shard }}/4"
         run: |
           bash 40k/tests/run_pretrigger_tests.sh
 
@@ -75,8 +116,7 @@ jobs:
   multipeer-tests:
     name: Multi-peer integration (GUT)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: headless-audit
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -139,23 +179,52 @@ jobs:
       - name: Import project (with rendering)
         run: |
           cd 40k
-          timeout 240 godot --headless --import || true
-          timeout 240 godot --headless --import || true
+          # --import exits non-zero on benign warnings, so its exit code is not
+          # the signal; a hang on ANY pass, or a missing class cache, is.
+          for pass in 1 2; do
+            rc=0
+            timeout 240 godot --headless --import || rc=$?
+            echo "import pass $pass exit $rc"
+            [ "$rc" -ne 124 ] || { echo "::error::godot --import timed out (pass $pass)"; exit 1; }
+          done
+          [ -s .godot/global_script_class_cache.cfg ] || { echo "::error::import left no .godot/global_script_class_cache.cfg"; exit 1; }
 
       - name: Run multi-peer integration suite
         run: |
-          bash 40k/tests/run_multiplayer_tests.sh
+          rc=0
+          MP_JUNIT_XML=multiplayer_test_results.xml bash 40k/tests/run_multiplayer_tests.sh || rc=$?
+          echo "multi-peer suite exit $rc"
+          [ "$rc" -ne 124 ] || { echo "::error::multi-peer suite hung (timeout)"; exit 1; }
+          [ "$rc" -le 1 ] || { echo "::error::multi-peer suite crashed (exit $rc)"; exit 1; }
+          cd 40k
+          python3 tests/ci/check_junit.py --xml multiplayer_test_results.xml \
+            --dir tests/integration --include-prefix test_multiplayer_
 
-  windowed-scenarios:
-    name: Windowed scenarios (Xvfb)
+      - name: Upload multi-peer results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: multiplayer-test-results
+          path: |
+            40k/multiplayer_test_results.xml
+            ~/.local/share/godot/app_userdata/40k/logs/
+          if-no-files-found: warn
+
+  windowed-changed:
+    name: Windowed scenarios — changed (shard ${{ matrix.shard }}/4)
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [headless-audit, coverage-validation]
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [ 0, 1, 2, 3 ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           lfs: true
+          fetch-depth: 0  # --changed-since needs the merge base
 
       - name: Install Xvfb + GL stack
         run: |
@@ -207,21 +276,152 @@ jobs:
       - name: Import project (with rendering)
         run: |
           cd 40k
-          # Two import passes — first one resolves dependencies, second
-          # ensures everything is reimported cleanly. Allowed to "fail"
-          # (timeout/exit-code) since import returns non-zero on warnings.
-          timeout 240 godot --headless --import || true
-          timeout 240 godot --headless --import || true
+          # --import exits non-zero on benign warnings, so its exit code is not
+          # the signal; a hang on ANY pass, or a missing class cache, is.
+          for pass in 1 2; do
+            rc=0
+            timeout 240 godot --headless --import || rc=$?
+            echo "import pass $pass exit $rc"
+            [ "$rc" -ne 124 ] || { echo "::error::godot --import timed out (pass $pass)"; exit 1; }
+          done
+          [ -s .godot/global_script_class_cache.cfg ] || { echo "::error::import left no .godot/global_script_class_cache.cfg"; exit 1; }
 
-      - name: Run windowed scenarios
+      - name: Run scenarios touched by this change
+        env:
+          SCENARIO_SHARD: "${{ matrix.shard }}/4"
+          SCENARIO_SUMMARY_FILE: ${{ github.workspace }}/scenario_summary.tsv
         run: |
-          bash 40k/tests/run_scenarios.sh --all
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+              BASE="$(git merge-base origin/main HEAD)"
+            fi
+          fi
+          echo "Changed since $BASE"
+          bash 40k/tests/run_scenarios.sh --changed-since "$BASE"
 
       - name: Upload scenario results + screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scenario-results
+          name: scenario-results-changed-${{ matrix.shard }}
           path: |
+            scenario_summary.tsv
             ~/.local/share/godot/app_userdata/40k/test_results/scenarios/
           if-no-files-found: warn
+
+  windowed-full:
+    name: Windowed scenarios — full (shard ${{ matrix.shard }}/8)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [ 0, 1, 2, 3, 4, 5, 6, 7 ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0  # --changed-since needs the merge base
+
+      - name: Install Xvfb + GL stack
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            xvfb \
+            x11-xserver-utils \
+            libxinerama1 libxcursor1 libxi6 libxrandr2 \
+            libgl1 libglu1-mesa \
+            libegl1 libgles2 \
+            mesa-utils
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          use-dotnet: false
+
+      - name: Capture real Godot path + build xvfb-run shim
+        run: |
+          REAL_GODOT="$(command -v godot)"
+          echo "Real godot: $REAL_GODOT"
+          if [ -z "$REAL_GODOT" ]; then
+            echo "::error::godot not on PATH after chickensoft setup"
+            exit 1
+          fi
+
+          # IMPORTANT: chickensoft installs godot to $HOME/bin/godot, and
+          # run_scenarios.sh prepends $HOME/bin to PATH (line 24), which
+          # would override any shim placed in $HOME/.local/bin. Replace
+          # the binary in-place: move the real binary aside and write the
+          # xvfb-run shim where the script expects to find godot.
+          REAL_RENAMED="${REAL_GODOT}.real"
+          mv "$REAL_GODOT" "$REAL_RENAMED"
+          cat > "$REAL_GODOT" <<EOF
+          #!/bin/bash
+          # xvfb-run shim — wraps every godot invocation in a virtual
+          # display so windowed scenarios can render. Adds opengl3 +
+          # Dummy audio so we don't fight Vulkan/ALSA on a headless runner.
+          exec xvfb-run -a --server-args="-screen 0 1920x1080x24 +extension RANDR" \\
+            "$REAL_RENAMED" \\
+            --rendering-driver opengl3 \\
+            --audio-driver Dummy \\
+            "\$@"
+          EOF
+          chmod +x "$REAL_GODOT"
+          "$REAL_GODOT" --version
+
+      - name: Import project (with rendering)
+        run: |
+          cd 40k
+          # --import exits non-zero on benign warnings, so its exit code is not
+          # the signal; a hang on ANY pass, or a missing class cache, is.
+          for pass in 1 2; do
+            rc=0
+            timeout 240 godot --headless --import || rc=$?
+            echo "import pass $pass exit $rc"
+            [ "$rc" -ne 124 ] || { echo "::error::godot --import timed out (pass $pass)"; exit 1; }
+          done
+          [ -s .godot/global_script_class_cache.cfg ] || { echo "::error::import left no .godot/global_script_class_cache.cfg"; exit 1; }
+
+      - name: Run windowed scenarios
+        env:
+          SCENARIO_SHARD: "${{ matrix.shard }}/8"
+          SCENARIO_SUMMARY_FILE: ${{ github.workspace }}/scenario_summary.tsv
+          WH40K_TEST_EDITION: ${{ inputs.edition }}
+        run: |
+          bash 40k/tests/run_scenarios.sh --${{ inputs.selection || 'sp' }}
+
+      - name: Upload scenario results + screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scenario-results-full-${{ matrix.shard }}
+          path: |
+            scenario_summary.tsv
+            ~/.local/share/godot/app_userdata/40k/test_results/scenarios/
+          if-no-files-found: warn
+
+  scenarios-gate:
+    name: Scenario suite gate
+    if: always()
+    needs: [ headless-audit, coverage-validation, multipeer-tests, windowed-changed, windowed-full ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job that ran must have succeeded
+        run: |
+          echo '${{ toJSON(needs) }}'
+          # skipped is fine ONLY for the event-gated windowed jobs; failure,
+          # cancelled (incl. a timeout) and skipped core jobs are not.
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "::error::an upstream scenario-suite job failed or was cancelled"
+            exit 1
+          fi
+          for r in "${{ needs.headless-audit.result }}" "${{ needs.coverage-validation.result }}" "${{ needs.multipeer-tests.result }}"; do
+            [ "$r" = "success" ] || { echo "::error::a core job did not succeed ($r)"; exit 1; }
+          done
+          echo "all scenario-suite jobs succeeded"

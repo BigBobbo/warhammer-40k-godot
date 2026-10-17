@@ -28,6 +28,10 @@ var _last_action_result = null
 var _start_cp: Dictionary = {}  # player_id -> cp at scenario start (for delta_from_start)
 var _started: bool = false
 var _hermetic_active: bool = false
+# Effective rules edition when the scenario started, and where it came from —
+# written into the results JSON so every result states the edition it tested.
+var _edition_at_start: int = -1
+var _edition_source: String = ""
 
 const RESULTS_SUBDIR := "test_results/scenarios"
 
@@ -317,7 +321,14 @@ func _run_scenario() -> void:
 	var edition = _scenario.get("edition", null)
 	if edition != null:
 		GameConstants.edition = int(edition)
+		_edition_source = "scenario field"
 		print("[ScenarioRunner] edition set to %d" % int(edition))
+	else:
+		# No field: the harness edition stands (SettingsService: default 11,
+		# WH40K_TEST_EDITION=10 legacy opt-in). Report it — never silent.
+		_edition_source = "harness (no scenario field)"
+	_edition_at_start = GameConstants.edition
+	print("[ScenarioRunner] rules edition at start: %d (%s)" % [_edition_at_start, _edition_source])
 
 	# 3) Set RNG seed (optional)
 	var rng_seed = _scenario.get("rng_seed", null)
@@ -2606,6 +2617,9 @@ func _write_results(scenario_id: String, passed: int, failed: int) -> void:
 		"passed": passed,
 		"failed": failed,
 		"total_steps": _step_results.size(),
+		"edition_at_start": _edition_at_start,
+		"edition_source": _edition_source,
+		"edition_at_end": GameConstants.edition,
 		"steps": _step_results,
 	}
 	f.store_string(JSON.stringify(out, "  "))
