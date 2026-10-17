@@ -420,10 +420,16 @@ func _process(delta: float) -> void:
 
 	var style = SettingsService.unit_visual_style if SettingsService else "classic"
 
+	# Codex: Adeptus Custodes readied badge — redraw once whenever the unit's
+	# readied state flips (readied step / ka'tah use), so it never goes stale.
+	var katah_flip := _katah_readied_flipped()
+
 	# Letter mode doesn't need continuous redraw (no animations)
 	if style == "letter" and not debug_mode:
 		if is_selected or is_hovered:
 			_pulse_time += delta
+			queue_redraw()
+		elif katah_flip:
 			queue_redraw()
 		return
 
@@ -463,7 +469,7 @@ func _process(delta: float) -> void:
 	if needs_redraw:
 		_pulse_time += delta
 		queue_redraw()
-	elif _anim_needs_redraw:
+	elif _anim_needs_redraw or katah_flip:
 		queue_redraw()
 
 func _draw() -> void:
@@ -2055,6 +2061,18 @@ func _draw_battle_shock_indicator() -> void:
 # of a readied unit. katah_readied_marker mirrors what was last drawn, so a
 # windowed scenario can assert the marker through get_node_info.
 var katah_readied_marker: bool = false
+var _katah_readied_seen: bool = false
+
+## True once each time the unit's flags.cus11e_readied changes value.
+func _katah_readied_flipped() -> bool:
+	if not has_meta("unit_id") or GameState == null:
+		return false
+	var u = GameState.get_unit(str(get_meta("unit_id")))
+	var now := bool(u.get("flags", {}).get("cus11e_readied", false)) if u is Dictionary else false
+	if now == _katah_readied_seen:
+		return false
+	_katah_readied_seen = now
+	return true
 
 func _draw_katah_readied_indicator() -> void:
 	katah_readied_marker = false
