@@ -15714,13 +15714,19 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 #        more than 7" away cannot be selected on a 7, even though the charger
 #        could end within 2" of it), AND the move must still reach engagement
 #        range around any terrain.
+#        Less ChargeMove11e.WITHIN_TOLERANCE_INCHES (0.02"), the phase's
+#        inclusive "within" tolerance — shape-aware distances at an exact whole
+#        inch come back a few millionths high (7.0000015"), and the ceil in
+#        _charge_success_probability would otherwise demand an 8 for a target
+#        the phase accepts on a 7 (the same correction AIPlayer's re-roll
+#        decisions and the UI's "Min roll" apply).
 #   10e: move = max(0, edge_in - ER) + terrain_pen (the roll only has to close
 #        the gap to engagement range).
 # Feed the result to _charge_success_probability.
 static func _charge_roll_needed(edge_in: float, terrain_pen: float = 0.0) -> float:
 	var move = max(0.0, edge_in - GameConstants.engagement_range_inches()) + terrain_pen
 	if GameConstants.edition >= 11:
-		return max(edge_in, move)
+		return max(0.0, max(edge_in, move) - ChargeMove11e.WITHIN_TOLERANCE_INCHES)
 	return move
 
 static func _charge_success_probability(distance_needed: float) -> float:

@@ -19,6 +19,15 @@ extends SceneTree
 # measurement (19.01), Heroic Intervention's "within the maximum distance"
 # (15.11), the player-facing text, and the AI's roll-needed math.
 #
+# Review fixes also pinned here: the post-roll success check
+# (_is_charge_roll_sufficient / _per_target_charge_requirements) and every
+# pre-roll 12" check (RulesEngine.charge_targets_within_12, DECLARE_CHARGE)
+# measure from the whole Attached unit too, so a target declared before the
+# roll (the UI path) and reachable only through the leader is not FAILED; the
+# MP client's failure text keeps the phase's within/beyond-the-roll split; and
+# a target at an exact whole inch (measured a hair over) asks for that roll in
+# the UI 'Min roll' and the AI odds, as the phase accepts it.
+#
 # All 11e flows go through the real ChargePhase.execute_action path
 # (DECLARE_CHARGE -> CHARGE_ROLL{rng_seed} -> APPLY_CHARGE_MOVE).
 #
@@ -126,6 +135,10 @@ func _run_tests():
 	_test_failed_charges_roll_of_2()
 	_test_deffkopta_case_now_fails()
 	_test_attached_leader_in_front()
+	_test_attached_leader_declared_before_roll()
+	_test_attached_leader_12in_checks()
+	_test_client_failure_text_split()
+	_test_min_roll_float_boundary()
 	_test_heroic_intervention_within_roll()
 	_test_ai_roll_needed()
 	await _test_ai_command_reroll_uses_edge_distance()
@@ -301,6 +314,202 @@ func _test_attached_leader_in_front() -> void:
 		chg.eligible("U_CHG", root.get_node("GameState").state).eligible,
 		str(chg.eligible("U_CHG", root.get_node("GameState").state)))
 
+# ── review fix: the leader also counts AFTER the roll and for the 12" checks ──
+
+# Leader 6.5" from the target, bodyguard 9.26" (same geometry as
+# _test_attached_leader_in_front).
+func _leader_front_units() -> Dictionary:
+	var tgt := Vector2(1500.0, 1200.0)
+	var ldr_pos := tgt - Vector2(_gap_px(6.5), 0.0)
+	var bg_pos := ldr_pos - Vector2(_gap_px(1.5), 0.0)
+	var units := {
+		"U_CHG": _unit("U_CHG", 2, [bg_pos]),
+		"U_LDR": _unit("U_LDR", 2, [ldr_pos], ["INFANTRY", "CHARACTER"]),
+		"U_TGT": _unit("U_TGT", 1, [tgt]),
+	}
+	units.U_CHG.attachment_data = {"attached_characters": ["U_LDR"]}
+	units.U_LDR.attached_to = "U_CHG"
+	return units
+
+func _pos(unit_id: String) -> Vector2:
+	var p = root.get_node("GameState").state.units[unit_id].models[0].position
+	return Vector2(p.x, p.y)
+
+func _test_attached_leader_declared_before_roll() -> void:
+	print("\n-- attached leader in front, target DECLARED before the roll (the UI path): the post-roll check counts the leader (11.04 / 19.01) --")
+	# The UI always declares targets before the roll (ChargeController's Declare
+	# button needs a selected target), so _is_charge_roll_sufficient and
+	# _per_target_charge_requirements run. They used to loop the bodyguard's
+	# models only: the target was selectable through the leader and kept, then
+	# the charge FAILED with a false "terrain" explanation.
+	_set_state(_leader_front_units())
+	var phase = _new_phase()
+	var res := _declare_and_roll(phase, ["U_TGT"], 7)
+	var roll: Dictionary = res.get("roll", {})
+	_check("declare [U_TGT] (bodyguard 9.26\", leader 6.5\") accepted", res.declare.get("success", false), str(res.declare))
+	_check("roll 7: charge does NOT fail (the leader can end engaged)", roll.get("charge_failed", true) == false, str(roll))
+	_check("roll 7: pending charge kept, target kept",
+		phase.has_pending_charge("U_CHG") and phase.get_pending_charges().get("U_CHG", {}).get("targets", []) == ["U_TGT"],
+		str(phase.get_pending_charges().get("U_CHG", {})))
+	_check("roll 7: no failure recorded (no false 'terrain' explanation)", phase.get_failed_charge_attempts().is_empty(),
+		str(phase.get_failed_charge_attempts()))
+	_check("roll 7: _is_charge_roll_sufficient sees the leader", phase._is_charge_roll_sufficient("U_CHG", 7))
+	var per: Dictionary = phase._per_target_charge_requirements("U_CHG", ["U_TGT"], 7.0).get("U_TGT", {})
+	_check("per-target: reachable, cost measured from the leader (6.5 - 2\" ER = 4.5\")",
+		per.get("reachable", false) and absf(float(per.get("cost", INF)) - 4.5) < 0.01, str(per))
+	var l0 := _pos("U_LDR")
+	var b0 := _pos("U_CHG")
+	var l_end := l0 + Vector2(6.45 * PX_PER_INCH, 0.0)
+	var b_end := b0 + Vector2(6.45 * PX_PER_INCH, 0.0)
+	var mv = phase.execute_action({"type": "APPLY_CHARGE_MOVE", "actor_unit_id": "U_CHG",
+		"payload": {"target_unit_ids": ["U_TGT"], "per_model_rotations": {},
+			"per_model_paths": {
+				"m1": [[b0.x, b0.y], [b_end.x, b_end.y]],
+				"U_LDR:m1": [[l0.x, l0.y], [l_end.x, l_end.y]]}}})
+	_check("declared led charge: APPLY_CHARGE_MOVE succeeds", mv.get("success", false), str(mv.get("errors", mv.get("error", ""))))
+	_check("declared led charge: leader ends engaged (0.05\")", absf(_edge("U_LDR", "U_TGT") - 0.05) < 0.01, str(_edge("U_LDR", "U_TGT")))
+	phase.queue_free()
+
+	# Same board, roll 6: the leader is 6.5" away, beyond the roll -> FAILS with
+	# the 'beyond the roll' wording (not the terrain one).
+	_set_state(_leader_front_units())
+	phase = _new_phase()
+	roll = _declare_and_roll(phase, ["U_TGT"], 6).get("roll", {})
+	_check("roll 6 vs the leader's 6.5\": FAILS", roll.get("charge_failed", false) == true, str(roll))
+	var attempts: Array = phase.get_failed_charge_attempts()
+	var det := str(attempts[0].get("errors", [""])[0]) if attempts.size() > 0 else ""
+	_check("roll 6: failure says the nearest target (6.5\", from the leader) is beyond the roll",
+		"Rolled 6\" but the nearest charge target is 6.5\" away" in det and not "terrain" in det, det)
+	phase.queue_free()
+
+func _test_attached_leader_12in_checks() -> void:
+	print("\n-- attached leader 10\" away, bodyguard 12.5\": every pre-roll 12\" check counts the leader (11.04 / 19.01) --")
+	var far_tgt := Vector2(1500.0, 600.0)
+	var l2 := far_tgt - Vector2(_gap_px(10.0), 0.0)
+	var b2 := l2 - Vector2(_gap_px(1.24), 0.0)
+	var mk := func():
+		var u := {
+			"U_CHG": _unit("U_CHG", 2, [b2]),
+			"U_LDR": _unit("U_LDR", 2, [l2], ["INFANTRY", "CHARACTER"]),
+			"U_TGT": _unit("U_TGT", 1, [far_tgt]),
+		}
+		u.U_CHG.attachment_data = {"attached_characters": ["U_LDR"]}
+		u.U_LDR.attached_to = "U_CHG"
+		return u
+	_set_state(mk.call())
+	_check("fixture: bodyguard beyond 12\", leader 10\"", _edge("U_CHG", "U_TGT") > 12.0 and absf(_edge("U_LDR", "U_TGT") - 10.0) < 0.005,
+		"bg=%.3f ldr=%.3f" % [_edge("U_CHG", "U_TGT"), _edge("U_LDR", "U_TGT")])
+	var rules = root.get_node("RulesEngine")
+	var board = root.get_node("GameState").state
+	var ui_list: Dictionary = rules.charge_targets_within_12("U_CHG", board)
+	_check("RulesEngine.charge_targets_within_12 (the UI target list + unit filter) lists the target", ui_list.keys() == ["U_TGT"], str(ui_list))
+	_check("its distance is measured from the leader (10.0\")", absf(float(ui_list.get("U_TGT", {}).get("distance", 0.0)) - 10.0) < 0.01, str(ui_list))
+	_check("charge_target_ineligibility_reason agrees (\"\")", rules.charge_target_ineligibility_reason("U_CHG", "U_TGT", board) == "",
+		rules.charge_target_ineligibility_reason("U_CHG", "U_TGT", board))
+	_check("RulesEngine.charge_unit_models: bodyguard + leader models", rules.charge_unit_models("U_CHG", board).size() == 2)
+	_check("the shared _get_min_distance_to_target_rules (shooting: Lone Operative, Psychic Veil) is NOT changed — bodyguard only",
+		rules._get_min_distance_to_target_rules("U_CHG", "U_TGT", board) > 12.0, str(rules._get_min_distance_to_target_rules("U_CHG", "U_TGT", board)))
+	var phase = _new_phase()
+	var el: Dictionary = phase._get_eligible_targets_for_unit("U_CHG")
+	_check("phase _get_eligible_targets_for_unit lists the target at 10.0\"",
+		el.has("U_TGT") and absf(float(el.U_TGT.get("distance", 0.0)) - 10.0) < 0.01, str(el))
+	var d = phase.execute_action({"type": "DECLARE_CHARGE", "actor_unit_id": "U_CHG", "payload": {"target_unit_ids": ["U_TGT"]}})
+	_check("DECLARE_CHARGE [U_TGT] accepted (was 'Target beyond 12\" charge range')", d.get("success", false), str(d.get("errors", d.get("error", ""))))
+	phase.queue_free()
+
+	print("   10e unchanged: the bodyguard's own models only")
+	GameConstants.edition = 10
+	_set_state(mk.call())
+	board = root.get_node("GameState").state
+	_check("10e: charge_unit_models is the unit's own models", rules.charge_unit_models("U_CHG", board).size() == 1)
+	_check("10e: charge_targets_within_12 still measures the bodyguard (target 12.5\" away not listed)",
+		rules.charge_targets_within_12("U_CHG", board).is_empty(), str(rules.charge_targets_within_12("U_CHG", board)))
+	GameConstants.edition = 11
+
+func _test_client_failure_text_split() -> void:
+	print("\n-- ChargeController._on_dice_rolled (the MP client's primary handler): 11e failure text mirrors the phase's split --")
+	# load() at run time (not the class_name): this script compiles before the
+	# autoloads exist, so the global class reference is not usable here.
+	var cc = load("res://scripts/ChargeController.gd").new()
+	cc.charge_info_label = Label.new()
+	cc.dice_log_display = RichTextLabel.new()
+	var base := {"context": "charge_roll", "unit_id": "U_CHG", "unit_name": "Charger", "rolls": [3, 4], "total": 7,
+		"targets": ["U_TGT"], "charge_failed": true}
+	# 6.5" on a 7: within the roll -> the "no model can reach engagement range" wording
+	for md in [6.4999969, 7.01]:
+		var dd: Dictionary = base.duplicate()
+		dd["min_distance"] = md
+		cc.dice_log_display.clear()
+		cc._on_dice_rolled(dd)
+		var info: String = cc.charge_info_label.text
+		var log_txt: String = cc.dice_log_display.get_parsed_text()
+		_check("min %.2f\" on a 7: info label says within the roll but no model can reach ER" % md,
+			"within the roll, but no model can reach" in info and not "must be within" in info, info)
+		_check("min %.2f\" on a 7: dice log says the same (no 'must be within the charge roll')" % md,
+			"no model can reach" in log_txt and not "must be within the charge roll" in log_txt, log_txt)
+	var dd2: Dictionary = base.duplicate()
+	dd2["min_distance"] = 7.1
+	cc.dice_log_display.clear()
+	cc._on_dice_rolled(dd2)
+	_check("min 7.1\" on a 7: info label keeps the 'must be within the roll' wording",
+		"a charge target must be within the roll" in cc.charge_info_label.text, cc.charge_info_label.text)
+	_check("min 7.1\" on a 7: dice log keeps the 11.04 'within the charge roll' wording",
+		"must be within the charge roll (11.04)" in cc.dice_log_display.get_parsed_text(), cc.dice_log_display.get_parsed_text())
+	cc.charge_info_label.free()
+	cc.dice_log_display.free()
+	cc.free()
+
+func _test_min_roll_float_boundary() -> void:
+	print("\n-- a target at an exact whole inch measures a hair over it: the UI 'Min roll', the AI odds and the phase agree --")
+	# Two 32mm bases 7.0" apart along a 0.3 rad diagonal measure 7.0000015":
+	# the phase accepts it on a 7 (<= roll + 0.02"), a bare ceil asked for 8.
+	var gap := _gap_px(7.0)
+	var tgt := ORIGIN + Vector2(cos(0.3), sin(0.3)) * gap
+	var units := {"U_CHG": _unit("U_CHG", 2, [ORIGIN]), "U_TGT": _unit("U_TGT", 1, [tgt])}
+	_set_state(units)
+	var d := _edge("U_CHG", "U_TGT")
+	_check("fixture: measured edge distance is a hair over 7.0\" (float drift)", d > 7.0 and d < 7.001, "%.7f" % d)
+	var phase = _new_phase()
+	var roll: Dictionary = _declare_and_roll(phase, ["U_TGT"], 7).get("roll", {})
+	_check("phase: a 7 is accepted against it", roll.get("charge_failed", true) == false, str(roll))
+	phase.queue_free()
+	# The real controller -> preview path (ChargeController builds the
+	# trajectories, ChargeTrajectoryPreview draws 'Min roll: N'). The
+	# controller stays out of the tree (its _ready builds the HUD), so its
+	# terrain-penalty lookup logs "Can't use get_node() with absolute paths"
+	# and treats the board as open ground — the boards here have no terrain.
+	var cc = load("res://scripts/ChargeController.gd").new()
+	var preview = load("res://scripts/ChargeTrajectoryPreview.gd").new()
+	cc.charge_trajectory_preview = preview
+	cc.active_unit_id = "U_CHG"
+	cc.selected_targets = ["U_TGT"]
+	cc._update_charge_trajectory_preview(root.get_node("GameState").get_unit("U_CHG"), ORIGIN)
+	_check("preview: min charge needed is the raw distance at 11e", absf(preview._min_charge_needed - d) < 0.001, str(preview._min_charge_needed))
+	_check("preview: 'Min roll' asks for 7 (was ceil(7.0000015) = 8)", preview.min_roll_needed() == 7, str(preview.min_roll_needed()))
+	_check("AI: odds for it are P(2D6 >= 7) = 21/36 (was 15/36)",
+		is_equal_approx(AIDecisionMaker._charge_success_probability(AIDecisionMaker._charge_roll_needed(d)), 21.0 / 36.0),
+		str(AIDecisionMaker._charge_success_probability(AIDecisionMaker._charge_roll_needed(d))))
+	# Just beyond the tolerance (7.03") still needs an 8 everywhere.
+	preview.update_trajectories([{"from": ORIGIN, "to": tgt, "distance_inches": 7.03}], 7.03, ORIGIN)
+	_check("preview: 7.03\" still asks for 8", preview.min_roll_needed() == 8, str(preview.min_roll_needed()))
+	_check("AI: 7.03\" odds are P(2D6 >= 8) = 15/36",
+		is_equal_approx(AIDecisionMaker._charge_success_probability(AIDecisionMaker._charge_roll_needed(7.03)), 15.0 / 36.0))
+	# Attached leader in front: the preview measures from him too (19.01).
+	_set_state(_leader_front_units())
+	cc.active_unit_id = "U_CHG"
+	cc.selected_targets = ["U_TGT"]
+	cc._update_charge_trajectory_preview(root.get_node("GameState").get_unit("U_CHG"), _pos("U_CHG"))
+	_check("preview (leader in front): min charge needed is the leader's 6.5\", not the bodyguard's 9.26\"",
+		absf(preview._min_charge_needed - 6.5) < 0.01, str(preview._min_charge_needed))
+	_check("preview (leader in front): 'Min roll: 7'", preview.min_roll_needed() == 7, str(preview.min_roll_needed()))
+	# 10e unchanged (bare ceil).
+	GameConstants.edition = 10
+	preview.update_trajectories([{"from": ORIGIN, "to": tgt, "distance_inches": d}], d, ORIGIN)
+	_check("10e unchanged: preview min roll is the bare ceil", preview.min_roll_needed() == ceili(d), str(preview.min_roll_needed()))
+	GameConstants.edition = 11
+	preview.free()
+	cc.free()
+
 # ── 15.11 Heroic Intervention: targets must be within the maximum distance ──
 
 func _hi_phase(units: Dictionary) -> Node:
@@ -367,10 +576,12 @@ func _test_heroic_intervention_within_roll() -> void:
 func _test_ai_roll_needed() -> void:
 	print("\n-- AI: _charge_roll_needed (11e: max(edge, move); 10e: edge - ER + terrain) --")
 	GameConstants.edition = 11
-	_check("11e: 7.5\" target needs 7.5", is_equal_approx(AIDecisionMaker._charge_roll_needed(7.5), 7.5),
+	# Values are the roll needed less the phase's 0.02" "within" tolerance
+	# (ChargeMove11e.WITHIN_TOLERANCE_INCHES) — see _test_min_roll_float_boundary.
+	_check("11e: 7.5\" target needs 7.5 (less the 0.02\" tolerance)", is_equal_approx(AIDecisionMaker._charge_roll_needed(7.5), 7.48),
 		str(AIDecisionMaker._charge_roll_needed(7.5)))
-	_check("11e: 3.0\" target behind 2.5\" of terrain needs 3.5 (move cost binds)",
-		is_equal_approx(AIDecisionMaker._charge_roll_needed(3.0, 2.5), 3.5), str(AIDecisionMaker._charge_roll_needed(3.0, 2.5)))
+	_check("11e: 3.0\" target behind 2.5\" of terrain needs 3.5 (move cost binds; less the tolerance)",
+		is_equal_approx(AIDecisionMaker._charge_roll_needed(3.0, 2.5), 3.48), str(AIDecisionMaker._charge_roll_needed(3.0, 2.5)))
 	_check("11e: odds for a 7.5\" target are P(2D6 >= 8) = 15/36",
 		is_equal_approx(AIDecisionMaker._charge_success_probability(AIDecisionMaker._charge_roll_needed(7.5)), 15.0 / 36.0))
 	GameConstants.edition = 10

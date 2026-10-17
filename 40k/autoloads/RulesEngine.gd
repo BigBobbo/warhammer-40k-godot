@@ -11385,7 +11385,8 @@ static func charge_targets_within_12(unit_id: String, board: Dictionary) -> Dict
 		if _is_target_within_charge_range_rules(unit_id, target_id, board):
 			eligible[target_id] = {
 				"name": target_unit.get("meta", {}).get("name", target_id),
-				"distance": _get_min_distance_to_target_rules(unit_id, target_id, board)
+				# 11e: from the whole Attached unit (19.01) — see charge_unit_models
+				"distance": _charge_min_distance_to_target_rules(unit_id, target_id, board)
 			}
 	
 	return eligible
@@ -11424,7 +11425,7 @@ static func charge_target_ineligibility_reason(unit_id: String, target_unit_id: 
 		return "%s is an AIRCRAFT — only units with FLY can charge it" % target_name
 
 	if not _is_target_within_charge_range_rules(unit_id, target_unit_id, board):
-		var dist = _get_min_distance_to_target_rules(unit_id, target_unit_id, board)
+		var dist = _charge_min_distance_to_target_rules(unit_id, target_unit_id, board)
 		if dist == INF:
 			return "%s is not on the battlefield" % target_name
 		return "%s is %.1f\" away — charge targets must be within 12\"" % [target_name, dist]
@@ -11525,6 +11526,23 @@ static func _is_unit_in_engagement_range_charge(unit: Dictionary, board: Diction
 
 	return false
 
+# The models a charge measures "your unit" from. 11e: every model of the
+# Attached unit headed by unit_id (its own models plus its attached
+# CHARACTER(s)') — 19.01 "An attached unit is a single unit for all rules
+# purposes", so 11.04 BEFORE MOVING's "within 12" of your unit and within the
+# maximum distance of your unit" and AFTER MOVING's "Your unit must be engaged
+# with all of the charge targets" are satisfied by the leader's models too (the
+# charge move already carries them as <char_unit>:<model> paths). Same model set
+# as ChargeMove11e._unit_group_models. 10e: the unit's own models (unchanged).
+static func charge_unit_models(unit_id: String, board: Dictionary) -> Array:
+	var units = board.get("units", {})
+	if GameConstants.edition < 11:
+		return units.get(unit_id, {}).get("models", [])
+	var out: Array = []
+	for gid in attached_unit_component_ids(unit_id, board):
+		out.append_array(units.get(str(gid), {}).get("models", []))
+	return out
+
 # Check if target is within 12" charge range
 static func _is_target_within_charge_range_rules(unit_id: String, target_id: String, board: Dictionary) -> bool:
 	const CHARGE_RANGE_INCHES = 12.0
@@ -11538,7 +11556,8 @@ static func _is_target_within_charge_range_rules(unit_id: String, target_id: Str
 	# Find closest edge-to-edge distance between any models using shape-aware calculations
 	var min_distance = INF
 
-	for model in unit.get("models", []):
+	# 11e: from every model of the Attached unit (19.01) — see charge_unit_models
+	for model in charge_unit_models(unit_id, board):
 		if not model.get("alive", true):
 			continue
 
@@ -11558,6 +11577,31 @@ static func _is_target_within_charge_range_rules(unit_id: String, target_id: Str
 			min_distance = min(min_distance, distance_inches)
 
 	return min_distance <= CHARGE_RANGE_INCHES
+
+# Charge-only minimum edge-to-edge distance (inches) from the charging unit
+# to target_id, measured from charge_unit_models — every model of the Attached
+# unit at 11e (19.01), the unit's own models at 10e. The ELIGIBLE TARGETS row
+# distance and the ineligibility message use it, so they agree with
+# _is_target_within_charge_range_rules. Deliberately NOT folded into
+# _get_min_distance_to_target_rules, which shooting (Lone Operative, Psychic
+# Veil, closest target) also reads.
+static func _charge_min_distance_to_target_rules(unit_id: String, target_id: String, board: Dictionary) -> float:
+	var target = board.get("units", {}).get(target_id, {})
+	var min_distance = INF
+	for model in charge_unit_models(unit_id, board):
+		if not model.get("alive", true):
+			continue
+		var model_pos = _get_model_position_rules(model)
+		if model_pos == null:
+			continue
+		for target_model in target.get("models", []):
+			if not target_model.get("alive", true):
+				continue
+			var target_pos = _get_model_position_rules(target_model)
+			if target_pos == null:
+				continue
+			min_distance = min(min_distance, Measurement.model_to_model_distance_inches(model, target_model))
+	return min_distance
 
 # Get minimum distance to target
 static func _get_min_distance_to_target_rules(unit_id: String, target_id: String, board: Dictionary) -> float:

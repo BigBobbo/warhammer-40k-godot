@@ -4248,7 +4248,16 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		var er_inches = GameConstants.engagement_range_inches()
 		var needed = max(0.0, min_distance - er_inches)
 
-		if GameConstants.edition >= 11:
+		if GameConstants.edition >= 11 and min_distance <= float(total) + ChargeMove11e.WITHIN_TOLERANCE_INCHES:
+			# 11e, nearest target WITHIN the roll but the charge still failed:
+			# no model can reach engagement range of it (terrain, pg-37 example
+			# A). Same split as ChargePhase.record_insufficient_roll_failure —
+			# the "beyond the roll" text below would contradict the numbers.
+			if is_instance_valid(charge_info_label):
+				charge_info_label.text = "Failed! Rolled %d\": the nearest target (%.1f\" away) is within the roll, but no model can reach %.0f\" engagement range of it" % [total, min_distance, er_inches]
+			if is_instance_valid(dice_log_display):
+				DiceLogFormatter.outcome(dice_log_display, "Charge failed! Rolled %d\": the nearest target (%.1f\" away) is within the roll, but no model can reach %.0f\" engagement range of it (terrain, 11.04)." % [total, min_distance, er_inches], "bad")
+		elif GameConstants.edition >= 11:
 			# 11e 11.04 BEFORE MOVING: the target must be within the roll itself
 			# (base to base) — the roll needed is the distance, not distance - ER.
 			if is_instance_valid(charge_info_label):
@@ -5206,7 +5215,13 @@ func _show_charge_range_overlay(unit: Dictionary) -> void:
 	_clear_charge_range_circle()
 	var range_px := Measurement.inches_to_px(CHARGE_RANGE_OVERLAY_INCHES)
 	var threat_polys: Array = []
-	for model in unit.get("models", []):
+	# 11e: every model of the Attached unit (19.01) — the leader's models count
+	# for "within 12\" of your unit" too, exactly like the ELIGIBLE TARGETS list
+	# (RulesEngine.charge_unit_models; the unit's own models at 10e).
+	var overlay_models: Array = unit.get("models", [])
+	if active_unit_id != "":
+		overlay_models = RulesEngine.charge_unit_models(active_unit_id, GameState.state)
+	for model in overlay_models:
 		if not model.get("alive", true):
 			continue
 		if _get_model_position(model) == Vector2.ZERO:
@@ -5472,7 +5487,13 @@ func _update_charge_trajectory_preview(unit: Dictionary, unit_center: Vector2) -
 	var unit_keywords = unit.get("meta", {}).get("keywords", [])
 	var has_fly = "FLY" in unit_keywords
 
-	for model in unit.get("models", []):
+	# 11e: from every model of the Attached unit (19.01) — a leader in front of
+	# his bodyguard sets the minimum roll (RulesEngine.charge_unit_models, the
+	# same set the phase's within-the-roll check measures from).
+	var preview_models: Array = unit.get("models", [])
+	if active_unit_id != "":
+		preview_models = RulesEngine.charge_unit_models(active_unit_id, GameState.state)
+	for model in preview_models:
 		if not model.get("alive", true):
 			continue
 

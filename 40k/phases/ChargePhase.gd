@@ -1925,7 +1925,8 @@ func _is_target_within_charge_range(unit_id: String, target_id: String) -> bool:
 	var skipped_null_charger = 0
 	var skipped_null_target = 0
 
-	for model in unit.get("models", []):
+	# 11e: from every model of the Attached unit (19.01) — see _charge_unit_models
+	for model in _charge_unit_models(unit_id):
 		if not model.get("alive", true):
 			continue
 
@@ -1992,11 +1993,11 @@ func _get_eligible_targets_for_unit(unit_id: String) -> Dictionary:
 	return eligible
 
 func _get_min_distance_to_target(unit_id: String, target_id: String) -> float:
-	var unit = get_unit(unit_id)
 	var target = get_unit(target_id)
 	var min_distance = INF
 
-	for model in unit.get("models", []):
+	# 11e: from every model of the Attached unit (19.01) — see _charge_unit_models
+	for model in _charge_unit_models(unit_id):
 		if not model.get("alive", true):
 			continue
 
@@ -2989,7 +2990,12 @@ func _is_charge_roll_sufficient(unit_id: String, rolled_distance: int) -> bool:
 	# Collect pairs whose raw distance fits the roll but whose straight
 	# approach pays a terrain penalty — those get the detour pass.
 	var detour_candidates: Array = []
-	for model in unit.get("models", []):
+	# 11e 11.04 AFTER MOVING: "Your unit must be engaged with all of the charge
+	# targets" — the Attached unit is one unit (19.01), so the leader's models
+	# can be the ones that reach engagement range (_charge_unit_models). Judging
+	# the bodyguard alone FAILED a charge whose target was selectable only
+	# through the leader, with a false "terrain" explanation.
+	for model in _charge_unit_models(unit_id):
 		if not model.get("alive", true):
 			continue
 
@@ -3057,7 +3063,8 @@ func _per_target_charge_requirements(unit_id: String, target_ids: Array, rolled_
 			continue
 		var best_required := INF
 		var best_cost := INF
-		for model in unit.get("models", []):
+		# 11e: any model of the Attached unit (19.01) — see _charge_unit_models
+		for model in _charge_unit_models(unit_id):
 			if not model.get("alive", true):
 				continue
 			for target_model in target_unit.get("models", []):
@@ -3199,11 +3206,8 @@ func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> floa
 	if unit.is_empty():
 		return INF
 
-	var charger_models: Array = unit.get("models", [])
-	if GameConstants.edition >= 11:
-		charger_models = _hi_group_models(unit_id)
 	var min_dist = INF
-	for model in charger_models:
+	for model in _charge_unit_models(unit_id):
 		if not model.get("alive", true):
 			continue
 		for target_id in target_ids:
@@ -3217,6 +3221,16 @@ func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> floa
 				min_dist = min(min_dist, dist)
 
 	return min_dist
+
+# The models a charge measures "your unit" from: at 11e every model of the
+# Attached unit (19.01: "An attached unit is a single unit for all rules
+# purposes"), so 11.04's "within 12" of your unit and within the maximum
+# distance of your unit" and "Your unit must be engaged with all of the charge
+# targets" count the leader's models — the same set ChargeMove11e._targets_within
+# selects from and the charge move carries. 10e: the unit's own models.
+# See RulesEngine.charge_unit_models.
+func _charge_unit_models(unit_id: String) -> Array:
+	return RulesEngine.charge_unit_models(unit_id, game_state_snapshot)
 
 # Re-roll dialog line for a charge roll (ability re-roll and Command Re-roll).
 # 11e 11.04 BEFORE MOVING: a charge target must be within the charge roll,
