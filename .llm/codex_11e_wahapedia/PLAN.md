@@ -15,11 +15,25 @@ Three tracks:
 
 C and O both depend on W0–W2 and are otherwise independent.
 
+## Progress (updated by the integrator)
+
+| Phase | Status |
+|---|---|
+| W0–W2 pipeline + data tests | ✅ `e704330`: wahapedia-import / curate-from-wahapedia / verify-wahapedia-import, `npm run codex11e`, `test_wahapedia_11e_import_data.gd` |
+| C1 / O1 data | ✅ 29 Custodes + 55 Ork codex datasheets; AC stratagem/detachment rows; Ork curated stratagems re-verified (no errata) |
+| C2 / O2 army files | ✅ all 16 lists regenerated (codex sizes/points, Legends kept); legacy 1.0.19 Custodes kits frozen (D1). Save fixtures / AI-lab baselines NOT regenerated (they stay as pre-codex saves; re-baseline at the end) |
+| Rules phase | contract: `IMPLEMENTATION.md`; briefs in `briefs/`. Running: WP-C3, WP-O34. Queued: WP-O6, then WP-C5, WP-C46, WP-C7, WP-O5 |
+
+Known follow-ups:
+- `recon_stomps.json` is 2270/2000 pts with codex Ork points; the shipped
+  Ork AI plans are authored against that roster, so it was kept whole.
+  Re-author the plans for a legal list.
+
 ## Decisions (owner, 2026-10-17)
 
 | # | Question | Answer |
 |---|---|---|
-| D1 | Old saves: keep the pre-codex Custodes units playable, or convert? | **Open.** The owner asked which units are "old"; see the list below. The proposal is to keep them playable through legacy kits and to convert only the shipped army files |
+| D1 | Old saves: keep the pre-codex Custodes units playable, or convert? | **Proposal applied** (owner said "kick this off" without choosing): old saves keep their units through legacy kits; shipped army files converted. Reversible if the owner prefers conversion |
 | D2 | Legends units | **Ignore.** Do not import them, do not build them, do no work on them. Existing game entries are left as they are |
 | D3 | Boarding Actions detachments (Custodes: Voyagers in Darkness, Black Ship Guardians; Orks: Ramship Raiders, Kaptin Killers) | **Out of scope** |
 | D4 | Switch to 40kdc-data once it ships the codexes? | **Yes.** See W4 |
