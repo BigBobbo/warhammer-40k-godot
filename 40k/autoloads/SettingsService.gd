@@ -214,7 +214,7 @@ var tutorial_language: String = "standard"
 # Runtime-only harness override, never persisted: the windowed tut_* scenarios
 # were authored against the orky text (they click "Leg it!", assert
 # "Scoutin' da Field", pin exact card bodies), so automated runs keep that
-# baseline — same carve-out idea as the 10e edition pin in _ready(). An
+# baseline — a harness-only carve-out keyed on _is_automated_harness(). An
 # explicit set_tutorial_language() (e.g. a scenario testing the standard
 # voice) clears it for the rest of the run.
 var _tutorial_language_harness_pin: bool = false
@@ -224,11 +224,11 @@ var _tutorial_language_harness_pin: bool = false
 # changed, so the whole rules engine plays the selected edition. Players can
 # switch back to 10e via the main-menu "Rules Edition" dropdown (persisted here).
 # (ISS-A0 / 11e migration go-live; default flipped to 11 per owner request.)
-# NOTE: the automated test/scenario harness controls edition explicitly and
-# keeps a 10e baseline — _ready() below does NOT apply this default there.
 # Rules edition is no longer a player setting — the game is 11th edition
-# only (the 10e data/code paths survive solely for the legacy regression
-# suite and are pinned by the harness carve-out in _ready).
+# only. The automated test/scenario harness ALSO defaults to 11 (the rules the
+# player actually plays — a harness that silently ran 10e produced false-green
+# evidence; 2026-10 rules audit finding 9.2). The surviving 10e code paths are
+# exercised only by an EXPLICIT opt-in — see _resolve_harness_edition().
 
 # Display settings. The project launches fullscreen (project.godot
 # window/size/mode=3); before these existed there was NO way to windowed-mode
@@ -309,6 +309,40 @@ func _is_automated_harness() -> bool:
 			return true
 	return false
 
+## Multi-peer test processes (GameInstance / mp_two_process_* launch peers with
+## --test-mode and no -s). They are not _is_automated_harness() — they keep the
+## player's settings and UI — but they DO honour the explicit edition opt-in so
+## a legacy two-peer run can pin 10e for every peer through the environment.
+func _is_test_mode_peer() -> bool:
+	return OS.get_cmdline_args().has("--test-mode") or OS.get_cmdline_user_args().has("--test-mode")
+
+const HARNESS_DEFAULT_EDITION := 11
+const HARNESS_EDITION_ENV := "WH40K_TEST_EDITION"
+const HARNESS_EDITION_ARG := "--edition="
+
+## Rules edition for a test harness run. Default 11 — the edition the game
+## ships. Legacy 10e regression coverage must opt in EXPLICITLY, either:
+##   WH40K_TEST_EDITION=10 godot ...      (env; inherited by child processes,
+##                                          the only channel GUT accepts —
+##                                          gut_cli rejects unknown args)
+##   godot -s tests/x.gd -- --edition=10  (user arg; non-GUT runs only)
+## Precedence (low → high): default 11 < $WH40K_TEST_EDITION < --edition= <
+## a scenario JSON "edition" field (ScenarioRunner) < explicit writes in a
+## test body. An invalid value is an error and falls back to the default.
+func _resolve_harness_edition() -> Dictionary:
+	for a in OS.get_cmdline_user_args() + OS.get_cmdline_args():
+		if typeof(a) == TYPE_STRING and a.begins_with(HARNESS_EDITION_ARG):
+			var v: String = a.substr(HARNESS_EDITION_ARG.length())
+			if v == "10" or v == "11":
+				return {"edition": int(v), "source": a}
+			push_error("[SettingsService] invalid %s (expected 10 or 11) — using the harness default %d" % [a, HARNESS_DEFAULT_EDITION])
+	var env := OS.get_environment(HARNESS_EDITION_ENV).strip_edges()
+	if env == "10" or env == "11":
+		return {"edition": int(env), "source": "$" + HARNESS_EDITION_ENV}
+	if env != "":
+		push_error("[SettingsService] invalid %s=%s (expected 10 or 11) — using the harness default %d" % [HARNESS_EDITION_ENV, env, HARNESS_DEFAULT_EDITION])
+	return {"edition": HARNESS_DEFAULT_EDITION, "source": "harness default"}
+
 func _ready() -> void:
 	# P3-111: Load persisted settings before applying anything
 	_load_settings()
@@ -316,22 +350,26 @@ func _ready() -> void:
 	# The game is 11th edition only: every player launch runs at 11, no matter
 	# what an old settings.cfg carried (pre-removal builds persisted a
 	# rules_edition that could silently pin players to 10e).
-	# EXCEPTION: the automated test/scenario harness keeps the historical 10e
-	# baseline — scenarios/GUT tests control the edition explicitly, and the
-	# ~70 fieldless legacy scenarios were authored against 10e. This carve-out
-	# disappears when the 10e code paths are deleted.
-	if _is_automated_harness():
-		GameConstants.edition = 10
-		print("[SettingsService] Automated harness — GameConstants.edition pinned to the legacy 10e test baseline")
+	# Test harnesses (scenario runner, GUT, `godot -s`, --test-mode peers) ALSO
+	# default to 11 — the oracle must test the rules the player plays. Legacy
+	# 10e regression runs opt in explicitly (_resolve_harness_edition). Until
+	# 2026-10-17 the harness silently pinned 10 here, so every test that did
+	# not set the edition itself validated 10e (rules audit finding 9.2).
+	var harness := _is_automated_harness()
+	if harness or _is_test_mode_peer():
+		var r: Dictionary = _resolve_harness_edition()
+		GameConstants.edition = int(r.edition)
+		print("[SettingsService] Test harness — rules edition %d (%s)" % [int(r.edition), str(r.source)])
+	else:
+		GameConstants.edition = 11
+		print("[SettingsService] Rules edition: 11 (11th edition only)")
+	if harness:
 		# The windowed tut_* suite was authored against the orky tutorial text
 		# (exact barks, "Leg it!", "Scoutin' da Field" progress strings). Pin
 		# the harness to that baseline WITHOUT touching the persisted player
 		# choice — see _tutorial_language_harness_pin above.
 		_tutorial_language_harness_pin = true
 		print("[SettingsService] Automated harness — tutorial language pinned to the orky test baseline")
-	else:
-		GameConstants.edition = 11
-		print("[SettingsService] Rules edition: 11 (11th edition only)")
 
 	# P3-111: Set up audio buses and apply saved audio settings
 	_setup_audio_buses()
