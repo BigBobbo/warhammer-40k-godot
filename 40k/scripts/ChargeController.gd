@@ -2019,7 +2019,8 @@ func _update_charge_requirement_hint() -> void:
 	the 'a charge must reach ALL declared targets' rule is taught in context.
 	Uses the raw edge distance minus engagement range as a terrain-free pre-roll
 	estimate (the actual path — and any terrain penalty — is unknown until the
-	player draws the move)."""
+	player draws the move). 11e: the raw edge distance itself — 11.04 BEFORE
+	MOVING, a charge target must be within the roll."""
 	if not is_instance_valid(charge_requirement_label):
 		return
 	# Only meaningful while choosing targets (before the roll / the move).
@@ -2036,7 +2037,10 @@ func _update_charge_requirement_hint() -> void:
 	for tid in selected_targets:
 		var data: Dictionary = eligible_targets.get(tid, {})
 		var dist: float = float(data.get("distance", 0.0))
-		var need: float = maxf(0.0, dist - er)
+		# 11e 11.04 BEFORE MOVING: a charge target must be within the roll
+		# itself (base to base) — the roll needed IS the distance; ER does not
+		# extend it (pg-37 example B). 10e: the roll only closes to ER.
+		var need: float = dist if GameConstants.edition >= 11 else maxf(0.0, dist - er)
 		var tname: String = str(data.get("name", tid))
 		per_lines.append("  • %s — %.1f\" away, needs roll ≥ %.1f\"" % [tname, dist, need])
 		if need > worst_need:
@@ -2066,6 +2070,8 @@ func _update_charge_requirement_hint() -> void:
 	var bb: String = "[color=%s]%s[/color]" % [color_hex, verdict]
 	if selected_targets.size() > 1:
 		bb += "\n[color=#b9b9b9]%s\nA charge must end within engagement range of EVERY declared target.[/color]" % "\n".join(per_lines)
+	if GameConstants.edition >= 11:
+		bb += "\n[color=#b9b9b9]11.04: a target must be within the roll itself (base to base) — targets beyond it are dropped.[/color]"
 	charge_requirement_label.text = bb
 
 func _update_visuals() -> void:
@@ -2107,7 +2113,10 @@ func _update_visuals() -> void:
 				charge_line_visual.add_point(target_center)
 
 			# T7-58: Create animated charge arrow visual
-			_create_charge_arrow_visual(unit_center, target_center, false)
+			var arrow = _create_charge_arrow_visual(unit_center, target_center, false)
+			if arrow:
+				# lets the 11e post-roll cue fail the arrow of a target the roll dropped
+				arrow.set_meta("charge_target_id", target_id)
 
 			# Add highlight to target
 			_highlight_unit(target_id, HIGHLIGHT_COLOR_SELECTED)
@@ -2261,6 +2270,10 @@ func _is_charge_successful(unit_id: String, rolled_distance: int, target_ids: Ar
 
 				# Edge-to-edge distance in inches, minus the edition's engagement range
 				var distance_inches = Measurement.model_to_model_distance_inches(model, target_model)
+				# 11e 11.04: the target must also be within the roll itself
+				# (base to base) to be selectable — ER does not extend it.
+				if GameConstants.edition >= 11 and distance_inches > float(rolled_distance) + ChargeMove11e.WITHIN_TOLERANCE_INCHES:
+					continue
 				var distance_to_close = distance_inches - GameConstants.engagement_range_inches()
 
 				# T2-8: Add terrain penalty for straight-line path
@@ -3721,6 +3734,38 @@ func _set_target_list_locked(locked: bool) -> void:
 	for i in range(target_list.get_item_count()):
 		target_list.set_item_disabled(i, locked)
 
+# The phase's post-roll selectable list for unit_id (11e 11.04: enemies within
+# 12" AND within the roll). Empty when there is no rolled pending charge.
+func _phase_selectable_targets(unit_id: String) -> Array:
+	if current_phase == null or not current_phase.has_method("get_pending_charges"):
+		return []
+	return current_phase.get_pending_charges().get(unit_id, {}).get("selectable_targets", [])
+
+const BEYOND_ROLL_SUFFIX := "  — beyond roll"
+
+# 11e 11.04 BEFORE MOVING: after the roll only enemies within 12" AND within the
+# roll can be charge targets; the phase drops declared targets beyond it. The
+# rows are locked by then, so without a cue that drop is silent — tag each row
+# the roll left out of reach, and turn a dropped target's charge arrow (which
+# _update_charge_arrow_roll_results just marked SUCCESS with the rest) to
+# FAILED. The phase's selectable list is the authority.
+func _mark_beyond_roll_targets(unit_id: String, roll_total: int) -> void:
+	if GameConstants.edition < 11:
+		return
+	var selectable: Array = _phase_selectable_targets(unit_id)
+	if is_instance_valid(target_list):
+		for i in range(target_list.get_item_count()):
+			var tid = str(target_list.get_item_metadata(i))
+			var text: String = target_list.get_item_text(i)
+			if tid in selectable or text.ends_with(BEYOND_ROLL_SUFFIX):
+				continue
+			target_list.set_item_text(i, text + BEYOND_ROLL_SUFFIX)
+			print("ChargeController: [11e] target row %s marked beyond the roll (selectable: %s)" % [tid, str(selectable)])
+	for visual in charge_arrow_visuals:
+		if is_instance_valid(visual) and visual.has_meta("charge_target_id") \
+				and not (str(visual.get_meta("charge_target_id")) in selectable):
+			visual.set_roll_result(roll_total, false)
+
 func _on_roll_charge_pressed() -> void:
 	if active_unit_id == "":
 		return
@@ -4113,6 +4158,9 @@ func _on_charge_roll_made(unit_id: String, distance: int, dice: Array) -> void:
 		DiceLogFormatter.outcome(dice_log_display, "Charge successful! Move models into engagement range.", "good")
 	# T7-58: Update arrows with success result (roll sufficient)
 	_update_charge_arrow_roll_results(distance, true)
+	# 11e 11.04: tag the locked target rows (and fail the arrows) of the
+	# declared targets the roll left behind
+	_mark_beyond_roll_targets(unit_id, distance)
 
 	# Enable charge movement for this unit
 	_enable_charge_movement(unit_id, distance)
@@ -4200,10 +4248,18 @@ func _on_dice_rolled(dice_data: Dictionary) -> void:
 		var er_inches = GameConstants.engagement_range_inches()
 		var needed = max(0.0, min_distance - er_inches)
 
-		if is_instance_valid(charge_info_label):
-			charge_info_label.text = "Failed! Rolled %d\" but needed ~%.1f\" to reach engagement range" % [total, needed]
-		if is_instance_valid(dice_log_display):
-			DiceLogFormatter.outcome(dice_log_display, "Charge failed! Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach %.0f\" engagement range)." % [total, min_distance, needed, er_inches], "bad")
+		if GameConstants.edition >= 11:
+			# 11e 11.04 BEFORE MOVING: the target must be within the roll itself
+			# (base to base) — the roll needed is the distance, not distance - ER.
+			if is_instance_valid(charge_info_label):
+				charge_info_label.text = "Failed! Rolled %d\" but the nearest target is %.1f\" away — a charge target must be within the roll" % [total, min_distance]
+			if is_instance_valid(dice_log_display):
+				DiceLogFormatter.outcome(dice_log_display, "Charge failed! Rolled %d\" but nearest target is %.1f\" away — a charge target must be within the charge roll (11.04)." % [total, min_distance], "bad")
+		else:
+			if is_instance_valid(charge_info_label):
+				charge_info_label.text = "Failed! Rolled %d\" but needed ~%.1f\" to reach engagement range" % [total, needed]
+			if is_instance_valid(dice_log_display):
+				DiceLogFormatter.outcome(dice_log_display, "Charge failed! Rolled %d\" but nearest target is %.1f\" away (need ~%.1f\" to reach %.0f\" engagement range)." % [total, min_distance, needed, er_inches], "bad")
 
 		# T7-58: Update arrows with failure result
 		_update_charge_arrow_roll_results(total, false)
@@ -5454,6 +5510,10 @@ func _update_charge_trajectory_preview(unit: Dictionary, unit_center: Vector2) -
 			# Add terrain penalty for straight-line path
 			var terrain_penalty = _calculate_terrain_penalty_for_path(model_pos, closest_target_pos)
 			var effective_distance = charge_distance_needed + terrain_penalty
+			# 11e 11.04: the target must also be within the roll itself (base to
+			# base), so the minimum roll is at least the raw distance.
+			if GameConstants.edition >= 11:
+				effective_distance = maxf(closest_dist_inches, effective_distance)
 
 			trajectories.append({
 				"from": model_pos,
@@ -5498,6 +5558,13 @@ func _on_auto_path_charge() -> void:
 	# pending_charges must be read as a property — Object.get() takes a single
 	# argument, and a two-argument Dictionary-style get() aborts this handler.
 	var charge_targets: Array = selected_targets
+	# 11e 11.04: a declared target beyond the roll is no longer a charge target
+	# (the phase dropped it) — snapping toward it would end models in its
+	# engagement range, a non-target violation. Keep only selectable ones.
+	if GameConstants.edition >= 11:
+		var selectable_11e: Array = _phase_selectable_targets(active_unit_id)
+		if not selectable_11e.is_empty():
+			charge_targets = charge_targets.filter(func(t): return t in selectable_11e)
 	if charge_targets.is_empty():
 		charge_targets = _get_charge_targets_from_phase(active_unit_id)
 	# Build a list of candidate target model positions (alive enemies in declared targets)

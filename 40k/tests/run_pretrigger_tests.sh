@@ -46,6 +46,7 @@
 #     left (was an infinite loop)
 #   - 14.02 per-model Objective Control (every model in range adds its OC;
 #     attached-unit battle-shock zeroes the group; 14.03 secured tie/break)
+#   - 11e charge targets within 12" AND within the roll (11.04 / 15.11)
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -184,6 +185,7 @@ TESTS=(
     "tests/test_iss058_disembark_11e.gd"
     "tests/test_iss049_charge_11e.gd"
     "tests/test_charge_phase_fixes.gd"
+    "tests/test_charge_target_within_roll_11e.gd"
     "tests/test_iss041b_resolution_11e.gd"
     "tests/test_casualty_preference.gd"
     "tests/test_iss016_modifier_stack.gd"

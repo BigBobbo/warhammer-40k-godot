@@ -2053,6 +2053,15 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 				var total = dice_block.get("total", 0)
 				var rolls = dice_block.get("rolls", [])
 				if rolls.size() == 2:
+					# 11e 11.04: mirror the host's post-roll selectable list (and
+					# the kept targets) BEFORE re-emitting charge_roll_made, so the
+					# client's ChargeController reads the filtered list — the
+					# DECLARE_CHARGE mirror above still holds the pre-roll targets.
+					if not charge_failed and result.has("selectable_targets") \
+							and "pending_charges" in phase and phase.pending_charges.has(unit_id):
+						phase.pending_charges[unit_id]["selectable_targets"] = result.get("selectable_targets", []).duplicate()
+						phase.pending_charges[unit_id]["targets"] = dice_block.get("targets", phase.pending_charges[unit_id].get("targets", [])).duplicate()
+						print("NetworkManager: Client mirrored 11e selectable charge targets for %s: %s" % [unit_id, str(result.get("selectable_targets", []))])
 					# Always re-emit charge_roll_made so dice log updates
 					if phase.has_signal("charge_roll_made"):
 						print("NetworkManager: Client re-emitting charge_roll_made for %s (distance=%d, dice=%s)" % [unit_id, total, str(rolls)])

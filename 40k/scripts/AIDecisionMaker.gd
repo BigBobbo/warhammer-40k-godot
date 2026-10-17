@@ -15492,7 +15492,10 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var target_pos_for_terrain = pair_info.pos_b
 			var terrain_penalty = _estimate_charge_terrain_penalty(charger_pos_for_terrain, target_pos_for_terrain, has_fly, unit_keywords)
 			var er_inches = GameConstants.engagement_range_inches()  # 2" at 11e, 1" at 10e
-			var charge_distance_needed = max(0.0, dist - er_inches) + terrain_penalty
+			# Roll needed (11e: the target must be within the roll itself,
+			# 11.04 — see _charge_roll_needed). The 3% skip and the short-charge
+			# multipliers below key on this roll-needed value.
+			var charge_distance_needed = _charge_roll_needed(dist, terrain_penalty)
 			if terrain_penalty > 0.0:
 				print("AIDecisionMaker: [CHARGE-TERRAIN] %s -> %s: raw=%.1f\" terrain_penalty=+%.1f\" effective=%.1f\"" % [
 					unit_name, target_name, dist - er_inches, terrain_penalty, charge_distance_needed])
@@ -15654,7 +15657,7 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			var t_dist = target_info.distance_inches
 			# Find the scored entry for this target
 			var t_score = 0.0
-			var t_prob = _charge_success_probability(max(0.0, t_dist - GameConstants.engagement_range_inches()))
+			var t_prob = _charge_success_probability(_charge_roll_needed(t_dist))
 			var t_melee = _estimate_melee_damage(charge_unit, t_unit, {},
 				1 if _aao_charge_keeps_isolation(charge_unit, t_unit, snapshot, player) else 0) if not t_unit.is_empty() else 0.0
 			var t_hp = _calculate_kill_threshold(t_unit) if not t_unit.is_empty() else 0.0
@@ -15703,6 +15706,22 @@ static func _evaluate_best_charge(snapshot: Dictionary, available_actions: Array
 			dtid, _charge_coordination[dtid].charger_ids.size(), _charge_coordination[dtid].total_expected_dmg])
 
 	return result
+
+# The 2D6 result a charge against a target `edge_in` inches away (base to base)
+# needs, with `terrain_pen` inches of terrain penalty on the approach.
+#   11e: max(edge_in, move) — Core 11.04 BEFORE MOVING: a charge target must be
+#        within 12" AND within the charge roll itself (pg-37 example B: a unit
+#        more than 7" away cannot be selected on a 7, even though the charger
+#        could end within 2" of it), AND the move must still reach engagement
+#        range around any terrain.
+#   10e: move = max(0, edge_in - ER) + terrain_pen (the roll only has to close
+#        the gap to engagement range).
+# Feed the result to _charge_success_probability.
+static func _charge_roll_needed(edge_in: float, terrain_pen: float = 0.0) -> float:
+	var move = max(0.0, edge_in - GameConstants.engagement_range_inches()) + terrain_pen
+	if GameConstants.edition >= 11:
+		return max(edge_in, move)
+	return move
 
 static func _charge_success_probability(distance_needed: float) -> float:
 	"""Calculate the probability that 2D6 >= distance_needed.
@@ -15813,7 +15832,9 @@ static func _score_multi_target_combo(
 		if t.dist > max_dist:
 			max_dist = t.dist
 
-	var charge_distance_needed = max(0.0, max_dist - GameConstants.engagement_range_inches())
+	# Every target must be within the roll at 11e (11.04), so the farthest one
+	# sets the roll needed — see _charge_roll_needed.
+	var charge_distance_needed = _charge_roll_needed(max_dist)
 	var charge_prob = _charge_success_probability(charge_distance_needed)
 
 	# Skip if the multi-target charge has very low probability

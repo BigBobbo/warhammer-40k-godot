@@ -101,6 +101,12 @@ const FAIL_CATEGORY_TOOLTIPS = {
 	FAIL_TERRAIN: "A model's charge path passes through a solid terrain feature (such as a ruin wall) it cannot cross. Infantry-type units move through dense terrain freely and Fly units charge over it; other units must go around.",
 }
 
+# 11e wording for INSUFFICIENT_ROLL (get_failure_category_tooltip swaps it in at
+# edition >= 11). 11.04 BEFORE MOVING: a charge target must be within 12" AND
+# within the charge roll, measured base to base — engagement range does not
+# extend the roll (pg-37 example B); FAILED CHARGES sidebar: a 2 never succeeds.
+const FAIL_INSUFFICIENT_ROLL_TOOLTIP_11E = "11.04: a charge target must be within 12\" AND within the charge roll, measured base to base — the 2D6 result must be at least the distance to the target (engagement range does not add to it). No enemy was within the roll (or terrain stopped every model reaching engagement range, {er}), so the charge failed and the unit does not move. An unmodified roll of 2 never succeeds."
+
 func _init():
 	phase_type = GameStateData.Phase.CHARGE
 
@@ -636,7 +642,8 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 
 	# ISS-049 step 2 (11e 11.02): the roll IS the maximum distance — targets
 	# are selected after the roll, from enemies within 12" AND within the
-	# roll (the pg-37 example). This list is PROVISIONAL so paused re-roll
+	# roll (11.04 BEFORE MOVING; the pg-37 example — min(12, roll), ER does not
+	# extend it). This list is PROVISIONAL so paused re-roll
 	# flows can introspect it; _resolve_charge_roll recomputes it from the
 	# FINAL total (after re-rolls / +N charge bonuses) — resolving from the
 	# raw first 2D6 made re-rolled/bonused charges fail against a stale list.
@@ -671,8 +678,7 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 		var reroll_ability_name = _get_charge_reroll_ability_name(unit_id)
 
 		var min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
-		var needed = max(0.0, min_distance - GameConstants.engagement_range_inches())
-		var context_text = "Need %.1f\" to reach engagement range (nearest target %.1f\" away)" % [needed, min_distance]
+		var context_text = _charge_roll_need_text(min_distance)
 
 		var roll_context = {
 			"roll_type": "charge_roll",
@@ -723,8 +729,7 @@ func _check_command_reroll_or_resolve(unit_id: String) -> Dictionary:
 		reroll_pending_unit_id = unit_id
 
 		var min_distance = _get_min_distance_to_any_target(unit_id, target_ids)
-		var needed = max(0.0, min_distance - GameConstants.engagement_range_inches())
-		var context_text = "Need %.1f\" to reach engagement range (nearest target %.1f\" away)" % [needed, min_distance]
+		var context_text = _charge_roll_need_text(min_distance)
 
 		var roll_context = {
 			"roll_type": "charge_roll",
@@ -776,13 +781,15 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 			unit_name, charge_data.dice_rolls[0] + charge_data.dice_rolls[1], charge_bonus, total_distance
 		]))
 
-	# ISS-049 step 2 (11e 11.02): targets are selected after the roll, from
-	# enemies within 12" AND reachable by the roll. Reachable means the roll can
-	# close the gap to ENGAGEMENT RANGE (not full base contact), so the raw-gap
-	# ceiling is min(12, roll + ER) — see ChargeMove11e.selectable_distance_ceiling.
+	# ISS-049 step 2 (11e 11.02 / 11.04 BEFORE MOVING): targets are selected
+	# after the roll, from enemies within 12" AND within the maximum distance —
+	# the roll itself, measured base to base. Engagement range does NOT extend
+	# it (pg-37 example B: a unit more than 7" away cannot be selected on a 7"
+	# roll even though the charger could end within 2" of it), so the ceiling is
+	# min(12, roll) — see ChargeMove11e.selectable_distance_ceiling.
 	# Computed HERE — from the FINAL total (after re-rolls and +N bonuses) — and
-	# the original declaration is re-filtered against it. Pre-declared targets the
-	# roll cannot reach are dropped; ones a re-roll newly reaches come back.
+	# the original declaration is re-filtered against it. Pre-declared targets
+	# beyond the roll are dropped; ones a re-roll newly brings within it come back.
 	if GameConstants.edition >= 11:
 		var tmpl_11e = MoveTypes.get_type("charge")
 		var selectable: Array = tmpl_11e._targets_within(unit_id, GameState.state, ChargeMove11e.selectable_distance_ceiling(float(total_distance)))
@@ -847,6 +854,10 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 			var md_ids: Array = selectable_11e
 			if md_ids.is_empty():
 				md_ids = charge_data.get("declared_targets", [])
+			if md_ids.is_empty():
+				# Nothing declared and nothing within the roll: report the
+				# nearest enemy within 12" (the roll it needed), not INF.
+				md_ids = _get_eligible_targets_for_unit(unit_id).keys()
 			min_distance = _get_min_distance_to_any_target(unit_id, md_ids)
 			log_phase_message("[11e] No pre-declared targets — charge %s (selectable: %s)" % [
 				"continues, select targets with the move" if roll_sufficient else "FAILED (nothing reachable)",
@@ -945,10 +956,17 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	emit_signal("charge_path_tools_enabled", unit_id, total_distance)
 	emit_signal("dice_rolled", dice_result)
 
-	return create_result(true, [], "", {
+	var success_data := {
 		"dice": [dice_result],
 		"charge_failed": false,
-	})
+	}
+	# 11e 11.04: carry the post-roll selectable list (within 12" AND within the
+	# roll) so a multiplayer client can mirror it into its pending_charges —
+	# its ChargeController filters the inferred targets by that list, and the
+	# declaration-time mirror is stale once the roll has dropped targets.
+	if GameConstants.edition >= 11:
+		success_data["selectable_targets"] = charge_data.get("selectable_targets", []).duplicate()
+	return create_result(true, [], "", success_data)
 
 func _validate_ability_reroll(action: Dictionary) -> Dictionary:
 	"""Validate USE_ABILITY_REROLL or DECLINE_ABILITY_REROLL action."""
@@ -2893,13 +2911,25 @@ func get_failed_charge_attempts() -> Array:
 
 func get_failure_category_tooltip(category: String) -> String:
 	var text: String = FAIL_CATEGORY_TOOLTIPS.get(category, "Charge failed due to an unknown constraint.")
+	if category == FAIL_INSUFFICIENT_ROLL and GameConstants.edition >= 11:
+		text = FAIL_INSUFFICIENT_ROLL_TOOLTIP_11E
 	return text.replace("{er}", "%.0f\"" % GameConstants.engagement_range_inches())
 
 func record_insufficient_roll_failure(unit_id: String, rolled_distance: int, dice: Array, target_ids: Array, min_distance: float, unreachable_names: Array = []) -> void:
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	var er_in = GameConstants.engagement_range_inches()
 	var detail: String
-	if unreachable_names.size() > 0 and target_ids.size() > 1:
+	if GameConstants.edition >= 11:
+		# 11e 11.04 BEFORE MOVING: a charge target must be within 12" AND
+		# within the charge roll (base to base) — ER does not extend it. At 11e
+		# targets beyond the roll are dropped rather than failing the charge,
+		# so a failed roll means no target was within it (or, pg-37 example A,
+		# one was but terrain stops every model reaching engagement range).
+		if min_distance > float(rolled_distance) + MOVEMENT_CAP_EPSILON:
+			detail = "Rolled %d\" but the nearest charge target is %.1f\" away — a charge target must be within the charge roll (11.04)" % [rolled_distance, min_distance]
+		else:
+			detail = "Rolled %d\": the nearest target (%.1f\" away) is within the roll, but no model can reach %.0f\" engagement range of it (terrain, 11.04)" % [rolled_distance, min_distance, er_in]
+	elif unreachable_names.size() > 0 and target_ids.size() > 1:
 		# Over-declared multi-target charge: name the target(s) the roll can't
 		# reach so the player learns a charge must reach EVERY declared target.
 		detail = "Rolled %d\" — cannot reach every declared target (out of range: %s). A charge must end within %.0f\" engagement range of ALL targets; you needed to roll %.1f\"." % [
@@ -3070,7 +3100,10 @@ func _report_partial_charge(unit_id: String, kept_ids: Array, dropped_ids: Array
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
 	var dropped_desc: Array = []
 	for tid in dropped_ids:
-		var need = float(per_target.get(tid, {}).get("cost", INF))
+		# 11.04: the roll needed is the larger of the base-to-base distance
+		# (the target must be within the roll) and the movement cost to reach
+		# engagement range (terrain can make that the binding one).
+		var need = maxf(float(per_target.get(tid, {}).get("cost", INF)), _get_min_distance_to_any_target(unit_id, [tid]))
 		var nm = get_unit(tid).get("meta", {}).get("name", tid)
 		dropped_desc.append("%s (needs %.1f\")" % [nm, need] if need < INF else nm)
 	var msg = "%s charge reaches %s; beyond the %d\" roll: %s" % [
@@ -3158,13 +3191,19 @@ func _get_charge_reroll_ability_name(unit_id: String) -> String:
 	return "ability"
 
 func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:
-	"""Get the minimum edge-to-edge distance (inches) from any charging model to any target model."""
+	"""Get the minimum edge-to-edge distance (inches) from any charging model to any target model.
+	11e: measured from every model of the Attached unit (19.01), the same model
+	set ChargeMove11e._targets_within selects targets from — so the 'nearest
+	target' the player and the AI are shown matches the selectable list."""
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return INF
 
+	var charger_models: Array = unit.get("models", [])
+	if GameConstants.edition >= 11:
+		charger_models = _hi_group_models(unit_id)
 	var min_dist = INF
-	for model in unit.get("models", []):
+	for model in charger_models:
 		if not model.get("alive", true):
 			continue
 		for target_id in target_ids:
@@ -3178,6 +3217,16 @@ func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> floa
 				min_dist = min(min_dist, dist)
 
 	return min_dist
+
+# Re-roll dialog line for a charge roll (ability re-roll and Command Re-roll).
+# 11e 11.04 BEFORE MOVING: a charge target must be within the charge roll,
+# measured base to base, so the roll needed IS the nearest target's distance.
+# 10e: the roll only has to close the gap to engagement range.
+func _charge_roll_need_text(min_distance: float) -> String:
+	if GameConstants.edition >= 11:
+		return "Need %.1f\" — a charge target must be within the charge roll (nearest target %.1f\" away, 11.04)" % [min_distance, min_distance]
+	var needed = max(0.0, min_distance - GameConstants.engagement_range_inches())
+	return "Need %.1f\" to reach engagement range (nearest target %.1f\" away)" % [needed, min_distance]
 
 func get_charge_distance(unit_id: String) -> int:
 	if pending_charges.has(unit_id) and pending_charges[unit_id].has("distance"):
@@ -3867,6 +3916,26 @@ func _is_heroic_intervention_roll_sufficient(unit_id: String, rolled_distance: i
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return false
+
+	# 11e 15.11: both modes may only select targets "within the maximum
+	# distance" (Leap to Defend: charged units within it; Into the Fray: within
+	# 6" AND within it) — the same 11.04 rule as a normal charge: the target
+	# must be within the roll itself, base to base, measured from the whole
+	# Attached unit (19.01). Engagement range does not extend it, so e.g. an
+	# Into the Fray roll of 2 never reaches a target 2.5" away.
+	if GameConstants.edition >= 11:
+		var nearest_in := INF
+		for model in _hi_group_models(unit_id):
+			if not model.get("alive", true) or model.get("position") == null:
+				continue
+			for target_id in target_ids:
+				for target_model in get_unit(target_id).get("models", []):
+					if not target_model.get("alive", true) or target_model.get("position") == null:
+						continue
+					nearest_in = minf(nearest_in, Measurement.model_to_model_distance_inches(model, target_model))
+		if nearest_in > float(rolled_distance) + MOVEMENT_CAP_EPSILON:
+			DebugLogger.info(str("ChargePhase: HI target %.2f\" away is beyond the %d\" roll — not within the maximum distance (15.11 / 11.04)" % [nearest_in, rolled_distance]))
+			return false
 
 	# P2-77: Check FLY keyword for terrain penalty calculation
 	var unit_keywords = _charge_terrain_keywords(unit_id)

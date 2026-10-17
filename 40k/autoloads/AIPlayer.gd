@@ -1479,8 +1479,13 @@ func _on_ability_reroll_opportunity(unit_id: String, player: int, roll_context: 
 
 	var total = roll_context.get("total", 0)
 	var min_distance = roll_context.get("min_distance", 99.0)
-	# A charge succeeds when the roll reaches engagement range (2" at 11e, 1" at 10e)
-	var needed = max(0.0, min_distance - GameConstants.engagement_range_inches())
+	# 10e: a charge succeeds when the roll reaches engagement range (1").
+	# 11e 11.04: the target must be within the roll itself (base to base) —
+	# ER does not extend it — so the roll needed IS the nearest distance (less
+	# the phase's 0.02" "within" tolerance, so a target exactly at the roll
+	# is not re-rolled over float drift).
+	var needed = max(0.0, min_distance - ChargeMove11e.WITHIN_TOLERANCE_INCHES) if GameConstants.edition >= 11 \
+		else max(0.0, min_distance - GameConstants.engagement_range_inches())
 	var ability_name = roll_context.get("ability_name", "ability")
 
 	# Since it's free, always reroll if the roll is insufficient
@@ -1556,7 +1561,11 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 		"charge_roll":
 			var total = roll_context.get("total", 0)
 			var min_distance = roll_context.get("min_distance", 99.0)
-			var needed = max(0.0, min_distance - GameConstants.engagement_range_inches())
+			# 11e 11.04: the target must be within the roll itself, so the roll
+			# needed is the nearest distance, less the 0.02" "within"
+			# tolerance (10e: distance minus ER).
+			var needed = max(0.0, min_distance - ChargeMove11e.WITHIN_TOLERANCE_INCHES) if GameConstants.edition >= 11 \
+				else max(0.0, min_distance - GameConstants.engagement_range_inches())
 			should_reroll = AIDecisionMaker.evaluate_command_reroll_charge(
 				player, total, int(ceil(needed)), snapshot
 			)
