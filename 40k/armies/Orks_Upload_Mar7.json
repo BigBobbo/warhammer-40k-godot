@@ -39,9 +39,8 @@
     "is_warlord": true,
     "enhancements": [],
     "wargear": [
-     "1x Beast Snagga klaw",
-     "1x Beastchoppa",
-     "1x Shoota"
+     "1x Shoota",
+     "1x Beast Snagga Klaw and Beastchoppa"
     ],
     "weapons": [
      {
@@ -167,8 +166,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Mork's Teeth",
-     "1x Slugga"
+     "1x Slugga",
+     "1x Mork's Teef"
     ],
     "weapons": [
      {
@@ -487,8 +486,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Close combat weapon",
-     "1x Kustom mega-slugga"
+     "1x Kustom Mega-Slugga",
+     "1x Mek's Toolz"
     ],
     "weapons": [
      {
@@ -596,8 +595,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Close combat weapon",
-     "1x Kustom mega-slugga"
+     "1x Kustom Mega-Slugga",
+     "1x Mek's Toolz"
     ],
     "weapons": [
      {
@@ -1045,12 +1044,10 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Big shoota",
-     "1x Deff rolla",
-     "1x Grabbin' klaw",
-     "1x Lobba",
-     "1x Wreckin' ball",
-     "1x Zzap gun"
+     "1x Crushin' Bulk",
+     "4x Big shoota",
+     "1x Grabbin' Klaw",
+     "1x Wreckin' Ball"
     ],
     "weapons": [
      {
@@ -1205,12 +1202,10 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Big shoota",
-     "1x Deff rolla",
-     "1x Grabbin' klaw",
-     "1x Lobba",
-     "1x Wreckin' ball",
-     "1x Zzap gun"
+     "1x Crushin' Bulk",
+     "4x Big shoota",
+     "1x Grabbin' Klaw",
+     "1x Wreckin' Ball"
     ],
     "weapons": [
      {
@@ -1611,12 +1606,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "20x Gretchin",
-     "20x Close combat weapon",
-     "20x Grot blasta",
-     "2x Runtherd",
-     "2x Runtherd tools",
-     "2x Slugga"
+     "20x Grot Blasta",
+     "20x Scavenged Shivs"
     ],
     "weapons": [
      {
@@ -1879,11 +1870,9 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "9x Kommando",
-     "9x Choppa",
+     "9x Choppas",
      "9x Slugga",
-     "1x Boss Nob",
-     "1x Choppa",
+     "1x Choppas",
      "1x Slugga"
     ],
     "weapons": [
@@ -3318,8 +3307,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Smasha gun",
-     "1x Close combat weapon"
+     "1x Scavenged Shivs",
+     "1x Smasha Gun"
     ],
     "weapons": [
      {

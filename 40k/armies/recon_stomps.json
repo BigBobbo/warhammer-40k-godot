@@ -35,9 +35,11 @@
      "objective_control": 3,
      "invuln": 5
     },
-    "points": 80,
+    "points": 90,
     "is_warlord": false,
-    "enhancements": [],
+    "enhancements": [
+     "Smoky Gubbinz"
+    ],
     "wargear": [
      "1x Boomstikks",
      "1x Killa jet",
@@ -410,7 +412,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Killsaw"
+     "1x Kustom Mega-Slugga",
+     "1x Mek's Toolz"
     ],
     "weapons": [
      {
@@ -2003,7 +2006,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "6x Kopta rokkits",
+     "6x Choppa",
+     "6x Rokkit Launcha",
      "6x Slugga",
      "6x Spinnin' blades"
     ],
@@ -2234,7 +2238,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "6x Kopta rokkits",
+     "6x Choppa",
+     "6x Rokkit Launcha",
      "6x Slugga",
      "6x Spinnin' blades"
     ],
@@ -2462,10 +2467,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "10x Close combat weapon",
-     "10x Grot blasta",
-     "1x Runtherd tools",
-     "1x Slugga"
+     "10x Grot Blasta",
+     "10x Scavenged Shivs"
     ],
     "weapons": [
      {
@@ -2637,10 +2640,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "10x Close combat weapon",
-     "10x Grot blasta",
-     "1x Runtherd tools",
-     "1x Slugga"
+     "10x Grot Blasta",
+     "10x Scavenged Shivs"
     ],
     "weapons": [
      {
@@ -2816,13 +2817,15 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Deffkannon",
+     "1x Big shoota",
+     "1x Big shoota",
+     "1x Big shoota",
+     "1x Big shoota",
+     "1x Big shoota",
+     "1x Deffkannon and Supa-rokkits",
      "1x Mega-choppa",
      "1x Skorcha",
-     "1x Supa-gatler",
-     "1x Supa-rokkits",
-     "1x Twin big shoota",
-     "1x Big shoota"
+     "1x Supa-gatler"
     ],
     "weapons": [
      {

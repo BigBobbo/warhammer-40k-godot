@@ -38,8 +38,8 @@
     "is_warlord": true,
     "enhancements": [],
     "wargear": [
-     "Shield-Captain (Shield), Praesidium Shield",
-     "1x Guardian spear"
+     "1x Pyrithite Spear",
+     "Shield-Captain (Shield), Praesidium Shield"
     ],
     "weapons": [
      {
@@ -755,9 +755,9 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Twin iliastus accelerator cannon",
-     "1x Twin lastrum bolt cannon",
-     "1x Armoured hull"
+     "1x Armoured Hull",
+     "1x Iliastus Accelerator Cannon",
+     "1x Twin Lastrum Bolt Cannon"
     ],
     "weapons": [
      {
@@ -912,8 +912,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Achillus dreadspear",
-     "1x Lastrum storm bolter"
+     "1x Dreadspear",
+     "1x Lastrum Storm Bolter"
     ],
     "weapons": [
      {
@@ -1034,9 +1034,9 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Iliastus accelerator culverin",
-     "1x Spiculus bolt launcher",
-     "1x Armoured feet"
+     "1x Dual Caestus Fists",
+     "1x Spiculus Bolt Launcher",
+     "1x Twin Neutronium Cascade Projectors"
     ],
     "weapons": [
      {

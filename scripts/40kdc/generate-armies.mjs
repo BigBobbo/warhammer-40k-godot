@@ -16,7 +16,7 @@
 import { readFileSync, writeFileSync, readdirSync } from 'fs';
 import { dirname, join, basename } from 'path';
 import { fileURLToPath } from 'url';
-import { loadCollection, normName, looseName, pointsFor, buildCanonEntries } from './lib.mjs';
+import { loadCollection, normName, looseName, pointsFor, buildCanonEntries, DATA_DIR as DATA_DIR_FOR_LEGACY } from './lib.mjs';
 import { describeAbility } from '@alpaca-software/40kdc-data';
 import {
   createConverter, normalizeQuotes, weaponBaseName,
@@ -40,6 +40,13 @@ const rawData = {
   detachments: loadCollection('detachments'),
   factions: loadCollection('factions'),
 };
+
+// Datasheets whose kit a codex rewrote (frozen by legacy-kits.mjs): a roster
+// built on the old kit has wargear lines that contradict the codex kit.
+const LEGACY_KIT_UNITS = new Set(
+  loadCollection('unitCompositions_1.0.19', join(DATA_DIR_FOR_LEGACY, 'legacy'))
+    .map(c => `${c.faction_id}::${c.unit_id}`));
+const wargearOptionsAll = loadCollection('wargearOptions');
 
 const conv = createConverter({
   rawData,
@@ -106,6 +113,11 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
       if (dcWeaponNames.has(looseName(conv.wres.resolve(factionId, wid)?.name ?? ''))) chosenIds.add(wid);
     }
   }
+  // A roster built on a pre-codex kit: the datasheet was re-kitted by a codex
+  // (legacy kit frozen) and the roster's weapon list names a weapon the codex
+  // datasheet no longer has. Its wargear lines are rebuilt below.
+  const preCodexRoster = !!dcUnit.source && LEGACY_KIT_UNITS.has(`${factionId}::${dcUnit.id}`) &&
+    oldWeaponNames.some(n => !dcWeaponNames.has(looseName(n)) && !weaponAliases[looseName(n)]);
   const weaponsOut = [];
   for (const wid of chosenIds) weaponsOut.push(...conv.convertWeapon(factionId, wid, warnings));
   weaponsOut.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'Ranged' ? -1 : 1));
@@ -128,9 +140,11 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
   for (const e of oldMeta.enhancements ?? []) {
     let name = typeof e === 'string' ? e : (e?.name ?? '');
     name = name.replace(/\s*\(\+?\d+\s*pts?\)\s*$/i, ''); // "X (+25 pts)" -> "X"
-    const match = detachmentEnh.get(normName(name));
+    const match = detachmentEnh.get(enhKey(name));
     if (match) {
-      enhancementsOut.push(conv.canonicalName(match.name));
+      // the game keys enhancements on the bare name ("Smoky Gubbinz", not the
+      // dataset's "Smoky Gubbinz (Upgrade)")
+      enhancementsOut.push(conv.canonicalName(bareEnhName(match.name)));
       enhancementPoints += match.cost ?? 0;
     } else if (name) {
       warnings.push(`${existing.id}: enhancement "${name}" not in 11e detachment — dropped`);
@@ -158,7 +172,9 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
     points,
     is_warlord: oldMeta.is_warlord ?? false,
     enhancements: enhancementsOut,
-    wargear: syncWargearCounts(oldMeta.wargear ?? [], comp, modelsOut.length),
+    wargear: preCodexRoster
+      ? rebuildCodexWargear(existing.id, oldMeta.wargear ?? [], dcUnit, factionId, comp, modelsOut.length, warnings)
+      : syncWargearCounts(oldMeta.wargear ?? [], comp, modelsOut.length),
     weapons: weaponsOut,
     abilities: abilitiesOut,
     unit_composition: conv.compositionLines(comp),
@@ -175,6 +191,62 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
     models: modelsOut,
   };
 }
+
+// A pre-codex roster of a datasheet the codex re-kitted (Boyz: the Nob lost
+// his slugga; Battlewagon: Tracks and wheels -> Crushin' Bulk): its wargear
+// lines name the OLD kit, which UnitLoadoutResolver / RulesEngine cannot map
+// onto the codex roles (every model ended up carrying the whole melee menu).
+// Rebuild the lines as a codex-built roster records them: each composition
+// role's default weapons with that role's model count, plus the roster's
+// picks that are pure codex ADD-ON options (no "replaces": Battlewagon big
+// shootas / Grabbin' Klaw / Wreckin' Ball). Swaps made against the old kit and
+// stale weapons are dropped, with a warning.
+function rebuildCodexWargear(unitKey, wargear, dcUnit, factionId, comp, modelCount, warnings) {
+  const nameOf = id => conv.wres.resolve(factionId, id)?.name ?? null;
+  const out = [];
+  const rows = comp?.models ?? [];
+  let remaining = modelCount;
+  const defaults = new Set();
+  rows.forEach((m, k) => {
+    const n = k === rows.length - 1 ? remaining : Math.min(m.min, remaining);
+    remaining -= n;
+    if (n <= 0) return;
+    for (const id of m.default_weapon_ids ?? []) {
+      const nm = nameOf(id);
+      if (!nm) continue;
+      defaults.add(looseName(nm));
+      out.push(`${n}x ${nm}`);
+    }
+  });
+  const addOns = new Set();
+  for (const o of wargearOptionsAll) {
+    if (o.faction_id !== factionId || o.unit_id !== dcUnit.id || (o.replaces ?? []).length) continue;
+    for (const id of [...(o.replacement ?? []), ...(o.replacement_choice ?? []).flat()]) {
+      const nm = nameOf(id);
+      if (nm) addOns.add(looseName(nm));
+    }
+  }
+  const dropped = [];
+  for (const entry of wargear) {
+    const m = String(entry).match(/^(\d+)x\s+(.+)$/);
+    if (!m) { out.push(entry); continue; }   // descriptive lines ("Shield-Captain (Shield), ...")
+    const key = looseName(m[2]);
+    if (addOns.has(key) && !defaults.has(key)) {
+      const nm = [...(dcUnit.weapon_ids ?? [])].map(nameOf).find(x => x && looseName(x) === key) ?? m[2];
+      out.push(`${m[1]}x ${nm}`);
+    } else if (!defaults.has(key)) {
+      dropped.push(entry);
+    }
+  }
+  if (dropped.length) warnings.push(`${unitKey}: codex re-kitted this datasheet — loadout reset to the codex default kit; dropped ${JSON.stringify(dropped)}`);
+  return out;
+}
+
+// Enhancement names may carry a trailing qualifier in the dataset
+// ("Smoky Gubbinz (Upgrade)", "Fear Made Manifest (Aura)"); rosters and the
+// game's enhancement tables use the bare name.
+function bareEnhName(n) { return String(n).replace(/\s*\([^)]*\)\s*$/, ''); }
+function enhKey(n) { return normName(bareEnhName(n)); }
 
 // "Nx <model>" wargear lines are model counts: ArmyListManager re-derives a
 // unit's size from them (_get_expected_model_count) and re-adds models. When a
@@ -232,7 +304,7 @@ function convertFile(path) {
   if (detachment) {
     for (const eid of detachment.enhancement_ids ?? []) {
       const e = enhancementsAll.find(x => x.id === eid);
-      if (e) detachmentEnh.set(normName(e.name), e);
+      if (e) detachmentEnh.set(enhKey(e.name), e);
     }
   } else if (detName) {
     warnings.push(`detachment "${army.faction.detachment}" not found in 11e ${factionId} detachments`);
