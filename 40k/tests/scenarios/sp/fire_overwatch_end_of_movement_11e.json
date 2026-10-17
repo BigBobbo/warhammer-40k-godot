@@ -1,0 +1,390 @@
+{
+  "id": "fire_overwatch_end_of_movement_11e",
+  "covers": [
+    "stratagem.core.fire_overwatch_11e",
+    "stratagem.window.movement_phase_end.opponent_turn",
+    "stratagem.followup.snap_shooting",
+    "phases.MovementPhase.complete_movement_phase",
+    "phases.MovementPhase._resolve_snap_shooting_followup",
+    "scripts.Main._on_stratagem_window_opened",
+    "ui.StratagemTargetDialog"
+  ],
+  "fixture": "ork11e_orks_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "11e FIRE OVERWATCH (15.08: 'WHEN: End of your opponent's Movement phase. TARGET: One friendly unengaged unit (excluding TITANIC units). EFFECT: Your unit shoots using snap shooting') through the real UI. Fixture ork11e_orks_reactive: P1 Custodes active, battle round 2, both players 6 CP. The Ork player first unticks the HUD 'Skip Overwatch' toggle with a real click. The Custodes player then makes a real Normal Move with Custodian Guard Gamma toward the Flash Gitz — no per-move overwatch prompt appears any more (that was the 10e Balance Dataslate timing). The Custodes player ends the Movement phase with the phase button: before the phase ends the movement_phase_end window opens for PLAYER 2 only, with FIRE OVERWATCH rows for the unengaged Ork units that have a visible enemy within 24\" (Flash Gitz, Tankbustas). A real click on 'Use' for the Flash Gitz opens the snap-target picker (one visible enemy unit within 24\"); a real click picks Custodian Guard Gamma. P2 spends exactly 1 CP, the snap shots resolve (only unmodified 6s hit, no hit re-rolls — 15.09); the Custodes player (the DEFENDER) then allocates the wound in the 11e allocation-group overlay (05.03: 'The opposing player resolves' the save sequence) — seed 42 fails the save, the defender keeps the roll instead of a Command Re-roll and confirms with Done; the Game Log carries the FIRE OVERWATCH lines, and the Movement phase ends (Shooting).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "return GameConstants.edition",
+      "equals": 11,
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nreturn InputDeviceManager.is_pad_active()",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch",
+      "timeout_s": 2.0,
+      "comment": "11e: the Skip Overwatch toggle shows in the Movement phase"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch",
+      "property": "button_pressed",
+      "equals": true,
+      "comment": "ON by default"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch",
+      "property": "button_pressed",
+      "equals": false,
+      "comment": "the real click turned Skip Overwatch OFF"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_CUSTODIAN_GUARD_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_CUSTODIAN_GUARD_C"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Normal Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves.get(\"U_CUSTODIAN_GUARD_C\", {}).get(\"mode\", \"\")",
+      "equals": "NORMAL"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._awaiting_fire_overwatch",
+      "equals": false,
+      "comment": "no per-move Fire Overwatch at 11e (move start)"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "A",
+      "ctrl": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1440.0,
+      "from_y": 848.5,
+      "to_x": 1440.0,
+      "to_y": 928.5
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "float(GameState.get_unit(\"U_CUSTODIAN_GUARD_C\").models[1].position.y) > 900.0",
+      "equals": true,
+      "comment": "the Custodians moved 2\" toward the Flash Gitz"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance()._awaiting_fire_overwatch",
+      "equals": false,
+      "comment": "…and no per-move Fire Overwatch at move end"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.find_child(\"FireOverwatchDialog\", true, false) == null",
+      "equals": true,
+      "comment": "the 10e per-move dialog never opened"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "screenshot",
+      "label": "01_custodes_moved_no_per_move_overwatch"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._phase_end_confirm != null and main._phase_end_confirm.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._phase_end_confirm.get_ok_button().pressed.emit()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7,
+      "comment": "the Movement phase waits for the end-of-phase window"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "movement_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 2,
+      "comment": "offered to the NON-active player only"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_fire_overwatch_11e"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_fire_overwatch_11e/Buttons/Use_fire_overwatch_11e_U_FLASH_GITZ_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_fire_overwatch_11e/Buttons/Use_fire_overwatch_11e_U_TANKBUSTAS_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_fire_overwatch_11e/Buttons/Use_fire_overwatch_11e_U_BOYZ_B\") == null",
+      "equals": true,
+      "comment": "the Boyz are engaged with Custodian Guard A — not an unengaged unit (15.08)"
+    },
+    {
+      "act": "execute_script",
+      "script": "main._reactive_stratagem_pending",
+      "equals": true,
+      "comment": "hot-seat: the active player's board is blocked while P2 decides"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_fire_overwatch_offer_for_ork_player"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_fire_overwatch_11e/Buttons/Use_fire_overwatch_11e_U_FLASH_GITZ_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_CUSTODIAN_GUARD_C"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BLADE_CHAMPION_B"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"StratagemTargetDialog/Content/Pick_U_CUSTODIAN_GUARD_A\") == null",
+      "equals": true,
+      "comment": "the engaged Custodian Guard A is not an eligible target (17.03)"
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": 0,
+      "comment": "nothing spent until the snap target is chosen"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_snap_target_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_CUSTODIAN_GUARD_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel",
+      "timeout_s": 4.0,
+      "comment": "05.03: the DEFENDING (Custodes) player allocates the snap shot's wounds"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7,
+      "comment": "the phase waits for the defender's saves"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "04_defender_allocates_snap_wounds"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
+      "timeout_s": 3.0,
+      "comment": "seed 42: the save failed — the defender may Command Re-roll it (15.02) or keep it"
+    },
+    {
+      "act": "screenshot",
+      "label": "05_defender_save_roll"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "screenshot",
+      "label": "06_defender_save_results"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node_or_null(\"AllocationGroupOverlay\") == null",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"1 failed save\")",
+      "expect_min": 1,
+      "comment": "the Game Log reports the failed save (damage, no model destroyed)"
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\">>> FIRE OVERWATCH <<<\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"only unmodified 6s hit\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var n = 0\nfor u in StratagemManager._usage_history.get(\"2\", []):\n\tif str(u.stratagem_id) == \"fire_overwatch_11e\" and str(u.target_unit_id) == \"U_FLASH_GITZ_A\":\n\t\tn += 1\nreturn n",
+      "equals": 1
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8,
+      "comment": "the Movement phase ended after the snap shot"
+    },
+    {
+      "act": "screenshot",
+      "label": "04_snap_shot_resolved_shooting_phase"
+    }
+  ]
+}

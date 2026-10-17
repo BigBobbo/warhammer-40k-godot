@@ -15,13 +15,25 @@ BOTH peers through their MCP bridges:
   C. Movement END_MOVEMENT with unselected units -> Remain Stationary flags on
      BOTH peers, phase advances, no client desync error
      (host active, then client active)
+  D. 11e end of the opponent's Movement phase (15.07 / 15.08):
+     fo_host / fo_client — FIRE OVERWATCH: the active peer ends its Movement
+       phase; the movement_phase_end window opens on the NON-active peer only
+       (mirrored from the host), that peer picks a shooter + snap target in
+       the real dialogs, the host resolves the snap shot, the DEFENDING peer
+       allocates any wounds in its allocation overlay (05.03), CP / state are
+       identical on both peers and both reach the Shooting phase
+       (host active -> client decides, then client active -> host decides).
+     ri_client — RAPID INGRESS: the host's END_MOVEMENT is NOT force-completed
+       past the client's Rapid Ingress prompt; the client declines in its
+       dialog (cross-turn action), then the FIRE OVERWATCH window follows and
+       is auto-declined by the client's "Skip Overwatch" toggle.
 
 Every check reads the live GameState / phase instance / UI of BOTH peers, and
 the host's and client's GameState are compared key-by-key after each step.
 
 Usage (from the repo root; needs the xvfb godot shim on PATH, see CLAUDE.md):
   python3 40k/tests/mp_two_process_core_rules.py [project_40k_dir] [out_dir] [scenario...]
-  scenarios: fight afk move_host move_client (default: all)
+  scenarios: fight afk move_host move_client fo_host fo_client ri_client (default: all)
 Env: GODOT (binary, default "godot"), MP_HOST_PORT / MP_CLIENT_PORT (MCP
 bridge ports, default 9201/9202). The ENet game port is 7777. Each peer gets
 its own user:// via XDG_DATA_HOME (Linux); exit code 0 only if every check
@@ -31,7 +43,7 @@ import json, os, socket, subprocess, sys, time
 
 PROJ = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join("/tmp", "mp_two_process_core_rules")
-WHICH = sys.argv[3:] or ["fight", "afk", "move_host", "move_client"]
+WHICH = sys.argv[3:] or ["fight", "afk", "move_host", "move_client", "fo_host", "fo_client", "ri_client"]
 GODOT = os.environ.get("GODOT", "godot")
 HOST_PORT = int(os.environ.get("MP_HOST_PORT", "9201"))
 CLIENT_PORT = int(os.environ.get("MP_CLIENT_PORT", "9202"))
@@ -414,6 +426,187 @@ return bad""" % json.dumps(unsel)
         host.stop(); client.stop()
 
 
+# ── D. 11e end of the opponent's Movement phase (15.07 / 15.08) ───────────
+
+FO_CARD = "Content/StratScroll/StratList/Card_fire_overwatch_11e"
+
+
+def phase_state(peer):
+    return peer.ex("""var ph = PhaseManager.get_current_phase_instance()
+var w = ph.get_pending_stratagem_window() if ph != null and ph.has_method("get_pending_stratagem_window") else {}
+return {"phase": GameState.get_current_phase(), "window": str(w.get("window_id", "")), "decider": int(w.get("player", 0)),
+	"ri": ph.get("_awaiting_rapid_ingress") if ph != null else null,
+	"prompt": ph.has_pending_end_of_phase_prompt() if ph != null and ph.has_method("has_pending_end_of_phase_prompt") else null,
+	"cp1": int(GameState.state.players["1"]["cp"]), "cp2": int(GameState.state.players["2"]["cp"])}""")
+
+
+def decline_pending_windows(host, client):
+    """Answer (decline) any window still pending on the host from its decider's peer."""
+    for _ in range(4):
+        st = phase_state(host)
+        if not st.get("window"):
+            return
+        dec = st["decider"]
+        route(host if dec == 1 else client, {"type": "DECLINE_WINDOW_STRATAGEM", "player": dec, "window_id": st["window"]})
+        time.sleep(1.0)
+
+
+def fo_dialog(peer):
+    return peer.ex("""var d = tree.root.get_node_or_null("StratagemDialog")
+if d == null or not d.visible:
+	return null
+var card = d.get_node_or_null("%s")
+if card == null:
+	return {"card": false}
+var uses = []
+for b in card.get_node("Buttons").get_children():
+	uses.append(str(b.name))
+return {"card": true, "uses": uses}""" % FO_CARD)
+
+
+def drive_allocation(peer, timeout=40):
+    """Click through the defender's AllocationGroupOverlay (05.03) if it opens."""
+    t0 = time.time()
+    clicks = []
+    while time.time() - t0 < timeout:
+        step = peer.ex("""var o = tree.current_scene.get_node_or_null("AllocationGroupOverlay")
+if o == null:
+	return "none"
+for path in ["Center/Panel/Row/DecisionCol/ResultPanel/DoneButton", "PickPanel/PickVBox/PickButtons/AutoPickButton",
+		"PickPanel/PickVBox/PickButtons/ConfirmRemovalButton", "Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton",
+		"Center/Panel/Row/DecisionCol/ConfirmButton"]:
+	var b = o.get_node_or_null(path)
+	if b != null and b.is_visible_in_tree() and not b.disabled:
+		b.pressed.emit()
+		return path
+return "waiting"
+""")
+        if step == "none":
+            return clicks
+        if step not in ("waiting",):
+            clicks.append(step)
+        time.sleep(0.8)
+    return clicks
+
+
+def scenario_fo(tag, fixture, active):
+    host, client = boot(tag)
+    try:
+        load_fixture(host, client, fixture, 6)
+        if active == 2:
+            # ork11e_orks_active is saved with P1 (Orks) active; hand the turn
+            # to P2 (Custodes, the client) on BOTH peers before Movement starts
+            # so the HOST's Orks are the non-active player answering the window.
+            swap = 'GameState.state.meta["active_player"] = 2\nreturn GameState.get_active_player()'
+            check("[%s] P2 (client) is the active player on both peers" % tag, host.ex(swap) == 2 and client.ex(swap) == 2)
+        host.ex("PhaseManager.transition_to_phase(7)\nreturn true")
+        probe = "return GameState.get_current_phase() == 7 and PhaseManager.get_current_phase_instance() != null"
+        r = wait_until(lambda: host.ex(probe) is True and client.ex(probe) is True, timeout=30)
+        check("[%s] both peers in Movement (edition %s, active P%s)" % (tag, host.ex("return GameConstants.edition"), host.ex("return GameState.get_active_player()")),
+              r is True and host.ex("return GameState.get_active_player()") == active)
+        decline_pending_windows(host, client)
+        host.ex("NetworkManager.stop_turn_timer()\nreturn true")
+        decider = 2 if active == 1 else 1
+        actor = host if active == 1 else client
+        dpeer = client if decider == 2 else host
+        other = host if dpeer is client else client
+        # The deciding seat unticks its HUD "Skip Overwatch" toggle (ON by default).
+        dpeer.ex('var t = tree.current_scene.get_node("HUD_Bottom/HBoxContainer/AutoDeclineOverwatch")\nt.button_pressed = false\nreturn t.button_pressed')
+        start = phase_state(host)
+        route(actor, {"type": "END_MOVEMENT", "player": active})
+        r = wait_until(lambda: (fo_dialog(dpeer) or {}).get("card") is True, timeout=20)
+        hs = phase_state(host)
+        check("[%s] END_MOVEMENT by P%d: the host holds the Movement phase on P%d's movement_phase_end window" % (tag, active, decider),
+              hs.get("phase") == 7 and hs.get("window") == "movement_phase_end" and hs.get("decider") == decider, hs)
+        check("[%s] the NON-active peer (P%d) shows the FIRE OVERWATCH offer (mirrored window)" % (tag, decider), r is True, fo_dialog(dpeer))
+        check("[%s] the active peer is NOT offered it (no FO card there)" % tag, not (fo_dialog(other) or {}).get("card"), fo_dialog(other))
+        check("[%s] client is still in Movement too" % tag, client.ex("return GameState.get_current_phase()") == 7)
+        dpeer.shot(tag + "_fo_offer_on_decider")
+        uses = (fo_dialog(dpeer) or {}).get("uses", [])
+        shooter_btn = uses[0] if uses else ""
+        shooter = shooter_btn.replace("Use_fire_overwatch_11e_", "")
+        dpeer.ex('tree.root.get_node("StratagemDialog/%s/Buttons/%s").pressed.emit()\nreturn true' % (FO_CARD, shooter_btn))
+        pick = wait_until(lambda: dpeer.ex("""var d = tree.root.get_node_or_null("StratagemTargetDialog")
+if d == null:
+	return false
+for c in d.get_node("Content").get_children():
+	if str(c.name).begins_with("Pick_"):
+		return true
+return false""") is True, timeout=10)
+        check("[%s] the decider's snap-target picker opened for %s" % (tag, shooter), pick is True)
+        target = dpeer.ex("""var d = tree.root.get_node("StratagemTargetDialog")
+for c in d.get_node("Content").get_children():
+	if str(c.name).begins_with("Pick_"):
+		c.pressed.emit()
+		return str(c.name).substr(5)
+return \"\"""")
+        dpeer.shot(tag + "_fo_after_pick")
+        # The DEFENDER (the active player) allocates any wounds (05.03).
+        clicks = drive_allocation(other, timeout=45)
+        print("  info: [%s] defender allocation clicks on P%d's peer: %s" % (tag, active, clicks))
+        r = wait_until(lambda: host.ex("return GameState.get_current_phase()") == 8 and client.ex("return GameState.get_current_phase()") == 8, timeout=40)
+        check("[%s] after the snap shot BOTH peers reach the Shooting phase" % tag, r is True,
+              [phase_state(host), phase_state(client)])
+        key = "cp%d" % decider
+        check("[%s] P%d spent exactly 1 CP (host)" % (tag, decider), phase_state(host).get(key) == start.get(key) - 1, [start, phase_state(host)])
+        check("[%s] …and the client agrees" % tag, phase_state(client).get(key) == start.get(key) - 1, phase_state(client))
+        used = host.ex("""var n = 0
+for u in StratagemManager._usage_history.get("%d", []):
+	if str(u.stratagem_id) == "fire_overwatch_11e" and str(u.target_unit_id) == "%s":
+		n += 1
+return n""" % (decider, shooter))
+        check("[%s] host recorded one FIRE OVERWATCH by %s at %s" % (tag, shooter, target), used == 1, used)
+        log_n = host.ex('var n = 0\nfor e in GameEventLog.entries:\n\tif ">>> FIRE OVERWATCH <<<" in str(e.get("text", "")):\n\t\tn += 1\nreturn n')
+        check("[%s] host Game Log has the snap-shot lines" % tag, isinstance(log_n, int) and log_n >= 1, log_n)
+        time.sleep(1.5)
+        hashes_equal(host, client, tag + " after FIRE OVERWATCH")
+        dpeer.shot(tag + "_fo_resolved_decider")
+        other.shot(tag + "_fo_resolved_active")
+        print("  info: client DESYNC log lines: %d" % len(log_errors(client, "DESYNC")))
+    finally:
+        host.stop(); client.stop()
+
+
+def scenario_ri_client():
+    tag = "ri_client"
+    host, client = boot(tag)
+    try:
+        load_fixture(host, client, "ork11e_orks_reactive", 6)
+        reserves = 'for uid in ["U_STORMBOYZ_A"]:\n\tvar u = GameState.state.units[uid]\n\tu["status"] = GameStateData.UnitStatus.IN_RESERVES\n\tu["reserve_type"] = "strategic_reserves"\n\tfor m in u.models:\n\t\tm["position"] = null\nreturn true'
+        host.ex(reserves); client.ex(reserves)
+        host.ex("PhaseManager.transition_to_phase(7)\nreturn true")
+        probe = "return GameState.get_current_phase() == 7 and PhaseManager.get_current_phase_instance() != null"
+        r = wait_until(lambda: host.ex(probe) is True and client.ex(probe) is True, timeout=30)
+        check("[ri] both peers in Movement", r is True)
+        decline_pending_windows(host, client)
+        host.ex("NetworkManager.stop_turn_timer()\nreturn true")
+        hashes_equal(host, client, "ri before END_MOVEMENT")
+        start = phase_state(host)
+        route(host, {"type": "END_MOVEMENT", "player": 1})
+        dlg = 'var d = tree.root.get_node_or_null("RapidIngressDialog")\nreturn d != null and d.visible and d.get_node_or_null("Content/UnitScroll/UnitList/Row_U_STORMBOYZ_A") != null'
+        r = wait_until(lambda: client.ex(dlg) is True, timeout=20)
+        hs = phase_state(host)
+        check("[ri] host END_MOVEMENT is NOT force-completed past the client's RAPID INGRESS prompt (phase 7, prompt pending)",
+              hs.get("phase") == 7 and hs.get("ri") is True and hs.get("prompt") is True, hs)
+        check("[ri] the client (P2, non-active) shows the Rapid Ingress dialog with its reserve unit", r is True, client.ex(dlg))
+        check("[ri] the host (P1) shows no Rapid Ingress dialog", host.ex(dlg) is not True)
+        client.shot("ri_client_rapid_ingress_dialog")
+        client.ex('tree.root.get_node("RapidIngressDialog/Content/Buttons/DeclineButton").pressed.emit()\nreturn true')
+        # Skip Overwatch (ON by default on the client) auto-declines the
+        # FIRE OVERWATCH window that follows.
+        r = wait_until(lambda: host.ex("return GameState.get_current_phase()") == 8 and client.ex("return GameState.get_current_phase()") == 8, timeout=30)
+        check("[ri] the client's decline (cross-turn) resumed the host's phase: both peers reach Shooting", r is True,
+              [phase_state(host), phase_state(client)])
+        end = phase_state(host)
+        check("[ri] no CP spent by either player", end.get("cp1") == start.get("cp1") and end.get("cp2") == start.get("cp2"), [start, end])
+        check("[ri] the Stormboyz stay in reserves", host.ex('return GameState.state.units["U_STORMBOYZ_A"].status') == 7)
+        time.sleep(1.0)
+        hashes_equal(host, client, "ri after decline")
+        client.shot("ri_client_after_decline_shooting")
+    finally:
+        host.stop(); client.stop()
+
+
 def main():
     for name in WHICH:
         print("\n==== %s ====" % name, flush=True)
@@ -429,6 +622,12 @@ def main():
                 scenario_move("move_host", "audit_baseline_postdeploy", 1)
             elif name == "move_client":
                 scenario_move("move_client", "audit_baseline_postdeploy_p2first", 2)
+            elif name == "fo_host":
+                scenario_fo("fo_host", "ork11e_orks_reactive", 1)
+            elif name == "fo_client":
+                scenario_fo("fo_client", "ork11e_orks_active", 2)
+            elif name == "ri_client":
+                scenario_ri_client()
         except Exception as e:
             check("[%s] scenario crashed" % name, False, repr(e))
 

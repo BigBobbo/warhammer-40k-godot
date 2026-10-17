@@ -11545,6 +11545,7 @@ func _on_stratagem_used_update_display(_player: int, _stratagem_id: String, _tar
 # Multiplayer sync handler
 func _on_network_result_applied(result: Dictionary) -> void:
 	print("Main: Network result applied, recreating visuals")
+	_show_fire_overwatch_summary(result)
 
 	# Check if phase changed
 	var diffs = result.get("diffs", [])
@@ -12765,6 +12766,11 @@ func update_ui_for_phase() -> void:
 	# Only show auto-decline overwatch during phases where overwatch is relevant
 	if auto_decline_overwatch:
 		var overwatch_phases = [GameStateData.Phase.MOVEMENT, GameStateData.Phase.SHOOTING, GameStateData.Phase.CHARGE]
+		# 11e 15.08: FIRE OVERWATCH has one timing — the end of the opponent's
+		# Movement phase (no Charge-phase overwatch), so the toggle only
+		# matters in the Movement phase.
+		if GameConstants.edition >= 11:
+			overwatch_phases = [GameStateData.Phase.MOVEMENT]
 		auto_decline_overwatch.visible = current_phase in overwatch_phases
 
 	# Show/hide waiting-for-opponent overlay based on phase (T5-MP6 + T5-MP8)
@@ -12934,6 +12940,8 @@ func _on_movement_action_requested(action: Dictionary) -> void:
 	# Route through NetworkIntegration (handles multiplayer and single-player)
 	var result = NetworkIntegration.route_action(action)
 	print("Main: Action result: ", result)
+	# 11e FIRE OVERWATCH: the defender's last APPLY_SAVES finishes the snap shot.
+	_show_fire_overwatch_summary(result)
 
 	if result.get("success", false):
 		if result.get("pending", false):
@@ -15846,6 +15854,20 @@ func _on_stratagem_window_opened(player: int, window_id: String, offers: Array, 
 		# (NetworkManager hides the overlay on USE/DECLINE_WINDOW_STRATAGEM).
 		show_reactive_stratagem_waiting("stratagem", player)
 		return
+	# "Skip Overwatch" (HUD toggle, ON by default): at 11e FIRE OVERWATCH is a
+	# movement_phase_end window offer (15.08) — drop it while the toggle is ON.
+	# When nothing else is offered the window is declined for the player, so
+	# no prompt appears at all (the old per-move dialog was auto-declined the
+	# same way, MovementController._on_overwatch_opportunity).
+	if auto_decline_overwatch and auto_decline_overwatch.button_pressed:
+		var kept: Array = offers.filter(func(o): return str(o.get("stratagem_id", "")) != "fire_overwatch_11e")
+		if kept.size() != offers.size():
+			print("Main: Skip Overwatch is ON — FIRE OVERWATCH dropped from window %s for Player %d (%d other offer(s))" % [window_id, player, kept.size()])
+			if kept.is_empty():
+				call_deferred("_dispatch_window_action", {"type": "DECLINE_WINDOW_STRATAGEM", "player": player,
+					"window_id": window_id}, player, window_id, [], {})
+				return
+			offers = kept
 	_show_stratagem_window_dialog(player, window_id, offers, ctx)
 	# Play-and-pass only: block the board for the active player while the other
 	# seat decides. Against the AI the human IS the decider, so the "waiting for
@@ -16018,7 +16040,18 @@ func _dispatch_window_action(action: Dictionary, player: int, window_id: String,
 	var used = result.get("stratagem_used", {})
 	if not used.is_empty():
 		ToastManager.show_toast("Player %d used %s" % [player, str(used.get("stratagem_name", "a stratagem"))], Color.ORANGE, 3.0)
+	_show_fire_overwatch_summary(result)
 	_refresh_after_window_action()
+
+## 11e FIRE OVERWATCH (15.08): the snap shot resolves inside the window answer
+## — tell both players what it did (hits / wounds / models destroyed); the
+## per-roll detail is in the Game Log's overwatch lines.
+func _show_fire_overwatch_summary(result: Dictionary) -> void:
+	var fo_summary := str(result.get("fire_overwatch_summary", ""))
+	if fo_summary == "":
+		return
+	print("Main: %s" % fo_summary)
+	ToastManager.show_toast(fo_summary, Color.ORANGE_RED, 5.0)
 
 func _refresh_after_window_action() -> void:
 	match current_phase:

@@ -1736,7 +1736,11 @@ func _emit_client_visual_updates(result: Dictionary) -> void:
 
 	# Check for both shooting and fight phase action types (the reactive
 	# stratagem decisions can resume straight into save resolution)
-	var is_shooting_action = action_type in ["CONFIRM_TARGETS", "RESOLVE_SHOOTING", "RESOLVE_WEAPON_SEQUENCE", "APPLY_SAVES", "USE_REACTIVE_STRATAGEM", "DECLINE_REACTIVE_STRATAGEM"]
+	# USE_WINDOW_STRATAGEM / END_MOVEMENT: an 11e FIRE OVERWATCH snap shot
+	# (15.08) resolved in the movement_phase_end window hands its wound batch to
+	# the defender (05.03) — by the human decider's answer, or by the END_MOVEMENT
+	# whose window an AI answered synchronously.
+	var is_shooting_action = action_type in ["CONFIRM_TARGETS", "RESOLVE_SHOOTING", "RESOLVE_WEAPON_SEQUENCE", "APPLY_SAVES", "USE_REACTIVE_STRATAGEM", "DECLINE_REACTIVE_STRATAGEM", "USE_WINDOW_STRATAGEM", "END_MOVEMENT"]
 	# BATCH_FIGHT_ACTIONS: the attack-assignment dialog submits assign+resolve
 	# as one batch — its result carries save_data_list exactly like
 	# CONFIRM_AND_RESOLVE_ATTACKS, and without it here the remote DEFENDER

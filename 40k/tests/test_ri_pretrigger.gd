@@ -4,6 +4,12 @@ extends SceneTree
 # Loads fixture, dispatches END_MOVEMENT, asserts on natural RI trigger emission
 # from MovementPhase._continue_end_movement_after_grot_oiler.
 #
+# 11e (migrated): RAPID INGRESS 15.07 — "WHEN: End of your opponent's Movement
+# phase." The suite runs at edition 11 (set after the first frame, asserted).
+# It used to fail 7 checks at 11e because rapid_ingress_11e was timed for the
+# Shooting phase. The decline path then hands over to the movement_phase_end
+# stratagem window (FIRE OVERWATCH 15.08) for the same non-active player.
+#
 # Usage: godot --headless --path . -s tests/test_ri_pretrigger.gd
 
 const FIXTURE := "ri_pretrigger"
@@ -34,6 +40,10 @@ func _run_tests():
 
 	_check("Fixture load", save_mgr.load_game(FIXTURE))
 	game_state.state["meta"]["from_save"] = true
+	# Written AFTER the first frame + the load (SettingsService / the load
+	# re-apply the boot edition).
+	GameConstants.edition = 11
+	_check("suite runs at edition 11", GameConstants.edition == 11, str(GameConstants.edition))
 
 	_check("Phase = MOVEMENT (7)",
 		game_state.state["meta"].get("phase") == 7)
@@ -106,6 +116,26 @@ func _run_tests():
 		phase._rapid_ingress_unit_id == "U_CALADIUS_GRAV-TANK_E")
 	_check("_awaiting_rapid_ingress cleared",
 		phase._awaiting_rapid_ingress == false)
+	_check("the phase still holds for the placement (no force-complete online)",
+		phase.has_pending_end_of_phase_prompt() and game_state.get_current_phase() == 7)
+
+	# Decline path: the end-of-Movement stratagem window follows.
+	_check("Fixture reload (decline path)", save_mgr.load_game(FIXTURE))
+	GameConstants.edition = 11
+	phase_mgr.transition_to_phase(7)
+	phase = phase_mgr.get_current_phase_instance()
+	var end2 = phase.execute_action({"type": "END_MOVEMENT"})
+	_check("decline path: RAPID INGRESS offered again", end2.get("trigger_rapid_ingress") == true)
+	var dec = phase.execute_action({"type": "DECLINE_RAPID_INGRESS", "player": 1})
+	_check("DECLINE_RAPID_INGRESS succeeded", dec.get("success") == true, str(dec.get("error", "")))
+	_check("no CP spent on the decline", game_state.state["players"]["1"]["cp"] == cp_before,
+		"before=%d after=%d" % [cp_before, game_state.state["players"]["1"]["cp"]])
+	_check("the prompt is closed", not phase.has_pending_end_of_phase_prompt())
+	var still_movement: bool = game_state.get_current_phase() == 7
+	var window_open: bool = phase.has_pending_stratagem_window()
+	_check("…the phase then either waits on a movement_phase_end window or has ended",
+		(still_movement and window_open) or game_state.get_current_phase() == 8,
+		"phase=%d window=%s" % [game_state.get_current_phase(), str(window_open)])
 
 	_finish()
 

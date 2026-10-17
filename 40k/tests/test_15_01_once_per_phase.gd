@@ -1,10 +1,12 @@
 extends SceneTree
 
 # 11e 15.01 blanket rule: a player cannot use the SAME Stratagem more than
-# once in the same phase. Six of the ten core stratagems declare no explicit
+# once in the same phase. Seven of the ten core stratagems declare no explicit
 # once_per restriction (EPIC CHALLENGE, CRUSHING IMPACT, SMOKESCREEN, HEROIC
-# INTERVENTION, COUNTEROFFENSIVE, RAPID INGRESS) — the blanket default in
-# StratagemManager._check_usage_restriction must cap them at once per phase.
+# INTERVENTION, COUNTEROFFENSIVE, RAPID INGRESS, FIRE OVERWATCH — 15.08
+# prints no RESTRICTIONS; "Once per turn." was its 10e wording) — the blanket
+# default in StratagemManager._check_usage_restriction must cap them at once
+# per phase.
 #
 # Also pins the phase-INSTANCE fix: the "same phase" comparison includes
 # whose player-turn it was (usage.active_player), so using a stratagem in
@@ -81,14 +83,33 @@ func _run_tests():
 		v.can_use, str(v))
 	gs.state["meta"]["active_player"] = 1
 
-	# Explicit stricter caps still win: FIRE OVERWATCH is once per TURN — a
-	# usage earlier in the same player-turn (different phase) still blocks it.
-	gs.state["meta"]["phase"] = 7  # MOVEMENT (overwatch's window)
-	sm._usage_history["2"].append({"stratagem_id": "fire_overwatch_11e", "player": 2,
+	# Explicit stricter caps still win: a definition that declares once_per
+	# "turn" (the 10e FIRE OVERWATCH: "Once per turn.") — a usage earlier in
+	# the same player-turn (different phase) still blocks it. (This used the
+	# 11e FIRE OVERWATCH, which carried the 10e cap over; 15.08 prints no
+	# RESTRICTIONS, so the 11e stratagem is checked under 15.01 just below.)
+	gs.state["meta"]["phase"] = 7  # MOVEMENT
+	var fo10: Dictionary = sm.stratagems.get("fire_overwatch", {})
+	_check("10e FIRE OVERWATCH definition declares once_per turn", str(fo10.get("restrictions", {}).get("once_per", "")) == "turn", str(fo10.get("restrictions", {})))
+	sm._usage_history["2"].append({"stratagem_id": "fire_overwatch", "player": 2,
 		"target_unit_id": "U_C", "turn": turn, "phase": 9, "active_player": 1, "timestamp": 0})
-	v = sm.can_use_stratagem(2, "fire_overwatch_11e", "")
+	v = sm._check_usage_restriction(2, "fire_overwatch", fo10)
 	_check("explicit once-per-turn still enforced across phases of the same turn",
 		v.can_use == false and "once per turn" in str(v.reason), str(v))
+
+	# 11e FIRE OVERWATCH (15.08, no RESTRICTIONS line): the 15.01 blanket rule —
+	# a use in this Movement phase blocks a second one. 15.08 is offered in
+	# the movement_phase_end window, so the check runs with that window's
+	# context (outside it the window gate answers first: "Offered
+	# automatically when the Movement phase ends").
+	_check("11e FIRE OVERWATCH declares no explicit once_per cap (15.08)",
+		not sm.stratagems.get("fire_overwatch_11e", {}).get("restrictions", {}).has("once_per"),
+		str(sm.stratagems.get("fire_overwatch_11e", {}).get("restrictions", {})))
+	sm._usage_history["2"].append({"stratagem_id": "fire_overwatch_11e", "player": 2,
+		"target_unit_id": "U_C", "turn": turn, "phase": 7, "active_player": 1, "timestamp": 0})
+	v = sm.can_use_stratagem(2, "fire_overwatch_11e", "", {"window_id": "movement_phase_end"})
+	_check("blanket 15.01: a second 11e FIRE OVERWATCH in the same Movement phase is refused",
+		v.can_use == false and "once per phase" in str(v.reason), str(v))
 
 	# Legacy history entries without active_player fall back to conservative
 	# same-turn blocking (old-save compatibility).

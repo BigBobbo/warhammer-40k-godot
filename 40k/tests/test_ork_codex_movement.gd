@@ -196,6 +196,20 @@ func _settle(phase) -> Dictionary:
 			break
 	return last
 
+## 11e FIRE OVERWATCH (15.08) is offered to the NON-active player in the
+## movement_phase_end window: decline it when that is what the window holds.
+## Returns true when it declined a window carrying FIRE OVERWATCH.
+func _decline_end_of_phase_overwatch(phase) -> bool:
+	if _pending_id(phase) != "movement_phase_end":
+		return false
+	var w: Dictionary = phase.get_pending_stratagem_window()
+	if int(w.get("player", 0)) == GS.get_active_player():
+		return false
+	if not w.get("offers", []).any(func(o): return str(o.get("stratagem_id", "")) == "fire_overwatch_11e"):
+		return false
+	_decline(phase, int(w.player), "movement_phase_end")
+	return true
+
 func _win_ctx(phase) -> Dictionary:
 	return phase.get_pending_stratagem_window().get("ctx", {}) if phase.has_pending_stratagem_window() else {}
 
@@ -519,6 +533,9 @@ func _section_dubious_restraint() -> void:
 	_check("movement_phase_end window pending before the phase ends", _pending_id(p3) == "movement_phase_end" and GS.get_current_phase() == PHASE_MOVEMENT, _pending_id(p3))
 	var u3 = _use(p3, 1, "movement_phase_end", sid, "U_BOYZ_B")
 	_check("END window USE secures obj_center", u3.get("success", false) and MM.is_objective_secured("obj_center").secured, str(u3.get("error", "")))
+	# 11e 15.08: the opponent's movement_phase_end window (FIRE OVERWATCH)
+	# follows the active player's before the phase ends.
+	_check("then P2's FIRE OVERWATCH window (15.08) is answered", _decline_end_of_phase_overwatch(p3), _pending_id(p3))
 	_check("the phase then completes (Shooting)", GS.get_current_phase() == PHASE_SHOOTING, str(GS.get_current_phase()))
 	MM._sticky_objectives.clear()
 
@@ -620,9 +637,12 @@ func _section_scarper() -> void:
 	var cp2 := _cp(2)
 	var mv = _move_unit(phase, "U_CUSTODIAN_GUARD_C", Vector2(0, 3.0))
 	_check("Custodes move confirmed", mv.get("success", false), str(mv))
-	_check("Fire Overwatch is offered first; the codex window waits", (phase._awaiting_fire_overwatch or phase._awaiting_overwatch_decision) and not phase.has_pending_stratagem_window())
+	# 11e (migrated): FIRE OVERWATCH 15.08 is "End of your opponent's Movement
+	# phase" only — no per-move offer precedes the codex window any more (this
+	# used to assert the 10e Balance Dataslate per-move prompt came first).
+	_check("11e: no per-move Fire Overwatch; the codex window opens at once", not (phase._awaiting_fire_overwatch or phase._awaiting_overwatch_decision))
 	_settle(phase)
-	_check("after Overwatch is declined: enemy_ended_move pending for P2", _pending_id(phase) == "enemy_ended_move" and phase.get_pending_stratagem_window_decider() == 2, _pending_id(phase))
+	_check("enemy_ended_move pending for P2", _pending_id(phase) == "enemy_ended_move" and phase.get_pending_stratagem_window_decider() == 2, _pending_id(phase))
 	var offers: Array = phase.get_pending_stratagem_window().get("offers", []) if phase.has_pending_stratagem_window() else []
 	var targets := _offer_targets(offers, sid)
 	_check("offered on Gretchin C (within 8\")", "U_GRETCHIN_C" in targets, str(targets))
@@ -688,7 +708,10 @@ func _section_scarper() -> void:
 	PM.transition_to_phase(PHASE_MOVEMENT)
 	var engaged_offers = SM.get_window_offers(2, "enemy_ended_move", {"phase": "movement", "enemy_unit_id": "U_CUSTODIAN_GUARD_E", "move_type": "normal"})
 	_check("engaged Gretchin not offered", not "U_GRETCHIN_C" in _offer_targets(engaged_offers, sid), str(engaged_offers))
-	# AI decider: synchronous auto-move after the (human) Overwatch decline.
+	# AI decider: synchronous auto-move. 11e (migrated): with no per-move
+	# Fire Overwatch, the Custodes' CONFIRM itself opens enemy_ended_move, so
+	# the AI seat is set before the move and that result carries the diffs
+	# (at 10e it was the Overwatch decline that opened the window).
 	_load(REACTIVE, 2, "Runt Swarm")
 	_place_row("U_CUSTODIAN_GUARD_C", 35.0, 37.0, 1.8)
 	var p3 = _movement()
@@ -697,10 +720,12 @@ func _section_scarper() -> void:
 	_settle(p3)
 	var before := _pos(GS.state.units.U_GRETCHIN_C.models[0])
 	var cp_ai := _cp(2)
-	var amv = _move_unit(p3, "U_CUSTODIAN_GUARD_C", Vector2(0, 3.0))
 	_set_ai(false, true)
 	RE.set_test_seed(31337)
+	var amv = _move_unit(p3, "U_CUSTODIAN_GUARD_C", Vector2(0, 3.0))
 	var settled := _settle(p3)
+	if settled.is_empty():
+		settled = amv
 	_set_ai(false, false)
 	var after := _pos(GS.state.units.U_GRETCHIN_C.models[0])
 	_check("AI: no pause", amv.get("success", false) and not p3.has_pending_stratagem_window() and p3.get_pending_stratagem_window_decider() == 0, str(amv.get("error", "")))
@@ -713,7 +738,7 @@ func _section_scarper() -> void:
 	_check("AI moved the Gretchin, within the roll (%.2f\" <= %.0f\")" % [moved_in, ai_cap], moved_in > 0.1 and moved_in <= ai_cap + 0.05)
 	_check("AI moved away from the enemy", after.distance_to(_pos(GS.state.units.U_CUSTODIAN_GUARD_C.models[0])) > before.distance_to(_pos(GS.state.units.U_CUSTODIAN_GUARD_C.models[0])))
 	_check("AI move ends unengaged", not RE.is_unit_engaged("U_GRETCHIN_C", GS.state))
-	_check("AI result (on the Overwatch decline) carries the Gretchin position diffs", settled.get("changes", []).any(func(d): return "U_GRETCHIN_C.models" in str(d.get("path", ""))), str(settled.get("changes", []).size()))
+	_check("AI result (on the move that opened the window) carries the Gretchin position diffs", settled.get("changes", []).any(func(d): return "U_GRETCHIN_C.models" in str(d.get("path", ""))), str(settled.get("changes", []).size()))
 	_check("AI reactive state cleared", p3._ork11e_reactive_move.is_empty() and p3._reactive_move_owner == 0)
 
 
@@ -959,6 +984,9 @@ func _section_while_their_backs_host_path() -> void:
 	# (c) No offers: END_MOVEMENT through GameManager still ends the phase at once,
 	# with the meta.phase diff the client transitions from.
 	_load(ACTIVE, 1, "War Horde")
+	# 11e: P2 would be offered FIRE OVERWATCH (15.08) here — at 0 CP it is
+	# not, so this stays the no-window path.
+	GS.state.players["2"]["cp"] = 0
 	phase = _movement()
 	_drain_start_window(phase)
 	res = GM.apply_action({"type": "END_MOVEMENT", "player": 1})

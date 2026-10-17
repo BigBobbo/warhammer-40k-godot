@@ -1,0 +1,150 @@
+{
+  "id": "rapid_ingress_end_of_movement_11e",
+  "covers": [
+    "movement.stratagem.rapid_ingress",
+    "stratagem.core.rapid_ingress_11e",
+    "stratagem.window.movement_phase_end.opponent_turn",
+    "phases.MovementPhase._continue_end_movement_after_grot_oiler",
+    "scripts.MovementController._on_rapid_ingress_opportunity",
+    "scripts.Main._on_stratagem_window_opened"
+  ],
+  "fixture": "ri_pretrigger",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "11e RAPID INGRESS (15.07: 'WHEN: End of your opponent's Movement phase. TARGET: One friendly unit that is in strategic reserves (excluding AIRCRAFT)') through the real UI, followed by the FIRE OVERWATCH window at the same point. Fixture ri_pretrigger: P2 active in battle round 2; P1's Caladius Grav-tank is in strategic reserves. P2 ends the Movement phase with the phase button: the Rapid Ingress dialog opens for PLAYER 1 (the non-active player) listing the Caladius — before 11e's fix rapid_ingress_11e was timed for the Shooting phase and was never offered. A real click on Decline closes it without spending CP; the movement_phase_end window follows for P1, and with 'Skip Overwatch' ON (the default) its FIRE OVERWATCH offer is auto-declined — no dialog, no CP — so the Movement phase ends (Shooting).",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 2
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_CALADIUS_GRAV-TANK_E.status",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "return GameConstants.edition",
+      "equals": 11,
+      "multiline": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "InputDeviceManager.input_mode = InputDeviceManager.InputMode.KBM\nreturn InputDeviceManager.is_pad_active()",
+      "equals": false
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/Main/HUD_Bottom/HBoxContainer/AutoDeclineOverwatch",
+      "property": "button_pressed",
+      "equals": true,
+      "comment": "Skip Overwatch ON (default)"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main._phase_end_confirm != null and main._phase_end_confirm.visible",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._phase_end_confirm.get_ok_button().pressed.emit()"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7,
+      "comment": "the phase waits for the Rapid Ingress decision"
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "_awaiting_rapid_ingress",
+      "equals": true
+    },
+    {
+      "act": "expect_phase_property",
+      "property": "_rapid_ingress_player",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/RapidIngressDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/RapidIngressDialog/Content/UnitScroll/UnitList/Row_U_CALADIUS_GRAV-TANK_E/Use_U_CALADIUS_GRAV-TANK_E"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_rapid_ingress_offer_for_non_active_player"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/RapidIngressDialog/Content/Buttons/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0,
+      "comment": "declined: no CP"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8,
+      "comment": "Skip Overwatch auto-declined P1's FIRE OVERWATCH window — the Movement phase ended"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_tree().root.get_node_or_null(\"StratagemDialog\") == null",
+      "equals": true,
+      "comment": "no stratagem dialog was shown"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\">>> FIRE OVERWATCH <<<\")",
+      "equals": 0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_CALADIUS_GRAV-TANK_E.status",
+      "equals": 7,
+      "comment": "the Caladius stays in reserves"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_declined_shooting_phase"
+    }
+  ]
+}

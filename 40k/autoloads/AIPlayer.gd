@@ -750,6 +750,33 @@ func request_evaluation_after_load() -> void:
 	else:
 		print("AIPlayer: Skipping evaluation after load (AI not enabled)")
 
+## A stratagem the AI used inside a stratagem WINDOW. BasePhase decides AI
+## windows synchronously (AIDecisionMaker.decide_window_stratagem — e.g. the
+## 11e FIRE OVERWATCH at the end of the opponent's Movement phase), so no AI
+## action is ever submitted for it: log it here as USE_WINDOW_STRATAGEM so the
+## turn summary / action log count it like any other stratagem.
+func record_window_stratagem_use(player: int, window_id: String, stratagem_id: String, stratagem_name: String, target_unit_id: String, secondary_id: String = "") -> void:
+	var target_name := GameState.get_unit_display_name(target_unit_id) if target_unit_id != "" else ""
+	var desc := "AI uses %s" % stratagem_name
+	if target_name != "":
+		desc += " with %s" % target_name
+	if secondary_id != "":
+		desc += " at %s" % GameState.get_unit_display_name(secondary_id)
+	var phase := int(GameState.get_current_phase())
+	_append_action_log({
+		"phase": phase,
+		"action_type": "USE_WINDOW_STRATAGEM",
+		"description": desc,
+		"player": player,
+		"stratagem_id": stratagem_id,
+		"window_id": window_id,
+	})
+	if _spectator_mode:
+		_track_action_for_summary(player, "USE_WINDOW_STRATAGEM", phase)
+	_log_ai_event(player, desc)
+	record_ai_key_moment(player, desc)
+	print("AIPlayer: recorded window stratagem use — P%d %s (%s)" % [player, desc, window_id])
+
 func get_action_log() -> Array:
 	return _action_log.duplicate()
 
@@ -3117,7 +3144,7 @@ func _categorize_action(action_type: String) -> String:
 			return "units_fought"
 		"USE_REACTIVE_STRATAGEM", "USE_FIRE_OVERWATCH", "USE_COUNTER_OFFENSIVE", \
 		"USE_HEROIC_INTERVENTION", "USE_TANK_SHOCK", "USE_GRENADE_STRATAGEM", \
-		"USE_COMMAND_REROLL", "USE_RAPID_INGRESS":
+		"USE_COMMAND_REROLL", "USE_RAPID_INGRESS", "USE_WINDOW_STRATAGEM":
 			return "stratagems_used"
 		"PLACE_RAPID_INGRESS_REINFORCEMENT":
 			return "reinforcements"

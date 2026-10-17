@@ -586,7 +586,12 @@ func _after_declares_charge_windows(unit_id: String) -> Dictionary:
 	if ability_mgr:
 		has_sneaky_surprise = ability_mgr.has_sneaky_surprise(unit_id)
 
-	if has_sneaky_surprise:
+	if GameConstants.edition >= 11:
+		# 11e 15.08 FIRE OVERWATCH — WHEN: "End of your opponent's Movement
+		# phase." There is no Charge-phase overwatch at 11e (the end-of-Charge
+		# core reaction is HEROIC INTERVENTION 15.11).
+		log_phase_message("[11e 15.08] no Fire Overwatch against charging %s (it is used at the end of the opponent's Movement phase)" % unit_name)
+	elif has_sneaky_surprise:
 		log_phase_message("Sneaky Surprise: %s is immune to Fire Overwatch" % unit_name)
 		DebugLogger.info(str("ChargePhase: Sneaky Surprise — %s cannot be targeted by Fire Overwatch" % unit_name))
 	else:

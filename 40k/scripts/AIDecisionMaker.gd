@@ -23215,6 +23215,16 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 		var sid := str(offer.get("stratagem_id", ""))
 		var strat: Dictionary = sm.get_stratagem(sid)
 		var cost := int(offer.get("cp_cost", strat.get("cp_cost", 1)))
+		if sid == "fire_overwatch_11e":
+			# 11e FIRE OVERWATCH (15.08) in movement_phase_end: score each
+			# (shooter, snap target) pair by its expected damage on 6s.
+			var fo := _decide_fire_overwatch_window_11e(offer, cp, difficulty)
+			considered.append_array(fo.considered)
+			if fo.use and float(fo.score) > best_score:
+				best_score = float(fo.score)
+				best = {"use": true, "stratagem_id": sid, "target_unit_id": str(fo.target_unit_id),
+					"context": {"secondary_id": str(fo.secondary_id)}, "name": str(offer.get("name", sid))}
+			continue
 		var is_codex: bool = _ork_codex().handles(strat)
 		var kind: String = str(_ork_codex().ai_kind(strat)) if is_codex else "defensive"
 		for t in offer.get("targets", []):
@@ -23384,6 +23394,84 @@ static func _score_defensive_effects(effects: Array, unit: Dictionary) -> float:
 				# Unknown defensive effect — assume mild value
 				score += 0.5
 	return score
+
+# --- FIRE OVERWATCH 11e (15.08 — end of the opponent's Movement phase window) ---
+
+## Minimum expected damage (wounds) one snap-shooting FIRE OVERWATCH must buy
+## for the 1 CP: snap shots hit only on an unmodified 6 (15.09), so a small
+## unit almost never earns it back.
+const FO_11E_MIN_EXPECTED_DAMAGE: float = 1.0
+## Same "is this enemy worth shooting at" bar as evaluate_fire_overwatch.
+const FO_11E_MIN_TARGET_VALUE: float = 2.0
+
+## Expected damage of `shooter_id`'s snap shot at `target_id` (15.09): the
+## exact attacks RulesEngine.build_snap_assignments_11e would make (per-weapon
+## range / visibility, attached leader's guns), each hitting only on a 6
+## ([TORRENT] auto-hits, as the overwatch machinery resolves it), no re-rolls.
+static func _snap_expected_damage_11e(shooter_id: String, target_id: String, board: Dictionary) -> float:
+	var re = _rules_engine()
+	if re == null:
+		return 0.0
+	var target: Dictionary = board.get("units", {}).get(target_id, {})
+	if target.is_empty():
+		return 0.0
+	var stats: Dictionary = target.get("meta", {}).get("stats", {})
+	var toughness := int(stats.get("toughness", 4))
+	var save := int(stats.get("save", 4))
+	var invuln := _get_target_invulnerable_save(target)
+	var wounds_per_model := maxf(1.0, float(stats.get("wounds", 1)))
+	var total := 0.0
+	for a in re.build_snap_assignments_11e(shooter_id, target_id, board):
+		var prof: Dictionary = re.get_weapon_profile(str(a.get("weapon_id", "")), board)
+		if prof.is_empty():
+			continue
+		var attacks := _parse_average_damage(str(prof.get("attacks_raw", prof.get("attacks", "1"))))
+		var p_hit := 1.0 if re.is_torrent_weapon(str(a.get("weapon_id", "")), board) else 1.0 / 6.0
+		var strength := int(str(prof.get("strength", 4))) if str(prof.get("strength", 4)).is_valid_int() else 4
+		var ap := absi(int(str(prof.get("ap", 0)))) if str(prof.get("ap", 0)).is_valid_int() else 0
+		var dmg := minf(_parse_average_damage(str(prof.get("damage_raw", prof.get("damage", "1")))), wounds_per_model)
+		var p_wound := _wound_probability(strength, toughness)
+		var p_unsaved := 1.0 - _save_probability(save, ap, invuln)
+		total += attacks * float(a.get("model_ids", []).size()) * p_hit * p_wound * p_unsaved * dmg
+	return total
+
+## AI answer for a FIRE OVERWATCH offer in the movement_phase_end window:
+## the best (shooter, snap target) pair by expected damage, used only when the
+## AI keeps a CP in hand (CP >= 2, like evaluate_fire_overwatch), the shot is
+## worth >= FO_11E_MIN_EXPECTED_DAMAGE and the target >= FO_11E_MIN_TARGET_VALUE.
+static func _decide_fire_overwatch_window_11e(offer: Dictionary, cp: int, difficulty: int) -> Dictionary:
+	var out := {"use": false, "score": 0.0, "target_unit_id": "", "secondary_id": "", "considered": []}
+	var fo_name := str(offer.get("name", "FIRE OVERWATCH"))
+	if not AIDifficultyConfigData.use_overwatch(difficulty):
+		out.considered.append("%s: skip (difficulty does not use overwatch)" % fo_name)
+		return out
+	if cp < 2:
+		out.considered.append("%s: skip (CP %d < 2 — snap shots hit only on unmodified 6s; keeping the CP)" % [fo_name, cp])
+		return out
+	var gs = _game_state()
+	if gs == null:
+		return out
+	var board: Dictionary = gs.create_snapshot()
+	var units: Dictionary = board.get("units", {})
+	for t in offer.get("targets", []):
+		var shooter_id := str(t.get("unit_id", ""))
+		var sec = t.get("secondary", {})
+		if typeof(sec) != TYPE_DICTIONARY:
+			continue
+		for opt in sec.get("options", []):
+			var enemy_id := str(opt.get("id", ""))
+			var dmg := _snap_expected_damage_11e(shooter_id, enemy_id, board)
+			var value := _estimate_unit_value(units.get(enemy_id, {}))
+			out.considered.append("%s: %s -> %s: %.2f expected damage on 6s (target value %.1f; need %.1f / %.1f)" % [
+				fo_name, shooter_id, enemy_id, dmg, value, FO_11E_MIN_EXPECTED_DAMAGE, FO_11E_MIN_TARGET_VALUE])
+			if dmg >= FO_11E_MIN_EXPECTED_DAMAGE and value >= FO_11E_MIN_TARGET_VALUE and dmg > float(out.score):
+				out.score = dmg
+				out.target_unit_id = shooter_id
+				out.secondary_id = enemy_id
+	out.use = out.target_unit_id != ""
+	if out.use:
+		_add_thinking_step("Fire Overwatch (11e): %s snap-shoots %s — %.2f expected damage for 1 CP" % [out.target_unit_id, out.secondary_id, float(out.score)])
+	return out
 
 # --- FIRE OVERWATCH (Reactive — during opponent's movement/charge) ---
 

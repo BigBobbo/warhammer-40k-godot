@@ -221,6 +221,7 @@ TESTS=(
     "tests/test_iss073_shw_mobile_gamble.gd"
     "tests/test_iss074_aircraft_reserves_11e.gd"
     "tests/test_core_stratagems_11e.gd"
+    "tests/test_fire_overwatch_15_08_11e.gd"
     "tests/test_ork_codex_11e_data.gd"
     "tests/test_ork_codex_framework.gd"
     "tests/test_ork_codex_fight.gd"

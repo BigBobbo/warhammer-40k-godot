@@ -29,6 +29,10 @@ signal deff_from_above_result(unit_id: String, results: Dictionary)
 signal scatter_opportunity(player: int, eligible_units: Array, trigger_unit_id: String)
 signal grot_oiler_available(unit_id: String, player: int, eligible_targets: Array)
 signal grot_oiler_result(unit_id: String, results: Dictionary)
+# 11e FIRE OVERWATCH (15.08) snap shot: the DEFENDING player allocates its
+# wounds (05.03) — MovementController shows the allocation-group overlay and
+# answers with APPLY_SAVES (one action per save batch).
+signal saves_required(save_data_list: Array)
 # Codex: Orks (11e) READIED BRAWLERS follow-up: ask the (human) owner to make an
 # assault disembark move with `unit_id` from `transport_id` (MovementController
 # shows the disembark dialog / placement; SKIP_ASSAULT_DISEMBARK declines it).
@@ -81,6 +85,18 @@ var _rapid_ingress_unit_id: String = ""        # The unit chosen for Rapid Ingre
 # P2-88: Rapid Ingress overwatch — if overwatch triggers after Rapid Ingress placement,
 # we defer phase_completed until overwatch resolves
 var _rapid_ingress_pending_phase_complete: bool = false
+
+# 11e 15.09 SNAP SHOOTING (FIRE OVERWATCH 15.08) — AFTER SHOOTING: "Until the
+# end of the phase, your unit is not eligible to start an action." Units whose
+# cannot_start_action lock this phase set; it is lifted when the phase ends
+# (the flag is otherwise only reset at the owner's next turn start).
+var _snap_after_shooting_units: Array = []
+# The snap shot in flight: shooter / target / defender, the wound batches the
+# defender still allocates (05.03), and the dice + diffs gathered so far.
+var _snap_saves: Dictionary = {}
+# The save batch waiting for the defender (NetworkManager mirrors it here on
+# the defending client, like ShootingPhase.pending_save_data).
+var pending_save_data: Array = []
 
 # Bomb Squigs state tracking (P2-25)
 var _bomb_squigs_pending_unit: String = ""     # Unit awaiting Bomb Squigs decision
@@ -282,6 +298,9 @@ func _on_phase_enter() -> void:
 	_rapid_ingress_player = 0
 	_rapid_ingress_eligible_units = []
 	_rapid_ingress_unit_id = ""
+	_snap_after_shooting_units = []
+	_snap_saves = {}
+	pending_save_data = []
 	_bomb_squigs_pending_unit = ""
 	_bomb_squigs_pending_changes = []
 	_bomb_squigs_pending_dice = []
@@ -661,6 +680,14 @@ func validate_action(action: Dictionary) -> Dictionary:
 	if not base_validation.get("valid", true):
 		return base_validation
 
+	# 11e FIRE OVERWATCH: while the defender allocates the snap shot's wounds
+	# (05.03) only their APPLY_SAVES is accepted.
+	if not _snap_saves.is_empty():
+		if action_type == "APPLY_SAVES":
+			return _validate_snap_apply_saves(action)
+		if not action_type.begins_with("DEBUG_"):
+			return {"valid": false, "errors": ["Waiting for Player %d to allocate the FIRE OVERWATCH wounds (05.03)" % int(_snap_saves.get("defender", 0))]}
+
 	# Codex: Orks (11e): while a stratagem follow-up owns the phase (a human
 	# reactive normal move, a READIED BRAWLERS assault disembark) only the
 	# actions that complete it are accepted.
@@ -853,6 +880,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_fire_overwatch(action)
 		"DECLINE_FIRE_OVERWATCH":
 			return _process_decline_fire_overwatch(action)
+		"APPLY_SAVES":
+			return _process_snap_apply_saves(action)
 		"USE_RAPID_INGRESS":
 			return _process_use_rapid_ingress(action)
 		"DECLINE_RAPID_INGRESS":
@@ -1951,6 +1980,14 @@ func _check_fire_overwatch_opportunity(unit_id: String, trigger_context: String,
 	"""
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
+
+	# 11e 15.08 FIRE OVERWATCH — WHEN: "End of your opponent's Movement phase."
+	# That is its only timing at edition >= 11: no per-move / set-up offer
+	# (this Balance Dataslate timing is 10e-only). It is offered once, in the
+	# movement_phase_end window opened by _complete_movement_phase.
+	if GameConstants.edition >= 11:
+		log_phase_message("[11e 15.08] no per-move Fire Overwatch offer (%s, %s) — it is offered at the end of the opponent's Movement phase" % [unit_name, trigger_context])
+		return {"triggered": false}
 
 	# P2-25: Sneaky Surprise — unit cannot be targeted by Fire Overwatch
 	var _ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -3743,6 +3780,22 @@ func _get_rapid_ingress_eligible_units(player: int) -> Array:
 
 		var reserve_type = unit.get("reserve_type", "strategic_reserves")
 
+		if GameConstants.edition >= 11:
+			# 15.07 TARGET: "One friendly unit that is in strategic reserves
+			# (excluding AIRCRAFT)."
+			if RulesEngine.unit_has_keyword(unit, "AIRCRAFT"):
+				log_phase_message("[11e 15.07] %s is AIRCRAFT — not offered RAPID INGRESS" % unit_id)
+				continue
+			# 20.04 ELIGIBLE IF: excluding units embarked within TRANSPORTS that
+			# are themselves in strategic reserves (they arrive with it).
+			if unit.get("embarked_in", null) != null:
+				continue
+			# Battle-shock: its controlling player cannot target that unit with
+			# stratagems (a repositioned unit stays battle-shocked, 20.02).
+			if unit.get("flags", {}).get("battle_shocked", false):
+				log_phase_message("[11e 15.07] %s is battle-shocked — not offered RAPID INGRESS" % unit_id)
+				continue
+
 		# Rapid Ingress restriction: cannot arrive in a battle round the unit
 		# normally wouldn't be able to. Strategic reserves & deep strike both
 		# require battle round >= 2, which we already check before calling this.
@@ -3771,7 +3824,7 @@ func _validate_use_rapid_ingress(action: Dictionary) -> Dictionary:
 		errors.append("Not awaiting Rapid Ingress decision")
 		return {"valid": false, "errors": errors}
 
-	var unit_id = action.get("unit_id", "")
+	var unit_id = _rapid_ingress_action_unit_id(action)
 	if unit_id.is_empty():
 		errors.append("No unit specified for Rapid Ingress")
 		return {"valid": false, "errors": errors}
@@ -3799,6 +3852,18 @@ func _validate_use_rapid_ingress(action: Dictionary) -> Dictionary:
 	if unit.get("status", 0) != GameStateData.UnitStatus.IN_RESERVES:
 		errors.append("Unit is not in reserves")
 		return {"valid": false, "errors": errors}
+
+	# 11e 15.07: only an offered unit (strategic reserves, not AIRCRAFT, not
+	# battle-shocked) — re-checked here, on the peer that runs the phase.
+	if GameConstants.edition >= 11:
+		var offered := false
+		for row in _rapid_ingress_eligible_units:
+			if str(row.get("unit_id", "")) == unit_id:
+				offered = true
+				break
+		if not offered:
+			errors.append("RAPID INGRESS cannot target %s (15.07: one friendly unit in strategic reserves, excluding AIRCRAFT)" % unit_id)
+			return {"valid": false, "errors": errors}
 
 	return {"valid": true, "errors": []}
 
@@ -3972,8 +4037,16 @@ func _validate_place_rapid_ingress_reinforcement(action: Dictionary) -> Dictiona
 
 	return {"valid": errors.size() == 0, "errors": errors}
 
+## The unit a USE_RAPID_INGRESS names: action.unit_id, else payload.unit_id /
+## actor_unit_id (the shape MovementController's dialog used to send).
+func _rapid_ingress_action_unit_id(action: Dictionary) -> String:
+	var uid := str(action.get("unit_id", ""))
+	if uid == "":
+		uid = str(action.get("payload", {}).get("unit_id", action.get("actor_unit_id", "")))
+	return uid
+
 func _process_use_rapid_ingress(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", "")
+	var unit_id = _rapid_ingress_action_unit_id(action)
 	var player = action.get("player", _rapid_ingress_player)
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
@@ -4213,8 +4286,10 @@ func _resolve_overwatch_shooting(shooting_unit_id: String, target_unit_id: Strin
 
 	return shoot_result
 
-func _log_overwatch_results_to_game_log(game_event_log, ow_result: Dictionary, shooter_name: String, target_name: String, player: int) -> void:
-	"""Log detailed overwatch roll results (hits, wounds, saves, casualties) to the GameEventLog."""
+func _log_overwatch_results_to_game_log(game_event_log, ow_result: Dictionary, shooter_name: String, target_name: String, player: int, own_unit_ids: Array = []) -> void:
+	"""Log detailed overwatch roll results (hits, wounds, saves, casualties) to the GameEventLog.
+	own_unit_ids: the shooting unit's components — their models lost to the
+	unit's own [HAZARDOUS] check are not counted as casualties of the shot."""
 	var dice_entries = ow_result.get("dice", [])
 	var total_hits = 0
 	var total_wounds = 0
@@ -4237,9 +4312,14 @@ func _log_overwatch_results_to_game_log(game_event_log, ow_result: Dictionary, s
 			total_wounds += successes
 			game_event_log.add_overwatch_entry("  %s - Wound rolls: [%s] vs %s (%d wound%s)" % [
 				weapon_name, rolls_str, str(threshold), successes, "" if successes == 1 else "s"])
-		elif context == "save":
-			var fails = dice_entry.get("fails", 0)
-			var sv = dice_entry.get("sv", str(threshold))
+		elif context == "save" or context == "save_roll":
+			# 10e blocks carry "fails"; the 11e allocation batch (05.03, the
+			# defender's overlay → normalize_allocation_11e_dice) "failed".
+			var fails = int(dice_entry.get("fails", dice_entry.get("failed", 0)))
+			# The roll needed (after AP / an invulnerable save): 11e blocks
+			# carry it as "threshold" ("sv" is the characteristic); 10e
+			# blocks only have "sv".
+			var sv = str(threshold) if str(threshold) != "" else dice_entry.get("sv", "")
 			total_failed_saves += fails
 			if fails == 0:
 				total_saved += 1
@@ -4259,12 +4339,17 @@ func _log_overwatch_results_to_game_log(game_event_log, ow_result: Dictionary, s
 	for diff in ow_result.get("diffs", []):
 		var path = diff.get("path", "")
 		if path.ends_with(".alive") and diff.get("value") == false:
+			if not own_unit_ids.is_empty() and path.begins_with("units.") and path.get_slice(".", 1) in own_unit_ids:
+				continue
 			total_casualties += 1
 
 	# Log the final outcome summary
 	if total_casualties > 0:
 		game_event_log.add_overwatch_entry("  >>> %d model%s destroyed! <<<" % [
 			total_casualties, "" if total_casualties == 1 else "s"])
+	elif total_failed_saves > 0:
+		game_event_log.add_overwatch_entry("  Result: %d failed save%s — damage dealt, no models destroyed" % [
+			total_failed_saves, "" if total_failed_saves == 1 else "s"])
 	elif total_wounds > 0:
 		game_event_log.add_overwatch_entry("  Result: All wounds saved - no casualties")
 	elif total_hits > 0:
@@ -7169,15 +7254,62 @@ func _complete_movement_phase(changes: Array) -> Dictionary:
 		if open_stratagem_window_both_players("movement_phase_end", ctx, "_resume_after_movement_phase_end"):
 			log_phase_message("Movement phase end waits for Player %d's movement_phase_end stratagem decision" % get_pending_stratagem_window_decider())
 			out.append_array(consume_window_diffs())
-			return create_result(true, out)
+			var paused_res := create_result(true, out)
+			paused_res.merge(consume_window_result_extra(), false)
+			return paused_res
 		out.append_array(consume_window_diffs())
+		var extra := consume_window_result_extra()
+		out.append_array(_snap_end_of_phase_cleanup())
+		_recheck_objectives_after_end_rules()
+		emit_signal("phase_completed")
+		var sync_res := create_result(true, out)
+		sync_res.merge(extra, false)
+		return sync_res
 	emit_signal("phase_completed")
 	return create_result(true, out)
 
 func _resume_after_movement_phase_end(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
 	log_phase_message("movement_phase_end windows answered — ending the Movement phase")
+	var cleanup := _snap_end_of_phase_cleanup()
+	_recheck_objectives_after_end_rules()
 	emit_signal("phase_completed")
-	return create_result(true, [])
+	return create_result(true, cleanup)
+
+## 14.02: "At the end of each phase ... determine a player's level of control".
+## Control was determined before the movement_phase_end windows (so DUBIOUS
+## RESTRAINT sees this phase's moves); the end-of-phase rules resolved in them
+## — FIRE OVERWATCH casualties, reactive moves — can change it, so it is
+## determined again as the phase actually ends. (MissionManager also re-checks
+## on PhaseManager.phase_completed; this keeps the phase correct on its own.)
+func _recheck_objectives_after_end_rules() -> void:
+	var mm = get_node_or_null("/root/MissionManager")
+	if mm != null and mm.has_method("check_all_objectives"):
+		mm.check_all_objectives()
+
+## 15.09 AFTER SHOOTING lasts "until the end of the phase": lift the
+## cannot_start_action lock a snap shot set this phase (applied here, and
+## returned so the action's result carries it to replay / the network client).
+func _snap_end_of_phase_cleanup() -> Array:
+	var diffs: Array = []
+	for uid in _snap_after_shooting_units:
+		if not GameState.state.get("units", {}).has(uid):
+			continue
+		diffs.append({"op": "set", "path": "units.%s.flags.cannot_start_action" % uid, "value": false})
+	_snap_after_shooting_units = []
+	if not diffs.is_empty():
+		PhaseManager.apply_state_changes(diffs)
+		log_phase_message("[11e 15.09] end of phase — snap shooters may start actions again (%d unit(s))" % diffs.size())
+	return diffs
+
+## True while a bespoke end-of-Movement prompt (SAWBONEZ, MEKANIAK, GROT
+## OILER, RAPID INGRESS selection / placement) waits for its player. The
+## phase must not be force-completed then: GameManager._end_phase_via_phase
+## (the host's END_MOVEMENT online) used to complete it "as before", which
+## silently skipped these prompts AND the movement_phase_end window behind
+## them (FIRE OVERWATCH) in multiplayer.
+func has_pending_end_of_phase_prompt() -> bool:
+	return _awaiting_rapid_ingress or _rapid_ingress_unit_id != "" or _awaiting_sawbonez \
+		or _awaiting_mekaniak or _awaiting_grot_oiler
 
 ## A HUMAN-driven follow-up (reactive move / assault disembark) holds the
 ## phase like a pending window: report its owner so AIPlayer idles until it
@@ -7190,6 +7322,8 @@ func get_pending_stratagem_window_decider() -> int:
 		return int(_ork11e_reactive_move.get("player", 0))
 	if not _ork11e_assault_disembark.is_empty():
 		return int(_ork11e_assault_disembark.get("player", 0))
+	if not _snap_saves.is_empty():
+		return int(_snap_saves.get("defender", 0))
 	return 0
 
 ## Movement actions a reactive normal move (codex follow-up, Krump and Run,
@@ -7204,6 +7338,12 @@ func allows_cross_turn_action(action: Dictionary) -> bool:
 	if super(action):
 		return true
 	var claimed := int(action.get("player", -1))
+	# 11e 15.07 RAPID INGRESS: the NON-active player answers the end-of-Movement
+	# prompt and sets up the arriving unit (USE / DECLINE / placement) — only
+	# while this phase is waiting on THAT player's Rapid Ingress.
+	if claimed > 0 and claimed == _rapid_ingress_player and (_awaiting_rapid_ingress or _rapid_ingress_unit_id != "") \
+			and str(action.get("type", "")) in ["USE_RAPID_INGRESS", "DECLINE_RAPID_INGRESS", "PLACE_RAPID_INGRESS_REINFORCEMENT"]:
+		return true
 	var uid := str(action.get("actor_unit_id", ""))
 	var move_data: Dictionary = active_moves.get(uid, {})
 	return claimed > 0 and _reactive_move_owner == claimed and str(action.get("type", "")) in _REACTIVE_MOVE_ACTIONS \
@@ -7249,7 +7389,267 @@ func _execute_window_followup(player: int, window_id: String, followup: Dictiona
 			return _ork11e_begin_reactive_normal_move(player, followup)
 		"assault_disembark":
 			return _ork11e_begin_assault_disembark(player, followup)
+		"snap_shooting":
+			return _resolve_snap_shooting_followup(player, followup)
 	return super(player, window_id, followup, ctx)
+
+## FIRE OVERWATCH (15.08) follow-up: the defender's unit shoots the enemy unit
+## they picked using SNAP shooting (15.09), at the end of the opponent's
+## Movement phase. The shooter and target are re-checked against the live
+## board (the window offer was built from it a moment ago, and
+## can_use_stratagem re-validated both before the CP was spent), the attacks
+## are built per 04.01/04.02 (RulesEngine.build_snap_assignments_11e: every
+## model of the Attached unit, per-weapon range + visibility), and resolved
+## with the overwatch flag: BS 7 + critical hits clamped to 6 (only unmodified
+## 6s hit) and no hit re-rolls (RulesEngine, 15.09). The DEFENDING player
+## resolves the saves (05.03): a human defender orders the allocation groups
+## and rolls in the allocation overlay (the phase pauses until their
+## APPLY_SAVES — returns true); an AI defender, or one who lets the computer
+## allocate, goes through the engine's 11e allocation at once (returns false).
+## Diffs ride _window_sync_diffs into the result of the action that answered
+## (or opened) the window.
+func _resolve_snap_shooting_followup(player: int, followup: Dictionary) -> bool:
+	var shooter_id := str(followup.get("shooter_unit_id", ""))
+	var target_id := str(followup.get("target_unit_id", ""))
+	var source := str(followup.get("source", "FIRE OVERWATCH"))
+	var board: Dictionary = GameState.create_snapshot()
+	var reason: String = StratagemManager.fire_overwatch_shooter_reason_11e(player, shooter_id, board)
+	var target_ok := false
+	for t in RulesEngine.snap_shooting_targets_11e(shooter_id, board):
+		if str(t.get("unit_id", "")) == target_id:
+			target_ok = true
+			break
+	if reason != "" or not target_ok:
+		_window_error("%s: snap shooting %s -> %s refused (%s)" % [source, shooter_id, target_id,
+			reason if reason != "" else "not a legal snap-shooting target (15.09)"])
+		return false
+	var shooter_name := GameState.get_unit_display_name(shooter_id)
+	var target_name := GameState.get_unit_display_name(target_id)
+	var assignments: Array = RulesEngine.build_snap_assignments_11e(shooter_id, target_id, board)
+	var gel = get_node_or_null("/root/GameEventLog")
+	if assignments.is_empty():
+		var none_msg := "%s: %s has no weapon that can see %s and has it in range — no attacks" % [source, shooter_name, target_name]
+		log_phase_message(none_msg)
+		if gel:
+			gel.add_overwatch_entry(none_msg)
+		return false
+	var weapon_names: Array = []
+	for a in assignments:
+		weapon_names.append("%s x%d" % [str(RulesEngine.get_weapon_profile(str(a.weapon_id), board).get("name", a.weapon_id)), a.model_ids.size()])
+	log_phase_message("[11e 15.09] %s: P%d %s snap-shoots %s with %s" % [source, player, shooter_name, target_name, ", ".join(weapon_names)])
+	if gel:
+		gel.add_overwatch_entry(">>> FIRE OVERWATCH <<<")
+		gel.add_overwatch_entry("P%d: %s fires at %s (snap shooting — only unmodified 6s hit, no hit re-rolls)" % [player, shooter_name, target_name])
+	var head_id := RulesEngine.attached_unit_target_id(shooter_id, board)
+	var defender := int(GameState.get_unit(target_id).get("owner", 0))
+	_snap_saves = {"player": player, "defender": defender, "shooter_id": shooter_id, "head_id": head_id,
+		"target_id": target_id, "source": source, "shooter_name": shooter_name, "target_name": target_name,
+		"components": RulesEngine.attached_unit_component_ids(shooter_id, board),
+		"batches": [], "index": 0, "dice": [], "diffs": [], "hazardous_weapons": [], "log_text": ""}
+	# P1-59: phase-specific rules are blocked while the out-of-phase shot resolves.
+	StratagemManager.set_out_of_phase_active(true, player, shooter_id)
+	var shoot_action := {"type": "SHOOT", "actor_unit_id": head_id,
+		"payload": {"assignments": assignments, "overwatch": true, "shooting_type": "snap"}}
+	if _snap_defender_allocates(defender):
+		# 05.03 SAVE ROLLS: "The opposing player resolves the following
+		# sequence" (create groups, allocation order, save rolls) — the same
+		# interactive 11e allocation the Shooting phase uses. Roll the hits and
+		# wounds now; the defender allocates each wound batch.
+		var uw: Dictionary = RulesEngine.resolve_shoot_until_wounds(shoot_action, board, RulesEngine.make_rng())
+		StratagemManager.set_out_of_phase_active(false)
+		var pre_diffs: Array = uw.get("one_shot_diffs", []).duplicate()
+		if not pre_diffs.is_empty():
+			PhaseManager.apply_state_changes(pre_diffs)
+			_window_sync_diffs.append_array(pre_diffs)
+		_snap_saves["dice"] = uw.get("dice", []).duplicate()
+		_snap_saves["diffs"] = pre_diffs
+		_snap_saves["hazardous_weapons"] = uw.get("hazardous_weapons", [])
+		_snap_saves["log_text"] = str(uw.get("log_text", ""))
+		var batches: Array = uw.get("save_data_list", [])
+		_snap_saves["batches"] = batches
+		if batches.is_empty():
+			log_phase_message("[11e 15.09] %s: no wounds — nothing for Player %d to allocate" % [source, defender])
+			_snap_finish()
+			return false
+		pending_save_data = [batches[0]]
+		_window_result_extra["save_data_list"] = [batches[0]]
+		_window_result_extra["fire_overwatch_awaiting_saves"] = true
+		log_phase_message("[11e 05.03] %s: %d wound batch(es) — Player %d allocates the wounds" % [source, batches.size(), defender])
+		call_deferred("emit_signal", "saves_required", [batches[0]])
+		return true
+	var res: Dictionary = RulesEngine.resolve_shoot(shoot_action, board, RulesEngine.make_rng())
+	StratagemManager.set_out_of_phase_active(false)
+	var shot_diffs: Array = res.get("diffs", [])
+	if not shot_diffs.is_empty():
+		PhaseManager.apply_state_changes(shot_diffs)
+	_window_sync_diffs.append_array(shot_diffs)
+	_snap_saves["dice"] = res.get("dice", []).duplicate()
+	_snap_saves["diffs"] = shot_diffs.duplicate()
+	_snap_saves["log_text"] = str(res.get("log_text", ""))
+	_snap_finish()
+	return false
+
+## Whether the defender allocates the snap shot's wounds itself (05.03) — the
+## same rule as ShootingPhase._should_pause_for_human_saves: a human defender
+## at 11e who has not delegated allocation to the computer (and ALWAYS a
+## networked human defender, like AllocationGroupOverlay._compute_auto_mode).
+## AI defenders resolve through the engine's 11e allocation (default legal
+## order + CasualtyPreference) without pausing.
+func _snap_defender_allocates(defender: int) -> bool:
+	if GameConstants.edition < 11 or defender <= 0:
+		return false
+	if _is_ai_window_decider(defender):
+		return false
+	var nm = get_node_or_null("/root/NetworkManager")
+	if nm != null and nm.has_method("is_networked") and nm.is_networked():
+		return true
+	var ss = get_node_or_null("/root/SettingsService")
+	return ss != null and ss.has_method("get_auto_allocate_wounds") and not ss.get_auto_allocate_wounds()
+
+## The snap shot is done (no wounds left to allocate): post-save [HAZARDOUS]
+## checks, 15.09 AFTER SHOOTING, the Game Log / summary and the result extras.
+## Its diffs are applied and ride _window_sync_diffs.
+func _snap_finish() -> Array:
+	var st: Dictionary = _snap_saves
+	_snap_saves = {}
+	pending_save_data = []
+	var out: Array = []
+	var dice: Array = st.get("dice", []).duplicate()
+	# [HAZARDOUS] after the saves (the interactive path stops before them;
+	# resolve_shoot already rolled it on the automatic path).
+	for hw in st.get("hazardous_weapons", []):
+		var haz = RulesEngine.resolve_hazardous_check(str(st.get("head_id", "")), str(hw.get("weapon_id", "")),
+			int(hw.get("models_that_fired", 0)), GameState.create_snapshot(), RulesEngine.make_rng())
+		if haz.get("hazardous_triggered", false):
+			out.append_array(haz.get("diffs", []))
+		dice.append_array(haz.get("dice", []))
+	# 15.09 AFTER SHOOTING: until the end of the phase the unit is not eligible
+	# to start an action (lifted by _snap_end_of_phase_cleanup).
+	for gid in st.get("components", []):
+		out.append_array(ShootingTypes.get_type("snap").after_shooting_effects(gid))
+		if not gid in _snap_after_shooting_units:
+			_snap_after_shooting_units.append(gid)
+	if not out.is_empty():
+		PhaseManager.apply_state_changes(out)
+	_window_sync_diffs.append_array(out)
+	var all_diffs: Array = st.get("diffs", []).duplicate()
+	all_diffs.append_array(out)
+	var res_like := {"dice": dice, "diffs": all_diffs, "log_text": str(st.get("log_text", ""))}
+	var shooter_id := str(st.get("shooter_id", ""))
+	var target_id := str(st.get("target_id", ""))
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		_log_overwatch_results_to_game_log(gel, res_like, str(st.get("shooter_name", "")), str(st.get("target_name", "")), int(st.get("player", 0)),
+			st.get("components", []))
+	var summary := _snap_shooting_summary(str(st.get("source", "FIRE OVERWATCH")), str(st.get("shooter_name", "")), str(st.get("target_name", "")), res_like,
+		target_id, st.get("components", []))
+	log_phase_message(summary)
+	for db in dice:
+		dice_log.append(db)
+	_window_result_extra["fire_overwatch_used"] = true
+	_window_result_extra["fire_overwatch_unit_id"] = shooter_id
+	_window_result_extra["fire_overwatch_target_id"] = target_id
+	_window_result_extra["fire_overwatch_summary"] = summary
+	_window_result_extra["dice"] = dice
+	_window_result_extra["log_text"] = str(st.get("log_text", ""))
+	emit_signal("overwatch_result", shooter_id, target_id, res_like)
+	call_deferred("_ork11e_refresh_board_visuals")
+	return out
+
+func _validate_snap_apply_saves(action: Dictionary) -> Dictionary:
+	var defender := int(_snap_saves.get("defender", 0))
+	if action.has("player") and int(action.get("player", 0)) != defender:
+		return {"valid": false, "errors": ["Player %d allocates the FIRE OVERWATCH wounds, not Player %d" % [defender, int(action.get("player", 0))]]}
+	var list = action.get("payload", {}).get("save_results_list", [])
+	if typeof(list) != TYPE_ARRAY or list.is_empty():
+		return {"valid": false, "errors": ["Missing save_results_list"]}
+	if typeof(list[0]) != TYPE_DICTIONARY or not list[0].get("is_allocation_11e", false):
+		return {"valid": false, "errors": ["FIRE OVERWATCH saves use the 11e allocation-group summary (05.03)"]}
+	if int(_snap_saves.get("index", 0)) >= _snap_saves.get("batches", []).size():
+		return {"valid": false, "errors": ["No FIRE OVERWATCH save batch is waiting"]}
+	return {"valid": true, "errors": []}
+
+## One defender APPLY_SAVES for the snap shot: apply the allocation-group
+## summary's idempotent set-diffs (the overlay already applied them on the
+## defending peer), pay a save Command Re-roll, record the save dice; then hand
+## over the next batch or finish the shot and resume the window queue / phase.
+func _process_snap_apply_saves(action: Dictionary) -> Dictionary:
+	var summary: Dictionary = action.get("payload", {}).get("save_results_list", [])[0]
+	var batches: Array = _snap_saves.get("batches", [])
+	var idx := int(_snap_saves.get("index", 0))
+	var save_data: Dictionary = batches[idx]
+	var diffs: Array = summary.get("diffs", []).duplicate()
+	diffs.append_array(_snap_save_command_reroll(summary, save_data))
+	if not diffs.is_empty():
+		PhaseManager.apply_state_changes(diffs)
+	var target_id := str(save_data.get("target_unit_id", _snap_saves.get("target_id", "")))
+	if int(summary.get("casualties", 0)) > 0 and target_id != "":
+		CharacterAttachmentManager.check_bodyguard_destroyed(target_id)
+	var save_blocks: Array = RulesEngine.normalize_allocation_11e_dice(summary, {
+		"target_unit_name": save_data.get("target_unit_name", target_id), "weapon_name": save_data.get("weapon_name", "")})
+	_snap_saves["dice"].append_array(save_blocks)
+	_snap_saves["diffs"].append_array(diffs)
+	_snap_saves["index"] = idx + 1
+	log_phase_message("[11e 05.03] FIRE OVERWATCH saves (batch %d/%d): %d saved, %d failed, %d casualt%s (order %s)" % [
+		idx + 1, batches.size(), int(summary.get("saves_passed", 0)), int(summary.get("saves_failed", 0)),
+		int(summary.get("casualties", 0)), "y" if int(summary.get("casualties", 0)) == 1 else "ies", str(summary.get("order_used", []))])
+	if idx + 1 < batches.size():
+		var next_batch: Dictionary = batches[idx + 1]
+		pending_save_data = [next_batch]
+		call_deferred("emit_signal", "saves_required", [next_batch])
+		var cont := create_result(true, diffs)
+		cont["save_data_list"] = [next_batch]
+		cont["dice"] = save_blocks
+		return cont
+	_snap_finish()
+	var done := _finish_window_followup(diffs)
+	done.merge(consume_window_result_extra(), false)
+	return done
+
+## Defender-side save Command Re-roll from the overlay (15.02): deduct the CP
+## and record the usage here, authoritatively — same as ShootingPhase.
+func _snap_save_command_reroll(summary: Dictionary, save_data: Dictionary) -> Array:
+	var cr = summary.get("command_reroll", {})
+	if typeof(cr) != TYPE_DICTIONARY or not cr.get("used", false):
+		return []
+	var target_unit_id := str(save_data.get("target_unit_id", summary.get("target_unit_id", "")))
+	var result = StratagemManager.execute_command_reroll(int(cr.get("player", 0)), target_unit_id, {
+		"roll_type": "save_roll", "original_rolls": [int(cr.get("original", 0))],
+		"unit_name": get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)})
+	if not result.get("success", false):
+		log_phase_message("⚠ FIRE OVERWATCH save Command Re-roll by player %d could not be paid (%s)" % [int(cr.get("player", 0)), str(result.get("error", ""))])
+		return []
+	return result.get("diffs", [])
+
+## One line for the toast / log: hits, wounds, TARGET models destroyed — and,
+## separately, the shooter's own models lost to [HAZARDOUS] (its post-save
+## check can destroy a model of the firing unit; that is not a casualty the
+## snap shot inflicted).
+func _snap_shooting_summary(source: String, shooter_name: String, target_name: String, res: Dictionary,
+		target_id: String = "", shooter_components: Array = []) -> String:
+	var hits := 0
+	var wounds := 0
+	for db in res.get("dice", []):
+		var c := str(db.get("context", ""))
+		if c in ["to_hit", "overwatch_to_hit", "hit_roll", "auto_hit"]:
+			hits += int(db.get("successes", 0))
+		elif c in ["to_wound", "wound_roll"]:
+			wounds += int(db.get("successes", 0))
+	var killed := 0
+	var own_lost := 0
+	for d in res.get("diffs", []):
+		var path := str(d.get("path", ""))
+		if not (path.ends_with(".alive") and d.get("value") == false):
+			continue
+		var owner_uid := path.get_slice(".", 1) if path.begins_with("units.") else ""
+		if owner_uid != "" and owner_uid in shooter_components:
+			own_lost += 1
+		elif target_id == "" or owner_uid == "" or owner_uid == target_id:
+			killed += 1
+	var line := "%s: %s snap-shot %s — %d hit(s), %d wound(s), %d model(s) destroyed" % [source, shooter_name, target_name, hits, wounds, killed]
+	if own_lost > 0:
+		line += " (Hazardous: %d of %s's own model(s) lost)" % [own_lost, shooter_name]
+	return line
 
 ## active_moves entry for a reactive normal move (the Krump and Run / Scatter!
 ## shape) — the unit's owner, not the active player, makes it.

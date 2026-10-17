@@ -1025,7 +1025,15 @@ func _end_phase_via_phase(action: Dictionary, phase_enum: int) -> Dictionary:
 		return {}
 	var res: Dictionary = inst.execute_action(action)
 	var holds_phase := func() -> bool:
-		return is_instance_valid(inst) and inst.has_method("_window_blocks_phase_completion") and bool(inst._window_blocks_phase_completion())
+		if not is_instance_valid(inst):
+			return false
+		if inst.has_method("_window_blocks_phase_completion") and bool(inst._window_blocks_phase_completion()):
+			return true
+		# A bespoke end-of-phase prompt (MovementPhase: SAWBONEZ / MEKANIAK /
+		# GROT OILER / RAPID INGRESS selection or placement) also holds the
+		# phase: completing it "as before" skipped that prompt AND the
+		# movement_phase_end window behind it (11e FIRE OVERWATCH 15.08) online.
+		return inst.has_method("has_pending_end_of_phase_prompt") and bool(inst.has_pending_end_of_phase_prompt())
 	if not res.get("success", false):
 		if holds_phase.call():
 			# e.g. END_MOVEMENT while a WHILE THEIR BACKS ARE TURNED move is in
@@ -1041,7 +1049,7 @@ func _end_phase_via_phase(action: Dictionary, phase_enum: int) -> Dictionary:
 		return {}
 	if pm.get_current_phase_instance() == inst:
 		if holds_phase.call():
-			print("GameManager: %s — the phase waits for a stratagem window / follow-up (P%d) before it ends" % [
+			print("GameManager: %s — the phase waits for a stratagem window / follow-up / end-of-phase prompt (P%d) before it ends" % [
 				str(action.get("type", "")), int(inst.get_pending_stratagem_window_decider()) if inst.has_method("get_pending_stratagem_window_decider") else 0])
 			return res
 		if phase_enum == GameStateData.Phase.FIGHT:

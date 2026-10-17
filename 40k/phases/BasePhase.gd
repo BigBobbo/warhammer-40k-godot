@@ -35,6 +35,10 @@ var _window_suppressed: Dictionary = {}  # "player:window_id" -> true ("Don't of
 var _window_sync_diffs: Array = []       # diffs applied by synchronous (AI) uses — merged into the caller's result
 var _window_followup_pending: bool = false  # a used stratagem's follow-up paused the phase
 var _window_last_result: Dictionary = {}  # {used, player, window_id, stratagem_id, target_unit_id, diffs}
+# Extra result keys a follow-up produced (FIRE OVERWATCH's snap-shooting dice /
+# summary): merged into the result of the action that answered the window
+# (_process_window_action) — or opened it, when an AI decided synchronously.
+var _window_result_extra: Dictionary = {}
 
 # Cross-phase EVENT windows (unit_battle_shocked, unit_destroyed,
 # enemy_unit_has_attacked — design §3): raised by comparing unit state before
@@ -436,6 +440,13 @@ func open_stratagem_windows(entries: Array, resume_method: String, resume_ctx: D
 	_window_resume_ctx = resume_ctx.duplicate(true)
 	return _process_window_queue()
 
+## Extra result keys produced by window follow-ups since the last call
+## (never "success" / "changes" — callers merge without overwriting).
+func consume_window_result_extra() -> Dictionary:
+	var e := _window_result_extra
+	_window_result_extra = {}
+	return e
+
 ## Diffs applied by windows that resolved synchronously (AI decider) since the
 ## last call. The phase merges them into the result of the action that opened
 ## the window so replay / network clients see the CP + effect changes.
@@ -482,6 +493,13 @@ func _process_window_queue() -> bool:
 					_window_sync_diffs.append_array(use_res.get("diffs", []))
 					_window_sync_diffs.append_array(followup_diffs)
 					DebugLogger.info("[StratagemWindow] AI P%d used %s on %s in %s" % [player, decision.get("stratagem_id", ""), decision.get("target_unit_id", ""), window_id])
+					# The AI decided inside the phase (no AI-submitted action), so
+					# tell AIPlayer — its turn summary counts USE_WINDOW_STRATAGEM.
+					var ai_node = get_node_or_null("/root/AIPlayer")
+					if ai_node and ai_node.has_method("record_window_stratagem_use"):
+						ai_node.record_window_stratagem_use(player, window_id, str(decision.get("stratagem_id", "")),
+							str(use_res.get("stratagem_name", decision.get("stratagem_id", ""))), str(decision.get("target_unit_id", "")),
+							str(decision.get("context", {}).get("secondary_id", "")) if typeof(decision.get("context", {})) == TYPE_DICTIONARY else "")
 					emit_signal("stratagem_window_closed", player, window_id, true)
 					_window_event_closed(window_id, ctx, true)
 					if use_res.get("paused", false):
@@ -571,6 +589,19 @@ func _validate_window_action(action: Dictionary) -> Dictionary:
 				return {"valid": false, "errors": ["%s needs one of its options to be chosen" % offer.get("name", sid)]}
 			if t.has("secondary") and typeof(actx) == TYPE_DICTIONARY and str(actx.get("secondary_id", "")) == "":
 				return {"valid": false, "errors": ["%s needs a %s choice" % [offer.get("name", sid), t.secondary.get("kind", "secondary")]]}
+			# The secondary choice must be one of the OFFERED options — an
+			# action from a network client (or a stale dialog) naming any other
+			# unit / objective is refused before the stratagem is used.
+			if t.has("secondary") and typeof(actx) == TYPE_DICTIONARY and typeof(t.get("secondary")) == TYPE_DICTIONARY \
+					and not t.secondary.get("options", []).is_empty():
+				var chosen_secondary := str(actx.get("secondary_id", ""))
+				var secondary_ok := false
+				for opt in t.secondary.get("options", []):
+					if str(opt.get("id", "")) == chosen_secondary:
+						secondary_ok = true
+						break
+				if not secondary_ok:
+					return {"valid": false, "errors": ["%s: %s is not one of the offered choices" % [offer.get("name", sid), chosen_secondary]]}
 			return {"valid": true, "errors": []}
 		return {"valid": false, "errors": ["%s cannot target %s in this window" % [offer.get("name", sid), tid]]}
 	return {"valid": false, "errors": ["%s is not offered in window %s" % [sid, window_id]]}
@@ -626,6 +657,7 @@ func _process_window_action(action: Dictionary) -> Dictionary:
 	else:
 		result = _continue_window_queue_or_resume(diffs)
 	result["stratagem_window_closed"] = {"player": player, "window_id": window_id, "used": used}
+	result.merge(consume_window_result_extra(), false)
 	if used:
 		result["stratagem_used"] = {"stratagem_id": str(action.get("stratagem_id", "")), "stratagem_name": used_name,
 			"target_unit_id": str(action.get("target_unit_id", "")), "player": player}
