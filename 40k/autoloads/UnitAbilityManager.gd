@@ -219,14 +219,51 @@ const ABILITY_EFFECTS: Dictionary = {
 		"description": "Sticky objectives — resolved by MissionManager at end of Command phase"
 	},
 
-	# Custodes Witchseekers — FNP 3+ vs Psychic/mortal wounds only
+	# Codex: Adeptus Custodes (11e) ARMY RULES — resolved by
+	# scripts/codex/custodes/CustodesKatah.gd (WP-C3), not by flags from this
+	# table: Daughters of the Abyss / Psychic Null and Aegis of the Emperor are
+	# read by RulesEngine.get_unit_fnp_vs on every damage / mortal-wound path,
+	# Martial Ka'tah + Master of Ka'tahs ride the stratagem windows, Aquila
+	# Commander resolves at the start of the battle round.
 	"Daughters of the Abyss": {
-		"condition": "always",
-		"effects": [{"type": "grant_fnp_psychic_mortal", "value": 3}],
+		"condition": "passive",
+		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
 		"implemented": true,
-		"description": "Feel No Pain 3+ against Psychic Attacks and mortal wounds only"
+		"description": "Feel No Pain 3+ against psychic attacks; Psychic Null (Aura): friendly ADEPTUS CUSTODES units within 6\" have Feel No Pain 5+ against psychic attacks (CustodesKatah.gd)"
+	},
+	"Aegis of the Emperor": {
+		"condition": "passive",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Feel No Pain 5+ against mortal wounds (CustodesKatah.gd)"
+	},
+	"Martial Ka'tah": {
+		"condition": "passive",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Readied at the start of your Command phase; one ka'tah ability per readying, offered in its window (CustodesKatah.gd)"
+	},
+	"Master of Ka'tahs": {
+		"condition": "passive",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Once per battle round, per unit: if this unit is not readied, it is readied — offered on the ka'tah cards (CustodesKatah.gd)"
+	},
+	"Aquila Commander": {
+		"condition": "passive",
+		"effects": [],
+		"target": "unit",
+		"attack_type": "all",
+		"implemented": true,
+		"description": "Start of the battle round: +1CP if this model is your WARLORD (CustodesKatah.gd)"
 	},
 
 	# Custodes Trajann Valoris — Feel No Pain 5+ (permanent, unconditional)
@@ -462,19 +499,6 @@ const ABILITY_EFFECTS: Dictionary = {
 		"attack_type": "ranged",
 		"implemented": true,
 		"description": "Twin iliastus accelerator cannon: Lethal Hits vs non-MONSTER/VEHICLE. Twin arachnus heavy blaze cannon: Lethal Hits vs MONSTER/VEHICLE. Checked directly in RulesEngine."
-	},
-
-	# Custodes Shield-Captain — once per battle, both Ka'tah stances active simultaneously
-	# Resolved in FightPhase when unit is selected to fight (during Ka'tah stance selection).
-	# When activated, sets BOTH effect_sustained_hits AND effect_lethal_hits flags.
-	"Master of the Stances": {
-		"condition": "on_fight_selection",
-		"effects": [],
-		"target": "unit",
-		"attack_type": "melee",
-		"implemented": true,
-		"once_per_battle": true,
-		"description": "Once per battle: both Ka'tah stances active simultaneously during this fight"
 	},
 
 	# Custodes Shield-Captain — once per battle round, reduce stratagem CP cost by 1
@@ -3470,53 +3494,6 @@ func has_piston_driven_brutality(unit_id: String) -> bool:
 		if ability_name == "Piston-driven Brutality":
 			print("UnitAbilityManager: Unit %s has Piston-driven Brutality ability" % unit_id)
 			return true
-	return false
-
-func has_master_of_the_stances(unit_id: String) -> bool:
-	"""Check if a unit has an unused Master of the Stances ability (Shield-Captain).
-	Used by FightPhase to offer both Ka'tah stances simultaneously.
-	Checks attached leaders for the ability (since Shield-Captain is a leader)."""
-	# First check the unit itself
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return false
-
-	# Check the unit's own abilities
-	var abilities = unit.get("meta", {}).get("abilities", [])
-	for ability in abilities:
-		var ability_name = _get_ability_name(ability)
-		if ability_name == "Master of the Stances":
-			if not is_once_per_battle_used(unit_id, "Master of the Stances"):
-				print("UnitAbilityManager: Unit %s has unused Master of the Stances" % unit_id)
-				return true
-			else:
-				print("UnitAbilityManager: Unit %s has Master of the Stances but already used this battle" % unit_id)
-				return false
-
-	# Check attached leaders (Shield-Captain leading Custodian Guard)
-	var attachment_data = unit.get("attachment_data", {})
-	var attached_characters = attachment_data.get("attached_characters", [])
-	var units = GameState.state.get("units", {})
-
-	for char_id in attached_characters:
-		var char_unit = units.get(char_id, {})
-		if char_unit.is_empty():
-			continue
-		if not _has_alive_models(char_unit):
-			continue
-
-		var char_abilities = char_unit.get("meta", {}).get("abilities", [])
-		for ability in char_abilities:
-			var ability_name = _get_ability_name(ability)
-			if ability_name == "Master of the Stances":
-				# Use the bodyguard unit's ID for tracking (since it's the unit fighting)
-				if not is_once_per_battle_used(unit_id, "Master of the Stances"):
-					print("UnitAbilityManager: Unit %s has leader with unused Master of the Stances" % unit_id)
-					return true
-				else:
-					print("UnitAbilityManager: Unit %s has leader with Master of the Stances but already used this battle" % unit_id)
-					return false
-
 	return false
 
 func has_strategic_mastery(unit_id: String) -> bool:

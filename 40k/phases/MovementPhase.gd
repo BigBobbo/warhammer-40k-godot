@@ -2768,7 +2768,8 @@ func _resolve_deff_from_above(unit_id: String, target_unit_id: String, rng_seed:
 	var target = get_unit(target_unit_id)
 	var diffs = []
 	var casualties = 0
-	var remaining_mw = mortal_wounds
+	# Feel No Pain vs mortal wounds (incl. Aegis of the Emperor, WP-C3).
+	var remaining_mw: int = RulesEngine.mortal_wounds_after_fnp(target, mortal_wounds, rng, [], false, "ork_ability_mortal_wounds")
 
 	for model in target.get("models", []):
 		if remaining_mw <= 0:
@@ -3673,7 +3674,8 @@ func _resolve_bomb_squigs(unit_id: String, target_unit_id: String, rng_seed: int
 	var target = get_unit(target_unit_id)
 	var diffs = []
 	var casualties = 0
-	var remaining_mw = mortal_wounds
+	# Feel No Pain vs mortal wounds (incl. Aegis of the Emperor, WP-C3).
+	var remaining_mw: int = RulesEngine.mortal_wounds_after_fnp(target, mortal_wounds, rng, [], false, "ork_ability_mortal_wounds")
 
 	for model in target.get("models", []):
 		if remaining_mw <= 0:
@@ -4364,6 +4366,8 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 			# an all-MONSTER/VEHICLE unit, via the 06.02 allocation).
 			if int(hz.get("failures", 0)) > 0:
 				var mw = int(hz.get("mortal_wounds", 0))
+				# Feel No Pain vs mortal wounds (incl. Aegis of the Emperor, WP-C3).
+				mw = RulesEngine.mortal_wounds_after_fnp(unit, mw, null, [], false, "desperate_escape")
 				var out = Allocation.apply_mortal_wounds_11e(unit, mw, CasualtyPreference.engine_auto_preference(unit, GameState.state))
 				for ridx in out.remaining:
 					var mi = int(ridx)
@@ -7977,6 +7981,12 @@ func _unit_has_fly_keyword(unit_id: String) -> bool:
 	var keywords = unit.get("meta", {}).get("keywords", [])
 	return "FLY" in keywords
 
+## Codex: Adeptus Custodes CALISTUS ka'tah (CustodesKatah.gd): the unit's
+## current normal / advance / fall-back move may cross every model's base.
+func _cus11e_moves_through_all_models(unit_id: String) -> bool:
+	var mode := str(active_moves.get(unit_id, {}).get("mode", ""))
+	return _cus11e_katah().moves_through_all_models(get_unit(unit_id), mode)
+
 func _unit_has_clankin_forward(unit_id: String) -> bool:
 	# OA-28: Check if the unit has the Clankin' Forward ability (Morkanaut/Gorkanaut)
 	# Allows moving over non-MONSTER/VEHICLE enemy models and terrain ≤4" height
@@ -8278,6 +8288,10 @@ func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, mode
 	# moving *through* their bases is not.
 	# Reactive moves (Krump and Run, Scatter!, Codex: Orks (11e) follow-ups) are
 	# made by the NON-active player's unit: its enemies are the active player's.
+	# Codex: Adeptus Custodes CALISTUS ka'tah (CustodesKatah.gd): this unit's
+	# normal / advance / fall-back move can move through all types of model.
+	if _cus11e_moves_through_all_models(unit_id):
+		return false
 	var current_player = _reactive_move_owner if _reactive_move_owner > 0 else get_current_player()
 	var units = game_state_snapshot.get("units", {})
 
@@ -8320,6 +8334,9 @@ func _path_crosses_monster_vehicle_bases(from: Vector2, to: Vector2, unit_id: St
 	# unless the moving model has the FLY keyword (FLY check done by caller).
 	# This checks all units on the board for MONSTER/VEHICLE keyword and blocks
 	# path crossing through their bases, excluding the moving unit's own models.
+	# Codex: Adeptus Custodes CALISTUS (CustodesKatah.gd): "all types of model".
+	if _cus11e_moves_through_all_models(unit_id):
+		return false
 	var units = game_state_snapshot.get("units", {})
 
 	var reference_model = model.duplicate()
@@ -9988,7 +10005,9 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 				var hz = ctx.get("hazard", {})
 				log_phase_message("[11e] Combat disembark hazards for %s: %s (%d failure(s))" % [str(gid), str(hz.get("rolls", [])), int(hz.get("failures", 0))])
 				if int(hz.get("failures", 0)) > 0:
-					var mw_out = Allocation.apply_mortal_wounds_11e(unit_pre, int(hz.get("mortal_wounds", 0)), CasualtyPreference.engine_auto_preference(unit_pre, GameState.state))
+					# Feel No Pain vs mortal wounds (incl. Aegis of the Emperor, WP-C3).
+					var dis_mw: int = RulesEngine.mortal_wounds_after_fnp(unit_pre, int(hz.get("mortal_wounds", 0)), null, [], false, "combat_disembark")
+					var mw_out = Allocation.apply_mortal_wounds_11e(unit_pre, dis_mw, CasualtyPreference.engine_auto_preference(unit_pre, GameState.state))
 					for ridx in mw_out.remaining:
 						dis_changes.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [str(gid), int(ridx)], "value": int(mw_out.remaining[ridx])})
 					for di in mw_out.models_destroyed:

@@ -32,7 +32,6 @@ signal consolidate_required(unit_id: String, max_distance: float)
 signal subphase_transition(from_subphase: String, to_subphase: String)
 signal epic_challenge_opportunity(unit_id: String, player: int)
 signal counter_offensive_opportunity(player: int, eligible_units: Array)
-signal katah_stance_required(unit_id: String, player: int)
 signal moment_shackle_required(unit_id: String, player: int)  # Blade Champion Moment Shackle choice at start of Fight phase (human UI)
 signal dread_foe_resolved(unit_id: String, result: Dictionary)  # P1-17: Dread Foe mortal wounds result
 signal saves_required(save_data_list: Array)  # P0-58: Interactive wound allocation for defender
@@ -148,6 +147,7 @@ var _ork11e_fod_rolled: Dictionary = {}          # "unit_id:model_index" -> true
 var _ork11e_fod_destroyer: Dictionary = {}       # unit_id -> enemy fighter whose attacks destroyed its kept models (event attribution)
 var _window_deferred_batch: Dictionary = {}      # {window_id, player, actions}: BATCH sub-actions held while a window waits
 var _fight_phase_end_window_opened: bool = false # the fight_phase_end window opens once per phase
+var _fight_phase_start_window_opened: bool = false # the fight_phase_start window opens once per phase (WP-C3)
 var _kill_reported_units: Dictionary = {}        # unit_id -> true once _check_kill_diffs processed its destruction
 
 func _init():
@@ -193,6 +193,7 @@ func _on_phase_enter() -> void:
 	_ork11e_fod_destroyer.clear()
 	_window_deferred_batch = {}
 	_fight_phase_end_window_opened = false
+	_fight_phase_start_window_opened = false
 	_kill_reported_units.clear()
 	# Clear stale eligibility stamps from a previous fight phase (e.g. a
 	# loaded save) before this phase re-stamps them.
@@ -307,10 +308,45 @@ func _initialize_fight_sequence() -> void:
 	if _maybe_offer_moment_shackle():
 		return
 
-	# 11e 12.02: the fight phase OPENS with the global Pile In step — both
+	# 11e 12.01 start of the Fight phase (the fight_phase_start windows), then
+	# 12.02: the fight phase OPENS with the global Pile In step — both
 	# players pile in their eligible units (active player first) before any
 	# unit is selected to fight.
-	_begin_pile_in_step_11e()
+	_start_fight_phase_after_start_rules()
+
+## 12.01 "Rules that are triggered at the start of the Fight phase are
+## resolved now": the fight_phase_start stratagem window (WP-C3 — the Codex:
+## Adeptus Custodes DACATARAI / KAPTARIS ka'tahs, CustodesKatah.gd, and the
+## stratagems that use it), active player first, then the non-active player,
+## once per phase; the Pile In step begins when it closes. Returns the phase
+## result (window diffs + the Pile In step's triggers).
+func _start_fight_phase_after_start_rules() -> Dictionary:
+	if not _fight_phase_start_window_opened:
+		_fight_phase_start_window_opened = true
+		var fps_ctx := {"phase": "fight"}
+		if _is_network_client():
+			# The HOST opens the window; when a human there has something to
+			# decide, the Pile In step starts from the host's answer (its result
+			# carries trigger_pile_in_selection) — not locally, beside the window.
+			var active := get_current_player()
+			for p in [active, 2 if active == 1 else 1]:
+				if not _is_ai_window_decider(p) and not _window_offers_for(p, "fight_phase_start", fps_ctx).is_empty():
+					log_phase_message("[11e 12.01] network client: P%d has fight_phase_start offers — the Pile In step follows the host's decision" % p)
+					return create_result(true, [])
+		if open_stratagem_window_both_players("fight_phase_start", fps_ctx, "_resume_after_fight_phase_start_window"):
+			log_phase_message("[11e 12.01] start of the Fight phase — waiting for Player %d's fight_phase_start decision" % get_pending_stratagem_window_decider())
+			return create_result(true, consume_window_diffs())
+	var start_diffs := consume_window_diffs()
+	var res := _begin_pile_in_step_11e()
+	if not start_diffs.is_empty():
+		start_diffs.append_array(res.get("changes", []))
+		res["changes"] = start_diffs
+	return res
+
+## Resume point for the fight_phase_start windows (BasePhase framework).
+func _resume_after_fight_phase_start_window(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	log_phase_message("[11e 12.01] fight_phase_start windows answered — the Pile In step begins")
+	return _begin_pile_in_step_11e()
 
 # Offer the next pending Moment Shackle choice to the active player. Returns
 # true if a choice is now outstanding (caller must NOT proceed to pile-in yet),
@@ -563,8 +599,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_counter_offensive(action)
 		"DECLINE_COUNTER_OFFENSIVE":
 			return {"valid": true}
-		"SELECT_KATAH_STANCE":
-			return _validate_select_katah_stance(action)
 		"END_FIGHT":
 			return _validate_end_fight(action)
 		"END_CONSOLIDATION":
@@ -648,8 +682,6 @@ func _process_fight_action(action: Dictionary) -> Dictionary:
 			return _process_use_counter_offensive(action)
 		"DECLINE_COUNTER_OFFENSIVE":
 			return _process_decline_counter_offensive(action)
-		"SELECT_KATAH_STANCE":
-			return _process_select_katah_stance(action)
 		"END_FIGHT":
 			return _process_end_fight(action)
 		"END_CONSOLIDATION":
@@ -982,7 +1014,8 @@ func _process_select_fighter(action: Dictionary) -> Dictionary:
 	# STRATAGEM WINDOW unit_selected_to_fight (design §3): "when a unit is
 	# selected to fight (either player's unit), before attacks" — the FIGHTER'S
 	# OWNER decides (HIT 'EM HARDER, MOW 'EM DOWN, UNBRIDLED CARNAGE, ARMED TO
-	# DA TEEF …). Opens before Epic Challenge / Ka'tah / Dread Foe so the
+	# DA TEEF …, and the Codex: Adeptus Custodes RENDAX ka'tah of a readied
+	# unit — CustodesKatah.gd). Opens before Epic Challenge / Dread Foe so the
 	# chosen buff is in place for everything that follows the selection.
 	var fighter_owner := int(get_unit(active_fighter_id).get("owner", current_selecting_player))
 	var stf_ctx := {"phase": "fight", "unit_id": active_fighter_id}
@@ -1001,7 +1034,7 @@ func _resume_after_selected_to_fight_window(ctx: Dictionary, _window_result: Dic
 	return _after_selected_to_fight_windows(str(ctx.get("unit_id", active_fighter_id)))
 
 ## Everything that follows "selected to fight" once the stratagem window has
-## closed: Epic Challenge → Martial Ka'tah → Dread Foe → fight moves/attacks.
+## closed: Epic Challenge → Dread Foe → fight moves/attacks.
 func _after_selected_to_fight_windows(fighter_id: String) -> Dictionary:
 	active_fighter_id = fighter_id
 	# Check for Epic Challenge opportunity before pile-in
@@ -1017,8 +1050,8 @@ func _after_selected_to_fight_windows(fighter_id: String) -> Dictionary:
 		result["epic_challenge_player"] = current_selecting_player
 		return result
 
-	# No Epic Challenge available - check for Martial Ka'tah before pile-in
-	return _check_katah_or_proceed_to_pile_in(active_fighter_id)
+	# No Epic Challenge available - Dread Foe, then the fight itself
+	return _resolve_dread_foe_then_pile_in(active_fighter_id)
 
 # ============================================================================
 # CANCEL_FIGHTER_SELECTION — back out of an activation before any attack lands
@@ -2878,7 +2911,7 @@ func _get_consolidation_distance(unit_id: String) -> float:
 # 11e: a unit's activation ends when its attacks are resolved — there is
 # NO per-fighter consolidation (that is the global 12.07 step at the end
 # of the phase). This performs the activation-completion bookkeeping that
-# _process_consolidate performs at edition 10 (has_fought, Ka'tah clear,
+# _process_consolidate performs at edition 10 (has_fought,
 # Counter-Offensive window, next-fighter handoff), then either offers the
 # next fight selection or — when the Fight step is over — waits for
 # END_FIGHT, or resumes the Consolidate step if a 12.08 forced fight just
@@ -2930,28 +2963,6 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	var _of_unit = GameState.get_unit(unit_id)
 	if not _of_unit.is_empty():
 		_of_unit.get("flags", {}).erase("selected_for_overrun_fight")
-
-	# Clear Martial Ka'tah stance — "active until the unit finishes attacking"
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if faction_mgr:
-		# Multiplayer: emit the flag removals as broadcast diffs, not just a
-		# local erase. The host cleared these flags in its live state while the
-		# client (which set them via the SELECT_KATAH_STANCE result) never
-		# removed them → permanent post-fight desync. Capture which flags are
-		# present BEFORE clear_katah_stance erases them (it mutates live state
-		# directly), so the remove diffs are actually emitted.
-		var live_flags = GameState.state.get("units", {}).get(unit_id, {}).get("flags", {})
-		for katah_flag in ["effect_sustained_hits", "effect_lethal_hits", "katah_stance", "katah_sustained_hits_value"]:
-			if live_flags.has(katah_flag):
-				changes.append({"op": "remove", "path": "units.%s.flags.%s" % [unit_id, katah_flag]})
-		final_result["changes"] = changes
-		faction_mgr.clear_katah_stance(unit_id)
-		if game_state_snapshot.has("units") and game_state_snapshot.units.has(unit_id):
-			var snap_flags = game_state_snapshot.units[unit_id].get("flags", {})
-			snap_flags.erase("effect_sustained_hits")
-			snap_flags.erase("effect_lethal_hits")
-			snap_flags.erase("katah_stance")
-			snap_flags.erase("katah_sustained_hits_value")
 
 	# Units engaged mid-phase (pile-ins, overruns) become eligible to fight
 	# — keep the 12.08 consolidation-eligibility stamps cumulative.
@@ -3262,15 +3273,12 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 		if not _sk_unit.is_empty():
 			_sk_unit.get("flags", {}).erase("selected_for_overrun_fight")
 
-	# Clear Martial Ka'tah stance if any — mirror the flag removal to the
-	# client via diffs (clear_katah_stance mutates live state directly).
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	var katah_remove_changes: Array = []
+	var skip_changes: Array = []
 	# The activation is over: record it for every component (synced to a
 	# multiplayer client, whose FightSequencer reads fight_done_turn).
 	for member_id in _fight_group_ids(str(action.unit_id)):
-		katah_remove_changes.append({"op": "set", "path": "units.%s.flags.has_fought" % member_id, "value": true})
-	katah_remove_changes.append_array(_fight_done_changes_11e(str(action.unit_id)))
+		skip_changes.append({"op": "set", "path": "units.%s.flags.has_fought" % member_id, "value": true})
+	skip_changes.append_array(_fight_done_changes_11e(str(action.unit_id)))
 	# Codex: Orks (11e) Fight On Death: an activation ended by SKIP_UNIT still
 	# means the unit has fought (#916: has_fought / fight_done above), so the
 	# models it kept on the battlefield are removed now — the same point as
@@ -3279,13 +3287,7 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 	var sk_fod_changes := _ork11e_fod_remove(_fight_group_ids(str(action.unit_id)), "has fought")
 	if not sk_fod_changes.is_empty():
 		PhaseManager.apply_state_changes(sk_fod_changes)
-		katah_remove_changes.append_array(sk_fod_changes)
-	if faction_mgr:
-		var sk_flags = GameState.state.get("units", {}).get(action.unit_id, {}).get("flags", {})
-		for katah_flag in ["effect_sustained_hits", "effect_lethal_hits", "katah_stance", "katah_sustained_hits_value"]:
-			if sk_flags.has(katah_flag):
-				katah_remove_changes.append({"op": "remove", "path": "units.%s.flags.%s" % [action.unit_id, katah_flag]})
-		faction_mgr.clear_katah_stance(action.unit_id)
+		skip_changes.append_array(sk_fod_changes)
 
 	# Switch to next player
 	_switch_selecting_player()
@@ -3294,7 +3296,7 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 
 	# Request next fight selection; when nobody is left and the 11e global
 	# Consolidate step is running (a forced fight was skipped), resume it.
-	var result = create_result(true, katah_remove_changes)
+	var result = create_result(true, skip_changes)
 	var dialog_data = _build_fight_selection_dialog_data()
 	if not dialog_data.is_empty():
 		_pending_fight_selection_data = dialog_data
@@ -4048,13 +4050,13 @@ func _pile_in_eligible_units_11e(player: int) -> Array:
 # Enter the Pile In step (12.02) — the fight phase opens here at e11:
 # both players make pile-in moves with the eligible units they choose,
 # the player whose turn it is first.
-func _begin_pile_in_step_11e() -> void:
+func _begin_pile_in_step_11e() -> Dictionary:
 	pile_in_step_11e = PileInStep11e.ACTIVE
 	pile_in_done_players_11e = {}
 	piling_in_player_11e = GameState.get_active_player()
 	log_phase_message("[11e 12.02] PILE IN step begins — Player %d (active) first" % piling_in_player_11e)
 	emit_signal("subphase_transition", "START_OF_FIGHT_PHASE", "PILE_IN")
-	_advance_pile_in_step_11e(create_result(true, []))
+	return _advance_pile_in_step_11e(create_result(true, []))
 
 # Drive the Pile In step forward: offer the current player their remaining
 # eligible units, auto-pass a player with none left, and when both players
@@ -4959,14 +4961,14 @@ func _process_use_epic_challenge(action: Dictionary) -> Dictionary:
 			"value": true})
 	PhaseManager.apply_state_changes(precision_changes)
 
-	# Check for Martial Ka'tah before proceeding to pile-in
-	var katah_result = _check_katah_or_proceed_to_pile_in(unit_id)
+	# Dread Foe, then the fight itself
+	var ec_result = _resolve_dread_foe_then_pile_in(unit_id)
 	# Merge diffs from stratagem result
 	if not strat_result.get("diffs", []).is_empty():
 		var merged_changes = strat_result.get("diffs", [])
-		merged_changes.append_array(katah_result.get("changes", []))
-		katah_result["changes"] = merged_changes
-	return katah_result
+		merged_changes.append_array(ec_result.get("changes", []))
+		ec_result["changes"] = merged_changes
+	return ec_result
 
 func _process_decline_epic_challenge(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", active_fighter_id)
@@ -4974,35 +4976,7 @@ func _process_decline_epic_challenge(action: Dictionary) -> Dictionary:
 
 	log_phase_message("Player declined EPIC CHALLENGE for %s" % unit_name)
 
-	# Check for Martial Ka'tah before proceeding to pile-in
-	return _check_katah_or_proceed_to_pile_in(unit_id)
-
-# ============================================================================
-# MARTIAL KA'TAH — Stance Selection
-# ============================================================================
-
-func _check_katah_or_proceed_to_pile_in(unit_id: String) -> Dictionary:
-	"""Check if unit has Martial Ka'tah. If so, emit stance dialog signal.
-	Otherwise, proceed directly to pile-in."""
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if faction_mgr and faction_mgr.unit_has_katah(unit_id):
-		# Check if Master of the Stances is available for this unit
-		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-		var master_available = ability_mgr and ability_mgr.has_master_of_the_stances(unit_id)
-		if master_available:
-			log_phase_message("MARTIAL KA'TAH: %s has Ka'tah + Master of the Stances available — stance selection required" % unit_id)
-		else:
-			log_phase_message("MARTIAL KA'TAH: %s has Ka'tah — stance selection required" % unit_id)
-		emit_signal("katah_stance_required", unit_id, current_selecting_player)
-
-		var result = create_result(true, [])
-		result["trigger_katah_stance"] = true
-		result["katah_unit_id"] = unit_id
-		result["katah_player"] = current_selecting_player
-		result["master_of_the_stances_available"] = master_available
-		return result
-
-	# No Ka'tah — check for Dread Foe, then proceed to pile-in
+	# Dread Foe, then the fight itself
 	return _resolve_dread_foe_then_pile_in(unit_id)
 
 # ============================================================================
@@ -5141,91 +5115,6 @@ func _get_dread_foe_targets(unit_id: String) -> Array:
 			})
 
 	return targets
-
-func _validate_select_katah_stance(action: Dictionary) -> Dictionary:
-	var errors = []
-	var unit_id = action.get("unit_id", "")
-	var stance = action.get("stance", "")
-
-	if unit_id.is_empty():
-		errors.append("Missing unit_id")
-		return {"valid": false, "errors": errors}
-
-	if unit_id != active_fighter_id:
-		errors.append("Unit is not the active fighter")
-		return {"valid": false, "errors": errors}
-
-	if stance != "dacatarai" and stance != "rendax" and stance != "both":
-		errors.append("Invalid stance: %s (must be 'dacatarai', 'rendax', or 'both')" % stance)
-		return {"valid": false, "errors": errors}
-
-	# "both" requires Master of the Stances (once per battle)
-	if stance == "both":
-		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-		if not ability_mgr or not ability_mgr.has_master_of_the_stances(unit_id):
-			errors.append("Master of the Stances not available for this unit")
-			return {"valid": false, "errors": errors}
-
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if not faction_mgr or not faction_mgr.unit_has_katah(unit_id):
-		errors.append("Unit does not have Martial Ka'tah ability")
-		return {"valid": false, "errors": errors}
-
-	return {"valid": true}
-
-func _process_select_katah_stance(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", "")
-	var stance = action.get("stance", "")
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-
-	# If "both" stance selected, mark Master of the Stances as used
-	if stance == "both":
-		var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr:
-			ability_mgr.mark_once_per_battle_used(unit_id, "Master of the Stances")
-			log_phase_message("MASTER OF THE STANCES: %s activates both Ka'tah stances (once per battle)" % unit_name)
-
-	# Apply the stance via FactionAbilityManager
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	var stance_result = faction_mgr.apply_katah_stance(unit_id, stance)
-
-	if not stance_result.get("success", false):
-		return create_result(false, [], "Failed to apply Ka'tah stance: %s" % stance_result.get("error", "unknown"))
-
-	log_phase_message("MARTIAL KA'TAH: %s assumes %s stance" % [unit_name, stance_result.get("stance_display", stance)])
-
-	# ISS-024: apply through the pipeline (the snapshot is a live view).
-	var katah_diffs: Array = []
-	if true:
-		if stance == "both":
-			for kf in [["effect_sustained_hits", true], ["effect_lethal_hits", true],
-					["katah_stance", "both"], ["katah_sustained_hits_value", 1]]:
-				katah_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [unit_id, kf[0]], "value": kf[1]})
-		elif stance == "dacatarai":
-			for kf in [["effect_sustained_hits", true], ["katah_stance", "dacatarai"],
-					["katah_sustained_hits_value", 1]]:
-				katah_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [unit_id, kf[0]], "value": kf[1]})
-		elif stance == "rendax":
-			for kf in [["effect_lethal_hits", true], ["katah_stance", "rendax"]]:
-				katah_diffs.append({"op": "set", "path": "units.%s.flags.%s" % [unit_id, kf[0]], "value": kf[1]})
-	if not katah_diffs.is_empty():
-		PhaseManager.apply_state_changes(katah_diffs)
-
-	# After Ka'tah — check for Dread Foe, then proceed to pile-in
-	var katah_result = _resolve_dread_foe_then_pile_in(unit_id)
-	# Multiplayer: the stance flags were applied locally above but the result
-	# is what travels to the other peer — without carrying the diffs the
-	# remote client never saw the stance (observed live: katah_stance /
-	# effect_sustained_hits present host-side only → state-hash desync).
-	# Idempotent set-ops, so the local re-apply through the pipeline is safe.
-	if not katah_diffs.is_empty() and katah_result.get("success", false):
-		var kr_changes: Array = katah_result.get("changes", katah_result.get("diffs", []))
-		var merged := katah_diffs.duplicate()
-		merged.append_array(kr_changes)
-		katah_result["changes"] = merged
-		if katah_result.has("diffs"):
-			katah_result["diffs"] = merged
-	return katah_result
 
 func _validate_use_counter_offensive(action: Dictionary) -> Dictionary:
 	var errors = []
@@ -6457,10 +6346,11 @@ func _process_use_moment_shackle(action: Dictionary) -> Dictionary:
 		log_phase_message("Moment Shackle: %s — 2+ invulnerable save this phase" % unit_name)
 		DebugLogger.info("[10][INFO] Moment Shackle: %s chose 2+ invulnerable save" % unit_name)
 
-	# Offer the next pending Moment Shackle choice, or open the Pile In step now
-	# that every choice is resolved (mirrors the fight-start gate).
+	# Offer the next pending Moment Shackle choice, or resolve the rest of the
+	# start of the Fight phase (fight_phase_start window, then the Pile In
+	# step) now that every choice is resolved (mirrors the fight-start gate).
 	if not _maybe_offer_moment_shackle():
-		_begin_pile_in_step_11e()
+		diffs.append_array(_start_fight_phase_after_start_rules().get("changes", []))
 
 	return create_result(true, diffs)
 
@@ -6471,11 +6361,13 @@ func _process_decline_moment_shackle(action: Dictionary) -> Dictionary:
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	log_phase_message("Moment Shackle: %s declined" % unit_name)
 
-	# Offer the next pending choice, or open the Pile In step (see above).
+	# Offer the next pending choice, or the rest of the start of the Fight
+	# phase (see above).
+	var decline_diffs: Array = []
 	if not _maybe_offer_moment_shackle():
-		_begin_pile_in_step_11e()
+		decline_diffs = _start_fight_phase_after_start_rules().get("changes", [])
 
-	return create_result(true, [])
+	return create_result(true, decline_diffs)
 
 
 # ============================================================================

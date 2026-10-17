@@ -577,7 +577,9 @@ func resolve_transport_destroyed(transport_id: String) -> Dictionary:
 		# allocation), and the emergency-disembarked unit is battle-shocked.
 		if GameConstants.edition >= 11:
 			if hazard_mortals > 0:
-				var mw_out = Allocation.apply_mortal_wounds_11e(unit, hazard_mortals, CasualtyPreference.engine_auto_preference(unit, GameState.state))
+				# Feel No Pain vs mortal wounds (incl. Aegis of the Emperor, WP-C3).
+				var em_mw: int = RulesEngine.mortal_wounds_after_fnp(unit, hazard_mortals, null, [], false, "emergency_disembark")
+				var mw_out = Allocation.apply_mortal_wounds_11e(unit, em_mw, CasualtyPreference.engine_auto_preference(unit, GameState.state))
 				for idx in mw_out.remaining:
 					var mi = int(idx)
 					if mi >= 0 and mi < unit.models.size() and int(mw_out.remaining[idx]) != int(unit.models[mi].get("current_wounds", unit.models[mi].get("wounds", 1))):

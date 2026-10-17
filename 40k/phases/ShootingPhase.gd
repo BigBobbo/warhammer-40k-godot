@@ -2661,6 +2661,12 @@ func _process_start_action(action: Dictionary) -> Dictionary:
 	# this turn (started = authoritative, even if the action later fails).
 	if action_id.begins_with("mission_") and MissionManager.has_method("on_mission_action_started_11e"):
 		MissionManager.on_mission_action_started_11e(action_id, unit_id, player)
+	var action_name = ActionsManager.get_action(action_id).get("name", action_id)
+	# Codex: Adeptus Custodes CONSERVAI ka'tah (CustodesKatah.gd): starting an
+	# action does not prevent the unit from being eligible to shoot.
+	if _cus11e_katah().conservai_active(unit):
+		log_phase_message("%s started action '%s' (CONSERVAI: the unit can still shoot this phase; cannot charge; completes end of turn)" % [unit_name, action_name])
+		return create_result(true, changes)
 	# 16.01: starting an action in the Shooting phase gives up shooting.
 	units_that_shot.append(unit_id)
 	changes.append({"op": "set", "path": "units.%s.flags.has_shot" % unit_id, "value": true})
@@ -2668,7 +2674,6 @@ func _process_start_action(action: Dictionary) -> Dictionary:
 		active_shooter_id = ""
 		pending_assignments.clear()
 		confirmed_assignments.clear()
-	var action_name = ActionsManager.get_action(action_id).get("name", action_id)
 	log_phase_message("%s started action '%s' (16.01: gives up shooting, cannot charge; completes end of turn)" % [unit_name, action_name])
 	return create_result(true, changes)
 

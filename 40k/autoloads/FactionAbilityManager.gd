@@ -159,16 +159,15 @@ const FACTION_ABILITIES = {
 		"effect": "reroll_hits_plus_one_wound",
 		"description": "Select one enemy unit as your Oath of Moment target. Each time a model with this ability makes an attack targeting the Oath of Moment target, you can re-roll the Hit roll and add 1 to the Wound roll."
 	},
+	# Codex: Adeptus Custodes (11e) — resolved by scripts/codex/custodes/
+	# CustodesKatah.gd (readied step, the six ka'tah abilities in their
+	# stratagem windows). Listed here so the army's faction abilities report it.
 	"Martial Ka'tah": {
 		"faction_keyword": "ADEPTUS CUSTODES",
-		"trigger": "fight_phase_unit_selected",
+		"trigger": "command_phase_start",
 		"requires_target": false,
-		"effect": "stance_selection",
-		"stances": {
-			"dacatarai": {"keyword": "sustained_hits", "value": 1, "display": "Dacatarai (Sustained Hits 1)"},
-			"rendax": {"keyword": "lethal_hits", "value": true, "display": "Rendax (Lethal Hits)"}
-		},
-		"description": "Each time a unit with this ability is selected to fight, select one Ka'tah Stance for it to assume: Dacatarai — Each time a model in this unit makes a melee attack, a successful unmodified Hit roll of 6 scores one additional hit. Rendax — Each time a model in this unit makes a melee attack, a successful unmodified Hit roll of 6 is always a successful Wound roll."
+		"effect": "readied",
+		"description": "At the start of your Command phase, friendly ADEPTUS CUSTODES units with this ability are readied. While a unit is readied it can use one ka'tah ability (Conservai, Calistus, Salvus, Dacatarai, Kaptaris, Rendax) in that ability's WHEN; it is then no longer readied."
 	},
 	"Waaagh!": {
 		"faction_keyword": "ORKS",
@@ -2227,7 +2226,8 @@ func use_da_kaptin(player: int, target_unit_id: String) -> Dictionary:
 
 	# Apply mortal wounds
 	var board = GameState.create_snapshot()
-	var mw_result = RulesEngine.apply_mortal_wounds(target_unit_id, d3_roll, board)
+	# rng: Feel No Pain vs these mortal wounds is rolled (WP-C3 Aegis of the Emperor).
+	var mw_result = RulesEngine.apply_mortal_wounds(target_unit_id, d3_roll, board, rng)
 
 	# Apply damage diffs
 	if mw_result.diffs.size() > 0:
@@ -3185,7 +3185,9 @@ static func check_skin_crawling_disorientation(unit: Dictionary, board: Dictiona
 # ============================================================================
 
 # ============================================================================
-# MARTIAL KA'TAH — STANCE SELECTION (Fight Phase)
+# MARTIAL KA'TAH — the 11e codex rule lives in scripts/codex/custodes/
+# CustodesKatah.gd (WP-C3); this is only the "has the ability" check the
+# detachment code below uses.
 # ============================================================================
 
 func unit_has_katah(unit_id: String) -> bool:
@@ -3203,79 +3205,6 @@ func unit_has_katah(unit_id: String) -> bool:
 		if ability_name == "Martial Ka'tah":
 			return true
 	return false
-
-func apply_katah_stance(unit_id: String, stance: String) -> Dictionary:
-	"""Apply a Ka'tah stance to a unit. Sets effect flags for RulesEngine.
-	stance: 'dacatarai', 'rendax', or 'both' (Master of the Stances)"""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return {"success": false, "error": "Unit not found: %s" % unit_id}
-
-	if stance != "dacatarai" and stance != "rendax" and stance != "both":
-		return {"success": false, "error": "Invalid stance: %s (must be 'dacatarai', 'rendax', or 'both')" % stance}
-
-	# Clear any previous stance flags
-	clear_katah_stance(unit_id)
-
-	# Set the appropriate effect flag
-	if not unit.has("flags"):
-		unit["flags"] = {}
-
-	if stance == "both":
-		# Master of the Stances: both Sustained Hits 1 AND Lethal Hits
-		unit["flags"]["effect_sustained_hits"] = true
-		unit["flags"]["effect_lethal_hits"] = true
-		unit["flags"]["katah_stance"] = "both"
-		unit["flags"]["katah_sustained_hits_value"] = 1
-	elif stance == "dacatarai":
-		# Sustained Hits 1 on melee attacks
-		unit["flags"]["effect_sustained_hits"] = true
-		unit["flags"]["katah_stance"] = "dacatarai"
-		unit["flags"]["katah_sustained_hits_value"] = 1
-	elif stance == "rendax":
-		# Lethal Hits on melee attacks
-		unit["flags"]["effect_lethal_hits"] = true
-		unit["flags"]["katah_stance"] = "rendax"
-
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	var stance_display = ""
-	if stance == "both":
-		stance_display = "Master of the Stances (Dacatarai + Rendax)"
-	else:
-		stance_display = FACTION_ABILITIES["Martial Ka'tah"]["stances"][stance]["display"]
-	print("FactionAbilityManager: Martial Ka'tah — %s (%s) assumes %s stance" % [unit_name, unit_id, stance_display])
-
-	return {
-		"success": true,
-		"unit_id": unit_id,
-		"stance": stance,
-		"stance_display": stance_display,
-		"message": "Martial Ka'tah: %s assumes %s" % [unit_name, stance_display]
-	}
-
-func clear_katah_stance(unit_id: String) -> void:
-	"""Clear Ka'tah stance flags from a unit (called after unit finishes fighting)."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	if unit.is_empty():
-		return
-
-	var flags = unit.get("flags", {})
-	var had_stance = flags.get("katah_stance", "") != ""
-
-	# Clear all Ka'tah-related flags
-	flags.erase("effect_sustained_hits")
-	flags.erase("effect_lethal_hits")
-	flags.erase("katah_stance")
-	flags.erase("katah_sustained_hits_value")
-
-	if had_stance:
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		print("FactionAbilityManager: Martial Ka'tah — cleared stance for %s (%s)" % [unit_name, unit_id])
-
-func get_katah_stance(unit_id: String) -> String:
-	"""Get the current Ka'tah stance for a unit. Returns empty string if none."""
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	return unit.get("flags", {}).get("katah_stance", "")
 
 # ============================================================================
 # PHASE LIFECYCLE

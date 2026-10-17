@@ -1665,6 +1665,14 @@ func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 			keywords.append(str(kw).to_upper())
 		if faction_keyword != "" and not faction_keyword in keywords:
 			result.warnings.append("11e: Warlord %s lacks the army Faction keyword %s" % [unit_id, faction_keyword])
+		# Codex: Adeptus Custodes — Anathema Psykana: "You cannot select an
+		# ANATHEMA PSYKANA model to be your WARLORD" unless the detachment
+		# allows it (Null Maiden Vigil hook; CustodesKatah.gd).
+		var ap_unit: Dictionary = units[unit_id].duplicate()
+		ap_unit["id"] = unit_id
+		var ap_reason: String = load("res://scripts/codex/custodes/CustodesKatah.gd").warlord_block_reason(ap_unit, str(faction.get("detachment", "")))
+		if ap_reason != "":
+			result.warnings.append("11e: Warlord %s — %s" % [unit_id, ap_reason])
 	if not warlord_found:
 		result.warnings.append("11e: no Warlord designated")
 

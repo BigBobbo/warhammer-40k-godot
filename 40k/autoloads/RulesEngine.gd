@@ -2410,6 +2410,9 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 				if not ms_m.is_empty() and ms_m.get("alive", true):
 					ms_firing_models.append(ms_m)
 			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models, "per_attack_cover": true})
+			# Codex: Adeptus Custodes SALVUS (CustodesKatah.gd): the harmful BS /
+			# hit-roll entries of the stack are ignored.
+			var cus11e_salvus_ignored: Array = _cus11e_katah().salvus_filter_stack(actor_unit, ms_stack)
 			var ms_bs_delta = ms_stack.net("bs")
 			var ms_hit_net_pre = ms_stack.net("hit_roll")
 			var ms_is_psychic := is_psychic_weapon(weapon_id, board)
@@ -2432,7 +2435,8 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			# cover worsening based on ITS OWN firing model's view of the
 			# target. Attacks with no recorded firing model (overrides,
 			# bonus attacks) fall back to the first firing model's view.
-			if not ms_is_psychic and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {}):
+			# (SALVUS ignores that BS worsening too.)
+			if not ms_is_psychic and not _cus11e_katah().salvus_active(actor_unit) and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {}):
 				var pa_terrain = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
 				if pa_terrain != null:
 					var pa_strat_cover: bool = target_unit.get("flags", {}).get("stratagem_cover", false)
@@ -2466,6 +2470,17 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 				hit_modifiers |= HitModifier.MINUS_ONE
 				ModifierLedger.note_stack(hit_mod_ledger, ms_stack.sources("hit_roll"), ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE)
 				print("RulesEngine: [11e MODIFIERS] -1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
+			if _cus11e_katah().salvus_active(actor_unit):
+				ModifierLedger.note(hit_mod_ledger, "Salvus (Ka'tah)", ModifierLedger.KIND_HIT, ModifierLedger.IGNORED,
+					"BS worsening (incl. benefit of cover) and hit-roll penalties ignored%s" % ((": " + ", ".join(cus11e_salvus_ignored)) if not cus11e_salvus_ignored.is_empty() else ""))
+
+		# Codex: Adeptus Custodes SALVUS (CustodesKatah.gd): ignore every -1 to
+		# hit (the +1s are kept — "can ignore" is the attacker's choice).
+		if _cus11e_katah().salvus_active(actor_unit) and (hit_modifiers & HitModifier.MINUS_ONE):
+			hit_modifiers = hit_modifiers & ~HitModifier.MINUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Salvus (Ka'tah)", ModifierLedger.KIND_HIT, ModifierLedger.IGNORED, "hit-roll penalties ignored")
+			ModifierLedger.mark_ignored(hit_mod_ledger, ModifierLedger.KIND_HIT, [ModifierLedger.MINUS_ONE])
+			print("RulesEngine: SALVUS — ignoring hit-roll penalties for %s" % actor_unit_id)
 
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
@@ -2957,6 +2972,12 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		wound_modifiers |= WoundModifier.PLUS_ONE
 		ModifierLedger.note(wound_mod_ledger, "Kustom Dakka", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is not a MONSTER or VEHICLE")
 		print("RulesEngine: KUSTOM DAKKA — +1 to wound vs %s" % target_unit_id)
+	# Codex: Adeptus Custodes SALVUS (CustodesKatah.gd): wound-roll penalties ignored.
+	if _cus11e_katah().salvus_active(actor_unit) and (wound_modifiers & WoundModifier.MINUS_ONE):
+		wound_modifiers = wound_modifiers & ~WoundModifier.MINUS_ONE
+		ModifierLedger.note(wound_mod_ledger, "Salvus (Ka'tah)", ModifierLedger.KIND_WOUND, ModifierLedger.IGNORED, "wound-roll penalties ignored")
+		ModifierLedger.mark_ignored(wound_mod_ledger, ModifierLedger.KIND_WOUND, [ModifierLedger.MINUS_ONE])
+		print("RulesEngine: SALVUS — ignoring wound-roll penalties for %s" % actor_unit_id)
 	var wound_modifier_net = 0
 	if wound_modifiers & WoundModifier.PLUS_ONE:
 		wound_modifier_net += 1
@@ -3284,6 +3305,11 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 	var melta_box = [int(opts.get("melta_wounds", 0))]
 	var has_half_damage = bool(opts.get("half_damage", false))
 	var unit_fnp_value = int(opts.get("fnp_value", 0))
+	# WP-C3: the attack's kind for the conditional FNP grants — psychic attacks
+	# (Daughters of the Abyss / Psychic Null) and the devastating-wound mortal
+	# wounds below (Aegis of the Emperor). Best applicable FNP, never stacked.
+	var alloc_is_psychic := bool(opts.get("is_psychic", false))
+	var dw_fnp_value := _better_fnp(unit_fnp_value, _conditional_fnp(target_unit, alloc_is_psychic, true))
 	# BIGGER SHELLS (Dread Mob, pushed): callers pass the attacking unit so the
 	# conditional +1 Damage vs MONSTER/VEHICLE can resolve per target.
 	var bs_actor_unit: Dictionary = opts.get("actor_unit", {})
@@ -3327,7 +3353,9 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 				dmg = max(1, dmg - minus_dmg)
 			var fnp = unit_fnp_value
 			if model_index >= 0 and model_index < models.size():
-				fnp = get_model_fnp(target_unit, models[model_index])
+				# Per-model FNP + the conditional grants for this attack (a
+				# psychic attack keeps Daughters of the Abyss / Psychic Null).
+				fnp = get_model_fnp_vs(target_unit, models[model_index], alloc_is_psychic, false)
 			if fnp > 0 and dmg > 0:
 				var fnp_result = roll_feel_no_pain(dmg, fnp, rng)
 				result.dice.append({
@@ -3406,13 +3434,13 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 			var dw_minus_dmg = EffectPrimitivesData.get_effect_minus_damage(target_unit)
 			if dw_minus_dmg > 0:
 				dmg = max(1, dmg - dw_minus_dmg)
-			if unit_fnp_value > 0 and dmg > 0:
-				var fnp_result = roll_feel_no_pain(dmg, unit_fnp_value, rng)
+			if dw_fnp_value > 0 and dmg > 0:
+				var fnp_result = roll_feel_no_pain(dmg, dw_fnp_value, rng)
 				result.dice.append({
 					"context": "feel_no_pain",
 					"source": "devastating_wounds",
 					"rolls": fnp_result.rolls,
-					"fnp_value": unit_fnp_value,
+					"fnp_value": dw_fnp_value,
 					"wounds_prevented": fnp_result.wounds_prevented,
 					"wounds_remaining": fnp_result.wounds_remaining,
 					"total_wounds": dmg
@@ -3451,7 +3479,9 @@ static func resolve_explosives_11e(target_unit_id: String, board: Dictionary, rn
 		"mortal_wounds": mw, "casualties": 0}
 	var target = board.get("units", {}).get(target_unit_id, {})
 	if mw > 0 and not target.is_empty():
-		var out = Allocation.apply_mortal_wounds_11e(target, mw, CasualtyPreference.engine_auto_preference(target, board))
+		# Feel No Pain vs mortal wounds (incl. Aegis of the Emperor, WP-C3).
+		var mw_left := mortal_wounds_after_fnp(target, mw, rng, result.dice, false, "explosives_11e")
+		var out = Allocation.apply_mortal_wounds_11e(target, mw_left, CasualtyPreference.engine_auto_preference(target, board))
 		_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
 		result.casualties = out.models_destroyed.size()
 	print("RulesEngine: [15.05] EXPLOSIVES vs %s — rolls %s -> %d mortal wound(s)" % [target_unit_id, str(rolls), mw])
@@ -3481,11 +3511,14 @@ static func resolve_crushing_impact_11e(unit_id: String, target_unit_id: String,
 		"self_mortals": self_mw, "enemy_mortals": enemy_mw}],
 		"self_mortals": self_mw, "enemy_mortals": enemy_mw, "casualties": 0}
 	if enemy_mw > 0 and not target.is_empty():
-		var out = Allocation.apply_mortal_wounds_11e(target, enemy_mw, CasualtyPreference.engine_auto_preference(target, board))
+		# Feel No Pain vs mortal wounds (incl. Aegis of the Emperor, WP-C3).
+		var enemy_left := mortal_wounds_after_fnp(target, enemy_mw, rng, result.dice, false, "crushing_impact_11e")
+		var out = Allocation.apply_mortal_wounds_11e(target, enemy_left, CasualtyPreference.engine_auto_preference(target, board))
 		_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
 		result.casualties += out.models_destroyed.size()
 	if self_mw > 0 and not unit.is_empty():
-		var self_out = Allocation.apply_mortal_wounds_11e(unit, self_mw, CasualtyPreference.engine_auto_preference(unit, board))
+		var self_left := mortal_wounds_after_fnp(unit, self_mw, rng, result.dice, false, "crushing_impact_11e")
+		var self_out = Allocation.apply_mortal_wounds_11e(unit, self_left, CasualtyPreference.engine_auto_preference(unit, board))
 		_materialize_allocation_11e(result, unit, unit_id, self_out.remaining, self_out.models_destroyed)
 		result.casualties += self_out.models_destroyed.size()
 	print("RulesEngine: [15.06] CRUSHING IMPACT %s vs %s — T%d rolls %s -> %d enemy / %d self mortal wound(s)" % [unit_id, target_unit_id, toughness, str(rolls), enemy_mw, self_mw])
@@ -3533,7 +3566,9 @@ static func resolve_krunchin_descent(unit_id: String, target_unit_id: String, bo
 	var result = {"diffs": [], "dice": [{"context": "krunchin_descent", "rolls": rolls, "mortal_wounds": mw}],
 		"mortal_wounds": mw, "models_in_er": dice_count, "casualties": 0}
 	if mw > 0 and not target.is_empty():
-		var out = Allocation.apply_mortal_wounds_11e(target, mw, CasualtyPreference.engine_auto_preference(target, board))
+		# Feel No Pain vs mortal wounds (incl. Aegis of the Emperor, WP-C3).
+		var mw_left := mortal_wounds_after_fnp(target, mw, rng, result.dice, false, "krunchin_descent")
+		var out = Allocation.apply_mortal_wounds_11e(target, mw_left, CasualtyPreference.engine_auto_preference(target, board))
 		_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
 		result.casualties = out.models_destroyed.size()
 	print("RulesEngine: KRUNCHIN' DESCENT %s vs %s — %d model(s) in ER, rolls %s -> %d mortal wound(s)" % [unit_id, target_unit_id, dice_count, str(rolls), mw])
@@ -3705,7 +3740,7 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 	var dev_crits = int(save_data.get("devastating_wounds", 0)) if save_data.get("has_devastating_wounds", false) else 0
 	var ap = int(save_data.get("ap", 0))
 	var damage_raw = str(save_data.get("damage_raw", str(save_data.get("damage", 1))))
-	var fnp_value = get_unit_fnp_for_attack(live_unit, save_data.get("is_psychic", false))
+	var fnp_value = get_unit_fnp_vs(live_unit, bool(save_data.get("is_psychic", false)), false)
 
 	# Melta budget mirrors the auto-resolve path's proportional formula.
 	var melta_value = int(save_data.get("melta_bonus", 0))
@@ -3730,6 +3765,7 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 			"melta_wounds": melta_wounds,
 			"half_damage": get_unit_half_damage(live_unit),
 			"fnp_value": fnp_value,
+			"is_psychic": bool(save_data.get("is_psychic", false)),
 			"forced_save_rolls": opts.get("forced_save_rolls", []),
 			"preferred_targets": opts.get("preferred_targets", []),
 		})
@@ -4493,6 +4529,9 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				if not ms_m.is_empty() and ms_m.get("alive", true):
 					ms_firing_models.append(ms_m)
 			var ms_stack = ModifierStack.collect_hit_context_11e(actor_unit, target_unit, weapon_profile, board, {"attacker_models": ms_firing_models, "per_attack_cover": true})
+			# Codex: Adeptus Custodes SALVUS (CustodesKatah.gd): the harmful BS /
+			# hit-roll entries of the stack are ignored.
+			var cus11e_salvus_ignored: Array = _cus11e_katah().salvus_filter_stack(actor_unit, ms_stack)
 			var ms_bs_delta = ms_stack.net("bs")
 			var ms_hit_net_pre = ms_stack.net("hit_roll")
 			var ms_is_psychic := is_psychic_weapon(weapon_id, board)
@@ -4515,7 +4554,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			# cover worsening based on ITS OWN firing model's view of the
 			# target. Attacks with no recorded firing model (overrides,
 			# bonus attacks) fall back to the first firing model's view.
-			if not ms_is_psychic and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {}):
+			# (SALVUS ignores that BS worsening too.)
+			if not ms_is_psychic and not _cus11e_katah().salvus_active(actor_unit) and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {}):
 				var pa_terrain = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
 				if pa_terrain != null:
 					var pa_strat_cover: bool = target_unit.get("flags", {}).get("stratagem_cover", false)
@@ -4549,6 +4589,17 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				hit_modifiers |= HitModifier.MINUS_ONE
 				ModifierLedger.note_stack(hit_mod_ledger, ms_stack.sources("hit_roll"), ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE)
 				print("RulesEngine: [11e MODIFIERS] -1 to hit (%s)" % str(ms_stack.sources("hit_roll")))
+			if _cus11e_katah().salvus_active(actor_unit):
+				ModifierLedger.note(hit_mod_ledger, "Salvus (Ka'tah)", ModifierLedger.KIND_HIT, ModifierLedger.IGNORED,
+					"BS worsening (incl. benefit of cover) and hit-roll penalties ignored%s" % ((": " + ", ".join(cus11e_salvus_ignored)) if not cus11e_salvus_ignored.is_empty() else ""))
+
+		# Codex: Adeptus Custodes SALVUS (CustodesKatah.gd): ignore every -1 to
+		# hit (the +1s are kept — "can ignore" is the attacker's choice).
+		if _cus11e_katah().salvus_active(actor_unit) and (hit_modifiers & HitModifier.MINUS_ONE):
+			hit_modifiers = hit_modifiers & ~HitModifier.MINUS_ONE
+			ModifierLedger.note(hit_mod_ledger, "Salvus (Ka'tah)", ModifierLedger.KIND_HIT, ModifierLedger.IGNORED, "hit-roll penalties ignored")
+			ModifierLedger.mark_ignored(hit_mod_ledger, ModifierLedger.KIND_HIT, [ModifierLedger.MINUS_ONE])
+			print("RulesEngine: SALVUS — ignoring hit-roll penalties for %s" % actor_unit_id)
 
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
@@ -4941,6 +4992,12 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		ar_wound_modifiers |= WoundModifier.PLUS_ONE
 		ModifierLedger.note(ar_wound_mod_ledger, "Kustom Dakka", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "target is not a MONSTER or VEHICLE")
 		print("RulesEngine: KUSTOM DAKKA (auto-resolve) — +1 to wound vs %s" % target_unit_id)
+	# Codex: Adeptus Custodes SALVUS (CustodesKatah.gd): wound-roll penalties ignored.
+	if _cus11e_katah().salvus_active(actor_unit) and (ar_wound_modifiers & WoundModifier.MINUS_ONE):
+		ar_wound_modifiers = ar_wound_modifiers & ~WoundModifier.MINUS_ONE
+		ModifierLedger.note(ar_wound_mod_ledger, "Salvus (Ka'tah)", ModifierLedger.KIND_WOUND, ModifierLedger.IGNORED, "wound-roll penalties ignored")
+		ModifierLedger.mark_ignored(ar_wound_mod_ledger, ModifierLedger.KIND_WOUND, [ModifierLedger.MINUS_ONE])
+		print("RulesEngine: SALVUS (auto-resolve) — ignoring wound-roll penalties for %s" % actor_unit_id)
 	var ar_wound_modifier_net = 0
 	if ar_wound_modifiers & WoundModifier.PLUS_ONE:
 		ar_wound_modifier_net += 1
@@ -5150,7 +5207,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# Issue #388: psychic-weapon damage triggers FNP-vs-psychic flag, even when
 	# the damage is NOT a mortal wound.
 	var ar_is_psychic = is_psychic_weapon(weapon_id, board)
-	var ar_fnp_value = get_unit_fnp_for_attack(target_unit, ar_is_psychic)
+	var ar_fnp_value = get_unit_fnp_vs(target_unit, ar_is_psychic, false)
 
 	# HALF DAMAGE (T4-17): Check if target unit has half-damage defensive ability
 	var ar_has_half_damage = get_unit_half_damage(target_unit)
@@ -5179,6 +5236,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				"melta_wounds": ar_melta_wounds_remaining,
 				"half_damage": ar_has_half_damage,
 				"fnp_value": ar_fnp_value,
+				"is_psychic": ar_is_psychic,
 				"precision_group": _precision_group_11e(ar_weapon_has_precision, target_unit,
 					board.get("units", {}).get(actor_unit_id, {}), board,
 					str(assignment.get("precision_group_choice", ""))),
@@ -5409,7 +5467,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			# FEEL NO PAIN (T3-17): Roll FNP for each point of damage — mirrors apply_save_damage()
 			# MA-28: Use per-model FNP if available, otherwise fall back to unit FNP
 			var actual_damage = damage
-			var model_fnp_value = get_model_fnp(target_unit, target_model)
+			var model_fnp_value = get_model_fnp_vs(target_unit, target_model, ar_is_psychic, false)
 			if model_fnp_value > 0:
 				var fnp_result = roll_feel_no_pain(damage, model_fnp_value, rng)
 				actual_damage = fnp_result.wounds_remaining
@@ -9929,12 +9987,14 @@ static func get_bigger_shells_damage_bonus(actor_unit: Dictionary, target_unit: 
 # Generic mortal-wound application to a unit by id (Supa-glowy Fing,
 # CONNIVING RUNTS, ...). Allocates via the 11e mortal-wound path and returns
 # {diffs, mortal_wounds, casualties}.
-static func apply_mortal_wounds_to_unit(target_unit_id: String, mw: int, board: Dictionary) -> Dictionary:
-	var result = {"diffs": [], "mortal_wounds": mw, "casualties": 0}
+static func apply_mortal_wounds_to_unit(target_unit_id: String, mw: int, board: Dictionary, rng: RNGService = null) -> Dictionary:
+	var result = {"diffs": [], "mortal_wounds": mw, "casualties": 0, "dice": []}
 	var target = board.get("units", {}).get(target_unit_id, {})
 	if mw <= 0 or target.is_empty():
 		return result
-	var out = Allocation.apply_mortal_wounds_11e(target, mw, CasualtyPreference.engine_auto_preference(target, board))
+	# Feel No Pain vs mortal wounds (incl. Aegis of the Emperor, WP-C3).
+	var mw_left := mortal_wounds_after_fnp(target, mw, rng, result.dice)
+	var out = Allocation.apply_mortal_wounds_11e(target, mw_left, CasualtyPreference.engine_auto_preference(target, board))
 	_materialize_allocation_11e(result, target, target_unit_id, out.remaining, out.models_destroyed)
 	result.casualties = out.models_destroyed.size()
 	return result
@@ -9958,7 +10018,7 @@ static func resolve_conniving_runts(target_unit_id: String, board: Dictionary, r
 	var result = {"diffs": [], "roll": roll, "mortal_wounds": 0, "casualties": 0}
 	if roll >= 4:
 		var mw = rng.rng.randi_range(1, 3) + 1
-		var applied = apply_mortal_wounds_to_unit(target_unit_id, mw, board)
+		var applied = apply_mortal_wounds_to_unit(target_unit_id, mw, board, rng)
 		result.diffs = applied.diffs
 		result.mortal_wounds = mw
 		result.casualties = applied.casualties
@@ -10796,7 +10856,8 @@ static func resolve_hazardous_check(
 
 		# Check for Feel No Pain
 		# MA-28: Use per-model FNP for the specific model taking hazardous damage
-		var fnp_value = get_model_fnp(actor_unit, target_model)
+		# Mortal wounds: + the mortal-wound-only FNP (Aegis of the Emperor, WP-C3).
+		var fnp_value = get_model_fnp_vs(actor_unit, target_model, false, true)
 		var actual_mw = total_mw
 		var fnp_rolls_arr = []
 
@@ -13508,16 +13569,19 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 	# PRECISION: Check both weapon keyword and stratagem flag on attacker
 	var weapon_has_precision = has_precision(weapon_id, board) or has_stratagem_precision_melee(attacker_unit)
 
-	# MARTIAL KA'TAH / EFFECT FLAGS: Check unit-level effect flags for Lethal/Sustained Hits
-	# These are set by faction abilities (e.g., Martial Ka'tah) or stratagems via EffectPrimitives
+	# EFFECT FLAGS: unit-level Lethal / Sustained Hits grants set by abilities or
+	# stratagems via EffectPrimitives.
 	if not weapon_has_lethal_hits and EffectPrimitivesData.has_effect_lethal_hits(attacker_unit):
 		weapon_has_lethal_hits = true
-		print("RulesEngine:   LETHAL HITS granted by unit effect flag (e.g., Martial Ka'tah Rendax stance)")
+		print("RulesEngine:   LETHAL HITS granted by unit effect flag")
 	if sustained_data.value == 0 and EffectPrimitivesData.has_effect_sustained_hits(attacker_unit):
-		# Check for Ka'tah-specific sustained hits value, default to 1
-		var katah_sh_value = attacker_unit.get("flags", {}).get("katah_sustained_hits_value", 1)
-		sustained_data = {"value": katah_sh_value, "is_dice": false}
-		print("RulesEngine:   SUSTAINED HITS %d granted by unit effect flag (e.g., Martial Ka'tah Dacatarai stance)" % katah_sh_value)
+		sustained_data = {"value": 1, "is_dice": false}
+		print("RulesEngine:   SUSTAINED HITS 1 granted by unit effect flag")
+	# Codex: Adeptus Custodes RENDAX ka'tah (CustodesKatah.gd): melee attacks have
+	# [LETHAL HITS: MONSTER/VEHICLE] — only vs a MONSTER or VEHICLE target.
+	if not weapon_has_lethal_hits and _cus11e_katah().rendax_lethal_hits(attacker_unit, target_unit):
+		weapon_has_lethal_hits = true
+		print("RulesEngine:   LETHAL HITS (MONSTER/VEHICLE) granted by the RENDAX ka'tah vs %s" % target_name)
 
 	# FIGHT PROPPA (Taktikal Brigade, 10e) and HIT 'EM HARDER (Codex: Orks 11e,
 	# OrkCodexFight.gd): melee-scoped grants — [SUSTAINED HITS 1] or
@@ -13708,6 +13772,19 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			melee_hit_modifiers |= HitModifier.PLUS_ONE
 			ModifierLedger.note(melee_hit_mod_ledger, "Against All Odds", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
 			print("RulesEngine: AGAINST ALL ODDS (melee) — +1 to hit for %s (no friendlies within 6\")" % attacker_id)
+
+		# Codex: Adeptus Custodes DACATARAI (attacker) / KAPTARIS (target) ka'tahs
+		# (CustodesKatah.gd): re-roll hit rolls of 1 vs a non-MONSTER/VEHICLE
+		# target; -1 to hit for melee attacks that target the unit.
+		var cus11e_melee: Dictionary = _cus11e_katah().melee_hit_effects(attacker_unit, target_unit)
+		if bool(cus11e_melee.get("reroll_ones", false)):
+			melee_hit_modifiers |= HitModifier.REROLL_ONES
+			ModifierLedger.note(melee_hit_mod_ledger, "Dacatarai (Ka'tah)", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES, "target is not a MONSTER or VEHICLE")
+			print("RulesEngine: DACATARAI — %s re-rolls melee hit rolls of 1 vs %s" % [attacker_id, target_name])
+		if bool(cus11e_melee.get("minus_one", false)):
+			melee_hit_modifiers |= HitModifier.MINUS_ONE
+			ModifierLedger.note(melee_hit_mod_ledger, "Kaptaris (Ka'tah)", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "defender's ka'tah")
+			print("RulesEngine: KAPTARIS — melee attacks that target %s have -1 to hit" % target_name)
 
 		# CAPTAIN-GENERAL: Ignore all numeric hit modifiers (melee)
 		if has_captain_general(attacker_unit):
@@ -14231,7 +14308,8 @@ static func _resolve_melee_assignment_saves(hit_context: Dictionary, w: Dictiona
 			ap, m_damage_raw, rng, {
 				"actor_unit": board.get("units", {}).get(actor_unit_id, {}),
 				"half_damage": get_unit_half_damage(target_unit),
-				"fnp_value": get_unit_fnp_for_attack(target_unit, is_psychic_weapon(weapon_id, board)),
+				"fnp_value": get_unit_fnp_vs(target_unit, is_psychic_weapon(weapon_id, board), false),
+				"is_psychic": is_psychic_weapon(weapon_id, board),
 				"precision_group": _precision_group_11e(weapon_has_precision, target_unit,
 					board.get("units", {}).get(actor_unit_id, {}), board,
 					str(assignment.get("precision_group_choice", ""))),
@@ -14422,8 +14500,8 @@ static func _resolve_melee_assignment_saves(hit_context: Dictionary, w: Dictiona
 	# `effect_fnp_psychic_mortal` flag (Daughters of the Abyss et al.).
 	# Issue #388: regular damage from PSYCHIC weapons also triggers FNP-vs-psychic.
 	var melee_is_psychic = is_psychic_weapon(weapon_id, board)
-	var fnp_value = get_unit_fnp_for_attack(target_unit, melee_is_psychic)
-	var dw_fnp_value = get_unit_fnp_for_attack(target_unit, true)
+	var fnp_value = get_unit_fnp_vs(target_unit, melee_is_psychic, false)
+	var dw_fnp_value = get_unit_fnp_vs(target_unit, melee_is_psychic, true)
 	var actual_dw_damage = devastating_damage
 	var actual_regular_damage = regular_damage
 	var total_fnp_prevented = 0
@@ -15386,7 +15464,7 @@ static func apply_save_damage(
 	# Issue #388: psychic-weapon damage triggers FNP-vs-psychic, even non-mortal.
 	# Read the is_psychic flag stashed by prepare_save_resolution.
 	var ranged_is_psychic = bool(save_data.get("is_psychic", false))
-	var fnp_value = get_unit_fnp_for_attack(target_unit, ranged_is_psychic)
+	var fnp_value = get_unit_fnp_vs(target_unit, ranged_is_psychic, false)
 
 	# HALF DAMAGE (T4-17): Check if target unit has half-damage defensive ability
 	var has_half_damage = get_unit_half_damage(target_unit)
@@ -15472,7 +15550,7 @@ static func apply_save_damage(
 		# T-016: DW is mortal-wound damage, so consult the conditional FNP
 		# (Daughters of the Abyss FNP 3+ vs Psychic/MW only).
 		var actual_dw_damage = dw_damage
-		var dw_fnp_value = get_unit_fnp_for_attack(target_unit, true)
+		var dw_fnp_value = get_unit_fnp_vs(target_unit, ranged_is_psychic, true)
 		if dw_fnp_value > 0 and rng != null:
 			var fnp_result = roll_feel_no_pain(dw_damage, dw_fnp_value, rng)
 			actual_dw_damage = fnp_result.wounds_remaining
@@ -15560,7 +15638,7 @@ static func apply_save_damage(
 		# FEEL NO PAIN: Roll FNP for each point of damage from this failed save
 		# MA-28: Use per-model FNP if available, otherwise fall back to unit FNP
 		var actual_damage = wound_damage
-		var model_fnp_value = get_model_fnp(target_unit, model)
+		var model_fnp_value = get_model_fnp_vs(target_unit, model, ranged_is_psychic, false)
 		if model_fnp_value > 0 and rng != null:
 			var fnp_result = roll_feel_no_pain(wound_damage, model_fnp_value, rng)
 			actual_damage = fnp_result.wounds_remaining
@@ -15881,31 +15959,71 @@ static func get_unit_fnp(unit: Dictionary) -> int:
 		return base_fnp
 	return 0
 
-# T-016: FNP for a specific attack context.
-# If the attack is a Psychic Attack OR a Mortal Wound, also consider the
-# `effect_fnp_psychic_mortal` flag (set by Daughters of the Abyss et al.) and
-# return whichever FNP value is better (lower).
-# `is_psychic_or_mortal_wound` should be true for: mortal wounds (incl. those
-# spilled from Devastating Wounds) and Psychic Attacks. False otherwise.
+# T-016 (compatibility wrapper): FNP for a psychic attack and/or mortal wound
+# when the caller cannot tell the two apart. New code calls get_unit_fnp_vs
+# with explicit flags (WP-C3: Aegis of the Emperor is vs mortal wounds only,
+# Daughters of the Abyss / Psychic Null vs psychic attacks only).
 static func get_unit_fnp_for_attack(unit: Dictionary, is_psychic_or_mortal_wound: bool) -> int:
-	var unconditional = get_unit_fnp(unit)
-	if not is_psychic_or_mortal_wound:
-		return unconditional
-	var conditional = EffectPrimitivesData.get_effect_fnp_psychic_mortal(unit)
+	return get_unit_fnp_vs(unit, is_psychic_or_mortal_wound, is_psychic_or_mortal_wound)
+
+## The best Feel No Pain that applies to one wound loss — never cumulative:
+## the unconditional FNP (stats / effect) and every conditional grant for the
+## attack's kind. is_psychic: a psychic attack (24.29); is_mortal: a mortal
+## wound (06.02 — devastating wounds, hazards, Deadly Demise, stratagems …).
+static func get_unit_fnp_vs(unit: Dictionary, is_psychic: bool, is_mortal: bool) -> int:
+	return _better_fnp(get_unit_fnp(unit), _conditional_fnp(unit, is_psychic, is_mortal))
+
+## Per-model variant (MA-28 stats_override.fnp) of get_unit_fnp_vs.
+static func get_model_fnp_vs(unit: Dictionary, model: Dictionary, is_psychic: bool, is_mortal: bool) -> int:
+	return _better_fnp(get_model_fnp(unit, model), _conditional_fnp(unit, is_psychic, is_mortal))
+
+## Only the conditional FNP grants (0 = none): the T-016 psychic-or-mortal
+## flag and Null Aegis (psychic attacks or mortal wounds), plus the Codex:
+## Adeptus Custodes army rules (CustodesKatah.fnp_vs: Aegis of the Emperor vs
+## mortal wounds, Daughters of the Abyss / Psychic Null vs psychic attacks).
+static func _conditional_fnp(unit: Dictionary, is_psychic: bool, is_mortal: bool) -> int:
+	if not is_psychic and not is_mortal:
+		return 0
+	var best := int(EffectPrimitivesData.get_effect_fnp_psychic_mortal(unit))
 	# T-075: Null Aegis (Talons of the Emperor) — Custodes within 6" of friendly
 	# ANATHEMA PSYKANA model gain FNP 5+ vs Psychic/MW. Take the better of all.
 	var uam = Engine.get_main_loop().root.get_node_or_null("UnitAbilityManager") if Engine.get_main_loop() else null
-	var null_aegis = 0
 	if uam and uam.has_method("get_null_aegis_fnp"):
-		null_aegis = int(uam.get_null_aegis_fnp(unit.get("id", "")))
-	var best_conditional = conditional
-	if null_aegis > 0 and (best_conditional <= 0 or null_aegis < best_conditional):
-		best_conditional = null_aegis
-	if best_conditional <= 0:
-		return unconditional
-	if unconditional <= 0:
-		return best_conditional
-	return min(unconditional, best_conditional)
+		best = _better_fnp(best, int(uam.get_null_aegis_fnp(unit.get("id", ""))))
+	# Codex: Adeptus Custodes army rules (CustodesKatah.gd)
+	best = _better_fnp(best, int(_cus11e_katah().fnp_vs(unit, is_psychic, is_mortal)))
+	return best
+
+static func _better_fnp(a: int, b: int) -> int:
+	if a <= 0:
+		return b
+	if b <= 0:
+		return a
+	return mini(a, b)
+
+## Codex: Adeptus Custodes army rules module (loaded lazily — no preload
+## cascade into the autoload's compile).
+static func _cus11e_katah():
+	return load("res://scripts/codex/custodes/CustodesKatah.gd")
+
+## Mortal wounds that survive Feel No Pain, for the mortal-wound paths that
+## allocate through Allocation.apply_mortal_wounds_11e (explosives, crushing
+## impact, hazards, emergency disembarks, …): rolls the best FNP vs a mortal
+## wound (get_unit_fnp_vs) once per wound. Appends a feel_no_pain dice block
+## to `dice` when FNP is rolled. Returns the wounds left to allocate.
+static func mortal_wounds_after_fnp(unit: Dictionary, mortal_wounds: int, rng: RNGService, dice: Array = [], is_psychic: bool = false, source: String = "mortal_wounds") -> int:
+	if mortal_wounds <= 0 or unit.is_empty():
+		return mortal_wounds
+	var fnp := get_unit_fnp_vs(unit, is_psychic, true)
+	if fnp <= 0:
+		return mortal_wounds
+	if rng == null:
+		rng = make_rng()
+	var fr = roll_feel_no_pain(mortal_wounds, fnp, rng)
+	dice.append({"context": "feel_no_pain", "source": source, "rolls": fr.rolls, "fnp_value": fnp,
+		"wounds_prevented": fr.wounds_prevented, "wounds_remaining": fr.wounds_remaining, "total_wounds": mortal_wounds})
+	print("RulesEngine: %s vs %s — Feel No Pain %d+ prevented %d of %d mortal wound(s)" % [source, str(unit.get("id", "?")), fnp, int(fr.wounds_prevented), mortal_wounds])
+	return int(fr.wounds_remaining)
 
 # MA-28: Get effective FNP for a specific model, checking stats_override.fnp first.
 # Returns the model's overridden FNP if available, otherwise falls back to unit FNP.
@@ -15980,7 +16098,7 @@ static func apply_mortal_wounds(target_unit_id: String, mortal_wounds: int, boar
 	# Check for Feel No Pain.
 	# T-016: mortal wounds count as "psychic-or-mortal" for the conditional FNP check
 	# (e.g. Daughters of the Abyss FNP 3+ vs Psychic/MW only).
-	var fnp_value = get_unit_fnp_for_attack(target_unit, true)
+	var fnp_value = get_unit_fnp_vs(target_unit, false, true)
 	var actual_wounds = mortal_wounds
 	var fnp_result = {}
 
@@ -16134,6 +16252,9 @@ static func resolve_deadly_demise(destroyed_unit_id: String, dd_value: String, b
 			var mw_result = apply_mortal_wounds(target_unit_id, mortal_wounds, board, rng)
 			all_diffs.append_array(mw_result.get("diffs", []))
 			target_result["casualties"] = mw_result.get("casualties", 0)
+			# Feel No Pain dice vs these mortal wounds (e.g. Aegis of the Emperor).
+			target_result["fnp_rolls"] = mw_result.get("fnp_rolls", [])
+			target_result["wounds_applied"] = int(mw_result.get("wounds_applied", 0))
 			total_casualties += mw_result.get("casualties", 0)
 
 		total_mortal_wounds += mortal_wounds
