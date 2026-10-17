@@ -1,0 +1,18 @@
+id|faction_id|name|legend|type|dp|force_disposition
+000000852|ORK|War Horde|"<p class=""ShowFluff legend3"">RIOTOUS MULTITUDES OF ORKS AND RAMSHACKLE VEHICLES HIT THE FOE WITH DISORDERED BRUTALITY</p>"||3|Take and Hold
+000000853|ORK|Da Big Hunt|"<p class=""ShowFluff legend3"">THE GROUND TREMBLES WHEN STAMPEDING BEAST SNAGGAS CONVERGE ON THEIR PREY</p>"||1|Purge the Foe
+000000854|ORK|Kult of Speed|"<p class=""ShowFluff legend3"">SPEED-ADDLED LOONS HURTLE INTO BATTLE IN AN EXHAUST-CHOKED DEATH RACE</p>"||1|Reconnaissance
+000000855|ORK|Dread Mob|"<p class=""ShowFluff legend3"">RAMSHACKLE WALKERS STOMP INTO THE FOE IN A CLANKING KNOT OF GUNS AND KLAWS</p>"||1|Purge the Foe
+000000856|ORK|Green Tide|"<p class=""ShowFluff legend3"">BELLOWING ORK INFANTRY IN UNRULY MOBS HIT LIKE AN AVALANCHE OF MUSCLE</p>"||1|Take and Hold
+000000857|ORK|Bully Boyz|"<p class=""ShowFluff legend3"">WITH HUGE MUSCLES, WEAPONS AND EGOS, ORKISH VETERANS CAN KRUMP ANYONE</p>"||1|Purge the Foe
+000000963|ORK|Ramship Raiders|<b>When Ork void fleets attack enemy shipping, they often lead the assault with ramships. These pugnacious craft slam headlong into the foes’ vessels, burying themselves in the superstructure of larger enemy ships before filling them with rampaging Ork boarders.</b>|Boarding Actions||
+000000964|ORK|Kaptin Killers|<b>Regardless of the wider objectives of a void war, once a Warboss and his best Boyz get aboard an enemy ship their top priority is nearly always finding the enemy shipmaster and beating them to a pulp. If that leads to capturing the vessel in the process, so much the better!</b>|Boarding Actions||
+000000995|ORK|Taktikal Brigade|"<p class=""ShowFluff legend3"">BACKSTABBERS AND ROKKITEERS SPRING DUBIOUS BUT VIOLENTLY EFFECTIVE STRATEGIES</p>"||1|Take and Hold
+000001152|ORK|Blitz Brigade|"<p class=""ShowFluff legend3"">IN A THUNDERING MASS, HEAVILY ARMED TANKS AND RIGS PLOUGH TOWARDS THE FOE</p>"||1|Take and Hold
+000001222|ORK|Wreckas|"<p class=""ShowFluff legend3"">DESTRUCTIVE LOOT-GRABBAS DESCEND ON PRIZED TARGETS WITH VICIOUS GRINS</p>"||1|Priority Assets
+000001223|ORK|Runt Swarm|"<p class=""ShowFluff legend3"">SNEAKY AND GITTISH GRETCHIN ARE SURPRISINGLY EFFECTIVE IN LARGE NUMBERS</p>"||1|Priority Assets
+000001224|ORK|Shoota Boyz|"<p class=""ShowFluff legend3"">DAKKA-ADDICTS GLEEFULLY UNLEASH EAR-SPLITTING FUSILADES OF FIREPOWER</p>"||1|Purge the Foe
+000001225|ORK|Madcap Meks|"<p class=""ShowFluff legend3"">TECH-SAVVY TINKERERS UNLEASH INSANE CONTRAPTIONS AND ANARCHIC GUBBINZ</p>"||1|Disruption
+000001226|ORK|Brute Bosses|"<p class=""ShowFluff legend3"">BELLIGERENT GENERALS AND LIVING EMBODIMENTS OF ORKDOM LEAD THE RAMPAGE</p>"||1|Purge the Foe
+000001227|ORK|Flyboyz|"<p class=""ShowFluff legend3"">TRIGGER-HAPPY ORK PILOTS ATTACK FROM THE SKIES IN BLITZING AERIAL ASSAULTS</p>"||1|Reconnaissance
+000001228|ORK|Wurrband|"<p class=""ShowFluff legend3"">WEIRDBOYZ VENT SUPERNATURAL ENERGIES IN A STORM OF PRIMITIVE WAAAGH! POWER</p>"||1|Disruption

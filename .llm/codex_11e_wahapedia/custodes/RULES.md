@@ -1,4 +1,43 @@
-# Adeptus Custodes 11e — Wahapedia rules extract (export 2026-10-16)
+# AC 11e — Wahapedia rules extract (export 2026-10-16 21:03:46)
+
+## Datasheets by source
+
+- Allarus Custodians — Adeptus Custodes
+- Anathema Psykana Rhino — Adeptus Custodes
+- Aquilon Terminators with Solarite Power Gauntlets — Adeptus Custodes
+- Aquilon Terminators with Solarite Power Talons — Adeptus Custodes
+- Blade Champion — Adeptus Custodes
+- Caladius Annihilator Grav-Tank — Adeptus Custodes
+- Caladius Grav-Tank — Adeptus Custodes
+- Contemptor-Achillus Dreadnought — Adeptus Custodes
+- Contemptor-Galatus Dreadnought — Adeptus Custodes
+- Coronus Grav-Carrier — Adeptus Custodes
+- Custodian Guard Sodality — Adeptus Custodes
+- Custodian Wardens — Adeptus Custodes
+- Gyrfalcon Jetbike Sodality — Adeptus Custodes
+- Knight-Centura — Adeptus Custodes
+- Pallas Grav-Attack — Adeptus Custodes
+- Prosecutor Squad — Adeptus Custodes
+- Sentinel Guard Sodality — Adeptus Custodes
+- Shield-Captain — Adeptus Custodes
+- Shield-Captain in Allarus Terminator Armour — Adeptus Custodes
+- Shield-Captain on Dawneagle Jetbike — Adeptus Custodes
+- Telemon Heavy Dreadnought — Adeptus Custodes
+- Trajann Valoris — Adeptus Custodes
+- Venatari with Kinetic Destroyers — Adeptus Custodes
+- Venatari with Verutum Lances — Adeptus Custodes
+- Vertus Praetors — Adeptus Custodes
+- Vigilator Squad — Adeptus Custodes
+- Witchseeker Squad — Adeptus Custodes
+- Ares Gunship — Adeptus Custodes (Forge World)
+- Orion Assault Dropship — Adeptus Custodes (Forge World)
+- Aleya — Adeptus Custodes (Warhammer Legends)
+- Custodian Guard Sodality with Adrasite Spears — Adeptus Custodes (Warhammer Legends)
+- Custodian Guard Sodality with Pyrithite Spears — Adeptus Custodes (Warhammer Legends)
+- Sagittarum Custodians Sodality — Adeptus Custodes (Warhammer Legends)
+- Valerian — Adeptus Custodes (Warhammer Legends)
+- Venerable Contemptor Dreadnought — Adeptus Custodes (Warhammer Legends)
+- Venerable Land Raider — Adeptus Custodes (Warhammer Legends)
 
 ## Army rules
 
@@ -20,18 +59,8 @@ At the start of the battle round, if a model with this ability is your WARLORD ,
 ### Aegis of the Emperor
 Friendly Adeptus Custodes units with this ability have Feel No Pain 5+ against mortal wounds .
 
-### Ka’tah abilities (from page HTML)
-CONSERVAI KA’TAH ABILITY WHEN: Your Command phase . TARGET: One friendly readied unit. EFFECT: Until the end of the turn: Being engaged / battle-shocked does not prevent your unit from being eligible to start an action . Starting an action does not prevent your unit from being eligible to shoot .
-
-CALISTUS KA’TAH ABILITY WHEN: Your Movement phase , when a friendly readied unit is selected to move . TARGET: That readied unit. EFFECT: When your unit makes a normal / advance / fall-back move , your unit can move through all types of model .
-
-SALVUS KA’TAH ABILITY WHEN: Your Shooting phase , when a friendly readied unit is selected to shoot . TARGET: That readied unit. EFFECT: Your unit can ignore modifiers to your unit’s: BS. Hit rolls and wound rolls .
-
-DACATARAI KA’TAH ABILITY WHEN: Start of the Fight phase . TARGET: One friendly readied unit. EFFECT: Your unit’s melee attacks that target an enemy unit (excluding MONSTER / VEHICLE units) can re-roll hit rolls of 1.
-
-KAPTARIS KA’TAH ABILITY WHEN: Start of the Fight phase . TARGET: One friendly readied unit. EFFECT: Melee attacks that target your unit have -1 to hit rolls .
-
-RENDAX KA’TAH ABILITY WHEN: Fight phase , when a friendly readied unit is selected to fight . TARGET: One friendly readied unit. EFFECT: Your unit’s melee attacks have [Lethal Hits: Monster/Vehicle] . 
+### From the faction page (not in the CSV export)
+CONSERVAI KA’TAH ABILITY WHEN: Your Command phase . TARGET: One friendly readied unit. EFFECT: Until the end of the turn: Being engaged / battle-shocked does not prevent your unit from being eligible to start an action . Starting an action does not prevent your unit from being eligible to shoot . CALISTUS KA’TAH ABILITY WHEN: Your Movement phase , when a friendly readied unit is selected to move . TARGET: That readied unit. EFFECT: When your unit makes a normal / advance / fall-back move , your unit can move through all types of model . SALVUS KA’TAH ABILITY WHEN: Your Shooting phase , when a friendly readied unit is selected to shoot . TARGET: That readied unit. EFFECT: Your unit can ignore modifiers to your unit’s: BS. Hit rolls and wound rolls . DACATARAI KA’TAH ABILITY WHEN: Start of the Fight phase . TARGET: One friendly readied unit. EFFECT: Your unit’s melee attacks that target an enemy unit (excluding MONSTER / VEHICLE units) can re-roll hit rolls of 1. KAPTARIS KA’TAH ABILITY WHEN: Start of the Fight phase . TARGET: One friendly readied unit. EFFECT: Melee attacks that target your unit have -1 to hit rolls . RENDAX KA’TAH ABILITY WHEN: Fight phase , when a friendly readied unit is selected to fight . TARGET: One friendly readied unit. EFFECT: Your unit’s melee attacks have [Lethal Hits: Monster/Vehicle] . 
 
 ## Detachment: Null Maiden Vigil (1DP, Disruption)
 
