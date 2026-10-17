@@ -1666,19 +1666,16 @@ func load_from_snapshot(snapshot: Dictionary) -> void:
 				for k in _PHASE_LOG_STRIP_KEYS:
 					a.erase(k)
 
-	# A state captured during a Command phase was captured AFTER that phase's
-	# start-of-Command steps (CP gain, secondary draw, battle-shock clear): saves
-	# are only ever written once enter_phase has returned (the phase-change
-	# autosave fires on phase_changed, after enter_phase). Saves written before
-	# the "command_start_resolved" marker existed lack it, and re-entering the
-	# restored Command phase re-ran those steps — +1 CP for both players and, at
-	# 11e, two more secondary cards on every reload. Stamp the marker for them.
+	# No command_start_resolved marker is inferred here. A Command-phase save
+	# written by this build carries it (set during enter_phase), so restoring
+	# it does not re-run the start steps. An unmarked Command-phase save is
+	# either AUTHORED at the start of the phase, before those steps (tutorial
+	# saves, hand-built fixtures — they rely on the draw/CP happening on
+	# load), or came from an older build; the two cannot be told apart, so it
+	# keeps the old behaviour and runs the start steps once on load.
 	if state.has("meta") and int(state["meta"].get("phase", -1)) == Phase.COMMAND \
 			and not state["meta"].has(COMMAND_START_RESOLVED_KEY):
-		state["meta"][COMMAND_START_RESOLVED_KEY] = command_start_key(
-			int(state["meta"].get("battle_round", 1)), int(state["meta"].get("active_player", 1)))
-		print("[GameState] Restored Command-phase state has no %s — marking %s as already resolved" % [
-			COMMAND_START_RESOLVED_KEY, state["meta"][COMMAND_START_RESOLVED_KEY]])
+		print("[GameState] Restored Command-phase state has no %s — its start-of-Command steps will run on entry" % COMMAND_START_RESOLVED_KEY)
 
 	# SAVE/LOAD FIX: Ensure formation metadata exists for backwards compatibility with old saves.
 	# If the saved phase is past FORMATIONS and formation flags are missing, infer they were completed.

@@ -6,7 +6,8 @@ extends SceneTree
 # phase — loading a save made during it, a reconnect, a scripted re-entry —
 # used to apply them again: +1 CP to both players and two more secondary cards
 # on every reload (probe 2026-10-17: a save at CP 4/4 with a 2-card hand
-# loaded as CP 5/5 with 4 cards).
+# loaded as CP 5/5 with 4 cards). The marker meta.command_start_resolved,
+# saved with the game, records that the steps ran for this turn.
 #
 # Usage: godot --headless --path . -s tests/test_command_phase_start_once.gd
 
@@ -79,23 +80,46 @@ func _run_tests():
 		str(sm.get_active_missions(1).size()))
 	p2.queue_free()
 
-	print("-- a legacy save (no marker) restored mid-Command phase --")
+	print("-- a save written by this build, restored mid-Command phase --")
 	var snap: Dictionary = gs.create_snapshot()
-	snap["meta"].erase(MARKER_KEY)
+	_check("snapshot carries the marker", str(snap["meta"].get(MARKER_KEY, "")) == "R2P1",
+		str(snap["meta"].get(MARKER_KEY, "")))
 	gs.load_from_snapshot(snap)
-	_check("load stamps the marker for the saved Command phase",
-		str(gs.state["meta"].get(MARKER_KEY, "")) == "R2P1",
-		str(gs.state["meta"].get(MARKER_KEY, "")))
 	var p3 := _enter(gs)
 	_check("restored Command phase: CP unchanged (4/4)", _cp(gs, 1) == 4 and _cp(gs, 2) == 4, "%d/%d" % [_cp(gs, 1), _cp(gs, 2)])
 	_check("restored Command phase: no extra cards", sm.get_active_missions(1).size() == hand_after_first,
 		str(sm.get_active_missions(1).size()))
 	p3.queue_free()
 
+	# An unmarked Command-phase save is AUTHORED at the start of the phase
+	# (tutorial saves, hand-built fixtures) or comes from an older build —
+	# indistinguishable, so it keeps the old contract: the start steps run
+	# once on entry (the T7 tutorial relies on its mission draw), then never
+	# again for that turn.
+	print("-- an unmarked Command-phase save runs the start steps once --")
+	var hand_before_unmarked: int = sm.get_active_missions(1).size()
+	var snap_unmarked: Dictionary = gs.create_snapshot()
+	snap_unmarked["meta"].erase(MARKER_KEY)
+	gs.load_from_snapshot(snap_unmarked)
+	_check("load does not invent a marker", not gs.state["meta"].has(MARKER_KEY),
+		str(gs.state["meta"].get(MARKER_KEY, "")))
+	var p3b := _enter(gs)
+	_check("unmarked save: CP +1 for both (4 -> 5)", _cp(gs, 1) == 5 and _cp(gs, 2) == 5, "%d/%d" % [_cp(gs, 1), _cp(gs, 2)])
+	_check("unmarked save: P1 draws 2", sm.get_active_missions(1).size() == hand_before_unmarked + 2,
+		"%d -> %d" % [hand_before_unmarked, sm.get_active_missions(1).size()])
+	_check("unmarked save: marker now R2P1", str(gs.state["meta"].get(MARKER_KEY, "")) == "R2P1",
+		str(gs.state["meta"].get(MARKER_KEY, "")))
+	p3b.queue_free()
+	var p3c := _enter(gs)
+	_check("unmarked save, re-entered: CP unchanged (5/5)", _cp(gs, 1) == 5 and _cp(gs, 2) == 5, "%d/%d" % [_cp(gs, 1), _cp(gs, 2)])
+	_check("unmarked save, re-entered: no extra cards", sm.get_active_missions(1).size() == hand_before_unmarked + 2,
+		str(sm.get_active_missions(1).size()))
+	p3c.queue_free()
+
 	print("-- the next player's turn still runs its own steps --")
 	gs.state["meta"]["active_player"] = 2
 	var p4 := _enter(gs)
-	_check("P2's Command phase: CP +1 for both (4 -> 5)", _cp(gs, 1) == 5 and _cp(gs, 2) == 5, "%d/%d" % [_cp(gs, 1), _cp(gs, 2)])
+	_check("P2's Command phase: CP +1 for both (5 -> 6)", _cp(gs, 1) == 6 and _cp(gs, 2) == 6, "%d/%d" % [_cp(gs, 1), _cp(gs, 2)])
 	_check("P2 draws 2 secondaries", sm.get_active_missions(2).size() == 2, str(sm.get_active_missions(2).size()))
 	_check("marker R2P2 recorded", str(gs.state["meta"].get(MARKER_KEY, "")) == "R2P2",
 		str(gs.state["meta"].get(MARKER_KEY, "")))
@@ -106,7 +130,7 @@ func _run_tests():
 	snap2["meta"]["phase"] = GameStateData.Phase.MOVEMENT
 	snap2["meta"].erase(MARKER_KEY)
 	gs.load_from_snapshot(snap2)
-	_check("Movement-phase save: no marker stamped", not gs.state["meta"].has(MARKER_KEY))
+	_check("Movement-phase save: no marker added", not gs.state["meta"].has(MARKER_KEY))
 	_finish()
 
 func _finish() -> void:

@@ -7,7 +7,7 @@
       "summary": "Loading a save made during the Command phase no longer hands out extra Command Points or secondary cards.",
       "changes": [
         "Fixed: reloading (or rejoining) a game saved during the Command phase re-ran the start-of-turn steps \u2014 both players gained another CP and, in 11th edition, you drew two more secondary mission cards every time. The start-of-Command steps now run once per player turn.",
-        "Saves made before this fix that were taken in the Command phase load with that turn's steps treated as already done."
+        "Saves made from this version on remember that the turn's start steps already happened. A Command-phase save from an earlier version still gets them once more the first time it is loaded (tutorial saves rely on this to deal your missions)."
       ]
     },
     {
