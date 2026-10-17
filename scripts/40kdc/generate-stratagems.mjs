@@ -590,6 +590,13 @@ const CURATED_FACTION_FILES = {
     file: 'curated/orks_codex_11e.json',
     effects: [{ type: 'custom:ork11e' }],
   },
+  // Codex: Adeptus Custodes (11e, 2026-10-17) — generated from the Wahapedia
+  // snapshot by curate-from-wahapedia.mjs (.llm/codex_11e_wahapedia/PLAN.md C5).
+  AC: {
+    factionId: 'adeptus-custodes',
+    file: 'curated/custodes_codex_11e.json',
+    effects: [{ type: 'custom:custodes11e' }],
+  },
 };
 
 // Stratagem window ids the game knows (.llm/ork_codex_11e_design.md §3) —

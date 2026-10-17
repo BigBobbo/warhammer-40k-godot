@@ -854,32 +854,26 @@
   "id": "lions-of-the-emperor",
   "name": "Lions of the Emperor",
   "faction_id": "adeptus-custodes",
-  "detachment_rule_id": "against-all-odds",
+  "detachment_rule_id": "on-gilded-wings-lions-of-the-emperor",
   "enhancement_ids": [
-   "superior-creation-lions-of-the-emperor",
-   "praesidius-lions-of-the-emperor",
-   "fierce-conqueror-lions-of-the-emperor",
-   "admonimortis-lions-of-the-emperor"
+   "lightning-descent-lions-of-the-emperor",
+   "leonine-ferocity-lions-of-the-emperor"
   ],
   "stratagem_ids": [
-   "peerless-warrior-lions-of-the-emperor",
-   "gilded-champion-lions-of-the-emperor",
-   "defiant-to-the-last-lions-of-the-emperor",
+   "fury-of-the-emperor-lions-of-the-emperor",
    "unleash-the-lions-lions-of-the-emperor",
-   "manoeuvre-and-fire-lions-of-the-emperor",
-   "swift-as-the-eagle-lions-of-the-emperor"
+   "vigil-unending-lions-of-the-emperor"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "detachment_points": 3,
+  "detachment_points": 1,
   "force_dispositions": [
-   "take-and-hold"
+   "disruption"
   ],
-  "tags": [
-   "lions"
-  ],
+  "tags": [],
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "mfm",
@@ -891,29 +885,26 @@
   "id": "auric-champions",
   "name": "Auric Champions",
   "faction_id": "adeptus-custodes",
-  "detachment_rule_id": "assemblage-of-might",
+  "detachment_rule_id": "assemblage-of-might-auric-champions",
   "enhancement_ids": [
-   "blade-imperator-auric-champions",
-   "inspirational-exemplar-auric-champions",
-   "veiled-blade-auric-champions",
-   "martial-philosopher-auric-champions"
+   "shroud-of-the-hidden-blade-auric-champions",
+   "superior-creation-auric-champions",
+   "inspirational-exemplar-auric-champions"
   ],
   "stratagem_ids": [
-   "slayer-of-champions-auric-champions",
-   "the-emperors-auspice-auric-champions",
-   "earning-of-a-name-auric-champions",
-   "shoulder-the-mantle-auric-champions",
-   "superhuman-reserves-auric-champions",
-   "vigil-unending-auric-champions"
+   "duty-unto-death-auric-champions",
+   "gilded-champion-auric-champions"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "detachment_points": 2,
+  "detachment_points": 1,
   "force_dispositions": [
-   "priority-assets"
+   "purge-the-foe"
   ],
+  "tags": [],
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "mfm",
@@ -960,7 +951,8 @@
     "namespace": "mfm",
     "id": "3cb02267-28e0-4dab-9ff3-976caa1b7a31"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "shield-host",
@@ -994,35 +986,33 @@
     "namespace": "mfm",
     "id": "71a22085-3750-4339-bd18-7b7511e831ee"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "null-maiden-vigil",
   "name": "Null Maiden Vigil",
   "faction_id": "adeptus-custodes",
-  "detachment_rule_id": "creeping-dread-aura",
+  "detachment_rule_id": "silent-sisterhood-null-maiden-vigil",
   "enhancement_ids": [
-   "raptor-blade-null-maiden-vigil",
-   "enhanced-voidsheen-cloak-null-maiden-vigil",
-   "huntress-eye-null-maiden-vigil",
-   "oblivion-knight-null-maiden-vigil"
+   "oblivion-knight-null-maiden-vigil",
+   "huntress-eye-null-maiden-vigil"
   ],
   "stratagem_ids": [
-   "witch-hunters-null-maiden-vigil",
-   "anathema-blademastery-null-maiden-vigil",
-   "purgation-sweep-null-maiden-vigil",
-   "desperations-price-null-maiden-vigil",
    "psy-chaff-volley-null-maiden-vigil",
-   "psychic-abominations-null-maiden-vigil"
+   "purgation-sweep-null-maiden-vigil",
+   "anathema-blademastery-null-maiden-vigil"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
-  "detachment_points": 2,
+  "detachment_points": 1,
   "force_dispositions": [
-   "reconnaissance"
+   "disruption"
   ],
+  "tags": [],
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "mfm",
@@ -1062,33 +1052,33 @@
     "namespace": "mfm",
     "id": "f0e490e7-c6e3-4c51-9162-93dca988eee5"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "might-of-the-moritoi",
   "name": "Might of the Moritoi",
   "faction_id": "adeptus-custodes",
-  "detachment_rule_id": "march-of-the-honoured-dead",
+  "detachment_rule_id": "moritoi-ancients-might-of-the-moritoi",
   "enhancement_ids": [
-   "interred-expertise-upgrade-might-of-the-moritoi",
-   "auramite-sarcophagus-upgrade-might-of-the-moritoi"
+   "memento-moritoi-one-per-army-might-of-the-moritoi",
+   "augury-uplink-one-per-army-might-of-the-moritoi"
   ],
   "stratagem_ids": [
-   "flawless-construction-might-of-the-moritoi",
-   "unstoppable-advance-might-of-the-moritoi",
-   "prioritised-eradication-might-of-the-moritoi"
+   "unstoppable-momentum-might-of-the-moritoi",
+   "honoured-interred-might-of-the-moritoi",
+   "unceasing-onslaught-might-of-the-moritoi"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "pre-launch-provisional"
+   "dataslate": "codex"
   },
   "detachment_points": 1,
   "force_dispositions": [
    "take-and-hold"
   ],
-  "tags": [
-   "armoury"
-  ],
+  "tags": [],
+  "source": "wahapedia-11e@2026-10-16",
   "external_refs": [
    {
     "namespace": "mfm",
@@ -1123,7 +1113,8 @@
     "namespace": "mfm",
     "id": "58dd1c38-27e6-4ccf-a7f5-53068e61b838"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "tharanatoi-hammerblow",
@@ -1155,7 +1146,8 @@
     "namespace": "mfm",
     "id": "92ae3afb-c5d5-41a9-80da-8db33c91ed41"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "tristraens-gilded-blades",
@@ -1181,7 +1173,240 @@
     "namespace": "mfm",
     "id": "9c579f51-d8f2-461a-8a99-ec7deace8303"
    }
-  ]
+  ],
+  "superseded_by_codex": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "shadowkeepers",
+  "name": "Shadowkeepers",
+  "faction_id": "adeptus-custodes",
+  "detachment_rule_id": "wardens-of-the-dark-cells-shadowkeepers",
+  "enhancement_ids": [
+   "unstoppable-destroyer-shadowkeepers",
+   "genalchemic-warding-shadowkeepers"
+  ],
+  "stratagem_ids": [
+   "indomitable-guardians-shadowkeepers",
+   "no-escape-shadowkeepers",
+   "grim-responsibility-shadowkeepers"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "tags": [],
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "guardians-of-the-throne",
+  "name": "Guardians of the Throne",
+  "faction_id": "adeptus-custodes",
+  "detachment_rule_id": "martial-mastery-guardians-of-the-throne",
+  "enhancement_ids": [
+   "bane-of-abominations-guardians-of-the-throne",
+   "emperors-light-guardians-of-the-throne",
+   "castellans-mark-guardians-of-the-throne",
+   "eagles-eye-guardians-of-the-throne"
+  ],
+  "stratagem_ids": [
+   "superhuman-focus-guardians-of-the-throne",
+   "shield-of-honour-guardians-of-the-throne",
+   "unlimited-endurance-guardians-of-the-throne",
+   "swift-as-the-eagle-guardians-of-the-throne",
+   "in-auramite-clad-guardians-of-the-throne",
+   "prime-target-guardians-of-the-throne"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 3,
+  "force_dispositions": [
+   "priority-assets"
+  ],
+  "tags": [],
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "honoured-companions",
+  "name": "Honoured Companions",
+  "faction_id": "adeptus-custodes",
+  "detachment_rule_id": "companions-watch-honoured-companions",
+  "enhancement_ids": [
+   "arae-shrike-honoured-companions",
+   "celeritous-sentries-honoured-companions"
+  ],
+  "stratagem_ids": [
+   "avenge-the-fallen-honoured-companions",
+   "emperors-domain-honoured-companions",
+   "swift-as-the-eagle-honoured-companions"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "tags": [],
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "solar-watch",
+  "name": "Solar Watch",
+  "faction_id": "adeptus-custodes",
+  "detachment_rule_id": "talon-sortie-solar-watch",
+  "enhancement_ids": [
+   "sally-forth-solar-watch",
+   "auric-eagle-solar-watch"
+  ],
+  "stratagem_ids": [
+   "at-spears-length-solar-watch",
+   "gravimetric-grenade-solar-watch",
+   "inexorable-solar-watch"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "reconnaissance"
+  ],
+  "tags": [],
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "emperors-chosen",
+  "name": "Emperor’s Chosen",
+  "faction_id": "adeptus-custodes",
+  "detachment_rule_id": "magna-imperator-emperors-chosen",
+  "enhancement_ids": [
+   "from-the-hall-of-armouries-emperors-chosen",
+   "radiant-mantle-emperors-chosen"
+  ],
+  "stratagem_ids": [
+   "impenetrable-bastion-emperors-chosen",
+   "in-auramite-clad-emperors-chosen",
+   "superhuman-focus-emperors-chosen"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "priority-assets"
+  ],
+  "tags": [
+   "shield-host"
+  ],
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "emissaries-imperatus",
+  "name": "Emissaries Imperatus",
+  "faction_id": "adeptus-custodes",
+  "detachment_rule_id": "heralds-of-the-throne-emissaries-imperatus",
+  "enhancement_ids": [
+   "edge-of-the-blade-emissaries-imperatus",
+   "auriferous-orb-emissaries-imperatus"
+  ],
+  "stratagem_ids": [
+   "bearers-of-his-light-emissaries-imperatus",
+   "slayers-of-nightmares-emissaries-imperatus",
+   "selfless-service-emissaries-imperatus"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "priority-assets"
+  ],
+  "tags": [],
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "aquilan-shield",
+  "name": "Aquilan Shield",
+  "faction_id": "adeptus-custodes",
+  "detachment_rule_id": "gilded-guardians-aquilan-shield",
+  "enhancement_ids": [
+   "not-a-shell-wasted-aquilan-shield",
+   "pareldors-caducatrix-aquilan-shield"
+  ],
+  "stratagem_ids": [
+   "rapid-reactions-aquilan-shield",
+   "manoeuvre-and-fire-aquilan-shield",
+   "tip-of-the-talon-aquilan-shield"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "take-and-hold"
+  ],
+  "tags": [],
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "grav-assault-force",
+  "name": "Grav-Assault Force",
+  "faction_id": "adeptus-custodes",
+  "detachment_rule_id": "flare-shields-grav-assault-force",
+  "enhancement_ids": [
+   "anti-gravitic-mobility-grav-assault-force",
+   "combat-deployment-grav-assault-force"
+  ],
+  "stratagem_ids": [
+   "advanced-stabilisers-grav-assault-force",
+   "victory-before-death-grav-assault-force",
+   "inevitable-annihilation-grav-assault-force"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "reconnaissance"
+  ],
+  "tags": [],
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "dread-host",
+  "name": "Dread Host",
+  "faction_id": "adeptus-custodes",
+  "detachment_rule_id": "instruments-of-the-emperors-wrath-dread-host",
+  "enhancement_ids": [
+   "flawless-bladework-dread-host",
+   "auric-exemplar-dread-host"
+  ],
+  "stratagem_ids": [
+   "golden-light-of-the-moiraides-dread-host",
+   "preternatural-rapidity-dread-host",
+   "lightning-wrath-dread-host"
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "detachment_points": 1,
+  "force_dispositions": [
+   "purge-the-foe"
+  ],
+  "tags": [],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "haloscreed-battle-clade",

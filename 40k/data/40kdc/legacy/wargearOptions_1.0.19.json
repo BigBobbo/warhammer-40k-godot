@@ -932,5 +932,323 @@
   "model_constraint": {
    "max_count": 1
   }
+ },
+ {
+  "id": "telemon-heavy-dreadnought-wgo-mfm-1",
+  "unit_id": "telemon-heavy-dreadnought",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "iliastus-accelerator-culverin",
+   "iliastus-accelerator-culverin",
+   "spiculus-bolt-launcher",
+   "armoured-feet"
+  ],
+  "replacement_choice": [
+   [
+    "twin-plasma-projector",
+    "twin-plasma-projector",
+    "telemon-caestus",
+    "telemon-caestus"
+   ],
+   [
+    "arachnus-storm-cannon",
+    "arachnus-storm-cannon"
+   ],
+   [
+    "arachnus-storm-cannon",
+    "telemon-caestus",
+    "twin-plasma-projector"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  }
+ },
+ {
+  "id": "telemon-heavy-dreadnought-wgo-mfm-2",
+  "unit_id": "telemon-heavy-dreadnought",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "iliastus-accelerator-culverin",
+   "spiculus-bolt-launcher",
+   "armoured-feet"
+  ],
+  "replacement_choice": [
+   [
+    "telemon-caestus",
+    "twin-plasma-projector"
+   ],
+   [
+    "arachnus-storm-cannon"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  }
+ },
+ {
+  "id": "contemptor-achillus-dreadnought-wgo-mfm-1",
+  "unit_id": "contemptor-achillus-dreadnought",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "lastrum-storm-bolter",
+   "achillus-dreadspear"
+  ],
+  "replacement_choice": [
+   [
+    "twin-adrathic-destructor"
+   ],
+   [
+    "infernus-incinerator"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  }
+ },
+ {
+  "id": "contemptor-achillus-dreadnought-wgo-mfm-2",
+  "unit_id": "contemptor-achillus-dreadnought",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "lastrum-storm-bolter",
+   "lastrum-storm-bolter",
+   "achillus-dreadspear"
+  ],
+  "replacement_choice": [
+   [
+    "infernus-incinerator",
+    "infernus-incinerator"
+   ],
+   [
+    "twin-adrathic-destructor",
+    "infernus-incinerator"
+   ],
+   [
+    "twin-adrathic-destructor",
+    "twin-adrathic-destructor"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  }
+ },
+ {
+  "id": "caladius-grav-tank-wgo-mfm-1",
+  "unit_id": "caladius-grav-tank",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "twin-iliastus-accelerator-cannon",
+   "twin-lastrum-bolt-cannon",
+   "armoured-hull"
+  ],
+  "replacement": [
+   "twin-arachnus-heavy-blaze-cannon"
+  ],
+  "model_constraint": {
+   "max_count": 1
+  }
+ },
+ {
+  "id": "allarus-custodians-wgo-mfm-1",
+  "unit_id": "allarus-custodians",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "balistus-grenade-launcher",
+   "guardian-spear"
+  ],
+  "replacement_choice": [
+   [
+    "castellan-axe"
+   ],
+   [
+    "misericordia"
+   ]
+  ],
+  "model_constraint": {
+   "any_number": true
+  }
+ },
+ {
+  "id": "shield-captain-on-dawneagle-jetbike-wgo-mfm-1",
+  "unit_id": "shield-captain-on-dawneagle-jetbike",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "salvo-launcher",
+   "interceptor-lance"
+  ],
+  "replacement": [
+   "vertus-hurricane-bolter"
+  ],
+  "model_constraint": {
+   "max_count": 1
+  }
+ },
+ {
+  "id": "knight-centura-wgo-mfm-1",
+  "unit_id": "knight-centura",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "executioner-greatblade-knight-centura"
+  ],
+  "replacement_choice": [
+   [
+    "master-crafted-boltgun",
+    "close-combat-weapon-knight-centura"
+   ],
+   [
+    "witchseeker-flamer",
+    "close-combat-weapon-knight-centura"
+   ]
+  ],
+  "model_constraint": {
+   "max_count": 1
+  }
+ },
+ {
+  "id": "anathema-psykana-rhino-wgo-mfm-1",
+  "unit_id": "anathema-psykana-rhino",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "storm-bolter",
+   "armoured-tracks"
+  ],
+  "replacement": [
+   "hunter-killer-missile"
+  ],
+  "model_constraint": {
+   "max_count": 1
+  }
+ },
+ {
+  "id": "custodian-wardens-wgo-mfm-1",
+  "unit_id": "custodian-wardens",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "guardian-spear"
+  ],
+  "replacement": [
+   "castellan-axe"
+  ],
+  "model_constraint": {
+   "any_number": true
+  }
+ },
+ {
+  "id": "vertus-praetors-wgo-mfm-1",
+  "unit_id": "vertus-praetors",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "salvo-launcher",
+   "interceptor-lance-vertus-praetors"
+  ],
+  "replacement": [
+   "vertus-hurricane-bolter"
+  ],
+  "model_constraint": {
+   "any_number": true
+  }
+ },
+ {
+  "id": "shield-captain-in-allarus-terminator-armour-wgo-mfm-1",
+  "unit_id": "shield-captain-in-allarus-terminator-armour",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "balistus-grenade-launcher",
+   "guardian-spear-shield-captain-in-allarus-terminator-armour"
+  ],
+  "replacement": [
+   "castellan-axe-shield-captain-in-allarus-terminator-armour"
+  ],
+  "model_constraint": {
+   "max_count": 1
+  }
+ },
+ {
+  "id": "shield-captain-wgo-mfm-1",
+  "unit_id": "shield-captain",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "guardian-spear-shield-captain"
+  ],
+  "replacement_choice": [
+   [
+    "castellan-axe-shield-captain"
+   ],
+   [
+    "pyrithite-spear-shield-captain"
+   ],
+   [
+    "sentinel-blade-shield-captain"
+   ]
+  ],
+  "model_constraint": {
+   "max_count": 1
+  }
  }
 ]

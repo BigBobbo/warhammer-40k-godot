@@ -19550,35 +19550,35 @@
   "faction_id": "adeptus-custodes",
   "profiles": [
    {
-    "name": "Telemon Heavy Dreadnought",
-    "M": 8,
-    "T": 10,
-    "W": 12,
+    "name": "Telemon Dreadnought",
+    "M": 10,
+    "T": 11,
+    "W": 14,
     "Sv": 2,
     "invuln_sv": 4,
-    "Ld": 6,
+    "Ld": 5,
     "OC": 4
    }
   ],
   "points": [
    {
     "models": 1,
-    "cost": 225,
+    "cost": 280,
     "unit_count_min": 1,
     "unit_count_max": 1
    },
    {
     "models": 1,
-    "cost": 245,
+    "cost": 310,
     "unit_count_min": 2,
     "unit_count_max": null
    }
   ],
   "keywords": [
    "Vehicle",
+   "Dreadnought",
    "Walker",
-   "Imperium",
-   "Telemon Heavy Dreadnought"
+   "Imperium"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
@@ -19592,21 +19592,23 @@
    "max": 1
   },
   "weapon_ids": [
+   "adrathic-desolator",
    "arachnus-storm-cannon",
-   "armoured-feet",
    "iliastus-accelerator-culverin",
    "spiculus-bolt-launcher",
-   "telemon-caestus",
-   "twin-plasma-projector"
+   "twin-neutronium-cascade-projectors",
+   "caestus-fist",
+   "dual-caestus-fists"
   ],
   "ability_ids": [
+   "damaged-5",
    "deadly-demise-d3",
-   "devoted-to-destruction",
+   "aegis-of-the-emperor",
    "guardian-eternal"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -19623,7 +19625,8 @@
     "namespace": "mfm",
     "id": "9648d234-c523-4d9d-baa4-84b921ca2add"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "contemptor-achillus-dreadnought",
@@ -19632,34 +19635,34 @@
   "profiles": [
    {
     "name": "Contemptor-Achillus Dreadnought",
-    "M": 6,
-    "T": 9,
-    "W": 10,
+    "M": 9,
+    "T": 10,
+    "W": 12,
     "Sv": 2,
     "invuln_sv": 5,
-    "Ld": 6,
+    "Ld": 5,
     "OC": 3
    }
   ],
   "points": [
    {
     "models": 1,
-    "cost": 155,
+    "cost": 230,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 170,
+    "cost": 260,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
+   "Dreadnought",
    "Vehicle",
    "Walker",
-   "Imperium",
-   "Contemptor-Achillus Dreadnought"
+   "Imperium"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
@@ -19673,18 +19676,20 @@
    "max": 1
   },
   "weapon_ids": [
-   "achillus-dreadspear",
-   "infernus-incinerator",
+   "adrathic-combi-destructor",
+   "dreadspear",
    "lastrum-storm-bolter",
-   "twin-adrathic-destructor"
+   "twin-infernus-incinerator"
   ],
   "ability_ids": [
-   "deadly-demise-1",
-   "dread-foe"
+   "damaged-4",
+   "deadly-demise-d3",
+   "aegis-of-the-emperor",
+   "unyielding-ancient"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -19701,7 +19706,8 @@
     "namespace": "mfm",
     "id": "4031c312-82d0-4f15-b41b-addf144d3035"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "contemptor-galatus-dreadnought",
@@ -19710,34 +19716,34 @@
   "profiles": [
    {
     "name": "Contemptor-Galatus Dreadnought",
-    "M": 6,
-    "T": 9,
-    "W": 10,
+    "M": 9,
+    "T": 10,
+    "W": 12,
     "Sv": 2,
     "invuln_sv": 4,
-    "Ld": 6,
+    "Ld": 5,
     "OC": 3
    }
   ],
   "points": [
    {
     "models": 1,
-    "cost": 165,
+    "cost": 220,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 180,
+    "cost": 250,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
+   "Dreadnought",
    "Vehicle",
    "Walker",
-   "Imperium",
-   "Contemptor-Galatus Dreadnought"
+   "Imperium"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
@@ -19751,15 +19757,17 @@
    "max": 1
   },
   "weapon_ids": [
-   "galatus-warblade"
+   "warblade"
   ],
   "ability_ids": [
-   "galatus-shield",
-   "deadly-demise-1"
+   "damaged-4",
+   "deadly-demise-d3",
+   "aegis-of-the-emperor",
+   "unyielding-ancient"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -19776,7 +19784,8 @@
     "namespace": "mfm",
     "id": "cb56eefe-2137-4e94-9f5b-5285b522d8dd"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "venerable-contemptor-dreadnought",
@@ -19864,34 +19873,33 @@
   "profiles": [
    {
     "name": "Blade Champion",
-    "M": 6,
-    "T": 6,
-    "W": 6,
+    "M": 8,
+    "T": 7,
+    "W": 7,
     "Sv": 2,
     "invuln_sv": 4,
-    "Ld": 6,
+    "Ld": 5,
     "OC": 2
    }
   ],
   "points": [
    {
     "models": 1,
-    "cost": 110,
+    "cost": 175,
     "unit_count_min": 1,
-    "unit_count_max": 1
+    "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 125,
-    "unit_count_min": 2,
+    "cost": 195,
+    "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
    "Character",
-   "Imperium",
-   "Blade Champion"
+   "Infantry",
+   "Imperium"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
@@ -19910,12 +19918,13 @@
   "ability_ids": [
    "deep-strike",
    "leader",
-   "martial-inspiration",
-   "swift-onslaught"
+   "aegis-of-the-emperor",
+   "swift-onslaught",
+   "sword-of-the-throne"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -19933,69 +19942,75 @@
     "namespace": "mfm",
     "id": "4b224ff9-7cb1-40c7-a759-d586c85b7595"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "caladius-grav-tank",
-  "name": "Caladius Grav-tank",
+  "name": "Caladius Grav-Tank",
   "faction_id": "adeptus-custodes",
   "profiles": [
    {
-    "name": "Caladius Grav-tank",
+    "name": "Caladius Grav-Tank",
     "M": 10,
     "T": 11,
     "W": 14,
     "Sv": 2,
     "invuln_sv": 5,
-    "Ld": 6,
+    "Ld": 5,
     "OC": 4
    }
   ],
   "points": [
    {
     "models": 1,
-    "cost": 210,
+    "cost": 230,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 225,
+    "cost": 260,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Vehicle",
    "Fly",
+   "Frame",
+   "Grav-assault",
    "Imperium",
-   "Caladius Grav-tank"
+   "Vehicle",
+   "Caladius"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
   ],
   "base_size_mm": {
    "shape": "oval",
-   "width": 170,
-   "length": 109
+   "width": 150,
+   "length": 95
   },
   "model_count": {
    "min": 1,
    "max": 1
   },
   "weapon_ids": [
-   "armoured-hull",
-   "twin-arachnus-heavy-blaze-cannon",
-   "twin-iliastus-accelerator-cannon",
-   "twin-lastrum-bolt-cannon"
+   "iliastus-accelerator-cannon",
+   "twin-lastrum-bolt-cannon",
+   "twin-neutronium-cascade-projectors",
+   "armoured-hull"
   ],
   "ability_ids": [
-   "advanced-firepower",
-   "deadly-demise-d3"
+   "damaged-5",
+   "deadly-demise-d3",
+   "deep-strike",
+   "aegis-of-the-emperor",
+   "destructor-optics"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -20018,7 +20033,8 @@
     "namespace": "mfm",
     "id": "48964ec8-ee6d-4489-a687-704e4afe0a8a"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "allarus-custodians",
@@ -20027,63 +20043,37 @@
   "profiles": [
    {
     "name": "Allarus Custodians",
-    "M": 5,
-    "T": 7,
-    "W": 4,
+    "M": 7,
+    "T": 8,
+    "W": 6,
     "Sv": 2,
     "invuln_sv": 4,
-    "Ld": 6,
+    "Ld": 5,
     "OC": 2
    }
   ],
   "points": [
    {
     "models": 2,
-    "cost": 110,
+    "cost": 180,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 3,
-    "cost": 165,
-    "unit_count_min": 1,
-    "unit_count_max": 2
-   },
-   {
-    "models": 4,
-    "models_max": 5,
-    "cost": 280,
-    "unit_count_min": 1,
-    "unit_count_max": 2
-   },
-   {
-    "models": 6,
-    "cost": 340,
+    "cost": 270,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 2,
-    "cost": 140,
+    "cost": 210,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
     "models": 3,
-    "cost": 195,
-    "unit_count_min": 3,
-    "unit_count_max": null
-   },
-   {
-    "models": 4,
-    "models_max": 5,
-    "cost": 310,
-    "unit_count_min": 3,
-    "unit_count_max": null
-   },
-   {
-    "models": 6,
-    "cost": 370,
+    "cost": 300,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -20091,8 +20081,7 @@
   "keywords": [
    "Infantry",
    "Terminator",
-   "Imperium",
-   "Allarus Custodians"
+   "Imperium"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
@@ -20103,23 +20092,22 @@
   },
   "model_count": {
    "min": 2,
-   "max": 6
+   "max": 3
   },
   "weapon_ids": [
    "balistus-grenade-launcher",
    "castellan-axe",
-   "guardian-spear",
-   "misericordia"
+   "guardian-spear"
   ],
   "ability_ids": [
-   "from-golden-light",
-   "slayers-of-tyrants",
-   "vexilla",
-   "deep-strike"
+   "deep-strike",
+   "aegis-of-the-emperor",
+   "slayer-of-tyrants",
+   "vexilla"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -20146,7 +20134,8 @@
     "namespace": "mfm",
     "id": "3a9e87a1-8a5f-4042-bbc5-191daf658762"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "shield-captain-on-dawneagle-jetbike",
@@ -20157,18 +20146,26 @@
    {
     "name": "Shield-Captain on Dawneagle Jetbike",
     "M": 12,
-    "T": 7,
-    "W": 8,
+    "T": 8,
+    "W": 10,
     "Sv": 2,
     "invuln_sv": 4,
-    "Ld": 6,
+    "Ld": 5,
     "OC": 2
    }
   ],
   "points": [
    {
     "models": 1,
-    "cost": 140
+    "cost": 205,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 225,
+    "unit_count_min": 2,
+    "unit_count_max": null
    }
   ],
   "keywords": [
@@ -20176,7 +20173,6 @@
    "Character",
    "Fly",
    "Imperium",
-   "Dawneagle Jetbike",
    "Shield-Captain"
   ],
   "faction_keywords": [
@@ -20192,18 +20188,21 @@
    "max": 1
   },
   "weapon_ids": [
-   "interceptor-lance",
+   "hurricane-bolter",
    "salvo-launcher",
-   "vertus-hurricane-bolter"
+   "interceptor-lance"
   ],
   "ability_ids": [
+   "deep-strike",
    "leader",
-   "strategic-mastery",
+   "aegis-of-the-emperor",
+   "aquila-commander",
+   "master-of-katahs",
    "sweeping-advance"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -20221,7 +20220,8 @@
     "namespace": "mfm",
     "id": "e6b0ca7e-f600-4910-a873-d1f087cc89ad"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "vigilators",
@@ -20484,11 +20484,10 @@
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Aircraft",
    "Fly",
    "Imperium",
-   "Ares Gunship"
+   "Aircraft",
+   "Vehicle"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
@@ -20508,12 +20507,13 @@
   ],
   "ability_ids": [
    "deadly-demise-d6",
-   "hover",
+   "damaged-7",
+   "aegis-of-the-emperor",
    "infernus-firebombs"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -20530,7 +20530,8 @@
     "namespace": "mfm",
     "id": "7320d30a-1c65-46df-86bf-ba946d99c370"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "custodian-guard",
@@ -20641,7 +20642,7 @@
   "profiles": [
    {
     "name": "Orion Assault Dropship",
-    "M": 20,
+    "M": 14,
     "T": 12,
     "W": 22,
     "Sv": 2,
@@ -20665,12 +20666,10 @@
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Transport",
-   "Aircraft",
-   "Fly",
    "Imperium",
-   "Orion Assault Dropship"
+   "Transport",
+   "Vehicle",
+   "Fly"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
@@ -20685,21 +20684,24 @@
   },
   "weapon_ids": [
    "arachnus-heavy-blaze-cannon",
-   "armoured-hull-orion-assault-dropship",
    "spiculus-heavy-bolt-launcher",
-   "twin-lastrum-bolt-cannon"
+   "twin-lastrum-bolt-cannon",
+   "armoured-hull-orion-assault-dropship"
   ],
   "ability_ids": [
-   "assault-dropship",
+   "damaged-7",
+   "deadly-demise-d6",
    "hover",
-   "deadly-demise-d6"
+   "aegis-of-the-emperor",
+   "assault-dropship"
   ],
   "transport_capacity": {
-   "capacity": 12
+   "capacity": 12,
+   "rules_text": "This model has a transport capacity of 12 Adeptus Custodes Infantry models. Or 1 Dreadnought models. While transporting 1 DREADNOUGHT unit, this unit also has a transport capacity of 6 ADEPTUS CUSTODES INFANTRY models."
   },
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -20716,7 +20718,8 @@
     "namespace": "mfm",
     "id": "63d685f3-93f9-48a3-abeb-790758eef16c"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "knight-centura",
@@ -20726,7 +20729,7 @@
   "profiles": [
    {
     "name": "Knight-Centura",
-    "M": 6,
+    "M": 7,
     "T": 3,
     "W": 4,
     "Sv": 3,
@@ -20742,13 +20745,12 @@
    }
   ],
   "keywords": [
-   "Infantry",
    "Character",
-   "Imperium",
-   "Anathema Psykana",
-   "Knight-Centura"
+   "Infantry",
+   "Imperium"
   ],
   "faction_keywords": [
+   "Anathema Psykana",
    "Adeptus Custodes"
   ],
   "base_size_mm": {
@@ -20760,21 +20762,21 @@
    "max": 1
   },
   "weapon_ids": [
-   "close-combat-weapon-knight-centura",
-   "executioner-greatblade-knight-centura",
    "master-crafted-boltgun",
-   "witchseeker-flamer"
+   "master-crafted-flamer",
+   "executioner-greatblade-knight-centura",
+   "gun-stock"
   ],
   "ability_ids": [
-   "corner-the-quarry",
-   "daughter-of-the-abyss",
-   "leader",
+   "scouts-7",
+   "support",
+   "daughters-of-the-abyss",
    "seeker-s-instincts",
-   "scouts-6"
+   "corner-the-quarry"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -20792,7 +20794,8 @@
     "namespace": "mfm",
     "id": "36049330-7004-46c8-8eed-8c800b2cdf95"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "anathema-psykana-rhino",
@@ -20806,7 +20809,6 @@
     "T": 9,
     "W": 10,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 6,
     "OC": 2
    }
@@ -20814,27 +20816,27 @@
   "points": [
    {
     "models": 1,
-    "cost": 65,
+    "cost": 70,
     "unit_count_min": 1,
     "unit_count_max": 3
    },
    {
     "models": 1,
-    "cost": 75,
+    "cost": 80,
     "unit_count_min": 4,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Vehicle",
    "Transport",
-   "Dedicated Transport",
    "Smoke",
-   "Imperium",
-   "Anathema Psykana",
-   "Rhino"
+   "Frame",
+   "Vehicle",
+   "Dedicated Transport",
+   "Imperium"
   ],
   "faction_keywords": [
+   "Anathema Psykana",
    "Adeptus Custodes"
   ],
   "base_size_mm": {
@@ -20846,21 +20848,23 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-tracks",
    "hunter-killer-missile",
-   "storm-bolter"
+   "storm-bolter",
+   "armoured-tracks"
   ],
   "ability_ids": [
+   "deadly-demise-d3",
    "firing-deck-2",
-   "self-repair",
-   "deadly-demise-d3"
+   "daughters-of-the-abyss",
+   "assault-vehicle"
   ],
   "transport_capacity": {
-   "capacity": 12
+   "capacity": 12,
+   "rules_text": "This model has a transport capacity of 12 Anathema Psykana Infantry models."
   },
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -20877,7 +20881,8 @@
     "namespace": "mfm",
     "id": "6b53c94b-7a62-4b9e-8ff8-5b8b6deb12a3"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "aleya",
@@ -21120,37 +21125,37 @@
   "profiles": [
    {
     "name": "Custodian Wardens",
-    "M": 6,
-    "T": 6,
-    "W": 3,
+    "M": 8,
+    "T": 7,
+    "W": 6,
     "Sv": 2,
     "invuln_sv": 4,
-    "Ld": 6,
+    "Ld": 5,
     "OC": 2
    }
   ],
   "points": [
    {
-    "models": 4,
+    "models": 2,
     "cost": 200,
     "unit_count_min": 1,
     "unit_count_max": 1
    },
    {
-    "models": 5,
-    "cost": 250,
+    "models": 3,
+    "cost": 295,
     "unit_count_min": 1,
     "unit_count_max": 1
    },
    {
-    "models": 4,
-    "cost": 220,
+    "models": 2,
+    "cost": 230,
     "unit_count_min": 2,
     "unit_count_max": null
    },
    {
-    "models": 5,
-    "cost": 270,
+    "models": 3,
+    "cost": 325,
     "unit_count_min": 2,
     "unit_count_max": null
    }
@@ -21158,7 +21163,7 @@
   "keywords": [
    "Infantry",
    "Imperium",
-   "Custodian Wardens"
+   "Trusted Sentinel"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
@@ -21168,21 +21173,22 @@
    "diameter": 40
   },
   "model_count": {
-   "min": 4,
-   "max": 5
+   "min": 2,
+   "max": 3
   },
   "weapon_ids": [
    "castellan-axe",
    "guardian-spear"
   ],
   "ability_ids": [
+   "deep-strike",
+   "aegis-of-the-emperor",
    "living-fortress",
-   "resolute-will",
-   "deep-strike"
+   "vexilla"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -21208,35 +21214,37 @@
     "namespace": "mfm",
     "id": "7f7c2b49-b51c-48ce-aef9-26b1aed37b13"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "pallas-grav-attack",
-  "name": "Pallas Grav-attack",
+  "name": "Pallas Grav-Attack",
   "faction_id": "adeptus-custodes",
   "profiles": [
    {
     "name": "Pallas Grav-attack",
     "M": 12,
-    "T": 8,
-    "W": 9,
+    "T": 9,
+    "W": 10,
     "Sv": 2,
     "invuln_sv": 5,
-    "Ld": 6,
+    "Ld": 5,
     "OC": 2
    }
   ],
   "points": [
    {
     "models": 1,
-    "cost": 100
+    "cost": 135
    }
   ],
   "keywords": [
    "Vehicle",
-   "Fly",
+   "Grav-assault",
    "Imperium",
-   "Pallas Grav-attack"
+   "Fly",
+   "Frame"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
@@ -21251,16 +21259,19 @@
    "max": 1
   },
   "weapon_ids": [
-   "armoured-hull-pallas-grav-attack",
-   "twin-arachnus-blaze-cannon"
+   "twin-arachnus-blaze-cannon",
+   "twin-iliastus-accelerator-fusil",
+   "armoured-hull-pallas-grav-attack"
   ],
   "ability_ids": [
-   "merciless-hunter",
-   "deadly-demise-d3"
+   "deadly-demise-1",
+   "deep-strike",
+   "aegis-of-the-emperor",
+   "mobile-hunter"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -21277,7 +21288,8 @@
     "namespace": "mfm",
     "id": "b2ed74f8-9a09-4a8b-bff0-8626279f255d"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "vertus-praetors",
@@ -21287,45 +21299,44 @@
    {
     "name": "Vertus Praetors",
     "M": 12,
-    "T": 7,
-    "W": 5,
+    "T": 8,
+    "W": 7,
     "Sv": 2,
     "invuln_sv": 4,
-    "Ld": 6,
+    "Ld": 5,
     "OC": 2
    }
   ],
   "points": [
    {
     "models": 2,
-    "cost": 145,
+    "cost": 220,
     "unit_count_min": 1,
-    "unit_count_max": 2
+    "unit_count_max": 1
    },
    {
     "models": 3,
-    "cost": 215,
+    "cost": 330,
     "unit_count_min": 1,
-    "unit_count_max": 2
+    "unit_count_max": 1
    },
    {
     "models": 2,
-    "cost": 170,
-    "unit_count_min": 3,
+    "cost": 240,
+    "unit_count_min": 2,
     "unit_count_max": null
    },
    {
     "models": 3,
-    "cost": 240,
-    "unit_count_min": 3,
+    "cost": 350,
+    "unit_count_min": 2,
     "unit_count_max": null
    }
   ],
   "keywords": [
    "Mounted",
    "Fly",
-   "Imperium",
-   "Vertus Praetors"
+   "Imperium"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
@@ -21340,16 +21351,18 @@
    "max": 3
   },
   "weapon_ids": [
-   "interceptor-lance-vertus-praetors",
+   "hurricane-bolter",
    "salvo-launcher",
-   "vertus-hurricane-bolter"
+   "interceptor-lance-vertus-praetors"
   ],
   "ability_ids": [
+   "deep-strike",
+   "aegis-of-the-emperor",
    "quicksilver-execution"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -21366,7 +21379,8 @@
     "namespace": "mfm",
     "id": "a4b9670e-d176-4df7-a9c5-53c2ea3a31ab"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "valerian",
@@ -21550,27 +21564,35 @@
   "profiles": [
    {
     "name": "Shield-Captain in Allarus Terminator Armour",
-    "M": 5,
-    "T": 7,
-    "W": 7,
+    "M": 7,
+    "T": 8,
+    "W": 9,
     "Sv": 2,
     "invuln_sv": 4,
-    "Ld": 6,
+    "Ld": 5,
     "OC": 2
    }
   ],
   "points": [
    {
     "models": 1,
-    "cost": 130
+    "cost": 185,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 205,
+    "unit_count_min": 2,
+    "unit_count_max": null
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
+   "Shield-Captain",
    "Terminator",
    "Imperium",
-   "Shield-Captain"
+   "Infantry",
+   "Character"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
@@ -21589,13 +21611,16 @@
    "guardian-spear-shield-captain-in-allarus-terminator-armour"
   ],
   "ability_ids": [
-   "auramite-and-adamantine",
+   "deep-strike",
    "leader",
-   "deep-strike"
+   "aegis-of-the-emperor",
+   "aquila-commander",
+   "master-of-katahs",
+   "archeotech-teleport-shunter"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -21613,7 +21638,8 @@
     "namespace": "mfm",
     "id": "d57478e4-2c7b-42ad-9b58-20c9bd32de4f"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "aquilon-custodians",
@@ -21769,68 +21795,78 @@
  },
  {
   "id": "coronus-grav-carrier",
-  "name": "Coronus Grav-carrier",
+  "name": "Coronus Grav-Carrier",
   "faction_id": "adeptus-custodes",
   "profiles": [
    {
-    "name": "Coronus Grav-carrier",
+    "name": "Coronus Grav-Carrier",
     "M": 12,
     "T": 12,
     "W": 16,
     "Sv": 2,
     "invuln_sv": 5,
-    "Ld": 6,
+    "Ld": 5,
     "OC": 5
    }
   ],
   "points": [
    {
     "models": 1,
-    "cost": 180,
+    "cost": 225,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 200,
+    "cost": 245,
     "unit_count_min": 3,
     "unit_count_max": null
    }
   ],
   "keywords": [
-   "Vehicle",
-   "Transport",
    "Fly",
+   "Frame",
+   "Grav-assault",
    "Imperium",
-   "Coronus Grav-carrier"
+   "Transport",
+   "Vehicle"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
   ],
   "base_size_mm": {
    "shape": "oval",
-   "width": 170,
-   "length": 109
+   "width": 150,
+   "length": 95
   },
   "model_count": {
    "min": 1,
    "max": 1
   },
   "weapon_ids": [
-   "armoured-hull-coronus-grav-carrier",
    "twin-arachnus-blaze-cannon",
-   "twin-lastrum-bolt-cannon"
+   "twin-lastrum-bolt-cannon",
+   "twin-neutronium-cascade-projectors",
+   "armoured-hull-coronus-grav-carrier"
   ],
   "ability_ids": [
-   "fire-support",
-   "deadly-demise-d6"
+   "damaged-6",
+   "deadly-demise-d6",
+   "deep-strike",
+   "aegis-of-the-emperor",
+   "repulsor-suspensor-technology",
+   "assault-vehicle"
   ],
   "transport_capacity": {
-   "capacity": 8
+   "capacity": 8,
+   "rules_text": "This model has a transport capacity of 8 Adeptus Custodes Infantry models. It cannot transport Jump Pack models.",
+   "exclusion_keywords": [
+    "Jump Pack"
+   ]
   },
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -21847,7 +21883,8 @@
     "namespace": "mfm",
     "id": "93ef1198-87f0-452f-b0ed-55cfb91d6fce"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "prosecutors",
@@ -21943,26 +21980,34 @@
   "profiles": [
    {
     "name": "Shield-Captain",
-    "M": 6,
-    "T": 6,
-    "W": 6,
+    "M": 8,
+    "T": 7,
+    "W": 8,
     "Sv": 2,
     "invuln_sv": 4,
-    "Ld": 6,
+    "Ld": 5,
     "OC": 2
    }
   ],
   "points": [
    {
     "models": 1,
-    "cost": 110
+    "cost": 180,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 1,
+    "cost": 200,
+    "unit_count_min": 2,
+    "unit_count_max": null
    }
   ],
   "keywords": [
+   "Shield-Captain",
    "Infantry",
-   "Character",
    "Imperium",
-   "Shield-Captain"
+   "Character"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
@@ -21979,16 +22024,20 @@
    "castellan-axe-shield-captain",
    "guardian-spear-shield-captain",
    "pyrithite-spear-shield-captain",
-   "sentinel-blade-shield-captain"
+   "eternity-pattern-paragon-blade"
   ],
   "ability_ids": [
+   "deep-strike",
    "leader",
-   "master-of-the-stances",
-   "deep-strike"
+   "aquila-commander",
+   "aegis-of-the-emperor",
+   "master-of-katahs",
+   "vengeful-surge",
+   "praesidium-shield"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -22006,7 +22055,14 @@
     "namespace": "mfm",
     "id": "ee075c03-bc58-414d-8124-32feba88554b"
    }
-  ]
+  ],
+  "wargear_points": [
+   {
+    "name": "Praesidium Shield",
+    "cost": 25
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "trajann-valoris",
@@ -22016,9 +22072,9 @@
   "profiles": [
    {
     "name": "Trajann Valoris",
-    "M": 6,
-    "T": 6,
-    "W": 7,
+    "M": 8,
+    "T": 7,
+    "W": 10,
     "Sv": 2,
     "invuln_sv": 4,
     "Ld": 5,
@@ -22028,15 +22084,14 @@
   "points": [
    {
     "models": 1,
-    "cost": 135
+    "cost": 265
    }
   ],
   "keywords": [
-   "Infantry",
-   "Character",
-   "Epic Hero",
    "Imperium",
-   "Trajann Valoris"
+   "Epic Hero",
+   "Character",
+   "Infantry"
   ],
   "faction_keywords": [
    "Adeptus Custodes"
@@ -22054,16 +22109,18 @@
    "watchers-axe"
   ],
   "ability_ids": [
-   "captain-general",
-   "leader",
-   "moment-shackle",
-   "supreme-commander",
    "deep-strike",
-   "feel-no-pain-5"
+   "feel-no-pain-5",
+   "leader",
+   "aegis-of-the-emperor",
+   "aquila-commander",
+   "captain-general",
+   "moment-shackle",
+   "supreme-commander"
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_legend": false,
   "points_provisional": false,
@@ -22081,7 +22138,8 @@
     "namespace": "mfm",
     "id": "3eede144-e2a5-4806-8f4c-0716c5803a55"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "gilded-blades-allarus-custodians",
@@ -22333,6 +22391,730 @@
     "id": "7938debf-5a7f-4aaa-8364-5a507b382091"
    }
   ]
+ },
+ {
+  "id": "custodian-guard-sodality",
+  "name": "Custodian Guard Sodality",
+  "faction_id": "adeptus-custodes",
+  "role": "battleline",
+  "profiles": [
+   {
+    "name": "Custodian Guard",
+    "M": 8,
+    "T": 7,
+    "W": 5,
+    "Sv": 2,
+    "invuln_sv": 4,
+    "Ld": 5,
+    "OC": 3
+   }
+  ],
+  "points": [
+   {
+    "models": 3,
+    "cost": 240,
+    "unit_count_min": 1,
+    "unit_count_max": 3
+   },
+   {
+    "models": 3,
+    "cost": 270,
+    "unit_count_min": 4,
+    "unit_count_max": null
+   }
+  ],
+  "keywords": [
+   "Infantry",
+   "Battleline",
+   "Imperium",
+   "Trusted Sentinel"
+  ],
+  "faction_keywords": [
+   "Adeptus Custodes"
+  ],
+  "base_size_mm": {
+   "shape": "round",
+   "diameter": 40
+  },
+  "model_count": {
+   "min": 3,
+   "max": 3
+  },
+  "weapon_ids": [
+   "guardian-spear"
+  ],
+  "ability_ids": [
+   "deep-strike",
+   "aegis-of-the-emperor",
+   "impenetrable-defence",
+   "vexilla"
+  ],
+  "is_legend": false,
+  "points_provisional": false,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "prosecutor-squad",
+  "name": "Prosecutor Squad",
+  "faction_id": "adeptus-custodes",
+  "profiles": [
+   {
+    "name": "Prosecutors",
+    "M": 7,
+    "T": 3,
+    "W": 1,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 2
+   }
+  ],
+  "points": [
+   {
+    "models": 4,
+    "cost": 45
+   },
+   {
+    "models": 5,
+    "cost": 50
+   },
+   {
+    "models": 9,
+    "cost": 80
+   },
+   {
+    "models": 10,
+    "cost": 90
+   }
+  ],
+  "keywords": [
+   "Infantry",
+   "Imperium"
+  ],
+  "faction_keywords": [
+   "Anathema Psykana",
+   "Adeptus Custodes"
+  ],
+  "base_size_mm": {
+   "shape": "round",
+   "diameter": 32
+  },
+  "model_count": {
+   "min": 4,
+   "max": 10
+  },
+  "weapon_ids": [
+   "boltgun",
+   "gun-stock-prosecutor-squad"
+  ],
+  "ability_ids": [
+   "daughters-of-the-abyss",
+   "purity-of-execution"
+  ],
+  "is_legend": false,
+  "points_provisional": false,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "venatari-with-verutum-lances",
+  "name": "Venatari with Verutum Lances",
+  "faction_id": "adeptus-custodes",
+  "profiles": [
+   {
+    "name": "Venatari",
+    "M": 12,
+    "T": 7,
+    "W": 5,
+    "Sv": 2,
+    "invuln_sv": 4,
+    "Ld": 5,
+    "OC": 2
+   }
+  ],
+  "points": [
+   {
+    "models": 3,
+    "cost": 270,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 300,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   }
+  ],
+  "keywords": [
+   "Fly",
+   "Imperium",
+   "Jump Pack",
+   "Infantry",
+   "Explosives"
+  ],
+  "faction_keywords": [
+   "Adeptus Custodes"
+  ],
+  "base_size_mm": {
+   "shape": "round",
+   "diameter": 40
+  },
+  "model_count": {
+   "min": 3,
+   "max": 3
+  },
+  "weapon_ids": [
+   "verutum-lance"
+  ],
+  "ability_ids": [
+   "deep-strike",
+   "aegis-of-the-emperor",
+   "take-wing",
+   "neutronium-cascade-mine",
+   "swift-ruin"
+  ],
+  "is_legend": false,
+  "points_provisional": false,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "aquilon-terminators-with-solarite-power-gauntlets",
+  "name": "Aquilon Terminators with Solarite Power Gauntlets",
+  "faction_id": "adeptus-custodes",
+  "profiles": [
+   {
+    "name": "Aquilon Custodians",
+    "M": 7,
+    "T": 8,
+    "W": 6,
+    "Sv": 2,
+    "invuln_sv": 4,
+    "Ld": 5,
+    "OC": 2
+   }
+  ],
+  "points": [
+   {
+    "models": 3,
+    "cost": 285,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 315,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   }
+  ],
+  "keywords": [
+   "Infantry",
+   "Imperium",
+   "Terminator"
+  ],
+  "faction_keywords": [
+   "Adeptus Custodes"
+  ],
+  "base_size_mm": {
+   "shape": "round",
+   "diameter": 40
+  },
+  "model_count": {
+   "min": 3,
+   "max": 3
+  },
+  "weapon_ids": [
+   "adrathic-combi-destructor",
+   "solarite-power-gauntlet"
+  ],
+  "ability_ids": [
+   "deep-strike",
+   "aegis-of-the-emperor",
+   "dread-foe"
+  ],
+  "is_legend": false,
+  "points_provisional": false,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "sentinel-guard-sodality",
+  "name": "Sentinel Guard Sodality",
+  "faction_id": "adeptus-custodes",
+  "role": "battleline",
+  "profiles": [
+   {
+    "name": "Custodian Guard",
+    "M": 8,
+    "T": 7,
+    "W": 5,
+    "Sv": 2,
+    "invuln_sv": 4,
+    "Ld": 5,
+    "OC": 3
+   }
+  ],
+  "points": [
+   {
+    "models": 3,
+    "cost": 240,
+    "unit_count_min": 1,
+    "unit_count_max": 3
+   },
+   {
+    "models": 3,
+    "cost": 270,
+    "unit_count_min": 4,
+    "unit_count_max": null
+   }
+  ],
+  "keywords": [
+   "Infantry",
+   "Battleline",
+   "Imperium",
+   "Trusted Sentinel"
+  ],
+  "faction_keywords": [
+   "Adeptus Custodes"
+  ],
+  "base_size_mm": {
+   "shape": "round",
+   "diameter": 40
+  },
+  "model_count": {
+   "min": 3,
+   "max": 3
+  },
+  "weapon_ids": [
+   "sentinel-blade"
+  ],
+  "ability_ids": [
+   "deep-strike",
+   "aegis-of-the-emperor",
+   "stand-vigil",
+   "praesidium-shield-sentinel-guard-sodality",
+   "vexilla"
+  ],
+  "is_legend": false,
+  "points_provisional": false,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "witchseeker-squad",
+  "name": "Witchseeker Squad",
+  "faction_id": "adeptus-custodes",
+  "profiles": [
+   {
+    "name": "Witchseekers",
+    "M": 7,
+    "T": 3,
+    "W": 1,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 1
+   }
+  ],
+  "points": [
+   {
+    "models": 4,
+    "cost": 55
+   },
+   {
+    "models": 5,
+    "cost": 60
+   },
+   {
+    "models": 9,
+    "cost": 100
+   },
+   {
+    "models": 10,
+    "cost": 110
+   }
+  ],
+  "keywords": [
+   "Infantry",
+   "Imperium"
+  ],
+  "faction_keywords": [
+   "Adeptus Custodes",
+   "Anathema Psykana"
+  ],
+  "base_size_mm": {
+   "shape": "round",
+   "diameter": 32
+  },
+  "model_count": {
+   "min": 4,
+   "max": 10
+  },
+  "weapon_ids": [
+   "flamer",
+   "gun-stock-witchseeker-squad"
+  ],
+  "ability_ids": [
+   "scouts-7",
+   "daughters-of-the-abyss",
+   "sanctified-flames"
+  ],
+  "is_legend": false,
+  "points_provisional": false,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "gyrfalcon-jetbike-sodality",
+  "name": "Gyrfalcon Jetbike Sodality",
+  "faction_id": "adeptus-custodes",
+  "profiles": [
+   {
+    "name": "Agamatus Custodians",
+    "M": 12,
+    "T": 8,
+    "W": 9,
+    "Sv": 2,
+    "invuln_sv": 4,
+    "Ld": 5,
+    "OC": 2
+   }
+  ],
+  "points": [
+   {
+    "models": 2,
+    "cost": 260,
+    "unit_count_min": 1,
+    "unit_count_max": 1
+   },
+   {
+    "models": 2,
+    "cost": 280,
+    "unit_count_min": 2,
+    "unit_count_max": null
+   }
+  ],
+  "keywords": [
+   "Mounted",
+   "Fly",
+   "Imperium"
+  ],
+  "faction_keywords": [
+   "Adeptus Custodes"
+  ],
+  "base_size_mm": {
+   "shape": "oval",
+   "width": 75,
+   "length": 42
+  },
+  "model_count": {
+   "min": 2,
+   "max": 2
+  },
+  "weapon_ids": [
+   "adrathic-devastator",
+   "arachnus-volley-cannon",
+   "lastrum-bolt-cannon",
+   "twin-corvae-las-pulser",
+   "solarite-power-lance"
+  ],
+  "ability_ids": [
+   "deep-strike",
+   "aegis-of-the-emperor",
+   "death-blow"
+  ],
+  "is_legend": false,
+  "points_provisional": false,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "vigilator-squad",
+  "name": "Vigilator Squad",
+  "faction_id": "adeptus-custodes",
+  "profiles": [
+   {
+    "name": "Vigilators",
+    "M": 7,
+    "T": 3,
+    "W": 1,
+    "Sv": 3,
+    "Ld": 6,
+    "OC": 1
+   }
+  ],
+  "points": [
+   {
+    "models": 4,
+    "cost": 50
+   },
+   {
+    "models": 5,
+    "cost": 55
+   },
+   {
+    "models": 9,
+    "cost": 90
+   },
+   {
+    "models": 10,
+    "cost": 100
+   }
+  ],
+  "keywords": [
+   "Infantry",
+   "Imperium"
+  ],
+  "faction_keywords": [
+   "Adeptus Custodes",
+   "Anathema Psykana"
+  ],
+  "base_size_mm": {
+   "shape": "round",
+   "diameter": 32
+  },
+  "model_count": {
+   "min": 4,
+   "max": 10
+  },
+  "weapon_ids": [
+   "executioner-greatblade"
+  ],
+  "ability_ids": [
+   "daughters-of-the-abyss",
+   "deft-parry"
+  ],
+  "is_legend": false,
+  "points_provisional": false,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "aquilon-terminators-with-solarite-power-talons",
+  "name": "Aquilon Terminators with Solarite Power Talons",
+  "faction_id": "adeptus-custodes",
+  "profiles": [
+   {
+    "name": "Aquilon Custodians",
+    "M": 7,
+    "T": 8,
+    "W": 6,
+    "Sv": 2,
+    "invuln_sv": 4,
+    "Ld": 5,
+    "OC": 2
+   }
+  ],
+  "points": [
+   {
+    "models": 3,
+    "cost": 275,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 305,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   }
+  ],
+  "keywords": [
+   "Infantry",
+   "Imperium",
+   "Terminator"
+  ],
+  "faction_keywords": [
+   "Adeptus Custodes"
+  ],
+  "base_size_mm": {
+   "shape": "round",
+   "diameter": 40
+  },
+  "model_count": {
+   "min": 3,
+   "max": 3
+  },
+  "weapon_ids": [
+   "infernus-firepike",
+   "lastrum-storm-bolter",
+   "solarite-power-talon"
+  ],
+  "ability_ids": [
+   "deep-strike",
+   "aegis-of-the-emperor",
+   "reap-a-terrible-tally"
+  ],
+  "is_legend": false,
+  "points_provisional": false,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "caladius-annihilator-grav-tank",
+  "name": "Caladius Annihilator Grav-Tank",
+  "faction_id": "adeptus-custodes",
+  "profiles": [
+   {
+    "name": "Caladius Annihilator Grav Tank",
+    "M": 10,
+    "T": 11,
+    "W": 14,
+    "Sv": 2,
+    "invuln_sv": 5,
+    "Ld": 5,
+    "OC": 4
+   }
+  ],
+  "points": [
+   {
+    "models": 1,
+    "cost": 250,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 1,
+    "cost": 280,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   }
+  ],
+  "keywords": [
+   "Vehicle",
+   "Caladius",
+   "Fly",
+   "Frame",
+   "Grav-assault",
+   "Imperium"
+  ],
+  "faction_keywords": [
+   "Adeptus Custodes"
+  ],
+  "base_size_mm": {
+   "shape": "oval",
+   "width": 150,
+   "length": 95
+  },
+  "model_count": {
+   "min": 1,
+   "max": 1
+  },
+  "weapon_ids": [
+   "arachnus-blaze-carronade",
+   "twin-lastrum-bolt-cannon",
+   "twin-neutronium-cascade-projectors",
+   "armoured-hull"
+  ],
+  "ability_ids": [
+   "damaged-5",
+   "deadly-demise-d3",
+   "deep-strike",
+   "aegis-of-the-emperor",
+   "advanced-firepower"
+  ],
+  "is_legend": false,
+  "points_provisional": false,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "venatari-with-kinetic-destroyers",
+  "name": "Venatari with Kinetic Destroyers",
+  "faction_id": "adeptus-custodes",
+  "profiles": [
+   {
+    "name": "Venatari",
+    "M": 12,
+    "T": 7,
+    "W": 5,
+    "Sv": 2,
+    "invuln_sv": 4,
+    "Ld": 5,
+    "OC": 2
+   }
+  ],
+  "points": [
+   {
+    "models": 3,
+    "cost": 255,
+    "unit_count_min": 1,
+    "unit_count_max": 2
+   },
+   {
+    "models": 3,
+    "cost": 280,
+    "unit_count_min": 3,
+    "unit_count_max": null
+   }
+  ],
+  "keywords": [
+   "Infantry",
+   "Explosives",
+   "Fly",
+   "Imperium",
+   "Jump Pack"
+  ],
+  "faction_keywords": [
+   "Adeptus Custodes"
+  ],
+  "base_size_mm": {
+   "shape": "round",
+   "diameter": 40
+  },
+  "model_count": {
+   "min": 3,
+   "max": 3
+  },
+  "weapon_ids": [
+   "kinetic-destroyer",
+   "tarsus-buckler"
+  ],
+  "ability_ids": [
+   "deep-strike",
+   "aegis-of-the-emperor",
+   "take-wing",
+   "neutronium-cascade-mine",
+   "strike-from-the-skies"
+  ],
+  "is_legend": false,
+  "points_provisional": false,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "archaeopter-stratoraptor",
@@ -72826,7 +73608,6 @@
     "T": 13,
     "W": 30,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 12
    }
@@ -72834,13 +73615,13 @@
   "points": [
    {
     "models": 1,
-    "cost": 440,
+    "cost": 500,
     "unit_count_min": 1,
     "unit_count_max": 1
    },
    {
     "models": 1,
-    "cost": 490,
+    "cost": 600,
     "unit_count_min": 2,
     "unit_count_max": null
    }
@@ -72869,10 +73650,11 @@
    "supa-kannon"
   ],
   "ability_ids": [
-   "firing-deck-20",
-   "gargantuan",
-   "walking-bastion",
-   "deadly-demise-2d6"
+   "deadly-demise-2d6",
+   "firing-deck-11",
+   "damaged-10",
+   "super-heavy-walker",
+   "walking-bastion"
   ],
   "transport_capacity": {
    "capacity": 20
@@ -72896,7 +73678,8 @@
     "namespace": "mfm",
     "id": "85400667-20b1-4a24-ac2b-ce42c3101749"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "ardmob-boyz",
@@ -73243,7 +74026,6 @@
     "T": 5,
     "W": 4,
     "Sv": 5,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 1
    }
@@ -73251,7 +74033,7 @@
   "points": [
    {
     "models": 1,
-    "cost": 65
+    "cost": 60
    }
   ],
   "keywords": [
@@ -73276,8 +74058,11 @@
    "copper-staff"
   ],
   "ability_ids": [
-   "da-jump-psychic",
+   "deadly-demise-d3",
+   "support",
+   "unstable-energies",
    "waaagh-energy",
+   "da-jump-psychic",
    "warpath-psychic-weirdboy"
   ],
   "game_version": {
@@ -73300,7 +74085,8 @@
     "namespace": "mfm",
     "id": "7691a766-172f-4011-807d-a9af6f9d7ceb"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "warbikers",
@@ -73326,6 +74112,16 @@
     "invuln_sv": 6,
     "Ld": 7,
     "OC": 2
+   },
+   {
+    "name": "Biker Nob",
+    "M": 12,
+    "T": 6,
+    "W": 4,
+    "Sv": 4,
+    "invuln_sv": 6,
+    "Ld": 7,
+    "OC": 2
    }
   ],
   "points": [
@@ -73334,8 +74130,7 @@
     "cost": 75
    },
    {
-    "models": 4,
-    "models_max": 6,
+    "models": 6,
     "cost": 140
    }
   ],
@@ -73363,10 +74158,12 @@
    "close-combat-weapon",
    "power-klaw",
    "slugga",
-   "twin-dakkagun"
+   "twin-dakkagun",
+   "dual-kombi-rokkit",
+   "dual-dakkagun",
+   "kustom-choppa-warbikers"
   ],
   "ability_ids": [
-   "drive-by-dakka",
    "high-speed-carnage"
   ],
   "game_version": {
@@ -73374,7 +74171,8 @@
    "dataslate": "codex-orks"
   },
   "is_legend": false,
-  "points_provisional": false
+  "points_provisional": false,
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "deffkoptas",
@@ -73395,27 +74193,25 @@
   "points": [
    {
     "models": 3,
-    "cost": 80,
+    "cost": 85,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
-    "models": 4,
-    "models_max": 6,
-    "cost": 160,
+    "models": 6,
+    "cost": 170,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 3,
-    "cost": 90,
+    "cost": 95,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
-    "models": 4,
-    "models_max": 6,
-    "cost": 170,
+    "models": 6,
+    "cost": 180,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -73440,16 +74236,16 @@
    "max": 6
   },
   "weapon_ids": [
-   "kustom-mega-blasta",
+   "kustom-mega-blasta-deffkoptas",
    "slugga",
    "spinnin-blades",
-   "choppa",
-   "rokkit-launcha"
+   "choppa-deffkoptas",
+   "rokkit-launcha-deffkoptas"
   ],
   "ability_ids": [
-   "aerial-manoeuvres",
    "deep-strike",
-   "deff-from-above"
+   "deff-from-above",
+   "aerial-manoover"
   ],
   "game_version": {
    "edition": "11th",
@@ -73470,7 +74266,8 @@
     "namespace": "mfm",
     "id": "1502e293-1237-4c81-9cb4-d913ba23b246"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "painboy",
@@ -73484,7 +74281,6 @@
     "T": 5,
     "W": 3,
     "Sv": 5,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 1
    }
@@ -73516,11 +74312,9 @@
    "doks-toolz"
   ],
   "ability_ids": [
-   "cork-dat-red-bit",
+   "support",
    "crude-surgery",
-   "dok-s-toolz",
-   "grot-orderly",
-   "hold-still-and-say-aargh"
+   "catch-dat-red-bit"
   ],
   "game_version": {
    "edition": "11th",
@@ -73542,7 +74336,8 @@
     "namespace": "mfm",
     "id": "e5028623-8bef-4f11-9084-3fb20212307b"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "killa-kans",
@@ -73568,22 +74363,20 @@
     "unit_count_max": 2
    },
    {
-    "models": 4,
-    "models_max": 6,
-    "cost": 260,
+    "models": 6,
+    "cost": 275,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 3,
-    "cost": 150,
+    "cost": 170,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
-    "models": 4,
-    "models_max": 6,
-    "cost": 280,
+    "models": 6,
+    "cost": 315,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -73610,7 +74403,7 @@
    "kan-blasta"
   ],
   "ability_ids": [
-   "shooty-power-trip",
+   "deadly-demise-1",
    "spiteful-power-trip"
   ],
   "game_version": {
@@ -73632,7 +74425,8 @@
     "namespace": "mfm",
     "id": "f49b305a-f2eb-4a3c-a090-931958c6f53b"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-mek",
@@ -73646,7 +74440,6 @@
     "T": 5,
     "W": 6,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 1
    }
@@ -73654,13 +74447,13 @@
   "points": [
    {
     "models": 1,
-    "cost": 85,
+    "cost": 100,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 95,
+    "cost": 115,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -73690,6 +74483,7 @@
    "traktor-blasta"
   ],
   "ability_ids": [
+   "leader",
    "more-dakka",
    "shokk-boosta"
   ],
@@ -73713,7 +74507,8 @@
     "namespace": "mfm",
     "id": "f1b5d961-a505-4806-85b7-311b64fc8697"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "squighog-boyz",
@@ -73726,7 +74521,7 @@
     "T": 6,
     "W": 3,
     "Sv": 4,
-    "invuln_sv": null,
+    "invuln_sv": 6,
     "Ld": 7,
     "OC": 2
    },
@@ -73736,7 +74531,7 @@
     "T": 6,
     "W": 4,
     "Sv": 4,
-    "invuln_sv": null,
+    "invuln_sv": 6,
     "Ld": 7,
     "OC": 2
    }
@@ -73744,13 +74539,13 @@
   "points": [
    {
     "models": 4,
-    "cost": 140,
+    "cost": 130,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 8,
-    "cost": 280,
+    "cost": 260,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
@@ -73762,7 +74557,7 @@
    },
    {
     "models": 8,
-    "cost": 300,
+    "cost": 290,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -73795,9 +74590,7 @@
   ],
   "ability_ids": [
    "bomb-squig",
-   "bomb-squig-squighog-boyz",
-   "brutal-impact",
-   "wild-ride"
+   "brutal-impact"
   ],
   "game_version": {
    "edition": "11th",
@@ -73818,7 +74611,8 @@
     "namespace": "mfm",
     "id": "50c806c7-a2ee-45d1-916a-94984e19b06e"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "warboss-in-mega-armour",
@@ -73829,7 +74623,7 @@
    {
     "name": "Warboss in Mega Armour",
     "M": 5,
-    "T": 6,
+    "T": 7,
     "W": 7,
     "Sv": 2,
     "invuln_sv": 5,
@@ -73840,13 +74634,13 @@
   "points": [
    {
     "models": 1,
-    "cost": 125,
+    "cost": 115,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 140,
+    "cost": 130,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -73874,9 +74668,10 @@
    "uge-choppa"
   ],
   "ability_ids": [
-   "dead-brutal",
-   "intimidating-motivation",
-   "krushin-impetus"
+   "leader",
+   "da-boss",
+   "krushin-impetus",
+   "intimidating-motivation"
   ],
   "game_version": {
    "edition": "11th",
@@ -73898,7 +74693,8 @@
     "namespace": "mfm",
     "id": "8728a0a4-4d67-4cb4-bde1-02710547bf45"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "wazbom-blastajet",
@@ -73955,12 +74751,13 @@
    "armoured-impact",
    "dual-wazbom-mega-kannon",
    "dual-tellyport-mega-blasta",
-   "dual-supa-shoota"
+   "dual-supa-shoota-wazbom-blastajet"
   ],
   "ability_ids": [
-   "blastajet-attack-run",
-   "blastajet-force-field",
-   "go-fer-da-waz-spot"
+   "damaged-4",
+   "deadly-demise-d3",
+   "go-fer-da-weak-spot",
+   "blastajet-force-field"
   ],
   "game_version": {
    "edition": "11th",
@@ -73981,7 +74778,8 @@
     "namespace": "mfm",
     "id": "36dc2926-66df-4ea5-a02e-d4732617025f"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "battlewagon",
@@ -73991,7 +74789,7 @@
    {
     "name": "Battlewagon",
     "M": 10,
-    "T": 10,
+    "T": 11,
     "W": 16,
     "Sv": 3,
     "invuln_sv": 6,
@@ -74002,13 +74800,13 @@
   "points": [
    {
     "models": 1,
-    "cost": 150,
+    "cost": 160,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 160,
+    "cost": 180,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -74037,11 +74835,10 @@
    "crushin-bulk"
   ],
   "ability_ids": [
-   "ard-case",
+   "damaged-6",
    "deadly-demise-d6",
    "firing-deck-11",
-   "mobile-fortress",
-   "ramshackle-but-rugged"
+   "mobile-fortress"
   ],
   "transport_capacity": {
    "capacity": 22
@@ -74071,7 +74868,8 @@
     "namespace": "mfm",
     "id": "1c9d82f2-a0cd-4991-8653-e955460637b3"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "boss-snikrot",
@@ -74121,11 +74919,11 @@
   ],
   "ability_ids": [
    "infiltrators",
-   "kunnin-infiltrator",
+   "leader",
    "lone-operative",
-   "out-from-da-shadows",
-   "red-skull-kommandos",
-   "stealth"
+   "stealth",
+   "kunnin-infiltrator",
+   "deff-from-the-shadows"
   ],
   "game_version": {
    "edition": "11th",
@@ -74147,7 +74945,8 @@
     "namespace": "mfm",
     "id": "ca1b7913-c219-4acb-b6bb-a95e669c4ae5"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "morkanaut",
@@ -74156,10 +74955,10 @@
   "profiles": [
    {
     "name": "Morkanaut",
-    "M": 8,
+    "M": 9,
     "T": 12,
     "W": 20,
-    "Sv": 3,
+    "Sv": 2,
     "invuln_sv": 5,
     "Ld": 7,
     "OC": 8
@@ -74204,12 +75003,14 @@
    "kustom-mega-blasta",
    "kustom-mega-zappa",
    "rokkit-launcha-morkanaut",
-   "dual-big-shoota"
+   "dual-big-shoota-morkanaut"
   ],
   "ability_ids": [
-   "big-an-shooty",
-   "clankin-forward",
-   "gut-hatch"
+   "damaged-7",
+   "deadly-demise-d6",
+   "super-heavy-walker",
+   "gut-hatch",
+   "big-an-shooty"
   ],
   "transport_capacity": {
    "capacity": 12
@@ -74233,7 +75034,8 @@
     "namespace": "mfm",
     "id": "b3a5277b-0a65-47a7-925c-f7622cda3dd3"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "ghazghkull-thraka",
@@ -74255,7 +75057,7 @@
   "points": [
    {
     "models": 1,
-    "cost": 300
+    "cost": 290
    }
   ],
   "keywords": [
@@ -74283,6 +75085,7 @@
    "adamantine-eadbutt"
   ],
   "ability_ids": [
+   "da-boss",
    "da-grand-warlords-ladz",
    "makari-hoist-dat-banner",
    "prophet-of-da-great-waaagh",
@@ -74312,7 +75115,8 @@
     "namespace": "mfm",
     "id": "85197265-dcd6-4f1c-b699-cacba1b123c6"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "breaka-boyz",
@@ -74323,9 +75127,17 @@
     "name": "Breaka Boy",
     "M": 6,
     "T": 5,
+    "W": 2,
+    "Sv": 4,
+    "Ld": 7,
+    "OC": 1
+   },
+   {
+    "name": "Nob",
+    "M": 6,
+    "T": 5,
     "W": 3,
     "Sv": 4,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 1
    }
@@ -74333,13 +75145,13 @@
   "points": [
    {
     "models": 6,
-    "cost": 135,
+    "cost": 120,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 6,
-    "cost": 145,
+    "cost": 130,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -74363,12 +75175,11 @@
   "weapon_ids": [
    "choppa-breaka-boyz",
    "knucklebustas",
-   "rokkit-pistol",
+   "rokkit-pistol-breaka-boyz",
    "smash-hammer",
    "tankhammer"
   ],
   "ability_ids": [
-   "attached-unit",
    "bomb-squigs",
    "trophy-hunters"
   ],
@@ -74391,7 +75202,8 @@
     "namespace": "mfm",
     "id": "9c5dc3fe-b149-4aa5-9973-6e95ad2dac8b"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "stompa",
@@ -74404,7 +75216,7 @@
     "T": 14,
     "W": 30,
     "Sv": 2,
-    "invuln_sv": 6,
+    "invuln_sv": 5,
     "Ld": 6,
     "OC": 12
    }
@@ -74445,14 +75257,15 @@
   "weapon_ids": [
    "big-shoota",
    "mega-choppa",
-   "skorcha",
+   "skorcha-stompa",
    "supa-gatler",
    "deffkannon-and-supa-rokkits"
   ],
   "ability_ids": [
+   "damaged-10",
    "deadly-demise-2d6",
+   "super-heavy-walker",
    "idol-of-belligerence",
-   "stompin-forward",
    "waaagh-effigy-aura"
   ],
   "transport_capacity": {
@@ -74477,7 +75290,8 @@
     "namespace": "mfm",
     "id": "f89e7381-3eea-46b0-8339-860fa41cb77a"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "biged-bossbunka",
@@ -74490,7 +75304,6 @@
     "T": 10,
     "W": 12,
     "Sv": 3,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 0
    }
@@ -74525,10 +75338,10 @@
   ],
   "ability_ids": [
    "deadly-demise-d3",
-   "fortification",
-   "ramshackle-cover",
+   "firing-deck-11",
    "raucous-occupants",
-   "shoutin-pole-aura"
+   "fortification",
+   "ramshackle-cover"
   ],
   "transport_capacity": {
    "capacity": 11
@@ -74552,7 +75365,8 @@
     "namespace": "mfm",
     "id": "72f4b744-afbe-4846-9ec6-2c4a34674a48"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "tankbustas",
@@ -74575,7 +75389,15 @@
     "T": 5,
     "W": 2,
     "Sv": 4,
-    "invuln_sv": null,
+    "Ld": 7,
+    "OC": 1
+   },
+   {
+    "name": "Nob",
+    "M": 6,
+    "T": 5,
+    "W": 3,
+    "Sv": 4,
     "Ld": 7,
     "OC": 1
    }
@@ -74583,13 +75405,13 @@
   "points": [
    {
     "models": 6,
-    "cost": 145,
+    "cost": 160,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 6,
-    "cost": 135,
+    "cost": 170,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -74615,13 +75437,13 @@
    "close-combat-weapon-tankbustas",
    "rokkit-launcha-tankbustas",
    "rokkit-pistol",
-   "smash-hammer"
+   "smash-hammer",
+   "gitstikka"
   ],
   "ability_ids": [
-   "bomb-squigs",
-   "pulsa-rokkit",
    "rokkit-barrage",
-   "tank-hunters"
+   "bomb-squigs",
+   "pulsa-rokkit"
   ],
   "game_version": {
    "edition": "11th",
@@ -74638,7 +75460,8 @@
     "per_models": 0,
     "duplicate_limit": 1
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kommandos",
@@ -74651,7 +75474,6 @@
     "T": 5,
     "W": 1,
     "Sv": 5,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 1
    },
@@ -74662,6 +75484,15 @@
     "W": 3,
     "Sv": 5,
     "invuln_sv": null,
+    "Ld": 7,
+    "OC": 1
+   },
+   {
+    "name": "Nob",
+    "M": 6,
+    "T": 5,
+    "W": 3,
+    "Sv": 5,
     "Ld": 7,
     "OC": 1
    }
@@ -74700,13 +75531,12 @@
    "slugga"
   ],
   "ability_ids": [
-   "bomb-squig-kommandos",
-   "distraction-grot",
+   "infiltrators",
+   "stealth",
    "found-em",
+   "taktikal-know-wotz",
    "nowhere-to-hide",
-   "patrol-squad",
-   "sneaky-gitz",
-   "taktikal-know-wotz"
+   "bomb-squig-kommandos"
   ],
   "game_version": {
    "edition": "11th",
@@ -74736,7 +75566,8 @@
     "namespace": "mfm",
     "id": "4476a990-945b-406e-a44f-f5f02cf7c3d4"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "boyz",
@@ -74750,7 +75581,6 @@
     "T": 5,
     "W": 1,
     "Sv": 5,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 2
    },
@@ -74763,32 +75593,39 @@
     "invuln_sv": null,
     "Ld": 7,
     "OC": 2
+   },
+   {
+    "name": "Nob",
+    "M": 6,
+    "T": 5,
+    "W": 3,
+    "Sv": 5,
+    "Ld": 7,
+    "OC": 2
    }
   ],
   "points": [
    {
     "models": 10,
-    "cost": 75,
+    "cost": 85,
     "unit_count_min": 1,
     "unit_count_max": 3
    },
    {
-    "models": 11,
-    "models_max": 20,
-    "cost": 160,
+    "models": 20,
+    "cost": 170,
     "unit_count_min": 1,
     "unit_count_max": 3
    },
    {
     "models": 10,
-    "cost": 85,
+    "cost": 95,
     "unit_count_min": 4,
     "unit_count_max": null
    },
    {
-    "models": 11,
-    "models_max": 20,
-    "cost": 170,
+    "models": 20,
+    "cost": 180,
     "unit_count_min": 4,
     "unit_count_max": null
    }
@@ -74827,10 +75664,8 @@
   ],
   "ability_ids": [
    "ammo-runts",
-   "bodyguard",
-   "get-da-good-bitz",
-   "never-too-busy-to-fight",
-   "tide-of-muscle"
+   "tide-of-muscle",
+   "never-too-busy-to-fight"
   ],
   "game_version": {
    "edition": "11th",
@@ -74847,7 +75682,8 @@
     "count": 1,
     "per_models": 10
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "trukk",
@@ -74906,9 +75742,9 @@
    "buzzsaw"
   ],
   "ability_ids": [
+   "deadly-demise-d3",
    "firing-deck-12",
-   "grot-riggers",
-   "pillin-out"
+   "pilin-out"
   ],
   "transport_capacity": {
    "capacity": 12,
@@ -74935,7 +75771,8 @@
     "namespace": "mfm",
     "id": "c168aeaf-e2f6-483e-9bc6-c334b720c8be"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "painboss",
@@ -74949,7 +75786,7 @@
     "T": 5,
     "W": 4,
     "Sv": 4,
-    "invuln_sv": null,
+    "invuln_sv": 6,
     "Ld": 7,
     "OC": 1
    }
@@ -74989,10 +75826,10 @@
    "beast-snagga-klaw"
   ],
   "ability_ids": [
-   "hardy-bioniks",
+   "support",
    "push-dat-bit-back-in",
-   "runnin-wiv-da-herd",
-   "sawbonez"
+   "hardy-bioniks",
+   "runnin-wiv-da-herd"
   ],
   "game_version": {
    "edition": "11th",
@@ -75014,7 +75851,8 @@
     "namespace": "mfm",
     "id": "db0dcb52-1257-44f2-9d7f-07e419f8c2fa"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "gorkanaut",
@@ -75023,10 +75861,10 @@
   "profiles": [
    {
     "name": "Gorkanaut",
-    "M": 8,
+    "M": 9,
     "T": 12,
     "W": 20,
-    "Sv": 3,
+    "Sv": 2,
     "invuln_sv": 6,
     "Ld": 7,
     "OC": 8
@@ -75074,8 +75912,11 @@
    "dual-big-shoota"
   ],
   "ability_ids": [
-   "big-an-stompy",
-   "gut-hatch"
+   "damaged-7",
+   "deadly-demise-d6",
+   "super-heavy-walker",
+   "gut-hatch",
+   "big-an-stompy"
   ],
   "transport_capacity": {
    "capacity": 12,
@@ -75102,7 +75943,8 @@
     "namespace": "mfm",
     "id": "f7abac94-2442-4805-81c9-9a56a2448d10"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "mek-gunz",
@@ -75111,10 +75953,10 @@
   "profiles": [
    {
     "name": "Mek Gunz",
-    "M": 3,
+    "M": 5,
     "T": 6,
     "W": 6,
-    "Sv": 5,
+    "Sv": 4,
     "invuln_sv": 6,
     "Ld": 8,
     "OC": 2
@@ -75179,11 +76021,10 @@
    "kustom-mega-kannon",
    "smasha-gun-mek-gunz",
    "traktor-kannon",
-   "scavenged-shivs"
+   "scavenged-shivs-mek-gunz"
   ],
   "ability_ids": [
-   "madcap-artillery",
-   "splat"
+   "madcap-artillery"
   ],
   "game_version": {
    "edition": "11th",
@@ -75204,7 +76045,8 @@
     "namespace": "mfm",
     "id": "776a3fba-6bf3-42e9-a41a-f137c4c8053e"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "stormboyz",
@@ -75217,7 +76059,6 @@
     "T": 5,
     "W": 1,
     "Sv": 5,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 1
    },
@@ -75230,6 +76071,15 @@
     "invuln_sv": null,
     "Ld": 7,
     "OC": 1
+   },
+   {
+    "name": "Nob",
+    "M": 12,
+    "T": 5,
+    "W": 3,
+    "Sv": 5,
+    "Ld": 7,
+    "OC": 1
    }
   ],
   "points": [
@@ -75238,8 +76088,7 @@
     "cost": 70
    },
    {
-    "models": 6,
-    "models_max": 10,
+    "models": 10,
     "cost": 140
    }
   ],
@@ -75265,10 +76114,10 @@
    "choppa",
    "power-klaw",
    "slugga",
-   "kustom-choppa"
+   "kustom-choppa-stormboyz"
   ],
   "ability_ids": [
-   "full-throttle-kult-of-speed",
+   "deep-strike",
    "rokkit-charge"
   ],
   "game_version": {
@@ -75296,7 +76145,8 @@
     "namespace": "mfm",
     "id": "cc2fce5d-ed17-4064-a8aa-7286b5ce54c9"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "flash-gitz",
@@ -75309,7 +76159,15 @@
     "T": 5,
     "W": 3,
     "Sv": 4,
-    "invuln_sv": null,
+    "Ld": 7,
+    "OC": 1
+   },
+   {
+    "name": "Kaptin",
+    "M": 6,
+    "T": 5,
+    "W": 3,
+    "Sv": 4,
     "Ld": 7,
     "OC": 1
    }
@@ -75317,27 +76175,25 @@
   "points": [
    {
     "models": 5,
-    "cost": 105,
+    "cost": 110,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 210,
+    "models": 10,
+    "cost": 220,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 5,
-    "cost": 135,
+    "cost": 150,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 240,
+    "models": 10,
+    "cost": 260,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -75363,9 +76219,7 @@
    "snazzgun"
   ],
   "ability_ids": [
-   "ammo-runt",
-   "big-spender",
-   "gun-crazy-show-offs"
+   "finderz-keeperz"
   ],
   "game_version": {
    "edition": "11th",
@@ -75390,7 +76244,8 @@
     "namespace": "mfm",
     "id": "a8848006-145a-4941-a1b1-be910f71c7a7"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "blitza-bommer",
@@ -75439,6 +76294,8 @@
    "dual-supa-shoota"
   ],
   "ability_ids": [
+   "damaged-4",
+   "deadly-demise-d3",
    "boom-bomb"
   ],
   "game_version": {
@@ -75460,7 +76317,8 @@
     "namespace": "mfm",
     "id": "ec718ab5-ef45-4887-bbc9-0db34bde5431"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "deff-dread",
@@ -75511,15 +76369,14 @@
   "weapon_ids": [
    "big-shoota",
    "dread-klaw",
-   "kustom-mega-blasta",
+   "kustom-mega-blasta-deff-dread",
    "rokkit-launcha-deff-dread",
    "skorcha",
    "extra-klaw"
   ],
   "ability_ids": [
    "deadly-demise-1",
-   "dread-ard",
-   "piston-driven-brutality"
+   "dread-ard"
   ],
   "game_version": {
    "edition": "11th",
@@ -75540,7 +76397,8 @@
     "namespace": "mfm",
     "id": "914f5a07-e9e1-4cad-a149-fd7b0d07298a"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "beastboss",
@@ -75588,11 +76446,11 @@
    "beast-snagga-klaw-and-beastchoppa"
   ],
   "ability_ids": [
-   "beastboss",
-   "dodge-dis",
-   "ferocious-rage",
+   "feel-no-pain-6",
+   "leader",
+   "da-boss",
    "keep-huntin",
-   "leader"
+   "dodge-dis"
   ],
   "game_version": {
    "edition": "11th",
@@ -75614,7 +76472,8 @@
     "namespace": "mfm",
     "id": "32b88410-dc45-48ea-b070-f0e0154b5327"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "dakkajet",
@@ -75662,6 +76521,8 @@
    "dual-supa-shoota"
   ],
   "ability_ids": [
+   "damaged-4",
+   "deadly-demise-d3",
    "strafing-run"
   ],
   "game_version": {
@@ -75683,7 +76544,8 @@
     "namespace": "mfm",
     "id": "4186d0d0-2abb-4c28-91a4-1e5b81a7e0b0"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-mek-in-mega-armour",
@@ -75697,7 +76559,6 @@
     "T": 6,
     "W": 5,
     "Sv": 2,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 1
    }
@@ -75730,15 +76591,15 @@
    "killsaw",
    "kombi-weapon",
    "kustom-mega-blasta",
-   "kustom-shoota",
+   "kustom-shoota-big-mek-in-mega-armour",
    "power-klaw-big-mek-in-mega-armour",
    "tellyport-blasta"
   ],
   "ability_ids": [
+   "leader",
    "fix-dat-armour-up",
-   "grot-oiler",
-   "kustom-force-field",
-   "more-dakka"
+   "more-dakka",
+   "kustom-force-field"
   ],
   "game_version": {
    "edition": "11th",
@@ -75760,7 +76621,8 @@
     "namespace": "mfm",
     "id": "c074df95-5b3d-49b3-8b6f-bfa9918bd8a0"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "beast-snagga-boyz",
@@ -75774,7 +76636,7 @@
     "T": 5,
     "W": 1,
     "Sv": 5,
-    "invuln_sv": null,
+    "invuln_sv": 6,
     "Ld": 7,
     "OC": 2
    },
@@ -75787,17 +76649,42 @@
     "invuln_sv": null,
     "Ld": 7,
     "OC": 2
+   },
+   {
+    "name": "Nob",
+    "M": 6,
+    "T": 5,
+    "W": 3,
+    "Sv": 5,
+    "invuln_sv": 6,
+    "Ld": 7,
+    "OC": 2
    }
   ],
   "points": [
    {
     "models": 10,
-    "cost": 90
+    "cost": 80,
+    "unit_count_min": 1,
+    "unit_count_max": 3
    },
    {
-    "models": 11,
-    "models_max": 20,
-    "cost": 170
+    "models": 20,
+    "cost": 160,
+    "unit_count_min": 1,
+    "unit_count_max": 3
+   },
+   {
+    "models": 10,
+    "cost": 90,
+    "unit_count_min": 4,
+    "unit_count_max": null
+   },
+   {
+    "models": 20,
+    "cost": 170,
+    "unit_count_min": 4,
+    "unit_count_max": null
    }
   ],
   "keywords": [
@@ -75826,9 +76713,7 @@
    "thump-gun"
   ],
   "ability_ids": [
-   "feel-no-pain-6",
-   "mobbed",
-   "monster-hunters"
+   "mobbed"
   ],
   "game_version": {
    "edition": "11th",
@@ -75845,7 +76730,8 @@
     "count": 1,
     "per_models": 10
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "deffkilla-wartrike",
@@ -75895,10 +76781,11 @@
    "snagga-klaw"
   ],
   "ability_ids": [
-   "fuel-mixa-grot",
-   "full-throttle",
+   "deadly-demise-1",
+   "leader",
+   "da-boss",
    "get-back-in-da-race",
-   "speedboss"
+   "fuel-mixa-grot"
   ],
   "game_version": {
    "edition": "11th",
@@ -75920,7 +76807,8 @@
     "namespace": "mfm",
     "id": "61f7eb94-3def-4e9b-94fb-44548a36dc27"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "mek",
@@ -75934,7 +76822,6 @@
     "T": 5,
     "W": 4,
     "Sv": 5,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 1
    }
@@ -75942,7 +76829,7 @@
   "points": [
    {
     "models": 1,
-    "cost": 45
+    "cost": 55
    }
   ],
   "keywords": [
@@ -75966,10 +76853,9 @@
    "meks-toolz"
   ],
   "ability_ids": [
-   "clever-know-wots",
-   "know-wotz",
+   "support",
    "kustom-dakka",
-   "mekaniak"
+   "clever-know-wotz"
   ],
   "game_version": {
    "edition": "11th",
@@ -75991,7 +76877,8 @@
     "namespace": "mfm",
     "id": "b92b38a2-55a2-4fba-8d36-56d254b9813f"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "mozrog-skragbad",
@@ -76041,9 +76928,10 @@
    "thump-gun"
   ],
   "ability_ids": [
-   "beast-snagga-following",
+   "feel-no-pain-5",
+   "one-last-kill",
    "da-bigger-dey-iz",
-   "one-last-kill"
+   "beast-snagga-following"
   ],
   "game_version": {
    "edition": "11th",
@@ -76065,7 +76953,8 @@
     "namespace": "mfm",
     "id": "2f346abf-971d-4e4d-a528-7d7a820c605f"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "zodgrod-wortsnagga",
@@ -76079,7 +76968,7 @@
     "T": 5,
     "W": 5,
     "Sv": 5,
-    "invuln_sv": null,
+    "invuln_sv": 6,
     "Ld": 7,
     "OC": 1
    }
@@ -76112,7 +77001,7 @@
    "squigstoppa"
   ],
   "ability_ids": [
-   "special-dose",
+   "leader",
    "super-runts"
   ],
   "game_version": {
@@ -76135,7 +77024,8 @@
     "namespace": "mfm",
     "id": "0ab156a5-a197-44b1-a7fa-ee0ab31defbd"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "gretchin",
@@ -76148,7 +77038,6 @@
     "T": 2,
     "W": 1,
     "Sv": 6,
-    "invuln_sv": null,
     "Ld": 8,
     "OC": 1
    },
@@ -76169,8 +77058,7 @@
     "cost": 45
    },
    {
-    "models": 11,
-    "models_max": 20,
+    "models": 20,
     "cost": 80
    }
   ],
@@ -76196,7 +77084,6 @@
   ],
   "ability_ids": [
    "downtrodden",
-   "runtherd",
    "thievin-scavengers"
   ],
   "game_version": {
@@ -76232,7 +77119,8 @@
     "namespace": "mfm",
     "id": "e526e829-57ea-445d-b69d-5b4b2fa394eb"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-mek-with-shokk-attack-gun",
@@ -76246,7 +77134,6 @@
     "T": 5,
     "W": 5,
     "Sv": 4,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 1
    }
@@ -76254,13 +77141,13 @@
   "points": [
    {
     "models": 1,
-    "cost": 95,
+    "cost": 110,
     "unit_count_min": 1,
     "unit_count_max": 1
    },
    {
     "models": 1,
-    "cost": 105,
+    "cost": 125,
     "unit_count_min": 2,
     "unit_count_max": null
    }
@@ -76288,10 +77175,9 @@
    "big-meks-toolz"
   ],
   "ability_ids": [
-   "deranged-snotling-assault",
-   "grot-assistant",
+   "leader",
    "more-dakka",
-   "support-bubble"
+   "support-shokka"
   ],
   "game_version": {
    "edition": "11th",
@@ -76313,7 +77199,8 @@
     "namespace": "mfm",
     "id": "e9066eed-965d-4e48-b462-02d66ff2a047"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "kill-rig",
@@ -76326,7 +77213,7 @@
     "T": 10,
     "W": 16,
     "Sv": 3,
-    "invuln_sv": null,
+    "invuln_sv": 6,
     "Ld": 7,
     "OC": 5
    }
@@ -76340,7 +77227,7 @@
    },
    {
     "models": 1,
-    "cost": 185,
+    "cost": 195,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -76374,10 +77261,13 @@
    "wurrtower"
   ],
   "ability_ids": [
+   "damaged-6",
+   "deadly-demise-d6",
+   "feel-no-pain-5",
+   "unstable-energies",
+   "wurrboy",
    "beastscent-psychic",
-   "spirit-of-gork-psychic",
-   "warpath-psychic-kill-rig",
-   "wurrboy-psychic"
+   "warpath-psychic-kill-rig"
   ],
   "transport_capacity": {
    "capacity": 11
@@ -76407,7 +77297,8 @@
     "namespace": "mfm",
     "id": "40287b42-ee16-4ae4-8cbb-96e87d827a0b"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "nobz",
@@ -76420,7 +77311,6 @@
     "T": 5,
     "W": 3,
     "Sv": 4,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 1
    }
@@ -76428,27 +77318,25 @@
   "points": [
    {
     "models": 5,
-    "cost": 105,
+    "cost": 115,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 250,
+    "models": 10,
+    "cost": 230,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 5,
-    "cost": 115,
+    "cost": 145,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
-    "models": 6,
-    "models_max": 10,
-    "cost": 220,
+    "models": 10,
+    "cost": 260,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -76476,12 +77364,12 @@
    "big-choppa-nobz",
    "kustom-choppa-nobz",
    "kustom-krumpa",
-   "paired-kustom-krumpas"
+   "paired-kustom-krumpas",
+   "kustom-big-shoota"
   ],
   "ability_ids": [
-   "ammo-runts",
-   "da-boss-ladz",
    "get-out-da-way",
+   "ammo-runts",
    "paired-krumpas"
   ],
   "game_version": {
@@ -76498,7 +77386,14 @@
     "count": 1,
     "per_models": 5
    }
-  ]
+  ],
+  "wargear_points": [
+   {
+    "name": "Paired Krumpas",
+    "cost": 5
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "beastboss-on-squigosaur",
@@ -76556,11 +77451,11 @@
    "thump-gun"
   ],
   "ability_ids": [
-   "boss-of-da-hunt",
    "feel-no-pain-5",
+   "da-boss",
+   "thundering-stampede",
    "keep-huntin",
-   "single-minded-predator",
-   "thundering-stampede"
+   "boss-of-da-hunt"
   ],
   "game_version": {
    "edition": "11th",
@@ -76582,7 +77477,8 @@
     "namespace": "mfm",
     "id": "c338b81f-4198-4721-8fb4-7daf22eca5cd"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "meganobz",
@@ -76595,7 +77491,6 @@
     "T": 6,
     "W": 3,
     "Sv": 2,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 1
    }
@@ -76603,51 +77498,49 @@
   "points": [
    {
     "models": 2,
-    "cost": 75,
+    "cost": 70,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 3,
-    "cost": 110,
+    "cost": 105,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
-    "models": 4,
-    "models_max": 5,
-    "cost": 185,
+    "models": 5,
+    "cost": 175,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 6,
-    "cost": 225,
+    "cost": 210,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 2,
-    "cost": 115,
+    "cost": 110,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
     "models": 3,
-    "cost": 150,
+    "cost": 145,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
-    "models": 4,
-    "models_max": 5,
-    "cost": 225,
+    "models": 5,
+    "cost": 215,
     "unit_count_min": 3,
     "unit_count_max": null
    },
    {
     "models": 6,
-    "cost": 265,
+    "cost": 250,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -76671,7 +77564,7 @@
   },
   "weapon_ids": [
    "killsaw-meganobz",
-   "kombi-weapon",
+   "kombi-weapon-meganobz",
    "kustom-shoota-meganobz",
    "power-klaw-meganobz",
    "twin-killsaw"
@@ -76705,7 +77598,18 @@
     "item_id": "twin-killsaw",
     "cost": 5
    }
-  ]
+  ],
+  "wargear_points": [
+   {
+    "name": "Killsaw",
+    "cost": 5
+   },
+   {
+    "name": "Twin Killsaws",
+    "cost": 5
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "burna-bommer",
@@ -76752,9 +77656,11 @@
    "skorcha-missile-rack",
    "armoured-impact",
    "dual-big-shoota",
-   "dual-supa-shoota"
+   "dual-supa-shoota-burna-bommer"
   ],
   "ability_ids": [
+   "damaged-4",
+   "deadly-demise-d3",
    "burna-bomb"
   ],
   "game_version": {
@@ -76776,7 +77682,8 @@
     "namespace": "mfm",
     "id": "85e33a56-f6fa-46ef-a868-aec1a2949e99"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "hunta-rig",
@@ -76789,7 +77696,7 @@
     "T": 10,
     "W": 16,
     "Sv": 3,
-    "invuln_sv": null,
+    "invuln_sv": 6,
     "Ld": 7,
     "OC": 5
    }
@@ -76803,7 +77710,7 @@
    },
    {
     "models": 1,
-    "cost": 175,
+    "cost": 185,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -76828,15 +77735,18 @@
    "max": 1
   },
   "weapon_ids": [
-   "butcha-boyz",
+   "butcha-boyz-hunta-rig",
    "eavy-lobba",
    "savage-horns-and-hooves",
    "saw-blades-hunta-rig",
    "stikka-kannon"
   ],
   "ability_ids": [
+   "damaged-6",
+   "deadly-demise-d6",
+   "feel-no-pain-5",
+   "firing-deck-11",
    "fully-loaded-butchery",
-   "on-da-hunt",
    "tramplasquig-charge"
   ],
   "transport_capacity": {
@@ -76867,7 +77777,8 @@
     "namespace": "mfm",
     "id": "8214c6e2-2233-4229-a9d9-3257fe8dbe22"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "warboss",
@@ -76878,7 +77789,7 @@
    {
     "name": "Warboss",
     "M": 6,
-    "T": 5,
+    "T": 6,
     "W": 6,
     "Sv": 4,
     "invuln_sv": 5,
@@ -76917,10 +77828,11 @@
    "kombi-skorcha"
   ],
   "ability_ids": [
-   "boss-armour-runt",
-   "da-biggest-and-da-best",
-   "intimidating-motivation",
-   "might-is-right"
+   "leader",
+   "da-boss",
+   "boss-ammo-runt",
+   "might-is-right",
+   "intimidating-motivation"
   ],
   "game_version": {
    "edition": "11th",
@@ -76942,7 +77854,8 @@
     "namespace": "mfm",
     "id": "d7d98a90-7e1d-4432-976e-9219baece76c"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "bannernob",
@@ -76964,7 +77877,7 @@
   "points": [
    {
     "models": 1,
-    "cost": 35
+    "cost": 30
    }
   ],
   "keywords": [
@@ -76987,7 +77900,7 @@
   "points_provisional": false,
   "weapon_ids": [
    "shoota",
-   "kustom-choppa"
+   "kustom-choppa-bannernob"
   ],
   "base_size_mm": {
    "shape": "round",
@@ -76995,7 +77908,7 @@
   },
   "attachment_role": "support",
   "ability_ids": [
-   "waaagh",
+   "support",
    "waaagh-banner"
   ],
   "external_refs": [
@@ -77011,7 +77924,8 @@
     "namespace": "mfm",
     "id": "73c5ba73-501a-41df-81d5-80c7db95c59c"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "big-mek-dakkarig",
@@ -77032,13 +77946,13 @@
   "points": [
    {
     "models": 1,
-    "cost": 135,
+    "cost": 160,
     "unit_count_min": 1,
     "unit_count_max": 2
    },
    {
     "models": 1,
-    "cost": 145,
+    "cost": 180,
     "unit_count_min": 3,
     "unit_count_max": null
    }
@@ -77072,9 +77986,9 @@
    "diameter": 90
   },
   "ability_ids": [
-   "blitz-dem-gitz",
-   "dakkablitz",
-   "even-more-dakka"
+   "deadly-demise-1",
+   "even-more-dakka",
+   "blitz-dem-gitz"
   ],
   "external_refs": [
    {
@@ -77089,7 +78003,8 @@
     "namespace": "mfm",
     "id": "087d21d9-47b7-4d5f-a207-aed4005f0dcb"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "bigboss",
@@ -77103,7 +78018,6 @@
     "T": 5,
     "W": 5,
     "Sv": 4,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 1
    }
@@ -77142,9 +78056,8 @@
   },
   "attachment_role": "support",
   "ability_ids": [
-   "breakin-heads",
-   "smashin-da-eads",
-   "somethin-to-prove"
+   "support",
+   "sumfin-to-prove"
   ],
   "external_refs": [
    {
@@ -77159,7 +78072,8 @@
     "namespace": "mfm",
     "id": "a7a56757-d2be-4487-af71-55715c66a767"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "wazdakka-gutsmek",
@@ -77218,12 +78132,13 @@
    "length": 92
   },
   "ability_ids": [
-   "fixit-da-grot",
+   "deadly-demise-d3",
+   "deep-strike",
+   "lone-operative",
    "full-throttle",
-   "pulse-jet",
+   "turbo-engine",
    "shokk-attack-engine",
-   "throttlerokkit-shokka-engine",
-   "turbo-engine"
+   "pulse-jet"
   ],
   "external_refs": [
    {
@@ -77238,7 +78153,8 @@
     "namespace": "mfm",
     "id": "007dd4d3-a1d8-441c-9581-6c2d6b466deb"
    }
-  ]
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "gunwagon",
@@ -77261,7 +78177,7 @@
     "T": 12,
     "W": 16,
     "Sv": 3,
-    "invuln_sv": null,
+    "invuln_sv": 6,
     "Ld": 7,
     "OC": 5
    }
@@ -77306,14 +78222,27 @@
    "big-shoota",
    "grabbin-klaw",
    "lobba",
-   "wreckin-ball"
+   "wreckin-ball",
+   "crushin-bulk"
   ],
   "wargear_costs": [
    {
     "item_id": "zzap-gun",
     "cost": 10
    }
-  ]
+  ],
+  "wargear_points": [
+   {
+    "name": "Zzap Gun",
+    "cost": 10
+   }
+  ],
+  "ability_ids": [
+   "damaged-6",
+   "deadly-demise-d6",
+   "mobile-arsenal"
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "nazdreg",
@@ -77354,12 +78283,12 @@
    "moonchewa"
   ],
   "ability_ids": [
+   "deep-strike",
+   "leader",
+   "da-boss",
    "intimidating-motivation",
    "nazdregs-know-wotz",
-   "supreme-kunnin",
-   "waaagh",
-   "leader",
-   "deep-strike"
+   "supreme-kunnin"
   ],
   "game_version": {
    "edition": "11th",
@@ -77371,7 +78300,14 @@
   "base_size_mm": {
    "shape": "round",
    "diameter": 60
-  }
+  },
+  "points": [
+   {
+    "models": 1,
+    "cost": 165
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "rukkatrukk-squigbuggies",
@@ -77394,7 +78330,7 @@
     "T": 7,
     "W": 9,
     "Sv": 4,
-    "invuln_sv": null,
+    "invuln_sv": 6,
     "Ld": 7,
     "OC": 3
    }
@@ -77438,10 +78374,10 @@
    "squig-launchas"
   ],
   "ability_ids": [
-   "squig-barrage",
-   "waaagh",
-   "deadly-demise-1"
-  ]
+   "deadly-demise-1",
+   "squig-barrage"
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "runtherd",
@@ -77455,7 +78391,6 @@
     "T": 5,
     "W": 3,
     "Sv": 5,
-    "invuln_sv": null,
     "Ld": 7,
     "OC": 1
    }
@@ -77474,11 +78409,12 @@
   },
   "weapon_ids": [
    "slugga",
-   "runtherd-tools"
+   "runtherd-tools",
+   "runtherds-toolz"
   ],
   "ability_ids": [
-   "thatll-learn-ya",
-   "waaagh"
+   "support",
+   "thatll-learn-ya"
   ],
   "game_version": {
    "edition": "11th",
@@ -77490,7 +78426,14 @@
   "base_size_mm": {
    "shape": "round",
    "diameter": 32
-  }
+  },
+  "points": [
+   {
+    "models": 1,
+    "cost": 10
+   }
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "warbuggies",
@@ -77513,7 +78456,7 @@
     "T": 7,
     "W": 9,
     "Sv": 4,
-    "invuln_sv": null,
+    "invuln_sv": 6,
     "Ld": 7,
     "OC": 3
    }
@@ -77553,8 +78496,15 @@
   },
   "weapon_ids": [
    "mek-speshul",
-   "rivet-kannon"
-  ]
+   "rivet-kannon",
+   "extra-dakka",
+   "spiked-ram-warbuggies"
+  ],
+  "ability_ids": [
+   "deadly-demise-1",
+   "drive-by-skorchin"
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "wartrakks",
@@ -77577,7 +78527,7 @@
     "T": 6,
     "W": 7,
     "Sv": 4,
-    "invuln_sv": null,
+    "invuln_sv": 6,
     "Ld": 7,
     "OC": 3
    }
@@ -77611,15 +78561,15 @@
   "is_legend": false,
   "points_provisional": false,
   "weapon_ids": [
-   "kustom-choppa",
+   "kustom-choppa-wartrakks",
    "kustom-shoota",
-   "multi-busta-launcha"
+   "multi-busta-launcha-wartrakks"
   ],
   "ability_ids": [
-   "bombdakka-support",
-   "bust-em",
-   "waaagh"
-  ]
+   "speednob-support",
+   "bust-em"
+  ],
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "krootox-rampagers",

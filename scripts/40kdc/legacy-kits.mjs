@@ -14,6 +14,9 @@
 // unit, so both collections are frozen for those datasheets even when only one
 // of them changed.
 //
+// Run once per faction; records of other factions already in the output files
+// are kept (per-faction merge).
+//
 // Why: UnitLoadoutResolver / RulesEngine narrow a unit's datasheet weapon MENU
 // to what it actually carries using these two collections, matched by
 // datasheet name. Codex: Orks (11e, dataset 1.4.5) renamed and restructured
@@ -81,8 +84,16 @@ const opts = { out: pick('wargearOptions') };
 opts.units = [...new Set(opts.out.map(r => r.unit_id))];
 
 mkdirSync(outDir, { recursive: true });
-writeFileSync(join(outDir, `unitCompositions_${tag}.json`), JSON.stringify(comps.out, null, 1) + '\n');
-writeFileSync(join(outDir, `wargearOptions_${tag}.json`), JSON.stringify(opts.out, null, 1) + '\n');
+// Merge per faction: other factions' frozen records already in the file stay
+// (Orks were frozen first; Codex: Adeptus Custodes added its own block).
+const merge = (name, recs) => {
+  const path = join(outDir, `${name}_${tag}.json`);
+  let prev = [];
+  try { prev = JSON.parse(readFileSync(path, 'utf8')); } catch { /* new file */ }
+  return [...prev.filter(r => r.faction_id !== faction), ...recs];
+};
+writeFileSync(join(outDir, `unitCompositions_${tag}.json`), JSON.stringify(merge('unitCompositions', comps.out), null, 1) + '\n');
+writeFileSync(join(outDir, `wargearOptions_${tag}.json`), JSON.stringify(merge('wargearOptions', opts.out), null, 1) + '\n');
 console.log(`legacy ${tag} ${faction}: ${comps.units.length} datasheet compositions (${comps.out.length} records), ` +
   `${opts.units.length} datasheets' wargear options (${opts.out.length} records) -> ${outDir}`);
 console.log(`  compositions: ${comps.units.join(', ')}`);

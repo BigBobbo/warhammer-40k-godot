@@ -254,7 +254,7 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			# dataset dropped it from (Custodian Guard, Allarus, Shield-Captain…)
 			_backfill_custodes_deep_strike(unit_id, unit)
 
-			# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
+			# Apply wargear stat bonuses (e.g. Vexilla +1OC, 'Ard Case +2T)
 			_apply_wargear_stat_bonuses(unit_id, unit)
 
 			# Issue #396: enhancement-driven stat bonuses (Auric Mantle +2W).
@@ -663,7 +663,7 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 		# dataset dropped it from (Custodian Guard, Allarus, Shield-Captain…)
 		_backfill_custodes_deep_strike(unit_id, unit)
 
-		# Apply wargear stat bonuses (e.g. Praesidium Shield +1W, Vexilla +1OC, 'Ard Case +2T)
+		# Apply wargear stat bonuses (e.g. Vexilla +1OC, 'Ard Case +2T)
 		_apply_wargear_stat_bonuses(unit_id, unit)
 
 		# MA-1: Log model_profiles if present
@@ -755,18 +755,16 @@ func _assign_display_names(army_data: Dictionary) -> void:
 # These are applied at army load time by modifying meta.stats and model data.
 #
 # Supported wargear stat bonuses:
-#   - Praesidium Shield: +1 Wounds (Custodian Guard)
-#   - Vexilla: +1 OC (Custodian Guard)
+#   - Vexilla: +1 OC (Custodes units that took one; Codex: Adeptus Custodes 11e)
 #   - 'Ard Case: +2 Toughness (Battlewagon) — also removes Firing Deck
+#     (pre-codex rosters only: the Codex: Orks Battlewagon has no 'Ard Case)
+#
+# Praesidium Shield is NOT a stat bonus any more: Codex: Adeptus Custodes (11e)
+# prints it as "Attacks allocated to this model have -1 D" (the 10e +1 Wounds
+# was removed here; .llm/codex_11e_wahapedia/PLAN.md C7).
 
 # Wargear stat bonus definitions: ability_name -> { stat_changes }
 const WARGEAR_STAT_BONUSES: Dictionary = {
-	"Praesidium Shield": {
-		"stat": "wounds",
-		"bonus": 1,
-		"apply_to_models": true,
-		"description": "+1 Wounds to bearer"
-	},
 	"Vexilla": {
 		"stat": "objective_control",
 		"bonus": 1,
@@ -1199,8 +1197,8 @@ func _apply_enhancement_weapon_bonuses(unit_id: String, unit: Dictionary) -> voi
 # MODEL PROFILE WOUNDS OVERRIDE (MA-13)
 # ============================================================================
 # If a model's profile has stats_override.wounds, ensure model["wounds"] uses
-# that value. This runs BEFORE wargear bonuses so that wargear (e.g. Praesidium
-# Shield +1W) stacks correctly on top of the profile wounds value.
+# that value. This runs BEFORE wargear bonuses so that a wargear stat bonus
+# stacks correctly on top of the profile wounds value.
 #
 # model["wounds"] in JSON should match the profile's effective wounds value.
 # If there's a mismatch, this function logs a warning and corrects the value.

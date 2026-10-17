@@ -31,6 +31,9 @@
 #   - PM-5 deployment recorder + plan round trip (record -> consume, both seats)
 #   - Codex: Orks (11e) data layer (curated stratagem rows, window column,
 #     apostrophe-folded detachment match, legacy 1.0.19 datasheet kits)
+#   - Wahapedia 11e codex import (Custodes + Orks): codex characteristics,
+#     unit sizes, points and weapons in every shipped army file; AC codex
+#     stratagem rows; pre-codex rosters keep their legacy kits
 #   - Codex: Orks (11e) movement stratagems (movement windows, reactive /
 #     assault-disembark follow-ups, MOBILE, desperate escape, objectives)
 #   - Codex: Orks (11e) OTHER group (MOB MENTALITY, BREAKIN' HEADS, IMPENDING
@@ -206,6 +209,7 @@ TESTS=(
     "tests/test_iss074_aircraft_reserves_11e.gd"
     "tests/test_core_stratagems_11e.gd"
     "tests/test_ork_codex_11e_data.gd"
+    "tests/test_wahapedia_11e_import_data.gd"
     "tests/test_ork_codex_framework.gd"
     "tests/test_ork_codex_fight.gd"
     "tests/test_ork_codex_shooting.gd"

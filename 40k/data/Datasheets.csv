@@ -211,7 +211,7 @@ adeptus-custodes::contemptor-achillus-dreadnought|Contemptor-Achillus Dreadnough
 adeptus-custodes::contemptor-galatus-dreadnought|Contemptor-Galatus Dreadnought|adeptus-custodes|
 adeptus-custodes::venerable-contemptor-dreadnought|Venerable Contemptor Dreadnought|adeptus-custodes|
 adeptus-custodes::blade-champion|Blade Champion|adeptus-custodes|
-adeptus-custodes::caladius-grav-tank|Caladius Grav-tank|adeptus-custodes|
+adeptus-custodes::caladius-grav-tank|Caladius Grav-Tank|adeptus-custodes|
 adeptus-custodes::allarus-custodians|Allarus Custodians|adeptus-custodes|
 adeptus-custodes::shield-captain-on-dawneagle-jetbike|Shield-Captain on Dawneagle Jetbike|adeptus-custodes|
 adeptus-custodes::vigilators|Vigilators|adeptus-custodes|
@@ -226,17 +226,32 @@ adeptus-custodes::aleya|Aleya|adeptus-custodes|
 adeptus-custodes::agamatus-custodians|Agamatus Custodians|adeptus-custodes|
 adeptus-custodes::venerable-land-raider|Venerable Land Raider|adeptus-custodes|
 adeptus-custodes::custodian-wardens|Custodian Wardens|adeptus-custodes|
-adeptus-custodes::pallas-grav-attack|Pallas Grav-attack|adeptus-custodes|
+adeptus-custodes::pallas-grav-attack|Pallas Grav-Attack|adeptus-custodes|
 adeptus-custodes::vertus-praetors|Vertus Praetors|adeptus-custodes|
 adeptus-custodes::valerian|Valerian|adeptus-custodes|
 adeptus-custodes::venatari-custodians|Venatari Custodians|adeptus-custodes|
 adeptus-custodes::shield-captain-in-allarus-terminator-armour|Shield-Captain in Allarus Terminator Armour|adeptus-custodes|
 adeptus-custodes::aquilon-custodians|Aquilon Custodians|adeptus-custodes|
 adeptus-custodes::custodian-guard-with-adrasite-and-pyrithite-spears|Custodian Guard with Adrasite and Pyrithite Spears|adeptus-custodes|
-adeptus-custodes::coronus-grav-carrier|Coronus Grav-carrier|adeptus-custodes|
+adeptus-custodes::coronus-grav-carrier|Coronus Grav-Carrier|adeptus-custodes|
 adeptus-custodes::prosecutors|Prosecutors|adeptus-custodes|
 adeptus-custodes::shield-captain|Shield-Captain|adeptus-custodes|
 adeptus-custodes::trajann-valoris|Trajann Valoris|adeptus-custodes|
+adeptus-custodes::gilded-blades-allarus-custodians|Gilded Blades Allarus Custodians|adeptus-custodes|
+adeptus-custodes::gilded-blades-custodian-guard|Gilded Blades Custodian Guard|adeptus-custodes|
+adeptus-custodes::gilded-blades-custodian-wardens|Gilded Blades Custodian Wardens|adeptus-custodes|
+adeptus-custodes::tristraen-of-the-gilded-blades|Tristraen of the Gilded Blades|adeptus-custodes|
+adeptus-custodes::custodian-guard-sodality|Custodian Guard Sodality|adeptus-custodes|
+adeptus-custodes::prosecutor-squad|Prosecutor Squad|adeptus-custodes|
+adeptus-custodes::venatari-with-verutum-lances|Venatari with Verutum Lances|adeptus-custodes|
+adeptus-custodes::aquilon-terminators-with-solarite-power-gauntlets|Aquilon Terminators with Solarite Power Gauntlets|adeptus-custodes|
+adeptus-custodes::sentinel-guard-sodality|Sentinel Guard Sodality|adeptus-custodes|
+adeptus-custodes::witchseeker-squad|Witchseeker Squad|adeptus-custodes|
+adeptus-custodes::gyrfalcon-jetbike-sodality|Gyrfalcon Jetbike Sodality|adeptus-custodes|
+adeptus-custodes::vigilator-squad|Vigilator Squad|adeptus-custodes|
+adeptus-custodes::aquilon-terminators-with-solarite-power-talons|Aquilon Terminators with Solarite Power Talons|adeptus-custodes|
+adeptus-custodes::caladius-annihilator-grav-tank|Caladius Annihilator Grav-Tank|adeptus-custodes|
+adeptus-custodes::venatari-with-kinetic-destroyers|Venatari with Kinetic Destroyers|adeptus-custodes|
 adeptus-mechanicus::archaeopter-stratoraptor|Archaeopter Stratoraptor|adeptus-mechanicus|
 adeptus-mechanicus::onager-dunecrawler|Onager Dunecrawler|adeptus-mechanicus|
 adeptus-mechanicus::kataphron-destroyers|Kataphron Destroyers|adeptus-mechanicus|

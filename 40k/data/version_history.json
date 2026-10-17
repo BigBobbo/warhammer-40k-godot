@@ -2,6 +2,20 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.46.0",
+      "date": "2026-10-17",
+      "summary": "Codex: Adeptus Custodes and Codex: Orks datasheets: every Custodes and Ork unit now uses its 11th-edition codex characteristics, points, unit sizes and weapons.",
+      "changes": [
+        "Codex: Adeptus Custodes (released 17 Oct): all 27 codex datasheets (+2 Forge World) with codex stats (e.g. Shield-Captain M8\" T7 W8), points and unit sizes (Custodian Wardens 2-3 models, Custodian Guard Sodality 3). New datasheets: Custodian Guard Sodality, Sentinel Guard Sodality, Gyrfalcon Jetbike Sodality, the two Aquilon Terminator and Venatari squads, Caladius Annihilator Grav-Tank; Prosecutors, Vigilators and Witchseekers are now Squads.",
+        "Codex: Adeptus Custodes: the 13 codex detachments and their 41 stratagems are listed (their rules are being implemented next; they show as not yet implemented). Shield Host, Solar Spearhead, Talons of the Emperor, Silent Hunters and Tharanatoi Hammerblow are gone from the codex.",
+        "Codex: Orks: 19 unit profiles and 25 units' points brought up to the codex (e.g. Battlewagon T11 and 160 pts, Warboss in Mega Armour T7, Morkanaut 2+ save), plus codex weapon profiles and the Damaged ability on Ork vehicles.",
+        "Units sold in fixed sizes are snapped to a codex size (an 11-model Gretchin mob is now 10). Repeat copies of a datasheet cost the codex's higher price.",
+        "Shipped army lists updated to the codex: the default Custodes army (Lions of the Emperor) drops two Custodian Guard units to stay at 2000 points; Shield Host lists now use Guardians of the Throne; three Ork 2000-point lists drop a unit each to stay legal.",
+        "Praesidium Shield no longer gives +1 Wounds (the codex changed it to -1 Damage against the bearer). Vexilla still gives +1 OC, but only to units that took one.",
+        "Saved games and lists built before the codex keep working: their units keep the weapons they were built with."
+      ]
+    },
+    {
       "version": "1.45.2",
       "date": "2026-10-15",
       "summary": "Fixes from combining the Codex: Orks update with the core-rules fixes: indirect fire at hidden targets, smarter computer casualty picks, Fight On Death, and several online-game fixes.",

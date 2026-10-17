@@ -2,13 +2,13 @@
  "faction": {
   "name": "Adeptus Custodes",
   "points": 1000,
-  "detachment": "Shield Host",
+  "detachment": "Guardians of the Throne",
   "player_name": "",
   "team_name": "",
   "created_date": "2025-02-15",
   "schema": 2,
   "edition": 11,
-  "data_source": "40kdc-data 1.0.19 (11th edition, launch)"
+  "data_source": "40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes)"
  },
  "units": {
   "U_BLADE_CHAMPION_A": {
@@ -20,21 +20,20 @@
     "name": "Blade Champion",
     "keywords": [
      "ADEPTUS CUSTODES",
-     "BLADE CHAMPION",
      "CHARACTER",
      "IMPERIUM",
      "INFANTRY"
     ],
     "stats": {
-     "move": 6,
-     "toughness": 6,
+     "move": 8,
+     "toughness": 7,
      "save": 2,
-     "wounds": 6,
-     "leadership": 6,
+     "wounds": 7,
+     "leadership": 5,
      "objective_control": 2,
      "invuln": 4
     },
-    "points": 110,
+    "points": 175,
     "is_warlord": true,
     "enhancements": [],
     "wargear": [],
@@ -43,15 +42,15 @@
       "name": "Vaultswords – Behemor",
       "type": "Melee",
       "range": "Melee",
-      "attacks": "6",
+      "attacks": "5",
       "weapon_skill": "2",
-      "strength": "7",
-      "ap": "-2",
-      "damage": "2",
-      "special_rules": "precision",
+      "strength": "10",
+      "ap": "-3",
+      "damage": "3",
+      "special_rules": "devastating wounds",
       "abilities": [
        {
-        "id": "precision"
+        "id": "devastating_wounds"
        }
       ]
      },
@@ -59,13 +58,17 @@
       "name": "Vaultswords – Hurricanis",
       "type": "Melee",
       "range": "Melee",
-      "attacks": "9",
+      "attacks": "10",
       "weapon_skill": "2",
-      "strength": "5",
-      "ap": "-1",
+      "strength": "6",
+      "ap": "-2",
       "damage": "1",
-      "special_rules": "sustained hits 1",
+      "special_rules": "cleave 1, sustained hits 1",
       "abilities": [
+       {
+        "id": "cleave",
+        "x": 1
+       },
        {
         "id": "sustained_hits",
         "x": 1
@@ -76,15 +79,15 @@
       "name": "Vaultswords – Victus",
       "type": "Melee",
       "range": "Melee",
-      "attacks": "5",
+      "attacks": "8",
       "weapon_skill": "2",
-      "strength": "6",
+      "strength": "8",
       "ap": "-3",
-      "damage": "3",
-      "special_rules": "devastating wounds",
+      "damage": "2",
+      "special_rules": "precision",
       "abilities": [
        {
-        "id": "devastating_wounds"
+        "id": "precision"
        }
       ]
      }
@@ -93,7 +96,7 @@
      {
       "name": "Martial Ka'tah",
       "type": "Faction",
-      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+      "description": "At the start of your Command phase, friendly Adeptus Custodes units with this ability are readied. While a friendly unit is readied, you can select one of the ka'tah abilities presented below for that unit to use. If you do, that unit is no longer readied.\nEach ka'tah ability will tell you when that ka'tah ability can be used, and the effects that ka'tah ability has on the unit using it.\nWe recommend placing a token next to each readied unit, removing it when that unit is no longer readied.\nFavoured Ka'tah\nMany of the most prominent shield hosts favour a specific martial ka'tah above all others.\nAll detachments tagged 'Unique: Shield Host' state a Favoured Ka'tah. If you selected one of these detachments, the ka'tah ability that is the Favoured Ka'tah of that detachment grants the additional effect listed in that detachment.\nExample: If you selected the Solar Watch detachment, when you select the Calistus ka'tah ability for a readied unit, that unit has +2\" M in addition to the normal effect of Calistus."
      },
      {
       "name": "Deep Strike",
@@ -106,14 +109,19 @@
       "description": "The unit gains the Leader ability."
      },
      {
-      "name": "Martial Inspiration",
-      "type": "Datasheet",
-      "description": "Once per battle, the unit gains the Advance & Charge ability."
+      "name": "Aegis of the Emperor",
+      "type": "Faction",
+      "description": "Friendly Adeptus Custodes units with this ability have Feel No Pain 5+ against mortal wounds."
      },
      {
       "name": "Swift Onslaught",
       "type": "Datasheet",
-      "description": "After being attached to a unit, you can re-roll the Charge roll."
+      "description": "This unit can:\n• Re-roll advance rolls.\n• Re-roll charge rolls."
+     },
+     {
+      "name": "Sword of the Throne",
+      "type": "Datasheet",
+      "description": "At the start of the first battle round, select one enemy unit to be this model's mark:\n• This model's attacks that target this model's mark have +1 to wound rolls.\n• Each time this model's mark is destroyed, select one enemy unit to be this model's mark."
      }
     ],
     "unit_composition": [
@@ -125,17 +133,19 @@
     "leader_data": {
      "can_lead": [
       "CUSTODIAN GUARD",
+      "CUSTODIAN GUARD SODALITY",
       "CUSTODIAN GUARD WITH ADRASITE AND PYRITHITE SPEARS",
       "CUSTODIAN WARDENS",
-      "SAGITTARUM CUSTODIANS"
+      "SAGITTARUM CUSTODIANS",
+      "SENTINEL GUARD SODALITY"
      ]
     }
    },
    "models": [
     {
      "id": "m1",
-     "wounds": 6,
-     "current_wounds": 6,
+     "wounds": 7,
+     "current_wounds": 7,
      "base_mm": 40,
      "position": null,
      "alive": true,
@@ -149,23 +159,22 @@
    "owner": 1,
    "status": "UNDEPLOYED",
    "meta": {
-    "name": "Witchseekers",
+    "name": "Witchseeker Squad",
     "keywords": [
      "ADEPTUS CUSTODES",
      "ANATHEMA PSYKANA",
      "IMPERIUM",
-     "INFANTRY",
-     "WITCHSEEKERS"
+     "INFANTRY"
     ],
     "stats": {
-     "move": 6,
+     "move": 7,
      "toughness": 3,
      "save": 3,
      "wounds": 1,
      "leadership": 6,
      "objective_control": 1
     },
-    "points": 50,
+    "points": 55,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
@@ -174,18 +183,26 @@
     ],
     "weapons": [
      {
-      "name": "Witchseeker flamer",
+      "name": "Flamer",
       "type": "Ranged",
       "range": "12",
-      "attacks": "D6",
+      "attacks": "3",
       "ballistic_skill": "N/A",
       "strength": "4",
-      "ap": "0",
+      "ap": "-1",
       "damage": "1",
-      "special_rules": "ignores cover, torrent",
+      "special_rules": "anti-psyker 4+, assault, blast, torrent",
       "abilities": [
        {
-        "id": "ignores_cover"
+        "id": "anti",
+        "keyword": "PSYKER",
+        "threshold": 4
+       },
+       {
+        "id": "assault"
+       },
+       {
+        "id": "blast"
        },
        {
         "id": "torrent"
@@ -193,7 +210,7 @@
       ]
      },
      {
-      "name": "Close combat weapon",
+      "name": "Gun Stock",
       "type": "Melee",
       "range": "Melee",
       "attacks": "2",
@@ -207,27 +224,28 @@
      {
       "name": "Martial Ka'tah",
       "type": "Faction",
-      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+      "description": "At the start of your Command phase, friendly Adeptus Custodes units with this ability are readied. While a friendly unit is readied, you can select one of the ka'tah abilities presented below for that unit to use. If you do, that unit is no longer readied.\nEach ka'tah ability will tell you when that ka'tah ability can be used, and the effects that ka'tah ability has on the unit using it.\nWe recommend placing a token next to each readied unit, removing it when that unit is no longer readied.\nFavoured Ka'tah\nMany of the most prominent shield hosts favour a specific martial ka'tah above all others.\nAll detachments tagged 'Unique: Shield Host' state a Favoured Ka'tah. If you selected one of these detachments, the ka'tah ability that is the Favoured Ka'tah of that detachment grants the additional effect listed in that detachment.\nExample: If you selected the Solar Watch detachment, when you select the Calistus ka'tah ability for a readied unit, that unit has +2\" M in addition to the normal effect of Calistus."
+     },
+     {
+      "name": "Scouts 7\"",
+      "type": "Core",
+      "description": "Before the first battle round, the unit can make a Scout move of up to 7\"."
+     },
+     {
+      "name": "Daughters of the Abyss",
+      "type": "Datasheet",
+      "description": "• Friendly Anathema Psykana units with this ability have Feel No Pain 3+ against psychic attacks.\n• Friendly ANATHEMA PSYKANA units with this ability have the following ability:\nPsychic Null (Aura): Friendly Adeptus Custodes units within 6\" of this unit have Feel No Pain 5+ against psychic attacks."
      },
      {
       "name": "Sanctified Flames",
       "type": "Datasheet",
-      "description": "During the Shooting phase, enemy units nearby must take a Battle-shock test."
-     },
-     {
-      "name": "Scouts 6\"",
-      "type": "Core",
-      "description": "Before the first battle round, the unit can make a Scout move of up to 6\"."
+      "description": "In your Shooting phase, when this unit has shot, you can select one enemy unit hit by those attacks. That enemy unit makes a battle-shock roll, with -1 to that battle-shock roll if that enemy unit is a PSYKER unit."
      }
     ],
     "unit_composition": [
      {
-      "description": "1 Witchseeker Sister Superior",
+      "description": "4-10 Witchseeker",
       "line": 1
-     },
-     {
-      "description": "3-9 Witchseeker",
-      "line": 2
      }
     ]
    },
@@ -276,11 +294,13 @@
    "owner": 1,
    "status": "UNDEPLOYED",
    "meta": {
-    "name": "Caladius Grav-tank",
+    "name": "Caladius Grav-Tank",
     "keywords": [
      "ADEPTUS CUSTODES",
-     "CALADIUS GRAV-TANK",
+     "CALADIUS",
      "FLY",
+     "FRAME",
+     "GRAV-ASSAULT",
      "IMPERIUM",
      "VEHICLE"
     ],
@@ -289,19 +309,40 @@
      "toughness": 11,
      "save": 2,
      "wounds": 14,
-     "leadership": 6,
+     "leadership": 5,
      "objective_control": 4,
      "invuln": 5
     },
-    "points": 210,
+    "points": 230,
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-      "1x Twin iliastus accelerator cannon",
-      "1x Twin lastrum bolt cannon",
-      "1x Armoured hull"
+     "1x Twin iliastus accelerator cannon",
+     "1x Twin lastrum bolt cannon",
+     "1x Armoured hull"
     ],
     "weapons": [
+     {
+      "name": "Iliastus Accelerator Cannon",
+      "type": "Ranged",
+      "range": "48",
+      "attacks": "4",
+      "ballistic_skill": "2",
+      "strength": "10",
+      "ap": "-1",
+      "damage": "3",
+      "special_rules": "rapid fire 4, sustained hits 1",
+      "abilities": [
+       {
+        "id": "rapid_fire",
+        "x": 4
+       },
+       {
+        "id": "sustained_hits",
+        "x": 1
+       }
+      ]
+     },
      {
       "name": "Twin arachnus heavy blaze cannon",
       "type": "Ranged",
@@ -319,19 +360,19 @@
       ]
      },
      {
-      "name": "Twin iliastus accelerator cannon",
+      "name": "Twin Lastrum Bolt Cannon",
       "type": "Ranged",
-      "range": "48",
-      "attacks": "4",
+      "range": "36",
+      "attacks": "3",
       "ballistic_skill": "2",
-      "strength": "10",
-      "ap": "-1",
-      "damage": "3",
-      "special_rules": "rapid fire 4, twin linked",
+      "strength": "6",
+      "ap": "-2",
+      "damage": "2",
+      "special_rules": "sustained hits 1, twin linked",
       "abilities": [
        {
-        "id": "rapid_fire",
-        "x": 4
+        "id": "sustained_hits",
+        "x": 1
        },
        {
         "id": "twin_linked"
@@ -339,24 +380,7 @@
       ]
      },
      {
-      "name": "Twin lastrum bolt cannon",
-      "type": "Ranged",
-      "range": "36",
-      "attacks": "3",
-      "ballistic_skill": "2",
-      "strength": "6",
-      "ap": "-1",
-      "damage": "1",
-      "special_rules": "sustained hits 1",
-      "abilities": [
-       {
-        "id": "sustained_hits",
-        "x": 1
-       }
-      ]
-     },
-     {
-      "name": "Armoured hull",
+      "name": "Armoured Hull",
       "type": "Melee",
       "range": "Melee",
       "attacks": "4",
@@ -370,12 +394,32 @@
      {
       "name": "Martial Ka'tah",
       "type": "Faction",
-      "description": "Until the end of the phase:\nSelect one of the following (Ka'tah Stance):\n  - The unit's weapons gain [SUSTAINED HITS 1].\n  - The unit's weapons gain [LETHAL HITS]."
+      "description": "At the start of your Command phase, friendly Adeptus Custodes units with this ability are readied. While a friendly unit is readied, you can select one of the ka'tah abilities presented below for that unit to use. If you do, that unit is no longer readied.\nEach ka'tah ability will tell you when that ka'tah ability can be used, and the effects that ka'tah ability has on the unit using it.\nWe recommend placing a token next to each readied unit, removing it when that unit is no longer readied.\nFavoured Ka'tah\nMany of the most prominent shield hosts favour a specific martial ka'tah above all others.\nAll detachments tagged 'Unique: Shield Host' state a Favoured Ka'tah. If you selected one of these detachments, the ka'tah ability that is the Favoured Ka'tah of that detachment grants the additional effect listed in that detachment.\nExample: If you selected the Solar Watch detachment, when you select the Calistus ka'tah ability for a readied unit, that unit has +2\" M in addition to the normal effect of Calistus."
      },
      {
-      "name": "Advanced Firepower",
+      "name": "Damaged: 1-5 Wounds Remaining",
+      "type": "Core",
+      "description": "DAMAGED24.39\nThis ability always takes the form Damaged X. While a model's remaining wounds are equal to or less than X, that model is damaged: while damaged, that model's attacks have -1 to hit rolls."
+     },
+     {
+      "name": "Deadly Demise D3",
+      "type": "Core",
+      "description": "Before this model is removed from play:\n  -> Roll one D6: on a 6+, each enemy unit within 6\" suffers D3 mortal wounds."
+     },
+     {
+      "name": "Deep Strike",
+      "type": "Core",
+      "description": "The unit has the Deep Strike ability."
+     },
+     {
+      "name": "Aegis of the Emperor",
+      "type": "Faction",
+      "description": "Friendly Adeptus Custodes units with this ability have Feel No Pain 5+ against mortal wounds."
+     },
+     {
+      "name": "Destructor Optics",
       "type": "Datasheet",
-      "description": "The unit's weapons gain [LETHAL HITS]."
+      "description": "This unit's ranged attacks that target a unit (excluding MONSTER/VEHICLE units) have +1 AP."
      }
     ],
     "unit_composition": [
@@ -390,14 +434,14 @@
      "id": "m1",
      "wounds": 14,
      "current_wounds": 14,
-     "base_mm": 170,
+     "base_mm": 150,
      "position": null,
      "alive": true,
      "status_effects": [],
      "base_type": "oval",
      "base_dimensions": {
-      "length": 109,
-      "width": 170
+      "length": 95,
+      "width": 150
      }
     }
    ]

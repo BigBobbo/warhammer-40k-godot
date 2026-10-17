@@ -2806,59 +2806,43 @@
  },
  {
   "id": "huntress-eye-null-maiden-vigil",
-  "name": "Huntress’ Eye",
+  "name": "Huntress' Eye",
   "detachment_id": "null-maiden-vigil",
-  "cost": 15,
-  "keyword_restrictions": [
-   "Anathema Psykana"
-  ],
+  "cost": 10,
+  "keyword_restrictions": [],
   "ability_id": "huntress-eye-null-maiden-vigil",
   "is_unique": true,
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "points_provisional": false,
   "upgrade_tag": false,
   "max_targets": 1,
-  "external_refs": [
-   {
-    "namespace": "game-datacards",
-    "id": "034bdd57-8cd7-5586-8fbe-25049b19e6a8"
-   },
-   {
-    "namespace": "mfm",
-    "id": "a0dd4369-a684-4a28-a35e-f8412fe754e9"
-   }
-  ]
+  "rules_text": "Anathema Psykana model only. In your Movement phase, you can select one visible enemy unit within 12\" of this unit. That unit makes a battle-shock roll, with -1 to that battle-shock roll.",
+  "legend": "This ancient bionic focuses the bearer’s null aura into a horrifying stare that can terrify foes to death.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "oblivion-knight-null-maiden-vigil",
   "name": "Oblivion Knight",
   "detachment_id": "null-maiden-vigil",
-  "cost": 25,
-  "keyword_restrictions": [
-   "Anathema Psykana"
-  ],
+  "cost": 15,
+  "keyword_restrictions": [],
   "ability_id": "oblivion-knight-null-maiden-vigil",
   "is_unique": true,
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "points_provisional": false,
   "upgrade_tag": false,
   "max_targets": 1,
-  "external_refs": [
-   {
-    "namespace": "game-datacards",
-    "id": "12ce10f7-dc0f-512a-9ae2-4a322f716f1c"
-   },
-   {
-    "namespace": "mfm",
-    "id": "ad4c7b31-c0d1-4fdc-940e-9b82ca3d3057"
-   }
-  ]
+  "rules_text": "Anathema Psykana model only. This unit’s attacks have:\n• +1 to hit rolls.\n• Or: If this unit targets a PSYKER/battle-shocked unit, +1 to hit rolls and wound rolls.",
+  "legend": "Knights-Centura of the Chamber of Oblivion demonstrate exceptional prowess with whichever weapons they opt to wield. Woe betide any witch who crosses their path.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "blade-imperator-auric-champions",
@@ -2893,28 +2877,20 @@
   "name": "Inspirational Exemplar",
   "detachment_id": "auric-champions",
   "cost": 10,
-  "keyword_restrictions": [
-   "Adeptus Custodes"
-  ],
+  "keyword_restrictions": [],
   "ability_id": "inspirational-exemplar-auric-champions",
   "is_unique": true,
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "points_provisional": false,
   "upgrade_tag": false,
   "max_targets": 1,
-  "external_refs": [
-   {
-    "namespace": "game-datacards",
-    "id": "db009f0f-0475-5788-aa36-6bcecbb73af4"
-   },
-   {
-    "namespace": "mfm",
-    "id": "84f59743-864c-4f63-89c2-33de243b7adf"
-   }
-  ]
+  "rules_text": "Adeptus Custodes Infantry model only. (Once per battle round, per army) At the start of any phase, you can select one friendly battle-shocked Adeptus Custodes unit within 9\" of this model. That unit is no longer battle-shocked.",
+  "legend": "A master orator, this Custodian’s battle cries light fires of defiance in the hearts of their allies.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "veiled-blade-auric-champions",
@@ -3429,6 +3405,526 @@
     "id": "f832b7c7-53b8-4bd3-856d-29b837ad35ea"
    }
   ]
+ },
+ {
+  "id": "shroud-of-the-hidden-blade-auric-champions",
+  "name": "Shroud of the Hidden Blade",
+  "detachment_id": "auric-champions",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "shroud-of-the-hidden-blade-auric-champions",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model has:\n• Stealth\n• Lone Operative.",
+  "legend": "Long-forgotten technologies shroud this cloak’s bearer.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "superior-creation-auric-champions",
+  "name": "Superior Creation",
+  "detachment_id": "auric-champions",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "superior-creation-auric-champions",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Infantry model only. (Once per battle, per army) At the end of a phase in which this model is destroyed, roll one D6:\n• On a 2+, set this model back up on the battlefield as close as possible to where it was destroyed, unengaged, with 3 wounds remaining.",
+  "legend": "The cellular alchemy by which this heroic warrior was forged has rendered them breathtakingly resilient.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "lightning-descent-lions-of-the-emperor",
+  "name": "Lightning Descent",
+  "detachment_id": "lions-of-the-emperor",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "lightning-descent-lions-of-the-emperor",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Shield-Captain in Allarus Terminator Armour model only. In your first Movement phase, this unit can make an ingress move.",
+  "legend": "This Shield-Captain knows well the value of intelligence, utilising data harvested by agents of the Golden Throne to strike like a bolt of golden lightning before the foe can bring their strength to bear.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "leonine-ferocity-lions-of-the-emperor",
+  "name": "Leonine Ferocity",
+  "detachment_id": "lions-of-the-emperor",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "leonine-ferocity-lions-of-the-emperor",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Shield-Captain in Allarus Terminator Armour model only. (Once per phase, per army) You can target this unit with the Rapid Ingress stratagem, regardless of any other uses of that stratagem this phase. If you do:\n• That use is -1 CP.\n• That use does not prevent any uses of that stratagem on other units this phase.",
+  "legend": "This Shield-Captain demands boundless aggression from the warriors at their command. Each movement by the foe is seized upon and punished with furious countercharges.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "memento-moritoi-one-per-army-might-of-the-moritoi",
+  "name": "Memento Moritoi (one per army)",
+  "detachment_id": "might-of-the-moritoi",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "memento-moritoi-one-per-army-might-of-the-moritoi",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": true,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Dreadnought model only. This model’s melee attacks have +1 A, S and D.",
+  "legend": "This reliquary contains drops of blood, promethium and amniotic fluid harvested from the fractured form of a fallen Dreadnought. Said to be infused with the remaining fury of fallen warrior and war machine, this device inspires wrathful fury in those who bear it to war.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "augury-uplink-one-per-army-might-of-the-moritoi",
+  "name": "Augury Uplink (one per army)",
+  "detachment_id": "might-of-the-moritoi",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "augury-uplink-one-per-army-might-of-the-moritoi",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": true,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Dreadnought model only. This model has Feel No Pain 5+.",
+  "legend": "The war engines of the Adeptus Custodes possess an array of augury equipment that combines to build an intricate picture of the unfolding conflict, enabling the bearer to detect incoming threats, then angle their armour to repel the worst of enemy attacks.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "auric-exemplar-dread-host",
+  "name": "Auric Exemplar",
+  "detachment_id": "dread-host",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "auric-exemplar-dread-host",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model’s melee attacks have [Cleave 1].",
+  "legend": "This champion’s physical might is exceptional, even for a Custodian. Each swing of their blade carves a bloody swathe through the foe.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "flawless-bladework-dread-host",
+  "name": "Flawless Bladework",
+  "detachment_id": "dread-host",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "flawless-bladework-dread-host",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model’s melee attacks have [Sustained Hits 1].",
+  "legend": "This Custodian’s skills in close-quarters combat are awe-inspiring to behold.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "combat-deployment-grav-assault-force",
+  "name": "Combat Deployment",
+  "detachment_id": "grav-assault-force",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "combat-deployment-grav-assault-force",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": true,
+  "max_targets": 1,
+  "rules_text": "grav-assault Transport model only. When a friendly Adeptus Custodes unit is selected to make a disembark move from this unit, until the end of the turn:\n• That unit can re-roll charge rolls.\n• Enemy units cannot target that unit with snap shooting attacks.",
+  "legend": "Custodian vehicle crews are as consummately skilled as their infantry counterparts, delivering sodalities into the thick of the fight and suppressing foes with turret-mounted weapons to prevent incoming fire.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "anti-gravitic-mobility-grav-assault-force",
+  "name": "Anti-gravitic Mobility",
+  "detachment_id": "grav-assault-force",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "anti-gravitic-mobility-grav-assault-force",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": true,
+  "max_targets": 1,
+  "rules_text": "grav-assault unit only. When this unit makes a fall-back move, that fall-back move does not prevent this unit from being eligible to shoot.",
+  "legend": "The grav-tanks of the Adeptus Custodes are exceptionally mobile, enabling their skilled crews to fade in and out of contact with the foe whilst keeping up a constant stream of killing fire.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "pareldors-caducatrix-aquilan-shield",
+  "name": "Pareldor's Caducatrix",
+  "detachment_id": "aquilan-shield",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "pareldors-caducatrix-aquilan-shield",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. (Once per battle, per army) At the start of any phase, this model heals D3+3 wounds.",
+  "legend": "This immeasurably ancient auto-medicae device meshes seamlessly with any suit of armour, dispensing panacaeic elixirs in response to mental or physical trauma.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "not-a-shell-wasted-aquilan-shield",
+  "name": "Not a Shell Wasted",
+  "detachment_id": "aquilan-shield",
+  "cost": 10,
+  "keyword_restrictions": [],
+  "ability_id": "not-a-shell-wasted-aquilan-shield",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Infantry model only. This unit’s ranged attacks have +1 A.",
+  "legend": "Every volley these warriors fire is calculated to inflict the maximum amount of damage upon the foe.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "auriferous-orb-emissaries-imperatus",
+  "name": "Auriferous Orb",
+  "detachment_id": "emissaries-imperatus",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "auriferous-orb-emissaries-imperatus",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model has the following weapon:",
+  "legend": "When this sphere of solid gold detonates, it unleashes beams of radiating light that blind those they do not kill.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "edge-of-the-blade-emissaries-imperatus",
+  "name": "Edge of the Blade",
+  "detachment_id": "emissaries-imperatus",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "edge-of-the-blade-emissaries-imperatus",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes model only. If this unit made a charge move this turn, this model’s attacks can:\n• Re-roll hit rolls of 1.\n• Re-roll wound rolls of 1.",
+  "legend": "This auric champion always strives to be first into the fray.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "radiant-mantle-emperors-chosen",
+  "name": "Radiant Mantle",
+  "detachment_id": "emperors-chosen",
+  "cost": 40,
+  "keyword_restrictions": [],
+  "ability_id": "radiant-mantle-emperors-chosen",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Infantry model only. Attacks that target this unit have -1 to hit rolls.",
+  "legend": "The golden glory of the Emperor Himself glows around this magnificent warrior like Sol’s own fire. Enemies are blinded by its light, forced to recoil in pain and terror.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "from-the-hall-of-armouries-emperors-chosen",
+  "name": "From the Hall of Armouries",
+  "detachment_id": "emperors-chosen",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "from-the-hall-of-armouries-emperors-chosen",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model’s melee attacks have [Devastating Wounds].",
+  "legend": "The armouries of the Adeptus Custodes contain some of the most finely crafted and deadly close-quarters weaponry wielded by any warrior of the Imperium.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "auric-eagle-solar-watch",
+  "name": "Auric Eagle",
+  "detachment_id": "solar-watch",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "auric-eagle-solar-watch",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": true,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Infantry/Mounted unit only (excluding Terminator units). This unit has +1 to advance rolls and charge rolls.",
+  "legend": "Embodying the raptors of ancient Terra, this champion of the Golden Throne descends upon their prey swiftly, with talons unsheathed.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "sally-forth-solar-watch",
+  "name": "Sally Forth",
+  "detachment_id": "solar-watch",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "sally-forth-solar-watch",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Shield-Captain model only. At the start of your Charge phase, select one friendly Adeptus Custodes Infantry unit within 6\" of this model. If that unit made an advance move this turn, that advance move does not prevent that unit from being eligible to declare a charge.",
+  "legend": "This warlord excels in directing fast and deadly offensives designed to close rapidly with the enemy, overwhelming the foe with a devastating concentration of force.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "celeritous-sentries-honoured-companions",
+  "name": "Celeritous Sentries",
+  "detachment_id": "honoured-companions",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "celeritous-sentries-honoured-companions",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": true,
+  "max_targets": 1,
+  "rules_text": "Trusted Sentinel unit only. (Once per phase, per unit) You can target this unit with the Heroic Intervention stratagem, regardless of any other uses of that stratagem this phase. If you do:\n• That use is -1 CP.\n• That use does not prevent any uses of that stratagem on other units this phase.",
+  "legend": "Even while standing statue-still upon their endless watch, these Custodians are ready to spring instantly into violent action.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "arae-shrike-honoured-companions",
+  "name": "Arae-Shrike",
+  "detachment_id": "honoured-companions",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "arae-shrike-honoured-companions",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Infantry model only. Enemy units that are selected to make an ingress move cannot be set up within 12\" of this unit.",
+  "legend": "Built into this Custodian’s armour, this aviform artefact is a relic of the Dark Age of Technology. It projects electromagnetic distortion to corrupt and confound homing beacons, teleportation technology and other methods of translocation.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "eagles-eye-guardians-of-the-throne",
+  "name": "Eagle's Eye",
+  "detachment_id": "guardians-of-the-throne",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "eagles-eye-guardians-of-the-throne",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only.\n• This model has +1 W.\n• (Once per battle, per army) When attacks are allocated to this model, you can use this ability. If you do, this model has 3+ InSv.",
+  "legend": "The sensorium gheists within this helm shriek technomantic warnings to the wearer whenever danger threatens.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "castellans-mark-guardians-of-the-throne",
+  "name": "Castellan's Mark",
+  "detachment_id": "guardians-of-the-throne",
+  "cost": 25,
+  "keyword_restrictions": [],
+  "ability_id": "castellans-mark-guardians-of-the-throne",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. When both players have deployed their armies, you can redeploy up to three friendly Adeptus Custodes units. When doing so, you can set those units up in strategic reserves, regardless of how many units are already in strategic reserves.",
+  "legend": "Awarded to the Custodian with the greatest tally of victories in the Blood Games, this finely worked pauldron denotes its bearer as a superlative strategic genius.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "emperors-light-guardians-of-the-throne",
+  "name": "Emperor's Light",
+  "detachment_id": "guardians-of-the-throne",
+  "cost": 15,
+  "keyword_restrictions": [],
+  "ability_id": "emperors-light-guardians-of-the-throne",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model has the following weapon:",
+  "legend": "This masterwork misericordia is believed to flood the hearts of its victims with searing holy radiance.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "bane-of-abominations-guardians-of-the-throne",
+  "name": "Bane of Abominations",
+  "detachment_id": "guardians-of-the-throne",
+  "cost": 20,
+  "keyword_restrictions": [],
+  "ability_id": "bane-of-abominations-guardians-of-the-throne",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model’s attacks that target an enemy CHARACTER/MONSTER/VEHICLE unit have +1 to wound rolls.",
+  "legend": "This Captain-Commander has earned many names destroying mighty champions and powerful war machines.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "genalchemic-warding-shadowkeepers",
+  "name": "Genalchemic Warding",
+  "detachment_id": "shadowkeepers",
+  "cost": 30,
+  "keyword_restrictions": [],
+  "ability_id": "genalchemic-warding-shadowkeepers",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "ADEPTUS CUSTODES model only. This model has Feel No Pain 5+.",
+  "legend": "The genetic alchemy that saturates this warrior’s physiology has been tempered in wars beyond count. There are few hardships or hurts such a warrior cannot endure.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
+ },
+ {
+  "id": "unstoppable-destroyer-shadowkeepers",
+  "name": "Unstoppable Destroyer",
+  "detachment_id": "shadowkeepers",
+  "cost": 25,
+  "keyword_restrictions": [],
+  "ability_id": "unstoppable-destroyer-shadowkeepers",
+  "is_unique": true,
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "points_provisional": false,
+  "upgrade_tag": false,
+  "max_targets": 1,
+  "rules_text": "Adeptus Custodes Infantry model only. When this unit is selected to make a pile-in/consolidation move:\n• This unit can move up to 4\".\n• You can select any consolidation mode for that consolidation move, regardless of that consolidation move’s Before Moving restrictions.",
+  "legend": "This Custodian unleashes upon their opponents the Emperor’s own fury, pursuing enemy warriors with relentless determination and allowing none to flee the field.",
+  "faction_id": "adeptus-custodes",
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "id": "radial-suffusion-rad-zone-corps",

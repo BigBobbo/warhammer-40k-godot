@@ -40,6 +40,10 @@ def main():
     src = {r["id"]: r for r in L("Source.csv")}
     sheets = [r for r in L("Datasheets.csv") if r["faction_id"] == faction]
     ids = {r["id"] for r in sheets}
+    # core abilities (no faction_id) referenced by this faction's datasheets
+    used_abilities = {r["ability_id"] for r in L("Datasheets_abilities.csv")
+                      if r["datasheet_id"] in ids and r["ability_id"]}
+    used_sources = {r["source_id"] for r in sheets}
     for f in sorted(os.listdir(export_dir)):
         if not f.endswith(".csv"):
             continue
@@ -49,6 +53,12 @@ def main():
         keys = [k for k in rows[0].keys() if k]
         if "datasheet_id" in keys:
             keep = [r for r in rows if r["datasheet_id"] in ids]
+        elif f == "Abilities.csv":
+            keep = [r for r in rows if r["faction_id"] == faction or r["id"] in used_abilities]
+        elif f == "Datasheets_leader.csv":
+            keep = [r for r in rows if r["leader_id"] in ids]
+        elif f == "Source.csv":
+            keep = [r for r in rows if r["id"] in used_sources]
         elif "faction_id" in keys:
             keep = [r for r in rows if r["faction_id"] == faction]
         elif f == "Last_update.csv":

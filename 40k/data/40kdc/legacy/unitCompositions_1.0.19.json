@@ -1861,5 +1861,692 @@
    "edition": "11th",
    "dataslate": "launch"
   }
+ },
+ {
+  "unit_id": "telemon-heavy-dreadnought",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Telemon Heavy Dreadnought",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 100
+    },
+    "default_weapon_ids": [
+     "iliastus-accelerator-culverin",
+     "iliastus-accelerator-culverin",
+     "armoured-feet",
+     "spiculus-bolt-launcher"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Telemon Heavy Dreadnought",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "contemptor-achillus-dreadnought",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Contemptor-Achillus Dreadnought",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 60
+    },
+    "default_weapon_ids": [
+     "achillus-dreadspear",
+     "lastrum-storm-bolter",
+     "lastrum-storm-bolter"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Contemptor-Achillus Dreadnought",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "contemptor-galatus-dreadnought",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Contemptor-Galatus Dreadnought",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 60
+    },
+    "default_weapon_ids": [
+     "galatus-warblade"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Contemptor-Galatus Dreadnought",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "blade-champion",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Blade Champion",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "vaultswords"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Blade Champion",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "caladius-grav-tank",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Caladius Grav-tank",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 170,
+     "length": 109
+    },
+    "default_weapon_ids": [
+     "armoured-hull",
+     "twin-lastrum-bolt-cannon",
+     "twin-iliastus-accelerator-cannon"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Caladius Grav-tank",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "allarus-custodians",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Allarus Custodian",
+    "min": 2,
+    "max": 6,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "balistus-grenade-launcher",
+     "guardian-spear"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Allarus Custodian",
+      "min": 2,
+      "max": 2
+     }
+    ]
+   },
+   {
+    "models": [
+     {
+      "name": "Allarus Custodian",
+      "min": 3,
+      "max": 3
+     }
+    ]
+   },
+   {
+    "models": [
+     {
+      "name": "Allarus Custodian",
+      "min": 4,
+      "max": 5
+     }
+    ]
+   },
+   {
+    "models": [
+     {
+      "name": "Allarus Custodian",
+      "min": 6,
+      "max": 6
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "shield-captain-on-dawneagle-jetbike",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Shield-Captain on Dawneagle Jetbike",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 75,
+     "length": 42
+    },
+    "default_weapon_ids": [
+     "interceptor-lance",
+     "salvo-launcher"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Shield-Captain on Dawneagle Jetbike",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "ares-gunship",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Ares Gunship",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 160
+    },
+    "default_weapon_ids": [
+     "arachnus-magna-blaze-cannon",
+     "arachnus-heavy-blaze-cannon",
+     "arachnus-heavy-blaze-cannon",
+     "armoured-hull-ares-gunship"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Ares Gunship",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "orion-assault-dropship",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Orion Assault Dropship",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 160
+    },
+    "default_weapon_ids": [
+     "armoured-hull-orion-assault-dropship",
+     "spiculus-heavy-bolt-launcher",
+     "spiculus-heavy-bolt-launcher",
+     "arachnus-heavy-blaze-cannon",
+     "arachnus-heavy-blaze-cannon",
+     "twin-lastrum-bolt-cannon",
+     "twin-lastrum-bolt-cannon"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Orion Assault Dropship",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "knight-centura",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Knight-Centura",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 32
+    },
+    "default_weapon_ids": [
+     "executioner-greatblade-knight-centura"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Knight-Centura",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "anathema-psykana-rhino",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Anathema Psykana Rhino",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "hull",
+     "draft": true
+    },
+    "default_weapon_ids": [
+     "storm-bolter",
+     "armoured-tracks"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Anathema Psykana Rhino",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "custodian-wardens",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Custodian Warden",
+    "min": 4,
+    "max": 5,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "guardian-spear"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Custodian Warden",
+      "min": 4,
+      "max": 4
+     }
+    ]
+   },
+   {
+    "models": [
+     {
+      "name": "Custodian Warden",
+      "min": 5,
+      "max": 5
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "pallas-grav-attack",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Pallas Grav-attack",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 105,
+     "length": 70
+    },
+    "default_weapon_ids": [
+     "twin-arachnus-blaze-cannon",
+     "armoured-hull-pallas-grav-attack"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Pallas Grav-attack",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "vertus-praetors",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Vertus Praetor",
+    "min": 2,
+    "max": 3,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 75,
+     "length": 42
+    },
+    "default_weapon_ids": [
+     "interceptor-lance-vertus-praetors",
+     "salvo-launcher"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Vertus Praetor",
+      "min": 2,
+      "max": 2
+     }
+    ]
+   },
+   {
+    "models": [
+     {
+      "name": "Vertus Praetor",
+      "min": 3,
+      "max": 3
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "shield-captain-in-allarus-terminator-armour",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Shield-Captain in Allarus Terminator Armour",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "guardian-spear-shield-captain-in-allarus-terminator-armour",
+     "balistus-grenade-launcher"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Shield-Captain in Allarus Terminator Armour",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "coronus-grav-carrier",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Coronus Grav-carrier",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 170,
+     "length": 109
+    },
+    "default_weapon_ids": [
+     "twin-lastrum-bolt-cannon",
+     "armoured-hull-coronus-grav-carrier",
+     "twin-arachnus-blaze-cannon"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Coronus Grav-carrier",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "shield-captain",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Shield-Captain",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "guardian-spear-shield-captain"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Shield-Captain",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "unit_id": "trajann-valoris",
+  "faction_id": "adeptus-custodes",
+  "models": [
+   {
+    "name": "Trajann Valoris",
+    "min": 1,
+    "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 40
+    },
+    "default_weapon_ids": [
+     "watchers-axe",
+     "eagles-scream"
+    ]
+   }
+  ],
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "pre-launch-provisional"
+  },
+  "tiers": [
+   {
+    "models": [
+     {
+      "name": "Trajann Valoris",
+      "min": 1,
+      "max": 1
+     }
+    ]
+   }
+  ]
  }
 ]

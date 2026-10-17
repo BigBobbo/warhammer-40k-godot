@@ -24,6 +24,8 @@ import {
 } from '../../server/public/js/lib/gameformat.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
+// Stamped into every regenerated file's faction block.
+const DATA_SOURCE = '40kdc-data 1.4.5 (11th edition) + Wahapedia 11e codex import 2026-10-16 (Codex: Orks, Codex: Adeptus Custodes)';
 const ARMIES_DIR = join(here, '..', '..', '40k', 'armies');
 
 // ---------------------------------------------------------------------------
@@ -52,11 +54,31 @@ const { unitsByFaction, compByUnit } = conv;
 
 // ---------------------------------------------------------------------------
 // Unit conversion
-function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachmentEnh = new Map()) {
+function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachmentEnh = new Map(), ordinal = 1) {
   const comp = compByUnit.get(`${factionId}::${dcUnit.id}`);
   const oldMeta = existing.meta ?? {};
-  const modelCount = (existing.models ?? []).length ||
+  let modelCount = (existing.models ?? []).length ||
     dcUnit.model_count?.min || 1;
+  // A codex can change unit sizes (Custodian Wardens 4-5 -> 2-3): clamp the
+  // roster's model count into the datasheet's range.
+  const mc = dcUnit.model_count;
+  if (mc && (modelCount < mc.min || modelCount > mc.max)) {
+    const clamped = Math.max(mc.min, Math.min(mc.max, modelCount));
+    warnings.push(`${existing.id}: ${modelCount} models outside the datasheet's ${mc.min}-${mc.max} — now ${clamped}`);
+    modelCount = clamped;
+  }
+  // ...and onto a size the datasheet is sold at (11e prices per unit size:
+  // Gretchin come as 10 or 20, so a pre-codex 11-model mob becomes 10).
+  const sizes = [];
+  for (const t of dcUnit.points ?? []) {
+    for (let n = t.models; n <= (t.models_max ?? t.models); n++) if (!sizes.includes(n)) sizes.push(n);
+  }
+  if (sizes.length && !sizes.includes(modelCount)) {
+    sizes.sort((a, b) => a - b);
+    const snapped = [...sizes].reverse().find(n => n <= modelCount) ?? sizes[0];
+    warnings.push(`${existing.id}: ${modelCount} models is not a codex unit size (${sizes.join('/')}) — now ${snapped}`);
+    modelCount = snapped;
+  }
 
   // --- weapons: preserve the roster's loadout where names still exist,
   // otherwise the unit's full 11e weapon list.
@@ -89,7 +111,13 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
   weaponsOut.sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'Ranged' ? -1 : 1));
 
   // --- abilities (faction army rule first, mirroring the existing files)
-  const abilitiesOut = conv.unitAbilities(dcUnit, factionId, factionName, warnings);
+  // wargear abilities only when the roster lists the wargear or the
+  // datasheet's default loadout includes it
+  const defaultWargear = (comp?.models ?? []).flatMap(m => m.default_wargear ?? []).map(normName);
+  const rosterWargear = (oldMeta.wargear ?? []).map(normName);
+  const hasWargear = n => defaultWargear.some(w => w.includes(normName(n))) ||
+    rosterWargear.some(w => w.includes(normName(n)));
+  const abilitiesOut = conv.unitAbilities(dcUnit, factionId, factionName, warnings, hasWargear);
 
   // --- composition + models
   const modelsOut = conv.buildModelsArray(dcUnit, comp, modelCount);
@@ -109,8 +137,18 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
     }
   }
 
-  // --- points for this model count (first-copy pricing)
-  const points = pointsFor(dcUnit, modelsOut.length) + enhancementPoints;
+  // --- points for this model count; `ordinal` = which copy of the datasheet
+  // this is in the file (11e prices later copies higher), plus priced wargear
+  // (wargear_points, e.g. "per Praesidium Shield 25") the roster lists.
+  let wargearPoints = 0;
+  for (const wp of dcUnit.wargear_points ?? []) {
+    for (const entry of oldMeta.wargear ?? []) {
+      if (!normName(entry).includes(normName(wp.name))) continue;
+      const n = String(entry).match(/^(\d+)\s*x/i);
+      wargearPoints += wp.cost * (n ? parseInt(n[1], 10) : 1);
+    }
+  }
+  const points = pointsFor(dcUnit, modelsOut.length, ordinal) + enhancementPoints + wargearPoints;
 
   // --- leader data
   const meta = {
@@ -120,7 +158,7 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
     points,
     is_warlord: oldMeta.is_warlord ?? false,
     enhancements: enhancementsOut,
-    wargear: oldMeta.wargear ?? [],
+    wargear: syncWargearCounts(oldMeta.wargear ?? [], comp, modelsOut.length),
     weapons: weaponsOut,
     abilities: abilitiesOut,
     unit_composition: conv.compositionLines(comp),
@@ -136,6 +174,38 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
     meta,
     models: modelsOut,
   };
+}
+
+// "Nx <model>" wargear lines are model counts: ArmyListManager re-derives a
+// unit's size from them (_get_expected_model_count) and re-adds models. When a
+// codex resizes a unit (Gretchin 11 -> 10), rewrite those lines to the
+// composition's per-row counts and cap any other "Nx" line at the unit size.
+// Rows are counted the way gameformat.buildModelsArray fills them (each row
+// its minimum, the last row the remainder).
+function syncWargearCounts(wargear, comp, modelCount) {
+  const rows = comp?.models ?? [];
+  const counts = new Map();
+  let remaining = modelCount;
+  rows.forEach((m, k) => {
+    const take = k === rows.length - 1 ? remaining : Math.min(m.min, remaining);
+    counts.set(roleKey(m.name), Math.max(0, take));
+    remaining -= take;
+  });
+  return wargear.map(entry => {
+    const m = String(entry).match(/^(\d+)x\s+(.+)$/);
+    if (!m) return entry;
+    const n = parseInt(m[1], 10);
+    const want = counts.get(roleKey(m[2]));
+    if (want != null && want !== n) return `${want}x ${m[2]}`;
+    if (want == null && n > modelCount) return `${modelCount}x ${m[2]}`;
+    return entry;
+  });
+}
+// ArmyListManager._normalize_model_name: lowercase, drop one trailing z/s.
+function roleKey(name) {
+  let s = String(name).toLowerCase().trim();
+  if (s.length > 2 && (s.endsWith('z') || s.endsWith('s'))) s = s.slice(0, -1);
+  return s;
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +238,7 @@ function convertFile(path) {
     warnings.push(`detachment "${army.faction.detachment}" not found in 11e ${factionId} detachments`);
   }
   const outUnits = {};
+  const copies = new Map(); // datasheet -> copies seen so far (repeat pricing)
   let totalPoints = 0;
   for (const [key, u] of Object.entries(army.units ?? {})) {
     const name = u.meta?.name ?? '';
@@ -190,10 +261,18 @@ function convertFile(path) {
       if (dcUnit) warnings.push(`${key}: "${name}" resolved as ${unitFactionId} allied unit`);
     }
     if (!dcUnit) {
-      warnings.push(`${key}: unit "${name}" has NO 11e datasheet (discontinued/Legends?) — REMOVED`);
+      // No codex datasheet (Legends / discontinued — e.g. Lootas, Burna Boyz):
+      // keep the roster entry exactly as it is (owner decision D2, PLAN
+      // .llm/codex_11e_wahapedia/PLAN.md) rather than silently deleting a
+      // player's unit.
+      warnings.push(`${key}: unit "${name}" has NO 11e codex datasheet (Legends?) — kept unchanged`);
+      totalPoints += u.meta?.points ?? 0;
+      outUnits[key] = u;
       continue;
     }
-    const conv2 = convertUnit(u, dcUnit, unitFactionId, factionName, warnings, detachmentEnh);
+    const copyKey = `${unitFactionId}::${dcUnit.id}`;
+    copies.set(copyKey, (copies.get(copyKey) ?? 0) + 1);
+    const conv2 = convertUnit(u, dcUnit, unitFactionId, factionName, warnings, detachmentEnh, copies.get(copyKey));
     totalPoints += conv2.meta.points;
     outUnits[key] = conv2;
   }
@@ -203,7 +282,7 @@ function convertFile(path) {
       created_date: army.faction?.created_date ?? '',
       schema: 2,
       edition: 11,
-      data_source: '40kdc-data 1.4.5 (11th edition, launch + Codex: Orks)',
+      data_source: DATA_SOURCE,
     },
     units: outUnits,
   };

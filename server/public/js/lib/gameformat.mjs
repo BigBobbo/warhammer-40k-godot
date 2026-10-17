@@ -44,7 +44,15 @@ export const UNIT_ALIASES = {
   'orks': {
     'nob with waaagh banner': 'bannernob',
   },
-  'adeptus-custodes': {},
+  // Codex: Adeptus Custodes (11e, 2026-10-17) renames; the old datasheets
+  // stay in the data for pre-codex saves (decision D1), so a regenerated
+  // roster moves to the codex datasheet through these aliases.
+  'adeptus-custodes': {
+    'custodian guard': 'custodian-guard-sodality',
+    'prosecutors': 'prosecutor-squad',
+    'vigilators': 'vigilator-squad',
+    'witchseekers': 'witchseeker-squad',
+  },
   'adeptus-astartes': {},
 };
 
@@ -278,6 +286,10 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
   }
 
   function safeDescribe(a) {
+    // Records imported from a codex transcription (scripts/40kdc/
+    // wahapedia-import.mjs) carry the printed rules text — prefer it over a
+    // description generated from a (possibly pre-codex) ability DSL.
+    if (a?.rules_text) return a.rules_text;
     try {
       const d = describeAbility(a);
       return typeof d === 'string' ? d : String(d ?? '');
@@ -448,12 +460,19 @@ export function createConverter({ rawData, describeAbility, canonEntries = [], d
   }
 
   // --- abilities (faction army rule first, mirroring the existing files)
-  function unitAbilities(dcUnit, factionId, factionName, warnings) {
+  // `hasWargear(name)` (optional): does this roster entry carry the named
+  // wargear? Codex datasheets list their wargear abilities (Vexilla,
+  // Praesidium Shield) on the datasheet; a unit only has the ability when it
+  // took the wargear, and ArmyListManager applies wargear stat bonuses from
+  // meta.abilities. Without a predicate every listed ability is emitted.
+  function unitAbilities(dcUnit, factionId, factionName, warnings, hasWargear = null) {
     const abilitiesOut = [];
     for (const rule of factionRuleAbilities(factionId)) {
       abilitiesOut.push({ name: canonicalName(rule.name), type: 'Faction', description: safeDescribe(rule) });
     }
     for (const aid of dcUnit.ability_ids ?? []) {
+      const rec = ares.resolve(factionId, aid);
+      if (hasWargear && rec?.ability_type === 'wargear' && !hasWargear(rec.name)) continue;
       const conv = convertAbility(factionId, dcUnit, aid, warnings);
       if (conv) abilitiesOut.push(conv);
     }

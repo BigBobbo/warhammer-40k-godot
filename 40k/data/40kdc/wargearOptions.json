@@ -7775,118 +7775,66 @@
   }
  },
  {
-  "id": "telemon-heavy-dreadnought-wgo-mfm-1",
+  "id": "telemon-heavy-dreadnought-wgo-wh-1",
   "unit_id": "telemon-heavy-dreadnought",
   "faction_id": "adeptus-custodes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Dual Caestus Fists and 2 Twin Neutronium Cascade Projectors can be replaced with one of the following:• 1 Adrathic Desolator, 1 Caestus Fist and 1 Twin Neutronium Cascade Projectors • 1 Arachnus Storm Cannon, 1 Caestus Fist and 1 Twin Neutronium Cascade Projectors • 1 Caestus Fist, 1 Iliastus Accelerator Culverin and 1 Twin Neutronium Cascade Projectors",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
-   "iliastus-accelerator-culverin",
-   "iliastus-accelerator-culverin"
+   "dual-caestus-fists",
+   "twin-neutronium-cascade-projectors"
   ],
   "replacement_choice": [
    [
-    "twin-plasma-projector",
-    "twin-plasma-projector",
-    "telemon-caestus",
-    "telemon-caestus"
+    "adrathic-desolator",
+    "caestus-fist",
+    "twin-neutronium-cascade-projectors"
    ],
    [
     "arachnus-storm-cannon",
-    "arachnus-storm-cannon"
+    "caestus-fist",
+    "twin-neutronium-cascade-projectors"
    ],
    [
-    "arachnus-storm-cannon",
-    "telemon-caestus",
-    "twin-plasma-projector"
+    "caestus-fist",
+    "iliastus-accelerator-culverin",
+    "twin-neutronium-cascade-projectors"
    ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "telemon-heavy-dreadnought-wgo-mfm-2",
-  "unit_id": "telemon-heavy-dreadnought",
-  "faction_id": "adeptus-custodes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "iliastus-accelerator-culverin"
-  ],
-  "replacement_choice": [
-   [
-    "telemon-caestus",
-    "twin-plasma-projector"
-   ],
-   [
-    "arachnus-storm-cannon"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "contemptor-achillus-dreadnought-wgo-mfm-1",
+  "id": "contemptor-achillus-dreadnought-wgo-wh-1",
   "unit_id": "contemptor-achillus-dreadnought",
   "faction_id": "adeptus-custodes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s 2 Lastrum Storm Bolter can be replaced with one of the following:• 2 Adrathic Combi-destructor • 2 Twin Infernus Incinerator",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "lastrum-storm-bolter"
   ],
   "replacement_choice": [
    [
-    "twin-adrathic-destructor"
+    "adrathic-combi-destructor"
    ],
    [
-    "infernus-incinerator"
+    "twin-infernus-incinerator"
    ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "contemptor-achillus-dreadnought-wgo-mfm-2",
-  "unit_id": "contemptor-achillus-dreadnought",
-  "faction_id": "adeptus-custodes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replaces": [
-   "lastrum-storm-bolter",
-   "lastrum-storm-bolter"
-  ],
-  "replacement_choice": [
-   [
-    "infernus-incinerator",
-    "infernus-incinerator"
-   ],
-   [
-    "twin-adrathic-destructor",
-    "infernus-incinerator"
-   ],
-   [
-    "twin-adrathic-destructor",
-    "twin-adrathic-destructor"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
   "id": "venerable-contemptor-dreadnought-wgo-mfm-1",
@@ -7908,67 +7856,84 @@
   }
  },
  {
-  "id": "caladius-grav-tank-wgo-mfm-1",
+  "id": "caladius-grav-tank-wgo-wh-1",
   "unit_id": "caladius-grav-tank",
   "faction_id": "adeptus-custodes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Twin Lastrum Bolt Cannon can be replaced with 1 Twin Neutronium Cascade Projectors.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
-   "twin-iliastus-accelerator-cannon"
+   "twin-lastrum-bolt-cannon"
   ],
   "replacement": [
-   "twin-arachnus-heavy-blaze-cannon"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+   "twin-neutronium-cascade-projectors"
+  ]
  },
  {
-  "id": "allarus-custodians-wgo-mfm-1",
+  "id": "allarus-custodians-wgo-wh-1",
   "unit_id": "allarus-custodians",
   "faction_id": "adeptus-custodes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "1 model can be equipped with 1 Vexilla.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
+  "replacement": [
+   "vexilla"
+  ],
+  "max_count": 1
+ },
+ {
+  "id": "allarus-custodians-wgo-wh-2",
+  "unit_id": "allarus-custodians",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "All models in this unit can each have their Guardian Spear replaced with 1 Castellan Axe.",
+  "source": "wahapedia-11e@2026-10-16",
   "replaces": [
    "guardian-spear"
   ],
-  "replacement_choice": [
-   [
-    "castellan-axe"
-   ],
-   [
-    "misericordia",
-    "vexilla"
-   ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "replacement": [
+   "castellan-axe"
+  ]
  },
  {
-  "id": "shield-captain-on-dawneagle-jetbike-wgo-mfm-1",
+  "id": "shield-captain-on-dawneagle-jetbike-wgo-wh-1",
   "unit_id": "shield-captain-on-dawneagle-jetbike",
   "faction_id": "adeptus-custodes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Salvo Launcher can be replaced with 1 Hurricane Bolter.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "salvo-launcher"
   ],
   "replacement": [
-   "vertus-hurricane-bolter"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+   "hurricane-bolter"
+  ]
  },
  {
   "id": "custodian-guard-wgo-mfm-1",
@@ -7998,46 +7963,52 @@
   }
  },
  {
-  "id": "knight-centura-wgo-mfm-1",
+  "id": "knight-centura-wgo-wh-1",
   "unit_id": "knight-centura",
   "faction_id": "adeptus-custodes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Executioner Greatblade can be replaced with one of the following:• 1 Master-crafted Boltgun and 1 Gun Stock • 1 Master-crafted Flamer and 1 Gun Stock",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "executioner-greatblade-knight-centura"
   ],
   "replacement_choice": [
    [
     "master-crafted-boltgun",
-    "close-combat-weapon-knight-centura"
+    "gun-stock"
    ],
    [
-    "witchseeker-flamer",
-    "close-combat-weapon-knight-centura"
+    "master-crafted-flamer",
+    "gun-stock"
    ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "anathema-psykana-rhino-wgo-mfm-1",
+  "id": "anathema-psykana-rhino-wgo-wh-1",
   "unit_id": "anathema-psykana-rhino",
   "faction_id": "adeptus-custodes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model can be equipped with 1 Hunter-killer Missile.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
   "replacement": [
    "hunter-killer-missile"
   ],
-  "model_constraint": {
-   "any_number": true
-  }
+  "max_count": 1
  },
  {
   "id": "agamatus-custodians-wgo-mfm-1",
@@ -8096,58 +8067,60 @@
   }
  },
  {
-  "id": "custodian-wardens-wgo-mfm-1",
+  "id": "custodian-wardens-wgo-wh-1",
   "unit_id": "custodian-wardens",
   "faction_id": "adeptus-custodes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
-  "replacement": [
-   "vexilla"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "custodian-wardens-wgo-mfm-2",
-  "unit_id": "custodian-wardens",
-  "faction_id": "adeptus-custodes",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
+  "rules_text": "All models in this unit can each have their Guardian Spear replaced with 1 Castellan Axe.",
+  "source": "wahapedia-11e@2026-10-16",
   "replaces": [
    "guardian-spear"
   ],
   "replacement": [
    "castellan-axe"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "vertus-praetors-wgo-mfm-1",
+  "id": "custodian-wardens-wgo-wh-2",
+  "unit_id": "custodian-wardens",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "1 model can be equipped with 1 Vexilla.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
+  "replacement": [
+   "vexilla"
+  ],
+  "max_count": 1
+ },
+ {
+  "id": "vertus-praetors-wgo-wh-1",
   "unit_id": "vertus-praetors",
   "faction_id": "adeptus-custodes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "All models in this unit can each have their Salvo Launcher replaced with 1 Hurricane Bolter.",
+  "source": "wahapedia-11e@2026-10-16",
   "replaces": [
    "salvo-launcher"
   ],
   "replacement": [
-   "vertus-hurricane-bolter"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+   "hurricane-bolter"
+  ]
  },
  {
   "id": "venatari-custodians-wgo-mfm-1",
@@ -8170,23 +8143,25 @@
   }
  },
  {
-  "id": "shield-captain-in-allarus-terminator-armour-wgo-mfm-1",
+  "id": "shield-captain-in-allarus-terminator-armour-wgo-wh-1",
   "unit_id": "shield-captain-in-allarus-terminator-armour",
   "faction_id": "adeptus-custodes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Guardian Spear can be replaced with 1 Castellan Axe.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "guardian-spear-shield-captain-in-allarus-terminator-armour"
   ],
   "replacement": [
    "castellan-axe-shield-captain-in-allarus-terminator-armour"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
   "id": "aquilon-custodians-wgo-mfm-1",
@@ -8251,36 +8226,199 @@
   }
  },
  {
-  "id": "shield-captain-wgo-mfm-1",
+  "id": "shield-captain-wgo-wh-1",
   "unit_id": "shield-captain",
   "faction_id": "adeptus-custodes",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model’s Pyrithite Spear can be replaced with 1 Eternity-pattern Paragon Blade.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
-   "guardian-spear-shield-captain"
+   "pyrithite-spear-shield-captain"
+  ],
+  "replacement": [
+   "eternity-pattern-paragon-blade"
+  ]
+ },
+ {
+  "id": "shield-captain-wgo-wh-2",
+  "unit_id": "shield-captain",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Pyrithite Spear and Praesidium Shield can be replaced with one of the following:• Castellan Axe • Guardian Spear",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [
+   "pyrithite-spear-shield-captain",
+   "praesidium-shield"
   ],
   "replacement_choice": [
    [
     "castellan-axe-shield-captain"
    ],
    [
-    "praesidium-shield",
-    "pyrithite-spear-shield-captain"
-   ],
-   [
-    "sentinel-blade-shield-captain"
-   ],
-   [
-    "sentinel-blade-shield-captain",
-    "praesidium-shield"
+    "guardian-spear-shield-captain"
    ]
-  ],
+  ]
+ },
+ {
+  "id": "coronus-grav-carrier-wgo-wh-1",
+  "unit_id": "coronus-grav-carrier",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Twin Lastrum Bolt Cannon can be replaced with 1 Twin Neutronium Cascade Projectors.",
+  "source": "wahapedia-11e@2026-10-16",
   "model_constraint": {
-   "any_number": true
-  }
+   "max": 1
+  },
+  "replaces": [
+   "twin-lastrum-bolt-cannon"
+  ],
+  "replacement": [
+   "twin-neutronium-cascade-projectors"
+  ]
+ },
+ {
+  "id": "pallas-grav-attack-wgo-wh-1",
+  "unit_id": "pallas-grav-attack",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Twin Arachnus Blaze Cannon can be replaced with 1 Twin Iliastus Accelerator Fusil.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [
+   "twin-arachnus-blaze-cannon"
+  ],
+  "replacement": [
+   "twin-iliastus-accelerator-fusil"
+  ]
+ },
+ {
+  "id": "custodian-guard-sodality-wgo-wh-1",
+  "unit_id": "custodian-guard-sodality",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "1 model can be equipped with 1 Vexilla.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
+  "replacement": [
+   "vexilla"
+  ],
+  "max_count": 1
+ },
+ {
+  "id": "sentinel-guard-sodality-wgo-wh-1",
+  "unit_id": "sentinel-guard-sodality",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "1 model can be equipped with 1 Vexilla.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
+  "replacement": [
+   "vexilla"
+  ],
+  "max_count": 1
+ },
+ {
+  "id": "gyrfalcon-jetbike-sodality-wgo-wh-1",
+  "unit_id": "gyrfalcon-jetbike-sodality",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "All models in this unit can each have their Lastrum Bolt Cannon replaced with one of the following:• 1 Adrathic Devastator • 1 Arachnus Volley Cannon • 1 Twin Corvae Las-pulser",
+  "source": "wahapedia-11e@2026-10-16",
+  "replaces": [
+   "lastrum-bolt-cannon"
+  ],
+  "replacement_choice": [
+   [
+    "adrathic-devastator"
+   ],
+   [
+    "arachnus-volley-cannon"
+   ],
+   [
+    "twin-corvae-las-pulser"
+   ]
+  ]
+ },
+ {
+  "id": "aquilon-terminators-with-solarite-power-talons-wgo-wh-1",
+  "unit_id": "aquilon-terminators-with-solarite-power-talons",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "All models in this unit can each have their Lastrum Storm Bolter replaced with 1 Infernus Firepike.",
+  "source": "wahapedia-11e@2026-10-16",
+  "replaces": [
+   "lastrum-storm-bolter"
+  ],
+  "replacement": [
+   "infernus-firepike"
+  ]
+ },
+ {
+  "id": "caladius-annihilator-grav-tank-wgo-wh-1",
+  "unit_id": "caladius-annihilator-grav-tank",
+  "faction_id": "adeptus-custodes",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Twin Lastrum Bolt Cannon can be replaced with 1 Twin Neutronium Cascade Projectors.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [
+   "twin-lastrum-bolt-cannon"
+  ],
+  "replacement": [
+   "twin-neutronium-cascade-projectors"
+  ]
  },
  {
   "id": "archaeopter-stratoraptor-wgo-mfm-1",
@@ -25681,10 +25819,10 @@
   },
   "is_free": true,
   "replaces": [
-   "rokkit-launcha"
+   "rokkit-launcha-deffkoptas"
   ],
   "replacement": [
-   "kustom-mega-blasta"
+   "kustom-mega-blasta-deffkoptas"
   ],
   "model_constraint": {
    "per_n_models": 3
@@ -25773,7 +25911,7 @@
   },
   "is_free": true,
   "replacement": [
-   "dual-supa-shoota"
+   "dual-supa-shoota-wazbom-blastajet"
   ],
   "model_constraint": {
    "any_number": true
@@ -26205,7 +26343,7 @@
   },
   "is_free": true,
   "replaces": [
-   "kustom-choppa"
+   "kustom-choppa-stormboyz"
   ],
   "replacement": [
    "power-klaw"
@@ -26235,7 +26373,7 @@
     "rokkit-launcha-deff-dread"
    ],
    [
-    "kustom-mega-blasta"
+    "kustom-mega-blasta-deff-dread"
    ]
   ],
   "model_constraint": {
@@ -26257,7 +26395,7 @@
   ],
   "replacement_choice": [
    [
-    "kustom-mega-blasta"
+    "kustom-mega-blasta-deff-dread"
    ],
    [
     "rokkit-launcha-deff-dread"
@@ -26296,7 +26434,7 @@
   },
   "is_free": true,
   "replaces": [
-   "kustom-shoota"
+   "kustom-shoota-big-mek-in-mega-armour"
   ],
   "replacement_choice": [
    [
@@ -26485,7 +26623,7 @@
    "kustom-shoota-meganobz"
   ],
   "replacement": [
-   "kombi-weapon"
+   "kombi-weapon-meganobz"
   ],
   "model_constraint": {
    "any_number": true
@@ -26526,7 +26664,7 @@
   "replacement_choice": [
    [
     "killsaw-meganobz",
-    "kombi-weapon"
+    "kombi-weapon-meganobz"
    ],
    [
     "twin-killsaw"
@@ -26596,14 +26734,99 @@
   }
  },
  {
-  "id": "gunwagon-wgo-mfm-1",
+  "id": "gunwagon-wgo-wh-1",
   "unit_id": "gunwagon",
   "faction_id": "orks",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "This model can be equipped with 1 Wreckin’ Ball.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
+  "replacement": [
+   "wreckin-ball"
+  ],
+  "max_count": 1
+ },
+ {
+  "id": "gunwagon-wgo-wh-2",
+  "unit_id": "gunwagon",
+  "faction_id": "orks",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model can be equipped with 1 Grabbin’ Klaw.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
+  "replacement": [
+   "grabbin-klaw"
+  ],
+  "max_count": 1
+ },
+ {
+  "id": "gunwagon-wgo-wh-3",
+  "unit_id": "gunwagon",
+  "faction_id": "orks",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model can be equipped with 1 Lobba.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
+  "replacement": [
+   "lobba"
+  ],
+  "max_count": 1
+ },
+ {
+  "id": "gunwagon-wgo-wh-4",
+  "unit_id": "gunwagon",
+  "faction_id": "orks",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model can be equipped with up to 4 Big Shoota.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
+  "replaces": [],
+  "replacement": [
+   "big-shoota"
+  ],
+  "max_count": 4
+ },
+ {
+  "id": "gunwagon-wgo-wh-5",
+  "unit_id": "gunwagon",
+  "faction_id": "orks",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "codex"
+  },
+  "is_free": true,
+  "rules_text": "This model’s Kannon can be replaced with one of the following:• 1 Killkannon • 1 Zzap Gun",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1
+  },
   "replaces": [
    "kannon"
   ],
@@ -26614,94 +26837,28 @@
    [
     "zzap-gun"
    ]
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "gunwagon-wgo-mfm-2",
-  "unit_id": "gunwagon",
-  "faction_id": "orks",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "big-shoota"
-  ],
-  "model_constraint": {
-   "any_number": true,
-   "max_count": 4
-  }
- },
- {
-  "id": "gunwagon-wgo-mfm-3",
-  "unit_id": "gunwagon",
-  "faction_id": "orks",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "grabbin-klaw"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "gunwagon-wgo-mfm-4",
-  "unit_id": "gunwagon",
-  "faction_id": "orks",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "lobba"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "gunwagon-wgo-mfm-5",
-  "unit_id": "gunwagon",
-  "faction_id": "orks",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement": [
-   "wreckin-ball"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
- },
- {
-  "id": "warbuggies-wgo-mfm-1",
+  "id": "warbuggies-wgo-wh-1",
   "unit_id": "warbuggies",
   "faction_id": "orks",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "Any number of models can each have their Mek Speshul replaced with 1 Rivet Kannon.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "any_number": true
+  },
   "replaces": [
    "mek-speshul"
   ],
   "replacement": [
    "rivet-kannon"
-  ],
-  "model_constraint": {
-   "any_number": true
-  }
+  ]
  },
  {
   "id": "warbikers-wgo-mfm-1",
