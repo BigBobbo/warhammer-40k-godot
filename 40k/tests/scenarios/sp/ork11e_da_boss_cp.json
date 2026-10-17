@@ -1,0 +1,795 @@
+{
+  "id": "ork11e_da_boss_cp",
+  "covers": [
+    "ork11e.army_rules.da_boss",
+    "phases.CommandPhase.battle_round_start",
+    "ork11e.army_rules.war_cry_window"
+  ],
+  "fixture": "ork11e_o34_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) army rule DA BOSS (WP-O34): 'At the start of the battle round, if a model with this ability is your WARLORD, gain 1CP.' Fixture ork11e_o34_active (P1 Orks, the Warboss is the WARLORD and carries Da Boss, vs P2 Custodes; battle round 2, P1 Command phase; P1 has the first turn). Loading into the round's first Command phase is the start of battle round 2: the Orks gain the core Command-phase CP AND the Da Boss CP (6 -> 8), the Game Log names it, and the Custodes (no Da Boss) gain only the core CP. The turn is then played out (phase ends dispatched; the Custodes are pushed 12\" back in setup so nothing is engaged). At the start of the Custodes' Command phase the Orks are offered WAR CRY in a rule window ('the Command phase', not 'your') — a real click on Decline closes it. Round 3 starts in the Orks' next Command phase: Da Boss grants exactly one more CP (with the core CP: +2), recorded for round 3.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 2
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.get_first_turn_player()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "bool(GameState.state.units[\"U_WARBOSS_A\"].meta.get(\"is_warlord\", false))",
+      "equals": true,
+      "comment": "the Warboss is the WARLORD"
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkArmyRules11e.gd\").has_ability(GameState.state.units[\"U_WARBOSS_A\"], \"Da Boss\")\n",
+      "multiline": true,
+      "equals": true,
+      "comment": "and carries Da Boss (codex datasheet ability)"
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.state.players[\"1\"].get(\"ork11e_da_boss_round\", 0))",
+      "equals": 2,
+      "comment": "Da Boss fired at the start of battle round 2"
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.state.players[\"2\"].get(\"ork11e_da_boss_round\", 0))",
+      "equals": 0,
+      "comment": "the Custodes have no Da Boss warlord"
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.state.players[\"1\"].cp)",
+      "equals": 8,
+      "comment": "fixture 6 CP + 1 core Command-phase CP + 1 Da Boss"
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.state.players[\"2\"].cp)",
+      "equals": 7,
+      "comment": "fixture 6 CP + 1 core Command-phase CP"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Da Boss: Warboss is your Warlord — +1 CP (start of battle round 2\")",
+      "expect_min": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "01_round2_da_boss_cp"
+    },
+    {
+      "act": "execute_script",
+      "script": "for _uid in GameState.state.units:\n\tvar _u = GameState.state.units[_uid]\n\tif int(_u.get(\"owner\", 0)) != 2:\n\t\tcontinue\n\tfor _m in _u.models:\n\t\tif _m.get(\"position\") != null:\n\t\t\t_m[\"position\"] = {\"x\": float(_m.position.x), \"y\": float(_m.position.y) + 12.000000 * 40.0}\ntree.current_scene._recreate_unit_visuals()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "setup privilege: every Custodes model 12\" south, so no unit is engaged and the turn can be ended phase by phase"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_COMMAND",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_SHOOTING",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_CHARGE",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 11
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_TURN",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 2
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 2
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+      "equals": false
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_COMMAND",
+        "player": 2
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")",
+      "equals": "ork11e_war_cry",
+      "comment": "the Custodes' Command phase reaches its first decision point (the Battle-shock step starts, before any roll): the Orks' WAR CRY rule window opens first"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_rule_war_cry/Buttons/Use_ork11e_rule_war_cry_none",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "return tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_rule_war_cry\").find_child(\"Cost\", true, false).text\n",
+      "multiline": true,
+      "equals": "FREE"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_war_cry_window_opponent_command"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().has_pending_stratagem_window()",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "FactionAbilityManager.is_waaagh_available(1)",
+      "equals": true,
+      "comment": "declined: War Cry is still available (once per battle)"
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7,
+      "comment": "declined: the Custodes' END_COMMAND resumes into their Movement phase"
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state.meta[\"_o34_cp_before_r3\"] = int(GameState.state.players[\"1\"].cp)\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "record the Orks' CP before the round-3 Command phase"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 2
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_SHOOTING",
+        "player": 2
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_CHARGE",
+        "player": 2
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_FIGHT"
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 11
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_TURN",
+        "player": 2
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 3
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.state.players[\"1\"].get(\"ork11e_da_boss_round\", 0))",
+      "equals": 3,
+      "comment": "Da Boss fired again at the start of battle round 3"
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.state.players[\"1\"].cp) - int(GameState.state.meta[\"_o34_cp_before_r3\"])",
+      "equals": 2,
+      "comment": "+1 core CP, +1 Da Boss (once per round)"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"start of battle round 3\")",
+      "expect_min": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "03_round3_da_boss_cp_again"
+    }
+  ]
+}

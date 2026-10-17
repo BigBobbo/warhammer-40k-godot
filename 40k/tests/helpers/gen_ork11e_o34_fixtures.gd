@@ -10,12 +10,16 @@ extends SceneTree
 ##
 ##   tests/saves/ork11e_o34_active.w40ksave — P1 = Orks (ork11e_codex_test +
 ##       a Weirdboy, War Horde) ACTIVE vs P2 = Adeptus Custodes (custodes_lions).
+##   tests/saves/ork11e_o34_hunt.w40ksave — the same, plus a Custodes VEHICLE
+##       (the Contemptor-Achillus Dreadnought from armies/adeptus_custodes.json,
+##       U_CONTEMPTOR_A) engaged with the Beast Snagga Boyz, for Da Big Hunt's
+##       "Da Hunt is On" (+1 AP vs MONSTER / VEHICLE units).
 ##
 ## Tests and scenarios switch the detachment at runtime (factions.<p>.detachment
 ## + StratagemManager.load_faction_stratagems_for_player).
 ##
 ## Usage (from the repo root):
-##   godot --headless --path 40k -s tests/helpers/gen_ork11e_o34_fixtures.gd
+##   godot --headless --path 40k -s tests/helpers/gen_ork11e_o34_fixtures.gd [-- --only=<save name>]
 ##
 ## How it is built:
 ##  1. Shell save mirror_custodes_postdeploy: 44x60" board, objectives,
@@ -47,6 +51,11 @@ const ENEMY_ARMY := "custodes_lions"
 const WEIRDBOY_ARMY := "orks"
 const WEIRDBOY_SRC := "U_WEIRDBOY_J"
 const WEIRDBOY_ID := "U_WEIRDBOY_A"
+# ork11e_o34_hunt only: the enemy VEHICLE.
+const VEHICLE_ARMY := "adeptus_custodes"
+const VEHICLE_SRC := "U_CONTEMPTOR-ACHILLUS_DREADNOUGHT_H"
+const VEHICLE_ID := "U_CONTEMPTOR_A"
+const VEHICLE_LAYOUT := ["U_CONTEMPTOR_A", 34.6, 21.0, 1, 1]  # 1" from the Beast Snagga front rank
 const PX_PER_INCH := 40.0
 const BOARD_W_IN := 44.0
 const BOARD_H_IN := 60.0
@@ -112,6 +121,7 @@ const ATTACHMENTS := [["U_WARBOSS_A", "U_BOYZ_B"]]
 
 var GS = null
 var _only := ""
+var _engaged_pairs: Array = []
 
 
 func _initialize() -> void:
@@ -123,7 +133,11 @@ func _initialize() -> void:
 			quit(2)
 			return
 	await create_timer(0.5).timeout
-	var ok := _build("ork11e_o34_active", 1, 1)
+	var ok := true
+	for spec in [["ork11e_o34_active", false], ["ork11e_o34_hunt", true]]:
+		if _only != "" and _only != str(spec[0]):
+			continue
+		ok = _build(str(spec[0]), 1, 1, bool(spec[1])) and ok
 	quit(0 if ok else 1)
 
 
@@ -132,7 +146,7 @@ func _fail(msg: String) -> bool:
 	return false
 
 
-func _build(out_name: String, orks_player: int, active_player: int) -> bool:
+func _build(out_name: String, orks_player: int, active_player: int, with_vehicle: bool = false) -> bool:
 	var slm = root.get_node_or_null("SaveLoadManager")
 	var alm = root.get_node_or_null("ArmyListManager")
 	var cam = root.get_node_or_null("CharacterAttachmentManager")
@@ -180,9 +194,25 @@ func _build(out_name: String, orks_player: int, active_player: int) -> bool:
 	print("[ork11e-fixture] P%d <- %s from %s (abilities %s)" % [orks_player, WEIRDBOY_ID, WEIRDBOY_ARMY,
 		str(wb.get("meta", {}).get("abilities", []).map(func(a): return a.get("name", "") if a is Dictionary else str(a)))])
 
+	# ork11e_o34_hunt: the Custodes VEHICLE joins the enemy army as U_CONTEMPTOR_A.
+	var layout: Array = LAYOUT.duplicate()
+	_engaged_pairs = ENGAGED_PAIRS.duplicate()
+	if with_vehicle:
+		var v_data = alm.load_army_list(VEHICLE_ARMY, enemy_player)
+		if v_data.is_empty() or not v_data.get("units", {}).has(VEHICLE_SRC):
+			return _fail("army list %s has no %s" % [VEHICLE_ARMY, VEHICLE_SRC])
+		var veh: Dictionary = v_data.units[VEHICLE_SRC].duplicate(true)
+		veh["id"] = VEHICLE_ID
+		veh["squad_id"] = VEHICLE_ID
+		veh["owner"] = enemy_player
+		GS.state.units[VEHICLE_ID] = veh
+		layout.append(VEHICLE_LAYOUT)
+		_engaged_pairs.append(["U_BEAST_SNAGGA_BOYZ_A", VEHICLE_ID])
+		print("[ork11e-fixture] P%d <- %s from %s (keywords %s)" % [enemy_player, VEHICLE_ID, VEHICLE_ARMY, str(veh.meta.get("keywords", []))])
+
 	# Place every unit; anything in an army but not in LAYOUT is a hard error.
 	var laid := {}
-	for row in LAYOUT:
+	for row in layout:
 		var uid := str(row[0])
 		if not GS.state.units.has(uid):
 			return _fail("LAYOUT names %s but no such unit was loaded" % uid)
@@ -305,7 +335,7 @@ func _gates(orks_player: int) -> bool:
 						ok = _fail("%s model %s overlaps terrain %s" % [uid, m.get("id", "?"), t.get("id", "?")]) and ok
 	# Engagement: pairs engaged, everything else unengaged.
 	var paired := {}
-	for pair in ENGAGED_PAIRS:
+	for pair in _engaged_pairs:
 		paired[str(pair[0])] = true
 		paired[str(pair[1])] = true
 	paired["U_WARBOSS_A"] = true  # attached to an engaged unit
