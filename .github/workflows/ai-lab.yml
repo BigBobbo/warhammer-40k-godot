@@ -13,6 +13,12 @@ name: AI lab
 #   oracle   — the D1 property test: the AI's expected damage against 1,500
 #              seeded Monte-Carlo resolutions per (weapon, defender) pair
 #              through the real RulesEngine. Minutes, headless, no rendering.
+#              Runs at the test harness's DEFAULT rules edition, 11e
+#              (SettingsService pins automated runs to 11; nothing here sets
+#              WH40K_TEST_EDITION, and nothing should). The known-divergence
+#              catalogue is stamped with the edition it was measured at and
+#              the test fails at any other edition, so a stray legacy opt-in
+#              cannot quietly compare against the wrong rules.
 #
 # Neither plays a benchmark game; game-playing lives in the nightly season
 # (B5), because a 5-round mirror game is minutes of runner time each.
@@ -72,6 +78,13 @@ jobs:
     runs-on: ubuntu-latest
     name: AI damage math vs RulesEngine (D1)
     timeout-minutes: 30
+    # `shell: bash` runs steps as `bash -eo pipefail`. Without it the default
+    # is `bash -e`, and `godot ... | tee` reports tee's exit status, so a godot
+    # crash or a FAIL exit code was invisible and only the grep decided.
+    defaults:
+      run:
+        shell: bash
+    # No WH40K_TEST_EDITION: D1 runs at the harness default, 11e.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -101,8 +114,19 @@ jobs:
           godot --headless --path . -s tests/test_ai_combat_math_property.gd -- --full --samples=1500 | tee /tmp/oracle.log
           grep -q "VERDICT: PASS" /tmp/oracle.log
 
+      # The seeded run re-injects AUDIT 0.1 ("D6" damage parsed as 1.0) and
+      # judges every pair the seed changes twice against the same samples:
+      # with the clean prediction and with the seeded one. Only pairs that are
+      # green unseeded count, so it cannot pass just because the baseline is
+      # already failing (the old verdict was `failures > 0`, which a red
+      # baseline satisfied on its own). It reports DETECTED only when every
+      # weapon the seed changes is turned red on at least one defender and no
+      # seeded pair is waved through by a catalogue entry. The grep matches
+      # the exact end-of-line marker — a bare "DETECTED" also matched
+      # "NOT DETECTED" — and pipefail (above) makes godot's own exit code
+      # count as well.
       - name: Sensitivity check — the oracle must still catch AUDIT 0.1
         run: |
           cd 40k
           godot --headless --path . -s tests/test_ai_combat_math_property.gd -- --samples=600 --seeded-bug | tee /tmp/seeded.log
-          grep -q "DETECTED" /tmp/seeded.log
+          grep -q -- '-> DETECTED$' /tmp/seeded.log

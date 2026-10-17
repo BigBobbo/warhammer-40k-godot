@@ -1,493 +1,343 @@
 {
+  "defender_wounds": 120,
   "divergences": {
-    "Balistus grenade launcher|T4 Sv3+ W10 (armoured)": {
-      "predicted": 0.729,
-      "ratio": 1.38,
-      "resolved": 0.527,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Balistus grenade launcher|T4 Sv6+ W10 (soft)": {
-      "predicted": 1.458,
-      "ratio": 1.86,
-      "resolved": 0.782,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Balistus grenade launcher|T6 Sv2+ W10 4++ (elite)": {
-      "predicted": 0.324,
-      "ratio": 1.16,
-      "resolved": 0.28,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Balistus grenade launcher|T9 Sv3+ W12 (walker)": {
-      "predicted": 0.243,
-      "ratio": 1.21,
-      "resolved": 0.201,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Beast Snagga klaw|T12 Sv2+ W16 (hull)": {
+    "Beast Snagga klaw [Melee A4 WS3+ S10 AP-2 D2; anti-monster 4+, anti-vehicle 4+]|T12 Sv2+ W120 (hull)": {
+      "cause": "anti-union",
+      "kind": "melee",
       "predicted": 2.222,
-      "ratio": 1.62,
+      "ratio": 1.618,
       "resolved": 1.373,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "se": 0.039,
+      "why": "[ANTI] maths — estimator gap, edition-independent. Against this VEHICLE MONSTER both ANTI-MONSTER 4+ and ANTI-VEHICLE 4+ match. The AI adds each anti critical-wound chance on top of the normal wound chance as a union, (1-pc)p+pc, and its `break` only leaves the inner keyword loop, so the two compound: p_wound 0.333 -> 0.667 -> 0.833. 24.03 makes the wound chance the better of the two thresholds, and 24.02 lets only one [ANTI] instance apply: S10 vs T12 wounds on 5+, so the true p_wound is 0.500. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: p_wound = max(normal, crit_p) from the single best matching [ANTI] (melee path)."
     },
-    "Beast Snagga klaw|T9 Sv3+ W12 (walker)": {
+    "Beast Snagga klaw [Melee A4 WS3+ S10 AP-2 D2; anti-monster 4+, anti-vehicle 4+]|T9 Sv3+ W120 (walker)": {
+      "cause": "anti-union",
+      "kind": "melee",
       "predicted": 2.963,
       "ratio": 1.21,
       "resolved": 2.449,
-      "why": "melee estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "se": 0.047,
+      "why": "[ANTI] maths — estimator gap, edition-independent. The AI adds the ANTI-VEHICLE 4+ critical-wound chance on top of the normal wound chance as a union, (1-pc)p+pc: 0.667 -> 0.833. 24.03 only lowers the critical-wound threshold, so the wound chance is the better of the two thresholds: S10 vs T9 wounds on 3+, true p_wound 0.667. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: p_wound = max(normal, crit_p) (melee path)."
     },
-    "Beastchoppa|T12 Sv2+ W16 (hull)": {
+    "Beastchoppa [Melee A6 WS2+ S6 AP-1 D2; anti-monster 4+, anti-vehicle 4+]|T12 Sv2+ W120 (hull)": {
+      "cause": "anti-union",
+      "kind": "melee",
       "predicted": 2.639,
-      "ratio": 1.61,
+      "ratio": 1.609,
       "resolved": 1.64,
-      "why": "melee ANTI-VEHICLE 4+ not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+      "se": 0.044,
+      "why": "[ANTI] maths — estimator gap, edition-independent. Against this VEHICLE MONSTER both ANTI-MONSTER 4+ and ANTI-VEHICLE 4+ match. The AI adds each anti critical-wound chance on top of the normal wound chance as a union, (1-pc)p+pc, and its `break` only leaves the inner keyword loop, so the two compound: p_wound 0.167 -> 0.583 -> 0.792. 24.03 makes the wound chance the better of the two thresholds, and 24.02 lets only one [ANTI] instance apply: S6 vs T12 wounds on 6+, so the true p_wound is 0.500. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: p_wound = max(normal, crit_p) from the single best matching [ANTI] (melee path)."
     },
-    "Beastchoppa|T9 Sv3+ W12 (walker)": {
+    "Beastchoppa [Melee A6 WS2+ S6 AP-1 D2; anti-monster 4+, anti-vehicle 4+]|T9 Sv3+ W120 (walker)": {
+      "cause": "anti-union",
+      "kind": "melee",
       "predicted": 3.333,
       "ratio": 1.33,
       "resolved": 2.505,
-      "why": "melee ANTI-VEHICLE 4+ not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+      "se": 0.051,
+      "why": "[ANTI] maths — estimator gap, edition-independent. The AI adds the ANTI-VEHICLE 4+ critical-wound chance on top of the normal wound chance as a union, (1-pc)p+pc: 0.333 -> 0.667. 24.03 only lowers the critical-wound threshold, so the wound chance is the better of the two thresholds: S6 vs T9 wounds on 5+, true p_wound 0.500. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: p_wound = max(normal, crit_p) (melee path)."
     },
-    "Big shoota|T4 Sv6+ W10 (soft)": {
-      "predicted": 1.111,
-      "ratio": 1.37,
-      "resolved": 0.809,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Boltgun|T4 Sv3+ W10 (armoured)": {
-      "predicted": 0.167,
-      "ratio": 0.82,
-      "resolved": 0.204,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Boltgun|T4 Sv6+ W10 (soft)": {
-      "predicted": 0.417,
-      "ratio": 0.87,
-      "resolved": 0.477,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Boomstikks|T4 Sv3+ W10 (armoured)": {
-      "predicted": 0.444,
-      "ratio": 1.2,
-      "resolved": 0.37,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Boomstikks|T4 Sv6+ W10 (soft)": {
-      "predicted": 1.111,
-      "ratio": 1.57,
-      "resolved": 0.707,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Castellan axe – Ranged|T4 Sv3+ W10 (armoured)": {
-      "predicted": 0.833,
-      "ratio": 1.16,
-      "resolved": 0.721,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Castellan axe – Ranged|T4 Sv6+ W10 (soft)": {
-      "predicted": 1.667,
-      "ratio": 1.23,
-      "resolved": 1.355,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Dirgesinger|T4 Sv3+ W10 (armoured)": {
+    "Dirgesinger [18\" A4 BS3+ S4 AP0 D2; anti-infantry 4+, assault, devastating wounds]|T4 Sv3+ W120 (armoured)": {
+      "cause": "anti+devastating-wounds",
+      "kind": "ranged",
       "predicted": 1.926,
-      "ratio": 0.71,
+      "ratio": 0.709,
       "resolved": 2.715,
-      "why": "melee keyword modifiers not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+      "se": 0.049,
+      "why": "[ANTI] + [DEVASTATING WOUNDS] maths — estimator gap, edition-independent. Against INFANTRY the ANTI-INFANTRY 4+ threshold makes every successful wound roll (S4 vs T4 needs 4+) a critical wound, and each becomes D mortal wounds with no save (24.03, 24.10). The AI gets two terms wrong at once: it adds the anti chance as a union, (1-pc)p+pc = 0.75 instead of the better threshold 0.5, and it gives the devastating save-bypass to only CRIT 1/6 of rolls instead of the anti threshold's 1/2 — so it over-predicts against a weak save and under-predicts against a strong one. Fixing either term alone does not reproduce the engine; fixing both does, exactly. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: crit_p from the best matching [ANTI], p_wound = max(normal, crit_p), devastating share uses crit_p."
     },
-    "Dirgesinger|T4 Sv6+ W10 (soft)": {
+    "Dirgesinger [18\" A4 BS3+ S4 AP0 D2; anti-infantry 4+, assault, devastating wounds]|T4 Sv6+ W120 (soft)": {
+      "cause": "anti+devastating-wounds",
+      "kind": "ranged",
       "predicted": 3.481,
-      "ratio": 1.28,
+      "ratio": 1.282,
       "resolved": 2.715,
-      "why": "melee keyword modifiers not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+      "se": 0.049,
+      "why": "[ANTI] + [DEVASTATING WOUNDS] maths — estimator gap, edition-independent. Against INFANTRY the ANTI-INFANTRY 4+ threshold makes every successful wound roll (S4 vs T4 needs 4+) a critical wound, and each becomes D mortal wounds with no save (24.03, 24.10). The AI gets two terms wrong at once: it adds the anti chance as a union, (1-pc)p+pc = 0.75 instead of the better threshold 0.5, and it gives the devastating save-bypass to only CRIT 1/6 of rolls instead of the anti threshold's 1/2 — so it over-predicts against a weak save and under-predicts against a strong one. Fixing either term alone does not reproduce the engine; fixing both does, exactly. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: crit_p from the best matching [ANTI], p_wound = max(normal, crit_p), devastating share uses crit_p."
     },
-    "Dirgesinger|T6 Sv2+ W10 4++ (elite)": {
+    "Dirgesinger [18\" A4 BS3+ S4 AP0 D2; anti-infantry 4+, assault, devastating wounds]|T6 Sv2+ W120 4++ (elite)": {
+      "cause": "anti+devastating-wounds",
+      "kind": "ranged",
       "predicted": 1.333,
-      "ratio": 0.49,
+      "ratio": 0.491,
       "resolved": 2.715,
-      "why": "melee keyword modifiers not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+      "se": 0.049,
+      "why": "[ANTI] + [DEVASTATING WOUNDS] maths — estimator gap, edition-independent. Against INFANTRY the ANTI-INFANTRY 4+ threshold makes every successful wound roll (S4 vs T4 needs 4+) a critical wound, and each becomes D mortal wounds with no save (24.03, 24.10). The AI gets two terms wrong at once: it adds the anti chance as a union, (1-pc)p+pc = 0.75 instead of the better threshold 0.5, and it gives the devastating save-bypass to only CRIT 1/6 of rolls instead of the anti threshold's 1/2 — so it over-predicts against a weak save and under-predicts against a strong one. Fixing either term alone does not reproduce the engine; fixing both does, exactly. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: crit_p from the best matching [ANTI], p_wound = max(normal, crit_p), devastating share uses crit_p."
     },
-    "Eagle's Scream|T4 Sv3+ W10 (armoured)": {
-      "predicted": 2.222,
-      "ratio": 1.22,
-      "resolved": 1.818,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Eagle's Scream|T4 Sv6+ W10 (soft)": {
-      "predicted": 3.333,
-      "ratio": 1.39,
-      "resolved": 2.404,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Eagle's Scream|T9 Sv3+ W12 (walker)": {
-      "predicted": 1.111,
-      "ratio": 1.14,
-      "resolved": 0.978,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Guardian spear – Ranged|T4 Sv3+ W10 (armoured)": {
-      "predicted": 0.833,
-      "ratio": 1.16,
-      "resolved": 0.721,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Guardian spear – Ranged|T4 Sv6+ W10 (soft)": {
-      "predicted": 1.667,
-      "ratio": 1.23,
-      "resolved": 1.355,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Kannon – Frag|T4 Sv3+ W10 (armoured)": {
-      "predicted": 0.481,
-      "ratio": 1.24,
-      "resolved": 0.388,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Kannon – Frag|T4 Sv6+ W10 (soft)": {
-      "predicted": 1.204,
-      "ratio": 1.65,
-      "resolved": 0.73,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Kannon – Frag|T9 Sv3+ W12 (walker)": {
+    "Kombi-weapon [24\" A1 BS5+ S4 AP0 D1; anti-infantry 4+, devastating wounds, rapid fire 1]|T4 Sv3+ W120 (armoured)": {
+      "cause": "anti+devastating-wounds",
+      "kind": "ranged",
       "predicted": 0.241,
-      "ratio": 1.16,
-      "resolved": 0.207,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Killkannon|T4 Sv3+ W10 (armoured)": {
-      "predicted": 1.667,
-      "ratio": 1.44,
-      "resolved": 1.155,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Killkannon|T4 Sv6+ W10 (soft)": {
-      "predicted": 2.5,
-      "ratio": 1.68,
-      "resolved": 1.484,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Killkannon|T6 Sv2+ W10 4++ (elite)": {
-      "predicted": 1.0,
-      "ratio": 1.21,
-      "resolved": 0.829,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Killkannon|T9 Sv3+ W12 (walker)": {
-      "predicted": 1.0,
-      "ratio": 1.19,
-      "resolved": 0.839,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Kombi-weapon|T12 Sv2+ W16 (hull)": {
-      "predicted": 0.083,
-      "ratio": 0.76,
-      "resolved": 0.11,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Kombi-weapon|T4 Sv3+ W10 (armoured)": {
-      "predicted": 0.181,
-      "ratio": 0.52,
+      "ratio": 0.693,
       "resolved": 0.347,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "se": 0.014,
+      "why": "[ANTI] + [DEVASTATING WOUNDS] maths — estimator gap, edition-independent. Against INFANTRY the ANTI-INFANTRY 4+ threshold makes every successful wound roll (S4 vs T4 needs 4+) a critical wound, and each becomes D mortal wounds with no save (24.03, 24.10). The AI gets two terms wrong at once: it adds the anti chance as a union, (1-pc)p+pc = 0.75 instead of the better threshold 0.5, and it gives the devastating save-bypass to only CRIT 1/6 of rolls instead of the anti threshold's 1/2 — so it over-predicts against a weak save and under-predicts against a strong one. Fixing either term alone does not reproduce the engine; fixing both does, exactly. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: crit_p from the best matching [ANTI], p_wound = max(normal, crit_p), devastating share uses crit_p."
     },
-    "Kombi-weapon|T6 Sv2+ W10 4++ (elite)": {
-      "predicted": 0.125,
-      "ratio": 0.36,
+    "Kombi-weapon [24\" A1 BS5+ S4 AP0 D1; anti-infantry 4+, devastating wounds, rapid fire 1]|T4 Sv6+ W120 (soft)": {
+      "cause": "anti+devastating-wounds",
+      "kind": "ranged",
+      "predicted": 0.435,
+      "ratio": 1.253,
       "resolved": 0.347,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "se": 0.014,
+      "why": "[ANTI] + [DEVASTATING WOUNDS] maths — estimator gap, edition-independent. Against INFANTRY the ANTI-INFANTRY 4+ threshold makes every successful wound roll (S4 vs T4 needs 4+) a critical wound, and each becomes D mortal wounds with no save (24.03, 24.10). The AI gets two terms wrong at once: it adds the anti chance as a union, (1-pc)p+pc = 0.75 instead of the better threshold 0.5, and it gives the devastating save-bypass to only CRIT 1/6 of rolls instead of the anti threshold's 1/2 — so it over-predicts against a weak save and under-predicts against a strong one. Fixing either term alone does not reproduce the engine; fixing both does, exactly. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: crit_p from the best matching [ANTI], p_wound = max(normal, crit_p), devastating share uses crit_p."
     },
-    "Kombi-weapon|T9 Sv3+ W12 (walker)": {
-      "predicted": 0.083,
-      "ratio": 0.76,
-      "resolved": 0.11,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    "Kombi-weapon [24\" A1 BS5+ S4 AP0 D1; anti-infantry 4+, devastating wounds, rapid fire 1]|T6 Sv2+ W120 4++ (elite)": {
+      "cause": "anti+devastating-wounds",
+      "kind": "ranged",
+      "predicted": 0.167,
+      "ratio": 0.48,
+      "resolved": 0.347,
+      "se": 0.014,
+      "why": "[ANTI] + [DEVASTATING WOUNDS] maths — estimator gap, edition-independent. Against INFANTRY the ANTI-INFANTRY 4+ threshold makes every successful wound roll (S4 vs T4 needs 4+) a critical wound, and each becomes D mortal wounds with no save (24.03, 24.10). The AI gets two terms wrong at once: it adds the anti chance as a union, (1-pc)p+pc = 0.75 instead of the better threshold 0.5, and it gives the devastating save-bypass to only CRIT 1/6 of rolls instead of the anti threshold's 1/2 — so it over-predicts against a weak save and under-predicts against a strong one. Fixing either term alone does not reproduce the engine; fixing both does, exactly. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: crit_p from the best matching [ANTI], p_wound = max(normal, crit_p), devastating share uses crit_p."
     },
-    "Lobba|T4 Sv3+ W10 (armoured)": {
-      "predicted": 0.259,
-      "ratio": 1.15,
-      "resolved": 0.225,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Lobba|T4 Sv6+ W10 (soft)": {
-      "predicted": 0.648,
-      "ratio": 1.3,
-      "resolved": 0.497,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Mork's Teeth|T12 Sv2+ W16 (hull)": {
+    "Mork's Teeth [Melee A6 WS2+ S6 AP-1 D2; precision, twin linked]|T12 Sv2+ W120 (hull)": {
+      "cause": "twin-linked",
+      "kind": "melee",
       "predicted": 0.556,
-      "ratio": 0.55,
+      "ratio": 0.554,
       "resolved": 1.003,
-      "why": "melee TWIN LINKED not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+      "se": 0.035,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S6 vs T12 wounds on 6+, p=0.167, re-rolled p+(1-p)p=0.306, so the AI under-predicts by x0.545. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (melee path)."
     },
-    "Mork's Teeth|T4 Sv3+ W10 (armoured)": {
+    "Mork's Teeth [Melee A6 WS2+ S6 AP-1 D2; precision, twin linked]|T4 Sv3+ W120 (armoured)": {
+      "cause": "twin-linked",
+      "kind": "melee",
       "predicted": 3.333,
-      "ratio": 0.74,
-      "resolved": 4.507,
-      "why": "melee TWIN LINKED not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+      "ratio": 0.739,
+      "resolved": 4.512,
+      "se": 0.061,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S6 vs T4 wounds on 3+, p=0.667, re-rolled p+(1-p)p=0.889, so the AI under-predicts by x0.750. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (melee path)."
     },
-    "Mork's Teeth|T4 Sv6+ W10 (soft)": {
+    "Mork's Teeth [Melee A6 WS2+ S6 AP-1 D2; precision, twin linked]|T4 Sv6+ W120 (soft)": {
+      "cause": "twin-linked",
+      "kind": "melee",
       "predicted": 6.667,
-      "ratio": 0.77,
-      "resolved": 8.628,
-      "why": "melee TWIN LINKED not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+      "ratio": 0.742,
+      "resolved": 8.983,
+      "se": 0.055,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S6 vs T4 wounds on 3+, p=0.667, re-rolled p+(1-p)p=0.889, so the AI under-predicts by x0.750. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (melee path)."
     },
-    "Mork's Teeth|T6 Sv2+ W10 4++ (elite)": {
+    "Mork's Teeth [Melee A6 WS2+ S6 AP-1 D2; precision, twin linked]|T6 Sv2+ W120 4++ (elite)": {
+      "cause": "twin-linked",
+      "kind": "melee",
       "predicted": 1.667,
-      "ratio": 0.67,
+      "ratio": 0.673,
       "resolved": 2.477,
-      "why": "melee TWIN LINKED not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+      "se": 0.052,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S6 vs T6 wounds on 4+, p=0.500, re-rolled p+(1-p)p=0.750, so the AI under-predicts by x0.667. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (melee path)."
     },
-    "Mork's Teeth|T9 Sv3+ W12 (walker)": {
+    "Mork's Teeth [Melee A6 WS2+ S6 AP-1 D2; precision, twin linked]|T9 Sv3+ W120 (walker)": {
+      "cause": "twin-linked",
+      "kind": "melee",
       "predicted": 1.667,
-      "ratio": 0.59,
+      "ratio": 0.587,
       "resolved": 2.839,
-      "why": "melee TWIN LINKED not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+      "se": 0.054,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S6 vs T9 wounds on 5+, p=0.333, re-rolled p+(1-p)p=0.556, so the AI under-predicts by x0.600. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (melee path)."
     },
-    "Neural shredder|T4 Sv3+ W10 (armoured)": {
-      "predicted": 2.204,
-      "ratio": 2.5,
-      "resolved": 0.881,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Neural shredder|T4 Sv6+ W10 (soft)": {
-      "predicted": 3.306,
-      "ratio": 3.41,
-      "resolved": 0.97,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Neural shredder|T6 Sv2+ W10 4++ (elite)": {
-      "predicted": 1.556,
-      "ratio": 1.98,
-      "resolved": 0.784,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Neural shredder|T9 Sv3+ W12 (walker)": {
-      "predicted": 0.778,
-      "ratio": 1.39,
-      "resolved": 0.561,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Psychic Tempest|T4 Sv3+ W10 (armoured)": {
-      "predicted": 2.667,
-      "ratio": 1.86,
-      "resolved": 1.436,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Psychic Tempest|T4 Sv6+ W10 (soft)": {
-      "predicted": 6.667,
-      "ratio": 3.44,
-      "resolved": 1.936,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Psychic Tempest|T6 Sv2+ W10 4++ (elite)": {
-      "predicted": 1.0,
-      "ratio": 1.33,
-      "resolved": 0.755,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Psychic Tempest|T9 Sv3+ W12 (walker)": {
-      "predicted": 1.333,
-      "ratio": 1.39,
-      "resolved": 0.956,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Salvo launcher|T12 Sv2+ W16 (hull)": {
+    "Salvo launcher [24\" A1 BS2+ S10 AP-3 D(D6+1); twin linked]|T12 Sv2+ W120 (hull)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
       "predicted": 0.833,
-      "ratio": 0.59,
+      "ratio": 0.587,
       "resolved": 1.42,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "se": 0.058,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S10 vs T12 wounds on 5+, p=0.333, re-rolled p+(1-p)p=0.556, so the AI under-predicts by x0.600. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Salvo launcher|T4 Sv3+ W10 (armoured)": {
+    "Salvo launcher [24\" A1 BS2+ S10 AP-3 D(D6+1); twin linked]|T4 Sv3+ W120 (armoured)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
       "predicted": 2.604,
-      "ratio": 0.86,
+      "ratio": 0.862,
       "resolved": 3.019,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "se": 0.065,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S10 vs T4 wounds on 2+, p=0.833, re-rolled p+(1-p)p=0.972, so the AI under-predicts by x0.857. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Salvo launcher|T4 Sv6+ W10 (soft)": {
+    "Salvo launcher [24\" A1 BS2+ S10 AP-3 D(D6+1); twin linked]|T4 Sv6+ W120 (soft)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
       "predicted": 3.125,
-      "ratio": 0.86,
+      "ratio": 0.859,
       "resolved": 3.64,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "se": 0.059,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S10 vs T4 wounds on 2+, p=0.833, re-rolled p+(1-p)p=0.972, so the AI under-predicts by x0.857. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Salvo launcher|T6 Sv2+ W10 4++ (elite)": {
+    "Salvo launcher [24\" A1 BS2+ S10 AP-3 D(D6+1); twin linked]|T6 Sv2+ W120 4++ (elite)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
       "predicted": 1.25,
-      "ratio": 0.76,
+      "ratio": 0.761,
       "resolved": 1.643,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "se": 0.061,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S10 vs T6 wounds on 3+, p=0.667, re-rolled p+(1-p)p=0.889, so the AI under-predicts by x0.750. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Salvo launcher|T9 Sv3+ W12 (walker)": {
+    "Salvo launcher [24\" A1 BS2+ S10 AP-3 D(D6+1); twin linked]|T9 Sv3+ W120 (walker)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
       "predicted": 2.083,
-      "ratio": 0.76,
+      "ratio": 0.761,
       "resolved": 2.739,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "se": 0.065,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S10 vs T9 wounds on 3+, p=0.667, re-rolled p+(1-p)p=0.889, so the AI under-predicts by x0.750. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Sentinel blade – Ranged|T4 Sv3+ W10 (armoured)": {
-      "predicted": 0.833,
-      "ratio": 1.16,
-      "resolved": 0.721,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Sentinel blade – Ranged|T4 Sv6+ W10 (soft)": {
-      "predicted": 1.667,
-      "ratio": 1.23,
-      "resolved": 1.355,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Twin arachnus heavy blaze cannon|T12 Sv2+ W16 (hull)": {
+    "Twin arachnus heavy blaze cannon [48\" A4 BS2+ S12 AP-3 D(D6+2); twin linked]|T12 Sv2+ W120 (hull)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
       "predicted": 6.111,
-      "ratio": 1.25,
-      "resolved": 4.907,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "ratio": 0.654,
+      "resolved": 9.343,
+      "se": 0.153,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S12 vs T12 wounds on 4+, p=0.500, re-rolled p+(1-p)p=0.750, so the AI under-predicts by x0.667. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Twin arachnus heavy blaze cannon|T4 Sv3+ W10 (armoured)": {
+    "Twin arachnus heavy blaze cannon [48\" A4 BS2+ S12 AP-3 D(D6+2); twin linked]|T4 Sv3+ W120 (armoured)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
       "predicted": 12.731,
-      "ratio": 2.32,
-      "resolved": 5.481,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "ratio": 0.848,
+      "resolved": 15.021,
+      "se": 0.148,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S12 vs T4 wounds on 2+, p=0.833, re-rolled p+(1-p)p=0.972, so the AI under-predicts by x0.857. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Twin arachnus heavy blaze cannon|T4 Sv6+ W10 (soft)": {
+    "Twin arachnus heavy blaze cannon [48\" A4 BS2+ S12 AP-3 D(D6+2); twin linked]|T4 Sv6+ W120 (soft)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
       "predicted": 15.278,
-      "ratio": 2.79,
-      "resolved": 5.475,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "ratio": 0.852,
+      "resolved": 17.935,
+      "se": 0.136,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S12 vs T4 wounds on 2+, p=0.833, re-rolled p+(1-p)p=0.972, so the AI under-predicts by x0.857. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Twin arachnus heavy blaze cannon|T6 Sv2+ W10 4++ (elite)": {
+    "Twin arachnus heavy blaze cannon [48\" A4 BS2+ S12 AP-3 D(D6+2); twin linked]|T6 Sv2+ W120 4++ (elite)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
       "predicted": 7.639,
-      "ratio": 1.59,
-      "resolved": 4.807,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "ratio": 0.88,
+      "resolved": 8.685,
+      "se": 0.146,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S12 vs T6 wounds on 2+, p=0.833, re-rolled p+(1-p)p=0.972, so the AI under-predicts by x0.857. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Twin arachnus heavy blaze cannon|T9 Sv3+ W12 (walker)": {
+    "Twin arachnus heavy blaze cannon [48\" A4 BS2+ S12 AP-3 D(D6+2); twin linked]|T9 Sv3+ W120 (walker)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
       "predicted": 10.185,
-      "ratio": 1.86,
-      "resolved": 5.465,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "ratio": 0.735,
+      "resolved": 13.852,
+      "se": 0.151,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S12 vs T9 wounds on 3+, p=0.667, re-rolled p+(1-p)p=0.889, so the AI under-predicts by x0.750. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Twin iliastus accelerator cannon|T12 Sv2+ W16 (hull)": {
-      "predicted": 1.667,
-      "ratio": 0.74,
-      "resolved": 2.238,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    "Twin iliastus accelerator cannon [48\" A4 BS2+ S10 AP-1 D3; rapid fire 4, twin linked]|T12 Sv2+ W120 (hull)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
+      "predicted": 2.222,
+      "ratio": 0.587,
+      "resolved": 3.786,
+      "se": 0.08,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S10 vs T12 wounds on 5+, p=0.333, re-rolled p+(1-p)p=0.556, so the AI under-predicts by x0.600. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Twin iliastus accelerator cannon|T4 Sv3+ W10 (armoured)": {
-      "predicted": 6.25,
-      "ratio": 2.11,
-      "resolved": 2.964,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Twin iliastus accelerator cannon|T4 Sv6+ W10 (soft)": {
-      "predicted": 12.5,
-      "ratio": 4.17,
-      "resolved": 3.0,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Twin iliastus accelerator cannon|T6 Sv2+ W10 4++ (elite)": {
-      "predicted": 3.333,
-      "ratio": 1.21,
-      "resolved": 2.75,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Twin iliastus accelerator cannon|T9 Sv3+ W12 (walker)": {
-      "predicted": 5.0,
-      "ratio": 1.69,
-      "resolved": 2.95,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Twin lastrum bolt cannon|T4 Sv3+ W10 (armoured)": {
-      "predicted": 1.0,
-      "ratio": 1.45,
-      "resolved": 0.689,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Twin lastrum bolt cannon|T4 Sv6+ W10 (soft)": {
-      "predicted": 2.0,
-      "ratio": 2.14,
-      "resolved": 0.937,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Twin lastrum bolt cannon|T6 Sv2+ W10 4++ (elite)": {
-      "predicted": 0.5,
-      "ratio": 1.18,
-      "resolved": 0.424,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Twin lastrum bolt cannon|T9 Sv3+ W12 (walker)": {
-      "predicted": 0.5,
-      "ratio": 1.18,
-      "resolved": 0.423,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Twin sluggas|T4 Sv3+ W10 (armoured)": {
-      "predicted": 0.111,
-      "ratio": 0.71,
-      "resolved": 0.156,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Twin sluggas|T4 Sv6+ W10 (soft)": {
-      "predicted": 0.278,
-      "ratio": 0.71,
-      "resolved": 0.391,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Twin sluggas|T6 Sv2+ W10 4++ (elite)": {
-      "predicted": 0.037,
-      "ratio": 0.59,
-      "resolved": 0.063,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Twin sluggas|T9 Sv3+ W12 (walker)": {
-      "predicted": 0.037,
-      "ratio": 0.63,
-      "resolved": 0.059,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Watcher's Axe|T4 Sv3+ W10 (armoured)": {
+    "Twin iliastus accelerator cannon [48\" A4 BS2+ S10 AP-1 D3; rapid fire 4, twin linked]|T4 Sv3+ W120 (armoured)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
       "predicted": 8.333,
-      "ratio": 1.11,
-      "resolved": 7.522,
-      "why": "melee keyword modifiers not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+      "ratio": 0.847,
+      "resolved": 9.844,
+      "se": 0.108,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S10 vs T4 wounds on 2+, p=0.833, re-rolled p+(1-p)p=0.972, so the AI under-predicts by x0.857. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Watcher's Axe|T4 Sv6+ W10 (soft)": {
-      "predicted": 12.5,
-      "ratio": 1.31,
-      "resolved": 9.516,
-      "why": "melee keyword modifiers not modelled — _estimate_melee_damage never calls _apply_weapon_keyword_modifiers (D1b)"
+    "Twin iliastus accelerator cannon [48\" A4 BS2+ S10 AP-1 D3; rapid fire 4, twin linked]|T4 Sv6+ W120 (soft)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
+      "predicted": 16.667,
+      "ratio": 0.851,
+      "resolved": 19.592,
+      "se": 0.085,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S10 vs T4 wounds on 2+, p=0.833, re-rolled p+(1-p)p=0.972, so the AI under-predicts by x0.857. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Witchseeker flamer|T4 Sv3+ W10 (armoured)": {
-      "predicted": 0.583,
-      "ratio": 1.3,
-      "resolved": 0.448,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    "Twin iliastus accelerator cannon [48\" A4 BS2+ S10 AP-1 D3; rapid fire 4, twin linked]|T6 Sv2+ W120 4++ (elite)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
+      "predicted": 4.444,
+      "ratio": 0.729,
+      "resolved": 6.096,
+      "se": 0.093,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S10 vs T6 wounds on 3+, p=0.667, re-rolled p+(1-p)p=0.889, so the AI under-predicts by x0.750. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Witchseeker flamer|T4 Sv6+ W10 (soft)": {
-      "predicted": 1.458,
-      "ratio": 1.84,
-      "resolved": 0.794,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    "Twin iliastus accelerator cannon [48\" A4 BS2+ S10 AP-1 D3; rapid fire 4, twin linked]|T9 Sv3+ W120 (walker)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
+      "predicted": 6.667,
+      "ratio": 0.736,
+      "resolved": 9.054,
+      "se": 0.105,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S10 vs T9 wounds on 3+, p=0.667, re-rolled p+(1-p)p=0.889, so the AI under-predicts by x0.750. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Zzap gun|T4 Sv3+ W10 (armoured)": {
-      "predicted": 0.694,
-      "ratio": 1.39,
-      "resolved": 0.5,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+    "Twin sluggas [12\" A2 BS5+ S4 AP0 D1; pistol, twin linked]|T4 Sv3+ W120 (armoured)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
+      "predicted": 0.111,
+      "ratio": 0.694,
+      "resolved": 0.16,
+      "se": 0.01,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S4 vs T4 wounds on 4+, p=0.500, re-rolled p+(1-p)p=0.750, so the AI under-predicts by x0.667. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
     },
-    "Zzap gun|T4 Sv6+ W10 (soft)": {
-      "predicted": 0.833,
-      "ratio": 1.37,
-      "resolved": 0.61,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
-    },
-    "Zzap gun|T6 Sv2+ W10 4++ (elite)": {
+    "Twin sluggas [12\" A2 BS5+ S4 AP0 D1; pistol, twin linked]|T4 Sv6+ W120 (soft)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
       "predicted": 0.278,
-      "ratio": 1.6,
+      "ratio": 0.639,
+      "resolved": 0.435,
+      "se": 0.015,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S4 vs T4 wounds on 4+, p=0.500, re-rolled p+(1-p)p=0.750, so the AI under-predicts by x0.667. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
+    },
+    "Twin sluggas [12\" A2 BS5+ S4 AP0 D1; pistol, twin linked]|T6 Sv2+ W120 4++ (elite)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
+      "predicted": 0.037,
+      "ratio": 0.591,
+      "resolved": 0.063,
+      "se": 0.006,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S4 vs T6 wounds on 5+, p=0.333, re-rolled p+(1-p)p=0.556, so the AI under-predicts by x0.600. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
+    },
+    "Twin sluggas [12\" A2 BS5+ S4 AP0 D1; pistol, twin linked]|T9 Sv3+ W120 (walker)": {
+      "cause": "twin-linked",
+      "kind": "ranged",
+      "predicted": 0.037,
+      "ratio": 0.617,
+      "resolved": 0.06,
+      "se": 0.006,
+      "why": "TWIN-LINKED not modelled — estimator gap, edition-independent. _apply_weapon_keyword_modifiers has no twin-linked term (the only mentions are comments), so the AI uses the plain wound chance while the engine re-rolls the wound roll (24.38): S4 vs T9 wounds on 6+, p=0.167, re-rolled p+(1-p)p=0.306, so the AI under-predicts by x0.545. Isolated by closed form: the AI's own arithmetic reproduces its prediction exactly, the 11e rules value matches the engine mean within Monte-Carlo noise, and correcting only this term in the AI's formula gives the engine value. Follow-up: TWIN-LINKED re-roll term in the estimator (ranged path)."
+    },
+    "Zzap gun [36\" A1 BS5+ S(D6+6) AP-3 D5; anti-vehicle 4+]|T4 Sv3+ W120 (armoured)": {
+      "cause": "dice-valued-strength",
+      "kind": "ranged",
+      "predicted": 0.694,
+      "ratio": 1.389,
+      "resolved": 0.5,
+      "se": 0.039,
+      "why": "Dice-valued Strength is never rolled — a player-facing ENGINE BUG plus an estimator gap, edition-independent. S 'D6+6' resolves as a fixed S3 in RulesEngine (the non-integer parse fallback; nothing rolls strength) and as a fixed S4 in AIDecisionMaker (its `else 4` fallback). Engine mean 0.500 matches the S3 closed form 0.463 (0.9 SE); the AI's 0.694 is exactly the S4 value; rolling S D6+6 against T4 gives 1.119, so both sides under-value the gun. Follow-ups: roll dice-valued Strength in the engine (a Zzap gun wounds as S3 in real games), then use expected Strength in the estimator. When the engine is fixed this ratio drops below 1.0, the ratchet fails on the sign flip, and the entry must be re-measured."
+    },
+    "Zzap gun [36\" A1 BS5+ S(D6+6) AP-3 D5; anti-vehicle 4+]|T4 Sv6+ W120 (soft)": {
+      "cause": "dice-valued-strength",
+      "kind": "ranged",
+      "predicted": 0.833,
+      "ratio": 1.366,
+      "resolved": 0.61,
+      "se": 0.042,
+      "why": "Dice-valued Strength is never rolled — a player-facing ENGINE BUG plus an estimator gap, edition-independent. S 'D6+6' resolves as a fixed S3 in RulesEngine (the non-integer parse fallback; nothing rolls strength) and as a fixed S4 in AIDecisionMaker (its `else 4` fallback). Engine mean 0.610 matches the S3 closed form 0.556 (1.3 SE); the AI's 0.833 is exactly the S4 value; rolling S D6+6 against T4 gives 1.343, so both sides under-value the gun. Follow-ups: roll dice-valued Strength in the engine (a Zzap gun wounds as S3 in real games), then use expected Strength in the estimator. When the engine is fixed this ratio drops below 1.0, the ratchet fails on the sign flip, and the entry must be re-measured."
+    },
+    "Zzap gun [36\" A1 BS5+ S(D6+6) AP-3 D5; anti-vehicle 4+]|T6 Sv2+ W120 4++ (elite)": {
+      "cause": "dice-valued-strength",
+      "kind": "ranged",
+      "predicted": 0.278,
+      "ratio": 1.603,
       "resolved": 0.173,
-      "why": "ranged estimate diverges from RulesEngine resolution; cause NOT isolated (D1b)"
+      "se": 0.024,
+      "why": "Dice-valued Strength is never rolled — a player-facing ENGINE BUG plus an estimator gap, edition-independent. S 'D6+6' resolves as a fixed S3 in RulesEngine (the non-integer parse fallback; nothing rolls strength) and as a fixed S4 in AIDecisionMaker (its `else 4` fallback). Engine mean 0.173 matches the S3 closed form 0.139 (1.4 SE); the AI's 0.278 is exactly the S4 value; rolling S D6+6 against T6 gives 0.579, so both sides under-value the gun. Follow-ups: roll dice-valued Strength in the engine (a Zzap gun wounds as S3 in real games), then use expected Strength in the estimator. When the engine is fixed this ratio drops below 1.0, the ratchet fails on the sign flip, and the entry must be re-measured."
     }
   },
-  "generated": "2026-08-08",
-  "note": "Generated by tests/test_ai_combat_math_property.gd --write-catalogue. Each entry is a REPRODUCED divergence between AIDecisionMaker's expected-damage arithmetic and what RulesEngine actually resolves, with the predicted/resolved ratio measured when it was catalogued (1500 Monte-Carlo samples per pair, seeded). This file is a RATCHET, not an excuse: a pair that is NOT listed here must agree within 10%, and a pair that IS listed fails the moment it drifts more than 15% further from the engine. Every entry is owned by task D1b in .llm/ai-overhaul-todo.md. Regenerate with --write-catalogue after a deliberate change and READ THE DIFF.",
-  "samples": 1500
+  "edition": 11,
+  "generated": "2026-10-17",
+  "note": "Generated by tests/test_ai_combat_math_property.gd --write-catalogue at the harness default rules edition (11e), fast tier, 1500 seeded Monte-Carlo samples per pair, then every `why` written by hand. Each entry is a REPRODUCED divergence between AIDecisionMaker's expected-damage arithmetic and what RulesEngine resolves, with the predicted/resolved ratio measured on the harness's open-ground duel (terrain neutralised, ranged 4in centre-to-centre so unengaged and in half range, one W120 defender so nothing saturates). Every surviving entry is a real, isolated, edition-independent estimator gap or a named engine bug (`cause`): twin-linked, anti-union, anti+devastating-wounds, dice-valued-strength. This file is a RATCHET, not an excuse: a pair that is NOT listed must agree within 10% (or 3 SE), and a listed pair fails if its error flips to the other side of 1.0 or grows, in log space, more than 15% beyond the recorded ratio. The test refuses to compare against this file at any other edition. Owned by task D1b in .llm/ai-overhaul-todo.md. Regenerate with --write-catalogue after a deliberate change and READ THE DIFF.",
+  "samples": 1500,
+  "tier": "fast"
 }

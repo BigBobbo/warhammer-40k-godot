@@ -9,7 +9,7 @@
 # not accepted as correct behaviour.
 
 # --- tests/ (ungated) ---
-tests/test_ai_combat_math_property.gd  # >240 s under this runner (timeout); ai-lab.yml D1 runs it with its own budget — at 11e it reports 61 new AI-vs-engine divergences (triage pending)
+tests/test_ai_combat_math_property.gd  # >240 s under this runner (timeout); ai-lab.yml D1 runs it with its own budget — the 61 "new" 11e divergences were harness artefacts (live-terrain cover + engaged ranged placement), fixed; it passes there at 11e (213 agree / 37 catalogued)
 tests/test_audit_already_done_pin.gd  # 257/3 at 10e and 11e (path-sum prior_total; ungated print() counts in ChargePhase / MovementPhase)
 tests/test_charge_attached_character.gd  # 11/2 at 10e and 11e (attached character moved with bodyguard; own pile-in offered)
 tests/test_da_jump_placement_376.gd  # exit 1 at 10e and 11e
