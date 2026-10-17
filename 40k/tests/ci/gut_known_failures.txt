@@ -88,7 +88,7 @@ tests/integration/test_heavy_keyword_integration.gd::test_heavy_bonus_not_applie
 # --- ran in CI before — it was gated behind the always-timing-out audit) ---
 tests/integration/test_multiplayer_deployment.gd::test_deployment_single_unit  # fails in both CI runs (pre-existing; docs/CORE_RULES_REMEDIATION_2026-10.md)
 tests/integration/test_multiplayer_deployment.gd::test_deployment_outside_zone  # fails in both CI runs (pre-existing)
-tests/integration/test_multiplayer_deployment.gd::test_deployment_blocked_by_terrain  # fails in both CI runs (pre-existing)
+? tests/integration/test_multiplayer_deployment.gd::test_deployment_blocked_by_terrain  # failed in 2 of 3 CI runs (passed on 6f8b42d) — intermittent
 tests/integration/test_multiplayer_deployment.gd::test_deployment_undo_action  # fails in both CI runs (pre-existing)
 tests/integration/test_multiplayer_network.gd::test_action_after_client_disconnect  # fails in both CI runs (pre-existing)
 tests/integration/test_multiplayer_save_dialog_retry.gd::test_save_dialog_retry_broadcast_id_helpers_present  # fails in both CI runs (pre-existing 'sbid-' helper)
