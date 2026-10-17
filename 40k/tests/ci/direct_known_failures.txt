@@ -42,7 +42,6 @@ tests/integration/test_escape_main_menu.gd  # 4/1 at 10e and 11e
 
 # --- fail at 11e only: tracked 11e ENGINE bugs (2026-10-17 triage; the test
 # --- asserts the 11e rule and stays unweakened until the engine is fixed) ---
-tests/test_ri_pretrigger.gd  # BUG-11: rapid_ingress_11e is defined on the Shooting phase; 15.07 WHEN "End of your opponent's Movement phase" (Diff 4 fixes)
 tests/test_374_enhancement_resolution_398.gd  # BUG-11: 11e melee allocation path drops attacker +Damage modifiers (Hall of Armouries etc.; RulesEngine 11e branch of _resolve_melee_assignment)
 tests/test_custodes_lions_silent_hunters.gd  # BUG-11: legacy WEAPON_PROFILES store AP as a positive magnitude and the 11e allocation path adds it to the save (test-fixture weapons only; army data uses signed AP)
 tests/test_b2b_rules_standalone_check.gd  # BUG-11: 11.04 "within 1\"" charge obligation not enforced at 11e (validate_base_to_base_possible_rules uses the 2\" ER)
