@@ -1,5 +1,10 @@
 extends Node
 
+# Codex: Orks (11e) army rules + detachment rules (WP-O34). At edition 11 the
+# 10e-era Ork detachment code below is gated off and these modules decide.
+const Ork11eArmyRules = preload("res://scripts/codex/orks/OrkArmyRules11e.gd")
+const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
+
 # FactionAbilityManager - Handles faction-wide abilities triggered during the Command Phase
 #
 # Per 10th Edition rules, many factions have a faction ability that triggers
@@ -496,6 +501,8 @@ func activate_waaagh(player: int) -> Dictionary:
 	# Activate Waaagh!
 	_waaagh_used[player_key] = true
 	_waaagh_active[player_key] = true
+	# 11e War Cry: riled up "until the end of the next turn" (WP-O34).
+	Ork11eArmyRules.on_war_cry_used(player)
 
 	# Apply Waaagh! effects to all Ork units
 	_apply_waaagh_effects(player)
@@ -558,6 +565,9 @@ func snapshot_persistent_ability_flags(flags: Dictionary) -> Dictionary:
 func is_boss_watchin_waaagh_available(player: int) -> bool:
 	"""Second Waaagh! availability: Bully Boyz, first Waaagh! spent (and no
 	longer active), second not yet used, and a WARBOSS alive."""
+	# 10e Bully Boyz rule — the 11e rule is Displays of Savagery (WP-O34).
+	if GameConstants.edition >= 11:
+		return false
 	if get_player_detachment(player) != "Bully Boyz":
 		return false
 	var player_key = str(player)
@@ -1243,6 +1253,9 @@ func unit_has_detachment_assault(unit: Dictionary) -> bool:
 	"""Unit-wide ranged-ASSAULT detachment rules: More Dakka!'s Dakka! Dakka!
 	Dakka! (ORKS INFANTRY/WALKER weapons have ASSAULT) and Kult of Speed's
 	Adrenaline Junkies (Speed Freeks eligible to shoot after Advancing)."""
+	# 10e rules; at 11e [ASSAULT] comes from EffectPrimitives.has_effect_advance_and_shoot (WP-O34).
+	if GameConstants.edition >= 11:
+		return false
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return false
@@ -1257,6 +1270,10 @@ func unit_has_detachment_assault(unit: Dictionary) -> bool:
 func unit_has_adrenaline_junkies(unit: Dictionary) -> bool:
 	"""Kult of Speed — Adrenaline Junkies: Speed Freeks units are eligible to
 	shoot and declare a charge in a turn in which they Advanced or Fell Back."""
+	# 10e rule; at 11e the charge part is EffectPrimitives' advance/fall-back-and-charge
+	# hook and falling back still forbids shooting (09.07) (WP-O34).
+	if GameConstants.edition >= 11:
+		return false
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return false
@@ -1279,6 +1296,9 @@ func unit_has_detachment_charge_reroll(unit: Dictionary) -> bool:
 	"""Charge re-roll detachment rules: Blitz Brigade's Eager for the Fight
 	(ORKS units that disembarked this turn) and Rollin' Deff's Thundering
 	Wagons (Battlewagon / Kill Rig / Hunta Rig units)."""
+	# 11e Blitz Brigade — Unstoppable Momentum: WAGON units re-roll charges (WP-O34).
+	if GameConstants.edition >= 11:
+		return Ork11eDetachments.charge_reroll_source(unit) != ""
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return false
@@ -1292,6 +1312,9 @@ func unit_has_detachment_charge_reroll(unit: Dictionary) -> bool:
 func unit_has_detachment_advance_reroll(unit: Dictionary) -> bool:
 	"""Blitz Brigade — Eager for the Fight: re-roll Advance rolls for ORKS
 	units that disembarked from a Transport this turn."""
+	# 10e rule (the 11e Blitz Brigade rule changes WAGON advance rolls to a 6 — WP-O34).
+	if GameConstants.edition >= 11:
+		return false
 	var owner = int(unit.get("owner", 0))
 	if owner <= 0:
 		return false
@@ -1333,6 +1356,9 @@ func process_try_dat_button(unit_id: String, scope: String) -> void:
 	until the end of the phase (cleared by the phase exit hooks). The rules'
 	optional choose-instead-of-rolling path (which adds HAZARDOUS) is not
 	offered — the roll is always taken."""
+	# 10e Dread Mob rule; the 11e Try Dat Button! is a window choice (OrkDetachments11e, WP-O34).
+	if GameConstants.edition >= 11:
+		return
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
 	if unit.is_empty():
 		return
@@ -1409,6 +1435,9 @@ func _unit_is_taktik_issuer(unit: Dictionary) -> bool:
 func get_taktik_issuers(player: int) -> Array:
 	"""Boss Snikrot / Mek / Warboss units of a Taktikal Brigade player that
 	have not issued Taktiks this battle round."""
+	# 10e Taktikal Brigade rule — the 11e rule is Suspiciously Well Organised (WP-O34).
+	if GameConstants.edition >= 11:
+		return []
 	if get_player_detachment(player) != "Taktikal Brigade":
 		return []
 	var round_no = GameState.get_battle_round()
@@ -1440,6 +1469,8 @@ func _taktik_range_inches(issuer: Dictionary, target: Dictionary) -> float:
 
 func can_issue_taktik(issuer_id: String, taktik: String, target_id: String) -> Dictionary:
 	"""Full validation for issuing a Taktik. Returns {can: bool, reason}."""
+	if GameConstants.edition >= 11:  # 10e Lissen 'Ere — not part of the 11e Taktikal Brigade (WP-O34)
+		return {"can": false, "reason": "Lissen 'Ere Taktiks are a 10th-edition Taktikal Brigade rule"}
 	var units = GameState.state.get("units", {})
 	var issuer = units.get(issuer_id, {})
 	var target = units.get(target_id, {})
@@ -2623,6 +2654,9 @@ static func unit_has_prey_charge_reroll(unit: Dictionary, target_ids: Array, uni
 	"""Prey rule, first bullet: a BEAST SNAGGA unit charging its owner's Prey
 	can re-roll the Charge roll. Also covers DAT ONE'S EVEN BIGGA! (whose
 	re-roll clause has the identical condition)."""
+	# 10e Da Big Hunt Prey rule — the 11e rule is Da Hunt is On (WP-O34).
+	if GameConstants.edition >= 11:
+		return false
 	if not RulesEngine.unit_has_keyword(unit, "BEAST SNAGGA"):
 		return false
 	var owner = int(unit.get("owner", 0))
@@ -3289,7 +3323,10 @@ func on_command_phase_start(player: int) -> void:
 	detect_player_detachment(player)
 
 	# Deactivate Waaagh! if it was active (it lasts "until the start of your next Command phase")
-	if _waaagh_active.get(str(player), false):
+	# 11e War Cry: riled up "until the end of the next turn" — either player's (WP-O34).
+	if GameConstants.edition >= 11:
+		Ork11eArmyRules.expire_war_cry_if_due()
+	elif _waaagh_active.get(str(player), false):
 		deactivate_waaagh(player)
 
 	# OA-46: Clear Plant the Waaagh! Banner per-unit effects (lasts until start of next battle round)
@@ -3299,17 +3336,22 @@ func on_command_phase_start(player: int) -> void:
 	_clear_doctrine_effects(player)
 
 	# Apply passive detachment abilities (Get Stuck In)
+	# (10e rules — at 11e the Codex: Orks detachment rules are read live by
+	# OrkDetachments11e, WP-O34.)
 	var detachment = get_player_detachment(player)
-	if detachment == "War Horde":
+	if detachment == "War Horde" and GameConstants.edition < 11:
 		_apply_get_stuck_in(player)
 
 	# Green Tide — Mob Mentality: refresh the BOYZ 6+/5+ invulnerable save
-	if detachment == "Green Tide":
+	if detachment == "Green Tide" and GameConstants.edition < 11:
 		_apply_mob_mentality(player)
 
 	# 11e detachment keyword grants (Dread Mob Gretchin / Taktikal Stormboyz
 	# gain BATTLELINE)
-	_apply_detachment_keyword_grants(player, detachment)
+	if GameConstants.edition >= 11:
+		Ork11eDetachments.apply_keyword_grants(player)  # Kult of Speed / Taktikal Brigade / Runt Swarm BATTLELINE (WP-O34)
+	else:
+		_apply_detachment_keyword_grants(player, detachment)
 
 	# Clear loot objective from previous round (Freebooter Krew — OA-1)
 	# Loot objective resets each battle round; selection happens via action in CommandPhase
@@ -3320,7 +3362,7 @@ func on_command_phase_start(player: int) -> void:
 	# Da Big Hunt — Prey (detachment rule): (re-)select an enemy MONSTER/
 	# VEHICLE/CHARACTER unit as this player's Prey until their next Command
 	# phase.
-	if detachment == "Da Big Hunt":
+	if detachment == "Da Big Hunt" and GameConstants.edition < 11:  # 10e Prey (WP-O34: 11e is Da Hunt is On)
 		_select_prey_for_player(player)
 
 	# Supa-glowy Fing (Dread Mob): expire last round's -1-to-hit debuff, then

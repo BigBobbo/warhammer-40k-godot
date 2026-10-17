@@ -393,7 +393,7 @@ func _build_reserves_section() -> void:
 		var bodyguard_native_ds = GameState.unit_has_ability(unit_id, "Deep Strike")
 		var whole_unit_grant = has_deep_strike and not bodyguard_native_ds
 		var all_models_have_ds = has_deep_strike
-		var combined_points = unit_points
+		var combined_points = load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(unit)  # Codex: Orks (11e) Skyborne Loons (WP-O34)
 		var attached_chars_text = ""
 
 		# Check if this unit has any attached characters (bodyguard check)
@@ -705,7 +705,7 @@ func _get_declared_reserves_points() -> int:
 	var total = 0
 	for entry in reserves:
 		var unit = GameState.get_unit(entry.get("unit_id", ""))
-		total += unit.get("meta", {}).get("points", 0)
+		total += load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(unit)  # Codex: Orks (11e) Skyborne Loons — AIRCRAFT do not count (WP-O34)
 		# Include attached character points
 		for char_id in entry.get("attached_character_ids", []):
 			var char_unit = GameState.get_unit(char_id)

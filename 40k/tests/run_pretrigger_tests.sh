@@ -241,6 +241,8 @@ TESTS=(
     "tests/test_core_rules_audit_e28e4f7.gd"
     "tests/test_merge_916_917_interactions.gd"
     "tests/test_fight_phase_scope_end_fight_11e.gd"
+    "tests/test_ork_army_rules_11e.gd"
+    "tests/test_ork_detachments_11e.gd"
 )
 
 FAILED=0

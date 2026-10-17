@@ -143,6 +143,9 @@ func _window_header_text() -> String:
 	var u_name := GameState.get_unit_display_name(uid) if uid != "" else ""
 	var enemy_id := str(window_ctx.get("attacker_unit_id", window_ctx.get("enemy_unit_id", "")))
 	var enemy_name := GameState.get_unit_display_name(enemy_id) if enemy_id != "" else ""
+	# Codex: Orks (11e) rule-only windows (WP-O34) name their own header.
+	if str(window_ctx.get("header", "")) != "":
+		return str(window_ctx.get("header", ""))
 	match window_id:
 		"unit_selected_to_fight":
 			if u_name != "":
@@ -305,7 +308,7 @@ func _build_window_ui() -> void:
 	var display := str(GameState.get_player_display_name(defending_player))
 	if display != "" and display != who_name:
 		who_name = "%s (Player %d)" % [display, defending_player]
-	who.text = "%s — use a stratagem?   CP Available: %d" % [who_name, StratagemManager.get_player_cp(defending_player)]
+	who.text = "%s — %s   CP Available: %d" % [who_name, str(window_ctx.get("decider_prompt", "use a stratagem?")), StratagemManager.get_player_cp(defending_player)]
 	who.add_theme_font_size_override("font_size", 18)
 	who.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -494,7 +497,10 @@ func _create_offer_card(offer: Dictionary, legacy_fold: bool) -> VBoxContainer:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_hbox.add_child(spacer)
 	var cost_label = Label.new()
-	cost_label.text = "%d CP" % int(offer.get("cp_cost", 1))
+	cost_label.name = "Cost"
+	# Codex: Orks (11e) rule choices (WP-O34) are free abilities, not stratagems.
+	var is_rule := bool(offer.get("rule", false))
+	cost_label.text = "FREE" if is_rule else "%d CP" % int(offer.get("cp_cost", 1))
 	cost_label.add_theme_font_size_override("font_size", 20)
 	cost_label.add_theme_color_override("font_color", Color.GOLD)
 	name_hbox.add_child(cost_label)
@@ -568,6 +574,8 @@ func _create_offer_card(offer: Dictionary, legacy_fold: bool) -> VBoxContainer:
 			var v_text := variant_display_label(str(v.get("label", vid)))
 			if has_upgrade:
 				vb.text = ("Upgrade on %s (%d CP): %s" % [label, v_cost, v_text]) if uid != "" else ("Upgrade (%d CP): %s" % [v_cost, v_text])
+			elif is_rule:
+				vb.text = v_text
 			else:
 				vb.text = "%s (%d CP)" % [v_text, v_cost]
 			vb.tooltip_text = vb.text

@@ -143,6 +143,8 @@ var _pending_pile_in_step_data: Dictionary = {}
 # embark / strategic_reserves follow-ups and the shared 05.04.05 Fight On
 # Death mechanic of ORKS IS NEVER BEATEN / TOO ARROGANT TO DIE / CRAZED RAMPAGE.
 const OrkCodexFight = preload("res://scripts/stratagems/ork_codex/OrkCodexFight.gd")
+# Codex: Orks (11e) detachment rules (WP-O34): 'Ard as Nails, Try Dat Button!, Visions of Violence.
+const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
 var _ork11e_selected_to_fight: Dictionary = {}   # unit_id -> true once selected to fight this phase
 var _ork11e_fod_rolled: Dictionary = {}          # "unit_id:model_index" -> true (D6 rolled, or a removal)
 var _ork11e_fod_destroyer: Dictionary = {}       # unit_id -> enemy fighter whose attacks destroyed its kept models (event attribution)
@@ -221,8 +223,22 @@ func _on_phase_enter() -> void:
 	# Refresh snapshot after ability effects mutated GameState flags
 	game_state_snapshot = GameState.create_snapshot()
 
+	# Codex: Orks (11e) Wurrband — Visions of Violence "at the start of the Fight
+	# phase" (WP-O34): decided before the FightSequencer / Pile In step begin.
+	var ork11e_fs: Array = Ork11eDetachments.fight_start_window_entries(GameState.get_active_player())
+	if not ork11e_fs.is_empty() and open_stratagem_windows(ork11e_fs, "_ork11e_resume_after_fight_start", {}):
+		log_phase_message("Waiting for the start-of-Fight-phase psychic ability decision (Visions of Violence)")
+		return
 	_initialize_fight_sequence()
 	_check_for_combats()
+
+## Codex: Orks (11e) start-of-Fight-phase window answered (WP-O34): build the
+## fight sequence (Fights First now includes Visions of Violence) and begin.
+func _ork11e_resume_after_fight_start(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	game_state_snapshot = GameState.create_snapshot()
+	_initialize_fight_sequence()
+	_check_for_combats()
+	return create_result(true, [])
 
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Fight Phase")
@@ -234,6 +250,7 @@ func _on_phase_exit() -> void:
 	if not fod_exit_diffs.is_empty():
 		PhaseManager.apply_state_changes(fod_exit_diffs)
 		_check_kill_diffs(fod_exit_diffs)
+	Ork11eDetachments.on_phase_end("fight")  # Codex: Orks (11e) Try Dat Button! / Visions of Violence / 'Ard as Nails flags (WP-O34)
 
 	# TRY DAT BUTTON! (Dread Mob): Button Effects last until end of phase
 	var fam_tdb_exit = get_node_or_null("/root/FactionAbilityManager")
@@ -2895,6 +2912,7 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	# unit has now fought, so the models IT kept that way are removed.
 	_ork11e_fod_intercept(changes)
 	changes.append_array(_ork11e_fod_remove(_fight_group_ids(unit_id), "has fought"))
+	changes.append_array(Ork11eDetachments.on_unit_has_fought(unit_id))  # Codex: Orks (11e) Try Dat Button! hazard roll + expiry (WP-O34)
 	final_result["changes"] = changes
 
 	# The attack-resolution diffs are normally applied by execute_action
@@ -3043,6 +3061,7 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		return
 	var units: Dictionary = GameState.state.get("units", {})
 	var new_pending: Dictionary = {}  # unit_id -> Array[int]
+	var ork11e_ard_sources: Dictionary = {}  # 'Ard as Nails keeps (WP-O34): unit_id -> FOD source label
 	for diff in changes:
 		if typeof(diff) != TYPE_DICTIONARY or str(diff.get("op", "")) != "set":
 			continue
@@ -3056,6 +3075,10 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		var unit: Dictionary = units.get(uid, {})
 		var uflags: Dictionary = unit.get("flags", {})
 		var mode := str(uflags.get(OrkCodexFight.FLAG_FOD_MODE, ""))
+		# Codex: Orks (11e) Brute Bosses — 'Ard as Nails (WP-O34): a destroyed WARBOSS model fights on (3+, +1 riled up).
+		var ard := mode == "" and Ork11eDetachments.ard_as_nails_applies(unit)
+		if ard:
+			mode = Ork11eDetachments.ARD_AS_NAILS_MODE
 		if mode == "":
 			continue
 		var idx := int(parts[3])
@@ -3071,6 +3094,8 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		# later pass rolls for this model again.
 		diff["ork11e_fod_rolled"] = true
 		var source := str(uflags.get(OrkCodexFight.FLAG_FOD_SOURCE, "Fight On Death"))
+		if ard:
+			source = "'Ard as Nails"
 		var models: Array = unit.get("models", [])
 		var label := str(unit.get("meta", {}).get("name", uid))
 		if idx >= 0 and idx < models.size() and models.size() > 1:
@@ -3080,16 +3105,19 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 			continue
 		var rng = RulesEngine.make_rng()
 		var roll: int = int(rng.roll_d6(1)[0])
-		var mod_info: Dictionary = OrkCodexFight.fod_roll_modifier(uid)
+		var mod_info: Dictionary = Ork11eDetachments.ard_as_nails_roll_modifier(unit) if ard else OrkCodexFight.fod_roll_modifier(uid)
 		var mod := int(mod_info.get("mod", 0))
 		var total := roll + mod
-		var kept := total >= OrkCodexFight.FOD_PASS
+		var fod_pass: int = Ork11eDetachments.ARD_AS_NAILS_PASS if ard else OrkCodexFight.FOD_PASS
+		var kept := total >= fod_pass
 		var msg := "%s: %s destroyed — D6 %d%s = %d (%d+ needed): %s" % [
-			source, label, roll, (" %s" % str(mod_info.get("note", ""))) if mod != 0 else "", total, OrkCodexFight.FOD_PASS,
+			source, label, roll, (" %s" % str(mod_info.get("note", ""))) if mod != 0 else "", total, fod_pass,
 			"NOT REMOVED — it stays on the battlefield until its unit has fought or the end of the phase" if kept else "removed"]
 		log_phase_message(msg)
 		DebugLogger.info(str("FightPhase: [ork11e FOD] " + msg))
-		var raw_needed := clampi(OrkCodexFight.FOD_PASS - mod, 1, 7)
+		var raw_needed := clampi(fod_pass - mod, 1, 7)
+		if kept and ard:
+			ork11e_ard_sources[uid] = source
 		var dice_block := {"context": "ork11e_fight_on_death", "stratagem": source, "unit_id": uid, "model_index": idx,
 			"rolls_raw": [roll], "rolls_modified": [total], "modifier": mod, "threshold": "%d+" % raw_needed,
 			"successes": 1 if kept else 0, "kept": kept, "message": msg}
@@ -3111,6 +3139,8 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 			new_pending[uid] = plist
 	for uid in new_pending:
 		changes.append({"op": "set", "path": "units.%s.flags.%s" % [uid, OrkCodexFight.FLAG_FOD_PENDING], "value": new_pending[uid]})
+	for uid in ork11e_ard_sources:
+		changes.append({"op": "set", "path": "units.%s.flags.%s" % [uid, OrkCodexFight.FLAG_FOD_SOURCE], "value": ork11e_ard_sources[uid]})
 
 ## Removal diffs for the models kept by Fight On Death in `unit_ids` (and
 ## their pending lists cleared). Returns [] when there is nothing to remove.
@@ -3280,6 +3310,7 @@ func _process_skip_unit(action: Dictionary) -> Dictionary:
 	if not sk_fod_changes.is_empty():
 		PhaseManager.apply_state_changes(sk_fod_changes)
 		katah_remove_changes.append_array(sk_fod_changes)
+	katah_remove_changes.append_array(Ork11eDetachments.on_unit_has_fought(str(action.unit_id)))  # Codex: Orks (11e) Try Dat Button! (WP-O34)
 	if faction_mgr:
 		var sk_flags = GameState.state.get("units", {}).get(action.unit_id, {}).get("flags", {})
 		for katah_flag in ["effect_sustained_hits", "effect_lethal_hits", "katah_stance", "katah_sustained_hits_value"]:

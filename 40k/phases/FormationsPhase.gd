@@ -415,7 +415,7 @@ func _validate_declare_reserves(action: Dictionary) -> Dictionary:
 		errors.append("Unit already declared in reserves")
 
 	# Check 50% reserves point cap (Chapter Approved 2025-26)
-	var unit_points = unit.get("meta", {}).get("points", 0)
+	var unit_points = load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(unit)  # Codex: Orks (11e) Skyborne Loons — AIRCRAFT do not count (WP-O34)
 	# Include attached character points in the calculation. The characters are
 	# DERIVED, not taken from the action: the player's dialog names them
 	# (Main.gd:10229-10240) but the AI declares straight off
@@ -864,7 +864,7 @@ func _get_declared_reserves_points(player: int) -> int:
 	for entry in formations.get("reserves", []):
 		var unit_id = entry.get("unit_id", "")
 		var unit = get_unit(unit_id)
-		total += unit.get("meta", {}).get("points", 0)
+		total += load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(unit)  # Codex: Orks (11e) Skyborne Loons — AIRCRAFT do not count (WP-O34)
 		# Include attached character points
 		for char_id in _reserve_attached_characters(unit_id, player, entry):
 			var char_unit = get_unit(char_id)

@@ -761,15 +761,29 @@ static func has_effect_fall_back_and_shoot(unit: Dictionary) -> bool:
 
 static func has_effect_fall_back_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and charge eligibility."""
-	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_CHARGE, false)
+	# Codex: Orks (11e) Adrenaline Junkies / Suspiciously Well Organised (WP-O34).
+	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_CHARGE, false) \
+		or (GameConstants.edition >= 11 and _ork11e_det().fall_back_allows_charge(unit))
 
 static func has_effect_advance_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and charge eligibility."""
-	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_CHARGE, false)
+	# Codex: Orks (11e) Adrenaline Junkies (WP-O34).
+	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_CHARGE, false) \
+		or (GameConstants.edition >= 11 and _ork11e_det().advance_allows_charge(unit))
 
 static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and shoot eligibility."""
-	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_SHOOT, false)
+	# Codex: Orks (11e) ranged [ASSAULT] — Dakka! Dakka! Dakka! / Adrenaline Junkies (WP-O34).
+	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_SHOOT, false) \
+		or (GameConstants.edition >= 11 and _ork11e_det().ranged_attacks_have_assault(unit))
+
+## Codex: Orks (11e) detachment rules module (WP-O34), loaded on first use so
+## this class compiles without it.
+static var _ork11e_det_script = null
+static func _ork11e_det():
+	if _ork11e_det_script == null:
+		_ork11e_det_script = load("res://scripts/codex/orks/OrkDetachments11e.gd")
+	return _ork11e_det_script
 
 static func has_effect_reroll_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted charge reroll (e.g. Swift Onslaught)."""

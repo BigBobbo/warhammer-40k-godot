@@ -37,6 +37,9 @@ signal ork11e_assault_disembark_requested(player: int, transport_id: String, uni
 # Codex: Orks (11e) movement-group stratagem handlers (consumer helpers) + dispatcher.
 const Ork11eMovement = preload("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
 const Ork11eCodex = preload("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
+# Codex: Orks (11e) army rules + detachment rules (WP-O34).
+const Ork11eArmyRules = preload("res://scripts/codex/orks/OrkArmyRules11e.gd")
+const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
 
 # ISS-002: engagement range comes from GameConstants.engagement_range_inches()
 # (edition-dependent). Do not re-declare it as a local constant.
@@ -1677,6 +1680,11 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 	if tw_override > 0:
 		advance_roll = tw_override
 		log_phase_message("Advance: %s — Thundering Wagons, flat %d\" (no roll)" % [unit_name, tw_override])
+	# Codex: Orks (11e) Blitz Brigade — Unstoppable Momentum: a WAGON's advance roll is changed to a 6 (WP-O34).
+	if tw_override == 0 and Ork11eDetachments.advance_roll_override(unit) > 0 and advance_roll < 6:
+		log_phase_message("Advance: %s — Unstoppable Momentum: advance roll %d changed to a 6" % [unit_name, advance_roll])
+		advance_roll = Ork11eDetachments.advance_roll_override(unit)
+		tw_override = advance_roll  # a changed roll: no re-roll is offered below
 
 	# Ability-granted Advance re-roll (Bloodthirsty Belligerence, SUPERFUELLED
 	# BOILER, Blitz Brigade's Eager for the Fight after disembarking): the
@@ -1692,11 +1700,18 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 	var current_player = get_current_player()
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	var reroll_available = false
-	if strat_manager:
+	# Codex: Orks (11e) Waaagh! — "can re-roll advance rolls": a free, optional
+	# re-roll offered in the same dialog instead of the Command Re-roll (WP-O34).
+	var free_rr_source: String = Ork11eArmyRules.free_advance_reroll_source(unit) if tw_override == 0 and advance_roll < 6 \
+		and not (EffectPrimitivesData.has_effect_reroll_advance(unit) or FactionAbilityManager.unit_has_detachment_advance_reroll(unit)) else ""
+	if strat_manager and free_rr_source == "":
 		var reroll_check = strat_manager.is_command_reroll_available(current_player, unit_id)
 		reroll_available = reroll_check.available
 		if not reroll_available:
 			DebugLogger.info(str("MovementPhase: Command Re-roll not offered for %s advance — %s" % [unit_name, str(reroll_check.get("reason", ""))]))
+	if free_rr_source != "":
+		reroll_available = true
+		DebugLogger.info(str("MovementPhase: %s free advance re-roll offered for %s (rolled %d)" % [free_rr_source, unit_name, advance_roll]))
 
 	if reroll_available:
 		# Pause — store roll and offer Command Re-roll
@@ -1707,6 +1722,7 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 			"move_inches": move_inches,
 			"unit_id": unit_id,
 			"unit_name": unit_name,
+			"free_ability": free_rr_source,  # Codex: Orks (11e) Waaagh! free re-roll (no CP) — WP-O34
 		}
 
 		# Codex: Orks (11e) 'ERE WE GO's +2 applies after any re-roll — show it.
@@ -1721,6 +1737,7 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 			"unit_id": unit_id,
 			"unit_name": unit_name,
 			"context_text": context_text,
+			"free_ability_name": free_rr_source,  # Codex: Orks (11e) Waaagh! free re-roll — WP-O34
 		}
 
 		DebugLogger.info(str("MovementPhase: Command Re-roll available for %s advance — pausing for decision" % unit_name))
@@ -1852,8 +1869,15 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 	var move_inches = old_data.get("move_inches", 0)
 	var current_player = get_current_player()
 
-	# Execute the stratagem (deduct CP, record usage)
-	var strat_manager = get_node_or_null("/root/StratagemManager")
+	# Execute the stratagem (deduct CP, record usage) — unless this is the
+	# Codex: Orks (11e) Waaagh! free advance re-roll (WP-O34: no CP, not a stratagem).
+	var free_ability := str(old_data.get("free_ability", ""))
+	var strat_manager = get_node_or_null("/root/StratagemManager") if free_ability == "" else null
+	if free_ability != "":
+		log_phase_message("%s: %s re-rolls its advance roll %d (free)" % [free_ability, unit_name, old_roll])
+		var gel_free = get_node_or_null("/root/GameEventLog")
+		if gel_free:
+			gel_free.add_player_entry(current_player, "%s: %s re-rolls its advance roll (free) — was %d" % [free_ability, unit_name, old_roll])
 	if strat_manager:
 		var roll_context = {
 			"roll_type": "advance_roll",
@@ -1868,7 +1892,7 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 			if toast_mgr:
 				toast_mgr.show_error("Command Re-roll failed: %s" % strat_result.get("error", "Unknown"))
 			return _resolve_advance_roll(unit_id, old_roll)
-	else:
+	elif free_ability == "":
 		DebugLogger.info("MovementPhase: WARNING — StratagemManager not found, cannot deduct CP")
 
 	# Re-roll D6
@@ -1878,8 +1902,10 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 	var new_rolls = rng_service.roll_d6(1)
 	var new_advance = new_rolls[0]
 
-	log_phase_message("COMMAND RE-ROLL: Advance re-rolled from %d → %d" % [old_roll, new_advance])
-	DebugLogger.info(str("MovementPhase: COMMAND RE-ROLL — %s advance re-rolled: %d → %d" % [unit_name, old_roll, new_advance]))
+	var rr_label := ("%s FREE RE-ROLL" % free_ability.to_upper()) if free_ability != "" else "COMMAND RE-ROLL"
+	var rr_cost := "free" if free_ability != "" else "1 CP"
+	log_phase_message("%s: Advance re-rolled from %d → %d" % [rr_label, old_roll, new_advance])
+	DebugLogger.info(str("MovementPhase: %s — %s advance re-rolled: %d → %d" % [rr_label, unit_name, old_roll, new_advance]))
 
 	# P3-118: Emit reroll comparison data for visualization
 	emit_signal("command_reroll_completed", [old_roll], [new_advance], "advance_roll")
@@ -1888,9 +1914,9 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 	dice_log.append({
 		"unit_id": unit_id,
 		"unit_name": unit_name,
-		"type": "Command Re-roll",
+		"type": "Command Re-roll" if free_ability == "" else "%s re-roll" % free_ability,
 		"roll": new_advance,
-		"result": "Advance rerolled: %d → %d (1 CP)" % [old_roll, new_advance]
+		"result": "Advance rerolled: %d → %d (%s)" % [old_roll, new_advance, rr_cost]
 	})
 
 	# Show toast notification with reroll result
@@ -1900,7 +1926,7 @@ func _process_use_command_reroll(action: Dictionary) -> Dictionary:
 	var toast_mgr = get_node_or_null("/root/ToastManager")
 	if toast_mgr:
 		toast_mgr.show_toast(
-			"COMMAND RE-ROLL (1 CP): %s advance %d → %d%s (Move: %d\")" % [unit_name, old_roll, new_advance,
+			"%s (%s): %s advance %d → %d%s (Move: %d\")" % [rr_label, rr_cost, unit_name, old_roll, new_advance,
 				(" %+d 'ERE WE GO" % rr_ewg) if rr_ewg != 0 else "", new_total_move],
 			Color.GOLD
 		)
@@ -2473,6 +2499,11 @@ func _process_use_da_jump(action: Dictionary) -> Dictionary:
 			break
 	if not has_da_jump:
 		return create_result(false, [], "Da Jump: unit lacks the ability")
+	# Codex: Orks (11e) Unstable Energies — psyker level budget per battle round (WP-O34).
+	var ue_check: Dictionary = Ork11eArmyRules.can_use_psychic(unit_id, "Da Jump")
+	if not ue_check.get("ok", true):
+		Ork11eArmyRules.report_psychic_block(unit_id, "Da Jump", str(ue_check.get("reason", "")))
+		return create_result(false, [], str(ue_check.get("reason", "Unstable Energies: psyker level spent")))
 
 	var rng_seed: int = action.get("payload", {}).get("rng_seed", -1)
 	var rng = RulesEngine.RNGService.new(rng_seed)
@@ -2482,6 +2513,7 @@ func _process_use_da_jump(action: Dictionary) -> Dictionary:
 	var diffs = [
 		{"op": "set", "path": "units.%s.flags.da_jump_used_this_turn" % unit_id, "value": true},
 	]
+	diffs.append_array(Ork11eArmyRules.record_psychic_use(unit_id, "Da Jump"))  # Unstable Energies (WP-O34)
 	var dice = [{"context": "Da Jump roll", "rolls": [roll_val]}]
 
 	if roll_val == 1:
@@ -4986,10 +5018,14 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 			# prevent your unit from being eligible to start an action" — drop the
 			# advance / fall-back 16.01 action lock (ActionsManager also ignores
 			# the advanced / fell_back flags for this unit).
+			# (WP-O34: also Runt Swarm's Sneaky Little Gitz for a GRETCHIN unit.)
 			if move_data.mode in ["ADVANCE", "FALL_BACK"] \
-					and get_unit(unit_id).get("flags", {}).get(Ork11eMovement.FLAG_MIND_ON_MISSION, false):
+					and (get_unit(unit_id).get("flags", {}).get(Ork11eMovement.FLAG_MIND_ON_MISSION, false)
+						or Ork11eDetachments.move_keeps_action_eligibility(get_unit(unit_id))):
 				mt_fx = mt_fx.filter(func(fx): return not str(fx.get("path", "")).ends_with(".cannot_start_action"))
-				log_phase_message("[11e] MIND MOSTLY ON THE MISSION — %s's %s move leaves it eligible to start an action" % [unit_id, move_data.mode])
+				log_phase_message("[11e] %s — %s's %s move leaves it eligible to start an action" % [
+					"Sneaky Little Gitz (Runt Swarm)" if Ork11eDetachments.move_keeps_action_eligibility(get_unit(unit_id)) else "MIND MOSTLY ON THE MISSION",
+					unit_id, move_data.mode])
 			changes.append_array(mt_fx)
 			log_phase_message("[11e] Applied %s template AFTER effects for %s (%d ops)" % [mt_map_11e[move_data.mode], unit_id, mt_fx.size()])
 			# 09.07 AFTER MOVING (desperate escape): "If your unit is not
@@ -8753,7 +8789,8 @@ func get_available_actions() -> Array:
 					if ab_name == "Da Jump":
 						has_da_jump = true
 						break
-				if has_da_jump:
+				# Codex: Orks (11e) Unstable Energies: not listed once the psyker level is spent (WP-O34).
+				if has_da_jump and Ork11eArmyRules.can_use_psychic(unit_id, "Da Jump").get("ok", true):
 					actions.append({
 						"type": "USE_DA_JUMP",
 						"actor_unit_id": unit_id,

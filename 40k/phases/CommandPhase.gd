@@ -2,6 +2,8 @@ extends BasePhase
 class_name CommandPhase
 
 const BasePhase = preload("res://phases/BasePhase.gd")
+# Codex: Orks (11e) army rules (WP-O34): Da Boss, War Cry in the opponent's Command phase.
+const Ork11eArmyRules = preload("res://scripts/codex/orks/OrkArmyRules11e.gd")
 
 
 # CommandPhase - Handles Command Phase including CP generation and Battle-shock tests
@@ -79,6 +81,9 @@ func _on_phase_enter() -> void:
 		var strat_manager_round = get_node_or_null("/root/StratagemManager")
 		if strat_manager_round:
 			strat_manager_round.on_battle_round_start(battle_round)
+		# Codex: Orks (11e) Da Boss — "At the start of the battle round, if a model
+		# with this ability is your WARLORD, gain 1CP" (WP-O34).
+		Ork11eArmyRules.on_battle_round_start(battle_round)
 
 	# Step 0b: Initialize secondary mission decks on first command phase
 	# Both players' decks are set up on the very first command phase entry,
@@ -200,7 +205,11 @@ func _start_battle_shock_step(deferred: Dictionary) -> Dictionary:
 			queued.append(unit_id)
 	var bss_ctx := {"phase": "command", "units_needing_test": queued}
 	_bss_deferred_action = deferred.duplicate(true)
-	if open_stratagem_window(player, "battle_shock_step_start", bss_ctx, "_resume_after_battle_shock_step_window"):
+	# Codex: Orks (11e) War Cry "at the start of the Command phase" — not "your"
+	# (WP-O34): the opponent's War Cry window comes first, before the Battle-shock step.
+	var bss_entries: Array = Ork11eArmyRules.war_cry_window_entries(player)
+	bss_entries.append({"player": player, "window_id": "battle_shock_step_start", "ctx": bss_ctx})
+	if open_stratagem_windows(bss_entries, "_resume_after_battle_shock_step_window", bss_ctx):
 		DebugLogger.info("CommandPhase: Battle-shock step starts — waiting for Player %d's battle_shock_step_start stratagem decision (then %s)" % [
 			player, str(deferred.get("type", "the roll call"))])
 		var paused = create_result(true, consume_window_diffs())

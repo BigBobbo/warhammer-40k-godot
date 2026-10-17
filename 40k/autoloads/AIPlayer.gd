@@ -1537,6 +1537,16 @@ func _on_command_reroll_opportunity(unit_id: String, player: int, roll_context: 
 	print("AIPlayer: Command Re-roll opportunity for AI player %d — %s (roll type: %s, difficulty: %s)" % [
 		player, unit_id, roll_context.get("roll_type", "unknown"), AIDifficultyConfigData.difficulty_name(difficulty)])
 
+	# Codex: Orks (11e) Waaagh! free advance re-roll (WP-O34): no CP — re-roll a 1-3.
+	if str(roll_context.get("free_ability_name", "")) != "":
+		var take_free: bool = load("res://scripts/codex/orks/OrkArmyRules11e.gd").ai_take_free_advance_reroll(int(roll_context.get("total", 0)))
+		_submit_reactive_action(player, {
+			"type": "USE_COMMAND_REROLL" if take_free else "DECLINE_COMMAND_REROLL",
+			"actor_unit_id": unit_id, "player": player,
+			"_ai_description": "AI %s the free %s advance re-roll (rolled %d)" % [
+				"takes" if take_free else "declines", str(roll_context.get("free_ability_name", "")), int(roll_context.get("total", 0))]})
+		return
+
 	# T7-40: Easy AI never uses Command Re-roll
 	if not AIDifficultyConfigData.use_command_reroll(difficulty):
 		var decline = {
