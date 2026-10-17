@@ -13,7 +13,8 @@ name: Windowed Scenario Suite
 #                             checked against tests/ci/gut_known_failures.txt.
 #   4. windowed-changed     — push / PR: scenarios touched by the change
 #                             (run_scenarios.sh --changed-since), 4 shards.
-#   5. windowed-full        — nightly + manual: the whole suite, 8 shards.
+#   5. windowed-full        — nightly + manual (or a push whose commit message
+#                             contains [full-sweep]): the whole suite, 8 shards.
 #   6. scenarios-gate       — the one check to require: fails if any job above
 #                             failed or was cancelled (a timeout is a failure).
 # Windowed known failures live in tests/scenarios/_known_failures.txt (XFAIL);
@@ -314,7 +315,10 @@ jobs:
 
   windowed-full:
     name: Windowed scenarios — full (shard ${{ matrix.shard }}/8)
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # Also on a push whose head commit message contains "[full-sweep]" — an
+    # opt-in for branches that change behaviour broadly (e.g. the harness
+    # edition) and for environments where workflow_dispatch is not available.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[full-sweep]'))
     runs-on: ubuntu-latest
     timeout-minutes: 180
     strategy:
