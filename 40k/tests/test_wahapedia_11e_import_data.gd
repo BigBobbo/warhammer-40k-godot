@@ -75,6 +75,13 @@ func _run() -> void:
 		_check_army(f, orks)
 	_check_spot_values()
 	_check_custodes_stratagems()
+	# Codex renames keep the old datasheet's bundled token art.
+	var sr = root.get_node("SpriteResolver")
+	_check("Custodian Guard Sodality token uses the Custodian Guard art",
+		sr.resolve_sprite("Custodian Guard Sodality", "Adeptus Custodes", "INFANTRY") == sr.resolve_sprite("Custodian Guard", "Adeptus Custodes", "INFANTRY")
+		and sr.resolve_sprite("Custodian Guard", "Adeptus Custodes", "INFANTRY") != null)
+	_check("Prosecutor Squad token uses the Prosecutors art",
+		sr.resolve_sprite("Prosecutor Squad", "Adeptus Custodes", "INFANTRY") != null)
 	_check_legacy_roster()
 
 # int() of a JSON value that may be null / missing.
