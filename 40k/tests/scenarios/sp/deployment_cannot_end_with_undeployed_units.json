@@ -6,6 +6,7 @@
     "controller.deployment.start_chip_is_stage_accurate"
   ],
   "fixture": "audit_377_defender_first",
+  "edition": 11,
   "transition_to_phase": 1,
   "disable_ai": true,
   "description": "Reported from tutorial T2 'Musterin' da Boyz': pressing the phase-action button (pad ☰ or mouse) ended the Deployment phase outright while the Gretchin were still undeployed, dropping the player into the 'Who takes the first turn?' roll-off with no way back. Root cause was Main._on_deployment_confirmed falling back to PhaseManager.advance_to_next_phase() whenever the END_DEPLOYMENT action was REJECTED — walking straight past the very check that had just refused it. This scenario proves the whole player path now holds the phase: the button is disabled, the entry point refuses to open the summary dialog and names the blocking units, the dialog's own confirm callback no longer force-advances, and the pad ☰ chip promises 'Confirm Unit' (not 'Confirm / End') while a fully-placed unit awaits confirmation.",
@@ -48,7 +49,8 @@
     { "act": "screenshot", "label": "03_still_in_deployment_after_dialog_confirm" },
 
     { "act": "execute_script", "multiline": true, "node": "/root/Main",
-      "script": "InputDeviceManager.claim_pad()\nvar dc = node.deployment_controller\ndc.begin_deploy(\"U_WAZBOM_BLASTAJET\")\nvar poly = BoardState.get_deployment_zone_for_player(GameState.get_active_player())\nvar cx = 0.0\nvar cy = 0.0\nfor p in poly:\n\tcx += p.x\n\tcy += p.y\ncx /= max(1, poly.size())\ncy /= max(1, poly.size())\nvar guard = 0\nwhile dc.is_placing() and dc.get_placed_count() < dc.get_total_model_count() and guard < 12:\n\tdc.try_place_at(Vector2(cx, cy - guard * 70.0))\n\tguard += 1\nreturn dc.get_placed_count() >= dc.get_total_model_count() and dc.get_total_model_count() > 0",
+      "comment": "11e 23.01: 'In the Declare Battle Formations step, all AIRCRAFT units must be placed in strategic reserves (20.01).' The Wazbom Blastajet (AIRCRAFT) this used to deploy is now correctly refused by DEPLOY_UNIT, so the one-unit-down path uses a single-model non-AIRCRAFT unit (Warboss in Mega Armour) instead.",
+      "script": "InputDeviceManager.claim_pad()\nvar dc = node.deployment_controller\ndc.begin_deploy(\"U_WARBOSS_IN_MEGA_ARMOUR_D\")\nvar poly = BoardState.get_deployment_zone_for_player(GameState.get_active_player())\nvar cx = 0.0\nvar cy = 0.0\nfor p in poly:\n\tcx += p.x\n\tcy += p.y\ncx /= max(1, poly.size())\ncy /= max(1, poly.size())\nvar guard = 0\nwhile dc.is_placing() and dc.get_placed_count() < dc.get_total_model_count() and guard < 12:\n\tdc.try_place_at(Vector2(cx, cy - guard * 70.0))\n\tguard += 1\nreturn dc.get_placed_count() >= dc.get_total_model_count() and dc.get_total_model_count() > 0",
       "equals": true },
     { "act": "wait_seconds", "seconds": 0.5 },
 
@@ -61,7 +63,7 @@
       "script": "node._on_confirm_pressed()\nreturn \"ok\"",
       "equals": "ok" },
     { "act": "wait_seconds", "seconds": 0.8 },
-    { "act": "expect_state", "path": "units.U_WAZBOM_BLASTAJET.status", "equals": 2 },
+    { "act": "expect_state", "path": "units.U_WARBOSS_IN_MEGA_ARMOUR_D.status", "equals": 2 },
     { "act": "expect_phase", "equals": 1 },
 
     { "act": "execute_script", "multiline": true, "node": "/root/Main",

@@ -69,3 +69,6 @@ tut_t5_ere_we_go_pad  # fails at 10e and 11e (11e 42/23, 10e 42/23 steps passed/
 tut_t6_krumpin_pad  # fails at 10e and 11e (11e 85/6, 10e 85/6 steps passed/failed)
 tut_t6_wrong_fighter_backout  # fails at 10e and 11e (11e 52/18, 10e 52/18 steps passed/failed)
 tut_t7_runnin_da_show_pad  # fails at 10e and 11e (11e 34/21, 10e 34/21 steps passed/failed)
+
+# --- fail at 11e only: tracked 11e ENGINE bugs (2026-10-17 scenario triage) ---
+fullauto_formations_rules  # BUG-11: FormationsPhase's 11e validator ignores the Bodyguard 'Extra Leader Attachment' grant that its own offer and CharacterAttachmentManager honour (same bug as tests/unit/test_reserves_half_army_cap.gd)
