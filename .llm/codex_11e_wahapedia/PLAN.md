@@ -25,6 +25,10 @@ C and O both depend on W0–W2 and are otherwise independent.
 | Rules phase | contract: `IMPLEMENTATION.md`; briefs in `briefs/`. Running: WP-C3, WP-O34. Queued: WP-O6, then WP-C5, WP-C46, WP-C7, WP-O5 |
 
 Known follow-ups:
+- Tutorial: `tutorial_orks.json` / `tutorial_custodes.json` stay on their
+  pre-codex rosters. Lessons T4–T7 load frozen save fixtures built from them,
+  and the lesson text names those units. Rebuild the tutorial fixtures and
+  text for the codex rosters.
 - `recon_stomps.json` is 2270/2000 pts with codex Ork points; the shipped
   Ork AI plans are authored against that roster, so it was kept whole.
   Re-author the plans for a legal list.
