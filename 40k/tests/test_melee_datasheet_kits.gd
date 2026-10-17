@@ -7,27 +7,29 @@ extends SceneTree
 # working out what "equipped with" means for a roster whose wargear string does
 # not say.
 #
-# A Boyz mob records "9x Slugga, 1x Slugga" and not one word about melee, so the
-# funnel used to fall back to `model_profiles` — the datasheet's option MENU —
-# and count every Boy as carrying a Choppa AND a Close combat weapon, and the
-# Boss Nob as carrying a Big choppa AND a Choppa AND a Power klaw. Those are
-# mutually-exclusive options. The datasheet itself is unambiguous: "The Boss Nob
-# is equipped with: slugga; big choppa. Every Boy is equipped with: slugga;
-# choppa." Model kits are now built from that line plus whichever "•" swaps the
-# roster took, so the funnel is asked a question it can answer correctly.
+# A Boyz mob's wargear rarely says everything about melee, so the funnel used
+# to fall back to `model_profiles` — the datasheet's option MENU — and count
+# every model as carrying every melee option (Choppa AND Big Choppa AND Power
+# Klaw ...). Those are mutually-exclusive options. The datasheet itself is
+# unambiguous — Codex: Orks (11e): "Every Nob is equipped with: 1 Kustom Choppa;
+# 1 Kombi-skorcha. Every Boy is equipped with: 1 Choppa; 1 Shoota; 1 Slugga."
+# Model kits are built from that line plus whichever "•" swaps the roster
+# took, so the funnel is asked a question it can answer correctly.
+# (Ported from the pre-codex Boyz kit — Boss Nob big choppa, Boy shoota swap —
+# with the Codex: Orks import; the mechanics checked are unchanged.)
 #
 # Covered here (engine/phase state only — the attack dialog is covered by the
 # windowed scenarios):
-#   1. the mob resolves to 9 Choppa + 1 Big choppa, one weapon per model, with
-#      no Power klaw or Close combat weapon the roster never bought
+#   1. the mob resolves to 9 Choppa + 1 Kustom Choppa, one weapon per model,
+#      with no Big Choppa or Power Klaw the roster never bought
 #   2/3. a whole-unit assignment rolls only its carriers' attacks, and a weapon
 #      nobody carries falls back rather than zeroing the unit
-#   4. FightPhase gap-fills the Boss Nob's big choppa when a whole-unit pick
+#   4. FightPhase gap-fills the Nob's Kustom Choppa when a whole-unit pick
 #      (the AI's action shape) leaves him out, so both weapons swing at once
 #   5. an assignment that DOES name its models (the dialog path) is untouched
-#   6. PAIRED swaps: a roster records the ranged half ("9x Shoota") and nothing
-#      about melee, and the datasheet's option list is what says those Boyz hold
-#      a CLOSE COMBAT WEAPON rather than the choppa they started with
+#   6. PAIRED swaps: "Kustom Choppa AND Kombi-skorcha replaced with 1 Big
+#      Choppa" — the roster records the new weapon and the datasheet's option
+#      list says which weapons the Nob gave up
 #   7. a swap the roster names without a count is left unresolved rather than
 #      answered with the default kit (which would drop the weapon entirely)
 #
@@ -161,9 +163,9 @@ func _run():
 		for wn in mm[mid]:
 			hist[str(wn)] = int(hist.get(str(wn), 0)) + 1
 	_check("9 Boyz carry a Choppa", int(hist.get("Choppa", 0)) == 9, str(hist))
-	_check("1 Boss Nob carries a Big choppa", int(hist.get("Big choppa", 0)) == 1, str(hist))
-	_check("no Power klaw ghost (an option the roster never took)", not hist.has("Power klaw"), str(hist))
-	_check("no Close combat weapon ghost", not hist.has("Close combat weapon"), str(hist))
+	_check("1 Nob carries a Kustom Choppa", int(hist.get("Kustom Choppa", 0)) == 1, str(hist))
+	_check("no Power Klaw ghost (an option the roster never took)", not hist.has("Power Klaw"), str(hist))
+	_check("no Big Choppa ghost", not hist.has("Big Choppa"), str(hist))
 	_check("exactly one melee weapon per model", worst == 1, "worst=%d" % worst)
 
 	var eligible = RE.get_eligible_melee_model_indices(state.units["U_BOYZ_K"], state)
@@ -176,11 +178,11 @@ func _run():
 	_check("whole-unit Choppa rolls 9x3 = 27 attacks (was 10x3 = 30)",
 		choppa_attacks == 27, "got %d" % choppa_attacks)
 
-	# Big choppa is A:3 and carried by the Boss Nob alone -> 3 attacks, not 30.
-	var big_choppa_attacks = _attacks_for(
-		{"attacker": "U_BOYZ_K", "target": "U_TARGET", "weapon": "big_choppa_melee", "models": []}, state)
-	_check("whole-unit Big choppa rolls the Boss Nob's 3 attacks (was 30)",
-		big_choppa_attacks == 3, "got %d" % big_choppa_attacks)
+	# Kustom Choppa is A:4 and carried by the Nob alone -> 4 attacks, not 40.
+	var kustom_attacks = _attacks_for(
+		{"attacker": "U_BOYZ_K", "target": "U_TARGET", "weapon": "kustom_choppa_melee", "models": []}, state)
+	_check("whole-unit Kustom Choppa rolls the Nob's 4 attacks (was 40)",
+		kustom_attacks == 4, "got %d" % kustom_attacks)
 
 	# Nobody carries a Power klaw. Narrowing to "no carriers" must NOT silently
 	# zero the unit's output — the conservative fallback keeps the old behaviour
@@ -219,12 +221,12 @@ func _run():
 		by_weapon[str(a.get("weapon", ""))] = a.get("models", [])
 	_check("the unit-wide Choppa assignment is kept as-is",
 		by_weapon.has("choppa_melee") and by_weapon["choppa_melee"].is_empty(), str(by_weapon))
-	_check("the Boss Nob's Big choppa was gap-filled in",
-		by_weapon.has("big_choppa_melee"), str(by_weapon))
-	_check("the gap-fill names only the Boss Nob (model 0)",
-		by_weapon.get("big_choppa_melee", []) == ["0"], str(by_weapon.get("big_choppa_melee", [])))
+	_check("the Nob's Kustom Choppa was gap-filled in",
+		by_weapon.has("kustom_choppa_melee"), str(by_weapon))
+	_check("the gap-fill names only the Nob (model 0)",
+		by_weapon.get("kustom_choppa_melee", []) == ["0"], str(by_weapon.get("kustom_choppa_melee", [])))
 	_check("no weapon the mob does not carry was added",
-		not by_weapon.has("power_klaw_melee") and not by_weapon.has("close_combat_weapon_melee"), str(by_weapon))
+		not by_weapon.has("power_klaw_melee") and not by_weapon.has("big_choppa_melee"), str(by_weapon))
 
 	# A per-model path (the dialog) names its models — a model deliberately left
 	# out must stay out, so nothing is gap-filled.
@@ -273,40 +275,38 @@ func _fresh_boyz(wargear: Array) -> Dictionary:
 	return u
 
 
-# The pairing problem: a roster's wargear string almost never records the MELEE
-# half of a swap. "Any number of Boyz can each have their slugga AND choppa
-# replaced with 1 shoota AND 1 close combat weapon" is the only thing that says
-# a Boy holding a shoota is holding a close combat weapon — the datasheet's
-# default kit alone would wrongly hand him the choppa he traded away.
+# The pairing problem: a roster's wargear records the weapon a model TOOK, and
+# only the datasheet's option list says what it gave up. "Any number of Nob
+# models can each have their Kustom Choppa AND Kombi-skorcha replaced with 1 Big
+# Choppa" is what says a Nob holding a Big Choppa no longer swings the Kustom
+# Choppa he started with.
 func _check_paired_wargear_options() -> void:
 	print("\n--- paired wargear options ---")
 
-	# Whole mob on shootas: 9 Boyz swapped, the Boss Nob keeps his big choppa.
-	var shoota_mob = _fresh_boyz(["9x Shoota", "1x Slugga"])
-	if not shoota_mob.is_empty():
-		var h = _melee_hist("U_BOYZ_SHOOTA", shoota_mob)
-		_check("shoota Boyz carry a Close combat weapon, not a Choppa",
-			int(h.get("Close combat weapon", 0)) == 9 and not h.has("Choppa"), str(h))
-		_check("the Boss Nob keeps his Big choppa", int(h.get("Big choppa", 0)) == 1, str(h))
+	# The Nob takes the paired swap: Big Choppa replaces Kustom Choppa + Kombi-skorcha.
+	var big = _fresh_boyz(["1x Big Choppa", "9x Choppa", "9x Shoota", "9x Slugga"])
+	if not big.is_empty():
+		var h = _melee_hist("U_BOYZ_BIG", big)
+		_check("paired swap: the Nob carries the Big Choppa, not his Kustom Choppa",
+			int(h.get("Big Choppa", 0)) == 1 and not h.has("Kustom Choppa"), str(h))
+		_check("paired swap: the 9 Boyz keep their Choppas", int(h.get("Choppa", 0)) == 9, str(h))
+		_check("paired swap: still exactly 10 melee weapons across 10 models",
+			int(h.get("Big Choppa", 0)) + int(h.get("Choppa", 0)) == 10, str(h))
 
-	# Partial swap: 3 Boyz took shootas, 6 kept slugga + choppa.
-	var mixed = _fresh_boyz(["3x Shoota", "7x Slugga"])
-	if not mixed.is_empty():
-		var h2 = _melee_hist("U_BOYZ_MIXED", mixed)
-		_check("3 shoota Boyz -> 3 Close combat weapons", int(h2.get("Close combat weapon", 0)) == 3, str(h2))
-		_check("6 unchanged Boyz keep their Choppas", int(h2.get("Choppa", 0)) == 6, str(h2))
-		_check("still exactly 10 melee weapons across 10 models",
-			int(h2.get("Close combat weapon", 0)) + int(h2.get("Choppa", 0)) + int(h2.get("Big choppa", 0)) == 10, str(h2))
+	# Single swap: Power Klaw replaces the Kustom Choppa only.
+	var klaw = _fresh_boyz(["1x Power Klaw", "1x Kombi-skorcha", "9x Choppa", "9x Shoota", "9x Slugga"])
+	if not klaw.is_empty():
+		var h2 = _melee_hist("U_BOYZ_KLAW", klaw)
+		_check("single swap: the Nob carries the Power Klaw instead of the Kustom Choppa",
+			int(h2.get("Power Klaw", 0)) == 1 and not h2.has("Kustom Choppa"), str(h2))
+		_check("single swap: the Boyz keep their Choppas", int(h2.get("Choppa", 0)) == 9, str(h2))
 
-	# Ambiguous alternatives: shoota and big shoota swaps BOTH grant a close
-	# combat weapon, so the shared weapon proves nothing — each swap is counted
-	# from the gun that is unique to it.
-	var two_swaps = _fresh_boyz(["8x Shoota", "1x Big shoota", "1x Slugga", "9x Close combat weapon"])
-	if not two_swaps.is_empty():
-		var h3 = _melee_hist("U_BOYZ_TWO_SWAPS", two_swaps)
-		_check("two different swaps still leave 9 Close combat weapons",
-			int(h3.get("Close combat weapon", 0)) == 9, str(h3))
-		_check("no Choppa survives when every Boy swapped", not h3.has("Choppa"), str(h3))
+	# A RANGED-only swap (a Boy's Shoota -> Big Shoota) changes no melee weapon.
+	var ranged = _fresh_boyz(["1x Kustom Choppa", "1x Kombi-skorcha", "9x Choppa", "8x Shoota", "1x Big Shoota", "9x Slugga"])
+	if not ranged.is_empty():
+		var h3 = _melee_hist("U_BOYZ_RANGED", ranged)
+		_check("ranged-only swap: melee kit unchanged (9 Choppa + 1 Kustom Choppa)",
+			int(h3.get("Choppa", 0)) == 9 and int(h3.get("Kustom Choppa", 0)) == 1, str(h3))
 
 	# A swap the roster names with NO count, on a datasheet that allows any
 	# number, cannot be sized — answering with the default kit would silently

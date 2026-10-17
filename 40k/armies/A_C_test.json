@@ -20,6 +20,7 @@
     "name": "Blade Champion",
     "keywords": [
      "ADEPTUS CUSTODES",
+     "BLADE CHAMPION",
      "CHARACTER",
      "IMPERIUM",
      "INFANTRY"
@@ -164,7 +165,8 @@
      "ADEPTUS CUSTODES",
      "ANATHEMA PSYKANA",
      "IMPERIUM",
-     "INFANTRY"
+     "INFANTRY",
+     "WITCHSEEKER SQUAD"
     ],
     "stats": {
      "move": 7,
@@ -298,6 +300,7 @@
     "keywords": [
      "ADEPTUS CUSTODES",
      "CALADIUS",
+     "CALADIUS GRAV-TANK",
      "FLY",
      "FRAME",
      "GRAV-ASSAULT",
@@ -317,9 +320,9 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "1x Twin iliastus accelerator cannon",
-     "1x Twin lastrum bolt cannon",
-     "1x Armoured hull"
+     "1x Armoured Hull",
+     "1x Iliastus Accelerator Cannon",
+     "1x Twin Lastrum Bolt Cannon"
     ],
     "weapons": [
      {

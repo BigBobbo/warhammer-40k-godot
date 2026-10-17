@@ -20,6 +20,7 @@
     "name": "Blade Champion",
     "keywords": [
      "ADEPTUS CUSTODES",
+     "BLADE CHAMPION",
      "CHARACTER",
      "IMPERIUM",
      "INFANTRY"
@@ -165,6 +166,7 @@
     "keywords": [
      "ADEPTUS CUSTODES",
      "BATTLELINE",
+     "CUSTODIAN GUARD SODALITY",
      "IMPERIUM",
      "INFANTRY",
      "TRUSTED SENTINEL"
@@ -284,6 +286,7 @@
     "name": "Blade Champion",
     "keywords": [
      "ADEPTUS CUSTODES",
+     "BLADE CHAMPION",
      "CHARACTER",
      "IMPERIUM",
      "INFANTRY"
@@ -429,6 +432,7 @@
     "keywords": [
      "ADEPTUS CUSTODES",
      "BATTLELINE",
+     "CUSTODIAN GUARD SODALITY",
      "IMPERIUM",
      "INFANTRY",
      "TRUSTED SENTINEL"
@@ -548,6 +552,7 @@
     "name": "Blade Champion",
     "keywords": [
      "ADEPTUS CUSTODES",
+     "BLADE CHAMPION",
      "CHARACTER",
      "IMPERIUM",
      "INFANTRY"
@@ -693,6 +698,7 @@
     "keywords": [
      "ADEPTUS CUSTODES",
      "BATTLELINE",
+     "CUSTODIAN GUARD SODALITY",
      "IMPERIUM",
      "INFANTRY",
      "TRUSTED SENTINEL"
@@ -813,6 +819,7 @@
     "keywords": [
      "ADEPTUS CUSTODES",
      "BATTLELINE",
+     "CUSTODIAN GUARD SODALITY",
      "IMPERIUM",
      "INFANTRY",
      "TRUSTED SENTINEL"
@@ -932,6 +939,7 @@
     "name": "Allarus Custodians",
     "keywords": [
      "ADEPTUS CUSTODES",
+     "ALLARUS CUSTODIANS",
      "IMPERIUM",
      "INFANTRY",
      "TERMINATOR"
@@ -1073,7 +1081,8 @@
      "ADEPTUS CUSTODES",
      "ANATHEMA PSYKANA",
      "IMPERIUM",
-     "INFANTRY"
+     "INFANTRY",
+     "PROSECUTOR SQUAD"
     ],
     "stats": {
      "move": 7,

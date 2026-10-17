@@ -446,6 +446,11 @@ function main() {
       if (k.is_faction_keyword === 'true') { if (!factionKeywords.includes(kw)) factionKeywords.push(kw); }
       else if (!keywords.some(x => normName(x) === normName(kw))) keywords.push(kw);
     }
+    // Wahapedia's keyword export omits a datasheet's own name keyword ("the
+    // list does not include named keywords that match the datasheet's name"),
+    // but every datasheet carries it and leader pairing matches can_lead
+    // names against bodyguard keywords (FormationsPhase / CharacterAttachmentManager).
+    if (!keywords.some(x => normName(x) === normName(ds.name))) keywords.push(stripHtml(ds.name));
 
     // weapons: group Wahapedia rows into weapons with profiles.
     const wRows = byDs.wargear.get(ds.id) ?? [];

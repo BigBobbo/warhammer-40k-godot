@@ -1,7 +1,7 @@
 {
  "format": "wh40k_ai_plan",
  "version": 1,
- "name": "Fixture \u2014 minimal valid",
+ "name": "Fixture — minimal valid",
  "description": "Smallest plan the validator accepts: one ordered placement, no earmarks.",
  "author": "fixture",
  "keys": {
@@ -59,10 +59,6 @@
      ],
      [
       23.5,
-      6.0
-     ],
-     [
-      25.0,
       6.0
      ]
     ]

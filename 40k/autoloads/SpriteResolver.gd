@@ -86,6 +86,13 @@ func _scan_sprites() -> void:
 	dir.list_dir_end()
 
 
+# Codex datasheet renames -> the bundled sprite key of the old datasheet
+# (Codex: Adeptus Custodes 11e, .llm/codex_11e_wahapedia/PLAN.md).
+const CODEX_RENAME_ALIASES := {
+	"custodian_guard_sodality": "custodian_guard",
+	"prosecutor_squad": "prosecutors",
+}
+
 func resolve_sprite(unit_name: String, faction_name: String, unit_type: String, model_variant: String = "") -> Texture2D:
 	# Resolution priority chain (user:// override beats bundled at each level):
 	# 1. Unit name + per-model variant  (e.g. stormboyz_boss_nob) — lets a single
@@ -106,6 +113,13 @@ func resolve_sprite(unit_name: String, faction_name: String, unit_type: String, 
 		keys.append(clean_unit + "_" + clean_variant)
 	if clean_unit != "":
 		keys.append(clean_unit)
+	# A codex rename keeps the old datasheet's art (custodian_guard.png is the
+	# Custodian Guard Sodality's art).
+	var alias: String = CODEX_RENAME_ALIASES.get(clean_unit, "")
+	if alias != "":
+		if clean_variant != "":
+			keys.append(alias + "_" + clean_variant)
+		keys.append(alias)
 	if clean_faction != "" and clean_type != "":
 		keys.append(clean_faction + "_" + clean_type)
 	if clean_type != "":

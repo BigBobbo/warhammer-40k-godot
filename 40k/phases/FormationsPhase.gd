@@ -1305,7 +1305,12 @@ func get_available_actions() -> Array:
 				"type": "DECLARE_TRANSPORT_EMBARKATION",
 				"transport_id": transport_id,
 				"player": current_player,
-				"description": "Embark units in %s" % transport_name
+				"description": "Embark units in %s" % transport_name,
+				# What is already declared aboard (formations are only written to
+				# the units at CONFIRM), so an AI can price the space left
+				# instead of re-proposing the same passengers.
+				"declared_unit_ids": already_embarked_ids.duplicate(),
+				"remaining_capacity": capacity - already_embarked_count,
 			})
 
 	# Reserves options

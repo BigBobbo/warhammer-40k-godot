@@ -4,36 +4,199 @@
   "armies.custodes_lions.load_path",
   "autoloads.ArmyListManager.scan_available_armies",
   "scripts.MainMenu.default_army_selection",
-  "autoloads.CharacterAttachmentManager.blade_champion_can_lead"
+  "autoloads.CharacterAttachmentManager.blade_champion_can_lead",
+  "data.codex_11e.custodes_lions_roster",
+  "scripts.DatasheetModal.codex_stats"
  ],
  "edition": 11,
  "rng_seed": 42,
  "disable_ai": true,
- "description": "Player path for the default matchup: boots to the real MainMenu, asserts the army scan offers both new base lists and that the dropdowns DEFAULT to Recon Stomps (P1) vs Custodes Lions (P2), real-clicks Start Game with no selection changes, and asserts the battle starts Orks 17 units vs Adeptus Custodes 11 units (2000 pts each) with Lions of the Emperor dispatched, ordinal repeat pricing intact (215/215/215 + 225/225/225 Custodian Guard, 110 + 125/125 Blade Champions), the P1 Recon Stomps warlord flag intact, and the Blade Champions offering Custodian Guard attachment during formations.",
+ "description": "Player path for the default matchup: boots to the real MainMenu, asserts the army scan offers both base lists and that the dropdowns DEFAULT to Recon Stomps (P1) vs Custodes Lions (P2), real-clicks Start Game with no selection changes, and asserts the battle starts Orks 17 units vs Adeptus Custodes 9 units with Lions of the Emperor dispatched and the Codex: Adeptus Custodes (11e) roster: Custodian Guard Sodality 3 models M8 T7 W5 OC3, repeat pricing 240 x3 then 270 for the 4th copy, Blade Champions 175/175 then 195, Blade Champion leading Custodian Guard Sodality, and the P1 Recon Stomps warlord flag intact.",
  "steps": [
-  { "act": "wait_seconds", "seconds": 1.5 },
-  { "act": "execute_script", "script": "ArmyListManager.get_available_armies().has(\"custodes_lions\")", "equals": true },
-  { "act": "execute_script", "script": "ArmyListManager.get_available_armies().has(\"recon_stomps\")", "equals": true },
-  { "act": "execute_script", "script": "main.get_node(\"ScrollContainer/MenuContainer/ArmySection/Player1Container/Player1Dropdown\").get_item_text(main.get_node(\"ScrollContainer/MenuContainer/ArmySection/Player1Container/Player1Dropdown\").selected).contains(\"Recon Stomps\")", "equals": true },
-  { "act": "execute_script", "script": "main.get_node(\"ScrollContainer/MenuContainer/ArmySection/Player2Container/Player2Dropdown\").get_item_text(main.get_node(\"ScrollContainer/MenuContainer/ArmySection/Player2Container/Player2Dropdown\").selected).contains(\"Custodes Lions\")", "equals": true },
-  { "act": "screenshot", "label": "01_menu_default_matchup" },
-  { "act": "execute_script", "script": "main.get_node(\"ScrollContainer\").ensure_control_visible(main.get_node(\"ScrollContainer/MenuContainer/ButtonSection/StartButton\"))" },
-  { "act": "wait_frames", "frames": 5 },
-  { "act": "click_node", "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton" },
-  { "act": "wait_seconds", "seconds": 3.0 },
-  { "act": "execute_script", "script": "GameState.state[\"units\"].size()", "equals": 28 },
-  { "act": "execute_script", "script": "GameState.get_units_for_player(1).size()", "equals": 17 },
-  { "act": "execute_script", "script": "GameState.get_units_for_player(2).size()", "equals": 11 },
-  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"1\"][\"name\"]", "equals": "Orks" },
-  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"][\"name\"]", "equals": "Adeptus Custodes" },
-  { "act": "execute_script", "script": "GameState.state[\"factions\"][\"2\"][\"detachment\"]", "equals": "Lions of the Emperor" },
-  { "act": "execute_script", "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\")[\"meta\"][\"is_warlord\"]", "equals": true },
-  { "act": "execute_script", "script": "GameState.get_unit(\"U_BLADE_CHAMPION_B\")[\"meta\"][\"points\"]", "equals": 125 },
-  { "act": "execute_script", "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_D\")[\"meta\"][\"points\"]", "equals": 225 },
-  { "act": "execute_script", "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_A\")[\"models\"].size()", "equals": 5 },
-  { "act": "execute_script", "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\")[\"meta\"][\"leader_data\"][\"can_lead\"].has(\"CUSTODIAN GUARD\")", "equals": true },
-  { "act": "execute_script", "script": "GameState.get_eligible_bodyguards_for_character(\"U_BLADE_CHAMPION_A\").has(\"U_CUSTODIAN_GUARD_A\")", "equals": true },
-  { "act": "execute_script", "script": "GameState.get_unit(\"U_WAZDAKKA_GUTSMEK_A\")[\"meta\"][\"is_warlord\"]", "equals": true },
-  { "act": "screenshot", "label": "02_orks_vs_custodes_started" }
+  {
+   "act": "wait_seconds",
+   "seconds": 1.5
+  },
+  {
+   "act": "execute_script",
+   "script": "ArmyListManager.get_available_armies().has(\"custodes_lions\")",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "ArmyListManager.get_available_armies().has(\"recon_stomps\")",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "main.get_node(\"ScrollContainer/MenuContainer/ArmySection/Player1Container/Player1Dropdown\").get_item_text(main.get_node(\"ScrollContainer/MenuContainer/ArmySection/Player1Container/Player1Dropdown\").selected).contains(\"Recon Stomps\")",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "main.get_node(\"ScrollContainer/MenuContainer/ArmySection/Player2Container/Player2Dropdown\").get_item_text(main.get_node(\"ScrollContainer/MenuContainer/ArmySection/Player2Container/Player2Dropdown\").selected).contains(\"Custodes Lions\")",
+   "equals": true
+  },
+  {
+   "act": "screenshot",
+   "label": "01_menu_default_matchup"
+  },
+  {
+   "act": "execute_script",
+   "script": "main.get_node(\"ScrollContainer\").ensure_control_visible(main.get_node(\"ScrollContainer/MenuContainer/ButtonSection/StartButton\"))"
+  },
+  {
+   "act": "wait_frames",
+   "frames": 5
+  },
+  {
+   "act": "click_node",
+   "node": "/root/MainMenu/ScrollContainer/MenuContainer/ButtonSection/StartButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 3.0
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.state[\"units\"].size()",
+   "equals": 26
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_units_for_player(1).size()",
+   "equals": 17
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_units_for_player(2).size()",
+   "equals": 9
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.state[\"factions\"][\"1\"][\"name\"]",
+   "equals": "Orks"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.state[\"factions\"][\"2\"][\"name\"]",
+   "equals": "Adeptus Custodes"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.state[\"factions\"][\"2\"][\"detachment\"]",
+   "equals": "Lions of the Emperor"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\")[\"meta\"][\"is_warlord\"]",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BLADE_CHAMPION_B\")[\"meta\"][\"points\"]",
+   "equals": 175
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_D\")[\"meta\"][\"points\"]",
+   "equals": 270
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_A\")[\"models\"].size()",
+   "equals": 3
+  },
+  {
+   "act": "execute_script",
+   "script": "int(GameState.get_unit(\"U_CUSTODIAN_GUARD_A\")[\"meta\"][\"stats\"][\"move\"])",
+   "equals": 8
+  },
+  {
+   "act": "execute_script",
+   "script": "int(GameState.get_unit(\"U_CUSTODIAN_GUARD_A\")[\"meta\"][\"stats\"][\"toughness\"])",
+   "equals": 7
+  },
+  {
+   "act": "execute_script",
+   "script": "int(GameState.get_unit(\"U_CUSTODIAN_GUARD_A\")[\"meta\"][\"stats\"][\"wounds\"])",
+   "equals": 5
+  },
+  {
+   "act": "execute_script",
+   "script": "int(GameState.get_unit(\"U_CUSTODIAN_GUARD_A\")[\"meta\"][\"stats\"][\"objective_control\"])",
+   "equals": 3
+  },
+  {
+   "act": "execute_script",
+   "script": "int(GameState.get_unit(\"U_CUSTODIAN_GUARD_A\")[\"meta\"][\"stats\"][\"leadership\"])",
+   "equals": 5
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_CUSTODIAN_GUARD_A\")[\"meta\"][\"name\"]",
+   "equals": "Custodian Guard Sodality"
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BLADE_CHAMPION_C\")[\"meta\"][\"points\"]",
+   "equals": 195
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_BLADE_CHAMPION_A\")[\"meta\"][\"leader_data\"][\"can_lead\"].has(\"CUSTODIAN GUARD SODALITY\")",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_eligible_bodyguards_for_character(\"U_BLADE_CHAMPION_A\").has(\"U_CUSTODIAN_GUARD_A\")",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_WAZDAKKA_GUTSMEK_A\")[\"meta\"][\"is_warlord\"]",
+   "equals": true
+  },
+  {
+   "act": "screenshot",
+   "label": "02_orks_vs_custodes_started"
+  },
+  {
+   "act": "execute_script",
+   "script": "var f=tree.root.get_node_or_null(\"Main/FormationsDialog\")\nif f != null:\n\tf.hide()\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "var m=tree.root.get_node_or_null(\"Main/DatasheetModal\")\nreturn m != null and m.t39_synthesize_i_press(\"U_CUSTODIAN_GUARD_A\")",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.5
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/Main/DatasheetModal",
+   "timeout_s": 2.0
+  },
+  {
+   "act": "execute_script",
+   "script": "var m=tree.root.get_node_or_null(\"Main/DatasheetModal\")\nreturn m.stats_text",
+   "multiline": true,
+   "equals": "M 8\"  T 7  Sv 2+  W 5  Ld 5+  OC 3  INV 4+"
+  },
+  {
+   "act": "execute_script",
+   "script": "var m=tree.root.get_node_or_null(\"Main/DatasheetModal\")\nreturn m.weapons_text.contains(\"Guardian Spear\")",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "screenshot",
+   "label": "03_custodian_guard_sodality_codex_datasheet"
+  }
  ]
 }
