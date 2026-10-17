@@ -3963,7 +3963,9 @@ static func _finalize_movement_decision(decision: Dictionary, snapshot: Dictiona
 	if unit.is_empty():
 		return
 	var unit_name = _dn(unit, unit_id)
-	var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
+	# 14.02: the OC this unit brings is every alive model's OC (the COORD-2
+	# incoming-OC credit subtracts it from the per-model objective need).
+	var unit_oc = _unit_alive_oc(unit)
 	var centroid = _get_unit_centroid(unit)
 
 	# Destination: mean of the planned model destinations, else current position
@@ -8852,7 +8854,8 @@ static func _evaluate_all_objectives(
 			var e_status = e_unit.get("status", 0)
 			if e_status == GameStateData.UnitStatus.UNDEPLOYED or e_status == GameStateData.UnitStatus.IN_RESERVES:
 				continue
-			var e_oc = int(e_unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
+			# 14.02: every model the unit brings into range adds its own OC.
+			var e_oc = _unit_alive_oc(e_unit, 0)
 			if e_oc <= 0:
 				continue
 			var e_centroid = _get_unit_centroid(e_unit)
@@ -9166,7 +9169,9 @@ static func _assign_units_to_objectives(
 				"Earmark SCREEN withholds %s from the objective passes" % unit_id)
 			continue
 
-		var unit_oc = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 1))
+		# 14.02: capacity = every alive model's OC, the unit of the per-model
+		# oc_needed it is measured against (oc_efficiency / oc_consumed).
+		var unit_oc = _unit_alive_oc(unit)
 		var move_inches = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
 		var unit_keywords = unit.get("meta", {}).get("keywords", [])
 		var has_ranged = _unit_has_ranged_weapons(unit)
@@ -10106,6 +10111,9 @@ static func _decide_engaged_unit(
 		var enemy_oc_here = _get_oc_at_position(
 			centroid, enemies, player, false
 		)
+		# 14.02: what falling back removes is THIS unit's in-range models' OC
+		# (friendly_oc_here sums per model), measured at the same point.
+		unit_oc = _unit_oc_at_position(centroid, unit_id, unit, friendly_units)
 
 		# T7-43: In rounds 4-5, units on objectives are biased toward holding
 		# even if survival is at risk — objective control is paramount
@@ -10754,30 +10762,69 @@ static func _should_unit_advance(
 # MOVEMENT HELPERS (Enhanced)
 # =============================================================================
 
+## Level of control (14.02) the AI reads at `pos`: "add together the OC
+## characteristics of all the models in that player's army that are within
+## range" — every in-range model's own OC, not each unit's OC once. Owner
+## filter: `is_friendly` sums `player`'s units, otherwise everyone else's (the
+## filter was previously ignored, so callers handing in the whole snapshot —
+## Against All Odds standoff, Burden of Trust, VIGILANCE ETERNAL — counted both
+## armies as one). Range is the AI's usual centre-distance approximation.
 static func _get_oc_at_position(pos: Vector2, units: Dictionary, player: int, is_friendly: bool) -> int:
-	# Sum up OC values of all units within control range of a position
+	# Sum up OC values of all models within control range of a position
 	var total_oc = 0
 	for uid in units:
 		var unit = units[uid]
-		# Skip battle-shocked units (they have 0 effective OC)
-		if unit.get("flags", {}).get("battle_shocked", false):
+		if (int(unit.get("owner", 0)) == player) != is_friendly:
 			continue
-		var status = unit.get("status", 0)
-		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+		total_oc += _unit_oc_at_position(pos, str(uid), unit, units)
+	return total_oc
+
+## One model's OC (14.02) — MissionManager.model_oc (per-model profile, Da Boss
+## override, +OC per model), the same value objective control sums; statline
+## fallback when the autoload is unreachable.
+static func _ai_model_oc(unit: Dictionary, model: Dictionary) -> int:
+	var mm = _mission_manager()
+	if mm != null and mm.has_method("model_oc"):
+		return int(mm.model_oc(unit, model))
+	return maxi(0, int(unit.get("meta", {}).get("stats", {}).get("objective_control", 0)))
+
+## OC this unit adds at `pos` now: its alive models within control range, each
+## with its own OC (14.02). 0 when battle-shocked (any component of its
+## Attached unit — 19.01) or not on the battlefield.
+static func _unit_oc_at_position(pos: Vector2, unit_id: String, unit: Dictionary, units: Dictionary) -> int:
+	# Skip battle-shocked units (they have 0 effective OC)
+	if unit.get("flags", {}).get("battle_shocked", false):
+		return 0
+	var attachment = unit.get("attachment_data", {})
+	var in_attached_unit: bool = unit.get("attached_to", null) != null \
+			or (attachment is Dictionary and not attachment.get("attached_characters", []).is_empty())
+	if in_attached_unit and AttackSequence.group_battle_shocked(unit_id, units):
+		return 0
+	var status = unit.get("status", 0)
+	if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+		return 0
+	var total_oc = 0
+	for model in unit.get("models", []):
+		if not model.get("alive", true):
 			continue
-		var oc_val = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
-		if oc_val <= 0:
+		var mpos = _get_model_position(model)
+		if mpos == Vector2.INF:
 			continue
-		# Check if any alive model is within control range
-		for model in unit.get("models", []):
-			if not model.get("alive", true):
-				continue
-			var mpos = _get_model_position(model)
-			if mpos == Vector2.INF:
-				continue
-			if mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX:
-				total_oc += oc_val
-				break  # Count unit once
+		if mpos.distance_to(pos) <= OBJECTIVE_CONTROL_RANGE_PX:
+			total_oc += _ai_model_oc(unit, model)
+	return total_oc
+
+## The OC a unit brings once its models stand in range — every alive model's
+## own OC (14.02), the planner's capacity for "how much of an objective's need
+## does this unit cover". A unit with no OC stat at all keeps the planner's
+## historical default (`missing_default`, per unit).
+static func _unit_alive_oc(unit: Dictionary, missing_default: int = 1) -> int:
+	if not unit.get("meta", {}).get("stats", {}).has("objective_control"):
+		return missing_default
+	var total_oc = 0
+	for model in unit.get("models", []):
+		if model.get("alive", true):
+			total_oc += _ai_model_oc(unit, model)
 	return total_oc
 
 static func _count_units_near_position(pos: Vector2, units: Dictionary, range_px: float) -> int:
@@ -22281,7 +22328,9 @@ static func _battle_shock_flip_value(
 
 		var friendly_oc = _get_oc_at_position(obj_pos, friendly_units, player, true)
 		var enemy_oc = _get_oc_at_position(obj_pos, enemy_units, player, false)
-		var enemy_oc_after = maxi(0, enemy_oc - target_oc)
+		# 14.02: battle-shock zeroes every one of the target's in-range models,
+		# which is exactly the OC it adds here (enemy_oc sums per model).
+		var enemy_oc_after = maxi(0, enemy_oc - _unit_oc_at_position(obj_pos, target_id, target_unit, enemy_units))
 		# 14.02/14.03: control needs STRICTLY higher level, and a tie leaves an
 		# objective uncontrolled (or secured to its previous holder). Zeroing
 		# their OC only wins us the objective if we have OC of our own there.

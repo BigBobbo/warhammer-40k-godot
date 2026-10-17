@@ -358,7 +358,10 @@ func _identify_units_needing_tests() -> void:
 		# Check if unit is below half-strength
 		# Use combined check that includes attached character models in starting strength
 		var below_half = GameState.is_below_half_strength_combined(unit_id)
-		var is_shocked = unit.get("flags", {}).get("battle_shocked", false)
+		# 19.01: battle-shock of the whole Attached unit — a flag left on an
+		# attached CHARACTER (who is skipped above and never tests alone)
+		# still needs the unit's test to recover (08.03).
+		var is_shocked = AttackSequence.group_battle_shocked(unit_id, units)
 		# ISS-043/065 (11e 08.03): a unit tests if it is currently
 		# battle-shocked OR at-or-below half-strength. "At" half-strength
 		# (exactly half the starting strength) was previously omitted —
@@ -1103,7 +1106,9 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 	# the result and applied by BasePhase.execute_action, so undo, replay
 	# recording, and multiplayer sync all observe the flag change.
 	var changes: Array = []
-	if test_passed and GameConstants.edition >= 11 and unit.get("flags", {}).get("battle_shocked", false):
+	# 19.01: recovery is gated on the WHOLE Attached unit's battle-shock, so a
+	# flag left only on an attached CHARACTER is cleared too.
+	if test_passed and GameConstants.edition >= 11 and AttackSequence.group_battle_shocked(unit_id, GameState.state.get("units", {})):
 		# ISS-043 (11e 08.03): a battle-shocked unit that passes RECOVERS.
 		changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % unit_id, "value": false})
 		for char_id in GameState.get_attached_characters(unit_id):
@@ -1408,7 +1413,8 @@ func _apply_battle_shock_auto_success(unit_id: String, source: String) -> Dictio
 	if unit_id not in _units_auto_passed:
 		_units_auto_passed.append(unit_id)
 	var changes: Array = []
-	var was_shocked: bool = unit.get("flags", {}).get("battle_shocked", false)
+	# 19.01: group-aware, as in _resolve_battle_shock_test.
+	var was_shocked: bool = AttackSequence.group_battle_shocked(unit_id, GameState.state.get("units", {}))
 	if was_shocked and GameConstants.edition >= 11:
 		changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % unit_id, "value": false})
 		for char_id in GameState.get_attached_characters(unit_id):

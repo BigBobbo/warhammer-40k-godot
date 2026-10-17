@@ -191,7 +191,10 @@ func test_objective_evaluation_enemy_held():
 	var nml1_eval = _find_eval(evals, "obj_nml_1")
 	_assert(nml1_eval.state == "enemy_weak" or nml1_eval.state == "enemy_strong",
 		"NML objective enemy held (state=%s)" % nml1_eval.state)
-	_assert(nml1_eval.enemy_oc == 2, "Enemy OC at nml_1 is 2 (got %d)" % nml1_eval.enemy_oc)
+	# 14.02: the level of control adds EVERY model in range — 4 of the 5 OC2
+	# models (x = 400..520) stand within control range of (400,720), so 8.
+	# (Was 2 while _get_oc_at_position counted each unit's OC once.)
+	_assert(nml1_eval.enemy_oc == 8, "Enemy OC at nml_1 is 8 (got %d)" % nml1_eval.enemy_oc)
 
 # =========================================================================
 # TEST: Unit Assignment

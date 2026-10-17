@@ -303,11 +303,19 @@ func disembark_unit(unit_id: String, positions: Array) -> void:
 	# Tuff Git (Blitz Brigade): at the end of a phase in which the bearer's
 	# unit disembarked, it stops being Battle-shocked. (Applied at disembark —
 	# a faithful simplification of the end-of-phase timing.)
+	# 19.01: the Attached unit stops being Battle-shocked as ONE unit — clear
+	# every component, or a flag left on the leader keeps the whole unit's OC
+	# at '-' (MissionManager reads battle-shock group-wide).
 	var fam_tg = get_node_or_null("/root/FactionAbilityManager")
 	if unit.get("flags", {}).get("battle_shocked", false) \
 			and fam_tg != null and fam_tg._unit_or_attached_has_enhancement(unit, "Tuff Git", GameState.state.get("units", {})):
 		unit.flags["battle_shocked"] = false
 		print("Tuff Git - disembarked unit is no longer Battle-shocked")
+		for tg_id in get_attached_unit_group(unit_id):
+			var tg_unit = GameState.state.get("units", {}).get(tg_id, {})
+			if tg_id != unit_id and tg_unit.get("flags", {}).get("battle_shocked", false):
+				tg_unit.flags["battle_shocked"] = false
+				print("Tuff Git - attached unit component %s is no longer Battle-shocked" % tg_id)
 
 	# Update GameState directly
 	GameState.state.units[unit_id] = unit

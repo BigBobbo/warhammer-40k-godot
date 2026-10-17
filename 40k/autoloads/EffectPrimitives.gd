@@ -119,7 +119,9 @@ const PLUS_STRENGTH_MELEE = "plus_strength_melee" # value: amount to add to mele
 const PLUS_WOUNDS = "plus_wounds"                 # value: amount to add to Wounds characteristic (list-build only)
 # DAT'S OURS (Taktikal Brigade): additive Objective Control bonus. Unlike the
 # effect_oc_override flag (Da Boss Iz Watchin' — replaces OC), this ADDS to the
-# statline OC. Consumed by MissionManager._check_objective_control.
+# statline OC of EACH model in the unit ("add 1 to the Objective Control
+# characteristic of models in your unit"), so a 10-model unit gains +10 level
+# of control (14.02). Consumed per model by MissionManager.model_oc.
 const PLUS_OC = "plus_oc"                         # value: amount to add to Objective Control
 # Green Tide: the unit counts as containing 10+ models for detachment rules,
 # Enhancements and Stratagems (Raucous Warcaller, BRAGGIN' RIGHTS). Read via
@@ -233,8 +235,8 @@ const FLAG_PLUS_ATTACKS_VS_PSYKER = "effect_plus_attacks_vs_psyker"  # value: in
 # Issue #374: enhancement flags.
 const FLAG_PLUS_MOVE = "effect_plus_move"                  # value: int (inches added to Move)
 const FLAG_PLUS_STRENGTH_MELEE = "effect_plus_strength_melee"  # value: int (Strength bonus on melee)
-# DAT'S OURS (Taktikal Brigade): value ADDED to the statline OC (contrast with
-# effect_oc_override which replaces it).
+# DAT'S OURS (Taktikal Brigade): value ADDED to every model's statline OC
+# (contrast with effect_oc_override which replaces it) — MissionManager.model_oc.
 const FLAG_PLUS_OC = "effect_plus_oc"                      # value: int (Objective Control bonus)
 # Issue #375: persistent flag for ORKS IS NEVER BEATEN — read in melee
 # resolution to defer model removal until after the unit's swing-back.

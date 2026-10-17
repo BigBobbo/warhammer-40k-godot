@@ -1894,15 +1894,24 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 	# Battle-shocked." Note that the actual battle-shock target may differ
 	# from the stratagem's primary target (the Mob unit); the calling layer
 	# should pass the secondary target as `context.battle_shock_target_id`.
+	# 19.01: an Attached unit is a single unit, so the clear covers every
+	# component (bodyguard + attached CHARACTERs) — MissionManager reads
+	# battle-shock group-wide for OC (AttackSequence.group_battle_shocked), and
+	# a flag left on the leader would keep the whole unit's OC at '-'.
 	for effect in effects:
 		if effect.get("type", "") == EffectPrimitivesData.REMOVE_BATTLE_SHOCK:
 			var bs_target_id = context.get("battle_shock_target_id", target_unit_id) if typeof(context) == TYPE_DICTIONARY else target_unit_id
-			diffs.append({
-				"op": "set",
-				"path": "units.%s.flags.battle_shocked" % bs_target_id,
-				"value": false
-			})
-			print("StratagemManager: REMOVE_BATTLE_SHOCK clears battle_shocked on %s" % bs_target_id)
+			var bs_head_id = RulesEngine.attached_unit_target_id(str(bs_target_id), GameState.state)
+			var bs_group_ids: Array = RulesEngine.attached_unit_component_ids(bs_head_id, GameState.state)
+			if not bs_group_ids.has(str(bs_target_id)):
+				bs_group_ids.append(str(bs_target_id))
+			for bs_id in bs_group_ids:
+				diffs.append({
+					"op": "set",
+					"path": "units.%s.flags.battle_shocked" % bs_id,
+					"value": false
+				})
+				print("StratagemManager: REMOVE_BATTLE_SHOCK clears battle_shocked on %s" % bs_id)
 			break
 
 	if not diffs.is_empty():

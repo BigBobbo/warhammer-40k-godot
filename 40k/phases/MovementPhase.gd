@@ -477,6 +477,7 @@ func _check_thievin_scavengers() -> void:
 		MissionManager.check_all_objectives()
 
 	# Control radius matches MissionManager._check_objective_control: 3" + 20mm objective radius
+	# (presence check only — the 14.02 per-model OC sum is MissionManager's job)
 	var control_radius = Measurement.inches_to_px(3.78740157)
 
 	# Find objectives controlled by the current player that have a unit with

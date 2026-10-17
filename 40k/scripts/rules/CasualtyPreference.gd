@@ -23,10 +23,10 @@ extends RefCounted
 ##  ▫ charge    — when an enemy unit is inside charge-threat range, the
 ##                model it would measure its charge against is worth extra:
 ##                removing it lengthens next turn's charge roll
-##  ▫ objective — models keeping the unit inside control range of an
-##                objective whose control would flip are protected
-##                (OC counts once per unit — MissionManager math — so what
-##                matters is keeping AT LEAST one body in range)
+##  ▫ objective — models inside control range of an objective whose
+##                control would flip if THAT model's OC were removed are
+##                protected (14.02: every model in range adds its own OC —
+##                MissionManager math — so one casualty costs one model's OC)
 ##  ▫ coherency — DOMINANT. The order is built greedily and every step picks
 ##                the casualty that leaves the FEWEST survivors out of
 ##                coherency; the value/proximity/objective score above only
@@ -50,7 +50,7 @@ const KEEP_CHARACTER: float = 100000.0        # engine group order protects them
 const KEEP_SERGEANT: float = 600.0            # sergeant-type models: last non-character picks
 const KEEP_SPECIAL_WEAPON_MAX: float = 400.0  # cap for special/heavy wargear carriers
 const SPECIAL_WEAPON_WEIGHT: float = 300.0    # per minority weapon, scaled by rarity
-const KEEP_OBJECTIVE_AT_STAKE: float = 250.0  # in control range and losing the unit's OC flips the marker
+const KEEP_OBJECTIVE_AT_STAKE: float = 250.0  # in control range and losing this model's OC flips the marker
 const KEEP_OBJECTIVE_PRESENCE: float = 40.0   # in control range, control not currently at stake
 const KEEP_WOUNDED: float = -50.0             # 05.04 forces wounded first anyway; keep our order consistent
 const PROXIMITY_MAX: float = 100.0            # farthest-from-enemy keep bonus
@@ -362,10 +362,12 @@ static func _model_in_range_of_objective(model: Dictionary, obj: Dictionary, mea
 	return meas.model_edge_to_point_distance_px(model, opos) <= meas.inches_to_px(OBJECTIVE_CONTROL_RANGE_INCHES)
 
 
-## MissionManager OC math: a unit contributes its OC once when ANY alive
-## model is inside control range; battle-shocked or OC-0 units contribute
-## nothing. (Heuristic: terrain-hosted objectives are approximated by the
-## marker radius here.)
+## MissionManager OC math (14.02): EVERY alive model inside range adds its own
+## OC — "add together the OC characteristics of all the models ... within
+## range". A battle-shocked unit (any component of its Attached unit, 19.01)
+## or an OC-0 model adds nothing. _unit_oc is the unit-statline value — the
+## fallback for _model_oc when MissionManager is unavailable (bare-bones
+## harnesses); the range test is MissionManager's terrain-aware predicate.
 static func _unit_oc(u: Dictionary) -> int:
 	if u.get("flags", {}).get("battle_shocked", false):
 		return 0
@@ -375,6 +377,15 @@ static func _unit_oc(u: Dictionary) -> int:
 	if oc > 0:
 		oc += int(u.get("flags", {}).get(EffectPrimitivesData.FLAG_PLUS_OC, 0))
 	return maxi(oc, 0)
+
+
+## One model's OC, read against the unit dict it belongs to — the SAME
+## per-model value objective control sums (MissionManager.model_oc: per-model
+## profile, Da Boss override, +OC per model).
+static func _model_oc(u: Dictionary, m: Dictionary, mm: Node) -> int:
+	if mm != null and mm.has_method("model_oc"):
+		return int(mm.model_oc(u, m))
+	return _unit_oc(u)
 
 
 static func _objective_oc_totals(state: Dictionary, defender: int, obj: Dictionary, meas: Node, mm: Node) -> Dictionary:
@@ -388,15 +399,13 @@ static func _objective_oc_totals(state: Dictionary, defender: int, obj: Dictiona
 			continue
 		if u.get("flags", {}).get("embarked", false):
 			continue
-		var oc: int = _unit_oc(u)
-		if oc <= 0:
+		if AttackSequence.group_battle_shocked(str(uid), units):
 			continue
-		var any_in: bool = false
+		var oc: int = 0
 		for m in u.get("models", []):
 			if _model_in_range_of_objective(m, obj, meas, mm):
-				any_in = true
-				break
-		if not any_in:
+				oc += _model_oc(u, m, mm)
+		if oc <= 0:
 			continue
 		if owner == defender:
 			friendly += oc
@@ -406,39 +415,62 @@ static func _objective_oc_totals(state: Dictionary, defender: int, obj: Dictiona
 
 
 ## Keep-bonus for our models inside control range of each objective. Full
-## protection when the marker's control genuinely hinges on this unit's OC
-## (we control / deny it now, and pulling our contribution would flip it);
-## a light presence bonus otherwise. Bonuses across markers don't stack —
-## the strongest applies.
+## protection for a model whose OWN OC the marker's control hinges on (we
+## control / deny it now, and removing that one model's OC would flip it —
+## 14.02 sums per model, so one casualty only ever costs one model's OC); a
+## light presence bonus for the other in-range models with OC. Bonuses across
+## markers don't stack — the strongest applies.
 static func _objective_keep(unit: Dictionary, alive: Array, state: Dictionary, defender: int) -> Dictionary:
 	var out: Dictionary = {}
 	var objectives: Array = state.get("board", {}).get("objectives", [])
 	if objectives.is_empty():
 		return out
-	var unit_oc: int = _unit_oc(unit)
-	if unit_oc <= 0:
+	var units: Dictionary = state.get("units", {})
+	var uid: String = str(unit.get("id", ""))
+	if uid != "" and units.has(uid):
+		if AttackSequence.group_battle_shocked(uid, units):
+			return out
+	elif unit.get("flags", {}).get("battle_shocked", false):
 		return out
 	var models: Array = unit.get("models", [])
 	var meas = _measurement()
 	var mm = _mission_manager()
+	# Each candidate's OC is read against the unit dict it really belongs to:
+	# a folded Attached unit carries its leader's models after the
+	# bodyguard's (_attached_layout maps them back to their component).
+	var layout: Dictionary = _attached_layout(unit, state)
+	var cand_oc: Dictionary = {}
+	var any_oc: bool = false
+	for i in alive:
+		var owner_unit: Dictionary = unit
+		var pair = layout.cand.get(i, null)
+		if pair != null:
+			var cid: String = str(layout.comp_ids[int(pair[0])])
+			if cid != uid and units.has(cid):
+				owner_unit = units[cid]
+		cand_oc[i] = _model_oc(owner_unit, models[i], mm)
+		if int(cand_oc[i]) > 0:
+			any_oc = true
+	if not any_oc:
+		return out
 	for obj in objectives:
 		var in_range: Array = []
 		for i in alive:
-			if _model_in_range_of_objective(models[i], obj, meas, mm):
+			if int(cand_oc[i]) > 0 and _model_in_range_of_objective(models[i], obj, meas, mm):
 				in_range.append(i)
 		if in_range.is_empty():
 			continue
 		var totals: Dictionary = _objective_oc_totals(state, defender, obj, meas, mm)
 		var friendly: int = int(totals.friendly)
 		var enemy: int = int(totals.enemy)
-		var without: int = friendly - unit_oc
-		var at_stake: bool = false
-		if friendly > enemy and without <= enemy:
-			at_stake = true  # we control it; losing this unit's OC loses control
-		elif friendly == enemy and friendly > 0 and without < enemy:
-			at_stake = true  # we deny it; losing this unit's OC hands it over
-		var bonus: float = KEEP_OBJECTIVE_AT_STAKE if at_stake else KEEP_OBJECTIVE_PRESENCE
 		for i in in_range:
+			var without: int = friendly - int(cand_oc[i])
+			var at_stake: bool = false
+			if friendly > enemy and without <= enemy:
+				at_stake = true  # we control it; losing this model's OC loses control
+			elif friendly == enemy and friendly > 0 and without < enemy:
+				at_stake = true  # we deny it; losing this model's OC hands it over
+			var bonus: float = KEEP_OBJECTIVE_AT_STAKE if at_stake else KEEP_OBJECTIVE_PRESENCE
 			out[i] = maxf(float(out.get(i, 0.0)), bonus)
 	return out
 

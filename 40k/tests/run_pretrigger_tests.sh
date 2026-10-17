@@ -44,6 +44,8 @@
 #     stratagem windows / mid-activation, client Consolidate step close
 #   - secondary deck draw terminates when only round-1 shuffle-back cards are
 #     left (was an infinite loop)
+#   - 14.02 per-model Objective Control (every model in range adds its OC;
+#     attached-unit battle-shock zeroes the group; 14.03 secured tie/break)
 #
 # Usage: ./tests/run_pretrigger_tests.sh          # the gated list below
 #        ./tests/run_pretrigger_tests.sh --all    # EVERY direct SceneTree test:
@@ -175,6 +177,7 @@ TESTS=(
     "tests/test_iss052_hidden_11e.gd"
     "tests/test_iss053_cover_plunging_11e.gd"
     "tests/test_iss055_objectives_11e.gd"
+    "tests/test_oc_per_model_14_02.gd"
     "tests/test_iss060_ingress_11e.gd"
     "tests/test_iss061_surge_fly_11e.gd"
     "tests/test_iss057_actions_11e.gd"
