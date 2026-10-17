@@ -1,0 +1,183 @@
+datasheet_id|line|ability_id|model|name|description|type|parameter
+000000883|1|000011125||||Core|4
+000000883|2|000008339||||Core|D3
+000000883|3|000011234||||Faction|
+000000883|4|000008391||||Faction|
+000000883|5|||Unyielding Ancient (Once per battle, per unit)|At the end of a phase in which this model is destroyed, roll one D6:<br><ul><li>On a 2+, set this model back up on the battlefield as close as possible to where it was destroyed, unengaged and with 3 wounds remaining.</li></ul>|Datasheet|
+000000884|1|000011125||||Core|5
+000000884|2|000008339||||Core|D6
+000000884|3|000011234||||Faction|
+000000884|4|||Assault Ramp|In your Movement phase, when this unit ends a normal move, units embarked within this unit can make an assault disembark move.|Datasheet|
+000001446|1|000008343||||Core|
+000001446|2|000008338||||Core|5+
+000001446|3|000008346||||Core|
+000001446|4|000011234||||Faction|
+000001446|5|000011233||||Faction|
+000001446|6|000008391||||Faction|
+000001446|7|||Captain-General (Aura)|"Friendly Adeptus Custodes units (excluding Monster/Vehicle units) within 6"" of this model can:<br><ul><li>Re-roll hit rolls of 1.</li><li>Re-roll wound rolls of 1.</li></ul>"|Datasheet|
+000001446|8|||Moment Shackle (Once per battle, per army)|At the start of any phase, you can select one of the following to take effect until the end of the phase:<br><ul><li>This model’s Watcher’s Axe weapon has +3 <b>A</b>. </li><li>This model has 3+ InSv.</li></ul>|Datasheet|
+000001446|9|||SUPREME COMMANDER|"If this model is in your army, it must be your <span class=""kwb"">WARLORD</span>."|Fortification (левая колонка)|
+000001447|1|000008343||||Core|
+000001447|2|000008346||||Core|
+000001447|3|000011233||||Faction|
+000001447|4|000011234||||Faction|
+000001447|5|000008391||||Faction|
+000001447|6|||Master of Ka’tahs (Once per battle round, per unit)|If this unit is not readied, you can use this ability. If you do, this unit is <b>readied</b>.|Datasheet|
+000001447|7|||Vengeful Surge (Once per battle, per unit)|"In your opponent’s Shooting phase, when an enemy unit has shot, if a model in this unit lost a wound as a result of those attacks, this unit can make a surge move of up to D6+2""."|Datasheet|
+000001447|8|||Praesidium Shield|Attacks allocated to this model have -1 <b>D</b>.|Wargear|
+000001448|1|000008343||||Core|
+000001448|2|000008346||||Core|
+000001448|3|000011234||||Faction|
+000001448|4|000011233||||Faction|
+000001448|5|000008391||||Faction|
+000001448|6|||Master of Ka’tahs (Once per battle round, per unit)|If this unit is not readied, you can use this ability. If you do, this unit is <b>readied</b>.|Datasheet|
+000001448|7|||Archeotech Teleport-shunter (Once per battle, per unit)|In your Movement phase, if this unit is unengaged and has not been selected to move this phase, you can use this ability. If you do, place this unit in strategic reserves and this unit must make an ingress move this phase.|Datasheet|
+000001449|1|000008343||||Core|
+000001449|2|000008346||||Core|
+000001449|3|000011234||||Faction|
+000001449|4|000011233||||Faction|
+000001449|5|000008391||||Faction|
+000001449|6|||Master of Ka’tahs (Once per battle round, per unit)|If this unit is not readied, you can use this ability. If you do, this unit is <b>readied</b>.|Datasheet|
+000001449|7|||Sweeping Advance (Once per battle, per unit)|At the end of the Fight phase, if this unit was eligible to fight this phase: <br><ul><li>If this unit is unengaged, this unit can make a normal move.</li><li><u>Or:</u> If this unit is <b>engaged</b>, this unit can make a fall-back move.</li></ul>|Datasheet|
+000001450|1|000008343||||Core|
+000001450|2|000011234||||Faction|
+000001450|3|000008391||||Faction|
+000001450|4|||Living Fortress|Attacks that target this unit have -1 <b>AP</b>.|Datasheet|
+000001450|5|||Vexilla|<ul><li>This unit has +1 <b>OC</b>. </li><li>This unit can ignore modifiers to this unit’s <b>Ld</b>.</li></ul>|Wargear|
+000001453|1|000008343||||Core|
+000001453|2|000011234||||Faction|
+000001453|3|000008391||||Faction|
+000001453|4|||Slayer of Tyrants|This unit’s melee attacks that target a unit with a <b>T</b> greater than this unit’s <b>T</b> have +1 to wound rolls.|Datasheet|
+000001453|5|||Vexilla|<ul><li>This unit has +1 <b>OC</b>.</li><li>This unit can ignore modifiers to this unit’s <b>Ld</b>.</li></ul>|Wargear|
+000001454|1|000008343||||Core|
+000001454|2|000011234||||Faction|
+000001454|3|000008391||||Faction|
+000001454|4|||Quicksilver Execution|If this unit made a charge move this turn, this unit’s melee attacks have [Sustained Hits 1].|Datasheet|
+000001458|1|000011125||||Core|4
+000001458|2|000008339||||Core|D3
+000001458|3|000011234||||Faction|
+000001458|4|000008391||||Faction|
+000001458|5|||Unyielding Ancient|Attacks that target this unit with a <b>S</b> greater than this unit’s <b>T</b> have -1 to wound rolls.|Datasheet|
+000001460|1|000011125||||Core|5
+000001460|2|000008339||||Core|D3
+000001460|3|000008343||||Core|
+000001460|4|000011234||||Faction|
+000001460|5|||Destructor Optics|"This unit’s ranged attacks that target a unit (excluding <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> units) have +1 <b>AP</b>."|Datasheet|
+000001461|1|000011125||||Core|6
+000001461|2|000008339||||Core|D6
+000001461|3|000008343||||Core|
+000001461|4|000011234||||Faction|
+000001461|5|||Repulsor Suspensor Technology (Once per phase, per unit)|"In your opponent’s Shooting phase, when an enemy unit has shot, if this unit lost a wound as a result of those attacks and is unengaged, this unit can make a normal move of up to D6""."|Datasheet|
+000001461|6|||Assault Vehicle|In your Movement phase, when this unit ends an advance move, units embarked within this unit can make a shock disembark move.|Datasheet|
+000001479|1|000011125||||Core|5
+000001479|2|000008339||||Core|D3
+000001479|3|000011234||||Faction|
+000001479|4|000008391||||Faction|
+000001479|5|||Guardian Eternal|Ranged attacks that target this unit have -1 <b>D</b>.|Datasheet|
+000001557|1|000011125||||Core|4
+000001557|2|000008339||||Core|D3
+000001557|3|000011234||||Faction|
+000001557|4|000008391||||Faction|
+000001557|5|||Unyielding Ancient|Attacks that target this unit with a <b>S</b> greater than this unit’s <b>T</b> have -1 to wound rolls.|Datasheet|
+000001562|1|000008339||||Core|1
+000001562|2|000008343||||Core|
+000001562|3|000011234||||Faction|
+000001562|4|||Mobile Hunter|"In your Shooting phase, when this unit has shot, you can use this ability. If you do:<br><ul><li>This unit can make a normal move of up to D6"". </li><li>This unit is <u>not</u> eligible to declare a charge until the end of the turn.</li></ul>"|Datasheet|
+000001564|1|000011125||||Core|7
+000001564|2|000008339||||Core|D6
+000001564|3|000008342||||Core|
+000001564|4|000011234||||Faction|
+000001564|5|||Assault Dropship|In your Movement phase, when a friendly Adeptus Custodes unit is selected to make a <b>tactical disembark move</b> from this unit, if that unit is then selected to make an advance move, that <b>advance move</b> does not prevent that unit from being eligible to declare a charge.|Datasheet|
+000001680|1|000008339||||Core|D6
+000001680|2|000011125||||Core|7
+000001680|3|000011234||||Faction|
+000001680|4|||Infernus Firebombs|"At the end of your opponent’s Fight phase, select one visible enemy unit (excluding Lone Operative and <span class=""kwb"">AIRCRAFT</span> units) within 24"" of this unit:<br><ul><li>Ranged attacks that target that enemy unit have [IGNORES COVER] until the end of your next turn. Roll one D6 for each model in that enemy unit:<br><ul><li>On a 6, that enemy unit suffers 1 mortal wound (to a maximum of 6 <b>mortal wounds</b>).</li></ul></li></ul>"|Datasheet|
+000002088|1|000008338||||Core|5+
+000002088|2|000008346||||Core|
+000002088|3|000008344||||Core|"6"""
+000002088|4|000011230||||Faction|
+000002088|5|||Tactical Perception|This unit has Fights First.|Datasheet|
+000002088|6|||Tenacious Spirit|<ul><li>While this unit is below starting strength, this unit’s attacks have +1 to hit rolls.</li><li>While this unit is below half-strength, this unit’s attacks have +1 to wound rolls.</li></ul>|Datasheet|
+000002518|1|000008343||||Core|
+000002518|2|000008346||||Core|
+000002518|3|000011234||||Faction|
+000002518|4|000008391||||Faction|
+000002518|5|||Swift Onslaught|This unit can:<br><ul><li>Re-roll advance rolls.</li><li>Re-roll charge rolls.</li></ul>|Datasheet|
+000002518|6|||Sword of the Throne|At the start of the first battle round, select one enemy unit to be this model’s <b>mark</b>:<br><ul><li>This model’s attacks that target this model’s <b>mark</b> have +1 to wound rolls.</li><li>Each time this model’s <b>mark</b> is destroyed, select one enemy unit to be this model’s <b>mark</b>.</li></ul>|Datasheet|
+000002519|1|000008343||||Core|
+000002519|2|000008338||||Core|6+
+000002519|3|000008346||||Core|
+000002519|4|000011234||||Faction|
+000002519|5|000011233||||Faction|
+000002519|6|000008391||||Faction|
+000002519|7|||Golden Laurels|Attacks that target this unit have -1 <b>AP</b>.|Datasheet|
+000002519|8|||Hero of Lion's Gate (Once per battle, per unit)|After making a hit roll, wound roll or save roll for this model, you can change the result to an unmodified 6.|Datasheet|
+000002520|1|000008344||||Core|"7"""
+000002520|2|000010857||||Core|
+000002520|3|000011230||||Faction|
+000002520|4|||Seeker’s Instincts|"<ul><li>This unit has +2"" <b>M</b>.</li><li>This unit can re-roll advance rolls and charge rolls.</li></ul>"|Datasheet|
+000002520|5|||Corner the Quarry|"When an enemy unit (excluding <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> units) engaged with this unit makes a fall-back move, that enemy unit must use the desperate escape mode. If that enemy unit is battle-shocked, -1 from those hazard rolls."|Datasheet|
+000002524|1|000008339||||Core|D3
+000002524|2|000008334||||Core|2
+000002524|3|000011230||||Faction|
+000002524|4|||Assault Vehicle|In your Movement phase, when this unit ends an advance move, units embarked within this unit can make a shock disembark move.|Datasheet|
+000004250|1|000008343||||Core|
+000004250|2|000008391||||Faction|
+000004250|3|000011234||||Faction|
+000004250|4|||Stand Vigil|This unit’s attacks can:<br><ul><li>Re-roll wound rolls of 1.</li><li><u>Or:</u> If this unit is within range of an objective, re-roll <b>wound rolls</b>.</li></ul>|Datasheet|
+000004251|1|000008343||||Core|
+000004251|2|000011234||||Faction|
+000004251|3|000008391||||Faction|
+000004251|4|||Impenetrable Defence|This unit’s attacks have [sustained Hits 1: non-Monster/Vehicle] if any of the following apply:<br><ul><li>This unit is within range of an objective.</li><li>The target of those attacks is within range of an <b>objective</b>.</li></ul>|Datasheet|
+000004251|5|||Vexilla|<ul><li>This unit has +1 <b>OC</b>.</li><li>This unit can ignore modifiers to this unit’s <b>Ld</b>.</li></ul>|Wargear|
+000004252|1|000011230||||Faction|
+000004252|2|||Purity of Execution|"In your Shooting phase, you can select one visible enemy unit within 18"" of this unit. That unit is <b>detected</b>:<br><ul><li>While a unit is <b>detected</b>, that unit has +3"" detection range.</li></ul>"|Datasheet|
+000004253|1|000008343||||Core|
+000004253|2|000011234||||Faction|
+000004253|3|000008391||||Faction|
+000004253|4|||Take Wing|At the end of your opponent’s Fight phase, if this unit is unengaged, you can place this unit in strategic reserves.|Datasheet|
+000004253|5|||Neutronium Cascade Mine (Once per battle, per unit)|"At the start of any phase, you can select one enemy unit within 3"" of this unit and roll one D6. On a 2+:<br><ul><li>That enemy unit suffers D3 mortal wounds.</li><li><u>Or:</u> If that enemy unit is a <span class=""kwb"">VEHICLE</span>/<span class=""kwb"">MONSTER</span> unit, that enemy unit suffers 2D3 <b>mortal wounds</b>.</li></ul>"|Datasheet|
+000004253|6|||Swift Ruin (Once per phase, per army)|You can target this unit with the Rapid Ingress <b>stratagem</b>, regardless of any other uses of that <b>stratagem</b> this phase. If you do:<br><ul><li>That use is -1 CP.</li><li>That use does <u>not</u> prevent any uses of that <b>stratagem</b> on other units this phase.</li></ul>|Datasheet|
+000004254|1|000008343||||Core|
+000004254|2|000011234||||Faction|
+000004254|3|000008391||||Faction|
+000004254|4|||Dread Foe|"This unit’s melee attacks that target a unit (excluding <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> units) have +1 <b>AP</b>."|Datasheet|
+000004255|1|000008343||||Core|
+000004255|2|000011234||||Faction|
+000004255|3|000008391||||Faction|
+000004255|4|||Stand Vigil|This unit’s attacks have [Lethal Hits: non-Monster/Vehicle] if any of the following apply:<br><ul><li>This unit is within range of an objective.</li><li>The target of those attacks is within range of an <b>objective</b>.</li></ul>|Datasheet|
+000004255|5|||Praesidium Shield|Attacks that target this unit with a <b>S</b> greater than this unit’s <b>T</b> have -1 to wound rolls.|Wargear|
+000004255|6|||Vexilla|<ul><li>This unit has +1 <b>OC</b>. </li><li>This unit can ignore modifiers to this unit’s <b>Ld</b>.</li></ul>|Wargear|
+000004256|1|000008344||||Core|"7"""
+000004256|2|000011230||||Faction|
+000004256|3|||Sanctified Flames|"In your Shooting phase, when this unit has shot, you can select one enemy unit hit by those attacks. That enemy unit makes a battle-shock roll, with -1 to that <b>battle-shock roll</b> if that enemy unit is a <span class=""kwb"">PSYKER</span> unit."|Datasheet|
+000004257|1|000008343||||Core|
+000004257|2|000011234||||Faction|
+000004257|3|000008391||||Faction|
+000004257|4|||Death Blow|If this unit made a charge move this turn, this unit’s melee attacks have +1 <b>AP</b>.|Datasheet|
+000004258|1|000011230||||Faction|
+000004258|2|||Deft Parry|Melee attacks that target this unit have -1 to hit rolls.|Datasheet|
+000004259|1|000008343||||Core|
+000004259|2|000011234||||Faction|
+000004259|3|000008391||||Faction|
+000004259|4|||Reap a Terrible Tally|"This unit’s attacks that target an <span class=""kwb"">INFANTRY</span> unit can:<br><ul><li>Re-roll hit rolls of 1.</li><li>Re-roll wound rolls of 1.</li></ul>"|Datasheet|
+000004260|1|000008343||||Core|
+000004260|2|000011234||||Faction|
+000004260|3|000008391||||Faction|
+000004260|4|||Disintegration Beams (Once per battle, per unit)|In your Shooting phase, you can use this ability. If you do, this unit’s ranged attacks have [DEVASTATING WOUNDS].|Datasheet|
+000004260|5|||Saturation Volleys|"In your Shooting phase, after this unit has shot, you can select one enemy non-<span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit hit by those attacks. That unit is <b>suppressed</b> until the start of your next turn:<br><ul><li>While a unit is <b>suppressed</b>, that unit’s attacks have -1 to hit rolls.</li></ul>"|Datasheet|
+000004261|1|000011125||||Core|5
+000004261|2|000008339||||Core|D3
+000004261|3|000008343||||Core|
+000004261|4|000011234||||Faction|
+000004261|5|||Advanced Firepower|"This unit’s ranged attacks that target a <span class=""kwb"">MONSTER</span>/<span class=""kwb"">VEHICLE</span> unit can:<br><ul><li>Re-roll <u>one</u> hit roll.</li><li>Re-roll <u>one</u> wound roll.</li><li>Re-roll <u>one</u> damage roll.</li></ul>"|Datasheet|
+000004262|1|000008343||||Core|
+000004262|2|000011234||||Faction|
+000004262|3|000008391||||Faction|
+000004262|4|||Take Wing|At the end of your opponent’s Fight phase, if this unit is unengaged, you can place this unit in strategic reserves.|Datasheet|
+000004262|5|||Neutronium Cascade Mine (Once per battle, per unit)|"At the start of any phase, you can select one enemy unit within 3"" of this unit and roll one D6. On a 2+:<br><ul><li>That enemy unit suffers D3 mortal wounds.</li><li><u>Or:</u> If that enemy unit is a <span class=""kwb"">VEHICLE</span>/<span class=""kwb"">MONSTER</span> unit, that enemy unit suffers 2D3 <b>mortal wounds</b>.</li></ul>"|Datasheet|
+000004262|6|||Strike from the Skies|In your Shooting phase, if this unit made an ingress move this turn, this unit’s ranged attacks can re-roll hit rolls.|Datasheet|
+000004263|1|000008343||||Core|
+000004263|2|000011234||||Faction|
+000004263|3|000008391||||Faction|
+000004263|4|||No Foe Shall Stand (Once per battle, per unit)|This unit’s ranged attacks have [LETHAL HITS] and [IGNORES COVER].|Datasheet|
