@@ -45,6 +45,10 @@
 #   - #916 x #917 merge interactions: Fight On Death on SKIP_UNIT, stale
 #     END_* no-ops, online Pile In / Consolidate half ownership, AFK timer vs
 #     stratagem windows / mid-activation, client Consolidate step close
+#   - Codex: Adeptus Custodes (11e) army rules (WP-C3): Martial Ka'tah readied
+#     state + the six ka'tah abilities in their windows, Master of Ka'tahs,
+#     Aegis of the Emperor, Aquila Commander, Daughters of the Abyss /
+#     Psychic Null, Anathema Psykana warlord restriction
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -218,6 +222,7 @@ TESTS=(
     "tests/test_ork_codex_movement.gd"
     "tests/test_ork_codex_other.gd"
     "tests/test_ork_codex_framework_fixes.gd"
+    "tests/test_custodes_army_rules_11e.gd"
     "tests/test_ork_codex_turn_flow_fixes.gd"
     "tests/test_keybinding_chord_no_pan.gd"
     "tests/test_indirect_fire_band_11e.gd"
