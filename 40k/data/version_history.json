@@ -2,6 +2,21 @@
   "_comment": "Single source of truth for the game version shown on the main menu. Newest release first. When you make a player-facing change, PREPEND a new entry (bump the version, set today's date, write a short summary + change bullets). See CLAUDE.md 'Version / changelog' for the convention.",
   "releases": [
     {
+      "version": "1.45.5",
+      "date": "2026-10-17",
+      "summary": "Fire Overwatch and Rapid Ingress follow the 11th-edition timing: both are offered once, at the end of your opponent's Movement phase, offline and online.",
+      "changes": [
+        "Fixed (Fire Overwatch, 15.08/15.09): it now happens once, at the end of your opponent's Movement phase \u2014 no more pop-up after every enemy move. Pick one of your unengaged units and one visible enemy unit within 24\"; the shots hit only on unmodified 6s and can't re-roll hits.",
+        "Fire Overwatch can't target an engaged enemy Monster or Vehicle (that is only allowed in your own Shooting phase, 17.03).",
+        "When Fire Overwatch wounds your unit, you allocate those wounds and roll the saves yourself in the normal allocation panel.",
+        "Fixed (Rapid Ingress, 15.07): it is offered again, at the end of your opponent's Movement phase, offline and online. 'Arrive' lets you set the unit up during your opponent's turn, and the dialog reminds you that before battle round 3 you can't set up in your opponent's deployment zone.",
+        "The 'Skip Overwatch' toggle auto-declines the end-of-Movement Fire Overwatch offer and only appears in the Movement phase.",
+        "Objective control updates after Fire Overwatch kills models at the end of the Movement phase.",
+        "Online: the non-active player gets the Fire Overwatch and Rapid Ingress prompts and can complete both; both players' Game Logs show the Fire Overwatch dice.",
+        "The computer opponent uses Fire Overwatch at the end of your Movement phase when the shot is worth the CP; you see the result in a toast and in its turn summary."
+      ]
+    },
+    {
       "version": "1.45.4",
       "date": "2026-10-17",
       "summary": "Charges follow the 11th-edition rule again: after the roll you can only pick enemy units within 12\" AND within the rolled distance. This reverses 0.18.4, which wrongly let a 9\" roll charge a unit 9.6\" away.",
