@@ -576,7 +576,8 @@ func _unit_peak_model_oc(unit: Dictionary) -> int:
 ## `objective` — model_oc summed over its alive models within range of it (an
 ## attached unit's components are separate dicts, each visited by the callers'
 ## unit loop, so their sums add up to the attached unit's total). 0 for a unit
-## with no OC, a battle-shocked (group-aware) unit, or an undeployed one.
+## with no OC, a battle-shocked (group-aware) unit, an undeployed one, or one
+## in Reserves (stale positions of a unit sent back to Reserves don't count).
 ## `host_areas` are the 14.01 hosting areas (empty = open-ground marker).
 ## `verbose` keeps _check_objective_control's per-unit / per-model debug lines;
 ## the other callers (LLM snapshot) pass false so they don't flood the log.
@@ -601,6 +602,14 @@ func _unit_oc_in_range(unit_id: String, unit: Dictionary, objective: Dictionary,
 	if status == GameStateData.UnitStatus.UNDEPLOYED:
 		if verbose:
 			print("  Skipping %s - not deployed (status: %d)" % [unit_id, status])
+		return 0
+	# A unit in Reserves is not on the battlefield, so none of its models is
+	# "within range" (14.02). DED SNEAKY / EVASIVE MANOOVA / INSTINCTIVE
+	# HUNTERS set IN_RESERVES without wiping model positions — without this
+	# the unit kept adding its per-model OC at the spot it left.
+	if status == GameStateData.UnitStatus.IN_RESERVES:
+		if verbose:
+			print("  Skipping %s - in reserves, not on the battlefield (status: %d)" % [unit_id, status])
 		return 0
 
 	if verbose:

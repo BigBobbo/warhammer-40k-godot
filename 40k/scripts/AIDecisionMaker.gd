@@ -1970,7 +1970,15 @@ const WEIGHT_OC_EFFICIENCY: float = 2.0
 # COORD-5: cap on EXTRA OC committed to an objective because of projected
 # (next-move) enemy pressure, on top of the live-contest need. Keeps the AI
 # from dogpiling its whole army onto one threatened marker.
+# Tuned when every unit counted its statline OC once; since needs and
+# capacities became 14.02 per-model sums it is applied at the army's own
+# models-per-unit scale (_army_per_model_oc_scale), i.e. it still means
+# "about two typical units' worth", not two models'.
 const PROJECTED_NEED_CAP: int = 4
+# 14.02: an enemy hold this small (per-model level of control) always reads
+# "enemy_weak" — any unit that arrives out-OCs it. Larger holds are weak only
+# when the OC we can bring within two moves beats them (_reachable_contest_oc).
+const ENEMY_WEAK_OC_FLOOR: int = 4
 # COORD-4: score penalty per friendly unit already committed to an objective
 # when assigning leftover "support" units — diminishing returns stop every
 # spare unit from independently picking the same most-attractive marker.
@@ -8869,6 +8877,14 @@ static func _evaluate_all_objectives(
 				projected_enemy_oc += e_oc
 				projected_names.append(_dn(e_unit, e_uid))
 
+		# 14.02 CONTEST CAPACITY — the OC we can stand in range with soon, in the
+		# same per-model units as enemy_oc: every alive model's OC of each of our
+		# units that can reach control range within our next two moves (one in
+		# the last battle round), COORD-5's M + ~2" slack per move.
+		var contest_oc = _reachable_contest_oc(obj_pos, friendly_units,
+				1 if battle_round >= MAX_BATTLE_ROUNDS_AI else 2)
+		contest_oc = maxi(contest_oc, friendly_oc)
+
 		# Classify the objective state
 		var state = "uncontrolled"
 		if friendly_oc > 0 and friendly_oc > enemy_oc:
@@ -8877,7 +8893,12 @@ static func _evaluate_all_objectives(
 			else:
 				state = "held_safe"
 		elif enemy_oc > 0 and enemy_oc > friendly_oc:
-			if enemy_oc <= 4:  # Reasonable to contest
+			# Reasonable to contest: we can bring MORE OC than they hold (14.02
+			# needs a strictly higher level), or the hold is tiny. The bare
+			# `enemy_oc <= 4` cut-off was tuned when each unit counted its OC
+			# once; per model an ordinary 3 x OC2 squad already reads 6, so a
+			# constant alone made almost every squad-held objective "strong".
+			if enemy_oc <= ENEMY_WEAK_OC_FLOOR or enemy_oc < contest_oc:
 				state = "enemy_weak"
 			else:
 				state = "enemy_strong"
@@ -9014,6 +9035,8 @@ static func _evaluate_all_objectives(
 			vp_stake_notes.append({"id": obj_id, "vp": vp_value, "sources": vp_result.sources})
 
 		print("AIDecisionMaker: Objective %s: state=%s, friendly_oc=%d, enemy_oc=%d, priority=%.1f (tempo=%.2f, vp=%.1f)" % [obj_id, state, friendly_oc, enemy_oc, priority, tempo_mod, vp_value])
+		if state in ["enemy_weak", "enemy_strong"]:
+			print("AIDecisionMaker:   %s contest capacity: we can bring OC %d within reach vs their %d (14.02 per-model)" % [obj_id, contest_oc, enemy_oc])
 
 		evaluations.append({
 			"index": i,
@@ -9031,6 +9054,7 @@ static func _evaluate_all_objectives(
 			"vp_value": vp_value,
 			"vp_sources": vp_result.sources,
 			"oc_needed": max(0, enemy_oc - friendly_oc + 1),  # OC we need to add to flip control
+			"contest_oc": contest_oc,  # 14.02: OC we can stand in range with within our next two moves
 			"projected_enemy_oc": projected_enemy_oc,  # COORD-5: enemy OC one move away
 			"projected_names": projected_names
 		})
@@ -9057,15 +9081,8 @@ static func _evaluate_all_objectives(
 # UNIT-TO-OBJECTIVE ASSIGNMENT (Task 1 + Task 2 + Task 3 + Task 6)
 # =============================================================================
 
-static func _assign_units_to_objectives(
-	snapshot: Dictionary, movable_units: Dictionary, obj_evaluations: Array,
-	objectives: Array, enemies: Dictionary, friendly_units: Dictionary,
-	player: int, battle_round: int, threat_data: Array = []
-) -> Dictionary:
-	# Returns: {unit_id: {objective_id, objective_pos, action, score, reason, distance}}
-	# Uses a greedy assignment algorithm: score all (unit, objective) pairs, assign best first
-
-	var assignments = {}  # unit_id -> assignment dict
+## COORD-5 need ledger — objective_id -> how much more OC is still needed there.
+static func _initial_objective_oc_needs(obj_evaluations: Array, friendly_units: Dictionary) -> Dictionary:
 	var obj_oc_remaining = {}  # objective_id -> how much more OC is still needed there
 
 	# Initialize OC needs per objective
@@ -9073,7 +9090,11 @@ static func _assign_units_to_objectives(
 	# already standing in control range — an empty objective one move from two
 	# enemy squads needs enough OC to survive the flip attempt, and committing
 	# a second unit there is deliberate reinforcement (narrated), not stacking.
-	var projected_need_cap = get_param_int("PROJECTED_NEED_CAP", PROJECTED_NEED_CAP)
+	# 14.02: needs and capacities are per-model OC sums, so the cap (tuned in
+	# per-unit statline OC) is converted at this army's models-per-unit scale.
+	# held_threatened's base need (enemy_oc) and oc_needed need no rescale —
+	# they compare per-model enemy OC with per-model unit capacities.
+	var projected_need_cap = int(round(float(get_param_int("PROJECTED_NEED_CAP", PROJECTED_NEED_CAP)) * _army_per_model_oc_scale(friendly_units)))
 	for eval in obj_evaluations:
 		var obj_id = eval.id
 		var base_need := 0
@@ -9093,6 +9114,18 @@ static func _assign_units_to_objectives(
 					obj_id, base_need, base_need + projected_extra, eval.projected_enemy_oc,
 					", ".join(eval.get("projected_names", []).slice(0, 3))])
 		obj_oc_remaining[obj_id] = base_need + projected_extra
+	return obj_oc_remaining
+
+static func _assign_units_to_objectives(
+	snapshot: Dictionary, movable_units: Dictionary, obj_evaluations: Array,
+	objectives: Array, enemies: Dictionary, friendly_units: Dictionary,
+	player: int, battle_round: int, threat_data: Array = []
+) -> Dictionary:
+	# Returns: {unit_id: {objective_id, objective_pos, action, score, reason, distance}}
+	# Uses a greedy assignment algorithm: score all (unit, objective) pairs, assign best first
+
+	var assignments = {}  # unit_id -> assignment dict
+	var obj_oc_remaining = _initial_objective_oc_needs(obj_evaluations, friendly_units)  # objective_id -> how much more OC is still needed there
 
 	# =========================================================================
 	# COORD-2: INCOMING OC — account for friendly units that already took their
@@ -10826,6 +10859,54 @@ static func _unit_alive_oc(unit: Dictionary, missing_default: int = 1) -> int:
 		if model.get("alive", true):
 			total_oc += _ai_model_oc(unit, model)
 	return total_oc
+
+## 14.02 contest capacity at `pos`: the per-model OC (_unit_alive_oc) of every
+## unit in `units` that can stand within control range of it within `moves`
+## moves — centroid within moves x (M + 2" slack, COORD-5's cautious advance)
+## + control range. Battle-shocked (OC '-'), undeployed and reserve units add
+## nothing. Same units as the per-model enemy level of control it is weighed
+## against in _evaluate_all_objectives.
+static func _reachable_contest_oc(pos: Vector2, units: Dictionary, moves: int) -> int:
+	var total_oc = 0
+	for uid in units:
+		var unit = units[uid]
+		if unit.get("flags", {}).get("battle_shocked", false):
+			continue
+		var status = unit.get("status", 0)
+		if status == GameStateData.UnitStatus.UNDEPLOYED or status == GameStateData.UnitStatus.IN_RESERVES:
+			continue
+		var u_oc = _unit_alive_oc(unit, 0)
+		if u_oc <= 0:
+			continue
+		var centroid = _get_unit_centroid(unit)
+		if centroid == Vector2.INF:
+			continue
+		var u_move = float(unit.get("meta", {}).get("stats", {}).get("move", 6))
+		if centroid.distance_to(pos) <= float(moves) * (u_move + 2.0) * PIXELS_PER_INCH + OBJECTIVE_CONTROL_RANGE_PX:
+			total_oc += u_oc
+	return total_oc
+
+## How many times larger the army's 14.02 per-model OC is than its per-unit
+## statline OC: sum of _unit_alive_oc / sum of statline OC over the units with
+## OC 1+ and a model alive (1.0 for an army of single-model units, ~5 for
+## five-model squads, never below 1). Converts OC constants that were tuned
+## when each unit counted its OC once (PROJECTED_NEED_CAP) into per-model OC.
+static func _army_per_model_oc_scale(units: Dictionary) -> float:
+	var statline_sum := 0
+	var per_model_sum := 0
+	for uid in units:
+		var unit = units[uid]
+		var statline = int(unit.get("meta", {}).get("stats", {}).get("objective_control", 0))
+		if statline <= 0:
+			continue
+		var alive_oc = _unit_alive_oc(unit, 0)
+		if alive_oc <= 0:
+			continue
+		statline_sum += statline
+		per_model_sum += alive_oc
+	if statline_sum <= 0:
+		return 1.0
+	return maxf(1.0, float(per_model_sum) / float(statline_sum))
 
 static func _count_units_near_position(pos: Vector2, units: Dictionary, range_px: float) -> int:
 	var count = 0

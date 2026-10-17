@@ -2363,7 +2363,7 @@
     },
     {
       "id": "scoring.objective_control.per_model_sum_14_02",
-      "description": "14.02 level of control adds the OC of EVERY model in range, not each unit's OC once: two OC1 Kommandos tie the OC2 Shield-Captain on the 11e Center terrain objective (label CONTESTED), and a third steps on to take it (label Orks)",
+      "description": "14.02 level of control adds the OC of EVERY model in range, not each unit's OC once: two OC1 Kommandos tie the OC2 Shield-Captain on the 11e Center terrain objective (label CONTESTED), and a third, moved by a real token click + drag + End This Unit's Move in the Orks' Movement phase, takes it (label Orks, still Orks after End Movement Phase)",
       "scenarios": [
         "objective_oc_per_model_sum_11e"
       ],

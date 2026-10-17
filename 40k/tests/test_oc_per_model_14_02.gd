@@ -29,6 +29,14 @@ extends SceneTree
 #      not break it, a phase-end per-model lead does
 #   K) CasualtyPreference parity: the computer's casualty pick protects the
 #      one model whose OC removal would flip control under the per-model sum
+#   L) a unit IN RESERVES that kept its model positions (DED SNEAKY pattern)
+#      is not on the battlefield and adds nothing
+#   M) battle-shock recovery (11e 08.03) / Da Kaptin clear the WHOLE attached
+#      unit the OC read covers — incl. a leader linked only by attached_to
+#   N) AI: enemy_weak vs enemy_strong weighs the per-model enemy hold against
+#      the OC the AI can bring within two moves (a 3 x OC2 squad is weak when
+#      our squad can reach it); COORD-5's PROJECTED_NEED_CAP is applied at the
+#      army's models-per-unit scale
 #
 # Usage: godot --headless --path . -s tests/test_oc_per_model_14_02.gd
 
@@ -303,6 +311,137 @@ func _run_tests():
 	_check("the heavy is the computer's LAST casualty pick (it stands nearest the enemy)",
 		order.size() == 6 and int(order[5]) == 0, str(order))
 	_check("the out-of-range models die first", order.slice(0, 2).has(4) and order.slice(0, 2).has(5), str(order))
+
+	# ── L) reserves ghosts ─────────────────────────────────────────────
+	print("\n-- L) a unit in Reserves with stale positions adds nothing --")
+	var ghost_obj = {"id": "OBJ_R", "position": Vector2(1500, 1500)}
+	var ghost = _unit("P1_GHOST", 1, 2, _row(1460, 1480, 5, 30.0))
+	var ghost_units = {"P1_GHOST": ghost}
+	_check("deployed: 5 x OC2 on the marker = 10", int(mm.get_level_of_control(ghost_obj, ghost_units)[1]) == 10)
+	ghost["status"] = 7  # UnitStatus.IN_RESERVES (raw int, as _unit writes DEPLOYED)
+	_check("IN_RESERVES with its old positions: 0 (not on the battlefield)",
+		int(mm.get_level_of_control(ghost_obj, ghost_units)[1]) == 0, str(mm.get_level_of_control(ghost_obj, ghost_units)))
+	_check("and it controls nothing", mm._check_objective_control(ghost_obj, ghost_units) == 0)
+
+	# ── M) recovery clears the whole attached unit ─────────────────────
+	print("\n-- M) passed battle-shock test / Da Kaptin clear a back-pointer-only leader --")
+	var rec_obj = {"id": "OBJ_B", "position": Vector2(660, 620)}
+	var cp_node = load("res://phases/CommandPhase.gd").new()
+	root.add_child(cp_node)
+	var make_bp_group := func() -> Dictionary:
+		# BG's forward list names NOBODY; LDR is linked only by attached_to
+		# (the audit_370_bgnt_shoot shape).
+		var b = _unit("BG", 1, 2, _row(600, 600, 5, 30.0))
+		b.meta.stats["leadership"] = 6
+		var l = _unit("LDR", 1, 1, [Vector2(600, 640)])
+		l["attached_to"] = "BG"
+		l.flags["battle_shocked"] = true
+		return {"BG": b, "LDR": l}
+	gs.state["units"] = make_bp_group.call()
+	gs.state["meta"]["battle_round"] = 1
+	_check("setup: the leader-only flag shocks the attached unit (OC 0)",
+		AttackSequence.group_battle_shocked("BG", gs.state.units) and int(mm.get_level_of_control(rec_obj, gs.state.units)[1]) == 0)
+	var rec = cp_node._resolve_battle_shock_test("BG", 6, 6)
+	_check("the bodyguard's test passes", bool(rec.get("test_passed", false)), str(rec))
+	var rec_paths: Array = []
+	for ch in rec.get("changes", []):
+		rec_paths.append(str(ch.get("path", "")))
+	_check("the recovery diffs clear the back-pointer-only leader too",
+		rec_paths.has("units.LDR.flags.battle_shocked") and rec_paths.has("units.BG.flags.battle_shocked"), str(rec_paths))
+	root.get_node("PhaseManager").apply_state_changes(rec.get("changes", []))
+	_check("after recovery neither component is battle-shocked",
+		not gs.state.units.BG.flags.get("battle_shocked", false) and not gs.state.units.LDR.flags.get("battle_shocked", false))
+	_check("and the attached unit's OC is back: 5 x OC2 + OC1 = 11",
+		int(mm.get_level_of_control(rec_obj, gs.state.units)[1]) == 11, str(mm.get_level_of_control(rec_obj, gs.state.units)))
+	gs.state["units"] = make_bp_group.call()
+	var auto = cp_node._apply_battle_shock_auto_success("BG", "MOB MENTALITY")
+	var auto_paths: Array = []
+	for ch in auto.get("changes", []):
+		auto_paths.append(str(ch.get("path", "")))
+	_check("an auto-passed test (MOB MENTALITY) clears the back-pointer-only leader too",
+		auto_paths.has("units.LDR.flags.battle_shocked"), str(auto_paths))
+	cp_node.queue_free()
+	var fam = root.get_node_or_null("FactionAbilityManager")
+	_check("FactionAbilityManager autoload present", fam != null)
+	if fam != null:
+		var prev_det = fam._player_detachment.duplicate(true)
+		var prev_dk = fam._da_kaptin_used_round.duplicate(true)
+		var dk_units = make_bp_group.call()
+		for uid in dk_units:
+			dk_units[uid].meta.keywords.append("ORKS")
+			for m in dk_units[uid].models:
+				m["wounds"] = 2
+				m["current_wounds"] = 2
+		dk_units.BG.flags["battle_shocked"] = true
+		var kaptin = _unit("KAPTIN", 1, 1, [Vector2(700, 700)])
+		kaptin.meta.keywords.append("ORKS")
+		kaptin.meta["enhancements"] = ["Da Kaptin"]
+		dk_units["KAPTIN"] = kaptin
+		gs.state["units"] = dk_units
+		fam._player_detachment["1"] = "Freebooter Krew"
+		fam._da_kaptin_used_round = {"1": 0, "2": 0}
+		var dk = fam.use_da_kaptin(1, "BG")
+		_check("Da Kaptin resolves on the bodyguard", bool(dk.get("success", false)), str(dk))
+		_check("Da Kaptin clears the back-pointer-only leader as well as the bodyguard",
+			not gs.state.units.BG.flags.get("battle_shocked", false) and not gs.state.units.LDR.flags.get("battle_shocked", false),
+			"BG=%s LDR=%s" % [gs.state.units.BG.flags.get("battle_shocked"), gs.state.units.LDR.flags.get("battle_shocked")])
+		fam._player_detachment = prev_det
+		fam._da_kaptin_used_round = prev_dk
+
+	# ── N) AI objective classification / need cap ──────────────────────
+	print("\n-- N) AI: weak/strong vs the OC we can bring; need cap at army scale --")
+	# Loaded at run time (not the class_name) so the AI script compiles after
+	# the autoloads it references exist.
+	var AIDM = load("res://scripts/AIDecisionMaker.gd")
+	var ai_obj_pos = Vector2(880, 1200)
+	var ai_unit := func(id: String, owner: int, oc: int, pos: Vector2, n: int) -> Dictionary:
+		var u = _unit(id, owner, oc, _row(pos.x, pos.y, n, 40.0))
+		u.meta.stats["move"] = 6
+		return u
+	var ai_eval := func(units: Dictionary, battle_round: int) -> Dictionary:
+		var snap = {"battle_round": battle_round, "units": units,
+			"board": {"objectives": [{"id": "obj_center", "position": ai_obj_pos, "zone": "no_mans_land"}],
+				"terrain_features": [], "deployment_zones": []}}
+		var evals = AIDM._evaluate_all_objectives(snap, [ai_obj_pos], 2,
+			AIDM._get_enemy_units(snap, 2), AIDM._get_units_for_player(snap, 2), battle_round)
+		return evals[0] if not evals.is_empty() else {}
+	# The test_urgency_round_4_push fixture: 3 x OC2 enemy squad on the
+	# marker (level 6), our 5 x OC2 squad 15" away (two moves reach it).
+	var ev1 = ai_eval.call({"E": ai_unit.call("E", 1, 2, Vector2(880, 1200), 3),
+		"F": ai_unit.call("F", 2, 2, Vector2(880, 1800), 5)}, 4)
+	_check("3 x OC2 holders read enemy_oc 6 per model", int(ev1.get("enemy_oc", -1)) == 6, str(ev1.get("enemy_oc")))
+	_check("our reachable squad brings 10", int(ev1.get("contest_oc", -1)) == 10, str(ev1.get("contest_oc")))
+	_check("so the 3 x OC2 hold is enemy_weak (was enemy_strong under the bare <= 4 cut-off)",
+		ev1.get("state", "") == "enemy_weak", str(ev1.get("state")))
+	var ev2 = ai_eval.call({"E": ai_unit.call("E", 1, 2, Vector2(880, 1200), 3),
+		"F": ai_unit.call("F", 2, 2, Vector2(880, 2300), 1)}, 4)
+	_check("nothing of ours within two moves: the same hold is enemy_strong",
+		ev2.get("state", "") == "enemy_strong" and int(ev2.get("contest_oc", -1)) == 0, "%s / %s" % [ev2.get("state"), ev2.get("contest_oc")])
+	var ev3 = ai_eval.call({"E": ai_unit.call("E", 1, 2, Vector2(880, 1200), 3),
+		"F": ai_unit.call("F", 2, 2, Vector2(880, 1800), 5)}, 5)
+	_check("round 5 (one move left): the 15\"-away squad no longer counts -> enemy_strong",
+		ev3.get("state", "") == "enemy_strong", "%s / %s" % [ev3.get("state"), ev3.get("contest_oc")])
+	var ev4 = ai_eval.call({"E": ai_unit.call("E", 1, 2, Vector2(880, 1200), 2)}, 3)
+	_check("a tiny hold (2 x OC2 = 4) is enemy_weak even with nothing in reach",
+		ev4.get("state", "") == "enemy_weak" and int(ev4.get("enemy_oc", -1)) == 4, "%s / %s" % [ev4.get("state"), ev4.get("enemy_oc")])
+	var horde = ai_unit.call("E", 1, 2, Vector2(880, 1200), 4)   # 4 x OC2 in range = 8
+	var ev5 = ai_eval.call({"E": horde, "F": ai_unit.call("F", 2, 1, Vector2(880, 1700), 6)}, 3)
+	_check("8 held vs 6 we can bring: enemy_strong", ev5.get("state", "") == "enemy_strong", "%s / %s vs %s" % [ev5.get("state"), ev5.get("contest_oc"), ev5.get("enemy_oc")])
+	var ev6 = ai_eval.call({"E": horde, "F": ai_unit.call("F", 2, 1, Vector2(880, 1700), 6),
+		"F2": ai_unit.call("F2", 2, 1, Vector2(600, 1700), 6)}, 3)
+	_check("8 held vs 12 we can bring: enemy_weak", ev6.get("state", "") == "enemy_weak", "%s / %s vs %s" % [ev6.get("state"), ev6.get("contest_oc"), ev6.get("enemy_oc")])
+	var squads = {"S1": ai_unit.call("S1", 2, 2, Vector2(200, 2000), 5), "S2": ai_unit.call("S2", 2, 2, Vector2(400, 2000), 5)}
+	var singles = {"M1": ai_unit.call("M1", 2, 2, Vector2(200, 2000), 1), "M2": ai_unit.call("M2", 2, 2, Vector2(400, 2000), 1)}
+	_check("army scale: 5-model squads = 5.0, single models = 1.0",
+		is_equal_approx(AIDM._army_per_model_oc_scale(squads), 5.0) and is_equal_approx(AIDM._army_per_model_oc_scale(singles), 1.0))
+	var pressured = [{"id": "obj_x", "state": "uncontrolled", "enemy_oc": 0, "friendly_oc": 0, "oc_needed": 1,
+		"projected_enemy_oc": 20, "projected_names": ["Boyz A", "Boyz B"]}]
+	_check("two 5 x OC2 enemy squads one move away: a squad army commits 1 + 4x5 = 21 OC (about 2-3 squads, as 1 + 4 did with per-unit OC)",
+		int(AIDM._initial_objective_oc_needs(pressured, squads).get("obj_x", -1)) == 21,
+		str(AIDM._initial_objective_oc_needs(pressured, squads)))
+	_check("an army of single models keeps the historical cap: 1 + 4 = 5",
+		int(AIDM._initial_objective_oc_needs(pressured, singles).get("obj_x", -1)) == 5,
+		str(AIDM._initial_objective_oc_needs(pressured, singles)))
 
 	tm.terrain_features = prev_terrain
 	gs.state = prev_state

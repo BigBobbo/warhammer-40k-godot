@@ -2239,7 +2239,16 @@ func use_da_kaptin(player: int, target_unit_id: String) -> Dictionary:
 		target_unit["flags"]["battle_shocked"] = false
 
 	# Also remove Battle-shocked from any attached characters
-	var attached_chars = GameState.get_attached_characters(target_unit_id)
+	# 19.01: the whole Attached unit stops being Battle-shocked — walk the same
+	# group MissionManager's OC read uses (RulesEngine linkage, both sides), so
+	# a leader linked only by its attached_to back-pointer (or the bodyguard,
+	# when the flagged dict picked was the leader's) is cleared too. A fresh
+	# array: get_attached_characters returns the live attachment list.
+	var attached_chars: Array = GameState.get_attached_characters(target_unit_id).duplicate()
+	var dk_head_id = RulesEngine.attached_unit_target_id(target_unit_id, GameState.state)
+	for dk_id in RulesEngine.attached_unit_component_ids(dk_head_id, GameState.state):
+		if str(dk_id) != target_unit_id and not attached_chars.has(str(dk_id)):
+			attached_chars.append(str(dk_id))
 	for char_id in attached_chars:
 		var char_unit = GameState.state.get("units", {}).get(char_id, {})
 		if not char_unit.is_empty() and char_unit.has("flags"):

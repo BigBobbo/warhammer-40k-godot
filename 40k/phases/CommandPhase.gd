@@ -1081,6 +1081,25 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 	# Resolve immediately (no reroll available or test passed)
 	return _resolve_battle_shock_test(unit_id, die1, die2)
 
+## 19.01: the other components of `unit_id`'s Attached unit — the SAME group
+## AttackSequence.group_battle_shocked reads for the recovery gate (RulesEngine
+## attached_unit_target_id / attached_unit_component_ids, both sides of the
+## linkage), unioned with the forward attached_characters list the clears used
+## before. A leader linked only by its attached_to back-pointer (saves such as
+## audit_370_bgnt_shoot) is cleared too, so a passed test cannot leave its flag
+## behind — that flag would keep the whole Attached unit's OC at '-' (14.02).
+## Returns a fresh array (get_attached_characters returns the live list).
+func _battle_shock_group_other_ids(unit_id: String) -> Array:
+	var head_id = RulesEngine.attached_unit_target_id(unit_id, GameState.state)
+	var ids: Array = []
+	for gid in RulesEngine.attached_unit_component_ids(head_id, GameState.state):
+		if str(gid) != unit_id and not ids.has(str(gid)):
+			ids.append(str(gid))
+	for char_id in GameState.get_attached_characters(unit_id):
+		if str(char_id) != unit_id and not ids.has(str(char_id)):
+			ids.append(str(char_id))
+	return ids
+
 func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictionary:
 	"""Resolve a battle-shock test with the given dice. Called after initial roll or after reroll decision."""
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
@@ -1110,8 +1129,9 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 	# flag left only on an attached CHARACTER is cleared too.
 	if test_passed and GameConstants.edition >= 11 and AttackSequence.group_battle_shocked(unit_id, GameState.state.get("units", {})):
 		# ISS-043 (11e 08.03): a battle-shocked unit that passes RECOVERS.
+		# Clears the same group the gate above reads (19.01).
 		changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % unit_id, "value": false})
-		for char_id in GameState.get_attached_characters(unit_id):
+		for char_id in _battle_shock_group_other_ids(unit_id):
 			var char_unit = GameState.state.get("units", {}).get(char_id, {})
 			if not char_unit.is_empty() and char_unit.has("flags"):
 				changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % char_id, "value": false})
@@ -1417,7 +1437,7 @@ func _apply_battle_shock_auto_success(unit_id: String, source: String) -> Dictio
 	var was_shocked: bool = AttackSequence.group_battle_shocked(unit_id, GameState.state.get("units", {}))
 	if was_shocked and GameConstants.edition >= 11:
 		changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % unit_id, "value": false})
-		for char_id in GameState.get_attached_characters(unit_id):
+		for char_id in _battle_shock_group_other_ids(unit_id):
 			if not GameState.state.get("units", {}).get(char_id, {}).is_empty():
 				changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % char_id, "value": false})
 	DebugLogger.info(str("CommandPhase: %s AUTO-PASSED battle-shock test via %s%s" % [unit_name, source, " — recovered (11e 08.03)" if not changes.is_empty() else ""]))
