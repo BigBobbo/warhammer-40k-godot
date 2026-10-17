@@ -295,11 +295,19 @@ func _run_scenario() -> void:
 		# SaveLoadManager resolves saves from its save_directory (user://saves/
 		# on desktop since 0.70 — res:// is read-only in exported builds). The
 		# committed fixtures live in res://tests/saves/, so stage the fixture
-		# into the manager's save directory when it isn't already there.
+		# into the manager's save directory when it isn't there OR differs:
+		# staging only-if-missing kept a stale copy after a fixture changed
+		# (2026-10-17: a direct --scenario-file run loaded the pre-marker
+		# audit_baseline_postdeploy from user://saves). run_scenarios.sh
+		# already checksum-syncs; this covers direct launches.
 		var fixture_file = fixture if fixture.ends_with(".w40ksave") else fixture + ".w40ksave"
 		var saves_path = save_mgr.save_directory + fixture_file
 		var tests_path = "res://tests/saves/" + fixture_file
-		if not FileAccess.file_exists(saves_path) and FileAccess.file_exists(tests_path):
+		var stale_copy: bool = FileAccess.file_exists(saves_path) and FileAccess.file_exists(tests_path) \
+			and FileAccess.get_md5(saves_path) != FileAccess.get_md5(tests_path)
+		if stale_copy:
+			print("[ScenarioRunner] %s differs from the committed fixture — restaging" % saves_path)
+		if (stale_copy or not FileAccess.file_exists(saves_path)) and FileAccess.file_exists(tests_path):
 			var dir = DirAccess.open("res://")
 			if dir:
 				dir.copy(tests_path, saves_path)
