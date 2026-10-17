@@ -219,10 +219,12 @@ for s in "${SCENARIOS[@]}"; do
         EXIT_CODE=${PIPESTATUS[0]}
     else
         EXIT_CODE=${PIPESTATUS[0]}
-        if [ "$EXIT_CODE" = "124" ]; then
-            echo "    TIMED OUT after ${SCENARIO_TIMEOUT:-600}s — this is a HANG, not a failed"
-            echo "    assertion. Full log: /tmp/scenario_run_${SCENARIO_ID}.log"
-        fi
+    fi
+    # The pipeline's own status is grep's, so a hang that printed some lines
+    # used to be reported as a plain FAIL — check godot's status either way.
+    if [ "$EXIT_CODE" = "124" ]; then
+        echo "    TIMED OUT after ${SCENARIO_TIMEOUT:-600}s — this is a HANG, not a failed"
+        echo "    assertion. Full log: /tmp/scenario_run_${SCENARIO_ID}.log"
     fi
 
     IS_KNOWN=0

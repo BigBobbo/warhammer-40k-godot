@@ -318,7 +318,9 @@ jobs:
     # Also on a push whose head commit message contains "[full-sweep]" — an
     # opt-in for branches that change behaviour broadly (e.g. the harness
     # edition) and for environments where workflow_dispatch is not available.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[full-sweep]'))
+    # "[full-sweep-e10]" does the same with fieldless scenarios opted into
+    # legacy 10e (WH40K_TEST_EDITION=10) — for before/after edition triage.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[full-sweep]') || contains(github.event.head_commit.message, '[full-sweep-e10]')))
     runs-on: ubuntu-latest
     timeout-minutes: 180
     strategy:
@@ -396,7 +398,7 @@ jobs:
         env:
           SCENARIO_SHARD: "${{ matrix.shard }}/8"
           SCENARIO_SUMMARY_FILE: ${{ github.workspace }}/scenario_summary.tsv
-          WH40K_TEST_EDITION: ${{ inputs.edition }}
+          WH40K_TEST_EDITION: ${{ inputs.edition || (contains(github.event.head_commit.message, '[full-sweep-e10]') && '10' || '') }}
         run: |
           bash 40k/tests/run_scenarios.sh --${{ inputs.selection || 'sp' }}
 
