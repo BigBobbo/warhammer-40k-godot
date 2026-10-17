@@ -69,19 +69,45 @@ extends SceneTree
 # --full             every weapon in every shipped list (nightly tier)
 # default            the FAST_TIER first weapon profiles (CI tier)
 # --seeded-bug       re-introduces the AUDIT 0.1 defect ("D6" -> 1.0) in the
-#                    comparison, proving the test would have caught it. Only
-#                    the pairs the seed actually changes are rolled, and each
-#                    is judged twice against the SAME Monte-Carlo samples —
-#                    once with the clean prediction, once with the seeded one —
-#                    so detection is measured against the unseeded baseline and
-#                    cannot pass just because the baseline is already red.
+#                    comparison, proving the test would have caught it. Every
+#                    pair of every profile whose damage string the seed changes
+#                    is rolled — whatever the AI predicts for it, zero included
+#                    — and each is judged twice against the SAME Monte-Carlo
+#                    samples, once with the clean prediction and once with the
+#                    seeded one, so detection is measured against the unseeded
+#                    baseline and cannot pass just because the baseline is
+#                    already red, or because the set of weapons it checks shrank.
 # --write-catalogue  writes every pair that does not agree to
 #                    user://ai_combat_math_known_divergences.json, stamped with
-#                    the edition/samples/tier, for a deliberate regeneration.
-#                    Copy it over tests/ai_combat_math_known_divergences.json
-#                    and give EVERY entry its isolated cause before committing.
+#                    the edition/samples/tier/filter, for a deliberate
+#                    regeneration. An existing entry keeps its `why` and `cause`;
+#                    a new one is written UNDIAGNOSED, which a compare run
+#                    rejects. Copy the file over
+#                    tests/ai_combat_math_known_divergences.json and give EVERY
+#                    entry its isolated cause before committing.
 # --only=<substr>    restrict to weapons whose name contains <substr>
 # --verbose          per-pair Monte-Carlo trace
+#
+# What fails a normal (compare) run — every one of these is a hole a past
+# version of this test had, where it printed something and still said PASS:
+#
+#   * a pair that is not catalogued and does not agree (NEW failure), or a
+#     catalogued pair that flipped sides or drifted further (DRIFT);
+#   * a pair where the AI predicts 0 and the engine does not — judged like any
+#     other prediction, never skipped — and a pair where BOTH read 0, which
+#     measures nothing (UNMEASURED);
+#   * a duel that does not measure the AI's arithmetic: terrain/cover, an
+#     engaged ranged duel, outside half range, a destroyed defender, an engine
+#     refusal, a missing TerrainManager/Measurement autoload, an unreadable
+#     army list (HARNESS);
+#   * a run that judges nothing (an --only that matches nothing, an empty
+#     res://armies), or every selected pair not being accounted for (HARNESS);
+#   * a catalogue entry that now agrees (RETIRED: it must be deleted, or it
+#     would license a regression back to its recorded ratio), that the run's
+#     tier should have exercised and did not, whose profile or defender no
+#     longer exists, that lacks a `cause` from CATALOGUE_CAUSES or a diagnosed
+#     `why`, or whose `why` quotes arithmetic for a different S/T than its own
+#     pair (CATALOGUE).
 
 # Loaded at RUN time, not preloaded. AIDecisionMaker's dependency chain reaches
 # autoload singletons (GameState, Measurement) that are not registered as
@@ -149,12 +175,33 @@ const TOLERANCE_LIST := {
 const CATALOGUE_PATH := "res://tests/ai_combat_math_known_divergences.json"
 const DRIFT_ALLOWANCE := 0.15
 
+# Every catalogue entry names its isolated cause from this set (`cause`). A new
+# cause is a deliberate edit here, next to the follow-up that owns it — not a
+# free-text field that a regeneration can fill with anything, or drop (which
+# --write-catalogue once did, for every entry).
+const CATALOGUE_CAUSES := {
+	"twin-linked": "estimator: TWIN-LINKED wound re-roll (24.38) not modelled",
+	"anti-union": "estimator: [ANTI] added as a union, and compounded across matching instances, instead of the better threshold from the single best [ANTI] (24.02-24.03)",
+	"anti+devastating-wounds": "estimator: [ANTI] union plus the [DEVASTATING WOUNDS] share taken at CRIT 1/6 instead of the anti threshold (24.03, 24.10)",
+	"dice-valued-strength": "engine + estimator: dice-valued Strength is never rolled (engine resolves S3, AI assumes S4)",
+}
+
 var _passed := 0
 var _failed := 0
-var _skipped := 0
 var _rows: Array = []
-var _skip_notes: Array = []
 var _drifted: Array = []
+# Coverage bookkeeping. Every selected (weapon, defender) pair ends up judged,
+# UNMEASURED or harness-invalid; _report fails the run if the books do not
+# balance or if nothing was selected at all.
+var _selected := 0
+var _harness_invalid := 0
+var _unmeasured: Array = []
+var _corpus_total := 0
+var _corpus_sigs: Dictionary = {}
+var _grid_labels: Dictionary = {}
+var _run_tier := "fast"
+var _catalogue_errors: Array = []
+var AttackSeq = null
 var _harness_errors: Array = []
 var _retired: Array = []
 var _catalogue: Dictionary = {}
@@ -306,8 +353,13 @@ func _collect_weapons() -> Array:
 	var seen := {}
 	var sigs := {}
 	var out: Array = []
+	# An unreadable list is a harness error, not a silent `continue`: every
+	# weapon in it would otherwise just drop out of the corpus, and an empty
+	# corpus compares nothing and used to PASS.
 	var dir := DirAccess.open("res://armies")
 	if dir == null:
+		_harness_errors.append("res://armies could not be opened (%s) — the corpus would be empty"
+			% error_string(DirAccess.get_open_error()))
 		return out
 	var names := []
 	for f in dir.get_files():
@@ -317,13 +369,17 @@ func _collect_weapons() -> Array:
 	for fname in names:
 		var fh := FileAccess.open("res://armies/%s" % fname, FileAccess.READ)
 		if fh == null:
+			_harness_errors.append("army list %s could not be opened (%s) — its weapons would silently drop out of the corpus"
+				% [fname, error_string(FileAccess.get_open_error())])
 			continue
 		var parsed = JSON.parse_string(fh.get_as_text())
 		fh.close()
 		if not (parsed is Dictionary):
+			_harness_errors.append("army list %s is not a JSON object — its weapons would silently drop out of the corpus" % fname)
 			continue
-		var units = parsed.get("units", {})
+		var units = parsed.get("units", null)
 		if not (units is Dictionary):
+			_harness_errors.append("army list %s has no `units` object — its weapons would silently drop out of the corpus" % fname)
 			continue
 		for uid in units:
 			var u = units[uid]
@@ -375,12 +431,21 @@ func _ranged_duel_problems(re, weapon: Dictionary, shooter: Dictionary, target: 
 		problems.append("AI grants the defender cover (_target_has_benefit_of_cover)")
 	if re.is_unit_engaged("U_DEF", snapshot) or re.is_unit_engaged("U_ATT", snapshot):
 		problems.append("attacker and defender are engaged (17.03 / close-quarters shooting would apply)")
+	# A missing TerrainManager/Measurement autoload is a run-level HARNESS
+	# error raised in _run (once, not per pair); the null guards here only
+	# keep the remaining checks from crashing. A ranged profile with no
+	# numeric range is per-pair: its half-range invariant cannot be checked,
+	# so the pair is not trusted rather than quietly passed.
 	if _measurement != null:
-		var edge_in: float = _measurement.model_to_model_distance_inches(att_model, target.models[0])
 		var range_in: float = str(weapon.get("range", "0")).to_float()
-		if range_in > 0.0 and edge_in > range_in / 2.0:
-			problems.append("defender is %.2f\" away, outside half range of a %.0f\" weapon (RAPID FIRE/MELTA would not apply)"
-				% [edge_in, range_in])
+		if range_in <= 0.0:
+			problems.append("ranged profile has no numeric range ('%s') — the half-range invariant cannot be checked"
+				% str(weapon.get("range", "")))
+		else:
+			var edge_in: float = _measurement.model_to_model_distance_inches(att_model, target.models[0])
+			if edge_in > range_in / 2.0:
+				problems.append("defender is %.2f\" away, outside half range of a %.0f\" weapon (RAPID FIRE/MELTA would not apply)"
+					% [edge_in, range_in])
 	return problems
 
 
@@ -549,12 +614,91 @@ func _seeded_prediction(weapon: Dictionary, predicted: float) -> float:
 	return predicted
 
 
+func _seed_changes(weapon: Dictionary) -> bool:
+	"""Whether AUDIT 0.1 changes this PROFILE's prediction — decided from the
+	damage string alone, never from what the AI happens to predict for it. The
+	seeded check's expected weapon set is built from this, so a regression
+	that zeroes predictions cannot shrink the set it has to catch."""
+	var dmg_str := str(weapon.get("damage", "1")).to_upper()
+	if dmg_str.find("D") < 0:
+		return false
+	var avg: float = AIDM._parse_average_damage(dmg_str)
+	return avg > 0.0 and absf(avg - 1.0) > 1e-9
+
+
+func _lint_catalogue() -> void:
+	"""Static checks on the committed catalogue before anything is rolled. An
+	entry is a claim about an isolated cause; these catch the ways that claim
+	has gone wrong before — a regeneration that dropped `cause`, a filtered
+	write passed off as a tier, a `why` copied from another defender that
+	quotes the wrong wound roll."""
+	var meta_only := str(_catalogue_meta.get("only", ""))
+	if meta_only != "":
+		_catalogue_errors.append("%s was written by a filtered run (--only=%s), so it does not describe a tier — regenerate unfiltered"
+			% [CATALOGUE_PATH, meta_only])
+	if int(_catalogue_meta.get("defender_wounds", 0)) != DEFENDER_WOUNDS:
+		_catalogue_errors.append("%s was measured with W%s defenders but the grid is W%d — its ratios are not comparable"
+			% [CATALOGUE_PATH, str(_catalogue_meta.get("defender_wounds", "<unstamped>")), DEFENDER_WOUNDS])
+	var cat_tier := str(_catalogue_meta.get("tier", ""))
+	if cat_tier != "fast" and cat_tier != "full":
+		_catalogue_errors.append("%s has tier '%s'; expected 'fast' or 'full'" % [CATALOGUE_PATH, cat_tier])
+	if int(_catalogue_meta.get("samples", 0)) <= 0:
+		_catalogue_errors.append("%s has no `samples` stamp" % CATALOGUE_PATH)
+	var rx_quote := RegEx.create_from_string("S(\\d+) vs T(\\d+) (?:wounds on|needs) (\\d)\\+")
+	var rx_def_t := RegEx.create_from_string("^T(\\d+) ")
+	var rx_sig_s := RegEx.create_from_string(" S(\\d+) AP")
+	for k in _catalogue:
+		var key := str(k)
+		var e = _catalogue[k]
+		if not (e is Dictionary):
+			_catalogue_errors.append("entry '%s' is not an object" % key)
+			continue
+		var parts := key.rsplit("|", true, 1)
+		if parts.size() != 2:
+			_catalogue_errors.append("entry '%s' is not '<profile signature>|<defender label>'" % key)
+			continue
+		var ksig: String = parts[0]
+		var klabel: String = parts[1]
+		var cause := str(e.get("cause", ""))
+		if not CATALOGUE_CAUSES.has(cause):
+			_catalogue_errors.append("entry '%s' has cause '%s', not one of %s — name its isolated cause (a new cause is a deliberate edit to CATALOGUE_CAUSES)"
+				% [key, cause, str(CATALOGUE_CAUSES.keys())])
+		var why := str(e.get("why", "")).strip_edges()
+		if why == "" or why.begins_with("UNDIAGNOSED"):
+			_catalogue_errors.append("entry '%s' has no diagnosed `why`" % key)
+		var want_kind := "melee" if ksig.contains("[Melee ") else "ranged"
+		if str(e.get("kind", "")) != want_kind:
+			_catalogue_errors.append("entry '%s' has kind '%s' but its profile is %s" % [key, str(e.get("kind", "")), want_kind])
+		var ratio := float(e.get("ratio", 0.0))
+		if not (ratio > 0.0) or is_inf(ratio) or is_nan(ratio) or absf(ratio - 1.0) < 1e-6:
+			_catalogue_errors.append("entry '%s' has ratio %s, which is not a usable ratchet" % [key, str(e.get("ratio", "<missing>"))])
+		# Every "S<s> vs T<t> needs <n>+" the `why` quotes must be this pair's
+		# own arithmetic: the defender's T, the weapon's S (when it is fixed),
+		# and the engine's own wound chart.
+		var mt := rx_def_t.search(klabel)
+		var ms := rx_sig_s.search(ksig)
+		for m in rx_quote.search_all(why):
+			var s := int(m.get_string(1))
+			var t := int(m.get_string(2))
+			var n := int(m.get_string(3))
+			if mt != null and t != int(mt.get_string(1)):
+				_catalogue_errors.append("entry '%s': `why` quotes T%d but the defender is T%s" % [key, t, mt.get_string(1)])
+			if ms != null and s != int(ms.get_string(1)):
+				_catalogue_errors.append("entry '%s': `why` quotes S%d but the weapon is S%s" % [key, s, ms.get_string(1)])
+			if AttackSeq != null and int(AttackSeq.wound_threshold(s, t)) != n:
+				_catalogue_errors.append("entry '%s': `why` says S%d vs T%d needs %d+, the wound chart says %d+"
+					% [key, s, t, n, int(AttackSeq.wound_threshold(s, t))])
+
+
 func _neutralise_terrain() -> Array:
 	"""Clear the live TerrainManager layout for the run (restored in _finish).
 	Returns the terrain both sides are shown — empty, the same array object."""
 	_tm = root.get_node_or_null("TerrainManager")
 	if _tm == null:
-		print("  terrain: no TerrainManager autoload — engine cover reads nothing")
+		# Fail closed. Every terrain-area and 13.08 cover invariant in
+		# _ranged_duel_problems needs this autoload; without it they would all
+		# be skipped and the run would PASS with the guard blind.
+		_harness_errors.append("no TerrainManager autoload — the terrain-area and 13.08 cover invariants cannot be checked")
 		return []
 	_saved_terrain = _tm.terrain_features
 	print("  terrain: boot layout '%s' had %d piece(s); cleared for the run (restored at exit)"
@@ -582,14 +726,27 @@ func _run() -> void:
 		quit(1)
 		return
 	_measurement = root.get_node_or_null("Measurement")
+	if _measurement == null:
+		# Fail closed: without it the RAPID FIRE/MELTA half-range invariant
+		# would be skipped for every ranged pair, with nothing printed.
+		_harness_errors.append("no Measurement autoload — the ranged half-range invariant (RAPID FIRE/MELTA) cannot be checked")
 	_catalogue = _load_catalogue()
 	AIDM = load("res://scripts/AIDecisionMaker.gd")
 	if AIDM == null:
 		print("[FAIL] could not load AIDecisionMaker.gd")
 		quit(1)
 		return
+	AttackSeq = load("res://scripts/rules/AttackSequence.gd")
+	if AttackSeq == null:
+		_harness_errors.append("could not load scripts/rules/AttackSequence.gd — the catalogue's quoted wound rolls cannot be checked")
+	if not _write_catalogue:
+		_lint_catalogue()
 
 	var corpus := _collect_weapons()
+	_corpus_total = corpus.size()
+	for c in corpus:
+		_corpus_sigs[str(c.sig)] = true
+	_run_tier = "full" if _full else "fast"
 	print("=".repeat(78))
 	print("D1 COMBAT-MATH PROPERTY TEST — AI prediction vs RulesEngine resolution")
 	print("=".repeat(78))
@@ -598,6 +755,9 @@ func _run() -> void:
 	if not _full:
 		corpus = corpus.slice(0, FAST_TIER)
 		print("  fast tier: first %d (pass --full for the whole corpus)" % corpus.size())
+	if _only == "" and _corpus_total < FAST_TIER:
+		_harness_errors.append("COVERAGE: the shipped lists yield only %d weapon profile(s), fewer than the %d-profile fast tier — the corpus is not what this test was built against"
+			% [_corpus_total, FAST_TIER])
 	print("  %d Monte-Carlo samples per (weapon, defender) pair, seeded" % _samples)
 	print("  duel: ranged %.0f\" centre-to-centre (unengaged, in half range), melee %.0f\"; defender 1 model x W%d"
 		% [RANGED_SEPARATION_IN, MELEE_SEPARATION_IN, DEFENDER_WOUNDS])
@@ -609,11 +769,14 @@ func _run() -> void:
 				% [CATALOGUE_PATH, (str(cat_ed) if _catalogue_meta.has("edition") else "<unstamped>"), GameConstants.edition])
 	if _seeded_bug:
 		print("  !! --seeded-bug: re-introducing AUDIT 0.1 (\"D6\" damage parsed as 1.0)")
-		print("     only pairs whose prediction the seed changes are rolled; each is judged")
-		print("     clean AND seeded against the same samples")
+		print("     every pair of every profile whose damage the seed changes is rolled")
+		print("     (zero predictions included); each is judged clean AND seeded against")
+		print("     the same samples")
 	print("")
 
 	var defenders := _defender_grid()
+	for d in defenders:
+		_grid_labels[str(d.label)] = true
 	for entry in corpus:
 		var weapon: Dictionary = entry.weapon
 		var wname := str(weapon.get("name", "?"))
@@ -621,7 +784,20 @@ func _run() -> void:
 		if _only != "" and wname.to_lower().find(_only.to_lower()) < 0:
 			continue
 		var melee: bool = _is_melee(weapon)
+		if _seeded_bug:
+			if not _seed_changes(weapon):
+				# The seed changes no prediction for this profile, so rolling it
+				# would prove nothing about sensitivity.
+				_seed_unaffected += defenders.size()
+				continue
+			# The expected set is every profile the seed changes, fixed here
+			# from the profile alone. It used to be built from the pairs that
+			# happened to be rolled, so a regression that zeroed the AI's
+			# predictions shrank it (to the one melee weapon) and still read
+			# DETECTED.
+			_seed_weapons[sig] = {"caught": 0, "measurable": 0, "melee": melee}
 		for d in defenders:
+			_selected += 1
 			var target := _make_unit("U_DEF", 2, d, [], _defender_pos(melee))
 			var shooter := _make_unit("U_ATT", 1, {"t": 4, "sv": 3, "w": 3, "models": 1},
 				[weapon], ATTACKER_POS)
@@ -634,6 +810,7 @@ func _run() -> void:
 				var problems := _ranged_duel_problems(re, weapon, shooter, target, snapshot)
 				if not problems.is_empty():
 					_harness_errors.append("%s vs %s: %s" % [sig, d.label, "; ".join(PackedStringArray(problems))])
+					_harness_invalid += 1
 					continue
 
 			var predicted: float
@@ -652,28 +829,27 @@ func _run() -> void:
 			var clean_predicted := predicted
 			if _seeded_bug:
 				predicted = _seeded_prediction(weapon, clean_predicted)
-				if absf(predicted - clean_predicted) <= 1e-9 * maxf(1.0, absf(clean_predicted)):
-					# Identical to the unseeded run by construction — rolling it
-					# again proves nothing about sensitivity.
-					_seed_unaffected += 1
-					continue
 
-			if predicted <= 0.0:
-				_skipped += 1
-				continue
-
+			# No skip on a zero prediction. "The AI expects no damage" is a
+			# claim like any other and is judged against the engine: this used
+			# to `continue`, so a range regression that zeroed every ranged
+			# prediction left half the corpus unjudged and the run green.
 			var mc := _mc_expected_damage(re, weapon, d, melee, _samples, terrain)
 			if not mc.get("ok", false):
-				if mc.get("harness", false):
-					_harness_errors.append("%s vs %s: %s" % [sig, d.label, mc.get("note", "?")])
-					continue
-				_skipped += 1
-				if _skip_notes.size() < 6:
-					_skip_notes.append("%s vs %s: %s" % [sig, d.label, mc.get("note", "?")])
+				# A destroyed defender (saturation) or an engine refusal: either
+				# way this pair did not measure the AI's arithmetic. A refusal
+				# used to be a silent skip.
+				var what := "" if mc.get("harness", false) else "engine refused the duel: "
+				_harness_errors.append("%s vs %s: %s%s" % [sig, d.label, what, mc.get("note", "?")])
+				_harness_invalid += 1
 				continue
 			var actual: float = mc.mean
-			if actual <= 0.0 and predicted <= 0.0:
-				_skipped += 1
+			if actual <= 0.0 and clean_predicted <= 0.0:
+				# Both sides read zero: agreement, but about nothing. It fails a
+				# compare run (UNMEASURED) rather than silently shrinking it.
+				_unmeasured.append("%s vs %s (AI 0, engine 0 over %d samples)" % [sig, d.label, _samples])
+				if _seeded_bug:
+					_seed_unmeasurable.append("%s vs %s (AI 0 and engine 0)" % [sig, d.label])
 				continue
 			var se: float = float(mc.se)
 			var tol := _tolerance_for(wname, str(weapon.get("special_rules", "")))
@@ -693,6 +869,9 @@ func _run() -> void:
 					"resolved": snappedf(actual, 0.001),
 					"se": snappedf(se, 0.001),
 					"why": str(known.get("why", "UNDIAGNOSED — name the isolated cause before committing")),
+					# Carried over like `why`; a new entry is UNDIAGNOSED, which
+					# _lint_catalogue rejects until it is given a real cause.
+					"cause": str(known.get("cause", "UNDIAGNOSED")),
 				}
 				ok = true
 				known_hit = true
@@ -752,42 +931,106 @@ func _report() -> void:
 			r.pred, r.mc, 100.0 * r.rel, r.sigma,
 			("   [%s]" % r.why) if r.why != "" else ""])
 		shown += 1
-	for n in _skip_notes:
-		print("  skipped: %s" % n)
 	print("")
 	print("=".repeat(78))
+
+	# Coverage. Every selected pair must be accounted for, and a run that
+	# selected nothing cannot pass (an --only matching nothing, or an empty
+	# corpus, used to print "0 pairs agree ... VERDICT: PASS").
+	var judged := _passed + _known + _failed
+	var accounted := judged + _unmeasured.size() + _harness_invalid
+	if accounted != _selected:
+		_harness_errors.append("BOOKKEEPING: %d pair(s) selected but %d accounted for (judged %d, unmeasured %d, harness-invalid %d) — a code path drops pairs silently"
+			% [_selected, accounted, judged, _unmeasured.size(), _harness_invalid])
+	if _selected == 0:
+		var why_none := "the corpus is empty"
+		if _seeded_bug:
+			why_none = "no selected profile has a damage string the seed changes"
+		elif _only != "":
+			why_none = "--only=%s matched no weapon" % _only
+		_harness_errors.append("COVERAGE: no (weapon, defender) pair was selected — %s; a run that compares nothing cannot pass"
+			% why_none)
+
+	# The catalogue as a ratchet that can only shrink. Write mode is building a
+	# new catalogue, so these are informational there; the seeded run only
+	# rolls the seed's pairs, so it does not judge the catalogue at all.
+	var compare_mode := not _write_catalogue and not _seeded_bug
+	var cat_tier := str(_catalogue_meta.get("tier", ""))
+	var cat_samples := int(_catalogue_meta.get("samples", 0))
+	# A run must exercise every entry when it is unfiltered and its tier
+	# contains the catalogue's (fast ⊂ full).
+	var must_exercise := compare_mode and _only == "" and (cat_tier == _run_tier or _run_tier == "full")
+	var unexercised_notes := 0
+	for k in _catalogue:
+		var parts := str(k).rsplit("|", true, 1)
+		var ksig: String = parts[0]
+		var klabel: String = parts[1] if parts.size() > 1 else ""
+		if not _corpus_sigs.has(ksig) or not _grid_labels.has(klabel):
+			# Its profile is no longer in any shipped list, or its defender is
+			# no longer in the grid: nothing can ever exercise it again.
+			var stale := "STALE entry — %s no longer exists; delete it: %s" % [
+				"its weapon profile" if not _corpus_sigs.has(ksig) else "its defender", str(k)]
+			if compare_mode:
+				_catalogue_errors.append(stale)
+			else:
+				print("  note: %s" % stale)
+		elif not _exercised_keys.has(k):
+			if must_exercise:
+				_catalogue_errors.append("UNEXERCISED entry — this %s-tier run should have judged it and did not (moved out of the tier? harness-invalid above?): %s"
+					% [_run_tier, str(k)])
+			else:
+				unexercised_notes += 1
+	if unexercised_notes > 0 and not _seeded_bug:
+		print("  note: %d catalogue entr%s not exercised by this tier/filter"
+			% [unexercised_notes, "y was" if unexercised_notes == 1 else "ies were"])
+	for msg in _retired:
+		# An entry that now agrees must be deleted: left in place it licenses a
+		# regression straight back to its recorded ratio. Retirement is only
+		# trusted from a measurement at least as precise as the one that
+		# catalogued the entry (a 3-SE pass at fewer samples can be noise).
+		if compare_mode and _samples >= cat_samples:
+			_catalogue_errors.append("RETIRED entry — catalogued, now agrees; delete it: %s" % msg)
+		else:
+			print("  note: RETIRED (catalogued, now agrees%s): %s"
+				% [(" at %d samples, fewer than the catalogue's %d — re-run at >= %d to confirm" % [_samples, cat_samples, cat_samples])
+					if _samples < cat_samples else " — dropped from the written catalogue", msg])
+
 	for msg in _harness_errors:
 		print("  HARNESS: %s" % msg)
 	for msg in _drifted:
 		print("  DRIFT: %s" % msg)
-	for msg in _retired:
-		print("  RETIRED (catalogued, now agrees — delete the entry): %s" % msg)
-	var unexercised := 0
-	for k in _catalogue:
-		if not _exercised_keys.has(k):
-			unexercised += 1
-	if unexercised > 0 and not _seeded_bug:
-		print("  note: %d catalogue entr%s not exercised by this tier/filter"
-			% [unexercised, "y was" if unexercised == 1 else "ies were"])
-	print("  %d pairs agree within %.0f%%, %d known+owned divergences (~~), %d NEW failures, %d skipped"
-		% [_passed, 100.0 * TOLERANCE, _known, _failed, _skipped])
+	for msg in _unmeasured:
+		if compare_mode or _write_catalogue:
+			print("  UNMEASURED (AI and engine both 0 — the pair measures nothing): %s" % msg)
+	if compare_mode:
+		for msg in _catalogue_errors:
+			print("  CATALOGUE: %s" % msg)
+	elif not _catalogue_errors.is_empty():
+		for msg in _catalogue_errors:
+			print("  note: catalogue problem (fails a compare run): %s" % msg)
+	print("  %d pairs agree within %.0f%%, %d known+owned divergences (~~), %d NEW failures, %d unmeasured, %d harness-invalid (of %d selected)"
+		% [_passed, 100.0 * TOLERANCE, _known, _failed, _unmeasured.size(), _harness_invalid, _selected])
 	if _write_catalogue:
 		var fh := FileAccess.open("user://ai_combat_math_known_divergences.json", FileAccess.WRITE)
 		fh.store_string(JSON.stringify({
 			"note": "Generated by tests/test_ai_combat_math_property.gd --write-catalogue. Each entry is a REPRODUCED divergence between the AI's expected-damage arithmetic and RulesEngine resolution, with the ratio measured when it was catalogued. This file is a ratchet, not an excuse: an uncatalogued pair must agree, and a catalogued pair must not drift further or flip sides.",
 			"generated": Time.get_date_string_from_system(), "samples": _samples,
-			"edition": GameConstants.edition, "tier": "full" if _full else "fast",
+			"edition": GameConstants.edition, "tier": _run_tier,
+			# A filtered write does not describe a tier; a compare run
+			# refuses a catalogue stamped with a filter.
+			"only": _only,
 			"defender_wounds": DEFENDER_WOUNDS,
 			"divergences": _new_catalogue}, "  ", true))
 		fh.close()
-		print("  catalogue written to user://ai_combat_math_known_divergences.json (%d entries)"
-			% _new_catalogue.size())
+		print("  catalogue written to user://ai_combat_math_known_divergences.json (%d entries%s)"
+			% [_new_catalogue.size(), (", FILTERED --only=%s: not committable" % _only) if _only != "" else ""])
 		print("  path: %s" % ProjectSettings.globalize_path("user://ai_combat_math_known_divergences.json"))
 	var harness_ok := _harness_errors.is_empty()
 	if not harness_ok:
 		print("  HARNESS INVALID: %d harness error(s) above — the comparison does not measure the AI's arithmetic"
 			% _harness_errors.size())
-	var verdict := harness_ok and _failed == 0 and _drifted.is_empty()
+	var verdict := harness_ok and _failed == 0 and _drifted.is_empty() and _unmeasured.is_empty() \
+		and (not compare_mode or _catalogue_errors.is_empty())
 	if _seeded_bug:
 		# Inverted: with the AUDIT 0.1 defect injected the test MUST fail, or
 		# it is not sensitive enough to have caught the bug it exists for.
@@ -798,7 +1041,12 @@ func _report() -> void:
 		#   * AUDIT 0.1 is a per-weapon defect, so EVERY weapon the seed
 		#     changes must be caught (turned red) on at least one defender;
 		#   * no pair may be waved through by a catalogue entry — that would
-		#     mean the ratchet is too loose to see the defect it exists for.
+		#     mean the ratchet is too loose to see the defect it exists for;
+		#   * the set of weapons is every selected profile whose damage the
+		#     seed changes, fixed from the profiles (see _seed_changes), and an
+		#     unfiltered run must contain both a ranged and a melee one — so a
+		#     regression that zeroes or breaks one side's predictions makes
+		#     those weapons uncatchable instead of quietly removing them.
 		# A seeded pair that still agrees only because its expected damage is
 		# inside Monte-Carlo noise is reported but does not fail the check
 		# while the same weapon is caught elsewhere.
@@ -809,14 +1057,25 @@ func _report() -> void:
 		for msg in _seed_missed:
 			print("  seeded within noise: %s" % msg)
 		for msg in _seed_unmeasurable:
-			print("  seeded unmeasurable (already red unseeded): %s" % msg)
+			print("  seeded unmeasurable (red unseeded, or AI and engine both 0): %s" % msg)
 		var weapons_caught := 0
+		var has_ranged := false
+		var has_melee := false
 		for wsig in _seed_weapons:
+			if bool(_seed_weapons[wsig].melee):
+				has_melee = true
+			else:
+				has_ranged = true
 			if int(_seed_weapons[wsig].caught) > 0:
 				weapons_caught += 1
 			else:
-				print("  seeded weapon NOT CAUGHT on any defender: %s" % wsig)
-		verdict = harness_ok and not _seed_weapons.is_empty() \
+				print("  seeded weapon NOT CAUGHT on any defender (%d measurable pair(s)): %s"
+					% [int(_seed_weapons[wsig].measurable), wsig])
+		var kinds_ok := _only != "" or (has_ranged and has_melee)
+		if not kinds_ok:
+			print("  seeded set has no %s profile — the sensitivity check would not cover that estimator"
+				% ("ranged" if not has_ranged else "melee"))
+		verdict = harness_ok and not _seed_weapons.is_empty() and kinds_ok \
 			and weapons_caught == _seed_weapons.size() and _seed_absorbed.is_empty()
 		print("  --seeded-bug: caught %d of %d weapon(s) the seed changes; pairs: %d caught, %d absorbed by the catalogue, %d within noise, %d unmeasurable, %d unchanged (not rolled) -> %s"
 			% [weapons_caught, _seed_weapons.size(), _seed_caught.size(), _seed_absorbed.size(),
