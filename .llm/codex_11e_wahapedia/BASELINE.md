@@ -15,6 +15,11 @@
 - Windowed scenarios touched by the data change (booting from army files)
   re-run green: custodes_lions_vs_recon, custodes_custodian_guard_deep_strike,
   pm10_shipped_plan_from_menu, pm_f4_coherency_note_in_browser,
-  recon_stomps_base_army (+ 25 others that never failed). Tutorial scenarios:
-  tutorial armies stay pre-codex (see PLAN follow-ups); rerun pending.
+  recon_stomps_base_army (+ 25 others that never failed).
+- PRE-EXISTING windowed failures (identical pass/fail counts on the 276eb36
+  baseline worktree, so not caused by the codex work — do not chase them):
+  tut_t1_basics (1 fail, step 92), tut_full_course_chain_pad (7),
+  tut_t1_lock_it_in_start_glyph (28), tut_t1_pad_ack_button (31),
+  tut_t4_dakka_pad (31), tut_t4_dakka_reassign_pad (2), tut_t5_ere_we_go_pad (22),
+  tut_t6_krumpin_pad (6), tut_t6_wrong_fighter_backout (18).
 - If you branched before a7d77c2, merge the branch tip before your final gate.
