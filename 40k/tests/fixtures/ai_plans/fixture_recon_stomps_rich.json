@@ -1,8 +1,8 @@
 {
  "format": "wh40k_ai_plan",
  "version": 1,
- "name": "Fixture \u2014 Recon Stomps rich (all five verbs)",
- "description": "Test fixture exercising every schema section: ordered placements, reserves, an embarkation, a leader attachment and all five earmark verbs. Positions are authored in the player-1 hammer_anvil frame, laid out as per-unit blocks so every unit is legal on base size and 11e coherency at BOTH seats. The attachment pairs the Deffkilla Wartrike with Warbikers because that is the only Warbikers leader in data/40kdc/leaderAttachments.json \u2014 an attachment the game cannot make silently falls through to the AI's own pairing.",
+ "name": "Fixture — Recon Stomps rich (all five verbs)",
+ "description": "Test fixture exercising every schema section: ordered placements, reserves, an embarkation, a leader attachment and all five earmark verbs. Positions are authored in the player-1 hammer_anvil frame, laid out as per-unit blocks so every unit is legal on base size and 11e coherency at BOTH seats. The attachment pairs the Deffkilla Wartrike with Warbikers because that is the only Warbikers leader in data/40kdc/leaderAttachments.json — an attachment the game cannot make silently falls through to the AI's own pairing.",
  "author": "fixture",
  "keys": {
   "army_file": "recon_stomps",
@@ -267,10 +267,6 @@
      ],
      [
       5.31,
-      16.97
-     ],
-     [
-      6.82,
       16.97
      ]
     ],
