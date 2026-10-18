@@ -8,10 +8,6 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Might is Right"
  ],
  [
-  "speedboss",
-  "Speedboss"
- ],
- [
   "drill boss",
   "Drill Boss"
  ],
@@ -32,14 +28,6 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Flashiest Gitz"
  ],
  [
-  "red skull kommandos",
-  "Red Skull Kommandos"
- ],
- [
-  "doks toolz",
-  "Dok's Toolz"
- ],
- [
   "mad dok",
   "Mad Dok"
  ],
@@ -56,16 +44,24 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Stand Vigil"
  ],
  [
-  "ramshackle",
-  "Ramshackle"
- ],
- [
-  "get da good bitz",
-  "Get Da Good Bitz"
- ],
- [
   "daughters of the abyss",
   "Daughters of the Abyss"
+ ],
+ [
+  "aegis of the emperor",
+  "Aegis of the Emperor"
+ ],
+ [
+  "martial katah",
+  "Martial Ka'tah"
+ ],
+ [
+  "master of katahs",
+  "Master of Ka'tahs"
+ ],
+ [
+  "aquila commander",
+  "Aquila Commander"
  ],
  [
   "feel no pain",
@@ -132,12 +128,8 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Sneaky Surprise"
  ],
  [
-  "patrol squad",
-  "Patrol Squad"
- ],
- [
-  "distraction grot",
-  "Distraction Grot"
+  "taktikal know wotz",
+  "Taktikal Know-wotz"
  ],
  [
   "bomb squigs",
@@ -154,10 +146,6 @@ export const GAME_NAME_CANON_ENTRIES = [
  [
   "advanced firepower",
   "Advanced Firepower"
- ],
- [
-  "master of the stances",
-  "Master of the Stances"
  ],
  [
   "strategic mastery",
@@ -208,10 +196,6 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Dread Foe"
  ],
  [
-  "piston driven brutality",
-  "Piston-driven Brutality"
- ],
- [
   "guardian eternal",
   "Guardian Eternal"
  ],
@@ -232,24 +216,8 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Omni-scramblers"
  ],
  [
-  "sawbonez",
-  "Sawbonez"
- ],
- [
-  "grot riggers",
-  "Grot Riggers"
- ],
- [
-  "grot orderly",
-  "Grot Orderly"
- ],
- [
   "fix dat armour up",
   "Fix Dat Armour Up"
- ],
- [
-  "mekaniak",
-  "Mekaniak"
  ],
  [
   "da jump",
@@ -260,24 +228,8 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Waaagh! Energy"
  ],
  [
-  "gun crazy show offs",
-  "Gun-crazy Show-offs"
- ],
- [
-  "ammo runt",
-  "Ammo Runt"
- ],
- [
   "pulsa rokkit",
   "Pulsa Rokkit"
- ],
- [
-  "grot oiler",
-  "Grot Oiler"
- ],
- [
-  "shooty power trip",
-  "Shooty Power Trip"
  ],
  [
   "tank hunters",
@@ -288,32 +240,12 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Dat's Our Loot!"
  ],
  [
-  "splat",
-  "Splat!"
- ],
- [
-  "blastajet attack run",
-  "Blastajet Attack Run"
- ],
- [
   "blastajet force field",
   "Blastajet Force Field"
  ],
  [
-  "drive by dakka",
-  "Drive-by Dakka"
- ],
- [
   "drive by krumpin",
   "Drive-by Krumpin'"
- ],
- [
-  "clankin forward",
-  "Clankin' Forward"
- ],
- [
-  "stompin forward",
-  "Stompin' Forward"
  ],
  [
   "outflank",
@@ -324,20 +256,8 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Dakkastorm"
  ],
  [
-  "da boss ladz",
-  "Da Boss' Ladz"
- ],
- [
   "pyromaniaks",
   "Pyromaniaks"
- ],
- [
-  "da biggest and da best",
-  "Da Biggest and da Best"
- ],
- [
-  "dead brutal",
-  "Dead Brutal"
  ],
  [
   "krumpin time",
@@ -360,26 +280,6 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Big an' Stompy"
  ],
  [
-  "hold still and say aargh",
-  "Hold Still and Say 'Aargh!'"
- ],
- [
-  "auric mantle",
-  "Auric Mantle"
- ],
- [
-  "castellans mark",
-  "Castellan's Mark"
- ],
- [
-  "from the hall of armouries",
-  "From the Hall of Armouries"
- ],
- [
-  "panoptispex",
-  "Panoptispex"
- ],
- [
   "follow me ladz",
   "Follow Me Ladz"
  ],
@@ -394,6 +294,122 @@ export const GAME_NAME_CANON_ENTRIES = [
  [
   "supa cybork body",
   "Supa-Cybork Body"
+ ],
+ [
+  "skwad leader",
+  "Skwad Leader"
+ ],
+ [
+  "mek kaptin",
+  "Mek Kaptin"
+ ],
+ [
+  "gob boomer",
+  "Gob Boomer"
+ ],
+ [
+  "da gobshot thunderbuss",
+  "Da Gobshot Thunderbuss"
+ ],
+ [
+  "dead shiny shootas",
+  "Dead Shiny Shootas"
+ ],
+ [
+  "targetin squigs",
+  "Targetin' Squigs"
+ ],
+ [
+  "zog off and eat dakka",
+  "Zog Off and Eat Dakka!"
+ ],
+ [
+  "raucous warcaller",
+  "Raucous Warcaller"
+ ],
+ [
+  "bloodthirsty belligerence",
+  "Bloodthirsty Belligerence"
+ ],
+ [
+  "ferocious show off",
+  "Ferocious Show Off"
+ ],
+ [
+  "brutal but kunnin",
+  "Brutal But Kunnin'"
+ ],
+ [
+  "glory hog",
+  "Glory Hog"
+ ],
+ [
+  "proper killy",
+  "Proper Killy"
+ ],
+ [
+  "skrag every stash",
+  "Skrag Every Stash!"
+ ],
+ [
+  "surly as a squiggoth",
+  "Surly as a Squiggoth"
+ ],
+ [
+  "fasta than yooz",
+  "Fasta Than Yooz"
+ ],
+ [
+  "speed makes right",
+  "Speed Makes Right"
+ ],
+ [
+  "squig hide tyres",
+  "Squig-hide Tyres"
+ ],
+ [
+  "wazblasta",
+  "Wazblasta"
+ ],
+ [
+  "gitfinder googlez",
+  "Gitfinder Googlez"
+ ],
+ [
+  "smoky gubbinz",
+  "Smoky Gubbinz"
+ ],
+ [
+  "supa glowy fing",
+  "Supa-glowy Fing"
+ ],
+ [
+  "press it fasta",
+  "Press It Fasta!"
+ ],
+ [
+  "runnin boots",
+  "Runnin' Boots"
+ ],
+ [
+  "blitzkaptin",
+  "Blitzkaptin"
+ ],
+ [
+  "supercharged squig oil",
+  "Supercharged Squig Oil"
+ ],
+ [
+  "tuff git",
+  "Tuff Git"
+ ],
+ [
+  "boarding ramps",
+  "Boarding Ramps"
+ ],
+ [
+  "targetin gizmos",
+  "Targetin' Gizmos"
  ],
  [
   "git spotter squig",
@@ -416,14 +432,6 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Telemon Caestus (Dual)"
  ],
  [
-  "null aegis aura",
-  "Null Aegis (Aura)"
- ],
- [
-  "deadly unity aura",
-  "Deadly Unity (Aura)"
- ],
- [
   "waaagh effigy aura",
   "Waaagh! Effigy (Aura)"
  ],
@@ -436,36 +444,12 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Ghazghkull's Waaagh! Banner (Aura)"
  ],
  [
-  "runtherd",
-  "Runtherd"
- ],
- [
-  "beastboss",
-  "Beastboss"
- ],
- [
   "beastly rage",
   "Beastly Rage"
  ],
  [
-  "wild ride",
-  "Wild Ride"
- ],
- [
   "snagged",
   "Snagged"
- ],
- [
-  "spirit of gork psychic",
-  "Spirit of Gork (Psychic)"
- ],
- [
-  "on da hunt",
-  "On Da Hunt"
- ],
- [
-  "monster hunters",
-  "Monster Hunters"
  ],
  [
   "unstable oracle",
@@ -478,10 +462,6 @@ export const GAME_NAME_CANON_ENTRIES = [
  [
   "super runts",
   "Super Runts"
- ],
- [
-  "special dose",
-  "Special Dose"
  ],
  [
   "one last kill",
@@ -512,30 +492,6 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Core"
  ],
  [
-  "orks",
-  "ORKS"
- ],
- [
-  "adeptus custodes",
-  "ADEPTUS CUSTODES"
- ],
- [
-  "anathema psykana",
-  "ANATHEMA PSYKANA"
- ],
- [
-  "beast snagga",
-  "BEAST SNAGGA"
- ],
- [
-  "character",
-  "CHARACTER"
- ],
- [
-  "vehicle",
-  "VEHICLE"
- ],
- [
   "gladius task force",
   "Gladius Task Force"
  ],
@@ -546,14 +502,6 @@ export const GAME_NAME_CANON_ENTRIES = [
  [
   "freebooter krew",
   "Freebooter Krew"
- ],
- [
-  "shield host",
-  "Shield Host"
- ],
- [
-  "lions of the emperor",
-  "Lions of the Emperor"
  ],
  [
   "da kaptin",
@@ -572,12 +520,12 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Oath of Moment"
  ],
  [
-  "martial katah",
-  "Martial Ka'tah"
- ],
- [
   "waaagh",
   "Waaagh!"
+ ],
+ [
+  "bully boyz",
+  "Bully Boyz"
  ],
  [
   "adeptus astartes",
@@ -586,6 +534,50 @@ export const GAME_NAME_CANON_ENTRIES = [
  [
   "undeployed",
   "UNDEPLOYED"
+ ],
+ [
+  "dread mob",
+  "Dread Mob"
+ ],
+ [
+  "taktikal brigade",
+  "Taktikal Brigade"
+ ],
+ [
+  "kult of speed",
+  "Kult of Speed"
+ ],
+ [
+  "blitz brigade",
+  "Blitz Brigade"
+ ],
+ [
+  "rollin deff",
+  "Rollin' Deff"
+ ],
+ [
+  "speedwaaagh",
+  "Speedwaaagh!"
+ ],
+ [
+  "get stuck in",
+  "Get Stuck In"
+ ],
+ [
+  "get on wiv it",
+  "Get On Wiv It"
+ ],
+ [
+  "sneaky stalkin",
+  "Sneaky Stalkin'"
+ ],
+ [
+  "shoota drills",
+  "Shoota Drills"
+ ],
+ [
+  "orks",
+  "ORKS"
  ],
  [
   "walker",
@@ -620,14 +612,6 @@ export const GAME_NAME_CANON_ENTRIES = [
   "TRANSPORT"
  ],
  [
-  "firing deck",
-  "FIRING DECK"
- ],
- [
-  "praesidium shield",
-  "Praesidium Shield"
- ],
- [
   "vexilla",
   "Vexilla"
  ],
@@ -636,11 +620,31 @@ export const GAME_NAME_CANON_ENTRIES = [
   "Da Jump (Psychic)"
  ],
  [
-  "ramshackle but rugged",
-  "Ramshackle but Rugged"
+  "adeptus custodes",
+  "ADEPTUS CUSTODES"
+ ],
+ [
+  "deep strike",
+  "Deep Strike"
  ],
  [
   "datasheet",
   "Datasheet"
+ ],
+ [
+  "da biggest boss",
+  "Da Biggest Boss"
+ ],
+ [
+  "master meknologist",
+  "Master Meknologist"
+ ],
+ [
+  "supa burny fuel",
+  "Supa-burny Fuel"
+ ],
+ [
+  "character",
+  "CHARACTER"
  ]
 ];

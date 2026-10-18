@@ -145,24 +145,26 @@ Boyz (150 Points)
   check('imported detachment selected',
     (await page.locator('.topbar-config select').nth(1).inputValue()) === 'war-horde');
 
-  // --- Speedwaaagh! enhancement dropdown (regression: upstream ships it empty) --
+  // --- detachment enhancement dropdown prices the pick -------------------------
+  // (was the Speedwaaagh! regression — upstream 1.0.19 shipped it empty; 40kdc
+  // 1.4.5 / Codex: Orks has no Speedwaaagh! detachment any more, WP-W3)
   await page.locator('button', { hasText: 'New' }).click();
   page.once('dialog', d => d.accept());
   await page.locator('.topbar-config select').first().selectOption('orks');
-  await page.locator('.topbar-config select').nth(1).selectOption('speedwaaagh');
-  await page.locator('.search').fill('Deffkilla');
-  await page.locator('.browser-unit', { hasText: 'Deffkilla Wartrike' }).first().click();
-  await page.locator('.roster-unit', { hasText: 'Deffkilla Wartrike' }).first().click();
+  await page.locator('.topbar-config select').nth(1).selectOption('war-horde');
+  await page.locator('.search').fill('Warboss');
+  await page.locator('.browser-unit').filter({ has: page.locator('.bu-name', { hasText: /^Warboss$/ }) }).first().click();
+  await page.locator('.roster-unit', { hasText: 'Warboss' }).first().click();
+  const before = parseInt((await page.locator('.points-badge').textContent()).match(/(\d+) \//)[1], 10);
   const enhRow = page.locator('.field-row', { hasText: 'Enhancement' });
-  check('Speedwaaagh! Deffkilla shows an Enhancement row', await enhRow.count() === 1);
+  check('War Horde Warboss shows an Enhancement row', await enhRow.count() === 1);
   const enhOptions = await enhRow.locator('select option').allTextContents();
-  check('Kustom Shokk Box is offered', enhOptions.some(o => /Kustom Shokk Box/.test(o)),
-    enhOptions.join(' | '));
-  await enhRow.locator('select').selectOption({ label: enhOptions.find(o => /Kustom Shokk Box/.test(o)) });
-  // Deffkilla Wartrike is 70 base; Kustom Shokk Box adds +10 -> 80.
-  check('selecting the enhancement adds its +10 pts',
-    /80 \/ 2000 pts/.test(await page.locator('.points-badge').textContent()),
-    await page.locator('.points-badge').textContent());
+  const hk = enhOptions.find(o => /Headwoppa.s Killchoppa \((\d+) pts\)/.test(o));
+  check("Headwoppa's Killchoppa is offered", !!hk, enhOptions.join(' | '));
+  await enhRow.locator('select').selectOption({ label: hk });
+  const cost = parseInt(hk.match(/\((\d+) pts\)/)[1], 10);
+  const after = parseInt((await page.locator('.points-badge').textContent()).match(/(\d+) \//)[1], 10);
+  check(`selecting the enhancement adds its +${cost} pts`, after === before + cost, `${before} -> ${after}`);
 
   check('no uncaught page errors', pageErrors.length === 0, pageErrors.join(' | '));
 

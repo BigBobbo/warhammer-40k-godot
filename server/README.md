@@ -50,11 +50,14 @@ list without restarting).
 | `public/js/lib/gameformat.mjs` | **shared** Roster ⇄ schema-2 game JSON converter — also used by `scripts/40kdc/generate-armies.mjs`; change it there for both |
 | `public/js/lib/dckit.mjs` | shared pure dataset helpers (faction-scoped resolver etc.) |
 | `public/js/lib/canon.mjs` | generated: game-name canonicalization table from the .gd dispatch tables |
-| `public/js/vendor/40kdc-data.mjs` | generated: the package + RAW_DATA bundled for the browser (7.6MB, ~0.8MB gzipped — the server gzips it) |
+| `public/js/vendor/40kdc-data.mjs` | generated: the package (40kdc 1.4.5, the release the game's `40k/data/40kdc` extract uses) + RAW_DATA bundled for the browser (10.9MB, gzipped by the server) |
+| `public/js/lib/data-patches.mjs` | patches RAW_DATA at load (`store.js`): the codex datasheet overlay + the codex detachments/enhancements |
+| `public/js/lib/codex-11e-datasheets.mjs` | generated (`scripts/40kdc/gen_codex_builder_patch.mjs`): every record the game's `40k/data/40kdc` (Wahapedia codex import) has differently from the bundle — the builder converts exactly what the game loads |
 | `public/js/parser.js` | legacy loose-format text parser (fallback import path) |
 
-Regenerate the two generated files after bumping the dataset package or when
-the game's ability-dispatch tables change:
+Regenerate the generated files after bumping the dataset package or when
+the game's ability-dispatch tables change (the bundle step also refreshes the
+codex overlay; `npm run codex11e` refreshes it after a Wahapedia re-import):
 
 ```bash
 cd scripts/40kdc && npm install && npm run bundle

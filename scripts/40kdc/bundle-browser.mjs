@@ -11,9 +11,13 @@
 //     extracted from the game's .gd dispatch tables (exact-name ability /
 //     enhancement dispatch), so the browser emits the game's spellings.
 //
+//  3. server/public/js/lib/codex-11e-datasheets.mjs — the codex datasheet
+//     overlay (gen_codex_builder_patch.mjs), a diff of the game's data against
+//     the bundle written in step 1.
+//
 // Usage: cd scripts/40kdc && npm install && node bundle-browser.mjs
 //
-// Both outputs are committed; rerun after bumping the package version or when
+// All outputs are committed; rerun after bumping the package version or when
 // the game's ability dispatch tables change.
 
 import { writeFileSync, readFileSync } from 'fs';
@@ -84,3 +88,11 @@ export const GAME_NAME_CANON_ENTRIES = ${JSON.stringify(entries, null, 1)};
 `;
 writeFileSync(outCanon, canonSrc);
 console.log(`WROTE ${outCanon} (${entries.length} entries)`);
+
+// ---------------------------------------------------------------------------
+// 3. Codex datasheet overlay (server/public/js/lib/codex-11e-datasheets.mjs):
+// the records the game's 40k/data/40kdc has differently from the bundle just
+// written (Wahapedia codex import, local patches). It is a diff against THIS
+// bundle, so refresh it whenever the bundle changes (WP-W3).
+const { writeCodexBuilderPatch } = await import(pathToFileURL(join(here, 'gen_codex_builder_patch.mjs')).href);
+await writeCodexBuilderPatch();

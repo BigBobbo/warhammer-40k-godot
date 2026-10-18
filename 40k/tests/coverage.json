@@ -11338,6 +11338,36 @@
       "last_verified_commit": "HEAD",
       "status": "covered",
       "fidelity": "DECLARED"
+    },
+    {
+      "id": "army_builder.codex_datasheets",
+      "description": "The browser Army Builder builds from the codex datasheets the game uses (40kdc 1.4.5 + the Wahapedia 11e codex overlay, WP-W3): a builder-made Custodes army loads in game with the codex profile (Shield-Captain W8, Custodian Guard Sodality 3x W5) and the datasheet card shows it. Builder half: server/tests/e2e-codex-datasheets.mjs.",
+      "scenarios": [
+        "w3_builder_codex_datasheets"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "army_builder.codex_wargear_points",
+      "description": "Codex priced wargear from the builder reaches the game: the Shield-Captain's default Praesidium Shield exports as '1x Praesidium Shield', costs +25 (205 pts) and carries its wargear ability (WP-W3).",
+      "scenarios": [
+        "w3_builder_codex_datasheets"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "army_list.cloud_load",
+      "description": "A cloud army saved by the browser Army Builder is listed by Refresh Cloud Armies, selected, downloaded on Start Game and applied to the game state with the exported stats and points.",
+      "scenarios": [
+        "w3_builder_codex_datasheets"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
     }
   ]
 }
