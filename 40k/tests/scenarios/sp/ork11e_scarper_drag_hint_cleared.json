@@ -11,7 +11,7 @@
   "rng_seed": 42,
   "transition_to_phase": 7,
   "disable_ai": true,
-  "description": "LV2-C1: after a SCARPER! (reactive) normal move is confirmed, the Movement panel must not keep the moved unit's red group-drag hint ('9 of 10 models can be placed here') nor enabled Undo Model / Reset Unit / End This Unit's Move buttons with no unit selected. Same set-up and real clicks as ork11e_scarper (Runt Swarm P2, the Runtherd parked south of the Gretchin; P1's Custodian Guard Gamma ends a move, P2 uses SCARPER! on Gretchin Alpha, D6 = 5\" with seed 42). Ctrl+A + a real 3.8\" drag south: one Gretchin is blocked by the Runtherd and the hint says so; a real click on End This Unit's Move confirms the reactive move. Then the hint is empty and the three per-unit buttons are disabled; when Player 1 selects the next unit (Custodian Guard Delta, real click) the buttons are enabled again.",
+  "description": "LV2-C1: after a SCARPER! (reactive) normal move is confirmed, the Movement panel must not keep the moved unit's red group-drag hint ('9 of 10 models can be placed here') nor enabled Undo Model / Reset Unit / End This Unit's Move buttons with no unit selected. Same set-up and real clicks as ork11e_scarper (Runt Swarm P2, the Runtherd parked south of the Gretchin; P1's Custodian Guard Gamma ends a move, P2 uses SCARPER! on Gretchin Alpha, D6 = 5\" with seed 42). Ctrl+A + a real 3.8\" drag south: one Gretchin is blocked by the Runtherd and the hint says so; a real click on End This Unit's Move confirms the reactive move. Then the hint is empty and the three per-unit buttons are disabled; when Player 1 selects the next unit (Custodian Guard Delta, real click) the buttons are enabled again. Setup privilege (WP-FIX1): the dice are re-seeded (RulesEngine.set_test_seed) right before the Use click, so the D6 is 5 regardless of how many RNG instances the engine made since load.",
   "steps": [
     {
       "act": "wait_seconds",
@@ -141,6 +141,13 @@
     {
       "act": "screenshot",
       "label": "01_window_for_ork_player"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "RulesEngine.set_test_seed(45)\nreturn RulesEngine.get_test_seed()",
+      "equals": 45,
+      "comment": "WP-FIX1 setup privilege: re-seed the dice right before SCARPER! is used. The fixture-level rng_seed counts every RNG instance the engine makes from load onwards (instance k is seeded hash([seed, k])). WP-C46's Superior Creation hook no longer makes one on each phase transition, so at the old seed the SCARPER! D6 came up 2 instead of 5. A 2\" move cannot reach the Runtherd, so the group-drag hint this scenario checks never appears. Seed chosen so the D6 is 5 again."
     },
     {
       "act": "click_node",
