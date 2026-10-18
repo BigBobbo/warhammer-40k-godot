@@ -238,6 +238,7 @@ TESTS=(
     "tests/test_custodes_codex_shooting.gd"
     "tests/test_custodes_codex_movement.gd"
     "tests/test_custodes_codex_other.gd"
+    "tests/test_custodes_abilities_11e.gd"
     "tests/test_ork_codex_turn_flow_fixes.gd"
     "tests/test_ork_abilities_11e.gd"
     "tests/test_ork_enhancements_11e.gd"

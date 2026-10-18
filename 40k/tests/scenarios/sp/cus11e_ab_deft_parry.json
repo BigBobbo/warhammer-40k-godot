@@ -1,0 +1,236 @@
+{
+  "id": "cus11e_ab_deft_parry",
+  "covers": [
+    "codex.custodes.datasheet_abilities.deft_parry",
+    "scripts.codex.custodes.CustodesAbilities",
+    "rules.melee.hit_modifier"
+  ],
+  "description": "WP-C7 Codex: Adeptus Custodes (11e) DEFT PARRY (Vigilator Squad, passive): melee attacks that target the unit have -1 to hit. Fixture cus11e_c7_enemy_fight (P1 Orks' Fight phase; the Boyz charged and are engaged with the Vigilators of P2). After the pile-ins, a real click selects the Boyz to fight; attacks are assigned and resolved through the attack dialog and the resolution dock. The Boyz' melee hit roll carries the Deft Parry -1 (modifier ledger) and the fight dice log names it. Setup privileges: auto wound allocation; both players 0 CP.",
+  "fixture": "cus11e_c7_enemy_fight",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "custodes_abilities": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn true",
+      "multiline": true,
+      "comment": "setup privilege: auto wound allocation; player(s) 1/2 CP 0 (no paid stratagem competes with the abilities under test) (see description)",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BOYZ_B.flags.charged_this_turn",
+      "equals": true
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_B",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BOYZ_B",
+      "emit_pressed": true,
+      "comment": "real click: select the unit to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out",
+      "multiline": true,
+      "comment": "press Decline on the Epic Challenge prompt if it opened (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out",
+      "multiline": true,
+      "comment": "press Decline on the Epic Challenge prompt if it opened (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out",
+      "multiline": true,
+      "comment": "press Decline on the Epic Challenge prompt if it opened (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(16)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(16)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar found := false\nfor d in ph.dice_log:\n\tif str(d.get(\"context\", \"\")) == \"hit_roll_melee\":\n\t\tprint(\"[wp-c7] deft parry: hit_roll_melee weapon=\", d.get(\"weapon\", \"\"), \" threshold=\", d.get(\"threshold\", \"\"), \" ledger=\", d.get(\"modifier_ledger\", []))\n\t\tfor e in d.get(\"modifier_ledger\", []):\n\t\t\tif str(e.get(\"source\", e.get(\"name\", \"\"))).contains(\"Deft Parry\"):\n\t\t\t\tfound = true\nreturn found",
+      "multiline": true,
+      "comment": "the Boyz' melee hit roll carries the -1 from Deft Parry (named in the modifier ledger)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").dice_log_display.get_parsed_text().contains(\"Deft Parry\")",
+      "comment": "and the fight dice log names it",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var panel = tree.root.get_node(\"Main\").get_node_or_null(\"HUD_Left/GameLogPanel\")\nif panel == null:\n\tfor n in tree.root.get_node(\"Main\").find_children(\"*\", \"\", true, false):\n\t\tif n.get(\"_tab_dice_button\") != null:\n\t\t\tpanel = n\n\t\t\tbreak\nif panel == null:\n\treturn \"panel not found\"\npanel._tab_dice_button.emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "show the Dice Log tab",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "01_deft_parry_minus_one_to_hit"
+    }
+  ]
+}

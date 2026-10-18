@@ -930,7 +930,6 @@ func phase_signal_map() -> Dictionary:
 		"grenade_result": _on_grenade_result,
 		"shooting_damage_applied": _on_shooting_damage_visual,  # T7-53
 		"ai_shooting_visual": _on_ai_shooting_visual,  # T7-38
-		"sentinel_storm_available": _on_sentinel_storm_available,  # P1-10
 		"throat_slittas_available": _on_throat_slittas_available,  # P1-12
 		# Codex: Orks (11e) reactive move follow-ups (GRAB IT / GOADED INTO ACTION)
 		"ork11e_reactive_move_started": _on_ork11e_reactive_move_started,
@@ -3736,61 +3735,6 @@ func _on_shooting_complete() -> void:
 	if dice_log_display:
 		DiceLogFormatter.outcome(dice_log_display, "Shooting complete for unit", "good")
 
-# ============================================================================
-# P1-10: SENTINEL STORM — SHOOT AGAIN PROMPT
-# ============================================================================
-
-func _on_sentinel_storm_available(unit_id: String, player: int) -> void:
-	"""Show Sentinel Storm dialog when the ability is available after shooting."""
-	print("╔═══════════════════════════════════════════════════════════════")
-	print("║ SHOOTING CONTROLLER: SENTINEL STORM AVAILABLE")
-	print("║ Unit ID: ", unit_id)
-	print("║ Player: ", player)
-	print("╚═══════════════════════════════════════════════════════════════")
-
-	# Skip dialog for AI players — auto-use Sentinel Storm (free ability, always beneficial)
-	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(player):
-		print("ShootingController: AI player %d auto-using Sentinel Storm for %s" % [player, unit_id])
-		emit_signal("shoot_action_requested", {
-			"type": "USE_SENTINEL_STORM",
-			"actor_unit_id": unit_id
-		})
-		return
-
-	# Dismiss any lingering dialogs (e.g. NextWeaponDialog/attack summary)
-	for child in get_tree().root.get_children():
-		if child is AcceptDialog and child.visible:
-			child.hide()
-			child.queue_free()
-
-	var dialog = preload("res://dialogs/SentinelStormDialog.gd").new()
-	dialog.setup(unit_id, player)
-	dialog.sentinel_storm_chosen.connect(_on_sentinel_storm_chosen)
-	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
-
-func _on_sentinel_storm_chosen(unit_id: String, use_ability: bool) -> void:
-	"""Handle player's Sentinel Storm decision."""
-	if use_ability:
-		print("ShootingController: Player activates Sentinel Storm for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "USE_SENTINEL_STORM",
-			"actor_unit_id": unit_id
-		})
-		# Show feedback in dice log
-		if dice_log_display:
-			dice_log_display.append_text("[b][color=gold]SENTINEL STORM! Unit shoots again![/color][/b]\n")
-	else:
-		print("ShootingController: Player declines Sentinel Storm for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "DECLINE_SENTINEL_STORM",
-			"actor_unit_id": unit_id
-		})
-		# Clear local state since shooting is complete
-		active_shooter_id = ""
-		weapon_assignments.clear()
-		_clear_visuals()
 
 # ============================================================================
 # P1-12: THROAT SLITTAS — MORTAL WOUNDS PROMPT

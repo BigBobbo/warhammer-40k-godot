@@ -7,6 +7,9 @@ extends MoveType
 static func _ork_codex_movement():
 	return load("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
 
+# Codex: Adeptus Custodes (11e) CORNER THE QUARRY consumers (WP-C7), loaded the same way.
+static func _cus11e_abilities():
+	return load("res://scripts/codex/custodes/CustodesAbilities.gd")
 # Codex: Orks (11e) Wimp-kickaz (WP-O5) — same load-at-call-time rule.
 static func _ork11e_enh():
 	return load("res://scripts/codex/orks/OrkEnhancements11e.gd")
@@ -56,7 +59,8 @@ func select_mode(unit_id: String, board: Dictionary, _context: Dictionary = {}) 
 	# NOBZ unit must select the desperate escape mode.
 	if shocked or unit.get("flags", {}).get("effect_cut_em_down", false) \
 			or _ork_codex_movement().where_dya_fink_forces_desperate_escape(unit_id, board) \
-			or _ork11e_enh().forces_desperate_escape(unit_id, board):
+			or _ork11e_enh().forces_desperate_escape(unit_id, board) \
+			or _cus11e_abilities().corner_the_quarry_source(unit_id, board) != "":  # Codex: Adeptus Custodes CORNER THE QUARRY
 		# 09.07: "Otherwise, you must select this mode."
 		return {"mode": "desperate_escape", "mandatory": true, "available": ["desperate_escape"]}
 	# Ordered retreat is selectable but NOT mandatory (sidebar): the player
@@ -75,6 +79,8 @@ func before_moving(unit_id: String, board: Dictionary, rng, context: Dictionary)
 	# CUT' EM DOWN (Bully Boyz): -1 to each test while a Waaagh! was active
 	# for the Nobz/Meganobz unit when the stratagem was used.
 	var cut_mod: int = -1 if unit.get("flags", {}).get("effect_cut_em_down_minus1", false) else 0
+	# Codex: Adeptus Custodes CORNER THE QUARRY: -1 to those hazard rolls while battle-shocked.
+	cut_mod += _cus11e_abilities().corner_the_quarry_hazard_modifier(unit_id, board)
 	# Codex: Orks (11e) Wimp-kickaz (WP-O5): -1 to these hazard rolls while the
 	# NOBZ unit is riled up.
 	var wk_mod: int = int(_ork11e_enh().desperate_escape_hazard_modifier(unit_id, board))

@@ -1,0 +1,265 @@
+{
+  "id": "cus11e_ab_infernus_firebombs",
+  "covers": [
+    "codex.custodes.datasheet_abilities.infernus_firebombs",
+    "scripts.codex.custodes.CustodesAbilities",
+    "stratagem.window.fight_phase_end"
+  ],
+  "description": "WP-C7 Codex: Adeptus Custodes (11e) INFERNUS FIREBOMBS (Ares Gunship) through the real fight_phase_end window in the OPPONENT's Fight phase. Fixture cus11e_c7_fight_end (P1 Orks' Fight phase vs P2 Custodes). P1 ends its Fight phase through the real panel (PhaseActionButton + confirmations); P2's fight_phase_end window offers Infernus Firebombs and Take Wing (cost 'Ability'). A real click on Firebombs opens the picker (the Dakkajet AIRCRAFT is excluded); a real click picks the Boyz: one D6 per model (6s = mortal wounds, game log), the Boyz are firebombed for P2 (the live attack hook gives P2's ranged attacks against them [IGNORES COVER]). The window re-offers only Take Wing; a real click declines it. Setup privileges: auto wound allocation; the Orks (P1) have 0 CP; the Boyz' wounds inflated.",
+  "fixture": "cus11e_c7_fight_end",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "custodes_abilities": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"1\"][\"cp\"] = 0\nfor m in GameState.state.units[\"U_BOYZ_B\"].models:\n\tm[\"wounds\"] = 99\n\tm[\"current_wounds\"] = 99\nreturn true",
+      "multiline": true,
+      "comment": "setup privilege: auto wound allocation; player(s) 1 CP 0 (no paid stratagem competes with the abilities under test) (see description)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "decline P1's windows here (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true,
+      "comment": "real click: End Fight Phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "decline P1's windows here (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "decline P1's windows here (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "fight_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_infernus_firebombs",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_take_wing",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_infernus_firebombs\").find_child(\"Cost\", true, false).text",
+      "comment": "a datasheet ability card: no CP cost",
+      "equals": "Ability"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_fight_phase_end_custodes_cards"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_infernus_firebombs/Buttons/Use_cus11e_ab_infernus_firebombs_U_ARES_A",
+      "comment": "real click (P2): Infernus Firebombs"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_B",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"StratagemTargetDialog/Content/Pick_U_DAKKAJET_A\") == null",
+      "comment": "an AIRCRAFT cannot be selected",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_firebombs_picker_no_aircraft"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_B",
+      "comment": "real click: the Boyz"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.get_unit(\"U_BOYZ_B\").flags.get(\"cus11e_ab_firebombed\", {}).get(\"player\", 0))",
+      "comment": "the Boyz are firebombed for P2",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Infernus Firebombs: Boyz\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = RulesEngine.ork11e_ab_mods(GameState.get_unit(\"U_VENATARI_VL_A\"), GameState.get_unit(\"U_BOYZ_B\"), {\"name\": \"Verutum Lance\", \"type\": \"Ranged\"}, false, GameState.state, [])\nprint(\"[wp-c7] firebombs: P2 ranged vs Boyz ignores_cover=\", m.ignores_cover)\nreturn bool(m.ignores_cover)",
+      "multiline": true,
+      "comment": "P2's ranged attacks that target the Boyz have [IGNORES COVER]",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "fight_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_infernus_firebombs\") == null",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_take_wing",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "real click: decline Take Wing"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "03_firebombs_resolved"
+    }
+  ]
+}

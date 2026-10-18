@@ -2940,13 +2940,6 @@ static func _decide_random(phase: int, snapshot: Dictionary, available_actions: 
 	if action_types.has("COMPLETE_SHOOTING_FOR_UNIT"):
 		var a = action_types["COMPLETE_SHOOTING_FOR_UNIT"][0]
 		return {"type": "COMPLETE_SHOOTING_FOR_UNIT", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Complete shooting (Easy)"}
-	# P1-10: Always use Sentinel Storm — free extra shooting round
-	if action_types.has("USE_SENTINEL_STORM"):
-		var a = action_types["USE_SENTINEL_STORM"][0]
-		return {"type": "USE_SENTINEL_STORM", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Use Sentinel Storm (Easy)"}
-	if action_types.has("DECLINE_SENTINEL_STORM") and not action_types.has("USE_SENTINEL_STORM"):
-		var a = action_types["DECLINE_SENTINEL_STORM"][0]
-		return {"type": "DECLINE_SENTINEL_STORM", "actor_unit_id": a.get("actor_unit_id", ""), "_ai_description": "Decline Sentinel Storm (Easy)"}
 	if action_types.has("CONFIRM_UNIT_MOVE"):
 		var a = action_types["CONFIRM_UNIT_MOVE"][0]
 		return {"type": "CONFIRM_UNIT_MOVE", "actor_unit_id": a.get("actor_unit_id", a.get("unit_id", "")), "_ai_description": "Confirm move (Easy)"}
@@ -6215,36 +6208,6 @@ static func _decide_movement(snapshot: Dictionary, available_actions: Array, pla
 			"actor_unit_id": uid,
 			"_ai_description": "Decline Command Re-roll (movement phase fallback)"
 		}
-
-	# Step 0.7: Free mortal-wound windows (Quicksilver Execution: D6/model
-	# 2+ = 2 MW). Free once-per-window damage — use it on the most
-	# grenade-worthy offered target.
-	for mw_type in ["USE_QUICKSILVER_EXECUTION"]:
-		if action_types.has(mw_type):
-			var best_mw = action_types[mw_type][0]
-			var best_mw_score := -INF
-			for mwa in action_types[mw_type]:
-				var mw_tuid = mwa.get("target_unit_id", "")
-				var mw_unit = snapshot.get("units", {}).get(mw_tuid, {})
-				if mw_unit.is_empty():
-					continue
-				var s = _score_grenade_target(mw_unit)
-				if s > best_mw_score:
-					best_mw_score = s
-					best_mw = mwa
-			var mw_decision = {
-				"type": mw_type,
-				"player": player,
-				"target_unit_id": best_mw.get("target_unit_id", ""),
-				"_ai_description": "AI uses %s on best mortal-wound target" % mw_type
-			}
-			# The two windows key the acting unit differently (actor_unit_id
-			# vs unit_id) — pass through whichever the offer carried.
-			if best_mw.has("actor_unit_id"):
-				mw_decision["actor_unit_id"] = best_mw["actor_unit_id"]
-			if best_mw.has("unit_id"):
-				mw_decision["unit_id"] = best_mw["unit_id"]
-			return mw_decision
 
 	# Step 0.8: Kunnin' Infiltrator placement needs an interactive board
 	# click the AI has no pathway for — cancel so the phase unblocks
@@ -12629,15 +12592,6 @@ static func _decide_shooting(snapshot: Dictionary, available_actions: Array, pla
 			"_ai_description": "Activate Throat Slittas — mortal wounds"
 		}
 
-	# Step 0.5b: P1-10 — Always use Sentinel Storm (free extra shooting)
-	if action_types.has("USE_SENTINEL_STORM"):
-		var a = action_types["USE_SENTINEL_STORM"][0]
-		return {
-			"type": "USE_SENTINEL_STORM",
-			"actor_unit_id": a.get("actor_unit_id", ""),
-			"_ai_description": "Activate Sentinel Storm — shoot again"
-		}
-
 	# Step 1: Handle saves if needed
 	if action_types.has("APPLY_SAVES"):
 		return {"type": "APPLY_SAVES", "payload": {"save_results_list": []}, "_ai_description": "Applying saves"}
@@ -16118,43 +16072,6 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 		if not action_types.has(t):
 			action_types[t] = []
 		action_types[t].append(a)
-
-	# Moment Shackle (Trajann): once-per-battle, blocks the whole fight
-	# phase until answered — with no branch here the AI hung permanently
-	# (audit Tier 1). Choose 2+ invuln when heavy melee is incoming, 12
-	# attacks when there's real damage to deal, decline vs chaff to keep
-	# the once-per-battle use.
-	if action_types.has("USE_MOMENT_SHACKLE") or action_types.has("DECLINE_MOMENT_SHACKLE"):
-		var ms_offer = action_types.get("USE_MOMENT_SHACKLE", action_types.get("DECLINE_MOMENT_SHACKLE", [{}]))[0]
-		var ms_uid = ms_offer.get("unit_id", "")
-		var ms_unit = snapshot.get("units", {}).get(ms_uid, {})
-		var ms_enemies = _get_enemy_units(snapshot, player)
-		var ms_incoming = _estimate_incoming_melee_damage(ms_unit, ms_enemies, ms_uid) if not ms_unit.is_empty() else 0.0
-		var ms_remaining = _estimate_unit_remaining_wounds(ms_unit) if not ms_unit.is_empty() else 0.0
-		var ms_best_target_value := 0.0
-		for eng in _get_engaging_enemy_units(ms_unit, ms_uid, ms_enemies):
-			ms_best_target_value = maxf(ms_best_target_value, _estimate_unit_value(eng.get("enemy_unit", {})))
-		var ms_choice := ""
-		if ms_incoming >= ms_remaining * 0.5 and ms_incoming >= 3.0:
-			ms_choice = "invuln_2"  # likely to eat a big swing — survive it
-		elif ms_best_target_value >= 6.0:
-			ms_choice = "attacks_12"  # something worth killing is in reach
-		if ms_choice != "" and action_types.has("USE_MOMENT_SHACKLE"):
-			for msa in action_types["USE_MOMENT_SHACKLE"]:
-				if msa.get("choice", "") == ms_choice and msa.get("unit_id", "") == ms_uid:
-					return {
-						"type": "USE_MOMENT_SHACKLE",
-						"unit_id": ms_uid,
-						"choice": ms_choice,
-						"player": player,
-						"_ai_description": "AI uses Moment Shackle (%s): incoming %.1f, target value %.1f" % [ms_choice, ms_incoming, ms_best_target_value]
-					}
-		return {
-			"type": "DECLINE_MOMENT_SHACKLE",
-			"unit_id": ms_uid,
-			"player": player,
-			"_ai_description": "AI declines Moment Shackle (save the once-per-battle use)"
-		}
 
 	# P0-58: If melee saves need to be applied (should not normally happen for AI, but handle gracefully)
 	if action_types.has("APPLY_MELEE_SAVES"):
@@ -22008,7 +21925,7 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 		"GILDED CHAMPION":
 			# Lions (1 CP, any phase, once per battle per model): restore a
 			# CHARACTER's spent 'once per battle' datasheet ability — e.g. a
-			# Blade Champion's Martial Inspiration for another advance+charge.
+			# Shield-Captain's Vengeful Surge or Archeotech Teleport-shunter.
 			# Only worth it while there is battle left to spend the refresh in.
 			if battle_round >= 5 or enemy_units.is_empty():
 				return {}
@@ -22277,7 +22194,9 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 			var tid := str(t.get("unit_id", ""))
 			var score := 0.0
 			if is_ability:
-				score = float(_ork_abilities().ai_score(player, sid, tid, window_id, ctx))
+				# WP-C7: Codex: Adeptus Custodes ability offers ("cus11e_ab_*") are scored by CustodesAbilities.
+				var cus_ab = load("res://scripts/codex/custodes/CustodesAbilities.gd")
+				score = float(cus_ab.ai_score(player, sid, tid, window_id, ctx)) if cus_ab.handles_id(sid) else float(_ork_abilities().ai_score(player, sid, tid, window_id, ctx))
 			elif is_codex:
 				score = codex.ai_score(strat, player, tid, window_id, ctx)
 			elif units.has(tid):

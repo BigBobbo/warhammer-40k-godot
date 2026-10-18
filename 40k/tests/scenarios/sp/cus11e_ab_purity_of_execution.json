@@ -1,0 +1,158 @@
+{
+  "id": "cus11e_ab_purity_of_execution",
+  "covers": [
+    "codex.custodes.datasheet_abilities.purity_of_execution",
+    "scripts.codex.custodes.CustodesAbilities",
+    "stratagem.window.unit_selected_to_shoot"
+  ],
+  "description": "WP-C7 Codex: Adeptus Custodes (11e) PURITY OF EXECUTION (Prosecutors) through the real unit_selected_to_shoot window. Fixture cus11e_c7_shoot (P1 Custodes' Shooting phase). A real token click selects the Prosecutors to shoot: the unit_selected_to_shoot window offers the Purity of Execution card (cost 'Ability'); a real click opens the picker of visible enemy units within 18\" and a real click picks the Nobz. No CP; the Nobz carry the detected flag (+3\" detection range until the end of the phase, read by the live helper), the log names them, and the Prosecutors stay the active shooter. Setup privileges: auto wound allocation; the Orks (P2) have 0 CP.",
+  "fixture": "cus11e_c7_shoot",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "custodes_abilities": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn true",
+      "multiline": true,
+      "comment": "setup privilege: auto wound allocation; player(s) 2 CP 0 (no paid stratagem competes with the abilities under test) (see description)",
+      "equals": true
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_PROSECUTORS_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "unit_selected_to_shoot"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_purity_of_execution",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_purity_of_execution\").find_child(\"Cost\", true, false).text",
+      "comment": "a datasheet ability card: no CP cost",
+      "equals": "Ability"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_purity_card_on_selection"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_purity_of_execution/Buttons/Use_cus11e_ab_purity_of_execution_U_PROSECUTORS_A",
+      "comment": "real click: use Purity of Execution"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_NOBZ_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "02_purity_target_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_NOBZ_A",
+      "comment": "real click: the Nobz are detected"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "int(GameState.get_unit(\"U_NOBZ_A\").flags.get(\"cus11e_ab_detected\", {}).get(\"player\", 0))",
+      "comment": "the Nobz are detected for P1",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Purity of Execution: Nobz\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "var A = load(\"res://scripts/codex/custodes/CustodesAbilities.gd\")\nreturn A.detection_range_bonus(GameState.get_unit(\"U_NOBZ_A\"))",
+      "multiline": true,
+      "comment": "+3\" detection range against the Nobz for P1 until the end of the phase",
+      "equals": 3.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_PROSECUTORS_A"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_purity_applied"
+    }
+  ]
+}

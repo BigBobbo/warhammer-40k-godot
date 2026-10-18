@@ -32,8 +32,6 @@ signal consolidate_required(unit_id: String, max_distance: float)
 signal subphase_transition(from_subphase: String, to_subphase: String)
 signal epic_challenge_opportunity(unit_id: String, player: int)
 signal counter_offensive_opportunity(player: int, eligible_units: Array)
-signal moment_shackle_required(unit_id: String, player: int)  # Blade Champion Moment Shackle choice at start of Fight phase (human UI)
-signal dread_foe_resolved(unit_id: String, result: Dictionary)  # P1-17: Dread Foe mortal wounds result
 signal saves_required(save_data_list: Array)  # P0-58: Interactive wound allocation for defender
 signal sweeping_advance_available(unit_id: String, player: int, in_engagement: bool, move_distance: float)  # Sweeping Advance opportunity
 signal acrobatic_escape_available(unit_id: String, player: int, move_distance: float)  # Acrobatic Escape opportunity (Callidus Assassin)
@@ -106,9 +104,6 @@ var sweeping_advance_pending_units: Array = []  # Units eligible for Sweeping Ad
 var awaiting_acrobatic_escape: bool = false
 var acrobatic_escape_pending_units: Array = []  # Units eligible for Acrobatic Escape at end of fight phase
 
-# Moment Shackle tracking (Trajann Valoris)
-var _moment_shackle_pending_units: Array = []  # Unit IDs with Moment Shackle available this phase
-
 # 11e 12.07-12.08: the global end-of-phase CONSOLIDATE step (edition >= 11
 # only). NOT_STARTED while the Fight step runs; ACTIVE once END_FIGHT is
 # requested with every fight resolved — the active player consolidates all
@@ -175,7 +170,6 @@ func _on_phase_enter() -> void:
 	sweeping_advance_pending_units.clear()
 	awaiting_acrobatic_escape = false
 	acrobatic_escape_pending_units.clear()
-	_moment_shackle_pending_units.clear()
 	consolidation_step_11e = ConsolidationStep11e.NOT_STARTED
 	consolidating_player_11e = 0
 	consolidation_done_players_11e.clear()
@@ -196,20 +190,8 @@ func _on_phase_enter() -> void:
 	# loaded save) before this phase re-stamps them.
 	_clear_fight_eligibility_stamps_11e()
 
-	# Detect Moment Shackle eligible units
-	var ms_units = GameState.state.get("units", {})
-	for ms_uid in ms_units:
-		var ms_unit = ms_units[ms_uid]
-		if ms_unit.get("owner", 0) != get_current_player():
-			continue
-		if ms_unit.get("flags", {}).get("moment_shackle_used", false):
-			continue
-		var ms_abilities = ms_unit.get("meta", {}).get("abilities", [])
-		for ms_ab in ms_abilities:
-			var ms_name = ms_ab.get("name", "") if ms_ab is Dictionary else str(ms_ab)
-			if ms_name == "Moment Shackle":
-				_moment_shackle_pending_units.append(ms_uid)
-				break
+	# (Codex: Adeptus Custodes (11e) Moment Shackle is a "start of any phase"
+	# ability card in the phase_start window — CustodesAbilities.gd, WP-C7.)
 
 	# Apply unit ability effects (leader abilities, always-on abilities)
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
@@ -312,14 +294,6 @@ func _initialize_fight_sequence() -> void:
 	emit_signal("fight_order_determined", combatants)
 	emit_signal("fight_sequence_updated", combatants)
 
-	# 11e: the Blade Champion's Moment Shackle is chosen at the START of the
-	# Fight phase, before any unit fights. Offer it first (gating the opening
-	# Pile In step); once every pending choice is resolved the pile-in begins.
-	# The AI resolves it via get_available_actions(); a human needs the dialog
-	# that moment_shackle_required drives — without this the phase soft-locked.
-	if _maybe_offer_moment_shackle():
-		return
-
 	# 11e 12.01 start of the Fight phase (the fight_phase_start windows), then
 	# 12.02: the fight phase OPENS with the global Pile In step — both
 	# players pile in their eligible units (active player first) before any
@@ -360,17 +334,6 @@ func _resume_after_fight_phase_start_window(_ctx: Dictionary, _window_result: Di
 	log_phase_message("[11e 12.01] fight_phase_start windows answered — the Pile In step begins")
 	return _begin_pile_in_step_11e()
 
-# Offer the next pending Moment Shackle choice to the active player. Returns
-# true if a choice is now outstanding (caller must NOT proceed to pile-in yet),
-# false when there is nothing pending. Emits moment_shackle_required so the
-# human dialog appears; the AI reads the same choice from get_available_actions.
-func _maybe_offer_moment_shackle() -> bool:
-	if _moment_shackle_pending_units.is_empty():
-		return false
-	var uid = _moment_shackle_pending_units[0]
-	log_phase_message("MOMENT SHACKLE: offering choice for %s (player %d)" % [uid, get_current_player()])
-	emit_signal("moment_shackle_required", uid, get_current_player())
-	return true
 
 func _check_for_combats() -> void:
 	var combatants = _combatants_11e()
@@ -623,19 +586,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_apply_melee_saves(action)
 		"CONTINUE_TO_WOUNDS", "CONTINUE_TO_SAVES", "USE_FIGHT_REROLL":  # Staged sequential steps
 			return _validate_staged_fight_continue(action)
-		"USE_MOMENT_SHACKLE":
-			var ms_uid = action.get("unit_id", "")
-			if ms_uid not in _moment_shackle_pending_units:
-				return {"valid": false, "errors": ["Unit does not have Moment Shackle pending"]}
-			var ms_choice = action.get("choice", "")
-			if ms_choice not in ["attacks_12", "invuln_2"]:
-				return {"valid": false, "errors": ["Invalid Moment Shackle choice: %s" % ms_choice]}
-			return {"valid": true}
-		"DECLINE_MOMENT_SHACKLE":
-			var ms_uid2 = action.get("unit_id", "")
-			if ms_uid2 not in _moment_shackle_pending_units:
-				return {"valid": false, "errors": ["Unit does not have Moment Shackle pending"]}
-			return {"valid": true}
 		"USE_STRATAGEM":
 			return _validate_use_stratagem(action)
 		"END_CHARGE":
@@ -712,10 +662,6 @@ func _process_fight_action(action: Dictionary) -> Dictionary:
 			return _staged_fight_continue_to_saves()
 		"USE_FIGHT_REROLL":  # Staged: Command Re-roll a hit or wound die
 			return _process_use_fight_reroll(action)
-		"USE_MOMENT_SHACKLE":
-			return _process_use_moment_shackle(action)
-		"DECLINE_MOMENT_SHACKLE":
-			return _process_decline_moment_shackle(action)
 		"USE_STRATAGEM":
 			return _process_use_stratagem(action)
 		"END_CHARGE":
@@ -1021,7 +967,7 @@ func _process_select_fighter(action: Dictionary) -> Dictionary:
 	# selected to fight (either player's unit), before attacks" — the FIGHTER'S
 	# OWNER decides (HIT 'EM HARDER, MOW 'EM DOWN, UNBRIDLED CARNAGE, ARMED TO
 	# DA TEEF …, and the Codex: Adeptus Custodes RENDAX ka'tah of a readied
-	# unit — CustodesKatah.gd). Opens before Epic Challenge / Dread Foe so the
+	# unit — CustodesKatah.gd). Opens before Epic Challenge so the
 	# chosen buff is in place for everything that follows the selection.
 	var fighter_owner := int(get_unit(active_fighter_id).get("owner", current_selecting_player))
 	var stf_ctx := {"phase": "fight", "unit_id": active_fighter_id}
@@ -1040,7 +986,7 @@ func _resume_after_selected_to_fight_window(ctx: Dictionary, _window_result: Dic
 	return _after_selected_to_fight_windows(str(ctx.get("unit_id", active_fighter_id)))
 
 ## Everything that follows "selected to fight" once the stratagem window has
-## closed: Epic Challenge → Dread Foe → fight moves/attacks.
+## closed: Epic Challenge → fight moves/attacks.
 func _after_selected_to_fight_windows(fighter_id: String) -> Dictionary:
 	active_fighter_id = fighter_id
 	# Check for Epic Challenge opportunity before pile-in
@@ -1056,8 +1002,8 @@ func _after_selected_to_fight_windows(fighter_id: String) -> Dictionary:
 		result["epic_challenge_player"] = current_selecting_player
 		return result
 
-	# No Epic Challenge available - Dread Foe, then the fight itself
-	return _resolve_dread_foe_then_pile_in(active_fighter_id)
+	# No Epic Challenge available - the fight itself
+	return _proceed_to_fight_moves(active_fighter_id)
 
 # ============================================================================
 # CANCEL_FIGHTER_SELECTION — back out of an activation before any attack lands
@@ -4411,30 +4357,6 @@ func get_available_actions() -> Array:
 	log_phase_message("=== get_available_actions DEBUG ===")
 	log_phase_message("active_fighter_id: '%s'" % active_fighter_id)
 
-	# Moment Shackle: offer choice before any fighting starts
-	if _moment_shackle_pending_units.size() > 0:
-		for ms_uid in _moment_shackle_pending_units:
-			var ms_unit = game_state_snapshot.get("units", {}).get(ms_uid, {})
-			var ms_name = ms_unit.get("meta", {}).get("name", ms_uid)
-			actions.append({
-				"type": "USE_MOMENT_SHACKLE",
-				"unit_id": ms_uid,
-				"choice": "attacks_12",
-				"description": "Moment Shackle (%s): Watcher's Axe gets 12 Attacks" % ms_name
-			})
-			actions.append({
-				"type": "USE_MOMENT_SHACKLE",
-				"unit_id": ms_uid,
-				"choice": "invuln_2",
-				"description": "Moment Shackle (%s): 2+ invulnerable save" % ms_name
-			})
-			actions.append({
-				"type": "DECLINE_MOMENT_SHACKLE",
-				"unit_id": ms_uid,
-				"description": "Decline Moment Shackle for %s" % ms_name
-			})
-		return actions
-
 	# P0-58: If awaiting melee saves, only allow APPLY_MELEE_SAVES
 	if awaiting_melee_saves:
 		actions.append({
@@ -5066,8 +4988,8 @@ func _process_use_epic_challenge(action: Dictionary) -> Dictionary:
 			"value": true})
 	PhaseManager.apply_state_changes(precision_changes)
 
-	# Dread Foe, then the fight itself
-	var ec_result = _resolve_dread_foe_then_pile_in(unit_id)
+	# The fight itself
+	var ec_result = _proceed_to_fight_moves(unit_id)
 	# Merge diffs from stratagem result
 	if not strat_result.get("diffs", []).is_empty():
 		var merged_changes = strat_result.get("diffs", [])
@@ -5081,79 +5003,7 @@ func _process_decline_epic_challenge(action: Dictionary) -> Dictionary:
 
 	log_phase_message("Player declined EPIC CHALLENGE for %s" % unit_name)
 
-	# Dread Foe, then the fight itself
-	return _resolve_dread_foe_then_pile_in(unit_id)
-
-# ============================================================================
-# P1-17: DREAD FOE — Mortal wounds on fight selection
-# ============================================================================
-
-func _resolve_dread_foe_then_pile_in(unit_id: String) -> Dictionary:
-	"""P1-17: Check if unit has Dread Foe ability. If so, auto-resolve mortal wounds
-	against one enemy within Engagement Range, then proceed to pile-in.
-	Dread Foe: Roll 1D6 (+2 if charged this turn). On 4-5, D3 MW. On 6+, 3 MW."""
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	# One trigger per phase: a unit is only ever "selected to fight" once, so a
-	# selection the player CANCELS and then re-makes must not deal the mortal
-	# wounds twice (same guard shape as Try Dat Button's try_dat_rolled_this_phase).
-	var _df_gs_unit = GameState.get_unit(unit_id)
-	var _df_already: bool = not _df_gs_unit.is_empty() and bool(_df_gs_unit.get("flags", {}).get("dread_foe_resolved_this_phase", false))
-	if _df_already:
-		log_phase_message("DREAD FOE: %s already resolved this phase — not re-triggering" % unit_id)
-	if ability_mgr and ability_mgr.has_dread_foe(unit_id) and not _df_already:
-		var unit = get_unit(unit_id)
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		if not _df_gs_unit.is_empty():
-			if not _df_gs_unit.has("flags"):
-				_df_gs_unit["flags"] = {}
-			_df_gs_unit["flags"]["dread_foe_resolved_this_phase"] = true
-
-		# Find enemy units within Engagement Range
-		var targets = _get_dread_foe_targets(unit_id)
-		if targets.is_empty():
-			log_phase_message("DREAD FOE: %s has Dread Foe but no enemies in Engagement Range" % unit_name)
-		else:
-			# Auto-select first target (highest priority: most models, or first found)
-			var target_id = targets[0].get("unit_id", "")
-			var target_name = targets[0].get("unit_name", target_id)
-			log_phase_message("DREAD FOE: %s targets %s within Engagement Range" % [unit_name, target_name])
-
-			# Check if this unit charged this turn
-			var flags = unit.get("flags", {})
-			var charged_this_turn = flags.get("charged_this_turn", false)
-
-			# Resolve Dread Foe via RulesEngine
-			var rng_service = RulesEngine.make_rng()
-			var dread_foe_result = RulesEngine.resolve_dread_foe(
-				unit_id, target_id, charged_this_turn, GameState.state, rng_service
-			)
-
-			# Apply state changes if mortal wounds were dealt
-			var dread_foe_diffs = dread_foe_result.get("diffs", [])
-			_ork11e_fod_intercept(dread_foe_diffs)  # Codex: Orks (11e) Fight On Death
-			if not dread_foe_diffs.is_empty():
-				PhaseManager.apply_state_changes(dread_foe_diffs)
-				# Also update our snapshot
-				game_state_snapshot = GameState.state.duplicate(true)
-				log_phase_message("DREAD FOE: Applied %d state change(s)" % dread_foe_diffs.size())
-
-			# Emit signal for UI/logging
-			emit_signal("dread_foe_resolved", unit_id, dread_foe_result)
-
-			log_phase_message("DREAD FOE: %s rolled %d (modified %d) — %d mortal wound(s) to %s, %d casualt(y/ies)" % [
-				unit_name,
-				dread_foe_result.get("roll", 0),
-				dread_foe_result.get("modified_roll", 0),
-				dread_foe_result.get("mortal_wounds", 0),
-				target_name,
-				dread_foe_result.get("casualties", 0)
-			])
-
-			# Check if Dread Foe killed any units (could trigger Deadly Demise)
-			if not dread_foe_diffs.is_empty():
-				_check_kill_diffs(dread_foe_diffs)
-
-	# Proceed to the activation's fight moves
+	# The fight itself
 	return _proceed_to_fight_moves(unit_id)
 
 # What happens between "selected to fight" and "assign attacks":
@@ -5191,35 +5041,6 @@ func _proceed_to_fight_moves(unit_id: String) -> Dictionary:
 	# Normal fight (12.05): straight to attack assignment.
 	return _request_attack_assignment(unit_id, create_result(true, []))
 
-func _get_dread_foe_targets(unit_id: String) -> Array:
-	"""P1-17: Get enemy units within Engagement Range of a unit for Dread Foe targeting.
-	Returns array of { unit_id, unit_name } dictionaries."""
-	var unit = get_unit(unit_id)
-	var unit_owner = unit.get("owner", 0)
-	var all_units = game_state_snapshot.get("units", {})
-	var targets: Array = []
-
-	for other_id in all_units:
-		var other = all_units[other_id]
-		# Only enemy units
-		if other.get("owner", 0) == unit_owner:
-			continue
-		# Must have alive models
-		var has_alive = false
-		for m in other.get("models", []):
-			if m.get("alive", true):
-				has_alive = true
-				break
-		if not has_alive:
-			continue
-		# Must be within Engagement Range
-		if _units_in_engagement_range(unit, other):
-			targets.append({
-				"unit_id": other_id,
-				"unit_name": other.get("meta", {}).get("name", other_id)
-			})
-
-	return targets
 
 func _validate_use_counter_offensive(action: Dictionary) -> Dictionary:
 	var errors = []
@@ -5382,7 +5203,7 @@ func _validate_end_fight(action: Dictionary) -> Dictionary:
 	if consolidation_step_11e == ConsolidationStep11e.DONE or sequencer_11e == null:
 		return {"valid": true, "errors": []}
 	if pile_in_step_11e == PileInStep11e.NOT_STARTED:
-		return {"valid": false, "errors": ["Resolve the start-of-phase choices (e.g. Moment Shackle) first — the Pile In step (12.02) has not begun"]}
+		return {"valid": false, "errors": ["Resolve the start-of-phase choices first — the Pile In step (12.02) has not begun"]}
 
 	# The Fight step (12.04): "Players resolve the following sequence until
 	# all eligible units have been selected to fight and their attacks have
@@ -5427,8 +5248,8 @@ func get_end_fight_status() -> Dictionary:
 	if sequencer_11e == null or pile_in_step_11e == PileInStep11e.ACTIVE \
 			or consolidation_step_11e != ConsolidationStep11e.NOT_STARTED:
 		return status
-	# Before the global Pile In step has started (a start-of-phase choice such
-	# as the Blade Champion's Moment Shackle is pending) the Fight step has not
+	# Before the global Pile In step has started (a start-of-phase choice is
+	# still pending) the Fight step has not
 	# begun: nothing can end, and nobody can pass yet.
 	if pile_in_step_11e == PileInStep11e.NOT_STARTED:
 		return {"step_over": false, "selecting_player": 0, "can_pass": false, "owed_units": [], "pre_pile_in": true}
@@ -5692,44 +5513,16 @@ func _ork11e_strategic_reserves_followup_diffs(unit_id: String) -> Array:
 # ============================================================================
 
 func _get_sweeping_advance_eligible_units() -> Array:
-	"""Find units with the Sweeping Advance ability that fought this phase and haven't used it yet."""
+	"""Find units with the Sweeping Advance ability that were eligible to fight this phase and haven't used it yet."""
 	var eligible = []
 	var all_units = game_state_snapshot.get("units", {})
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 
-	for unit_id in units_that_fought:
+	# Codex: Adeptus Custodes (11e): "if this unit was ELIGIBLE TO FIGHT this
+	# phase" — not only the units that fought (CustodesAbilities.gd, WP-C7).
+	for unit_id in _cus11e_abilities().sweeping_advance_candidates(units_that_fought):
 		var unit = all_units.get(unit_id, {})
 		if unit.is_empty():
-			continue
-
-		# Check if unit or its attached characters have Sweeping Advance ability
-		var has_sweeping_advance = false
-		var abilities = unit.get("meta", {}).get("abilities", [])
-		for ability in abilities:
-			if ability is Dictionary and ability.get("name", "") == "Sweeping Advance":
-				has_sweeping_advance = true
-				break
-			elif ability is String and ability == "Sweeping Advance":
-				has_sweeping_advance = true
-				break
-
-		# Also check attached characters (e.g. Shield-Captain attached to Vertus Praetors)
-		if not has_sweeping_advance:
-			var attached_ids = unit.get("attachment_data", {}).get("attached_characters", [])
-			for char_id in attached_ids:
-				var char_unit = all_units.get(char_id, {})
-				var char_abilities = char_unit.get("meta", {}).get("abilities", [])
-				for ability in char_abilities:
-					if ability is Dictionary and ability.get("name", "") == "Sweeping Advance":
-						has_sweeping_advance = true
-						break
-					elif ability is String and ability == "Sweeping Advance":
-						has_sweeping_advance = true
-						break
-				if has_sweeping_advance:
-					break
-
-		if not has_sweeping_advance:
 			continue
 
 		# Check if already used this battle (once per battle)
@@ -6430,49 +6223,6 @@ func _process_use_stratagem(action: Dictionary) -> Dictionary:
 	var strat_name = result.get("stratagem_name", stratagem_id)
 	DebugLogger.info(str("FightPhase: Stratagem %s used (target=%s)" % [strat_name, target_unit_id]))
 	return create_result(true, result.get("diffs", []), "Used " + strat_name)
-
-func _process_use_moment_shackle(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", "")
-	var choice = action.get("choice", "")
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	var diffs = []
-
-	diffs.append({"op": "set", "path": "units.%s.flags.moment_shackle_used" % unit_id, "value": true})
-	_moment_shackle_pending_units.erase(unit_id)
-
-	if choice == "attacks_12":
-		diffs.append({"op": "set", "path": "units.%s.flags.moment_shackle_attacks_12" % unit_id, "value": true})
-		log_phase_message("Moment Shackle: %s — Watcher's Axe gets 12 Attacks this phase" % unit_name)
-		DebugLogger.info("[10][INFO] Moment Shackle: %s chose 12 Attacks on Watcher's Axe" % unit_name)
-	elif choice == "invuln_2":
-		diffs.append({"op": "set", "path": "units.%s.flags.effect_invuln" % unit_id, "value": 2})
-		diffs.append({"op": "set", "path": "units.%s.flags.effect_invuln_source" % unit_id, "value": "Moment Shackle"})
-		log_phase_message("Moment Shackle: %s — 2+ invulnerable save this phase" % unit_name)
-		DebugLogger.info("[10][INFO] Moment Shackle: %s chose 2+ invulnerable save" % unit_name)
-
-	# Offer the next pending Moment Shackle choice, or resolve the rest of the
-	# start of the Fight phase (fight_phase_start window, then the Pile In
-	# step) now that every choice is resolved (mirrors the fight-start gate).
-	if not _maybe_offer_moment_shackle():
-		diffs.append_array(_start_fight_phase_after_start_rules().get("changes", []))
-
-	return create_result(true, diffs)
-
-func _process_decline_moment_shackle(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", "")
-	_moment_shackle_pending_units.erase(unit_id)
-	var unit = GameState.state.get("units", {}).get(unit_id, {})
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	log_phase_message("Moment Shackle: %s declined" % unit_name)
-
-	# Offer the next pending choice, or the rest of the start of the Fight
-	# phase (see above).
-	var decline_diffs: Array = []
-	if not _maybe_offer_moment_shackle():
-		decline_diffs = _start_fight_phase_after_start_rules().get("changes", [])
-
-	return create_result(true, decline_diffs)
 
 
 # ============================================================================

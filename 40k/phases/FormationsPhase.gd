@@ -550,7 +550,8 @@ func _find_supreme_commander_unit(player: int) -> String:
 			continue
 		for ab in u.get("meta", {}).get("abilities", []):
 			var ab_name = ab if ab is String else (ab.get("name", "") if ab is Dictionary else "")
-			if ab_name == "Supreme Commander":
+			# Case-insensitive: Codex: Adeptus Custodes (11e) Trajann Valoris prints "SUPREME COMMANDER" (WP-C7).
+			if str(ab_name).to_lower() == "supreme commander":
 				return uid
 	return ""
 

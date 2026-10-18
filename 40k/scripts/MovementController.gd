@@ -176,6 +176,8 @@ func get_unit_movement(unit: Dictionary) -> float:
 	# Madcap Artillery "smashed" -2") — mirrors MovementPhase.get_unit_movement.
 	if GameConstants.edition >= 11:
 		movement = maxf(0.0, movement + float(load("res://scripts/codex/orks/OrkAbilities11e.gd").move_modifier(unit)))
+		# WP-C7: Codex: Adeptus Custodes (11e) Seeker's Instincts (+2" M).
+		movement += float(load("res://scripts/codex/custodes/CustodesAbilities.gd").move_modifier(unit))
 
 	return movement
 

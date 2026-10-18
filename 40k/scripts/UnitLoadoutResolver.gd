@@ -103,9 +103,9 @@ static var _legacy_frozen_from: Dictionary = {}
 ## alone would fit it too). A unit built from the current datasheet therefore
 ## never switches. "Only the current kit has" excludes the legacy datasheet's
 ## own OPTIONS: the codex Boy's default Shoota was a 1.0.19 Boy's swap, so a
-## pre-codex mob's menu lists it too (WP-O1b — once 37b40131 matched the
+## pre-codex mob's menu lists it too (once 37b40131 matched the
 ## "shoota-boyz-unit" id to "Shoota", every pre-codex Boyz roster was taken for
-## a codex one and lost its per-model kit).
+## a codex one and lost its per-model kit; fixed in e3fa7cfb).
 static func datasheet_key(unit: Dictionary) -> String:
 	var meta: Dictionary = unit.get("meta", {}) if typeof(unit.get("meta", {})) == TYPE_DICTIONARY else {}
 	var name := str(meta.get("name", ""))
@@ -131,14 +131,15 @@ static func datasheet_key(unit: Dictionary) -> String:
 	if not legacy_fits and not _kit_fits_menu(unit_slug, menu, true):
 		legacy_fits = _kit_fits_menu(legacy_slug, menu, true)
 	if legacy_fits:
+		# Everything the pre-codex kit could carry: its defaults AND every
+		# weapon its options could swap in (a 1.0.19 Boy could take a Shoota,
+		# so a roster listing one is not proof of a codex build).
 		var legacy_kit := {}
 		for id in _defaults_by_unit.get(legacy_slug, []):
 			legacy_kit[_strip_unit_suffix(str(id), legacy_slug)] = true
 		_ensure_options_loaded()
-		for option in _options_by_unit.get(legacy_slug, []):
-			for s in option.get("replaces", []):
-				legacy_kit[str(s)] = true
-			for bundle in option.get("bundles", []):
+		for opt in _options_by_unit.get(legacy_slug, []):
+			for bundle in opt.get("bundles", []):
 				for s in bundle:
 					legacy_kit[str(s)] = true
 		for id in _defaults_by_unit.get(unit_slug, []):

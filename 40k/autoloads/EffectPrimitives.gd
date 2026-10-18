@@ -617,6 +617,10 @@ static func get_effect_invuln(unit: Dictionary) -> int:
 	var ork_inv := int(_ork_abilities().defence_mods_now(unit).get("invuln", 0))
 	if ork_inv > 0 and (inv == 0 or ork_inv < inv):
 		inv = ork_inv
+	# WP-C7: Codex: Adeptus Custodes (11e) Moment Shackle — this model has a 3+ InSv.
+	var cus_inv := int(_cus11e_abilities().defence_mods_now(unit).get("invuln", 0))
+	if cus_inv > 0 and (inv == 0 or cus_inv < inv):
+		inv = cus_inv
 	return inv
 
 ## WP-O6: Codex: Orks (11e) datasheet abilities (late-loaded: this class is
@@ -626,6 +630,13 @@ static func _ork_abilities():
 	if _ork_ab_script == null:
 		_ork_ab_script = load("res://scripts/codex/orks/OrkAbilities11e.gd")
 	return _ork_ab_script
+
+## WP-C7: Codex: Adeptus Custodes (11e) datasheet abilities (late-loaded, as above).
+static var _cus11e_ab_script = null
+static func _cus11e_abilities():
+	if _cus11e_ab_script == null:
+		_cus11e_ab_script = load("res://scripts/codex/custodes/CustodesAbilities.gd")
+	return _cus11e_ab_script
 
 static func get_effect_invuln_source(unit: Dictionary) -> String:
 	"""Get the source name of the effect-granted invulnerable save (empty if none)."""
@@ -712,7 +723,8 @@ static func has_effect_worsen_ap(unit: Dictionary) -> bool:
 static func get_effect_worsen_ap(unit: Dictionary) -> int:
 	"""Get the effect-granted AP worsen value (0 if none)."""
 	# WP-O6: + Codex: Orks (11e) Arrogant Invulnerability (-1 AP for attacks that target the unit).
-	return maxi(int(unit.get("flags", {}).get(FLAG_WORSEN_AP, 0)), int(_ork_abilities().defence_mods_now(unit).get("ap_worsen", 0)))
+	return maxi(maxi(int(unit.get("flags", {}).get(FLAG_WORSEN_AP, 0)), int(_ork_abilities().defence_mods_now(unit).get("ap_worsen", 0))),
+		int(_cus11e_abilities().defence_mods_now(unit).get("ap_worsen", 0)))  # WP-C7: Living Fortress (-1 AP)
 
 static func has_effect_improve_ap(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted AP improvement."""
@@ -760,7 +772,8 @@ static func has_effect_minus_damage(unit: Dictionary) -> bool:
 static func get_effect_minus_damage(unit: Dictionary) -> int:
 	"""Get the effect-granted damage reduction value (0 if none)."""
 	# WP-O6: + Codex: Orks (11e) Dread 'Ard (-1 D) / Mobile Fortress (ranged -1 D).
-	return maxi(int(unit.get("flags", {}).get(FLAG_MINUS_DAMAGE, 0)), int(_ork_abilities().defence_mods_now(unit).get("damage_minus", 0)))
+	return maxi(maxi(int(unit.get("flags", {}).get(FLAG_MINUS_DAMAGE, 0)), int(_ork_abilities().defence_mods_now(unit).get("damage_minus", 0))),
+		int(_cus11e_abilities().defence_mods_now(unit).get("damage_minus", 0)))  # WP-C7: Guardian Eternal (ranged -1 D)
 
 static func has_effect_crit_hit_on(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted critical hit threshold."""
@@ -798,7 +811,8 @@ static func has_effect_advance_and_charge(unit: Dictionary) -> bool:
 	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_CHARGE, false) \
 		or (GameConstants.edition >= 11 and _ork11e_det().advance_allows_charge(unit)) \
 		or (GameConstants.edition >= 11 and _cus11e_det().advance_allows_charge(unit)) \
-		or _cus11e_grants(unit, "advance_and_charge")
+		or _cus11e_grants(unit, "advance_and_charge") \
+		or _cus11e_abilities().advance_allows_charge(unit)  # WP-C7: Assault Dropship
 
 static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and shoot eligibility."""
@@ -833,12 +847,14 @@ static func _cus11e_grants(unit: Dictionary, what: String) -> bool:
 	return bool(load("res://scripts/codex/custodes/CustodesCodex11e.gd").grants(unit, what))
 
 static func has_effect_reroll_charge(unit: Dictionary) -> bool:
-	"""Check if a unit has effect-granted charge reroll (e.g. Swift Onslaught)."""
-	return unit.get("flags", {}).get(FLAG_REROLL_CHARGE, false)
+	"""Check if a unit has effect-granted charge reroll."""
+	# WP-C7: + Codex: Adeptus Custodes (11e) Swift Onslaught / Seeker's Instincts.
+	return unit.get("flags", {}).get(FLAG_REROLL_CHARGE, false) or _cus11e_abilities().charge_reroll_source(unit) != ""
 
 static func has_effect_reroll_advance(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted Advance re-roll (Bloodthirsty Belligerence, Superfuelled Boiler)."""
-	return unit.get("flags", {}).get(FLAG_REROLL_ADVANCE, false)
+	# WP-C7: + Codex: Adeptus Custodes (11e) Swift Onslaught / Seeker's Instincts.
+	return unit.get("flags", {}).get(FLAG_REROLL_ADVANCE, false) or _cus11e_abilities().advance_reroll_source(unit) != ""
 
 static func has_effect_counts_as_10(unit: Dictionary) -> bool:
 	"""Green Tide: unit counts as containing 10+ models (Raucous Warcaller, Braggin' Rights)."""

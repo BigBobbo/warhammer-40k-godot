@@ -454,8 +454,9 @@ static func _vbd_apply(unit_id: String, player: int, ctx: Dictionary) -> Array:
 
 ## (Once per battle) datasheet abilities the engine tracks with a unit flag
 ## instead of UnitAbilityManager's once-per-battle ledger: ability -> flag.
-## Moment Shackle (Trajann Valoris) is offered by FightPhase at the start of
-## each Fight phase unless flags.moment_shackle_used is set.
+## Moment Shackle (Trajann Valoris) is offered at the start of a phase (the
+## phase_start window, CustodesAbilities.gd — WP-C7) unless
+## flags.moment_shackle_used is set.
 const FLAG_TRACKED_ONCE_PER_BATTLE := {"Moment Shackle": "moment_shackle_used"}
 
 static func _spent_ability(unit_id: String) -> String:
@@ -477,7 +478,7 @@ static func _gilded_apply(unit_id: String, player: int) -> Array:
 	var ability := _spent_ability(unit_id)
 	if FLAG_TRACKED_ONCE_PER_BATTLE.has(ability):
 		# The ability is offered again from the next phase that offers it
-		# (Moment Shackle: the start of the next Fight phase) — never this one.
+		# (Moment Shackle: the next phase_start window) — never this one.
 		_log(player, "GILDED CHAMPION: %s can use %s one additional time (not in this phase)" % [Common.unit_name(unit_id), ability])
 		var fd: Array = [{"op": "remove", "path": "units.%s.flags.%s" % [unit_id, FLAG_TRACKED_ONCE_PER_BATTLE[ability]]}]
 		fd.append_array(Common.set_flag_diffs([unit_id], FLAG_GILDED, ability))

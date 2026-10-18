@@ -282,6 +282,8 @@ func _run_scenario() -> void:
 
 	# 1b) Codex: Adeptus Custodes MARTIAL KA'TAH policy (see _katah_policy_*).
 	_katah_policy_arm()
+	# 1c) Codex: Adeptus Custodes datasheet-ability cards policy (WP-C7).
+	_cus11e_abilities_policy_arm()
 
 	# 2) Load fixture (optional)
 	var fixture: String = _scenario.get("fixture", "")
@@ -1875,6 +1877,27 @@ func _katah_policy_arm() -> void:
 	var pm = get_node_or_null("/root/PhaseManager")
 	if pm != null and pm.has_signal("phase_changed") and not pm.phase_changed.is_connected(_katah_policy_on_phase_changed):
 		pm.phase_changed.connect(_katah_policy_on_phase_changed)
+
+# Codex: Adeptus Custodes (11e) DATASHEET ABILITIES (WP-C7) — scenario policy,
+# like the ka'tah one above. Moment Shackle / Neutronium Cascade Mine / Sword of
+# the Throne open a start-of-phase window, and the shooting / fight-end /
+# movement-start abilities are 0-CP cards in the StratagemDialog. The scenarios
+# written before WP-C7 never answer those cards (the standard fixtures field
+# Trajann, Venatari, ...), so unless a scenario opts in with top-level
+# "custodes_abilities": true  the runner turns the ability OFFERS off
+# (CustodesAbilities.offers_suppressed) and logs it. The passive abilities
+# (Captain-General, Praesidium Shield, ...) are untouched. The cus11e_ab_*
+# scenarios opt in and drive the cards.
+func _cus11e_abilities_policy_arm() -> void:
+	var ca = load("res://scripts/codex/custodes/CustodesAbilities.gd")
+	if ca == null:
+		return
+	var opt_in := bool(_scenario.get("custodes_abilities", false))
+	ca.offers_suppressed = not opt_in
+	if opt_in:
+		print("[ScenarioRunner] custodes_abilities: true — Codex: Adeptus Custodes datasheet-ability cards will be offered")
+	else:
+		print("[ScenarioRunner] custodes_abilities policy: Codex: Adeptus Custodes datasheet-ability cards are not offered in this scenario (opt in with \"custodes_abilities\": true); passive abilities still apply")
 
 func _katah_policy_on_phase_changed(new_phase) -> void:
 	if int(new_phase) != int(GameStateData.Phase.COMMAND):

@@ -114,11 +114,6 @@ var _ork11e_assault_disembark: Dictionary = {}  # {player, transport_id, remaini
 var _ork11e_phase_end_windows_done: bool = false
 var _ork11e_pending_move_changes: Array = []    # the ended move's diffs while its CONFIRM is still being processed (see _post_move_prompts)
 
-# Quicksilver Execution state tracking (Vertus Praetors)
-var _quicksilver_pending_unit: String = ""
-var _quicksilver_pending_targets: Array = []
-var _quicksilver_pending_changes: Array = []
-var _quicksilver_pending_dice: Array = []
 
 # OA-42: Scatter! state tracking (Grot Tanks reactive move)
 var _awaiting_scatter: bool = false
@@ -228,7 +223,7 @@ func get_unit_movement(unit: Dictionary) -> float:
 	# WP-O6: Codex: Orks (11e) datasheet abilities — Runnin' wiv da Herd (+4"),
 	# Madcap Artillery 'smashed' (-2").
 	if GameConstants.edition >= 11:
-		var o6_move := OrkAbilities11eScript.move_modifier(unit)
+		var o6_move: float = OrkAbilities11eScript.move_modifier(unit) + float(_cus11e_abilities().move_modifier(unit))  # WP-C7: Seeker's Instincts +2"
 		if o6_move != 0.0:
 			var pre_o6 = movement
 			movement = maxf(0.0, movement + o6_move)
@@ -373,8 +368,6 @@ func _initialize_movement() -> void:
 		emit_signal("phase_completed")
 
 
-
-
 func validate_action(action: Dictionary) -> Dictionary:
 	var action_type = action.get("type", "")
 
@@ -458,16 +451,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_apply_pivot_cost(action)
 		"BEGIN_SURGE_MOVE":
 			return _validate_begin_surge_move(action)
-		"USE_QUICKSILVER_EXECUTION":
-			var qs_uid = action.get("unit_id", "")
-			if _quicksilver_pending_unit == "" or _quicksilver_pending_unit != qs_uid:
-				return {"valid": false, "errors": ["No Quicksilver Execution pending for this unit"]}
-			return {"valid": true}
-		"DECLINE_QUICKSILVER_EXECUTION":
-			var qs_uid2 = action.get("unit_id", "")
-			if _quicksilver_pending_unit == "" or _quicksilver_pending_unit != qs_uid2:
-				return {"valid": false, "errors": ["No Quicksilver Execution pending for this unit"]}
-			return {"valid": true}
 		"USE_SCATTER":
 			return _validate_use_scatter(action)
 		"DECLINE_SCATTER":
@@ -549,10 +532,6 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_apply_pivot_cost(action)
 		"BEGIN_SURGE_MOVE":
 			return _process_begin_surge_move(action)
-		"USE_QUICKSILVER_EXECUTION":
-			return _process_use_quicksilver_execution(action)
-		"DECLINE_QUICKSILVER_EXECUTION":
-			return _process_decline_quicksilver_execution(action)
 		"USE_SCATTER":
 			return _process_use_scatter(action)
 		"DECLINE_SCATTER":
@@ -1016,6 +995,10 @@ func _validate_remain_stationary(action: Dictionary) -> Dictionary:
 	return {"valid": true, "errors": []}
 
 func _validate_end_movement(action: Dictionary) -> Dictionary:
+	# Codex: Adeptus Custodes ARCHEOTECH TELEPORT-SHUNTER (CustodesAbilities.gd): the unit must make its ingress move this phase.
+	var cus11e_ingress: Array = _cus11e_abilities().pending_forced_ingress(get_current_player())
+	if not cus11e_ingress.is_empty():
+		return {"valid": false, "errors": ["%s must make an ingress move this phase (Archeotech Teleport-shunter) — set it up from reserves first" % ", ".join(PackedStringArray(cus11e_ingress.map(func(x): return GameState.get_unit_display_name(str(x)))))]}
 	# Check if there are any active moves that need to be resolved
 	# Only incomplete moves should block phase end
 	# NOTE: Check both local active_moves AND synced GameState to ensure multiplayer compatibility
@@ -1894,58 +1877,6 @@ func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 # that enemy unit suffers 1 mortal wound."
 
 
-func _process_use_quicksilver_execution(action: Dictionary) -> Dictionary:
-	var unit_id = action.get("unit_id", _quicksilver_pending_unit)
-	var target_unit_id = action.get("target_unit_id", "")
-	var cached_changes = _quicksilver_pending_changes.duplicate()
-	var cached_dice = _quicksilver_pending_dice.duplicate()
-	var pending_targets = _quicksilver_pending_targets.duplicate()
-	_quicksilver_pending_unit = ""
-	_quicksilver_pending_targets = []
-	_quicksilver_pending_changes = []
-	_quicksilver_pending_dice = []
-
-	if target_unit_id == "" and not pending_targets.is_empty():
-		target_unit_id = pending_targets[0].get("unit_id", pending_targets[0].get("target_unit_id", ""))
-	if target_unit_id == "":
-		return create_result(true, cached_changes, "", {"dice": cached_dice})
-
-	cached_changes.append({"op": "set", "path": "units.%s.flags.quicksilver_execution_used" % unit_id, "value": true})
-
-	var rng = RulesEngine.RNGService.new(action.get("payload", {}).get("rng_seed", -1))
-	var unit = get_unit(unit_id)
-	var model_count = 0
-	for m in unit.get("models", []):
-		if m.get("alive", true):
-			model_count += 1
-	var rolls = rng.roll_d6(model_count)
-	var successes = 0
-	for r in rolls:
-		if r >= 2:
-			successes += 1
-	var total_mw = successes * 2
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
-
-	if total_mw > 0:
-		var mw_result = RulesEngine.apply_mortal_wounds(target_unit_id, total_mw, GameState.state, rng)
-		cached_changes.append_array(mw_result.get("diffs", []))
-
-	log_phase_message("Quicksilver Execution: %s targets %s — %d models, rolls %s, %d successes (2+) = %d mortal wounds" % [unit_name, target_name, model_count, str(rolls), successes, total_mw])
-	DebugLogger.info("[7][INFO] Quicksilver Execution: %s → %s, %d MW" % [unit_name, target_name, total_mw])
-	return create_result(true, cached_changes, "Quicksilver Execution resolved", {"dice": cached_dice})
-
-func _process_decline_quicksilver_execution(action: Dictionary) -> Dictionary:
-	var cached_changes = _quicksilver_pending_changes.duplicate()
-	var cached_dice = _quicksilver_pending_dice.duplicate()
-	_quicksilver_pending_unit = ""
-	_quicksilver_pending_targets = []
-	_quicksilver_pending_changes = []
-	_quicksilver_pending_dice = []
-	log_phase_message("Quicksilver Execution declined")
-	return create_result(true, cached_changes, "", {"dice": cached_dice})
-
-
 func _get_units_moved_over(unit_id: String, move_data: Dictionary) -> Array:
 	"""Get enemy units whose bases were crossed during a unit's movement path.
 	Returns array of { target_unit_id: String, target_name: String }.
@@ -2777,6 +2708,10 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 			if Ork11eMovement.where_dya_fink_forces_desperate_escape(unit_id, GameState.state):
 				active_moves[unit_id]["fall_back_mode_forced_by"] = "WHERE D'YA FINK YOU'RE GOING?"
 				_ork11e_log_where_dya_fink_hazards(unit_id, hz)
+			# Codex: Adeptus Custodes CORNER THE QUARRY (CustodesAbilities.gd) forced it.
+			elif _cus11e_abilities().corner_the_quarry_source(unit_id) != "":
+				active_moves[unit_id]["fall_back_mode_forced_by"] = "Corner the Quarry"
+				log_phase_message("[11e] Corner the Quarry: %s must use the desperate escape mode (hazard rolls %s)" % [unit_id, str(hz.get("rolls", []))])
 			# 06.03: each failure destroys a model (3 MW each instead for
 			# an all-MONSTER/VEHICLE unit, via the 06.02 allocation).
 			if int(hz.get("failures", 0)) > 0:
@@ -3744,46 +3679,12 @@ func _post_move_prompts(unit_id: String, move_data: Dictionary, changes: Array, 
 	changes.append_array(eem.diffs)
 	return _post_move_active_abilities(unit_id, move_data, changes, additional_dice)
 
-## The moving unit's own post-move abilities (Quicksilver Execution) -
-## resumed after the enemy_ended_move window. (Codex: Orks (11e) Bomb Squigs
-## is a unit_ended_normal_move window ability — OrkAbilities11e.gd.)
-func _post_move_active_abilities(unit_id: String, move_data: Dictionary, changes: Array, additional_dice: Array) -> Dictionary:
-	var unit = get_unit(unit_id)
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-
-	# Quicksilver Execution: after Normal/Advance move, select enemy moved over (excl. MONSTER/VEHICLE)
-	if move_data.mode in ["NORMAL", "ADVANCE"]:
-		var qs_unit = get_unit(unit_id)
-		if not qs_unit.get("flags", {}).get("quicksilver_execution_used", false):
-			var qs_abilities = qs_unit.get("meta", {}).get("abilities", [])
-			var has_qs = false
-			for ab in qs_abilities:
-				var aname = ab.get("name", "") if ab is Dictionary else str(ab)
-				if aname == "Quicksilver Execution":
-					has_qs = true
-					break
-			if has_qs:
-				var qs_targets = _get_units_moved_over(unit_id, move_data)
-				var qs_valid = []
-				for t in qs_targets:
-					var t_unit = get_unit(t.get("unit_id", ""))
-					if t_unit.is_empty():
-						continue
-					if RulesEngine.unit_has_keyword(t_unit, "MONSTER") or RulesEngine.unit_has_keyword(t_unit, "VEHICLE"):
-						continue
-					qs_valid.append(t)
-				if not qs_valid.is_empty():
-					_quicksilver_pending_unit = unit_id
-					_quicksilver_pending_targets = qs_valid
-					_quicksilver_pending_changes = changes
-					_quicksilver_pending_dice = additional_dice
-					log_phase_message("Quicksilver Execution available for %s — %d eligible target(s)" % [unit_name, qs_valid.size()])
-					var result = create_result(true, changes, "", {"dice": additional_dice})
-					result["quicksilver_execution_available"] = true
-					result["unit_id"] = unit_id
-					result["eligible_targets"] = qs_valid
-					return result
-
+## The moving unit's own post-move abilities — resumed after the
+## enemy_ended_move window. (Codex: Orks (11e) Bomb Squigs is a
+## unit_ended_normal_move window ability — OrkAbilities11e.gd; the 10e
+## Quicksilver Execution fly-over is gone — the codex rule is melee
+## [SUSTAINED HITS 1], CustodesAbilities.gd.)
+func _post_move_active_abilities(_unit_id: String, _move_data: Dictionary, changes: Array, additional_dice: Array) -> Dictionary:
 	return create_result(true, changes, "", {"dice": additional_dice})
 
 func _process_remain_stationary(action: Dictionary) -> Dictionary:
@@ -7303,26 +7204,6 @@ func get_available_actions() -> Array:
 				"description": unit_name + " remains stationary"
 			})
 
-	# Quicksilver Execution pending — offer use/decline with target selection
-	if _quicksilver_pending_unit != "":
-		var qs_unit = get_unit(_quicksilver_pending_unit)
-		var qs_name = qs_unit.get("meta", {}).get("name", _quicksilver_pending_unit) if not qs_unit.is_empty() else _quicksilver_pending_unit
-		for target in _quicksilver_pending_targets:
-			var t_id = target.get("unit_id", target.get("target_unit_id", ""))
-			var t_name = target.get("name", target.get("target_name", t_id))
-			actions.append({
-				"type": "USE_QUICKSILVER_EXECUTION",
-				"unit_id": _quicksilver_pending_unit,
-				"target_unit_id": t_id,
-				"description": "Quicksilver Execution: %s targets %s — D6 per model, 2+ = 2 MW each" % [qs_name, t_name]
-			})
-		actions.append({
-			"type": "DECLINE_QUICKSILVER_EXECUTION",
-			"unit_id": _quicksilver_pending_unit,
-			"description": "Decline Quicksilver Execution — %s" % qs_name
-		})
-		return actions  # Block other actions until resolved
-
 	# Add active move actions (skip completed moves)
 	# Use synced GameState flags.moved to determine completion for multiplayer compatibility
 	for unit_id in active_moves:
@@ -8434,6 +8315,7 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 	# WP-O6: Codex: Orks (11e) disembark triggers — IDOL OF BELLIGERENCE
 	# (Stompa: disembarking units are riled up) and BEASTSCENT (Kill Rig).
 	if GameConstants.edition >= 11 and o6_transport_id != "":
+		dis_changes.append_array(_cus11e_abilities().on_disembark(unit_id, o6_transport_id, dis_mode))  # WP-C7 Assault Dropship
 		var o6_dis: Array = OrkAbilities11eScript.on_disembark(unit_id, o6_transport_id)
 		if not o6_dis.is_empty():
 			dis_changes.append_array(o6_dis)

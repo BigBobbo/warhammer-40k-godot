@@ -46,6 +46,10 @@ var _bss_deferred_action: Dictionary = {}
 func _init():
 	# Issue #329: route through RNGService so static test_mode_seed applies
 	_rng = RulesEngine.make_rng()
+	# Known before BasePhase.enter_phase runs (like the other phases): the
+	# WP-C7 "start of any phase" ability window (CustodesAbilities
+	# .phase_start_entries) is queued there, BEFORE _on_phase_enter.
+	phase_type = GameStateData.Phase.COMMAND
 
 func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.COMMAND
@@ -929,8 +933,9 @@ static func _get_effective_leadership(unit_id: String) -> int:
 	# HUGE SHOW-OFFS (More Dakka!): 'improve the Leadership characteristic by
 	# 1' — the test passes on roll >= Ld, so improving lowers the requirement.
 	ld -= int(unit.get("flags", {}).get("effect_improve_leadership", 0))
-	# MADCAP ARTILLERY (Codex: Orks 11e, Mek Gunz) 'zapped': worsen Leadership by 1.
-	if GameConstants.edition >= 11:
+	# MADCAP ARTILLERY (Codex: Orks 11e, Mek Gunz) 'zapped': worsen Leadership by 1
+	# — ignored by a Vexilla (Codex: Adeptus Custodes, CustodesAbilities.gd).
+	if GameConstants.edition >= 11 and not _cus11e_abilities().ignores_ld_modifiers(unit_id):
 		ld += OrkAbilities11eScript.leadership_penalty(unit_id)
 	return ld
 
