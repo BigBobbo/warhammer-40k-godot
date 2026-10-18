@@ -2,6 +2,8 @@ extends BasePhase
 class_name ShootingPhase
 
 const BasePhase = preload("res://phases/BasePhase.gd")
+# WP-O6: Codex: Orks (11e) datasheet abilities (post-shot effects).
+const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
 
 
 # ShootingPhase - Full implementation of the Shooting phase following 10e rules
@@ -5136,8 +5138,13 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 		var other := 2 if active == 1 else 1
 		log_phase_message("[StratagemWindow] %s has shot — unit_has_shot (P%d) then enemy_has_shot (P%d); hit=%s wounded=%s" % [
 			shooter_id, active, other, str(shot.hit_unit_ids), str(shot.wounded_unit_ids)])
+		# WP-O6: Codex: Orks (11e) "when this unit has shot, select one enemy
+		# unit hit" abilities (Rokkit Barrage, Squig Barrage, Bust 'Em, Madcap
+		# Artillery) resolve here when exactly one unit was hit; with 2+ hit
+		# units they are offered in the unit_has_shot window below.
+		merged.append_array(OrkAbilities11eScript.after_unit_shot(shooter_id, shot.hit_unit_ids))
 		var paused := open_stratagem_windows([
-			{"player": active, "window_id": "unit_has_shot", "ctx": {"phase": "shooting", "unit_id": shooter_id}},
+			{"player": active, "window_id": "unit_has_shot", "ctx": {"phase": "shooting", "unit_id": shooter_id, "hit_unit_ids": shot.hit_unit_ids}},
 			{"player": other, "window_id": "enemy_has_shot", "ctx": {"phase": "shooting", "attacker_unit_id": shooter_id,
 				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids}}],
 			"_ork11e_resume_after_post_shot_windows", {"unit_id": shooter_id})

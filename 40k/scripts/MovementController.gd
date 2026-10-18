@@ -172,6 +172,10 @@ func get_unit_movement(unit: Dictionary) -> float:
 	var ffi_move = int(unit.get("flags", {}).get("ork11e_plus_move", 0))
 	if ffi_move > 0:
 		movement += float(ffi_move)
+	# WP-O6: Codex: Orks (11e) datasheet move modifiers (Runnin' wiv da Herd +4",
+	# Madcap Artillery "smashed" -2") — mirrors MovementPhase.get_unit_movement.
+	if GameConstants.edition >= 11:
+		movement = maxf(0.0, movement + float(load("res://scripts/codex/orks/OrkAbilities11e.gd").move_modifier(unit)))
 
 	return movement
 

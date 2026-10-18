@@ -309,6 +309,12 @@ func _section_a_held_shoot_post_windows() -> void:
 	_set_det(2, "Da Big Hunt")
 	_move_to("U_TANKBUSTAS_A", Vector2(38, 43))
 	_move_to("U_BEAST_SNAGGA_BOYZ_A", Vector2(40, 52))
+	# WP-O6: the Tankbustas' codex ROKKIT BARRAGE resolves automatically after
+	# a shot that hit one unit (battle-shock roll at -1) — a failed roll makes
+	# the Beast Snagga Boyz battle-shocked and so ineligible for GOADED INTO
+	# ACTION. This section pins the window framework, not that interaction.
+	var tb_meta: Dictionary = GS.state.units["U_TANKBUSTAS_A"]["meta"]
+	tb_meta["abilities"] = tb_meta.get("abilities", []).filter(func(a): return not str(a.get("name", "") if typeof(a) == TYPE_DICTIONARY else a).begins_with("Rokkit Barrage"))
 	var ph = _shooting()
 	_window_events.clear()
 	var res = _shoot(ph, "U_TANKBUSTAS_A", "U_BEAST_SNAGGA_BOYZ_A", 5)

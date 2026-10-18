@@ -1097,7 +1097,8 @@ func _process_begin_normal_move_after_windows(action: Dictionary) -> Dictionary:
 	# models and terrain (pathing consumers read took_to_skies).
 	var took_to_skies := false
 	if GameConstants.edition >= 11 and action.get("payload", {}).get("take_to_skies", false) \
-			and "FLY" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", []):
+			and "FLY" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", []) \
+			and not OrkAbilities11eScript.cannot_take_to_skies(unit_id):  # WP-O6 Madcap Artillery "grounded"
 		took_to_skies = true
 		var fly_mod = MoveType.take_to_skies_modifier(GameState.get_unit(unit_id))
 		move_inches = max(0.0, move_inches + fly_mod)
@@ -1182,7 +1183,8 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 	# applied in _resolve_advance_roll (after the D6 and any rerolls).
 	_pending_take_to_skies[unit_id] = GameConstants.edition >= 11 \
 			and action.get("payload", {}).get("take_to_skies", false) \
-			and "FLY" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
+			and "FLY" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", []) \
+			and not OrkAbilities11eScript.cannot_take_to_skies(unit_id)  # WP-O6 Madcap Artillery "grounded"
 	_pending_shw_mobile[unit_id] = GameConstants.edition >= 11 \
 			and action.get("payload", {}).get("shw_mobile_gamble", false) \
 			and "SUPER-HEAVY WALKER" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
@@ -2656,7 +2658,8 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 	# models and terrain (pathing consumers read took_to_skies).
 	var took_to_skies := false
 	if GameConstants.edition >= 11 and action.get("payload", {}).get("take_to_skies", false) \
-			and "FLY" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", []):
+			and "FLY" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", []) \
+			and not OrkAbilities11eScript.cannot_take_to_skies(unit_id):  # WP-O6 Madcap Artillery "grounded"
 		took_to_skies = true
 		var fly_mod = MoveType.take_to_skies_modifier(GameState.get_unit(unit_id))
 		move_inches = max(0.0, move_inches + fly_mod)
@@ -6337,6 +6340,10 @@ func _validate_set_take_to_skies(action: Dictionary) -> Dictionary:
 		return {"valid": false, "errors": ["Unit not found: " + unit_id]}
 	if not "FLY" in unit.get("meta", {}).get("keywords", []):
 		return {"valid": false, "errors": ["%s does not have the FLY keyword" % unit.get("meta", {}).get("name", unit_id)]}
+	# WP-O6 MADCAP ARTILLERY (Codex: Orks 11e, Traktor Kannon): "grounded" —
+	# "While a unit is grounded, it cannot take to the skies."
+	if bool(action.get("payload", {}).get("take_to_skies", false)) and OrkAbilities11eScript.cannot_take_to_skies(unit_id):
+		return {"valid": false, "errors": ["%s is grounded (Madcap Artillery) and cannot take to the skies" % unit.get("meta", {}).get("name", unit_id)]}
 	if not active_moves.has(unit_id):
 		return {"valid": false, "errors": ["No active move for unit"]}
 	var move_data = active_moves[unit_id]

@@ -846,6 +846,9 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 		if ability_mgr and ability_mgr.has_strategic_mastery(target_unit_id):
 			if not ability_mgr.is_once_per_round_used(player, "Strategic Mastery"):
 				effective_cost = maxi(effective_cost - 1, 0)
+	# WP-O6 TRAMPLASQUIG CHARGE (Codex: Orks 11e, Hunta Rig): Crushing Impact -1 CP.
+	if target_unit_id != "" and effective_cost > 0:
+		effective_cost = maxi(effective_cost - OrkAbilities.stratagem_cp_discount(str(strat.get("name", "")), target_unit_id), 0)
 	# LORD OF DECEIT: +1 CP if target unit is within 12" of enemy Callidus with Lord of Deceit aura
 	if target_unit_id != "":
 		effective_cost += get_lord_of_deceit_cp_increase(player, target_unit_id)
@@ -1122,6 +1125,12 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 				strategic_mastery_applied = true
 				ability_mgr.mark_once_per_round_used(player, "Strategic Mastery")
 				print("StratagemManager: Strategic Mastery reduces CP cost of %s by 1 (was %d, now %d)" % [strat.name, strat.cp_cost, effective_cp_cost])
+	# WP-O6 TRAMPLASQUIG CHARGE (Codex: Orks 11e, Hunta Rig): Crushing Impact -1 CP.
+	if target_unit_id != "" and effective_cp_cost > 0:
+		var tsc_disc := OrkAbilities.stratagem_cp_discount(str(strat.get("name", "")), target_unit_id)
+		if tsc_disc > 0:
+			effective_cp_cost = maxi(effective_cp_cost - tsc_disc, 0)
+			print("StratagemManager: Tramplasquig Charge reduces CP cost of %s by %d (now %d)" % [strat.name, tsc_disc, effective_cp_cost])
 	# LORD OF DECEIT: +1 CP if target unit is within 12" of enemy Callidus
 	var lord_of_deceit_increase = 0
 	if target_unit_id != "":

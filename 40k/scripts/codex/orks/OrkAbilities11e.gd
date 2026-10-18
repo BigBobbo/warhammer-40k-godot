@@ -1035,6 +1035,16 @@ static func transport_space(unit_id: String, alive_models: int) -> int:
 			gretchin += 1
 	return int(ceil(float(gretchin) / 2.0)) + other
 
+## Tramplasquig Charge (Hunta Rig): "When you target this unit with the
+## Crushing Impact stratagem, that use is -1 CP." Returns the CP discount for
+## `strat_name` used on `target_unit_id` (StratagemManager applies it).
+static func stratagem_cp_discount(strat_name: String, target_unit_id: String) -> int:
+	if not _edition_11() or target_unit_id == "":
+		return 0
+	if fold(strat_name) != "crushing impact":
+		return 0
+	return 1 if has_id(target_unit_id, "tramplasquig_charge") else 0
+
 ## Never Too Busy to Fight: being engaged does not prevent this unit from
 ## being eligible to start an action.
 static func engaged_can_start_action(unit_id: String) -> bool:
@@ -1269,6 +1279,11 @@ static func on_phase_transition(old_phase: int, new_phase: int) -> void:
 					flags.erase("effect_grant_hazardous_melee")
 				flags.erase(f)
 				cleared.append("%s.%s" % [uid, f])
+		# One Last Kill's Fight On Death marker lasts the Fight phase.
+		if old_phase == PH_FIGHT and new_phase != PH_FIGHT and str(flags.get(F_FOD_SOURCE, "")) == "One Last Kill":
+			flags.erase(F_FOD_MODE)
+			flags.erase(F_FOD_SOURCE)
+			cleared.append("%s.%s" % [uid, F_FOD_MODE])
 		if new_phase == PH_COMMAND:
 			for f in END_OF_TURN:
 				if flags.has(f):
