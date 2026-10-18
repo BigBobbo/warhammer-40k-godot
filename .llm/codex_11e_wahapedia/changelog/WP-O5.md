@@ -34,6 +34,7 @@
   - Wimp-kickaz: enemies fleeing the Nobz must make a desperate escape.
   - Kill Kommanda: lead Kommandos; Infiltrators and Stealth.
   - Kaptin's Hat: lead Flash Gitz; up to three redeploys.
+  - Boss Boomer: while a Warboss is embarked, the wagon has that Warboss's Intimidating Motivation or Keep Huntin' ability.
 - Applied when the army loads:
   - 'Ardboyz: Save 4+.
   - It Came from da Drops: +1 Toughness.
