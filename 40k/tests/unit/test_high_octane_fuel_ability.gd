@@ -12,7 +12,8 @@ extends SceneTree
 # 2. Ability has correct flat_advance effect
 # 3. Effect flag correctly indicates flat advance
 # 4. Units without the flag do NOT get flat advance
-# 5. Fuel-mixa Grot (Deffkilla Wartrike) has same effect
+# 5. Fuel-mixa Grot (Deffkilla Wartrike) is NOT the same effect any more:
+#    Codex: Orks (11e) made it +1 to advance rolls (OrkAbilities11e)
 # 6. Deffkilla Wartrike army data has Fuel-mixa Grot ability
 # 7. Condition is "while_leading" (applies when leading a unit)
 
@@ -103,17 +104,27 @@ func _test_no_flag_no_flat_advance():
 		"has_effect_auto_advance_6 returns false when no flags dict exists")
 
 func _test_fuel_mixa_grot_same_effect():
-	print("\n--- Test 5: Fuel-mixa Grot (Deffkilla Wartrike) has same auto_advance_6 effect ---")
+	# Codex: Orks (11e) Deffkilla Wartrike: "Fuel-mixa Grot: This unit has +1
+	# to advance rolls." (orks/wahapedia/Datasheets_abilities.csv, datasheet
+	# 000001537 line 6) — no longer the 10e "do not roll, add 6\"" rider. The
+	# rule lives in OrkAbilities11e.advance_roll_bonus (WP-O6; checked in
+	# tests/test_ork_abilities_11e.gd), so the UnitAbilityManager row is the
+	# codex marker row and must NOT carry auto_advance_6.
+	print("\n--- Test 5: Fuel-mixa Grot (Deffkilla Wartrike) is the codex +1 advance rule, not auto_advance_6 ---")
 	var effects = UnitAbilityManagerData.ABILITY_EFFECTS
 	_assert_true(effects.has("Fuel-mixa Grot"), "Fuel-mixa Grot exists in ABILITY_EFFECTS")
 	_assert_true(effects["Fuel-mixa Grot"].get("implemented", false), "Fuel-mixa Grot is marked as implemented")
+	_assert_eq(effects["Fuel-mixa Grot"].get("condition", ""), "ork11e",
+		"Fuel-mixa Grot is the Codex: Orks (11e) marker row (rule in OrkAbilities11e)")
 
 	var fuel_mixa_effects = effects["Fuel-mixa Grot"].get("effects", [])
 	var has_auto_advance = false
 	for effect in fuel_mixa_effects:
 		if effect.get("type", "") == "auto_advance_6":
 			has_auto_advance = true
-	_assert_true(has_auto_advance, "Fuel-mixa Grot has auto_advance_6 effect")
+	_assert_false(has_auto_advance, "Fuel-mixa Grot does NOT have the 10e auto_advance_6 effect")
+	_assert_true(str(effects["Fuel-mixa Grot"].get("description", "")).contains("+1 to advance rolls"),
+		"Fuel-mixa Grot row describes the codex +1 to advance rolls")
 
 func _test_wartrike_army_data():
 	print("\n--- Test 6: Deffkilla Wartrike army JSON has Fuel-mixa Grot ability ---")

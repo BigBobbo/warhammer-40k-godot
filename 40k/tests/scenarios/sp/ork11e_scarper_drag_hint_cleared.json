@@ -143,6 +143,11 @@
       "label": "01_window_for_ork_player"
     },
     {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(10)",
+      "comment": "re-seed the dice right before the SCARPER! click so its D6 is 5 again (seed 10: the first die after the re-seed is a 5). The run-start seed 42 gave 5 on main, but every unseeded RNG takes the next value of the run's test-seed counter (RulesEngine.RNGService) and the codex branch creates a different number of them before this point, so seed 42 now rolls a 2 — a 2\" cap that keeps the 3.8\" drag below from ever reaching the Runtherd, so the blocked-model hint this scenario checks never appears. Same fix as fire_overwatch_end_of_movement_11e (RETIRED_TESTS.md, merge of origin/main)."
+    },
+    {
       "act": "click_node",
       "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ork_runt_swarm_scarper/Buttons/Use_faction_ork_runt_swarm_scarper_U_GRETCHIN_C"
     },

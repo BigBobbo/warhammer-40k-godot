@@ -1138,7 +1138,7 @@ func _process_begin_normal_move_after_windows(action: Dictionary) -> Dictionary:
 	# battle-shocked. Recorded here, the D6 is rolled at CONFIRM.
 	var shw_mobile: bool = GameConstants.edition >= 11 \
 			and bool(action.get("payload", {}).get("shw_mobile_gamble", false)) \
-			and "SUPER-HEAVY WALKER" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
+			and UnitAbilities.is_super_heavy_walker(GameState.get_unit(unit_id))  # keyword or the 24.35 core ability
 	# If unit already had staged moves (e.g. switching modes), reset visuals first
 	_reset_staged_visuals_if_needed(unit_id)
 
@@ -1215,7 +1215,7 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 			and not OrkAbilities11eScript.cannot_take_to_skies(unit_id)  # WP-O6 Madcap Artillery "grounded"
 	_pending_shw_mobile[unit_id] = GameConstants.edition >= 11 \
 			and action.get("payload", {}).get("shw_mobile_gamble", false) \
-			and "SUPER-HEAVY WALKER" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
+			and UnitAbilities.is_super_heavy_walker(GameState.get_unit(unit_id))  # keyword or the 24.35 core ability
 
 	# Turbo Boostas (Speedwaaagh! detachment rule): a SPEED FREEKS or TRUKK
 	# unit (excluding AIRCRAFT) can use its turbo instead of rolling — Move
@@ -2738,7 +2738,7 @@ func _process_begin_fall_back_after_windows(action: Dictionary) -> Dictionary:
 	# battle-shocked. Recorded here, the D6 is rolled at CONFIRM.
 	var shw_mobile: bool = GameConstants.edition >= 11 \
 			and bool(action.get("payload", {}).get("shw_mobile_gamble", false)) \
-			and "SUPER-HEAVY WALKER" in GameState.get_unit(unit_id).get("meta", {}).get("keywords", [])
+			and UnitAbilities.is_super_heavy_walker(GameState.get_unit(unit_id))  # keyword or the 24.35 core ability
 	# If unit already had staged moves (e.g. switching modes), reset visuals first
 	_reset_staged_visuals_if_needed(unit_id)
 
@@ -6850,8 +6850,12 @@ func _cus11e_moves_through_all_models(unit_id: String) -> bool:
 
 ## Keywords used for the 13.06 solid-terrain checks (path gate + endpoint
 ## wall overlap): the unit's own keywords plus per-move grants —
-##   ▪ MOBILE from the 24.35 SUPER-HEAVY WALKER gamble (shw_mobile), and
-##   ▪ MOBILE from the Codex: Orks (11e) STOMPING JUGGERNAUT stratagem.
+##   ▪ MOBILE from the 24.35 SUPER-HEAVY WALKER gamble (shw_mobile),
+##   ▪ MOBILE from the Codex: Orks (11e) STOMPING JUGGERNAUT stratagem, and
+##   ▪ SUPER-HEAVY WALKER (its 4" step-over) for a unit that has the 24.35
+##     core ABILITY rather than the keyword — every codex datasheet that
+##     prints it (Codex: Orks 11e Stompa / Gorkanaut / Morkanaut, which lost
+##     their 10e Stompin' / Clankin' Forward to it). UnitAbilities.is_super_heavy_walker.
 func _terrain_rule_keywords(unit_id: String, move_data: Dictionary) -> Array:
 	var kws: Array = get_unit(unit_id).get("meta", {}).get("keywords", []).duplicate()
 	if move_data.get("shw_mobile", false):
@@ -6859,7 +6863,28 @@ func _terrain_rule_keywords(unit_id: String, move_data: Dictionary) -> Array:
 	# Codex: Orks (11e) STOMPING JUGGERNAUT: "Your unit has MOBILE" (this phase).
 	if get_unit(unit_id).get("flags", {}).get(Ork11eMovement.FLAG_MOBILE, false) and not "MOBILE" in kws:
 		kws.append("MOBILE")
+	if not "SUPER-HEAVY WALKER" in kws and UnitAbilities.is_super_heavy_walker(get_unit(unit_id)):
+		kws.append("SUPER-HEAVY WALKER")
 	return kws
+
+## 24.35 SUPER-HEAVY WALKER: "Each time a unit with this ability makes a
+## normal, advance or fall-back move: models in that unit can move through
+## models (including MONSTER/VEHICLE models, but excluding TITANIC models)".
+## Read by the enemy-base and MONSTER/VEHICLE crossing checks, which then
+## only count TITANIC models as blockers. 11e only (24.35 is an 11e rule).
+func _shw_moves_through_models(unit_id: String) -> bool:
+	if GameConstants.edition < 11:
+		return false
+	var mode := str(active_moves.get(unit_id, {}).get("mode", ""))
+	if not mode in ["NORMAL", "ADVANCE", "FALL_BACK"]:
+		return false
+	return UnitAbilities.is_super_heavy_walker(get_unit(unit_id))
+
+static func _unit_is_titanic(unit: Dictionary) -> bool:
+	for kw in unit.get("meta", {}).get("keywords", []):
+		if str(kw).to_upper() == "TITANIC":
+			return true
+	return false
 
 ## ISS-054 (11e 13.06) path gate shared by SET_MODEL_DEST and
 ## STAGE_MODEL_MOVE validation: refuses a segment whose swept base crosses
@@ -7138,6 +7163,10 @@ func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, mode
 	# normal / advance / fall-back move can move through all types of model.
 	if _cus11e_moves_through_all_models(unit_id):
 		return false
+	# 24.35 SUPER-HEAVY WALKER: only TITANIC enemy models block the move.
+	var shw_only_titanic := _shw_moves_through_models(unit_id)
+	if shw_only_titanic:
+		log_phase_message("  24.35 SUPER-HEAVY WALKER — %s may move through enemy models except TITANIC ones" % unit_id)
 	var current_player = _reactive_move_owner if _reactive_move_owner > 0 else get_current_player()
 	var units = game_state_snapshot.get("units", {})
 
@@ -7161,6 +7190,8 @@ func _path_crosses_enemy_bases(from: Vector2, to: Vector2, unit_id: String, mode
 			var enemy_unit = units[enemy_unit_id]
 			if enemy_unit.get("owner", 0) == current_player:
 				continue
+			if shw_only_titanic and not _unit_is_titanic(enemy_unit):
+				continue
 
 			var enemy_models = enemy_unit.get("models", [])
 			for enemy_model in enemy_models:
@@ -7183,6 +7214,9 @@ func _path_crosses_monster_vehicle_bases(from: Vector2, to: Vector2, unit_id: St
 	# Codex: Adeptus Custodes CALISTUS (CustodesKatah.gd): "all types of model".
 	if _cus11e_moves_through_all_models(unit_id):
 		return false
+	# 24.35 SUPER-HEAVY WALKER: MONSTER / VEHICLE models no longer block the
+	# move — only TITANIC ones do (friendly or enemy).
+	var shw_only_titanic := _shw_moves_through_models(unit_id)
 	var units = game_state_snapshot.get("units", {})
 
 	var reference_model = model.duplicate()
@@ -7203,6 +7237,8 @@ func _path_crosses_monster_vehicle_bases(from: Vector2, to: Vector2, unit_id: St
 				continue  # Skip own unit's models
 
 			var check_unit = units[check_unit_id]
+			if shw_only_titanic and not _unit_is_titanic(check_unit):
+				continue
 			# Only block on MONSTER or VEHICLE units
 			var check_keywords = check_unit.get("meta", {}).get("keywords", [])
 			var is_monster_or_vehicle = false

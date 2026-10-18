@@ -1,0 +1,141 @@
+{
+  "id": "ork11e_shw_move_through_vehicle",
+  "covers": [
+    "rules.24_35.super_heavy_walker_ability",
+    "phases.MovementPhase.shw_model_passthrough_11e",
+    "scripts.rules.UnitAbilities.is_super_heavy_walker"
+  ],
+  "fixture": "ork11e_ab_move",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "WP-FIX2: the Codex: Orks (11e) Morkanaut prints 24.35 SUPER-HEAVY WALKER as a core ABILITY ('Super-heavy Walker', orks/wahapedia Datasheets_abilities.csv datasheet 000000042 line 3), not a keyword. Until WP-FIX2 the engine only read the keyword, and WP-O6 had removed the 10e Clankin' Forward that used to stand in for it, so the codex walkers had no 24.35 at all: a drag through another VEHICLE was refused ('Cannot move through Monster or Vehicle models'). 24.35: 'Each time a unit with this ability makes a normal, advance or fall-back move: models in that unit can move through models (including MONSTER/VEHICLE models, but excluding TITANIC models) ...'. Fixture ork11e_ab_move (open field, no terrain): the friendly Gunwagon (VEHICLE, not TITANIC) is parked across the Morkanaut's path; a real 8.5\" drag takes the Morkanaut straight through it, a real click on 'End This Unit's Move' confirms, and the Morkanaut ends past the Gunwagon.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var mk = GameState.get_unit(\"U_MORKANAUT_A\")\nvar ab := []\nfor a in mk.meta.abilities:\n\tab.append(str(a.get(\"name\", \"\")) if a is Dictionary else str(a))\nif \"SUPER-HEAVY WALKER\" in mk.meta.keywords:\n\treturn \"has the keyword (not the case under test)\"\nif not \"Super-heavy Walker\" in ab:\n\treturn \"no Super-heavy Walker ability\"\nreturn \"ability only\"",
+      "equals": "ability only",
+      "comment": "the case under test: the codex Morkanaut has the 24.35 core ability and NOT the keyword"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var gw = GameState.state.units[\"U_GUNWAGON_A\"].models[0]\ngw[\"position\"] = {\"x\": 1430.0, \"y\": 586.141732283465}\ntree.current_scene._recreate_unit_visuals()\nvar mk = GameState.state.units[\"U_MORKANAUT_A\"].models[0]\nreturn \"%d,%d\" % [int(round(float(mk.position.x))), int(round(float(mk.position.y)))]",
+      "equals": "1600,586",
+      "comment": "SETUP-ONLY PRIVILEGE: park the friendly Gunwagon (VEHICLE, 32 mm base, not TITANIC) 4.25\" west of the Morkanaut (170 mm oval at 1600,586), squarely on the line of the move below and clear of the Morkanaut's base at both ends of it"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_MORKANAUT_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/DisembarkDialog/VBox/Buttons/CancelButton"
+    },
+    {
+      "act": "execute_script",
+      "script": "for c in tree.root.get_children():\n\tif c is Window and c != tree.root and str(c.name) == \"DisembarkDialog\":\n\t\tc.hide()\n\t\tc.queue_free()\nreturn true",
+      "multiline": true,
+      "equals": true,
+      "comment": "the Morkanaut's pre-move disembark prompt (it carries the Nobz) — not under test"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves.get(\"U_MORKANAUT_A\", {}).get(\"mode\", \"\")",
+      "equals": "NORMAL",
+      "comment": "selecting the unit began its normal move"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_gunwagon_in_the_morkanauts_path"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1600.0,
+      "from_y": 586.141732283465,
+      "to_x": 1260.0,
+      "to_y": 586.141732283465,
+      "comment": "a real 8.5\" drag west, straight through the Gunwagon's base (Morkanaut M9)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var md = PhaseManager.get_current_phase_instance().active_moves.get(\"U_MORKANAUT_A\", {})\nvar staged: Array = md.get(\"staged_moves\", [])\nif staged.is_empty():\n\treturn \"not staged — \" + tree.current_scene.movement_controller.illegal_reason_label.text\nvar d = staged[staged.size() - 1].get(\"dest\")\nvar p := Vector2(float(d[0]), float(d[1])) if d is Array else Vector2(d.x, d.y)\nif p.distance_to(Vector2(1260.0, 586.141732283465)) > 3.0:\n\treturn \"staged at %s\" % str(p)\nreturn \"staged past the Gunwagon\"",
+      "equals": "staged past the Gunwagon",
+      "comment": "the drag is accepted and staged at the drop point past the Gunwagon, within 3 px of it (screen-pixel rounding of the drag); before the fix it was refused with 'Cannot move through Monster or Vehicle models' and the token snapped back"
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.illegal_reason_label.text",
+      "equals": "",
+      "comment": "no refusal reason is shown"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_morkanaut_staged_through_the_gunwagon"
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the Morkanaut's GUT HATCH (unit_ended_normal_move) card — not under test"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_MORKANAUT_A.flags.moved",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var mk = GameState.state.units[\"U_MORKANAUT_A\"].models[0]\nvar gw = GameState.state.units[\"U_GUNWAGON_A\"].models[0]\nif Vector2(float(gw.position.x), float(gw.position.y)).distance_to(Vector2(1430.0, 586.141732283465)) > 0.5:\n\treturn \"the Gunwagon moved\"\nvar p := Vector2(float(mk.position.x), float(mk.position.y))\nif p.distance_to(Vector2(1260.0, 586.141732283465)) > 3.0:\n\treturn \"Morkanaut at %s\" % str(p)\nreturn \"past the Gunwagon\"",
+      "equals": "past the Gunwagon",
+      "comment": "the confirmed move left the Morkanaut on the far side of the Gunwagon (within 3 px of the drop point), and the Gunwagon stayed where it was"
+    },
+    {
+      "act": "screenshot",
+      "label": "03_morkanaut_moved_through_the_gunwagon"
+    }
+  ]
+}

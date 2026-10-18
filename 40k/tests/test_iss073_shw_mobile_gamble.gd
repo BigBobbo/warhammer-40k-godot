@@ -32,13 +32,13 @@ func _init():
 	root.connect("ready", Callable(self, "_run_tests"))
 	create_timer(0.1).timeout.connect(_run_tests)
 
-func _seed_board(gs, keywords: Array) -> void:
+func _seed_board(gs, keywords: Array, abilities: Array = []) -> void:
 	# One SHW model at (500,500). A dense, 6"-tall feature sits across the
 	# path to (560,500): a SUPER-HEAVY WALKER (4" limit) is blocked by it
 	# unless MOBILE is granted.
 	gs.state["units"] = {
 		"U_SHW": {"id": "U_SHW", "owner": 1, "status": 2, "flags": {},
-			"meta": {"name": "Big Walker", "keywords": keywords,
+			"meta": {"name": "Big Walker", "keywords": keywords, "abilities": abilities,
 				"stats": {"move": 10, "toughness": 9, "save": 3, "wounds": 12, "objective_control": 4}},
 			"models": [
 				{"id": "m0", "alive": true, "wounds": 12, "current_wounds": 12, "base_mm": 100, "base_type": "circular", "position": {"x": 500, "y": 500}},
@@ -188,6 +188,25 @@ func _run_tests():
 		"player": 1, "payload": {"shw_mobile_gamble": true}})
 	_check("e11: non-SHW unit cannot take the gamble (shw_mobile = false)",
 		phase.active_moves.get("U_SHW", {}).get("shw_mobile", false) == false)
+
+	# Codex datasheets print 24.35 as a core ABILITY, not a keyword (Codex:
+	# Orks 11e Stompa / Gorkanaut / Morkanaut: "Super-heavy Walker",
+	# orks/wahapedia Datasheets_abilities.csv core ability 000010844).
+	print("\n-- e11: the 'Super-heavy Walker' core ability (no keyword) takes the gamble --")
+	gs.state = prev_state.duplicate(true)
+	_seed_board(gs, ["ORKS", "STOMPA", "TITANIC", "VEHICLE", "WALKER"],
+		[{"name": "Super-heavy Walker", "type": "Datasheet"}])
+	_seed_terrain(tm)
+	pm.transition_to_phase(7)
+	phase = pm.get_current_phase_instance()
+	phase.execute_action({"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "U_SHW",
+		"player": 1, "payload": {"shw_mobile_gamble": true}})
+	_check("e11: codex 'Super-heavy Walker' ability -> active move records shw_mobile = true",
+		phase.active_moves.get("U_SHW", {}).get("shw_mobile", false) == true)
+	var v_ability = phase._validate_set_model_dest({"actor_unit_id": "U_SHW",
+		"payload": {"model_id": "m0", "dest": [560, 500]}})
+	_check("e11: and its MOBILE move crosses the dense 6\" feature (allowed)",
+		v_ability.get("valid", false), str(v_ability))
 
 	gs.state = prev_state
 	GameConstants.edition = prev_edition

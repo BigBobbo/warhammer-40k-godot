@@ -4,7 +4,8 @@ extends SceneTree
 # Verifies that:
 # 1. stats_override.wounds sets model max wounds correctly at load time
 # 2. Mismatched JSON wounds are corrected by _apply_model_profile_wounds
-# 3. Wargear bonuses (e.g. Praesidium Shield +1W) stack on top of profile wounds
+# 3. Wargear stat bonuses run after the profile wounds (Vexilla +1 OC); the
+#    codex Praesidium Shield (-1 D) adds no wound
 # 4. Units without model_profiles are unaffected (backward compat)
 # 5. Models without stats_override.wounds keep their JSON wounds value
 # Usage: godot --headless --path . -s tests/test_ma13_per_model_wounds.gd
@@ -90,28 +91,35 @@ func _run_tests():
 		print("  FAIL: Expected current_wounds=1 (preserved), got %d" % int(damaged_model.get("current_wounds", 0)))
 		failed += 1
 
-	# --- Test 7: Wargear bonus stacks on top of profile wounds ---
-	print("\n--- Test 7: Wargear bonus (+1W) stacks on profile wounds ---")
+	# --- Test 7: Wargear stat bonuses run after the profile wounds ---
+	# Codex: Adeptus Custodes (11e) removed the only +W wargear the table had:
+	# the Praesidium Shield is now "Attacks allocated to this model have -1 D"
+	# (custodes/wahapedia/Datasheets_abilities.csv, datasheet 000001447), so it
+	# must add no wound on top of the profile's 3. The remaining stat bonus,
+	# the Vexilla ("This unit has +1 OC", 000004251), still applies after the
+	# profile wounds without touching them. (Was: profile 3 + Praesidium
+	# Shield +1W = 4 — .llm/codex_11e_wahapedia/RETIRED_TESTS.md WP-FIX2.)
+	print("\n--- Test 7: codex Praesidium Shield adds no wound on top of profile wounds ---")
 	var unit4 = _make_wargear_wounds_unit()
 	# Apply profile wounds first, then wargear
 	_alm._apply_model_profile_wounds("U_TEST4", unit4)
 	_alm._apply_wargear_stat_bonuses("U_TEST4", unit4)
 	var wargear_model = unit4["models"][0]
-	# stats_override.wounds=3, then Praesidium Shield +1W = 4
-	if int(wargear_model.get("wounds", 0)) == 4:
-		print("  PASS: wargear stacked: profile wounds 3 + Praesidium Shield +1 = 4")
+	if int(wargear_model.get("wounds", 0)) == 3 and int(wargear_model.get("current_wounds", 0)) == 3:
+		print("  PASS: profile wounds 3 kept (codex Praesidium Shield is -1 D, not +1 W)")
 		passed += 1
 	else:
-		print("  FAIL: Expected wounds=4 (3+1), got %d" % int(wargear_model.get("wounds", 0)))
+		print("  FAIL: Expected wounds=3 / current_wounds=3, got %d / %d" % [int(wargear_model.get("wounds", 0)), int(wargear_model.get("current_wounds", 0))])
 		failed += 1
 
-	# --- Test 8: Wargear current_wounds also stacks ---
-	print("\n--- Test 8: Wargear current_wounds also stacks ---")
-	if int(wargear_model.get("current_wounds", 0)) == 4:
-		print("  PASS: wargear stacked current_wounds = 4")
+	# --- Test 8: a remaining wargear stat bonus (Vexilla +1 OC) applies after the profile wounds ---
+	print("\n--- Test 8: Vexilla +1 OC applies after the profile wounds, which it leaves alone ---")
+	var oc_after = int(unit4.get("meta", {}).get("stats", {}).get("objective_control", 0))
+	if oc_after == 3 and int(wargear_model.get("wounds", 0)) == 3:
+		print("  PASS: Vexilla OC 2 -> 3, model wounds still 3")
 		passed += 1
 	else:
-		print("  FAIL: Expected current_wounds=4, got %d" % int(wargear_model.get("current_wounds", 0)))
+		print("  FAIL: Expected OC=3 and wounds=3, got OC=%d wounds=%d" % [oc_after, int(wargear_model.get("wounds", 0))])
 		failed += 1
 
 	# --- Test 9: Unit without model_profiles is unaffected ---
@@ -224,16 +232,18 @@ func _make_damaged_model_unit() -> Dictionary:
 	}
 
 func _make_wargear_wounds_unit() -> Dictionary:
-	"""Unit with stats_override.wounds=3 and Praesidium Shield wargear (+1W). Final should be 4."""
+	"""Unit with stats_override.wounds=3, a Praesidium Shield (codex: -1 D, no
+	stat change) and a Vexilla (+1 OC). Final: wounds 3, OC 3."""
 	return {
 		"id": "U_TEST4",
 		"meta": {
 			"name": "Test Wargear Stack",
 			"keywords": ["INFANTRY"],
-			"stats": {"wounds": 3, "toughness": 4, "save": 5},
+			"stats": {"wounds": 3, "toughness": 4, "save": 5, "objective_control": 2},
 			"weapons": [],
 			"abilities": [
-				{"name": "Praesidium Shield", "type": "Wargear", "description": "+1 Wounds to bearer"}
+				{"name": "Praesidium Shield", "type": "Wargear", "description": "Attacks allocated to this model have -1 D."},
+				{"name": "Vexilla", "type": "Wargear", "description": "This unit has +1 OC."}
 			],
 			"model_profiles": {
 				"guardian": {"label": "Guardian", "stats_override": {"wounds": 3}, "weapons": [], "transport_slots": 1}
