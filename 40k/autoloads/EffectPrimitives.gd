@@ -772,27 +772,34 @@ static func get_effect_crit_hit_on(unit: Dictionary) -> int:
 
 static func has_effect_fall_back_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and shoot eligibility."""
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant (survives the Shooting phase effect_* wipe).
 	# Codex: Orks (11e) Kunnin' But Brutal (WP-O5).
-	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_SHOOT, false) \
+	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_SHOOT, false) or _cus11e_grants(unit, "fall_back_and_shoot") \
 		or (GameConstants.edition >= 11 and load("res://scripts/codex/orks/OrkEnhancements11e.gd").fall_back_allows_shoot(unit))
 
 static func has_effect_fall_back_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and charge eligibility."""
-	# Codex: Orks (11e) Adrenaline Junkies / Suspiciously Well Organised (WP-O34).
+	# Codex: Orks (11e) Adrenaline Junkies / Suspiciously Well Organised (WP-O34);
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant (survives the Shooting phase effect_* wipe).
 	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_CHARGE, false) \
-		or (GameConstants.edition >= 11 and _ork11e_det().fall_back_allows_charge(unit))
+		or (GameConstants.edition >= 11 and _ork11e_det().fall_back_allows_charge(unit)) \
+		or _cus11e_grants(unit, "fall_back_and_charge")
 
 static func has_effect_advance_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and charge eligibility."""
-	# Codex: Orks (11e) Adrenaline Junkies (WP-O34).
+	# Codex: Orks (11e) Adrenaline Junkies (WP-O34); Codex: Adeptus Custodes
+	# stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant.
 	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_CHARGE, false) \
-		or (GameConstants.edition >= 11 and _ork11e_det().advance_allows_charge(unit))
+		or (GameConstants.edition >= 11 and _ork11e_det().advance_allows_charge(unit)) \
+		or _cus11e_grants(unit, "advance_and_charge")
 
 static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and shoot eligibility."""
-	# Codex: Orks (11e) ranged [ASSAULT] — Dakka! Dakka! Dakka! / Adrenaline Junkies (WP-O34).
+	# Codex: Orks (11e) ranged [ASSAULT] — Dakka! Dakka! Dakka! / Adrenaline Junkies (WP-O34);
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant.
 	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_SHOOT, false) \
-		or (GameConstants.edition >= 11 and _ork11e_det().ranged_attacks_have_assault(unit))
+		or (GameConstants.edition >= 11 and _ork11e_det().ranged_attacks_have_assault(unit)) \
+		or _cus11e_grants(unit, "advance_and_shoot")
 
 ## Codex: Orks (11e) detachment rules module (WP-O34), loaded on first use so
 ## this class compiles without it.
@@ -801,6 +808,14 @@ static func _ork11e_det():
 	if _ork11e_det_script == null:
 		_ork11e_det_script = load("res://scripts/codex/orks/OrkDetachments11e.gd")
 	return _ork11e_det_script
+
+## Codex: Adeptus Custodes stratagems (WP-C5): UNCEASING ONSLAUGHT, UNLIMITED
+## ENDURANCE, PRETERNATURAL RAPIDITY, AT SPEAR'S LENGTH, MANOEUVRE AND FIRE,
+## ADVANCED STABILISERS write cus11e_* flags; CustodesCodex11e.grants reads them.
+static func _cus11e_grants(unit: Dictionary, what: String) -> bool:
+	if unit.is_empty() or unit.get("flags", {}).is_empty():
+		return false
+	return bool(load("res://scripts/codex/custodes/CustodesCodex11e.gd").grants(unit, what))
 
 static func has_effect_reroll_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted charge reroll (e.g. Swift Onslaught)."""

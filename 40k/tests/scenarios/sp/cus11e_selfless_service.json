@@ -1,0 +1,212 @@
+{
+  "id": "cus11e_selfless_service",
+  "covers": [
+    "codex.custodes.stratagems.selfless-service-emissaries-imperatus",
+    "codex.custodes.CustodesCodex11e",
+    "stratagem.window.charge_phase_end",
+    "phases.ChargePhase.cus11e_selfless_service",
+    "scripts.ChargeController.selfless_label"
+  ],
+  "description": "Codex: Adeptus Custodes (11e) SELFLESS SERVICE (Emissaries Imperatus, 1 CP) — WP-C5. Fixture cus11e_c5_reactive (P1 Orks ACTIVE, P2 Custodes, round 2). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (the Orks' Charge phase). The Ork player ends the Charge phase (END_CHARGE): the new charge_phase_end window opens for P2 BEFORE Heroic Intervention; a real click on 'Use on Witchseeker Squad' (unengaged, within 6\" of the Gretchin) spends 1 CP: it declares a charge at the closest enemy within 6\" (2D6, capped at 6\"); the charge move uses the charge path tools ('SELFLESS SERVICE') and the move the charge panel sends is applied: the Witchseekers end engaged with Fights First (a charge, not a Heroic Intervention).",
+  "fixture": "cus11e_c5_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.setup(2, \"Emissaries Imperatus\", {})",
+      "comment": "setup privileges (see description)",
+      "equals": "Emissaries Imperatus"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nPhaseManager.transition_to_phase(9)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 9
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_CHARGE",
+        "player": 1
+      },
+      "comment": "the Ork player's End Charge Phase"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.window_id()",
+      "equals": "charge_phase_end"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.decider()",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text.to_lower().contains(\"charge phase\")",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_emissaries_imperatus_selfless_service/Buttons/Use_faction_ac_emissaries_imperatus_selfless_service_U_WITCHSEEKERS_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_emissaries_imperatus_selfless_service/Buttons/Use_faction_ac_emissaries_imperatus_selfless_service_U_WITCHSEEKERS_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_selfless_service_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_emissaries_imperatus_selfless_service/Buttons/Use_faction_ac_emissaries_imperatus_selfless_service_U_WITCHSEEKERS_A",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar roll = {}\nfor d in H.phase().dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"source\", \"\")) == \"SELFLESS SERVICE\":\n\t\troll = d\nprint(\"[cus11e selfless] roll \", roll)\nreturn not roll.is_empty() and int(roll.get(\"total\", 99)) <= 6 and not bool(roll.get(\"charge_failed\", true))",
+      "comment": "2D6 capped at 6, reaching the Gretchin",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn str(H.phase().heroic_intervention_unit_id)",
+      "equals": "U_WITCHSEEKERS_A"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.phase().heroic_intervention_pending_charge.get(\"targets\", [])",
+      "equals": [
+        "U_GRETCHIN_C"
+      ]
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.log_count(\"Used SELFLESS SERVICE\")",
+      "comment": "the Game Log names the stratagem",
+      "expect_min": 1
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "02_selfless_service_charge_move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar roll = {}\nfor d in H.phase().dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"source\", \"\")) == \"SELFLESS SERVICE\":\n\t\troll = d\nvar mv: Dictionary = load(\"res://scripts/AIDecisionMaker.gd\")._compute_charge_move(GameState.create_snapshot(), \"U_WITCHSEEKERS_A\", int(roll.total), [\"U_GRETCHIN_C\"], 2, \"APPLY_HEROIC_INTERVENTION_MOVE\")\nmv[\"player\"] = 2\nvar r = H.phase().execute_action(mv)\nprint(\"[cus11e selfless] move \", r.get(\"success\", false), \" \", r.get(\"error\", \"\"))\nreturn r.get(\"success\", false)",
+      "comment": "the charge move (the action the charge panel's Confirm sends)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.flag(\"U_WITCHSEEKERS_A\", \"charged_this_turn\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.flag(\"U_WITCHSEEKERS_A\", \"fights_first\")",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn RulesEngine.is_unit_engaged(\"U_WITCHSEEKERS_A\", GameState.state)",
+      "equals": true
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "comment": "core Heroic Intervention (not under test) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_witchseekers_charged"
+    }
+  ],
+  "transition_to_phase": 8
+}

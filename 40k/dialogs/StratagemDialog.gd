@@ -200,6 +200,28 @@ func _window_header_text() -> String:
 			return "The Fight phase is starting"
 		"command_phase_main":
 			return "Your Command phase"
+		# Codex: Adeptus Custodes windows (WP-C5, CustodesCodex11e.gd)
+		"phase_end":
+			return "The %s phase is ending" % str(window_ctx.get("phase", "")).capitalize()
+		"unit_ended_advance_move":
+			if u_name != "":
+				return "%s has ended an advance move" % u_name
+		"unit_selected_to_ingress":
+			if u_name != "":
+				return "%s has been selected to make an ingress move" % u_name
+		"unit_selected_to_pile_in":
+			if u_name != "":
+				return "%s has been selected to pile in" % u_name
+		"unit_selected_to_consolidate":
+			if u_name != "":
+				return "%s has been selected to consolidate" % u_name
+		"enemy_has_fought":
+			if enemy_name != "":
+				return "%s has fought" % enemy_name
+		"charge_phase_start":
+			return "Your opponent's Charge phase is starting"
+		"charge_phase_end":
+			return "Your opponent's Charge phase is ending"
 	var when := StratagemManager.window_when_text(window_id)
 	return "Stratagem opportunity: %s" % when
 

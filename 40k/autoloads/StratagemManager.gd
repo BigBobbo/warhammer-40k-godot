@@ -20,6 +20,18 @@ signal stratagem_available(player: int, stratagem_id: String, trigger: String)
 # get_window_offers. Preloaded (not referenced by class_name) so headless
 # --script tests resolve it without a rebuilt global class cache.
 const OrkCodex = preload("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
+# Codex: Adeptus Custodes (11e) dispatcher (WP-C5) — same API as OrkCodex,
+# dispatched at every site OrkCodex is (rows marked {"type":"custom:custodes11e"}).
+const CustodesCodex = preload("res://scripts/codex/custodes/CustodesCodex11e.gd")
+
+## The codex dispatcher that owns `strat` (Codex: Orks / Codex: Adeptus
+## Custodes 11e rows), or null for every other stratagem.
+static func codex_for(strat: Dictionary):
+	if OrkCodex.handles(strat):
+		return OrkCodex
+	if CustodesCodex.handles(strat):
+		return CustodesCodex
+	return null
 # WP-O6: Codex: Orks (11e) datasheet abilities — activated ones ride the window
 # framework (offers appended in get_all_window_offers, "ork11e_ab_*" ids routed in
 # use_stratagem).
@@ -55,6 +67,15 @@ const WINDOW_WHEN_TEXT: Dictionary = {
 	# SHIELD OF HONOUR, and Conservai.
 	"fight_phase_start": "the Fight phase starts",
 	"command_phase_main": "your Command phase is under way",
+	# Codex: Adeptus Custodes stratagems (WP-C5, CustodesCodex11e.gd).
+	"phase_end": "a phase ends",
+	"unit_ended_advance_move": "one of your units ends an Advance move",
+	"unit_selected_to_ingress": "one of your units is selected to make an ingress move",
+	"unit_selected_to_pile_in": "one of your units is selected to make a pile-in move",
+	"unit_selected_to_consolidate": "one of your units is selected to make a consolidation move",
+	"enemy_has_fought": "an enemy unit has fought",
+	"charge_phase_start": "your opponent's Charge phase starts",
+	"charge_phase_end": "your opponent's Charge phase ends",
 }
 
 # Follow-up returned by the last codex apply() (design §3.2); use_stratagem
@@ -578,6 +599,14 @@ func _mark_custom_implemented_stratagems(player: int) -> void:
 			if strat["implemented"]:
 				print("StratagemManager: Marked '%s' (%s) as implemented (Ork codex registry)" % [strat.get("name", ""), strat.get("csv_id", "")])
 			continue
+		# Codex: Adeptus Custodes (11e) rows: the Custodes codex registry only
+		# (CustodesCodex11e.gd) — GILDED CHAMPION, UNLEASH THE LIONS, SWIFT AS
+		# THE EAGLE and MANOEUVRE AND FIRE also name 10e handlers below.
+		if CustodesCodex.handles(strat):
+			strat["implemented"] = CustodesCodex.is_implemented(strat)
+			if strat["implemented"]:
+				print("StratagemManager: Marked '%s' (%s) as implemented (Adeptus Custodes codex registry)" % [strat.get("name", ""), strat.get("csv_id", "")])
+			continue
 		# Data sources use typographic apostrophes (BOARDIN’ RUSH) — normalize
 		# so the straight-quoted handler names below keep matching.
 		var name_upper = strat.get("name", "").replace("’", "'").to_upper()
@@ -895,7 +924,8 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# Check battle-shocked (battle-shocked units can't be affected by stratagems)
 	# Exception: Insane Bravery explicitly allows targeting battle-shocked units,
 	# and so may a codex stratagem whose rule says so (BREAKIN' HEADS).
-	var codex_allows_shocked: bool = OrkCodex.handles(strat) and OrkCodex.allows_battle_shocked_target(strat, context)
+	var shocked_codex = codex_for(strat)
+	var codex_allows_shocked: bool = shocked_codex != null and shocked_codex.allows_battle_shocked_target(strat, context)
 	if target_unit_id != "" and stratagem_id != "insane_bravery" and not codex_allows_shocked:
 		var unit = GameState.get_unit(target_unit_id)
 		if not unit.is_empty() and unit.get("flags", {}).get("battle_shocked", false):
@@ -938,7 +968,9 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 
 	# GILDED CHAMPION (Lions): must target an ADEPTUS CUSTODES CHARACTER that
 	# has spent a 'once per battle' datasheet ability; once per battle per model.
-	if strat.get("name", "").to_upper() == "GILDED CHAMPION" and target_unit_id != "":
+	# (10e handler — never for the Codex: Adeptus Custodes row, whose rule check
+	# is CustodesCodex.validate below.)
+	if strat.get("name", "").to_upper() == "GILDED CHAMPION" and target_unit_id != "" and not CustodesCodex.handles(strat):
 		var gc_target = GameState.get_unit(target_unit_id)
 		if not gc_target.is_empty():
 			if not RulesEngine.unit_has_keyword(gc_target, "ADEPTUS CUSTODES") \
@@ -956,8 +988,9 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# start of the Shooting phase and is stale in every other phase.
 	# Codex: Orks (11e) rows: the dispatcher's rule-specific validation is the
 	# authority (design §4) — the CSV-parsed TARGET conditions are skipped.
-	if OrkCodex.handles(strat):
-		var codex_check: Dictionary = OrkCodex.validate(strat, player, target_unit_id, context)
+	var rule_codex = codex_for(strat)
+	if rule_codex != null:
+		var codex_check: Dictionary = rule_codex.validate(strat, player, target_unit_id, context)
 		if not codex_check.get("ok", false):
 			return {"can_use": false, "reason": str(codex_check.get("reason", "%s cannot be used now" % strat.get("name", stratagem_id)))}
 	elif target_unit_id != "" and is_faction_stratagem(stratagem_id):
@@ -1191,8 +1224,9 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 		# variant (VINDICTIVE ARTILLERISTS' three options — r3:F8), else the
 		# label the window/dialog passed (LIVE-10), minus any "+N CP:" prefix.
 		var variant_note := ""
-		if OrkCodex.handles(strat):
-			variant_note = OrkCodex.variant_label(strat, str(context.get("variant_id", "")))
+		var vl_codex = codex_for(strat)
+		if vl_codex != null:
+			variant_note = vl_codex.variant_label(strat, str(context.get("variant_id", "")))
 		if variant_note == "":
 			var variant_label := str(context.get("variant_label", "")).strip_edges()
 			if variant_label != "":
@@ -1356,8 +1390,9 @@ func _base_cp_cost(strat: Dictionary, context: Dictionary) -> int:
 	"""CP cost before Strategic Mastery / Lord of Deceit. A codex stratagem may
 	price a chosen variant differently (context.variant_id, e.g. HULKING
 	BRUTES' upgrade)."""
-	if OrkCodex.handles(strat):
-		return OrkCodex.cp_cost_for(strat, context if typeof(context) == TYPE_DICTIONARY else {})
+	var cp_codex = codex_for(strat)
+	if cp_codex != null:
+		return cp_codex.cp_cost_for(strat, context if typeof(context) == TYPE_DICTIONARY else {})
 	return int(strat.get("cp_cost", 1))
 
 func window_when_text(windows) -> String:
@@ -1401,8 +1436,9 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 		if not strat.get("implemented", false):
 			continue
 		var candidates: Array = []
-		if OrkCodex.handles(strat):
-			candidates = OrkCodex.eligible_targets(strat, player, window_id, wctx)
+		var offer_codex = codex_for(strat)
+		if offer_codex != null:
+			candidates = offer_codex.eligible_targets(strat, player, window_id, wctx)
 		else:
 			var cand_ids: Array = []
 			if str(wctx.get("unit_id", "")) != "":
@@ -1590,8 +1626,9 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 	"""
 	# Codex: Orks (11e) rows go to the dispatcher FIRST (design §4), keyed by
 	# csv_id — the legacy name-keyed handlers below must never see them.
-	if OrkCodex.handles(strat):
-		var codex_result = OrkCodex.apply(strat, target_unit_id, context if typeof(context) == TYPE_DICTIONARY else {})
+	var apply_codex = codex_for(strat)
+	if apply_codex != null:
+		var codex_result = apply_codex.apply(strat, target_unit_id, context if typeof(context) == TYPE_DICTIONARY else {})
 		if typeof(codex_result) == TYPE_DICTIONARY:
 			_last_codex_followup = codex_result.get("followup", {})
 			return codex_result.get("diffs", [])
@@ -1965,8 +2002,9 @@ func _clear_stratagem_flags(unit_id: String, stratagem_id: String) -> void:
 	var strat = stratagems.get(stratagem_id, {})
 
 	# Codex: Orks (11e) rows: the dispatcher owns expiry (design §4).
-	if OrkCodex.handles(strat):
-		OrkCodex.clear(strat, unit_id)
+	var clear_codex = codex_for(strat)
+	if clear_codex != null:
+		clear_codex.clear(strat, unit_id)
 		print("StratagemManager: Cleared %s flags from %s (Ork codex)" % [stratagem_id, unit_id])
 		return
 
@@ -3761,6 +3799,11 @@ func get_fire_overwatch_eligible_units(player: int, enemy_unit_id: String, game_
 	var all_units = game_state_snapshot.get("units", {})
 	var enemy_unit = all_units.get(enemy_unit_id, {})
 	if enemy_unit.is_empty():
+		return eligible
+	# Codex: Adeptus Custodes GOLDEN LIGHT OF THE MOIRAIDES (CustodesCodex11e.gd):
+	# enemy units cannot target that unit with snap shooting attacks.
+	if CustodesCodex.blocks_snap_shooting_at(enemy_unit):
+		print("StratagemManager: %s is under GOLDEN LIGHT OF THE MOIRAIDES — no Fire Overwatch (snap shooting) at it" % enemy_unit_id)
 		return eligible
 
 	for unit_id in all_units:

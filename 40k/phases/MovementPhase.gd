@@ -278,6 +278,8 @@ func _on_phase_enter() -> void:
 	_ork11e_assault_disembark = {}
 	_ork11e_phase_end_windows_done = false
 	_ork11e_pending_move_changes = []
+	_cus11e_ingress_asked.clear()
+	_cus11e_held_ingress_action = {}
 
 	# OA-8: Snapshot engagement state at phase start for Krump and Run eligibility
 	_engagement_at_phase_start = _compute_engagement_snapshot()
@@ -417,6 +419,9 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_embark_unit(action)
 		"PLACE_REINFORCEMENT":
 			return _validate_place_reinforcement(action)
+		# Codex: Adeptus Custodes (CustodesCodex11e.gd): a reserve unit selected to make an ingress move.
+		"CUS11E_SELECT_INGRESS_UNIT":
+			return _cus11e_validate_select_ingress(action)
 		"USE_STRATAGEM":
 			return _validate_use_stratagem(action)
 		"USE_COMMAND_REROLL":
@@ -512,6 +517,8 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_embark_unit(action)
 		"PLACE_REINFORCEMENT":
 			return _process_place_reinforcement(action)
+		"CUS11E_SELECT_INGRESS_UNIT":
+			return _cus11e_process_select_ingress(action)
 		"USE_STRATAGEM":
 			return _process_use_stratagem(action)
 		"USE_COMMAND_REROLL":
@@ -3630,13 +3637,15 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 
 	# Codex: Orks (11e) unit_ended_normal_move window (active player). 01.03.02:
 	# the active player's rules resolve before the opponent's (overwatch, ...).
-	if move_data.mode == "NORMAL" and GameConstants.edition >= 11:
+	# Codex: Adeptus Custodes (CustodesCodex11e.gd): the same hook opens unit_ended_advance_move after an advance move.
+	if (move_data.mode == "NORMAL" or move_data.mode == "ADVANCE") and GameConstants.edition >= 11:
+		var uenm_window := "unit_ended_normal_move" if move_data.mode == "NORMAL" else "unit_ended_advance_move"
 		var uenm_ctx := {"phase": "movement", "unit_id": unit_id}
 		var uenm_staged := _ork11e_stage_move_positions(changes)
-		var uenm_opened := open_stratagem_window(get_current_player(), "unit_ended_normal_move", uenm_ctx, "_resume_after_unit_ended_normal_move")
+		var uenm_opened := open_stratagem_window(get_current_player(), uenm_window, uenm_ctx, "_resume_after_unit_ended_normal_move")
 		_ork11e_restore_move_positions(uenm_staged)
 		if uenm_opened:
-			log_phase_message("Waiting for Player %d's unit_ended_normal_move stratagem decision for %s" % [get_current_player(), unit_id])
+			log_phase_message("Waiting for Player %d's %s stratagem decision for %s" % [get_current_player(), uenm_window, unit_id])
 			var uenm_paused: Array = changes.duplicate()
 			uenm_paused.append_array(consume_window_diffs())
 			return create_result(true, uenm_paused, "", {"dice": additional_dice})
@@ -3946,6 +3955,78 @@ func _process_set_advance_bonus(action: Dictionary) -> Dictionary:
 		])
 	
 	return create_result(true, [])
+
+# ============================================================================
+# Codex: Adeptus Custodes (WP-C5, CustodesCodex11e.gd) — unit_selected_to_ingress
+# (GOLDEN LIGHT OF THE MOIRAIDES). Main sends CUS11E_SELECT_INGRESS_UNIT when a
+# reserve unit whose owner has such a stratagem is picked for placement, and
+# starts the placement on cus11e_ingress_unit_ready (at once, or when the
+# window closes). PLACE_REINFORCEMENT of a unit that was not asked (AI, direct
+# dispatch) opens the window itself; a human decision holds the placement and
+# the window's answer applies it.
+# ============================================================================
+
+signal cus11e_ingress_unit_ready(unit_id: String)
+
+var _cus11e_ingress_asked: Dictionary = {}       # unit_id -> true: its window was opened this phase
+var _cus11e_held_ingress_action: Dictionary = {} # PLACE_REINFORCEMENT held behind the window
+
+func _cus11e_validate_select_ingress(action: Dictionary) -> Dictionary:
+	var unit_id := str(action.get("unit_id", ""))
+	var unit := get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit not found: " + unit_id]}
+	if int(unit.get("status", 0)) != GameStateData.UnitStatus.IN_RESERVES:
+		return {"valid": false, "errors": ["%s is not in reserves" % unit_id]}
+	if int(unit.get("owner", 0)) != get_current_player():
+		return {"valid": false, "errors": ["%s does not belong to the active player" % unit_id]}
+	return {"valid": true, "errors": []}
+
+func _cus11e_process_select_ingress(action: Dictionary) -> Dictionary:
+	var unit_id := str(action.get("unit_id", ""))
+	if _cus11e_ingress_asked.has(unit_id):
+		emit_signal("cus11e_ingress_unit_ready", unit_id)
+		return create_result(true, [], "", {"cus11e_ingress_unit_ready": unit_id})
+	_cus11e_ingress_asked[unit_id] = true
+	var owner := int(get_unit(unit_id).get("owner", get_current_player()))
+	if open_stratagem_window(owner, "unit_selected_to_ingress", {"phase": "movement", "unit_id": unit_id}, "_cus11e_resume_after_ingress_window"):
+		log_phase_message("Waiting for Player %d's unit_selected_to_ingress stratagem decision (%s)" % [owner, unit_id])
+		return create_result(true, consume_window_diffs())
+	var res := create_result(true, consume_window_diffs(), "", {"cus11e_ingress_unit_ready": unit_id})
+	emit_signal("cus11e_ingress_unit_ready", unit_id)
+	return res
+
+func _cus11e_resume_after_ingress_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	var unit_id := str(ctx.get("unit_id", ""))
+	if not _cus11e_held_ingress_action.is_empty() and str(_cus11e_held_ingress_action.get("unit_id", "")) == unit_id:
+		var held := _cus11e_held_ingress_action
+		_cus11e_held_ingress_action = {}
+		log_phase_message("unit_selected_to_ingress answered — placing the held reinforcement %s" % unit_id)
+		return _process_place_reinforcement(held)
+	emit_signal("cus11e_ingress_unit_ready", unit_id)
+	return create_result(true, [], "", {"cus11e_ingress_unit_ready": unit_id})
+
+## {} = place now; otherwise the result of the action that paused for the window.
+func _cus11e_ingress_window_before_placement(action: Dictionary) -> Dictionary:
+	var unit_id := str(action.get("unit_id", ""))
+	if GameConstants.edition < 11 or unit_id == "" or _cus11e_ingress_asked.has(unit_id):
+		return {}
+	_cus11e_ingress_asked[unit_id] = true
+	var owner := int(get_unit(unit_id).get("owner", get_current_player()))
+	if open_stratagem_window(owner, "unit_selected_to_ingress", {"phase": "movement", "unit_id": unit_id}, "_cus11e_resume_after_ingress_window"):
+		_cus11e_held_ingress_action = action.duplicate(true)
+		log_phase_message("Reinforcement %s held — waiting for Player %d's unit_selected_to_ingress decision" % [unit_id, owner])
+		return create_result(true, consume_window_diffs())
+	var sync := consume_window_diffs()
+	if sync.is_empty():
+		return {}
+	# AI decision made synchronously: place now with the stratagem's diffs first.
+	var placed := _process_place_reinforcement(action)
+	if placed.get("success", false):
+		var merged: Array = sync.duplicate()
+		merged.append_array(placed.get("changes", []))
+		placed["changes"] = merged
+	return placed
 
 func _validate_place_reinforcement(action: Dictionary) -> Dictionary:
 	"""Validate placing a reserve unit onto the battlefield during the Reinforcements step"""
@@ -4412,6 +4493,12 @@ func _auto_placement_spot_is_clear(candidate: Dictionary, arrival_footprint: Arr
 
 func _process_place_reinforcement(action: Dictionary) -> Dictionary:
 	"""Process placing a reserve unit onto the battlefield"""
+	# Codex: Adeptus Custodes GOLDEN LIGHT OF THE MOIRAIDES (CustodesCodex11e.gd):
+	# unit_selected_to_ingress opens before the unit is set up — the UI asks
+	# first (CUS11E_SELECT_INGRESS_UNIT); an AI / direct placement asks here.
+	var cus11e_held := _cus11e_ingress_window_before_placement(action)
+	if not cus11e_held.is_empty():
+		return cus11e_held
 	var unit_id = action.unit_id
 	var model_positions = action.model_positions
 	var model_rotations = action.get("model_rotations", [])
@@ -5386,7 +5473,9 @@ func _ork11e_try_enemy_ended_move_window(continue_active_abilities: bool) -> Dic
 		return none
 	var defender := 2 if get_current_player() == 1 else 1
 	var ctx := {"phase": "movement", "enemy_unit_id": trigger_id, "move_type": str(pending.get("move_type", "")),
-		"continue_active_abilities": continue_active_abilities}
+		"continue_active_abilities": continue_active_abilities,
+		# Codex: Adeptus Custodes RAPID REACTIONS (CustodesCodex11e.gd): "engaged with that enemy unit at the start of the phase".
+		"engagement_at_phase_start": _engagement_at_phase_start.duplicate(true)}
 	# Offers (SCARPER!'s 8" gate, ...) and AI follow-ups must see the moved
 	# unit where it ended, even when this runs inside its CONFIRM action.
 	# Staging is a no-op once BasePhase has applied the move.
@@ -5574,7 +5663,104 @@ func _execute_window_followup(player: int, window_id: String, followup: Dictiona
 			return _ork11e_begin_reactive_normal_move(player, followup)
 		"assault_disembark":
 			return _ork11e_begin_assault_disembark(player, followup)
+		# Codex: Adeptus Custodes (CustodesCodex11e.gd) — resolved at once.
+		"cus11e_reactive_charge":
+			_cus11e_followup_reactive_charge(player, followup)
+			return false
+		"cus11e_shoot":
+			_cus11e_followup_shoot(player, followup)
+			return false
 	return super(player, window_id, followup, ctx)
+
+## NO ESCAPE: "Declare a charge with your unit" against units that fell back
+## this phase — auto-resolved (CustodesCodexMovement.resolve_reactive_charge).
+## Its diffs are applied and merged into the window answer (_window_sync_diffs).
+func _cus11e_followup_reactive_charge(player: int, followup: Dictionary) -> void:
+	var res: Dictionary = _cus11e_codex().resolve_reactive_charge(player, followup)
+	var unit_id := str(followup.get("unit_id", ""))
+	var msg := str(res.get("message", ""))
+	log_phase_message(msg)
+	GameEventLog.add_player_entry(player, msg)
+	var rolls: Array = res.get("rolls", [])
+	if rolls.size() == 2:
+		var dice := {"context": "charge_roll", "unit_id": unit_id, "rolls": rolls, "total": int(res.get("roll", 0)),
+			"targets": [str(res.get("target_id", ""))], "charge_failed": not bool(res.get("success", false)), "source": "NO ESCAPE"}
+		dice_log.append(dice)
+		if has_signal("dice_rolled"):  # MovementPhase has no dice_rolled signal (the dice log + game log carry it)
+			emit_signal("dice_rolled", dice)
+	var diffs: Array = res.get("diffs", [])
+	if not diffs.is_empty():
+		PhaseManager.apply_state_changes(diffs)
+		_window_sync_diffs.append_array(diffs)
+
+## RAPID REACTIONS: "Your unit shoots using normal shooting, but while doing so
+## your unit can only target that enemy unit" — auto-resolved like GUN-CRAZY
+## SHOW-OFFS (every weapon that can target it, one profile per weapon), each
+## component of an Attached unit with its own weapons.
+func _cus11e_followup_shoot(player: int, followup: Dictionary) -> void:
+	var unit_id := str(followup.get("unit_id", ""))
+	var target_id := str(followup.get("forced_target_id", ""))
+	var source := str(followup.get("source", "Stratagem"))
+	var unit_name := GameState.get_unit_display_name(unit_id)
+	var target_name := GameState.get_unit_display_name(target_id)
+	var assignments: Array = _cus11e_codex().forced_shoot_assignments(unit_id, target_id)
+	if assignments.is_empty():
+		var none_msg := "%s: %s has no ranged weapon that can target %s — no attacks" % [source, unit_name, target_name]
+		log_phase_message(none_msg)
+		GameEventLog.add_player_entry(player, none_msg)
+		return
+	var by_shooter := {}
+	for a in assignments:
+		var sh := str(a.get("_shooter", unit_id))
+		if not by_shooter.has(sh):
+			by_shooter[sh] = []
+		var clean: Dictionary = a.duplicate()
+		clean.erase("_shooter")
+		by_shooter[sh].append(clean)
+	var hits := 0
+	var wounds := 0
+	var casualties := 0
+	for shooter in by_shooter:
+		var board := GameState.create_snapshot()
+		var weapon_names: Array = []
+		for a in by_shooter[shooter]:
+			weapon_names.append(str(RulesEngine.get_weapon_profile(str(a.weapon_id), board).get("name", a.weapon_id)))
+		var header := "%s: %s shoots %s (normal shooting, auto-resolved) with %s" % [source, GameState.get_unit_display_name(str(shooter)), target_name, ", ".join(weapon_names)]
+		log_phase_message(header)
+		GameEventLog.add_combat_header("P%d: %s" % [player, header])
+		var res = RulesEngine.resolve_shoot({"type": "SHOOT", "actor_unit_id": str(shooter),
+			"payload": {"assignments": by_shooter[shooter]}}, board, RulesEngine.make_rng())
+		for db in res.get("dice", []):
+			var c := str(db.get("context", ""))
+			if c in ["to_hit", "auto_hit", "to_wound"] and not db.has("target_unit_id"):
+				db["target_unit_id"] = target_id
+			dice_log.append(db)
+			if has_signal("dice_rolled"):
+				emit_signal("dice_rolled", db)
+			if c == "to_hit" or c == "auto_hit":
+				hits += int(db.get("successes", 0))
+			elif c == "to_wound":
+				wounds += int(db.get("successes", 0))
+		var diffs: Array = res.get("diffs", [])
+		for d in diffs:
+			var path := str(d.get("path", ""))
+			if path.begins_with("units.%s." % target_id) and path.ends_with(".alive") and d.get("value", true) == false:
+				casualties += 1
+		if not diffs.is_empty():
+			# Event attribution (framework F9): these are the RAPID REACTIONS
+			# shooter's attacks (unit_destroyed / enemy_unit_has_attacked).
+			_window_events_detect()
+			var prev_attacker := _ev_action_attacker
+			_ev_action_attacker = str(shooter)
+			PhaseManager.apply_state_changes(diffs)
+			_window_sync_diffs.append_array(diffs)
+			_window_events_detect()
+			_ev_action_attacker = prev_attacker
+		# "until that enemy unit has attacked" effects end with its attacks.
+		_cus11e_codex().on_unit_has_attacked(str(shooter))
+	var summary := "%s: %s → %s: %d hit(s), %d wound(s), %d model(s) slain" % [source, unit_name, target_name, hits, wounds, casualties]
+	log_phase_message(summary)
+	GameEventLog.add_player_entry(player, summary)
 
 ## active_moves entry for a reactive normal move (the Krump and Run / Scatter!
 ## shape) — the unit's owner, not the active player, makes it.

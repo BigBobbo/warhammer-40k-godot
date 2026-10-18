@@ -4195,7 +4195,10 @@ func _finish_weapon_resolution(current_assignment: Dictionary, weapon_id: String
 # -> pause -> saves, with Command Re-roll (USE_SHOOTING_REROLL) at each pause.
 # ==========================================================================
 
-func _shooting_reroll_available() -> bool:
+func _shooting_reroll_available(stage: String = "") -> bool:
+	# Codex: Adeptus Custodes PRIME TARGET (CustodesCodex11e.gd): the shooter's free single re-roll of this stage.
+	if stage != "" and _cus11e_prime_target_reroll(stage):
+		return true
 	# A staged hit/wound Command Re-roll is offered when the active player has not
 	# already used Command Re-roll this phase and can pay the CP.
 	var sm = get_node_or_null("/root/StratagemManager")
@@ -4203,6 +4206,20 @@ func _shooting_reroll_available() -> bool:
 		return false
 	var chk = sm.is_command_reroll_available(get_current_player(), active_shooter_id)
 	return chk.get("available", false)
+
+## Codex: Adeptus Custodes PRIME TARGET (CustodesCodex11e.gd): does the active
+## shooter still have its free single re-roll for this stage ("hits"/"wounds",
+## or "hit"/"wound")?
+func _cus11e_prime_target_reroll(stage: String) -> bool:
+	if active_shooter_id == "":
+		return false
+	var st := "hit" if stage.begins_with("hit") else "wound"
+	return bool(_cus11e_codex().single_reroll_available(GameState.get_unit(active_shooter_id), st))
+
+func _cus11e_reroll_label(stage: String) -> String:
+	if _cus11e_prime_target_reroll(stage):
+		return "PRIME TARGET (free) — click a %s die to re-roll it:" % ("hit" if stage == "hits" else "wound")
+	return ""
 
 func _extract_staged_hit_wound(dice_data: Array) -> Array:
 	# Pull hit/wound summary dicts out of the emitted to_hit / to_wound blocks so
@@ -4291,7 +4308,7 @@ func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, curren
 		return _staged_continue_to_wounds(false)
 
 	var hc = hres.get("hit_context", {})
-	var can_reroll = _shooting_reroll_available() and not hc.get("is_torrent", false) \
+	var can_reroll = _shooting_reroll_available("hits") and not hc.get("is_torrent", false) \
 			and not hc.get("no_hit_rerolls", false) and not (hc.get("hit_rolls", []) as Array).is_empty()
 
 	# Tell the attacker's dialog we are paused after the hit roll (show a
@@ -4302,6 +4319,7 @@ func _staged_roll_hits(current_assignment: Dictionary, weapon_id: String, curren
 		"current_index": current_index,
 		"total_weapons": weapon_order.size(),
 		"reroll_available": can_reroll,
+		"reroll_label": _cus11e_reroll_label("hits"),
 		"hit_rolls": hc.get("hit_rolls", []),
 		"modified_rolls": hc.get("modified_rolls", []),
 		"hits": hc.get("hits", 0),
@@ -4383,11 +4401,12 @@ func _staged_continue_to_wounds(pause: bool = true) -> Dictionary:
 	if not pause:
 		return _staged_continue_to_saves()
 	var wc = resolution_state.get("staged_wound_context", {})
-	var can_reroll = _shooting_reroll_available() and not (wc.get("wound_evals", []) as Array).is_empty()
+	var can_reroll = _shooting_reroll_available("wounds") and not (wc.get("wound_evals", []) as Array).is_empty()
 	emit_signal("shooting_stage_paused", "wounds", {
 		"current_index": current_index,
 		"total_weapons": weapon_order.size(),
 		"reroll_available": can_reroll,
+		"reroll_label": _cus11e_reroll_label("wounds"),
 		"wound_rolls": wc.get("wound_rolls", []),
 		"wounds": save_data_list[0].get("wounds_to_save", 0) if not save_data_list.is_empty() else 0,
 		"target_name": target_name,
@@ -4446,14 +4465,24 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 	if stage == "hits" and rr_ctx.get("no_hit_rerolls", false):
 		return create_result(false, [], "Indirect shooting: hit rolls cannot be re-rolled (10.07)")
 
-	# Spend the CP + record the once-per-phase Command Re-roll usage.
-	var sm = get_node_or_null("/root/StratagemManager")
-	if sm == null or not sm.has_method("execute_command_reroll"):
-		return create_result(false, [], "Command Re-roll unavailable")
-	var player = get_current_player()
-	var strat_result = sm.execute_command_reroll(player, active_shooter_id, {"roll_type": stage + "_roll"})
-	if not strat_result.get("success", false):
-		return create_result(false, [], str(strat_result.get("reason", "Cannot use Command Re-roll")))
+	# Codex: Adeptus Custodes PRIME TARGET (CustodesCodex11e.gd): the free single
+	# re-roll of this stage is spent first; otherwise the Command Re-roll.
+	var reroll_source := "Command Re-roll (1 CP)"
+	var cus11e_pt_diffs: Array = []
+	if _cus11e_prime_target_reroll(stage):
+		cus11e_pt_diffs = _cus11e_codex().single_reroll_spend_diffs(active_shooter_id, "hit" if stage == "hits" else "wound")
+		PhaseManager.apply_state_changes(cus11e_pt_diffs)
+		reroll_source = "PRIME TARGET (free)"
+		GameEventLog.add_player_entry(get_current_player(), "PRIME TARGET: %s re-rolls one %s roll" % [GameState.get_unit_display_name(active_shooter_id), "hit" if stage == "hits" else "wound"])
+	else:
+		# Spend the CP + record the once-per-phase Command Re-roll usage.
+		var sm = get_node_or_null("/root/StratagemManager")
+		if sm == null or not sm.has_method("execute_command_reroll"):
+			return create_result(false, [], "Command Re-roll unavailable")
+		var player = get_current_player()
+		var strat_result = sm.execute_command_reroll(player, active_shooter_id, {"roll_type": stage + "_roll"})
+		if not strat_result.get("success", false):
+			return create_result(false, [], str(strat_result.get("reason", "Cannot use Command Re-roll")))
 
 	var rng = RulesEngine.make_rng()
 	if stage == "hits":
@@ -4462,7 +4491,7 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 		if not rr.get("success", false):
 			return create_result(false, [], str(rr.get("error", "Re-roll failed")))
 		emit_signal("dice_rolled", {"context": "reroll_note",
-			"message": "Command Re-roll (1 CP): hit die %d → %d" % [rr.get("old_display", rr.get("old_value", 0)), rr.get("new_display", rr.get("new_value", 0))]})
+			"message": "%s: hit die %d → %d" % [reroll_source, rr.get("old_display", rr.get("old_value", 0)), rr.get("new_display", rr.get("new_value", 0))]})
 		emit_signal("dice_rolled", rr.get("dice_block", {}))
 		_replace_staged_dice_block("to_hit", rr.get("dice_block", {}))
 		var uhc = rr.get("hit_context", {})
@@ -4473,7 +4502,7 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 			"hits": uhc.get("hits", 0),
 			"modifier_ledger": uhc.get("modifier_ledger", [])
 		})
-		return create_result(true, [], "Hit die re-rolled", {
+		return create_result(true, cus11e_pt_diffs, "Hit die re-rolled", {
 			"staged_pause": "hits", "reroll_used": true, "reroll_available": false,
 			"dice_block": rr.get("dice_block", {}), "hits": rr.get("hit_context", {}).get("hits", 0)
 		})
@@ -4491,7 +4520,7 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 		else:
 			resolution_state.staged_save_data_list = []
 		emit_signal("dice_rolled", {"context": "reroll_note",
-			"message": "Command Re-roll (1 CP): wound die %d → %d" % [rr.get("old_value", 0), rr.get("new_value", 0)]})
+			"message": "%s: wound die %d → %d" % [reroll_source, rr.get("old_value", 0), rr.get("new_value", 0)]})
 		emit_signal("dice_rolled", rr.get("dice_block", {}))
 		_replace_staged_dice_block("to_wound", rr.get("dice_block", {}))
 		emit_signal("shooting_stage_paused", "wounds", {
@@ -4500,7 +4529,7 @@ func _process_use_shooting_reroll(action: Dictionary) -> Dictionary:
 			"wounds": new_wounds,
 			"modifier_ledger": rr.get("wound_context", {}).get("modifier_ledger", [])
 		})
-		return create_result(true, [], "Wound die re-rolled", {
+		return create_result(true, cus11e_pt_diffs, "Wound die re-rolled", {
 			"staged_pause": "wounds", "reroll_used": true, "reroll_available": false,
 			"dice_block": rr.get("dice_block", {}), "wounds": new_wounds
 		})
@@ -4614,7 +4643,9 @@ func _can_unit_shoot(unit: Dictionary) -> bool:
 			DebugLogger.info(str("ShootingPhase: Unit %s advanced but has advance_and_shoot effect — eligible to shoot with all weapons" % unit.get("id", "unknown")))
 		else:
 			# Unit advanced - can only shoot if it has Assault weapons
-			return _unit_has_assault_weapons(unit)
+			# (Codex: Adeptus Custodes ADVANCED STABILISERS gives a GRAV-ASSAULT
+			# unit's ranged weapons [ASSAULT] — CustodesCodex11e.gd).
+			return _unit_has_assault_weapons(unit) or _cus11e_codex().may_select_advanced_unit_to_shoot(unit)
 
 	# Units that Fell Back cannot shoot (unless special rules — the
 	# fall_back_and_shoot effect or Kult of Speed's Adrenaline Junkies)
@@ -5163,13 +5194,17 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 		var other := 2 if active == 1 else 1
 		log_phase_message("[StratagemWindow] %s has shot — unit_has_shot (P%d) then enemy_has_shot (P%d); hit=%s wounded=%s" % [
 			shooter_id, active, other, str(shot.hit_unit_ids), str(shot.wounded_unit_ids)])
+		# Codex: Adeptus Custodes VIGIL UNENDING / IN AURAMITE CLAD end "until
+		# that enemy unit has attacked" (CustodesCodex11e.gd).
+		_cus11e_codex().on_unit_has_attacked(shooter_id)
 		# WP-O6: Codex: Orks (11e) "when this unit has shot, select one enemy
 		# unit hit" abilities (Rokkit Barrage, Squig Barrage, Bust 'Em, Madcap
 		# Artillery) resolve here when exactly one unit was hit; with 2+ hit
 		# units they are offered in the unit_has_shot window below.
 		merged.append_array(OrkAbilities11eScript.after_unit_shot(shooter_id, shot.hit_unit_ids))
 		var paused := open_stratagem_windows([
-			{"player": active, "window_id": "unit_has_shot", "ctx": {"phase": "shooting", "unit_id": shooter_id, "hit_unit_ids": shot.hit_unit_ids}},
+			{"player": active, "window_id": "unit_has_shot", "ctx": {"phase": "shooting", "unit_id": shooter_id,
+				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids}},
 			{"player": other, "window_id": "enemy_has_shot", "ctx": {"phase": "shooting", "attacker_unit_id": shooter_id,
 				"hit_unit_ids": shot.hit_unit_ids, "wounded_unit_ids": shot.wounded_unit_ids}}],
 			"_ork11e_resume_after_post_shot_windows", {"unit_id": shooter_id})

@@ -23,6 +23,9 @@ func target_allowed(unit_id: String, target_id: String, weapon_profile: Dictiona
 	var base = super.target_allowed(unit_id, target_id, weapon_profile, board)
 	if not base.allowed:
 		return base
+	# Codex: Adeptus Custodes GOLDEN LIGHT OF THE MOIRAIDES (CustodesCodex11e.gd).
+	if load("res://scripts/codex/custodes/CustodesCodex11e.gd").blocks_snap_shooting_at(board.get("units", {}).get(target_id, {})):
+		return {"allowed": false, "reason": "GOLDEN LIGHT OF THE MOIRAIDES: cannot be targeted with snap shooting"}
 	var rules = _rules()
 	if not rules._has_los_to_target_unit(unit_id, target_id, board):
 		return {"allowed": false, "reason": "target not visible (15.09)"}

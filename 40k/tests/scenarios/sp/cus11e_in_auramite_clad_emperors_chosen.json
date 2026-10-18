@@ -1,0 +1,186 @@
+{
+  "id": "cus11e_in_auramite_clad_emperors_chosen",
+  "covers": [
+    "codex.custodes.stratagems.in-auramite-clad-emperors-chosen",
+    "codex.custodes.CustodesCodex11e",
+    "stratagem.window.enemy_targets_unit_shooting",
+    "shooting.reactive.legacy_fold_in"
+  ],
+  "description": "Codex: Adeptus Custodes (11e) IN AURAMITE CLAD (Emperor's Chosen, 1 CP) — WP-C5. Fixture cus11e_c5_reactive (P1 Orks ACTIVE, P2 Custodes, round 2). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (the Orks' Shooting phase); the Nobz are moved within range of Custodian Guard B. The Ork player targets the Guard with the Nobz: the Custodes' reactive StratagemDialog offers IN AURAMITE CLAD (the codex prints it in Guardians of the Throne and Emperor's Chosen; this is the in-auramite-clad-emperors-chosen row); a real click spends 1 CP: the AP of attacks that target the Guard is worsened by 1 until the Nobz have attacked.",
+  "fixture": "cus11e_c5_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nH.move_to(\"U_NOBZ_A\", 40.5, 30.0)\nreturn H.setup(2, \"Emperor's Chosen\", {})",
+      "comment": "setup privileges (see description)",
+      "equals": "Emperor's Chosen"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn \"U_CUSTODIAN_GUARD_B\" in RulesEngine.get_eligible_targets(\"U_NOBZ_A\", GameState.state)",
+      "comment": "setup: the Nobz can target the unit",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_NOBZ_A",
+        "player": 1
+      },
+      "comment": "the shooting panel's unit pick"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the Ork player's own unit_selected_to_shoot window (if any) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.assign_and_confirm(1, \"U_NOBZ_A\", \"U_CUSTODIAN_GUARD_B\")",
+      "comment": "the Ork player targets the Custodes unit (ASSIGN_TARGET + Confirm Targets)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.phase().awaiting_reactive_stratagem",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn main.get_tree().root.get_node(\"StratagemDialog/Content/Header\").text.contains(\"targeted\")",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_emperor’s_chosen_in_auramite_clad/Buttons/Use_faction_ac_emperor’s_chosen_in_auramite_clad_U_CUSTODIAN_GUARD_B",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_emperor’s_chosen_in_auramite_clad/Buttons/Use_faction_ac_emperor’s_chosen_in_auramite_clad_U_CUSTODIAN_GUARD_B",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_in_auramite_clad_emperors_chosen_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_emperor’s_chosen_in_auramite_clad/Buttons/Use_faction_ac_emperor’s_chosen_in_auramite_clad_U_CUSTODIAN_GUARD_B",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.flag(\"U_CUSTODIAN_GUARD_B\", \"cus11e_in_auramite_clad\")",
+      "equals": {
+        "attackers": [
+          "U_NOBZ_A"
+        ]
+      }
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.codex().modify_ap(-2, H.unit(\"U_NOBZ_A\"), H.unit(\"U_CUSTODIAN_GUARD_B\"))",
+      "comment": "-1 AP (worsened) for attacks that target the Guard",
+      "equals": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn StratagemManager.can_use_stratagem(2, \"faction_ac_emperor’s_chosen_in_auramite_clad\", \"U_CUSTODIAN_WARDENS_A\", {\"window_id\": \"enemy_targets_unit_shooting\", \"target_unit_ids\": [\"U_CUSTODIAN_WARDENS_A\"], \"attacker_unit_id\": \"U_NOBZ_A\"}).can_use",
+      "comment": "never on CUSTODIAN WARDENS",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.log_count(\"Used IN AURAMITE CLAD\")",
+      "comment": "the Game Log names the stratagem",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_in_auramite_clad_emperors_chosen_used"
+    }
+  ],
+  "transition_to_phase": 7
+}

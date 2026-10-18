@@ -612,6 +612,13 @@ const KNOWN_WINDOWS = new Set([
   // Codex: Adeptus Custodes (WP-C3): start of the Fight phase (both players,
   // active first) and the active player's Command phase.
   'fight_phase_start', 'command_phase_main',
+  // Codex: Adeptus Custodes (WP-C5, CustodesCodex11e.gd): end of any phase
+  // (both players, active first), the end of an advance move, a unit selected
+  // to make an ingress / pile-in / consolidation move, an enemy unit has
+  // fought, and the start / end of the opponent's Charge phase.
+  'phase_end', 'unit_ended_advance_move', 'unit_selected_to_ingress',
+  'unit_selected_to_pile_in', 'unit_selected_to_consolidate',
+  'enemy_has_fought', 'charge_phase_start', 'charge_phase_end',
 ]);
 const KNOWN_TURN_COLUMNS = new Set(['Your turn', "Opponent's turn", "Either player's turn"]);
 

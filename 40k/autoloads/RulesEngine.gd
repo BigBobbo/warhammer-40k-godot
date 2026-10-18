@@ -1576,6 +1576,8 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	if ow_prey_bonus > 0:
 		ap = improve_ap(ap, ow_prey_bonus)
 		print("RulesEngine: PREY (Overwatch) — AP improved by %d (target is Prey)" % ow_prey_bonus)	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PSY-CHAFF VOLLEY +1 AP vs a prosecuted unit, IN AURAMITE CLAD -1 AP.
+	ap = _cus11e_codex().modify_ap(ap, shooter_unit, target_unit)
 	var ow_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ow_worsen_ap > 0 and ap != 0:
 		var pre_ap = ap
@@ -2081,6 +2083,15 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false) or bool(ork6.get("torrent", false))  # WP-O5 Temperamental Shokka (1: [TORRENT])
 
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PURGATION SWEEP +1/+2 A on [TORRENT] weapons.
+	var cus11e_bonus_a: int = int(_cus11e_codex().bonus_attacks_per_model(actor_unit, target_unit, weapon_profile, is_torrent, false)) * model_ids.size()
+	if cus11e_bonus_a > 0 and not (assignment.has("attacks_override") and assignment.attacks_override != null):
+		total_attacks += cus11e_bonus_a
+		for _j in range(cus11e_bonus_a):
+			bs_per_attack.append(weapon_profile.get("bs", 4))
+			ork11e_fd_attack.append(false)
+		print("RulesEngine: PURGATION SWEEP — +%d attack(s) for [TORRENT] weapon '%s' (%d models)" % [cus11e_bonus_a, weapon_name, model_ids.size()])
+
 	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire keyword
 	var is_indirect_fire = has_indirect_fire(weapon_id, board)
 
@@ -2381,6 +2392,8 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			# Codex: Adeptus Custodes SALVUS (CustodesKatah.gd): the harmful BS /
 			# hit-roll entries of the stack are ignored.
 			var cus11e_salvus_ignored: Array = _cus11e_katah().salvus_filter_stack(actor_unit, ms_stack)
+			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): INEVITABLE ANNIHILATION ignores the harmful BS / hit-roll entries.
+			cus11e_salvus_ignored.append_array(_cus11e_codex().filter_hit_stack(actor_unit, ms_stack, false))
 			var ms_bs_delta = ms_stack.net("bs")
 			var ms_hit_net_pre = ms_stack.net("hit_roll")
 			# WP-O6 Walking Bastion ignores BS/hit modifiers like [PSYCHIC] does.
@@ -2404,8 +2417,8 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			# cover worsening based on ITS OWN firing model's view of the
 			# target. Attacks with no recorded firing model (overrides,
 			# bonus attacks) fall back to the first firing model's view.
-			# (SALVUS ignores that BS worsening too; WP-O6 Codex: Orks [IGNORES COVER].)
-			if not ms_is_psychic and not _cus11e_katah().salvus_active(actor_unit) and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {"ignores_cover": bool(ork6.get("ignores_cover", false))}):
+			# (SALVUS / INEVITABLE ANNIHILATION ignore that BS worsening too; WP-O6 Codex: Orks [IGNORES COVER].)
+			if not ms_is_psychic and not _cus11e_katah().salvus_active(actor_unit) and not _cus11e_codex().ignores_bs_worsening(actor_unit, false) and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {"ignores_cover": bool(ork6.get("ignores_cover", false))}):
 				var pa_terrain = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
 				if pa_terrain != null:
 					# WP-O6 Madcap Artillery: a wobbled unit's targets have the benefit of cover.
@@ -2451,6 +2464,8 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			ModifierLedger.note(hit_mod_ledger, "Salvus (Ka'tah)", ModifierLedger.KIND_HIT, ModifierLedger.IGNORED, "hit-roll penalties ignored")
 			ModifierLedger.mark_ignored(hit_mod_ledger, ModifierLedger.KIND_HIT, [ModifierLedger.MINUS_ONE])
 			print("RulesEngine: SALVUS — ignoring hit-roll penalties for %s" % actor_unit_id)
+		# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): GOLDEN LIGHT (-1), HONOURED INTERRED (re-roll 1s), INEVITABLE ANNIHILATION (ignore -1).
+		hit_modifiers = _cus11e_codex().apply_hit_bits(hit_modifiers, actor_unit, target_unit, false, board, hit_mod_ledger)
 
 		# Roll to hit - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
@@ -2752,6 +2767,8 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		var pre_s_md = strength
 		strength += 2
 		print("RulesEngine: MOBILE DAKKASTORM — ranged strength %d → %d (+2 vs marked %s)" % [pre_s_md, strength, target_unit_id])
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): TIP OF THE TALON +1 S vs a target within 9".
+	strength += int(_cus11e_codex().ranged_strength_bonus(actor_unit, target_unit, board))
 	strength += ork11e_det_strength_bonus(actor_unit, weapon_id, board)  # Codex: Orks (11e) Try Dat Button! / Powers of da Waaagh! (WP-O34)
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk
@@ -3314,6 +3331,8 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 		# the 10e loop so those abilities keep working under the 11e flow.
 		var damage_provider = func(_roll: int, model_index: int) -> int:
 			var dmg_result = roll_variable_characteristic(damage_raw, rng)
+			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one low damage roll.
+			dmg_result = _cus11e_codex().auto_single_reroll_damage(dmg_result, damage_raw, bs_actor_unit, rng)
 			var dmg = dmg_result.value
 			if dmg_result.rolled:
 				damage_roll_log.append(dmg_result)
@@ -3398,6 +3417,8 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 		var dw_events: Array = []
 		for _c in range(dev_wound_crits):
 			var dmg_result = roll_variable_characteristic(damage_raw, rng)
+			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one low damage roll.
+			dmg_result = _cus11e_codex().auto_single_reroll_damage(dmg_result, damage_raw, bs_actor_unit, rng)
 			var dmg = dmg_result.value
 			if dmg_result.rolled:
 				damage_roll_log.append(dmg_result)
@@ -4218,6 +4239,15 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false) or bool(ork6.get("torrent", false))  # WP-O5 Temperamental Shokka (1: [TORRENT])
 
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PURGATION SWEEP +1/+2 A on [TORRENT] weapons.
+	var ar_cus11e_bonus_a: int = int(_cus11e_codex().bonus_attacks_per_model(actor_unit, target_unit, weapon_profile, is_torrent, false)) * model_ids.size()
+	if ar_cus11e_bonus_a > 0 and not (assignment.has("attacks_override") and assignment.attacks_override != null):
+		total_attacks += ar_cus11e_bonus_a
+		for _j in range(ar_cus11e_bonus_a):
+			bs_per_attack.append(weapon_profile.get("bs", 4))
+			ork11e_fd_attack.append(false)
+		print("RulesEngine: PURGATION SWEEP (auto-resolve) — +%d attack(s) for [TORRENT] weapon %s" % [ar_cus11e_bonus_a, weapon_id])
+
 	# INDIRECT FIRE (T2-4): Check if weapon has Indirect Fire keyword
 	var is_indirect_fire = has_indirect_fire(weapon_id, board)
 
@@ -4494,6 +4524,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			# Codex: Adeptus Custodes SALVUS (CustodesKatah.gd): the harmful BS /
 			# hit-roll entries of the stack are ignored.
 			var cus11e_salvus_ignored: Array = _cus11e_katah().salvus_filter_stack(actor_unit, ms_stack)
+			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): INEVITABLE ANNIHILATION ignores the harmful BS / hit-roll entries.
+			cus11e_salvus_ignored.append_array(_cus11e_codex().filter_hit_stack(actor_unit, ms_stack, false))
 			var ms_bs_delta = ms_stack.net("bs")
 			var ms_hit_net_pre = ms_stack.net("hit_roll")
 			# WP-O6 Walking Bastion ignores BS/hit modifiers like [PSYCHIC] does.
@@ -4517,8 +4549,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			# cover worsening based on ITS OWN firing model's view of the
 			# target. Attacks with no recorded firing model (overrides,
 			# bonus attacks) fall back to the first firing model's view.
-			# (SALVUS ignores that BS worsening too; WP-O6 Codex: Orks [IGNORES COVER].)
-			if not ms_is_psychic and not _cus11e_katah().salvus_active(actor_unit) and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {"ignores_cover": bool(ork6.get("ignores_cover", false))}):
+			# (SALVUS / INEVITABLE ANNIHILATION ignore that BS worsening too; WP-O6 Codex: Orks [IGNORES COVER].)
+			if not ms_is_psychic and not _cus11e_katah().salvus_active(actor_unit) and not _cus11e_codex().ignores_bs_worsening(actor_unit, false) and not ModifierStack.attack_ignores_cover(actor_unit, weapon_profile, {"ignores_cover": bool(ork6.get("ignores_cover", false))}):
 				var pa_terrain = Engine.get_main_loop().root.get_node_or_null("TerrainManager")
 				if pa_terrain != null:
 					# WP-O6 Madcap Artillery: a wobbled unit's targets have the benefit of cover.
@@ -4564,6 +4596,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			ModifierLedger.note(hit_mod_ledger, "Salvus (Ka'tah)", ModifierLedger.KIND_HIT, ModifierLedger.IGNORED, "hit-roll penalties ignored")
 			ModifierLedger.mark_ignored(hit_mod_ledger, ModifierLedger.KIND_HIT, [ModifierLedger.MINUS_ONE])
 			print("RulesEngine: SALVUS — ignoring hit-roll penalties for %s" % actor_unit_id)
+		# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): GOLDEN LIGHT (-1), HONOURED INTERRED (re-roll 1s), INEVITABLE ANNIHILATION (ignore -1).
+		hit_modifiers = _cus11e_codex().apply_hit_bits(hit_modifiers, actor_unit, target_unit, false, board, hit_mod_ledger)
 
 		# Roll to hit with modifiers - CRITICAL HIT TRACKING (PRP-031)
 		hit_rolls = rng.roll_d6(total_attacks)
@@ -4599,6 +4633,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			if ork11e_fd_mixed and i < ork11e_fd_attack.size() and ork11e_fd_attack[i]:
 				ork11e_attack_mods |= HitModifier.PLUS_ONE
 			var hit_eval = AttackSequence.evaluate_hit_roll(roll, attack_bs, ork11e_attack_mods, critical_hit_threshold, rng, hit_fail_band)
+			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one failed hit roll (auto-resolve).
+			hit_eval = _cus11e_codex().auto_single_reroll_hit(hit_eval, roll, actor_unit, attack_bs, ork11e_attack_mods, critical_hit_threshold, rng, hit_fail_band, indirect_consequences)
 			modified_rolls.append(hit_eval.final_roll)
 			if hit_eval.rerolled:
 				reroll_data.append({
@@ -4781,6 +4817,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var pre_s_md = strength
 		strength += 2
 		print("RulesEngine: MOBILE DAKKASTORM (auto-resolve) — ranged strength %d → %d (+2 vs marked %s)" % [pre_s_md, strength, target_unit_id])
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): TIP OF THE TALON +1 S vs a target within 9".
+	strength += int(_cus11e_codex().ranged_strength_bonus(actor_unit, target_unit, board))
 	strength += ork11e_det_strength_bonus(actor_unit, weapon_id, board)  # Codex: Orks (11e) Try Dat Button! / Powers of da Waaagh! (WP-O34)
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (auto-resolve)
@@ -4998,6 +5036,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			for roll in wound_rolls:
 				# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 				var wound_eval = AttackSequence.evaluate_wound_roll(roll, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
+				# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one failed wound roll (auto-resolve).
+				wound_eval = _cus11e_codex().auto_single_reroll_wound(wound_eval, roll, actor_unit, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
 				if wound_eval.rerolled:
 					ar_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 				if wound_eval.auto_fail:
@@ -5017,6 +5057,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		for roll in wound_rolls:
 			# ISS-012: shared per-roll evaluation (AttackSequence.evaluate_wound_roll)
 			var wound_eval = AttackSequence.evaluate_wound_roll(roll, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
+			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one failed wound roll (auto-resolve).
+			wound_eval = _cus11e_codex().auto_single_reroll_wound(wound_eval, roll, actor_unit, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
 			if wound_eval.rerolled:
 				ar_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 			if wound_eval.auto_fail:
@@ -5115,6 +5157,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if ar_glowin_ap > 0:
 		ap = ork11e_improve_ap(ap, ar_glowin_ap)
 		print("RulesEngine: GLOWIN' DAKKA (auto-resolve) — AP improved by %d (target within 9\")" % ar_glowin_ap)
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PSY-CHAFF VOLLEY +1 AP vs a prosecuted unit, IN AURAMITE CLAD -1 AP.
+	ap = _cus11e_codex().modify_ap(ap, actor_unit, target_unit)
 	var ar_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if ar_worsen_ap > 0 and ap != 0:
 		var pre_ap = ap
@@ -12963,6 +13007,14 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		for _j in range(uc_total):
 			ws_per_attack.append(uc_ws)
 		print("RulesEngine: UNBRIDLED CARNAGE — +%d A for '%s' (melee) → +%d total (%d models)" % [ork11e_melee_a_bonus, weapon_name, uc_total, model_count])
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): AVENGE THE FALLEN +2 A (not for CHARACTER models).
+	var cus11e_melee_a := int(_cus11e_codex().bonus_attacks_per_model(attacker_unit, target_unit, weapon_profile, false, true)) if model_count > 0 and not is_extra_attacks_weapon else 0
+	if cus11e_melee_a > 0:
+		var atf_total = cus11e_melee_a * model_count
+		total_attacks += atf_total
+		for _j in range(atf_total):
+			ws_per_attack.append(weapon_profile.get("ws", 4))
+		print("RulesEngine: AVENGE THE FALLEN — +%d A for '%s' (melee) → +%d total (%d models)" % [cus11e_melee_a, weapon_name, atf_total, model_count])
 	# Codex: Orks (11e) Try Dat Button! +1 A (WP-O34) — same Extra Attacks exclusion as above.
 	var ork11e_tdb_a := ork11e_det_attacks_per_model(attacker_unit)
 	if model_count > 0 and ork11e_tdb_a > 0 and not is_extra_attacks_weapon:
@@ -13127,6 +13179,8 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		var pre_ap_o6 = ap
 		ap = improve_ap(ap, int(ork6.get("ap", 0)))
 		print("RulesEngine: [WP-O6] (melee) AP %d → %d" % [pre_ap_o6, ap])
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PSY-CHAFF VOLLEY +1 AP vs a prosecuted unit, IN AURAMITE CLAD -1 AP.
+	ap = _cus11e_codex().modify_ap(ap, attacker_unit, target_unit)
 	# WORSEN AP: Ramshackle etc. — reduce AP of incoming attacks (min 0)
 	var melee_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if melee_worsen_ap > 0 and ap != 0:
@@ -13177,6 +13231,10 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 	if not weapon_has_lethal_hits and _cus11e_katah().rendax_lethal_hits(attacker_unit, target_unit):
 		weapon_has_lethal_hits = true
 		print("RulesEngine:   LETHAL HITS (MONSTER/VEHICLE) granted by the RENDAX ka'tah vs %s" % target_name)
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): GRIM RESPONSIBILITY [LETHAL HITS: CHARACTER/MONSTER].
+	if not weapon_has_lethal_hits and _cus11e_codex().melee_lethal_hits(attacker_unit, target_unit):
+		weapon_has_lethal_hits = true
+		print("RulesEngine:   LETHAL HITS (CHARACTER/MONSTER) granted by GRIM RESPONSIBILITY vs %s" % target_name)
 
 	# FIGHT PROPPA (Taktikal Brigade, 10e) and HIT 'EM HARDER (Codex: Orks 11e,
 	# OrkCodexFight.gd): melee-scoped grants — [SUSTAINED HITS 1] or
@@ -13382,6 +13440,8 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			melee_hit_modifiers |= HitModifier.MINUS_ONE
 			ModifierLedger.note(melee_hit_mod_ledger, "Kaptaris (Ka'tah)", ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, "defender's ka'tah")
 			print("RulesEngine: KAPTARIS — melee attacks that target %s have -1 to hit" % target_name)
+		# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): SHIELD OF HONOUR / GOLDEN LIGHT (-1), HONOURED INTERRED (re-roll 1s), BEARERS OF HIS LIGHT (ignore -1).
+		melee_hit_modifiers = _cus11e_codex().apply_hit_bits(melee_hit_modifiers, attacker_unit, target_unit, true, board, melee_hit_mod_ledger)
 
 		# CAPTAIN-GENERAL: Ignore all numeric hit modifiers (melee)
 		if has_captain_general(attacker_unit):
@@ -13690,6 +13750,9 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 		melee_wound_modifiers |= WoundModifier.PLUS_ONE
 		ModifierLedger.note(melee_wound_mod_ledger, "Against All Odds", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
 		print("RulesEngine: AGAINST ALL ODDS (melee) — +1 to wound for %s (no friendlies within 6\")" % attacker_id)
+
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): SLAYERS OF NIGHTMARES (+1), SHIELD OF HONOUR (-1), BEARERS OF HIS LIGHT (ignore -1).
+	melee_wound_modifiers = _cus11e_codex().apply_wound_bits(melee_wound_modifiers, attacker_unit, target_unit, true, strength, toughness, melee_wound_mod_ledger)
 
 	var melee_wound_modifier_net = 0
 	if melee_wound_modifiers & WoundModifier.PLUS_ONE:
@@ -14551,6 +14614,8 @@ static func prepare_save_resolution(
 	if int_glowin_ap > 0:
 		ap = ork11e_improve_ap(ap, int_glowin_ap)
 		print("RulesEngine: GLOWIN' DAKKA (interactive) — AP improved by %d (target within 9\")" % int_glowin_ap)
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PSY-CHAFF VOLLEY +1 AP vs a prosecuted unit, IN AURAMITE CLAD -1 AP.
+	ap = _cus11e_codex().modify_ap(ap, shooter_unit, target_unit)
 	var int_worsen_ap = EffectPrimitivesData.get_effect_worsen_ap(target_unit)
 	if int_worsen_ap > 0 and ap != 0:
 		var pre_ap = ap
@@ -14775,6 +14840,8 @@ static func prepare_melee_save_resolution(
 	if mi_ork6_ap > 0:
 		ap = improve_ap(ap, mi_ork6_ap)
 		print("RulesEngine: [WP-O6] (melee interactive) AP improved by %d → %d" % [mi_ork6_ap, ap])
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PSY-CHAFF VOLLEY +1 AP vs a prosecuted unit, IN AURAMITE CLAD -1 AP.
+	ap = _cus11e_codex().modify_ap(ap, attacker_unit, target_unit)
 
 	var damage = weapon_profile.get("damage", 1)
 
@@ -15563,6 +15630,11 @@ static func _better_fnp(a: int, b: int) -> int:
 ## cascade into the autoload's compile).
 static func _cus11e_katah():
 	return load("res://scripts/codex/custodes/CustodesKatah.gd")
+
+## Codex: Adeptus Custodes stratagems (WP-C5) — the effect consumers the
+## one-line hooks in this file call (loaded lazily, like _cus11e_katah).
+static func _cus11e_codex():
+	return load("res://scripts/codex/custodes/CustodesCodex11e.gd")
 
 ## Mortal wounds that survive Feel No Pain, for the mortal-wound paths that
 ## allocate through Allocation.apply_mortal_wounds_11e (explosives, crushing
