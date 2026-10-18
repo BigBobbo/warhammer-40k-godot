@@ -110,9 +110,17 @@ static func datasheet_key(unit: Dictionary) -> String:
 	if _kit_fits_menu(unit_slug, menu):
 		return name
 	if _kit_fits_menu(legacy_slug, menu):
+		# Everything the pre-codex kit could carry: its defaults AND every
+		# weapon its options could swap in (a 1.0.19 Boy could take a Shoota,
+		# so a roster listing one is not proof of a codex build).
 		var legacy_kit := {}
 		for id in _defaults_by_unit.get(legacy_slug, []):
 			legacy_kit[_strip_unit_suffix(str(id), legacy_slug)] = true
+		_ensure_options_loaded()
+		for opt in _options_by_unit.get(legacy_slug, []):
+			for bundle in opt.get("bundles", []):
+				for s in bundle:
+					legacy_kit[str(s)] = true
 		for id in _defaults_by_unit.get(unit_slug, []):
 			var s := _strip_unit_suffix(str(id), unit_slug)
 			if menu.has(s) and not legacy_kit.has(s):
