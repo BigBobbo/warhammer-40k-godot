@@ -40,18 +40,24 @@ const COMPOSITIONS_PATH := "res://data/40kdc/unitCompositions.json"
 const WARGEAR_OPTIONS_PATH := "res://data/40kdc/wargearOptions.json"
 
 # Legacy (pre-codex) datasheet kits, frozen by scripts/40kdc/legacy-kits.mjs:
-# the 1.0.19 composition + wargear-option records of every Ork datasheet that
-# Codex: Orks (dataset 1.4.5) rewrote or removed. Rosters built on the old
-# datasheets (army files, save fixtures, players' saves, web-builder exports —
-# the browser bundle is still 1.0.19) carry the OLD weapon names ("Tracks and
-# wheels", a Boss Nob's "Big choppa", "Grot crew"), which no longer match the
-# codex kits, so without these they lost per-model loadout resolution.
-# datasheet_key() decides per unit which kit applies.
+# the composition + wargear-option records of every datasheet a codex rewrote
+# or removed. Rosters built on the old datasheets (army files, save fixtures,
+# players' saves, web-builder exports made before WP-W3) carry the OLD weapon
+# names ("Tracks and wheels", a Boss Nob's "Big choppa", "Grot crew"), which no
+# longer match the codex kits, so without these they lost per-model loadout
+# resolution. datasheet_key() decides per unit which kit applies.
+# The file and the " [1.0.19]" key are named after the FIRST freeze; each
+# record's `frozen_from` says which dataset its kit really is: "40kdc-data
+# 1.0.19" for the Codex: Orks (1.4.5) and Codex: Adeptus Custodes re-kits,
+# "40kdc-data 1.4.5" for Tankbustas, Warbikers, Runtherd and Nazdreg, which the
+# Wahapedia overlay re-kitted to the printed codex (WP-O1b; their 1.0.19 kit
+# was the same as 1.4.5's, so one frozen kit covers both). A datasheet has at
+# most one legacy kit.
 const LEGACY_COMPOSITIONS_PATH := "res://data/40kdc/legacy/unitCompositions_1.0.19.json"
 const LEGACY_WARGEAR_OPTIONS_PATH := "res://data/40kdc/legacy/wargearOptions_1.0.19.json"
-## Appended to a datasheet name to address its legacy kit: "Boyz" ->
-## "Boyz [1.0.19]" (slug "boyz-1-0-19"). Every public API that takes a unit
-## name accepts it.
+## Appended to a datasheet name to address its legacy (pre-codex) kit: "Boyz"
+## -> "Boyz [1.0.19]" (slug "boyz-1-0-19"), whatever dataset the kit was frozen
+## from (see above). Every public API that takes a unit name accepts it.
 const LEGACY_NAME_SUFFIX := " [1.0.19]"
 const LEGACY_SLUG_SUFFIX := "-1-0-19"
 
@@ -83,6 +89,8 @@ static var _options_by_unit: Dictionary = {}
 static var _options_loaded: bool = false
 # Datasheet slugs already logged as resolving via the legacy kit (log once).
 static var _legacy_logged: Dictionary = {}
+# legacy slug ("tankbustas-1-0-19") -> the record's frozen_from dataset label.
+static var _legacy_frozen_from: Dictionary = {}
 
 
 ## The datasheet name to look this unit's kit up under — pass it wherever a
@@ -93,7 +101,11 @@ static var _legacy_logged: Dictionary = {}
 ## none of the weapons only the current kit has (a codex-built Boyz mob lists
 ## the codex "Kustom Choppa" — and also the old "Big Choppa", so the legacy kit
 ## alone would fit it too). A unit built from the current datasheet therefore
-## never switches.
+## never switches. "Only the current kit has" excludes the legacy datasheet's
+## own OPTIONS: the codex Boy's default Shoota was a 1.0.19 Boy's swap, so a
+## pre-codex mob's menu lists it too (WP-O1b — once 37b40131 matched the
+## "shoota-boyz-unit" id to "Shoota", every pre-codex Boyz roster was taken for
+## a codex one and lost its per-model kit).
 static func datasheet_key(unit: Dictionary) -> String:
 	var meta: Dictionary = unit.get("meta", {}) if typeof(unit.get("meta", {})) == TYPE_DICTIONARY else {}
 	var name := str(meta.get("name", ""))
@@ -113,13 +125,21 @@ static func datasheet_key(unit: Dictionary) -> String:
 		var legacy_kit := {}
 		for id in _defaults_by_unit.get(legacy_slug, []):
 			legacy_kit[_strip_unit_suffix(str(id), legacy_slug)] = true
+		_ensure_options_loaded()
+		for option in _options_by_unit.get(legacy_slug, []):
+			for s in option.get("replaces", []):
+				legacy_kit[str(s)] = true
+			for bundle in option.get("bundles", []):
+				for s in bundle:
+					legacy_kit[str(s)] = true
 		for id in _defaults_by_unit.get(unit_slug, []):
 			var s := _strip_unit_suffix(str(id), unit_slug)
 			if menu.has(s) and not legacy_kit.has(s):
 				return name  # carries a codex-only weapon: built from the current datasheet
 		if not _legacy_logged.has(unit_slug):
 			_legacy_logged[unit_slug] = true
-			print("[LOADOUT-UI] %s: roster uses the pre-codex datasheet kit — resolving against the legacy 1.0.19 kit" % name)
+			print("[LOADOUT-UI] %s: roster uses the pre-codex datasheet kit — resolving against the legacy kit (frozen from %s)" % [
+				name, str(_legacy_frozen_from.get(legacy_slug, "40kdc-data 1.0.19"))])
 		return name + LEGACY_NAME_SUFFIX
 	return name
 
@@ -368,10 +388,13 @@ static func _ensure_compositions_loaded() -> void:
 	var parsed = _read_json_array(COMPOSITIONS_PATH, "base-kit weapons")
 	if parsed != null:
 		_ingest_compositions(parsed, "")
-	var legacy = _read_json_array(LEGACY_COMPOSITIONS_PATH, "legacy (1.0.19) base kits")
+	var legacy = _read_json_array(LEGACY_COMPOSITIONS_PATH, "legacy (pre-codex) base kits")
 	if legacy != null:
 		_ingest_compositions(legacy, LEGACY_SLUG_SUFFIX)
-	print("[LOADOUT-UI] base kits loaded for %d datasheets (%d with per-model roles; incl. %d legacy 1.0.19 kits)" % [
+		for entry in legacy:
+			if typeof(entry) == TYPE_DICTIONARY and str(entry.get("frozen_from", "")) != "":
+				_legacy_frozen_from[str(entry.get("unit_id", "")) + LEGACY_SLUG_SUFFIX] = str(entry["frozen_from"])
+	print("[LOADOUT-UI] base kits loaded for %d datasheets (%d with per-model roles; incl. %d legacy pre-codex kits)" % [
 		_defaults_by_unit.size(), _defaults_by_unit_model.size(),
 		(legacy.size() if legacy != null else 0)])
 

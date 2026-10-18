@@ -12,7 +12,13 @@ const GameStateData = preload("res://autoloads/GameState.gd")
 #   1 — ranged from wargear (Phase 1) + melee from wargear (Phase 1b)
 #   2 — melee/ranged fall back to the datasheet's DEFAULT per-model kit when the
 #       roster's wargear says nothing about that weapon type (CASE D)
-const LOADOUT_RESOLVER_VERSION := 2
+#   3 — a wargear line naming a multi-profile weapon by its base name
+#       ("3x Rokkit Launcha" for "Rokkit Launcha – Blasta / – Busta"), or with
+#       another capitalisation ("1x Power snappa"), counts for that weapon
+#       (WP-O1b: codex Deffkoptas lost their Rokkit Launcha). A model that an
+#       older version already stamped keeps its stamp (it no longer
+#       over-reports, so it is not re-resolved).
+const LOADOUT_RESOLVER_VERSION := 3
 
 # Weapon profile structure (will be expanded later)
 const WEAPON_PROFILES = {
@@ -7401,6 +7407,14 @@ static func _model_allows_weapon(unit: Dictionary, model: Dictionary, weapon_nam
 	return weapon_name in model_profiles[model_type].get("weapons", [])
 
 
+# Every profile name of one weapon (a multi-profile weapon is carried whole).
+static func _model_allows_weapons(unit: Dictionary, model: Dictionary, weapon_names: Array) -> bool:
+	for wn in weapon_names:
+		if not _model_allows_weapon(unit, model, str(wn)):
+			return false
+	return true
+
+
 # MA-LOADOUT: shared resolver for one weapon type ("Ranged" / "Melee"). Parses
 # the unit's `wargear` counts for that type's weapons and, when they unambiguously
 # pin the per-model loadout, stamps `loadout_key` on each model. Leaves the unit
@@ -7424,9 +7438,24 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 
 	# Weapon names of this type the datasheet actually lists.
 	var type_names := {}
+	# Every slug a wargear line may name one of them by -> the weapon's
+	# profile names of this type. A multi-profile weapon is listed per profile
+	# ("Rokkit Launcha – Blasta", "Rokkit Launcha – Busta") but a roster names
+	# it once ("3x Rokkit Launcha"): that line is one weapon per model, carried
+	# with all its profiles of this type (WP-O1b). Full-name slugs also absorb
+	# capitalisation ("1x Power snappa" -> "Power Snappa").
+	var full_slug := {}   # slug(full name) -> full name
+	var base_group := {}  # slug(base name) -> [full names]
 	for w in meta.get("weapons", []):
 		if str(w.get("type", "")).to_lower() == weapon_type_filter.to_lower():
-			type_names[str(w.get("name", ""))] = true
+			var wn := str(w.get("name", ""))
+			type_names[wn] = true
+			full_slug[UnitLoadoutResolver.slugify(wn)] = wn
+			var bs := UnitLoadoutResolver.slugify(UnitLoadoutResolver.base_weapon_name(wn))
+			var grp: Array = base_group.get(bs, [])
+			if wn not in grp:
+				grp.append(wn)
+			base_group[bs] = grp
 	if type_names.is_empty():
 		return
 
@@ -7445,6 +7474,8 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 	# other weapon type, and count-less entries we can't size).
 	var counts := {}
 	var total := 0
+	# gun key (as counted) -> the profile names a model carrying it reports
+	var gun_names := {}
 	for entry in meta.get("wargear", []):
 		for part in str(entry).split(","):
 			var txt = part.strip_edges()
@@ -7458,9 +7489,22 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 			if not num_str.is_valid_int():
 				continue
 			var name = txt.substr(space + 1).strip_edges()
+			var key := ""
 			if type_names.has(name):
+				key = name
+				gun_names[key] = [name]
+			else:
+				var s := UnitLoadoutResolver.slugify(str(name))
+				if full_slug.has(s):
+					key = str(full_slug[s])
+					gun_names[key] = [key]
+				elif base_group.has(s):
+					var grp: Array = base_group[s]
+					key = UnitLoadoutResolver.base_weapon_name(str(grp[0]))
+					gun_names[key] = grp.duplicate()
+			if key != "":
 				var n = int(num_str)
-				counts[name] = int(counts.get(name, 0)) + n
+				counts[key] = int(counts.get(key, 0)) + n
 				total += n
 
 	var model_count = models.size()
@@ -7497,7 +7541,7 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 				for mi in range(model_count):
 					if used.has(mi):
 						continue
-					if _model_allows_weapon(unit, models[mi], name):
+					if _model_allows_weapons(unit, models[mi], gun_names[name]):
 						used[mi] = true
 						assigned[mi] = name
 						placed = true
@@ -7511,7 +7555,7 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 						print("[MA-LOADOUT] %s (%s): left unresolved — could not place '%s'" % [uname, weapon_type_filter, name])
 					return
 		for mi in range(model_count):
-			models[mi][loadout_key] = [assigned[mi]]
+			models[mi][loadout_key] = (gun_names[assigned[mi]] as Array).duplicate()
 		return
 
 	# CASE B — uniform multi-gun models (each distinct gun appears once per model).
@@ -7523,7 +7567,9 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 	if uniform and total == distinct.size() * model_count:
 		var gun_set := []
 		for name in distinct:
-			gun_set.append(name)
+			for pn in gun_names[name]:
+				if pn not in gun_set:
+					gun_set.append(pn)
 		for model in models:
 			for name in gun_set:
 				if not _model_allows_weapon(unit, model, name):
@@ -7538,7 +7584,7 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 		var name = str(distinct[0])
 		var all_allowed := true
 		for model in models:
-			if not _model_allows_weapon(unit, model, name):
+			if not _model_allows_weapons(unit, model, gun_names[name]):
 				# Handing the gun to EVERY model is wrong here — some role can't
 				# take it, which means the roster's short count is a per-role
 				# figure ("9x Close combat weapon" for 9 Boyz + a Boss Nob with a
@@ -7548,7 +7594,7 @@ static func _resolve_type_loadout(unit: Dictionary, weapon_type_filter: String, 
 				break
 		if all_allowed:
 			for model in models:
-				model[loadout_key] = [name]
+				model[loadout_key] = (gun_names[name] as Array).duplicate()
 			return
 		if _resolve_type_from_datasheet_defaults(unit, weapon_type_filter, loadout_key):
 			return
