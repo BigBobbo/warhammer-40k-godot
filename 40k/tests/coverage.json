@@ -8230,9 +8230,10 @@
     },
     {
       "id": "audit_P0.fight_moment_shackle",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_moment_shackle_ui.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_moment_shackle_ui. (WP-C7: that 10e MomentShackleDialog scenario was retired with the dialog; Codex: Adeptus Custodes 11e Moment Shackle is a card in the start-of-phase window, verified by cus11e_ab_moment_shackle (real clicks) and ai_moment_shackle_window (AI softlock).)",
       "scenarios": [
-        "fight_moment_shackle_ui"
+        "cus11e_ab_moment_shackle",
+        "ai_moment_shackle_window"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -8310,9 +8311,10 @@
     },
     {
       "id": "phases.FightPhase.moment_shackle",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_moment_shackle_ui.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_moment_shackle_ui. (WP-C7: that 10e MomentShackleDialog scenario was retired with the dialog; Codex: Adeptus Custodes 11e Moment Shackle is a card in the start-of-phase window, verified by cus11e_ab_moment_shackle (real clicks) and ai_moment_shackle_window (AI softlock).)",
       "scenarios": [
-        "fight_moment_shackle_ui"
+        "cus11e_ab_moment_shackle",
+        "ai_moment_shackle_window"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -8350,9 +8352,10 @@
     },
     {
       "id": "scripts.FightController.moment_shackle_ui",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_moment_shackle_ui.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_moment_shackle_ui. (WP-C7: that 10e MomentShackleDialog scenario was retired with the dialog; Codex: Adeptus Custodes 11e Moment Shackle is a card in the start-of-phase window, verified by cus11e_ab_moment_shackle (real clicks) and ai_moment_shackle_window (AI softlock).)",
       "scenarios": [
-        "fight_moment_shackle_ui"
+        "cus11e_ab_moment_shackle",
+        "ai_moment_shackle_window"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
