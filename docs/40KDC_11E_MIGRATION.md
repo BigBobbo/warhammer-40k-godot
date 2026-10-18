@@ -55,8 +55,10 @@ enhancements (Tellyporta, Adamantine Talisman).
 every player launch re-asserts 11 at boot (a stale `settings.cfg` from older
 builds can no longer pin a player to 10e), and the main-menu "Rules Edition"
 selector was removed. The 10e code paths and data tables survive *only* for
-the legacy regression suite — the automated harness pins its historical 10e
-baseline explicitly — until they are deleted outright.
+the legacy regression suite until they are deleted outright. Test harnesses
+default to 11 as well; a legacy 10e run must opt in explicitly
+(`WH40K_TEST_EDITION=10`, `-- --edition=10` for `godot -s`, a scenario
+`"edition": 10` field, or a test that sets `GameConstants.edition = 10`).
 
 ## Licensing
 

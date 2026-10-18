@@ -54,6 +54,18 @@ func _on_phase_enter() -> void:
 	DebugLogger.info(str("CommandPhase: Entering command phase for player ", current_player))
 	DebugLogger.info(str("CommandPhase: Battle round ", battle_round))
 
+	# The start-of-Command steps below that CHANGE the game (round resets, CP
+	# gain, battle-shock clear, turn-start snapshots, the secondary draw) run
+	# once per player turn. Re-entering the same turn's Command phase — loading
+	# a save made during it, or a scripted re-entry — used to apply them again:
+	# +1 CP to both players and, at 11e (draw 2 per turn, no hand limit), two
+	# more secondary cards on every reload.
+	var start_key := GameState.command_start_key(battle_round, current_player)
+	var start_already_resolved: bool = str(GameState.state.get("meta", {}).get(
+		GameState.COMMAND_START_RESOLVED_KEY, "")) == start_key
+	if start_already_resolved:
+		DebugLogger.info("CommandPhase: start-of-Command steps for %s already resolved (restored save / re-entry) — not re-applying CP gain, battle-shock clear, turn-start snapshots or the secondary draw" % start_key)
+
 	# Clear Psychic Veil flags from previous turn
 	var all_units_pv_clear = GameState.state.get("units", {})
 	for uid in all_units_pv_clear:
@@ -70,7 +82,7 @@ func _on_phase_enter() -> void:
 	# first-turn roll-off gives Player 2 the first turn, the round begins on P2's
 	# turn, so the per-round resets (round kills, bonus-CP cap, battle-round
 	# stratagem expiry) must fire then, not on P1's (second) turn.
-	if current_player == GameState.get_first_turn_player():
+	if current_player == GameState.get_first_turn_player() and not start_already_resolved:
 		if MissionManager:
 			MissionManager.reset_round_kills()
 		# Reset bonus CP tracking — per core rules FAQ, each player can only gain 1 bonus CP per battle round
@@ -108,10 +120,13 @@ func _on_phase_enter() -> void:
 	# the start of every Command phase (subject to the per-round cap). The
 	# round-1 first-turn-player skip from #336 is removed; that interpretation
 	# was based on stale rules text.
-	_generate_command_points(current_player)
+	if not start_already_resolved:
+		_generate_command_points(current_player)
 
 	# Step 2: Clear all battle_shocked flags for the current player's units
-	_clear_battle_shocked_flags()
+	# (on re-entry the flags are this phase's own battle-shock results — keep them)
+	if not start_already_resolved:
+		_clear_battle_shocked_flags()
 
 	# Step 3: Identify units below half-strength that need battle-shock tests
 	_identify_units_needing_tests()
@@ -119,7 +134,7 @@ func _on_phase_enter() -> void:
 	# Step 4: Snapshot objective control BEFORE checking objectives this turn
 	# This is critical for secondary missions like "Storm Hostile Objective" that compare
 	# start-of-turn vs current control. Snapshot must happen BEFORE check_all_objectives().
-	if secondary_mgr and secondary_mgr.is_initialized(current_player):
+	if secondary_mgr and secondary_mgr.is_initialized(current_player) and not start_already_resolved:
 		secondary_mgr.on_turn_start(current_player)
 
 	# Step 5: Check objectives at start of command phase (AFTER snapshot)
@@ -129,12 +144,14 @@ func _on_phase_enter() -> void:
 		MissionManager.snapshot_alive_units()
 		# 11e GDM: open the active player's 15-VP-per-turn primary window and
 		# snapshot start-of-turn control for "hold new objective" conditions.
-		MissionManager.on_turn_start_11e(current_player)
+		if not start_already_resolved:
+			MissionManager.on_turn_start_11e(current_player)
 
 	# Step 6: Draw secondary mission cards (tactical mode only — fixed mode skips drawing)
 	_newly_drawn_missions = []
 	var game_event_log = get_node_or_null("/root/GameEventLog")
-	if secondary_mgr and secondary_mgr.is_initialized(current_player) and not secondary_mgr.is_fixed_mode(current_player):
+	if secondary_mgr and secondary_mgr.is_initialized(current_player) and not secondary_mgr.is_fixed_mode(current_player) \
+			and not start_already_resolved:
 		var drawn = secondary_mgr.draw_missions_to_hand(current_player)
 		if drawn.size() > 0:
 			_newly_drawn_missions = drawn.duplicate()
@@ -143,6 +160,12 @@ func _on_phase_enter() -> void:
 				DebugLogger.info(str("  - %s" % card["name"]))
 				if game_event_log:
 					game_event_log.add_player_entry(current_player, "Drew secondary mission: %s" % card["name"])
+
+	# Record that this player turn's start-of-Command steps are applied (saved
+	# with the game and synced like the CP change) — see start_already_resolved.
+	if not start_already_resolved:
+		PhaseManager.apply_state_changes([{"op": "set",
+			"path": "meta.%s" % GameState.COMMAND_START_RESOLVED_KEY, "value": start_key}])
 
 	# Log active secondary missions for both players
 	if game_event_log and secondary_mgr:
@@ -377,7 +400,10 @@ func _identify_units_needing_tests() -> void:
 		# Check if unit is below half-strength
 		# Use combined check that includes attached character models in starting strength
 		var below_half = GameState.is_below_half_strength_combined(unit_id)
-		var is_shocked = unit.get("flags", {}).get("battle_shocked", false)
+		# 19.01: battle-shock of the whole Attached unit — a flag left on an
+		# attached CHARACTER (who is skipped above and never tests alone)
+		# still needs the unit's test to recover (08.03).
+		var is_shocked = AttackSequence.group_battle_shocked(unit_id, units)
 		# ISS-043/065 (11e 08.03): a unit tests if it is currently
 		# battle-shocked OR at-or-below half-strength. "At" half-strength
 		# (exactly half the starting strength) was previously omitted —
@@ -1042,6 +1068,25 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 	# Resolve immediately (no reroll available or test passed)
 	return _resolve_battle_shock_test(unit_id, die1, die2)
 
+## 19.01: the other components of `unit_id`'s Attached unit — the SAME group
+## AttackSequence.group_battle_shocked reads for the recovery gate (RulesEngine
+## attached_unit_target_id / attached_unit_component_ids, both sides of the
+## linkage), unioned with the forward attached_characters list the clears used
+## before. A leader linked only by its attached_to back-pointer (saves such as
+## audit_370_bgnt_shoot) is cleared too, so a passed test cannot leave its flag
+## behind — that flag would keep the whole Attached unit's OC at '-' (14.02).
+## Returns a fresh array (get_attached_characters returns the live list).
+func _battle_shock_group_other_ids(unit_id: String) -> Array:
+	var head_id = RulesEngine.attached_unit_target_id(unit_id, GameState.state)
+	var ids: Array = []
+	for gid in RulesEngine.attached_unit_component_ids(head_id, GameState.state):
+		if str(gid) != unit_id and not ids.has(str(gid)):
+			ids.append(str(gid))
+	for char_id in GameState.get_attached_characters(unit_id):
+		if str(char_id) != unit_id and not ids.has(str(char_id)):
+			ids.append(str(char_id))
+	return ids
+
 func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictionary:
 	"""Resolve a battle-shock test with the given dice. Called after initial roll or after reroll decision."""
 	var unit = GameState.state.get("units", {}).get(unit_id, {})
@@ -1069,10 +1114,13 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 	# the result and applied by BasePhase.execute_action, so undo, replay
 	# recording, and multiplayer sync all observe the flag change.
 	var changes: Array = []
-	if test_passed and GameConstants.edition >= 11 and unit.get("flags", {}).get("battle_shocked", false):
+	# 19.01: recovery is gated on the WHOLE Attached unit's battle-shock, so a
+	# flag left only on an attached CHARACTER is cleared too.
+	if test_passed and GameConstants.edition >= 11 and AttackSequence.group_battle_shocked(unit_id, GameState.state.get("units", {})):
 		# ISS-043 (11e 08.03): a battle-shocked unit that passes RECOVERS.
+		# Clears the same group the gate above reads (19.01).
 		changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % unit_id, "value": false})
-		for char_id in GameState.get_attached_characters(unit_id):
+		for char_id in _battle_shock_group_other_ids(unit_id):
 			var char_unit = GameState.state.get("units", {}).get(char_id, {})
 			if not char_unit.is_empty() and char_unit.has("flags"):
 				changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % char_id, "value": false})
@@ -1374,10 +1422,11 @@ func _apply_battle_shock_auto_success(unit_id: String, source: String) -> Dictio
 	if unit_id not in _units_auto_passed:
 		_units_auto_passed.append(unit_id)
 	var changes: Array = []
-	var was_shocked: bool = unit.get("flags", {}).get("battle_shocked", false)
+	# 19.01: group-aware, as in _resolve_battle_shock_test.
+	var was_shocked: bool = AttackSequence.group_battle_shocked(unit_id, GameState.state.get("units", {}))
 	if was_shocked and GameConstants.edition >= 11:
 		changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % unit_id, "value": false})
-		for char_id in GameState.get_attached_characters(unit_id):
+		for char_id in _battle_shock_group_other_ids(unit_id):
 			if not GameState.state.get("units", {}).get(char_id, {}).is_empty():
 				changes.append({"op": "set", "path": "units.%s.flags.battle_shocked" % char_id, "value": false})
 	DebugLogger.info(str("CommandPhase: %s AUTO-PASSED battle-shock test via %s%s" % [unit_name, source, " — recovered (11e 08.03)" if not changes.is_empty() else ""]))

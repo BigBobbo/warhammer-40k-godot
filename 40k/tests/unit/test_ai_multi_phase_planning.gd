@@ -472,7 +472,9 @@ func test_urgency_round_4_push():
 	var snapshot = _create_test_snapshot(2, 4)
 
 	_add_unit(snapshot, "friendly", 2, Vector2(880, 1800), "Friendly", 2, 6, 5)
-	# Enemy on objective — weak hold
+	# Enemy on objective — weak hold: 3 OC2 models, level of control 6 (14.02
+	# sums every model in range). Weak because our 5 x OC2 squad (OC 10) can
+	# reach it within two moves — not because 6 is under a fixed cut-off.
 	_add_unit(snapshot, "enemy", 1, Vector2(880, 1200), "Enemy Weak", 2, 6, 3)
 
 	var objectives = [Vector2(880, 1200), Vector2(400, 720), Vector2(880, 2160)]

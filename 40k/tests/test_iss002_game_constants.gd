@@ -6,7 +6,8 @@ extends SceneTree
 # (ER 1" -> 2", core rules 03.04) flips everywhere at once.
 #
 # Checks:
-#   A) GameConstants values per edition (10 default; 11 flips ER to 2").
+#   A) GameConstants values per edition (harness default 11; 10e via explicit
+#      opt-in; 11 flips ER to 2").
 #   B) Measurement.is_in_engagement_range_shape_aware default argument is
 #      edition-aware (1.5" gap: out of ER at edition 10, in ER at edition 11).
 #   C) Static scan: no ENGAGEMENT_RANGE const re-declarations outside
@@ -45,9 +46,27 @@ func _run_tests():
 
 func _test_edition_values() -> void:
 	print("\n-- A: GameConstants edition values --")
-	# The static default is 11 (11th edition only); the automated harness pins
-	# GameConstants.edition to the legacy 10e baseline for this suite.
-	_check("harness baseline edition is 10", GameConstants.edition == 10)
+	# The static default is 11 (11th edition only) and the test harness now
+	# defaults to it too (rules audit 9.2: the old silent 10e pin produced
+	# false-green evidence). 10e is reachable only through an explicit opt-in.
+	var settings = root.get_node_or_null("SettingsService")
+	var env_ed := OS.get_environment("WH40K_TEST_EDITION").strip_edges()
+	var expected_boot := 10 if env_ed == "10" else 11
+	_check("harness boot edition is %d (WH40K_TEST_EDITION=%s)" % [expected_boot, env_ed if env_ed != "" else "<unset>"],
+		GameConstants.edition == expected_boot, "got %d" % GameConstants.edition)
+	if settings != null and settings.has_method("_resolve_harness_edition"):
+		var saved_env := OS.get_environment("WH40K_TEST_EDITION")
+		OS.set_environment("WH40K_TEST_EDITION", "")
+		var r_default: Dictionary = settings._resolve_harness_edition()
+		_check("harness default edition (no opt-in) is 11", int(r_default.edition) == 11, str(r_default))
+		OS.set_environment("WH40K_TEST_EDITION", "10")
+		var r_legacy: Dictionary = settings._resolve_harness_edition()
+		_check("explicit WH40K_TEST_EDITION=10 opt-in resolves to 10", int(r_legacy.edition) == 10, str(r_legacy))
+		OS.set_environment("WH40K_TEST_EDITION", saved_env)
+	else:
+		_check("SettingsService._resolve_harness_edition reachable", false)
+	# The 10e constants below need 10e explicitly — never inherited.
+	GameConstants.edition = 10
 	_check("edition 10: engagement range 1.0\"",
 		GameConstants.engagement_range_inches() == 1.0)
 	_check("vertical engagement range 5.0\"",

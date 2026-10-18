@@ -13,16 +13,17 @@ extends RefCounted
 ## are reachable from static contexts without a scene tree.
 ##
 ## Edition values:
-##   10 — the currently implemented 10th-edition ruleset (default).
-##   11 — the new-edition core rules (see PRD.md / warhammer40k_core_rules8).
+##   10 — the legacy 10th-edition ruleset (regression suite only; explicit
+##        opt-in via WH40K_TEST_EDITION=10 / --edition=10 or a test write).
+##   11 — the 11th-edition core rules (default; the only edition players get).
 ## Enforced by tests/test_iss002_game_constants.gd.
 
 ## Active rules edition. The game is 11th edition only — every player launch
 ## runs at 11 (SettingsService re-asserts this at boot). The variable remains
-## writable solely for the legacy regression suite: the automated harness
-## (SettingsService._is_automated_harness) pins it to the historical 10e
-## baseline, and scenarios/tests may set it explicitly, until the 10e code
-## paths are deleted outright.
+## writable solely for the legacy regression suite: test harnesses also
+## default to 11 (SettingsService._resolve_harness_edition) and reach 10e only
+## through an explicit opt-in (WH40K_TEST_EDITION=10, --edition=10, a scenario
+## "edition": 10 field, or a test write), until the 10e code paths are deleted.
 static var edition: int = 11
 
 

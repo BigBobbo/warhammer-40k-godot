@@ -8,14 +8,24 @@ extends "res://addons/gut/test.gd"
 # - Aircraft = 0" (exempt)
 # - Standard round base = 0" (no cost)
 # - Cost is paid once per move, regardless of number of pivots
+#
+# EDITION NOTE: the 2" pivot value is a 10e-only rule. 11e 03.01 ROTATING A MODEL:
+# "Each time you rotate a model, turn it any amount around the centre of its base,
+# while keeping it upright. Note that rotating a model does not count towards the
+# distance it has moved." — no exception for non-round bases, VEHICLE or MONSTER.
+# The tests that need a non-zero pivot value pin GameConstants.edition = 10 via
+# _pin_legacy_10e(); the 11e behaviour (0" for every base) is covered by
+# test_11e_rotation_is_free_for_every_base_type below.
 
 const MovementPhaseScript = preload("res://phases/MovementPhase.gd")
 const GameStateData = preload("res://autoloads/GameState.gd")
 
 var phase: Node
 var game_state_node: Node
+var _prev_edition := 11
 
 func before_each():
+	_prev_edition = GameConstants.edition
 	if not AutoloadHelper.verify_autoloads_available():
 		push_error("Required autoloads not available - cannot run test")
 		return
@@ -33,6 +43,17 @@ func after_each():
 	if phase:
 		phase.queue_free()
 		phase = null
+	GameConstants.edition = _prev_edition
+
+# Legacy 10e regression: Pariah Nexus / Q3-2024 Balance Update 2" pivot value for
+# non-round (and >32mm flying-stem VEHICLE) bases — 11e 03.01 replaced it ("Note
+# that rotating a model does not count towards the distance it has moved.");
+# 11e coverage: test_11e_rotation_is_free_for_every_base_type (this file).
+# Called at the top of each test that depends on a non-zero pivot value;
+# after_each restores the harness edition.
+func _pin_legacy_10e() -> void:
+	GameConstants.edition = 10
+	assert_eq(GameConstants.edition, 10, "Legacy 10e pivot-cost regression must run at edition 10")
 
 # ==========================================
 # Helpers
@@ -131,21 +152,29 @@ func test_round_base_infantry_has_zero_pivot_value():
 
 func test_nonround_base_infantry_has_2_inch_pivot_value():
 	"""Non-round base models should have 2\" pivot value (Pariah Nexus: all non-round bases = 2\")"""
+	# Legacy 10e regression (see _pin_legacy_10e): 11e 03.01 makes rotation free.
+	_pin_legacy_10e()
 	var pivot_value = phase.get_pivot_value_for_unit("infantry_nonround")
 	assert_eq(pivot_value, 2.0, "Non-round base infantry should have 2\" pivot value (Pariah Nexus)")
 
 func test_vehicle_nonround_base_has_2_inch_pivot_value():
 	"""Vehicle with non-round base should have 2\" pivot value"""
+	# Legacy 10e regression (see _pin_legacy_10e): 11e 03.01 makes rotation free.
+	_pin_legacy_10e()
 	var pivot_value = phase.get_pivot_value_for_unit("vehicle_nonround")
 	assert_eq(pivot_value, 2.0, "Vehicle with non-round base should have 2\" pivot value")
 
 func test_monster_nonround_base_has_2_inch_pivot_value():
 	"""Monster with non-round base should have 2\" pivot value"""
+	# Legacy 10e regression (see _pin_legacy_10e): 11e 03.01 makes rotation free.
+	_pin_legacy_10e()
 	var pivot_value = phase.get_pivot_value_for_unit("monster_nonround")
 	assert_eq(pivot_value, 2.0, "Monster with non-round base should have 2\" pivot value")
 
 func test_vehicle_round_base_flying_stem_has_2_inch_pivot_value():
 	"""Vehicle on round base >32mm with flying stem should have 2\" pivot value"""
+	# Legacy 10e regression (see _pin_legacy_10e): 11e 03.01 makes rotation free.
+	_pin_legacy_10e()
 	var pivot_value = phase.get_pivot_value_for_unit("vehicle_flying_stem")
 	assert_eq(pivot_value, 2.0, "Vehicle on round base >32mm with flying stem should have 2\" pivot value")
 
@@ -165,6 +194,8 @@ func test_aircraft_has_zero_pivot_value():
 
 func test_normal_move_initializes_pivot_tracking():
 	"""BEGIN_NORMAL_MOVE should include pivot tracking in active_moves"""
+	# Legacy 10e regression (see _pin_legacy_10e): 11e 03.01 makes rotation free.
+	_pin_legacy_10e()
 	var action = {"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "vehicle_nonround"}
 	var result = phase.process_action(action)
 	assert_true(result.success, "BEGIN_NORMAL_MOVE should succeed")
@@ -209,6 +240,8 @@ func test_apply_pivot_cost_rejected_for_zero_pivot_unit():
 
 func test_pivot_cost_reduces_effective_movement():
 	"""Pivot cost should reduce effective movement cap for validation"""
+	# Legacy 10e regression (see _pin_legacy_10e): 11e 03.01 makes rotation free.
+	_pin_legacy_10e()
 	# Vehicle has M10" and 2" pivot cost → effective cap = 8"
 	phase.process_action({"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "vehicle_nonround"})
 	phase.process_action({"type": "APPLY_PIVOT_COST", "actor_unit_id": "vehicle_nonround"})
@@ -318,3 +351,27 @@ func test_active_moves_include_original_rotations():
 	phase.process_action({"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "vehicle_nonround"})
 	var move_data = phase.get_active_move_data("vehicle_nonround")
 	assert_has(move_data, "original_rotations", "move_data should have original_rotations dict")
+
+# ==========================================
+# 11e: rotating is free for every base type (03.01)
+# ==========================================
+
+func test_11e_rotation_is_free_for_every_base_type():
+	"""11e 03.01 ROTATING A MODEL: "Note that rotating a model does not count towards
+	the distance it has moved." — no pivot value for any base, so no movement is
+	deducted for turning (the 11e counterpart of the legacy 10e pivot tests above)."""
+	GameConstants.edition = 11
+	assert_eq(GameConstants.edition, 11, "11e pivot coverage must run at edition 11")
+	for unit_id in ["infantry_nonround", "vehicle_nonround", "monster_nonround", "vehicle_flying_stem",
+			"infantry_round", "vehicle_small_round", "aircraft"]:
+		assert_eq(phase.get_pivot_value_for_unit(unit_id), 0.0,
+			"11e 03.01: %s should have 0\" pivot value (rotation is free)" % unit_id)
+
+	var result = phase.process_action({"type": "BEGIN_NORMAL_MOVE", "actor_unit_id": "vehicle_nonround"})
+	assert_true(result.success, "BEGIN_NORMAL_MOVE should succeed")
+	var move_data = phase.get_active_move_data("vehicle_nonround")
+	assert_eq(move_data.pivot_value, 0.0, "11e: non-round vehicle move tracks a 0\" pivot value")
+	assert_eq(move_data.move_cap_inches - move_data.pivot_value, 10.0,
+		"11e: effective cap stays the full M10\" — turning costs nothing")
+	var validation = phase.validate_action({"type": "APPLY_PIVOT_COST", "actor_unit_id": "vehicle_nonround"})
+	assert_false(validation.valid, "11e: APPLY_PIVOT_COST has nothing to deduct and must be rejected")

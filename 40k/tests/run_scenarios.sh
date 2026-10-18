@@ -71,6 +71,35 @@ elif [ "$MODE" = "--e11" ]; then
 elif [ "$MODE" = "--visual" ]; then
     SCENARIOS=($(find tests/scenarios/visual -maxdepth 1 -name "T*_*.json" 2>/dev/null | sort))
     FULL_SUITE_RUN=1
+elif [ "$MODE" = "--changed-since" ]; then
+    # CI mode: scenarios whose own JSON changed since <ref>, plus scenarios
+    # whose `covers` tags match a changed path (same heuristic as
+    # --changed-only, but against a committed range instead of the working
+    # tree, which is always clean in CI).
+    REF="${2:?--changed-since needs a git ref}"
+    CHANGED=$(git diff --name-only "$REF"...HEAD 2>/dev/null || git diff --name-only "$REF" HEAD)
+    CHANGED_LC=$(echo "$CHANGED" | tr '[:upper:]' '[:lower:]')
+    for s in $(find tests/scenarios/sp tests/scenarios/mp tests/scenarios/visual -maxdepth 1 -name "*.json" 2>/dev/null | sort); do
+        case "$(basename "$s")" in _*) continue ;; esac
+        INCLUDE=0
+        if echo "$CHANGED" | grep -qxF "40k/$s"; then
+            INCLUDE=1
+        else
+            COVERS_LINE=$(grep -E '"covers"' "$s" | head -1)
+            for tag in $(echo "$COVERS_LINE" | grep -oE '"[a-zA-Z0-9_.]+"' | tr -d '"'); do
+                segment=$(echo "$tag" | cut -d. -f1)
+                if [ ${#segment} -ge 4 ] && echo "$CHANGED_LC" | grep -qF "$segment"; then
+                    INCLUDE=1
+                    break
+                fi
+            done
+        fi
+        [ $INCLUDE -eq 1 ] && SCENARIOS+=("$s")
+    done
+    if [ ${#SCENARIOS[@]} -eq 0 ]; then
+        echo "[run_scenarios] no scenarios match changes since $REF; nothing to run"
+        exit 0
+    fi
 elif [ "$MODE" = "--changed-only" ]; then
     # Pre-commit / changed-files mode: pick scenarios whose `covers` tags
     # overlap with any path-fragment in the changed file list. Crude but
@@ -116,6 +145,50 @@ if [ ${#SCENARIOS[@]} -eq 0 ]; then
     exit 2
 fi
 
+# Rules edition for scenarios WITHOUT an "edition" field: the harness default
+# is 11e; WH40K_TEST_EDITION=10 is the explicit legacy opt-in (a scenario's own
+# field always wins). Every results JSON records the edition it ran.
+if [ -n "${WH40K_TEST_EDITION:-}" ] && ! [[ "$WH40K_TEST_EDITION" =~ ^1[01]$ ]]; then
+    echo "WH40K_TEST_EDITION must be 10 or 11 (got '$WH40K_TEST_EDITION')"
+    exit 2
+fi
+echo "Rules edition for fieldless scenarios: ${WH40K_TEST_EDITION:-11 (harness default)}"
+
+# CI sharding: SCENARIO_SHARD=i/n keeps every n-th scenario starting at i.
+if [ -n "${SCENARIO_SHARD:-}" ]; then
+    if ! [[ "$SCENARIO_SHARD" =~ ^[0-9]+/[0-9]+$ ]]; then
+        echo "SCENARIO_SHARD must look like i/n (got '$SCENARIO_SHARD')"
+        exit 2
+    fi
+    SHARD_I=${SCENARIO_SHARD%/*}
+    SHARD_N=${SCENARIO_SHARD#*/}
+    SELECTED=()
+    for i in "${!SCENARIOS[@]}"; do
+        if [ $((i % SHARD_N)) -eq "$SHARD_I" ]; then
+            SELECTED+=("${SCENARIOS[$i]}")
+        fi
+    done
+    SCENARIOS=("${SELECTED[@]}")
+    FULL_SUITE_RUN=0  # a shard is not the full suite (baseline count check)
+    echo "Shard $SCENARIO_SHARD: ${#SCENARIOS[@]} scenario(s)"
+fi
+
+# Known failures (pre-existing, tracked): one scenario id per line in
+# tests/scenarios/_known_failures.txt (override with SCENARIO_KNOWN_FAILURES),
+# optional "# reason". A listed scenario that fails is XFAIL and does not fail
+# the batch; a listed scenario that PASSES is XPASS — a warning, or a failure
+# with SCENARIO_STRICT_XPASS=1 (it must be delisted). Anything else that fails
+# fails the batch, as before.
+KNOWN_FILE="${SCENARIO_KNOWN_FAILURES:-tests/scenarios/_known_failures.txt}"
+KNOWN_IDS=" "
+if [ -f "$KNOWN_FILE" ]; then
+    KNOWN_IDS=" $(sed -e 's/#.*//' -e 's/[[:space:]]//g' "$KNOWN_FILE" | grep -v '^$' | tr '\n' ' ') "
+fi
+XFAILED=0
+XPASSED=0
+XPASS_IDS=()
+SUMMARY_FILE="${SCENARIO_SUMMARY_FILE:-}"
+
 echo "================================================"
 echo "Batch scenario run: ${#SCENARIOS[@]} scenario(s)"
 echo "================================================"
@@ -146,27 +219,54 @@ for s in "${SCENARIOS[@]}"; do
         EXIT_CODE=${PIPESTATUS[0]}
     else
         EXIT_CODE=${PIPESTATUS[0]}
-        if [ "$EXIT_CODE" = "124" ]; then
-            echo "    TIMED OUT after ${SCENARIO_TIMEOUT:-600}s — this is a HANG, not a failed"
-            echo "    assertion. Full log: /tmp/scenario_run_${SCENARIO_ID}.log"
-        fi
+    fi
+    # The pipeline's own status is grep's, so a hang that printed some lines
+    # used to be reported as a plain FAIL — check godot's status either way.
+    if [ "$EXIT_CODE" = "124" ]; then
+        echo "    TIMED OUT after ${SCENARIO_TIMEOUT:-600}s — this is a HANG, not a failed"
+        echo "    assertion. Full log: /tmp/scenario_run_${SCENARIO_ID}.log"
     fi
 
+    IS_KNOWN=0
+    [[ "$KNOWN_IDS" == *" $SCENARIO_ID "* ]] && IS_KNOWN=1
     if [ $EXIT_CODE -eq 0 ]; then
         PASSED=$((PASSED + 1))
-        echo "  -> PASS"
+        if [ $IS_KNOWN -eq 1 ]; then
+            XPASSED=$((XPASSED + 1))
+            XPASS_IDS+=("$SCENARIO_ID")
+            echo "  -> PASS (XPASS: listed in $KNOWN_FILE — delist it)"
+            STATUS=xpass
+        else
+            echo "  -> PASS"
+            STATUS=pass
+        fi
+    elif [ $IS_KNOWN -eq 1 ]; then
+        XFAILED=$((XFAILED + 1))
+        echo "  -> XFAIL (exit $EXIT_CODE; known failure, $KNOWN_FILE)"
+        STATUS=xfail
     else
         FAILED=$((FAILED + 1))
         FAILED_IDS+=("$SCENARIO_ID")
         echo "  -> FAIL (exit $EXIT_CODE)"
+        STATUS=fail
+    fi
+    if [ -n "$SUMMARY_FILE" ]; then
+        printf "%s\t%s\t%s\t%s\n" "$SCENARIO_ID" "$s" "$EXIT_CODE" "$STATUS" >> "$SUMMARY_FILE"
     fi
 done
 
 echo ""
 echo "================================================"
 echo "Scenario suite: $PASSED passed, $FAILED failed across ${#SCENARIOS[@]} scenarios"
+echo "Known failures: $XFAILED xfail, $XPASSED xpass ($KNOWN_FILE)"
 if [ $FAILED -gt 0 ]; then
     echo "Failed: ${FAILED_IDS[*]}"
+fi
+if [ $XPASSED -gt 0 ]; then
+    echo "XPASS (listed as known failures but passed — delist): ${XPASS_IDS[*]}"
+    if [ "${SCENARIO_STRICT_XPASS:-0}" = "1" ]; then
+        FAILED=$((FAILED + XPASSED))
+    fi
 fi
 echo "================================================"
 

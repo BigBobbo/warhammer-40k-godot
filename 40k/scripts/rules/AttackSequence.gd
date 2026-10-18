@@ -287,6 +287,33 @@ static func coherency_group_ids(unit_id: String, units: Dictionary) -> Array:
 	return ids
 
 
+## Battle-shock of the Attached unit `unit_id` belongs to. 19.01: "An attached
+## unit is a single unit for all rules purposes", and a failed roll leaves
+## "that unit, and each model in it" battle-shocked (01.07) — so a
+## battle_shocked flag on ANY component dict battle-shocks every component.
+## Most writers copy the flag across the group (CommandPhase, Da Kaptin, the
+## forced test); this read makes the few that flag only the unit they were
+## handed (Sanctified Flames, emergency disembark, a SUPER-HEAVY WALKER's
+## MOBILE roll of 1) behave the same. Same reading as StratagemManager's fight-eligibility check
+## ("any component battle-shocks the unit"), and the same group: RulesEngine's
+## attached_unit_target_id / attached_unit_component_ids, so a wiped bodyguard
+## no longer heads its leaders (its stale flag does not shock them) and a
+## leader linked only by its attached_to back-pointer still counts.
+static func group_battle_shocked(unit_id: String, units: Dictionary) -> bool:
+	if bool(units.get(unit_id, {}).get("flags", {}).get("battle_shocked", false)):
+		return true
+	var loop = Engine.get_main_loop()
+	var re = loop.root.get_node_or_null("/root/RulesEngine") if loop != null and loop.root != null else null
+	var group: Array = coherency_group_ids(unit_id, units)
+	if re != null:
+		var board := {"units": units}
+		group = re.attached_unit_component_ids(str(re.attached_unit_target_id(unit_id, board)), board)
+	for gid in group:
+		if bool(units.get(str(gid), {}).get("flags", {}).get("battle_shocked", false)):
+			return true
+	return false
+
+
 ## End of Turn (03.03) coherency verdict for the Attached unit `unit_id` belongs
 ## to. Returns {coherent, offenders: [{unit_id, model_id}], group_ids,
 ## model_count, merged_offenders, solo_offenders}.

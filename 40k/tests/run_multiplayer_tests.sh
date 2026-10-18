@@ -102,6 +102,16 @@ else
     echo -e "${YELLOW}Running all multiplayer integration tests${NC}"
 fi
 
+# JUnit output for CI (tests/ci/check_junit.py checks it against the
+# known-failure allowlist). Path is relative to the project root.
+if [ -n "${MP_JUNIT_XML:-}" ]; then
+    GUT_CMD+=(-gjunit_xml_file="$MP_JUNIT_XML")
+fi
+
+# Rules edition: GUT and the spawned peers (--test-mode) default to 11e;
+# WH40K_TEST_EDITION=10 (inherited by the peer processes) is the legacy opt-in.
+echo -e "${YELLOW}Rules edition:${NC} ${WH40K_TEST_EDITION:-11 (harness default)}"
+
 # Add verbosity
 if [ "$VERBOSE" = true ]; then
     GUT_CMD+=(-gverbose)

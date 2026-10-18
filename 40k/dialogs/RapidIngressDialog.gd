@@ -56,6 +56,7 @@ func setup(p_player: int, p_eligible_units: Array) -> void:
 func _build_ui() -> void:
 	min_size = DialogConstants.MEDIUM
 	var main_container = VBoxContainer.new()
+	main_container.name = "Content"
 	main_container.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 0)
 
 	# Countdown timer bar at the top
@@ -97,6 +98,8 @@ func _build_ui() -> void:
 	# Subheader
 	var subheader = Label.new()
 	subheader.text = "Core - Strategic Ploy Stratagem"
+	if GameConstants.edition >= 11:
+		subheader.text = "Core Stratagem (15.07)"  # 11e cards carry no Strategic Ploy category
 	subheader.add_theme_font_size_override("font_size", 16)
 	subheader.add_theme_color_override("font_color", Color.GRAY)
 	subheader.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -118,6 +121,15 @@ func _build_ui() -> void:
 	# Effect description
 	var effect_label = Label.new()
 	effect_label.text = "Your opponent's Movement phase is ending. Select one of your reserve units to arrive on the battlefield as if it were the Reinforcements step of your Movement phase."
+	if GameConstants.edition >= 11:
+		# 11e 15.07: "EFFECT: Your unit makes an ingress move (20.04)."
+		effect_label.text = "Your opponent's Movement phase is ending. Select one of your strategic reserves units (not AIRCRAFT) to make an ingress move: set it up wholly within 6\" of a battlefield edge and more than 8\" from all enemy units (20.04)."
+		# 20.04 WHILE MOVING — "Before the Third Battle Round: While doing so,
+		# no models can be set up within your opponent's deployment zone."
+		# (MovementPhase._validate_place_rapid_ingress_reinforcement enforces it.)
+		if GameState.ingress_opponent_dz_ban_applies(GameState.get_battle_round(), false):
+			effect_label.text += " Before the third battle round, no models can be set up within your opponent's deployment zone."
+	effect_label.name = "EffectText"
 	effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	effect_label.add_theme_font_size_override("font_size", 17)
 	main_container.add_child(effect_label)
@@ -132,11 +144,14 @@ func _build_ui() -> void:
 
 	# Scrollable container for eligible units
 	var scroll = ScrollContainer.new()
+	scroll.name = "UnitScroll"
 	scroll.custom_minimum_size = Vector2(DialogConstants.MEDIUM.x - 20, 120)
 	var unit_list = VBoxContainer.new()
+	unit_list.name = "UnitList"
 
 	for unit_info in eligible_units:
 		var unit_container = HBoxContainer.new()
+		unit_container.name = "Row_%s" % str(unit_info.unit_id).validate_node_name()
 
 		var name_label = Label.new()
 		var reserve_type = unit_info.get("reserve_type", "strategic_reserves")
@@ -147,6 +162,7 @@ func _build_ui() -> void:
 		unit_container.add_child(name_label)
 
 		var use_button = Button.new()
+		use_button.name = "Use_%s" % str(unit_info.unit_id).validate_node_name()
 		use_button.text = "Arrive (1 CP)"
 		use_button.custom_minimum_size = Vector2(170, 30)
 		use_button.pressed.connect(_on_use_pressed.bind(unit_info.unit_id))

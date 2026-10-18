@@ -55,10 +55,18 @@ static func _get_phase_rules_brief(phase: GameStateData.Phase) -> String:
 		GameStateData.Phase.COMMAND:
 			return "Gain 1CP. Battle-shock test for Below Half-strength units (2D6 vs Ld). Use Command phase abilities."
 		GameStateData.Phase.MOVEMENT:
+			# 11e 15.07 / 15.08: RAPID INGRESS and FIRE OVERWATCH are used at the
+			# END of the opponent's Movement phase.
+			if GameConstants.edition >= 11:
+				return "Normal Move, Advance (move + D6\"), or Fall Back. Set up Reinforcements from Reserves. At the end, your opponent may Fire Overwatch or Rapid Ingress."
 			return "Normal Move, Advance (move + D6\"), or Fall Back. Set up Reinforcements from Reserves."
 		GameStateData.Phase.SHOOTING:
 			return "Select units to shoot. Choose targets in range and LoS. Resolve ranged attacks."
 		GameStateData.Phase.CHARGE:
+			# 11e: no Charge-phase overwatch (15.08 is end of the opponent's
+			# Movement phase); the defender may Heroic Intervention at the end (15.11).
+			if GameConstants.edition >= 11:
+				return "Declare charges against enemies within 12\". Roll 2D6 to reach target. Heroic Intervention may follow."
 			return "Declare charges against enemies within 12\". Roll 2D6 to reach target. Overwatch may trigger."
 		GameStateData.Phase.FIGHT:
 			return "Fights First, then alternate combats. Pile In 3\", resolve melee attacks, Consolidate 3\"."

@@ -36,10 +36,21 @@ extends SceneTree
 #   * Statistical: Stealth target receives strictly fewer hits than a clean
 #     target across many seeds (hits drop from 4+ to 5+ for BS3+ shooters)
 #
+# EDITION: the HitModifier.MINUS_ONE pipeline checks encode the 10e wording
+# ("subtract 1 from the Hit roll") and are pinned to GameConstants.edition = 10
+# as legacy regressions. 11e 24.33 ("If every model in a unit has this ability,
+# each time a ranged attack targets that unit, that unit has the benefit of
+# cover against that attack (13.08).") + 13.08 ("worsen the BS characteristic
+# of that attack by 1") make Stealth a BS change, not a hit-roll modifier — the
+# _test_stealth_11e_* section pins edition 11 and asserts that form through the
+# same three pipeline entry points. Lookup / melee / statistical sections are
+# edition-neutral and run at the harness edition.
+#
 # Usage: godot --headless --path . -s tests/test_stealth_keyword_pipeline.gd
 
 var passed := 0
 var failed := 0
+var _harness_edition := -1  # captured in _run_tests (after SettingsService._ready)
 
 const ATTACKS = 80  # Large sample so stealth lift is measurable
 
@@ -248,16 +259,41 @@ func _run_tests():
 	if passed > 0 or failed > 0:
 		return
 	print("\n=== test_stealth_keyword_pipeline ===\n")
+	# Captured here, after the re-entry guard — SettingsService applies the
+	# harness edition in _ready, so a value read/written in _init is stale.
+	_harness_edition = GameConstants.edition
 
 	_test_has_stealth_ability_lookup()
 	_test_stealth_ability_sets_minus_one_in_pipeline()
 	_test_effect_stealth_sets_minus_one_in_pipeline()
 	_test_no_stealth_clean_target_has_no_minus_one()
 	_test_stealth_in_interactive_resolve_path()
+	_test_stealth_11e_cover_worsens_bs_in_pipeline()
 	_test_stealth_does_not_apply_to_melee()
 	_test_stealth_statistically_reduces_hits()
 
 	_finish()
+
+# ----------------------------------------------------------------------------
+# Edition pins for the legacy 10e MINUS_ONE sections.
+# Legacy 10e regression: Stealth = "subtract 1 from the Hit roll" (sets
+# HitModifier.MINUS_ONE) — 11e 24.33 replaced it ("each time a ranged attack
+# targets that unit, that unit has the benefit of cover against that attack
+# (13.08)"; 13.08: "worsen the BS characteristic of that attack by 1"), so at
+# 11e no hit-roll modifier is set; 11e coverage:
+# _test_stealth_11e_cover_worsens_bs_in_pipeline (this file),
+# tests/test_iss016_modifier_stack.gd ("STEALTH target grants benefit of cover
+# -> BS worsened by 1"), tests/test_iss053_cover_plunging_11e.gd ("Stealth
+# grants cover anywhere (24.33)"), tests/test_iss047_weapon_abilities_11e.gd
+# ("PSYCHIC vs STEALTH").
+# ----------------------------------------------------------------------------
+func _pin_legacy_10e(section: String) -> void:
+	GameConstants.edition = 10
+	_check("Legacy 10e pin (%s): GameConstants.edition == 10" % section,
+		GameConstants.edition == 10, "got %d" % GameConstants.edition)
+
+func _restore_harness_edition() -> void:
+	GameConstants.edition = _harness_edition
 
 # ----------------------------------------------------------------------------
 # Sanity: has_stealth_ability() identifies units correctly.
@@ -289,6 +325,8 @@ func _test_has_stealth_ability_lookup() -> void:
 # ----------------------------------------------------------------------------
 func _test_stealth_ability_sets_minus_one_in_pipeline() -> void:
 	print("\n-- T2-1: ability Stealth applies HitModifier.MINUS_ONE in pipeline --")
+	# Legacy 10e regression — see the pin comment above _pin_legacy_10e.
+	_pin_legacy_10e("ability Stealth MINUS_ONE")
 	var rules = root.get_node("RulesEngine")
 	var board = _make_board(true, false)  # ability stealth, no effect
 	var result = _shoot("bolt_rifle", board, 12345)
@@ -302,12 +340,15 @@ func _test_stealth_ability_sets_minus_one_in_pipeline() -> void:
 	_check("Stealth (ability): MINUS_ONE bit set in modifiers_applied",
 		(modifiers & rules.HitModifier.MINUS_ONE) != 0,
 		"got modifiers=%d (MINUS_ONE=%d)" % [modifiers, rules.HitModifier.MINUS_ONE])
+	_restore_harness_edition()
 
 # ----------------------------------------------------------------------------
 # T2-1: effect-granted Stealth — flags.effect_stealth path also fires.
 # ----------------------------------------------------------------------------
 func _test_effect_stealth_sets_minus_one_in_pipeline() -> void:
 	print("\n-- T2-1: effect_stealth flag (smokescreen-style) applies MINUS_ONE --")
+	# Legacy 10e regression — see the pin comment above _pin_legacy_10e.
+	_pin_legacy_10e("effect_stealth MINUS_ONE")
 	var rules = root.get_node("RulesEngine")
 	var board = _make_board(false, true)  # no ability, but effect_stealth flag
 	var result = _shoot("bolt_rifle", board, 12345)
@@ -319,6 +360,7 @@ func _test_effect_stealth_sets_minus_one_in_pipeline() -> void:
 	_check("Effect stealth: MINUS_ONE bit set in modifiers_applied",
 		(modifiers & rules.HitModifier.MINUS_ONE) != 0,
 		"got modifiers=%d" % modifiers)
+	_restore_harness_edition()
 
 # ----------------------------------------------------------------------------
 # Negative case: clean target (no Stealth ability, no effect flag) — MINUS_ONE
@@ -348,6 +390,8 @@ func _test_no_stealth_clean_target_has_no_minus_one() -> void:
 # ----------------------------------------------------------------------------
 func _test_stealth_in_interactive_resolve_path() -> void:
 	print("\n-- T2-1: interactive resolve (resolve_shoot_until_wounds) honours Stealth --")
+	# Legacy 10e regression — see the pin comment above _pin_legacy_10e.
+	_pin_legacy_10e("interactive MINUS_ONE")
 	var rules = root.get_node("RulesEngine")
 	var board = _make_board(true, false)
 	var result = _shoot_interactive("bolt_rifle", board, 12345)
@@ -360,6 +404,72 @@ func _test_stealth_in_interactive_resolve_path() -> void:
 	_check("Interactive: MINUS_ONE bit set in modifiers_applied",
 		(modifiers & rules.HitModifier.MINUS_ONE) != 0,
 		"got modifiers=%d" % modifiers)
+	_restore_harness_edition()
+
+# ----------------------------------------------------------------------------
+# 11e counterpart of the three MINUS_ONE sections above, through the same
+# entry points (resolve_shoot ability / effect_stealth flag, and
+# resolve_shoot_until_wounds). 24.33: "If every model in a unit has this
+# ability, each time a ranged attack targets that unit, that unit has the
+# benefit of cover against that attack (13.08)." 13.08: "Each time a ranged
+# attack targets a unit that has the benefit of cover against it, worsen the
+# BS characteristic of that attack by 1." 05.01: a hit is a roll "Equal to or
+# greater than that attack's BS/WS characteristic". So the BS3+ bolt_rifle
+# needs 4+ (threshold "4+ (cover)"), every die is judged against 4+, and NO
+# hit-roll modifier (MINUS_ONE) is set — a BS change is not a roll modifier.
+# Terrain is cleared for the section so the only possible cover source is
+# Stealth (a clean target must stay at 3+). bolt_rifle is [HEAVY] but the
+# shooter has no movement record, so 24.16 does not add 1 here.
+# ----------------------------------------------------------------------------
+func _count_at_least(rolls: Array, threshold: int) -> int:
+	var n := 0
+	for r in rolls:
+		if int(r) >= threshold:
+			n += 1
+	return n
+
+func _test_stealth_11e_cover_worsens_bs_in_pipeline() -> void:
+	print("\n-- 11e 24.33/13.08: Stealth grants cover — BS worsened by 1, no hit-roll modifier --")
+	var rules = root.get_node("RulesEngine")
+	GameConstants.edition = 11
+	_check("11e pin: GameConstants.edition == 11",
+		GameConstants.edition == 11, "got %d" % GameConstants.edition)
+	var tm = root.get_node_or_null("TerrainManager")
+	var prev_terrain: Array = []
+	if tm != null:
+		prev_terrain = tm.terrain_features.duplicate(true)
+		tm.terrain_features = []
+
+	var cases := [
+		["11e Stealth (ability)", _shoot("bolt_rifle", _make_board(true, false), 12345)],
+		["11e Effect stealth", _shoot("bolt_rifle", _make_board(false, true), 12345)],
+		["11e Interactive", _shoot_interactive("bolt_rifle", _make_board(true, false), 12345)],
+	]
+	for c in cases:
+		var label: String = c[0]
+		var hit_dice = _aggregate_dice(c[1], "to_hit")
+		_check("%s: to_hit dice record present" % label, not hit_dice.is_empty(),
+			"contexts=%s" % str(_collect_contexts(c[1])))
+		_check("%s: threshold is BS 3+ worsened to 4+ by cover" % label,
+			str(hit_dice.get("threshold", "")) == "4+ (cover)",
+			"threshold=%s" % str(hit_dice.get("threshold", "")))
+		var raw: Array = hit_dice.get("rolls_raw", [])
+		_check("%s: every die judged against 4+ (successes == raw rolls >= 4)" % label,
+			not raw.is_empty() and int(hit_dice.get("successes", -1)) == _count_at_least(raw, 4),
+			"successes=%s raw>=4=%d of %d" % [str(hit_dice.get("successes")), _count_at_least(raw, 4), raw.size()])
+		var modifiers = int(hit_dice.get("modifiers_applied", 0))
+		_check("%s: MINUS_ONE bit NOT set (cover is a BS change, not a hit-roll modifier)" % label,
+			(modifiers & rules.HitModifier.MINUS_ONE) == 0,
+			"got modifiers=%d" % modifiers)
+
+	var clean = _aggregate_dice(_shoot("bolt_rifle", _make_board(false, false), 12345), "to_hit")
+	_check("11e clean target: threshold stays at the unmodified 3+ (no cover)",
+		str(clean.get("threshold", "")) == "3+",
+		"threshold=%s" % str(clean.get("threshold", "")))
+
+	if tm != null:
+		tm.terrain_features = prev_terrain
+	_restore_harness_edition()
 
 # ----------------------------------------------------------------------------
 # Stealth must NOT apply to melee — the rule is range-only. Drive the same

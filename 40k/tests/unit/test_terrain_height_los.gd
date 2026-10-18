@@ -10,6 +10,28 @@ extends "res://addons/gut/test.gd"
 
 const RulesEngineScript = preload("res://autoloads/RulesEngine.gd")
 
+# EDITION: height-based LoS is the 10e engine model (T3-19). At 11e
+# EnhancedLineOfSight judges visibility by terrain category (13.10 obscuring
+# areas, 13.11 Solid dense features) and ignores height_category, so the two
+# EnhancedLineOfSight blocking cases are pinned to edition 10 via
+# _pin_legacy_10e(); every other testcase runs at the harness edition.
+
+var _prev_edition: int = 11
+
+func before_each():
+	# Save the harness edition so a testcase's _pin_legacy_10e() never leaks.
+	_prev_edition = GameConstants.edition
+
+func after_each():
+	GameConstants.edition = _prev_edition
+
+func _pin_legacy_10e() -> void:
+	# Set inside the test body (GUT runs it after before_each), never in _init —
+	# SettingsService applies the harness edition after the first frame and
+	# would overwrite an earlier write. after_each restores _prev_edition.
+	GameConstants.edition = 10
+	assert_eq(GameConstants.edition, 10, "Legacy 10e pin: GameConstants.edition == 10")
+
 # ==========================================
 # Helpers
 # ==========================================
@@ -310,6 +332,15 @@ func test_tall_terrain_inside_model_can_see():
 
 func test_enhanced_los_medium_terrain_blocks_infantry():
 	"""EnhancedLineOfSight should block LoS through medium terrain for infantry"""
+	# Legacy 10e regression: height-based LoS (T3-19: medium 2-5" terrain blocks LoS when
+	# both models are shorter than it) — 11e 13.07 replaced it ("Terrain can affect
+	# visibility, depending on whether the Benefit of Cover, Hidden, Obscuring or Solid rules
+	# apply."): 13.10 obscuring needs a light/dense terrain area and 13.11 is "Dense terrain
+	# features have the Solid rule"; this untyped "obstacle" piece is EXPOSED at 11e
+	# (TerrainManager.category_of default), so no 11e rule blocks the line; 11e coverage:
+	# tests/test_iss052_hidden_11e.gd, tests/test_terrain_area_visibility_11e.gd
+	# (13.10/13.11 blocking), tests/test_iss051_terrain_model_11e.gd (category mapping).
+	_pin_legacy_10e()
 	var polygon = _make_rect_polygon(500, 400, 80, 80)
 	var board = {
 		"terrain_features": [_make_terrain("medium", polygon)]
@@ -349,6 +380,15 @@ func test_enhanced_los_low_terrain_allows_all():
 
 func test_enhanced_los_tall_terrain_blocks_all():
 	"""EnhancedLineOfSight should block LoS through tall terrain for all models"""
+	# Legacy 10e regression: height-based LoS (T3-19: tall >5" terrain is implicitly
+	# Obscuring and blocks LoS for all models) — 11e 13.07 replaced it ("Terrain can affect
+	# visibility, depending on whether the Benefit of Cover, Hidden, Obscuring or Solid rules
+	# apply."): 13.10 obscuring needs a light/dense terrain area and 13.11 is "Dense terrain
+	# features have the Solid rule"; this untyped "obstacle" piece is EXPOSED at 11e
+	# (TerrainManager.category_of default), so no 11e rule blocks the line; 11e coverage:
+	# tests/test_iss052_hidden_11e.gd, tests/test_terrain_area_visibility_11e.gd
+	# (13.10/13.11 blocking), tests/test_iss051_terrain_model_11e.gd (category mapping).
+	_pin_legacy_10e()
 	var polygon = _make_rect_polygon(500, 400, 80, 80)
 	var board = {
 		"terrain_features": [_make_terrain("tall", polygon)]

@@ -10,8 +10,15 @@ extends "res://addons/gut/test.gd"
 const GameStateData = preload("res://autoloads/GameState.gd")
 
 var rules_engine: Node
+# Edition the harness started this test with; a test that pins
+# GameConstants.edition gets it restored by after_each.
+var _prev_edition := 11
+
+func after_each():
+	GameConstants.edition = _prev_edition
 
 func before_each():
+	_prev_edition = GameConstants.edition
 	if not AutoloadHelper.verify_autoloads_available():
 		push_error("Required autoloads not available - cannot run test")
 		return
@@ -404,6 +411,14 @@ func test_extra_attacks_weapon_not_modified_by_waaagh():
 
 func test_regular_weapon_still_modified_by_waaagh():
 	"""Verify that Waaagh! +1 attack DOES apply to regular (non-Extra Attacks) weapons."""
+	# TRIAGE (2026-10-17, unresolved — left failing at 11e on purpose): this
+	# encodes the 10e Waaagh! +1 A melee bonus. The engine drops it at 11e
+	# (FactionAbilityManager.waaagh_melee_bonus_applies: edition < 11), but the
+	# verbatim 11e Codex: Orks Waaagh! army-rule text is not in the repo, and
+	# the local 11e data disagree (40kdc abilities.json "waaagh" — "from 10e
+	# source (provisional 11e)" — still lists +1 S / +1 A melee; "riled-up" and
+	# the curated DREAD POWER note list only 5+ InSv / [ASSAULT] / advance and
+	# charge). Do not pin or migrate until the army-rule text is sourced.
 	var board = _make_warboss_board_with_waaagh(true, false)
 
 	# Resolve Power klaw (regular weapon) with Waaagh! active

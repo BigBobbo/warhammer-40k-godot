@@ -10,6 +10,13 @@ extends "res://addons/gut/test.gd"
 # - EFFECT: Your unit can shoot that enemy unit, but only hits on unmodified 6s.
 # - RESTRICTION: Once per turn.
 #
+# EDITION: every case here is the 10e Balance Dataslate per-move/charge
+# FIRE OVERWATCH (the "within 24\" of that enemy unit" helpers, the mid-phase
+# availability check), so before_each pins GameConstants.edition = 10 and
+# after_each restores it. The 11e FIRE OVERWATCH (15.08: end of the opponent's
+# Movement phase, snap shooting 15.09) is covered by
+# tests/test_fire_overwatch_15_08_11e.gd.
+#
 # These tests verify:
 # 1. RulesEngine.resolve_overwatch_shooting — only unmodified 6s hit
 # 2. Wounds/saves/damage resolved normally after hits
@@ -114,11 +121,19 @@ func _setup_overwatch_scenario() -> Dictionary:
 
 	return GameState.create_snapshot()
 
+var _prev_edition: int = 11
+
 func before_each():
+	# 10e per-move FIRE OVERWATCH semantics (see header) — pinned explicitly.
+	_prev_edition = GameConstants.edition
+	GameConstants.edition = 10
 	GameState.state = GameState._create_default_state()
 	if GameState.state.has("units"):
 		GameState.state.units.clear()
 	StratagemManager.reset_for_new_game()
+
+func after_each():
+	GameConstants.edition = _prev_edition
 
 
 # ==========================================

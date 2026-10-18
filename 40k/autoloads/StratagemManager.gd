@@ -91,6 +91,14 @@ const WINDOW_WHEN_TEXT: Dictionary = {
 	"charge_phase_end": "your opponent's Charge phase ends",
 }
 
+# 11e CORE stratagems offered through a stratagem window (design §3), keyed by
+# window id. get_window_offers adds them to the player's faction rows at
+# edition >= 11 (their timing.windows lists the same window).
+#   FIRE OVERWATCH 15.08 — WHEN: "End of your opponent's Movement phase."
+const CORE_WINDOW_STRATAGEMS: Dictionary = {
+	"movement_phase_end": ["fire_overwatch_11e"],
+}
+
 # Follow-up returned by the last codex apply() (design §3.2); use_stratagem
 # hands it to the caller in its result as "followup".
 var _last_codex_followup: Dictionary = {}
@@ -933,7 +941,8 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 	# (b) stratagems with phase:"any" (like Command Re-roll) which are not phase-specific.
 	# Also allow if explicitly bypassed via context (e.g. the initial fire_overwatch use).
 	if _out_of_phase_action_active and not context.get("bypass_out_of_phase_check", false):
-		if stratagem_id != "fire_overwatch":
+		# The resolved id is "fire_overwatch_11e" at edition >= 11.
+		if not stratagem_id.begins_with("fire_overwatch"):
 			var strat_phase = strat.get("timing", {}).get("phase", "")
 			if strat_phase != "any":
 				return {"can_use": false, "reason": "Cannot use %s during an out-of-phase action (e.g. Fire Overwatch)" % strat.get("name", stratagem_id)}
@@ -957,6 +966,26 @@ func can_use_stratagem(player: int, stratagem_id: String, target_unit_id: String
 		var source_unit = GameState.get_unit(source_unit_id)
 		if not source_unit.is_empty() and source_unit.get("flags", {}).get("battle_shocked", false):
 			return {"can_use": false, "reason": "Battle-shocked units cannot use Stratagems"}
+
+	# 11e 15.08 FIRE OVERWATCH — the TARGET conditions (unengaged, not TITANIC,
+	# on the battlefield with a gun; 19.01 Attached unit as one) and the 15.09
+	# snap target (context.secondary_id) are re-validated here, on the peer
+	# that runs the stratagem (the host online), BEFORE any CP is spent — the
+	# choice a client sends is never trusted.
+	if stratagem_id == "fire_overwatch_11e" and target_unit_id != "":
+		var fo_board: Dictionary = GameState.create_snapshot()
+		var fo_reason := fire_overwatch_shooter_reason_11e(player, target_unit_id, fo_board)
+		if fo_reason != "":
+			return {"can_use": false, "reason": "FIRE OVERWATCH: %s" % fo_reason}
+		var fo_secondary := str(context.get("secondary_id", "")) if typeof(context) == TYPE_DICTIONARY else ""
+		if fo_secondary != "":
+			var fo_legal := false
+			for t in RulesEngine.snap_shooting_targets_11e(target_unit_id, fo_board):
+				if str(t.get("unit_id", "")) == fo_secondary:
+					fo_legal = true
+					break
+			if not fo_legal:
+				return {"can_use": false, "reason": "FIRE OVERWATCH: %s is not a legal snap-shooting target for %s (15.09: one visible enemy unit within 24\" that is an eligible target)" % [fo_secondary, target_unit_id]}
 
 	# ROLLING LOOT-HEAP (OA-6): Only Flash Gitz units can be targeted
 	if strat.get("name", "").to_upper() == "ROLLING LOOT-HEAP" and target_unit_id != "":
@@ -1462,7 +1491,14 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 	var wctx: Dictionary = ctx.duplicate(true)
 	wctx["window_id"] = window_id
 	var player_cp := _get_player_cp(player)
-	for strat_id in _player_faction_stratagems.get(str(player), []):
+	var strat_ids: Array = _player_faction_stratagems.get(str(player), []).duplicate()
+	# 11e core stratagems offered through windows (CORE_WINDOW_STRATAGEMS) go
+	# through the same per-target can_use_stratagem re-check below.
+	if GameConstants.edition >= 11:
+		for core_id in CORE_WINDOW_STRATAGEMS.get(window_id, []):
+			if not core_id in strat_ids:
+				strat_ids.append(core_id)
+	for strat_id in strat_ids:
 		if not stratagems.has(strat_id):
 			continue
 		var strat: Dictionary = stratagems[strat_id]
@@ -1475,6 +1511,14 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 		var offer_codex = codex_for(strat)
 		if offer_codex != null:
 			candidates = offer_codex.eligible_targets(strat, player, window_id, wctx)
+		elif strat_id == "fire_overwatch_11e":
+			# Skip the per-unit search when the stratagem cannot be used at all
+			# (CP, once per turn, not the opponent's turn, ...).
+			var fo_gate = can_use_stratagem(player, strat_id, "", wctx)
+			if not fo_gate.can_use:
+				print("StratagemManager: window %s — FIRE OVERWATCH not offered: %s" % [window_id, fo_gate.reason])
+				continue
+			candidates = get_fire_overwatch_offer_targets_11e(player)
 		else:
 			var cand_ids: Array = []
 			if str(wctx.get("unit_id", "")) != "":
@@ -1709,6 +1753,17 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 						var re = RulesEngine.resolve_explosives_11e(enemy_e, GameState.create_snapshot(), RulesEngine.make_rng())
 						diffs11.append_array(re.get("diffs", []))
 						print("StratagemManager: [11e] EXPLOSIVES — %d MW to %s" % [int(re.get("total_mortal_wounds", re.get("mortal_wounds", 0))), enemy_e])
+				"shooting_type":
+					# FIRE OVERWATCH (15.08): "Your unit shoots using snap
+					# shooting" (15.09). The shots are rolled by the phase that
+					# opened the window (MovementPhase._execute_window_followup),
+					# so hand it a snap_shooting follow-up: the target unit is
+					# the shooter, context.secondary_id the chosen snap target.
+					if str(eff.get("shooting", "")) == "snap":
+						_last_codex_followup = {"type": "snap_shooting", "shooter_unit_id": target_unit_id,
+							"target_unit_id": str(context.get("secondary_id", "")) if typeof(context) == TYPE_DICTIONARY else "",
+							"source": str(strat.get("name", "FIRE OVERWATCH"))}
+						print("StratagemManager: [11e] %s — %s snap-shoots %s (follow-up)" % [strat.get("name", ""), target_unit_id, _last_codex_followup.target_unit_id])
 				"crushing_impact_11e":
 					# CRUSHING IMPACT (15.06): T-dice ram vs an engaged enemy.
 					var enemy_c := str(context.get("enemy_unit_id", context.get("target_enemy_unit_id", "")))
@@ -2013,15 +2068,24 @@ func _apply_stratagem_effects(_stratagem_id: String, target_unit_id: String, str
 	# Battle-shocked." Note that the actual battle-shock target may differ
 	# from the stratagem's primary target (the Mob unit); the calling layer
 	# should pass the secondary target as `context.battle_shock_target_id`.
+	# 19.01: an Attached unit is a single unit, so the clear covers every
+	# component (bodyguard + attached CHARACTERs) — MissionManager reads
+	# battle-shock group-wide for OC (AttackSequence.group_battle_shocked), and
+	# a flag left on the leader would keep the whole unit's OC at '-'.
 	for effect in effects:
 		if effect.get("type", "") == EffectPrimitivesData.REMOVE_BATTLE_SHOCK:
 			var bs_target_id = context.get("battle_shock_target_id", target_unit_id) if typeof(context) == TYPE_DICTIONARY else target_unit_id
-			diffs.append({
-				"op": "set",
-				"path": "units.%s.flags.battle_shocked" % bs_target_id,
-				"value": false
-			})
-			print("StratagemManager: REMOVE_BATTLE_SHOCK clears battle_shocked on %s" % bs_target_id)
+			var bs_head_id = RulesEngine.attached_unit_target_id(str(bs_target_id), GameState.state)
+			var bs_group_ids: Array = RulesEngine.attached_unit_component_ids(bs_head_id, GameState.state)
+			if not bs_group_ids.has(str(bs_target_id)):
+				bs_group_ids.append(str(bs_target_id))
+			for bs_id in bs_group_ids:
+				diffs.append({
+					"op": "set",
+					"path": "units.%s.flags.battle_shocked" % bs_id,
+					"value": false
+				})
+				print("StratagemManager: REMOVE_BATTLE_SHOCK clears battle_shocked on %s" % bs_id)
 			break
 
 	if not diffs.is_empty():
@@ -3941,6 +4005,114 @@ func _unit_has_ranged_weapons(unit: Dictionary) -> bool:
 			return true
 	return false
 
+# 11e 15.08 FIRE OVERWATCH — TARGET: "One friendly unengaged unit (excluding
+# TITANIC units)". Battle-shocked units cannot be targeted by stratagems (the
+# battle-shock rules); a Sneaky Gitz unit cannot fire overwatch (its datasheet
+# ability). 19.01 ATTACHED UNITS: bodyguard + attached CHARACTER(s) are ONE
+# unit, so the bodyguard heads the row and every condition is asked of every
+# component (same shape as get_heroic_intervention_eligible_units_11e). The
+# unit must be on the battlefield (not in reserves, not embarked) with a
+# ranged weapon. Returns "" when `unit_id` may be targeted, else the reason.
+# cheap_only (PERF, the offer builder): skip the two scans — the live
+# engagement check (every enemy model) and the ranged-weapon check — so the
+# quick refusals (battle-shock, TITANIC, Sneaky Gitz, off the battlefield) run
+# before the snap-target search; the builder asks the full question after.
+func fire_overwatch_shooter_reason_11e(player: int, unit_id: String, board: Dictionary = {}, cheap_only: bool = false) -> String:
+	if board.is_empty():
+		board = GameState.create_snapshot()
+	var units: Dictionary = board.get("units", {})
+	var unit: Dictionary = units.get(unit_id, {})
+	if unit.is_empty():
+		return "unit %s not found" % unit_id
+	if int(unit.get("owner", 0)) != player:
+		return "%s is not your unit" % unit_id
+	if RulesEngine.is_attached_character(unit_id, board):
+		return "%s is part of an Attached unit — its bodyguard's row is the unit (19.01)" % unit_id
+	for gid in RulesEngine.attached_unit_component_ids(unit_id, board):
+		var member: Dictionary = units.get(gid, {})
+		if member.get("flags", {}).get("battle_shocked", false):
+			return "battle-shocked units cannot be targeted with stratagems"
+		if member.get("embarked_in", null) != null:
+			return "embarked units are not on the battlefield"
+		for kw in member.get("meta", {}).get("keywords", []):
+			if str(kw).to_upper() == "TITANIC":
+				return "TITANIC units cannot be targeted (15.08)"
+		for ab in member.get("meta", {}).get("abilities", []):
+			var ab_name = ab if ab is String else (ab.get("name", "") if ab is Dictionary else "")
+			if ab_name == "Sneaky Gitz":
+				return "Sneaky Gitz units cannot fire overwatch"
+	# Codex: Orks (11e) Drive-by Skorchin' (Warbuggies, WP-O6): "That enemy unit
+	# cannot be targeted with the Fire Overwatch stratagem until the end of the
+	# turn" — group-aware (OrkAbilities11e.group_flag). It used to be checked
+	# only on the 10e per-move path (get_fire_overwatch_eligible_units).
+	if OrkAbilities.blocks_fire_overwatch(unit_id):
+		return "Drive-by Skorchin': cannot be targeted with FIRE OVERWATCH this turn"
+	var status := int(unit.get("status", GameStateData.UnitStatus.DEPLOYED))
+	if status in [GameStateData.UnitStatus.UNDEPLOYED, GameStateData.UnitStatus.DEPLOYING, GameStateData.UnitStatus.IN_RESERVES]:
+		return "the unit is not on the battlefield"
+	var on_board := false
+	for m in unit.get("models", []):
+		if m.get("alive", true) and m.get("position") != null:
+			on_board = true
+			break
+	if not on_board:
+		return "the unit has no models on the battlefield"
+	if cheap_only:
+		return ""
+	if RulesEngine.is_attached_unit_engaged(unit_id, board):
+		return "engaged units cannot be targeted (15.08: one friendly UNENGAGED unit)"
+	var has_ranged := false
+	var weapons_by_bearer: Dictionary = RulesEngine.get_unit_weapons(unit_id, board)
+	for bearer in weapons_by_bearer:
+		for wid in weapons_by_bearer[bearer]:
+			if str(RulesEngine.get_weapon_profile(wid, board).get("type", "")).to_lower() != "melee":
+				has_ranged = true
+				break
+		if has_ranged:
+			break
+	if not has_ranged:
+		return "the unit has no ranged weapons"
+	return ""
+
+## The FIRE OVERWATCH (15.08) window rows for `player`: every unit that may be
+## targeted (fire_overwatch_shooter_reason_11e) AND has at least one legal
+## snap-shooting target (15.09, RulesEngine.snap_shooting_targets_11e). Each
+## row carries the target pick as its secondary ({kind: "unit"}), nearest
+## enemy first. 15.08 does not require the enemy to have moved this phase.
+## PERF (every 11e END_MOVEMENT builds this): the quick TARGET refusals run
+## first, then the snap-target search — with no enemy unit within 24" it is a
+## few bounding-circle checks (enemy model positions measured once, shared
+## pts_cache) — and the full TARGET check, whose engagement scan walks every
+## enemy model, only runs for a unit that has a target. Same rows either way:
+## a row needs both.
+func get_fire_overwatch_offer_targets_11e(player: int) -> Array:
+	var rows: Array = []
+	var board: Dictionary = GameState.create_snapshot()
+	var pts_cache: Dictionary = {}
+	for unit_id in board.get("units", {}):
+		var unit: Dictionary = board.units[unit_id]
+		if int(unit.get("owner", 0)) != player:
+			continue
+		var quick_reason := fire_overwatch_shooter_reason_11e(player, unit_id, board, true)
+		if quick_reason != "":
+			print("StratagemManager: FIRE OVERWATCH — %s cannot be targeted: %s" % [unit_id, quick_reason])
+			continue
+		var options: Array = []
+		for t in RulesEngine.snap_shooting_targets_11e(unit_id, board, pts_cache):
+			options.append({"id": str(t.unit_id), "label": "%s (%.1f\")" % [str(t.label), float(t.distance_inches)]})
+		if options.is_empty():
+			print("StratagemManager: FIRE OVERWATCH — %s has no visible eligible enemy unit within 24\"" % unit_id)
+			continue
+		var reason := fire_overwatch_shooter_reason_11e(player, unit_id, board)
+		if reason != "":
+			print("StratagemManager: FIRE OVERWATCH — %s cannot be targeted: %s" % [unit_id, reason])
+			continue
+		rows.append({"unit_id": unit_id, "label": _attached_unit_display_name(unit_id, board),
+			"secondary": {"kind": "unit", "prompt": "FIRE OVERWATCH: select one visible enemy unit within 24\" for snap shooting (only unmodified 6s hit)",
+				"options": options}})
+	print("StratagemManager: FIRE OVERWATCH offer rows for P%d: %s" % [player, str(rows.map(func(r): return "%s->%s" % [r.unit_id, str(r.secondary.options.map(func(o): return o.id))]))])
+	return rows
+
 func is_heroic_intervention_available(player: int) -> Dictionary:
 	"""
 	Check if Heroic Intervention stratagem is available for a player.
@@ -4690,22 +4862,42 @@ func _load_core_stratagems_11e() -> void:
 		"restrictions": {},
 		"description": "Roll T dice for one engaged model: each 1 = 1 mortal wound to your unit, each 5+ = 1 mortal wound to the enemy (max 6) (15.06).",
 	}
+	# 15.07 WHEN: "End of your opponent's Movement phase." (This used to read
+	# phase "shooting" / start_of_phase, so RAPID INGRESS could never be used
+	# at 11e: MovementPhase offers it at the end of the opponent's Movement
+	# phase and can_use_stratagem refused it there.) Offered by the bespoke
+	# end-of-Movement prompt (MovementPhase._continue_end_movement_rapid_ingress).
 	stratagems["rapid_ingress_11e"] = {
 		"id": "rapid_ingress_11e", "name": "RAPID INGRESS", "type": "Core Stratagem",
 		"cp_cost": 1, "edition": 11,
-		"timing": {"turn": "opponent", "phase": "shooting", "trigger": "start_of_phase"},
+		"timing": {"turn": "opponent", "phase": "movement", "trigger": "end_of_phase"},
 		"target": {"type": "unit", "owner": "friendly", "conditions": ["in_strategic_reserves", "not_keyword:AIRCRAFT"]},
 		"effects": [{"type": "move_type", "move": "ingress"}],
 		"restrictions": {"not_battle_round": 1},
 		"description": "Your reserves unit makes an ingress move (20.04); not during the first battle round (15.07).",
 	}
+	# 15.08 WHEN: "End of your opponent's Movement phase." — exactly one
+	# timing at 11e (no per-move / set-up / charge-declaration offer; those
+	# were 10e Balance Dataslate wording). It is a core WINDOW stratagem:
+	# MovementPhase._complete_movement_phase opens movement_phase_end and
+	# get_window_offers (CORE_WINDOW_STRATAGEMS) offers it to the non-active
+	# player only (turn "opponent"), one row per eligible unit with a pick of
+	# the legal snap target (secondary). Outside that window can_use_stratagem
+	# answers "Offered automatically when the Movement phase ends" (no stray
+	# S-panel use that spends CP without shooting).
 	stratagems["fire_overwatch_11e"] = {
 		"id": "fire_overwatch_11e", "name": "FIRE OVERWATCH", "type": "Core Stratagem",
-		"cp_cost": 1, "edition": 11,
-		"timing": {"turn": "opponent", "phase": "movement", "trigger": "end_of_phase"},
+		"cp_cost": 1, "edition": 11, "implemented": true,
+		"timing": {"turn": "opponent", "phase": "movement", "trigger": "end_of_phase", "windows": ["movement_phase_end"]},
 		"target": {"type": "unit", "owner": "friendly", "conditions": ["unengaged", "not_keyword:TITANIC"]},
 		"effects": [{"type": "shooting_type", "shooting": "snap"}],
-		"restrictions": {"once_per": "turn"},
+		# 15.08 prints no RESTRICTIONS line (the 10e "once per turn" is gone):
+		# the 15.01 blanket rule applies — "Each player cannot use the same
+		# stratagem more than once in the same phase" (_check_usage_restriction
+		# defaults an uncapped 11e stratagem to once per phase).
+		"restrictions": {},
+		"when_text": "End of your opponent's Movement phase.",
+		"effect_text": "Your unit shoots using snap shooting: one visible enemy unit within 24\" (an eligible target); each attack only hits on an unmodified 6; no hit re-rolls (15.08/15.09).",
 		"description": "Your unit shoots using SNAP shooting (15.08/15.09): one visible target within 24\", unmodified 6s hit, no re-rolls.",
 	}
 	stratagems["smokescreen_11e"] = {
