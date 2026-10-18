@@ -6,7 +6,7 @@
   "stratagem.window.movement_phase_end",
   "phases.MovementPhase.reactive_normal_move"
  ],
- "description": "WP-O5 Codex: Orks (11e) MORGOG'S FINKIN' CAP (Brute Bosses enhancement, Warboss model; once per battle, at the end of your opponent's Movement phase, if this model's unit is not within Engagement Range of one or more enemy units, roll one D6: this unit can make a normal move of up to that many inches; if riled up you can re-roll the D6). Fixture ork11e_enh_brute_enemy_move: P2 (Custodes) is active. A real click on End Movement Phase (P2) opens the movement_phase_end windows; P1's shows the 0-CP enhancement card; a real click on 'Use on Warboss' rolls the D6 and the Warboss's reactive normal move of up to that many inches begins (the riled-up re-roll variant is headless); with rng_seed 42 the roll is 5: a real drag moves it 4.5 inches and 'End This Unit's Move' completes it; the remaining (Custodes) cards are declined and the phase ends. The AI declines this enhancement (headless).",
+ "description": "WP-O5 Codex: Orks (11e) MORGOG'S FINKIN' CAP (Brute Bosses enhancement, Warboss model; once per battle, at the end of your opponent's Movement phase, if this model's unit is not within Engagement Range of one or more enemy units, roll one D6: this unit can make a normal move of up to that many inches; if riled up you can re-roll the D6). Fixture ork11e_enh_brute_enemy_move: P2 (Custodes) is active. A real click on End Movement Phase (P2) opens the movement_phase_end windows; P1's shows the 0-CP enhancement card; a real click on 'Use on Warboss' rolls the D6 and the Warboss's reactive normal move of up to that many inches begins (the riled-up re-roll variant is headless); a real 6-inch drag moves it up to the rolled cap (the move is held to the D6 result) and 'End This Unit's Move' completes it; the remaining (Custodes) cards are declined and the phase ends. The AI declines this enhancement (headless).",
  "fixture": "ork11e_enh_brute_enemy_move",
  "edition": 11,
  "rng_seed": 42,
@@ -122,9 +122,10 @@
   },
   {
    "act": "execute_script",
-   "script": "var cap := float(PhaseManager.get_current_phase_instance()._ork11e_reactive_move.get(\"max_inches\", 0.0))\nprint(\"[wp-o5] Morgog's Finkin' Cap cap \", cap)\nreturn cap >= 1.0 and cap <= 6.0",
+   "script": "var cap := float(PhaseManager.get_current_phase_instance()._ork11e_reactive_move.get(\"max_inches\", 0.0))\nprint(\"[wp-o5] Morgog's Finkin' Cap cap \", cap)\nGameState.state.meta[\"_o5_cap\"] = cap\nreturn cap >= 1.0 and cap <= 6.0",
    "multiline": true,
-   "equals": true
+   "equals": true,
+   "comment": "the D6 result is the move cap"
   },
   {
    "act": "execute_script",
@@ -146,7 +147,7 @@
    "from_x": 800.0,
    "from_y": 689.0,
    "to_x": 800.0,
-   "to_y": 509.0
+   "to_y": 449.0
   },
   {
    "act": "wait_seconds",
@@ -167,9 +168,10 @@
   },
   {
    "act": "execute_script",
-   "script": "float(GameState.get_unit(\"U_WARBOSS_A\").models[0].position.y) < 689.0 - 168.0",
+   "script": "var moved := (689.0 - float(GameState.get_unit(\"U_WARBOSS_A\").models[0].position.y)) / 40.0\nvar cap := float(GameState.state.meta[\"_o5_cap\"])\nprint(\"[wp-o5] Morgog moved \", moved, \" of \", cap)\nreturn moved > 0.8 and moved <= cap + 0.05 and moved >= minf(cap, 6.0) - 0.3",
+   "multiline": true,
    "equals": true,
-   "comment": "the Warboss moved"
+   "comment": "the Warboss moved as far as dragged, but never beyond the rolled cap (a 6\" drag is held to the D6 result)"
   },
   {
    "act": "execute_script",
@@ -179,13 +181,6 @@
   {
    "act": "screenshot",
    "label": "03_morgogs_finkin_cap_moved"
-  },
-  {
-   "act": "execute_script",
-   "script": "var cap := float(GameState.get_unit(\"U_WARBOSS_A\").models[0].position.y)\nreturn (689.0 - cap) / 40.0 <= 5.05",
-   "multiline": true,
-   "equals": true,
-   "comment": "within the rolled 5\""
   },
   {
    "act": "click_if_visible",

@@ -9078,7 +9078,10 @@
       "id": "ai.decide_window_stratagem",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_ai_selected_to_shoot.",
       "scenarios": [
-        "ork11e_ai_selected_to_shoot"
+        "ork11e_ai_selected_to_shoot",
+        "ork11e_enh_ai_dreadherder",
+        "ork11e_enh_ai_temperamental_shokka",
+        "ork11e_enh_ai_morgogs_finkin_cap"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -10366,7 +10369,8 @@
       "id": "stratagem.window.unit_selected_to_shoot.ai_decider",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_ai_selected_to_shoot.",
       "scenarios": [
-        "ork11e_ai_selected_to_shoot"
+        "ork11e_ai_selected_to_shoot",
+        "ork11e_enh_ai_dreadherder"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -11260,7 +11264,8 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: cus11e_enh_huntress_eye.",
       "scenarios": [
         "cus11e_enh_huntress_eye",
-        "ork11e_enh_morgogs_finkin_cap"
+        "ork11e_enh_morgogs_finkin_cap",
+        "ork11e_enh_ai_morgogs_finkin_cap"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -11613,6 +11618,36 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: taktikal_enhancements_load.",
       "scenarios": [
         "taktikal_enhancements_load"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.dreadherder.ai",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_ai_dreadherder.",
+      "scenarios": [
+        "ork11e_enh_ai_dreadherder"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.temperamental_shokka.ai",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_ai_temperamental_shokka.",
+      "scenarios": [
+        "ork11e_enh_ai_temperamental_shokka"
+      ],
+      "last_verified_commit": "HEAD",
+      "status": "covered",
+      "fidelity": "DECLARED"
+    },
+    {
+      "id": "codex.orks.enhancements.morgogs_finkin_cap.ai",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_enh_ai_morgogs_finkin_cap.",
+      "scenarios": [
+        "ork11e_enh_ai_morgogs_finkin_cap"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
