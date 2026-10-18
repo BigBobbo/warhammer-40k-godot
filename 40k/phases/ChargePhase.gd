@@ -3296,6 +3296,10 @@ func _get_charge_reroll_ability_name(unit_id: String) -> String:
 	if not EffectPrimitivesData.has_effect_reroll_charge(unit_data) \
 			and FactionAbilityManager.unit_has_prey_charge_reroll(unit_data, declared_targets, GameState.state.get("units", {})):
 		return "Prey"
+	# Codex: Orks (11e) Blitz Brigade — Unstoppable Momentum (WP-O34).
+	var ork11e_um: String = load("res://scripts/codex/orks/OrkDetachments11e.gd").charge_reroll_source(unit_data)
+	if ork11e_um != "":
+		return ork11e_um
 	return "ability"
 
 func _get_min_distance_to_any_target(unit_id: String, target_ids: Array) -> float:

@@ -703,7 +703,11 @@ func _section_g_ap_sign() -> void:
 	var aps_d := _save_aps(bd, "U_TANKBUSTAS_A", wid, "U_CUSTODIAN_GUARD_C")
 	_check("DRIVE-BY DAKKA (target within 9\"): save AP -3", aps_d[0] == -3 and aps_d[1] == -3, "interactive %d auto %d" % [aps_d[0], aps_d[1]])
 	var bp: Dictionary = b.duplicate(true)
-	bp.units.U_CUSTODIAN_GUARD_C.flags["is_prey_of_1"] = true
+	# 11e (WP-O34): the 10e Prey rule is gone — Da Big Hunt's DA HUNT IS ON (+1 AP
+	# for Beast Snagga attacks vs a MONSTER/VEHICLE unit) is the same "+1 AP" helper.
+	bp.units.U_CUSTODIAN_GUARD_C.meta["keywords"] = bp.units.U_CUSTODIAN_GUARD_C.meta.get("keywords", []) + ["VEHICLE"]
+	var det_before_hunt := str(GS.state.factions["1"].get("detachment", ""))
+	_set_det(1, "Da Big Hunt")
 	var bsb_w := ""
 	var bw = RE.get_unit_weapons("U_BEAST_SNAGGA_BOYZ_A", bp)
 	for mid in bw:
@@ -718,7 +722,8 @@ func _section_g_ap_sign() -> void:
 		for i in range(bp.units.U_ALLARUS_CUSTODIANS_A.models.size()):
 			bp.units.U_ALLARUS_CUSTODIANS_A.models[i]["position"] = {"x": 2.0 * PX, "y": 2.0 * PX}
 		var aps_p := _save_aps(bp, "U_BEAST_SNAGGA_BOYZ_A", bsb_w, "U_CUSTODIAN_GUARD_C")
-		_check("PREY (BEAST SNAGGA vs its Prey): AP %d -> %d" % [bsb_ap, RE.improve_ap(bsb_ap, 1)], aps_p[0] == RE.improve_ap(bsb_ap, 1) and aps_p[1] == RE.improve_ap(bsb_ap, 1), "interactive %d auto %d" % [aps_p[0], aps_p[1]])
+		_check("DA HUNT IS ON (BEAST SNAGGA vs a VEHICLE): AP %d -> %d" % [bsb_ap, RE.improve_ap(bsb_ap, 1)], aps_p[0] == RE.improve_ap(bsb_ap, 1) and aps_p[1] == RE.improve_ap(bsb_ap, 1), "interactive %d auto %d" % [aps_p[0], aps_p[1]])
+	_set_det(1, det_before_hunt)
 
 
 # ---------------------------------------------------------------------------

@@ -6,11 +6,11 @@
   "faction.taktikal_brigade.gob_boomer"
  ],
  "fixture": "co_pretrigger",
- "edition": 11,
+ "edition": 10,
  "rng_seed": 42,
  "transition_to_phase": 6,
  "disable_ai": true,
- "description": "Lissen 'Ere — Taktiks (Taktikal Brigade detachment rule) on the real Command-phase action path: with the Ork player's detachment flipped to Taktikal Brigade (documented setup privilege, with detect_player_detachment so the rule's cache sees it), the four WARBOSS-keyword units are offered as Taktik issuers in get_available_actions. U_WARBOSS_C issues 'Get Stuck In' to the Painboss 4.5\" away via ISSUE_TAKTIK (charge re-roll + taktik_active land on the target), a second issue from the same Warboss is rejected (one Taktik per issuer per battle round), and the Warboss in Mega Armour self-issues 'Shoota Drills' (+1 ranged hit). The open issuer count drops from 4 to 2.",
+ "description": "Pinned to edition 10 by WP-O34: Lissen 'Ere (Taktiks) is the 10th-edition Taktikal Brigade rule; the 11e rule is Suspiciously Well Organised (covered by ork11e_det_taktikal_brigade). Lissen 'Ere — Taktiks (Taktikal Brigade detachment rule) on the real Command-phase action path: with the Ork player's detachment flipped to Taktikal Brigade (documented setup privilege, with detect_player_detachment so the rule's cache sees it), the four WARBOSS-keyword units are offered as Taktik issuers in get_available_actions. U_WARBOSS_C issues 'Get Stuck In' to the Painboss 4.5\" away via ISSUE_TAKTIK (charge re-roll + taktik_active land on the target), a second issue from the same Warboss is rejected (one Taktik per issuer per battle round), and the Warboss in Mega Armour self-issues 'Shoota Drills' (+1 ranged hit). The open issuer count drops from 4 to 2.",
  "steps": [
   { "act": "wait_seconds", "seconds": 0.8 },
   { "act": "expect_phase", "equals": 6 },

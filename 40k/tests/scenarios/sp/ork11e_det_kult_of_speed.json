@@ -1,0 +1,346 @@
+{
+  "id": "ork11e_det_kult_of_speed",
+  "covers": [
+    "ork11e.detachment.kult_of_speed.adrenaline_junkies",
+    "ork11e.detachment.battleline_grant"
+  ],
+  "fixture": "ork11e_o34_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) Kult of Speed — ADRENALINE JUNKIES (WP-O34): Warbikers have BATTLELINE; a SPEED FREEKS unit selected to advance/fall back gains ranged [ASSAULT] and stays eligible to declare a charge. Setup: detachment Kult of Speed (BATTLELINE granted), the Stormboyz moved to the back line out of the Warbikers' lane, Custodian Guard Delta moved 6\" in front of the Warbikers, Custodes CP 0. Movement phase: the Warbikers are clicked, Advance + Confirm Movement Mode (the free Waaagh! re-roll is kept), End This Unit's Move: they advanced and carry [ASSAULT]. Charge phase: the advanced Warbikers are in the charge list; picked, Custodian Guard Delta targeted, Declare + Roll (seeded) + Snap + Confirm: they charged.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Kult of Speed\"\nStratagemManager.load_faction_stratagems_for_player(1)\nFactionAbilityManager.detect_player_detachment(1)\nload(\"res://scripts/codex/orks/OrkDetachments11e.gd\").apply_keyword_grants(1)\nSettingsService.set(\"auto_allocate_wounds\", true)\nvar _ms_U_STORMBOYZ_A = GameState.state.units[\"U_STORMBOYZ_A\"].models\nfor _i in range(_ms_U_STORMBOYZ_A.size()):\n\t_ms_U_STORMBOYZ_A[_i][\"position\"] = {\"x\": (40.000000 + (float(_i) - float(_ms_U_STORMBOYZ_A.size() - 1) / 2.0) * 1.510000) * 40.0, \"y\": 3.000000 * 40.0}\nvar _ms_U_CUSTODIAN_GUARD_D = GameState.state.units[\"U_CUSTODIAN_GUARD_D\"].models\nfor _i in range(_ms_U_CUSTODIAN_GUARD_D.size()):\n\t_ms_U_CUSTODIAN_GUARD_D[_i][\"position\"] = {\"x\": (39.000000 + (float(_i) - float(_ms_U_CUSTODIAN_GUARD_D.size() - 1) / 2.0) * 1.800000) * 40.0, \"y\": 17.000000 * 40.0}\nGameState.state.players[\"2\"][\"cp\"] = 0\ntree.current_scene._recreate_unit_visuals()\nreturn FactionAbilityManager.get_player_detachment(1)",
+      "multiline": true,
+      "equals": "Kult of Speed",
+      "comment": "setup privilege: the fixture's Ork detachment is switched to Kult of Speed (stratagems + detachment rules reloaded)"
+    },
+    {
+      "act": "execute_script",
+      "script": "\"BATTLELINE\" in GameState.state.units[\"U_WARBIKERS_A\"].meta.keywords",
+      "equals": true,
+      "comment": "Warbikers have BATTLELINE"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(3)"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_WARBIKERS_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.movement_controller.active_unit_id",
+      "equals": "U_WARBIKERS_A"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_node",
+      "button_text": "Advance"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "click_node",
+      "button_text": "Confirm Movement Mode"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/KeepRollButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_moves[\"U_WARBIKERS_A\"][\"mode\"]",
+      "equals": "ADVANCE"
+    },
+    {
+      "act": "simulate_key",
+      "keycode": "A",
+      "ctrl": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1432.0,
+      "from_y": 440.0,
+      "to_x": 1432.0,
+      "to_y": 480.0
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 2.5
+    },
+    {
+      "act": "click_node",
+      "button_text": "End This Unit's Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WARBIKERS_A.flags.advanced",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "return EffectPrimitivesData.has_effect_advance_and_shoot(GameState.get_unit(\"U_WARBIKERS_A\"))\n",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_warbikers_advanced"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_SHOOTING",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar out = []\nfor i in range(cc.unit_selector.get_item_count()):\n\tout.append(str(cc.unit_selector.get_item_metadata(i)))\nreturn \",\".join(out)",
+      "multiline": true,
+      "equals": "U_BREAKA_BOYZ_A,U_DEFFKOPTAS_A,U_FLASH_GITZ_A,U_GRETCHIN_C,U_GRETCHIN_D,U_KILLA_KANS_A,U_KOMMANDOS_A,U_MEK_GUNZ_A,U_TANKBUSTAS_A,U_WARBIKERS_A,U_WEIRDBOY_A",
+      "comment": "the charge list (the unit's row index is clicked below)"
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar r = cc.unit_selector.get_item_rect(9)\ncc.unit_selector.get_v_scroll_bar().value = maxf(0.0, r.position.y - 4.0)\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_frames",
+      "frames": 3
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector",
+      "index": 9
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.active_unit_id",
+      "equals": "U_WARBIKERS_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar out = []\nfor i in range(cc.target_list.get_item_count()):\n\tout.append(str(cc.target_list.get_item_metadata(i)))\nprint(\"[O34] charge targets for U_WARBIKERS_A: \", out)\nreturn out.find(\"U_CUSTODIAN_GUARD_D\") >= 0",
+      "multiline": true,
+      "equals": true,
+      "comment": "the target is an eligible charge target"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_CUSTODIAN_GUARD_D"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar out = []\nfor i in cc.target_list.get_selected_items():\n\tout.append(str(cc.target_list.get_item_metadata(i)))\nreturn \",\".join(out)",
+      "multiline": true,
+      "equals": "U_CUSTODIAN_GUARD_D"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_advanced_warbikers_can_charge"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.set_test_seed(21)",
+      "comment": "deterministic dice for the charge roll"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/RollChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/KeepRollButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/SnapToContactButton",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/SnapToContactButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/ConfirmRow/ConfirmChargeButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_WARBIKERS_A.flags.charged_this_turn",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_advanced_warbikers_charged"
+    }
+  ]
+}

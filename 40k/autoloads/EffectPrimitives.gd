@@ -762,18 +762,35 @@ static func has_effect_fall_back_and_shoot(unit: Dictionary) -> bool:
 
 static func has_effect_fall_back_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and charge eligibility."""
+	# Codex: Orks (11e) Adrenaline Junkies / Suspiciously Well Organised (WP-O34);
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant (survives the Shooting phase effect_* wipe).
-	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_CHARGE, false) or _cus11e_grants(unit, "fall_back_and_charge")
+	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_CHARGE, false) \
+		or (GameConstants.edition >= 11 and _ork11e_det().fall_back_allows_charge(unit)) \
+		or _cus11e_grants(unit, "fall_back_and_charge")
 
 static func has_effect_advance_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and charge eligibility."""
-	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant (survives the Shooting phase effect_* wipe).
-	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_CHARGE, false) or _cus11e_grants(unit, "advance_and_charge")
+	# Codex: Orks (11e) Adrenaline Junkies (WP-O34); Codex: Adeptus Custodes
+	# stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant.
+	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_CHARGE, false) \
+		or (GameConstants.edition >= 11 and _ork11e_det().advance_allows_charge(unit)) \
+		or _cus11e_grants(unit, "advance_and_charge")
 
 static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and shoot eligibility."""
-	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant (survives the Shooting phase effect_* wipe).
-	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_SHOOT, false) or _cus11e_grants(unit, "advance_and_shoot")
+	# Codex: Orks (11e) ranged [ASSAULT] — Dakka! Dakka! Dakka! / Adrenaline Junkies (WP-O34);
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant.
+	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_SHOOT, false) \
+		or (GameConstants.edition >= 11 and _ork11e_det().ranged_attacks_have_assault(unit)) \
+		or _cus11e_grants(unit, "advance_and_shoot")
+
+## Codex: Orks (11e) detachment rules module (WP-O34), loaded on first use so
+## this class compiles without it.
+static var _ork11e_det_script = null
+static func _ork11e_det():
+	if _ork11e_det_script == null:
+		_ork11e_det_script = load("res://scripts/codex/orks/OrkDetachments11e.gd")
+	return _ork11e_det_script
 
 ## Codex: Adeptus Custodes stratagems (WP-C5): UNCEASING ONSLAUGHT, UNLIMITED
 ## ENDURANCE, PRETERNATURAL RAPIDITY, AT SPEAR'S LENGTH, MANOEUVRE AND FIRE,

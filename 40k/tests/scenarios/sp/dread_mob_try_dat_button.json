@@ -5,11 +5,11 @@
   "faction.dread_mob.button_effect_roll"
  ],
  "fixture": "co_pretrigger",
- "edition": 11,
+ "edition": 10,
  "rng_seed": 42,
  "transition_to_phase": 10,
  "disable_ai": true,
- "description": "Try Dat Button! (Dread Mob detachment rule) fires on the real fight-selection path: the Ork player's Warboss (granted WALKER for the fixture, which ships no Deff Dread) is selected to fight via SELECT_FIGHTER, and the Button Effect D6 is rolled automatically — exactly one of SUSTAINED HITS 1 / LETHAL HITS / +2 AP lands as a melee-scoped flag. Setup-only privilege (documented): the fixture's Ork detachment is flipped from War Horde to Dread Mob (with detect_player_detachment so the rule's cache sees it) and the Warboss gains the WALKER keyword.",
+ "description": "Pinned to edition 10 by WP-O34: the automatic Button Effect roll is the 10th-edition Dread Mob rule; the 11e Try Dat Button! is a player choice (one/two D6: +1 A / +2 S / +1 AP), covered by ork11e_det_dread_mob. Try Dat Button! (Dread Mob detachment rule) fires on the real fight-selection path: the Ork player's Warboss (granted WALKER for the fixture, which ships no Deff Dread) is selected to fight via SELECT_FIGHTER, and the Button Effect D6 is rolled automatically — exactly one of SUSTAINED HITS 1 / LETHAL HITS / +2 AP lands as a melee-scoped flag. Setup-only privilege (documented): the fixture's Ork detachment is flipped from War Horde to Dread Mob (with detect_player_detachment so the rule's cache sees it) and the Warboss gains the WALKER keyword.",
  "steps": [
   { "act": "wait_seconds", "seconds": 0.8 },
   { "act": "expect_phase", "equals": 10 },

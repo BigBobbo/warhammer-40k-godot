@@ -1,0 +1,151 @@
+{
+  "id": "ork11e_det_bully_boyz",
+  "covers": [
+    "ork11e.detachment.bully_boyz.displays_of_savagery"
+  ],
+  "fixture": "ork11e_o34_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) Bully Boyz — DISPLAYS OF SAVAGERY (WP-O34): friendly Meganobz/Nobz units' melee attacks have [SUSTAINED HITS 1]. Detachment switched to Bully Boyz (setup). Fight phase: Pile In passed, the Nobz are clicked in the fighter picker, attack Custodian Guard Beta; the dice log's melee hit roll carries [SUSTAINED HITS 1]. The Bully Boyz 10e second Waaagh! (Da Boss Is Watchin') is not offered at 11e.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Bully Boyz\"\nStratagemManager.load_faction_stratagems_for_player(1)\nFactionAbilityManager.detect_player_detachment(1)\nload(\"res://scripts/codex/orks/OrkDetachments11e.gd\").apply_keyword_grants(1)\nSettingsService.set(\"auto_allocate_wounds\", true)\ntree.current_scene._recreate_unit_visuals()\nreturn FactionAbilityManager.get_player_detachment(1)",
+      "multiline": true,
+      "equals": "Bully Boyz",
+      "comment": "setup privilege: the fixture's Ork detachment is switched to Bully Boyz (stratagems + detachment rules reloaded)"
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkDetachments11e.gd\").melee_sustained_hits(GameState.state.units[\"U_NOBZ_A\"]).value\n",
+      "multiline": true,
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkDetachments11e.gd\").melee_sustained_hits(GameState.state.units[\"U_BOYZ_B\"]).value\n",
+      "multiline": true,
+      "equals": 0,
+      "comment": "Boyz are not Nobz"
+    },
+    {
+      "act": "execute_script",
+      "script": "FactionAbilityManager.is_boss_watchin_waaagh_available(1)",
+      "equals": false
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_NOBZ_A",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_NOBZ_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_NOBZ_A\" in PhaseManager.get_current_phase_instance().units_that_fought",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = PhaseManager.get_current_phase_instance()\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and (str(d.get(\"context\", \"\")) == \"hit_roll_melee\" and int(d.get(\"sustained_hits_value\", 0)) == 1):\n\t\treturn true\nreturn false",
+      "multiline": true,
+      "equals": true,
+      "comment": "Displays of Savagery: [SUSTAINED HITS 1]"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_nobz_fought_sustained_hits_1"
+    }
+  ]
+}

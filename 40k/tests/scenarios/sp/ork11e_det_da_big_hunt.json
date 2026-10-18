@@ -1,0 +1,210 @@
+{
+  "id": "ork11e_det_da_big_hunt",
+  "covers": [
+    "ork11e.detachment.da_big_hunt.da_hunt_is_on"
+  ],
+  "fixture": "ork11e_o34_hunt",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 9,
+  "disable_ai": true,
+  "description": "Codex: Orks (11e) Da Big Hunt — DA HUNT IS ON (WP-O34): Beast Snagga units' attacks that target a MONSTER/VEHICLE unit have +1 AP. Fixture ork11e_o34_hunt: the Custodes' Contemptor-Achillus Dreadnought (VEHICLE) is engaged with the Beast Snagga Boyz. Setup (Charge phase, which then ends): detachment Da Big Hunt; the Allarus Custodians step back so the Dreadnought stands alone in front of the Beast Snagga's front rank; Custodes CP 0. Fight phase: Pile In passed, the Beast Snagga Boyz are clicked and all attacks go to the Dreadnought: the dice log's melee save roll shows the weapon's AP improved by 1.",
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "execute_script",
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Da Big Hunt\"\nStratagemManager.load_faction_stratagems_for_player(1)\nFactionAbilityManager.detect_player_detachment(1)\nload(\"res://scripts/codex/orks/OrkDetachments11e.gd\").apply_keyword_grants(1)\nSettingsService.set(\"auto_allocate_wounds\", true)\nvar _ms_U_ALLARUS_CUSTODIANS_A = GameState.state.units[\"U_ALLARUS_CUSTODIANS_A\"].models\nfor _i in range(_ms_U_ALLARUS_CUSTODIANS_A.size()):\n\t_ms_U_ALLARUS_CUSTODIANS_A[_i][\"position\"] = {\"x\": (30.000000 + (float(_i) - float(_ms_U_ALLARUS_CUSTODIANS_A.size() - 1) / 2.0) * 1.830000) * 40.0, \"y\": 33.500000 * 40.0}\nvar _ms_U_CONTEMPTOR_A = GameState.state.units[\"U_CONTEMPTOR_A\"].models\nfor _i in range(_ms_U_CONTEMPTOR_A.size()):\n\t_ms_U_CONTEMPTOR_A[_i][\"position\"] = {\"x\": (30.000000 + (float(_i) - float(_ms_U_CONTEMPTOR_A.size() - 1) / 2.0) * 1.600000) * 40.0, \"y\": 22.200000 * 40.0}\nGameState.state.players[\"2\"][\"cp\"] = 0\ntree.current_scene._recreate_unit_visuals()\nreturn FactionAbilityManager.get_player_detachment(1)",
+      "multiline": true,
+      "equals": "Da Big Hunt",
+      "comment": "setup privilege: the fixture's Ork detachment is switched to Da Big Hunt (stratagems + detachment rules reloaded)"
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkDetachments11e.gd\").attack_ap_bonus(GameState.state.units[\"U_BEAST_SNAGGA_BOYZ_A\"], GameState.state.units[\"U_CONTEMPTOR_A\"])\n",
+      "multiline": true,
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "return load(\"res://scripts/codex/orks/OrkDetachments11e.gd\").attack_ap_bonus(GameState.state.units[\"U_BEAST_SNAGGA_BOYZ_A\"], GameState.state.units[\"U_ALLARUS_CUSTODIANS_A\"])\n",
+      "multiline": true,
+      "equals": 0,
+      "comment": "INFANTRY target: no bonus"
+    },
+    {
+      "act": "execute_script",
+      "script": "RulesEngine.is_unit_engaged(\"U_CONTEMPTOR_A\", GameState.state)",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_CHARGE",
+        "player": 1
+      }
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/HeroicInterventionDialog/Content/Buttons/DeclineButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BEAST_SNAGGA_BOYZ_A",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_BEAST_SNAGGA_BOYZ_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var tl = tree.root.get_node(\"AttackAssignmentDialog/Content/TargetList\")\nvar out = []\nfor i in range(tl.item_count):\n\tout.append(str(tl.get_item_metadata(i)))\nreturn \",\".join(out)",
+      "multiline": true,
+      "equals": "U_CONTEMPTOR_A",
+      "comment": "the Dreadnought is the only enemy in engagement range"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(12)"
+    },
+    {
+      "act": "wait_frames",
+      "frames": 4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_BEAST_SNAGGA_BOYZ_A\" in PhaseManager.get_current_phase_instance().units_that_fought",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = PhaseManager.get_current_phase_instance()\nvar ctx = []\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY:\n\t\tctx.append([str(d.get(\"context\", \"\")), str(d.get(\"weapon\", \"\")), str(d.get(\"ap\", \"\"))])\nprint(\"[O34 big hunt] dice log: \", ctx)\nreturn ctx.size()",
+      "multiline": true,
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "var p = PhaseManager.get_current_phase_instance()\nvar w := \"\"\nvar ok := 0\nfor d in p.dice_log:\n\tif typeof(d) != TYPE_DICTIONARY:\n\t\tcontinue\n\tvar c := str(d.get(\"context\", \"\"))\n\tif c == \"hit_roll_melee\":\n\t\tw = str(d.get(\"weapon\", \"\"))\n\telif \"save\" in c and d.has(\"ap\") and w != \"\":\n\t\tvar base := int(str(RulesEngine.get_weapon_profile(w, GameState.state).get(\"ap\", \"0\")))\n\t\tif int(d.ap) == base - 1:\n\t\t\tok += 1\nreturn ok",
+      "multiline": true,
+      "expect_min": 1,
+      "comment": "a melee save roll at the weapon's AP improved by 1 (vs the VEHICLE)"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_beast_snagga_vs_vehicle_ap_plus_1"
+    }
+  ]
+}

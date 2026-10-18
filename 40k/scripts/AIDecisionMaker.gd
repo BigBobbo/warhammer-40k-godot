@@ -4723,7 +4723,7 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 	for action in undeclare_reserves_actions:
 		var uid = action.get("unit_id", "")
 		var u = all_units.get(uid, {})
-		current_reserves_points += u.get("meta", {}).get("points", 0)
+		current_reserves_points += load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(u)  # Codex: Orks (11e) Skyborne Loons — AIRCRAFT do not count (WP-O34)
 		current_reserves_count += 1
 		for char_id in _reserve_riders(action, all_units):
 			current_reserves_points += all_units.get(char_id, {}).get("meta", {}).get("points", 0)
@@ -4773,7 +4773,7 @@ static func _evaluate_reserves_declarations(snapshot: Dictionary, reserves_actio
 		# The whole attached unit is what leaves the table: the bodyguard plus
 		# every leader the phase says goes with it.
 		var riders := _reserve_riders(action, all_units)
-		var unit_points = unit.get("meta", {}).get("points", 0)
+		var unit_points = load("res://scripts/codex/orks/OrkDetachments11e.gd").reserves_points_value(unit)  # Codex: Orks (11e) Skyborne Loons — AIRCRAFT do not count (WP-O34)
 		for char_id in riders:
 			unit_points += all_units.get(char_id, {}).get("meta", {}).get("points", 0)
 		var unit_slots := 1 + riders.size()
@@ -23079,6 +23079,18 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 	offers = _custodes_katah().strip_katah_offers(offers)
 	var sm = _stratagem_manager()
 	if sm == null or offers.is_empty():
+		return decline
+	# Codex: Orks (11e) free rule choices (WP-O34: Try Dat Button!, Hop Splat,
+	# Roar of Mork, Visions of Violence, War Cry) are answered first, at every
+	# difficulty — the window is re-offered afterwards for its stratagems.
+	var ork11e_det = load("res://scripts/codex/orks/OrkDetachments11e.gd")
+	var rule_pick: Dictionary = ork11e_det.ai_decide(player, window_id, offers, ctx)
+	if not rule_pick.is_empty():
+		_add_thinking_step("Rule choice in %s: %s on %s" % [window_id, rule_pick.get("name", ""), rule_pick.get("target_unit_id", "")])
+		return rule_pick
+	offers = offers.filter(func(o): return not ork11e_det.is_rule_offer(o))
+	if offers.is_empty():
+		_add_thinking_step("Window %s: declining its rule choice(s)" % window_id)
 		return decline
 	var difficulty := _current_difficulty
 	var ai_node = null

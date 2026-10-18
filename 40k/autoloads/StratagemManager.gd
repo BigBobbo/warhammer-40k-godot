@@ -32,6 +32,9 @@ static func codex_for(strat: Dictionary):
 	if CustodesCodex.handles(strat):
 		return CustodesCodex
 	return null
+# Codex: Orks (11e) army / detachment rule choices (WP-O34): free rule offers
+# that ride the window framework (get_window_offers / use_stratagem hooks).
+const Ork11eDetachments = preload("res://scripts/codex/orks/OrkDetachments11e.gd")
 
 # Stratagem WINDOWS (design §3): the game event at which a stratagem with
 # timing.windows is offered automatically. The phrase completes
@@ -1129,6 +1132,9 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	Returns { "success": bool, "effects": Array, "diffs": Array, "message": String }
 	"""
 	stratagem_id = _resolve_core_id(stratagem_id)
+	# Codex: Orks (11e) rule choice offered in a window (WP-O34): no CP, no stratagem bookkeeping.
+	if Ork11eDetachments.is_rule_offer_id(stratagem_id):
+		return Ork11eDetachments.use_rule_offer(player, stratagem_id, target_unit_id, context)
 	# Validate
 	var validation = can_use_stratagem(player, stratagem_id, target_unit_id, context)
 	if not validation.can_use:
@@ -1455,6 +1461,8 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 			"type": str(strat.get("type", "")),
 			"targets": targets,
 		})
+	# Codex: Orks (11e) rule choices for this window (WP-O34): free, listed first.
+	offers = Ork11eDetachments.window_offers(player, window_id, wctx) + offers
 	print("StratagemManager: get_window_offers(P%d, %s) -> %d offer(s)%s" % [
 		player, window_id, offers.size(),
 		"" if offers.is_empty() else " " + str(offers.map(func(o): return o.name))])

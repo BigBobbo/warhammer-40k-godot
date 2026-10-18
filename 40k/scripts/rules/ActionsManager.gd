@@ -156,6 +156,9 @@ static func can_start_action(unit_id: String, board: Dictionary) -> Dictionary:
 	# fall-back move made under it no longer bars the unit (MovementPhase also
 	# skips that move's cannot_start_action lock).
 	var mind_on_mission: bool = flags.get("ork11e_mind_on_mission", false)
+	# Codex: Orks (11e) Runt Swarm — Sneaky Little Gitz: a GRETCHIN unit's advance / fall back does not bar actions (WP-O34).
+	if not mind_on_mission:
+		mind_on_mission = load("res://scripts/codex/orks/OrkDetachments11e.gd").move_keeps_action_eligibility(unit)
 	if ((flags.get("advanced", false) or flags.get("fell_back", false)) and not mind_on_mission) \
 			or flags.get("cannot_start_action", false):
 		reasons.append("made an advance or fall-back move this turn")

@@ -1468,6 +1468,7 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		var pre_s_spt = strength
 		strength += 1
 		print("RulesEngine: Shooty Power Trip (Overwatch) — ranged strength %d → %d (+1)" % [pre_s_spt, strength])
+	strength += ork11e_det_strength_bonus(shooter_unit, weapon_id, board)  # Codex: Orks (11e) Powers of da Waaagh! [PSYCHIC] +S (WP-O34)
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (overwatch)
 	var ded_glowy_penalty_ow = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
@@ -2016,7 +2017,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
-		var weapon_range = weapon_profile.get("range", 24)
+		var weapon_range = weapon_profile.get("range", 24) + ork11e_det_range_bonus(actor_unit, weapon_profile)  # Codex: Orks (11e) Dakka! Dakka! Dakka! +3" Range while riled up (WP-O34)
 		var half_range_inches = weapon_range / 2.0
 		for model_id in model_ids:
 			# ATTACHED CHARACTERS: a composite "<char_unit>:<model>" bearer is not
@@ -2090,6 +2091,17 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			print("RulesEngine: [MA-29] Ability +%d Attacks for '%s' → +%d total (%d models × %d)" % [bonus_value, weapon_name, ability_attack_bonus, model_ids.size(), bonus_value])
 		else:
 			print("RulesEngine: [MA-29] Ability +%d Attacks exists but does not apply to '%s' (weapon filter active)" % [bonus_value, weapon_name])
+	# Codex: Orks (11e) Try Dat Button! +1 A per model (WP-O34).
+	var ork11e_a := ork11e_det_attacks_per_model(actor_unit)
+	if ork11e_a > 0:
+		for tdb_model_id in model_ids:
+			var tdb_model = resolve_bearer_model(actor_unit, tdb_model_id, board)
+			var tdb_bs = _get_model_effective_bs(tdb_model, resolve_bearer_unit(actor_unit, tdb_model_id, board), weapon_profile)
+			for _j in range(ork11e_a):
+				bs_per_attack.append(tdb_bs)
+				ork11e_fd_attack.append(ork11e_is_firing_deck_bearer(tdb_model_id))
+		total_attacks += ork11e_a * model_ids.size()
+		print("RulesEngine: TRY DAT BUTTON! — +%d attack per model on %s (%d models)" % [ork11e_a, weapon_name, model_ids.size()])
 
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
@@ -2340,6 +2352,15 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			hit_modifiers |= HitModifier.PLUS_ONE
 			ModifierLedger.note(hit_mod_ledger, "Armoured Duellists", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "target is a MONSTER or VEHICLE")
 			print("RulesEngine: ARMOURED DUELLISTS — +1 to hit vs %s (MONSTER/VEHICLE)" % target_unit_id)
+		# Codex: Orks (11e) detachment rules (WP-O34): +1 to hit (Skyborne Loons / Seekerz), re-roll 1s (Wreckin' and Lootin').
+		var ork11e_hp_src := ork11e_det_hit_plus_one(actor_unit, target_unit, false, board)
+		if ork11e_hp_src != "":
+			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, ork11e_hp_src, ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE)
+		var ork11e_rr_src := ork11e_det_hit_reroll_ones(actor_unit, target_unit, false, board)
+		if ork11e_rr_src != "":
+			hit_modifiers |= HitModifier.REROLL_ONES
+			ModifierLedger.note(hit_mod_ledger, ork11e_rr_src, ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES)
 
 		# LONG, UNCONTROLLED BURSTS (Codex: Orks 11e): ranged attacks that target a
 		# FLY unit can re-roll the hit roll.
@@ -2792,6 +2813,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		print("RulesEngine: MOBILE DAKKASTORM — ranged strength %d → %d (+2 vs marked %s)" % [pre_s_md, strength, target_unit_id])
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): TIP OF THE TALON +1 S vs a target within 9".
 	strength += int(_cus11e_codex().ranged_strength_bonus(actor_unit, target_unit, board))
+	strength += ork11e_det_strength_bonus(actor_unit, weapon_id, board)  # Codex: Orks (11e) Try Dat Button! / Powers of da Waaagh! (WP-O34)
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk
 	var ded_glowy_penalty = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
@@ -2803,6 +2825,7 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 	if runtherd_t_override > 0:
 		toughness = runtherd_t_override
 		print("RulesEngine: RUNTHERD — all Gretchin dead, Runtherd T overridden to T%d" % toughness)
+	toughness = ork11e_det_toughness(actor_unit, target_unit, toughness)  # Codex: Orks (11e) Unpredictable Genius — Runtified (WP-O34)
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
@@ -3330,6 +3353,7 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 	# BIGGER SHELLS (Dread Mob, pushed): callers pass the attacking unit so the
 	# conditional +1 Damage vs MONSTER/VEHICLE can resolve per target.
 	var bs_actor_unit: Dictionary = opts.get("actor_unit", {})
+	effect_invuln = ork11e_det_invuln(bs_actor_unit, target_unit, effect_invuln)  # Codex: Orks (11e) Unpredictable Genius — Dat's Weird (WP-O34)
 	var damage_roll_log: Array = out.damage_roll_log
 	# Defender-side interactive options (AllocationGroupOverlay two-step flow):
 	# forced_save_rolls replays an already-rolled batch (e.g. after a save
@@ -4178,7 +4202,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var rapid_fire_attacks = 0
 	var models_in_half_range = 0
 	if rapid_fire_value > 0:
-		var weapon_range = weapon_profile.get("range", 24)
+		var weapon_range = weapon_profile.get("range", 24) + ork11e_det_range_bonus(actor_unit, weapon_profile)  # Codex: Orks (11e) Dakka! Dakka! Dakka! +3" Range while riled up (WP-O34)
 		var half_range_inches = weapon_range / 2.0
 		for model_id in model_ids:
 			# ATTACHED CHARACTERS: a composite "<char_unit>:<model>" bearer is not
@@ -4253,6 +4277,17 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			print("RulesEngine: [MA-29][auto-resolve] Ability +%d Attacks for '%s' → +%d total (%d models × %d)" % [ar_bonus_value, ar_weapon_name, ar_ability_attack_bonus, model_ids.size(), ar_bonus_value])
 		else:
 			print("RulesEngine: [MA-29][auto-resolve] Ability +%d Attacks exists but does not apply to '%s' (weapon filter active)" % [ar_bonus_value, ar_weapon_name])
+	# Codex: Orks (11e) Try Dat Button! +1 A per model (WP-O34).
+	var ork11e_a_ar := ork11e_det_attacks_per_model(actor_unit)
+	if ork11e_a_ar > 0:
+		for ar_model_id in model_ids:
+			var ar_tdb_model = resolve_bearer_model(actor_unit, ar_model_id, board)
+			var ar_tdb_bs = _get_model_effective_bs(ar_tdb_model, resolve_bearer_unit(actor_unit, ar_model_id, board), weapon_profile)
+			for _j in range(ork11e_a_ar):
+				bs_per_attack.append(ar_tdb_bs)
+				ork11e_fd_attack.append(ork11e_is_firing_deck_bearer(ar_model_id))
+		total_attacks += ork11e_a_ar * model_ids.size()
+		print("RulesEngine: TRY DAT BUTTON! (auto-resolve) — +%d attack per model on %s (%d models)" % [ork11e_a_ar, ar_weapon_name, model_ids.size()])
 
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
@@ -4538,6 +4573,16 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_modifiers |= HitModifier.REROLL_ONES
 			ModifierLedger.note(hit_mod_ledger, "Blastajet Attack Run", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES)
 			print("RulesEngine: BLASTAJET ATTACK RUN (auto-resolve) — re-roll hit rolls of 1 for %s" % actor_unit_id)
+
+		# Codex: Orks (11e) detachment rules (WP-O34): +1 to hit (Skyborne Loons / Seekerz), re-roll 1s (Wreckin' and Lootin').
+		var ork11e_hp_src_ar := ork11e_det_hit_plus_one(actor_unit, target_unit, false, board)
+		if ork11e_hp_src_ar != "":
+			hit_modifiers |= HitModifier.PLUS_ONE
+			ModifierLedger.note(hit_mod_ledger, ork11e_hp_src_ar, ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE)
+		var ork11e_rr_src_ar := ork11e_det_hit_reroll_ones(actor_unit, target_unit, false, board)
+		if ork11e_rr_src_ar != "":
+			hit_modifiers |= HitModifier.REROLL_ONES
+			ModifierLedger.note(hit_mod_ledger, ork11e_rr_src_ar, ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES)
 
 		# AGAINST ALL ODDS: +1 to Hit when no friendly units within 6" (Lions of the Emperor, auto-resolve)
 		if FactionAbilityManager.check_against_all_odds(actor_unit, board):
@@ -4853,6 +4898,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		print("RulesEngine: MOBILE DAKKASTORM (auto-resolve) — ranged strength %d → %d (+2 vs marked %s)" % [pre_s_md, strength, target_unit_id])
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): TIP OF THE TALON +1 S vs a target within 9".
 	strength += int(_cus11e_codex().ranged_strength_bonus(actor_unit, target_unit, board))
+	strength += ork11e_det_strength_bonus(actor_unit, weapon_id, board)  # Codex: Orks (11e) Try Dat Button! / Powers of da Waaagh! (WP-O34)
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (auto-resolve)
 	var ded_glowy_penalty_ar = get_ded_glowy_ammo_toughness_penalty(target_unit, board)
@@ -4864,6 +4910,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	if runtherd_t_override_ar > 0:
 		toughness = runtherd_t_override_ar
 		print("RulesEngine: RUNTHERD (auto-resolve) — all Gretchin dead, Runtherd T overridden to T%d" % toughness)
+	toughness = ork11e_det_toughness(actor_unit, target_unit, toughness)  # Codex: Orks (11e) Unpredictable Genius — Runtified (WP-O34)
 	var wound_threshold = _calculate_wound_threshold(strength, toughness)
 
 	# DEVASTATING WOUNDS (PRP-012): Check if weapon has Devastating Wounds
@@ -5444,6 +5491,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# MA-12: Per-model invuln from stats_override (auto-resolve)
 		var auto_model_invuln = _get_model_effective_invuln(target_model, target_unit, target_model.get("invuln", 0))
 		var auto_effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+		auto_effect_invuln = ork11e_det_invuln(actor_unit, target_unit, auto_effect_invuln)  # Codex: Orks (11e) Unpredictable Genius — Dat's Weird (WP-O34)
 		if auto_effect_invuln > 0:
 			if auto_model_invuln == 0 or auto_effect_invuln < auto_model_invuln:
 				auto_model_invuln = auto_effect_invuln
@@ -6315,7 +6363,7 @@ static func max_ranged_weapon_range_inches(actor_unit_id: String, board: Diction
 			if profile.is_empty():
 				continue
 			# "Melee" parses to 0.0, so a stray melee profile can never win here.
-			longest = maxf(longest, float(profile.get("range", 0)))
+			longest = maxf(longest, float(profile.get("range", 0)) + (ork11e_det_range_bonus(board.get("units", {}).get(actor_unit_id, {}), profile) if float(profile.get("range", 0)) > 0.0 else 0.0))  # Codex: Orks (11e) Dakka! Dakka! Dakka! +3" Range while riled up (WP-O34)
 	return longest
 
 ## Cheap "could any of this unit's guns even reach that one?" — pure
@@ -6364,7 +6412,7 @@ static func _check_target_visibility(actor_unit_id: String, target_unit_id: Stri
 	if actor_unit.is_empty() or target_unit.is_empty() or weapon_profile.is_empty():
 		return {"visible": false, "reason": "Invalid units or weapon"}
 
-	var weapon_range = weapon_profile.get("range", 12)
+	var weapon_range = weapon_profile.get("range", 12) + ork11e_det_range_bonus(actor_unit, weapon_profile)  # Codex: Orks (11e) Dakka! Dakka! Dakka! +3" Range while riled up (WP-O34)
 	var range_px = Measurement.inches_to_px(weapon_range)
 
 	# INDIRECT FIRE (T2-4): Indirect Fire weapons can shoot without Line of Sight
@@ -7018,7 +7066,7 @@ static func explain_target_ineligibility(actor_unit_id: String, target_unit_id: 
 			any_weapon_passed_er_filter = true
 
 			var weapon_profile = get_weapon_profile(weapon_id, board)
-			var weapon_range = weapon_profile.get("range", 12)
+			var weapon_range = weapon_profile.get("range", 12) + ork11e_det_range_bonus(actor_unit, weapon_profile)  # Codex: Orks (11e) Dakka! Dakka! Dakka! +3" Range while riled up (WP-O34)
 			var range_px = Measurement.inches_to_px(weapon_range)
 			var is_indirect = has_indirect_fire(weapon_id, board)
 
@@ -9890,6 +9938,62 @@ static func get_dakkastorm_sustained_value(actor_unit: Dictionary, target_unit: 
 	return 2 if is_target_within_range_inches(actor_unit, target_unit, 9.0) else 1
 
 # ---------------------------------------------------------------------------
+# Codex: Orks (11e) detachment rules (WP-O34) — the logic lives in
+# scripts/codex/orks/OrkDetachments11e.gd; the resolver paths only call the
+# thin wrappers below (each returns the no-op value below edition 11).
+# ---------------------------------------------------------------------------
+static var _ork11e_det_script = null
+static func ork11e_det():
+	if _ork11e_det_script == null:
+		_ork11e_det_script = load("res://scripts/codex/orks/OrkDetachments11e.gd")
+	return _ork11e_det_script
+
+## +1 to hit source ("" = none): Skyborne Loons, Unpredictable Genius (Seekerz).
+static func ork11e_det_hit_plus_one(actor_unit: Dictionary, target_unit: Dictionary, is_melee: bool, board: Dictionary = {}) -> String:
+	if GameConstants.edition < 11:
+		return ""
+	return ork11e_det().hit_plus_one_source(actor_unit, target_unit, is_melee, board)
+
+## Re-roll hit rolls of 1 source ("" = none): Wreckin' and Lootin'.
+static func ork11e_det_hit_reroll_ones(actor_unit: Dictionary, target_unit: Dictionary, is_melee: bool, board: Dictionary = {}) -> String:
+	if GameConstants.edition < 11:
+		return ""
+	return ork11e_det().hit_reroll_ones_source(actor_unit, target_unit, is_melee, board)
+
+## Strength bonus for one weapon: Try Dat Button! (+2 S), Powers of da Waaagh!.
+static func ork11e_det_strength_bonus(actor_unit: Dictionary, weapon_id: String, board: Dictionary = {}) -> int:
+	if GameConstants.edition < 11:
+		return 0
+	var sb: Dictionary = ork11e_det().strength_bonus(actor_unit, weapon_id, board)
+	if int(sb.get("value", 0)) > 0:
+		print("RulesEngine: [ork11e] Strength +%d for %s (%s)" % [int(sb.value), weapon_id, ", ".join(PackedStringArray(sb.get("sources", [])))])
+	return int(sb.get("value", 0))
+
+## Attacks bonus per model: Try Dat Button! (+1 A).
+static func ork11e_det_attacks_per_model(actor_unit: Dictionary) -> int:
+	if GameConstants.edition < 11:
+		return 0
+	return ork11e_det().attacks_bonus_per_model(actor_unit)
+
+## Target toughness for this attacker: Unpredictable Genius (Runtified, -1 T).
+static func ork11e_det_toughness(actor_unit: Dictionary, target_unit: Dictionary, toughness: int) -> int:
+	if GameConstants.edition < 11:
+		return toughness
+	return ork11e_det().target_toughness(actor_unit, target_unit, toughness)
+
+## Target invulnerable save for this attacker: Unpredictable Genius (Dat's Weird, 4+).
+static func ork11e_det_invuln(actor_unit: Dictionary, target_unit: Dictionary, invuln: int) -> int:
+	if GameConstants.edition < 11:
+		return invuln
+	return ork11e_det().target_invuln(actor_unit, target_unit, invuln)
+
+## Range characteristic bonus (inches): Dakka! Dakka! Dakka! (+3" while riled up).
+static func ork11e_det_range_bonus(actor_unit: Dictionary, weapon_profile: Dictionary = {}) -> float:
+	if GameConstants.edition < 11:
+		return 0.0
+	return ork11e_det().range_bonus_inches(actor_unit, weapon_profile)
+
+# ---------------------------------------------------------------------------
 # Codex: Orks (11e) — "when a unit is selected to shoot" stratagems
 # (scripts/stratagems/ork_codex/OrkCodexShooting.gd). The handler writes these
 # flags on the shooter and every component of its Attached unit until the end
@@ -10074,6 +10178,9 @@ static func resolve_conniving_runts(target_unit_id: String, board: Dictionary, r
 # that attack by 1. The Prey marker lives on the target unit's flags
 # (is_prey_of_<player>, set by FactionAbilityManager at Command phase start).
 static func get_prey_ap_bonus(actor_unit: Dictionary, target_unit: Dictionary) -> int:
+	# Codex: Orks (11e) — Da Hunt is On / Try Dat Button! +1 AP (WP-O34), every resolver path.
+	if GameConstants.edition >= 11:
+		return ork11e_det().attack_ap_bonus(actor_unit, target_unit)
 	var prey_owner = int(actor_unit.get("owner", 0))
 	if prey_owner <= 0:
 		return 0
@@ -11163,7 +11270,7 @@ static func count_models_in_half_range(
 	board: Dictionary
 ) -> int:
 	var weapon_profile = get_weapon_profile(weapon_id, board)
-	var weapon_range = weapon_profile.get("range", 24)
+	var weapon_range = weapon_profile.get("range", 24) + ork11e_det_range_bonus(actor_unit, weapon_profile)  # Codex: Orks (11e) Dakka! Dakka! Dakka! +3" Range while riled up (WP-O34)
 	var half_range_inches = weapon_range / 2.0
 
 	var models_in_half_range = 0
@@ -11233,7 +11340,7 @@ static func get_eligible_shooter_models(
 	if weapon_profile.is_empty():
 		return result
 
-	var weapon_range_inches = float(weapon_profile.get("range", 12))
+	var weapon_range_inches = float(weapon_profile.get("range", 12)) + ork11e_det_range_bonus(actor_unit, weapon_profile)  # Codex: Orks (11e) Dakka! Dakka! Dakka! +3" Range while riled up (WP-O34)
 	var is_indirect = has_indirect_fire(weapon_id, board)
 
 	var unit_weapons = get_unit_weapons(actor_unit_id, board)
@@ -13429,6 +13536,14 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		for _j in range(atf_total):
 			ws_per_attack.append(weapon_profile.get("ws", 4))
 		print("RulesEngine: AVENGE THE FALLEN — +%d A for '%s' (melee) → +%d total (%d models)" % [cus11e_melee_a, weapon_name, atf_total, model_count])
+	# Codex: Orks (11e) Try Dat Button! +1 A (WP-O34) — same Extra Attacks exclusion as above.
+	var ork11e_tdb_a := ork11e_det_attacks_per_model(attacker_unit)
+	if model_count > 0 and ork11e_tdb_a > 0 and not is_extra_attacks_weapon:
+		var tdb_total = ork11e_tdb_a * model_count
+		total_attacks += tdb_total
+		for _j in range(tdb_total):
+			ws_per_attack.append(weapon_profile.get("ws", 4))
+		print("RulesEngine: TRY DAT BUTTON! — +%d A for '%s' (melee) → +%d total (%d models)" % [ork11e_tdb_a, weapon_name, tdb_total, model_count])
 
 	# DEATHSONG SCYTHES (Silent Hunters): +X melee Attacks, but only while the
 	# attack targets a PSYKER unit.
@@ -13545,6 +13660,7 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 	if taktik_s_bonus > 0:
 		strength += taktik_s_bonus
 		print("RulesEngine: GET ON WIV IT Taktik — melee strength +%d (now %d)" % [taktik_s_bonus, strength])
+	strength += ork11e_det_strength_bonus(attacker_unit, weapon_id, board)  # Codex: Orks (11e) Try Dat Button! / Powers of da Waaagh! (WP-O34)
 
 	var toughness = _get_attached_unit_toughness(target_unit, board)  # P2-90: Use bodyguard T for attached units
 	# OA-44: DED GLOWY AMMO — -1T to enemy INFANTRY within 6" of Kaptin Badrukk (melee)
@@ -13661,9 +13777,21 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		print("RulesEngine:   SUSTAINED HITS 1 granted by TRY DAT BUTTON! (Dread Mob)")
 
 	# GET STUCK IN (P2-27): War Horde detachment — Sustained Hits 1 on all melee weapons for ORKS
-	if sustained_data.value == 0 and FactionAbilityManager.unit_has_get_stuck_in(attacker_unit):
+	if GameConstants.edition < 11 and sustained_data.value == 0 and FactionAbilityManager.unit_has_get_stuck_in(attacker_unit):
 		sustained_data = {"value": 1, "is_dice": false}
 		print("RulesEngine:   SUSTAINED HITS 1 granted by Get Stuck In (War Horde detachment)")
+	# Codex: Orks (11e) (WP-O34): Get Stuck In / Displays of Savagery / Mob-handed Brutality melee [SUSTAINED HITS 1].
+	if GameConstants.edition >= 11 and sustained_data.value == 0:
+		var ork11e_sh: Dictionary = ork11e_det().melee_sustained_hits(attacker_unit, board)
+		if int(ork11e_sh.get("value", 0)) > 0:
+			sustained_data = {"value": int(ork11e_sh.value), "is_dice": false}
+			print("RulesEngine:   SUSTAINED HITS %d granted by %s" % [int(ork11e_sh.value), str(ork11e_sh.source)])
+	# Codex: Orks (11e) Mob-handed Brutality (WP-O34): charged ORKS INFANTRY melee [LETHAL HITS] vs non-MONSTER/VEHICLE.
+	if GameConstants.edition >= 11 and not weapon_has_lethal_hits:
+		var ork11e_lh_src: String = ork11e_det().melee_lethal_hits_source(attacker_unit, target_unit, board)
+		if ork11e_lh_src != "":
+			weapon_has_lethal_hits = true
+			print("RulesEngine:   LETHAL HITS granted by %s" % ork11e_lh_src)
 
 	# HERE BE LOOT (OA-1): Freebooter Krew — Sustained Hits 1 near loot objective (melee)
 	if sustained_data.value == 0 and FactionAbilityManager.check_here_be_loot_sustained_hits(attacker_unit, target_unit, board):
@@ -15099,6 +15227,11 @@ static func prepare_save_resolution(
 	var effect_cover = EffectPrimitivesData.has_effect_cover(target_unit)
 	var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
 	var effect_invuln_source = EffectPrimitivesData.get_effect_invuln_source(target_unit)
+	# Codex: Orks (11e) Unpredictable Genius — Dat's Weird (WP-O34): 4+ InSv against this shooter.
+	var ork11e_inv = ork11e_det_invuln(board.get("units", {}).get(shooter_unit_id, {}), target_unit, effect_invuln)
+	if ork11e_inv != effect_invuln:
+		effect_invuln = ork11e_inv
+		effect_invuln_source = "Unpredictable Genius — Dat's Weird"
 
 	if effect_cover:
 		print("RulesEngine: Target has effect-granted Benefit of Cover")

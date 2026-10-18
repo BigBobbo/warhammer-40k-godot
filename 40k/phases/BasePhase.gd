@@ -575,6 +575,9 @@ func _process_window_queue() -> bool:
 					_queue_katah_reopen(player, window_id, ctx, true)
 					if use_res.get("paused", false):
 						return true
+					# Codex: Orks (11e) free rule choice (WP-O34): re-offer the window for its stratagems.
+					if use_res.get("reopen_window", false):
+						_window_queue.push_front(entry)
 					# Events the stratagem caused (units it destroyed / battle-shocked)
 					# open their windows next, before the rest of the queue.
 					_window_events_detect()
@@ -637,7 +640,9 @@ func _apply_window_use(player: int, window_id: String, stratagem_id: String, tar
 			paused = _execute_window_followup(player, window_id, followup, use_ctx)
 			_window_followup_pending = paused
 	return {"success": true, "diffs": use_diffs, "paused": paused, "followup": followup,
-		"stratagem_name": str(res.get("stratagem_name", stratagem_id))}
+		"stratagem_name": str(res.get("stratagem_name", stratagem_id)),
+		# Codex: Orks (11e) rule choice (WP-O34): the window is offered again afterwards.
+		"reopen_window": bool(res.get("reopen_window", false))}
 
 func _validate_window_action(action: Dictionary) -> Dictionary:
 	if not has_pending_stratagem_window():
@@ -710,6 +715,9 @@ func _process_window_action(action: Dictionary) -> Dictionary:
 		used_name = str(use_res.get("stratagem_name", ""))
 		katah_used = _cus11e_katah().is_katah_offer_id(str(action.get("stratagem_id", "")))
 		log_phase_message("[StratagemWindow] P%d used %s on %s (%s)" % [player, used_name, action.get("target_unit_id", ""), window_id])
+		# Codex: Orks (11e) free rule choice (WP-O34): re-offer the window for its stratagems.
+		if use_res.get("reopen_window", false) and not _window_followup_pending:
+			_window_queue.push_front({"player": player, "window_id": window_id, "ctx": pending.get("ctx", {})})
 	else:
 		_window_last_result = {"used": false, "player": player, "window_id": window_id}
 		if bool(action.get("dont_offer_again", false)):
