@@ -25,8 +25,11 @@
 
     { "act": "dispatch_action", "action": { "type": "END_COMMAND", "player": 2 } },
     { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "multiline": true, "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn true", "equals": true, "comment": "WP-O6: the Orks' codex Da Jump / Makari are offered at the start of their Movement phase — not under test, declined" },
     { "act": "dispatch_action", "action": { "type": "END_MOVEMENT", "player": 2 } },
     { "act": "wait_frames", "frames": 2 },
+    { "act": "execute_script", "multiline": true, "script": "var p = PhaseManager.get_current_phase_instance()\nfor i in range(4):\n\tif p == null or not p.has_pending_stratagem_window():\n\t\tbreak\n\tvar w = p.get_pending_stratagem_window()\n\tNetworkIntegration.route_action({\"type\": \"DECLINE_WINDOW_STRATAGEM\", \"player\": int(w.get(\"player\", 1)), \"window_id\": str(w.get(\"window_id\", \"\"))})\nreturn true", "equals": true, "comment": "WP-O6: the Weirdboy's codex Da Jump is offered again at the end of the Movement phase — not under test, declined (the phase then ends)" },
+    { "act": "wait_frames", "frames": 3 },
     { "act": "dispatch_action", "action": { "type": "END_SHOOTING", "player": 2 } },
     { "act": "wait_frames", "frames": 2 },
     { "act": "dispatch_action", "action": { "type": "END_CHARGE", "player": 2 } },

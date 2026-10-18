@@ -17,8 +17,14 @@ extends RefCounted
 # This class references UnitAbilityManager.ABILITY_EFFECTS for known ability
 # definitions but does NOT depend on the scene tree or autoload instances.
 
-# Preload the ability lookup table from UnitAbilityManager
-const UnitAbilityManagerData = preload("res://autoloads/UnitAbilityManager.gd")
+# The ability lookup table is read from UnitAbilityManager.gd lazily (load() at
+# first use), NOT preloaded: under `godot -s` a preload compiles
+# UnitAbilityManager.gd before the autoloads are registered, the compile fails
+# on its GameState references, and the UnitAbilityManager autoload then keeps
+# that failed script (a bare Node — no on_phase_start) unless an earlier
+# autoload happens to recompile it. The 10e Ork hooks in RulesEngine used to do
+# that by accident; WP-O6 removed them (test_global_consolidation_ai_11e).
+const UNIT_ABILITY_MANAGER_PATH := "res://autoloads/UnitAbilityManager.gd"
 
 # Cache of ability effects table (loaded once from UnitAbilityManager)
 static var _ability_effects_cache: Dictionary = {}
@@ -31,7 +37,7 @@ static func _get_ability_effects() -> Dictionary:
 	"""Get the ABILITY_EFFECTS lookup table. Uses cache after first access."""
 	if _ability_effects_cache.is_empty():
 		# Access the const directly from the script resource
-		_ability_effects_cache = UnitAbilityManagerData.ABILITY_EFFECTS
+		_ability_effects_cache = load(UNIT_ABILITY_MANAGER_PATH).ABILITY_EFFECTS
 	return _ability_effects_cache
 
 # ============================================================================

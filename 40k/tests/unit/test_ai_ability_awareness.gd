@@ -13,6 +13,12 @@ const AIAbilityAnalyzer = preload("res://scripts/AIAbilityAnalyzer.gd")
 var _pass_count: int = 0
 var _fail_count: int = 0
 
+# WP-O6: the leader-bonus samples were 10e Codex: Orks rows ('Might is Right',
+# 'More Dakka', "Dok's Toolz") that the 11e codex removed / re-implemented in
+# OrkAbilities11e.gd; they now use rows with the same semantics ('Drill Boss',
+# 'Flashiest Gitz', 'Mad Dok'). The Red Skull Kommandos cover and Prophet
+# (+1 hit and wound) leader checks had no equivalent row and were retired.
+
 func _init():
 	print("\n=== AI Ability Awareness Tests (AI-GAP-4) ===\n")
 	_run_tests()
@@ -55,8 +61,6 @@ func _run_tests():
 	test_leader_bonuses_plus_one_hit_melee()
 	test_leader_bonuses_reroll_hits_ranged()
 	test_leader_bonuses_fnp_from_leader()
-	test_leader_bonuses_cover_from_leader()
-	test_leader_bonuses_multiple_effects()
 
 	# Fall Back and X detection tests
 	test_fall_back_and_charge_from_leader()
@@ -82,7 +86,6 @@ func _run_tests():
 	test_offensive_multiplier_ranged_no_bonuses()
 	test_offensive_multiplier_ranged_with_hit_bonus()
 	test_offensive_multiplier_ranged_with_reroll()
-	test_offensive_multiplier_melee_with_hit_and_wound()
 	test_defensive_multiplier_no_abilities()
 	test_defensive_multiplier_with_fnp()
 	test_defensive_multiplier_with_stealth()
@@ -279,71 +282,43 @@ func test_leader_bonuses_plus_one_hit_melee():
 	var snapshot = _create_test_snapshot()
 	_add_unit(snapshot, "warboss", 2, Vector2(0, 0), "Warboss", 1,
 		["CHARACTER", "INFANTRY"], [], 5, 4, 6, 0, {},
-		[{"name": "Might is Right", "type": "Datasheet", "description": "+1 to melee Hit rolls"}])
+		[{"name": "Drill Boss", "type": "Datasheet", "description": "+1 to melee Hit rolls"}])
 	_add_unit(snapshot, "boyz", 2, Vector2(100, 0), "Boyz", 5,
 		["INFANTRY"], [], 4, 5, 1, 0, {},
 		[], {"attached_characters": ["warboss"]})
 
 	var bonuses = AIAbilityAnalyzer.get_leader_bonuses("boyz", snapshot.units["boyz"], snapshot.units)
 	_assert(bonuses["has_leader"], "Leader detected")
-	_assert(bonuses["hit_bonus_melee"] == 1, "Might is Right gives +1 melee hit (got %d)" % bonuses["hit_bonus_melee"])
-	_assert(bonuses["hit_bonus_ranged"] == 0, "Might is Right does not affect ranged (got %d)" % bonuses["hit_bonus_ranged"])
+	_assert(bonuses["hit_bonus_melee"] == 1, "Drill Boss gives +1 melee hit (got %d)" % bonuses["hit_bonus_melee"])
+	_assert(bonuses["hit_bonus_ranged"] == 0, "Drill Boss does not affect ranged (got %d)" % bonuses["hit_bonus_ranged"])
 
 func test_leader_bonuses_reroll_hits_ranged():
 	# Big Mek has "More Dakka" — reroll hit rolls of 1 (ranged)
 	var snapshot = _create_test_snapshot()
 	_add_unit(snapshot, "bigmek", 2, Vector2(0, 0), "Big Mek", 1,
 		["CHARACTER", "INFANTRY"], [], 5, 3, 5, 0, {},
-		[{"name": "More Dakka", "type": "Datasheet", "description": "Re-roll ranged Hit rolls of 1"}])
+		[{"name": "Flashiest Gitz", "type": "Datasheet", "description": "Re-roll ranged Hit rolls"}])
 	_add_unit(snapshot, "meganobz", 2, Vector2(100, 0), "Meganobz", 3,
 		["INFANTRY"], [], 5, 3, 3, 0, {},
 		[], {"attached_characters": ["bigmek"]})
 
 	var bonuses = AIAbilityAnalyzer.get_leader_bonuses("meganobz", snapshot.units["meganobz"], snapshot.units)
 	_assert(bonuses["has_leader"], "Leader detected")
-	_assert(bonuses["reroll_hits_ranged"] == "ones", "More Dakka gives reroll hits ones ranged (got '%s')" % bonuses["reroll_hits_ranged"])
-	_assert(bonuses["reroll_hits_melee"] == "none", "More Dakka does not affect melee rerolls (got '%s')" % bonuses["reroll_hits_melee"])
+	_assert(bonuses["reroll_hits_ranged"] == "all", "Flashiest Gitz gives reroll hits (all) ranged (got '%s')" % bonuses["reroll_hits_ranged"])
+	_assert(bonuses["reroll_hits_melee"] == "none", "Flashiest Gitz does not affect melee rerolls (got '%s')" % bonuses["reroll_hits_melee"])
 
 func test_leader_bonuses_fnp_from_leader():
-	# Painboy has "Dok's Toolz" — FNP 5+ for led unit
+	# Painboy has "Mad Dok" — FNP 5+ for led unit
 	var snapshot = _create_test_snapshot()
 	_add_unit(snapshot, "painboy", 2, Vector2(0, 0), "Painboy", 1,
 		["CHARACTER", "INFANTRY"], [], 4, 5, 4, 0, {},
-		[{"name": "Dok's Toolz", "type": "Datasheet", "description": "FNP 5+"}])
+		[{"name": "Mad Dok", "type": "Datasheet", "description": "FNP 5+"}])
 	_add_unit(snapshot, "boyz", 2, Vector2(100, 0), "Boyz", 10,
 		["INFANTRY"], [], 4, 5, 1, 0, {},
 		[], {"attached_characters": ["painboy"]})
 
 	var bonuses = AIAbilityAnalyzer.get_leader_bonuses("boyz", snapshot.units["boyz"], snapshot.units)
-	_assert(bonuses["has_fnp"] == 5, "Dok's Toolz gives FNP 5+ to led unit (got %d)" % bonuses["has_fnp"])
-
-func test_leader_bonuses_cover_from_leader():
-	# Boss Snikrot has "Red Skull Kommandos" — cover for led unit
-	var snapshot = _create_test_snapshot()
-	_add_unit(snapshot, "snikrot", 2, Vector2(0, 0), "Boss Snikrot", 1,
-		["CHARACTER", "INFANTRY"], [], 5, 4, 5, 0, {},
-		[{"name": "Red Skull Kommandos", "type": "Datasheet", "description": "Benefit of Cover"}])
-	_add_unit(snapshot, "kommandos", 2, Vector2(100, 0), "Kommandos", 5,
-		["INFANTRY"], [], 4, 5, 1, 0, {},
-		[], {"attached_characters": ["snikrot"]})
-
-	var bonuses = AIAbilityAnalyzer.get_leader_bonuses("kommandos", snapshot.units["kommandos"], snapshot.units)
-	_assert(bonuses["has_cover"], "Red Skull Kommandos grants cover to led unit")
-
-func test_leader_bonuses_multiple_effects():
-	# Ghazghkull has "Prophet of Da Great Waaagh!" — +1 hit AND +1 wound (melee)
-	var snapshot = _create_test_snapshot()
-	_add_unit(snapshot, "ghaz", 2, Vector2(0, 0), "Ghazghkull", 1,
-		["CHARACTER", "INFANTRY"], [], 6, 2, 12, 4, {},
-		[{"name": "Prophet of Da Great Waaagh!", "type": "Datasheet", "description": "+1 Hit and Wound melee"}])
-	_add_unit(snapshot, "meganobz", 2, Vector2(100, 0), "Meganobz", 3,
-		["INFANTRY"], [], 5, 3, 3, 0, {},
-		[], {"attached_characters": ["ghaz"]})
-
-	var bonuses = AIAbilityAnalyzer.get_leader_bonuses("meganobz", snapshot.units["meganobz"], snapshot.units)
-	_assert(bonuses["hit_bonus_melee"] == 1, "Prophet gives +1 melee hit (got %d)" % bonuses["hit_bonus_melee"])
-	_assert(bonuses["wound_bonus_melee"] == 1, "Prophet gives +1 melee wound (got %d)" % bonuses["wound_bonus_melee"])
-	_assert(bonuses["hit_bonus_ranged"] == 0, "Prophet does not affect ranged hit (got %d)" % bonuses["hit_bonus_ranged"])
+	_assert(bonuses["has_fnp"] == 5, "Mad Dok gives FNP 5+ to led unit (got %d)" % bonuses["has_fnp"])
 
 # =========================================================================
 # Tests: Fall Back and X detection
@@ -520,29 +495,13 @@ func test_offensive_multiplier_ranged_with_reroll():
 	# Big Mek: reroll hit rolls of 1 (ranged)
 	_add_unit(snapshot, "bigmek", 2, Vector2(0, 0), "Big Mek", 1,
 		["CHARACTER"], [], 5, 3, 5, 0, {},
-		[{"name": "More Dakka", "type": "Datasheet", "description": "Reroll ranged Hit 1s"}])
+		[{"name": "Flashiest Gitz", "type": "Datasheet", "description": "Reroll ranged Hits"}])
 	_add_unit(snapshot, "meganobz", 2, Vector2(100, 0), "Meganobz", 3,
 		["INFANTRY"], [], 5, 3, 3, 0, {},
 		[], {"attached_characters": ["bigmek"]})
 
 	var mult = AIAbilityAnalyzer.get_offensive_multiplier_ranged("meganobz", snapshot.units["meganobz"], snapshot.units)
-	_assert(mult > 1.0, "Offensive multiplier ranged > 1.0 with More Dakka (got %.2f)" % mult)
-	_assert_approx(mult, 1.10, 0.02, "More Dakka (reroll ones) gives ~1.10 multiplier")
-
-func test_offensive_multiplier_melee_with_hit_and_wound():
-	var snapshot = _create_test_snapshot()
-	# Ghazghkull: +1 hit + +1 wound (melee)
-	_add_unit(snapshot, "ghaz", 2, Vector2(0, 0), "Ghazghkull", 1,
-		["CHARACTER"], [], 6, 2, 12, 4, {},
-		[{"name": "Prophet of Da Great Waaagh!", "type": "Datasheet", "description": "+1 hit and wound melee"}])
-	_add_unit(snapshot, "meganobz", 2, Vector2(100, 0), "Meganobz", 3,
-		["INFANTRY"], [], 5, 3, 3, 0, {},
-		[], {"attached_characters": ["ghaz"]})
-
-	var mult = AIAbilityAnalyzer.get_offensive_multiplier_melee("meganobz", snapshot.units["meganobz"], snapshot.units)
-	# +1 hit = ~1.25, +1 wound = ~1.20, combined = ~1.50
-	_assert(mult > 1.3, "Offensive multiplier melee > 1.3 with Ghazghkull bonuses (got %.2f)" % mult)
-	_assert(mult < 2.0, "Offensive multiplier melee < 2.0 (reasonable range, got %.2f)" % mult)
+	_assert(mult > 1.0, "Offensive multiplier ranged > 1.0 with Flashiest Gitz (got %.2f)" % mult)
 
 func test_defensive_multiplier_no_abilities():
 	var unit = {"id": "u1", "meta": {"abilities": [], "stats": {}}, "flags": {}, "attachment_data": {}}
@@ -570,17 +529,17 @@ func test_unit_ability_profile():
 	var snapshot = _create_test_snapshot()
 	_add_unit(snapshot, "painboy", 2, Vector2(0, 0), "Painboy", 1,
 		["CHARACTER"], [], 4, 5, 4, 0, {},
-		[{"name": "Dok's Toolz", "type": "Datasheet", "description": "FNP 5+"}])
+		[{"name": "Mad Dok", "type": "Datasheet", "description": "FNP 5+"}])
 	_add_unit(snapshot, "boyz", 2, Vector2(100, 0), "Boyz", 10,
 		["INFANTRY"], [_make_melee_weapon("Choppa", 4, 4, 1, 1, 2)],
 		4, 5, 1, 0, {},
-		[{"name": "Get Da Good Bitz", "type": "Datasheet", "description": "Sticky objectives"}],
+		[{"name": "Objective Secured", "type": "Datasheet", "description": "Sticky objectives"}],
 		{"attached_characters": ["painboy"]})
 
 	var profile = AIAbilityAnalyzer.get_unit_ability_profile("boyz", snapshot.units["boyz"], snapshot.units)
 	_assert(profile["leader_bonuses"]["has_leader"], "Profile shows leader present")
 	_assert(profile["has_fnp"] == 5, "Profile shows FNP 5+ from leader (got %d)" % profile["has_fnp"])
-	_assert("Get Da Good Bitz" in profile["abilities"], "Profile lists unit's own abilities")
+	_assert("Objective Secured" in profile["abilities"], "Profile lists unit's own abilities")
 	_assert(profile["defensive_mult"] > 1.0, "Profile defensive multiplier > 1.0 (got %.2f)" % profile["defensive_mult"])
 
 # =========================================================================
@@ -711,7 +670,7 @@ func test_charge_score_boosted_by_melee_leader():
 	# Unit with Warboss leader (+1 melee hit)
 	_add_unit(snapshot, "warboss", 1, Vector2(0, 100), "Warboss", 1,
 		["CHARACTER"], [], 5, 4, 6, 0, {},
-		[{"name": "Might is Right", "type": "Datasheet", "description": "+1 melee hit"}])
+		[{"name": "Drill Boss", "type": "Datasheet", "description": "+1 melee hit"}])
 	_add_unit(snapshot, "boyz_led", 1, Vector2(0, 100), "Boyz Led", 5,
 		["INFANTRY"], [melee], 4, 5, 1, 0, {},
 		[], {"attached_characters": ["warboss"]})

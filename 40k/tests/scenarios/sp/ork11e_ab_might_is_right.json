@@ -1,0 +1,148 @@
+{
+ "id": "ork11e_ab_might_is_right",
+ "covers": [
+  "codex.orks.datasheet_abilities.might_is_right",
+  "scripts.codex.orks.OrkAbilities11e",
+  "rules.fight.attacks_modifiers"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) MIGHT IS RIGHT (Warboss, passive): after a charge move this turn its melee weapons have +3 A and +2 S. Fixture ork11e_ab_fight: the Warboss charged (charged_this_turn) and is engaged with the Shield-Captain. A real click on 'Fight' for the Warboss, attacks assigned and resolved through the real dialogs: every melee hit roll the Warboss made has 3 more attacks than the weapon profile the engine resolved (one model). Setup privileges: auto wound allocation, the Custodes' wounds inflated (the fight must not end the scenario).",
+ "fixture": "ork11e_ab_fight",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 10,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 10
+  },
+  {
+   "act": "execute_script",
+   "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) == 2:\n\t\tfor m in u.models:\n\t\t\tm[\"wounds\"] = 99\n\t\t\tm[\"current_wounds\"] = 99\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup privilege (see description)"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "timeout_s": 6.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_A",
+   "timeout_s": 6.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_WARBOSS_A",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out",
+   "multiline": true,
+   "comment": "EPIC CHALLENGE prompt for a CHARACTER fighter — not under test, declined"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "var u = GameState.get_unit(\"U_WARBOSS_A\")\nvar t = GameState.get_unit(\"U_SHIELD_CAPTAIN_A\")\nvar m = RulesEngine.ork11e_ab_mods(u, t, {\"name\": \"Power klaw\", \"type\": \"Melee\"}, true, GameState.state, [])\nprint(\"[wp-o6] mods \", \"U_WARBOSS_A\", \" -> \", \"U_SHIELD_CAPTAIN_A\", \": \", m)\nreturn int(m.attacks) == 3 and int(m.strength) == 2",
+   "multiline": true,
+   "equals": true,
+   "comment": "charged: +3 A, +2 S"
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/AttackAssignmentDialog",
+   "timeout_s": 5.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "click_node",
+   "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(16)"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "var p = PhaseManager.get_current_phase_instance()\nvar rows := []\nvar ok := true\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"hit_roll_melee\":\n\t\tvar w := str(d.get(\"weapon\", \"\"))\n\t\tvar n := int(d.get(\"total_attacks\", d.get(\"rolls_raw\", []).size()))\n\t\tvar base := int(str(RulesEngine.get_weapon_profile(w, GameState.state).get(\"attacks\", \"0\")))\n\t\trows.append([w, n, base])\n\t\tif n != base + 3:\n\t\t\tok = false\nprint(\"[wp-o6] Warboss melee rows [weapon, attacks rolled, profile A]: \", rows)\nreturn ok and not rows.is_empty()",
+   "multiline": true,
+   "equals": true,
+   "comment": "the Warboss (one model) rolled the weapon's profile attacks + 3"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_might_is_right_attacks"
+  }
+ ]
+}

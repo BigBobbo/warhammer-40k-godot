@@ -1,0 +1,201 @@
+{
+ "id": "ork11e_ab_rokkit_charge",
+ "covers": [
+  "codex.orks.datasheet_abilities.rokkit_charge",
+  "scripts.codex.orks.OrkAbilities11e",
+  "stratagem.window.unit_selected_to_fight"
+ ],
+ "description": "WP-O6 Codex: Orks (11e) ROKKIT CHARGE (Stormboyz) through the real unit_selected_to_fight window. Fixture ork11e_ab_fight: the Stormboyz made a charge move this turn (charged_this_turn) and are engaged with Custodian Guard B. After the pile-in step, a real click on 'Fight' for the Stormboyz opens the window; 'Use on Stormboyz': their melee attacks have +1 A, +1 S and [HAZARDOUS] this phase (live attack hook + the [HAZARDOUS] grant); they fight. Setup privileges: auto wound allocation, the Custodes' wounds inflated (the fight must not end the scenario).",
+ "fixture": "ork11e_ab_fight",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 10,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 10
+  },
+  {
+   "act": "expect_state",
+   "path": "units.U_STORMBOYZ_A.flags.charged_this_turn",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nfor uid in GameState.state.units:\n\tvar u = GameState.state.units[uid]\n\tif int(u.get(\"owner\", 0)) == 2:\n\t\tfor m in u.models:\n\t\t\tm[\"wounds\"] = 99\n\t\t\tm[\"current_wounds\"] = 99\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "setup privilege (see description)"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "timeout_s": 6.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_STORMBOYZ_A",
+   "timeout_s": 6.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_STORMBOYZ_A",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "unit_selected_to_fight"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 1
+  },
+  {
+   "act": "expect_node_property",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_rokkit_charge/Buttons/Use_ork11e_ab_rokkit_charge_U_STORMBOYZ_A",
+   "property": "disabled",
+   "equals": false
+  },
+  {
+   "act": "execute_script",
+   "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_rokkit_charge\").find_child(\"Cost\", true, false).text",
+   "equals": "Ability",
+   "comment": "a datasheet ability card: no CP cost"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_rokkit_charge_card"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_ork11e_ab_rokkit_charge/Buttons/Use_ork11e_ab_rokkit_charge_U_STORMBOYZ_A"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_cp",
+   "player": 1,
+   "delta_from_start": 0,
+   "comment": "abilities cost no CP"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_STORMBOYZ_A\").flags.has(\"ork11e_ab_rokkit_charge\")",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "GameState.get_unit(\"U_STORMBOYZ_A\").flags.get(\"effect_grant_hazardous_melee\", false)",
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "var u = GameState.get_unit(\"U_STORMBOYZ_A\")\nvar t = GameState.get_unit(\"U_CUSTODIAN_GUARD_B\")\nvar m = RulesEngine.ork11e_ab_mods(u, t, {\"name\": \"Choppas\", \"type\": \"Melee\"}, true, GameState.state, [])\nprint(\"[wp-o6] mods \", \"U_STORMBOYZ_A\", \" -> \", \"U_CUSTODIAN_GUARD_B\", \": \", m)\nreturn int(m.attacks) == 1 and int(m.strength) == 1",
+   "multiline": true,
+   "equals": true,
+   "comment": "melee +1 A, +1 S"
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Rokkit Charge\")",
+   "expect_min": 1
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/AttackAssignmentDialog",
+   "timeout_s": 5.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "click_node",
+   "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(16)"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightResolutionDock/DockPrimaryButton",
+   "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "execute_script",
+   "script": "\"U_STORMBOYZ_A\" in PhaseManager.get_current_phase_instance().units_that_fought",
+   "equals": true
+  },
+  {
+   "act": "screenshot",
+   "label": "02_rokkit_charge_fought"
+  }
+ ]
+}

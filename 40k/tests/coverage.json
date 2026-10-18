@@ -199,15 +199,6 @@
       "status": "covered"
     },
     {
-      "id": "autoloads.RulesEngine.get_waaagh_energy_eadbanger_bonus",
-      "description": "RulesEngine: returns the per-shot damage bonus from the WAAAGH!-energy 'Eadbanger ability. Validated by '387_waaagh_energy_eadbanger.",
-      "scenarios": [
-        "387_waaagh_energy_eadbanger"
-      ],
-      "last_verified_commit": "1f48cc6",
-      "status": "covered"
-    },
-    {
       "id": "autoloads.RulesEngine.resolve_deadly_demise",
       "description": "RulesEngine: when a unit with the Deadly Demise ability is destroyed, rolls the demise dice and applies mortal-wound damage to nearby units. Validated by '386_deadly_demise_vehicle.",
       "scenarios": [
@@ -493,15 +484,6 @@
       "status": "covered"
     },
     {
-      "id": "movement.da_jump_placement_bounds",
-      "description": "MOVEMENT phase: Da Jump teleports a unit to within 9\" of the warlord and ≥9\" from enemies. Bounds check rejects invalid placements. Validated by '376_da_jump_bounds.",
-      "scenarios": [
-        "376_da_jump_bounds"
-      ],
-      "last_verified_commit": "1f48cc6",
-      "status": "covered"
-    },
-    {
       "id": "movement.enhancement.follow_me_ladz",
       "description": "MOVEMENT phase: Follow Me Ladz enhancement grants +2 to the bearer's Move characteristic (effect_plus_move). Validated by '394_follow_me_ladz_plus_move.",
       "scenarios": [
@@ -643,15 +625,6 @@
         "51_confirm_movement_mode"
       ],
       "last_verified_commit": "2c12ea5",
-      "status": "covered"
-    },
-    {
-      "id": "phases.MovementPhase.PLACE_DA_JUMP",
-      "description": "MovementPhase.PLACE_DA_JUMP action: handles the Da Jump teleport, checking 9\" warlord and 9\" enemy bounds. Validated by '376_da_jump_bounds.",
-      "scenarios": [
-        "376_da_jump_bounds"
-      ],
-      "last_verified_commit": "1f48cc6",
       "status": "covered"
     },
     {
@@ -829,15 +802,6 @@
         "mp:tests/test_audit_fixes_verification.gd"
       ],
       "last_verified_commit": "8749eb4",
-      "status": "covered"
-    },
-    {
-      "id": "shooting.ability.waaagh_energy",
-      "description": "SHOOTING phase: the WAAAGH!-energy 'Eadbanger ability grants a per-shot damage bonus during a Waaagh!-active turn. Validated by '387_waaagh_energy_eadbanger.",
-      "scenarios": [
-        "387_waaagh_energy_eadbanger"
-      ],
-      "last_verified_commit": "1f48cc6",
       "status": "covered"
     },
     {
@@ -2593,9 +2557,9 @@
     },
     {
       "id": "movement.da_jump.canonical_name",
-      "description": "Da Jump works end-to-end from the current roster under its canonicalized ability name (USE_DA_JUMP flow).",
+      "description": "Da Jump works end-to-end from the current roster under its canonicalized ability name (USE_DA_JUMP flow). (WP-O6: the 10e scenario was retired; the Codex: Orks 11e ability is verified by ork11e_ab_da_jump.)",
       "scenarios": [
-        "fullauto_movement_stratagems"
+        "ork11e_ab_da_jump"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered"
@@ -8466,26 +8430,6 @@
       "fidelity": "DECLARED"
     },
     {
-      "id": "audit_P0.shooting_distraction_grot",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: shooting_distraction_grot_ui.",
-      "scenarios": [
-        "shooting_distraction_grot_ui"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "audit_P1.movement_bomb_squigs",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: movement_bomb_squigs_ui.",
-      "scenarios": [
-        "movement_bomb_squigs_ui"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
       "id": "controller.move.dpad_browse_state_opens_menu",
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: pad_move_paddle_model_switch.",
       "scenarios": [
@@ -8557,9 +8501,9 @@
     },
     {
       "id": "phases.MovementPhase.bomb_squigs",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: movement_bomb_squigs_ui.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: . (WP-O6: the 10e scenario was retired; the Codex: Orks 11e ability is verified by ork11e_ab_bomb_squigs.)",
       "scenarios": [
-        "movement_bomb_squigs_ui"
+        "ork11e_ab_bomb_squigs"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -8570,16 +8514,6 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: redeployment_optional_end.",
       "scenarios": [
         "redeployment_optional_end"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "phases.ShootingPhase.distraction_grot",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: shooting_distraction_grot_ui.",
-      "scenarios": [
-        "shooting_distraction_grot_ui"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -8600,26 +8534,6 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: fight_moment_shackle_ui.",
       "scenarios": [
         "fight_moment_shackle_ui"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "scripts.MovementController.bomb_squigs_ui",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: movement_bomb_squigs_ui.",
-      "scenarios": [
-        "movement_bomb_squigs_ui"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "scripts.ShootingController.distraction_grot_ui",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: shooting_distraction_grot_ui.",
-      "scenarios": [
-        "shooting_distraction_grot_ui"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -9761,10 +9675,9 @@
     },
     {
       "id": "phases.ShootingPhase.pulsa_rokkit",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_autoselect_prompt_no_recursion, shooting_pulsa_rokkit_ui.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: . (WP-O6: the 10e scenario was retired; the Codex: Orks 11e ability is verified by ork11e_ab_pulsa_rokkit.)",
       "scenarios": [
-        "ork11e_autoselect_prompt_no_recursion",
-        "shooting_pulsa_rokkit_ui"
+        "ork11e_ab_pulsa_rokkit"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",
@@ -10614,10 +10527,9 @@
     },
     {
       "id": "stratagem.window.unit_selected_to_shoot",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_autoselect_first_shooter, ork11e_autoselect_prompt_no_recursion, ork11e_close_range_dakka, ork11e_dakkastorm, ork11e_dakkastorm_trukk, ork11e_drive_by_bustin, ork11e_glowin_dakka, ork11e_kustom_dakka, ork11e_long_uncontrolled_bursts, ork11e_never_enough_dakka, ork11e_vindictive_artillerists.",
+      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_autoselect_first_shooter, ork11e_close_range_dakka, ork11e_dakkastorm, ork11e_dakkastorm_trukk, ork11e_drive_by_bustin, ork11e_glowin_dakka, ork11e_kustom_dakka, ork11e_long_uncontrolled_bursts, ork11e_never_enough_dakka, ork11e_vindictive_artillerists.",
       "scenarios": [
         "ork11e_autoselect_first_shooter",
-        "ork11e_autoselect_prompt_no_recursion",
         "ork11e_close_range_dakka",
         "ork11e_dakkastorm",
         "ork11e_dakkastorm_trukk",
@@ -10772,16 +10684,6 @@
       "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_autoselect_first_shooter.",
       "scenarios": [
         "ork11e_autoselect_first_shooter"
-      ],
-      "last_verified_commit": "HEAD",
-      "status": "covered",
-      "fidelity": "DECLARED"
-    },
-    {
-      "id": "ui.ShootingController.auto_select_shooter",
-      "description": "Auto-registered from the scenario 'covers' declaration; the backing windowed scenario is the verification. Not independently audited — upgrade to a CLICK/HANDLER/RULES tile when reviewed. Declared by: ork11e_autoselect_prompt_no_recursion.",
-      "scenarios": [
-        "ork11e_autoselect_prompt_no_recursion"
       ],
       "last_verified_commit": "HEAD",
       "status": "covered",

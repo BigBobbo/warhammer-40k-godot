@@ -645,6 +645,11 @@ static func _fod_apply(strat: Dictionary, target_unit_id: String) -> Array:
 ## DREAD (no riled-up bonus in its text).
 static func fod_roll_modifier(unit_id: String) -> Dictionary:
 	var mode := str(Common.unit(unit_id).get("flags", {}).get(FLAG_FOD_MODE, ""))
+	# WP-O6 ONE LAST KILL (Codex: Orks 11e, Mozrog Skragbad datasheet ability,
+	# OrkAbilities11e sets the mode at the start of each Fight phase): "roll
+	# one D6: On a 2+, do not remove this model" — +2 on the 4+ roll.
+	if mode == "one_last_kill":
+		return {"mod": FOD_PASS - 2, "note": "One Last Kill (2+)"}
 	if mode == "deff_dread":
 		if _group_has_keyword(unit_id, "DEFF DREAD"):
 			return {"mod": 3, "note": "+3 DEFF DREAD"}

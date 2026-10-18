@@ -19,6 +19,8 @@
     { "act": "wait_frames", "frames": 3 },
     { "act": "click_unit", "unit_id": "U_KOMMANDOS_A" },
     { "act": "wait_seconds", "seconds": 0.6 },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton", "comment": "WP-O6: the Kommandos' codex Found 'Em! is offered when they are selected to move — not under test, declined" },
+    { "act": "wait_seconds", "seconds": 0.6 },
     { "act": "execute_script", "script": "main.movement_controller.active_unit_id", "equals": "U_KOMMANDOS_A" },
     { "act": "execute_script", "multiline": true, "script": "var m = tree.current_scene\nm.set_meta(\"cam0\", m.view_offset)\nvar ev = InputEventKey.new()\nev.keycode = KEY_CTRL\nev.physical_keycode = KEY_CTRL\nev.ctrl_pressed = true\nev.pressed = true\nInput.parse_input_event(ev)\nreturn true", "equals": true, "comment": "Ctrl goes down first, as on a real keyboard" },
     { "act": "wait_frames", "frames": 2 },

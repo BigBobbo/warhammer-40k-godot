@@ -41,7 +41,7 @@ func after_each():
 # ==========================================
 
 func _create_boyz_unit(unit_id: String, owner: int, position: Vector2) -> Dictionary:
-	"""Create a Boyz unit with Get Da Good Bitz ability."""
+	"""Create a Boyz unit with a sticky-objectives ability (WP-O6: the 10e "Get Da Good Bitz" is gone; "Objective Secured" is the remaining one)."""
 	var unit = {
 		"id": unit_id,
 		"squad_id": unit_id,
@@ -60,7 +60,7 @@ func _create_boyz_unit(unit_id: String, owner: int, position: Vector2) -> Dictio
 			},
 			"abilities": [
 				{"name": "Waaagh!", "type": "Faction", "description": "Faction ability"},
-				{"name": "Get Da Good Bitz", "type": "Datasheet", "description": "Sticky objectives"}
+				{"name": "Objective Secured", "type": "Datasheet", "description": "Sticky objectives"}
 			],
 			"weapons": []
 		},
@@ -147,10 +147,10 @@ func test_has_sticky_objectives_ability_nonexistent():
 		"Nonexistent unit should not have sticky objectives ability")
 
 func test_ability_marked_as_implemented():
-	"""Verify Get Da Good Bitz is marked as implemented in ABILITY_EFFECTS."""
-	var effect_def = unit_ability_mgr.get_ability_effect_definition("Get Da Good Bitz")
-	assert_false(effect_def.is_empty(), "Get Da Good Bitz should have an ABILITY_EFFECTS entry")
-	assert_true(effect_def.get("implemented", false), "Get Da Good Bitz should be marked as implemented")
+	"""Verify Objective Secured is marked as implemented in ABILITY_EFFECTS."""
+	var effect_def = unit_ability_mgr.get_ability_effect_definition("Objective Secured")
+	assert_false(effect_def.is_empty(), "Objective Secured should have an ABILITY_EFFECTS entry")
+	assert_true(effect_def.get("implemented", false), "Objective Secured should be marked as implemented")
 	assert_eq(effect_def.get("condition", ""), "end_of_command", "Condition should be end_of_command")
 
 # ==========================================

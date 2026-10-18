@@ -224,6 +224,7 @@ TESTS=(
     "tests/test_ork_codex_framework_fixes.gd"
     "tests/test_custodes_army_rules_11e.gd"
     "tests/test_ork_codex_turn_flow_fixes.gd"
+    "tests/test_ork_abilities_11e.gd"
     "tests/test_keybinding_chord_no_pan.gd"
     "tests/test_indirect_fire_band_11e.gd"
     "tests/test_t003_indirect_fire_visibility_pin.gd"

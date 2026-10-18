@@ -552,25 +552,9 @@ func _blitz_brigade(SM, GS, FAM, rules):
 	_check("Blitzkaptin: vehicle appears in the redeploy list",
 		"U_BK_VEH" in GS.get_redeploy_units_for_player(1))
 
-	# Supercharged Squig Oil — Mekaniak grants a charge re-roll to the vehicle
-	GS.state["units"] = {
-		"U_SSO_MEK": {"id": "U_SSO_MEK", "owner": 1, "status": 2,
-			"meta": {"name": "Big Mek", "keywords": ["ORKS", "CHARACTER", "MEK"], "enhancements": ["Supercharged Squig Oil"], "abilities": []},
-			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 50.0, "y": 50.0}, "base_mm": 32}]},
-		"U_SSO_VEH": {"id": "U_SSO_VEH", "owner": 1, "status": 2,
-			"meta": {"name": "Battlewagon", "keywords": ["ORKS", "VEHICLE", "BATTLEWAGON"], "enhancements": [], "abilities": []},
-			"flags": {}, "models": [{"id": "m0", "alive": true, "position": {"x": 90.0, "y": 50.0}, "base_mm": 100, "wounds": 16, "current_wounds": 10}]},
-	}
-	var MP_BB = load("res://phases/MovementPhase.gd").new()
-	root.add_child(MP_BB)
-	MP_BB.game_state_snapshot = GS.state
-	MP_BB._mekaniak_mek_id = "U_SSO_MEK"
-	MP_BB._process_use_mekaniak({"target_unit_id": "U_SSO_VEH", "target_model_index": 0})
-	var sso_flags = GS.get_unit("U_SSO_VEH")["flags"]
-	_check("Supercharged Squig Oil: Mekaniak target re-rolls charges",
-		sso_flags.get("effect_reroll_charge", false) and sso_flags.get("squig_oil_charge_reroll", false))
-	root.remove_child(MP_BB)
-	MP_BB.queue_free()
+	# (Retired, WP-O6: the Supercharged Squig Oil check rode on the 10e Mekaniak
+	# ability, which no Codex: Orks (11e) datasheet has — the enhancement's codex
+	# hook is WP-O5's. .llm/codex_11e_wahapedia/RETIRED_TESTS.md)
 
 
 # ==========================================================================
