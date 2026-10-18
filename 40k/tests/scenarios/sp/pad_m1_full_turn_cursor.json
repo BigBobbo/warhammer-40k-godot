@@ -25,6 +25,10 @@
     { "act": "wait_seconds", "seconds": 0.4 },
     { "act": "simulate_joy_button", "button_index": 0 },
     { "act": "wait_seconds", "seconds": 1.2 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")", "equals": "ork11e_war_cry", "comment": "WP-O34 (Codex: Orks 11e War Cry, 'at the start of the Command phase' \u2014 either player's): the Orks (P2) are offered WAR CRY in a rule window when P1's Command phase reaches the Battle-shock step \u2014 not under test" },
+    { "act": "execute_script", "script": "get_tree().root.get_node(\"StratagemDialog/Content/DeclineButton\").has_focus()", "equals": true, "comment": "the pad lands on the dialog's Decline button" },
+    { "act": "simulate_joy_button", "button_index": 0, "comment": "A declines WAR CRY" },
+    { "act": "wait_seconds", "seconds": 1.2 },
     { "act": "expect_state", "path": "meta.phase", "equals": 7 },
     { "act": "screenshot", "label": "03_movement_phase" },
 
