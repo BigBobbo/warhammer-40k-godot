@@ -757,19 +757,25 @@ static func get_effect_crit_hit_on(unit: Dictionary) -> int:
 
 static func has_effect_fall_back_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and shoot eligibility."""
-	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_SHOOT, false)
+	# Codex: Adeptus Custodes (11e) Anti-gravitic Mobility (WP-C46).
+	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_SHOOT, false) \
+		or (GameConstants.edition >= 11 and _cus11e_det().fall_back_allows_shoot(unit))
 
 static func has_effect_fall_back_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and charge eligibility."""
 	# Codex: Orks (11e) Adrenaline Junkies / Suspiciously Well Organised (WP-O34).
+	# Codex: Adeptus Custodes (11e) Solar Watch — Talon Sortie (WP-C46).
 	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_CHARGE, false) \
-		or (GameConstants.edition >= 11 and _ork11e_det().fall_back_allows_charge(unit))
+		or (GameConstants.edition >= 11 and _ork11e_det().fall_back_allows_charge(unit)) \
+		or (GameConstants.edition >= 11 and _cus11e_det().fall_back_allows_charge(unit))
 
 static func has_effect_advance_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and charge eligibility."""
 	# Codex: Orks (11e) Adrenaline Junkies (WP-O34).
+	# Codex: Adeptus Custodes (11e) Sally Forth (WP-C46).
 	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_CHARGE, false) \
-		or (GameConstants.edition >= 11 and _ork11e_det().advance_allows_charge(unit))
+		or (GameConstants.edition >= 11 and _ork11e_det().advance_allows_charge(unit)) \
+		or (GameConstants.edition >= 11 and _cus11e_det().advance_allows_charge(unit))
 
 static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and shoot eligibility."""
@@ -784,6 +790,14 @@ static func _ork11e_det():
 	if _ork11e_det_script == null:
 		_ork11e_det_script = load("res://scripts/codex/orks/OrkDetachments11e.gd")
 	return _ork11e_det_script
+
+## Codex: Adeptus Custodes (11e) detachment / enhancement facade (WP-C46),
+## loaded on first use like the Ork module above.
+static var _cus11e_det_script = null
+static func _cus11e_det():
+	if _cus11e_det_script == null:
+		_cus11e_det_script = load("res://scripts/codex/custodes/CustodesDetachments.gd")
+	return _cus11e_det_script
 
 static func has_effect_reroll_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted charge reroll (e.g. Swift Onslaught)."""

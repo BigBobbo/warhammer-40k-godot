@@ -29,18 +29,18 @@ extends SceneTree
 var passed := 0
 var failed := 0
 
+# WP-C46: the 4 Shield Host rows (From the Hall of Armouries, Panoptispex,
+# Auric Mantle, Castellan's Mark) are retired with the 10e detachment — the
+# codex enhancements of those names run through CustodesEnhancements.gd —
+# so they are pinned ABSENT (RETIRED_10E) rather than present.
 const RUNTIME_IMPLEMENTED = [
-	"From the Hall of Armouries",
-	"Panoptispex",
 	"Follow Me Ladz",
 	"Headwoppa's Killchoppa",
 	"Kunnin' But Brutal",
 	"Supa-Cybork Body",
 ]
-const LIST_BUILD_OR_PREGAME = [
-	"Auric Mantle",          # +2 Wounds applied at army instantiation
-	"Castellan's Mark",       # Deployment-phase redeploy action
-]
+const LIST_BUILD_OR_PREGAME = []
+const RETIRED_10E = ["From the Hall of Armouries", "Panoptispex", "Auric Mantle", "Castellan's Mark"]
 
 func _check(label: String, cond: bool, detail: String = "") -> void:
 	if cond:
@@ -88,6 +88,8 @@ func _run_tests():
 			_check("'%s' implemented == false (intentional — pre-game / list-build)" % name,
 				entry.get("implemented", true) == false,
 				"runtime effect path would mis-fire")
+	for name in RETIRED_10E:
+		_check("retired (WP-C46): ABILITY_EFFECTS has no 10e '%s' row" % name, not ABILITY_EFFECTS.has(name))
 	_finish()
 
 func _finish():

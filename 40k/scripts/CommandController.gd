@@ -2882,22 +2882,15 @@ func _clear_guard_pick_state() -> void:
 	_guard_eligible_ids = {}
 
 
-# T-096: compute command phase sub-step progress (1/3 → 3/3)
+# T-096: compute command phase sub-step progress (1/2 → 2/2)
 # Steps:
-#   1/3 — CP Generation (auto, runs on entry)
-#   2/3 — Battle Mastery selection (Adeptus Custodes only)
-#   3/3 — Stratagems / End Phase
+#   1/2 — CP Generation (auto, runs on entry)
+#   2/2 — Stratagems / End Phase
+# (The 10e Shield Host "Choose Martial Mastery" step is gone — the codex
+# Guardians of the Throne Martial Mastery is chosen in the Fight phase when a
+# unit is selected to fight, CustodesDetachments.gd, WP-C46.)
 func _compute_command_phase_progress() -> String:
 	if not GameState:
-		return "Step ?/3"
-	var active_player = GameState.get_active_player()
-	var faction = GameState.get_faction_name(active_player)
+		return "Step ?/2"
 	# Step 1: CP generated (always done by phase entry — assume past step 1)
-	# Step 2: Battle Mastery still needs selection?
-	var meta = GameState.state.get("meta", {})
-	var selected_mastery = meta.get("martial_mastery_choice_p%d" % active_player, "")
-	var requires_mastery = (faction == "Adeptus Custodes")
-	if requires_mastery and selected_mastery == "":
-		return "Step 2/3 — Choose Martial Mastery"
-	# Step 3: stratagems / end phase
-	return "Step 3/3 — Stratagems / End Phase"
+	return "Step 2/2 — Stratagems / End Phase"

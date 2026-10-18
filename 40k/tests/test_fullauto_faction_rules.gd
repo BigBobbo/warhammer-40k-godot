@@ -22,7 +22,9 @@ extends SceneTree
 #   5. Devoted to Destruction: melee-only +2 Attacks (fight phase flag).
 #   6. Sneaky Gitz: unit excluded from Fire Overwatch eligibility.
 #   7. Bodyguard: second leader-role attachment allowed, third rejected.
-#   8. Admonimortis: 10e stopgap — +3S/+1AP/+1D on the bearer's melee weapons.
+#   8. Admonimortis: the 10e Lions stopgap is RETIRED (WP-C46 — Codex: Adeptus
+#      Custodes 11e has no Admonimortis): the enhancement no longer changes
+#      the bearer's melee attacks (RETIRED_TESTS.md).
 #   9. StateSerializer 1.2.0 -> 1.3.0 migration canonicalizes ability names.
 #
 # The windowed analogues live in tests/scenarios/sp/fullauto_*.json.
@@ -406,7 +408,7 @@ func _test_bodyguard_extra_leader() -> void:
 	_check("second leader rejected without Bodyguard", not v4.get("valid", true), str(v4))
 
 func _test_admonimortis() -> void:
-	print("\n-- Admonimortis (10e stopgap): +3S/+1AP/+1D on bearer's melee weapons --")
+	print("\n-- Admonimortis (10e stopgap RETIRED, WP-C46): no melee bonus any more --")
 	# Policy (user ruling 2026-07-10): the 40kdc dataset has no 11e rule for
 	# Admonimortis, so the official 10e wording stands in — improve the
 	# bearer's melee weapon Strength by 3, AP and Damage by 1. (The earlier
@@ -434,9 +436,11 @@ func _test_admonimortis() -> void:
 		for d in res_admon.get("dice", []):
 			if "save" in str(d.get("context", "")) and d.has("ap"):
 				ap_admon = int(d.get("ap", 0))
-	_check("+3 Strength raises melee wounds across seeds (%d > %d)" % [wounds_admon, wounds_plain],
-		wounds_admon > wounds_plain)
-	_check("+1 AP applied to melee saves (ap %d -> %d)" % [ap_plain, ap_admon], ap_admon == ap_plain + 1)
+	# WP-C46: the codex has no Admonimortis — the retired 10e +3S/+1AP/+1D must
+	# not apply (same seeds, same wounds, same AP).
+	_check("retired: Admonimortis no longer raises melee wounds (%d == %d)" % [wounds_admon, wounds_plain],
+		wounds_admon == wounds_plain)
+	_check("retired: Admonimortis no longer improves melee AP (ap %d == %d)" % [ap_plain, ap_admon], ap_admon == ap_plain)
 	var rules = root.get_node("RulesEngine")
 	_check("no bearer-death trigger remains (resolve_admonimortis removed)",
 		not rules.has_method("resolve_admonimortis"))

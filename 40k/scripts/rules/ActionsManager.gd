@@ -159,6 +159,11 @@ static func can_start_action(unit_id: String, board: Dictionary) -> Dictionary:
 	# Codex: Orks (11e) Runt Swarm — Sneaky Little Gitz: a GRETCHIN unit's advance / fall back does not bar actions (WP-O34).
 	if not mind_on_mission:
 		mind_on_mission = load("res://scripts/codex/orks/OrkDetachments11e.gd").move_keeps_action_eligibility(unit)
+	# Codex: Adeptus Custodes (11e) Emissaries Imperatus — Favoured Conservai:
+	# "being selected to make an advance/fall-back move does not prevent your
+	# unit from being eligible to start an action" (WP-C46).
+	if not mind_on_mission:
+		mind_on_mission = load("res://scripts/codex/custodes/CustodesDetachments.gd").move_keeps_action_eligibility(unit)
 	if ((flags.get("advanced", false) or flags.get("fell_back", false)) and not mind_on_mission) \
 			or flags.get("cannot_start_action", false):
 		reasons.append("made an advance or fall-back move this turn")

@@ -257,12 +257,16 @@ func load_army_list(army_name: String, player: int = 1) -> Dictionary:
 			# Apply wargear stat bonuses (e.g. Vexilla +1OC, 'Ard Case +2T)
 			_apply_wargear_stat_bonuses(unit_id, unit)
 
-			# Issue #396: enhancement-driven stat bonuses (Auric Mantle +2W).
+			# Issue #396: enhancement-driven stat bonuses (Da Biggest Boss +2W).
 			_apply_enhancement_stat_bonuses(unit_id, unit)
 
-			# Enhancement-granted abilities/keywords (Praesidius → Lone
-			# Operative + Stealth, Psyk-out Grenades → EXPLOSIVES).
+			# Enhancement-granted abilities/keywords (data-driven tables below).
 			_apply_enhancement_granted_abilities(unit_id, unit)
+
+			# Codex: Adeptus Custodes (11e) enhancements' list-build effects —
+			# Eagle's Eye +1 W, Shroud of the Hidden Blade (Stealth + Lone
+			# Operative), Emperor's Light / Auriferous Orb weapons (WP-C46).
+			_apply_custodes_codex_enhancements(unit_id, unit)
 
 			# Speedwaaagh!: enhancement-driven WEAPON bonuses (Master Meknologist
 			# +1 BS to ranged weapons; Supa-burny Fuel killa jet Attacks changes).
@@ -367,6 +371,10 @@ func apply_army_to_game_state(army_data: Dictionary, player: int) -> void:
 	# Codex: Orks (11e) detachment BATTLELINE grants (WP-O34): Kult of Speed
 	# Warbikers / Taktikal Brigade Stormboyz / Runt Swarm Gretchin.
 	load("res://scripts/codex/orks/OrkDetachments11e.gd").apply_keyword_grants(player)
+	# Codex: Adeptus Custodes (11e) detachment BATTLELINE grants (WP-C46):
+	# Null Maiden Vigil Prosecutor Squads (Silent Sisterhood).
+	if GameConstants.edition >= 11:
+		load("res://scripts/codex/custodes/CustodesDetachments.gd").apply_keyword_grants(player)
 
 	print("Army applied successfully. Total units in game: ", all_units.size())
 
@@ -670,6 +678,11 @@ func _process_army_data(army_data: Dictionary, player: int) -> Dictionary:
 		# Apply wargear stat bonuses (e.g. Vexilla +1OC, 'Ard Case +2T)
 		_apply_wargear_stat_bonuses(unit_id, unit)
 
+		# Codex: Adeptus Custodes (11e) enhancements' list-build effects for an
+		# army built in the browser builder and loaded from the cloud (WP-C46;
+		# idempotent — the same call as load_army_list's).
+		_apply_custodes_codex_enhancements(unit_id, unit)
+
 		# MA-1: Log model_profiles if present
 		if unit.has("meta") and unit.meta.has("model_profiles"):
 			print("ArmyListManager: Unit %s (%s) loaded with model_profiles: %s" % [unit_id, unit.meta.get("name", "?"), str(unit.meta.model_profiles.keys())])
@@ -968,14 +981,8 @@ func _apply_wargear_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 # than emitting a runtime flag. Mirror the wargear pipeline at army-build.
 
 const ENHANCEMENT_STAT_BONUSES: Dictionary = {
-	# Custodes Shield Host enhancement: Shield-Captain or Blade Champion only.
-	# Add 2 to the bearer's Wounds characteristic.
-	"Auric Mantle": {
-		"stat": "wounds",
-		"bonus": 2,
-		"apply_to_models": true,
-		"description": "+2 Wounds to bearer (Shield-Captain or Blade Champion only)"
-	},
+	# (The 10e Shield Host Auric Mantle +2 W entry was retired in WP-C46 — the
+	# codex Custodes enhancements apply via _apply_custodes_codex_enhancements.)
 	# Bully Boyz (Orks): Infantry Warboss only. Add 2 to the bearer's Wounds.
 	"Da Biggest Boss": {
 		"stat": "wounds",
@@ -1045,19 +1052,25 @@ func _apply_enhancement_stat_bonuses(unit_id: String, unit: Dictionary) -> void:
 # EXPLOSIVES core stratagems' keyword gates, ...) work unchanged.
 
 const ENHANCEMENT_GRANTED_ABILITIES: Dictionary = {
-	# Lions of the Emperor — 10e STOPGAP (user ruling 2026-07-10): the 40kdc
-	# dataset has no published 11e rules for the Lions enhancements yet, so the
-	# official 10e wording stands in until it does. 10e Praesidius: "The bearer
-	# has the Lone Operative and Stealth abilities."
-	"Praesidius": ["Lone Operative", "Stealth"],
+	# (The 10e Lions of the Emperor Praesidius stopgap was retired in WP-C46:
+	# Codex: Adeptus Custodes 11e has no Praesidius.)
 }
 
 const ENHANCEMENT_GRANTED_KEYWORDS: Dictionary = {
-	# Silent Hunters (Anathema Psykana Upgrade enhancement): the 40kdc 11e
-	# ability data grants the unit the Explosives keyword — the 11e EXPLOSIVES
-	# core stratagem's gate accepts it.
-	"Psyk-out Grenades": ["EXPLOSIVES"],
+	# (The 10e Silent Hunters Psyk-out Grenades → EXPLOSIVES entry was retired
+	# with that detachment in WP-C46.)
 }
+
+## Codex: Adeptus Custodes (11e) enhancements — list-build half (WP-C46).
+## Lazily loaded: the codex modules late-bind every autoload.
+func _apply_custodes_codex_enhancements(unit_id: String, unit: Dictionary) -> void:
+	if GameConstants.edition < 11:
+		return
+	var enh_script = load("res://scripts/codex/custodes/CustodesEnhancements.gd")
+	if enh_script == null:
+		return
+	for line in enh_script.apply_list_build(unit_id, unit):
+		print("ArmyListManager: Custodes enhancement — %s" % str(line))
 
 func _apply_enhancement_granted_abilities(unit_id: String, unit: Dictionary) -> void:
 	"""Append enhancement-granted abilities/keywords to the unit's meta lists
@@ -1680,31 +1693,15 @@ func validate_army_construction_11e(army_data: Dictionary) -> Dictionary:
 	if not warlord_found:
 		result.warnings.append("11e: no Warlord designated")
 
-	# --- Enhancement cap: 2 per 1000 points; Upgrade-tag counts once ---
-	var enhancement_choices = {}
-	for unit_id in units:
-		var meta = units[unit_id].get("meta", {})
-		var upper_kw = []
-		for k in meta.get("keywords", []):
-			upper_kw.append(str(k).to_upper())
-		var is_character = "CHARACTER" in upper_kw
-		for enh in meta.get("enhancements", []):
-			var name = str(enh) if enh is String else str(enh.get("name", ""))
-			var is_upgrade = enh is Dictionary and enh.get("upgrade", false)
-			if is_upgrade:
-				if is_character:
-					result.warnings.append("11e: Upgrade enhancement '%s' on CHARACTER unit %s (Upgrades are non-CHARACTER only)" % [name, unit_id])
-				var entry = enhancement_choices.get(name, {"count": 0, "upgrade": true})
-				entry["count"] = int(entry.get("count", 0)) + 1
-				enhancement_choices[name] = entry
-				if entry["count"] > 3:
-					result.warnings.append("11e: Upgrade enhancement '%s' on more than three units" % name)
-			else:
-				enhancement_choices["%s@%s" % [name, unit_id]] = {"count": 1, "upgrade": false}
-	var max_enhancements = int(floor(points_limit / 1000.0)) * 2
-	if enhancement_choices.size() > max_enhancements and max_enhancements > 0:
-		result.warnings.append("11e: %d enhancement choices exceed the cap of %d at %d pts" % [
-			enhancement_choices.size(), max_enhancements, points_limit])
+	# --- Enhancements (WP-C46: data-driven against data/40kdc/enhancements.json):
+	# detachment membership, the printed bearer restriction, CHARACTER vs
+	# Upgrade (non-CHARACTER, up to three units, "(one per army)" one), once
+	# per army, and the 2-per-1000-points cap (an Upgrade counts once). ---
+	var enh_check: Dictionary = load("res://scripts/codex/EnhancementRules11e.gd").validate_army(army_data)
+	for w in enh_check.get("warnings", []):
+		result.warnings.append(w)
+	for e in enh_check.get("errors", []):
+		result.errors.append(e)
 
 	# --- Detachment Points: pool of 3 at 2000 pts ---
 	var detachments = army_data.get("detachments", [])
@@ -1785,9 +1782,17 @@ func validate_army_construction_points(army_data: Dictionary) -> Dictionary:
 	if units_missing_points.size() > 0:
 		result.warnings.append("Units missing points cost: %s" % ", ".join(units_missing_points))
 
-	# --- Enhancement validation (10e: 1 of each per army; 1 per CHARACTER; bearer must be CHARACTER) ---
+	# --- Enhancement validation ---
+	# 11e (WP-C46): data-driven against data/40kdc/enhancements.json — the
+	# detachment, the printed bearer restriction, Upgrades on non-CHARACTER
+	# units, once per army, the per-1000-points cap (EnhancementRules11e).
+	# 10e: 1 of each per army; 1 per CHARACTER; bearer must be CHARACTER.
 	var enhancement_bearers: Dictionary = {}  # enhancement_name -> [bearer_unit_name, ...]
-	for unit_id in army_data.units:
+	if GameConstants.edition >= 11:
+		var enh_check: Dictionary = load("res://scripts/codex/EnhancementRules11e.gd").validate_army(army_data)
+		for w in enh_check.get("warnings", []):
+			result.warnings.append(w)
+	for unit_id in (army_data.units if GameConstants.edition < 11 else {}):
 		var unit = army_data.units[unit_id]
 		if not unit is Dictionary:
 			continue

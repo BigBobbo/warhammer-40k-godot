@@ -165,6 +165,9 @@ func _on_phase_enter() -> void:
 	# Codex: Adeptus Custodes MARTIAL KA'TAH — readied step: the active
 	# player's units with the ability are readied (CustodesKatah.gd).
 	_cus11e_katah().on_command_phase_start(current_player)
+	# Codex: Adeptus Custodes (11e) detachments / enhancements — dreadful foe and
+	# Blinding Light expire, BATTLELINE grants refreshed (CustodesDetachments.gd, WP-C46).
+	_cus11e_det().on_command_phase_start(current_player)
 
 	# P3-106: Clear turn-scoped stratagem effects at start of new turn
 	# Per Core Rules, effects with "until the start of your next turn" duration expire here
@@ -391,6 +394,16 @@ func _identify_units_needing_tests() -> void:
 			var unit_name = unit.get("meta", {}).get("name", unit_id)
 			DebugLogger.info(str("CommandPhase: %s (%s) needs battle-shock test (below_half=%s at_half=%s shocked=%s)" % [unit_name, unit_id, below_half, at_half, is_shocked]))
 
+	# Codex: Adeptus Custodes (11e) Null Maiden Vigil — CREEPING DREAD (Aura): in the
+	# Battle-shock step of the opponent's Command phase, enemy PSYKER / below-starting-
+	# strength units within 12" of an ANATHEMA PSYKANA unit test at -1 (WP-C46).
+	for cd_uid in _cus11e_det().creeping_dread_units(current_player):
+		var cd_unit = units.get(cd_uid, {})
+		if cd_uid in _units_needing_test or _has_battle_shock_immunity(cd_unit.get("meta", {}).get("keywords", []), cd_unit.get("meta", {}).get("abilities", [])):
+			continue
+		_units_needing_test.append(cd_uid)
+		DebugLogger.info(str("CommandPhase: %s needs a battle-shock test — Creeping Dread (Null Maiden Vigil)" % cd_uid))
+
 static func _has_battle_shock_immunity(keywords: Array, abilities: Array) -> bool:
 	"""Check if a unit has FEARLESS or And They Shall Know No Fear keyword/ability,
 	which grants automatic immunity to battle-shock tests."""
@@ -568,16 +581,9 @@ func get_available_actions() -> Array:
 				"player": current_player
 			})
 
-	# Martial Mastery selection (Adeptus Custodes — Shield Host) (P2-27)
-	if faction_mgr and faction_mgr.is_martial_mastery_available(current_player):
-		var mastery_options = faction_mgr.get_mastery_options()
-		for option in mastery_options:
-			actions.append({
-				"type": "SELECT_MARTIAL_MASTERY",
-				"mastery_key": option.key,
-				"description": "%s — %s" % [option.display, option.description],
-				"player": current_player
-			})
+	# (The 10e Shield Host "Choose Martial Mastery" Command-phase step is gone:
+	# the codex Guardians of the Throne Martial Mastery is a Fight-phase choice
+	# when a unit is selected to fight — CustodesDetachments.gd, WP-C46.)
 
 	# Here Be Loot — Loot Objective selection (Orks — Freebooter Krew) (OA-1)
 	if faction_mgr and faction_mgr.is_loot_objective_available(current_player):
@@ -809,8 +815,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 			errors = _validate_select_combat_doctrine(action)
 		"SKIP_COMBAT_DOCTRINE":
 			pass  # Always valid
-		"SELECT_MARTIAL_MASTERY":
-			errors = _validate_select_martial_mastery(action)
 		"SELECT_LOOT_OBJECTIVE":
 			errors = _validate_select_loot_objective(action)
 		"ISSUE_TAKTIK":
@@ -940,8 +944,6 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _handle_select_combat_doctrine(action)
 		"SKIP_COMBAT_DOCTRINE":
 			return _handle_skip_combat_doctrine(action)
-		"SELECT_MARTIAL_MASTERY":
-			return _handle_select_martial_mastery(action)
 		"SELECT_LOOT_OBJECTIVE":
 			return _handle_select_loot_objective(action)
 		"ISSUE_TAKTIK":
@@ -1033,6 +1035,8 @@ func _handle_battle_shock_test(action: Dictionary) -> Dictionary:
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
 		battle_shock_bonus = ability_mgr.get_battle_shock_bonus(unit_id)
+	# Codex: Adeptus Custodes (11e) Creeping Dread: -1 to that battle-shock roll (WP-C46).
+	battle_shock_bonus += _cus11e_det().battle_shock_roll_modifier(unit_id)
 
 	var effective_roll = roll_total + battle_shock_bonus
 	var test_passed = effective_roll >= leadership
@@ -1112,6 +1116,8 @@ func _resolve_battle_shock_test(unit_id: String, die1: int, die2: int) -> Dictio
 	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
 	if ability_mgr:
 		battle_shock_bonus = ability_mgr.get_battle_shock_bonus(unit_id)
+	# Codex: Adeptus Custodes (11e) Creeping Dread: -1 to that battle-shock roll (WP-C46).
+	battle_shock_bonus += _cus11e_det().battle_shock_roll_modifier(unit_id)
 
 	var effective_roll = roll_total + battle_shock_bonus
 	var test_passed = effective_roll >= leadership
@@ -1700,64 +1706,6 @@ func _handle_skip_combat_doctrine(_action: Dictionary) -> Dictionary:
 	GameState.add_action_to_phase_log(log_entry)
 
 	return {"success": true, "message": "No Combat Doctrine selected this round"}
-
-# ============================================================================
-# DETACHMENT ABILITIES — MARTIAL MASTERY (P2-27)
-# ============================================================================
-
-func _validate_select_martial_mastery(action: Dictionary) -> Array:
-	var errors = []
-	var current_player = get_current_player()
-	var mastery_key = action.get("mastery_key", "")
-
-	if mastery_key == "":
-		errors.append("Missing mastery_key for Martial Mastery selection")
-		return errors
-
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if not faction_mgr:
-		errors.append("FactionAbilityManager not available")
-		return errors
-
-	if not faction_mgr.is_martial_mastery_available(current_player):
-		errors.append("Martial Mastery is not available for player %d" % current_player)
-		return errors
-
-	var options = faction_mgr.get_mastery_options()
-	var found = false
-	for opt in options:
-		if opt.key == mastery_key:
-			found = true
-			break
-	if not found:
-		errors.append("Unknown Martial Mastery option: %s" % mastery_key)
-
-	return errors
-
-func _handle_select_martial_mastery(action: Dictionary) -> Dictionary:
-	var current_player = get_current_player()
-	var mastery_key = action.get("mastery_key", "")
-
-	var faction_mgr = get_node_or_null("/root/FactionAbilityManager")
-	if not faction_mgr:
-		return {"success": false, "error": "FactionAbilityManager not available"}
-
-	var result = faction_mgr.select_martial_mastery(current_player, mastery_key)
-
-	if result.success:
-		log_phase_message("MARTIAL MASTERY: Player %d selects %s" % [
-			current_player, result.get("mastery_display", mastery_key)])
-
-		var log_entry = {
-			"type": "SELECT_MARTIAL_MASTERY",
-			"player": current_player,
-			"mastery": mastery_key,
-			"mastery_display": result.get("mastery_display", ""),
-			"turn": GameState.get_battle_round()
-		}
-		GameState.add_action_to_phase_log(log_entry)
-
-	return result
 
 # ============================================================================
 # HERE BE LOOT — LOOT OBJECTIVE SELECTION (OA-1)

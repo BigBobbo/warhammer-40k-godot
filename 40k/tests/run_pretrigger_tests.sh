@@ -49,6 +49,11 @@
 #     state + the six ka'tah abilities in their windows, Master of Ka'tahs,
 #     Aegis of the Emperor, Aquila Commander, Daughters of the Abyss /
 #     Psychic Null, Anathema Psykana warlord restriction
+#   - Codex: Adeptus Custodes (11e) detachment rules (WP-C46): the 13
+#     detachment rules, Favoured Ka'tah riders, BATTLELINE grant, Creeping
+#     Dread, AI rule choices; the 10e Custodes detachment code is gone
+#   - Codex: Adeptus Custodes (11e) enhancements (WP-C46): all 29 codex
+#     enhancements + data-driven army-construction validation
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -223,6 +228,8 @@ TESTS=(
     "tests/test_ork_codex_other.gd"
     "tests/test_ork_codex_framework_fixes.gd"
     "tests/test_custodes_army_rules_11e.gd"
+    "tests/test_custodes_detachments_11e.gd"
+    "tests/test_custodes_enhancements_11e.gd"
     "tests/test_ork_codex_turn_flow_fixes.gd"
     "tests/test_keybinding_chord_no_pan.gd"
     "tests/test_indirect_fire_band_11e.gd"

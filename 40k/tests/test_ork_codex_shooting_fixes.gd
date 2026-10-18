@@ -691,7 +691,10 @@ func _section_g_ap_sign() -> void:
 	var mprof := {"name": "Test Klaw", "type": "Melee", "ap": -2, "damage": 2, "damage_raw": "2", "special_rules": "", "keywords": [], "abilities": []}
 	var msr: Dictionary = RE.prepare_melee_save_resolution(1, "U_CUSTODIAN_GUARD_C", "U_TANKBUSTAS_A", mprof, bm)
 	_check("melee interactive: AP-2 vs a target that worsens AP by 1 -> AP-1", msr.get("success", false) and int(msr.get("ap", 99)) == -1, str(msr.get("ap", msr.get("error", ""))))
-	bm.units.U_TANKBUSTAS_A.flags["martial_mastery_improve_ap"] = true
+	# (WP-C46: was the 10e Shield Host martial_mastery_improve_ap flag, retired
+	# with that detachment — the scoped melee improve-AP effect is the same
+	# "improve AP by 1" helper on this path.)
+	bm.units.U_TANKBUSTAS_A.flags["effect_improve_ap_melee"] = 1
 	msr = RE.prepare_melee_save_resolution(1, "U_CUSTODIAN_GUARD_C", "U_TANKBUSTAS_A", mprof, bm)
 	_check("melee interactive: ... plus an 'improve AP by 1' -> AP-2", msr.get("success", false) and int(msr.get("ap", 99)) == -2, str(msr.get("ap", msr.get("error", ""))))
 	# DRIVE-BY DAKKA (ability) and PREY (Da Big Hunt) are the other "+1 AP" helpers.
