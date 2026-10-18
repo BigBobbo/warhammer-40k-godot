@@ -5,12 +5,13 @@
     "scripts.codex.custodes.CustodesAbilities",
     "stratagem.window.unit_selected_to_shoot"
   ],
-  "description": "WP-C7 Codex: Adeptus Custodes (11e) PURITY OF EXECUTION (Prosecutors) through the real unit_selected_to_shoot window. Fixture cus11e_c7_shoot (P1 Custodes' Shooting phase). A real token click selects the Prosecutors to shoot: the unit_selected_to_shoot window offers the Purity of Execution card (cost 'Ability'); a real click opens the picker of visible enemy units within 18\" and a real click picks the Nobz. No CP; the Nobz carry the detected flag (+3\" detection range for P1's units until the end of the phase, read by the live helper), the log names them, and the Prosecutors stay the active shooter. Setup privileges: auto wound allocation; the Orks (P2) have 0 CP.",
+  "description": "WP-C7 Codex: Adeptus Custodes (11e) PURITY OF EXECUTION (Prosecutors) through the real unit_selected_to_shoot window. Fixture cus11e_c7_shoot (P1 Custodes' Shooting phase). A real token click selects the Prosecutors to shoot: the unit_selected_to_shoot window offers the Purity of Execution card (cost 'Ability'); a real click opens the picker of visible enemy units within 18\" and a real click picks the Nobz. No CP; the Nobz carry the detected flag (+3\" detection range until the end of the phase, read by the live helper), the log names them, and the Prosecutors stay the active shooter. Setup privileges: auto wound allocation; the Orks (P2) have 0 CP.",
   "fixture": "cus11e_c7_shoot",
   "edition": 11,
   "rng_seed": 7,
   "transition_to_phase": 8,
   "disable_ai": true,
+  "custodes_abilities": true,
   "steps": [
     {
       "act": "wait_seconds",

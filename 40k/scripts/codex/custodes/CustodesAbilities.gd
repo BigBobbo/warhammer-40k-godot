@@ -717,6 +717,7 @@ static func swift_ruin_record(player: int) -> void:
 	var d := _army_use_diff(player, "swift_ruin")
 	Common.apply_diffs([d])
 	Common.log_info("CustodesAbilities: Swift Ruin — Rapid Ingress -1 CP, not counted against the once-per-phase limit (P%d)" % player)
+	_event_log(player, "Swift Ruin: this RAPID INGRESS is -1 CP and does not count against its once-per-phase limit")
 
 ## Sweeping Advance: "if this unit was eligible to fight this phase" — it was
 ## engaged or had charged at the start of the Fight phase (F_FIGHT_ELIGIBLE),
@@ -856,9 +857,15 @@ static func sid_of(slug: String) -> String:
 	return SID_PREFIX + slug
 
 ## Offers for `player` in `window_id` (StratagemManager.get_all_window_offers).
+## ScenarioRunner policy (like WP-C3's martial_katah one): windowed scenarios
+## written before WP-C7 never answer the ability cards, so unless a scenario
+## opts in ("custodes_abilities": true) the runner switches the OFFERS off; the
+## passive abilities still apply. Never set outside a scenario run.
+static var offers_suppressed := false
+
 static func window_offers(player: int, window_id: String, ctx: Dictionary) -> Array:
 	var offers: Array = []
-	if not _edition_11():
+	if not _edition_11() or offers_suppressed:
 		return offers
 	for slug in WINDOW_ABILITIES.get(window_id, []):
 		var targets: Array = _targets(str(slug), player, window_id, ctx)
@@ -955,7 +962,10 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 		"moment_shackle":
 			if window_id != "phase_start" or moment_shackle_spent(player):
 				return out
-			if not (phase == PH_FIGHT or (phase == PH_SHOOTING and not own_turn)):
+			# Offered where an effect can change an attack: every Fight phase
+			# (+3 A / 3+ InSv), the opponent's Shooting phase and your own Charge
+			# phase (Fire Overwatch at the charging Trajann) for the 3+ InSv.
+			if not (phase == PH_FIGHT or (phase == PH_SHOOTING and not own_turn) or (phase == PH_CHARGE and own_turn)):
 				return out
 			for hid in _holders(player, slug):
 				out.append(_entry(hid, {"label": Common.unit_name(hid), "require_variant": true,

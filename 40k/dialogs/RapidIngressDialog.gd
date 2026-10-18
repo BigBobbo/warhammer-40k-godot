@@ -147,7 +147,11 @@ func _build_ui() -> void:
 		unit_container.add_child(name_label)
 
 		var use_button = Button.new()
-		use_button.text = "Arrive (1 CP)"
+		# Per-unit cost (Codex: Adeptus Custodes Swift Ruin: -1 CP, WP-C7).
+		var unit_cost := int(unit_info.get("cp_cost", 1))
+		var cost_note := str(unit_info.get("cost_note", ""))
+		use_button.text = "Arrive (%d CP%s)" % [unit_cost, (" — %s" % cost_note) if cost_note != "" else ""]
+		use_button.name = "Use_%s" % str(unit_info.unit_id)
 		use_button.custom_minimum_size = Vector2(170, 30)
 		use_button.pressed.connect(_on_use_pressed.bind(unit_info.unit_id))
 		unit_container.add_child(use_button)

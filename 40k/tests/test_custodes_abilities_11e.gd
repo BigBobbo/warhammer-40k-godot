@@ -386,6 +386,8 @@ func _section_moment_shackle() -> void:
 	_check("offered at the start of the opponent's Fight phase", not _offer(1, "phase_start", ctx, "moment_shackle").is_empty())
 	_phase(P_SHOOT, 2)
 	_check("offered at the start of the opponent's Shooting phase (3+ InSv)", not _offer(1, "phase_start", {"phase": "shooting"}, "moment_shackle").is_empty())
+	_phase(P_CHG, 1)
+	_check("offered at the start of your Charge phase (3+ InSv vs Fire Overwatch)", not _offer(1, "phase_start", {"phase": "charge"}, "moment_shackle").is_empty())
 	for pp in [[P_SHOOT, 1], [P_MOV, 1], [P_CMD, 1], [P_CHG, 2]]:
 		_phase(pp[0], pp[1])
 		_check("not offered at the start of phase %d (P%d active): no attack it changes" % [pp[0], pp[1]], _offer(1, "phase_start", ctx, "moment_shackle").is_empty())

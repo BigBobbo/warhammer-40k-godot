@@ -1,0 +1,383 @@
+{
+  "id": "cus11e_ab_sweeping_advance",
+  "covers": [
+    "codex.custodes.datasheet_abilities.sweeping_advance",
+    "scripts.codex.custodes.CustodesAbilities",
+    "dialogs.SweepingAdvanceDialog"
+  ],
+  "description": "WP-C7 Codex: Adeptus Custodes (11e) SWEEPING ADVANCE (Shield-Captain on Dawneagle Jetbike, once per battle) at the end of the Fight phase. Fixture cus11e_c7_fight (P1 Custodes' Fight phase). Setup privileges: auto wound allocation; the Orks (P2) have 0 CP; the Boyz engaged with Trajann are removed and Gretchin D is reduced to one model (so the fight ends after one combat). The start-of-phase window is declined by a real click; after the pile-ins a real click selects the Shield-Captain to fight and it destroys the last Gretchin. P1 ends the Fight phase through the real panel; the SweepingAdvanceDialog offers a normal move (the unit was eligible to fight and is now unengaged); a real drag moves it 3\" and a real click on Confirm Move finishes it: the once-per-battle ledger is marked.",
+  "fixture": "cus11e_c7_fight",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "custodes_abilities": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"2\"][\"cp\"] = 0\nfor m in GameState.state.units[\"U_BOYZ_B\"].models:\n\tm[\"alive\"] = false\n\tm[\"current_wounds\"] = 0\nvar gd = GameState.state.units[\"U_GRETCHIN_D\"].models\nfor i in range(gd.size()):\n\tif i != 2:\n\t\tgd[i][\"alive\"] = false\n\t\tgd[i][\"current_wounds\"] = 0\nreturn true",
+      "multiline": true,
+      "comment": "setup privilege: auto wound allocation; player(s) 2 CP 0 (no paid stratagem competes with the abilities under test) (see description)",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main._recreate_unit_visuals()",
+      "comment": "redraw the board after the setup privilege"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "real click: decline the start-of-phase abilities (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_SC_JETBIKE_A",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_SC_JETBIKE_A",
+      "emit_pressed": true,
+      "comment": "real click: select the unit to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out",
+      "multiline": true,
+      "comment": "press Decline on the Epic Challenge prompt if it opened (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out",
+      "multiline": true,
+      "comment": "press Decline on the Epic Challenge prompt if it opened (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out",
+      "multiline": true,
+      "comment": "press Decline on the Epic Challenge prompt if it opened (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(16)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(16)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "\"U_SC_JETBIKE_A\" in PhaseManager.get_current_phase_instance().units_that_fought",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var n := 0\nfor m in GameState.get_unit(\"U_GRETCHIN_D\").models:\n\tif m.get(\"alive\", true):\n\t\tn += 1\nreturn n",
+      "multiline": true,
+      "comment": "the last Gretchin is destroyed: the Shield-Captain is unengaged",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_jetbike_fought"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/PhaseActionButton",
+      "emit_pressed": true,
+      "comment": "real click: End Fight Phase (no fights left)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/EndFightConfirmationDialog/Content/Actions/ConfirmEndFight",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.current_scene._phase_end_confirm\nif d != null and d.visible:\n\td.get_ok_button().pressed.emit()\nreturn true",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/ConsolidationStepPanel/EndConsolidationButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().awaiting_sweeping_advance",
+      "comment": "the end-of-phase Sweeping Advance offer is up",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "for n in tree.root.get_children():\n\tvar sc = n.get_script()\n\tif sc != null and str(sc.resource_path).ends_with(\"SweepingAdvanceDialog.gd\") and n.visible:\n\t\treturn true\nreturn false",
+      "multiline": true,
+      "comment": "the SweepingAdvanceDialog is on screen",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_sweeping_advance_dialog"
+    },
+    {
+      "act": "drag_board",
+      "from_x": 1440.0,
+      "from_y": 1279.2,
+      "to_x": 1440.0,
+      "to_y": 1399.2,
+      "steps": 10,
+      "comment": "real drag: the Shield-Captain makes a 3\" normal move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "screenshot",
+      "label": "03_jetbike_dragged"
+    },
+    {
+      "act": "click_node",
+      "button_text": "Confirm Move",
+      "comment": "real click: Confirm Move"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "UnitAbilityManager.is_once_per_battle_used(\"U_SC_JETBIKE_A\", \"Sweeping Advance\")",
+      "comment": "once per battle: used",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var m = GameState.get_unit(\"U_SC_JETBIKE_A\").models[0]\nprint(\"[wp-c7] sweeping advance: Shield-Captain now at \", m.position.x / 40.0, \", \", m.position.y / 40.0)\nreturn absf(float(m.position.y) / 40.0 - 34.98) < 0.4",
+      "multiline": true,
+      "comment": "it moved where it was dragged",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance() == null or not PhaseManager.get_current_phase_instance().get(\"awaiting_sweeping_advance\")",
+      "comment": "the offer is resolved",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "04_sweeping_advance_done"
+    }
+  ]
+}

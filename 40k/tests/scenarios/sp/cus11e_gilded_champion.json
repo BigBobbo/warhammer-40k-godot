@@ -12,6 +12,7 @@
   "edition": 11,
   "rng_seed": 42,
   "disable_ai": true,
+  "custodes_abilities": true,
   "steps": [
     {
       "act": "wait_seconds",

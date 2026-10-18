@@ -11,6 +11,7 @@
   "rng_seed": 7,
   "transition_to_phase": 10,
   "disable_ai": true,
+  "custodes_abilities": true,
   "steps": [
     {
       "act": "wait_seconds",
@@ -29,7 +30,7 @@
       "act": "execute_script",
       "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn true",
       "multiline": true,
-      "comment": "setup privilege: auto wound allocation; player 2 CP 0 (no paid reactive stratagem competes) (see description)",
+      "comment": "setup privilege: auto wound allocation; player(s) 2 CP 0 (no paid stratagem competes with the abilities under test) (see description)",
       "equals": true
     },
     {
@@ -227,6 +228,16 @@
       "seconds": 0.5
     },
     {
+      "act": "execute_script",
+      "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out",
+      "multiline": true,
+      "comment": "press Decline on the Epic Challenge prompt if it opened (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
       "act": "click_if_visible",
       "node": "/root/StratagemDialog/Content/DeclineButton",
       "comment": "decline any other open window (not under test)"
@@ -234,6 +245,16 @@
     {
       "act": "wait_seconds",
       "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out",
+      "multiline": true,
+      "comment": "press Decline on the Epic Challenge prompt if it opened (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
     },
     {
       "act": "expect_node_visible",
