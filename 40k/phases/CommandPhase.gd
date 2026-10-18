@@ -46,6 +46,10 @@ var _bss_deferred_action: Dictionary = {}
 func _init():
 	# Issue #329: route through RNGService so static test_mode_seed applies
 	_rng = RulesEngine.make_rng()
+	# Known before BasePhase.enter_phase runs (like the other phases): the
+	# WP-C7 "start of any phase" ability window (CustodesAbilities
+	# .phase_start_entries) is queued there, BEFORE _on_phase_enter.
+	phase_type = GameStateData.Phase.COMMAND
 
 func _on_phase_enter() -> void:
 	phase_type = GameStateData.Phase.COMMAND

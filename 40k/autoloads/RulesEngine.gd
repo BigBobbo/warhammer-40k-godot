@@ -10961,6 +10961,9 @@ static func eligible_to_charge(unit_id: String, board: Dictionary) -> bool:
 	# GRAB IT (Codex: Orks 11e): hard charge lock until the end of the turn.
 	if flags.get("ork11e_grab_it_no_charge", false):
 		return false
+	# WP-C7: Codex: Adeptus Custodes (11e) MOBILE HUNTER — the same hard lock (CustodesAbilities.gd).
+	if CustodesAbilities11eScript.blocks_charge(unit):
+		return false
 
 	# Check restriction flags
 	# cannot_charge is set by Advance and Fall Back moves, but abilities like

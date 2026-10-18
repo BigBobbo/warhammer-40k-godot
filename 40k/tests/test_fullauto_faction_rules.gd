@@ -19,7 +19,8 @@ extends SceneTree
 #      ranged + melee) and UNWAVERING SENTINELS (-1 hit vs the flagged unit,
 #      melee only — must NOT leak into ranged).
 #   4. Blastajet Force Field: always-on ability applies effect_invuln 4.
-#   5. Devoted to Destruction: melee-only +2 Attacks (fight phase flag).
+#   5. (retired by WP-C7: Devoted to Destruction is a 10e Telemon rule no
+#      Codex: Adeptus Custodes (11e) datasheet has — RETIRED_TESTS.md)
 #   6. Sneaky Gitz: unit excluded from Fire Overwatch eligibility.
 #   7. Bodyguard: second leader-role attachment allowed, third rejected.
 #   8. Admonimortis: 10e stopgap — +3S/+1AP/+1D on the bearer's melee weapons.
@@ -299,30 +300,6 @@ func _test_blastajet_force_field() -> void:
 	_check("Blastajet Force Field: 5+ invulnerable save (codex)", inv == 5, str(inv))
 	uam.on_phase_end(8)
 
-func _test_devoted_to_destruction() -> void:
-	print("\n-- Devoted to Destruction: +2 melee Attacks flag in fight phase --")
-	var uam = root.get_node("UnitAbilityManager")
-	var gs = root.get_node("GameState")
-	_check("ability is table-implemented", uam.is_ability_implemented("Devoted to Destruction"))
-	gs.state["units"] = {
-		"U_TELEMON": {
-			"id": "U_TELEMON", "owner": 2,
-			"meta": {"keywords": ["VEHICLE"], "stats": {"toughness": 10, "save": 2, "wounds": 14},
-				"abilities": [{"name": "Devoted to Destruction", "type": "Datasheet"}]},
-			"flags": {},
-			"models": [{"id": "m1", "alive": true, "wounds": 14, "current_wounds": 14, "position": {"x": 100, "y": 100}}]
-		}
-	}
-	uam.on_phase_start(10)  # fight
-	var flags = gs.state["units"]["U_TELEMON"].get("flags", {})
-	_check("effect_plus_attacks 2 applied at fight phase start", int(flags.get("effect_plus_attacks", 0)) == 2, str(flags))
-	uam.on_phase_end(10)
-	# Melee-only: shooting phase must not set it
-	gs.state["units"]["U_TELEMON"]["flags"] = {}
-	uam.on_phase_start(8)
-	var flags2 = gs.state["units"]["U_TELEMON"].get("flags", {})
-	_check("no plus_attacks flag in shooting phase (melee-only)", int(flags2.get("effect_plus_attacks", 0)) == 0)
-	uam.on_phase_end(8)
 
 func _test_sneaky_gitz_overwatch() -> void:
 	print("\n-- Sneaky Gitz: cannot Fire Overwatch --")
@@ -488,7 +465,6 @@ func _run_tests():
 	_test_defender_minus_one_wound()
 	_test_defender_minus_one_hit_melee_only()
 	_test_blastajet_force_field()
-	_test_devoted_to_destruction()
 	_test_sneaky_gitz_overwatch()
 	_test_bodyguard_extra_leader()
 	_test_admonimortis()

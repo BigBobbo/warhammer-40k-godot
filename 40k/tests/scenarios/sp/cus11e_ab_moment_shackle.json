@@ -1,0 +1,327 @@
+{
+  "id": "cus11e_ab_moment_shackle",
+  "covers": [
+    "codex.custodes.datasheet_abilities.moment_shackle",
+    "scripts.codex.custodes.CustodesAbilities",
+    "stratagem.window.phase_start"
+  ],
+  "description": "WP-C7 Codex: Adeptus Custodes (11e) MOMENT SHACKLE (Trajann Valoris) through the real start-of-phase window. Fixture cus11e_c7_fight (P1 Custodes, round 2): entering the Fight phase opens the new phase_start window for P1 with the Moment Shackle (two variant buttons) and Neutronium Cascade Mine cards, cost 'Ability'. A real click on 'Watcher's Axe +3 A': no CP, Trajann carries the phase-scoped Moment Shackle flag and the once-per-battle 'moment_shackle_used' marker (the flag GILDED CHAMPION also reads). The window re-offers only the mine (Moment Shackle spent); a real click declines it. After pile-in, a real click selects Trajann to fight; the Watcher's Axe hit roll rolls at least 9 dice (A6 +3). Setup privileges: auto wound allocation; the Orks (P2) have 0 CP so no paid reactive stratagem competes.",
+  "fixture": "cus11e_c7_fight",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 10,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 10
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn true",
+      "multiline": true,
+      "comment": "setup privilege: auto wound allocation; player 2 CP 0 (no paid reactive stratagem competes) (see description)",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_moment_shackle",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_neutronium_cascade_mine",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_moment_shackle\").find_child(\"Cost\", true, false).text",
+      "comment": "a datasheet ability card: no CP cost",
+      "equals": "Ability"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_moment_shackle/Buttons/Use_cus11e_ab_moment_shackle_U_TRAJANN_A_attacks",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_moment_shackle/Buttons/Use_cus11e_ab_moment_shackle_U_TRAJANN_A_invuln",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "01_phase_start_moment_shackle_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_moment_shackle/Buttons/Use_cus11e_ab_moment_shackle_U_TRAJANN_A_attacks",
+      "comment": "real click: Watcher's Axe +3 A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_TRAJANN_A.flags.cus11e_ab_moment_shackle",
+      "equals": "attacks"
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_TRAJANN_A.flags.moment_shackle_used",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Moment Shackle (once per battle)\")",
+      "expect_min": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node_or_null(\"StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_moment_shackle\") == null",
+      "equals": true
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_neutronium_cascade_mine",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_reoffer_mine_only"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "real click: decline the mine"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.get_unit(\"U_TRAJANN_A\")\nvar t = GameState.get_unit(\"U_BOYZ_B\")\nvar m = RulesEngine.ork11e_ab_mods(u, t, {\"name\": \"Watcher's Axe\", \"type\": \"Melee\"}, true, GameState.state, [])\nprint(\"[wp-c7] moment shackle mods: \", m)\nreturn int(m.attacks)",
+      "multiline": true,
+      "comment": "the live attack hook: +3 A on the Watcher's Axe",
+      "equals": 3
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/PileInStepPanel/EndPileInButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_TRAJANN_A",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/FightScrollContainer/FightPanel/FightSelectionPanel/UnitList/Fight_U_TRAJANN_A",
+      "emit_pressed": true,
+      "comment": "real click: select the unit to fight"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var out = \"absent\"\nfor n in tree.root.get_children():\n\tvar s = n.get_script()\n\tif s == null or not str(s.resource_path).ends_with(\"EpicChallengeDialog.gd\"):\n\t\tcontinue\n\tvar q = [n]\n\twhile not q.is_empty():\n\t\tvar c = q.pop_front()\n\t\tif c is Button and str(c.text) == \"Decline\":\n\t\t\tc.pressed.emit()\n\t\t\tout = \"declined\"\n\t\t\tbreak\n\t\tfor ch in c.get_children():\n\t\t\tq.append(ch)\nreturn out",
+      "multiline": true,
+      "comment": "press Decline on the Epic Challenge prompt if it opened (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/AttackAssignmentDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/AllToTargetButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "click_node",
+      "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
+      "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(16)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"FightController\").fight_resolution_dock.debug_click_through(16)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar n := -1\nfor d in ph.dice_log:\n\tif str(d.get(\"context\", \"\")) == \"hit_roll_melee\" and str(d.get(\"weapon\", \"\")).to_lower().contains(\"watcher\"):\n\t\tprint(\"[wp-c7] moment shackle hit_roll_melee: weapon=\", d.get(\"weapon\", \"\"), \" total_attacks=\", d.get(\"total_attacks\", -1), \" rolls=\", d.get(\"rolls_raw\", []).size())\n\t\tn = int(d.get(\"total_attacks\", -1))\nreturn n >= 9",
+      "multiline": true,
+      "comment": "Watcher's Axe A6 +3 (plus any [CLEAVE 1] dice) were rolled",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_trajann_axe_nine_plus_attacks"
+    },
+    {
+      "act": "execute_script",
+      "script": "var panel = tree.root.get_node(\"Main\").get_node_or_null(\"HUD_Left/GameLogPanel\")\nif panel == null:\n\tfor n in tree.root.get_node(\"Main\").find_children(\"*\", \"\", true, false):\n\t\tif n.get(\"_tab_dice_button\") != null:\n\t\t\tpanel = n\n\t\t\tbreak\nif panel == null:\n\treturn \"panel not found\"\npanel._tab_dice_button.emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "show the Dice Log tab",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "screenshot",
+      "label": "04_dice_log"
+    }
+  ]
+}

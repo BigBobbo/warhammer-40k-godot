@@ -62,13 +62,24 @@
     },
     {
       "act": "expect_node_visible",
-      "node": "/root/MomentShackleDialog",
-      "timeout_s": 8.0
+      "node": "/root/StratagemDialog",
+      "timeout_s": 8.0,
+      "comment": "WP-C7: Trajann's codex Moment Shackle is offered in the start-of-phase window (the 10e MomentShackleDialog is gone) - not under test here"
     },
     {
       "act": "click_node",
-      "node": "/root/MomentShackleDialog/Content/Buttons/DeclineButton",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
       "emit_pressed": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "emit_pressed": true,
+      "comment": "the phase was entered twice (transition + the re-enter above): a second start-of-phase window may follow"
     },
     {
       "act": "wait_seconds",

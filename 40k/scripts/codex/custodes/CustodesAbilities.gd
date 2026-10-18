@@ -1000,7 +1000,9 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 				return out
 			var shooter := str(ctx.get("unit_id", ""))
 			var hid := group_holder(shooter, slug) if shooter != "" else ""
-			if hid == "" or int(Common.unit(hid).get("owner", 0)) != player:
+			# One use per shot (a unit shoots once a phase) — the window
+			# re-offers after any use, never this one twice.
+			if hid == "" or int(Common.unit(hid).get("owner", 0)) != player or used_this_phase(hid, slug):
 				return out
 			var hit: Array = []
 			for tid in ctx.get("hit_unit_ids", []):
@@ -1063,6 +1065,10 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 			if window_id != "fight_phase_end" or own_turn or phase != PH_FIGHT:
 				return out
 			for hid in _holders(player, slug):
+				# One trigger per unit at the end of that phase (the window
+				# re-offers after any use — never the same unit's bombs twice).
+				if used_this_phase(hid, slug):
+					continue
 				var cands: Array = []
 				for eid in _enemy_heads(player):
 					if _lone_operative(str(eid)) or Common.group_has_keyword(str(eid), "AIRCRAFT"):
@@ -1245,7 +1251,9 @@ static func _apply(slug: String, player: int, uid: String, holder: String, secon
 		"sanctified_flames":
 			var mod := -1 if Common.group_has_keyword(secondary, "PSYKER") else 0
 			var bs := battle_shock_roll(secondary, mod, "Sanctified Flames")
-			return {"diffs": bs.diffs, "log": str(bs.text)}
+			var sf_diffs: Array = bs.diffs
+			sf_diffs.append(_phase_use_diff(holder, slug))
+			return {"diffs": sf_diffs, "log": str(bs.text)}
 		"mobile_hunter":
 			var r := int(_roll(1)[0])
 			return {"diffs": Common.set_flag_diffs(group(uid), F_NO_CHARGE, true),
@@ -1264,6 +1272,7 @@ static func _apply(slug: String, player: int, uid: String, holder: String, secon
 			return {"diffs": strategic_reserves_diffs(uid), "log": "Take Wing: %s is placed in strategic reserves" % name}
 		"infernus_firebombs":
 			var diffs: Array = Common.set_flag_diffs(group(secondary), F_FIREBOMBED, {"player": player, "armed": false})
+			diffs.append(_phase_use_diff(holder, slug))
 			var n := _alive_models(secondary)
 			var rolls := _roll(n)
 			var mw := 0

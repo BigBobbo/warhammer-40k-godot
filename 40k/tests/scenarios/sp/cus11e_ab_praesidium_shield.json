@@ -1,0 +1,335 @@
+{
+  "id": "cus11e_ab_praesidium_shield",
+  "covers": [
+    "codex.custodes.datasheet_abilities.praesidium_shield",
+    "scripts.codex.custodes.CustodesAbilities",
+    "rules.allocation_11e.damage_modifier",
+    "scripts.DiceLogFormatter.damage_modifier"
+  ],
+  "description": "WP-C7 Codex: Adeptus Custodes (11e) PRAESIDIUM SHIELD (Shield-Captain): -1 Damage to each attack allocated to the bearer, shown in the damage log. Fixture cus11e_c7_enemy_shoot (P1 Orks' Shooting phase vs P2 Custodes). A real token click selects the Tankbustas; their Busta rokkit launchas (Damage 3) are declared at the Shield-Captain with the phase actions the shooting panel sends and resolved by real clicks on Fast Roll / Complete Shooting. Every unsaved rokkit does 2 damage (the Shield-Captain loses exactly 2 wounds per Praesidium line) and the shooting dice log shows 'Praesidium Shield: -1 Damage (3 -> 2) — attack allocated to Shield-Captain'. P2's Vengeful Surge window then opens and is declined by a real click; the Dice Log tab is opened for the screenshot. Setup privileges: auto wound allocation; both players have 0 CP (no paid stratagem competes; abilities cost none); the Shield-Captain's wounds inflated to 99 (the count of lost wounds is the evidence).",
+  "fixture": "cus11e_c7_enemy_shoot",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 8,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 8
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nfor m in GameState.state.units[\"U_SHIELD_CAPTAIN_A\"].models:\n\tm[\"wounds\"] = 99\n\tm[\"current_wounds\"] = 99\nreturn true",
+      "multiline": true,
+      "comment": "setup privilege: auto wound allocation; player(s) 1/2 CP 0 (no paid stratagem competes with the abilities under test) (see description)",
+      "equals": true
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_TANKBUSTAS_A"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().active_shooter_id",
+      "equals": "U_TANKBUSTAS_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "decline P1's windows here (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CLEAR_ALL_ASSIGNMENTS",
+        "player": 1
+      }
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "ASSIGN_TARGET",
+        "actor_unit_id": "U_TANKBUSTAS_A",
+        "payload": {
+          "weapon_id": "busta_rokkit_launcha___standard_ranged",
+          "target_unit_id": "U_SHIELD_CAPTAIN_A",
+          "model_ids": [
+            "m1",
+            "m2",
+            "m3",
+            "m4",
+            "m5",
+            "m6"
+          ]
+        }
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "CONFIRM_TARGETS"
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "decline only the opponent's (P2) reactive windows here (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_node",
+      "button_text": "Fast Roll ⏩"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/ConfirmRemovalButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "decline only the opponent's (P2) reactive windows here (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "decline P1's windows here (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ConfirmButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/RerollPanel/KeepRollsButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/AutoPickButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/PickPanel/PickVBox/PickButtons/ConfirmRemovalButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/Main/AllocationGroupOverlay/Center/Panel/Row/DecisionCol/ResultPanel/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "decline only the opponent's (P2) reactive windows here (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "decline P1's windows here (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "click_node",
+      "button_text": "Complete Shooting"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "decline P1's windows here (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 1:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "decline P1's windows here (not under test)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "execute_script",
+      "script": "var ph = PhaseManager.get_current_phase_instance()\nvar n := 0\nfor d in ph.dice_log:\n\tif str(d.get(\"context\", \"\")) == \"damage_modifier\" and str(d.get(\"source\", \"\")) == \"Praesidium Shield\":\n\t\tn += 1\n\t\tprint(\"[wp-c7] praesidium dice line: \", d.get(\"message\", \"\"))\nvar lost := 99 - int(GameState.get_unit(\"U_SHIELD_CAPTAIN_A\").models[0].get(\"current_wounds\", 99))\nprint(\"[wp-c7] praesidium: lines=\", n, \" wounds lost=\", lost)\nreturn n >= 1 and lost == 2 * n",
+      "multiline": true,
+      "comment": "every Damage 3 rokkit allocated to the Shield-Captain did 2 damage, each with a 'Praesidium Shield: -1 Damage (3 -> 2)' dice-log line",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "main.get_node(\"ShootingController\").dice_log_display.get_parsed_text().contains(\"Praesidium Shield: -1 Damage (3 -> 2)\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_praesidium_after_rokkits"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 5.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "enemy_has_shot"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 2
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "real click: P2 declines Vengeful Surge (not under test here)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "var panel = tree.root.get_node(\"Main\").get_node_or_null(\"HUD_Left/GameLogPanel\")\nif panel == null:\n\tfor n in tree.root.get_node(\"Main\").find_children(\"*\", \"\", true, false):\n\t\tif n.get(\"_tab_dice_button\") != null:\n\t\t\tpanel = n\n\t\t\tbreak\nif panel == null:\n\treturn \"panel not found\"\npanel._tab_dice_button.emit_signal(\"pressed\")\nreturn true",
+      "multiline": true,
+      "comment": "show the Dice Log tab",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_dice_log_praesidium_minus_one_damage"
+    }
+  ]
+}

@@ -1,0 +1,237 @@
+{
+  "id": "cus11e_ab_archeotech_teleport_shunter",
+  "covers": [
+    "codex.custodes.datasheet_abilities.archeotech_teleport_shunter",
+    "scripts.codex.custodes.CustodesAbilities",
+    "stratagem.window.movement_phase_start",
+    "rules.reserves.ingress_11e"
+  ],
+  "description": "WP-C7 Codex: Adeptus Custodes (11e) ARCHEOTECH TELEPORT-SHUNTER (Shield-Captain in Allarus Terminator Armour, once per battle) through the real movement_phase_start window. Fixture cus11e_c7_move (P1 Custodes' Movement phase, battle round 2; the Shield-Captain leads the Allarus Custodians). The window offers the card (cost 'Ability') on the Attached unit; a real click places both units into strategic reserves (once-per-battle ledger marked) and they MUST make an ingress move this phase: END_MOVEMENT is refused until they are set up again (the reserves placement action at a battlefield edge); afterwards both are on the battlefield with the ingress arrival flags and the phase can end. Setup privileges: auto wound allocation; the Orks (P2) have 0 CP.",
+  "fixture": "cus11e_c7_move",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.active_player",
+      "equals": 1
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn true",
+      "multiline": true,
+      "comment": "setup privilege: auto wound allocation; player(s) 2 CP 0 (no paid stratagem competes with the abilities under test) (see description)",
+      "equals": true
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_SC_ALLARUS_A.attached_to",
+      "equals": "U_ALLARUS_A"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "movement_phase_start"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_archeotech_teleport_shunter",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_archeotech_teleport_shunter\").find_child(\"Cost\", true, false).text",
+      "comment": "a datasheet ability card: no CP cost",
+      "equals": "Ability"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_teleport_shunter_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_archeotech_teleport_shunter/Buttons/Use_cus11e_ab_archeotech_teleport_shunter_U_ALLARUS_A",
+      "comment": "real click: use the Archeotech Teleport-shunter"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_ALLARUS_A.status",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_SC_ALLARUS_A.status",
+      "equals": 7
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_ALLARUS_A.reserve_type",
+      "equals": "strategic_reserves"
+    },
+    {
+      "act": "execute_script",
+      "script": "UnitAbilityManager.is_once_per_battle_used(\"U_SC_ALLARUS_A\", \"Archeotech Teleport-shunter\")",
+      "comment": "once per battle: ledger marked",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Archeotech Teleport-shunter (once per battle)\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "screenshot",
+      "label": "02_attached_unit_in_strategic_reserves"
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "END_MOVEMENT",
+        "player": 1
+      }
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "var A = load(\"res://scripts/codex/custodes/CustodesAbilities.gd\")\nreturn A.pending_forced_ingress(1) == [\"U_ALLARUS_A\"]",
+      "multiline": true,
+      "comment": "the unit must make its ingress move this phase",
+      "equals": true
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "PLACE_REINFORCEMENT",
+        "unit_id": "U_ALLARUS_A",
+        "model_positions": [
+          [
+            60.0,
+            1180.0
+          ],
+          [
+            60.0,
+            1244.0
+          ],
+          [
+            60.0,
+            1308.0
+          ]
+        ]
+      },
+      "comment": "the ingress placement (the reserves panel's action) at the left battlefield edge, outside both deployment zones and >8\" from the enemy"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_ALLARUS_A.status",
+      "equals": 2
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_SC_ALLARUS_A.status",
+      "equals": 2
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_ALLARUS_A.flags.arrived_from_reserves",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var A = load(\"res://scripts/codex/custodes/CustodesAbilities.gd\")\nreturn A.pending_forced_ingress(1).is_empty()",
+      "multiline": true,
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().validate_action({\"type\": \"END_MOVEMENT\", \"player\": 1}).get(\"valid\", false)",
+      "comment": "the Movement phase can now end",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_allarus_arrived_by_ingress"
+    }
+  ]
+}

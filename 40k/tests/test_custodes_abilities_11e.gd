@@ -779,6 +779,8 @@ func _section_mobile_hunter() -> void:
 	PM.transition_to_phase(P_CHG)
 	var cp = PM.current_phase_instance
 	_check("not eligible to declare a charge this turn", not cp._can_unit_charge(_u("U_PALLAS_A")))
+	_check("... RulesEngine.eligible_to_charge agrees", not RE.eligible_to_charge("U_PALLAS_A", GS.state))
+	_check("... and the 11e charge template", not bool(MoveTypes.get_type("charge").eligible("U_PALLAS_A", GS.state).get("eligible", true)))
 	CA.on_phase_transition(P_FIGHT, P_CMD)
 	_check("the lock ends with the turn", not _flags("U_PALLAS_A").has(CA.F_NO_CHARGE))
 
@@ -824,6 +826,8 @@ func _section_infernus_firebombs() -> void:
 	_check("use: one D6 per model, each 6 is a mortal wound (%d six(es))" % sixes, res.get("success", false) and w0 - _wounds_left("U_BOYZ_B") == mini(sixes, 6), "%d lost" % (w0 - _wounds_left("U_BOYZ_B")))
 	RE.set_test_seed(-1)
 	_check("the target is marked", typeof(_flags("U_BOYZ_B").get(CA.F_FIREBOMBED, null)) == TYPE_DICTIONARY)
+	_check("one trigger per unit: not re-offered in the same window (the re-offer / AI loop guard)", _offer(1, "fight_phase_end", ctx, "infernus_firebombs").is_empty())
+	_check("... and a second use is refused", not _use(1, "infernus_firebombs", "U_ARES_A", "fight_phase_end", ctx, "U_BOYZ_B").get("success", false))
 	_place("U_CALADIUS_A", 30, 50)
 	var m := _mods("U_CALADIUS_A", "U_BOYZ_B", false)
 	_check("your ranged attacks that target it have [IGNORES COVER]", bool(m.ignores_cover) and "Infernus Firebombs" in _names(m))
@@ -1128,6 +1132,8 @@ func _section_sanctified_flames() -> void:
 	var res := _use(1, "sanctified_flames", "U_WITCHSEEKERS_A", "unit_has_shot", ctx, "U_GRETCHIN_C")
 	RE.set_test_seed(-1)
 	_check("a failed battle-shock roll battle-shocks the target", res.get("success", false) and bool(_flags("U_GRETCHIN_C").get("battle_shocked", false)), str(res))
+	_check("one use per shot: not re-offered in the same window (the re-offer / AI loop guard)", _offer(1, "unit_has_shot", ctx, "sanctified_flames").is_empty())
+	_check("... and a second use is refused", not _use(1, "sanctified_flames", "U_WITCHSEEKERS_A", "unit_has_shot", ctx, "U_BOYZ_B").get("success", false))
 	# PSYKER: -1 to the roll.
 	GS.state.units["U_BOYZ_B"].meta.keywords.append("PSYKER")
 	var s7 := _seed_where(2, func(r): return int(r[0]) + int(r[1]) == 7)

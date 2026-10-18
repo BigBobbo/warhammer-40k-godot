@@ -1,0 +1,174 @@
+{
+  "id": "cus11e_ab_sword_of_the_throne",
+  "covers": [
+    "codex.custodes.datasheet_abilities.sword_of_the_throne",
+    "scripts.codex.custodes.CustodesAbilities",
+    "stratagem.window.phase_start",
+    "dialogs.StratagemTargetDialog"
+  ],
+  "description": "WP-C7 Codex: Adeptus Custodes (11e) SWORD OF THE THRONE (Blade Champion) through the real start-of-phase window. Fixture cus11e_c7_round1 (battle round 1, P1 Custodes' Command phase). The phase_start window offers the Sword of the Throne card (cost 'Ability'); a real click opens the enemy picker and a real click selects the Deff Dread as the mark. No CP; the mark flag is stored, the game log names it, the live attack hook gives the Blade Champion +1 to wound against the Deff Dread (and not against the Boyz), and no further offer is made while the mark lives. Setup privileges: auto wound allocation; the Orks (P2) have 0 CP.",
+  "fixture": "cus11e_c7_round1",
+  "edition": 11,
+  "rng_seed": 7,
+  "transition_to_phase": 6,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "expect_state",
+      "path": "meta.battle_round",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "script": "SettingsService.set(\"auto_allocate_wounds\", true)\nGameState.state.players[\"2\"][\"cp\"] = 0\nreturn true",
+      "multiline": true,
+      "comment": "setup privilege: auto wound allocation; player 2 CP 0 (no paid reactive stratagem competes) (see description)",
+      "equals": true
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton",
+      "comment": "secondary mission review (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+      "equals": "phase_start"
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_sword_of_the_throne",
+      "timeout_s": 2.0
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_sword_of_the_throne\").find_child(\"Cost\", true, false).text",
+      "comment": "a datasheet ability card: no CP cost",
+      "equals": "Ability"
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sword_of_the_throne_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_ab_sword_of_the_throne/Buttons/Use_cus11e_ab_sword_of_the_throne_U_BLADE_CHAMPION_A",
+      "comment": "real click: choose the Blade Champion's mark"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_DEFF_DREAD_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_BOYZ_B",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "02_mark_picker"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_DEFF_DREAD_A",
+      "comment": "real click: the Deff Dread is the mark"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": 0
+    },
+    {
+      "act": "expect_state",
+      "path": "units.U_BLADE_CHAMPION_A.flags.cus11e_ab_mark",
+      "equals": "U_DEFF_DREAD_A"
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"Sword of the Throne:\")",
+      "expect_min": 1
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline any other open window (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.5
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "script": "var u = GameState.get_unit(\"U_BLADE_CHAMPION_A\")\nvar w = {\"name\": \"Vaultswords\", \"type\": \"Melee\"}\nvar a = RulesEngine.ork11e_ab_mods(u, GameState.get_unit(\"U_DEFF_DREAD_A\"), w, true, GameState.state, [])\nvar b = RulesEngine.ork11e_ab_mods(u, GameState.get_unit(\"U_BOYZ_B\"), w, true, GameState.state, [])\nprint(\"[wp-c7] sword of the throne: vs mark (Deff Dread) wound_plus=\", a.wound_plus, \" vs Boyz wound_plus=\", b.wound_plus)\nreturn a.wound_plus and not b.wound_plus",
+      "multiline": true,
+      "comment": "+1 to wound for the Blade Champion's attacks against its mark only",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "script": "var A = load(\"res://scripts/codex/custodes/CustodesAbilities.gd\")\nreturn A.needs_mark(\"U_BLADE_CHAMPION_A\")",
+      "multiline": true,
+      "comment": "the mark is chosen: no further offer while it lives",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "03_mark_chosen_log"
+    }
+  ]
+}
