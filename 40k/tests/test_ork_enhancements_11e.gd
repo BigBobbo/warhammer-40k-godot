@@ -418,6 +418,23 @@ func _section_validation() -> void:
 			var w11: Array = alm0.validate_army_construction_11e(off).warnings
 			_check("%s on a %s: rejected (module + ALM 11e)" % [enh_name, other[0]],
 				_warns(off).any(func(x): return str(x).to_upper().contains("BIG MEK WITH SHOKK ATTACK GUN only".to_upper())) and w11.any(func(x): return str(x).contains(enh_name)), "%s | %s" % [str(_warns(off)), str(w11)])
+	# The generic WP-C46 rules (EnhancementRules11e, used for armies this module
+	# does not own) read the same printed restrictions the same way.
+	var ER = load("res://scripts/codex/EnhancementRules11e.gd")
+	var kk_rec: Dictionary = ER.find_enhancement("Taktikal Brigade", "Kill Kommanda")
+	var ts_rec: Dictionary = ER.find_enhancement("Madcap Meks", "Temperamental Shokka")
+	var rm_rec: Dictionary = ER.find_enhancement("Madcap Meks", "Enhanced Runt-maw")
+	var wb_u := {"meta": {"name": "Warboss", "keywords": ["CHARACTER", "INFANTRY", "ORKS", "WARBOSS"]}}
+	var bm_u := {"meta": {"name": "Big Mek", "keywords": ["BIG MEK", "CHARACTER", "INFANTRY", "ORKS"]}}
+	var sag_u := {"meta": {"name": "Big Mek with Shokk Attack Gun", "keywords": ["BIG MEK WITH SHOKK ATTACK GUN", "CHARACTER", "INFANTRY", "MEK", "ORKS"]}}
+	var trike_u := {"meta": {"name": "Deffkilla Wartrike", "keywords": ["CHARACTER", "MOUNTED", "ORKS", "WARBOSS"]}}
+	_check("EnhancementRules11e: Kill Kommanda ('Big Mek/Warboss Infantry') accepted on a Warboss and a Big Mek, refused on a Deffkilla Wartrike",
+		ER.bearer_problem(kk_rec, wb_u, false) == "" and ER.bearer_problem(kk_rec, bm_u, false) == "" and ER.bearer_problem(kk_rec, trike_u, false) != "",
+		"%s | %s | %s" % [ER.bearer_problem(kk_rec, wb_u, false), ER.bearer_problem(kk_rec, bm_u, false), ER.bearer_problem(kk_rec, trike_u, false)])
+	_check("EnhancementRules11e: Temperamental Shokka / Enhanced Runt-maw (Upgrades) accepted on the Big Mek with SAG, refused on a Big Mek",
+		ER.bearer_problem(ts_rec, sag_u, true) == "" and ER.bearer_problem(rm_rec, sag_u, true) == ""
+		and ER.bearer_problem(ts_rec, bm_u, true) != "" and ER.bearer_problem(rm_rec, bm_u, true) != "",
+		"%s | %s | %s" % [ER.bearer_problem(ts_rec, sag_u, true), ER.bearer_problem(rm_rec, sag_u, true), ER.bearer_problem(ts_rec, bm_u, true)])
 	_check("non-codex detachment (Freebooter Krew) is not owned", not E.owns_army_validation(_army("Freebooter Krew", 2000, {})))
 	_check("a Custodes army is not owned", not E.owns_army_validation({"faction": {"name": "Adeptus Custodes", "detachment": "Shield Host", "points": 2000}, "units": {}}))
 	# ArmyListManager integration: the codex checks replace the generic loop.

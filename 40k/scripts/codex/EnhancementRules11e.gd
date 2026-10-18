@@ -150,16 +150,34 @@ static func _unit_terms(unit: Dictionary) -> Array:
 
 
 ## Expand "Infantry/Mounted" style alternatives into concrete phrases.
+## "/" separates alternative KEYWORDS and a keyword can be several words:
+## "Big Mek/Warboss Infantry" is (BIG MEK or WARBOSS) INFANTRY (Codex: Orks,
+## WP-O5). The first alternative keeps the words before the slash; each later
+## one may also start fresh (drop any of those words), so a multi-word left
+## keyword does not glue its first words onto the right one ("Big Warboss").
+## Mirrors server/public/js/lib/enhancement-rules.mjs.
 static func _expand_alternatives(phrase: String) -> Array:
-	var out: Array = [""]
+	var out: Array = [[]]
 	for word in phrase.split(" ", false):
 		var alts: PackedStringArray = str(word).split("/", false)
 		var nxt: Array = []
 		for prefix in out:
-			for a in alts:
-				nxt.append((str(prefix) + " " + a).strip_edges())
+			for ai in range(alts.size()):
+				var keep: Array = (prefix as Array).duplicate()
+				keep.append(alts[ai])
+				nxt.append(keep)
+				if ai > 0:
+					for d in range(1, (prefix as Array).size() + 1):
+						var fresh: Array = (prefix as Array).slice(d)
+						fresh.append(alts[ai])
+						nxt.append(fresh)
 		out = nxt
-	return out
+	var phrases: Array = []
+	for words in out:
+		var p := " ".join(PackedStringArray(words))
+		if not p in phrases:
+			phrases.append(p)
+	return phrases
 
 
 ## True when every word of `phrase` is consumed by the unit's terms.
