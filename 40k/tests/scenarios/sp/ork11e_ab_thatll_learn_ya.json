@@ -5,7 +5,7 @@
   "scripts.codex.orks.OrkAbilities11e",
   "stratagem.window.unit_battle_shocked"
  ],
- "description": "WP-O6 Codex: Orks (11e) THAT'LL LEARN YA (Runtherd, once per battle round) through the real unit_battle_shocked window. Fixture ork11e_ab_command: Gretchin A (led by the Runtherd) are below half strength (4 of 10). Setup privilege: the Gretchin's Ld is set to 13+ so the battle-shock test fails. The battle_shock_step_start window is declined, the Gretchin's test is rolled through the real Battle-shock dialog and fails; the unit_battle_shocked window opens; 'Use on Gretchin': D3 Gretchin are destroyed and the unit (Runtherd too) is no longer battle-shocked.",
+ "description": "WP-O6 Codex: Orks (11e) THAT'LL LEARN YA (Runtherd, once per battle round) through the real unit_battle_shocked window. Fixture ork11e_ab_command: Gretchin A (led by the Runtherd) are below half strength (4 of 10). Setup privileges: the Gretchin's Ld is set to 13+ so the battle-shock test fails, and the Big Mek in Mega Armour is healed so the Gretchin are the only unit to test. The battle_shock_step_start window is declined, the Gretchin's test is rolled through the real Battle-shock dialog and fails; the unit_battle_shocked window opens; 'Use on Gretchin': D3 Gretchin are destroyed and the unit (Runtherd too) is no longer battle-shocked.",
  "fixture": "ork11e_ab_command",
  "edition": 11,
  "rng_seed": 42,
@@ -26,7 +26,7 @@
   },
   {
    "act": "execute_script",
-   "script": "GameState.get_unit(\"U_GRETCHIN_A\").meta.stats[\"leadership\"] = 13\nfor c in tree.root.get_children():\n\tif c is Window and c != tree.root:\n\t\tc.hide()\n\t\tc.queue_free()\nreturn true",
+   "script": "GameState.get_unit(\"U_GRETCHIN_A\").meta.stats[\"leadership\"] = 13\nvar bm = GameState.get_unit(\"U_BIG_MEK_IN_MEGA_ARMOUR_A\").models[0]\nbm[\"current_wounds\"] = bm[\"wounds\"]\nfor c in tree.root.get_children():\n\tif c is Window and c != tree.root:\n\t\tc.hide()\n\t\tc.queue_free()\nreturn true",
    "multiline": true,
    "equals": true,
    "comment": "setup privilege (see description)"
