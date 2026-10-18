@@ -145,6 +145,13 @@ func _on_phase_enter() -> void:
 
 	_initialize_charge()
 
+	# Codex: Adeptus Custodes GRAVIMETRIC GRENADE (CustodesCodex11e.gd):
+	# charge_phase_start — "Start of your opponent's Charge phase" (the
+	# non-active player decides).
+	_cus11e_charge_end_done = false
+	_cus11e_selfless_pending = false
+	_cus11e_open_charge_phase_start_window()
+
 func _on_phase_exit() -> void:
 	log_phase_message("Exiting Charge Phase")
 
@@ -768,11 +775,21 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	# Boarding Ramps (Rollin' Deff): +1 to Charge rolls for a unit that
 	# disembarked this turn from the WAGON bearing the enhancement.
 	charge_bonus += FactionAbilityManager.boarding_ramps_charge_bonus(unit_for_charge_bonus, GameState.state.get("units", {}))
+	# Codex: Adeptus Custodes (CustodesCodex11e.gd): FURY OF THE EMPEROR +2,
+	# GRAVIMETRIC GRENADE -1 (on the enemy unit), INEXORABLE ignores the penalty.
+	charge_bonus = int(_cus11e_codex().charge_roll_modifier(unit_for_charge_bonus, charge_bonus))
 	if charge_bonus > 0:
 		total_distance += charge_bonus
 		charge_data.distance = total_distance
 		log_phase_message("Charge modifier: +%d → %d total" % [charge_bonus, total_distance])
 		DebugLogger.info(str("ChargePhase: PLUS_CHARGE active for %s — base %d + %d = %d" % [
+			unit_name, charge_data.dice_rolls[0] + charge_data.dice_rolls[1], charge_bonus, total_distance
+		]))
+	elif charge_bonus < 0:
+		total_distance = maxi(0, total_distance + charge_bonus)
+		charge_data.distance = total_distance
+		log_phase_message("Charge modifier: %d → %d total" % [charge_bonus, total_distance])
+		DebugLogger.info(str("ChargePhase: charge-roll penalty for %s — base %d %d = %d" % [
 			unit_name, charge_data.dice_rolls[0] + charge_data.dice_rolls[1], charge_bonus, total_distance
 		]))
 
@@ -1712,6 +1729,22 @@ func _process_skip_charge(action: Dictionary) -> Dictionary:
 	return create_result(true, [])
 
 func _process_end_charge(action: Dictionary) -> Dictionary:
+	# Codex: Adeptus Custodes SELFLESS SERVICE (CustodesCodex11e.gd):
+	# charge_phase_end — "End of your opponent's Charge phase" — before the
+	# core HEROIC INTERVENTION window (the non-active player decides).
+	if GameConstants.edition >= 11 and not _cus11e_charge_end_done:
+		_cus11e_charge_end_done = true
+		var cpe_decider := 2 if GameState.get_active_player() == 1 else 1
+		if open_stratagem_window(cpe_decider, "charge_phase_end", {"phase": "charge"}, "_cus11e_resume_after_charge_phase_end"):
+			log_phase_message("End of the Charge phase waits for Player %d's charge_phase_end stratagem decision" % cpe_decider)
+			return create_result(true, consume_window_diffs())
+		var cpe_sync := consume_window_diffs()
+		if not cpe_sync.is_empty():
+			var cont := _process_end_charge(action)
+			var merged: Array = cpe_sync.duplicate()
+			merged.append_array(cont.get("changes", []))
+			cont["changes"] = merged
+			return cont
 	# 11e 15.11: HEROIC INTERVENTION happens once, at the END of the
 	# opponent's Charge phase (the 10e per-charge window is retired) —
 	# offer it to the defender before the phase completes.
@@ -1753,10 +1786,118 @@ func _process_end_charge(action: Dictionary) -> Dictionary:
 # 11e: the END_CHARGE that opened the HI window still owes a phase
 # completion once HI resolves (used, declined, failed, or moved).
 func _complete_phase_after_heroic_intervention_if_pending() -> void:
+	if _cus11e_selfless_pending:
+		return  # SELFLESS SERVICE: the window follow-up continues the phase (_cus11e_hi_result)
 	if _hi_pending_phase_complete:
 		_hi_pending_phase_complete = false
 		log_phase_message("Ending Charge Phase (after Heroic Intervention window)")
 		emit_signal("phase_completed")
+
+# ============================================================================
+# Codex: Adeptus Custodes (WP-C5, CustodesCodex11e.gd) — Charge phase windows
+#   charge_phase_start  GRAVIMETRIC GRENADE (opponent's Charge phase start)
+#   charge_phase_end    SELFLESS SERVICE (opponent's Charge phase end, before HI)
+# SELFLESS SERVICE's charge (follow-up cus11e_selfless_service) is made with the
+# Heroic Intervention machinery: 2D6 capped at 6, the closest enemy unit within
+# 6" as the target, the human drags the models (ChargeController HI path) or
+# the AI's APPLY_HEROIC_INTERVENTION_MOVE places them; its end continues the
+# window flow (_cus11e_hi_result) instead of completing the phase.
+# ============================================================================
+
+var _cus11e_charge_end_done: bool = false   # charge_phase_end opened this phase
+var _cus11e_selfless_pending: bool = false  # a SELFLESS SERVICE charge holds the window follow-up
+
+func _cus11e_open_charge_phase_start_window() -> void:
+	if GameConstants.edition < 11:
+		return
+	var pm = get_node_or_null("/root/PhaseManager")
+	if pm != null and pm.current_phase_instance != self:
+		return
+	var decider := 2 if GameState.get_active_player() == 1 else 1
+	if open_stratagem_window(decider, "charge_phase_start", {"phase": "charge"}, "_cus11e_resume_after_charge_phase_start"):
+		log_phase_message("Waiting for Player %d's charge_phase_start stratagem decision" % decider)
+	var start_diffs := consume_window_diffs()
+	if not start_diffs.is_empty():
+		log_phase_message("charge_phase_start: %d stratagem diff(s) applied by an AI decision at phase entry" % start_diffs.size())
+
+func _cus11e_resume_after_charge_phase_start(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return create_result(true, [])
+
+func _cus11e_resume_after_charge_phase_end(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	log_phase_message("charge_phase_end answered — continuing the end of the Charge phase")
+	return _process_end_charge({"type": "END_CHARGE"})
+
+func _execute_window_followup(player: int, window_id: String, followup: Dictionary, ctx: Dictionary) -> bool:
+	if str(followup.get("type", "")) == "cus11e_selfless_service":
+		return _cus11e_begin_selfless_service(player, followup)
+	return super(player, window_id, followup, ctx)
+
+## SELFLESS SERVICE: "Declare a charge with your unit: if the charge roll is
+## greater than 6 (after modifiers), change it to 6; you can select any enemy
+## units within 6" of your unit and within the maximum distance." Returns true
+## when the charge move pauses the phase (human drag / AI move action).
+func _cus11e_begin_selfless_service(player: int, followup: Dictionary) -> bool:
+	var unit_id := str(followup.get("unit_id", ""))
+	var unit := get_unit(unit_id)
+	var unit_name := str(unit.get("meta", {}).get("name", unit_id))
+	game_state_snapshot = GameState.create_snapshot()
+	var target := _closest_hi_target_11e(unit_id, player, 6.0, false)
+	if unit.is_empty() or target == "":
+		log_phase_message("SELFLESS SERVICE: %s has no enemy unit within 6\" — no charge" % unit_name)
+		return false
+	var rolls: Array = _cus11e_codex().roll_charge_dice()
+	var raw := int(rolls[0]) + int(rolls[1])
+	var total := maxi(0, raw + int(_cus11e_codex().charge_roll_modifier(unit, 0)))
+	if total > 6:
+		log_phase_message("SELFLESS SERVICE: charge roll %d changed to 6" % total)
+		total = 6
+	heroic_intervention_unit_id = unit_id
+	heroic_intervention_player = player
+	heroic_intervention_charging_unit_id = ""
+	heroic_intervention_pending_charge = {"targets": [target], "mode": "cus11e_selfless_service",
+		"declared_at": Time.get_unix_time_from_system(), "distance": total, "dice_rolls": rolls}
+	var sufficient := _is_heroic_intervention_roll_sufficient(unit_id, total, [target])
+	var target_name := str(get_unit(target).get("meta", {}).get("name", target))
+	log_phase_message("SELFLESS SERVICE charge roll: 2D6 = %d (%d + %d) → %d\" vs %s — %s" % [
+		raw, int(rolls[0]), int(rolls[1]), total, target_name, "SUCCESS" if sufficient else "FAILED"])
+	var dice_result := {"context": "charge_roll", "unit_id": unit_id, "unit_name": unit_name, "rolls": rolls,
+		"total": total, "targets": [target], "charge_failed": not sufficient, "source": "SELFLESS SERVICE"}
+	dice_log.append(dice_result)
+	emit_signal("dice_rolled", dice_result)
+	var gel = get_node_or_null("/root/GameEventLog")
+	if gel:
+		gel.add_player_entry(player, "SELFLESS SERVICE: %s charge roll [%d, %d] → %d\" vs %s — %s" % [
+			unit_name, int(rolls[0]), int(rolls[1]), total, target_name, "SUCCESS" if sufficient else "FAILED"])
+	if not sufficient:
+		heroic_intervention_unit_id = ""
+		heroic_intervention_pending_charge = {}
+		heroic_intervention_player = 0
+		emit_signal("charge_resolved", unit_id, false, {"reason": "charge roll too low", "heroic_intervention": true})
+		return false
+	_cus11e_selfless_pending = true
+	emit_signal("charge_path_tools_enabled", unit_id, total)
+	return true
+
+## The SELFLESS SERVICE charge ended (moved / failed / aborted): hand the
+## result to the window follow-up so the end of the Charge phase continues.
+func _cus11e_hi_result(result: Dictionary) -> Dictionary:
+	if not _cus11e_selfless_pending:
+		return result
+	_cus11e_selfless_pending = false
+	var changes: Array = result.get("changes", [])
+	if not changes.is_empty():
+		PhaseManager.apply_state_changes(changes)
+	var cont := _finish_window_followup(changes)
+	return cont
+
+## A pending SELFLESS SERVICE charge move belongs to the stratagem's owner.
+func get_pending_stratagem_window_decider() -> int:
+	var decider := super()
+	if decider > 0:
+		return decider
+	if _cus11e_selfless_pending:
+		return heroic_intervention_player
+	return 0
 
 # Helper Methods
 
@@ -3707,7 +3848,7 @@ func _process_abort_heroic_intervention_move(action: Dictionary) -> Dictionary:
 		"heroic_intervention": true,
 	})
 	_complete_phase_after_heroic_intervention_if_pending()
-	return create_result(true, [])
+	return _cus11e_hi_result(create_result(true, []))
 
 func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("actor_unit_id", "")
@@ -3738,7 +3879,7 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 		})
 		# 11e end-of-phase window: the phase completes once HI resolves
 		_complete_phase_after_heroic_intervention_if_pending()
-		return create_result(true, [])
+		return _cus11e_hi_result(create_result(true, []))
 
 	# Apply successful HI charge movement (path keys may name attached
 	# character models — see _resolve_charge_path_ref)
@@ -3771,6 +3912,11 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 				"value": per_model_rotations[path_key]
 			})
 
+	# Codex: Adeptus Custodes SELFLESS SERVICE (CustodesCodex11e.gd) made with
+	# this machinery: "Declare a charge with your unit" — a charge, so it gets
+	# a charge's Fights First (RULINGS WP-C5), not the HI markers.
+	var cus11e_ss := str(charge_data.get("mode", "")) == "cus11e_selfless_service"
+
 	# Mark unit as charged BUT NOT fights_first (key difference for Heroic Intervention)
 	# Per 10e rules: Heroic Intervention does NOT grant Fights First
 	changes.append({
@@ -3781,19 +3927,27 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 	# Explicitly do NOT set fights_first — this is the key mechanical difference
 	# The unit fights in the normal (Remaining Combats) subphase
 
-	# Mark as heroic intervention unit for tracking
-	changes.append({
-		"op": "set",
-		"path": "units.%s.flags.heroic_intervention" % unit_id,
-		"value": true
-	})
+	if cus11e_ss:
+		changes.append({"op": "set", "path": "units.%s.flags.fights_first" % unit_id, "value": true})
+		for ss_tid in charge_data.get("targets", []):
+			changes.append({"op": "set", "path": "units.%s.flags.has_been_charged" % str(ss_tid), "value": true})
+	else:
+		# Mark as heroic intervention unit for tracking
+		changes.append({
+			"op": "set",
+			"path": "units.%s.flags.heroic_intervention" % unit_id,
+			"value": true
+		})
 
 	# Attached CHARACTER(s) ride the Heroic Intervention with their bodyguard.
 	# HI does NOT grant Fights First, so neither does the character.
-	changes.append_array(_charge_attached_character_changes(unit_id, per_model_paths, false))
+	changes.append_array(_charge_attached_character_changes(unit_id, per_model_paths, cus11e_ss))
 
 	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	log_phase_message("HEROIC INTERVENTION successful: %s counter-charged into engagement range" % unit_name)
+	if cus11e_ss:
+		log_phase_message("SELFLESS SERVICE successful: %s charged into engagement range" % unit_name)
+	else:
+		log_phase_message("HEROIC INTERVENTION successful: %s counter-charged into engagement range" % unit_name)
 
 	emit_signal("charge_resolved", unit_id, true, {
 		"distance": charge_data.distance,
@@ -3809,7 +3963,7 @@ func _process_apply_heroic_intervention_move(action: Dictionary) -> Dictionary:
 	# 11e end-of-phase window: the phase completes once HI resolves
 	_complete_phase_after_heroic_intervention_if_pending()
 
-	return create_result(true, changes)
+	return _cus11e_hi_result(create_result(true, changes))
 
 # Every model of the Attached unit making a Heroic Intervention: the selected
 # unit's own models plus its attached CHARACTER(s)'. 19.01 makes them one unit,

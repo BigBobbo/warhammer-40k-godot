@@ -155,6 +155,7 @@ func _init():
 
 func _on_phase_enter() -> void:
 	log_phase_message("Entering Fight Phase")
+	_cus11e_step_asked.clear()
 	# Big Gob (Bully Boyz enhancement): at the start of the Fight phase the
 	# bearer bellows at the nearest engaged enemy — Battle-shock test at -1.
 	var fam = get_node_or_null("/root/FactionAbilityManager")
@@ -605,6 +606,10 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_end_consolidation(action)
 		"END_PILE_IN":
 			return _validate_end_pile_in(action)
+		# Codex: Adeptus Custodes (CustodesCodex11e.gd): a unit chosen in the Pile In /
+		# Consolidate step opens unit_selected_to_pile_in / _to_consolidate first.
+		"CUS11E_SELECT_PILE_IN_UNIT", "CUS11E_SELECT_CONSOLIDATION_UNIT":
+			return _cus11e_validate_step_unit(action)
 		"SWEEPING_ADVANCE":
 			return _validate_sweeping_advance(action)
 		"DECLINE_SWEEPING_ADVANCE":
@@ -688,6 +693,8 @@ func _process_fight_action(action: Dictionary) -> Dictionary:
 			return _process_end_consolidation(action)
 		"END_PILE_IN":
 			return _process_end_pile_in(action)
+		"CUS11E_SELECT_PILE_IN_UNIT", "CUS11E_SELECT_CONSOLIDATION_UNIT":
+			return _cus11e_process_step_unit(action)
 		"SWEEPING_ADVANCE":
 			return _process_sweeping_advance(action)
 		"DECLINE_SWEEPING_ADVANCE":
@@ -2968,6 +2975,34 @@ func _finish_fight_activation_11e(final_result: Dictionary) -> Dictionary:
 	# — keep the 12.08 consolidation-eligibility stamps cumulative.
 	_stamp_fight_eligibility_11e()
 
+	# Codex: Adeptus Custodes VIGIL UNENDING / IN AURAMITE CLAD end "until that
+	# enemy unit has attacked" (CustodesCodex11e.gd).
+	_cus11e_codex().on_unit_has_attacked(unit_id)
+	# Codex: Adeptus Custodes INDOMITABLE GUARDIANS (CustodesCodex11e.gd): the
+	# opponent's enemy_has_fought window ("Your opponent's Fight phase, when an
+	# enemy unit has fought") opens before the next selection / Counter-Offensive.
+	var fought_owner := int(get_unit(unit_id).get("owner", 0))
+	if GameConstants.edition >= 11 and fought_owner == GameState.get_active_player():
+		var ehf_decider := 2 if fought_owner == 1 else 1
+		var ehf_ctx := {"phase": "fight", "enemy_unit_id": unit_id, "attacker_unit_id": unit_id}
+		if open_stratagem_window(ehf_decider, "enemy_has_fought", ehf_ctx, "_cus11e_resume_after_enemy_has_fought"):
+			log_phase_message("Waiting for Player %d's enemy_has_fought stratagem decision (%s has fought)" % [ehf_decider, unit_id])
+			changes.append_array(consume_window_diffs())
+			final_result["changes"] = changes
+			return final_result
+		var ehf_sync := consume_window_diffs()
+		if not ehf_sync.is_empty():
+			changes.append_array(ehf_sync)
+			final_result["changes"] = changes
+	return _after_enemy_has_fought_window(unit_id, final_result)
+
+## Resume point for the enemy_has_fought window (BasePhase framework).
+func _cus11e_resume_after_enemy_has_fought(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _after_enemy_has_fought_window(str(ctx.get("enemy_unit_id", "")), create_result(true, []))
+
+## Everything after "this unit has fought" once the enemy_has_fought window
+## has closed: the Counter-Offensive offer, then the next fighter selection.
+func _after_enemy_has_fought_window(unit_id: String, final_result: Dictionary) -> Dictionary:
 	# Counter-Offensive window (11e 15.12) — "Fight step of your OPPONENT'S
 	# Fight phase, just after an enemy unit has resolved its attacks".
 	var fought_unit = get_unit(unit_id)
@@ -3092,15 +3127,19 @@ func _ork11e_fod_intercept(changes: Array) -> void:
 		var rng = RulesEngine.make_rng()
 		var roll: int = int(rng.roll_d6(1)[0])
 		var mod_info: Dictionary = OrkCodexFight.fod_roll_modifier(uid)
+		# Codex: Adeptus Custodes DUTY UNTO DEATH (CustodesCodex11e.gd): same mechanic, 3+ (+1 for a CHARACTER model).
+		if _cus11e_codex().is_fod_mode(mode):
+			mod_info = _cus11e_codex().fod_roll(uid, idx)
+		var fod_pass := int(mod_info.get("pass", OrkCodexFight.FOD_PASS))
 		var mod := int(mod_info.get("mod", 0))
 		var total := roll + mod
-		var kept := total >= OrkCodexFight.FOD_PASS
+		var kept := total >= fod_pass
 		var msg := "%s: %s destroyed — D6 %d%s = %d (%d+ needed): %s" % [
-			source, label, roll, (" %s" % str(mod_info.get("note", ""))) if mod != 0 else "", total, OrkCodexFight.FOD_PASS,
+			source, label, roll, (" %s" % str(mod_info.get("note", ""))) if mod != 0 else "", total, fod_pass,
 			"NOT REMOVED — it stays on the battlefield until its unit has fought or the end of the phase" if kept else "removed"]
 		log_phase_message(msg)
 		DebugLogger.info(str("FightPhase: [ork11e FOD] " + msg))
-		var raw_needed := clampi(OrkCodexFight.FOD_PASS - mod, 1, 7)
+		var raw_needed := clampi(fod_pass - mod, 1, 7)
 		var dice_block := {"context": "ork11e_fight_on_death", "stratagem": source, "unit_id": uid, "model_index": idx,
 			"rolls_raw": [roll], "rolls_modified": [total], "modifier": mod, "threshold": "%d+" % raw_needed,
 			"successes": 1 if kept else 0, "kept": kept, "message": msg}
@@ -4046,6 +4085,78 @@ func _pile_in_eligible_units_11e(player: int) -> Array:
 			continue
 		out.append(unit_id)
 	return out
+
+# ============================================================================
+# Codex: Adeptus Custodes (WP-C5, CustodesCodex11e.gd) — the unit chosen in the
+# Pile In / Consolidate step opens its stratagem window first:
+#   unit_selected_to_pile_in      LIGHTNING WRATH (pile-in move up to D3+3")
+#   unit_selected_to_consolidate  EMPEROR'S DOMAIN (objective mode)
+# The FightController sends CUS11E_SELECT_*_UNIT only when the unit's owner
+# has such a stratagem (CustodesCodex11e.player_has_window_stratagem) and
+# starts the move when cus11e_step_unit_ready fires (at once, or when the
+# window closes).
+# ============================================================================
+
+signal cus11e_step_unit_ready(kind: String, unit_id: String, max_inches: float)
+
+var _cus11e_step_asked: Dictionary = {}  # "<pile_in|consolidate>:<unit_id>" -> true: its window was opened this phase
+
+## Has this unit's step window already been opened this phase (AIDecisionMaker
+## asks before it computes the move; a re-selection skips the window).
+func cus11e_step_unit_asked(kind: String, unit_id: String) -> bool:
+	return _cus11e_step_asked.has("%s:%s" % [kind, unit_id])
+
+func _cus11e_validate_step_unit(action: Dictionary) -> Dictionary:
+	var unit_id := str(action.get("unit_id", ""))
+	var unit := get_unit(unit_id)
+	if unit.is_empty():
+		return {"valid": false, "errors": ["Unit %s not found" % unit_id]}
+	if str(action.get("type", "")) == "CUS11E_SELECT_PILE_IN_UNIT":
+		if pile_in_step_11e != PileInStep11e.ACTIVE:
+			return {"valid": false, "errors": ["Not in the Pile In step"]}
+		if int(unit.get("owner", 0)) != piling_in_player_11e:
+			return {"valid": false, "errors": ["Not your half of the Pile In step (Player %d piles in)" % piling_in_player_11e]}
+		if not unit_id in _pile_in_eligible_units_11e(piling_in_player_11e):
+			return {"valid": false, "errors": ["%s cannot pile in now" % unit_id]}
+	else:
+		if consolidation_step_11e != ConsolidationStep11e.ACTIVE:
+			return {"valid": false, "errors": ["Not in the Consolidate step"]}
+		if int(unit.get("owner", 0)) != consolidating_player_11e:
+			return {"valid": false, "errors": ["Not your half of the Consolidate step (Player %d consolidates)" % consolidating_player_11e]}
+		if not unit_id in _consolidation_eligible_units_11e(consolidating_player_11e):
+			return {"valid": false, "errors": ["%s cannot consolidate now" % unit_id]}
+	return {"valid": true, "errors": []}
+
+func _cus11e_process_step_unit(action: Dictionary) -> Dictionary:
+	var unit_id := str(action.get("unit_id", ""))
+	var pile := str(action.get("type", "")) == "CUS11E_SELECT_PILE_IN_UNIT"
+	var window_id := "unit_selected_to_pile_in" if pile else "unit_selected_to_consolidate"
+	var owner := int(get_unit(unit_id).get("owner", 0))
+	var ctx := {"phase": "fight", "unit_id": unit_id, "step_kind": "pile_in" if pile else "consolidate"}
+	var asked_key := "%s:%s" % [str(ctx.step_kind), unit_id]
+	if _cus11e_step_asked.has(asked_key):
+		return _cus11e_step_unit_ready(str(ctx.step_kind), unit_id)
+	_cus11e_step_asked[asked_key] = true
+	if open_stratagem_window(owner, window_id, ctx, "_cus11e_resume_after_step_unit_window"):
+		log_phase_message("Waiting for Player %d's %s stratagem decision (%s)" % [owner, window_id, unit_id])
+		return create_result(true, consume_window_diffs())
+	var res := _cus11e_step_unit_ready(str(ctx.step_kind), unit_id)
+	var sync := consume_window_diffs()
+	if not sync.is_empty():
+		res["changes"] = sync
+	return res
+
+func _cus11e_resume_after_step_unit_window(ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	return _cus11e_step_unit_ready(str(ctx.get("step_kind", "pile_in")), str(ctx.get("unit_id", "")))
+
+## The chosen unit may now make its move: tell the controller (signal + result).
+func _cus11e_step_unit_ready(kind: String, unit_id: String) -> Dictionary:
+	var inches := 3.0
+	if kind == "pile_in":
+		inches = maxf(3.0, float(_cus11e_codex().pile_in_inches(unit_id)))
+	log_phase_message("%s is ready to %s (up to %.0f\")" % [unit_id, "pile in" if kind == "pile_in" else "consolidate", inches])
+	emit_signal("cus11e_step_unit_ready", kind, unit_id, inches)
+	return create_result(true, [], "", {"cus11e_step_unit_ready": {"kind": kind, "unit_id": unit_id, "max_inches": inches}})
 
 # Enter the Pile In step (12.02) — the fight phase opens here at e11:
 # both players make pile-in moves with the eligible units they choose,
@@ -6404,10 +6515,10 @@ func _fight_pivot_cost_for_model(unit: Dictionary, model: Dictionary) -> float:
 		return 2.0
 	return 0.0
 
-func _fight_effective_move_cap(unit: Dictionary, model: Dictionary, rotations: Dictionary, key) -> float:
+func _fight_effective_move_cap(unit: Dictionary, model: Dictionary, rotations: Dictionary, key, base_cap: float = 3.0) -> float:
 	# The positional distance a model may move: 3" minus the pivot cost if the
 	# action pivots it (new facing differs from its current stored facing).
-	var cap := 3.0
+	var cap := base_cap
 	var new_rot = _fight_rotation_for_key(rotations, key)
 	if new_rot != null:
 		var old_rot = float(model.get("rotation", 0.0))
@@ -6521,12 +6632,14 @@ func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 		var dist = Measurement.distance_inches(old_pos, new_pos)
 		# A pivoted model spends part of its 3" on the pivot cost (Pariah Nexus).
 		var move_model = _resolve_fight_model(route.unit_id, route.model_key)
-		var cap = _fight_effective_move_cap(get_unit(route.unit_id), move_model, rotations, key)
+		# Codex: Adeptus Custodes LIGHTNING WRATH (CustodesCodex11e.gd): a D3+3" pile-in move.
+		var pile_base_cap := maxf(3.0, float(_cus11e_codex().pile_in_inches(unit_id))) if pile_in_step_11e == PileInStep11e.ACTIVE else 3.0
+		var cap = _fight_effective_move_cap(get_unit(route.unit_id), move_model, rotations, key, pile_base_cap)
 		if dist > cap + MOVEMENT_CAP_EPSILON:
-			if cap < 3.0:
+			if cap < pile_base_cap:
 				errors.append("Model %s pile in exceeds %.0f\" limit after pivot cost (%.1f\")" % [str(key), cap, dist])
 			else:
-				errors.append("Model %s pile in exceeds 3\" limit (%.1f\")" % [str(key), dist])
+				errors.append("Model %s pile in exceeds %.0f\" limit (%.1f\")" % [str(key), pile_base_cap, dist])
 		if dist > 0.01:
 			var ok = tmpl.model_move_allowed(unit_id, move_model, {"x": new_pos.x, "y": new_pos.y}, GameState.state, ctx)
 			if not ok.allowed:

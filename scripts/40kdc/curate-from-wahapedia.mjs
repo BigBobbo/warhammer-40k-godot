@@ -63,6 +63,69 @@ export function inferWindows(when) {
   return [];
 }
 
+// Windows CONFIRMED by the codex implementation pass (csv_id -> window ids;
+// [] = S-panel stratagem). They win over the WHEN inference, so a re-run of
+// this script keeps them. Codex: Adeptus Custodes — WP-C5
+// (scripts/codex/custodes/CustodesCodex11e.gd, RULINGS.md § WP-C5).
+const CONFIRMED_WINDOWS = {
+  'psy-chaff-volley-null-maiden-vigil': ['unit_has_shot'],
+  'purgation-sweep-null-maiden-vigil': ['unit_selected_to_shoot'],
+  'anathema-blademastery-null-maiden-vigil': ['unit_selected_to_fight'],
+  'duty-unto-death-auric-champions': ['enemy_targets_unit_fight'],
+  'gilded-champion-auric-champions': [],            // "Any phase, when ... has used" — S panel
+  'fury-of-the-emperor-lions-of-the-emperor': ['unit_declares_charge'],
+  'unleash-the-lions-lions-of-the-emperor': [],     // "Your Command phase" — S panel
+  'vigil-unending-lions-of-the-emperor': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'unstoppable-momentum-might-of-the-moritoi': ['unit_selected_to_move', 'unit_declares_charge'],
+  'honoured-interred-might-of-the-moritoi': [],     // "Your Shooting phase or the Fight phase" — S panel
+  'unceasing-onslaught-might-of-the-moritoi': ['unit_ended_advance_move'],
+  'indomitable-guardians-shadowkeepers': ['enemy_has_fought'],
+  'no-escape-shadowkeepers': ['enemy_ended_move'],
+  'grim-responsibility-shadowkeepers': ['unit_selected_to_fight'],
+  'superhuman-focus-guardians-of-the-throne': ['phase_end'],
+  'shield-of-honour-guardians-of-the-throne': ['fight_phase_start'],
+  'unlimited-endurance-guardians-of-the-throne': ['unit_ended_advance_move'],
+  'swift-as-the-eagle-guardians-of-the-throne': ['enemy_ended_move'],
+  'in-auramite-clad-guardians-of-the-throne': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'prime-target-guardians-of-the-throne': ['unit_selected_to_shoot'],
+  'avenge-the-fallen-honoured-companions': ['unit_selected_to_fight'],
+  'emperors-domain-honoured-companions': ['unit_selected_to_consolidate'],
+  'swift-as-the-eagle-honoured-companions': ['enemy_ended_move'],
+  'at-spears-length-solar-watch': ['unit_selected_to_move'],
+  'gravimetric-grenade-solar-watch': ['charge_phase_start'],
+  'inexorable-solar-watch': ['unit_selected_to_move'],
+  'impenetrable-bastion-emperors-chosen': ['movement_phase_end'],
+  'in-auramite-clad-emperors-chosen': ['enemy_targets_unit_shooting', 'enemy_targets_unit_fight'],
+  'superhuman-focus-emperors-chosen': ['phase_end'],
+  'bearers-of-his-light-emissaries-imperatus': ['unit_selected_to_fight'],
+  'slayers-of-nightmares-emissaries-imperatus': ['unit_selected_to_fight'],
+  'selfless-service-emissaries-imperatus': ['charge_phase_end'],
+  'rapid-reactions-aquilan-shield': ['enemy_ended_move'],
+  'manoeuvre-and-fire-aquilan-shield': ['unit_selected_to_move'],
+  'tip-of-the-talon-aquilan-shield': ['unit_selected_to_shoot'],
+  'advanced-stabilisers-grav-assault-force': ['unit_selected_to_shoot'],
+  'victory-before-death-grav-assault-force': ['unit_destroyed'],
+  'inevitable-annihilation-grav-assault-force': ['unit_selected_to_shoot'],
+  'golden-light-of-the-moiraides-dread-host': ['unit_selected_to_ingress'],
+  'preternatural-rapidity-dread-host': ['unit_ended_advance_move'],
+  'lightning-wrath-dread-host': ['unit_selected_to_pile_in'],
+};
+
+// Editorial duration phrases (see orks_codex_11e.json): where the printed
+// EFFECT leaves the duration implicit, StratagemManager.use_stratagem's
+// expiry needs it spelled out. Not codex text — appended as "(Duration: …)".
+const DURATION_PHRASES = {
+  // The advance / fall-back move "does not prevent your unit from being
+  // eligible" to shoot / charge later THIS TURN.
+  'preternatural-rapidity-dread-host': 'until the end of the turn',
+  'at-spears-length-solar-watch': 'until the end of the turn',
+  'manoeuvre-and-fire-aquilan-shield': 'until the end of the turn',
+  // The reactive charge's Fights First lasts until the end of the turn (11.04).
+  'no-escape-shadowkeepers': 'until the end of the turn',
+  // "Until the start of your next turn" = the start of your next Command phase.
+  'golden-light-of-the-moiraides-dread-host': 'until the start of your next Command phase',
+};
+
 function parseDescription(html) {
   const text = String(html).replace(/<br\s*\/?>\s*<br\s*\/?>/gi, '\n\n');
   const part = label => {
@@ -103,9 +166,11 @@ function build(factionId) {
     for (const s of strats.filter(x => x.detachment_id === d.id)) {
       const name = straight(stripHtml(s.name)).toUpperCase();
       const parts = parseDescription(s.description);
-      const windows = inferWindows(parts.when);
       const csvId = `${slug(stripHtml(s.name))}-${did}`;
-      review.push(`${csvId}: ${windows.length ? windows.join(',') : 'NO WINDOW (S panel)'} <- "${parts.when}"`);
+      const inferred = inferWindows(parts.when);
+      const confirmed = Object.prototype.hasOwnProperty.call(CONFIRMED_WINDOWS, csvId);
+      const windows = confirmed ? CONFIRMED_WINDOWS[csvId] : inferred;
+      review.push(`${csvId}: ${windows.length ? windows.join(',') : 'NO WINDOW (S panel)'}${confirmed ? ' [CONFIRMED]' : ''} <- "${parts.when}"`);
       stratagems.push({
         csv_id: csvId,
         name,
@@ -120,7 +185,7 @@ function build(factionId) {
         target: parts.target,
         effect: parts.effect,
         restrictions: parts.restrictions,
-        duration_phrase: null,
+        duration_phrase: DURATION_PHRASES[csvId] ?? null,
         source: `Wahapedia wh40k11ed/factions/${slug(cfg.name)}/ (export ${stamp}). Flavour: ${stripHtml(s.legend)}`,
       });
     }
@@ -130,8 +195,9 @@ function build(factionId) {
       `Codex: ${cfg.name} (11th edition) stratagems + detachment rules, generated by`,
       'scripts/40kdc/curate-from-wahapedia.mjs from the Wahapedia snapshot in',
       `.llm/codex_11e_wahapedia/${cfg.dir}/wahapedia (export ${stamp}). WHEN/TARGET/EFFECT are the`,
-      'printed text. windows were INFERRED from WHEN (see _window_review) and must be confirmed',
-      'by the codex implementation pass. duration_phrase is editorial (see orks_codex_11e.json).',
+      'printed text. windows were INFERRED from WHEN (see _window_review) unless the codex',
+      'implementation pass CONFIRMED them (CONFIRMED_WINDOWS in the script, marked [CONFIRMED]).',
+      'duration_phrase is editorial (see orks_codex_11e.json; DURATION_PHRASES in the script).',
       'Boarding Actions detachments are out of scope (owner decision D3).',
       `Counts: ${detachments.length} detachments, ${stratagems.length} stratagems.`,
     ],

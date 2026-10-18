@@ -17031,6 +17031,10 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 		if action_types.has("PILE_IN"):
 			var a = action_types["PILE_IN"][0]
 			var uid = a.get("unit_id", "")
+			# Codex: Adeptus Custodes LIGHTNING WRATH: its window opens first.
+			var cus_pi := _cus11e_ai_step_select("pile_in", str(uid), player)
+			if not cus_pi.is_empty():
+				return cus_pi
 			return _compute_pile_in_action(snapshot, uid, player)
 
 		# Then assign attacks — but check for repeated failures first
@@ -17156,6 +17160,10 @@ static func _decide_fight(snapshot: Dictionary, available_actions: Array, player
 	if action_types.has("CONSOLIDATE"):
 		var a = action_types["CONSOLIDATE"][0]
 		var uid = a.get("unit_id", "")
+		# Codex: Adeptus Custodes EMPEROR'S DOMAIN: its window opens first.
+		var cus_co := _cus11e_ai_step_select("consolidate", str(uid), player)
+		if not cus_co.is_empty():
+			return cus_co
 		return _compute_consolidate_action(snapshot, uid, player)
 
 	# Step 5b (11e 12.07): all our units consolidated (or none eligible) —
@@ -17864,6 +17872,25 @@ static func _fold_attached_unit_for_ai(snapshot: Dictionary, unit_id: String) ->
 			folded.models.append(m)
 	return folded
 
+## Codex: Adeptus Custodes (CustodesCodex11e.gd): before the AI computes a
+## pile-in / consolidation move for a unit whose owner has a stratagem for that
+## step (LIGHTNING WRATH / EMPEROR'S DOMAIN), it selects the unit with
+## CUS11E_SELECT_*_UNIT so the window opens (decided synchronously by
+## decide_window_stratagem). {} = compute the move now.
+static func _cus11e_ai_step_select(kind: String, unit_id: String, player: int) -> Dictionary:
+	if GameConstants.edition < 11 or unit_id == "":
+		return {}
+	var window_id := "unit_selected_to_pile_in" if kind == "pile_in" else "unit_selected_to_consolidate"
+	if not load("res://scripts/codex/custodes/CustodesCodex11e.gd").player_has_window_stratagem(player, window_id):
+		return {}
+	var pm = Engine.get_main_loop().root.get_node_or_null("/root/PhaseManager") if Engine.get_main_loop() else null
+	var phase = pm.current_phase_instance if pm != null else null
+	if phase == null or not phase.has_method("cus11e_step_unit_asked") or phase.cus11e_step_unit_asked(kind, unit_id):
+		return {}
+	return {"type": "CUS11E_SELECT_PILE_IN_UNIT" if kind == "pile_in" else "CUS11E_SELECT_CONSOLIDATION_UNIT",
+		"unit_id": unit_id, "player": player,
+		"_ai_description": "%s selected to %s" % [unit_id, "pile in" if kind == "pile_in" else "consolidate"]}
+
 static func _compute_pile_in_action(snapshot: Dictionary, unit_id: String, player: int) -> Dictionary:
 	"""Compute pile-in movements for a unit. Each model moves up to 3" toward the
 	closest enemy model (edge-to-edge). Models already in base contact stay put.
@@ -17960,7 +17987,8 @@ static func _compute_pile_in_movements(snapshot: Dictionary, unit_id: String, un
 	var friendly_obstacles = obstacle_split.friendly + extra_friendly_obstacles
 	var enemy_obstacles = obstacle_split.enemy
 
-	var pile_in_range_px = 3.0 * PIXELS_PER_INCH  # 3" in pixels
+	# Codex: Adeptus Custodes LIGHTNING WRATH: a D3+3" pile-in move.
+	var pile_in_range_px = maxf(3.0, float(load("res://scripts/codex/custodes/CustodesCodex11e.gd").pile_in_inches(unit_id))) * PIXELS_PER_INCH
 	var base_contact_threshold_px = 0.1 * PIXELS_PER_INCH  # Match FightPhase tolerance (0.1")
 
 	# Track placed positions to avoid intra-unit collisions
@@ -18199,6 +18227,12 @@ static func _compute_consolidate_action(snapshot: Dictionary, unit_id: String, p
 	# assessed on the ATTACHED unit (19.03) — the validator folds the attached
 	# characters' models in, so the AI must judge range gates the same way.
 	var mode = _determine_ai_consolidate_mode(snapshot, _fold_attached_unit_for_ai(snapshot, unit_id), player)
+	# Codex: Adeptus Custodes EMPEROR'S DOMAIN: objective mode regardless of the
+	# Before Moving restrictions (when an objective can be selected).
+	if mode != "OBJECTIVE" and load("res://scripts/codex/custodes/CustodesCodex11e.gd").consolidation_objective_override(unit_id) \
+			and not _ai_consolidate_objective_target(snapshot, _fold_attached_unit_for_ai(snapshot, unit_id), forced_objective_id).is_empty():
+		print("AIDecisionMaker: EMPEROR'S DOMAIN — %s consolidates in objective mode" % unit_id)
+		mode = "OBJECTIVE"
 	var movements = {}
 
 	# 12.08 BEFORE (Objective mode): the whole unit selects ONE objective. Resolve
@@ -22183,6 +22217,17 @@ static func _ork_codex():
 		_ork_codex_dispatcher = load("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
 	return _ork_codex_dispatcher
 
+## The codex dispatcher (Codex: Orks OrkCodex11e.gd / Codex: Adeptus Custodes
+## CustodesCodex11e.gd, WP-C5) that owns `strat`, or null — both have the same
+## handler API (ai_kind / ai_score / ...). Loaded on first use (see _ork_codex).
+static func _codex_for_strat(strat: Dictionary):
+	if _ork_codex().handles(strat):
+		return _ork_codex()
+	var cc = load("res://scripts/codex/custodes/CustodesCodex11e.gd")
+	if cc != null and cc.handles(strat):
+		return cc
+	return null
+
 ## Codex: Adeptus Custodes army rules (CustodesKatah.gd) — loaded on first use,
 ## like _ork_codex (a const preload extends the `godot -s` compile cascade).
 static func _custodes_katah():
@@ -22541,10 +22586,11 @@ static func _score_faction_stratagem_use(strat_name: String, strat: Dictionary,
 	# Codex: Orks (11e) S-panel stratagems (no window — DREAD POWER, DELICIOUS
 	# EATING SQUIGS): the codex handler scores each friendly target (keyed by
 	# csv_id, so a 10e name-keyed heuristic below can never claim a codex row).
-	if _ork_codex().handles(strat):
+	var panel_codex = _codex_for_strat(strat)
+	if panel_codex != null:
 		var cbest := {}
 		for cuid in friendly_units:
-			var cscore: float = _ork_codex().ai_score(strat, player, str(cuid), "", {"phase": phase_name})
+			var cscore: float = panel_codex.ai_score(strat, player, str(cuid), "", {"phase": phase_name})
 			if cscore > float(cbest.get("score", 0.0)) and _faction_stratagem_usable(player, strat, str(cuid)):
 				cbest = {"unit_id": str(cuid), "unit_name": _dn(friendly_units[cuid], str(cuid)), "score": cscore,
 					"reason": "codex heuristic (%.1f)" % cscore}
@@ -22957,10 +23003,10 @@ static func evaluate_reactive_stratagem(defending_player: int, available_stratag
 				continue
 
 			var score: float
-			if strat_entry.has("window_id") and _ork_codex().handles(strat):
+			if strat_entry.has("window_id") and _codex_for_strat(strat) != null:
 				# Window offer folded into the shooting reactive dialog: the
 				# codex handler scores it (its effects list is just a marker).
-				score = _ork_codex().ai_score(strat, defending_player, unit_id,
+				score = _codex_for_strat(strat).ai_score(strat, defending_player, unit_id,
 					str(strat_entry.get("window_id", "")), strat_entry.get("window_ctx", {}))
 			else:
 				score = _score_defensive_stratagem_target(unit, strat)
@@ -23054,13 +23100,14 @@ static func decide_window_stratagem(player: int, window_id: String, offers: Arra
 		var sid := str(offer.get("stratagem_id", ""))
 		var strat: Dictionary = sm.get_stratagem(sid)
 		var cost := int(offer.get("cp_cost", strat.get("cp_cost", 1)))
-		var is_codex: bool = _ork_codex().handles(strat)
-		var kind: String = str(_ork_codex().ai_kind(strat)) if is_codex else "defensive"
+		var codex = _codex_for_strat(strat)
+		var is_codex: bool = codex != null
+		var kind: String = str(codex.ai_kind(strat)) if is_codex else "defensive"
 		for t in offer.get("targets", []):
 			var tid := str(t.get("unit_id", ""))
 			var score := 0.0
 			if is_codex:
-				score = _ork_codex().ai_score(strat, player, tid, window_id, ctx)
+				score = codex.ai_score(strat, player, tid, window_id, ctx)
 			elif units.has(tid):
 				score = _score_defensive_stratagem_target(units[tid], strat)
 			var threshold := 2.0

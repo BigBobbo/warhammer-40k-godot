@@ -757,19 +757,31 @@ static func get_effect_crit_hit_on(unit: Dictionary) -> int:
 
 static func has_effect_fall_back_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and shoot eligibility."""
-	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_SHOOT, false)
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant (survives the Shooting phase effect_* wipe).
+	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_SHOOT, false) or _cus11e_grants(unit, "fall_back_and_shoot")
 
 static func has_effect_fall_back_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and charge eligibility."""
-	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_CHARGE, false)
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant (survives the Shooting phase effect_* wipe).
+	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_CHARGE, false) or _cus11e_grants(unit, "fall_back_and_charge")
 
 static func has_effect_advance_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and charge eligibility."""
-	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_CHARGE, false)
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant (survives the Shooting phase effect_* wipe).
+	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_CHARGE, false) or _cus11e_grants(unit, "advance_and_charge")
 
 static func has_effect_advance_and_shoot(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted advance and shoot eligibility."""
-	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_SHOOT, false)
+	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): turn-long cus11e_* grant (survives the Shooting phase effect_* wipe).
+	return unit.get("flags", {}).get(FLAG_ADVANCE_AND_SHOOT, false) or _cus11e_grants(unit, "advance_and_shoot")
+
+## Codex: Adeptus Custodes stratagems (WP-C5): UNCEASING ONSLAUGHT, UNLIMITED
+## ENDURANCE, PRETERNATURAL RAPIDITY, AT SPEAR'S LENGTH, MANOEUVRE AND FIRE,
+## ADVANCED STABILISERS write cus11e_* flags; CustodesCodex11e.grants reads them.
+static func _cus11e_grants(unit: Dictionary, what: String) -> bool:
+	if unit.is_empty() or unit.get("flags", {}).is_empty():
+		return false
+	return bool(load("res://scripts/codex/custodes/CustodesCodex11e.gd").grants(unit, what))
 
 static func has_effect_reroll_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted charge reroll (e.g. Swift Onslaught)."""

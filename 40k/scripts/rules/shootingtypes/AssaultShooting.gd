@@ -18,7 +18,7 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 		reasons.append("unit is engaged (10.05)")
 	if not _advanced(unit):
 		reasons.append("unit did not make an advance move this turn (10.05)")
-	if not _unit_has_weapon_with(unit, "assault"):
+	if not _unit_has_weapon_with(unit, "assault") and not _cus11e_all_assault(unit, true):
 		reasons.append("no [ASSAULT] weapons (10.05)")
 	if _unit(unit_id, board).get("flags", {}).get("cannot_shoot", false):
 		reasons.append("unit cannot shoot (performing an action, 16.01)")
@@ -26,6 +26,17 @@ func eligible(unit_id: String, board: Dictionary) -> Dictionary:
 
 
 func weapon_allowed(weapon_profile: Dictionary, _unit: Dictionary, _board: Dictionary) -> Dictionary:
-	if not _weapon_has(weapon_profile, "assault"):
+	if not _weapon_has(weapon_profile, "assault") and not _cus11e_all_assault(_unit, false):
 		return {"allowed": false, "reason": "only [ASSAULT] weapons after advancing (10.05)"}
 	return {"allowed": true, "reason": ""}
+
+
+## Codex: Adeptus Custodes ADVANCED STABILISERS (CustodesCodex11e.gd): "your
+## unit's ranged attacks have [ASSAULT]". selecting: the unit may still be
+## selected because the stratagem could be used on it (its window opens on
+## selection, before the flag exists).
+static func _cus11e_all_assault(unit: Dictionary, selecting: bool) -> bool:
+	var codex = load("res://scripts/codex/custodes/CustodesCodex11e.gd")
+	if codex.grants(unit, "advance_and_shoot"):
+		return true
+	return selecting and codex.may_select_advanced_unit_to_shoot(unit)
