@@ -21,7 +21,8 @@ extends SceneTree
 #   G. Aegis of the Emperor — FNP 5+ on several mortal-wound paths, never
 #      stacked (best FNP wins), not vs normal damage
 #   H. Aquila Commander — +1CP at the start of the battle round only when the
-#      WARLORD has it; once per round; bonus-CP cap respected
+#      WARLORD has it; once per round; NOT limited by the 10e bonus-CP cap
+#      (11e has none — same ruling as Da Boss)
 #   I. Daughters of the Abyss 3+ / Psychic Null aura 5+ — psychic attacks only
 #   J. Anathema Psykana — no ANATHEMA PSYKANA WARLORD (validation + Formations)
 #   K. AI ka'tah choices — synchronous, never stall a window
@@ -337,7 +338,7 @@ func _section_aquila_commander() -> void:
 	# Fixture load = start of battle round 2 (P1 first): 6 + 1 (Command phase) + 1 (Aquila).
 	_check("P1 (WARLORD Shield-Captain, Aquila Commander) has 8 CP after the round-2 start", _cp(1) == 8, str(_cp(1)))
 	_check("P2 (WARLORD Warboss, no Aquila Commander) has 7 CP", _cp(2) == 7, str(_cp(2)))
-	_check("the CP is recorded against the bonus-CP cap", GS.get_bonus_cp_gained_this_round(1) == 1 and GS.get_bonus_cp_gained_this_round(2) == 0)
+	_check("the CP is not counted against the 10e bonus-CP cap", GS.get_bonus_cp_gained_this_round(1) == 0 and GS.get_bonus_cp_gained_this_round(2) == 0)
 	_check("warlord carries the per-round markers", int(_flags(SC).get(K.FLAG_AQUILA_ROUND, -1)) == 2 and int(_flags(SC).get(K.FLAG_AQUILA_CP_ROUND, -1)) == 2)
 	K.on_battle_round_start(2)
 	_check("once per battle round: re-resolving round 2 adds nothing", _cp(1) == 8, str(_cp(1)))
@@ -348,13 +349,13 @@ func _section_aquila_commander() -> void:
 	var phase = _enter(PHASE_COMMAND)
 	_check("round 3 Command phase: P1 +1 (phase) +1 (Aquila) = 4", _cp(1) == 4, str(_cp(1)))
 	_check("round 3: P2 +1 only", _cp(2) == 3, str(_cp(2)))
-	# Cap: a player who already gained bonus CP this round gains no Aquila CP.
+	# No 11e cap: a player who already gained bonus CP this round still gains it.
 	GS.state.meta["battle_round"] = 4
 	GS.reset_bonus_cp_tracking()
 	GS.record_bonus_cp_gained(1, 1)
 	var before := _cp(1)
 	K.on_battle_round_start(4)
-	_check("bonus-CP cap reached: Aquila Commander gains nothing", _cp(1) == before, "%d -> %d" % [before, _cp(1)])
+	_check("other bonus CP this round: Aquila Commander still gains its 1CP (no 11e cap)", _cp(1) == before + 1, "%d -> %d" % [before, _cp(1)])
 	# Only when the WARLORD has it.
 	GS.state.meta["battle_round"] = 5
 	GS.reset_bonus_cp_tracking()

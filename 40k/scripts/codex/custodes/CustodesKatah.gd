@@ -48,8 +48,9 @@ extends RefCounted
 ##   attacks for friendly ADEPTUS CUSTODES units within 6": fnp_vs(), read by
 ##   RulesEngine.get_unit_fnp_vs on every damage / mortal-wound path (the best
 ##   applicable FNP wins — they never stack).
-##  AQUILA COMMANDER — start of the battle round, +1CP if your WARLORD has it
-##   (respecting GameState's 1-bonus-CP-per-round cap): on_battle_round_start().
+##  AQUILA COMMANDER — start of the battle round, +1CP if your WARLORD has it:
+##   on_battle_round_start(). 11e has no per-round bonus-CP cap (core rules 08.02;
+##   GameState's BONUS_CP_CAP_PER_ROUND is a 10e rule) — same ruling as Da Boss.
 ##  ANATHEMA PSYKANA — an ANATHEMA PSYKANA model cannot be your WARLORD unless
 ##   the detachment allows it (Null Maiden Vigil, WP-C46 hook):
 ##   warlord_block_reason().
@@ -281,8 +282,9 @@ static func on_phase_exit(_phase: int) -> void:
 	Common.log_info("[CustodesKatah] end of phase — %d ka'tah effect flag(s) expired" % diffs.size())
 
 ## AQUILA COMMANDER — "At the start of the battle round, if a model with this
-## ability is your WARLORD, gain 1CP." Bonus CP: respects GameState's
-## 1-per-battle-round cap. Once per battle round per player even if the
+## ability is your WARLORD, gain 1CP." Not subject to GameState's 10e
+## 1-bonus-CP-per-round cap (the 11e core rules have none; Da Boss reads it the
+## same way — RULINGS.md WP-O34). Once per battle round per player even if the
 ## Command phase that starts the round is re-entered (save / load), via
 ## flags.cus11e_aquila_round on the warlord. Returns the CP / marker diffs
 ## (already applied).
@@ -297,21 +299,10 @@ static func on_battle_round_start(battle_round: int) -> Array:
 		if not Common.is_alive(w) or not Common.has_ability(w, ABILITY_AQUILA):
 			continue
 		if int(w.get("flags", {}).get(FLAG_AQUILA_ROUND, -1)) == battle_round:
-			# Re-entered (save / load re-runs the phase entry, which also resets
-			# the bonus-CP tracker): keep the cap honest without a second CP.
-			if int(w.get("flags", {}).get(FLAG_AQUILA_CP_ROUND, -1)) == battle_round and gs \
-					and gs.has_method("get_bonus_cp_gained_this_round") and int(gs.get_bonus_cp_gained_this_round(p)) == 0:
-				gs.record_bonus_cp_gained(p, 1)
+			# Re-entered (save / load re-runs the phase entry): no second CP.
 			Common.log_info("[CustodesKatah] Aquila Commander: P%d already resolved for battle round %d" % [p, battle_round])
 			continue
 		var marker := {"op": "set", "path": "units.%s.flags.%s" % [wid, FLAG_AQUILA_ROUND], "value": battle_round}
-		var can_gain: bool = gs == null or not gs.has_method("can_gain_bonus_cp") or bool(gs.can_gain_bonus_cp(p))
-		if not can_gain:
-			Common.apply_diffs([marker])
-			diffs.append(marker)
-			Common.log_info("[CustodesKatah] Aquila Commander: P%d warlord %s — +1CP refused (bonus CP cap reached this battle round)" % [p, wid])
-			Common.game_log(p, "Aquila Commander: no CP gained (1 bonus CP per battle round already gained)")
-			continue
 		var cp_before := Common.player_cp(p)
 		var cp_diff := {"op": "set", "path": "players.%s.cp" % str(p), "value": cp_before + 1}
 		var cp_marker := {"op": "set", "path": "units.%s.flags.%s" % [wid, FLAG_AQUILA_CP_ROUND], "value": battle_round}
@@ -319,8 +310,6 @@ static func on_battle_round_start(battle_round: int) -> Array:
 		diffs.append(cp_diff)
 		diffs.append(marker)
 		diffs.append(cp_marker)
-		if gs and gs.has_method("record_bonus_cp_gained"):
-			gs.record_bonus_cp_gained(p, 1)
 		Common.log_info("[CustodesKatah] Aquila Commander: P%d's WARLORD %s — +1CP at the start of battle round %d (%d -> %d)" % [p, Common.unit_name(wid), battle_round, cp_before, cp_before + 1])
 		Common.game_log(p, "Aquila Commander (%s, Warlord): +1CP" % Common.unit_name(wid))
 	return diffs

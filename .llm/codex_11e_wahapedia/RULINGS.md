@@ -27,6 +27,9 @@ Rulings made while implementing ambiguous printed text. Format:
 - Anathema Psykana: an ANATHEMA PSYKANA model cannot be designated WARLORD (Formations validation refuses DESIGNATE_WARLORD and the warlord picker / auto-pick skip them; the army builder warns in 11e) unless CustodesDetachments.anathema_psykana_warlord_allowed(detachment) says so (Null Maiden Vigil hook, stub false).
 - AI: uses a ka'tah only when it clearly pays — Rendax when engaged with a MONSTER/VEHICLE, Dacatarai (own turn) / Kaptaris (opponent's turn) when engaged with non-MONSTER/VEHICLE enemies, Calistus for a fall-back, Salvus when no enemy is within 18" (long shots, most likely to carry a hit penalty); never Conservai (it does not plan actions). Master of Ka'tahs needs a higher score. Decisions are synchronous, so a window never waits on the AI.
 
+## Integrator
+- Bonus CP cap: the 11e core rules (08.02) have no per-round cap on gaining CP (10e had "1 extra CP per battle round"); Aquila Commander now matches Da Boss — no cap check, once per battle round. GameState.BONUS_CP_CAP_PER_ROUND is still applied engine-wide to other 10e-era CP sources — a core-rules follow-up, not changed here.
+
 ## WP-C5
 
 ## WP-C46
