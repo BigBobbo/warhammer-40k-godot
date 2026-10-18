@@ -125,7 +125,12 @@ function verify(factionId) {
       const ws = unitWeapons.filter(w => looseName(w.name) === looseName(base));
       if (!ws.length) { err(ds.name, `weapon "${base}" not on unit (${u.weapon_ids})`); continue; }
       const melee = /melee/i.test(r.type);
-      const ok = ws.some(w => w.profiles.some(p =>
+      // "Kannon - Frag": the profile of that name must carry the Frag numbers
+      // when the weapon has one (an index merge once swapped Frag and Shell).
+      const [, profName] = text(r.name).split(/\s+[-–]\s+/);
+      const named = (w, p) => !profName || !w.profiles.some(q => looseName(q.name) === looseName(profName)) ||
+        looseName(p.name) === looseName(profName);
+      const ok = ws.some(w => w.profiles.some(p => named(w, p) &&
         (melee ? p.range === 'Melee' : gv(p.range) === pv(r.range)) &&
         gv(p.stats.A) === pv(r.A) && gv(p.stats.S) === pv(r.S) && gv(p.stats.AP ?? 0) === (pv(r.AP) ?? '0') &&
         gv(p.stats.D) === pv(r.D) && gv(melee ? p.stats.WS : p.stats.BS) === pv(r.BS_WS)));

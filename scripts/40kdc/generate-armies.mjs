@@ -21,7 +21,7 @@ import { describeAbility, weaponBounds } from '@alpaca-software/40kdc-data';
 import {
   createConverter, normalizeQuotes, weaponBaseName,
   FACTION_IDS, UNIT_ALIASES, WEAPON_ALIASES_SRC, ALLIED_FACTIONS, DEFAULT_DATA_SOURCE,
-  bareEnhancementName,
+  bareEnhancementName, compositionCounts,
 } from '../../server/public/js/lib/gameformat.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -45,7 +45,10 @@ const rawData = {
 };
 
 // Datasheets whose kit a codex rewrote (frozen by legacy-kits.mjs): a roster
-// built on the old kit has wargear lines that contradict the codex kit.
+// built on the old kit has wargear lines that contradict the codex kit. The
+// file is named after the first freeze (1.0.19); each record's frozen_from
+// names the dataset its kit came from (40kdc-data 1.0.19, or 40kdc-data 1.4.5
+// for the Ork datasheets the Wahapedia overlay re-kitted — WP-O1b).
 const LEGACY_KIT_UNITS = new Set(
   loadCollection('unitCompositions_1.0.19', join(DATA_DIR_FOR_LEGACY, 'legacy'))
     .map(c => `${c.faction_id}::${c.unit_id}`));
@@ -173,7 +176,8 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
     enhancements: enhancementsOut,
     wargear: preCodexRoster
       ? rebuildCodexWargear(existing.id, oldMeta.wargear ?? [], dcUnit, factionId, comp, modelsOut.length, warnings)
-      : syncWargearCounts(oldMeta.wargear ?? [], comp, modelsOut.length, dcUnit, factionId),
+      : syncWargearCounts(resplitDefaultLines(existing.id, oldMeta.wargear ?? [], dcUnit, factionId, comp, modelsOut.length, warnings),
+        comp, modelsOut.length, dcUnit, factionId, warnings, existing.id),
     weapons: weaponsOut,
     abilities: abilitiesOut,
     unit_composition: conv.compositionLines(comp),
@@ -200,23 +204,51 @@ function convertUnit(existing, dcUnit, factionId, factionName, warnings, detachm
 // picks that are pure codex ADD-ON options (no "replaces": Battlewagon big
 // shootas / Grabbin' Klaw / Wreckin' Ball). Swaps made against the old kit and
 // stale weapons are dropped, with a warning.
-function rebuildCodexWargear(unitKey, wargear, dcUnit, factionId, comp, modelCount, warnings) {
+// The default-kit lines of a codex-built roster: each composition row's
+// default weapons with that row's model count, rows split the way the models
+// array is built (compositionCounts — 20 Boyz = 2 Nobs + 18 Boyz). A weapon a
+// row lists twice ("2 Rokkit Pistol") counts both copies: "2x Rokkit Pistol".
+function defaultKitLines(comp, factionId, modelCount, opts = {}) {
   const nameOf = id => conv.wres.resolve(factionId, id)?.name ?? null;
-  const out = [];
   const rows = comp?.models ?? [];
-  let remaining = modelCount;
+  const counts = compositionCounts(rows, modelCount, opts);
+  const out = [];
   const defaults = new Set();
   rows.forEach((m, k) => {
-    const n = k === rows.length - 1 ? remaining : Math.min(m.min, remaining);
-    remaining -= n;
+    const n = counts[k];
     if (n <= 0) return;
-    for (const id of m.default_weapon_ids ?? []) {
+    const copies = new Map();
+    for (const id of m.default_weapon_ids ?? []) copies.set(id, (copies.get(id) ?? 0) + 1);
+    for (const [id, c] of copies) {
       const nm = nameOf(id);
       if (!nm) continue;
       defaults.add(looseName(nm));
-      out.push(`${n}x ${nm}`);
+      out.push(`${n * c}x ${nm}`);
     }
   });
+  return { lines: out, defaults };
+}
+
+// WP-O1b: rosters this generator rebuilt before the composition split was
+// shared with the models array list a 20-model Boyz mob's default kit as 1 Nob
+// + 19 Boyz ("1x Kustom Choppa ... 19x Choppa") while the unit has 2 Nobs +
+// 18 Boyz — the second Nob then resolved a Boy's Choppa. Lines that are
+// EXACTLY that stale min-first default kit are re-split; any other roster
+// (a builder export, a roster with swaps) is left as it is.
+function resplitDefaultLines(unitKey, wargear, dcUnit, factionId, comp, modelCount, warnings) {
+  const stale = defaultKitLines(comp, factionId, modelCount, { minFirst: true }).lines;
+  const fresh = defaultKitLines(comp, factionId, modelCount).lines;
+  if (JSON.stringify(stale) === JSON.stringify(fresh)) return wargear;
+  const counted = wargear.filter(e => /^\d+x\s+/.test(String(e)));
+  const key = ls => JSON.stringify([...ls].map(String).sort());
+  if (key(counted) !== key(stale)) return wargear;
+  warnings.push(`${unitKey}: default-kit lines re-split to the unit's composition (${JSON.stringify(stale)} -> ${JSON.stringify(fresh)})`);
+  return [...wargear.filter(e => !/^\d+x\s+/.test(String(e))), ...fresh];
+}
+
+function rebuildCodexWargear(unitKey, wargear, dcUnit, factionId, comp, modelCount, warnings) {
+  const nameOf = id => conv.wres.resolve(factionId, id)?.name ?? null;
+  const { lines: out, defaults } = defaultKitLines(comp, factionId, modelCount);
   const addOns = new Set();
   for (const o of wargearOptionsAll) {
     if (o.faction_id !== factionId || o.unit_id !== dcUnit.id || (o.replaces ?? []).length) continue;
@@ -256,18 +288,23 @@ function enhKey(n) { return normName(bareEnhName(n)); }
 // datasheet's options), never lower than the unit size: a Battlewagon's one
 // model carries up to 4 big shootas, and a builder export says "2x Big
 // shoota" (WP-W3 parity with the browser builder).
-// Rows are counted the way gameformat.buildModelsArray fills them (each row
-// its minimum, the last row the remainder).
-function syncWargearCounts(wargear, comp, modelCount, dcUnit = null, factionId = null) {
+// Rows are counted the way gameformat.buildModelsArray fills them
+// (compositionCounts: a whole multiple of the minimum size scales every row,
+// else each row its minimum and the last row the remainder).
+//
+// A line naming one of the datasheet's weapons / wargear items WITHOUT a count
+// ("Castellan Axe" — the Adeptus_Custodes_1995_Mar_7 import wrote every line
+// that way) gets one: every model of the unit, capped at the legal maximum. A
+// count-less line left the game unable to tell how many models took the swap
+// (WP-O1b: Allarus Custodians "roster names 'castellan-axe' with no count").
+// Descriptive lines ("Shield-Captain (Shield), Praesidium Shield") are kept.
+function syncWargearCounts(wargear, comp, modelCount, dcUnit = null, factionId = null, warnings = [], unitKey = '') {
   const rows = comp?.models ?? [];
   const counts = new Map();
-  let remaining = modelCount;
-  rows.forEach((m, k) => {
-    const take = k === rows.length - 1 ? remaining : Math.min(m.min, remaining);
-    counts.set(roleKey(m.name), Math.max(0, take));
-    remaining -= take;
-  });
+  const split = compositionCounts(rows, modelCount);
+  rows.forEach((m, k) => counts.set(roleKey(m.name), split[k]));
   const gearMax = new Map(); // looseName(weapon / item) -> legal maximum
+  const gearName = new Map(); // looseName(weapon / item) -> the datasheet's spelling
   if (dcUnit && comp) {
     const options = wargearOptionsAll.filter(o => o.faction_id === factionId && o.unit_id === dcUnit.id);
     const items = conv.wargearItems(dcUnit, factionId);
@@ -276,10 +313,23 @@ function syncWargearCounts(wargear, comp, modelCount, dcUnit = null, factionId =
       const name = conv.wres.resolve(factionId, id)?.name ?? items.get(id)?.name;
       if (name) gearMax.set(looseName(name), Math.max(gearMax.get(looseName(name)) ?? 0, b.max));
     }
+    for (const id of dcUnit.weapon_ids ?? []) {
+      const name = conv.wres.resolve(factionId, id)?.name;
+      if (name && !gearName.has(looseName(name))) gearName.set(looseName(name), name);
+    }
+    for (const it of items.values()) if (!gearName.has(looseName(it.name))) gearName.set(looseName(it.name), it.name);
   }
   return wargear.map(entry => {
     const m = String(entry).match(/^(\d+)x\s+(.+)$/);
-    if (!m) return entry;
+    if (!m) {
+      const item = String(entry).trim();
+      const name = !/,/.test(item) ? gearName.get(looseName(weaponBaseName(item))) : null;
+      if (!name) return entry;
+      const max = gearMax.get(looseName(name));
+      const n = max != null && max > 0 ? Math.min(modelCount, max) : modelCount;
+      warnings.push(`${unitKey}: wargear line "${item}" had no count — now "${n}x ${name}" (every model, capped at the legal maximum)`);
+      return `${n}x ${name}`;
+    }
     const n = parseInt(m[1], 10);
     const want = counts.get(roleKey(m[2]));
     if (want != null && want !== n) return `${want}x ${m[2]}`;

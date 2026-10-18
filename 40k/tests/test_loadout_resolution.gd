@@ -4,11 +4,16 @@ extends SceneTree
 #
 # For every unit in every res://armies/*.json, drive the REAL
 # RE.get_unit_weapons and check:
-#   * RESOLVED units (wargear pinned the loadout) report exactly ONE ranged gun
-#     per model, and the per-gun totals match the unit's wargear counts.
+#   * RESOLVED units (wargear pinned the loadout) report the same number of
+#     weapons on every model of a composition role (a weapon's profiles —
+#     "Rokkit Launcha – Blasta / – Busta" — count as ONE weapon), and the
+#     per-gun totals match the unit's wargear counts.
 #   * The change only ever REDUCES over-counting — a unit's total ranged
 #     instances never goes UP versus the raw model_profiles menu.
-# Plus targeted spot-checks (Boyz -> Slugga, orks Lootas unchanged, Burna Boyz).
+# Plus targeted spot-checks against the printed Codex: Orks kits
+# (.llm/codex_11e_wahapedia/orks/wahapedia/Datasheets.csv `loadout`): Boyz,
+# Deffkoptas, Beast Snagga Boyz, Kommandos; the Legends Lootas / Burna Boyz
+# (D2: unchanged pre-codex rosters).
 #
 # Usage: godot --headless --path . -s tests/test_loadout_resolution.gd
 
@@ -79,6 +84,104 @@ func _raw_ranged_total(unit: Dictionary) -> int:
 # reasons unrelated to the resolver.
 const RATCHET_EXCLUDED_FILES := ["ork11e_codex_test.json"]
 
+# WP-O1b: what a model "carries" is counted in WEAPONS, not profiles. Codex
+# weapons often print several profiles (Choppa – Hunter / – Standard, Smash
+# Hammer – Hunter / – Standard, Kombi-skorcha – Shoota / – Skorcha); a model
+# holding one such weapon reports every profile, which is one weapon.
+# `type_filter` "" = the reported entries are weapon NAMES (melee); otherwise
+# they are RulesEngine weapon ids of that type (ranged) and are mapped back to
+# the datasheet name first.
+func _weapon_count(unit: Dictionary, reported: Array, type_filter: String = "") -> int:
+	var id_to_name := {}
+	if type_filter != "":
+		for w in unit.get("meta", {}).get("weapons", []):
+			if typeof(w) == TYPE_DICTIONARY and str(w.get("type", "")).to_lower() == type_filter.to_lower():
+				id_to_name[RE._generate_weapon_id(str(w.get("name", "")), str(w.get("type", "")))] = str(w.get("name", ""))
+	var bases := {}
+	for e in reported:
+		var n := str(id_to_name.get(str(e), str(e)))
+		bases[UnitLoadoutResolver.base_weapon_name(n)] = true
+	return bases.size()
+
+# The composition role of each model (index-aligned): its model_type when it
+# has one, else the role its POSITION in the datasheet composition forces
+# (RulesEngine._positional_roles: 20 Boyz = 2 Nobs + 18 Boyz), else "*" — one
+# role for the whole unit. A role's models must carry the same number of
+# weapons; different roles may differ (the codex Breaka Boyz Nob has a Choppa
+# AND a Smash Hammer, each Breaka Boy only a Smash Hammer).
+func _model_roles(unit: Dictionary) -> Array:
+	var models = unit.get("models", [])
+	var positional = RE._positional_roles(UnitLoadoutResolver.datasheet_key(unit), models.size())
+	var out := []
+	for i in range(models.size()):
+		var mt := str(models[i].get("model_type", ""))
+		if mt != "":
+			out.append(mt)
+		elif positional.size() == models.size():
+			out.append(str(positional[i]))
+		else:
+			out.append("*")
+	return out
+
+# {role: [counts]} over the alive models. get_unit_weapons (ranged,
+# type_filter "Ranged") keys its dict by model id; get_unit_melee_weapons
+# (type_filter "") by "m<index>".
+func _counts_by_role(unit: Dictionary, per_model: Dictionary, type_filter: String, grouped: bool) -> Dictionary:
+	var roles = _model_roles(unit)
+	var models = unit.get("models", [])
+	var out := {}
+	for i in range(models.size()):
+		var m = models[i]
+		if not m.get("alive", true):
+			continue
+		var key := str(m.get("id", "")) if type_filter != "" else "m%d" % i
+		var reported = per_model.get(key, [])
+		var c := _weapon_count(unit, reported, type_filter) if grouped else int(reported.size())
+		var r := str(roles[i])
+		var arr: Array = out.get(r, [])
+		arr.append(c)
+		out[r] = arr
+	return out
+
+# True when every role's models carry the same count, every count is >= 1 —
+# or 0 for a lone model whose roster took no weapon of this type (a codex
+# Battlewagon is equipped with only Crushin' Bulk; its big shootas are add-ons).
+func _uniform_per_role(unit: Dictionary, by_role: Dictionary, weapon_type: String) -> bool:
+	for r in by_role:
+		var arr: Array = by_role[r]
+		if arr.is_empty():
+			continue
+		var k := int(arr[0])
+		for c in arr:
+			if int(c) != k:
+				return false
+		if k < 1 and not (unit.get("models", []).size() == 1 and not _roster_names_type(unit, weapon_type)):
+			return false
+	return true
+
+# Does the roster's wargear name any weapon of this type from the datasheet?
+func _roster_names_type(unit: Dictionary, weapon_type: String) -> bool:
+	var slugs := {}
+	for w in unit.get("meta", {}).get("weapons", []):
+		if typeof(w) == TYPE_DICTIONARY and str(w.get("type", "")).to_lower() == weapon_type.to_lower():
+			slugs[UnitLoadoutResolver.slugify(str(w.get("name", "")))] = true
+			slugs[UnitLoadoutResolver.slugify(UnitLoadoutResolver.base_weapon_name(str(w.get("name", ""))))] = true
+	for entry in unit.get("meta", {}).get("wargear", []):
+		for part in str(entry).split(","):
+			var txt := str(part).strip_edges()
+			var sp := txt.find(" ")
+			if sp > 0 and txt.substr(0, sp).ends_with("x") and txt.substr(0, sp - 1).is_valid_int():
+				txt = txt.substr(sp + 1)
+			if slugs.has(UnitLoadoutResolver.slugify(txt)):
+				return true
+	return false
+
+func _fmt_roles(by_role: Dictionary) -> String:
+	var parts := []
+	for r in by_role:
+		parts.append("%s=%s" % [r, str(by_role[r])])
+	return ", ".join(PackedStringArray(parts))
+
 func _run():
 	if passed > 0 or failed > 0:
 		return
@@ -143,25 +246,30 @@ func _run():
 			if got_resolved:
 				if not fname in RATCHET_EXCLUDED_FILES:
 					resolved_units += 1
-				# INVARIANT 2 (generalized for Task C): every resolved model reports
-				# the SAME number k of ranged guns (k>=1) — a uniform loadout size.
-				# This still catches over-counting but allows legit multi-gun models
-				# (Deffkopta k=2) alongside one-gun mobs (k=1).
-				var kmin := 999999
-				var kmax := 0
-				for mid in mw:
-					var c = mw[mid].size()
-					kmin = min(kmin, c)
-					kmax = max(kmax, c)
-				_check("resolved-uniform-k %s/%s" % [fname, uid], kmin == kmax and kmin >= 1,
-					"kmin=%d kmax=%d" % [kmin, kmax])
-				# INVARIANT 3 (generalized): total ranged == k × alive models.
+				# INVARIANT 2 (generalized for Task C; per role + per weapon, WP-O1b):
+				# every resolved model of a composition role carries the SAME number
+				# k of ranged WEAPONS (k>=1; a weapon's profiles are one weapon). This
+				# still catches over-counting but allows legit multi-gun models
+				# (Deffkopta: Rokkit Launcha + Slugga, k=2) alongside one-gun mobs, and
+				# a role with its own gun (a Warbikers Biker Nob's Dual Kombi-rokkit).
+				# A lone model whose roster took no gun may carry none (Battlewagon).
+				var k_weapons = _counts_by_role(unit, mw, "Ranged", true)
+				_check("resolved-uniform-k %s/%s" % [fname, uid], _uniform_per_role(unit, k_weapons, "Ranged"),
+					"weapons per model by role: %s" % _fmt_roles(k_weapons))
+				# INVARIANT 3 (generalized): within a role every model reports the
+				# same number of weapon PROFILES too (total == k × alive per role),
+				# and every alive model reports.
+				var k_profiles = _counts_by_role(unit, mw, "Ranged", false)
 				var alive := 0
 				for m in models:
 					if m.get("alive", true):
 						alive += 1
-				_check("resolved-total==k*alive %s/%s" % [fname, uid], new_total == kmax * alive,
-					"total=%d k=%d alive=%d" % [new_total, kmax, alive])
+				var reporting := 0
+				for r in k_profiles:
+					reporting += (k_profiles[r] as Array).size()
+				_check("resolved-total==k*alive %s/%s" % [fname, uid],
+					reporting == alive and _uniform_per_role(unit, k_profiles, "Ranged"),
+					"profiles per model by role: %s (alive=%d)" % [_fmt_roles(k_profiles), alive])
 				# INVARIANT 5 (Task C): every stamped gun is one the model_type may
 				# actually take — never invent a weapon a model can't have.
 				var mp2 = unit.get("meta", {}).get("model_profiles", {})
@@ -223,14 +331,13 @@ func _run():
 						_loadout_is_menu_subset(unit, models[0], "Melee", "melee_loadout"), "")
 			if got_melee_resolved:
 				melee_resolved_units += 1
-				var kmin_m := 999999
-				var kmax_m := 0
-				for mid in mm:
-					kmin_m = min(kmin_m, mm[mid].size())
-					kmax_m = max(kmax_m, mm[mid].size())
-				# INVARIANT: resolved melee is uniform (all models same count k>=1).
-				_check("melee-uniform-k %s/%s" % [fname, uid], kmin_m == kmax_m and kmin_m >= 1,
-					"kmin=%d kmax=%d" % [kmin_m, kmax_m])
+				# INVARIANT: resolved melee is uniform per composition role — every
+				# model of a role carries the same number k>=1 of melee WEAPONS
+				# (Choppa – Hunter / – Standard is one Choppa; the codex Breaka Boyz
+				# Nob's Choppa + Smash Hammer against a Breaka Boy's Smash Hammer).
+				var km = _counts_by_role(unit, mm, "", true)
+				_check("melee-uniform-k %s/%s" % [fname, uid], _uniform_per_role(unit, km, "Melee"),
+					"melee weapons per model by role: %s" % _fmt_roles(km))
 
 	# -------- Targeted spot-checks --------
 	_spot_check_boyz()
@@ -279,11 +386,17 @@ func _spot_check_boyz():
 		_check("orks.json loads", false); return
 	var u = data["units"].get("U_BOYZ_K", {})
 	var hist = _weapon_hist("U_BOYZ_K", u)
-	# wargear = 10x Slugga -> expect 10 sluggas, and NO shoota/big shoota/rokkit.
-	_check("Boyz -> 10 Slugga", hist.get("slugga_ranged", 0) == 10, str(hist))
-	_check("Boyz -> no Shoota (menu suppressed)", not hist.has("shoota_ranged"), str(hist))
+	# Codex: Orks Boyz (Datasheets.csv loadout): "Every Nob is equipped with: 1
+	# Kustom Choppa; 1 Kombi-skorcha. Every Boy is equipped with: 1 Choppa; 1
+	# Shoota; 1 Slugga." 10 Boyz = 1 Nob + 9 Boyz (wargear "1x Kombi-skorcha,
+	# 9x Shoota, 9x Slugga, ..."). The pre-codex check ("10x Slugga" -> 10
+	# Sluggas, no Shoota) described the 10e mob, whose Boss Nob had a slugga too.
+	_check("Boyz -> 9 Slugga (every Boy; the codex Nob has none)", hist.get("slugga_ranged", 0) == 9, str(hist))
+	_check("Boyz -> 9 Shoota (every Boy)", hist.get("shoota_ranged", 0) == 9, str(hist))
+	_check("Boyz -> 1 Kombi-skorcha, both profiles (the Nob)",
+		hist.get("kombi_skorcha___shoota_ranged", 0) == 1 and hist.get("kombi_skorcha___skorcha_ranged", 0) == 1, str(hist))
 	_check("Boyz -> no Big shoota", not hist.has("big_shoota_ranged"), str(hist))
-	_check("Boyz -> no Rokkit", not hist.has("rokkit_launcha_ranged"), str(hist))
+	_check("Boyz -> no Rokkit", not hist.has("rokkit_launcha___busta_ranged") and not hist.has("rokkit_launcha___blasta_ranged"), str(hist))
 
 func _spot_check_orks_lootas_unchanged():
 	# orks.json Lootas is ALREADY resolved via model_type -> must be untouched.
@@ -307,8 +420,12 @@ func _spot_check_burna():
 	_check("Burna Boyz -> 1 Big shoota", hist.get("big_shoota_ranged", 0) == 1, str(hist))
 
 func _spot_check_boyz_incomplete():
-	# Task C CASE C: a 20-model Boyz mob whose wargear records only "9x Slugga,
-	# 1x Slugga" (10 Slugga < 20 models, one consistent gun) -> every model Slugga.
+	# The 20-model mobs. Pre-codex this was Task C CASE C (wargear recorded
+	# only "9x Slugga, 1x Slugga" -> every model a Slugga). Codex: Orks Boyz
+	# are "1-2 Nob, 9-18 Boy" sold as 10 or 20, so 20 Boyz = 2 Nobs (Kustom
+	# Choppa + Kombi-skorcha) + 18 Boyz (Choppa + Shoota + Slugga). The army
+	# files used to record a 20-model mob's kit as 1 Nob + 19 Boyz, which handed
+	# the 2nd Nob a Boy's Choppa; generate-armies re-splits it (WP-O1b).
 	var data = _load_json("res://armies/orks.json")
 	if typeof(data) != TYPE_DICTIONARY:
 		return
@@ -317,15 +434,25 @@ func _spot_check_boyz_incomplete():
 		if u.is_empty():
 			continue
 		var n = u.get("models", []).size()
+		_check("Boyz %s is a 20-model mob" % uid, n == 20, "models=%d" % n)
 		var hist = _weapon_hist(uid, u)
-		_check("Boyz %s -> %d Slugga (incomplete-consistent)" % [uid, n], hist.get("slugga_ranged", 0) == n, str(hist))
+		_check("Boyz %s -> 18 Slugga + 18 Shoota (the Boyz)" % uid,
+			hist.get("slugga_ranged", 0) == 18 and hist.get("shoota_ranged", 0) == 18, str(hist))
+		_check("Boyz %s -> 2 Kombi-skorcha (the 2 Nobs)" % uid,
+			hist.get("kombi_skorcha___shoota_ranged", 0) == 2 and hist.get("kombi_skorcha___skorcha_ranged", 0) == 2, str(hist))
 		_check("Boyz %s -> no Big shoota" % uid, not hist.has("big_shoota_ranged"), str(hist))
-		_check("Boyz %s -> no Rokkit" % uid, not hist.has("rokkit_launcha_ranged"), str(hist))
-		_check("Boyz %s -> no Shoota" % uid, not hist.has("shoota_ranged"), str(hist))
+		_check("Boyz %s -> no Rokkit" % uid, not hist.has("rokkit_launcha___busta_ranged"), str(hist))
+		var mh = _melee_hist(uid, u)
+		_check("Boyz %s melee -> 2 Kustom Choppa (both Nobs) + 18 Choppa" % uid,
+			mh.get("Kustom Choppa", 0) == 2 and mh.get("Choppa", 0) == 18, str(mh))
 
 func _spot_check_deffkopta():
-	# Task C CASE B: Deffkoptas carry a Kopta rokkits AND a Slugga (2 ranged each);
-	# wargear "3x Kopta rokkits, 3x Slugga" over 3 models -> uniform 2-gun set.
+	# Task C CASE B: every Deffkopta carries two guns. Codex: Orks: "Every model
+	# is equipped with: 1 Choppa; 1 Rokkit Launcha; 1 Slugga; 1 Spinnin' Blades"
+	# (the pre-codex "Kopta rokkits" are gone). The Rokkit Launcha prints two
+	# profiles (Blasta / Busta) and the roster names it once — "3x Rokkit
+	# Launcha, 3x Slugga" over 3 models -> a uniform 2-gun set (it used to drop
+	# the launcha and stamp Slugga only: WP-O1b, RulesEngine resolver v3).
 	var data = _load_json("res://armies/battlewagons.json")
 	if typeof(data) != TYPE_DICTIONARY:
 		return
@@ -334,11 +461,17 @@ func _spot_check_deffkopta():
 		return
 	var n = u.get("models", []).size()
 	var hist = _weapon_hist("U_DEFFKOPTAS_A", u)
-	_check("Deffkoptas -> %d Kopta rokkits" % n, hist.get("kopta_rokkits_ranged", 0) == n, str(hist))
+	_check("Deffkoptas -> %d Rokkit Launcha (both profiles)" % n,
+		hist.get("rokkit_launcha___blasta_ranged", 0) == n and hist.get("rokkit_launcha___busta_ranged", 0) == n, str(hist))
 	_check("Deffkoptas -> %d Slugga" % n, hist.get("slugga_ranged", 0) == n, str(hist))
 	# Each model is stamped resolved with a 2-gun set (not left as the raw menu).
 	var m0 = u.get("models", [])[0]
-	_check("Deffkoptas -> model stamped 2-gun set", m0.get("ranged_loadout", []).size() == 2, str(m0.get("ranged_loadout", [])))
+	_check("Deffkoptas -> model stamped 2-gun set (Rokkit Launcha + Slugga)",
+		_weapon_count(u, m0.get("ranged_loadout", [])) == 2 and "Slugga" in m0.get("ranged_loadout", []),
+		str(m0.get("ranged_loadout", [])))
+	var mh = _melee_hist("U_DEFFKOPTAS_A", u)
+	_check("Deffkoptas melee -> %d Choppa + %d Spinnin' Blades" % [n, n],
+		mh.get("Choppa", 0) == n and mh.get("Spinnin' blades", 0) == n, str(mh))
 	# Task B: a uniform 2-gun mob has no stand-out model.
 	_check("Deffkoptas -> 0 special (uniform)", RE.get_special_weapon_model_ids(u).size() == 0, str(RE.get_special_weapon_model_ids(u)))
 
@@ -358,14 +491,20 @@ func _spot_check_special_weapons():
 		if not lu.is_empty():
 			var sp2 = RE.get_special_weapon_model_ids(lu)
 			_check("orks Lootas -> 3 special (KMB minority)", sp2.size() == 3, "special=%s" % str(sp2))
-		# Boyz K: all Slugga -> 0 special (uniform).
+		# Codex Boyz: the Nob carries a Kombi-skorcha, every Boy a Shoota + Slugga,
+		# so the Nob(s) stand out (pre-codex every model had the same Slugga and
+		# none did). Boyz K: 1 Nob -> 1 special (model 0); Boyz E (20): 2 Nobs.
 		var bk = ork["units"].get("U_BOYZ_K", {})
 		if not bk.is_empty():
-			_check("Boyz K (all Slugga) -> 0 special", RE.get_special_weapon_model_ids(bk).size() == 0, str(RE.get_special_weapon_model_ids(bk)))
-		# Boyz E: Task-C resolved to all Slugga -> 0 special.
+			var spk = RE.get_special_weapon_model_ids(bk)
+			_check("Boyz K -> 1 special (the Nob's Kombi-skorcha)", spk == [str(bk["models"][0].get("id", ""))], str(spk))
 		var be = ork["units"].get("U_BOYZ_E", {})
 		if not be.is_empty():
-			_check("Boyz E (all Slugga) -> 0 special", RE.get_special_weapon_model_ids(be).size() == 0, str(RE.get_special_weapon_model_ids(be)))
+			var spe = RE.get_special_weapon_model_ids(be)
+			spe.sort()
+			var nobs = [str(be["models"][0].get("id", "")), str(be["models"][1].get("id", ""))]
+			nobs.sort()
+			_check("Boyz E -> 2 special (the 2 Nobs' Kombi-skorchas)", spe == nobs, str(spe))
 	# Single-model units never get a special marker (guarded on models.size()).
 	var sm = _load_json("res://armies/space_marines.json")
 	if typeof(sm) == TYPE_DICTIONARY:
@@ -428,28 +567,39 @@ func _melee_hist(uid: String, unit: Dictionary) -> Dictionary:
 func _spot_check_melee():
 	# Task D: melee loadout resolution (mirror of the ranged spot-checks).
 	# Beast Snagga Boyz (Orks_2000): wargear 9x Choppa + 1x Power snappa over 10
-	# models -> 9 Choppa + 1 Power snappa, dropping the Close combat weapon ghost.
+	# models -> 9 Choppa + 1 Power Snappa, dropping the Close combat weapon ghost.
+	# Codex: Orks: "Every Nob is equipped with: 1 Power Snappa; 1 Slugga. Every
+	# Beast Snagga Boy is equipped with: 1 Choppa; 1 Slugga." The codex Choppa
+	# prints two profiles (Hunter / Standard): a Boy reports both, one weapon.
 	var o = _load_json("res://armies/Orks_2000.json")
 	if typeof(o) == TYPE_DICTIONARY:
 		var bs = o["units"].get("U_BEAST_SNAGGA_BOYZ_A", {})
 		if not bs.is_empty():
 			var mmh = _melee_hist("U_BEAST_SNAGGA_BOYZ_A", bs)
-			_check("Beast Snagga melee -> 9 Choppa", mmh.get("Choppa", 0) == 9, str(mmh))
-			_check("Beast Snagga melee -> 1 Power snappa", mmh.get("Power snappa", 0) == 1, str(mmh))
+			_check("Beast Snagga melee -> 9 Choppa (Hunter + Standard profiles)",
+				mmh.get("Choppa – Hunter", 0) == 9 and mmh.get("Choppa – Standard", 0) == 9, str(mmh))
+			_check("Beast Snagga melee -> 1 Power Snappa (the Nob)", mmh.get("Power Snappa", 0) == 1, str(mmh))
 			_check("Beast Snagga melee -> no Close combat weapon", not mmh.has("Close combat weapon"), str(mmh))
-		# Kommandos: wargear says 10x Choppa but the Boss Nob's profile only allows
-		# Big choppa — so the cross-check SAFELY declines (never invent a weapon a
-		# model can't take) and melee falls back to the menu rather than resolving.
+		# Kommandos: Codex: Orks "Every model is equipped with: 1 Choppa; 1 Slugga"
+		# — the Nob included. Pre-codex the Boss Nob's profile only allowed a Big
+		# choppa, so a roster of "10x Choppa" was SAFELY declined (never invent a
+		# weapon a model can't take). Under the codex the Nob carries a Choppa,
+		# so resolving every model to a Choppa is now correct.
 		var k = o["units"].get("U_KOMMANDOS_A", {})
 		if not k.is_empty():
 			var board_k = {"units": {"U_KOMMANDOS_A": k}}
-			RE.get_unit_melee_weapons("U_KOMMANDOS_A", board_k)
-			var kommandos_resolved := false
+			var km = RE.get_unit_melee_weapons("U_KOMMANDOS_A", board_k)
+			var stamped := 0
 			for m in k.get("models", []):
 				if m.has("melee_loadout"):
-					kommandos_resolved = true
-					break
-			_check("Kommandos melee -> fallback (boss can't take Choppa)", not kommandos_resolved, "")
+					stamped += 1
+			var choppas := 0
+			for mid in km:
+				if _weapon_count(k, km[mid]) == 1 and UnitLoadoutResolver.slugify(UnitLoadoutResolver.base_weapon_name(str(km[mid][0]))).begins_with("choppa"):
+					choppas += 1
+			_check("Kommandos melee -> resolved: every model (the Nob too) a Choppa",
+				stamped == k.get("models", []).size() and choppas == k.get("models", []).size(),
+				"stamped=%d choppas=%d of %d: %s" % [stamped, choppas, k.get("models", []).size(), str(km)])
 	# Burna Boyz (battlewagons): 4x Cuttin' flames + 1x Close combat weapon.
 	var bw = _load_json("res://armies/battlewagons.json")
 	if typeof(bw) == TYPE_DICTIONARY:
@@ -458,23 +608,23 @@ func _spot_check_melee():
 			var mmh2 = _melee_hist("U_BURNA_BOYZ_A", b)
 			_check("Burna melee -> 4 Cuttin' flames", mmh2.get("Cuttin' flames", 0) == 4, str(mmh2))
 			_check("Burna melee -> 1 Close combat weapon", mmh2.get("Close combat weapon", 0) == 1, str(mmh2))
-	# CASE D — Boyz record no melee at all in wargear ("9x Slugga, 1x Slugga"), so
-	# wargear-based resolution has nothing to go on. It used to fall back to the
-	# datasheet MENU, which claimed every Boy carried a Choppa AND a Close combat
-	# weapon and the Boss Nob a Big choppa AND a Choppa AND a Power klaw — those
-	# are mutually-exclusive OPTIONS. The datasheet's default kit ("The Boss Nob
-	# is equipped with: slugga; big choppa. Every Boy is equipped with: slugga;
-	# choppa.") pins it: 9 Choppa + 1 Big choppa, no Close combat weapon, no
-	# Power klaw (an option the roster did not take).
+	# Boyz melee. Pre-codex this was CASE D (the roster said nothing about melee,
+	# so the 10e default kit — Boss Nob big choppa, Boy choppa — pinned it). The
+	# codex roster lists the melee kit ("1x Kustom Choppa, 9x Choppa"), and the
+	# codex datasheet ("Every Nob is equipped with: 1 Kustom Choppa; 1
+	# Kombi-skorcha. Every Boy is equipped with: 1 Choppa; ...") agrees: 9
+	# Choppa + 1 Kustom Choppa — never the menu's Big Choppa / Power Klaw
+	# options, which the roster did not take.
 	var ork = _load_json("res://armies/orks.json")
 	if typeof(ork) == TYPE_DICTIONARY:
 		var bk = ork["units"].get("U_BOYZ_K", {})
 		if not bk.is_empty():
 			var mmh3 = _melee_hist("U_BOYZ_K", bk)
-			_check("Boyz K melee -> 9 Choppa (datasheet default)", mmh3.get("Choppa", 0) == 9, str(mmh3))
-			_check("Boyz K melee -> 1 Big choppa (Boss Nob default)", mmh3.get("Big choppa", 0) == 1, str(mmh3))
+			_check("Boyz K melee -> 9 Choppa (every Boy)", mmh3.get("Choppa", 0) == 9, str(mmh3))
+			_check("Boyz K melee -> 1 Kustom Choppa (the codex Nob)", mmh3.get("Kustom Choppa", 0) == 1, str(mmh3))
+			_check("Boyz K melee -> no Big Choppa / Power Klaw (options not taken)",
+				not mmh3.has("Big Choppa") and not mmh3.has("Power Klaw"), str(mmh3))
 			_check("Boyz K melee -> no Close combat weapon ghost", not mmh3.has("Close combat weapon"), str(mmh3))
-			_check("Boyz K melee -> no Power klaw ghost", not mmh3.has("Power klaw"), str(mmh3))
 			var per_model_one := true
 			for m in bk.get("models", []):
 				if m.get("melee_loadout", []).size() != 1:
@@ -486,8 +636,9 @@ func _spot_check_melee():
 
 # CASE D fallback: units imported before model_profiles existed (and older saves)
 # carry no model_type at all, so the role has to come from the model's POSITION
-# in the datasheet's unit composition ("1 Boss Nob", then "9-19 Boy"). Verified
-# on a real Boyz mob with model_profiles stripped.
+# in the datasheet's unit composition (codex: "1-2 Nob", then "9-18 Boy").
+# Verified on a real Boyz mob with model_profiles AND its wargear lines
+# stripped, so only the codex default kit (Nob: Kustom Choppa) can pin it.
 func _spot_check_positional_roles(ork) -> void:
 	if typeof(ork) != TYPE_DICTIONARY:
 		return
@@ -498,6 +649,7 @@ func _spot_check_positional_roles(ork) -> void:
 	var unit = src.duplicate(true)
 	unit["id"] = "U_BOYZ_NOPROFILES"
 	unit["meta"]["model_profiles"] = {}
+	unit["meta"]["wargear"] = []  # nothing but the composition position to go on
 	unit.erase("_loadout_checked")
 	unit.erase("_loadout_version")
 	for m in unit.get("models", []):
@@ -511,10 +663,10 @@ func _spot_check_positional_roles(ork) -> void:
 		for wn in mm[mid]:
 			hist[str(wn)] = int(hist.get(str(wn), 0)) + 1
 	_check("no-model_profiles Boyz -> 9 Choppa via composition order", hist.get("Choppa", 0) == 9, str(hist))
-	_check("no-model_profiles Boyz -> 1 Big choppa (model 0 is the Boss Nob)", hist.get("Big choppa", 0) == 1, str(hist))
-	_check("no-model_profiles Boyz -> no Power klaw ghost", not hist.has("Power klaw"), str(hist))
+	_check("no-model_profiles Boyz -> 1 Kustom Choppa (model 0 is the Nob)", hist.get("Kustom Choppa", 0) == 1, str(hist))
+	_check("no-model_profiles Boyz -> no Power Klaw ghost", not hist.has("Power Klaw"), str(hist))
 	var m0_melee = unit["models"][0].get("melee_loadout", [])
-	_check("no-model_profiles Boyz -> model 0 is the Boss Nob", m0_melee == ["Big choppa"], str(m0_melee))
+	_check("no-model_profiles Boyz -> model 0 is the Nob", m0_melee == ["Kustom Choppa"], str(m0_melee))
 
 	# Ambiguity guard: two open-ended composition roles (Lootas are 1-2 Spanners
 	# + 4-8 Lootas) cannot be split by position, so nothing is stamped.

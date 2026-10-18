@@ -3,6 +3,7 @@
 // so rosters built against the old datasheets keep resolving their loadouts.
 //
 //   node legacy-kits.mjs --old <dir> [--faction orks] [--tag 1.0.19]
+//        [--from "<dataset the old kits come from>"] [--units a,b,c]
 //
 // <dir> holds the previous release's extracted unitCompositions.json and
 // wargearOptions.json (e.g. `git show <rev>:40k/data/40kdc/unitCompositions.json`).
@@ -14,8 +15,24 @@
 // unit, so both collections are frozen for those datasheets even when only one
 // of them changed.
 //
-// Run once per faction; records of other factions already in the output files
-// are kept (per-faction merge).
+// Every frozen record carries `frozen_from`: the dataset its kit was taken
+// from (--from, default "40kdc-data <tag>"). The file name is the tag of the
+// FIRST freeze (1.0.19) and the game addresses every frozen kit as
+// "<name> [1.0.19]"; the records' frozen_from says which dataset each kit
+// really is — "40kdc-data 1.0.19" for the original Ork / Custodes freezes,
+// "40kdc-data 1.4.5" for the Ork datasheets the Wahapedia overlay re-kitted
+// (WP-O1b: Tankbustas, Warbikers, Runtherd, Nazdreg). The game holds ONE
+// legacy kit per datasheet, so a datasheet is never frozen twice: those four
+// kept their 1.0.19 kit in 1.4.5, so their one frozen kit covers both.
+//
+// Merging:
+//   - without --units: the faction's block is replaced (records of other
+//     factions already in the files are kept). This is how the Orks and then
+//     Codex: Adeptus Custodes were first frozen.
+//   - with --units: only those datasheets are frozen (each must have changed)
+//     and added to the files; datasheets already frozen are left as they are
+//     (reported), every other record is kept byte-identical. Use this when a
+//     later import re-kits a few more datasheets of an already-frozen faction.
 //
 // Why: UnitLoadoutResolver / RulesEngine narrow a unit's datasheet weapon MENU
 // to what it actually carries using these two collections, matched by
@@ -37,11 +54,13 @@ import { DATA_DIR, argValue } from './lib.mjs';
 
 const oldDir = argValue('old');
 if (!oldDir) {
-  console.error('usage: node legacy-kits.mjs --old <dir with previous unitCompositions.json + wargearOptions.json> [--faction orks] [--tag 1.0.19]');
+  console.error('usage: node legacy-kits.mjs --old <dir with previous unitCompositions.json + wargearOptions.json> [--faction orks] [--tag 1.0.19] [--from "40kdc-data 1.4.5"] [--units a,b]');
   process.exit(2);
 }
 const faction = argValue('faction') || 'orks';
 const tag = argValue('tag') || '1.0.19';
+const frozenFrom = argValue('from') || `40kdc-data ${tag}`;
+const onlyUnits = argValue('units') ? new Set(argValue('units').split(',').map(s => s.trim()).filter(Boolean)) : null;
 const outDir = join(DATA_DIR, 'legacy');
 
 const read = (dir, name) => JSON.parse(readFileSync(join(resolve(dir), `${name}.json`), 'utf8'));
@@ -78,23 +97,45 @@ function changedUnits(name) {
   return units;
 }
 
-const frozen = new Set(changedUnits('unitCompositions'));
-const pick = name => read(oldDir, name).filter(r => r.faction_id === faction && frozen.has(r.unit_id));
+const changed = new Set(changedUnits('unitCompositions'));
+const legacyPath = name => join(outDir, `${name}_${tag}.json`);
+const readPrev = name => { try { return JSON.parse(readFileSync(legacyPath(name), 'utf8')); } catch { return []; } };
+const prevComps = readPrev('unitCompositions');
+const alreadyFrozen = new Set(prevComps.filter(r => r.faction_id === faction).map(r => r.unit_id));
+
+let frozen;
+if (onlyUnits) {
+  for (const u of onlyUnits) {
+    if (!changed.has(u)) {
+      console.error(`legacy-kits: ${faction}/${u}: its composition did not change between --old and the current data — nothing to freeze`);
+      process.exit(1);
+    }
+  }
+  const skipped = [...onlyUnits].filter(u => alreadyFrozen.has(u));
+  if (skipped.length) console.log(`  already frozen (kept as they are — one legacy kit per datasheet): ${skipped.join(', ')}`);
+  frozen = new Set([...onlyUnits].filter(u => !alreadyFrozen.has(u)));
+} else {
+  frozen = changed;
+}
+
+const stamp = r => ({ ...r, frozen_from: frozenFrom });
+const pick = name => read(oldDir, name).filter(r => r.faction_id === faction && frozen.has(r.unit_id)).map(stamp);
 const comps = { units: [...frozen], out: pick('unitCompositions') };
 const opts = { out: pick('wargearOptions') };
 opts.units = [...new Set(opts.out.map(r => r.unit_id))];
 
 mkdirSync(outDir, { recursive: true });
-// Merge per faction: other factions' frozen records already in the file stay
-// (Orks were frozen first; Codex: Adeptus Custodes added its own block).
+// Merge: without --units the faction's block is replaced (Orks were frozen
+// first; Codex: Adeptus Custodes added its own block); with --units the new
+// datasheets are appended to the faction's block and nothing else moves.
 const merge = (name, recs) => {
-  const path = join(outDir, `${name}_${tag}.json`);
-  let prev = [];
-  try { prev = JSON.parse(readFileSync(path, 'utf8')); } catch { /* new file */ }
-  return [...prev.filter(r => r.faction_id !== faction), ...recs];
+  const prev = readPrev(name);
+  if (!onlyUnits) return [...prev.filter(r => r.faction_id !== faction), ...recs];
+  const last = prev.reduce((at, r, i) => (r.faction_id === faction ? i : at), prev.length - 1);
+  return [...prev.slice(0, last + 1), ...recs, ...prev.slice(last + 1)];
 };
-writeFileSync(join(outDir, `unitCompositions_${tag}.json`), JSON.stringify(merge('unitCompositions', comps.out), null, 1) + '\n');
-writeFileSync(join(outDir, `wargearOptions_${tag}.json`), JSON.stringify(merge('wargearOptions', opts.out), null, 1) + '\n');
-console.log(`legacy ${tag} ${faction}: ${comps.units.length} datasheet compositions (${comps.out.length} records), ` +
+writeFileSync(legacyPath('unitCompositions'), JSON.stringify(merge('unitCompositions', comps.out), null, 1) + '\n');
+writeFileSync(legacyPath('wargearOptions'), JSON.stringify(merge('wargearOptions', opts.out), null, 1) + '\n');
+console.log(`legacy ${tag} ${faction} (frozen from ${frozenFrom}): ${comps.units.length} datasheet compositions (${comps.out.length} records), ` +
   `${opts.units.length} datasheets' wargear options (${opts.out.length} records) -> ${outDir}`);
 console.log(`  compositions: ${comps.units.join(', ')}`);

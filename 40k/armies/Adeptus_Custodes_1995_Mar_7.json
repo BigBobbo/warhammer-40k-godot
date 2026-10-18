@@ -38,7 +38,7 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "Vaultswords"
+     "1x Vaultswords"
     ],
     "weapons": [
      {
@@ -183,7 +183,7 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "Vaultswords"
+     "1x Vaultswords"
     ],
     "weapons": [
      {
@@ -330,8 +330,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "Interceptor lance",
-     "Salvo launcher"
+     "1x Interceptor Lance",
+     "1x Salvo Launcher"
     ],
     "weapons": [
      {
@@ -457,8 +457,8 @@
     "is_warlord": true,
     "enhancements": [],
     "wargear": [
-     "Eagle's Scream",
-     "Watcher's Axe"
+     "1x Eagle's Scream",
+     "1x Watcher's Axe"
     ],
     "weapons": [
      {
@@ -606,7 +606,7 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "Guardian Spear",
+     "3x Guardian Spear",
      "Sentinel blade",
      "Praesidium Shield"
     ],
@@ -729,7 +729,7 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "Guardian Spear",
+     "3x Guardian Spear",
      "Sentinel blade",
      "Praesidium Shield"
     ],
@@ -852,7 +852,7 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "Guardian Spear",
+     "3x Guardian Spear",
      "Sentinel blade",
      "Praesidium Shield"
     ],
@@ -975,7 +975,7 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "Guardian Spear",
+     "3x Guardian Spear",
      "Sentinel blade",
      "Praesidium Shield"
     ],
@@ -1098,11 +1098,11 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "Guardian Spear",
+     "3x Guardian Spear",
      "Sentinel blade",
      "Praesidium Shield",
      "Misericordia",
-     "Vexilla"
+     "1x Vexilla"
     ],
     "weapons": [
      {
@@ -1227,8 +1227,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "Balistus grenade launcher",
-     "Castellan Axe"
+     "2x Balistus Grenade Launcher",
+     "2x Castellan Axe"
     ],
     "weapons": [
      {
@@ -1387,7 +1387,7 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "Boltgun",
+     "4x Boltgun",
      "Close combat weapon"
     ],
     "weapons": [
@@ -1517,8 +1517,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "Interceptor lance",
-     "Salvo launcher"
+     "2x Interceptor Lance",
+     "2x Salvo Launcher"
     ],
     "weapons": [
      {
@@ -1909,8 +1909,8 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "Neural shredder",
-     "Phase sword and poison blades"
+     "1x Neural shredder",
+     "1x Phase sword and poison blades"
     ],
     "weapons": [
      {
@@ -2050,9 +2050,9 @@
     "is_warlord": false,
     "enhancements": [],
     "wargear": [
-     "Dirgesinger",
-     "Power fist",
-     "Psychic Tempest"
+     "1x Dirgesinger",
+     "1x Power fist",
+     "1x Psychic Tempest"
     ],
     "weapons": [
      {

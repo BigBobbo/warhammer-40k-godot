@@ -26019,46 +26019,51 @@
   }
  },
  {
-  "id": "tankbustas-wgo-mfm-1",
+  "id": "tankbustas-wgo-wh-1",
   "unit_id": "tankbustas",
   "faction_id": "orks",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "The Nob can have their Rokkit Pistol replaced with 1 Smash Hammer.",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Nob"
+  },
   "replaces": [
    "rokkit-pistol"
   ],
   "replacement": [
    "smash-hammer"
-  ],
-  "model_constraint": {
-   "model_name": "Boss Nob",
-   "any_number": true
-  }
+  ]
  },
  {
-  "id": "tankbustas-wgo-mfm-2",
+  "id": "tankbustas-wgo-wh-2",
   "unit_id": "tankbustas",
   "faction_id": "orks",
   "game_version": {
    "edition": "11th",
-   "dataslate": "launch"
+   "dataslate": "codex"
   },
   "is_free": true,
+  "rules_text": "1 Tankbusta model can be equipped with one of the following:• 1 Busta Rokkit Launcha • 1 Pulsa Rokkit",
+  "source": "wahapedia-11e@2026-10-16",
+  "model_constraint": {
+   "max": 1,
+   "model_name": "Tankbusta"
+  },
+  "replaces": [],
   "replacement_choice": [
    [
-    "pulsa-rokkit"
+    "rokkit-launcha-tankbustas"
    ],
    [
-    "rokkit-launcha-tankbustas"
+    "pulsa-rokkit"
    ]
-  ],
-  "model_constraint": {
-   "model_name": "Tankbusta",
-   "any_number": true
-  }
+  ]
  },
  {
   "id": "kommandos-wgo-mfm-1",
@@ -26859,53 +26864,6 @@
   "replacement": [
    "rivet-kannon"
   ]
- },
- {
-  "id": "warbikers-wgo-mfm-1",
-  "unit_id": "warbikers",
-  "faction_id": "orks",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement_choice": [
-   [
-    "slugga"
-   ],
-   [
-    "power-klaw"
-   ],
-   [
-    "big-choppa"
-   ]
-  ],
-  "model_constraint": {
-   "model_name": "Boss Nob on Warbike",
-   "any_number": true
-  }
- },
- {
-  "id": "warbikers-wgo-mfm-2",
-  "unit_id": "warbikers",
-  "faction_id": "orks",
-  "game_version": {
-   "edition": "11th",
-   "dataslate": "launch"
-  },
-  "is_free": true,
-  "replacement_choice": [
-   [
-    "choppa"
-   ],
-   [
-    "slugga"
-   ]
-  ],
-  "model_constraint": {
-   "model_name": "Warbiker",
-   "any_number": true
-  }
  },
  {
   "id": "boyz-wgo-codex-1",
