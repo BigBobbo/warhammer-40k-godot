@@ -424,6 +424,19 @@ func _on_phase_completed() -> void:
 		_handle_game_end()
 		return
 
+	# Codex: Adeptus Custodes SUPERHUMAN FOCUS (WP-C5, CustodesCodex11e.gd):
+	# "End of any phase" — the phase_end window opens on the completing battle
+	# phase; a human decision holds the advance (the phase completes again from
+	# the window's resume). Single-player / hot-seat only: a networked host
+	# would open it outside an action result, which the client cannot mirror.
+	if completed_phase in [GameStateData.Phase.COMMAND, GameStateData.Phase.MOVEMENT, GameStateData.Phase.SHOOTING,
+			GameStateData.Phase.CHARGE, GameStateData.Phase.FIGHT] \
+			and current_phase_instance != null and current_phase_instance.has_method("cus11e_open_phase_end_window") \
+			and not (network_mgr and network_mgr.is_networked()):
+		if current_phase_instance.cus11e_open_phase_end_window():
+			print("PhaseManager: %s phase end held for a phase_end stratagem decision" % GameStateData.Phase.keys()[completed_phase])
+			return
+
 	# Commit current phase log to history before transitioning
 	GameState.commit_phase_log_to_history()
 

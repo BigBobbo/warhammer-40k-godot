@@ -2777,6 +2777,37 @@ func _clear_stale_movement_selection_for_placement() -> void:
 		movement_controller.active_unit_id = ""
 		movement_controller._update_selected_unit_display()
 
+## Codex: Adeptus Custodes (WP-C5): when the reserve unit's owner has a
+## unit_selected_to_ingress stratagem and the Movement phase has not asked for
+## this unit yet, send CUS11E_SELECT_INGRESS_UNIT and return true — the
+## placement resumes from _on_cus11e_ingress_unit_ready.
+func _cus11e_route_ingress_selection(unit_id: String, unit: Dictionary) -> bool:
+	var pm = get_node_or_null("/root/PhaseManager")
+	var phase = pm.current_phase_instance if pm != null else null
+	if phase == null or not phase.has_signal("cus11e_ingress_unit_ready") or phase._cus11e_ingress_asked.has(unit_id):
+		return false
+	var owner := int(unit.get("owner", 0))
+	if not load("res://scripts/codex/custodes/CustodesCodex11e.gd").player_has_window_stratagem(owner, "unit_selected_to_ingress"):
+		return false
+	if not phase.cus11e_ingress_unit_ready.is_connected(_on_cus11e_ingress_unit_ready):
+		phase.cus11e_ingress_unit_ready.connect(_on_cus11e_ingress_unit_ready)
+	_cus11e_ingress_placement_type = _reinforcement_placement_type
+	print("Main: %s selected to make an ingress move — unit_selected_to_ingress may open first" % unit_id)
+	var res = NetworkIntegration.route_action({"type": "CUS11E_SELECT_INGRESS_UNIT", "unit_id": unit_id, "player": owner})
+	if not res.get("success", false):
+		push_warning("Main: CUS11E_SELECT_INGRESS_UNIT failed for %s: %s — placing without the window" % [unit_id, str(res.get("error", res.get("errors", "?")))])
+		return false
+	return true
+
+var _cus11e_ingress_placement_type: String = ""
+
+func _on_cus11e_ingress_unit_ready(unit_id: String) -> void:
+	print("Main: %s ready for its ingress placement" % unit_id)
+	if _reinforcement_placement_type == "" and _cus11e_ingress_placement_type != "":
+		_reinforcement_placement_type = _cus11e_ingress_placement_type
+	_cus11e_ingress_placement_type = ""
+	call_deferred("_begin_reinforcement_placement", unit_id)
+
 func _begin_reinforcement_placement(unit_id: String) -> void:
 	"""Start placing a reserve unit on the battlefield as reinforcement"""
 	var unit = GameState.get_unit(unit_id)
@@ -2789,6 +2820,12 @@ func _begin_reinforcement_placement(unit_id: String) -> void:
 		return
 
 	_clear_stale_movement_selection_for_placement()
+
+	# Codex: Adeptus Custodes GOLDEN LIGHT OF THE MOIRAIDES (CustodesCodex11e.gd):
+	# a unit selected to make an ingress move opens unit_selected_to_ingress
+	# first; the placement starts on the phase's cus11e_ingress_unit_ready.
+	if _cus11e_route_ingress_selection(unit_id, unit):
+		return
 
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 	# NULL-safe: loaded saves can carry "reserve_type": null, and the value
@@ -15315,12 +15352,26 @@ func _toggle_stratagem_panel() -> void:
 		# not a CanvasItem; assigning z_index raised a SCRIPT ERROR that
 		# aborted this function before popup(), leaving the panel button dead.
 		_stratagem_panel.stratagem_use_requested.connect(_on_stratagem_panel_use_requested)
-	var active_player = GameState.get_active_player() if GameState.has_method("get_active_player") else 1
+	var active_player = _stratagem_panel_player()
 	_stratagem_panel.populate(active_player, current_phase)
 	DialogUtils.popup_at_bottom(_stratagem_panel)
 	if stratagem_panel_button:
 		_WhiteDwarfTheme.apply_tab_button(stratagem_panel_button, true)
 
+
+## The seat the S panel acts for: the active player — or, in a single-player
+## game against the AI, the human seat while the AI takes its turn, so the
+## human's "Either player's turn" panel stratagems (Codex: Adeptus Custodes
+## HONOURED INTERRED in the Fight phase, GILDED CHAMPION) can be used then.
+## StratagemManager.can_use_stratagem still gates every use by its timing.
+func _stratagem_panel_player() -> int:
+	var active: int = GameState.get_active_player() if GameState.has_method("get_active_player") else 1
+	var ai = get_node_or_null("/root/AIPlayer")
+	if ai != null and ai.has_method("is_ai_player") and ai.is_ai_player(active) and not NetworkManager.is_networked():
+		var other := 2 if active == 1 else 1
+		if not ai.is_ai_player(other):
+			return other
+	return active
 
 func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	# A stratagem window is waiting for a decision: the S panel must not let a
@@ -15341,7 +15392,7 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager == null:
 		return
-	var active_player = GameState.get_active_player() if GameState.has_method("get_active_player") else 1
+	var active_player = _stratagem_panel_player()
 	# Audit #11 (15.05/15.06): EXPLOSIVES and CRUSHING IMPACT need the
 	# attacker to pick a friendly unit AND an enemy target — prompt for
 	# both instead of firing target-less (which no-oped the effect).
@@ -15370,6 +15421,12 @@ func _on_stratagem_panel_use_requested(stratagem_id: String) -> void:
 	# buggies, then confirm where the revived models are set up (01.02.03).
 	if str(strat.get("csv_id", "")) == "delicious-eating-squigs-kult-of-speed":
 		_prompt_delicious_squigs(sid_resolved, active_player)
+		return
+	# Codex: Adeptus Custodes S-panel stratagems (CustodesCodex11e.gd: UNLEASH
+	# THE LIONS, HONOURED INTERRED, GILDED CHAMPION — no window): pick the
+	# friendly target the codex handler accepts, then use it.
+	if load("res://scripts/codex/custodes/CustodesCodex11e.gd").handles(strat) and strat.get("timing", {}).get("windows", []).is_empty():
+		_prompt_friendly_target_then_use(sid_resolved, active_player)
 		return
 	# Unit-targeted faction stratagems (SPESHUL AMMO, DUST TRAILS, DAT'S OURS,
 	# TAKTIKAL RETREAT, DED SNEAKY, ...): prompt for the friendly target
@@ -15411,6 +15468,11 @@ func _prompt_friendly_target_then_use(sid: String, player: int) -> void:
 		func(fid: String):
 			var result = strat_manager.use_stratagem(player, sid, fid)
 			print("Main: %s on %s -> %s" % [display_name, fid, str(result)])
+			# Codex: Adeptus Custodes UNLEASH THE LIONS adds one-model units:
+			# rebuild the tokens / unit list so the new units appear.
+			if result.get("success", false) and str(strat_manager.get_stratagem(sid).get("csv_id", "")) == "unleash-the-lions-lions-of-the-emperor":
+				_recreate_unit_visuals()
+				refresh_unit_list()
 			if _stratagem_panel and is_instance_valid(_stratagem_panel) and _stratagem_panel.visible:
 				_stratagem_panel.populate(player, current_phase))
 

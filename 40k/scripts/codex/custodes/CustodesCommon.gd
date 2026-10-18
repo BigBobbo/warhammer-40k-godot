@@ -245,6 +245,202 @@ static func nearest_enemy_inches(u: Dictionary) -> float:
 	return best
 
 # ---------------------------------------------------------------------------
+# Stratagem helpers (WP-C5: CustodesCodex11e.gd and its group scripts).
+# An Attached unit is ONE unit (19.03): every check below looks at all of its
+# components (the Ork codex ruling "keyword checks look at the whole Attached
+# unit").
+# ---------------------------------------------------------------------------
+
+## True when any component of the (Attached) unit has the keyword.
+static func group_has_keyword(unit_id: String, keyword: String) -> bool:
+	for gid in attached_group_ids(unit_id):
+		var gu := unit(str(gid))
+		if not gu.is_empty() and has_keyword(gu, keyword):
+			return true
+	return false
+
+## Models of every component, merged — distances from an Attached unit.
+static func group_union(unit_id: String) -> Dictionary:
+	var models: Array = []
+	var owner := int(unit(unit_id).get("owner", 0))
+	for gid in attached_group_ids(unit_id):
+		for m in unit(str(gid)).get("models", []):
+			models.append(m)
+	return {"owner": owner, "models": models, "id": head_id(unit_id)}
+
+## Closest edge-to-edge distance between two (Attached) units, inches.
+static func group_distance_inches(a_id: String, b_id: String) -> float:
+	return unit_distance_inches(group_union(a_id), group_union(b_id))
+
+## True when any component of `a_id` is engaged with any component of `b_id`.
+static func group_engaged_with(a_id: String, b_id: String) -> bool:
+	var re = rules()
+	if re == null or not re.has_method("check_units_in_engagement_range"):
+		return false
+	for ga in attached_group_ids(a_id):
+		var ua := unit(str(ga))
+		if ua.is_empty() or not is_alive(ua):
+			continue
+		for gb in attached_group_ids(b_id):
+			var ub := unit(str(gb))
+			if ub.is_empty() or not is_alive(ub):
+				continue
+			if re.check_units_in_engagement_range(ua, ub, state()):
+				return true
+	return false
+
+## "Below its starting strength": the (Attached) unit has lost a model.
+static func is_below_starting_strength(unit_id: String) -> bool:
+	for gid in attached_group_ids(unit_id):
+		for m in unit(str(gid)).get("models", []):
+			if not m.get("alive", true):
+				return true
+	return false
+
+static func is_battle_shocked(u: Dictionary) -> bool:
+	return bool(u.get("flags", {}).get("battle_shocked", false))
+
+static func is_attached_character(unit_id: String) -> bool:
+	var re = rules()
+	if re and re.has_method("is_attached_character"):
+		return bool(re.is_attached_character(unit_id, state()))
+	return false
+
+## The (Attached) units `player` has on the battlefield, one id per unit
+## (the bodyguard / head id), in board order.
+static func friendly_heads(player: int) -> Array:
+	var out: Array = []
+	var units: Dictionary = state().get("units", {})
+	for uid in units:
+		var head := head_id(str(uid))
+		if head in out:
+			continue
+		var hu := unit(head)
+		if int(hu.get("owner", 0)) != player or not is_on_battlefield(hu):
+			continue
+		out.append(head)
+	return out
+
+## Enemy (Attached) units of `player` on the battlefield, one id per unit.
+static func enemy_heads(player: int) -> Array:
+	var out: Array = []
+	var units: Dictionary = state().get("units", {})
+	for uid in units:
+		var head := head_id(str(uid))
+		if head in out:
+			continue
+		var hu := unit(head)
+		if int(hu.get("owner", 0)) == player or int(hu.get("owner", 0)) == 0 or not is_on_battlefield(hu):
+			continue
+		out.append(head)
+	return out
+
+## "Guard + Blade Champion" for an Attached unit, else the unit name.
+static func group_label(unit_id: String) -> String:
+	var head := head_id(unit_id)
+	var label := unit_name(head)
+	var chars: Array = unit(head).get("attachment_data", {}).get("attached_characters", [])
+	if not chars.is_empty():
+		var names: Array = [label]
+		for cid in chars:
+			names.append(unit_name(str(cid)))
+		label = " + ".join(names)
+	return label
+
+## Standard target entry shape for StratagemManager.get_window_offers.
+static func target_entry(unit_id: String, extra: Dictionary = {}) -> Dictionary:
+	var entry := {"unit_id": unit_id, "label": group_label(unit_id) if unit_id != "" else "Use"}
+	entry.merge(extra, true)
+	return entry
+
+## Dice through the engine's seedable RNG (scenario / test seeds apply).
+static func roll_dice(count: int, sides: int = 6) -> Array:
+	var out: Array = []
+	var re = rules()
+	var rng = re.make_rng() if re and re.has_method("make_rng") else null
+	for _i in range(count):
+		var r := 0
+		if rng == null:
+			r = randi_range(1, sides)
+		elif sides == 6:
+			r = int(rng.roll_d6(1)[0])
+		else:
+			# D3 = ceil(D6 / 2) — the same convention as roll_variable_characteristic.
+			r = int(ceil(float(rng.roll_d6(1)[0]) * float(sides) / 6.0))
+		out.append(r)
+	return out
+
+# --- objectives (secured objectives 14.03, objective range 14.01) ----------
+
+static func mission_manager() -> Node:
+	return autoload("MissionManager")
+
+static func objectives() -> Array:
+	return state().get("board", {}).get("objectives", [])
+
+static func objective_by_id(obj_id: String) -> Dictionary:
+	for obj in objectives():
+		if str(obj.get("id", "")) == obj_id:
+			return obj
+	return {}
+
+## Any model of the (Attached) unit within range of the objective. Models that
+## were destroyed count when include_dead (VICTORY BEFORE DEATH reads where the
+## unit stood when it was destroyed).
+static func group_in_objective_range(unit_id: String, obj: Dictionary, include_dead: bool = false) -> bool:
+	var mm = mission_manager()
+	if mm == null or not mm.has_method("model_in_objective_range"):
+		return false
+	for gid in attached_group_ids(unit_id):
+		for m in unit(str(gid)).get("models", []):
+			if m.get("position", null) == null:
+				continue
+			if not include_dead and not m.get("alive", true):
+				continue
+			var probe: Dictionary = m
+			if not m.get("alive", true):
+				probe = m.duplicate()
+				probe["alive"] = true
+			if mm.model_in_objective_range(probe, obj):
+				return true
+	return false
+
+static func group_in_range_of_any_objective(unit_id: String) -> bool:
+	for obj in objectives():
+		if group_in_objective_range(unit_id, obj):
+			return true
+	return false
+
+static func objective_controller(obj_id: String) -> int:
+	var mm = mission_manager()
+	if mm == null:
+		return 0
+	return int(mm.objective_control_state.get(obj_id, 0))
+
+static func objective_secured_by(obj_id: String) -> int:
+	var mm = mission_manager()
+	if mm == null or not mm.has_method("is_objective_secured"):
+		return 0
+	var sec: Dictionary = mm.is_objective_secured(obj_id)
+	return int(sec.get("player", 0)) if bool(sec.get("secured", false)) else 0
+
+## Player-facing objective name — the board marker's / HUD panel's name
+## ("CENTER [NML]") plus where it is.
+static func objective_label(obj_id: String) -> String:
+	var obj := objective_by_id(obj_id)
+	var label := obj_id.replace("obj_", "").to_upper().replace("_", " ")
+	match str(obj.get("zone", "")):
+		"player1": label += " [P1]"
+		"player2": label += " [P2]"
+		"no_mans_land": label += " [NML]"
+	var p = obj.get("position", null)
+	if p is Dictionary:
+		label += " at %d\", %d\"" % [roundi(float(p.get("x", 0)) / PX_PER_INCH), roundi(float(p.get("y", 0)) / PX_PER_INCH)]
+	elif p is Vector2:
+		label += " at %d\", %d\"" % [roundi(p.x / PX_PER_INCH), roundi(p.y / PX_PER_INCH)]
+	return label
+
+# ---------------------------------------------------------------------------
 # Flag helpers — scoped writes as diffs (replay / network safe)
 # ---------------------------------------------------------------------------
 
@@ -262,6 +458,17 @@ static func remove_flag_diffs(unit_ids: Array, flag: String) -> Array:
 		if units.get(str(uid), {}).get("flags", {}).has(flag):
 			diffs.append({"op": "remove", "path": "units.%s.flags.%s" % [str(uid), flag]})
 	return diffs
+
+## In-place flag removal (StratagemManager._clear_stratagem_flags convention:
+## an expiry mutates GameState directly). WP-C5.
+static func erase_flags(unit_ids: Array, flag_names: Array) -> void:
+	var units: Dictionary = state().get("units", {})
+	for uid in unit_ids:
+		var u = units.get(str(uid), {})
+		if u.is_empty() or not u.has("flags"):
+			continue
+		for f in flag_names:
+			u.flags.erase(str(f))
 
 ## Apply diffs through PhaseManager (network / replay pipeline) when it is
 ## loaded, otherwise straight into GameState (bare headless tests).

@@ -79,6 +79,10 @@ func select_mode(unit_id: String, board: Dictionary, _context: Dictionary = {}) 
 		var chosen := str(_context.get("chosen_mode", ""))
 		var pick: String = chosen if chosen in applicable else str(applicable[0])
 		return {"mode": pick, "mandatory": applicable.size() == 1, "available": applicable, "free_choice_source": free_source}
+	# Codex: Adeptus Custodes EMPEROR'S DOMAIN (CustodesCodex11e.gd): the objective mode regardless of the BEFORE restrictions.
+	if load("res://scripts/codex/custodes/CustodesCodex11e.gd").consolidation_objective_override(unit_id) \
+			and not _objectives_within(unit_id, board, OBJECTIVE_WITHIN_INCHES).is_empty():
+		return {"mode": "objective", "mandatory": false, "available": ["objective"]}
 	if rules.is_unit_engaged(unit_id, board):
 		return {"mode": "ongoing", "mandatory": true, "available": ["ongoing"]}
 	if not _enemies_within(unit_id, board, ENGAGING_RANGE_INCHES).is_empty():

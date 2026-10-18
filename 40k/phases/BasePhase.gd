@@ -469,6 +469,44 @@ func _cus11e_open_phase_start_window() -> void:
 	DebugLogger.info("[StratagemWindow] start of phase %d — Codex: Adeptus Custodes enhancement window(s) for %s" % [int(phase_type), str(entries.map(func(x): return x.player))])
 	open_stratagem_windows(entries, "", {})
 
+## Codex: Adeptus Custodes stratagems (WP-C5, CustodesCodex11e.gd): the new
+## windows' hooks and the effect consumers the phases call. Loaded lazily.
+static func _cus11e_codex():
+	return load("res://scripts/codex/custodes/CustodesCodex11e.gd")
+
+## Codex: Adeptus Custodes SUPERHUMAN FOCUS (WP-C5, CustodesCodex11e.gd): the
+## phase_end window ("End of any phase", both players, active first). Called by
+## PhaseManager._on_phase_completed before it advances: true = the window now
+## waits for a human and the phase completes from its resume; false = advance
+## now (no Custodes phase_end stratagem, or an AI decided synchronously — its
+## diffs are already applied by StratagemManager.use_stratagem). Once per phase
+## instance, so the resume's own phase_completed advances.
+var _cus11e_phase_end_done: bool = false
+
+func cus11e_open_phase_end_window() -> bool:
+	if _cus11e_phase_end_done or GameConstants.edition < 11:
+		return false
+	_cus11e_phase_end_done = true
+	var codex = _cus11e_codex()
+	if not (codex.player_has_window_stratagem(1, "phase_end") or codex.player_has_window_stratagem(2, "phase_end")):
+		return false
+	if has_pending_stratagem_window() or _window_followup_pending:
+		_window_error("phase_end window not opened: window %s / a follow-up is still pending at the end of the phase" % str(_window_pending.get("window_id", "followup")))
+		return false
+	var ctx := {"phase": StratagemManager._phase_to_string(GameState.get_current_phase())}
+	if open_stratagem_window_both_players("phase_end", ctx, "_cus11e_resume_after_phase_end"):
+		log_phase_message("End of the %s phase waits for Player %d's phase_end stratagem decision" % [ctx.phase, get_pending_stratagem_window_decider()])
+		return true
+	var sync := consume_window_diffs()
+	if not sync.is_empty():
+		log_phase_message("phase_end: %d stratagem diff(s) applied by an AI decision at the end of the %s phase" % [sync.size(), ctx.phase])
+	return false
+
+func _cus11e_resume_after_phase_end(_ctx: Dictionary, _window_result: Dictionary) -> Dictionary:
+	log_phase_message("phase_end windows answered — ending the phase")
+	emit_signal("phase_completed")
+	return create_result(true, [])
+
 ## Everything `player` may use in this window: the stratagems
 ## (StratagemManager.get_window_offers) followed by the ka'tah cards.
 ## katah_only: the ka'tah cards alone (a window re-opened after a stratagem).

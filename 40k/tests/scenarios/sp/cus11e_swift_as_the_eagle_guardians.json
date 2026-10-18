@@ -1,0 +1,260 @@
+{
+  "id": "cus11e_swift_as_the_eagle_guardians",
+  "covers": [
+    "codex.custodes.stratagems.swift-as-the-eagle-guardians-of-the-throne",
+    "codex.custodes.CustodesCodex11e",
+    "stratagem.window.enemy_ended_move",
+    "phases.MovementPhase.reactive_move"
+  ],
+  "description": "Codex: Adeptus Custodes (11e) SWIFT AS THE EAGLE (Guardians of the Throne, 1 CP) — WP-C5. Fixture cus11e_c5_reactive (P1 Orks ACTIVE, P2 Custodes, round 2). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (the Orks' Movement phase). The Ork player moves the Gretchin 5\" (ending within 8\" of the unengaged TRUSTED SENTINEL Custodian Wardens; Fire Overwatch declined): enemy_ended_move opens for P2 (the codex prints SWIFT AS THE EAGLE in two detachments; this is the swift-as-the-eagle-guardians-of-the-throne row); a real click on 'Use on Custodian Wardens' spends 1 CP: the Wardens make a reactive normal move of up to D3+3\", then the phase returns to the Orks.",
+  "fixture": "cus11e_c5_reactive",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.setup(2, \"Guardians of the Throne\", {})",
+      "comment": "setup privileges (see description)",
+      "equals": "Guardians of the Throne"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nPhaseManager.transition_to_phase(7)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 7
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "BEGIN_NORMAL_MOVE",
+        "actor_unit_id": "U_GRETCHIN_C",
+        "player": 1
+      },
+      "comment": "the Ork player's BEGIN_NORMAL_MOVE"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "the Ork player's own unit_selected_to_move window (if any) declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.move(\"U_GRETCHIN_C\", 5.0, 0.0)",
+      "comment": "the Ork move (drag + Confirm Move)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.tag_prompts()"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/FireOverwatchDialog/Content/Buttons/DeclineButton",
+      "comment": "Fire Overwatch (not under test) declined"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/KeepRollButton",
+      "comment": "Command Re-roll (not under test): keep the roll"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.settle()",
+      "comment": "belt-and-braces: nothing else left waiting"
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.window_id()",
+      "equals": "enemy_ended_move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.decider()",
+      "equals": 2
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_guardians_of_the_throne_swift_as_the_eagle/Buttons/Use_faction_ac_guardians_of_the_throne_swift_as_the_eagle_U_CUSTODIAN_WARDENS_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_guardians_of_the_throne_swift_as_the_eagle/Buttons/Use_faction_ac_guardians_of_the_throne_swift_as_the_eagle_U_CUSTODIAN_WARDENS_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_swift_as_the_eagle_guardians_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_guardians_of_the_throne_swift_as_the_eagle/Buttons/Use_faction_ac_guardians_of_the_throne_swift_as_the_eagle_U_CUSTODIAN_WARDENS_A",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 2,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn str(H.phase()._ork11e_reactive_move.get(\"unit_id\", \"\"))",
+      "equals": "U_CUSTODIAN_WARDENS_A"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn float(H.phase().active_moves.get(\"U_CUSTODIAN_WARDENS_A\", {}).get(\"move_cap_inches\", -1.0))",
+      "expect_min": 4.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn float(H.phase().active_moves.get(\"U_CUSTODIAN_WARDENS_A\", {}).get(\"move_cap_inches\", 99.0))",
+      "expect_max": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.decider()",
+      "comment": "the reactive move owns the phase",
+      "equals": 2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.log_count(\"Used SWIFT AS THE EAGLE\")",
+      "comment": "the Game Log names the stratagem",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_swift_as_the_eagle_guardians_reactive_move"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.move(\"U_CUSTODIAN_WARDENS_A\", 0.0, 2.0)",
+      "comment": "P2 makes the move (drag + Confirm Move)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.tag_prompts()"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/FireOverwatchDialog/Content/Buttons/DeclineButton",
+      "comment": "Fire Overwatch (not under test) declined"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/CommandRerollDialog/Content/ButtonRow/KeepRollButton",
+      "comment": "Command Re-roll (not under test): keep the roll"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.settle()",
+      "comment": "belt-and-braces: nothing else left waiting"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.decider()",
+      "comment": "the Orks have the phase back",
+      "equals": 0
+    },
+    {
+      "act": "screenshot",
+      "label": "03_wardens_moved"
+    }
+  ]
+}

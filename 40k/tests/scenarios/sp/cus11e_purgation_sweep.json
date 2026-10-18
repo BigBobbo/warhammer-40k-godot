@@ -1,0 +1,187 @@
+{
+  "id": "cus11e_purgation_sweep",
+  "covers": [
+    "codex.custodes.stratagems.purgation-sweep-null-maiden-vigil",
+    "codex.custodes.CustodesCodex11e",
+    "stratagem.window.unit_selected_to_shoot",
+    "rules.ranged.torrent_attacks",
+    "dialogs.StratagemDialog.variant_buttons"
+  ],
+  "description": "Codex: Adeptus Custodes (11e) PURGATION SWEEP (Null Maiden Vigil, 1 CP) — WP-C5. Fixture cus11e_c5_active (P1 Custodes active, round 2; layout in tests/helpers/gen_cus11e_c5_fixtures.gd). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (Shooting phase); P2 has 0 CP (no Ork reactive stratagem competes). The Witchseeker Squad is selected to shoot (the panel's SELECT_SHOOTER); unit_selected_to_shoot offers the card's two options; a real click on '+1 A' spends 1 CP; its [TORRENT] flamers get +1 attack per model; it then shoots the Gretchin.",
+  "fixture": "cus11e_c5_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.setup(1, \"Null Maiden Vigil\", {\"cp\": {\"2\": 0}})",
+      "comment": "setup privileges (see description)",
+      "equals": "Null Maiden Vigil"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_WITCHSEEKERS_A",
+        "player": 1
+      },
+      "comment": "the shooting panel's unit pick"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_selected_to_shoot"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_null_maiden_vigil_purgation_sweep/Buttons/Use_faction_ac_null_maiden_vigil_purgation_sweep_U_WITCHSEEKERS_A_plus_one",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_null_maiden_vigil_purgation_sweep/Buttons/Use_faction_ac_null_maiden_vigil_purgation_sweep_U_WITCHSEEKERS_A_plus_one",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_purgation_sweep_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_null_maiden_vigil_purgation_sweep/Buttons/Use_faction_ac_null_maiden_vigil_purgation_sweep_U_WITCHSEEKERS_A_plus_one",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.flag(\"U_WITCHSEEKERS_A\", \"cus11e_purgation_sweep\")",
+      "equals": "plus_one"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar w = H.weapon(\"U_WITCHSEEKERS_A\", \"flamer\")\nreturn H.codex().bonus_attacks_per_model(H.unit(\"U_WITCHSEEKERS_A\"), H.unit(\"U_GRETCHIN_C\"), RulesEngine.get_weapon_profile(w, GameState.state), true, false)",
+      "comment": "+1 A per model on the [TORRENT] weapons",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.log_count(\"Used PURGATION SWEEP\")",
+      "comment": "the Game Log names the stratagem",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "02_purgation_sweep_used"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.shoot(1, \"U_WITCHSEEKERS_A\", \"U_GRETCHIN_C\", \"flamer\", 9)",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn \"U_WITCHSEEKERS_A\" in H.phase().units_that_shot",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_witchseekers_shot"
+    }
+  ],
+  "transition_to_phase": 7
+}
