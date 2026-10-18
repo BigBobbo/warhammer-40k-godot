@@ -2017,14 +2017,8 @@ func _continue_end_movement_rapid_ingress(changes: Array) -> Dictionary:
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager and battle_round >= 2:
 		var strat_check = strat_manager.can_use_stratagem(defending_player, "rapid_ingress")
-		# Unit-specific discounts / exemptions (Codex: Adeptus Custodes Swift Ruin,
-		# WP-C7; Leonine Ferocity, WP-C46): a unit the target-aware check allows is
-		# offered even when the generic check (1 CP, once per phase) says no.
-		var ri_candidates: Array = _get_rapid_ingress_eligible_units(defending_player) if battle_round >= 2 else []
-		if not strat_check.can_use:
-			ri_candidates = ri_candidates.filter(func(e): return bool(strat_manager.can_use_stratagem(defending_player, "rapid_ingress", str(e.get("unit_id", ""))).get("can_use", false)))
-		if strat_check.can_use or not ri_candidates.is_empty():
-			var ri_eligible = ri_candidates
+		if strat_check.can_use:
+			var ri_eligible = _get_rapid_ingress_eligible_units(defending_player)
 			if not ri_eligible.is_empty():
 				_awaiting_rapid_ingress = true
 				_rapid_ingress_player = defending_player
@@ -2108,19 +2102,11 @@ func _get_rapid_ingress_eligible_units(player: int) -> Array:
 			var char_unit = get_unit(char_id)
 			if char_unit.get("status", 0) == GameStateData.UnitStatus.IN_RESERVES:
 				unit_name += " + " + char_unit.get("meta", {}).get("name", char_id)
-		var ri_entry := {
+		eligible.append({
 			"unit_id": unit_id,
 			"unit_name": unit_name,
 			"reserve_type": reserve_type
-		}
-		# The dialog shows this unit's own cost (WP-C7 Swift Ruin: -1 CP).
-		var ri_sm = get_node_or_null("/root/StratagemManager")
-		if ri_sm and ri_sm.has_method("get_stratagem"):
-			var ri_strat: Dictionary = ri_sm.get_stratagem("rapid_ingress")
-			if _cus11e_abilities().swift_ruin_applies(player, ri_strat, unit_id):
-				ri_entry["cp_cost"] = maxi(0, int(ri_strat.get("cp_cost", 1)) - 1)
-				ri_entry["cost_note"] = "Swift Ruin"
-		eligible.append(ri_entry)
+		})
 
 	return eligible
 
@@ -2141,7 +2127,7 @@ func _validate_use_rapid_ingress(action: Dictionary) -> Dictionary:
 	# Validate through StratagemManager
 	var strat_manager = get_node_or_null("/root/StratagemManager")
 	if strat_manager:
-		var check = strat_manager.can_use_stratagem(player, "rapid_ingress", unit_id)  # target-aware (Swift Ruin / Leonine Ferocity)
+		var check = strat_manager.can_use_stratagem(player, "rapid_ingress")
 		if not check.can_use:
 			errors.append(check.reason)
 			return {"valid": false, "errors": errors}

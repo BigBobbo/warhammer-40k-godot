@@ -40,6 +40,10 @@ var consolidate_chosen_objective_11e: String = ""
 # the player picked when the mandatory order is lifted ("" = default, WP-C46).
 var consolidate_chosen_mode_11e: String = ""
 var sweeping_advance_active: bool = false
+# Sweeping Advance is a NORMAL move (unengaged) or a FALL-BACK move (engaged) of
+# up to the unit's M (Codex: Adeptus Custodes 11e, WP-C7) — not a pile-in: the
+# reused drag mode takes this cap and skips the "closer to the enemy" rule.
+var sweeping_advance_move_inches: float = 0.0
 var acrobatic_escape_active: bool = false
 var pile_in_unit_id: String = ""
 var pile_in_dialog_ref: Node = null
@@ -4004,6 +4008,9 @@ func _end_model_drag_pile_in() -> void:
 					reverted = true
 			elif consolidate_active:
 				print("[FightController] Consolidate drag: phase has no 12.08 move check — leaving the drop to CONSOLIDATE validation")
+			elif sweeping_advance_active:
+				# WP-C7: a normal / fall-back move has no "closer to the enemy" rule.
+				print("[FightController] Sweeping Advance drag: normal / fall-back move — no move-closer rule")
 			else:
 				# Pile-in mode - always check toward enemy
 				var closest_enemy_pos = _find_closest_enemy_pos(original_pos)
@@ -4154,6 +4161,8 @@ var _fight_move_cap_cache: Dictionary = {}
 func _fight_move_base_cap() -> float:
 	if pile_in_unit_id == "":
 		return PILE_IN_MAX_INCHES
+	if sweeping_advance_active and sweeping_advance_move_inches > 0.0:
+		return sweeping_advance_move_inches  # WP-C7: Sweeping Advance moves up to M
 	if not _fight_move_cap_cache.has(pile_in_unit_id):
 		var cap: float = PILE_IN_MAX_INCHES
 		if current_phase and current_phase.has_method("_fight_base_move_cap"):
@@ -4592,6 +4601,7 @@ func _on_sweeping_advance_available(unit_id: String, player: int, in_engagement:
 
 	# Enable movement mode (reuses pile-in infrastructure)
 	sweeping_advance_active = true
+	sweeping_advance_move_inches = move_distance  # WP-C7: the move's own cap (M), not 3"
 	_enable_pile_in_mode(unit_id, dialog)
 
 	# Show in dice log
