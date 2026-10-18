@@ -8261,7 +8261,14 @@ func _refresh_unit_list_inner() -> void:
 				else:
 					independent_reserves.append(reserve_id)
 
-			if independent_reserves.size() > 0 and battle_round >= 2:
+			# Battle round 1: only units that may make an ingress move in their first
+			# Movement phase — WP-O5 Impulsive Recon (ORKS AIRCRAFT) and WP-C46
+			# Lightning Descent (Custodes).
+			if battle_round < 2:
+				var o5_round1: Array = load("res://scripts/codex/orks/OrkEnhancements11e.gd").first_round_ingress_units(independent_reserves)
+				var cus11e_det_script = load("res://scripts/codex/custodes/CustodesDetachments.gd")
+				independent_reserves = independent_reserves.filter(func(rid): return rid in o5_round1 or cus11e_det_script.can_ingress_first_round(GameState.get_unit(str(rid))))
+			if independent_reserves.size() > 0:  # (round 1: only the filtered first-round units)
 				unit_list.add_item("--- REINFORCEMENTS (Reserves) ---")
 				unit_list.set_item_disabled(unit_list.get_item_count() - 1, true)
 				for reserve_id in independent_reserves:

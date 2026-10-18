@@ -11,26 +11,17 @@ signal detach_completed(character_id: String)
 func _ready() -> void:
 	print("CharacterAttachmentManager initialized")
 
-## Enhancement-driven extra leader pairings (Taktikal Brigade):
-##  - Skwad Leader: the Warboss bearer can be attached to a KOMMANDOS unit
-##  - Mek Kaptin: the Big Mek bearer can be attached to a FLASH GITZ unit
+## Enhancement-driven extra leader pairings — the "LEADER: <unit>" line a
+## Codex: Orks (11e) enhancement prints (WP-O5, OrkEnhancements11e):
+##  - Kill Kommanda (Taktikal Brigade): the bearer can lead KOMMANDOS
+##  - Kaptin's Hat (Wreckas): the bearer can lead FLASH GITZ
 ## Returned keywords are merged into the bearer's can_lead list by every
 ## can_lead reader (can_attach, FormationsPhase validation, GameState
 ## eligible-bodyguard queries).
 static func get_enhancement_can_lead_extras(character: Dictionary) -> Array:
-	var extras: Array = []
-	for enh in character.get("meta", {}).get("enhancements", []):
-		var enh_name = ""
-		if enh is String:
-			enh_name = enh
-		elif enh is Dictionary:
-			enh_name = str(enh.get("name", ""))
-		match enh_name:
-			"Skwad Leader":
-				extras.append("KOMMANDOS")
-			"Mek Kaptin":
-				extras.append("FLASH GITZ")
-	return extras
+	if GameConstants.edition < 11:
+		return []
+	return load("res://scripts/codex/orks/OrkEnhancements11e.gd").leader_extras(character)
 
 # Check if a character can attach to a bodyguard unit
 func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
@@ -53,7 +44,7 @@ func can_attach(character_id: String, bodyguard_id: String) -> Dictionary:
 	# 1,899 canonical pairings) when the per-roster JSON list is empty or stale.
 	var leader_data = character.get("meta", {}).get("leader_data", {})
 	var can_lead = leader_data.get("can_lead", []).duplicate()
-	# Taktikal Brigade enhancements (Skwad Leader / Mek Kaptin) extend which
+	# Enhancement LEADER lines (Codex: Orks Kill Kommanda / Kaptin's Hat) extend which
 	# units the bearer can lead.
 	for extra_kw in get_enhancement_can_lead_extras(character):
 		if not extra_kw in can_lead:

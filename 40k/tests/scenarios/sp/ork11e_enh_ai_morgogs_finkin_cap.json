@@ -1,0 +1,96 @@
+{
+ "id": "ork11e_enh_ai_morgogs_finkin_cap",
+ "covers": [
+  "codex.orks.enhancements.morgogs_finkin_cap.ai",
+  "ai.decide_window_stratagem",
+  "stratagem.window.movement_phase_end"
+ ],
+ "description": "WP-O5 AI: Codex: Orks (11e) MORGOG'S FINKIN' CAP with an AI decider. Fixture ork11e_enh_brute_enemy_move: P2 (Custodes, human) is active, and the Orks (P1) are given to the AI. A real click on End Movement Phase (P2) opens the movement_phase_end windows. P2 declines its own cards; the AI declines the Morgog's Finkin' Cap move (a plan-level decision) without a dialog, and the phase moves on to Shooting.",
+ "fixture": "ork11e_enh_brute_enemy_move",
+ "edition": 11,
+ "rng_seed": 7,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_phase",
+   "equals": 7
+  },
+  {
+   "act": "expect_state",
+   "path": "meta.active_player",
+   "equals": 2
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "execute_script",
+   "script": "AIPlayer.configure({1: \"AI\", 2: \"HUMAN\"})\nreturn AIPlayer.enabled",
+   "multiline": true,
+   "equals": true,
+   "comment": "the Orks (P1, the reacting player) are AI; the Custodes are human"
+  },
+  {
+   "act": "click_node",
+   "node": "/root/Main/PhaseActionButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "click_node",
+   "button_text": "End Movement Phase"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.0
+  },
+  {
+   "act": "execute_script",
+   "script": "var d = tree.root.get_node_or_null(\"StratagemDialog\")\nif d and d.visible and int(PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()) == 2:\n\td.get_node(\"Content/DeclineButton\").emit_signal(\"pressed\")\nreturn true",
+   "multiline": true,
+   "equals": true,
+   "comment": "the human P2 declines its own movement_phase_end cards"
+  },
+  {
+   "act": "wait_for_script",
+   "script": "return int(GameState.state.meta.phase) != 7",
+   "equals": true,
+   "timeout_s": 60,
+   "poll_s": 0.5
+  },
+  {
+   "act": "execute_script",
+   "script": "AIPlayer.enabled = false\nreturn true",
+   "multiline": true,
+   "equals": true
+  },
+  {
+   "act": "execute_script",
+   "script": "ScenarioRunner.event_log_count_containing(\"Morgog's Finkin' Cap\")",
+   "equals": 0,
+   "comment": "the AI declined the Morgog's Finkin' Cap move"
+  },
+  {
+   "act": "execute_script",
+   "script": "int(GameState.state.meta.phase)",
+   "equals": 8,
+   "comment": "the opponent's Movement phase ended without stalling"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_ai_declined_morgog_phase_moved_on"
+  }
+ ]
+}

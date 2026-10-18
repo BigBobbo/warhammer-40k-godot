@@ -777,7 +777,8 @@ static func has_effect_fall_back_and_shoot(unit: Dictionary) -> bool:
 	# the Shooting phase effect_* wipe).
 	return unit.get("flags", {}).get(FLAG_FALL_BACK_AND_SHOOT, false) \
 		or (GameConstants.edition >= 11 and _cus11e_det().fall_back_allows_shoot(unit)) \
-		or _cus11e_grants(unit, "fall_back_and_shoot")
+		or _cus11e_grants(unit, "fall_back_and_shoot") \
+		or (GameConstants.edition >= 11 and load("res://scripts/codex/orks/OrkEnhancements11e.gd").fall_back_allows_shoot(unit))  # Codex: Orks (11e) Kunnin' But Brutal (WP-O5)
 
 static func has_effect_fall_back_and_charge(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted fall back and charge eligibility."""

@@ -148,6 +148,14 @@ const UG_RESULTS := {
 static func enabled() -> bool:
 	return GameConstants.edition >= 11
 
+## WP-O5: Codex: Orks (11e) enhancements module, loaded on first use (it
+## preloads this script; no preload cycle).
+static var _enh_script = null
+static func _enh():
+	if _enh_script == null:
+		_enh_script = load("res://scripts/codex/orks/OrkEnhancements11e.gd")
+	return _enh_script
+
 static func det_key(name: String) -> String:
 	return name.replace(" ", " ").replace("’", "'").replace("‘", "'").strip_edges().to_lower()
 
@@ -579,6 +587,8 @@ static func advance_allows_charge(u: Dictionary) -> bool:
 ## Suspiciously Well Organised (BOYZ / KOMMANDOS / STORMBOYZ).
 ## EffectPrimitives.has_effect_fall_back_and_charge hook.
 static func fall_back_allows_charge(u: Dictionary) -> bool:
+	if _enh().fall_back_allows_charge(u):  # WP-O5 Kunnin' But Brutal / Glory Hog
+		return true
 	match unit_detachment(u):
 		KULT_OF_SPEED:
 			return group_kw(u, "SPEED FREEKS")
@@ -608,7 +618,7 @@ static func report_advance_roll_changed(unit_id: String, old_roll: int) -> void:
 static func charge_reroll_source(u: Dictionary) -> String:
 	if unit_detachment(u) == BLITZ_BRIGADE and group_kw(u, "WAGON"):
 		return "Unstoppable Momentum"
-	return ""
+	return str(_enh().charge_reroll_source(u))  # WP-O5 Competitive Streak
 
 ## Skyborne Loons: "Friendly Orks Aircraft units do not count towards the
 ## combined points value of your strategic reserves units."
@@ -797,6 +807,7 @@ static func ug_on_targets_confirmed(shooter_id: String, assignments: Array, rng_
 	var out := {"applied": false, "result": 0, "diffs": [], "hop_splat_options": [], "target": ""}
 	if not enabled():
 		return out
+	_enh().on_targets_confirmed(shooter_id, assignments)  # WP-O5 Supa-glowy Fing [SUPA-HAZARDOUS] weapon count
 	var shooter := Common.unit(shooter_id)
 	if shooter.is_empty() or not ug_eligible(shooter):
 		return out
@@ -1049,6 +1060,7 @@ static func _use_roar(player: int, psyker_id: String, ctx: Dictionary) -> Dictio
 	var diffs: Array = ArmyRules.record_psychic_use(psyker_id, "Roar of Mork")
 	var rng = _rng()
 	var roll := _d6(rng)
+	roll = _enh().psychic_reroll(psyker_id, roll, rng)  # WP-O5 Warphead
 	var lines: Array = ["ROAR OF MORK — %s psychic roll: %d" % [Common.unit_name(psyker_id), roll]]
 	if roll == 1:
 		diffs.append_array(_battle_shock_diffs(p))
@@ -1114,7 +1126,9 @@ static func _use_visions(player: int, psyker_id: String) -> Dictionary:
 	if not chk.get("ok", true):
 		return {"success": false, "error": str(chk.get("reason", "")), "diffs": []}
 	var diffs: Array = ArmyRules.record_psychic_use(psyker_id, "Visions of Violence")
-	var roll := _d6(_rng())
+	var vrng = _rng()
+	var roll := _d6(vrng)
+	roll = _enh().psychic_reroll(psyker_id, roll, vrng)  # WP-O5 Warphead
 	var lines: Array = ["VISIONS OF VIOLENCE — %s psychic roll: %d" % [Common.unit_name(psyker_id), roll]]
 	if roll == 1:
 		diffs.append_array(_battle_shock_diffs(p))

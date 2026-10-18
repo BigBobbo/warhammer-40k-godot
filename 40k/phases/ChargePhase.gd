@@ -661,12 +661,11 @@ func _process_charge_roll(action: Dictionary) -> Dictionary:
 	ability_reroll_used = false
 
 	# Check if unit has ability-granted charge reroll (e.g. Swift Onslaught,
-	# Plummeting Descent, Green Tide's Bloodthirsty Belligerence while the
-	# bearer's unit counts as 10+ models, or the Prey rule / DAT ONE'S EVEN
-	# BIGGA! for a BEAST SNAGGA unit charging its owner's Prey)
+	# Plummeting Descent, or the Prey rule / DAT ONE'S EVEN BIGGA! for a
+	# BEAST SNAGGA unit charging its owner's Prey; Codex: Orks detachment /
+	# enhancement re-rolls via unit_has_detachment_charge_reroll)
 	var unit_data = get_unit(unit_id)
 	var has_ability_reroll = EffectPrimitivesData.has_effect_reroll_charge(unit_data) \
-		or FactionAbilityManager.unit_has_green_tide_charge_reroll(unit_data, GameState.state.get("units", {})) \
 		or FactionAbilityManager.unit_has_prey_charge_reroll(unit_data, target_ids, GameState.state.get("units", {})) \
 		or FactionAbilityManager.unit_has_detachment_charge_reroll(unit_data)
 
@@ -770,9 +769,6 @@ func _resolve_charge_roll(unit_id: String) -> Dictionary:
 	# what feeds the engagement-range feasibility check and movement budget.
 	var unit_for_charge_bonus = get_unit(unit_id)
 	var charge_bonus = EffectPrimitivesData.get_effect_plus_charge(unit_for_charge_bonus)
-	# Runnin' Boots (Blitz Brigade): +1 to Charge rolls while the bearer's
-	# unit disembarked from a Transport this turn.
-	charge_bonus += FactionAbilityManager.runnin_boots_charge_bonus(unit_for_charge_bonus, GameState.state.get("units", {}))
 	# Boarding Ramps (Rollin' Deff): +1 to Charge rolls for a unit that
 	# disembarked this turn from the WAGON bearing the enhancement.
 	charge_bonus += FactionAbilityManager.boarding_ramps_charge_bonus(unit_for_charge_bonus, GameState.state.get("units", {}))

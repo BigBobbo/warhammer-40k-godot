@@ -239,7 +239,10 @@ func _json(name: String) -> Dictionary:
 
 
 func _build(name: String, spec: Dictionary) -> bool:
-	var out_name := "ork11e_ab_" + name
+	# Optional spec keys (WP-O5 gen_ork11e_enh_fixtures.gd reuses this builder):
+	# prefix, detachment, enhancements {uid: [names]}, reserves {uid: reserve_type},
+	# battle_round. Absent = the WP-O6 behaviour.
+	var out_name := str(spec.get("prefix", "ork11e_ab_")) + name
 	var slm = root.get_node_or_null("SaveLoadManager")
 	var alm = root.get_node_or_null("ArmyListManager")
 	var cam = root.get_node_or_null("CharacterAttachmentManager")
@@ -272,6 +275,15 @@ func _build(name: String, spec: Dictionary) -> bool:
 		faction = d.get("faction", {})
 		for k in d.units:
 			orks[k] = d.units[k]
+	if spec.has("detachment"):
+		faction = faction.duplicate(true)
+		faction["detachment"] = str(spec.detachment)
+	var enh_spec: Dictionary = spec.get("enhancements", {})
+	for uid in enh_spec:
+		if not orks.has(uid):
+			return _fail("%s: enhancement bearer %s is not in the rosters" % [name, uid])
+		orks[uid] = orks[uid].duplicate(true)
+		orks[uid].meta["enhancements"] = (enh_spec[uid] as Array).duplicate()
 	var p1_data: Dictionary = alm._process_army_data({"faction": faction.duplicate(true), "units": orks}, 1)
 	p1_data.faction["team_name"] = "WP-O6 datasheet abilities"
 	alm.apply_army_to_game_state(p1_data, 1)
@@ -313,6 +325,8 @@ func _build(name: String, spec: Dictionary) -> bool:
 			laid[uid] = true
 	for uid in spec.get("hidden", []):
 		laid[uid] = true
+	for uid in spec.get("reserves", {}):
+		laid[uid] = true
 	for uid in GS.state.units.keys():
 		if not laid.has(uid):
 			GS.state.units.erase(uid)
@@ -339,8 +353,10 @@ func _build(name: String, spec: Dictionary) -> bool:
 			st.players[p]["bonus_cp_gained_this_round"] = 0
 			st.players[p].erase("ork11e_ab_uses")
 	var active := int(spec.get("active", 1))
-	st.meta["battle_round"] = 2
+	st.meta["battle_round"] = int(spec.get("battle_round", 2))
 	st.meta["turn"] = 2 if active == 1 else 3
+	if int(spec.get("battle_round", 2)) == 1:
+		st.meta["turn"] = 1 if active == 1 else 2
 	st.meta["phase"] = 6  # COMMAND
 	st.meta["active_player"] = active
 	st.meta["first_turn_player"] = 1
@@ -348,6 +364,13 @@ func _build(name: String, spec: Dictionary) -> bool:
 	st["phase_log"] = []
 	st["unit_visuals"] = {}
 
+	var rsv: Dictionary = spec.get("reserves", {})
+	for uid in rsv:
+		var ru: Dictionary = GS.state.units[uid]
+		ru["status"] = 7  # IN_RESERVES
+		ru["reserve_type"] = str(rsv[uid])
+		for m in ru.get("models", []):
+			m["position"] = null
 	for uid in spec.get("hidden", []):
 		if not _place_hidden(str(uid)):
 			return _fail("%s: no dense-terrain spot hides %s" % [name, uid])
@@ -383,6 +406,9 @@ func _build(name: String, spec: Dictionary) -> bool:
 		var u = GS.state.units[uid]
 		if u.get("embarked_in", null) != null:
 			print("[ork11e-ab-fixture]   P%d %-36s embarked in %s" % [int(u.owner), uid, u.embarked_in])
+			continue
+		if int(u.get("status", 0)) == 7:
+			print("[ork11e-ab-fixture]   P%d %-36s in reserves (%s)" % [int(u.owner), uid, str(u.get("reserve_type", ""))])
 			continue
 		var p = u.models[0].position
 		print("[ork11e-ab-fixture]   P%d %-36s %2d models  first at (%.2f, %.2f)in  engaged=%s" % [
@@ -466,7 +492,7 @@ func _gates(name: String, spec: Dictionary) -> bool:
 	var ok := true
 	for uid in GS.state.units:
 		var u = GS.state.units[uid]
-		if u.get("embarked_in", null) != null:
+		if u.get("embarked_in", null) != null or int(u.get("status", 0)) == 7:
 			continue
 		var coh = AttackSequence.check_unit_coherency(u)
 		if not bool(coh.get("coherent", false)):
@@ -485,7 +511,7 @@ func _gates(name: String, spec: Dictionary) -> bool:
 		if not re.check_units_in_engagement_range(GS.state.units[str(pair[0])], GS.state.units[str(pair[1])], GS.state):
 			ok = _fail("%s: %s should be engaged with %s" % [name, pair[0], pair[1]]) and ok
 	for uid in GS.state.units:
-		if GS.state.units[uid].get("embarked_in", null) != null:
+		if GS.state.units[uid].get("embarked_in", null) != null or int(GS.state.units[uid].get("status", 0)) == 7:
 			continue
 		var engaged: bool = re.is_unit_engaged(uid, GS.state)
 		if engaged and not paired.has(uid):

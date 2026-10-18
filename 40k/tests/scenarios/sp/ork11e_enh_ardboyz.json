@@ -1,0 +1,77 @@
+{
+ "id": "ork11e_enh_ardboyz",
+ "covers": [
+  "codex.orks.enhancements.ardboyz",
+  "scripts.codex.orks.OrkEnhancements11e",
+  "autoloads.ArmyListManager.list_build"
+ ],
+ "description": "WP-O5 Codex: Orks (11e) 'ARDBOYZ (Green Tide Upgrade, Boyz unit; models in this unit have a Save characteristic of 4+) — passive, applied by the list-build pass when the army is processed (ArmyListManager -> OrkEnhancements11e.apply_list_build). Fixture ork11e_enh_green_tide: Boyz C carry the Upgrade, Boyz D do not. Hovering Boyz C (real cursor) shows the board model-stats card with Sv 4+; Boyz D show 5+.",
+ "fixture": "ork11e_enh_green_tide",
+ "edition": 11,
+ "rng_seed": 42,
+ "transition_to_phase": 7,
+ "disable_ai": true,
+ "steps": [
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_state",
+   "path": "factions.1.detachment",
+   "equals": "Green Tide"
+  },
+  {
+   "act": "execute_script",
+   "script": "\"%d %d\" % [int(GameState.get_unit(\"U_BOYZ_C\").meta.stats.save), int(GameState.get_unit(\"U_BOYZ_D\").meta.stats.save)]",
+   "equals": "4 5",
+   "comment": "'Ardboyz (list-build, applied when the army was loaded): Boyz C have Sv 4+; Boyz D (no Upgrade) keep 5+"
+  },
+  {
+   "act": "click_if_visible",
+   "node": "/root/StratagemDialog/Content/DeclineButton"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.6
+  },
+  {
+   "act": "hover_unit",
+   "unit_id": "U_BOYZ_C"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.2
+  },
+  {
+   "act": "execute_script",
+   "script": "var q = [tree.root]\nvar found := []\nwhile not q.is_empty():\n\tvar c = q.pop_front()\n\tif (c is Label or c is RichTextLabel) and c.is_visible_in_tree():\n\t\tvar t := str(c.get_parsed_text()) if c is RichTextLabel else str(c.text)\n\t\tif t.contains(\"Sv:4+\") or t.contains(\"Sv 4+\"):\n\t\t\tfound.append(t)\n\tfor ch in c.get_children():\n\t\tq.append(ch)\nprint(\"[wp-o5] Sv labels: \", found)\nreturn found.size() > 0",
+   "multiline": true,
+   "equals": true,
+   "comment": "the board model-stats card for Boyz C shows Sv:4+"
+  },
+  {
+   "act": "screenshot",
+   "label": "01_ardboyz_stats_card_sv4"
+  },
+  {
+   "act": "hover_unit",
+   "unit_id": "U_BOYZ_D"
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 1.2
+  },
+  {
+   "act": "execute_script",
+   "script": "var q = [tree.root]\nvar found := []\nwhile not q.is_empty():\n\tvar c = q.pop_front()\n\tif (c is Label or c is RichTextLabel) and c.is_visible_in_tree():\n\t\tvar t := str(c.get_parsed_text()) if c is RichTextLabel else str(c.text)\n\t\tif t.contains(\"Sv:5+\"):\n\t\t\tfound.append(t)\n\tfor ch in c.get_children():\n\t\tq.append(ch)\nreturn found.size() > 0",
+   "multiline": true,
+   "equals": true,
+   "comment": "Boyz D (no Upgrade): Sv:5+"
+  },
+  {
+   "act": "screenshot",
+   "label": "02_plain_boyz_stats_card_sv5"
+  }
+ ]
+}

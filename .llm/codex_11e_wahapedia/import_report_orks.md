@@ -59,6 +59,11 @@ datasheets: 55 in scope, 12 Legends skipped (Warboss on Warbike, Kaptin Badrukk,
 - weapon_ids kept though not on Wahapedia datasheet: [kustom-blasta-x-melee]
 - kit differs (kept 40kdc): [["nazdreg",1,1,["kustom-blasta-x","kustom-blasta-x-melee","moonchewa"]]] vs Wahapedia [["nazdreg",1,1,["kustom-blasta-x","moonchewa"]]]
 
+enhancements (overlay): 15 codex detachments
+- taktikal-brigade / kill-kommanda-taktikal-brigade: bearer [["Big Mek"],["Infantry","Warboss"]] -> [["Big Mek","Infantry"],["Warboss","Infantry"]]
+- wreckas / kaptins-hat-wreckas: bearer [["Big Mek"],["Infantry","Warboss"]] -> [["Big Mek","Infantry"],["Warboss","Infantry"]]
+enhancements (overlay): 38 codex enhancements written
+
 game-dispatched ability names dropped from orks codex datasheets (0): none
 ability names new on orks codex datasheets (0): none
 

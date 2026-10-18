@@ -33,14 +33,13 @@ var failed := 0
 # Auric Mantle, Castellan's Mark) are retired with the 10e detachment — the
 # codex enhancements of those names run through CustodesEnhancements.gd —
 # so they are pinned ABSENT (RETIRED_10E) rather than present.
-const RUNTIME_IMPLEMENTED = [
-	"Follow Me Ladz",
-	"Headwoppa's Killchoppa",
-	"Kunnin' But Brutal",
-	"Supa-Cybork Body",
-]
+# WP-O5: the 4 War Horde rows are retired the same way — the codex War Horde
+# enhancements run through scripts/codex/orks/OrkEnhancements11e.gd
+# (Supa-Cybork Body is not a codex enhancement).
+const RUNTIME_IMPLEMENTED = []
 const LIST_BUILD_OR_PREGAME = []
-const RETIRED_10E = ["From the Hall of Armouries", "Panoptispex", "Auric Mantle", "Castellan's Mark"]
+const RETIRED_10E = ["From the Hall of Armouries", "Panoptispex", "Auric Mantle", "Castellan's Mark",
+	"Follow Me Ladz", "Headwoppa's Killchoppa", "Kunnin' But Brutal", "Supa-Cybork Body"]
 
 func _check(label: String, cond: bool, detail: String = "") -> void:
 	if cond:
@@ -89,7 +88,7 @@ func _run_tests():
 				entry.get("implemented", true) == false,
 				"runtime effect path would mis-fire")
 	for name in RETIRED_10E:
-		_check("retired (WP-C46): ABILITY_EFFECTS has no 10e '%s' row" % name, not ABILITY_EFFECTS.has(name))
+		_check("retired (WP-C46 / WP-O5): ABILITY_EFFECTS has no 10e '%s' row" % name, not ABILITY_EFFECTS.has(name))
 	_finish()
 
 func _finish():
