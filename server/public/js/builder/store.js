@@ -10,23 +10,55 @@
 import * as DC from '../vendor/40kdc-data.mjs';
 import { GAME_NAME_CANON_ENTRIES } from '../lib/canon.mjs';
 import { createConverter, ALLIED_FACTIONS, FACTION_DISPLAY_OVERRIDES } from '../lib/gameformat.mjs';
-import { applyDataPatches, bearerKeywords } from '../lib/data-patches.mjs';
+import { applyDataPatches, bearerKeywords, CODEX_OVERLAY_BASE_VERSION } from '../lib/data-patches.mjs';
 import { canBear, maxHolders, isUpgrade } from '../lib/enhancement-rules.mjs';
 
-// Inject local dataset corrections (e.g. the Speedwaaagh! detachment's missing
-// enhancements) into RAW_DATA before anything reads it. createConverter below
-// and the package importer both hold these arrays by reference, so the in-place
-// patch reaches every consumer.
+// Inject local dataset corrections (the Wahapedia codex datasheets for
+// Adeptus Custodes / Orks — WP-W3 — and the codex detachments/enhancements)
+// into RAW_DATA before anything reads it. createConverter below and the
+// package importer both hold these arrays by reference, so the in-place patch
+// reaches every consumer.
 applyDataPatches(DC.RAW_DATA);
+if (CODEX_OVERLAY_BASE_VERSION && DC.DATASET_VERSION !== CODEX_OVERLAY_BASE_VERSION) {
+  // The overlay is a diff against one bundle release; re-run
+  // scripts/40kdc/gen_codex_builder_patch.mjs after re-bundling.
+  console.warn(`[builder] codex overlay was generated against 40kdc ${CODEX_OVERLAY_BASE_VERSION}, ` +
+    `bundle is ${DC.DATASET_VERSION}`);
+}
 
 export const dc = DC; // the full engine, re-exported for views/dialogs
-export const ds = DC.dataset;
 
 export const conv = createConverter({
   rawData: DC.RAW_DATA,
   describeAbility: DC.describeAbility,
   canonEntries: GAME_NAME_CANON_ENTRIES,
 });
+
+// The package's own `DC.dataset` is built when the bundle loads — BEFORE the
+// patch above — so it would check and import against pre-codex records.
+// Rebuild it over the patched RAW_DATA (legality checks, the list importer,
+// dataset-backed export formats all take it), with the same loadout rows the
+// editor uses (conv.loadoutModels: a default Praesidium Shield is part of the
+// base loadout), so the legality checker and the loadout editor agree.
+function buildLoadoutDataset() {
+  const unitCompositions = DC.RAW_DATA.unitCompositions.map(c => {
+    const u = conv.unitById.get(`${c.faction_id}::${c.unit_id}`);
+    const models = u ? conv.loadoutModels(u, c.faction_id, c) : c.models;
+    // 40kdc 1.4.5 ships the Ork Boyz / Nobz compositions with stale `tiers`
+    // naming a "Boss Nob" row the composition no longer has (Codex: Orks
+    // "Nob"); the package's legality checker then flags every Boyz loadout
+    // ("slugga: 9 below min 10"). A tier list that names rows the composition
+    // does not have cannot describe it: check against the rows instead. (The
+    // game never reads `tiers`; its data is left as is.)
+    const staleTiers = (c.tiers ?? []).some(t => (t.models ?? []).some(tm => !c.models.some(m => m.name === tm.name)));
+    if (models === c.models && !staleTiers) return c;
+    const out = { ...c, models };
+    if (staleTiers) delete out.tiers;
+    return out;
+  });
+  return new DC.Dataset({ ...DC.RAW_DATA, unitCompositions });
+}
+export const ds = buildLoadoutDataset();
 
 // Factions with full in-game rule automation (FactionAbilityManager tables).
 export const FULLY_SUPPORTED_FACTIONS = new Set([
@@ -157,20 +189,43 @@ export function forceDispositions() {
   return fds.map(fd => ({ id: fd.id, name: fd.name ?? fd.id }));
 }
 
-/** Raw 40kdc unit + composition + wargear options for a roster unit. */
+/** Raw 40kdc unit + composition + wargear options for a roster unit.
+ * `comp.models` are the loadout rows (conv.loadoutModels: default weapons +
+ * default non-weapon wargear such as the Shield-Captain's Praesidium Shield),
+ * the shape every DC loadout call below takes. */
 export function unitData(unitId, unitFactionId) {
   const found = conv.findUnitById(unitFactionId ?? state.roster.faction_id, unitId);
   if (!found) return null;
   const raw = found.unit;
-  const comp = conv.compByUnit.get(`${found.factionId}::${raw.id}`) ?? null;
+  const rawComp = conv.compByUnit.get(`${found.factionId}::${raw.id}`) ?? null;
+  const comp = rawComp ? { ...rawComp, models: conv.loadoutModels(raw, found.factionId, rawComp) } : null;
   const options = (DC.RAW_DATA.wargearOptions ?? []).filter(
     o => o.unit_id === raw.id && o.faction_id === found.factionId);
   return { raw, comp, options, factionId: found.factionId };
 }
 
-/** Buildable squad sizes for a unit: distinct model counts of its point tiers. */
+/** Display name of a loadout id: a weapon, or a non-weapon wargear item. */
+export function loadoutItemName(raw, factionId, id) {
+  return conv.wres.resolve(factionId, id)?.name ??
+    conv.wargearItems(raw, factionId).get(id)?.name ?? id;
+}
+
+/** Points of a roster unit's datasheet at its size + priced wargear
+ * (codex wargear_points, e.g. +25 per Praesidium Shield), for its ordinal. */
+export function unitBasePoints(data, modelCount, counts, ordinal = 1) {
+  return DC.baseUnitPoints(data.raw, modelCount, ordinal) +
+    conv.wargearPointsFor(data.raw, data.factionId, counts);
+}
+
+/** Buildable squad sizes for a unit: every model count a point tier covers
+ * (a range tier `models`..`models_max` covers each count in it, as in
+ * generate-armies.mjs). */
 export function sizeChoices(raw) {
-  const sizes = [...new Set((raw.points ?? []).map(t => t.models))].sort((a, b) => a - b);
+  const all = new Set();
+  for (const t of raw.points ?? []) {
+    for (let n = t.models; n <= (t.models_max ?? t.models); n++) all.add(n);
+  }
+  const sizes = [...all].sort((a, b) => a - b);
   if (sizes.length) return sizes;
   const min = raw.model_count?.min ?? 1;
   const max = raw.model_count?.max ?? min;
@@ -198,6 +253,10 @@ export function unitBrowserGroups(query = '') {
   const q = DC.normalizeName ? DC.normalizeName(query) : query.toLowerCase();
   const groups = new Map();
   const push = (raw, alliedFrom = null) => {
+    // Pre-codex datasheets a codex superseded (Custodian Guard -> Custodian
+    // Guard Sodality, ...) stay in the data for old lists but are not offered
+    // as new picks (decision D1, WP-W3).
+    if (raw.superseded_by_codex) return;
     if (q && !(DC.normalizeName?.(raw.name) ?? raw.name.toLowerCase()).includes(q)) return;
     const key = alliedFrom ? `allied:${alliedFrom}` : classifyUnit(raw);
     if (!groups.has(key)) groups.set(key, []);
@@ -242,10 +301,12 @@ export function countsOf(ru) {
 
 export function writeCounts(ru, counts, unitFactionId) {
   ru.wargear = [];
+  const data = unitData(ru.ref?.id, unitFactionId);
   for (const [wid, count] of counts) {
     if (count <= 0) continue;
-    const w = conv.wres.resolve(unitFactionId, wid);
-    ru.wargear.push({ ref: { id: wid, raw_name: w?.name ?? wid, resolved: true, candidates: [] }, count });
+    const name = data ? loadoutItemName(data.raw, data.factionId, wid)
+      : (conv.wres.resolve(unitFactionId, wid)?.name ?? wid);
+    ru.wargear.push({ ref: { id: wid, raw_name: name, resolved: true, candidates: [] }, count });
   }
 }
 
@@ -278,7 +339,7 @@ export function loadoutRows(ru) {
     const w = conv.wres.resolve(data.factionId, id);
     rows.push({
       id,
-      name: w?.name ?? id,
+      name: w?.name ?? loadoutItemName(data.raw, data.factionId, id),
       profiles: w?.profiles ?? [],
       count: counts.get(id) ?? 0,
       min: bounds.get(id)?.min ?? 0,
@@ -535,6 +596,7 @@ export function setWeaponCount(i, weaponId, requested) {
   const counts = countsOf(ru);
   applyWeaponDelta(data, ru.model_count, counts, weaponId, requested);
   writeCounts(ru, counts, data.factionId);
+  repriceAll(); // priced wargear (+25 per Praesidium Shield) follows the loadout
   notify();
 }
 
@@ -544,6 +606,7 @@ export function resetLoadout(i) {
   if (!data) return;
   const base = DC.baseLoadout(data.raw, ru.model_count, data.options, data.comp?.models);
   writeCounts(ru, base.counts, data.factionId);
+  repriceAll();
   notify();
 }
 
@@ -660,7 +723,7 @@ export function repriceAll() {
       ordinals.set(ru.ref.id, ordinal);
       const data = unitData(ru.ref.id, ru._unit_faction_id);
       if (data) {
-        ru.points = DC.baseUnitPoints(data.raw, ru.model_count, ordinal);
+        ru.points = unitBasePoints(data, ru.model_count, countsOf(ru), ordinal);
         ru._tier_missing = DC.pointsTierMissing(data.raw, ru.model_count, ordinal);
       }
     }

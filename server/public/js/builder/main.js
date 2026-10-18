@@ -234,6 +234,16 @@ function renderValidation(legality) {
     if (!ru.ref.resolved) {
       items.push({ sev: 'warn', text: `${ru.ref.raw_name}: not matched to a datasheet — select it to fix` });
     }
+    // A pre-codex datasheet kept for old lists (WP-W3, decision D1).
+    const sup = ru.ref.resolved ? S.unitData(ru.ref.id, ru._unit_faction_id)?.raw : null;
+    if (sup?.superseded_by_codex) {
+      const next = sup.superseded_by ? S.unitData(sup.superseded_by, ru._unit_faction_id)?.raw : null;
+      items.push({
+        sev: 'warn',
+        text: `${ru.ref.raw_name}: pre-codex datasheet, not in ${sup.superseded_by_codex}` +
+          (next ? ` — replace it with ${next.name}` : ''),
+      });
+    }
   }
   if (S.state.importReport?.warnings?.length) {
     items.push({ sev: 'info', text: `${S.state.importReport.title} — ${S.state.importReport.warnings.length} note(s)`, details: S.state.importReport.warnings });

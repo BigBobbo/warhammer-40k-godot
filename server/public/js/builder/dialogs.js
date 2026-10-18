@@ -215,7 +215,7 @@ export function openExportDialog() {
         h('button.btn.btn-small', {
           onclick: () => {
             try {
-              const out = S.dc.exportRoster(r, textFormat);
+              const out = S.dc.exportRoster(r, textFormat, S.ds); // some 1.4.5 formats need the dataset
               downloadFile(`${nameInput.value}.${textFormat.includes('json') ? 'json' : 'txt'}`, out, 'text/plain');
             } catch (err) {
               S.setStatus('err', `Export failed: ${err.message}`);
