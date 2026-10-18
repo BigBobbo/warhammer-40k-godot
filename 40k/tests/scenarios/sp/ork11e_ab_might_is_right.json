@@ -5,7 +5,7 @@
   "scripts.codex.orks.OrkAbilities11e",
   "rules.fight.attacks_modifiers"
  ],
- "description": "WP-O6 Codex: Orks (11e) MIGHT IS RIGHT (Warboss, passive): after a charge move this turn its melee weapons have +3 A and +2 S. Fixture ork11e_ab_fight: the Warboss charged (charged_this_turn) and is engaged with the Shield-Captain. A real click on 'Fight' for the Warboss, attacks assigned and resolved through the real dialogs: every melee hit roll the Warboss made has 3 more attacks than the weapon profile the engine resolved (one model). Setup privileges: auto wound allocation, the Custodes' wounds inflated (the fight must not end the scenario).",
+ "description": "WP-O6 Codex: Orks (11e) MIGHT IS RIGHT (Warboss, passive): after a charge move this turn its melee weapons have +3 A and +2 S. Fixture ork11e_ab_fight: the Warboss charged (charged_this_turn) and is engaged with the Shield-Captain. A real click on 'Fight' for the Warboss, attacks assigned and resolved through the real dialogs: every melee hit roll the Warboss made has 3 more attacks than the weapon profile the engine resolved (one model). Setup privileges: auto wound allocation, the Custodes' wounds inflated (the fight must not end the scenario). The Custodes player's IN AURAMITE CLAD card (WP-C5, offered when the Warboss targets the Shield-Captain) is declined with a real click (WP-FIX1).",
  "fixture": "ork11e_ab_fight",
  "edition": 11,
  "rng_seed": 42,
@@ -111,6 +111,36 @@
    "act": "click_node",
    "node": "/root/AttackAssignmentDialog/Content/ButtonContainer/ConfirmButton",
    "emit_pressed": true
+  },
+  {
+   "act": "wait_seconds",
+   "seconds": 0.8
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog",
+   "timeout_s": 4.0,
+   "comment": "WP-FIX1: the Ork unit's attacks target an ADEPTUS CUSTODES unit, so the WP-C5 IN AURAMITE CLAD (Guardians of the Throne: 'the Fight phase, when an enemy unit targets a friendly ADEPTUS CUSTODES unit') card is correctly offered to the Custodes player — not under test"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().window_id",
+   "equals": "enemy_targets_unit_fight"
+  },
+  {
+   "act": "execute_script",
+   "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window_decider()",
+   "equals": 2
+  },
+  {
+   "act": "expect_node_visible",
+   "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_guardians_of_the_throne_in_auramite_clad",
+   "timeout_s": 2.0
+  },
+  {
+   "act": "click_node",
+   "node": "/root/StratagemDialog/Content/DeclineButton",
+   "comment": "real click: the Custodes player declines IN AURAMITE CLAD (not under test)"
   },
   {
    "act": "wait_seconds",
