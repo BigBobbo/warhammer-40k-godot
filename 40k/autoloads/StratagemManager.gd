@@ -20,6 +20,10 @@ signal stratagem_available(player: int, stratagem_id: String, trigger: String)
 # get_window_offers. Preloaded (not referenced by class_name) so headless
 # --script tests resolve it without a rebuilt global class cache.
 const OrkCodex = preload("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
+# WP-O6: Codex: Orks (11e) datasheet abilities — activated ones ride the window
+# framework (offers appended in get_all_window_offers, "ork11e_ab_*" ids routed in
+# use_stratagem).
+const OrkAbilities = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
 
 # Stratagem WINDOWS (design §3): the game event at which a stratagem with
 # timing.windows is offered automatically. The phrase completes
@@ -1091,6 +1095,9 @@ func use_stratagem(player: int, stratagem_id: String, target_unit_id: String = "
 	Use a stratagem. Validates, deducts CP, records usage, and returns effect data.
 	Returns { "success": bool, "effects": Array, "diffs": Array, "message": String }
 	"""
+	# WP-O6: a Codex: Orks datasheet ability offered in a window (0 CP).
+	if OrkAbilities.handles_id(stratagem_id):
+		return OrkAbilities.use(player, stratagem_id, target_unit_id, context)
 	stratagem_id = _resolve_core_id(stratagem_id)
 	# Validate
 	var validation = can_use_stratagem(player, stratagem_id, target_unit_id, context)
@@ -1418,6 +1425,22 @@ func get_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> 
 	print("StratagemManager: get_window_offers(P%d, %s) -> %d offer(s)%s" % [
 		player, window_id, offers.size(),
 		"" if offers.is_empty() else " " + str(offers.map(func(o): return o.name))])
+	return offers
+
+## Everything `player` can do in window `window_id`: the window stratagems
+## (get_window_offers) plus the activated Codex: Orks (11e) datasheet
+## abilities whose timing is that window (WP-O6, OrkAbilities11e.gd). Ability
+## offers carry is_ability = true and cp_cost 0; they are used through
+## use_stratagem like a stratagem. The phases' window queue calls this.
+func get_all_window_offers(player: int, window_id: String, ctx: Dictionary = {}) -> Array:
+	var offers: Array = get_window_offers(player, window_id, ctx)
+	var wctx: Dictionary = ctx.duplicate(true)
+	wctx["window_id"] = window_id
+	var abil: Array = OrkAbilities.window_offers(player, window_id, wctx)
+	if not abil.is_empty():
+		print("StratagemManager: get_all_window_offers(P%d, %s) + %d datasheet ability offer(s) %s" % [
+			player, window_id, abil.size(), str(abil.map(func(o): return o.name))])
+	offers.append_array(abil)
 	return offers
 
 # ============================================================================
@@ -3744,6 +3767,10 @@ func get_fire_overwatch_eligible_units(player: int, enemy_unit_id: String, game_
 				break
 		if has_sneaky_gitz:
 			print("StratagemManager: %s has Sneaky Gitz — cannot Fire Overwatch" % unit_id)
+			continue
+		# WP-O6 Drive-by Skorchin' (Warbuggies): cannot be targeted with Fire Overwatch.
+		if OrkAbilities.blocks_fire_overwatch(str(unit_id)):
+			print("StratagemManager: %s was hit by Drive-by Skorchin' — cannot Fire Overwatch this turn" % unit_id)
 			continue
 
 		# Must not be battle-shocked

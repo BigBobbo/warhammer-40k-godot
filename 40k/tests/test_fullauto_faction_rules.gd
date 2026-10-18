@@ -277,23 +277,26 @@ func _test_defender_minus_one_hit_melee_only() -> void:
 	_check("ranged: melee-defense flag does NOT change ranged hits", ranged_identical)
 
 func _test_blastajet_force_field() -> void:
-	print("\n-- Blastajet Force Field: always-on 4+ invulnerable --")
+	# WP-O6: the Codex: Orks (11e) Blastajet Force Field is a 5+ invulnerable
+	# save (the pre-codex 4+ phase-start flag is retired — RETIRED_TESTS.md); it
+	# is read through EffectPrimitives.get_effect_invuln (OrkAbilities11e).
+	print("\n-- Blastajet Force Field: always-on 5+ invulnerable (Codex: Orks 11e) --")
 	var uam = root.get_node("UnitAbilityManager")
 	var gs = root.get_node("GameState")
 	_check("ability is table-implemented", uam.is_ability_implemented("Blastajet Force Field"))
-	# Craft a unit with the ability, apply phase-start effects, read the flag.
 	gs.state["units"] = {
 		"U_WAZBOM": {
 			"id": "U_WAZBOM", "owner": 1,
-			"meta": {"keywords": ["VEHICLE", "FLY"], "stats": {"toughness": 9, "save": 3, "wounds": 12, "invuln": 6},
+			"meta": {"keywords": ["ORKS", "VEHICLE", "FLY"], "stats": {"toughness": 9, "save": 3, "wounds": 12, "invuln": 6},
 				"abilities": [{"name": "Blastajet Force Field", "type": "Datasheet"}]},
 			"flags": {},
 			"models": [{"id": "m1", "alive": true, "wounds": 12, "current_wounds": 12, "position": {"x": 100, "y": 100}}]
 		}
 	}
 	uam.on_phase_start(8)  # shooting
-	var flags = gs.state["units"]["U_WAZBOM"].get("flags", {})
-	_check("effect_invuln 4 applied at shooting phase start", int(flags.get("effect_invuln", 0)) == 4, str(flags))
+	var ep = load("res://autoloads/EffectPrimitives.gd")
+	var inv := int(ep.get_effect_invuln(gs.state["units"]["U_WAZBOM"]))
+	_check("Blastajet Force Field: 5+ invulnerable save (codex)", inv == 5, str(inv))
 	uam.on_phase_end(8)
 
 func _test_devoted_to_destruction() -> void:
@@ -466,7 +469,10 @@ func _test_serializer_migration() -> void:
 	var bw_names := []
 	for ab in migrated["units"]["U_BW"]["meta"]["abilities"]:
 		bw_names.append(ab.get("name", ""))
-	_check("Ramshackle canonicalized in save", "Ramshackle" in bw_names, str(bw_names))
+	# WP-O6: "Ramshackle but Rugged" is on no Codex: Orks (11e) datasheet — the
+	# canon entry (and its "Ramshackle" worsen-AP row) were removed, so the old
+	# name is left as-is (retired check: "Ramshackle canonicalized in save").
+	_check("Ramshackle but Rugged left as-is in save (no codex ability)", "Ramshackle but Rugged" in bw_names, str(bw_names))
 
 # ----------------------------------------------------------------------------
 func _run_tests():

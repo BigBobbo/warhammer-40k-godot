@@ -549,6 +549,10 @@ func unit_has_deep_strike(unit_id: String) -> bool:
 	var unit = get_unit(unit_id)
 	if unit.is_empty():
 		return false
+	# WP-O6 DA JUMP (Codex: Orks 11e, Weirdboy psychic): the unit placed in
+	# strategic reserves "has Deep Strike" (OrkAbilities11e.F_DA_JUMP_DS).
+	if unit.get("flags", {}).get("ork11e_ab_da_jump_ds", false):
+		return true
 	if _unit_meta_has_enhancement(unit, "Tellyporta"):
 		return true
 	for char_id in unit.get("attachment_data", {}).get("attached_characters", []):
@@ -1131,11 +1135,13 @@ func split_unit_at_deployment(source_unit_id: String) -> String:
 			ab_name = ab
 		elif ab is Dictionary:
 			ab_name = ab.get("name", "")
-		if ab_name in ["Combat Squads", "Patrol Squad"]:
+		# WP-O6: "Patrol Squad" (pre-codex Kommandos) re-keyed to the Codex: Orks
+		# (11e) "Taktikal Know-wotz" (same 5 + 5 split; apostrophes folded).
+		if ab_name in ["Combat Squads"] or _is_taktikal_know_wotz(ab_name):
 			has_split = true
 			break
 	if not has_split:
-		push_error("split_unit_at_deployment: %s lacks Combat Squads / Patrol Squad ability" % source_unit_id)
+		push_error("split_unit_at_deployment: %s lacks Combat Squads / Taktikal Know-wotz ability" % source_unit_id)
 		return ""
 	# Status must be UNDEPLOYED.
 	if int(source.get("status", 0)) != UnitStatus.UNDEPLOYED:
@@ -1180,10 +1186,33 @@ func split_unit_at_deployment(source_unit_id: String) -> String:
 	var base_name = source.get("meta", {}).get("name", source_unit_id)
 	source["meta"]["display_name"] = "%s (Combat Squad A)" % base_name
 	sibling["meta"]["display_name"] = "%s (Combat Squad B)" % base_name
+	# WP-O6 TAKTIKAL KNOW-WOTZ (Codex: Orks 11e, Kommandos): "select which one of
+	# those units will have the Bomb Squig ability and which one ... the Found
+	# 'Em! ability" — Squad A (the original unit) keeps Bomb Squig, Squad B gets
+	# Found 'Em! (OrkAbilities11e.has honours ork11e_ab_tk_split).
+	var tk := false
+	for ab in source.get("meta", {}).get("abilities", []):
+		if _is_taktikal_know_wotz(ab if ab is String else str(ab.get("name", "")) if ab is Dictionary else ""):
+			tk = true
+			break
+	if tk:
+		if not source.has("flags"):
+			source["flags"] = {}
+		if not sibling.has("flags"):
+			sibling["flags"] = {}
+		source["flags"]["ork11e_ab_tk_split"] = "bomb_squig"
+		sibling["flags"]["ork11e_ab_tk_split"] = "found_em"
+		source["meta"]["display_name"] = "%s (Bomb Squig)" % base_name
+		sibling["meta"]["display_name"] = "%s (Found 'Em!)" % base_name
 	# Attach to GameState.
 	state["units"][sibling_id] = sibling
-	print("GameState: T-026 split %s into %s + %s (5+5 models)" % [source_unit_id, source_unit_id, sibling_id])
+	print("GameState: T-026 split %s into %s + %s (5+5 models)%s" % [source_unit_id, source_unit_id, sibling_id,
+		" — Taktikal Know-wotz: %s has Bomb Squig, %s has Found 'Em!" % [source_unit_id, sibling_id] if tk else ""])
 	return sibling_id
+
+## WP-O6: "Taktikal Know-wotz" (typographic or plain apostrophe).
+static func _is_taktikal_know_wotz(ab_name: String) -> bool:
+	return ab_name.to_lower().replace("’", "'").strip_edges() == "taktikal know-wotz"
 
 func get_combined_models(unit_id: String) -> Array:
 	var unit = get_unit(unit_id)

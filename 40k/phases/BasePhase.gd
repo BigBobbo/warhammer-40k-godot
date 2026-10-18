@@ -462,7 +462,7 @@ func _process_window_queue() -> bool:
 			DebugLogger.info("[StratagemWindow] %s for P%d suppressed (\"don't offer again this phase\")" % [window_id, player])
 			_window_event_closed(window_id, ctx, false)
 			continue
-		var offers: Array = StratagemManager.get_window_offers(player, window_id, ctx)
+		var offers: Array = StratagemManager.get_all_window_offers(player, window_id, ctx)
 		if offers.is_empty():
 			DebugLogger.info("[StratagemWindow] %s for P%d — no offers" % [window_id, player])
 			_window_event_closed(window_id, ctx, false)
@@ -696,6 +696,13 @@ func _execute_generic_window_followup(player: int, window_id: String, followup: 
 				PhaseManager.apply_state_changes(diffs)
 			DebugLogger.info("[StratagemWindow] follow-up new_reserve_unit (%s, P%d) resolved: %d diff(s)" % [window_id, player, diffs.size()])
 			return {"handled": true, "diffs": diffs}
+		"ork11e_reoffer":
+			# WP-O6 (OrkAbilities11e): a datasheet ability was used in a window that
+			# can host several (Command phase heals, Makari's picks, ...) — open the
+			# same window again with whatever is still on offer.
+			_window_queue.push_front({"player": player, "window_id": window_id, "ctx": followup.get("ctx", {})})
+			DebugLogger.info("[StratagemWindow] follow-up ork11e_reoffer: %s re-queued for P%d" % [window_id, player])
+			return {"handled": true, "diffs": []}
 	return {"handled": false, "diffs": []}
 
 ## new_reserve_unit {source_unit_id} (INFESTED WAR ZONE): add a NEW unit to
@@ -1018,7 +1025,7 @@ func _window_hold_deadly_demise(unit_id: String) -> bool:
 	# Deadly Demise resolves exactly as before (same order, same dice).
 	var owner := int(GameState.get_unit(unit_id).get("owner", 0))
 	var dd_ctx := {"unit_id": unit_id, "phase": StratagemManager._phase_to_string(GameState.get_current_phase())}
-	if StratagemManager.get_window_offers(owner, "unit_destroyed", dd_ctx).is_empty():
+	if StratagemManager.get_all_window_offers(owner, "unit_destroyed", dd_ctx).is_empty():
 		return false
 	_ev_dd_held[unit_id] = true
 	DebugLogger.info("[StratagemWindow] Deadly Demise of %s held until its unit_destroyed window closes" % unit_id)

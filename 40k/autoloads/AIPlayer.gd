@@ -943,39 +943,12 @@ func _connect_phase_stratagem_signals() -> void:
 		_connected_phase_signals.append({"signal_name": "reactive_stratagem_opportunity", "callable": callable})
 		print("AIPlayer: Connected to ShootingPhase.reactive_stratagem_opportunity")
 
-	# P2-25: Distraction Grot signal
-	if phase.has_signal("distraction_grot_available"):
-		var callable_dg = Callable(self, "_on_distraction_grot_available")
-		phase.distraction_grot_available.connect(callable_dg)
-		_connected_phase_signals.append({"signal_name": "distraction_grot_available", "callable": callable_dg})
-		print("AIPlayer: Connected to ShootingPhase.distraction_grot_available")
-	# audit P1: Shooty Power Trip previously had NO listener (controller or AI),
-	# so the phase blocked the AI too. Auto-resolve it here (free beneficial roll).
-	if phase.has_signal("shooty_power_trip_available"):
-		var callable_spt = Callable(self, "_on_shooty_power_trip_available")
-		phase.shooty_power_trip_available.connect(callable_spt)
-		_connected_phase_signals.append({"signal_name": "shooty_power_trip_available", "callable": callable_spt})
-		print("AIPlayer: Connected to ShootingPhase.shooty_power_trip_available")
-	# audit P1: Pulsa Rokkit had no listener either — auto-resolve for the AI.
-	if phase.has_signal("pulsa_rokkit_available"):
-		var callable_pr = Callable(self, "_on_pulsa_rokkit_available")
-		phase.pulsa_rokkit_available.connect(callable_pr)
-		_connected_phase_signals.append({"signal_name": "pulsa_rokkit_available", "callable": callable_pr})
-		print("AIPlayer: Connected to ShootingPhase.pulsa_rokkit_available")
-
 	# --- MovementPhase signals ---
 	if phase.has_signal("fire_overwatch_opportunity"):
 		var callable = Callable(self, "_on_movement_fire_overwatch_opportunity")
 		phase.fire_overwatch_opportunity.connect(callable)
 		_connected_phase_signals.append({"signal_name": "fire_overwatch_opportunity", "callable": callable})
 		print("AIPlayer: Connected to MovementPhase.fire_overwatch_opportunity")
-
-	# P2-25: Bomb Squigs signal
-	if phase.has_signal("bomb_squigs_available"):
-		var callable_bs = Callable(self, "_on_bomb_squigs_available")
-		phase.bomb_squigs_available.connect(callable_bs)
-		_connected_phase_signals.append({"signal_name": "bomb_squigs_available", "callable": callable_bs})
-		print("AIPlayer: Connected to MovementPhase.bomb_squigs_available")
 
 	if phase.has_signal("ability_reroll_opportunity"):
 		var callable_ar = Callable(self, "_on_ability_reroll_opportunity")
@@ -1107,78 +1080,6 @@ func _on_reactive_stratagem_opportunity(defending_player: int, available_stratag
 	decision["player"] = defending_player
 	_submit_reactive_action(defending_player, decision)
 
-# --- P2-25: Distraction Grot (ShootingPhase) ---
-
-func _on_distraction_grot_available(unit_id: String, player: int) -> void:
-	"""
-	Called when the ShootingPhase offers Distraction Grot (5+ invuln) to the defending player.
-	AI always activates this free ability since it has no cost.
-	"""
-	if not is_ai_player(player):
-		return
-
-	print("AIPlayer: P2-25 Distraction Grot available for AI player %d, unit %s — auto-activating" % [player, unit_id])
-
-	var decision = {
-		"type": "USE_DISTRACTION_GROT",
-		"actor_unit_id": unit_id,
-		"player": player,
-		"_ai_description": "AI activates Distraction Grot (5+ invuln, free ability)"
-	}
-	_submit_reactive_action(player, decision)
-
-func _on_shooty_power_trip_available(unit_id: String, player: int) -> void:
-	"""audit P1: the AI auto-activates Shooty Power Trip (free once-per-battle
-	D6 bonus). Without a listener the phase blocked awaiting a decision."""
-	if not is_ai_player(player):
-		return
-	print("AIPlayer: Shooty Power Trip available for AI player %d, unit %s — auto-activating" % [player, unit_id])
-	var decision = {
-		"type": "USE_SHOOTY_POWER_TRIP",
-		"actor_unit_id": unit_id,
-		"player": player,
-		"_ai_description": "AI activates Shooty Power Trip (free D6 bonus)"
-	}
-	_submit_reactive_action(player, decision)
-
-func _on_pulsa_rokkit_available(unit_id: String, player: int) -> void:
-	"""audit P1: the AI auto-fires Pulsa Rokkit (free once-per-battle +1 S/+1 AP
-	on ranged weapons). Without a listener the phase blocked awaiting a decision."""
-	if not is_ai_player(player):
-		return
-	print("AIPlayer: Pulsa Rokkit available for AI player %d, unit %s — auto-firing" % [player, unit_id])
-	var decision = {
-		"type": "USE_PULSA_ROKKIT",
-		"actor_unit_id": unit_id,
-		"player": player,
-		"_ai_description": "AI fires Pulsa Rokkit (+1 S / +1 AP ranged)"
-	}
-	_submit_reactive_action(player, decision)
-
-# --- P2-25: Bomb Squigs (MovementPhase) ---
-
-func _on_bomb_squigs_available(unit_id: String, player: int, eligible_targets: Array) -> void:
-	"""
-	Called when the MovementPhase offers Bomb Squigs after a Normal move.
-	AI always activates this free once-per-battle ability.
-	"""
-	if not is_ai_player(player):
-		return
-
-	print("AIPlayer: P2-25 Bomb Squigs available for AI player %d, unit %s — auto-activating" % [player, unit_id])
-
-	var target_unit_id = ""
-	if not eligible_targets.is_empty():
-		target_unit_id = eligible_targets[0].get("target_unit_id", "")
-
-	var decision = {
-		"type": "USE_BOMB_SQUIGS",
-		"actor_unit_id": unit_id,
-		"target_unit_id": target_unit_id,
-		"player": player,
-		"_ai_description": "AI activates Bomb Squigs (D3 mortal wounds, free ability)"
-	}
-	_submit_reactive_action(player, decision)
 
 # --- Reactive Stratagem: Fire Overwatch (MovementPhase) ---
 

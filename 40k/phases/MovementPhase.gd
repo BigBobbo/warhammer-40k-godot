@@ -19,16 +19,9 @@ signal overwatch_opportunity(moved_unit_id: String, defending_player: int, eligi
 signal overwatch_result(shooter_unit_id: String, target_unit_id: String, result: Dictionary)
 signal fire_overwatch_opportunity(player: int, eligible_units: Array, enemy_unit_id: String)
 signal rapid_ingress_opportunity(player: int, eligible_units: Array)
-signal bomb_squigs_available(unit_id: String, player: int, eligible_targets: Array)
-signal bomb_squigs_result(unit_id: String, results: Dictionary)
 signal surge_move_completed(unit_id: String, distance_moved: float)
 signal krump_and_run_opportunity(player: int, eligible_units: Array, fell_back_unit_id: String)
-signal kunnin_infiltrator_available(unit_id: String, player: int)
-signal deff_from_above_available(unit_id: String, player: int, eligible_targets: Array)
-signal deff_from_above_result(unit_id: String, results: Dictionary)
 signal scatter_opportunity(player: int, eligible_units: Array, trigger_unit_id: String)
-signal grot_oiler_available(unit_id: String, player: int, eligible_targets: Array)
-signal grot_oiler_result(unit_id: String, results: Dictionary)
 # Codex: Orks (11e) READIED BRAWLERS follow-up: ask the (human) owner to make an
 # assault disembark move with `unit_id` from `transport_id` (MovementController
 # shows the disembark dialog / placement; SKIP_ASSAULT_DISEMBARK declines it).
@@ -37,6 +30,8 @@ signal ork11e_assault_disembark_requested(player: int, transport_id: String, uni
 # Codex: Orks (11e) movement-group stratagem handlers (consumer helpers) + dispatcher.
 const Ork11eMovement = preload("res://scripts/stratagems/ork_codex/OrkCodexMovement.gd")
 const Ork11eCodex = preload("res://scripts/stratagems/ork_codex/OrkCodex11e.gd")
+# WP-O6: Codex: Orks (11e) datasheet abilities (move / advance modifiers, triggers).
+const OrkAbilities11eScript = preload("res://scripts/codex/orks/OrkAbilities11e.gd")
 
 # ISS-002: engagement range comes from GameConstants.engagement_range_inches()
 # (edition-dependent). Do not re-declare it as a local constant.
@@ -82,24 +77,6 @@ var _rapid_ingress_unit_id: String = ""        # The unit chosen for Rapid Ingre
 # we defer phase_completed until overwatch resolves
 var _rapid_ingress_pending_phase_complete: bool = false
 
-# Bomb Squigs state tracking (P2-25)
-var _bomb_squigs_pending_unit: String = ""     # Unit awaiting Bomb Squigs decision
-var _bomb_squigs_pending_changes: Array = []   # Pending movement changes while awaiting Bomb Squigs
-var _bomb_squigs_pending_dice: Array = []      # Pending dice while awaiting Bomb Squigs
-
-# Sawbonez state tracking (P3-29)
-var _awaiting_sawbonez: bool = false            # Waiting for Sawbonez heal decision
-var _sawbonez_painboss_id: String = ""          # The Painboss unit offering healing
-var _sawbonez_targets: Array = []               # Eligible healing targets
-var _sawbonez_pending_changes: Array = []       # Pending changes from END_MOVEMENT cleanup
-
-# OA-34: Mekaniak state tracking (Mek/Big Mek heal + buff at end of Movement phase)
-var _awaiting_mekaniak: bool = false             # Waiting for Mekaniak heal/buff decision
-var _mekaniak_mek_id: String = ""                # The Mek unit offering healing/buff
-var _mekaniak_targets: Array = []                # Eligible vehicle targets
-var _mekaniak_pending_changes: Array = []        # Pending changes from earlier in END_MOVEMENT
-var _mekaniak_checked_meks: Array = []           # Mek unit IDs already checked this end-of-movement
-
 # Normal move tracking (P2-72) — 10e Core Rules
 # "A unit cannot make more than one Normal move per phase."
 # Tracks which units have made a Normal move this phase to enforce the limit.
@@ -134,16 +111,6 @@ var _ork11e_assault_disembark: Dictionary = {}  # {player, transport_id, remaini
 var _ork11e_phase_end_windows_done: bool = false
 var _ork11e_pending_move_changes: Array = []    # the ended move's diffs while its CONFIRM is still being processed (see _post_move_prompts)
 
-# Kunnin' Infiltrator state tracking (OA-24)
-var _kunnin_infiltrator_pending: bool = false       # Waiting for redeployment placement
-var _kunnin_infiltrator_unit_id: String = ""        # Unit being redeployed
-
-# Deff from Above state tracking (OA-25)
-var _deff_from_above_pending_unit: String = ""      # Unit awaiting Deff from Above decision
-var _deff_from_above_pending_targets: Array = []    # Eligible enemy units moved over
-var _deff_from_above_pending_changes: Array = []    # Pending movement changes
-var _deff_from_above_pending_dice: Array = []       # Pending dice
-
 # Quicksilver Execution state tracking (Vertus Praetors)
 var _quicksilver_pending_unit: String = ""
 var _quicksilver_pending_targets: Array = []
@@ -160,11 +127,6 @@ var _scatter_pending_after_overwatch: bool = false   # Defer Scatter! check unti
 var _scatter_pending_trigger_id: String = ""         # Trigger unit ID for deferred check
 var _scatter_pending_changes: Array = []             # Pending changes to propagate after Scatter!
 var _scatter_pending_dice: Array = []                # Pending dice to propagate after Scatter!
-# Grot Oiler state tracking (OA-32)
-var _awaiting_grot_oiler: bool = false              # Waiting for Grot Oiler heal decision
-var _grot_oiler_bearer_id: String = ""              # The unit with Grot Oiler wargear
-var _grot_oiler_targets: Array = []                 # Eligible healing targets
-var _grot_oiler_pending_changes: Array = []         # Pending changes from END_MOVEMENT cleanup
 
 # Calculate pivot value for a unit based on base type and keywords.
 #
@@ -238,12 +200,6 @@ func get_unit_movement(unit: Dictionary) -> float:
 		movement += 1.0
 		DebugLogger.info(str("MovementPhase: Bionik Workshop — movement %d → %d (+1\")" % [int(movement - 1), int(movement)]))
 
-	# SPECIAL DOSE: +6" to Move while Waaagh! active (Zodgrod Wortsnagga)
-	if unit.get("flags", {}).get("special_dose_active", false):
-		var old_movement = movement
-		movement += 6.0
-		DebugLogger.info(str("MovementPhase: Special Dose — movement %d → %d (+6\")" % [int(old_movement), int(movement)]))
-
 	# FOLLOW ME LADZ (#394 / War Horde enhancement): +n" to Move characteristic
 	# while bearer leads the unit. Set as effect_plus_move flag on the bearer's
 	# unit by EffectPrimitives when the enhancement is applied.
@@ -259,6 +215,15 @@ func get_unit_movement(unit: Dictionary) -> float:
 	if ffi_move > 0:
 		movement += float(ffi_move)
 		DebugLogger.info(str("MovementPhase: FUNGUS-FUEL INJECTION — movement %d → %d (+%d\") for %s" % [int(movement - ffi_move), int(movement), ffi_move, unit.get("meta", {}).get("name", "?")]))
+
+	# WP-O6: Codex: Orks (11e) datasheet abilities — Runnin' wiv da Herd (+4"),
+	# Madcap Artillery 'smashed' (-2").
+	if GameConstants.edition >= 11:
+		var o6_move := OrkAbilities11eScript.move_modifier(unit)
+		if o6_move != 0.0:
+			var pre_o6 = movement
+			movement = maxf(0.0, movement + o6_move)
+			DebugLogger.info(str("MovementPhase: [WP-O6] Ork datasheet move modifier %+.0f\" — movement %d → %d for %s" % [o6_move, int(pre_o6), int(movement), unit.get("meta", {}).get("name", "?")]))
 
 	return movement
 
@@ -282,9 +247,6 @@ func _on_phase_enter() -> void:
 	_rapid_ingress_player = 0
 	_rapid_ingress_eligible_units = []
 	_rapid_ingress_unit_id = ""
-	_bomb_squigs_pending_unit = ""
-	_bomb_squigs_pending_changes = []
-	_bomb_squigs_pending_dice = []
 	_normal_moves_this_phase.clear()
 	_surge_moves_this_phase.clear()
 	_awaiting_krump_and_run = false
@@ -297,8 +259,6 @@ func _on_phase_enter() -> void:
 	_krump_and_run_strat_id = ""
 	_krump_and_run_strat_name = "Krump and Run"
 	_reactive_move_owner = 0
-	_kunnin_infiltrator_pending = false
-	_kunnin_infiltrator_unit_id = ""
 	_awaiting_scatter = false
 	_scatter_player = 0
 	_scatter_eligible_units = []
@@ -333,10 +293,6 @@ func _on_phase_enter() -> void:
 	if ability_mgr:
 		ability_mgr.on_movement_phase_start()
 
-		# OA-34: Clear Mekaniak +1 Hit buffs from previous turn and reset per-vehicle tracking
-		_clear_mekaniak_buffs(get_current_player())
-		ability_mgr.clear_mekaniak_turn_tracking()
-
 		# OA-42: Clear Scatter! per-unit tracking for new turn
 		ability_mgr.clear_scatter_turn_tracking()
 
@@ -347,15 +303,9 @@ func _on_phase_enter() -> void:
 
 	_initialize_movement()
 
-	# Check Thievin' Scavengers ability (Gretchin) before movement begins.
-	# We must wait until the phase header ("--- Movement Phase ---") has been
-	# logged to GameEventLog so our entries appear underneath it. The phase
-	# header is added by GameEventLog._on_phase_changed which fires AFTER
-	# _on_phase_enter returns (PhaseManager emits phase_changed on line after
-	# enter_phase). So we listen for the next entry_added signal.
-	var game_event_log = get_node_or_null("/root/GameEventLog")
-	if game_event_log:
-		game_event_log.entry_added.connect(_on_phase_header_logged, CONNECT_ONE_SHOT)
+	# (The 10e Thievin' Scavengers start-of-movement CP roll is gone: the
+	# Codex: Orks (11e) ability secures objectives at the END of the Movement
+	# phase — OrkAbilities11e.on_movement_phase_end, called from END_MOVEMENT.)
 
 	# Codex: Orks (11e) movement_phase_start window (09.01 Start of Movement
 	# Phase, after the phase-start bookkeeping above): active player first.
@@ -381,23 +331,6 @@ func _on_phase_exit() -> void:
 	for unit_id in active_moves:
 		_clear_unit_move_state(unit_id)
 
-	# Clear Sawbonez state (P3-29)
-	_awaiting_sawbonez = false
-	_sawbonez_painboss_id = ""
-	_sawbonez_targets = []
-	_sawbonez_pending_changes = []
-
-	# Clear Mekaniak state (OA-34)
-	_awaiting_mekaniak = false
-	_mekaniak_mek_id = ""
-	_mekaniak_targets = []
-	_mekaniak_pending_changes = []
-	_mekaniak_checked_meks = []
-	# Clear Grot Oiler state (OA-32)
-	_awaiting_grot_oiler = false
-	_grot_oiler_bearer_id = ""
-	_grot_oiler_targets = []
-	_grot_oiler_pending_changes = []
 
 func _initialize_movement() -> void:
 	var current_player = get_current_player()
@@ -428,228 +361,7 @@ func _initialize_movement() -> void:
 		log_phase_message("No units available for movement, completing phase")
 		emit_signal("phase_completed")
 
-func _on_phase_header_logged(_text: String, _entry_type: String) -> void:
-	"""Called once when the first GameEventLog entry is added after we connect.
-	This is the phase_header entry. Now safe to add our Thievin' Scavengers
-	entries so they appear directly underneath."""
-	_check_thievin_scavengers()
 
-func _check_thievin_scavengers() -> void:
-	"""Thievin' Scavengers (Gretchin datasheet ability):
-	At the start of your Movement phase, roll one D6 for each objective marker
-	you control that has one or more units from your army with this ability
-	within range of it (excluding Battle-shocked units). If one or more of
-	those rolls is a 4+, you gain 1CP."""
-	var current_player = get_current_player()
-	var units = GameState.state.get("units", {})
-	var objectives = GameState.state.get("board", {}).get("objectives", [])
-	var game_event_log = get_node_or_null("/root/GameEventLog")
-
-	# First check: does any unit belonging to this player have the ability?
-	var scavenger_units: Array = []
-	for unit_id in units:
-		var unit = units[unit_id]
-		if unit.get("owner", 0) != current_player:
-			continue
-		var abilities = unit.get("meta", {}).get("abilities", [])
-		for ability in abilities:
-			var ability_name = ""
-			if ability is String:
-				ability_name = ability
-			elif ability is Dictionary:
-				ability_name = ability.get("name", "")
-			if ability_name == "Thievin' Scavengers" or ability_name == "Thievin\u2019 Scavengers":
-				scavenger_units.append(unit_id)
-				break
-
-	if scavenger_units.is_empty():
-		# No units with this ability — skip silently (player doesn't have Gretchin)
-		return
-
-	DebugLogger.info(str("MovementPhase: Thievin' Scavengers — checking %d unit(s) with ability: %s" % [scavenger_units.size(), str(scavenger_units)]))
-
-	if objectives.is_empty():
-		DebugLogger.info("MovementPhase: Thievin' Scavengers — no objectives on board, skipping")
-		return
-
-	# Refresh objective control state before checking, so it's current
-	if MissionManager:
-		MissionManager.check_all_objectives()
-
-	# Control radius matches MissionManager._check_objective_control: 3" + 20mm objective radius
-	var control_radius = Measurement.inches_to_px(3.78740157)
-
-	# Find objectives controlled by the current player that have a unit with
-	# "Thievin' Scavengers" within range (non-battle-shocked, deployed).
-	var qualifying_objectives: Array = []
-
-	for obj in objectives:
-		# Only check objectives this player controls
-		if not MissionManager:
-			continue
-		var controller = MissionManager.objective_control_state.get(obj.id, 0)
-		if controller != current_player:
-			DebugLogger.info(str("MovementPhase: Thievin' Scavengers — objective %s controlled by player %d, not current player %d" % [obj.id, controller, current_player]))
-			continue
-
-		var obj_pos = obj.position
-		if obj_pos is Dictionary:
-			obj_pos = Vector2(obj_pos.x, obj_pos.y)
-
-		# Check if any non-battle-shocked unit with the ability is within range
-		var has_ability_unit = false
-		for unit_id in scavenger_units:
-			var unit = units[unit_id]
-			if unit.get("flags", {}).get("battle_shocked", false):
-				DebugLogger.info(str("MovementPhase: Thievin' Scavengers — unit %s is Battle-shocked, skipping" % unit_id))
-				continue
-			var status = unit.get("status", GameStateData.UnitStatus.UNDEPLOYED)
-			if status == GameStateData.UnitStatus.UNDEPLOYED:
-				DebugLogger.info(str("MovementPhase: Thievin' Scavengers — unit %s is not deployed (status=%s), skipping" % [unit_id, str(status)]))
-				continue
-
-			# Check if any alive model in this unit is within range of the objective
-			for model in unit.get("models", []):
-				if not model.get("alive", true):
-					continue
-				var model_pos = model.get("position")
-				if model_pos == null:
-					continue
-				if model_pos is Dictionary:
-					model_pos = Vector2(model_pos.x, model_pos.y)
-				var edge_distance = Measurement.model_edge_to_point_distance_px(model, obj_pos)
-				if edge_distance <= control_radius:
-					has_ability_unit = true
-					break
-				else:
-					DebugLogger.info(str("MovementPhase: Thievin' Scavengers — model in %s is %.1f\" from objective %s (need <= %.1f\")" % [unit_id, Measurement.px_to_inches(edge_distance), obj.id, Measurement.px_to_inches(control_radius)]))
-
-			if has_ability_unit:
-				break
-
-		if has_ability_unit:
-			qualifying_objectives.append(obj)
-
-	if qualifying_objectives.is_empty():
-		var no_qualify_text = "Thievin' Scavengers: No controlled objectives with Gretchin in range — ability does not trigger"
-		DebugLogger.info(str("MovementPhase: %s" % no_qualify_text))
-		if game_event_log:
-			game_event_log.add_info_entry(no_qualify_text)
-		return
-
-	# Roll 1D6 per qualifying objective
-	# Issue #329: route through RNGService so static test_mode_seed applies
-	var rng = RulesEngine.make_rng()
-	var rolls: Array = []
-	var any_success = false
-
-	for obj in qualifying_objectives:
-		var roll = rng.rng.randi_range(1, 6)
-		rolls.append({"objective_id": obj.id, "roll": roll, "success": roll >= 4})
-		if roll >= 4:
-			any_success = true
-
-	# Log the results
-	var roll_descriptions: Array = []
-	for r in rolls:
-		var result_text = "%d (pass)" % r.roll if r.success else "%d (fail)" % r.roll
-		roll_descriptions.append("Obj %s: %s" % [r.objective_id, result_text])
-
-	var rolls_summary = ", ".join(roll_descriptions)
-	var log_text = "Thievin' Scavengers: Rolled for %d objective(s) — %s" % [qualifying_objectives.size(), rolls_summary]
-	DebugLogger.info(str("MovementPhase: %s" % log_text))
-	if game_event_log:
-		game_event_log.add_info_entry(log_text)
-
-	# Record dice rolls in the phase dice log
-	for r in rolls:
-		dice_log.append({
-			"type": "thievin_scavengers",
-			"objective_id": r.objective_id,
-			"roll": r.roll,
-			"success": r.success,
-			"player": current_player
-		})
-
-	# If any roll was 4+, gain 1CP (subject to bonus CP cap)
-	var notification_text := ""
-	if any_success:
-		if GameState.can_gain_bonus_cp(current_player):
-			var current_cp = GameState.state.get("players", {}).get(str(current_player), {}).get("cp", 0)
-			var changes = [{
-				"op": "set",
-				"path": "players.%s.cp" % str(current_player),
-				"value": current_cp + 1
-			}]
-			PhaseManager.apply_state_changes(changes)
-			GameState.record_bonus_cp_gained(current_player, 1)
-
-			var gain_text = "Thievin' Scavengers: Player %d gains 1CP! (now %dCP)" % [current_player, current_cp + 1]
-			notification_text = "Thievin' Scavengers\nRolled: %s\n+1 CP! (now %d CP)" % [rolls_summary, current_cp + 1]
-			DebugLogger.info(str("MovementPhase: %s" % gain_text))
-			if game_event_log:
-				game_event_log.add_info_entry(gain_text)
-		else:
-			var cap_text = "Thievin' Scavengers: Player %d rolled 4+ but already gained bonus CP this round (cap reached)" % current_player
-			notification_text = "Thievin' Scavengers\nRolled: %s\nCP cap reached — no CP gained"  % rolls_summary
-			DebugLogger.info(str("MovementPhase: %s" % cap_text))
-			if game_event_log:
-				game_event_log.add_info_entry(cap_text)
-	else:
-		var fail_text = "Thievin' Scavengers: No rolls of 4+ — no CP gained"
-		notification_text = "Thievin' Scavengers\nRolled: %s\nNo 4+ — no CP gained" % rolls_summary
-		DebugLogger.info(str("MovementPhase: %s" % fail_text))
-		if game_event_log:
-			game_event_log.add_info_entry(fail_text)
-
-	# Show a floating on-screen notification so the result is clearly visible
-	_show_thievin_scavengers_notification(notification_text, any_success)
-
-
-func _show_thievin_scavengers_notification(text: String, success: bool) -> void:
-	"""Show a temporary on-screen banner for Thievin' Scavengers result."""
-	var main_node = SceneRefs.main()
-	if not main_node:
-		return
-
-	var panel = PanelContainer.new()
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.12, 0.08, 0.92) if success else Color(0.12, 0.08, 0.08, 0.92)
-	style.border_width_left = 4
-	style.border_color = Color(0.3, 0.85, 0.3) if success else Color(0.7, 0.5, 0.2)
-	style.corner_radius_top_right = 6
-	style.corner_radius_bottom_right = 6
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
-	panel.add_theme_stylebox_override("panel", style)
-
-	var label = Label.new()
-	label.text = text
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 20)
-	label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.75))
-	panel.add_child(label)
-
-	# Position at top-center of screen
-	panel.anchors_preset = Control.PRESET_CENTER_TOP
-	panel.anchor_top = 0.12
-	panel.anchor_bottom = 0.12
-	panel.anchor_left = 0.5
-	panel.anchor_right = 0.5
-	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	panel.grow_vertical = Control.GROW_DIRECTION_END
-
-	main_node.add_child(panel)
-
-	# Animate: fade in, hold, fade out, remove
-	panel.modulate = Color(1, 1, 1, 0)
-	var tween = panel.create_tween()
-	tween.tween_property(panel, "modulate", Color(1, 1, 1, 1), 0.3)
-	tween.tween_interval(3.0)
-	tween.tween_property(panel, "modulate", Color(1, 1, 1, 0), 0.5)
-	tween.tween_callback(panel.queue_free)
 
 
 func validate_action(action: Dictionary) -> Dictionary:
@@ -722,34 +434,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_decline_rapid_ingress(action)
 		"PLACE_RAPID_INGRESS_REINFORCEMENT":
 			return _validate_place_rapid_ingress_reinforcement(action)
-		"USE_BOMB_SQUIGS":
-			return _validate_use_bomb_squigs(action)
-		"DECLINE_BOMB_SQUIGS":
-			return _validate_decline_bomb_squigs(action)
-		"USE_SAWBONEZ":
-			if not _awaiting_sawbonez:
-				return {"valid": false, "errors": ["Not awaiting Sawbonez decision"]}
-			return {"valid": true}
-		"DECLINE_SAWBONEZ":
-			if not _awaiting_sawbonez:
-				return {"valid": false, "errors": ["Not awaiting Sawbonez decision"]}
-			return {"valid": true}
-		"USE_MEKANIAK":
-			if not _awaiting_mekaniak:
-				return {"valid": false, "errors": ["Not awaiting Mekaniak decision"]}
-			return {"valid": true}
-		"DECLINE_MEKANIAK":
-			if not _awaiting_mekaniak:
-				return {"valid": false, "errors": ["Not awaiting Mekaniak decision"]}
-			return {"valid": true}
-		"USE_GROT_OILER":
-			if not _awaiting_grot_oiler:
-				return {"valid": false, "errors": ["Not awaiting Grot Oiler decision"]}
-			return {"valid": true}
-		"DECLINE_GROT_OILER":
-			if not _awaiting_grot_oiler:
-				return {"valid": false, "errors": ["Not awaiting Grot Oiler decision"]}
-			return {"valid": true}
 		"USE_KRUMP_AND_RUN":
 			return _validate_use_krump_and_run(action)
 		"DECLINE_KRUMP_AND_RUN":
@@ -760,18 +444,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_apply_pivot_cost(action)
 		"BEGIN_SURGE_MOVE":
 			return _validate_begin_surge_move(action)
-		"ACTIVATE_KUNNIN_INFILTRATOR":
-			return _validate_activate_kunnin_infiltrator(action)
-		"PLACE_KUNNIN_INFILTRATOR":
-			return _validate_place_kunnin_infiltrator(action)
-		"CANCEL_KUNNIN_INFILTRATOR":
-			if not _kunnin_infiltrator_pending:
-				return {"valid": false, "errors": ["No Kunnin' Infiltrator redeployment pending"]}
-			return {"valid": true}
-		"USE_DEFF_FROM_ABOVE":
-			return _validate_use_deff_from_above(action)
-		"DECLINE_DEFF_FROM_ABOVE":
-			return _validate_decline_deff_from_above(action)
 		"USE_QUICKSILVER_EXECUTION":
 			var qs_uid = action.get("unit_id", "")
 			if _quicksilver_pending_unit == "" or _quicksilver_pending_unit != qs_uid:
@@ -787,11 +459,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 		"DECLINE_SCATTER":
 			if not _awaiting_scatter:
 				return {"valid": false, "errors": ["Not awaiting Scatter! decision"]}
-			return {"valid": true}
-		"USE_DA_JUMP":
-			# Validation lives in _process_use_da_jump (returns clear errors).
-			return {"valid": true}
-		"PLACE_DA_JUMP":
 			return {"valid": true}
 		"SKIP_ASSAULT_DISEMBARK":
 			return _validate_skip_assault_disembark(action)
@@ -858,22 +525,6 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_decline_rapid_ingress(action)
 		"PLACE_RAPID_INGRESS_REINFORCEMENT":
 			return _process_place_rapid_ingress_reinforcement(action)
-		"USE_BOMB_SQUIGS":
-			return _process_use_bomb_squigs(action)
-		"DECLINE_BOMB_SQUIGS":
-			return _process_decline_bomb_squigs(action)
-		"USE_SAWBONEZ":
-			return _process_use_sawbonez(action)
-		"DECLINE_SAWBONEZ":
-			return _process_decline_sawbonez(action)
-		"USE_MEKANIAK":
-			return _process_use_mekaniak(action)
-		"DECLINE_MEKANIAK":
-			return _process_decline_mekaniak(action)
-		"USE_GROT_OILER":
-			return _process_use_grot_oiler(action)
-		"DECLINE_GROT_OILER":
-			return _process_decline_grot_oiler(action)
 		"USE_KRUMP_AND_RUN":
 			return _process_use_krump_and_run(action)
 		"DECLINE_KRUMP_AND_RUN":
@@ -882,16 +533,6 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_apply_pivot_cost(action)
 		"BEGIN_SURGE_MOVE":
 			return _process_begin_surge_move(action)
-		"ACTIVATE_KUNNIN_INFILTRATOR":
-			return _process_activate_kunnin_infiltrator(action)
-		"PLACE_KUNNIN_INFILTRATOR":
-			return _process_place_kunnin_infiltrator(action)
-		"CANCEL_KUNNIN_INFILTRATOR":
-			return _process_cancel_kunnin_infiltrator(action)
-		"USE_DEFF_FROM_ABOVE":
-			return _process_use_deff_from_above(action)
-		"DECLINE_DEFF_FROM_ABOVE":
-			return _process_decline_deff_from_above(action)
 		"USE_QUICKSILVER_EXECUTION":
 			return _process_use_quicksilver_execution(action)
 		"DECLINE_QUICKSILVER_EXECUTION":
@@ -900,10 +541,6 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_use_scatter(action)
 		"DECLINE_SCATTER":
 			return _process_decline_scatter(action)
-		"USE_DA_JUMP":
-			return _process_use_da_jump(action)
-		"PLACE_DA_JUMP":
-			return _process_place_da_jump(action)
 		"SKIP_ASSAULT_DISEMBARK":
 			return _process_skip_assault_disembark(action)
 		"END_COMMAND":
@@ -1072,43 +709,21 @@ func _validate_set_model_dest(action: Dictionary) -> Dictionary:
 	# 10e Rule: Normal Move and Advance cannot cross enemy model bases
 	# FLY units are exempt — they can move over enemy models
 	# Fall Back and Surge are also exempt
-	# OA-28: Clankin' Forward also exempts (can move over non-MONSTER/VEHICLE enemies)
-	# OA-29: Stompin' Forward exempts (can move over all non-TITANIC models)
-	var _has_clankin_fwd = _unit_has_clankin_forward(unit_id)
-	var _has_stompin_fwd = _unit_has_stompin_forward(unit_id)
-	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
-		if _has_stompin_fwd:
-			log_phase_message("  OA-29: Stompin' Forward — bypassing enemy base crossing check (all non-TITANIC allowed)")
-		elif _has_clankin_fwd:
-			log_phase_message("  OA-28: Clankin' Forward — bypassing enemy base crossing check (non-MONSTER/VEHICLE allowed)")
-		elif _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
+	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
+		if _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
 			return {"valid": false, "errors": ["Cannot move through enemy models during Normal Move or Advance"]}
 
 	# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
 	# FLY units are exempt
-	# OA-28: Clankin' Forward units are still blocked by MONSTER/VEHICLE
-	# OA-29: Stompin' Forward units bypass this — they can move over MONSTER/VEHICLE
-	if not _unit_has_fly_keyword(unit_id) and not _has_stompin_fwd:
+	if not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
 		if _path_crosses_monster_vehicle_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses friendly/enemy Monster/Vehicle model base")
 			return {"valid": false, "errors": ["Cannot move through Monster or Vehicle models"]}
 
-	# OA-29: Stompin' Forward units are blocked only by TITANIC models
-	if _has_stompin_fwd and not _unit_has_fly_keyword(unit_id):
-		if _path_crosses_titanic_bases(current_pos, dest_vec, unit_id, model):
-			log_phase_message("  FAILED: Path crosses TITANIC model base (Stompin' Forward blocked by TITANIC)")
-			return {"valid": false, "errors": ["Cannot move through TITANIC models"]}
-
 	# Check terrain collision
-	# OA-28: Clankin' Forward allows moving over terrain ≤4" height
-	# OA-29: Stompin' Forward allows moving over terrain ≤4" height
-	if _has_clankin_fwd or _has_stompin_fwd:
-		if _position_intersects_terrain(dest_vec, model, 4.0):
-			return {"valid": false, "errors": ["Position intersects impassable terrain (height > 4\")"]}
-	else:
-		if _position_intersects_terrain(dest_vec, model):
-			return {"valid": false, "errors": ["Position intersects impassable terrain"]}
+	if _position_intersects_terrain(dest_vec, model):
+		return {"valid": false, "errors": ["Position intersects impassable terrain"]}
 
 	# Check model overlap
 	if _position_overlaps_other_models(unit_id, model_id, dest_vec, model):
@@ -1228,43 +843,21 @@ func _validate_stage_model_move(action: Dictionary) -> Dictionary:
 	# FLY units are exempt — they can move over enemy models
 	# Fall Back and Surge are also exempt (Fall Back handled via Desperate Escape,
 	# Surge moves allow moving through/into Engagement Range)
-	# OA-28: Clankin' Forward also exempts (can move over non-MONSTER/VEHICLE enemies)
-	# OA-29: Stompin' Forward exempts (can move over all non-TITANIC models)
-	var _has_clankin_fwd_stage = _unit_has_clankin_forward(unit_id)
-	var _has_stompin_fwd_stage = _unit_has_stompin_forward(unit_id)
-	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
-		if _has_stompin_fwd_stage:
-			log_phase_message("  OA-29: Stompin' Forward — bypassing enemy base crossing check (all non-TITANIC allowed)")
-		elif _has_clankin_fwd_stage:
-			log_phase_message("  OA-28: Clankin' Forward — bypassing enemy base crossing check (non-MONSTER/VEHICLE allowed)")
-		elif _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
+	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
+		if _path_crosses_enemy_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses enemy model base (Normal/Advance cannot move through enemies)")
 			return {"valid": false, "errors": ["Cannot move through enemy models during Normal Move or Advance"]}
 
 	# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
 	# FLY units are exempt
-	# OA-28: Clankin' Forward units are still blocked by MONSTER/VEHICLE
-	# OA-29: Stompin' Forward units bypass this — they can move over MONSTER/VEHICLE
-	if not _unit_has_fly_keyword(unit_id) and not _has_stompin_fwd_stage:
+	if not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
 		if _path_crosses_monster_vehicle_bases(current_pos, dest_vec, unit_id, model):
 			log_phase_message("  FAILED: Path crosses friendly/enemy Monster/Vehicle model base")
 			return {"valid": false, "errors": ["Cannot move through Monster or Vehicle models"]}
 
-	# OA-29: Stompin' Forward units are blocked only by TITANIC models
-	if _has_stompin_fwd_stage and not _unit_has_fly_keyword(unit_id):
-		if _path_crosses_titanic_bases(current_pos, dest_vec, unit_id, model):
-			log_phase_message("  FAILED: Path crosses TITANIC model base (Stompin' Forward blocked by TITANIC)")
-			return {"valid": false, "errors": ["Cannot move through TITANIC models"]}
-
 	# Check terrain collision
-	# OA-28: Clankin' Forward allows moving over terrain ≤4" height
-	# OA-29: Stompin' Forward allows moving over terrain ≤4" height
-	if _has_clankin_fwd_stage or _has_stompin_fwd_stage:
-		if _position_intersects_terrain(dest_vec, model, 4.0):
-			return {"valid": false, "errors": ["Position intersects impassable terrain (height > 4\")"]}
-	else:
-		if _position_intersects_terrain(dest_vec, model):
-			return {"valid": false, "errors": ["Position intersects impassable terrain"]}
+	if _position_intersects_terrain(dest_vec, model):
+		return {"valid": false, "errors": ["Position intersects impassable terrain"]}
 
 	# Check model overlap. Pass model_actual_unit_id, NOT unit_id: the overlap
 	# scan skips the moving model by (unit_id, model_id), and an attached
@@ -1653,6 +1246,13 @@ func _process_begin_advance_after_windows(action: Dictionary) -> Dictionary:
 					unit_name, int(move_inches + 6), int(move_inches)])
 		return _resolve_advance_roll(unit_id, 6, false)
 
+	# WP-O6 SHOKK-BOOSTA (Codex: Orks 11e, Big Mek): "This unit can change that
+	# advance roll to a 6" — used in the unit_selected_to_move window just
+	# answered; the 6 is an advance roll, so roll modifiers still apply.
+	if GameConstants.edition >= 11 and OrkAbilities11eScript.shokk_boosta_active(unit_id):
+		log_phase_message("Advance: %s → Shokk-boosta — advance roll is a 6" % unit.get("meta", {}).get("name", unit_id))
+		return _resolve_advance_roll(unit_id, 6, true)
+
 	# Roll D6 for advance (with deterministic seed for multiplayer)
 	# T5-MP9: Read seed from action payload (embedded by NetworkManager.submit_action)
 	# so both optimistic client and authoritative host produce the same roll.
@@ -1765,6 +1365,14 @@ func _resolve_advance_roll(unit_id: String, advance_roll: int, is_roll: bool = t
 		log_phase_message("'ERE WE GO: %s advance roll %d %+d = %d" % [unit_id, ewg_raw, ewg_bonus, advance_roll])
 		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
 			"type": "'ERE WE GO", "roll": ewg_raw, "result": "Advance roll %d %+d = %d" % [ewg_raw, ewg_bonus, advance_roll]})
+	# WP-O6 FUEL-MIXA GROT (Codex: Orks 11e, Deffkilla Wartrike): "+1 to advance rolls".
+	var o6_adv := OrkAbilities11eScript.advance_roll_bonus(unit_id) if (is_roll and GameConstants.edition >= 11) else 0
+	if o6_adv != 0:
+		var o6_raw := advance_roll
+		advance_roll += o6_adv
+		log_phase_message("Fuel-mixa Grot: %s advance roll %d %+d = %d" % [unit_id, o6_raw, o6_adv, advance_roll])
+		dice_log.append({"unit_id": unit_id, "unit_name": unit.get("meta", {}).get("name", unit_id),
+			"type": "Fuel-mixa Grot", "roll": o6_raw, "result": "Advance roll %d %+d = %d" % [o6_raw, o6_adv, advance_roll]})
 	var total_move = move_inches + advance_roll
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
 
@@ -2224,114 +1832,6 @@ func _process_decline_fire_overwatch(action: Dictionary) -> Dictionary:
 # unit within 12\" of and visible to this unit and roll one D6: on a 3+, that
 # enemy unit suffers D3 mortal wounds."
 
-func _validate_use_bomb_squigs(action: Dictionary) -> Dictionary:
-	"""Validate activating Bomb Squigs ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if _bomb_squigs_pending_unit == "" or _bomb_squigs_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Bomb Squigs pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _validate_decline_bomb_squigs(action: Dictionary) -> Dictionary:
-	"""Validate declining Bomb Squigs ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if _bomb_squigs_pending_unit == "" or _bomb_squigs_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Bomb Squigs pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _process_use_bomb_squigs(action: Dictionary) -> Dictionary:
-	"""Player activates Bomb Squigs — roll mortal wounds against nearest visible enemy."""
-	var unit_id = action.get("actor_unit_id", "")
-	var target_unit_id = action.get("target_unit_id", "")
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ P2-25: BOMB SQUIGS — ACTIVATED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Get cached movement changes/dice
-	var cached_changes = _bomb_squigs_pending_changes.duplicate()
-	var cached_dice = _bomb_squigs_pending_dice.duplicate()
-
-	# Clear the pending state
-	_bomb_squigs_pending_unit = ""
-	_bomb_squigs_pending_changes = []
-	_bomb_squigs_pending_dice = []
-
-	# If no specific target, pick the first eligible target
-	if target_unit_id == "":
-		var targets = _get_bomb_squigs_targets(unit_id)
-		if not targets.is_empty():
-			target_unit_id = targets[0].get("target_unit_id", "")
-
-	if target_unit_id == "":
-		log_phase_message("Bomb Squigs: No valid target found")
-		return create_result(true, cached_changes, "", {"dice": cached_dice})
-
-	# OA-30: Mark one bomb squig as used (indexed tracking for multi-squig support)
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr:
-		var squig_index = ability_mgr.mark_bomb_squig_used(unit_id)
-		DebugLogger.info(str("║ P2-25: Bomb Squig #%d used" % squig_index))
-
-	# Resolve: roll 1D6, on 3+ the target suffers D3 mortal wounds
-	# Issue #329: forward action.payload.rng_seed
-	var bs_seed: int = action.get("payload", {}).get("rng_seed", -1)
-	var result = _resolve_bomb_squigs(unit_id, target_unit_id, bs_seed)
-
-	var all_changes = cached_changes.duplicate()
-	all_changes.append_array(result.get("diffs", []))
-
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
-	log_phase_message("Bomb Squigs: %s targets %s — %s" % [unit_name, target_name, result.get("log_text", "")])
-
-	emit_signal("bomb_squigs_result", unit_id, result)
-
-	# OA-30: Check if more bomb squigs remain (Tankbustas have 2)
-	if ability_mgr and ability_mgr.has_bomb_squigs(unit_id):
-		var bomb_targets = _get_bomb_squigs_targets(unit_id)
-		if not bomb_targets.is_empty():
-			var remaining = ability_mgr.get_bomb_squigs_remaining(unit_id)
-			DebugLogger.info(str("MovementPhase: OA-30 Bomb Squigs — %s has %d squig(s) remaining, re-offering" % [unit_name, remaining]))
-			_bomb_squigs_pending_unit = unit_id
-			_bomb_squigs_pending_changes = all_changes
-			_bomb_squigs_pending_dice = cached_dice
-
-			var current_player = get_current_player()
-			emit_signal("bomb_squigs_available", unit_id, current_player, bomb_targets)
-
-			log_phase_message("Bomb Squigs: %s has %d squig(s) remaining — awaiting decision" % [unit_name, remaining])
-
-			var re_result = create_result(true, all_changes, "", {"dice": cached_dice})
-			re_result["bomb_squigs_available"] = true
-			re_result["unit_id"] = unit_id
-			re_result["eligible_targets"] = bomb_targets
-			return re_result
-
-	return create_result(true, all_changes, "Bomb Squigs resolved", {"dice": cached_dice})
-
-func _process_decline_bomb_squigs(action: Dictionary) -> Dictionary:
-	"""Player declines Bomb Squigs — proceed normally."""
-	var unit_id = action.get("actor_unit_id", "")
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ P2-25: BOMB SQUIGS — DECLINED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	var cached_changes = _bomb_squigs_pending_changes.duplicate()
-	var cached_dice = _bomb_squigs_pending_dice.duplicate()
-
-	# Clear pending state
-	_bomb_squigs_pending_unit = ""
-	_bomb_squigs_pending_changes = []
-	_bomb_squigs_pending_dice = []
-
-	return create_result(true, cached_changes, "", {"dice": cached_dice})
 
 # ============================================================================
 # OA-25: DEFF FROM ABOVE (Deffkoptas)
@@ -2340,69 +1840,6 @@ func _process_decline_bomb_squigs(action: Dictionary) -> Dictionary:
 # over during that move and roll one D6 for each model in this unit: for each 4+,
 # that enemy unit suffers 1 mortal wound."
 
-func _validate_use_deff_from_above(action: Dictionary) -> Dictionary:
-	"""Validate activating Deff from Above ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if _deff_from_above_pending_unit == "" or _deff_from_above_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Deff from Above pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _validate_decline_deff_from_above(action: Dictionary) -> Dictionary:
-	"""Validate declining Deff from Above ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if _deff_from_above_pending_unit == "" or _deff_from_above_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Deff from Above pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _process_use_deff_from_above(action: Dictionary) -> Dictionary:
-	"""Player activates Deff from Above — roll D6 per model, 4+ = 1 mortal wound."""
-	var unit_id = action.get("actor_unit_id", "")
-	var target_unit_id = action.get("target_unit_id", "")
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-25: DEFF FROM ABOVE — ACTIVATED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Get cached movement changes/dice
-	var cached_changes = _deff_from_above_pending_changes.duplicate()
-	var cached_dice = _deff_from_above_pending_dice.duplicate()
-	var pending_targets = _deff_from_above_pending_targets.duplicate()
-
-	# Clear the pending state
-	_deff_from_above_pending_unit = ""
-	_deff_from_above_pending_targets = []
-	_deff_from_above_pending_changes = []
-	_deff_from_above_pending_dice = []
-
-	# If no specific target, pick the first eligible target
-	if target_unit_id == "":
-		if not pending_targets.is_empty():
-			target_unit_id = pending_targets[0].get("target_unit_id", "")
-
-	if target_unit_id == "":
-		log_phase_message("Deff from Above: No valid target found")
-		return create_result(true, cached_changes, "", {"dice": cached_dice})
-
-	# Resolve: roll D6 per model in unit, on 4+ = 1 mortal wound each
-	# Issue #329: forward action.payload.rng_seed
-	var dfa_seed: int = action.get("payload", {}).get("rng_seed", -1)
-	var result = _resolve_deff_from_above(unit_id, target_unit_id, dfa_seed)
-
-	var all_changes = cached_changes.duplicate()
-	all_changes.append_array(result.get("diffs", []))
-
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
-	log_phase_message("Deff from Above: %s targets %s — %s" % [unit_name, target_name, result.get("log_text", "")])
-
-	emit_signal("deff_from_above_result", unit_id, result)
-
-	return create_result(true, all_changes, "Deff from Above resolved", {"dice": cached_dice})
 
 func _process_use_quicksilver_execution(action: Dictionary) -> Dictionary:
 	var unit_id = action.get("unit_id", _quicksilver_pending_unit)
@@ -2455,193 +1892,6 @@ func _process_decline_quicksilver_execution(action: Dictionary) -> Dictionary:
 	log_phase_message("Quicksilver Execution declined")
 	return create_result(true, cached_changes, "", {"dice": cached_dice})
 
-func _process_use_da_jump(action: Dictionary) -> Dictionary:
-	# T-105: Da Jump (Weirdboy psychic). End-of-Movement teleport.
-	# Roll D6: on 1, unit suffers D6 mortal wounds. On 2+, unit is removed and
-	# can be placed anywhere 9"+ horizontally from all enemies (PLACE_DA_JUMP).
-	var unit_id = action.get("actor_unit_id", "")
-	var unit = get_unit(unit_id)
-	if unit.is_empty():
-		return create_result(false, [], "Da Jump: unit not found")
-	if unit.get("flags", {}).get("da_jump_used_this_turn", false):
-		return create_result(false, [], "Da Jump: already used this turn")
-	var has_da_jump = false
-	for ab in unit.get("meta", {}).get("abilities", []):
-		var ab_name = ab if ab is String else (ab.get("name", "") if ab is Dictionary else "")
-		if ab_name == "Da Jump":
-			has_da_jump = true
-			break
-	if not has_da_jump:
-		return create_result(false, [], "Da Jump: unit lacks the ability")
-
-	var rng_seed: int = action.get("payload", {}).get("rng_seed", -1)
-	var rng = RulesEngine.RNGService.new(rng_seed)
-	var roll_result = rng.roll_d6(1)
-	var roll_val = int(roll_result[0]) if roll_result.size() > 0 else 1
-
-	var diffs = [
-		{"op": "set", "path": "units.%s.flags.da_jump_used_this_turn" % unit_id, "value": true},
-	]
-	var dice = [{"context": "Da Jump roll", "rolls": [roll_val]}]
-
-	if roll_val == 1:
-		# Mortal wounds: roll D6 for damage count
-		var damage_roll = rng.roll_d6(1)
-		var dmg = int(damage_roll[0]) if damage_roll.size() > 0 else 1
-		dice.append({"context": "Da Jump backlash damage", "rolls": [dmg]})
-		var rules_engine = get_node_or_null("/root/RulesEngine")
-		if rules_engine and rules_engine.has_method("apply_mortal_wounds"):
-			rules_engine.apply_mortal_wounds(unit_id, dmg, false, "psychic", rng_seed)
-		log_phase_message("Da Jump backlash: %s suffers %d mortal wound(s)" % [unit_id, dmg])
-		return create_result(true, diffs, "Da Jump failed (1) — %d MW dealt" % dmg, {"dice": dice})
-
-	# 2+: unit removed and pending placement.
-	# Mark the unit as awaiting Da Jump placement. PLACE_DA_JUMP applies positions.
-	diffs.append({"op": "set", "path": "units.%s.flags.awaiting_da_jump_placement" % unit_id, "value": true})
-	log_phase_message("Da Jump (%d): %s removed and awaiting placement 9\"+ from enemies" % [roll_val, unit_id])
-	return create_result(true, diffs, "Da Jump succeeded — place unit", {"dice": dice})
-
-
-func _process_place_da_jump(action: Dictionary) -> Dictionary:
-	# Player provides model_positions: [{model_id, x, y}, ...] for the Weirdboy unit.
-	# Validates each is 9"+ horizontal from all enemy models.
-	var unit_id = action.get("actor_unit_id", "")
-	var positions = action.get("payload", {}).get("model_positions", [])
-	var unit = get_unit(unit_id)
-	if unit.is_empty():
-		return create_result(false, [], "Da Jump place: unit not found")
-	if not unit.get("flags", {}).get("awaiting_da_jump_placement", false):
-		return create_result(false, [], "Da Jump place: not awaiting placement")
-	if positions.is_empty():
-		return create_result(false, [], "Da Jump place: no model_positions provided")
-
-	# Issue #376: build enemy positions WITH base size for edge-to-edge distance.
-	var enemy_entries: Array = []
-	for u_id in game_state_snapshot.get("units", {}):
-		var u = game_state_snapshot["units"][u_id]
-		if int(u.get("owner", 0)) == get_current_player():
-			continue
-		for m in u.get("models", []):
-			if not m.get("alive", true):
-				continue
-			var p = m.get("position")
-			if p == null:
-				continue
-			var pv = p if p is Vector2 else Vector2(p.get("x", 0), p.get("y", 0))
-			enemy_entries.append({"pos": pv, "base_mm": int(m.get("base_mm", 32))})
-
-	# Issue #376: Da Jump per Wahapedia "more than 9 inches" horizontal — use
-	# strict > 9.0 (i.e. reject distance <= 9.0) and edge-to-edge distance.
-	# Also enforce board bounds: placements off-board are rejected.
-	var board_width_in = float(GameState.state.get("board", {}).get("size", {}).get("width", 44))
-	var board_height_in = float(GameState.state.get("board", {}).get("size", {}).get("height", 60))
-	var px_per_inch = 40.0
-	var unit_for_da_jump = game_state_snapshot.get("units", {}).get(unit_id, {})
-	var unit_models = unit_for_da_jump.get("models", [])
-
-	# Track final placements for coherency validation across all models in
-	# the Weirdboy's unit (06_SYNTHESIS launch-blocker #6: TLV-1 found that
-	# Da Jump placements skipped coherency, allowing the unit to land
-	# fragmented).
-	var post_placement_models: Array = []
-	# Seed with all alive models that ARE NOT being placed this action so
-	# coherency checks the entire surviving unit, not just the placed
-	# subset. Models that ARE in the positions list will be inserted
-	# below with their new coordinates.
-	var placement_ids := {}
-	for pos_entry in positions:
-		placement_ids[String(pos_entry.get("model_id", ""))] = true
-	for m in unit_models:
-		if not m.get("alive", true):
-			continue
-		if placement_ids.has(String(m.get("id", ""))):
-			continue
-		post_placement_models.append(m)
-
-	for pos_entry in positions:
-		var px = float(pos_entry.get("x", 0))
-		var py = float(pos_entry.get("y", 0))
-		var pv = Vector2(px, py)
-
-		# Board-bounds check (off-board rejected)
-		var pos_in_x = px / px_per_inch
-		var pos_in_y = py / px_per_inch
-		if pos_in_x < 0 or pos_in_x > board_width_in or pos_in_y < 0 or pos_in_y > board_height_in:
-			return create_result(false, [], "Da Jump place: position is off the board")
-
-		# Edge-to-edge >9" from every enemy model
-		var mid_for_base = String(pos_entry.get("model_id", ""))
-		var model_base_mm = 32
-		for m in unit_models:
-			if String(m.get("id", "")) == mid_for_base:
-				model_base_mm = int(m.get("base_mm", 32))
-				break
-		var model_radius_in = (model_base_mm / 2.0) / 25.4
-		for entry in enemy_entries:
-			var ev = entry.pos
-			var enemy_radius_in = (entry.base_mm / 2.0) / 25.4
-			var dist_in = pv.distance_to(ev) / px_per_inch
-			var edge_dist_in = dist_in - model_radius_in - enemy_radius_in
-			if edge_dist_in <= 9.0:
-				return create_result(false, [], "Da Jump place: model would be %.2f\" from an enemy (must be more than 9\")" % edge_dist_in)
-
-		# Build the post-placement model dict for coherency validation
-		var placed_model = {
-			"id": mid_for_base,
-			"alive": true,
-			"position": pv,
-			"base_mm": model_base_mm,
-		}
-		post_placement_models.append(placed_model)
-
-	# 10e Unit Coherency: every model must be within 2" horizontal and 5"
-	# vertical of at least one other model in the unit (two if the unit
-	# has 6+ models). Da Jump placements that fragment the squad are
-	# rejected.
-	var coherency_check = _check_models_coherency(post_placement_models)
-	if not coherency_check.get("valid", true):
-		var first_err = "unknown"
-		var errs = coherency_check.get("errors", [])
-		if errs.size() > 0:
-			first_err = str(errs[0])
-		return create_result(false, [], "Da Jump place: coherency broken — %s" % first_err)
-
-	var diffs = [
-		{"op": "set", "path": "units.%s.flags.awaiting_da_jump_placement" % unit_id, "value": false},
-	]
-	for pos_entry in positions:
-		var mid = String(pos_entry.get("model_id", ""))
-		var midx = _get_model_index(unit_id, mid)
-		if midx < 0:
-			return create_result(false, [], "Da Jump place: unknown model %s" % mid)
-		diffs.append({
-			"op": "set",
-			"path": "units.%s.models.%d.position" % [unit_id, midx],
-			"value": {"x": float(pos_entry.get("x", 0)), "y": float(pos_entry.get("y", 0))}
-		})
-	log_phase_message("Da Jump: %s placed (%d models)" % [unit_id, positions.size()])
-	return create_result(true, diffs, "Da Jump placement applied")
-
-
-func _process_decline_deff_from_above(action: Dictionary) -> Dictionary:
-	"""Player declines Deff from Above — proceed normally."""
-	var unit_id = action.get("actor_unit_id", "")
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-25: DEFF FROM ABOVE — DECLINED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	var cached_changes = _deff_from_above_pending_changes.duplicate()
-	var cached_dice = _deff_from_above_pending_dice.duplicate()
-
-	# Clear pending state
-	_deff_from_above_pending_unit = ""
-	_deff_from_above_pending_targets = []
-	_deff_from_above_pending_changes = []
-	_deff_from_above_pending_dice = []
-
-	return create_result(true, cached_changes, "", {"dice": cached_dice})
 
 func _get_units_moved_over(unit_id: String, move_data: Dictionary) -> Array:
 	"""Get enemy units whose bases were crossed during a unit's movement path.
@@ -2726,563 +1976,6 @@ func _get_units_moved_over(unit_id: String, move_data: Dictionary) -> Array:
 
 	return result
 
-func _resolve_deff_from_above(unit_id: String, target_unit_id: String, rng_seed: int = -1) -> Dictionary:
-	"""Resolve Deff from Above: roll D6 per model in unit, 4+ = 1 mortal wound each.
-	Returns {diffs: Array, mortal_wounds: int, casualties: int, rolls: Array, log_text: String}."""
-	# Issue #329: route through RNGService; seed forwarded by caller (action.payload.rng_seed)
-	var rng = RulesEngine.RNGService.new(rng_seed)
-
-	var unit = get_unit(unit_id)
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
-
-	# Count alive models in the unit
-	var alive_models = 0
-	for model in unit.get("models", []):
-		if model.get("alive", true):
-			alive_models += 1
-
-	# Roll D6 per model
-	var rolls = []
-	var mortal_wounds = 0
-	for i in range(alive_models):
-		var roll = rng.rng.randi_range(1, 6)
-		rolls.append(roll)
-		if roll >= 4:
-			mortal_wounds += 1
-
-	DebugLogger.info(str("║ OA-25: Deff from Above — %d models, rolls: %s, mortal wounds: %d" % [alive_models, str(rolls), mortal_wounds]))
-
-	if mortal_wounds == 0:
-		var log_text = "Deff from Above: %s → %s — %d dice rolled, no mortal wounds" % [unit_name, target_name, alive_models]
-		DebugLogger.info(str("║ OA-25: %s" % log_text))
-		return {
-			"diffs": [],
-			"mortal_wounds": 0,
-			"casualties": 0,
-			"rolls": rolls,
-			"log_text": log_text
-		}
-
-	# Apply mortal wounds to target
-	var target = get_unit(target_unit_id)
-	var diffs = []
-	var casualties = 0
-	var remaining_mw = mortal_wounds
-
-	for model in target.get("models", []):
-		if remaining_mw <= 0:
-			break
-		if not model.get("alive", true):
-			continue
-
-		var current_wounds = model.get("current_wounds", 1)
-		var new_wounds = max(0, current_wounds - remaining_mw)
-		remaining_mw -= (current_wounds - new_wounds)
-
-		if new_wounds != current_wounds:
-			var model_idx = target.get("models", []).find(model)
-			diffs.append({
-				"op": "set",
-				"path": "units.%s.models.%d.current_wounds" % [target_unit_id, model_idx],
-				"value": new_wounds
-			})
-			if new_wounds <= 0:
-				diffs.append({
-					"op": "set",
-					"path": "units.%s.models.%d.alive" % [target_unit_id, model_idx],
-					"value": false
-				})
-				casualties += 1
-
-	var log_text = "Deff from Above: %s → %s — %d dice, %d mortal wound(s), %d casualt%s" % [
-		unit_name, target_name, alive_models, mortal_wounds, casualties,
-		"y" if casualties == 1 else "ies"
-	]
-	DebugLogger.info(str("║ OA-25: %s" % log_text))
-
-	return {
-		"diffs": diffs,
-		"mortal_wounds": mortal_wounds,
-		"casualties": casualties,
-		"rolls": rolls,
-		"log_text": log_text
-	}
-
-# ============================================================================
-# OA-24: KUNNIN' INFILTRATOR (Boss Snikrot redeployment)
-# Once per battle, instead of Normal move, remove unit and redeploy 9"+ from enemies
-# ============================================================================
-
-func _validate_activate_kunnin_infiltrator(action: Dictionary) -> Dictionary:
-	"""Validate activating Kunnin' Infiltrator ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-
-	var unit = get_unit(unit_id)
-	if unit.is_empty():
-		return {"valid": false, "errors": ["Unit not found: " + unit_id]}
-
-	if unit.get("status", 0) != GameStateData.UnitStatus.DEPLOYED:
-		return {"valid": false, "errors": ["Unit is not deployed"]}
-
-	if unit.get("flags", {}).get("moved", false):
-		return {"valid": false, "errors": ["Unit has already moved this phase"]}
-
-	# Must not be engaged
-	if _is_unit_engaged(unit_id):
-		return {"valid": false, "errors": ["Cannot use Kunnin' Infiltrator while engaged"]}
-
-	# Check ability availability
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if not ability_mgr or not ability_mgr.has_kunnin_infiltrator(unit_id):
-		return {"valid": false, "errors": ["Unit does not have unused Kunnin' Infiltrator ability"]}
-
-	return {"valid": true}
-
-func _validate_place_kunnin_infiltrator(action: Dictionary) -> Dictionary:
-	"""Validate placing a unit via Kunnin' Infiltrator redeployment."""
-	var errors = []
-
-	if not _kunnin_infiltrator_pending:
-		return {"valid": false, "errors": ["No Kunnin' Infiltrator redeployment pending"]}
-
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "" or unit_id != _kunnin_infiltrator_unit_id:
-		return {"valid": false, "errors": ["Unit ID mismatch for Kunnin' Infiltrator"]}
-
-	var model_positions = action.get("model_positions", [])
-	if model_positions.is_empty():
-		return {"valid": false, "errors": ["Missing model_positions"]}
-
-	var unit = get_unit(unit_id)
-	if unit.is_empty():
-		return {"valid": false, "errors": ["Unit not found: " + unit_id]}
-
-	var active_player = get_current_player()
-	var board_width = GameState.state.board.size.width  # 44 inches
-	var board_height = GameState.state.board.size.height  # 60 inches
-	var px_per_inch = 40.0
-
-	for i in range(model_positions.size()):
-		var pos = model_positions[i]
-		if pos == null:
-			continue
-
-		var pos_inches_x = pos.x / px_per_inch
-		var pos_inches_y = pos.y / px_per_inch
-
-		# Must be on the board
-		if pos_inches_x < 0 or pos_inches_x > board_width or pos_inches_y < 0 or pos_inches_y > board_height:
-			errors.append("Model %d: position is off the board" % i)
-			continue
-
-		# Must be >9" from all enemy models (edge-to-edge)
-		var model_data = unit.get("models", [])[i] if i < unit.get("models", []).size() else {}
-		var model_base_mm = model_data.get("base_mm", 32)
-		var model_radius_inches = (model_base_mm / 2.0) / 25.4  # mm to inches
-
-		var enemy_positions = GameState.get_enemy_model_positions(active_player)
-		for enemy in enemy_positions:
-			var enemy_pos_px = Vector2(enemy.x, enemy.y)
-			var enemy_radius_inches = (enemy.base_mm / 2.0) / 25.4
-			var dist_px = pos.distance_to(enemy_pos_px)
-			var dist_inches = dist_px / px_per_inch
-			# Edge-to-edge distance: center distance minus both radii
-			var edge_dist = dist_inches - model_radius_inches - enemy_radius_inches
-			# NOTE: Kunnin' Infiltrator's printed text says >9"; whether 11e Orks
-			# rebased it to the core 8" reserves distance is unconfirmed (faction
-			# rules unavailable), so this deliberately stays 9" — do not "fix" to
-			# 8" without the current Ork datasheet. (Core reserves ARE 8" at e11.)
-			if edge_dist < 9.0:
-				errors.append("Model %d: must be >9\" from enemy models (currently %.1f\")" % [i, edge_dist])
-				break
-
-	# Check unit coherency for multi-model units
-	if errors.is_empty():
-		var final_models = []
-		var unit_models = unit.get("models", [])
-		for i in range(model_positions.size()):
-			if model_positions[i] == null:
-				continue
-			if i >= unit_models.size():
-				break
-			if not unit_models[i].get("alive", true):
-				continue
-			var model_at_pos = unit_models[i].duplicate()
-			model_at_pos["position"] = model_positions[i]
-			final_models.append(model_at_pos)
-
-		if final_models.size() > 1:
-			var coherency_result = _check_models_coherency(final_models)
-			if not coherency_result.valid:
-				errors.append_array(coherency_result.errors)
-
-	return {"valid": errors.size() == 0, "errors": errors}
-
-func _process_activate_kunnin_infiltrator(action: Dictionary) -> Dictionary:
-	"""Player activates Kunnin' Infiltrator — enter redeployment mode."""
-	var unit_id = action.get("actor_unit_id", "")
-	var unit = get_unit(unit_id)
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-24: KUNNIN' INFILTRATOR — ACTIVATED")
-	DebugLogger.info(str("║ Unit: %s (%s)" % [unit_name, unit_id]))
-	DebugLogger.info("║ Remove from battlefield, awaiting redeployment placement...")
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	_kunnin_infiltrator_pending = true
-	_kunnin_infiltrator_unit_id = unit_id
-
-	var current_player = get_current_player()
-	emit_signal("kunnin_infiltrator_available", unit_id, current_player)
-
-	log_phase_message("Kunnin' Infiltrator activated for %s — awaiting redeployment" % unit_name)
-
-	var result = create_result(true, [])
-	result["kunnin_infiltrator_activated"] = true
-	result["unit_id"] = unit_id
-	return result
-
-func _process_place_kunnin_infiltrator(action: Dictionary) -> Dictionary:
-	"""Process Kunnin' Infiltrator redeployment — place unit at new position."""
-	var unit_id = action.get("actor_unit_id", "")
-	var model_positions = action.get("model_positions", [])
-	var model_rotations = action.get("model_rotations", [])
-	var unit = get_unit(unit_id)
-	var unit_name = unit.get("meta", {}).get("name", unit_id)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-24: KUNNIN' INFILTRATOR — REDEPLOYING")
-	DebugLogger.info(str("║ Unit: %s (%s)" % [unit_name, unit_id]))
-	DebugLogger.info(str("║ Placing %d models at new positions" % model_positions.size()))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	var changes = []
-
-	# Update model positions
-	for i in range(model_positions.size()):
-		var pos = model_positions[i]
-		if pos != null:
-			changes.append({
-				"op": "set",
-				"path": "units.%s.models.%d.position" % [unit_id, i],
-				"value": {"x": pos.x, "y": pos.y}
-			})
-			if i < model_rotations.size() and model_rotations[i] != null:
-				changes.append({
-					"op": "set",
-					"path": "units.%s.models.%d.rotation" % [unit_id, i],
-					"value": model_rotations[i]
-				})
-
-	# Mark unit as moved (this counts as its Normal move)
-	changes.append({
-		"op": "set",
-		"path": "units.%s.flags.moved" % unit_id,
-		"value": true
-	})
-	changes.append({
-		"op": "set",
-		"path": "units.%s.flags.move_mode" % unit_id,
-		"value": "normal"
-	})
-
-	# Mark as completed in active_moves
-	active_moves[unit_id] = {
-		"mode": "KUNNIN_INFILTRATOR",
-		"mode_locked": true,
-		"completed": true,
-		"move_cap_inches": 0,
-		"advance_roll": 0,
-		"model_moves": [],
-		"staged_moves": [],
-		"original_positions": {},
-		"original_rotations": {},
-		"model_distances": {},
-		"dice_rolls": [],
-		"group_moves": [],
-		"group_selection": [],
-		"group_formation": {}
-	}
-
-	# Mark once-per-battle used
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr:
-		ability_mgr.mark_once_per_battle_used(unit_id, "Kunnin' Infiltrator")
-
-	# Clear pending state
-	_kunnin_infiltrator_pending = false
-	_kunnin_infiltrator_unit_id = ""
-
-	log_phase_message("Kunnin' Infiltrator: %s redeployed to new position" % unit_name)
-
-	emit_signal("unit_move_confirmed", unit_id, {"mode": "KUNNIN_INFILTRATOR", "distance": 0})
-
-	return create_result(true, changes, "Kunnin' Infiltrator redeployment complete")
-
-func _process_cancel_kunnin_infiltrator(action: Dictionary) -> Dictionary:
-	"""Player cancels Kunnin' Infiltrator redeployment — unit stays in place, ability NOT consumed."""
-	var unit_id = _kunnin_infiltrator_unit_id
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id) if not get_unit(unit_id).is_empty() else unit_id
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-24: KUNNIN' INFILTRATOR — CANCELLED")
-	DebugLogger.info(str("║ Unit: %s (%s)" % [unit_name, unit_id]))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	_kunnin_infiltrator_pending = false
-	_kunnin_infiltrator_unit_id = ""
-
-	log_phase_message("Kunnin' Infiltrator cancelled for %s — unit remains in place" % unit_name)
-
-	return create_result(true, [])
-
-# ============================================================================
-# P3-29: SAWBONEZ (Painboss healing at end of Movement phase)
-# ============================================================================
-
-func _process_use_sawbonez(action: Dictionary) -> Dictionary:
-	"""Player chooses a target for Sawbonez healing — heal up to 3 wounds."""
-	var target_unit_id = action.get("target_unit_id", "")
-	var target_model_index = action.get("target_model_index", -1)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ P3-29: SAWBONEZ — HEALING")
-	DebugLogger.info(str("║ Painboss: ", _sawbonez_painboss_id))
-	DebugLogger.info(str("║ Target Unit: ", target_unit_id))
-	DebugLogger.info(str("║ Target Model Index: ", target_model_index))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	var cached_changes = _sawbonez_pending_changes.duplicate()
-	var heal_changes = []
-
-	# Find the target model and heal up to 3 wounds
-	var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
-	if not target_unit.is_empty() and target_model_index >= 0:
-		var models = target_unit.get("models", [])
-		if target_model_index < models.size():
-			var model = models[target_model_index]
-			var current_wounds = model.get("current_wounds", 1)
-			var max_wounds = model.get("wounds", 1)
-			var heal_amount = min(3, max_wounds - current_wounds)
-			var new_wounds = current_wounds + heal_amount
-
-			if heal_amount > 0:
-				heal_changes.append({
-					"op": "set",
-					"path": "units.%s.models.%d.current_wounds" % [target_unit_id, target_model_index],
-					"value": new_wounds
-				})
-
-				var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
-				var model_id = model.get("id", "m%d" % (target_model_index + 1))
-				log_phase_message("SAWBONEZ: Painboss heals %s model %s for %d wounds (%d → %d)" % [
-					target_name, model_id, heal_amount, current_wounds, new_wounds])
-				DebugLogger.info(str("MovementPhase: Sawbonez healed %s model %s: %d → %d wounds" % [
-					target_name, model_id, current_wounds, new_wounds]))
-
-	# Clear Sawbonez state
-	_awaiting_sawbonez = false
-	_sawbonez_painboss_id = ""
-	_sawbonez_targets = []
-	_sawbonez_pending_changes = []
-
-	# Combine with pending changes
-	var all_changes = cached_changes + heal_changes
-
-	# Now continue with the rest of END_MOVEMENT logic (Rapid Ingress check, etc.)
-	# Apply heal changes first, then re-invoke end movement
-	if heal_changes.size() > 0:
-		PhaseManager.apply_state_changes(heal_changes)
-
-	# Continue with Rapid Ingress check and phase completion
-	return _continue_end_movement_after_sawbonez(cached_changes)
-
-func _process_decline_sawbonez(action: Dictionary) -> Dictionary:
-	"""Player declines Sawbonez healing — proceed with ending movement phase."""
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ P3-29: SAWBONEZ — DECLINED")
-	DebugLogger.info(str("║ Painboss: ", _sawbonez_painboss_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	var cached_changes = _sawbonez_pending_changes.duplicate()
-
-	# Clear Sawbonez state
-	_awaiting_sawbonez = false
-	_sawbonez_painboss_id = ""
-	_sawbonez_targets = []
-	_sawbonez_pending_changes = []
-
-	# Continue with Mekaniak check and phase completion
-	return _continue_end_movement_after_sawbonez(cached_changes)
-
-# ============================================================================
-# OA-34: MEKANIAK (Mek/Big Mek heal + buff at end of Movement phase)
-# ============================================================================
-
-func _process_use_mekaniak(action: Dictionary) -> Dictionary:
-	"""Player chooses a vehicle target for Mekaniak — heal D3 wounds and grant +1 Hit."""
-	var target_unit_id = action.get("target_unit_id", "")
-	var target_model_index = action.get("target_model_index", -1)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-34: MEKANIAK — HEAL & BUFF")
-	DebugLogger.info(str("║ Mek: ", _mekaniak_mek_id))
-	DebugLogger.info(str("║ Target Unit: ", target_unit_id))
-	DebugLogger.info(str("║ Target Model Index: ", target_model_index))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	var cached_changes = _mekaniak_pending_changes.duplicate()
-	var mekaniak_changes = []
-
-	# Roll D3 for healing
-	# Issue #329: route through RNGService; honor action.payload.rng_seed
-	var mek_seed: int = action.get("payload", {}).get("rng_seed", -1)
-	var mek_rng = RulesEngine.RNGService.new(mek_seed)
-	var d3_roll = mek_rng.rng.randi_range(1, 3)
-	DebugLogger.info(str("MovementPhase: Mekaniak D3 heal roll = %d" % d3_roll))
-
-	# Find the target model and heal up to D3 wounds
-	var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
-	if not target_unit.is_empty() and target_model_index >= 0:
-		var models = target_unit.get("models", [])
-		if target_model_index < models.size():
-			var model = models[target_model_index]
-			var current_wounds = model.get("current_wounds", model.get("wounds", 1))
-			var max_wounds = model.get("wounds", 1)
-			var heal_amount = min(d3_roll, max_wounds - current_wounds)
-			var new_wounds = current_wounds + heal_amount
-
-			if heal_amount > 0:
-				mekaniak_changes.append({
-					"op": "set",
-					"path": "units.%s.models.%d.current_wounds" % [target_unit_id, target_model_index],
-					"value": new_wounds
-				})
-
-				var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
-				var model_id = model.get("id", "m%d" % (target_model_index + 1))
-				log_phase_message("MEKANIAK: Mek heals %s model %s for %d wounds (%d → %d) [D3 roll: %d]" % [
-					target_name, model_id, heal_amount, current_wounds, new_wounds, d3_roll])
-				DebugLogger.info(str("MovementPhase: Mekaniak healed %s model %s: %d → %d wounds (D3=%d)" % [
-					target_name, model_id, current_wounds, new_wounds, d3_roll]))
-			else:
-				var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
-				log_phase_message("MEKANIAK: %s at full wounds — no healing needed [D3 roll: %d]" % [target_name, d3_roll])
-				DebugLogger.info(str("MovementPhase: Mekaniak — %s at full wounds, no healing applied" % target_name))
-
-		# Set mekaniak_buffed flag on the vehicle unit for +1 Hit
-		mekaniak_changes.append({
-			"op": "set",
-			"path": "units.%s.flags.mekaniak_buffed" % target_unit_id,
-			"value": true
-		})
-		log_phase_message("MEKANIAK: +1 to Hit buff applied to %s until start of next Movement phase" % target_unit_id)
-		DebugLogger.info(str("MovementPhase: Mekaniak +1 Hit buff set on vehicle %s" % target_unit_id))
-
-		# DAKKAMEK (Speedwaaagh!): if the Mek using Mekaniak bears this enhancement,
-		# the selected Vehicle's ranged weapons also gain [RAPID FIRE 1] until the
-		# start of your next turn (cleared alongside the +1 Hit buff).
-		if _unit_has_enhancement(_mekaniak_mek_id, "Dakkamek"):
-			mekaniak_changes.append({
-				"op": "set",
-				"path": "units.%s.flags.dakkamek_rapid_fire" % target_unit_id,
-				"value": true
-			})
-			log_phase_message("DAKKAMEK: %s's ranged weapons gain [RAPID FIRE 1] until start of next turn" % target_unit_id)
-
-		# SUPERCHARGED SQUIG OIL (Blitz Brigade): if the Mek bears this
-		# enhancement, the selected Vehicle's unit can re-roll Charge rolls
-		# until the end of the turn (cleared alongside the Mekaniak buff).
-		if _unit_has_enhancement(_mekaniak_mek_id, "Supercharged Squig Oil"):
-			mekaniak_changes.append({
-				"op": "set",
-				"path": "units.%s.flags.%s" % [target_unit_id, EffectPrimitivesData.FLAG_REROLL_CHARGE],
-				"value": true
-			})
-			mekaniak_changes.append({
-				"op": "set",
-				"path": "units.%s.flags.squig_oil_charge_reroll" % target_unit_id,
-				"value": true
-			})
-			log_phase_message("SUPERCHARGED SQUIG OIL: %s can re-roll Charge rolls this turn" % target_unit_id)
-
-	# Mark this vehicle as used for Mekaniak this turn (once per vehicle per turn)
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr:
-		ability_mgr.mark_mekaniak_used_this_turn(target_unit_id)
-
-	# Clear Mekaniak state
-	_awaiting_mekaniak = false
-	_mekaniak_mek_id = ""
-	_mekaniak_targets = []
-	_mekaniak_pending_changes = []
-
-	# Apply mekaniak changes
-	if mekaniak_changes.size() > 0:
-		PhaseManager.apply_state_changes(mekaniak_changes)
-
-	# Check for more Mekaniak opportunities (other Mek units), then Rapid Ingress
-	return _check_mekaniak_opportunities(cached_changes)
-
-func _process_decline_mekaniak(action: Dictionary) -> Dictionary:
-	"""Player declines Mekaniak — proceed with checking more Meks or ending movement phase."""
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-34: MEKANIAK — DECLINED")
-	DebugLogger.info(str("║ Mek: ", _mekaniak_mek_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	var cached_changes = _mekaniak_pending_changes.duplicate()
-
-	# Clear Mekaniak state
-	_awaiting_mekaniak = false
-	_mekaniak_mek_id = ""
-	_mekaniak_targets = []
-	_mekaniak_pending_changes = []
-
-	# Check for more Mekaniak opportunities (other Mek units), then Rapid Ingress
-	return _check_mekaniak_opportunities(cached_changes)
-
-func _clear_mekaniak_buffs(player: int) -> void:
-	"""OA-34: Clear mekaniak_buffed flags from all vehicles owned by the given player.
-	Called at the start of that player's Movement phase (ability lasts 'until start of next Movement phase')."""
-	var units = GameState.state.get("units", {})
-	var changes = []
-	for unit_id in units:
-		var unit = units[unit_id]
-		if unit.get("owner", 0) != player:
-			continue
-		if unit.get("flags", {}).get("mekaniak_buffed", false):
-			changes.append({
-				"op": "remove",
-				"path": "units.%s.flags.mekaniak_buffed" % unit_id
-			})
-			DebugLogger.info(str("MovementPhase: Clearing Mekaniak buff from vehicle %s at start of Movement phase" % unit_id))
-		# DAKKAMEK (Speedwaaagh!): clear the granted RAPID FIRE alongside the buff.
-		if unit.get("flags", {}).get("dakkamek_rapid_fire", false):
-			changes.append({
-				"op": "remove",
-				"path": "units.%s.flags.dakkamek_rapid_fire" % unit_id
-			})
-			DebugLogger.info(str("MovementPhase: Clearing Dakkamek RAPID FIRE from vehicle %s" % unit_id))
-		# SUPERCHARGED SQUIG OIL (Blitz Brigade): clear the charge re-roll.
-		if unit.get("flags", {}).get("squig_oil_charge_reroll", false):
-			changes.append({
-				"op": "remove",
-				"path": "units.%s.flags.squig_oil_charge_reroll" % unit_id
-			})
-			changes.append({
-				"op": "remove",
-				"path": "units.%s.flags.%s" % [unit_id, EffectPrimitivesData.FLAG_REROLL_CHARGE]
-			})
-			DebugLogger.info(str("MovementPhase: Clearing Supercharged Squig Oil charge re-roll from vehicle %s" % unit_id))
-
-	if changes.size() > 0:
-		PhaseManager.apply_state_changes(changes)
-		log_phase_message("OA-34: Cleared Mekaniak buffs from %d vehicles" % changes.size())
 
 func _validate_apply_pivot_cost(action: Dictionary) -> Dictionary:
 	"""Validate APPLY_PIVOT_COST action — pivot cost deduction for non-round base models."""
@@ -3328,225 +2021,9 @@ func _process_apply_pivot_cost(action: Dictionary) -> Dictionary:
 		"effective_move_cap": effective_cap
 	})
 
-func _continue_end_movement_after_sawbonez(changes: Array) -> Dictionary:
-	"""Continue the END_MOVEMENT flow after Sawbonez decision (heal or decline).
-	Checks for Mekaniak, then Rapid Ingress, then completes the phase."""
-	# OA-34: Check for Mekaniak opportunities before Rapid Ingress
-	return _check_mekaniak_opportunities(changes)
 
-func _check_mekaniak_opportunities(changes: Array) -> Dictionary:
-	"""OA-34: Check for Mekaniak (Mek healing/buff) opportunities at end of Movement phase.
-	Iterates through Mek units not yet checked, finding eligible vehicle targets."""
-	var current_player = get_current_player()
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-
-	if ability_mgr:
-		var all_units_check = GameState.state.get("units", {})
-		for unit_id in all_units_check:
-			# Skip Meks we've already checked
-			if unit_id in _mekaniak_checked_meks:
-				continue
-
-			var unit = all_units_check[unit_id]
-			if unit.get("owner", 0) != current_player:
-				continue
-			if not ability_mgr.has_mekaniak(unit_id):
-				continue
-
-			# Mark this Mek as checked so we don't re-prompt
-			_mekaniak_checked_meks.append(unit_id)
-
-			# Check if the Mek is deployed and alive
-			var is_deployed = unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED
-			if not is_deployed:
-				continue
-			var has_alive_model = false
-			for model in unit.get("models", []):
-				if model.get("alive", true):
-					has_alive_model = true
-					break
-			if not has_alive_model:
-				continue
-
-			# Find eligible vehicle targets
-			var targets = ability_mgr.get_mekaniak_targets(unit_id)
-			if targets.size() > 0:
-				_awaiting_mekaniak = true
-				_mekaniak_mek_id = unit_id
-				_mekaniak_targets = targets
-				_mekaniak_pending_changes = changes
-				var mek_name = unit.get("meta", {}).get("name", unit_id)
-				log_phase_message("MEKANIAK available for %s (%s) — %d eligible vehicle targets" % [mek_name, unit_id, targets.size()])
-				DebugLogger.info(str("MovementPhase: Mekaniak opportunity — %s has %d eligible vehicle targets" % [mek_name, targets.size()]))
-
-				var result = create_result(true, changes)
-				result["trigger_mekaniak"] = true
-				result["awaiting_mekaniak"] = true
-				result["mekaniak_mek_id"] = unit_id
-				result["mekaniak_mek_name"] = mek_name
-				result["mekaniak_targets"] = targets
-				return result
-
-	# No more Mekaniak opportunities — continue to Rapid Ingress
-	return _continue_end_movement_after_mekaniak(changes)
-
-func _continue_end_movement_after_mekaniak(changes: Array) -> Dictionary:
-	"""Continue the END_MOVEMENT flow after all Mekaniak decisions.
-	Checks for Grot Oiler, then Rapid Ingress, then completes the phase."""
-	var current_player = get_current_player()
-
-	# OA-32: Check for Grot Oiler opportunity after Sawbonez
-	var grot_oiler_result = _check_grot_oiler_opportunity(current_player, changes)
-	if grot_oiler_result != null:
-		return grot_oiler_result
-
-	# Continue to Rapid Ingress and phase completion
-	return _continue_end_movement_after_grot_oiler(changes)
-
-func _check_grot_oiler_opportunity(current_player: int, changes: Array):
-	"""OA-32: Check if any deployed unit with Grot Oiler wargear can heal at end of movement.
-	Returns a result dictionary if Grot Oiler is available, or null if not."""
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if not ability_mgr:
-		return null
-
-	var all_units = GameState.state.get("units", {})
-	for unit_id in all_units:
-		var unit = all_units[unit_id]
-		if unit.get("owner", 0) != current_player:
-			continue
-		if not ability_mgr.has_grot_oiler(unit_id):
-			continue
-		# Check if the unit is deployed and has alive models
-		var is_deployed = unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED
-		if not is_deployed:
-			continue
-		var has_alive_model = false
-		for model in unit.get("models", []):
-			if model.get("alive", true):
-				has_alive_model = true
-				break
-		if not has_alive_model:
-			continue
-
-		# Find eligible healing targets (models in bearer's unit with lost wounds)
-		var targets = ability_mgr.get_grot_oiler_targets(unit_id)
-		if targets.size() > 0:
-			_awaiting_grot_oiler = true
-			_grot_oiler_bearer_id = unit_id
-			_grot_oiler_targets = targets
-			_grot_oiler_pending_changes = changes
-			log_phase_message("GROT OILER available for unit %s — %d eligible targets" % [unit_id, targets.size()])
-			DebugLogger.info(str("MovementPhase: Grot Oiler healing opportunity — unit %s has %d eligible targets" % [unit_id, targets.size()]))
-
-			emit_signal("grot_oiler_available", unit_id, current_player, targets)
-
-			var result = create_result(true, changes)
-			result["trigger_grot_oiler"] = true
-			result["awaiting_grot_oiler"] = true
-			result["grot_oiler_bearer_id"] = unit_id
-			result["grot_oiler_targets"] = targets
-			return result
-
-	return null
-
-func _process_use_grot_oiler(action: Dictionary) -> Dictionary:
-	"""OA-32: Player chooses a target for Grot Oiler healing — heal D3 wounds."""
-	var target_unit_id = action.get("target_unit_id", "")
-	var target_model_index = action.get("target_model_index", -1)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-32: GROT OILER — HEALING")
-	DebugLogger.info(str("║ Bearer: ", _grot_oiler_bearer_id))
-	DebugLogger.info(str("║ Target Unit: ", target_unit_id))
-	DebugLogger.info(str("║ Target Model Index: ", target_model_index))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	var cached_changes = _grot_oiler_pending_changes.duplicate()
-	var heal_changes = []
-
-	# Roll D3 for healing amount
-	# Issue #329: route through RNGService; honor action.payload.rng_seed
-	var go_seed: int = action.get("payload", {}).get("rng_seed", -1)
-	var go_rng = RulesEngine.RNGService.new(go_seed)
-	var d6_roll = go_rng.rng.randi_range(1, 6)
-	var d3_result = int(ceil(float(d6_roll) / 2.0))  # 1-2=1, 3-4=2, 5-6=3
-	DebugLogger.info(str("MovementPhase: Grot Oiler D3 roll — D6=%d → D3=%d" % [d6_roll, d3_result]))
-	log_phase_message("GROT OILER: D3 roll — D6=%d → D3=%d wounds to heal" % [d6_roll, d3_result])
-
-	# Find the target model and heal D3 wounds
-	var target_unit = GameState.state.get("units", {}).get(target_unit_id, {})
-	if not target_unit.is_empty() and target_model_index >= 0:
-		var models = target_unit.get("models", [])
-		if target_model_index < models.size():
-			var model = models[target_model_index]
-			var current_wounds = model.get("current_wounds", 1)
-			var max_wounds = model.get("wounds", 1)
-			var heal_amount = min(d3_result, max_wounds - current_wounds)
-			var new_wounds = current_wounds + heal_amount
-
-			if heal_amount > 0:
-				heal_changes.append({
-					"op": "set",
-					"path": "units.%s.models.%d.current_wounds" % [target_unit_id, target_model_index],
-					"value": new_wounds
-				})
-
-				var target_name = target_unit.get("meta", {}).get("name", target_unit_id)
-				var model_id = model.get("id", "m%d" % (target_model_index + 1))
-				log_phase_message("GROT OILER: Heals %s model %s for %d wounds (%d → %d)" % [
-					target_name, model_id, heal_amount, current_wounds, new_wounds])
-				DebugLogger.info(str("MovementPhase: Grot Oiler healed %s model %s: %d → %d wounds" % [
-					target_name, model_id, current_wounds, new_wounds]))
-
-	# Mark Grot Oiler as used (once per battle)
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr:
-		ability_mgr.mark_grot_oiler_used(_grot_oiler_bearer_id)
-
-	# Emit result signal
-	emit_signal("grot_oiler_result", _grot_oiler_bearer_id, {
-		"d6_roll": d6_roll,
-		"d3_result": d3_result,
-		"target_unit_id": target_unit_id,
-		"target_model_index": target_model_index,
-		"heal_amount": d3_result
-	})
-
-	# Clear Grot Oiler state
-	_awaiting_grot_oiler = false
-	_grot_oiler_bearer_id = ""
-	_grot_oiler_targets = []
-	_grot_oiler_pending_changes = []
-
-	# Apply heal changes
-	if heal_changes.size() > 0:
-		PhaseManager.apply_state_changes(heal_changes)
-
-	# Continue with Rapid Ingress check and phase completion
-	return _continue_end_movement_after_grot_oiler(cached_changes)
-
-func _process_decline_grot_oiler(action: Dictionary) -> Dictionary:
-	"""OA-32: Player declines Grot Oiler healing — proceed with ending movement phase."""
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-32: GROT OILER — DECLINED")
-	DebugLogger.info(str("║ Bearer: ", _grot_oiler_bearer_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	var cached_changes = _grot_oiler_pending_changes.duplicate()
-
-	# Clear Grot Oiler state
-	_awaiting_grot_oiler = false
-	_grot_oiler_bearer_id = ""
-	_grot_oiler_targets = []
-	_grot_oiler_pending_changes = []
-
-	# Continue with Rapid Ingress check and phase completion
-	return _continue_end_movement_after_grot_oiler(cached_changes)
-
-func _continue_end_movement_after_grot_oiler(changes: Array) -> Dictionary:
-	"""OA-32: Continue the END_MOVEMENT flow after Grot Oiler decision.
-	Checks for Rapid Ingress, then completes the phase."""
+func _continue_end_movement_rapid_ingress(changes: Array) -> Dictionary:
+	"""END_MOVEMENT tail: checks for Rapid Ingress, then completes the phase."""
 	var current_player = get_current_player()
 
 	# T4-7: Check for Rapid Ingress opportunity for the non-active player
@@ -3580,48 +2057,6 @@ func _continue_end_movement_after_grot_oiler(changes: Array) -> Dictionary:
 	log_phase_message("=== END_MOVEMENT COMPLETE ===")
 	return end_result
 
-func _get_bomb_squigs_targets(unit_id: String) -> Array:
-	"""Find enemy units within 12\" of the unit (and visible).
-	Returns array of {target_unit_id, target_name} dictionaries."""
-	var unit = get_unit(unit_id)
-	if unit.is_empty():
-		return []
-
-	var owner = int(unit.get("owner", 0))
-	var unit_pos = _get_unit_center(unit)
-	if unit_pos == null:
-		return []
-
-	var targets = []
-	var all_units = game_state_snapshot.get("units", {})
-
-	for other_id in all_units:
-		var other = all_units[other_id]
-		if int(other.get("owner", 0)) == owner:
-			continue  # Skip friendly units
-
-		# Must be alive
-		var has_alive = false
-		for model in other.get("models", []):
-			if model.get("alive", true):
-				has_alive = true
-				break
-		if not has_alive:
-			continue
-
-		# Must be within 12"
-		var other_pos = _get_unit_center(other)
-		if other_pos == null:
-			continue
-
-		var dist_inches = Measurement.px_to_inches(unit_pos.distance_to(other_pos))
-		if dist_inches <= 12.0:
-			targets.append({
-				"target_unit_id": other_id,
-				"target_name": other.get("meta", {}).get("name", other_id)
-			})
-
-	return targets
 
 func _get_unit_center(unit: Dictionary) -> Variant:
 	"""Get the center position of a unit's alive models. Returns null if no positioned models."""
@@ -3642,78 +2077,6 @@ func _get_unit_center(unit: Dictionary) -> Variant:
 		center += p
 	return center / positions.size()
 
-func _resolve_bomb_squigs(unit_id: String, target_unit_id: String, rng_seed: int = -1) -> Dictionary:
-	"""Resolve Bomb Squigs: roll 1D6, on 3+ target suffers D3 mortal wounds.
-	Returns {diffs: Array, mortal_wounds: int, casualties: int, success: bool, roll: int, log_text: String}."""
-	# Issue #329: route through RNGService; seed forwarded by caller (action.payload.rng_seed)
-	var rng = RulesEngine.RNGService.new(rng_seed)
-
-	var roll = rng.rng.randi_range(1, 6)
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	var target_name = get_unit(target_unit_id).get("meta", {}).get("name", target_unit_id)
-
-	DebugLogger.info(str("║ P2-25: Bomb Squigs roll: %d (need 3+)" % roll))
-
-	if roll < 3:
-		DebugLogger.info(str("║ P2-25: Bomb Squigs — MISS! Roll %d < 3" % roll))
-		return {
-			"diffs": [],
-			"mortal_wounds": 0,
-			"casualties": 0,
-			"success": false,
-			"roll": roll,
-			"log_text": "Bomb Squigs: %s rolled %d — miss!" % [unit_name, roll]
-		}
-
-	# D3 mortal wounds
-	var mortal_wounds = rng.rng.randi_range(1, 3)
-	DebugLogger.info(str("║ P2-25: Bomb Squigs — HIT! D3 = %d mortal wounds on %s" % [mortal_wounds, target_name]))
-
-	# Apply mortal wounds to target
-	var target = get_unit(target_unit_id)
-	var diffs = []
-	var casualties = 0
-	var remaining_mw = mortal_wounds
-
-	for model in target.get("models", []):
-		if remaining_mw <= 0:
-			break
-		if not model.get("alive", true):
-			continue
-
-		var current_wounds = model.get("current_wounds", 1)
-		var new_wounds = max(0, current_wounds - remaining_mw)
-		remaining_mw -= (current_wounds - new_wounds)
-
-		if new_wounds != current_wounds:
-			var model_idx = target.get("models", []).find(model)
-			diffs.append({
-				"op": "set",
-				"path": "units.%s.models.%d.current_wounds" % [target_unit_id, model_idx],
-				"value": new_wounds
-			})
-			if new_wounds <= 0:
-				diffs.append({
-					"op": "set",
-					"path": "units.%s.models.%d.alive" % [target_unit_id, model_idx],
-					"value": false
-				})
-				casualties += 1
-
-	var log_text = "Bomb Squigs: %s → %s — rolled %d, %d mortal wound(s), %d casualt%s" % [
-		unit_name, target_name, roll, mortal_wounds, casualties,
-		"y" if casualties == 1 else "ies"
-	]
-	DebugLogger.info(str("║ P2-25: %s" % log_text))
-
-	return {
-		"diffs": diffs,
-		"mortal_wounds": mortal_wounds,
-		"casualties": casualties,
-		"success": true,
-		"roll": roll,
-		"log_text": log_text
-	}
 
 # ============================================================================
 # RAPID INGRESS STRATAGEM (T4-7)
@@ -5220,6 +3583,13 @@ func _process_confirm_unit_move(action: Dictionary) -> Dictionary:
 	# Scatter! prompts below have resolved (_ork11e_try_enemy_ended_move_window).
 	_ork11e_eem_pending = {"unit_id": unit_id, "move_type": _ork11e_move_type(str(move_data.mode))}
 
+	# WP-O6 SHOKK-BOOSTA (Codex: Orks 11e, Big Mek): "When this unit ends that
+	# advance move, make a hazard roll for each model in this unit."
+	if move_data.mode == "ADVANCE" and GameConstants.edition >= 11 and OrkAbilities11eScript.shokk_boosta_active(unit_id):
+		var sb_diffs: Array = OrkAbilities11eScript.on_advance_move_ended(unit_id)
+		changes.append_array(sb_diffs)
+		log_phase_message("Shokk-boosta: %s ended its boosted advance — hazard rolls made (%d diff(s))" % [unit_name, sb_diffs.size()])
+
 	# Codex: Orks (11e) unit_ended_normal_move window (active player). 01.03.02:
 	# the active player's rules resolve before the opponent's (overwatch, ...).
 	if move_data.mode == "NORMAL" and GameConstants.edition >= 11:
@@ -5304,56 +3674,12 @@ func _post_move_prompts(unit_id: String, move_data: Dictionary, changes: Array, 
 	changes.append_array(eem.diffs)
 	return _post_move_active_abilities(unit_id, move_data, changes, additional_dice)
 
-## The moving unit's own post-move abilities (Bomb Squigs, Deff from Above,
-## Quicksilver Execution) - resumed after the enemy_ended_move window.
+## The moving unit's own post-move abilities (Quicksilver Execution) -
+## resumed after the enemy_ended_move window. (Codex: Orks (11e) Bomb Squigs
+## is a unit_ended_normal_move window ability — OrkAbilities11e.gd.)
 func _post_move_active_abilities(unit_id: String, move_data: Dictionary, changes: Array, additional_dice: Array) -> Dictionary:
 	var unit = get_unit(unit_id)
 	var unit_name = unit.get("meta", {}).get("name", unit_id)
-
-	# P2-25: Check for Bomb Squigs after Normal move
-	var _ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if _ability_mgr and _ability_mgr.has_bomb_squigs(unit_id):
-		var move_mode = unit.get("flags", {}).get("move_mode", "")
-		if move_mode == "normal" or move_mode == "":
-			var bomb_targets = _get_bomb_squigs_targets(unit_id)
-			if not bomb_targets.is_empty():
-				DebugLogger.info(str("MovementPhase: P2-25 Bomb Squigs — %s has enemies within 12\" after Normal move" % unit_name))
-				_bomb_squigs_pending_unit = unit_id
-				_bomb_squigs_pending_changes = changes
-				_bomb_squigs_pending_dice = additional_dice
-
-				var current_player = get_current_player()
-				emit_signal("bomb_squigs_available", unit_id, current_player, bomb_targets)
-
-				log_phase_message("Bomb Squigs available for %s — awaiting decision" % unit_name)
-
-				var result = create_result(true, changes, "", {"dice": additional_dice})
-				result["bomb_squigs_available"] = true
-				result["unit_id"] = unit_id
-				result["eligible_targets"] = bomb_targets
-				return result
-
-	# OA-25: Check for Deff from Above after Normal move
-	if _ability_mgr and _ability_mgr.has_deff_from_above(unit_id):
-		if move_data.mode == "NORMAL":
-			var dfa_targets = _get_units_moved_over(unit_id, move_data)
-			if not dfa_targets.is_empty():
-				DebugLogger.info(str("MovementPhase: OA-25 Deff from Above — %s moved over %d enemy unit(s)" % [unit_name, dfa_targets.size()]))
-				_deff_from_above_pending_unit = unit_id
-				_deff_from_above_pending_targets = dfa_targets
-				_deff_from_above_pending_changes = changes
-				_deff_from_above_pending_dice = additional_dice
-
-				var current_player = get_current_player()
-				emit_signal("deff_from_above_available", unit_id, current_player, dfa_targets)
-
-				log_phase_message("Deff from Above available for %s — awaiting decision" % unit_name)
-
-				var result = create_result(true, changes, "", {"dice": additional_dice})
-				result["deff_from_above_available"] = true
-				result["unit_id"] = unit_id
-				result["eligible_targets"] = dfa_targets
-				return result
 
 	# Quicksilver Execution: after Normal/Advance move, select enemy moved over (excl. MONSTER/VEHICLE)
 	if move_data.mode in ["NORMAL", "ADVANCE"]:
@@ -6246,55 +4572,9 @@ func _process_end_movement(action: Dictionary) -> Dictionary:
 				"path": "units.%s.flags.movement_active" % unit_id
 			})
 
-	# P3-29: Check for Sawbonez (Painboss healing) at end of Movement phase
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr:
-		var all_units_check = GameState.state.get("units", {})
-		for unit_id in all_units_check:
-			var unit = all_units_check[unit_id]
-			if unit.get("owner", 0) != current_player:
-				continue
-			if not ability_mgr.has_sawbonez(unit_id):
-				continue
-			# Check if the Painboss is deployed and alive
-			var is_deployed = unit.get("status", 0) == GameStateData.UnitStatus.DEPLOYED
-			if not is_deployed:
-				continue
-			var has_alive_model = false
-			for model in unit.get("models", []):
-				if model.get("alive", true):
-					has_alive_model = true
-					break
-			if not has_alive_model:
-				continue
-
-			# Find eligible healing targets
-			var targets = ability_mgr.get_sawbonez_targets(unit_id)
-			if targets.size() > 0:
-				_awaiting_sawbonez = true
-				_sawbonez_painboss_id = unit_id
-				_sawbonez_targets = targets
-				_sawbonez_pending_changes = changes
-				log_phase_message("SAWBONEZ available for Painboss %s — %d eligible targets" % [unit_id, targets.size()])
-				DebugLogger.info(str("MovementPhase: Sawbonez healing opportunity — Painboss %s has %d eligible targets" % [unit_id, targets.size()]))
-
-				var result = create_result(true, changes)
-				result["trigger_sawbonez"] = true
-				result["awaiting_sawbonez"] = true
-				result["sawbonez_painboss_id"] = unit_id
-				result["sawbonez_targets"] = targets
-				return result
-
-	# OA-34: Check for Mekaniak, then Rapid Ingress, then complete phase
-	_mekaniak_checked_meks = []  # Reset checked Meks for this end-of-movement
-	return _check_mekaniak_opportunities(changes)
-	# OA-32: Check for Grot Oiler (D3 wound healing) at end of Movement phase
-	var grot_oiler_result = _check_grot_oiler_opportunity(current_player, changes)
-	if grot_oiler_result != null:
-		return grot_oiler_result
-
-	# Continue to Rapid Ingress and phase completion
-	return _continue_end_movement_after_grot_oiler(changes)
+	# T4-7: Rapid Ingress, then phase completion. (The pre-codex Sawbonez /
+	# Mekaniak / Grot Oiler end-of-movement prompts are gone — WP-O6.)
+	return _continue_end_movement_rapid_ingress(changes)
 
 func _process_desperate_escape(unit_id: String, move_data: Dictionary) -> Dictionary:
 	var unit = get_unit(unit_id)
@@ -7164,6 +5444,10 @@ func _complete_movement_phase(changes: Array) -> Dictionary:
 		var mm = get_node_or_null("/root/MissionManager")
 		if mm != null and mm.has_method("check_all_objectives"):
 			mm.check_all_objectives()
+		# WP-O6 THIEVIN' SCAVENGERS (Codex: Orks 11e, Gretchin): "At the end of
+		# your Movement phase, if this unit is controlling an objective, that
+		# objective is secured."
+		OrkAbilities11eScript.on_movement_phase_end(get_current_player())
 		var ctx := {"phase": "movement", "engaged_at_phase_start": _engagement_at_phase_start.keys()}
 		if open_stratagem_window_both_players("movement_phase_end", ctx, "_resume_after_movement_phase_end"):
 			log_phase_message("Movement phase end waits for Player %d's movement_phase_end stratagem decision" % get_pending_stratagem_window_decider())
@@ -7977,27 +6261,17 @@ func _unit_has_fly_keyword(unit_id: String) -> bool:
 	var keywords = unit.get("meta", {}).get("keywords", [])
 	return "FLY" in keywords
 
-func _unit_has_clankin_forward(unit_id: String) -> bool:
-	# OA-28: Check if the unit has the Clankin' Forward ability (Morkanaut/Gorkanaut)
-	# Allows moving over non-MONSTER/VEHICLE enemy models and terrain ≤4" height
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr and ability_mgr.has_clankin_forward(unit_id):
-		return true
-	return false
+## WP-O6 SHOKK-BOOSTA (Codex: Orks 11e, Big Mek): while making the boosted
+## advance move "this unit can move through all types of model".
+func _o6_moves_through_models(unit_id: String, move_data: Dictionary) -> bool:
+	return GameConstants.edition >= 11 and str(move_data.get("mode", "")) == "ADVANCE" \
+		and OrkAbilities11eScript.shokk_boosta_active(unit_id)
 
-func _unit_has_stompin_forward(unit_id: String) -> bool:
-	# OA-29: Check if the unit has the Stompin' Forward ability (Stompa)
-	# Allows moving over all non-TITANIC models and terrain ≤4" height
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr and ability_mgr.has_stompin_forward(unit_id):
-		return true
-	return false
 
 ## Keywords used for the 13.06 solid-terrain checks (path gate + endpoint
 ## wall overlap): the unit's own keywords plus per-move grants —
 ##   ▪ MOBILE from the 24.35 SUPER-HEAVY WALKER gamble (shw_mobile), and
-##   ▪ the SUPER-HEAVY WALKER 4" step-over for OA-28/29 (Clankin'/Stompin'
-##     Forward move over terrain ≤4" height, same allowance 13.06 gives SHW).
+##   ▪ MOBILE from the Codex: Orks (11e) STOMPING JUGGERNAUT stratagem.
 func _terrain_rule_keywords(unit_id: String, move_data: Dictionary) -> Array:
 	var kws: Array = get_unit(unit_id).get("meta", {}).get("keywords", []).duplicate()
 	if move_data.get("shw_mobile", false):
@@ -8005,8 +6279,6 @@ func _terrain_rule_keywords(unit_id: String, move_data: Dictionary) -> Array:
 	# Codex: Orks (11e) STOMPING JUGGERNAUT: "Your unit has MOBILE" (this phase).
 	if get_unit(unit_id).get("flags", {}).get(Ork11eMovement.FLAG_MOBILE, false) and not "MOBILE" in kws:
 		kws.append("MOBILE")
-	if _unit_has_stompin_forward(unit_id) or _unit_has_clankin_forward(unit_id):
-		kws.append("SUPER-HEAVY WALKER")
 	return kws
 
 ## ISS-054 (11e 13.06) path gate shared by SET_MODEL_DEST and
@@ -8743,92 +7015,6 @@ func get_available_actions() -> Array:
 				"description": unit_name + " remains stationary"
 			})
 
-			# T-105: Da Jump (Weirdboy psychic) — once per turn at end of Movement.
-			# Surface as long as the unit isn't already in a movement-in-progress
-			# state and hasn't used it this turn.
-			if not unit.get("flags", {}).get("da_jump_used_this_turn", false):
-				var has_da_jump = false
-				for ab in unit.get("meta", {}).get("abilities", []):
-					var ab_name = ab if ab is String else (ab.get("name", "") if ab is Dictionary else "")
-					if ab_name == "Da Jump":
-						has_da_jump = true
-						break
-				if has_da_jump:
-					actions.append({
-						"type": "USE_DA_JUMP",
-						"actor_unit_id": unit_id,
-						"description": "Da Jump (psychic) — D6 roll: 1 = D6 MW; 2+ = teleport %s 9\"+ from enemies" % unit_name
-					})
-
-			# T-105: place after a successful Da Jump roll
-			if unit.get("flags", {}).get("awaiting_da_jump_placement", false):
-				actions.append({
-					"type": "PLACE_DA_JUMP",
-					"actor_unit_id": unit_id,
-					"description": "Place %s (Da Jump teleport — must be 9\"+ from all enemies)" % unit_name
-				})
-
-			# OA-24: Offer Kunnin' Infiltrator as alternative to Normal move
-			var _ki_ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-			var _ki_has = _ki_ability_mgr.has_kunnin_infiltrator(unit_id) if _ki_ability_mgr else false
-			DebugLogger.info(str("[OA-24] Checking Kunnin' Infiltrator for %s (%s): ability_mgr=%s, has_ability=%s" % [unit_name, unit_id, str(_ki_ability_mgr != null), str(_ki_has)]))
-			if _ki_has:
-				actions.append({
-					"type": "ACTIVATE_KUNNIN_INFILTRATOR",
-					"actor_unit_id": unit_id,
-					"description": "Kunnin' Infiltrator: Redeploy %s (>9\" from enemies)" % unit_name
-				})
-
-	# OA-24: Kunnin' Infiltrator pending — offer place/cancel
-	if _kunnin_infiltrator_pending:
-		var ki_unit = get_unit(_kunnin_infiltrator_unit_id)
-		var ki_name = ki_unit.get("meta", {}).get("name", _kunnin_infiltrator_unit_id) if not ki_unit.is_empty() else _kunnin_infiltrator_unit_id
-		actions.append({
-			"type": "PLACE_KUNNIN_INFILTRATOR",
-			"actor_unit_id": _kunnin_infiltrator_unit_id,
-			"description": "Place %s — Kunnin' Infiltrator redeployment (>9\" from enemies)" % ki_name
-		})
-		actions.append({
-			"type": "CANCEL_KUNNIN_INFILTRATOR",
-			"actor_unit_id": _kunnin_infiltrator_unit_id,
-			"description": "Cancel Kunnin' Infiltrator — %s remains in place" % ki_name
-		})
-		return actions  # Block other actions until resolved
-
-	# P2-25: Bomb Squigs pending — offer use/decline
-	if _bomb_squigs_pending_unit != "":
-		var bs_unit = get_unit(_bomb_squigs_pending_unit)
-		var bs_name = bs_unit.get("meta", {}).get("name", _bomb_squigs_pending_unit) if not bs_unit.is_empty() else _bomb_squigs_pending_unit
-		actions.append({
-			"type": "USE_BOMB_SQUIGS",
-			"actor_unit_id": _bomb_squigs_pending_unit,
-			"description": "Activate Bomb Squigs — %s deals mortal wounds" % bs_name
-		})
-		actions.append({
-			"type": "DECLINE_BOMB_SQUIGS",
-			"actor_unit_id": _bomb_squigs_pending_unit,
-			"description": "Decline Bomb Squigs — %s" % bs_name
-		})
-		return actions  # Block other actions until resolved
-
-	# OA-25: Deff from Above pending — offer use/decline with target selection
-	if _deff_from_above_pending_unit != "":
-		var dfa_unit = get_unit(_deff_from_above_pending_unit)
-		var dfa_name = dfa_unit.get("meta", {}).get("name", _deff_from_above_pending_unit) if not dfa_unit.is_empty() else _deff_from_above_pending_unit
-		for target in _deff_from_above_pending_targets:
-			actions.append({
-				"type": "USE_DEFF_FROM_ABOVE",
-				"actor_unit_id": _deff_from_above_pending_unit,
-				"target_unit_id": target.get("target_unit_id", ""),
-				"description": "Deff from Above: %s targets %s — roll D6 per model, 4+ = 1 MW" % [dfa_name, target.get("target_name", "")]
-			})
-		actions.append({
-			"type": "DECLINE_DEFF_FROM_ABOVE",
-			"actor_unit_id": _deff_from_above_pending_unit,
-			"description": "Decline Deff from Above — %s" % dfa_name
-		})
-		return actions  # Block other actions until resolved
-
 	# Quicksilver Execution pending — offer use/decline with target selection
 	if _quicksilver_pending_unit != "":
 		var qs_unit = get_unit(_quicksilver_pending_unit)
@@ -8846,66 +7032,6 @@ func get_available_actions() -> Array:
 			"type": "DECLINE_QUICKSILVER_EXECUTION",
 			"unit_id": _quicksilver_pending_unit,
 			"description": "Decline Quicksilver Execution — %s" % qs_name
-		})
-		return actions  # Block other actions until resolved
-
-	# P3-29: Sawbonez pending — offer heal targets or decline
-	if _awaiting_sawbonez:
-		for target in _sawbonez_targets:
-			actions.append({
-				"type": "USE_SAWBONEZ",
-				"actor_unit_id": _sawbonez_painboss_id,
-				"target_unit_id": target.unit_id,
-				"target_model_id": target.model_id,
-				"target_model_index": target.model_index,
-				"description": "Sawbonez: Heal %s (%d/%d wounds) — regain up to 3 wounds" % [
-					target.unit_name, target.current_wounds, target.max_wounds]
-			})
-		actions.append({
-			"type": "DECLINE_SAWBONEZ",
-			"actor_unit_id": _sawbonez_painboss_id,
-			"description": "Decline Sawbonez healing"
-		})
-		return actions  # Block other actions until resolved
-
-	# OA-34: Mekaniak pending — offer vehicle targets or decline
-	if _awaiting_mekaniak:
-		var mek_unit = GameState.state.get("units", {}).get(_mekaniak_mek_id, {})
-		var mek_name = mek_unit.get("meta", {}).get("name", _mekaniak_mek_id)
-		for target in _mekaniak_targets:
-			var wound_info = ""
-			if target.wounds_lost > 0:
-				wound_info = " (%d/%d wounds)" % [target.current_wounds, target.max_wounds]
-			actions.append({
-				"type": "USE_MEKANIAK",
-				"actor_unit_id": _mekaniak_mek_id,
-				"target_unit_id": target.unit_id,
-				"target_model_id": target.model_id,
-				"target_model_index": target.model_index,
-				"description": "Mekaniak (%s): Heal D3 + give +1 Hit to %s%s" % [
-					mek_name, target.unit_name, wound_info]
-			})
-		actions.append({
-			"type": "DECLINE_MEKANIAK",
-			"actor_unit_id": _mekaniak_mek_id,
-			"description": "Decline Mekaniak (%s)" % mek_name
-		})
-	# OA-32: Grot Oiler pending — offer heal targets or decline
-	if _awaiting_grot_oiler:
-		for target in _grot_oiler_targets:
-			actions.append({
-				"type": "USE_GROT_OILER",
-				"actor_unit_id": _grot_oiler_bearer_id,
-				"target_unit_id": target.unit_id,
-				"target_model_id": target.model_id,
-				"target_model_index": target.model_index,
-				"description": "Grot Oiler: Heal %s model %s (%d/%d wounds) — regain D3 wounds" % [
-					target.unit_name, target.model_id, target.current_wounds, target.max_wounds]
-			})
-		actions.append({
-			"type": "DECLINE_GROT_OILER",
-			"actor_unit_id": _grot_oiler_bearer_id,
-			"description": "Decline Grot Oiler healing"
 		})
 		return actions  # Block other actions until resolved
 
@@ -8972,8 +7098,8 @@ func get_available_actions() -> Array:
 	
 	# ISS-040 step 2: at edition >= 11 the MoveType registry (09.04-09.07
 	# templates) is authoritative for the four basic moves — offerings the
-	# templates rule ineligible are dropped. Ability extras (Da Jump,
-	# infiltrator redeploys, reinforcements, disembarks) pass through.
+	# templates rule ineligible are dropped. Ability extras (infiltrator
+	# redeploys, reinforcements, disembarks) pass through.
 	if GameConstants.edition >= 11:
 		var basic_map = {"BEGIN_NORMAL_MOVE": "normal", "BEGIN_ADVANCE": "advance",
 			"BEGIN_FALL_BACK": "fall_back", "REMAIN_STATIONARY": "remain_stationary"}
@@ -9112,14 +7238,14 @@ func _process_group_movement(selected_models: Array, drag_vector: Vector2, unit_
 
 		# 10e Rule: Normal Move and Advance cannot cross enemy model bases
 		# FLY units are exempt — they can move over enemy models
-		if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
+		if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
 			if not full_model.is_empty() and _path_crosses_enemy_bases(model_data.position, new_pos, unit_id, full_model):
 				group_validation.valid = false
 				group_validation.errors.append("Model %s path crosses enemy model base" % model_id)
 
 		# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
 		# FLY units are exempt
-		if not _unit_has_fly_keyword(unit_id):
+		if not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
 			if not full_model.is_empty() and _path_crosses_monster_vehicle_bases(model_data.position, new_pos, unit_id, full_model):
 				group_validation.valid = false
 				group_validation.errors.append("Model %s path crosses Monster/Vehicle model base" % model_id)
@@ -9199,14 +7325,14 @@ func _validate_individual_move_internal(unit_id: String, model_id: String, dest_
 		return false
 
 	# 10e Rule: Normal Move and Advance cannot cross enemy model bases
-	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id):
+	if move_data.mode in ["NORMAL", "ADVANCE"] and not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
 		var current_pos = _get_model_position(model)
 		if current_pos and _path_crosses_enemy_bases(current_pos, dest_pos, unit_id, model):
 			return false
 
 	# 10e Errata: Cannot move across MONSTER or VEHICLE models (friendly or enemy)
 	# FLY units are exempt
-	if not _unit_has_fly_keyword(unit_id):
+	if not _unit_has_fly_keyword(unit_id) and not _o6_moves_through_models(unit_id, move_data):
 		var current_pos = _get_model_position(model)
 		if current_pos and _path_crosses_monster_vehicle_bases(current_pos, dest_pos, unit_id, model):
 			return false
@@ -9995,6 +8121,11 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 						dis_changes.append({"op": "set", "path": "units.%s.models.%d.alive" % [str(gid), int(di)], "value": false})
 			dis_changes.append_array(dis_tmpl.after_moving_effects(str(gid), {"mode": dis_mode}))
 
+	# WP-O6: the hull the unit leaves (Idol of Belligerence / Beastscent below).
+	var o6_transport_id := str(GameState.get_unit(unit_id).get("embarked_in", ""))
+	if o6_transport_id == "<null>":
+		o6_transport_id = ""
+
 	# Execute disembark through TransportManager (single call site per unit —
 	# the bodyguard and every attached CHARACTER leave the hull together).
 	for gid in group_positions:
@@ -10009,6 +8140,14 @@ func _process_confirm_disembark(action: Dictionary) -> Dictionary:
 
 	var unit = get_unit(unit_id)
 	log_phase_message("Unit %s disembarked via CONFIRM_DISEMBARK action" % unit.meta.get("name", unit_id))
+
+	# WP-O6: Codex: Orks (11e) disembark triggers — IDOL OF BELLIGERENCE
+	# (Stompa: disembarking units are riled up) and BEASTSCENT (Kill Rig).
+	if GameConstants.edition >= 11 and o6_transport_id != "":
+		var o6_dis: Array = OrkAbilities11eScript.on_disembark(unit_id, o6_transport_id)
+		if not o6_dis.is_empty():
+			dis_changes.append_array(o6_dis)
+			game_state_snapshot = GameState.state.duplicate(true)
 
 	if GameConstants.edition >= 11:
 		# 18.04 AFTER per mode: tactical = the unit is then SELECTED to

@@ -917,9 +917,6 @@ func phase_signal_map() -> Dictionary:
 		"ai_shooting_visual": _on_ai_shooting_visual,  # T7-38
 		"sentinel_storm_available": _on_sentinel_storm_available,  # P1-10
 		"throat_slittas_available": _on_throat_slittas_available,  # P1-12
-		"distraction_grot_available": _on_distraction_grot_available,  # audit P0: human defender UI
-		"shooty_power_trip_available": _on_shooty_power_trip_available,  # audit P1: human UI
-		"pulsa_rokkit_available": _on_pulsa_rokkit_available,  # audit P1: human UI
 		# Codex: Orks (11e) reactive move follow-ups (GRAB IT / GOADED INTO ACTION)
 		"ork11e_reactive_move_started": _on_ork11e_reactive_move_started,
 		"ork11e_reactive_move_updated": _on_ork11e_reactive_move_updated,
@@ -1204,7 +1201,7 @@ func _refresh_unit_list(auto_select: bool = true) -> void:
 				# Re-entered from inside our own auto-selection: the SELECT_SHOOTER
 				# is routed synchronously and Main refreshes this list on success
 				# BEFORE active_shooter_id is set (always when the phase answers
-				# with a prompt — Pulsa Rokkit, Ammo Runt, Firing Deck dialog …).
+				# with a prompt — a stratagem/ability window, Firing Deck dialog …).
 				# Auto-selecting again here recursed until the stack overflowed.
 				print("ShootingController: auto-select skipped — re-entered during an auto-selection")
 			elif auto_idx >= 0:
@@ -3778,142 +3775,6 @@ func _on_sentinel_storm_chosen(unit_id: String, use_ability: bool) -> void:
 		active_shooter_id = ""
 		weapon_assignments.clear()
 		_clear_visuals()
-
-# ============================================================================
-# AUDIT P0: DISTRACTION GROT — DEFENDER'S 5+ INVULN REACTIVE
-# ============================================================================
-
-func _on_distraction_grot_available(unit_id: String, player: int) -> void:
-	"""Show the Distraction Grot prompt to a HUMAN defender. The phase pauses
-	awaiting USE/DECLINE_DISTRACTION_GROT; previously the controller ignored the
-	signal, so a human defender was soft-locked. AIPlayer resolves the AI
-	defender (its own is_ai_player guard), so skip AI here to avoid a
-	double-submit."""
-	print("[ShootingController] Distraction Grot available for %s (defending player %d)" % [unit_id, player])
-
-	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(player):
-		print("[ShootingController] Distraction Grot belongs to AI player %d — AIPlayer handles it" % player)
-		return
-
-	# Multiplayer: only the defending seat chooses.
-	if NetworkManager and NetworkManager.is_networked() \
-			and NetworkManager.get_local_player() != player:
-		print("[ShootingController] Distraction Grot is P%d's choice — local seat waits" % player)
-		return
-
-	var dialog = preload("res://dialogs/DistractionGrotDialog.gd").new()
-	dialog.name = "DistractionGrotDialog"
-	dialog.setup(unit_id, player)
-	dialog.distraction_grot_chosen.connect(_on_distraction_grot_chosen)
-	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
-
-func _on_distraction_grot_chosen(unit_id: String, use_ability: bool) -> void:
-	"""Dispatch the defender's Distraction Grot decision."""
-	if use_ability:
-		print("[ShootingController] Player activates Distraction Grot for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "USE_DISTRACTION_GROT",
-			"actor_unit_id": unit_id
-		})
-		if dice_log_display:
-			dice_log_display.append_text("[b][color=gold]DISTRACTION GROT! 5+ invulnerable save.[/color][/b]\n")
-	else:
-		print("[ShootingController] Player declines Distraction Grot for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "DECLINE_DISTRACTION_GROT",
-			"actor_unit_id": unit_id
-		})
-
-# ============================================================================
-# AUDIT P1: SHOOTY POWER TRIP — WARBOSS D6 BONUS
-# ============================================================================
-
-func _on_shooty_power_trip_available(unit_id: String, player: int) -> void:
-	"""Show the Shooty Power Trip prompt to a HUMAN. The phase pauses awaiting
-	USE/DECLINE; previously neither the controller NOR AIPlayer listened, so the
-	phase blocked both players. AIPlayer now auto-resolves the AI (its own
-	is_ai_player guard), so skip AI here to avoid a double-submit."""
-	print("[ShootingController] Shooty Power Trip available for %s (player %d)" % [unit_id, player])
-
-	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(player):
-		print("[ShootingController] Shooty Power Trip belongs to AI player %d — AIPlayer handles it" % player)
-		return
-
-	if NetworkManager and NetworkManager.is_networked() \
-			and NetworkManager.get_local_player() != player:
-		print("[ShootingController] Shooty Power Trip is P%d's choice — local seat waits" % player)
-		return
-
-	var dialog = preload("res://dialogs/ShootyPowerTripDialog.gd").new()
-	dialog.name = "ShootyPowerTripDialog"
-	dialog.setup(unit_id, player)
-	dialog.shooty_power_trip_chosen.connect(_on_shooty_power_trip_chosen)
-	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
-
-func _on_shooty_power_trip_chosen(unit_id: String, use_ability: bool) -> void:
-	"""Dispatch the Shooty Power Trip decision."""
-	if use_ability:
-		print("[ShootingController] Player activates Shooty Power Trip for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "USE_SHOOTY_POWER_TRIP",
-			"actor_unit_id": unit_id
-		})
-		if dice_log_display:
-			dice_log_display.append_text("[b][color=gold]SHOOTY POWER TRIP! Rolling D6…[/color][/b]\n")
-	else:
-		print("[ShootingController] Player declines Shooty Power Trip for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "DECLINE_SHOOTY_POWER_TRIP",
-			"actor_unit_id": unit_id
-		})
-
-# ============================================================================
-# AUDIT P1: PULSA ROKKIT — +1 STRENGTH / +1 AP RANGED
-# ============================================================================
-
-func _on_pulsa_rokkit_available(unit_id: String, player: int) -> void:
-	"""Show the Pulsa Rokkit prompt to a HUMAN. The phase pauses awaiting
-	USE/DECLINE; previously neither the controller NOR AIPlayer listened, so the
-	phase blocked both players. AIPlayer now auto-resolves the AI, so skip AI."""
-	print("[ShootingController] Pulsa Rokkit available for %s (player %d)" % [unit_id, player])
-
-	var ai_player_node = get_node_or_null("/root/AIPlayer")
-	if ai_player_node and ai_player_node.is_ai_player(player):
-		print("[ShootingController] Pulsa Rokkit belongs to AI player %d — AIPlayer handles it" % player)
-		return
-
-	if NetworkManager and NetworkManager.is_networked() \
-			and NetworkManager.get_local_player() != player:
-		print("[ShootingController] Pulsa Rokkit is P%d's choice — local seat waits" % player)
-		return
-
-	var dialog = preload("res://dialogs/PulsaRokkitDialog.gd").new()
-	dialog.name = "PulsaRokkitDialog"
-	dialog.setup(unit_id, player)
-	dialog.pulsa_rokkit_chosen.connect(_on_pulsa_rokkit_chosen)
-	get_tree().root.add_child(dialog)
-	DialogUtils.popup_at_bottom(dialog)
-
-func _on_pulsa_rokkit_chosen(unit_id: String, use_ability: bool) -> void:
-	"""Dispatch the Pulsa Rokkit decision."""
-	if use_ability:
-		print("[ShootingController] Player fires Pulsa Rokkit for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "USE_PULSA_ROKKIT",
-			"actor_unit_id": unit_id
-		})
-		if dice_log_display:
-			dice_log_display.append_text("[b][color=gold]PULSA ROKKIT! +1 Strength, +1 AP.[/color][/b]\n")
-	else:
-		print("[ShootingController] Player declines Pulsa Rokkit for %s" % unit_id)
-		emit_signal("shoot_action_requested", {
-			"type": "DECLINE_PULSA_ROKKIT",
-			"actor_unit_id": unit_id
-		})
 
 # ============================================================================
 # P1-12: THROAT SLITTAS — MORTAL WOUNDS PROMPT

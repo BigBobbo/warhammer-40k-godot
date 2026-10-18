@@ -668,11 +668,13 @@ func _section_g_ap_sign() -> void:
 	# effect -> (attacker flags, target flags, expected save AP)
 	var cases := [
 		["none", {}, {}, -2],
-		["PULSA ROKKIT", {"effect_pulsa_rokkit_active": true}, {}, -3],
+		# WP-O6: Codex: Orks (11e) Pulsa Rokkit — +1 AP vs the selected unit (the
+		# pre-codex effect_pulsa_rokkit_active +1 S / +1 AP flag is retired).
+		["PULSA ROKKIT (codex: vs the selected unit)", {"ork11e_ab_pulsa_target": "U_CUSTODIAN_GUARD_C"}, {}, -3],
 		["scoped improve_ap (ranged +1)", {"effect_improve_ap_ranged": 1}, {}, -3],
 		["SPESHUL SHELLS (More Dakka!)", {"effect_speshul_shells_md": true}, {}, -3],
 		["TRY DAT BUTTON! (+2)", {"effect_try_dat_ap2": true}, {}, -4],
-		["GLOWIN' DAKKA + PULSA ROKKIT", {"ork11e_glowin_dakka": true, "effect_pulsa_rokkit_active": true}, {}, -4],
+		["GLOWIN' DAKKA + PULSA ROKKIT", {"ork11e_glowin_dakka": true, "ork11e_ab_pulsa_target": "U_CUSTODIAN_GUARD_C"}, {}, -4],
 		["target worsen AP 1", {}, {"effect_worsen_ap": 1}, -1],
 		["GLOWIN' DAKKA + target worsen AP 1", {"ork11e_glowin_dakka": true}, {"effect_worsen_ap": 1}, -2],
 	]
@@ -694,14 +696,16 @@ func _section_g_ap_sign() -> void:
 	bm.units.U_TANKBUSTAS_A.flags["martial_mastery_improve_ap"] = true
 	msr = RE.prepare_melee_save_resolution(1, "U_CUSTODIAN_GUARD_C", "U_TANKBUSTAS_A", mprof, bm)
 	_check("melee interactive: ... plus an 'improve AP by 1' -> AP-2", msr.get("success", false) and int(msr.get("ap", 99)) == -2, str(msr.get("ap", msr.get("error", ""))))
-	# DRIVE-BY DAKKA (ability) and PREY (Da Big Hunt) are the other "+1 AP" helpers.
+	# PREY (Da Big Hunt) is the other "+1 AP" helper. WP-O6: the pre-codex
+	# DRIVE-BY DAKKA ability is on no Codex: Orks (11e) datasheet — the old
+	# name no longer improves AP (retired check: "DRIVE-BY DAKKA ... save AP -3").
 	var bd: Dictionary = b.duplicate(true)
 	bd.units.U_TANKBUSTAS_A.meta["abilities"] = bd.units.U_TANKBUSTAS_A.meta.get("abilities", []) + [{"name": "Drive-by Dakka"}]
 	var bd_c: Vector2 = Vector2(float(bd.units.U_TANKBUSTAS_A.models[1].position.x), float(bd.units.U_TANKBUSTAS_A.models[1].position.y))
 	for i in range(bd.units.U_CUSTODIAN_GUARD_C.models.size()):
 		bd.units.U_CUSTODIAN_GUARD_C.models[i]["position"] = {"x": bd_c.x + (i - 2) * 1.8 * PX, "y": bd_c.y + 6.0 * PX}
 	var aps_d := _save_aps(bd, "U_TANKBUSTAS_A", wid, "U_CUSTODIAN_GUARD_C")
-	_check("DRIVE-BY DAKKA (target within 9\"): save AP -3", aps_d[0] == -3 and aps_d[1] == -3, "interactive %d auto %d" % [aps_d[0], aps_d[1]])
+	_check("pre-codex Drive-by Dakka (target within 9\"): no AP change (save AP -2)", aps_d[0] == -2 and aps_d[1] == -2, "interactive %d auto %d" % [aps_d[0], aps_d[1]])
 	var bp: Dictionary = b.duplicate(true)
 	bp.units.U_CUSTODIAN_GUARD_C.flags["is_prey_of_1"] = true
 	var bsb_w := ""

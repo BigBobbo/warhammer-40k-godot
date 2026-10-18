@@ -305,7 +305,15 @@ func _build_window_ui() -> void:
 	var display := str(GameState.get_player_display_name(defending_player))
 	if display != "" and display != who_name:
 		who_name = "%s (Player %d)" % [display, defending_player]
-	who.text = "%s — use a stratagem?   CP Available: %d" % [who_name, StratagemManager.get_player_cp(defending_player)]
+	# WP-O6: name abilities too when the window carries Codex: Orks datasheet abilities.
+	var what := "a stratagem"
+	var n_ab := 0
+	for o in window_offers:
+		if bool(o.get("is_ability", false)):
+			n_ab += 1
+	if n_ab > 0:
+		what = "an ability" if n_ab == window_offers.size() else "a stratagem or ability"
+	who.text = "%s — use %s?   CP Available: %d" % [who_name, what, StratagemManager.get_player_cp(defending_player)]
 	who.add_theme_font_size_override("font_size", 18)
 	who.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	who.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -494,7 +502,12 @@ func _create_offer_card(offer: Dictionary, legacy_fold: bool) -> VBoxContainer:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_hbox.add_child(spacer)
 	var cost_label = Label.new()
+	cost_label.name = "Cost"
 	cost_label.text = "%d CP" % int(offer.get("cp_cost", 1))
+	# WP-O6: Codex: Orks datasheet abilities share this dialog — they cost no CP.
+	var is_ability: bool = bool(offer.get("is_ability", false))
+	if is_ability:
+		cost_label.text = str(offer.get("cost_text", "Ability"))
 	cost_label.add_theme_font_size_override("font_size", 20)
 	cost_label.add_theme_color_override("font_color", Color.GOLD)
 	name_hbox.add_child(cost_label)
@@ -568,6 +581,8 @@ func _create_offer_card(offer: Dictionary, legacy_fold: bool) -> VBoxContainer:
 			var v_text := variant_display_label(str(v.get("label", vid)))
 			if has_upgrade:
 				vb.text = ("Upgrade on %s (%d CP): %s" % [label, v_cost, v_text]) if uid != "" else ("Upgrade (%d CP): %s" % [v_cost, v_text])
+			elif is_ability:
+				vb.text = v_text  # WP-O6: an ability option has no CP cost
 			else:
 				vb.text = "%s (%d CP)" % [v_text, v_cost]
 			vb.tooltip_text = vb.text

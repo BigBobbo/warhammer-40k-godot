@@ -25,14 +25,6 @@ signal sentinel_storm_available(unit_id: String, player: int)  # P1-10: Sentinel
 signal sanctified_flames_result(shooter_id: String, target_id: String, test_result: Dictionary)  # P1-11: Sanctified Flames battle-shock test result
 signal throat_slittas_available(unit_id: String, player: int, eligible_targets: Array)  # P1-12: Throat Slittas mortal wounds prompt
 signal throat_slittas_result(unit_id: String, results: Dictionary)  # P1-12: Throat Slittas resolution result
-signal distraction_grot_available(unit_id: String, player: int)  # P2-25: Distraction Grot invuln save prompt
-signal distraction_grot_result(unit_id: String, activated: bool)  # P2-25: Distraction Grot decision result
-signal ammo_runt_available(unit_id: String, player: int, remaining: int)  # OA-10: Ammo Runt Lethal Hits prompt
-signal ammo_runt_result(unit_id: String, activated: bool)  # OA-10: Ammo Runt decision result
-signal pulsa_rokkit_available(unit_id: String, player: int)  # OA-31: Pulsa Rokkit +1S/+1AP prompt
-signal pulsa_rokkit_result(unit_id: String, activated: bool)  # OA-31: Pulsa Rokkit decision result
-signal shooty_power_trip_available(unit_id: String, player: int)  # OA-37: Shooty Power Trip D6 roll prompt
-signal shooty_power_trip_result(unit_id: String, d6_roll: int, effect: String)  # OA-37: Shooty Power Trip result
 
 # Shooting state tracking
 var active_shooter_id: String = ""
@@ -53,14 +45,6 @@ var pending_one_shot_diffs: Array = []  # ONE SHOT (T4-2): Diffs to mark one-sho
 var awaiting_reactive_stratagem: bool = false  # True when waiting for defender stratagem decision
 var sentinel_storm_pending_unit: String = ""  # P1-10: Unit awaiting Sentinel Storm decision
 var throat_slittas_pending_unit: String = ""  # P1-12: Unit awaiting Throat Slittas decision
-var distraction_grot_pending_unit: String = ""  # P2-25: Defending unit awaiting Distraction Grot decision
-var awaiting_distraction_grot: bool = false  # P2-25: True when waiting for Distraction Grot response
-var ammo_runt_pending_unit: String = ""  # OA-10: Unit awaiting Ammo Runt decision
-var awaiting_ammo_runt: bool = false  # OA-10: True when waiting for Ammo Runt response
-var pulsa_rokkit_pending_unit: String = ""  # OA-31: Unit awaiting Pulsa Rokkit decision
-var awaiting_pulsa_rokkit: bool = false  # OA-31: True when waiting for Pulsa Rokkit response
-var shooty_power_trip_pending_unit: String = ""  # OA-37: Unit awaiting Shooty Power Trip decision
-var awaiting_shooty_power_trip: bool = false  # OA-37: True when waiting for Shooty Power Trip response
 var _targets_hit_by_shooter: Dictionary = {}  # P1-11: Track which enemy units were hit { target_unit_id: hit_count }
 var _rng = RulesEngine.make_rng()  # P1-11: RNG for battle-shock tests (issue #329: routes through test_mode_seed)
 # Issue #386 Big Booms: queued struck-unit IDs from a supa-kannon target selection.
@@ -227,14 +211,6 @@ func _on_phase_enter() -> void:
 	awaiting_reactive_stratagem = false
 	sentinel_storm_pending_unit = ""
 	throat_slittas_pending_unit = ""
-	distraction_grot_pending_unit = ""
-	awaiting_distraction_grot = false
-	ammo_runt_pending_unit = ""
-	awaiting_ammo_runt = false
-	pulsa_rokkit_pending_unit = ""
-	awaiting_pulsa_rokkit = false
-	shooty_power_trip_pending_unit = ""
-	awaiting_shooty_power_trip = false
 	swift_as_eagle_pending_unit = ""
 	swift_as_eagle_move_inches = 0
 	awaiting_swift_as_eagle = false
@@ -616,22 +592,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_use_throat_slittas(action)
 		"DECLINE_THROAT_SLITTAS":  # P1-12: Player declines Throat Slittas
 			return _validate_decline_throat_slittas(action)
-		"USE_DISTRACTION_GROT":  # P2-25: Defender activates Distraction Grot
-			return _validate_use_distraction_grot(action)
-		"DECLINE_DISTRACTION_GROT":  # P2-25: Defender declines Distraction Grot
-			return _validate_decline_distraction_grot(action)
-		"USE_AMMO_RUNT":  # OA-10: Player activates Ammo Runt
-			return _validate_use_ammo_runt(action)
-		"DECLINE_AMMO_RUNT":  # OA-10: Player declines Ammo Runt
-			return _validate_decline_ammo_runt(action)
-		"USE_PULSA_ROKKIT":  # OA-31: Player activates Pulsa Rokkit
-			return _validate_use_pulsa_rokkit(action)
-		"DECLINE_PULSA_ROKKIT":  # OA-31: Player declines Pulsa Rokkit
-			return _validate_decline_pulsa_rokkit(action)
-		"USE_SHOOTY_POWER_TRIP":  # OA-37: Player activates Shooty Power Trip
-			return _validate_use_shooty_power_trip(action)
-		"DECLINE_SHOOTY_POWER_TRIP":  # OA-37: Player declines Shooty Power Trip
-			return _validate_decline_shooty_power_trip(action)
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission (Establish Locus, Cleanse, Deploy Teleport Homer)
 			return _validate_perform_secondary_action(action)
 		"START_ACTION":  # B1 (16.01): start a generic 11e action (gives up shooting)
@@ -785,30 +745,6 @@ func _process_action_dispatch(action: Dictionary) -> Dictionary:
 		"DECLINE_THROAT_SLITTAS":  # P1-12: Player declines Throat Slittas
 			DebugLogger.info("ShootingPhase: Matched DECLINE_THROAT_SLITTAS")
 			return _process_decline_throat_slittas(action)
-		"USE_DISTRACTION_GROT":  # P2-25: Defender activates Distraction Grot
-			DebugLogger.info("ShootingPhase: Matched USE_DISTRACTION_GROT")
-			return _process_use_distraction_grot(action)
-		"DECLINE_DISTRACTION_GROT":  # P2-25: Defender declines Distraction Grot
-			DebugLogger.info("ShootingPhase: Matched DECLINE_DISTRACTION_GROT")
-			return _process_decline_distraction_grot(action)
-		"USE_AMMO_RUNT":  # OA-10: Player activates Ammo Runt
-			DebugLogger.info("ShootingPhase: Matched USE_AMMO_RUNT")
-			return _process_use_ammo_runt(action)
-		"DECLINE_AMMO_RUNT":  # OA-10: Player declines Ammo Runt
-			DebugLogger.info("ShootingPhase: Matched DECLINE_AMMO_RUNT")
-			return _process_decline_ammo_runt(action)
-		"USE_PULSA_ROKKIT":  # OA-31: Player activates Pulsa Rokkit
-			DebugLogger.info("ShootingPhase: Matched USE_PULSA_ROKKIT")
-			return _process_use_pulsa_rokkit(action)
-		"DECLINE_PULSA_ROKKIT":  # OA-31: Player declines Pulsa Rokkit
-			DebugLogger.info("ShootingPhase: Matched DECLINE_PULSA_ROKKIT")
-			return _process_decline_pulsa_rokkit(action)
-		"USE_SHOOTY_POWER_TRIP":  # OA-37: Player activates Shooty Power Trip
-			DebugLogger.info("ShootingPhase: Matched USE_SHOOTY_POWER_TRIP")
-			return _process_use_shooty_power_trip(action)
-		"DECLINE_SHOOTY_POWER_TRIP":  # OA-37: Player declines Shooty Power Trip
-			DebugLogger.info("ShootingPhase: Matched DECLINE_SHOOTY_POWER_TRIP")
-			return _process_decline_shooty_power_trip(action)
 		"PERFORM_SECONDARY_ACTION":  # Action-based secondary mission
 			DebugLogger.info("ShootingPhase: Matched PERFORM_SECONDARY_ACTION")
 			return _process_perform_secondary_action(action)
@@ -1212,67 +1148,6 @@ func _process_select_shooter(action: Dictionary) -> Dictionary:
 					"eligible_targets": ts_targets
 				})
 
-	# OA-10: Check for Ammo Runt — offer Lethal Hits for ranged weapons
-	if not action.get("payload", {}).get("skip_ammo_runt_check", false):
-		var ability_mgr_ar = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr_ar and ability_mgr_ar.has_ammo_runt(unit_id):
-			var remaining = ability_mgr_ar.get_ammo_runts_remaining(unit_id)
-			var total = ability_mgr_ar.get_ammo_runt_count(unit_id)
-			DebugLogger.info(str("ShootingPhase: OA-10 Ammo Runt: Unit %s has %d/%d runts remaining — prompting" % [unit_id, remaining, total]))
-			ammo_runt_pending_unit = unit_id
-			awaiting_ammo_runt = true
-
-			var current_player = get_current_player()
-			emit_signal("ammo_runt_available", unit_id, current_player, remaining)
-
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			log_phase_message("Ammo Runt available for %s (%d remaining) — awaiting decision" % [unit_name, remaining])
-
-			return create_result(true, [], "Ammo Runt available", {
-				"ammo_runt_available": true,
-				"unit_id": unit_id,
-				"remaining": remaining,
-				"total": total
-			})
-
-	# OA-31: Check for Pulsa Rokkit — offer +1S/+1AP for ranged weapons
-	if not action.get("payload", {}).get("skip_pulsa_rokkit_check", false):
-		var ability_mgr_pr = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr_pr and ability_mgr_pr.has_pulsa_rokkit(unit_id):
-			DebugLogger.info(str("ShootingPhase: OA-31 Pulsa Rokkit: Unit %s has unused Pulsa Rokkit — prompting" % unit_id))
-			pulsa_rokkit_pending_unit = unit_id
-			awaiting_pulsa_rokkit = true
-
-			var current_player = get_current_player()
-			emit_signal("pulsa_rokkit_available", unit_id, current_player)
-
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			log_phase_message("Pulsa Rokkit available for %s — awaiting decision" % unit_name)
-
-			return create_result(true, [], "Pulsa Rokkit available", {
-				"pulsa_rokkit_available": true,
-				"unit_id": unit_id
-			})
-
-	# OA-37: Check for Shooty Power Trip — offer D6 roll (Killa Kans)
-	if not action.get("payload", {}).get("skip_shooty_power_trip_check", false):
-		var ability_mgr_spt = get_node_or_null("/root/UnitAbilityManager")
-		if ability_mgr_spt and ability_mgr_spt.has_shooty_power_trip(unit_id):
-			DebugLogger.info(str("ShootingPhase: OA-37 Shooty Power Trip: Unit %s has Shooty Power Trip — prompting" % unit_id))
-			shooty_power_trip_pending_unit = unit_id
-			awaiting_shooty_power_trip = true
-
-			var current_player = get_current_player()
-			emit_signal("shooty_power_trip_available", unit_id, current_player)
-
-			var unit_name = unit.get("meta", {}).get("name", unit_id)
-			log_phase_message("Shooty Power Trip available for %s — awaiting decision" % unit_name)
-
-			return create_result(true, [], "Shooty Power Trip available", {
-				"shooty_power_trip_available": true,
-				"unit_id": unit_id
-			})
-
 	# Normal shooting flow
 	# Get eligible targets (PERF-LOS: cached — usually already computed by the
 	# Select-Shooter list filter that ran this same phase).
@@ -1590,37 +1465,17 @@ func _process_confirm_targets(action: Dictionary) -> Dictionary:
 	log_phase_message("Confirmed targets, ready to resolve shooting")
 	var _perf_t2 := Time.get_ticks_usec()
 
-	# P2-25: Check for Distraction Grot on targeted units
-	var distraction_grot_check = _check_distraction_grot()
 	var _perf_t3 := Time.get_ticks_usec()
 	# Measured at ~3 ms total on a 26-unit board, so this normally stays quiet;
 	# it exists because the fight phase's equivalent confirm was the source of
 	# a multi-second stall and this is the path to check first if shooting ever
 	# develops the same symptom.
 	if (_perf_t3 - _perf_t0) / 1000.0 >= 5.0:
-		DebugLogger.info("[PERF] ShootingPhase.CONFIRM_TARGETS: inject=%.1fms shooting_begun=%.1fms distraction_grot=%.1fms" % [
+		DebugLogger.info("[PERF] ShootingPhase.CONFIRM_TARGETS: inject=%.1fms shooting_begun=%.1fms post=%.1fms" % [
 			(_perf_t1 - _perf_t0) / 1000.0,
 			(_perf_t2 - _perf_t1) / 1000.0,
 			(_perf_t3 - _perf_t2) / 1000.0
 		])
-	if distraction_grot_check.get("has_opportunity", false):
-		var dg_unit_id = distraction_grot_check.unit_id
-		var dg_player = distraction_grot_check.player
-		awaiting_distraction_grot = true
-		distraction_grot_pending_unit = dg_unit_id
-		resolution_state = {
-			"phase": "awaiting_distraction_grot",
-			"assignments": confirmed_assignments
-		}
-		var dg_name = get_unit(dg_unit_id).get("meta", {}).get("name", dg_unit_id)
-		log_phase_message("Distraction Grot available for %s — awaiting decision" % dg_name)
-		emit_signal("distraction_grot_available", dg_unit_id, dg_player)
-		return create_result(true, [], "Awaiting Distraction Grot decision", {
-			"distraction_grot_available": true,
-			"unit_id": dg_unit_id,
-			"player": dg_player
-		})
-
 	# REACTIVE STRATAGEMS: Check if defending player can use Go to Ground or Smokescreen
 	var _perf_t4 := Time.get_ticks_usec()
 	var reactive_check = _check_reactive_stratagems()
@@ -2877,99 +2732,6 @@ func _process_shoot(action: Dictionary) -> Dictionary:
 				"mortal_wounds": ts_result.get("total_mortal_wounds", 0),
 				"casualties": ts_result.get("total_casualties", 0)
 			})
-
-	# OA-10: AI auto-use Ammo Runt if available
-	var ability_mgr_ai = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr_ai and ability_mgr_ai.has_ammo_runt(unit_id):
-		var ar_remaining = ability_mgr_ai.get_ammo_runts_remaining(unit_id)
-		DebugLogger.info(str("║ AI SHOOT: OA-10 Ammo Runt — auto-activating for %s (%d remaining)" % [unit_id, ar_remaining]))
-		var runt_idx = ability_mgr_ai.mark_ammo_runt_used(unit_id)
-
-		# Apply Lethal Hits flag
-		var ar_diffs = [{
-			"op": "set",
-			"path": "units.%s.flags.effect_lethal_hits" % unit_id,
-			"value": true
-		}]
-		PhaseManager.apply_state_changes(ar_diffs)
-		game_state_snapshot = GameState.create_snapshot()
-
-		var ai_unit_name_ar = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-		log_phase_message("AI: Ammo Runt activated for %s — Lethal Hits granted (runt #%d)" % [ai_unit_name_ar, runt_idx + 1])
-
-	# OA-31: AI auto-use Pulsa Rokkit if available
-	var ability_mgr_pr_ai = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr_pr_ai and ability_mgr_pr_ai.has_pulsa_rokkit(unit_id):
-		DebugLogger.info(str("║ AI SHOOT: OA-31 Pulsa Rokkit — auto-activating for %s" % unit_id))
-		ability_mgr_pr_ai.mark_pulsa_rokkit_used(unit_id)
-
-		# Apply Pulsa Rokkit flag (+1S/+1AP to ranged weapons for the phase)
-		var pr_diffs = [{
-			"op": "set",
-			"path": "units.%s.flags.effect_pulsa_rokkit_active" % unit_id,
-			"value": true
-		}]
-		PhaseManager.apply_state_changes(pr_diffs)
-		game_state_snapshot = GameState.create_snapshot()
-
-		var ai_unit_name_pr = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-		log_phase_message("AI: Pulsa Rokkit activated for %s — +1S/+1AP to ranged weapons" % ai_unit_name_pr)
-
-	# OA-37: AI auto-use Shooty Power Trip if available
-	var ability_mgr_spt_ai = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr_spt_ai and ability_mgr_spt_ai.has_shooty_power_trip(unit_id):
-		var ai_d6_roll = _rng.rng.randi_range(1, 6)
-		var ai_spt_unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-		DebugLogger.info(str("║ AI SHOOT: OA-37 Shooty Power Trip — auto-rolling for %s (D6 = %d)" % [unit_id, ai_d6_roll]))
-
-		if ai_d6_roll <= 2:
-			# 1-2: D3 mortal wounds to self
-			var ai_d3_roll = _rng.rng.randi_range(1, 6)
-			var ai_mortal_wounds = ((ai_d3_roll - 1) / 2) + 1
-			DebugLogger.info(str("║ AI SHOOT: OA-37 Shooty Power Trip — D3 mortal wounds to self (D3 = %d, MW = %d)" % [ai_d3_roll, ai_mortal_wounds]))
-
-			var ai_rng_service = RulesEngine.RNGService.new(ps_seed)  # Issue #329: forward seed
-			var ai_mw_result = RulesEngine.apply_mortal_wounds(unit_id, ai_mortal_wounds, game_state_snapshot, ai_rng_service)
-			var ai_mw_diffs = ai_mw_result.get("diffs", [])
-			if not ai_mw_diffs.is_empty():
-				PhaseManager.apply_state_changes(ai_mw_diffs)
-				game_state_snapshot = GameState.create_snapshot()
-
-			var ai_casualties = ai_mw_result.get("casualties", 0)
-			log_phase_message("AI: Shooty Power Trip — %s rolled %d, suffers %d mortal wounds (%d casualties)" % [ai_spt_unit_name, ai_d6_roll, ai_mortal_wounds, ai_casualties])
-
-			# Check if unit was destroyed
-			var ai_unit_after = get_unit(unit_id)
-			if ai_unit_after.is_empty() or RulesEngine.count_alive_models(ai_unit_after) <= 0:
-				DebugLogger.info(str("║ AI SHOOT: OA-37 Unit %s destroyed by Shooty Power Trip self-damage!" % unit_id))
-				log_phase_message("AI: Shooty Power Trip — %s destroyed by self-inflicted mortal wounds!" % ai_spt_unit_name)
-				return create_result(true, ai_mw_diffs, "AI: Shooty Power Trip — unit destroyed", {
-					"shooty_power_trip_used": true,
-					"d6_roll": ai_d6_roll,
-					"effect": "self_damage",
-					"unit_destroyed": true
-				})
-
-		elif ai_d6_roll <= 4:
-			# 3-4: +1 Strength to ranged weapons
-			var spt_s_diffs = [{
-				"op": "set",
-				"path": "units.%s.flags.effect_shooty_power_trip_strength" % unit_id,
-				"value": true
-			}]
-			PhaseManager.apply_state_changes(spt_s_diffs)
-			game_state_snapshot = GameState.create_snapshot()
-			log_phase_message("AI: Shooty Power Trip — %s rolled %d, ranged weapons gain +1 Strength" % [ai_spt_unit_name, ai_d6_roll])
-		else:
-			# 5-6: +1 Attacks to ranged weapons
-			var spt_a_diffs = [{
-				"op": "set",
-				"path": "units.%s.flags.effect_shooty_power_trip_attacks" % unit_id,
-				"value": true
-			}]
-			PhaseManager.apply_state_changes(spt_a_diffs)
-			game_state_snapshot = GameState.create_snapshot()
-			log_phase_message("AI: Shooty Power Trip — %s rolled %d, ranged weapons gain +1 Attacks" % [ai_spt_unit_name, ai_d6_roll])
 
 	# Step 2: Merge assignments into confirmed_assignments (inline, no signals)
 	var assignments = action.get("payload", {}).get("assignments", [])
@@ -5342,7 +5104,7 @@ func _ork11e_queue_post_shot(a_type: String, shot_before: int, result: Dictionar
 func _ork11e_post_shot_blocked() -> bool:
 	return has_pending_stratagem_window() or _window_followup_pending or not _ork11e_followup.is_empty() \
 		or awaiting_reactive_stratagem or not pending_save_data.is_empty() \
-		or sentinel_storm_pending_unit != "" or awaiting_distraction_grot
+		or sentinel_storm_pending_unit != ""
 
 ## Open the post-shot windows for every queued shooter (result = the result of
 ## the action that completed the activation; window/AI diffs are merged in).
@@ -5350,10 +5112,10 @@ func _ork11e_run_post_shot_windows(result: Dictionary) -> Dictionary:
 	if _ork11e_post_shot_queue.is_empty():
 		return result
 	if _ork11e_post_shot_blocked():
-		DebugLogger.info("ShootingPhase: [StratagemWindow] post-shot windows for %s deferred (window=%s followup=%s/%s reactive=%s saves=%d sentinel='%s' dgrot=%s)" % [
+		DebugLogger.info("ShootingPhase: [StratagemWindow] post-shot windows for %s deferred (window=%s followup=%s/%s reactive=%s saves=%d sentinel='%s')" % [
 			str(_ork11e_post_shot_queue), str(has_pending_stratagem_window()), str(_window_followup_pending),
 			str(not _ork11e_followup.is_empty()), str(awaiting_reactive_stratagem), pending_save_data.size(),
-			sentinel_storm_pending_unit, str(awaiting_distraction_grot)])
+			sentinel_storm_pending_unit])
 		return result
 	# Offers (wounds lost, unengaged, still on the battlefield …) are judged on
 	# the state AFTER this action: apply its changes now — idempotent 'set'
@@ -6179,99 +5941,6 @@ func get_available_actions() -> Array:
 			"actor_unit_id": wazblasta_pending_unit,
 			"player": wb_player,
 			"description": "Decline Wazblasta — %s" % wb_name
-		})
-		return actions
-
-	# P2-25: Distraction Grot pending — offer use/decline (defender's choice)
-	if awaiting_distraction_grot and distraction_grot_pending_unit != "":
-		var dg_unit = get_unit(distraction_grot_pending_unit)
-		var dg_name = dg_unit.get("meta", {}).get("name", distraction_grot_pending_unit) if not dg_unit.is_empty() else distraction_grot_pending_unit
-		var dg_player = int(dg_unit.get("owner", 0))
-		actions.append({
-			"type": "USE_DISTRACTION_GROT",
-			"actor_unit_id": distraction_grot_pending_unit,
-			"player": dg_player,
-			"description": "Activate Distraction Grot — %s gains 5+ invuln" % dg_name
-		})
-		actions.append({
-			"type": "DECLINE_DISTRACTION_GROT",
-			"actor_unit_id": distraction_grot_pending_unit,
-			"player": dg_player,
-			"description": "Decline Distraction Grot — %s" % dg_name
-		})
-		return actions  # Block other actions until resolved
-
-	# OA-10: Ammo Runt pending — offer use/decline (active player's choice)
-	if awaiting_ammo_runt and ammo_runt_pending_unit != "":
-		var ar_unit = get_unit(ammo_runt_pending_unit)
-		var ar_name = ar_unit.get("meta", {}).get("name", ammo_runt_pending_unit) if not ar_unit.is_empty() else ammo_runt_pending_unit
-		var ar_player = int(ar_unit.get("owner", 0))
-		var ability_mgr_ar = get_node_or_null("/root/UnitAbilityManager")
-		var ar_remaining = ability_mgr_ar.get_ammo_runts_remaining(ammo_runt_pending_unit) if ability_mgr_ar else 0
-		actions.append({
-			"type": "USE_AMMO_RUNT",
-			"actor_unit_id": ammo_runt_pending_unit,
-			"player": ar_player,
-			"description": "Use Ammo Runt — %s gains Lethal Hits (%d remaining)" % [ar_name, ar_remaining]
-		})
-		actions.append({
-			"type": "DECLINE_AMMO_RUNT",
-			"actor_unit_id": ammo_runt_pending_unit,
-			"player": ar_player,
-			"description": "Decline Ammo Runt — %s" % ar_name
-		})
-		# When Ammo Runt is pending, only these actions should be available
-		actions.append({
-			"type": "END_SHOOTING",
-			"description": "End Shooting Phase"
-		})
-		return actions
-
-	# OA-31: Pulsa Rokkit pending — offer use/decline (active player's choice)
-	if awaiting_pulsa_rokkit and pulsa_rokkit_pending_unit != "":
-		var pr_unit = get_unit(pulsa_rokkit_pending_unit)
-		var pr_name = pr_unit.get("meta", {}).get("name", pulsa_rokkit_pending_unit) if not pr_unit.is_empty() else pulsa_rokkit_pending_unit
-		var pr_player = int(pr_unit.get("owner", 0))
-		actions.append({
-			"type": "USE_PULSA_ROKKIT",
-			"actor_unit_id": pulsa_rokkit_pending_unit,
-			"player": pr_player,
-			"description": "Use Pulsa Rokkit — %s gains +1S/+1AP on ranged weapons" % pr_name
-		})
-		actions.append({
-			"type": "DECLINE_PULSA_ROKKIT",
-			"actor_unit_id": pulsa_rokkit_pending_unit,
-			"player": pr_player,
-			"description": "Decline Pulsa Rokkit — %s" % pr_name
-		})
-		# When Pulsa Rokkit is pending, only these actions should be available
-		actions.append({
-			"type": "END_SHOOTING",
-			"description": "End Shooting Phase"
-		})
-		return actions
-
-	# OA-37: Shooty Power Trip pending — offer use/decline (active player's choice)
-	if awaiting_shooty_power_trip and shooty_power_trip_pending_unit != "":
-		var spt_unit = get_unit(shooty_power_trip_pending_unit)
-		var spt_name = spt_unit.get("meta", {}).get("name", shooty_power_trip_pending_unit) if not spt_unit.is_empty() else shooty_power_trip_pending_unit
-		var spt_player = int(spt_unit.get("owner", 0))
-		actions.append({
-			"type": "USE_SHOOTY_POWER_TRIP",
-			"actor_unit_id": shooty_power_trip_pending_unit,
-			"player": spt_player,
-			"description": "Use Shooty Power Trip — %s rolls D6 (risk: 1-2 = D3 MW to self)" % spt_name
-		})
-		actions.append({
-			"type": "DECLINE_SHOOTY_POWER_TRIP",
-			"actor_unit_id": shooty_power_trip_pending_unit,
-			"player": spt_player,
-			"description": "Decline Shooty Power Trip — %s" % spt_name
-		})
-		# When Shooty Power Trip is pending, only these actions should be available
-		actions.append({
-			"type": "END_SHOOTING",
-			"description": "End Shooting Phase"
 		})
 		return actions
 
@@ -7338,564 +7007,6 @@ func _resolve_throat_slittas(unit_id: String) -> Dictionary:
 	emit_signal("throat_slittas_result", unit_id, result)
 
 	return result
-
-# ============================================================================
-# DISTRACTION GROT (P2-25)
-# ============================================================================
-# "Once per battle, in your opponent's Shooting phase, when this unit is selected
-# as the target of a ranged attack, until the end of the phase, models in this
-# unit have a 5+ invulnerable save."
-
-func _check_distraction_grot() -> Dictionary:
-	"""Check if any targeted unit has an unused Distraction Grot ability.
-	Returns { has_opportunity: bool, unit_id: String, player: int }."""
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if not ability_mgr:
-		return {"has_opportunity": false}
-
-	var active_player = get_current_player()
-
-	# Collect unique target unit IDs from confirmed assignments
-	var target_unit_ids = []
-	for assignment in confirmed_assignments:
-		var target_id = assignment.get("target_unit_id", "")
-		if target_id != "" and target_id not in target_unit_ids:
-			target_unit_ids.append(target_id)
-
-	for target_id in target_unit_ids:
-		var target_unit = get_unit(target_id)
-		var target_owner = int(target_unit.get("owner", 0))
-
-		# Only the defending player's units can use Distraction Grot
-		if target_owner == active_player:
-			continue
-
-		if ability_mgr.has_distraction_grot(target_id):
-			DebugLogger.info(str("ShootingPhase: P2-25 Distraction Grot available for %s (%s)" % [
-				target_unit.get("meta", {}).get("name", target_id), target_id
-			]))
-			return {
-				"has_opportunity": true,
-				"unit_id": target_id,
-				"player": target_owner
-			}
-
-	return {"has_opportunity": false}
-
-func _validate_use_distraction_grot(action: Dictionary) -> Dictionary:
-	"""Validate activating Distraction Grot ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_distraction_grot:
-		return {"valid": false, "errors": ["Not awaiting Distraction Grot decision"]}
-	if distraction_grot_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Distraction Grot pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _validate_decline_distraction_grot(action: Dictionary) -> Dictionary:
-	"""Validate declining Distraction Grot ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_distraction_grot:
-		return {"valid": false, "errors": ["Not awaiting Distraction Grot decision"]}
-	return {"valid": true, "errors": []}
-
-func _process_use_distraction_grot(action: Dictionary) -> Dictionary:
-	"""Defender activates Distraction Grot — unit gains 5+ invulnerable save for the phase."""
-	var unit_id = action.get("actor_unit_id", distraction_grot_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ P2-25: DISTRACTION GROT — ACTIVATED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("║ Unit gains 5+ invulnerable save until end of phase")
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_distraction_grot = false
-	distraction_grot_pending_unit = ""
-
-	# Mark as used (once per battle)
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr:
-		ability_mgr.mark_once_per_battle_used(unit_id, "Distraction Grot")
-
-	# Apply 5+ invulnerable save flag to the unit
-	var diffs = []
-	diffs.append({
-		"op": "set",
-		"path": "units.%s.flags.effect_invuln" % unit_id,
-		"value": 5
-	})
-	diffs.append({
-		"op": "set",
-		"path": "units.%s.flags.effect_invuln_source" % unit_id,
-		"value": "Distraction Grot"
-	})
-	PhaseManager.apply_state_changes(diffs)
-
-	# Refresh snapshot so RulesEngine sees the invuln
-	game_state_snapshot = GameState.create_snapshot()
-
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	log_phase_message("Distraction Grot: %s gains 5+ invulnerable save" % unit_name)
-
-	emit_signal("distraction_grot_result", unit_id, true)
-
-	# Now continue to check reactive stratagems
-	var reactive_check = _check_reactive_stratagems()
-	if reactive_check.has_opportunities:
-		awaiting_reactive_stratagem = true
-		resolution_state = {
-			"phase": "awaiting_reactive_stratagem",
-			"assignments": confirmed_assignments
-		}
-		log_phase_message("Opponent may use reactive stratagems...")
-		emit_signal("reactive_stratagem_opportunity",
-			reactive_check.defending_player,
-			reactive_check.available_stratagems,
-			reactive_check.target_unit_ids)
-		return create_result(true, diffs, "Distraction Grot activated, awaiting stratagem decision", {
-			"reactive_stratagem_opportunity": true,
-			"defending_player": reactive_check.defending_player,
-			"available_stratagems": reactive_check.available_stratagems,
-			"target_unit_ids": reactive_check.target_unit_ids,
-			"distraction_grot_used": true,
-			"distraction_grot_unit_id": unit_id
-		})
-
-	# No reactive stratagems — continue to resolution
-	var resolution_result = _continue_after_reactive_stratagems()
-	resolution_result["distraction_grot_used"] = true
-	resolution_result["distraction_grot_unit_id"] = unit_id
-	return resolution_result
-
-func _process_decline_distraction_grot(action: Dictionary) -> Dictionary:
-	"""Defender declines Distraction Grot — proceed with normal shooting."""
-	var unit_id = action.get("actor_unit_id", distraction_grot_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ P2-25: DISTRACTION GROT — DECLINED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_distraction_grot = false
-	distraction_grot_pending_unit = ""
-
-	emit_signal("distraction_grot_result", unit_id, false)
-
-	# Continue to check reactive stratagems
-	var reactive_check = _check_reactive_stratagems()
-	if reactive_check.has_opportunities:
-		awaiting_reactive_stratagem = true
-		resolution_state = {
-			"phase": "awaiting_reactive_stratagem",
-			"assignments": confirmed_assignments
-		}
-		log_phase_message("Opponent may use reactive stratagems...")
-		emit_signal("reactive_stratagem_opportunity",
-			reactive_check.defending_player,
-			reactive_check.available_stratagems,
-			reactive_check.target_unit_ids)
-		return create_result(true, [], "Awaiting defender stratagem decision", {
-			"reactive_stratagem_opportunity": true,
-			"defending_player": reactive_check.defending_player,
-			"available_stratagems": reactive_check.available_stratagems,
-			"target_unit_ids": reactive_check.target_unit_ids
-		})
-
-	return _continue_after_reactive_stratagems()
-
-# ============================================================================
-# OA-10: AMMO RUNT — Lethal Hits on ranged weapons when selected to shoot
-# ============================================================================
-# "Once per battle for each ammo runt this unit has, when this unit is selected
-# to shoot, it can use this ability. If it does, until the end of the phase,
-# ranged weapons equipped by models in this unit have the [LETHAL HITS] ability."
-
-func _validate_use_ammo_runt(action: Dictionary) -> Dictionary:
-	"""Validate activating Ammo Runt ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_ammo_runt:
-		return {"valid": false, "errors": ["Not awaiting Ammo Runt decision"]}
-	if ammo_runt_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Ammo Runt pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _validate_decline_ammo_runt(action: Dictionary) -> Dictionary:
-	"""Validate declining Ammo Runt ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_ammo_runt:
-		return {"valid": false, "errors": ["Not awaiting Ammo Runt decision"]}
-	return {"valid": true, "errors": []}
-
-func _process_use_ammo_runt(action: Dictionary) -> Dictionary:
-	"""Player activates Ammo Runt — unit's ranged weapons gain Lethal Hits for the phase."""
-	var unit_id = action.get("actor_unit_id", ammo_runt_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-10: AMMO RUNT — ACTIVATED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_ammo_runt = false
-	ammo_runt_pending_unit = ""
-
-	# Mark one ammo runt as used (independently tracked)
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	var runt_index = -1
-	if ability_mgr:
-		runt_index = ability_mgr.mark_ammo_runt_used(unit_id)
-
-	# Apply Lethal Hits flag to the unit for this phase
-	var diffs = []
-	diffs.append({
-		"op": "set",
-		"path": "units.%s.flags.effect_lethal_hits" % unit_id,
-		"value": true
-	})
-	PhaseManager.apply_state_changes(diffs)
-
-	# Refresh snapshot
-	game_state_snapshot = GameState.create_snapshot()
-
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	var remaining = ability_mgr.get_ammo_runts_remaining(unit_id) if ability_mgr else 0
-	log_phase_message("Ammo Runt: %s gains Lethal Hits (runt #%d used, %d remaining)" % [unit_name, runt_index + 1, remaining])
-
-	emit_signal("ammo_runt_result", unit_id, true)
-
-	# Log ability activation to GameEventLog
-	var game_event_log = get_node_or_null("/root/GameEventLog")
-	if game_event_log:
-		var owner = int(get_unit(unit_id).get("owner", 0))
-		game_event_log.add_player_entry(owner,
-			"Ammo Runt activated: %s gains [LETHAL HITS] on ranged weapons (%d runts remaining)" % [unit_name, remaining])
-
-	# Continue to normal shooting flow (target selection)
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	emit_signal("unit_selected_for_shooting", unit_id)
-	emit_signal("targets_available", unit_id, eligible_targets)
-
-	return create_result(true, diffs, "Ammo Runt activated — Lethal Hits granted", {
-		"ammo_runt_used": true,
-		"ammo_runt_unit_id": unit_id,
-		"ammo_runt_index": runt_index,
-		"remaining": remaining
-	})
-
-func _process_decline_ammo_runt(action: Dictionary) -> Dictionary:
-	"""Player declines Ammo Runt — proceed with normal shooting."""
-	var unit_id = action.get("actor_unit_id", ammo_runt_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-10: AMMO RUNT — DECLINED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_ammo_runt = false
-	ammo_runt_pending_unit = ""
-
-	emit_signal("ammo_runt_result", unit_id, false)
-
-	# Continue to normal shooting flow (target selection)
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	emit_signal("unit_selected_for_shooting", unit_id)
-	emit_signal("targets_available", unit_id, eligible_targets)
-
-	log_phase_message("Ammo Runt declined for %s — proceeding with normal shooting" % get_unit(unit_id).get("meta", {}).get("name", unit_id))
-
-	return create_result(true, [], "Ammo Runt declined")
-
-# ============================================================================
-# OA-31: PULSA ROKKIT — +1 Strength and +1 AP to ranged weapons when selected to shoot
-# ============================================================================
-# "Once per battle, when the bearer's unit is selected to shoot in your Shooting phase,
-# the bearer can use its pulsa rokkit. If it does, until the end of the phase, improve
-# the Strength and Armour Penetration characteristics of ranged weapons equipped by
-# models in the bearer's unit by 1."
-
-func _validate_use_pulsa_rokkit(action: Dictionary) -> Dictionary:
-	"""Validate activating Pulsa Rokkit ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_pulsa_rokkit:
-		return {"valid": false, "errors": ["Not awaiting Pulsa Rokkit decision"]}
-	if pulsa_rokkit_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Pulsa Rokkit pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _validate_decline_pulsa_rokkit(action: Dictionary) -> Dictionary:
-	"""Validate declining Pulsa Rokkit ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_pulsa_rokkit:
-		return {"valid": false, "errors": ["Not awaiting Pulsa Rokkit decision"]}
-	return {"valid": true, "errors": []}
-
-func _process_use_pulsa_rokkit(action: Dictionary) -> Dictionary:
-	"""Player activates Pulsa Rokkit — unit's ranged weapons gain +1S/+1AP for the phase."""
-	var unit_id = action.get("actor_unit_id", pulsa_rokkit_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-31: PULSA ROKKIT — ACTIVATED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_pulsa_rokkit = false
-	pulsa_rokkit_pending_unit = ""
-
-	# Mark Pulsa Rokkit as used (once per battle)
-	var ability_mgr = get_node_or_null("/root/UnitAbilityManager")
-	if ability_mgr:
-		ability_mgr.mark_pulsa_rokkit_used(unit_id)
-
-	# Apply Pulsa Rokkit flag to the unit for this phase
-	var diffs = []
-	diffs.append({
-		"op": "set",
-		"path": "units.%s.flags.effect_pulsa_rokkit_active" % unit_id,
-		"value": true
-	})
-	PhaseManager.apply_state_changes(diffs)
-
-	# Refresh snapshot
-	game_state_snapshot = GameState.create_snapshot()
-
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	log_phase_message("Pulsa Rokkit: %s gains +1 Strength and +1 AP on ranged weapons" % unit_name)
-
-	emit_signal("pulsa_rokkit_result", unit_id, true)
-
-	# Log ability activation to GameEventLog
-	var game_event_log = get_node_or_null("/root/GameEventLog")
-	if game_event_log:
-		var owner = int(get_unit(unit_id).get("owner", 0))
-		game_event_log.add_player_entry(owner,
-			"Pulsa Rokkit activated: %s gains [+1 STRENGTH] [+1 AP] on ranged weapons" % unit_name)
-
-	# Continue to normal shooting flow (target selection)
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	emit_signal("unit_selected_for_shooting", unit_id)
-	emit_signal("targets_available", unit_id, eligible_targets)
-
-	return create_result(true, diffs, "Pulsa Rokkit activated — +1S/+1AP granted", {
-		"pulsa_rokkit_used": true,
-		"pulsa_rokkit_unit_id": unit_id
-	})
-
-func _process_decline_pulsa_rokkit(action: Dictionary) -> Dictionary:
-	"""Player declines Pulsa Rokkit — proceed with normal shooting."""
-	var unit_id = action.get("actor_unit_id", pulsa_rokkit_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-31: PULSA ROKKIT — DECLINED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_pulsa_rokkit = false
-	pulsa_rokkit_pending_unit = ""
-
-	emit_signal("pulsa_rokkit_result", unit_id, false)
-
-	# Continue to normal shooting flow (target selection)
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	emit_signal("unit_selected_for_shooting", unit_id)
-	emit_signal("targets_available", unit_id, eligible_targets)
-
-	log_phase_message("Pulsa Rokkit declined for %s — proceeding with normal shooting" % get_unit(unit_id).get("meta", {}).get("name", unit_id))
-
-	return create_result(true, [], "Pulsa Rokkit declined")
-
-# ============================================================================
-# OA-37: SHOOTY POWER TRIP — Killa Kans D6 roll when selected to shoot
-# ============================================================================
-# "Each time this unit is selected to shoot, you can roll one D6:
-# On a 1-2, this unit suffers D3 mortal wounds.
-# On a 3-4, until the end of the phase, add 1 to the Strength characteristic
-#   of ranged weapons equipped by models in this unit.
-# On a 5-6, until the end of the phase, add 1 to the Attacks characteristic
-#   of ranged weapons equipped by models in this unit."
-
-func _validate_use_shooty_power_trip(action: Dictionary) -> Dictionary:
-	"""Validate activating Shooty Power Trip ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_shooty_power_trip:
-		return {"valid": false, "errors": ["Not awaiting Shooty Power Trip decision"]}
-	if shooty_power_trip_pending_unit != unit_id:
-		return {"valid": false, "errors": ["No Shooty Power Trip pending for this unit"]}
-	return {"valid": true, "errors": []}
-
-func _validate_decline_shooty_power_trip(action: Dictionary) -> Dictionary:
-	"""Validate declining Shooty Power Trip ability."""
-	var unit_id = action.get("actor_unit_id", "")
-	if unit_id == "":
-		return {"valid": false, "errors": ["Missing actor_unit_id"]}
-	if not awaiting_shooty_power_trip:
-		return {"valid": false, "errors": ["Not awaiting Shooty Power Trip decision"]}
-	return {"valid": true, "errors": []}
-
-func _process_use_shooty_power_trip(action: Dictionary) -> Dictionary:
-	"""Player activates Shooty Power Trip — roll D6 and apply effect."""
-	var unit_id = action.get("actor_unit_id", shooty_power_trip_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-37: SHOOTY POWER TRIP — ACTIVATED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_shooty_power_trip = false
-	shooty_power_trip_pending_unit = ""
-
-	# Roll D6 to determine effect
-	# Issue #329: honor payload.rng_seed; fall back to persistent _rng
-	var spt_seed: int = action.get("payload", {}).get("rng_seed", -1)
-	var spt_rng = RulesEngine.RNGService.new(spt_seed) if spt_seed >= 0 else _rng
-	var d6_roll = spt_rng.rng.randi_range(1, 6)
-	var unit_name = get_unit(unit_id).get("meta", {}).get("name", unit_id)
-	var diffs = []
-	var effect_name = ""
-
-	DebugLogger.info(str("║ OA-37: Shooty Power Trip D6 roll = %d" % d6_roll))
-
-	if d6_roll <= 2:
-		# 1-2: D3 mortal wounds to self
-		effect_name = "self_damage"
-		var d3_roll = spt_rng.rng.randi_range(1, 6)
-		var mortal_wounds = ((d3_roll - 1) / 2) + 1  # 1-2→1, 3-4→2, 5-6→3
-		DebugLogger.info(str("║ OA-37: Result 1-2 — D3 mortal wounds to self (D3 roll = %d, MW = %d)" % [d3_roll, mortal_wounds]))
-
-		# Apply mortal wounds to the unit
-		var board = game_state_snapshot
-		var rng_service = RulesEngine.RNGService.new(spt_seed)
-		var mw_result = RulesEngine.apply_mortal_wounds(unit_id, mortal_wounds, board, rng_service)
-		diffs.append_array(mw_result.get("diffs", []))
-
-		var casualties = mw_result.get("casualties", 0)
-		log_phase_message("Shooty Power Trip: %s rolled %d — suffers %d mortal wounds! (%d casualties)" % [unit_name, d6_roll, mortal_wounds, casualties])
-
-		# Apply diffs to game state
-		if not diffs.is_empty():
-			PhaseManager.apply_state_changes(diffs)
-			game_state_snapshot = GameState.create_snapshot()
-
-		# Log to GameEventLog
-		var game_event_log = get_node_or_null("/root/GameEventLog")
-		if game_event_log:
-			var owner = int(get_unit(unit_id).get("owner", 0))
-			game_event_log.add_player_entry(owner,
-				"Shooty Power Trip: %s rolled [%d] — suffers %d mortal wounds (%d casualties)" % [unit_name, d6_roll, mortal_wounds, casualties])
-
-		emit_signal("shooty_power_trip_result", unit_id, d6_roll, "self_damage")
-
-		# Check if unit was destroyed by self-damage
-		var unit_after = get_unit(unit_id)
-		if unit_after.is_empty() or RulesEngine.count_alive_models(unit_after) <= 0:
-			DebugLogger.info(str("║ OA-37: Unit %s destroyed by Shooty Power Trip self-damage!" % unit_id))
-			log_phase_message("Shooty Power Trip: %s destroyed by self-inflicted mortal wounds!" % unit_name)
-			return create_result(true, diffs, "Shooty Power Trip — unit destroyed by self-damage", {
-				"shooty_power_trip_used": true,
-				"d6_roll": d6_roll,
-				"effect": "self_damage",
-				"mortal_wounds": mortal_wounds,
-				"unit_destroyed": true
-			})
-
-	elif d6_roll <= 4:
-		# 3-4: +1 Strength to ranged weapons
-		effect_name = "plus_one_strength"
-		DebugLogger.info("║ OA-37: Result 3-4 — +1 Strength to ranged weapons for the phase")
-
-		diffs.append({
-			"op": "set",
-			"path": "units.%s.flags.effect_shooty_power_trip_strength" % unit_id,
-			"value": true
-		})
-		PhaseManager.apply_state_changes(diffs)
-		game_state_snapshot = GameState.create_snapshot()
-
-		log_phase_message("Shooty Power Trip: %s rolled %d — ranged weapons gain +1 Strength" % [unit_name, d6_roll])
-
-		var game_event_log = get_node_or_null("/root/GameEventLog")
-		if game_event_log:
-			var owner = int(get_unit(unit_id).get("owner", 0))
-			game_event_log.add_player_entry(owner,
-				"Shooty Power Trip: %s rolled [%d] — ranged weapons gain [+1 STRENGTH]" % [unit_name, d6_roll])
-
-		emit_signal("shooty_power_trip_result", unit_id, d6_roll, "plus_one_strength")
-
-	else:
-		# 5-6: +1 Attacks to ranged weapons
-		effect_name = "plus_one_attacks"
-		DebugLogger.info("║ OA-37: Result 5-6 — +1 Attacks to ranged weapons for the phase")
-
-		diffs.append({
-			"op": "set",
-			"path": "units.%s.flags.effect_shooty_power_trip_attacks" % unit_id,
-			"value": true
-		})
-		PhaseManager.apply_state_changes(diffs)
-		game_state_snapshot = GameState.create_snapshot()
-
-		log_phase_message("Shooty Power Trip: %s rolled %d — ranged weapons gain +1 Attacks" % [unit_name, d6_roll])
-
-		var game_event_log = get_node_or_null("/root/GameEventLog")
-		if game_event_log:
-			var owner = int(get_unit(unit_id).get("owner", 0))
-			game_event_log.add_player_entry(owner,
-				"Shooty Power Trip: %s rolled [%d] — ranged weapons gain [+1 ATTACKS]" % [unit_name, d6_roll])
-
-		emit_signal("shooty_power_trip_result", unit_id, d6_roll, "plus_one_attacks")
-
-	# Continue to normal shooting flow (target selection)
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	emit_signal("unit_selected_for_shooting", unit_id)
-	emit_signal("targets_available", unit_id, eligible_targets)
-
-	return create_result(true, diffs, "Shooty Power Trip activated — rolled %d (%s)" % [d6_roll, effect_name], {
-		"shooty_power_trip_used": true,
-		"d6_roll": d6_roll,
-		"effect": effect_name
-	})
-
-func _process_decline_shooty_power_trip(action: Dictionary) -> Dictionary:
-	"""Player declines Shooty Power Trip — proceed with normal shooting."""
-	var unit_id = action.get("actor_unit_id", shooty_power_trip_pending_unit)
-
-	DebugLogger.info("╔═══════════════════════════════════════════════════════════════")
-	DebugLogger.info("║ OA-37: SHOOTY POWER TRIP — DECLINED")
-	DebugLogger.info(str("║ Unit ID: ", unit_id))
-	DebugLogger.info("╚═══════════════════════════════════════════════════════════════")
-
-	# Clear pending state
-	awaiting_shooty_power_trip = false
-	shooty_power_trip_pending_unit = ""
-
-	emit_signal("shooty_power_trip_result", unit_id, 0, "declined")
-
-	# Continue to normal shooting flow (target selection)
-	var eligible_targets = RulesEngine.get_eligible_targets(unit_id, game_state_snapshot)
-	emit_signal("unit_selected_for_shooting", unit_id)
-	emit_signal("targets_available", unit_id, eligible_targets)
-
-	log_phase_message("Shooty Power Trip declined for %s — proceeding with normal shooting" % get_unit(unit_id).get("meta", {}).get("name", unit_id))
-
-	return create_result(true, [], "Shooty Power Trip declined")
 
 # Defender-side save Command Re-roll (1 CP): the AllocationGroupOverlay
 # re-rolls one save die locally and stamps `command_reroll` on its summary;

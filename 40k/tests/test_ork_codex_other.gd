@@ -915,6 +915,11 @@ func _section_desperate_escape() -> void:
 	var phase = _phase()
 	var begin = phase.execute_action({"type": "BEGIN_FALL_BACK", "actor_unit_id": "U_BOYZ_B", "player": 1, "payload": {"fall_back_mode": "desperate_escape"}})
 	_check("BEGIN_FALL_BACK (desperate escape) succeeds", begin.get("success", false), str(begin.get("error", "")))
+	# WP-O6: the attached Warboss' Intimidating Motivation (an activated Codex:
+	# Orks datasheet ability) is offered when the unit is selected to move —
+	# decline it; this section is about the desperate escape roll.
+	while phase.has_pending_stratagem_window() and _pending_window(phase).get("offers", []).all(func(o): return bool(o.get("is_ability", false))):
+		phase.execute_action({"type": "DECLINE_WINDOW_STRATAGEM", "player": 1})
 	_check("not battle-shocked before the move ends", not _unit("U_BOYZ_B").flags.get("battle_shocked", false))
 	var conf = phase.execute_action({"type": "CONFIRM_UNIT_MOVE", "actor_unit_id": "U_BOYZ_B", "player": 1})
 	_check("CONFIRM_UNIT_MOVE succeeds", conf.get("success", false), str(conf.get("error", "")))

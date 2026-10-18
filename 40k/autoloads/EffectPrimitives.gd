@@ -612,7 +612,20 @@ static func has_effect_invuln(unit: Dictionary) -> bool:
 
 static func get_effect_invuln(unit: Dictionary) -> int:
 	"""Get the effect-granted invulnerable save value (0 if none)."""
-	return unit.get("flags", {}).get(FLAG_INVULN, 0)
+	var inv := int(unit.get("flags", {}).get(FLAG_INVULN, 0))
+	# WP-O6: Codex: Orks (11e) Kustom Force Field / Blastajet Force Field.
+	var ork_inv := int(_ork_abilities().defence_mods_now(unit).get("invuln", 0))
+	if ork_inv > 0 and (inv == 0 or ork_inv < inv):
+		inv = ork_inv
+	return inv
+
+## WP-O6: Codex: Orks (11e) datasheet abilities (late-loaded: this class is
+## compiled very early and must not drag the module into every preload chain).
+static var _ork_ab_script = null
+static func _ork_abilities():
+	if _ork_ab_script == null:
+		_ork_ab_script = load("res://scripts/codex/orks/OrkAbilities11e.gd")
+	return _ork_ab_script
 
 static func get_effect_invuln_source(unit: Dictionary) -> String:
 	"""Get the source name of the effect-granted invulnerable save (empty if none)."""
@@ -698,7 +711,8 @@ static func has_effect_worsen_ap(unit: Dictionary) -> bool:
 
 static func get_effect_worsen_ap(unit: Dictionary) -> int:
 	"""Get the effect-granted AP worsen value (0 if none)."""
-	return unit.get("flags", {}).get(FLAG_WORSEN_AP, 0)
+	# WP-O6: + Codex: Orks (11e) Arrogant Invulnerability (-1 AP for attacks that target the unit).
+	return maxi(int(unit.get("flags", {}).get(FLAG_WORSEN_AP, 0)), int(_ork_abilities().defence_mods_now(unit).get("ap_worsen", 0)))
 
 static func has_effect_improve_ap(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted AP improvement."""
@@ -745,7 +759,8 @@ static func has_effect_minus_damage(unit: Dictionary) -> bool:
 
 static func get_effect_minus_damage(unit: Dictionary) -> int:
 	"""Get the effect-granted damage reduction value (0 if none)."""
-	return unit.get("flags", {}).get(FLAG_MINUS_DAMAGE, 0)
+	# WP-O6: + Codex: Orks (11e) Dread 'Ard (-1 D) / Mobile Fortress (ranged -1 D).
+	return maxi(int(unit.get("flags", {}).get(FLAG_MINUS_DAMAGE, 0)), int(_ork_abilities().defence_mods_now(unit).get("damage_minus", 0)))
 
 static func has_effect_crit_hit_on(unit: Dictionary) -> bool:
 	"""Check if a unit has effect-granted critical hit threshold."""
