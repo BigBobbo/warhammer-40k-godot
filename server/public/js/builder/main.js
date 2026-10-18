@@ -353,20 +353,21 @@ function renderWarlordRow(i, ru, raw) {
 }
 
 function renderEnhancementRow(i, ru, raw) {
-  const isCharacter = (raw.keywords ?? []).some(k => k.toLowerCase() === 'character');
-  const isEpic = (raw.keywords ?? []).some(k => k.toLowerCase() === 'epic hero');
-  const choices = S.enhancementChoices();
-  if (!choices.length) return null;
-  if (!isCharacter || isEpic) return null; // enhancements: non-epic characters
+  // 11e (WP-C46): CHARACTERs (not EPIC HEROes) take normal enhancements,
+  // other units Upgrades; each is offered only to the units its printed
+  // restriction allows ("Anathema Psykana model only", ...).
   const current = ru.enhancement?.id ?? '';
+  const choices = S.enhancementChoices(i).filter(c => c.eligible || c.id === current);
+  if (!choices.length) return null;
   return h('div.field-row', {},
     h('label', {}, 'Enhancement'),
     select([
       { value: '', label: '— none —' },
       ...choices.map(c => ({
         value: c.id,
-        label: `${c.name} (${c.cost} pts)` + (c.takenBy !== null && c.takenBy !== i ? ' — taken' : ''),
-        disabled: c.takenBy !== null && c.takenBy !== i,
+        label: `${c.name} (${c.cost} pts)` + (c.upgrade ? ' — Upgrade' : '') + (c.takenBy !== null && c.takenBy !== i ? ' — taken' : '')
+          + (!c.eligible ? ` — ${c.reason}` : ''),
+        disabled: (c.takenBy !== null && c.takenBy !== i) || !c.eligible,
       })),
     ], current, (v) => S.setEnhancement(i, v || null)));
 }
