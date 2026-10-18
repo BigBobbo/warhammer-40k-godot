@@ -1,0 +1,168 @@
+{
+  "id": "cus11e_psy_chaff_volley",
+  "covers": [
+    "codex.custodes.stratagems.psy-chaff-volley-null-maiden-vigil",
+    "codex.custodes.CustodesCodex11e",
+    "stratagem.window.unit_has_shot",
+    "phases.ShootingPhase.post_shot_ctx",
+    "scripts.Main.window_secondary_pick",
+    "rules.ranged.ap_modifier"
+  ],
+  "description": "Codex: Adeptus Custodes (11e) PSY-CHAFF VOLLEY (Null Maiden Vigil, 1 CP) — WP-C5. Fixture cus11e_c5_active (P1 Custodes active, round 2; layout in tests/helpers/gen_cus11e_c5_fixtures.gd). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (Shooting phase); P2 has 0 CP (no Ork reactive stratagem competes). The Prosecutor Squad shoots the Gretchin (the shooting panel's SHOOT); when it has shot, unit_has_shot opens; a real click on Use asks which enemy unit hit by those attacks becomes prosecuted; a real click on the Gretchin spends 1 CP: attacks that target them have +1 AP until the end of the turn.",
+  "fixture": "cus11e_c5_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.setup(1, \"Null Maiden Vigil\", {\"cp\": {\"2\": 0}})",
+      "comment": "setup privileges (see description)",
+      "equals": "Null Maiden Vigil"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.shoot(1, \"U_PROSECUTORS_A\", \"U_GRETCHIN_C\")",
+      "comment": "the Prosecutors shoot the Gretchin",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_has_shot"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_null_maiden_vigil_psy_chaff_volley/Buttons/Use_faction_ac_null_maiden_vigil_psy_chaff_volley_U_PROSECUTORS_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_null_maiden_vigil_psy_chaff_volley/Buttons/Use_faction_ac_null_maiden_vigil_psy_chaff_volley_U_PROSECUTORS_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_psy_chaff_volley_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_null_maiden_vigil_psy_chaff_volley/Buttons/Use_faction_ac_null_maiden_vigil_psy_chaff_volley_U_PROSECUTORS_A",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_GRETCHIN_C",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "screenshot",
+      "label": "02_secondary_pick"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemTargetDialog/Content/Pick_U_GRETCHIN_C",
+      "comment": "REAL click on the secondary pick"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.flag(\"U_GRETCHIN_C\", \"cus11e_prosecuted\")",
+      "equals": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.codex().modify_ap(-1, H.unit(\"U_WITCHSEEKERS_A\"), H.unit(\"U_GRETCHIN_C\"))",
+      "comment": "+1 AP for attacks that target the prosecuted unit",
+      "equals": -2
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.codex().modify_ap(-1, H.unit(\"U_WITCHSEEKERS_A\"), H.unit(\"U_BOYZ_B\"))",
+      "comment": "other targets unchanged",
+      "equals": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.log_count(\"Used PSY-CHAFF VOLLEY\")",
+      "comment": "the Game Log names the stratagem",
+      "expect_min": 1
+    },
+    {
+      "act": "screenshot",
+      "label": "03_gretchin_prosecuted"
+    }
+  ],
+  "transition_to_phase": 7
+}

@@ -1,0 +1,232 @@
+{
+  "id": "cus11e_prime_target",
+  "covers": [
+    "codex.custodes.stratagems.prime-target-guardians-of-the-throne",
+    "codex.custodes.CustodesCodex11e",
+    "stratagem.window.unit_selected_to_shoot",
+    "phases.ShootingPhase.prime_target_reroll"
+  ],
+  "description": "Codex: Adeptus Custodes (11e) PRIME TARGET (Guardians of the Throne, 1 CP) — WP-C5. Fixture cus11e_c5_active (P1 Custodes active, round 2; layout in tests/helpers/gen_cus11e_c5_fixtures.gd). Setup privileges: the Custodes detachment flipped (stratagems reloaded), auto wound allocation, Trajann's Moment Shackle marked spent (its prompt is not under test), the Custodes unreadied (Martial Ka'tah not under test), straight to the phase under test (Shooting phase); P2 has 0 CP (no Ork reactive stratagem competes). The Prosecutor Squad is selected to shoot; a real click on Use spends 1 CP (one hit, one wound and one damage re-roll for its ranged attacks); its guns are assigned to the Gretchin and confirmed; at the staged hit roll the dock offers the re-roll as 'PRIME TARGET (free)' and re-rolling a hit die spends it without any CP.",
+  "fixture": "cus11e_c5_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/SecondaryMissionReviewDialog/OuterScroll/MainContainer/ButtonRow/DoneButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.setup(1, \"Guardians of the Throne\", {\"cp\": {\"2\": 0}})",
+      "comment": "setup privileges (see description)",
+      "equals": "Guardians of the Throne"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nPhaseManager.transition_to_phase(8)\nreturn int(GameState.get_current_phase())",
+      "comment": "setup privilege: straight to the phase under test",
+      "equals": 8
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "dispatch_action",
+      "action": {
+        "type": "SELECT_SHOOTER",
+        "actor_unit_id": "U_PROSECUTORS_A",
+        "player": 1
+      },
+      "comment": "the shooting panel's unit pick"
+    },
+    {
+      "act": "expect_action_result",
+      "path": "success",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 6.0
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.window_id()",
+      "equals": "unit_selected_to_shoot"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.decider()",
+      "equals": 1
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_guardians_of_the_throne_prime_target/Buttons/Use_faction_ac_guardians_of_the_throne_prime_target_U_PROSECUTORS_A",
+      "timeout_s": 3.0
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_guardians_of_the_throne_prime_target/Buttons/Use_faction_ac_guardians_of_the_throne_prime_target_U_PROSECUTORS_A",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "screenshot",
+      "label": "01_prime_target_offered"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_faction_ac_guardians_of_the_throne_prime_target/Buttons/Use_faction_ac_guardians_of_the_throne_prime_target_U_PROSECUTORS_A",
+      "comment": "REAL click on the stratagem's Use button"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.9
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.flag(\"U_PROSECUTORS_A\", \"cus11e_prime_target\")",
+      "equals": {
+        "hit": true,
+        "wound": true,
+        "damage": true
+      }
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.log_count(\"Used PRIME TARGET\")",
+      "comment": "the Game Log names the stratagem",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.assign_and_confirm(1, \"U_PROSECUTORS_A\", \"U_GRETCHIN_C\")",
+      "comment": "the panel's ASSIGN_TARGET + Confirm Targets",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.0
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "a window not under test (if any) is declined"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn main.get_node(\"ShootingController\").resolution_dock.is_active()",
+      "equals": true
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nmain.get_node(\"ShootingController\").resolution_dock.primary_button.emit_signal(\"pressed\")\nreturn true",
+      "comment": "Roll to Hit",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.5
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar st := \"hits\" if str(H.phase().resolution_state.get(\"stage\", \"\")) == \"hits_pending\" else \"wounds\"\nprint(\"[cus11e prime] dock paused at \", H.phase().resolution_state.get(\"stage\", \"\"))\nreturn H.phase()._cus11e_reroll_label(st).begins_with(\"PRIME TARGET (free)\")",
+      "comment": "the dock's re-roll row is labelled PRIME TARGET (free) at the staged pause (hit or wound)",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "02_dock_offers_prime_target_reroll"
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nvar ph = H.phase()\nvar hitp := str(ph.resolution_state.get(\"stage\", \"\")) == \"hits_pending\"\nvar st := \"hits\" if hitp else \"wounds\"\nvar rolls: Array = ph.resolution_state.get(\"staged_hit_context\", {}).get(\"hit_rolls\", []) if hitp else ph.resolution_state.get(\"staged_wound_context\", {}).get(\"wound_rolls\", [])\nvar idx := 0\nfor i in range(rolls.size()):\n\tif int(rolls[i]) < int(rolls[idx]):\n\t\tidx = i\nvar r = ph.execute_action({\"type\": \"USE_SHOOTING_REROLL\", \"player\": 1, \"payload\": {\"stage\": st, \"die_index\": idx}})\nprint(\"[cus11e prime] re-roll \", st, \" die \", idx, \" of \", rolls, \": \", r.get(\"success\", false), \" \", r.get(\"error\", \"\"))\nH.main().set_meta(\"cus11e_pt_stage\", \"hit\" if hitp else \"wound\")\nreturn r.get(\"success\", false)",
+      "comment": "clicking the lowest die sends USE_SHOOTING_REROLL",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "delta_from_start": -1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.codex().single_reroll_available(H.unit(\"U_PROSECUTORS_A\"), str(H.main().get_meta(\"cus11e_pt_stage\")))",
+      "comment": "that stage's free re-roll is spent (no CP)",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var main = tree.current_scene\nvar H = load(\"res://tests/helpers/cus11e_c5_scen.gd\")\nreturn H.codex().single_reroll_available(H.unit(\"U_PROSECUTORS_A\"), \"damage\")",
+      "comment": "the damage re-roll is still there",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_die_rerolled_free"
+    }
+  ],
+  "transition_to_phase": 7
+}

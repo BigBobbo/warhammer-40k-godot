@@ -938,7 +938,19 @@ func set_phase(phase: BasePhase) -> void:
 			if not pending_pile_in.is_empty():
 				print("DEBUG: Retrieved pending pile-in step data after signal connection")
 				_on_pile_in_step_required(pending_pile_in)
-		
+
+		# Moment Shackle is offered during phase entry too (FightPhase
+		# _maybe_offer_moment_shackle, before the Pile In step), so its
+		# moment_shackle_required fired before this controller connected and a
+		# human never saw the dialog — the phase then waited on a choice nobody
+		# could make. Pull the missed offer (T3-13 pattern). Found by the WP-C5
+		# GILDED CHAMPION scenario (the stratagem re-offers Moment Shackle).
+		var ms_pending = phase.get("_moment_shackle_pending_units")
+		if ms_pending is Array and not ms_pending.is_empty() \
+				and get_tree().root.get_node_or_null("MomentShackleDialog") == null:
+			print("[FightController] Moment Shackle offer pending for %s after signal connection — showing it" % str(ms_pending[0]))
+			_on_moment_shackle_required(str(ms_pending[0]), int(phase.get_current_player()))
+
 		_refresh_fighter_list()
 		
 		# Restore state if loading from save

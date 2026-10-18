@@ -7403,7 +7403,8 @@ func _cus11e_followup_reactive_charge(player: int, followup: Dictionary) -> void
 		var dice := {"context": "charge_roll", "unit_id": unit_id, "rolls": rolls, "total": int(res.get("roll", 0)),
 			"targets": [str(res.get("target_id", ""))], "charge_failed": not bool(res.get("success", false)), "source": "NO ESCAPE"}
 		dice_log.append(dice)
-		emit_signal("dice_rolled", dice)
+		if has_signal("dice_rolled"):  # MovementPhase has no dice_rolled signal (the dice log + game log carry it)
+			emit_signal("dice_rolled", dice)
 	var diffs: Array = res.get("diffs", [])
 	if not diffs.is_empty():
 		PhaseManager.apply_state_changes(diffs)
@@ -7451,7 +7452,8 @@ func _cus11e_followup_shoot(player: int, followup: Dictionary) -> void:
 			if c in ["to_hit", "auto_hit", "to_wound"] and not db.has("target_unit_id"):
 				db["target_unit_id"] = target_id
 			dice_log.append(db)
-			emit_signal("dice_rolled", db)
+			if has_signal("dice_rolled"):
+				emit_signal("dice_rolled", db)
 			if c == "to_hit" or c == "auto_hit":
 				hits += int(db.get("successes", 0))
 			elif c == "to_wound":
