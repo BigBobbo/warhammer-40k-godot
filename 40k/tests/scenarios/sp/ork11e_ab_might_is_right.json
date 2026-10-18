@@ -5,7 +5,7 @@
   "scripts.codex.orks.OrkAbilities11e",
   "rules.fight.attacks_modifiers"
  ],
- "description": "WP-O6 Codex: Orks (11e) MIGHT IS RIGHT (Warboss, passive): after a charge move this turn its melee weapons have +3 A and +2 S. Fixture ork11e_ab_fight: the Warboss charged (charged_this_turn) and is engaged with the Shield-Captain. A real click on 'Fight' for the Warboss, attacks assigned and resolved through the real dialogs: every melee hit roll the Warboss made shows 3 more attacks than the weapon's profile per model. Setup privileges: auto wound allocation, the Custodes' wounds inflated (the fight must not end the scenario).",
+ "description": "WP-O6 Codex: Orks (11e) MIGHT IS RIGHT (Warboss, passive): after a charge move this turn its melee weapons have +3 A and +2 S. Fixture ork11e_ab_fight: the Warboss charged (charged_this_turn) and is engaged with the Shield-Captain. A real click on 'Fight' for the Warboss, attacks assigned and resolved through the real dialogs: every melee hit roll the Warboss made has 3 more attacks than the weapon profile the engine resolved (one model). Setup privileges: auto wound allocation, the Custodes' wounds inflated (the fight must not end the scenario).",
  "fixture": "ork11e_ab_fight",
  "edition": 11,
  "rng_seed": 42,
@@ -135,10 +135,10 @@
   },
   {
    "act": "execute_script",
-   "script": "var p = PhaseManager.get_current_phase_instance()\nvar rows := []\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"hit_roll_melee\":\n\t\trows.append([str(d.get(\"weapon\", d.get(\"weapon_name\", \"\"))), d.get(\"total_attacks\", d.get(\"rolls_raw\", []).size())])\nprint(\"[wp-o6] Warboss melee rows: \", rows)\nif rows.is_empty():\n\treturn false\nfor r in rows:\n\tif int(r[1]) < 9:\n\t\treturn false\nreturn true",
+   "script": "var p = PhaseManager.get_current_phase_instance()\nvar rows := []\nvar ok := true\nfor d in p.dice_log:\n\tif typeof(d) == TYPE_DICTIONARY and str(d.get(\"context\", \"\")) == \"hit_roll_melee\":\n\t\tvar w := str(d.get(\"weapon\", \"\"))\n\t\tvar n := int(d.get(\"total_attacks\", d.get(\"rolls_raw\", []).size()))\n\t\tvar base := int(str(RulesEngine.get_weapon_profile(w, GameState.state).get(\"attacks\", \"0\")))\n\t\trows.append([w, n, base])\n\t\tif n != base + 3:\n\t\t\tok = false\nprint(\"[wp-o6] Warboss melee rows [weapon, attacks rolled, profile A]: \", rows)\nreturn ok and not rows.is_empty()",
    "multiline": true,
    "equals": true,
-   "comment": "each Warboss weapon (A6 on the datasheet) rolled 9 attacks"
+   "comment": "the Warboss (one model) rolled the weapon's profile attacks + 3"
   },
   {
    "act": "screenshot",

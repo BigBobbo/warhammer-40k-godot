@@ -1660,6 +1660,10 @@ static func _targets(slug: String, player: int, window_id: String, ctx: Dictiona
 				var u := Common.unit(str(uid))
 				if int(u.get("owner", 0)) != player or not has(u, slug) or not Common.is_on_battlefield(u):
 					continue
+				# One drop per bommer: the trigger ("at the end of your opponent's
+				# Fight phase") happens once per phase.
+				if used_this_phase(str(uid), slug):
+					continue
 				var bid := str(uid)
 				var cands := _enemy_heads(player, func(eid): return within(bid, eid, rng_in) and _visible(bid, eid) \
 					and not _target_lone_operative(eid) and (slug == "boom_bomb" or not _is_monster_or_vehicle(eid)))

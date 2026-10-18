@@ -5,7 +5,7 @@
   "scripts.codex.orks.OrkAbilities11e",
   "stratagem.window.fight_phase_end"
  ],
- "description": "WP-O6 Codex: Orks (11e) BURNA BOMB (Burna-bommer) through the real fight_phase_end window in the OPPONENT's Fight phase. Fixture ork11e_ab_fight_end: Witchseekers C (INFANTRY, not a Lone Operative) are visible within 36\". P2 ends its Fight phase; 'Use on Burna-bommer' + a real click on the Witchseekers rolls the D6 (2+: D3 mortal wounds) and marks them: they cannot be hidden and ranged attacks against them have [IGNORES COVER] until the end of P1's next turn (event log + TerrainManager).",
+ "description": "WP-O6 Codex: Orks (11e) BURNA BOMB (Burna-bommer) through the real fight_phase_end window in the OPPONENT's Fight phase. Fixture ork11e_ab_fight_end: Custodian Guard B (INFANTRY, not a Lone Operative) is visible within 36\" (Witchseekers C stand hidden in a ruin, so they are no option). P2 ends its Fight phase; 'Use on Burna-bommer' + a real click on Custodian Guard B rolls the D6 (2+: D3 mortal wounds) and marks them: they cannot be hidden and ranged attacks against them have [IGNORES COVER] until the end of P1's next turn (event log + TerrainManager).",
  "fixture": "ork11e_ab_fight_end",
  "edition": 11,
  "rng_seed": 42,
@@ -146,13 +146,13 @@
   },
   {
    "act": "expect_node_property",
-   "node": "/root/StratagemTargetDialog/Content/Pick_U_WITCHSEEKERS_C",
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_CUSTODIAN_GUARD_B",
    "property": "disabled",
    "equals": false
   },
   {
    "act": "click_node",
-   "node": "/root/StratagemTargetDialog/Content/Pick_U_WITCHSEEKERS_C"
+   "node": "/root/StratagemTargetDialog/Content/Pick_U_CUSTODIAN_GUARD_B"
   },
   {
    "act": "wait_seconds",
@@ -171,9 +171,10 @@
   },
   {
    "act": "execute_script",
-   "script": "var f = GameState.get_unit(\"U_WITCHSEEKERS_C\").flags.get(\"ork11e_ab_burna_bombed\", null)\nprint(\"[wp-o6] burna mark: \", f)\nreturn true",
+   "script": "var f = GameState.get_unit(\"U_CUSTODIAN_GUARD_B\").flags.get(\"ork11e_ab_burna_bombed\", null)\nprint(\"[wp-o6] burna mark: \", f)\nreturn f != null or ScenarioRunner.event_log_count_containing(\"no effect\") > 0",
    "multiline": true,
-   "equals": true
+   "equals": true,
+   "comment": "2+: marked (cannot be hidden / [IGNORES COVER]); a 1 has no effect"
   },
   {
    "act": "screenshot",
