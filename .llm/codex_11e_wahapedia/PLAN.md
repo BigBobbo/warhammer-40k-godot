@@ -22,7 +22,10 @@ C and O both depend on W0–W2 and are otherwise independent.
 | W0–W2 pipeline + data tests | ✅ `e704330`: wahapedia-import / curate-from-wahapedia / verify-wahapedia-import, `npm run codex11e`, `test_wahapedia_11e_import_data.gd` |
 | C1 / O1 data | ✅ 29 Custodes + 55 Ork codex datasheets; AC stratagem/detachment rows; Ork curated stratagems re-verified (no errata) |
 | C2 / O2 army files | ✅ all 16 lists regenerated (codex sizes/points, Legends kept); legacy 1.0.19 Custodes kits frozen (D1). Save fixtures / AI-lab baselines NOT regenerated (they stay as pre-codex saves; re-baseline at the end) |
-| Rules phase | contract: `IMPLEMENTATION.md`; briefs in `briefs/`. Running: WP-C3, WP-O34. Queued: WP-O6, then WP-C5, WP-C46, WP-C7, WP-O5 |
+| Rules phase | contract: `IMPLEMENTATION.md`; briefs in `briefs/`. Merged: WP-C3, WP-O34, WP-O6. Running: WP-C5, WP-C46, WP-O5. Queued: WP-C7 |
+| C3 army rules | ✅ merged (Ka'tah rework, Aegis, Aquila Commander without the 10e bonus-CP cap, Daughters) |
+| O3/O4 army + detachments | ✅ merged (WP-O34) |
+| O6 datasheet abilities | ✅ merged `eddec58c`: 99 of 107 audited abilities implemented/re-implemented (`ork_abilities_audit.md`), 31 10e-only abilities deleted, 37 `ork11e_ab_*` scenarios; integrator re-ran 9 headless tests (0 failures) + 8 scenarios (all PASS). Not implemented: Deff from the Shadows, Pilin' Out, Pulse Jet, Big'ed Bossbunka's three, Runnin' wiv da Herd keyword swap, Get Out da Way! |
 
 Known follow-ups:
 - Tutorial: `tutorial_orks.json` / `tutorial_custodes.json` stay on their
