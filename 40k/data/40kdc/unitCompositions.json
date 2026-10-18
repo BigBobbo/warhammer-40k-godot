@@ -44083,70 +44083,43 @@
   "faction_id": "orks",
   "models": [
    {
-    "name": "Boss Nob on Warbike",
+    "name": "Biker Nob",
     "min": 1,
     "max": 1,
-    "default_weapon_ids": [
-     "close-combat-weapon",
-     "twin-dakkagun"
-    ],
-    "is_leader_model": true,
-    "base_size_mm": {
-     "shape": "oval",
-     "width": 75,
-     "length": 42
-    }
-   },
-   {
-    "name": "Warbiker",
-    "min": 2,
-    "max": 5,
-    "default_weapon_ids": [
-     "twin-dakkagun",
-     "close-combat-weapon"
-    ],
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "oval",
      "width": 75,
      "length": 42
-    }
+    },
+    "default_weapon_ids": [
+     "kustom-choppa-warbikers",
+     "dual-kombi-rokkit"
+    ],
+    "default_wargear": []
+   },
+   {
+    "name": "Warbiker",
+    "min": 2,
+    "max": 5,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "oval",
+     "width": 75,
+     "length": 42
+    },
+    "default_weapon_ids": [
+     "choppa",
+     "dual-dakkagun"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "codex-orks"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Boss Nob on Warbike",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Warbiker",
-      "min": 2,
-      "max": 2
-     }
-    ]
-   },
-   {
-    "models": [
-     {
-      "name": "Boss Nob on Warbike",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Warbiker",
-      "min": 3,
-      "max": 5
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "deffkoptas",
@@ -44770,55 +44743,42 @@
   "faction_id": "orks",
   "models": [
    {
-    "name": "Boss Nob",
+    "name": "Nob",
     "min": 1,
     "max": 1,
-    "default_weapon_ids": [
-     "rokkit-pistol",
-     "rokkit-pistol",
-     "choppa-tankbustas"
-    ],
-    "is_leader_model": true,
+    "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 40
-    }
+    },
+    "default_weapon_ids": [
+     "choppa-tankbustas",
+     "rokkit-pistol",
+     "rokkit-pistol"
+    ],
+    "default_wargear": []
    },
    {
     "name": "Tankbusta",
     "min": 5,
     "max": 5,
-    "default_weapon_ids": [
-     "rokkit-launcha-tankbustas",
-     "close-combat-weapon-tankbustas"
-    ],
     "is_leader_model": false,
     "base_size_mm": {
      "shape": "round",
      "diameter": 32
-    }
+    },
+    "default_weapon_ids": [
+     "rokkit-launcha-tankbustas",
+     "gitstikka"
+    ],
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "codex-orks"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Boss Nob",
-      "min": 1,
-      "max": 1
-     },
-     {
-      "name": "Tankbusta",
-      "min": 5,
-      "max": 5
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "kommandos",
@@ -46198,29 +46158,23 @@
     "name": "Nazdreg",
     "min": 1,
     "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 60
+    },
     "default_weapon_ids": [
      "kustom-blasta-x",
-     "kustom-blasta-x-melee",
      "moonchewa"
     ],
-    "is_leader_model": true
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "codex-orks"
+   "dataslate": "codex"
   },
-  "tiers": [
-   {
-    "models": [
-     {
-      "name": "Nazdreg",
-      "min": 1,
-      "max": 1
-     }
-    ]
-   }
-  ]
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "runtherd",
@@ -46230,17 +46184,23 @@
     "name": "Runtherd",
     "min": 1,
     "max": 1,
+    "is_leader_model": false,
+    "base_size_mm": {
+     "shape": "round",
+     "diameter": 32
+    },
     "default_weapon_ids": [
-     "slugga",
-     "runtherd-tools"
+     "runtherds-toolz",
+     "slugga"
     ],
-    "is_leader_model": true
+    "default_wargear": []
    }
   ],
   "game_version": {
    "edition": "11th",
-   "dataslate": "codex-orks"
-  }
+   "dataslate": "codex"
+  },
+  "source": "wahapedia-11e@2026-10-16"
  },
  {
   "unit_id": "ardmob-boyz",

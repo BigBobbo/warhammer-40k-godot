@@ -18,7 +18,8 @@
   ],
   "model_constraint": {
    "per_n_models": 3
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "painboy-wgo-mfm-1",
@@ -38,7 +39,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "killa-kans-wgo-mfm-1",
@@ -66,7 +68,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "lootas-wgo-mfm-1",
@@ -92,7 +95,8 @@
   "model_constraint": {
    "model_name": "Spanner",
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "wazbom-blastajet-wgo-mfm-1",
@@ -113,7 +117,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "wazbom-blastajet-wgo-mfm-2",
@@ -134,7 +139,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "wazbom-blastajet-wgo-mfm-3",
@@ -155,7 +161,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "battlewagon-wgo-mfm-1",
@@ -182,7 +189,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "battlewagon-wgo-mfm-2",
@@ -201,7 +209,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "battlewagon-wgo-mfm-3",
@@ -220,7 +229,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "battlewagon-wgo-mfm-4",
@@ -247,7 +257,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "battlewagon-wgo-mfm-5",
@@ -266,7 +277,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "breaka-boyz-wgo-mfm-1",
@@ -286,7 +298,8 @@
   "model_constraint": {
    "model_name": "Boss Nob",
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "breaka-boyz-wgo-mfm-2",
@@ -311,7 +324,8 @@
   "model_constraint": {
    "model_name": "Breaka Boy",
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "biged-bossbunka-wgo-mfm-1",
@@ -341,7 +355,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "kommandos-wgo-mfm-1",
@@ -376,7 +391,8 @@
   "model_constraint": {
    "model_name": "Kommando",
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "kommandos-wgo-mfm-2",
@@ -402,7 +418,8 @@
   "model_constraint": {
    "model_name": "Boss Nob",
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "boyz-wgo-mfm-1",
@@ -434,7 +451,8 @@
   "model_constraint": {
    "model_name": "Boy",
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "boyz-wgo-mfm-2",
@@ -456,7 +474,8 @@
   "model_constraint": {
    "model_name": "Boss Nob",
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "boyz-wgo-mfm-3",
@@ -476,7 +495,8 @@
   "model_constraint": {
    "model_name": "Boss Nob",
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "trukk-wgo-mfm-1",
@@ -496,7 +516,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "mek-gunz-wgo-mfm-1",
@@ -524,7 +545,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "stormboyz-wgo-mfm-1",
@@ -545,7 +567,8 @@
   "model_constraint": {
    "model_name": "Boss Nob",
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "deff-dread-wgo-mfm-1",
@@ -576,7 +599,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "dakkajet-wgo-mfm-1",
@@ -595,7 +619,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "big-mek-in-mega-armour-wgo-mfm-1",
@@ -623,7 +648,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "big-mek-in-mega-armour-wgo-mfm-2",
@@ -648,7 +674,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "beast-snagga-boyz-wgo-mfm-1",
@@ -670,7 +697,8 @@
   "model_constraint": {
    "model_name": "Beast Snagga Boy",
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "mek-wgo-mfm-1",
@@ -690,7 +718,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "burna-boyz-wgo-mfm-1",
@@ -715,7 +744,8 @@
   "model_constraint": {
    "model_name": "Spanner",
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "nobz-wgo-mfm-1",
@@ -737,7 +767,8 @@
   "model_constraint": {
    "model_name": "Nob",
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "nobz-wgo-mfm-2",
@@ -757,7 +788,8 @@
   "model_constraint": {
    "model_name": "Nob",
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "nobz-wgo-mfm-3",
@@ -777,7 +809,8 @@
   "model_constraint": {
    "model_name": "Boss Nob",
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "nobz-wgo-mfm-4",
@@ -799,7 +832,8 @@
   "model_constraint": {
    "model_name": "Boss Nob",
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "meganobz-wgo-mfm-1",
@@ -823,7 +857,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "meganobz-wgo-mfm-2",
@@ -849,7 +884,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "meganobz-wgo-mfm-3",
@@ -868,7 +904,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "burna-bommer-wgo-mfm-1",
@@ -889,7 +926,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "warboss-wgo-mfm-1",
@@ -910,7 +948,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "warboss-wgo-mfm-2",
@@ -931,7 +970,101 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
+ },
+ {
+  "id": "tankbustas-wgo-mfm-1",
+  "unit_id": "tankbustas",
+  "faction_id": "orks",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replaces": [
+   "rokkit-pistol"
+  ],
+  "replacement": [
+   "smash-hammer"
+  ],
+  "model_constraint": {
+   "model_name": "Boss Nob",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "tankbustas-wgo-mfm-2",
+  "unit_id": "tankbustas",
+  "faction_id": "orks",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement_choice": [
+   [
+    "pulsa-rokkit"
+   ],
+   [
+    "rokkit-launcha-tankbustas"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Tankbusta",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "warbikers-wgo-mfm-1",
+  "unit_id": "warbikers",
+  "faction_id": "orks",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement_choice": [
+   [
+    "slugga"
+   ],
+   [
+    "power-klaw"
+   ],
+   [
+    "big-choppa"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Boss Nob on Warbike",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
+ },
+ {
+  "id": "warbikers-wgo-mfm-2",
+  "unit_id": "warbikers",
+  "faction_id": "orks",
+  "game_version": {
+   "edition": "11th",
+   "dataslate": "launch"
+  },
+  "is_free": true,
+  "replacement_choice": [
+   [
+    "choppa"
+   ],
+   [
+    "slugga"
+   ]
+  ],
+  "model_constraint": {
+   "model_name": "Warbiker",
+   "any_number": true
+  },
+  "frozen_from": "40kdc-data 1.4.5"
  },
  {
   "id": "telemon-heavy-dreadnought-wgo-mfm-1",
@@ -967,7 +1100,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "telemon-heavy-dreadnought-wgo-mfm-2",
@@ -994,7 +1128,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "contemptor-achillus-dreadnought-wgo-mfm-1",
@@ -1019,7 +1154,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "contemptor-achillus-dreadnought-wgo-mfm-2",
@@ -1051,7 +1187,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "caladius-grav-tank-wgo-mfm-1",
@@ -1072,7 +1209,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "allarus-custodians-wgo-mfm-1",
@@ -1097,7 +1235,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "shield-captain-on-dawneagle-jetbike-wgo-mfm-1",
@@ -1117,7 +1256,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "knight-centura-wgo-mfm-1",
@@ -1143,7 +1283,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "anathema-psykana-rhino-wgo-mfm-1",
@@ -1163,7 +1304,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "custodian-wardens-wgo-mfm-1",
@@ -1182,7 +1324,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "vertus-praetors-wgo-mfm-1",
@@ -1202,7 +1345,8 @@
   ],
   "model_constraint": {
    "any_number": true
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "shield-captain-in-allarus-terminator-armour-wgo-mfm-1",
@@ -1222,7 +1366,8 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  },
  {
   "id": "shield-captain-wgo-mfm-1",
@@ -1249,6 +1394,7 @@
   ],
   "model_constraint": {
    "max_count": 1
-  }
+  },
+  "frozen_from": "40kdc-data 1.0.19"
  }
 ]

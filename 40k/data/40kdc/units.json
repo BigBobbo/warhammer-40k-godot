@@ -74196,14 +74196,9 @@
    "max": 6
   },
   "weapon_ids": [
-   "big-choppa",
-   "choppa",
-   "close-combat-weapon",
-   "power-klaw",
-   "slugga",
-   "twin-dakkagun",
    "dual-kombi-rokkit",
    "dual-dakkagun",
+   "choppa",
    "kustom-choppa-warbikers"
   ],
   "ability_ids": [
@@ -75534,12 +75529,11 @@
    "max": 6
   },
   "weapon_ids": [
-   "choppa-tankbustas",
-   "close-combat-weapon-tankbustas",
    "rokkit-launcha-tankbustas",
    "rokkit-pistol",
-   "smash-hammer",
-   "gitstikka"
+   "choppa-tankbustas",
+   "gitstikka",
+   "smash-hammer"
   ],
   "ability_ids": [
    "rokkit-barrage",
@@ -78419,7 +78413,6 @@
   },
   "weapon_ids": [
    "kustom-blasta-x",
-   "kustom-blasta-x-melee",
    "moonchewa"
   ],
   "ability_ids": [
@@ -78549,7 +78542,6 @@
   },
   "weapon_ids": [
    "slugga",
-   "runtherd-tools",
    "runtherds-toolz"
   ],
   "ability_ids": [

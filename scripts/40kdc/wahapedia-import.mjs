@@ -30,8 +30,15 @@
 //                       encodings are kept (Codex: Orks kits were already
 //                       ingested in 1.4.5 and the stratagem work depends on
 //                       them); only NUMBERS are refreshed — profiles, points,
-//                       weapon stats, model counts — plus weapon profiles 40kdc
-//                       lacks, and each codex detachment's enhancement list
+//                       weapon stats (paired by profile name), model counts —
+//                       plus weapon profiles 40kdc lacks. Exception (WP-O1b):
+//                       a datasheet whose printed kit differs IN SUBSTANCE
+//                       from the 40kdc kit (a row's set of default weapons;
+//                       row names, order and copy counts do not count) takes
+//                       the Wahapedia composition, wargear options and weapon
+//                       list; its 40kdc kit is frozen by legacy-kits.mjs
+//                       (--from "40kdc-data 1.4.5") for rosters built on it.
+//                       Also each codex detachment's enhancement list
 //                       (overlayEnhancements: ids kept, points / bearer /
 //                       Upgrade tag corrected, rules_text added, pre-codex
 //                       records marked superseded). Every change is listed in
@@ -323,16 +330,58 @@ export function parseComposition(rows) {
 /** Loadout text -> Map(modelName|'*' -> [weapon names]). */
 export function parseLoadout(text) {
   const out = new Map();
+  for (const [who, items] of parseLoadoutCounts(text)) out.set(who, items.map(i => i.name));
+  return out;
+}
+
+/** Loadout text -> Map(modelName|'*' -> [{name, n}]): the printed copy count
+ * kept ("1 Choppa; 2 Rokkit Pistol" -> Choppa x1, Rokkit Pistol x2). */
+export function parseLoadoutCounts(text) {
+  const out = new Map();
   const t = stripHtml(text);
   const re = /(This model|Every model|Every ([^:]+?)|The ([^:]+?)) (?:is|are) equipped with:\s*([^]*?)(?=(?:This model|Every|The [^.:]+ (?:is|are) equipped with:)|$)/gi;
   let m;
   while ((m = re.exec(t))) {
     const who = (m[2] || m[3] || '*').trim();
     const items = m[4].replace(/\.\s*$/, '').split(/;/).map(x => x.trim().replace(/\.$/, '')).filter(Boolean)
-      .map(x => x.replace(/^\d+\s+/, ''));
+      .map(x => {
+        const c = x.match(/^(\d+)\s+(.+)$/);
+        return c ? { name: c[2], n: parseInt(c[1], 10) } : { name: x, n: 1 };
+      });
     out.set(who === '*' ? '*' : who, items);
   }
   return out;
+}
+
+/** Old profile i -> index of the new profile that is the same printed
+ * profile: by name when every old name pairs with a distinct new one
+ * (Wahapedia lists Kannon as Frag, Shell; 40kdc as Shell, Frag), else by
+ * position (40kdc "Busta" vs Wahapedia "Busta Rokkit"). */
+export function pairProfiles(oldProfiles, newProfiles) {
+  const byName = oldProfiles.map(op => newProfiles.findIndex(np => looseName(np.name) === looseName(op.name)));
+  const ok = byName.every(i => i >= 0) && new Set(byName).size === byName.length;
+  return ok ? byName : oldProfiles.map((_, i) => i);
+}
+
+/** A kit's substance: each composition row's set of default weapon ids,
+ * ignoring row names, row order and duplicate counts (WP-O1b). Two kits with
+ * the same substance differ only cosmetically. */
+export function kitSubstance(comp) {
+  return JSON.stringify((comp?.models ?? [])
+    .map(m => JSON.stringify([...new Set(m.default_weapon_ids ?? [])].sort()))
+    .sort());
+}
+
+// Datasheet kits frozen from the 40kdc-data release when the overlay import
+// replaced them with the codex kit (legacy-kits.mjs --from, WP-O1b). Their
+// presence is how a re-run knows a datasheet was re-kitted (idempotent report).
+export const OVERLAY_FROZEN_FROM = '40kdc-data 1.4.5';
+function overlayFrozenKits(factionId) {
+  const p = join(DATA_DIR, 'legacy', 'unitCompositions_1.0.19.json');
+  if (!existsSync(p)) return new Map();
+  return new Map(JSON.parse(readFileSync(p, 'utf8'))
+    .filter(c => c.faction_id === factionId && c.frozen_from === OVERLAY_FROZEN_FROM)
+    .map(c => [c.unit_id, c]));
 }
 
 // ---------------------------------------------------------------------------
@@ -383,6 +432,9 @@ function main() {
     abilities: groupBy(snap.dsAbilities, 'datasheet_id'),
   };
   const wahaAbility = new Map(snap.abilities.map(a => [a.id, a]));
+
+  // --- kits an earlier overlay run replaced with the codex kit (WP-O1b)
+  const frozenKits = mode === 'overlay' ? overlayFrozenKits(factionId) : new Map();
 
   // --- existing 40kdc units of the faction, by name
   const existingUnits = data.units.filter(u => u.faction_id === factionId);
@@ -528,8 +580,12 @@ function main() {
         const old = factionWeapons.get(wid);
         const merged = structuredClone(old);
         if (old.profiles.length === record.profiles.length) {
+          // pair by profile name first: an index merge swapped the stats of
+          // Kannon Frag/Shell and Dual Kombi-rokkit Dakkagun/Busta Rokkit
+          // (the two lists order them differently) — WP-O1b
+          const pair = pairProfiles(old.profiles, record.profiles);
           old.profiles.forEach((op, i) => {
-            const np = record.profiles[i];
+            const np = record.profiles[pair[i]];
             if (canon(op.stats) !== canon(np.stats) || String(op.range) !== String(np.range)) {
               changes.push(`weapon ${wid}/${op.name}: ${JSON.stringify([op.range, op.stats])} -> ${JSON.stringify([np.range, np.stats])}`);
             }
@@ -657,7 +713,7 @@ function main() {
     }
 
     // composition + default kit
-    const loadout = parseLoadout(ds.loadout);
+    const loadout = parseLoadoutCounts(ds.loadout);
     const resolveWeapon = n => {
       const k = normName(n);
       if (weaponIdByName.has(k)) return weaponIdByName.get(k);
@@ -677,8 +733,9 @@ function main() {
           profiles.find(p => looseName(cm.name).includes(looseName(p.name))) ?? profiles[0];
         const modelRow = models.find(m => prof && normName(stripHtml(m.name)) === normName(prof.name)) ?? models[0];
         const base = parseBase(modelRow?.base_size) ?? existing?.base_size_mm ?? null;
-        const items = loadout.get(cm.name) ?? loadout.get(cm.name.replace(/s$/, '')) ??
+        const counted = loadout.get(cm.name) ?? loadout.get(cm.name.replace(/s$/, '')) ??
           [...loadout.entries()].find(([k]) => k !== '*' && looseName(k) === looseName(cm.name))?.[1] ?? loadout.get('*') ?? [];
+        const items = counted.map(i => i.name);
         // weapons only: UnitLoadoutResolver matches default_weapon_ids against
         // the unit's weapon menu; wargear (Praesidium Shield) is listed apart
         const weaponOnly = n => { const id = resolveWeapon(n); return id && [...weaponIdByName.values()].includes(id) ? id : null; };
@@ -686,7 +743,14 @@ function main() {
         const out = { name: cm.name, min: cm.min, max: cm.max, is_leader_model: false };
         if (prof && normName(prof.name) !== normName(cm.name)) out.profile_name = prof.name;
         if (base) out.base_size_mm = base;
-        out.default_weapon_ids = [...new Set(defaults)];
+        // Overlay mode lists a weapon once per printed copy, as 40kdc encodes
+        // a kit ("2 Rokkit Pistol" -> rokkit-pistol twice), so a codex kit it
+        // takes (WP-O1b) loses no copies. Full mode (Custodes) still lists each
+        // weapon once — a known gap: Telemon / Orion / Ares / Achillus print
+        // "2 <weapon>" (the engine gives a model one copy of a weapon anyway).
+        out.default_weapon_ids = mode === 'overlay'
+          ? counted.flatMap(i => { const id = weaponOnly(i.name); return id ? Array(i.n).fill(id) : []; })
+          : [...new Set(defaults)];
         out.default_wargear = items.filter(i => !weaponOnly(i));
         return out;
       }),
@@ -789,8 +853,23 @@ function main() {
         }
         unit.transport_capacity = transport;
       }
+      // Kit (WP-O1b). The 40kdc kit is kept when it differs from the printed
+      // one only cosmetically (row names, row order, copy counts). When the
+      // codex re-kitted the datasheet — a row's set of default weapons differs
+      // (Tankbustas: Gitstikka, not a Close combat weapon; Warbikers: Dual
+      // Dakkagun / Dual Kombi-rokkit, not Twin dakkaguns) — the Wahapedia
+      // composition, wargear options and weapon list are taken, and
+      // legacy-kits.mjs freezes the 40kdc kit for rosters built on it (D1).
+      // A frozen kit marks the datasheet as re-kitted on every later run.
+      const oldComp = data.unitCompositions.find(c => c.faction_id === factionId && c.unit_id === unitId);
+      const kit = c => JSON.stringify((c?.models ?? []).map(m => [looseName(m.name), m.min, m.max, [...(m.default_weapon_ids ?? [])].sort()]));
+      const frozenKit = frozenKits.get(unitId) ?? null;
+      const ownComp = oldComp?.source === SOURCE && !frozenKit; // written by an earlier run (40kdc had none)
+      const rekit = !!oldComp && !ownComp && (!!frozenKit || kitSubstance(oldComp) !== kitSubstance(compRec));
       // weapons Wahapedia lists that the 40kdc record does not reference
-      if (weaponRenames.size) {
+      if (rekit) {
+        unit.weapon_ids = [...weaponIds]; // the codex datasheet's weapons only
+      } else if (weaponRenames.size) {
         unit.weapon_ids = (existing.weapon_ids ?? []).map(w => weaponRenames.get(w) ?? w);
         const swap = ids => (ids ?? []).map(w => weaponRenames.get(w) ?? w);
         for (const c of data.unitCompositions) {
@@ -823,11 +902,14 @@ function main() {
         if (JSON.stringify(existing.points) !== JSON.stringify(unit.points)) changes.push(`points: ${fmtPoints(existing.points)} -> ${fmtPoints(unit.points)}`);
         if (JSON.stringify(existing.model_count) !== JSON.stringify(unit.model_count)) changes.push(`model_count: ${JSON.stringify(existing.model_count)} -> ${JSON.stringify(unit.model_count)}`);
       }
-      // kit check: compare default weapons with the 40kdc composition
-      const oldComp = data.unitCompositions.find(c => c.faction_id === factionId && c.unit_id === unitId);
-      const kit = c => JSON.stringify((c?.models ?? []).map(m => [looseName(m.name), m.min, m.max, [...(m.default_weapon_ids ?? [])].sort()]));
-      if (oldComp && kit(oldComp) !== kit(compRec)) changes.push(`kit differs (kept 40kdc): ${kit(oldComp)} vs Wahapedia ${kit(compRec)}`);
-      else if (!oldComp) { newComps.set(unitId, compRec); newOptions.set(unitId, opts); changes.push('composition: NEW (40kdc had none)'); }
+      if (!oldComp) { newComps.set(unitId, compRec); newOptions.set(unitId, opts); changes.push('composition: NEW (40kdc had none)'); }
+      else if (rekit) {
+        newComps.set(unitId, compRec);
+        newOptions.set(unitId, opts);
+        changes.push(`kit re-kitted by the codex — Wahapedia composition, wargear options and weapon list taken: 40kdc ${kit(frozenKit ?? oldComp)} -> ${kit(compRec)}`);
+        if (!frozenKit) changes.push(`WARNING: the 40kdc kit is not frozen in legacy/ yet — run legacy-kits.mjs --from "${OVERLAY_FROZEN_FROM}" (D1: rosters built on it keep it)`);
+      } else if (ownComp) { newComps.set(unitId, compRec); newOptions.set(unitId, opts); }
+      else if (kit(oldComp) !== kit(compRec)) changes.push(`kit differs only cosmetically (kept 40kdc — row names / order / copy counts): ${kit(oldComp)} vs Wahapedia ${kit(compRec)}`);
     }
     unit.source = SOURCE;
     touchedUnitIds.add(unitId);
@@ -1057,6 +1139,8 @@ export function parseOption(r, i, unitId, factionId, resolveWeapon, SOURCE) {
   else if ((m = text.match(/^Up to (\d+) (?:([^:]+?) )?models? can/i))) rec.model_constraint = { max: parseInt(m[1], 10), ...(m[2] ? { model_name: m[2] } : {}) };
   else if ((m = text.match(/^(\d+) (?:([^:]+?) )?models? can/i))) rec.model_constraint = { max: parseInt(m[1], 10), ...(m[2] ? { model_name: m[2] } : {}) };
   else if (/^(This model|The [^’']+?['’]s?)/i.test(text)) rec.model_constraint = { max: 1 };
+  // "The Nob can have their Rokkit Pistol replaced with ..." (Codex: Orks)
+  else if ((m = text.match(/^The ([^’':]+?) can (?:have|be)\b/i))) rec.model_constraint = { max: 1, model_name: m[1] };
   // swap / add
   if ((m = text.match(/(?:their|its|This model’s|This model's|[’']s?)\s*(.+?) (?:can be )?replaced with (?:one of the following:)?\s*(.+)$/i))) {
     const replaces = splitItems(m[1].replace(/^(their|its)\s+/i, ''));
