@@ -376,8 +376,26 @@
       "equals": true
     },
     {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"used Sweeping Advance\")",
+      "expect_min": 1
+    },
+    {
       "act": "screenshot",
       "label": "04_sweeping_advance_done"
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton",
+      "comment": "decline the WP-C5 phase_end card (not under test)"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "screenshot",
+      "label": "05_jetbike_moved_3in_back"
     }
   ]
 }
