@@ -73685,7 +73685,22 @@
    "walking-bastion"
   ],
   "transport_capacity": {
-   "capacity": 20
+   "capacity": 22,
+   "rules_text": "This model has a transport capacity of 22 ORKS INFANTRY models. Each MEGA ARMOUR, JUMP PACK model takes up the space of 2 models. Each GHAZGHKULL THRAKA model takes up the space of 4 models.",
+   "multipliers": [
+    {
+     "keyword": "Mega Armour",
+     "spaces": 2
+    },
+    {
+     "keyword": "Jump Pack",
+     "spaces": 2
+    },
+    {
+     "keyword": "Ghazghkull Thraka",
+     "spaces": 4
+    }
+   ]
   },
   "game_version": {
    "edition": "11th",
@@ -74869,7 +74884,22 @@
    "mobile-fortress"
   ],
   "transport_capacity": {
-   "capacity": 22
+   "capacity": 22,
+   "rules_text": "This model has a transport capacity of 22 Orks Infantry models. Each Mega Armour/Jump Pack model takes up the space of 2 models. Each Ghazghkull Thraka model takes up the space of 4 models.",
+   "multipliers": [
+    {
+     "keyword": "Mega Armour",
+     "spaces": 2
+    },
+    {
+     "keyword": "Jump Pack",
+     "spaces": 2
+    },
+    {
+     "keyword": "Ghazghkull Thraka",
+     "spaces": 4
+    }
+   ]
   },
   "game_version": {
    "edition": "11th",
@@ -75041,7 +75071,21 @@
    "big-an-shooty"
   ],
   "transport_capacity": {
-   "capacity": 12
+   "capacity": 12,
+   "rules_text": "This model has a transport capacity of 12 Orks Infantry models. It cannot transport Ghazghkull Thraka models. Each Mega Armour/Jump Pack model takes up the space of 2 models.",
+   "exclusion_keywords": [
+    "Ghazghkull Thraka"
+   ],
+   "multipliers": [
+    {
+     "keyword": "Mega Armour",
+     "spaces": 2
+    },
+    {
+     "keyword": "Jump Pack",
+     "spaces": 2
+    }
+   ]
   },
   "game_version": {
    "edition": "11th",
@@ -75297,7 +75341,22 @@
    "waaagh-effigy-aura"
   ],
   "transport_capacity": {
-   "capacity": 22
+   "capacity": 22,
+   "rules_text": "This model has a transport capacity of 22 Orks Infantry models. Each Mega Armour/Jump Pack model takes up the space of 2 models. Each Ghazghkull Thraka model takes up the space of 4 models.",
+   "multipliers": [
+    {
+     "keyword": "Mega Armour",
+     "spaces": 2
+    },
+    {
+     "keyword": "Jump Pack",
+     "spaces": 2
+    },
+    {
+     "keyword": "Ghazghkull Thraka",
+     "spaces": 4
+    }
+   ]
   },
   "game_version": {
    "edition": "11th",
@@ -75372,7 +75431,21 @@
    "ramshackle-cover"
   ],
   "transport_capacity": {
-   "capacity": 11
+   "capacity": 11,
+   "rules_text": "This model has a transport capacity of 11 Orks Infantry models. It cannot transport Ghazghkull Thraka models. Each Mega Armour/Jump Pack model takes up the space of 2 models.",
+   "exclusion_keywords": [
+    "Ghazghkull Thraka"
+   ],
+   "multipliers": [
+    {
+     "keyword": "Mega Armour",
+     "spaces": 2
+    },
+    {
+     "keyword": "Jump Pack",
+     "spaces": 2
+    }
+   ]
   },
   "game_version": {
    "edition": "11th",
@@ -75777,7 +75850,15 @@
   "transport_capacity": {
    "capacity": 12,
    "exclusion_keywords": [
+    "Ghazghkull Thraka",
     "Jump Pack"
+   ],
+   "rules_text": "This model has a transport capacity of 12 Orks Infantry models. It cannot transport Ghazghkull Thraka/Jump Pack models. Each Mega Armour model takes up the space of 2 models.",
+   "multipliers": [
+    {
+     "keyword": "Mega Armour",
+     "spaces": 2
+    }
    ]
   },
   "game_version": {
@@ -75949,7 +76030,18 @@
   "transport_capacity": {
    "capacity": 12,
    "exclusion_keywords": [
-    "Jump Pack"
+    "Ghazghkull Thraka"
+   ],
+   "rules_text": "This model has a transport capacity of 12 Orks Infantry models. It cannot transport Ghazghkull Thraka models. Each Mega Armour/Jump Pack model takes up the space of 2 models.",
+   "multipliers": [
+    {
+     "keyword": "Mega Armour",
+     "spaces": 2
+    },
+    {
+     "keyword": "Jump Pack",
+     "spaces": 2
+    }
    ]
   },
   "game_version": {
@@ -77298,7 +77390,8 @@
    "warpath-psychic-kill-rig"
   ],
   "transport_capacity": {
-   "capacity": 11
+   "capacity": 12,
+   "rules_text": "This model has a transport capacity of 12 Beast Snaggas Infantry models."
   },
   "game_version": {
    "edition": "11th",
@@ -77778,7 +77871,8 @@
    "tramplasquig-charge"
   ],
   "transport_capacity": {
-   "capacity": 21
+   "capacity": 22,
+   "rules_text": "This model has a transport capacity of 22 Beast Snaggas Infantry models."
   },
   "game_version": {
    "edition": "11th",
@@ -78270,7 +78364,25 @@
    "deadly-demise-d6",
    "mobile-arsenal"
   ],
-  "source": "wahapedia-11e@2026-10-16"
+  "source": "wahapedia-11e@2026-10-16",
+  "transport_capacity": {
+   "capacity": 12,
+   "rules_text": "This model has a transport capacity of 12 Orks Infantry models. Each Mega Armour/Jump Pack model takes up the space of 2 models. Each Ghazghkull Thraka model takes up the space of 4 models.",
+   "multipliers": [
+    {
+     "keyword": "Mega Armour",
+     "spaces": 2
+    },
+    {
+     "keyword": "Jump Pack",
+     "spaces": 2
+    },
+    {
+     "keyword": "Ghazghkull Thraka",
+     "spaces": 4
+    }
+   ]
+  }
  },
  {
   "id": "nazdreg",

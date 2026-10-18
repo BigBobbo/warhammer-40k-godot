@@ -713,6 +713,15 @@ function main() {
       transport = { ...(existing?.transport_capacity ?? {}), capacity: parseInt(tm[1], 10), rules_text: transportText };
       const ex = transportText.match(/cannot transport ([^.]+?) models/i);
       if (ex) transport.exclusion_keywords = ex[1].split(/\/|,| or /).map(s => titleCase(s.trim())).filter(Boolean);
+      else delete transport.exclusion_keywords;
+      // "Each Mega Armour/Jump Pack model takes up the space of 2 models."
+      const mults = [];
+      for (const mm of transportText.matchAll(/Each ([^.]+?) models? takes? up the space of (\d+) models/gi)) {
+        for (const k of mm[1].split(/\/|,| or /).map(s => titleCase(s.trim())).filter(Boolean)) {
+          mults.push({ keyword: k, spaces: parseInt(mm[2], 10) });
+        }
+      }
+      if (mults.length) transport.multipliers = mults; else delete transport.multipliers;
     } else if (!transportText) transport = null;
 
     const roleText = ds.role.toLowerCase();
@@ -773,6 +782,13 @@ function main() {
       unit.points = points.length ? points : existing.points;
       unit.model_count = { min: minModels, max: maxModels };
       if (wargearCosts.length) unit.wargear_points = wargearCosts;
+      // the printed transport rule (capacity, exclusions, space multipliers)
+      if (transport) {
+        if (JSON.stringify(existing.transport_capacity ?? null) !== JSON.stringify(transport)) {
+          changes.push(`transport: ${JSON.stringify(existing.transport_capacity ?? null)} -> ${JSON.stringify(transport)}`);
+        }
+        unit.transport_capacity = transport;
+      }
       // weapons Wahapedia lists that the 40kdc record does not reference
       if (weaponRenames.size) {
         unit.weapon_ids = (existing.weapon_ids ?? []).map(w => weaponRenames.get(w) ?? w);
