@@ -54,6 +54,9 @@
 #     Dread, AI rule choices; the 10e Custodes detachment code is gone
 #   - Codex: Adeptus Custodes (11e) enhancements (WP-C46): all 29 codex
 #     enhancements + data-driven army-construction validation
+#   - per-model loadout resolution over every army file (MA-LOADOUT; codex
+#     kits per role, a weapon's profiles counted as one weapon — WP-O1b) and
+#     the transport audit (capacity / exclusions / space multipliers)
 #
 # Usage: ./tests/run_pretrigger_tests.sh
 # Exits 0 if all tests pass, 1 otherwise.
@@ -262,6 +265,8 @@ TESTS=(
     "tests/test_fight_phase_scope_end_fight_11e.gd"
     "tests/test_ork_army_rules_11e.gd"
     "tests/test_ork_detachments_11e.gd"
+    "tests/test_loadout_resolution.gd"
+    "tests/test_transport_audit_2026_07.gd"
 )
 
 FAILED=0
