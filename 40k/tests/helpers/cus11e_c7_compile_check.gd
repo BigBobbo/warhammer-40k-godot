@@ -25,6 +25,12 @@ const SCRIPTS := [
 	"res://scripts/DiceLogFormatter.gd",
 	"res://scripts/rules/movetypes/FallBackMove.gd",
 	"res://scripts/codex/custodes/CustodesCodexOther.gd",
+	"res://scripts/rules/movetypes/ChargeMove11e.gd",
+	# merged from WP-C46 (integration tip 4700afbf)
+	"res://scripts/codex/custodes/CustodesDetachments.gd",
+	"res://scripts/codex/custodes/CustodesEnhancements.gd",
+	"res://scripts/codex/EnhancementRules11e.gd",
+	"res://scripts/CommandController.gd",
 ]
 
 func _initialize() -> void:

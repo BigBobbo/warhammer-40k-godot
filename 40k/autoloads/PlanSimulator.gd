@@ -320,8 +320,9 @@ func _reset_faction_abilities(root: Node) -> void:
 	"""THE determinism-breaker. FactionAbilityManager has no reset entry point
 	of any kind, and its per-game dictionaries are fixed-shape {"1":…, "2":…} —
 	so a size fingerprint cannot see them leak. PM-8a found it by action trace:
-	game 2 skipped SELECT_MARTIAL_MASTERY because _active_mastery still held
-	game 1's value, and the whole game diverged from there."""
+	game 2 skipped a once-per-battle-round choice (the 10e Martial Mastery,
+	since removed) because game 1's value still held, and the whole game
+	diverged from there."""
 	var fam = root.get_node_or_null("FactionAbilityManager")
 	if fam == null:
 		return
@@ -334,8 +335,6 @@ func _reset_faction_abilities(root: Node) -> void:
 	fam._player_detachment = {"1": "", "2": ""}
 	fam._doctrines_used = {"1": [], "2": []}
 	fam._active_doctrine = {"1": "", "2": ""}
-	fam._active_mastery = {"1": "", "2": ""}
-	fam._mastery_selected_round = {"1": 0, "2": 0}
 	fam._loot_objective = {"1": "", "2": ""}
 	fam._loot_objective_round = {"1": 0, "2": 0}
 	fam._da_kaptin_used_round = {"1": 0, "2": 0}
@@ -344,7 +343,6 @@ func _reset_faction_abilities(root: Node) -> void:
 	fam._razgit_redeploys_used = {"1": 0, "2": 0}
 	fam._razgit_resolved = false
 	fam._morks_kunnin_redeploys_used = {"1": 0, "2": 0}
-	fam._aao_status = {}
 
 
 func _reset_mission_manager(root: Node) -> void:

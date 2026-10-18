@@ -79,12 +79,18 @@ func enter_phase(state_snapshot: Dictionary) -> void:
 		_ev_deferred = _ev_deferred.filter(func(e): return str(e.get("window_id", "")) != "phase_start")
 	# Units destroyed / battle-shocked by phase-start rules (e.g. Big Gob).
 	_window_events_flush({})
+	# Codex: Adeptus Custodes (11e) "at the start of any phase" enhancements —
+	# Pareldor's Caducatrix, Inspirational Exemplar, Sally Forth (Charge phase):
+	# a rule-only window, opened only when someone has an offer (CustodesEnhancements.gd, WP-C46).
+	_cus11e_open_phase_start_window()
 
 func exit_phase() -> void:
 	_on_phase_exit()
 	# Codex: Adeptus Custodes — the ka'tah effects that lasted for this phase
 	# expire (CustodesKatah.gd; Conservai lasts until the end of the turn).
 	_cus11e_katah().on_phase_exit(int(phase_type))
+	# Codex: Adeptus Custodes (11e) detachment / enhancement phase-scoped choices expire (WP-C46).
+	_cus11e_det().on_phase_end(int(phase_type))
 
 	# Clear debug visualizations on any phase exit
 	_clear_debug_visualizations()
@@ -453,6 +459,24 @@ func open_stratagem_windows(entries: Array, resume_method: String, resume_ctx: D
 ## every phase script).
 static func _cus11e_katah():
 	return load("res://scripts/codex/custodes/CustodesKatah.gd")
+
+## Codex: Adeptus Custodes (11e) detachment rules + enhancements (WP-C46).
+static func _cus11e_det():
+	return load("res://scripts/codex/custodes/CustodesDetachments.gd")
+
+## The start-of-phase rule window (CustodesEnhancements.WINDOW_PHASE_START):
+## resume-less, so the phase's own entry flow is untouched — a pending window
+## (e.g. the Fight phase's start window) queues it behind; while it waits for
+## a human, the phase's actions wait too.
+func _cus11e_open_phase_start_window() -> void:
+	var e = _cus11e_det().enh()
+	if e == null or PhaseManager.get_current_phase_instance() != self:
+		return
+	var entries: Array = e.phase_start_window_entries()
+	if entries.is_empty():
+		return
+	DebugLogger.info("[StratagemWindow] start of phase %d — Codex: Adeptus Custodes enhancement window(s) for %s" % [int(phase_type), str(entries.map(func(x): return x.player))])
+	open_stratagem_windows(entries, "", {})
 
 ## Codex: Adeptus Custodes stratagems (WP-C5, CustodesCodex11e.gd): the new
 ## windows' hooks and the effect consumers the phases call. Loaded lazily.

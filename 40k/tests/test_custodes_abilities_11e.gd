@@ -743,6 +743,7 @@ func _section_assault_vehicle() -> void:
 	var c := {"phase": "movement", "unit_id": "U_CORONUS_A", "window_id": "unit_ended_advance_move"}
 	_check("no ability card at the end of an advance move (documented gap)", CA.window_offers(1, "unit_ended_advance_move", c).is_empty())
 	_check("ABILITY_EFFECTS row says it is not implemented", str(UAM.ABILITY_EFFECTS.get("Assault Vehicle", {}).get("description", "")).contains("not implemented"))
+	_check("... and is_ability_implemented says so", not UAM.is_ability_implemented("Assault Vehicle"))
 
 
 # ---------------------------------------------------------------------------
@@ -1192,6 +1193,7 @@ func _section_advanced_firepower() -> void:
 	var m := _mods("U_ANNIHILATOR_A", "U_DEFF_DREAD_A", false)
 	_check("the 10e weapon/target [LETHAL HITS] rule is gone", not bool(m.lethal))
 	_check("RulesEngine.check_advanced_firepower_lethal_hits removed", not RE.has_method("check_advanced_firepower_lethal_hits"))
+	_check("the ABILITY_EFFECTS row is honest: not implemented (single-die re-rolls)", not UAM.is_ability_implemented("Advanced Firepower"))
 
 
 # ---------------------------------------------------------------------------

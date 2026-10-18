@@ -337,10 +337,6 @@ func _format_action(action: Dictionary, action_type: String, player: int) -> Str
 			if doctrine != "":
 				return prefix + "Activated the %s doctrine" % doctrine.capitalize()
 			return prefix + "Selected a Combat Doctrine"
-		"SELECT_MARTIAL_MASTERY":
-			if ai_desc != "":
-				return prefix + ai_desc
-			return prefix + "%s uses Martial Mastery" % unit_name
 		"PERFORM_SECONDARY_ACTION", "START_ACTION", "PERFORM_RITUAL_ACTION", "PERFORM_TERRAFORM_ACTION":
 			if ai_desc != "":
 				return prefix + ai_desc

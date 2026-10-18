@@ -423,8 +423,8 @@ func _check_kill_diffs(changes: Array) -> void:
 					_resolve_transport_destruction_if_applicable(unit_id)
 					# P1-13: Check for Deadly Demise on destroyed unit
 					_resolve_deadly_demise_if_applicable(unit_id)
-						# Superior Creation (Lions enhancement): queue the end-of-phase revival roll
-					_record_superior_creation_if_applicable(unit_id)
+					# (Codex: Adeptus Custodes Superior Creation rolls at the end of the
+					# phase — PhaseManager -> CustodesEnhancements.gd, WP-C46.)
 					# P3-32: Check if destroyed unit is a transport with embarked units
 					_resolve_transport_destroyed_if_applicable(unit_id)
 
@@ -490,18 +490,6 @@ func _resolve_transport_destruction_if_applicable(destroyed_unit_id: String) -> 
 
 		# Recursively check if transport destruction casualties caused further deaths
 		_check_kill_diffs(result.all_diffs)
-
-func _record_superior_creation_if_applicable(destroyed_unit_id: String) -> void:
-	"""Superior Creation (Lions of the Emperor): first bearer death queues a
-	2+ revival roll that PhaseManager resolves at the end of the phase."""
-	var result = RulesEngine.record_superior_creation_death(destroyed_unit_id, GameState.state)
-	if not result.get("applicable", false):
-		return
-	var diffs = result.get("diffs", [])
-	if not diffs.is_empty():
-		PhaseManager.apply_state_changes(diffs)
-	var _sc_meta = GameState.state.get("units", {}).get(destroyed_unit_id, {}).get("meta", {})
-	log_phase_message("Superior Creation: %s destroyed — revival roll (2+) at end of phase" % _sc_meta.get("name", destroyed_unit_id))
 
 ## Deadly Demise is resolved by this phase's own kill detection
 ## (_check_kill_diffs), not by the BasePhase generic event path.
@@ -2854,6 +2842,9 @@ func _get_consolidation_distance(unit_id: String) -> float:
 	if flag_max > dist:
 		log_phase_message("Consolidation distance %.0f\" for %s (effect_consolidate_max)" % [flag_max, unit_id])
 		dist = flag_max
+	# Codex: Adeptus Custodes (11e) Unstoppable Destroyer / Dacatarai (WP-C46).
+	if GameConstants.edition >= 11:
+		dist = float(_cus11e_det().fight_move_cap(unit_id, dist))
 	return dist
 
 # 11e: a unit's activation ends when its attacks are resolved — there is
@@ -3328,6 +3319,10 @@ func _get_fight_priority(unit: Dictionary) -> int:
 			if "fights_first" in ability_str:
 				has_fights_first = true
 				break
+	# Codex: Adeptus Custodes (11e) Heralds of the Throne (Emissaries
+	# Imperatus): friendly ADEPTUS CUSTODES units have Fights First (WP-C46).
+	if not has_fights_first and _cus11e_det().has_fights_first(unit):
+		has_fights_first = true
 
 	# Determine Fights Last status
 	var has_fights_last = unit.get("status_effects", {}).get("fights_last", false)
@@ -6277,13 +6272,24 @@ func _fight_pivot_cost_for_model(unit: Dictionary, model: Dictionary) -> float:
 func _fight_effective_move_cap(unit: Dictionary, model: Dictionary, rotations: Dictionary, key, base_cap: float = 3.0) -> float:
 	# The positional distance a model may move: 3" minus the pivot cost if the
 	# action pivots it (new facing differs from its current stored facing).
-	var cap := base_cap
+	# Codex: Adeptus Custodes (11e) — Unstoppable Destroyer (4") and Dread
+	# Host Favoured Dacatarai (-2" for an enemy engaged with that unit) change
+	# the base (CustodesDetachments.fight_move_cap, WP-C46); base_cap is the
+	# step's base (3", or LIGHTNING WRATH's D3+3" pile-in — WP-C5).
+	var cap: float = _fight_base_move_cap(str(unit.get("id", "")), base_cap)
 	var new_rot = _fight_rotation_for_key(rotations, key)
 	if new_rot != null:
 		var old_rot = float(model.get("rotation", 0.0))
 		if abs(float(new_rot) - old_rot) > 0.001:
 			cap -= _fight_pivot_cost_for_model(unit, model)
 	return max(0.0, cap)
+
+## The pile-in / consolidation base distance before pivot costs: 3", or the
+## Codex: Adeptus Custodes (11e) adjusted cap (WP-C46).
+func _fight_base_move_cap(unit_id: String, base: float = 3.0) -> float:
+	if unit_id == "" or GameConstants.edition < 11:
+		return base
+	return float(_cus11e_det().fight_move_cap(unit_id, base))
 
 func _fight_rotation_for_key(rotations: Dictionary, key):
 	# Rotations may be keyed by array index ("0") or model id ("m1"), matching
@@ -6395,8 +6401,10 @@ func _validate_pile_in_11e(action: Dictionary) -> Dictionary:
 		var pile_base_cap := maxf(3.0, float(_cus11e_codex().pile_in_inches(unit_id))) if pile_in_step_11e == PileInStep11e.ACTIVE else 3.0
 		var cap = _fight_effective_move_cap(get_unit(route.unit_id), move_model, rotations, key, pile_base_cap)
 		if dist > cap + MOVEMENT_CAP_EPSILON:
-			if cap < pile_base_cap:
+			if cap < _fight_base_move_cap(route.unit_id, pile_base_cap):
 				errors.append("Model %s pile in exceeds %.0f\" limit after pivot cost (%.1f\")" % [str(key), cap, dist])
+			elif cap != 3.0:
+				errors.append("Model %s pile in exceeds %.0f\" limit (%.1f\")" % [str(key), cap, dist])
 			else:
 				errors.append("Model %s pile in exceeds %.0f\" limit (%.1f\")" % [str(key), pile_base_cap, dist])
 		if dist > 0.01:
@@ -6450,7 +6458,9 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 	var el = tmpl.eligible(unit_id, folded_board)
 	if not el.eligible:
 		return {"valid": false, "errors": el.reasons}
-	var sel = tmpl.select_mode(unit_id, folded_board)
+	# Codex: Adeptus Custodes (11e) Unstoppable Destroyer: a free mode choice
+	# (action.chosen_mode) among the applicable modes (WP-C46).
+	var sel = tmpl.select_mode(unit_id, folded_board, {"chosen_mode": str(action.get("chosen_mode", ""))})
 	var mode = str(sel.mode)
 	# Per-model consolidation is optional (FAQ): an empty payload completes
 	# the mandatory step without moving. Only validate geometry when models
@@ -6489,8 +6499,10 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 		var move_model = _resolve_fight_model(route.unit_id, route.model_key)
 		var cap = _fight_effective_move_cap(get_unit(route.unit_id), move_model, rotations, key)
 		if dist > cap + MOVEMENT_CAP_EPSILON:
-			if cap < 3.0:
+			if cap < _fight_base_move_cap(route.unit_id):
 				errors.append("Model %s consolidation exceeds %.0f\" limit after pivot cost (%.1f\")" % [str(key), cap, dist])
+			elif cap != 3.0:
+				errors.append("Model %s consolidation exceeds %.0f\" limit (%.1f\")" % [str(key), cap, dist])
 			else:
 				errors.append("Model %s consolidation exceeds 3\" limit (%.1f\")" % [str(key), dist])
 		if dist > 0.01:
@@ -6534,13 +6546,17 @@ func _validate_consolidate_11e(action: Dictionary) -> Dictionary:
 # first) for the dialog's "Consolidate toward:" picker. `chosen_objective` is
 # the player's pick from that picker — 12.08 BEFORE lets them select any
 # objective the unit is within 3" of; an empty pick means "the closest".
-func get_consolidation_context_11e(unit_id: String, chosen_objective: String = "") -> Dictionary:
+func get_consolidation_context_11e(unit_id: String, chosen_objective: String = "", chosen_mode: String = "") -> Dictionary:
 	var empty := {"mode": "", "targets": [], "objective": "", "objective_options": []}
 	var tmpl: ConsolidationMove = MoveTypes.get_type("consolidation")
 	if tmpl == null or get_unit(unit_id).is_empty():
 		return empty
 	var folded_board = _fight_folded_board(unit_id, GameState.state)
-	var mode = str(tmpl.select_mode(unit_id, folded_board).mode)
+	# Unstoppable Destroyer (Codex: Adeptus Custodes 11e, WP-C46): when the
+	# mandatory order is lifted, `available_modes` lists the choices and
+	# `chosen_mode` picks one.
+	var sel_ctx = tmpl.select_mode(unit_id, folded_board, {"chosen_mode": chosen_mode})
+	var mode = str(sel_ctx.mode)
 	if mode == "":
 		return empty
 	# 12.08 BEFORE: Objective mode is "select ONE of those objectives" — pass the
@@ -6548,6 +6564,9 @@ func get_consolidation_context_11e(unit_id: String, chosen_objective: String = "
 	var ctx = tmpl.before_moving(unit_id, folded_board, null,
 		{"mode": mode, "chosen_objective": chosen_objective})
 	ctx["mode"] = mode
+	if str(sel_ctx.get("free_choice_source", "")) != "":
+		ctx["available_modes"] = sel_ctx.get("available", [mode])
+		ctx["free_choice_source"] = str(sel_ctx.free_choice_source)
 	if mode == "objective":
 		ctx["objective_position"] = consolidation_objective_position_11e(str(ctx.get("objective", "")))
 		ctx["objective_options"] = consolidation_objective_options_11e(ctx)

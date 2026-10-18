@@ -973,21 +973,20 @@ func _test_t074_enhancement_system() -> void:
 
 
 func _test_t075_talons_auras() -> void:
-	print("\n-- T-075: Null Aegis + Deadly Unity faction auras (impl 2026-05-06) --")
+	# WP-C46 (2026-10): the 10e Talons of the Emperor detachment is retired —
+	# Codex: Adeptus Custodes 11e has no Talons detachment, so its Null Aegis /
+	# Deadly Unity auras must NOT apply to every Custodes army. Pin the removal.
+	print("\n-- T-075 (retired WP-C46): 10e Talons auras removed --")
 	var uam = _read("res://autoloads/UnitAbilityManager.gd")
-	_check("Null Aegis (Aura) ABILITY_EFFECTS entry present",
-		"\"Null Aegis (Aura)\":" in uam and "\"implemented\": true" in uam.substr(uam.find("\"Null Aegis (Aura)\":")))
-	_check("Deadly Unity (Aura) ABILITY_EFFECTS entry present",
-		"\"Deadly Unity (Aura)\":" in uam)
-	_check("get_null_aegis_fnp helper defined",
-		"func get_null_aegis_fnp(target_unit_id: String)" in uam)
-	_check("get_deadly_unity_hit_bonus helper defined",
-		"func get_deadly_unity_hit_bonus(target_unit_id: String)" in uam)
-	_check("_is_within_friendly_anathema_psykana helper defined",
-		"func _is_within_friendly_anathema_psykana" in uam)
+	_check("Null Aegis (Aura) ABILITY_EFFECTS entry retired",
+		not ("\"Null Aegis (Aura)\":" in uam))
+	_check("Deadly Unity (Aura) ABILITY_EFFECTS entry retired",
+		not ("\"Deadly Unity (Aura)\":" in uam))
+	_check("get_null_aegis_fnp helper retired",
+		not ("func get_null_aegis_fnp(" in uam))
 	var rules = _read("res://autoloads/RulesEngine.gd")
-	_check("RulesEngine.get_unit_fnp_for_attack reads Null Aegis",
-		"get_null_aegis_fnp" in rules)
+	_check("RulesEngine no longer reads Null Aegis",
+		not ("get_null_aegis_fnp" in rules))
 
 
 func _test_t078_shoot_qol() -> void:

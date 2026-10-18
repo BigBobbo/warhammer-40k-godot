@@ -165,6 +165,10 @@ static func get_equipped_weapons(unit: Dictionary) -> Array:
 		var wname := str(w.get("name", ""))
 		if allowed.has(_slug(wname)) or allowed.has(_slug(_base_name(wname))):
 			out.append(w)
+		elif str(w.get("granted_by", "")) != "":
+			# An enhancement-granted weapon (e.g. Codex: Adeptus Custodes
+			# Emperor's Light) is never roster wargear — always carried.
+			out.append(w)
 
 	if out.is_empty():
 		# Defensive: never blank out the weapons section.

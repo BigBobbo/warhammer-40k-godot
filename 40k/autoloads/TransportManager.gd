@@ -313,6 +313,12 @@ func disembark_unit(unit_id: String, positions: Array) -> void:
 	GameState.state.units[unit_id] = unit
 	GameState.state.units[transport_id] = transport
 
+	# Codex: Adeptus Custodes (11e) Combat Deployment (Grav-Assault Force): a
+	# friendly ADEPTUS CUSTODES unit that disembarks from the bearer TRANSPORT
+	# can re-roll charge rolls and cannot be snap-shot this turn (WP-C46).
+	if GameConstants.edition >= 11:
+		load("res://scripts/codex/custodes/CustodesDetachments.gd").on_unit_disembarked(unit_id, str(transport_id))
+
 	emit_signal("disembark_completed", unit_id)
 	print("Unit %s disembarked from transport %s" % [unit_id, transport_id])
 

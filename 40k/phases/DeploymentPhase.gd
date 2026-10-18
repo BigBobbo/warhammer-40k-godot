@@ -42,14 +42,12 @@ func _setup_deployment_controller() -> void:
 func _initialize_deployment() -> void:
 	# Check if deployment is already complete
 	if _all_units_deployed():
-		# Issue #397: if a Castellan's Mark bearer exists, hold the phase
-		# open so the redeploy action can be dispatched before advancing.
-		if find_castellan_mark_bearer_player() > 0:
-			log_phase_message("All units deployed but Castellan's Mark bearer found — awaiting redeploy")
-		else:
-			log_phase_message("All units already deployed, completing phase")
-			emit_signal("phase_completed")
-			return
+		# WP-C46: the 10e Shield Host Castellan's Mark hold is gone — the 11e
+		# Castellan's Mark (Guardians of the Throne) is a Redeploy-step
+		# enhancement resolved by RedeploymentPhase, after this phase ends.
+		log_phase_message("All units already deployed, completing phase")
+		emit_signal("phase_completed")
+		return
 
 	# Initial player setting is handled by TurnManager via _handle_deployment_phase_start()
 	log_phase_message("Deployment phase initialized")
@@ -77,8 +75,6 @@ func validate_action(action: Dictionary) -> Dictionary:
 			return _validate_embark_units_deployment(action)
 		"ATTACH_CHARACTER_DEPLOYMENT":
 			return _validate_attach_character_deployment(action)
-		"CASTELLAN_REDEPLOY":
-			return _validate_castellan_redeploy(action)
 		"REPAIR_FORMATION_ATTACHMENT":
 			return _validate_repair_formation_attachment(action)
 		"DEBUG_MOVE":
@@ -635,8 +631,6 @@ func process_action(action: Dictionary) -> Dictionary:
 			return _process_embark_units_deployment(action)
 		"ATTACH_CHARACTER_DEPLOYMENT":
 			return _process_attach_character_deployment(action)
-		"CASTELLAN_REDEPLOY":
-			return _process_castellan_redeploy(action)
 		"REPAIR_FORMATION_ATTACHMENT":
 			return _process_repair_formation_attachment(action)
 		_:
@@ -1434,150 +1428,6 @@ func _should_complete_phase() -> bool:
 func _on_deployment_complete() -> void:
 	log_phase_message("Deployment completed")
 	emit_signal("phase_completed")
-
-# ============================================================================
-# CASTELLAN'S MARK (Issue #397) — post-deployment redeploy of up to 2 units
-# ============================================================================
-# Per Wahapedia (Shield Host enhancement): "Shield-Captain model only. After
-# both players have deployed their armies, you can select up to two Adeptus
-# Custodes units from your army (excluding Anathema Psykana units) and
-# redeploy all of those units. When doing so, any of those units can be
-# placed into Strategic Reserves, regardless of how many units are already
-# in Strategic Reserves."
-
-func find_castellan_mark_bearer_player() -> int:
-	"""Returns 1 or 2 if either player has a unit carrying Castellan's Mark.
-	Returns 0 if no bearer is found."""
-	var units = GameState.state.get("units", {})
-	for unit_id in units:
-		var unit = units[unit_id]
-		var enhancements = unit.get("meta", {}).get("enhancements", [])
-		for enh in enhancements:
-			var enh_name = ""
-			if enh is String:
-				enh_name = enh
-			elif enh is Dictionary:
-				enh_name = enh.get("name", "")
-			if enh_name == "Castellan's Mark":
-				return int(unit.get("owner", 0))
-	return 0
-
-func get_castellan_eligible_units(player: int) -> Array:
-	"""List unit_ids the player can redeploy via Castellan's Mark.
-	Eligibility: Adeptus Custodes keyword, owned by player, currently DEPLOYED,
-	NOT Anathema Psykana."""
-	var eligible: Array = []
-	var units = GameState.state.get("units", {})
-	for unit_id in units:
-		var unit = units[unit_id]
-		if int(unit.get("owner", 0)) != player:
-			continue
-		if int(unit.get("status", 0)) != GameStateData.UnitStatus.DEPLOYED:
-			continue
-		var keywords = unit.get("meta", {}).get("keywords", [])
-		var is_custodes = false
-		var is_anathema = false
-		for kw in keywords:
-			var kw_str = str(kw).to_upper()
-			if kw_str == "ADEPTUS CUSTODES":
-				is_custodes = true
-			if kw_str == "ANATHEMA PSYKANA":
-				is_anathema = true
-		if is_custodes and not is_anathema:
-			eligible.append(unit_id)
-	return eligible
-
-func execute_castellan_redeploy(player: int, redeploys: Array) -> Dictionary:
-	"""Apply a Castellan's Mark redeploy decision.
-
-	`redeploys` is an Array of Dictionary entries:
-	  [{unit_id: String, action: "TO_RESERVES"}, ...]
-	  [{unit_id: String, action: "REPLACE_POSITION", positions: [{x, y}, ...]}, ...]
-
-	Returns {success: bool, errors: Array, applied: Array}.
-
-	Caller must enforce the up-to-2 limit; this API will reject more than 2.
-	"""
-	var result = {"success": true, "errors": [], "applied": []}
-	if redeploys.size() > 2:
-		result.success = false
-		result.errors.append("Castellan's Mark allows at most 2 redeploys; received %d" % redeploys.size())
-		return result
-
-	var eligible = get_castellan_eligible_units(player)
-	for entry in redeploys:
-		var unit_id: String = entry.get("unit_id", "")
-		var action: String = entry.get("action", "")
-		if not unit_id in eligible:
-			result.errors.append("%s is not Castellan-eligible (must be deployed Adeptus Custodes, not Anathema Psykana)" % unit_id)
-			continue
-		var unit = GameState.state.units.get(unit_id, {})
-		if action == "TO_RESERVES":
-			# Place unit into Strategic Reserves regardless of cap (the rule
-			# explicitly bypasses the cap for Castellan's Mark moves).
-			unit["status"] = GameStateData.UnitStatus.IN_RESERVES
-			unit["reserve_type"] = "strategic_reserves"
-			# Clear model positions — the unit is off-table.
-			for m in unit.get("models", []):
-				m.erase("position")
-			result.applied.append({"unit_id": unit_id, "action": "TO_RESERVES"})
-			print("DeploymentPhase: Castellan's Mark — %s placed into Strategic Reserves (cap bypassed)" % unit_id)
-		elif action == "REPLACE_POSITION":
-			var positions: Array = entry.get("positions", [])
-			var models = unit.get("models", [])
-			if positions.size() != models.size():
-				result.errors.append("%s: %d positions provided for %d models" % [unit_id, positions.size(), models.size()])
-				continue
-			for i in range(models.size()):
-				var p = positions[i]
-				if p is Vector2:
-					models[i]["position"] = {"x": p.x, "y": p.y}
-				elif p is Dictionary:
-					models[i]["position"] = {"x": p.x, "y": p.y}
-			# Status remains DEPLOYED.
-			result.applied.append({"unit_id": unit_id, "action": "REPLACE_POSITION", "positions": positions})
-			print("DeploymentPhase: Castellan's Mark — %s redeployed to new positions" % unit_id)
-		else:
-			result.errors.append("%s: unknown redeploy action '%s'" % [unit_id, action])
-	if not result.errors.is_empty():
-		result.success = false
-	return result
-
-func _validate_castellan_redeploy(action: Dictionary) -> Dictionary:
-	var payload = action.get("payload", {})
-	var redeploys = payload.get("redeploys", [])
-	if redeploys.is_empty():
-		return {"valid": false, "errors": ["Missing payload.redeploys"]}
-	if redeploys.size() > 2:
-		return {"valid": false, "errors": ["Castellan's Mark allows at most 2 redeploys"]}
-	var bearer_player = find_castellan_mark_bearer_player()
-	if bearer_player == 0:
-		return {"valid": false, "errors": ["No unit carries Castellan's Mark"]}
-	var eligible = get_castellan_eligible_units(bearer_player)
-	for entry in redeploys:
-		var unit_id = entry.get("unit_id", "")
-		if unit_id == "":
-			return {"valid": false, "errors": ["Missing unit_id in redeploy entry"]}
-		if unit_id not in eligible:
-			return {"valid": false, "errors": ["%s is not Castellan-eligible" % unit_id]}
-		var redeploy_action = entry.get("action", "")
-		if redeploy_action not in ["TO_RESERVES", "REPLACE_POSITION"]:
-			return {"valid": false, "errors": ["Unknown redeploy action: %s" % redeploy_action]}
-		if redeploy_action == "REPLACE_POSITION":
-			var positions = entry.get("positions", [])
-			var unit = get_unit(unit_id)
-			if positions.size() != unit.get("models", []).size():
-				return {"valid": false, "errors": ["%s: position count must match model count" % unit_id]}
-	return {"valid": true, "errors": []}
-
-func _process_castellan_redeploy(action: Dictionary) -> Dictionary:
-	var bearer_player = find_castellan_mark_bearer_player()
-	var payload = action.get("payload", {})
-	var redeploys = payload.get("redeploys", [])
-	var result = execute_castellan_redeploy(bearer_player, redeploys)
-	if result.success:
-		return create_result(true, [], "")
-	return create_result(false, [], "; ".join(result.errors))
 
 # Helper methods
 func _has_undeployed_units(player: int) -> bool:

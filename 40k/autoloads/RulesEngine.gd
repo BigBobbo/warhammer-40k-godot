@@ -1505,6 +1505,16 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 	if ork11e_ranged_wound_penalty(target_unit, strength, toughness):
 		ow_wound_modifier = -1
 		print("RulesEngine: HULKING BRUTES (overwatch) — -1 to wound for attacks against %s" % target_unit_id)
+	# Codex: Adeptus Custodes (11e) ±1 to wound — Gilded Guardians, Bane of Abominations, ... (WP-C46).
+	if GameConstants.edition >= 11:
+		var cus11e_ow_net := 0
+		for c in cus11e_det().wound_effects(shooter_unit, target_unit, false, strength, toughness, board):
+			if str(c.kind) == "plus_one":
+				cus11e_ow_net += 1
+			elif str(c.kind) == "minus_one":
+				cus11e_ow_net -= 1
+			print("RulesEngine: [cus11e] %s (overwatch) — %s to wound" % [str(c.source), str(c.kind)])
+		ow_wound_modifier = clampi(ow_wound_modifier + cus11e_ow_net, -1, 1)
 	# PYROMANIAKS (OA-14): Check for wound re-rolls with Torrent weapons vs enemies within 6" (Overwatch)
 	var ow_pyromaniaks_scope = get_pyromaniaks_reroll_scope(shooter_unit, target_unit, weapon_id, board)
 	if ow_pyromaniaks_scope == "failed":
@@ -1656,6 +1666,7 @@ static func _resolve_overwatch_assignment(assignment: Dictionary, shooter_unit_i
 		# MA-12: Per-model invuln from stats_override (overwatch)
 		var model_invuln = _get_model_effective_invuln(target_model, target_unit, target_model.get("invuln", 0))
 		var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
+		effect_invuln = cus11e_invuln(target_unit, false, effect_invuln, board)  # Codex: Adeptus Custodes (11e) Flare Shields / Eagle's Eye (WP-C46)
 		if effect_invuln > 0:
 			if model_invuln == 0 or effect_invuln < model_invuln:
 				model_invuln = effect_invuln
@@ -2081,6 +2092,17 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 				ork11e_fd_attack.append(ork11e_is_firing_deck_bearer(tdb_model_id))
 		total_attacks += ork11e_a * model_ids.size()
 		print("RulesEngine: TRY DAT BUTTON! — +%d attack per model on %s (%d models)" % [ork11e_a, weapon_name, model_ids.size()])
+	# Codex: Adeptus Custodes (11e) Not a Shell Wasted: the bearer's unit's ranged attacks +1 A (WP-C46).
+	var cus11e_nsw := cus11e_ranged_attacks_per_model(actor_unit, board)
+	if cus11e_nsw > 0:
+		for nsw_model_id in model_ids:
+			var nsw_model = resolve_bearer_model(actor_unit, nsw_model_id, board)
+			var nsw_bs = _get_model_effective_bs(nsw_model, resolve_bearer_unit(actor_unit, nsw_model_id, board), weapon_profile)
+			for _j in range(cus11e_nsw):
+				bs_per_attack.append(nsw_bs)
+				ork11e_fd_attack.append(ork11e_is_firing_deck_bearer(nsw_model_id))
+		total_attacks += cus11e_nsw * model_ids.size()
+		print("RulesEngine: NOT A SHELL WASTED — +%d attack per model on %s (%d models)" % [cus11e_nsw, weapon_name, model_ids.size()])
 
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
@@ -2368,11 +2390,8 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 			ModifierLedger.note(hit_mod_ledger, "Xenos Hunter", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "target lacks IMPERIUM and CHAOS")
 			print("RulesEngine: XENOS HUNTER — +1 to hit for %s (target lacks IMPERIUM/CHAOS)" % actor_unit_id)
 
-		# AGAINST ALL ODDS: +1 to Hit when no friendly units within 6" (Lions of the Emperor)
-		if FactionAbilityManager.check_against_all_odds(actor_unit, board):
-			hit_modifiers |= HitModifier.PLUS_ONE
-			ModifierLedger.note(hit_mod_ledger, "Against All Odds", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
-			print("RulesEngine: AGAINST ALL ODDS — +1 to hit for %s (no friendlies within 6\")" % actor_unit_id)
+		# Codex: Adeptus Custodes (11e) detachment rules / enhancements (CustodesDetachments.gd, WP-C46).
+		hit_modifiers = cus11e_apply_hit_effects(hit_modifiers, hit_mod_ledger, actor_unit, target_unit, false, board, {"model_ids": model_ids})
 
 		# ── ISS-016/053 (11e): hit-side modifier stack — cover/STEALTH worsen
 		# BS (13.08/24.33), plunging fire improves it (22.05), [HEAVY] is +1
@@ -2515,6 +2534,14 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 				else:
 					regular_hits += 1
 
+		# Codex: Adeptus Custodes MAGNA IMPERATOR (Emperor's Chosen, WP-C46): re-roll one hit roll
+		# (not for an [INDIRECT FIRE] shot at an unseen target — 10.07 forbids hit re-rolls; not for snap shooting).
+		if not indirect_consequences and not is_overwatch:
+			var cus11e_mh: Dictionary = cus11e_magna_reroll_hit(actor_unit, hit_evals, modified_rolls, reroll_data, bs_per_attack, bs, hit_modifiers, critical_hit_threshold, rng, hit_fail_band, hit_mod_ledger)
+			hits += int(cus11e_mh.hit)
+			critical_hits += int(cus11e_mh.crit)
+			regular_hits += int(cus11e_mh.hit) - int(cus11e_mh.crit)
+
 		# DAKKASTORM (OA-16): Every successful Hit roll scores a Critical Hit (ranged only)
 		if has_dakkastorm(actor_unit) and regular_hits > 0:
 			print("RulesEngine: DAKKASTORM — converting %d regular hits to critical hits for %s" % [regular_hits, actor_unit_id])
@@ -2583,6 +2610,7 @@ static func _resolve_assignment_hits(assignment: Dictionary, actor_unit_id: Stri
 		# Total hits for wound rolls = regular hits + bonus hits from Sustained
 		# (Critical hits with Lethal Hits auto-wound, but their Sustained bonus hits still roll)
 		total_hits_for_wounds = hits + sustained_bonus_hits
+		cus11e_det().note_ranged_hits(actor_unit, weapon_id, target_unit_id, hits)  # Codex: Adeptus Custodes (11e) Auriferous Orb — BLINDING LIGHT targets (WP-C46)
 
 		# The displayed target must match what each die was judged against —
 		# bs_per_attack carries the effective (cover/plunging-adjusted) BS.
@@ -2938,11 +2966,8 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 		ModifierLedger.note(wound_mod_ledger, "Pyromaniaks", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "target within range of an objective marker")
 		print("RulesEngine: PYROMANIAKS — re-roll wound rolls of 1 for %s (Torrent weapon, target within 6\")" % actor_unit_id)
 
-	# AGAINST ALL ODDS: +1 to Wound when no friendly units within 6" (Lions of the Emperor)
-	if FactionAbilityManager.check_against_all_odds(actor_unit, board):
-		wound_modifiers |= WoundModifier.PLUS_ONE
-		ModifierLedger.note(wound_mod_ledger, "Against All Odds", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
-		print("RulesEngine: AGAINST ALL ODDS — +1 to wound for %s (no friendlies within 6\")" % actor_unit_id)
+	# Codex: Adeptus Custodes (11e) detachment rules / enhancements (CustodesDetachments.gd, WP-C46).
+	wound_modifiers = cus11e_apply_wound_effects(wound_modifiers, wound_mod_ledger, actor_unit, target_unit, false, strength, toughness, board, {"model_ids": assignment.get("model_ids", [])})
 
 	# KUSTOM DAKKA (Codex: Orks 11e): +1 to wound vs a target that is not a MONSTER/VEHICLE unit
 	if ork11e_kustom_dakka_wound_bonus(actor_unit, target_unit) > 0:
@@ -3030,6 +3055,14 @@ static func _resolve_assignment_wounds(hit_context: Dictionary, board: Dictionar
 				else:
 					regular_wound_count += 1
 
+	# Codex: Adeptus Custodes MAGNA IMPERATOR (Emperor's Chosen, WP-C46): re-roll one wound roll.
+	var cus11e_mw: Dictionary = cus11e_magna_reroll_wound(actor_unit, wound_evals, wound_rolls, wound_reroll_data, wound_modifiers, wound_threshold, critical_wound_threshold, rng, wound_mod_ledger)
+	if int(cus11e_mw.wound) > 0:
+		wounds_from_rolls += 1
+		if weapon_has_devastating_wounds and int(cus11e_mw.crit) > 0:
+			critical_wound_count += 1
+		else:
+			regular_wound_count += 1
 	var wounds_caused = auto_wounds + wounds_from_rolls
 
 	if anti_keyword_active:
@@ -3290,6 +3323,7 @@ static func _apply_saves_via_allocation_11e(result: Dictionary, target_unit: Dic
 	# (High-speed Carnage, Brutal Impact) — melee callers pass it.
 	var plus_damage := int(opts.get("plus_damage", 0))
 	effect_invuln = ork11e_det_invuln(bs_actor_unit, target_unit, effect_invuln)  # Codex: Orks (11e) Unpredictable Genius — Dat's Weird (WP-O34)
+	effect_invuln = cus11e_invuln(target_unit, bool(opts.get("is_melee", false)), effect_invuln)  # Codex: Adeptus Custodes (11e) Flare Shields / Eagle's Eye (WP-C46)
 	var damage_roll_log: Array = out.damage_roll_log
 	# Defender-side interactive options (AllocationGroupOverlay two-step flow):
 	# forced_save_rolls replays an already-rolled batch (e.g. after a save
@@ -3750,6 +3784,7 @@ static func resolve_allocation_batch_11e(save_data: Dictionary, order: Array, bo
 				board.get("units", {}).get(str(save_data.get("shooter_unit_id", "")), {}), board,
 				str(save_data.get("precision_group_choice", ""))),
 			"actor_unit": board.get("units", {}).get(str(save_data.get("shooter_unit_id", "")), {}),
+			"is_melee": bool(save_data.get("is_melee", false)),  # Codex: Adeptus Custodes (11e) Flare Shields vs ranged only (WP-C46)
 			# WP-O6: melee +D (save_data from prepare_melee_save_resolution)
 			"plus_damage": int(save_data.get("da_bigger_damage_bonus", 0)),
 			"melta_value": melta_value,
@@ -4224,6 +4259,17 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				ork11e_fd_attack.append(ork11e_is_firing_deck_bearer(ar_model_id))
 		total_attacks += ork11e_a_ar * model_ids.size()
 		print("RulesEngine: TRY DAT BUTTON! (auto-resolve) — +%d attack per model on %s (%d models)" % [ork11e_a_ar, ar_weapon_name, model_ids.size()])
+	# Codex: Adeptus Custodes (11e) Not a Shell Wasted: the bearer's unit's ranged attacks +1 A (WP-C46).
+	var cus11e_nsw_ar := cus11e_ranged_attacks_per_model(actor_unit, board)
+	if cus11e_nsw_ar > 0:
+		for nsw_model_id in model_ids:
+			var nsw_model = resolve_bearer_model(actor_unit, nsw_model_id, board)
+			var nsw_bs = _get_model_effective_bs(nsw_model, resolve_bearer_unit(actor_unit, nsw_model_id, board), weapon_profile)
+			for _j in range(cus11e_nsw_ar):
+				bs_per_attack.append(nsw_bs)
+				ork11e_fd_attack.append(ork11e_is_firing_deck_bearer(nsw_model_id))
+		total_attacks += cus11e_nsw_ar * model_ids.size()
+		print("RulesEngine: NOT A SHELL WASTED (auto-resolve) — +%d attack per model on %s (%d models)" % [cus11e_nsw_ar, ar_weapon_name, model_ids.size()])
 
 	# TORRENT KEYWORD (PRP-014): Check if weapon auto-hits (skip hit roll entirely)
 	var is_torrent = is_torrent_weapon(weapon_id, board) or assignment.get("torrent", false)
@@ -4494,11 +4540,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			hit_modifiers |= HitModifier.REROLL_ONES
 			ModifierLedger.note(hit_mod_ledger, ork11e_rr_src_ar, ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES)
 
-		# AGAINST ALL ODDS: +1 to Hit when no friendly units within 6" (Lions of the Emperor, auto-resolve)
-		if FactionAbilityManager.check_against_all_odds(actor_unit, board):
-			hit_modifiers |= HitModifier.PLUS_ONE
-			ModifierLedger.note(hit_mod_ledger, "Against All Odds", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
-			print("RulesEngine: AGAINST ALL ODDS (auto-resolve) — +1 to hit for %s (no friendlies within 6\")" % actor_unit_id)
+		# Codex: Adeptus Custodes (11e) detachment rules / enhancements (CustodesDetachments.gd, WP-C46).
+		hit_modifiers = cus11e_apply_hit_effects(hit_modifiers, hit_mod_ledger, actor_unit, target_unit, false, board, {"model_ids": model_ids})
 
 		# ── ISS-016/053 (11e): hit-side modifier stack — cover/STEALTH worsen
 		# BS (13.08/24.33), plunging fire improves it (22.05), [HEAVY] is +1
@@ -4618,6 +4661,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			ModifierLedger.note(hit_mod_ledger, "Drive-by Bustin'", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "Firing Deck weapons' attacks only")
 		# SPEEDIEST FREEKS (Codex: Orks 11e): unmodified hit rolls of 1-3 fail.
 		hit_fail_band = ork11e_ranged_hit_fail_band(target_unit, hit_fail_band)
+		var cus11e_ar_hit_evals: Array = []  # per-die records for MAGNA IMPERATOR (WP-C46)
 		for i in range(hit_rolls.size()):
 			var roll = hit_rolls[i]
 			# MA-10: Use per-model BS for this attack's threshold
@@ -4629,6 +4673,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one failed hit roll (auto-resolve).
 			hit_eval = _cus11e_codex().auto_single_reroll_hit(hit_eval, roll, actor_unit, attack_bs, ork11e_attack_mods, critical_hit_threshold, rng, hit_fail_band, indirect_consequences)
 			modified_rolls.append(hit_eval.final_roll)
+			cus11e_ar_hit_evals.append({"raw": roll, "final": hit_eval.final_roll, "is_hit": hit_eval.is_hit, "is_crit": hit_eval.is_crit, "rerolled": hit_eval.rerolled})
 			if hit_eval.rerolled:
 				reroll_data.append({
 					"original": hit_eval.reroll_from,
@@ -4640,6 +4685,13 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 					critical_hits += 1
 				else:
 					regular_hits += 1
+
+		# Codex: Adeptus Custodes MAGNA IMPERATOR (Emperor's Chosen, WP-C46): re-roll one hit roll (auto-resolve).
+		if not indirect_consequences and not is_overwatch:
+			var cus11e_mh_ar: Dictionary = cus11e_magna_reroll_hit(actor_unit, cus11e_ar_hit_evals, modified_rolls, reroll_data, bs_per_attack, bs, hit_modifiers, critical_hit_threshold, rng, hit_fail_band, hit_mod_ledger)
+			hits += int(cus11e_mh_ar.hit)
+			critical_hits += int(cus11e_mh_ar.crit)
+			regular_hits += int(cus11e_mh_ar.hit) - int(cus11e_mh_ar.crit)
 
 		# DAKKASTORM (OA-16): Every successful Hit roll scores a Critical Hit (ranged only, auto-resolve)
 		if has_dakkastorm(actor_unit) and regular_hits > 0:
@@ -4709,6 +4761,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		# Total hits for wound rolls = regular hits + bonus hits from Sustained
 		# (Critical hits with Lethal Hits auto-wound, but their Sustained bonus hits still roll)
 		total_hits_for_wounds = hits + sustained_bonus_hits
+		cus11e_det().note_ranged_hits(actor_unit, weapon_id, target_unit_id, hits)  # Codex: Adeptus Custodes (11e) Auriferous Orb — BLINDING LIGHT targets (WP-C46)
 
 		# The displayed target must match what each die was judged against —
 		# bs_per_attack carries the effective (cover/plunging-adjusted) BS.
@@ -4974,11 +5027,8 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		ModifierLedger.note(ar_wound_mod_ledger, "Pyromaniaks", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, "target within range of an objective marker")
 		print("RulesEngine: PYROMANIAKS (auto-resolve) — re-roll wound rolls of 1 for %s (Torrent weapon, target within 6\")" % actor_unit_id)
 
-	# AGAINST ALL ODDS: +1 to Wound when no friendly units within 6" (Lions of the Emperor, auto-resolve)
-	if FactionAbilityManager.check_against_all_odds(actor_unit, board):
-		ar_wound_modifiers |= WoundModifier.PLUS_ONE
-		ModifierLedger.note(ar_wound_mod_ledger, "Against All Odds", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
-		print("RulesEngine: AGAINST ALL ODDS (auto-resolve) — +1 to wound for %s (no friendlies within 6\")" % actor_unit_id)
+	# Codex: Adeptus Custodes (11e) detachment rules / enhancements (CustodesDetachments.gd, WP-C46).
+	ar_wound_modifiers = cus11e_apply_wound_effects(ar_wound_modifiers, ar_wound_mod_ledger, actor_unit, target_unit, false, strength, toughness, board, {"model_ids": model_ids})
 
 	# KUSTOM DAKKA (Codex: Orks 11e): +1 to wound vs a target that is not a MONSTER/VEHICLE unit
 	if ork11e_kustom_dakka_wound_bonus(actor_unit, target_unit) > 0:
@@ -5014,6 +5064,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 	var ar_critical_wound_count = 0  # Critical wounds: unmodified X+ (Anti) or 6s (default)
 	var ar_regular_wound_count = 0   # Non-critical wounds
 	var ar_wound_reroll_data = []  # Track twin-linked / modifier re-rolls
+	var cus11e_ar_wound_evals: Array = []  # per-die records for MAGNA IMPERATOR (WP-C46)
 
 	# TORRENT (PRP-014): Since Torrent has no crits, Lethal Hits never triggers
 	# All hits must roll to wound normally
@@ -5032,6 +5083,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				var wound_eval = AttackSequence.evaluate_wound_roll(roll, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
 				# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one failed wound roll (auto-resolve).
 				wound_eval = _cus11e_codex().auto_single_reroll_wound(wound_eval, roll, actor_unit, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
+				cus11e_ar_wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled})
 				if wound_eval.rerolled:
 					ar_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 				if wound_eval.auto_fail:
@@ -5053,6 +5105,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 			var wound_eval = AttackSequence.evaluate_wound_roll(roll, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
 			# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): PRIME TARGET re-rolls one failed wound roll (auto-resolve).
 			wound_eval = _cus11e_codex().auto_single_reroll_wound(wound_eval, roll, actor_unit, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng)
+			cus11e_ar_wound_evals.append({"raw": roll, "is_wound": wound_eval.is_wound, "is_crit": wound_eval.is_crit, "auto_fail": wound_eval.auto_fail, "rerolled": wound_eval.rerolled})
 			if wound_eval.rerolled:
 				ar_wound_reroll_data.append({"original": wound_eval.reroll_from, "rerolled_to": wound_eval.reroll_to})
 			if wound_eval.auto_fail:
@@ -5064,6 +5117,14 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 				else:
 					ar_regular_wound_count += 1
 
+	# Codex: Adeptus Custodes MAGNA IMPERATOR (Emperor's Chosen, WP-C46): re-roll one wound roll (auto-resolve).
+	var cus11e_mw_ar: Dictionary = cus11e_magna_reroll_wound(actor_unit, cus11e_ar_wound_evals, wound_rolls, ar_wound_reroll_data, ar_wound_modifiers, wound_threshold, ar_critical_wound_threshold, rng, ar_wound_mod_ledger)
+	if int(cus11e_mw_ar.wound) > 0:
+		wounds_from_rolls += 1
+		if ar_weapon_has_devastating_wounds and int(cus11e_mw_ar.crit) > 0:
+			ar_critical_wound_count += 1
+		else:
+			ar_regular_wound_count += 1
 	var wounds_caused = auto_wounds + wounds_from_rolls
 
 	if ar_anti_keyword_active:
@@ -5394,6 +5455,7 @@ static func _resolve_assignment(assignment: Dictionary, actor_unit_id: String, b
 		var auto_model_invuln = _get_model_effective_invuln(target_model, target_unit, target_model.get("invuln", 0))
 		var auto_effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
 		auto_effect_invuln = ork11e_det_invuln(actor_unit, target_unit, auto_effect_invuln)  # Codex: Orks (11e) Unpredictable Genius — Dat's Weird (WP-O34)
+		auto_effect_invuln = cus11e_invuln(target_unit, false, auto_effect_invuln)  # Codex: Adeptus Custodes (11e) Flare Shields / Eagle's Eye (WP-C46)
 		if auto_effect_invuln > 0:
 			if auto_model_invuln == 0 or auto_effect_invuln < auto_model_invuln:
 				auto_model_invuln = auto_effect_invuln
@@ -7206,7 +7268,13 @@ static func _get_model_weapon_ids(unit: Dictionary, model: Dictionary, weapon_ty
 			continue
 
 		var wname = weapon.get("name", "")
-		if use_resolved_ranged:
+		# Enhancement-granted weapons (meta.weapons[].granted_by, e.g. the
+		# Custodes Emperor's Light / Auriferous Orb — WP-C46) are carried by the
+		# bearer whatever its roster loadout or model_profiles menu says.
+		var granted: bool = str(weapon.get("granted_by", "")) != ""
+		if granted:
+			pass
+		elif use_resolved_ranged:
 			if wname not in resolved_ranged:
 				continue
 		elif use_resolved_melee:
@@ -9022,6 +9090,17 @@ static func _parse_anti_keywords_from_string(text: String) -> Array:
 		var threshold = m.get_string(2).to_int()
 		results.append({"keyword": keyword, "threshold": threshold})
 
+	# 11e negated form [ANTI-non-MONSTER/VEHICLE 2+] (Codex: Adeptus Custodes
+	# Auriferous Orb, WP-C46): matches a target with NONE of the listed keywords.
+	var neg = RegEx.new()
+	neg.compile("anti-non-([a-z/ \\-]+?)\\s+(\\d+)\\+?")
+	for nm in neg.search_all(text):
+		var kws: Array = []
+		for k in nm.get_string(1).split("/"):
+			if k.strip_edges() != "":
+				kws.append(k.strip_edges().to_upper())
+		results.append({"keyword": "non-" + "/".join(PackedStringArray(kws)), "negated": kws, "threshold": nm.get_string(2).to_int()})
+
 	return results
 
 # Check if weapon has any Anti-keyword ability
@@ -9422,11 +9501,161 @@ static func ork11e_det_invuln(actor_unit: Dictionary, target_unit: Dictionary, i
 		return invuln
 	return ork11e_det().target_invuln(actor_unit, target_unit, invuln)
 
-## Range characteristic bonus (inches): Dakka! Dakka! Dakka! (+3" while riled up).
+## Range characteristic bonus (inches): Dakka! Dakka! Dakka! (+3" while riled up);
+## Codex: Adeptus Custodes (11e) Aquilan Shield Favoured SALVUS +6" (WP-C46).
 static func ork11e_det_range_bonus(actor_unit: Dictionary, weapon_profile: Dictionary = {}) -> float:
 	if GameConstants.edition < 11:
 		return 0.0
-	return ork11e_det().range_bonus_inches(actor_unit, weapon_profile)
+	return ork11e_det().range_bonus_inches(actor_unit, weapon_profile) + cus11e_det().range_bonus_inches(actor_unit, weapon_profile)
+
+# ---------------------------------------------------------------------------
+# Codex: Adeptus Custodes (11e) detachment rules + enhancements (WP-C46) — the
+# logic lives in scripts/codex/custodes/CustodesDetachments.gd (the façade for
+# CustodesEnhancements.gd); the resolver paths only call the wrappers below
+# (each one is a no-op below edition 11).
+# ---------------------------------------------------------------------------
+static var _cus11e_det_script = null
+static func cus11e_det():
+	if _cus11e_det_script == null:
+		_cus11e_det_script = load("res://scripts/codex/custodes/CustodesDetachments.gd")
+	return _cus11e_det_script
+
+## Fold the codex hit-roll contributions (Moritoi Ancients, Radiant Mantle,
+## Blinding Light, Oblivion Knight, Edge of the Blade) into the HitModifier
+## bits and the modifier ledger. ctx.model_ids: the batch's firing models.
+static func cus11e_apply_hit_effects(bits: int, ledger: Array, attacker: Dictionary, target: Dictionary, is_melee: bool, board: Dictionary, ctx: Dictionary = {}) -> int:
+	if GameConstants.edition < 11:
+		return bits
+	for c in cus11e_det().hit_effects(attacker, target, is_melee, board, ctx):
+		match str(c.get("kind", "")):
+			"plus_one":
+				bits |= HitModifier.PLUS_ONE
+				ModifierLedger.note(ledger, str(c.source), ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, str(c.get("note", "")))
+			"minus_one":
+				bits |= HitModifier.MINUS_ONE
+				ModifierLedger.note(ledger, str(c.source), ModifierLedger.KIND_HIT, ModifierLedger.MINUS_ONE, str(c.get("note", "")))
+			"reroll_ones":
+				bits |= HitModifier.REROLL_ONES
+				ModifierLedger.note(ledger, str(c.source), ModifierLedger.KIND_HIT, ModifierLedger.REROLL_ONES, str(c.get("note", "")))
+		print("RulesEngine: [cus11e] %s — %s to hit (%s)" % [str(c.source), str(c.kind), str(attacker.get("id", "?"))])
+	return bits
+
+## Wound-roll counterpart (Gilded Guardians, Wardens of the Dark Cells,
+## Companion's Watch, Assemblage of Might, Moritoi Ancients, Bane of
+## Abominations, Oblivion Knight, Edge of the Blade).
+static func cus11e_apply_wound_effects(bits: int, ledger: Array, attacker: Dictionary, target: Dictionary, is_melee: bool, strength: int, toughness: int, board: Dictionary, ctx: Dictionary = {}) -> int:
+	if GameConstants.edition < 11:
+		return bits
+	for c in cus11e_det().wound_effects(attacker, target, is_melee, strength, toughness, board, ctx):
+		match str(c.get("kind", "")):
+			"plus_one":
+				bits |= WoundModifier.PLUS_ONE
+				ModifierLedger.note(ledger, str(c.source), ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, str(c.get("note", "")))
+			"minus_one":
+				bits |= WoundModifier.MINUS_ONE
+				ModifierLedger.note(ledger, str(c.source), ModifierLedger.KIND_WOUND, ModifierLedger.MINUS_ONE, str(c.get("note", "")))
+			"reroll_ones":
+				bits |= WoundModifier.REROLL_ONES
+				ModifierLedger.note(ledger, str(c.source), ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_ONES, str(c.get("note", "")))
+		print("RulesEngine: [cus11e] %s — %s to wound (%s)" % [str(c.source), str(c.kind), str(attacker.get("id", "?"))])
+	return bits
+
+## MAGNA IMPERATOR (Emperor's Chosen): re-roll ONE failed hit roll of this
+## unit's attacks (once per selection to attack — CustodesDetachments). Re-rolls
+## the first failed die that was not re-rolled already; mutates hit_evals /
+## modified_rolls / reroll_data and returns {hit: 0|1, crit: 0|1} for the tallies.
+static func cus11e_magna_reroll_hit(actor_unit: Dictionary, hit_evals: Array, modified_rolls: Array, reroll_data: Array, bs_per_attack: Array, bs: int, mods: int, crit_threshold: int, rng: RNGService, fail_band: int, ledger: Array) -> Dictionary:
+	var out := {"hit": 0, "crit": 0}
+	if GameConstants.edition < 11 or not cus11e_det().magna_imperator_available(actor_unit, "hit"):
+		return out
+	var i: int = cus11e_det().magna_pick_index(hit_evals, "is_hit")
+	if i < 0:
+		return out
+	cus11e_det().magna_imperator_consume(actor_unit, "hit")
+	var new_raw: int = rng.roll_d6(1)[0]
+	var attack_bs: int = int(bs_per_attack[i]) if i < bs_per_attack.size() else bs
+	var no_rr: int = mods & ~(HitModifier.REROLL_ONES | HitModifier.REROLL_FAILED | HitModifier.REROLL_NON_CRIT)
+	var ev = AttackSequence.evaluate_hit_roll(new_raw, attack_bs, no_rr, crit_threshold, rng, fail_band)
+	var old_raw = hit_evals[i].get("raw", 0)
+	hit_evals[i] = {"raw": old_raw, "final": ev.final_roll, "is_hit": ev.is_hit, "is_crit": ev.is_crit, "rerolled": true}
+	if i < modified_rolls.size():
+		modified_rolls[i] = ev.final_roll
+	reroll_data.append({"original": old_raw, "rerolled_to": new_raw})
+	ModifierLedger.note(ledger, "Magna Imperator", ModifierLedger.KIND_HIT, ModifierLedger.REROLL_FAILED, "one hit roll re-rolled (%d -> %d)" % [int(old_raw), new_raw])
+	print("RulesEngine: [cus11e] MAGNA IMPERATOR — %s re-rolls one hit roll: %d -> %d (%s)" % [str(actor_unit.get("id", "?")), int(old_raw), new_raw, "hit" if ev.is_hit else "miss"])
+	if ev.is_hit:
+		out.hit = 1
+		if ev.is_crit:
+			out.crit = 1
+	return out
+
+## MAGNA IMPERATOR: re-roll ONE failed wound roll. wound_evals entries are
+## {raw, is_wound, is_crit, auto_fail, rerolled}; returns {wound, crit} (0|1).
+static func cus11e_magna_reroll_wound(actor_unit: Dictionary, wound_evals: Array, wound_rolls: Array, reroll_data: Array, mods: int, wound_threshold: int, crit_threshold: int, rng: RNGService, ledger: Array) -> Dictionary:
+	var out := {"wound": 0, "crit": 0, "index": -1}
+	if GameConstants.edition < 11 or not cus11e_det().magna_imperator_available(actor_unit, "wound"):
+		return out
+	var i: int = cus11e_det().magna_pick_index(wound_evals, "is_wound")
+	if i < 0:
+		return out
+	cus11e_det().magna_imperator_consume(actor_unit, "wound")
+	var new_raw: int = rng.roll_d6(1)[0]
+	var no_rr: int = mods & ~(WoundModifier.REROLL_ONES | WoundModifier.REROLL_FAILED)
+	var ev = AttackSequence.evaluate_wound_roll(new_raw, no_rr, wound_threshold, crit_threshold, rng)
+	var old_raw = wound_evals[i].get("raw", 0)
+	wound_evals[i] = {"raw": old_raw, "is_wound": ev.is_wound, "is_crit": ev.is_crit, "auto_fail": ev.auto_fail, "rerolled": true}
+	reroll_data.append({"original": old_raw, "rerolled_to": new_raw})
+	ModifierLedger.note(ledger, "Magna Imperator", ModifierLedger.KIND_WOUND, ModifierLedger.REROLL_FAILED, "one wound roll re-rolled (%d -> %d)" % [int(old_raw), new_raw])
+	print("RulesEngine: [cus11e] MAGNA IMPERATOR — %s re-rolls one wound roll: %d -> %d (%s)" % [str(actor_unit.get("id", "?")), int(old_raw), new_raw, "wound" if ev.is_wound else "fail"])
+	out.index = i
+	if ev.is_wound and not ev.auto_fail:
+		out.wound = 1
+		if ev.is_crit:
+			out.crit = 1
+	return out
+
+## Melee weapon-ability grants (Martial Mastery, Flawless Bladework, From the
+## Hall of Armouries, Auric Exemplar): {sustained, lethal, devastating: source,
+## cleave: int, cleave_source}.
+static func cus11e_melee_grants(attacker: Dictionary, target: Dictionary, board: Dictionary = {}) -> Dictionary:
+	if GameConstants.edition < 11:
+		return {"sustained": "", "lethal": "", "devastating": "", "cleave": 0, "cleave_source": ""}
+	return cus11e_det().melee_weapon_grants(attacker, target, board)
+
+## Memento Moritoi: the bearer's melee attacks +1 A, S and D ({a, s, d, source}).
+static func cus11e_melee_profile_bonus(attacker: Dictionary) -> Dictionary:
+	var none := {"a": 0, "s": 0, "d": 0, "source": ""}
+	if GameConstants.edition < 11:
+		return none
+	var e = cus11e_det().enh()
+	return e.melee_profile_bonus(attacker) if e else none
+
+## A Damage characteristic string with +n ("2" -> "3", "D6" -> "D6+1",
+## "D3+3" -> "D3+4"). n <= 0 returns the string unchanged.
+static func cus11e_damage_raw_plus(raw: String, n: int) -> String:
+	if n <= 0:
+		return raw
+	var s := raw.strip_edges()
+	if s.is_valid_int():
+		return str(int(s) + n)
+	var plus := s.rfind("+")
+	if plus > 0 and s.substr(plus + 1).is_valid_int():
+		return "%s+%d" % [s.substr(0, plus), int(s.substr(plus + 1)) + n]
+	return "%s+%d" % [s, n]
+
+## Not a Shell Wasted: +N Attacks per firing model for ranged weapons.
+static func cus11e_ranged_attacks_per_model(actor_unit: Dictionary, board: Dictionary = {}) -> int:
+	if GameConstants.edition < 11:
+		return 0
+	var e = cus11e_det().enh()
+	return int(e.ranged_attacks_bonus(actor_unit, board)) if e else 0
+
+## The better of `current` and the codex invulnerable saves (Flare Shields 4+
+## vs ranged, Eagle's Eye 3+). 0 = none.
+static func cus11e_invuln(target_unit: Dictionary, is_melee: bool, current: int, board: Dictionary = {}) -> int:
+	if GameConstants.edition < 11:
+		return current
+	return cus11e_det().better_invuln(current, target_unit, is_melee, board)
 
 # ---------------------------------------------------------------------------
 # Codex: Orks (11e) — "when a unit is selected to shoot" stratagems
@@ -9928,6 +10157,18 @@ static func get_critical_wound_threshold(weapon_id: String, target_unit: Diction
 
 	var lowest_threshold = 6
 	for anti in anti_data:
+		if anti.has("negated"):
+			# [ANTI-non-X/Y]: the target (Attached unit union included) has none of them.
+			var has_any := false
+			for nk in anti.negated:
+				if unit_has_keyword(target_unit, str(nk)):
+					has_any = true
+				for kw in union_keywords:
+					if str(kw).to_upper() == str(nk):
+						has_any = true
+			if not has_any:
+				lowest_threshold = min(lowest_threshold, anti.threshold)
+			continue
 		var matches = unit_has_keyword(target_unit, anti.keyword)
 		if not matches and not union_keywords.is_empty():
 			for kw in union_keywords:
@@ -12952,18 +13193,17 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 				ws_per_attack.append(vsp_ws)
 			print("RulesEngine: Effect +%d Attacks vs PSYKER for '%s' (melee) → +%d total" % [vs_psyker_bonus, weapon_name, vs_psyker_total])
 
-	# FIERCE CONQUEROR (Lions of the Emperor enhancement): add 2 to the Attacks
-	# characteristic of the bearer's melee weapons for every 5 enemy models
-	# within 6" of the bearer (rounded down).
-	if model_count > 0 and not is_extra_attacks_weapon:
-		var fierce_bonus_per_model = get_fierce_conqueror_bonus_attacks(attacker_unit, board)
-		if fierce_bonus_per_model > 0:
-			var fierce_total = fierce_bonus_per_model * model_count
-			total_attacks += fierce_total
-			var fc_ws = weapon_profile.get("ws", 4)
-			for _j in range(fierce_total):
-				ws_per_attack.append(fc_ws)
-			print("RulesEngine: FIERCE CONQUEROR — +%d Attacks per model for '%s' (melee) → +%d total" % [fierce_bonus_per_model, weapon_name, fierce_total])
+	# Codex: Adeptus Custodes (11e) MEMENTO MORITOI (WP-C46): the bearer's melee attacks +1 A (and +1 S / +1 D below).
+	var cus11e_mpb: Dictionary = cus11e_melee_profile_bonus(attacker_unit)
+	if model_count > 0 and int(cus11e_mpb.a) > 0:
+		var mm_total = int(cus11e_mpb.a) * model_count
+		total_attacks += mm_total
+		for _j in range(mm_total):
+			ws_per_attack.append(weapon_profile.get("ws", 4))
+		print("RulesEngine: %s — +%d A for '%s' (melee) → +%d total" % [str(cus11e_mpb.source), int(cus11e_mpb.a), weapon_name, mm_total])
+	# Codex: Adeptus Custodes (11e) melee weapon grants: Martial Mastery / Flawless Bladework /
+	# From the Hall of Armouries / Auric Exemplar (CustodesDetachments.gd, WP-C46).
+	var cus11e_mg: Dictionary = cus11e_melee_grants(attacker_unit, target_unit, board)
 
 	# 11e [CLEAVE X] (24.06): if this weapon makes all its attacks against a
 	# single target unit, add X dice for every 5 models in the target (melee
@@ -12981,6 +13221,10 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			var mow_before = cleave_x
 			cleave_x = cleave_x + 1 if cleave_x > 0 else 1
 			print("RulesEngine: MOW 'EM DOWN — melee weapon %s [CLEAVE %d] -> [CLEAVE %d]" % [weapon_id, mow_before, cleave_x])
+		# Codex: Adeptus Custodes (11e) AURIC EXEMPLAR: the bearer's melee attacks have [CLEAVE 1] (WP-C46).
+		if int(cus11e_mg.cleave) > cleave_x:
+			cleave_x = int(cus11e_mg.cleave)
+			print("RulesEngine: %s — melee weapon %s gains [CLEAVE %d]" % [str(cus11e_mg.cleave_source), weapon_id, cleave_x])
 		if cleave_x > 0:
 			# 19.01: an Attached unit is ONE unit — its leaders' models count
 			# toward "every 5 models in the target" as well as the bodyguard's.
@@ -13006,12 +13250,10 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 	var ws = weapon_profile.get("ws", 4)
 	var strength = weapon_profile.get("strength", 4)
 
-	# ADMONIMORTIS (Lions enhancement, 10e stopgap): +3 Strength on the
-	# bearer's melee weapons (the AP and Damage improvements apply at their
-	# own sites below).
-	if has_admonimortis(attacker_unit):
-		strength += 3
-		print("RulesEngine: ADMONIMORTIS — melee strength %d → %d (+3)" % [strength - 3, strength])
+	# Codex: Adeptus Custodes (11e) MEMENTO MORITOI: +1 S on the bearer's melee attacks (WP-C46).
+	if int(cus11e_mpb.s) > 0:
+		strength += int(cus11e_mpb.s)
+		print("RulesEngine: %s — melee strength %d → %d" % [str(cus11e_mpb.source), strength - int(cus11e_mpb.s), strength])
 
 	# WAAAGH! BONUS: +1 Strength to melee weapons (10e only — see waaagh_melee_bonus_applies)
 	if waaagh_melee_bonus:
@@ -13069,23 +13311,14 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		toughness = max(1, toughness - ded_glowy_penalty_melee)
 		print("RulesEngine: DED GLOWY AMMO (melee) — INFANTRY target T reduced by %d to T%d" % [ded_glowy_penalty_melee, toughness])
 	var ap = weapon_profile.get("ap", 0)
-	# MARTIAL MASTERY — IMPROVE AP (P2-27): Shield Host detachment — improve AP by 1 on melee weapons
-	# Applied before defender's worsen_ap (attacker improvement first, then defender reduction)
-	var melee_attacker_flags = attacker_unit.get("flags", {})
-	if melee_attacker_flags.get("martial_mastery_improve_ap", false):
-		var pre_ap_mm = ap
-		ap = improve_ap(ap, 1)
-		print("RulesEngine: Martial Mastery (Improve AP) — melee AP %d → %d" % [pre_ap_mm, ap])
+	# (The 10e Shield Host Martial Mastery "improve AP" option is gone — the
+	# codex Martial Mastery is a [SUSTAINED HITS 1] / [LETHAL HITS] choice, WP-C46.)
 	# IMPROVE AP: effect-granted AP improvement (melee scope)
 	var melee_improve_ap = EffectPrimitivesData.get_effect_improve_ap_scoped(attacker_unit, "melee")
 	if melee_improve_ap > 0:
 		var pre_ap_imp = ap
 		ap = improve_ap(ap, melee_improve_ap)
 		print("RulesEngine: Improve AP (melee) — AP %d → %d (improve by %d)" % [pre_ap_imp, ap, melee_improve_ap])
-	# ADMONIMORTIS (Lions enhancement, 10e stopgap): +1 AP on the bearer's melee weapons
-	if has_admonimortis(attacker_unit):
-		ap = improve_ap(ap, 1)
-		print("RulesEngine: ADMONIMORTIS — melee AP improved by 1 → %d" % ap)
 	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
 	var melee_prey_bonus = get_prey_ap_bonus(attacker_unit, target_unit)
 	if melee_prey_bonus > 0:
@@ -13110,10 +13343,10 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		print("RulesEngine: Worsen AP (melee) — AP %d → %d (worsen by %d)" % [pre_ap, ap, melee_worsen_ap])
 	var damage = weapon_profile.get("damage", 1)
 
-	# ADMONIMORTIS (Lions enhancement, 10e stopgap): +1 Damage on the bearer's melee weapons
-	if has_admonimortis(attacker_unit):
-		damage += 1
-		print("RulesEngine: ADMONIMORTIS — melee damage %d → %d (+1)" % [damage - 1, damage])
+	# Codex: Adeptus Custodes (11e) MEMENTO MORITOI: +1 D on the bearer's melee attacks (WP-C46).
+	if int(cus11e_mpb.d) > 0:
+		damage += int(cus11e_mpb.d)
+		print("RulesEngine: %s — melee damage %d → %d" % [str(cus11e_mpb.source), damage - int(cus11e_mpb.d), damage])
 
 	# WP-O6: Codex: Orks (11e) datasheet-ability Damage (High-speed Carnage, Brutal Impact)
 	var ork6_d := int(ork6.get("damage", 0))
@@ -13152,6 +13385,18 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 	if not weapon_has_lethal_hits and _cus11e_katah().rendax_lethal_hits(attacker_unit, target_unit):
 		weapon_has_lethal_hits = true
 		print("RulesEngine:   LETHAL HITS (MONSTER/VEHICLE) granted by the RENDAX ka'tah vs %s" % target_name)
+	# Codex: Adeptus Custodes (11e) Martial Mastery [SUSTAINED HITS 1] / [LETHAL HITS], Flawless
+	# Bladework [SUSTAINED HITS 1], From the Hall of Armouries [DEVASTATING WOUNDS] (WP-C46).
+	if not weapon_has_lethal_hits and str(cus11e_mg.lethal) != "":
+		weapon_has_lethal_hits = true
+		print("RulesEngine:   LETHAL HITS granted by %s" % str(cus11e_mg.lethal))
+	if sustained_data.value == 0 and str(cus11e_mg.sustained) != "":
+		sustained_data = {"value": 1, "is_dice": false}
+		print("RulesEngine:   SUSTAINED HITS 1 granted by %s" % str(cus11e_mg.sustained))
+	if not weapon_has_devastating_wounds and str(cus11e_mg.devastating) != "" \
+			and str(assignment.get("devastating_wounds_choice", "")) != "normal":
+		weapon_has_devastating_wounds = true
+		print("RulesEngine:   DEVASTATING WOUNDS granted by %s" % str(cus11e_mg.devastating))
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): GRIM RESPONSIBILITY [LETHAL HITS: CHARACTER/MONSTER].
 	if not weapon_has_lethal_hits and _cus11e_codex().melee_lethal_hits(attacker_unit, target_unit):
 		weapon_has_lethal_hits = true
@@ -13268,11 +13513,7 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 		# Normal hit roll using Weapon Skill
 		hit_rolls = rng.roll_d6(total_attacks)
 
-		# MARTIAL MASTERY — CRIT ON 5+ (P2-27): Shield Host detachment
-		if melee_attacker_flags.get("martial_mastery_crit_5", false):
-			melee_crit_threshold = 5
-			print("RulesEngine: Martial Mastery (Crit on 5+) — melee critical hit threshold lowered to 5+")
-		# Also check effect_crit_hit_on flag (from stratagems or other abilities)
+		# Effect-granted critical hit threshold (stratagems or other abilities)
 		var effect_crit = EffectPrimitivesData.get_effect_crit_hit_on(attacker_unit)
 		if effect_crit > 0 and effect_crit < melee_crit_threshold:
 			melee_crit_threshold = effect_crit
@@ -13347,11 +13588,8 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 			ModifierLedger.note(melee_hit_mod_ledger, "Xenos Hunter", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "target lacks IMPERIUM and CHAOS")
 			print("RulesEngine: XENOS HUNTER (melee) — +1 to hit for %s (target lacks IMPERIUM/CHAOS)" % attacker_id)
 
-		# AGAINST ALL ODDS: +1 to Hit when no friendly units within 6" (melee, Lions of the Emperor)
-		if FactionAbilityManager.check_against_all_odds(attacker_unit, board):
-			melee_hit_modifiers |= HitModifier.PLUS_ONE
-			ModifierLedger.note(melee_hit_mod_ledger, "Against All Odds", ModifierLedger.KIND_HIT, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
-			print("RulesEngine: AGAINST ALL ODDS (melee) — +1 to hit for %s (no friendlies within 6\")" % attacker_id)
+		# Codex: Adeptus Custodes (11e) detachment rules / enhancements (CustodesDetachments.gd, WP-C46).
+		melee_hit_modifiers = cus11e_apply_hit_effects(melee_hit_modifiers, melee_hit_mod_ledger, attacker_unit, target_unit, true, board)
 
 		# Codex: Adeptus Custodes DACATARAI (attacker) / KAPTARIS (target) ka'tahs
 		# (CustodesKatah.gd): re-roll hit rolls of 1 vs a non-MONSTER/VEHICLE
@@ -13398,6 +13636,12 @@ static func _resolve_melee_assignment_hits(assignment: Dictionary, actor_unit_id
 					critical_hits += 1
 				else:
 					regular_hits += 1
+
+		# Codex: Adeptus Custodes MAGNA IMPERATOR (Emperor's Chosen, WP-C46): re-roll one hit roll (melee).
+		var cus11e_mh_m: Dictionary = cus11e_magna_reroll_hit(attacker_unit, hit_evals, modified_rolls, melee_hit_reroll_data, ws_per_attack, ws, melee_hit_modifiers, melee_crit_threshold, rng, 1, melee_hit_mod_ledger)
+		hits += int(cus11e_mh_m.hit)
+		critical_hits += int(cus11e_mh_m.crit)
+		regular_hits += int(cus11e_mh_m.hit) - int(cus11e_mh_m.crit)
 
 		# SUSTAINED HITS: Generate bonus hits on critical hits
 		if sustained_data.value > 0 and critical_hits > 0:
@@ -13666,11 +13910,8 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 		print("RulesEngine: S>T wound penalty (melee) — -1 to wound for attacks against %s (S %d > T %d)" % [target_id, strength, toughness])
 
 
-	# AGAINST ALL ODDS: +1 to Wound when no friendly units within 6" (melee, Lions of the Emperor)
-	if FactionAbilityManager.check_against_all_odds(attacker_unit, board):
-		melee_wound_modifiers |= WoundModifier.PLUS_ONE
-		ModifierLedger.note(melee_wound_mod_ledger, "Against All Odds", ModifierLedger.KIND_WOUND, ModifierLedger.PLUS_ONE, "no other friendly unit within 6\"")
-		print("RulesEngine: AGAINST ALL ODDS (melee) — +1 to wound for %s (no friendlies within 6\")" % attacker_id)
+	# Codex: Adeptus Custodes (11e) detachment rules / enhancements (CustodesDetachments.gd, WP-C46).
+	melee_wound_modifiers = cus11e_apply_wound_effects(melee_wound_modifiers, melee_wound_mod_ledger, attacker_unit, target_unit, true, strength, toughness, board)
 
 	# Codex: Adeptus Custodes stratagems (CustodesCodex11e.gd): SLAYERS OF NIGHTMARES (+1), SHIELD OF HONOUR (-1), BEARERS OF HIS LIGHT (ignore -1).
 	melee_wound_modifiers = _cus11e_codex().apply_wound_bits(melee_wound_modifiers, attacker_unit, target_unit, true, strength, toughness, melee_wound_mod_ledger)
@@ -13746,6 +13987,16 @@ static func _resolve_melee_assignment_wounds(hit_context: Dictionary, board: Dic
 					else:
 						regular_wound_count += 1
 
+	# Codex: Adeptus Custodes MAGNA IMPERATOR (Emperor's Chosen, WP-C46): re-roll one wound roll (melee).
+	var cus11e_mw_m: Dictionary = cus11e_magna_reroll_wound(attacker_unit, wound_evals, wound_rolls, melee_wound_reroll_data, melee_wound_modifiers, wound_threshold, melee_critical_wound_threshold, rng, melee_wound_mod_ledger)
+	if int(cus11e_mw_m.wound) > 0:
+		wounds_from_rolls += 1
+		if int(cus11e_mw_m.crit) > 0:
+			all_critical_wound_count += 1
+		if weapon_has_devastating_wounds and int(cus11e_mw_m.crit) > 0:
+			critical_wound_count += 1
+		else:
+			regular_wound_count += 1
 	var wounds_caused = auto_wounds + wounds_from_rolls
 
 	if melee_anti_keyword_active:
@@ -13877,11 +14128,14 @@ static func _resolve_melee_assignment_saves(hit_context: Dictionary, w: Dictiona
 	# allocation rides FightController's AllocationGroupOverlay.)
 	if GameConstants.edition >= 11:
 		var m_damage_raw = weapon_profile.get("damage_raw", str(weapon_profile.get("damage", 1)))
+		# Codex: Adeptus Custodes (11e) MEMENTO MORITOI: +1 D on the bearer's melee attacks (WP-C46).
+		m_damage_raw = cus11e_damage_raw_plus(str(m_damage_raw), int(cus11e_melee_profile_bonus(board.get("units", {}).get(attacker_id, {})).d))
 		var m_alloc = _apply_saves_via_allocation_11e(result, target_unit, target_id,
 			regular_wound_count if weapon_has_devastating_wounds else wounds_caused,
 			critical_wound_count if weapon_has_devastating_wounds else 0,
 			ap, m_damage_raw, rng, {
 				"actor_unit": board.get("units", {}).get(actor_unit_id, {}),
+				"is_melee": true,  # Codex: Adeptus Custodes (11e) — Flare Shields is vs ranged only (WP-C46)
 				"plus_damage": ork6_plus_d,
 				"half_damage": get_unit_half_damage(target_unit),
 				"fnp_value": get_unit_fnp_vs(target_unit, is_psychic_weapon(weapon_id, board), false),
@@ -14410,6 +14664,13 @@ static func get_unit_melee_weapons(unit_id: String, board: Dictionary = {}) -> D
 		else:
 			# Fallback: no model_profiles or no model_type — assign all melee weapons
 			model_weapons = all_melee_weapons.duplicate()
+		# Enhancement-granted melee weapons (granted_by, e.g. Codex: Adeptus
+		# Custodes Emperor's Light — WP-C46) are always carried by the bearer.
+		for weapon in weapons_data:
+			if weapon.get("type", "").to_lower() == "melee" and str(weapon.get("granted_by", "")) != "":
+				var gname = weapon.get("name", "Unknown Weapon")
+				if gname not in model_weapons:
+					model_weapons.append(gname)
 
 		if not model_weapons.is_empty():
 			unit_weapons[model_id] = model_weapons
@@ -14586,6 +14847,11 @@ static func prepare_save_resolution(
 	if ork11e_inv != effect_invuln:
 		effect_invuln = ork11e_inv
 		effect_invuln_source = "Unpredictable Genius — Dat's Weird"
+	# Codex: Adeptus Custodes (11e) Flare Shields 4+ vs ranged / Eagle's Eye 3+ (WP-C46).
+	var cus11e_inv := cus11e_invuln(target_unit, false, effect_invuln, board)
+	if cus11e_inv != effect_invuln:
+		effect_invuln = cus11e_inv
+		effect_invuln_source = "Codex: Adeptus Custodes"
 
 	if effect_cover:
 		print("RulesEngine: Target has effect-granted Benefit of Cover")
@@ -14728,13 +14994,7 @@ static func prepare_melee_save_resolution(
 		ap = worsen_ap(ap, mi_worsen_ap)
 		print("RulesEngine: Worsen AP (melee interactive) — AP %d → %d (worsen by %d)" % [pre_ap, ap, mi_worsen_ap])
 
-	# MARTIAL MASTERY — IMPROVE AP (P2-27): Shield Host detachment
 	var attacker_unit = units.get(attacker_unit_id, {})
-	var attacker_flags = attacker_unit.get("flags", {})
-	if attacker_flags.get("martial_mastery_improve_ap", false):
-		var pre_ap_mm = ap
-		ap = improve_ap(ap, 1)
-		print("RulesEngine: Martial Mastery (Improve AP) — melee interactive AP %d → %d" % [pre_ap_mm, ap])
 	# PREY (Da Big Hunt): +1 AP for BEAST SNAGGA attacks against the attacker's Prey
 	var mi_prey_bonus = get_prey_ap_bonus(attacker_unit, target_unit)
 	if mi_prey_bonus > 0:
@@ -14752,10 +15012,6 @@ static func prepare_melee_save_resolution(
 		ap = improve_ap(ap, mi_improve_ap)
 		print("RulesEngine: Improve AP (melee interactive) — AP %d → %d (improve by %d)" % [pre_ap_imp, ap, mi_improve_ap])
 
-	# ADMONIMORTIS (Lions enhancement, 10e stopgap): +1 AP on the bearer's melee weapons
-	if has_admonimortis(attacker_unit):
-		ap = improve_ap(ap, 1)
-		print("RulesEngine: ADMONIMORTIS — melee interactive AP improved by 1 → %d" % ap)
 	# WP-O6: Codex: Orks (11e) datasheet-ability AP (melee interactive)
 	var mi_ork6_ap := int(ork11e_ab_mods(attacker_unit, target_unit, weapon_profile, true, board).get("ap", 0))
 	if mi_ork6_ap > 0:
@@ -14766,13 +15022,14 @@ static func prepare_melee_save_resolution(
 
 	var damage = weapon_profile.get("damage", 1)
 
-	# ADMONIMORTIS (Lions enhancement, 10e stopgap): +1 Damage on the bearer's melee weapons
-	if has_admonimortis(attacker_unit):
-		damage += 1
-		print("RulesEngine: ADMONIMORTIS — melee interactive damage %d → %d (+1)" % [damage - 1, damage])
+	# Codex: Adeptus Custodes (11e) MEMENTO MORITOI: +1 D on the bearer's melee attacks (WP-C46).
+	var cus11e_mi_d := int(cus11e_melee_profile_bonus(attacker_unit).d)
+	if cus11e_mi_d > 0:
+		damage += cus11e_mi_d
 
 	var base_save = target_unit.get("meta", {}).get("stats", {}).get("save", 7)
 	var damage_raw = weapon_profile.get("damage_raw", str(damage))
+	damage_raw = cus11e_damage_raw_plus(str(damage_raw), cus11e_mi_d)  # Codex: Adeptus Custodes (11e) Memento Moritoi +1 D (WP-C46)
 
 	# Get model allocation requirements (prioritize wounded models)
 	var allocation_info = _get_save_allocation_requirements(target_unit, attacker_unit_id, board)
@@ -14780,6 +15037,11 @@ static func prepare_melee_save_resolution(
 	# Effect-granted invuln (e.g., Waaagh! 5+)
 	var effect_invuln = EffectPrimitivesData.get_effect_invuln(target_unit)
 	var effect_invuln_source = EffectPrimitivesData.get_effect_invuln_source(target_unit)
+	# Codex: Adeptus Custodes (11e) Eagle's Eye 3+ (WP-C46).
+	var cus11e_minv := cus11e_invuln(target_unit, true, effect_invuln, board)
+	if cus11e_minv != effect_invuln:
+		effect_invuln = cus11e_minv
+		effect_invuln_source = "Codex: Adeptus Custodes"
 	if effect_invuln > 0:
 		print("RulesEngine: Target has effect-granted %d+ invulnerable save (melee interactive, source: %s)" % [effect_invuln, effect_invuln_source])
 
@@ -15495,6 +15757,9 @@ static func get_unit_fnp(unit: Dictionary) -> int:
 	(e.g. Daughters of the Abyss) call get_unit_fnp_for_attack(unit, true)."""
 	var base_fnp = unit.get("meta", {}).get("stats", {}).get("fnp", 0)
 	var effect_fnp = EffectPrimitivesData.get_effect_fnp(unit)
+	# Codex: Adeptus Custodes (11e) Genalchemic Warding / Augury Uplink: the bearer has FNP 5+ (WP-C46).
+	if GameConstants.edition >= 11:
+		effect_fnp = _better_fnp(effect_fnp, int(cus11e_det().unit_fnp(unit)))
 
 	# Use the better (lower) FNP if both exist, otherwise whichever is non-zero
 	if base_fnp > 0 and effect_fnp > 0:
@@ -15524,18 +15789,14 @@ static func get_model_fnp_vs(unit: Dictionary, model: Dictionary, is_psychic: bo
 	return _better_fnp(get_model_fnp(unit, model), _conditional_fnp(unit, is_psychic, is_mortal))
 
 ## Only the conditional FNP grants (0 = none): the T-016 psychic-or-mortal
-## flag and Null Aegis (psychic attacks or mortal wounds), plus the Codex:
-## Adeptus Custodes army rules (CustodesKatah.fnp_vs: Aegis of the Emperor vs
-## mortal wounds, Daughters of the Abyss / Psychic Null vs psychic attacks).
+## flag, plus the Codex: Adeptus Custodes army rules (CustodesKatah.fnp_vs:
+## Aegis of the Emperor vs mortal wounds, Daughters of the Abyss / Psychic
+## Null vs psychic attacks). (The 10e Talons of the Emperor Null Aegis aura is
+## gone with that detachment — WP-C46.)
 static func _conditional_fnp(unit: Dictionary, is_psychic: bool, is_mortal: bool) -> int:
 	if not is_psychic and not is_mortal:
 		return 0
 	var best := int(EffectPrimitivesData.get_effect_fnp_psychic_mortal(unit))
-	# T-075: Null Aegis (Talons of the Emperor) — Custodes within 6" of friendly
-	# ANATHEMA PSYKANA model gain FNP 5+ vs Psychic/MW. Take the better of all.
-	var uam = Engine.get_main_loop().root.get_node_or_null("UnitAbilityManager") if Engine.get_main_loop() else null
-	if uam and uam.has_method("get_null_aegis_fnp"):
-		best = _better_fnp(best, int(uam.get_null_aegis_fnp(unit.get("id", ""))))
 	# Codex: Adeptus Custodes army rules (CustodesKatah.gd)
 	best = _better_fnp(best, int(_cus11e_katah().fnp_vs(unit, is_psychic, is_mortal)))
 	return best
@@ -15825,18 +16086,6 @@ static func resolve_deadly_demise(destroyed_unit_id: String, dd_value: String, b
 		"total_casualties": total_casualties
 	}
 
-# ADMONIMORTIS (Lions of the Emperor enhancement) — 10e STOPGAP wording (user
-# ruling 2026-07-10): "Shield-Captain model only. Improve the Strength
-# characteristic of melee weapons equipped by the bearer by 3, and improve the
-# Armour Penetration and Damage characteristics of those weapons by 1."
-# Applied inline in the melee resolution paths (strength/AP/damage sites).
-# The 40kdc dataset has no 11e rule yet (ability_id null at 1.0.24); an earlier
-# bearer-death mortal-wound trigger shipped here had no source in either
-# edition and was removed when the stopgap policy was set.
-static func has_admonimortis(unit: Dictionary) -> bool:
-	return unit_has_enhancement(unit, "Admonimortis")
-
-
 static func unit_has_enhancement(unit: Dictionary, enhancement_name: String) -> bool:
 	"""True if the unit's meta.enhancements list carries the named enhancement
 	(entries may be plain strings or {name: ...} dictionaries)."""
@@ -15845,184 +16094,6 @@ static func unit_has_enhancement(unit: Dictionary, enhancement_name: String) -> 
 		if enh_name == enhancement_name:
 			return true
 	return false
-
-static func get_fierce_conqueror_bonus_attacks(attacker_unit: Dictionary, board: Dictionary) -> int:
-	"""Fierce Conqueror (Lions of the Emperor enhancement): add 2 to the Attacks
-	characteristic of the bearer's melee weapons for every 5 enemy models within
-	6\" of the bearer (rounded down). Returns the per-model Attacks bonus —
-	0 when the unit lacks the enhancement or fewer than 5 enemy models are close."""
-	if not unit_has_enhancement(attacker_unit, "Fierce Conqueror"):
-		return 0
-	var owner = attacker_unit.get("owner", 0)
-	var bearer_models: Array = []
-	for bm in attacker_unit.get("models", []):
-		if bm.get("alive", true) and bm.get("position", null) != null:
-			bearer_models.append(bm)
-	if bearer_models.is_empty():
-		return 0
-	var enemy_models_close = 0
-	for other_id in board.get("units", {}):
-		var other = board["units"][other_id]
-		if other.get("owner", 0) == owner:
-			continue
-		if other.get("embarked_in", null) != null:
-			continue
-		for om in other.get("models", []):
-			if not om.get("alive", true) or om.get("position", null) == null:
-				continue
-			for bm in bearer_models:
-				var dist_px = Measurement.model_to_model_distance_px(bm, om)
-				if Measurement.px_to_inches(dist_px) <= 6.0:
-					enemy_models_close += 1
-					break
-	var bonus = int(enemy_models_close / 5) * 2
-	if bonus > 0:
-		print("RulesEngine: FIERCE CONQUEROR — %d enemy models within 6\" of bearer → +%d Attacks" % [enemy_models_close, bonus])
-	return bonus
-
-# ==========================================
-# SUPERIOR CREATION (Lions of the Emperor enhancement)
-# ==========================================
-# "Adeptus Custodes Infantry model only. The first time the bearer is
-# destroyed, roll one D6 at the end of the phase. On a 2+, set the bearer back
-# up on the battlefield, as close as possible to where it was destroyed and
-# not within Engagement Range of one or more enemy units, with its full wounds
-# remaining."
-
-static func record_superior_creation_death(destroyed_unit_id: String, board: Dictionary) -> Dictionary:
-	"""Called when a unit is destroyed: if it carries Superior Creation and the
-	once-per-battle revival is unspent, mark a pending end-of-phase revival
-	(PhaseManager rolls it in resolve_superior_creation_revivals). Returns
-	{applicable: bool, diffs: Array}."""
-	var not_applicable = {"applicable": false, "diffs": []}
-	var unit = board.get("units", {}).get(destroyed_unit_id, {})
-	if unit.is_empty():
-		return not_applicable
-	if not unit_has_enhancement(unit, "Superior Creation"):
-		return not_applicable
-	if unit.get("flags", {}).get("superior_creation_used", false):
-		return not_applicable
-	if unit.get("flags", {}).get("superior_creation_pending", null) != null:
-		return not_applicable
-	# Bearer death position: last recorded model position (the bearer is a
-	# single-model CHARACTER unit; dead models keep their position field).
-	var death_pos = null
-	for m in unit.get("models", []):
-		var p = m.get("position", null)
-		if p != null:
-			death_pos = p
-	if death_pos == null:
-		return not_applicable
-	var pos_dict = {"x": 0.0, "y": 0.0}
-	if death_pos is Vector2:
-		pos_dict = {"x": death_pos.x, "y": death_pos.y}
-	elif death_pos is Dictionary:
-		pos_dict = {"x": float(death_pos.get("x", 0)), "y": float(death_pos.get("y", 0))}
-	var unit_name = unit.get("meta", {}).get("name", destroyed_unit_id)
-	print("RulesEngine: SUPERIOR CREATION — %s destroyed, revival roll queued for end of phase" % unit_name)
-	return {"applicable": true, "diffs": [
-		{"op": "set", "path": "units.%s.flags.superior_creation_used" % destroyed_unit_id, "value": true},
-		{"op": "set", "path": "units.%s.flags.superior_creation_pending" % destroyed_unit_id, "value": pos_dict},
-	]}
-
-static func resolve_superior_creation_revivals(board: Dictionary, rng: RNGService = null) -> Dictionary:
-	"""End of phase: roll each pending Superior Creation revival. On a 2+ the
-	bearer is set back up with full wounds as close as possible to where it was
-	destroyed and outside Engagement Range of enemy units; on a 1 it stays
-	destroyed. Returns {diffs: Array, log_lines: Array}."""
-	var result = {"diffs": [], "log_lines": []}
-	if rng == null:
-		rng = make_rng()
-	var units = board.get("units", {})
-	for unit_id in units:
-		var unit = units[unit_id]
-		var pending = unit.get("flags", {}).get("superior_creation_pending", null)
-		if pending == null:
-			continue
-		# Always consume the pending marker — the roll happens exactly once.
-		result.diffs.append({"op": "set", "path": "units.%s.flags.superior_creation_pending" % unit_id, "value": null})
-		var unit_name = unit.get("meta", {}).get("name", unit_id)
-		var roll = rng.roll_d6(1)[0]
-		if roll < 2:
-			result.log_lines.append("SUPERIOR CREATION: %s revival roll %d — fails (needed 2+)" % [unit_name, roll])
-			print("RulesEngine: SUPERIOR CREATION — %s rolled %d, stays destroyed" % [unit_name, roll])
-			continue
-		var death_pos = Vector2(float(pending.get("x", 0)), float(pending.get("y", 0)))
-		var models = unit.get("models", [])
-		# Revive the bearer model (single-model unit: index of the last model
-		# with a recorded position).
-		var bearer_idx = -1
-		for i in range(models.size()):
-			if models[i].get("position", null) != null:
-				bearer_idx = i
-		if bearer_idx < 0:
-			bearer_idx = 0
-		var bearer = models[bearer_idx] if bearer_idx < models.size() else {}
-		var base_mm = int(bearer.get("base_size_mm", bearer.get("base_mm", 32)))
-		var radius_px = Measurement.base_radius_px(base_mm)
-		var revive_pos = _find_superior_creation_position(death_pos, radius_px, unit.get("owner", 0), board)
-		result.diffs.append({"op": "set", "path": "units.%s.models.%d.alive" % [unit_id, bearer_idx], "value": true})
-		result.diffs.append({"op": "set", "path": "units.%s.models.%d.current_wounds" % [unit_id, bearer_idx], "value": bearer.get("wounds", 1)})
-		result.diffs.append({"op": "set", "path": "units.%s.models.%d.position" % [unit_id, bearer_idx], "value": {"x": revive_pos.x, "y": revive_pos.y}})
-		result.log_lines.append("SUPERIOR CREATION: %s revival roll %d — returns with full wounds (once per battle)" % [unit_name, roll])
-		print("RulesEngine: SUPERIOR CREATION — %s rolled %d, set back up at (%.0f, %.0f)" % [unit_name, roll, revive_pos.x, revive_pos.y])
-	return result
-
-static func _find_superior_creation_position(death_pos: Vector2, radius_px: float, owner: int, board: Dictionary) -> Vector2:
-	"""Closest spot to the death position that is outside Engagement Range (1\")
-	of every enemy model and not overlapping any model's base. Searches the
-	death position first, then rings outward in 0.5\" steps (up to 18\")."""
-	if _superior_creation_spot_legal(death_pos, radius_px, owner, board):
-		return death_pos
-	var step_px = Measurement.inches_to_px(0.5)
-	for ring in range(1, 37):  # 0.5" .. 18"
-		var ring_radius = step_px * ring
-		for angle_step in range(0, 12):
-			var angle = angle_step * PI / 6.0
-			var candidate = death_pos + Vector2(cos(angle), sin(angle)) * ring_radius
-			if not _position_on_battlefield(candidate, radius_px, board):
-				continue
-			if _superior_creation_spot_legal(candidate, radius_px, owner, board):
-				return candidate
-	# No legal spot found — fall back to the death position (still better than
-	# losing the model to a placement failure).
-	print("RulesEngine: SUPERIOR CREATION — no legal spot within 18\" of death position, using death position")
-	return death_pos
-
-static func _superior_creation_spot_legal(pos: Vector2, radius_px: float, owner: int, board: Dictionary) -> bool:
-	for other_id in board.get("units", {}):
-		var other = board["units"][other_id]
-		var is_enemy = other.get("owner", 0) != owner
-		for om in other.get("models", []):
-			if not om.get("alive", true):
-				continue
-			var op = om.get("position", null)
-			if op == null:
-				continue
-			var opos = Vector2(0, 0)
-			if op is Vector2:
-				opos = op
-			elif op is Dictionary:
-				opos = Vector2(float(op.get("x", 0)), float(op.get("y", 0)))
-			var other_radius = Measurement.base_radius_px(int(om.get("base_size_mm", om.get("base_mm", 32))))
-			var center_dist = pos.distance_to(opos)
-			# No base overlap with any model
-			if center_dist < radius_px + other_radius:
-				return false
-			# Outside Engagement Range (1") of every enemy model
-			if is_enemy:
-				var edge_in = Measurement.px_to_inches(center_dist - radius_px - other_radius)
-				if edge_in < 1.0:
-					return false
-	return true
-
-static func _position_on_battlefield(pos: Vector2, radius_px: float, board: Dictionary) -> bool:
-	var size = board.get("board", {}).get("size", {})
-	if size.is_empty():
-		return true
-	var w_px = Measurement.inches_to_px(float(size.get("width", 44)))
-	var h_px = Measurement.inches_to_px(float(size.get("height", 60)))
-	return pos.x >= radius_px and pos.y >= radius_px and pos.x <= w_px - radius_px and pos.y <= h_px - radius_px
 
 # ==========================================
 # TRANSPORT DESTRUCTION (P1-60)

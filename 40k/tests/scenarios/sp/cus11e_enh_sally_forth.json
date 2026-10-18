@@ -1,0 +1,162 @@
+{
+  "id": "cus11e_enh_sally_forth",
+  "covers": [
+    "codex.custodes.enhancement.sally_forth",
+    "stratagem.window.cus11e_phase_start",
+    "rules.charge.eligibility.advanced"
+  ],
+  "description": "Codex: Adeptus Custodes (11e) enhancement SALLY FORTH (Solar Watch, WP-C46): at the start of your Charge phase, select one friendly ADEPTUS CUSTODES INFANTRY unit within 6\" of this model; if that unit made an advance move this turn, that advance move does not prevent it from declaring a charge. Fixture cus11e_c3_custodes_active (P1 Custodes active, round 2); setup privileges: P1 detachment Solar Watch, the Shield-Captain given Sally Forth and standing next to Witchseeker Squad D, which advanced this turn (flags.advanced), CP 0 for both. The Charge phase starts (PhaseManager.transition_to_phase(9)): the start-of-phase window lists the free SALLY FORTH card with the Witchseekers marked '(advanced)'; a real click uses it; the charge panel then lists the Witchseekers among the units that can charge and Declare Charge against the Gretchin succeeds.",
+  "fixture": "cus11e_c3_custodes_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "steps": [
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "expect_phase",
+      "equals": 7
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.4
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "setup privileges (see description)",
+      "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Solar Watch\"\nGameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nvar sc = GameState.state.units[\"U_SHIELD_CAPTAIN_A\"]\nsc.meta[\"enhancements\"] = [\"Sally Forth\"]\nsc.models[0][\"position\"] = {\"x\": 1500.0, \"y\": 1700.0}\nGameState.state.units[\"U_WITCHSEEKERS_D\"].flags[\"advanced\"] = true\nGameState.state.units[\"U_WITCHSEEKERS_D\"].flags[\"moved\"] = true\ntree.current_scene._recreate_unit_visuals()\nPhaseManager.transition_to_phase(9)\nreturn true",
+      "equals": true
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 1.2
+    },
+    {
+      "act": "expect_phase",
+      "equals": 9
+    },
+    {
+      "act": "expect_node_visible",
+      "node": "/root/StratagemDialog",
+      "timeout_s": 4.0
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")",
+      "equals": "cus11e_phase_start"
+    },
+    {
+      "act": "expect_node_property",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_rule_enh_sally_forth/Buttons/Use_cus11e_rule_enh_sally_forth_U_WITCHSEEKERS_D",
+      "property": "disabled",
+      "equals": false
+    },
+    {
+      "act": "execute_script",
+      "script": "tree.root.get_node(\"StratagemDialog/Content/StratScroll/StratList/Card_cus11e_rule_enh_sally_forth/Buttons/Use_cus11e_rule_enh_sally_forth_U_WITCHSEEKERS_D\").text.contains(\"(advanced)\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "01_sally_forth_card"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_rule_enh_sally_forth/Buttons/Use_cus11e_rule_enh_sally_forth_U_WITCHSEEKERS_D"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "expect_cp",
+      "player": 1,
+      "equals": 0
+    },
+    {
+      "act": "execute_script",
+      "script": "ScenarioRunner.event_log_count_containing(\"SALLY FORTH\")",
+      "expect_min": 1
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "comment": "the advanced Witchseekers are listed among the units that can charge",
+      "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nif cc.has_method(\"_refresh_unit_list\"):\n\tcc._refresh_unit_list()\nvar out = []\nfor i in range(cc.unit_selector.get_item_count()):\n\tout.append(str(cc.unit_selector.get_item_metadata(i)))\nprint(\"[cus11e sally forth] charge list: \", out)\nreturn \",\".join(out)",
+      "equals": "U_CALADIUS_GRAV-TANK_E,U_SHIELD_CAPTAIN_A,U_TELEMON_HEAVY_DREADNOUGHT_I,U_WITCHSEEKERS_D"
+    },
+    {
+      "act": "screenshot",
+      "label": "02_advanced_unit_can_charge"
+    },
+    {
+      "act": "click_item_list",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeUnitSelector",
+      "index": 3
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "main.charge_controller.active_unit_id",
+      "equals": "U_WITCHSEEKERS_D"
+    },
+    {
+      "act": "click_unit",
+      "unit_id": "U_GRETCHIN_C"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.3
+    },
+    {
+      "act": "execute_script",
+      "multiline": true,
+      "script": "var cc = tree.root.get_node(\"Main\").charge_controller\nvar out = []\nfor i in cc.target_list.get_selected_items():\n\tout.append(str(cc.target_list.get_item_metadata(i)))\nreturn \",\".join(out)",
+      "equals": "U_GRETCHIN_C"
+    },
+    {
+      "act": "click_node",
+      "node": "/root/Main/HUD_Right/VBoxContainer/ChargeScrollContainer/ChargePanel/ChargeActionButtons/MainButtons/DeclareChargeButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.8
+    },
+    {
+      "act": "click_if_visible",
+      "node": "/root/StratagemDialog/Content/DeclineButton"
+    },
+    {
+      "act": "wait_seconds",
+      "seconds": 0.6
+    },
+    {
+      "act": "execute_script",
+      "script": "PhaseManager.get_current_phase_instance().pending_charges.has(\"U_WITCHSEEKERS_D\")",
+      "equals": true
+    },
+    {
+      "act": "screenshot",
+      "label": "03_advanced_unit_charge_declared"
+    }
+  ]
+}

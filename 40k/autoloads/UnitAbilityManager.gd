@@ -275,7 +275,7 @@ const ABILITY_EFFECTS: Dictionary = {
 		"effects": [],
 		"target": "unit",
 		"attack_type": "all",
-		"implemented": true,
+		"implemented": false,  # WP-C7: no shock disembark move in the core rules (custodes_abilities_audit.md)
 		"description": "In your Movement phase, when this unit ends an advance move, units embarked within it can make a shock disembark move (not implemented: the core rules in docs/ define no shock disembark move) (Codex: Adeptus Custodes 11e — CustodesAbilities)."
 	},
 
@@ -694,8 +694,8 @@ const ABILITY_EFFECTS: Dictionary = {
 		"effects": [],
 		"target": "unit",
 		"attack_type": "ranged",
-		"implemented": true,
-		"description": "This unit's ranged attacks that target a MONSTER/VEHICLE unit can re-roll one hit roll, one wound roll and one damage roll (Codex: Adeptus Custodes 11e — CustodesAbilities)."
+		"implemented": false,  # WP-C7: not implemented yet (single-die re-rolls; see custodes_abilities_audit.md)
+		"description": "This unit's ranged attacks that target a MONSTER/VEHICLE unit can re-roll one hit roll, one wound roll and one damage roll (Codex: Adeptus Custodes 11e) — NOT IMPLEMENTED yet."
 	},
 
 	# Captain-General — Codex: Adeptus Custodes (11e) datasheet ability; the rule is in
@@ -1101,64 +1101,15 @@ const ABILITY_EFFECTS: Dictionary = {
 	},
 
 	# ======================================================================
-	# Issue #374 — P0 enhancements (Custodes Shield Host + Ork War Horde).
+	# Issue #374 — P0 enhancements (Ork War Horde). The 10e Custodes Shield
+	# Host entries (Auric Mantle, Castellan's Mark, From the Hall of
+	# Armouries, Panoptispex) were retired with that detachment in WP-C46:
+	# the codex enhancements live in scripts/codex/custodes/CustodesEnhancements.gd.
 	# Registered with `condition: "enhancement"` so the existing
 	# _apply_enhancement_abilities pipeline picks them up via
 	# unit.meta.enhancements[]. Each enhancement bearer must be a CHARACTER
 	# (validated at army-build).
 	# ======================================================================
-
-	# Shield Host: Auric Mantle — "Add 2 to bearer's Wounds characteristic."
-	# Wounds is a list-build characteristic mutation (similar to Praesidium
-	# Shield), not a runtime flag. Marked implemented:false because the
-	# army-builder handles the +2 wound bump at army instantiation; this
-	# entry exists so the StatsCardPopup can show the rule text.
-	"Auric Mantle": {
-		"condition": "enhancement",
-		"effects": [{"type": EffectPrimitivesData.PLUS_WOUNDS, "value": 2}],
-		"target": "bearer_model",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Shield-Captain or Blade Champion only. +2 Wounds on the bearer. ArmyListManager._apply_enhancement_stat_bonuses applies at army instantiation."
-	},
-
-	# Shield Host: Castellan's Mark — pure deployment-phase action (redeploy
-	# up to 2 units, optionally into Strategic Reserves). No combat flag;
-	# DeploymentPhase needs to recognise the bearer's enhancement to enable
-	# the redeploy UI. Marked implemented:false.
-	"Castellan's Mark": {
-		"condition": "enhancement",
-		"effects": [],
-		"target": "bearer_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Shield-Captain only. After deployment, redeploy up to 2 friendly Adeptus Custodes units (excluding Anathema Psykana); they can be placed into Strategic Reserves regardless of count limit. DeploymentPhase.execute_castellan_redeploy provides the resolution-side API; UI prompt to be wired by DeploymentPhase end-hook."
-	},
-
-	# Shield Host: From the Hall of Armouries — "+1 to Strength and Damage
-	# characteristics of the bearer's melee weapons."
-	"From the Hall of Armouries": {
-		"condition": "enhancement",
-		"effects": [
-			{"type": EffectPrimitivesData.PLUS_STRENGTH_MELEE, "value": 1},
-			{"type": EffectPrimitivesData.PLUS_DAMAGE, "value": 1}
-		],
-		"target": "bearer_model",
-		"attack_type": "melee",
-		"implemented": true,
-		"description": "Shield-Captain only. +1 Strength and +1 Damage on the bearer's melee weapons (sets effect_plus_strength_melee and effect_plus_damage on the bearer's unit)"
-	},
-
-	# Shield Host: Panoptispex — "While bearer is leading a unit, ranged
-	# weapons in that unit have [IGNORES COVER]."
-	"Panoptispex": {
-		"condition": "enhancement",
-		"effects": [{"type": EffectPrimitivesData.GRANT_IGNORES_COVER}],
-		"target": "bearer_unit",
-		"attack_type": "ranged",
-		"implemented": true,
-		"description": "Shield-Captain or Blade Champion only. While leading a unit, ranged weapons in that unit have IGNORES COVER (effect_ignores_cover)"
-	},
 
 	# War Horde: Follow Me Ladz — "While the bearer is leading a unit, add 2\"
 	# to the Move characteristic of models in that unit."
@@ -1656,31 +1607,6 @@ const ABILITY_EFFECTS: Dictionary = {
 			{"type": "melee_attacks_bonus", "value": 2}
 		],
 		"description": "Telemon equipped with two Telemon Caestus gains +2 melee attacks"
-	},
-
-	# T-075: Talons of the Emperor faction auras. Implemented via direct query
-	# helpers (get_null_aegis_fnp / get_deadly_unity_hit_bonus) rather than
-	# stamping flags — the bonus is checked at FNP / hit-roll resolution time.
-	"Null Aegis (Aura)": {
-		"condition": "aura",
-		"effects": [],
-		"aura_range": 6.0,
-		"aura_target": "friendly",
-		"target": "friendly_adeptus_custodes_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Friendly ADEPTUS CUSTODES units within 6\" of an ANATHEMA PSYKANA model gain FNP 5+ vs Psychic Attacks and mortal wounds — checked at FNP resolution"
-	},
-
-	"Deadly Unity (Aura)": {
-		"condition": "aura",
-		"effects": [],
-		"aura_range": 6.0,
-		"aura_target": "friendly",
-		"target": "friendly_adeptus_custodes_unit",
-		"attack_type": "all",
-		"implemented": true,
-		"description": "Friendly ADEPTUS CUSTODES units within 6\" of an ANATHEMA PSYKANA model gain +1 to hit rolls — checked at hit-roll resolution"
 	},
 
 	# Waaagh! Effigy (Aura) — Codex: Orks (11e) datasheet ability; the rule is in
@@ -2690,73 +2616,6 @@ func find_enemy_units_within_aura(source_unit_id: String, aura_range: float) -> 
 ## (OrkAbilities11e), so no ability grants a bonus here now (WP-O6).
 func get_battle_shock_bonus(_unit_id: String) -> int:
 	return 0
-
-# ============================================================================
-# T-075: Talons of the Emperor faction auras (Null Aegis, Deadly Unity)
-# ============================================================================
-# Custodes models within 6" of a friendly ANATHEMA PSYKANA model gain:
-#   - Null Aegis: Feel No Pain 5+ vs Psychic Attacks and mortal wounds.
-#   - Deadly Unity: +1 to ranged + melee hit rolls.
-# Same query approach as Waaagh! Effigy: check at use-time, no flag stamping.
-
-func _is_within_friendly_anathema_psykana(target_unit_id: String, range_inches: float) -> bool:
-	var units = GameState.state.get("units", {})
-	var target_unit = units.get(target_unit_id, {})
-	if target_unit.is_empty():
-		return false
-	var target_owner = target_unit.get("owner", 0)
-	# Target must have ADEPTUS CUSTODES keyword to be a beneficiary.
-	var target_keywords = target_unit.get("meta", {}).get("keywords", [])
-	var has_custodes = false
-	for kw in target_keywords:
-		if str(kw).to_upper() == "ADEPTUS CUSTODES":
-			has_custodes = true
-			break
-	if not has_custodes:
-		return false
-	var target_embk_raw = target_unit.get("embarked_in", "")
-	var target_embk = "" if target_embk_raw == null else target_embk_raw
-	for src_unit_id in units:
-		if src_unit_id == target_unit_id:
-			continue
-		var src_unit = units[src_unit_id]
-		if src_unit.get("owner", 0) != target_owner:
-			continue
-		if not _has_alive_models(src_unit):
-			continue
-		var src_embk_raw = src_unit.get("embarked_in", "")
-		if src_embk_raw != null and src_embk_raw != "":
-			continue
-		var src_keywords = src_unit.get("meta", {}).get("keywords", [])
-		var has_psykana = false
-		for kw in src_keywords:
-			if str(kw).to_upper() == "ANATHEMA PSYKANA":
-				has_psykana = true
-				break
-		if not has_psykana:
-			continue
-		# If target is embarked, distance is undefined for board purposes.
-		if target_embk != "":
-			continue
-		var dist = _closest_model_distance(target_unit, src_unit)
-		if dist <= range_inches:
-			return true
-	return false
-
-
-func get_null_aegis_fnp(target_unit_id: String) -> int:
-	# Returns 5 if Null Aegis applies (FNP 5+ vs Psychic / Mortal Wounds), else 0.
-	if _is_within_friendly_anathema_psykana(target_unit_id, 6.0):
-		return 5
-	return 0
-
-
-func get_deadly_unity_hit_bonus(target_unit_id: String) -> int:
-	# Returns +1 if Deadly Unity applies (Custodes within 6" of Anathema Psykana).
-	if _is_within_friendly_anathema_psykana(target_unit_id, 6.0):
-		return 1
-	return 0
-
 
 # Issue #386 Big Booms (Kannonwagon supa-kannon).
 # Wahapedia: "In your Shooting phase, just after selecting a target for this

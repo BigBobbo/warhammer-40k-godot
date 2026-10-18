@@ -1,0 +1,42 @@
+{
+  "id": "cus11e_enh_huntress_eye",
+  "covers": [
+    "codex.custodes.enhancement.huntress_eye",
+    "stratagem.window.movement_phase_end",
+    "dialogs.StratagemTargetDialog.secondary_pick"
+  ],
+  "description": "Codex: Adeptus Custodes (11e) enhancement HUNTRESS' EYE (Null Maiden Vigil, WP-C46): in your Movement phase, select one visible enemy unit within 12\" of this unit; it makes a battle-shock roll at -1 (once per Movement phase — ruling). Fixture cus11e_c3_custodes_active (P1 Custodes active, round 2); setup privileges: P1 detachment Null Maiden Vigil, CP 0 for both, and Witchseeker Squad D stands in as the bearer (no fixture has an ANATHEMA PSYKANA CHARACTER such as a Knight-Centura; the enhancement is read from meta.enhancements exactly as for a mustered bearer). The Custodes player ends the Movement phase with the real button: the movement_phase_end window shows the free HUNTRESS' EYE card; a real click opens the target picker listing the visible Gretchin (~4\" away); a real click picks it; the Gretchin make a battle-shock roll at -1 (dice + verdict in the Game Log).",
+  "fixture": "cus11e_c3_custodes_active",
+  "edition": 11,
+  "rng_seed": 42,
+  "transition_to_phase": 7,
+  "disable_ai": true,
+  "steps": [
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_phase", "equals": 7 },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton" },
+    { "act": "wait_seconds", "seconds": 0.4 },
+    { "act": "execute_script", "multiline": true, "comment": "setup privileges (see description)", "script": "GameState.state[\"factions\"][\"1\"][\"detachment\"] = \"Null Maiden Vigil\"\nGameState.state.players[\"1\"][\"cp\"] = 0\nGameState.state.players[\"2\"][\"cp\"] = 0\nGameState.state.units[\"U_WITCHSEEKERS_D\"].meta[\"enhancements\"] = [\"Huntress' Eye\"]\nreturn true", "equals": true },
+    { "act": "click_node", "node": "/root/Main/PhaseActionButton", "emit_pressed": true },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "click_node", "button_text": "End Movement Phase" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_node_visible", "node": "/root/StratagemDialog", "timeout_s": 4.0 },
+    { "act": "execute_script", "script": "PhaseManager.get_current_phase_instance().get_pending_stratagem_window().get(\"window_id\", \"\")", "equals": "movement_phase_end" },
+    { "act": "expect_node_property", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_rule_enh_huntress_eye/Buttons/Use_cus11e_rule_enh_huntress_eye_U_WITCHSEEKERS_D", "property": "disabled", "equals": false },
+    { "act": "screenshot", "label": "01_huntress_eye_card" },
+    { "act": "click_node", "node": "/root/StratagemDialog/Content/StratScroll/StratList/Card_cus11e_rule_enh_huntress_eye/Buttons/Use_cus11e_rule_enh_huntress_eye_U_WITCHSEEKERS_D" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "expect_node_visible", "node": "/root/StratagemTargetDialog", "timeout_s": 3.0 },
+    { "act": "expect_node_property", "node": "/root/StratagemTargetDialog/Content/Pick_U_GRETCHIN_C", "property": "disabled", "equals": false },
+    { "act": "screenshot", "label": "02_huntress_eye_target_picker" },
+    { "act": "click_node", "node": "/root/StratagemTargetDialog/Content/Pick_U_GRETCHIN_C" },
+    { "act": "wait_seconds", "seconds": 1.0 },
+    { "act": "expect_cp", "player": 1, "equals": 0 },
+    { "act": "execute_script", "multiline": true, "comment": "the Gretchin's battle-shock roll at -1 is logged", "script": "var n = ScenarioRunner.event_log_count_containing(\"HUNTRESS' EYE\")\nvar f = GameState.state.units[\"U_WITCHSEEKERS_D\"].flags.get(\"cus11e_huntress_stamp\", \"\")\nprint(\"[cus11e huntress] events=\", n, \" stamp=\", f, \" gretchin shocked=\", GameState.state.units[\"U_GRETCHIN_C\"].flags.get(\"battle_shocked\", false))\nreturn n >= 1 and str(f) != \"\"", "equals": true },
+    { "act": "execute_script", "script": "ScenarioRunner.event_log_count_containing(\"-1 =\")", "expect_min": 1 },
+    { "act": "click_if_visible", "node": "/root/StratagemDialog/Content/DeclineButton" },
+    { "act": "wait_seconds", "seconds": 0.8 },
+    { "act": "screenshot", "label": "03_battle_shock_roll_logged" }
+  ]
+}

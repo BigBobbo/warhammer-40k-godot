@@ -10,7 +10,8 @@
 import * as DC from '../vendor/40kdc-data.mjs';
 import { GAME_NAME_CANON_ENTRIES } from '../lib/canon.mjs';
 import { createConverter, ALLIED_FACTIONS, FACTION_DISPLAY_OVERRIDES } from '../lib/gameformat.mjs';
-import { applyDataPatches } from '../lib/data-patches.mjs';
+import { applyDataPatches, bearerKeywords } from '../lib/data-patches.mjs';
+import { canBear, maxHolders, isUpgrade } from '../lib/enhancement-rules.mjs';
 
 // Inject local dataset corrections (e.g. the Speedwaaagh! detachment's missing
 // enhancements) into RAW_DATA before anything reads it. createConverter below
@@ -143,7 +144,10 @@ export function factionName(fid) {
 }
 
 export function detachmentList(fid) {
+  // Pre-codex detachments a codex superseded are kept for importing old
+  // lists but not offered (WP-C46: Shield Host, Talons of the Emperor, ...).
   return conv.detachmentsOf(fid)
+    .filter(d => !d.superseded_by_codex)
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -600,27 +604,47 @@ export function eligibleBodyguards(ru) {
   return out;
 }
 
-/** Detachment enhancements + who holds each (one per enhancement army-wide). */
-export function enhancementChoices() {
+/** Detachment enhancements + who holds each (one per enhancement army-wide;
+ * an Upgrade on up to three units, "(one per army)" Upgrades on one).
+ * With a roster index, each choice also says whether THAT unit may bear it
+ * (printed restriction from rules_text, CHARACTER vs Upgrade — WP-C46). */
+export function enhancementChoices(forIndex = null) {
   const det = state.roster.detachments[0];
   const d = det?.ref?.id ? conv.findDetachment(state.roster.faction_id, det.ref.id) : null;
   if (!d) return [];
   const taken = new Map();
+  const holders = new Map();
   state.roster.units.forEach((u, idx) => {
     const eid = u.enhancement?.id ?? u.enhancement?.ref?.id;
-    if (eid) taken.set(eid, idx);
+    if (eid) {
+      taken.set(eid, idx);
+      if (!holders.has(eid)) holders.set(eid, []);
+      holders.get(eid).push(idx);
+    }
   });
+  const ru = forIndex === null ? null : state.roster.units[forIndex];
+  const rawUnit = ru ? unitData(ru.ref.id, ru._unit_faction_id)?.raw : null;
   return (d.enhancement_ids ?? [])
     .map(eid => (DC.RAW_DATA.enhancements ?? []).find(x => x.id === eid))
     .filter(Boolean)
-    .map(e => ({
-      id: e.id,
-      name: e.name,
-      cost: e.cost ?? 0,
-      upgrade: !!e.upgrade_tag,
-      keyword_restrictions: e.keyword_restrictions ?? [],
-      takenBy: taken.has(e.id) ? taken.get(e.id) : null,
-    }));
+    .map(e => {
+      const hs = holders.get(e.id) ?? [];
+      const others = forIndex === null ? hs : hs.filter(i => i !== forIndex);
+      const full = others.length >= maxHolders(e);
+      const bear = rawUnit ? canBear(e, { name: rawUnit.name, keywords: bearerKeywords(rawUnit) }) : { ok: true, reason: '' };
+      return {
+        id: e.id,
+        name: e.name,
+        cost: e.cost ?? 0,
+        upgrade: isUpgrade(e),
+        keyword_restrictions: e.keyword_restrictions ?? [],
+        rules_text: e.rules_text ?? '',
+        takenBy: full ? (others[0] ?? null) : null,
+        holders: hs,
+        eligible: bear.ok,
+        reason: bear.reason,
+      };
+    });
 }
 
 // ---------------------------------------------------------------------------

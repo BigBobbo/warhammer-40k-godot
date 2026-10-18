@@ -81,6 +81,10 @@ func begin(board: Dictionary, p_active_player: int) -> void:
 func is_fights_first(unit: Dictionary) -> bool:
 	if unit.get("flags", {}).get("fights_first", false):
 		return true
+	# Codex: Adeptus Custodes (11e) Emissaries Imperatus — Heralds of the
+	# Throne: friendly ADEPTUS CUSTODES units have Fights First (WP-C46).
+	if load("res://scripts/codex/custodes/CustodesDetachments.gd").has_fights_first(unit):
+		return true
 	return UnitAbilities.unit_has(unit, "fights first")
 
 

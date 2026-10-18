@@ -36,6 +36,9 @@ var consolidate_context_11e: Dictionary = {}
 # Rides along on the CONSOLIDATE action so the phase validates the same target
 # the dialog offered.
 var consolidate_chosen_objective_11e: String = ""
+# Codex: Adeptus Custodes (11e) Unstoppable Destroyer: the consolidation mode
+# the player picked when the mandatory order is lifted ("" = default, WP-C46).
+var consolidate_chosen_mode_11e: String = ""
 var sweeping_advance_active: bool = false
 var acrobatic_escape_active: bool = false
 var pile_in_unit_id: String = ""
@@ -2608,6 +2611,7 @@ func _on_consolidate_required(unit_id: String, max_distance: float) -> void:
 	# verdict below read this instead of guessing at the mode locally.
 	consolidate_context_11e = {}
 	consolidate_chosen_objective_11e = ""
+	consolidate_chosen_mode_11e = ""
 	if current_phase and current_phase.has_method("get_consolidation_context_11e"):
 		consolidate_context_11e = current_phase.get_consolidation_context_11e(unit_id)
 	print("[FightController] Consolidate context for %s: %s" % [unit_id, str(consolidate_context_11e)])
@@ -2680,6 +2684,9 @@ func _on_consolidate_confirmed(movements: Dictionary, unit_id: String, dialog: N
 	# 12.08 BEFORE (Objective mode): tell the phase WHICH objective the player
 	# selected, so it validates the move against that marker and not against
 	# whichever one it would have defaulted to.
+	# Unstoppable Destroyer (WP-C46): the freely chosen mode rides the action.
+	if consolidate_context_11e.has("available_modes"):
+		action["chosen_mode"] = str(consolidate_context_11e.get("mode", ""))
 	if str(consolidate_context_11e.get("mode", "")) == "objective":
 		var target_obj = consolidate_chosen_objective_11e
 		if target_obj == "":
@@ -3080,6 +3087,7 @@ func _enable_pile_in_mode(unit_id: String, dialog: Node) -> void:
 	"""Enable interactive pile-in mode for the unit (and its attached characters)"""
 	pile_in_active = true
 	pile_in_unit_id = unit_id
+	_fight_move_cap_cache.clear()  # re-measure the Custodes cap for this move (WP-C46)
 	pile_in_dialog_ref = dialog
 
 	# Store original positions for all models in the unit
@@ -3265,7 +3273,7 @@ func _create_pile_in_visuals() -> void:
 		if model_id in locked_base_contact_models:
 			continue  # T4-5: No range circle for locked models
 		var pos = original_model_positions[model_id]
-		var circle = _create_range_circle(pos, 3.0)
+		var circle = _create_range_circle(pos, _fight_move_base_cap())
 		circle.name = "RangeCircle_" + model_id
 		pile_in_visuals.add_child(circle)
 		range_circles[model_id] = circle
@@ -3442,6 +3450,42 @@ func consolidate_objective_options_11e() -> Array:
 		return []
 	return consolidate_context_11e.get("objective_options", [])
 
+func consolidate_available_modes_11e() -> Array:
+	"""The consolidation modes the player may choose between (Codex: Adeptus
+	Custodes Unstoppable Destroyer lifts the 12.08 mandatory order — WP-C46).
+	Empty when the mode is mandatory."""
+	return consolidate_context_11e.get("available_modes", [])
+
+func set_consolidate_mode_11e(mode: String) -> Dictionary:
+	"""Pick the consolidation mode (only when the context offers a choice).
+	Re-derives the 12.08 context so drag verdicts, arrows and CONSOLIDATE
+	validation follow the new mode; preview moves illegal under it are reset.
+	Returns {ok, reverted, mode}."""
+	if not consolidate_active or pile_in_unit_id == "" or current_phase == null:
+		return {"ok": false, "reason": "no consolidation move in progress"}
+	if not mode in consolidate_available_modes_11e():
+		return {"ok": false, "reason": "%s is not a selectable consolidation mode here" % mode}
+	var ctx = current_phase.get_consolidation_context_11e(pile_in_unit_id, "", mode)
+	if str(ctx.get("mode", "")) != mode:
+		return {"ok": false, "reason": "%s consolidation is not available (12.08)" % mode}
+	consolidate_context_11e = ctx
+	consolidate_chosen_mode_11e = mode
+	consolidate_chosen_objective_11e = ""
+	print("[FightController] Consolidation mode for %s set to %s (%s)" % [pile_in_unit_id, mode, str(ctx.get("free_choice_source", ""))])
+	var reverted: Array = []
+	for key in current_model_positions:
+		var pos = current_model_positions[key]
+		var orig = original_model_positions.get(key, pos)
+		if pos.distance_to(orig) <= 0.01:
+			continue
+		if not current_phase.has_method("check_consolidation_model_move_11e"):
+			break
+		if not current_phase.check_consolidation_model_move_11e(pile_in_unit_id, key, pos, ctx).get("allowed", false):
+			current_model_positions[key] = orig
+			reverted.append(key)
+	_update_pile_in_visuals()
+	return {"ok": true, "reverted": reverted, "mode": mode}
+
 func set_consolidate_objective_11e(obj_id: String) -> Dictionary:
 	"""12.08 BEFORE — "select ONE of those objectives". Re-derives the whole move
 	context from the phase for `obj_id`, so the drag verdicts, the direction
@@ -3453,7 +3497,7 @@ func set_consolidate_objective_11e(obj_id: String) -> Dictionary:
 		return {"ok": false, "reason": "no consolidation move in progress"}
 	if not current_phase.has_method("get_consolidation_context_11e"):
 		return {"ok": false, "reason": "phase does not expose the 12.08 context"}
-	var ctx = current_phase.get_consolidation_context_11e(pile_in_unit_id, obj_id)
+	var ctx = current_phase.get_consolidation_context_11e(pile_in_unit_id, obj_id, consolidate_chosen_mode_11e)
 	if str(ctx.get("mode", "")) != "objective" or str(ctx.get("objective", "")) != obj_id:
 		print("[FightController] Objective %s is not selectable for %s (12.08) — keeping %s" % [
 			obj_id, pile_in_unit_id, str(consolidate_context_11e.get("objective", ""))])
@@ -3505,7 +3549,7 @@ func _fight_move_drop_is_valid(model_key: String, original_pos: Vector2, current
 	Objective mode, where 'valid' means ending in range of the objective or at
 	least closer to it. Pile-in keeps the simple 'closer to the closest enemy
 	within 3"' check."""
-	if move_distance_inches > 3.0 + Measurement.DISTANCE_TOLERANCE_INCHES:
+	if move_distance_inches > _fight_move_base_cap() + Measurement.DISTANCE_TOLERANCE_INCHES:
 		return false
 	if consolidate_active and current_phase and current_phase.has_method("check_consolidation_model_move_11e"):
 		if original_pos.distance_to(current_pos) <= 0.01:
@@ -4094,12 +4138,29 @@ func _clamp_pile_in_to_budget(dest: Vector2) -> Vector2:
 		original_pos, dest, _effective_pile_in_cap_inches(drag_model_id), _pile_in_cost_inches)
 
 func _effective_pile_in_cap_inches(model_id: String) -> float:
-	"""The positional distance a model may still move: 3" minus the pivot cost if
-	it has been pivoted this move."""
+	"""The positional distance a model may still move: 3" (or the Codex:
+	Adeptus Custodes adjusted cap — WP-C46) minus the pivot cost if it has been
+	pivoted this move."""
+	var base_cap: float = _fight_move_base_cap()
 	if _is_model_pivoted(model_id):
 		var model = _find_pile_in_model(model_id)
-		return max(0.0, PILE_IN_MAX_INCHES - _pivot_cost_inches(model, model_id))
-	return PILE_IN_MAX_INCHES
+		return max(0.0, base_cap - _pivot_cost_inches(model, model_id))
+	return base_cap
+
+## The piling-in / consolidating unit's base distance (3" unless Codex:
+## Adeptus Custodes Unstoppable Destroyer / Dacatarai changes it), cached per
+## unit for the move so dragging does not re-measure every frame (WP-C46).
+var _fight_move_cap_cache: Dictionary = {}
+func _fight_move_base_cap() -> float:
+	if pile_in_unit_id == "":
+		return PILE_IN_MAX_INCHES
+	if not _fight_move_cap_cache.has(pile_in_unit_id):
+		var cap: float = PILE_IN_MAX_INCHES
+		if current_phase and current_phase.has_method("_fight_base_move_cap"):
+			cap = float(current_phase._fight_base_move_cap(pile_in_unit_id))
+		_fight_move_cap_cache.clear()
+		_fight_move_cap_cache[pile_in_unit_id] = cap
+	return float(_fight_move_cap_cache[pile_in_unit_id])
 
 func _model_id_at_pos(mouse_pos: Vector2) -> String:
 	"""Return the id of the (unlocked) model nearest the cursor within its base
